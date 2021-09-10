@@ -16,15 +16,28 @@
 
 #include "zetasql/analyzer/recursive_queries.h"
 
+#include <algorithm>
+#include <initializer_list>
+#include <stack>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "zetasql/analyzer/container_hash_equals.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/parser/parse_tree_visitor.h"
+#include "zetasql/parser/visit_result.h"
+#include "zetasql/public/id_string.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/map_util.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -66,13 +79,13 @@ class FindTableReferencesVisitor : public NonRecursiveParseTreeVisitor {
   //
   // Returns a map associating every node in <roots> with a set of nodes in
   // <roots> which it references.
-  static zetasql_base::StatusOr<NodeReferenceMap> Run(const NodeNameMap& roots) {
+  static absl::StatusOr<NodeReferenceMap> Run(const NodeNameMap& roots) {
     FindTableReferencesVisitor visitor;
     return visitor.RunInternal(roots);
   }
 
  private:
-  zetasql_base::StatusOr<NodeReferenceMap> RunInternal(const NodeNameMap& roots) {
+  absl::StatusOr<NodeReferenceMap> RunInternal(const NodeNameMap& roots) {
     for (const auto& pair : roots) {
       if (pair.second.size() == 1) {
         inner_aliases_[pair.second.front()] = 0;
@@ -100,7 +113,7 @@ class FindTableReferencesVisitor : public NonRecursiveParseTreeVisitor {
   FindTableReferencesVisitor& operator=(const FindTableReferencesVisitor&) =
       delete;
 
-  zetasql_base::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
+  absl::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
     return VisitResult::VisitChildren(node);
   }
 
@@ -118,7 +131,7 @@ class FindTableReferencesVisitor : public NonRecursiveParseTreeVisitor {
     }
   }
 
-  zetasql_base::StatusOr<VisitResult> visitASTWithClauseEntry(
+  absl::StatusOr<VisitResult> visitASTWithClauseEntry(
       const ASTWithClauseEntry* node) override {
     return VisitResult::VisitChildren(node, [this, node]() {
       if (node != static_cast<const ASTNode*>(root_node_) &&
@@ -135,7 +148,7 @@ class FindTableReferencesVisitor : public NonRecursiveParseTreeVisitor {
     });
   }
 
-  zetasql_base::StatusOr<VisitResult> visitASTQuery(const ASTQuery* node) override {
+  absl::StatusOr<VisitResult> visitASTQuery(const ASTQuery* node) override {
     if (node->with_clause() != nullptr) {
       return VisitResult::VisitChildren(node, [this, node]() {
         // Inner WITH entries are now out-of-scope.
@@ -148,7 +161,7 @@ class FindTableReferencesVisitor : public NonRecursiveParseTreeVisitor {
     return VisitResult::VisitChildren(node);
   }
 
-  zetasql_base::StatusOr<VisitResult> visitASTWithClause(
+  absl::StatusOr<VisitResult> visitASTWithClause(
       const ASTWithClause* node) override {
     // For recursive WITH, add all inner aliases up front, for the entire WITH
     // clause; for non-recursive WITH, inner aliases are added only when we're
@@ -161,7 +174,7 @@ class FindTableReferencesVisitor : public NonRecursiveParseTreeVisitor {
     return VisitResult::VisitChildren(node);
   }
 
-  zetasql_base::StatusOr<VisitResult> visitASTTablePathExpression(
+  absl::StatusOr<VisitResult> visitASTTablePathExpression(
       const ASTTablePathExpression* node) override {
     if (node->path_expr() == nullptr) {
       // Table path expression does not have a direct path. Example: UNNEST(...)
@@ -221,7 +234,7 @@ class WithEntrySorter {
   // Computes the sorted order and saves it for use by result(). Returns an
   // error status if the graph contains any cycles other than direct
   // self-references.
-  static zetasql_base::StatusOr<WithEntrySortResult> Run(
+  static absl::StatusOr<WithEntrySortResult> Run(
       const ASTWithClause* with_clause);
 
  private:
@@ -243,7 +256,7 @@ class WithEntrySorter {
 
   WithEntrySorter() {}
 
-  zetasql_base::StatusOr<WithEntrySortResult> RunInternal(
+  absl::StatusOr<WithEntrySortResult> RunInternal(
       const ASTWithClause* with_clause);
 
   // Processes a WITH entry the first time we see it.
@@ -298,13 +311,13 @@ class WithEntrySorter {
   absl::flat_hash_set<const ASTWithClauseEntry*> current_chain_elements_;
 };
 
-zetasql_base::StatusOr<WithEntrySortResult> WithEntrySorter::Run(
+absl::StatusOr<WithEntrySortResult> WithEntrySorter::Run(
     const ASTWithClause* with_clause) {
   WithEntrySorter sorter;
   return sorter.RunInternal(with_clause);
 }
 
-zetasql_base::StatusOr<WithEntrySortResult> WithEntrySorter::RunInternal(
+absl::StatusOr<WithEntrySortResult> WithEntrySorter::RunInternal(
     const ASTWithClause* with_clause) {
   with_clause_ = with_clause;
 
@@ -410,12 +423,12 @@ absl::Status WithEntrySorter::PopCurrentChain() {
 }
 }  // namespace
 
-zetasql_base::StatusOr<WithEntrySortResult> SortWithEntries(
+absl::StatusOr<WithEntrySortResult> SortWithEntries(
     const ASTWithClause* with_clause) {
   return WithEntrySorter::Run(with_clause);
 }
 
-zetasql_base::StatusOr<bool> IsViewSelfRecursive(
+absl::StatusOr<bool> IsViewSelfRecursive(
     const ASTCreateViewStatementBase* stmt) {
   if (!stmt->recursive()) {
     return false;

@@ -2,8 +2,8 @@
 # Create tables
 #
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB]
-[load_enum_names=zetasql_test.TestEnum]
+[load_proto_names=zetasql_test__.KitchenSinkPB]
+[load_enum_names=zetasql_test__.TestEnum]
 
 [prepare_database]
 CREATE TABLE TableDistincts AS

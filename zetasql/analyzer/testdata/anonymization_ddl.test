@@ -195,7 +195,7 @@ ALTERNATION GROUP: table<a int64>
 CreateTableFunctionStmt
 +-name_path=foo_tvf
 +-argument_name_list=[table_arg]
-+-signature=(TABLE<a INT64>) -> TABLE<anon_count INT64>
++-signature=(TABLE<a INT64> table_arg) -> TABLE<anon_count INT64>
 +-language="SQL"
 +-code="SELECT anon_count(*) AS anon_count\nFROM table_arg"
 +-query=
@@ -308,7 +308,7 @@ ALTERNATION GROUP: table<a int64>
 CreateTableFunctionStmt
 +-name_path=foo_tvf
 +-argument_name_list=[table_arg, e, k]
-+-signature=(TABLE<a INT64>, DOUBLE e, INT64 k) -> TABLE<anon_count INT64>
++-signature=(TABLE<a INT64> table_arg, DOUBLE e, INT64 k) -> TABLE<anon_count INT64>
 +-language="SQL"
 +-code="SELECT WITH ANONYMIZATION OPTIONS(epsilon=(e), k_threshold=(k))\n    anon_count(*) AS anon_count\nFROM table_arg"
 +-query=
@@ -362,7 +362,7 @@ ALTERNATION GROUP: table<a int64>
 CreateTableFunctionStmt
 +-name_path=foo_tvf
 +-argument_name_list=[table_arg, e, k]
-+-signature=(TABLE<a INT64>, DOUBLE e, INT64 k) -> TABLE<anon_count INT64>
++-signature=(TABLE<a INT64> table_arg, DOUBLE e, INT64 k) -> TABLE<anon_count INT64>
 +-language="SQL"
 +-code="SELECT WITH ANONYMIZATION OPTIONS(epsilon=(e), k_threshold=(k))\n    anon_count(*) AS anon_count\nFROM table_arg JOIN SimpleTypesWithAnonymizationUid t ON (table_arg.a = t.uid)"
 +-query=

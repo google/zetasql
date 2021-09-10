@@ -17,8 +17,7 @@
 #ifndef THIRD_PARTY_ZETASQL_ZETASQL_BASE_TESTING_STATUS_MATCHERS_H_
 #define THIRD_PARTY_ZETASQL_ZETASQL_BASE_TESTING_STATUS_MATCHERS_H_
 
-// Testing utilities for working with ::absl::Status and
-// ::zetasql_base::StatusOr.
+// Testing utilities for working with absl::Status and absl::StatusOr.
 //
 //
 // Defines the following utilities:
@@ -70,7 +69,7 @@
 //     using ::testing::Ne;
 //     using ::zetasql_base::testing::StatusIs;
 //     using ::testing::_;
-//     using ::zetasql_base::StatusOr;
+//     using absl::StatusOr;
 //     StatusOr<std::string> GetName(int id);
 //     ...
 //
@@ -102,7 +101,7 @@
 //   IsOk()
 //   ===============
 //
-//   Matches a absl::Status or zetasql_base::StatusOr<T> value
+//   Matches a absl::Status or absl::StatusOr<T> value
 //   whose status value is StatusCode::kOK.
 //   Equivalent to 'StatusIs(StatusCode::kOK)'.
 //   Example:
@@ -121,12 +120,12 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql_base {
 namespace testing {
@@ -137,8 +136,7 @@ inline const absl::Status& GetStatus(const absl::Status& status) {
 }
 
 template <typename T>
-inline const absl::Status& GetStatus(
-    const ::zetasql_base::StatusOr<T>& status) {
+inline const absl::Status& GetStatus(const absl::StatusOr<T>& status) {
   return status.status();
 }
 
@@ -151,9 +149,8 @@ template <typename StatusOrType>
 class IsOkAndHoldsMatcherImpl
     : public ::testing::MatcherInterface<StatusOrType> {
  public:
-  typedef typename std::remove_reference<StatusOrType>::type::element_type
-      value_type;
-
+  typedef
+      typename std::remove_reference<StatusOrType>::type::value_type value_type;
   template <typename InnerMatcher>
   explicit IsOkAndHoldsMatcherImpl(InnerMatcher&& inner_matcher)
       : inner_matcher_(::testing::SafeMatcherCast<const value_type&>(
@@ -178,13 +175,13 @@ class IsOkAndHoldsMatcherImpl
     }
 
     ::testing::StringMatchResultListener inner_listener;
-    const bool matches = inner_matcher_.MatchAndExplain(
-        actual_value.ValueOrDie(), &inner_listener);
+    const bool matches =
+        inner_matcher_.MatchAndExplain(actual_value.value(), &inner_listener);
     const std::string inner_explanation = inner_listener.str();
     if (inner_explanation.empty()) {
       *result_listener << "which contains value "
-                       << ::testing::PrintToString(actual_value.ValueOrDie())
-                       << ", " << inner_explanation;
+                       << ::testing::PrintToString(actual_value.value()) << ", "
+                       << inner_explanation;
     }
     return matches;
   }
@@ -314,13 +311,13 @@ void AddFatalFailure(absl::string_view expression,
 }  // namespace internal_status
 
 // Macros for testing the results of functions that return absl::Status or
-// zetasql_base::StatusOr<T> (for any type T).
+// absl::StatusOr<T> (for any type T).
 #define ZETASQL_EXPECT_OK(expression) \
   EXPECT_THAT(expression, ::zetasql_base::testing::IsOk())
 #define ZETASQL_ASSERT_OK(expression) \
   ASSERT_THAT(expression, ::zetasql_base::testing::IsOk())
 
-// Executes an expression that returns a zetasql_base::StatusOr, and
+// Executes an expression that returns a absl::StatusOr, and
 // assigns the contained variable to lhs if the error code is OK. If the Status
 // is non-OK, generates a test failure and returns from the current function,
 // which must have a void return type.
@@ -335,7 +332,7 @@ void AddFatalFailure(absl::string_view expression,
 // The value assignment example would expand into:
 //   StatusOr<ValueType> status_or_value = MaybeGetValue(arg);
 //   ZETASQL_ASSERT_OK(statusor.status());
-//   value = status_or_value.ConsumeValueOrDie();
+//   value = status_or_value.value();
 //
 // WARNING: Like ZETASQL_ASSIGN_OR_RETURN, ZETASQL_ASSERT_OK_AND_ASSIGN expands into
 //   multiple statements; it cannot be used in a single statement (e.g. as the

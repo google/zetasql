@@ -177,6 +177,8 @@ ResolvedNodeKind GetStatementKind(ASTNodeKind node_kind) {
       return RESOLVED_CREATE_ENTITY_STMT;
     case AST_ALTER_ENTITY_STATEMENT:
       return RESOLVED_ALTER_ENTITY_STMT;
+    case AST_AUX_LOAD_DATA_STATEMENT:
+      return RESOLVED_AUX_LOAD_DATA_STMT;
     default:
       break;
   }
@@ -221,7 +223,6 @@ absl::Status GetNextStatementProperties(
   ZETASQL_RETURN_IF_ERROR(ParseNextStatementProperties(
       resume_location, parser_options, &allocated_ast_nodes,
       &ast_statement_properties));
-
   statement_properties->node_kind =
       GetStatementKind(ast_statement_properties.node_kind);
 
@@ -261,7 +262,6 @@ absl::Status GetNextStatementProperties(
     case AST_CREATE_TABLE_FUNCTION_STATEMENT:
     case AST_CREATE_TABLE_STATEMENT:
     case AST_CREATE_VIEW_STATEMENT:
-    case AST_RENAME_STATEMENT:
     case AST_DEFINE_TABLE_STATEMENT:
     case AST_DROP_ALL_ROW_ACCESS_POLICIES_STATEMENT:
     case AST_DROP_ENTITY_STATEMENT:
@@ -272,6 +272,7 @@ absl::Status GetNextStatementProperties(
     case AST_DROP_SNAPSHOT_TABLE_STATEMENT:
     case AST_DROP_SEARCH_INDEX_STATEMENT:
     case AST_DROP_STATEMENT:
+    case AST_RENAME_STATEMENT:
       statement_properties->statement_category = StatementProperties::DDL;
       break;
     case AST_DELETE_STATEMENT:
@@ -282,34 +283,48 @@ absl::Status GetNextStatementProperties(
       statement_properties->statement_category = StatementProperties::DML;
       break;
     case AST_ANALYZE_STATEMENT:
-    case AST_ASSERT_STATEMENT:
     case AST_ABORT_BATCH_STATEMENT:
+    case AST_ASSERT_STATEMENT:
+    case AST_ASSIGNMENT_FROM_STRUCT:
+    case AST_AUX_LOAD_DATA_STATEMENT:
     case AST_BEGIN_STATEMENT:
+    case AST_BREAK_STATEMENT:
     case AST_CALL_STATEMENT:
     case AST_COMMIT_STATEMENT:
+    case AST_CONTINUE_STATEMENT:
     case AST_DESCRIBE_STATEMENT:
     case AST_EXECUTE_IMMEDIATE_STATEMENT:
     case AST_EXPLAIN_STATEMENT:
     case AST_CLONE_DATA_STATEMENT:
     case AST_EXPORT_DATA_STATEMENT:
     case AST_EXPORT_MODEL_STATEMENT:
+    case AST_FOR_IN_STATEMENT:
     case AST_GRANT_STATEMENT:
+    case AST_IF_STATEMENT:
     case AST_IMPORT_STATEMENT:
     case AST_MODULE_STATEMENT:
     case AST_PARAMETER_ASSIGNMENT:
+    case AST_RAISE_STATEMENT:
+    case AST_REPEAT_STATEMENT:
+    case AST_RETURN_STATEMENT:
     case AST_REVOKE_STATEMENT:
+    case AST_ROLLBACK_STATEMENT:
     case AST_RUN_BATCH_STATEMENT:
     case AST_SET_TRANSACTION_STATEMENT:
     case AST_SHOW_STATEMENT:
     case AST_SINGLE_ASSIGNMENT:
     case AST_START_BATCH_STATEMENT:
     case AST_SYSTEM_VARIABLE_ASSIGNMENT:
-    case AST_ROLLBACK_STATEMENT:
+    case AST_VARIABLE_DECLARATION:
+    case AST_WHILE_STATEMENT:
       statement_properties->statement_category = StatementProperties::OTHER;
       break;
     case kUnknownASTNodeKind:
       statement_properties->statement_category = StatementProperties::UNKNOWN;
       break;
+    // We do not expect AST_HINTED_STATEMENT when the parser is in next
+    // statement kind mode.
+    case AST_HINTED_STATEMENT:
     default:
       ZETASQL_RET_CHECK_FAIL() << "Unexpected AST node type: "
                        << ASTNode::NodeKindToString(

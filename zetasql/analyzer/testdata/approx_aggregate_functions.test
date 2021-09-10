@@ -24,7 +24,7 @@ QueryStmt
 
 select approx_count_distinct(KitchenSink) from TestTable
 --
-ERROR: The argument to APPROX_COUNT_DISTINCT must support grouping; Type zetasql_test.KitchenSinkPB does not [at 1:30]
+ERROR: The argument to APPROX_COUNT_DISTINCT must support grouping; Type zetasql_test__.KitchenSinkPB does not [at 1:30]
 select approx_count_distinct(KitchenSink) from TestTable
                              ^
 ==
@@ -44,8 +44,8 @@ QueryStmt
         | +-TableScan(column_list=[TestTable.TestEnum#2], table=TestTable, column_index_list=[1])
         +-aggregate_list=
           +-$agg1#4 :=
-            +-AggregateFunctionCall(ZetaSQL:approx_count_distinct(ENUM<zetasql_test.TestEnum>) -> INT64)
-              +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=TestTable.TestEnum#2)
+            +-AggregateFunctionCall(ZetaSQL:approx_count_distinct(ENUM<zetasql_test__.TestEnum>) -> INT64)
+              +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=TestTable.TestEnum#2)
 ==
 
 # A literal ARRAY of groupable elements.
@@ -112,7 +112,7 @@ QueryStmt
 [language_features={{|V_1_2_GROUP_BY_ARRAY}}]
 select approx_count_distinct([KitchenSink]) from TestTable
 --
-ERROR: The argument to APPROX_COUNT_DISTINCT must support grouping; Type ARRAY<zetasql_test.KitchenSinkPB> does not [at 1:30]
+ERROR: The argument to APPROX_COUNT_DISTINCT must support grouping; Type ARRAY<zetasql_test__.KitchenSinkPB> does not [at 1:30]
 select approx_count_distinct([KitchenSink]) from TestTable
                              ^
 ==
@@ -183,7 +183,7 @@ QueryStmt
 [language_features={{|V_1_2_GROUP_BY_STRUCT}}]
 select approx_count_distinct((1,2, KitchenSink)) from TestTable
 --
-ERROR: The argument to APPROX_COUNT_DISTINCT must support grouping; Type STRUCT<INT64, INT64, zetasql_test.KitchenSinkPB> does not [at 1:30]
+ERROR: The argument to APPROX_COUNT_DISTINCT must support grouping; Type STRUCT<INT64, INT64, zetasql_test__.KitchenSinkPB> does not [at 1:30]
 select approx_count_distinct((1,2, KitchenSink)) from TestTable
                              ^
 ==
@@ -281,7 +281,7 @@ QueryStmt
 
 select approx_quantiles(KitchenSink, 10) from TestTable
 --
-ERROR: Argument 1 to APPROX_QUANTILES must support ordering; Type zetasql_test.KitchenSinkPB does not [at 1:25]
+ERROR: Argument 1 to APPROX_QUANTILES must support ordering; Type zetasql_test__.KitchenSinkPB does not [at 1:25]
 select approx_quantiles(KitchenSink, 10) from TestTable
                         ^
 ==
@@ -331,7 +331,7 @@ QueryStmt
           +-$agg1#3 :=
             +-AggregateFunctionCall(ZetaSQL:approx_quantiles(INT64, INT64) -> ARRAY<INT64>)
               +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-              +-Literal(type=INT64, value=1)
+              +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
 ==
 
 select approx_quantiles(key, cast(@test_param_int64 as int32)) from KeyValue
@@ -537,7 +537,7 @@ select approx_top_count(string, 10, 11) from SimpleTypes
 
 select approx_top_count(KitchenSink, 10) from TestTable
 --
-ERROR: Argument 1 to APPROX_TOP_COUNT must support grouping; Type zetasql_test.KitchenSinkPB does not [at 1:25]
+ERROR: Argument 1 to APPROX_TOP_COUNT must support grouping; Type zetasql_test__.KitchenSinkPB does not [at 1:25]
 select approx_top_count(KitchenSink, 10) from TestTable
                         ^
 ==
@@ -546,7 +546,7 @@ select approx_top_count(TestEnum, 10) from TestTable
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#4 AS `$col1` [ARRAY<STRUCT<value ENUM<zetasql_test.TestEnum>, count INT64>>]
+| +-$aggregate.$agg1#4 AS `$col1` [ARRAY<STRUCT<value ENUM<zetasql_test__.TestEnum>, count INT64>>]
 +-query=
   +-ProjectScan
     +-column_list=[$aggregate.$agg1#4]
@@ -557,8 +557,8 @@ QueryStmt
         | +-TableScan(column_list=[TestTable.TestEnum#2], table=TestTable, column_index_list=[1])
         +-aggregate_list=
           +-$agg1#4 :=
-            +-AggregateFunctionCall(ZetaSQL:approx_top_count(ENUM<zetasql_test.TestEnum>, INT64) -> ARRAY<STRUCT<value ENUM<zetasql_test.TestEnum>, count INT64>>)
-              +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=TestTable.TestEnum#2)
+            +-AggregateFunctionCall(ZetaSQL:approx_top_count(ENUM<zetasql_test__.TestEnum>, INT64) -> ARRAY<STRUCT<value ENUM<zetasql_test__.TestEnum>, count INT64>>)
+              +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=TestTable.TestEnum#2)
               +-Literal(type=INT64, value=10)
 ==
 
@@ -628,7 +628,7 @@ QueryStmt
 [language_features={{|V_1_2_GROUP_BY_ARRAY}}]
 select approx_top_count([KitchenSink], 10) from TestTable
 --
-ERROR: Argument 1 to APPROX_TOP_COUNT must support grouping; Type ARRAY<zetasql_test.KitchenSinkPB> does not [at 1:25]
+ERROR: Argument 1 to APPROX_TOP_COUNT must support grouping; Type ARRAY<zetasql_test__.KitchenSinkPB> does not [at 1:25]
 select approx_top_count([KitchenSink], 10) from TestTable
                         ^
 ==
@@ -701,7 +701,7 @@ QueryStmt
 [language_features={{|V_1_2_GROUP_BY_STRUCT}}]
 select approx_top_count((1,KitchenSink), 10) from TestTable
 --
-ERROR: Argument 1 to APPROX_TOP_COUNT must support grouping; Type STRUCT<INT64, zetasql_test.KitchenSinkPB> does not [at 1:25]
+ERROR: Argument 1 to APPROX_TOP_COUNT must support grouping; Type STRUCT<INT64, zetasql_test__.KitchenSinkPB> does not [at 1:25]
 select approx_top_count((1,KitchenSink), 10) from TestTable
                         ^
 ==
@@ -752,7 +752,7 @@ select approx_top_sum(TestEnum, KitchenSink.double_val, @test_param_int64) from 
 --
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#4 AS `$col1` [ARRAY<STRUCT<value ENUM<zetasql_test.TestEnum>, sum DOUBLE>>]
+| +-$aggregate.$agg1#4 AS `$col1` [ARRAY<STRUCT<value ENUM<zetasql_test__.TestEnum>, sum DOUBLE>>]
 +-query=
   +-ProjectScan
     +-column_list=[$aggregate.$agg1#4]
@@ -763,12 +763,12 @@ QueryStmt
         | +-TableScan(column_list=TestTable.[TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[1, 2])
         +-aggregate_list=
           +-$agg1#4 :=
-            +-AggregateFunctionCall(ZetaSQL:approx_top_sum(ENUM<zetasql_test.TestEnum>, DOUBLE, INT64) -> ARRAY<STRUCT<value ENUM<zetasql_test.TestEnum>, sum DOUBLE>>)
-              +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=TestTable.TestEnum#2)
+            +-AggregateFunctionCall(ZetaSQL:approx_top_sum(ENUM<zetasql_test__.TestEnum>, DOUBLE, INT64) -> ARRAY<STRUCT<value ENUM<zetasql_test__.TestEnum>, sum DOUBLE>>)
+              +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=TestTable.TestEnum#2)
               +-GetProtoField
               | +-type=DOUBLE
               | +-expr=
-              | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+              | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
               | +-field_descriptor=double_val
               | +-default_value=0
               +-Parameter(type=INT64, name="test_param_int64")
@@ -839,7 +839,7 @@ select approx_top_sum(key, 1.4, -1) from TestTable
 
 select approx_top_sum(KitchenSink, key, 10) from TestTable
 --
-ERROR: Argument 1 to APPROX_TOP_SUM must support grouping; Type zetasql_test.KitchenSinkPB does not [at 1:23]
+ERROR: Argument 1 to APPROX_TOP_SUM must support grouping; Type zetasql_test__.KitchenSinkPB does not [at 1:23]
 select approx_top_sum(KitchenSink, key, 10) from TestTable
                       ^
 ==
@@ -989,7 +989,7 @@ QueryStmt
 [language_features={{|V_1_2_GROUP_BY_STRUCT}}]
 select approx_top_sum((1, KitchenSink), key, 10) from TestTable
 --
-ERROR: Argument 1 to APPROX_TOP_SUM must support grouping; Type STRUCT<INT64, zetasql_test.KitchenSinkPB> does not [at 1:23]
+ERROR: Argument 1 to APPROX_TOP_SUM must support grouping; Type STRUCT<INT64, zetasql_test__.KitchenSinkPB> does not [at 1:23]
 select approx_top_sum((1, KitchenSink), key, 10) from TestTable
                       ^
 ==
@@ -1018,7 +1018,7 @@ QueryStmt
           +-$agg1#4 :=
             +-AggregateFunctionCall(ZetaSQL:approx_top_sum(INT32, INT64, INT64) -> ARRAY<STRUCT<value INT32, sum INT64>>)
               +-ColumnRef(type=INT32, column=TestTable.key#1)
-              +-Literal(type=INT64, value=5)
+              +-Literal(type=INT64, value=5, has_explicit_type=TRUE)
               +-Literal(type=INT64, value=10)
 ==
 
@@ -1065,11 +1065,11 @@ QueryStmt
         +-aggregate_list=
           +-$agg1#4 :=
           | +-AggregateFunctionCall(ZetaSQL:sum(UINT64) -> UINT64)
-          |   +-Literal(type=UINT64, value=5)
+          |   +-Literal(type=UINT64, value=5, has_explicit_type=TRUE)
           +-$agg2#5 :=
             +-AggregateFunctionCall(ZetaSQL:approx_top_sum(INT32, UINT64, INT64) -> ARRAY<STRUCT<value INT32, sum UINT64>>)
               +-ColumnRef(type=INT32, column=TestTable.key#1)
-              +-Literal(type=UINT64, value=5)
+              +-Literal(type=UINT64, value=5, has_explicit_type=TRUE)
               +-Literal(type=INT64, value=10)
 ==
 
@@ -1327,7 +1327,7 @@ QueryStmt
 
 select hll_count.init(@test_param_proto) from SimpleTypes
 --
-ERROR: No matching signature for aggregate function HLL_COUNT.INIT for argument types: zetasql_test.KitchenSinkPB. Supported signatures: HLL_COUNT.INIT(INT64, [INT64]); HLL_COUNT.INIT(UINT64, [INT64]); HLL_COUNT.INIT(STRING, [INT64]); HLL_COUNT.INIT(BYTES, [INT64]) [at 1:8]
+ERROR: No matching signature for aggregate function HLL_COUNT.INIT for argument types: zetasql_test__.KitchenSinkPB. Supported signatures: HLL_COUNT.INIT(INT64, [INT64]); HLL_COUNT.INIT(UINT64, [INT64]); HLL_COUNT.INIT(STRING, [INT64]); HLL_COUNT.INIT(BYTES, [INT64]) [at 1:8]
 select hll_count.init(@test_param_proto) from SimpleTypes
        ^
 ==

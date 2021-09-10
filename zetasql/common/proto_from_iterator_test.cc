@@ -36,13 +36,13 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
-using zetasql_test::IteratorProto;
-using zetasql_test::KitchenSinkPB;
+using zetasql_test__::IteratorProto;
+using zetasql_test__::KitchenSinkPB;
 using ::testing::HasSubstr;
 using ::zetasql_base::testing::StatusIs;
 

@@ -41,7 +41,7 @@
 #include "zetasql/public/value_content.h"
 #include "absl/base/attributes.h"
 #include <cstdint>
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
@@ -204,7 +204,8 @@ class Value {
   ValueContent extended_value() const;
 
   // Generic accessor for numeric PODs.
-  // REQUIRES: T is one of int32_t, int64_t, uint32_t, uint64_t, bool, float, double.
+  // REQUIRES: T is one of int32_t, int64_t, uint32_t, uint64_t, bool, float, double,
+  // NumericValue, BigNumericValue, IntervalValue
   // T must match exactly the type_kind() of this value.
   template <typename T> inline T Get() const;
 
@@ -506,11 +507,16 @@ class Value {
   // types of those values must match the corresponding struct fields.
   static Value Struct(const StructType* type,
                       absl::Span<const Value> values);
-// Creates a struct of the specified 'type' by moving 'values'. The size of
-// the 'values' vector must agree with the number of fields in 'type', and the
-// types of those values must match the corresponding struct fields. However,
-// this is only ZETASQL_CHECK'd in debug mode.
 #ifndef SWIG
+  // Creates a struct of the specified 'type' and given 'values'. The size of
+  // the 'values' vector must agree with the number of fields in 'type', and the
+  // types of those values must match the corresponding struct fields.
+  static Value SafeStruct(const StructType* type,
+                          std::vector<Value>&& values);
+  // Creates a struct of the specified 'type' by moving 'values'. The size of
+  // the 'values' vector must agree with the number of fields in 'type', and the
+  // types of those values must match the corresponding struct fields. However,
+  // this is only ZETASQL_CHECK'd in debug mode.
   static Value UnsafeStruct(const StructType* type,
                             std::vector<Value>&& values);
 #endif
@@ -548,7 +554,7 @@ class Value {
 
   // Deserializes a ValueProto into Value. Since ValueProto does not know its
   // full type, the type information is passed as an additional parameter.
-  static zetasql_base::StatusOr<Value> Deserialize(const ValueProto& value_proto,
+  static absl::StatusOr<Value> Deserialize(const ValueProto& value_proto,
                                            const Type* type);
 
  private:
@@ -921,6 +927,7 @@ Value Enum(const EnumType* enum_type, int32_t value);
 Value Enum(const EnumType* enum_type, absl::string_view name);
 Value Struct(const StructType* type, absl::Span<const Value> values);
 #ifndef SWIG
+Value SafeStruct(const StructType* type, std::vector<Value>&& values);
 Value UnsafeStruct(const StructType* type, std::vector<Value>&& values);
 #endif
 Value Proto(const ProtoType* proto_type, absl::Cord value);

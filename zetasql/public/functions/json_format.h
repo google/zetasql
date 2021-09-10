@@ -25,6 +25,7 @@
 #include "google/protobuf/message.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/public/civil_time.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/value.h"
@@ -96,12 +97,17 @@ absl::Status JsonFromTime(const TimeValue& value, std::string* output,
 // Appends the given interval to 'output' as a quoted ISO 8601 duration.
 absl::Status JsonFromInterval(const IntervalValue& value, std::string* output);
 
+// Appends the given JSON to 'output'.
+void JsonFromJson(JSONValueConstRef value, JsonPrettyPrinter* pretty_printer,
+                  std::string* output);
+
 // Appends the JSON equivalent of the provided value to JSON. Returns an error
 // and abandons appending to 'output' if it is greater than
 // pretty_printer->max_json_output_size() in size.
-absl::Status JsonFromValue(const Value& value,
-                           JsonPrettyPrinter* pretty_printer,
-                           std::string* output);
+// 'json_parsing_options' is used when the input is an unparsed JSON value.
+absl::Status JsonFromValue(
+    const Value& value, JsonPrettyPrinter* pretty_printer, std::string* output,
+    const JSONParsingOptions& json_parsing_options = JSONParsingOptions());
 
 // Pretty-printer for indenting and adding newlines to JSON.
 class JsonPrettyPrinter {

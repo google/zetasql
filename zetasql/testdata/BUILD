@@ -152,13 +152,34 @@ java_proto_library(
 )
 
 cc_library(
+    name = "sample_annotation",
+    srcs = ["sample_annotation.cc"],
+    hdrs = ["sample_annotation.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        "//zetasql/common:errors",
+        "//zetasql/public:type",
+        "//zetasql/public/types",
+        "//zetasql/resolved_ast",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
     name = "sample_system_variables",
     testonly = 1,
     srcs = ["sample_system_variables.cc"],
     hdrs = ["sample_system_variables.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -181,7 +202,6 @@ cc_library(
     hdrs = ["sample_catalog.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -190,6 +210,7 @@ cc_library(
     ],
     deps = [
         ":ambiguous_has_cc_proto",
+        ":sample_annotation",
         ":test_packageless_cc_proto",
         ":test_proto3_cc_proto",
         ":test_schema_cc_proto",
@@ -197,7 +218,7 @@ cc_library(
         "//zetasql/base",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
-        "//zetasql/base:statusor",
+        "//zetasql/base/testing:status_matchers",
         "//zetasql/common:errors",
         "//zetasql/public:analyzer",
         "//zetasql/public:anon_function",
@@ -222,6 +243,7 @@ cc_library(
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_protobuf//:protobuf",
@@ -235,7 +257,6 @@ cc_library(
     hdrs = ["tvf_with_user_id.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -256,7 +277,6 @@ cc_library(
     hdrs = ["error_catalog.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -280,7 +300,6 @@ cc_library(
     hdrs = ["special_catalog.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -288,6 +307,7 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
+        ":test_schema_cc_proto",
         "//zetasql/base:map_util",
         "//zetasql/public:catalog",
         "//zetasql/public:simple_catalog",
@@ -305,7 +325,6 @@ cc_library(
     hdrs = ["populate_sample_tables.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",

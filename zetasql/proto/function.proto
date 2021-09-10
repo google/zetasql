@@ -27,6 +27,7 @@ import "zetasql/public/function.proto";
 import "zetasql/public/options.proto";
 import "zetasql/public/parse_location_range.proto";
 import "zetasql/public/parse_resume_location.proto";
+import "zetasql/public/simple_table.proto";
 import "zetasql/public/type.proto";
 import "zetasql/public/value.proto";
 import "zetasql/resolved_ast/serialization.proto";
@@ -86,6 +87,9 @@ message FunctionArgumentTypeOptionsProto {
   // `FunctionArgumentTypeProto.type` instead.  Only one of `default_value_type`
   // or `FunctionArgumentTypeProto.type` will ever be set.
   optional TypeProto default_value_type = 18;
+  optional FunctionEnums.ArgumentCollationMode argument_collation_mode = 19
+      [default = AFFECTS_OPERATION_AND_PROPAGATION];
+  optional bool uses_array_element_for_collation = 20;
 }
 
 message ArgumentTypeLambdaProto {
@@ -109,6 +113,8 @@ message FunctionSignatureOptionsProto {
   repeated FreestandingDeprecationWarning additional_deprecation_warning = 3;
   repeated LanguageFeature required_language_feature = 4;
   optional bool is_aliased_signature = 5 [default = false];
+  optional bool propagates_collation = 6 [default = true];
+  optional bool uses_operation_collation = 7 [default = false];
 }
 
 message FunctionSignatureProto {
@@ -154,14 +160,26 @@ message ResolvedFunctionCallInfoProto {
   // TODO: add extra fields in here for derived context objects.
 }
 
+message TableValuedFunctionOptionsProto {
+  optional bool uses_upper_case_sql_name = 1 [default = true];
+}
+
 message TableValuedFunctionProto {
   repeated string name_path = 1;
   optional FunctionSignatureProto signature = 2;
+  optional TableValuedFunctionOptionsProto options = 9;
   optional FunctionEnums.TableValuedFunctionType type = 3;
   optional FunctionEnums.Volatility volatility = 8;
   optional ParseResumeLocationProto parse_resume_location = 6;
   repeated string argument_name = 5;
   optional string custom_context = 7;
+  // Stores anonymization options and information related to this table valued
+  // function.
+  // If set, this table valued function is considered to support anonymization
+  // semantics and return private data. If not set, this table valued function
+  // is assumed to not be usable in an anonymization context, and not return
+  // private data.
+  optional SimpleAnonymizationInfoProto anonymization_info = 10;
 }
 
 message TVFArgumentProto {

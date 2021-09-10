@@ -1675,3 +1675,191 @@ FROM
       CROSS JOIN
       important.system FOR SYSTEM_TIME AS OF @system
   )
+==
+
+# Test reserved keyword that also works as function name.
+select {{if|grouping|left|right|collate}}(x)
+--
+ALTERNATION GROUP: if
+--
+QueryStatement [0-12]
+  Query [0-12]
+    Select [0-12]
+      SelectList [7-12]
+        SelectColumn [7-12]
+          FunctionCall [7-12]
+            PathExpression [7-9]
+              Identifier(`if`) [7-9]
+            PathExpression [10-11]
+              Identifier(x) [10-11]
+--
+SELECT
+  `if`(x)
+--
+ALTERNATION GROUP: grouping
+--
+QueryStatement [0-18]
+  Query [0-18]
+    Select [0-18]
+      SelectList [7-18]
+        SelectColumn [7-18]
+          FunctionCall [7-18]
+            PathExpression [7-15]
+              Identifier(`grouping`) [7-15]
+            PathExpression [16-17]
+              Identifier(x) [16-17]
+--
+SELECT
+  `grouping`(x)
+--
+ALTERNATION GROUP: left
+--
+QueryStatement [0-14]
+  Query [0-14]
+    Select [0-14]
+      SelectList [7-14]
+        SelectColumn [7-14]
+          FunctionCall [7-14]
+            PathExpression [7-11]
+              Identifier(`left`) [7-11]
+            PathExpression [12-13]
+              Identifier(x) [12-13]
+--
+SELECT
+  `left`(x)
+--
+ALTERNATION GROUP: right
+--
+QueryStatement [0-15]
+  Query [0-15]
+    Select [0-15]
+      SelectList [7-15]
+        SelectColumn [7-15]
+          FunctionCall [7-15]
+            PathExpression [7-12]
+              Identifier(`right`) [7-12]
+            PathExpression [13-14]
+              Identifier(x) [13-14]
+--
+SELECT
+  `right`(x)
+--
+ALTERNATION GROUP: collate
+--
+QueryStatement [0-17]
+  Query [0-17]
+    Select [0-17]
+      SelectList [7-17]
+        SelectColumn [7-17]
+          FunctionCall [7-17]
+            PathExpression [7-14]
+              Identifier(`collate`) [7-14]
+            PathExpression [15-16]
+              Identifier(x) [15-16]
+--
+SELECT
+  `collate`(x)
+==
+
+# Test reserved keyword that also works as function name.
+select `{{if|grouping|left|right|collate}}`(x, y, z)
+--
+ALTERNATION GROUP: if
+--
+QueryStatement [0-20]
+  Query [0-20]
+    Select [0-20]
+      SelectList [7-20]
+        SelectColumn [7-20]
+          FunctionCall [7-20]
+            PathExpression [7-11]
+              Identifier(`if`) [7-11]
+            PathExpression [12-13]
+              Identifier(x) [12-13]
+            PathExpression [15-16]
+              Identifier(y) [15-16]
+            PathExpression [18-19]
+              Identifier(z) [18-19]
+--
+SELECT
+  `if`(x, y, z)
+--
+ALTERNATION GROUP: grouping
+--
+QueryStatement [0-26]
+  Query [0-26]
+    Select [0-26]
+      SelectList [7-26]
+        SelectColumn [7-26]
+          FunctionCall [7-26]
+            PathExpression [7-17]
+              Identifier(`grouping`) [7-17]
+            PathExpression [18-19]
+              Identifier(x) [18-19]
+            PathExpression [21-22]
+              Identifier(y) [21-22]
+            PathExpression [24-25]
+              Identifier(z) [24-25]
+--
+SELECT
+  `grouping`(x, y, z)
+--
+ALTERNATION GROUP: left
+--
+QueryStatement [0-22]
+  Query [0-22]
+    Select [0-22]
+      SelectList [7-22]
+        SelectColumn [7-22]
+          FunctionCall [7-22]
+            PathExpression [7-13]
+              Identifier(`left`) [7-13]
+            PathExpression [14-15]
+              Identifier(x) [14-15]
+            PathExpression [17-18]
+              Identifier(y) [17-18]
+            PathExpression [20-21]
+              Identifier(z) [20-21]
+--
+SELECT
+  `left`(x, y, z)
+--
+ALTERNATION GROUP: right
+--
+QueryStatement [0-23]
+  Query [0-23]
+    Select [0-23]
+      SelectList [7-23]
+        SelectColumn [7-23]
+          FunctionCall [7-23]
+            PathExpression [7-14]
+              Identifier(`right`) [7-14]
+            PathExpression [15-16]
+              Identifier(x) [15-16]
+            PathExpression [18-19]
+              Identifier(y) [18-19]
+            PathExpression [21-22]
+              Identifier(z) [21-22]
+--
+SELECT
+  `right`(x, y, z)
+--
+ALTERNATION GROUP: collate
+--
+QueryStatement [0-25]
+  Query [0-25]
+    Select [0-25]
+      SelectList [7-25]
+        SelectColumn [7-25]
+          FunctionCall [7-25]
+            PathExpression [7-16]
+              Identifier(`collate`) [7-16]
+            PathExpression [17-18]
+              Identifier(x) [17-18]
+            PathExpression [20-21]
+              Identifier(y) [20-21]
+            PathExpression [23-24]
+              Identifier(z) [23-24]
+--
+SELECT
+  `collate`(x, y, z)

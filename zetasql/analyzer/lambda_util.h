@@ -17,9 +17,12 @@
 #ifndef ZETASQL_ANALYZER_LAMBDA_UTIL_H_
 #define ZETASQL_ANALYZER_LAMBDA_UTIL_H_
 
+#include <vector>
+
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/public/id_string.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 
@@ -32,7 +35,7 @@ absl::Status ValidateLambdaArgumentListIsIdentifierList(
     const ASTLambda* ast_lambda);
 
 // Returns the list of lambda argument names.
-zetasql_base::StatusOr<std::vector<IdString>> ExtractLambdaArgumentNames(
+absl::StatusOr<std::vector<IdString>> ExtractLambdaArgumentNames(
     const ASTLambda* ast_lambda);
 
 }  // namespace zetasql

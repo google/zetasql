@@ -1,8 +1,8 @@
 # ARRAY_AGG queries
 
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB, zetasql_test.TestExtraPB, zetasql_test.KitchenSinkPB.Nested, zetasql_test.RepeatedHolderPB, zetasql_test.EmptyMessage, zetasql_test.MessageWithNulls, zetasql_test.NullableInt]
-[load_enum_names=zetasql_test.TestEnum]
+[load_proto_names=zetasql_test__.KitchenSinkPB, zetasql_test__.TestExtraPB, zetasql_test__.KitchenSinkPB.Nested, zetasql_test__.RepeatedHolderPB, zetasql_test__.EmptyMessage, zetasql_test__.MessageWithNulls, zetasql_test__.NullableInt]
+[load_enum_names=zetasql_test__.TestEnum]
 
 [name=array_agg_BOOL_basic]
 SELECT ARRAY_AGG(elem)
@@ -100,16 +100,16 @@ ARRAY<STRUCT<ARRAY<>>>[
 ==
 [name=array_agg_enum_basic]
 SELECT ARRAY_AGG(elem)
-FROM UNNEST(ARRAY<zetasql_test.TestEnum>[
+FROM UNNEST(ARRAY<zetasql_test__.TestEnum>[
     "TESTENUM0", "TESTENUM1", "TESTENUM2"]) elem;
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM1, TESTENUM0, TESTENUM2]}
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM1, TESTENUM0, TESTENUM2]}
 ]
 ==
 [name=array_agg_proto_basic]
 SELECT ARRAY_AGG(elem)
-FROM UNNEST(ARRAY<`zetasql_test.KitchenSinkPB`>[
+FROM UNNEST(ARRAY<`zetasql_test__.KitchenSinkPB`>[
   '''
     int64_key_1: 11
     int64_key_2: 12
@@ -124,7 +124,7 @@ FROM UNNEST(ARRAY<`zetasql_test.KitchenSinkPB`>[
   ''']) elem;
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 21
        int64_key_2: 22
@@ -146,6 +146,15 @@ FROM UNNEST(ARRAY<STRUCT<int64, int64>>[(11, 12), (21, 22), (31, 32)]) elem;
 --
 ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<STRUCT<INT64, INT64>>[{21, 22}, {11, 12}, {31, 32}]}
+]
+==
+[required_features=JSON_TYPE]
+[name=array_agg_JSON_basic]
+SELECT ARRAY_AGG(elem)
+FROM UNNEST([JSON '10', JSON 'false', JSON 'null', JSON '{"a": 10}', JSON '[10, true, "test"]', JSON '"foo"']) elem;
+--
+ARRAY<STRUCT<ARRAY<>>>[
+  {ARRAY<JSON>[false, {"a":10}, "foo", 10, null, [10,true,"test"]]}
 ]
 ==
 [name=array_agg_with_nulls]
@@ -409,14 +418,14 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 ==
 [name=array_of_protos]
-SELECT ARRAY(SELECT AS `zetasql_test.MessageWithNulls`
+SELECT ARRAY(SELECT AS `zetasql_test__.MessageWithNulls`
                a as i1, b as i2, NULL as i3 -- i4 is not specified
              FROM UNNEST([1, NULL, 2]) b)
 FROM UNNEST([1, NULL, 3]) a
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.MessageWithNulls>>[{i2: 1}, {}, {i2: 2}]},
-  {ARRAY<PROTO<zetasql_test.MessageWithNulls>>[
+  {ARRAY<PROTO<zetasql_test__.MessageWithNulls>>[{i2: 1}, {}, {i2: 2}]},
+  {ARRAY<PROTO<zetasql_test__.MessageWithNulls>>[
      {
        i1: 1
        i2: 1
@@ -427,7 +436,7 @@ ARRAY<STRUCT<ARRAY<>>>[
        i2: 2
      }
    ]},
-  {ARRAY<PROTO<zetasql_test.MessageWithNulls>>[
+  {ARRAY<PROTO<zetasql_test__.MessageWithNulls>>[
      {
        i1: 3
        i2: 1
@@ -738,11 +747,11 @@ ARRAY<STRUCT<ARRAY<>>>[
 ==
 [name=array_concat_agg_enum]
 SELECT ARRAY_CONCAT_AGG(x) FROM (
-    SELECT ARRAY<zetasql_test.TestEnum>["TESTENUM0", "TESTENUM2"] x UNION ALL
-    SELECT ARRAY<zetasql_test.TestEnum>["TESTENUM1"]) foo
+    SELECT ARRAY<zetasql_test__.TestEnum>["TESTENUM0", "TESTENUM2"] x UNION ALL
+    SELECT ARRAY<zetasql_test__.TestEnum>["TESTENUM1"]) foo
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM1, TESTENUM0, TESTENUM2]}
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM1, TESTENUM0, TESTENUM2]}
 ]
 ==
 [name=array_concat_agg_struct]
@@ -763,19 +772,19 @@ ERROR: generic::invalid_argument: Cannot construct array with element type ARRAY
 ==
 [name=array_concat_agg_proto]
 SELECT ARRAY_CONCAT_AGG(x) FROM (
-    SELECT ARRAY<`zetasql_test.KitchenSinkPB`>[
+    SELECT ARRAY<`zetasql_test__.KitchenSinkPB`>[
   '''
     int64_key_1: 11
     int64_key_2: 12
   '''] x UNION ALL
-    SELECT ARRAY<`zetasql_test.KitchenSinkPB`>[
+    SELECT ARRAY<`zetasql_test__.KitchenSinkPB`>[
   '''
     int64_key_1: 21
     int64_key_2: 22
   ''']) foo
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 21
        int64_key_2: 22
@@ -786,6 +795,14 @@ ARRAY<STRUCT<ARRAY<>>>[
      }
    ]}
 ]
+==
+[required_features=JSON_TYPE]
+[name=array_concat_agg_json]
+SELECT ARRAY_CONCAT_AGG(x) FROM (
+    SELECT [JSON '"test"', JSON '{"a": 10}'] x UNION ALL
+    SELECT [JSON 'null', JSON '10', JSON 'false'])
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[null, 10, false, "test", {"a":10}]}]
 ==
 [required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [name=array_agg_BOOL_ignore_nulls_with_unnest]
@@ -907,27 +924,27 @@ ARRAY<STRUCT<ARRAY<>>>[
 [required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [name=array_agg_PROTO_ignore_nulls]
 SELECT ARRAY_AGG(elem IGNORE NULLS)
-FROM (SELECT CAST("" AS `zetasql_test.NullableInt`) AS elem
+FROM (SELECT CAST("" AS `zetasql_test__.NullableInt`) AS elem
       UNION ALL
       SELECT null
       UNION ALL
-      SELECT CAST("value: 0" AS `zetasql_test.NullableInt`));
+      SELECT CAST("value: 0" AS `zetasql_test__.NullableInt`));
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.NullableInt>>[{}, {value: 0}]}
+  {ARRAY<PROTO<zetasql_test__.NullableInt>>[{}, {value: 0}]}
 ]
 ==
 [required_features=V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
 [name=array_agg_PROTO_respect_nulls]
 SELECT ARRAY_AGG(elem RESPECT NULLS)
-FROM (SELECT CAST("" AS `zetasql_test.NullableInt`) AS elem
+FROM (SELECT CAST("" AS `zetasql_test__.NullableInt`) AS elem
       UNION ALL
       SELECT null
       UNION ALL
-      SELECT CAST("value: 0" AS `zetasql_test.NullableInt`));
+      SELECT CAST("value: 0" AS `zetasql_test__.NullableInt`));
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.NullableInt>>[NULL, {}, {value: 0}]}
+  {ARRAY<PROTO<zetasql_test__.NullableInt>>[NULL, {}, {value: 0}]}
 ]
 ==
 # Note that the LIMIT applies to the non-NULL aggregated values.

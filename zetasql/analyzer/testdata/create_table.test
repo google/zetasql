@@ -4,8 +4,8 @@ create table t1 (
   c1 int32,
   c2 int64,
   c3 string,
-  c4 zetasql_test.TestEnum,
-  c5 zetasql_test.TestExtraPB,
+  c4 zetasql_test__.TestEnum,
+  c5 zetasql_test__.TestExtraPB,
   c6 STRUCT<x int32, y string>,
   c7 ARRAY<int64>
   );
@@ -16,8 +16,8 @@ CreateTableStmt
   +-ColumnDefinition(name="c1", type=INT32, column=t1.c1#1)
   +-ColumnDefinition(name="c2", type=INT64, column=t1.c2#2)
   +-ColumnDefinition(name="c3", type=STRING, column=t1.c3#3)
-  +-ColumnDefinition(name="c4", type=ENUM<zetasql_test.TestEnum>, column=t1.c4#4)
-  +-ColumnDefinition(name="c5", type=PROTO<zetasql_test.TestExtraPB>, column=t1.c5#5)
+  +-ColumnDefinition(name="c4", type=ENUM<zetasql_test__.TestEnum>, column=t1.c4#4)
+  +-ColumnDefinition(name="c5", type=PROTO<zetasql_test__.TestExtraPB>, column=t1.c5#5)
   +-ColumnDefinition(name="c6", type=STRUCT<x INT32, y STRING>, column=t1.c6#6)
   +-ColumnDefinition(name="c7", type=ARRAY<INT64>, column=t1.c7#7)
 ==
@@ -61,22 +61,41 @@ create table t1 like t2;
 [language_features=CREATE_TABLE_LIKE]
 create table t1 (a int64) like t2;
 --
-ERROR:  can not have both column definition list and like. [at 1:32]
+ERROR: Cannot have both column definition list and LIKE [at 1:32]
 create table t1 (a int64) like t2;
                                ^
 ==
 
-[language_features=CREATE_TABLE_CLONE]
-create table t1 clone KeyValue;
+[language_features=CREATE_TABLE_COPY,CREATE_TABLE_CLONE]
+create table t1 clone KeyValue copy KeyValue;
+--
+ERROR: COPY and CLONE cannot both be used for CREATE TABLE [at 1:1]
+create table t1 clone KeyValue copy KeyValue;
+^
+==
+
+[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+create table t1 {{CLONE|COPY}} KeyValue;
+--
+ALTERNATION GROUP: CLONE
 --
 CreateTableStmt
 +-name_path=t1
 +-clone_from=
   +-TableScan(table=KeyValue)
+--
+ALTERNATION GROUP: COPY
+--
+CreateTableStmt
++-name_path=t1
++-copy_from=
+  +-TableScan(table=KeyValue)
 ==
 
-[language_features=CREATE_TABLE_CLONE]
-create table t1 clone KeyValue FOR SYSTEM_TIME AS OF CURRENT_TIMESTAMP();
+[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+create table t1 {{CLONE|COPY}} KeyValue FOR SYSTEM_TIME AS OF CURRENT_TIMESTAMP();
+--
+ALTERNATION GROUP: CLONE
 --
 CreateTableStmt
 +-name_path=t1
@@ -85,11 +104,23 @@ CreateTableStmt
     +-table=KeyValue
     +-for_system_time_expr=
       +-FunctionCall(ZetaSQL:current_timestamp() -> TIMESTAMP)
+--
+ALTERNATION GROUP: COPY
+--
+CreateTableStmt
++-name_path=t1
++-copy_from=
+  +-TableScan
+    +-table=KeyValue
+    +-for_system_time_expr=
+      +-FunctionCall(ZetaSQL:current_timestamp() -> TIMESTAMP)
 ==
 
-[language_features=CREATE_TABLE_CLONE]
+[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
 create table t1
-CLONE KeyValue FOR SYSTEM_TIME AS OF CURRENT_TIMESTAMP() WHERE key = 1;
+{{CLONE|COPY}} KeyValue FOR SYSTEM_TIME AS OF CURRENT_TIMESTAMP() WHERE key = 1;
+--
+ALTERNATION GROUP: CLONE
 --
 CreateTableStmt
 +-name_path=t1
@@ -107,12 +138,33 @@ CreateTableStmt
       +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         +-Literal(type=INT64, value=1)
+--
+ALTERNATION GROUP: COPY
+--
+CreateTableStmt
++-name_path=t1
++-copy_from=
+  +-FilterScan
+    +-column_list=[KeyValue.Key#1]
+    +-input_scan=
+    | +-TableScan
+    |   +-column_list=[KeyValue.Key#1]
+    |   +-table=KeyValue
+    |   +-for_system_time_expr=
+    |   | +-FunctionCall(ZetaSQL:current_timestamp() -> TIMESTAMP)
+    |   +-column_index_list=[0]
+    +-filter_expr=
+      +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-Literal(type=INT64, value=1)
 ==
 
-[language_features=CREATE_TABLE_CLONE]
+[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
 create table t1
-CLONE KeyValue
+{{CLONE|COPY}} KeyValue
 WHERE key = 1 AND value = '';
+--
+ALTERNATION GROUP: CLONE
 --
 CreateTableStmt
 +-name_path=t1
@@ -129,12 +181,32 @@ CreateTableStmt
         +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
           +-ColumnRef(type=STRING, column=KeyValue.Value#2)
           +-Literal(type=STRING, value="")
+--
+ALTERNATION GROUP: COPY
+--
+CreateTableStmt
++-name_path=t1
++-copy_from=
+  +-FilterScan
+    +-column_list=KeyValue.[Key#1, Value#2]
+    +-input_scan=
+    | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-filter_expr=
+      +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+        +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-Literal(type=INT64, value=1)
+        +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+          +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+          +-Literal(type=STRING, value="")
 ==
 
-[language_features=CREATE_TABLE_CLONE]
+[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
 create table t1
-CLONE KeyValue
+{{CLONE|COPY}} KeyValue
 OPTIONS (description = null, partition_expiration_days=10);
+--
+ALTERNATION GROUP: CLONE
 --
 CreateTableStmt
 +-name_path=t1
@@ -143,93 +215,183 @@ CreateTableStmt
 | +-partition_expiration_days := Literal(type=INT64, value=10)
 +-clone_from=
   +-TableScan(table=KeyValue)
+--
+ALTERNATION GROUP: COPY
+--
+CreateTableStmt
++-name_path=t1
++-option_list=
+| +-description := Literal(type=INT64, value=NULL)
+| +-partition_expiration_days := Literal(type=INT64, value=10)
++-copy_from=
+  +-TableScan(table=KeyValue)
 ==
 
 [language_features=CREATE_TABLE_CLONE,CREATE_TABLE_PARTITION_BY]
-create table t1 clone KeyValue PARTITION BY key;
+create table t1 {{CLONE|COPY}} KeyValue PARTITION BY key;
 --
 
-ERROR: CREATE TABLE CLONE cannot be used together with PARTITION BY [at 1:32]
-create table t1 clone KeyValue PARTITION BY key;
-                               ^
+ALTERNATION GROUP: CLONE
 
+--
+ERROR: CREATE TABLE CLONE cannot be used together with PARTITION BY [at 1:32]
+create table t1 CLONE KeyValue PARTITION BY key;
+                               ^
+--
+ALTERNATION GROUP: COPY
+--
+ERROR: CREATE TABLE COPY is not supported [at 1:22]
+create table t1 COPY KeyValue PARTITION BY key;
+                     ^
 ==
 
-[language_features=CREATE_TABLE_CLONE]
-create table t1 clone Int64ValueTable;
+[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+create table t1 {{CLONE|COPY}} Int64ValueTable;
 --
 
-ERROR: Cannot clone from value table: Int64ValueTable [at 1:23]
-create table t1 clone Int64ValueTable;
-                      ^
+ALTERNATION GROUP: CLONE
 
+--
+ERROR: Cannot copy from value table: Int64ValueTable [at 1:23]
+create table t1 CLONE Int64ValueTable;
+                      ^
+--
+ALTERNATION GROUP: COPY
+--
+ERROR: Cannot copy from value table: Int64ValueTable [at 1:22]
+create table t1 COPY Int64ValueTable;
+                     ^
 ==
 
 [language_features=CREATE_TABLE_CLONE,CREATE_TABLE_CLUSTER_BY]
-create table t1 clone KeyValue CLUSTER BY key;
+create table t1 {{CLONE|COPY}} KeyValue CLUSTER BY key;
 --
 
-ERROR: CREATE TABLE CLONE cannot be used together with CLUSTER BY [at 1:32]
-create table t1 clone KeyValue CLUSTER BY key;
-                               ^
+ALTERNATION GROUP: CLONE
 
+--
+ERROR: CREATE TABLE CLONE cannot be used together with CLUSTER BY [at 1:32]
+create table t1 CLONE KeyValue CLUSTER BY key;
+                               ^
+--
+ALTERNATION GROUP: COPY
+--
+ERROR: CREATE TABLE COPY is not supported [at 1:22]
+create table t1 COPY KeyValue CLUSTER BY key;
+                     ^
 ==
 
-[language_features=CREATE_TABLE_CLONE]
-create table t1(k STRING, v STRING) clone KeyValue;
+[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+create table t1(k STRING, v STRING) {{CLONE|COPY}} KeyValue;
 --
 
+ALTERNATION GROUP: CLONE
+--
 ERROR: CREATE TABLE CLONE cannot define column list [at 1:16]
-create table t1(k STRING, v STRING) clone KeyValue;
+create table t1(k STRING, v STRING) CLONE KeyValue;
+               ^
+--
+ALTERNATION GROUP: COPY
+--
+ERROR: CREATE TABLE COPY cannot define column list [at 1:16]
+create table t1(k STRING, v STRING) COPY KeyValue;
                ^
 ==
 
-[language_features=CREATE_TABLE_CLONE]
-create table t1 clone KeyValue AS kv;
+[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+create table t1 {{CLONE|COPY}} KeyValue AS kv;
+--
+ALTERNATION GROUP: CLONE
 --
 ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got identifier "kv" [at 1:35]
-create table t1 clone KeyValue AS kv;
+create table t1 CLONE KeyValue AS kv;
                                   ^
+--
+ALTERNATION GROUP: COPY
+--
+ERROR: Syntax error: Expected "(" or keyword SELECT or keyword WITH but got identifier "kv" [at 1:34]
+create table t1 COPY KeyValue AS kv;
+                                 ^
 ==
 
-[language_features=CREATE_TABLE_LIKE,CREATE_TABLE_CLONE]
-create table t1 like KeyValue clone KeyValue;
+[language_features=CREATE_TABLE_LIKE,CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+create table t1 like KeyValue {{CLONE|COPY}} KeyValue;
+--
+ALTERNATION GROUP: CLONE
 --
 ERROR: CLONE and LIKE cannot both be used for CREATE TABLE [at 1:1]
-create table t1 like KeyValue clone KeyValue;
+create table t1 like KeyValue CLONE KeyValue;
+^
+--
+ALTERNATION GROUP: COPY
+--
+ERROR: COPY and LIKE cannot both be used for CREATE TABLE [at 1:1]
+create table t1 like KeyValue COPY KeyValue;
 ^
 ==
 
-[language_features=CREATE_TABLE_CLONE]
-create table t1 clone KeyValue AS SELECT 1;
+[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+create table t1 {{CLONE|COPY}} KeyValue AS SELECT 1;
+--
+ALTERNATION GROUP: CLONE
 --
 ERROR: CREATE TABLE CLONE cannot be used together with AS SELECT [at 1:35]
-create table t1 clone KeyValue AS SELECT 1;
+create table t1 CLONE KeyValue AS SELECT 1;
                                   ^
+--
+ALTERNATION GROUP: COPY
+--
+ERROR: CREATE TABLE COPY cannot be used together with AS SELECT [at 1:34]
+create table t1 COPY KeyValue AS SELECT 1;
+                                 ^
 ==
 
-[language_features=CREATE_TABLE_CLONE]
-create table t1 clone KeyValue WHERE nosuchcol = 1;
+[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+create table t1 {{CLONE|COPY}} KeyValue WHERE nosuchcol = 1;
+--
+ALTERNATION GROUP: CLONE
 --
 ERROR: Unrecognized name: nosuchcol [at 1:38]
-create table t1 clone KeyValue WHERE nosuchcol = 1;
+create table t1 CLONE KeyValue WHERE nosuchcol = 1;
                                      ^
+--
+ALTERNATION GROUP: COPY
+--
+ERROR: Unrecognized name: nosuchcol [at 1:37]
+create table t1 COPY KeyValue WHERE nosuchcol = 1;
+                                    ^
 ==
 
-[language_features=CREATE_TABLE_CLONE]
-create table t1 clone KeyValue AS SELECT 1 as n from KeyValue;
+[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+create table t1 {{CLONE|COPY}} KeyValue AS SELECT 1 as n from KeyValue;
+--
+ALTERNATION GROUP: CLONE
 --
 ERROR: CREATE TABLE CLONE cannot be used together with AS SELECT [at 1:35]
-create table t1 clone KeyValue AS SELECT 1 as n from KeyValue;
+create table t1 CLONE KeyValue AS SELECT 1 as n from KeyValue;
                                   ^
+--
+ALTERNATION GROUP: COPY
+--
+ERROR: CREATE TABLE COPY cannot be used together with AS SELECT [at 1:34]
+create table t1 COPY KeyValue AS SELECT 1 as n from KeyValue;
+                                 ^
 ==
 
-[language_features=CREATE_TABLE_CLONE]
-create table t1 clone KeyValue FOR SYSTEM_TIME AS OF 1;
+[language_features=CREATE_TABLE_CLONE,CREATE_TABLE_COPY]
+create table t1 {{CLONE|COPY}} KeyValue FOR SYSTEM_TIME AS OF 1;
+--
+ALTERNATION GROUP: CLONE
 --
 ERROR: FOR SYSTEM_TIME AS OF must be of type TIMESTAMP but was of type INT64 [at 1:54]
-create table t1 clone KeyValue FOR SYSTEM_TIME AS OF 1;
+create table t1 CLONE KeyValue FOR SYSTEM_TIME AS OF 1;
                                                      ^
+--
+ALTERNATION GROUP: COPY
+--
+ERROR: FOR SYSTEM_TIME AS OF must be of type TIMESTAMP but was of type INT64 [at 1:53]
+create table t1 COPY KeyValue FOR SYSTEM_TIME AS OF 1;
+                                                    ^
 ==
 
 [language_features=CREATE_TABLE_LIKE,CREATE_TABLE_PARTITION_BY,CREATE_TABLE_CLUSTER_BY]
@@ -900,7 +1062,7 @@ CreateTableStmt
     | +-GetProtoField
     | | +-type=INT64
     | | +-expr=
-    | | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=t1.pseudo_column_kitchensink#5)
+    | | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=t1.pseudo_column_kitchensink#5)
     | | +-field_descriptor=int64_key_1
     | +-Cast(INT32 -> INT64)
     |   +-ColumnRef(type=INT32, column=t1.pseudo_column_int32#4)
@@ -1121,7 +1283,7 @@ CreateTableStmt
     | +-GetProtoField
     | | +-type=INT64
     | | +-expr=
-    | | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=t1.pseudo_column_kitchensink#5)
+    | | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=t1.pseudo_column_kitchensink#5)
     | | +-field_descriptor=int64_key_1
     | +-Cast(INT32 -> INT64)
     |   +-ColumnRef(type=INT32, column=t1.pseudo_column_int32#4)
@@ -1308,7 +1470,7 @@ CreateTableStmt
     | +-GetProtoField
     | | +-type=INT64
     | | +-expr=
-    | | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=t1.pseudo_column_kitchensink#5)
+    | | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=t1.pseudo_column_kitchensink#5)
     | | +-field_descriptor=int64_key_1
     | +-Cast(INT32 -> INT64)
     |   +-ColumnRef(type=INT32, column=t1.pseudo_column_int32#4)
@@ -2156,7 +2318,7 @@ ERROR: Recursive dependencies detected when resolving column c, which include ob
 create table t1 (
   k1 int64 as (k2),
   k2 int64,
-  b zetasql_test.KitchenSinkPB as (NEW zetasql_test.KitchenSinkPB(k1 as int64_key_1, k2 as int64_key_2))
+  b zetasql_test__.KitchenSinkPB as (NEW zetasql_test__.KitchenSinkPB(k1 as int64_key_1, k2 as int64_key_2))
   );
 --
 CreateTableStmt
@@ -2173,13 +2335,13 @@ CreateTableStmt
   +-ColumnDefinition(name="k2", type=INT64, column=t1.k2#1)
   +-ColumnDefinition
     +-name="b"
-    +-type=PROTO<zetasql_test.KitchenSinkPB>
+    +-type=PROTO<zetasql_test__.KitchenSinkPB>
     +-column=t1.b#3
     +-generated_column_info=
       +-GeneratedColumnInfo
         +-expression=
           +-MakeProto
-            +-type=PROTO<zetasql_test.KitchenSinkPB>
+            +-type=PROTO<zetasql_test__.KitchenSinkPB>
             +-field_list=
               +-int64_key_1 := ColumnRef(type=INT64, column=t1.k1#2)
               +-int64_key_2 := ColumnRef(type=INT64, column=t1.k2#1)
@@ -3534,8 +3696,11 @@ CreateTableStmt
     +-name="a"
     +-type=INT32
     +-column=t.a#1
-    +-default_expression=
-      +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
+    +-default_value=
+      +-ColumnDefaultValue
+        +-expression=
+        | +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
+        +-sql="CAST(1 as INT32)"
 ==
 
 # Column default value with mismatched but assignable type.
@@ -3550,10 +3715,13 @@ CreateTableStmt
     +-name="a"
     +-type=INT32
     +-column=t.a#1
-    +-default_expression=
-      +-Cast(INT64 -> INT32)
-        +-FunctionCall(ZetaSQL:farm_fingerprint(STRING) -> INT64)
-          +-Literal(type=STRING, value="foo")
+    +-default_value=
+      +-ColumnDefaultValue
+        +-expression=
+        | +-Cast(INT64 -> INT32)
+        |   +-FunctionCall(ZetaSQL:farm_fingerprint(STRING) -> INT64)
+        |     +-Literal(type=STRING, value="foo")
+        +-sql='FARM_FINGERPRINT("foo")'
 ==
 
 # Column default value with mismatched and not assignable type (disallowed).
@@ -3578,10 +3746,13 @@ CreateTableStmt
     +-name="a"
     +-type=DOUBLE
     +-column=t.a#1
-    +-default_expression=
-      +-Cast(INT64 -> DOUBLE)
-        +-FunctionCall(ZetaSQL:farm_fingerprint(STRING) -> INT64)
-          +-Literal(type=STRING, value="foo")
+    +-default_value=
+      +-ColumnDefaultValue
+        +-expression=
+        | +-Cast(INT64 -> DOUBLE)
+        |   +-FunctionCall(ZetaSQL:farm_fingerprint(STRING) -> INT64)
+        |     +-Literal(type=STRING, value="foo")
+        +-sql='FARM_FINGERPRINT("foo")'
 ==
 
 # Column default value, column type is timestamp, default value is string
@@ -3608,8 +3779,11 @@ CreateTableStmt
     +-name="a"
     +-type=TIMESTAMP
     +-column=t.a#1
-    +-default_expression=
-      +-Literal(type=TIMESTAMP, value=0001-01-01 07:52:58+00)
+    +-default_value=
+      +-ColumnDefaultValue
+        +-expression=
+        | +-Literal(type=TIMESTAMP, value=0001-01-01 07:52:58+00)
+        +-sql='"0001-01-01 00:00:00"'
 ==
 
 # Array column default value, column type is ARRAY<DOUBLE>, default value is
@@ -3661,8 +3835,11 @@ CreateTableStmt
     +-name="a"
     +-type=ARRAY<DATE>
     +-column=t.a#1
-    +-default_expression=
-      +-Literal(type=ARRAY<DATE>, value=[2020-01-01, 2020-01-02])
+    +-default_value=
+      +-ColumnDefaultValue
+        +-expression=
+        | +-Literal(type=ARRAY<DATE>, value=[2020-01-01, 2020-01-02])
+        +-sql='["2020-01-01", "2020-01-02"]'
 
 ==
 
@@ -3705,15 +3882,18 @@ CreateTableStmt
     +-name="a"
     +-type=STRUCT<INT64, DOUBLE>
     +-column=t.a#1
-    +-default_expression=
-      +-MakeStruct
-        +-type=STRUCT<INT64, DOUBLE>
-        +-field_list=
-          +-FunctionCall(ZetaSQL:farm_fingerprint(STRING) -> INT64)
-          | +-Literal(type=STRING, value="foo")
-          +-Cast(INT64 -> DOUBLE)
-            +-FunctionCall(ZetaSQL:farm_fingerprint(STRING) -> INT64)
-              +-Literal(type=STRING, value="bar")
+    +-default_value=
+      +-ColumnDefaultValue
+        +-expression=
+        | +-MakeStruct
+        |   +-type=STRUCT<INT64, DOUBLE>
+        |   +-field_list=
+        |     +-FunctionCall(ZetaSQL:farm_fingerprint(STRING) -> INT64)
+        |     | +-Literal(type=STRING, value="foo")
+        |     +-Cast(INT64 -> DOUBLE)
+        |       +-FunctionCall(ZetaSQL:farm_fingerprint(STRING) -> INT64)
+        |         +-Literal(type=STRING, value="bar")
+        +-sql='(FARM_FINGERPRINT("foo"),\n                   FARM_FINGERPRINT("bar"))'
 ==
 
 # A STRUCT<int64, TIMESTAMP> column with a STRUCT<int64, STRING> default value
@@ -3861,6 +4041,16 @@ create table t (a int64 default cast(@param as INT64));
                                      ^
 ==
 
+# Column default value: select query (disallowed).
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE]
+[no_enable_literal_replacement]
+create table t (a int32 default (select 1));
+--
+ERROR: A column default expression must not include a subquery [at 1:33]
+create table t (a int32 default (select 1));
+                                ^
+==
+
 # Column default value: subquery with aggregation (disallowed).
 [language_features=V_1_3_COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
@@ -3911,6 +4101,25 @@ create table t (a INT64, b int64 default SUM(1.1) OVER ());
                                          ^
 ==
 
+# Column default value: default empty string.
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE]
+[no_enable_literal_replacement]
+create table t (a string default "");
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+  +-ColumnDefinition
+    +-name="a"
+    +-type=STRING
+    +-column=t.a#1
+    +-default_value=
+      +-ColumnDefaultValue
+        +-expression=
+        | +-Literal(type=STRING, value="")
+        +-sql='""'
+==
+
 # Column default values and generated columns in a table.
 [language_features=V_1_2_GENERATED_COLUMNS,V_1_3_COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
@@ -3923,8 +4132,11 @@ CreateTableStmt
   | +-name="a"
   | +-type=INT32
   | +-column=t.a#2
-  | +-default_expression=
-  |   +-Literal(type=INT32, value=1)
+  | +-default_value=
+  |   +-ColumnDefaultValue
+  |     +-expression=
+  |     | +-Literal(type=INT32, value=1)
+  |     +-sql="1"
   +-ColumnDefinition
   | +-name="b"
   | +-type=INT64
@@ -3962,8 +4174,11 @@ CreateTableStmt
     +-name="a"
     +-type=DOUBLE
     +-column=t.a#1
-    +-default_expression=
-      +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
+    +-default_value=
+      +-ColumnDefaultValue
+        +-expression=
+        | +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
+        +-sql="rand()"
 ==
 
 # Column default value: Array
@@ -3978,8 +4193,11 @@ CreateTableStmt
     +-name="a"
     +-type=ARRAY<INT64>
     +-column=t.a#1
-    +-default_expression=
-      +-Literal(type=ARRAY<INT64>, value=[1, 2])
+    +-default_value=
+      +-ColumnDefaultValue
+        +-expression=
+        | +-Literal(type=ARRAY<INT64>, value=[1, 2])
+        +-sql="[1,2]"
 ==
 
 # Column default value: Struct type
@@ -3994,8 +4212,11 @@ CreateTableStmt
     +-name="a"
     +-type=STRUCT<INT64, STRING>
     +-column=t.a#1
-    +-default_expression=
-      +-Literal(type=STRUCT<INT64, STRING>, value={1, "xyz"})
+    +-default_value=
+      +-ColumnDefaultValue
+        +-expression=
+        | +-Literal(type=STRUCT<INT64, STRING>, value={1, "xyz"})
+        +-sql='(1, "xyz")'
 ==
 
 # Column default value is NULL and NOT NULL attribute (disallowed).
@@ -4012,8 +4233,11 @@ CreateTableStmt
     +-annotations=
     | +-ColumnAnnotations(not_null=TRUE)
     +-column=t.a#1
-    +-default_expression=
-      +-Literal(type=INT32, value=NULL)
+    +-default_value=
+      +-ColumnDefaultValue
+        +-expression=
+        | +-Literal(type=INT32, value=NULL)
+        +-sql="NULL"
 ==
 
 # Column default value is NOT NULL and NOT NULL attribute (disallowed).
@@ -4040,22 +4264,188 @@ CreateTableStmt
     +-annotations=
     | +-ColumnAnnotations(not_null=TRUE)
     +-column=t.a#1
-    +-default_expression=
-      +-Literal(type=INT32, value=1)
+    +-default_value=
+      +-ColumnDefaultValue
+        +-expression=
+        | +-Literal(type=INT32, value=1)
+        +-sql="1"
 ==
 
-create table t (a int64, b string collate 'unicode:ci');
+[language_features={{|V_1_3_COLLATION_SUPPORT}}]
+create table t (a int64, b string collate 'und:ci');
 --
-ERROR: COLLATE is unsupported [at 1:35]
-create table t (a int64, b string collate 'unicode:ci');
+ALTERNATION GROUP: <empty>
+--
+ERROR: COLLATE is not supported [at 1:35]
+create table t (a int64, b string collate 'und:ci');
                                   ^
+--
+ALTERNATION GROUP: V_1_3_COLLATION_SUPPORT
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=INT64, column=t.a#1)
+  +-ColumnDefinition
+    +-name="b"
+    +-type=STRING
+    +-annotations=
+    | +-ColumnAnnotations
+    |   +-collation_name=
+    |     +-Literal(type=STRING, value="und:ci")
+    +-column=t.b#2
 ==
 
-create table t (a int64, b string) collate 'unicode:ci';
+[language_features={{|V_1_3_COLLATION_SUPPORT}}]
+create table t (a int64, b string collate @test_param_string);
 --
-ERROR: COLLATE is unsupported [at 1:36]
-create table t (a int64, b string) collate 'unicode:ci';
-                                   ^
+ALTERNATION GROUP: <empty>
+--
+ERROR: COLLATE is not supported [at 1:35]
+create table t (a int64, b string collate @test_param_string);
+                                  ^
+--
+ALTERNATION GROUP: V_1_3_COLLATION_SUPPORT
+--
+ERROR: COLLATE must be followed by a string literal [at 1:43]
+create table t (a int64, b string collate @test_param_string);
+                                          ^
+==
+
+[language_features={{|V_1_3_COLLATION_SUPPORT}}]
+create {{|temp}} table t (a int64, b string) default collate 'und:ci';
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: CREATE TABLE with DEFAULT COLLATE is not supported [at 1:45]
+create  table t (a int64, b string) default collate 'und:ci';
+                                            ^
+--
+ALTERNATION GROUP: temp
+--
+ERROR: CREATE TABLE with DEFAULT COLLATE is not supported [at 1:49]
+create temp table t (a int64, b string) default collate 'und:ci';
+                                                ^
+--
+ALTERNATION GROUP: V_1_3_COLLATION_SUPPORT,
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT64, column=t.a#1)
+| +-ColumnDefinition(name="b", type=STRING, column=t.b#2)
++-collation_name=
+  +-Literal(type=STRING, value="und:ci")
+--
+ALTERNATION GROUP: V_1_3_COLLATION_SUPPORT,temp
+--
+CreateTableStmt
++-name_path=t
++-create_scope=CREATE_TEMP
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT64, column=t.a#1)
+| +-ColumnDefinition(name="b", type=STRING, column=t.b#2)
++-collation_name=
+  +-Literal(type=STRING, value="und:ci")
+==
+
+[language_features={{|V_1_3_COLLATION_SUPPORT}}]
+create external table t default collate 'und:ci' options();
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: CREATE EXTERNAL TABLE with DEFAULT COLLATE is not supported [at 1:33]
+create external table t default collate 'und:ci' options();
+                                ^
+--
+ALTERNATION GROUP: V_1_3_COLLATION_SUPPORT
+--
+CreateExternalTableStmt
++-name_path=t
++-collation_name=
+  +-Literal(type=STRING, value="und:ci")
+==
+
+[language_features={{CREATE_TABLE_FIELD_ANNOTATIONS|CREATE_TABLE_FIELD_ANNOTATIONS,V_1_3_COLLATION_SUPPORT}}]
+create table t (a int64, b string collate 'und:cs') default collate 'und:ci';
+--
+ALTERNATION GROUP: CREATE_TABLE_FIELD_ANNOTATIONS
+--
+ERROR: CREATE TABLE with DEFAULT COLLATE is not supported [at 1:61]
+create table t (a int64, b string collate 'und:cs') default collate 'und:ci';
+                                                            ^
+--
+ALTERNATION GROUP: CREATE_TABLE_FIELD_ANNOTATIONS,V_1_3_COLLATION_SUPPORT
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT64, column=t.a#1)
+| +-ColumnDefinition
+|   +-name="b"
+|   +-type=STRING
+|   +-annotations=
+|   | +-ColumnAnnotations
+|   |   +-collation_name=
+|   |     +-Literal(type=STRING, value="und:cs")
+|   +-column=t.b#2
++-collation_name=
+  +-Literal(type=STRING, value="und:ci")
+==
+
+[language_features={{CREATE_TABLE_FIELD_ANNOTATIONS|CREATE_TABLE_FIELD_ANNOTATIONS,V_1_3_COLLATION_SUPPORT}}]
+create table t (a int64, b array<string collate 'und:ci'>);
+--
+ALTERNATION GROUP: CREATE_TABLE_FIELD_ANNOTATIONS
+--
+ERROR: COLLATE is not supported [at 1:41]
+create table t (a int64, b array<string collate 'und:ci'>);
+                                        ^
+--
+ALTERNATION GROUP: CREATE_TABLE_FIELD_ANNOTATIONS,V_1_3_COLLATION_SUPPORT
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=INT64, column=t.a#1)
+  +-ColumnDefinition
+    +-name="b"
+    +-type=ARRAY<STRING>
+    +-annotations=
+    | +-ColumnAnnotations
+    |   +-child_list=
+    |     +-ColumnAnnotations
+    |       +-collation_name=
+    |         +-Literal(type=STRING, value="und:ci")
+    +-column=t.b#2
+==
+
+[language_features={{CREATE_TABLE_FIELD_ANNOTATIONS|CREATE_TABLE_FIELD_ANNOTATIONS,V_1_3_COLLATION_SUPPORT}}]
+create table t (a int64, b struct<int64, string collate 'und:ci', float64>);
+--
+ALTERNATION GROUP: CREATE_TABLE_FIELD_ANNOTATIONS
+--
+ERROR: COLLATE is not supported [at 1:49]
+create table t (a int64, b struct<int64, string collate 'und:ci', float64>);
+                                                ^
+--
+ALTERNATION GROUP: CREATE_TABLE_FIELD_ANNOTATIONS,V_1_3_COLLATION_SUPPORT
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=INT64, column=t.a#1)
+  +-ColumnDefinition
+    +-name="b"
+    +-type=STRUCT<INT64, STRING, DOUBLE>
+    +-annotations=
+    | +-ColumnAnnotations
+    |   +-child_list=
+    |     +-ColumnAnnotations
+    |     +-ColumnAnnotations
+    |       +-collation_name=
+    |         +-Literal(type=STRING, value="und:ci")
+    +-column=t.b#2
 ==
 
 # PRIMARY KEY with pseudo-column
@@ -4070,12 +4460,12 @@ ERROR: Unsupported primary key column pseudo_column_int32 either does not exist 
 ==
 
 create table t (
-  p zetasql_test.TestExtraPB primary key
+  p zetasql_test__.TestExtraPB primary key
 );
 --
 CreateTableStmt
 +-name_path=t
 +-column_definition_list=
-| +-ColumnDefinition(name="p", type=PROTO<zetasql_test.TestExtraPB>, column=t.p#1)
+| +-ColumnDefinition(name="p", type=PROTO<zetasql_test__.TestExtraPB>, column=t.p#1)
 +-primary_key=
   +-PrimaryKey(column_offset_list=[0], column_name_list=[p])

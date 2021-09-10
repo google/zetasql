@@ -3,7 +3,7 @@
 # be supported by all engines.
 
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB]
+[load_proto_names=zetasql_test__.KitchenSinkPB]
 
 [prepare_database]
 CREATE TABLE Table1 AS
@@ -221,7 +221,7 @@ CREATE TABLE Table8 AS
 SELECT cast(1 as int64) as primary_key,
        STRUCT (cast(10 as int64) as int64_field,
                cast("int64_key_1: 11 int64_key_2: 12"
-                    as `zetasql_test.KitchenSinkPB`) as proto_field)
+                    as `zetasql_test__.KitchenSinkPB`) as proto_field)
        struct_value
 UNION ALL
 SELECT 2, (20, "int64_key_1: 21 int64_key_2: 22")
@@ -229,7 +229,7 @@ SELECT 2, (20, "int64_key_1: 21 int64_key_2: 22")
 ARRAY<STRUCT<primary_key INT64,
              struct_value STRUCT<
                     int64_field INT64,
-                    proto_field PROTO<zetasql_test.KitchenSinkPB>
+                    proto_field PROTO<zetasql_test__.KitchenSinkPB>
                   >>>
 [{1,
   {10,
@@ -264,7 +264,7 @@ SELECT cast(1 as int64) primary_key,
                         nested_repeated_value {
                           nested_int64: 203
                         }'''
-                     as `zetasql_test.KitchenSinkPB`) as proto_field),
+                     as `zetasql_test__.KitchenSinkPB`) as proto_field),
          NULL
        ] as array_value
 --
@@ -272,7 +272,7 @@ ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
   {1,
    ARRAY<STRUCT<
            int64_field INT64,
-           proto_field PROTO<zetasql_test.KitchenSinkPB>
+           proto_field PROTO<zetasql_test__.KitchenSinkPB>
          >>
    [{10,
          {
@@ -1263,7 +1263,7 @@ STRUCT<
           primary_key INT64,
           struct_value STRUCT<
                  int64_field INT64,
-                 proto_field PROTO<zetasql_test.KitchenSinkPB>
+                 proto_field PROTO<zetasql_test__.KitchenSinkPB>
                >
         >>
   [{1,
@@ -1292,7 +1292,7 @@ STRUCT<
           primary_key INT64,
           struct_value STRUCT<
                  int64_field INT64,
-                 proto_field PROTO<zetasql_test.KitchenSinkPB>
+                 proto_field PROTO<zetasql_test__.KitchenSinkPB>
                >
         >>
   [{1, {10, NULL}}, {2, {20, NULL}}]}
@@ -1310,7 +1310,7 @@ STRUCT<
           primary_key INT64,
           struct_value STRUCT<
                  int64_field INT64,
-                 proto_field PROTO<zetasql_test.KitchenSinkPB>
+                 proto_field PROTO<zetasql_test__.KitchenSinkPB>
                >
         >>
   [{1, {10, NULL}}, {2, {20, NULL}}]}
@@ -1327,7 +1327,7 @@ STRUCT<
           primary_key INT64,
           struct_value STRUCT<
                  int64_field INT64,
-                 proto_field PROTO<zetasql_test.KitchenSinkPB>
+                 proto_field PROTO<zetasql_test__.KitchenSinkPB>
                >
         >>
   [{1,
@@ -1360,7 +1360,7 @@ STRUCT<
     {1,
      ARRAY<STRUCT<
              int64_field INT64,
-             proto_field PROTO<zetasql_test.KitchenSinkPB>
+             proto_field PROTO<zetasql_test__.KitchenSinkPB>
            >>
      [{10,
              {
@@ -1400,7 +1400,7 @@ STRUCT<
     {1,
      ARRAY<STRUCT<
              int64_field INT64,
-             proto_field PROTO<zetasql_test.KitchenSinkPB>
+             proto_field PROTO<zetasql_test__.KitchenSinkPB>
            >>
      [{10,
              {

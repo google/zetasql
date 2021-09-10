@@ -21,7 +21,7 @@
 
 #include "zetasql/public/numeric_value.h"
 #include "absl/random/random.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 
@@ -80,7 +80,7 @@ T MakeRandomNonZeroNumericValue(absl::BitGen* random) {
 
 template <typename T>
 T MakeRandomPositiveNumericValue(absl::BitGen* random) {
-  zetasql_base::StatusOr<T> abs = MakeRandomNonZeroNumericValue<T>(random).Abs();
+  absl::StatusOr<T> abs = MakeRandomNonZeroNumericValue<T>(random).Abs();
   // Abs fails only when result = T::MinValue().
   return abs.ok() ? abs.value() : T::MaxValue();
 }

@@ -21,7 +21,7 @@
 
 #include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 
@@ -85,7 +85,7 @@ class ColumnFactory {
 
 // Returns a copy of 'expr' where all ResolvedColumnRef that are not below
 // a subquery are updated to be marked as correlated column refs.
-zetasql_base::StatusOr<std::unique_ptr<ResolvedExpr>> CorrelateColumnRefs(
+absl::StatusOr<std::unique_ptr<ResolvedExpr>> CorrelateColumnRefs(
     const ResolvedExpr& expr);
 
 // Fills column_refs with a copy of all ResolvedColumnRef nodes under 'node'
@@ -97,6 +97,38 @@ absl::Status CollectColumnRefs(
     const ResolvedNode& node,
     std::vector<std::unique_ptr<const ResolvedColumnRef>>* column_refs,
     bool correlate = false);
+
+// Contains helper functions that reduce boilerplate in rewriting rules logic
+// related to constructing new ResolvedFunctionCall instances.
+class FunctionCallBuilder {
+ public:
+  FunctionCallBuilder(const AnalyzerOptions& analyzer_options, Catalog& catalog)
+      : analyzer_options_(analyzer_options), catalog_(catalog) {}
+
+  // Consturct ResolvedFunctionCall for IF(<condition>, <then_case>,
+  // <else_case>)
+  //
+  // Requires: condition is a bool returning expression and then_case and
+  //           else_case return equal types.
+  //
+  // The signature for the built-in function "IF" must be available in <catalog>
+  // or an error status is returned.
+  absl::StatusOr<std::unique_ptr<ResolvedFunctionCall>> If(
+      std::unique_ptr<const ResolvedExpr> condition,
+      std::unique_ptr<const ResolvedExpr> then_case,
+      std::unique_ptr<const ResolvedExpr> else_case);
+
+  // Consturct ResolvedFunctionCall for <arg> IS NULL
+  //
+  // The signature for the built-in function "$is_null" must be available in
+  // <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<ResolvedFunctionCall>> IsNull(
+      std::unique_ptr<const ResolvedExpr> arg);
+
+ private:
+  const AnalyzerOptions& analyzer_options_;
+  Catalog& catalog_;
+};
 
 }  // namespace zetasql
 

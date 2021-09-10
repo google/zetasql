@@ -48,7 +48,7 @@
 #include "zetasql/public/numeric_value.h"
 #include <cstdint>
 #include "absl/base/optimization.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
@@ -70,7 +70,7 @@ template <typename T>
 inline bool Divide(T in1, T in2, T *out, absl::Status* error);
 template <typename T>
 inline bool Modulo(T in1, T in2, T *out, absl::Status* error);
-template <typename InType, typename OutType>
+template <typename InType, typename OutType = InType>
 inline bool UnaryMinus(InType in, OutType *out, absl::Status* error);
 
 // Division function for NUMERIC/BIGNUMERICs with integer semantics.
@@ -160,7 +160,50 @@ inline bool UnaryMinus(double in, double *out, absl::Status* error) {
 }
 
 template <>
-inline bool Add(float in1, float in2, float *out, absl::Status* error) {
+inline bool Add(long double in1, long double in2, long double* out,
+                absl::Status* error) {
+  *out = in1 + in2;
+  return internal::CheckFloatOverflow(in1, in2, " + ", *out, error);
+}
+
+template <>
+inline bool Subtract(long double in1, long double in2, long double* out,
+                     absl::Status* error) {
+  *out = in1 - in2;
+  return internal::CheckFloatOverflow(in1, in2, " - ", *out, error);
+}
+
+template <>
+inline bool Multiply(long double in1, long double in2, long double* out,
+                     absl::Status* error) {
+  *out = in1 * in2;
+  return internal::CheckFloatOverflow(in1, in2, " * ", *out, error);
+}
+template <>
+inline bool Divide(long double in1, long double in2, long double* out,
+                   absl::Status* error) {
+  if (ABSL_PREDICT_FALSE(in2 == 0)) {
+    return internal::UpdateError(error,
+                                 internal::DivisionByZeroMessage(in1, in2));
+  }
+  *out = in1 / in2;
+  if (ABSL_PREDICT_TRUE(std::isfinite(*out))) {
+    return true;
+  } else if (!std::isfinite(in1) || !std::isfinite(in2)) {
+    return true;
+  } else {
+    return internal::UpdateError(
+        error, internal::BinaryOverflowMessage(in1, in2, " / "));
+  }
+}
+template <>
+inline bool UnaryMinus(long double in, long double* out, absl::Status* error) {
+  *out = -in;
+  return true;
+}
+
+template <>
+inline bool Add(float in1, float in2, float* out, absl::Status* error) {
   *out = in1 + in2;
   return internal::CheckFloatOverflow(in1, in2, " + ", *out, error);
 }
@@ -460,7 +503,7 @@ inline bool Divide(int64_t in1, int64_t in2, int64_t* out,
 template <>
 inline bool Add(NumericValue in1, NumericValue in2, NumericValue* out,
                 absl::Status* error) {
-  zetasql_base::StatusOr<NumericValue> numeric_status = in1.Add(in2);
+  absl::StatusOr<NumericValue> numeric_status = in1.Add(in2);
   if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
     *out = numeric_status.value();
     return true;
@@ -474,7 +517,7 @@ inline bool Add(NumericValue in1, NumericValue in2, NumericValue* out,
 template <>
 inline bool Subtract(NumericValue in1, NumericValue in2, NumericValue* out,
                      absl::Status* error) {
-  zetasql_base::StatusOr<NumericValue> numeric_status = in1.Subtract(in2);
+  absl::StatusOr<NumericValue> numeric_status = in1.Subtract(in2);
   if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
     *out = numeric_status.value();
     return true;
@@ -488,7 +531,7 @@ inline bool Subtract(NumericValue in1, NumericValue in2, NumericValue* out,
 template <>
 inline bool Multiply(NumericValue in1, NumericValue in2, NumericValue* out,
                      absl::Status* error) {
-  zetasql_base::StatusOr<NumericValue> numeric_status = in1.Multiply(in2);
+  absl::StatusOr<NumericValue> numeric_status = in1.Multiply(in2);
   if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
     *out = numeric_status.value();
     return true;
@@ -502,7 +545,7 @@ inline bool Multiply(NumericValue in1, NumericValue in2, NumericValue* out,
 template <>
 inline bool Divide(NumericValue in1, NumericValue in2, NumericValue* out,
                    absl::Status* error) {
-  zetasql_base::StatusOr<NumericValue> numeric_status = in1.Divide(in2);
+  absl::StatusOr<NumericValue> numeric_status = in1.Divide(in2);
   if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
     *out = numeric_status.value();
     return true;
@@ -523,7 +566,7 @@ inline bool UnaryMinus(NumericValue in, NumericValue* out,
 template <>
 inline bool Modulo(NumericValue in1, NumericValue in2,
                    NumericValue *out, absl::Status* error) {
-  zetasql_base::StatusOr<NumericValue> numeric_status = in1.Mod(in2);
+  absl::StatusOr<NumericValue> numeric_status = in1.Mod(in2);
   if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
     *out = numeric_status.value();
     return true;
@@ -539,7 +582,7 @@ inline bool Modulo(NumericValue in1, NumericValue in2,
 template <>
 inline bool Add(BigNumericValue in1, BigNumericValue in2, BigNumericValue* out,
                 absl::Status* error) {
-  zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in1.Add(in2);
+  absl::StatusOr<BigNumericValue> bignumeric_status = in1.Add(in2);
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
     *out = *bignumeric_status;
     return true;
@@ -553,7 +596,7 @@ inline bool Add(BigNumericValue in1, BigNumericValue in2, BigNumericValue* out,
 template <>
 inline bool Subtract(BigNumericValue in1, BigNumericValue in2,
                      BigNumericValue* out, absl::Status* error) {
-  zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in1.Subtract(in2);
+  absl::StatusOr<BigNumericValue> bignumeric_status = in1.Subtract(in2);
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
     *out = *bignumeric_status;
     return true;
@@ -567,7 +610,7 @@ inline bool Subtract(BigNumericValue in1, BigNumericValue in2,
 template <>
 inline bool Multiply(BigNumericValue in1, BigNumericValue in2,
                      BigNumericValue* out, absl::Status* error) {
-  zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in1.Multiply(in2);
+  absl::StatusOr<BigNumericValue> bignumeric_status = in1.Multiply(in2);
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
     *out = *bignumeric_status;
     return true;
@@ -581,7 +624,7 @@ inline bool Multiply(BigNumericValue in1, BigNumericValue in2,
 template <>
 inline bool Divide(BigNumericValue in1, BigNumericValue in2,
                    BigNumericValue* out, absl::Status* error) {
-  zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in1.Divide(in2);
+  absl::StatusOr<BigNumericValue> bignumeric_status = in1.Divide(in2);
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
     *out = *bignumeric_status;
     return true;
@@ -595,7 +638,7 @@ inline bool Divide(BigNumericValue in1, BigNumericValue in2,
 template <>
 inline bool UnaryMinus(BigNumericValue in, BigNumericValue* out,
                        absl::Status* error) {
-  zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in.Negate();
+  absl::StatusOr<BigNumericValue> bignumeric_status = in.Negate();
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
     *out = *bignumeric_status;
     return true;
@@ -609,7 +652,7 @@ inline bool UnaryMinus(BigNumericValue in, BigNumericValue* out,
 template <>
 inline bool Modulo(BigNumericValue in1, BigNumericValue in2,
                    BigNumericValue* out, absl::Status* error) {
-  zetasql_base::StatusOr<BigNumericValue> bignumeric_status = in1.Mod(in2);
+  absl::StatusOr<BigNumericValue> bignumeric_status = in1.Mod(in2);
   if (ABSL_PREDICT_TRUE(bignumeric_status.ok())) {
     *out = bignumeric_status.value();
     return true;
@@ -623,7 +666,7 @@ inline bool Modulo(BigNumericValue in1, BigNumericValue in2,
 // ----------------------- NUMERIC/BIGNUMERIC -----------------------
 template <typename T>
 inline bool DivideToIntegralValue(T in1, T in2, T* out, absl::Status* error) {
-  zetasql_base::StatusOr<T> numeric_status = in1.DivideToIntegralValue(in2);
+  absl::StatusOr<T> numeric_status = in1.DivideToIntegralValue(in2);
   if (ABSL_PREDICT_TRUE(numeric_status.ok())) {
     *out = numeric_status.value();
     return true;

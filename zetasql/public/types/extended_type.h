@@ -17,8 +17,13 @@
 #ifndef ZETASQL_PUBLIC_TYPES_EXTENDED_TYPE_H_
 #define ZETASQL_PUBLIC_TYPES_EXTENDED_TYPE_H_
 
+#include <string>
+
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_parameters.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 
@@ -32,6 +37,21 @@ namespace zetasql {
 // FindConversion function to provide these conversions to a resolver. Extended
 // types are enabled when LanguageFeature::FEATURE_EXTENDED_TYPES is presented
 // in the set of LanguageOptions features.
+//
+// For an ExtendedType to support serialization/deserialization it needs to:
+// 1) Override Type's SerializeToProtoAndDistinctFileDescriptorsImpl method to
+//  serialize this extended type to a TypeProto. The `type_kind` field of this
+//  TypeProto should be set to TYPE_EXTENDED. It's up to extended type how to
+//  serialize its representation. E.g. it can serialize itself into TypeProto
+//  extended_type_name field or define its own proto extensions.
+// 2) Create implementation of ExtendedTypeDeserializer that deserializes
+//  TypeProto and return an instance of corresponding extended type.
+// 3) ExtendedTypeDeserializer then can be passed to TypeDeserializer, so it
+//  can deserialize extended types or built-in compound types that reference
+//  extended types.
+class LanguageOptions;
+class TypeFactory;
+
 class ExtendedType : public Type {
  public:
 #ifndef SWIG
@@ -48,7 +68,7 @@ class ExtendedType : public Type {
 
   // TODO Change "final" to "override" after adding a test so that
   // extension types can use type parameters.
-  zetasql_base::StatusOr<std::string> TypeNameWithParameters(
+  absl::StatusOr<std::string> TypeNameWithParameters(
       const TypeParameters& type_params, ProductMode mode) const final;
 };
 

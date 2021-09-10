@@ -16,8 +16,15 @@
 
 #include "zetasql/analyzer/analyzer_test_options.h"
 
+#include <string>
+#include <vector>
+
 #include "zetasql/base/logging.h"
+#include "zetasql/public/type.h"
+#include "zetasql/public/types/struct_type.h"
 #include "zetasql/testdata/test_schema.pb.h"
+#include "absl/types/span.h"
+#include "file_based_test_driver/test_case_options.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -34,9 +41,7 @@ const char* const kShowExtractedTableNames = "show_extracted_table_names";
 const char* const kShowTableResolutionTime = "show_table_resolution_time";
 const char* const kShowResolvedAST = "show_resolved_ast";
 const char* const kShowStrictMode = "show_strict_mode";
-const char* const kRecordParseLocations = "record_parse_locations";
-const char* const kFunctionCallParseLocationRecordType =
-    "function_call_parse_location_record_type";
+const char* const kParseLocationRecordType = "parse_location_record_type";
 const char* const kCreateNewColumnForEachProjectedOutput =
     "create_new_column_for_each_projected_output";
 const char* const kParseMultiple = "parse_multiple";
@@ -55,7 +60,7 @@ const char* const kInScopeExpressionColumnType =
 const char* const kCoercedQueryOutputTypes = "coerced_query_output_types";
 const char* const kStatementContext = "statement_context";
 const char* const kProductMode = "product_mode";
-const char* const kUseHintsWhitelist = "use_hints_whitelist";
+const char* const kUseHintsAllowlist = "use_hints_allowlist";
 const char* const kRunInJava = "java";
 const char* const kSupportedStatementKinds = "supported_statement_kinds";
 const char* const kUseCatalog = "use_catalog";
@@ -83,8 +88,7 @@ void RegisterAnalyzerTestOptions(
   test_case_options->RegisterBool(kShowTableResolutionTime, false);
   test_case_options->RegisterBool(kShowResolvedAST, true);
   test_case_options->RegisterBool(kShowStrictMode, false);
-  test_case_options->RegisterBool(kRecordParseLocations, false);
-  test_case_options->RegisterString(kFunctionCallParseLocationRecordType, "");
+  test_case_options->RegisterString(kParseLocationRecordType, "");
   test_case_options->RegisterBool(kCreateNewColumnForEachProjectedOutput,
                                   false);
   test_case_options->RegisterBool(kParseMultiple, false);
@@ -97,11 +101,11 @@ void RegisterAnalyzerTestOptions(
   test_case_options->RegisterString(kLanguageFeatures, "");
   test_case_options->RegisterString(kInScopeExpressionColumnName, "");
   test_case_options->RegisterString(kInScopeExpressionColumnType,
-                                    "`zetasql_test.KitchenSinkPB`");
+                                    "`zetasql_test__.KitchenSinkPB`");
   test_case_options->RegisterString(kCoercedQueryOutputTypes, "");
   test_case_options->RegisterString(kStatementContext, "");
   test_case_options->RegisterString(kProductMode, "");
-  test_case_options->RegisterBool(kUseHintsWhitelist, false);
+  test_case_options->RegisterBool(kUseHintsAllowlist, false);
   test_case_options->RegisterBool(kRunInJava, true);
   test_case_options->RegisterString(kSupportedStatementKinds, "");
   test_case_options->RegisterString(kUseCatalog, "SampleCatalog");
@@ -138,11 +142,11 @@ std::vector<std::pair<std::string, const zetasql::Type*>> GetQueryParameters(
 
   const zetasql::Type* proto_type;
   ZETASQL_CHECK_OK(type_factory->MakeProtoType(
-      zetasql_test::KitchenSinkPB::descriptor(), &proto_type));
+      zetasql_test__::KitchenSinkPB::descriptor(), &proto_type));
 
   const zetasql::Type* enum_type;
   ZETASQL_CHECK_OK(type_factory->MakeEnumType(
-      zetasql_test::TestEnum_descriptor(), &enum_type));
+      zetasql_test__::TestEnum_descriptor(), &enum_type));
 
   const zetasql::Type* array_enum_type;
   ZETASQL_CHECK_OK(type_factory->MakeArrayType(enum_type, &array_enum_type));

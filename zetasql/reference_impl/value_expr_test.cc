@@ -35,7 +35,6 @@
 #include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/compliance/functions_testlib_common.h"
-#include "zetasql/compliance/type_helpers.h"
 #include "zetasql/public/builtin_function.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/language_options.h"
@@ -51,6 +50,7 @@
 #include "zetasql/reference_impl/test_relational_op.h"
 #include "zetasql/reference_impl/tuple.h"
 #include "zetasql/reference_impl/tuple_test_util.h"
+#include "zetasql/reference_impl/type_helpers.h"
 #include "zetasql/reference_impl/variable_generator.h"
 #include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -67,7 +67,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/optional.h"
@@ -117,7 +117,7 @@ std::vector<const TupleSchema*> EmptyParamsSchemas() { return {}; }
 std::vector<const TupleData*> EmptyParams() { return {}; }
 
 // For convenience.
-zetasql_base::StatusOr<Value> EvalExpr(const ValueExpr& expr,
+absl::StatusOr<Value> EvalExpr(const ValueExpr& expr,
                                absl::Span<const TupleData* const> params,
                                EvaluationContext* context = nullptr) {
   EvaluationContext empty_context((EvaluationOptions()));
@@ -263,7 +263,7 @@ TEST_P(NaryFunctionTemplateTest, NaryFunctionTest) {
     ZETASQL_ASSERT_OK_AND_ASSIGN(
         auto fct, ScalarFunctionCallExpr::Create(std::move(function_body),
                                                  std::move(arguments)));
-    const zetasql_base::StatusOr<Value> function_value =
+    const absl::StatusOr<Value> function_value =
         EvalExpr(*fct, EmptyParams(), &context);
 
     if (each.second.status.ok()) {
@@ -379,11 +379,11 @@ class EvalTest : public ::testing::Test {
   void SetUp() override {
     TypeFactory* type_factory = test_values::static_type_factory();
     ZETASQL_ASSERT_OK(type_factory->MakeProtoType(
-        zetasql_test::KitchenSinkPB::descriptor(), &proto_type_));
+        zetasql_test__::KitchenSinkPB::descriptor(), &proto_type_));
   }
 
   Value GetProtoValue(int i) const {
-    zetasql_test::KitchenSinkPB proto;
+    zetasql_test__::KitchenSinkPB proto;
     proto.set_int64_key_1(i);
     proto.set_int64_key_2(10 * i);
 
@@ -995,10 +995,10 @@ TEST_F(DMLValueExprEvalTest, DMLInsertValueExpr) {
           /*element=*/VariableId(),
           /*position=*/VariableId(),
           {std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
-                              &stmt->table_scan()->column_list()[0]),
+                              stmt->table_scan()->column_list()[0]),
                           0),
            std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
-                              &stmt->table_scan()->column_list()[1]),
+                              stmt->table_scan()->column_list()[1]),
                           1)},
           std::move(table_as_array_expr)));
   (*resolved_scan_map)[stmt->table_scan()] = std::move(relation_op);
@@ -1108,10 +1108,10 @@ TEST_F(DMLValueExprEvalTest,
           /*element=*/VariableId(),
           /*position=*/VariableId(),
           {std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
-                              &stmt->table_scan()->column_list()[0]),
+                              stmt->table_scan()->column_list()[0]),
                           0),
            std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
-                              &stmt->table_scan()->column_list()[1]),
+                              stmt->table_scan()->column_list()[1]),
                           1)},
           std::move(table_as_array_expr)));
   (*resolved_scan_map)[stmt->table_scan()] = std::move(relation_op);
@@ -1216,10 +1216,10 @@ TEST_F(DMLValueExprEvalTest, DMLDeleteValueExpr) {
           /*element=*/VariableId(),
           /*position=*/VariableId(),
           {std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
-                              &stmt->table_scan()->column_list()[0]),
+                              stmt->table_scan()->column_list()[0]),
                           0),
            std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
-                              &stmt->table_scan()->column_list()[1]),
+                              stmt->table_scan()->column_list()[1]),
                           1)},
           std::move(table_as_array_expr)));
   (*resolved_scan_map)[stmt->table_scan()] = std::move(relation_op);
@@ -1228,7 +1228,7 @@ TEST_F(DMLValueExprEvalTest, DMLDeleteValueExpr) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<DerefExpr> arg_expr,
       DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
-                            &stmt->where_expr()
+                            stmt->where_expr()
                                  ->GetAs<ResolvedFunctionCall>()
                                  ->argument_list(0)
                                  ->GetAs<ResolvedColumnRef>()
@@ -1359,10 +1359,10 @@ TEST_F(DMLValueExprEvalTest, DMLUpdateValueExpr) {
           /*element=*/VariableId(),
           /*position=*/VariableId(),
           {std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
-                              &stmt->table_scan()->column_list()[0]),
+                              stmt->table_scan()->column_list()[0]),
                           0),
            std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
-                              &stmt->table_scan()->column_list()[1]),
+                              stmt->table_scan()->column_list()[1]),
                           1)},
           std::move(table_as_array_expr)));
   (*resolved_scan_map)[stmt->table_scan()] = std::move(relation_op);
@@ -1371,7 +1371,7 @@ TEST_F(DMLValueExprEvalTest, DMLUpdateValueExpr) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<DerefExpr> arg_expr,
       DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
-                            &stmt->where_expr()
+                            stmt->where_expr()
                                  ->GetAs<ResolvedFunctionCall>()
                                  ->argument_list(0)
                                  ->GetAs<ResolvedColumnRef>()
@@ -1400,7 +1400,7 @@ TEST_F(DMLValueExprEvalTest, DMLUpdateValueExpr) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<DerefExpr> target_expr,
       DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
-                            &stmt->update_item_list(0)
+                            stmt->update_item_list(0)
                                  ->target()
                                  ->GetAs<ResolvedColumnRef>()
                                  ->column()),
@@ -1528,10 +1528,10 @@ TEST_F(DMLValueExprEvalTest,
           /*element=*/VariableId(),
           /*position=*/VariableId(),
           {std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
-                              &stmt->table_scan()->column_list()[0]),
+                              stmt->table_scan()->column_list()[0]),
                           0),
            std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
-                              &stmt->table_scan()->column_list()[1]),
+                              stmt->table_scan()->column_list()[1]),
                           1)},
           std::move(table_as_array_expr)));
   (*resolved_scan_map)[stmt->table_scan()] = std::move(relation_op);
@@ -1540,7 +1540,7 @@ TEST_F(DMLValueExprEvalTest,
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<DerefExpr> arg_expr,
       DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
-                            &stmt->where_expr()
+                            stmt->where_expr()
                                  ->GetAs<ResolvedFunctionCall>()
                                  ->argument_list(0)
                                  ->GetAs<ResolvedColumnRef>()
@@ -1569,7 +1569,7 @@ TEST_F(DMLValueExprEvalTest,
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<DerefExpr> target_expr,
       DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
-                            &stmt->update_item_list(0)
+                            stmt->update_item_list(0)
                                  ->target()
                                  ->GetAs<ResolvedColumnRef>()
                                  ->column()),
@@ -1695,10 +1695,10 @@ TEST_F(DMLValueExprEvalTest,
           /*element=*/VariableId(),
           /*position=*/VariableId(),
           {std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
-                              &stmt->table_scan()->column_list()[0]),
+                              stmt->table_scan()->column_list()[0]),
                           0),
            std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
-                              &stmt->table_scan()->column_list()[1]),
+                              stmt->table_scan()->column_list()[1]),
                           1)},
           std::move(table_as_array_expr)));
   (*resolved_scan_map)[stmt->table_scan()] = std::move(relation_op);
@@ -1707,7 +1707,7 @@ TEST_F(DMLValueExprEvalTest,
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<DerefExpr> arg_expr,
       DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
-                            &stmt->where_expr()
+                            stmt->where_expr()
                                  ->GetAs<ResolvedFunctionCall>()
                                  ->argument_list(0)
                                  ->GetAs<ResolvedColumnRef>()
@@ -1736,7 +1736,7 @@ TEST_F(DMLValueExprEvalTest,
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<DerefExpr> target_expr,
       DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
-                            &stmt->update_item_list(0)
+                            stmt->update_item_list(0)
                                  ->target()
                                  ->GetAs<ResolvedColumnRef>()
                                  ->column()),
@@ -1824,7 +1824,7 @@ class ProtoEvalTest : public ::testing::Test {
   }
 
   // Reads 'field_name' of 'msg' using a GetProtoFieldExpr.
-  zetasql_base::StatusOr<Value> GetProtoField(const google::protobuf::Message* msg,
+  absl::StatusOr<Value> GetProtoField(const google::protobuf::Message* msg,
                                       const std::string& field_name) {
     const ProtoType* proto_type = MakeProtoType(msg);
     return GetProtoField(Value::Proto(proto_type, SerializePartialToCord(*msg)),
@@ -1832,7 +1832,7 @@ class ProtoEvalTest : public ::testing::Test {
   }
 
   // Reads 'field_name' of 'proto_value' using a GetProtoFieldExpr.
-  zetasql_base::StatusOr<Value> GetProtoField(const Value& proto_value,
+  absl::StatusOr<Value> GetProtoField(const Value& proto_value,
                                       const std::string& field_name) {
     TupleSlot proto_slot;
     proto_slot.SetValue(proto_value);
@@ -1868,7 +1868,7 @@ class ProtoEvalTest : public ::testing::Test {
   // Creates a GetProtoFieldExpr that either accesses or checks the presence of
   // 'field_name'. Invokes it on 'proto_slot' by passing 'proto_slot' in
   // parameter 'p'.
-  zetasql_base::StatusOr<TupleSlot> EvalGetProtoFieldExpr(const TupleSlot& proto_slot,
+  absl::StatusOr<TupleSlot> EvalGetProtoFieldExpr(const TupleSlot& proto_slot,
                                                   const std::string& field_name,
                                                   bool get_has_bit,
                                                   EvaluationContext* context) {
@@ -1888,7 +1888,7 @@ class ProtoEvalTest : public ::testing::Test {
     access_info.field_info.get_has_bit = get_has_bit;
     access_info.field_info.default_value = default_value;
 
-    std::vector<zetasql_base::StatusOr<TupleSlot>> output_slots;
+    std::vector<absl::StatusOr<TupleSlot>> output_slots;
     ZETASQL_RETURN_IF_ERROR(EvalGetProtoFieldExprs({std::make_pair(&access_info, 1)},
                                            {proto_slot}, context,
                                            &output_slots));
@@ -1905,7 +1905,7 @@ class ProtoEvalTest : public ::testing::Test {
   absl::Status EvalGetProtoFieldExprs(
       std::vector<std::pair<const ProtoFieldAccessInfo*, int>> infos,
       const std::vector<TupleSlot>& proto_slots, EvaluationContext* context,
-      std::vector<zetasql_base::StatusOr<TupleSlot>>* output_slots) {
+      std::vector<absl::StatusOr<TupleSlot>>* output_slots) {
     ZETASQL_RET_CHECK(!proto_slots.empty());
 
     context->set_populate_last_get_field_value_call_read_fields_from_proto_map(
@@ -2072,7 +2072,7 @@ class ProtoEvalTest : public ::testing::Test {
 };
 
 TEST_F(ProtoEvalTest, CreatePrimitiveProtoFields) {
-  zetasql_test::KitchenSinkPB p;
+  zetasql_test__::KitchenSinkPB p;
   // int32_t
   EXPECT_EQ("int32_val: -5", FormatProto("int32_val", Int32(-5), &p));
   EXPECT_EQ("", FormatProto("int32_val", NullInt32(), &p));
@@ -2182,7 +2182,7 @@ TEST_F(ProtoEvalTest, CreatePrimitiveProtoFields) {
 }
 
 TEST_F(ProtoEvalTest, CreateRepeatedProtoFields) {
-  zetasql_test::KitchenSinkPB p;
+  zetasql_test__::KitchenSinkPB p;
 
   // repeated_int32_val
   EXPECT_EQ("repeated_int32_val: -5 repeated_int32_val: -7", FormatProto(
@@ -2338,8 +2338,8 @@ TEST_F(ProtoEvalTest, CreateRepeatedProtoFields) {
 }
 
 TEST_F(ProtoEvalTest, CreateNestedProtoFields) {
-  zetasql_test::KitchenSinkPB p;
-  zetasql_test::KitchenSinkPB::Nested nested_pb;
+  zetasql_test__::KitchenSinkPB p;
+  zetasql_test__::KitchenSinkPB::Nested nested_pb;
   Value nested_value1 = MakeProtoValue({{"nested_int64", Int64(5)}}, nested_pb);
   Value nested_value2 = MakeProtoValue({{"nested_int64", Int64(7)}}, nested_pb);
 
@@ -2357,8 +2357,8 @@ TEST_F(ProtoEvalTest, CreateNestedProtoFields) {
               HasSubstr("out_of_range"));
 
   // repeated_holder
-  zetasql_test::RepeatedHolderPB holder_pb;
-  zetasql_test::TestExtraPB extra_pb;
+  zetasql_test__::RepeatedHolderPB holder_pb;
+  zetasql_test__::TestExtraPB extra_pb;
   Value holder_value = MakeProtoValue({{
       "repeated_field", Array({MakeProtoValue({{
            "int32_val1", Int32(5)}},
@@ -2377,7 +2377,7 @@ TEST_F(ProtoEvalTest, CreateNestedProtoFields) {
               HasSubstr("out_of_range"));
 
   // optional_group
-  zetasql_test::KitchenSinkPB_OptionalGroup group_pb;
+  zetasql_test__::KitchenSinkPB_OptionalGroup group_pb;
   Value group_value = MakeProtoValue({{"int64_val", Int64(5)}}, group_pb);
   EXPECT_EQ("optional_group { int64_val: 5 }",
             FormatProto("optional_group", group_value, &p));
@@ -2385,7 +2385,7 @@ TEST_F(ProtoEvalTest, CreateNestedProtoFields) {
               HasSubstr("out_of_range"));
 
   // nested_repeated_group
-  zetasql_test::KitchenSinkPB_NestedRepeatedGroup nested_group_pb;
+  zetasql_test__::KitchenSinkPB_NestedRepeatedGroup nested_group_pb;
   Value nested_group1 = MakeProtoValue({{"id", Int64(5)}}, nested_group_pb);
   Value nested_group2 = MakeProtoValue({{"id", Int64(7)}}, nested_group_pb);
   EXPECT_EQ("nested_repeated_group { id: 5 } "
@@ -2402,10 +2402,10 @@ TEST_F(ProtoEvalTest, CreateNestedProtoFields) {
 }
 
 TEST_F(ProtoEvalTest, CreateEnumProtoFields) {
-  zetasql_test::KitchenSinkPB p;
+  zetasql_test__::KitchenSinkPB p;
   const EnumType* enum_type;
   ZETASQL_CHECK_OK(type_factory_->MakeEnumType(
-      zetasql_test::TestEnum_descriptor(), &enum_type));
+      zetasql_test__::TestEnum_descriptor(), &enum_type));
 
   // test_enum
   EXPECT_EQ("test_enum: TESTENUM1",
@@ -2433,7 +2433,7 @@ TEST_F(ProtoEvalTest, CreateEnumProtoFields) {
 // timestamps in integer fields. However, ZetaSQL analyzer will reject such
 // use. The test below purposefully does not attempt to exercise such scenarios.
 TEST_F(ProtoEvalTest, CreateDateTimeProtoFields) {
-  zetasql_test::KitchenSinkPB p;
+  zetasql_test__::KitchenSinkPB p;
   // date
   EXPECT_EQ("date: 5", FormatProto("date", Date(5), &p));
   EXPECT_EQ("", FormatProto("date", NullDate(), &p));
@@ -2529,7 +2529,7 @@ TEST_F(ProtoEvalTest, CreateDateTimeProtoFields) {
 }
 
 TEST_F(ProtoEvalTest, GetProtoFieldExprPrimitiveProtoFields) {
-  zetasql_test::KitchenSinkPB p;
+  zetasql_test__::KitchenSinkPB p;
 
   // int32_val: default 77
   EXPECT_EQ(Value::Int32(77), GetProtoFieldOrDie(&p, "int32_val"));
@@ -2616,7 +2616,7 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprPrimitiveProtoFields) {
 }
 
 TEST_F(ProtoEvalTest, GetProtoFieldExprRepeatedProtoFields) {
-  zetasql_test::KitchenSinkPB p;
+  zetasql_test__::KitchenSinkPB p;
 
   // Repeated fields.
   EXPECT_EQ(Int32Array({}), GetProtoFieldOrDie(&p, "repeated_int32_val"));
@@ -2713,7 +2713,7 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprRepeatedProtoFields) {
 }
 
 TEST_F(ProtoEvalTest, GetProtoFieldExprPackedProtoFields) {
-  zetasql_test::KitchenSinkPB p;
+  zetasql_test__::KitchenSinkPB p;
 
   EXPECT_EQ(Int32Array({}), GetProtoFieldOrDie(&p, "repeated_int32_packed"));
   p.add_repeated_int32_packed(140);
@@ -2795,13 +2795,13 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprPackedProtoFields) {
 
   const EnumType* enum_type;
   ZETASQL_CHECK_OK(type_factory_->MakeEnumType(
-      zetasql_test::TestEnum_descriptor(), &enum_type));
+      zetasql_test__::TestEnum_descriptor(), &enum_type));
   const ArrayType* enum_array_type;
   ZETASQL_CHECK_OK(type_factory_->MakeArrayType(enum_type, &enum_array_type));
   EXPECT_EQ(Value::EmptyArray(enum_array_type),
             GetProtoFieldOrDie(&p, "repeated_enum_packed"));
-  p.add_repeated_enum_packed(zetasql_test::TESTENUM2);
-  p.add_repeated_enum_packed(zetasql_test::TESTENUM1);
+  p.add_repeated_enum_packed(zetasql_test__::TESTENUM2);
+  p.add_repeated_enum_packed(zetasql_test__::TESTENUM1);
   EXPECT_EQ(
       Value::Array(enum_array_type, {Value::Enum(enum_type, "TESTENUM2"),
                                      Value::Enum(enum_type, "TESTENUM1")}),
@@ -2809,9 +2809,9 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprPackedProtoFields) {
 }
 
 TEST_F(ProtoEvalTest, GetProtoFieldExprProtosEnums) {
-  zetasql_test::KitchenSinkPB p;
+  zetasql_test__::KitchenSinkPB p;
 
-  zetasql_test::KitchenSinkPB::Nested nested_tmp;
+  zetasql_test__::KitchenSinkPB::Nested nested_tmp;
   const ProtoType* nested_type = MakeProtoType(&nested_tmp);
   EXPECT_EQ(Value::Null(nested_type), GetProtoFieldOrDie(&p, "nested_value"));
   EXPECT_EQ(Value::Bool(false), HasProtoFieldOrDie(&p, "nested_value"));
@@ -2821,7 +2821,7 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprProtosEnums) {
   EXPECT_EQ(Value::NullBool(),
             HasProtoFieldOrDie(GetProtoFieldOrDie(&p, "nested_value"),
                                "nested_int64"));
-  zetasql_test::KitchenSinkPB::Nested* n = p.mutable_nested_value();
+  zetasql_test__::KitchenSinkPB::Nested* n = p.mutable_nested_value();
   // Default: 88.
   EXPECT_EQ(Value::Int64(88), GetProtoFieldOrDie(n, "nested_int64"));
   n->add_nested_repeated_int64(300);
@@ -2845,11 +2845,11 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprProtosEnums) {
 
   const EnumType* enum_type;
   ZETASQL_CHECK_OK(type_factory_->MakeEnumType(
-      zetasql_test::TestEnum_descriptor(), &enum_type));
+      zetasql_test__::TestEnum_descriptor(), &enum_type));
   EXPECT_EQ(Value::Enum(enum_type, "TESTENUM0"),
             GetProtoFieldOrDie(&p, "test_enum"));  // Default value.
   EXPECT_EQ(Value::Bool(false), HasProtoFieldOrDie(&p, "test_enum"));
-  p.set_test_enum(zetasql_test::TESTENUM1);
+  p.set_test_enum(zetasql_test__::TESTENUM1);
   EXPECT_EQ(Value::Enum(enum_type, "TESTENUM1"),
             GetProtoFieldOrDie(&p, "test_enum"));
   EXPECT_EQ(Value::Bool(true), HasProtoFieldOrDie(&p, "test_enum"));
@@ -2858,22 +2858,22 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprProtosEnums) {
   ZETASQL_CHECK_OK(type_factory_->MakeArrayType(enum_type, &enum_array_type));
   EXPECT_EQ(Value::EmptyArray(enum_array_type),
             GetProtoFieldOrDie(&p, "repeated_test_enum"));
-  p.add_repeated_test_enum(zetasql_test::TESTENUM2);
-  p.add_repeated_test_enum(zetasql_test::TESTENUM1);
+  p.add_repeated_test_enum(zetasql_test__::TESTENUM2);
+  p.add_repeated_test_enum(zetasql_test__::TESTENUM1);
   EXPECT_EQ(
       Value::Array(enum_array_type, {Value::Enum(enum_type, "TESTENUM2"),
                                      Value::Enum(enum_type, "TESTENUM1")}),
       GetProtoFieldOrDie(&p, "repeated_test_enum"));
 
   // optional_group
-  zetasql_test::KitchenSinkPB::OptionalGroup group_tmp;
+  zetasql_test__::KitchenSinkPB::OptionalGroup group_tmp;
   const ProtoType* group_type = MakeProtoType(&group_tmp);
   EXPECT_EQ(Value::Null(group_type), GetProtoFieldOrDie(&p, "optional_group"));
   EXPECT_EQ(Value::Bool(false), HasProtoFieldOrDie(&p, "optional_group"));
   EXPECT_EQ(Value::NullInt64(),
             GetProtoFieldOrDie(GetProtoFieldOrDie(&p, "optional_group"),
                                "int64_val"));
-  zetasql_test::KitchenSinkPB::OptionalGroup* g = p.mutable_optional_group();
+  zetasql_test__::KitchenSinkPB::OptionalGroup* g = p.mutable_optional_group();
   g->set_int64_val(500);
   g->add_optionalgroupnested()->set_int64_val(510);
   ASSERT_TRUE(ParseFromCord(GetProtoFieldOrDie(&p, "optional_group").ToCord(),
@@ -2882,7 +2882,7 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprProtosEnums) {
   EXPECT_EQ(Value::Bool(true), HasProtoFieldOrDie(&p, "optional_group"));
 
   // nested_repeated_group
-  zetasql_test::KitchenSinkPB::NestedRepeatedGroup repeated_group_tmp;
+  zetasql_test__::KitchenSinkPB::NestedRepeatedGroup repeated_group_tmp;
   const ProtoType* repeated_group_type = MakeProtoType(&repeated_group_tmp);
   const ArrayType* repeated_group_array_type;
   ZETASQL_CHECK_OK(type_factory_->MakeArrayType(
@@ -2901,7 +2901,7 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprProtosEnums) {
 }
 
 TEST_F(ProtoEvalTest, GetProtoFieldExprDateTime) {
-  zetasql_test::KitchenSinkPB p;
+  zetasql_test__::KitchenSinkPB p;
   EXPECT_EQ(Value::Date(0), GetProtoFieldOrDie(&p, "date"));
   EXPECT_EQ(Value::Bool(false), HasProtoFieldOrDie(&p, "date"));
   p.set_date(types::kDateMax);
@@ -2977,7 +2977,7 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprDateTime) {
 }
 
 TEST_F(ProtoEvalTest, GetProtoFieldExprDefaultAnnotations) {
-  zetasql_test::KitchenSinkPB p;
+  zetasql_test__::KitchenSinkPB p;
   EXPECT_EQ(Value::Int64(0), GetProtoFieldOrDie(&p, "int_with_no_default"));
   EXPECT_EQ(Value::Int64(17), GetProtoFieldOrDie(&p, "int_with_default"));
   EXPECT_EQ(Value::NullInt64(),
@@ -3001,7 +3001,7 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprDefaultAnnotations) {
 
 TEST_F(ProtoEvalTest, GetProtoFieldExprLastFieldOccurrence) {
   // The latest value with the given tag is the one than matters.
-  zetasql_test::KitchenSinkPB p;
+  zetasql_test__::KitchenSinkPB p;
 
   p.set_int32_val(5);
   absl::Cord bytes1 = SerializePartialToCord(p);
@@ -3026,22 +3026,22 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprsMultipleFieldsMultipleRows) {
   // ensure the ProtoFieldValueMap is used in the appropriate ways.
   for (bool use_shared_states : {false, true}) {
     ZETASQL_LOG(INFO) << "use_shared_states: " << use_shared_states;
-    zetasql_test::KitchenSinkPB p1;
+    zetasql_test__::KitchenSinkPB p1;
     p1.set_int64_key_1(1);
     p1.set_int64_key_2(2);
-    zetasql_test::KitchenSinkPB_Nested* nested1 = p1.mutable_nested_value();
+    zetasql_test__::KitchenSinkPB_Nested* nested1 = p1.mutable_nested_value();
     nested1->set_nested_int64(3);
 
-    zetasql_test::KitchenSinkPB p2;
+    zetasql_test__::KitchenSinkPB p2;
     p2.set_int64_key_1(10);
     p2.set_int64_key_2(20);
-    zetasql_test::KitchenSinkPB_Nested* nested2 = p2.mutable_nested_value();
+    zetasql_test__::KitchenSinkPB_Nested* nested2 = p2.mutable_nested_value();
     nested2->set_nested_int64(30);
 
-    zetasql_test::KitchenSinkPB p3;
+    zetasql_test__::KitchenSinkPB p3;
     p3.set_int64_key_1(100);
     p3.set_int64_key_2(200);
-    zetasql_test::KitchenSinkPB_Nested* nested3 = p3.mutable_nested_value();
+    zetasql_test__::KitchenSinkPB_Nested* nested3 = p3.mutable_nested_value();
     nested3->set_nested_int64(300);
 
     absl::Cord bytes1 = SerializeToCord(p1);
@@ -3090,7 +3090,7 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprsMultipleFieldsMultipleRows) {
     options.store_proto_field_value_maps = use_shared_states;
 
     EvaluationContext context(options);
-    std::vector<zetasql_base::StatusOr<TupleSlot>> output_slots;
+    std::vector<absl::StatusOr<TupleSlot>> output_slots;
     ZETASQL_ASSERT_OK(EvalGetProtoFieldExprs(
         {std::make_pair(&access_info1, 2), std::make_pair(&access_info2, 1)},
         {s1, s2, s3}, &context, &output_slots));
@@ -3136,7 +3136,7 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprsMultipleFieldsMultipleRows) {
         const int first_field_values[] = {1, 10, 100};
         const int first_field_value = first_field_values[i];
 
-        zetasql_test::KitchenSinkPB_Nested nested_msg;
+        zetasql_test__::KitchenSinkPB_Nested nested_msg;
         nested_msg.set_nested_int64(3 * first_field_value);
         absl::Cord nested_bytes = SerializeToCord(nested_msg);
         const Value nested_value =

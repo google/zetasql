@@ -41,7 +41,7 @@
 #include <cstdint>
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
@@ -852,8 +852,8 @@ static void AddSwappedDiffTestCases(
   int num_original_test_cases = diff_test_cases->size();
   for (int i = 0; i < num_original_test_cases; ++i) {
     const auto& test_case = (*diff_test_cases)[i];
-    auto MakeNegativeOutput = [](const zetasql_base::StatusOr<Value>& original_result) {
-      zetasql_base::StatusOr<Value> negative_result;
+    auto MakeNegativeOutput = [](const absl::StatusOr<Value>& original_result) {
+      absl::StatusOr<Value> negative_result;
       if (original_result.ok() && !original_result.value().is_null()) {
         int64_t result_value = original_result.value().int64_value();
         if (result_value == std::numeric_limits<int64_t>::lowest()) {
@@ -1373,16 +1373,16 @@ std::vector<FunctionTestCall> GetFunctionTestsDatetimeTrunc() {
       }
 
       auto BuildTestCaseOutput = [](int32_t date,
-                                    const zetasql_base::StatusOr<Value>& time_output) {
+                                    const absl::StatusOr<Value>& time_output) {
         if (time_output.ok()) {
           const Value& time_value = time_output.value();
           if (time_value.is_null()) {
-            return zetasql_base::StatusOr<Value>(NullDatetime());
+            return absl::StatusOr<Value>(NullDatetime());
           } else {
             DatetimeValue datetime;
             ZETASQL_CHECK_OK(functions::ConstructDatetime(date, time_value.time_value(),
                                                   &datetime));
-            return zetasql_base::StatusOr<Value>(Datetime(datetime));
+            return absl::StatusOr<Value>(Datetime(datetime));
           }
         } else {
           return time_output;
@@ -3578,6 +3578,7 @@ static std::vector<FormatDateTimestampCommonTest>
       {"%I", TEST_FORMAT_TIME, "01"},  // hour (1-12)
 
       {"%j", TEST_FORMAT_DATE, "189"},  // year day
+      {"%J", TEST_FORMAT_DATE, "192"},  // ISO year day
 
       {"%k", TEST_FORMAT_TIME, " 1"},  // hour (0-23)
       {"%l", TEST_FORMAT_TIME, " 1"},  // hour (1-12)
@@ -3621,7 +3622,6 @@ static std::vector<FormatDateTimestampCommonTest>
       {"%E", TEST_FORMAT_ANY, "%E"},
       {"%f", TEST_FORMAT_ANY, "%f"},
       {"%i", TEST_FORMAT_ANY, "%i"},
-      {"%J", TEST_FORMAT_ANY, "%J"},
       {"%K", TEST_FORMAT_ANY, "%K"},
       {"%L", TEST_FORMAT_ANY, "%L"},
       {"%N", TEST_FORMAT_ANY, "%N"},
@@ -3815,6 +3815,7 @@ static std::vector<FormatTimestampTest> GetTimezoneFreeFormatTimestampTests() {
 
   // Day of year, with leading zeros.
   tests.push_back({"%j", timestamp, "UTC", "001"});  // year day
+  tests.push_back({"%J", timestamp, "UTC", "003"});  // year day
 
   // Additional week day testing.
   // %u - Monday = 1, Sunday = 7
@@ -4043,6 +4044,7 @@ static std::vector<FormatDateTest> GetFormatDateTests() {
 
   // Day of year, with leading zeros.
   tests.push_back({"%j", date, "002"});  // year day
+  tests.push_back({"%J", date, "370"});  // ISO year day
 
   // %H does not work for Date, nor should %2H
   tests.push_back({"%H", date, "%H"});
@@ -4229,6 +4231,21 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatTime() {
 
       // %Q does not work for Time
       {{{String("%Q"), common_time}}, String("%Q")},
+
+      // Day of year does not work for Time
+      {{{String("%j"), common_time}}, String("%j")},
+      {{{String("%J"), common_time}}, String("%J")},
+
+      // Week does not work for Time
+      {{{String("%U"), common_time}}, String("%U")},
+      {{{String("%V"), common_time}}, String("%V")},
+      {{{String("%W"), common_time}}, String("%W")},
+
+      // Day of week does not work for time.
+      {{{String("%u"), common_time}}, String("%u")},
+      {{{String("%w"), common_time}}, String("%w")},
+      {{{String("%A"), common_time}}, String("%A")},
+      {{{String("%a"), common_time}}, String("%a")},
   };
 
   // Adds applicable common tests
@@ -4715,10 +4732,13 @@ GetParseDateTimestampCommonTests() {
       {"%OM", TEST_FORMAT_TIME, "59", "00:59:00"},    // minute
       {"%OS", TEST_FORMAT_TIME, "59", "00:00:59"},    // seconds
       {"%Ou", TEST_FORMAT_DATE, "7", "1970-01-01"},   // day of week
-      {"%OU", TEST_FORMAT_DATE, "53", "1970-01-01"},  // week of year
+      {"%OU", TEST_FORMAT_DATE, "52", "1970-12-27"},  // week of year
+      {"%OU", TEST_FORMAT_DATE, "53", EXPECT_ERROR},  // week of year
+      {"%OV", TEST_FORMAT_DATE, "52", "1970-01-01"},  // week of year
       {"%OV", TEST_FORMAT_DATE, "53", "1970-01-01"},  // week of year
       {"%Ow", TEST_FORMAT_DATE, "6", "1970-01-01"},   // day of week
-      {"%OW", TEST_FORMAT_DATE, "53", "1970-01-01"},  // week of year
+      {"%OW", TEST_FORMAT_DATE, "52", "1970-12-28"},  // week of year
+      {"%OW", TEST_FORMAT_DATE, "53", EXPECT_ERROR},  // week of year
       {"%Oy", TEST_FORMAT_DATE, "09", "2009-01-01"},  // two digit year
 
       // Invalid format elements provide an error.
@@ -4940,52 +4960,54 @@ GetParseDateTimestampCommonTests() {
       // Invalid strings are an error.
       {"%a", TEST_FORMAT_DATE, "Blahday", EXPECT_ERROR},
 
-      // %G - ISO 8601 year with century:
+      // %G - ISO 8601 year with century, out of range values fail.
       {"%G", TEST_FORMAT_DATE, "", EXPECT_ERROR},
       {"%G", TEST_FORMAT_DATE, "a", EXPECT_ERROR},
       {"%G", TEST_FORMAT_DATE, "-0", EXPECT_ERROR},
       {"%G", TEST_FORMAT_DATE, "-1999", EXPECT_ERROR},
       {"%G", TEST_FORMAT_DATE, "+0", EXPECT_ERROR},
       {"%G", TEST_FORMAT_DATE, "+1999", EXPECT_ERROR},
-      {"%G", TEST_FORMAT_DATE, "0", kTestExpected19700101},
-      {"%G", TEST_FORMAT_DATE, "2", kTestExpected19700101},
-      {"%G", TEST_FORMAT_DATE, "22", kTestExpected19700101},
-      {"%G", TEST_FORMAT_DATE, "222", kTestExpected19700101},
-      {"%G", TEST_FORMAT_DATE, "2222", kTestExpected19700101},
-      {"%G", TEST_FORMAT_DATE, "2015", kTestExpected19700101},
-      {"%G", TEST_FORMAT_DATE, "10000", kTestExpected19700101},
-      {"%G", TEST_FORMAT_DATE, "10001", kTestExpected19700101},
-      {"%G", TEST_FORMAT_DATE, "99999", kTestExpected19700101},
+      {"%G", TEST_FORMAT_DATE, "0", EXPECT_ERROR},
+      {"%G", TEST_FORMAT_DATE, "10000", EXPECT_ERROR},
+      {"%G", TEST_FORMAT_DATE, "10001", EXPECT_ERROR},
+      {"%G", TEST_FORMAT_DATE, "99999", EXPECT_ERROR},
+
+      // Valid ISO Year values map to the first day of the ISO year.
+      {"%G", TEST_FORMAT_DATE, "2", "0001-12-31"},
+      {"%G", TEST_FORMAT_DATE, "22", "0022-01-03"},
+      {"%G", TEST_FORMAT_DATE, "222", "0221-12-31"},
+      {"%G", TEST_FORMAT_DATE, "2222", "2221-12-31"},
+      {"%G", TEST_FORMAT_DATE, "2015", "2014-12-29"},
+      {"%G", TEST_FORMAT_DATE, "9999", "9999-01-04"},
 
       // %g - ISO 8601 two-digit year without century 00-99.  More than
       //      two digits fails.
       {"%g", TEST_FORMAT_DATE, "", EXPECT_ERROR},
       {"%g", TEST_FORMAT_DATE, "a", EXPECT_ERROR},
-      {"%g", TEST_FORMAT_DATE, "0", kTestExpected19700101},
-      {"%g", TEST_FORMAT_DATE, "00", kTestExpected19700101},
       {"%g", TEST_FORMAT_DATE, "000", EXPECT_ERROR},
-      {"%g", TEST_FORMAT_DATE, "2", kTestExpected19700101},
-      {"%g", TEST_FORMAT_DATE, "02", kTestExpected19700101},
-      {"%g", TEST_FORMAT_DATE, "22", kTestExpected19700101},
-      {"%g", TEST_FORMAT_DATE, "99", kTestExpected19700101},
       {"%g", TEST_FORMAT_DATE, "100", EXPECT_ERROR},
       {"%g", TEST_FORMAT_DATE, "222", EXPECT_ERROR},
 
+      {"%g", TEST_FORMAT_DATE, "0", "2000-01-03"},
+      {"%g", TEST_FORMAT_DATE, "00", "2000-01-03"},
+      {"%g", TEST_FORMAT_DATE, "2", "2001-12-31"},
+      {"%g", TEST_FORMAT_DATE, "02", "2001-12-31"},
+      {"%g", TEST_FORMAT_DATE, "22", "2022-01-03"},
+      {"%g", TEST_FORMAT_DATE, "99", "1999-01-04"},
+
       // %j - day of year 001-366.  A number outside that range fails.
-      // TODO: We should consider making this work in ZetaSQL
-      // since we can map this value to a specific day in a specific year,
-      // rather than ignore it as we are currently.  Maybe in V2.
       {"%j", TEST_FORMAT_DATE, "0", EXPECT_ERROR},
-      {"%j", TEST_FORMAT_DATE, "1", kTestExpected19700101},
-      {"%j", TEST_FORMAT_DATE, "01", kTestExpected19700101},
-      {"%j", TEST_FORMAT_DATE, "001", kTestExpected19700101},
-      {"%j", TEST_FORMAT_DATE, "31", kTestExpected19700101},
-      {"%j", TEST_FORMAT_DATE, "032", kTestExpected19700101},
-      {"%j", TEST_FORMAT_DATE, "365", kTestExpected19700101},
-      {"%j", TEST_FORMAT_DATE, "366", kTestExpected19700101},
+      {"%j", TEST_FORMAT_DATE, "366", EXPECT_ERROR},
       {"%j", TEST_FORMAT_DATE, "367", EXPECT_ERROR},
       {"%j", TEST_FORMAT_DATE, "999", EXPECT_ERROR},
       {"%j", TEST_FORMAT_DATE, "9999", EXPECT_ERROR},
+
+      {"%j", TEST_FORMAT_DATE, "1", kTestExpected19700101},
+      {"%j", TEST_FORMAT_DATE, "01", kTestExpected19700101},
+      {"%j", TEST_FORMAT_DATE, "001", kTestExpected19700101},
+      {"%j", TEST_FORMAT_DATE, "31", "1970-01-31"},
+      {"%j", TEST_FORMAT_DATE, "032", "1970-02-01"},
+      {"%j", TEST_FORMAT_DATE, "365", "1970-12-31"},
 
       // %n - a whitespace character, equivalent to ' ' or '%t'
       {"%n", TEST_FORMAT_ANY, "\n", kTestExpectedDefault},
@@ -5030,6 +5052,7 @@ GetParseDateTimestampCommonTests() {
 
       // %V - week of year 01-53, Monday as first day of week
       //      '%OV' is treated as '%V' in en_US locale.
+      // %V and %OV are validated but ignored if ISO year is not present.
       {"%V", TEST_FORMAT_DATE, "-1", EXPECT_ERROR},
       {"%V", TEST_FORMAT_DATE, "00", EXPECT_ERROR},
       {"%V", TEST_FORMAT_DATE, "1", kTestExpected19700101},
@@ -5460,14 +5483,29 @@ GetParseDateTimestampCommonTests() {
 
   // %U - week of year 00-53, Sunday as first day of week
   // %W - week of year 00-53, Monday as first day of week
+  //
+  // 1970 only has weeks 00-52.
   const std::string week_elements[] = {"%U", "%OU", "%W", "%OW"};
   for (const std::string& week : week_elements) {
-    tests.push_back({week, TEST_FORMAT_DATE, "-1",  EXPECT_ERROR});
-    tests.push_back({week, TEST_FORMAT_DATE, "0",   kTestExpected19700101});
-    tests.push_back({week, TEST_FORMAT_DATE, "00",  kTestExpected19700101});
-    tests.push_back({week, TEST_FORMAT_DATE, "01",  kTestExpected19700101});
-    tests.push_back({week, TEST_FORMAT_DATE, "53",  kTestExpected19700101});
-    tests.push_back({week, TEST_FORMAT_DATE, "54",  EXPECT_ERROR});
+    tests.push_back({week, TEST_FORMAT_DATE, "-1", EXPECT_ERROR});
+    tests.push_back({week, TEST_FORMAT_DATE, "53", EXPECT_ERROR});
+    tests.push_back({week, TEST_FORMAT_DATE, "54", EXPECT_ERROR});
+  }
+
+  const std::string u_week_elements[] = {"%U", "%OU"};
+  for (const std::string& week : u_week_elements) {
+    tests.push_back({week, TEST_FORMAT_DATE, "0", "1969-12-28"});
+    tests.push_back({week, TEST_FORMAT_DATE, "00", "1969-12-28"});
+    tests.push_back({week, TEST_FORMAT_DATE, "01", "1970-01-04"});
+    tests.push_back({week, TEST_FORMAT_DATE, "52", "1970-12-27"});
+  }
+
+  const std::string w_week_elements[] = {"%W", "%OW"};
+  for (const std::string& week : w_week_elements) {
+    tests.push_back({week, TEST_FORMAT_DATE, "0", "1969-12-29"});
+    tests.push_back({week, TEST_FORMAT_DATE, "00", "1969-12-29"});
+    tests.push_back({week, TEST_FORMAT_DATE, "01", "1970-01-05"});
+    tests.push_back({week, TEST_FORMAT_DATE, "52", "1970-12-28"});
   }
 
   return tests;
@@ -5752,7 +5790,7 @@ static std::vector<FunctionTestCall> GetFunctionTestsParseTime() {
                                            const std::string& timezone_string,
                                            functions::TimestampScale scale) {
       if (IsExpectedError(timestamp_string)) {
-        return zetasql_base::StatusOr<Value>(FunctionEvalError());
+        return absl::StatusOr<Value>(FunctionEvalError());
       }
       absl::Time timestamp;
       absl::TimeZone timezone;
@@ -5763,7 +5801,7 @@ static std::vector<FunctionTestCall> GetFunctionTestsParseTime() {
       TimeValue time;
       ZETASQL_CHECK_OK(functions::ConvertTimestampToTime(timestamp, timezone, &time));
       ZETASQL_CHECK(time.IsValid());
-      return zetasql_base::StatusOr<Value>(Value::Time(time));
+      return absl::StatusOr<Value>(Value::Time(time));
     };
     test_cases.push_back(CivilTimeTestCase(
         {String(test.format()), String(test.timestamp_string())},
@@ -5846,7 +5884,7 @@ static std::vector<FunctionTestCall> GetFunctionTestsParseDatetime() {
            const std::string& timezone_string,
            functions::TimestampScale scale) {
           if (IsExpectedError(timestamp_string)) {
-            return zetasql_base::StatusOr<Value>(FunctionEvalError());
+            return absl::StatusOr<Value>(FunctionEvalError());
           }
           absl::Time timestamp;
           absl::TimeZone timezone;
@@ -5858,7 +5896,7 @@ static std::vector<FunctionTestCall> GetFunctionTestsParseDatetime() {
           ZETASQL_CHECK_OK(functions::ConvertTimestampToDatetime(timestamp, timezone,
                                                          &datetime));
           ZETASQL_CHECK(datetime.IsValid());
-          return zetasql_base::StatusOr<Value>(Value::Datetime(datetime));
+          return absl::StatusOr<Value>(Value::Datetime(datetime));
         };
     test_cases.push_back(CivilTimeTestCase(
         {String(test.format()), String(test.timestamp_string())},
@@ -7198,12 +7236,12 @@ static std::vector<FunctionTestCall> GetFunctionTestsCastStringToTime() {
       auto ConvertTimeStringToTime = [](const std::string& time_string,
                                         functions::TimestampScale scale) {
         if (IsExpectedError(time_string)) {
-          return zetasql_base::StatusOr<Value>(FunctionEvalError());
+          return absl::StatusOr<Value>(FunctionEvalError());
         }
         TimeValue time;
         ZETASQL_CHECK_OK(functions::ConvertStringToTime(time_string, scale, &time));
         ZETASQL_CHECK(time.IsValid());
-        return zetasql_base::StatusOr<Value>(Value::Time(time));
+        return absl::StatusOr<Value>(Value::Time(time));
       };
       std::string micro_result = common_test.expected_result;
       std::string nano_result = common_test.nano_expected_result;
@@ -7262,13 +7300,13 @@ static std::vector<FunctionTestCall> GetFunctionTestsCastStringToDatetime() {
         [](const std::string& datetime_string,
            functions::TimestampScale scale) {
           if (IsExpectedError(datetime_string)) {
-            return zetasql_base::StatusOr<Value>(FunctionEvalError());
+            return absl::StatusOr<Value>(FunctionEvalError());
           }
           DatetimeValue datetime;
           ZETASQL_CHECK_OK(functions::ConvertStringToDatetime(datetime_string, scale,
                                                       &datetime));
           ZETASQL_CHECK(datetime.IsValid());
-          return zetasql_base::StatusOr<Value>(Value::Datetime(datetime));
+          return absl::StatusOr<Value>(Value::Datetime(datetime));
         };
 
     std::string micro_result = common_test.expected_result;
@@ -8841,13 +8879,15 @@ static std::vector<FormatValueTest> GetCastFormatTimeTests() {
       {"HH24", TimeMicros(0, 45, 1, 0), "00"},
 
       // hour 01-12
-      {"HH", TimeMicros(23, 45, 1, 0), "11"},
-      {"HH", TimeMicros(1, 45, 1, 0), "01"},
-      {"HH", TimeMicros(0, 45, 1, 0), "12"},
+      {"HH A.M.", TimeMicros(23, 45, 1, 0), "11 P.M."},
+      {"HH P.M.", TimeMicros(12, 45, 1, 0), "12 P.M."},
+      {"HH AM", TimeMicros(11, 45, 1, 0), "11 AM"},
+      {"HH PM", TimeMicros(0, 45, 1, 0), "12 AM"},
 
-      {"HH12", TimeMicros(23, 45, 1, 0), "11"},
-      {"HH12", TimeMicros(1, 45, 1, 0), "01"},
-      {"HH12", TimeMicros(0, 45, 1, 0), "12"},
+      {"HH12 AM", TimeMicros(23, 45, 1, 0), "11 PM"},
+      {"HH12 PM", TimeMicros(12, 45, 1, 0), "12 PM"},
+      {"HH12 A.M.", TimeMicros(11, 45, 1, 0), "11 A.M."},
+      {"HH12 P.M.", TimeMicros(0, 45, 1, 0), "12 A.M."},
 
       // Time range boundary testing
       {"HH24:MI:SS.FF6", TimeMicros(0, 0, 0, 0), "00:00:00.000000"},

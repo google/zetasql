@@ -21,7 +21,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/multiprecision_int.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/mathutil.h"
 #include "zetasql/base/ret_check.h"
 
@@ -91,7 +91,7 @@ size_t PercentileHelper<double>::ComputePercentileIndex(
 }
 
 // static
-zetasql_base::StatusOr<PercentileHelper<double>> PercentileHelper<double>::Create(
+absl::StatusOr<PercentileHelper<double>> PercentileHelper<double>::Create(
     double percentile) {
   ZETASQL_RETURN_IF_ERROR(CheckPercentileArgument(percentile));
   const zetasql_base::MathUtil::DoubleParts parts = zetasql_base::MathUtil::Decompose(percentile);
@@ -152,7 +152,7 @@ NumericValue PercentileHelper<NumericValue>::ComputeLinearInterpolation(
 }
 
 // static
-zetasql_base::StatusOr<PercentileHelper<NumericValue>>
+absl::StatusOr<PercentileHelper<NumericValue>>
 PercentileHelper<NumericValue>::Create(NumericValue percentile) {
   ZETASQL_RETURN_IF_ERROR(CheckPercentileArgument(percentile));
   return PercentileHelper<NumericValue>(
@@ -214,7 +214,7 @@ BigNumericValue PercentileHelper<BigNumericValue>::ComputeLinearInterpolation(
 }
 
 // static
-zetasql_base::StatusOr<PercentileHelper<BigNumericValue>>
+absl::StatusOr<PercentileHelper<BigNumericValue>>
 PercentileHelper<BigNumericValue>::Create(BigNumericValue percentile) {
   ZETASQL_RETURN_IF_ERROR(CheckPercentileArgument(percentile));
   return PercentileHelper<BigNumericValue>(FixedUint<64, 2>(

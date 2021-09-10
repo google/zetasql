@@ -228,4 +228,22 @@ message FunctionEnums {
     TEMPLATED_SQL_TVF = 3;
     FORWARD_INPUT_SCHEMA_TO_OUTPUT_SCHEMA_WITH_APPENDED_COLUMNS = 7;
   }
+
+  // This is an enumeration for how a function argument's collation should
+  // affect the function. The enum value can be used as a bit mask to check
+  // whether AFFECTS_OPERATION or AFFECTS_PROPAGATION bit is set.
+  enum ArgumentCollationMode {
+    // The collation on the argument is ignored.
+    AFFECTS_NONE = 0;
+    // The bit for the collation on the argument only affects operation
+    // collation.
+    AFFECTS_OPERATION = 1;
+    // The bit for the collation on the argument only affects collation
+    // propagation.
+    AFFECTS_PROPAGATION = 2;
+    // The collation on the argument affects operation collation and propagation
+    // collation. The enum value is intended to be AFFECTS_OPERATION |
+    // AFFECTS_PROPAGATION.
+    AFFECTS_OPERATION_AND_PROPAGATION = 3;
+  }
 }

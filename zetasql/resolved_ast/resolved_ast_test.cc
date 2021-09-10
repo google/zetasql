@@ -52,16 +52,21 @@ using ::testing::UnorderedElementsAre;
 using ::testing::UnorderedElementsAreArray;
 using ::zetasql_base::testing::StatusIs;
 
+class ResolvedASTTest : public ::testing::Test {
+ public:
+  // Make a new ResolvedColumn with int32_t type.
+  ResolvedColumn MakeColumn() {
+    return ResolvedColumn(
+        ++column_id_, zetasql::IdString::MakeGlobal("MakeColumn"),
+        zetasql::IdString::MakeGlobal("C"), types::Int32Type());
+  }
+
+ private:
+  int column_id_ = 1000;
+};
+
 static const SimpleTable* t1 = new SimpleTable("T1");
 static const SimpleTable* t2 = new SimpleTable("T2");
-
-// Make a new ResolvedColumn with int32_t type.
-static ResolvedColumn MakeColumn() {
-  static int column_id = 1000;
-  return ResolvedColumn(
-      ++column_id, zetasql::IdString::MakeGlobal("MakeColumn"),
-      zetasql::IdString::MakeGlobal("C"), types::Int32Type());
-}
 
 static std::unique_ptr<const ResolvedJoinScan> MakeJoin(
     ResolvedJoinScan::JoinType type = ResolvedJoinScan::INNER) {
@@ -84,7 +89,7 @@ static const ResolvedTableScan* AsTableScan(const ResolvedScan* scan) {
   return static_cast<const ResolvedTableScan*>(scan);
 }
 
-TEST(ResolvedAST, Misc) {
+TEST_F(ResolvedASTTest, Misc) {
   // Test calling various getters and setters for scalars, nodes and vectors.
   // Heap checker checks for correct ownership transfer and cleanup.
   TypeFactory type_factory;
@@ -131,7 +136,7 @@ TEST(ResolvedAST, Misc) {
   EXPECT_EQ(select_column, project->column_list(1));
 }
 
-TEST(ResolvedAST, DebugStringWithNullInTree) {
+TEST_F(ResolvedASTTest, DebugStringWithNullInTree) {
   // Even though trees with nullptr AST nodes in them are not valid, we still
   // want to be able to get a debug string without crashing that indicates the
   // location of the null ast node within the tree.
@@ -158,7 +163,7 @@ FunctionCall(test_group:test(INT64, INT64) -> INT64)
             absl::StrCat("\n", call->DebugString()));
 }
 
-TEST(ResolvedAST, DebugStringWithNullInTree2) {
+TEST_F(ResolvedASTTest, DebugStringWithNullInTree2) {
   IdStringPool pool;
   std::unique_ptr<ResolvedQueryStmt> query_stmt = MakeSelect1Stmt(pool);
   const_cast<ResolvedComputedColumn*>(
@@ -180,7 +185,7 @@ QueryStmt
             absl::StrCat("\n", query_stmt->DebugString()));
 }
 
-TEST(ResolvedNodeDebugStringAnnotations, FunctionCall) {
+TEST_F(ResolvedASTTest, DebugStringAnnotationsFunctionCall) {
   TypeFactory type_factory;
 
   std::unique_ptr<ResolvedFunctionCall> call =
@@ -201,7 +206,7 @@ FunctionCall(test_group:test(INT64, INT64, INT64) -> INT64) (test - call root)
                                    {call.get(), "(test - call root)"}}))));
 }
 
-TEST(ResolvedASTDebugString, QueryStmt) {
+TEST_F(ResolvedASTTest, QueryStmtDebugString) {
   IdStringPool pool;
 
   std::unique_ptr<ResolvedQueryStmt> stmt = testing::MakeSelect1Stmt(pool);
@@ -223,7 +228,7 @@ QueryStmt (test - query)
                                              "(test - output col)"}})));
 }
 
-TEST(ResolvedAST, ReleaseAndSet) {
+TEST_F(ResolvedASTTest, ReleaseAndSet) {
   TypeFactory type_factory;
   const FunctionSignature signature(
       {type_factory.get_bool(), {}, nullptr /* context */});
@@ -270,7 +275,7 @@ TEST(ResolvedAST, ReleaseAndSet) {
   EXPECT_EQ(2, project->expr_list_size());
 }
 
-TEST(ResolvedAST, GetAs) {
+TEST_F(ResolvedASTTest, GetAs) {
   std::unique_ptr<const ResolvedNode> node = MakeJoin();
   EXPECT_EQ(RESOLVED_JOIN_SCAN, node->node_kind());
   EXPECT_EQ("JoinScan", node->node_kind_string());
@@ -287,7 +292,7 @@ TEST(ResolvedAST, GetAs) {
   EXPECT_EQ(ResolvedJoinScan::TYPE, scan->node_kind());
 }
 
-TEST(ResolvedAST, CheckFieldsAccessed) {
+TEST_F(ResolvedASTTest, CheckFieldsAccessed) {
   // Fields get marked as accessed when we read them to call DebugString.
   // Note that calling node()->DebugString() marks node as accesssed but
   // node's children are still unaccessed.
@@ -304,11 +309,24 @@ TEST(ResolvedAST, CheckFieldsAccessed) {
   node = MakeJoin();
   ZETASQL_LOG(INFO) << AsTableScan(node->left_scan())->table()->FullName();
   ZETASQL_LOG(INFO) << node->join_type();
-  EXPECT_EQ("Unimplemented feature (ResolvedJoinScan::right_scan not accessed)",
-            node->CheckFieldsAccessed().message());
+  EXPECT_EQ(
+      R"(Unimplemented feature (ResolvedJoinScan::right_scan not accessed)
+JoinScan (*** This node has unaccessed field ***)
++-left_scan=
+| +-TableScan(table=T1)
++-right_scan=
+  +-TableScan(table=T2)
+)",
+      node->CheckFieldsAccessed().message());
   // DebugString does not count as accessing the members inside.
   ZETASQL_LOG(INFO) << node->right_scan()->DebugString();
-  EXPECT_EQ("Unimplemented feature (ResolvedTableScan::table not accessed)",
+  EXPECT_EQ(R"(Unimplemented feature (ResolvedTableScan::table not accessed)
+JoinScan
++-left_scan=
+| +-TableScan(table=T1)
++-right_scan=
+  +-TableScan(table=T2) (*** This node has unaccessed field ***)
+)",
             node->CheckFieldsAccessed().message());
   ZETASQL_LOG(INFO) << AsTableScan(node->right_scan())->table()->FullName();
   ZETASQL_EXPECT_OK(node->CheckFieldsAccessed());
@@ -324,22 +342,34 @@ TEST(ResolvedAST, CheckFieldsAccessed) {
   ZETASQL_LOG(INFO) << AsTableScan(node->left_scan())->table()->FullName();
   ZETASQL_LOG(INFO) << AsTableScan(node->right_scan())->table()->FullName();
   EXPECT_EQ(
-      "Unimplemented feature (ResolvedJoinScan::join_type not accessed "
-      "and has non-default value)",
+      R"(Unimplemented feature (ResolvedJoinScan::join_type not accessed and has non-default value)
+JoinScan (*** This node has unaccessed field ***)
++-join_type=LEFT
++-left_scan=
+| +-TableScan(table=T1)
++-right_scan=
+  +-TableScan(table=T2)
+)",
       node->CheckFieldsAccessed().message());
 
   // Make sure MarkFieldsAccessed() works.
   node = MakeJoin();
   ZETASQL_LOG(INFO) << AsTableScan(node->left_scan())->table()->FullName();
   node->right_scan();
-  EXPECT_EQ("Unimplemented feature (ResolvedTableScan::table not accessed)",
+  EXPECT_EQ(R"(Unimplemented feature (ResolvedTableScan::table not accessed)
+JoinScan
++-left_scan=
+| +-TableScan(table=T1)
++-right_scan=
+  +-TableScan(table=T2) (*** This node has unaccessed field ***)
+)",
             node->CheckFieldsAccessed().message());
   node->right_scan()->MarkFieldsAccessed();
   ZETASQL_EXPECT_OK(node->CheckFieldsAccessed());
 }
 
 // Test CheckFieldsAccessed on a vector field.
-TEST(ResolvedAST, CheckVectorFieldsAccessed) {
+TEST_F(ResolvedASTTest, CheckVectorFieldsAccessed) {
   TypeFactory type_factory;
   auto node = MakeResolvedProjectScan();
 
@@ -348,7 +378,7 @@ TEST(ResolvedAST, CheckVectorFieldsAccessed) {
   // 1: Test expr_list(i).
   // 2: Test expr_list().
   for (int i = 0; i < 3; ++i) {
-    ZETASQL_LOG(INFO) << "CheckVectorFieldsAccessed pass " << i;
+    SCOPED_TRACE(absl::StrCat("CheckVectorFieldsAccessed pass ", i));
 
     // Reset, and then mark scalar fields as accessed.
     node->ClearFieldsAccessed();
@@ -360,11 +390,13 @@ TEST(ResolvedAST, CheckVectorFieldsAccessed) {
       EXPECT_EQ(3, node->expr_list_size());
     }
 
-    EXPECT_EQ(
-        "Unimplemented feature (ResolvedProjectScan::expr_list not accessed)",
-        node->CheckFieldsAccessed().message());
-
     if (i == 0) {
+      EXPECT_EQ(
+          R"(Unimplemented feature (ResolvedProjectScan::expr_list not accessed)
+ProjectScan (*** This node has unaccessed field ***)
+)",
+          node->CheckFieldsAccessed().message());
+
       // If the vector is empty, reading num_ marks it accessed.
       EXPECT_EQ(0, node->expr_list_size());
 
@@ -379,9 +411,29 @@ TEST(ResolvedAST, CheckVectorFieldsAccessed) {
       // Note: Mutating or adding elements doesn't reset accessed bits anywhere,
       // but the new elements won't be accessed yet.
     } else if (i == 1) {
+      EXPECT_EQ(
+          R"(Unimplemented feature (ResolvedProjectScan::expr_list not accessed)
+ProjectScan (*** This node has unaccessed field ***)
++-expr_list=
+  +-C#1001 := Literal(type=BOOL, value=true)
+  +-C#1002 := Literal(type=BOOL, value=false)
+  +-C#1003 := Literal(type=BOOL, value=true)
+)",
+          node->CheckFieldsAccessed().message());
+
       // Access one of the vector elements, and its bool value.
       static_cast<const ResolvedLiteral*>(node->expr_list(1)->expr())->value();
     } else {
+      EXPECT_EQ(
+          R"(Unimplemented feature (ResolvedProjectScan::expr_list not accessed)
+ProjectScan (*** This node has unaccessed field ***)
++-expr_list=
+  +-C#1001 := Literal(type=BOOL, value=true)
+  +-C#1002 := Literal(type=BOOL, value=false)
+  +-C#1003 := Literal(type=BOOL, value=true)
+)",
+          node->CheckFieldsAccessed().message());
+
       EXPECT_EQ(2, i);
       // Access the whole vector, and element 1's bool value.
       static_cast<const ResolvedLiteral*>(node->expr_list()[1]->expr())->value();
@@ -389,7 +441,13 @@ TEST(ResolvedAST, CheckVectorFieldsAccessed) {
 
     // Now the vector is accessed, but some of its elements aren't.
     EXPECT_EQ(
-        "Unimplemented feature (ResolvedComputedColumn::expr not accessed)",
+        R"(Unimplemented feature (ResolvedComputedColumn::expr not accessed)
+ProjectScan
++-expr_list=
+  +-C#1001 := Literal(type=BOOL, value=true) (*** This node has unaccessed field ***)
+  +-C#1002 := Literal(type=BOOL, value=false)
+  +-C#1003 := Literal(type=BOOL, value=true)
+)",
         node->CheckFieldsAccessed().message());
 
     // We get an OK result once we access all vector elements.
@@ -407,7 +465,7 @@ TEST(ResolvedAST, CheckVectorFieldsAccessed) {
 }
 
 // Test CheckFieldsAccessed on a optional-to-access field with children.
-TEST(ResolvedAST, CheckOptionalFieldsAccessed) {
+TEST_F(ResolvedASTTest, CheckOptionalFieldsAccessed) {
   std::unique_ptr<ResolvedTableScan> scan(
       MakeResolvedTableScan({} /* column_list */, t1, nullptr));
 
@@ -424,7 +482,9 @@ TEST(ResolvedAST, CheckOptionalFieldsAccessed) {
   // It is okay to ignore the hint_list, even though its own fields
   // have not been accessed.
   EXPECT_FALSE(hint->CheckFieldsAccessed().ok());
+  EXPECT_FALSE(hint->CheckFieldsAccessed().ok());
   ZETASQL_EXPECT_OK(scan->CheckFieldsAccessed());
+  EXPECT_FALSE(hint->CheckFieldsAccessed().ok());
 
   // Accessing hint_list_size doesn't count as making it accessed if
   // the list is non-empty.
@@ -469,7 +529,7 @@ TEST(ResolvedAST, CheckOptionalFieldsAccessed) {
 // removed CheckValid method, which just checked for missing required fields.
 // We get lots of coverage for successful Validator calls from resolver tests,
 // but not much for unsuccessful validations.
-TEST(ResolvedAST, Validator) {
+TEST_F(ResolvedASTTest, Validator) {
   Validator validator;
   TypeFactory type_factory;
   auto bad_literal = MakeResolvedLiteral(nullptr, Value::Int64(4));
@@ -601,7 +661,7 @@ TEST(ResolvedAST, Validator) {
           HasSubstr("ResolvedExpr does not have a Type:\nLiteral(value=4)")));
 }
 
-TEST(ResolvedAST, GetChildNodes) {
+TEST_F(ResolvedASTTest, GetChildNodes) {
   // One child.
   {
     auto table1_scan = MakeResolvedTableScan({}, t1, nullptr);
@@ -657,7 +717,7 @@ TEST(ResolvedAST, GetChildNodes) {
   }
 }
 
-TEST(ResolvedAST, GetTreeDepth) {
+TEST_F(ResolvedASTTest, GetTreeDepth) {
   // Leaf node.
   {
     auto table1_scan = MakeResolvedTableScan({}, t1, nullptr);
@@ -736,7 +796,7 @@ TEST(ResolvedAST, GetTreeDepth) {
   }
 }
 
-TEST(ResolvedAST, GetDescendantsWithKinds) {
+TEST_F(ResolvedASTTest, GetDescendantsWithKinds) {
   // Build up a tree that looks like
   //   u1:SetOperation
   //     j1:Join
@@ -798,7 +858,7 @@ TEST(ResolvedAST, GetDescendantsWithKinds) {
   EXPECT_THAT(found_nodes, ElementsAre(j1, s4));
 }
 
-TEST(ResolvedAST, IsSuperclassType) {
+TEST_F(ResolvedASTTest, IsSuperclassType) {
   std::unique_ptr<const ResolvedNode> join = MakeJoin();
   EXPECT_TRUE(join->IsScan());
   EXPECT_FALSE(join->IsExpression());
@@ -815,7 +875,7 @@ TEST(ResolvedAST, IsSuperclassType) {
   EXPECT_TRUE(commit->IsStatement());
 }
 
-TEST(ResolvedAST, GetDescendantsSatisfying) {
+TEST_F(ResolvedASTTest, GetDescendantsSatisfying) {
   // Build up a tree that looks like
   //   q1:QueryStatement
   //     p1:Project
@@ -858,7 +918,7 @@ TEST(ResolvedAST, GetDescendantsSatisfying) {
   EXPECT_THAT(found_nodes, ElementsAre(p1, s1));
 }
 
-TEST(ResolvedAST, TableSerialization) {
+TEST_F(ResolvedASTTest, TableSerialization) {
   SimpleColumn column("bar", "baz", types::Int64Type());
   SimpleTable table("bar", {&column}, false, 123);
   SimpleCatalog catalog("foo");
@@ -893,7 +953,7 @@ TEST(ResolvedAST, TableSerialization) {
   EXPECT_EQ(19, parse_location_range.end());
 }
 
-TEST(ResolvedAST, TableDeserialization) {
+TEST_F(ResolvedASTTest, TableDeserialization) {
   SimpleColumn column("bar" /* table_name */, "baz" /* name */,
                       types::Int64Type());
   SimpleTable table("bar", {&column}, false /* takes_ownership */,
@@ -926,7 +986,7 @@ TEST(ResolvedAST, TableDeserialization) {
   EXPECT_EQ(table.GetSerializationId(), got_table->GetSerializationId());
 }
 
-TEST(ResolvedAST, FieldDescriptorSerialization) {
+TEST_F(ResolvedASTTest, FieldDescriptorSerialization) {
   SimpleCatalog catalog("foo");
   TypeFactory factory;
   const Type* type;
@@ -957,7 +1017,7 @@ TEST(ResolvedAST, FieldDescriptorSerialization) {
   EXPECT_EQ("int32_value", field->name());
 }
 
-TEST(ResolvedAST, FieldDescriptorDeserialization) {
+TEST_F(ResolvedASTTest, FieldDescriptorDeserialization) {
   SimpleCatalog catalog("foo");
   TypeFactory factory;
   const Type* type;
@@ -990,7 +1050,7 @@ TEST(ResolvedAST, FieldDescriptorDeserialization) {
   EXPECT_EQ("int32_value", field_ref->field_descriptor()->name());
 }
 
-TEST(ResolvedAST, NestedCatalogSerialization) {
+TEST_F(ResolvedASTTest, NestedCatalogSerialization) {
   SimpleCatalog catalog("foo");
   SimpleCatalog child_catalog("bar");
   catalog.AddCatalog("bar", &child_catalog);
@@ -1028,7 +1088,7 @@ TEST(ResolvedAST, NestedCatalogSerialization) {
             table.GetSerializationId());
 }
 
-TEST(ResolvedAST, ConstantSerialization) {
+TEST_F(ResolvedASTTest, ConstantSerialization) {
   std::unique_ptr<SimpleConstant> constant;
   ZETASQL_CHECK_OK(SimpleConstant::Create({"bar", "baz"}, Value::Int64(3323),
                                   &constant));
@@ -1062,7 +1122,7 @@ TEST(ResolvedAST, ConstantSerialization) {
   EXPECT_EQ(constant_ref.name(), constant_fullname);
 }
 
-TEST(ResolvedAST, ConstantDeserialization) {
+TEST_F(ResolvedASTTest, ConstantDeserialization) {
   std::unique_ptr<SimpleConstant> constant;
   ZETASQL_CHECK_OK(SimpleConstant::Create({"bar", "baz"}, Value::Int64(3323),
                                   &constant));

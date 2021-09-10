@@ -24,6 +24,6 @@ import "zetasql/testdata/test_schema.proto";
 option java_package = "com.google.zetasqltest";
 option java_outer_classname = "TestPackageless";
 
-extend zetasql_test.KitchenSinkPB {
+extend zetasql_test__.KitchenSinkPB {
   optional string packageless_extension = 1007;
 }

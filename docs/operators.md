@@ -15,6 +15,8 @@ Common conventions:
    if one of the operands is `+/-inf` or `NaN`. In other cases, an error is
    returned.
 
+### Operator precedence
+
 The following table lists all ZetaSQL operators from highest to
 lowest precedence, i.e. the order in which they will be evaluated within a
 statement.
@@ -33,13 +35,13 @@ statement.
     <tr>
       <td>1</td>
       <td>.</td>
-      <td><span> PROTO</span><br><span> STRUCT</span><br></td>
-      <td>Member field access operator</td>
+      <td><span> JSON</span><br><span> PROTO</span><br><span> STRUCT</span><br></td>
+      <td>Field access operator</td>
       <td>Binary</td>
     </tr>
     <tr>
       <td>&nbsp;</td>
-      <td>[ ]</td>
+      <td>Array subscript operator</td>
       <td>ARRAY</td>
       <td>Array position. Must be used with OFFSET or ORDINAL&mdash;see
       
@@ -51,6 +53,15 @@ Array Functions
 .</td>
       <td>Binary</td>
     </tr>
+    
+    <tr>
+      <td>&nbsp;</td>
+      <td>JSON subscript operator</td>
+      <td>JSON</td>
+      <td>Field name or array position in JSON.</td>
+      <td>Binary</td>
+    </tr>
+    
     <tr>
       <td>2</td>
       <td>+</td>
@@ -98,14 +109,22 @@ Array Functions
     <tr>
       <td>4</td>
       <td>+</td>
-      <td>All numeric types<br>DATE and INT64</td>
+      <td>
+        All numeric types, DATE with
+        INT64
+        , INTERVAL
+      </td>
       <td>Addition</td>
       <td>Binary</td>
     </tr>
     <tr>
       <td>&nbsp;</td>
       <td>-</td>
-      <td>All numeric types<br>DATE and INT64</td>
+      <td>
+        All numeric types, DATE with
+        INT64
+        , INTERVAL
+      </td>
       <td>Subtraction</td>
       <td>Binary</td>
     </tr>
@@ -344,43 +363,90 @@ ambiguity. For example:
 
 `(x < y) IS FALSE`
 
-### Element access operators
+### Field access operator
 
-<table>
-<thead>
-<tr>
-<th>Operator</th>
-<th>Syntax</th>
-<th>Input Data Types</th>
-<th>Result Data Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>.</td>
-<td>expression.fieldname1...</td>
-<td><span> PROTO<span><br><span> STRUCT<span><br></td>
-<td>Type T stored in fieldname1</td>
-<td>Dot operator. Can be used to access nested fields,
-e.g.expression.fieldname1.fieldname2...</td>
-</tr>
-<tr>
-<td>[ ]</td>
-<td>array_expression [position_keyword (int_expression ) ]</td>
-<td>See ARRAY Functions.</td>
-<td>Type T stored in ARRAY</td>
-<td>position_keyword is either OFFSET or ORDINAL. See
+```
+expression.fieldname[. ...]
+```
 
-<a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_functions">
+**Description**
 
-Array Functions
-</a>
+Gets the value of a field. Alternatively known as the dot operator. Can be
+used to access nested fields. For example, `expression.fieldname1.fieldname2`.
 
-for the two functions that use this operator.</td>
-</tr>
-</tbody>
-</table>
+**Input types**
+
++ `STRUCT`
++ `PROTO`
++ `JSON`
+
+**Return type**
+
++ For `STRUCT`: SQL data type of `fieldname`. If a field is not found in
+  the struct, an error is thrown.
++ For `PROTO`: SQL data type of `fieldname`. If a field is not found in
+  the protocol buffer, an error is thrown.
++ For `JSON`: `JSON`. If a field is not found in a JSON value, a SQL `NULL` is
+  returned.
+
+### Array subscript operator
+
+```
+array_expression [position_keyword (array_element_id)]
+```
+
+**Description**
+
+Get a value in an array at a specific location.
+Supported by some array functions.
+
+**Input types**
+
++ `position_keyword`: `OFFSET` or `ORDINAL`.
+  To learn more, see [OFFSET and ORDINAL][operators-link-to-array-offset]
++ `array_element_id`: An integer that represents an index in the array.
+
+**Return type**
+
+Type `T` stored at the index in an array.
+
+### JSON subscript operator
+
+```
+json_expression[array_element_id]
+```
+
+```
+json_expression[field_name]
+```
+
+**Description**
+
+Gets a value of an array element or field in a JSON expression. Can be
+used to access nested data. For example:
+
+```sql
+(JSON '["apple", "orange", "pear"]')[1] -- Returns JSON 'orange'
+(JSON '{"apple": "10", "pear": "5"}')['pear'] -- Returns JSON '5'
+(JSON '[ {"fruit": "apple"}, {"fruit": "pear"}]')[0]['fruit'] -- Returns JSON 'apple'
+(JSON '[ {"fruit": "apple"}, {"fruit": "pear"}]')[1]['fruit'] -- Returns JSON 'pear'
+```
+
+**Input data types**
+
++ `JSON expression`: The `JSON` expression that contains an array element or
+  field to return.
++ `[array_element_id]`: An `INT64` expression that represents a zero-based index
+  in the array. If a negative value is entered, or the value is greater than
+  or equal to the size of the array, or the JSON expression doesn't represent
+  a JSON array, a SQL `NULL` is returned.
++ `[field_name]`: A `STRING` expression that represents the name of a field in
+  JSON. If the field name is not found, or the JSON expression is not a
+  JSON object, a SQL `NULL` is returned.
+
+**Result data type**
+
+`JSON`
 
 ### Arithmetic operators
 
@@ -550,6 +616,97 @@ SELECT DATE "2020-09-22" + 1 AS day_later, DATE "2020-09-22" - 7 AS week_ago
 +------------+------------+
 | 2020-09-23 | 2020-09-15 |
 +------------+------------+
+```
+
+### Datetime subtraction
+
+```sql
+date_expression - date_expression
+timestamp_expression - timestamp_expression
+datetime_expression - datetime_expression
+
+```
+
+**Description**
+
+Computes the difference between two datetime values as an interval.
+
+**Return Data Type**
+
+INTERVAL
+
+**Example**
+
+```sql
+SELECT
+  DATE "2021-05-20" - DATE "2020-04-19" AS date_diff,
+  TIMESTAMP "2021-06-01 12:34:56.789" - TIMESTAMP "2021-05-31 00:00:00" AS time_diff
+
++-------------------+------------------------+
+| date_diff         | time_diff              |
++-------------------+------------------------+
+| 0-0 396 0:0:0     | 0-0 0 36:34:56.789     |
++-------------------+------------------------+
+```
+
+### Interval arithmetic operators
+
+**Addition and subtraction**
+
+```sql
+date_expression + interval_expression = DATETIME
+date_expression - interval_expression = DATETIME
+timestamp_expression + interval_expression = TIMESTAMP
+timestamp_expression - interval_expression = TIMESTAMP
+datetime_expression + interval_expression = DATETIME
+datetime_expression - interval_expression = DATETIME
+
+```
+
+**Description**
+
+Adds an interval to a datetime value or subtracts an interval from a datetime
+value.
+**Example**
+
+```sql
+SELECT
+  DATE "2021-04-20" + INTERVAL 25 HOUR AS date_plus,
+  TIMESTAMP "2021-05-02 00:01:02.345" - INTERVAL 10 SECOND AS time_minus;
+
++-------------------------+--------------------------------+
+| date_plus               | time_minus                     |
++-------------------------+--------------------------------+
+| 2021-04-21 01:00:00     | 2021-05-02 00:00:52.345+00     |
++-------------------------+--------------------------------+
+```
+
+**Multiplication and division**
+
+```sql
+interval_expression * integer_expression = INTERVAL
+interval_expression / integer_expression = INTERVAL
+
+```
+
+**Description**
+
+Multiplies or divides an interval value by an integer.
+
+**Example**
+
+```sql
+SELECT
+  INTERVAL '1:2:3' HOUR TO SECOND * 10 AS mul1,
+  INTERVAL 35 SECOND * 4 AS mul2,
+  INTERVAL 10 YEAR / 3 AS div1,
+  INTERVAL 1 MONTH / 12 AS div2
+
++----------------+--------------+-------------+--------------+
+| mul1           | mul2         | div1        | div2         |
++----------------+--------------+-------------+--------------+
+| 0-0 0 10:20:30 | 0-0 0 0:2:20 | 3-4 0 0:0:0 | 0-0 2 12:0:0 |
++----------------+--------------+-------------+--------------+
 ```
 
 ### Bitwise operators
@@ -761,39 +918,69 @@ The following rules apply when comparing these data types:
 <tr>
 <td>Less Than</td>
 <td>X &lt; Y</td>
-<td>Returns TRUE if X is less than Y.</td>
+<td>
+  Returns TRUE if X is less than Y.
+  
+
+</td>
 </tr>
 <tr>
 <td>Less Than or Equal To</td>
 <td>X &lt;= Y</td>
-<td>Returns TRUE if X is less than or equal to Y.</td>
+<td>
+  Returns TRUE if X is less than or equal to Y.
+  
+
+</td>
 </tr>
 <tr>
 <td>Greater Than</td>
 <td>X &gt; Y</td>
-<td>Returns TRUE if X is greater than Y.</td>
+<td>
+  Returns TRUE if X is greater than Y.
+  
+
+</td>
 </tr>
 <tr>
 <td>Greater Than or Equal To</td>
 <td>X &gt;= Y</td>
-<td>Returns TRUE if X is greater than or equal to Y.</td>
+<td>
+  Returns TRUE if X is greater than or equal to Y.
+  
+
+</td>
 </tr>
 <tr>
 <td>Equal</td>
 <td>X = Y</td>
-<td>Returns TRUE if X is equal to Y.</td>
+<td>
+  Returns TRUE if X is equal to Y.
+  
+
+</td>
 </tr>
 <tr>
 <td>Not Equal</td>
 <td>X != Y<br>X &lt;&gt; Y</td>
-<td>Returns TRUE if X is not equal to Y.</td>
+<td>
+  Returns TRUE if X is not equal to Y.
+  
+
+</td>
 </tr>
 <tr>
 <td>BETWEEN</td>
 <td>X [NOT] BETWEEN Y AND Z</td>
-<td>Returns TRUE if X is [not] within the range specified. The result of "X
-BETWEEN Y AND Z" is equivalent to "Y &lt;= X AND X &lt;= Z" but X is evaluated
-only once in the former.</td>
+<td>
+  <p>
+    Returns TRUE if X is [not] within the range specified. The result of "X
+    BETWEEN Y AND Z" is equivalent to "Y &lt;= X AND X &lt;= Z" but X is
+    evaluated only once in the former.
+    
+
+  </p>
+</td>
 </tr>
 <tr>
 <td>LIKE</td>
@@ -813,11 +1000,16 @@ required. For example, <code>r"\%"</code>.</li>
 <tr>
 <td>IN</td>
 <td>Multiple - see below</td>
-<td>Returns FALSE if the right operand is empty. Returns <code>NULL</code> if the left
-operand is <code>NULL</code>. Returns TRUE or <code>NULL</code>, never FALSE, if the right operand
-contains <code>NULL</code>. Arguments on either side of IN are general expressions. Neither
-operand is required to be a literal, although using a literal on the right is
-most common. X is evaluated only once.</td>
+<td>
+  Returns FALSE if the right operand is empty. Returns <code>NULL</code> if
+  the left operand is <code>NULL</code>. Returns TRUE or <code>NULL</code>,
+  never FALSE, if the right operand contains <code>NULL</code>. Arguments on
+  either side of IN are general expressions. Neither operand is required to be
+  a literal, although using a literal on the right is most common. X is
+  evaluated only once.
+  
+
+</td>
 </tr>
 </tbody>
 </table>
@@ -858,20 +1050,62 @@ types are compared when they have fields that are `NULL` valued.
 </tbody>
 </table>
 
-### IN operators
+### IN operator 
+<a id="in_operators"></a>
 
-The `IN` operator supports the following syntaxes:
+The `IN` operator supports the following syntax:
 
+```sql
+search_value [NOT] IN value_set
+
+value_set:
+  {
+    (expression[, ...])
+    | (subquery)
+    | UNNEST(array_expression)
+  }
 ```
-x [NOT] IN (y, z, ... ) # Requires at least one element
-x [NOT] IN (<subquery>)
-x [NOT] IN UNNEST(<array expression>) # analysis error if the expression
-                                      # does not return an ARRAY type.
-```
 
-Arguments on either side of the `IN` operator  are general expressions.
-It is common to use literals on the right side expression; however, this is not
-required.
+**Description**
+
+Checks for an equal value in a set of values.
+[Semantic rules][semantic-rules-in] apply, but in general, `IN` returns `TRUE`
+if an equal value is found, `FALSE` if an equal value is excluded, otherwise
+`NULL`. `NOT IN` returns `FALSE` if an equal value is found, `TRUE` if an
+equal value is excluded, otherwise `NULL`.
+
++ `search_value`: The expression that is compared to a set of values.
++ `value_set`: One or more values to compare to a search value.
+   + `(expression[, ...])`: A list of expressions.
+   + `(subquery)`: A [subquery][operators-subqueries] that returns
+     a single column. The values in that column are the set of values.
+     If no rows are produced, the set of values is empty.
+   + `UNNEST(array_expression)`: An [UNNEST operator][operators-link-to-unnest]
+      that returns a column of values from an array expression. This is
+      equivalent to:
+
+      ```sql
+      IN (SELECT element FROM UNNEST(array_expression) AS element)
+      ```
+
+<a id="semantic_rules_in"></a>
+**Semantic rules**
+
+When using the `IN` operator, the following semantics apply in this order:
+
++ Returns `FALSE` if `value_set` is empty.
++ Returns `NULL` if `search_value` is `NULL`.
++ Returns `TRUE` if `value_set` contains a value equal to `search_value`.
++ Returns `NULL` if `value_set` contains a `NULL`.
++ Returns `FALSE`.
+
+When using the `NOT IN` operator, the following semantics apply in this order:
+
++ Returns `TRUE` if `value_set` is empty.
++ Returns `NULL` if `search_value` is `NULL`.
++ Returns `FALSE` if `value_set` contains a value equal to `search_value`.
++ Returns `NULL` if `value_set` contains a `NULL`.
++ Returns `TRUE`.
 
 The semantics of:
 
@@ -897,34 +1131,21 @@ is equivalent to:
 NOT(x IN ...)
 ```
 
-The UNNEST form treats an array scan like `UNNEST` in the
+The `UNNEST` form treats an array scan like `UNNEST` in the
 [FROM][operators-link-to-from-clause] clause:
 
 ```
 x [NOT] IN UNNEST(<array expression>)
 ```
 
-This form is often used with ARRAY parameters. For example:
+This form is often used with `ARRAY` parameters. For example:
 
 ```
 x IN UNNEST(@array_parameter)
 ```
 
-**Note:** A `NULL` ARRAY will be treated equivalently to an empty ARRAY.
-
-See the [Arrays][operators-link-to-filtering-arrays] topic for more information on
-how to use this syntax.
-
-When using the `IN` operator, the following semantics apply:
-
-+ `IN` with an empty right side expression is always FALSE
-+ `IN` with a `NULL` left side expression and a non-empty right side expression is
-  always `NULL`
-+ `IN` with a `NULL` in the `IN`-list can only return TRUE or `NULL`, never FALSE
-+ `NULL IN (NULL)` returns `NULL`
-+ `IN UNNEST(<NULL array>)` returns FALSE (not `NULL`)
-+ `NOT IN` with a `NULL` in the `IN`-list can only return FALSE or `NULL`, never
-   TRUE
+See the [Arrays][operators-link-to-filtering-arrays] topic for more information
+on how to use this syntax.
 
 `IN` can be used with multi-part keys by using the struct constructor syntax.
 For example:
@@ -934,8 +1155,124 @@ For example:
 (Key1, Key2) IN ( SELECT (table.a, table.b) FROM table )
 ```
 
-See the [Struct Type][operators-link-to-struct-type] section of the Data Types topic for more
-information on this syntax.
+See the [Struct Type][operators-link-to-struct-type] for more information.
+
+**Return Data Type**
+
+`BOOL`
+
+**Examples**
+
+You can use these `WITH` clauses to emulate temporary tables for
+`Words` and `Items` in the following examples:
+
+```sql
+WITH Words AS (
+  SELECT 'Intend' as value UNION ALL
+  SELECT 'Secure' UNION ALL
+  SELECT 'Clarity' UNION ALL
+  SELECT 'Peace' UNION ALL
+  SELECT 'Intend' UNION ALL
+ )
+SELECT * FROM Words;
+
++----------+
+| value    |
++----------+
+| Intend   |
+| Secure   |
+| Clarity  |
+| Intend   |
++----------+
+```
+
+```sql
+WITH
+  Items AS (
+    SELECT STRUCT('blue' AS color, 'round' AS shape) AS info UNION ALL
+    SELECT STRUCT('blue', 'square') UNION ALL
+    SELECT STRUCT('red', 'round')
+  )
+SELECT * FROM Items;
+
++----------------------------+
+| info                       |
++----------------------------+
+| {blue color, round shape}  |
+| {blue color, square shape} |
+| {red color, round shape}   |
++----------------------------+
+```
+
+Example with `IN` and an expression:
+
+```sql
+SELECT * FROM Words WHERE value IN ('Intend', 'Secure');
+
++----------+
+| value    |
++----------+
+| Intend   |
+| Secure   |
+| Intend   |
++----------+
+```
+
+Example with `NOT IN` and an expression:
+
+```sql
+SELECT * FROM Words WHERE value NOT IN ('Intend');
+
++----------+
+| value    |
++----------+
+| Secure   |
+| Clarity  |
++----------+
+```
+
+Example with `IN`, a scalar subquery, and an expression:
+
+```sql
+SELECT * FROM Words WHERE value IN ((SELECT 'Intend'), 'Clarity');
+
++----------+
+| value    |
++----------+
+| Intend   |
+| Clarity  |
+| Intend   |
++----------+
+```
+
+Example with `IN` and an `UNNEST` operation:
+
+```sql
+SELECT * FROM Words WHERE value IN UNNEST(['Secure', 'Clarity']);
+
++----------+
+| value    |
++----------+
+| Secure   |
+| Clarity  |
++----------+
+```
+
+Example with `IN` and a `STRUCT`:
+
+```sql
+SELECT
+  (SELECT AS STRUCT Items.info) as item
+FROM
+  Items
+WHERE (info.shape, info.color) IN (('round', 'blue'));
+
++------------------------------------+
+| item                               |
++------------------------------------+
+| { {blue color, round shape} info } |
++------------------------------------+
+```
 
 ### IS operators
 
@@ -1009,11 +1346,15 @@ The concatenation operator combines multiple values into one.
 </tbody>
 </table>
 
+[semantic-rules-in]: #semantic_rules_in
 [operators-link-to-filtering-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering-arrays
 [operators-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
 [operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
+[operators-link-to-unnest]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
+[operators-subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#about-subqueries
 [operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct_type
 
 [operators-link-to-math-functions]: https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md
 [link-to-coercion]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#coercion
+[operators-link-to-array-offset]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#offset-and-ordinal
 

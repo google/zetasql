@@ -26,6 +26,8 @@
 #include "zetasql/public/functions/string.h"
 #include "zetasql/public/functions/util.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/substitute.h"
 #include "absl/types/optional.h"
@@ -63,13 +65,15 @@ bool RegExp::InitializeWithOptions(absl::string_view pattern,
   return true;
 }
 
-bool RegExp::Contains(absl::string_view str, bool* out, absl::Status* error) {
+bool RegExp::Contains(absl::string_view str, bool* out,
+                      absl::Status* error) const {
   ZETASQL_DCHECK(re_);
   *out = re_->PartialMatch(str, *re_);
   return true;
 }
 
-bool RegExp::Match(absl::string_view str, bool* out, absl::Status* error) {
+bool RegExp::Match(absl::string_view str, bool* out,
+                   absl::Status* error) const {
   ZETASQL_DCHECK(re_);
   *out = re_->FullMatch(str, *re_);
   return true;
@@ -78,7 +82,7 @@ bool RegExp::Match(absl::string_view str, bool* out, absl::Status* error) {
 bool RegExp::Extract(absl::string_view str, PositionUnit position_unit,
                      int64_t position, int64_t occurrence_index,
                      absl::string_view* out, bool* is_null,
-                     absl::Status* error) {
+                     absl::Status* error) const {
   ZETASQL_DCHECK(re_);
   *is_null = true;
   *error = internal::ValidatePositionAndOccurrence(position, occurrence_index);
@@ -110,11 +114,11 @@ bool RegExp::Extract(absl::string_view str, PositionUnit position_unit,
     // found.
     str = absl::string_view("", 0);
   }
-  ExtractAllReset(str);
+  ExtractAllIterator iter = CreateExtractAllIterator(str);
 
   for (int64_t current_index = 0; current_index < occurrence_index;
        ++current_index) {
-    if (!ExtractAllNext(out, error)) {
+    if (!iter.Next(out, error)) {
       return error->ok();
     }
     if (!error->ok()) return false;
@@ -123,14 +127,12 @@ bool RegExp::Extract(absl::string_view str, PositionUnit position_unit,
   return true;
 }
 
-void RegExp::ExtractAllReset(const absl::string_view str) {
-  extract_all_input_ = str;
-  extract_all_position_ = 0;
-  last_match_ = false;
-}
+RegExp::ExtractAllIterator::ExtractAllIterator(const RE2* re,
+                                               absl::string_view str)
+    : re_(re), extract_all_input_(str) {}
 
-bool RegExp::ExtractAllNext(absl::string_view* out, absl::Status* error) {
-  ZETASQL_DCHECK(re_);
+bool RegExp::ExtractAllIterator::Next(absl::string_view* out,
+                                      absl::Status* error) {
   if (re_->NumberOfCapturingGroups() > 1) {
     return internal::UpdateError(error,
                                  "Regular expressions passed into extraction "
@@ -199,7 +201,24 @@ bool RegExp::ExtractAllNext(absl::string_view* out, absl::Status* error) {
   return true;
 }
 
-bool RegExp::Instr(const InstrParams& options, absl::Status* error) {
+RegExp::ExtractAllIterator RegExp::CreateExtractAllIterator(
+    absl::string_view str) const {
+  ZETASQL_DCHECK(re_.get());
+  return ExtractAllIterator{re_.get(), str};
+}
+
+void RegExp::ExtractAllReset(absl::string_view str) {
+  iter_ = CreateExtractAllIterator(str);
+}
+
+bool RegExp::ExtractAllNext(absl::string_view* out, absl::Status* error) {
+  if (!iter_.has_value()) {
+    return internal::UpdateError(error, "Internal Error");
+  }
+  return iter_->Next(out, error);
+}
+
+bool RegExp::Instr(const InstrParams& options, absl::Status* error) const {
   ZETASQL_DCHECK(re_ != nullptr);
   ZETASQL_DCHECK(error != nullptr);
   ZETASQL_DCHECK(options.out != nullptr);
@@ -230,11 +249,12 @@ bool RegExp::Instr(const InstrParams& options, absl::Status* error) {
     offset = options.position - 1;
   }
   str.remove_prefix(offset);
-  ExtractAllReset(str);
+  ExtractAllIterator iter = CreateExtractAllIterator(str);
+
   absl::string_view next_match;
   for (int64_t current_index = 0; current_index < options.occurrence_index;
        ++current_index) {
-    if (!ExtractAllNext(&next_match, error)) {
+    if (!iter.Next(&next_match, error)) {
       return error->ok();
     }
     if (!error->ok()) return false;
@@ -246,9 +266,9 @@ bool RegExp::Instr(const InstrParams& options, absl::Status* error) {
   if (re_->NumberOfCapturingGroups() == 0) {
     // extract_all_position_ and capture_group_position_ are the indices based
     // on bytes
-    visited_bytes = extract_all_position_;
+    visited_bytes = iter.extract_all_position_;
   } else {
-    visited_bytes = capture_group_position_;
+    visited_bytes = iter.capture_group_position_;
   }
   if (options.return_position == kStartOfMatch) {
     visited_bytes -= next_match.length();
@@ -273,7 +293,13 @@ bool RegExp::Instr(const InstrParams& options, absl::Status* error) {
 }
 
 bool RegExp::Replace(absl::string_view str, absl::string_view newsub,
-                     std::string* out, absl::Status* error) {
+                     std::string* out, absl::Status* error) const {
+  return Replace(str, newsub, std::numeric_limits<int32_t>::max(), out, error);
+}
+
+bool RegExp::Replace(absl::string_view str, absl::string_view newsub,
+                     int32_t max_out_size, std::string* out,
+                     absl::Status* error) const {
   // The following implementation is similar to RE2::GlobalReplace, with a few
   // important differences: (1) it works correctly with UTF-8 strings,
   // (2) it returns proper error message instead of logging it, and
@@ -294,13 +320,15 @@ bool RegExp::Replace(absl::string_view str, absl::string_view newsub,
   std::vector<absl::string_view> match(10);
 
   out->clear();
-  // Points to the end of the previous match. This is necessary if the regular
+  // Position of the end of the previous match. This is necessary if the regular
   // expression can match both empty string and some non-empty string, so that
   // we don't replace an empty match immediately following non-empty match.
-  // Initialized to str.begin() - 1 instead of nullptr, so that if str is
-  // string_view(nullptr, 0) and the pattern of this RegExp is also empty, the
-  // condition "match[0].begin() != lastend" below will still be true for once.
-  absl::string_view::iterator lastend = str.begin() + std::string_view::npos;
+  // Initialized to -1, so that if both str and match are empty, the condition
+  //     match[0].begin() - str.begin() != lastpos
+  // below will be true once. We use a position instead of a pointer to avoid
+  // C++ undefined behavior caused by adding offsets to nullptr std.begin()
+  // (which can happen when when str is empty).
+  ptrdiff_t lastpos = -1;
   for (absl::string_view::iterator p = str.begin(); p <= str.end();) {
     // Find the first matching substring starting at p and store the
     // match and captured groups in vector 'match'.
@@ -315,12 +343,13 @@ bool RegExp::Replace(absl::string_view str, absl::string_view newsub,
     out->append(p, match[0].begin());
     p = match[0].begin();
     if (!match[0].empty()) {
-      if (!Rewrite(newsub, match, out, error)) return false;
+      if (!Rewrite(newsub, match, max_out_size, out, error)) return false;
       p = match[0].end();
     } else {
       // The regexp matches empty substring. Ignore the match if it starts at
       // the end of the previous one.
-      if (match[0].begin() != lastend && !Rewrite(newsub, match, out, error)) {
+      if (match[0].begin() - str.begin() != lastpos &&
+          !Rewrite(newsub, match, max_out_size, out, error)) {
         return false;
       }
       if (p < str.end()) {
@@ -340,17 +369,16 @@ bool RegExp::Replace(absl::string_view str, absl::string_view newsub,
         break;
       }
     }
-    lastend = match[0].end();
+    lastpos = match[0].end() - str.begin();
   }
 
   return true;
 }
 
-void RegExp::SetMaxOutSize(int32_t size) { max_out_size_ = size; }
-
-bool RegExp::Rewrite(const absl::string_view rewrite,
+bool RegExp::Rewrite(absl::string_view rewrite,
                      const std::vector<absl::string_view>& groups,
-                     std::string* out, absl::Status* error) {
+                     int32_t max_out_size, std::string* out,
+                     absl::Status* error) const {
   for (const char* s = rewrite.data(); s < rewrite.end(); ++s) {
     const char* start = s;
     while (s < rewrite.end() && *s != '\\') s++;
@@ -371,7 +399,7 @@ bool RegExp::Rewrite(const absl::string_view rewrite,
       }
     }
 
-    if (out->length() > max_out_size_) {
+    if (out->length() > max_out_size) {
       error->Update(absl::Status(absl::StatusCode::kOutOfRange,
                                  "REGEXP_REPLACE: exceeded maximum output "
                                  "length"));
@@ -379,6 +407,32 @@ bool RegExp::Rewrite(const absl::string_view rewrite,
     }
   }
   return true;
+}
+
+absl::StatusOr<std::unique_ptr<const RegExp>> MakeRegExpUtf8(
+    absl::string_view pattern) {
+  RE2::Options options;
+  options.set_log_errors(false);
+  options.set_encoding(RE2::Options::EncodingUTF8);
+  return MakeRegExpWithOptions(pattern, options);
+}
+
+absl::StatusOr<std::unique_ptr<const RegExp>> MakeRegExpBytes(
+    absl::string_view pattern) {
+  RE2::Options options;
+  options.set_log_errors(false);
+  options.set_encoding(RE2::Options::EncodingLatin1);
+  return MakeRegExpWithOptions(pattern, options);
+}
+
+absl::StatusOr<std::unique_ptr<const RegExp>> MakeRegExpWithOptions(
+    absl::string_view pattern, const RE2::Options& options) {
+  auto re = absl::make_unique<const RE2>(pattern, options);
+  if (!re->ok()) {
+    return internal::CreateFunctionError(
+        absl::StrCat("Cannot parse regular expression: ", re->error()));
+  }
+  return absl::WrapUnique(new RegExp(std::move(re)));
 }
 
 }  // namespace functions

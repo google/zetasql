@@ -196,3 +196,45 @@ SHOW MATERIALIZED TABLES from KitchenSync
 ERROR: Syntax error: Expected end of input but got identifier "TABLES" [at 1:19]
 SHOW MATERIALIZED TABLES from KitchenSync
                   ^
+==
+
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+SHOW TABLES FROM my-project.dataset.table;
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `my-project.dataset.table` [at 1:18]
+SHOW TABLES FROM my-project.dataset.table;
+                 ^
+--
+ALTERNATION GROUP: <empty>
+--
+ShowStatement [0-41]
+  Identifier(TABLES) [5-11]
+  PathExpression [17-41]
+    Identifier(`my-project`) [17-27]
+    Identifier(dataset) [28-35]
+    Identifier(table) [36-41]
+--
+SHOW TABLES FROM `my-project`.dataset.table
+==
+
+[no_test_get_parse_tokens]
+[{{no_|}}allow_slashed_table_names]
+SHOW TABLES FROM /span/db/my-mdb-grp:my_db
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '/' character. It needs to be quoted: `/span/db/my-mdb-grp:my_db` [at 1:18]
+SHOW TABLES FROM /span/db/my-mdb-grp:my_db
+                 ^
+--
+ALTERNATION GROUP: <empty>
+--
+ShowStatement [0-42]
+  Identifier(TABLES) [5-11]
+  PathExpression [17-42]
+    Identifier(`/span/db/my-mdb-grp:my_db`) [17-42]
+--
+SHOW TABLES FROM `/span/db/my-mdb-grp:my_db`

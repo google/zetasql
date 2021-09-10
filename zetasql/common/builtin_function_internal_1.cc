@@ -40,7 +40,7 @@
 #include "zetasql/base/case.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -72,6 +72,10 @@ bool ArgumentsAreComparable(const std::vector<InputArgumentType>& arguments,
                             int* bad_argument_idx) {
   *bad_argument_idx = -1;
   for (int idx = 0; idx < arguments.size(); ++idx) {
+    if (arguments[idx].type() == nullptr) {
+      *bad_argument_idx = idx;
+      return false;
+    }
     if (!arguments[idx].type()->SupportsOrdering(
             language_options, /*type_description=*/nullptr)) {
       *bad_argument_idx = idx;
@@ -87,7 +91,8 @@ bool ArgumentsArrayType(const std::vector<InputArgumentType>& arguments,
                         bool is_array, int* bad_argument_idx) {
   *bad_argument_idx = -1;
   for (int idx = 0; idx < arguments.size(); ++idx) {
-    if (arguments[idx].type()->IsArray() != is_array) {
+    if ((arguments[idx].type() != nullptr &&
+         arguments[idx].type()->IsArray()) != is_array) {
       *bad_argument_idx = idx;
       return false;
     }
@@ -109,7 +114,7 @@ std::string InfixFunctionSQL(const std::string& display_name,
     }
     // Check if input contains only alphanumeric characters or '_', in which
     // case enclosing ( )'s are not needed.
-    if (find_if(text.begin(), text.end(), [](char c) {
+    if (std::find_if(text.begin(), text.end(), [](char c) {
           return !(isalnum(c) || (c == '_'));
         }) == text.end()) {
       absl::StrAppend(&sql, text);
@@ -229,9 +234,8 @@ std::string LikeAllArrayFunctionSQL(const std::vector<std::string>& inputs) {
   return absl::StrCat(inputs[0], " LIKE ALL UNNEST(", inputs[1], ")");
 }
 std::string ParenthesizedArrayFunctionSQL(const std::string& input) {
-  if (find_if(input.begin(), input.end(), [](char c) {
-        return c == '|';
-      }) == input.end()) {
+  if (std::find_if(input.begin(), input.end(),
+                   [](char c) { return c == '|'; }) == input.end()) {
     return input;
   } else {
     return "(" + input + ")";
@@ -332,10 +336,42 @@ std::string ExtractDateOrTimeFunctionSQL(
 }
 
 bool ArgumentIsStringLiteral(const InputArgumentType& argument) {
-  if (argument.type()->IsString() && argument.is_literal()) {
+  if (argument.type() != nullptr && argument.type()->IsString() &&
+      argument.is_literal()) {
     return true;
   }
   return false;
+}
+
+template <typename ArgumentType>
+bool AllArgumentsHaveType(const std::vector<ArgumentType>& arguments) {
+  for (const ArgumentType& arg : arguments) {
+    if (arg.type() == nullptr) {
+      return false;
+    }
+  }
+  return true;
+}
+
+absl::Status EnsureArgumentsHaveType(
+    absl::string_view function_name,
+    const std::vector<InputArgumentType>& arguments, ProductMode product_mode) {
+  for (const InputArgumentType& arg : arguments) {
+    if (arg.type() == nullptr) {
+      return MakeSqlError()
+             << function_name << " does not support arguments of type "
+             << arg.UserFacingName(product_mode);
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status EnsureArgumentsHaveType(
+    absl::string_view function_name,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  return EnsureArgumentsHaveType(function_name, arguments,
+                                 language_options.product_mode());
 }
 
 absl::Status CheckDateDatetimeTimeTimestampDiffArguments(
@@ -346,6 +382,8 @@ absl::Status CheckDateDatetimeTimeTimestampDiffArguments(
     // Let validation happen normally.  It will return an error later.
     return absl::OkStatus();
   }
+  ZETASQL_RETURN_IF_ERROR(
+      EnsureArgumentsHaveType(function_name, arguments, language_options));
 
   // TODO: Add a test where the date part is an enum via a normal
   // function call, but not the expected enum type.
@@ -417,6 +455,9 @@ absl::Status CheckBitwiseOperatorArgumentsHaveSameType(
     // Let validation happen normally.  It will return an error later.
     return absl::OkStatus();
   }
+  ZETASQL_RETURN_IF_ERROR(
+      EnsureArgumentsHaveType(operator_string, arguments, language_options));
+
   if (arguments[0].type()->IsBytes() && arguments[1].type()->IsBytes()) {
     return absl::OkStatus();
   }
@@ -444,6 +485,9 @@ absl::Status CheckBitwiseOperatorFirstArgumentIsIntegerOrBytes(
     // Let validation happen normally.  It will return an error later.
     return absl::OkStatus();
   }
+  ZETASQL_RETURN_IF_ERROR(
+      EnsureArgumentsHaveType(operator_string, arguments, language_options));
+
   if (!arguments[0].type()->IsInteger() && !arguments[0].type()->IsBytes()) {
     return MakeSqlError() << "The first argument to bitwise operator "
                           << operator_string
@@ -461,6 +505,8 @@ absl::Status CheckDateDatetimeTimeTimestampTruncArguments(
     // Let validation happen normally.  It will return an error later.
     return absl::OkStatus();
   }
+  ZETASQL_RETURN_IF_ERROR(
+      EnsureArgumentsHaveType(function_name, arguments, language_options));
 
   if (arguments[1].type()->IsEnum() && arguments[1].is_literal() &&
       !arguments[1].is_null()) {
@@ -518,6 +564,8 @@ absl::Status CheckLastDayArguments(
     // Let validation happen normally.  It will return an error later.
     return absl::OkStatus();
   }
+  ZETASQL_RETURN_IF_ERROR(
+      EnsureArgumentsHaveType(function_name, arguments, language_options));
 
   // LAST_DAY only supports date parts WEEK, MONTH, QUARTER,
   // YEAR.  If the second argument is a literal then check the date part.
@@ -613,6 +661,8 @@ absl::Status CheckDateDatetimeTimestampAddSubArguments(
     // Let validation happen normally. It will return an error later.
     return absl::OkStatus();
   }
+  ZETASQL_RETURN_IF_ERROR(
+      EnsureArgumentsHaveType(function_name, arguments, language_options));
 
   // For Date, the only supported date parts are DAY, WEEK, MONTH, QUARTER,
   // YEAR.  For Timestamp, additional parts are supported.  If the third
@@ -668,6 +718,8 @@ absl::Status CheckTimeAddSubArguments(
     // Let validation happen normally.  It will return an error later.
     return absl::OkStatus();
   }
+  ZETASQL_RETURN_IF_ERROR(
+      EnsureArgumentsHaveType(function_name, arguments, language_options));
 
   if (arguments[2].type()->IsEnum() && arguments[2].is_literal()) {
     switch (arguments[2].literal_value()->enum_value()) {
@@ -796,8 +848,8 @@ absl::Status CheckFormatPostResolutionArguments(
     for (int i = 1; i < arguments.size(); ++i) {
       value_types.push_back(arguments[i].type());
     }
-        absl::Status status = functions::CheckStringFormatUtf8ArgumentTypes(
-        pattern, value_types, language_options.product_mode());
+    absl::Status status = functions::CheckStringFormatUtf8ArgumentTypes(
+    pattern, value_types, language_options.product_mode());
     if (status.code() == absl::StatusCode::kOutOfRange) {
       return MakeSqlError() << status.message();
     } else {
@@ -859,8 +911,8 @@ absl::Status CheckIsSupportedKeyType(
 }
 
 const std::set<std::string>& GetSupportedKeyTypes() {
-  static const auto* kSupportedKeyTypes =
-      new std::set<std::string>{"AEAD_AES_GCM_256"};
+  static const auto* kSupportedKeyTypes = new std::set<std::string>{
+      "AEAD_AES_GCM_256", "DETERMINISTIC_AEAD_AES_SIV_CMAC_256"};
   return *kSupportedKeyTypes;
 }
 
@@ -872,10 +924,11 @@ const std::set<std::string>& GetSupportedRawKeyTypes() {
 
 bool IsStringLiteralComparedToBytes(const InputArgumentType& lhs_arg,
                                     const InputArgumentType& rhs_arg) {
-  return (lhs_arg.type()->IsString() && lhs_arg.is_literal() &&
-          rhs_arg.type()->IsBytes()) ||
-         (lhs_arg.type()->IsBytes() && rhs_arg.type()->IsString() &&
-          rhs_arg.is_literal());
+  return lhs_arg.type() != nullptr && rhs_arg.type() != nullptr &&
+         ((lhs_arg.type()->IsString() && lhs_arg.is_literal() &&
+           rhs_arg.type()->IsBytes()) ||
+          (lhs_arg.type()->IsBytes() && rhs_arg.type()->IsString() &&
+           rhs_arg.is_literal()));
 }
 
 std::string NoMatchingSignatureForCaseNoValueFunction(
@@ -894,10 +947,9 @@ std::string NoMatchingSignatureForCaseNoValueFunction(
   for (int i = 0; i < arguments.size(); ++i) {
     if (i % 2 == 0 && i < arguments.size() - 1) {
       // This must be a BOOL expression.  If not, remember it.
-      if (!arguments[i].type()->IsBool()) {
-        zetasql_base::InsertIfNotPresent(
-            &non_bool_when_types,
-            arguments[i].type()->ShortTypeName(product_mode));
+      if (arguments[i].type() == nullptr || !arguments[i].type()->IsBool()) {
+        zetasql_base::InsertIfNotPresent(&non_bool_when_types,
+                                arguments[i].UserFacingName(product_mode));
       }
       continue;
     }
@@ -905,7 +957,7 @@ std::string NoMatchingSignatureForCaseNoValueFunction(
     // untyped arguments since they can (mostly) coerce to any type.
     if (!arguments[i].is_untyped()) {
       zetasql_base::InsertIfNotPresent(&then_else_types,
-                              arguments[i].type()->ShortTypeName(product_mode));
+                              arguments[i].UserFacingName(product_mode));
     }
   }
   if (!non_bool_when_types.empty()) {
@@ -978,12 +1030,14 @@ std::string NoMatchingSignatureForInArrayFunction(
   if (arguments.size() < 2) {
     return error_message;
   }
+
   const InputArgumentType lhs_arg = arguments[0];
   const InputArgumentType rhs_arg = arguments[1];
   bool is_string_literal_compared_to_bytes = false;
   // The rhs can be an untyped or an array type. This is enforced in
   // CheckInArrayArguments.
-  if (rhs_arg.type()->IsArray()) {
+  if (rhs_arg.type() != nullptr && lhs_arg.type() != nullptr &&
+      rhs_arg.type()->IsArray()) {
     const Type* element_type = rhs_arg.type()->AsArray()->element_type();
     if ((lhs_arg.type()->IsString() && lhs_arg.is_literal() &&
          element_type->IsBytes()) ||
@@ -1041,7 +1095,8 @@ std::string NoMatchingSignatureForLikeExprArrayFunction(
   const InputArgumentType lhs_arg = arguments[0];
   const InputArgumentType rhs_arg = arguments[1];
   bool is_string_literal_compared_to_bytes = false;
-  if (rhs_arg.type()->IsArray()) {
+  if (rhs_arg.type() != nullptr && lhs_arg.type() != nullptr &&
+      rhs_arg.type()->IsArray()) {
     const Type* element_type = rhs_arg.type()->AsArray()->element_type();
     if ((lhs_arg.type()->IsString() && lhs_arg.is_literal() &&
          element_type->IsBytes()) ||
@@ -1150,10 +1205,12 @@ std::string GetExtractFunctionSignatureString(
   if (arguments.empty()) {
     return "Must provide at least 1 argument.";
   }
-
+  if (!AllArgumentsHaveType(arguments)) {
+    return "Unexpected types";
+  }
   // The 0th argument is the one we are extracting the date part from.
-  const std::string source_type_string(
-      arguments[0].UserFacingName(product_mode));
+  const std::string source_type_string =
+      arguments[0].UserFacingName(product_mode);
   std::string datepart_string;
   std::string timezone_string;
   if (explicit_datepart_name.empty()) {
@@ -1265,6 +1322,9 @@ absl::Status CheckArgumentsSupportEquality(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
   ZETASQL_RET_CHECK_EQ(signature.NumConcreteArguments(), arguments.size());
+  ZETASQL_RETURN_IF_ERROR(
+      EnsureArgumentsHaveType(comparison_name, arguments, language_options));
+
   for (int idx = 0; idx < arguments.size(); ++idx) {
     if (!arguments[idx].type()->SupportsEquality(language_options)) {
       return MakeSqlError()
@@ -1280,6 +1340,8 @@ absl::Status CheckArgumentsSupportGrouping(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
   ZETASQL_RET_CHECK_EQ(signature.NumConcreteArguments(), arguments.size());
+  ZETASQL_RETURN_IF_ERROR(
+      EnsureArgumentsHaveType(comparison_name, arguments, language_options));
   for (int idx = 0; idx < arguments.size(); ++idx) {
     if (!arguments[idx].type()->SupportsGrouping(language_options)) {
       return MakeSqlError()
@@ -1290,7 +1352,7 @@ absl::Status CheckArgumentsSupportGrouping(
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<const Type*> GetOrMakeEnumValueDescriptorType(
+absl::StatusOr<const Type*> GetOrMakeEnumValueDescriptorType(
     Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle,
     const FunctionSignature& /*signature*/,
     const std::vector<InputArgumentType>& arguments,
@@ -1386,7 +1448,8 @@ absl::Status CheckFirstArgumentSupportsEquality(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
   if (arguments.empty() ||
-      arguments[0].type()->SupportsEquality(language_options)) {
+      (arguments[0].type() != nullptr &&
+       arguments[0].type()->SupportsEquality(language_options))) {
     return absl::OkStatus();
   }
   return MakeSqlError() << comparison_name
@@ -1426,14 +1489,19 @@ absl::Status CheckArrayIsDistinctArguments(
     // Let validation happen normally.  It will return an error later.
     return absl::OkStatus();
   }
-  if (arguments[0].is_null()) {
+  const InputArgumentType& arg0 = arguments[0];
+  if (arg0.is_null()) {
     return absl::OkStatus();
   }
 
-  const ArrayType* array_type = arguments[0].type()->AsArray();
-  ZETASQL_RET_CHECK_NE(array_type, nullptr)
-      << "ARRAY_IS_DISTINCT cannot be used on non-array type "
-      << arguments[0].type()->DebugString();
+  if (arg0.type() == nullptr || !arg0.type()->IsArray()) {
+    return zetasql_base::InvalidArgumentErrorBuilder()
+           << "ARRAY_IS_DISTINCT cannot be used on non-array type "
+           << arg0.UserFacingName(language_options.product_mode());
+  }
+
+  const ArrayType* array_type = arg0.type()->AsArray();
+  ZETASQL_RET_CHECK_NE(array_type, nullptr);
 
   if (!array_type->element_type()->SupportsGrouping(language_options,
                                                     nullptr)) {
@@ -1455,13 +1523,15 @@ absl::Status CheckInArrayArguments(
   // Untyped parameter can be coerced to any type.
   bool array_is_untyped_parameter = arguments[1].is_untyped_query_parameter();
 
-  if (!array_is_untyped_parameter && !arguments[1].type()->IsArray()) {
+  if (arguments[1].type() == nullptr ||
+      (!array_is_untyped_parameter && !arguments[1].type()->IsArray())) {
     return MakeSqlError()
            << "Second argument of IN UNNEST must be an array but was "
-           << arguments[1].DebugString();
+           << arguments[1].UserFacingName(language_options.product_mode());
   }
 
-  if (!arguments[0].type()->SupportsEquality(language_options)) {
+  if (arguments[0].type() == nullptr ||
+      !arguments[0].type()->SupportsEquality(language_options)) {
     return MakeSqlError() << "First argument to IN UNNEST of type "
                           << arguments[0].DebugString()
                           << " does not support equality comparison";
@@ -1500,6 +1570,8 @@ absl::Status CheckRangeBucketArguments(
     return absl::OkStatus();
   }
 
+  ZETASQL_RETURN_IF_ERROR(
+      EnsureArgumentsHaveType("RANGE_BUCKET", arguments, language_options));
   if (!arguments[0].type()->SupportsOrdering(language_options,
                                              /*type_description=*/nullptr)) {
     return MakeSqlError() << "First argument to RANGE_BUCKET of type "
@@ -1625,7 +1697,7 @@ bool HasIntervalTypeArgument(
 //   ARRAY<
 //     STRUCT<`value` <arguments[0].type()>,
 //            `<field2_name>` <arguments[1].type()> > >
-zetasql_base::StatusOr<const Type*> ComputeResultTypeForTopStruct(
+absl::StatusOr<const Type*> ComputeResultTypeForTopStruct(
     const std::string& field2_name, Catalog* catalog, TypeFactory* type_factory,
     CycleDetector* cycle_detector,
     const FunctionSignature& /*signature*/,
@@ -1646,7 +1718,7 @@ zetasql_base::StatusOr<const Type*> ComputeResultTypeForTopStruct(
 //   ARRAY<
 //     STRUCT<`neighbor` <arguments[0].type>,
 //            `distance` Double> >
-zetasql_base::StatusOr<const Type*> ComputeResultTypeForNearestNeighborsStruct(
+absl::StatusOr<const Type*> ComputeResultTypeForNearestNeighborsStruct(
     Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
     const FunctionSignature& /*signature*/,
     const std::vector<InputArgumentType>& arguments,

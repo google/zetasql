@@ -18,23 +18,32 @@
 
 #include <string.h>
 
+#include <functional>
 #include <memory>
+#include <set>
+#include <string>
+#include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/catalog_helper.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_column.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -1423,7 +1432,7 @@ absl::Status NameList::MergeFromExceptColumns(
 }
 
 // static
-zetasql_base::StatusOr<std::shared_ptr<NameList>>
+absl::StatusOr<std::shared_ptr<NameList>>
 NameList::AddRangeVariableInWrappingNameList(
     IdString alias, const ASTNode* ast_location,
     std::shared_ptr<const NameList> original_name_list) {
@@ -1435,7 +1444,7 @@ NameList::AddRangeVariableInWrappingNameList(
   return wrapper_name_list;
 }
 
-zetasql_base::StatusOr<std::shared_ptr<NameList>> NameList::CloneWithNewColumns(
+absl::StatusOr<std::shared_ptr<NameList>> NameList::CloneWithNewColumns(
     const ASTNode* ast_location, absl::string_view value_table_error,
     const ASTAlias* alias,
     std::function<ResolvedColumn(const ResolvedColumn&)> clone_column,

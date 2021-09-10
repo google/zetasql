@@ -345,16 +345,14 @@ ARRAY<int64>[]
 
 ### Struct literals
 
-Syntax:
+A struct literal is a struct whose fields are all literals. Struct literals can
+be written using any of the syntaxes for [constructing a
+struct][constructing-a-struct] (tuple syntax, typeless struct syntax, or typed
+struct syntax).
 
-```sql
-(elem[, elem...])
-```
-
-where `elem` is an element in the struct. `elem` must be a literal data type, not an expression or column name.
-
-The output type is an anonymous struct type (structs are not named types) with anonymous fields with types
-matching the types of the input expressions.
+Note that tuple syntax requires at least two fields, in order to distinguish it
+from an ordinary parenthesized expression. To write a struct literal with a
+single field, use typeless struct syntax or typed struct syntax.
 
 <table>
 <thead>
@@ -366,11 +364,27 @@ matching the types of the input expressions.
 <tbody>
 <tr>
 <td><code>(1, 2, 3)</code></td>
-<td><code>STRUCT&lt;int64,int64,int64&gt;</code></td>
+<td><code>STRUCT&lt;INT64, INT64, INT64&gt;</code></td>
 </tr>
 <tr>
 <td><code>(1, 'abc')</code></td>
-<td><code>STRUCT&lt;int64,string&gt;</code></td>
+<td><code>STRUCT&lt;INT64, STRING&gt;</code></td>
+</tr>
+<tr>
+<td><code>STRUCT(1 AS foo, 'abc' AS bar)</code></td>
+<td><code>STRUCT&lt;foo INT64, bar STRING&gt;</code></td>
+</tr>
+<tr>
+<td><code>STRUCT&lt;INT32, INT64&gt;(1, 2)</code></td>
+<td><code>STRUCT&lt;INT32, INT64&gt;</code></td>
+</tr>
+<tr>
+<td><code>STRUCT(1)</code></td>
+<td><code>STRUCT&lt;INT64&gt;</code></td>
+</tr>
+<tr>
+<td><code>STRUCT&lt;INT64&gt;(1)</code></td>
+<td><code>STRUCT&lt;INT64&gt;</code></td>
 </tr>
 </tbody>
 </table>
@@ -407,7 +421,7 @@ the string literal `"2014-09-27"` will be coerced to a date literal.
 Syntax:
 
 ```sql
-TIME '[H]H:[M]M:[S]S[.DDDDDD]]'
+TIME '[H]H:[M]M:[S]S[.DDDDDD]'
 ```
 
 Time literals contain the `TIME` keyword and a string literal that conforms to
@@ -565,10 +579,81 @@ TIMESTAMP '2014-09-27 12:30:00 America/Los_Angeles'
 TIMESTAMP '2014-09-27 12:30:00 America/Argentina/Buenos_Aires'
 ```
 
+### Interval literals
+
+Syntax:
+
+```sql
+INTERVAL 'N' datetime_part
+INTERVAL '[Y]-[M] [D] [H]:[M]:[S].[F]' datetime_part TO datetime_part
+```
+
+`datetime_part` is one of `YEAR`, `MONTH`, `DAY`, `HOUR`, `MINUTE` or `SECOND`.
+
+Interval literals come in two forms. The first form has a single datetime part.
+For example:
+
+```sql
+INTERVAL '5' DAY
+INTERVAL '0.001' SECOND
+```
+
+The second form allows multiple consecutive datetime parts.
+For example:
+
+```sql
+-- 10 hours, 20 minutes, 30 seconds
+INTERVAL '10:20:30' HOUR TO SECOND
+-- 1 year, 2 months
+INTERVAL '1-2' YEAR TO MONTH
+-- 1 month, 15 days
+INTERVAL '1 15' MONTH TO DAY
+-- 1 day, 5 hours, 30 minutes
+INTERVAL '1 5:30' DAY TO MINUTE
+```
+
 ### Enum literals 
 <a id="enum_literals"></a>
 
 There is no syntax for enum literals, but integer or string literals will coerce to enum type when necessary, or can be explicitly CAST to a specific enum type name. See "Literal Coercion" in [Expressions, Functions, and Operators][functions-reference].
+
+### JSON literals 
+<a id="json_literals"></a>
+
+Syntax:
+
+```sql
+JSON 'json_formatted_data'
+```
+
+A JSON literal represents [JSON][json-wiki]-formatted data.
+
+Example:
+
+```sql
+JSON '
+{
+  "id": 10,
+  "type": "fruit",
+  "name": "apple",
+  "on_menu": true,
+  "recipes":
+    {
+      "salads":
+      [
+        { "id": 2001, "type": "Walnut Apple Salad" },
+        { "id": 2002, "type": "Apple Spinach Salad" }
+      ],
+      "desserts":
+      [
+        { "id": 3001, "type": "Apple Pie" },
+        { "id": 3002, "type": "Apple Scones" },
+        { "id": 3003, "type": "Apple Crumble" }
+      ]
+    }
+}
+'
+```
 
 ## Case sensitivity 
 <a id="case_sensitivity"></a>
@@ -970,6 +1055,7 @@ on two lines */
 WHERE book = "Ulysses";
 ```
 
+[json-wiki]: https://en.wikipedia.org/wiki/JSON
 [tz-database]: http://www.iana.org/time-zones
 [tz-database-time-zones]: http://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 
@@ -982,6 +1068,8 @@ WHERE book = "Ulysses";
 [positional-query-parameters]: #positional_query_parameters
 [query-reference]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md
 [lexical-udfs-reference]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md
+
+[constructing-a-struct]: https://github.com/google/zetasql/blob/master/docs/data-types.md#constructing-a-struct
 
 [functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md
 

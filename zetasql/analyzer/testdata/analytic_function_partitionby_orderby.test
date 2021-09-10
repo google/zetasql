@@ -55,7 +55,7 @@ QueryStmt
     |       |     +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
     |       |     +-ColumnRef(type=DATE, column=SimpleTypes.date#10)
     |       |     +-ColumnRef(type=TIMESTAMP, column=SimpleTypes.timestamp#15)
-    |       |     +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=ComplexTypes.TestEnum#20)
+    |       |     +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=ComplexTypes.TestEnum#20)
     |       +-analytic_function_list=
     |         +-$analytic1#26 :=
     |           +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)
@@ -242,7 +242,7 @@ QueryStmt
     |       |     |   +-ColumnRef(type=TIMESTAMP, column=SimpleTypes.timestamp#15)
     |       |     +-OrderByItem
     |       |       +-column_ref=
-    |       |         +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=ComplexTypes.TestEnum#20)
+    |       |         +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=ComplexTypes.TestEnum#20)
     |       +-analytic_function_list=
     |         +-$analytic1#26 :=
     |           +-AnalyticFunctionCall(sample_functions:afn_agg() -> INT64)

@@ -32,7 +32,8 @@
 #include "zetasql/public/value.h"
 #include "gmock/gmock.h"
 #include <cstdint>
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/match.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
 
@@ -126,27 +127,27 @@ class ValueConstructor {
 
 namespace internal {
 template <class T>
-inline zetasql_base::StatusOr<Value> GetStatusOrValue(T& arg);
+inline absl::StatusOr<Value> GetStatusOrValue(T& arg);
 
 template <>
-inline zetasql_base::StatusOr<Value> GetStatusOrValue(
-    const zetasql_base::StatusOr<Value>& arg) {
+inline absl::StatusOr<Value> GetStatusOrValue(
+    const absl::StatusOr<Value>& arg) {
   return arg;
 }
 
 template <>
-inline zetasql_base::StatusOr<Value> GetStatusOrValue(const Value& arg) {
+inline absl::StatusOr<Value> GetStatusOrValue(const Value& arg) {
   return arg;
 }
 
 template <>
-inline zetasql_base::StatusOr<Value> GetStatusOrValue(
-    const zetasql_base::StatusOr<absl::variant<Value, ScriptResult>>& arg) {
+inline absl::StatusOr<Value> GetStatusOrValue(
+    const absl::StatusOr<absl::variant<Value, ScriptResult>>& arg) {
   if (!arg.ok()) {
     return arg.status();
   }
   ZETASQL_CHECK(absl::holds_alternative<Value>(arg.value()));
-  return zetasql_base::StatusOr<Value>(absl::get<Value>(arg.value()));
+  return absl::StatusOr<Value>(absl::get<Value>(arg.value()));
 }
 }  // namespace internal
 
@@ -157,7 +158,7 @@ inline zetasql_base::StatusOr<Value> GetStatusOrValue(
 // ComplianceTestCaseResult is supplied, it must hold a Value, not a
 // ScriptResult.
 MATCHER_P(EqualsValue, expected_value, "") {
-  zetasql_base::StatusOr<Value> result = internal::GetStatusOrValue(arg);
+  absl::StatusOr<Value> result = internal::GetStatusOrValue(arg);
   if (!result.ok()) {
     return false;
   }
@@ -174,7 +175,7 @@ MATCHER_P(EqualsValue, expected_value, "") {
 // Matches StatusOr<Value> or Value against 'expected_value' respecting array
 // orderedness and using the default floating point error margin.
 MATCHER_P(AlmostEqualsValue, expected_value, "") {
-  zetasql_base::StatusOr<Value> result = arg;
+  absl::StatusOr<Value> result = arg;
   if (!result.ok()) {
     return false;
   }
@@ -190,11 +191,11 @@ MATCHER_P(AlmostEqualsValue, expected_value, "") {
 
 // Matches StatusOr<Value> against 'error_substring'.
 MATCHER_P(ReturnsNoValue, error_substring, "") {
-  zetasql_base::StatusOr<Value> result = internal::GetStatusOrValue(arg);
+  absl::StatusOr<Value> result = internal::GetStatusOrValue(arg);
   if (result.ok()) {
     return false;
   }
-  if (result.status().ToString().find(error_substring) == std::string::npos) {
+  if (!absl::StrContains(result.status().ToString(), error_substring)) {
     return false;
   }
   return true;

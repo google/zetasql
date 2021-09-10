@@ -33,7 +33,7 @@
 #include "zetasql/public/value.h"
 #include "zetasql/public/value.pb.h"
 #include <cstdint>
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/source_location.h"
@@ -167,7 +167,7 @@ static absl::Status CheckFieldFormat(const Value& value,
 
 // Helper function that converts the timestamp field format annotation to the
 // timestamp scale enum. RET_CHECKs in case of unexpected input.
-static zetasql_base::StatusOr<functions::TimestampScale> FormatToScale(
+static absl::StatusOr<functions::TimestampScale> FormatToScale(
     FieldFormat::Format field_format) {
   switch (field_format) {
     case FieldFormat::TIMESTAMP_MICROS:

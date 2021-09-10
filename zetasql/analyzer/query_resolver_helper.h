@@ -20,6 +20,7 @@
 #include <stddef.h>
 
 #include <cstdint>
+#include <limits>
 #include <map>
 #include <memory>
 #include <string>
@@ -27,68 +28,24 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/analyzer/expr_matching_helpers.h"
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/public/id_string.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_column.h"
-#include <cstdint>
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
-#include "zetasql/base/status.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 
 class AnalyticFunctionResolver;
+class ExprResolutionInfo;
 class Resolver;
 class SelectColumnStateList;
-
-// Hashing function for field paths, which enables faster set lookups and
-// insertions.
-size_t FieldPathHash(const ResolvedExpr* expr);
-
-enum class FieldPathMatchingOption { kExpression, kFieldPath };
-
-// This function determines whether <field_path1> and <field_path2> are
-// generalized path expressions that point to the same field.
-//
-// If the FieldPathMatchingOption::kExpression option is specified, this
-// function returns true if <field_path1> and <field_path2> are interchangeable
-// generalized path expressions. This considers specialized field accesses
-// (currently, the only such case is PROTO_DEFAULT_IF_NULL) as well as ensures
-// the descriptors for any proto types involved come from the same descriptor
-// pool. This option guarantees <field_path1> and <field_path2> evaluate to the
-// same result.
-//
-// If the FieldPathMatchingOption::kFieldPath option is specified, this function
-// returns true if <field_path1> and <field_path2> read the same field. This
-// option does consider whether the has_bit of the field is being accessed by
-// both <field_path1> and <field_path2>. However, it does not consider any
-// specialized field accesses. Therefore, this option does not guarantee
-// <field_path1> and <field_path2> evaluate to the same result.
-bool IsSameFieldPath(const ResolvedExpr* field_path1,
-                     const ResolvedExpr* field_path2,
-                     FieldPathMatchingOption match_option);
-
-// Field path hashing operator for containers.
-struct FieldPathHashOperator {
-  size_t operator()(const ResolvedExpr* expr) const {
-    return FieldPathHash(expr);
-  }
-};
-
-// Field path equality operator for containers.
-struct FieldPathEqualsOperator {
-  bool operator()(const ResolvedExpr* expr1, const ResolvedExpr* expr2) const {
-    return IsSameFieldPath(expr1, expr2, FieldPathMatchingOption::kFieldPath);
-  }
-};
-
-// Field path expression equality operator for containers.
-struct FieldPathExpressionEqualsOperator {
-  bool operator()(const ResolvedExpr* expr1, const ResolvedExpr* expr2) const {
-    return IsSameFieldPath(expr1, expr2, FieldPathMatchingOption::kExpression);
-  }
-};
 
 struct OrderByItemInfo {
   OrderByItemInfo(const ASTNode* ast_location_in, int64_t index,
@@ -203,6 +160,177 @@ struct QueryGroupByAndAggregateInfo {
   // Resets all fields to their initial values, and empties all maps and
   // lists.
   void Reset();
+};
+
+// SelectColumnState contains state related to an expression in the
+// select-list of a query, while it is being resolved.  This is used and
+// mutated in multiple passes while resolving the SELECT-list and GROUP BY.
+// TODO: Convert this to an enacapsulated class.
+struct SelectColumnState {
+  explicit SelectColumnState(
+      const ASTExpression* ast_expr_in, IdString alias_in, bool is_explicit_in,
+      bool has_aggregation_in, bool has_analytic_in,
+      std::unique_ptr<const ResolvedExpr> resolved_expr_in)
+      : ast_expr(ast_expr_in),
+        alias(alias_in),
+        is_explicit(is_explicit_in),
+        select_list_position(-1),
+        resolved_expr(std::move(resolved_expr_in)),
+        has_aggregation(has_aggregation_in),
+        has_analytic(has_analytic_in) {}
+
+  SelectColumnState(const SelectColumnState&) = delete;
+  SelectColumnState& operator=(const SelectColumnState&) = delete;
+
+  // Gets the Type of this SELECT list column.  Can return NULL if the
+  // related <ast_expr> has not been resolved yet.
+  const Type* GetType() const;
+
+  // Returns whether or not this SELECT list column has a pre-GROUP BY
+  // column assigned to it.
+  bool HasPreGroupByResolvedColumn() const {
+    return resolved_pre_group_by_select_column.IsInitialized();
+  }
+
+  // Returns a multi-line debug string, where each line is prefixed by <indent>.
+  std::string DebugString(absl::string_view indent = "") const;
+
+  // Points at the * if this came from SELECT *.
+  const ASTExpression* ast_expr;
+
+  // The alias provided by the user or computed for this column.
+  const IdString alias;
+
+  // True if the alias for this column is an explicit name. Generally, explicit
+  // names come directly from the query text, and implicit names are those that
+  // are generated automatically from something outside the query text, like
+  // column names that come from a table schema. Explicitness does not change
+  // any scoping behavior except for the final check in strict mode that may
+  // raise an error. For more information, please see the beginning of
+  // (broken link).
+  const bool is_explicit;
+
+  // 0-based position in the SELECT-list after star expansion.
+  // Stores -1 when position is not known yet. This never happens for a
+  // SelectColumnState stored inside a SelectColumnStateList.
+  int select_list_position;
+
+  // Owned ResolvedExpr for this SELECT list column.  If we need a
+  // ResolvedComputedColumn for this SELECT column, then ownership of
+  // this <resolved_expr> will be transferred to that ResolvedComputedColumn
+  // and <resolved_expr> will be set to NULL.
+  std::unique_ptr<const ResolvedExpr> resolved_expr;
+
+  // References the related ResolvedComputedColumn for this SELECT list column,
+  // if one is needed.  Otherwise it is NULL.  The referenced
+  // ResolvedComputedColumn is owned by a column list in QueryResolutionInfo.
+  // The reference here is required to allow us to maintain the relationship
+  // between this SELECT list column and its related expression for
+  // subsequent HAVING and ORDER BY expression analysis.
+  // Not owned.
+  const ResolvedComputedColumn* resolved_computed_column = nullptr;
+
+  // True if this expression includes aggregation.  Select-list expressions
+  // that use aggregation cannot be referenced in GROUP BY.
+  bool has_aggregation = false;
+
+  // True if this expression includes analytic functions.
+  bool has_analytic = false;
+
+  // If true, this expression is used as a GROUP BY key.
+  bool is_group_by_column = false;
+
+  // The output column of this select list item.  It is projected by a scan
+  // that computes the related expression.  After the SELECT list has
+  // been fully resolved, <resolved_select_column> will be initialized.
+  // After it is set, it is used in subsequent expression resolution (SELECT
+  // list ordinal references and SELECT list alias references).
+  ResolvedColumn resolved_select_column;
+
+  // If set, indicates the pre-GROUP BY version of the column.  Will only
+  // be set if the column must be computed before the AggregateScan (so
+  // it will not necessarily always be set if is_group_by_column is true).
+  ResolvedColumn resolved_pre_group_by_select_column;
+};
+
+// This class contains a SelectColumnState for each column in the SELECT list
+// and resolves the alias or ordinal references to the SELECT-list column.
+class SelectColumnStateList {
+ public:
+  SelectColumnStateList() {}
+  SelectColumnStateList(const SelectColumnStateList&) = delete;
+  SelectColumnStateList& operator=(const SelectColumnStateList&) = delete;
+
+  // Creates and returns a SelectColumnState for a new SELECT-list column.
+  // 'is_explicit' should be true if 'alias' is an explicit name. Generally,
+  // explicit names come directly from the query text, and implicit names are
+  // those that are generated automatically from something outside the query
+  // text, like column names that come from a table schema. Explicitness does
+  // not change any scoping behavior except for the final check in strict mode
+  // that may raise an error. For more information, please see the beginning of
+  // (broken link).
+  void AddSelectColumn(const ASTExpression* ast_expr, IdString alias,
+                       bool is_explicit, bool has_aggregation,
+                       bool has_analytic,
+                       std::unique_ptr<const ResolvedExpr> resolved_expr);
+
+  // Add an already created SelectColumnState. If save_mapping is true, saves a
+  // mapping from the alias to this SelectColumnState. The mapping is later used
+  // for validations performed by FindAndValidateSelectColumnStateByAlias().
+  void AddSelectColumn(std::unique_ptr<SelectColumnState> select_column_state);
+
+  // Finds a SELECT-list column by alias. Returns an error if the
+  // name is ambiguous or the referenced column contains an aggregate or
+  // analytic function that is disallowed as per <expr_resolution_info>.
+  // If the name is not found, sets <*select_column_state> to NULL and
+  // returns OK.
+  absl::Status FindAndValidateSelectColumnStateByAlias(
+      const char* clause_name, const ASTNode* ast_location, IdString alias,
+      const ExprResolutionInfo* expr_resolution_info,
+      const SelectColumnState** select_column_state) const;
+
+  // Finds a SELECT-list column by ordinal. Returns an error if
+  // the ordinal number is out of the valid range or the referenced column
+  // contains an aggregate or analytic function that is disallowed as per
+  // <expr_resolution_info>.
+  absl::Status FindAndValidateSelectColumnStateByOrdinal(
+      const std::string& expr_description, const ASTNode* ast_location,
+      const int64_t ordinal, const ExprResolutionInfo* expr_resolution_info,
+      const SelectColumnState** select_column_state) const;
+
+  static absl::Status ValidateAggregateAndAnalyticSupport(
+      absl::string_view column_description, const ASTNode* ast_location,
+      const SelectColumnState* select_column_state,
+      const ExprResolutionInfo* expr_resolution_info);
+
+  // <select_list_position> is 0-based position after star expansion.
+  SelectColumnState* GetSelectColumnState(int select_list_position);
+  const SelectColumnState* GetSelectColumnState(int select_list_position) const;
+
+  const std::vector<std::unique_ptr<SelectColumnState>>&
+  select_column_state_list() const;
+
+  // Returns a list of output ResolvedColumns, one ResolvedColumn per
+  // <select_column_state_list_> entry.  Currently only used when creating an
+  // OrderByScan and subsequent ProjectScan, ensuring that all SELECT list
+  // columns are produced by those scans.  For those callers, all
+  // ResolvedColumns in the list are initialized.
+  const ResolvedColumnList resolved_column_list() const;
+
+  // Returns the number of SelectColumnStates.
+  size_t Size() const;
+
+  std::string DebugString() const;
+
+ private:
+  std::vector<std::unique_ptr<SelectColumnState>> select_column_state_list_;
+
+  // Map from SELECT-list column aliases (lowercase) to column
+  // position in select_column_state_list_. These names can be referenced in
+  // GROUP BY, overriding other names in scope. Ambiguous names will be
+  // stored as -1.
+  std::map<IdString, int, IdStringCaseLess>
+      column_alias_to_state_list_position_;
 };
 
 // QueryResolutionInfo is used (and mutated) to store info related to

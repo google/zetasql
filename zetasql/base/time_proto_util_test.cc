@@ -52,7 +52,7 @@ inline absl::Time MakeGoogleApiTimeMax() {
 
 // Returns the min absl::Time that can be represented as
 // google::protobuf::Timestamp. Same as
-// DecodeGoogleApiProto(MakeGoogleApiTimestampProtoMin()).ValueOrDie().
+// DecodeGoogleApiProto(MakeGoogleApiTimestampProtoMin()).value().
 inline absl::Time MakeGoogleApiTimeMin() {
   return absl::UnixEpoch() + absl::Seconds(-62135596800);
 }
@@ -77,7 +77,7 @@ void RoundTripGoogleApi(absl::Time v, int64_t expected_sec, int32_t expected_nse
   // Complete the round-trip by decoding the proto back to a absl::Timestamp.
   const auto sor_timestamp = DecodeGoogleApiProto(proto);
   ZETASQL_ASSERT_OK(sor_timestamp);
-  const auto& timestamp = sor_timestamp.ValueOrDie();
+  const auto& timestamp = sor_timestamp.value();
   EXPECT_EQ(timestamp, v);
 }
 

@@ -18,9 +18,12 @@
 #define ZETASQL_REFERENCE_IMPL_COMMON_H_
 
 #include <memory>
+#include <string>
 #include <vector>
 
+#include "zetasql/public/collator.h"
 #include "zetasql/public/type.h"
+#include "zetasql/resolved_ast/resolved_collation.h"
 #include "absl/status/status.h"
 #include "zetasql/base/status.h"
 
@@ -47,6 +50,21 @@ static std::vector<T*> ReleaseAll(
   ptrs.clear();
   return result;
 }
+
+// Returns a collation name from input <resolved_collation>.
+absl::StatusOr<std::string>
+GetCollationNameFromResolvedCollation(
+    const ResolvedCollation& resolved_collation);
+
+// Returns a ZetaSqlCollator from input <resolved_collation>.
+absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>>
+GetCollatorFromResolvedCollation(const ResolvedCollation& resolved_collation);
+
+// Returns a collator from a value representing a ResolvedCollation object.
+// An error will be returned if the input <collation_value> cannot be converted
+// to a ResolvedCollation object.
+absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>>
+GetCollatorFromResolvedCollationValue(const Value& collation_value);
 
 }  // namespace zetasql
 

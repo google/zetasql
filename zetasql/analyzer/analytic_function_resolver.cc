@@ -16,26 +16,35 @@
 
 #include "zetasql/analyzer/analytic_function_resolver.h"
 
+#include <map>
+#include <memory>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/analyzer/expr_resolver_helper.h"
-#include "zetasql/analyzer/function_resolver.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/analyzer/resolver.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/coercer.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
-#include "zetasql/public/signature_match_result.h"
+#include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
+#include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/memory/memory.h"
-#include "zetasql/base/case.h"
+#include "absl/status/status.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
@@ -325,8 +334,7 @@ absl::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
     alias = resolver_->MakeIdString(
         absl::StrCat("$analytic", num_analytic_functions_));
   }
-  std::unique_ptr<const ResolvedAnalyticFunctionCall>
-      resolved_analytic_function_call;
+  std::unique_ptr<ResolvedAnalyticFunctionCall> resolved_analytic_function_call;
   const bool is_distinct = ast_analytic_function_call->function()->distinct();
   resolved_analytic_function_call = MakeResolvedAnalyticFunctionCall(
       resolved_function_call->type(), resolved_function_call->function(),
@@ -335,9 +343,15 @@ absl::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
       resolved_function_call->release_generic_argument_list(),
       resolved_function_call->error_mode(), is_distinct,
       resolved_null_handling_modifier_kind, std::move(resolved_window_frame));
+  ZETASQL_RETURN_IF_ERROR(resolver_->MaybeResolveCollationForFunctionCallBase(
+      /*error_location=*/ast_analytic_function_call,
+      resolved_analytic_function_call.get()));
+  ZETASQL_RETURN_IF_ERROR(resolver_->CheckAndPropagateAnnotations(
+      /*error_node=*/ast_analytic_function_call,
+      resolved_analytic_function_call.get()));
   const ResolvedColumn resolved_column(
       resolver_->AllocateColumnId(), kAnalyticId, alias,
-      resolved_analytic_function_call->type());
+      resolved_analytic_function_call->annotated_type());
 
   ZETASQL_RET_CHECK(zetasql_base::InsertIfNotPresent(
       &column_to_analytic_function_map_, resolved_column,
@@ -772,52 +786,22 @@ absl::Status AnalyticFunctionResolver::ResolveWindowFrameOffsetExpr(
 
   // Check the expression type and coerce it if necessary.
   if (frame_unit == ResolvedWindowFrame::ROWS) {
-    if (!(*resolved_offset_expr)->type()->IsInteger()) {
-      return MakeSqlErrorAt(ast_frame_expr)
-             << "Window framing expression for ROWS can only be of integer "
-                "type, but has type "
-             << Type::TypeKindToString(
-                    (*resolved_offset_expr)->type()->kind(),
-                    resolver_->language().product_mode());
-    }
-    // Coerce the framing expression to INT64 type.
-    if (!(*resolved_offset_expr)->type()->IsInt64()) {
-      ZETASQL_RETURN_IF_ERROR(resolver_->function_resolver_->AddCastOrConvertLiteral(
-          ast_frame_expr->expression(), resolver_->type_factory_->get_int64(),
-          /*format=*/nullptr,
-          /*time_zone=*/nullptr, TypeParameters(), /*scan=*/nullptr,
-          /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
-          resolved_offset_expr));
-    }
+    ZETASQL_RETURN_IF_ERROR(resolver_->CoerceExprToType(
+        ast_frame_expr->expression(), resolver_->type_factory_->get_int64(),
+        Resolver::kImplicitCoercion,
+        "Window framing expression for ROWS can only be of integer type, but "
+        "has type $1",
+        resolved_offset_expr));
   } else {
     ZETASQL_DCHECK_EQ(frame_unit, ResolvedWindowFrame::RANGE);
     ZETASQL_DCHECK(ordering_expr_type != nullptr);
 
-    if (!(*resolved_offset_expr)->type()->Equals(ordering_expr_type)) {
-      SignatureMatchResult result;
-      const InputArgumentType input_argument_type =
-          GetInputArgumentTypeForExpr((*resolved_offset_expr).get());
-      if (!coercer().CoercesTo(input_argument_type, ordering_expr_type,
-                               /*is_explicit=*/false, &result)) {
-        return MakeSqlErrorAt(ast_frame_expr)
-               << "Window framing expression has type "
-               << Type::TypeKindToString(
-                      (*resolved_offset_expr)->type()->kind(),
-                      resolver_->language().product_mode())
-               << " that cannot coerce to the type of the ORDER BY expression,"
-                  " which is "
-               << Type::TypeKindToString(
-                      ordering_expr_type->kind(),
-                      resolver_->language().product_mode());
-      }
-      // Coerce the framing expression to match the target (ORDER BY) expression
-      // type.
-      ZETASQL_RETURN_IF_ERROR(resolver_->function_resolver_->AddCastOrConvertLiteral(
-          ast_frame_expr->expression(), ordering_expr_type, /*format=*/nullptr,
-          /*time_zone=*/nullptr, TypeParameters(), /*scan=*/nullptr,
-          /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
-          resolved_offset_expr));
-    }
+    ZETASQL_RETURN_IF_ERROR(resolver_->CoerceExprToType(
+        ast_frame_expr->expression(), ordering_expr_type,
+        Resolver::kImplicitCoercion,
+        "Window framing expression has type $1 that cannot coerce to the type "
+        "of the ORDER BY expression, which is $0",
+        resolved_offset_expr));
   }
 
   // Check the expression value if it is a literal.
@@ -1095,18 +1079,25 @@ absl::Status AnalyticFunctionResolver::ResolveWindowOrderByPostAggregation(
     const ASTCollate* ast_collate =
         ast_order_by->ordering_expressions().at(i)->collate();
     if (ast_collate != nullptr) {
-      ZETASQL_RETURN_IF_ERROR(resolver_->ValidateAndResolveCollate(
+      ZETASQL_RETURN_IF_ERROR(resolver_->ValidateAndResolveOrderByCollate(
           ast_collate,
           ast_order_by->ordering_expressions().at(i),
-          resolved_column_ref->column(),
+          resolved_column_ref->column().type(),
           &resolved_collation_name));
     }
 
-    order_by_items.emplace_back(
-        MakeResolvedOrderByItem(std::move(resolved_column_ref),
-                                std::move(resolved_collation_name),
-                                ast_ordering_exprs[i]->descending(),
-                                null_order));
+    auto resolved_order_by_item = MakeResolvedOrderByItem(
+        std::move(resolved_column_ref), std::move(resolved_collation_name),
+        ast_ordering_exprs[i]->descending(), null_order);
+
+    if (resolver_->language().LanguageFeatureEnabled(
+            FEATURE_V_1_3_COLLATION_SUPPORT)) {
+      ZETASQL_RETURN_IF_ERROR(
+          CollationAnnotation::ResolveCollationForResolvedOrderByItem(
+              resolved_order_by_item.get()));
+    }
+
+    order_by_items.emplace_back(std::move(resolved_order_by_item));
   }
 
   std::unique_ptr<ResolvedWindowOrdering> resolved_window_ordering =
@@ -1154,9 +1145,9 @@ absl::Status AnalyticFunctionResolver::AddColumnForWindowExpression(
     if (alias.empty()) {
       alias = column_alias;
     }
-    ResolvedColumn resolved_column(resolver_->AllocateColumnId(), query_alias,
-                                   alias,
-                                   window_expr_info->resolved_expr->type());
+    ResolvedColumn resolved_column(
+        resolver_->AllocateColumnId(), query_alias, alias,
+        window_expr_info->resolved_expr->annotated_type());
     window_columns_to_compute_.emplace_back(
         MakeResolvedComputedColumn(
             resolved_column, std::move(window_expr_info->resolved_expr)));

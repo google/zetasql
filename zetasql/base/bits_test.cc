@@ -19,7 +19,9 @@
 #include <string.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <iostream>
+#include <limits>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -92,7 +94,7 @@ TEST_F(BitsTest, BitCountingEdgeCases) {
 
   for (int i = 0; i < 64; i++) {
     EXPECT_EQ(1, Bits::CountOnes64(1LLU << i));
-    EXPECT_EQ(63, Bits::CountOnes64(static_cast<uint64_t> (~(1LLU << i))));
+    EXPECT_EQ(63, Bits::CountOnes64(static_cast<uint64_t>(~(1LLU << i))));
   }
 
   EXPECT_EQ(0, Bits::CountOnes128(absl::uint128(0)));

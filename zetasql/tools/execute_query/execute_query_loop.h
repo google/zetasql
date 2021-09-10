@@ -32,26 +32,28 @@
 namespace zetasql {
 
 using ExecuteQueryLoopStatusHandler =
-    absl::FunctionRef<absl::Status(absl::Status status, absl::string_view sql)>;
+    absl::FunctionRef<absl::Status(absl::Status status)>;
 
 // Returns status without modification.
-absl::Status ExecuteQueryLoopNoOpStatusHandler(absl::Status status,
-                                               absl::string_view sql);
+absl::Status ExecuteQueryLoopNoOpStatusHandler(absl::Status status);
 
 // Read queries from prompt and execute them until either the end of input is
 // reached (see ExecuteQueryPrompt::Read) or an error occurs.
 //
 // The status handler is invoked for all status codes returned for queries,
-// regardless of the actual status code (OK, invalid argument, etc.). When used
-// by an interactive shell the handler can log errors along with the failing
-// query before returning an OK status to proceed with reading the next query.
-// When no status handler is given (nullptr), all non-successful status codes
-// from the query lead to an immediate return.
-absl::Status ExecuteQueryLoop(
-    ExecuteQueryPrompt& prompt, ExecuteQueryConfig& config,
-    ExecuteQueryWriter& writer,
-    const ExecuteQueryLoopStatusHandler status_handler =
-        ExecuteQueryLoopNoOpStatusHandler);
+// regardless of the actual status code (OK, invalid argument, etc.). If
+// a non-OK status is returned from the handler the loop terminates and returns
+// the status from the handler. A payload of type
+// execute_query::ParserErrorContext contains the failed SQL statement. When
+// used by an interactive shell the handler can log errors along with the
+// failing query before returning an OK status to proceed with reading the next
+// query. ExecuteQueryLoopNoOpStatusHandler is a status handler returning all
+// values unmodified.
+absl::Status ExecuteQueryLoop(ExecuteQueryPrompt& prompt,
+                              ExecuteQueryConfig& config,
+                              ExecuteQueryWriter& writer,
+                              ExecuteQueryLoopStatusHandler status_handler =
+                                  &ExecuteQueryLoopNoOpStatusHandler);
 
 }  // namespace zetasql
 

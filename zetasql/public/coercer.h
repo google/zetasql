@@ -126,7 +126,7 @@ class Coercer {
   //
   // TODO: retire/deprecate all other *CoerceTo* methods in this
   // class.
-  zetasql_base::StatusOr<bool> CoercesTo(
+  absl::StatusOr<bool> CoercesTo(
       const InputArgumentType& from_argument, const Type* to_type,
       bool is_explicit, SignatureMatchResult* result,
       ExtendedCompositeCastEvaluator* extended_conversion_evaluator) const;
@@ -147,7 +147,7 @@ class Coercer {
   // common supertype candidates, or whether they are treated like
   // literals and are checked to see if they coerce to the candidate
   // supertypes.
-  zetasql_base::StatusOr<const Type*> GetCommonSuperTypeImpl(
+  absl::StatusOr<const Type*> GetCommonSuperTypeImpl(
       const InputArgumentTypeSet& argument_set,
       bool treat_parameters_as_literals) const;
 
@@ -202,13 +202,13 @@ class Coercer {
   //
   // Returns NULL if there is no common supertype for all the argument types,
   // or if any of the arguments is a non-struct type.
-  zetasql_base::StatusOr<const StructType*> GetCommonStructSuperType(
+  absl::StatusOr<const StructType*> GetCommonStructSuperType(
       const InputArgumentTypeSet& argument_set) const;
 
   // Returns the common super type of <arguments>. Returns NULL if there is no
   // common supertype for all the argument types, or if any of the arguments is
   // a non-array type.
-  zetasql_base::StatusOr<const ArrayType*> GetCommonArraySuperType(
+  absl::StatusOr<const ArrayType*> GetCommonArraySuperType(
       const InputArgumentTypeSet& argument_set,
       bool treat_query_parameters_as_literals) const;
 
@@ -237,7 +237,7 @@ class Coercer {
 //
 // REQUIRES: !type->IsExtended() || catalog != nullptr.
 // REQUIRES: !type->IsStruct && !type->IsArray().
-zetasql_base::StatusOr<TypeListView> GetCandidateSuperTypes(const Type* type,
+absl::StatusOr<TypeListView> GetCandidateSuperTypes(const Type* type,
                                                     Catalog* catalog = nullptr);
 
 // Checks that there is a global preference order of supertypes and this order

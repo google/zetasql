@@ -43,9 +43,10 @@
 #include "absl/flags/flag.h"
 #include "absl/functional/bind_front.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "zetasql/base/case.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
@@ -120,6 +121,8 @@ class RunParserTest : public ::testing::Test {
   const std::string kAllowIsDistinctFrom = "allow_is_distinct_from";
   // Allows QUALIFY clause
   const std::string kAllowQualify = "allow_qualify";
+  // Indicates that QUALIFY is a reserved keyword
+  const std::string kQualifyReserved = "qualify_reserved";
   // Allows REPEAT statement
   const std::string kAllowRepeat = "allow_repeat";
   // Allows column DEFAULT values
@@ -133,6 +136,10 @@ class RunParserTest : public ::testing::Test {
   const std::string kShowParseLocationText = "show_parse_location_text";
   // Allows CASE...WHEN statement
   const std::string kAllowCaseStmt = "allow_case_stmt";
+  // Allows script label.
+  const std::string kAllowScriptLabel = "allow_script_label";
+  // Allows remote function
+  const std::string kAllowRemoteFunction = "allow_remote_function";
 
   RunParserTest() {
     test_case_options_.RegisterString(kModeOption, "statement");
@@ -147,6 +154,7 @@ class RunParserTest : public ::testing::Test {
     test_case_options_.RegisterBool(kAllowWithGroupRows, true);
     test_case_options_.RegisterBool(kAllowIsDistinctFrom, true);
     test_case_options_.RegisterBool(kAllowQualify, true);
+    test_case_options_.RegisterBool(kQualifyReserved, true);
     test_case_options_.RegisterBool(kAllowRepeat, true);
     test_case_options_.RegisterString(kSupportedGenericEntityTypes, "");
     test_case_options_.RegisterBool(kAllowColumnDefaultValue, true);
@@ -154,6 +162,9 @@ class RunParserTest : public ::testing::Test {
     test_case_options_.RegisterBool(kAllowLikeAnySomeAll, true);
     test_case_options_.RegisterBool(kShowParseLocationText, true);
     test_case_options_.RegisterBool(kAllowCaseStmt, true);
+    test_case_options_.RegisterBool(kAllowScriptLabel, true);
+    test_case_options_.RegisterBool(kAllowRemoteFunction, true);
+
 
     // Force a blank line at the start of every test case.
     absl::SetFlag(&FLAGS_file_based_test_driver_insert_leading_blank_lines, 1);
@@ -258,9 +269,9 @@ class RunParserTest : public ::testing::Test {
     // Ignore the [123-456] location ranges when comparing the outputs. The
     // locations change with the newline type because \r\n is two bytes instead
     // of one.
-    static const RE2 regexp_to_ignore("\\[[0-9]+-[0-9]+\\]");
+    static const LazyRE2 regexp_to_ignore = {R"(\[[0-9]+-[0-9]+\])"};
     MergeTestOutputs(test_outputs_by_newline_type, newline_annotations,
-                     &regexp_to_ignore, test_outputs);
+                     &(*regexp_to_ignore), test_outputs);
   }
 
   // Runs 'test_case' in multi-statement or single-statement mode depending on
@@ -380,8 +391,7 @@ class RunParserTest : public ::testing::Test {
       return false;
     }
     int max_diff = 5;
-    if (s2.message().find("but got string literal:") !=
-        absl::string_view::npos) {
+    if (absl::StrContains(s2.message(), "but got string literal:")) {
       // Sometimes we get "but got string literal: " vs "but got: ".
       max_diff += 15;
     }
@@ -400,20 +410,20 @@ class RunParserTest : public ::testing::Test {
     // and just compare the shape of the tree for those. We also erase the
     // location information.
     static const RE2 cleanups[] = {
-        {"(StringLiteral)\\([^)]*\\)"},
-        {"(BytesLiteral)\\([^)]*\\)", RE2::Latin1},
-        {"(FloatLiteral)\\([^)]*\\)"},
-        {"(IntLiteral)\\([^)]*\\)"},
-        {"(NumericLiteral)\\([^)]*\\)"},
-        {"(JSONLiteral)\\([^)]*\\)"},
-        {"(Identifier)\\([^)]*\\)"},
+        {R"((StringLiteral)\([^)]*\))"},
+        {R"((BytesLiteral)\([^)]*\))", RE2::Latin1},
+        {R"((FloatLiteral)\([^)]*\))"},
+        {R"((IntLiteral)\([^)]*\))"},
+        {R"((NumericLiteral)\([^)]*\))"},
+        {R"((JSONLiteral)\([^)]*\))"},
+        {R"((Identifier)\([^)]*\))"},
     };
     std::string out = tree->DebugString();
     for (const RE2& re2 : cleanups) {
       RE2::GlobalReplace(&out, re2, "\\1(...)");
     }
-    static const RE2 clean_up_location("\\[[0-9]+-[0-9]+\\]");
-    RE2::GlobalReplace(&out, clean_up_location, "(...)");
+    static const LazyRE2 clean_up_location = {R"(\[[0-9]+-[0-9]+\])"};
+    RE2::GlobalReplace(&out, *clean_up_location, "(...)");
     // Make the string lowercase because we have places where case
     // gets normalized, like "null" vs "NULL".
     absl::AsciiStrToLower(&out);
@@ -501,8 +511,9 @@ class RunParserTest : public ::testing::Test {
 
   class TestParseNextScriptStatementVisitor : public DefaultParseTreeVisitor {
    public:
-    explicit TestParseNextScriptStatementVisitor(absl::string_view script_text)
-        : script_text_(script_text) {}
+    explicit TestParseNextScriptStatementVisitor(
+        absl::string_view script_text, const ParserOptions& parser_options)
+        : script_text_(script_text), parser_options_(parser_options) {}
 
     void defaultVisit(const ASTNode* node, void* data) override {
       node->ChildrenAccept(this, data);
@@ -535,7 +546,7 @@ class RunParserTest : public ::testing::Test {
         // ParseNextScriptStatement() is properly updating the resume location.
         int resume_position = resume_location.byte_position();
         std::unique_ptr<ParserOutput> parser_output;
-        ZETASQL_ASSERT_OK(ParseNextScriptStatement(&resume_location, ParserOptions(),
+        ZETASQL_ASSERT_OK(ParseNextScriptStatement(&resume_location, parser_options_,
                                            &parser_output, &end_of_input))
             << "ParseNextScriptStatement() failed for statement within "
                "script."
@@ -577,23 +588,6 @@ class RunParserTest : public ::testing::Test {
         // of the statement.  In other cases, it's equal.
         ASSERT_LE(reparsed_stmt_range.end().GetByteOffset(),
                   statement->GetParseLocationRange().end().GetByteOffset());
-
-        // Verify that ParseNextStatement(), with a resume location one byte
-        // into the current statement, results in an error.
-        parser_output.reset();
-        ParseResumeLocation error_location =
-            ParseResumeLocation::FromStringView(script_text_);
-        error_location.set_byte_position(
-            statement->GetParseLocationRange().start().GetByteOffset() + 1);
-        if (error_location.byte_position() + 1 <= script_text_.length()) {
-          ASSERT_THAT(
-              ParseNextScriptStatement(&error_location, ParserOptions(),
-                                       &parser_output, &end_of_input),
-              ::zetasql_base::testing::StatusIs(absl::StatusCode::kInvalidArgument))
-              << "position: " << error_location.byte_position() << "\nscript:\n"
-              << script_text_ << "\ncurrent statement:\n"
-              << statement->DebugString();
-        }
       }
     }
 
@@ -611,6 +605,7 @@ class RunParserTest : public ::testing::Test {
     }
 
     absl::string_view script_text_;
+    ParserOptions parser_options_;
   };
 
   ParserOptions GetParserOptions() {
@@ -636,6 +631,9 @@ class RunParserTest : public ::testing::Test {
     if (test_case_options_.GetBool(kAllowQualify)) {
       language_options_->EnableLanguageFeature(FEATURE_V_1_3_QUALIFY);
     }
+    if (test_case_options_.GetBool(kQualifyReserved)) {
+      ZETASQL_EXPECT_OK(language_options_->EnableReservableKeyword("QUALIFY"));
+    }
     if (test_case_options_.GetBool(kAllowRepeat)) {
       language_options_->EnableLanguageFeature(FEATURE_V_1_3_REPEAT);
     }
@@ -651,6 +649,12 @@ class RunParserTest : public ::testing::Test {
     }
     if (test_case_options_.GetBool(kAllowCaseStmt)) {
       language_options_->EnableLanguageFeature(FEATURE_V_1_3_CASE_STMT);
+    }
+    if (test_case_options_.GetBool(kAllowScriptLabel)) {
+      language_options_->EnableLanguageFeature(FEATURE_V_1_3_SCRIPT_LABEL);
+    }
+    if (test_case_options_.GetBool(kAllowRemoteFunction)) {
+      language_options_->EnableLanguageFeature(FEATURE_V_1_3_REMOTE_FUNCTION);
     }
     std::string entity_types_config =
         test_case_options_.GetString(kSupportedGenericEntityTypes);
@@ -806,7 +810,8 @@ class RunParserTest : public ::testing::Test {
     }
 
     if (status.ok() && is_single && mode == "script") {
-      TestParseNextScriptStatementVisitor visitor(test_case);
+      TestParseNextScriptStatementVisitor visitor(test_case,
+                                                  GetParserOptions());
       parsed_root->Accept(&visitor, nullptr);
     }
     // Also verify round-tripping through GetParseTokens.
@@ -857,8 +862,7 @@ class RunParserTest : public ::testing::Test {
   void TestUnparsing(const std::string& test_case, const std::string& mode,
                      const ASTNode* parsed_root, std::string* output) {
     const std::string unparsed = Unparse(parsed_root);
-    if (unparsed.find("<Complex nested expression truncated>") !=
-        std::string::npos) {
+    if (absl::StrContains(unparsed, "<Complex nested expression truncated>")) {
       // The query had deep nesting which caused unparsing to fail,
       // so log it and end the test since round-tripping will not work.
       ZETASQL_VLOG(1) << unparsed;
@@ -878,9 +882,9 @@ class RunParserTest : public ::testing::Test {
     if (parsed_root != nullptr && root2 != nullptr) {
       std::string orig_string = parsed_root->DebugString();
       std::string from_unparse_string = root2->DebugString();
-      static const RE2 clean_up_location("\\[[0-9]+-[0-9]+\\]");
-      RE2::GlobalReplace(&orig_string, clean_up_location, "(...)");
-      RE2::GlobalReplace(&from_unparse_string, clean_up_location, "(...)");
+      static const LazyRE2 clean_up_location = {R"(\[[0-9]+-[0-9]+\])"};
+      RE2::GlobalReplace(&orig_string, *clean_up_location, "(...)");
+      RE2::GlobalReplace(&from_unparse_string, *clean_up_location, "(...)");
       EXPECT_TRUE(orig_string == from_unparse_string)
           << "Different trees:\n"
           << "\nfor unparsed vs. original sql.\nUnparsed sql:\n"

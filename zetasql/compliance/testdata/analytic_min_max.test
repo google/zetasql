@@ -1,6 +1,6 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB]
-[load_enum_names=zetasql_test.TestEnum]
+[load_proto_names=zetasql_test__.KitchenSinkPB]
+[load_enum_names=zetasql_test__.TestEnum]
 [prepare_database]
 CREATE TABLE TestTable AS
 SELECT cast(1 as int64) as row_id,
@@ -291,18 +291,18 @@ SELECT row_id, enum_val,
        MIN(enum_val) OVER (ORDER BY row_id DESC
                            ROWS BETWEEN 2 PRECEDING AND 1 FOLLOWING)
 FROM (SELECT 1 row_id,
-               CAST(null as `zetasql_test.TestEnum`) enum_val UNION ALL
+               CAST(null as `zetasql_test__.TestEnum`) enum_val UNION ALL
       SELECT 2, 1 UNION ALL
       SELECT 3, 0 UNION ALL
       SELECT 4, 1 UNION ALL
-      SELECT 5, CAST(null as `zetasql_test.TestEnum`) UNION ALL
+      SELECT 5, CAST(null as `zetasql_test__.TestEnum`) UNION ALL
       SELECT 6, 2 UNION ALL
       SELECT 7, 0)
 --
 ARRAY<STRUCT<
         row_id INT64,
-        enum_val ENUM<zetasql_test.TestEnum>,
-        ENUM<zetasql_test.TestEnum>
+        enum_val ENUM<zetasql_test__.TestEnum>,
+        ENUM<zetasql_test__.TestEnum>
       >>
 [
   {7, TESTENUM0, TESTENUM0},
@@ -874,18 +874,18 @@ SELECT row_id, enum_val,
        MAX(enum_val) OVER (ORDER BY row_id DESC
                            ROWS BETWEEN 2 PRECEDING AND 1 FOLLOWING)
 FROM (SELECT 1 row_id,
-               CAST(null as `zetasql_test.TestEnum`) enum_val UNION ALL
+               CAST(null as `zetasql_test__.TestEnum`) enum_val UNION ALL
       SELECT 2, 1 UNION ALL
       SELECT 3, 0 UNION ALL
       SELECT 4, 1 UNION ALL
-      SELECT 5, CAST(null as `zetasql_test.TestEnum`) UNION ALL
+      SELECT 5, CAST(null as `zetasql_test__.TestEnum`) UNION ALL
       SELECT 6, 2 UNION ALL
       SELECT 7, 0)
 --
 ARRAY<STRUCT<
         row_id INT64,
-        enum_val ENUM<zetasql_test.TestEnum>,
-        ENUM<zetasql_test.TestEnum>
+        enum_val ENUM<zetasql_test__.TestEnum>,
+        ENUM<zetasql_test__.TestEnum>
       >>
 [
   {7, TESTENUM0, TESTENUM2},

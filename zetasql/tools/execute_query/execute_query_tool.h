@@ -32,7 +32,7 @@
 #include "absl/flags/declare.h"
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
@@ -60,8 +60,19 @@ class ExecuteQueryConfig {
     kExecute
   };
 
+  enum class SqlMode {
+    // Treat sql as a query, the output is a table.
+    kQuery,
+
+    // Treat sql as an expression, the output is a single value.
+    kExpression
+  };
+
   void set_tool_mode(ToolMode tool_mode) { tool_mode_ = tool_mode; }
   ToolMode tool_mode() const { return tool_mode_; }
+
+  void set_sql_mode(SqlMode sql_mode) { sql_mode_ = sql_mode; }
+  SqlMode sql_mode() const { return sql_mode_; }
 
   // Defaults matches AnalyzerOptions default.
   const AnalyzerOptions& analyzer_options() const { return analyzer_options_; }
@@ -100,6 +111,7 @@ class ExecuteQueryConfig {
  private:
   ExamineResolvedASTCallback examine_resolved_ast_callback_ = nullptr;
   ToolMode tool_mode_ = ToolMode::kExecute;
+  SqlMode sql_mode_ = SqlMode::kQuery;
   AnalyzerOptions analyzer_options_;
   SimpleCatalog catalog_;
   const google::protobuf::DescriptorPool* descriptor_pool_ = nullptr;
@@ -109,14 +121,24 @@ class ExecuteQueryConfig {
 
 absl::Status SetToolModeFromFlags(ExecuteQueryConfig& config);
 
+absl::Status SetSqlModeFromFlags(ExecuteQueryConfig& config);
+
 absl::Status SetDescriptorPoolFromFlags(ExecuteQueryConfig& config);
 
-zetasql_base::StatusOr<std::unique_ptr<SimpleTable>> MakeTableFromCsvFile(
+absl::StatusOr<std::unique_ptr<SimpleTable>> MakeTableFromCsvFile(
     absl::string_view table_name, absl::string_view path);
+
+absl::StatusOr<std::unique_ptr<SimpleTable>> MakeTableFromBinaryProtoFile(
+    absl::string_view table_name, absl::string_view path,
+    const ProtoType* column_proto_type);
+
+absl::StatusOr<std::unique_ptr<SimpleTable>> MakeTableFromTextProtoFile(
+    absl::string_view table_name, absl::string_view path,
+    const ProtoType* column_proto_type);
 
 absl::Status AddTablesFromFlags(ExecuteQueryConfig& config);
 
-zetasql_base::StatusOr<std::unique_ptr<ExecuteQueryWriter>> MakeWriterFromFlags(
+absl::StatusOr<std::unique_ptr<ExecuteQueryWriter>> MakeWriterFromFlags(
     const ExecuteQueryConfig& config, std::ostream& output);
 
 // Execute the query according to `config`. `config` is logically const, but due
@@ -129,6 +151,7 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
 
 // Exposed for tests only
 ABSL_DECLARE_FLAG(std::string, mode);
+ABSL_DECLARE_FLAG(std::string, sql_mode);
 ABSL_DECLARE_FLAG(std::string, table_spec);
 ABSL_DECLARE_FLAG(std::string, descriptor_pool);
 ABSL_DECLARE_FLAG(std::string, output_mode);

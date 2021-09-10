@@ -19,9 +19,10 @@
 #include "zetasql/public/collator.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/synchronization/mutex.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
 
 namespace zetasql {
@@ -37,14 +38,24 @@ class CaseSensitiveUnicodeCollator : public ZetaSqlCollator {
     return result < 0 ? -1 : (result > 0 ? 1 : 0);
   }
 
+  absl::Status GetSortKeyUtf8(absl::string_view input,
+                              absl::Cord* output) const override {
+    *output = input;
+    return absl::OkStatus();
+  }
+
   bool IsBinaryComparison() const override { return true; }
+
+  const icu::RuleBasedCollator* GetIcuCollator() const override {
+    return nullptr;
+  }
 };
 
 class CollatorRegistration {
  public:
   using CreateFromCollationNameFn =
-      std::function<zetasql_base::StatusOr<std::unique_ptr<const ZetaSqlCollator>>(
-          absl::string_view collation_name)>;
+      std::function<absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>>(
+          absl::string_view collation_name, CollatorLegacyUnicodeMode mode)>;
 
   CollatorRegistration() {
     registered_fn_ = &CollatorRegistration::DefaultCreateFromCollationNameFn;
@@ -62,18 +73,24 @@ class CollatorRegistration {
     registered_fn_ = fn;
   }
 
-  zetasql_base::StatusOr<std::unique_ptr<const ZetaSqlCollator>>
-  CreateFromCollationName(absl::string_view collation_name) {
+  absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>>
+  CreateFromCollationName(absl::string_view collation_name,
+                          CollatorLegacyUnicodeMode mode) {
     absl::MutexLock lock(&mu_);
-    return registered_fn_(collation_name);
+    return registered_fn_(collation_name, mode);
   }
 
   // This default function returns a basic case-sensitive Unicode collator
   // if that's what is requested, and fails otherwise. The ICU
   // implementation is needed for any more complex collations.
-  static zetasql_base::StatusOr<std::unique_ptr<const ZetaSqlCollator>>
-  DefaultCreateFromCollationNameFn(absl::string_view collation_name) {
-    if (collation_name == "unicode" || collation_name == "unicode:cs") {
+  static absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>>
+  DefaultCreateFromCollationNameFn(absl::string_view collation_name,
+                                   CollatorLegacyUnicodeMode mode) {
+    const bool is_unicode =
+        collation_name == "unicode" || collation_name == "unicode:cs";
+
+    if (collation_name == "binary" ||
+        (mode != CollatorLegacyUnicodeMode::kError && is_unicode)) {
       return absl::make_unique<CaseSensitiveUnicodeCollator>();
     }
     // Should match zetasql::MakeEvalError(), but we want to avoid pulling
@@ -95,10 +112,10 @@ class CollatorRegistration {
 // has a dependency on :collator_lite).
 ZetaSqlCollator::~ZetaSqlCollator() {}
 
-zetasql_base::StatusOr<std::unique_ptr<const ZetaSqlCollator>> MakeSqlCollatorLite(
-    absl::string_view collation_name) {
+absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>> MakeSqlCollatorLite(
+    absl::string_view collation_name, CollatorLegacyUnicodeMode mode) {
   return CollatorRegistration::GetInstance()->CreateFromCollationName(
-      collation_name);
+      collation_name, mode);
 }
 
 namespace internal {
@@ -108,8 +125,8 @@ void RegisterDefaultCollatorImpl() {
 }
 
 void RegisterIcuCollatorImpl(
-    std::function<zetasql_base::StatusOr<std::unique_ptr<const ZetaSqlCollator>>(
-        absl::string_view)>
+    std::function<absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>>(
+        absl::string_view, CollatorLegacyUnicodeMode)>
         create_fn) {
   CollatorRegistration::GetInstance()->SetCreateFromCollationNameFn(create_fn);
 }

@@ -47,16 +47,16 @@ QueryStmt
 ==
 
 select cast(('2014-01-01 12:34:56.000001', "int64_key_1: 1, int64_key_2: 2")
-            AS STRUCT<TIMESTAMP, `zetasql_test.KitchenSinkPB`>)
+            AS STRUCT<TIMESTAMP, `zetasql_test__.KitchenSinkPB`>)
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1 AS `$col1` [STRUCT<TIMESTAMP, PROTO<zetasql_test.KitchenSinkPB>>]
+| +-$query.$col1#1 AS `$col1` [STRUCT<TIMESTAMP, PROTO<zetasql_test__.KitchenSinkPB>>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.$col1#1]
     +-expr_list=
-    | +-$col1#1 := Literal(type=STRUCT<TIMESTAMP, PROTO<zetasql_test.KitchenSinkPB>>, value={2014-01-01 20:34:56.000001+00, {int64_key_1: 1 int64_key_2: 2}}, has_explicit_type=TRUE)
+    | +-$col1#1 := Literal(type=STRUCT<TIMESTAMP, PROTO<zetasql_test__.KitchenSinkPB>>, value={2014-01-01 20:34:56.000001+00, {int64_key_1: 1 int64_key_2: 2}}, has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -333,19 +333,19 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(ZetaSQL:$make_array(repeated(6) STRUCT<INT64, DOUBLE>) -> ARRAY<STRUCT<INT64, DOUBLE>>)
     |     +-Literal(type=STRUCT<INT64, DOUBLE>, value={1, 1})
+    |     +-Literal(type=STRUCT<INT64, DOUBLE>, value={1, 1}, has_explicit_type=TRUE)
     |     +-Literal(type=STRUCT<INT64, DOUBLE>, value={1, 1})
-    |     +-Literal(type=STRUCT<INT64, DOUBLE>, value={1, 1})
-    |     +-Literal(type=STRUCT<INT64, DOUBLE>, value={1, 1})
+    |     +-Literal(type=STRUCT<INT64, DOUBLE>, value={1, 1}, has_explicit_type=TRUE)
     |     +-MakeStruct
     |     | +-type=STRUCT<INT64, DOUBLE>
     |     | +-field_list=
     |     |   +-Literal(type=INT64, value=1)
-    |     |   +-Literal(type=DOUBLE, value=1)
+    |     |   +-Literal(type=DOUBLE, value=1, has_explicit_type=TRUE)
     |     +-MakeStruct
     |       +-type=STRUCT<INT64, DOUBLE>
     |       +-field_list=
     |         +-Literal(type=INT64, value=1)
-    |         +-Literal(type=DOUBLE, value=1)
+    |         +-Literal(type=DOUBLE, value=1, has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -420,17 +420,17 @@ select STRUCT<INT32, BYTES>(1, "b")
                                ^
 ==
 
-select STRUCT<`zetasql_test.TestEnum`, TIMESTAMP>
+select STRUCT<`zetasql_test__.TestEnum`, TIMESTAMP>
     (1, "2014-01-01 12:34:56.000001")
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1 AS `$col1` [STRUCT<ENUM<zetasql_test.TestEnum>, TIMESTAMP>]
+| +-$query.$col1#1 AS `$col1` [STRUCT<ENUM<zetasql_test__.TestEnum>, TIMESTAMP>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.$col1#1]
     +-expr_list=
-    | +-$col1#1 := Literal(type=STRUCT<ENUM<zetasql_test.TestEnum>, TIMESTAMP>, value={TESTENUM1, 2014-01-01 20:34:56.000001+00}, has_explicit_type=TRUE)
+    | +-$col1#1 := Literal(type=STRUCT<ENUM<zetasql_test__.TestEnum>, TIMESTAMP>, value={TESTENUM1, 2014-01-01 20:34:56.000001+00}, has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -498,7 +498,7 @@ QueryStmt
     |     | +-type=STRUCT<INT32, STRUCT<INT64, INT64>>
     |     | +-field_list=
     |     |   +-Literal(type=INT32, value=NULL)
-    |     |   +-Literal(type=STRUCT<INT64, INT64>, value={NULL, 1})
+    |     |   +-Literal(type=STRUCT<INT64, INT64>, value={NULL, 1}, has_explicit_type=TRUE)
     |     +-MakeStruct
     |     | +-type=STRUCT<INT32, STRUCT<INT64, INT64>>
     |     | +-field_list=
@@ -1094,7 +1094,7 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(ZetaSQL:$in(STRUCT<INT64, INT64>, repeated(1) STRUCT<INT64, INT64>) -> BOOL)
-    |     +-Literal(type=STRUCT<INT64, INT64>, value={NULL, NULL})
+    |     +-Literal(type=STRUCT<INT64, INT64>, value={NULL, NULL}, has_explicit_type=TRUE)
     |     +-Literal(type=STRUCT<INT64, INT64>, value={NULL, NULL}, has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
@@ -1247,8 +1247,8 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(ZetaSQL:coalesce(repeated(2) STRUCT<INT64>) -> STRUCT<INT64>)
-    |     +-Literal(type=STRUCT<INT64>, value={NULL})
-    |     +-Literal(type=STRUCT<INT64>, value={NULL})
+    |     +-Literal(type=STRUCT<INT64>, value={NULL}, has_explicit_type=TRUE)
+    |     +-Literal(type=STRUCT<INT64>, value={NULL}, has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -1265,7 +1265,7 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(ZetaSQL:coalesce(repeated(2) STRUCT<a INT32>) -> STRUCT<a INT32>)
     |     +-Literal(type=STRUCT<a INT32>, value={a:NULL}, has_explicit_type=TRUE)
-    |     +-Literal(type=STRUCT<a INT32>, value={a:NULL})
+    |     +-Literal(type=STRUCT<a INT32>, value={a:NULL}, has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -1281,8 +1281,8 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(ZetaSQL:coalesce(repeated(2) STRUCT<a INT64, b INT64>) -> STRUCT<a INT64, b INT64>)
-    |     +-Literal(type=STRUCT<a INT64, b INT64>, value=NULL)
-    |     +-Literal(type=STRUCT<a INT64, b INT64>, value={a:3, b:4})
+    |     +-Literal(type=STRUCT<a INT64, b INT64>, value=NULL, has_explicit_type=TRUE)
+    |     +-Literal(type=STRUCT<a INT64, b INT64>, value={a:3, b:4}, has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -1298,8 +1298,8 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(ZetaSQL:coalesce(repeated(2) STRUCT<a INT64, b INT64>) -> STRUCT<a INT64, b INT64>)
-    |     +-Literal(type=STRUCT<a INT64, b INT64>, value={a:1, b:2})
-    |     +-Literal(type=STRUCT<a INT64, b INT64>, value={a:3, b:4})
+    |     +-Literal(type=STRUCT<a INT64, b INT64>, value={a:1, b:2}, has_explicit_type=TRUE)
+    |     +-Literal(type=STRUCT<a INT64, b INT64>, value={a:3, b:4}, has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -1315,8 +1315,8 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(ZetaSQL:coalesce(repeated(2) STRUCT<a INT64, b INT64>) -> STRUCT<a INT64, b INT64>)
-    |     +-Literal(type=STRUCT<a INT64, b INT64>, value={a:1, b:2})
-    |     +-Literal(type=STRUCT<a INT64, b INT64>, value={a:3, b:4})
+    |     +-Literal(type=STRUCT<a INT64, b INT64>, value={a:1, b:2}, has_explicit_type=TRUE)
+    |     +-Literal(type=STRUCT<a INT64, b INT64>, value={a:3, b:4}, has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -1337,7 +1337,7 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(ZetaSQL:coalesce(repeated(3) STRUCT<a INT32, STRUCT<INT32, b DOUBLE>>) -> STRUCT<a INT32, STRUCT<INT32, b DOUBLE>>)
     |     +-Literal(type=STRUCT<a INT32, STRUCT<INT32, b DOUBLE>>, value={a:1, NULL}, has_explicit_type=TRUE)
-    |     +-Literal(type=STRUCT<a INT32, STRUCT<INT32, b DOUBLE>>, value={a:NULL, {1, b:1}})
+    |     +-Literal(type=STRUCT<a INT32, STRUCT<INT32, b DOUBLE>>, value={a:NULL, {1, b:1}}, has_explicit_type=TRUE)
     |     +-Literal(type=STRUCT<a INT32, STRUCT<INT32, b DOUBLE>>, value={a:1, {1, b:1.5}})
     +-input_scan=
       +-SingleRowScan
@@ -1389,7 +1389,7 @@ QueryStmt
     |     | +-field_list=
     |     |   +-Literal(type=INT32, value=NULL)
     |     |   +-Literal(type=STRUCT<INT32, DOUBLE>, value=NULL)
-    |     +-Literal(type=STRUCT<INT32, STRUCT<INT32, DOUBLE>>, value={1, NULL})
+    |     +-Literal(type=STRUCT<INT32, STRUCT<INT32, DOUBLE>>, value={1, NULL}, has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -1413,7 +1413,7 @@ QueryStmt
     |     | +-field_list=
     |     |   +-Literal(type=INT32, value=NULL)
     |     |   +-Literal(type=STRUCT<INT32, STRUCT<INT32, INT32>>, value=NULL)
-    |     +-Literal(type=STRUCT<INT32, STRUCT<INT32, STRUCT<INT32, INT32>>>, value={1, {1, NULL}})
+    |     +-Literal(type=STRUCT<INT32, STRUCT<INT32, STRUCT<INT32, INT32>>>, value={1, {1, NULL}}, has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -1435,7 +1435,7 @@ QueryStmt
     |     | +-field_list=
     |     |   +-Literal(type=INT32, value=NULL)
     |     |   +-Literal(type=STRUCT<INT32, DOUBLE>, value=NULL)
-    |     +-Literal(type=STRUCT<x INT32, y STRUCT<INT32, DOUBLE>>, value={x:1, y:NULL})
+    |     +-Literal(type=STRUCT<x INT32, y STRUCT<INT32, DOUBLE>>, value={x:1, y:NULL}, has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
 ==

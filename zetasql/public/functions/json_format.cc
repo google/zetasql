@@ -26,6 +26,7 @@
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/dynamic_message.h"
+#include "zetasql/common/errors.h"
 #include "zetasql/common/json_util.h"
 #include "zetasql/common/string_util.h"
 #include "zetasql/public/functions/date_time_util.h"
@@ -328,9 +329,29 @@ absl::Status JsonFromInterval(const IntervalValue& value, std::string* output) {
   return absl::OkStatus();
 }
 
+void JsonFromJson(JSONValueConstRef value, JsonPrettyPrinter* pretty_printer,
+                  std::string* output) {
+  if (!pretty_printer->pretty_print()) {
+    absl::StrAppend(output, value.ToString());
+    return;
+  }
+  std::string json_string = value.Format();
+  std::vector<absl::string_view> lines = absl::StrSplit(json_string, '\n');
+
+  bool first_line = true;
+  for (absl::string_view line : lines) {
+    if (!first_line) {
+      pretty_printer->AppendNewlineAndIndent(output);
+    }
+    first_line = false;
+    absl::StrAppend(output, line);
+  }
+}
+
 absl::Status JsonFromValue(const Value& value,
                            JsonPrettyPrinter* pretty_printer,
-                           std::string* output) {
+                           std::string* output,
+                           const JSONParsingOptions& json_parsing_options) {
   if (value.is_null()) {
     output->append("null");
     return absl::OkStatus();
@@ -391,7 +412,17 @@ absl::Status JsonFromValue(const Value& value,
       ZETASQL_RETURN_IF_ERROR(JsonFromInterval(value.interval_value(), output));
       break;
     case TYPE_JSON:
-      absl::StrAppend(output, value.json_string());
+      if (value.is_unparsed_json()) {
+        auto input_json = JSONValue::ParseJSONString(
+            value.json_value_unparsed(), json_parsing_options);
+        if (!input_json.ok()) {
+          return MakeEvalError() << input_json.status().message();
+        }
+        JsonFromJson(input_json->GetConstRef(), pretty_printer, output);
+      } else {
+        ZETASQL_RET_CHECK(value.is_validated_json());
+        JsonFromJson(value.json_value(), pretty_printer, output);
+      }
       break;
     case TYPE_STRUCT: {
       if (value.fields().empty()) {
@@ -412,7 +443,8 @@ absl::Status JsonFromValue(const Value& value,
         JsonFromString(struct_type->field(field_index).name, output);
         output->push_back(':');
         pretty_printer->AppendSeparator(output);
-        ZETASQL_RETURN_IF_ERROR(JsonFromValue(field_value, pretty_printer, output));
+        ZETASQL_RETURN_IF_ERROR(JsonFromValue(field_value, pretty_printer, output,
+                                      json_parsing_options));
 
         ++field_index;
       }
@@ -438,7 +470,8 @@ absl::Status JsonFromValue(const Value& value,
         }
         first_element = false;
         pretty_printer->AppendNewlineAndIndent(output);
-        ZETASQL_RETURN_IF_ERROR(JsonFromValue(element_value, pretty_printer, output));
+        ZETASQL_RETURN_IF_ERROR(JsonFromValue(element_value, pretty_printer, output,
+                                      json_parsing_options));
       }
 
       pretty_printer->DecreaseIndent();

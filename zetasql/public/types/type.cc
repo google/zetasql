@@ -16,22 +16,43 @@
 
 #include "zetasql/public/types/type.h"
 
-#include <cstdint>
+#include <stddef.h>
+#include <stdlib.h>
 
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <optional>
+#include <set>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "zetasql/base/logging.h"
+#include "google/protobuf/descriptor.pb.h"
+#include "google/protobuf/descriptor.h"
+#include "zetasql/common/errors.h"
 #include "zetasql/public/language_options.h"
-#include "zetasql/public/strings.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/simple_type.h"
+#include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
+#include "absl/base/macros.h"
+#include "absl/base/optimization.h"
+#include "absl/hash/hash.h"
 #include "absl/status/status.h"
-#include "absl/strings/match.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
-#include "zetasql/base/map_util.h"
-#include "zetasql/base/simple_reference_counted.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/variant.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -116,8 +137,6 @@ static const TypeKindInfo kTypeKindInfo[]{
     // 27
     {"INTERVAL",           27,          27,    true },
 
-     // 28
-    {"TOKENLIST",          28,          28,    true },
     // clang-format on
     // When a new entry is added here, update
     // TypeTest::VerifyCostAndSpecificity.
@@ -397,8 +416,8 @@ bool Type::SupportsPartitioning(const LanguageOptions& language_options,
 bool Type::SupportsPartitioningImpl(const LanguageOptions& language_options,
                                     const Type** no_partitioning_type) const {
   bool supports_partitioning =
-      !this->IsGeography() && !this->IsFloatingPoint() && !this->IsJson() &&
-      !this->IsTokenList();
+      !this->IsGeography() && !this->IsFloatingPoint() && !this->IsJson();
+
   if (no_partitioning_type != nullptr) {
     *no_partitioning_type = supports_partitioning ? nullptr : this;
   }
@@ -407,14 +426,13 @@ bool Type::SupportsPartitioningImpl(const LanguageOptions& language_options,
 
 bool Type::SupportsOrdering(const LanguageOptions& language_options,
                             std::string* type_description) const {
-  if (IsGeography() || IsJson() || IsTokenList()) {
-    if (type_description != nullptr) {
-      *type_description = TypeKindToString(this->kind(),
-                                           language_options.product_mode());
-    }
-    return false;
+  bool supports_ordering = !IsGeography() && !IsJson();
+  if (supports_ordering) return true;
+  if (type_description != nullptr) {
+    *type_description = TypeKindToString(this->kind(),
+                                         language_options.product_mode());
   }
-  return true;
+  return false;
 }
 
 bool Type::SupportsOrdering() const {
@@ -499,7 +517,7 @@ size_t TypeHash::operator()(const Type* const type) const {
   return absl::Hash<Type>()(*type);
 }
 
-zetasql_base::StatusOr<TypeParameters> Type::ValidateAndResolveTypeParameters(
+absl::StatusOr<TypeParameters> Type::ValidateAndResolveTypeParameters(
     const std::vector<TypeParameterValue>& type_parameter_values,
     ProductMode mode) const {
   return MakeSqlError() << "Type " << ShortTypeName(mode)

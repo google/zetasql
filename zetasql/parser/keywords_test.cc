@@ -42,28 +42,21 @@ std::vector<std::string> FileLines(absl::string_view file_path) {
   return lines;
 }
 
-TEST(GetReservedKeywordInfo, Hit) {
-  const KeywordInfo* info = GetReservedKeywordInfo("select");
-  ASSERT_TRUE(info != nullptr);
-  EXPECT_TRUE(info->IsReserved());
-}
-
-TEST(GetReservedKeywordInfo, NonHit) {
-  // This is a keyword but not a *reserved* keyword.
-  const KeywordInfo* info = GetReservedKeywordInfo("row");
-  EXPECT_FALSE(info != nullptr);
-  // This is not a kewyord at all.
-  info = GetReservedKeywordInfo("selected");
-  EXPECT_FALSE(info != nullptr);
-}
-
 TEST(GetKeywordInfo, Hit) {
   const KeywordInfo* info = GetKeywordInfo("select");
   ASSERT_TRUE(info != nullptr);
-  EXPECT_TRUE(info->IsReserved());
+  EXPECT_TRUE(info->CanBeReserved());
+  EXPECT_TRUE(info->IsAlwaysReserved());
+
   info = GetKeywordInfo("row");
   ASSERT_TRUE(info != nullptr);
-  EXPECT_FALSE(info->IsReserved());
+  EXPECT_FALSE(info->CanBeReserved());
+  EXPECT_FALSE(info->IsAlwaysReserved());
+
+  info = GetKeywordInfo("qualify");
+  ASSERT_TRUE(info != nullptr);
+  EXPECT_TRUE(info->CanBeReserved());
+  EXPECT_FALSE(info->IsAlwaysReserved());
 }
 
 TEST(GetKeywordInfo, NonHit) {
@@ -105,16 +98,24 @@ std::vector<std::string> GetSectionFromFile(
   return result;
 }
 
-// Extracts "quoted" keywords (alphanumeric and underscores) from the lines in
-// 'input', lowercases them and returns them as a set.
-std::set<std::string> ExtractQuotedKeywordsFromLines(
+// Extracts keyword references from the lines in 'input', lowercases them and
+// returns them as a set. Recognizes both the quoted form (e.g. "foo") and the
+// direct form (e.g. KW_FOO).
+std::set<std::string> ExtractKeywordsFromLines(
     const std::vector<std::string>& input) {
   std::set<std::string> result;
   RE2 extract_quoted_keyword(".*\"([A-Za-z_]+)\".*");
+  RE2 extract_unquoted_keyword(".*KW_([A-Za-z_]+).*");
   for (const std::string& line : input) {
     std::string keyword;
     if (RE2::Extract(line, extract_quoted_keyword, "\\1", &keyword)) {
       result.insert(absl::AsciiStrToLower(keyword));
+      continue;
+    }
+    // Conditionally reserved keywords are referred to in the grammar by KW_
+    // values, without a quoted keyword name. Look for the KW_ value.
+    if (RE2::Extract(line, extract_unquoted_keyword, "\\1", &keyword)) {
+      result.insert("kw_" + absl::AsciiStrToLower(keyword));
     }
   }
   return result;
@@ -137,12 +138,19 @@ std::set<std::string> ExtractTokenizerKeywordsFromLines(
   return result;
 }
 
-// Gets all reserved or non-reserved keywords depending on 'reserved', in
-// lowercase.
-std::set<std::string> GetKeywordsSet(bool reserved) {
+// Gets bison token names for reserved or non-reserved keywords depending on
+// 'reserved', in lowercase.
+//
+// Keywords are returned here, as they appear in the Bison grammar
+// (e.g. "kw_qualify_reserved" or "kw_qualify_nonreserved", not "qualify").
+std::set<std::string> GetKeywordsSetForBisonGrammar(bool reserved) {
   std::set<std::string> result;
   for (const KeywordInfo& keyword_info : GetAllKeywords()) {
-    if (keyword_info.IsReserved() == reserved) {
+    if (keyword_info.IsConditionallyReserved()) {
+      std::string keyword = absl::AsciiStrToLower(keyword_info.keyword());
+      result.insert(absl::StrCat("kw_", keyword,
+                                 reserved ? "_reserved" : "_nonreserved"));
+    } else if (keyword_info.IsAlwaysReserved() == reserved) {
       result.insert(absl::AsciiStrToLower(keyword_info.keyword()));
     }
   }
@@ -171,21 +179,22 @@ std::string GetFlexTokenizerPath() {
 }
 
 TEST(GetAllKeywords, ReservedMatchesGrammarReservedKeywords) {
-  std::set<std::string> rule_reserved_keywords = ExtractQuotedKeywordsFromLines(
+  std::set<std::string> rule_reserved_keywords = ExtractKeywordsFromLines(
       GetSectionFromFile(GetBisonParserPath(), "RESERVED_KEYWORD_RULE"));
 
-  std::set<std::string> reserved_keywords = GetKeywordsSet(/*reserved=*/true);
+  std::set<std::string> reserved_keywords =
+      GetKeywordsSetForBisonGrammar(/*reserved=*/true);
 
   EXPECT_THAT(reserved_keywords,
               ::testing::ContainerEq(rule_reserved_keywords));
 }
 
 TEST(GetAllKeywords, NonReservedMatchesGrammarKeywordAsIdentifier) {
-  std::set<std::string> keyword_as_identifier = ExtractQuotedKeywordsFromLines(
+  std::set<std::string> keyword_as_identifier = ExtractKeywordsFromLines(
       GetSectionFromFile(GetBisonParserPath(), "KEYWORD_AS_IDENTIFIER"));
 
   std::set<std::string> non_reserved_keywords =
-      GetKeywordsSet(false /* reserved */);
+      GetKeywordsSetForBisonGrammar(false /* reserved */);
 
   EXPECT_THAT(keyword_as_identifier,
               ::testing::ContainerEq(non_reserved_keywords));
@@ -193,25 +202,30 @@ TEST(GetAllKeywords, NonReservedMatchesGrammarKeywordAsIdentifier) {
 
 TEST(GetAllKeywords, NonReservedMatchesGrammarNonReserved) {
   std::set<std::string> grammar_non_reserved_keywords =
-      ExtractQuotedKeywordsFromLines(
+      ExtractKeywordsFromLines(
           GetSectionFromFile(GetBisonParserPath(), "NON_RESERVED_KEYWORDS"));
 
   std::set<std::string> non_reserved_keywords =
-      GetKeywordsSet(false /* reserved */);
+      GetKeywordsSetForBisonGrammar(false /* reserved */);
 
   EXPECT_THAT(grammar_non_reserved_keywords,
               ::testing::ContainerEq(non_reserved_keywords));
 }
 
 TEST(GetAllKeywords, ReservedMatchesGrammarReserved) {
-  std::set<std::string> grammar_reserved_keywords =
-      ExtractQuotedKeywordsFromLines(
-          GetSectionFromFile(GetBisonParserPath(), "RESERVED_KEYWORDS"));
+  std::set<std::string> grammar_reserved_keywords = ExtractKeywordsFromLines(
+      GetSectionFromFile(GetBisonParserPath(), "RESERVED_KEYWORDS"));
 
-  std::set<std::string> reserved_keywords = GetKeywordsSet(true /* reserved */);
+  std::set<std::string> expected_reserved_keywords =
+      GetKeywordsSetForBisonGrammar(true /* reserved */);
+
+  // A few special keyword tokens in this section are expected, not accounted
+  // for in GetKeywordInfo().
+  expected_reserved_keywords.insert("kw_and_for_between");
+  expected_reserved_keywords.insert("kw_except_in_set_op");
 
   EXPECT_THAT(grammar_reserved_keywords,
-              ::testing::ContainerEq(reserved_keywords));
+              ::testing::ContainerEq(expected_reserved_keywords));
 }
 
 TEST(GetAllKeywords, AllKeywordsHaveTokenizerRules) {
@@ -228,7 +242,7 @@ TEST(GetAllKeywords, AllKeywordsHaveTokenizerRules) {
 TEST(ParserTest, DontAddNewReservedKeywords) {
   int num_reserved = 0;
   for (const KeywordInfo& keyword_info : GetAllKeywords()) {
-    if (keyword_info.IsReserved()) {
+    if (keyword_info.IsAlwaysReserved()) {
       ++num_reserved;
     }
   }
@@ -237,6 +251,9 @@ TEST(ParserTest, DontAddNewReservedKeywords) {
   // allows new queries to work that will not work on older code.
   // Before changing this, co-ordinate with all engines to make sure the change
   // is done safely.
+  //
+  // New reserved keywords should generally be marked as conditionally reserved
+  // instead, so that engines desiring backward compatibility can opt out.
   EXPECT_EQ(95 /* CAUTION */, num_reserved);
 }
 

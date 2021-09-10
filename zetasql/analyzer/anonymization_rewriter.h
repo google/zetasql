@@ -26,8 +26,9 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/rewrite_utils.h"
-#include "zetasql/base/statusor.h"
-#include "zetasql/base/status_macros.h"
+#include "absl/base/attributes.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 
@@ -65,7 +66,7 @@ struct RewriteForAnonymizationOutput {
 //
 // Does not take ownership of 'query', 'catalog', or, 'type_factory'.
 ABSL_DEPRECATED("Use RewriteResolvedAst() instead")
-zetasql_base::StatusOr<RewriteForAnonymizationOutput> RewriteForAnonymization(
+absl::StatusOr<RewriteForAnonymizationOutput> RewriteForAnonymization(
     const ResolvedNode& query, Catalog* catalog, TypeFactory* type_factory,
     const AnalyzerOptions& analyzer_options, ColumnFactory& column_factory);
 

@@ -40,7 +40,6 @@ cc_library(
     ],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -63,7 +62,6 @@ cc_library(
     ],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -78,7 +76,6 @@ cc_library(
     hdrs = ["logging.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -100,7 +97,6 @@ cc_library(
     ],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -159,7 +155,6 @@ cc_library(
     hdrs = ["source_location.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -195,7 +190,6 @@ cc_library(
     ],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -233,7 +227,6 @@ cc_library(
     srcs = [
         "status_builder.cc",
         "status_payload.cc",
-        "statusor.cc",
     ],
     hdrs = [
         "canonical_errors.h",
@@ -241,12 +234,9 @@ cc_library(
         "status_builder.h",
         "status_macros.h",
         "status_payload.h",
-        "statusor.h",
-        "statusor_internals.h",
     ],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -259,11 +249,10 @@ cc_library(
         ":source_location",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/base:log_severity",
-        "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
-        "@com_google_absl//absl/utility",
     ],
 )
 
@@ -314,7 +303,6 @@ cc_library(
     hdrs = ["enum_utils.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -355,7 +343,6 @@ cc_library(
     ],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -388,6 +375,7 @@ cc_test(
         "//zetasql/base/testing:zetasql_gtest_main",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -397,7 +385,6 @@ cc_library(
     hdrs = ["no_destructor.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -414,7 +401,6 @@ cc_library(
     ],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -458,7 +444,6 @@ cc_library(
     ],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -537,7 +522,6 @@ cc_library(
     ],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -585,7 +569,6 @@ cc_library(
     ],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -623,7 +606,6 @@ cc_library(
     ],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -677,6 +659,7 @@ cc_test(
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf",
     ],
@@ -704,38 +687,12 @@ alias(
     actual = ":status",
 )
 
-cc_test(
-    name = "statusor_test",
-    size = "small",
-    srcs = ["statusor_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
-    deps = [
-        ":source_location",
-        ":status",
-        "//zetasql/base/testing:status_matchers",
-        "//zetasql/base/testing:zetasql_gtest_main",
-        "@com_google_absl//absl/memory",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
-        "@com_google_googletest//:gtest",
-    ],
-)
-
 cc_library(
     name = "case",
     srcs = ["case.cc"],
     hdrs = ["case.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -772,7 +729,6 @@ cc_library(
     hdrs = ["path.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -808,7 +764,6 @@ cc_library(
     hdrs = ["time_proto_util.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -816,9 +771,9 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
-        ":status",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_protobuf//:protobuf",
@@ -853,7 +808,6 @@ cc_library(
     hdrs = ["string_numbers.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -893,7 +847,6 @@ cc_library(
     ],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -927,7 +880,6 @@ cc_library(
     ],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -966,7 +918,6 @@ cc_library(
     hdrs = ["flat_internal.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -1003,7 +954,6 @@ cc_library(
     ],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -1054,7 +1004,6 @@ cc_library(
     ],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -1101,7 +1050,6 @@ cc_library(
     ],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -1169,7 +1117,6 @@ cc_library(
     hdrs = ["file_util.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -1186,7 +1133,6 @@ cc_library(
     hdrs = ["file_util_oss.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -1229,7 +1175,6 @@ cc_library(
     hdrs = ["edit_distance.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",

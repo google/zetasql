@@ -16,18 +16,31 @@
 
 #include "zetasql/public/analyzer.h"
 
+#include <map>
+#include <memory>
+#include <set>
+#include <string>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
-#include "zetasql/base/path.h"
 #include "google/protobuf/compiler/importer.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/common/status_payload_utils.h"
-#include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/base/testing/status_matchers.h"  
 #include "zetasql/common/testing/testing_proto_util.h"
+#include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/proto/options.pb.h"
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/analyzer_output.h"
+#include "zetasql/public/analyzer_output_properties.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
+#include "zetasql/public/id_string.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/literal_remover.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_resume_location.h"
@@ -35,6 +48,11 @@
 #include "zetasql/public/sql_formatter.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/enum_type.h"
+#include "zetasql/public/types/proto_type.h"
+#include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
@@ -43,13 +61,18 @@
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/container/node_hash_set.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/case.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/time/time.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
+#include "zetasql/base/status.h"
 
 namespace zetasql {
 
@@ -180,7 +203,7 @@ TEST_F(AnalyzerOptionsTest, AddQueryParameterCivilTimeTypes) {
   ZETASQL_CHECK_OK(type_factory_.MakeArrayType(type_factory_.get_time(), &time_array));
   const ProtoType* proto_with_time;
   ZETASQL_CHECK_OK(type_factory_.MakeProtoType(
-      zetasql_test::CivilTimeTypesSinkPB::descriptor(), &proto_with_time));
+      zetasql_test__::CivilTimeTypesSinkPB::descriptor(), &proto_with_time));
 
   options_.mutable_language()->DisableAllLanguageFeatures();
   EXPECT_FALSE(
@@ -625,7 +648,7 @@ TEST_F(AnalyzerOptionsTest, LiteralReplacement) {
 
 // Test 'option_names_to_ignore' which is a set of option names to ignore during
 // literal removal.
-TEST_F(AnalyzerOptionsTest, LiteralReplacementIgnoreWhitelistedOptions) {
+TEST_F(AnalyzerOptionsTest, LiteralReplacementIgnoreAllowlistedOptions) {
   std::unique_ptr<const AnalyzerOutput> output;
   options_.set_record_parse_locations(true);
 
@@ -807,12 +830,12 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
 
   const EnumType* external_enum_type;
   ZETASQL_CHECK_OK(factory.MakeEnumType(
-      external_pool->FindEnumTypeByName("zetasql_test.TestEnum"),
+      external_pool->FindEnumTypeByName("zetasql_test__.TestEnum"),
       &external_enum_type));
 
   const ProtoType* external_proto_type;
   ZETASQL_CHECK_OK(factory.MakeProtoType(
-      external_pool->FindMessageTypeByName("zetasql_test.KitchenSinkPB"),
+      external_pool->FindMessageTypeByName("zetasql_test__.KitchenSinkPB"),
       &external_proto_type));
 
   std::vector<const google::protobuf::DescriptorPool*> pools = {
@@ -827,11 +850,7 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
   proto.mutable_language_options()->set_product_mode(PRODUCT_INTERNAL);
   proto.set_default_timezone("Asia/Shanghai");
   proto.set_preserve_column_aliases(false);
-
-  auto* parse_location_options = proto.mutable_parse_location_options();
-  parse_location_options->set_record_parse_locations(true);
-  parse_location_options->set_function_call_record_type(
-      AnalyzerOptionsProto::ParseLocationOptionsProto::FUNCTION_CALL);
+  proto.set_parse_location_record_type(PARSE_LOCATION_RECORD_FULL_NODE_SCOPE);
 
   auto* param = proto.add_query_parameters();
   param->set_name("q1");
@@ -937,9 +956,8 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
   ZETASQL_CHECK_OK(AnalyzerOptions::Deserialize(proto, pools, &factory, &options));
 
   ASSERT_TRUE(options.prune_unused_columns());
-  ASSERT_TRUE(options.parse_location_options().record_parse_locations);
-  ASSERT_EQ(AnalyzerOptions::FUNCTION_CALL,
-            options.parse_location_options().function_call_record_type);
+  ASSERT_EQ(PARSE_LOCATION_RECORD_FULL_NODE_SCOPE,
+            options.parse_location_record_type());
   ASSERT_TRUE(options.allow_undeclared_parameters());
   ASSERT_EQ(ERROR_MESSAGE_WITH_PAYLOAD, options.error_message_mode());
   ASSERT_EQ(PRODUCT_INTERNAL, options.language().product_mode());
@@ -1015,7 +1033,7 @@ TEST_F(AnalyzerOptionsTest, ClassAndProtoSize) {
                      sizeof(absl::flat_hash_set<ResolvedASTRewrite>))
       << "The size of AnalyzerOptions class has changed, please also update "
       << "the proto and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(20, AnalyzerOptionsProto::descriptor()->field_count())
+  EXPECT_EQ(19, AnalyzerOptionsProto::descriptor()->field_count())
       << "The number of fields in AnalyzerOptionsProto has changed, please "
       << "also update the serialization code accordingly.";
 }
@@ -1109,11 +1127,11 @@ struct SupportedStatementTestInput {
   const std::string statement;
   // The expected outcome of the parse and analyze.
   const bool expect_success;
-  // The ResolvedNodeKinds to whitelist. The empty set is all accepting.
+  // The ResolvedNodeKinds to allow. The empty set is all accepting.
   const std::set<ResolvedNodeKind> supported_statement_kinds;
 };
 
-// Test ZetaSQL's ability to reject statements not in the whitelist
+// Test ZetaSQL's ability to reject statements not in the allowlist
 // contained in the AnalyzerOptions.
 TEST(AnalyzerSupportedStatementsTest, SupportedStatementTest) {
   TypeFactory type_factory;
@@ -1179,7 +1197,7 @@ TEST(AnalyzerSupportedStatementsTest, AlterTableNotSupported) {
 // <expect_success> is false.
 struct SupportedFeatureTestInput {
   SupportedFeatureTestInput(const std::string& stmt,
-                            const std::set<LanguageFeature>& features,
+                            const LanguageOptions::LanguageFeatureSet& features,
                             bool expect_success_in,
                             const std::string& error_string = "")
       : statement(stmt),
@@ -1189,26 +1207,19 @@ struct SupportedFeatureTestInput {
 
   // The statement to parse and analyze.
   const std::string statement;
-  // The LanguageFeatures to whitelist.
-  const std::set<LanguageFeature> supported_features;
+  // The LanguageFeatures to allowlist.
+  const LanguageOptions::LanguageFeatureSet supported_features;
   // The expected outcome of the parse and analyze.
   const bool expect_success;
   // The expected error string, only relevant if <expect_success> is false.
   const std::string expected_error_string;
 
   std::string FeaturesToString() const {
-    std::string out;
-    for (LanguageFeature feature : supported_features) {
-      if (!out.empty()) {
-        absl::StrAppend(&out, ", ");
-      }
-      absl::StrAppend(&out, LanguageFeature_Name(feature));
-    }
-    return out;
+    return LanguageOptions::ToString(supported_features);
   }
 };
 
-// Test ZetaSQL's ability to reject features not in the whitelist
+// Test ZetaSQL's ability to reject features not in the allowlist
 // contained in the AnalyzerOptions.
 TEST(AnalyzerSupportedFeaturesTest, SupportedFeaturesTest) {
   // Simple getter/setter tests.
@@ -1245,17 +1256,15 @@ TEST(AnalyzerSupportedFeaturesTest, SupportedFeaturesTest) {
   const std::string analytic_query = "SELECT sum(key) over () from KeyValue;";
 
   std::vector<SupportedFeatureTestInput> test_input = {
-    SupportedFeatureTestInput(aggregate_query, {}, true /* expect_success */),
-    SupportedFeatureTestInput(
-        aggregate_query, {FEATURE_ANALYTIC_FUNCTIONS}, true),
-    // This tests the whitelist feature capability prior to analysis/resolution
-    // being implemented for analytic functions.
-    SupportedFeatureTestInput(
-        analytic_query, {}, false,
-        "Analytic functions not supported"),
-    SupportedFeatureTestInput(
-        analytic_query, {FEATURE_ANALYTIC_FUNCTIONS},
-        true /* expect_success */),
+      SupportedFeatureTestInput(aggregate_query, {}, true /* expect_success */),
+      SupportedFeatureTestInput(aggregate_query, {FEATURE_ANALYTIC_FUNCTIONS},
+                                true),
+      // This tests the allowlist feature capability prior to
+      // analysis/resolution being implemented for analytic functions.
+      SupportedFeatureTestInput(analytic_query, {}, false,
+                                "Analytic functions not supported"),
+      SupportedFeatureTestInput(analytic_query, {FEATURE_ANALYTIC_FUNCTIONS},
+                                true /* expect_success */),
   };
 
   for (const SupportedFeatureTestInput& input : test_input) {
@@ -1350,14 +1359,14 @@ TEST(AnalyzerTest, ExternalExtension) {
   std::unique_ptr<google::protobuf::DescriptorPool> external_pool(
       new google::protobuf::DescriptorPool(proto_importer->pool()));
   const std::string external_extension_name =
-      "zetasql_test.ExternalExtension";
+      "zetasql_test__.ExternalExtension";
   const google::protobuf::Descriptor* external_extension =
       external_pool->FindMessageTypeByName(external_extension_name);
   ASSERT_NE(external_extension, nullptr);
 
   const std::string query1 =
       "SELECT "
-      "t.KitchenSink.test_extra_pb.(zetasql_test.ExternalExtension.field) "
+      "t.KitchenSink.test_extra_pb.(zetasql_test__.ExternalExtension.field) "
       "as ext_field FROM TestTable t";
 
   TypeFactory type_factory;
@@ -1369,7 +1378,7 @@ TEST(AnalyzerTest, ExternalExtension) {
 
   // Check that the extension type name does not exist in the default catalog.
   const Type* found_type;
-  ZETASQL_EXPECT_OK(catalog->FindType({"zetasql_test.KitchenSinkPB"}, &found_type));
+  ZETASQL_EXPECT_OK(catalog->FindType({"zetasql_test__.KitchenSinkPB"}, &found_type));
   EXPECT_FALSE(catalog->FindType({external_extension_name}, &found_type).ok());
 
   // Analyze the queries and we'll get an error that the extension is not found.
@@ -1378,7 +1387,7 @@ TEST(AnalyzerTest, ExternalExtension) {
       StatusIs(
           _,
           HasSubstr(
-              "Extension zetasql_test.ExternalExtension.field not found")));
+              "Extension zetasql_test__.ExternalExtension.field not found")));
 
   // Now add the extension type into the Catalog.
   // (Modifying the SampleCatalog is a hack to save code.)

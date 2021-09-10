@@ -61,8 +61,8 @@ select * from TestTable
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
@@ -77,8 +77,8 @@ QueryStmt
 | +-KeyValue.Key#1 AS Key [INT64]
 | +-KeyValue.Value#2 AS Value [STRING]
 | +-TestTable.key#3 AS key [INT32]
-| +-TestTable.TestEnum#4 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#5 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#4 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#5 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=[KeyValue.Key#1, KeyValue.Value#2, TestTable.key#3, TestTable.TestEnum#4, TestTable.KitchenSink#5]
@@ -167,8 +167,8 @@ QueryStmt
 | +-subq.c3#5 AS c3 [STRING]
 | +-$query.$col2#9 AS `$col2` [STRING]
 | +-TestTable.key#6 AS key [INT32]
-| +-TestTable.TestEnum#7 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#8 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#7 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#8 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 | +-$query.$col4#10 AS `$col4` [STRING]
 | +-KeyValue.Key#1 AS Key [INT64]
 | +-KeyValue.Value#2 AS Value [STRING]
@@ -179,8 +179,8 @@ QueryStmt
 | +-subq.$col2#4 AS `$col2` [STRING]
 | +-subq.c3#5 AS c3 [STRING]
 | +-TestTable.key#6 AS key [INT32]
-| +-TestTable.TestEnum#7 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#8 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#7 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#8 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=[subq.$col1#3, subq.$col2#4, subq.c3#5, $query.$col2#9, TestTable.key#6, TestTable.TestEnum#7, TestTable.KitchenSink#8, $query.$col4#10, KeyValue.Key#1, KeyValue.Value#2, $query.$col6#11, KeyValue.Key#1, KeyValue.Value#2, subq.$col1#3, subq.$col2#4, subq.c3#5, TestTable.key#6, TestTable.TestEnum#7, TestTable.KitchenSink#8]

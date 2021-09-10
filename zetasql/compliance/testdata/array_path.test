@@ -1,5 +1,5 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB, zetasql_test.TestExtraPB, zetasql_test.RecursivePB, zetasql_test.RepeatedHolderPB]
+[load_proto_names=zetasql_test__.KitchenSinkPB, zetasql_test__.TestExtraPB, zetasql_test__.RecursivePB, zetasql_test__.RepeatedHolderPB]
 [default required_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
 
 [name=array_path_top_level_struct_array]
@@ -12,8 +12,8 @@ ARRAY<STRUCT<v INT64>>[{1}, {2}, {3}]
 
 [name=array_path_top_level_proto_array]
 SELECT v
-FROM UNNEST([CAST('int64_val: 1' AS zetasql_test.RecursivePB),
-             CAST('int64_val: 2' AS zetasql_test.RecursivePB)].int64_val) AS v
+FROM UNNEST([CAST('int64_val: 1' AS zetasql_test__.RecursivePB),
+             CAST('int64_val: 2' AS zetasql_test__.RecursivePB)].int64_val) AS v
 ORDER BY v
 --
 ARRAY<STRUCT<v INT64>>[{1}, {2}]
@@ -30,8 +30,8 @@ ARRAY<STRUCT<v INT64>>[{1}, {2}, {3}]
 [name=array_path_through_proto_array]
 SELECT v
 FROM UNNEST([
-  CAST('recursive_pb { int64_val: 1 }' AS zetasql_test.RecursivePB),
-  CAST('recursive_pb { int64_val: 2 }' AS zetasql_test.RecursivePB)
+  CAST('recursive_pb { int64_val: 1 }' AS zetasql_test__.RecursivePB),
+  CAST('recursive_pb { int64_val: 2 }' AS zetasql_test__.RecursivePB)
 ].recursive_pb.int64_val) AS v
 ORDER BY v
 --
@@ -77,8 +77,8 @@ ARRAY<STRUCT<v INT64, o INT64>>[{1, 1}, {2, 0}, {3, 3}, {4, 2}]
 [name=array_path_through_two_proto_arrays]
 SELECT v
 FROM UNNEST([
-  CAST('repeated_recursive_pb { int64_val: 1 }' AS zetasql_test.RecursivePB),
-  CAST('repeated_recursive_pb { int64_val: 2 } repeated_recursive_pb { int64_val: 3 }' AS zetasql_test.RecursivePB)
+  CAST('repeated_recursive_pb { int64_val: 1 }' AS zetasql_test__.RecursivePB),
+  CAST('repeated_recursive_pb { int64_val: 2 } repeated_recursive_pb { int64_val: 3 }' AS zetasql_test__.RecursivePB)
 ].repeated_recursive_pb.int64_val) AS v
 ORDER BY v
 --
@@ -88,8 +88,8 @@ ARRAY<STRUCT<v INT64>>[{1}, {2}, {3}]
 [name=array_path_through_intermediate_empty_repeat]
 SELECT v
 FROM UNNEST([
-  CAST('int64_val: 3' AS zetasql_test.RecursivePB),
-  CAST('repeated_recursive_pb { repeated_recursive_pb { int64_val: 1 }}' AS zetasql_test.RecursivePB)
+  CAST('int64_val: 3' AS zetasql_test__.RecursivePB),
+  CAST('repeated_recursive_pb { repeated_recursive_pb { int64_val: 1 }}' AS zetasql_test__.RecursivePB)
 ].repeated_recursive_pb.repeated_recursive_pb.int64_val) AS v
 ORDER BY v
 --
@@ -99,10 +99,10 @@ ARRAY<STRUCT<v INT64>>[{1}]
 [name=array_path_through_struct_and_proto_array]
 SELECT v
 FROM UNNEST([
-  STRUCT([CAST('repeated_recursive_pb { int64_val: 1 } repeated_recursive_pb { int64_val: 2 }' AS zetasql_test.RecursivePB),
-          CAST('repeated_recursive_pb { int64_val: 3 }' AS zetasql_test.RecursivePB)] AS x),
-  STRUCT([CAST('repeated_recursive_pb { int64_val: 4 }' AS zetasql_test.RecursivePB),
-          CAST('repeated_recursive_pb { int64_val: 5 } repeated_recursive_pb { int64_val: 6 }' AS zetasql_test.RecursivePB)])
+  STRUCT([CAST('repeated_recursive_pb { int64_val: 1 } repeated_recursive_pb { int64_val: 2 }' AS zetasql_test__.RecursivePB),
+          CAST('repeated_recursive_pb { int64_val: 3 }' AS zetasql_test__.RecursivePB)] AS x),
+  STRUCT([CAST('repeated_recursive_pb { int64_val: 4 }' AS zetasql_test__.RecursivePB),
+          CAST('repeated_recursive_pb { int64_val: 5 } repeated_recursive_pb { int64_val: 6 }' AS zetasql_test__.RecursivePB)])
 ].x.repeated_recursive_pb.int64_val) AS v
 ORDER BY v
 --
@@ -113,7 +113,7 @@ ARRAY<STRUCT<v INT64>>[{1}, {2}, {3}, {4}, {5}, {6}]
 SELECT v
 FROM UNNEST(
   CAST('int64_key_1: 1 int64_key_2: 2 repeated_holder { repeated_field { str_value: "a" str_value: "b" } repeated_field { str_value: "c" } } repeated_holder { repeated_field { str_value: "d" } }'
-       AS zetasql_test.KitchenSinkPB)
+       AS zetasql_test__.KitchenSinkPB)
   .repeated_holder.repeated_field.str_value) AS v
 ORDER BY v
 --
@@ -122,8 +122,8 @@ ARRAY<STRUCT<v STRING>>[{"a"}, {"b"}, {"c"}, {"d"}]
 
 [name=array_path_to_has_field]
 SELECT v
-FROM UNNEST([CAST('int64_val: 1' AS zetasql_test.RecursivePB),
-             CAST('int64_val: 2' AS zetasql_test.RecursivePB)].has_int64_val) AS v
+FROM UNNEST([CAST('int64_val: 1' AS zetasql_test__.RecursivePB),
+             CAST('int64_val: 2' AS zetasql_test__.RecursivePB)].has_int64_val) AS v
 ORDER BY v
 --
 ARRAY<STRUCT<v BOOL>>[{true}, {true}]
@@ -131,8 +131,8 @@ ARRAY<STRUCT<v BOOL>>[{true}, {true}]
 
 [name=flatten_as_a_function]
 SELECT FLATTEN([
-  CAST('repeated_recursive_pb { int64_val: 1 }' AS zetasql_test.RecursivePB),
-  CAST('repeated_recursive_pb { int64_val: 2 } repeated_recursive_pb { int64_val: 3 }' AS zetasql_test.RecursivePB)
+  CAST('repeated_recursive_pb { int64_val: 1 }' AS zetasql_test__.RecursivePB),
+  CAST('repeated_recursive_pb { int64_val: 2 } repeated_recursive_pb { int64_val: 3 }' AS zetasql_test__.RecursivePB)
 ].repeated_recursive_pb.int64_val) AS v
 --
 ARRAY<STRUCT<v ARRAY<>>>[{ARRAY<INT64>[1, 2, 3]}]
@@ -142,7 +142,7 @@ ARRAY<STRUCT<v ARRAY<>>>[{ARRAY<INT64>[1, 2, 3]}]
 [required_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
 SELECT v
 FROM UNNEST(
-  CAST('' AS zetasql_test.RecursivePB).recursive_pb.repeated_recursive_pb.int64_val
+  CAST('' AS zetasql_test__.RecursivePB).recursive_pb.repeated_recursive_pb.int64_val
 ) AS v
 ORDER BY v
 --
@@ -152,7 +152,7 @@ ARRAY<STRUCT<v INT64>>[]
 [name=array_path_flatten_null_flatten_path]
 [required_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
 SELECT FLATTEN(
-  CAST('' AS zetasql_test.RecursivePB).recursive_pb.repeated_recursive_pb.int64_val
+  CAST('' AS zetasql_test__.RecursivePB).recursive_pb.repeated_recursive_pb.int64_val
 ) AS my_array
 --
 ARRAY<STRUCT<my_array ARRAY<>>>[{ARRAY<INT64>(NULL)}]
@@ -160,29 +160,29 @@ ARRAY<STRUCT<my_array ARRAY<>>>[{ARRAY<INT64>(NULL)}]
 
 [name=array_path_empty_proto_array]
 SELECT v
-FROM UNNEST(CAST([] AS ARRAY<zetasql_test.RecursivePB>).int64_val) AS v
+FROM UNNEST(CAST([] AS ARRAY<zetasql_test__.RecursivePB>).int64_val) AS v
 --
 ARRAY<STRUCT<v INT64>>[]
 ==
 
 [name=array_path_flatten_generalized_dot_operator]
 SELECT FLATTEN([
-  CAST("""[zetasql_test.TestExtraPBExtensionHolder.test_extra_proto_extension] {
+  CAST("""[zetasql_test__.TestExtraPBExtensionHolder.test_extra_proto_extension] {
             ext_value: 1
             ext_value: 2
-          }""" AS zetasql_test.TestExtraPB),
-  CAST("" AS zetasql_test.TestExtraPB),
-  CAST("""[zetasql_test.TestExtraPBExtensionHolder.test_extra_proto_extension] {
+          }""" AS zetasql_test__.TestExtraPB),
+  CAST("" AS zetasql_test__.TestExtraPB),
+  CAST("""[zetasql_test__.TestExtraPBExtensionHolder.test_extra_proto_extension] {
             ext_value: 3
-          }""" AS zetasql_test.TestExtraPB)
-].(zetasql_test.TestExtraPBExtensionHolder.test_extra_proto_extension).ext_value)
+          }""" AS zetasql_test__.TestExtraPB)
+].(zetasql_test__.TestExtraPBExtensionHolder.test_extra_proto_extension).ext_value)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT32>[1, 2, 3]}]
 ==
 
 [name=array_path_null_proto_array]
 SELECT v
-FROM UNNEST(CAST(NULL AS ARRAY<zetasql_test.RecursivePB>).int64_val) AS v
+FROM UNNEST(CAST(NULL AS ARRAY<zetasql_test__.RecursivePB>).int64_val) AS v
 --
 ARRAY<STRUCT<v INT64>>[]
 ==
@@ -197,9 +197,9 @@ ARRAY<STRUCT<v INT64>>[{NULL}, {NULL}, {1}, {2}, {3}]
 
 [name=array_path_top_level_proto_array_with_nulls_in_array]
 SELECT v
-FROM UNNEST([CAST('int64_val: 1' AS zetasql_test.RecursivePB),
-             CAST(NULL AS zetasql_test.RecursivePB),
-             CAST('int64_val: 2' AS zetasql_test.RecursivePB)].int64_val) AS v
+FROM UNNEST([CAST('int64_val: 1' AS zetasql_test__.RecursivePB),
+             CAST(NULL AS zetasql_test__.RecursivePB),
+             CAST('int64_val: 2' AS zetasql_test__.RecursivePB)].int64_val) AS v
 ORDER BY v
 --
 ARRAY<STRUCT<v INT64>>[{NULL}, {1}, {2}]
@@ -298,7 +298,7 @@ SELECT v
 FROM UNNEST([
   CAST('''repeated_recursive_pb { recursive_pb { int64_val: 1 } }
           repeated_recursive_pb { recursive_pb { } }
-          repeated_recursive_pb { }''' AS zetasql_test.RecursivePB)
+          repeated_recursive_pb { }''' AS zetasql_test__.RecursivePB)
   ].repeated_recursive_pb.recursive_pb.int64_val) AS v
 ORDER BY v
 --
@@ -309,7 +309,7 @@ ARRAY<STRUCT<v INT64>>[{NULL}, {0}, {1}]
 SELECT FLATTEN([
   CAST('''repeated_recursive_pb { recursive_pb { int64_val: 1 } }
           repeated_recursive_pb { recursive_pb { } }
-          repeated_recursive_pb { }''' AS zetasql_test.RecursivePB)
+          repeated_recursive_pb { }''' AS zetasql_test__.RecursivePB)
   ].repeated_recursive_pb.recursive_pb.int64_val) AS my_array
 --
 ARRAY<STRUCT<my_array ARRAY<>>>[{ARRAY<INT64>[1, 0, NULL]}]
@@ -321,7 +321,7 @@ FROM UNNEST([
   CAST('''repeated_recursive_pb { recursive_pb { repeated_recursive_pb { int64_val: 1 } } }
           repeated_recursive_pb { recursive_pb { repeated_recursive_pb { } } }
           repeated_recursive_pb { recursive_pb { } }
-          repeated_recursive_pb { }''' AS zetasql_test.RecursivePB)
+          repeated_recursive_pb { }''' AS zetasql_test__.RecursivePB)
   ].repeated_recursive_pb.recursive_pb.repeated_recursive_pb.int64_val) AS v
 ORDER BY v
 --
@@ -333,7 +333,7 @@ SELECT FLATTEN([
   CAST('''repeated_recursive_pb { recursive_pb { repeated_recursive_pb { int64_val: 1 } } }
           repeated_recursive_pb { recursive_pb { repeated_recursive_pb { } } }
           repeated_recursive_pb { recursive_pb { } }
-          repeated_recursive_pb { }''' AS zetasql_test.RecursivePB)
+          repeated_recursive_pb { }''' AS zetasql_test__.RecursivePB)
   ].repeated_recursive_pb.recursive_pb.repeated_recursive_pb.int64_val) AS my_array
 --
 ARRAY<STRUCT<my_array ARRAY<>>>[{ARRAY<INT64>[1, 0]}]
@@ -344,8 +344,8 @@ SELECT v
 FROM UNNEST([
   CAST('''int64_key_1: 1 int64_key_2: 2
           nested_value { nested_repeated_int32: 1 nested_repeated_int32: 2 }
-       ''' AS zetasql_test.KitchenSinkPB),
-  CAST('''int64_key_1: 3 int64_key_2: 4''' AS zetasql_test.KitchenSinkPB)
+       ''' AS zetasql_test__.KitchenSinkPB),
+  CAST('''int64_key_1: 3 int64_key_2: 4''' AS zetasql_test__.KitchenSinkPB)
   ].nested_value.nested_repeated_int32) AS v
 --
 ARRAY<STRUCT<v INT32>>[{1}, {2}]
@@ -355,8 +355,8 @@ ARRAY<STRUCT<v INT32>>[{1}, {2}]
 SELECT FLATTEN([
   CAST('''int64_key_1: 1 int64_key_2: 2
           nested_value { nested_repeated_int32: 1 nested_repeated_int32: 2 }
-       ''' AS zetasql_test.KitchenSinkPB),
-  CAST('''int64_key_1: 3 int64_key_2: 4''' AS zetasql_test.KitchenSinkPB)
+       ''' AS zetasql_test__.KitchenSinkPB),
+  CAST('''int64_key_1: 3 int64_key_2: 4''' AS zetasql_test__.KitchenSinkPB)
   ].nested_value.nested_repeated_int32) AS my_array
 --
 ARRAY<STRUCT<my_array ARRAY<>>>[{ARRAY<INT32>[1, 2]}]
@@ -489,9 +489,9 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[3, NULL]}]
 [name=array_path_flatten_with_offset_at_end_proto]
 SELECT FLATTEN([
   CAST('''repeated_recursive_pb { int64_val: 1 }
-          repeated_recursive_pb { int64_val: 2 }''' AS zetasql_test.RecursivePB),
+          repeated_recursive_pb { int64_val: 2 }''' AS zetasql_test__.RecursivePB),
   CAST('''repeated_recursive_pb { int64_val: 3 }
-          repeated_recursive_pb { int64_val: 4 }''' AS zetasql_test.RecursivePB)
+          repeated_recursive_pb { int64_val: 4 }''' AS zetasql_test__.RecursivePB)
   ].repeated_recursive_pb[OFFSET(1)].int64_val) AS my_array
 --
 ARRAY<STRUCT<my_array ARRAY<>>>[{ARRAY<INT64>[2, 4]}]
@@ -500,9 +500,9 @@ ARRAY<STRUCT<my_array ARRAY<>>>[{ARRAY<INT64>[2, 4]}]
 [name=array_path_flatten_with_offset_in_middle_proto]
 SELECT FLATTEN([
   CAST('''repeated_recursive_pb { repeated_recursive_pb { int64_val: 1 } }
-          repeated_recursive_pb { repeated_recursive_pb { int64_val: 2 } }''' AS zetasql_test.RecursivePB),
+          repeated_recursive_pb { repeated_recursive_pb { int64_val: 2 } }''' AS zetasql_test__.RecursivePB),
   CAST('''repeated_recursive_pb { repeated_recursive_pb { int64_val: 3 } }
-          repeated_recursive_pb { repeated_recursive_pb { int64_val: 4 } }''' AS zetasql_test.RecursivePB)
+          repeated_recursive_pb { repeated_recursive_pb { int64_val: 4 } }''' AS zetasql_test__.RecursivePB)
   ].repeated_recursive_pb[OFFSET(1)].repeated_recursive_pb.int64_val) AS my_array
 --
 ARRAY<STRUCT<my_array ARRAY<>>>[{ARRAY<INT64>[2, 4]}]

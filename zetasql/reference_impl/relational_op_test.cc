@@ -52,7 +52,7 @@
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
@@ -130,7 +130,7 @@ std::unique_ptr<ScalarFunctionBody> CreateFunction(FunctionKind kind,
       .value();
 }
 
-zetasql_base::StatusOr<std::unique_ptr<ExprArg>> AssignValueToVar(VariableId var,
+absl::StatusOr<std::unique_ptr<ExprArg>> AssignValueToVar(VariableId var,
                                                           const Value& value) {
   ZETASQL_ASSIGN_OR_RETURN(auto const_expr, ConstExpr::Create(value));
   return absl::make_unique<ExprArg>(var, std::move(const_expr));
@@ -140,7 +140,7 @@ zetasql_base::StatusOr<std::unique_ptr<ExprArg>> AssignValueToVar(VariableId var
 //
 // All operands should have type <type>, which will be the type of the result
 // as well.
-zetasql_base::StatusOr<std::unique_ptr<ExprArg>> ComputeSum(VariableId v1,
+absl::StatusOr<std::unique_ptr<ExprArg>> ComputeSum(VariableId v1,
                                                     VariableId v2,
                                                     VariableId result,
                                                     const Type* type) {
@@ -156,7 +156,7 @@ zetasql_base::StatusOr<std::unique_ptr<ExprArg>> ComputeSum(VariableId v1,
 // Convience method to produce an ExprArg representing "result = v1 + v2".
 // This is similar to the above method, except the 2nd operand is a constant,
 // rather than a variable.
-zetasql_base::StatusOr<std::unique_ptr<ExprArg>> ComputeSum(VariableId v1, Value v2,
+absl::StatusOr<std::unique_ptr<ExprArg>> ComputeSum(VariableId v1, Value v2,
                                                     VariableId result) {
   std::vector<std::unique_ptr<ValueExpr>> add_args(2);
   ZETASQL_ASSIGN_OR_RETURN(add_args[0], DerefExpr::Create(v1, v2.type()));
@@ -171,7 +171,7 @@ zetasql_base::StatusOr<std::unique_ptr<ExprArg>> ComputeSum(VariableId v1, Value
 // Returns a RelationalOp representing <input>, filtered to include rows only
 // where <var> has value less than <value>. <var> and <value> must be the same
 // type.
-zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> FilterLessThan(
+absl::StatusOr<std::unique_ptr<RelationalOp>> FilterLessThan(
     VariableId var, Value value, std::unique_ptr<RelationalOp> input) {
   std::vector<std::unique_ptr<ValueExpr>> less_than_args(2);
   ZETASQL_ASSIGN_OR_RETURN(less_than_args[0], DerefExpr::Create(var, value.type()));
@@ -189,12 +189,12 @@ class CreateIteratorTest : public ::testing::Test {
   void SetUp() override {
     TypeFactory* type_factory = test_values::static_type_factory();
     ZETASQL_ASSERT_OK(type_factory->MakeProtoType(
-        zetasql_test::KitchenSinkPB::descriptor(), &proto_type_));
+        zetasql_test__::KitchenSinkPB::descriptor(), &proto_type_));
     ZETASQL_ASSERT_OK(type_factory->MakeArrayType(proto_type_, &proto_array_type_));
   }
 
   Value GetProtoValue(int i) const {
-    zetasql_test::KitchenSinkPB proto;
+    zetasql_test__::KitchenSinkPB proto;
     proto.set_int64_key_1(i);
     proto.set_int64_key_2(10 * i);
 
@@ -949,7 +949,7 @@ class TestCppValuesOp : public RelationalOp {
     return absl::OkStatus();
   }
 
-  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
       absl::Span<const TupleData* const> params, int num_extra_slots,
       EvaluationContext* context) const override {
     std::vector<TupleData> tuple_data;
@@ -4295,7 +4295,7 @@ TEST_F(CreateIteratorTest, RootOp) {
 
 // Builds a join between two relations with 'tuple_count' tuples each with
 // matching values and a relation1_tuple < relation2_tuple join condition.
-zetasql_base::StatusOr<std::unique_ptr<JoinOp>> BuildTimeoutTestJoin(int tuple_count) {
+absl::StatusOr<std::unique_ptr<JoinOp>> BuildTimeoutTestJoin(int tuple_count) {
   VariableId x("x"), y("y"), yp("y'");
 
   std::vector<TupleData> input1_tuples;

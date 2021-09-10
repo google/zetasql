@@ -17,26 +17,43 @@
 #include "zetasql/public/types/proto_type.h"
 
 #include <cstdint>
+#include <memory>
+#include <string>
+#include <utility>
 
+#include "zetasql/base/logging.h"
 #include "google/protobuf/dynamic_message.h"
-#include "google/protobuf/repeated_field.h"
+#include "google/protobuf/message.h"
 #include "google/protobuf/util/field_comparator.h"
 #include "google/protobuf/util/message_differencer.h"
+#include "zetasql/common/errors.h"
+#include "zetasql/common/float_margin.h"
 #include "zetasql/public/functions/convert_proto.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/proto/wire_format_annotation.pb.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/internal_utils.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/value_representations.h"
 #include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
 #include "absl/algorithm/container.h"
+#include "absl/base/attributes.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/container/inlined_vector.h"
+#include "absl/hash/hash.h"
+#include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 

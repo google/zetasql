@@ -258,3 +258,11 @@ message ResolvedForeignKeyEnums {
     SET_NULL = 3;
   }
 }
+
+message ResolvedAuxLoadDataStmtEnums {
+  enum InsertionMode {
+    NONE = 0;
+    APPEND = 1;
+    OVERWRITE = 2;
+  }
+}

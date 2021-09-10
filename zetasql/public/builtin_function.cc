@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <memory>
 #include <set>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -35,7 +36,7 @@
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -132,7 +133,7 @@ void GetZetaSQLFunctions(TypeFactory* type_factory,
   if (options.language_options.LanguageFeatureEnabled(FEATURE_ANONYMIZATION)) {
     GetAnonFunctions(type_factory, options, functions);
   }
-  GetContainsSubstrFunction(type_factory, options, functions);
+  GetTypeOfFunction(type_factory, options, functions);
 }
 
 bool FunctionMayHaveUnintendedArgumentCoercion(const Function* function) {

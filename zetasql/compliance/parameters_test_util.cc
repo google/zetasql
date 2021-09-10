@@ -19,7 +19,7 @@
 #include "zetasql/compliance/test_driver.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/reference_impl/reference_driver.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/ret_check.h"

@@ -55,18 +55,23 @@ interval (CI) of typical precisions:
 | 23           | 8192                   | ±0.04% | ±0.07% | ±0.11% |
 | 24           | 16384                  | ±0.03% | ±0.05% | ±0.08% |
 
-If the input is NULL, this function returns NULL.
+If the input is `NULL`, this function returns `NULL`.
 
 For more information, see
 [HyperLogLog in Practice: Algorithmic Engineering of a State of The Art Cardinality Estimation Algorithm][hll-link-to-research-whitepaper].
 
 **Supported input types**
 
-INT64, UINT64, NUMERIC, BIGNUMERIC, STRING, BYTES
++ `INT64`
++ `UINT64`
++ `NUMERIC`
++ `BIGNUMERIC`
++ `STRING`
++ `BYTES`
 
 **Return type**
 
-BYTES
+`BYTES`
 
 **Example**
 
@@ -93,21 +98,23 @@ HLL_COUNT.MERGE(sketch)
 An aggregate function that returns the cardinality of several
 [HLL++][hll-link-to-research-whitepaper] set sketches by computing their union.
 
-Each `sketch` must have the same precision and be initialized on the same type.
-Attempts to merge sketches with different precisions or for different types
-results in an error. For example, you cannot merge a sketch initialized
-from INT64 data with one initialized from STRING data.
+Each `sketch` must be initialized on the same type. Attempts to merge sketches
+for different types results in an error. For example, you cannot merge a sketch
+initialized from `INT64` data with one initialized from `STRING` data.
 
-This function ignores NULL values when merging sketches. If the merge happens
-over zero rows or only over NULL values, the function returns `0`.
+If the merged sketches were initialized with different precisions, the precision
+will be downgraded to the lowest precision involved in the merge.
+
+This function ignores `NULL` values when merging sketches. If the merge happens
+over zero rows or only over `NULL` values, the function returns `0`.
 
 **Supported input types**
 
-BYTES
+`BYTES`
 
 **Return type**
 
-INT64
+`INT64`
 
 **Example**
 
@@ -138,15 +145,24 @@ An aggregate function that takes one or more
 [HLL++][hll-link-to-research-whitepaper] `sketch`
 inputs and merges them into a new sketch.
 
-This function returns NULL if there is no input or all inputs are NULL.
+Each `sketch` must be initialized on the same type. Attempts to merge sketches
+for different types results in an error. For example, you cannot merge a sketch
+initialized from `INT64` data with one initialized from `STRING` data.
+
+If the merged sketches were initialized with different precisions, the precision
+will be downgraded to the lowest precision involved in the merge. For example,
+if `MERGE_PARTIAL` encounters sketches of precision 14 and 15, the returned new
+sketch will have precision 14.
+
+This function returns `NULL` if there is no input or all inputs are `NULL`.
 
 **Supported input types**
 
-BYTES
+`BYTES`
 
 **Return type**
 
-BYTES
+`BYTES`
 
 **Example**
 
@@ -176,15 +192,15 @@ HLL_COUNT.EXTRACT(sketch)
 A scalar function that extracts a cardinality estimate of a single
 [HLL++][hll-link-to-research-whitepaper] sketch.
 
-If `sketch` is NULL, this function returns a cardinality estimate of `0`.
+If `sketch` is `NULL`, this function returns a cardinality estimate of `0`.
 
 **Supported input types**
 
-BYTES
+`BYTES`
 
 **Return type**
 
-INT64
+`INT64`
 
 **Example**
 

@@ -339,7 +339,7 @@ QueryStmt
             +-analytic_function_list=
               +-$analytic1#4 :=
                 +-AnalyticFunctionCall(ZetaSQL:ntile(INT64) -> INT64)
-                  +-Literal(type=INT64, value=1)
+                  +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
 ==
 
 select ntile(key) over (order by value) from keyvalue;
@@ -1079,7 +1079,7 @@ QueryStmt
                 +-AnalyticFunctionCall(ZetaSQL:percentile_cont(DOUBLE, DOUBLE) -> DOUBLE)
                   +-Cast(INT64 -> DOUBLE)
                   | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-                  +-Literal(type=DOUBLE, value=0.5)
+                  +-Literal(type=DOUBLE, value=0.5, has_explicit_type=TRUE)
 ==
 
 # Both arguments are BIGNUMERIC.
@@ -1164,7 +1164,7 @@ QueryStmt
                 +-AnalyticFunctionCall(ZetaSQL:percentile_cont(DOUBLE, DOUBLE) -> DOUBLE)
                   +-Cast(INT64 -> DOUBLE)
                   | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-                  +-Literal(type=DOUBLE, value=0.5)
+                  +-Literal(type=DOUBLE, value=0.5, has_explicit_type=TRUE)
 ==
 
 # One argument is BIGNUMERIC and the other is NUMERIC;
@@ -1194,7 +1194,7 @@ QueryStmt
               | +-AnalyticFunctionCall(ZetaSQL:percentile_cont(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
               |   +-Cast(INT64 -> BIGNUMERIC)
               |   | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
-              |   +-Literal(type=BIGNUMERIC, value=0.5)
+              |   +-Literal(type=BIGNUMERIC, value=0.5, has_explicit_type=TRUE)
               +-$analytic2#6 :=
                 +-AnalyticFunctionCall(ZetaSQL:percentile_cont(BIGNUMERIC, BIGNUMERIC) -> BIGNUMERIC)
                   +-Cast(NUMERIC -> BIGNUMERIC)

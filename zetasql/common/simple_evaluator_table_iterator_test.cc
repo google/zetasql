@@ -25,7 +25,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/memory/memory.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/clock.h"
@@ -80,7 +80,7 @@ class ColumnFilterTest : public ::testing::Test {
         zetasql_base::Clock::RealClock()));
   }
 
-  zetasql_base::StatusOr<std::vector<std::vector<Value>>> Read(
+  absl::StatusOr<std::vector<std::vector<Value>>> Read(
       absl::flat_hash_map<int, std::unique_ptr<ColumnFilter>> filter_map) {
     ZETASQL_RETURN_IF_ERROR(iter_->SetColumnFilterMap(std::move(filter_map)));
 

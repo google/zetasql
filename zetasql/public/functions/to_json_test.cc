@@ -31,7 +31,7 @@
 #include "zetasql/testing/test_function.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/substitute.h"
 #include "zetasql/base/map_util.h"
 
@@ -59,14 +59,12 @@ TEST(ToJsonTest, Compliance) {
                                   stringify_wide_numbers));
     zetasql::LanguageOptions language_options;
     if (test.params.results().size() == 1 &&
-        test.params.results().find({FEATURE_JSON_TYPE, FEATURE_NUMERIC_TYPE,
-                                    FEATURE_BIGNUMERIC_TYPE,
-                                    FEATURE_JSON_STRICT_NUMBER_PARSING}) !=
-            test.params.results().end()) {
+        zetasql_base::ContainsKey(test.params.results().begin()->first,
+                         FEATURE_JSON_STRICT_NUMBER_PARSING)) {
       language_options.EnableLanguageFeature(
           FEATURE_JSON_STRICT_NUMBER_PARSING);
     }
-    zetasql_base::StatusOr<JSONValue> output =
+    absl::StatusOr<JSONValue> output =
         ToJson(input_value, stringify_wide_numbers, language_options);
 
     // If the test is conditioned on civil time with nanos, use that result.

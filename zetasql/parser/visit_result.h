@@ -19,7 +19,7 @@
 
 #include <functional>
 
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 

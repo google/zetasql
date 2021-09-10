@@ -223,15 +223,15 @@ ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_UNNAMED_OPT_ARGS_N
 # The result type is determined by the arg value of 'type_name'.
 [no_enable_literal_replacement]
 SELECT
-  fn_result_type_from_arg("zetasql_test.TestEnum", "int64"),
-  fn_result_type_from_arg("int64", "zetasql_test.TestEnum"),
+  fn_result_type_from_arg("zetasql_test__.TestEnum", "int64"),
+  fn_result_type_from_arg("int64", "zetasql_test__.TestEnum"),
   fn_result_type_from_arg(type_name => "double", o1 => "int64"),
   fn_result_type_from_arg(type_name => "string");
 --
 QueryStmt
 +-output_column_list=
 | +-$query.$col1#1 AS `$col1` [INT64]
-| +-$query.$col2#2 AS `$col2` [ENUM<zetasql_test.TestEnum>]
+| +-$query.$col2#2 AS `$col2` [ENUM<zetasql_test__.TestEnum>]
 | +-$query.$col3#3 AS `$col3` [DOUBLE]
 | +-$query.$col4#4 AS `$col4` [STRING]
 +-query=
@@ -240,12 +240,12 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     | | +-FunctionCall(sample_functions:fn_result_type_from_arg(optional(1) STRING o1, optional(1) STRING type_name) -> INT64)
-    | |   +-Literal(type=STRING, value="zetasql_test.TestEnum")
+    | |   +-Literal(type=STRING, value="zetasql_test__.TestEnum")
     | |   +-Literal(type=STRING, value="int64")
     | +-$col2#2 :=
-    | | +-FunctionCall(sample_functions:fn_result_type_from_arg(optional(1) STRING o1, optional(1) STRING type_name) -> ENUM<zetasql_test.TestEnum>)
+    | | +-FunctionCall(sample_functions:fn_result_type_from_arg(optional(1) STRING o1, optional(1) STRING type_name) -> ENUM<zetasql_test__.TestEnum>)
     | |   +-Literal(type=STRING, value="int64")
-    | |   +-Literal(type=STRING, value="zetasql_test.TestEnum")
+    | |   +-Literal(type=STRING, value="zetasql_test__.TestEnum")
     | +-$col3#3 :=
     | | +-FunctionCall(sample_functions:fn_result_type_from_arg(optional(1) STRING o1, optional(1) STRING type_name) -> DOUBLE)
     | |   +-Literal(type=STRING, value="int64")
@@ -263,10 +263,10 @@ QueryStmt
 # TODO: Update the case with once we do not fill NULL values for
 # omitted arguments.
 [no_enable_literal_replacement]
-SELECT fn_result_type_from_arg("zetasql_test.TestEnum");
+SELECT fn_result_type_from_arg("zetasql_test__.TestEnum");
 --
 ERROR: Argument 'type_name' cannot be NULL [at 1:8]
-SELECT fn_result_type_from_arg("zetasql_test.TestEnum");
+SELECT fn_result_type_from_arg("zetasql_test__.TestEnum");
        ^
 ==
 

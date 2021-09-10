@@ -33,6 +33,7 @@
 #include "zetasql/tools/execute_query/execute_query_writer.h"
 #include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
+#include "absl/functional/bind_front.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
@@ -51,10 +52,12 @@ ABSL_FLAG(
                     "the query history stored in ~/%s.",
                     kHistoryFileName));
 
-static absl::Status InitializeExecuteQueryConfig(
-    zetasql::ExecuteQueryConfig& config) {
+namespace zetasql {
+namespace {
+absl::Status InitializeExecuteQueryConfig(ExecuteQueryConfig& config) {
   ZETASQL_RETURN_IF_ERROR(SetDescriptorPoolFromFlags(config));
   ZETASQL_RETURN_IF_ERROR(SetToolModeFromFlags(config));
+  ZETASQL_RETURN_IF_ERROR(SetSqlModeFromFlags(config));
   ZETASQL_RETURN_IF_ERROR(AddTablesFromFlags(config));
   config.mutable_analyzer_options()
       .mutable_language()
@@ -63,6 +66,27 @@ static absl::Status InitializeExecuteQueryConfig(
       config.analyzer_options().language());
   return absl::OkStatus();
 }
+
+absl::Status RunTool(const std::vector<std::string>& args) {
+  ExecuteQueryConfig config;
+
+  ZETASQL_RETURN_IF_ERROR(InitializeExecuteQueryConfig(config));
+
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ExecuteQueryWriter> writer,
+                   MakeWriterFromFlags(config, std::cout));
+
+  if (absl::GetFlag(FLAGS_interactive)) {
+    ZETASQL_LOG(QFATAL) << "Interactive mode is not implemented in this version";
+  }
+
+  const std::string sql = absl::StrJoin(args, " ");
+
+  ExecuteQuerySingleInput prompt{sql};
+
+  return ExecuteQueryLoop(prompt, config, *writer);
+}
+}  // namespace
+}  // namespace zetasql
 
 int main(int argc, char* argv[]) {
   const char kUsage[] =
@@ -79,26 +103,7 @@ int main(int argc, char* argv[]) {
     ZETASQL_LOG(QFATAL) << kUsage;
   }
 
-  zetasql::ExecuteQueryConfig config;
-  absl::Status status = InitializeExecuteQueryConfig(config);
-
-  if (status.ok()) {
-    zetasql_base::StatusOr<std::unique_ptr<zetasql::ExecuteQueryWriter>> writer =
-        MakeWriterFromFlags(config, std::cout);
-
-    if (!writer.ok()) {
-      status = writer.status();
-    } else if (absl::GetFlag(FLAGS_interactive)) {
-      ZETASQL_LOG(QFATAL) << "Interactive mode is not implemented in this version";
-    } else {
-      const std::string sql = absl::StrJoin(args, " ");
-      zetasql::ExecuteQuerySingleInput prompt{sql};
-
-      status = zetasql::ExecuteQueryLoop(prompt, config, **writer);
-    }
-  }
-
-  if (status.ok()) {
+  if (const absl::Status status = zetasql::RunTool(args); status.ok()) {
     return 0;
   } else {
     std::cout << "ERROR: " << status << std::endl;

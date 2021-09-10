@@ -171,14 +171,14 @@ bool BitwiseRightShift(T in1, int64_t in2, T* out, absl::Status* error) {
 }
 
 inline int64_t BitCount(int32_t in) {
-  return zetasql_base::Bits::CountOnes(absl::bit_cast<uint32_t>(in));
+  return absl::popcount(absl::bit_cast<uint32_t>(in));
 }
 
 inline int64_t BitCount(int64_t in) {
-  return zetasql_base::Bits::CountOnes64(absl::bit_cast<uint64_t>(in));
+  return absl::popcount(absl::bit_cast<uint64_t>(in));
 }
 
-inline int64_t BitCount(uint64_t in) { return zetasql_base::Bits::CountOnes64(in); }
+inline int64_t BitCount(uint64_t in) { return absl::popcount(in); }
 
 }  // namespace functions
 }  // namespace zetasql

@@ -20,9 +20,24 @@
 #include <cstdint>
 #include <string>
 
+#include "zetasql/base/logging.h"
+#include "google/protobuf/descriptor.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_parameters.h"
+#include "absl/base/attributes.h"
+#include "absl/hash/hash.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/types/span.h"
+
+namespace zetasql {
+class LanguageOptions;
+class TypeFactory;
+class ValueContent;
+class ValueProto;
+}  // namespace zetasql
 
 namespace zetasql {
 
@@ -68,7 +83,7 @@ class EnumType : public Type {
   std::string TypeName(ProductMode mode_unused) const override;
   // EnumType does not support type parameters, which is why TypeName(mode) is
   // used.
-  zetasql_base::StatusOr<std::string> TypeNameWithParameters(
+  absl::StatusOr<std::string> TypeNameWithParameters(
       const TypeParameters& type_params, ProductMode mode) const override {
     ZETASQL_DCHECK(type_params.IsEmpty());
     return TypeName(mode);

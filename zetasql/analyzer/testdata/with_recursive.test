@@ -1546,18 +1546,18 @@ ERROR: Column 1 in UNION DISTINCT has type that does not support set operation c
 # not supported.
 WITH RECURSIVE
   t AS (
-    SELECT 5 AS five, NEW zetasql_test.KitchenSinkPB(
+    SELECT 5 AS five, NEW zetasql_test__.KitchenSinkPB(
       1 AS int64_key_1,
       2 AS int64_key_2) AS kitchen_sink_proto
     UNION DISTINCT
-    SELECT 5 AS five, NEW zetasql_test.KitchenSinkPB(
+    SELECT 5 AS five, NEW zetasql_test__.KitchenSinkPB(
       MOD(kitchen_sink_proto.int64_key_1 + 1, 5) AS int64_key_1,
       2 AS int64_key_2) AS kitchen_sink_proto
       FROM t
 ) SELECT * FROM t;
 --
 ERROR: Column 2 in UNION DISTINCT has type that does not support set operation comparisons: PROTO [at 7:5]
-    SELECT 5 AS five, NEW zetasql_test.KitchenSinkPB(
+    SELECT 5 AS five, NEW zetasql_test__.KitchenSinkPB(
     ^
 ==
 
@@ -2817,7 +2817,7 @@ WITH RECURSIVE t AS (
   SELECT t1.n + t2.n FROM t AS t1 CROSS JOIN t AS t2
 ) SELECT * FROM t;
 --
-ERROR: Multiple recursive references to table't' is not allowed [at 3:46]
+ERROR: Multiple recursive references to table 't' is not allowed [at 3:46]
   SELECT t1.n + t2.n FROM t AS t1 CROSS JOIN t AS t2
                                              ^
 ==
@@ -2828,7 +2828,7 @@ WITH RECURSIVE t AS (
   SELECT n FROM t UNION ALL SELECT n FROM t)
 ) SELECT * FROM t;
 --
-ERROR: Multiple recursive references to table't' is not allowed [at 3:43]
+ERROR: Multiple recursive references to table 't' is not allowed [at 3:43]
   SELECT n FROM t UNION ALL SELECT n FROM t)
                                           ^
 ==
@@ -4686,3 +4686,558 @@ FROM (
 ERROR: Unrecognized name: n [at 3:38]
     SELECT 1 AS t_n UNION ALL SELECT n + t_n FROM t
                                      ^
+==
+
+# b/191155790: Recursive reference in EXCEPT clause
+WITH RECURSIVE
+  t0 AS (SELECT 1 AS n),
+  t1 AS (SELECT 1 AS n),
+  t AS ((SELECT 1 AS n)
+  UNION ALL
+  (SELECT n + 1 FROM t0
+   EXCEPT {{ALL|DISTINCT}} SELECT * FROM t))
+SELECT * FROM t;
+--
+ALTERNATION GROUP: ALL
+--
+ERROR: A subquery containing a recursive reference may not be used as the right operand of EXCEPT [at 7:29]
+   EXCEPT ALL SELECT * FROM t))
+                            ^
+--
+ALTERNATION GROUP: DISTINCT
+--
+ERROR: A subquery containing a recursive reference may not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 7:34]
+   EXCEPT DISTINCT SELECT * FROM t))
+                                 ^
+==
+
+# b/191155790: Recursive reference in EXCEPT clause - multiple EXCEPT's
+WITH RECURSIVE
+  t0 AS (SELECT 1 AS n),
+  t1 AS (SELECT 1 AS n),
+  t AS ((SELECT 1 AS n)
+  UNION ALL
+  (SELECT n + 1 FROM t0
+   EXCEPT ALL SELECT n + 1 FROM t1
+   EXCEPT ALL SELECT * FROM t))
+SELECT * FROM t;
+--
+ERROR: A subquery containing a recursive reference may not be used as the right operand of EXCEPT [at 8:29]
+   EXCEPT ALL SELECT * FROM t))
+                            ^
+==
+
+# b/191155790: Recursive reference in lhs of EXCEPT clause is ok
+WITH RECURSIVE
+  t0 AS (SELECT 1 AS n),
+  t1 AS (SELECT 1 AS n),
+  t AS ((SELECT 1 AS n)
+  UNION ALL
+  (SELECT n + 1 FROM t
+   EXCEPT {{ALL|DISTINCT}} SELECT n + 1 FROM t0))
+SELECT * FROM t;
+--
+ALTERNATION GROUP: ALL
+--
+QueryStmt
++-output_column_list=
+| +-t.n#10 AS n [INT64]
++-query=
+  +-WithScan
+    +-column_list=[t.n#10]
+    +-with_entry_list=
+    | +-WithEntry
+    | | +-with_query_name="t0"
+    | | +-with_subquery=
+    | |   +-ProjectScan
+    | |     +-column_list=[t0.n#1]
+    | |     +-expr_list=
+    | |     | +-n#1 := Literal(type=INT64, value=1)
+    | |     +-input_scan=
+    | |       +-SingleRowScan
+    | +-WithEntry
+    | | +-with_query_name="t"
+    | | +-with_subquery=
+    | |   +-RecursiveScan
+    | |     +-column_list=[$union_all.n#3]
+    | |     +-op_type=UNION_ALL
+    | |     +-non_recursive_term=
+    | |     | +-SetOperationItem
+    | |     |   +-scan=
+    | |     |   | +-ProjectScan
+    | |     |   |   +-column_list=[$union_all1.n#2]
+    | |     |   |   +-expr_list=
+    | |     |   |   | +-n#2 := Literal(type=INT64, value=1)
+    | |     |   |   +-input_scan=
+    | |     |   |     +-SingleRowScan
+    | |     |   +-output_column_list=[$union_all1.n#2]
+    | |     +-recursive_term=
+    | |       +-SetOperationItem
+    | |         +-scan=
+    | |         | +-SetOperationScan
+    | |         |   +-column_list=[$except_all.$col1#8]
+    | |         |   +-op_type=EXCEPT_ALL
+    | |         |   +-input_item_list=
+    | |         |     +-SetOperationItem
+    | |         |     | +-scan=
+    | |         |     | | +-ProjectScan
+    | |         |     | |   +-column_list=[$except_all1.$col1#5]
+    | |         |     | |   +-expr_list=
+    | |         |     | |   | +-$col1#5 :=
+    | |         |     | |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |         |     | |   |     +-ColumnRef(type=INT64, column=t.n#4)
+    | |         |     | |   |     +-Literal(type=INT64, value=1)
+    | |         |     | |   +-input_scan=
+    | |         |     | |     +-RecursiveRefScan(column_list=[t.n#4])
+    | |         |     | +-output_column_list=[$except_all1.$col1#5]
+    | |         |     +-SetOperationItem
+    | |         |       +-scan=
+    | |         |       | +-ProjectScan
+    | |         |       |   +-column_list=[$except_all2.$col1#7]
+    | |         |       |   +-expr_list=
+    | |         |       |   | +-$col1#7 :=
+    | |         |       |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    | |         |       |   |     +-ColumnRef(type=INT64, column=t0.n#6)
+    | |         |       |   |     +-Literal(type=INT64, value=1)
+    | |         |       |   +-input_scan=
+    | |         |       |     +-WithRefScan(column_list=[t0.n#6], with_query_name="t0")
+    | |         |       +-output_column_list=[$except_all2.$col1#7]
+    | |         +-output_column_list=[$except_all.$col1#8]
+    | +-WithEntry
+    |   +-with_query_name="t1"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-column_list=[t1.n#9]
+    |       +-expr_list=
+    |       | +-n#9 := Literal(type=INT64, value=1)
+    |       +-input_scan=
+    |         +-SingleRowScan
+    +-query=
+    | +-ProjectScan
+    |   +-column_list=[t.n#10]
+    |   +-input_scan=
+    |     +-WithRefScan(column_list=[t.n#10], with_query_name="t")
+    +-recursive=TRUE
+--
+ALTERNATION GROUP: DISTINCT
+--
+ERROR: A subquery containing a recursive reference may not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 6:22]
+  (SELECT n + 1 FROM t
+                     ^
+==
+
+# b/191155790: Other unsupported cases in lhs of EXCEPT clause are still detected
+WITH RECURSIVE
+  t0 AS (SELECT 1 AS n),
+  t1 AS (SELECT 1 AS n),
+  t AS ((SELECT 1 AS n)
+  UNION ALL
+  (SELECT n + 1 FROM (SELECT t_1.n FROM t t_1 CROSS JOIN t t_2)
+   EXCEPT {{ALL|DISTINCT}} SELECT n + 1 FROM t0))
+SELECT * FROM t;
+--
+ALTERNATION GROUP: ALL
+--
+ERROR: Multiple recursive references to table 't' is not allowed [at 6:58]
+  (SELECT n + 1 FROM (SELECT t_1.n FROM t t_1 CROSS JOIN t t_2)
+                                                         ^
+--
+ALTERNATION GROUP: DISTINCT
+--
+ERROR: A subquery containing a recursive reference may not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 6:41]
+  (SELECT n + 1 FROM (SELECT t_1.n FROM t t_1 CROSS JOIN t t_2)
+                                        ^
+==
+
+# b/191168292: Recursive term in rhs operand of
+# INTERSECT/UNION DISTINCT is not allowed
+# (but is allowed in INTERSECT ALL).
+WITH RECURSIVE
+  t0 AS (SELECT 1 as n),
+  t AS ((SELECT 1 as n)
+  UNION ALL (
+    SELECT n + 1 from (
+        (SELECT * FROM t0) {{INTERSECT|UNION}} {{ALL|DISTINCT}} (SELECT * FROM t))
+    WHERE n < 5))
+SELECT * from t;
+--
+ALTERNATION GROUP: INTERSECT,ALL
+--
+QueryStmt
++-output_column_list=
+| +-t.n#8 AS n [INT64]
++-query=
+  +-WithScan
+    +-column_list=[t.n#8]
+    +-with_entry_list=
+    | +-WithEntry
+    | | +-with_query_name="t0"
+    | | +-with_subquery=
+    | |   +-ProjectScan
+    | |     +-column_list=[t0.n#1]
+    | |     +-expr_list=
+    | |     | +-n#1 := Literal(type=INT64, value=1)
+    | |     +-input_scan=
+    | |       +-SingleRowScan
+    | +-WithEntry
+    |   +-with_query_name="t"
+    |   +-with_subquery=
+    |     +-RecursiveScan
+    |       +-column_list=[$union_all.n#3]
+    |       +-op_type=UNION_ALL
+    |       +-non_recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=[$union_all1.n#2]
+    |       |   |   +-expr_list=
+    |       |   |   | +-n#2 := Literal(type=INT64, value=1)
+    |       |   |   +-input_scan=
+    |       |   |     +-SingleRowScan
+    |       |   +-output_column_list=[$union_all1.n#2]
+    |       +-recursive_term=
+    |         +-SetOperationItem
+    |           +-scan=
+    |           | +-ProjectScan
+    |           |   +-column_list=[$union_all2.$col1#7]
+    |           |   +-expr_list=
+    |           |   | +-$col1#7 :=
+    |           |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |           |   |     +-ColumnRef(type=INT64, column=$intersect_all.n#6)
+    |           |   |     +-Literal(type=INT64, value=1)
+    |           |   +-input_scan=
+    |           |     +-FilterScan
+    |           |       +-column_list=[$intersect_all.n#6]
+    |           |       +-input_scan=
+    |           |       | +-SetOperationScan
+    |           |       |   +-column_list=[$intersect_all.n#6]
+    |           |       |   +-op_type=INTERSECT_ALL
+    |           |       |   +-input_item_list=
+    |           |       |     +-SetOperationItem
+    |           |       |     | +-scan=
+    |           |       |     | | +-ProjectScan
+    |           |       |     | |   +-column_list=[t0.n#4]
+    |           |       |     | |   +-input_scan=
+    |           |       |     | |     +-WithRefScan(column_list=[t0.n#4], with_query_name="t0")
+    |           |       |     | +-output_column_list=[t0.n#4]
+    |           |       |     +-SetOperationItem
+    |           |       |       +-scan=
+    |           |       |       | +-ProjectScan
+    |           |       |       |   +-column_list=[t.n#5]
+    |           |       |       |   +-input_scan=
+    |           |       |       |     +-RecursiveRefScan(column_list=[t.n#5])
+    |           |       |       +-output_column_list=[t.n#5]
+    |           |       +-filter_expr=
+    |           |         +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    |           |           +-ColumnRef(type=INT64, column=$intersect_all.n#6)
+    |           |           +-Literal(type=INT64, value=5)
+    |           +-output_column_list=[$union_all2.$col1#7]
+    +-query=
+    | +-ProjectScan
+    |   +-column_list=[t.n#8]
+    |   +-input_scan=
+    |     +-WithRefScan(column_list=[t.n#8], with_query_name="t")
+    +-recursive=TRUE
+--
+ALTERNATION GROUP: INTERSECT,DISTINCT
+--
+ERROR: A subquery containing a recursive reference may not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 6:62]
+        (SELECT * FROM t0) INTERSECT DISTINCT (SELECT * FROM t))
+                                                             ^
+--
+ALTERNATION GROUP: UNION,ALL
+--
+QueryStmt
++-output_column_list=
+| +-t.n#8 AS n [INT64]
++-query=
+  +-WithScan
+    +-column_list=[t.n#8]
+    +-with_entry_list=
+    | +-WithEntry
+    | | +-with_query_name="t0"
+    | | +-with_subquery=
+    | |   +-ProjectScan
+    | |     +-column_list=[t0.n#1]
+    | |     +-expr_list=
+    | |     | +-n#1 := Literal(type=INT64, value=1)
+    | |     +-input_scan=
+    | |       +-SingleRowScan
+    | +-WithEntry
+    |   +-with_query_name="t"
+    |   +-with_subquery=
+    |     +-RecursiveScan
+    |       +-column_list=[$union_all.n#3]
+    |       +-op_type=UNION_ALL
+    |       +-non_recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=[$union_all1.n#2]
+    |       |   |   +-expr_list=
+    |       |   |   | +-n#2 := Literal(type=INT64, value=1)
+    |       |   |   +-input_scan=
+    |       |   |     +-SingleRowScan
+    |       |   +-output_column_list=[$union_all1.n#2]
+    |       +-recursive_term=
+    |         +-SetOperationItem
+    |           +-scan=
+    |           | +-ProjectScan
+    |           |   +-column_list=[$union_all2.$col1#7]
+    |           |   +-expr_list=
+    |           |   | +-$col1#7 :=
+    |           |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |           |   |     +-ColumnRef(type=INT64, column=$union_all.n#6)
+    |           |   |     +-Literal(type=INT64, value=1)
+    |           |   +-input_scan=
+    |           |     +-FilterScan
+    |           |       +-column_list=[$union_all.n#6]
+    |           |       +-input_scan=
+    |           |       | +-SetOperationScan
+    |           |       |   +-column_list=[$union_all.n#6]
+    |           |       |   +-op_type=UNION_ALL
+    |           |       |   +-input_item_list=
+    |           |       |     +-SetOperationItem
+    |           |       |     | +-scan=
+    |           |       |     | | +-ProjectScan
+    |           |       |     | |   +-column_list=[t0.n#4]
+    |           |       |     | |   +-input_scan=
+    |           |       |     | |     +-WithRefScan(column_list=[t0.n#4], with_query_name="t0")
+    |           |       |     | +-output_column_list=[t0.n#4]
+    |           |       |     +-SetOperationItem
+    |           |       |       +-scan=
+    |           |       |       | +-ProjectScan
+    |           |       |       |   +-column_list=[t.n#5]
+    |           |       |       |   +-input_scan=
+    |           |       |       |     +-RecursiveRefScan(column_list=[t.n#5])
+    |           |       |       +-output_column_list=[t.n#5]
+    |           |       +-filter_expr=
+    |           |         +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    |           |           +-ColumnRef(type=INT64, column=$union_all.n#6)
+    |           |           +-Literal(type=INT64, value=5)
+    |           +-output_column_list=[$union_all2.$col1#7]
+    +-query=
+    | +-ProjectScan
+    |   +-column_list=[t.n#8]
+    |   +-input_scan=
+    |     +-WithRefScan(column_list=[t.n#8], with_query_name="t")
+    +-recursive=TRUE
+--
+ALTERNATION GROUP: UNION,DISTINCT
+--
+ERROR: A subquery containing a recursive reference may not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 6:58]
+        (SELECT * FROM t0) UNION DISTINCT (SELECT * FROM t))
+                                                         ^
+==
+
+# Similar to above, but with recursive reference in lhs of INTERSECT and UNION.
+WITH RECURSIVE
+  t0 AS (SELECT 1 as n),
+  t AS ((SELECT 1 as n)
+  UNION ALL (
+    SELECT n + 1 from (
+        (SELECT * FROM t) {{INTERSECT|UNION}} {{ALL|DISTINCT}} (SELECT * FROM t0))
+    WHERE n < 5))
+SELECT * from t;
+--
+ALTERNATION GROUP: INTERSECT,ALL
+--
+QueryStmt
++-output_column_list=
+| +-t.n#8 AS n [INT64]
++-query=
+  +-WithScan
+    +-column_list=[t.n#8]
+    +-with_entry_list=
+    | +-WithEntry
+    | | +-with_query_name="t0"
+    | | +-with_subquery=
+    | |   +-ProjectScan
+    | |     +-column_list=[t0.n#1]
+    | |     +-expr_list=
+    | |     | +-n#1 := Literal(type=INT64, value=1)
+    | |     +-input_scan=
+    | |       +-SingleRowScan
+    | +-WithEntry
+    |   +-with_query_name="t"
+    |   +-with_subquery=
+    |     +-RecursiveScan
+    |       +-column_list=[$union_all.n#3]
+    |       +-op_type=UNION_ALL
+    |       +-non_recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=[$union_all1.n#2]
+    |       |   |   +-expr_list=
+    |       |   |   | +-n#2 := Literal(type=INT64, value=1)
+    |       |   |   +-input_scan=
+    |       |   |     +-SingleRowScan
+    |       |   +-output_column_list=[$union_all1.n#2]
+    |       +-recursive_term=
+    |         +-SetOperationItem
+    |           +-scan=
+    |           | +-ProjectScan
+    |           |   +-column_list=[$union_all2.$col1#7]
+    |           |   +-expr_list=
+    |           |   | +-$col1#7 :=
+    |           |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |           |   |     +-ColumnRef(type=INT64, column=$intersect_all.n#6)
+    |           |   |     +-Literal(type=INT64, value=1)
+    |           |   +-input_scan=
+    |           |     +-FilterScan
+    |           |       +-column_list=[$intersect_all.n#6]
+    |           |       +-input_scan=
+    |           |       | +-SetOperationScan
+    |           |       |   +-column_list=[$intersect_all.n#6]
+    |           |       |   +-op_type=INTERSECT_ALL
+    |           |       |   +-input_item_list=
+    |           |       |     +-SetOperationItem
+    |           |       |     | +-scan=
+    |           |       |     | | +-ProjectScan
+    |           |       |     | |   +-column_list=[t.n#4]
+    |           |       |     | |   +-input_scan=
+    |           |       |     | |     +-RecursiveRefScan(column_list=[t.n#4])
+    |           |       |     | +-output_column_list=[t.n#4]
+    |           |       |     +-SetOperationItem
+    |           |       |       +-scan=
+    |           |       |       | +-ProjectScan
+    |           |       |       |   +-column_list=[t0.n#5]
+    |           |       |       |   +-input_scan=
+    |           |       |       |     +-WithRefScan(column_list=[t0.n#5], with_query_name="t0")
+    |           |       |       +-output_column_list=[t0.n#5]
+    |           |       +-filter_expr=
+    |           |         +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    |           |           +-ColumnRef(type=INT64, column=$intersect_all.n#6)
+    |           |           +-Literal(type=INT64, value=5)
+    |           +-output_column_list=[$union_all2.$col1#7]
+    +-query=
+    | +-ProjectScan
+    |   +-column_list=[t.n#8]
+    |   +-input_scan=
+    |     +-WithRefScan(column_list=[t.n#8], with_query_name="t")
+    +-recursive=TRUE
+--
+ALTERNATION GROUP: INTERSECT,DISTINCT
+--
+ERROR: A subquery containing a recursive reference may not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 6:24]
+        (SELECT * FROM t) INTERSECT DISTINCT (SELECT * FROM t0))
+                       ^
+--
+ALTERNATION GROUP: UNION,ALL
+--
+QueryStmt
++-output_column_list=
+| +-t.n#8 AS n [INT64]
++-query=
+  +-WithScan
+    +-column_list=[t.n#8]
+    +-with_entry_list=
+    | +-WithEntry
+    | | +-with_query_name="t0"
+    | | +-with_subquery=
+    | |   +-ProjectScan
+    | |     +-column_list=[t0.n#1]
+    | |     +-expr_list=
+    | |     | +-n#1 := Literal(type=INT64, value=1)
+    | |     +-input_scan=
+    | |       +-SingleRowScan
+    | +-WithEntry
+    |   +-with_query_name="t"
+    |   +-with_subquery=
+    |     +-RecursiveScan
+    |       +-column_list=[$union_all.n#3]
+    |       +-op_type=UNION_ALL
+    |       +-non_recursive_term=
+    |       | +-SetOperationItem
+    |       |   +-scan=
+    |       |   | +-ProjectScan
+    |       |   |   +-column_list=[$union_all1.n#2]
+    |       |   |   +-expr_list=
+    |       |   |   | +-n#2 := Literal(type=INT64, value=1)
+    |       |   |   +-input_scan=
+    |       |   |     +-SingleRowScan
+    |       |   +-output_column_list=[$union_all1.n#2]
+    |       +-recursive_term=
+    |         +-SetOperationItem
+    |           +-scan=
+    |           | +-ProjectScan
+    |           |   +-column_list=[$union_all2.$col1#7]
+    |           |   +-expr_list=
+    |           |   | +-$col1#7 :=
+    |           |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |           |   |     +-ColumnRef(type=INT64, column=$union_all.n#6)
+    |           |   |     +-Literal(type=INT64, value=1)
+    |           |   +-input_scan=
+    |           |     +-FilterScan
+    |           |       +-column_list=[$union_all.n#6]
+    |           |       +-input_scan=
+    |           |       | +-SetOperationScan
+    |           |       |   +-column_list=[$union_all.n#6]
+    |           |       |   +-op_type=UNION_ALL
+    |           |       |   +-input_item_list=
+    |           |       |     +-SetOperationItem
+    |           |       |     | +-scan=
+    |           |       |     | | +-ProjectScan
+    |           |       |     | |   +-column_list=[t.n#4]
+    |           |       |     | |   +-input_scan=
+    |           |       |     | |     +-RecursiveRefScan(column_list=[t.n#4])
+    |           |       |     | +-output_column_list=[t.n#4]
+    |           |       |     +-SetOperationItem
+    |           |       |       +-scan=
+    |           |       |       | +-ProjectScan
+    |           |       |       |   +-column_list=[t0.n#5]
+    |           |       |       |   +-input_scan=
+    |           |       |       |     +-WithRefScan(column_list=[t0.n#5], with_query_name="t0")
+    |           |       |       +-output_column_list=[t0.n#5]
+    |           |       +-filter_expr=
+    |           |         +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    |           |           +-ColumnRef(type=INT64, column=$union_all.n#6)
+    |           |           +-Literal(type=INT64, value=5)
+    |           +-output_column_list=[$union_all2.$col1#7]
+    +-query=
+    | +-ProjectScan
+    |   +-column_list=[t.n#8]
+    |   +-input_scan=
+    |     +-WithRefScan(column_list=[t.n#8], with_query_name="t")
+    +-recursive=TRUE
+--
+ALTERNATION GROUP: UNION,DISTINCT
+--
+ERROR: A subquery containing a recursive reference may not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 6:24]
+        (SELECT * FROM t) UNION DISTINCT (SELECT * FROM t0))
+                       ^
+==
+
+# b/191168292: Similar to above, but with more than 2 INTERSECT operands
+WITH RECURSIVE
+  t0 AS (SELECT 1 as n),
+  t1 AS (SELECT 1 as n),
+  t AS ((SELECT 1 as n)
+  UNION ALL (
+    SELECT n + 1 from (
+        (SELECT * FROM t0) INTERSECT DISTINCT (SELECT * FROM t1)
+        INTERSECT DISTINCT (SELECT * FROM t))
+    WHERE n < 5))
+SELECT * from t;
+--
+ERROR: A subquery containing a recursive reference may not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 8:43]
+        INTERSECT DISTINCT (SELECT * FROM t))
+                                          ^
+==
+
+# b/191168292: Similar to above, but with more than 2 UNION operands
+WITH RECURSIVE
+  t0 AS (SELECT 1 as n),
+  t1 AS (SELECT 1 as n),
+  t AS ((SELECT 1 as n)
+  UNION ALL (
+    SELECT n + 1 from (
+        (SELECT * FROM t0) UNION DISTINCT (SELECT * FROM t1)
+        UNION DISTINCT (SELECT * FROM t))
+    WHERE n < 5))
+SELECT * from t;
+--
+ERROR: A subquery containing a recursive reference may not use INTERSECT, UNION, or EXCEPT with the DISTINCT modifier [at 8:39]
+        UNION DISTINCT (SELECT * FROM t))
+                                      ^

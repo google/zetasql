@@ -24,54 +24,45 @@
 
 #include "zetasql/base/logging.h"
 #include <cstdint>
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "re2/re2.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 namespace functions {
 
-// A helper class that implements regexp fuctions: REGEXP_MATCH,
-// REGEXP_EXTRACT and REGEXP_REPLACE.
-// Normally per every function call an implementation should call
-// InitializePatternUtf8 (if parameters have type STRING) or
-// InitializePatternBytes (BYTES parameters) and then call Match(), Extract()
-// or Replace() depending on the function.
-// Implementations may skip InitializePatter call if the corresponding
-// function parameter is constant.
+// A helper class that implements regexp functions: REGEXP_* functions.
+//
+// Typically, an implementation will construct a RegExp object via
+// MakeRegExpUtf8 (for STRING) or MakeRegExpBytes (for BYTES). It is safe to
+// cache this object if constructed in this way.
 //
 // E.g. code implementing REGEXP_MATCH may look as follows:
 //
-//   Regexp re;
+//   ZETASQL_ASSIGN_OR_RETURN(auto re = zetasql::functions::MakeRegExpUtf8(x[1]));
+//
 //   bool out;
-//   if (!re.InitializePatternUtf8(x[1], error) ||
-//       !re.Match(x[0], out, error)) {
+//   if (!re->Match(x[0], out, error)) {
 //     return error;
 //   } else {
 //     return Value::Bool(*out);
 //   }
 //
+// Note, this class has a deprecated non-const API which should be avoided as
+// it is not thread-safe.
 class RegExp {
  public:
-  // The following two functions parse a regular expression assuming
-  // UTF-8 (InitializePatternUtf8) or Latin1 (InitializePatternBytes) encoding.
-  // If the regular expression is not correct *error is updated
-  // and false is returned.
-  bool InitializePatternUtf8(absl::string_view pattern, absl::Status* error);
-  bool InitializePatternBytes(absl::string_view pattern, absl::Status* error);
-
-  // Initializes a regular expression from `pattern` with `options`. This
-  // function can be used when other options (including string encoding) need
-  // to be provided for initializing the regular expression. If `pattern` cannot
-  // be parsed, `error` is updated and false is returned.
-  bool InitializeWithOptions(absl::string_view pattern,
-                             const RE2::Options& options, absl::Status* error);
+  RegExp& operator=(const RegExp&) = delete;
+  RegExp(const RegExp&) = delete;
+  RegExp& operator=(RegExp&&) = default;
+  RegExp(RegExp&&) = default;
 
   // REGEXP_CONTAINS (substring match)
-  bool Contains(absl::string_view str, bool* out, absl::Status* error);
+  bool Contains(absl::string_view str, bool* out, absl::Status* error) const;
 
   // REGEXP_MATCH (full match)
-  bool Match(absl::string_view str, bool* out, absl::Status* error);
+  bool Match(absl::string_view str, bool* out, absl::Status* error) const;
 
   enum PositionUnit {
     kBytes,
@@ -91,10 +82,11 @@ class RegExp {
   // than zero-based indices.
   bool Extract(absl::string_view str, PositionUnit position_unit,
                int64_t position, int64_t occurrence_index,
-               absl::string_view* out, bool* is_null, absl::Status* error);
+               absl::string_view* out, bool* is_null,
+               absl::Status* error) const;
 
   inline bool Extract(absl::string_view str, absl::string_view* out,
-                      bool* is_null, absl::Status* error) {
+                      bool* is_null, absl::Status* error) const {
     // Position unit doesn't matter here since both the `position` and
     // `occurrence_index` are 1 so we set a no-op value.
     return Extract(str, /*position_unit=*/PositionUnit::kBytes, /*position=*/1,
@@ -103,24 +95,48 @@ class RegExp {
 
   // REGEXP_EXTRACT_ALL
   // This ZetaSQL function returns an array of strings or bytes.
-  // An implementation should first call ExtractAllReset and then repeatedly
-  // call ExtractAllNext() to get every next element of the array until it
+  // An implementation should first call CreateExtractAllIterator and then
+  // repeatedly call Next() to get every next element of the array until it
   // returns false. 'error' should be examined to distinguish error condition
   // from no more matches condition.
   //
   // absl::string_view input;
   // absl::string_view output;
   // ...
-  // ExtractAllReset(input);
-  // while (ExtractAllNext(&output, &error)) {
+  // ExtractAllIterator iter = regexp->CreateExtractAllIterator(input);
+  // while (iter.Next(&output, &error)) {
   //  ZETASQL_LOG(INFO) << output;
   // }
   // ZETASQL_RETURN_IF_ERROR(error);
   //
   // Note that on success, error will _not_ be explicitly set to OK, but rather
   // left unchanged.
-  void ExtractAllReset(const absl::string_view str);
-  bool ExtractAllNext(absl::string_view* out, absl::Status* error);
+  class ExtractAllIterator {
+   public:
+    ExtractAllIterator& operator=(const ExtractAllIterator&) = default;
+    ExtractAllIterator(const ExtractAllIterator&) = default;
+
+    bool Next(absl::string_view* out, absl::Status* error);
+
+   private:
+    ExtractAllIterator(const RE2* re, absl::string_view str);
+    // Necessary for construction, as well as accessing extract_all_position_,
+    // and capture_group_position_.
+    friend class RegExp;
+    // Owned by the RegExp that constructed this.
+    const RE2* re_ = nullptr;
+    // REGEXP_EXTRACT_ALL input string.
+    absl::string_view extract_all_input_;
+    // Position of the next byte inside extract_all_input_ that will be matched
+    // by Next().
+    int extract_all_position_ = 0;
+    // Position of the next byte after last match of capture group
+    int capture_group_position_ = 0;
+    // Keeps track whether match was the last one. It is needed to prevent
+    // infinite loop when input is empty and regexp matches empty string.
+    bool last_match_ = false;
+  };
+  ExtractAllIterator CreateExtractAllIterator(absl::string_view str) const;
 
   enum ReturnPosition {
     // Returns the position of the start of the match
@@ -184,19 +200,20 @@ class RegExp {
   // Examples:
   // REGEX_INSTR("-2020-jack-class1", "-[^.-]*", 2, 1, 0) -> 6
   // REGEX_INSTR("-2020-jack-class1", "-[^.-]*", 2, 1, 1) -> 11
-  bool Instr(const InstrParams& options, absl::Status* error);
+  bool Instr(const InstrParams& options, absl::Status* error) const;
 
   // REGEXP_REPLACE
   // Replaces all matching substrings in str with newsub and returns result
   // to *out.
   bool Replace(absl::string_view str, absl::string_view newsub,
-               std::string* out, absl::Status* error);
+               std::string* out, absl::Status* error) const;
 
-  // Sets maximum length in bytes of an output string of any function
-  // (e.g. Replace()). This limit is not strictly enforced, but it's
-  // guaranteed that this size will not be exceeded by more than the length
-  // of one of the input strings.
-  void SetMaxOutSize(int32_t size);
+  // As above, but allows specifying a "maximum" length in bytes of 'out'.
+  // This limit is not strictly enforced, but it's guaranteed that this size
+  // will not be exceeded by more than the length of one of the input strings.
+  bool Replace(absl::string_view str, absl::string_view newsub,
+               int32_t max_out_size, std::string* out,
+               absl::Status* error) const;
 
   // Accessor to the initialized RE2 object. Must Initialize() first before
   // calling this.
@@ -205,34 +222,83 @@ class RegExp {
     return *re_;
   }
 
+  ABSL_DEPRECATED("use MakeRegexp{Utf8,Bytes,WithOptions}")
+  RegExp() {}
+
+  // The following two functions parse a regular expression assuming
+  // UTF-8 (InitializePatternUtf8) or Latin1 (InitializePatternBytes) encoding.
+  // If the regular expression is not correct *error is updated
+  // and false is returned.
+  ABSL_DEPRECATED("use MakeRegExpUtf8")
+  bool InitializePatternUtf8(absl::string_view pattern, absl::Status* error);
+  ABSL_DEPRECATED("use MakeRegExpBytes")
+  bool InitializePatternBytes(absl::string_view pattern, absl::Status* error);
+
+  // Initializes a regular expression from `pattern` with `options`. This
+  // function can be used when other options (including string encoding) need
+  // to be provided for initializing the regular expression. If `pattern` cannot
+  // be parsed, `error` is updated and false is returned.
+  ABSL_DEPRECATED("use MakeRegExpWithOptions")
+  bool InitializeWithOptions(absl::string_view pattern,
+                             const RE2::Options& options, absl::Status* error);
+
+  // REGEXP_EXTRACT_ALL
+  // This ZetaSQL function returns an array of strings or bytes.
+  // An implementation should first call ExtractAllReset and then repeatedly
+  // call ExtractAllNext() to get every next element of the array until it
+  // returns false. 'error' should be examined to distinguish error condition
+  // from no more matches condition.
+  //
+  // absl::string_view input;
+  // absl::string_view output;
+  // ...
+  // ExtractAllReset(input);
+  // while (ExtractAllNext(&output, &error)) {
+  //  ZETASQL_LOG(INFO) << output;
+  // }
+  // ZETASQL_RETURN_IF_ERROR(error);
+  //
+  // Note that on success, error will _not_ be explicitly set to OK, but rather
+  // left unchanged.
+  ABSL_DEPRECATED("use CreateExtractAllIterator")
+  void ExtractAllReset(absl::string_view str);
+  ABSL_DEPRECATED("use ExtractAllIterator::Next")
+  bool ExtractAllNext(absl::string_view* out, absl::Status* error);
+
  private:
+  friend absl::StatusOr<std::unique_ptr<const RegExp>> MakeRegExpWithOptions(
+      absl::string_view pattern, const RE2::Options& options);
+
+  explicit RegExp(std::unique_ptr<const RE2> re) : re_(std::move(re)) {}
   // Appends the "rewrite" string, with backslash substitutions from "groups",
   // to string "out".
   // Similar to RE2::Rewrite but (1) returns a proper error message instead
   // of logging it, and (2) enforces output string limit set by
   // SetMaxOutSize().
-  bool Rewrite(const absl::string_view rewrite,
-               const std::vector<absl::string_view>& groups, std::string* out,
-               absl::Status* error);
+  bool Rewrite(absl::string_view rewrite,
+               const std::vector<absl::string_view>& groups,
+               int32_t max_out_size, std::string* out,
+               absl::Status* error) const;
 
   // The compiled RE2 object. It is NULL if this has not been initialized yet.
-  std::unique_ptr<RE2> re_;
-  int32_t max_out_size_ = std::numeric_limits<int32_t>::max();
+  std::unique_ptr<const RE2> re_;
 
-  // The following fields keep internal state of the matcher between calls of
-  // ExtractAllReset() and ExtractAllNext().
-
-  // REGEXP_EXTRACT_ALL input string.
-  absl::string_view extract_all_input_;
-  // Position of the next byte inside extract_all_input_ that will be matched by
-  // ExtractAllNext().
-  int extract_all_position_;
-  // Position of the next byte after last match of capture group
-  int capture_group_position_;
-  // Keeps track whether match was the last one. It is needed to prevent
-  // infinite loop when input is empty and regexp matches empty string.
-  bool last_match_;
+  absl::optional<ExtractAllIterator> iter_;
 };
+
+// The following two functions parse a regular expression assuming
+// UTF-8 (MakeRegExpUtf8) or Latin1 (MakeRegExpBytes) encoding.
+absl::StatusOr<std::unique_ptr<const RegExp>> MakeRegExpUtf8(
+    absl::string_view pattern);
+
+absl::StatusOr<std::unique_ptr<const RegExp>> MakeRegExpBytes(
+    absl::string_view pattern);
+
+// Initializes a regular expression from `pattern` with `options`. This
+// function can be used when other options (including string encoding) need
+// to be provided for initializing the regular expression.
+absl::StatusOr<std::unique_ptr<const RegExp>> MakeRegExpWithOptions(
+    absl::string_view pattern, const RE2::Options& options);
 
 }  // namespace functions
 }  // namespace zetasql

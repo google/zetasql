@@ -33,6 +33,7 @@
 #include "zetasql/compliance/test_driver.h"
 #include "zetasql/compliance/test_util.h"
 #include "zetasql/public/functions/string.h"
+#include "zetasql/public/parse_helpers.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/reference_impl/evaluation.h"
@@ -46,7 +47,7 @@
 #include "absl/functional/bind_front.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
@@ -113,13 +114,16 @@ MATCHER_P(ReturnsString, expected, expected) {
 namespace {
 
 std::string GetLocationString(const StatementResult& result) {
-  return absl::StrCat("[", result.line, ":", result.column, "]");
+  return absl::StrCat(result.procedure_name,
+                      result.procedure_name.empty() ? "" : "() ", "[",
+                      result.line, ":", result.column, "]");
 }
 
 bool CompareStatementResult(const StatementResult& expected,
                             const StatementResult& actual,
                             FloatMargin float_margin, std::string* reason) {
-  if (expected.line != actual.line || expected.column != actual.column) {
+  if (expected.procedure_name != actual.procedure_name ||
+      expected.line != actual.line || expected.column != actual.column) {
     *reason = absl::StrCat("Location mismatch; expected ",
                            GetLocationString(expected), "; got ",
                            GetLocationString(actual));
@@ -157,9 +161,8 @@ bool CompareStatementResult(const StatementResult& expected,
   absl::StrAppend(reason, " at ", GetLocationString(expected));
   return false;
 }
-
 std::string StatementResultToString(const StatementResult& stmt_result) {
-  zetasql_base::StatusOr<ComplianceTestCaseResult> status_or;
+  absl::StatusOr<ComplianceTestCaseResult> status_or;
   if (stmt_result.result.ok()) {
     status_or = stmt_result.result.value();
   } else {
@@ -239,7 +242,7 @@ MATCHER_P2(ReturnsStatusOrValue, expected, float_margin,
                                     float_margin, &reason);
     }
   } else if (!absl::GetFlag(FLAGS_ignore_wrong_error_codes)) {
-    // Any whitelisted error code would be OK.
+    // Any known error code would be OK.
     passed = SQLTestBase::legal_runtime_errors()->Matches(arg.status());
   }
 
@@ -271,7 +274,7 @@ std::string ReplaceChar(absl::string_view str, absl::string_view unsafe_chars,
                         char safe_char) {
   std::string safe = std::string(str);
   for (char& ch : safe) {
-    if (unsafe_chars.find(ch) != absl::string_view::npos) {
+    if (absl::StrContains(unsafe_chars, ch)) {
       ch = safe_char;
     }
   }
@@ -300,17 +303,17 @@ std::string FileBasedTestName(const std::string& filename,
 // If the statement passed, records it in the to-be-removed-from-known-error
 // list. Bypasses recording in check-only mode.
 class KnownErrorFilter : public ::testing::MatcherInterface<
-                             const zetasql_base::StatusOr<ComplianceTestCaseResult>&> {
+                             const absl::StatusOr<ComplianceTestCaseResult>&> {
  public:
   KnownErrorFilter(
       SQLTestBase* sql_test,
-      const ::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&>&
+      const ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>&
           matcher)
       : KnownErrorFilter(sql_test, matcher, false /* check_only */) {}
 
   KnownErrorFilter(
       SQLTestBase* sql_test,
-      const ::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&>&
+      const ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>&
           matcher,
       bool check_only)
       : sql_test_(sql_test), matcher_(matcher), check_only_(check_only) {}
@@ -333,7 +336,7 @@ class KnownErrorFilter : public ::testing::MatcherInterface<
   }
 
   bool MatchAndExplain(
-      const zetasql_base::StatusOr<ComplianceTestCaseResult>& result,
+      const absl::StatusOr<ComplianceTestCaseResult>& result,
       ::testing::MatchResultListener* listener) const override {
     const KnownErrorMode from_mode = sql_test_->known_error_mode();
     // CRASHES_DO_NOT_RUN is always skipped, return here.
@@ -418,7 +421,7 @@ class KnownErrorFilter : public ::testing::MatcherInterface<
 
  private:
   SQLTestBase* sql_test_;
-  ::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&> matcher_;
+  ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&> matcher_;
   bool check_only_;
 };
 
@@ -449,56 +452,56 @@ absl::Status SQLTestBase::ValidateFirstColumnPrimaryKey(
   return absl::OkStatus();
 }
 
-::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&>
+::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>
 SQLTestBase::ReturnsSuccess() {
   return ::testing::MakeMatcher(new KnownErrorFilter(this, ReturnsOk()));
 }
 
-::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&>
+::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>
 SQLTestBase::Returns(const ComplianceTestCaseResult& result,
                      const absl::Status& status, FloatMargin float_margin) {
   if (status.ok()) {
     return ::testing::MakeMatcher(new KnownErrorFilter(
         this,
-        ReturnsStatusOrValue(zetasql_base::StatusOr<ComplianceTestCaseResult>(result),
+        ReturnsStatusOrValue(absl::StatusOr<ComplianceTestCaseResult>(result),
                              float_margin)));
   } else {
     return ::testing::MakeMatcher(new KnownErrorFilter(
         this,
-        ReturnsStatusOrValue(zetasql_base::StatusOr<ComplianceTestCaseResult>(status),
+        ReturnsStatusOrValue(absl::StatusOr<ComplianceTestCaseResult>(status),
                              float_margin)));
   }
 }
 
-::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&>
-SQLTestBase::Returns(const zetasql_base::StatusOr<ComplianceTestCaseResult>& result,
+::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>
+SQLTestBase::Returns(const absl::StatusOr<ComplianceTestCaseResult>& result,
                      FloatMargin float_margin) {
   return ::testing::MakeMatcher(
       new KnownErrorFilter(this, ReturnsStatusOrValue(result, float_margin)));
 }
 
-::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&>
+::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>
 SQLTestBase::ReturnsCheckOnly(
-    const zetasql_base::StatusOr<ComplianceTestCaseResult>& result,
+    const absl::StatusOr<ComplianceTestCaseResult>& result,
     FloatMargin float_margin) {
   return ::testing::MakeMatcher(new KnownErrorFilter(
       this, ReturnsStatusOrValue(result, float_margin), true /* check_only*/));
 }
 
-::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&>
+::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>
 SQLTestBase::Returns(const std::string& result) {
   return ::testing::MakeMatcher(
       new KnownErrorFilter(this, ReturnsString(result)));
 }
 
-::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&>
+::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>
 SQLTestBase::Returns(
-    const ::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&>
+    const ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>
         matcher) {
   return ::testing::MakeMatcher(new KnownErrorFilter(this, matcher));
 }
 
-zetasql_base::StatusOr<ComplianceTestCaseResult> SQLTestBase::RunStatement(
+absl::StatusOr<ComplianceTestCaseResult> SQLTestBase::RunStatement(
     const std::string& sql, const std::vector<Value>& params,
     const std::vector<std::string>& param_names) {
   std::map<std::string, Value> param_map;
@@ -535,6 +538,8 @@ static std::unique_ptr<ReferenceDriver> CreateTestSetupDriver() {
   options.set_product_mode(zetasql::ProductMode::PRODUCT_INTERNAL);
   // Enable all possible language features.
   options.EnableMaximumLanguageFeaturesForDevelopment();
+  // Allow CREATE TABLE AS SELECT in [prepare_database] statements.
+  options.AddSupportedStatementKind(RESOLVED_CREATE_TABLE_AS_SELECT_STMT);
 
   auto driver = absl::make_unique<ReferenceDriver>(options);
   // Create an empty database so that we can later load protos and enums.
@@ -603,7 +608,7 @@ absl::Status SQLTestBase::CreateDatabase(const TestDatabase& test_db) {
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<Value> SQLTestBase::ExecuteStatement(
+absl::StatusOr<Value> SQLTestBase::ExecuteStatement(
     const std::string& sql, const std::map<std::string, Value>& parameters) {
   ZETASQL_CHECK(!script_mode_)
       << "SQLTestBase::ExecuteStatement() should not be called in script mode";
@@ -612,7 +617,7 @@ zetasql_base::StatusOr<Value> SQLTestBase::ExecuteStatement(
   return absl::get<Value>(result);
 }
 
-zetasql_base::StatusOr<ComplianceTestCaseResult> SQLTestBase::ExecuteTestCase(
+absl::StatusOr<ComplianceTestCaseResult> SQLTestBase::ExecuteTestCase(
     const std::string& sql, const std::map<std::string, Value>& parameters) {
   // For scripting tests, we can just invoke ExecuteTestCaseImpl() directly.
   // For non-scripting tests, we need to go through ExecuteStatement(), since
@@ -624,7 +629,7 @@ zetasql_base::StatusOr<ComplianceTestCaseResult> SQLTestBase::ExecuteTestCase(
   }
 }
 
-zetasql_base::StatusOr<ComplianceTestCaseResult> SQLTestBase::ExecuteTestCaseImpl(
+absl::StatusOr<ComplianceTestCaseResult> SQLTestBase::ExecuteTestCaseImpl(
     const std::string& sql, const std::map<std::string, Value>& parameters) {
   absl::string_view trimmed_sql;
   absl::Status status;
@@ -646,10 +651,10 @@ zetasql_base::StatusOr<ComplianceTestCaseResult> SQLTestBase::ExecuteTestCaseImp
       // Do not run CRASHES_DO_NOT_RUN.
       RecordKnownErrorStatement();
       if (script_mode_) {
-        return zetasql_base::StatusOr<ScriptResult>(
+        return absl::StatusOr<ScriptResult>(
             absl::Status(absl::StatusCode::kCancelled, "Known Error"));
       } else {
-        return zetasql_base::StatusOr<Value>(
+        return absl::StatusOr<Value>(
             absl::Status(absl::StatusCode::kCancelled, "Known Error"));
       }
     }
@@ -682,7 +687,7 @@ zetasql_base::StatusOr<ComplianceTestCaseResult> SQLTestBase::ExecuteTestCaseImp
   // Time the statement execution time to gather some simple performance
   // metrics.
   absl::Time start_time = absl::Now();
-  zetasql_base::StatusOr<ComplianceTestCaseResult> result;
+  absl::StatusOr<ComplianceTestCaseResult> result;
   if (IsTestingReferenceImpl()) {
     ReferenceDriver* reference_driver = static_cast<ReferenceDriver*>(driver());
     bool is_deterministic_output;
@@ -1000,7 +1005,7 @@ void SQLTestBase::StepSkipUnsupportedTest() {
     }
   }
 
-  zetasql_base::StatusOr<bool> status_or_skip_test_for_primary_key_mode =
+  absl::StatusOr<bool> status_or_skip_test_for_primary_key_mode =
       driver()->SkipTestsWithPrimaryKeyMode(primary_key_mode_);
   CheckCancellation(status_or_skip_test_for_primary_key_mode.status(),
                     "Failed to interpret primary key mode");
@@ -1060,62 +1065,60 @@ void SQLTestBase::StepPrepareTimeZoneProtosEnums() {
   }
 }
 
-static LazyRE2 kCreateTablePattern = {
-    R"((?is)\s*CREATE\s+TABLE\s+(\w+)\s+)"
-    R"((?:OPTIONS\s*\(\s*userid_column\s*=\s*(\w+)\s*\)\s*|))"
-    R"(AS\s+(.*))"};
-
 void SQLTestBase::StepPrepareDatabase() {
   if (statement_workflow_ != NORMAL) return;
 
   if (options_->GetBool(kPrepareDatabase)) {
     std::string table_name;
-    std::string userid_column_name;
-    if (CREATE_DATABASE == file_workflow_) {
-      if (!RE2::FullMatch(sql_, *kCreateTablePattern, &table_name,
-                          &userid_column_name, &sql_)) {
-        absl::Status status(
-            absl::StatusCode::kInvalidArgument,
-            absl::StrCat("Syntax error",
-                         "\nExpected: CREATE TABLE <table_name> "
-                         "[OPTIONS (userid_column=value)] "
-                         "AS SELECT ...",
-                         "\n  Actual: ", sql_));
-        CheckCancellation(status, "Invalid CREATE TABLE statement");
-        if (CANCELLED == statement_workflow_) return;
-      }
-
-      std::set<LanguageFeature> required_features;
-      CheckCancellation(
-          ParseFeatures(options_->GetString(kRequiredFeatures),
-                        &required_features),
-          "Failed to parse required_features for prepare_database");
-      if (CANCELLED == statement_workflow_) return;
-
-      // Run everything when testing the reference implementation (even tests
-      // for in-development features), but for a real engine, skip unsupported
-      // tables.
-      if (!IsTestingReferenceImpl()) {
-        for (const LanguageFeature& required_feature : required_features) {
-          if (!driver_language_options().LanguageFeatureEnabled(
-                  required_feature)) {
-            statement_workflow_ = SKIPPED;
-            return;
-          }
-        }
-      }
-
-      CheckCancellation(PrepareTable(table_name, sql_, parameters_,
-                                     required_features, userid_column_name),
-                        "Failed to create table");
-      if (CANCELLED == statement_workflow_) return;
-    } else {
+    if (CREATE_DATABASE != file_workflow_) {
       absl::Status status(absl::StatusCode::kInvalidArgument,
                           "All [prepare_database] must be placed at the top "
                           "of a *.test file");
       CheckCancellation(status, "Wrong placement of prepare_database");
+      return;
     }
+    if (GetStatementKind(sql_) != RESOLVED_CREATE_TABLE_AS_SELECT_STMT) {
+      absl::Status status(
+          absl::StatusCode::kInvalidArgument,
+          "Only CREATE TABLE AS (SELECT...) statements are supported for "
+          "[prepare_database]");
+      CheckCancellation(status, "Invalid CREATE TABLE statement");
+      if (CANCELLED == statement_workflow_) return;
+    }
+
+    std::set<LanguageFeature> required_features;
+    CheckCancellation(ParseFeatures(options_->GetString(kRequiredFeatures),
+                                    &required_features),
+                      "Failed to parse required_features for prepare_database");
     if (CANCELLED == statement_workflow_) return;
+
+    // Run everything when testing the reference implementation (even tests
+    // for in-development features), but for a real engine, skip unsupported
+    // tables.
+    if (!IsTestingReferenceImpl()) {
+      for (const LanguageFeature& required_feature : required_features) {
+        if (!driver_language_options().LanguageFeatureEnabled(
+                required_feature)) {
+          statement_workflow_ = SKIPPED;
+          return;
+        }
+      }
+    }
+
+    bool is_deterministic_output;
+    bool uses_unsupported_type = false;  // unused
+    CheckCancellation(
+        test_setup_driver_
+            ->ExecuteStatementForReferenceDriver(
+                sql_, parameters_, ReferenceDriver::ExecuteStatementOptions(),
+                table_type_factory(), &is_deterministic_output,
+                &uses_unsupported_type, &test_db_, &table_name)
+            .status(),
+        "Failed to create table");
+    if (CANCELLED == statement_workflow_) return;
+    ZETASQL_CHECK(zetasql_base::ContainsKey(test_db_.tables, table_name));
+    *test_db_.tables[table_name].options.mutable_required_features() =
+        required_features;
 
     // Output to golden files for validation purpose.
     test_result_->AddTestOutput(
@@ -1123,7 +1126,6 @@ void SQLTestBase::StepPrepareDatabase() {
 
     // The create table section is not a test. No need to proceed further.
     statement_workflow_ = CANCELLED;
-    return;
   } else if (CREATE_DATABASE == file_workflow_) {
     // This is the first statement.
     file_workflow_ = FIRST_STATEMENT;
@@ -1257,7 +1259,7 @@ void SQLTestBase::StepExecuteStatementCheckResult() {
         result_to_feature_map;
     // We need the result status to honor the known error filters.
     std::map<std::string /* driver output */,
-             zetasql_base::StatusOr<ComplianceTestCaseResult> /* driver result */>
+             absl::StatusOr<ComplianceTestCaseResult> /* driver result */>
         result_to_status_map;
     static const std::string kFeaturePrefix = "FEATURE_";
     ReferenceDriver* reference_driver = static_cast<ReferenceDriver*>(driver());
@@ -1278,7 +1280,7 @@ void SQLTestBase::StepExecuteStatementCheckResult() {
       AutoLanguageOptions auto_options(reference_driver);
       reference_driver->SetLanguageOptions(language_options);
 
-      zetasql_base::StatusOr<ComplianceTestCaseResult> driver_result =
+      absl::StatusOr<ComplianceTestCaseResult> driver_result =
           ExecuteTestCase(sql_, parameters_);
       result_to_feature_map[ToString(driver_result)].push_back(
           features_set_name);
@@ -1328,7 +1330,7 @@ void SQLTestBase::StepExecuteStatementCheckResult() {
     // LanguageOptions.
     bool is_deterministic_output;
     bool uses_unsupported_type = false;
-    zetasql_base::StatusOr<ComplianceTestCaseResult> ref_result;
+    absl::StatusOr<ComplianceTestCaseResult> ref_result;
     if (script_mode_) {
       // Don't support plumbing deterministic output in scripting
       is_deterministic_output = false;
@@ -1344,7 +1346,7 @@ void SQLTestBase::StepExecuteStatementCheckResult() {
     if (uses_unsupported_type) {
       return;  // Skip this test. It uses types not supported by the driver.
     }
-    zetasql_base::StatusOr<ComplianceTestCaseResult> actual_result =
+    absl::StatusOr<ComplianceTestCaseResult> actual_result =
         ExecuteTestCase(sql_, parameters_);
     SCOPED_TRACE(absl::StrCat("Testcase: ", full_name_, "\nSQL:\n", sql_));
     EXPECT_THAT(actual_result, Returns(ref_result, kDefaultFloatMargin));
@@ -1674,7 +1676,7 @@ void SQLTestBase::GenerateCodeBasedStatementName(
 }
 
 std::string SQLTestBase::ToString(
-    const zetasql_base::StatusOr<ComplianceTestCaseResult>& status) {
+    const absl::StatusOr<ComplianceTestCaseResult>& status) {
   std::string result_string;
   if (!status.ok()) {
     result_string =
@@ -1860,41 +1862,6 @@ bool TableContainsColumn(const Value& table, const std::string& column) {
 
 }  // namespace
 
-absl::Status SQLTestBase::PrepareTable(
-    const std::string& table_name, const std::string& sql_without_options,
-    const std::map<std::string, Value>& parameters,
-    const std::set<LanguageFeature>& required_features,
-    const std::string& userid_column) {
-  bool is_deterministic_output;
-  bool uses_unsupported_type = false;  // unused
-  const zetasql_base::StatusOr<Value> ref_result =
-      test_setup_driver_->ExecuteStatementForReferenceDriver(
-          sql_without_options, parameters,
-          ReferenceDriver::ExecuteStatementOptions(), table_type_factory(),
-          &is_deterministic_output, &uses_unsupported_type);
-
-  ZETASQL_RETURN_IF_ERROR(ValidateStatementResult(ref_result, sql_without_options));
-
-  TestTable test_table;
-  test_table.table_as_value = ref_result.value();
-  *test_table.options.mutable_required_features() = required_features;
-  if (IsValueTable(sql_without_options, ref_result.value())) {
-    test_table.options.set_is_value_table(true);
-  }
-  if (!userid_column.empty()) {
-    ZETASQL_RET_CHECK(TableContainsColumn(test_table.table_as_value, userid_column))
-        << absl::StrCat("Failed to find userid column ", userid_column,
-                        " in table ", table_name);
-    test_table.options.set_userid_column(userid_column);
-  }
-  ZETASQL_RET_CHECK(test_db_.tables.emplace(table_name, test_table).second)
-      << table_name;
-
-  ZETASQL_LOG(INFO) << "Prepared Table: " << ref_result.value().Format();
-
-  return absl::OkStatus();
-}
-
 absl::Status SQLTestBase::CreateDatabase() {
   ZETASQL_RETURN_IF_ERROR(ValidateFirstColumnPrimaryKey(
       test_db_, driver()->GetSupportedLanguageOptions()));
@@ -1920,7 +1887,7 @@ absl::Status SQLTestBase::CreateDatabase() {
 }
 
 absl::Status SQLTestBase::ValidateStatementResult(
-    const zetasql_base::StatusOr<Value>& result, const std::string& statement) const {
+    const absl::StatusOr<Value>& result, const std::string& statement) const {
   if (!result.ok()) {
     return ::zetasql_base::InvalidArgumentErrorBuilder()
            << "Statement failed: " << internal::StatusToString(result.status());

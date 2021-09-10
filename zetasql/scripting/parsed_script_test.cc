@@ -20,6 +20,7 @@
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/public/id_string.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/strings/ascii.h"
@@ -118,111 +119,124 @@ class TestCase {
 };
 
 class ScriptValidationTest
-    : public ::testing::TestWithParam<absl::variant<TestCase, TestInput>> {};
-
-void CheckStatement(const ParseLocationRange& range, const ParsedScript* parsed,
-                    const TestInput& stmt) {
-  ParsedScript::StringSet actual_named_params =
-      parsed->GetNamedParameters(range);
-  std::pair<int64_t, int64_t> actual_pos_params =
-      parsed->GetPositionalParameters(range);
-
-  if (stmt.has_named_parameters()) {
-    std::set<std::string> expected_named_params;
-    for (absl::string_view name : stmt.named_parameters()) {
-      expected_named_params.insert(absl::AsciiStrToLower(name));
-    }
-    std::set<std::string> lower_actual_names;
-    for (absl::string_view name : actual_named_params) {
-      lower_actual_names.insert(absl::AsciiStrToLower(name));
-    }
-    EXPECT_EQ(expected_named_params, lower_actual_names);
-  } else {
-    std::pair<int64_t, int64_t> expected_pos_params =
-        stmt.positional_parameters();
-    EXPECT_EQ(actual_pos_params, expected_pos_params);
+    : public ::testing::TestWithParam<absl::variant<TestCase, TestInput>> {
+ public:
+  void SetUp() override {
+    ValueWithTypeParameter vtp;
+    IdString test_predefined_var = IdString::MakeGlobal("test_predefined_var1");
+    predefined_variables_.insert({test_predefined_var, vtp});
   }
-}
+  void CheckStatement(const ParseLocationRange& range,
+                      const ParsedScript* parsed, const TestInput& stmt) {
+    ParsedScript::StringSet actual_named_params =
+        parsed->GetNamedParameters(range);
+    std::pair<int64_t, int64_t> actual_pos_params =
+        parsed->GetPositionalParameters(range);
 
-void CheckTestCase(const TestCase& test_case) {
-  std::string script = absl::StrJoin(
-      test_case.inputs(), "\n", [](std::string* out, const TestInput& input) {
-        absl::StrAppend(out, input.sql());
-      });
-  SCOPED_TRACE(script);
+    if (stmt.has_named_parameters()) {
+      std::set<std::string> expected_named_params;
+      for (absl::string_view name : stmt.named_parameters()) {
+        expected_named_params.insert(absl::AsciiStrToLower(name));
+      }
+      std::set<std::string> lower_actual_names;
+      for (absl::string_view name : actual_named_params) {
+        lower_actual_names.insert(absl::AsciiStrToLower(name));
+      }
+      EXPECT_EQ(expected_named_params, lower_actual_names);
+    } else {
+      std::pair<int64_t, int64_t> expected_pos_params =
+          stmt.positional_parameters();
+      EXPECT_EQ(actual_pos_params, expected_pos_params);
+    }
+  }
 
-  ParsedScript::QueryParameters parameters = absl::nullopt;
+  void CheckTestCase(const TestCase& test_case) {
+    std::string script = absl::StrJoin(
+        test_case.inputs(), "\n", [](std::string* out, const TestInput& input) {
+          absl::StrAppend(out, input.sql());
+        });
+    SCOPED_TRACE(script);
 
-  ParsedScript::StringSet names;
-  int positionals = 0;
-  for (const TestInput& input : test_case.inputs()) {
-    if (input.has_named_parameters()) {
-      for (absl::string_view id : input.named_parameters()) {
+    ParsedScript::QueryParameters parameters = absl::nullopt;
+
+    ParsedScript::StringSet names;
+    int positionals = 0;
+    for (const TestInput& input : test_case.inputs()) {
+      if (input.has_named_parameters()) {
+        for (absl::string_view id : input.named_parameters()) {
+          names.insert(id);
+        }
+      } else {
+        positionals += input.positional_parameters().second;
+      }
+    }
+
+    if (names.empty()) {
+      parameters = positionals;
+    } else {
+      parameters = names;
+    }
+
+    ParserOptions options;
+    std::unique_ptr<ParsedScript> parsed =
+        ParsedScript::Create(
+            script, options, ERROR_MESSAGE_ONE_LINE,
+            /*predefined_variable_names=*/predefined_variables_)
+            .value();
+    ZETASQL_EXPECT_OK(parsed->CheckQueryParameters(parameters));
+
+    absl::Span<const ASTStatement* const> stmts =
+        parsed->script()->statement_list();
+    for (int i = 0; i < stmts.size(); i++) {
+      CheckStatement(stmts[i]->GetParseLocationRange(), parsed.get(),
+                     test_case.inputs()[i]);
+    }
+  }
+
+  void CheckTestInput(const TestInput& test_input) {
+    SCOPED_TRACE(test_input.sql());
+
+    ParsedScript::QueryParameters parameters = absl::nullopt;
+    ParsedScript::StringSet names;
+    int positionals = 0;
+    if (test_input.has_named_parameters()) {
+      for (absl::string_view id : test_input.named_parameters()) {
         names.insert(id);
       }
     } else {
-      positionals += input.positional_parameters().second;
+      positionals += test_input.positional_parameters().second;
     }
-  }
-
-  if (names.empty()) {
-    parameters = positionals;
-  } else {
-    parameters = names;
-  }
-
-  ParserOptions options;
-  std::unique_ptr<ParsedScript> parsed =
-      ParsedScript::Create(script, options, ERROR_MESSAGE_ONE_LINE).value();
-  ZETASQL_EXPECT_OK(parsed->CheckQueryParameters(parameters));
-
-  absl::Span<const ASTStatement* const> stmts =
-      parsed->script()->statement_list();
-  for (int i = 0; i < stmts.size(); i++) {
-    CheckStatement(stmts[i]->GetParseLocationRange(), parsed.get(),
-                   test_case.inputs()[i]);
-  }
-}
-
-void CheckTestInput(const TestInput& test_input) {
-  SCOPED_TRACE(test_input.sql());
-
-  ParsedScript::QueryParameters parameters = absl::nullopt;
-  ParsedScript::StringSet names;
-  int positionals = 0;
-  if (test_input.has_named_parameters()) {
-    for (absl::string_view id : test_input.named_parameters()) {
-      names.insert(id);
+    if (names.empty()) {
+      parameters = positionals;
+    } else {
+      parameters = names;
     }
-  } else {
-    positionals += test_input.positional_parameters().second;
-  }
-  if (names.empty()) {
-    parameters = positionals;
-  } else {
-    parameters = names;
-  }
 
-  ParserOptions options;
-  zetasql_base::StatusOr<std::unique_ptr<ParsedScript>> status_or_parsed =
-      ParsedScript::Create(test_input.sql(), options, ERROR_MESSAGE_ONE_LINE);
-  absl::Status status = status_or_parsed.status();
-  std::unique_ptr<ParsedScript> parsed;
-  if (status.ok()) {
-    parsed = std::move(status_or_parsed.value());
-    status = parsed->CheckQueryParameters(parameters);
-  }
-
-  if (test_input.error().empty()) {
-    EXPECT_THAT(status, IsOk());
+    ParserOptions options;
+    absl::StatusOr<std::unique_ptr<ParsedScript>> status_or_parsed =
+        ParsedScript::Create(
+            test_input.sql(), options, ERROR_MESSAGE_ONE_LINE,
+            /*predefined_variable_names=*/predefined_variables_);
+    absl::Status status = status_or_parsed.status();
+    std::unique_ptr<ParsedScript> parsed;
     if (status.ok()) {
-      CheckStatement(parsed->script()->GetParseLocationRange(), parsed.get(),
-                     test_input);
+      parsed = std::move(status_or_parsed.value());
+      status = parsed->CheckQueryParameters(parameters);
     }
-  } else {
-    EXPECT_THAT(status, StatusIs(_, HasSubstr(test_input.error())));
+
+    if (test_input.error().empty()) {
+      EXPECT_THAT(status, IsOk());
+      if (status.ok()) {
+        CheckStatement(parsed->script()->GetParseLocationRange(), parsed.get(),
+                       test_input);
+      }
+    } else {
+      EXPECT_THAT(status, StatusIs(_, HasSubstr(test_input.error())));
+    }
   }
-}
+
+  VariableWithTypeParameterMap predefined_variables_;
+};
 
 TEST_P(ScriptValidationTest, ValidateScripts) {
   absl::variant<TestCase, TestInput> param = GetParam();
@@ -243,9 +257,11 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
   // loop. As detection of BREAK and CONTINUE statements outside of a loop
   // is implemented as part of building the control-flow graph, this is
   // covered more thoroughly in the control-flow-graph tests.
-  result.push_back(TestInputWithError(
-      ZETASQL_LOC, "BREAK is only allowed inside of a loop body [at 3:7]",
-      R"(
+  result.push_back(
+      TestInputWithError(ZETASQL_LOC,
+                         "BREAK without label is only allowed inside "
+                         "of a loop body [at 3:7]",
+                         R"(
       SELECT 1;
       BREAK;
     )"));
@@ -336,6 +352,26 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
                                       R"(
     -- Variable redeclaration (same statement)
     DECLARE x, x INT64;
+  )"));
+  result.push_back(TestInputWithError(
+      ZETASQL_LOC, "Variable 'test_predefined_var1' redeclaration [at 3:19]",
+      R"(
+    -- Variable redeclaration with predefined variable
+    BEGIN DECLARE test_predefined_var1 INT64; END;
+  )"));
+  result.push_back(TestInputWithError(
+      ZETASQL_LOC, "Variable 'test_predefined_var1' redeclaration [at 7:23]",
+      R"(
+    -- Variable redeclaration with predefined variable
+    BEGIN
+      IF x < 1 THEN
+        LOOP
+          BEGIN
+              DECLARE test_predefined_var1 INT64;
+          END;
+        END LOOP;
+      END IF;
+    END;
   )"));
   result.push_back(TestInputWithError(ZETASQL_LOC,
                                       "Variable 'x' redeclaration [at 5:13]; x "

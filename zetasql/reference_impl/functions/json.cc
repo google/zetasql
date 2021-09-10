@@ -26,7 +26,7 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/reference_impl/function.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/ret_check.h"
 
 namespace zetasql {
@@ -61,7 +61,7 @@ class JsonFunction : public SimpleBuiltinScalarFunction {
     ZETASQL_DCHECK(output_type->Equals(types::JsonType()) ||
            output_type->Equals(types::StringType()));
   }
-  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -72,7 +72,7 @@ class JsonArrayFunction : public SimpleBuiltinScalarFunction {
     ZETASQL_DCHECK(output_type->Equals(types::JsonArrayType()) ||
            output_type->Equals(types::StringArrayType()));
   }
-  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -81,7 +81,7 @@ class JsonSubscriptFunction : public SimpleBuiltinScalarFunction {
   explicit JsonSubscriptFunction()
       : SimpleBuiltinScalarFunction(FunctionKind::kSubscript,
                                     types::JsonType()) {}
-  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -89,7 +89,7 @@ class ToJsonFunction : public SimpleBuiltinScalarFunction {
  public:
   ToJsonFunction()
       : SimpleBuiltinScalarFunction(FunctionKind::kToJson, types::JsonType()) {}
-  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -98,7 +98,7 @@ class ToJsonStringFunction : public SimpleBuiltinScalarFunction {
   ToJsonStringFunction()
       : SimpleBuiltinScalarFunction(FunctionKind::kToJsonString,
                                     types::StringType()) {}
-  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -107,13 +107,13 @@ class ParseJsonFunction : public SimpleBuiltinScalarFunction {
   ParseJsonFunction()
       : SimpleBuiltinScalarFunction(FunctionKind::kParseJson,
                                     types::JsonType()) {}
-  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 // Helper function for the string version of JSON_QUERY, JSON_VALUE,
 // JSON_EXTRACT and JSON_EXTRACT_SCALAR.
-zetasql_base::StatusOr<Value> JsonExtractString(
+absl::StatusOr<Value> JsonExtractString(
     const functions::JsonPathEvaluator& evaluator, absl::string_view json,
     bool scalar) {
   std::string output;
@@ -132,7 +132,7 @@ zetasql_base::StatusOr<Value> JsonExtractString(
 
 // Helper function for the JSON version of JSON_QUERY, JSON_VALUE,
 // JSON_EXTRACT and JSON_EXTRACT_SCALAR.
-zetasql_base::StatusOr<Value> JsonExtractJson(
+absl::StatusOr<Value> JsonExtractJson(
     const functions::JsonPathEvaluator& evaluator, const Value& json,
     const Type* output_type, bool scalar, JSONParsingOptions parsing_options) {
   if (scalar) {
@@ -165,7 +165,7 @@ zetasql_base::StatusOr<Value> JsonExtractJson(
   return Value::Null(output_type);
 }
 
-zetasql_base::StatusOr<Value> JsonSubscriptFunction::Eval(
+absl::StatusOr<Value> JsonSubscriptFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
   ZETASQL_RET_CHECK_EQ(args.size(), 2);
   if (HasNulls(args)) {
@@ -206,7 +206,7 @@ zetasql_base::StatusOr<Value> JsonSubscriptFunction::Eval(
              : Value::Null(output_type());
 }
 
-zetasql_base::StatusOr<Value> JsonFunction::Eval(absl::Span<const Value> args,
+absl::StatusOr<Value> JsonFunction::Eval(absl::Span<const Value> args,
                                          EvaluationContext* context) const {
   if (kind() == FunctionKind::kJsonValue ||
       kind() == FunctionKind::kJsonExtractScalar) {
@@ -248,7 +248,7 @@ zetasql_base::StatusOr<Value> JsonFunction::Eval(absl::Span<const Value> args,
 
 // Helper function for the string version of JSON_VALUE_ARRAY and
 // JSON_EXTRACT_STRING_ARRAY.
-zetasql_base::StatusOr<Value> JsonExtractStringArrayString(
+absl::StatusOr<Value> JsonExtractStringArrayString(
     const functions::JsonPathEvaluator& evaluator, absl::string_view json) {
   std::vector<absl::optional<std::string>> output;
   bool is_null;
@@ -272,7 +272,7 @@ zetasql_base::StatusOr<Value> JsonExtractStringArrayString(
 
 // Helper function for the string version of JSON_QUERY_ARRAY and
 // JSON_EXTRACT_ARRAY.
-zetasql_base::StatusOr<Value> JsonExtractArrayString(
+absl::StatusOr<Value> JsonExtractArrayString(
     const functions::JsonPathEvaluator& evaluator, absl::string_view json) {
   std::vector<std::string> output;
   bool is_null;
@@ -286,7 +286,7 @@ zetasql_base::StatusOr<Value> JsonExtractArrayString(
 
 // Helper function for the JSON version of JSON_VALUE_ARRAY and
 // JSON_EXTRACT_STRING_ARRAY.
-zetasql_base::StatusOr<Value> JsonExtractStringArrayJson(
+absl::StatusOr<Value> JsonExtractStringArrayJson(
     const functions::JsonPathEvaluator& evaluator, const Value& json,
     JSONParsingOptions parsing_options) {
   absl::optional<std::vector<absl::optional<std::string>>> output;
@@ -316,7 +316,7 @@ zetasql_base::StatusOr<Value> JsonExtractStringArrayJson(
 
 // Helper function for the JSON version of JSON_QUERY_ARRAY and
 // JSON_EXTRACT_ARRAY.
-zetasql_base::StatusOr<Value> JsonExtractArrayJson(
+absl::StatusOr<Value> JsonExtractArrayJson(
     const functions::JsonPathEvaluator& evaluator, const Value& json,
     JSONParsingOptions parsing_options) {
   absl::optional<std::vector<JSONValueConstRef>> output;
@@ -343,7 +343,7 @@ zetasql_base::StatusOr<Value> JsonExtractArrayJson(
   return Value::Null(types::JsonArrayType());
 }
 
-zetasql_base::StatusOr<Value> JsonArrayFunction::Eval(
+absl::StatusOr<Value> JsonArrayFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
   ZETASQL_RET_CHECK_GE(args.size(), 1);
   ZETASQL_RET_CHECK_LE(args.size(), 2);
@@ -381,7 +381,7 @@ zetasql_base::StatusOr<Value> JsonArrayFunction::Eval(
   }
 }
 
-zetasql_base::StatusOr<Value> ToJsonFunction::Eval(absl::Span<const Value> args,
+absl::StatusOr<Value> ToJsonFunction::Eval(absl::Span<const Value> args,
                                            EvaluationContext* context) const {
   ZETASQL_RET_CHECK_EQ(args.size(), 2);
   if (args[1].is_null()) {
@@ -395,7 +395,7 @@ zetasql_base::StatusOr<Value> ToJsonFunction::Eval(absl::Span<const Value> args,
   return Value::Json(std::move(outputJson));
 }
 
-zetasql_base::StatusOr<Value> ToJsonStringFunction::Eval(
+absl::StatusOr<Value> ToJsonStringFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
   if (args.size() == 2 && args[1].is_null()) {
     return Value::Null(output_type());
@@ -405,12 +405,19 @@ zetasql_base::StatusOr<Value> ToJsonStringFunction::Eval(
   functions::JsonPrettyPrinter pretty_printer(
       pretty_print, context->GetLanguageOptions().product_mode());
   std::string output;
-  ZETASQL_RETURN_IF_ERROR(functions::JsonFromValue(args[0], &pretty_printer, &output));
+  ZETASQL_RETURN_IF_ERROR(functions::JsonFromValue(
+      args[0], &pretty_printer, &output,
+      JSONParsingOptions{
+          .legacy_mode = context->GetLanguageOptions().LanguageFeatureEnabled(
+              FEATURE_JSON_LEGACY_PARSE),
+          .strict_number_parsing =
+              context->GetLanguageOptions().LanguageFeatureEnabled(
+                  FEATURE_JSON_STRICT_NUMBER_PARSING)}));
   MaybeSetNonDeterministicContext(args[0], context);
   return Value::String(output);
 }
 
-zetasql_base::StatusOr<Value> ParseJsonFunction::Eval(
+absl::StatusOr<Value> ParseJsonFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
   ZETASQL_RET_CHECK_EQ(args.size(), 2);
   if (args[0].is_null() || args[1].is_null()) {

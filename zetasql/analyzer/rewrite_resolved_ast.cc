@@ -16,9 +16,33 @@
 
 #include "zetasql/analyzer/rewrite_resolved_ast.h"
 
+#include <memory>
+#include <string>
+#include <utility>
+
+#include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/base/logging.h"
+#include "zetasql/analyzer/rewriters/rewriter_interface.h"
+#include "zetasql/common/errors.h"
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/analyzer_output.h"
+#include "zetasql/public/analyzer_output_properties.h"
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/types/type_factory.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/validator.h"
+#include "absl/container/flat_hash_set.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -34,23 +58,44 @@ const ResolvedNode* NodeFromAnalyzerOutput(const AnalyzerOutput& output) {
   return output.resolved_expr();
 }
 
-// Returns an AnalyzerOptions suitable for passing to rewriters. This is the
-// same as <analyzer_options>, but with the following changes:
-// - Arenas are set to match those in <analyzer_output>, overriding any arenas
-//     previously used by the AnalyzerOptions.
-// - If <analyzer_options> does not have a column_id_sequence_number(), sets
-//     the sequence number to <fallback_sequence_number>. Also,
-//     <fallback_sequence_number> is advanced until it is greater than
-//     <analyzer_output.max_column_id()>. In this case, the
-//     <fallback_sequence_number> must outlive the returned options.
+// Returns an AnalyzerOptions suitable for passing to rewriters. Most of the
+// settings are copied from <analyzer_options>, which is the options used to
+// analyze the outer statement. Some settings are overridden as required by
+// the rewriter implementation.
 AnalyzerOptions AnalyzerOptionsForRewrite(
     const AnalyzerOptions& analyzer_options,
     const AnalyzerOutput& analyzer_output,
     zetasql_base::SequenceNumber& fallback_sequence_number) {
   AnalyzerOptions options_for_rewrite = analyzer_options;
+
+  // Require that rewrite substitution fragments are written in strict name
+  // resolution mode so that column names are qualified. In theory, we could
+  // relax this to DEFAULT at the cost of some robustness of the rewriting
+  // rules. We cannot remove this line and allow the engine's selection to be
+  // passed through. In that case, a rewriting rule written without column name
+  // qualification might pass tests and work on most query engines but produce
+  // incoherant error messages on engines that operate in strict resolution
+  // mode.
+  options_for_rewrite.mutable_language()->set_name_resolution_mode(
+      NameResolutionMode::NAME_RESOLUTION_STRICT);
+
+  // Rewriter fragment substitution uses named query parameters as an
+  // implementation detail. We override settings that are required to enable
+  // named query parameters.
+  options_for_rewrite.set_allow_undeclared_parameters(false);
+  options_for_rewrite.set_parameter_mode(ParameterMode::PARAMETER_NAMED);
+  options_for_rewrite.set_statement_context(StatementContext::CONTEXT_DEFAULT);
+
+  // Arenas are set to match those in <analyzer_output>, overriding any arenas
+  // previously used by the AnalyzerOptions.
   options_for_rewrite.set_arena(analyzer_output.arena());
   options_for_rewrite.set_id_string_pool(analyzer_output.id_string_pool());
 
+  // If <analyzer_options> does not have a column_id_sequence_number(), sets the
+  // sequence number to <fallback_sequence_number>. Also,
+  // <fallback_sequence_number> is advanced until it is greater than
+  // <analyzer_output.max_column_id()>. In this case, the
+  // <fallback_sequence_number> must outlive the returned options.
   if (analyzer_options.column_id_sequence_number() == nullptr) {
     // Advance the sequence number so that the column ids generated are unique
     // with respect to the AnalyzerOutput so far.

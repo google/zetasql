@@ -1,4 +1,4 @@
-[default language_features=ALTER_COLUMN_SET_DATA_TYPE,CREATE_TABLE_FIELD_ANNOTATIONS,NUMERIC_TYPE,PARAMETERIZED_TYPES]
+[default language_features=ALTER_COLUMN_SET_DATA_TYPE,CREATE_TABLE_FIELD_ANNOTATIONS,NUMERIC_TYPE,PARAMETERIZED_TYPES,CREATE_TABLE_NOT_NULL,V_1_3_COLLATION_SUPPORT]
 
 ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE NUMERIC;
 --
@@ -24,7 +24,13 @@ ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE NUMERIC(5,1);
 AlterTableStmt
 +-name_path=KeyValue
 +-alter_action_list=
-  +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="Key", updated_type=NUMERIC, updated_type_parameters=(precision=5,scale=1))
+  +-AlterColumnSetDataTypeAction
+    +-is_if_exists=FALSE
+    +-column="Key"
+    +-updated_type=NUMERIC
+    +-updated_type_parameters=(precision=5,scale=1)
+    +-updated_annotations=
+      +-ColumnAnnotations(type_parameters=(precision=5,scale=1))
 
 ==
 
@@ -36,7 +42,13 @@ AlterTableStmt
 +-name_path=KeyValue
 +-alter_action_list=
   +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="Key", updated_type=NUMERIC)
-  +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="Value", updated_type=STRING, updated_type_parameters=(max_length=42))
+  +-AlterColumnSetDataTypeAction
+    +-is_if_exists=FALSE
+    +-column="Value"
+    +-updated_type=STRING
+    +-updated_type_parameters=(max_length=42)
+    +-updated_annotations=
+      +-ColumnAnnotations(type_parameters=(max_length=42))
 
 ==
 
@@ -57,7 +69,16 @@ ALTER TABLE TestStructValueTable
 AlterTableStmt
 +-name_path=TestStructValueTable
 +-alter_action_list=
-  +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="Value", updated_type=STRUCT<a NUMERIC, b STRING>, updated_type_parameters=[null,(max_length=42)])
+  +-AlterColumnSetDataTypeAction
+    +-is_if_exists=FALSE
+    +-column="Value"
+    +-updated_type=STRUCT<a NUMERIC, b STRING>
+    +-updated_type_parameters=[null,(max_length=42)]
+    +-updated_annotations=
+      +-ColumnAnnotations
+        +-child_list=
+          +-ColumnAnnotations
+          +-ColumnAnnotations(type_parameters=(max_length=42))
 ==
 
 # STRUCT<INT32,STRING> -> STRUCT<NUMERIC(5,1),STRING>
@@ -67,7 +88,15 @@ ALTER TABLE TestStructValueTable
 AlterTableStmt
 +-name_path=TestStructValueTable
 +-alter_action_list=
-  +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="Value", updated_type=STRUCT<a NUMERIC, b STRING>, updated_type_parameters=[(precision=5,scale=1),null])
+  +-AlterColumnSetDataTypeAction
+    +-is_if_exists=FALSE
+    +-column="Value"
+    +-updated_type=STRUCT<a NUMERIC, b STRING>
+    +-updated_type_parameters=[(precision=5,scale=1),null]
+    +-updated_annotations=
+      +-ColumnAnnotations
+        +-child_list=
+          +-ColumnAnnotations(type_parameters=(precision=5,scale=1))
 ==
 
 # STRUCT<INT32,STRING> -> STRUCT<NUMERIC(5,1),STRING(42)>
@@ -77,7 +106,16 @@ ALTER TABLE TestStructValueTable
 AlterTableStmt
 +-name_path=TestStructValueTable
 +-alter_action_list=
-  +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="Value", updated_type=STRUCT<a NUMERIC, b STRING>, updated_type_parameters=[(precision=5,scale=1),(max_length=42)])
+  +-AlterColumnSetDataTypeAction
+    +-is_if_exists=FALSE
+    +-column="Value"
+    +-updated_type=STRUCT<a NUMERIC, b STRING>
+    +-updated_type_parameters=[(precision=5,scale=1),(max_length=42)]
+    +-updated_annotations=
+      +-ColumnAnnotations
+        +-child_list=
+          +-ColumnAnnotations(type_parameters=(precision=5,scale=1))
+          +-ColumnAnnotations(type_parameters=(max_length=42))
 ==
 
 # STRUCT<INT32,STRUCT<INT32,STRING>> -> STRUCT<INT32,STRUCT<NUMERIC,STRING(42)>>
@@ -87,7 +125,19 @@ ALTER TABLE ComplexTypes ALTER COLUMN TestStruct
 AlterTableStmt
 +-name_path=ComplexTypes
 +-alter_action_list=
-  +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="TestStruct", updated_type=STRUCT<c INT32, d STRUCT<a NUMERIC, b STRING>>, updated_type_parameters=[null,[null,(max_length=42)]])
+  +-AlterColumnSetDataTypeAction
+    +-is_if_exists=FALSE
+    +-column="TestStruct"
+    +-updated_type=STRUCT<c INT32, d STRUCT<a NUMERIC, b STRING>>
+    +-updated_type_parameters=[null,[null,(max_length=42)]]
+    +-updated_annotations=
+      +-ColumnAnnotations
+        +-child_list=
+          +-ColumnAnnotations
+          +-ColumnAnnotations
+            +-child_list=
+              +-ColumnAnnotations
+              +-ColumnAnnotations(type_parameters=(max_length=42))
 ==
 
 # ARRAY<INT32> -> ARRAY<NUMERIC(6,2)>
@@ -114,7 +164,13 @@ ALTER TABLE KeyValue ALTER COLUMN Value SET DATA TYPE STRING(42);
 AlterTableStmt
 +-name_path=KeyValue
 +-alter_action_list=
-  +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="Value", updated_type=STRING, updated_type_parameters=(max_length=42))
+  +-AlterColumnSetDataTypeAction
+    +-is_if_exists=FALSE
+    +-column="Value"
+    +-updated_type=STRING
+    +-updated_type_parameters=(max_length=42)
+    +-updated_annotations=
+      +-ColumnAnnotations(type_parameters=(max_length=42))
 ==
 
 # Column doesn't exist (IF EXISTS)
@@ -195,9 +251,9 @@ ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE INT64(10);
 ALTER TABLE TestStructValueTable
     ALTER COLUMN Value SET DATA TYPE STRUCT<a INT64 NOT NULL, b STRING>;
 --
-ERROR: NOT NULL constraint is unsupported [at 2:53]
+ERROR: For ALTER TABLE ALTER COLUMN SET DATA TYPE, the updated data type cannot contain NOT NULL [at 2:38]
     ALTER COLUMN Value SET DATA TYPE STRUCT<a INT64 NOT NULL, b STRING>;
-                                                    ^
+                                     ^
 ==
 
 # Can't change OPTIONS STRUCT<INT32,STRING>
@@ -227,3 +283,47 @@ ERROR: Parameterized types are not supported [at 1:60]
 ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE NUMERIC(3,1);
                                                            ^
 ==
+
+# Set collation for STRING type column
+ALTER TABLE KeyValue ALTER COLUMN Value SET DATA TYPE STRING COLLATE 'und:ci';
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnSetDataTypeAction
+    +-is_if_exists=FALSE
+    +-column="Value"
+    +-updated_type=STRING
+    +-updated_annotations=
+      +-ColumnAnnotations
+        +-collation_name=
+          +-Literal(type=STRING, value="und:ci")
+==
+
+# Set collation for STRING type field in STRUCT column
+ALTER TABLE TestStructValueTable
+    ALTER COLUMN Value SET DATA TYPE STRUCT<a NUMERIC, b STRING COLLATE 'und:ci'>;
+--
+AlterTableStmt
++-name_path=TestStructValueTable
++-alter_action_list=
+  +-AlterColumnSetDataTypeAction
+    +-is_if_exists=FALSE
+    +-column="Value"
+    +-updated_type=STRUCT<a NUMERIC, b STRING>
+    +-updated_annotations=
+      +-ColumnAnnotations
+        +-child_list=
+          +-ColumnAnnotations
+          +-ColumnAnnotations
+            +-collation_name=
+              +-Literal(type=STRING, value="und:ci")
+==
+
+# COLLATE not enabled
+[language_features=ALTER_COLUMN_SET_DATA_TYPE,CREATE_TABLE_FIELD_ANNOTATIONS,NUMERIC_TYPE]
+ALTER TABLE KeyValue ALTER COLUMN Value SET DATA TYPE STRING COLLATE 'und:ci';
+--
+ERROR: COLLATE is not supported [at 1:62]
+ALTER TABLE KeyValue ALTER COLUMN Value SET DATA TYPE STRING COLLATE 'und:ci';
+                                                             ^

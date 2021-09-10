@@ -26,7 +26,7 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/proto/internal_error_location.pb.h"
 #include <cstdint>
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "unicode/umachine.h"
 #include "unicode/utf8.h"
 #include "zetasql/base/mathutil.h"
@@ -158,7 +158,7 @@ absl::Status AdvanceOneChar(absl::string_view current_line,
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<int> ColumnNumberFromLineLocalByteOffset(
+absl::StatusOr<int> ColumnNumberFromLineLocalByteOffset(
     absl::string_view current_line, int desired_byte_offset) {
   int column = 1;  // Column numbers are one-based.
   int byte_offset = 0;
@@ -174,7 +174,7 @@ zetasql_base::StatusOr<int> ColumnNumberFromLineLocalByteOffset(
 
 }  // namespace
 
-zetasql_base::StatusOr<std::pair<int, int>>
+absl::StatusOr<std::pair<int, int>>
 ParseLocationTranslator::GetLineAndColumnFromByteOffset(int byte_offset) const {
   ZETASQL_DCHECK_GE(byte_offset, 0);
   ZETASQL_DCHECK_LE(byte_offset, input_.size());
@@ -203,7 +203,7 @@ ParseLocationTranslator::GetLineAndColumnFromByteOffset(int byte_offset) const {
   return std::make_pair(line_number, column_number);
 }
 
-zetasql_base::StatusOr<int> ParseLocationTranslator::GetByteOffsetFromLineAndColumn(
+absl::StatusOr<int> ParseLocationTranslator::GetByteOffsetFromLineAndColumn(
     int line, int column) const {
   ZETASQL_RET_CHECK_GE(line, 1);
   ZETASQL_RET_CHECK_GE(column, 1);
@@ -232,7 +232,7 @@ zetasql_base::StatusOr<int> ParseLocationTranslator::GetByteOffsetFromLineAndCol
   return line_offsets_[line - 1] + byte_offset;
 }
 
-zetasql_base::StatusOr<std::pair<int, int>>
+absl::StatusOr<std::pair<int, int>>
 ParseLocationTranslator::GetLineAndColumnAfterTabExpansion(
     ParseLocationPoint point) const {
   return GetLineAndColumnFromByteOffset(point.GetByteOffset());
@@ -252,7 +252,7 @@ std::string ParseLocationTranslator::ExpandTabs(absl::string_view input) {
   return out;
 }
 
-zetasql_base::StatusOr<absl::string_view> ParseLocationTranslator::GetLineText(
+absl::StatusOr<absl::string_view> ParseLocationTranslator::GetLineText(
     int line) const {
   CalculateLineOffsets();
 

@@ -114,28 +114,28 @@ select scop.value from (select * from KeyValue) scope
 #
 select KitchenSink.int_val from TestTable
 --
-ERROR: Protocol buffer zetasql_test.KitchenSinkPB does not have a field called int_val; Did you mean int32_val? [at 1:20]
+ERROR: Protocol buffer zetasql_test__.KitchenSinkPB does not have a field called int_val; Did you mean int32_val? [at 1:20]
 select KitchenSink.int_val from TestTable
                    ^
 ==
 
 select KitchenSInk.bol_val from TestTable
 --
-ERROR: Protocol buffer zetasql_test.KitchenSinkPB does not have a field called bol_val; Did you mean bool_val? [at 1:20]
+ERROR: Protocol buffer zetasql_test__.KitchenSinkPB does not have a field called bol_val; Did you mean bool_val? [at 1:20]
 select KitchenSInk.bol_val from TestTable
                    ^
 ==
 
 select KitchenSink.int16_val from TestTable
 --
-ERROR: Protocol buffer zetasql_test.KitchenSinkPB does not have a field called int16_val; Did you mean int32_val? [at 1:20]
+ERROR: Protocol buffer zetasql_test__.KitchenSinkPB does not have a field called int16_val; Did you mean int32_val? [at 1:20]
 select KitchenSink.int16_val from TestTable
                    ^
 ==
 
 select KitchenSink.some_random from TestTable
 --
-ERROR: Protocol buffer zetasql_test.KitchenSinkPB does not have a field called some_random [at 1:20]
+ERROR: Protocol buffer zetasql_test__.KitchenSinkPB does not have a field called some_random [at 1:20]
 select KitchenSink.some_random from TestTable
                    ^
 ==

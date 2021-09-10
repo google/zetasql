@@ -27,7 +27,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
 
 namespace zetasql {
 

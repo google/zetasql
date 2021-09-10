@@ -23,9 +23,9 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/source_location.h"
-#include "zetasql/base/statusor.h"
 #include "zetasql/base/test_payload.pb.h"
 #include "zetasql/base/testing/status_matchers.h"
 
@@ -48,7 +48,7 @@ const SourceLocation kLoc = ZETASQL_LOC;
 
 // Converts a StatusBuilder to a StatusOr<T>.
 template <typename T>
-StatusOr<T> ToStatusOr(const StatusBuilder& s) {
+absl::StatusOr<T> ToStatusOr(const StatusBuilder& s) {
   return s;
 }
 

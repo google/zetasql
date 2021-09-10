@@ -18,9 +18,9 @@
 #include "google/protobuf/timestamp.pb.h"
 #include <cstdint>
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql_base {
 
@@ -53,7 +53,7 @@ absl::Status EncodeGoogleApiProto(absl::Time t,
   return Validate(*proto);
 }
 
-StatusOr<absl::Time> DecodeGoogleApiProto(
+absl::StatusOr<absl::Time> DecodeGoogleApiProto(
     const google::protobuf::Timestamp& proto) {
   absl::Status status = Validate(proto);
   if (!status.ok()) return status;

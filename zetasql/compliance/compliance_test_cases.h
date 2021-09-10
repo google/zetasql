@@ -167,7 +167,7 @@ class ComplianceCodebasedTests : public SQLTestBase {
       const std::vector<FunctionTestCall>& function_tests, FCT get_sql_string);
 
   // Runs a statement with the specified feature set and returns the result.
-  zetasql_base::StatusOr<Value> ExecuteStatementWithFeatures(
+  absl::StatusOr<Value> ExecuteStatementWithFeatures(
       const std::string& sql, const std::map<std::string, Value>& params,
       const QueryParamsWithResult::FeatureSet& features);
 

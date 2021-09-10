@@ -21,7 +21,7 @@ QueryStmt
             +-GetProtoField
             | +-type=BOOL
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=bool_val
             | +-default_value=false
             +-Parameter(type=BOOL, name="test_param_bool")
@@ -87,8 +87,8 @@ select * from TestTable where 1 + cast(@test_param_int32 as INT64) = 5;
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
@@ -264,21 +264,21 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT64
     | |   +-expr=
-    | |   | +-Parameter(type=PROTO<zetasql_test.KitchenSinkPB>, name="test_param_proto")
+    | |   | +-Parameter(type=PROTO<zetasql_test__.KitchenSinkPB>, name="test_param_proto")
     | |   +-field_descriptor=int64_val
     | |   +-default_value=0
     | +-int64_val#2 :=
     | | +-GetProtoField
     | |   +-type=INT64
     | |   +-expr=
-    | |   | +-Parameter(type=PROTO<zetasql_test.KitchenSinkPB>, name="test_param_proto")
+    | |   | +-Parameter(type=PROTO<zetasql_test__.KitchenSinkPB>, name="test_param_proto")
     | |   +-field_descriptor=int64_val
     | |   +-default_value=0
     | +-int64_val#3 :=
     |   +-GetProtoField
     |     +-type=INT64
     |     +-expr=
-    |     | +-Parameter(type=PROTO<zetasql_test.KitchenSinkPB>, name="test_param_proto")
+    |     | +-Parameter(type=PROTO<zetasql_test__.KitchenSinkPB>, name="test_param_proto")
     |     +-field_descriptor=int64_val
     |     +-default_value=0
     +-input_scan=
@@ -332,20 +332,20 @@ QueryStmt
     +-column_list=$query.[$col1#1, $col2#2, $col3#3, $col4#4]
     +-expr_list=
     | +-$col1#1 :=
-    | | +-FunctionCall(sample_functions:fn_on_TestEnum(ENUM<zetasql_test.TestEnum>) -> BOOL)
-    | |   +-Cast(INT32 -> ENUM<zetasql_test.TestEnum>)
+    | | +-FunctionCall(sample_functions:fn_on_TestEnum(ENUM<zetasql_test__.TestEnum>) -> BOOL)
+    | |   +-Cast(INT32 -> ENUM<zetasql_test__.TestEnum>)
     | |     +-Parameter(type=INT32, name="test_param_int32")
     | +-$col2#2 :=
-    | | +-FunctionCall(sample_functions:fn_on_TestEnum(ENUM<zetasql_test.TestEnum>) -> BOOL)
-    | |   +-Cast(INT64 -> ENUM<zetasql_test.TestEnum>)
+    | | +-FunctionCall(sample_functions:fn_on_TestEnum(ENUM<zetasql_test__.TestEnum>) -> BOOL)
+    | |   +-Cast(INT64 -> ENUM<zetasql_test__.TestEnum>)
     | |     +-Parameter(type=INT64, name="test_param_int64")
     | +-$col3#3 :=
-    | | +-FunctionCall(sample_functions:fn_on_TestEnum(ENUM<zetasql_test.TestEnum>) -> BOOL)
-    | |   +-Cast(STRING -> ENUM<zetasql_test.TestEnum>)
+    | | +-FunctionCall(sample_functions:fn_on_TestEnum(ENUM<zetasql_test__.TestEnum>) -> BOOL)
+    | |   +-Cast(STRING -> ENUM<zetasql_test__.TestEnum>)
     | |     +-Parameter(type=STRING, name="test_param_string")
     | +-$col4#4 :=
-    |   +-FunctionCall(sample_functions:fn_on_TestEnum(ENUM<zetasql_test.TestEnum>) -> BOOL)
-    |     +-Parameter(type=ENUM<zetasql_test.TestEnum>, name="test_param_enum")
+    |   +-FunctionCall(sample_functions:fn_on_TestEnum(ENUM<zetasql_test__.TestEnum>) -> BOOL)
+    |     +-Parameter(type=ENUM<zetasql_test__.TestEnum>, name="test_param_enum")
     +-input_scan=
       +-SingleRowScan
 ==
@@ -364,16 +364,16 @@ QueryStmt
     +-column_list=$query.[$col1#1, $col2#2, $col3#3]
     +-expr_list=
     | +-$col1#1 :=
-    | | +-FunctionCall(sample_functions:fn_on_KitchenSinkPB(PROTO<zetasql_test.KitchenSinkPB>) -> BOOL)
-    | |   +-Cast(STRING -> PROTO<zetasql_test.KitchenSinkPB>)
+    | | +-FunctionCall(sample_functions:fn_on_KitchenSinkPB(PROTO<zetasql_test__.KitchenSinkPB>) -> BOOL)
+    | |   +-Cast(STRING -> PROTO<zetasql_test__.KitchenSinkPB>)
     | |     +-Parameter(type=STRING, name="test_param_string")
     | +-$col2#2 :=
-    | | +-FunctionCall(sample_functions:fn_on_KitchenSinkPB(PROTO<zetasql_test.KitchenSinkPB>) -> BOOL)
-    | |   +-Cast(BYTES -> PROTO<zetasql_test.KitchenSinkPB>)
+    | | +-FunctionCall(sample_functions:fn_on_KitchenSinkPB(PROTO<zetasql_test__.KitchenSinkPB>) -> BOOL)
+    | |   +-Cast(BYTES -> PROTO<zetasql_test__.KitchenSinkPB>)
     | |     +-Parameter(type=BYTES, name="test_param_bytes")
     | +-$col3#3 :=
-    |   +-FunctionCall(sample_functions:fn_on_KitchenSinkPB(PROTO<zetasql_test.KitchenSinkPB>) -> BOOL)
-    |     +-Parameter(type=PROTO<zetasql_test.KitchenSinkPB>, name="test_param_proto")
+    |   +-FunctionCall(sample_functions:fn_on_KitchenSinkPB(PROTO<zetasql_test__.KitchenSinkPB>) -> BOOL)
+    |     +-Parameter(type=PROTO<zetasql_test__.KitchenSinkPB>, name="test_param_proto")
     +-input_scan=
       +-SingleRowScan
 ==
@@ -510,35 +510,35 @@ select fn_on_TestEnum(@test_param_{{uint32|uint64}})
 --
 ALTERNATION GROUP: uint32
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_TESTENUM for argument types: UINT32. Supported signature: FN_ON_TESTENUM(zetasql_test.TestEnum) [at 1:8]
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_TESTENUM for argument types: UINT32. Supported signature: FN_ON_TESTENUM(zetasql_test__.TestEnum) [at 1:8]
 select fn_on_TestEnum(@test_param_uint32)
        ^
 --
 ALTERNATION GROUP: uint64
 --
-ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_TESTENUM for argument types: UINT64. Supported signature: FN_ON_TESTENUM(zetasql_test.TestEnum) [at 1:8]
+ERROR: No matching signature for function SAMPLE_FUNCTIONS:FN_ON_TESTENUM for argument types: UINT64. Supported signature: FN_ON_TESTENUM(zetasql_test__.TestEnum) [at 1:8]
 select fn_on_TestEnum(@test_param_uint64)
        ^
 ==
 
-select cast(@test_param_proto as zetasql_test.{{TestExtraPB|KitchenSinkPB}})
+select cast(@test_param_proto as zetasql_test__.{{TestExtraPB|KitchenSinkPB}})
 --
 ALTERNATION GROUP: TestExtraPB
 --
-ERROR: Invalid cast from zetasql_test.KitchenSinkPB to zetasql_test.TestExtraPB [at 1:13]
-select cast(@test_param_proto as zetasql_test.TestExtraPB)
+ERROR: Invalid cast from zetasql_test__.KitchenSinkPB to zetasql_test__.TestExtraPB [at 1:13]
+select cast(@test_param_proto as zetasql_test__.TestExtraPB)
             ^
 --
 ALTERNATION GROUP: KitchenSinkPB
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1 AS `$col1` [PROTO<zetasql_test.KitchenSinkPB>]
+| +-$query.$col1#1 AS `$col1` [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.$col1#1]
     +-expr_list=
-    | +-$col1#1 := Parameter(type=PROTO<zetasql_test.KitchenSinkPB>, name="test_param_proto")
+    | +-$col1#1 := Parameter(type=PROTO<zetasql_test__.KitchenSinkPB>, name="test_param_proto")
     +-input_scan=
       +-SingleRowScan
 ==
@@ -586,7 +586,7 @@ select array_concat([TestEnum], @test_param_array_int64) From EnumTable
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: No matching signature for function ARRAY_CONCAT for argument types: ARRAY<zetasql_test.TestEnum>, ARRAY<INT64>. Supported signature: ARRAY_CONCAT(ARRAY, [ARRAY, ...]) [at 1:8]
+ERROR: No matching signature for function ARRAY_CONCAT for argument types: ARRAY<zetasql_test__.TestEnum>, ARRAY<INT64>. Supported signature: ARRAY_CONCAT(ARRAY, [ARRAY, ...]) [at 1:8]
 select array_concat([TestEnum], @test_param_array_int64) From EnumTable
        ^
 --
@@ -594,16 +594,16 @@ ALTERNATION GROUP: V_1_1_CAST_DIFFERENT_ARRAY_TYPES
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#6 AS `$col1` [ARRAY<ENUM<zetasql_test.TestEnum>>]
+| +-$query.$col1#6 AS `$col1` [ARRAY<ENUM<zetasql_test__.TestEnum>>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.$col1#6]
     +-expr_list=
     | +-$col1#6 :=
-    |   +-FunctionCall(ZetaSQL:array_concat(ARRAY<ENUM<zetasql_test.TestEnum>>, repeated(1) ARRAY<ENUM<zetasql_test.TestEnum>>) -> ARRAY<ENUM<zetasql_test.TestEnum>>)
-    |     +-FunctionCall(ZetaSQL:$make_array(repeated(1) ENUM<zetasql_test.TestEnum>) -> ARRAY<ENUM<zetasql_test.TestEnum>>)
-    |     | +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=EnumTable.TestEnum#2)
-    |     +-Cast(ARRAY<INT64> -> ARRAY<ENUM<zetasql_test.TestEnum>>)
+    |   +-FunctionCall(ZetaSQL:array_concat(ARRAY<ENUM<zetasql_test__.TestEnum>>, repeated(1) ARRAY<ENUM<zetasql_test__.TestEnum>>) -> ARRAY<ENUM<zetasql_test__.TestEnum>>)
+    |     +-FunctionCall(ZetaSQL:$make_array(repeated(1) ENUM<zetasql_test__.TestEnum>) -> ARRAY<ENUM<zetasql_test__.TestEnum>>)
+    |     | +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=EnumTable.TestEnum#2)
+    |     +-Cast(ARRAY<INT64> -> ARRAY<ENUM<zetasql_test__.TestEnum>>)
     |       +-Parameter(type=ARRAY<INT64>, name="test_param_array_int64")
     +-input_scan=
       +-TableScan(column_list=[EnumTable.TestEnum#2], table=EnumTable, column_index_list=[1])
@@ -622,7 +622,7 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(ZetaSQL:$in_array(STRUCT<INT64>, ARRAY<STRUCT<INT64>>) -> BOOL)
-    |     +-Literal(type=STRUCT<INT64>, value={1})
+    |     +-Literal(type=STRUCT<INT64>, value={1}, has_explicit_type=TRUE)
     |     +-Parameter(type=ARRAY<STRUCT<INT64>>, name="test_param_array_struct_int64")
     +-input_scan=
       +-SingleRowScan
@@ -651,7 +651,7 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(ZetaSQL:$in_array(INT64, ARRAY<INT64>) -> BOOL)
-    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
     |     +-Parameter(type=ARRAY<INT64>, name="test_param_array_int64")
     +-input_scan=
       +-SingleRowScan
@@ -669,9 +669,9 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:$in_array(ENUM<zetasql_test.TestEnum>, ARRAY<ENUM<zetasql_test.TestEnum>>) -> BOOL)
-    |     +-Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM0)
-    |     +-Parameter(type=ARRAY<ENUM<zetasql_test.TestEnum>>, name="test_param_array_enum")
+    |   +-FunctionCall(ZetaSQL:$in_array(ENUM<zetasql_test__.TestEnum>, ARRAY<ENUM<zetasql_test__.TestEnum>>) -> BOOL)
+    |     +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM0)
+    |     +-Parameter(type=ARRAY<ENUM<zetasql_test__.TestEnum>>, name="test_param_array_enum")
     +-input_scan=
       +-SingleRowScan
 ==
@@ -686,7 +686,7 @@ ALTERNATION GROUPS:
     @test_param_int64
     V_1_1_CAST_DIFFERENT_ARRAY_TYPES,@test_param_int64
 --
-ERROR: No matching signature for operator IN UNNEST for argument types: INT64, ARRAY<zetasql_test.TestEnum> [at 2:21]
+ERROR: No matching signature for operator IN UNNEST for argument types: INT64, ARRAY<zetasql_test__.TestEnum> [at 2:21]
   @test_param_int64 in unnest(@test_param_array_enum)
                     ^
 --
@@ -694,7 +694,7 @@ ALTERNATION GROUPS:
     @test_param_string
     V_1_1_CAST_DIFFERENT_ARRAY_TYPES,@test_param_string
 --
-ERROR: No matching signature for operator IN UNNEST for argument types: STRING, ARRAY<zetasql_test.TestEnum> [at 2:22]
+ERROR: No matching signature for operator IN UNNEST for argument types: STRING, ARRAY<zetasql_test__.TestEnum> [at 2:22]
   @test_param_string in unnest(@test_param_array_enum)
                      ^
 ==
@@ -711,9 +711,9 @@ QueryStmt
     +-column_list=[$query.$col1#4]
     +-expr_list=
     | +-$col1#4 :=
-    |   +-FunctionCall(ZetaSQL:$in_array(ENUM<zetasql_test.TestEnum>, ARRAY<ENUM<zetasql_test.TestEnum>>) -> BOOL)
-    |     +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=TestTable.TestEnum#2)
-    |     +-Parameter(type=ARRAY<ENUM<zetasql_test.TestEnum>>, name="test_param_array_enum")
+    |   +-FunctionCall(ZetaSQL:$in_array(ENUM<zetasql_test__.TestEnum>, ARRAY<ENUM<zetasql_test__.TestEnum>>) -> BOOL)
+    |     +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=TestTable.TestEnum#2)
+    |     +-Parameter(type=ARRAY<ENUM<zetasql_test__.TestEnum>>, name="test_param_array_enum")
     +-input_scan=
       +-TableScan(column_list=[TestTable.TestEnum#2], table=TestTable, column_index_list=[1])
 ==
@@ -729,13 +729,13 @@ QueryStmt
     +-column_list=[$query.$col1#4]
     +-expr_list=
     | +-$col1#4 :=
-    |   +-FunctionCall(ZetaSQL:$in_array(ENUM<zetasql_test.TestEnum>, ARRAY<ENUM<zetasql_test.TestEnum>>) -> BOOL)
-    |     +-Cast(INT64 -> ENUM<zetasql_test.TestEnum>)
+    |   +-FunctionCall(ZetaSQL:$in_array(ENUM<zetasql_test__.TestEnum>, ARRAY<ENUM<zetasql_test__.TestEnum>>) -> BOOL)
+    |     +-Cast(INT64 -> ENUM<zetasql_test__.TestEnum>)
     |     | +-Parameter(type=INT64, name="test_param_int64")
-    |     +-FunctionCall(ZetaSQL:array_concat(ARRAY<ENUM<zetasql_test.TestEnum>>, repeated(1) ARRAY<ENUM<zetasql_test.TestEnum>>) -> ARRAY<ENUM<zetasql_test.TestEnum>>)
-    |       +-FunctionCall(ZetaSQL:$make_array(repeated(1) ENUM<zetasql_test.TestEnum>) -> ARRAY<ENUM<zetasql_test.TestEnum>>)
-    |       | +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=TestTable.TestEnum#2)
-    |       +-Literal(type=ARRAY<ENUM<zetasql_test.TestEnum>>, value=[])
+    |     +-FunctionCall(ZetaSQL:array_concat(ARRAY<ENUM<zetasql_test__.TestEnum>>, repeated(1) ARRAY<ENUM<zetasql_test__.TestEnum>>) -> ARRAY<ENUM<zetasql_test__.TestEnum>>)
+    |       +-FunctionCall(ZetaSQL:$make_array(repeated(1) ENUM<zetasql_test__.TestEnum>) -> ARRAY<ENUM<zetasql_test__.TestEnum>>)
+    |       | +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=TestTable.TestEnum#2)
+    |       +-Literal(type=ARRAY<ENUM<zetasql_test__.TestEnum>>, value=[])
     +-input_scan=
       +-TableScan(column_list=[TestTable.TestEnum#2], table=TestTable, column_index_list=[1])
 ==
@@ -778,24 +778,24 @@ QueryStmt
       +-SingleRowScan
 ==
 
-select cast(@test_param_enum as zetasql_test.{{AnotherTestEnum|TestEnum}})
+select cast(@test_param_enum as zetasql_test__.{{AnotherTestEnum|TestEnum}})
 --
 ALTERNATION GROUP: AnotherTestEnum
 --
-ERROR: Invalid cast from zetasql_test.TestEnum to zetasql_test.AnotherTestEnum [at 1:13]
-select cast(@test_param_enum as zetasql_test.AnotherTestEnum)
+ERROR: Invalid cast from zetasql_test__.TestEnum to zetasql_test__.AnotherTestEnum [at 1:13]
+select cast(@test_param_enum as zetasql_test__.AnotherTestEnum)
             ^
 --
 ALTERNATION GROUP: TestEnum
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1 AS `$col1` [ENUM<zetasql_test.TestEnum>]
+| +-$query.$col1#1 AS `$col1` [ENUM<zetasql_test__.TestEnum>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.$col1#1]
     +-expr_list=
-    | +-$col1#1 := Parameter(type=ENUM<zetasql_test.TestEnum>, name="test_param_enum")
+    | +-$col1#1 := Parameter(type=ENUM<zetasql_test__.TestEnum>, name="test_param_enum")
     +-input_scan=
       +-SingleRowScan
 ==
@@ -939,21 +939,21 @@ QueryStmt
     +-column_list=$query.[$col1#1, $col2#2, $col3#3]
     +-expr_list=
     | +-$col1#1 :=
-    | | +-Cast(PROTO<zetasql_test.KitchenSinkPB> -> STRING)
-    | |   +-Parameter(type=PROTO<zetasql_test.KitchenSinkPB>, name="test_param_proto")
+    | | +-Cast(PROTO<zetasql_test__.KitchenSinkPB> -> STRING)
+    | |   +-Parameter(type=PROTO<zetasql_test__.KitchenSinkPB>, name="test_param_proto")
     | +-$col2#2 :=
-    | | +-Cast(PROTO<zetasql_test.KitchenSinkPB> -> BYTES)
-    | |   +-Parameter(type=PROTO<zetasql_test.KitchenSinkPB>, name="test_param_proto")
+    | | +-Cast(PROTO<zetasql_test__.KitchenSinkPB> -> BYTES)
+    | |   +-Parameter(type=PROTO<zetasql_test__.KitchenSinkPB>, name="test_param_proto")
     | +-$col3#3 :=
-    |   +-Cast(ENUM<zetasql_test.TestEnum> -> INT64)
-    |     +-Parameter(type=ENUM<zetasql_test.TestEnum>, name="test_param_enum")
+    |   +-Cast(ENUM<zetasql_test__.TestEnum> -> INT64)
+    |     +-Parameter(type=ENUM<zetasql_test__.TestEnum>, name="test_param_enum")
     +-input_scan=
       +-SingleRowScan
 ==
 
 select cast(@test_param_proto as date)
 --
-ERROR: Invalid cast from zetasql_test.KitchenSinkPB to DATE [at 1:13]
+ERROR: Invalid cast from zetasql_test__.KitchenSinkPB to DATE [at 1:13]
 select cast(@test_param_proto as date)
             ^
 ==
@@ -979,13 +979,13 @@ select @proto, @test_param_proto;
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1 AS `$col1` [PROTO<zetasql_test.KitchenSinkPB>]
-| +-$query.$col2#2 AS `$col2` [PROTO<zetasql_test.KitchenSinkPB>]
+| +-$query.$col1#1 AS `$col1` [PROTO<zetasql_test__.KitchenSinkPB>]
+| +-$query.$col2#2 AS `$col2` [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=$query.[$col1#1, $col2#2]
     +-expr_list=
-    | +-$col1#1 := Parameter(type=PROTO<zetasql_test.KitchenSinkPB>, name="proto")
-    | +-$col2#2 := Parameter(type=PROTO<zetasql_test.KitchenSinkPB>, name="test_param_proto")
+    | +-$col1#1 := Parameter(type=PROTO<zetasql_test__.KitchenSinkPB>, name="proto")
+    | +-$col2#2 := Parameter(type=PROTO<zetasql_test__.KitchenSinkPB>, name="test_param_proto")
     +-input_scan=
       +-SingleRowScan

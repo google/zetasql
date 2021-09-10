@@ -51,7 +51,7 @@
 #include <cstdint>
 #include "absl/flags/flag.h"
 #include "absl/functional/bind_front.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
@@ -158,7 +158,7 @@ class ProtoValueConversionTest : public ::testing::Test {
     return !::testing::Test::HasFailure();
   }
 
-  zetasql_base::StatusOr<std::unique_ptr<google::protobuf::Message>> LiteralValueToProto(
+  absl::StatusOr<std::unique_ptr<google::protobuf::Message>> LiteralValueToProto(
       const std::string& expression_sql,
       const ConvertTypeToProtoOptions& options) {
     Value value;
@@ -167,7 +167,7 @@ class ProtoValueConversionTest : public ::testing::Test {
     std::unique_ptr<google::protobuf::Message> proto;
     ZETASQL_RETURN_IF_ERROR(ValueToProto(value, options, &proto));
 
-    return std::move(proto);
+    return proto;
   }
 
   absl::Status ValueToProto(
@@ -294,18 +294,18 @@ TEST_F(ProtoValueConversionTest, RoundTrip) {
       "STRUCT(2 as x, 3 as x)",
 
       // STRUCT containing a PROTO that is a wrapper.
-      "CAST(STRUCT('value: 3') AS STRUCT<zetasql_test.NullableInt>)",
+      "CAST(STRUCT('value: 3') AS STRUCT<zetasql_test__.NullableInt>)",
 
       // STRUCT containing a PROTO that is annotated as a nullable array.
       R"(
           CAST(STRUCT('value: 3 value: 4')
-               AS STRUCT<zetasql_test.NullableArrayOfInt>)
+               AS STRUCT<zetasql_test__.NullableArrayOfInt>)
       )",
 
       // STRUCT containing a PROTO that is annotated as a STRUCT.
       R"(
           CAST(STRUCT('''key: 'key' value: 1''')
-               AS STRUCT<zetasql_test.KeyValueStruct>)
+               AS STRUCT<zetasql_test__.KeyValueStruct>)
       )",
 
       // ARRAYs containing all types.  We don't include NULLs here.  See
@@ -339,13 +339,13 @@ TEST_F(ProtoValueConversionTest, RoundTrip) {
       )",
 
       // ARRAY containing a PROTO that is a wrapper.
-      "ARRAY<zetasql_test.NullableInt>['value: 3']",
+      "ARRAY<zetasql_test__.NullableInt>['value: 3']",
 
       // ARRAY containing a PROTO that is annotated as a nullable array.
-      "ARRAY<zetasql_test.NullableArrayOfInt>['value: 3 value: 4']",
+      "ARRAY<zetasql_test__.NullableArrayOfInt>['value: 3 value: 4']",
 
       // ARRAY containing a PROTO that is annotated as a STRUCT.
-      "ARRAY<zetasql_test.KeyValueStruct>['''key: 'key' value: 1''']",
+      "ARRAY<zetasql_test__.KeyValueStruct>['''key: 'key' value: 1''']",
   };
 
   const std::vector<std::string> nullable_array_test_expressions = {

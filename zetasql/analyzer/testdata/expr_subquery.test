@@ -1088,7 +1088,7 @@ QueryStmt
         |     +-type=FLOAT
         |     +-expr=
         |     | +-SubqueryExpr
-        |     |   +-type=PROTO<zetasql_test.KitchenSinkPB>
+        |     |   +-type=PROTO<zetasql_test__.KitchenSinkPB>
         |     |   +-subquery_type=SCALAR
         |     |   +-subquery=
         |     |     +-ProjectScan
@@ -1135,7 +1135,7 @@ QueryStmt
     |         |   |   +-GetProtoField
     |         |   |     +-type=INT32
     |         |   |     +-expr=
-    |         |   |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |         |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |         |   |     +-field_descriptor=int32_val
     |         |   |     +-default_value=77
     |         |   +-input_scan=
@@ -1160,14 +1160,14 @@ select ARRAY(select KitchenSink from TestTable
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#8 AS `$col1` [ARRAY<PROTO<zetasql_test.KitchenSinkPB>>]
+| +-$query.$col1#8 AS `$col1` [ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.$col1#8]
     +-expr_list=
     | +-$col1#8 :=
     |   +-SubqueryExpr
-    |     +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB>>
+    |     +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>
     |     +-subquery_type=ARRAY
     |     +-subquery=
     |       +-OrderByScan
@@ -1181,7 +1181,7 @@ QueryStmt
     |         |   |   +-GetProtoField
     |         |   |     +-type=INT32
     |         |   |     +-expr=
-    |         |   |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=$union_all.KitchenSink#5)
+    |         |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=$union_all.KitchenSink#5)
     |         |   |     +-field_descriptor=int32_val
     |         |   |     +-default_value=77
     |         |   +-input_scan=
@@ -1201,7 +1201,7 @@ QueryStmt
     |         |           | +-ProjectScan
     |         |           |   +-column_list=[$union_all2_cast.$col1#6]
     |         |           |   +-expr_list=
-    |         |           |   | +-$col1#6 := Literal(type=PROTO<zetasql_test.KitchenSinkPB>, value=NULL)
+    |         |           |   | +-$col1#6 := Literal(type=PROTO<zetasql_test__.KitchenSinkPB>, value=NULL)
     |         |           |   +-input_scan=
     |         |           |     +-ProjectScan
     |         |           |       +-column_list=[$union_all2.$col1#4]
@@ -1252,7 +1252,7 @@ QueryStmt
     |         |   |   +-GetProtoField
     |         |   |     +-type=INT32
     |         |   |     +-expr=
-    |         |   |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |         |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |         |   |     +-field_descriptor=int32_val
     |         |   |     +-default_value=77
     |         |   +-input_scan=
@@ -1287,7 +1287,7 @@ QueryStmt
     |     +-type=INT64
     |     +-subquery_type=SCALAR
     |     +-parameter_list=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-subquery=
     |       +-OrderByScan
     |         +-column_list=[$union_all.key#7]
@@ -1299,7 +1299,7 @@ QueryStmt
     |         |   |   +-GetProtoField
     |         |   |     +-type=INT32
     |         |   |     +-expr=
-    |         |   |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+    |         |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
     |         |   |     +-field_descriptor=int32_val
     |         |   |     +-default_value=77
     |         |   +-input_scan=
@@ -1348,7 +1348,7 @@ QueryStmt
     |     +-type=BOOL
     |     +-subquery_type=EXISTS
     |     +-parameter_list=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-subquery=
     |       +-OrderByScan
     |         +-column_list=$union_all.[key#9, double_val#10]
@@ -1360,7 +1360,7 @@ QueryStmt
     |         |   |   +-GetProtoField
     |         |   |     +-type=INT32
     |         |   |     +-expr=
-    |         |   |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+    |         |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
     |         |   |     +-field_descriptor=int32_val
     |         |   |     +-default_value=77
     |         |   +-input_scan=
@@ -1377,7 +1377,7 @@ QueryStmt
     |         |         | |   |   +-GetProtoField
     |         |         | |   |     +-type=DOUBLE
     |         |         | |   |     +-expr=
-    |         |         | |   |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+    |         |         | |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
     |         |         | |   |     +-field_descriptor=double_val
     |         |         | |   |     +-default_value=0
     |         |         | |   +-input_scan=

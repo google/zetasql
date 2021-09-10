@@ -24,7 +24,7 @@
 #include "zetasql/public/functions/datetime.pb.h"
 #include <cstdint>
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/status_macros.h"
 
@@ -109,12 +109,12 @@ class IntervalValue final {
 
   // Builds interval value from [Y]ears, [M]onths, [D]ays, [H]ours, [M]inutes
   // and [S]econds.
-  static zetasql_base::StatusOr<IntervalValue> FromYMDHMS(int64_t years, int64_t months,
+  static absl::StatusOr<IntervalValue> FromYMDHMS(int64_t years, int64_t months,
                                                   int64_t days, int64_t hours,
                                                   int64_t minutes,
                                                   int64_t seconds);
 
-  static zetasql_base::StatusOr<IntervalValue> FromMonthsDaysMicros(int64_t months,
+  static absl::StatusOr<IntervalValue> FromMonthsDaysMicros(int64_t months,
                                                             int64_t days,
                                                             int64_t micros) {
     ZETASQL_RETURN_IF_ERROR(ValidateMonths(months));
@@ -123,7 +123,7 @@ class IntervalValue final {
     return IntervalValue(months, days, micros);
   }
 
-  static zetasql_base::StatusOr<IntervalValue> FromMonthsDaysNanos(int64_t months,
+  static absl::StatusOr<IntervalValue> FromMonthsDaysNanos(int64_t months,
                                                            int64_t days,
                                                            __int128 nanos) {
     ZETASQL_RETURN_IF_ERROR(ValidateMonths(months));
@@ -132,22 +132,22 @@ class IntervalValue final {
     return IntervalValue(months, days, nanos);
   }
 
-  static zetasql_base::StatusOr<IntervalValue> FromMonths(int64_t months) {
+  static absl::StatusOr<IntervalValue> FromMonths(int64_t months) {
     ZETASQL_RETURN_IF_ERROR(ValidateMonths(months));
     return IntervalValue(months, 0);
   }
 
-  static zetasql_base::StatusOr<IntervalValue> FromDays(int64_t days) {
+  static absl::StatusOr<IntervalValue> FromDays(int64_t days) {
     ZETASQL_RETURN_IF_ERROR(ValidateDays(days));
     return IntervalValue(0, days);
   }
 
-  static zetasql_base::StatusOr<IntervalValue> FromMicros(int64_t micros) {
+  static absl::StatusOr<IntervalValue> FromMicros(int64_t micros) {
     ZETASQL_RETURN_IF_ERROR(ValidateMicros(micros));
     return IntervalValue(0, 0, micros);
   }
 
-  static zetasql_base::StatusOr<IntervalValue> FromNanos(__int128 nanos) {
+  static absl::StatusOr<IntervalValue> FromNanos(__int128 nanos) {
     ZETASQL_RETURN_IF_ERROR(ValidateNanos(nanos));
     return IntervalValue(0, 0, nanos);
   }
@@ -246,24 +246,24 @@ class IntervalValue final {
   }
 
   // Binary plus operator
-  zetasql_base::StatusOr<IntervalValue> operator+(const IntervalValue& v) const {
+  absl::StatusOr<IntervalValue> operator+(const IntervalValue& v) const {
     return IntervalValue::FromMonthsDaysNanos(get_months() + v.get_months(),
                                               get_days() + v.get_days(),
                                               get_nanos() + v.get_nanos());
   }
 
   // Binary minus operator
-  zetasql_base::StatusOr<IntervalValue> operator-(const IntervalValue& v) const {
+  absl::StatusOr<IntervalValue> operator-(const IntervalValue& v) const {
     return IntervalValue::FromMonthsDaysNanos(get_months() - v.get_months(),
                                               get_days() - v.get_days(),
                                               get_nanos() - v.get_nanos());
   }
 
   // Multiply by integer operator
-  zetasql_base::StatusOr<IntervalValue> operator*(int64_t v) const;
+  absl::StatusOr<IntervalValue> operator*(int64_t v) const;
 
   // Divide by integer operator
-  zetasql_base::StatusOr<IntervalValue> operator/(int64_t v) const;
+  absl::StatusOr<IntervalValue> operator/(int64_t v) const;
 
   // Aggregates multiple INTERVAL values and produces sum and average of all
   // values. This class handles a temporary overflow while adding values.
@@ -279,14 +279,14 @@ class IntervalValue final {
     }
 
     // Returns sum of all input values. Returns OUT_OF_RANGE error on overflow.
-    zetasql_base::StatusOr<IntervalValue> GetSum() const;
+    absl::StatusOr<IntervalValue> GetSum() const;
 
     // Returns sum of all input values divided by the specified divisor.
     // Returns OUT_OF_RANGE error on overflow of the division result.
     // Note, that with the proper invocation of AVG function, overflow is not
     // possible.
     // Caller must ensure that count is positive non-zero.
-    zetasql_base::StatusOr<IntervalValue> GetAverage(int64_t count) const;
+    absl::StatusOr<IntervalValue> GetAverage(int64_t count) const;
 
    private:
     __int128 months_ = 0;
@@ -299,7 +299,7 @@ class IntervalValue final {
   template <typename H>
   friend H AbslHashValue(H h, const IntervalValue& v);
 
-  zetasql_base::StatusOr<int64_t> Extract(functions::DateTimestampPart part) const;
+  absl::StatusOr<int64_t> Extract(functions::DateTimestampPart part) const;
 
   // Serialization and deserialization methods for interval values.
   void SerializeAndAppendToBytes(std::string* bytes) const;
@@ -308,7 +308,7 @@ class IntervalValue final {
     SerializeAndAppendToBytes(&bytes);
     return bytes;
   }
-  static zetasql_base::StatusOr<IntervalValue> DeserializeFromBytes(
+  static absl::StatusOr<IntervalValue> DeserializeFromBytes(
       absl::string_view bytes);
 
   // Builds fully expanded string representation of interval.
@@ -318,27 +318,27 @@ class IntervalValue final {
   std::string ToISO8601() const;
 
   // Parses interval from string, automatically detects datetime fields.
-  static zetasql_base::StatusOr<IntervalValue> ParseFromString(absl::string_view input);
+  static absl::StatusOr<IntervalValue> ParseFromString(absl::string_view input);
 
   // Parses interval from string for single datetime field.
-  static zetasql_base::StatusOr<IntervalValue> ParseFromString(
+  static absl::StatusOr<IntervalValue> ParseFromString(
       absl::string_view input, functions::DateTimestampPart part);
 
   // Parses interval from string for two datetime fields.
-  static zetasql_base::StatusOr<IntervalValue> ParseFromString(
+  static absl::StatusOr<IntervalValue> ParseFromString(
       absl::string_view input, functions::DateTimestampPart from,
       functions::DateTimestampPart to);
 
   // Parses interval from ISO 8601 Duration.
-  static zetasql_base::StatusOr<IntervalValue> ParseFromISO8601(
+  static absl::StatusOr<IntervalValue> ParseFromISO8601(
       absl::string_view input);
 
   // Parses either canonical interval string representation (ParseFromString) or
   // ISO 8601 Duration representation - detects automatically the format.
-  static zetasql_base::StatusOr<IntervalValue> Parse(absl::string_view input);
+  static absl::StatusOr<IntervalValue> Parse(absl::string_view input);
 
   // Interval constructor from integer for given datetime part field.
-  static zetasql_base::StatusOr<IntervalValue> FromInteger(
+  static absl::StatusOr<IntervalValue> FromInteger(
       int64_t value, functions::DateTimestampPart part);
 
  private:
@@ -412,15 +412,15 @@ std::ostream& operator<<(std::ostream& out, IntervalValue value);
 
 // Normalizes 24 hour time periods into full days. Adjusts nanos and days to
 // have the same sign.
-zetasql_base::StatusOr<IntervalValue> JustifyHours(const IntervalValue& v);
+absl::StatusOr<IntervalValue> JustifyHours(const IntervalValue& v);
 
 // Normalizes 30 day time periods into full months. Adjusts days and months to
 // have the same sign.
-zetasql_base::StatusOr<IntervalValue> JustifyDays(const IntervalValue& v);
+absl::StatusOr<IntervalValue> JustifyDays(const IntervalValue& v);
 
 // Normalizes 24 hour time periods into full days, and after thatn 30 day time
 // periods into full months. Adjusts all date parts to have the same sign.
-zetasql_base::StatusOr<IntervalValue> JustifyInterval(const IntervalValue& v);
+absl::StatusOr<IntervalValue> JustifyInterval(const IntervalValue& v);
 
 }  // namespace zetasql
 

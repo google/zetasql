@@ -20,7 +20,7 @@
 
 #include "zetasql/public/type.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/str_join.h"
 #include "algorithms/partition-selection.h"
@@ -28,7 +28,7 @@
 namespace zetasql {
 namespace anonymization {
 
-zetasql_base::StatusOr<Value> ComputeKThresholdFromEpsilonDeltaKappa(
+absl::StatusOr<Value> ComputeKThresholdFromEpsilonDeltaKappa(
     Value epsilon_value, Value delta_value,
     Value kappa_value) {
   if (!kappa_value.is_valid()) {
@@ -75,7 +75,7 @@ zetasql_base::StatusOr<Value> ComputeKThresholdFromEpsilonDeltaKappa(
   return Value::Int64(k_threshold);
 }
 
-zetasql_base::StatusOr<Value> ComputeDeltaFromEpsilonKThresholdKappa(
+absl::StatusOr<Value> ComputeDeltaFromEpsilonKThresholdKappa(
     Value epsilon_value, Value k_threshold_value,
     Value kappa_value) {
   if (!kappa_value.is_valid()) {

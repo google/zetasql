@@ -1883,14 +1883,14 @@ GROUP BY TestStruct
 QueryStmt
 +-output_column_list=
 | +-$groupby.TestStruct#20 AS TestStruct [STRUCT<c INT32, d STRUCT<a INT32, b STRING>>]
-| +-$query.$col2#34 AS `$col2` [STRUCT<a INT32, STRUCT<c INT32, TestEnum ENUM<zetasql_test.TestEnum>>>]
+| +-$query.$col2#34 AS `$col2` [STRUCT<a INT32, STRUCT<c INT32, TestEnum ENUM<zetasql_test__.TestEnum>>>]
 +-query=
   +-ProjectScan
     +-column_list=[$groupby.TestStruct#20, $query.$col2#34]
     +-expr_list=
     | +-$col2#34 :=
     |   +-SubqueryExpr
-    |     +-type=STRUCT<a INT32, STRUCT<c INT32, TestEnum ENUM<zetasql_test.TestEnum>>>
+    |     +-type=STRUCT<a INT32, STRUCT<c INT32, TestEnum ENUM<zetasql_test__.TestEnum>>>
     |     +-subquery_type=SCALAR
     |     +-parameter_list=
     |     | +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=$groupby.TestStruct#20)
@@ -1900,10 +1900,10 @@ QueryStmt
     |         +-expr_list=
     |         | +-$struct#33 :=
     |         |   +-MakeStruct
-    |         |     +-type=STRUCT<a INT32, STRUCT<c INT32, TestEnum ENUM<zetasql_test.TestEnum>>>
+    |         |     +-type=STRUCT<a INT32, STRUCT<c INT32, TestEnum ENUM<zetasql_test__.TestEnum>>>
     |         |     +-field_list=
     |         |       +-ColumnRef(type=INT32, column=$expr_subquery.a#28)
-    |         |       +-ColumnRef(type=STRUCT<c INT32, TestEnum ENUM<zetasql_test.TestEnum>>, column=$expr_subquery.$col2#32)
+    |         |       +-ColumnRef(type=STRUCT<c INT32, TestEnum ENUM<zetasql_test__.TestEnum>>, column=$expr_subquery.$col2#32)
     |         +-input_scan=
     |           +-ProjectScan
     |             +-column_list=$expr_subquery.[a#28, $col2#32]
@@ -1920,21 +1920,21 @@ QueryStmt
     |             | |   +-field_idx=0
     |             | +-$col2#32 :=
     |             |   +-SubqueryExpr
-    |             |     +-type=STRUCT<c INT32, TestEnum ENUM<zetasql_test.TestEnum>>
+    |             |     +-type=STRUCT<c INT32, TestEnum ENUM<zetasql_test__.TestEnum>>
     |             |     +-subquery_type=SCALAR
     |             |     +-parameter_list=
     |             |     | +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=$groupby.TestStruct#20, is_correlated=TRUE)
-    |             |     | +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=$groupby.TestEnum#27)
+    |             |     | +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=$groupby.TestEnum#27)
     |             |     +-subquery=
     |             |       +-ProjectScan
     |             |         +-column_list=[$make_struct.$struct#31]
     |             |         +-expr_list=
     |             |         | +-$struct#31 :=
     |             |         |   +-MakeStruct
-    |             |         |     +-type=STRUCT<c INT32, TestEnum ENUM<zetasql_test.TestEnum>>
+    |             |         |     +-type=STRUCT<c INT32, TestEnum ENUM<zetasql_test__.TestEnum>>
     |             |         |     +-field_list=
     |             |         |       +-ColumnRef(type=INT32, column=$expr_subquery.c#29)
-    |             |         |       +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=$expr_subquery.TestEnum#30)
+    |             |         |       +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=$expr_subquery.TestEnum#30)
     |             |         +-input_scan=
     |             |           +-ProjectScan
     |             |             +-column_list=$expr_subquery.[c#29, TestEnum#30]
@@ -1945,7 +1945,7 @@ QueryStmt
     |             |             | |   +-expr=
     |             |             | |   | +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=$groupby.TestStruct#20, is_correlated=TRUE)
     |             |             | |   +-field_idx=0
-    |             |             | +-TestEnum#30 := ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=$groupby.TestEnum#27, is_correlated=TRUE)
+    |             |             | +-TestEnum#30 := ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=$groupby.TestEnum#27, is_correlated=TRUE)
     |             |             +-input_scan=
     |             |               +-SingleRowScan
     |             +-input_scan=
@@ -1954,7 +1954,7 @@ QueryStmt
     |                 +-input_scan=
     |                 | +-TableScan(column_list=[TestTable.TestEnum#22], table=TestTable, column_index_list=[1])
     |                 +-group_by_list=
-    |                   +-TestEnum#27 := ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=TestTable.TestEnum#22)
+    |                   +-TestEnum#27 := ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=TestTable.TestEnum#22)
     +-input_scan=
       +-AggregateScan
         +-column_list=[$groupby.TestStruct#20]
@@ -3603,10 +3603,10 @@ QueryStmt
         +-group_by_list=
         | +-st#7 :=
         |   +-MakeStruct
-        |     +-type=STRUCT<key INT32, TestEnum ENUM<zetasql_test.TestEnum>, TestStruct STRUCT<c INT32, d STRUCT<a INT32, b STRING>>>
+        |     +-type=STRUCT<key INT32, TestEnum ENUM<zetasql_test__.TestEnum>, TestStruct STRUCT<c INT32, d STRUCT<a INT32, b STRING>>>
         |     +-field_list=
         |       +-ColumnRef(type=INT32, column=SimpleTypesWithStruct.key#1)
-        |       +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=SimpleTypesWithStruct.TestEnum#2)
+        |       +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=SimpleTypesWithStruct.TestEnum#2)
         |       +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=SimpleTypesWithStruct.TestStruct#3)
         +-aggregate_list=
           +-$agg1#5 :=

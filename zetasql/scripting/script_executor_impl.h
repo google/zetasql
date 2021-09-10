@@ -22,6 +22,7 @@
 
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_visitor.h"
+#include "zetasql/parser/parser.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type_parameters.h"
@@ -32,7 +33,7 @@
 #include "zetasql/scripting/script_executor_state.pb.h"
 #include "zetasql/scripting/stack_frame.h"
 #include "absl/container/flat_hash_set.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/flat_set.h"
 #include "zetasql/base/status.h"
 
@@ -86,7 +87,7 @@ class ControlFlowProcessor {
   // AdvancePastCurrentStatement() for a detailed discussion on how statues are
   // handled.
   absl::Status AdvancePastCurrentCondition(
-      const zetasql_base::StatusOr<bool>& condition_value);
+      const absl::StatusOr<bool>& condition_value);
 
   // If <status> indicates a handleable exception, transfers control to the
   // handler.  Otherwise, leaves the current location unmodified.
@@ -116,7 +117,7 @@ class ControlFlowProcessor {
   // If an exception is thrown at the current location, returns true if the
   // exception would be handled (including handlers up the call stack),
   // false otherwise.
-  zetasql_base::StatusOr<bool> CheckIfExceptionHandled() const;
+  absl::StatusOr<bool> CheckIfExceptionHandled() const;
 
   // Advances to the next statement, given a pending exception.  This function
   // should be called only when the exception is handled (that is,
@@ -137,7 +138,7 @@ class ControlFlowProcessor {
   // we need to follow up by advancing past the CALL statement.  Returns false
   // if control remains within the current stack frame and control-flow
   // processing is complete.
-  zetasql_base::StatusOr<bool> UpdateCurrentLocation(const ControlFlowEdge& edge);
+  absl::StatusOr<bool> UpdateCurrentLocation(const ControlFlowEdge& edge);
 
  private:
   ScriptExecutorImpl* callback() { return callback_; }
@@ -161,15 +162,15 @@ class ScriptExecutorImpl : public ScriptExecutor {
   //
   // If <ast_script> is nullptr, Create() will parse the script, and the
   // returned ScriptExecutor will own the AST.
-  static zetasql_base::StatusOr<std::unique_ptr<ScriptExecutor>> Create(
+  static absl::StatusOr<std::unique_ptr<ScriptExecutor>> Create(
       absl::string_view script, const ASTScript* ast_script,
       const ScriptExecutorOptions& options, StatementEvaluator* evaluator);
 
   absl::Status DestroyVariables(
       const std::set<std::string>& variables);
-  zetasql_base::StatusOr<const ASTStatement*> ExitProcedure(
+  absl::StatusOr<const ASTStatement*> ExitProcedure(
       bool normal_return);
-  zetasql_base::StatusOr<ScriptException> SetupNewException(
+  absl::StatusOr<ScriptException> SetupNewException(
       const absl::Status& status);
   absl::Status EnterExceptionHandler(const ScriptException& exception);
   absl::Status ExitExceptionHandler();
@@ -180,18 +181,18 @@ class ScriptExecutorImpl : public ScriptExecutor {
   absl::string_view GetScriptText() const override;
   const ControlFlowNode* GetCurrentNode() const override;
   std::string DebugString(bool verbose) const override;
-  zetasql_base::StatusOr<std::vector<StackFrameTrace>> StackTrace() const override;
+  absl::StatusOr<std::vector<StackFrameTrace>> StackTrace() const override;
   absl::string_view GetCurrentStackFrameName() const override;
   absl::string_view GetCurrentProcedureName() const override;
-  const AnalyzerOptions& GetAnalyzerOptions() const override {
-    return analyzer_options_;
-  }
+  absl::TimeZone time_zone() const override;
+  int64_t stack_depth() const override { return callstack_.size(); }
+  absl::Status UpdateAnalyzerOptions(
+      AnalyzerOptions& analyzer_options) const override;
   const std::optional<absl::variant<ParameterValueList, ParameterValueMap>>&
   GetCurrentParameterValues() const override {
     return callstack_.back().parameters();
   }
-  absl::Status UpdateAnalyzerOptionParameters(
-      AnalyzerOptions* options) const override;
+  absl::Status UpdateAnalyzerOptionParameters(AnalyzerOptions* options) const;
 
   const VariableMap& GetCurrentVariables() const override {
     return callstack_.back().variables();
@@ -213,11 +214,11 @@ class ScriptExecutorImpl : public ScriptExecutor {
   const StackFrame* const GetCurrentStackFrame() const override {
     return IsComplete() ? nullptr : &callstack_.back();
   }
-  zetasql_base::StatusOr<bool> DefaultAssignSystemVariable(
+  absl::StatusOr<bool> DefaultAssignSystemVariable(
       const ASTSystemVariableAssignment* ast_assignment,
       const Value& value) override;
 
-  zetasql_base::StatusOr<ScriptExecutorStateProto> GetState() const override;
+  absl::StatusOr<ScriptExecutorStateProto> GetState() const override;
   absl::Status SetState(const ScriptExecutorStateProto& state) override;
 
  private:
@@ -353,7 +354,17 @@ class ScriptExecutorImpl : public ScriptExecutor {
   // Return true if the expression successfully evaluates to TRUE, or false if
   // the expression successfully evaluates to FALSE or NULL.  Returns an error
   // if the expression fails to evaluate, or has a type other than BOOL.
-  zetasql_base::StatusOr<bool> EvaluateCondition(const ASTExpression* condition) const;
+  absl::StatusOr<bool> EvaluateCondition(const ASTExpression* condition) const;
+
+  // Assumes that <current_statement_> is an ASTCaseStatement, then evaluates
+  // and stores the expression if it exists. Moves on to the following
+  // ASTWhenThenClause.
+  absl::Status ExecuteCaseStatement();
+
+  // Assumes that <current_statement_> is an ASTWhenThenClause. Enters the
+  // clause if condition evaluates to true, or, if the parent ASTCaseStatement
+  // contains an expression, to a value equivalent to the expression.
+  absl::StatusOr<bool> EvaluateWhenThenClause();
 
   // Assumes that <current_statement_> is an ASTWhileStatement and evaluates the
   // condition.  Then, sets <current_statement_> to the next statement to
@@ -362,7 +373,7 @@ class ScriptExecutorImpl : public ScriptExecutor {
 
   // Generate a struct instance of struct_type from iterator's current row.
   // Deduce struct_type from row values if struct_type == nullptr.
-  zetasql_base::StatusOr<Value> GenerateStructValueFromRow(
+  absl::StatusOr<Value> GenerateStructValueFromRow(
       TypeFactory* type_factory,
       const EvaluatorTableIterator& iterator,
       const StructType* struct_type) const;
@@ -393,7 +404,7 @@ class ScriptExecutorImpl : public ScriptExecutor {
   absl::Status ExecuteCallStatement();
 
   // Loads parameters specified in an EXECUTE IMMEDIATE USING clause
-  zetasql_base::StatusOr<
+  absl::StatusOr<
       std::optional<absl::variant<ParameterValueList, ParameterValueMap>>>
   EvaluateDynamicParams(const ASTExecuteUsingClause* using_clause,
                         VariableSizesMap* variable_sizes_map);
@@ -461,7 +472,7 @@ class ScriptExecutorImpl : public ScriptExecutor {
   // of error messages (e.g. "IF condition").  <for_assignment>, if true,
   // allows additional conversion cases, such as int64_t->int32_t and
   // uint64_t->uint32_t.
-  zetasql_base::StatusOr<Value> EvaluateExpression(const ASTExpression* expr,
+  absl::StatusOr<Value> EvaluateExpression(const ASTExpression* expr,
                                            const Type* target_type) const;
 
   // Returns an error at the location of <node>, indicating that this script is
@@ -509,7 +520,7 @@ class ScriptExecutorImpl : public ScriptExecutor {
 
   // Returns a pointer to value of variable <variable_name>. Returns an SQL
   // error on <node> if the variable name is not found.
-  zetasql_base::StatusOr<Value*> MutableVariableValue(const ASTIdentifier* node) {
+  absl::StatusOr<Value*> MutableVariableValue(const ASTIdentifier* node) {
     VariableMap* variables = MutableCurrentVariables();
     auto it = variables->find(node->GetAsIdString());
     if (it == variables->end()) {
@@ -557,17 +568,29 @@ class ScriptExecutorImpl : public ScriptExecutor {
                                           int64_t variable_size,
                                           VariableSizesMap* variable_sizes_map);
 
-  absl::Status UpdateAndCheckVariableSizeOnStackTop(const ASTNode* node,
-                                                    const IdString& var_name,
-                                                    int64_t variable_size) {
-    return UpdateAndCheckVariableSize(node, var_name, variable_size,
-                                      MutableCurrentVariableSizes());
+  absl::Status OnVariablesValueChangedWithoutSizeCheck(
+      bool notify_evaluator, const StackFrame& var_declaration_stack_frame,
+      const ASTNode* current_node,
+      const std::vector<StatementEvaluator::VariableChange>& variable_changes);
+
+  absl::Status OnVariablesValueChangedWithSizeCheck(
+      bool notify_evaluator, const StackFrame& var_declaration_stack_frame,
+      const ASTNode* current_node,
+      const std::vector<StatementEvaluator::VariableChange>& variable_changes,
+      VariableSizesMap* variable_sizes_map);
+
+  absl::StatusOr<int64_t> GetIteratorMemoryUsage(
+      const EvaluatorTableIterator* iterator) {
+    if (iterator == nullptr) {
+      return 0;
+    }
+    return evaluator_->GetIteratorMemoryUsage(*iterator);
   }
 
   // Returns true if <from_type> is coercible to <to_type>
   bool CoercesTo(const Type* from_type, const Type* to_type) const;
 
-  zetasql_base::StatusOr<Value> CastValueToType(const Value& from_value,
+  absl::StatusOr<Value> CastValueToType(const Value& from_value,
                                         const Type* to_type) const;
 
   // Resets execution to the beginning of the script.  Discards all state
@@ -578,15 +601,15 @@ class ScriptExecutorImpl : public ScriptExecutor {
 
   // Returns the text for @@error.statement_text, referring to the current
   // location.
-  zetasql_base::StatusOr<std::string> GenerateStatementTextSystemVariable() const;
+  absl::StatusOr<std::string> GenerateStatementTextSystemVariable() const;
   absl::Status GenerateStackTraceSystemVariable(
       ScriptException::Internal* proto);
 
   // Returns the type of @@error.stack_trace.
-  zetasql_base::StatusOr<const ArrayType*> GetStackTraceSystemVariableType();
+  absl::StatusOr<const ArrayType*> GetStackTraceSystemVariableType();
 
   // Returns the value of @@error.stack_trace.
-  zetasql_base::StatusOr<Value> GetStackTraceSystemVariable(
+  absl::StatusOr<Value> GetStackTraceSystemVariable(
       const ScriptException::Internal& internal_exception);
 
   // Returns the value of @@error.formatted_stack_trace
@@ -596,7 +619,7 @@ class ScriptExecutorImpl : public ScriptExecutor {
   // Unwraps NamedArguments, if necessary.
   ScriptSegment SegmentForScalarExpression(const ASTExpression* expr) const;
 
-  zetasql_base::StatusOr<Value> EvaluateProcedureArgument(
+  absl::StatusOr<Value> EvaluateProcedureArgument(
       absl::string_view argument_name,
       const FunctionArgumentType& function_argument_type,
       const ASTExpression* argument_expr);
@@ -628,7 +651,7 @@ class ScriptExecutorImpl : public ScriptExecutor {
   // AdvancePastCurrentStatement() for a detailed discussion on how statues are
   // handled.
   absl::Status AdvancePastCurrentCondition(
-      const zetasql_base::StatusOr<bool>& condition_value);
+      const absl::StatusOr<bool>& condition_value);
 
   // If <status> indicates a handleable exception, transfers control to the
   // handler.  Otherwise, leaves the current location unmodified.
@@ -653,7 +676,7 @@ class ScriptExecutorImpl : public ScriptExecutor {
   // If an exception is thrown at the current location, returns true if the
   // exception would be handled (including handlers up the call stack),
   // false otherwise.
-  zetasql_base::StatusOr<bool> CheckIfExceptionHandled() const;
+  absl::StatusOr<bool> CheckIfExceptionHandled() const;
 
   // Advances to the next statement, given a pending exception.  This function
   // should be called only when the exception is handled (that is,
@@ -674,17 +697,26 @@ class ScriptExecutorImpl : public ScriptExecutor {
   // we need to follow up by advancing past the CALL statement.  Returns false
   // if control remains within the current stack frame and control-flow
   // processing is complete.
-  zetasql_base::StatusOr<bool> UpdateCurrentLocation(const ControlFlowEdge& edge);
+  absl::StatusOr<bool> UpdateCurrentLocation(const ControlFlowEdge& edge);
+
+  ParserOptions GetParserOptions() const;
+
+  // Sets the predefined variables used by scripts. The predefined script
+  // variables can only be set to the main script stack frame. Which means it
+  // should be called right after the ScriptExecutor gets created if the call is
+  // needed.
+  absl::Status SetPredefinedVariables(
+      const VariableWithTypeParameterMap& variables);
+
+  VariableSet GetPredefinedVariableNames() const override {
+    return predefined_variable_names_;
+  }
 
   const ScriptExecutorOptions options_;
 
-  // Analyzer options, including system variables.
-  //
-  // Initially set to options_.analyzer_options(), plus default system variable
-  // values.  As the script executes the system variables will adjust, and the
-  // analyzer options' default timezone will be kept in sync as the
-  // @@time_zone system variable changes.
-  AnalyzerOptions analyzer_options_;
+  // Current timezone; initially set from ScriptExecutorOptions; adjusts as the
+  // script executes when @@time_zone gets set.
+  absl::TimeZone time_zone_;
 
   // Engine-owned evaluator for executing individual statements and
   // expressions.  Lifetime is owned by the caller of Create(), and must remain
@@ -729,6 +761,17 @@ class ScriptExecutorImpl : public ScriptExecutor {
   //
   // once set, it is owned by <type_factory_>.
   const ArrayType* stack_trace_system_variable_type_ = nullptr;
+
+  // The predefined script variables that exist outside of the script scope.
+  // This is needed to make sure the variable validation passes for the
+  // predefined script variables.
+  VariableSet predefined_variable_names_;
+
+  // Index of the current CASE statement's WHEN branch that should be
+  // entered. If no branch meets condition, set to -1.
+  int64_t case_stmt_true_branch_index_ = -1;
+  // Tracker index of current WHEN branch being executed.
+  int64_t case_stmt_current_branch_index_ = -1;
 };
 
 }  // namespace zetasql

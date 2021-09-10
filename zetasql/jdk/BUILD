@@ -29,7 +29,6 @@ cc_library(
     }),
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",

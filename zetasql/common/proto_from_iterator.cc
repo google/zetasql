@@ -31,7 +31,7 @@
 #include "zetasql/public/value.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
@@ -43,7 +43,7 @@ IteratorProtoDescriptorOptions::IteratorProtoDescriptorOptions() {
   convert_type_to_proto_options.message_name.clear();
 }
 
-zetasql_base::StatusOr<IteratorProtoDescriptors> ConvertIteratorToProto(
+absl::StatusOr<IteratorProtoDescriptors> ConvertIteratorToProto(
     const EvaluatorTableIterator& iter,
     const IteratorProtoDescriptorOptions& options,
     google::protobuf::DescriptorPool& pool) {
@@ -120,7 +120,7 @@ absl::Status MergeRowToProto(const EvaluatorTableIterator& iter,
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<std::unique_ptr<google::protobuf::Message>> ProtoFromIterator(
+absl::StatusOr<std::unique_ptr<google::protobuf::Message>> ProtoFromIterator(
     EvaluatorTableIterator& iter, const google::protobuf::Descriptor& table,
     google::protobuf::MessageFactory& message_factory) {
   ZETASQL_RET_CHECK_GE(table.field_count(), 1) << table.DebugString();

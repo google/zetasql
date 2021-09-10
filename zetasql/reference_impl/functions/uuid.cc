@@ -19,7 +19,7 @@
 #include "zetasql/public/functions/uuid.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/function.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 namespace {
@@ -28,11 +28,11 @@ class GenerateUuidFunction : public SimpleBuiltinScalarFunction {
   GenerateUuidFunction()
       : SimpleBuiltinScalarFunction(FunctionKind::kGenerateUuid,
                                     types::StringType()) {}
-  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
-zetasql_base::StatusOr<Value> GenerateUuidFunction::Eval(
+absl::StatusOr<Value> GenerateUuidFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
   ZETASQL_RET_CHECK(args.empty());
   return Value::String(

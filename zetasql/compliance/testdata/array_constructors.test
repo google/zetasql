@@ -1,6 +1,6 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB, zetasql_test.TestExtraPB, zetasql_test.KitchenSinkPB.Nested, zetasql_test.RepeatedHolderPB, zetasql_test.EmptyMessage]
-[load_enum_names=zetasql_test.TestEnum]
+[load_proto_names=zetasql_test__.KitchenSinkPB, zetasql_test__.TestExtraPB, zetasql_test__.KitchenSinkPB.Nested, zetasql_test__.RepeatedHolderPB, zetasql_test__.EmptyMessage]
+[load_enum_names=zetasql_test__.TestEnum]
 
 [name=construct_BOOL_array_basic]
 SELECT ARRAY<BOOL>[true, false, true];
@@ -66,14 +66,14 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 ==
 [name=construct_enum_array_basic]
-SELECT ARRAY<zetasql_test.TestEnum>["TESTENUM0", "TESTENUM1", "TESTENUM2"];
+SELECT ARRAY<zetasql_test__.TestEnum>["TESTENUM0", "TESTENUM1", "TESTENUM2"];
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM0, TESTENUM1, TESTENUM2]}
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM1, TESTENUM2]}
 ]
 ==
 [name=construct_proto_array_basic]
-SELECT ARRAY<`zetasql_test.KitchenSinkPB`>[
+SELECT ARRAY<`zetasql_test__.KitchenSinkPB`>[
   '''
     int64_key_1: 11
     int64_key_2: 12
@@ -88,7 +88,7 @@ SELECT ARRAY<`zetasql_test.KitchenSinkPB`>[
   '''];
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 11
        int64_key_2: 12
@@ -188,13 +188,13 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 ==
 [name=construct_enum_array_from_params]
-[parameters=cast("TESTENUM0" as zetasql_test.TestEnum) a,
-            cast("TESTENUM1" as zetasql_test.TestEnum) b,
-            cast(NULL as zetasql_test.TestEnum) c]
-SELECT ARRAY<zetasql_test.TestEnum>[@a, @b, @c];
+[parameters=cast("TESTENUM0" as zetasql_test__.TestEnum) a,
+            cast("TESTENUM1" as zetasql_test__.TestEnum) b,
+            cast(NULL as zetasql_test__.TestEnum) c]
+SELECT ARRAY<zetasql_test__.TestEnum>[@a, @b, @c];
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM0, TESTENUM1, NULL]}
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM1, NULL]}
 ]
 ==
 [name=construct_proto_array_from_params]
@@ -202,16 +202,16 @@ ARRAY<STRUCT<ARRAY<>>>[
   cast('''
          int64_key_1: 11
          int64_key_2: 12
-       ''' as zetasql_test.KitchenSinkPB) a,
+       ''' as zetasql_test__.KitchenSinkPB) a,
   cast('''
          int64_key_1: 21
          int64_key_2: 22
-       ''' as zetasql_test.KitchenSinkPB) b,
-  cast(NULL as zetasql_test.KitchenSinkPB) c]
-SELECT ARRAY<`zetasql_test.KitchenSinkPB`>[@a, @b, @c];
+       ''' as zetasql_test__.KitchenSinkPB) b,
+  cast(NULL as zetasql_test__.KitchenSinkPB) c]
+SELECT ARRAY<`zetasql_test__.KitchenSinkPB`>[@a, @b, @c];
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 11
        int64_key_2: 12
@@ -294,32 +294,32 @@ FROM (SELECT cast("1984-08-02 01:01:01.001001 UTC" AS TIMESTAMP) a);
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<TIMESTAMP>[1984-08-02 01:01:01.001001+00]}]
 ==
 [name=construct_enum_array_from_non_literals]
-SELECT ARRAY<zetasql_test.TestEnum>[
-    cast(SUBSTR("TESTENUM0", 0) AS zetasql_test.TestEnum), a]
-FROM (SELECT cast("TESTENUM1" AS zetasql_test.TestEnum) a);
+SELECT ARRAY<zetasql_test__.TestEnum>[
+    cast(SUBSTR("TESTENUM0", 0) AS zetasql_test__.TestEnum), a]
+FROM (SELECT cast("TESTENUM1" AS zetasql_test__.TestEnum) a);
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM0, TESTENUM1]}
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM1]}
 ]
 ==
 [name=construct_proto_array_from_non_literals]
-SELECT ARRAY<zetasql_test.KitchenSinkPB>[
+SELECT ARRAY<zetasql_test__.KitchenSinkPB>[
   IF(1 IS NULL,
   CAST('''
          int64_key_1: 21
          int64_key_2: 22
-       ''' AS zetasql_test.KitchenSinkPB),
+       ''' AS zetasql_test__.KitchenSinkPB),
   CAST('''
          int64_key_1: 31
          int64_key_2: 32
-       ''' AS zetasql_test.KitchenSinkPB)), a]
+       ''' AS zetasql_test__.KitchenSinkPB)), a]
 FROM (SELECT cast('''
          int64_key_1: 21
          int64_key_2: 22
-       ''' AS zetasql_test.KitchenSinkPB) a);
+       ''' AS zetasql_test__.KitchenSinkPB) a);
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 31
        int64_key_2: 32
@@ -400,14 +400,14 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 ==
 [name=construct_enum_array_with_null]
-SELECT ARRAY<zetasql_test.TestEnum>["TESTENUM0", NULL, "TESTENUM2"];
+SELECT ARRAY<zetasql_test__.TestEnum>["TESTENUM0", NULL, "TESTENUM2"];
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM0, NULL, TESTENUM2]}
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, NULL, TESTENUM2]}
 ]
 ==
 [name=construct_proto_array_with_null]
-SELECT ARRAY<`zetasql_test.KitchenSinkPB`>[
+SELECT ARRAY<`zetasql_test__.KitchenSinkPB`>[
   '''
     int64_key_1: 11
     int64_key_2: 12
@@ -419,7 +419,7 @@ SELECT ARRAY<`zetasql_test.KitchenSinkPB`>[
   '''];
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 11
        int64_key_2: 12
@@ -495,15 +495,15 @@ SELECT ARRAY<TIMESTAMP>[NULL, NULL];
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<TIMESTAMP>[NULL, NULL]}]
 ==
 [name=construct_enum_array_all_null]
-SELECT ARRAY<zetasql_test.TestEnum>[NULL, NULL];
+SELECT ARRAY<zetasql_test__.TestEnum>[NULL, NULL];
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<ENUM<zetasql_test.TestEnum>>[NULL, NULL]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<ENUM<zetasql_test__.TestEnum>>[NULL, NULL]}]
 ==
 [name=select_proto_array_all_null]
-SELECT ARRAY<`zetasql_test.KitchenSinkPB`>[NULL, NULL];
+SELECT ARRAY<`zetasql_test__.KitchenSinkPB`>[NULL, NULL];
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[NULL, NULL]}
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[NULL, NULL]}
 ]
 ==
 [name=select_STRUCT_array_all_null]
@@ -567,14 +567,14 @@ SELECT ARRAY<TIMESTAMP>[];
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<TIMESTAMP>[]}]
 ==
 [name=construct_enum_array_empty]
-SELECT ARRAY<zetasql_test.TestEnum>[];
+SELECT ARRAY<zetasql_test__.TestEnum>[];
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<ENUM<zetasql_test.TestEnum>>[]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<ENUM<zetasql_test__.TestEnum>>[]}]
 ==
 [name=select_proto_array_empty]
-SELECT ARRAY<`zetasql_test.KitchenSinkPB`>[];
+SELECT ARRAY<`zetasql_test__.KitchenSinkPB`>[];
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[]}]
 ==
 [name=select_STRUCT_array_empty]
 SELECT ARRAY<STRUCT<int64, int64>>[];
@@ -637,14 +637,14 @@ SELECT CAST(NULL AS ARRAY<TIMESTAMP>);
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<TIMESTAMP>(NULL)}]
 ==
 [name=construct_cast_null_to_enum_array]
-SELECT CAST(NULL AS ARRAY<zetasql_test.TestEnum>)
+SELECT CAST(NULL AS ARRAY<zetasql_test__.TestEnum>)
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<ENUM<zetasql_test.TestEnum>>(NULL)}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<ENUM<zetasql_test__.TestEnum>>(NULL)}]
 ==
 [name=select_cast_null_to_proto_array]
-SELECT CAST(NULL AS ARRAY<`zetasql_test.KitchenSinkPB`>);
+SELECT CAST(NULL AS ARRAY<`zetasql_test__.KitchenSinkPB`>);
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<PROTO<zetasql_test.KitchenSinkPB>>(NULL)}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>(NULL)}]
 ==
 [name=select_cast_null_to_STRUCT_array]
 SELECT CAST(NULL AS ARRAY<STRUCT<int64, int64>>);

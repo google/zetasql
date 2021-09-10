@@ -30,15 +30,15 @@ absl::Status CheckMaxLength(int64_t max_length, int64_t length,
                             absl::string_view type_name) {
   if (max_length < length) {
     return absl::OutOfRangeError(absl::Substitute(
-        "$0 has maximum length $1 but got a value with length $2", type_name,
-        max_length, length));
+        "$0($1) has maximum length $1 but got a value with length $2",
+        type_name, max_length, length));
   }
 
   return absl::OkStatus();
 }
 
 template <typename T>
-zetasql_base::StatusOr<T> ApplyPrecisionScale(T value, int64_t precision,
+absl::StatusOr<T> ApplyPrecisionScale(T value, int64_t precision,
                                       int64_t scale) {
   static_assert(std::is_same_v<T, NumericValue> ||
                 std::is_same_v<T, BigNumericValue>);
@@ -65,9 +65,17 @@ zetasql_base::StatusOr<T> ApplyPrecisionScale(T value, int64_t precision,
 
   std::string type_name;
   if constexpr (std::is_same_v<T, NumericValue>) {
-    type_name = "NUMERIC";
+    if (scale == 0) {
+      type_name = absl::Substitute("NUMERIC($0)", precision);
+    } else {
+      type_name = absl::Substitute("NUMERIC($0, $1)", precision, scale);
+    }
   } else {
-    type_name = "BIGNUMERIC";
+    if (scale == 0) {
+      type_name = absl::Substitute("BIGNUMERIC($0)", precision);
+    } else {
+      type_name = absl::Substitute("BIGNUMERIC($0, $1)", precision, scale);
+    }
   }
   if (!(lower_bound <= value && value <= upper_bound)) {
     return absl::OutOfRangeError(absl::Substitute(

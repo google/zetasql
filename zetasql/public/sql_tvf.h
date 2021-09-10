@@ -61,6 +61,18 @@ class SQLTableValuedFunction : public TableValuedFunction {
       const ::zetasql::ResolvedCreateTableFunctionStmt* create_tvf_statement,
       std::unique_ptr<SQLTableValuedFunction>* simple_sql_tvf);
 
+  // Creates a SQLTableValuedFunction from the resolved
+  // <create_tvf_statement> and <tvf_options>.  Returns an error if the
+  // SQLTableValuedFunction could not be successfully created (for
+  // example if the <create_tvf_statement> is not for a non-templated SQL TVF).
+  //
+  // Does not take ownership of <create_tvf_statement>, which must outlive
+  // this class.
+  static absl::Status Create(
+      const ::zetasql::ResolvedCreateTableFunctionStmt* create_tvf_statement,
+      TableValuedFunctionOptions tvf_options,
+      std::unique_ptr<SQLTableValuedFunction>* simple_sql_tvf);
+
   // Returns a signature with the <actual_arguments>, and a result
   // schema from <tvf_schema_>.
   absl::Status Resolve(
@@ -78,9 +90,11 @@ class SQLTableValuedFunction : public TableValuedFunction {
  private:
   // Constructor for valid table functions.
   explicit SQLTableValuedFunction(
-      const ResolvedCreateTableFunctionStmt* create_tvf_statement)
+      const ResolvedCreateTableFunctionStmt* create_tvf_statement,
+      TableValuedFunctionOptions tvf_options)
       : TableValuedFunction(create_tvf_statement->name_path(),
-                            create_tvf_statement->signature()),
+                            create_tvf_statement->signature(),
+                            tvf_options),
         tvf_schema_(GetQueryOutputSchema(*create_tvf_statement)),
         create_tvf_statement_(create_tvf_statement) {}
 

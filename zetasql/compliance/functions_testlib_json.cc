@@ -94,8 +94,8 @@ const std::vector<FunctionTestCall> GetJsonTestsCommon(
   const Value json6 =
       json_constructor(R"({"a":[{"b": [{"c": [{"d": [3]}]}]}]})");
   const Value json7 = json_constructor(R"({"a":{"b": {"c": {"d": 3}}}})");
-  const Value json8 = json_constructor(
-      R"({"x" : [    ], "y"    :[1,2       ,      5,3  ,4]})");
+  const Value json8 =
+      json_constructor(R"({"x" : [    ], "y"    :[1,2       ,      5,3  ,4]})");
   const Value json9 = json_constructor(R"({"a": 1, "": [5, "foo"]})");
 
   const Value deep_json =
@@ -495,8 +495,8 @@ const std::vector<FunctionTestCall> GetStringJsonTests(bool sql_standard_mode,
   return tests;
 }
 
-const std::vector<FunctionTestCall> GetNativeJsonTests(
-    bool sql_standard_mode, bool scalar_test_cases) {
+const std::vector<FunctionTestCall> GetNativeJsonTests(bool sql_standard_mode,
+                                                       bool scalar_test_cases) {
   std::string query_fn_name;
   std::string value_fn_name;
   if (sql_standard_mode) {
@@ -796,6 +796,97 @@ std::vector<FunctionTestCall> GetFunctionTestsParseJson() {
   v.push_back({"parse_json", QueryParamsWithResult({NullString()}, NullJson())
                                  .WrapWithFeature(FEATURE_JSON_TYPE)});
   return v;
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsConvertJson() {
+  std::vector<FunctionTestCall> tests = {
+      // INT64
+      {"int64", {NullJson()}, NullInt64()},
+      {"int64", {Json(JSONValue(int64_t{123}))}, Int64(123)},
+      {"int64", {Json(JSONValue(int64_t{-123}))}, Int64(-123)},
+      {"int64",
+       {Json(JSONValue(std::numeric_limits<int64_t>::min()))},
+       Int64(std::numeric_limits<int64_t>::min())},
+      {"int64",
+       {Json(JSONValue(std::numeric_limits<int64_t>::max()))},
+       Int64(std::numeric_limits<int64_t>::max())},
+      {"int64",
+       {Json(JSONValue(uint64_t{std::numeric_limits<uint64_t>::max()}))},
+       NullInt64(),
+       OUT_OF_RANGE},
+      {"int64",
+       {Json(JSONValue(std::string{"123"}))},
+       NullInt64(),
+       OUT_OF_RANGE},
+      {"int64",
+       QueryParamsWithResult({Value::UnvalidatedJsonString("[10,3")},
+                             NullInt64(), OUT_OF_RANGE)
+           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION,
+                                FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
+      {"int64",
+       QueryParamsWithResult({Value::UnvalidatedJsonString("123")}, Int64(123))
+           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION,
+                                FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
+      {"int64",
+       QueryParamsWithResult({Value::UnvalidatedJsonString("2.0")}, NullInt64(),
+                             OUT_OF_RANGE)
+           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION,
+                                FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
+      // BOOL
+      {"bool", {NullJson()}, NullBool()},
+      {"bool", {Json(JSONValue(false))}, Value::Bool(false)},
+      {"bool", {Json(JSONValue(true))}, Value::Bool(true)},
+      {"bool",
+       QueryParamsWithResult({Value::UnvalidatedJsonString("[true")},
+                             NullBool(), OUT_OF_RANGE)
+           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION,
+                                FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
+      // STRING
+      {"string", {NullJson()}, NullString()},
+      {"string", {Json(JSONValue(std::string{""}))}, ""},
+      {"string", {Json(JSONValue(std::string{"TesT"}))}, "TesT"},
+      {"string", {Json(JSONValue(std::string{"1"}))}, "1"},
+      {"string", {Json(JSONValue(std::string{"abc123"}))}, "abc123"},
+      {"string", {Json(JSONValue(std::string{"12¿©?Æ"}))}, "12¿©?Æ"},
+      {"string",
+       QueryParamsWithResult({Value::UnvalidatedJsonString("[string")},
+                             NullString(), OUT_OF_RANGE)
+           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION,
+                                FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
+      // TYPE
+      {"json_type", {NullJson()}, NullString()},
+      {"json_type", {Json(JSONValue())}, Value::String("null")},
+      {"json_type", {Json(JSONValue(std::string{"10"}))}, "string"},
+      {"json_type", {Json(JSONValue(int64_t{1}))}, "number"},
+      {"json_type", {Json(JSONValue(2.0))}, "number"},
+      {"json_type", {Json(JSONValue(-1.0))}, "number"},
+      {"json_type",
+       {Json(JSONValue(uint64_t{std::numeric_limits<uint64_t>::max()}))},
+       "number"},
+      {"json_type", {Json(JSONValue(true))}, "boolean"},
+      {"json_type",
+       {Json(JSONValue::ParseJSONString(R"({"a": 1})").value())},
+       "object"},
+      {"json_type",
+       {Json(JSONValue::ParseJSONString(R"([10,20])").value())},
+       "array"},
+      {"json_type",
+       {Json(JSONValue::ParseJSONString(R"({"a": {"b": {"c": 1}}, "d": 4})")
+                 .value())},
+
+       "object"},
+      {"json_type",
+       {Json(JSONValue::ParseJSONString(
+                 R"([{"a": {"b": {"c": 1}}, "d": 4}, {"e": 1}])")
+                 .value())},
+       "array"},
+
+      {"json_type",
+       QueryParamsWithResult({Value::UnvalidatedJsonString("[10,3")},
+                             NullString(), OUT_OF_RANGE)
+           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION,
+                                FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})}};
+  return tests;
 }
 
 }  // namespace zetasql

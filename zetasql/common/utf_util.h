@@ -19,7 +19,7 @@
 
 #include <cstdint>
 
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "unicode/utf8.h"
@@ -60,7 +60,7 @@ absl::optional<int32_t> ForwardN(absl::string_view str, int32_t str_length32,
 
 // Returns the number of code points in the given UTF-8 string, or a failed
 // status if <str> is not a valid utf-8 string.
-zetasql_base::StatusOr<int32_t> LengthUtf8(absl::string_view str);
+absl::StatusOr<int32_t> LengthUtf8(absl::string_view str);
 
 // Transforms <str> into a single line string, guaranteed to fit within
 // <max_code_points> UTF-8 code points, while preserving as many useful parts of
@@ -82,7 +82,7 @@ zetasql_base::StatusOr<int32_t> LengthUtf8(absl::string_view str);
 // A failed status is returned if <str> is not a valid UTF-8 string, or if
 // <max_code_points> is not at least 5 (the minimum length to hold "...", plus
 // one character before and after).
-zetasql_base::StatusOr<std::string> GetSummaryString(absl::string_view str,
+absl::StatusOr<std::string> GetSummaryString(absl::string_view str,
                                              int max_code_points);
 }  // namespace zetasql
 

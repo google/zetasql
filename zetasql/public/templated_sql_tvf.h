@@ -61,8 +61,11 @@ class TemplatedSQLTVF : public TableValuedFunction {
   TemplatedSQLTVF(const std::vector<std::string>& function_name_path,
                   const FunctionSignature& signature,
                   const std::vector<std::string>& arg_name_list,
-                  const ParseResumeLocation& parse_resume_location)
-      : TableValuedFunction(function_name_path, signature),
+                  const ParseResumeLocation& parse_resume_location,
+                  TableValuedFunctionOptions tvf_options = {})
+      : TableValuedFunction(function_name_path,
+                            signature,
+                            tvf_options),
         arg_name_list_(arg_name_list),
         parse_resume_location_(parse_resume_location) {}
 

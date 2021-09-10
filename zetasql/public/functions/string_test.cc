@@ -401,6 +401,9 @@ INSTANTIATE_TEST_SUITE_P(String2, InstrTemplateTest,
 INSTANTIATE_TEST_SUITE_P(String3, InstrTemplateTest,
                          testing::ValuesIn(GetFunctionTestsInstr3()));
 
+INSTANTIATE_TEST_SUITE_P(String4, InstrTemplateTest,
+                         testing::ValuesIn(GetFunctionTestsInstrNoCollator()));
+
 typedef testing::TestWithParam<FunctionTestCall> StringSoundexTemplateTest;
 TEST_P(StringSoundexTemplateTest, Testlib) {
   const FunctionTestCall& param = GetParam();

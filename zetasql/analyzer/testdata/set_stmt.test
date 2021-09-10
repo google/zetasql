@@ -221,14 +221,14 @@ SET @@proto_system_variable = NULL;
 --
 AssignmentStmt
 +-target=
-| +-SystemVariable(proto_system_variable, type=PROTO<zetasql_test.KitchenSinkPB>)
+| +-SystemVariable(proto_system_variable, type=PROTO<zetasql_test__.KitchenSinkPB>)
 +-expr=
-  +-Literal(type=PROTO<zetasql_test.KitchenSinkPB>, value=NULL)
+  +-Literal(type=PROTO<zetasql_test__.KitchenSinkPB>, value=NULL)
 ==
 
 # Assignment to system variable of proto type (proto value)
 SET @@proto_system_variable = (
-  SELECT AS `zetasql_test.KitchenSinkPB`
+  SELECT AS `zetasql_test__.KitchenSinkPB`
     3 int64_key_1,
     4 int64_key_2,
     [5,6] repeated_int64_val
@@ -236,10 +236,10 @@ SET @@proto_system_variable = (
 --
 AssignmentStmt
 +-target=
-| +-SystemVariable(proto_system_variable, type=PROTO<zetasql_test.KitchenSinkPB>)
+| +-SystemVariable(proto_system_variable, type=PROTO<zetasql_test__.KitchenSinkPB>)
 +-expr=
   +-SubqueryExpr
-    +-type=PROTO<zetasql_test.KitchenSinkPB>
+    +-type=PROTO<zetasql_test__.KitchenSinkPB>
     +-subquery_type=SCALAR
     +-subquery=
       +-ProjectScan
@@ -247,7 +247,7 @@ AssignmentStmt
         +-expr_list=
         | +-$proto#4 :=
         |   +-MakeProto
-        |     +-type=PROTO<zetasql_test.KitchenSinkPB>
+        |     +-type=PROTO<zetasql_test__.KitchenSinkPB>
         |     +-field_list=
         |       +-int64_key_1 := ColumnRef(type=INT64, column=$expr_subquery.int64_key_1#1)
         |       +-int64_key_2 := ColumnRef(type=INT64, column=$expr_subquery.int64_key_2#2)
@@ -271,7 +271,7 @@ AssignmentStmt
 | +-GetProtoField
 |   +-type=INT64
 |   +-expr=
-|   | +-SystemVariable(proto_system_variable, type=PROTO<zetasql_test.KitchenSinkPB>)
+|   | +-SystemVariable(proto_system_variable, type=PROTO<zetasql_test__.KitchenSinkPB>)
 |   +-field_descriptor=int64_key_1
 +-expr=
   +-Literal(type=INT64, value=8)
@@ -294,7 +294,7 @@ AssignmentStmt
 | +-GetProtoField
 |   +-type=ARRAY<INT64>
 |   +-expr=
-|   | +-SystemVariable(proto_system_variable, type=PROTO<zetasql_test.KitchenSinkPB>)
+|   | +-SystemVariable(proto_system_variable, type=PROTO<zetasql_test__.KitchenSinkPB>)
 |   +-field_descriptor=repeated_int64_val
 |   +-default_value=[]
 +-expr=
@@ -325,7 +325,7 @@ AssignmentStmt
 | +-GetProtoField
 |   +-type=ARRAY<STRING>
 |   +-expr=
-|   | +-SystemVariable(proto_system_variable, type=PROTO<zetasql_test.KitchenSinkPB>)
+|   | +-SystemVariable(proto_system_variable, type=PROTO<zetasql_test__.KitchenSinkPB>)
 |   +-field_descriptor=repeated_string_val
 |   +-default_value=[]
 +-expr=
@@ -349,9 +349,9 @@ AssignmentStmt
 |   +-type=INT64
 |   +-expr=
 |   | +-GetProtoField
-|   |   +-type=PROTO<zetasql_test.KitchenSinkPB.Nested>
+|   |   +-type=PROTO<zetasql_test__.KitchenSinkPB.Nested>
 |   |   +-expr=
-|   |   | +-SystemVariable(proto_system_variable, type=PROTO<zetasql_test.KitchenSinkPB>)
+|   |   | +-SystemVariable(proto_system_variable, type=PROTO<zetasql_test__.KitchenSinkPB>)
 |   |   +-field_descriptor=nested_value
 |   |   +-default_value=NULL
 |   +-field_descriptor=nested_int64
@@ -362,7 +362,7 @@ AssignmentStmt
 
 # Assignment to nested proto
 SET @@proto_system_variable.nested_value = (
-  SELECT AS `zetasql_test.KitchenSinkPB.Nested`
+  SELECT AS `zetasql_test__.KitchenSinkPB.Nested`
     15 nested_int64,
     [5,6] nested_repeated_int64
 );
@@ -370,14 +370,14 @@ SET @@proto_system_variable.nested_value = (
 AssignmentStmt
 +-target=
 | +-GetProtoField
-|   +-type=PROTO<zetasql_test.KitchenSinkPB.Nested>
+|   +-type=PROTO<zetasql_test__.KitchenSinkPB.Nested>
 |   +-expr=
-|   | +-SystemVariable(proto_system_variable, type=PROTO<zetasql_test.KitchenSinkPB>)
+|   | +-SystemVariable(proto_system_variable, type=PROTO<zetasql_test__.KitchenSinkPB>)
 |   +-field_descriptor=nested_value
 |   +-default_value=NULL
 +-expr=
   +-SubqueryExpr
-    +-type=PROTO<zetasql_test.KitchenSinkPB.Nested>
+    +-type=PROTO<zetasql_test__.KitchenSinkPB.Nested>
     +-subquery_type=SCALAR
     +-subquery=
       +-ProjectScan
@@ -385,7 +385,7 @@ AssignmentStmt
         +-expr_list=
         | +-$proto#3 :=
         |   +-MakeProto
-        |     +-type=PROTO<zetasql_test.KitchenSinkPB.Nested>
+        |     +-type=PROTO<zetasql_test__.KitchenSinkPB.Nested>
         |     +-field_list=
         |       +-nested_int64 := ColumnRef(type=INT64, column=$expr_subquery.nested_int64#1)
         |       +-nested_repeated_int64 := ColumnRef(type=ARRAY<INT64>, column=$expr_subquery.nested_repeated_int64#2)
@@ -402,7 +402,7 @@ AssignmentStmt
 # Assignment to non-existant proto field
 SET @@proto_system_variable.garbage = 25;
 --
-ERROR: Protocol buffer zetasql_test.KitchenSinkPB does not have a field called garbage [at 1:29]
+ERROR: Protocol buffer zetasql_test__.KitchenSinkPB does not have a field called garbage [at 1:29]
 SET @@proto_system_variable.garbage = 25;
                             ^
 ==
@@ -410,7 +410,7 @@ SET @@proto_system_variable.garbage = 25;
 # Assignment to non-existent proto field in nested message
 SET @@proto_system_variable.nested_value.garbage = 25;
 --
-ERROR: Protocol buffer zetasql_test.KitchenSinkPB.Nested does not have a field called garbage [at 1:42]
+ERROR: Protocol buffer zetasql_test__.KitchenSinkPB.Nested does not have a field called garbage [at 1:42]
 SET @@proto_system_variable.nested_value.garbage = 25;
                                          ^
 ==

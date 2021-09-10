@@ -39,21 +39,21 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=ComplexTypes.TestProto#6)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=ComplexTypes.TestProto#6)
     | |   +-field_descriptor=int32_val1
     | |   +-default_value=0
     | +-int32_val2#8 :=
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=ComplexTypes.TestProto#6)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=ComplexTypes.TestProto#6)
     | |   +-field_descriptor=int32_val2
     | |   +-default_value=0
     | +-str_value#9 :=
     |   +-GetProtoField
     |     +-type=ARRAY<STRING>
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=ComplexTypes.TestProto#6)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=ComplexTypes.TestProto#6)
     |     +-field_descriptor=str_value
     |     +-default_value=[]
     +-input_scan=
@@ -62,7 +62,7 @@ QueryStmt
 
 select TestEnum.* from ComplexTypes;
 --
-ERROR: Dot-star is not supported for type zetasql_test.TestEnum [at 1:8]
+ERROR: Dot-star is not supported for type zetasql_test__.TestEnum [at 1:8]
 select TestEnum.* from ComplexTypes;
        ^
 ==
@@ -106,21 +106,21 @@ select T, T.* from TestTable T;
 --
 QueryStmt
 +-output_column_list=
-| +-$query.T#5 AS T [STRUCT<key INT32, TestEnum ENUM<zetasql_test.TestEnum>, KitchenSink PROTO<zetasql_test.KitchenSinkPB>>]
+| +-$query.T#5 AS T [STRUCT<key INT32, TestEnum ENUM<zetasql_test__.TestEnum>, KitchenSink PROTO<zetasql_test__.KitchenSinkPB>>]
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.T#5, TestTable.key#1, TestTable.TestEnum#2, TestTable.KitchenSink#3]
     +-expr_list=
     | +-T#5 :=
     |   +-MakeStruct
-    |     +-type=STRUCT<key INT32, TestEnum ENUM<zetasql_test.TestEnum>, KitchenSink PROTO<zetasql_test.KitchenSinkPB>>
+    |     +-type=STRUCT<key INT32, TestEnum ENUM<zetasql_test__.TestEnum>, KitchenSink PROTO<zetasql_test__.KitchenSinkPB>>
     |     +-field_list=
     |       +-ColumnRef(type=INT32, column=TestTable.key#1)
-    |       +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=TestTable.TestEnum#2)
-    |       +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |       +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=TestTable.TestEnum#2)
+    |       +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     +-input_scan=
       +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2], alias="T")
 ==
@@ -400,7 +400,7 @@ QueryStmt
 
 select (select AS STRUCT 1 a, 2 b).*,
        '---',
-       (select as `zetasql_test.TestExtraPB` 55 int32_val1).*;
+       (select as `zetasql_test__.TestExtraPB` 55 int32_val1).*;
 --
 QueryStmt
 +-output_column_list=
@@ -431,21 +431,21 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$preproject.$proto#7)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$preproject.$proto#7)
     | |   +-field_descriptor=int32_val1
     | |   +-default_value=0
     | +-int32_val2#12 :=
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$preproject.$proto#7)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$preproject.$proto#7)
     | |   +-field_descriptor=int32_val2
     | |   +-default_value=0
     | +-str_value#13 :=
     |   +-GetProtoField
     |     +-type=ARRAY<STRING>
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$preproject.$proto#7)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$preproject.$proto#7)
     |     +-field_descriptor=str_value
     |     +-default_value=[]
     +-input_scan=
@@ -476,7 +476,7 @@ QueryStmt
         | |             +-SingleRowScan
         | +-$proto#7 :=
         |   +-SubqueryExpr
-        |     +-type=PROTO<zetasql_test.TestExtraPB>
+        |     +-type=PROTO<zetasql_test__.TestExtraPB>
         |     +-subquery_type=SCALAR
         |     +-subquery=
         |       +-ProjectScan
@@ -484,7 +484,7 @@ QueryStmt
         |         +-expr_list=
         |         | +-$proto#6 :=
         |         |   +-MakeProto
-        |         |     +-type=PROTO<zetasql_test.TestExtraPB>
+        |         |     +-type=PROTO<zetasql_test__.TestExtraPB>
         |         |     +-field_list=
         |         |       +-int32_val1 := Literal(type=INT32, value=55)
         |         +-input_scan=
@@ -562,21 +562,21 @@ QueryStmt
         | | +-GetProtoField
         | |   +-type=INT32
         | |   +-expr=
-        | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=ComplexTypes.TestProto#6)
+        | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=ComplexTypes.TestProto#6)
         | |   +-field_descriptor=int32_val1
         | |   +-default_value=0
         | +-int32_val2#8 :=
         | | +-GetProtoField
         | |   +-type=INT32
         | |   +-expr=
-        | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=ComplexTypes.TestProto#6)
+        | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=ComplexTypes.TestProto#6)
         | |   +-field_descriptor=int32_val2
         | |   +-default_value=0
         | +-str_value#9 :=
         |   +-GetProtoField
         |     +-type=ARRAY<STRING>
         |     +-expr=
-        |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=ComplexTypes.TestProto#6)
+        |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=ComplexTypes.TestProto#6)
         |     +-field_descriptor=str_value
         |     +-default_value=[]
         +-input_scan=
@@ -706,7 +706,7 @@ QueryStmt
     |     +-type=STRUCT<int32_val1 INT32, int32_val2 INT32, str_value ARRAY<STRING>>
     |     +-subquery_type=SCALAR
     |     +-parameter_list=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=ComplexTypes.TestProto#6)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=ComplexTypes.TestProto#6)
     |     +-subquery=
     |       +-ProjectScan
     |         +-column_list=[$make_struct.$struct#11]
@@ -726,28 +726,28 @@ QueryStmt
     |             | | +-GetProtoField
     |             | |   +-type=INT32
     |             | |   +-expr=
-    |             | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$preproject.$proto#7)
+    |             | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$preproject.$proto#7)
     |             | |   +-field_descriptor=int32_val1
     |             | |   +-default_value=0
     |             | +-int32_val2#9 :=
     |             | | +-GetProtoField
     |             | |   +-type=INT32
     |             | |   +-expr=
-    |             | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$preproject.$proto#7)
+    |             | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$preproject.$proto#7)
     |             | |   +-field_descriptor=int32_val2
     |             | |   +-default_value=0
     |             | +-str_value#10 :=
     |             |   +-GetProtoField
     |             |     +-type=ARRAY<STRING>
     |             |     +-expr=
-    |             |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$preproject.$proto#7)
+    |             |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$preproject.$proto#7)
     |             |     +-field_descriptor=str_value
     |             |     +-default_value=[]
     |             +-input_scan=
     |               +-ProjectScan
     |                 +-column_list=[$preproject.$proto#7]
     |                 +-expr_list=
-    |                 | +-$proto#7 := ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=ComplexTypes.TestProto#6, is_correlated=TRUE)
+    |                 | +-$proto#7 := ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=ComplexTypes.TestProto#6, is_correlated=TRUE)
     |                 +-input_scan=
     |                   +-SingleRowScan
     +-input_scan=
@@ -756,18 +756,18 @@ QueryStmt
 
 # Creates a proto from proto field members expanded as columns through
 # dot star.
-select (select as `zetasql_test.TestExtraPB` TestProto.* from ComplexTypes);
+select (select as `zetasql_test__.TestExtraPB` TestProto.* from ComplexTypes);
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#11 AS `$col1` [PROTO<zetasql_test.TestExtraPB>]
+| +-$query.$col1#11 AS `$col1` [PROTO<zetasql_test__.TestExtraPB>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.$col1#11]
     +-expr_list=
     | +-$col1#11 :=
     |   +-SubqueryExpr
-    |     +-type=PROTO<zetasql_test.TestExtraPB>
+    |     +-type=PROTO<zetasql_test__.TestExtraPB>
     |     +-subquery_type=SCALAR
     |     +-subquery=
     |       +-ProjectScan
@@ -775,7 +775,7 @@ QueryStmt
     |         +-expr_list=
     |         | +-$proto#10 :=
     |         |   +-MakeProto
-    |         |     +-type=PROTO<zetasql_test.TestExtraPB>
+    |         |     +-type=PROTO<zetasql_test__.TestExtraPB>
     |         |     +-field_list=
     |         |       +-int32_val1 := ColumnRef(type=INT32, column=$expr_subquery.int32_val1#7)
     |         |       +-int32_val2 := ColumnRef(type=INT32, column=$expr_subquery.int32_val2#8)
@@ -788,21 +788,21 @@ QueryStmt
     |             | | +-GetProtoField
     |             | |   +-type=INT32
     |             | |   +-expr=
-    |             | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=ComplexTypes.TestProto#6)
+    |             | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=ComplexTypes.TestProto#6)
     |             | |   +-field_descriptor=int32_val1
     |             | |   +-default_value=0
     |             | +-int32_val2#8 :=
     |             | | +-GetProtoField
     |             | |   +-type=INT32
     |             | |   +-expr=
-    |             | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=ComplexTypes.TestProto#6)
+    |             | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=ComplexTypes.TestProto#6)
     |             | |   +-field_descriptor=int32_val2
     |             | |   +-default_value=0
     |             | +-str_value#9 :=
     |             |   +-GetProtoField
     |             |     +-type=ARRAY<STRING>
     |             |     +-expr=
-    |             |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=ComplexTypes.TestProto#6)
+    |             |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=ComplexTypes.TestProto#6)
     |             |     +-field_descriptor=str_value
     |             |     +-default_value=[]
     |             +-input_scan=
@@ -813,12 +813,12 @@ QueryStmt
 
 # Converts proto field members into a struct and then again creates a proto out
 # of struct field members expanded through dot star.
-select as `zetasql_test.TestExtraPB`
+select as `zetasql_test__.TestExtraPB`
           (select as struct TestProto.* from ComplexTypes).*;
 --
 QueryStmt
 +-output_column_list=
-| +-$make_proto.$proto#15 AS `$proto` [PROTO<zetasql_test.TestExtraPB>]
+| +-$make_proto.$proto#15 AS `$proto` [PROTO<zetasql_test__.TestExtraPB>]
 +-is_value_table=TRUE
 +-query=
   +-ProjectScan
@@ -826,7 +826,7 @@ QueryStmt
     +-expr_list=
     | +-$proto#15 :=
     |   +-MakeProto
-    |     +-type=PROTO<zetasql_test.TestExtraPB>
+    |     +-type=PROTO<zetasql_test__.TestExtraPB>
     |     +-field_list=
     |       +-int32_val1 := ColumnRef(type=INT32, column=$query.int32_val1#12)
     |       +-int32_val2 := ColumnRef(type=INT32, column=$query.int32_val2#13)
@@ -880,21 +880,21 @@ QueryStmt
             |             | | +-GetProtoField
             |             | |   +-type=INT32
             |             | |   +-expr=
-            |             | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=ComplexTypes.TestProto#6)
+            |             | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=ComplexTypes.TestProto#6)
             |             | |   +-field_descriptor=int32_val1
             |             | |   +-default_value=0
             |             | +-int32_val2#8 :=
             |             | | +-GetProtoField
             |             | |   +-type=INT32
             |             | |   +-expr=
-            |             | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=ComplexTypes.TestProto#6)
+            |             | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=ComplexTypes.TestProto#6)
             |             | |   +-field_descriptor=int32_val2
             |             | |   +-default_value=0
             |             | +-str_value#9 :=
             |             |   +-GetProtoField
             |             |     +-type=ARRAY<STRING>
             |             |     +-expr=
-            |             |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=ComplexTypes.TestProto#6)
+            |             |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=ComplexTypes.TestProto#6)
             |             |     +-field_descriptor=str_value
             |             |     +-default_value=[]
             |             +-input_scan=
@@ -977,7 +977,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=DATE
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.NestedDates>, column=$preproject.$proto#4)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.NestedDates>, column=$preproject.$proto#4)
     | |   +-field_descriptor=date
     | |   +-default_value=1970-01-01
     | |   +-format=DATE
@@ -985,7 +985,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=DATE
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.NestedDates>, column=$preproject.$proto#4)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.NestedDates>, column=$preproject.$proto#4)
     | |   +-field_descriptor=date_decimal
     | |   +-default_value=NULL
     | |   +-format=DATE_DECIMAL
@@ -993,7 +993,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=TIMESTAMP
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.NestedDates>, column=$preproject.$proto#4)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.NestedDates>, column=$preproject.$proto#4)
     |     +-field_descriptor=timestamp_millis
     |     +-default_value=1970-01-01 00:00:00+00
     |     +-format=TIMESTAMP_MILLIS
@@ -1003,9 +1003,9 @@ QueryStmt
         +-expr_list=
         | +-$proto#4 :=
         |   +-GetProtoField
-        |     +-type=PROTO<zetasql_test.KitchenSinkPB.NestedDates>
+        |     +-type=PROTO<zetasql_test__.KitchenSinkPB.NestedDates>
         |     +-expr=
-        |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |     +-field_descriptor=nested_dates
         |     +-default_value=NULL
         +-input_scan=
@@ -1030,7 +1030,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=TIME
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB.NestedCivilTimeFields>, column=$preproject.$proto#3)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB.NestedCivilTimeFields>, column=$preproject.$proto#3)
     | |   +-field_descriptor=time_micros
     | |   +-default_value=00:00:00
     | |   +-format=TIME_MICROS
@@ -1038,7 +1038,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=DATETIME
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB.NestedCivilTimeFields>, column=$preproject.$proto#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB.NestedCivilTimeFields>, column=$preproject.$proto#3)
     |     +-field_descriptor=datetime_micros
     |     +-default_value=NULL
     |     +-format=DATETIME_MICROS
@@ -1048,9 +1048,9 @@ QueryStmt
         +-expr_list=
         | +-$proto#3 :=
         |   +-GetProtoField
-        |     +-type=PROTO<zetasql_test.CivilTimeTypesSinkPB.NestedCivilTimeFields>
+        |     +-type=PROTO<zetasql_test__.CivilTimeTypesSinkPB.NestedCivilTimeFields>
         |     +-expr=
-        |     | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
+        |     | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
         |     +-field_descriptor=nested_civil_time_fields
         |     +-default_value=NULL
         +-input_scan=
@@ -1077,8 +1077,8 @@ QueryStmt
 | +-$query.datetime_micros_default#6 AS datetime_micros_default [DATETIME]
 | +-$query.repeated_time_micros#7 AS repeated_time_micros [ARRAY<TIME>]
 | +-$query.repeated_datetime_micros#8 AS repeated_datetime_micros [ARRAY<DATETIME>]
-| +-$query.nested_civil_time_fields#9 AS nested_civil_time_fields [PROTO<zetasql_test.CivilTimeTypesSinkPB.NestedCivilTimeFields>]
-| +-$query.nested_civil_time_repeated_fields#10 AS nested_civil_time_repeated_fields [PROTO<zetasql_test.CivilTimeTypesSinkPB.NestedCivilTimeRepeatedFields>]
+| +-$query.nested_civil_time_fields#9 AS nested_civil_time_fields [PROTO<zetasql_test__.CivilTimeTypesSinkPB.NestedCivilTimeFields>]
+| +-$query.nested_civil_time_repeated_fields#10 AS nested_civil_time_repeated_fields [PROTO<zetasql_test__.CivilTimeTypesSinkPB.NestedCivilTimeRepeatedFields>]
 | +-$query.int64_key_1#11 AS int64_key_1 [INT64]
 | +-$query.int64_key_2#12 AS int64_key_2 [INT64]
 +-query=
@@ -1089,7 +1089,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=TIME
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
     | |   +-field_descriptor=time_micros
     | |   +-default_value=00:00:00
     | |   +-format=TIME_MICROS
@@ -1097,7 +1097,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=TIME
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
     | |   +-field_descriptor=time_micros_default
     | |   +-default_value=12:34:56.654321
     | |   +-format=TIME_MICROS
@@ -1105,7 +1105,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=DATETIME
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
     | |   +-field_descriptor=datetime_micros
     | |   +-default_value=NULL
     | |   +-format=DATETIME_MICROS
@@ -1113,7 +1113,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=DATETIME
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
     | |   +-field_descriptor=datetime_micros_default
     | |   +-default_value=1970-01-01 00:00:00
     | |   +-format=DATETIME_MICROS
@@ -1121,7 +1121,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=ARRAY<TIME>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
     | |   +-field_descriptor=repeated_time_micros
     | |   +-default_value=[]
     | |   +-format=TIME_MICROS
@@ -1129,36 +1129,36 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=ARRAY<DATETIME>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
     | |   +-field_descriptor=repeated_datetime_micros
     | |   +-default_value=[]
     | |   +-format=DATETIME_MICROS
     | +-nested_civil_time_fields#9 :=
     | | +-GetProtoField
-    | |   +-type=PROTO<zetasql_test.CivilTimeTypesSinkPB.NestedCivilTimeFields>
+    | |   +-type=PROTO<zetasql_test__.CivilTimeTypesSinkPB.NestedCivilTimeFields>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
     | |   +-field_descriptor=nested_civil_time_fields
     | |   +-default_value=NULL
     | +-nested_civil_time_repeated_fields#10 :=
     | | +-GetProtoField
-    | |   +-type=PROTO<zetasql_test.CivilTimeTypesSinkPB.NestedCivilTimeRepeatedFields>
+    | |   +-type=PROTO<zetasql_test__.CivilTimeTypesSinkPB.NestedCivilTimeRepeatedFields>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
     | |   +-field_descriptor=nested_civil_time_repeated_fields
     | |   +-default_value=NULL
     | +-int64_key_1#11 :=
     | | +-GetProtoField
     | |   +-type=INT64
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
     | |   +-field_descriptor=int64_key_1
     | |   +-default_value=0
     | +-int64_key_2#12 :=
     |   +-GetProtoField
     |     +-type=INT64
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
     |     +-field_descriptor=int64_key_2
     |     +-default_value=0
     +-input_scan=
@@ -1189,7 +1189,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=ARRAY<TIME>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB.NestedCivilTimeRepeatedFields>, column=$preproject.$proto#3)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB.NestedCivilTimeRepeatedFields>, column=$preproject.$proto#3)
     | |   +-field_descriptor=repeated_time_micros
     | |   +-default_value=[]
     | |   +-format=TIME_MICROS
@@ -1197,7 +1197,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=ARRAY<DATETIME>
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB.NestedCivilTimeRepeatedFields>, column=$preproject.$proto#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB.NestedCivilTimeRepeatedFields>, column=$preproject.$proto#3)
     |     +-field_descriptor=repeated_datetime_micros
     |     +-default_value=[]
     |     +-format=DATETIME_MICROS
@@ -1207,9 +1207,9 @@ QueryStmt
         +-expr_list=
         | +-$proto#3 :=
         |   +-GetProtoField
-        |     +-type=PROTO<zetasql_test.CivilTimeTypesSinkPB.NestedCivilTimeRepeatedFields>
+        |     +-type=PROTO<zetasql_test__.CivilTimeTypesSinkPB.NestedCivilTimeRepeatedFields>
         |     +-expr=
-        |     | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
+        |     | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB>, column=CivilTimeTestTable.CivilTimeTypesSink#2)
         |     +-field_descriptor=nested_civil_time_repeated_fields
         |     +-default_value=NULL
         +-input_scan=
@@ -2788,7 +2788,7 @@ WITH Candidate_RowPartitions AS (
   SELECT b'x' as CompressedRowPartition, 'a' as ResourcePath,
   TIMESTAMP '2017-01-01' as ResourceModifiedTimestamp
 )
-SELECT CAST(STRING_AGG(part) AS zetasql_test.CivilTimeTypesSinkPB).*
+SELECT CAST(STRING_AGG(part) AS zetasql_test__.CivilTimeTypesSinkPB).*
 FROM UNNEST((SELECT ARRAY(SELECT CompressedRowPartition
                           FROM Candidate_RowPartitions
                           WHERE ResourcePath='Candidate/qa.google.com-4008600339'
@@ -2802,8 +2802,8 @@ QueryStmt
 | +-$query.datetime_micros_default#14 AS datetime_micros_default [DATETIME]
 | +-$query.repeated_time_micros#15 AS repeated_time_micros [ARRAY<TIME>]
 | +-$query.repeated_datetime_micros#16 AS repeated_datetime_micros [ARRAY<DATETIME>]
-| +-$query.nested_civil_time_fields#17 AS nested_civil_time_fields [PROTO<zetasql_test.CivilTimeTypesSinkPB.NestedCivilTimeFields>]
-| +-$query.nested_civil_time_repeated_fields#18 AS nested_civil_time_repeated_fields [PROTO<zetasql_test.CivilTimeTypesSinkPB.NestedCivilTimeRepeatedFields>]
+| +-$query.nested_civil_time_fields#17 AS nested_civil_time_fields [PROTO<zetasql_test__.CivilTimeTypesSinkPB.NestedCivilTimeFields>]
+| +-$query.nested_civil_time_repeated_fields#18 AS nested_civil_time_repeated_fields [PROTO<zetasql_test__.CivilTimeTypesSinkPB.NestedCivilTimeRepeatedFields>]
 | +-$query.int64_key_1#19 AS int64_key_1 [INT64]
 | +-$query.int64_key_2#20 AS int64_key_2 [INT64]
 +-query=
@@ -2829,7 +2829,7 @@ QueryStmt
         | | +-GetProtoField
         | |   +-type=TIME
         | |   +-expr=
-        | |   | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB>, column=$preproject.$proto#10)
+        | |   | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB>, column=$preproject.$proto#10)
         | |   +-field_descriptor=time_micros
         | |   +-default_value=00:00:00
         | |   +-format=TIME_MICROS
@@ -2837,7 +2837,7 @@ QueryStmt
         | | +-GetProtoField
         | |   +-type=TIME
         | |   +-expr=
-        | |   | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB>, column=$preproject.$proto#10)
+        | |   | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB>, column=$preproject.$proto#10)
         | |   +-field_descriptor=time_micros_default
         | |   +-default_value=12:34:56.654321
         | |   +-format=TIME_MICROS
@@ -2845,7 +2845,7 @@ QueryStmt
         | | +-GetProtoField
         | |   +-type=DATETIME
         | |   +-expr=
-        | |   | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB>, column=$preproject.$proto#10)
+        | |   | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB>, column=$preproject.$proto#10)
         | |   +-field_descriptor=datetime_micros
         | |   +-default_value=NULL
         | |   +-format=DATETIME_MICROS
@@ -2853,7 +2853,7 @@ QueryStmt
         | | +-GetProtoField
         | |   +-type=DATETIME
         | |   +-expr=
-        | |   | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB>, column=$preproject.$proto#10)
+        | |   | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB>, column=$preproject.$proto#10)
         | |   +-field_descriptor=datetime_micros_default
         | |   +-default_value=1970-01-01 00:00:00
         | |   +-format=DATETIME_MICROS
@@ -2861,7 +2861,7 @@ QueryStmt
         | | +-GetProtoField
         | |   +-type=ARRAY<TIME>
         | |   +-expr=
-        | |   | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB>, column=$preproject.$proto#10)
+        | |   | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB>, column=$preproject.$proto#10)
         | |   +-field_descriptor=repeated_time_micros
         | |   +-default_value=[]
         | |   +-format=TIME_MICROS
@@ -2869,36 +2869,36 @@ QueryStmt
         | | +-GetProtoField
         | |   +-type=ARRAY<DATETIME>
         | |   +-expr=
-        | |   | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB>, column=$preproject.$proto#10)
+        | |   | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB>, column=$preproject.$proto#10)
         | |   +-field_descriptor=repeated_datetime_micros
         | |   +-default_value=[]
         | |   +-format=DATETIME_MICROS
         | +-nested_civil_time_fields#17 :=
         | | +-GetProtoField
-        | |   +-type=PROTO<zetasql_test.CivilTimeTypesSinkPB.NestedCivilTimeFields>
+        | |   +-type=PROTO<zetasql_test__.CivilTimeTypesSinkPB.NestedCivilTimeFields>
         | |   +-expr=
-        | |   | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB>, column=$preproject.$proto#10)
+        | |   | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB>, column=$preproject.$proto#10)
         | |   +-field_descriptor=nested_civil_time_fields
         | |   +-default_value=NULL
         | +-nested_civil_time_repeated_fields#18 :=
         | | +-GetProtoField
-        | |   +-type=PROTO<zetasql_test.CivilTimeTypesSinkPB.NestedCivilTimeRepeatedFields>
+        | |   +-type=PROTO<zetasql_test__.CivilTimeTypesSinkPB.NestedCivilTimeRepeatedFields>
         | |   +-expr=
-        | |   | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB>, column=$preproject.$proto#10)
+        | |   | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB>, column=$preproject.$proto#10)
         | |   +-field_descriptor=nested_civil_time_repeated_fields
         | |   +-default_value=NULL
         | +-int64_key_1#19 :=
         | | +-GetProtoField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB>, column=$preproject.$proto#10)
+        | |   | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB>, column=$preproject.$proto#10)
         | |   +-field_descriptor=int64_key_1
         | |   +-default_value=0
         | +-int64_key_2#20 :=
         |   +-GetProtoField
         |     +-type=INT64
         |     +-expr=
-        |     | +-ColumnRef(type=PROTO<zetasql_test.CivilTimeTypesSinkPB>, column=$preproject.$proto#10)
+        |     | +-ColumnRef(type=PROTO<zetasql_test__.CivilTimeTypesSinkPB>, column=$preproject.$proto#10)
         |     +-field_descriptor=int64_key_2
         |     +-default_value=0
         +-input_scan=
@@ -2906,7 +2906,7 @@ QueryStmt
             +-column_list=[$aggregate.$agg1#9, $preproject.$proto#10]
             +-expr_list=
             | +-$proto#10 :=
-            |   +-Cast(BYTES -> PROTO<zetasql_test.CivilTimeTypesSinkPB>)
+            |   +-Cast(BYTES -> PROTO<zetasql_test__.CivilTimeTypesSinkPB>)
             |     +-ColumnRef(type=BYTES, column=$aggregate.$agg1#9)
             +-input_scan=
               +-AggregateScan

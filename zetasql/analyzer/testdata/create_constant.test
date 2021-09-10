@@ -287,38 +287,38 @@ CreateConstantStmt
 # CREATE CONSTANT statements of type PROTO resolve correctly.
 [statement_context=module]
 [supported_statement_kinds=CREATE_CONSTANT]
-CREATE PRIVATE CONSTANT a = CAST("" AS `zetasql_test.EmptyMessage`);
+CREATE PRIVATE CONSTANT a = CAST("" AS `zetasql_test__.EmptyMessage`);
 --
 CreateConstantStmt
 +-name_path=a
 +-create_scope=CREATE_PRIVATE
 +-expr=
-  +-Cast(STRING -> PROTO<zetasql_test.EmptyMessage>)
+  +-Cast(STRING -> PROTO<zetasql_test__.EmptyMessage>)
     +-Literal(type=STRING, value="")
 ==
 
 # CREATE CONSTANT statements of type ENUM resolve correctly.
 [statement_context=module]
 [supported_statement_kinds=CREATE_CONSTANT]
-CREATE PRIVATE CONSTANT a = CAST("TESTENUM0" AS `zetasql_test.TestEnum`);
+CREATE PRIVATE CONSTANT a = CAST("TESTENUM0" AS `zetasql_test__.TestEnum`);
 --
 CreateConstantStmt
 +-name_path=a
 +-create_scope=CREATE_PRIVATE
 +-expr=
-  +-Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM0, has_explicit_type=TRUE)
+  +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM0, has_explicit_type=TRUE)
 ==
 
 # CREATE CONSTANT statements of type ARRAY resolve correctly.
 [statement_context=module]
 [supported_statement_kinds=CREATE_CONSTANT]
-CREATE PRIVATE CONSTANT a = ARRAY<`zetasql_test.KitchenSinkPB`>[]
+CREATE PRIVATE CONSTANT a = ARRAY<`zetasql_test__.KitchenSinkPB`>[]
 --
 CreateConstantStmt
 +-name_path=a
 +-create_scope=CREATE_PRIVATE
 +-expr=
-  +-Literal(type=ARRAY<PROTO<zetasql_test.KitchenSinkPB>>, value=[], has_explicit_type=TRUE)
+  +-Literal(type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>, value=[], has_explicit_type=TRUE)
 ==
 
 # CREATE CONSTANT statements with value NULL resolve correctly.

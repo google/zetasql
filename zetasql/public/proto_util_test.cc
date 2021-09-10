@@ -36,7 +36,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/flags/flag.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
@@ -46,7 +46,7 @@ namespace zetasql {
 
 using ::testing::HasSubstr;
 
-using zetasql_test::KitchenSinkPB;
+using zetasql_test__::KitchenSinkPB;
 
 using zetasql::testing::EqualsProto;
 
@@ -64,7 +64,7 @@ class ReadProtoFieldsTest : public ::testing::TestWithParam<bool> {
     absl::SetFlag(&FLAGS_zetasql_read_proto_field_optimized_path, GetParam());
   }
 
-  zetasql_base::StatusOr<Value> ReadField(const std::string& field_name,
+  absl::StatusOr<Value> ReadField(const std::string& field_name,
                                   FieldFormat::Format format, const Type* type,
                                   const Value& default_value,
                                   const absl::Cord& bytes,
@@ -79,7 +79,7 @@ class ReadProtoFieldsTest : public ::testing::TestWithParam<bool> {
     return value;
   }
 
-  zetasql_base::StatusOr<Value> ReadField(const std::string& field_name,
+  absl::StatusOr<Value> ReadField(const std::string& field_name,
                                   FieldFormat::Format format, const Type* type,
                                   const Value& default_value,
                                   bool get_has_bit = false) {
@@ -88,7 +88,7 @@ class ReadProtoFieldsTest : public ::testing::TestWithParam<bool> {
                      get_has_bit);
   }
 
-  zetasql_base::StatusOr<Value> ReadHasBit(const std::string& name,
+  absl::StatusOr<Value> ReadHasBit(const std::string& name,
                                    FieldFormat::Format format,
                                    const Type* type) {
     Value default_value;
@@ -206,7 +206,7 @@ TEST_P(ReadProtoFieldsTest, Bytes) {
 }
 
 TEST_P(ReadProtoFieldsTest, Enum) {
-  kitchen_sink_.set_test_enum(zetasql_test::TESTENUM2);
+  kitchen_sink_.set_test_enum(zetasql_test__::TESTENUM2);
 
   const google::protobuf::FieldDescriptor* field_descriptor =
       kitchen_sink_.GetDescriptor()->FindFieldByName("test_enum");
@@ -255,7 +255,7 @@ TEST_P(ReadProtoFieldsTest, EnumOutOfRange) {
                 Value::Enum(enum_type, 0), bytes),
       StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("Failed to interpret value for field "
-                         "zetasql_test.KitchenSinkPB.test_enum: 1000")));
+                         "zetasql_test__.KitchenSinkPB.test_enum: 1000")));
 
   EXPECT_THAT(ReadField("test_enum", FieldFormat::DEFAULT_FORMAT, enum_type,
                         Value::Enum(enum_type, 0), bytes, /*get_has_bit=*/true),
@@ -282,6 +282,76 @@ TEST_P(ReadProtoFieldsTest, Message) {
   KitchenSinkPB::Nested output_nested;
   ASSERT_TRUE(ParseFromCord(output_value.ToCord(), &output_nested));
   EXPECT_THAT(output_nested, EqualsProto(*nested));
+}
+
+TEST_P(ReadProtoFieldsTest, MultiOccurrencesOfSingularMessage) {
+  KitchenSinkPB part_1, part_2;
+  KitchenSinkPB::Nested* part_1_nested = part_1.mutable_nested_value();
+  part_1_nested->set_nested_int64(1);
+  part_1_nested->add_nested_repeated_int64(100);
+  part_1_nested->add_nested_repeated_int64(200);
+
+  KitchenSinkPB::Nested* part_2_nested = part_2.mutable_nested_value();
+  part_2_nested->set_nested_int64(2);
+  part_2_nested->add_nested_repeated_int64(300);
+  part_2_nested->add_nested_repeated_int64(400);
+
+  absl::Cord merged_bytes;
+  merged_bytes.Append(SerializePartialToCord(part_1));
+  merged_bytes.Append(SerializePartialToCord(part_2));
+
+  KitchenSinkPB merged_message;
+  ASSERT_TRUE(ParsePartialFromCord(merged_bytes, &merged_message));
+
+  const google::protobuf::Descriptor* nested_descriptor = part_1_nested->GetDescriptor();
+  const ProtoType* proto_type;
+  ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(nested_descriptor, &proto_type));
+
+  auto result = ReadField("nested_value", FieldFormat::DEFAULT_FORMAT,
+                          proto_type, Value::Null(proto_type), merged_bytes);
+
+  ZETASQL_ASSERT_OK(result.status());
+  const Value& output_value = result.value();
+  ASSERT_EQ(output_value.type_kind(), TYPE_PROTO);
+
+  KitchenSinkPB::Nested output_nested;
+  ASSERT_TRUE(ParsePartialFromCord(output_value.ToCord(), &output_nested));
+  EXPECT_EQ(output_nested.nested_repeated_int64_size(), 4);
+  EXPECT_THAT(output_nested, EqualsProto(merged_message.nested_value()));
+}
+
+TEST_P(ReadProtoFieldsTest, MultiOccurrencesOfSingularGroup) {
+  KitchenSinkPB part_1, part_2;
+  KitchenSinkPB::OptionalGroup* part_1_group = part_1.mutable_optional_group();
+  part_1_group->set_int64_val(1);
+  part_1_group->add_optionalgroupnested()->set_int64_val(100);
+
+  KitchenSinkPB::OptionalGroup* part_2_group = part_2.mutable_optional_group();
+  part_2_group->set_int64_val(2);
+  part_2_group->add_optionalgroupnested()->set_int64_val(200);
+
+  absl::Cord merged_bytes;
+  merged_bytes.Append(SerializePartialToCord(part_1));
+  merged_bytes.Append(SerializePartialToCord(part_2));
+
+  KitchenSinkPB merged_message;
+  ASSERT_TRUE(ParsePartialFromCord(merged_bytes, &merged_message));
+
+  const google::protobuf::Descriptor* nested_descriptor = part_1_group->GetDescriptor();
+  const ProtoType* proto_type;
+  ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(nested_descriptor, &proto_type));
+
+  auto result = ReadField("optional_group", FieldFormat::DEFAULT_FORMAT,
+                          proto_type, Value::Null(proto_type), merged_bytes);
+
+  ZETASQL_ASSERT_OK(result.status());
+  const Value& output_value = result.value();
+  ASSERT_EQ(output_value.type_kind(), TYPE_PROTO);
+
+  KitchenSinkPB::OptionalGroup output_group;
+  ASSERT_TRUE(ParsePartialFromCord(output_value.ToCord(), &output_group));
+  EXPECT_EQ(output_group.optionalgroupnested_size(), 2);
+  EXPECT_THAT(output_group, EqualsProto(merged_message.optional_group()));
 }
 
 TEST_P(ReadProtoFieldsTest, Group) {
@@ -318,7 +388,7 @@ TEST_P(ReadProtoFieldsTest, DateOutOfRange) {
       ReadField("date", FieldFormat::DATE, types::DateType(), values::Date(0)),
       StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("Failed to interpret value for field "
-                         "zetasql_test.KitchenSinkPB.date with field "
+                         "zetasql_test__.KitchenSinkPB.date with field "
                          "format DATE: -100000000")));
 
   kitchen_sink_.set_date(100 * 1000 * 1000);
@@ -326,7 +396,7 @@ TEST_P(ReadProtoFieldsTest, DateOutOfRange) {
       ReadField("date", FieldFormat::DATE, types::DateType(), values::Date(0)),
       StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("Failed to interpret value for field "
-                         "zetasql_test.KitchenSinkPB.date with field "
+                         "zetasql_test__.KitchenSinkPB.date with field "
                          "format DATE: 100000000")));
 }
 
@@ -345,7 +415,7 @@ TEST_P(ReadProtoFieldsTest, DecodeDateDecimalFails) {
                 values::Date(10)),
       StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("Failed to interpret value for field "
-                         "zetasql_test.KitchenSinkPB.date_decimal with "
+                         "zetasql_test__.KitchenSinkPB.date_decimal with "
                          "field format DATE_DECIMAL: -100000000")));
 }
 
@@ -372,7 +442,7 @@ TEST_P(ReadProtoFieldsTest, TimestampSecondsOutOfRange) {
       StatusIs(
           absl::StatusCode::kOutOfRange,
           HasSubstr("Failed to interpret value for field "
-                    "zetasql_test.KitchenSinkPB.timestamp_seconds with "
+                    "zetasql_test__.KitchenSinkPB.timestamp_seconds with "
                     "field format TIMESTAMP_SECONDS: -9223372036854775808")));
 
   kitchen_sink_.set_timestamp_seconds(std::numeric_limits<int64_t>::max());
@@ -382,7 +452,7 @@ TEST_P(ReadProtoFieldsTest, TimestampSecondsOutOfRange) {
       StatusIs(
           absl::StatusCode::kOutOfRange,
           HasSubstr("Failed to interpret value for field "
-                    "zetasql_test.KitchenSinkPB.timestamp_seconds with "
+                    "zetasql_test__.KitchenSinkPB.timestamp_seconds with "
                     "field format TIMESTAMP_SECONDS: 9223372036854775807")));
 }
 
@@ -402,7 +472,7 @@ TEST_P(ReadProtoFieldsTest, TimestampMillisOutOfRange) {
       StatusIs(
           absl::StatusCode::kOutOfRange,
           HasSubstr("Failed to interpret value for field "
-                    "zetasql_test.KitchenSinkPB.timestamp_millis with "
+                    "zetasql_test__.KitchenSinkPB.timestamp_millis with "
                     "field format TIMESTAMP_MILLIS: -9223372036854775808")));
 
   kitchen_sink_.set_timestamp_millis(std::numeric_limits<int64_t>::max());
@@ -412,7 +482,7 @@ TEST_P(ReadProtoFieldsTest, TimestampMillisOutOfRange) {
       StatusIs(
           absl::StatusCode::kOutOfRange,
           HasSubstr("Failed to interpret value for field "
-                    "zetasql_test.KitchenSinkPB.timestamp_millis with "
+                    "zetasql_test__.KitchenSinkPB.timestamp_millis with "
                     "field format TIMESTAMP_MILLIS: 9223372036854775807")));
 }
 
@@ -432,7 +502,7 @@ TEST_P(ReadProtoFieldsTest, TimestampMicrosOutOfRange) {
       StatusIs(
           absl::StatusCode::kOutOfRange,
           HasSubstr("Failed to interpret value for field "
-                    "zetasql_test.KitchenSinkPB.timestamp_micros with "
+                    "zetasql_test__.KitchenSinkPB.timestamp_micros with "
                     "field format TIMESTAMP_MICROS: -9223372036854775808")));
 
   kitchen_sink_.set_timestamp_micros(std::numeric_limits<int64_t>::max());
@@ -442,7 +512,7 @@ TEST_P(ReadProtoFieldsTest, TimestampMicrosOutOfRange) {
       StatusIs(
           absl::StatusCode::kOutOfRange,
           HasSubstr("Failed to interpret value for field "
-                    "zetasql_test.KitchenSinkPB.timestamp_micros with "
+                    "zetasql_test__.KitchenSinkPB.timestamp_micros with "
                     "field format TIMESTAMP_MICROS: 9223372036854775807")));
 }
 
@@ -476,7 +546,7 @@ TEST_P(ReadProtoFieldsTest, TimeOutOfRange) {
                 values::TimeFromPacked64Micros(0)),
       StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("Failed to interpret value for field "
-                         "zetasql_test.KitchenSinkPB.int64_val with field "
+                         "zetasql_test__.KitchenSinkPB.int64_val with field "
                          "format TIME_MICROS: 9223372036854775807")));
 }
 
@@ -493,7 +563,7 @@ TEST_P(ReadProtoFieldsTest, InvalidDateTime) {
                         types::DatetimeType(), values::NullDatetime()),
               StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Failed to interpret value for field "
-                                 "zetasql_test.KitchenSinkPB.int64_val with "
+                                 "zetasql_test__.KitchenSinkPB.int64_val with "
                                  "field format DATETIME_MICROS: -1000")));
 }
 
@@ -511,7 +581,7 @@ TEST_P(ReadProtoFieldsTest, LargeUint64Datetime) {
                 types::DatetimeType(), values::NullDatetime()),
       StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("Failed to interpret value for field "
-                         "zetasql_test.KitchenSinkPB.uint64_val with "
+                         "zetasql_test__.KitchenSinkPB.uint64_val with "
                          "field format DATETIME_MICROS: 1152921504606846976")));
 }
 
@@ -553,7 +623,7 @@ TEST_P(ReadProtoFieldsTest, MissingRequiredField) {
                         types::Int64Type(), values::Int64(999)),
               StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Protocol buffer missing required field "
-                                 "zetasql_test.KitchenSinkPB.int64_key_1")));
+                                 "zetasql_test__.KitchenSinkPB.int64_key_1")));
 
   EXPECT_THAT(ReadHasBit("int64_key_1", FieldFormat::DEFAULT_FORMAT,
                          types::Int64Type()),
@@ -715,7 +785,7 @@ TEST_P(ReadProtoFieldsTest, ReadTwoFieldsAndOneMissingRequiredFieldTwice) {
   EXPECT_THAT(value_list[1],
               StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Protocol buffer missing required field "
-                                 "zetasql_test.KitchenSinkPB.int64_key_2")));
+                                 "zetasql_test__.KitchenSinkPB.int64_key_2")));
   EXPECT_THAT(value_list[2], IsOkAndHolds(Value::Int64(20)));
   EXPECT_THAT(value_list[3], IsOkAndHolds(Value::Bool(true)));
   EXPECT_THAT(value_list[4], IsOkAndHolds(Value::Bool(false)));
@@ -725,7 +795,7 @@ TEST_P(ReadProtoFieldsTest, ReadTwoFieldsAndOneMissingRequiredFieldTwice) {
   EXPECT_THAT(value_list[7],
               StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Protocol buffer missing required field "
-                                 "zetasql_test.KitchenSinkPB.int64_key_2")));
+                                 "zetasql_test__.KitchenSinkPB.int64_key_2")));
   EXPECT_THAT(value_list[8], IsOkAndHolds(Value::Int64(20)));
   EXPECT_THAT(value_list[9], IsOkAndHolds(Value::Bool(true)));
   EXPECT_THAT(value_list[10], IsOkAndHolds(Value::Bool(false)));

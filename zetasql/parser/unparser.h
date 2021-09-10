@@ -76,6 +76,12 @@ class Formatter {
   //    FormatLine(")");
   void FormatLine(absl::string_view s);
 
+  // Adds a unary operator to the output. This prevents a space between it and
+  // the next format call if it's a single character unary like '+' or '-' with
+  // the exception that when two unary '-' appear in a row, we add a space to
+  // avoid it becoming '--' which marks a comment.
+  void AddUnary(absl::string_view s);
+
   // Flushes buffer_ to unparsed_, with a line break at the end.
   // It will do nothing if it's a new line and buffer_ is empty, to avoid empty
   // lines.
@@ -96,6 +102,9 @@ class Formatter {
 
   // Appended to unparsed_ with a line break at the end in FlushLine().
   std::string buffer_;
+
+  // If the last call to the formatter was AddUnary with a single character.
+  bool last_was_single_char_unary_ = false;
 
   // The length of indentation at the beginning of buffer_. We have to save it
   // in a variable since indentation_ is dynamically changing.
@@ -179,6 +188,8 @@ class Unparser : public ParseTreeVisitor {
       const ASTWithPartitionColumnsClause* node, void* data) override;
   void visitASTCreateExternalTableStatement(
       const ASTCreateExternalTableStatement* node, void* data) override;
+  void visitASTCreatePrivilegeRestrictionStatement(
+      const ASTCreatePrivilegeRestrictionStatement* node, void* data) override;
   void visitASTCreateRowAccessPolicyStatement(
       const ASTCreateRowAccessPolicyStatement* node, void* data) override;
   void visitASTExportDataStatement(const ASTExportDataStatement* node,
@@ -320,6 +331,10 @@ class Unparser : public ParseTreeVisitor {
   void visitASTIntLiteral(const ASTIntLiteral* node, void* data) override;
   void visitASTNumericLiteral(
       const ASTNumericLiteral* node, void* data) override;
+  void visitASTAuxLoadDataFromFilesOptionsList(
+      const ASTAuxLoadDataFromFilesOptionsList* node, void* data) override;
+  void visitASTAuxLoadDataStatement(const ASTAuxLoadDataStatement* node,
+                                    void* data) override;
   void visitASTBigNumericLiteral(const ASTBigNumericLiteral* node,
                                  void* data) override;
   void visitASTJSONLiteral(const ASTJSONLiteral* node,
@@ -376,6 +391,8 @@ class Unparser : public ParseTreeVisitor {
   void visitASTLikeExpression(const ASTLikeExpression* node,
                               void* data) override;
   void visitASTAnySomeAllOp(const ASTAnySomeAllOp* node, void* data) override;
+  void visitASTIndexAllColumns(const ASTIndexAllColumns* node,
+                               void* data) override;
   void visitASTIndexItemList(const ASTIndexItemList* node, void* data) override;
   void visitASTIndexStoringExpressionList(
       const ASTIndexStoringExpressionList* node, void* data) override;
@@ -560,6 +577,8 @@ class Unparser : public ParseTreeVisitor {
   void visitASTAddColumnAction(const ASTAddColumnAction* node,
                                void* data) override;
   void visitASTGrantToClause(const ASTGrantToClause* node, void* data) override;
+  void visitASTRestrictToClause(const ASTRestrictToClause* node,
+                                void* data) override;
   void visitASTFilterUsingClause(const ASTFilterUsingClause* node,
                                  void* data) override;
   void visitASTRevokeFromClause(const ASTRevokeFromClause* node,
@@ -624,6 +643,7 @@ class Unparser : public ParseTreeVisitor {
                               void* data) override;
   void visitASTForInStatement(const ASTForInStatement* node,
                               void* data) override;
+  void visitASTLabel(const ASTLabel* node, void* data) override;
   void visitASTBreakStatement(const ASTBreakStatement* node,
                               void* data) override;
   void visitASTContinueStatement(const ASTContinueStatement* node,

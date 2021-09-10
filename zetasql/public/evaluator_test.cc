@@ -60,7 +60,7 @@
 #include <cstdint>
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
@@ -181,7 +181,7 @@ TEST(EvaluatorTest, WithClauseSubquerySimple) {
   language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
   AnalyzerOptions analyzer_options(language_options);
   ZETASQL_ASSERT_OK(expr2.Prepare(analyzer_options));
-  const zetasql_base::StatusOr<Value> result = expr2.Execute();
+  const absl::StatusOr<Value> result = expr2.Execute();
   EXPECT_THAT(result, IsOkAndHolds(Int64(2)));
 }
 
@@ -192,7 +192,7 @@ TEST(EvaluatorTest, WithClauseSubquery) {
   AnalyzerOptions analyzer_options(language_options);
   ZETASQL_ASSERT_OK(analyzer_options.AddQueryParameter("a", types::Int64Type()));
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
-  const zetasql_base::StatusOr<Value> result = expr.Execute({}, {{"a", Int64(2)}});
+  const absl::StatusOr<Value> result = expr.Execute({}, {{"a", Int64(2)}});
   EXPECT_THAT(result, IsOkAndHolds(Int64(4)));
 }
 
@@ -210,7 +210,7 @@ TEST(EvaluatorTest, WithClauseSubqueryWithLimit) {
   language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
   AnalyzerOptions analyzer_options(language_options);
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
-  const zetasql_base::StatusOr<Value> result = expr.Execute();
+  const absl::StatusOr<Value> result = expr.Execute();
   EXPECT_THAT(result, IsOkAndHolds(Array({2.0, 8.0 / 3, 4.0})));
 }
 
@@ -229,7 +229,7 @@ TEST(EvaluatorTest, InnerWithClauseSubqueryAndOuterLimit) {
   language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
   AnalyzerOptions analyzer_options(language_options);
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
-  const zetasql_base::StatusOr<Value> result = expr.Execute();
+  const absl::StatusOr<Value> result = expr.Execute();
   EXPECT_THAT(result, IsOkAndHolds(Array({2.0, 8.0 / 3, 4.0})));
 }
 
@@ -248,7 +248,7 @@ TEST(EvaluatorTest, WithClauseSubqueryWithLimitAndMultipleRefs) {
   language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
   AnalyzerOptions analyzer_options(language_options);
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
-  const zetasql_base::StatusOr<Value> result = expr.Execute();
+  const absl::StatusOr<Value> result = expr.Execute();
   EXPECT_THAT(result, StatusIs(absl::StatusCode::kOutOfRange,
                                HasSubstr("division by zero")));
 }
@@ -270,7 +270,7 @@ TEST(EvaluatorTest, WithClauseSubqueryWithLimitAndRefHasMultipleRefs) {
   language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
   AnalyzerOptions analyzer_options(language_options);
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
-  const zetasql_base::StatusOr<Value> result = expr.Execute();
+  const absl::StatusOr<Value> result = expr.Execute();
   EXPECT_THAT(result, StatusIs(absl::StatusCode::kOutOfRange,
                                HasSubstr("division by zero")));
 }
@@ -289,7 +289,7 @@ TEST(EvaluatorTest, WithClauseSubqueryWithLimitAndIndirectRef) {
   language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
   AnalyzerOptions analyzer_options(language_options);
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
-  const zetasql_base::StatusOr<Value> result = expr.Execute();
+  const absl::StatusOr<Value> result = expr.Execute();
   EXPECT_THAT(result, IsOkAndHolds(Array({2.0, 8.0 / 3, 4.0})));
 }
 
@@ -310,7 +310,7 @@ TEST(EvaluatorTest, WithClauseSubqueryWithLimitAndUnreferencedRef) {
   language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
   AnalyzerOptions analyzer_options(language_options);
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
-  const zetasql_base::StatusOr<Value> result = expr.Execute();
+  const absl::StatusOr<Value> result = expr.Execute();
   EXPECT_THAT(result, IsOkAndHolds(Array({2.0, 8.0 / 3, 4.0})));
 }
 
@@ -344,7 +344,7 @@ TEST(EvaluatorTest, WithRecursiveTerminatesDueToLimit) {
     language_options.EnableLanguageFeature(FEATURE_V_1_3_WITH_RECURSIVE);
     AnalyzerOptions analyzer_options(language_options);
     ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
-    const zetasql_base::StatusOr<Value> result = expr.Execute();
+    const absl::StatusOr<Value> result = expr.Execute();
     EXPECT_THAT(result,
                 IsOkAndHolds(Array({Int64(1), Int64(1), Int64(2), Int64(3),
                                     Int64(5), Int64(8), Int64(13), Int64(21),
@@ -369,7 +369,7 @@ TEST(EvaluatorTest, WithRecursiveNotTerminating) {
     language_options.EnableLanguageFeature(FEATURE_V_1_3_WITH_RECURSIVE);
     AnalyzerOptions analyzer_options(language_options);
     ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
-    const zetasql_base::StatusOr<Value> result = expr.Execute();
+    const absl::StatusOr<Value> result = expr.Execute();
     EXPECT_THAT(
         result,
         StatusIs(_, HasSubstr("Cannot construct array Value larger than")));
@@ -394,7 +394,7 @@ TEST(EvaluatorTest, WithRecursiveMemoryExhaustedByHashSet) {
   language_options.EnableLanguageFeature(FEATURE_V_1_3_WITH_RECURSIVE);
   AnalyzerOptions analyzer_options(language_options);
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
-  const zetasql_base::StatusOr<Value> result = expr.Execute();
+  const absl::StatusOr<Value> result = expr.Execute();
   EXPECT_THAT(result, StatusIs(_, HasSubstr("Out of memory: requested")));
 }
 
@@ -405,7 +405,7 @@ TEST(EvaluatorTest, WithClauseSubquery_b119901615) {
   language_options.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
   AnalyzerOptions analyzer_options(language_options);
   ZETASQL_ASSERT_OK(expr.Prepare(analyzer_options));
-  zetasql_base::StatusOr<Value> result = expr.Execute();
+  absl::StatusOr<Value> result = expr.Execute();
   EXPECT_THAT(result, IsOkAndHolds(Int64(15)));
 }
 
@@ -1303,7 +1303,7 @@ TEST(EvaluatorTest, GetReferencedInScopeColumns) {
   TypeFactory type_factory;
   const ProtoType* proto_type;
   ZETASQL_ASSERT_OK(type_factory.MakeProtoType(
-      zetasql_test::KitchenSinkPB::descriptor(), &proto_type));
+      zetasql_test__::KitchenSinkPB::descriptor(), &proto_type));
 
   PreparedExpression expr("col0.int64_key_1 + int64_key_2");
   AnalyzerOptions options;
@@ -1320,7 +1320,7 @@ TEST(EvaluatorTest, GetReferencedColumnsWithUnreferencedInScopeColumns) {
   TypeFactory type_factory;
   const ProtoType* proto_type;
   ZETASQL_ASSERT_OK(type_factory.MakeProtoType(
-      zetasql_test::KitchenSinkPB::descriptor(), &proto_type));
+      zetasql_test__::KitchenSinkPB::descriptor(), &proto_type));
 
   PreparedExpression expr("col1 = 1");
   AnalyzerOptions options;
@@ -1395,9 +1395,9 @@ TEST(EvaluatorTest, ExpressionValueColumn) {
   TypeFactory type_factory;
   const ProtoType* proto_type;
   ZETASQL_ASSERT_OK(type_factory.MakeProtoType(
-      zetasql_test::KitchenSinkPB::descriptor(), &proto_type));
+      zetasql_test__::KitchenSinkPB::descriptor(), &proto_type));
 
-  zetasql_test::KitchenSinkPB input_value;
+  zetasql_test__::KitchenSinkPB input_value;
   input_value.set_int64_key_1(5);
   input_value.set_int64_key_2(10);
 
@@ -1719,7 +1719,7 @@ TEST(EvaluatorTest, PreparedFromAST_Execute) {
   TypeFactory type_factory;
   const ProtoType* proto_type;
   ZETASQL_ASSERT_OK(type_factory.MakeProtoType(
-      zetasql_test::KitchenSinkPB::descriptor(), &proto_type));
+      zetasql_test__::KitchenSinkPB::descriptor(), &proto_type));
 
   AnalyzerOptions options;
   ZETASQL_ASSERT_OK(options.AddExpressionColumn("int_value", types::Int32Type()));
@@ -1733,7 +1733,7 @@ TEST(EvaluatorTest, PreparedFromAST_Execute) {
   EXPECT_TRUE(types::Int64Type()->Equals(prepared.expression->output_type()))
       << prepared.expression->output_type()->DebugString();
 
-  zetasql_test::KitchenSinkPB input_value;
+  zetasql_test__::KitchenSinkPB input_value;
   input_value.set_int64_key_1(5);
   input_value.set_int64_key_2(10);
   Value result = prepared.expression
@@ -1905,7 +1905,7 @@ TEST_F(UDFEvalTest, OkPolymorphicUDFEvaluator) {
       };
   function_options_.set_evaluator_factory(
       [](const FunctionSignature& signature)
-          -> zetasql_base::StatusOr<FunctionEvaluator> {
+          -> absl::StatusOr<FunctionEvaluator> {
         switch (signature.ConcreteArgumentType(0)->kind()) {
           case TYPE_INT64:
             return evaluator_int64;
@@ -1957,7 +1957,7 @@ TEST_F(UDFEvalTest, NoUDFEvaluator) {
 
 TEST_F(UDFEvalTest, UDFEvaluatorRuntimeErrors) {
   function_options_.set_evaluator(
-      [](const absl::Span<const Value> args) -> zetasql_base::StatusOr<Value> {
+      [](const absl::Span<const Value> args) -> absl::StatusOr<Value> {
         std::string arg = args[0].string_value();
         if (arg == "not found") {
           return absl::Status(absl::StatusCode::kNotFound, "Wrong number");
@@ -3412,7 +3412,7 @@ class PreparedQueryProtoTest : public PreparedQueryTest {
  protected:
   void SetUp() override {
     ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
-        zetasql_test::KitchenSinkPB::descriptor(), &proto_type_));
+        zetasql_test__::KitchenSinkPB::descriptor(), &proto_type_));
 
     table_ =
         absl::WrapUnique(new SimpleTable("TestTable", {{"col", proto_type_}}));
@@ -3439,28 +3439,28 @@ class PreparedQueryProtoTest : public PreparedQueryTest {
     catalog_->AddTable(table2_->Name(), table2_.get());
     catalog_->AddZetaSQLFunctions();
 
-    catalog_->AddType("zetasql_test.KitchenSinkPB", proto_type_);
+    catalog_->AddType("zetasql_test__.KitchenSinkPB", proto_type_);
 
     ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
-        zetasql_test::TestOptionalFields::descriptor(), &optional_type_));
-    catalog_->AddType("zetasql_test.TestOptionalFields", optional_type_);
+        zetasql_test__::TestOptionalFields::descriptor(), &optional_type_));
+    catalog_->AddType("zetasql_test__.TestOptionalFields", optional_type_);
   }
 
   Value GetProtoValue(int key) const {
-    zetasql_test::KitchenSinkPB proto;
+    zetasql_test__::KitchenSinkPB proto;
     proto.set_int64_key_1(key);
     proto.set_int64_key_2(key + 1);
 
     PopulateNestedProto(key, proto.mutable_nested_value());
 
-    zetasql_test::RewrappedNullableInt* rewrapped_nullable_int =
+    zetasql_test__::RewrappedNullableInt* rewrapped_nullable_int =
         proto.mutable_rewrapped_nullable_int();
     rewrapped_nullable_int->mutable_value()->set_value(key * 1000);
 
     proto.add_nested_repeated_value()->set_nested_int64(2 * key * 10);
     proto.add_nested_repeated_value()->set_nested_int64(3 * key * 10);
 
-    zetasql_test::KitchenSinkPB_OptionalGroup* group =
+    zetasql_test__::KitchenSinkPB_OptionalGroup* group =
         proto.mutable_optionalgroup();
     group->set_int64_val(500);
     group->add_optionalgroupnested()->set_int64_val(key * 1000 + 1);
@@ -3470,7 +3470,7 @@ class PreparedQueryProtoTest : public PreparedQueryTest {
   }
 
   static void PopulateNestedProto(
-      int key, zetasql_test::KitchenSinkPB_Nested* nested) {
+      int key, zetasql_test__::KitchenSinkPB_Nested* nested) {
     nested->set_nested_int64(key * 10);
     nested->add_nested_repeated_int64(key * 100);
     nested->add_nested_repeated_int64(key * 100 + 1);
@@ -3667,7 +3667,7 @@ TEST_F(PreparedQueryProtoTest, SameProtoFieldWithNoHasBitAndHasBit) {
 
   ASSERT_TRUE(iter->NextRow());
 
-  zetasql_test::KitchenSinkPB_Nested nested_value;
+  zetasql_test__::KitchenSinkPB_Nested nested_value;
   nested_value.set_nested_int64(10);
   nested_value.add_nested_repeated_int64(100);
   nested_value.add_nested_repeated_int64(101);
@@ -3675,7 +3675,7 @@ TEST_F(PreparedQueryProtoTest, SameProtoFieldWithNoHasBitAndHasBit) {
 
   const ProtoType* nested_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
-      zetasql_test::KitchenSinkPB_Nested::descriptor(), &nested_type));
+      zetasql_test__::KitchenSinkPB_Nested::descriptor(), &nested_type));
 
   EXPECT_EQ(iter->GetValue(0), Value::Proto(nested_type, bytes));
   EXPECT_EQ(iter->GetValue(1), Bool(true));
@@ -3703,7 +3703,7 @@ TEST_F(PreparedQueryProtoTest, SameProtoFieldWithHasBitAndNoHasBit) {
 
   EXPECT_EQ(iter->GetValue(0), Bool(true));
 
-  zetasql_test::KitchenSinkPB_Nested nested_value;
+  zetasql_test__::KitchenSinkPB_Nested nested_value;
   nested_value.set_nested_int64(10);
   nested_value.add_nested_repeated_int64(100);
   nested_value.add_nested_repeated_int64(101);
@@ -3711,7 +3711,7 @@ TEST_F(PreparedQueryProtoTest, SameProtoFieldWithHasBitAndNoHasBit) {
 
   const ProtoType* nested_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
-      zetasql_test::KitchenSinkPB_Nested::descriptor(), &nested_type));
+      zetasql_test__::KitchenSinkPB_Nested::descriptor(), &nested_type));
 
   EXPECT_EQ(iter->GetValue(1), Value::Proto(nested_type, bytes));
 
@@ -3815,14 +3815,14 @@ TEST_F(PreparedQueryProtoTest, FieldAndSubfield) {
 
   ASSERT_TRUE(iter->NextRow());
 
-  zetasql_test::KitchenSinkPB_Nested nested_value;
+  zetasql_test__::KitchenSinkPB_Nested nested_value;
   PopulateNestedProto(/*key=*/1, &nested_value);
 
   absl::Cord bytes = SerializeToCord(nested_value);
 
   const ProtoType* nested_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
-      zetasql_test::KitchenSinkPB_Nested::descriptor(), &nested_type));
+      zetasql_test__::KitchenSinkPB_Nested::descriptor(), &nested_type));
 
   EXPECT_EQ(iter->GetValue(0), Value::Proto(nested_type, bytes));
   EXPECT_EQ(iter->GetValue(1), Int64(10));
@@ -3850,13 +3850,13 @@ TEST_F(PreparedQueryProtoTest, SubfieldAndField) {
   ASSERT_TRUE(iter->NextRow());
   EXPECT_EQ(iter->GetValue(0), Int64(10));
 
-  zetasql_test::KitchenSinkPB_Nested nested_value;
+  zetasql_test__::KitchenSinkPB_Nested nested_value;
   PopulateNestedProto(/*key=*/1, &nested_value);
   absl::Cord bytes = SerializeToCord(nested_value);
 
   const ProtoType* nested_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
-      zetasql_test::KitchenSinkPB_Nested::descriptor(), &nested_type));
+      zetasql_test__::KitchenSinkPB_Nested::descriptor(), &nested_type));
 
   EXPECT_EQ(iter->GetValue(1), Value::Proto(nested_type, bytes));
 
@@ -3884,13 +3884,13 @@ TEST_F(PreparedQueryProtoTest, FieldAndSubSubField) {
 
   ASSERT_TRUE(iter->NextRow());
 
-  zetasql_test::RewrappedNullableInt rewrapped_nullable_int;
+  zetasql_test__::RewrappedNullableInt rewrapped_nullable_int;
   rewrapped_nullable_int.mutable_value()->set_value(1000);
   absl::Cord bytes = SerializeToCord(rewrapped_nullable_int);
 
   const ProtoType* rewrapped_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
-      zetasql_test::RewrappedNullableInt::descriptor(), &rewrapped_type));
+      zetasql_test__::RewrappedNullableInt::descriptor(), &rewrapped_type));
 
   EXPECT_EQ(iter->GetValue(0), Value::Proto(rewrapped_type, bytes));
   EXPECT_EQ(iter->GetValue(1), Int32(1000));
@@ -3921,13 +3921,13 @@ TEST_F(PreparedQueryProtoTest, SubSubFieldAndField) {
   ASSERT_TRUE(iter->NextRow());
   EXPECT_EQ(iter->GetValue(0), Int32(1000));
 
-  zetasql_test::RewrappedNullableInt rewrapped_nullable_int;
+  zetasql_test__::RewrappedNullableInt rewrapped_nullable_int;
   rewrapped_nullable_int.mutable_value()->set_value(1000);
   absl::Cord bytes = SerializeToCord(rewrapped_nullable_int);
 
   const ProtoType* rewrapped_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
-      zetasql_test::RewrappedNullableInt::descriptor(), &rewrapped_type));
+      zetasql_test__::RewrappedNullableInt::descriptor(), &rewrapped_type));
 
   EXPECT_EQ(iter->GetValue(1), Value::Proto(rewrapped_type, bytes));
 
@@ -3960,7 +3960,7 @@ TEST_F(PreparedQueryProtoTest, Complex) {
 
   ASSERT_TRUE(iter->NextRow());
 
-  zetasql_test::KitchenSinkPB_Nested nested_value;
+  zetasql_test__::KitchenSinkPB_Nested nested_value;
   nested_value.set_nested_int64(10);
   nested_value.add_nested_repeated_int64(100);
   nested_value.add_nested_repeated_int64(101);
@@ -3968,7 +3968,7 @@ TEST_F(PreparedQueryProtoTest, Complex) {
 
   const ProtoType* nested_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
-      zetasql_test::KitchenSinkPB_Nested::descriptor(), &nested_type));
+      zetasql_test__::KitchenSinkPB_Nested::descriptor(), &nested_type));
 
   EXPECT_EQ(iter->GetValue(0), Value::Proto(nested_type, bytes));
   EXPECT_EQ(iter->GetValue(1), Int64(10));
@@ -3999,13 +3999,13 @@ TEST_F(PreparedQueryProtoTest, WithRepeatedFieldOffsets) {
 
   ASSERT_TRUE(iter->NextRow());
 
-  zetasql_test::KitchenSinkPB_Nested nested_proto;
+  zetasql_test__::KitchenSinkPB_Nested nested_proto;
   nested_proto.set_nested_int64(20);
   absl::Cord bytes = SerializeToCord(nested_proto);
 
   const ProtoType* nested_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
-      zetasql_test::KitchenSinkPB_Nested::descriptor(), &nested_type));
+      zetasql_test__::KitchenSinkPB_Nested::descriptor(), &nested_type));
 
   const Value nested_value = Value::Proto(nested_type, bytes);
 
@@ -4079,7 +4079,7 @@ TEST_F(PreparedQueryProtoTest,
 TEST_F(PreparedQueryProtoTest, Subquery) {
   PreparedQuery query(
       "select a.int64_key_1, a.int64_key_2\n"
-      "from (select (new zetasql_test.KitchenSinkPB(\n"
+      "from (select (new zetasql_test__.KitchenSinkPB(\n"
       "                  1 as int64_key_1, 2 as int64_key_2)) a)",
       EvaluatorOptions());
   SetupContextCallback(&query);
@@ -4261,9 +4261,9 @@ TEST_F(PreparedQueryProtoTest, MixedProtoAndStructFieldPaths) {
 
   ASSERT_TRUE(iter->NextRow());
 
-  zetasql_test::KitchenSinkPB_Nested expected_nested1;
-  zetasql_test::KitchenSinkPB_Nested expected_nested2;
-  zetasql_test::KitchenSinkPB_Nested expected_nested3;
+  zetasql_test__::KitchenSinkPB_Nested expected_nested1;
+  zetasql_test__::KitchenSinkPB_Nested expected_nested2;
+  zetasql_test__::KitchenSinkPB_Nested expected_nested3;
 
   PopulateNestedProto(/*key=*/1, &expected_nested1);
   PopulateNestedProto(/*key=*/10, &expected_nested2);
@@ -4275,7 +4275,7 @@ TEST_F(PreparedQueryProtoTest, MixedProtoAndStructFieldPaths) {
 
   const ProtoType* nested_type;
   ZETASQL_ASSERT_OK(type_factory_.MakeProtoType(
-      zetasql_test::KitchenSinkPB_Nested::descriptor(), &nested_type));
+      zetasql_test__::KitchenSinkPB_Nested::descriptor(), &nested_type));
 
   const Value expected_nested1_value =
       Value::Proto(nested_type, serialized_expected_nested1);
@@ -4315,8 +4315,8 @@ TEST_F(PreparedQueryProtoTest, MixedProtoAndStructFieldPaths) {
 
 TEST_F(PreparedQueryProtoTest, ArbitraryProtoValuedExpression) {
   PreparedQuery query(
-      "select new zetasql_test.TestOptionalFields().value, "
-      "       new zetasql_test.TestOptionalFields().value "
+      "select new zetasql_test__.TestOptionalFields().value, "
+      "       new zetasql_test__.TestOptionalFields().value "
       "from TestTable",
       EvaluatorOptions());
   SetupContextCallback(&query);

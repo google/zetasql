@@ -187,10 +187,10 @@ select * from subq a join subq b using (key)
 QueryStmt
 +-output_column_list=
 | +-subq.key#4 AS key [INT32]
-| +-subq.TestEnum#5 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-subq.KitchenSink#6 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
-| +-subq.TestEnum#8 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-subq.KitchenSink#9 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-subq.TestEnum#5 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-subq.KitchenSink#6 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
+| +-subq.TestEnum#8 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-subq.KitchenSink#9 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-WithScan
     +-column_list=subq.[key#4, TestEnum#5, KitchenSink#6, TestEnum#8, KitchenSink#9]
@@ -473,7 +473,7 @@ QueryStmt
     |       |   +-GetProtoField
     |       |     +-type=ARRAY<INT32>
     |       |     +-expr=
-    |       |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |       |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |       |     +-field_descriptor=repeated_int32_val
     |       |     +-default_value=[]
     |       +-input_scan=
@@ -703,7 +703,7 @@ QueryStmt
 ==
 
 # Proto value tables in with subqueries.
-with sq as (select as `zetasql_test.KeyValueStruct` 55 key from TestTable)
+with sq as (select as `zetasql_test__.KeyValueStruct` 55 key from TestTable)
 select key, sq.value, sq, sq.* from sq
 where value!=0
 --
@@ -711,7 +711,7 @@ QueryStmt
 +-output_column_list=
 | +-$query.key#7 AS key [STRING]
 | +-$query.value#8 AS value [INT64]
-| +-sq.$proto#6 AS sq [PROTO<zetasql_test.KeyValueStruct>]
+| +-sq.$proto#6 AS sq [PROTO<zetasql_test__.KeyValueStruct>]
 | +-$query.key#9 AS key [STRING]
 | +-$query.value#10 AS value [INT64]
 +-query=
@@ -726,7 +726,7 @@ QueryStmt
     |       +-expr_list=
     |       | +-$proto#5 :=
     |       |   +-MakeProto
-    |       |     +-type=PROTO<zetasql_test.KeyValueStruct>
+    |       |     +-type=PROTO<zetasql_test__.KeyValueStruct>
     |       |     +-field_list=
     |       |       +-key := Literal(type=STRING, value="55")
     |       +-input_scan=
@@ -744,28 +744,28 @@ QueryStmt
         | | +-GetProtoField
         | |   +-type=STRING
         | |   +-expr=
-        | |   | +-ColumnRef(type=PROTO<zetasql_test.KeyValueStruct>, column=sq.$proto#6)
+        | |   | +-ColumnRef(type=PROTO<zetasql_test__.KeyValueStruct>, column=sq.$proto#6)
         | |   +-field_descriptor=key
         | |   +-default_value=NULL
         | +-value#8 :=
         | | +-GetProtoField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=PROTO<zetasql_test.KeyValueStruct>, column=sq.$proto#6)
+        | |   | +-ColumnRef(type=PROTO<zetasql_test__.KeyValueStruct>, column=sq.$proto#6)
         | |   +-field_descriptor=value
         | |   +-default_value=NULL
         | +-key#9 :=
         | | +-GetProtoField
         | |   +-type=STRING
         | |   +-expr=
-        | |   | +-ColumnRef(type=PROTO<zetasql_test.KeyValueStruct>, column=sq.$proto#6)
+        | |   | +-ColumnRef(type=PROTO<zetasql_test__.KeyValueStruct>, column=sq.$proto#6)
         | |   +-field_descriptor=key
         | |   +-default_value=NULL
         | +-value#10 :=
         |   +-GetProtoField
         |     +-type=INT64
         |     +-expr=
-        |     | +-ColumnRef(type=PROTO<zetasql_test.KeyValueStruct>, column=sq.$proto#6)
+        |     | +-ColumnRef(type=PROTO<zetasql_test__.KeyValueStruct>, column=sq.$proto#6)
         |     +-field_descriptor=value
         |     +-default_value=NULL
         +-input_scan=
@@ -778,7 +778,7 @@ QueryStmt
                 +-GetProtoField
                 | +-type=INT64
                 | +-expr=
-                | | +-ColumnRef(type=PROTO<zetasql_test.KeyValueStruct>, column=sq.$proto#6)
+                | | +-ColumnRef(type=PROTO<zetasql_test__.KeyValueStruct>, column=sq.$proto#6)
                 | +-field_descriptor=value
                 | +-default_value=NULL
                 +-Literal(type=INT64, value=0)

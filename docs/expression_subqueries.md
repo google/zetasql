@@ -55,7 +55,6 @@ Comparison Operators
 </a>
 
 for full semantics.</td>
-
 </tr>
 
 <tr>

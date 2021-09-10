@@ -126,11 +126,11 @@ TEST(InputArgumentTypeTests, TestInputArgumentTypeLess) {
   TypeFactory type_factory;
   const EnumType* enum_type;
   ZETASQL_ASSERT_OK(type_factory.MakeEnumType(
-      zetasql_test::TestEnum_descriptor(), &enum_type));
+      zetasql_test__::TestEnum_descriptor(), &enum_type));
   const Value enum_value(values::Enum(enum_type, 1));
   const EnumType* another_enum_type;
   ZETASQL_ASSERT_OK(type_factory.MakeEnumType(
-      zetasql_test::AnotherTestEnum_descriptor(), &another_enum_type));
+      zetasql_test__::AnotherTestEnum_descriptor(), &another_enum_type));
   const Value another_enum_value(values::Enum(another_enum_type, 1));
 
   TestExpectedArgumentTypeLessPair(InputArgumentType(enum_type),
@@ -179,14 +179,14 @@ TEST(InputArgumentTypeTests, TestInputArgumentTypeLess) {
 
   const ProtoType* proto_type;
   ZETASQL_ASSERT_OK(
-      type_factory.MakeProtoType(zetasql_test::KitchenSinkPB::descriptor(),
+      type_factory.MakeProtoType(zetasql_test__::KitchenSinkPB::descriptor(),
                                  &proto_type));
 
   const Value proto_value(values::Proto(proto_type, absl::Cord("a")));
 
   const ProtoType* another_proto_type;
   ZETASQL_ASSERT_OK(
-      type_factory.MakeProtoType(zetasql_test::TestExtraPB::descriptor(),
+      type_factory.MakeProtoType(zetasql_test__::TestExtraPB::descriptor(),
                                  &another_proto_type));
   const Value another_proto_value(
       values::Proto(another_proto_type, absl::Cord("a")));

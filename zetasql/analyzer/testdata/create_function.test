@@ -49,7 +49,7 @@ CreateFunctionStmt(name_path=mypackage.myfunc, has_explicit_return_type=TRUE, re
 
 # Test that deprecation warnings come out in both the resolved AST and in the
 # analyzer warnings.
-create function myfunc(msg zetasql_test.SimpleProto3Message )
+create function myfunc(msg zetasql_test__.SimpleProto3Message )
   returns int64 as (deprecation_warning()) ;
 --
 CreateFunctionStmt
@@ -57,7 +57,7 @@ CreateFunctionStmt
 +-has_explicit_return_type=TRUE
 +-return_type=INT64
 +-argument_name_list=[msg]
-+-signature=(PROTO<zetasql_test.SimpleProto3Message> msg) -> INT64 (1 deprecation warning)
++-signature=(PROTO<zetasql_test__.SimpleProto3Message> msg) -> INT64 (1 deprecation warning)
 +-language="SQL"
 +-code="deprecation_warning()"
 +-function_expression=
@@ -75,7 +75,7 @@ some caret string for foo_1
 ==
 
 # A test with two deprecation warnings that are deduplicated.
-create function myfunc(msg zetasql_test.SimpleProto3Message )
+create function myfunc(msg zetasql_test__.SimpleProto3Message )
   returns bool as (deprecation_warning() > deprecation_warning()) ;
 --
 CreateFunctionStmt
@@ -83,7 +83,7 @@ CreateFunctionStmt
 +-has_explicit_return_type=TRUE
 +-return_type=BOOL
 +-argument_name_list=[msg]
-+-signature=(PROTO<zetasql_test.SimpleProto3Message> msg) -> BOOL (1 deprecation warning)
++-signature=(PROTO<zetasql_test__.SimpleProto3Message> msg) -> BOOL (1 deprecation warning)
 +-language="SQL"
 +-code="deprecation_warning() > deprecation_warning()"
 +-function_expression=
@@ -103,7 +103,7 @@ some caret string for foo_1
 ==
 
 # A test with two different deprecation warnings.
-create function myfunc( msg zetasql_test.Proto3KitchenSink )
+create function myfunc( msg zetasql_test__.Proto3KitchenSink )
   returns bool as (deprecation_warning() > deprecation_warning2()) ;
 --
 CreateFunctionStmt
@@ -111,7 +111,7 @@ CreateFunctionStmt
 +-has_explicit_return_type=TRUE
 +-return_type=BOOL
 +-argument_name_list=[msg]
-+-signature=(PROTO<zetasql_test.Proto3KitchenSink> msg) -> BOOL (2 deprecation warnings)
++-signature=(PROTO<zetasql_test__.Proto3KitchenSink> msg) -> BOOL (2 deprecation warnings)
 +-language="SQL"
 +-code="deprecation_warning() > deprecation_warning2()"
 +-function_expression=
@@ -141,7 +141,7 @@ some caret string for foo_2
 
 # The function calls another function that has a deprecation warning. The
 # warning should propagate to this function.
-create function myfunc( msg zetasql_test.Proto3KitchenSink )
+create function myfunc( msg zetasql_test__.Proto3KitchenSink )
   returns int64 as (deprecation_warning()) ;
 --
 CreateFunctionStmt
@@ -149,7 +149,7 @@ CreateFunctionStmt
 +-has_explicit_return_type=TRUE
 +-return_type=INT64
 +-argument_name_list=[msg]
-+-signature=(PROTO<zetasql_test.Proto3KitchenSink> msg) -> INT64 (1 deprecation warning)
++-signature=(PROTO<zetasql_test__.Proto3KitchenSink> msg) -> INT64 (1 deprecation warning)
 +-language="SQL"
 +-code="deprecation_warning()"
 +-function_expression=
@@ -168,7 +168,7 @@ some caret string for foo_1
 
 # The function calls another function that has a deprecation warning, twice. The
 # warning should propagate to this function, but should be de-duplicated.
-create function myfunc( msg zetasql_test.Proto3KitchenSink )
+create function myfunc( msg zetasql_test__.Proto3KitchenSink )
   returns int64 as (deprecation_warning() + deprecation_warning()) ;
 --
 CreateFunctionStmt
@@ -176,7 +176,7 @@ CreateFunctionStmt
 +-has_explicit_return_type=TRUE
 +-return_type=INT64
 +-argument_name_list=[msg]
-+-signature=(PROTO<zetasql_test.Proto3KitchenSink> msg) -> INT64 (1 deprecation warning)
++-signature=(PROTO<zetasql_test__.Proto3KitchenSink> msg) -> INT64 (1 deprecation warning)
 +-language="SQL"
 +-code="deprecation_warning() + deprecation_warning()"
 +-function_expression=
@@ -197,7 +197,7 @@ some caret string for foo_1
 
 # The function calls a function that has two deprecation warnings of the same
 # kind. The first warning should propagate to this function.
-create function myfunc( msg zetasql_test.Proto3KitchenSink )
+create function myfunc( msg zetasql_test__.Proto3KitchenSink )
   returns int64 as (two_deprecation_warnings_same_kind()) ;
 --
 CreateFunctionStmt
@@ -205,7 +205,7 @@ CreateFunctionStmt
 +-has_explicit_return_type=TRUE
 +-return_type=INT64
 +-argument_name_list=[msg]
-+-signature=(PROTO<zetasql_test.Proto3KitchenSink> msg) -> INT64 (1 deprecation warning)
++-signature=(PROTO<zetasql_test__.Proto3KitchenSink> msg) -> INT64 (1 deprecation warning)
 +-language="SQL"
 +-code="two_deprecation_warnings_same_kind()"
 +-function_expression=
@@ -224,7 +224,7 @@ some caret string for foo_2
 
 # The function calls a function that has two deprecation warnings with different
 # kinds. Both should propagate to this function.
-create function myfunc( msg zetasql_test.Proto3KitchenSink )
+create function myfunc( msg zetasql_test__.Proto3KitchenSink )
   returns int64 as (two_deprecation_warnings()) ;
 --
 CreateFunctionStmt
@@ -232,7 +232,7 @@ CreateFunctionStmt
 +-has_explicit_return_type=TRUE
 +-return_type=INT64
 +-argument_name_list=[msg]
-+-signature=(PROTO<zetasql_test.Proto3KitchenSink> msg) -> INT64 (2 deprecation warnings)
++-signature=(PROTO<zetasql_test__.Proto3KitchenSink> msg) -> INT64 (2 deprecation warnings)
 +-language="SQL"
 +-code="two_deprecation_warnings()"
 +-function_expression=
@@ -263,7 +263,7 @@ some caret string for foo_5
 # two deprecation warnings with different kinds. The result should have one
 # deprecation warning for each function, using the first deprecation warning for
 # each kind, for a total of 4 warnings.
-create function myfunc( msg zetasql_test.Proto3KitchenSink )
+create function myfunc( msg zetasql_test__.Proto3KitchenSink )
   returns int64 as
     (deprecation_warning() + two_deprecation_warnings_same_kind() +
      two_deprecation_warnings())
@@ -273,7 +273,7 @@ CreateFunctionStmt
 +-has_explicit_return_type=TRUE
 +-return_type=INT64
 +-argument_name_list=[msg]
-+-signature=(PROTO<zetasql_test.Proto3KitchenSink> msg) -> INT64 (4 deprecation warnings)
++-signature=(PROTO<zetasql_test__.Proto3KitchenSink> msg) -> INT64 (4 deprecation warnings)
 +-language="SQL"
 +-code="deprecation_warning() + two_deprecation_warnings_same_kind() +\n     two_deprecation_warnings()"
 +-function_expression=
@@ -323,7 +323,7 @@ some caret string for foo_5
 
 # Same as the previous test, except each function is called twice. The
 # deprecation warnings are de-duplicated, so there are still only 4 warnings.
-create function myfunc( msg zetasql_test.Proto3KitchenSink )
+create function myfunc( msg zetasql_test__.Proto3KitchenSink )
   returns int64 as
     (deprecation_warning() + deprecation_warning() +
      two_deprecation_warnings_same_kind() +
@@ -335,7 +335,7 @@ CreateFunctionStmt
 +-has_explicit_return_type=TRUE
 +-return_type=INT64
 +-argument_name_list=[msg]
-+-signature=(PROTO<zetasql_test.Proto3KitchenSink> msg) -> INT64 (4 deprecation warnings)
++-signature=(PROTO<zetasql_test__.Proto3KitchenSink> msg) -> INT64 (4 deprecation warnings)
 +-language="SQL"
 +-code="deprecation_warning() + deprecation_warning() +\n     two_deprecation_warnings_same_kind() +\n     two_deprecation_warnings_same_kind() +\n     two_deprecation_warnings() + two_deprecation_warnings()"
 +-function_expression=
@@ -664,9 +664,9 @@ CreateFunctionStmt
 CREATE TEMPORARY FUNCTION MakeStruct(x INT64, y STRING)
 RETURNS STRUCT<x INT64, y STRING> AS (STRUCT(3.14 AS x, b"foo" AS y));
 --
-ERROR: Function declared to return STRUCT<x INT64, y STRING> but the function body produces incompatible type STRUCT<x DOUBLE, y BYTES> [at 2:9]
+ERROR: Function declared to return STRUCT<x INT64, y STRING> but the function body produces incompatible type STRUCT<x DOUBLE, y BYTES> [at 2:39]
 RETURNS STRUCT<x INT64, y STRING> AS (STRUCT(3.14 AS x, b"foo" AS y));
-        ^
+                                      ^
 ==
 
 # SQL function with sub-select.
@@ -823,10 +823,10 @@ create function fn(foo my.path.s);
 ==
 
 # functions may use multi-element paths for parameter types.
-create function fn(foo zetasql_test.KeyValueStruct)
+create function fn(foo zetasql_test__.KeyValueStruct)
   returns string language testlang ;
 --
-CreateFunctionStmt(name_path=fn, has_explicit_return_type=TRUE, return_type=STRING, argument_name_list=[foo], signature=(PROTO<zetasql_test.KeyValueStruct> foo) -> STRING, language="testlang")
+CreateFunctionStmt(name_path=fn, has_explicit_return_type=TRUE, return_type=STRING, argument_name_list=[foo], signature=(PROTO<zetasql_test__.KeyValueStruct> foo) -> STRING, language="testlang")
 ==
 
 # Scalar functions cannot accept table-valued arguments.

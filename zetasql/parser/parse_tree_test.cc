@@ -32,7 +32,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/source_location.h"
@@ -107,7 +107,7 @@ TEST(ConvertInternalErrorLocationToExternal, NoPayload) {
 }
 
 TEST(ConvertInternalErrorLocationToExternal, NoLocationWithExtraPayload) {
-  zetasql_test::TestStatusPayload extra_extension;
+  zetasql_test__::TestStatusPayload extra_extension;
   extra_extension.set_value("abc");
 
   const absl::Status status =
@@ -118,7 +118,7 @@ TEST(ConvertInternalErrorLocationToExternal, NoLocationWithExtraPayload) {
   EXPECT_FALSE(internal::HasPayloadWithType<InternalErrorLocation>(status2));
   EXPECT_FALSE(internal::HasPayloadWithType<ErrorLocation>(status2));
   EXPECT_TRUE(
-      internal::HasPayloadWithType<zetasql_test::TestStatusPayload>(status2));
+      internal::HasPayloadWithType<zetasql_test__::TestStatusPayload>(status2));
 }
 
 TEST(ConvertInternalErrorLocationToExternal, LocationWithExtraPayload) {
@@ -127,7 +127,7 @@ TEST(ConvertInternalErrorLocationToExternal, LocationWithExtraPayload) {
       "1234567890123456789\n"
       "1234567890123456789\n";
 
-  zetasql_test::TestStatusPayload extra_extension;
+  zetasql_test__::TestStatusPayload extra_extension;
   extra_extension.set_value("abc");
 
   const ParseLocationPoint point =
@@ -142,7 +142,7 @@ TEST(ConvertInternalErrorLocationToExternal, LocationWithExtraPayload) {
   EXPECT_FALSE(internal::HasPayloadWithType<InternalErrorLocation>(status2));
   EXPECT_TRUE(internal::HasPayloadWithType<ErrorLocation>(status2));
   EXPECT_TRUE(
-      internal::HasPayloadWithType<zetasql_test::TestStatusPayload>(status2));
+      internal::HasPayloadWithType<zetasql_test__::TestStatusPayload>(status2));
 }
 
 // Return a string with counts of node kinds that looks like
@@ -351,14 +351,14 @@ class TestVisitor : public NonRecursiveParseTreeVisitor {
  public:
   explicit TestVisitor(bool post_visit) : post_visit_(post_visit) {}
 
-  zetasql_base::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
+  absl::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
     return VisitInternal(node, "default");
   }
 
   // Choose an arbitrary node type to provide a specific visitor for.
   // This allows the test to verify that specific visit() methods are invoked
   // when provided, rather than the default.
-  zetasql_base::StatusOr<VisitResult> visitASTPathExpression(
+  absl::StatusOr<VisitResult> visitASTPathExpression(
       const ASTPathExpression* node) override {
     return VisitInternal(node, "path_expression");
   }
@@ -373,7 +373,7 @@ class TestVisitor : public NonRecursiveParseTreeVisitor {
   // Returns a custom VisitResult to return after pre-visit, or
   // this->VisitChildren() to proceed to visiting children and optionally
   // perform post-visit.
-  virtual zetasql_base::StatusOr<VisitResult> OnDonePreVisit(const ASTNode* node,
+  virtual absl::StatusOr<VisitResult> OnDonePreVisit(const ASTNode* node,
                                                      const std::string& label) {
     return VisitChildren(node, label);
   }
@@ -384,7 +384,7 @@ class TestVisitor : public NonRecursiveParseTreeVisitor {
     return absl::OkStatus();
   }
 
-  zetasql_base::StatusOr<VisitResult> VisitChildren(const ASTNode* node,
+  absl::StatusOr<VisitResult> VisitChildren(const ASTNode* node,
                                             const std::string& label) {
     if (post_visit_) {
       auto continuation = [node, this, label]() -> absl::Status {
@@ -402,7 +402,7 @@ class TestVisitor : public NonRecursiveParseTreeVisitor {
   }
 
  private:
-  zetasql_base::StatusOr<VisitResult> VisitInternal(const ASTNode* node,
+  absl::StatusOr<VisitResult> VisitInternal(const ASTNode* node,
                                             const std::string& label) {
     ++pre_visit_count_;
     absl::StrAppend(&log_, "preVisit(", label,
@@ -422,13 +422,13 @@ class TestVisitor : public NonRecursiveParseTreeVisitor {
 class AbortInPreVisitTestVisitor : public TestVisitor {
  public:
   AbortInPreVisitTestVisitor(bool post_visit, const ASTNodeKind abort_on,
-                             zetasql_base::StatusOr<VisitResult> abort_result)
+                             absl::StatusOr<VisitResult> abort_result)
       : TestVisitor(post_visit),
         abort_on_(abort_on),
         abort_result_(abort_result) {}
 
  protected:
-  zetasql_base::StatusOr<VisitResult> OnDonePreVisit(
+  absl::StatusOr<VisitResult> OnDonePreVisit(
       const ASTNode* node, const std::string& label) override {
     if (node->node_kind() == abort_on_) {
       return abort_result_;
@@ -438,7 +438,7 @@ class AbortInPreVisitTestVisitor : public TestVisitor {
 
  private:
   const ASTNodeKind abort_on_;
-  zetasql_base::StatusOr<VisitResult> abort_result_;
+  absl::StatusOr<VisitResult> abort_result_;
 };
 
 // TestVisitor which aborts in the PostVisit stage when the node kind matches a
@@ -531,7 +531,7 @@ preVisit(default): Identifier(t)
 
 class AbortNonRecursiveVisitorPreVisitTest
     : public ::testing::Test,
-      public ::testing::WithParamInterface<zetasql_base::StatusOr<VisitResult>> {};
+      public ::testing::WithParamInterface<absl::StatusOr<VisitResult>> {};
 
 INSTANTIATE_TEST_CASE_P(
     NonRecursivePreVisit, AbortNonRecursiveVisitorPreVisitTest,

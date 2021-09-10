@@ -2024,4 +2024,3 @@ SELECT SAFE.ARRAY_FILTER([1,2,3], e -> e>0);
 ERROR: Function calls with SAFE are not supported [at 1:8]
 SELECT SAFE.ARRAY_FILTER([1,2,3], e -> e>0);
        ^
-==

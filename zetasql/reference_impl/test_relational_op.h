@@ -21,7 +21,7 @@
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/tuple_test_util.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 
@@ -42,7 +42,7 @@ class TestRelationalOp : public RelationalOp {
     return absl::OkStatus();
   }
 
-  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
       absl::Span<const TupleData* const> /*params*/, int num_extra_slots,
       EvaluationContext* context) const override {
     std::vector<TupleData> iter_values = values_;

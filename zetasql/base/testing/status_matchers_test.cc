@@ -19,8 +19,8 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/statusor.h"
 
 namespace {
 
@@ -34,9 +34,9 @@ absl::Status AbortedStatus() {
   return absl::Status(absl::StatusCode::kAborted, "aborted");
 }
 
-zetasql_base::StatusOr<int> OkStatusOr(int n) { return n; }
+absl::StatusOr<int> OkStatusOr(int n) { return n; }
 
-zetasql_base::StatusOr<int> AbortedStatusOr() { return AbortedStatus(); }
+absl::StatusOr<int> AbortedStatusOr() { return AbortedStatus(); }
 
 TEST(StatusMatcher, Macros) {
   ZETASQL_EXPECT_OK(OkStatus());

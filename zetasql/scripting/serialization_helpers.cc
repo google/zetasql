@@ -16,7 +16,7 @@
 
 #include "zetasql/scripting/serialization_helpers.h"
 
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 
@@ -70,7 +70,7 @@ absl::Status DeserializeVariableProto(
 }
 
 // static
-zetasql_base::StatusOr<std::unique_ptr<ProcedureDefinition>>
+absl::StatusOr<std::unique_ptr<ProcedureDefinition>>
 DeserializeProcedureDefinitionProto(
     const ScriptExecutorStateProto::ProcedureDefinition& proto,
     const std::vector<const google::protobuf::DescriptorPool*>& pools,

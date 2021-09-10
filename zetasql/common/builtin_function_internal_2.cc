@@ -39,7 +39,7 @@
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
@@ -1292,15 +1292,23 @@ void GetAggregateFunctions(TypeFactory* type_factory,
 
   // Resolution will verify that argument types are valid (not proto, struct,
   // or array).
-  InsertFunction(functions, options, "min", AGGREGATE,
-                 {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1}, FN_MIN}},
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     bind_front(&CheckMinMaxGreatestLeastArguments, "MIN")));
+  InsertFunction(
+      functions, options, "min", AGGREGATE,
+      {{ARG_TYPE_ANY_1,
+        {ARG_TYPE_ANY_1},
+        FN_MIN,
+        FunctionSignatureOptions().set_uses_operation_collation()}},
+      FunctionOptions().set_pre_resolution_argument_constraint(
+          bind_front(&CheckMinMaxGreatestLeastArguments, "MIN")));
 
-  InsertFunction(functions, options, "max", AGGREGATE,
-                 {{ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1}, FN_MAX}},
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     bind_front(&CheckMinMaxGreatestLeastArguments, "MAX")));
+  InsertFunction(
+      functions, options, "max", AGGREGATE,
+      {{ARG_TYPE_ANY_1,
+        {ARG_TYPE_ANY_1},
+        FN_MAX,
+        FunctionSignatureOptions().set_uses_operation_collation()}},
+      FunctionOptions().set_pre_resolution_argument_constraint(
+          bind_front(&CheckMinMaxGreatestLeastArguments, "MAX")));
 
   FunctionArgumentTypeOptions non_null_non_agg;
   non_null_non_agg.set_is_not_aggregate();
@@ -1308,7 +1316,9 @@ void GetAggregateFunctions(TypeFactory* type_factory,
 
   InsertFunction(
       functions, options, "string_agg", AGGREGATE,
-      {{string_type, {string_type}, FN_STRING_AGG_STRING},
+      {{string_type,
+        {string_type},
+        FN_STRING_AGG_STRING},
        // Resolution will verify that the second argument must be a literal.
        {string_type,
         {string_type, {string_type, non_null_non_agg}},
@@ -1321,9 +1331,12 @@ void GetAggregateFunctions(TypeFactory* type_factory,
         FN_STRING_AGG_DELIM_BYTES}},
       FunctionOptions().set_supports_order_by(true).set_supports_limit(true));
 
-  InsertSimpleFunction(
+  InsertFunction(
       functions, options, "array_agg", AGGREGATE,
-      {{ARG_ARRAY_TYPE_ANY_1, {ARG_TYPE_ANY_1}, FN_ARRAY_AGG}},
+      {{{ARG_ARRAY_TYPE_ANY_1,
+         FunctionArgumentTypeOptions().set_uses_array_element_for_collation()},
+        {ARG_TYPE_ANY_1},
+        FN_ARRAY_AGG}},
       FunctionOptions()
           .set_pre_resolution_argument_constraint(&CheckArrayAggArguments)
           .set_supports_null_handling_modifier(true)
@@ -1366,25 +1379,30 @@ void GetApproxFunctions(TypeFactory* type_factory,
   FunctionSignatureOptions has_bignumeric_type_argument;
   has_bignumeric_type_argument.set_constraints(&HasBigNumericTypeArgument);
 
-  InsertFunction(functions, options, "approx_count_distinct", AGGREGATE,
-                 {{int64_type,
-                   {{ARG_TYPE_ANY_1, supports_grouping}},
-                   FN_APPROX_COUNT_DISTINCT}});
+  InsertFunction(
+      functions, options, "approx_count_distinct", AGGREGATE,
+      {{int64_type,
+        {{ARG_TYPE_ANY_1, supports_grouping}},
+        FN_APPROX_COUNT_DISTINCT,
+        FunctionSignatureOptions().set_uses_operation_collation()}});
 
-  InsertFunction(functions, options, "approx_quantiles", AGGREGATE,
-                 {{ARG_ARRAY_TYPE_ANY_1,
-                   {{ARG_TYPE_ANY_1, comparable},
-                    {int64_type, non_null_positive_non_agg}},
-                   FN_APPROX_QUANTILES}},
-                 FunctionOptions().set_supports_null_handling_modifier(true));
+  InsertFunction(
+      functions, options, "approx_quantiles", AGGREGATE,
+      {{ARG_ARRAY_TYPE_ANY_1,
+        {{ARG_TYPE_ANY_1, comparable}, {int64_type, non_null_positive_non_agg}},
+        FN_APPROX_QUANTILES,
+        FunctionSignatureOptions().set_uses_operation_collation()}},
+      FunctionOptions().set_supports_null_handling_modifier(true));
 
-  InsertFunction(functions, options, "approx_top_count", AGGREGATE,
-                 {{ARG_TYPE_ANY_1,  // Return type will be overridden.
-                   {{ARG_TYPE_ANY_1, supports_grouping},
-                    {int64_type, non_null_positive_non_agg}},
-                   FN_APPROX_TOP_COUNT}},
-                 FunctionOptions().set_compute_result_type_callback(
-                     bind_front(&ComputeResultTypeForTopStruct, "count")));
+  InsertFunction(
+      functions, options, "approx_top_count", AGGREGATE,
+      {{ARG_TYPE_ANY_1,  // Return type will be overridden.
+        {{ARG_TYPE_ANY_1, supports_grouping},
+         {int64_type, non_null_positive_non_agg}},
+        FN_APPROX_TOP_COUNT,
+        FunctionSignatureOptions().set_uses_operation_collation()}},
+      FunctionOptions().set_compute_result_type_callback(
+          bind_front(&ComputeResultTypeForTopStruct, "count")));
 
   InsertFunction(functions, options, "approx_top_sum", AGGREGATE,
                  {{ARG_TYPE_ANY_1,  // Return type will be overridden.
@@ -1646,25 +1664,28 @@ void GetAnalyticFunctions(TypeFactory* type_factory,
       },
       disallowed_order_and_frame_allowed_null_handling);
 
-  FunctionSignatureOptions last_arg_is_numeric_or_bignumeric;
-  last_arg_is_numeric_or_bignumeric.set_constraints(
-      &LastArgumentHasNumericOrBigNumericType);
-  InsertFunction(functions, options, "percentile_disc", ANALYTIC,
-                 {{ARG_TYPE_ANY_1,
-                   {{ARG_TYPE_ANY_1, comparable},
-                    {double_type, non_null_non_agg_between_0_and_1}},
-                   FN_PERCENTILE_DISC},
-                  {ARG_TYPE_ANY_1,
-                   {{ARG_TYPE_ANY_1, comparable},
-                    {numeric_type, non_null_non_agg_between_0_and_1}},
-                   FN_PERCENTILE_DISC_NUMERIC,
-                   last_arg_is_numeric_or_bignumeric},
-                  {ARG_TYPE_ANY_1,
-                   {{ARG_TYPE_ANY_1, comparable},
-                    {bignumeric_type, non_null_non_agg_between_0_and_1}},
-                   FN_PERCENTILE_DISC_BIGNUMERIC,
-                   last_arg_is_numeric_or_bignumeric}},
-                 disallowed_order_and_frame_allowed_null_handling);
+  InsertFunction(
+      functions, options, "percentile_disc", ANALYTIC,
+      {{ARG_TYPE_ANY_1,
+        {{ARG_TYPE_ANY_1, comparable},
+         {double_type, non_null_non_agg_between_0_and_1}},
+        FN_PERCENTILE_DISC,
+        FunctionSignatureOptions().set_uses_operation_collation()},
+       {ARG_TYPE_ANY_1,
+        {{ARG_TYPE_ANY_1, comparable},
+         {numeric_type, non_null_non_agg_between_0_and_1}},
+        FN_PERCENTILE_DISC_NUMERIC,
+        FunctionSignatureOptions()
+            .set_uses_operation_collation()
+            .set_constraints(&LastArgumentHasNumericOrBigNumericType)},
+       {ARG_TYPE_ANY_1,
+        {{ARG_TYPE_ANY_1, comparable},
+         {bignumeric_type, non_null_non_agg_between_0_and_1}},
+        FN_PERCENTILE_DISC_BIGNUMERIC,
+        FunctionSignatureOptions()
+            .set_uses_operation_collation()
+            .set_constraints(&LastArgumentHasNumericOrBigNumericType)}},
+      disallowed_order_and_frame_allowed_null_handling);
 }
 
 void GetBooleanFunctions(TypeFactory* type_factory,
@@ -1685,9 +1706,12 @@ void GetBooleanFunctions(TypeFactory* type_factory,
   const FunctionArgumentType::ArgumentCardinality REPEATED =
       FunctionArgumentType::REPEATED;
 
-  InsertSimpleFunction(
+  InsertFunction(
       functions, options, "$equal", SCALAR,
-      {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_EQUAL},
+      {{bool_type,
+        {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
+        FN_EQUAL,
+        FunctionSignatureOptions().set_uses_operation_collation()},
        {bool_type, {int64_type, uint64_type}, FN_EQUAL_INT64_UINT64},
        {bool_type, {uint64_type, int64_type}, FN_EQUAL_UINT64_INT64}},
       FunctionOptions()
@@ -1699,9 +1723,12 @@ void GetBooleanFunctions(TypeFactory* type_factory,
               &NoMatchingSignatureForComparisonOperator)
           .set_get_sql_callback(bind_front(&InfixFunctionSQL, "=")));
 
-  InsertSimpleFunction(
+  InsertFunction(
       functions, options, "$not_equal", SCALAR,
-      {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_NOT_EQUAL},
+      {{bool_type,
+        {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
+        FN_NOT_EQUAL,
+        FunctionSignatureOptions().set_uses_operation_collation()},
        {bool_type, {int64_type, uint64_type}, FN_NOT_EQUAL_INT64_UINT64},
        {bool_type, {uint64_type, int64_type}, FN_NOT_EQUAL_UINT64_INT64}},
       FunctionOptions()
@@ -1717,9 +1744,12 @@ void GetBooleanFunctions(TypeFactory* type_factory,
   // unconditionally so that rewriters can generate calls to them, even if the
   // IS NOT DISTINCT FROM syntax is not supported at the query level. The pivot
   // rewriter makes use of this.
-  InsertSimpleFunction(
+  InsertFunction(
       functions, options, "$is_distinct_from", SCALAR,
-      {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_DISTINCT},
+      {{bool_type,
+        {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
+        FN_DISTINCT,
+        FunctionSignatureOptions().set_uses_operation_collation()},
        {bool_type, {int64_type, uint64_type}, FN_DISTINCT_INT64_UINT64},
        {bool_type, {uint64_type, int64_type}, FN_DISTINCT_UINT64_INT64}},
       FunctionOptions()
@@ -1730,9 +1760,10 @@ void GetBooleanFunctions(TypeFactory* type_factory,
           .set_post_resolution_argument_constraint(
               bind_front(&CheckArgumentsSupportGrouping, "Grouping")));
 
-  InsertSimpleFunction(
+  InsertFunction(
       functions, options, "$is_not_distinct_from", SCALAR,
-      {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_NOT_DISTINCT},
+      {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_NOT_DISTINCT,
+        FunctionSignatureOptions().set_uses_operation_collation()},
        {bool_type, {int64_type, uint64_type}, FN_NOT_DISTINCT_INT64_UINT64},
        {bool_type, {uint64_type, int64_type}, FN_NOT_DISTINCT_UINT64_INT64}},
       FunctionOptions()
@@ -1743,9 +1774,12 @@ void GetBooleanFunctions(TypeFactory* type_factory,
           .set_post_resolution_argument_constraint(
               bind_front(&CheckArgumentsSupportGrouping, "Grouping")));
 
-  InsertSimpleFunction(
+  InsertFunction(
       functions, options, "$less", SCALAR,
-      {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_LESS},
+      {{bool_type,
+        {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
+        FN_LESS,
+        FunctionSignatureOptions().set_uses_operation_collation()},
        {bool_type, {int64_type, uint64_type}, FN_LESS_INT64_UINT64},
        {bool_type, {uint64_type, int64_type}, FN_LESS_UINT64_INT64}},
       FunctionOptions()
@@ -1757,9 +1791,12 @@ void GetBooleanFunctions(TypeFactory* type_factory,
           .set_sql_name("<")
           .set_get_sql_callback(bind_front(&InfixFunctionSQL, "<")));
 
-  InsertSimpleFunction(
+  InsertFunction(
       functions, options, "$less_or_equal", SCALAR,
-      {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_LESS_OR_EQUAL},
+      {{bool_type,
+        {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
+        FN_LESS_OR_EQUAL,
+        FunctionSignatureOptions().set_uses_operation_collation()},
        {bool_type, {int64_type, uint64_type}, FN_LESS_OR_EQUAL_INT64_UINT64},
        {bool_type, {uint64_type, int64_type}, FN_LESS_OR_EQUAL_UINT64_INT64}},
       FunctionOptions()
@@ -1771,9 +1808,12 @@ void GetBooleanFunctions(TypeFactory* type_factory,
           .set_sql_name("<=")
           .set_get_sql_callback(bind_front(&InfixFunctionSQL, "<=")));
 
-  InsertSimpleFunction(
+  InsertFunction(
       functions, options, "$greater_or_equal", SCALAR,
-      {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_GREATER_OR_EQUAL},
+      {{bool_type,
+        {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
+        FN_GREATER_OR_EQUAL,
+        FunctionSignatureOptions().set_uses_operation_collation()},
        {bool_type, {int64_type, uint64_type}, FN_GREATER_OR_EQUAL_INT64_UINT64},
        {bool_type,
         {uint64_type, int64_type},
@@ -1787,9 +1827,12 @@ void GetBooleanFunctions(TypeFactory* type_factory,
           .set_sql_name(">=")
           .set_get_sql_callback(bind_front(&InfixFunctionSQL, ">=")));
 
-  InsertSimpleFunction(
+  InsertFunction(
       functions, options, "$greater", SCALAR,
-      {{bool_type, {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1}, FN_GREATER},
+      {{bool_type,
+        {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
+        FN_GREATER,
+        FunctionSignatureOptions().set_uses_operation_collation()},
        {bool_type, {int64_type, uint64_type}, FN_GREATER_INT64_UINT64},
        {bool_type, {uint64_type, int64_type}, FN_GREATER_UINT64_INT64}},
       FunctionOptions()
@@ -1814,18 +1857,19 @@ void GetBooleanFunctions(TypeFactory* type_factory,
   // has run-once semantics for each of its input expressions.
   if (!options.language_options.LanguageFeatureEnabled(
           FEATURE_BETWEEN_UINT64_INT64)) {
-    InsertSimpleFunction(
+    InsertFunction(
         functions, options, "$between", SCALAR,
         {{bool_type,
           {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
-          FN_BETWEEN}},
+          FN_BETWEEN,
+          FunctionSignatureOptions().set_uses_operation_collation()}},
         FunctionOptions()
             .set_supports_safe_error_mode(false)
             .set_post_resolution_argument_constraint(
                 bind_front(&CheckArgumentsSupportComparison, "BETWEEN"))
             .set_get_sql_callback(&BetweenFunctionSQL));
   } else {
-    InsertSimpleFunction(
+    InsertFunction(
         functions, options, "$between", SCALAR,
         {{bool_type,
           {int64_type, uint64_type, uint64_type},
@@ -1847,7 +1891,8 @@ void GetBooleanFunctions(TypeFactory* type_factory,
           FN_BETWEEN_INT64_INT64_UINT64},
          {bool_type,
           {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
-          FN_BETWEEN}},
+          FN_BETWEEN,
+          FunctionSignatureOptions().set_uses_operation_collation()}},
         FunctionOptions()
             .set_supports_safe_error_mode(false)
             .set_post_resolution_argument_constraint(
@@ -1855,9 +1900,10 @@ void GetBooleanFunctions(TypeFactory* type_factory,
             .set_get_sql_callback(&BetweenFunctionSQL));
   }
 
-  InsertSimpleFunction(
+  InsertFunction(
       functions, options, "$like", SCALAR,
-      {{bool_type, {string_type, string_type}, FN_STRING_LIKE},
+      {{bool_type, {string_type, string_type}, FN_STRING_LIKE,
+        FunctionSignatureOptions().set_uses_operation_collation()},
        {bool_type, {byte_type, byte_type}, FN_BYTE_LIKE}},
       FunctionOptions()
           .set_supports_safe_error_mode(false)
@@ -1868,11 +1914,12 @@ void GetBooleanFunctions(TypeFactory* type_factory,
   if (options.language_options.LanguageFeatureEnabled(
           FEATURE_V_1_3_LIKE_ANY_SOME_ALL)) {
     // Supports both LIKE ANY and LIKE SOME.
-    InsertSimpleFunction(
+    InsertFunction(
         functions, options, "$like_any", SCALAR,
         {{bool_type,
           {string_type, {string_type, REPEATED}},
-          FN_STRING_LIKE_ANY},
+          FN_STRING_LIKE_ANY,
+          FunctionSignatureOptions().set_uses_operation_collation()},
          {bool_type, {byte_type, {byte_type, REPEATED}}, FN_BYTE_LIKE_ANY}},
         FunctionOptions()
             .set_supports_safe_error_mode(false)
@@ -1884,11 +1931,12 @@ void GetBooleanFunctions(TypeFactory* type_factory,
             .set_supported_signatures_callback(&EmptySupportedSignatures)
             .set_get_sql_callback(&LikeAnyFunctionSQL));
 
-    InsertSimpleFunction(
+    InsertFunction(
         functions, options, "$like_all", SCALAR,
         {{bool_type,
           {string_type, {string_type, REPEATED}},
-          FN_STRING_LIKE_ALL},
+          FN_STRING_LIKE_ALL,
+          FunctionSignatureOptions().set_uses_operation_collation()},
          {bool_type, {byte_type, {byte_type, REPEATED}}, FN_BYTE_LIKE_ALL}},
         FunctionOptions()
             .set_supports_safe_error_mode(false)
@@ -1901,11 +1949,14 @@ void GetBooleanFunctions(TypeFactory* type_factory,
             .set_get_sql_callback(&LikeAllFunctionSQL));
 
     // Supports both LIKE ANY and LIKE SOME arrays.
-    InsertSimpleFunction(
+    InsertFunction(
         functions, options, "$like_any_array", SCALAR,
         {{bool_type,
-          {string_type, array_string_type},
-          FN_STRING_ARRAY_LIKE_ANY},
+          {string_type,
+           {array_string_type, FunctionArgumentTypeOptions()
+                                   .set_uses_array_element_for_collation()}},
+          FN_STRING_ARRAY_LIKE_ANY,
+          FunctionSignatureOptions().set_uses_operation_collation()},
          {bool_type, {byte_type, array_byte_type}, FN_BYTE_ARRAY_LIKE_ANY}},
         FunctionOptions()
             .set_supports_safe_error_mode(false)
@@ -1920,11 +1971,14 @@ void GetBooleanFunctions(TypeFactory* type_factory,
             .set_supported_signatures_callback(&EmptySupportedSignatures)
             .set_get_sql_callback(&LikeAnyArrayFunctionSQL));
 
-    InsertSimpleFunction(
+    InsertFunction(
         functions, options, "$like_all_array", SCALAR,
         {{bool_type,
-          {string_type, array_string_type},
-          FN_STRING_ARRAY_LIKE_ALL},
+          {string_type,
+           {array_string_type, FunctionArgumentTypeOptions()
+                                   .set_uses_array_element_for_collation()}},
+          FN_STRING_ARRAY_LIKE_ALL,
+          FunctionSignatureOptions().set_uses_operation_collation()},
          {bool_type, {byte_type, array_byte_type}, FN_BYTE_ARRAY_LIKE_ALL}},
         FunctionOptions()
             .set_supports_safe_error_mode(false)
@@ -1942,9 +1996,10 @@ void GetBooleanFunctions(TypeFactory* type_factory,
 
   // TODO: Do we want to support IN for non-compatible integers, i.e.,
   // '<uint64col> IN (<int32col>, <int64col>)'?
-  InsertSimpleFunction(
+  InsertFunction(
       functions, options, "$in", SCALAR,
-      {{bool_type, {ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1, REPEATED}}, FN_IN}},
+      {{bool_type, {ARG_TYPE_ANY_1, {ARG_TYPE_ANY_1, REPEATED}}, FN_IN,
+        FunctionSignatureOptions().set_uses_operation_collation()}},
       FunctionOptions()
           .set_supports_safe_error_mode(false)
           .set_post_resolution_argument_constraint(
@@ -1955,9 +2010,14 @@ void GetBooleanFunctions(TypeFactory* type_factory,
 
   // TODO: Do we want to support:
   //   '<uint64col>' IN UNNEST(<int64_array>)'?
-  InsertSimpleFunction(
+  InsertFunction(
       functions, options, "$in_array", SCALAR,
-      {{bool_type, {ARG_TYPE_ANY_1, ARG_ARRAY_TYPE_ANY_1}, FN_IN_ARRAY}},
+      {{bool_type,
+        {ARG_TYPE_ANY_1,
+         {ARG_ARRAY_TYPE_ANY_1, FunctionArgumentTypeOptions()
+                                    .set_uses_array_element_for_collation()}},
+        FN_IN_ARRAY,
+        FunctionSignatureOptions().set_uses_operation_collation(true)}},
       FunctionOptions()
           .set_supports_safe_error_mode(false)
           .set_pre_resolution_argument_constraint(

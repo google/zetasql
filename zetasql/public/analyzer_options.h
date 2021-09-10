@@ -421,41 +421,18 @@ class AnalyzerOptions {
   }
   StatementContext statement_context() const { return statement_context_; }
 
-  // Below are options related to whether and how parse locations are recorded
-  // in the Resolved AST. The recorded parse locations can then be obtained via
-  // ResolvedNode::GetParseLocationRangeOrNULL(). Currently, only some types of
-  // nodes have parse locations. Parse locations may be added for more nodes
-  // over time.
-
-  // Controls which parse location is recorded to a GenericFunctionCallBase
-  // node or a ResolvedTVFScan node.
-  // - FUNCTION_NAME: the parse location only covers the function name.
-  // - FUNCTION_CALL: the parse location covers the entire call, including name,
-  //                  parentheses and arguments.
-  enum FunctionCallParseLocationType {
-    FUNCTION_NAME,
-    FUNCTION_CALL
-  };
-  // Options for parse location recording.
-  struct ParseLocationOptions {
-    // If true, parse locations will be recorded in the Resolved AST.
-    bool record_parse_locations = false;
-    // What location will be set to GenericFunctionCallBase nodes and
-    // ResolvedTVFScan nodes.
-    FunctionCallParseLocationType function_call_record_type = FUNCTION_NAME;
-  };
-
-  void set_parse_location_options(
-      const ParseLocationOptions& parse_location_options) {
-    parse_location_options_ = parse_location_options;
+  void set_parse_location_record_type(
+      ParseLocationRecordType parse_location_record_type) {
+    parse_location_record_type_ = parse_location_record_type;
   }
-  const ParseLocationOptions& parse_location_options() const {
-    return parse_location_options_;
+  const ParseLocationRecordType& parse_location_record_type() const {
+    return parse_location_record_type_;
   }
   // Set this to true to record parse locations in resolved AST nodes,
-  ABSL_DEPRECATED("Use set_parse_location_options() instead")
+  ABSL_DEPRECATED("Use set_parse_location_record_type() instead")
   void set_record_parse_locations(bool value) {
-    parse_location_options_.record_parse_locations = value;
+    parse_location_record_type_ = (value ? PARSE_LOCATION_RECORD_CODE_SEARCH
+                                         : PARSE_LOCATION_RECORD_NONE);
   }
 
   void set_create_new_column_for_each_projected_output(bool value) {
@@ -609,9 +586,10 @@ class AnalyzerOptions {
   // in a module.  See (broken link) for details.
   StatementContext statement_context_ = CONTEXT_DEFAULT;
 
-  // Options that control whether and how parse locations are recorded in
+  // Option that controls whether and how parse locations are recorded in
   // ResolvedNodes.
-  ParseLocationOptions parse_location_options_;
+  ParseLocationRecordType parse_location_record_type_ =
+      PARSE_LOCATION_RECORD_NONE;
 
   // If set to true, creates a new column for each output produced by each
   // ResolvedProjectScan. This means that each entry in the column_list will

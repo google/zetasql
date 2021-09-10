@@ -18,23 +18,36 @@
 
 #include <algorithm>
 #include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 
+#include "zetasql/base/logging.h"
 #include "zetasql/analyzer/analyzer_impl.h"
+#include "zetasql/analyzer/rewriters/rewriter_interface.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function.pb.h"
 #include "zetasql/public/multi_catalog.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/rewrite_utils.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -127,7 +140,7 @@ absl::Status ColumnRefReplacer::VisitResolvedColumnRef(
 
 // Replaces ColumnRefs in 'node' according to 'column_ref_map' based on column
 // id.
-zetasql_base::StatusOr<std::unique_ptr<ResolvedExpr>> ReplaceColumnRefs(
+absl::StatusOr<std::unique_ptr<ResolvedExpr>> ReplaceColumnRefs(
     const ResolvedExpr* node,
     absl::flat_hash_map<int, const ResolvedColumnRef*>& column_ref_map) {
   ColumnRefReplacer column_map_replacer(column_ref_map);
@@ -196,7 +209,7 @@ class ExpressionSubstitutor {
                         absl::Span<const Rewriter* const> rewriters,
                         Catalog& catalog, TypeFactory& type_factory);
 
-  zetasql_base::StatusOr<std::unique_ptr<ResolvedExpr>> Substitute(
+  absl::StatusOr<std::unique_ptr<ResolvedExpr>> Substitute(
       absl::string_view expression,
       const absl::flat_hash_map<std::string, const ResolvedExpr*>& variables,
       const absl::flat_hash_map<std::string, const ResolvedInlineLambda*>&
@@ -268,7 +281,7 @@ absl::Status ExpressionSubstitutor::SetupInvokeCatalog() {
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<std::unique_ptr<ResolvedExpr>> ExpressionSubstitutor::Substitute(
+absl::StatusOr<std::unique_ptr<ResolvedExpr>> ExpressionSubstitutor::Substitute(
     absl::string_view expression,
     const absl::flat_hash_map<std::string, const ResolvedExpr*>& variables,
     const absl::flat_hash_map<std::string, const ResolvedInlineLambda*>&
@@ -488,7 +501,7 @@ absl::Status ExpectAnalyzeSubstituteSuccess(
   return status_builder;
 }
 
-zetasql_base::StatusOr<std::unique_ptr<ResolvedExpr>> AnalyzeSubstitute(
+absl::StatusOr<std::unique_ptr<ResolvedExpr>> AnalyzeSubstitute(
     AnalyzerOptions options, absl::Span<const Rewriter* const> rewriters,
     Catalog& catalog, TypeFactory& type_factory, absl::string_view expression,
     const absl::flat_hash_map<std::string, const ResolvedExpr*>& variables,

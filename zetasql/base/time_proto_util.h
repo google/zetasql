@@ -18,8 +18,8 @@
 
 #include "google/protobuf/timestamp.pb.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/time/time.h"
-#include "zetasql/base/statusor.h"
 
 namespace zetasql_base {
 
@@ -39,7 +39,7 @@ absl::Status EncodeGoogleApiProto(absl::Time t,
 // Decodes the given protobuf and returns an absl::Time, or returns an error
 // status if the argument is invalid according to
 // (broken link)
-StatusOr<absl::Time> DecodeGoogleApiProto(
+absl::StatusOr<absl::Time> DecodeGoogleApiProto(
     const google::protobuf::Timestamp& proto);
 
 }  // namespace zetasql_base

@@ -20,7 +20,7 @@
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/error_location.pb.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/ret_check.h"
@@ -81,7 +81,7 @@ std::string DeprecationWarningsToDebugString(
                       (warnings.size() > 1 ? "s" : ""), ")");
 }
 
-zetasql_base::StatusOr<FreestandingDeprecationWarning> StatusToDeprecationWarning(
+absl::StatusOr<FreestandingDeprecationWarning> StatusToDeprecationWarning(
     const absl::Status& from_status, absl::string_view sql) {
   ZETASQL_RET_CHECK(absl::IsInvalidArgument(from_status))
       << "Deprecation statuses must have code INVALID_ARGUMENT";
@@ -114,7 +114,7 @@ zetasql_base::StatusOr<FreestandingDeprecationWarning> StatusToDeprecationWarnin
   return warning;
 }
 
-zetasql_base::StatusOr<std::vector<FreestandingDeprecationWarning>>
+absl::StatusOr<std::vector<FreestandingDeprecationWarning>>
 StatusesToDeprecationWarnings(const std::vector<absl::Status>& from_statuses,
                               absl::string_view sql) {
   std::vector<FreestandingDeprecationWarning> warnings;

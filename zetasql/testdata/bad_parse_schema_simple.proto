@@ -16,7 +16,7 @@
 
 syntax = "proto2";
 
-package zetasql_test;
+package zetasql_test__;
 
 
 option java_package = "com.google.zetasqltest";

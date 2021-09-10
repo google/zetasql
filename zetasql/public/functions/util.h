@@ -58,6 +58,10 @@ template <>
 struct ArithmeticType<double> {
   static constexpr char kName[] = "double";
 };
+template <>
+struct ArithmeticType<long double> {
+  static constexpr char kName[] = "long double";
+};
 
 // Error message assembly is defined out-of-line to extra avoid overhead in the
 // common case where there is no overflow.
@@ -93,12 +97,17 @@ extern template std::string DivisionByZeroMessage<uint64_t>(uint64_t in1,
 extern template std::string DivisionByZeroMessage<double>(double in1,
                                                           double in2);
 
-// Updates `status` with `msg` and force code to `OUT_OF_RANGE`.
+// Updates `status` with `msg` and force code to kOutOfRange.
 // Additionally, coerces msg to be valid UTF-8 by replacing any
 // ill-formed subsequences with the Unicode REPLACEMENT CHARACTER (U+FFFD).
 // Does nothing if `status` == `nullptr` or `!status->ok()`
 // Returns false for all inputs (for convenience).
 bool UpdateError(absl::Status* status, absl::string_view msg);
+
+// Returns a Status with `msg` and with a code of kOutOfRange.
+// Additionally, coerces msg to be valid UTF-8 by replacing any
+// ill-formed subsequences with the Unicode REPLACEMENT CHARACTER (U+FFFD).
+absl::Status CreateFunctionError(absl::string_view msg);
 
 // Returns an ok status if `position` and `occurrence` are valid 1-based indices
 // else returns an error.

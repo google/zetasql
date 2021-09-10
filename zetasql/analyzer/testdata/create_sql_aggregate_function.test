@@ -688,15 +688,15 @@ CreateFunctionStmt
 --
 ALTERNATION GROUP: string
 --
-ERROR: Function declared to return STRING but the function body produces incompatible type INT64 [at 2:9]
-RETURNS string
-        ^
+ERROR: Function declared to return STRING but the function body produces incompatible type INT64 [at 3:5]
+as (count(*))
+    ^
 --
 ALTERNATION GROUP: int32
 --
-ERROR: Function declared to return INT32 but the function body produces incompatible type INT64 [at 2:9]
-RETURNS int32
-        ^
+ERROR: Function declared to return INT32 but the function body produces incompatible type INT64 [at 3:5]
+as (count(*))
+    ^
 ==
 
 # This shows that we can pass a NOT AGGREGATE argument on as a

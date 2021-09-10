@@ -64,8 +64,11 @@ std::string ToPrettyOutputStyle(const zetasql::Value& result,
 std::string OutputPrettyStyleQueryResult(
     const zetasql::Value& result, const ResolvedStatement* resolved_stmt);
 
-// Outputs the result of a standalone expression using pretty-style boxes.
-std::string OutputPrettyStyleExpressionResult(const zetasql::Value& result);
+// Outputs the result of a standalone expression.  If `include_box` is true
+// surrounds the result with a pretty-style boxes.
+std::string OutputPrettyStyleExpressionResult(const zetasql::Value& result,
+                                              bool include_box = true);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_TOOLS_EXECUTE_QUERY_OUTPUT_QUERY_RESULT_H_

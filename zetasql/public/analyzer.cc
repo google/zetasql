@@ -46,7 +46,7 @@
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
@@ -547,7 +547,7 @@ absl::Status ExtractTableNamesFromASTScript(const ASTScript& ast_script,
       options.error_message_mode(), sql, status);
 }
 
-zetasql_base::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
+absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
     const std::unique_ptr<const AnalyzerOutput>& analyzer_output,
     const AnalyzerOptions& analyzer_options, Catalog* catalog,
     TypeFactory* type_factory) {

@@ -1,10 +1,10 @@
-# These tests run with a whitelist and expected types for hints and options.
+# These tests run with a allowlist and expected types for hints and options.
 # The specification is in GetAllowedHintsAndOptions() in run_analyzer_test.cc.
 #
 # Hints with qualifier "qual" are intended for this engine, and others should
 # be ignored.  We also enforce that only known hints are allowed unqualified.
 
-[default use_hints_whitelist]
+[default use_hints_allowlist]
 
 select @{ bad_hint=123 } 1
 --
@@ -251,10 +251,10 @@ QueryStmt
   +-ProjectScan
     +-column_list=[$query.$col1#1]
     +-hint_list=
-    | +-enum_hint := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1)
-    | +-enum_hint := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1)
-    | +-enum_hint := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM2)
-    | +-enum_hint := Literal(type=ENUM<zetasql_test.TestEnum>, value=NULL)
+    | +-enum_hint := Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1)
+    | +-enum_hint := Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1)
+    | +-enum_hint := Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM2)
+    | +-enum_hint := Literal(type=ENUM<zetasql_test__.TestEnum>, value=NULL)
     +-input_scan=
       +-ProjectScan
         +-column_list=[$query.$col1#1]
@@ -274,7 +274,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=[$query.$col1#1]
     +-hint_list=
-    | +-enum_hint := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM2)
+    | +-enum_hint := Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM2)
     +-input_scan=
       +-ProjectScan
         +-column_list=[$query.$col1#1]
@@ -302,14 +302,14 @@ select @{ enum_hint=coalesce(TESTENUM2) } 1
 
 select @{ enum_hint=177 } 1
 --
-ERROR: Could not cast literal 177 to type ENUM<zetasql_test.TestEnum> [at 1:21]
+ERROR: Could not cast literal 177 to type ENUM<zetasql_test__.TestEnum> [at 1:21]
 select @{ enum_hint=177 } 1
                     ^
 ==
 
 select @{ enum_hint='bad value' } 1
 --
-ERROR: Could not cast literal "bad value" to type ENUM<zetasql_test.TestEnum> [at 1:21]
+ERROR: Could not cast literal "bad value" to type ENUM<zetasql_test__.TestEnum> [at 1:21]
 select @{ enum_hint='bad value' } 1
                     ^
 ==
@@ -317,7 +317,7 @@ select @{ enum_hint='bad value' } 1
 # Enum values are case sensitive.
 select @{ ENUM_hint='TestEnum2' } 1
 --
-ERROR: Could not cast literal "TestEnum2" to type ENUM<zetasql_test.TestEnum> [at 1:21]
+ERROR: Could not cast literal "TestEnum2" to type ENUM<zetasql_test__.TestEnum> [at 1:21]
 select @{ ENUM_hint='TestEnum2' } 1
                     ^
 ==
@@ -336,10 +336,10 @@ QueryStmt
     +-hint_list=
     | +-int64_hint := Literal(type=INT64, value=NULL)
     | +-int32_hint := Literal(type=INT32, value=NULL)
-    | +-enum_hint := Literal(type=ENUM<zetasql_test.TestEnum>, value=NULL)
-    | +-proto_hint := Literal(type=PROTO<zetasql_test.TestExtraPB>, value=NULL)
-    | +-struct_hint := Literal(type=STRUCT<a INT32, b ENUM<zetasql_test.TestEnum>>, value=NULL)
-    | +-enum_array_hint := Literal(type=ARRAY<ENUM<zetasql_test.TestEnum>>, value=NULL)
+    | +-enum_hint := Literal(type=ENUM<zetasql_test__.TestEnum>, value=NULL)
+    | +-proto_hint := Literal(type=PROTO<zetasql_test__.TestExtraPB>, value=NULL)
+    | +-struct_hint := Literal(type=STRUCT<a INT32, b ENUM<zetasql_test__.TestEnum>>, value=NULL)
+    | +-enum_array_hint := Literal(type=ARRAY<ENUM<zetasql_test__.TestEnum>>, value=NULL)
     | +-untyped_hint := Literal(type=INT64, value=NULL)
     +-input_scan=
       +-ProjectScan
@@ -362,10 +362,10 @@ QueryStmt
   +-ProjectScan
     +-column_list=[$query.$col1#1]
     +-hint_list=
-    | +-enum_hint := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM2)
-    | +-proto_hint := Literal(type=PROTO<zetasql_test.TestExtraPB>, value={int32_val2: 5})
-    | +-proto_hint := Literal(type=PROTO<zetasql_test.TestExtraPB>, value={})
-    | +-struct_hint := Literal(type=STRUCT<a INT32, b ENUM<zetasql_test.TestEnum>>, value={a:17, b:TESTENUM1})
+    | +-enum_hint := Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM2)
+    | +-proto_hint := Literal(type=PROTO<zetasql_test__.TestExtraPB>, value={int32_val2: 5})
+    | +-proto_hint := Literal(type=PROTO<zetasql_test__.TestExtraPB>, value={})
+    | +-struct_hint := Literal(type=STRUCT<a INT32, b ENUM<zetasql_test__.TestEnum>>, value={a:17, b:TESTENUM1})
     +-input_scan=
       +-ProjectScan
         +-column_list=[$query.$col1#1]
@@ -381,13 +381,13 @@ select @{ enum_array_hint={{[1,2]|['TESTENUM1']|[]}} } 1
 --
 ALTERNATION GROUP: [1,2]
 --
-ERROR: Hint enum_array_hint value has type ARRAY<INT64> which cannot be coerced to expected type ARRAY<zetasql_test.TestEnum> [at 1:27]
+ERROR: Hint enum_array_hint value has type ARRAY<INT64> which cannot be coerced to expected type ARRAY<zetasql_test__.TestEnum> [at 1:27]
 select @{ enum_array_hint=[1,2] } 1
                           ^
 --
 ALTERNATION GROUP: ['TESTENUM1']
 --
-ERROR: Hint enum_array_hint value has type ARRAY<STRING> which cannot be coerced to expected type ARRAY<zetasql_test.TestEnum> [at 1:27]
+ERROR: Hint enum_array_hint value has type ARRAY<STRING> which cannot be coerced to expected type ARRAY<zetasql_test__.TestEnum> [at 1:27]
 select @{ enum_array_hint=['TESTENUM1'] } 1
                           ^
 --
@@ -400,7 +400,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=[$query.$col1#1]
     +-hint_list=
-    | +-enum_array_hint := Literal(type=ARRAY<ENUM<zetasql_test.TestEnum>>, value=[])
+    | +-enum_array_hint := Literal(type=ARRAY<ENUM<zetasql_test__.TestEnum>>, value=[])
     +-input_scan=
       +-ProjectScan
         +-column_list=[$query.$col1#1]
@@ -412,7 +412,7 @@ QueryStmt
 
 # This works with an explicitly typed hint value, but unparsing won't
 # work in that case.
-select @{ enum_array_hint=array<zetasql_test.TestEnum>[1,2] } 1
+select @{ enum_array_hint=array<zetasql_test__.TestEnum>[1,2] } 1
 --
 QueryStmt
 +-output_column_list=
@@ -421,7 +421,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=[$query.$col1#1]
     +-hint_list=
-    | +-enum_array_hint := Literal(type=ARRAY<ENUM<zetasql_test.TestEnum>>, value=[TESTENUM1, TESTENUM2])
+    | +-enum_array_hint := Literal(type=ARRAY<ENUM<zetasql_test__.TestEnum>>, value=[TESTENUM1, TESTENUM2], has_explicit_type=TRUE)
     +-input_scan=
       +-ProjectScan
         +-column_list=[$query.$col1#1]
@@ -438,7 +438,7 @@ as select 1 x
 ExportDataStmt
 +-option_list=
 | +-int32_option := Literal(type=INT32, value=123)
-| +-STRUct_option := Literal(type=STRUCT<a INT32, b ENUM<zetasql_test.TestEnum>>, value={a:1, b:TESTENUM1})
+| +-STRUct_option := Literal(type=STRUCT<a INT32, b ENUM<zetasql_test__.TestEnum>>, value={a:1, b:TESTENUM1})
 +-output_column_list=
 | +-$create_as.x#1 AS x [INT64]
 +-query=
@@ -457,7 +457,7 @@ as select 1 x;
 CreateTableAsSelectStmt
 +-name_path=foo
 +-option_list=
-| +-STRUct_option := Literal(type=STRUCT<a INT32, b ENUM<zetasql_test.TestEnum>>, value={a:1, b:TESTENUM1})
+| +-STRUct_option := Literal(type=STRUCT<a INT32, b ENUM<zetasql_test__.TestEnum>>, value={a:1, b:TESTENUM1})
 +-column_definition_list=
 | +-ColumnDefinition(name="x", type=INT64, column=foo.x#2)
 +-output_column_list=
@@ -474,13 +474,13 @@ CreateTableAsSelectStmt
 # More interesting STRUCT option syntax.
 CREATE TABLE foo
 OPTIONS(
-    struct_option = struct<a int32, b zetasql_test.TestEnum>(2, "TESTENUM1"))
+    struct_option = struct<a int32, b zetasql_test__.TestEnum>(2, "TESTENUM1"))
 as select 1 x;
 --
 CreateTableAsSelectStmt
 +-name_path=foo
 +-option_list=
-| +-struct_option := Literal(type=STRUCT<a INT32, b ENUM<zetasql_test.TestEnum>>, value={a:2, b:TESTENUM1})
+| +-struct_option := Literal(type=STRUCT<a INT32, b ENUM<zetasql_test__.TestEnum>>, value={a:2, b:TESTENUM1}, has_explicit_type=TRUE)
 +-column_definition_list=
 | +-ColumnDefinition(name="x", type=INT64, column=foo.x#2)
 +-output_column_list=
@@ -578,7 +578,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-hint_list=
     | +-string_hint := Parameter(type=STRING, name="test_param_string")
-    | +-enum_hint := Parameter(type=ENUM<zetasql_test.TestEnum>, name="test_param_enum")
+    | +-enum_hint := Parameter(type=ENUM<zetasql_test__.TestEnum>, name="test_param_enum")
     | +-int32_hint := Parameter(type=INT32, name="test_param_int32")
     +-input_scan=
       +-ProjectScan
@@ -634,13 +634,13 @@ QueryStmt
     | | +-Cast(STRING -> DATE)
     | |   +-Parameter(type=STRING, name="test_param_string")
     | +-enum_hint :=
-    | | +-Cast(STRING -> ENUM<zetasql_test.TestEnum>)
+    | | +-Cast(STRING -> ENUM<zetasql_test__.TestEnum>)
     | |   +-Parameter(type=STRING, name="test_param_string")
     | +-enum_hint :=
-    | | +-Cast(INT32 -> ENUM<zetasql_test.TestEnum>)
+    | | +-Cast(INT32 -> ENUM<zetasql_test__.TestEnum>)
     | |   +-Parameter(type=INT32, name="test_param_int32")
     | +-proto_hint :=
-    |   +-Cast(STRING -> PROTO<zetasql_test.TestExtraPB>)
+    |   +-Cast(STRING -> PROTO<zetasql_test__.TestExtraPB>)
     |     +-Parameter(type=STRING, name="test_param_string")
     +-input_scan=
       +-ProjectScan
@@ -674,8 +674,8 @@ as select 1 x
 --
 ExportDataStmt
 +-option_list=
-| +-enum_option := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1)
-| +-proto_option := Literal(type=PROTO<zetasql_test.TestExtraPB>, value={int32_val2: 5})
+| +-enum_option := Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1)
+| +-proto_option := Literal(type=PROTO<zetasql_test__.TestExtraPB>, value={int32_val2: 5})
 +-output_column_list=
 | +-$create_as.x#1 AS x [INT64]
 +-query=
@@ -709,8 +709,8 @@ as select 1 x
 ExportDataStmt
 +-option_list=
 | +-int32_option := Literal(type=INT32, value=NULL)
-| +-enum_option := Literal(type=ENUM<zetasql_test.TestEnum>, value=NULL)
-| +-enum_array_option := Literal(type=ARRAY<ENUM<zetasql_test.TestEnum>>, value=NULL)
+| +-enum_option := Literal(type=ENUM<zetasql_test__.TestEnum>, value=NULL)
+| +-enum_array_option := Literal(type=ARRAY<ENUM<zetasql_test__.TestEnum>>, value=NULL)
 +-output_column_list=
 | +-$create_as.x#1 AS x [INT64]
 +-query=
@@ -728,8 +728,8 @@ as select 1 x
 ExportDataStmt
 +-option_list=
 | +-int32_option := Literal(type=INT32, value=NULL)
-| +-enum_option := Literal(type=ENUM<zetasql_test.TestEnum>, value=NULL)
-| +-enum_array_option := Literal(type=ARRAY<ENUM<zetasql_test.TestEnum>>, value=NULL)
+| +-enum_option := Literal(type=ENUM<zetasql_test__.TestEnum>, value=NULL)
+| +-enum_array_option := Literal(type=ARRAY<ENUM<zetasql_test__.TestEnum>>, value=NULL)
 +-output_column_list=
 | +-$create_as.x#1 AS x [INT64]
 +-query=

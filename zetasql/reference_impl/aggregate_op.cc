@@ -34,12 +34,13 @@
 #include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include <cstdint>
+#include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
@@ -53,7 +54,6 @@
 
 using zetasql::types::EmptyStructType;
 using zetasql::values::Bool;
-using zetasql::values::Int64;
 
 namespace zetasql {
 
@@ -61,7 +61,7 @@ namespace zetasql {
 // AggregateArg
 // -------------------------------------------------------
 
-zetasql_base::StatusOr<std::unique_ptr<AggregateArg>> AggregateArg::Create(
+absl::StatusOr<std::unique_ptr<AggregateArg>> AggregateArg::Create(
     const VariableId& variable,
     std::unique_ptr<const AggregateFunctionBody> function,
     std::vector<std::unique_ptr<ValueExpr>> arguments, Distinctness distinct,
@@ -69,23 +69,34 @@ zetasql_base::StatusOr<std::unique_ptr<AggregateArg>> AggregateArg::Create(
     const HavingModifierKind having_modifier_kind,
     std::vector<std::unique_ptr<KeyArg>> order_by_keys,
     std::unique_ptr<ValueExpr> limit,
+    std::unique_ptr<RelationalOp> group_rows_subquery,
     ResolvedFunctionCallBase::ErrorMode error_mode,
-    std::unique_ptr<ValueExpr> filter) {
+    std::unique_ptr<ValueExpr> filter,
+    const std::vector<ResolvedCollation>& collation_list) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AggregateFunctionCallExpr> aggregate_expr,
                    AggregateFunctionCallExpr::Create(std::move(function),
                                                      std::move(arguments)));
-
   return absl::WrapUnique(new AggregateArg(
       variable, std::move(aggregate_expr), distinct, std::move(having_expr),
       having_modifier_kind, std::move(order_by_keys), std::move(limit),
-      error_mode, std::move(filter)));
+      std::move(group_rows_subquery), error_mode, std::move(filter),
+      collation_list));
 }
 
 absl::Status AggregateArg::SetSchemasForEvaluation(
     const TupleSchema& group_schema,
     absl::Span<const TupleSchema* const> params_schemas) {
-  const std::vector<const TupleSchema*> params_and_group_schemas =
+  std::vector<const TupleSchema*> params_and_group_schemas =
       ConcatSpans(params_schemas, {&group_schema});
+  std::unique_ptr<TupleSchema> group_rows_schema;
+  if (group_rows_subquery_ != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(
+        group_rows_subquery_->SetSchemasForEvaluation(params_schemas));
+    group_rows_schema = group_rows_subquery_->CreateOutputSchema();
+    params_and_group_schemas =
+        ConcatSpans(params_schemas, {group_rows_schema.get()});
+  }
+
   if (having_modifier_kind() != AggregateArg::kHavingNone &&
       having_expr() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(mutable_having_expr()->SetSchemasForEvaluation(
@@ -133,7 +144,7 @@ class IntermediateAggregateAccumulator {
   virtual bool Accumulate(const TupleData& input_row, const Value& input_value,
                           bool* stop_accumulation, absl::Status* status) = 0;
 
-  virtual zetasql_base::StatusOr<Value> GetFinalResult(
+  virtual absl::StatusOr<Value> GetFinalResult(
       bool inputs_in_defined_order) = 0;
 };
 
@@ -168,10 +179,10 @@ class AggregateAccumulatorAdaptor : public IntermediateAggregateAccumulator {
     return true;
   }
 
-  zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
+  absl::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
     if (safe_result_.is_valid()) return safe_result_;
 
-    const zetasql_base::StatusOr<Value> status_or_value =
+    const absl::StatusOr<Value> status_or_value =
         accumulator_->GetFinalResult(inputs_in_defined_order);
     if (!status_or_value.ok()) {
       const absl::Status& error = status_or_value.status();
@@ -227,7 +238,7 @@ class LimitAccumulator : public IntermediateAggregateAccumulator {
     return true;
   }
 
-  zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
+  absl::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
     return accumulator_->GetFinalResult(inputs_in_defined_order);
   }
 
@@ -274,7 +285,7 @@ class OrderByAccumulator : public IntermediateAggregateAccumulator {
     return inputs_.PushBack(std::move(input), status);
   }
 
-  zetasql_base::StatusOr<Value> GetFinalResult(
+  absl::StatusOr<Value> GetFinalResult(
       bool /* inputs_in_defined_order */) override {
     ZETASQL_ASSIGN_OR_RETURN(
         auto tuple_comparator,
@@ -355,7 +366,7 @@ class TopNAccumulator : public IntermediateAggregateAccumulator {
     return true;
   }
 
-  zetasql_base::StatusOr<Value> GetFinalResult(
+  absl::StatusOr<Value> GetFinalResult(
       bool /* inputs_in_defined_order */) override {
     bool stop_accumulation;
     absl::Status status;
@@ -389,14 +400,37 @@ class TopNAccumulator : public IntermediateAggregateAccumulator {
   std::unique_ptr<IntermediateAggregateAccumulator> accumulator_;
 };
 
+namespace {
+
+// TODO: Extend to support Array and Struct later.
+// Returns Bytes value which represents the sort key for input <value> with
+// given <collator>. If the input value is null, NullBytes() is returned.
+absl::StatusOr<Value> GetValueSortKey(const Value& value,
+                                      const ZetaSqlCollator& collator) {
+  ZETASQL_RET_CHECK(value.type()->IsString())
+      << "Cannot get sort key for value in non-String type: "
+      << value.type()->DebugString();
+
+  if (value.is_null()) {
+    return values::NullBytes();
+  }
+  absl::Cord sort_key;
+  ZETASQL_RETURN_IF_ERROR(collator.GetSortKeyUtf8(value.string_value(), &sort_key));
+  return values::Bytes(sort_key);
+}
+
+}  // namespace
+
 // Accumulator that only passes through distinct values.
 class DistinctAccumulator : public IntermediateAggregateAccumulator {
  public:
   DistinctAccumulator(
       std::unique_ptr<IntermediateAggregateAccumulator> accumulator,
-      EvaluationContext* context)
+      EvaluationContext* context,
+      std::unique_ptr<const ZetaSqlCollator> collator)
       : distinct_values_(context->memory_accountant()),
-        accumulator_(std::move(accumulator)) {}
+        accumulator_(std::move(accumulator)),
+        collator_(std::move(collator)) {}
 
   absl::Status Reset() override {
     distinct_values_.Clear();
@@ -411,7 +445,21 @@ class DistinctAccumulator : public IntermediateAggregateAccumulator {
     *stop_accumulation = false;
 
     bool distinct;
-    if (!distinct_values_.Insert(value, &distinct, status)) {
+
+    Value value_to_insert;
+    if (collator_ == nullptr) {
+      value_to_insert = value;
+    } else {
+      absl::StatusOr<Value> collated_distinct_key =
+          GetValueSortKey(value, *(collator_));
+      if (!collated_distinct_key.ok()) {
+        *status = collated_distinct_key.status();
+        return false;
+      }
+      value_to_insert = collated_distinct_key.value();
+    }
+
+    if (!distinct_values_.Insert(value_to_insert, &distinct, status)) {
       return false;
     }
 
@@ -424,13 +472,14 @@ class DistinctAccumulator : public IntermediateAggregateAccumulator {
     return true;
   }
 
-  zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
+  absl::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
     return accumulator_->GetFinalResult(inputs_in_defined_order);
   }
 
  private:
   ValueHashSet distinct_values_;
   std::unique_ptr<IntermediateAggregateAccumulator> accumulator_;
+  const std::unique_ptr<const ZetaSqlCollator> collator_;
 };
 
 // Accumulator that discards NULL values.
@@ -471,7 +520,7 @@ class IgnoresNullAccumulator : public IntermediateAggregateAccumulator {
                                     status);
   }
 
-  zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
+  absl::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
     return accumulator_->GetFinalResult(inputs_in_defined_order);
   }
 
@@ -610,7 +659,7 @@ class HavingExtremalValueAccumulator : public IntermediateAggregateAccumulator {
                                     status);
   }
 
-  zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
+  absl::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
     return accumulator_->GetFinalResult(inputs_in_defined_order);
   }
 
@@ -660,7 +709,7 @@ class FilteredArgAccumulator : public IntermediateAggregateAccumulator {
                                     status);
   }
 
-  zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
+  absl::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
     return accumulator_->GetFinalResult(inputs_in_defined_order);
   }
 
@@ -677,6 +726,111 @@ class FilteredArgAccumulator : public IntermediateAggregateAccumulator {
   const ValueExpr* filter_;
 
   // EvaluationContext for evaluating the filter.
+  EvaluationContext* context_;
+};
+
+class WithGroupRowsAccumulator : public IntermediateAggregateAccumulator {
+ public:
+  WithGroupRowsAccumulator(
+      absl::Span<const TupleData* const> params,
+      const RelationalOp* group_rows_subquery,
+      std::vector<const ValueExpr*> agg_fn_input_fields,
+      const Type* agg_fn_input_type,
+      std::unique_ptr<IntermediateAggregateAccumulator> accumulator,
+      EvaluationContext* context)
+      : params_(params),
+        group_rows_subquery_(group_rows_subquery),
+        agg_fn_input_fields_(agg_fn_input_fields),
+        agg_fn_input_type_(agg_fn_input_type),
+        inputs_(context->memory_accountant()),
+        accumulator_(std::move(accumulator)),
+        context_(context) {
+  }
+
+  absl::Status Reset() override {
+    inputs_.Clear();
+    return accumulator_->Reset();
+  }
+
+  WithGroupRowsAccumulator(const WithGroupRowsAccumulator&) = delete;
+  WithGroupRowsAccumulator& operator=(const WithGroupRowsAccumulator&) = delete;
+
+  bool Accumulate(const TupleData& input_row, const Value& value,
+                  bool* stop_accumulation, absl::Status* status) override {
+    *stop_accumulation = false;
+
+    auto input = absl::make_unique<TupleData>(input_row);
+    return inputs_.PushBack(std::move(input), status);
+  }
+
+  absl::StatusOr<Value> GetFinalResult(
+      bool inputs_in_defined_order) override {
+    // Set inputs_ on context to make it available for GROUP_ROWS scan;
+    // Fetch all rows from the subquery, running accumulator_ through them;
+    // compute the argument expression values for the aggregate function
+    // (similar to what IntermediateAggregateAccumulatorAdaptor does).
+
+    context_->set_active_group_rows(&inputs_);
+    auto cleanup = absl::MakeCleanup([this]() {
+      context_->set_active_group_rows(nullptr);
+    });
+
+    // TODO: don't we need to pass different params_ here? params_
+    // seem to be for the aggregate function itself, not for the subquery, on
+    // the other hand the same params are passed to all aggregates. Reference:
+    // https://github.com/google/zetasql/blob/master/zetasql/reference_impl/aggregate_op.cc?l=1089&rcl=327634640
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TupleIterator> input_iter,
+                     group_rows_subquery_->CreateIterator(
+                         params_, /*num_extra_slots=*/0, context_));
+    absl::Status status;
+    while (true) {
+      const TupleData* next_input = input_iter->Next();
+      if (next_input == nullptr) {
+        ZETASQL_RETURN_IF_ERROR(input_iter->Status());
+        break;
+      }
+      std::vector<Value> values(agg_fn_input_fields_.size());
+      for (int i = 0; i < agg_fn_input_fields_.size(); ++i) {
+        const ValueExpr* value_expr = agg_fn_input_fields_[i];
+
+        std::shared_ptr<TupleSlot::SharedProtoState> shared_state;
+        VirtualTupleSlot slot(&values[i], &shared_state);
+
+        if (!value_expr->Eval(
+                ConcatSpans(absl::Span<const TupleData* const>(params_),
+                            {next_input}),
+                context_, &slot, &status)) {
+          return status;
+        }
+      }
+
+      Value value;
+      if (values.size() == 1) {
+        value = std::move(values[0]);
+      } else {
+        value = Value::UnsafeStruct(agg_fn_input_type_->AsStruct(),
+                                    std::move(values));
+      }
+      bool stop_accumulation;
+      if (!accumulator_->Accumulate(*next_input, value, &stop_accumulation,
+                                      &status)) {
+        return status;
+      }
+      if (stop_accumulation) {
+        break;
+      }
+    }
+
+    return accumulator_->GetFinalResult(inputs_in_defined_order);
+  }
+
+ private:
+  absl::Span<const TupleData* const> params_;
+  const RelationalOp* group_rows_subquery_;
+  std::vector<const ValueExpr*> agg_fn_input_fields_;
+  const Type* agg_fn_input_type_;
+  TupleDataDeque inputs_;
+  std::unique_ptr<IntermediateAggregateAccumulator> accumulator_;
   EvaluationContext* context_;
 };
 
@@ -729,7 +883,7 @@ class IntermediateAggregateAccumulatorAdaptor : public AggregateArgAccumulator {
                                     status);
   }
 
-  zetasql_base::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
+  absl::StatusOr<Value> GetFinalResult(bool inputs_in_defined_order) override {
     return accumulator_->GetFinalResult(inputs_in_defined_order);
   }
 
@@ -751,7 +905,9 @@ static absl::Status PopulateSlotsForKeysAndValues(
   for (const KeyArg* order_by_key : order_by_keys) {
     const absl::optional<int> slot_idx =
         schema.FindIndexForVariable(order_by_key->variable());
-    ZETASQL_RET_CHECK(slot_idx.has_value()) << order_by_key->DebugString();
+    ZETASQL_RET_CHECK(slot_idx.has_value()).EmitStackTrace()
+        << order_by_key->DebugString()
+        << " order_by_key->variable()=" << order_by_key->variable();
     slots_for_keys->push_back(slot_idx.value());
   }
   absl::flat_hash_set<int> slots_for_keys_set(slots_for_keys->begin(),
@@ -768,9 +924,40 @@ static absl::Status PopulateSlotsForKeysAndValues(
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<std::unique_ptr<AggregateArgAccumulator>>
+namespace {
+
+using CollatorList = std::vector<std::unique_ptr<const ZetaSqlCollator>>;
+
+absl::StatusOr<CollatorList> MakeCollatorList(
+    const std::vector<ResolvedCollation>& collation_list) {
+  CollatorList collator_list;
+
+  if (collation_list.empty()) {
+    return collator_list;
+  }
+
+  for (const ResolvedCollation& resolved_collation : collation_list) {
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ZetaSqlCollator> collator,
+                     GetCollatorFromResolvedCollation(resolved_collation));
+    collator_list.push_back(std::move(collator));
+  }
+
+  return std::move(collator_list);
+}
+
+}  // namespace
+
+absl::StatusOr<std::unique_ptr<AggregateArgAccumulator>>
 AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
                                 EvaluationContext* context) const {
+  // TODO: Modify this check to allow collation support for other
+  // types of aggregate functions in the fu.
+  if (!collation_list().empty() && distinct() != kDistinct) {
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
+           << "Collation is not supported for aggregate function without "
+              "DISTINCT: "
+           << DebugString();
+  }
   // Build the underlying AggregateAccumulator.
   std::vector<Value> args(parameter_list_size());
   for (int i = 0; i < parameter_list_size(); ++i) {
@@ -791,6 +978,12 @@ AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
           aggregate_function()->output_type(), error_mode_,
           std::move(underlying_accumulator));
 
+  const TupleSchema* agg_fn_input_schema = group_schema_.get();
+  std::unique_ptr<const TupleSchema> group_rows_schema;
+  if (group_rows_subquery_ != nullptr) {
+    group_rows_schema = group_rows_subquery_->CreateOutputSchema();
+    agg_fn_input_schema = group_rows_schema.get();
+  }
   // LIMIT support.
   bool consumed_order_by = false;
   if (limit() != nullptr) {
@@ -809,8 +1002,9 @@ AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
       // LimitAccumulator(OrderByAccumulator).
       std::vector<int> slots_for_keys;
       std::vector<int> slots_for_values;
-      ZETASQL_RETURN_IF_ERROR(PopulateSlotsForKeysAndValues(
-          *group_schema_, order_by_keys(), &slots_for_keys, &slots_for_values));
+      ZETASQL_RETURN_IF_ERROR(
+          PopulateSlotsForKeysAndValues(*agg_fn_input_schema, order_by_keys(),
+                                        &slots_for_keys, &slots_for_values));
       ZETASQL_ASSIGN_OR_RETURN(auto tuple_comparator,
                        TupleComparator::Create(order_by_keys(), slots_for_keys,
                                                params, context));
@@ -829,8 +1023,9 @@ AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
   if (!consumed_order_by && !order_by_keys().empty()) {
     std::vector<int> slots_for_keys;
     std::vector<int> slots_for_values;
-    ZETASQL_RETURN_IF_ERROR(PopulateSlotsForKeysAndValues(
-        *group_schema_, order_by_keys(), &slots_for_keys, &slots_for_values));
+    ZETASQL_RETURN_IF_ERROR(
+        PopulateSlotsForKeysAndValues(*agg_fn_input_schema, order_by_keys(),
+                                      &slots_for_keys, &slots_for_values));
 
     accumulator = absl::make_unique<OrderByAccumulator>(
         order_by_keys(), slots_for_keys, slots_for_values, params,
@@ -839,8 +1034,12 @@ AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
 
   // DISTINCT support.
   if (distinct()) {
-    accumulator =
-        absl::make_unique<DistinctAccumulator>(std::move(accumulator), context);
+    ZETASQL_ASSIGN_OR_RETURN(CollatorList collator_list,
+                     MakeCollatorList(collation_list()));
+    ZETASQL_RET_CHECK_LE(collator_list.size(), 1);
+    accumulator = absl::make_unique<DistinctAccumulator>(
+        std::move(accumulator), context,
+        collator_list.empty() ? nullptr : std::move(collator_list[0]));
   }
 
   // Support for aggregation functions that ignore NULLs.
@@ -865,16 +1064,29 @@ AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
   }
 
   // Adapt 'accumulator' to the AggregateArgAccumulator interface.
+  const Type* type = input_type();
   std::vector<const ValueExpr*> input_fields;
   input_fields.reserve(input_field_list_size());
   for (int i = 0; i < input_field_list_size(); ++i) {
     input_fields.push_back(input_field(i));
   }
+  if (group_rows_subquery_ != nullptr) {
+    // Create accumulator that knows the subquery and how to accumulate the
+    // aggregate function in the end. At iteration if would interact with
+    // GroupRowsOp.
+    accumulator = absl::make_unique<WithGroupRowsAccumulator>(
+        params, group_rows_subquery_.get(), std::move(input_fields), type,
+        std::move(accumulator), context);
+    type = EmptyStructType();
+    input_fields.clear();
+  }
+
+  // Adapt 'accumulator' to the AggregateArgAccumulator interface.
   return absl::make_unique<IntermediateAggregateAccumulatorAdaptor>(
-      params, input_fields, input_type(), std::move(accumulator), context);
+      params, input_fields, type, std::move(accumulator), context);
 }
 
-zetasql_base::StatusOr<Value> AggregateArg::EvalAgg(
+absl::StatusOr<Value> AggregateArg::EvalAgg(
     absl::Span<const TupleData* const> group,
     absl::Span<const TupleData* const> params,
     EvaluationContext* context) const {
@@ -890,7 +1102,7 @@ zetasql_base::StatusOr<Value> AggregateArg::EvalAgg(
     if (stop_aggregation) break;
   }
 
-  const zetasql_base::StatusOr<Value> status_or_result = accumulator->GetFinalResult(
+  const absl::StatusOr<Value> status_or_result = accumulator->GetFinalResult(
       /*inputs_in_defined_order=*/false);
   if (!status_or_result.ok()) {
     if (ShouldSuppressError(status_or_result.status(), error_mode_)) {
@@ -934,7 +1146,17 @@ std::string AggregateArg::DebugInternal(const std::string& indent,
       !ignores_null() ? " [ignores_null = false]" : "",
       filter_ != nullptr ? absl::StrCat(" FILTER ", filter_->DebugInternal(
                                                         /*indent=*/"", verbose))
-                         : "");
+                         : "",
+      !collation_list_.empty()
+          ? absl::StrCat(" ", ResolvedCollation::ToString(collation_list_))
+          : "");
+  if (group_rows_subquery_ != nullptr) {
+    std::string indent_child = indent + AggregateOp::kIndentSpace;
+    absl::StrAppend(&result, indent_child, AggregateOp::kIndentFork,
+                    "with_group_rows_subquery: ",
+                    group_rows_subquery_->DebugInternal(
+                        indent_child + AggregateOp::kIndentSpace, verbose));
+  }
   return result;
 }
 
@@ -950,15 +1172,17 @@ static std::vector<const KeyArg*> ReleaseAllOrderKeys(
   return ret;
 }
 
-AggregateArg::AggregateArg(const VariableId& variable,
-                           std::unique_ptr<AggregateFunctionCallExpr> function,
-                           Distinctness distinct,
-                           std::unique_ptr<ValueExpr> having_expr,
-                           const HavingModifierKind having_modifier_kind,
-                           std::vector<std::unique_ptr<KeyArg>> order_by_keys,
-                           std::unique_ptr<ValueExpr> limit,
-                           ResolvedFunctionCallBase::ErrorMode error_mode,
-                           std::unique_ptr<ValueExpr> filter)
+AggregateArg::AggregateArg(
+    const VariableId& variable,
+    std::unique_ptr<AggregateFunctionCallExpr> function, Distinctness distinct,
+    std::unique_ptr<ValueExpr> having_expr,
+    const HavingModifierKind having_modifier_kind,
+    std::vector<std::unique_ptr<KeyArg>> order_by_keys,
+    std::unique_ptr<ValueExpr> limit,
+    std::unique_ptr<RelationalOp> group_rows_subquery,
+    ResolvedFunctionCallBase::ErrorMode error_mode,
+    std::unique_ptr<ValueExpr> filter,
+    const std::vector<ResolvedCollation>& collation_list)
     : ExprArg(variable, std::move(function)),
       distinct_(distinct),
       having_expr_(std::move(having_expr)),
@@ -966,8 +1190,10 @@ AggregateArg::AggregateArg(const VariableId& variable,
       order_by_keys_(ReleaseAllOrderKeys(std::move(order_by_keys))),
       order_by_keys_deleter_(&order_by_keys_),
       limit_(std::move(limit)),
+      group_rows_subquery_(std::move(group_rows_subquery)),
       error_mode_(error_mode),
-      filter_(std::move(filter)) {}
+      filter_(std::move(filter)),
+      collation_list_(collation_list) {}
 
 const AggregateFunctionCallExpr* AggregateArg::aggregate_function() const {
   return static_cast<const AggregateFunctionCallExpr*>(value_expr());
@@ -1031,7 +1257,7 @@ std::string AggregateOp::GetIteratorDebugString(
                       ")");
 }
 
-zetasql_base::StatusOr<std::unique_ptr<AggregateOp>> AggregateOp::Create(
+absl::StatusOr<std::unique_ptr<AggregateOp>> AggregateOp::Create(
     std::vector<std::unique_ptr<KeyArg>> keys,
     std::vector<std::unique_ptr<AggregateArg>> aggregators,
     std::unique_ptr<RelationalOp> input) {
@@ -1131,7 +1357,7 @@ using AccumulatorList =
 class GroupValue {
  public:
   // Reserves bytes for 'key' with 'accountant' and returns a new GroupValue.
-  static zetasql_base::StatusOr<std::unique_ptr<GroupValue>> Create(
+  static absl::StatusOr<std::unique_ptr<GroupValue>> Create(
       std::unique_ptr<TupleData> key, MemoryAccountant* accountant) {
     const int64_t bytes_size = key->GetPhysicalByteSize();
     absl::Status status;
@@ -1172,15 +1398,37 @@ class GroupValue {
 
 }  // namespace
 
-zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
+absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
     absl::Span<const TupleData* const> params, int num_extra_slots,
     EvaluationContext* context) const {
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<TupleIterator> input_iter,
       input()->CreateIterator(params, /*num_extra_slots=*/0, context));
 
-  // The key is owned by the GroupValue.
+  // The key is owned by the <group_map_keys_memory> defined below.
   absl::flat_hash_map<TupleDataPtr, std::unique_ptr<GroupValue>> group_map;
+  std::vector<std::unique_ptr<TupleData>> group_map_keys_memory;
+
+  std::vector<std::unique_ptr<const ZetaSqlCollator>> collators;
+
+  // Prepare collators for each KeyArg.
+  for (const KeyArg* key : keys()) {
+    if (key->collation() == nullptr) {
+      collators.push_back(nullptr);
+      continue;
+    }
+    TupleSlot collation_slot;
+    absl::Status status;
+    if (!key->collation()->EvalSimple(params, context, &collation_slot,
+                                      &status)) {
+      return status;
+    }
+
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<const ZetaSqlCollator> collator,
+        GetCollatorFromResolvedCollationValue(collation_slot.value()));
+    collators.push_back(std::move(collator));
+  }
 
   absl::Status status;
   while (true) {
@@ -1194,6 +1442,11 @@ zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterat
     const std::vector<const TupleData*> params_and_input_tuple =
         ConcatSpans(params, {next_input});
     auto key_data = absl::make_unique<TupleData>(keys().size());
+    // If collator is present for <key_data[i]>, <collated_key_data[i]> is
+    // collation_key for value of <key_data[i]>. Otherwise,
+    // <collated_key_data[i]> is the same as <key_data[i]>.
+    auto collated_key_data = absl::make_unique<TupleData>(keys().size());
+
     for (int i = 0; i < keys().size(); ++i) {
       TupleSlot* slot = key_data->mutable_slot(i);
       const KeyArg* key = keys()[i];
@@ -1202,16 +1455,24 @@ zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterat
                                          &status)) {
         return status;
       }
+
+      Value* collated_slot_value =
+          collated_key_data->mutable_slot(i)->mutable_value();
+      if (collators[i] == nullptr) {
+        *collated_slot_value = slot->value();
+      } else {
+        ZETASQL_ASSIGN_OR_RETURN(*collated_slot_value,
+                         GetValueSortKey(slot->value(), *(collators[i])));
+      }
     }
 
     // Look up the value in 'group_to_accumulator_map', initializing a new one
     // if necessary.
     AccumulatorList* accumulators = nullptr;
     std::unique_ptr<GroupValue>* found_group_value =
-        zetasql_base::FindOrNull(group_map, TupleDataPtr(key_data.get()));
+        zetasql_base::FindOrNull(group_map, TupleDataPtr(collated_key_data.get()));
     if (found_group_value == nullptr) {
       // Create the new GroupValue.
-      const TupleData* key_data_ptr = key_data.get();
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<GroupValue> inserted_group_value,
                        GroupValue::Create(std::move(key_data),
                                           context->memory_accountant()));
@@ -1229,12 +1490,14 @@ zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterat
 
       // Insert the new GroupValue.
       ZETASQL_RET_CHECK(group_map
-                    .emplace(TupleDataPtr(key_data_ptr),
+                    .emplace(TupleDataPtr(collated_key_data.get()),
                              std::move(inserted_group_value))
                     .second);
+      group_map_keys_memory.push_back(std::move(collated_key_data));
     } else {
       accumulators = (*found_group_value)->mutable_accumulator_list();
       key_data.reset();
+      collated_key_data.reset();
     }
 
     // Accumulate.
@@ -1281,6 +1544,11 @@ zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterat
       return status;
     }
   }
+
+  // Clears <group_map_keys_memory> and <group_map> to reclaim the memory since
+  // they are not used anymore.
+  group_map_keys_memory.clear();
+  group_map.clear();
 
   if (tuples->IsEmpty()) {
     if (keys().empty()) {
@@ -1389,6 +1657,129 @@ const RelationalOp* AggregateOp::input() const {
 
 RelationalOp* AggregateOp::mutable_input() {
   return GetMutableArg(kInput)->mutable_node()->AsMutableRelationalOp();
+}
+
+//  static
+absl::StatusOr<std::unique_ptr<GroupRowsOp>> GroupRowsOp::Create(
+    std::vector<std::unique_ptr<ExprArg>> columns) {
+  return absl::WrapUnique(new GroupRowsOp(std::move(columns)));
+}
+
+GroupRowsOp::GroupRowsOp(std::vector<std::unique_ptr<ExprArg>> columns) {
+  SetArgs<ExprArg>(kColumn, std::move(columns));
+}
+
+absl::Span<const ExprArg* const> GroupRowsOp::columns() const {
+  return GetArgs<ExprArg>(kColumn);
+}
+
+absl::Span<ExprArg* const> GroupRowsOp::mutable_columns() {
+  return GetMutableArgs<ExprArg>(kColumn);
+}
+
+std::unique_ptr<TupleSchema> GroupRowsOp::CreateOutputSchema() const {
+  std::vector<VariableId> vars;
+  vars.reserve(columns().size());
+  for (const ExprArg* column : columns()) {
+    vars.push_back(column->variable());
+  }
+  return absl::make_unique<TupleSchema>(vars);
+}
+
+absl::Status GroupRowsOp::SetSchemasForEvaluation(
+    absl::Span<const TupleSchema* const> params_schemas) {
+  return absl::OkStatus();
+}
+
+std::string GroupRowsOp::DebugInternal(const std::string& indent,
+                                       bool verbose) const {
+  return absl::StrCat("GroupRowsOp(",
+                      ArgDebugString({"columns"}, {kN}, indent, verbose), ")");
+}
+
+//  static
+std::string GroupRowsOp::GetIteratorDebugString(
+    absl::string_view input_iter_debug_string) {
+  return absl::StrCat("GroupRowsTupleIterator(", input_iter_debug_string, ")");
+}
+
+std::string GroupRowsOp::IteratorDebugString() const {
+  return GetIteratorDebugString("<outer_from_clause>");
+}
+
+namespace {
+
+// Iterates over TupleDataDeque
+// Outputs a pre-computed list of tuples.
+class TupleDataDequeIterator : public TupleIterator {
+ public:
+  TupleDataDequeIterator(
+      const TupleDataDeque& tuples,
+      int num_extra_slots,
+      std::unique_ptr<TupleSchema> output_schema, EvaluationContext* context):
+        tuples_(tuples.GetTuplePtrs()),
+        output_schema_(std::move(output_schema)),
+        num_extra_slots_(num_extra_slots),
+        context_(context) {}
+
+  TupleDataDequeIterator(const TupleDataDequeIterator&) = delete;
+  TupleDataDequeIterator& operator=(const TupleDataDequeIterator&) = delete;
+
+  const TupleSchema& Schema() const override { return *output_schema_; }
+
+  TupleData* Next() override {
+    if (current_input_tuple_ >= tuples_.size()) return nullptr;
+    if (current_input_tuple_ %
+            absl::GetFlag(
+                FLAGS_zetasql_call_verify_not_aborted_rows_period) ==
+        0) {
+      absl::Status status = context_->VerifyNotAborted();
+      if (!status.ok()) {
+        status_ = status;
+        return nullptr;
+      }
+    }
+    const TupleData* input_tuple = tuples_[current_input_tuple_];
+    current_ = std::make_unique<TupleData>(input_tuple->slots());
+    current_->AddSlots(num_extra_slots_);
+    current_input_tuple_++;
+    return current_.get();
+  }
+
+  absl::Status Status() const override { return status_; }
+
+  std::string DebugString() const override {
+    return "GroupRowsIterator()";
+  }
+
+ private:
+  const std::vector<const TupleData*> tuples_;
+  int64_t current_input_tuple_ = 0;
+  const std::unique_ptr<TupleSchema> output_schema_;
+  int num_extra_slots_;
+  std::unique_ptr<TupleData> current_;
+  EvaluationContext* context_;
+  absl::Status status_;
+};
+
+}  // namespace
+
+absl::StatusOr<std::unique_ptr<TupleIterator>> GroupRowsOp::CreateIterator(
+    absl::Span<const TupleData* const> params, int num_extra_slots,
+    EvaluationContext* context) const {
+  if (context->active_group_rows() == nullptr) {
+    return ::zetasql_base::OutOfRangeErrorBuilder()
+           << "GROUP_ROWS() cannot read group rows data it the current context";
+  }
+
+  // The key is owned by the GroupValue.
+  absl::flat_hash_map<TupleDataPtr, std::unique_ptr<GroupValue>> group_map;
+
+  std::unique_ptr<TupleIterator> iter =
+      absl::make_unique<TupleDataDequeIterator>(*context->active_group_rows(),
+                                                num_extra_slots,
+                                                CreateOutputSchema(), context);
+  return MaybeReorder(std::move(iter), context);
 }
 
 }  // namespace zetasql

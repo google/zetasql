@@ -29,7 +29,7 @@ namespace zetasql {
 static TypeParameters MakeStringTypeParameters(int max_length) {
   StringTypeParametersProto proto;
   proto.set_max_length(max_length);
-  zetasql_base::StatusOr<TypeParameters> string_type_parameters_or_error =
+  absl::StatusOr<TypeParameters> string_type_parameters_or_error =
       TypeParameters::MakeStringTypeParameters(proto);
   ZETASQL_EXPECT_OK(string_type_parameters_or_error.status());
   return *string_type_parameters_or_error;
@@ -39,7 +39,7 @@ static TypeParameters MakeNumericTypeParameters(int precision, int scale) {
   NumericTypeParametersProto proto;
   proto.set_precision(precision);
   proto.set_scale(scale);
-  zetasql_base::StatusOr<TypeParameters> numeric_type_parameters_or_error =
+  absl::StatusOr<TypeParameters> numeric_type_parameters_or_error =
       TypeParameters::MakeNumericTypeParameters(proto);
   ZETASQL_EXPECT_OK(numeric_type_parameters_or_error.status());
   return *numeric_type_parameters_or_error;
@@ -66,24 +66,24 @@ TEST(ResolvedColumnDefinitionTest, TestGetFullTypeParameters) {
   // the list.
   std::vector<std::unique_ptr<const ResolvedColumnAnnotations>>
       child_annotations;
-  child_annotations.push_back(
-      MakeResolvedColumnAnnotations(/*not_null=*/false, /*option_list=*/{},
-                                    /*child_list=*/{}, TypeParameters()));
   child_annotations.push_back(MakeResolvedColumnAnnotations(
-      /*not_null=*/false, /*option_list=*/{},
+      /*collation_name=*/nullptr, /*not_null=*/false, /*option_list=*/{},
+      /*child_list=*/{}, TypeParameters()));
+  child_annotations.push_back(MakeResolvedColumnAnnotations(
+      /*collation_name=*/nullptr, /*not_null=*/false, /*option_list=*/{},
       /*child_list=*/{}, MakeStringTypeParameters(10)));
   std::vector<std::unique_ptr<const ResolvedColumnAnnotations>>
       grand_child_annotations;
   grand_child_annotations.push_back(MakeResolvedColumnAnnotations(
-      /*not_null=*/false, /*option_list=*/{}, /*child_list=*/{},
-      MakeNumericTypeParameters(10, 5)));
+      /*collation_name=*/nullptr, /*not_null=*/false, /*option_list=*/{},
+      /*child_list=*/{}, MakeNumericTypeParameters(10, 5)));
   child_annotations.push_back(MakeResolvedColumnAnnotations(
-      /*not_null=*/false, /*option_list=*/{},
+      /*collation_name=*/nullptr, /*not_null=*/false, /*option_list=*/{},
       std::move(grand_child_annotations), TypeParameters()));
   std::unique_ptr<const ResolvedColumnAnnotations> annotations =
-      MakeResolvedColumnAnnotations(/*not_null=*/false, /*option_list=*/{},
-                                    std::move(child_annotations),
-                                    TypeParameters());
+      MakeResolvedColumnAnnotations(
+          /*collation_name=*/nullptr, /*not_null=*/false, /*option_list=*/{},
+          std::move(child_annotations), TypeParameters());
 
   // Constructs ResolvedColumnDefinition.
   zetasql::ResolvedColumn resolved_column1;
@@ -92,9 +92,9 @@ TEST(ResolvedColumnDefinitionTest, TestGetFullTypeParameters) {
                                    std::move(annotations),
                                    /*is_hidden=*/false, resolved_column1,
                                    /*generated_column_info=*/{},
-                                   /*default_expression=*/{});
+                                   /*default_value=*/{});
 
-  zetasql_base::StatusOr<TypeParameters> type_parameters_or_error =
+  absl::StatusOr<TypeParameters> type_parameters_or_error =
       resolved_column_definition->GetFullTypeParameters();
   ZETASQL_EXPECT_OK(type_parameters_or_error.status());
   EXPECT_EQ(type_parameters_or_error->DebugString(),

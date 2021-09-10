@@ -38,7 +38,7 @@
 #include <cstdint>
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/types/optional.h"
@@ -1101,7 +1101,7 @@ class PassThroughTupleIterator : public TupleIterator {
  public:
   // An IteratorFactory returns a TupleIterator or an error.
   using IteratorFactory =
-      std::function<zetasql_base::StatusOr<std::unique_ptr<TupleIterator>>()>;
+      std::function<absl::StatusOr<std::unique_ptr<TupleIterator>>()>;
   // We avoid constructing the debug string where possible because that can be
   // expensive.
   using DebugStringFactory = std::function<std::string()>;
@@ -1120,7 +1120,7 @@ class PassThroughTupleIterator : public TupleIterator {
 
   TupleData* Next() override {
     if (iter_ == nullptr) {
-      zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> status_or_iter =
+      absl::StatusOr<std::unique_ptr<TupleIterator>> status_or_iter =
           iterator_factory_();
       if (!status_or_iter.ok()) {
         iterator_factory_status_ = status_or_iter.status();

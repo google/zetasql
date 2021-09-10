@@ -995,7 +995,7 @@ CreateFunctionStatement [0-152]
     PathExpression [146-152]
       Identifier(double) [146-152]
 --
-CREATE FUNCTION myfunc(a int64 DEFAULT - 314, b string DEFAULT "abc", c double DEFAULT 3.14)
+CREATE FUNCTION myfunc(a int64 DEFAULT -314, b string DEFAULT "abc", c double DEFAULT 3.14)
 RETURNS double
 ==
 
@@ -1069,3 +1069,397 @@ as (x);
 ERROR: Syntax error: Expected ")" or "," but got integer literal "5" [at 1:32]
 CREATE FUNCTION myfunc(x INT64 5 DEFAULT)
                                ^
+==
+
+# Remote function without connection.
+create function myfunc ( ) returns string remote;
+--
+CreateFunctionStatement [0-48]
+  FunctionDeclaration [16-26]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-26]
+  SimpleType [35-41]
+    PathExpression [35-41]
+      Identifier(string) [35-41]
+--
+CREATE FUNCTION myfunc()
+RETURNS string REMOTE
+==
+
+# Remote function with connection.
+create function myfunc ( ) returns string remote with connection myconn;
+--
+CreateFunctionStatement [0-71]
+  FunctionDeclaration [16-26]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-26]
+  SimpleType [35-41]
+    PathExpression [35-41]
+      Identifier(string) [35-41]
+  WithConnectionClause [49-71]
+    ConnectionClause [54-71]
+      PathExpression [65-71]
+        Identifier(myconn) [65-71]
+--
+CREATE FUNCTION myfunc()
+RETURNS string REMOTE WITH CONNECTION myconn
+==
+
+# Remote function with connection name with -.
+create function myfunc ( ) returns string remote with connection `myconn-abc`;
+--
+CreateFunctionStatement [0-77]
+  FunctionDeclaration [16-26]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-26]
+  SimpleType [35-41]
+    PathExpression [35-41]
+      Identifier(string) [35-41]
+  WithConnectionClause [49-77]
+    ConnectionClause [54-77]
+      PathExpression [65-77]
+        Identifier(`myconn-abc`) [65-77]
+--
+CREATE FUNCTION myfunc()
+RETURNS string REMOTE WITH CONNECTION `myconn-abc`
+==
+
+# Remote function with missing connection.
+create function myfunc ( ) returns string remote with connection;
+--
+ERROR: Syntax error: Unexpected ";" [at 1:65]
+create function myfunc ( ) returns string remote with connection;
+                                                                ^
+==
+
+# Non-remote function with connection after language clause.
+create function myfunc ( ) returns string language js with connection c;
+--
+ERROR: WITH CONNECTION is only allowed after REMOTE in CREATE FUNCTION [at 1:55]
+create function myfunc ( ) returns string language js with connection c;
+                                                      ^
+==
+
+# Non-remote function without language clause with connection.
+create function myfunc ( ) returns string with connection c;
+--
+ERROR: WITH CONNECTION is only allowed after REMOTE in CREATE FUNCTION [at 1:43]
+create function myfunc ( ) returns string with connection c;
+                                          ^
+==
+
+# Remote function with connection and options.
+create function myfunc ( )
+  returns string remote with connection myconn OPTIONS (a = b, bruce = lee);
+--
+CreateFunctionStatement [0-102]
+  FunctionDeclaration [16-26]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-26]
+  SimpleType [37-43]
+    PathExpression [37-43]
+      Identifier(string) [37-43]
+  WithConnectionClause [51-73]
+    ConnectionClause [56-73]
+      PathExpression [67-73]
+        Identifier(myconn) [67-73]
+  OptionsList [82-102]
+    OptionsEntry [83-88]
+      Identifier(a) [83-84]
+      PathExpression [87-88]
+        Identifier(b) [87-88]
+    OptionsEntry [90-101]
+      Identifier(bruce) [90-95]
+      PathExpression [98-101]
+        Identifier(lee) [98-101]
+--
+CREATE FUNCTION myfunc()
+RETURNS string REMOTE WITH CONNECTION myconn OPTIONS
+  (a = b, bruce = lee)
+==
+
+# Determinism modifiers for remote function
+create function myfunc (  )
+  returns string {{deterministic|not deterministic|immutable|stable|volatile}} remote;
+--
+ALTERNATION GROUP: deterministic
+--
+CreateFunctionStatement(DETERMINISTIC) [0-65]
+  FunctionDeclaration [16-27]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-27]
+  SimpleType [38-44]
+    PathExpression [38-44]
+      Identifier(string) [38-44]
+--
+CREATE FUNCTION myfunc()
+RETURNS string DETERMINISTIC REMOTE
+--
+ALTERNATION GROUP: not deterministic
+--
+CreateFunctionStatement(NOT DETERMINISTIC) [0-69]
+  FunctionDeclaration [16-27]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-27]
+  SimpleType [38-44]
+    PathExpression [38-44]
+      Identifier(string) [38-44]
+--
+CREATE FUNCTION myfunc()
+RETURNS string NOT DETERMINISTIC REMOTE
+--
+ALTERNATION GROUP: immutable
+--
+CreateFunctionStatement(IMMUTABLE) [0-61]
+  FunctionDeclaration [16-27]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-27]
+  SimpleType [38-44]
+    PathExpression [38-44]
+      Identifier(string) [38-44]
+--
+CREATE FUNCTION myfunc()
+RETURNS string IMMUTABLE REMOTE
+--
+ALTERNATION GROUP: stable
+--
+CreateFunctionStatement(STABLE) [0-58]
+  FunctionDeclaration [16-27]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-27]
+  SimpleType [38-44]
+    PathExpression [38-44]
+      Identifier(string) [38-44]
+--
+CREATE FUNCTION myfunc()
+RETURNS string STABLE REMOTE
+--
+ALTERNATION GROUP: volatile
+--
+CreateFunctionStatement(VOLATILE) [0-60]
+  FunctionDeclaration [16-27]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-27]
+  SimpleType [38-44]
+    PathExpression [38-44]
+      Identifier(string) [38-44]
+--
+CREATE FUNCTION myfunc()
+RETURNS string VOLATILE REMOTE
+==
+
+# Language clause is allowed to appear after remote keyword in parser.
+# This combination will be excluded in analyzer.
+create function myfunc ( ) returns int remote language js;
+--
+CreateFunctionStatement [0-57]
+  FunctionDeclaration [16-26]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-26]
+  SimpleType [35-38]
+    PathExpression [35-38]
+      Identifier(int) [35-38]
+  Identifier(js) [55-57]
+--
+CREATE FUNCTION myfunc()
+RETURNS int LANGUAGE js REMOTE
+==
+
+# Language clause is allowed to appear before remote keyword in parser.
+# This combination will be excluded in analyzer.
+create function myfunc ( ) returns int language js remote with connection c;
+--
+CreateFunctionStatement [0-75]
+  FunctionDeclaration [16-26]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-26]
+  SimpleType [35-38]
+    PathExpression [35-38]
+      Identifier(int) [35-38]
+  Identifier(js) [48-50]
+  WithConnectionClause [58-75]
+    ConnectionClause [63-75]
+      PathExpression [74-75]
+        Identifier(c) [74-75]
+--
+CREATE FUNCTION myfunc()
+RETURNS int LANGUAGE js REMOTE WITH CONNECTION c
+==
+
+# Remote keyword with language clause, when the remote function option
+# is turned on or off
+[{{no_|}}allow_remote_function]
+create function myfunc ( ) returns int language js remote;
+--
+ALTERNATION GROUP: no_
+--
+ERROR: REMOTE is not supported [at 1:52]
+create function myfunc ( ) returns int language js remote;
+                                                   ^
+--
+ALTERNATION GROUP: <empty>
+--
+CreateFunctionStatement [0-57]
+  FunctionDeclaration [16-26]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-26]
+  SimpleType [35-38]
+    PathExpression [35-38]
+      Identifier(int) [35-38]
+  Identifier(js) [48-50]
+--
+CREATE FUNCTION myfunc()
+RETURNS int LANGUAGE js REMOTE
+==
+
+# AS clause is allowed for remote function in parser.
+# This combination will be excluded in analyzer.
+create function myfunc ( ) returns int remote AS (5) ;
+--
+CreateFunctionStatement [0-52]
+  FunctionDeclaration [16-26]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-26]
+  SimpleType [35-38]
+    PathExpression [35-38]
+      Identifier(int) [35-38]
+  SqlFunctionBody [49-52]
+    IntLiteral(5) [50-51]
+--
+CREATE FUNCTION myfunc()
+RETURNS int REMOTE AS (
+  5
+)
+==
+
+# AS clause after OPTIONS clause is allowed for remote function in parser.
+# This combination will be excluded in analyzer.
+create function myfunc ( ) returns int remote options(a=b) AS (5) ;
+--
+CreateFunctionStatement [0-65]
+  FunctionDeclaration [16-26]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-26]
+  SimpleType [35-38]
+    PathExpression [35-38]
+      Identifier(int) [35-38]
+  SqlFunctionBody [62-65]
+    IntLiteral(5) [63-64]
+  OptionsList [53-58]
+    OptionsEntry [54-57]
+      Identifier(a) [54-55]
+      PathExpression [56-57]
+        Identifier(b) [56-57]
+--
+CREATE FUNCTION myfunc()
+RETURNS int REMOTE AS (
+  5
+)
+OPTIONS
+  (a = b)
+==
+
+# Remote keyword used in alternative position.
+create function remote (int remote )
+  returns int remote with connection remote ;
+--
+CreateFunctionStatement [0-80]
+  FunctionDeclaration [16-36]
+    PathExpression [16-22]
+      Identifier(remote) [16-22]
+    FunctionParameters [23-36]
+      FunctionParameter [24-34]
+        Identifier(int) [24-27]
+        SimpleType [28-34]
+          PathExpression [28-34]
+            Identifier(remote) [28-34]
+  SimpleType [47-50]
+    PathExpression [47-50]
+      Identifier(int) [47-50]
+  WithConnectionClause [58-80]
+    ConnectionClause [63-80]
+      PathExpression [74-80]
+        Identifier(remote) [74-80]
+--
+CREATE FUNCTION remote(int remote)
+RETURNS int REMOTE WITH CONNECTION remote
+==
+
+# Remote used in a non-remote function as a return type .
+create function returns_remote() returns remote AS (NULL);
+--
+CreateFunctionStatement [0-57]
+  FunctionDeclaration [16-32]
+    PathExpression [16-30]
+      Identifier(returns_remote) [16-30]
+    FunctionParameters [30-32]
+  SimpleType [41-47]
+    PathExpression [41-47]
+      Identifier(remote) [41-47]
+  SqlFunctionBody [51-57]
+    NullLiteral(NULL) [52-56]
+--
+CREATE FUNCTION returns_remote()
+RETURNS remote AS (
+  NULL
+)
+==
+
+# Remote used in a remote function as a return type.
+create function returns_remote() returns remote remote;
+--
+CreateFunctionStatement [0-54]
+  FunctionDeclaration [16-32]
+    PathExpression [16-30]
+      Identifier(returns_remote) [16-30]
+    FunctionParameters [30-32]
+  SimpleType [41-47]
+    PathExpression [41-47]
+      Identifier(remote) [41-47]
+--
+CREATE FUNCTION returns_remote()
+RETURNS remote REMOTE
+==
+
+# Simple remote function when the remote function feature is turned off.
+[no_allow_remote_function]
+create function myfunc ( ) returns string remote;
+--
+ERROR: REMOTE is not supported [at 1:43]
+create function myfunc ( ) returns string remote;
+                                          ^
+==
+
+# Remote function with determinism specifier when the remote function feature is
+# turned off.
+[no_allow_remote_function]
+create function myfunc ( ) returns string deterministic remote;
+--
+ERROR: REMOTE is not supported [at 1:57]
+create function myfunc ( ) returns string deterministic remote;
+                                                        ^
+==
+
+# Remote function with connection and options when the remote function feature
+# is turned off.
+[no_allow_remote_function]
+create function myfunc ( ) returns string remote with connection c options(a=b);
+--
+ERROR: REMOTE is not supported [at 1:43]
+create function myfunc ( ) returns string remote with connection c options(a=b);
+                                          ^
+

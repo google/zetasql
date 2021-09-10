@@ -36,7 +36,7 @@
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/test_value.h"
 #include <cstdint>
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
@@ -205,7 +205,7 @@ struct ComparisonTest {
 // FEATURE_V_1_2_CIVIL_TIME or FEATURE_TIMESTAMP_NANOS) that are required.
 struct CivilTimeTestCase {
   CivilTimeTestCase(const std::vector<ValueConstructor>& input,
-                    const zetasql_base::StatusOr<Value>& expected_output,
+                    const absl::StatusOr<Value>& expected_output,
                     const Type* output_type = nullptr,
                     const std::set<LanguageFeature>& required_features = {})
       : CivilTimeTestCase(input, expected_output, expected_output, output_type,
@@ -213,14 +213,14 @@ struct CivilTimeTestCase {
 
   // For test cases where <micros_output> is different with <nanos_output>.
   CivilTimeTestCase(const std::vector<ValueConstructor>& input,
-                    const zetasql_base::StatusOr<Value>& micros_output,
-                    const zetasql_base::StatusOr<Value>& nanos_output,
+                    const absl::StatusOr<Value>& micros_output,
+                    const absl::StatusOr<Value>& nanos_output,
                     const Type* output_type = nullptr,
                     const std::set<LanguageFeature>& required_features = {});
 
   std::vector<ValueConstructor> input;
-  zetasql_base::StatusOr<Value> micros_output;
-  zetasql_base::StatusOr<Value> nanos_output;
+  absl::StatusOr<Value> micros_output;
+  absl::StatusOr<Value> nanos_output;
   std::set<LanguageFeature> required_features;
   const Type* output_type;
 };

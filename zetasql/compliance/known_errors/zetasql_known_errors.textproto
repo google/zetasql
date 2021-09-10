@@ -98,9 +98,38 @@ known_errors {
 }
 known_errors {
   mode: ALLOW_ERROR
+  label: "anonymization_test:anonymization_basic_anon_percentile_cont_explicit_bounds"
+  label: "anonymization_test:anonymization_basic_anon_percentile_cont_implicit_bounds"
+  label: "anonymization_test:anonymization_basic_anon_percentile_cont_with_null_epsilon"
+  label: "anonymization_test:anonymization_basic_anon_percentile_cont_implicit_bounds_with_params"
+  label: "anonymization_test:anonymization_verify_non_randomness_of_anon_percentile_cont_implicit_bounds"
+  label: "anonymization_test:anonymization_verify_non_randomness_of_anon_percentile_cont_implicit_bounds_2"
+}
+known_errors {
+  mode: ALLOW_ERROR
   reason: "Unknown reasons"
   label: "concat_function_test:concat_proto"
   label: "timestamp_test:string_parameter_interval_invalid"
   label: "civil_time_types_and_functions:time_constructor"
 }
 
+known_errors {
+  mode: ALLOW_ERROR_OR_WRONG_ANSWER
+  reason: "util/time not yet open source"
+  label: "code:format_date.*%J.*"
+  label: "code:format_timestamp.*%J.*"
+  label: "code:parse_date.*%J.*"
+  label: "code:parse_date.*%G.*"
+  label: "code:parse_date.*%V.*"
+  label: "code:parse_date.*%a.*"
+  label: "code:parse_date.*%A.*"
+  label: "code:parse_date.*%w.*"
+  label: "code:parse_date.*%u.*"
+  label: "code:parse_timestamp.*%J.*"
+  label: "code:parse_timestamp.*%G.*"
+  label: "code:parse_timestamp.*%V.*"
+  label: "code:parse_timestamp.*%a.*"
+  label: "code:parse_timestamp.*%A.*"
+  label: "code:parse_timestamp.*%w.*"
+  label: "code:parse_timestamp.*%u.*"
+}

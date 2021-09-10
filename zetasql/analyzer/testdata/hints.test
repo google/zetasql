@@ -265,7 +265,7 @@ select @{ key1=KitchenSink } KitchenSink from TestTable
 --
 QueryStmt
 +-output_column_list=
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=[TestTable.KitchenSink#3]
@@ -313,7 +313,7 @@ select @{ key1=KitchenSink, key2=(TestConstantString) } KitchenSink from TestTab
 --
 QueryStmt
 +-output_column_list=
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=[TestTable.KitchenSink#3]
@@ -339,7 +339,7 @@ select @{ key1=KitchenSink,
 --
 QueryStmt
 +-output_column_list=
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=[TestTable.KitchenSink#3]
@@ -648,7 +648,7 @@ QueryStmt
           +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
 ==
 
-select @{ h1 = NEW zetasql_test.TestExtraPB() } key from KeyValue
+select @{ h1 = NEW zetasql_test__.TestExtraPB() } key from KeyValue
 --
 QueryStmt
 +-output_column_list=
@@ -657,7 +657,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=[KeyValue.Key#1]
     +-hint_list=
-    | +-h1 := MakeProto(type=PROTO<zetasql_test.TestExtraPB>)
+    | +-h1 := MakeProto(type=PROTO<zetasql_test__.TestExtraPB>)
     +-input_scan=
       +-ProjectScan
         +-column_list=[KeyValue.Key#1]
@@ -887,9 +887,9 @@ QueryStmt
         |   | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
         |   +-array_expr=
         |   | +-GetProtoField
-        |   |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+        |   |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
         |   |   +-expr=
-        |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   |   +-field_descriptor=nested_repeated_value
         |   |   +-default_value=[]
         |   +-element_column=$array.nested_repeated_value#4
@@ -897,7 +897,7 @@ QueryStmt
         | +-GetProtoField
         |   +-type=ARRAY<INT64>
         |   +-expr=
-        |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.nested_repeated_value#4)
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nested_repeated_value#4)
         |   +-field_descriptor=nested_repeated_int64
         |   +-default_value=[]
         +-element_column=$array.nested_repeated_int64#5
@@ -927,9 +927,9 @@ QueryStmt
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
         +-array_expr=
         | +-GetProtoField
-        |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+        |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
         |   +-expr=
-        |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=nested_repeated_value
         |   +-default_value=[]
         +-element_column=$array.nested_repeated_value#4
@@ -1272,9 +1272,9 @@ QueryStmt
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
         +-array_expr=
         | +-GetProtoField
-        |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+        |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
         |   +-expr=
-        |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=nested_repeated_value
         |   +-default_value=[]
         +-element_column=$array.nested_repeated_value#4
@@ -1299,7 +1299,7 @@ QueryStmt
     | |   +-type=INT64
     | |   +-subquery_type=SCALAR
     | |   +-parameter_list=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | |   +-subquery=
     | |     +-ProjectScan
     | |       +-column_list=[$aggregate.$agg1#5]
@@ -1314,7 +1314,7 @@ QueryStmt
     | |           |   | +-GetProtoField
     | |           |   |   +-type=ARRAY<DATE>
     | |           |   |   +-expr=
-    | |           |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+    | |           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
     | |           |   |   +-field_descriptor=repeated_date
     | |           |   |   +-default_value=[]
     | |           |   |   +-format=DATE
@@ -1326,7 +1326,7 @@ QueryStmt
     |     +-type=ARRAY<DATE>
     |     +-subquery_type=ARRAY
     |     +-parameter_list=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-subquery=
     |       +-ProjectScan
     |         +-column_list=[$array.d#6]
@@ -1339,7 +1339,7 @@ QueryStmt
     |             | +-GetProtoField
     |             |   +-type=ARRAY<DATE>
     |             |   +-expr=
-    |             |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+    |             |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
     |             |   +-field_descriptor=repeated_date
     |             |   +-default_value=[]
     |             |   +-format=DATE
@@ -1395,9 +1395,9 @@ QueryStmt
         |   +-column_index_list=[2]
         +-array_expr=
         | +-GetProtoField
-        |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+        |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
         |   +-expr=
-        |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=nested_repeated_value
         |   +-default_value=[]
         +-element_column=$array.nested_repeated_value#4
@@ -1609,12 +1609,12 @@ QueryStmt
             +-type=BOOL
             +-subquery_type=IN
             +-parameter_list=
-            | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             +-in_expr=
             | +-GetProtoField
             |   +-type=INT32
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             |   +-field_descriptor=int32_val
             |   +-default_value=77
             +-subquery=
@@ -1627,7 +1627,7 @@ QueryStmt
             |       | +-GetProtoField
             |       |   +-type=ARRAY<INT32>
             |       |   +-expr=
-            |       |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+            |       |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
             |       |   +-field_descriptor=repeated_int32_val
             |       |   +-default_value=[]
             |       +-element_column=$array.repeated_int32_val#4
@@ -1695,7 +1695,7 @@ QueryStmt
             |   +-GetProtoField
             |     +-type=INT32
             |     +-expr=
-            |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             |     +-field_descriptor=int32_val
             |     +-default_value=77
             +-subquery=
@@ -1772,12 +1772,12 @@ QueryStmt
               +-type=BOOL
               +-subquery_type=IN
               +-parameter_list=
-              | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+              | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
               +-in_expr=
               | +-GetProtoField
               |   +-type=INT32
               |   +-expr=
-              |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+              |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
               |   +-field_descriptor=int32_val
               |   +-default_value=77
               +-subquery=
@@ -1790,7 +1790,7 @@ QueryStmt
               |       | +-GetProtoField
               |       |   +-type=ARRAY<INT32>
               |       |   +-expr=
-              |       |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+              |       |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
               |       |   +-field_descriptor=repeated_int32_val
               |       |   +-default_value=[]
               |       +-element_column=$array.repeated_int32_val#4
@@ -1860,7 +1860,7 @@ QueryStmt
               |   +-GetProtoField
               |     +-type=INT32
               |     +-expr=
-              |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+              |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
               |     +-field_descriptor=int32_val
               |     +-default_value=77
               +-subquery=
@@ -1973,7 +1973,7 @@ QueryStmt
             +-type=BOOL
             +-subquery_type=EXISTS
             +-parameter_list=
-            | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             +-subquery=
             | +-ProjectScan
             |   +-column_list=[$array.repeated_int32_val#4]
@@ -1984,7 +1984,7 @@ QueryStmt
             |       | +-GetProtoField
             |       |   +-type=ARRAY<INT32>
             |       |   +-expr=
-            |       |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+            |       |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
             |       |   +-field_descriptor=repeated_int32_val
             |       |   +-default_value=[]
             |       +-element_column=$array.repeated_int32_val#4
@@ -2063,6 +2063,62 @@ QueryStmt
     |       +-b := Literal(type=STRING, value="c")
     +-input_scan=
       +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0], alias="kv1")
+
+==
+
+select count(*) @{a=b} cnt from KeyValue
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.cnt#3 AS cnt [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.cnt#3]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.cnt#3]
+        +-input_scan=
+        | +-TableScan(table=KeyValue)
+        +-aggregate_list=
+          +-cnt#3 :=
+            +-AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+              +-hint_list=
+                +-a := Literal(type=STRING, value="b")
+
+==
+
+# Demonstration that the hint on analytical COUNT is dropped
+# TODO: Fix this hint to show the hints.
+select key, count(*) @{a=b} OVER () cnt from KeyValue GROUP BY 1;
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.key#4 AS key [INT64]
+| +-$analytic.cnt#5 AS cnt [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.key#4, $analytic.cnt#5]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[$groupby.key#4, $analytic.cnt#5]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$groupby.key#4]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+        |   +-group_by_list=
+        |     +-key#4 := ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-analytic_function_list=
+              +-cnt#5 :=
+                +-AnalyticFunctionCall(ZetaSQL:$count_star() -> INT64)
+                  +-window_frame=
+                    +-WindowFrame(frame_unit=ROWS)
+                      +-start_expr=
+                      | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                      +-end_expr=
+                        +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
 
 ==
 
@@ -2148,8 +2204,8 @@ where T.KitchenSink.string_val
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
@@ -2163,12 +2219,12 @@ QueryStmt
             +-type=BOOL
             +-subquery_type=LIKE_ANY
             +-parameter_list=
-            | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             +-in_expr=
             | +-GetProtoField
             |   +-type=STRING
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             |   +-field_descriptor=string_val
             |   +-default_value="default_name"
             +-subquery=
@@ -2181,7 +2237,7 @@ QueryStmt
             |       | +-GetProtoField
             |       |   +-type=ARRAY<STRING>
             |       |   +-expr=
-            |       |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+            |       |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
             |       |   +-field_descriptor=repeated_string_val
             |       |   +-default_value=[]
             |       +-element_column=$array.repeated_string_val#4

@@ -1,5 +1,5 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.NullableDate,zetasql_test.NullableInt,zetasql_test.NullableEnum,zetasql_test.PackedRepeatablePB]
+[load_proto_names=zetasql_test__.NullableDate,zetasql_test__.NullableInt,zetasql_test__.NullableEnum,zetasql_test__.PackedRepeatablePB]
 ==
 
 # TODO: port the tests from functions/convert_test.cc here once
@@ -538,21 +538,21 @@ SELECT CAST('0xFFFFFFFFFFFFFFFF' AS INT64)
 ==
 
 [name=cast_proto_to_bytes]
-SELECT CAST(NEW zetasql_test.NullableDate(DATE "1707-04-05" AS value)
+SELECT CAST(NEW zetasql_test__.NullableDate(DATE "1707-04-05" AS value)
             AS BYTES)
 --
 ARRAY<STRUCT<BYTES>>[{b"\x08\xa3\x92\xfa\xff\xff\xff\xff\xff\xff\x01"}]
 ==
 
 [name=cast_negative_one_to_int32]
-SELECT CAST(New zetasql_test.NullableInt(-1 AS value) AS BYTES)
+SELECT CAST(New zetasql_test__.NullableInt(-1 AS value) AS BYTES)
 --
 ARRAY<STRUCT<BYTES>>[{b"\x08\xff\xff\xff\xff\xff\xff\xff\xff\xff\x01"}]
 ==
 
 [name=make_proto_with_negative_enum]
-SELECT CAST(NEW zetasql_test.NullableEnum(
-                CAST(-1 AS zetasql_test.TestEnum) AS value) AS BYTES)
+SELECT CAST(NEW zetasql_test__.NullableEnum(
+                CAST(-1 AS zetasql_test__.TestEnum) AS value) AS BYTES)
 --
 ARRAY<STRUCT<BYTES>>[{b"\x08\xff\xff\xff\xff\xff\xff\xff\xff\xff\x01"}]
 ==
@@ -561,7 +561,7 @@ ARRAY<STRUCT<BYTES>>[{b"\x08\xff\xff\xff\xff\xff\xff\xff\xff\xff\x01"}]
 # ignoring the packed annotation. We should eventually add framework support
 # for recommended tests. b/75304074
 [name=cast_to_bytes_packed_repeated]
-SELECT CAST(NEW `zetasql_test.PackedRepeatablePB`(
+SELECT CAST(NEW `zetasql_test__.PackedRepeatablePB`(
     ARRAY<BOOL>[true] AS repeated_bool_packed) AS BYTES);
 --
 ARRAY<STRUCT<BYTES>>[{b":\x01\x01"}]
@@ -571,7 +571,7 @@ ARRAY<STRUCT<BYTES>>[{b":\x01\x01"}]
 # ignoring the packed annotation. We should eventually add framework support
 # for recommended tests. b/75304074
 [name=cast_to_bytes_packed_repeated_multiple]
-SELECT CAST(NEW `zetasql_test.PackedRepeatablePB`(
+SELECT CAST(NEW `zetasql_test__.PackedRepeatablePB`(
     ARRAY<BOOL>[true, false, true] AS repeated_bool_packed) AS BYTES);
 --
 ARRAY<STRUCT<BYTES>>[{b":\x03\x01\x00\x01"}]
@@ -1096,7 +1096,7 @@ ARRAY<STRUCT<STRUCT<ARRAY<>, BYTES>>>[
 [name=cast_string_type_parameters_invalid_input]
 select cast(123456 as STRING(5));
 --
-ERROR: generic::out_of_range: STRING has maximum length 5 but got a value with length 6
+ERROR: generic::out_of_range: STRING(5) has maximum length 5 but got a value with length 6
 ==
 
 # Casting to NUMERIC(P) fails if the casted numeric has more than P digits.
@@ -1104,7 +1104,7 @@ ERROR: generic::out_of_range: STRING has maximum length 5 but got a value with l
 [name=cast_numeric_type_parameters_invalid_input]
 select cast(123456 as NUMERIC(5));
 --
-ERROR: generic::out_of_range: NUMERIC has precision 5 and scale 0 but got a value that is not in range of [-99999, 99999]
+ERROR: generic::out_of_range: NUMERIC(5) has precision 5 and scale 0 but got a value that is not in range of [-99999, 99999]
 ==
 
 # Casting to an ARRAY fails if the elements of the ARRAY have type parameters
@@ -1113,14 +1113,14 @@ ERROR: generic::out_of_range: NUMERIC has precision 5 and scale 0 but got a valu
 [name=cast_array_type_parameters_invalid_input]
 select cast(['hello', 'hi'] as ARRAY<STRING(2)>);
 --
-ERROR: generic::out_of_range: STRING has maximum length 2 but got a value with length 5
+ERROR: generic::out_of_range: STRING(2) has maximum length 2 but got a value with length 5
 ==
 
 [required_features=PARAMETERIZED_TYPES]
 [name=cast_struct_type_parameters_invalid_input]
 select cast((b'hey', 2) as STRUCT<BYTES(2), INT64>);
 --
-ERROR: generic::out_of_range: BYTES has maximum length 2 but got a value with length 3
+ERROR: generic::out_of_range: BYTES(2) has maximum length 2 but got a value with length 3
 ==
 
 [required_features=NUMERIC_TYPE]
@@ -1185,4 +1185,4 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<NUMERIC>[100000000000000000000000000]}]
 [name=cast_numeric_max_value_with_type_parameters_invalid_input]
 select CAST(9999999999999999999999999999.999999999 as numeric(29, 1));
 --
-ERROR: generic::out_of_range: NUMERIC has precision 29 and scale 1 but got a value that is not in range of [-9999999999999999999999999999.9, 9999999999999999999999999999.9]
+ERROR: generic::out_of_range: NUMERIC(29, 1) has precision 29 and scale 1 but got a value that is not in range of [-9999999999999999999999999999.9, 9999999999999999999999999999.9]

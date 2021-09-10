@@ -48,6 +48,9 @@ namespace {
 using testing::HasSubstr;
 using zetasql_base::testing::StatusIs;
 
+const FormatDateTimestampOptions kExpandQandJ =
+    {.expand_Q = true, .expand_J = true};
+
 // Test parsing a timestamp from a string.  The <expected_ result> must be in
 // a form that ConvertStringToTimestamp() will work on it (for example,
 // the canonical form '2015-01-31 12:34:56.999999+0').  If <expected_string>
@@ -61,7 +64,8 @@ static void TestParseStringToTimestamp(const std::string& format,
   if (expected_result.empty()) {
     // An error is expected.
     absl::Status status = ParseStringToTimestamp(
-        format, timestamp_string, default_time_zone, &timestamp);
+        format, timestamp_string, default_time_zone, /*parse_version2=*/true,
+        &timestamp);
     std::string result_timestamp_string;
     if (status.ok()) {
       EXPECT_TRUE(IsValidTimestamp(timestamp, kMicroseconds));
@@ -80,7 +84,8 @@ static void TestParseStringToTimestamp(const std::string& format,
                                      default_time_zone, kMicroseconds,
                                      &expected));
   ZETASQL_EXPECT_OK(ParseStringToTimestamp(format, timestamp_string,
-                                   default_time_zone, &timestamp))
+                                   default_time_zone, /*parse_version2=*/true,
+                                   &timestamp))
       << "format: " << format
       << "\ntimestamp: " << timestamp_string;
   std::string converted_timestamp_string;
@@ -124,11 +129,13 @@ static void TestParseTimestamp(const FunctionTestCall& test) {
 
   absl::Status status = ParseStringToTimestamp(
       format_param.string_value(), timestamp_string_param.string_value(),
-      timezone_param.string_value(), &result_timestamp);
+      timezone_param.string_value(), /*parse_version2=*/true,
+      &result_timestamp);
 
   absl::Status base_time_status = ParseStringToTimestamp(
       format_param.string_value(), timestamp_string_param.string_value(),
-      timezone_param.string_value(), &base_time_result);
+      timezone_param.string_value(), /*parse_version2=*/true,
+      &base_time_result);
 
   std::string test_string = absl::Substitute(
       absl::StrCat(test.function_name, "($0, $1, $2)"),
@@ -151,7 +158,7 @@ static void TestParseTimestamp(const FunctionTestCall& test) {
           << absl::FormatTime(absl::FromUnixMicros(result_timestamp));
     }
   } else {
-    EXPECT_FALSE(status.ok()) << test_string << "\nstatus: "
+    EXPECT_FALSE(status.ok()) << test_string << "\nexpected status: "
                               << micros_test_result.status;
   }
 
@@ -187,13 +194,13 @@ static void TestParseDate(const FunctionTestCall& test) {
 
   absl::Status status = ParseStringToDate(
       format_param.string_value(), date_string_param.string_value(),
-      &result_date);
+      /*parse_version2=*/true, &result_date);
   std::string test_string = absl::Substitute(
       absl::StrCat(test.function_name, "($0, $1)"), format_param.DebugString(),
       date_string_param.DebugString());
 
   if (test.params.status().ok()) {
-    ZETASQL_EXPECT_OK(status) << test_string;
+    ZETASQL_ASSERT_OK(status) << test_string;
     EXPECT_EQ(TYPE_DATE, test.params.result().type_kind()) << test_string;
     EXPECT_EQ(test.params.result().date_value(), result_date)
         << test_string;
@@ -216,12 +223,12 @@ static void ValidateResult(
   const Value& expected_result = result->result;
 
   if (expected_status.ok()) {
-    ZETASQL_ASSERT_OK(actual_status);
+    ZETASQL_ASSERT_OK(actual_status) << expected_result.DebugString();
     EXPECT_TRUE(result_validator(expected_result, actual_output_string_value))
         << "Expected result string: " << expected_result.DebugString()
         << "\nActual result string: " << actual_output_string_value;
   } else {
-    EXPECT_FALSE(actual_status.ok());
+    EXPECT_FALSE(actual_status.ok()) << actual_output_string_value;
   }
 }
 
@@ -319,7 +326,8 @@ static void TestParseDatetime(const FunctionTestCall& testcase) {
       DatetimeValue datetime;
       ZETASQL_RETURN_IF_ERROR(ParseStringToDatetime(
           testcase.params.param(0).string_value(),
-          testcase.params.param(1).string_value(), scale, &datetime));
+          testcase.params.param(1).string_value(), scale,
+          /*parse_version2=*/true, &datetime));
       *output_string = datetime.DebugString();
       return absl::OkStatus();
     };
@@ -476,7 +484,8 @@ TEST(StringToTimestampTests, NonNullTerminatedStringViewTests) {
 
   DatetimeValue datetime;
   ZETASQL_EXPECT_OK(ParseStringToDatetime(bad_format_string_2, bad_timestamp_string_2,
-                                  kMicroseconds, &datetime));
+                                  kMicroseconds, /*parse_version2=*/true,
+                                  &datetime));
   EXPECT_EQ(datetime.Packed64DatetimeMicros(),
             DatetimeValue::FromYMDHMSAndMicros(
                 2018, 12, 23, 0, 0, 0, 0).Packed64DatetimeMicros());
@@ -489,7 +498,8 @@ TEST(StringToTimestampTests, NonNullTerminatedStringViewTests) {
   absl::string_view bad_timestamp_string_3("2018-09-26 23:42:13.350123", 23);
 
   ZETASQL_EXPECT_OK(ParseStringToDatetime(bad_format_string_3, bad_timestamp_string_3,
-                                  kMicroseconds, &datetime));
+                                  kMicroseconds, /*parse_version2=*/true,
+                                  &datetime));
   EXPECT_EQ(datetime.Packed64DatetimeMicros(),
             DatetimeValue::FromYMDHMSAndMicros(
                 2018, 9, 26, 23, 42, 13, 350000).Packed64DatetimeMicros());
@@ -498,7 +508,8 @@ TEST(StringToTimestampTests, NonNullTerminatedStringViewTests) {
   absl::string_view bad_timestamp_string_4("2018-09-26 23:42:13.350123", 21);
 
   ZETASQL_EXPECT_OK(ParseStringToDatetime(bad_format_string_4, bad_timestamp_string_4,
-                                  kMicroseconds, &datetime));
+                                  kMicroseconds, /*parse_version2=*/true,
+                                  &datetime));
   EXPECT_EQ(datetime.Packed64DatetimeMicros(),
             DatetimeValue::FromYMDHMSAndMicros(
                 2018, 9, 26, 23, 42, 13, 300000).Packed64DatetimeMicros());
@@ -507,7 +518,8 @@ TEST(StringToTimestampTests, NonNullTerminatedStringViewTests) {
   absl::string_view bad_timestamp_string_5("2018-09-26 23:42:13.3", 21);
 
   ZETASQL_EXPECT_OK(ParseStringToDatetime(bad_format_string_5, bad_timestamp_string_5,
-                                  kMicroseconds, &datetime));
+                                  kMicroseconds, /*parse_version2=*/true,
+                                  &datetime));
   EXPECT_EQ(datetime.Packed64DatetimeMicros(),
             DatetimeValue::FromYMDHMSAndMicros(
                 2018, 9, 26, 23, 42, 13, 300000).Packed64DatetimeMicros());
@@ -516,7 +528,8 @@ TEST(StringToTimestampTests, NonNullTerminatedStringViewTests) {
   absl::string_view bad_timestamp_string_6("2018-09-26 23:42:13.", 19);
 
   ZETASQL_EXPECT_OK(ParseStringToDatetime(bad_format_string_6, bad_timestamp_string_6,
-                                  kMicroseconds, &datetime));
+                                  kMicroseconds, /*parse_version2=*/true,
+                                  &datetime));
   EXPECT_EQ(datetime.Packed64DatetimeMicros(),
             DatetimeValue::FromYMDHMSAndMicros(
                 2018, 9, 26, 23, 42, 13, 000000).Packed64DatetimeMicros());
@@ -525,7 +538,8 @@ TEST(StringToTimestampTests, NonNullTerminatedStringViewTests) {
   absl::string_view bad_timestamp_string_7("2018-09-26 23:42:13", 19);
 
   ZETASQL_EXPECT_OK(ParseStringToDatetime(bad_format_string_7, bad_timestamp_string_7,
-                                  kMicroseconds, &datetime));
+                                  kMicroseconds, /*parse_version2=*/true,
+                                  &datetime));
   EXPECT_EQ(datetime.Packed64DatetimeMicros(),
             DatetimeValue::FromYMDHMSAndMicros(
                 2018, 9, 26, 23, 42, 13, 000000).Packed64DatetimeMicros());
@@ -534,7 +548,8 @@ TEST(StringToTimestampTests, NonNullTerminatedStringViewTests) {
   absl::string_view bad_timestamp_string_8("   2018-09-26 23:42:13", 22);
 
   ZETASQL_EXPECT_OK(ParseStringToDatetime(bad_format_string_8, bad_timestamp_string_8,
-                                  kMicroseconds, &datetime));
+                                  kMicroseconds, /*parse_version2=*/true,
+                                  &datetime));
   EXPECT_EQ(datetime.Packed64DatetimeMicros(),
             DatetimeValue::FromYMDHMSAndMicros(
                 2018, 9, 26, 23, 42, 13, 000000).Packed64DatetimeMicros());
@@ -543,7 +558,8 @@ TEST(StringToTimestampTests, NonNullTerminatedStringViewTests) {
   absl::string_view bad_timestamp_string_9("2018-", 4);
 
   ZETASQL_EXPECT_OK(ParseStringToDatetime(bad_format_string_9, bad_timestamp_string_9,
-                                  kMicroseconds, &datetime));
+                                  kMicroseconds, /*parse_version2=*/true,
+                                  &datetime));
   EXPECT_EQ(datetime.Packed64DatetimeMicros(),
             DatetimeValue::FromYMDHMSAndMicros(
                 2018, 1, 1, 0, 0, 0, 0).Packed64DatetimeMicros());
@@ -557,7 +573,8 @@ TEST(StringToTimestampTests, NonNullTerminatedStringViewTests) {
   absl::string_view bad_timestamp_string_10(char_array_10, 27);
 
   ZETASQL_EXPECT_OK(ParseStringToDatetime(bad_format_string_10, bad_timestamp_string_10,
-                                  kMicroseconds, &datetime));
+                                  kMicroseconds, /*parse_version2=*/true,
+                                  &datetime));
   EXPECT_EQ(datetime.Packed64DatetimeMicros(),
             DatetimeValue::FromYMDHMSAndMicros(2006, 2, 28, 12, 34, 56, 0)
                 .Packed64DatetimeMicros());
@@ -571,7 +588,8 @@ TEST(StringToTimestampTests, NonNullTerminatedStringViewTests) {
   absl::string_view bad_timestamp_string_11("Thu July 23 12:00:00 20155", 25);
 
   ZETASQL_EXPECT_OK(ParseStringToDatetime(bad_format_string_11, bad_timestamp_string_11,
-                                  kMicroseconds, &datetime));
+                                  kMicroseconds, /*parse_version2=*/true,
+                                  &datetime));
   EXPECT_EQ(datetime.Packed64DatetimeMicros(),
             DatetimeValue::FromYMDHMSAndMicros(2015, 7, 23, 12, 00, 00, 0)
                 .Packed64DatetimeMicros());
@@ -586,7 +604,8 @@ TEST(StringToTimestampTests, NonNullTerminatedStringViewTests) {
 
   absl::Time result_timestamp;
   ZETASQL_EXPECT_OK(ParseStringToTimestamp(
-      bad_format_string_12, bad_timestamp_string_12, "UTC", &result_timestamp));
+      bad_format_string_12, bad_timestamp_string_12, "UTC",
+      /*parse_version2=*/true, &result_timestamp));
   ZETASQL_EXPECT_OK(ConvertTimestampToDatetime(result_timestamp, "UTC", &datetime));
   EXPECT_EQ(datetime.Packed64DatetimeMicros(),
             DatetimeValue::FromYMDHMSAndMicros(1991, 01, 01, 01, 00, 00, 0)
@@ -603,7 +622,8 @@ TEST(StringToTimestampTests, NonNullTerminatedStringViewTests) {
   absl::string_view bad_timestamp_string_13(char_array_13, 16);
 
   ZETASQL_EXPECT_OK(ParseStringToDatetime(bad_format_string_13, bad_timestamp_string_13,
-                                  kMicroseconds, &datetime));
+                                  kMicroseconds, /*parse_version2=*/true,
+                                  &datetime));
   EXPECT_EQ(datetime.Packed64DatetimeMicros(),
             DatetimeValue::FromYMDHMSAndMicros(2000, 1, 1, 00, 00, 00, 0)
                 .Packed64DatetimeMicros());
@@ -615,7 +635,7 @@ TEST(StringToTimestampTests, NonNullTerminatedStringViewTests) {
 
   EXPECT_THAT(
       ParseStringToDatetime(bad_format_string_14, bad_timestamp_string_14,
-                            kMicroseconds, &datetime),
+                            kMicroseconds, /*parse_version2=*/true, &datetime),
       StatusIs(absl::StatusCode::kOutOfRange,
                HasSubstr("Failed to parse input string")));
 }
@@ -868,6 +888,939 @@ TEST(StringToTimestampTests,
   EXPECT_THAT(ParseStringToTime("%E10S", "1", kMicroseconds, &time_value),
               StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Failed to parse input string")));
+}
+
+// This test runs round trip test cases, where we take a date, format it,
+// parse it, and re-format it.  We verify that the original and parsed
+// dates match, and that the original and second formats match.  The dates
+// tested are described below.
+TEST(ParseFormatDateTimestampTests, RoundTripTests) {
+  // The date ranges here cover 21 days, that include the last 11 days of a
+  // civil year and the first 10 days of the next civil year.  These intervals
+  // cover both leap years and non-leap years, and these intervals cover ISO
+  // years with various start/end dates, and various lengths (52 and 53 weeks).
+  std::vector<std::pair<absl::CivilDay, absl::CivilDay>> test_ranges = {
+    {absl::CivilDay(1998, 12, 20), absl::CivilDay(1999, 1, 10)},
+    {absl::CivilDay(1999, 12, 20), absl::CivilDay(2000, 1, 10)},
+    {absl::CivilDay(2000, 12, 20), absl::CivilDay(2001, 1, 10)},
+    {absl::CivilDay(2001, 12, 20), absl::CivilDay(2002, 1, 10)},
+    {absl::CivilDay(2002, 12, 20), absl::CivilDay(2003, 1, 10)},
+    {absl::CivilDay(2003, 12, 20), absl::CivilDay(2004, 1, 10)},
+    {absl::CivilDay(2004, 12, 20), absl::CivilDay(2005, 1, 10)},
+    {absl::CivilDay(2005, 12, 20), absl::CivilDay(2006, 1, 10)},
+    {absl::CivilDay(2006, 12, 20), absl::CivilDay(2007, 1, 10)},
+    {absl::CivilDay(2007, 12, 20), absl::CivilDay(2008, 1, 10)},
+    {absl::CivilDay(2008, 12, 20), absl::CivilDay(2009, 1, 10)},
+    {absl::CivilDay(2009, 12, 20), absl::CivilDay(2010, 1, 10)},
+    {absl::CivilDay(2010, 12, 20), absl::CivilDay(2011, 1, 10)}};
+
+  // Run all permutations of each of these element lists in order to get
+  // full coverage.
+  std::vector<std::vector<std::string>> round_trip_format_lists = {
+    {"%Y", "%j"},     // year, dayofyear
+
+    {"%Y", "%U", "%u"},  // year, week, weekday
+    {"%Y", "%U", "%w"},  // year, week, weekday
+    {"%Y", "%U", "%A"},  // year, week, weekday
+    {"%Y", "%U", "%a"},  // year, week, weekday
+
+    {"%Y", "%W", "%u"},  // year, week, weekday
+    {"%Y", "%W", "%w"},  // year, week, weekday
+    {"%Y", "%W", "%A"},  // year, week, weekday
+    {"%Y", "%W", "%a"},  // year, week, weekday
+
+    {"%G", "%J" },       // ISO year, ISO dayofyear
+    {"%g", "%J" },       // ISO year, ISO dayofyear
+
+    {"%G", "%V", "%u"},  // ISO year, ISO week, weekday
+    {"%G", "%V", "%w"},  // ISO year, ISO week, weekday
+    {"%G", "%V", "%A"},  // ISO year, ISO week, weekday
+    {"%G", "%V", "%a"},  // ISO year, ISO week, weekday
+
+    {"%g", "%V", "%u"},  // ISO year, ISO week, weekday
+    {"%g", "%V", "%w"},  // ISO year, ISO week, weekday
+    {"%g", "%V", "%A"},  // ISO year, ISO week, weekday
+    {"%g", "%V", "%a"},  // ISO year, ISO week, weekday
+  };
+
+  for (const auto& test : test_ranges) {
+    for (absl::CivilDay civil_day = test.first; civil_day <= test.second;
+         civil_day++) {
+      for (const std::vector<std::string>& round_trip_format_array :
+               round_trip_format_lists) {
+        std::vector<std::string> format_array_copy = round_trip_format_array;
+        std::sort(format_array_copy.begin(), format_array_copy.end());
+        do {
+          // Generate the format string.
+          std::string format = absl::StrJoin(format_array_copy, " ");
+          std::string test_info = absl::StrCat("CivilDay: ",
+                                               absl::FormatCivilTime(civil_day),
+                                               ", format: '", format, "'");
+
+          std::string formatted_date;
+          int64_t test_date = civil_day - absl::CivilDay(1970, 01, 01);
+          ZETASQL_EXPECT_OK(FormatDateToString(format, test_date, kExpandQandJ,
+                                       &formatted_date))
+              << test_info;
+          absl::StrAppend(&test_info, ", formatted_date: '", formatted_date,
+                          "'");
+
+          int32_t round_trip_date;
+          ZETASQL_EXPECT_OK(ParseStringToDate(
+              format, formatted_date, /*parse_version2=*/true,
+              &round_trip_date)) << test_info;
+
+          std::string formatted_round_trip_date;
+          ZETASQL_EXPECT_OK(FormatDateToString(
+              format, round_trip_date, kExpandQandJ,
+              &formatted_round_trip_date))
+              << test_info;
+          absl::StrAppend(&test_info, ", formatted_round_trip_date: '",
+                          formatted_round_trip_date, "'");
+
+          EXPECT_EQ(test_date, round_trip_date)
+              << test_info;
+        } while (std::next_permutation(format_array_copy.begin(),
+                                       format_array_copy.end()));
+      }
+    }
+  }
+}
+
+// Helper methods for parse date/timestamp tests.
+namespace {
+
+int64_t ToDateInt64(absl::CivilDay civil_day) {
+  return civil_day - absl::CivilDay(1970, 01, 01);
+}
+
+std::string FormatDate(int32_t date) {
+  std::string formatted_date;
+  ZETASQL_EXPECT_OK(FormatDateToString("%Y-%m-%d", date, kExpandQandJ,
+                               &formatted_date)) << date;
+  return formatted_date;
+}
+
+std::string FormatDayOfWeek(int32_t date) {
+  std::string formatted_dow;
+  ZETASQL_EXPECT_OK(FormatDateToString("%a", date, kExpandQandJ,
+                               &formatted_dow)) << FormatDate(date);
+  return formatted_dow;
+}
+
+std::string FormatDayOfWeek(const DatetimeValue& datetime) {
+  std::string formatted_dow;
+  ZETASQL_EXPECT_OK(FormatDatetimeToString("%a", datetime, &formatted_dow))
+      << datetime.DebugString();
+  return formatted_dow;
+}
+
+struct ParseDatetimeTest {
+  // Constructor for positive test cases.  These tests are run for all of
+  // DATE, DATETIME, and TIMESTAMP functions.
+  ParseDatetimeTest(const std::string& format_in,
+                    const std::string& input_string_in,
+                    const absl::CivilDay result_date_in)
+      : format(format_in), input_string(input_string_in),
+        result_date(result_date_in) {}
+
+  // Similar to the above, but also allows the expected day-of-week to be
+  // specified.
+  ParseDatetimeTest(const std::string& format_in,
+                    const std::string& input_string_in,
+                    const absl::CivilDay result_date_in,
+                    const std::string& expected_dow_in)
+      : format(format_in), input_string(input_string_in),
+        result_date(result_date_in), expected_dow(expected_dow_in) {}
+
+  // Constructor for tests that only apply to DATETIME and TIMESTAMP types
+  // (when including format elements that specify hour/minute/second/etc.).
+  ParseDatetimeTest(const std::string& format_in,
+                    const std::string& input_string_in,
+                    const DatetimeValue& result_datetime_in)
+      : format(format_in), input_string(input_string_in),
+        result_datetime(result_datetime_in), excludes_date(true) {}
+
+  // Constructor for error test cases.  <excludes_date_in> should be set to
+  // true if the test does not apply to DATE functions (e.g., if it includes
+  // hour/minute/second elements).
+  ParseDatetimeTest(const std::string& format_in,
+                    const std::string& input_string_in,
+                    const std::string& error_substr_in,
+                    bool excludes_date_in = false)
+      : format(format_in), input_string(input_string_in),
+            error_substr(error_substr_in), excludes_date(excludes_date_in) {}
+
+  std::string DebugString() const {
+    return absl::StrCat(
+        "format: ", format, ", input_string: ", input_string,
+        (result_date.has_value() ?
+         absl::StrCat(", expected: ",
+                      absl::FormatCivilTime(result_date.value())) : ""),
+        (result_datetime.has_value() ?
+         absl::StrCat(", expected: ", result_datetime.value().DebugString()) :
+         ""),
+        (error_substr.has_value() ?
+         absl::StrCat(", expected error: '", error_substr.value(), "'") : ""));
+  }
+
+  std::string format;
+  std::string input_string;
+
+  // Only one of <result_date>, <result_datetime>, or <error_substr> will be
+  // set (by construction).
+  absl::optional<absl::CivilDay> result_date;
+  absl::optional<DatetimeValue> result_datetime;
+  absl::optional<std::string> error_substr;
+
+  // Will optionally be set if <result_date> is set.
+  absl::optional<std::string> expected_dow;
+
+  // Whether or not the test is excluded for DATE functions.
+  bool excludes_date = false;
+};
+
+void CheckParseTimestampResultImpl(
+    const ParseDatetimeTest& test, const absl::Status& parse_status,
+    absl::optional<int32_t> parsed_date,
+    absl::optional<DatetimeValue> parsed_datetime,
+    const std::string& test_type) {
+  if (test.result_date.has_value()) {
+    ZETASQL_EXPECT_OK(parse_status) << " test: " << test.DebugString();
+
+    if (parsed_date.has_value()) {
+      // This handles cases of date-element tests for the DATE type.
+      EXPECT_EQ(parsed_date.value(), ToDateInt64(test.result_date.value()))
+        << "test_type(" << test_type << "), test: " << test.DebugString()
+        << ", actual result date: " << FormatDate(parsed_date.value());
+    }
+    if (parsed_datetime.has_value()) {
+      // This handles cases of date-element tests for DATETIME/TIMESTAMP.
+      // Extract the DATE from the DATETIME value
+      int32_t parsed_datetime_date;
+      ZETASQL_EXPECT_OK(ExtractFromDatetime(DATE, parsed_datetime.value(),
+                                    &parsed_datetime_date));
+      EXPECT_EQ(parsed_datetime_date, ToDateInt64(test.result_date.value()))
+        << "test_type(" << test_type << "), test: " << test.DebugString()
+        << ", actual result date: " << FormatDate(parsed_datetime_date);
+    }
+    if (test.expected_dow.has_value()) {
+      if (parsed_date.has_value()) {
+        EXPECT_EQ(FormatDayOfWeek(parsed_date.value()),
+                  test.expected_dow.value())
+            << "test_type(" << test_type << "), test: " << test.DebugString();
+      }
+      if (parsed_datetime.has_value()) {
+        EXPECT_EQ(FormatDayOfWeek(parsed_datetime.value()),
+                  test.expected_dow.value())
+            << "test_type(" << test_type << "), test: " << test.DebugString();
+      }
+    }
+  } else if (test.result_datetime.has_value()) {
+    ZETASQL_EXPECT_OK(parse_status) << "test_type(" << test_type << "), test: "
+                            << test.DebugString();
+    EXPECT_FALSE(parsed_date.has_value())
+        << "test_type(" << test_type << "), parsed_date has_value";
+    EXPECT_FALSE(test.expected_dow.has_value());
+
+    if (parsed_datetime.has_value()) {
+      EXPECT_EQ(parsed_datetime.value().DebugString(),
+                test.result_datetime.value().DebugString())
+        << "test_type(" << test_type << "), "
+        << "format: " << test.format << ", input: " << test.input_string;
+    }
+  } else {
+    EXPECT_TRUE(test.error_substr.has_value())
+        << "test_type(" << test_type << "), test: " << test.DebugString();
+    EXPECT_FALSE(parsed_date.has_value())
+        << "test_type(" << test_type << "), test: " << test.DebugString()
+        << ", parsed_date has value: " << FormatDate(parsed_date.value());
+    EXPECT_FALSE(parsed_datetime.has_value())
+        << "test_type(" << test_type << "), test: " << test.DebugString()
+        << ", parsed_datetime has value: "
+        << parsed_datetime.value().DebugString();
+
+    const std::string successfully_parsed_datetime =
+        ((parse_status.ok() && parsed_date.has_value()) ?
+         FormatDate(parsed_date.value()) : "");
+    EXPECT_THAT(parse_status,
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr(test.error_substr.value())))
+        << "test_type(" << test_type << "), "
+        << "format: " << test.format << ", input: " << test.input_string
+        << successfully_parsed_datetime;
+  }
+}
+
+void CheckParseTimestampResult(const ParseDatetimeTest& test,
+                               const absl::Status& parse_status,
+                               absl::optional<int32_t> parsed_date,
+                               const std::string& test_type) {
+  CheckParseTimestampResultImpl(test, parse_status, parsed_date, absl::nullopt,
+                                test_type);
+}
+
+void CheckParseTimestampResult(const ParseDatetimeTest& test,
+                               const absl::Status& parse_status,
+                               absl::optional<DatetimeValue> parsed_datetime,
+                               const std::string& test_type) {
+  CheckParseTimestampResultImpl(test, parse_status, absl::nullopt,
+                                parsed_datetime, test_type);
+}
+
+void RunParseDatetimeTest(const ParseDatetimeTest& test) {
+  absl::Status parse_status;
+
+  // Run the test for DATE, if needed.
+  if (!test.excludes_date) {
+    int32_t parsed_date;
+    parse_status =
+        ParseStringToDate(test.format, test.input_string,
+                          /*parse_version2=*/true, &parsed_date);
+    absl::optional<int32_t> date = absl::nullopt;
+    if (parse_status.ok()) {
+      date = parsed_date;
+    }
+    CheckParseTimestampResult(test, parse_status, date, "DATE");
+  }
+
+  // Run the test for DATETIME
+  DatetimeValue parsed_datetime;
+  parse_status =
+      ParseStringToDatetime(test.format, test.input_string,
+                            /*scale=*/kMicroseconds, /*parse_version2=*/true,
+                            &parsed_datetime);
+
+  absl::optional<DatetimeValue> datetime = absl::nullopt;
+  if (parse_status.ok()) {
+    datetime = parsed_datetime;
+  }
+  CheckParseTimestampResult(test, parse_status, datetime, "DATETIME");
+
+  // Run the test for TIMESTAMP
+  int64_t parsed_timestamp;
+  parse_status =
+      ParseStringToTimestamp(test.format, test.input_string,
+                             absl::UTCTimeZone(), /*parse_version2=*/true,
+                             &parsed_timestamp);
+
+  datetime = absl::nullopt;
+  if (parse_status.ok()) {
+    // Convert the parsed TIMESTAMP to DATETIME.  We first convert the
+    // int64_t timestamp to absl::Time, and then absl::Time to DatetimeValue
+    absl::Time parsed_time = absl::FromUnixMicros(parsed_timestamp);
+    ZETASQL_ASSERT_OK(ConvertTimestampToDatetime(parsed_time, absl::UTCTimeZone(),
+                                         &parsed_datetime));
+    datetime = parsed_datetime;
+  }
+  CheckParseTimestampResult(test, parse_status, datetime, "TIMESTAMP");
+}
+
+}  // namespace
+
+TEST(ParseFormatDateTimestampTests, SpotTests) {
+  // Spot test latest list of supported format elements:
+  //
+  // %j - day of year
+  // %J - ISO day of year
+  //
+  // %U - non-ISO week number, weeks starting on Sunday, 00-53
+  // %V - ISO week number, weeks starting on ???, ??-??
+  // %W - non-ISO week number, weeks starting on Monday, 00-53
+  //
+  // %u - day of week, Monday first day of the week, 1-7
+  // %w - day of week, Sunday first day of the week, 0-6
+  // %A - full weekday name
+  // %a - abbreviated weekday name
+
+  std::vector<ParseDatetimeTest> tests = {
+    // %j - day of year (non-ISO).
+    {"%Y-%j", "1999-365", absl::CivilDay(1999, 12, 31)},
+
+    // 1999 is not a leap year so day 366 fails.
+    {"%Y-%j", "1999-366", "Year 1999 has 365 days, but the specified"},
+
+    // 2000 is a leap year with 366 days.  Leading 0s are ok.
+    {"%Y-%j", "2000-60",  absl::CivilDay(2000, 2, 29)},
+    {"%Y-%j", "2000-060", absl::CivilDay(2000, 2, 29)},
+
+    {"%Y-%j", "2000-366", absl::CivilDay(2000, 12, 31)},
+
+    // %J - ISO day of year
+    //
+    // Example dates that are the first day of an ISO year:
+    // 1) 1978-01-02 (ISO year 1978 has 364 days)
+    // 2) 1979-01-01 (ISO year 1979 has 364 days)
+    // 3) 1979-12-31 (ISO year 1980 has 364 days, even though it's a leap year)
+    // 4) 1980-12-29 (ISO year 1981 has 371 days, 53 weeks)
+    //
+    // ISO weeks always start on Monday, so the first day of the ISO year
+    // is also always a Monday.
+    {"%G-%J", "1978-001", absl::CivilDay(1978, 1, 2), "Mon"},
+    {"%G-%J", "1978-364", absl::CivilDay(1978, 12, 31)},
+    {"%G-%J", "1978-365", "ISO Year 1978 has 364 days, but the specified day"},
+    {"%G-%J", "1979-001", absl::CivilDay(1979, 1, 1), "Mon"},
+    {"%G-%J", "1979-364", absl::CivilDay(1979, 12, 30)},
+    {"%G-%J", "1980-001", absl::CivilDay(1979, 12, 31), "Mon"},
+    {"%G-%J", "1980-364", absl::CivilDay(1980, 12, 28)},
+    {"%G-%J", "1981-001", absl::CivilDay(1980, 12, 29), "Mon"},
+    {"%G-%J", "1981-371", absl::CivilDay(1982, 1, 3)},
+    {"%G-%J", "1982-001", absl::CivilDay(1982, 1, 4), "Mon"},
+
+    // %U - non-ISO week number, weeks starting on Sunday, 00-53
+    //
+    // Week 0 of 1999 corresponds to the first day of that week, where the first
+    // day of the week is a Sunday.
+    // 1999-01-01 is a Friday.   The preceding Sunday is 1998-12-27.
+    // 1999 only has 52 weeks, so week 53 is invalid, as are other out of range
+    // week values.
+
+    {"%Y-%U", "1999-0",  absl::CivilDay(1998, 12, 27), "Sun"},
+    {"%Y-%U", "1999-1",  absl::CivilDay(1999, 1, 3), "Sun"},
+    {"%Y-%U", "1999-52", absl::CivilDay(1999, 12, 26), "Sun"},
+    {"%Y-%U", "1999-53", "Week number 53 is invalid for year 1999"},
+    {"%Y-%U", "1999-54", "Failed to parse input string"},
+
+    // Results are equivalent to '1999-52' above.
+    {"%Y-%U", "2000-00", absl::CivilDay(1999, 12, 26), "Sun"},
+    {"%Y-%U", "2000-01", absl::CivilDay(2000, 1, 2), "Sun"},
+    {"%Y-%U", "2000-52", absl::CivilDay(2000, 12, 24), "Sun"},
+    {"%Y-%U", "2000-53", absl::CivilDay(2000, 12, 31), "Sun"},
+
+    // January 1, 1995 is a Sunday, so 1995 starts with week 1, not week 0.
+    {"%Y-%U", "1995-00", "Week number 0 is invalid for year 1995"},
+    {"%Y-%U", "1995-01", absl::CivilDay(1995, 1, 1), "Sun"},
+    {"%Y-%U", "1995-52", absl::CivilDay(1995, 12, 24), "Sun"},
+    {"%Y-%U", "1995-53", absl::CivilDay(1995, 12, 31), "Sun"},
+
+    // %W - non-ISO week number, weeks starting on Monday, 00-53
+    //
+    // Week 0 of 1999 corresponds to the first day of that week, where the first
+    // day of the week is a Sunday.
+    // 1999-01-01 is a Friday.   The preceding Monday is 1998-12-28.
+    {"%Y-%W", "1999-0",  absl::CivilDay(1998, 12, 28), "Mon"},
+    {"%Y-%W", "1999-1",  absl::CivilDay(1999, 1, 4), "Mon"},
+    {"%Y-%W", "1999-52", absl::CivilDay(1999, 12, 27), "Mon"},
+    {"%Y-%W", "1999-53", "Week number 53 is invalid for year 1999"},
+    {"%Y-%W", "1999-54", "Failed to parse input string"},
+
+    // Results are equivalent to '1999-52' above.
+    {"%Y-%W", "2000-0",  absl::CivilDay(1999, 12, 27), "Mon"},
+    {"%Y-%W", "2000-01", absl::CivilDay(2000, 1, 3), "Mon"},
+    {"%Y-%W", "2000-52", absl::CivilDay(2000, 12, 25), "Mon"},
+    {"%Y-%W", "2000-53", "Week number 53 is invalid for year 2000"},
+
+    // January 1, 1996 is a Monday, so 1996 starts with week 1, not week 0.
+    {"%Y-%W", "1996-00", "Week number 0 is invalid for year 1996"},
+    {"%Y-%W", "1996-01", absl::CivilDay(1996, 1, 1), "Mon"},
+    {"%Y-%W", "1996-52", absl::CivilDay(1996, 12, 23), "Mon"},
+    {"%Y-%W", "1996-53", absl::CivilDay(1996, 12, 30), "Mon"},
+
+    // %V - ISO week number, weeks starting on Monday, 01-53
+    // Some ISO years have 52 weeks, some ISO years have 53 weeks.
+    // Invalid week numbers for an ISO year produces an error.
+    //
+    // Example dates that are the first day of an ISO year:
+    // 1) 1975-12-29 (ISO year 1976 has 371 days, 53 weeks)
+    // 2) 1977-01-03 (ISO year 1977 has 364 days)
+    // 3) 1978-01-02 (ISO year 1978 has 364 days)
+    // 4) 1979-01-01 (ISO year 1979 has 364 days)
+    // 5) 1979-12-31 (ISO year 1980 has 364 days, even though it's a leap year)
+    // 6) 1980-12-29 (ISO year 1981 has 371 days, 53 weeks)
+    {"%G-%V", "1976-01", absl::CivilDay(1975, 12, 29), "Mon"},
+    {"%G-%V", "1976-53", absl::CivilDay(1976, 12, 27), "Mon"},
+    {"%G-%V", "1976-54", "Failed to parse input string"},
+    {"%G-%V", "1977-01", absl::CivilDay(1977, 1, 3), "Mon"},
+    {"%G-%V", "1977-52", absl::CivilDay(1977, 12, 26), "Mon"},
+    {"%G-%V", "1977-53", "Invalid ISO week 53 specified for ISO year 1977"},
+    {"%G-%V", "1978-01", absl::CivilDay(1978, 1, 2), "Mon"},
+    {"%G-%V", "1978-52", absl::CivilDay(1978, 12, 25), "Mon"},
+    {"%G-%V", "1979-01", absl::CivilDay(1979, 1, 1), "Mon"},
+    {"%G-%V", "1979-52", absl::CivilDay(1979, 12, 24), "Mon"},
+    {"%G-%V", "1980-01", absl::CivilDay(1979, 12, 31), "Mon"},
+    {"%G-%V", "1980-52", absl::CivilDay(1980, 12, 22), "Mon"},
+    {"%G-%V", "1981-01", absl::CivilDay(1980, 12, 29), "Mon"},
+    {"%G-%V", "1981-52", absl::CivilDay(1981, 12, 21), "Mon"},
+    {"%G-%V", "1981-53", absl::CivilDay(1981, 12, 28), "Mon"},
+
+    // %u - day of week, Monday first day of the week, 1-7
+    //
+    {"%Y-%U", "1999-0",  absl::CivilDay(1998, 12, 27), "Sun"},
+    {"%Y-%U %u", "1999-0 1",  absl::CivilDay(1998, 12, 28), "Mon"},
+    {"%Y-%U %u", "1999-0 7",  absl::CivilDay(1998, 12, 27), "Sun"},
+
+    {"%Y-%W", "1999-0",  absl::CivilDay(1998, 12, 28), "Mon"},
+    {"%Y-%W %u", "1999-0 1",  absl::CivilDay(1998, 12, 28), "Mon"},
+    {"%Y-%W %u", "1999-0 7",  absl::CivilDay(1999, 1, 3), "Sun"},
+
+    {"%G-%V", "1976-01", absl::CivilDay(1975, 12, 29), "Mon"},
+    {"%G-%V %u", "1976-01 1", absl::CivilDay(1975, 12, 29), "Mon"},
+    {"%G-%V %u", "1976-01 7", absl::CivilDay(1976, 1, 4), "Sun"},
+
+    // %w - day of week, Sunday first day of the week, 0-6
+    //
+    {"%Y-%U", "1999-0",  absl::CivilDay(1998, 12, 27), "Sun"},
+    {"%Y-%U %w", "1999-0 0",  absl::CivilDay(1998, 12, 27), "Sun"},
+    {"%Y-%U %w", "1999-0 6",  absl::CivilDay(1999, 1, 2), "Sat"},
+
+    {"%Y-%W", "1999-0",  absl::CivilDay(1998, 12, 28), "Mon"},
+    {"%Y-%W %w", "1999-0 0",  absl::CivilDay(1999, 1, 3), "Sun"},
+    {"%Y-%W %w", "1999-0 6",  absl::CivilDay(1999, 1, 2), "Sat"},
+
+    {"%G-%V", "1976-01", absl::CivilDay(1975, 12, 29), "Mon"},
+    {"%G-%V %w", "1976-01 0", absl::CivilDay(1976, 1, 4), "Sun"},
+    {"%G-%V %w", "1976-01 6", absl::CivilDay(1976, 1, 3), "Sat"},
+
+    // %A - full weekday name
+    //
+    {"%Y-%U", "1999-0",  absl::CivilDay(1998, 12, 27), "Sun"},
+    {"%Y-%U %A", "1999-0 Sunday",  absl::CivilDay(1998, 12, 27), "Sun"},
+    {"%Y-%U %A", "1999-0 Saturday",  absl::CivilDay(1999, 1, 2), "Sat"},
+
+    {"%Y-%W", "1999-0",  absl::CivilDay(1998, 12, 28), "Mon"},
+    {"%Y-%W %A", "1999-0 SunDay",  absl::CivilDay(1999, 1, 3), "Sun"},
+    {"%Y-%W %A", "1999-0 Saturday",  absl::CivilDay(1999, 1, 2), "Sat"},
+
+    {"%G-%V", "1976-01", absl::CivilDay(1975, 12, 29), "Mon"},
+    {"%G-%V %A", "1976-01 SUNDAY", absl::CivilDay(1976, 1, 4), "Sun"},
+    {"%G-%V %A", "1976-01 saturday", absl::CivilDay(1976, 1, 3), "Sat"},
+
+    // %a - abbreviated weekday name
+    {"%Y-%U", "1999-0",  absl::CivilDay(1998, 12, 27), "Sun"},
+    {"%Y-%U %a", "1999-0 Sun",  absl::CivilDay(1998, 12, 27), "Sun"},
+    {"%Y-%U %a", "1999-0 SAT",  absl::CivilDay(1999, 1, 2), "Sat"},
+
+    {"%Y-%W", "1999-0",  absl::CivilDay(1998, 12, 28), "Mon"},
+    {"%Y-%W %a", "1999-0 Sun",  absl::CivilDay(1999, 1, 3), "Sun"},
+    {"%Y-%W %a", "1999-0 Sat",  absl::CivilDay(1999, 1, 2), "Sat"},
+
+    {"%G-%V", "1976-01", absl::CivilDay(1975, 12, 29), "Mon"},
+    {"%G-%V %a", "1976-01 sun", absl::CivilDay(1976, 1, 4), "Sun"},
+    {"%G-%V %a", "1976-01 Sat", absl::CivilDay(1976, 1, 3), "Sat"},
+  };
+
+  for (const ParseDatetimeTest& test : tests) {
+    RunParseDatetimeTest(test);
+  }
+}
+
+TEST(ParseFormatDateTimestampTests, ParseWithModifiers) {
+  // These tests are defined in pairs, where the first test of the pair
+  // is without any modifier, and the second is the same basic test with
+  // the modifier.  Currently, modifiers don't impact the result in any way
+  // because there is no way for an engine to specify a different locale.
+  std::vector<ParseDatetimeTest> tests = {
+    // E modifier - using the locale's alternative representation.
+    //
+    // %Ec - date and time
+    {"%c",  "Mon Jul 19 12:34:56 2021",
+     DatetimeValue::FromYMDHMSAndMicros(2021, 7, 19, 12, 34, 56, 0)},
+    {"%Ec", "Mon Jul 19 12:34:56 2021",
+     DatetimeValue::FromYMDHMSAndMicros(2021, 7, 19, 12, 34, 56, 0)},
+
+    // %EC - century
+    {"%C", "20", absl::CivilDay(2000, 1, 1)},
+    {"%EC", "20", absl::CivilDay(2000, 1, 1)},
+
+    // %Ex - date
+    {"%x", "07/19/21", absl::CivilDay(2021, 7, 19)},
+    {"%Ex", "07/19/21", absl::CivilDay(2021, 7, 19)},
+
+    // %EX - time
+    {"%X",  "12:34:56",
+     DatetimeValue::FromYMDHMSAndMicros(1970, 1, 1, 12, 34, 56, 0)},
+    {"%EX",  "12:34:56",
+     DatetimeValue::FromYMDHMSAndMicros(1970, 1, 1, 12, 34, 56, 0)},
+
+    // %Ey - year
+    {"%y", "21", absl::CivilDay(2021, 1, 1)},
+    {"%Ey", "21", absl::CivilDay(2021, 1, 1)},
+
+    // %EY - year
+    {"%Y", "2021", absl::CivilDay(2021, 1, 1)},
+    {"%EY", "2021", absl::CivilDay(2021, 1, 1)},
+
+    // O modifier - using the locale's alternative numeric symbols.
+    //
+    // %Od - day of month
+    {"%d", "11", absl::CivilDay(1970, 1, 11)},
+    {"%Od", "11", absl::CivilDay(1970, 1, 11)},
+
+    // %Oe - day of month
+    {"%e", "11", absl::CivilDay(1970, 1, 11)},
+    {"%Oe", "11", absl::CivilDay(1970, 1, 11)},
+
+    // %OH - hour (00-23)
+    {"%H",  "13",
+     DatetimeValue::FromYMDHMSAndMicros(1970, 1, 1, 13, 0, 0, 0)},
+    {"%OH",  "13",
+     DatetimeValue::FromYMDHMSAndMicros(1970, 1, 1, 13, 0, 0, 0)},
+
+    // %OI - hour (01-12)
+    {"%I %p",  "11 am",
+     DatetimeValue::FromYMDHMSAndMicros(1970, 1, 1, 11, 0, 0, 0)},
+    {"%OI %p",  "11 AM",
+     DatetimeValue::FromYMDHMSAndMicros(1970, 1, 1, 11, 0, 0, 0)},
+    {"%I %p",  "11 pm",
+     DatetimeValue::FromYMDHMSAndMicros(1970, 1, 1, 23, 0, 0, 0)},
+    {"%OI %p",  "11 PM",
+     DatetimeValue::FromYMDHMSAndMicros(1970, 1, 1, 23, 0, 0, 0)},
+
+    // %Om - month (01-12)
+    {"%m", "11", absl::CivilDay(1970, 11, 1)},
+    {"%Om", "11", absl::CivilDay(1970, 11, 1)},
+
+    // %OM - minute (00-59)
+    {"%M",  "34",
+     DatetimeValue::FromYMDHMSAndMicros(1970, 1, 1, 0, 34, 0, 0)},
+    {"%OM",  "34",
+     DatetimeValue::FromYMDHMSAndMicros(1970, 1, 1, 0, 34, 0, 0)},
+
+    // %OS - second (00-60)
+    {"%S",  "56",
+     DatetimeValue::FromYMDHMSAndMicros(1970, 1, 1, 0, 0, 56, 0)},
+    {"%OS",  "56",
+     DatetimeValue::FromYMDHMSAndMicros(1970, 1, 1, 0, 0, 56, 0)},
+
+    // %Ou - weekday (1-7)
+    {"%U %u", "2 3", absl::CivilDay(1970, 1, 14)},
+    {"%U %Ou", "2 3", absl::CivilDay(1970, 1, 14)},
+    {"%W %u", "2 3", absl::CivilDay(1970, 1, 14)},
+    {"%W %Ou", "2 3", absl::CivilDay(1970, 1, 14)},
+
+    // %OU - week number (00-53)
+    {"%U",  "2", absl::CivilDay(1970, 1, 11)},
+    {"%OU", "2", absl::CivilDay(1970, 1, 11)},
+
+    // %OV - ISO week number (01-53)
+    {"%G %V",  "2000 15", absl::CivilDay(2000, 4, 10)},
+    {"%G %OV", "2000 15", absl::CivilDay(2000, 4, 10)},
+
+    // %Ow - weekday (0-6)
+    {"%U %w",  "2 3", absl::CivilDay(1970, 1, 14)},
+    {"%U %Ow",  "2 3", absl::CivilDay(1970, 1, 14)},
+    {"%W %w",  "2 3", absl::CivilDay(1970, 1, 14)},
+    {"%W %Ow",  "2 3", absl::CivilDay(1970, 1, 14)},
+
+    // %OW - week number (00-53)
+    {"%W",  "2", absl::CivilDay(1970, 1, 12)},
+    {"%OW", "2", absl::CivilDay(1970, 1, 12)},
+
+    // %Oy - year
+    {"%y",  "21", absl::CivilDay(2021, 1, 1)},
+    {"%Oy", "21", absl::CivilDay(2021, 1, 1)},
+  };
+
+  for (const ParseDatetimeTest& test : tests) {
+    RunParseDatetimeTest(test);
+  }
+}
+
+TEST(ParseFormatDateTimestampTests, CollisionTestsNewParts) {
+  // Tests format strings with overlapping/colliding element specifications.
+  std::vector<ParseDatetimeTest> tests = {
+    // For redundant elements, rightmost wins.
+    {"%Y-%j-%j", "1978-001-007", absl::CivilDay(1978, 1, 7)},
+    {"%J-%G-%J", "300-1978-001", absl::CivilDay(1978, 1, 2)},
+
+    {"%Y-%U-%U", "1999-50-1",  absl::CivilDay(1999, 1, 3)},
+    {"%Y-%W-%U", "1999-50-1",  absl::CivilDay(1999, 1, 3)},
+    {"%Y-%U-%W", "1999-50-1",  absl::CivilDay(1999, 1, 4)},
+    {"%Y-%W-%W", "1999-50-1",  absl::CivilDay(1999, 1, 4)},
+
+    {"%G-%V-%V", "1976-50-01", absl::CivilDay(1975, 12, 29)},
+
+    // Test the various elements for day of week (%u %w %A %a'),
+    // in different orders.
+    //
+    // The base date is 1999 week 1, which is 1999-01-04.  The last day-of-week
+    // element value is always Monday in these test cases, so the result is the
+    // same for each case.
+    {"%Y-%W %u %w %A %a", "1999-1 3 4 Sunday Mon", absl::CivilDay(1999, 1, 4)},
+    {"%Y-%W %u %w %a %A", "1999-1 3 4 Sun Monday", absl::CivilDay(1999, 1, 4)},
+    {"%Y-%W %u %A %a %w", "1999-1 4 Sunday Tue 1", absl::CivilDay(1999, 1, 4)},
+    {"%Y-%W %w %A %a %u", "1999-1 3 Sunday Tue 1", absl::CivilDay(1999, 1, 4)},
+
+    // Similar tests with ISO specifications.
+    {"%G-%V %u %w %A %a", "1978-1 3 4 Sunday Mon", absl::CivilDay(1978, 1, 2)},
+    {"%G-%V %u %w %a %A", "1978-1 3 4 Sun Monday", absl::CivilDay(1978, 1, 2)},
+    {"%G-%V %u %A %a %w", "1978-1 4 Sunday Tue 1", absl::CivilDay(1978, 1, 2)},
+    {"%G-%V %w %A %a %u", "1978-1 3 Sunday Tue 1", absl::CivilDay(1978, 1, 2)},
+
+    // Day of year overrides week if dayofweek is unspecified, regardless of
+    // position.
+    {"%Y-%U-%j", "1978-50-007", absl::CivilDay(1978, 1, 7)},
+    {"%Y-%j-%U", "1978-007-50", absl::CivilDay(1978, 1, 7)},
+    {"%Y-%W-%j", "1978-50-007", absl::CivilDay(1978, 1, 7)},
+    {"%Y-%j-%W", "1978-007-50", absl::CivilDay(1978, 1, 7)},
+
+    {"%G-%V-%J", "1978-50-001", absl::CivilDay(1978, 1, 2)},
+    {"%G-%J-%V", "1978-001-50", absl::CivilDay(1978, 1, 2)},
+
+    // If day-of-year and week+weekday are both specified, then the rightmost
+    // of day-of-year and week wins (the position of day-of-week is ignored).
+    {"%Y-%U-%j-%A", "1978-50-007-Sunday", absl::CivilDay(1978, 1, 7)},
+    {"%Y-%j-%U-%a", "1978-007-50-Sun", absl::CivilDay(1978, 12, 10), "Sun"},
+    {"%Y-%W-%j-%u", "1978-50-007-1", absl::CivilDay(1978, 1, 7)},
+    {"%Y-%j-%W-%w", "1978-007-50-1", absl::CivilDay(1978, 12, 11), "Mon"},
+
+    // Similar tests for ISO day-of-year vs. week+weekday.
+    {"%G-%V-%J-%A", "1978-50-001-Monday", absl::CivilDay(1978, 1, 2)},
+    {"%G-%J-%V-%a", "1978-001-50-Tue", absl::CivilDay(1978, 12, 12), "Tue"},
+    {"%G-%V-%J-%u", "1978-50-001-1", absl::CivilDay(1978, 1, 2)},
+    {"%G-%J-%V-%w", "1978-001-50-2", absl::CivilDay(1978, 12, 12), "Tue"},
+  };
+
+  for (const ParseDatetimeTest& test : tests) {
+    RunParseDatetimeTest(test);
+  }
+}
+
+TEST(ParseFormatDateTimestampTests, CollisionTestsOriginalParts) {
+  // Tests format strings with overlapping/colliding element specifications,
+  // new elements vs. original elements.
+  std::vector<ParseDatetimeTest> tests = {
+    // For redundant elements, rightmost wins.
+    // %B, %b, %h - month
+    {"%Y-%B-%j", "1978-Dec-007", absl::CivilDay(1978, 1, 7)},
+    {"%Y-%j-%B", "1978-008-Dec", absl::CivilDay(1978, 12, 8)},
+    // We compute day 60 from 1978 to initially set the day/month (03/01),
+    // but then override the month.
+    {"%Y-%j-%B", "1978-060-Dec", absl::CivilDay(1978, 12, 1)},
+
+    // %b and %h behave the same as similar case above with %B
+    {"%Y-%b-%j", "1978-Dec-007", absl::CivilDay(1978, 1, 7)},
+    {"%Y-%j-%b", "1978-008-Dec", absl::CivilDay(1978, 12, 8)},
+    {"%Y-%h-%j", "1978-Dec-007", absl::CivilDay(1978, 1, 7)},
+    {"%Y-%j-%h", "1978-008-Dec", absl::CivilDay(1978, 12, 8)},
+
+    // %C - century (sort of an orthogonal case because it only overlaps
+    // with %Y, not %j since century doesn't overlap with month/day).
+    {"%Y-%C-%j", "1978-20-060", absl::CivilDay(2000, 2, 29)},
+    {"%Y-%j-%C", "1978-060-20", absl::CivilDay(2000, 2, 29)},
+
+    // %c - date and time representation in the format '%a %b %e %T %Y'.
+    {"%Y-%c-%j", "2001-Tue Jul 20 12:34:56 2021-001",
+     DatetimeValue::FromYMDHMSAndMicros(2021, 1, 1, 12, 34, 56, 0)},
+    {"%Y-%j-%c", "2001-001-Tue Jul 20 12:34:56 2021",
+     DatetimeValue::FromYMDHMSAndMicros(2021, 7, 20, 12, 34, 56, 0)},
+    {"%j-%c-%Y", "001-Tue Jul 20 12:34:56 2021-2001",
+     DatetimeValue::FromYMDHMSAndMicros(2001, 7, 20, 12, 34, 56, 0)},
+
+    // %D - date
+    {"%Y %D %j", "1978 12/31/00 060", absl::CivilDay(2000, 2, 29)},
+    {"%Y %j %D", "1978 007 12/31/00", absl::CivilDay(2000, 12, 31)},
+
+    // %d - day of month
+    {"%Y %d %j", "1978 31 007", absl::CivilDay(1978, 1, 7)},
+    {"%Y %j %d", "1978 070 31", absl::CivilDay(1978, 3, 31)},
+    {"%Y %j %d", "2000 032 29", absl::CivilDay(2000, 2, 29)},
+    // Corner case - we compute the month using %j which identifies February,
+    // then try to set the day to 31.  This fails since February of 1978 only
+    // as 28 days.
+    {"%Y %j %d", "1978 032 29", "Out-of-range datetime field"},
+    {"%Y %j %d", "2000 032 30", "Out-of-range datetime field"},
+
+    // %e - day of month
+    {"%Y %e %j", "1978 31 033", absl::CivilDay(1978, 2, 2)},
+    {"%Y %j %e", "1978 033 28", absl::CivilDay(1978, 2, 28)},
+    {"%Y %j %e", "1978 033 29", "Out-of-range datetime field"},
+
+    // %F - date
+    {"%Y %F %j", "1978 2000-12-31 033", absl::CivilDay(2000, 2, 2)},
+    {"%Y %j %F", "1978 033 2000-12-31", absl::CivilDay(2000, 12, 31)},
+    {"%F %j %Y", "2000-12-31 033 1978", absl::CivilDay(1978, 2, 2)},
+    {"%j %F %Y", "033 2000-12-31 1978", absl::CivilDay(1978, 12, 31)},
+
+    // %Q - quarter
+    {"%Y %Q %j", "1978 4 007", absl::CivilDay(1978, 1, 7)},
+    {"%Y %j %Q", "1978 007 4", absl::CivilDay(1978, 10, 1)},
+
+    // %x - date
+    {"%Y %x %j", "1978 12/31/00 033", absl::CivilDay(2000, 2, 2)},
+    {"%Y %j %x", "1978 007 12/31/00", absl::CivilDay(2000, 12, 31)},
+    {"%x %j %Y", "12/31/00 033 1978", absl::CivilDay(1978, 2, 2)},
+    {"%j %x %Y", "033 12/31/00 1978", absl::CivilDay(1978, 12, 31)},
+
+    // %Y - year
+    // %j is computed based on the last/final value of year.  Note that
+    // day 60 is different in 2000 vs. 2001 because 2000 is a leap year.
+    {"%Y %j %Y", "2000 60 2001", absl::CivilDay(2001, 3, 1)},
+    {"%Y %j %Y", "2001 60 2000", absl::CivilDay(2000, 2, 29)},
+
+    // %y - year
+    {"%y %j %y", "00 60 01", absl::CivilDay(2001, 3, 1)},
+    {"%y %j %y", "01 60 00", absl::CivilDay(2000, 2, 29)},
+
+    // %y and %Y - year
+    {"%Y %j %y", "2000 60 01", absl::CivilDay(2001, 3, 1)},
+    {"%y %j %Y", "01 60 2000", absl::CivilDay(2000, 2, 29)},
+
+    // Similar tests for week (%W) as those above with %j.
+    //
+    // %B, %b, %h - month
+    // Note - the first day of 1978 week 6 is 02/06 which is a Monday.
+    {"%Y-%W", "1978-06", absl::CivilDay(1978, 2, 6)},
+    {"%Y-%B-%W", "1978-Dec-06", absl::CivilDay(1978, 2, 6)},
+    {"%Y-%B-%W-%u", "1978-Dec-06-1", absl::CivilDay(1978, 2, 6)},
+    {"%Y-%B-%W-%u", "1978-Dec-06-2", absl::CivilDay(1978, 2, 7)},
+
+    // Mind bender.  %w labels days 0-6, Sunday through Saturday.  So
+    // identifying Monday using '1' corresponds to the first day of
+    // week (%W) 6.  But day (%w) 0 is Sunday, which is the last day
+    // of week (%W) 6.
+    {"%Y-%B-%W-%w", "1978-Dec-06-1", absl::CivilDay(1978, 2, 6)},
+    {"%Y-%B-%W-%w", "1978-Dec-06-0", absl::CivilDay(1978, 2, 12)},
+
+    // We compute week 6 from 1978 to initially set the day/month (02/06),
+    // but then override the month.
+    {"%Y-%W-%B", "1978-06-Dec", absl::CivilDay(1978, 12, 6)},
+    {"%Y-%W-%B-%w", "1978-06-Dec-2", absl::CivilDay(1978, 12, 7)},
+    {"%Y-%W-%w-%B", "1978-06-2-Dec", absl::CivilDay(1978, 12, 7)},
+
+    // %b and %h behave the same as similar case above with %B
+    {"%Y-%b-%W", "1978-Dec-06", absl::CivilDay(1978, 2, 6)},
+    {"%Y-%W-%b", "1978-06-Dec", absl::CivilDay(1978, 12, 6)},
+    {"%Y-%h-%W", "1978-Dec-06", absl::CivilDay(1978, 2, 6)},
+    {"%Y-%W-%h", "1978-6-Dec", absl::CivilDay(1978, 12, 6)},
+
+    // %C - century (sort of an orthogonal case because it only overlaps
+    // with %Y, not %W since century doesn't overlap with month/day).
+    {"%Y-%W", "1999-10", absl::CivilDay(1999, 3, 8)},
+    {"%Y-%W", "2000-10", absl::CivilDay(2000, 3, 6)},
+    {"%Y-%C-%W", "1999-20-10", absl::CivilDay(2000, 3, 6)},
+    {"%Y-%W-%C", "1999-10-20", absl::CivilDay(2000, 3, 6)},
+
+    // %c - date and time representation in the format '%a %b %e %T %Y'.
+    {"%Y-%c-%W", "2000-Tue Jul 20 12:34:56 1999-10",
+     DatetimeValue::FromYMDHMSAndMicros(1999, 3, 8, 12, 34, 56, 0)},
+    {"%Y-%W-%c", "2000-10-Tue Jul 20 12:34:56 1999",
+     DatetimeValue::FromYMDHMSAndMicros(1999, 7, 20, 12, 34, 56, 0)},
+    {"%W-%c-%Y", "10-Tue Jul 20 12:34:56 1999-2000",
+     DatetimeValue::FromYMDHMSAndMicros(2000, 7, 20, 12, 34, 56, 0)},
+    {"%c-%W-%Y", "Tue Jul 20 12:34:56 1999-10-2000",
+     DatetimeValue::FromYMDHMSAndMicros(2000, 3, 6, 12, 34, 56, 0)},
+
+    // %D - date
+    {"%Y %D %W", "1999 12/31/00 10", absl::CivilDay(2000, 3, 6)},
+    {"%Y %W %D", "1999 10 12/31/00", absl::CivilDay(2000, 12, 31)},
+    {"%Y %W %D %u", "1999 10 12/31/00 2", absl::CivilDay(2000, 12, 31)},
+
+    // %d - day of month
+    {"%Y %d %W", "1999 31 10", absl::CivilDay(1999, 3, 8)},
+    {"%Y %W %d", "1999 10 31", absl::CivilDay(1999, 3, 31)},
+
+    // Week 9 of 2000 starts on 2/28, it's a leap year so we can set the
+    // day of month to 29.
+    {"%Y %W", "2000 09", absl::CivilDay(2000, 2, 28)},
+    {"%Y %W %d", "2000 09 29", absl::CivilDay(2000, 2, 29)},
+
+    // Corner case - we compute the month using %W which identifies February,
+    // then try to set the day to 29.  This fails since February of 1999 only
+    // has 28 days.  Similar test for day 30 of February 2000.
+    {"%Y %W %d", "1999 08 29", "Out-of-range datetime field"},
+    {"%Y %W %d", "2000 09 30", "Out-of-range datetime field"},
+
+    // %e - day of month (similar to above tests)
+    {"%Y %e %W", "1999 31 10", absl::CivilDay(1999, 3, 8)},
+    {"%Y %W %e", "1999 10 31", absl::CivilDay(1999, 3, 31)},
+    {"%Y %W %e", "2000 09 29", absl::CivilDay(2000, 2, 29)},
+    {"%Y %W %e", "1999 08 29", "Out-of-range datetime field"},
+    {"%Y %W %e", "2000 09 30", "Out-of-range datetime field"},
+
+    // %F - date
+    {"%Y %F %W", "1999 2000-12-31 10", absl::CivilDay(2000, 3, 6)},
+    {"%Y %W %F", "1999 10 2000-12-31", absl::CivilDay(2000, 12, 31)},
+    {"%F %W %Y", "2000-12-31 10 1999", absl::CivilDay(1999, 3, 8)},
+    {"%W %F %Y", "10 2000-12-31 1999", absl::CivilDay(1999, 12, 31)},
+
+    // %Q - quarter
+    {"%Y %Q %W", "1999 4 10", absl::CivilDay(1999, 3, 8)},
+    {"%Y %W %Q", "1999 10 4", absl::CivilDay(1999, 10, 1)},
+
+    // %x - date (similar tests as for %F)
+    {"%Y %x %W", "1999 12/31/00 10", absl::CivilDay(2000, 3, 6)},
+    {"%Y %W %x", "1999 10 12/31/00", absl::CivilDay(2000, 12, 31)},
+    {"%x %W %Y", "12/31/00 10 1999", absl::CivilDay(1999, 3, 8)},
+    {"%W %x %Y", "10 12/31/00 1999", absl::CivilDay(1999, 12, 31)},
+
+    // %Y - year
+    // %W is computed based on the last/final value of year.  Note that
+    // week 10 is different in 2000 vs. 2001 because 2000 is a leap year.
+    {"%Y %W %Y", "2000 10 1999", absl::CivilDay(1999, 3, 8)},
+    {"%Y %W %Y", "1999 10 2000", absl::CivilDay(2000, 3, 6)},
+
+    // %y - year
+    {"%y %W %y", "00 10 99", absl::CivilDay(1999, 3, 8)},
+    {"%y %W %y", "99 10 00", absl::CivilDay(2000, 3, 6)},
+  };
+
+  for (const ParseDatetimeTest& test : tests) {
+    RunParseDatetimeTest(test);
+  }
+}
+
+TEST(ParseFormatDateTimestampTests, ISOandNonISOTests) {
+  // Tests where both ISO and non-ISO parts are present. ISO parts are always
+  // ignored in this case.
+
+  struct NonISOInfo {
+    std::string element;
+    std::string value;
+    std::string expected_result;
+  };
+
+  // ISO parts are ignored if any non-ISO parts are present,
+  // regardless of position.  This list does not include ISO parts, nor
+  // does it include day of week parts (%A, %a, %u, %w).
+  std::vector<NonISOInfo> non_iso_elements = {
+    {"%B", "December", "1970-12-01"},    // month
+    {"%b", "Dec", "1970-12-01"},         // abbreviated month
+    {"%h", "Dec", "1970-12-01"},         // abbreviated month
+    {"%C", "20", "2000-01-01"},          // century
+    {"%D", "12/31/00", "2000-12-31"},    // date
+    {"%Y", "2000", "2000-01-01"},        // year
+  };
+
+  // The ISO specified parts %G-%J map to 1979-01-01.  The result should
+  // never match this date, since the ISO parts should be ignored given that
+  // a non-ISO element is also specified.
+  for (const NonISOInfo& element_info : non_iso_elements) {
+    std::string format(element_info.element);
+    absl::StrAppend(&format, "-%G-%J");
+    std::string input(element_info.value);
+    absl::StrAppend(&input, "-1979-001");
+    int32_t parsed_date;
+    ZETASQL_EXPECT_OK(ParseStringToDate(format, input, /*parse_version2=*/true,
+                                &parsed_date))
+        << "format: " << format << ", input: " << input;
+    EXPECT_EQ(FormatDate(parsed_date), element_info.expected_result)
+        << "format: " << format << ", input: " << input;
+
+    // Similar to the above, but place ISO elements at the start rather than
+    // at the end.
+    std::string prefix_format(element_info.element);
+    absl::StrAppend(&prefix_format, "%G-%J-");
+    std::string prefix_input(element_info.value);
+    absl::StrAppend(&prefix_input, "1979-001-");
+    ZETASQL_EXPECT_OK(ParseStringToDate(prefix_format, prefix_input,
+                                /*parse_version2=*/true, &parsed_date))
+        << "prefix_format: " << prefix_format << ", prefix_input: "
+        << prefix_input;
+    EXPECT_EQ(FormatDate(parsed_date), element_info.expected_result)
+        << "prefix_format: " << prefix_format << ", prefix_input: "
+        << prefix_input;
+  }
+
+  // One extra test for %c, which only works for datetime/timestamp (not date).
+  DatetimeValue parsed_datetime;
+  const std::string datetime_string = "Tue Jul 20 12:34:56 2021";
+  ZETASQL_EXPECT_OK(ParseStringToDatetime(
+      "%c-%G-%J", absl::StrCat(datetime_string, "-2001-001"),
+      /*scale=*/kMicroseconds, /*parse_version2=*/true, &parsed_datetime));
+  std::string formatted_string;
+  ZETASQL_EXPECT_OK(FormatDatetimeToString("%c", parsed_datetime, &formatted_string));
+  EXPECT_EQ(datetime_string, formatted_string);
 }
 
 }  // namespace

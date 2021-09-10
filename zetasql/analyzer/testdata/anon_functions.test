@@ -573,3 +573,137 @@ select ANON_AVG(DISTINCT int32 clamped between 0 and 1) from SimpleTypes
 ERROR: Aggregate function ANON_AVG does not support DISTINCT in arguments [at 1:8]
 select ANON_AVG(DISTINCT int32 clamped between 0 and 1) from SimpleTypes
        ^
+==
+
+# ANON_VAR_POP(ARRAY<DOUBLE>) is an internal signature and cannot be used by
+# users.
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization ANON_VAR_POP(double_array)
+from ArrayWithAnonymizationUid;
+--
+ERROR: No matching signature for aggregate function ANON_VAR_POP for argument types: ARRAY<DOUBLE>. Supported signatures: ANON_VAR_POP(DOUBLE [CLAMPED BETWEEN DOUBLE AND DOUBLE]) [at 1:27]
+select with anonymization ANON_VAR_POP(double_array)
+                          ^
+==
+
+# ANON_STDDEV_POP(ARRAY<DOUBLE>) is an internal signature and cannot be used by
+# users.
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization ANON_STDDEV_POP(double_array)
+from ArrayWithAnonymizationUid;
+--
+ERROR: No matching signature for aggregate function ANON_STDDEV_POP for argument types: ARRAY<DOUBLE>. Supported signatures: ANON_STDDEV_POP(DOUBLE [CLAMPED BETWEEN DOUBLE AND DOUBLE]) [at 1:27]
+select with anonymization ANON_STDDEV_POP(double_array)
+                          ^
+==
+
+# ANON_PERCENTILE_CONT(ARRAY<DOUBLE>, DOUBLE) is an internal signature and
+# cannot be used by users.
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization ANON_PERCENTILE_CONT(double_array, 0.4)
+from ArrayWithAnonymizationUid;
+--
+ERROR: No matching signature for aggregate function ANON_PERCENTILE_CONT for argument types: ARRAY<DOUBLE>, DOUBLE. Supported signatures: ANON_PERCENTILE_CONT(DOUBLE, DOUBLE [CLAMPED BETWEEN DOUBLE AND DOUBLE]) [at 1:27]
+select with anonymization ANON_PERCENTILE_CONT(double_array, 0.4)
+                          ^
+==
+
+# ANON_PERCENTILE_CONT(DOUBLE) is not supported because that percentile is not
+# provided.
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization ANON_PERCENTILE_CONT(double)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Anonymized aggregate function anon_percentile_cont expects exactly 2 arguments but found 1 argument [at 1:27]
+select with anonymization ANON_PERCENTILE_CONT(double)
+                          ^
+==
+
+# More than two arguments are not supported for ANON_PERCENTILE_CONT.
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization ANON_PERCENTILE_CONT(double, double, double)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Anonymized aggregate function anon_percentile_cont expects exactly 2 arguments but found 3 arguments [at 1:27]
+select with anonymization ANON_PERCENTILE_CONT(double, double, double)
+                          ^
+==
+
+# percentile must be in the range [0.0, 1.0]
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization ANON_PERCENTILE_CONT(double, 1.5)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Percentile must be between 0 and 1 [at 1:56]
+select with anonymization ANON_PERCENTILE_CONT(double, 1.5)
+                                                       ^
+==
+
+# percentile must have two arguments.
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization ANON_PERCENTILE_CONT(double, 1.5, 1.5)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Anonymized aggregate function anon_percentile_cont expects exactly 2 arguments but found 3 arguments [at 1:27]
+select with anonymization ANON_PERCENTILE_CONT(double, 1.5, 1.5)
+                          ^
+==
+
+# percentile must have two arguments.
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization ANON_PERCENTILE_CONT(double)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Anonymized aggregate function anon_percentile_cont expects exactly 2 arguments but found 1 argument [at 1:27]
+select with anonymization ANON_PERCENTILE_CONT(double)
+                          ^
+==
+
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization
+    ANON_PERCENTILE_CONT(int64, 0.4, 0.4 CLAMPED BETWEEN 2 AND 3)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Anonymized aggregate function anon_percentile_cont expects exactly 2 arguments but found 3 arguments [at 2:5]
+    ANON_PERCENTILE_CONT(int64, 0.4, 0.4 CLAMPED BETWEEN 2 AND 3)
+    ^
+==
+
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization
+    ANON_PERCENTILE_CONT(int64 CLAMPED BETWEEN 2 AND 3)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Anonymized aggregate function anon_percentile_cont expects exactly 2 arguments but found 1 argument [at 2:5]
+    ANON_PERCENTILE_CONT(int64 CLAMPED BETWEEN 2 AND 3)
+    ^
+==
+
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization
+    ANON_PERCENTILE_CONT(int64, double CLAMPED BETWEEN 2 AND 3)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Percentile must be a literal or query parameter [at 2:33]
+    ANON_PERCENTILE_CONT(int64, double CLAMPED BETWEEN 2 AND 3)
+                                ^
+==
+
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization
+    ANON_PERCENTILE_CONT(int64, 0.4 CLAMPED BETWEEN double AND 3)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Lower bound on CLAMPED BETWEEN must be a literal or query parameter [at 2:53]
+    ANON_PERCENTILE_CONT(int64, 0.4 CLAMPED BETWEEN double AND 3)
+                                                    ^
+==
+
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization
+    ANON_PERCENTILE_CONT(int64, 0.4 CLAMPED BETWEEN 2 AND double)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Upper bound on CLAMPED BETWEEN must be a literal or query parameter [at 2:59]
+    ANON_PERCENTILE_CONT(int64, 0.4 CLAMPED BETWEEN 2 AND double)
+                                                          ^

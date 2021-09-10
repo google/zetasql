@@ -265,7 +265,7 @@ ALTERNATION GROUP: <empty>
 # explicit column inside the subquery.
 # This propagates through select distinct too.
 select s.key, key
-from (select {{distinct|}} as `zetasql_test.KeyValueStruct` 'abc' key
+from (select {{distinct|}} as `zetasql_test__.KeyValueStruct` 'abc' key
       from TestTable) s
 --
 STRICT MODE ERROR: Alias key cannot be used without a qualifier in strict name resolution mode [at 1:15]
@@ -274,7 +274,7 @@ select s.key, key
 ==
 
 select arr.key, off, key
-from UNNEST(ARRAY<`zetasql_test.KeyValueStruct`>['''key: "abc"''']) arr
+from UNNEST(ARRAY<`zetasql_test__.KeyValueStruct`>['''key: "abc"''']) arr
      WITH OFFSET off
 --
 STRICT MODE ERROR: Alias key cannot be used without a qualifier in strict name resolution mode [at 1:22]

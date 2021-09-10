@@ -48,7 +48,7 @@
 #include "absl/base/config.h"
 #include "absl/base/macros.h"
 #include "absl/numeric/int128.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/endian.h"
@@ -65,7 +65,7 @@ namespace zetasql::internal {
 // macros know that there is an appropriate overload.
 class IPAddress;
 std::ostream& operator<<(std::ostream& stream, const IPAddress& address);
-zetasql_base::StatusOr<IPAddress> MakeIPAddressWithScopeId(const in6_addr&, uint32_t);
+absl::StatusOr<IPAddress> MakeIPAddressWithScopeId(const in6_addr&, uint32_t);
 
 class IPAddress {
  public:
@@ -177,7 +177,7 @@ class IPAddress {
   IPAddress& operator=(const IPAddress&) = default;
   IPAddress& operator=(IPAddress&&) = default;
 
-  friend zetasql_base::StatusOr<IPAddress> MakeIPAddressWithScopeId(const in6_addr&,
+  friend absl::StatusOr<IPAddress> MakeIPAddressWithScopeId(const in6_addr&,
                                                             uint32_t);
 
  private:
@@ -486,7 +486,7 @@ ABSL_MUST_USE_RESULT bool StringToIPAddress(const absl::string_view str,
 // additionally understands IPv6 addresses with scope identifiers (either
 // numerical interface indexes or interface names) and can return properly
 // scoped IP addresses (see MakeIPAddressWithScopeId() above).
-zetasql_base::StatusOr<IPAddress> StringToIPAddressWithOptionalScope(
+absl::StatusOr<IPAddress> StringToIPAddressWithOptionalScope(
     absl::string_view str);
 
 // StringToIPAddress conversion methods that ZETASQL_CHECK()-fail on invalid input.

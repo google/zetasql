@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <memory>
 #include <set>
+#include <utility>
 
 #include "google/protobuf/util/message_differencer.h"
 #include "zetasql/common/errors.h"
@@ -30,11 +31,12 @@
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
+#include "zetasql/public/types/type_deserializer.h"
 #include "zetasql/resolved_ast/serialization.pb.h"
 #include "zetasql/base/case.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -91,7 +93,7 @@ FunctionArgumentTypeOptions::FunctionArgumentTypeOptions(
       extra_relation_input_columns_allowed_(
           extra_relation_input_columns_allowed) {}
 
-zetasql_base::StatusOr<bool>
+absl::StatusOr<bool>
 FunctionSignatureOptions::CheckFunctionSignatureConstraints(
     const FunctionSignature& concrete_signature,
     const std::vector<InputArgumentType>& arguments) const {
@@ -115,6 +117,8 @@ absl::Status FunctionSignatureOptions::Deserialize(
     (*result)->add_required_language_feature(LanguageFeature(each));
   }
   (*result)->set_is_aliased_signature(proto.is_aliased_signature());
+  (*result)->set_propagates_collation(proto.propagates_collation());
+  (*result)->set_uses_operation_collation(proto.uses_operation_collation());
 
   return absl::OkStatus();
 }
@@ -132,6 +136,12 @@ void FunctionSignatureOptions::Serialize(
   if (is_aliased_signature()) {
     proto->set_is_aliased_signature(true);
   }
+  if (!propagates_collation()) {
+    proto->set_propagates_collation(false);
+  }
+  if (uses_operation_collation()) {
+    proto->set_uses_operation_collation(true);
+  }
 }
 
 const FunctionEnums::ArgumentCardinality FunctionArgumentType::REQUIRED;
@@ -141,9 +151,8 @@ const FunctionEnums::ArgumentCardinality FunctionArgumentType::OPTIONAL;
 // static
 absl::Status FunctionArgumentTypeOptions::Deserialize(
     const FunctionArgumentTypeOptionsProto& options_proto,
-    const std::vector<const google::protobuf::DescriptorPool*>& pools,
-    SignatureArgumentKind arg_kind, const Type* arg_type, TypeFactory* factory,
-    FunctionArgumentTypeOptions* options) {
+    const TypeDeserializer& type_deserializer, SignatureArgumentKind arg_kind,
+    const Type* arg_type, FunctionArgumentTypeOptions* options) {
   options->set_cardinality(options_proto.cardinality());
   options->set_must_be_constant(options_proto.must_be_constant());
   options->set_must_be_non_null(options_proto.must_be_non_null());
@@ -165,10 +174,14 @@ absl::Status FunctionArgumentTypeOptions::Deserialize(
         options_proto.extra_relation_input_columns_allowed());
   }
   if (options_proto.has_relation_input_schema()) {
-    ZETASQL_ASSIGN_OR_RETURN(
-        TVFRelation relation,
-        TVFRelation::Deserialize(options_proto.relation_input_schema(), pools,
-                                 factory));
+    // TODO: propagate TypeDeserializer through TVFRelation::Deserialize.
+    ZETASQL_ASSIGN_OR_RETURN(TVFRelation relation,
+                     TVFRelation::Deserialize(
+                         options_proto.relation_input_schema(),
+                         std::vector<const google::protobuf::DescriptorPool*>(
+                             type_deserializer.descriptor_pools().begin(),
+                             type_deserializer.descriptor_pools().end()),
+                         type_deserializer.type_factory()));
     *options = FunctionArgumentTypeOptions(
         relation, options->extra_relation_input_columns_allowed());
   }
@@ -209,58 +222,67 @@ absl::Status FunctionArgumentTypeOptions::Deserialize(
     // directly `type` which is from `FunctionArgumentTypeProto.type`. Only one
     // of the two types will be set.
     if (options_proto.has_default_value_type()) {
-      ZETASQL_RET_CHECK(arg_type == nullptr);
-      ZETASQL_RETURN_IF_ERROR(factory->DeserializeFromProtoUsingExistingPools(
-          options_proto.default_value_type(), pools, &default_value_type));
+      ZETASQL_RET_CHECK_EQ(arg_type, nullptr);
+      ZETASQL_ASSIGN_OR_RETURN(
+          default_value_type,
+          type_deserializer.Deserialize(options_proto.default_value_type()));
     }
-    ZETASQL_RET_CHECK(default_value_type != nullptr);
+    ZETASQL_RET_CHECK_NE(default_value_type, nullptr);
     ZETASQL_ASSIGN_OR_RETURN(Value value,
                      Value::Deserialize(options_proto.default_value(),
                                         default_value_type));
     options->set_default(std::move(value));
   }
+  if (options_proto.has_argument_collation_mode()) {
+    options->set_argument_collation_mode(
+        options_proto.argument_collation_mode());
+  }
+  if (options_proto.has_uses_array_element_for_collation()) {
+    options->set_uses_array_element_for_collation(
+        options_proto.uses_array_element_for_collation());
+  }
   return absl::OkStatus();
 }
 
 // static
-absl::Status FunctionArgumentType::Deserialize(
-    const FunctionArgumentTypeProto& proto,
-    const std::vector<const google::protobuf::DescriptorPool*>& pools,
-    TypeFactory* factory, std::unique_ptr<FunctionArgumentType>* result) {
+absl::StatusOr<std::unique_ptr<FunctionArgumentType>>
+FunctionArgumentType::Deserialize(const FunctionArgumentTypeProto& proto,
+                                  const TypeDeserializer& type_deserializer) {
   const Type* type = nullptr;
   if (proto.kind() == ARG_TYPE_FIXED) {
-    ZETASQL_RETURN_IF_ERROR(factory->DeserializeFromProtoUsingExistingPools(
-        proto.type(), pools, &type));
+    ZETASQL_ASSIGN_OR_RETURN(type, type_deserializer.Deserialize(proto.type()));
   }
 
   FunctionArgumentTypeOptions options;
   ZETASQL_RETURN_IF_ERROR(FunctionArgumentTypeOptions::Deserialize(
-      proto.options(), pools, proto.kind(), type, factory, &options));
+      proto.options(), type_deserializer, proto.kind(), type, &options));
 
   if (type != nullptr) {
     // <type> can not be nullptr when proto.kind() == ARG_TYPE_FIXED
-    *result = absl::make_unique<FunctionArgumentType>(type, options,
-                                                      proto.num_occurrences());
-  } else if (proto.kind() == ARG_TYPE_LAMBDA) {
-    *result = absl::make_unique<FunctionArgumentType>(ARG_TYPE_LAMBDA);
+    return absl::make_unique<FunctionArgumentType>(type, options,
+                                                   proto.num_occurrences());
+  }
+
+  if (proto.kind() == ARG_TYPE_LAMBDA) {
+    auto result = absl::make_unique<FunctionArgumentType>(ARG_TYPE_LAMBDA);
     std::vector<FunctionArgumentType> lambda_argument_types;
     for (const FunctionArgumentTypeProto& arg_proto :
          proto.lambda().argument()) {
-      std::unique_ptr<FunctionArgumentType> arg_type;
-      ZETASQL_RETURN_IF_ERROR(FunctionArgumentType::Deserialize(arg_proto, pools,
-                                                        factory, &arg_type));
+      ZETASQL_ASSIGN_OR_RETURN(
+          std::unique_ptr<FunctionArgumentType> arg_type,
+          FunctionArgumentType::Deserialize(arg_proto, type_deserializer));
       lambda_argument_types.push_back(*arg_type);
     }
-    std::unique_ptr<FunctionArgumentType> lambda_body_type;
-    ZETASQL_RETURN_IF_ERROR(FunctionArgumentType::Deserialize(
-        proto.lambda().body(), pools, factory, &lambda_body_type));
-    (**result) = FunctionArgumentType::Lambda(std::move(lambda_argument_types),
-                                              std::move(*lambda_body_type));
-  } else {
-    *result = absl::make_unique<FunctionArgumentType>(proto.kind(), options,
-                                                      proto.num_occurrences());
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<FunctionArgumentType> lambda_body_type,
+                     FunctionArgumentType::Deserialize(proto.lambda().body(),
+                                                       type_deserializer));
+    (*result) = FunctionArgumentType::Lambda(std::move(lambda_argument_types),
+                                             std::move(*lambda_body_type));
+    return result;
   }
-  return absl::OkStatus();
+
+  return absl::make_unique<FunctionArgumentType>(proto.kind(), options,
+                                                 proto.num_occurrences());
 }
 
 absl::Status FunctionArgumentTypeOptions::Serialize(
@@ -329,6 +351,13 @@ absl::Status FunctionArgumentTypeOptions::Serialize(
   if (parse_location_range.has_value()) {
     ZETASQL_ASSIGN_OR_RETURN(*options_proto->mutable_argument_type_parse_location(),
                      parse_location_range.value().ToProto());
+  }
+  if (argument_collation_mode() !=
+      FunctionEnums::AFFECTS_OPERATION_AND_PROPAGATION) {
+    options_proto->set_argument_collation_mode(argument_collation_mode());
+  }
+  if (uses_array_element_for_collation()) {
+    options_proto->set_uses_array_element_for_collation(true);
   }
   return absl::OkStatus();
 }
@@ -492,7 +521,7 @@ FunctionArgumentType::FunctionArgumentType(
     : kind_(kind),
       num_occurrences_(num_occurrences),
       type_(type),
-      options_(options) {
+      options_(std::move(options)) {
   ZETASQL_DCHECK_EQ(kind == ARG_TYPE_FIXED, type != nullptr);
 }
 
@@ -879,26 +908,32 @@ absl::Status FunctionSignature::Deserialize(
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
     TypeFactory* factory,
     std::unique_ptr<FunctionSignature>* result) {
+  ZETASQL_ASSIGN_OR_RETURN(*result,
+                   Deserialize(proto, TypeDeserializer(factory, pools)));
+  return absl::OkStatus();
+}
+
+absl::StatusOr<std::unique_ptr<FunctionSignature>>
+FunctionSignature::Deserialize(const FunctionSignatureProto& proto,
+                               const TypeDeserializer& type_deserializer) {
   FunctionArgumentTypeList arguments;
   for (const FunctionArgumentTypeProto& argument_proto : proto.argument()) {
-    std::unique_ptr<FunctionArgumentType> argument;
-    ZETASQL_RETURN_IF_ERROR(FunctionArgumentType::Deserialize(
-        argument_proto, pools, factory, &argument));
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<FunctionArgumentType> argument,
+        FunctionArgumentType::Deserialize(argument_proto, type_deserializer));
     arguments.push_back(*argument);
   }
 
-  std::unique_ptr<FunctionArgumentType> result_type;
-  ZETASQL_RETURN_IF_ERROR(FunctionArgumentType::Deserialize(
-      proto.return_type(), pools, factory, &result_type));
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<FunctionArgumentType> result_type,
+                   FunctionArgumentType::Deserialize(proto.return_type(),
+                                                     type_deserializer));
 
   std::unique_ptr<FunctionSignatureOptions> options;
   ZETASQL_RETURN_IF_ERROR(FunctionSignatureOptions::Deserialize(
       proto.options(), &options));
 
-  *result = absl::make_unique<FunctionSignature>(*result_type, arguments,
-                                                 proto.context_id(), *options);
-
-  return absl::OkStatus();
+  return absl::make_unique<FunctionSignature>(*result_type, arguments,
+                                              proto.context_id(), *options);
 }
 
 absl::Status FunctionSignature::Serialize(
@@ -1025,7 +1060,7 @@ bool FunctionSignature::ComputeIsConcrete() const {
   }
 }
 
-zetasql_base::StatusOr<bool> FunctionSignature::CheckArgumentConstraints(
+absl::StatusOr<bool> FunctionSignature::CheckArgumentConstraints(
     const std::vector<InputArgumentType>& arguments) const {
   return options_.CheckFunctionSignatureConstraints(*this, arguments);
 }

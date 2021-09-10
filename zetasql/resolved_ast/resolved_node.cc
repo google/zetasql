@@ -31,9 +31,10 @@
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_collation.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "absl/memory/memory.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/map_util.h"
@@ -183,7 +184,7 @@ std::string ResolvedNode::GetNameForDebugString() const {
   return node_kind_string();
 }
 
-absl::Status ResolvedNode::CheckFieldsAccessed() const {
+absl::Status ResolvedNode::CheckNoFieldsAccessed() const {
   return absl::OkStatus();
 }
 
@@ -344,10 +345,10 @@ void ResolvedConstant::CollectDebugStringFields(
   SUPER::CollectDebugStringFields(fields);
   ZETASQL_DCHECK_LE(fields->size(), 2);  // type and parse location
 
-  fields->emplace(fields->begin(), "", constant()->FullName());
-  if (constant()->Is<SimpleConstant>()) {
+  fields->emplace(fields->begin(), "", constant_->FullName());
+  if (constant_->Is<SimpleConstant>()) {
     fields->emplace_back(
-        "value", constant()->GetAs<SimpleConstant>()->value().DebugString());
+        "value", constant_->GetAs<SimpleConstant>()->value().DebugString());
   }
   // TODO: It would be nice if we could also produce the Value
   // associated with a SQLConstant, but we can't have a dependency from
@@ -379,7 +380,7 @@ void ResolvedFunctionCallBase::CollectDebugStringFields(
     std::vector<DebugStringField>* fields) const {
   SUPER::CollectDebugStringFields(fields);
 
-  ZETASQL_DCHECK_LE(fields->size(), 2);  // type and parse_location
+  ZETASQL_DCHECK_LE(fields->size(), 3);  // type, parse_location and type_annotation_map
 
   // Clear the "type" field if present.
   fields->erase(std::remove_if(
@@ -395,6 +396,10 @@ void ResolvedFunctionCallBase::CollectDebugStringFields(
   }
   if (!hint_list_.empty()) {
     fields->emplace_back("hint_list", hint_list_);
+  }
+  if (!collation_list_.empty()) {
+    fields->emplace_back("collation_list",
+                         ResolvedCollation::ToString(collation_list_));
   }
 }
 
@@ -486,7 +491,7 @@ std::string ResolvedMakeProtoField::GetNameForDebugString() const {
   std::vector<std::string> modifiers;
   if (format() != FieldFormat::DEFAULT_FORMAT) {
     modifiers.push_back(
-        absl::StrCat("format=", FieldFormat_Format_Name(format())));
+        absl::StrCat("format=", FieldFormat_Format_Name(format_)));
   }
 
   if (!modifiers.empty()) {
@@ -497,19 +502,29 @@ std::string ResolvedMakeProtoField::GetNameForDebugString() const {
 
 // ResolvedOption gets formatted as
 //   [<qualifier>.]<name> := <value>
+// if no parse location is available. Otherwise, it is formatted as
+//   [<qualifier>.]<name>=
+//   +-parse_location=<location>
+//   +-<value>
 void ResolvedOption::CollectDebugStringFields(
     std::vector<DebugStringField>* fields) const {
   SUPER::CollectDebugStringFields(fields);
-  CollectDebugStringFieldsWithNameFormat(value_.get(), fields);
+  if (fields->empty()) {
+    CollectDebugStringFieldsWithNameFormat(value_.get(), fields);
+  } else {
+    fields->emplace_back("", value_.get());
+  }
 }
 
 std::string ResolvedOption::GetNameForDebugString() const {
-  const std::string prefix =
-      qualifier().empty() ? ""
-                          : absl::StrCat(ToIdentifierLiteral(qualifier()), ".");
-
-  return GetNameForDebugStringWithNameFormat(
-      absl::StrCat(prefix, ToIdentifierLiteral(name())), value_.get());
+  const std::string prefix = absl::StrCat(
+      qualifier_.empty() ? ""
+                          : absl::StrCat(ToIdentifierLiteral(qualifier_), "."),
+      ToIdentifierLiteral(name_));
+  if (GetParseLocationRangeOrNULL() == nullptr) {
+    return GetNameForDebugStringWithNameFormat(prefix, value_.get());
+  }
+  return absl::StrCat(prefix, "=");
 }
 
 std::string ResolvedWindowFrame::FrameUnitToString(FrameUnit frame_unit) {
@@ -631,7 +646,7 @@ std::string ResolvedImportStmt::GetImportKindString() const {
   return ImportKindToString(import_kind_);
 }
 
-zetasql_base::StatusOr<TypeParameters> ResolvedColumnAnnotations::GetFullTypeParameters(
+absl::StatusOr<TypeParameters> ResolvedColumnAnnotations::GetFullTypeParameters(
     const Type* type) const {
   // We need Type* to figure out the size of TypeParameters.child_list since
   // TypeParameters.child_list.size() is not equals to
@@ -695,7 +710,7 @@ zetasql_base::StatusOr<TypeParameters> ResolvedColumnAnnotations::GetFullTypePar
 // Gets the type parameters for a complex type (STRUCT or ARRAY etc..) as one
 // object, by storing type parameters for subfields in
 // TypeParameters.child_list instead of ResolvedColumnAnnotations.child_list.
-zetasql_base::StatusOr<TypeParameters> ResolvedColumnDefinition::GetFullTypeParameters()
+absl::StatusOr<TypeParameters> ResolvedColumnDefinition::GetFullTypeParameters()
     const {
   if (annotations() == nullptr) {
     return TypeParameters();

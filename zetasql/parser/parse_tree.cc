@@ -36,7 +36,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
@@ -94,6 +94,9 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_ASSIGNMENT_FROM_STRUCT] = "AssignmentFromStruct";
   map[AST_BEGIN_STATEMENT] = "BeginStatement";
   map[AST_BETWEEN_EXPRESSION] = "BetweenExpression";
+  map[AST_AUX_LOAD_DATA_FROM_FILES_OPTIONS_LIST] =
+      "LoadDataFromFilesOptionsList";
+  map[AST_AUX_LOAD_DATA_STATEMENT] = "LoadDataStatement";
   map[AST_BIGNUMERIC_LITERAL] = "BigNumericLiteral";
   map[AST_BINARY_EXPRESSION] = "BinaryExpression";
   map[AST_BITWISE_SHIFT_EXPRESSION] = "BitwiseShiftExpression";
@@ -129,6 +132,8 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_CREATE_INDEX_STATEMENT] = "CreateIndexStatement";
   map[AST_CREATE_PROCEDURE_STATEMENT] = "CreateProcedureStatement";
   map[AST_CREATE_MODEL_STATEMENT] = "CreateModelStatement";
+  map[AST_CREATE_PRIVILEGE_RESTRICTION_STATEMENT] =
+      "CreatePrivilegeRestrictionStatement";
   map[AST_CREATE_ROW_ACCESS_POLICY_STATEMENT] =
       "CreateRowAccessPolicyStatement";
   map[AST_CREATE_SCHEMA_STATEMENT] = "CreateSchemaStatement";
@@ -198,6 +203,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_GRANTEE_LIST] = "GranteeList";
   map[AST_GRANT_TO_CLAUSE] = "GrantToClause";
   map[AST_GRANT_STATEMENT] = "GrantStatement";
+  map[AST_RESTRICT_TO_CLAUSE] = "RestrictToClause";
   map[AST_GROUP_BY] = "GroupBy";
   map[AST_GROUPING_ITEM] = "GroupingItem";
   map[AST_HAVING_MODIFIER] = "HavingModifier";
@@ -213,6 +219,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_IMPORT_STATEMENT] = "ImportStatement";
   map[AST_IN_EXPRESSION] = "InExpression";
   map[AST_IN_LIST] = "InList";
+  map[AST_INDEX_ALL_COLUMNS] = "IndexAllColumns";
   map[AST_INDEX_ITEM_LIST] = "IndexItemList";
   map[AST_INDEX_STORING_EXPRESSION_LIST] = "IndexStoringExpressionList";
   map[AST_INDEX_UNNEST_EXPRESSION_LIST] = "IndexUnnestExpressionList";
@@ -225,6 +232,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_INT_LITERAL] = "IntLiteral";
   map[AST_JOIN] = "Join";
   map[AST_JSON_LITERAL] = "JSONLiteral";
+  map[AST_LABEL] = "Label";
   map[AST_LAMBDA] = "Lambda";
   map[AST_LIKE_EXPRESSION] = "LikeExpression";
   map[AST_LIMIT_OFFSET] = "LimitOffset";
@@ -388,6 +396,12 @@ void ASTNode::AddChild(ASTNode* child) {
   child->set_parent(this);
 }
 
+void ASTNode::AddChildFront(ASTNode* child) {
+  ZETASQL_DCHECK(child != nullptr);
+  children_.insert(children_.begin(), child);
+  child->set_parent(this);
+}
+
 void ASTNode::AddChildren(absl::Span<ASTNode* const> children) {
   for (ASTNode* child : children) {
     if (child != nullptr) {
@@ -477,7 +491,7 @@ ABSL_ATTRIBUTE_NOINLINE bool ASTNode::Dumper::DumpNode() {
     absl::string_view node_substr = sql_->substr(
         range.start().GetByteOffset(),
         range.end().GetByteOffset() - range.start().GetByteOffset());
-    zetasql_base::StatusOr<std::string> status_or_summary_str =
+    absl::StatusOr<std::string> status_or_summary_str =
         GetSummaryString(node_substr, 30);
     if (status_or_summary_str.ok()) {
       absl::StrAppend(out_, " [", status_or_summary_str.value(), "]");
@@ -1274,7 +1288,7 @@ std::string ASTCreateTableFunctionStatement::SingleNodeDebugString() const {
 // non-nested DML statement). In that case, returns 'target_path' as an
 // ASTPathExpression. Otherwise returns an error based on
 // 'statement_type'.
-static zetasql_base::StatusOr<const ASTPathExpression*>
+static absl::StatusOr<const ASTPathExpression*>
 GetTargetPathForNonNestedDMLStatement(
     absl::string_view statement_type,
     const ASTGeneralizedPathExpression* target_path) {
@@ -1327,13 +1341,13 @@ GetTargetPathForNonNestedDMLStatement(
                                   << " statement requires a table name";
 }
 
-zetasql_base::StatusOr<const ASTPathExpression*>
+absl::StatusOr<const ASTPathExpression*>
 ASTDeleteStatement::GetTargetPathForNonNested() const {
   return GetTargetPathForNonNestedDMLStatement(/*statement_type=*/"DELETE",
                                                target_path_);
 }
 
-zetasql_base::StatusOr<const ASTPathExpression*>
+absl::StatusOr<const ASTPathExpression*>
 ASTTruncateStatement::GetTargetPathForNonNested() const {
   return GetTargetPathForNonNestedDMLStatement(/*statement_type=*/"TRUNCATE",
                                                target_path_);
@@ -1361,13 +1375,13 @@ std::string ASTInsertStatement::GetSQLForInsertMode() const {
   }
 }
 
-zetasql_base::StatusOr<const ASTPathExpression*>
+absl::StatusOr<const ASTPathExpression*>
 ASTInsertStatement::GetTargetPathForNonNested() const {
   return GetTargetPathForNonNestedDMLStatement(/*statement_type=*/"INSERT",
                                                target_path_);
 }
 
-zetasql_base::StatusOr<const ASTPathExpression*>
+absl::StatusOr<const ASTPathExpression*>
 ASTUpdateStatement::GetTargetPathForNonNested() const {
   return GetTargetPathForNonNestedDMLStatement(/*statement_type=*/"UPDATE",
                                                target_path_);
@@ -1538,7 +1552,7 @@ std::string ASTCheckConstraint::SingleNodeDebugString() const {
 }
 
 std::string ASTSetCollateClause::GetSQLForAlterAction() const {
-  return "SET COLLATE";
+  return "SET DEFAULT COLLATE";
 }
 
 std::string ASTSetOptionsAction::GetSQLForAlterAction() const {
@@ -1655,6 +1669,10 @@ std::string ASTRenameColumnAction::GetSQLForAlterAction() const {
 
 std::string ASTGrantToClause::GetSQLForAlterAction() const {
   return "GRANT TO";
+}
+
+std::string ASTRestrictToClause::GetSQLForAlterAction() const {
+  return "RESTRICT TO";
 }
 
 std::string ASTFilterFieldsArg::SingleNodeDebugString() const {

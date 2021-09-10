@@ -63,7 +63,7 @@ void SetupSampleSystemVariables(TypeFactory* type_factory,
   ZETASQL_CHECK_OK(
       type_factory->MakeStructType({{"bar", int32_type}}, &foo_struct_type));
   ZETASQL_CHECK_OK(type_factory->MakeProtoType(
-      zetasql_test::KitchenSinkPB::descriptor(), &proto_type));
+      zetasql_test__::KitchenSinkPB::descriptor(), &proto_type));
 
   ZETASQL_CHECK_OK(AddSystemVariable({"int32_system_variable"}, int32_type, options));
   ZETASQL_CHECK_OK(AddSystemVariable({"int64_array_system_variable"}, int64_array_type,

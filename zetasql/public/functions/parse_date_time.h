@@ -43,12 +43,32 @@ namespace functions {
 // The supported format elements and their semantics are defined in:
 //   (broken link)
 //
+// <parse_version_2> indicates whether or not new format elements are
+// supported:
+//    %G - ISO year
+//    %g - ISO year (00-99)
+//    %V - ISO week number 01-53
+//    %J - ISO day of year (001-364 or 001-371)
+//    %U - week number (00-53, Sunday is the first day of the week)
+//    %W - week number (00-53, Monday is the first day of the week)
+//    %j - day of year (001-365 or 001-366)
+//    %u - weekday 1-7 (Monday is the first day of the week)
+//    %w - weekday 0-6 (Sunday is hte first day of the week)
+//    %A - full weekday name
+//    %a - abbreviated weekday name
+//
 // Note: The methods in cast_date_time.h, such as CastStringToTimestamp use a
 // different format style.
 absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     const absl::TimeZone default_timezone,
-                                    int64_t* timestamp);
+                                    bool parse_version2, int64_t* timestamp);
+ABSL_DEPRECATED("Use version without optional argument")
+absl::Status ParseStringToTimestamp(absl::string_view format_string,
+                                    absl::string_view timestamp_string,
+                                    const absl::TimeZone default_timezone,
+                                    int64_t* timestamp,
+                                    bool parse_version2 = false);
 
 // Invokes MakeTimeZone() on <default_timezone_string> and invokes the prior
 // function.  Returns error status if <default_timezone_string> is invalid
@@ -56,18 +76,36 @@ absl::Status ParseStringToTimestamp(absl::string_view format_string,
 absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     absl::string_view default_timezone_string,
-                                    int64_t* timestamp);
+                                    bool parse_version2, int64_t* timestamp);
+ABSL_DEPRECATED("Use version without optional argument")
+absl::Status ParseStringToTimestamp(absl::string_view format_string,
+                                    absl::string_view timestamp_string,
+                                    absl::string_view default_timezone_string,
+                                    int64_t* timestamp,
+                                    bool parse_version2 = false);
 
 // The 2 functions below support nanoseconds precision.
 absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     absl::string_view default_timezone_string,
-                                    absl::Time* timestamp);
+                                    bool parse_version2, absl::Time* timestamp);
+ABSL_DEPRECATED("Use version without optional argument")
+absl::Status ParseStringToTimestamp(absl::string_view format_string,
+                                    absl::string_view timestamp_string,
+                                    absl::string_view default_timezone_string,
+                                    absl::Time* timestamp,
+                                    bool parse_version2 = false);
 
 absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     const absl::TimeZone default_timezone,
-                                    absl::Time* timestamp);
+                                    bool parse_version2, absl::Time* timestamp);
+ABSL_DEPRECATED("Use version without optional argument")
+absl::Status ParseStringToTimestamp(absl::string_view format_string,
+                                    absl::string_view timestamp_string,
+                                    const absl::TimeZone default_timezone,
+                                    absl::Time* timestamp,
+                                    bool parse_version2 = false);
 
 // Parses an input <date_string> with the given input <format_string>,
 // and produces the appropriate date as output. Date parts that are
@@ -79,7 +117,12 @@ absl::Status ParseStringToTimestamp(absl::string_view format_string,
 // Requires that the string_view arguments are UTF8.  The last byte of the
 // string_view can be (but is not required to be) a null-byte.
 absl::Status ParseStringToDate(absl::string_view format_string,
-                               absl::string_view date_string, int32_t* date);
+                               absl::string_view date_string,
+                               bool parse_version2, int32_t* date);
+ABSL_DEPRECATED("Use version without optional argument")
+absl::Status ParseStringToDate(absl::string_view format_string,
+                               absl::string_view date_string, int32_t* date,
+                               bool parse_version2 = false);
 
 // Parses an input <time_string> with the given input <format_string>, and
 // produces the appropriate TIME as output. Time parts that are unspecified in
@@ -112,8 +155,14 @@ absl::Status ParseStringToTime(absl::string_view format_string,
 // string_view can be (but is not required to be) a null-byte.
 absl::Status ParseStringToDatetime(absl::string_view format_string,
                                    absl::string_view datetime_string,
-                                   TimestampScale scale,
+                                   TimestampScale scale, bool parse_version2,
                                    DatetimeValue* datetime);
+ABSL_DEPRECATED("Use version without optional argument")
+absl::Status ParseStringToDatetime(absl::string_view format_string,
+                                   absl::string_view datetime_string,
+                                   TimestampScale scale,
+                                   DatetimeValue* datetime,
+                                   bool parse_version2 = false);
 
 }  // namespace functions
 }  // namespace zetasql

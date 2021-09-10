@@ -17,7 +17,7 @@ QueryStmt
         | +-GetProtoField
         |   +-type=ARRAY<INT32>
         |   +-expr=
-        |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=repeated_int32_val
         |   +-default_value=[]
         +-element_column=$array.value#4
@@ -31,8 +31,8 @@ select *
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 | +-$array.value#4 AS value [INT32]
 | +-$array_offset.offset#5 AS offset [INT64]
 +-query=
@@ -47,7 +47,7 @@ QueryStmt
         | +-GetProtoField
         |   +-type=ARRAY<INT32>
         |   +-expr=
-        |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=repeated_int32_val
         |   +-default_value=[]
         +-element_column=$array.value#4
@@ -63,8 +63,8 @@ select *
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 | +-$array.val1#4 AS val1 [INT32]
 | +-$array_offset.pos1#5 AS pos1 [INT64]
 | +-$array.val2#6 AS val2 [INT64]
@@ -84,7 +84,7 @@ QueryStmt
         |   | +-GetProtoField
         |   |   +-type=ARRAY<INT32>
         |   |   +-expr=
-        |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   |   +-field_descriptor=repeated_int32_val
         |   |   +-default_value=[]
         |   +-element_column=$array.val1#4
@@ -484,8 +484,8 @@ QueryStmt
 | +-TestTable.key#1 AS key [INT32]
 | +-$query.$col3#6 AS `$col3` [STRING]
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 | +-$array.d#4 AS d [DATE]
 | +-$array_offset.key#5 AS key [INT64]
 +-query=
@@ -502,7 +502,7 @@ QueryStmt
         | +-GetProtoField
         |   +-type=ARRAY<DATE>
         |   +-expr=
-        |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=repeated_date
         |   +-default_value=[]
         |   +-format=DATE
@@ -526,7 +526,7 @@ select nrv, offset, nrv.nested_int64, 3
 --
 QueryStmt
 +-output_column_list=
-| +-$array.nrv#4 AS nrv [PROTO<zetasql_test.KitchenSinkPB.Nested>]
+| +-$array.nrv#4 AS nrv [PROTO<zetasql_test__.KitchenSinkPB.Nested>]
 | +-$array_offset.offset#5 AS offset [INT64]
 | +-$query.nested_int64#6 AS nested_int64 [INT64]
 | +-$query.$col4#7 AS `$col4` [INT64]
@@ -538,7 +538,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT64
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.nrv#4)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nrv#4)
     | |   +-field_descriptor=nested_int64
     | |   +-default_value=88
     | +-$col4#7 := Literal(type=INT64, value=3)
@@ -549,9 +549,9 @@ QueryStmt
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="T")
         +-array_expr=
         | +-GetProtoField
-        |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+        |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
         |   +-expr=
-        |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=nested_repeated_value
         |   +-default_value=[]
         +-element_column=$array.nrv#4
@@ -585,8 +585,8 @@ QueryStmt
 +-output_column_list=
 | +-$array_offset.pos#5 AS pos [INT64]
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 | +-$array.repeated_int64_val#4 AS repeated_int64_val [INT64]
 | +-$array.$unnest1#6 AS `$unnest1` [INT64]
 +-query=
@@ -604,7 +604,7 @@ QueryStmt
         |   | +-GetProtoField
         |   |   +-type=ARRAY<INT64>
         |   |   +-expr=
-        |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   |   +-field_descriptor=repeated_int64_val
         |   |   +-default_value=[]
         |   +-element_column=$array.repeated_int64_val#4
@@ -647,7 +647,7 @@ QueryStmt
         |   | +-GetProtoField
         |   |   +-type=ARRAY<INT64>
         |   |   +-expr=
-        |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   |   +-field_descriptor=repeated_int64_val
         |   |   +-default_value=[]
         |   +-element_column=$array.arr1#4
@@ -657,7 +657,7 @@ QueryStmt
         | +-GetProtoField
         |   +-type=ARRAY<INT64>
         |   +-expr=
-        |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=repeated_int64_val
         |   +-default_value=[]
         +-element_column=$array.arr2#6
@@ -678,8 +678,8 @@ select *
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 | +-$array.arr1#4 AS arr1 [INT64]
 | +-$array_offset.pos1#5 AS pos1 [INT64]
 | +-$array.arr2#6 AS arr2 [INT64]
@@ -699,7 +699,7 @@ QueryStmt
         |   | +-GetProtoField
         |   |   +-type=ARRAY<INT64>
         |   |   +-expr=
-        |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   |   +-field_descriptor=repeated_int64_val
         |   |   +-default_value=[]
         |   +-element_column=$array.arr1#4
@@ -709,7 +709,7 @@ QueryStmt
         | +-GetProtoField
         |   +-type=ARRAY<INT64>
         |   +-expr=
-        |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=repeated_int64_val
         |   +-default_value=[]
         +-element_column=$array.arr2#6
@@ -768,7 +768,7 @@ QueryStmt
         |   +-type=ARRAY<STRUCT<pos INT64, arr1 INT64, arr2 INT64>>
         |   +-subquery_type=ARRAY
         |   +-parameter_list=
-        |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-subquery=
         |     +-ProjectScan
         |       +-column_list=[$make_struct.$struct#8]
@@ -793,7 +793,7 @@ QueryStmt
         |               |   | +-GetProtoField
         |               |   |   +-type=ARRAY<INT64>
         |               |   |   +-expr=
-        |               |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+        |               |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
         |               |   |   +-field_descriptor=repeated_int64_val
         |               |   |   +-default_value=[]
         |               |   +-element_column=$array.arr1#4
@@ -803,7 +803,7 @@ QueryStmt
         |               | +-GetProtoField
         |               |   +-type=ARRAY<INT64>
         |               |   +-expr=
-        |               |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+        |               |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
         |               |   +-field_descriptor=repeated_int64_val
         |               |   +-default_value=[]
         |               +-element_column=$array.arr2#6
@@ -837,7 +837,7 @@ QueryStmt
         | +-GetProtoField
         |   +-type=ARRAY<INT64>
         |   +-expr=
-        |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=repeated_int64_val
         |   +-default_value=[]
         +-element_column=$array.arr#4

@@ -16,9 +16,11 @@
 
 #include "zetasql/reference_impl/expected_errors.h"
 
+#include <string>
 #include <utility>
 #include <vector>
 
+#include "zetasql/compliance/matchers.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 
@@ -76,6 +78,38 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange,
       "Attempted to modify an array element with multiple nested UPDATE "
       "statements"));
+
+  // Moved over from the PrepareQuery expected errors as these occur in the
+  // normal random query tests as well.
+  // TODO: Figure out if it's possible to avoid generating invalid
+  // PIVOT queries in RQG.
+  error_matchers.emplace_back(
+      new StatusRegexMatcher(absl::StatusCode::kUnimplemented,
+                             "as (?:a )?PIVOT expression is not supported"));
+
+  // TODO: Pivot does a rewrite which can create multiple columns
+  // with the same id?
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInternal,
+      "Resolved AST validation failed: ZETASQL_RET_CHECK failure .* Duplicate column "
+      "id.*"));
+
+  // TODO: RQG does not include
+  // zetasql.functions.DateTimestampPart in the set of protos that the query
+  // needs to know about.
+  error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Type not found: `zetasql.functions.DateTimestampPart`"));
+
+  // TODO: SQLBuilder does not take the fact that DateTimestampPart
+  // names can only appear in this form in particular locations.
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      ".*(Unrecognized name|Function not found): "
+      "(YEAR|MONTH|DAY|DAYOFWEEK|DAYOFYEAR|QUARTER|HOUR|MINUTE|SECOND|"
+      "MILLISECOND|MICROSECOND|NANOSECOND|DATE|WEEK|DATETIME|TIME"
+      "ISOWEEK|ISOYEAR).*"));
+
   return absl::make_unique<MatcherCollection<absl::Status>>(
       matcher_name, std::move(error_matchers));
 }

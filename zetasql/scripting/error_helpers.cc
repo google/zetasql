@@ -17,7 +17,7 @@
 #include "zetasql/scripting/error_helpers.h"
 
 #include "zetasql/common/status_payload_utils.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/status_builder.h"
 
 namespace zetasql {
@@ -32,7 +32,7 @@ namespace zetasql {
 //
 // Returns an error if <error_location_in> contains line or column numbers
 // outside the bounds of the input segment.
-zetasql_base::StatusOr<ErrorLocation> ConvertLocalErrorToScriptError(
+absl::StatusOr<ErrorLocation> ConvertLocalErrorToScriptError(
     const ScriptSegment& segment, const ErrorLocation& error_location_in) {
   // Convert the error location's line and column back to a byte offset
   // relative to the statement/expression which generated the error.
@@ -78,7 +78,7 @@ ConvertLocalErrorToScriptError(const ScriptSegment& segment) {
       return b;
     }
     ErrorLocation old_error_loc = internal::GetPayload<ErrorLocation>(b);
-    zetasql_base::StatusOr<ErrorLocation> status_or_new_error_loc =
+    absl::StatusOr<ErrorLocation> status_or_new_error_loc =
         ConvertLocalErrorToScriptError(segment, old_error_loc);
     ZETASQL_RET_CHECK_OK(status_or_new_error_loc.status())
         << "Unable to adjust error location: "

@@ -15,6 +15,10 @@
 //
 
 #include "zetasql/compliance/test_driver.h"
+#include <memory>
+#include "zetasql/public/annotation.pb.h"
+#include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/type_factory.h"
 
 namespace zetasql {
 
@@ -56,6 +60,18 @@ absl::Status SerializeTestDatabase(const TestDatabase& database,
     }
     if (!options.userid_column().empty()) {
       options_proto->set_userid_column(options.userid_column());
+    }
+    if (!options.column_annotations().empty()) {
+      std::unique_ptr<AnnotationMap> empty_annotation =
+          AnnotationMap::Create(types::Int64Type());
+      for (const AnnotationMap* annotation : options.column_annotations()) {
+        AnnotationMapProto* proto = options_proto->add_column_annotations();
+        if (annotation != nullptr) {
+          ZETASQL_RETURN_IF_ERROR(annotation->Serialize(proto));
+        } else {
+          ZETASQL_RETURN_IF_ERROR(empty_annotation->Serialize(proto));
+        }
+      }
     }
   }
   return absl::OkStatus();

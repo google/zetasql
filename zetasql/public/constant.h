@@ -54,8 +54,8 @@ namespace zetasql {
 class Constant {
  public:
   // Creates a named constant with <name_path>. Crashes if <name_path> is empty.
-  explicit Constant(const std::vector<std::string>& name_path)
-      : name_path_(name_path) {
+  explicit Constant(std::vector<std::string> name_path)
+      : name_path_(std::move(name_path)) {
     // ZETASQL_CHECK validated: Constants must have names. A call to Name() would fail
     // anyway.
     ZETASQL_CHECK(!name_path_.empty()) << FullName();

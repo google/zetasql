@@ -26,7 +26,7 @@
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "absl/container/node_hash_map.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 
@@ -55,7 +55,7 @@ class SampleCatalog {
 
   // Useful for configuring EvaluatorTableIterators for tables in the catalog.
   SimpleTable* GetTableOrDie(const std::string& name);
-  zetasql_base::StatusOr<SimpleTable*> GetTable(const std::string& name);
+  absl::StatusOr<SimpleTable*> GetTable(const std::string& name);
 
   // Get the SimpleCatalog from a static singleton default SampleCatalog
   // (with default LanguageOptions()).  The caller must not modify this

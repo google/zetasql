@@ -39,7 +39,7 @@
 #include "absl/hash/hash_testing.h"
 #include "absl/numeric/int128.h"
 #include "absl/random/random.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
@@ -326,6 +326,13 @@ constexpr NumericStringTestData kNumericFromStringTestData[] = {
      kMaxNumericValuePacked},
     {"-9999999999999999999999999999999999999900000000000000000000e-29",
      kMinNumericValuePacked},
+    // exponent is small negative integer while coefficient is 0
+    {"0.0E-122337203655840000", 0},
+    {"-0.0E-122337203655840000", 0},
+    {"0.00000000000000000000000000000000000000000000E-122337203655840000", 0},
+    {"-0.00000000000000000000000000000000000000000000E-122337203655840000", 0},
+    {"0.0E-99999999999999999999999999999999999999999999999999999999999", 0},
+    {"-0.0E-99999999999999999999999999999999999999999999999999999999999", 0},
     // exponent below int64min
     {"0E-99999999999999999999999999999999999999999999999999999999999", 0},
     {"-0.00000000000000000000000000000000000000000000000000000000000"
@@ -337,6 +344,13 @@ constexpr NumericStringTestData kNumericFromStringTestData[] = {
     {"   -.00000000000000000000000000000000000000000000000000000000000"
      "E-99999999999999999999999999999999999999999999999999999999999   ",
      0},
+    // exponent is large positive integer while coefficient is 0
+    {"0.0E122337203655840000", 0},
+    {"-0.0E122337203655840000", 0},
+    {"0.00000000000000000000000000000000000000000000E122337203655840000", 0},
+    {"-0.00000000000000000000000000000000000000000000E122337203655840000", 0},
+    {"0.0E99999999999999999999999999999999999999999999999999999999999", 0},
+    {"-0.0E99999999999999999999999999999999999999999999999999999999999", 0},
 };
 
 constexpr NumericStringTestData kNumericFromStringRoundingTestData[] = {
@@ -439,7 +453,7 @@ TEST_F(NumericValueTest, ToString) {
 
 TEST_F(NumericValueTest, FromString) {
   using FromStringFunc =
-      std::function<zetasql_base::StatusOr<NumericValue>(absl::string_view)>;
+      std::function<absl::StatusOr<NumericValue>(absl::string_view)>;
   const FromStringFunc functions[] = {&NumericValue::FromStringStrict,
                                       &NumericValue::FromString};
   for (const auto& from_string : functions) {
@@ -487,6 +501,10 @@ constexpr Error kNumericFromScaledValueOutOfRange(
     "Value is out of range after scaling to NUMERIC type");
 constexpr Error kNumericFromScaledValueRoundingNotAllowed(
     "Value will lose precision after scaling down to NUMERIC type");
+constexpr Error kRescaleValueRoundingNotAllowed(
+    "Value will lose precision after scaling down to a scale of ");
+constexpr Error kNumericIllegalScale(
+    "NUMERIC scale must be between 0 and 9 but got ");
 
 // A lite version of StatusOr that allows instantiation with constexpr.
 template <typename T>
@@ -502,7 +520,7 @@ struct NumericValueWrapper : absl::variant<Error, absl::string_view, int64_t> {
 };
 
 template <typename T>
-zetasql_base::StatusOr<T> GetNumericValue(const NumericValueWrapper& src) {
+absl::StatusOr<T> GetNumericValue(const NumericValueWrapper& src) {
   T value;
   if (absl::holds_alternative<absl::string_view>(src)) {
     ZETASQL_ASSIGN_OR_RETURN(value, T::FromString(absl::get<absl::string_view>(src)));
@@ -535,12 +553,12 @@ BigNumericValueWrapper operator-(const BigNumericValueWrapper& src) {
 }
 
 template <typename T>
-zetasql_base::StatusOr<T> GetValue(const T& src) {
+absl::StatusOr<T> GetValue(const T& src) {
   return src;
 }
 
 template <typename T>
-zetasql_base::StatusOr<T> GetValue(const ErrorOr<T>& src) {
+absl::StatusOr<T> GetValue(const ErrorOr<T>& src) {
   if (absl::holds_alternative<T>(src)) {
     return absl::get<T>(src);
   }
@@ -548,26 +566,26 @@ zetasql_base::StatusOr<T> GetValue(const ErrorOr<T>& src) {
 }
 
 template <typename T>
-zetasql_base::StatusOr<T> GetValue(const zetasql_base::StatusOr<T>& src) {
+absl::StatusOr<T> GetValue(const absl::StatusOr<T>& src) {
   return src;
 }
 
-zetasql_base::StatusOr<NumericValue> GetValue(const NumericValueWrapper& src) {
+absl::StatusOr<NumericValue> GetValue(const NumericValueWrapper& src) {
   return GetNumericValue<NumericValue>(src);
 }
 
-zetasql_base::StatusOr<std::pair<NumericValue, NumericValue>> GetValue(
+absl::StatusOr<std::pair<NumericValue, NumericValue>> GetValue(
     const std::pair<NumericValueWrapper, NumericValueWrapper>& src) {
   ZETASQL_ASSIGN_OR_RETURN(NumericValue first, GetValue(src.first));
   ZETASQL_ASSIGN_OR_RETURN(NumericValue second, GetValue(src.second));
   return std::make_pair(first, second);
 }
 
-zetasql_base::StatusOr<BigNumericValue> GetValue(const BigNumericValueWrapper& src) {
+absl::StatusOr<BigNumericValue> GetValue(const BigNumericValueWrapper& src) {
   return GetNumericValue<BigNumericValue>(src);
 }
 
-zetasql_base::StatusOr<std::pair<BigNumericValue, BigNumericValue>> GetValue(
+absl::StatusOr<std::pair<BigNumericValue, BigNumericValue>> GetValue(
     const std::pair<BigNumericValueWrapper, BigNumericValueWrapper>& src) {
   ZETASQL_ASSIGN_OR_RETURN(BigNumericValue first, GetValue(src.first));
   ZETASQL_ASSIGN_OR_RETURN(BigNumericValue second, GetValue(src.second));
@@ -582,6 +600,8 @@ constexpr Error kBigNumericFromScaledValueOutOfRange(
     "Value is out of range after scaling to BIGNUMERIC type");
 constexpr Error kBigNumericFromScaledValueRoundingNotAllowed(
     "Value will lose precision after scaling down to BIGNUMERIC type");
+constexpr Error kBigNumericIllegalScale(
+    "BIGNUMERIC scale must be between 0 and 38 but got ");
 
 template <typename Input = BigNumericValueWrapper,
           typename Output = BigNumericValueWrapper>
@@ -608,7 +628,7 @@ std::string AlphaNum(const NumericValue& src) { return src.ToString(); }
 std::string AlphaNum(const BigNumericValue& src) { return src.ToString(); }
 
 template <typename T, typename Int>
-zetasql_base::StatusOr<T> ScaleBy(Int mantissa, int exp) {
+absl::StatusOr<T> ScaleBy(Int mantissa, int exp) {
   std::ostringstream oss;
   if constexpr (std::is_same_v<Int, FixedInt<64, 4>>) {
     oss << mantissa.ToString() << "e" << exp;
@@ -721,7 +741,7 @@ struct NumericBinaryOpTestData {
 
 struct NumericAddOp {
   template <class T>
-  zetasql_base::StatusOr<T> operator()(const T& x, const T& y) const {
+  absl::StatusOr<T> operator()(const T& x, const T& y) const {
     return x.Add(y);
   }
   static constexpr absl::string_view kExpressionFormat = "$0 + $1";
@@ -729,7 +749,7 @@ struct NumericAddOp {
 
 struct NumericSubtractOp {
   template <class T>
-  zetasql_base::StatusOr<T> operator()(const T& x, const T& y) const {
+  absl::StatusOr<T> operator()(const T& x, const T& y) const {
     return x.Subtract(y);
   }
   static constexpr absl::string_view kExpressionFormat = "$0 - $1";
@@ -737,7 +757,7 @@ struct NumericSubtractOp {
 
 struct NumericMultiplyOp {
   template <class T>
-  zetasql_base::StatusOr<T> operator()(const T& x, const T& y) const {
+  absl::StatusOr<T> operator()(const T& x, const T& y) const {
     return x.Multiply(y);
   }
   static constexpr absl::string_view kExpressionFormat = "$0 * $1";
@@ -745,7 +765,7 @@ struct NumericMultiplyOp {
 
 struct NumericDivideOp {
   template <class T>
-  zetasql_base::StatusOr<T> operator()(const T& x, const T& y) const {
+  absl::StatusOr<T> operator()(const T& x, const T& y) const {
     return x.Divide(y);
   }
   static constexpr absl::string_view kExpressionFormat = "$0 / $1";
@@ -753,7 +773,7 @@ struct NumericDivideOp {
 
 struct NumericModOp {
   template <class T>
-  zetasql_base::StatusOr<T> operator()(const T& x, const T& y) const {
+  absl::StatusOr<T> operator()(const T& x, const T& y) const {
     return x.Mod(y);
   }
   static constexpr absl::string_view kExpressionFormat = "MOD($0, $1)";
@@ -761,7 +781,7 @@ struct NumericModOp {
 
 struct NumericDivideToIntegralValueOp {
   template <class T>
-  inline zetasql_base::StatusOr<T> operator()(const T& x, const T& y) const {
+  inline absl::StatusOr<T> operator()(const T& x, const T& y) const {
     return x.DivideToIntegralValue(y);
   }
   static constexpr absl::string_view kExpressionFormat = "DIV($0, $1)";
@@ -769,7 +789,7 @@ struct NumericDivideToIntegralValueOp {
 
 struct NumericPowerOp {
   template <class T>
-  inline zetasql_base::StatusOr<T> operator()(const T& x, const T& y) const {
+  inline absl::StatusOr<T> operator()(const T& x, const T& y) const {
     return x.Power(y);
   }
   static constexpr absl::string_view kExpressionFormat = "POW($0, $1)";
@@ -777,7 +797,7 @@ struct NumericPowerOp {
 
 struct NumericExpOp {
   template <class T>
-  inline zetasql_base::StatusOr<T> operator()(const T& x) const {
+  inline absl::StatusOr<T> operator()(const T& x) const {
     return x.Exp();
   }
   static constexpr absl::string_view kExpressionFormat = "EXP($0)";
@@ -785,7 +805,7 @@ struct NumericExpOp {
 
 struct NumericLnOp {
   template <class T>
-  inline zetasql_base::StatusOr<T> operator()(const T& x) const {
+  inline absl::StatusOr<T> operator()(const T& x) const {
     return x.Ln();
   }
   static constexpr absl::string_view kExpressionFormat = "LN($0)";
@@ -793,7 +813,7 @@ struct NumericLnOp {
 
 struct NumericLog10Op {
   template <class T>
-  inline zetasql_base::StatusOr<T> operator()(const T& x) const {
+  inline absl::StatusOr<T> operator()(const T& x) const {
     return x.Log10();
   }
   static constexpr absl::string_view kExpressionFormat = "LOG10($0)";
@@ -801,7 +821,7 @@ struct NumericLog10Op {
 
 struct NumericLogOp {
   template <class T>
-  inline zetasql_base::StatusOr<T> operator()(const T& x, const T& y) const {
+  inline absl::StatusOr<T> operator()(const T& x, const T& y) const {
     return x.Log(y);
   }
   static constexpr absl::string_view kExpressionFormat = "LOG($0, $1)";
@@ -809,7 +829,7 @@ struct NumericLogOp {
 
 struct NumericSqrtOp {
   template <class T>
-  inline zetasql_base::StatusOr<T> operator()(const T& x) const {
+  inline absl::StatusOr<T> operator()(const T& x) const {
     return x.Sqrt();
   }
   static constexpr absl::string_view kExpressionFormat = "SQRT($0)";
@@ -817,7 +837,7 @@ struct NumericSqrtOp {
 
 struct NumericTruncOp {
   template <class T>
-  inline zetasql_base::StatusOr<T> operator()(const T& x, int64_t y) const {
+  inline absl::StatusOr<T> operator()(const T& x, int64_t y) const {
     return x.Trunc(y);
   }
   static constexpr absl::string_view kExpressionFormat = "TRUNC($0, $1)";
@@ -825,7 +845,7 @@ struct NumericTruncOp {
 
 struct NumericRoundOp {
   template <class T>
-  inline zetasql_base::StatusOr<T> operator()(const T& x, int64_t y) const {
+  inline absl::StatusOr<T> operator()(const T& x, int64_t y) const {
     return x.Round(y);
   }
   static constexpr absl::string_view kExpressionFormat = "ROUND($0, $1)";
@@ -833,7 +853,7 @@ struct NumericRoundOp {
 
 struct NumericFloorOp {
   template <class T>
-  inline zetasql_base::StatusOr<T> operator()(const T& x) const {
+  inline absl::StatusOr<T> operator()(const T& x) const {
     return x.Floor();
   }
   static constexpr absl::string_view kExpressionFormat = "FLOOR($0)";
@@ -841,7 +861,7 @@ struct NumericFloorOp {
 
 struct NumericCeilingOp {
   template <class T>
-  inline zetasql_base::StatusOr<T> operator()(const T& x) const {
+  inline absl::StatusOr<T> operator()(const T& x) const {
     return x.Ceiling();
   }
   static constexpr absl::string_view kExpressionFormat = "CEIL($0)";
@@ -865,7 +885,7 @@ struct NumericAbsOp {
 
 template <typename T>
 struct NumericFromDoubleOp {
-  zetasql_base::StatusOr<T> operator()(double operand) const {
+  absl::StatusOr<T> operator()(double operand) const {
     return T::FromDouble(operand);
   }
   static constexpr absl::string_view kExpressionFormat = "$0";
@@ -881,7 +901,7 @@ struct NumericToDoubleOp {
 
 template <typename T>
 struct CumulativeSumOp {
-  zetasql_base::StatusOr<T> operator()(const T& x) {
+  absl::StatusOr<T> operator()(const T& x) {
     aggregator.Add(x);
     return aggregator.GetSum();
   }
@@ -892,7 +912,7 @@ struct CumulativeSumOp {
 
 template <typename T>
 struct CumulativeSubtractOp {
-  zetasql_base::StatusOr<T> operator()(const T& x) {
+  absl::StatusOr<T> operator()(const T& x) {
     aggregator.Subtract(x);
     return aggregator.GetSum();
   }
@@ -903,7 +923,7 @@ struct CumulativeSubtractOp {
 
 template <typename T>
 struct CumulativeAverageOp {
-  zetasql_base::StatusOr<T> operator()(const T& x) {
+  absl::StatusOr<T> operator()(const T& x) {
     aggregator.Add(x);
     ++count;
     return aggregator.GetAverage(count);
@@ -915,7 +935,7 @@ struct CumulativeAverageOp {
 };
 
 struct BigNumericToNumericOp {
-  zetasql_base::StatusOr<NumericValue> operator()(
+  absl::StatusOr<NumericValue> operator()(
       const BigNumericValue& operand) const {
     return operand.ToNumericValue();
   }
@@ -931,7 +951,7 @@ struct NumericToBigNumericOp {
 template <typename Output>
 struct NumericToIntegerOp {
   template <typename T>
-  zetasql_base::StatusOr<Output> operator()(const T& operand) const {
+  absl::StatusOr<Output> operator()(const T& operand) const {
     return operand.template To<Output>();
   }
   static constexpr absl::string_view kExpressionFormat = "$0";
@@ -945,6 +965,15 @@ struct NumericFormatOp {
     operand.FormatAndAppend(spec, &result);
     return result;
   }
+};
+
+template <bool allow_rounding>
+struct NumericRescaleOp {
+  template <class T>
+  inline absl::StatusOr<T> operator()(const T& input_val, int scale) const {
+    return input_val.Rescale(scale, allow_rounding);
+  }
+  static constexpr absl::string_view kExpressionFormat = "$1";
 };
 
 template <typename Op, typename Input, typename Output>
@@ -1120,8 +1149,9 @@ void TestAggregatorMergeWith(const ValueWrapper (&test_data)[kNumInputs]) {
 template <typename T>
 void TestFromScaledValue(absl::string_view bytes, int scale,
                          bool allow_rounding,
-                         const zetasql_base::StatusOr<T>& expected_output) {
-  auto status_or_result = T::FromScaledValue(bytes, scale, allow_rounding);
+                         const absl::StatusOr<T>& expected_output) {
+  auto status_or_result =
+      T::FromScaledLittleEndianValue(bytes, scale, allow_rounding);
   if (expected_output.ok()) {
     EXPECT_THAT(status_or_result, IsOkAndHolds(expected_output.value()))
         << absl::Substitute(
@@ -1204,12 +1234,12 @@ void TestFromScaledValueRoundTrip(absl::BitGen* random) {
         scaled_int, FixedInt<64, kNumWords>::PowerOf10(extra_scale));
     std::string bytes;
     extended_int.SerializeToBytes(&bytes);
-    EXPECT_THAT(
-        T::FromScaledValue(bytes, T::kMaxFractionalDigits + extra_scale, false),
-        IsOkAndHolds(original));
-    EXPECT_THAT(
-        T::FromScaledValue(bytes, T::kMaxFractionalDigits + extra_scale, true),
-        IsOkAndHolds(original));
+    EXPECT_THAT(T::FromScaledLittleEndianValue(
+                    bytes, T::kMaxFractionalDigits + extra_scale, false),
+                IsOkAndHolds(original));
+    EXPECT_THAT(T::FromScaledLittleEndianValue(
+                    bytes, T::kMaxFractionalDigits + extra_scale, true),
+                IsOkAndHolds(original));
 
     // scaled_int must be a multiple of pow(10, num_truncated_digits).
     int scale_reduction =
@@ -1221,12 +1251,70 @@ void TestFromScaledValueRoundTrip(absl::BitGen* random) {
     ASSERT_EQ((FixedInt<64, kNumWords>()), remainder);
     bytes.clear();
     quotient.SerializeToBytes(&bytes);
-    EXPECT_THAT(T::FromScaledValue(
+    EXPECT_THAT(T::FromScaledLittleEndianValue(
                     bytes, T::kMaxFractionalDigits - scale_reduction, false),
                 IsOkAndHolds(original));
-    EXPECT_THAT(T::FromScaledValue(
+    EXPECT_THAT(T::FromScaledLittleEndianValue(
                     bytes, T::kMaxFractionalDigits - scale_reduction, true),
                 IsOkAndHolds(original));
+  }
+}
+
+TEST_F(NumericValueTest, RescaleValueAllowRounding) {
+  static constexpr NumericBinaryOpTestData<int64_t> kTestData[] = {
+      {"1234567890123456789012345678.123456", 9,
+       "1234567890123456789012345678.123456"},
+      {"1234567890123456789012345678.123456", 6,
+       "1234567890123456789012345.678123456"},
+      {"1234567890123456789012345678.123456", 4,
+       "12345678901234567890123.456781235"},
+      {"1234567890123456789012345678.123456", 3,
+       "1234567890123456789012.345678123"},
+      {"1234567890123456789012345678.123456", 0,
+       "1234567890123456789.012345678"},
+      {"99.99999", 3, "0.0001"},
+      {"99.99999", 1, "0.000001"},
+      {kMaxNumericValueStr, 9, kMaxNumericValueStr},
+      {kMaxNumericValueStr, 5, "10000000000000000000000000"},
+      {kMaxNumericValueStr, 0, "100000000000000000000"},
+      {"0", 9, "0"},
+      {"0", 4, "0"},
+      {"123456789.123", 10, kNumericIllegalScale},
+      {"123456789.123", -1, kNumericIllegalScale},
+  };
+
+  NumericRescaleOp<true> op;
+  for (const NumericBinaryOpTestData<int64_t>& data : kTestData) {
+    TestBinaryOp(op, data.input1, data.input2, data.expected_output);
+    TestBinaryOp(op, -data.input1, data.input2, -data.expected_output);
+  }
+}
+
+TEST_F(NumericValueTest, RescaleValueNoRounding) {
+  static constexpr NumericBinaryOpTestData<int64_t> kTestData[] = {
+      {"1234567890123456789012345678.123456", 9,
+       "1234567890123456789012345678.123456"},
+      {"1234567890123456789012345678.123456", 6,
+       "1234567890123456789012345.678123456"},
+      {"1234567890123456789012345678.123456", 4,
+       kRescaleValueRoundingNotAllowed},
+      {"1234567890123456789012345678.123456", 3,
+       kRescaleValueRoundingNotAllowed},
+      {"99.99999", 3, kRescaleValueRoundingNotAllowed},
+      {"99.99999", 1, kRescaleValueRoundingNotAllowed},
+      {kMaxNumericValueStr, 9, kMaxNumericValueStr},
+      {kMaxNumericValueStr, 5, kRescaleValueRoundingNotAllowed},
+      {kMaxNumericValueStr, 0, kRescaleValueRoundingNotAllowed},
+      {"0", 9, "0"},
+      {"0", 4, "0"},
+      {"123456789.123", 10, kNumericIllegalScale},
+      {"123456789.123", -1, kNumericIllegalScale},
+  };
+
+  NumericRescaleOp<false> op;
+  for (const NumericBinaryOpTestData<int64_t>& data : kTestData) {
+    TestBinaryOp(op, data.input1, data.input2, data.expected_output);
+    TestBinaryOp(op, -data.input1, data.input2, -data.expected_output);
   }
 }
 
@@ -3879,6 +3967,17 @@ constexpr BigNumericStringTestData kBigNumericValueValidFromStringPairs[] = {
      "5789604461865809771178549250434395392663499233282028201972879200395656481"
      "9967e39",
      kMaxBigNumericValuePacked},
+    // exponent is small negative number while coefficient is 0
+    {"0.0E-122337203655840000", {0, 0, 0, 0}},
+    {"-0.0E-122337203655840000", {0, 0, 0, 0}},
+    {"0.00000000000000000000000000000000000000000000E-122337203655840000",
+     {0, 0, 0, 0}},
+    {"-0.00000000000000000000000000000000000000000000E-122337203655840000",
+     {0, 0, 0, 0}},
+    {"0.0E-99999999999999999999999999999999999999999999999999999999999",
+     {0, 0, 0, 0}},
+    {"-0.0E-99999999999999999999999999999999999999999999999999999999999",
+     {0, 0, 0, 0}},
     // exponent below int64min
     {"0E-99999999999999999999999999999999999999999999999999999999999",
      {0, 0, 0, 0}},
@@ -3890,6 +3989,17 @@ constexpr BigNumericStringTestData kBigNumericValueValidFromStringPairs[] = {
      {0, 0, 0, 0}},
     {"   -.00000000000000000000000000000000000000000000000000000000000"
      "E-99999999999999999999999999999999999999999999999999999999999   ",
+     {0, 0, 0, 0}},
+    // exponent is large positive number while coefficient is 0
+    {"0.0E122337203655840000", {0, 0, 0, 0}},
+    {"-0.0E122337203655840000", {0, 0, 0, 0}},
+    {"0.00000000000000000000000000000000000000000000E122337203655840000",
+     {0, 0, 0, 0}},
+    {"-0.00000000000000000000000000000000000000000000E122337203655840000",
+     {0, 0, 0, 0}},
+    {"0.0E99999999999999999999999999999999999999999999999999999999999",
+     {0, 0, 0, 0}},
+    {"-0.0E99999999999999999999999999999999999999999999999999999999999",
      {0, 0, 0, 0}},
 };
 constexpr BigNumericStringTestData kBigNumericValueNonStrictStringPairs[] = {
@@ -6040,6 +6150,90 @@ TEST_F(BigNumericValueTest, FromScaledValueRoundTrip) {
   TestFromScaledValueRoundTrip<BigNumericValue, 4>(&random_);
 }
 
+TEST_F(BigNumericValueTest, RescaleValueAllowRounding) {
+  static constexpr BigNumericBinaryOpTestData<int64_t> kTestData[] = {
+      {"1234567890123456789012345678.123456", 20,
+       "1234567890.123456789012345678123456"},
+      {"1234567890123456789012345678.123456", 6,
+       "0.00001234567890123456789012345678123456"},
+      {"1234567890123456789012345678.123456", 4,
+       "0.00000012345678901234567890123456781235"},
+      {"1234567890123456789012345678.123456", 3,
+       "0.00000001234567890123456789012345678123"},
+      {"1234567890123456789012345678.123456", 0,
+       "0.00000000001234567890123456789012345678123"},
+      {"99.99999", 3, "0.000000000000000000000000000000001"},
+      {"99.99999", 1, "0.00000000000000000000000000000000001"},
+      {kMaxBigNumericValueStr, 38, kMaxBigNumericValueStr},
+      {kMaxBigNumericValueStr, 5,
+       "578960.44618658097711785492504343953926634992"},
+      {kMaxBigNumericValueStr, 0,
+       "5.78960446186580977117854925043439539266349923"},
+      {"0", 38, "0"},
+      {"0", 0, "0"},
+      {"123456789.123", 40, kBigNumericIllegalScale},
+      {"123456789.123", -1, kBigNumericIllegalScale},
+  };
+
+  static constexpr BigNumericBinaryOpTestData<int64_t> kSpecialTestData[] = {
+      {kMinBigNumericValueStr, 38, kMinBigNumericValueStr},
+      {kMinBigNumericValueStr, 5,
+       "-578960.44618658097711785492504343953926634992"},
+      {kMinBigNumericValueStr, 0,
+       "-5.78960446186580977117854925043439539266349923"},
+  };
+
+  NumericRescaleOp<true> op;
+  for (const BigNumericBinaryOpTestData<int64_t>& data : kTestData) {
+    TestBinaryOp(op, data.input1, data.input2, data.expected_output);
+    TestBinaryOp(op, -data.input1, data.input2, -data.expected_output);
+  }
+
+  for (const BigNumericBinaryOpTestData<int64_t>& data : kSpecialTestData) {
+    TestBinaryOp(op, data.input1, data.input2, data.expected_output);
+  }
+}
+
+TEST_F(BigNumericValueTest, RescaleValueNoRounding) {
+  static constexpr BigNumericBinaryOpTestData<int64_t> kTestData[] = {
+      {"1234567890123456789012345678.123456", 20,
+       "1234567890.123456789012345678123456"},
+      {"1234567890123456789012345678.123456", 6,
+       "0.00001234567890123456789012345678123456"},
+      {"1234567890123456789012345678.123456", 4,
+       kRescaleValueRoundingNotAllowed},
+      {"1234567890123456789012345678.123456", 3,
+       kRescaleValueRoundingNotAllowed},
+      {"1234567890123456789012345678.123456", 0,
+       kRescaleValueRoundingNotAllowed},
+      {"99.99999", 3, kRescaleValueRoundingNotAllowed},
+      {"99.99999", 1, kRescaleValueRoundingNotAllowed},
+      {kMaxBigNumericValueStr, 38, kMaxBigNumericValueStr},
+      {kMaxBigNumericValueStr, 5, kRescaleValueRoundingNotAllowed},
+      {kMaxBigNumericValueStr, 0, kRescaleValueRoundingNotAllowed},
+      {"0", 38, "0"},
+      {"0", 0, "0"},
+      {"123456789.123", 40, kBigNumericIllegalScale},
+      {"123456789.123", -1, kBigNumericIllegalScale},
+  };
+
+  static constexpr BigNumericBinaryOpTestData<int64_t> kSpecialTestData[] = {
+    {kMinBigNumericValueStr, 38, kMinBigNumericValueStr},
+    {kMinBigNumericValueStr, 5, kRescaleValueRoundingNotAllowed},
+    {kMinBigNumericValueStr, 0, kRescaleValueRoundingNotAllowed},
+  };
+
+  NumericRescaleOp<false> op;
+  for (const BigNumericBinaryOpTestData<int64_t>& data : kTestData) {
+    TestBinaryOp(op, data.input1, data.input2, data.expected_output);
+    TestBinaryOp(op, -data.input1, data.input2, -data.expected_output);
+  }
+
+  for (const BigNumericBinaryOpTestData<int64_t>& data : kSpecialTestData) {
+    TestBinaryOp(op, data.input1, data.input2, data.expected_output);
+  }
+}
+
 struct BigNumericSumAggregatorTestData {
   int cumulative_count;  // defined only for easier verification of average
   BigNumericValueWrapper input;
@@ -6509,7 +6703,7 @@ TEST(VarNumericValueTest, ToString) {
     std::string output = "ExistingValue";
     if (data.input.empty()) {
       VarNumericValue value =
-          VarNumericValue::FromScaledValue(data.input, data.scale);
+          VarNumericValue::FromScaledLittleEndianValue(data.input, data.scale);
       EXPECT_EQ(data.expected_output, value.ToString());
       value.AppendToString(&output);
       EXPECT_EQ(absl::StrCat("ExistingValue", data.expected_output), output);
@@ -6529,7 +6723,7 @@ TEST(VarNumericValueTest, ToString) {
       std::string bytes;
       input_value.SerializeToBytes(&bytes);
       VarNumericValue value =
-          VarNumericValue::FromScaledValue(bytes, data.scale);
+          VarNumericValue::FromScaledLittleEndianValue(bytes, data.scale);
       EXPECT_EQ(expected_output, value.ToString());
       output = "ExistingValue";
       value.AppendToString(&output);
@@ -6547,8 +6741,8 @@ TEST(VarNumericValueTest, ToString) {
         extra_scaled_value.SerializeToBytes(&bytes);
         // Append some redundant bytes that do not affect the result.
         bytes.append(bytes.size(), input_value.is_negative() ? '\xff' : '\x00');
-        value =
-            VarNumericValue::FromScaledValue(bytes, data.scale + extra_scale);
+        value = VarNumericValue::FromScaledLittleEndianValue(
+            bytes, data.scale + extra_scale);
         EXPECT_EQ(expected_output, value.ToString());
         output = "ExistingValue";
         value.AppendToString(&output);
@@ -6564,8 +6758,8 @@ void TestVarNumericValueTestToStringWithRandomNumericValues() {
   for (int i = 0; i < 10000; ++i) {
     T value = MakeRandomNumericValue<T>(&random);
     std::string bytes = value.SerializeAsProtoBytes();
-    VarNumericValue var_value =
-        VarNumericValue::FromScaledValue(bytes, T::kMaxFractionalDigits);
+    VarNumericValue var_value = VarNumericValue::FromScaledLittleEndianValue(
+        bytes, T::kMaxFractionalDigits);
     EXPECT_EQ(value.ToString(), var_value.ToString());
   }
 }

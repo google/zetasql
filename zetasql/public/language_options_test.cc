@@ -17,6 +17,7 @@
 #include "zetasql/public/language_options.h"
 
 #include "google/protobuf/descriptor.h"
+#include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "gmock/gmock.h"
@@ -25,6 +26,9 @@
 #include "absl/strings/str_cat.h"
 
 namespace zetasql {
+
+using ::testing::IsEmpty;
+using ::zetasql_base::testing::StatusIs;
 
 TEST(LanguageOptions, TestAllAcceptingStatementKind) {
   LanguageOptions options;
@@ -66,9 +70,8 @@ static std::set<ENUM> GetEnumValues(const google::protobuf::EnumDescriptor* desc
 }
 
 TEST(LanguageOptions, GetLanguageFeaturesForVersion) {
-  EXPECT_EQ(std::set<LanguageFeature>{},
-            LanguageOptions::GetLanguageFeaturesForVersion(
-                VERSION_1_0));
+  EXPECT_THAT(LanguageOptions::GetLanguageFeaturesForVersion(VERSION_1_0),
+              IsEmpty());
 
   EXPECT_TRUE(zetasql_base::ContainsKey(
       LanguageOptions::GetLanguageFeaturesForVersion(VERSION_CURRENT),
@@ -77,7 +80,7 @@ TEST(LanguageOptions, GetLanguageFeaturesForVersion) {
       LanguageOptions::GetLanguageFeaturesForVersion(VERSION_CURRENT),
       FEATURE_TABLESAMPLE));
 
-  const std::set<LanguageFeature> features_in_current =
+  LanguageOptions::LanguageFeatureSet features_in_current =
       LanguageOptions::GetLanguageFeaturesForVersion(VERSION_CURRENT);
 
   // Now do some sanity checks on LanguageVersions vs LanguageFeatures.
@@ -94,7 +97,7 @@ TEST(LanguageOptions, GetLanguageFeaturesForVersion) {
     const std::string version_suffix =
         absl::StrCat(version_name.substr(8), "_");
 
-    std::set<LanguageFeature> computed_features;
+    LanguageOptions::LanguageFeatureSet computed_features;
     for (const LanguageFeature feature :
          GetEnumValues<LanguageFeature>(LanguageFeature_descriptor())) {
       const std::string feature_name = LanguageFeature_Name(feature);
@@ -220,6 +223,7 @@ TEST(LanguageOptions, Serialization) {
   proto.add_enabled_language_features(FEATURE_TABLESAMPLE);
   proto.add_supported_statement_kinds(RESOLVED_EXPLAIN_STMT);
   proto.add_supported_generic_entity_types("NEW_TYPE");
+  proto.add_reserved_keywords("QUALIFY");
 
   LanguageOptions options(proto);
   ASSERT_EQ(PRODUCT_EXTERNAL, options.product_mode());
@@ -236,6 +240,7 @@ TEST(LanguageOptions, Serialization) {
   ASSERT_TRUE(options.GenericEntityTypeSupported("NEW_TYPE"));
   ASSERT_TRUE(options.GenericEntityTypeSupported("new_type"));
   ASSERT_FALSE(options.GenericEntityTypeSupported("unsupported"));
+  ASSERT_TRUE(options.IsReservedKeyword("QUALIFY"));
 }
 
 TEST(LanguageOptions, GetEnabledLanguageFeaturesAsString) {
@@ -253,15 +258,89 @@ TEST(LanguageOptions, GetEnabledLanguageFeaturesAsString) {
             options.GetEnabledLanguageFeaturesAsString());
 }
 
+TEST(LanguageOptions, ReservedKeywords) {
+  // GetReservableKeywords
+  EXPECT_TRUE(LanguageOptions::GetReservableKeywords().contains("QUALIFY"));
+  EXPECT_TRUE(LanguageOptions::GetReservableKeywords().contains("qualify"));
+  EXPECT_FALSE(LanguageOptions::GetReservableKeywords().contains("SELECT"));
+  EXPECT_FALSE(LanguageOptions::GetReservableKeywords().contains("DECIMAL"));
+  EXPECT_FALSE(LanguageOptions::GetReservableKeywords().contains(""));
+
+  // Initial LanguageOptions
+  LanguageOptions options;
+  EXPECT_FALSE(options.IsReservedKeyword("QUALIFY"));
+  EXPECT_FALSE(options.IsReservedKeyword("qualify"));
+  EXPECT_FALSE(options.IsReservedKeyword(""));
+  EXPECT_FALSE(options.IsReservedKeyword("DECIMAL"));
+  EXPECT_TRUE(options.IsReservedKeyword("SELECT"));
+
+  // Reserving a keyword (uppercase)
+  ZETASQL_EXPECT_OK(options.EnableReservableKeyword("QUALIFY", true));
+  EXPECT_TRUE(options.IsReservedKeyword("QUALIFY"));
+  EXPECT_TRUE(options.IsReservedKeyword("qualify"));
+  EXPECT_TRUE(options.IsReservedKeyword("SELECT"));
+  EXPECT_FALSE(options.IsReservedKeyword("DECIMAL"));
+
+  // Reserving a keyword already reserved earlier is ok
+  ZETASQL_EXPECT_OK(options.EnableReservableKeyword("QUALIFY", true));
+  EXPECT_TRUE(options.IsReservedKeyword("QUALIFY"));
+
+  // Equality test
+  EXPECT_TRUE(options == options);
+  EXPECT_FALSE(options == LanguageOptions());
+
+  // Unreserving a keyword
+  ZETASQL_EXPECT_OK(options.EnableReservableKeyword("QUALIFY", false));
+  EXPECT_FALSE(options.IsReservedKeyword("QUALIFY"));
+
+  // Unreserving a keyword already unreserved keyword is ok
+  EXPECT_FALSE(options.IsReservedKeyword("QUALIFY"));
+  EXPECT_FALSE(options.IsReservedKeyword("qualify"));
+
+  // Reserving all reservable keywords
+  options.EnableAllReservableKeywords(true);
+  EXPECT_TRUE(options.IsReservedKeyword("QUALIFY"));
+  EXPECT_TRUE(options.IsReservedKeyword("SELECT"));
+  EXPECT_FALSE(options.IsReservedKeyword("DECIMAL"));
+
+  // Unreserving all reservable keywords
+  options.EnableAllReservableKeywords(false);
+  EXPECT_FALSE(options.IsReservedKeyword("QUALIFY"));
+  EXPECT_TRUE(options.IsReservedKeyword("SELECT"));
+  EXPECT_FALSE(options.IsReservedKeyword("DECIMAL"));
+
+  // EnableMaximumLanguageFeatures() also reserves all keywords
+  options.EnableMaximumLanguageFeatures();
+  EXPECT_TRUE(options.IsReservedKeyword("QUALIFY"));
+
+  // Same with EnableMaximumLanguageFeaturesForDevelopment().
+  options.EnableAllReservableKeywords(false);
+  options.EnableMaximumLanguageFeaturesForDevelopment();
+  EXPECT_TRUE(options.IsReservedKeyword("QUALIFY"));
+
+  // Attempting to configure a keyword that cannot be configured
+  EXPECT_THAT(options.EnableReservableKeyword("SELECT", true),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(options.EnableReservableKeyword("SELECT", false),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(options.EnableReservableKeyword("", true),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(options.EnableReservableKeyword("DECIMAL", true),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(options.EnableReservableKeyword("not a keyword", true),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
 TEST(LanguageOptions, ClassAndProtoSize) {
-  EXPECT_EQ(16,
-      sizeof(LanguageOptions) -
-      sizeof(std::set<ResolvedNodeKind>) -
-      sizeof(std::set<LanguageFeature>) -
-      sizeof(absl::flat_hash_set<std::string>))
+  LanguageOptions options;
+
+  EXPECT_EQ(16, sizeof(options) - sizeof(options.supported_statement_kinds_) -
+                    sizeof(options.enabled_language_features_) -
+                    sizeof(options.supported_generic_entity_types_) -
+                    sizeof(options.reserved_keywords_))
       << "The size of LanguageOptions class has changed, please also update "
       << "the proto and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(6, LanguageOptionsProto::descriptor()->field_count())
+  EXPECT_EQ(7, LanguageOptionsProto::descriptor()->field_count())
       << "The number of fields in LanguageOptionsProto has changed, please "
       << "also update the serialization code accordingly.";
 }

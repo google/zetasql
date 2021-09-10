@@ -62,7 +62,7 @@ QueryStmt
         | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
         +-method="reservoir"
         +-size=
-        | +-Literal(type=INT64, value=100)
+        | +-Literal(type=INT64, value=100, has_explicit_type=TRUE)
         +-unit=ROWS
 ==
 
@@ -618,7 +618,7 @@ QueryStmt
         |       | +-GetProtoField
         |       |   +-type=ARRAY<INT32>
         |       |   +-expr=
-        |       |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |       |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |       |   +-field_descriptor=repeated_int32_val
         |       |   +-default_value=[]
         |       +-element_column=$array.val#4
@@ -704,7 +704,7 @@ QueryStmt
     |   |           |   +-GetProtoField
     |   |           |     +-type=INT64
     |   |           |     +-expr=
-    |   |           |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#5)
+    |   |           |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#5)
     |   |           |     +-field_descriptor=int64_val
     |   |           |     +-default_value=0
     |   |           +-input_scan=
@@ -745,7 +745,7 @@ QueryStmt
     |       |   +-GetProtoField
     |       |     +-type=INT32
     |       |     +-expr=
-    |       |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |       |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |       |     +-field_descriptor=int32_val
     |       |     +-default_value=77
     |       +-input_scan=

@@ -4,8 +4,8 @@ where KitchenSink.int64_val BETWEEN 1 AND KitchenSink.int32_val + 1;
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
@@ -19,7 +19,7 @@ QueryStmt
             +-GetProtoField
             | +-type=INT64
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=int64_val
             | +-default_value=0
             +-Literal(type=INT64, value=1)
@@ -28,7 +28,7 @@ QueryStmt
               | +-GetProtoField
               |   +-type=INT32
               |   +-expr=
-              |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+              |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
               |   +-field_descriptor=int32_val
               |   +-default_value=77
               +-Literal(type=INT64, value=1)
@@ -40,8 +40,8 @@ select * from TestTable where KitchenSink.test_enum BETWEEN 1 AND 'TESTENUM2';
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
@@ -51,15 +51,15 @@ QueryStmt
         +-input_scan=
         | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2])
         +-filter_expr=
-          +-FunctionCall(ZetaSQL:$between(ENUM<zetasql_test.TestEnum>, ENUM<zetasql_test.TestEnum>, ENUM<zetasql_test.TestEnum>) -> BOOL)
+          +-FunctionCall(ZetaSQL:$between(ENUM<zetasql_test__.TestEnum>, ENUM<zetasql_test__.TestEnum>, ENUM<zetasql_test__.TestEnum>) -> BOOL)
             +-GetProtoField
-            | +-type=ENUM<zetasql_test.TestEnum>
+            | +-type=ENUM<zetasql_test__.TestEnum>
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=test_enum
             | +-default_value=TESTENUM0
-            +-Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1)
-            +-Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM2)
+            +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1)
+            +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM2)
 ==
 
 select * from TestTable where KitchenSink.string_val BETWEEN 'A' AND 'Z';
@@ -67,8 +67,8 @@ select * from TestTable where KitchenSink.string_val BETWEEN 'A' AND 'Z';
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
@@ -82,7 +82,7 @@ QueryStmt
             +-GetProtoField
             | +-type=STRING
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=string_val
             | +-default_value="default_name"
             +-Literal(type=STRING, value="A")
@@ -98,7 +98,7 @@ select * from TestTable where KitchenSink.int64_val BETWEEN 1 AND 'Z';
 
 select * from TestTable where KitchenSink BETWEEN NULL AND NULL;
 --
-ERROR: BETWEEN is not defined for arguments of type PROTO<zetasql_test.KitchenSinkPB> [at 1:43]
+ERROR: BETWEEN is not defined for arguments of type PROTO<zetasql_test__.KitchenSinkPB> [at 1:43]
 select * from TestTable where KitchenSink BETWEEN NULL AND NULL;
                                           ^
 ==
@@ -108,8 +108,8 @@ select * from TestTable where KitchenSink.string_val NOT BETWEEN 'A' AND null;
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
@@ -124,7 +124,7 @@ QueryStmt
               +-GetProtoField
               | +-type=STRING
               | +-expr=
-              | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+              | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
               | +-field_descriptor=string_val
               | +-default_value="default_name"
               +-Literal(type=STRING, value="A")
@@ -136,8 +136,8 @@ select * from TestTable where (NULL NOT BETWEEN NULL AND NULL) IS NOT NULL;
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
@@ -161,8 +161,8 @@ select * from TestTable where cast(2 as uint32) BETWEEN 1 AND 5;
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
@@ -184,8 +184,8 @@ where 2.0 BETWEEN cast(1 as int32) AND cast(5 as uint32);
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
@@ -197,8 +197,8 @@ QueryStmt
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$between(DOUBLE, DOUBLE, DOUBLE) -> BOOL)
             +-Literal(type=DOUBLE, value=2)
-            +-Literal(type=DOUBLE, value=1)
-            +-Literal(type=DOUBLE, value=5)
+            +-Literal(type=DOUBLE, value=1, has_explicit_type=TRUE)
+            +-Literal(type=DOUBLE, value=5, has_explicit_type=TRUE)
 ==
 
 select * from TestTable
@@ -207,8 +207,8 @@ where 1.0 + 2.0 BETWEEN cast(1 as int32) AND cast(5 as uint32);
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
@@ -222,8 +222,8 @@ QueryStmt
             +-FunctionCall(ZetaSQL:$add(DOUBLE, DOUBLE) -> DOUBLE)
             | +-Literal(type=DOUBLE, value=1)
             | +-Literal(type=DOUBLE, value=2)
-            +-Literal(type=DOUBLE, value=1)
-            +-Literal(type=DOUBLE, value=5)
+            +-Literal(type=DOUBLE, value=1, has_explicit_type=TRUE)
+            +-Literal(type=DOUBLE, value=5, has_explicit_type=TRUE)
 ==
 
 # Mix of int64/int32/double.  This is one test case from b/15671413.
@@ -340,8 +340,8 @@ where KitchenSink.int32_val BETWEEN -1 AND 5000000000 OR
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
@@ -357,13 +357,13 @@ QueryStmt
             | | +-GetProtoField
             | |   +-type=INT32
             | |   +-expr=
-            | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | |   +-field_descriptor=int32_val
             | |   +-default_value=77
             | +-Literal(type=INT64, value=-1, has_explicit_type=TRUE)
             | +-Literal(type=INT64, value=5000000000, has_explicit_type=TRUE)
             +-FunctionCall(ZetaSQL:$between(INT64, INT64, INT64) -> BOOL)
-            | +-Literal(type=INT64, value=1)
+            | +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
             | +-Literal(type=INT64, value=-1, has_explicit_type=TRUE)
             | +-Literal(type=INT64, value=5000000000, has_explicit_type=TRUE)
             +-FunctionCall(ZetaSQL:$between(INT64, INT64, INT64) -> BOOL)
@@ -371,13 +371,13 @@ QueryStmt
             | | +-GetProtoField
             | |   +-type=INT32
             | |   +-expr=
-            | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | |   +-field_descriptor=int32_val
             | |   +-default_value=77
             | +-Literal(type=INT64, value=-4294967296, has_explicit_type=TRUE)
             | +-Literal(type=INT64, value=10, has_explicit_type=TRUE)
             +-FunctionCall(ZetaSQL:$between(INT64, INT64, INT64) -> BOOL)
-              +-Literal(type=INT64, value=1)
+              +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
               +-Literal(type=INT64, value=-4294967296, has_explicit_type=TRUE)
               +-Literal(type=INT64, value=10, has_explicit_type=TRUE)
 ==
@@ -392,8 +392,8 @@ where KitchenSink.uint32_val BETWEEN 0 AND 4294967296 OR
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
@@ -409,13 +409,13 @@ QueryStmt
             | | +-GetProtoField
             | |   +-type=UINT32
             | |   +-expr=
-            | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | |   +-field_descriptor=uint32_val
             | |   +-default_value=777
             | +-Literal(type=INT64, value=0, has_explicit_type=TRUE)
             | +-Literal(type=INT64, value=4294967296, has_explicit_type=TRUE)
             +-FunctionCall(ZetaSQL:$between(INT64, INT64, INT64) -> BOOL)
-            | +-Literal(type=INT64, value=1)
+            | +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
             | +-Literal(type=INT64, value=0, has_explicit_type=TRUE)
             | +-Literal(type=INT64, value=4294967296, has_explicit_type=TRUE)
             +-FunctionCall(ZetaSQL:$between(INT64, INT64, INT64) -> BOOL)
@@ -423,13 +423,13 @@ QueryStmt
             | | +-GetProtoField
             | |   +-type=UINT32
             | |   +-expr=
-            | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | |   +-field_descriptor=uint32_val
             | |   +-default_value=777
             | +-Literal(type=INT64, value=-1, has_explicit_type=TRUE)
             | +-Literal(type=INT64, value=100, has_explicit_type=TRUE)
             +-FunctionCall(ZetaSQL:$between(INT64, INT64, INT64) -> BOOL)
-              +-Literal(type=INT64, value=1)
+              +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
               +-Literal(type=INT64, value=-1, has_explicit_type=TRUE)
               +-Literal(type=INT64, value=100, has_explicit_type=TRUE)
 ==
@@ -458,7 +458,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=UINT64
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-field_descriptor=uint64_val
     |     +-default_value=0
     +-input_scan=
@@ -471,7 +471,7 @@ QueryStmt
             +-GetProtoField
             | +-type=UINT64
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=uint64_val
             | +-default_value=0
             +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
@@ -502,7 +502,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=UINT64
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-field_descriptor=uint64_val
     |     +-default_value=0
     +-input_scan=
@@ -515,7 +515,7 @@ QueryStmt
             +-GetProtoField
             | +-type=UINT64
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=uint64_val
             | +-default_value=0
             +-Literal(type=UINT64, value=1, has_explicit_type=TRUE)
@@ -546,7 +546,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=UINT64
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-field_descriptor=uint64_val
     |     +-default_value=0
     +-input_scan=
@@ -559,7 +559,7 @@ QueryStmt
             +-GetProtoField
             | +-type=UINT64
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=uint64_val
             | +-default_value=0
             +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
@@ -590,7 +590,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=INT64
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-field_descriptor=int64_val
     |     +-default_value=0
     +-input_scan=
@@ -603,7 +603,7 @@ QueryStmt
             +-GetProtoField
             | +-type=INT64
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=int64_val
             | +-default_value=0
             +-Literal(type=UINT64, value=1, has_explicit_type=TRUE)
@@ -634,7 +634,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=INT64
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-field_descriptor=int64_val
     |     +-default_value=0
     +-input_scan=
@@ -647,7 +647,7 @@ QueryStmt
             +-GetProtoField
             | +-type=INT64
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=int64_val
             | +-default_value=0
             +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
@@ -678,7 +678,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=INT64
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-field_descriptor=int64_val
     |     +-default_value=0
     +-input_scan=
@@ -691,7 +691,7 @@ QueryStmt
             +-GetProtoField
             | +-type=INT64
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=int64_val
             | +-default_value=0
             +-Literal(type=UINT64, value=1, has_explicit_type=TRUE)
@@ -723,7 +723,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=INT64
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-field_descriptor=int64_val
     |     +-default_value=0
     +-input_scan=
@@ -736,7 +736,7 @@ QueryStmt
             +-GetProtoField
             | +-type=INT64
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=int64_val
             | +-default_value=0
             +-Literal(type=UINT64, value=18000000000000000000)
@@ -767,7 +767,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=INT64
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-field_descriptor=int64_val
     |     +-default_value=0
     +-input_scan=
@@ -780,7 +780,7 @@ QueryStmt
             +-GetProtoField
             | +-type=INT64
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=int64_val
             | +-default_value=0
             +-Literal(type=INT64, value=-1)
@@ -811,7 +811,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=INT64
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-field_descriptor=int64_val
     |     +-default_value=0
     +-input_scan=
@@ -824,7 +824,7 @@ QueryStmt
             +-GetProtoField
             | +-type=INT64
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=int64_val
             | +-default_value=0
             +-Literal(type=UINT64, value=18000000000000000000)
@@ -855,7 +855,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=UINT64
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-field_descriptor=uint64_val
     |     +-default_value=0
     +-input_scan=
@@ -868,7 +868,7 @@ QueryStmt
             +-GetProtoField
             | +-type=UINT64
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=uint64_val
             | +-default_value=0
             +-Literal(type=INT64, value=-2)
@@ -899,7 +899,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=UINT64
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-field_descriptor=uint64_val
     |     +-default_value=0
     +-input_scan=
@@ -912,7 +912,7 @@ QueryStmt
             +-GetProtoField
             | +-type=UINT64
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=uint64_val
             | +-default_value=0
             +-Literal(type=UINT64, value=0)
@@ -931,7 +931,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=UINT64
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-field_descriptor=uint64_val
     |     +-default_value=0
     +-input_scan=
@@ -944,7 +944,7 @@ QueryStmt
             +-GetProtoField
             | +-type=UINT64
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=uint64_val
             | +-default_value=0
             +-Literal(type=INT64, value=0)
@@ -975,7 +975,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=UINT64
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-field_descriptor=uint64_val
     |     +-default_value=0
     +-input_scan=
@@ -988,7 +988,7 @@ QueryStmt
             +-GetProtoField
             | +-type=UINT64
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=uint64_val
             | +-default_value=0
             +-Literal(type=INT64, value=-1)
@@ -1019,7 +1019,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=UINT64
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-field_descriptor=uint64_val
     |     +-default_value=0
     +-input_scan=
@@ -1032,7 +1032,7 @@ QueryStmt
             +-GetProtoField
             | +-type=UINT64
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=uint64_val
             | +-default_value=0
             +-Literal(type=UINT64, value=18000000000000000000)
@@ -1064,7 +1064,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=INT64
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-field_descriptor=int64_val
     |     +-default_value=0
     +-input_scan=
@@ -1077,7 +1077,7 @@ QueryStmt
             +-GetProtoField
             | +-type=INT64
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=int64_val
             | +-default_value=0
             +-Literal(type=UINT64, value=18000000000000000000)
@@ -1108,7 +1108,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=INT64
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-field_descriptor=int64_val
     |     +-default_value=0
     +-input_scan=
@@ -1121,7 +1121,7 @@ QueryStmt
             +-GetProtoField
             | +-type=INT64
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=int64_val
             | +-default_value=0
             +-Literal(type=INT64, value=0)
@@ -1152,7 +1152,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=INT64
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-field_descriptor=int64_val
     |     +-default_value=0
     +-input_scan=
@@ -1165,7 +1165,7 @@ QueryStmt
             +-GetProtoField
             | +-type=INT64
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=int64_val
             | +-default_value=0
             +-Literal(type=UINT64, value=18000000000000000000)

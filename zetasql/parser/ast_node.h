@@ -20,6 +20,7 @@
 #include <stddef.h>
 
 #include "zetasql/base/arena_allocator.h"
+#include "zetasql/parser/ast_enums.pb.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/base/status.h"
@@ -48,33 +49,6 @@ namespace parser {
 class BisonParser;
 
 }  // namespace parser
-
-// Defines schema object kinds used by a parser rule to indicate the parsed
-// object kind for ALTER and DROP statements.  These enum values are also
-// used in the generic ASTDropStatement to identify what type of object is
-// being dropped.
-//
-// Note that this list excludes ROW POLICY for practical reasons - it is not
-// needed in the parser rules and it is not needed for the ASTDropStatement
-// (DROP ROW POLICY has its own ASTDropRowPolicyStatement).
-enum class SchemaObjectKind {
-  kInvalidSchemaObjectKind,
-  kAggregateFunction,
-  kConstant,
-  kDatabase,
-  kExternalTable,
-  kFunction,
-  kIndex,
-  kMaterializedView,
-  kModel,
-  kProcedure,
-  kSchema,
-  kTable,
-  kTableFunction,
-  kView,
-  kSnapshotTable,
-  __SchemaObjectKind__switch_must_have_a_default__ = -1,
-};
 
 std::ostream& operator<<(std::ostream& out, SchemaObjectKind kind);
 
@@ -109,6 +83,9 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
 
   // Adds 'child' to the list of children. 'child' must be non-NULL.
   void AddChild(ASTNode* child);
+
+  // Adds 'child' to front of the list of children. 'child' must be non-NULL.
+  void AddChildFront(ASTNode* child);
 
   // This must be called after adding all children, to initialize the fields
   // based on the added children. This should be overridden in each subclass to
@@ -292,7 +269,7 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
  protected:
   // Dispatches to non-recursive visitor implementation.
   // Used by TraverseNonRecursive().
-  ABSL_MUST_USE_RESULT virtual zetasql_base::StatusOr<VisitResult> Accept(
+  ABSL_MUST_USE_RESULT virtual absl::StatusOr<VisitResult> Accept(
       NonRecursiveParseTreeVisitor* visitor) const = 0;
 
   // Similar to GetDescendantsWithKinds. If 'continue_traversal' is true,
@@ -350,12 +327,20 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
 
     // Gets the next child element into *v. Crashes if not available.
     template <typename T>
-    void AddRequired(const T** v);
+    void AddRequired(const T** v) {
+      ZETASQL_CHECK_LT(index_, end_);
+      *v = static_cast<const T*>(node_->child(index_++));
+    }
 
     // Gets the next child element into *v, if it's node_kind is
     // <expected_node_kind>.
     template <typename T>
-    void AddOptional(const T** v, int expected_node_kind);
+    void AddOptional(const T** v, int expected_node_kind) {
+      if (index_ < end_ &&
+          node_->child(index_)->node_kind() == expected_node_kind) {
+        *v = static_cast<const T*>(node_->child(index_++));
+      }
+    }
 
     // Appends all remaining child elements to <v>.
     template <typename T>

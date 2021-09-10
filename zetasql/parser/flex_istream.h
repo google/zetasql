@@ -69,8 +69,9 @@ class StringStreamBufWithSentinel final : public std::basic_streambuf<char> {
     if (gptr() + n > egptr()) {
       // The number of characters requested has passed the end of source.
       if (passed_sentinel_) {
-        // Return EOF since sentinel has already been returned previously.
-        return traits_type::eof();
+        // Return 0 when reaching EOF since sentinel has already been returned
+        // previously and no character was read.
+        return 0;
       }
       // Retrieves all the left-over characters including the sentinel.
       append_sentinel = true;

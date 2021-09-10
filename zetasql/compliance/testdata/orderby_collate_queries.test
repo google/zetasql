@@ -64,10 +64,11 @@ ARRAY<STRUCT<primary_key INT64, col STRING>>[
 ]
 ==
 
-# Unicode collation. Results are same as the label orderby_without_collate.
-[name=orderby_collate_unicode]
+# Unicode binary (codepoint) collation. Results are same as the label
+# orderby_without_collate.
+[name=orderby_collate_binary]
 [test_features1=V_1_1_ORDER_BY_COLLATE]
-select primary_key, col from StringTable ORDER BY col COLLATE "unicode"
+select primary_key, col from StringTable ORDER BY col COLLATE "binary"
 --
 WITH FEATURES: V_1_1_ORDER_BY_COLLATE
 ARRAY<STRUCT<primary_key INT64, col STRING>>[
@@ -90,7 +91,7 @@ ARRAY<STRUCT<primary_key INT64, col STRING>>[
 --
 WITH FEATURES: <none>
 ERROR: generic::invalid_argument: COLLATE is not supported [at 1:55]
-select primary_key, col from StringTable ORDER BY col COLLATE "unicode"
+select primary_key, col from StringTable ORDER BY col COLLATE "binary"
                                                       ^
 ==
 
@@ -518,14 +519,14 @@ ERROR: generic::invalid_argument: COLLATE is not supported [at 6:14]
 ORDER BY col COLLATE "de", col COLLATE "en"
              ^
 ==
-[name=orderby_collate_unicode_ci]
+[name=orderby_collate_und_ci]
 [test_features1=V_1_1_ORDER_BY_COLLATE]
 select primary_key, col
 from (select 1 primary_key, "Ca" col UNION ALL
       select 2, "ca" UNION ALL
       select 3, "Cb" UNION ALL
       select 4, "cb")
-ORDER BY col COLLATE "unicode:ci"
+ORDER BY col COLLATE "und:ci"
 --
 WITH FEATURES: V_1_1_ORDER_BY_COLLATE
 ARRAY<STRUCT<primary_key INT64, col STRING>>[
@@ -537,12 +538,12 @@ ARRAY<STRUCT<primary_key INT64, col STRING>>[
 --
 WITH FEATURES: <none>
 ERROR: generic::invalid_argument: COLLATE is not supported [at 6:14]
-ORDER BY col COLLATE "unicode:ci"
+ORDER BY col COLLATE "und:ci"
              ^
 ==
 
-[name=orderby_collate_unicode_ci_parameter]
-[parameters="unicode:ci" collation_name]
+[name=orderby_collate_und_ci_parameter]
+[parameters="und:ci" collation_name]
 [test_features1=V_1_1_ORDER_BY_COLLATE]
 select primary_key, col
 from (select 1 primary_key, "Ca" col UNION ALL
@@ -565,27 +566,62 @@ ORDER BY col COLLATE @collation_name
              ^
 ==
 
-[name=orderby_collate_unicode_cs]
+[name=orderby_collate_binary_cs_is_an_error]
 [test_features1=V_1_1_ORDER_BY_COLLATE]
 select primary_key, col
 from (select 1 primary_key, "Ca" col UNION ALL
       select 2, "ca" UNION ALL
       select 3, "Cb" UNION ALL
       select 4, "cb")
-ORDER BY col COLLATE "unicode:cs"
---
-WITH FEATURES: V_1_1_ORDER_BY_COLLATE
-ARRAY<STRUCT<primary_key INT64, col STRING>>[
-  {1, "Ca"},
-  {3, "Cb"},
-  {2, "ca"},
-  {4, "cb"}
-]
+ORDER BY col COLLATE "binary:cs"
 --
 WITH FEATURES: <none>
 ERROR: generic::invalid_argument: COLLATE is not supported [at 6:14]
-ORDER BY col COLLATE "unicode:cs"
+ORDER BY col COLLATE "binary:cs"
              ^
+--
+WITH FEATURES: V_1_1_ORDER_BY_COLLATE
+ERROR: generic::out_of_range: COLLATE has invalid collation name 'binary:cs':binary cannot be combined with a suffix
+==
+
+[name=orderby_collate_und_cs_cs_is_an_error]
+[test_features1=V_1_1_ORDER_BY_COLLATE]
+select primary_key, col
+from (select 1 primary_key, "Ca" col UNION ALL
+      select 2, "ca" UNION ALL
+      select 3, "Cb" UNION ALL
+      select 4, "cb")
+ORDER BY col COLLATE "und:cs:cs"
+--
+WITH FEATURES: <none>
+ERROR: generic::invalid_argument: COLLATE is not supported [at 6:14]
+ORDER BY col COLLATE "und:cs:cs"
+             ^
+--
+WITH FEATURES: V_1_1_ORDER_BY_COLLATE
+ERROR: generic::out_of_range: COLLATE has invalid collation name 'und:cs:cs':only case sensitivity attribute is supported
+==
+
+[name=orderby_collate_disallow_legacy_unicode_collation]
+[required_features=V_1_1_ORDER_BY_COLLATE]
+[test_features1=DISALLOW_LEGACY_UNICODE_COLLATION]
+select primary_key, col
+from (select 1 primary_key, "Ca" col UNION ALL
+      select 2, "ca" UNION ALL
+      select 3, "Cb" UNION ALL
+      select 4, "cb")
+ORDER BY col COLLATE "unicode:ci"
+--
+WITH FEATURES: V_1_1_ORDER_BY_COLLATE
+ARRAY<STRUCT<primary_key INT64, col STRING>>[
+  {2, "ca"},
+  {1, "Ca"},
+  {4, "cb"},
+  {3, "Cb"}
+]
+--
+WITH FEATURES: DISALLOW_LEGACY_UNICODE_COLLATION,V_1_1_ORDER_BY_COLLATE
+ERROR: generic::out_of_range: COLLATE has invalid collation name 'unicode:ci'
 ==
 
 # TODO: Add more non-english language cases.

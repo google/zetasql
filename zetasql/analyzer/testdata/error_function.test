@@ -136,7 +136,7 @@ QueryStmt
     |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
     |     | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
     |     | +-Literal(type=INT64, value=1)
-    |     +-Literal(type=UINT64, value=4)
+    |     +-Literal(type=UINT64, value=4, has_explicit_type=TRUE)
     |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
     |     | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
     |     | +-Literal(type=INT64, value=2)
@@ -192,20 +192,20 @@ QueryStmt
 ==
 
 select coalesce('int64_key_1: 0 int64_key_2: 1',
-                cast(error('def') as zetasql_test.KitchenSinkPB))
+                cast(error('def') as zetasql_test__.KitchenSinkPB))
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1 AS `$col1` [PROTO<zetasql_test.KitchenSinkPB>]
+| +-$query.$col1#1 AS `$col1` [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:coalesce(repeated(2) PROTO<zetasql_test.KitchenSinkPB>) -> PROTO<zetasql_test.KitchenSinkPB>)
-    |     +-Literal(type=PROTO<zetasql_test.KitchenSinkPB>, value={int64_key_1: 0 int64_key_2: 1})
-    |     +-Cast(PROTO<zetasql_test.KitchenSinkPB> -> PROTO<zetasql_test.KitchenSinkPB>)
-    |       +-FunctionCall(ZetaSQL:error(STRING) -> PROTO<zetasql_test.KitchenSinkPB>)
+    |   +-FunctionCall(ZetaSQL:coalesce(repeated(2) PROTO<zetasql_test__.KitchenSinkPB>) -> PROTO<zetasql_test__.KitchenSinkPB>)
+    |     +-Literal(type=PROTO<zetasql_test__.KitchenSinkPB>, value={int64_key_1: 0 int64_key_2: 1})
+    |     +-Cast(PROTO<zetasql_test__.KitchenSinkPB> -> PROTO<zetasql_test__.KitchenSinkPB>)
+    |       +-FunctionCall(ZetaSQL:error(STRING) -> PROTO<zetasql_test__.KitchenSinkPB>)
     |         +-Literal(type=STRING, value="def")
     +-input_scan=
       +-SingleRowScan

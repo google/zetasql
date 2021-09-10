@@ -41,7 +41,7 @@
 #include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"
 #include <cstdint>
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/time/civil_time.h"
 #include "zetasql/base/map_util.h"
@@ -61,7 +61,7 @@ static google::protobuf::DescriptorPool* s_descriptor_pool_ = nullptr;
 // enums.  These allocated protos/enums will be used to create ZetaSQL
 // Types, and those Types will be used to test equivalence with corresponding
 // Types whose proto/enum descriptors are from their <name>_descriptor()
-// function call (e.g., zetasql_test::TestEnum_descriptor()).
+// function call (e.g., zetasql_test__::TestEnum_descriptor()).
 static google::protobuf::DescriptorPoolDatabase* local_descriptor_pool_database() {
   if (!s_descriptor_pool_database_) {
     s_descriptor_pool_database_ = new google::protobuf::DescriptorPoolDatabase(
@@ -80,14 +80,14 @@ static google::protobuf::DescriptorPool* local_descriptor_pool() {
 static const EnumType* TestEnumType_equivalent() {
   const EnumType* enum_type;
   ZETASQL_CHECK_OK(type_factory()->MakeEnumType(local_descriptor_pool()->
-               FindEnumTypeByName("zetasql_test.TestEnum"), &enum_type));
+               FindEnumTypeByName("zetasql_test__.TestEnum"), &enum_type));
   return enum_type;
 }
 
 static const EnumType* AnotherEnumType() {
   const EnumType* enum_type;
   const google::protobuf::EnumDescriptor* enum_descriptor =
-      zetasql_test::AnotherTestEnum_descriptor();
+      zetasql_test__::AnotherTestEnum_descriptor();
   ZETASQL_CHECK_OK(type_factory()->MakeEnumType(enum_descriptor, &enum_type));
   return enum_type;
 }
@@ -95,7 +95,7 @@ static const EnumType* AnotherEnumType() {
 static const ProtoType* KitchenSinkProtoType_equivalent() {
   const ProtoType* proto_type;
   ZETASQL_CHECK_OK(type_factory()->MakeProtoType(local_descriptor_pool()->
-               FindMessageTypeByName("zetasql_test.KitchenSinkPB"),
+               FindMessageTypeByName("zetasql_test__.KitchenSinkPB"),
                                      &proto_type));
   return proto_type;
 }
@@ -130,7 +130,7 @@ static const ArrayType* TestEnumArrayType_equivalent() {
 static const ProtoType* StringInt32MapEntryType() {
   const ProtoType* ret;
   ZETASQL_CHECK_OK(type_factory()->MakeProtoType(
-      zetasql_test::MessageWithMapField::descriptor()
+      zetasql_test__::MessageWithMapField::descriptor()
           ->FindFieldByName("string_int32_map")
           ->message_type(),
       &ret));
@@ -140,7 +140,7 @@ static const ProtoType* StringInt32MapEntryType() {
 static const ProtoType* Uint64StringMapEntryType() {
   const ProtoType* ret;
   ZETASQL_CHECK_OK(type_factory()->MakeProtoType(
-      zetasql_test::MessageWithMapField::descriptor()
+      zetasql_test__::MessageWithMapField::descriptor()
           ->FindFieldByName("uint64_string_map")
           ->message_type(),
       &ret));
@@ -158,7 +158,7 @@ static std::vector<Type> ConcatTests(
 }
 
 static Value KitchenSink_equivalent(const std::string& proto_str) {
-  zetasql_test::KitchenSinkPB kitchen_sink_message;
+  zetasql_test__::KitchenSinkPB kitchen_sink_message;
   ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(proto_str,
                                             &kitchen_sink_message));
   return Value::Proto(KitchenSinkProtoType_equivalent(),
@@ -584,13 +584,13 @@ static std::vector<QueryParamsWithResult> TestCastNumericNull() {
 // STRING.
 struct CivilTimeCastTestCase : CivilTimeTestCase {
   CivilTimeCastTestCase(const Value& input,
-                        const zetasql_base::StatusOr<Value>& same_output,
+                        const absl::StatusOr<Value>& same_output,
                         const Type* output_type = nullptr)
       : CivilTimeTestCase({input}, same_output, output_type) {}
   // For test cases where <micros_output> is different with <nanos_output>.
   CivilTimeCastTestCase(const Value& input,
-                        const zetasql_base::StatusOr<Value>& micros_output,
-                        const zetasql_base::StatusOr<Value>& nanos_output,
+                        const absl::StatusOr<Value>& micros_output,
+                        const absl::StatusOr<Value>& nanos_output,
                         const Type* output_type = nullptr)
       : CivilTimeTestCase({input}, micros_output, nanos_output, output_type) {}
 };
@@ -2179,7 +2179,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
       "int64_key_1: 2 int64_key_2: 3 string_val: \"\\u2661\\u2662\"");
 
   // Scratch message.
-  zetasql_test::KitchenSinkPB kitchen_sink_message;
+  zetasql_test__::KitchenSinkPB kitchen_sink_message;
 
   ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(kitchen_sink_string_1,
                                             &kitchen_sink_message));
@@ -2205,7 +2205,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
                                             &kitchen_sink_message));
   absl::Cord kitchen_sink_cord_4 = SerializeToCord(kitchen_sink_message);
 
-  zetasql_test::NullableInt nullable_int_message;
+  zetasql_test__::NullableInt nullable_int_message;
   const std::string nullable_int_string_1("value: 1");
   ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(nullable_int_string_1,
                                             &nullable_int_message));

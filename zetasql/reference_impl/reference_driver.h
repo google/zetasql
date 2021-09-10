@@ -31,10 +31,11 @@
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
+#include "zetasql/scripting/script_executor.h"
 #include "zetasql/scripting/type_aliases.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/time/time.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
@@ -108,7 +109,7 @@ class ReferenceDriver : public TestDriver {
 
   // Implements TestDriver::ExecuteStatement(), which documents that this method
   // is not supposed be called because IsReferenceImplementation() returns true.
-  zetasql_base::StatusOr<Value> ExecuteStatement(
+  absl::StatusOr<Value> ExecuteStatement(
       const std::string& sql, const std::map<std::string, Value>& parameters,
       TypeFactory* type_factory) override {
     ZETASQL_RET_CHECK_FAIL()
@@ -119,7 +120,7 @@ class ReferenceDriver : public TestDriver {
 
   // Implements TestDriver::ExecuteScript(), which documents that this method
   // is not supposed be called because IsReferenceImplementation() returns true.
-  zetasql_base::StatusOr<ScriptResult> ExecuteScript(
+  absl::StatusOr<ScriptResult> ExecuteScript(
       const std::string& sql, const std::map<std::string, Value>& parameters,
       TypeFactory* type_factory) override {
     return zetasql_base::InternalErrorBuilder()
@@ -132,6 +133,12 @@ class ReferenceDriver : public TestDriver {
   // INVALID_ARGUMENT errors to represent parser/analyzer errors and
   // OUT_OF_RANGE to represent runtime errors.
   //
+  // DDL is supported only if 'database' is not null, and only for a limited
+  // set of statement types (currently CREATE TABLE AS (...)). Executing a
+  // DDL statement modifies 'database' to reflect the change and returns a
+  // value representing the contents of the new table. If 'created_table_name'
+  // is not nullptr, it is set to the name of the created table.
+  //
   // 'is_deterministic_output' must not be null. When reference evaluation
   //     succeeds, this will be set to 'false' if the reference evluation engine
   //     detected non-determinism in the query result and true otherwise.
@@ -140,14 +147,16 @@ class ReferenceDriver : public TestDriver {
   //     language options, this is set to true. Otherwise it is set to false.
   //     Currently only the output type of the query is checked for unsupported
   //     types.
-  zetasql_base::StatusOr<Value> ExecuteStatementForReferenceDriver(
+  absl::StatusOr<Value> ExecuteStatementForReferenceDriver(
       const std::string& sql, const std::map<std::string, Value>& parameters,
       const ExecuteStatementOptions& options, TypeFactory* type_factory,
-      bool* is_deterministic_output, bool* uses_unsupported_type);
+      bool* is_deterministic_output, bool* uses_unsupported_type,
+      TestDatabase* database = nullptr,
+      std::string* created_table_name = nullptr);
 
   // The same as ExecuteStatementForReferenceDriver(), except executes a script
   // instead of a statement.
-  zetasql_base::StatusOr<ScriptResult> ExecuteScriptForReferenceDriver(
+  absl::StatusOr<ScriptResult> ExecuteScriptForReferenceDriver(
       const std::string& sql, const std::map<std::string, Value>& parameters,
       const ExecuteStatementOptions& options, TypeFactory* type_factory,
       bool* uses_unsupported_type);
@@ -180,7 +189,7 @@ class ReferenceDriver : public TestDriver {
     SimpleTable* table;  // Owned by catalog_ in the ReferenceDriver
   };
 
-  zetasql_base::StatusOr<AnalyzerOptions> GetAnalyzerOptions(
+  absl::StatusOr<AnalyzerOptions> GetAnalyzerOptions(
       const std::map<std::string, Value>& parameters,
       bool* uses_unsupported_type) const;
 
@@ -189,18 +198,26 @@ class ReferenceDriver : public TestDriver {
       const ExecuteStatementOptions& options, TypeFactory* type_factory,
       bool* uses_unsupported_type, ScriptResult* result);
 
-  zetasql_base::StatusOr<Value> ExecuteStatementForReferenceDriverInternal(
+  absl::StatusOr<Value> ExecuteStatementForReferenceDriverInternal(
       const std::string& sql, const AnalyzerOptions& analyzer_options,
       const std::map<std::string, Value>& parameters,
       const VariableMap& script_variables,
       const SystemVariableValuesMap& system_variables,
       const ExecuteStatementOptions& options, TypeFactory* type_factory,
-      bool* is_deterministic_output, bool* uses_unsupported_type);
+      bool* is_deterministic_output, bool* uses_unsupported_type,
+      TestDatabase* database, std::string* created_table_name);
 
   friend class ReferenceDriverStatementEvaluator;
   std::unique_ptr<TypeFactory> type_factory_;
   LanguageOptions language_options_;
   std::vector<TableInfo> tables_;
+
+  // Procedures created inside the current script. Reset at the start of each
+  // script so that procedures cannot leak across testcase boundaries.
+  // In the key, all names are lowercase.
+  absl::flat_hash_map<std::vector<std::string>,
+                      std::unique_ptr<ProcedureDefinition>>
+      procedures_;
   class BuiltinFunctionCache;
 
   std::unique_ptr<BuiltinFunctionCache> function_cache_;

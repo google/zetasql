@@ -27,13 +27,6 @@
 
 namespace zetasql {
 
-size_t InputArgumentTypeLossyHasher::operator()(
-    const InputArgumentType& type) const {
-  return type.type()->kind() * 16 + type.is_literal() * 8 +
-      type.is_untyped() * 4 + type.is_query_parameter() * 2 +
-      type.is_literal_null();
-}
-
 // Determine equivalence class of the input argument type, for ordering
 // purposes via InputArgumentTypeLess.  Typed and untyped nulls are
 // considered in the same class, non-null literals are in their own class,
@@ -52,7 +45,8 @@ static int InputArgumentTypeEquivalenceClass(const InputArgumentType& type) {
 bool InputArgumentTypeLess::operator()(
     const InputArgumentType& type1, const InputArgumentType& type2) const {
   // If arguments have different type kinds, then order by kind.
-  if (type1.type()->kind() != type2.type()->kind()) {
+  if (type1.type() != nullptr && type2.type() != nullptr &&
+      type1.type()->kind() != type2.type()->kind()) {
     return type1.type()->kind() < type2.type()->kind();
   }
 
@@ -67,18 +61,20 @@ bool InputArgumentTypeLess::operator()(
     // need to handle the case of different distinct types for the same type
     // kind (for example, two different struct literals, etc.).  We order
     // between them via DebugString();
-    if (!type1.type()->IsSimpleType()) {
+    if (type1.type() != nullptr && !type1.type()->IsSimpleType()) {
       return type1.DebugString() < type2.DebugString();
     }
   }
   return type1_class < type2_class;
 }
 
-bool InputArgumentType::operator==(const InputArgumentType& type) const {
-  return category_ == type.category_ &&
-      type_->Equals(type.type_) &&
-      is_literal_null() == type.is_literal_null() &&
-      is_literal_empty_array() == type.is_literal_empty_array();
+bool InputArgumentType::operator==(const InputArgumentType& rhs) const {
+  const bool types_equal =
+      (type_ == nullptr && rhs.type_ == nullptr) ||
+      (type_ != nullptr && rhs.type_ != nullptr && type_->Equals(rhs.type_));
+  return category_ == rhs.category_ && types_equal &&
+         is_literal_null() == rhs.is_literal_null() &&
+         is_literal_empty_array() == rhs.is_literal_empty_array();
 }
 
 bool InputArgumentType::operator!=(const InputArgumentType& type) const {
@@ -176,7 +172,11 @@ std::string InputArgumentType::DebugString(bool verbose) const {
     }
     absl::StrAppend(&prefix, "parameter ");
   }
-  return absl::StrCat(prefix, type_->DebugString());
+  if (type_ == nullptr) {
+    return prefix;
+  } else {
+    return absl::StrCat(prefix, type_->DebugString());
+  }
 }
 
 // static
@@ -242,12 +242,12 @@ bool InputArgumentTypeSet::Insert(
   if (set_dominant) {
     dominant_argument_ = absl::make_unique<InputArgumentType>(argument);
   } else if (dominant_argument_ != nullptr &&
+             dominant_argument_->type() != nullptr &&
              dominant_argument_->type()->IsSimpleType() &&
-             !argument.type()->IsSimpleType() &&
+             argument.type() != nullptr && !argument.type()->IsSimpleType() &&
              !argument.is_untyped_empty_array()) {
     dominant_argument_ = absl::make_unique<InputArgumentType>(argument);
-  } else if (dominant_argument_ == nullptr &&
-             !argument.is_untyped()) {
+  } else if (dominant_argument_ == nullptr && !argument.is_untyped()) {
     dominant_argument_ = absl::make_unique<InputArgumentType>(argument);
   }
 

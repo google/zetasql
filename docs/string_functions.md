@@ -236,6 +236,7 @@ SELECT CODE_POINTS_TO_BYTES(ARRAY_AGG(
      (SELECT code, CODE_POINTS_TO_BYTES([code]) chr)
   ) ORDER BY OFFSET)) AS encoded_string
 FROM UNNEST(TO_CODE_POINTS(b'Test String!')) code WITH OFFSET;
+```
 
 +------------------+
 | encoded_string   |
@@ -443,11 +444,29 @@ FROM items;
 ### FORMAT 
 <a id="format_string"></a>
 
-ZetaSQL supports a `FORMAT()` function for formatting strings. This
-function is similar to the C `printf` function. It produces a `STRING` from a
-format string that contains zero or more format specifiers, along with a
-variable length list of additional arguments that matches the format specifiers.
-Here are some examples:
+```sql
+FORMAT(format_string_expression, data_type_expression[, ...])
+```
+
+**Description**
+
+`FORMAT` formats a data type expression as a string.
+
++ `format_string_expression`: Can contain zero or more
+  [format specifiers][format-specifiers]. Each format specifier is introduced
+  by the `%` symbol, and must map to one or more of the remaining arguments.
+  In general, this is a one-to-one mapping, except when the `*` specifier is
+  present. For example, `%.*i` maps to two arguments&mdash;a length argument
+  and a signed integer argument.  If the number of arguments related to the
+  format specifiers is not the same as the number of arguments, an error occurs.
++ `data_type_expression`: The value to format as a string. This can be any
+  ZetaSQL data type.
+
+**Return type**
+
+`STRING`
+
+**Examples**
 
 <table>
 <tr>
@@ -517,33 +536,31 @@ Returns
 date: January 02, 2015!
 ```
 
-#### Syntax
-
-The `FORMAT()` syntax takes a format string and variable length list of
-arguments and produces a `STRING` result:
-
-```sql
-FORMAT(format_string, ...)
-```
-
-The `format_string` expression can contain zero or more format specifiers.
-Each format specifier is introduced by the `%` symbol, and must map to one or
-more of the remaining arguments.  For the most part, this is a one-to-one
-mapping, except when the `*` specifier is present. For example, `%.*i` maps to
-two arguments&mdash;a length argument and a signed integer argument.  If the
-number of arguments related to the format specifiers is not the same as the
-number of arguments, an error occurs.
-
-#### Supported format specifiers
-
-The `FORMAT()` function format specifier follows this prototype:
+#### Supported format specifiers 
+<a id="format_specifiers"></a>
 
 ```
 %[flags][width][.precision]specifier
 ```
 
-The supported format specifiers are identified in the following table.
-Deviations from printf() are identified in <em>italics</em>.
+A [format specifier][format-specifier-list] adds formatting when casting a
+value to a string. It can optionally contain these sub-specifiers:
+
++ [Flags][flags]
++ [Width][width]
++ [Precision][precision]
+
+Additional information about format specifiers:
+
++ [%g and %G behavior][g-and-g-behavior]
++ [%p and %P behavior][p-and-p-behavior]
++ [%t and %T behavior][t-and-t-behavior]
++ [Error conditions][error-format-specifiers]
++ [NULL argument handling][null-format-specifiers]
++ [Additional semantic rules][rules-format-specifiers]
+
+##### Format specifiers 
+<a id="format_specifier_list"></a>
 
 <table>
  <tr>
@@ -668,36 +685,60 @@ Deviations from printf() are identified in <em>italics</em>.
  </tr>
 
  <tr>
-    <td><em><code>p</code></em></td>
-    <td><em>
-      <p>Produces a one-line printable string representing a protocol buffer.</p>
-      <p>This protocol buffer generates the example to the right:</p>
-      <pre>
-      message ReleaseDate {
-       required int32 year = 1 [default=2019];
-       required int32 month = 2 [default=10];
-      }</pre>
-    </em></td>
-    <td><em>year: 2019 month: 10</em></td>
-    <td><em>ShortDebugString</em></td>
+    <td><code>p</code></td>
+    <td>
+      
+      Produces a one-line printable string representing a protocol buffer
+      or JSON.
+      
+      See <a href="#p_and_p_behavior">%p and %P behavior</a>.
+    </td>
+    <td>
+      
+<pre>year: 2019 month: 10</pre>
+      
+      
+<pre>{"month":10,"year":2019}</pre>
+      
+    </td>
+    <td>
+      PROTO
+      <br />
+      JSON
+    </td>
  </tr>
- <tr>
-    <td><em><code>P</code></em></td>
-    <td><em>
-      <p>Produces a multi-line printable string representing a protocol buffer.</p>
-      <p>This protocol buffer generates the example to the right:</p>
-      <pre>
-      message ReleaseDate {
-       required int32 year = 1 [default=2019];
-       required int32 month = 2 [default=10];
-      }</pre>
-    </em></td>
-    <td><em>
-      year: 2019<br/>
-      month: 10
-      </em></td>
-    <td><em>DebugString</em></td>
- </tr>
+
+  <tr>
+    <td><code>P</code></td>
+    <td>
+      
+      Produces a multi-line printable string representing a protocol buffer
+      or JSON.
+      
+      See <a href="#p_and_p_behavior">%p and %P behavior</a>.
+    </td>
+    <td>
+      
+<pre>
+year: 2019
+month: 10
+</pre>
+      
+      
+<pre>
+{
+  "month": 10,
+  "year": 2019
+}
+</pre>
+      
+    </td>
+    <td>
+      PROTO
+      <br />
+      JSON
+    </td>
+  </tr>
 
  <tr>
     <td><code>s</code></td>
@@ -706,33 +747,33 @@ Deviations from printf() are identified in <em>italics</em>.
     <td>STRING</td>
  </tr>
  <tr>
-    <td><em><code>t</code></em></td>
+    <td><code>t</code></td>
     <td>
-      <em>Returns a printable string representing the value. Often looks
+      Returns a printable string representing the value. Often looks
       similar to casting the argument to <code>STRING</code>.
-      See <a href="#t_and_t_behavior">%t and %T behavior</a>.</em>
+      See <a href="#t_and_t_behavior">%t and %T behavior</a>.
     </td>
     <td>
-      <em>sample</em><br/>
-      <em>2014&#8209;01&#8209;01</em>
+      sample<br/>
+      2014&#8209;01&#8209;01
     </td>
-    <td><em>&lt;any&gt;</em></td>
+    <td>&lt;any&gt;</td>
  </tr>
  <tr>
-    <td><em><code>T</code></em></td>
+    <td><code>T</code></td>
     <td>
-      <em>Produces a string that is a valid ZetaSQL constant with a
+      Produces a string that is a valid ZetaSQL constant with a
       similar type to the value's type (maybe wider, or maybe string).
-      See <a href="#t_and_t_behavior">%t and %T behavior</a>.</em>
+      See <a href="#t_and_t_behavior">%t and %T behavior</a>.
     </td>
     <td>
-      <em>'sample'</em><br/>
-      <em>b'bytes&nbsp;sample'</em><br/>
-      <em>1234</em><br/>
-      <em>2.3</em><br/>
-      <em>date&nbsp;'2014&#8209;01&#8209;01'</em>
+      'sample'<br/>
+      b'bytes&nbsp;sample'<br/>
+      1234<br/>
+      2.3<br/>
+      date&nbsp;'2014&#8209;01&#8209;01'
     </td>
-    <td><em>&lt;any&gt;</em></td>
+    <td>&lt;any&gt;</td>
  </tr>
  <tr>
     <td><code>%</code></td>
@@ -742,15 +783,16 @@ Deviations from printf() are identified in <em>italics</em>.
  </tr>
 </table>
 
-<i><a id="oxX"></a><sup>*</sup>The specifiers `%o`, `%x`, and `%X` raise an
-error if negative values are used.</i>
+<a id="oxX"></a><sup>*</sup>The specifiers `%o`, `%x`, and `%X` raise an
+error if negative values are used.
 
 The format specifier can optionally contain the sub-specifiers identified above
 in the specifier prototype.
 
 These sub-specifiers must comply with the following specifications.
 
-##### Flags
+##### Flags 
+<a id="flags"></a>
 
 <table>
  <tr>
@@ -811,7 +853,8 @@ value</td>
 Flags may be specified in any order. Duplicate flags are not an error. When
 flags are not relevant for some element type, they are ignored.
 
-##### Width
+##### Width 
+<a id="width"></a>
 
 <table>
   <tr>
@@ -835,7 +878,8 @@ flags are not relevant for some element type, they are ignored.
   </tr>
 </table>
 
-##### Precision
+##### Precision 
+<a id="precision"></a>
 
 <table>
  <tr>
@@ -871,7 +915,7 @@ flags are not relevant for some element type, they are ignored.
   </tr>
 </table>
 
-#### %g and %G behavior 
+##### %g and %G behavior 
 <a id="g_and_g_behavior"></a>
 The `%g` and `%G` format specifiers choose either the decimal notation (like
 the `%f` and `%F` specifiers) or the scientific notation (like the `%e` and `%E`
@@ -889,7 +933,84 @@ Unless [`#` flag](#flags) is present, the trailing zeros after the decimal point
 are removed, and the decimal point is also removed if there is no digit after
 it.
 
-#### %t and %T behavior 
+##### %p and %P behavior 
+<a id="p_and_p_behavior"></a>
+
+The `%p` format specifier produces a one-line printable string. The `%P`
+format specifier produces a multi-line printable string. You can use these
+format specifiers with the following data types:
+
+<table>
+  <tr>
+    <td><strong>Type</strong></td>
+    <td><strong>%p</strong></td>
+    <td><strong>%P</strong></td>
+  </tr>
+ 
+  <tr>
+    <td>PROTO</td>
+    <td valign="top">
+      <p>PROTO input:</p>
+<pre>
+message ReleaseDate {
+ required int32 year = 1 [default=2019];
+ required int32 month = 2 [default=10];
+}</pre>
+      <p>Produces a one-line printable string representing a protocol buffer:</p>
+      <pre>year: 2019 month: 10</pre>
+    </td>
+    <td valign="top">
+      <p>PROTO input:</p>
+<pre>
+message ReleaseDate {
+ required int32 year = 1 [default=2019];
+ required int32 month = 2 [default=10];
+}</pre>
+      <p>Produces a multi-line printable string representing a protocol buffer:</p>
+<pre>
+year: 2019
+month: 10
+</pre>
+    </td>
+  </tr>
+ 
+ 
+  <tr>
+    <td>JSON</td>
+    <td valign="top">
+      <p>JSON input:</p>
+<pre>
+JSON '
+{
+  "month": 10,
+  "year": 2019
+}
+'</pre>
+      <p>Produces a one-line printable string representing JSON:</p>
+      <pre>{"month":10,"year":2019}</pre>
+    </td>
+    <td valign="top">
+      <p>JSON input:</p>
+<pre>
+JSON '
+{
+  "month": 10,
+  "year": 2019
+}
+'</pre>
+      <p>Produces a multi-line printable string representing JSON:</p>
+<pre>
+{
+  "month": 10,
+  "year": 2019
+}
+</pre>
+    </td>
+  </tr>
+ 
+</table>
+
+##### %t and %T behavior 
 <a id="t_and_t_behavior"></a>
 
 The `%t` and `%T` format specifiers are defined for all types. The
@@ -984,13 +1105,21 @@ The `STRING` is formatted as follows:
   </tr>
 
  
+  <tr>
+    <td>INTERVAL</td>
+    <td>1-2 3 4:5:6.789</td>
+    <td>INTERVAL "1-2 3 4:5:6.789" YEAR TO SECOND</td>
+  </tr>
+ 
  
   <tr>
     <td>PROTO</td>
-    <td>proto ShortDebugString</td>
     <td>
-      quoted string literal with proto<br/>
-      ShortDebugString
+      one-line printable string representing a protocol buffer.
+    </td>
+    <td>
+      quoted string literal with one-line printable string representing a
+      protocol buffer.
     </td>
   </tr>
  
@@ -1014,9 +1143,23 @@ The `STRING` is formatted as follows:
     One field: STRUCT(value)</td>
   </tr>
   
+ 
+  <tr>
+    <td>JSON</td>
+    <td>
+      one-line printable string representing JSON.<br />
+      <pre class="lang-json prettyprint">{"name":"apple","stock":3}</pre>
+    </td>
+    <td>
+      one-line printable string representing a JSON literal.<br />
+      <pre class="lang-sql prettyprint">JSON '{"name":"apple","stock":3}'</pre>
+    </td>
+  </tr>
+ 
 </table>
 
-#### Error conditions
+##### Error conditions 
+<a id="error_format_specifiers"></a>
 
 If a format specifier is invalid, or is not compatible with the related
 argument type, or the wrong number or arguments are provided, then an error is
@@ -1030,7 +1173,8 @@ FORMAT('%s', 1)
 FORMAT('%')
 ```
 
-#### NULL argument handling
+##### NULL argument handling 
+<a id="null_format_specifiers"></a>
 
 A `NULL` format string results in a `NULL` output `STRING`. Any other arguments
 are ignored in this case.
@@ -1054,7 +1198,8 @@ Returns
 00-NULL-00
 ```
 
-#### Additional semantic rules
+##### Additional semantic rules 
+<a id="rules_format_specifiers"></a>
 
 `DOUBLE` and
 `FLOAT` values can be `+/-inf` or `NaN`.
@@ -1663,7 +1808,8 @@ NORMALIZE(value[, normalization_mode])
 
 **Description**
 
-Takes a string value and returns it as a normalized string.
+Takes a string value and returns it as a normalized string. If you do not
+provide a normalization mode, `NFC` is used.
 
 [Normalization][string-link-to-normalization-wikipedia] is used to ensure that
 two strings are equivalent. Normalization is often used in situations in which
@@ -1672,14 +1818,12 @@ points.
 
 `NORMALIZE` supports four optional normalization modes:
 
-| Value | Name | Description|
-|-------|------|------------|
-| NFC | Normalization Form Canonical Composition | Decomposes and recomposes characters by canonical equivalence.
-| NFKC | Normalization Form Compatibility Composition | Decomposes characters by compatibility, then recomposes them by canonical equivalence. |
-| NFD   | Normalization Form Canonical Decomposition | Decomposes characters by canonical equivalence, and multiple combining characters are arranged in a specific order.
-| NFKD | Normalization Form Compatibility Decomposition | Decomposes characters by compatibility, and multiple combining characters are arranged in a specific order.|
-
-The default normalization mode is `NFC`.
+| Value   | Name                                           | Description|
+|---------|------------------------------------------------|------------|
+| `NFC`   | Normalization Form Canonical Composition       | Decomposes and recomposes characters by canonical equivalence.|
+| `NFKC`  | Normalization Form Compatibility Composition   | Decomposes characters by compatibility, then recomposes them by canonical equivalence.|
+| `NFD`   | Normalization Form Canonical Decomposition     | Decomposes characters by canonical equivalence, and multiple combining characters are arranged in a specific order.|
+| `NFKD`  | Normalization Form Compatibility Decomposition | Decomposes characters by compatibility, and multiple combining characters are arranged in a specific order.|
 
 **Return type**
 
@@ -1689,8 +1833,7 @@ The default normalization mode is `NFC`.
 
 ```sql
 SELECT a, b, a = b as normalized
-FROM (SELECT NORMALIZE('\u00ea') as a, NORMALIZE('\u0065\u0302') as b)
-AS normalize_example;
+FROM (SELECT NORMALIZE('\u00ea') as a, NORMALIZE('\u0065\u0302') as b);
 
 +---+---+------------+
 | a | b | normalized |
@@ -1732,27 +1875,47 @@ NORMALIZE_AND_CASEFOLD(value[, normalization_mode])
 
 **Description**
 
-Takes a `STRING`, `value`, and performs the same actions as
-[`NORMALIZE`][string-link-to-normalize], as well as
-[casefolding][string-link-to-case-folding-wikipedia] for
-case-insensitive operations.
+Takes a string value and returns it as a normalized string with
+normalization.
+
+[Normalization][string-link-to-normalization-wikipedia] is used to ensure that
+two strings are equivalent. Normalization is often used in situations in which
+two strings render the same on the screen but have different Unicode code
+points.
+
+[Case folding][string-link-to-case-folding-wikipedia] is used for the caseless
+comparison of strings. If you need to compare strings and case should not be
+considered, use `NORMALIZE_AND_CASEFOLD`, otherwise use
+[`NORMALIZE`][string-link-to-normalize].
 
 `NORMALIZE_AND_CASEFOLD` supports four optional normalization modes:
 
-| Value | Name | Description|
-|-------|------|------------|
-| NFC | Normalization Form Canonical Composition | Decomposes and recomposes characters by canonical equivalence.
-| NFKC | Normalization Form Compatibility Composition | Decomposes characters by compatibility, then recomposes them by canonical equivalence. |
-| NFD   | Normalization Form Canonical Decomposition | Decomposes characters by canonical equivalence, and multiple combining characters are arranged in a specific order.
-| NFKD | Normalization Form Compatibility Decomposition | Decomposes characters by compatibility, and multiple combining characters are arranged in a specific order.|
-
-The default normalization mode is `NFC`.
+| Value   | Name                                           | Description|
+|---------|------------------------------------------------|------------|
+| `NFC`   | Normalization Form Canonical Composition       | Decomposes and recomposes characters by canonical equivalence.|
+| `NFKC`  | Normalization Form Compatibility Composition   | Decomposes characters by compatibility, then recomposes them by canonical equivalence.|
+| `NFD`   | Normalization Form Canonical Decomposition     | Decomposes characters by canonical equivalence, and multiple combining characters are arranged in a specific order.|
+| `NFKD`  | Normalization Form Compatibility Decomposition | Decomposes characters by compatibility, and multiple combining characters are arranged in a specific order.|
 
 **Return type**
 
 `STRING`
 
-**Example**
+**Examples**
+
+```sql
+SELECT
+  a, b,
+  NORMALIZE(a) = NORMALIZE(b) as normalized,
+  NORMALIZE_AND_CASEFOLD(a) = NORMALIZE_AND_CASEFOLD(b) as normalized_with_case_folding
+FROM (SELECT 'The red barn' AS a, 'The Red Barn' AS b);
+
++--------------+--------------+------------+------------------------------+
+| a            | b            | normalized | normalized_with_case_folding |
++--------------+--------------+------------+------------------------------+
+| The red barn | The Red Barn | false      | true                         |
++--------------+--------------+------------+------------------------------+
+```
 
 ```sql
 WITH Strings AS (
@@ -1827,9 +1990,9 @@ FROM
 | www.example.net | false    |
 +-----------------+----------+
 
-# Performs a full match, using ^ and $. Due to regular expression operator
-# precedence, it is good practice to use parentheses around everything between ^
-# and $.
+-- Performs a full match, using ^ and $. Due to regular expression operator
+-- precedence, it is good practice to use parentheses around everything between ^
+-- and $.
 SELECT
   email,
   REGEXP_CONTAINS(email, r"^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$")
@@ -2148,8 +2311,10 @@ You can use backslashed-escaped digits (\1 to \9) within the `replacement`
 argument to insert text matching the corresponding parenthesized group in the
 `regexp` pattern. Use \0 to refer to the entire matching text.
 
-Note: To add a backslash in your regular expression, you must first escape it.
-For example, `SELECT REGEXP_REPLACE("abc", "b(.)", "X\\1");` returns `aXc`.
+To add a backslash in your regular expression, you must first escape it. For
+example, `SELECT REGEXP_REPLACE("abc", "b(.)", "X\\1");` returns `aXc`. You can
+also use [raw strings][string-link-to-lexical-literals] to remove one layer of
+escaping, for example `SELECT REGEXP_REPLACE("abc", "b(.)", r"X\1");`.
 
 The `REGEXP_REPLACE` function only replaces non-overlapping matches. For
 example, replacing `ana` within `banana` results in only one replacement, not
@@ -3249,6 +3414,7 @@ FROM items;
 [string-link-to-base64]: #to_base64
 [string-link-to-trim]: #trim
 [string-link-to-normalize]: #normalize
+[string-link-to-normalize-casefold]: #normalize_and_casefold
 [string-link-to-from-base64]: #from_base64
 [string-link-to-codepoints-to-string]: #code_points_to_string
 [string-link-to-codepoints-to-bytes]: #code_points_to_bytes
@@ -3256,6 +3422,19 @@ FROM items;
 [string-link-to-from-base32]: #from_base32
 [string-link-to-from-hex]: #from_hex
 [string-link-to-to-hex]: #to_hex
+
+[string-link-to-lexical-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#string_and_bytes_literals
+[format-specifiers]: #format_specifiers
+[format-specifier-list]: #format_specifier_list
+[flags]: #flags
+[width]: #width
+[precision]: #precision
+[g-and-g-behavior]: #g_and_g_behavior
+[p-and-p-behavior]: #p_and_p_behavior
+[t-and-t-behavior]: #t_and_t_behavior
+[error-format-specifiers]: #error_format_specifiers
+[null-format-specifiers]: #null_format_specifiers
+[rules-format-specifiers]: #rules_format_specifiers
 
 [string-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md
 

@@ -155,11 +155,11 @@ ExportDataStmt
 
 # Create a value table with SELECT AS ProtoName.
 export data
-as select as `zetasql_test.TestExtraPB` 55 int32_val1
+as select as `zetasql_test__.TestExtraPB` 55 int32_val1
 --
 ExportDataStmt
 +-output_column_list=
-| +-$make_proto.$proto#2 AS `$proto` [PROTO<zetasql_test.TestExtraPB>]
+| +-$make_proto.$proto#2 AS `$proto` [PROTO<zetasql_test__.TestExtraPB>]
 +-is_value_table=TRUE
 +-query=
   +-ProjectScan
@@ -167,7 +167,7 @@ ExportDataStmt
     +-expr_list=
     | +-$proto#2 :=
     |   +-MakeProto
-    |     +-type=PROTO<zetasql_test.TestExtraPB>
+    |     +-type=PROTO<zetasql_test__.TestExtraPB>
     |     +-field_list=
     |       +-int32_val1 := Literal(type=INT32, value=55)
     +-input_scan=

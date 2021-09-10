@@ -31,7 +31,7 @@ DATE
 **Example**
 
 ```sql
-SELECT CURRENT_DATE() as the_date;
+SELECT CURRENT_DATE() AS the_date;
 
 +--------------+
 | the_date     |
@@ -101,7 +101,7 @@ In the following example, `EXTRACT` returns a value corresponding to the `DAY`
 date part.
 
 ```sql
-SELECT EXTRACT(DAY FROM DATE '2013-12-25') as the_day;
+SELECT EXTRACT(DAY FROM DATE '2013-12-25') AS the_day;
 
 +---------+
 | the_day |
@@ -189,9 +189,9 @@ DATE
 
 ```sql
 SELECT
-  DATE(2016, 12, 25) as date_ymd,
-  DATE(DATETIME "2016-12-25 23:59:59") as date_dt,
-  DATE(TIMESTAMP "2016-12-25 05:30:00+07", "America/Los_Angeles") as date_tstz;
+  DATE(2016, 12, 25) AS date_ymd,
+  DATE(DATETIME "2016-12-25 23:59:59") AS date_dt,
+  DATE(TIMESTAMP "2016-12-25 05:30:00+07", "America/Los_Angeles") AS date_tstz;
 
 +------------+------------+------------+
 | date_ymd   | date_dt    | date_tstz  |
@@ -219,10 +219,10 @@ Adds a specified time interval to a DATE.
 +  `QUARTER`
 +  `YEAR`
 
-Special handling is required for MONTH, QUARTER, and YEAR parts when the
-date is at (or near) the last day of the month. If the resulting month has fewer
-days than the original date's day, then the result day is the last day of the
-new month.
+Special handling is required for MONTH, QUARTER, and YEAR parts when
+the date is at (or near) the last day of the month. If the resulting
+month has fewer days than the original date's day, then the resulting
+date is the last date of that month.
 
 **Return Data Type**
 
@@ -231,7 +231,7 @@ DATE
 **Example**
 
 ```sql
-SELECT DATE_ADD(DATE "2008-12-25", INTERVAL 5 DAY) as five_days_later;
+SELECT DATE_ADD(DATE "2008-12-25", INTERVAL 5 DAY) AS five_days_later;
 
 +--------------------+
 | five_days_later    |
@@ -258,10 +258,10 @@ Subtracts a specified time interval from a DATE.
 +  `QUARTER`
 +  `YEAR`
 
-Special handling is required for MONTH, QUARTER, and YEAR parts when the
-date is at (or near) the last day of the month. If the resulting month has fewer
-days than the original date's day, then the result day is the last day of the
-new month.
+Special handling is required for MONTH, QUARTER, and YEAR parts when
+the date is at (or near) the last day of the month. If the resulting
+month has fewer days than the original date's day, then the resulting
+date is the last date of that month.
 
 **Return Data Type**
 
@@ -270,7 +270,7 @@ DATE
 **Example**
 
 ```sql
-SELECT DATE_SUB(DATE "2008-12-25", INTERVAL 5 DAY) as five_days_ago;
+SELECT DATE_SUB(DATE "2008-12-25", INTERVAL 5 DAY) AS five_days_ago;
 
 +---------------+
 | five_days_ago |
@@ -316,7 +316,7 @@ INT64
 **Example**
 
 ```sql
-SELECT DATE_DIFF(DATE '2010-07-07', DATE '2008-12-25', DAY) as days_diff;
+SELECT DATE_DIFF(DATE '2010-07-07', DATE '2008-12-25', DAY) AS days_diff;
 
 +-----------+
 | days_diff |
@@ -327,8 +327,8 @@ SELECT DATE_DIFF(DATE '2010-07-07', DATE '2008-12-25', DAY) as days_diff;
 
 ```sql
 SELECT
-  DATE_DIFF(DATE '2017-10-15', DATE '2017-10-14', DAY) as days_diff,
-  DATE_DIFF(DATE '2017-10-15', DATE '2017-10-14', WEEK) as weeks_diff;
+  DATE_DIFF(DATE '2017-10-15', DATE '2017-10-14', DAY) AS days_diff,
+  DATE_DIFF(DATE '2017-10-15', DATE '2017-10-14', WEEK) AS weeks_diff;
 
 +-----------+------------+
 | days_diff | weeks_diff |
@@ -420,7 +420,7 @@ DATE
 **Examples**
 
 ```sql
-SELECT DATE_TRUNC(DATE '2008-12-25', MONTH) as month;
+SELECT DATE_TRUNC(DATE '2008-12-25', MONTH) AS month;
 
 +------------+
 | month      |
@@ -481,7 +481,7 @@ DATE
 **Example**
 
 ```sql
-SELECT DATE_FROM_UNIX_DATE(14238) as date_from_epoch;
+SELECT DATE_FROM_UNIX_DATE(14238) AS date_from_epoch;
 
 +-----------------+
 | date_from_epoch |
@@ -510,7 +510,7 @@ STRING
 **Examples**
 
 ```sql
-SELECT FORMAT_DATE("%x", DATE "2008-12-25") as US_format;
+SELECT FORMAT_DATE("%x", DATE "2008-12-25") AS US_format;
 
 +------------+
 | US_format  |
@@ -688,7 +688,7 @@ DATE
 This example converts a `MM/DD/YY` formatted string to a `DATE` object:
 
 ```sql
-SELECT PARSE_DATE("%x", "12/25/08") as parsed;
+SELECT PARSE_DATE("%x", "12/25/08") AS parsed;
 
 +------------+
 | parsed     |
@@ -700,7 +700,7 @@ SELECT PARSE_DATE("%x", "12/25/08") as parsed;
 This example converts a `YYYYMMDD` formatted string to a `DATE` object:
 
 ```sql
-SELECT PARSE_DATE("%Y%m%d", "20081225") as parsed;
+SELECT PARSE_DATE("%Y%m%d", "20081225") AS parsed;
 
 +------------+
 | parsed     |
@@ -726,7 +726,7 @@ INT64
 **Example**
 
 ```sql
-SELECT UNIX_DATE(DATE "2008-12-25") as days_from_epoch;
+SELECT UNIX_DATE(DATE "2008-12-25") AS days_from_epoch;
 
 +-----------------+
 | days_from_epoch |

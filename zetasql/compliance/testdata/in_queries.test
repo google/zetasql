@@ -1,8 +1,8 @@
 # Queries with IN clause.
 
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.TestExtraPB]
-[load_enum_names=zetasql_test.TestEnum]
+[load_proto_names=zetasql_test__.TestExtraPB]
+[load_enum_names=zetasql_test__.TestEnum]
 
 [prepare_database]
 CREATE TABLE Test AS
@@ -123,16 +123,16 @@ ARRAY<STRUCT<
 [prepare_database]
 CREATE TABLE Test2 AS
 SELECT 1 id,
-       (SELECT AS `zetasql_test.TestExtraPB`
+       (SELECT AS `zetasql_test__.TestExtraPB`
          1 int32_val1, ['a', 'b', 'c'] str_value) Info
 UNION ALL
 SELECT 2 id,
-       (SELECT AS `zetasql_test.TestExtraPB`
+       (SELECT AS `zetasql_test__.TestExtraPB`
          2 int32_val1, ['d'] str_value) Info;
 --
 ARRAY<STRUCT<
         id INT64,
-        Info PROTO<zetasql_test.TestExtraPB>
+        Info PROTO<zetasql_test__.TestExtraPB>
       >>
 [{1,
   {
@@ -150,17 +150,17 @@ ARRAY<STRUCT<
 [prepare_database]
 CREATE TABLE TestEnum AS
 SELECT cast(1 as int64) x,
-       cast(0 as `zetasql_test.TestEnum`) as enum_col
+       cast(0 as `zetasql_test__.TestEnum`) as enum_col
 UNION ALL
 SELECT cast(2 as int64) x,
-       cast(1 as `zetasql_test.TestEnum`) as enum_col
+       cast(1 as `zetasql_test__.TestEnum`) as enum_col
 UNION ALL
 SELECT cast(3 as int64) x,
-       cast(2 as `zetasql_test.TestEnum`) as enum_col;
+       cast(2 as `zetasql_test__.TestEnum`) as enum_col;
 --
 ARRAY<STRUCT<
         x INT64,
-        enum_col ENUM<zetasql_test.TestEnum>
+        enum_col ENUM<zetasql_test__.TestEnum>
       >>
 [{1, TESTENUM0}, {2, TESTENUM1}, {3, TESTENUM2}]
 ==
@@ -511,17 +511,17 @@ ARRAY<STRUCT<x INT64>>[{1}]
 ==
 [name=in_clause_enum_type]
 SELECT x FROM TestEnum WHERE enum_col IN (
-  CAST("TESTENUM0" AS `zetasql_test.TestEnum`),
-  CAST("TESTENUM2" AS `zetasql_test.TestEnum`)) ORDER BY x;
+  CAST("TESTENUM0" AS `zetasql_test__.TestEnum`),
+  CAST("TESTENUM2" AS `zetasql_test__.TestEnum`)) ORDER BY x;
 --
 ARRAY<STRUCT<x INT64>>[{1}, {3}]
 ==
 [name=in_clause_proto_type]
 SELECT id FROM Test2 WHERE Info IN (
-  (SELECT AS `zetasql_test.TestExtraPB`
+  (SELECT AS `zetasql_test__.TestExtraPB`
          1 int32_val1, ['a', 'b', 'c'] str_value));
 --
-ERROR: generic::invalid_argument: Cannot execute IN subquery with uncomparable types zetasql_test.TestExtraPB and zetasql_test.TestExtraPB [at 1:28]
+ERROR: generic::invalid_argument: Cannot execute IN subquery with uncomparable types zetasql_test__.TestExtraPB and zetasql_test__.TestExtraPB [at 1:28]
 SELECT id FROM Test2 WHERE Info IN (
                            ^
 ==

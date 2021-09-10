@@ -32,7 +32,7 @@
 #include <cstdint>
 #include "absl/base/optimization.h"
 #include "absl/base/port.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/status_builder.h"
@@ -52,6 +52,7 @@ class NumericValue final {
       kScalingFactor{};
   static constexpr int kMaxIntegerDigits = 29;
   static constexpr int kMaxFractionalDigits = 9;
+  static constexpr int kMaxPrecision = kMaxIntegerDigits + kMaxFractionalDigits;
   // Default constructor, constructs a zero value.
   constexpr NumericValue();
 
@@ -71,7 +72,7 @@ class NumericValue final {
   // Constructs a Numeric object using its packed representation. May return
   // OUT_OF_RANGE error if the given value is outside the range of valid
   // NUMERIC values.
-  static zetasql_base::StatusOr<NumericValue> FromPackedInt(__int128 value);
+  static absl::StatusOr<NumericValue> FromPackedInt(__int128 value);
   // Returns value / kScalingFactor.
   static constexpr NumericValue FromScaledValue(int64_t value);
 
@@ -85,13 +86,23 @@ class NumericValue final {
   // allow_rounding is true, or an error will be returned if allow_rounding is
   // false. This method is not optimized for performance, and is much slower
   // than FromScaledValue(int64_t), FromPackedInt and FromHighAndLowBits.
-  static zetasql_base::StatusOr<NumericValue> FromScaledValue(
+  static absl::StatusOr<NumericValue> FromScaledLittleEndianValue(
       absl::string_view little_endian_value, int scale, bool allow_rounding);
+
+  // Returns <*this> / pow(10, kMaxFractionalDigits - <scale>), or an error
+  // if <scale> is not in the supported range [0, kMaxFractionalDigits].
+  //
+  // When there are more than <scale> significant fractional digits in the
+  // result,
+  // * If <allow_rounding> is true, the result will be rounded away from zero
+  //   to <scale> fractional digits;
+  // * If <allow_rounding> is false, an error is returned.
+  absl::StatusOr<NumericValue> Rescale(int scale, bool allow_rounding) const;
 
   // Constructs a Numeric object from the high and low bits of the packed
   // integer representation. May return OUT_OF_RANGE error if the combined 128
   // bit value is outside the range of valid NUMERIC values.
-  static zetasql_base::StatusOr<NumericValue> FromHighAndLowBits(uint64_t high_bits,
+  static absl::StatusOr<NumericValue> FromHighAndLowBits(uint64_t high_bits,
                                                          uint64_t low_bits);
 
   // Parses a textual representation of a NUMERIC value. Returns an error if the
@@ -103,32 +114,32 @@ class NumericValue final {
   // literals, namely:
   //   [+-]DIGITS[.[DIGITS]][e[+-]DIGITS]
   //   [+-][DIGITS].DIGITS[e[+-]DIGITS]
-  static zetasql_base::StatusOr<NumericValue> FromStringStrict(absl::string_view str);
+  static absl::StatusOr<NumericValue> FromStringStrict(absl::string_view str);
 
   // Like FromStringStrict() but accepts more than 9 digits after the point
   // rounding the number half away from zero.
-  static zetasql_base::StatusOr<NumericValue> FromString(absl::string_view str);
+  static absl::StatusOr<NumericValue> FromString(absl::string_view str);
 
   // Constructs a NumericValue from a double. This method might return an error
   // if the given value cannot be converted to a NUMERIC (e.g. NaN).
-  static zetasql_base::StatusOr<NumericValue> FromDouble(double value);
+  static absl::StatusOr<NumericValue> FromDouble(double value);
 
   // Arithmetic operators. These operators can return OUT_OF_RANGE error on
   // overflow. Additionally the division returns OUT_OF_RANGE if the divisor is
   // zero.
-  zetasql_base::StatusOr<NumericValue> Add(NumericValue rh) const;
-  zetasql_base::StatusOr<NumericValue> Subtract(NumericValue rh) const;
-  zetasql_base::StatusOr<NumericValue> Multiply(NumericValue rh) const;
-  zetasql_base::StatusOr<NumericValue> Divide(NumericValue rh) const;
+  absl::StatusOr<NumericValue> Add(NumericValue rh) const;
+  absl::StatusOr<NumericValue> Subtract(NumericValue rh) const;
+  absl::StatusOr<NumericValue> Multiply(NumericValue rh) const;
+  absl::StatusOr<NumericValue> Divide(NumericValue rh) const;
 
   // An integer division operation. Similar to general division followed by
   // truncating the result to the whole integer. May return OUT_OF_RANGE if an
   // overflow or division by zero happens. This operation is the same as the SQL
   // DIV function.
-  zetasql_base::StatusOr<NumericValue> DivideToIntegralValue(NumericValue rh) const;
+  absl::StatusOr<NumericValue> DivideToIntegralValue(NumericValue rh) const;
   // Returns a remainder of division of this numeric value by the given divisor.
   // Returns an OUT_OF_RANGE error if the divisor is zero.
-  zetasql_base::StatusOr<NumericValue> Mod(NumericValue rh) const;
+  absl::StatusOr<NumericValue> Mod(NumericValue rh) const;
 
   // Comparison operators.
   bool operator==(NumericValue rh) const;
@@ -145,28 +156,28 @@ class NumericValue final {
 
   // Raises this numeric value to the given power and returns the result.
   // Returns OUT_OF_RANGE error on overflow.
-  zetasql_base::StatusOr<NumericValue> Power(NumericValue exp) const;
+  absl::StatusOr<NumericValue> Power(NumericValue exp) const;
   // Raise natural e to this numeric value and return the result.
   // Returns OUT_OF_RANGE error on overflow.
-  zetasql_base::StatusOr<NumericValue> Exp() const;
+  absl::StatusOr<NumericValue> Exp() const;
   // Return natural logarithm of this numeric value.
   // Returns OUT_OF_RANGE error on non-positive value.
-  zetasql_base::StatusOr<NumericValue> Ln() const;
+  absl::StatusOr<NumericValue> Ln() const;
   // Return base 10 logarithm of this numeric value.
   // Returns OUT_OF_RANGE error on non-positive value.
-  zetasql_base::StatusOr<NumericValue> Log10() const;
+  absl::StatusOr<NumericValue> Log10() const;
   // Return logarithm of this numeric value on base.
   // Returns OUT_OF_RANGE error on non-positive value.
-  zetasql_base::StatusOr<NumericValue> Log(NumericValue base) const;
+  absl::StatusOr<NumericValue> Log(NumericValue base) const;
   // Return square root of this numeric value.
   // Returns OUT_OF_RANGE error on negative value.
-  zetasql_base::StatusOr<NumericValue> Sqrt() const;
+  absl::StatusOr<NumericValue> Sqrt() const;
 
   // Rounds this NUMERIC value to the given number of decimal digits after the
   // decimal point. 'digits' can be negative to cause rounding of the digits to
   // the left of the decimal point. Halfway cases are rounded away from zero.
   // Returns OUT_OF_RANGE if the rounding causes numerical overflow.
-  zetasql_base::StatusOr<NumericValue> Round(int64_t digits) const;
+  absl::StatusOr<NumericValue> Round(int64_t digits) const;
   // Similar to the method above, but rounds towards zero, i.e. truncates the
   // number. Because this method truncates instead of rounding away from zero it
   // never causes an error.
@@ -174,11 +185,11 @@ class NumericValue final {
 
   // Rounds this NUMERIC value upwards, returning the integer least upper bound
   // of this value. Returns OUT_OF_RANGE error on overflow.
-  zetasql_base::StatusOr<NumericValue> Ceiling() const;
+  absl::StatusOr<NumericValue> Ceiling() const;
 
   // Rounds this NUMERIC value downwards, returning the integer greatest lower
   // bound of this value. Returns OUT_OF_RANGE error on overflow.
-  zetasql_base::StatusOr<NumericValue> Floor() const;
+  absl::StatusOr<NumericValue> Floor() const;
 
   // Returns hash code for the value.
   size_t HashCode() const;
@@ -192,7 +203,7 @@ class NumericValue final {
   // semantics. This method will return OUT_OF_RANGE error if an overflow occurs
   // during conversion.
   template <class T>
-  zetasql_base::StatusOr<T> To() const;
+  absl::StatusOr<T> To() const;
 
   // Converts the NUMERIC value to a floating point number.
   double ToDouble() const;
@@ -291,7 +302,7 @@ class NumericValue final {
     SerializeAndAppendToProtoBytes(&result);
     return result;
   }
-  static zetasql_base::StatusOr<NumericValue> DeserializeFromProtoBytes(
+  static absl::StatusOr<NumericValue> DeserializeFromProtoBytes(
       absl::string_view bytes);
 
   // Aggregates multiple NUMERIC values and produces sum and average of all
@@ -305,12 +316,12 @@ class NumericValue final {
     // Subtracts a NUMERIC value from the sum.
     void Subtract(NumericValue value);
     // Returns sum of all input values. Returns OUT_OF_RANGE error on overflow.
-    zetasql_base::StatusOr<NumericValue> GetSum() const;
+    absl::StatusOr<NumericValue> GetSum() const;
     // Returns sum of all input values divided by the specified divisor.
     // Returns OUT_OF_RANGE error on overflow of the division result.
     // Please note that the division result may be in the valid range even if
     // the sum exceeds the range.
-    zetasql_base::StatusOr<NumericValue> GetAverage(uint64_t count) const;
+    absl::StatusOr<NumericValue> GetAverage(uint64_t count) const;
 
     // Merges the state with other SumAggregator instance's state.
     void MergeWith(const SumAggregator& other);
@@ -323,7 +334,7 @@ class NumericValue final {
       SerializeAndAppendToProtoBytes(&result);
       return result;
     }
-    static zetasql_base::StatusOr<SumAggregator> DeserializeFromProtoBytes(
+    static absl::StatusOr<SumAggregator> DeserializeFromProtoBytes(
         absl::string_view bytes);
 
     bool operator==(const SumAggregator& other) const {
@@ -368,7 +379,7 @@ class NumericValue final {
       SerializeAndAppendToProtoBytes(&result);
       return result;
     }
-    static zetasql_base::StatusOr<VarianceAggregator> DeserializeFromProtoBytes(
+    static absl::StatusOr<VarianceAggregator> DeserializeFromProtoBytes(
         absl::string_view bytes);
 
     bool operator==(const VarianceAggregator& other) const {
@@ -414,7 +425,7 @@ class NumericValue final {
       SerializeAndAppendToProtoBytes(&result);
       return result;
     }
-    static zetasql_base::StatusOr<CovarianceAggregator> DeserializeFromProtoBytes(
+    static absl::StatusOr<CovarianceAggregator> DeserializeFromProtoBytes(
         absl::string_view bytes);
 
     bool operator==(const CovarianceAggregator& other) const {
@@ -457,7 +468,7 @@ class NumericValue final {
       SerializeAndAppendToProtoBytes(&result);
       return result;
     }
-    static zetasql_base::StatusOr<CorrelationAggregator> DeserializeFromProtoBytes(
+    static absl::StatusOr<CorrelationAggregator> DeserializeFromProtoBytes(
         absl::string_view bytes);
 
     bool operator==(const CorrelationAggregator& other) const {
@@ -479,13 +490,13 @@ class NumericValue final {
   explicit constexpr NumericValue(__int128 value);
 
   template <bool is_strict>
-  static zetasql_base::StatusOr<NumericValue> FromStringInternal(absl::string_view str);
+  static absl::StatusOr<NumericValue> FromStringInternal(absl::string_view str);
 
   template <int kNumBitsPerWord, int kNumWords>
-  static zetasql_base::StatusOr<NumericValue> FromFixedUint(
+  static absl::StatusOr<NumericValue> FromFixedUint(
       const FixedUint<kNumBitsPerWord, kNumWords>& val, bool negate);
   template <int kNumBitsPerWord, int kNumWords>
-  static zetasql_base::StatusOr<NumericValue> FromFixedInt(
+  static absl::StatusOr<NumericValue> FromFixedInt(
       const FixedInt<kNumBitsPerWord, kNumWords>& val);
 
   // Returns the scaled fractional digits.
@@ -511,6 +522,7 @@ class BigNumericValue final {
       kScalingFactor{};
   static constexpr int kMaxIntegerDigits = 39;
   static constexpr int kMaxFractionalDigits = 38;
+  static constexpr int kMaxPrecision = kMaxIntegerDigits + kMaxFractionalDigits;
 
   // Default constructor, constructs a zero value.
   constexpr BigNumericValue();
@@ -545,8 +557,18 @@ class BigNumericValue final {
   // allow_rounding is true, or an error will be returned if allow_rounding is
   // false. This method is not optimized for performance, and is much slower
   // than FromScaledValue(__int128) and FromPackedLittleEndianArray.
-  static zetasql_base::StatusOr<BigNumericValue> FromScaledValue(
+  static absl::StatusOr<BigNumericValue> FromScaledLittleEndianValue(
       absl::string_view little_endian_value, int scale, bool allow_rounding);
+
+  // Returns <*this> / pow(10, kMaxFractionalDigits - <scale>), or an error
+  // if <scale> is not in the supported range [0, kMaxFractionalDigits].
+  //
+  // When there are more than <scale> significant fractional digits in the
+  // result,
+  // * If <allow_rounding> is true, the result will be rounded away from zero
+  //   to <scale> fractional digits;
+  // * If <allow_rounding> is false, an error is returned.
+  absl::StatusOr<BigNumericValue> Rescale(int scale, bool allow_rounding) const;
 
   // Parses a textual representation of a BigNumericValue. Returns an error if
   // the given string cannot be parsed as a number or if the textual numeric
@@ -558,34 +580,34 @@ class BigNumericValue final {
   // literals, namely:
   //   [+-]DIGITS[.[DIGITS]][e[+-]DIGITS]
   //   [+-][DIGITS].DIGITS[e[+-]DIGITS]
-  static zetasql_base::StatusOr<BigNumericValue> FromStringStrict(
+  static absl::StatusOr<BigNumericValue> FromStringStrict(
       absl::string_view str);
 
   // Like FromStringStrict() but accepts more than 38 digits after the point
   // rounding the number to the nearest and ties away from zero.
-  static zetasql_base::StatusOr<BigNumericValue> FromString(absl::string_view str);
+  static absl::StatusOr<BigNumericValue> FromString(absl::string_view str);
 
   // Constructs a BigNumericValue from a double. This method might return an
   // error if the given value cannot be converted to a BIGNUMERIC (e.g. NaN).
-  static zetasql_base::StatusOr<BigNumericValue> FromDouble(double value);
+  static absl::StatusOr<BigNumericValue> FromDouble(double value);
 
   // Arithmetic operators. These operators can return OUT_OF_RANGE error on
   // overflow. Additionally the division returns OUT_OF_RANGE if the divisor is
   // zero.
-  zetasql_base::StatusOr<BigNumericValue> Add(const BigNumericValue& rh) const;
-  zetasql_base::StatusOr<BigNumericValue> Subtract(const BigNumericValue& rh) const;
-  zetasql_base::StatusOr<BigNumericValue> Multiply(const BigNumericValue& rh) const;
-  zetasql_base::StatusOr<BigNumericValue> Divide(const BigNumericValue& rh) const;
+  absl::StatusOr<BigNumericValue> Add(const BigNumericValue& rh) const;
+  absl::StatusOr<BigNumericValue> Subtract(const BigNumericValue& rh) const;
+  absl::StatusOr<BigNumericValue> Multiply(const BigNumericValue& rh) const;
+  absl::StatusOr<BigNumericValue> Divide(const BigNumericValue& rh) const;
 
   // An integer division operation. Similar to general division followed by
   // truncating the result to the whole integer. May return OUT_OF_RANGE if an
   // overflow or division by zero happens. This operation is the same as the SQL
   // DIV function.
-  zetasql_base::StatusOr<BigNumericValue> DivideToIntegralValue(
+  absl::StatusOr<BigNumericValue> DivideToIntegralValue(
       const BigNumericValue& rh) const;
   // Returns a remainder of division of this numeric value by the given divisor.
   // Returns an OUT_OF_RANGE error if the divisor is zero.
-  zetasql_base::StatusOr<BigNumericValue> Mod(const BigNumericValue& rh) const;
+  absl::StatusOr<BigNumericValue> Mod(const BigNumericValue& rh) const;
 
   // Comparison operators.
   bool operator==(const BigNumericValue& rh) const;
@@ -596,35 +618,35 @@ class BigNumericValue final {
   bool operator<=(const BigNumericValue& rh) const;
 
   // Math functions.
-  zetasql_base::StatusOr<BigNumericValue> Negate() const;
-  zetasql_base::StatusOr<BigNumericValue> Abs() const;
+  absl::StatusOr<BigNumericValue> Negate() const;
+  absl::StatusOr<BigNumericValue> Abs() const;
   int Sign() const;
 
   // Raises this BigNumericValue to the given power and returns the result.
   // Returns OUT_OF_RANGE error on overflow.
-  zetasql_base::StatusOr<BigNumericValue> Power(const BigNumericValue& exp) const;
+  absl::StatusOr<BigNumericValue> Power(const BigNumericValue& exp) const;
   // Raise natural e to this BigNumericValue and return the result.
   // Returns OUT_OF_RANGE error on overflow.
-  zetasql_base::StatusOr<BigNumericValue> Exp() const;
+  absl::StatusOr<BigNumericValue> Exp() const;
   // Return natural logarithm of this BigNumericValue.
   // Returns OUT_OF_RANGE error on non-positive value.
-  zetasql_base::StatusOr<BigNumericValue> Ln() const;
+  absl::StatusOr<BigNumericValue> Ln() const;
   // Return base 10 logarithm of this BigNumericValue.
   // Returns OUT_OF_RANGE error on non-positive value.
-  zetasql_base::StatusOr<BigNumericValue> Log10() const;
+  absl::StatusOr<BigNumericValue> Log10() const;
   // Return logarithm of this BigNumericValue on base.
   // Returns OUT_OF_RANGE error on non-positive value or overflow.
-  zetasql_base::StatusOr<BigNumericValue> Log(const BigNumericValue& base) const;
+  absl::StatusOr<BigNumericValue> Log(const BigNumericValue& base) const;
   // Return square root of this BigNumericValue.
   // Returns OUT_OF_RANGE error on negative value.
-  zetasql_base::StatusOr<BigNumericValue> Sqrt() const;
+  absl::StatusOr<BigNumericValue> Sqrt() const;
 
   // Rounds this BigNumericValue to the given number of decimal digits after the
   // decimal point. 'digits' can be negative to cause rounding of the digits to
   // the left of the decimal point. Rounds the number to the nearest and ties
   // away from zero. Returns OUT_OF_RANGE if the rounding causes numerical
   // overflow.
-  zetasql_base::StatusOr<BigNumericValue> Round(int64_t digits) const;
+  absl::StatusOr<BigNumericValue> Round(int64_t digits) const;
 
   // Similar to the method above, but rounds towards zero, i.e. truncates the
   // number. Because this method truncates instead of rounding away from zero it
@@ -633,11 +655,11 @@ class BigNumericValue final {
 
   // Rounds this BigNumericValue upwards, returning the integer least upper
   // bound of this value. Returns OUT_OF_RANGE error on overflow.
-  zetasql_base::StatusOr<BigNumericValue> Ceiling() const;
+  absl::StatusOr<BigNumericValue> Ceiling() const;
 
   // Rounds this BigNumericValue downwards, returning the integer greatest lower
   // bound of this value. Returns OUT_OF_RANGE error on overflow.
-  zetasql_base::StatusOr<BigNumericValue> Floor() const;
+  absl::StatusOr<BigNumericValue> Floor() const;
 
   // Returns whether the BIGNUMERIC value has a fractional part.
   // Faster than computing Round/Trunc/Ceiling/Floor and comparing to *this.
@@ -655,10 +677,10 @@ class BigNumericValue final {
   // semantics. This method will return OUT_OF_RANGE error if an overflow occurs
   // during conversion.
   template <class T>
-  zetasql_base::StatusOr<T> To() const;
+  absl::StatusOr<T> To() const;
 
   // Converts the BigNumericValue to a NumericValue.
-  zetasql_base::StatusOr<NumericValue> ToNumericValue() const;
+  absl::StatusOr<NumericValue> ToNumericValue() const;
 
   // Converts the BigNumericValue to a floating point number.
   double ToDouble() const;
@@ -678,13 +700,17 @@ class BigNumericValue final {
   // Returns the packed uint64_t array in little endian order.
   constexpr const std::array<uint64_t, 4>& ToPackedLittleEndianArray() const;
 
+  // Serialization and deserialization methods for BIGNUMERIC values that are
+  // intended to be used to store them in protos. The encoding is variable in
+  // length with max size of 32 bytes. SerializeAndAppendToProtoBytes is
+  // typically more efficient due to fewer memory allocations.
   void SerializeAndAppendToProtoBytes(std::string* bytes) const;
   std::string SerializeAsProtoBytes() const  {
     std::string bytes;
     SerializeAndAppendToProtoBytes(&bytes);
     return bytes;
   }
-  static zetasql_base::StatusOr<BigNumericValue> DeserializeFromProtoBytes(
+  static absl::StatusOr<BigNumericValue> DeserializeFromProtoBytes(
       absl::string_view bytes);
 
   // Aggregates multiple BIGNUMERIC values and produces sum and average of all
@@ -698,12 +724,12 @@ class BigNumericValue final {
     // Subtracts a BIGNUMERIC value from the sum.
     void Subtract(const BigNumericValue& value);
     // Returns sum of all input values. Returns OUT_OF_RANGE error on overflow.
-    zetasql_base::StatusOr<BigNumericValue> GetSum() const;
+    absl::StatusOr<BigNumericValue> GetSum() const;
     // Returns sum of all input values divided by the specified divisor.
     // Returns OUT_OF_RANGE error on overflow of the division result.
     // Please note that the division result may be in the valid range even if
     // the sum exceeds the range.
-    zetasql_base::StatusOr<BigNumericValue> GetAverage(uint64_t count) const;
+    absl::StatusOr<BigNumericValue> GetAverage(uint64_t count) const;
 
     // Merges the state with other SumAggregator instance's state.
     void MergeWith(const SumAggregator& other);
@@ -716,7 +742,7 @@ class BigNumericValue final {
       SerializeAndAppendToProtoBytes(&result);
       return result;
     }
-    static zetasql_base::StatusOr<SumAggregator> DeserializeFromProtoBytes(
+    static absl::StatusOr<SumAggregator> DeserializeFromProtoBytes(
         absl::string_view bytes);
 
     bool operator==(const SumAggregator& other) const {
@@ -761,7 +787,7 @@ class BigNumericValue final {
       SerializeAndAppendToProtoBytes(&result);
       return result;
     }
-    static zetasql_base::StatusOr<VarianceAggregator> DeserializeFromProtoBytes(
+    static absl::StatusOr<VarianceAggregator> DeserializeFromProtoBytes(
         absl::string_view bytes);
 
     bool operator==(const VarianceAggregator& other) const {
@@ -807,7 +833,7 @@ class BigNumericValue final {
       SerializeAndAppendToProtoBytes(&result);
       return result;
     }
-    static zetasql_base::StatusOr<CovarianceAggregator> DeserializeFromProtoBytes(
+    static absl::StatusOr<CovarianceAggregator> DeserializeFromProtoBytes(
         absl::string_view bytes);
 
     bool operator==(const CovarianceAggregator& other) const {
@@ -850,7 +876,7 @@ class BigNumericValue final {
       SerializeAndAppendToProtoBytes(&result);
       return result;
     }
-    static zetasql_base::StatusOr<CorrelationAggregator> DeserializeFromProtoBytes(
+    static absl::StatusOr<CorrelationAggregator> DeserializeFromProtoBytes(
         absl::string_view bytes);
 
     bool operator==(const CorrelationAggregator& other) const {
@@ -873,7 +899,7 @@ class BigNumericValue final {
   explicit constexpr BigNumericValue(const FixedInt<64, 4>& value);
   explicit constexpr BigNumericValue(const std::array<uint64_t, 4>& uint_array);
   template <bool is_strict>
-  static zetasql_base::StatusOr<BigNumericValue> FromStringInternal(
+  static absl::StatusOr<BigNumericValue> FromStringInternal(
       absl::string_view str);
   static double RemoveScaleAndConvertToDouble(const FixedInt<64, 4>& value);
 
@@ -892,8 +918,8 @@ class VarNumericValue {
   // values (the last byte's highest bit determines the sign). For example, if
   // little_endian_value = "\x00\xff" and scale = 5, then the result is
   // -256 / pow(10, 5).
-  static VarNumericValue FromScaledValue(absl::string_view little_endian_value,
-                                         uint scale);
+  static VarNumericValue FromScaledLittleEndianValue(
+      absl::string_view little_endian_value, uint scale);
 
   // Converts the VarNumericValue into a string. String representation of
   // VarNumericValue follows regular rules of textual numeric values
@@ -977,7 +1003,7 @@ inline constexpr NumericValue NumericValue::MinValue() {
   return NumericValue(internal::kNumericMin);
 }
 
-inline zetasql_base::StatusOr<NumericValue> NumericValue::FromPackedInt(
+inline absl::StatusOr<NumericValue> NumericValue::FromPackedInt(
     __int128 value) {
   NumericValue ret(value);
 
@@ -993,7 +1019,7 @@ inline constexpr NumericValue NumericValue::FromScaledValue(int64_t value) {
 }
 
 template <int kNumBitsPerWord, int kNumWords>
-inline zetasql_base::StatusOr<NumericValue> NumericValue::FromFixedInt(
+inline absl::StatusOr<NumericValue> NumericValue::FromFixedInt(
     const FixedInt<kNumBitsPerWord, kNumWords>& val) {
   constexpr FixedInt<kNumBitsPerWord, kNumWords> kMin(internal::kNumericMin);
   constexpr FixedInt<kNumBitsPerWord, kNumWords> kMax(internal::kNumericMax);
@@ -1004,7 +1030,7 @@ inline zetasql_base::StatusOr<NumericValue> NumericValue::FromFixedInt(
 }
 
 template <int kNumBitsPerWord, int kNumWords>
-inline zetasql_base::StatusOr<NumericValue> NumericValue::FromFixedUint(
+inline absl::StatusOr<NumericValue> NumericValue::FromFixedUint(
     const FixedUint<kNumBitsPerWord, kNumWords>& val, bool negate) {
   if (ABSL_PREDICT_TRUE(val.NonZeroLength() <= 128 / kNumBitsPerWord)) {
     unsigned __int128 v = static_cast<unsigned __int128>(val);
@@ -1015,7 +1041,7 @@ inline zetasql_base::StatusOr<NumericValue> NumericValue::FromFixedUint(
   return MakeEvalError() << "numeric overflow";
 }
 
-inline zetasql_base::StatusOr<NumericValue> NumericValue::FromHighAndLowBits(
+inline absl::StatusOr<NumericValue> NumericValue::FromHighAndLowBits(
     uint64_t high_bits, uint64_t low_bits) {
   NumericValue ret(high_bits, low_bits);
 
@@ -1026,7 +1052,7 @@ inline zetasql_base::StatusOr<NumericValue> NumericValue::FromHighAndLowBits(
   return ret;
 }
 
-inline zetasql_base::StatusOr<NumericValue> NumericValue::Add(NumericValue rh) const {
+inline absl::StatusOr<NumericValue> NumericValue::Add(NumericValue rh) const {
   FixedInt<64, 2> sum(as_packed_int());
   bool overflow = sum.AddOverflow(FixedInt<64, 2>(rh.as_packed_int()));
   if (ABSL_PREDICT_TRUE(!overflow)) {
@@ -1039,7 +1065,7 @@ inline zetasql_base::StatusOr<NumericValue> NumericValue::Add(NumericValue rh) c
                          << rh.ToString();
 }
 
-inline zetasql_base::StatusOr<NumericValue> NumericValue::Subtract(
+inline absl::StatusOr<NumericValue> NumericValue::Subtract(
     NumericValue rh) const {
   FixedInt<64, 2> diff(as_packed_int());
   bool overflow = diff.SubtractOverflow(FixedInt<64, 2>(rh.as_packed_int()));
@@ -1117,7 +1143,7 @@ inline std::string TypeName<uint64_t>() {
 }
 
 template <class T>
-inline zetasql_base::StatusOr<T> NumericValue::To() const {
+inline absl::StatusOr<T> NumericValue::To() const {
   static_assert(
       std::is_same<T, int32_t>::value || std::is_same<T, int64_t>::value ||
           std::is_same<T, uint32_t>::value || std::is_same<T, uint64_t>::value,
@@ -1230,7 +1256,7 @@ BigNumericValue::ToPackedLittleEndianArray() const {
   return value_.number();
 }
 
-inline zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Add(
+inline absl::StatusOr<BigNumericValue> BigNumericValue::Add(
     const BigNumericValue& rh) const {
   BigNumericValue res(this->value_);
   if (ABSL_PREDICT_FALSE(res.value_.AddOverflow(rh.value_))) {
@@ -1240,7 +1266,7 @@ inline zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Add(
   return res;
 }
 
-inline zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Subtract(
+inline absl::StatusOr<BigNumericValue> BigNumericValue::Subtract(
     const BigNumericValue& rh) const {
   BigNumericValue res(this->value_);
   if (ABSL_PREDICT_FALSE(res.value_.SubtractOverflow(rh.value_))) {
@@ -1274,7 +1300,7 @@ inline bool BigNumericValue::operator<=(const BigNumericValue& rh) const {
   return value_ <= rh.value_;
 }
 
-inline zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Negate() const {
+inline absl::StatusOr<BigNumericValue> BigNumericValue::Negate() const {
   FixedInt<64, 4> result = value_;
   if (ABSL_PREDICT_TRUE(!result.NegateOverflow())) {
     return BigNumericValue(result);
@@ -1286,7 +1312,7 @@ inline int BigNumericValue::Sign() const {
   return value_.is_negative() ? -1 : (value_.is_zero() ? 0 : 1);
 }
 
-inline zetasql_base::StatusOr<BigNumericValue> BigNumericValue::Abs() const {
+inline absl::StatusOr<BigNumericValue> BigNumericValue::Abs() const {
   FixedInt<64, 4> result = value_;
   if (ABSL_PREDICT_TRUE(!result.is_negative()) ||
       ABSL_PREDICT_TRUE(!result.NegateOverflow())) {
@@ -1330,7 +1356,7 @@ template <bool round, int N>
 }
 
 template <class T>
-inline zetasql_base::StatusOr<T> BigNumericValue::To() const {
+inline absl::StatusOr<T> BigNumericValue::To() const {
   static_assert(
       std::is_same<T, int32_t>::value || std::is_same<T, int64_t>::value ||
           std::is_same<T, uint32_t>::value || std::is_same<T, uint64_t>::value,
@@ -1353,7 +1379,7 @@ inline zetasql_base::StatusOr<T> BigNumericValue::To() const {
   return MakeEvalError() << TypeName<T>() << " out of range: " << ToString();
 }
 
-inline zetasql_base::StatusOr<NumericValue> BigNumericValue::ToNumericValue() const {
+inline absl::StatusOr<NumericValue> BigNumericValue::ToNumericValue() const {
   bool is_negative = value_.is_negative();
   FixedUint<64, 4> abs_value = value_.abs();
   // Divide by 10^29 (the difference in scaling factors),
@@ -1368,7 +1394,7 @@ inline zetasql_base::StatusOr<NumericValue> BigNumericValue::ToNumericValue() co
   }
   abs_value_trunc >>= 29;
   if (abs_value_trunc.number()[2] == 0) {
-    zetasql_base::StatusOr<NumericValue> result =
+    absl::StatusOr<NumericValue> result =
         NumericValue::FromFixedUint(abs_value_trunc, is_negative);
     if (result.ok()) {
       return *result;

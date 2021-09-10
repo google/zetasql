@@ -5,7 +5,7 @@
 # primary keys. For now, we simply trust that it is good enough to test value
 # tables without primary keys and non-value tables with/without primary keys.
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB]
+[load_proto_names=zetasql_test__.KitchenSinkPB]
 
 [prepare_database]
 CREATE TABLE Int64ValueTable AS
@@ -18,12 +18,12 @@ ARRAY<INT64>[10, 20]
 
 [prepare_database]
 CREATE TABLE KitchenSinkValueTable AS
-SELECT AS `zetasql_test.KitchenSinkPB` 10 int64_key_1, 11 int64_key_2
+SELECT AS `zetasql_test__.KitchenSinkPB` 10 int64_key_1, 11 int64_key_2
 UNION ALL
-SELECT AS `zetasql_test.KitchenSinkPB` 20 int64_key_1, 21 int64_key_2,
+SELECT AS `zetasql_test__.KitchenSinkPB` 20 int64_key_1, 21 int64_key_2,
   true bool_val
 --
-ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
   {
     int64_key_1: 10
     int64_key_2: 11
@@ -66,7 +66,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{0,
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     {
       int64_key_1: 10
       int64_key_2: 11
@@ -133,7 +133,7 @@ STRUCT<
   all_rows ARRAY<>
 >{
   2,
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[]
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[]
 }
 ==
 
@@ -176,7 +176,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     {
       int64_key_1: 20
       int64_key_2: 21
@@ -224,7 +224,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{0,
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     {
       int64_key_1: 10
       int64_key_2: 11
@@ -293,7 +293,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     {
       int64_key_1: 100
       int64_key_2: 11
@@ -362,7 +362,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     {
       int64_key_1: 100
       int64_key_2: 11
@@ -429,7 +429,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     {
       int64_key_1: 10
       int64_key_2: 11
@@ -470,13 +470,13 @@ STRUCT<
 ==
 
 [name=proto_insert_null_query]
-INSERT KitchenSinkValueTable SELECT CAST(NULL AS zetasql_test.KitchenSinkPB)
+INSERT KitchenSinkValueTable SELECT CAST(NULL AS zetasql_test__.KitchenSinkPB)
 --
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     {
       int64_key_1: 10
       int64_key_2: 11
@@ -523,7 +523,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     {
       int64_key_1: 10
       int64_key_2: 11
@@ -570,7 +570,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     {
       int64_key_1: 10
       int64_key_2: 11
@@ -615,13 +615,13 @@ STRUCT<
 
 [name=proto_insert_query]
 INSERT KitchenSinkValueTable
-  SELECT CAST("int64_key_1: 30 int64_key_2: 31" AS zetasql_test.KitchenSinkPB)
+  SELECT CAST("int64_key_1: 30 int64_key_2: 31" AS zetasql_test__.KitchenSinkPB)
 --
 STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     {
       int64_key_1: 10
       int64_key_2: 11
@@ -672,7 +672,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     {
       int64_key_1: 10
       int64_key_2: 11
@@ -728,7 +728,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{1,
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     {
       int64_key_1: 10
       int64_key_2: 11
@@ -834,7 +834,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     {
       int64_key_1: 10
       int64_key_2: 11
@@ -893,7 +893,7 @@ STRUCT<
   num_rows_modified INT64,
   all_rows ARRAY<>
 >{2,
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     {
       int64_key_1: 10
       int64_key_2: 11

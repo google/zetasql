@@ -7,8 +7,8 @@
 [default global_labels=set_operations]
 
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB]
-[load_enum_names=zetasql_test.TestEnum]
+[load_proto_names=zetasql_test__.KitchenSinkPB]
+[load_enum_names=zetasql_test__.TestEnum]
 
 [prepare_database]
 CREATE TABLE Table1 AS
@@ -206,13 +206,13 @@ ARRAY<STRUCT<INT64, INT64>>[
 ==
 # UNION DISTINCT on enum column
 [name=union_distinct_datatype_enum]
-SELECT CAST(0 AS `zetasql_test.TestEnum`) as enum_val
+SELECT CAST(0 AS `zetasql_test__.TestEnum`) as enum_val
 UNION DISTINCT
-SELECT CAST(0 AS `zetasql_test.TestEnum`)
+SELECT CAST(0 AS `zetasql_test__.TestEnum`)
 UNION DISTINCT
-SELECT CAST(1 AS `zetasql_test.TestEnum`);
+SELECT CAST(1 AS `zetasql_test__.TestEnum`);
 --
-ARRAY<STRUCT<enum_val ENUM<zetasql_test.TestEnum>>>[
+ARRAY<STRUCT<enum_val ENUM<zetasql_test__.TestEnum>>>[
   {TESTENUM0},
   {TESTENUM1}
 ]
@@ -300,7 +300,7 @@ SELECT bool_val FROM Table2
 ==
 # @nan_01 and @nan02 are both nans with different bitwise representation.
 [name=union_distinct_nan_different_bitwise_representation]
-[parameters=CAST(b"\x08\x00\x10\x00\x49\x01\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test.KitchenSinkPB).double_val as nan_01, CAST(b"\x08\x00\x10\x00\x49\x02\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test.KitchenSinkPB).double_val as nan_02]
+[parameters=CAST(b"\x08\x00\x10\x00\x49\x01\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test__.KitchenSinkPB).double_val as nan_01, CAST(b"\x08\x00\x10\x00\x49\x02\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test__.KitchenSinkPB).double_val as nan_02]
 SELECT * FROM UNNEST([@nan_01])
 UNION DISTINCT
 SELECT * FROM UNNEST([@nan_02]);

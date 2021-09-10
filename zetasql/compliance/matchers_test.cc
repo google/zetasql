@@ -190,9 +190,9 @@ TEST(ErrorMatcherTest, CollectionMatcher) {
 }
 
 TEST(ErrorMatcherTest, ProtoFieldIsDefaultMatcher) {
-  ProtoFieldIsDefaultMatcher<zetasql_test::KitchenSinkPB, std::string>
+  ProtoFieldIsDefaultMatcher<zetasql_test__::KitchenSinkPB, std::string>
       matcher("bool_val", absl::make_unique<SubstringMatcher>("match"));
-  zetasql_test::KitchenSinkPB kitchen_sink;
+  zetasql_test__::KitchenSinkPB kitchen_sink;
   matcher.Matches(std::make_pair(kitchen_sink, "match"));
   EXPECT_FALSE(matcher.HasMatches());
   EXPECT_EQ(0, matcher.MatchCount());

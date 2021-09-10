@@ -30,6 +30,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type_deserializer.h"
 #include "zetasql/public/value.h"
 #include "absl/algorithm/container.h"
 #include "absl/base/attributes.h"
@@ -59,6 +60,7 @@ class FunctionArgumentTypeOptions {
  public:
   typedef FunctionEnums::ProcedureArgumentMode ProcedureArgumentMode;
   typedef FunctionEnums::ArgumentCardinality ArgumentCardinality;
+  typedef FunctionEnums::ArgumentCollationMode ArgumentCollationMode;
 
   FunctionArgumentTypeOptions() = default;
 
@@ -164,6 +166,11 @@ class FunctionArgumentTypeOptions {
     max_value_ = value;
     return *this;
   }
+  FunctionArgumentTypeOptions& set_relation_input_schema(
+      std::shared_ptr<TVFRelation> relation_input_schema) {
+    relation_input_schema_ = std::move(relation_input_schema);
+    return *this;
+  }
   FunctionArgumentTypeOptions& set_extra_relation_input_columns_allowed(
       bool v = true) {
     extra_relation_input_columns_allowed_ = v;
@@ -199,9 +206,8 @@ class FunctionArgumentTypeOptions {
 
   static absl::Status Deserialize(
       const FunctionArgumentTypeOptionsProto& options_proto,
-      const std::vector<const google::protobuf::DescriptorPool*>& pools,
-      SignatureArgumentKind arg_kind, const Type* arg_type,
-      TypeFactory* factory, FunctionArgumentTypeOptions* options);
+      const TypeDeserializer& type_deserializer, SignatureArgumentKind arg_kind,
+      const Type* arg_type, FunctionArgumentTypeOptions* options);
 
   absl::Status Serialize(const Type* arg_type,
                          FunctionArgumentTypeOptionsProto* options_proto,
@@ -275,6 +281,30 @@ class FunctionArgumentTypeOptions {
   // Clears the default argument value set to this object.
   FunctionArgumentTypeOptions& clear_default() {
     default_ = absl::nullopt;
+    return *this;
+  }
+
+  // See comments on argument_collation_mode_ field.
+  ArgumentCollationMode argument_collation_mode() const {
+    return argument_collation_mode_;
+  }
+
+  // See comments on uses_array_element_for_collation_ field.
+  bool uses_array_element_for_collation() const {
+    return uses_array_element_for_collation_;
+  }
+
+  // See comments on uses_array_element_for_collation_ field.
+  FunctionArgumentTypeOptions& set_uses_array_element_for_collation(
+      bool uses_array_element_for_collation = true) {
+    uses_array_element_for_collation_ = uses_array_element_for_collation;
+    return *this;
+  }
+
+  // See comments on argument_collation_mode_ field.
+  FunctionArgumentTypeOptions& set_argument_collation_mode(
+      ArgumentCollationMode argument_collation_mode) {
+    argument_collation_mode_ = argument_collation_mode;
     return *this;
   }
 
@@ -374,6 +404,23 @@ class FunctionArgumentTypeOptions {
 
   // Optional value that holds the default value of the argument, if applicable.
   absl::optional<Value> default_;
+
+  // Defines how a function argument's collation should affect the function.
+  // Can be used as a bit mask to check whether AFFECTS_OPERATION or
+  // AFFECTS_PROPAGATION bit is set.
+  // See FunctionEnums::ArgumentCollationMode for mode definitions.
+  // See also FunctionSignatureOptions::propagates_collation_ and
+  // uses_operation_collation_.
+  ArgumentCollationMode argument_collation_mode_ =
+      FunctionEnums::AFFECTS_OPERATION_AND_PROPAGATION;
+
+  // If true on function input argument, uses the array element's collation when
+  // calculating the function's propagation or operation collation.
+  // If true on function's result_type, the propagation collation should be set
+  // on the array element.
+  // The option should only be turned on when the type of the
+  // FunctionArgumentType is array.
+  bool uses_array_element_for_collation_ = false;
 
   // Copyable
 };
@@ -486,11 +533,9 @@ class FunctionArgumentType {
   // ParseLocationRangeProto as string_view.
   // TODO Add support for storing filename as string in
   // ParseLocationPoint.
-  static absl::Status Deserialize(
+  static absl::StatusOr<std::unique_ptr<FunctionArgumentType>> Deserialize(
       const FunctionArgumentTypeProto& proto,
-      const std::vector<const google::protobuf::DescriptorPool*>& pools,
-      TypeFactory* factory,
-      std::unique_ptr<FunctionArgumentType>* result);
+      const TypeDeserializer& type_deserializer);
 
   absl::Status Serialize(
       FileDescriptorSetMap* file_descriptor_set_map,
@@ -687,6 +732,15 @@ class FunctionSignatureOptions {
   }
   bool is_deprecated() const { return is_deprecated_; }
 
+  // Setter/getter for whether this is an internal function signature. If so,
+  // the analyzer won't match the function call with it when the related
+  // function is called by a user.
+  FunctionSignatureOptions& set_is_internal(bool value) {
+    is_internal_ = value;
+    return *this;
+  }
+  bool is_internal() const { return is_internal_; }
+
   // Setters/getters for additional deprecation warnings associated with
   // this function signature. These have DeprecationWarning protos attached. The
   // analyzer will propagate these warnings to any statement that invokes this
@@ -729,10 +783,13 @@ class FunctionSignatureOptions {
   // Returns whether or not all language features required by a function are
   // enabled.
   ABSL_MUST_USE_RESULT bool check_all_required_features_are_enabled(
-      const std::set<LanguageFeature>& enabled_features) const {
-    return std::includes(enabled_features.begin(), enabled_features.end(),
-                         required_language_features_.begin(),
-                         required_language_features_.end());
+      const LanguageOptions::LanguageFeatureSet& enabled_features) const {
+    for (const LanguageFeature& feature : required_language_features_) {
+      if (enabled_features.find(feature) == enabled_features.end()) {
+        return false;
+      }
+    }
+    return true;
   }
 
   // Setter/getter for whether function name for this signature is aliased
@@ -748,9 +805,29 @@ class FunctionSignatureOptions {
   // If constraints are not met then the signature is ignored during analysis.
   // Evaluates the constraint callback if populated, and if the signature is
   // sensitive to the TimestampMode then checks that as well.
-  zetasql_base::StatusOr<bool> CheckFunctionSignatureConstraints(
+  absl::StatusOr<bool> CheckFunctionSignatureConstraints(
       const FunctionSignature& concrete_signature,
       const std::vector<InputArgumentType>& arguments) const;
+
+  // See comments on propagates_collation_ field.
+  bool propagates_collation() const { return propagates_collation_; }
+
+  // See comments on propagates_collation_ field.
+  FunctionSignatureOptions& set_propagates_collation(
+      bool propagates_collation) {
+    propagates_collation_ = propagates_collation;
+    return *this;
+  }
+
+  // See comments on uses_operation_collation_ field.
+  bool uses_operation_collation() const { return uses_operation_collation_; }
+
+  // See comments on uses_operation_collation_ field.
+  FunctionSignatureOptions& set_uses_operation_collation(
+      bool uses_operation_collation = true) {
+    uses_operation_collation_ = uses_operation_collation;
+    return *this;
+  }
 
   static absl::Status Deserialize(
       const FunctionSignatureOptionsProto& proto,
@@ -770,6 +847,8 @@ class FunctionSignatureOptions {
   // Stores any deprecation warnings associated with the body of a SQL function.
   std::vector<FreestandingDeprecationWarning> additional_deprecation_warnings_;
 
+  bool is_internal_ = false;
+
   // A set of LanguageFeatures that need to be enabled for the signature to be
   // loaded in GetZetaSQLFunctions.
   std::set<LanguageFeature> required_language_features_;
@@ -780,6 +859,31 @@ class FunctionSignatureOptions {
   // function name - there could be multiple function names for same id, but
   // the one with is_aliased_signature = false should be picked as primary.
   bool is_aliased_signature_ = false;
+
+  // When true, collation will be propagated from the function arguments to the
+  // function's return type. Collation propagates only when the output type
+  // supports collation and at least one input argument type supports collation.
+  // Only Arguments where FunctionArgumentTypeOptions::argument_collation_mode()
+  // has AFFECTS_PROPAGATION bit set are considered in calculating the
+  // propagation collation.
+  //
+  // This option is only effective when FEATURE_V_1_3_COLLATION_SUPPORT is
+  // enabled.
+  bool propagates_collation_ = true;
+
+  // When true, this function's behavior is affected by collation (e.g. for
+  // string comparisons).  The resolver will select the collation to use and
+  // record it in the resolved AST.
+  //
+  // The operation collation will be derived based on collation of input
+  // arguments.  Only Arguments where
+  // FunctionArgumentTypeOptions::argument_collation_mode() has
+  // AFFECTS_OPERATION bit set are considered in calculating the operation
+  // collation.
+  //
+  // This option is only effective when FEATURE_V_1_3_COLLATION_SUPPORT is
+  // enabled.
+  bool uses_operation_collation_ = false;
 
   // Copyable.
 };
@@ -838,11 +942,16 @@ class FunctionSignature {
 
   ~FunctionSignature() {}
 
+  ABSL_DEPRECATED("Use Deserialize(FunctionSignatureProto, TypeDeserializer)")
   static absl::Status Deserialize(
       const FunctionSignatureProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory,
       std::unique_ptr<FunctionSignature>* result);
+
+  static absl::StatusOr<std::unique_ptr<FunctionSignature>> Deserialize(
+      const FunctionSignatureProto& proto,
+      const TypeDeserializer& type_deserializer);
 
   absl::Status Serialize(
       FileDescriptorSetMap* file_descriptor_set_map,
@@ -932,7 +1041,7 @@ class FunctionSignature {
 
   // Returns whether or not the constraints are satisfied.
   // If <options_.constraints_> is NULL, returns true.
-  zetasql_base::StatusOr<bool> CheckArgumentConstraints(
+  absl::StatusOr<bool> CheckArgumentConstraints(
       const std::vector<InputArgumentType>& arguments) const;
 
   // If verbose is true, include FunctionOptions modifiers.
@@ -956,6 +1065,8 @@ class FunctionSignature {
                                 ProductMode product_mode) const;
 
   bool IsDeprecated() const { return options_.is_deprecated(); }
+
+  bool IsInternal() const { return options_.is_internal(); }
 
   void SetIsDeprecated(bool value) {
     options_.set_is_deprecated(value);

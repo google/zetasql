@@ -48,8 +48,9 @@
 #include "absl/hash/hash.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
+#include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
@@ -1116,8 +1117,6 @@ static std::string CapitalizedNameForType(const Type* type) {
       return "BigNumeric";
     case TYPE_JSON:
       return "Json";
-    case TYPE_TOKENLIST:
-      return "TokenList";
     case TYPE_ENUM:
       return absl::StrCat("Enum<",
                           type->AsEnum()->enum_descriptor()->full_name(), ">");
@@ -1610,10 +1609,10 @@ std::string Value::FormatInternal(int indent, bool force_type) const {
     std::string templ = absl::StrCat(sanitized_type_string, "[$0]");
     // Force a wrap after the type if the type consumes multiple lines and
     // there is more than one element (or one element over multiple lines).
-    if (type_string.find('\n') != std::string::npos &&
+    if (absl::StrContains(type_string, '\n') &&
         (elements().size() > 1 ||
          (!elements().empty() &&
-          element_strings[0].find('\n') != std::string::npos))) {
+          absl::StrContains(element_strings[0], '\n')))) {
       templ = absl::StrCat(sanitized_type_string, "\n", Indent(indent), "[$0]");
     }
     return FormatBlock(templ, element_strings, ",", indent, WrapStyle::AUTO);
@@ -1832,7 +1831,7 @@ absl::Status Value::Serialize(ValueProto* value_proto) const {
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
+absl::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
                                          const Type* type) {
   if (value_proto.value_case() == ValueProto::VALUE_NOT_SET) {
     return Null(type);

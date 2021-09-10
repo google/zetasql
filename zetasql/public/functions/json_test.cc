@@ -21,11 +21,14 @@
 #include <stddef.h>
 
 #include <cctype>
+#include <cmath>
+#include <cstdint>
 #include <iterator>
 #include <map>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -40,9 +43,10 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "zetasql/base/status_macros.h"
 
@@ -2260,6 +2264,210 @@ TEST(JsonPathEvaluatorTest, DeeplyNestedObjectCausesFailure) {
                        "JSON parsing failed due to deeply nested array/struct. "
                        "Maximum nesting depth is 1000"));
   EXPECT_TRUE(is_null);
+}
+
+TEST(JsonConversionTest, ConvertJsonToInt64) {
+  std::vector<std::pair<JSONValue, std::optional<int64_t>>>
+      inputs_and_expected_outputs;
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{1}), 1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{-1}), -1);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<int64_t>::min()),
+      std::numeric_limits<int64_t>::min());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<int64_t>::max()),
+      std::numeric_limits<int64_t>::max());
+  // Other types should return an error
+  inputs_and_expected_outputs.emplace_back(JSONValue(1.5), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(true), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"10"}),
+                                           std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"({"a": 1})").value(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"([10, 20])").value(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("null").value(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      double{std::numeric_limits<int64_t>::min()} - 1, std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<uint64_t>::max()), std::nullopt);
+
+  for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
+    SCOPED_TRACE(
+        absl::Substitute("INT64('$0')", input.GetConstRef().ToString()));
+
+    absl::StatusOr<int64_t> output = ConvertJsonToInt64(input.GetConstRef());
+    EXPECT_EQ(output.ok(), expected_output.has_value());
+    if (output.ok() && expected_output.has_value()) {
+      EXPECT_EQ(*output, *expected_output);
+    }
+  }
+}
+
+TEST(JsonConversionTest, ConvertJsonToBool) {
+  std::vector<std::pair<JSONValue, std::optional<bool>>>
+      inputs_and_expected_outputs;
+  inputs_and_expected_outputs.emplace_back(JSONValue(false), false);
+  inputs_and_expected_outputs.emplace_back(JSONValue(true), true);
+  // Other types should return an error
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{1}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"10"}),
+                                           std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"({"a": 1})").value(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"([10, 20])").value(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("null").value(), std::nullopt);
+  for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
+    SCOPED_TRACE(
+        absl::Substitute("BOOL('$0')", input.GetConstRef().ToString()));
+
+    absl::StatusOr<bool> output = ConvertJsonToBool(input.GetConstRef());
+    EXPECT_EQ(output.ok(), expected_output.has_value());
+    if (output.ok() && expected_output.has_value()) {
+      EXPECT_EQ(*output, *expected_output);
+    }
+  }
+}
+
+TEST(JsonConversionTest, ConvertJsonToString) {
+  std::vector<std::pair<JSONValue, std::optional<std::string>>>
+      inputs_and_expected_outputs;
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::string{"test"}), "test");
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::string{"abc123"}), "abc123");
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::string{"TesT"}), "TesT");
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::string{"1"}), "1");
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::string{""}), "");
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::string{"12¿©?Æ"}), "12¿©?Æ");
+  // Other types should return an error
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{1}), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(true), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"({"a": 1})").value(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"([10, 20])").value(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("null").value(), std::nullopt);
+  for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
+    SCOPED_TRACE(
+        absl::Substitute("STRING('$0')", input.GetConstRef().ToString()));
+
+    absl::StatusOr<std::string> output = ConvertJsonToString(
+        input.GetConstRef());
+    EXPECT_EQ(output.ok(), expected_output.has_value());
+    if (output.ok() && expected_output.has_value()) {
+      EXPECT_EQ(*output, *expected_output);
+    }
+  }
+}
+
+TEST(JsonConversionTest, ConvertJsonToDouble) {
+  std::vector<std::pair<JSONValue, std::optional<double>>>
+      inputs_and_expected_outputs;
+  // Behavior the same when wide_number_mode is "round" and "exact"
+  inputs_and_expected_outputs.emplace_back(JSONValue(1.0), 1.0);
+  inputs_and_expected_outputs.emplace_back(JSONValue(-1.0), -1.0);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<double>::min()),
+      std::numeric_limits<double>::min());
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(std::numeric_limits<double>::max()),
+      std::numeric_limits<double>::max());
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{1}), double{1});
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{-1}), double{-1});
+  inputs_and_expected_outputs.emplace_back(JSONValue(uint64_t{1}), double{1});
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{-9007199254740992}), double{-9007199254740992});
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{9007199254740992}),
+                                           double{9007199254740992});
+  // Other types should return an error
+  inputs_and_expected_outputs.emplace_back(JSONValue(true), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"10"}),
+                                           std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"({"a": 1})").value(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"([10, 20])").value(), std::nullopt);
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("null").value(), std::nullopt);
+
+  for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
+    SCOPED_TRACE(absl::Substitute("DOUBLE('$0', 'exact')",
+                                  input.GetConstRef().ToString()));
+    absl::StatusOr<double> output =
+        ConvertJsonToDouble(input.GetConstRef(), "exact");
+    EXPECT_EQ(output.ok(), expected_output.has_value());
+    if (output.ok() && expected_output.has_value()) {
+      EXPECT_EQ(*output, *expected_output);
+    }
+    SCOPED_TRACE(absl::Substitute("DOUBLE('$0', 'round')",
+                                  input.GetConstRef().ToString()));
+    output = ConvertJsonToDouble(input.GetConstRef(), "round");
+    EXPECT_EQ(output.ok(), expected_output.has_value());
+    if (output.ok() && expected_output.has_value()) {
+      EXPECT_EQ(*output, *expected_output);
+    }
+  }
+}
+
+TEST(JsonConversionTest, ConvertJsonToDoubleFailInExactOnly) {
+  std::vector<std::pair<JSONValue, double>> inputs_and_expected_outputs;
+  // Number too large to round trip
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(uint64_t{18446744073709551615u}),
+      double{1.8446744073709552e+19});
+  // Number too small to round trip
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue(int64_t{-9007199254740993}), double{-9007199254740992});
+
+  for (const auto& [input, expected_output] :
+       inputs_and_expected_outputs) {
+    SCOPED_TRACE(absl::Substitute("DOUBLE('$0', 'round')",
+                                  input.GetConstRef().ToString()));
+    absl::StatusOr<double> output =
+        ConvertJsonToDouble(input.GetConstRef(), "round");
+
+    EXPECT_TRUE(output.ok());
+    EXPECT_EQ(*output, expected_output);
+    SCOPED_TRACE(absl::Substitute("DOUBLE('$0', 'exact')",
+                                  input.GetConstRef().ToString()));
+    output = ConvertJsonToDouble(input.GetConstRef(), "exact");
+    EXPECT_FALSE(output.ok());
+  }
+}
+
+TEST(JsonConversionTest, GetJsonType) {
+  std::vector<std::pair<JSONValue, std::optional<std::string>>>
+      inputs_and_expected_outputs;
+  inputs_and_expected_outputs.emplace_back(JSONValue(2.0), "number");
+  inputs_and_expected_outputs.emplace_back(JSONValue(-1.0), "number");
+  inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{1}), "number");
+  inputs_and_expected_outputs.emplace_back(JSONValue(true), "boolean");
+  inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"10"}),
+                                           "string");
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"({"a": 1})").value(), "object");
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString(R"([10, 20])").value(), "array");
+  inputs_and_expected_outputs.emplace_back(
+      JSONValue::ParseJSONString("null").value(), "null");
+  for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
+    SCOPED_TRACE(
+        absl::Substitute("TYPE('$0')", input.GetConstRef().ToString()));
+    absl::StatusOr<std::string> output = GetJsonType(input.GetConstRef());
+    EXPECT_EQ(output.ok(), expected_output.has_value());
+    if (output.ok() && expected_output.has_value()) {
+      EXPECT_EQ(*output, *expected_output);
+    }
+  }
 }
 
 }  // namespace

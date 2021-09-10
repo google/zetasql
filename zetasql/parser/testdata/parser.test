@@ -36,7 +36,7 @@ select    -
 ==
 
 select
-\# full line comment
+# full line comment
 /* block
    comment */
 \-- full line comment
@@ -213,7 +213,7 @@ QueryStatement [0-12]
               IntLiteral(1) [11-12]
 --
 SELECT
-  - - 1
+  - -1
 ==
 
 select - - - - - - - 1
@@ -233,7 +233,7 @@ QueryStatement [0-22]
                         IntLiteral(1) [21-22]
 --
 SELECT
-  - - - - - - - 1
+  - - - - - - -1
 ==
 
 # No comments inside strings.
@@ -737,8 +737,8 @@ QueryStatement [0-27]
             Identifier(T) [26-27]
 --
 SELECT
-  - 1,
-  + 2,
+  -1,
+  +2,
   NOT a
 FROM
   T
@@ -2515,4 +2515,3 @@ ALTERNATION GROUPS:
 ERROR: Syntax error: Function call cannot be applied to this expression. Function calls require a path, e.g. a.b.c() [at 2:8]
        ( foo)
        ^
-==

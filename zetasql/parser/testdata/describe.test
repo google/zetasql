@@ -258,3 +258,44 @@ describe foo.bar FROM ;
 ERROR: Syntax error: Unexpected ";" [at 1:23]
 describe foo.bar FROM ;
                       ^
+==
+
+[no_test_get_parse_tokens]
+[{{no_|}}allow_dashed_table_names]
+DESCRIBE my-project.dataset.table;
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '-' character. It needs to be quoted: `my-project.dataset.table` [at 1:10]
+DESCRIBE my-project.dataset.table;
+         ^
+--
+ALTERNATION GROUP: <empty>
+--
+DescribeStatement [0-33]
+  PathExpression [9-33]
+    Identifier(`my-project`) [9-19]
+    Identifier(dataset) [20-27]
+    Identifier(table) [28-33]
+--
+DESCRIBE `my-project`.dataset.table
+==
+
+[no_test_get_parse_tokens]
+[{{no_|}}allow_slashed_table_names]
+DESCRIBE /span/db/my-mdb-grp:my_db.Table
+--
+ALTERNATION GROUP: no_
+--
+ERROR: Syntax error: Table name contains '/' character. It needs to be quoted: `/span/db/my-mdb-grp:my_db.Table` [at 1:10]
+DESCRIBE /span/db/my-mdb-grp:my_db.Table
+         ^
+--
+ALTERNATION GROUP: <empty>
+--
+DescribeStatement [0-40]
+  PathExpression [9-40]
+    Identifier(`/span/db/my-mdb-grp:my_db`) [9-34]
+    Identifier(Table) [35-40]
+--
+DESCRIBE `/span/db/my-mdb-grp:my_db`.Table

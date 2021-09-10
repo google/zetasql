@@ -242,7 +242,7 @@ create table t (s1 bytes(1, 2, 3));
 
 create table t (n1 numeric(100));
 --
-ERROR: In NUMERIC(P), P must be within range [1, 29] [at 1:27]
+ERROR: In NUMERIC(P), P must be between 1 and 29 [at 1:27]
 create table t (n1 numeric(100));
                           ^
 ==
@@ -256,35 +256,35 @@ create table t (n1 numeric(1, 2, 3));
 
 create table t (n1 numeric(20, 10));
 --
-ERROR: In NUMERIC(P, S), S must be within range [0, 9] [at 1:27]
+ERROR: In NUMERIC(P, S), S must be between 0 and 9 [at 1:27]
 create table t (n1 numeric(20, 10));
                           ^
 ==
 
 create table t (n1 numeric(38, 3));
 --
-ERROR: In NUMERIC(P, S), P must be within range [max(S,1), 29+S] [at 1:27]
+ERROR: In NUMERIC(P, 3), P must be between 3 and 32 [at 1:27]
 create table t (n1 numeric(38, 3));
                           ^
 ==
 
 create table t (n1 bignumeric(70));
 --
-ERROR: In BIGNUMERIC(P), P must be within range [1, 38] [at 1:30]
+ERROR: In BIGNUMERIC(P), P must be between 1 and 38 [at 1:30]
 create table t (n1 bignumeric(70));
                              ^
 ==
 
 create table t (n1 bignumeric(50, 40));
 --
-ERROR: In BIGNUMERIC(P, S), S must be within range [0, 38] [at 1:30]
+ERROR: In BIGNUMERIC(P, S), S must be between 0 and 38 [at 1:30]
 create table t (n1 bignumeric(50, 40));
                              ^
 ==
 
 create table t (n1 bignumeric(70, 30));
 --
-ERROR: In BIGNUMERIC(P, S), P must be within range [max(S,1), 38+S] [at 1:30]
+ERROR: In BIGNUMERIC(P, 30), P must be between 30 and 68 [at 1:30]
 create table t (n1 bignumeric(70, 30));
                              ^
 ==
@@ -410,28 +410,28 @@ QueryStmt
 ==
 
 select cast(coalesce(struct(false, 1.23,
-                            array<zetasql_test.TestExtraPB>[""],
-                            CAST(1 AS zetasql_test.TestEnum))) AS
-            STRUCT<BOOL, STRING(MAX), ARRAY<alt_descriptor_pool.zetasql_test.TestExtraPB>,
-                   alt_descriptor_pool.zetasql_test.TestEnum>)
+                            array<zetasql_test__.TestExtraPB>[""],
+                            CAST(1 AS zetasql_test__.TestEnum))) AS
+            STRUCT<BOOL, STRING(MAX), ARRAY<alt_descriptor_pool.zetasql_test__.TestExtraPB>,
+                   alt_descriptor_pool.zetasql_test__.TestEnum>)
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1 AS `$col1` [STRUCT<BOOL, STRING, ARRAY<PROTO<zetasql_test.TestExtraPB>>, ENUM<zetasql_test.TestEnum>>]
+| +-$query.$col1#1 AS `$col1` [STRUCT<BOOL, STRING, ARRAY<PROTO<zetasql_test__.TestExtraPB>>, ENUM<zetasql_test__.TestEnum>>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-Cast(STRUCT<BOOL, DOUBLE, ARRAY<PROTO<zetasql_test.TestExtraPB>>, ENUM<zetasql_test.TestEnum>> -> STRUCT<BOOL, STRING, ARRAY<PROTO<zetasql_test.TestExtraPB>>, ENUM<zetasql_test.TestEnum>>)
-    |     +-FunctionCall(ZetaSQL:coalesce(repeated(1) STRUCT<BOOL, DOUBLE, ARRAY<PROTO<zetasql_test.TestExtraPB>>, ENUM<zetasql_test.TestEnum>>) -> STRUCT<BOOL, DOUBLE, ARRAY<PROTO<zetasql_test.TestExtraPB>>, ENUM<zetasql_test.TestEnum>>)
+    |   +-Cast(STRUCT<BOOL, DOUBLE, ARRAY<PROTO<zetasql_test__.TestExtraPB>>, ENUM<zetasql_test__.TestEnum>> -> STRUCT<BOOL, STRING, ARRAY<PROTO<zetasql_test__.TestExtraPB>>, ENUM<zetasql_test__.TestEnum>>)
+    |     +-FunctionCall(ZetaSQL:coalesce(repeated(1) STRUCT<BOOL, DOUBLE, ARRAY<PROTO<zetasql_test__.TestExtraPB>>, ENUM<zetasql_test__.TestEnum>>) -> STRUCT<BOOL, DOUBLE, ARRAY<PROTO<zetasql_test__.TestExtraPB>>, ENUM<zetasql_test__.TestEnum>>)
     |       +-MakeStruct
-    |         +-type=STRUCT<BOOL, DOUBLE, ARRAY<PROTO<zetasql_test.TestExtraPB>>, ENUM<zetasql_test.TestEnum>>
+    |         +-type=STRUCT<BOOL, DOUBLE, ARRAY<PROTO<zetasql_test__.TestExtraPB>>, ENUM<zetasql_test__.TestEnum>>
     |         +-field_list=
     |           +-Literal(type=BOOL, value=false)
     |           +-Literal(type=DOUBLE, value=1.23, float_literal_id=1)
-    |           +-Literal(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, value=[{}], has_explicit_type=TRUE)
-    |           +-Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
+    |           +-Literal(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, value=[{}], has_explicit_type=TRUE)
+    |           +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
     |     +-type_parameters=[null,(max_length=MAX),null,null]
     +-input_scan=
       +-SingleRowScan
@@ -506,14 +506,14 @@ select cast(10 as bytes(2, 4))
 
 select cast(10 as numeric(2, 4))
 --
-ERROR: In NUMERIC(P, S), P must be within range [max(S,1), 29+S] [at 1:26]
+ERROR: In NUMERIC(P, 4), P must be between 4 and 33 [at 1:26]
 select cast(10 as numeric(2, 4))
                          ^
 ==
 
 select cast(n1 as bignumeric(60, 40));
 --
-ERROR: In BIGNUMERIC(P, S), S must be within range [0, 38] [at 1:29]
+ERROR: In BIGNUMERIC(P, S), S must be between 0 and 38 [at 1:29]
 select cast(n1 as bignumeric(60, 40));
                             ^
 ==

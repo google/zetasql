@@ -43,7 +43,7 @@
 #include <cstdint>
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_join.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
@@ -161,7 +161,7 @@ std::ostream& operator<<(std::ostream& out,
 static std::vector<AggregateFunctionTemplate> MinAggregateFunctionTemplates() {
   const EnumType* enum_type;
   ZETASQL_CHECK_OK(test_values::static_type_factory()->MakeEnumType(
-      zetasql_test::TestEnum_descriptor(), &enum_type));
+      zetasql_test__::TestEnum_descriptor(), &enum_type));
   return {
     // Min(Bool)
     {FunctionKind::kMin, {Bool(false), Bool(true)}, Bool(false)},
@@ -262,7 +262,7 @@ static std::vector<AggregateFunctionTemplate> MinAggregateFunctionTemplates() {
 static std::vector<AggregateFunctionTemplate> MaxAggregateFunctionTemplates() {
   const EnumType* enum_type;
   ZETASQL_CHECK_OK(test_values::static_type_factory()->MakeEnumType(
-      zetasql_test::TestEnum_descriptor(), &enum_type));
+      zetasql_test__::TestEnum_descriptor(), &enum_type));
   return {
     // Max(Bool)
     {FunctionKind::kMax, {Bool(false), Bool(true)}, Bool(true)},
@@ -360,7 +360,7 @@ static std::vector<AggregateFunctionTemplate>
 OtherAggregateFunctionTemplates() {
   const EnumType* enum_type;
   ZETASQL_CHECK_OK(test_values::static_type_factory()->MakeEnumType(
-      zetasql_test::TestEnum_descriptor(), &enum_type));
+      zetasql_test__::TestEnum_descriptor(), &enum_type));
   return {
       // Any(<any type permitted>)
       {FunctionKind::kAnyValue, {Bool(true), NullBool()}, Bool(true), kNonDet},
@@ -468,7 +468,7 @@ static std::vector<AggregateFunctionTemplate> AggregateFunctionTemplates() {
 typedef TestWithParam<AggregateFunctionTemplate> AggregateFunctionTemplateTest;
 
 // Evaluates an aggregation function and returns the result.
-static zetasql_base::StatusOr<Value> EvalAgg(const BuiltinAggregateFunction& agg,
+static absl::StatusOr<Value> EvalAgg(const BuiltinAggregateFunction& agg,
                                      absl::Span<const Value> values,
                                      EvaluationContext* context,
                                      absl::Span<const Value> args = {}) {

@@ -28,35 +28,35 @@ namespace zetasql {
 namespace interval_testing {
 
 inline IntervalValue Months(int64_t months) {
-  return IntervalValue::FromMonths(months).ValueOrDie();
+  return IntervalValue::FromMonths(months).value();
 }
 
 inline IntervalValue Days(int64_t days) {
-  return IntervalValue::FromDays(days).ValueOrDie();
+  return IntervalValue::FromDays(days).value();
 }
 
 inline IntervalValue Micros(int64_t micros) {
-  return IntervalValue::FromMicros(micros).ValueOrDie();
+  return IntervalValue::FromMicros(micros).value();
 }
 
 inline IntervalValue Nanos(__int128 nanos) {
-  return IntervalValue::FromNanos(nanos).ValueOrDie();
+  return IntervalValue::FromNanos(nanos).value();
 }
 
 inline IntervalValue MonthsDaysMicros(int64_t months, int64_t days,
                                       int64_t micros) {
-  return IntervalValue::FromMonthsDaysMicros(months, days, micros).ValueOrDie();
+  return IntervalValue::FromMonthsDaysMicros(months, days, micros).value();
 }
 
 inline IntervalValue MonthsDaysNanos(int64_t months, int64_t days,
                                      __int128 nanos) {
-  return IntervalValue::FromMonthsDaysNanos(months, days, nanos).ValueOrDie();
+  return IntervalValue::FromMonthsDaysNanos(months, days, nanos).value();
 }
 
 inline IntervalValue YMDHMS(int64_t years, int64_t months, int64_t days,
                             int64_t hours, int64_t minutes, int64_t seconds) {
   return IntervalValue::FromYMDHMS(years, months, days, hours, minutes, seconds)
-      .ValueOrDie();
+      .value();
 }
 
 inline IntervalValue Years(int64_t years) {

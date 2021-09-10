@@ -18,16 +18,16 @@
 
 #include <cstdint>
 
-#include "zetasql/compliance/type_helpers.h"
 #include "zetasql/public/strings.h"
-#include "zetasql/base/statusor.h"
+#include "zetasql/reference_impl/type_helpers.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_split.h"
 
 namespace zetasql {
 
 namespace {
 
-zetasql_base::StatusOr<const Table*> GetTableForDMLStatement(
+absl::StatusOr<const Table*> GetTableForDMLStatement(
     const ResolvedStatement* resolved_stmt) {
   const ResolvedTableScan* scan = nullptr;
   switch (resolved_stmt->node_kind()) {
@@ -362,8 +362,12 @@ std::string OutputPrettyStyleQueryResult(
   return output_text;
 }
 
-std::string OutputPrettyStyleExpressionResult(const zetasql::Value& result) {
+std::string OutputPrettyStyleExpressionResult(const zetasql::Value& result,
+                                              bool include_box) {
   std::string value_str = ValueToOutputString(result, /*escape_strings=*/false);
+  if (!include_box) {
+    return value_str;
+  }
   std::string separator = GetRowSeparator({value_str.length()});
 
   std::string output = separator;

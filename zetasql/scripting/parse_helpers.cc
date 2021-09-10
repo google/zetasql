@@ -17,11 +17,11 @@
 #include "zetasql/scripting/parse_helpers.h"
 
 #include "zetasql/scripting/parsed_script.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
-zetasql_base::StatusOr<std::unique_ptr<ParserOutput>> ParseAndValidateScript(
+absl::StatusOr<std::unique_ptr<ParserOutput>> ParseAndValidateScript(
     absl::string_view script_string, const ParserOptions& parser_options,
     ErrorMessageMode error_message_mode) {
   std::unique_ptr<ParserOutput> parser_output;

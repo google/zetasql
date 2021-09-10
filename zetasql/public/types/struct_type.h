@@ -18,14 +18,36 @@
 #define ZETASQL_PUBLIC_TYPES_STRUCT_TYPE_H_
 
 #include <cstdint>
+#include <functional>
+#include <string>
+#include <utility>
+#include <vector>
 
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type.h"
+#include "absl/base/thread_annotations.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/hash/hash.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "zetasql/base/case.h"
+#include "absl/strings/string_view.h"
+#include "absl/synchronization/mutex.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 
 // Field contained in a struct, representing a name and type.
 // The SWIG compiler does not understand nested classes, so this cannot be
 // defined inside the scope of StructType.
+class LanguageOptions;
+class TypeFactory;
+class TypeParameterValue;
+class TypeParameters;
+class ValueContent;
+class ValueProto;
+
 struct StructField {
   StructField(std::string name_in, const Type* type_in)
       : name(std::move(name_in)), type(type_in) {}
@@ -88,7 +110,7 @@ class StructType : public Type {
   // Same as above, but if <type_params> is not empty, any nested SimpleTypes
   // include their type parameters within parenthesis appended to their SQL
   // name.
-  zetasql_base::StatusOr<std::string> TypeNameWithParameters(
+  absl::StatusOr<std::string> TypeNameWithParameters(
       const TypeParameters& type_params, ProductMode mode) const override;
 
   // Check if the names in <fields> are valid.
@@ -101,7 +123,7 @@ class StructType : public Type {
 
   // Validate and resolve type parameters for struct type, currently always
   // return error since struct type itself doesn't support type parameters.
-  zetasql_base::StatusOr<TypeParameters> ValidateAndResolveTypeParameters(
+  absl::StatusOr<TypeParameters> ValidateAndResolveTypeParameters(
       const std::vector<TypeParameterValue>& type_parameter_values,
       ProductMode mode) const override;
 
@@ -134,9 +156,9 @@ class StructType : public Type {
       const BuildFileDescriptorMapOptions& options, TypeProto* type_proto,
       FileDescriptorSetMap* file_descriptor_set_map) const override;
 
-  zetasql_base::StatusOr<std::string> TypeNameImpl(
+  absl::StatusOr<std::string> TypeNameImpl(
       int field_limit,
-      const std::function<zetasql_base::StatusOr<std::string>(
+      const std::function<absl::StatusOr<std::string>(
           const zetasql::Type*, int field_index)>& field_debug_fn) const;
 
   bool EqualsForSameKind(const Type* that, bool equivalent) const override;

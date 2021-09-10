@@ -1,6 +1,6 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB]
-[load_enum_names=zetasql_test.TestEnum]
+[load_proto_names=zetasql_test__.KitchenSinkPB]
+[load_enum_names=zetasql_test__.TestEnum]
 [default test_features1=V_1_3_CONCAT_MIXED_TYPES]
 
 [name=concat_null]
@@ -147,27 +147,27 @@ SELECT CONCAT(x), CONCAT('a', x)  FROM UNNEST([INTERVAL '1 2 3' MONTH TO HOUR...
                                                ^
 ==
 [name=concat_proto]
-SELECT CONCAT(x.int64_key_1, x) FROM UNNEST([NEW zetasql_test.KitchenSinkPB(5 AS int64_key_1, 6 AS int64_key_2)]) x;
+SELECT CONCAT(x.int64_key_1, x) FROM UNNEST([NEW zetasql_test__.KitchenSinkPB(5 AS int64_key_1, 6 AS int64_key_2)]) x;
 --
 WITH FEATURES: V_1_3_CONCAT_MIXED_TYPES
 ARRAY<STRUCT<STRING>>[{"5int64_key_1: 5 int64_key_2: 6"}]
 --
 WITH FEATURES: <none>
-ERROR: generic::invalid_argument: No matching signature for function CONCAT for argument types: INT64, zetasql_test.KitchenSinkPB. Supported signatures: CONCAT(STRING, [STRING, ...]); CONCAT(BYTES, [BYTES, ...]) [at 1:8]
-SELECT CONCAT(x.int64_key_1, x) FROM UNNEST([NEW zetasql_test.KitchenSinkPB...
+ERROR: generic::invalid_argument: No matching signature for function CONCAT for argument types: INT64, zetasql_test__.KitchenSinkPB. Supported signatures: CONCAT(STRING, [STRING, ...]); CONCAT(BYTES, [BYTES, ...]) [at 1:8]
+SELECT CONCAT(x.int64_key_1, x) FROM UNNEST([NEW zetasql_test__.KitchenSinkPB...
        ^
 ==
 [name=concat_enum]
 SELECT CONCAT(
-  CAST(1 AS zetasql_test.TestEnum),
-  CAST(2 AS zetasql_test.TestEnum),
-  CAST(2147483647 AS zetasql_test.TestEnum));
+  CAST(1 AS zetasql_test__.TestEnum),
+  CAST(2 AS zetasql_test__.TestEnum),
+  CAST(2147483647 AS zetasql_test__.TestEnum));
 --
 WITH FEATURES: V_1_3_CONCAT_MIXED_TYPES
 ARRAY<STRUCT<STRING>>[{"TESTENUM1TESTENUM2TESTENUM2147483647"}]
 --
 WITH FEATURES: <none>
-ERROR: generic::invalid_argument: No matching signature for function CONCAT for argument types: zetasql_test.TestEnum, zetasql_test.TestEnum, zetasql_test.TestEnum. Supported signatures: CONCAT(STRING, [STRING, ...]); CONCAT(BYTES, [BYTES, ...]) [at 1:8]
+ERROR: generic::invalid_argument: No matching signature for function CONCAT for argument types: zetasql_test__.TestEnum, zetasql_test__.TestEnum, zetasql_test__.TestEnum. Supported signatures: CONCAT(STRING, [STRING, ...]); CONCAT(BYTES, [BYTES, ...]) [at 1:8]
 SELECT CONCAT(
        ^
 ==

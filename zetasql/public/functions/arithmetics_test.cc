@@ -33,6 +33,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include <cstdint>
+#include "absl/status/status.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -309,6 +310,49 @@ TEST_P(UnaryMinusTemplateTest, Testlib) {
 
 INSTANTIATE_TEST_SUITE_P(UnaryMinus, UnaryMinusTemplateTest,
                          testing::ValuesIn(GetFunctionTestsUnaryMinus()));
+
+// Tests functions over "long double". The template test functions
+// TestBinaryFunction() and TestUnaryMinus() cannot be used because
+// "long double" is not a valid Value type. Since the functions are exact
+// replicas of their counterparts using "double", their correctness should be
+// straigtforward to see. Here we add some trivial test cases with the goal
+// to exercise the code, not to be thorough in testing all possible values.
+TEST(LongDouble, Simple) {
+  const long double a = 1.1, b = 2.2, zero = 0.0, sum = 3.3, diff = -1.1,
+                    product = 2.42, ratio = 0.5, neg = -1.1;
+  long double result = 0;
+  absl::Status status;
+
+  status = absl::OkStatus();
+  Add(a, b, &result, &status);
+  ZETASQL_EXPECT_OK(status);
+  EXPECT_DOUBLE_EQ(result, sum);
+
+  status = absl::OkStatus();
+  Subtract(a, b, &result, &status);
+  ZETASQL_EXPECT_OK(status);
+  EXPECT_DOUBLE_EQ(result, diff);
+
+  status = absl::OkStatus();
+  Multiply(a, b, &result, &status);
+  ZETASQL_EXPECT_OK(status);
+  EXPECT_DOUBLE_EQ(result, product);
+
+  status = absl::OkStatus();
+  Divide(a, b, &result, &status);
+  ZETASQL_EXPECT_OK(status);
+  EXPECT_DOUBLE_EQ(result, ratio);
+
+  status = absl::OkStatus();
+  Divide(a, zero, &result, &status);
+  EXPECT_THAT(status, StatusIs(absl::StatusCode::kOutOfRange,
+                               ::testing::HasSubstr("division by zero: ")));
+
+  status = absl::OkStatus();
+  UnaryMinus(a, &result, &status);
+  ZETASQL_EXPECT_OK(status);
+  EXPECT_DOUBLE_EQ(result, neg);
+}
 
 }  // namespace functions
 }  // namespace zetasql

@@ -328,7 +328,7 @@ struct DateTimeFormatElement {
   std::string ToString() const;
 };
 
-zetasql_base::StatusOr<std::vector<DateTimeFormatElement>> GetDateTimeFormatElements(
+absl::StatusOr<std::vector<DateTimeFormatElement>> GetDateTimeFormatElements(
     absl::string_view format_str);
 
 }  // namespace cast_date_time_internal

@@ -104,7 +104,7 @@ CreateRowAccessPolicyStmt
 | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
 |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 |   +-Literal(type=INT64, value=321)
-+-predicate_str="key = + 321"
++-predicate_str="key = +321"
 ==
 
 # Create unnamed policy, without grantee list.

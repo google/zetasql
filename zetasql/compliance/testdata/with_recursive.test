@@ -1,7 +1,7 @@
 [name=with_recursive_back_reference]
 [default required_features=V_1_3_WITH_RECURSIVE]
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB]
+[load_proto_names=zetasql_test__.KitchenSinkPB]
 WITH RECURSIVE
   R AS (SELECT 2 a),
   S AS (SELECT a FROM R)
@@ -651,18 +651,18 @@ ARRAY<STRUCT<point GEOGRAPHY>>[
 [name=recursive_query_proto_column]
 WITH RECURSIVE
   t AS (
-    SELECT NEW zetasql_test.KitchenSinkPB(
+    SELECT NEW zetasql_test__.KitchenSinkPB(
       1 AS int64_key_1,
       2 AS int64_key_2) AS kitchen_sink_proto
     UNION ALL
-    SELECT NEW zetasql_test.KitchenSinkPB(
+    SELECT NEW zetasql_test__.KitchenSinkPB(
       kitchen_sink_proto.int64_key_1 + 1 AS int64_key_1,
       2 AS int64_key_2) AS kitchen_sink_proto
       FROM t
       WHERE kitchen_sink_proto.int64_key_1 < 10
 ) SELECT * FROM t;
 --
-ARRAY<STRUCT<kitchen_sink_proto PROTO<zetasql_test.KitchenSinkPB>>>[
+ARRAY<STRUCT<kitchen_sink_proto PROTO<zetasql_test__.KitchenSinkPB>>>[
   {{
      int64_key_1: 1
      int64_key_2: 2
@@ -762,13 +762,13 @@ WITH RECURSIVE
     SELECT 0 AS a
     UNION DISTINCT (
       SELECT 5
-      UNION DISTINCT
+      UNION ALL
       SELECT MOD(a + 1, 10) FROM t
     )
   )
 SELECT * FROM t;
 --
-ARRAY<STRUCT<a INT64>>[{0}, {5}, {1}, {6}, {2}, {7}, {3}, {8}, {4}, {9}]
+ARRAY<STRUCT<a INT64>>[{0}, {1}, {5}, {2}, {6}, {3}, {7}, {4}, {8}, {9}]
 ==
 
 # Given a list of flights, find all the places you can travel to from each

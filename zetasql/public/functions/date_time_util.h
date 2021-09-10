@@ -29,7 +29,7 @@
 #include "absl/base/attributes.h"
 #include <cstdint>
 #include "absl/base/macros.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/civil_time.h"
 #include "absl/time/time.h"
@@ -76,6 +76,11 @@ enum TimestampScale {
 // Checks that a date value falls between 0001-01-01 and 9999-12-31 (inclusive).
 ABSL_MUST_USE_RESULT bool IsValidDate(int32_t date);
 
+// Checks that the specified year, month, day, are valid (i.e., month is
+// 1-12, day is valid for the specified month, etc.).
+ABSL_MUST_USE_RESULT bool IsValidDay(absl::civil_year_t year, int month,
+                                     int day);
+
 // Checks that a timestamp value falls between 0001-01-01 and 9999-12-31 UTC
 // for timestamps with at most microseconds scale.  For nanoseconds, all int64_t
 // values are considered valid.
@@ -117,7 +122,7 @@ absl::Status ConvertDateToString(int32_t date, std::string* out);
 
 // Returns an absl::CivilDay for this date, or an error status if conversion
 // fails.
-zetasql_base::StatusOr<absl::CivilDay> ConvertDateToCivilDay(int32_t date);
+absl::StatusOr<absl::CivilDay> ConvertDateToCivilDay(int32_t date);
 
 // Populates <out> in canonical timestamp format based on the specified
 // <timezone>, for example:
@@ -232,26 +237,42 @@ absl::Status FormatTimestampToString(absl::string_view format_string,
 absl::Status FormatDateToString(absl::string_view format_string, int32_t date,
                                 std::string* out);
 
-// TODO: Remove after transition.
-// Temporary functions to enable smooth transition for supporting quarter
-// format qualifier. This function adds <expand_quarter> boolean to control
-// whether %Q should be expanded to quarter number or ignored.
-absl::Status FormatTimestampToString(absl::string_view format_str,
-                                     absl::Time timestamp,
-                                     absl::string_view timezone_string,
-                                     bool expand_quarter, std::string* out);
+// Options to enable smooth transition for supporting quarter and ISO day of
+// year format qualifiers.
+struct FormatDateTimestampOptions {
+  bool expand_Q;  // Expand %Q, quarter. NOLINT
+  bool expand_J;  // Expand %J, ISO day of year. NOLINT
+};
 
-absl::Status FormatTimestampToString(absl::string_view format_str,
-                                     absl::Time timestamp,
-                                     absl::TimeZone timezone,
-                                     bool expand_quarter, std::string* out);
+// Functions to enable smooth transition for supporting quarter and ISO day of
+// year format qualifiers. This function adds <format_options> to control
+// whether %Q and/or %J should be expanded to quarter and/or ISO day of year
+// respectively.
+absl::Status FormatTimestampToString(
+    absl::string_view format_str, absl::Time timestamp,
+    absl::string_view timezone_string,
+    const FormatDateTimestampOptions& format_options, std::string* out);
 
-absl::Status FormatTimestampToString(absl::string_view format_str,
-                                     int64_t timestamp, absl::TimeZone timezone,
-                                     bool expand_quarter, std::string* out);
+absl::Status FormatTimestampToString(
+    absl::string_view format_str, absl::Time timestamp, absl::TimeZone timezone,
+    const FormatDateTimestampOptions& format_options, std::string* out);
 
-absl::Status FormatDateToString(absl::string_view format_string, int32_t date,
-                                bool expand_quarter, std::string* out);
+absl::Status FormatTimestampToString(
+    absl::string_view format_str, int64_t timestamp,
+    absl::string_view timezone_string,
+    const FormatDateTimestampOptions& format_options, std::string* out);
+
+absl::Status FormatTimestampToString(
+    absl::string_view format_str, int64_t timestamp, absl::TimeZone timezone,
+    const FormatDateTimestampOptions& format_options, std::string* out);
+
+absl::Status FormatDatetimeToStringWithOptions(
+    absl::string_view format_string, const DatetimeValue& datetime,
+    const FormatDateTimestampOptions& format_options, std::string* out);
+
+absl::Status FormatDateToString(
+    absl::string_view format_string, int64_t date,
+    const FormatDateTimestampOptions& format_options, std::string* out);
 
 // Populates <out> using the <format_string> as defined by absl::FormatTime() in
 // base/time.h. Returns error status if conversion fails.
@@ -279,7 +300,7 @@ absl::Status ConvertStringToDate(absl::string_view str, int32_t* date);
 
 // Converts a civil time to a date value, or an error status if conversion
 // fails.
-zetasql_base::StatusOr<int32_t> ConvertCivilDayToDate(absl::CivilDay civil_day);
+absl::StatusOr<int32_t> ConvertCivilDayToDate(absl::CivilDay civil_day);
 
 // Converts the string representation of a timestamp to a timestamp integer
 // value of the specified <scale>.  The currently supported format is
@@ -594,7 +615,7 @@ absl::Status DiffDates(int32_t date1, int32_t date2, DateTimestampPart part,
                        int32_t* output);
 
 // Interval difference between dates: date1 - date2
-zetasql_base::StatusOr<IntervalValue> IntervalDiffDates(int32_t date1, int32_t date2);
+absl::StatusOr<IntervalValue> IntervalDiffDates(int32_t date1, int32_t date2);
 
 // Add an interval to a part of the given datetime value.
 // Returns error status if the input datetime value is invalid (out of range),
@@ -641,7 +662,7 @@ absl::Status DiffDatetimes(const DatetimeValue& datetime1,
                            DateTimestampPart part, int64_t* output);
 
 // Interval difference between datetimes: datetime1 - datetime2
-zetasql_base::StatusOr<IntervalValue> IntervalDiffDatetimes(
+absl::StatusOr<IntervalValue> IntervalDiffDatetimes(
     const DatetimeValue& datetime1, const DatetimeValue& datetime2);
 
 // Truncates the datetime to the beginning of the specified DateTimestampPart
@@ -711,7 +732,7 @@ absl::Status TimestampDiff(absl::Time timestamp1, absl::Time timestamp2,
                            DateTimestampPart part, int64_t* output);
 
 // Interval difference between timestamps: timestamp1 - timestamp2
-zetasql_base::StatusOr<IntervalValue> IntervalDiffTimestamps(absl::Time timestamp1,
+absl::StatusOr<IntervalValue> IntervalDiffTimestamps(absl::Time timestamp1,
                                                      absl::Time timestamp2);
 
 // Add an interval to a part of the given Timestamp value.
@@ -846,7 +867,7 @@ absl::Status DiffTimes(const TimeValue& time1, const TimeValue& time2,
                        DateTimestampPart part, int64_t* output);
 
 // Interval difference between times: time1 - time2
-zetasql_base::StatusOr<IntervalValue> IntervalDiffTimes(const TimeValue& time1,
+absl::StatusOr<IntervalValue> IntervalDiffTimes(const TimeValue& time1,
                                                 const TimeValue& time2);
 
 // Truncates the time to the beginning of the specified DateTimestampPart
@@ -977,10 +998,16 @@ inline bool IntervalUnaryMinus(IntervalValue in, IntervalValue* out,
 // details and is not part of the public api.
 namespace internal_functions {
 
-absl::Status ExpandPercentZQ(absl::string_view format_string,
-                             absl::Time base_time, absl::TimeZone timezone,
-                             bool expand_quarter,
-                             std::string* expanded_format_string);
+struct ExpansionOptions {
+  bool truncate_tz;
+  bool expand_quarter;
+  bool expand_iso_dayofyear;
+};
+
+absl::Status ExpandPercentZQJ(absl::string_view format_string,
+                              absl::Time base_time, absl::TimeZone timezone,
+                              const ExpansionOptions& expansion_options,
+                              std::string* expanded_format_string);
 
 // 1==Sun, ..., 7=Sat
 int DayOfWeekIntegerSunToSat1To7(absl::Weekday weekday);

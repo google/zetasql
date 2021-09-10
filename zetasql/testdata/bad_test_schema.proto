@@ -16,7 +16,7 @@
 
 syntax = "proto2";
 
-package zetasql_test;
+package zetasql_test__;
 
 import "zetasql/public/proto/type_annotation.proto";
 import "zetasql/public/proto/wire_format_annotation.proto";

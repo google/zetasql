@@ -373,21 +373,21 @@ CreateMaterializedViewStmt
 
 # Create a value view with SELECT AS ProtoName.
 create {{|materialized}} view tt
-as select as `zetasql_test.TestExtraPB` 55 int32_val1
+as select as `zetasql_test__.TestExtraPB` 55 int32_val1
 --
 ALTERNATION GROUP: <empty>
 --
 CreateViewStmt
 +-name_path=tt
 +-output_column_list=
-| +-$make_proto.$proto#2 AS `$proto` [PROTO<zetasql_test.TestExtraPB>]
+| +-$make_proto.$proto#2 AS `$proto` [PROTO<zetasql_test__.TestExtraPB>]
 +-query=
 | +-ProjectScan
 |   +-column_list=[$make_proto.$proto#2]
 |   +-expr_list=
 |   | +-$proto#2 :=
 |   |   +-MakeProto
-|   |     +-type=PROTO<zetasql_test.TestExtraPB>
+|   |     +-type=PROTO<zetasql_test__.TestExtraPB>
 |   |     +-field_list=
 |   |       +-int32_val1 := Literal(type=INT32, value=55)
 |   +-input_scan=
@@ -397,7 +397,7 @@ CreateViewStmt
 |       | +-int32_val1#1 := Literal(type=INT64, value=55)
 |       +-input_scan=
 |         +-SingleRowScan
-+-sql="select as `zetasql_test.TestExtraPB` 55 int32_val1"
++-sql="select as `zetasql_test__.TestExtraPB` 55 int32_val1"
 +-is_value_table=TRUE
 --
 ALTERNATION GROUP: materialized
@@ -405,14 +405,14 @@ ALTERNATION GROUP: materialized
 CreateMaterializedViewStmt
 +-name_path=tt
 +-output_column_list=
-| +-$make_proto.$proto#2 AS `$proto` [PROTO<zetasql_test.TestExtraPB>]
+| +-$make_proto.$proto#2 AS `$proto` [PROTO<zetasql_test__.TestExtraPB>]
 +-query=
 | +-ProjectScan
 |   +-column_list=[$make_proto.$proto#2]
 |   +-expr_list=
 |   | +-$proto#2 :=
 |   |   +-MakeProto
-|   |     +-type=PROTO<zetasql_test.TestExtraPB>
+|   |     +-type=PROTO<zetasql_test__.TestExtraPB>
 |   |     +-field_list=
 |   |       +-int32_val1 := Literal(type=INT32, value=55)
 |   +-input_scan=
@@ -422,10 +422,10 @@ CreateMaterializedViewStmt
 |       | +-int32_val1#1 := Literal(type=INT64, value=55)
 |       +-input_scan=
 |         +-SingleRowScan
-+-sql="select as `zetasql_test.TestExtraPB` 55 int32_val1"
++-sql="select as `zetasql_test__.TestExtraPB` 55 int32_val1"
 +-is_value_table=TRUE
 +-column_definition_list=
-  +-ColumnDefinition(name="$proto", type=PROTO<zetasql_test.TestExtraPB>, column=tt.$proto#3)
+  +-ColumnDefinition(name="$proto", type=PROTO<zetasql_test__.TestExtraPB>, column=tt.$proto#3)
 ==
 
 create or replace {{|materialized}} view x.y as (select 1 a)

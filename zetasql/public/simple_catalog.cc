@@ -31,10 +31,11 @@
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/types/annotation.h"
-#include "absl/memory/memory.h"
-#include "zetasql/base/statusor.h"
-#include "absl/strings/ascii.h"
+#include "zetasql/public/types/type_deserializer.h"
 #include "zetasql/base/case.h"
+#include "absl/memory/memory.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "absl/synchronization/mutex.h"
 #include "zetasql/base/map_util.h"
@@ -326,7 +327,7 @@ void SimpleCatalog::AddFunctionLocked(const std::string& name,
                                       const Function* function) {
   zetasql_base::InsertOrDie(&functions_, absl::AsciiStrToLower(name), function);
   if (!function->alias_name().empty() &&
-      zetasql_base::StringCaseCompare(function->alias_name(), name) != 0) {
+      zetasql_base::CaseCompare(function->alias_name(), name) != 0) {
     zetasql_base::InsertOrDie(&functions_, absl::AsciiStrToLower(function->alias_name()),
                      function);
   }
@@ -582,7 +583,8 @@ bool SimpleCatalog::AddOwnedFunctionIfNotPresent(
   }
   const std::string alias_name = (*function)->alias_name();
   // If the function has an alias and the alias exists, return false.
-  if (!alias_name.empty() && zetasql_base::StringCaseCompare(alias_name, name) != 0) {
+  if (!alias_name.empty() &&
+      zetasql_base::CaseCompare(alias_name, name) != 0) {
     if (zetasql_base::ContainsKey(functions_, absl::AsciiStrToLower(alias_name))) {
       return false;
     }
@@ -785,94 +787,22 @@ TypeFactory* SimpleCatalog::type_factory() {
 
 namespace {
 
-absl::Status DeserializeImpl(
-    const SimpleCatalogProto& proto,
-    const std::vector<const google::protobuf::DescriptorPool*>& pools,
-    SimpleCatalog* catalog) {
-  for (const auto& table_proto : proto.table()) {
-    std::unique_ptr<SimpleTable> table;
-    ZETASQL_RETURN_IF_ERROR(SimpleTable::Deserialize(
-        table_proto, pools, catalog->type_factory(), &table));
-    const std::string& name = table_proto.has_name_in_catalog()
-                                  ? table_proto.name_in_catalog()
-                                  : table_proto.name();
-    if (!catalog->AddOwnedTableIfNotPresent(name, std::move(table))) {
-      return ::zetasql_base::InvalidArgumentErrorBuilder()
-             << "Duplicate table '" << name << "' in serialized catalog";
-    }
-  }
-  for (const auto& named_type_proto : proto.named_type()) {
-    const Type* type;
-    ZETASQL_RETURN_IF_ERROR(
-        catalog->type_factory()->DeserializeFromProtoUsingExistingPools(
-            named_type_proto.type(), pools, &type));
-    if (!catalog->AddTypeIfNotPresent(named_type_proto.name(), type)) {
-      return ::zetasql_base::InvalidArgumentErrorBuilder()
-             << "Duplicate type '" << named_type_proto.name()
-             << "' in serialized catalog";
-    }
-  }
-  for (const auto& catalog_proto : proto.catalog()) {
-    std::unique_ptr<SimpleCatalog> sub_catalog(
-        new SimpleCatalog(catalog_proto.name(), catalog->type_factory()));
-    ZETASQL_RETURN_IF_ERROR(DeserializeImpl(catalog_proto, pools, sub_catalog.get()));
-    if (!catalog->AddOwnedCatalogIfNotPresent(catalog_proto.name(),
-                                              std::move(sub_catalog))) {
-      return ::zetasql_base::InvalidArgumentErrorBuilder()
-             << "Duplicate catalog '" << catalog_proto.name()
-             << "' in serialized catalog";
-    }
-  }
-  for (const auto& function_proto : proto.custom_function()) {
-    std::unique_ptr<Function> function;
-    ZETASQL_RETURN_IF_ERROR(Function::Deserialize(
-        function_proto, pools, catalog->type_factory(), &function));
-    const std::string name = function->Name();
-    if (!catalog->AddOwnedFunctionIfNotPresent(&function)) {
-      return ::zetasql_base::InvalidArgumentErrorBuilder()
-             << "Duplicate function '" << name << "' in serialized catalog";
-    }
-  }
-  for (const auto& procedure_proto : proto.procedure()) {
-    std::unique_ptr<Procedure> procedure;
-    ZETASQL_RETURN_IF_ERROR(Procedure::Deserialize(
-        procedure_proto, pools, catalog->type_factory(), &procedure));
-    const std::string name = procedure->Name();
-    if (!catalog->AddOwnedProcedureIfNotPresent(std::move(procedure))) {
-      return ::zetasql_base::InvalidArgumentErrorBuilder()
-             << "Duplicate procedure '" << name << "' in serialized catalog";
-    }
-  }
-  if (proto.has_builtin_function_options()) {
-    ZetaSQLBuiltinFunctionOptions options(proto.builtin_function_options());
-    catalog->AddZetaSQLFunctions(options);
-  }
-  for (const auto& tvf_proto : proto.custom_tvf()) {
-    std::unique_ptr<TableValuedFunction> tvf;
-    ZETASQL_RETURN_IF_ERROR(TableValuedFunction::Deserialize(
-        tvf_proto, pools, catalog->type_factory(), &tvf));
-    const std::string name = tvf->Name();
-    if (!catalog->AddOwnedTableValuedFunctionIfNotPresent(&tvf)) {
-      return ::zetasql_base::InvalidArgumentErrorBuilder()
-             << "Duplicate TVF '" << name << "' in serialized catalog";
-    }
-  }
-  for (const auto& constant_proto : proto.constant()) {
-    std::unique_ptr<SimpleConstant> constant;
-    ZETASQL_RETURN_IF_ERROR(SimpleConstant::Deserialize(
-        constant_proto, pools, catalog->type_factory(), &constant));
-    const std::string name = constant->Name();
-    if (!catalog->AddOwnedConstantIfNotPresent(std::move(constant))) {
-      return ::zetasql_base::InvalidArgumentErrorBuilder()
-             << "Duplicate constant '" << name << "' in serialized catalog";
-    }
+absl::StatusOr<const Type*> DeserializeNamedType(
+    const SimpleCatalogProto::NamedTypeProto& named_type_proto,
+    const TypeDeserializer& type_deserializer) {
+  if (!named_type_proto.has_type()) {
+    return MakeSqlError() << "Type is missing in "
+                             "zetasql::SimpleCatalogProto::NamedTypeProto: "
+                          << named_type_proto.DebugString();
   }
 
-  if (proto.has_file_descriptor_set_index()) {
-    catalog->SetDescriptorPool(pools[proto.file_descriptor_set_index()]);
+  if (!named_type_proto.has_name()) {
+    return MakeSqlError() << "Name is missing in "
+                             "zetasql::SimpleCatalogProto::NamedTypeProto: "
+                          << named_type_proto.DebugString();
   }
 
-  return absl::OkStatus();
+  return type_deserializer.Deserialize(named_type_proto.type());
 }
 
 template <typename M, typename ValueContainer>
@@ -884,15 +814,125 @@ void InsertValuesFromMap(const M& m, ValueContainer* value_container) {
 
 }  // namespace
 
+absl::Status SimpleCatalog::DeserializeImpl(
+    const SimpleCatalogProto& proto,
+    const TypeDeserializer& type_deserializer) {
+  for (const SimpleTableProto& table_proto : proto.table()) {
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<SimpleTable> table,
+                     SimpleTable::Deserialize(table_proto, type_deserializer));
+    const std::string& name = table_proto.has_name_in_catalog()
+                                  ? table_proto.name_in_catalog()
+                                  : table_proto.name();
+    if (!AddOwnedTableIfNotPresent(name, std::move(table))) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate table '" << name << "' in serialized catalog";
+    }
+  }
+
+  for (const SimpleCatalogProto::NamedTypeProto& named_type_proto :
+       proto.named_type()) {
+    ZETASQL_ASSIGN_OR_RETURN(const Type* type,
+                     DeserializeNamedType(named_type_proto, type_deserializer));
+    if (!AddTypeIfNotPresent(named_type_proto.name(), type)) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate type '" << named_type_proto.name()
+             << "' in serialized catalog";
+    }
+  }
+
+  for (const SimpleCatalogProto& catalog_proto : proto.catalog()) {
+    std::unique_ptr<SimpleCatalog> sub_catalog(
+        new SimpleCatalog(catalog_proto.name(), type_factory()));
+    ZETASQL_RETURN_IF_ERROR(
+        sub_catalog->DeserializeImpl(catalog_proto, type_deserializer));
+    if (!AddOwnedCatalogIfNotPresent(catalog_proto.name(),
+                                     std::move(sub_catalog))) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate catalog '" << catalog_proto.name()
+             << "' in serialized catalog";
+    }
+  }
+
+  for (const FunctionProto& function_proto : proto.custom_function()) {
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<Function> function,
+                     Function::Deserialize(function_proto, type_deserializer));
+    const std::string name = function->Name();
+    if (!AddOwnedFunctionIfNotPresent(&function)) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate function '" << name << "' in serialized catalog";
+    }
+  }
+  for (const auto& procedure_proto : proto.procedure()) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<Procedure> procedure,
+        Procedure::Deserialize(procedure_proto, type_deserializer));
+    const std::string name = procedure->Name();
+    if (!AddOwnedProcedureIfNotPresent(std::move(procedure))) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate procedure '" << name << "' in serialized catalog";
+    }
+  }
+
+  if (proto.has_builtin_function_options()) {
+    ZetaSQLBuiltinFunctionOptions options(proto.builtin_function_options());
+    AddZetaSQLFunctions(options);
+  }
+
+  for (const TableValuedFunctionProto& tvf_proto : proto.custom_tvf()) {
+    // TODO: propagate TypeDeserializer through
+    // TableValuedFunction::Deserialize.
+    std::unique_ptr<TableValuedFunction> tvf;
+    ZETASQL_RETURN_IF_ERROR(TableValuedFunction::Deserialize(
+        tvf_proto,
+        std::vector<const google::protobuf::DescriptorPool*>(
+            type_deserializer.descriptor_pools().begin(),
+            type_deserializer.descriptor_pools().end()),
+        type_deserializer.type_factory(), &tvf));
+    const std::string name = tvf->Name();
+    if (!AddOwnedTableValuedFunctionIfNotPresent(&tvf)) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate TVF '" << name << "' in serialized catalog";
+    }
+  }
+
+  for (const auto& constant_proto : proto.constant()) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<SimpleConstant> constant,
+        SimpleConstant::Deserialize(constant_proto, type_deserializer));
+    const std::string name = constant->Name();
+    if (!AddOwnedConstantIfNotPresent(std::move(constant))) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate constant '" << name << "' in serialized catalog";
+    }
+  }
+
+  if (proto.has_file_descriptor_set_index()) {
+    SetDescriptorPool(
+        type_deserializer
+            .descriptor_pools()[proto.file_descriptor_set_index()]);
+  }
+
+  return absl::OkStatus();
+}
+
 absl::Status SimpleCatalog::Deserialize(
     const SimpleCatalogProto& proto,
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
     std::unique_ptr<SimpleCatalog>* result) {
+  ZETASQL_ASSIGN_OR_RETURN(*result, Deserialize(proto, pools));
+  return absl::OkStatus();
+}
+
+absl::StatusOr<std::unique_ptr<SimpleCatalog>> SimpleCatalog::Deserialize(
+    const SimpleCatalogProto& proto,
+    const absl::Span<const google::protobuf::DescriptorPool* const> pools,
+    const ExtendedTypeDeserializer* extended_type_deserializer) {
   // Create a top level catalog that owns the TypeFactory.
   std::unique_ptr<SimpleCatalog> catalog(new SimpleCatalog(proto.name()));
-  ZETASQL_RETURN_IF_ERROR(DeserializeImpl(proto, pools, catalog.get()));
-  *result = std::move(catalog);
-  return absl::OkStatus();
+  ZETASQL_RETURN_IF_ERROR(catalog->DeserializeImpl(
+      proto, TypeDeserializer(catalog->type_factory(), pools,
+                              extended_type_deserializer)));
+  return catalog;
 }
 
 absl::Status SimpleCatalog::Serialize(
@@ -963,6 +1003,11 @@ absl::Status SimpleCatalog::SerializeImpl(
 
   for (const auto& entry : functions) {
     const Function* const function = entry.second;
+    // TODO: in case we have a function with an alias we serialize it
+    // twice here (first for main entry and second time for an alias). Thus
+    // when we try to deserialize it we fail, because all entries are identical
+    // and we still insert an alias entry using main function name as a key.
+    // To fix it we should serialize only main entry.
     if (!(ignore_builtin && function->IsZetaSQLBuiltin())) {
       ZETASQL_RETURN_IF_ERROR(function->Serialize(file_descriptor_set_map,
                                           proto->add_custom_function()));
@@ -1157,6 +1202,17 @@ SimpleTable::SimpleTable(absl::string_view name,
 }
 
 SimpleTable::SimpleTable(absl::string_view name,
+                         const std::vector<NameAndAnnotatedType>& columns,
+                         const int64_t serialization_id)
+    : name_(name), id_(serialization_id) {
+  for (const NameAndAnnotatedType& name_and_annotated_type : columns) {
+    auto column = absl::make_unique<SimpleColumn>(
+        name_, name_and_annotated_type.first, name_and_annotated_type.second);
+    ZETASQL_CHECK_OK(AddColumn(column.release(), /*is_owned=*/true));
+  }
+}
+
+SimpleTable::SimpleTable(absl::string_view name,
                          const std::vector<const Column*>& columns,
                          bool take_ownership, const int64_t serialization_id)
     : name_(name), id_(serialization_id) {
@@ -1265,7 +1321,7 @@ void SimpleTable::SetContents(const std::vector<std::vector<Value>>& rows) {
 
   num_rows_ = rows.size();
   auto factory = [this](absl::Span<const int> column_idxs)
-      -> zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>> {
+      -> absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> {
     std::vector<const Column*> columns;
     std::vector<std::shared_ptr<const std::vector<Value>>> column_values;
     column_values.reserve(column_idxs.size());
@@ -1285,7 +1341,7 @@ void SimpleTable::SetContents(const std::vector<std::vector<Value>>& rows) {
   SetEvaluatorTableIteratorFactory(factory);
 }
 
-zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
 SimpleTable::CreateEvaluatorTableIterator(
     absl::Span<const int> column_idxs) const {
   if (evaluator_table_iterator_factory_ == nullptr) {
@@ -1337,6 +1393,13 @@ absl::Status SimpleTable::Deserialize(
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory,
       std::unique_ptr<SimpleTable>* result) {
+  ZETASQL_ASSIGN_OR_RETURN(*result,
+                   Deserialize(proto, TypeDeserializer(factory, pools)));
+  return absl::OkStatus();
+}
+
+absl::StatusOr<std::unique_ptr<SimpleTable>> SimpleTable::Deserialize(
+    const SimpleTableProto& proto, const TypeDeserializer& type_deserializer) {
   std::unique_ptr<SimpleTable> table(
       new SimpleTable(proto.name(), proto.serialization_id()));
   table->set_is_value_table(proto.is_value_table());
@@ -1346,10 +1409,10 @@ absl::Status SimpleTable::Deserialize(
       proto.allow_duplicate_column_names()));
 
   for (const SimpleColumnProto& column_proto : proto.column()) {
-    std::unique_ptr<SimpleColumn> column;
-    ZETASQL_RETURN_IF_ERROR(SimpleColumn::Deserialize(
-        column_proto, table->Name(), pools, factory, &column));
-    ZETASQL_RETURN_IF_ERROR(table->AddColumn(column.release(), true  /* owned */));
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<SimpleColumn> column,
+                     SimpleColumn::Deserialize(column_proto, table->Name(),
+                                               type_deserializer));
+    ZETASQL_RETURN_IF_ERROR(table->AddColumn(column.release(), /*is_owned=*/true));
   }
 
   if (proto.primary_key_column_index_size() > 0) {
@@ -1367,8 +1430,8 @@ absl::Status SimpleTable::Deserialize(
         proto.anonymization_info().userid_column_name().end()};
     ZETASQL_RETURN_IF_ERROR(table->SetAnonymizationInfo(userid_column_name_path));
   }
-  *result = std::move(table);
-  return absl::OkStatus();
+
+  return table;
 }
 
 SimpleColumn::SimpleColumn(const std::string& table_name,
@@ -1409,23 +1472,19 @@ absl::Status SimpleColumn::Serialize(
   return absl::OkStatus();
 }
 
-absl::Status SimpleColumn::Deserialize(
+absl::StatusOr<std::unique_ptr<SimpleColumn>> SimpleColumn::Deserialize(
     const SimpleColumnProto& proto, const std::string& table_name,
-    const std::vector<const google::protobuf::DescriptorPool*>& pools,
-    TypeFactory* factory, std::unique_ptr<SimpleColumn>* result) {
-  const Type* type;
-  ZETASQL_RETURN_IF_ERROR(factory->DeserializeFromProtoUsingExistingPools(
-      proto.type(), pools, &type));
+    const TypeDeserializer& type_deserializer) {
+  ZETASQL_ASSIGN_OR_RETURN(const Type* type,
+                   type_deserializer.Deserialize(proto.type()));
   const AnnotationMap* annotation_map = nullptr;
   if (proto.has_annotation_map()) {
-    ZETASQL_RETURN_IF_ERROR(factory->DeserializeAnnotationMap(proto.annotation_map(),
-                                                      &annotation_map));
+    ZETASQL_RETURN_IF_ERROR(type_deserializer.type_factory()->DeserializeAnnotationMap(
+        proto.annotation_map(), &annotation_map));
   }
-  auto column = absl::make_unique<SimpleColumn>(
+  return absl::make_unique<SimpleColumn>(
       table_name, proto.name(), AnnotatedType(type, annotation_map),
       proto.is_pseudo_column(), proto.is_writable_column());
-  *result = std::move(column);
-  return absl::OkStatus();
 }
 
 // static
@@ -1458,22 +1517,19 @@ absl::Status SimpleConstant::Serialize(
   return absl::OkStatus();
 }
 
-absl::Status SimpleConstant::Deserialize(
+absl::StatusOr<std::unique_ptr<SimpleConstant>> SimpleConstant::Deserialize(
     const SimpleConstantProto& simple_constant_proto,
-    const std::vector<const google::protobuf::DescriptorPool*>& descriptor_pools,
-    TypeFactory* type_factory,
-    std::unique_ptr<SimpleConstant>* simple_constant) {
+    const TypeDeserializer& type_deserializer) {
   std::vector<std::string> name_path;
   for (const std::string& name : simple_constant_proto.name_path()) {
     name_path.push_back(name);
   }
-  const Type* type;
-  ZETASQL_RETURN_IF_ERROR(type_factory->DeserializeFromProtoUsingExistingPools(
-      simple_constant_proto.type(), descriptor_pools, &type));
-  ZETASQL_ASSIGN_OR_RETURN(const Value value,
+  ZETASQL_ASSIGN_OR_RETURN(const Type* type,
+                   type_deserializer.Deserialize(simple_constant_proto.type()));
+  ZETASQL_ASSIGN_OR_RETURN(Value value,
                    Value::Deserialize(simple_constant_proto.value(), type));
-  simple_constant->reset(new SimpleConstant(name_path, value));
-  return absl::OkStatus();
+  return absl::WrapUnique(
+      new SimpleConstant(std::move(name_path), std::move(value)));
 }
 
 SimpleModel::SimpleModel(const std::string& name,

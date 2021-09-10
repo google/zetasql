@@ -16,10 +16,11 @@
 
 #include "zetasql/analyzer/run_analyzer_test.h"
 
-#include <algorithm>
+#include <functional>
+#include <map>
 #include <memory>
 #include <set>
-#include <type_traits>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -28,9 +29,12 @@
 #include "google/protobuf/descriptor.h"
 #include "zetasql/analyzer/analyzer_test_options.h"
 #include "zetasql/common/status_payload_utils.h"
-#include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/base/testing/status_matchers.h"  
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/analyzer_output.h"
+#include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/function.h"
@@ -47,12 +51,15 @@
 #include "zetasql/public/templated_sql_function.h"
 #include "zetasql/public/templated_sql_tvf.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast.pb.h"
 #include "zetasql/resolved_ast/resolved_ast_comparator.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
+#include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
+#include "zetasql/resolved_ast/resolved_ast_visitor.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.h"
@@ -67,24 +74,25 @@
 #include "gtest/gtest.h"
 #include "absl/algorithm/container.h"
 #include "absl/container/btree_map.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
 #include "absl/functional/bind_front.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
-#include "zetasql/base/case.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
-#include "absl/strings/substitute.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
 #include "file_based_test_driver/file_based_test_driver.h"
+#include "file_based_test_driver/run_test_case_result.h"
 #include "file_based_test_driver/test_case_options.h"
 #include "zetasql/base/map_util.h"
-#include "re2/re2.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
@@ -106,11 +114,11 @@ static AllowedHintsAndOptions GetAllowedHintsAndOptions(
 
   const zetasql::Type* enum_type;
   ZETASQL_CHECK_OK(type_factory->MakeEnumType(
-      zetasql_test::TestEnum_descriptor(), &enum_type));
+      zetasql_test__::TestEnum_descriptor(), &enum_type));
 
   const zetasql::Type* extra_proto_type;
   ZETASQL_CHECK_OK(type_factory->MakeProtoType(
-      zetasql_test::TestExtraPB::descriptor(), &extra_proto_type));
+      zetasql_test__::TestExtraPB::descriptor(), &extra_proto_type));
 
   const zetasql::Type* enum_array_type;
   ZETASQL_CHECK_OK(type_factory->MakeArrayType(enum_type, &enum_array_type));
@@ -169,7 +177,7 @@ class StripParseLocationsVisitor : public ResolvedASTVisitor {
 std::unique_ptr<ResolvedNode> StripParseLocations(const ResolvedNode* node) {
   ResolvedASTDeepCopyVisitor deep_copy_visitor;
   ZETASQL_CHECK_OK(node->Accept(&deep_copy_visitor));
-  zetasql_base::StatusOr<std::unique_ptr<ResolvedNode>> copy =
+  absl::StatusOr<std::unique_ptr<ResolvedNode>> copy =
       deep_copy_visitor.ConsumeRootNode<ResolvedNode>();
   ZETASQL_CHECK_OK(copy.status());
   StripParseLocationsVisitor strip_visitor;
@@ -205,7 +213,7 @@ static std::string FormatTableResolutionTimeInfoMap(
 namespace {
 
 // Copies the provided AnalyzerOutput to a new AnalyzerOutput.
-zetasql_base::StatusOr<std::unique_ptr<AnalyzerOutput>> CopyAnalyzerOutput(
+absl::StatusOr<std::unique_ptr<AnalyzerOutput>> CopyAnalyzerOutput(
     const AnalyzerOutput& output) {
   ResolvedASTDeepCopyVisitor visitor;
   if (output.resolved_statement() != nullptr) {
@@ -392,7 +400,7 @@ class AnalyzerTestRunner {
     // product mode.
     options.mutable_language()->set_product_mode(PRODUCT_INTERNAL);
 
-    if (test_case_options_.GetBool(kUseHintsWhitelist)) {
+    if (test_case_options_.GetBool(kUseHintsAllowlist)) {
       options.set_allowed_hints_and_options(
           GetAllowedHintsAndOptions(&type_factory));
     }
@@ -451,7 +459,7 @@ class AnalyzerTestRunner {
 
     const zetasql::Type* proto_type;
     ZETASQL_ASSERT_OK(type_factory.MakeProtoType(
-        zetasql_test::KitchenSinkPB::descriptor(), &proto_type));
+        zetasql_test__::KitchenSinkPB::descriptor(), &proto_type));
 
     // Add some expression columns that can be used in AnalyzeStatement cases.
     ZETASQL_EXPECT_OK(options.AddExpressionColumn("column_int32",
@@ -573,16 +581,13 @@ class AnalyzerTestRunner {
       options.set_default_time_zone(timezone);
     }
 
-    if (test_case_options_.GetBool(kRecordParseLocations)) {
-      AnalyzerOptions::ParseLocationOptions parse_location_options;
-      parse_location_options.record_parse_locations = true;
-      const std::string& function_record_type =
-          test_case_options_.GetString(kFunctionCallParseLocationRecordType);
-      if (zetasql_base::CaseEqual(function_record_type, "function_call")) {
-        parse_location_options.function_call_record_type =
-            AnalyzerOptions::FUNCTION_CALL;
-      }
-      options.set_parse_location_options(parse_location_options);
+    const std::string& parse_location_record_type_value =
+            test_case_options_.GetString(kParseLocationRecordType);
+    if (!parse_location_record_type_value.empty()) {
+      ParseLocationRecordType type;
+      ASSERT_TRUE(ParseLocationRecordType_Parse(
+          absl::AsciiStrToUpper(parse_location_record_type_value), &type));
+      options.set_parse_location_record_type(type);
     }
 
     if (test_case_options_.GetBool(kCreateNewColumnForEachProjectedOutput)) {
@@ -668,7 +673,11 @@ class AnalyzerTestRunner {
       // which by design should not give same results for parameters as for
       // literals. For example SELECT "foo" GROUP BY "foo" is valid, but
       // SELECT @p1 GROUP BY "foo" is rejected even if @p1's value is "foo".
-      if (status.ok() && !test_case_options_.GetBool(kRecordParseLocations) &&
+      if (status.ok() &&
+          (test_case_options_.GetString(kParseLocationRecordType).empty() ||
+           zetasql_base::CaseEqual(
+               test_case_options_.GetString(kParseLocationRecordType),
+               ParseLocationRecordType_Name(PARSE_LOCATION_RECORD_NONE))) &&
           test_case_options_.GetBool(kEnableLiteralReplacement)) {
         ZETASQL_EXPECT_OK(CheckLiteralReplacement(test_case, options, output.get()));
       }
@@ -1017,21 +1026,31 @@ class AnalyzerTestRunner {
       const ResolvedStatement* resolved_statement =
           output->resolved_statement();
       const ResolvedExpr* resolved_expr = output->resolved_expr();
-      if (test_case_options_.GetBool(kShowResolvedAST)) {
-        if (resolved_statement != nullptr) {
-          ASSERT_TRUE(resolved_expr == nullptr);
-          test_result_string = resolved_statement->DebugString();
-        } else {
-          ASSERT_TRUE(resolved_expr != nullptr);
-          test_result_string = resolved_expr->DebugString();
-        }
+
+      const ResolvedNode* node;
+      if (resolved_statement != nullptr) {
+        ASSERT_TRUE(resolved_expr == nullptr);
+        node = resolved_statement;
+      } else {
+        ASSERT_TRUE(resolved_expr != nullptr);
+        node = resolved_expr;
+      }
+
+      node->ClearFieldsAccessed();
+      test_result_string = node->DebugString();
+      ZETASQL_ASSERT_OK(node->CheckNoFieldsAccessed());
+      if (!test_case_options_.GetBool(kShowResolvedAST)) {
+        // Hide debug string from test result if not requested in test case
+        // options.
+        //
+        // Note: DebugString() is still computed, even if not requested, so we
+        // can verify that DebugString() does not crash and does not
+        // accidentally mark fields as accessed.
+        test_result_string.clear();
       }
 
       // Append strings for any resolved templated objects in 'output'.
       std::set<std::string> debug_strings;
-      const ResolvedNode* node;
-      if (resolved_statement != nullptr) node = resolved_statement;
-      else if (resolved_expr != nullptr) node = resolved_expr;
       VisitResolvedTemplatedSQLUDFObjects(node, &debug_strings,
                                           &test_result_string);
       VisitResolvedTemplatedSQLTVFObjects(node, &debug_strings,
@@ -1070,7 +1089,7 @@ class AnalyzerTestRunner {
       if (status.code() != absl::StatusCode::kInternal &&
           test_case_options_.GetBool(kExpectErrorLocation) &&
           options.error_message_mode() != ERROR_MESSAGE_WITH_PAYLOAD) {
-        EXPECT_FALSE(status.message().find(" [at ") == absl::string_view::npos)
+        EXPECT_FALSE(!absl::StrContains(status.message(), " [at "))
             << "Error message has no ErrorLocation: " << status;
       }
     }
@@ -1127,7 +1146,10 @@ class AnalyzerTestRunner {
       absl::StripAsciiWhitespace(&test_result_string);
     }
 
-    if (test_case_options_.GetBool(kRecordParseLocations) &&
+    if (!test_case_options_.GetString(kParseLocationRecordType).empty() &&
+        !zetasql_base::CaseEqual(
+            test_case_options_.GetString(kParseLocationRecordType),
+            ParseLocationRecordType_Name(PARSE_LOCATION_RECORD_NONE)) &&
         // We do not print the literal-free string if the original query failed
         // analysis.
         output != nullptr) {
@@ -1154,7 +1176,7 @@ class AnalyzerTestRunner {
         output != nullptr) {
       // Copy the analyzer output so it can be rewritten. Normally we wouldn't
       // care about keeping the original output and would just move it in.
-      zetasql_base::StatusOr<std::unique_ptr<AnalyzerOutput>> rewrite_output_or =
+      absl::StatusOr<std::unique_ptr<AnalyzerOutput>> rewrite_output_or =
           CopyAnalyzerOutput(*output);
       if (!rewrite_output_or.ok()) {
         absl::StrAppend(&test_result_string, "\nAST copy failed: ",
@@ -1677,6 +1699,20 @@ class AnalyzerTestRunner {
                CompareOptionList(output_create_stmt->option_list(),
                                  unparsed_create_stmt->option_list());
       }
+      case RESOLVED_AUX_LOAD_DATA_STMT: {
+        const ResolvedAuxLoadDataStmt* output_create_stmt =
+            output_stmt->GetAs<ResolvedAuxLoadDataStmt>();
+        const ResolvedAuxLoadDataStmt* unparsed_create_stmt =
+            unparsed_stmt->GetAs<ResolvedAuxLoadDataStmt>();
+        return CompareColumnDefinitionList(
+                   output_create_stmt->column_definition_list(),
+                   unparsed_create_stmt->column_definition_list()) &&
+               CompareOptionList(output_create_stmt->option_list(),
+                                 unparsed_create_stmt->option_list()) &&
+               CompareOptionList(
+                   output_create_stmt->from_files_option_list(),
+                   unparsed_create_stmt->from_files_option_list());
+      }
       default:
         ZETASQL_LOG(ERROR) << "Statement type " << unparsed_stmt->node_kind_string()
                    << " not supported";
@@ -1686,7 +1722,7 @@ class AnalyzerTestRunner {
 
   bool CompareNode(const ResolvedNode* output_query,
                    const ResolvedNode* unparsed_query) {
-    zetasql_base::StatusOr<bool> compare_result =
+    absl::StatusOr<bool> compare_result =
         ResolvedASTComparator::CompareResolvedAST(output_query, unparsed_query);
     if (!compare_result.status().ok()) {
       return false;
@@ -1862,6 +1898,7 @@ class AnalyzerTestRunner {
       case RESOLVED_SHOW_STMT:
       case RESOLVED_TRUNCATE_STMT:
       case RESOLVED_UPDATE_STMT:
+      case RESOLVED_AUX_LOAD_DATA_STMT:
         return true;
 
       default:
@@ -1910,6 +1947,12 @@ class AnalyzerTestRunner {
       // an explicit CAST to get a particular instance of that proto type.
       if (!output_col->column().type()->Equivalent(
               unparsed_col->column().type())) {
+        return false;
+      }
+
+      if (!AnnotationMap::Equals(
+              output_col->column().type_annotation_map(),
+              unparsed_col->column().type_annotation_map())) {
         return false;
       }
     }
@@ -2214,8 +2257,8 @@ class AnalyzerTestRunner {
     // parameters will fail for that function. We could introduce an extra
     // test option to turn off literal replacement testing but that's too
     // much bloat for a one-off.
-    if (status.message().find("Argument to NULL_OF_TYPE must be a literal") !=
-        absl::string_view::npos) {
+    if (absl::StrContains(status.message(),
+                          "Argument to NULL_OF_TYPE must be a literal")) {
       // Expected failure for NULL_OF_TYPE test function, ignore.
       return absl::OkStatus();
     }

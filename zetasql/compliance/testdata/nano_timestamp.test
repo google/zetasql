@@ -7,8 +7,8 @@
 [default global_labels=timestamp_type_and_functions]
 
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB]
-[load_enum_names=zetasql_test.TestEnum]
+[load_proto_names=zetasql_test__.KitchenSinkPB]
+[load_enum_names=zetasql_test__.TestEnum]
 
 [name=timestamp_to_string_1]
 [test_features1=TIMESTAMP_NANOS]

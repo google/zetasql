@@ -25,7 +25,7 @@
 #include "zetasql/base/logging.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/strip.h"
 #include "re2/re2.h"
@@ -112,7 +112,7 @@ void RemoveBackSlashFollowedByChar(std::string* token, char esc_chr) {
   }
 }
 
-zetasql_base::StatusOr<std::unique_ptr<ValidJSONPathIterator>>
+absl::StatusOr<std::unique_ptr<ValidJSONPathIterator>>
 ValidJSONPathIterator::Create(absl::string_view js_path,
                               bool sql_standard_mode) {
   ZETASQL_RETURN_IF_ERROR(IsValidJSONPath(js_path, sql_standard_mode));

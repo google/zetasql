@@ -636,6 +636,15 @@ select afn_agg() over (rows between 2 preceding and 3.5 following)
                                                     ^
 ==
 
+# Try a number too big to fit in INT64
+select afn_agg() over (rows between 2 preceding and 18446744073709551615 following)
+from keyvalue
+--
+ERROR: Could not cast literal 18446744073709551615 to type INT64 [at 1:53]
+select afn_agg() over (rows between 2 preceding and 18446744073709551615 foll...
+                                                    ^
+==
+
 # Floating point values are allowed for RANGE.
 select afn_agg() over (order by key range 3.5 preceding) from keyvalue
 --

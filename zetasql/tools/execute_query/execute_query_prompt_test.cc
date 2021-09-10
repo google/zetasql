@@ -16,21 +16,29 @@
 
 #include "zetasql/tools/execute_query/execute_query_prompt.h"
 
+#include <limits>
+
 #include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/common/testing/status_payload_matchers.h"
 #include "zetasql/tools/execute_query/execute_query.pb.h"
+#include "zetasql/tools/execute_query/execute_query_prompt_testutils.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
+#include "absl/strings/escaping.h"
 #include "absl/strings/str_format.h"
 
 using testing::AllOf;
+using testing::AnyOf;
 using testing::Contains;
+using testing::ElementsAre;
+using testing::Eq;
 using testing::HasSubstr;
-using testing::IsEmpty;  // NOLINT(misc-unused-using-decls)
+using testing::IsEmpty;
 using testing::IsSupersetOf;
 using testing::Not;
+using zetasql_base::testing::IsOk;
 using zetasql_base::testing::IsOkAndHolds;
 using zetasql_base::testing::StatusIs;
 
@@ -42,12 +50,30 @@ using testing::EqualsProto;
 
 namespace {
 
-using ReadResultType = zetasql_base::StatusOr<absl::optional<std::string>>;
+using ReadResultType = absl::StatusOr<absl::optional<std::string>>;
 
 struct CompletionReq {
   size_t cursor_position;
-  ::testing::Matcher<zetasql_base::StatusOr<std::vector<std::string>>> matcher;
+
+  ::testing::Matcher<absl::Status> status_matcher = IsOk();
+  size_t want_prefix_start = 0;
+  ::testing::Matcher<std::vector<std::string>> matcher = IsEmpty();
+
+  void Check(ExecuteQueryStatementPrompt& prompt, const std::string body) const;
 };
+
+void CompletionReq::Check(ExecuteQueryStatementPrompt& prompt,
+                          const std::string body) const {
+  const absl::StatusOr<ExecuteQueryCompletionResult> res =
+      prompt.Autocomplete(PrepareCompletionReq(body, cursor_position));
+
+  EXPECT_THAT(res.status(), status_matcher);
+
+  if (res.ok()) {
+    EXPECT_THAT(res.value(),
+                CompletionResponseMatcher(Eq(want_prefix_start), matcher));
+  }
+}
 
 struct StmtPromptInput final {
   ReadResultType ret;
@@ -70,6 +96,7 @@ void TestStmtPrompt(
     EXPECT_EQ(continuation, cur_input->want_continuation);
 
     EXPECT_THAT(cur_input->completions, IsEmpty());
+    CompletionReq{.cursor_position = 0}.Check(*prompt, "");
 
     return (cur_input++)->ret;
   };

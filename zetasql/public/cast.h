@@ -24,7 +24,7 @@
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/time/time.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/status_builder.h"
@@ -120,7 +120,7 @@ using CastFormatMap = absl::flat_hash_map<TypeKindPair, FormatValidationFunc>;
 //      the <default_timezone> is used.
 //   3) Date to Timestamp
 //      The date is interpreted as of midnight in the <default_timezone>.
-zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
+absl::StatusOr<Value> CastValue(const Value& from_value,
                                 absl::TimeZone default_timezone,
                                 const LanguageOptions& language_options,
                                 const Type* to_type,
@@ -128,7 +128,7 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
 
 // Same as the previous method, but includes <format>, which is the format
 // string used in the cast.
-zetasql_base::StatusOr<Value> CastValue(
+absl::StatusOr<Value> CastValue(
     const Value& from_value,
     absl::TimeZone default_timezone,
     const LanguageOptions& language_options,
@@ -137,7 +137,7 @@ zetasql_base::StatusOr<Value> CastValue(
     Catalog* catalog = nullptr);
 
 // DEPRECATED name for CastValue()
-inline zetasql_base::StatusOr<Value> CastStatusOrValue(
+inline absl::StatusOr<Value> CastStatusOrValue(
     const Value& from_value, absl::TimeZone default_timezone,
     const LanguageOptions& language_options, const Type* to_type) {
   return CastValue(from_value, default_timezone, language_options, to_type);
@@ -153,7 +153,7 @@ namespace internal {  //   For internal use only
 // REQUIRES: The requested cast is valid according to Coercer.
 // REQUIRES: If cast involves extended types, their conversion function should
 // be provided in extended_conversion.
-zetasql_base::StatusOr<Value> CastValueWithoutTypeValidation(
+absl::StatusOr<Value> CastValueWithoutTypeValidation(
     const Value& from_value, absl::TimeZone default_timezone,
     absl::optional<absl::Time> current_timestamp,
     const LanguageOptions& language_options, const Type* to_type,
@@ -183,7 +183,7 @@ class ConversionEvaluator {
  public:
   // Creates a ConversionEvaluator. Returns error if any of provided arguments
   // is NULL or <from_type> Equals() to <to_type>.
-  static zetasql_base::StatusOr<ConversionEvaluator> Create(const Type* from_type,
+  static absl::StatusOr<ConversionEvaluator> Create(const Type* from_type,
                                                     const Type* to_type,
                                                     const Function* function);
 
@@ -210,7 +210,7 @@ class ConversionEvaluator {
   // Converts the given Value using conversion function. Requires Value's type
   // to be <from_type_>. If conversion succeeds, the type of returned value will
   // be <to_type_>.
-  zetasql_base::StatusOr<Value> Eval(const Value& from_value) const;
+  absl::StatusOr<Value> Eval(const Value& from_value) const;
 
   // Returns a concrete signature that can be used with conversion function to
   // execute a conversion from <from_type> to <to_type>. The form of the
@@ -250,10 +250,10 @@ class Conversion {
  public:
   // Creates a Conversion. Returns an error if provided arguments are invalid:
   // e.g. any of arguments is NULL or <from_type> is equal to <to_type>.
-  static zetasql_base::StatusOr<Conversion> Create(
+  static absl::StatusOr<Conversion> Create(
       const Type* from_type, const Type* to_type, const Function* function,
       const CastFunctionProperty& property);
-  static zetasql_base::StatusOr<Conversion> Create(
+  static absl::StatusOr<Conversion> Create(
       const ConversionEvaluator& evaluator,
       const CastFunctionProperty& property);
 
@@ -337,7 +337,7 @@ class ExtendedCompositeCastEvaluator {
 
   bool is_valid() const { return !evaluators_.empty(); }
 
-  zetasql_base::StatusOr<Value> Eval(const Value& from_value,
+  absl::StatusOr<Value> Eval(const Value& from_value,
                              const Type* to_type) const;
 
   const std::vector<ConversionEvaluator>& evaluators() const {

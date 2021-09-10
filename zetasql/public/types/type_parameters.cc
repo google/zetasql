@@ -17,17 +17,25 @@
 #include "zetasql/public/types/type_parameters.h"
 
 #include <cstdint>
+#include <string>
+#include <utility>
+#include <vector>
 
+#include "zetasql/base/logging.h"
 #include "google/protobuf/util/message_differencer.h"
-#include "zetasql/public/options.pb.h"
+#include "zetasql/public/simple_value.pb.h"
 #include "zetasql/public/type_parameters.pb.h"
 #include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/string_view.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/substitute.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -104,12 +112,12 @@ TypeParameters::TypeParameters(std::vector<TypeParameters> child_list)
     : child_list_(std::move(child_list)) {}
 TypeParameters::TypeParameters() {}
 
-zetasql_base::StatusOr<TypeParameters> TypeParameters::MakeStringTypeParameters(
+absl::StatusOr<TypeParameters> TypeParameters::MakeStringTypeParameters(
     const StringTypeParametersProto& string_type_parameters) {
   ZETASQL_RETURN_IF_ERROR(ValidateStringTypeParameters(string_type_parameters));
   return TypeParameters(string_type_parameters);
 }
-zetasql_base::StatusOr<TypeParameters> TypeParameters::MakeNumericTypeParameters(
+absl::StatusOr<TypeParameters> TypeParameters::MakeNumericTypeParameters(
     const NumericTypeParametersProto& numeric_type_parameters) {
   ZETASQL_RETURN_IF_ERROR(ValidateNumericTypeParameters(numeric_type_parameters));
   return TypeParameters(numeric_type_parameters);
@@ -184,13 +192,13 @@ absl::Status TypeParameters::Serialize(TypeParametersProto* proto) const {
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<std::string> TypeParameters::SerializeAsString() const {
+absl::StatusOr<std::string> TypeParameters::SerializeAsString() const {
   TypeParametersProto proto;
   ZETASQL_RETURN_IF_ERROR(Serialize(&proto));
   return proto.SerializeAsString();
 }
 
-zetasql_base::StatusOr<TypeParameters> TypeParameters::Deserialize(
+absl::StatusOr<TypeParameters> TypeParameters::Deserialize(
     const TypeParametersProto& proto) {
   if (proto.has_string_type_parameters()) {
     return TypeParameters::MakeStringTypeParameters(
@@ -305,7 +313,7 @@ absl::Status ExtendedTypeParameters::Serialize(
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<ExtendedTypeParameters> ExtendedTypeParameters::Deserialize(
+absl::StatusOr<ExtendedTypeParameters> ExtendedTypeParameters::Deserialize(
     const ExtendedTypeParametersProto& proto) {
   std::vector<SimpleValue> parameters;
   parameters.reserve(proto.parameters_size());

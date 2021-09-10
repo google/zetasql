@@ -17,16 +17,21 @@
 #ifndef ZETASQL_PUBLIC_TYPES_INTERNAL_UTILS_H_
 #define ZETASQL_PUBLIC_TYPES_INTERNAL_UTILS_H_
 
+#include <stddef.h>
+
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/type.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/node_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/types/optional.h"
 
 namespace zetasql {

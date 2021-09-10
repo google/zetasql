@@ -1,18 +1,18 @@
 # Creating proto3 messages using NEW
-SELECT NEW zetasql_test.SimpleProto3Message(expr1 as int32_val)
+SELECT NEW zetasql_test__.SimpleProto3Message(expr1 as int32_val)
 FROM (SELECT 1 as expr1 UNION ALL
       SELECT NULL)
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#4 AS `$col1` [PROTO<zetasql_test.SimpleProto3Message>]
+| +-$query.$col1#4 AS `$col1` [PROTO<zetasql_test__.SimpleProto3Message>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.$col1#4]
     +-expr_list=
     | +-$col1#4 :=
     |   +-MakeProto
-    |     +-type=PROTO<zetasql_test.SimpleProto3Message>
+    |     +-type=PROTO<zetasql_test__.SimpleProto3Message>
     |     +-field_list=
     |       +-int32_val :=
     |         +-Cast(INT64 -> INT32)
@@ -43,13 +43,13 @@ QueryStmt
 ==
 
 # Creating proto3 messages using SELECT AS
-SELECT AS zetasql_test.SimpleProto3Message expr1 as int32_val
+SELECT AS zetasql_test__.SimpleProto3Message expr1 as int32_val
 FROM (SELECT 1 as expr1 UNION ALL
       SELECT NULL)
 --
 QueryStmt
 +-output_column_list=
-| +-$make_proto.$proto#4 AS `$proto` [PROTO<zetasql_test.SimpleProto3Message>]
+| +-$make_proto.$proto#4 AS `$proto` [PROTO<zetasql_test__.SimpleProto3Message>]
 +-is_value_table=TRUE
 +-query=
   +-ProjectScan
@@ -57,7 +57,7 @@ QueryStmt
     +-expr_list=
     | +-$proto#4 :=
     |   +-MakeProto
-    |     +-type=PROTO<zetasql_test.SimpleProto3Message>
+    |     +-type=PROTO<zetasql_test__.SimpleProto3Message>
     |     +-field_list=
     |       +-int32_val :=
     |         +-Cast(INT64 -> INT32)
@@ -111,14 +111,14 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=BOOL
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=int32_val
     | |   +-get_has_bit=TRUE
     | +-has_nested_value#4 :=
     |   +-GetProtoField
     |     +-type=BOOL
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |     +-field_descriptor=nested_value
     |     +-get_has_bit=TRUE
     +-input_scan=
@@ -143,14 +143,14 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=BOOL
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=int32_val
     | |   +-get_has_bit=TRUE
     | +-has_int64_val#4 :=
     |   +-GetProtoField
     |     +-type=BOOL
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |     +-field_descriptor=int64_val
     |     +-get_has_bit=TRUE
     +-input_scan=
@@ -175,14 +175,14 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=BOOL
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=int32_val
     | |   +-get_has_bit=TRUE
     | +-has_int32_val#4 :=
     |   +-GetProtoField
     |     +-type=BOOL
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |     +-field_descriptor=int32_val
     |     +-get_has_bit=TRUE
     +-input_scan=
@@ -206,7 +206,7 @@ FROM Proto3Table
 --
 QueryStmt
 +-output_column_list=
-| +-Proto3Table.Proto3KitchenSink#2 AS Proto3KitchenSink [PROTO<zetasql_test.Proto3KitchenSink>]
+| +-Proto3Table.Proto3KitchenSink#2 AS Proto3KitchenSink [PROTO<zetasql_test__.Proto3KitchenSink>]
 | +-$query.int32_val#3 AS int32_val [INT32]
 | +-$query.uint32_val#4 AS uint32_val [UINT32]
 | +-$query.int64_val#5 AS int64_val [INT64]
@@ -224,63 +224,63 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=int32_val
     | |   +-default_value=0
     | +-uint32_val#4 :=
     | | +-GetProtoField
     | |   +-type=UINT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=uint32_val
     | |   +-default_value=0
     | +-int64_val#5 :=
     | | +-GetProtoField
     | |   +-type=INT64
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=int64_val
     | |   +-default_value=0
     | +-uint64_val#6 :=
     | | +-GetProtoField
     | |   +-type=UINT64
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=uint64_val
     | |   +-default_value=0
     | +-string_val#7 :=
     | | +-GetProtoField
     | |   +-type=STRING
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=string_val
     | |   +-default_value=""
     | +-float_val#8 :=
     | | +-GetProtoField
     | |   +-type=FLOAT
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=float_val
     | |   +-default_value=0
     | +-double_val#9 :=
     | | +-GetProtoField
     | |   +-type=DOUBLE
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=double_val
     | |   +-default_value=0
     | +-bytes_val#10 :=
     | | +-GetProtoField
     | |   +-type=BYTES
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=bytes_val
     | |   +-default_value=b""
     | +-bool_val#11 :=
     |   +-GetProtoField
     |     +-type=BOOL
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |     +-field_descriptor=bool_val
     |     +-default_value=false
     +-input_scan=
@@ -320,63 +320,63 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=ARRAY<INT32>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=repeated_int32_val
     | |   +-default_value=[]
     | +-repeated_uint32_val#4 :=
     | | +-GetProtoField
     | |   +-type=ARRAY<UINT32>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=repeated_uint32_val
     | |   +-default_value=[]
     | +-repeated_int64_val#5 :=
     | | +-GetProtoField
     | |   +-type=ARRAY<INT64>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=repeated_int64_val
     | |   +-default_value=[]
     | +-repeated_uint64_val#6 :=
     | | +-GetProtoField
     | |   +-type=ARRAY<UINT64>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=repeated_uint64_val
     | |   +-default_value=[]
     | +-repeated_string_val#7 :=
     | | +-GetProtoField
     | |   +-type=ARRAY<STRING>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=repeated_string_val
     | |   +-default_value=[]
     | +-repeated_float_val#8 :=
     | | +-GetProtoField
     | |   +-type=ARRAY<FLOAT>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=repeated_float_val
     | |   +-default_value=[]
     | +-repeated_double_val#9 :=
     | | +-GetProtoField
     | |   +-type=ARRAY<DOUBLE>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=repeated_double_val
     | |   +-default_value=[]
     | +-repeated_bytes_val#10 :=
     | | +-GetProtoField
     | |   +-type=ARRAY<BYTES>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=repeated_bytes_val
     | |   +-default_value=[]
     | +-repeated_bool_val#11 :=
     |   +-GetProtoField
     |     +-type=ARRAY<BOOL>
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |     +-field_descriptor=repeated_bool_val
     |     +-default_value=[]
     +-input_scan=
@@ -390,16 +390,16 @@ FROM Proto3Table
 --
 QueryStmt
 +-output_column_list=
-| +-$query.test_enum#3 AS test_enum [ENUM<zetasql_test.TestProto3Enum>]
+| +-$query.test_enum#3 AS test_enum [ENUM<zetasql_test__.TestProto3Enum>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.test_enum#3]
     +-expr_list=
     | +-test_enum#3 :=
     |   +-GetProtoField
-    |     +-type=ENUM<zetasql_test.TestProto3Enum>
+    |     +-type=ENUM<zetasql_test__.TestProto3Enum>
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |     +-field_descriptor=test_enum
     |     +-default_value=ENUM0
     +-input_scan=
@@ -412,16 +412,16 @@ FROM Proto3Table
 --
 QueryStmt
 +-output_column_list=
-| +-$query.test_map#3 AS test_map [ARRAY<PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>>]
+| +-$query.test_map#3 AS test_map [ARRAY<PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.test_map#3]
     +-expr_list=
     | +-test_map#3 :=
     |   +-GetProtoField
-    |     +-type=ARRAY<PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>>
+    |     +-type=ARRAY<PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>>
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |     +-field_descriptor=test_map
     |     +-default_value=[]
     +-input_scan=
@@ -433,7 +433,7 @@ FROM Proto3Table t, t.Proto3KitchenSink.test_map m
 --
 QueryStmt
 +-output_column_list=
-| +-$array.m#3 AS m [PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>]
+| +-$array.m#3 AS m [PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>]
 +-query=
   +-ProjectScan
     +-column_list=[$array.m#3]
@@ -444,9 +444,9 @@ QueryStmt
         | +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1], alias="t")
         +-array_expr=
         | +-GetProtoField
-        |   +-type=ARRAY<PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>>
+        |   +-type=ARRAY<PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>>
         |   +-expr=
-        |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
         |   +-field_descriptor=test_map
         |   +-default_value=[]
         +-element_column=$array.m#3
@@ -467,14 +467,14 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=STRING
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>, column=$array.m#3)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>, column=$array.m#3)
     | |   +-field_descriptor=key
     | |   +-default_value=""
     | +-value#5 :=
     |   +-GetProtoField
     |     +-type=INT32
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>, column=$array.m#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>, column=$array.m#3)
     |     +-field_descriptor=value
     |     +-default_value=0
     +-input_scan=
@@ -484,9 +484,9 @@ QueryStmt
         | +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1], alias="t")
         +-array_expr=
         | +-GetProtoField
-        |   +-type=ARRAY<PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>>
+        |   +-type=ARRAY<PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>>
         |   +-expr=
-        |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
         |   +-field_descriptor=test_map
         |   +-default_value=[]
         +-element_column=$array.m#3
@@ -507,14 +507,14 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=STRING
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>, column=$array.m#3)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>, column=$array.m#3)
     | |   +-field_descriptor=key
     | |   +-default_value=""
     | +-value#5 :=
     |   +-GetProtoField
     |     +-type=INT32
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>, column=$array.m#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>, column=$array.m#3)
     |     +-field_descriptor=value
     |     +-default_value=0
     +-input_scan=
@@ -524,9 +524,9 @@ QueryStmt
         | +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1], alias="t")
         +-array_expr=
         | +-GetProtoField
-        |   +-type=ARRAY<PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>>
+        |   +-type=ARRAY<PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>>
         |   +-expr=
-        |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
         |   +-field_descriptor=test_map
         |   +-default_value=[]
         +-element_column=$array.m#3
@@ -543,11 +543,11 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>>) -> INT64)
+    |   +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>>) -> INT64)
     |     +-GetProtoField
-    |       +-type=ARRAY<PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>>
+    |       +-type=ARRAY<PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>>
     |       +-expr=
-    |       | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |       | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |       +-field_descriptor=test_map
     |       +-default_value=[]
     +-input_scan=
@@ -567,11 +567,11 @@ QueryStmt
     +-column_list=$query.[$col1#4, $col2#5]
     +-expr_list=
     | +-$col1#4 :=
-    | | +-Cast(PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry> -> STRING)
-    | |   +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>, column=$array.m#3)
+    | | +-Cast(PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry> -> STRING)
+    | |   +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>, column=$array.m#3)
     | +-$col2#5 :=
-    |   +-Cast(PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry> -> BYTES)
-    |     +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>, column=$array.m#3)
+    |   +-Cast(PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry> -> BYTES)
+    |     +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>, column=$array.m#3)
     +-input_scan=
       +-ArrayScan
         +-column_list=[Proto3Table.Proto3KitchenSink#2, $array.m#3]
@@ -579,53 +579,53 @@ QueryStmt
         | +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1], alias="t")
         +-array_expr=
         | +-GetProtoField
-        |   +-type=ARRAY<PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>>
+        |   +-type=ARRAY<PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>>
         |   +-expr=
-        |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
         |   +-field_descriptor=test_map
         |   +-default_value=[]
         +-element_column=$array.m#3
 ==
 
 SELECT CAST('key: "hello", value: 123'
-            as zetasql_test.Proto3KitchenSink.TestMapEntry)
+            as zetasql_test__.Proto3KitchenSink.TestMapEntry)
 FROM Proto3Table
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#3 AS `$col1` [PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>]
+| +-$query.$col1#3 AS `$col1` [PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-Cast(STRING -> PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>)
+    |   +-Cast(STRING -> PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>)
     |     +-Literal(type=STRING, value='key: "hello", value: 123')
     +-input_scan=
       +-TableScan(table=Proto3Table)
 ==
 
-SELECT CAST(bytes_proto as zetasql_test.Proto3KitchenSink.TestMapEntry)
+SELECT CAST(bytes_proto as zetasql_test__.Proto3KitchenSink.TestMapEntry)
 FROM (SELECT CAST(m as bytes) bytes_proto
       FROM Proto3Table t, t.Proto3KitchenSink.test_map m)
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#5 AS `$col1` [PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>]
+| +-$query.$col1#5 AS `$col1` [PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.$col1#5]
     +-expr_list=
     | +-$col1#5 :=
-    |   +-Cast(BYTES -> PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>)
+    |   +-Cast(BYTES -> PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>)
     |     +-ColumnRef(type=BYTES, column=$subquery1.bytes_proto#4)
     +-input_scan=
       +-ProjectScan
         +-column_list=[$subquery1.bytes_proto#4]
         +-expr_list=
         | +-bytes_proto#4 :=
-        |   +-Cast(PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry> -> BYTES)
-        |     +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>, column=$array.m#3)
+        |   +-Cast(PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry> -> BYTES)
+        |     +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>, column=$array.m#3)
         +-input_scan=
           +-ArrayScan
             +-column_list=[Proto3Table.Proto3KitchenSink#2, $array.m#3]
@@ -633,28 +633,28 @@ QueryStmt
             | +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1], alias="t")
             +-array_expr=
             | +-GetProtoField
-            |   +-type=ARRAY<PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>>
+            |   +-type=ARRAY<PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>>
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
             |   +-field_descriptor=test_map
             |   +-default_value=[]
             +-element_column=$array.m#3
 ==
 
-SELECT NEW zetasql_test.Proto3KitchenSink.TestMapEntry(expr1 as key,
+SELECT NEW zetasql_test__.Proto3KitchenSink.TestMapEntry(expr1 as key,
                                                          expr2 as value)
 FROM (SELECT "hello" as expr1, 123 as expr2)
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#3 AS `$col1` [PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>]
+| +-$query.$col1#3 AS `$col1` [PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
     |   +-MakeProto
-    |     +-type=PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>
+    |     +-type=PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>
     |     +-field_list=
     |       +-key := ColumnRef(type=STRING, column=$subquery1.expr1#1)
     |       +-value :=
@@ -670,12 +670,12 @@ QueryStmt
           +-SingleRowScan
 ==
 
-SELECT AS zetasql_test.Proto3KitchenSink.TestMapEntry expr1 key, expr2 value
+SELECT AS zetasql_test__.Proto3KitchenSink.TestMapEntry expr1 key, expr2 value
 FROM (SELECT "hello" as expr1, 123 as expr2)
 --
 QueryStmt
 +-output_column_list=
-| +-$make_proto.$proto#3 AS `$proto` [PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>]
+| +-$make_proto.$proto#3 AS `$proto` [PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>]
 +-is_value_table=TRUE
 +-query=
   +-ProjectScan
@@ -683,7 +683,7 @@ QueryStmt
     +-expr_list=
     | +-$proto#3 :=
     |   +-MakeProto
-    |     +-type=PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>
+    |     +-type=PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>
     |     +-field_list=
     |       +-key := ColumnRef(type=STRING, column=$subquery1.expr1#1)
     |       +-value :=
@@ -703,12 +703,12 @@ QueryStmt
 ==
 
 # Constructing a MapEntry with a missing key field
-SELECT AS zetasql_test.Proto3KitchenSink.TestMapEntry expr2 value
+SELECT AS zetasql_test__.Proto3KitchenSink.TestMapEntry expr2 value
 FROM (SELECT 123 as expr2)
 --
 QueryStmt
 +-output_column_list=
-| +-$make_proto.$proto#2 AS `$proto` [PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>]
+| +-$make_proto.$proto#2 AS `$proto` [PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>]
 +-is_value_table=TRUE
 +-query=
   +-ProjectScan
@@ -716,7 +716,7 @@ QueryStmt
     +-expr_list=
     | +-$proto#2 :=
     |   +-MakeProto
-    |     +-type=PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>
+    |     +-type=PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>
     |     +-field_list=
     |       +-value :=
     |         +-Cast(INT64 -> INT32)
@@ -733,11 +733,11 @@ QueryStmt
               +-SingleRowScan
 ==
 
-SELECT NEW zetasql_test.Proto3KitchenSink.TestMapEntry(expr1 as key,
+SELECT NEW zetasql_test__.Proto3KitchenSink.TestMapEntry(expr1 as key,
                                                          expr2 as value)
 FROM (SELECT "hello" as expr1, b"123" as expr2)
 --
-ERROR: Could not store value with type BYTES into proto field zetasql_test.Proto3KitchenSink.TestMapEntry.value which has SQL type INT32 [at 2:58]
+ERROR: Could not store value with type BYTES into proto field zetasql_test__.Proto3KitchenSink.TestMapEntry.value which has SQL type INT32 [at 2:58]
                                                          expr2 as value)
                                                          ^
 ==
@@ -745,7 +745,7 @@ ERROR: Could not store value with type BYTES into proto field zetasql_test.Proto
 SELECT MessageWithInvalidMap.invalid_test_map
 FROM Proto3InvalidMapTable
 --
-ERROR: Proto zetasql_test.MessageWithInvalidMap has invalid zetasql.format for field: map<string, string> invalid_test_map = 63 [(.zetasql.format) = DATE];
+ERROR: Proto zetasql_test__.MessageWithInvalidMap has invalid zetasql.format for field: map<string, string> invalid_test_map = 63 [(.zetasql.format) = DATE];
  [at 1:30]
 SELECT MessageWithInvalidMap.invalid_test_map
                              ^
@@ -781,56 +781,56 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=PROTO<google.protobuf.Timestamp>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=timestamp_wkt
     | |   +-default_value=NULL
     | +-duration_wkt#4 :=
     | | +-GetProtoField
     | |   +-type=PROTO<google.protobuf.Duration>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=duration_wkt
     | |   +-default_value=NULL
     | +-empty_wkt#5 :=
     | | +-GetProtoField
     | |   +-type=PROTO<google.protobuf.Empty>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=empty_wkt
     | |   +-default_value=NULL
     | +-field_mask_wkt#6 :=
     | | +-GetProtoField
     | |   +-type=PROTO<google.protobuf.FieldMask>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=field_mask_wkt
     | |   +-default_value=NULL
     | +-struct_wkt#7 :=
     | | +-GetProtoField
     | |   +-type=PROTO<google.protobuf.Struct>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=struct_wkt
     | |   +-default_value=NULL
     | +-api_wkt#8 :=
     | | +-GetProtoField
     | |   +-type=PROTO<google.protobuf.Api>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=api_wkt
     | |   +-default_value=NULL
     | +-source_context_wkt#9 :=
     | | +-GetProtoField
     | |   +-type=PROTO<google.protobuf.SourceContext>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=source_context_wkt
     | |   +-default_value=NULL
     | +-wrapped_int32_wkt#10 :=
     |   +-GetProtoField
     |     +-type=PROTO<google.protobuf.Int32Value>
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |     +-field_descriptor=wrapped_int32_wkt
     |     +-default_value=NULL
     +-input_scan=
@@ -856,7 +856,7 @@ QueryStmt
     | |   | +-GetProtoField
     | |   |   +-type=PROTO<google.protobuf.Timestamp>
     | |   |   +-expr=
-    | |   |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   |   +-field_descriptor=timestamp_wkt
     | |   |   +-default_value=NULL
     | |   +-field_descriptor=seconds
@@ -868,7 +868,7 @@ QueryStmt
     |     | +-GetProtoField
     |     |   +-type=PROTO<google.protobuf.Timestamp>
     |     |   +-expr=
-    |     |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |     |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |     |   +-field_descriptor=timestamp_wkt
     |     |   +-default_value=NULL
     |     +-field_descriptor=nanos
@@ -914,7 +914,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=PROTO<google.protobuf.Any>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=any_wkt
     | |   +-default_value=NULL
     | +-type_url#4 :=
@@ -924,7 +924,7 @@ QueryStmt
     | |   | +-GetProtoField
     | |   |   +-type=PROTO<google.protobuf.Any>
     | |   |   +-expr=
-    | |   |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   |   +-field_descriptor=any_wkt
     | |   |   +-default_value=NULL
     | |   +-field_descriptor=type_url
@@ -936,7 +936,7 @@ QueryStmt
     | |   | +-GetProtoField
     | |   |   +-type=PROTO<google.protobuf.Any>
     | |   |   +-expr=
-    | |   |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   |   +-field_descriptor=any_wkt
     | |   |   +-default_value=NULL
     | |   +-field_descriptor=value
@@ -946,7 +946,7 @@ QueryStmt
     |     +-GetProtoField
     |       +-type=PROTO<google.protobuf.Any>
     |       +-expr=
-    |       | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |       | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |       +-field_descriptor=any_wkt
     |       +-default_value=NULL
     +-input_scan=
@@ -982,7 +982,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=DATE
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=date
     | |   +-default_value=1970-01-01
     | |   +-format=DATE
@@ -990,7 +990,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=TIMESTAMP
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=timestamp_seconds
     | |   +-default_value=1970-01-01 00:00:00+00
     | |   +-format=TIMESTAMP_SECONDS
@@ -998,7 +998,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=TIMESTAMP
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=timestamp_seconds_format
     | |   +-default_value=1970-01-01 00:00:00+00
     | |   +-format=TIMESTAMP_SECONDS
@@ -1006,24 +1006,24 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=STRING
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |     +-field_descriptor=nullable_string
     |     +-default_value=NULL
     +-input_scan=
       +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1])
 ==
 
-SELECT CAST('int32_val:12345' AS zetasql_test.Proto3KitchenSink)
+SELECT CAST('int32_val:12345' AS zetasql_test__.Proto3KitchenSink)
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1 AS `$col1` [PROTO<zetasql_test.Proto3KitchenSink>]
+| +-$query.$col1#1 AS `$col1` [PROTO<zetasql_test__.Proto3KitchenSink>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-Cast(STRING -> PROTO<zetasql_test.Proto3KitchenSink>)
+    |   +-Cast(STRING -> PROTO<zetasql_test__.Proto3KitchenSink>)
     |     +-Literal(type=STRING, value="int32_val:12345")
     +-input_scan=
       +-SingleRowScan
@@ -1034,16 +1034,16 @@ FROM Proto3Table
 --
 QueryStmt
 +-output_column_list=
-| +-$query.test_struct#3 AS test_struct [PROTO<zetasql_test.Proto3AnnotatedStruct>]
+| +-$query.test_struct#3 AS test_struct [PROTO<zetasql_test__.Proto3AnnotatedStruct>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.test_struct#3]
     +-expr_list=
     | +-test_struct#3 :=
     |   +-GetProtoField
-    |     +-type=PROTO<zetasql_test.Proto3AnnotatedStruct>
+    |     +-type=PROTO<zetasql_test__.Proto3AnnotatedStruct>
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |     +-field_descriptor=test_struct
     |     +-default_value=NULL
     +-input_scan=
@@ -1056,16 +1056,16 @@ FROM Proto3Table
 --
 QueryStmt
 +-output_column_list=
-| +-$query.empty_message#3 AS empty_message [PROTO<zetasql_test.EmptyMessage>]
+| +-$query.empty_message#3 AS empty_message [PROTO<zetasql_test__.EmptyMessage>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.empty_message#3]
     +-expr_list=
     | +-empty_message#3 :=
     |   +-GetProtoField
-    |     +-type=PROTO<zetasql_test.EmptyMessage>
+    |     +-type=PROTO<zetasql_test__.EmptyMessage>
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |     +-field_descriptor=empty_message
     |     +-default_value=NULL
     +-input_scan=
@@ -1089,9 +1089,9 @@ QueryStmt
     | |   +-type=INT64
     | |   +-expr=
     | |   | +-GetProtoField
-    | |   |   +-type=PROTO<zetasql_test.Proto3KitchenSink.Nested>
+    | |   |   +-type=PROTO<zetasql_test__.Proto3KitchenSink.Nested>
     | |   |   +-expr=
-    | |   |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   |   +-field_descriptor=nested_value
     | |   |   +-default_value=NULL
     | |   +-field_descriptor=nested_int64
@@ -1101,9 +1101,9 @@ QueryStmt
     |     +-type=ARRAY<INT64>
     |     +-expr=
     |     | +-GetProtoField
-    |     |   +-type=PROTO<zetasql_test.Proto3KitchenSink.Nested>
+    |     |   +-type=PROTO<zetasql_test__.Proto3KitchenSink.Nested>
     |     |   +-expr=
-    |     |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |     |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |     |   +-field_descriptor=nested_value
     |     |   +-default_value=NULL
     |     +-field_descriptor=nested_repeated_int64
@@ -1124,8 +1124,8 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(sample_functions:fn_on_any_proto(PROTO<zetasql_test.Proto3KitchenSink>) -> BOOL)
-    |     +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |   +-FunctionCall(sample_functions:fn_on_any_proto(PROTO<zetasql_test__.Proto3KitchenSink>) -> BOOL)
+    |     +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     +-input_scan=
       +-TableScan(column_list=[Proto3Table.Proto3KitchenSink#2], table=Proto3Table, column_index_list=[1])
 ==
@@ -1133,7 +1133,7 @@ QueryStmt
 SELECT Proto3KitchenSink.nested_repeated_value.nested_int64
 FROM Proto3Table
 --
-ERROR: Cannot access field nested_int64 on a value with type ARRAY<zetasql_test.Proto3KitchenSink.Nested> [at 1:48]
+ERROR: Cannot access field nested_int64 on a value with type ARRAY<zetasql_test__.Proto3KitchenSink.Nested> [at 1:48]
 SELECT Proto3KitchenSink.nested_repeated_value.nested_int64
                                                ^
 ==
@@ -1141,7 +1141,7 @@ SELECT Proto3KitchenSink.nested_repeated_value.nested_int64
 SELECT Proto3KitchenSink.field_that_doesnt_exist
 FROM Proto3Table
 --
-ERROR: Protocol buffer zetasql_test.Proto3KitchenSink does not have a field called field_that_doesnt_exist [at 1:26]
+ERROR: Protocol buffer zetasql_test__.Proto3KitchenSink does not have a field called field_that_doesnt_exist [at 1:26]
 SELECT Proto3KitchenSink.field_that_doesnt_exist
                          ^
 ==
@@ -1167,21 +1167,21 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=int32_val
     | |   +-default_value=0
     | +-int64_val#4 :=
     | | +-GetProtoField
     | |   +-type=INT64
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=int64_val
     | |   +-default_value=0
     | +-date#5 :=
     |   +-GetProtoField
     |     +-type=DATE
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |     +-field_descriptor=date
     |     +-default_value=1970-01-01
     |     +-format=DATE
@@ -1207,14 +1207,14 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=STRING
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=nullable_string
     | |   +-default_value=NULL
     | +-nullable_date#4 :=
     |   +-GetProtoField
     |     +-type=DATE
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |     +-field_descriptor=nullable_date
     |     +-default_value=NULL
     |     +-format=DATE
@@ -1235,14 +1235,14 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=STRING
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=nullable_string
     | |   +-default_value=""
     | +-nullable_date#4 :=
     |   +-GetProtoField
     |     +-type=DATE
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |     +-field_descriptor=nullable_date
     |     +-default_value=1970-01-01
     |     +-format=DATE
@@ -1266,14 +1266,14 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=ARRAY<INT32>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=repeated_int32_val
     | |   +-default_value=[]
     | +-repeated_date#4 :=
     |   +-GetProtoField
     |     +-type=ARRAY<DATE>
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |     +-field_descriptor=repeated_date
     |     +-default_value=[]
     |     +-format=DATE
@@ -1288,7 +1288,7 @@ FROM Proto3Table
 --
 QueryStmt
 +-output_column_list=
-| +-$query.nested_value#3 AS nested_value [PROTO<zetasql_test.Proto3KitchenSink.Nested>]
+| +-$query.nested_value#3 AS nested_value [PROTO<zetasql_test__.Proto3KitchenSink.Nested>]
 | +-$query.nested_int64#4 AS nested_int64 [INT64]
 +-query=
   +-ProjectScan
@@ -1296,9 +1296,9 @@ QueryStmt
     +-expr_list=
     | +-nested_value#3 :=
     | | +-GetProtoField
-    | |   +-type=PROTO<zetasql_test.Proto3KitchenSink.Nested>
+    | |   +-type=PROTO<zetasql_test__.Proto3KitchenSink.Nested>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   +-field_descriptor=nested_value
     | |   +-default_value=NULL
     | +-nested_int64#4 :=
@@ -1306,9 +1306,9 @@ QueryStmt
     |     +-type=INT64
     |     +-expr=
     |     | +-GetProtoField
-    |     |   +-type=PROTO<zetasql_test.Proto3KitchenSink.Nested>
+    |     |   +-type=PROTO<zetasql_test__.Proto3KitchenSink.Nested>
     |     |   +-expr=
-    |     |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |     |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |     |   +-field_descriptor=nested_value
     |     |   +-default_value=NULL
     |     +-field_descriptor=nested_int64
@@ -1339,9 +1339,9 @@ QueryStmt
     | |   +-type=INT64
     | |   +-expr=
     | |   | +-GetProtoField
-    | |   |   +-type=PROTO<zetasql_test.Proto3KitchenSink.NullableNested>
+    | |   |   +-type=PROTO<zetasql_test__.Proto3KitchenSink.NullableNested>
     | |   |   +-expr=
-    | |   |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   |   +-field_descriptor=nullable_nested_value
     | |   |   +-default_value=NULL
     | |   +-field_descriptor=nested_int64
@@ -1351,9 +1351,9 @@ QueryStmt
     | |   +-type=ARRAY<INT64>
     | |   +-expr=
     | |   | +-GetProtoField
-    | |   |   +-type=PROTO<zetasql_test.Proto3KitchenSink.NullableNested>
+    | |   |   +-type=PROTO<zetasql_test__.Proto3KitchenSink.NullableNested>
     | |   |   +-expr=
-    | |   |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   |   +-field_descriptor=nullable_nested_value
     | |   |   +-default_value=NULL
     | |   +-field_descriptor=nested_repeated_int64
@@ -1363,9 +1363,9 @@ QueryStmt
     |     +-type=DATE
     |     +-expr=
     |     | +-GetProtoField
-    |     |   +-type=PROTO<zetasql_test.Proto3KitchenSink.NullableNested>
+    |     |   +-type=PROTO<zetasql_test__.Proto3KitchenSink.NullableNested>
     |     |   +-expr=
-    |     |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |     |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |     |   +-field_descriptor=nullable_nested_value
     |     |   +-default_value=NULL
     |     +-field_descriptor=date
@@ -1390,9 +1390,9 @@ QueryStmt
     | |   +-type=INT64
     | |   +-expr=
     | |   | +-GetProtoField
-    | |   |   +-type=PROTO<zetasql_test.Proto3KitchenSink.NullableNested>
+    | |   |   +-type=PROTO<zetasql_test__.Proto3KitchenSink.NullableNested>
     | |   |   +-expr=
-    | |   |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   |   +-field_descriptor=nullable_nested_value
     | |   |   +-default_value=NULL
     | |   +-field_descriptor=nested_int64
@@ -1402,9 +1402,9 @@ QueryStmt
     | |   +-type=ARRAY<INT64>
     | |   +-expr=
     | |   | +-GetProtoField
-    | |   |   +-type=PROTO<zetasql_test.Proto3KitchenSink.NullableNested>
+    | |   |   +-type=PROTO<zetasql_test__.Proto3KitchenSink.NullableNested>
     | |   |   +-expr=
-    | |   |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    | |   |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     | |   |   +-field_descriptor=nullable_nested_value
     | |   |   +-default_value=NULL
     | |   +-field_descriptor=nested_repeated_int64
@@ -1414,9 +1414,9 @@ QueryStmt
     |     +-type=DATE
     |     +-expr=
     |     | +-GetProtoField
-    |     |   +-type=PROTO<zetasql_test.Proto3KitchenSink.NullableNested>
+    |     |   +-type=PROTO<zetasql_test__.Proto3KitchenSink.NullableNested>
     |     |   +-expr=
-    |     |   | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |     |   | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |     |   +-field_descriptor=nullable_nested_value
     |     |   +-default_value=NULL
     |     +-field_descriptor=date
@@ -1432,16 +1432,16 @@ FROM Proto3Table
 --
 QueryStmt
 +-output_column_list=
-| +-$query.test_map#3 AS test_map [ARRAY<PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>>]
+| +-$query.test_map#3 AS test_map [ARRAY<PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.test_map#3]
     +-expr_list=
     | +-test_map#3 :=
     |   +-GetProtoField
-    |     +-type=ARRAY<PROTO<zetasql_test.Proto3KitchenSink.TestMapEntry>>
+    |     +-type=ARRAY<PROTO<zetasql_test__.Proto3KitchenSink.TestMapEntry>>
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
     |     +-field_descriptor=test_map
     |     +-default_value=[]
     +-input_scan=
@@ -1468,7 +1468,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=STRING
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.Proto3SmallMessageWithNoUseDefaults>, column=$preproject.$proto#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.Proto3SmallMessageWithNoUseDefaults>, column=$preproject.$proto#3)
     |     +-field_descriptor=s1
     |     +-default_value=NULL
     +-input_scan=
@@ -1477,9 +1477,9 @@ QueryStmt
         +-expr_list=
         | +-$proto#3 :=
         |   +-GetProtoField
-        |     +-type=PROTO<zetasql_test.Proto3SmallMessageWithNoUseDefaults>
+        |     +-type=PROTO<zetasql_test__.Proto3SmallMessageWithNoUseDefaults>
         |     +-expr=
-        |     | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+        |     | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
         |     +-field_descriptor=small_message_no_use_defaults
         |     +-default_value=NULL
         +-input_scan=
@@ -1498,7 +1498,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=STRING
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.Proto3SmallMessageWithNoUseDefaults>, column=$preproject.$proto#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.Proto3SmallMessageWithNoUseDefaults>, column=$preproject.$proto#3)
     |     +-field_descriptor=s1
     |     +-default_value=""
     +-input_scan=
@@ -1507,9 +1507,9 @@ QueryStmt
         +-expr_list=
         | +-$proto#3 :=
         |   +-GetProtoField
-        |     +-type=PROTO<zetasql_test.Proto3SmallMessageWithNoUseDefaults>
+        |     +-type=PROTO<zetasql_test__.Proto3SmallMessageWithNoUseDefaults>
         |     +-expr=
-        |     | +-ColumnRef(type=PROTO<zetasql_test.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
+        |     | +-ColumnRef(type=PROTO<zetasql_test__.Proto3KitchenSink>, column=Proto3Table.Proto3KitchenSink#2)
         |     +-field_descriptor=small_message_no_use_defaults
         |     +-default_value=NULL
         +-input_scan=

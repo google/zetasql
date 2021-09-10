@@ -19,13 +19,14 @@
 #include <string>
 
 #include "zetasql/base/logging.h"
+#include "absl/strings/match.h"
 
 namespace zetasql {
 
 VariableId::VariableId(const std::string& name) : name_(name) {
   // Make sure we don't use certain special characters for ease of debugging.
-  ZETASQL_DCHECK(name.find('$') == std::string::npos);  // used in the resolved AST
-  ZETASQL_DCHECK(name.find('@') == std::string::npos);  // used for query parameters
+  ZETASQL_DCHECK(!absl::StrContains(name, '$'));  // used in the resolved AST
+  ZETASQL_DCHECK(!absl::StrContains(name, '@'));  // used for query parameters
 }
 
 std::ostream& operator<<(std::ostream& out, const VariableId& id) {

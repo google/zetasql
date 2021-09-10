@@ -18,7 +18,7 @@
 
 #include "google/protobuf/io/tokenizer.h"
 #include "zetasql/public/strings.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
@@ -356,7 +356,7 @@ absl::Status Catalog::FindObject(absl::Span<const std::string> path,
   return FindConstant(path, object, options);
 }
 
-zetasql_base::StatusOr<TypeListView> Catalog::GetExtendedTypeSuperTypes(
+absl::StatusOr<TypeListView> Catalog::GetExtendedTypeSuperTypes(
     const Type* type) {
   ZETASQL_RET_CHECK_NE(type, nullptr);
   ZETASQL_RET_CHECK(type->IsExtendedType());
@@ -536,7 +536,7 @@ absl::Status Catalog::EmptyNamePathInternalError(
 
 
 // static
-zetasql_base::StatusOr<AnonymizationUserIdInfo> AnonymizationUserIdInfo::Create(
+absl::StatusOr<AnonymizationUserIdInfo> AnonymizationUserIdInfo::Create(
     const Column* column) {
   ZETASQL_RET_CHECK_NE(column, nullptr);
   ZETASQL_RET_CHECK(!column->Name().empty());
@@ -544,7 +544,7 @@ zetasql_base::StatusOr<AnonymizationUserIdInfo> AnonymizationUserIdInfo::Create(
 }
 
 // static
-zetasql_base::StatusOr<AnonymizationUserIdInfo> AnonymizationUserIdInfo::Create(
+absl::StatusOr<AnonymizationUserIdInfo> AnonymizationUserIdInfo::Create(
     absl::Span<const std::string> column_name_path) {
   ZETASQL_RET_CHECK(!column_name_path.empty());
   return AnonymizationUserIdInfo(column_name_path);
@@ -559,7 +559,7 @@ AnonymizationUserIdInfo::AnonymizationUserIdInfo(
     : column_name_path_(column_name_path.begin(), column_name_path.end()) {}
 
 // static
-zetasql_base::StatusOr<std::unique_ptr<AnonymizationInfo>> AnonymizationInfo::Create(
+absl::StatusOr<std::unique_ptr<AnonymizationInfo>> AnonymizationInfo::Create(
     const Table* table, absl::Span<const std::string> userid_column_name_path) {
   ZETASQL_RET_CHECK_NE(table, nullptr);
   absl::Status not_found_error =
@@ -656,19 +656,19 @@ zetasql_base::StatusOr<std::unique_ptr<AnonymizationInfo>> AnonymizationInfo::Cr
         AnonymizationUserIdInfo userid_info,
         AnonymizationUserIdInfo::Create(column));
     anonymization_info.reset(new AnonymizationInfo(std::move(userid_info)));
-    return std::move(anonymization_info);
+    return anonymization_info;
   }
 
   return not_found_error;
 }
 // static
-zetasql_base::StatusOr<std::unique_ptr<AnonymizationInfo>> AnonymizationInfo::Create(
+absl::StatusOr<std::unique_ptr<AnonymizationInfo>> AnonymizationInfo::Create(
     absl::Span<const std::string> userid_column_name_path) {
   std::unique_ptr<AnonymizationInfo> anonymization_info;
   ZETASQL_ASSIGN_OR_RETURN(AnonymizationUserIdInfo userid_info,
                    AnonymizationUserIdInfo::Create(userid_column_name_path));
   anonymization_info.reset(new AnonymizationInfo(std::move(userid_info)));
-  return std::move(anonymization_info);
+  return anonymization_info;
 }
 
 absl::Span<const std::string> AnonymizationInfo::UserIdColumnNamePath() const {

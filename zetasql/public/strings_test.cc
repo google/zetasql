@@ -25,13 +25,17 @@
 #include "zetasql/common/utf_util.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/base/macros.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/escaping.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"
 
@@ -85,8 +89,7 @@ static void TestString(const std::string& unquoted) {
 }
 
 static void TestRawString(const std::string& unquoted) {
-  const std::string quote =
-      (unquoted.find("'") == std::string::npos) ? "'" : "\"";
+  const std::string quote = (!absl::StrContains(unquoted, "'")) ? "'" : "\"";
   TestQuotedString(unquoted, absl::StrCat("r", quote, unquoted, quote));
   TestQuotedString(unquoted, absl::StrCat("r\"", unquoted, "\""));
   TestQuotedString(unquoted, absl::StrCat("r'''", unquoted, "'''"));
@@ -164,8 +167,7 @@ static void TestUnescapedBytes(const std::string& unquoted) {
 }
 
 static void TestRawBytes(const std::string& unquoted) {
-  const std::string quote =
-      (unquoted.find("'") == std::string::npos) ? "'" : "\"";
+  const std::string quote = (!absl::StrContains(unquoted, "'")) ? "'" : "\"";
   TestQuotedRawBytesLiteral(unquoted,
                             absl::StrCat("rb", quote, unquoted, quote));
   TestQuotedRawBytesLiteral(unquoted,
@@ -1123,105 +1125,236 @@ struct ParseIdentifierPathTestCase {
 
 TEST(StringsTest, ParseIdentifierPath) {
   const std::vector<ParseIdentifierPathTestCase> test_cases({
-    // Test format:
-    // name | input | output | error
+      // Test format:
+      // name | input | output | error
 
-    // Success.
-    {"SingleIdentifier", "abc", {"abc"}},
-    {"SingleDot", "abc.`def`", {"abc", "def"}},
-    {"NumericPathTicks", "abc.`123`", {"abc", "123"}},
-    {"NumericPathNoTicks", "abc.123", {"abc", "123"}},
-    {"NumericPathBothTicks", "abc.`123`.456", {"abc", "123", "456"}},
-    {"EscapedBackslash", "`a\\\\`.bc", {"a\\", "bc"}},
-    {"EscapedBackquote", "`\\``.ghi", {"`", "ghi"}},
-    {"UnquotedKeywords", "abc.select.from.table",
-      {"abc", "select", "from", "table"}},
-    {"QuotedAndUnquotedKeywords", "abc.`select`.from.`table`",
-      {"abc", "select", "from", "table"}},
-    {"EscapedWithSpaces", "`a c`.def.`g h`", {"a c", "def", "g h"}},
-    {"DotInBackquotes", "abc.def.`ghi.jkl`", {"abc", "def", "ghi.jkl"}},
-    {"HexDotsBackquotes", "`abc\\x2e\\x60ghi`", {"abc.`ghi"}},
-    {"EscapedNewlinesHex", "`abc\\ndef\\x12ghi`.suffix",
-      {"abc\ndef\x12ghi", "suffix"}},
-    {"HexToUnicode", "`\xd0\x9e\xd0\xbb\xd1\x8f.abc`.`\\U0010FFFD`",
-      {"\xd0\x9e\xd0\xbb\xd1\x8f.abc", "\xf4\x8f\xbf\xbd"}},
-    {"EscapedUnicode",
-      "abc.`\\\"\xe8\xb0\xb7\xe6\xad\x8c\\\" is Google\\\'s Chinese name`",
-      {"abc", "\"\xE8\xB0\xB7\xE6\xAD\x8C\" is Google's Chinese name"}},
-    // Failure.
-    {"EmptyString", "", {}, "cannot be empty"},
-    {"NullByte", "\0", {}, "cannot be empty"},
-    {"EmptyPathComponent", "abc..def", {}, "empty path component"},
-    {"InvalidIdentifier", "abc.def`12`", {}, "invalid character"},
-    {"BackquoteStart", "abc.`defghi", {}, "contains an unmatched `"},
-    {"BackquoteMiddle", "abc.def`ghi", {}, "invalid character"},
-    {"BackquoteTrailing", "abc.def`", {}, "invalid character"},
-    {"BackquoteConsecutive", "`abc``def`", {}, "invalid character"},
-    {"LeadingDot", ".abc.def.", {}, "cannot begin with `.`"},
-    {"TrailingDot", "abc.def.", {}, "cannot end with `.`"},
-    {"AllWhitespace", "     ", {}, "invalid character"},
-    {"LeadingWhitespace", "    abc.123", {}, "invalid character"},
-    {"TrailingWhitespace", "abc.123\\n", {}, "invalid character"},
-    {"WhitespacePreIdentifier", "abc.\\r\\n\\t   123", {}, "invalid character"},
-    {"WhitespacePostIdentifier", "abc.123\t.def", {}, "invalid character"},
-    {"WhitespaceWithinComponent", "abc.123 def", {}, "invalid character"},
-    {"InvalidEscape", "abc.`'\\e'`", {}, "Illegal escape sequence"},
-    {"InvalidUTF8", "abc.`\xe0\x80\x80`", {}, "invalid UTF8 string"},
-    {"TrailingEscape", "abc.def\\", {}, "invalid character"},
-    {"PathStartsWithNumber0", "123", {}, "Invalid identifier"},
-    {"PathStartsWithNumber1", "123abc", {}, "Invalid identifier"},
-    {"PathStartsWithNumber2", "123.abc", {}, "Invalid identifier"},
-    {"PathHasComment", "abc./*comment*/def", {}, "invalid character"},
-    // Assorted unescaped expressions.
-    {"UnescapedExpression0", "(abc)", {}, "invalid character"},
-    {"UnescapedExpression1", "+abc", {}, "invalid character"},
-    {"UnescapedExpression2", "'abc'", {}, "invalid character"},
-    {"UnescapedExpression3", "abc+def", {}, "invalid character"},
-    {"UnescapedExpression4", "\"abc+def\"", {}, "invalid character"},
-    {"UnescapedExpression5", "\"abc.def\"", {}, "invalid character"},
+      // Success.
+      {"SingleIdentifier", "abc", {"abc"}},
+      {"SingleDot", "abc.`def`", {"abc", "def"}},
+      {"NumericPathTicks", "abc.`123`", {"abc", "123"}},
+      {"NumericPathNoTicks", "abc.123", {"abc", "123"}},
+      {"NumericPathBothTicks", "abc.`123`.456", {"abc", "123", "456"}},
+      {"EscapedBackslash", "`a\\\\`.bc", {"a\\", "bc"}},
+      {"EscapedBackquote", "`\\``.ghi", {"`", "ghi"}},
+      {"UnquotedKeywords",
+       "abc.select.from.table",
+       {"abc", "select", "from", "table"}},
+      {"QuotedAndUnquotedKeywords",
+       "abc.`select`.from.`table`",
+       {"abc", "select", "from", "table"}},
+      {"EscapedWithSpaces", "`a c`.def.`g h`", {"a c", "def", "g h"}},
+      {"DotInBackquotes", "abc.def.`ghi.jkl`", {"abc", "def", "ghi.jkl"}},
+      {"HexDotsBackquotes", "`abc\\x2e\\x60ghi`", {"abc.`ghi"}},
+      {"EscapedNewlinesHex",
+       "`abc\\ndef\\x12ghi`.suffix",
+       {"abc\ndef\x12ghi", "suffix"}},
+      {"HexToUnicode",
+       "`\xd0\x9e\xd0\xbb\xd1\x8f.abc`.`\\U0010FFFD`",
+       {"\xd0\x9e\xd0\xbb\xd1\x8f.abc", "\xf4\x8f\xbf\xbd"}},
+      {"EscapedUnicode",
+       "abc.`\\\"\xe8\xb0\xb7\xe6\xad\x8c\\\" is Google\\\'s Chinese name`",
+       {"abc", "\"\xE8\xB0\xB7\xE6\xAD\x8C\" is Google's Chinese name"}},
+
+      // Failure.
+      {"EmptyString", "", {}, "cannot be empty"},
+      {"NullByte", "\0", {}, "cannot be empty"},
+      {"EmptyPathComponent", "abc..def", {}, "empty path component"},
+      {"InvalidIdentifier", "abc.def`12`", {}, "invalid character"},
+      {"BackquoteStart", "abc.`defghi", {}, "contains an unmatched `"},
+      {"BackquoteMiddle", "abc.def`ghi", {}, "invalid character"},
+      {"BackquoteTrailing", "abc.def`", {}, "invalid character"},
+      {"BackquoteConsecutive", "`abc``def`", {}, "invalid character"},
+      {"LeadingDot", ".abc.def.", {}, "cannot begin with `.`"},
+      {"TrailingDot", "abc.def.", {}, "cannot end with `.`"},
+      {"AllWhitespace", "     ", {}, "invalid character"},
+      {"LeadingWhitespace", "    abc.123", {}, "invalid character"},
+      {"TrailingWhitespace", "abc.123\\n", {}, "invalid character"},
+      {"WhitespacePreIdentifier",
+       "abc.\\r\\n\\t   123",
+       {},
+       "invalid character"},
+      {"WhitespacePostIdentifier", "abc.123\t.def", {}, "invalid character"},
+      {"WhitespaceWithinComponent", "abc.123 def", {}, "invalid character"},
+      {"InvalidEscape", "abc.`'\\e'`", {}, "Illegal escape sequence"},
+      {"InvalidUTF8", "abc.`\xe0\x80\x80`", {}, "invalid UTF8 string"},
+      {"TrailingEscape", "abc.def\\", {}, "invalid character"},
+      {"PathStartsWithNumber0", "123", {}, "Invalid identifier"},
+      {"PathStartsWithNumber1", "123abc", {}, "Invalid identifier"},
+      {"PathStartsWithNumber2", "123.abc", {}, "Invalid identifier"},
+      {"PathHasComment", "abc./*comment*/def", {}, "invalid character"},
+      // Assorted unescaped expressions.
+      {"UnescapedExpression0", "(abc)", {}, "invalid character"},
+      {"UnescapedExpression1", "+abc", {}, "invalid character"},
+      {"UnescapedExpression2", "'abc'", {}, "invalid character"},
+      {"UnescapedExpression3", "abc+def", {}, "invalid character"},
+      {"UnescapedExpression4", "\"abc+def\"", {}, "invalid character"},
+      {"UnescapedExpression5", "\"abc.def\"", {}, "invalid character"},
   });
 
-  for (const ParseIdentifierPathTestCase& test : test_cases) {
-    // Also prepare an input char array without null terminator at the end.
-    // This helps address sanitizer to validate that we stay within address
-    // boudaries.
-    std::unique_ptr<char[]> input_buf(new char[test.input.size()]());
-    std::strncpy(input_buf.get(), test.input.c_str(), test.input.size());
-    absl::string_view input_no_null_term(input_buf.get(), test.input.size());
-    std::vector<std::string> path;
-    if (test.error.empty()) {
+  // By default, test cases should produce the expected result regardless of
+  // whether FEATURE_V_1_3_ALLOW_SLASH_PATHS is enabled.
+  for (const bool enable_slash_paths : {true, false}) {
+    LanguageOptions language_options;
+    if (enable_slash_paths) {
+      language_options.EnableLanguageFeature(FEATURE_V_1_3_ALLOW_SLASH_PATHS);
+    }
+    for (const ParseIdentifierPathTestCase& test : test_cases) {
+      // Also prepare an input char array without null terminator at the end.
+      // This helps address sanitizer to validate that we stay within address
+      // boudaries.
+      std::unique_ptr<char[]> input_buf(new char[test.input.size()]());
+      std::strncpy(input_buf.get(), test.input.c_str(), test.input.size());
+      absl::string_view input_no_null_term(input_buf.get(), test.input.size());
+      std::vector<std::string> path;
+      if (test.error.empty()) {
+        // Success.
+        ZETASQL_EXPECT_OK(ParseIdentifierPath(test.input, language_options, &path))
+            << test.input << " ERROR: parse failure";
+        EXPECT_EQ(test.output, path)
+            << test.name << " ERROR: unexpected output";
+        // Also test that parsing works for non-null-terminated string views.
+        ZETASQL_EXPECT_OK(
+            ParseIdentifierPath(input_no_null_term, language_options, &path))
+            << test.input << " ERROR: parse failure without null terminator";
+        EXPECT_EQ(test.output, path)
+            << test.name << " ERROR: unexpected output without null terminator";
+
+        // Run each path through the parser to ensure that the vectors match.
+        std::unique_ptr<ParserOutput> parser_output;
+        ParserOptions parser_options;
+        parser_options.set_language_options(&language_options);
+        ZETASQL_ASSERT_OK(ParseExpression(test.input, parser_options, &parser_output));
+        const ASTPathExpression* parsed_path =
+            parser_output->expression()->GetAs<ASTPathExpression>();
+        EXPECT_EQ(parsed_path->ToIdentifierVector(), path)
+            << test.name << " ERROR: parsed expression mismatch";
+      } else {
+        // Failure.
+        EXPECT_THAT(
+            ParseIdentifierPath(test.input, language_options, &path),
+            StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr(test.error)))
+            << test.name << " ERROR: unexpected failure status";
+        // Also test error scenarios for non-null-terminated string views.
+        EXPECT_THAT(
+            ParseIdentifierPath(input_no_null_term, language_options, &path),
+            StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr(test.error)))
+            << test.name
+            << " ERROR: unexpected failure status without null terminator";
+
+        // Ensure that the output has not changed.
+        EXPECT_EQ(test.output, path) << test.name << " ERROR: output modified";
+      }
+    }
+  }
+}
+
+TEST(StringsTest, ParseIdentifierPathWithSlashes) {
+  // All test cases are expected to produce an error if
+  // FEATURE_V_1_3_ALLOW_SLASH_PATHS is disabled, otherwise they produce success
+  // or error as indicated in the TestCase.
+  const std::vector<ParseIdentifierPathTestCase> test_cases({
+      // Test format:
+      // name | input | output | error
+
       // Success.
-      ZETASQL_EXPECT_OK(ParseIdentifierPath(test.input, &path))
-          << test.input << " ERROR: parse failure";
-      EXPECT_EQ(test.output, path) << test.name << " ERROR: unexpected output";
-      // Also test that parsing works for non-null-terminated string views.
-      ZETASQL_EXPECT_OK(ParseIdentifierPath(input_no_null_term, &path))
-          << test.input << " ERROR: parse failure without null terminator";
-      EXPECT_EQ(test.output, path)
-          << test.name << " ERROR: unexpected output without null terminator";
+      {"PathWithSingleSlash", "/root", {"/root"}},
+      {"PathWithSlashes", "/root/db", {"/root/db"}},
+      {"PathWithSlashAndDash", "/root/db/my-mdb-grp", {"/root/db/my-mdb-grp"}},
+      {"PathWithSlashDashAndColon",
+       "/root/db/my-mdb-grp:my_db",
+       {"/root/db/my-mdb-grp:my_db"}},
+      {"MultiComponentSlashDashAndColon",
+       "/root/db/my-mdb-grp:my_db.MyTable.MyColumn",
+       {"/root/db/my-mdb-grp:my_db", "MyTable", "MyColumn"}},
 
-      // Run each path through the parser to ensure that the vectors match.
-      std::unique_ptr<ParserOutput> parser_output;
-      ZETASQL_EXPECT_OK(ParseExpression(test.input, ParserOptions(), &parser_output));
-      const ASTPathExpression* parsed_path =
-          parser_output->expression()->GetAs<ASTPathExpression>();
-      EXPECT_EQ(parsed_path->ToIdentifierVector(), path)
-          << test.name << " ERROR: parsed expression mismatch";
-    } else {
       // Failure.
-      EXPECT_THAT(
-          ParseIdentifierPath(test.input, &path),
-          StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr(test.error)))
-          << test.name << " ERROR: unexpected failure status";
-      // Also test error scenarios for non-null-terminated string views.
-      EXPECT_THAT(
-          ParseIdentifierPath(input_no_null_term, &path),
-          StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr(test.error)))
-          << test.name
-          << " ERROR: unexpected failure status without null terminator";
+      {"DashAfterFirstPathComponent",
+       "/root.dataset-sub.Table",
+       {},
+       "invalid character"},
+      {"PathEndingInSlash", "/root/", {}, "cannot end with `/`"},
+      {"PathEndingInSlashMulti",
+       "/root/global/table/",
+       {},
+       "cannot end with `/`"},
+      {"PathEndingInColon", "/root:", {}, "cannot end with `:`"},
+      {"PathEndingInDash", "/root-", {}, "cannot end with `-`"},
+      {"ConsecutiveSlash",
+       "/root//global.dataset-sub.Table",
+       {},
+       "invalid character"},
+      {"ConsecutiveSlashDash",
+       "/root:/global.dataset-sub.Table",
+       {},
+       "invalid character"},
+      {"SlashNextToDot", "/root/global/.Table", {}, "invalid character"},
+  });
 
-      // Ensure that the output has not changed.
-      EXPECT_EQ(test.output, path) << test.name << " ERROR: output modified";
+  for (const bool enable_slash_paths : {true, false}) {
+    LanguageOptions language_options;
+    if (enable_slash_paths) {
+      language_options.EnableLanguageFeature(FEATURE_V_1_3_ALLOW_SLASH_PATHS);
+    }
+    for (const ParseIdentifierPathTestCase& test : test_cases) {
+      // Also prepare an input char array without null terminator at the end.
+      // This helps address sanitizer to validate that we stay within address
+      // boudaries.
+      std::unique_ptr<char[]> input_buf(new char[test.input.size()]());
+      std::strncpy(input_buf.get(), test.input.c_str(), test.input.size());
+      absl::string_view input_no_null_term(input_buf.get(), test.input.size());
+      std::vector<std::string> path;
+
+      if (enable_slash_paths && test.error.empty()) {
+        // Success.
+        ZETASQL_EXPECT_OK(ParseIdentifierPath(test.input, language_options, &path))
+            << test.input << " ERROR: parse failure";
+        EXPECT_EQ(test.output, path)
+            << test.name << " ERROR: unexpected output";
+        // Also test that parsing works for non-null-terminated string views.
+        ZETASQL_EXPECT_OK(
+            ParseIdentifierPath(input_no_null_term, language_options, &path))
+            << test.input << " ERROR: parse failure without null terminator";
+        EXPECT_EQ(test.output, path)
+            << test.name << " ERROR: unexpected output without null terminator";
+
+        // Verify that the parser produces the same result. Paths that start
+        // with '/' are not allowed in expressions, but we can pass
+        // them to the parser by substituting the string into a query "SELECT *
+        // FROM <str>".
+        std::unique_ptr<zetasql::ParserOutput> parser_output;
+        zetasql::ParserOptions parser_options;
+        parser_options.set_language_options(&language_options);
+        ZETASQL_ASSERT_OK(zetasql::ParseStatement(
+            absl::StrFormat("SELECT * FROM %s", test.input), parser_options,
+            &parser_output));
+        const zetasql::ASTPathExpression* path_expr =
+            parser_output->statement()
+                ->GetAsOrDie<zetasql::ASTQueryStatement>()
+                ->query()
+                ->query_expr()
+                ->GetAsOrDie<zetasql::ASTSelect>()
+                ->from_clause()
+                ->table_expression()
+                ->GetAsOrDie<zetasql::ASTTablePathExpression>()
+                ->path_expr();
+        EXPECT_EQ(path, path_expr->ToIdentifierVector())
+            << test.name << " ERROR: parsed expression mismatch";
+      } else {
+        const std::string expected_error_message =
+            enable_slash_paths ? test.error : "invalid character '/'";
+        // Failure.
+        EXPECT_THAT(ParseIdentifierPath(test.input, language_options, &path),
+                    StatusIs(absl::StatusCode::kInvalidArgument,
+                             HasSubstr(expected_error_message)))
+            << test.name << " ERROR: unexpected failure status";
+        // Also test error scenarios for non-null-terminated string views.
+        EXPECT_THAT(
+            ParseIdentifierPath(input_no_null_term, language_options, &path),
+            StatusIs(absl::StatusCode::kInvalidArgument,
+                     HasSubstr(expected_error_message)))
+            << test.name
+            << " ERROR: unexpected failure status without null terminator";
+      }
     }
   }
 }
@@ -1232,6 +1365,8 @@ TEST(StingsTest, IsKeyword) {
   EXPECT_FALSE(IsKeyword("selected"));
   EXPECT_TRUE(IsKeyword("row"));
   EXPECT_FALSE(IsKeyword(""));
+  EXPECT_TRUE(IsKeyword("QUALIFY"));
+  EXPECT_TRUE(IsKeyword("qualify"));
 }
 
 TEST(StingsTest, IsReservedKeyword) {
@@ -1240,6 +1375,10 @@ TEST(StingsTest, IsReservedKeyword) {
   EXPECT_FALSE(IsReservedKeyword("selected"));
   EXPECT_FALSE(IsReservedKeyword("row"));
   EXPECT_FALSE(IsReservedKeyword(""));
+
+  // For compatibility reasons, IsReservedKeyword() considers conditionally
+  // reserved keywords to not be reserved.
+  EXPECT_FALSE(IsReservedKeyword("QUALIFY"));
 }
 
 TEST(StingsTest, GetReservedKeywords) {
@@ -1250,6 +1389,10 @@ TEST(StingsTest, GetReservedKeywords) {
   EXPECT_FALSE(zetasql_base::ContainsKey(keywords, "from"));
   EXPECT_FALSE(zetasql_base::ContainsKey(keywords, "TABLE"));
   EXPECT_FALSE(zetasql_base::ContainsKey(keywords, ""));
+
+  // For compatibility reasons, GetReservedKeywords() considers conditionally
+  // reserved keywords to not be reserved.
+  EXPECT_FALSE(IsReservedKeyword("QUALIFY"));
 }
 
 TEST(StingsTest, IsInternalAlias) {
@@ -1262,4 +1405,38 @@ TEST(StingsTest, IsInternalAlias) {
   EXPECT_FALSE(IsInternalAlias(IdString()));
 }
 
+TEST(StringsTest, ConditionallyReservedKeywordsMiscIdentifierFunctions) {
+  LanguageOptions qualify_reserved;
+  ZETASQL_ASSERT_OK(qualify_reserved.EnableReservableKeyword("QUALIFY"));
+
+  // ParseIdentifier()
+  std::string out;
+  ZETASQL_EXPECT_OK(ParseIdentifier("QUALIFY", &out));
+  EXPECT_THAT(ParseIdentifier("QUALIFY", qualify_reserved, &out),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+
+  // ParseGeneralizedIdentifier()
+  ZETASQL_EXPECT_OK(ParseGeneralizedIdentifier("QUALIFY", &out));
+
+  // ToIdentifierLiteral()
+  EXPECT_EQ("`QUALIFY`", ToIdentifierLiteral("QUALIFY"));
+
+  // IdentifierPathToString()
+  EXPECT_EQ("`QUALIFY`.`QUALIFY`",
+            IdentifierPathToString({"QUALIFY", "QUALIFY"}, true));
+  EXPECT_EQ("`QUALIFY`.QUALIFY",
+            IdentifierPathToString({"QUALIFY", "QUALIFY"}, false));
+
+  // ParseIdentifierPath()
+  std::vector<std::string> path;
+  ZETASQL_EXPECT_OK(ParseIdentifierPath("QUALIFY.QUALIFY", &path));
+  EXPECT_THAT(path,
+              ::testing::Eq(std::vector<std::string>{"QUALIFY", "QUALIFY"}));
+
+  EXPECT_THAT(ParseIdentifierPath("QUALIFY.QUALIFY", qualify_reserved, &path),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+  ZETASQL_EXPECT_OK(ParseIdentifierPath("`QUALIFY`.QUALIFY", qualify_reserved, &path));
+  EXPECT_THAT(path,
+              ::testing::Eq(std::vector<std::string>{"QUALIFY", "QUALIFY"}));
+}
 }  // namespace zetasql

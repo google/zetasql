@@ -18,7 +18,7 @@
 #define ZETASQL_SCRIPTING_SERIALIZATION_HELPERS_H_
 #include "zetasql/scripting/script_executor.h"
 #include "zetasql/scripting/variable.pb.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 namespace zetasql {
 
 using VariableProto = Variable;
@@ -36,7 +36,7 @@ absl::Status DeserializeVariableProto(
     TypeFactory* type_factory);
 
 // Deserializes the procedure definition from <proto>.
-zetasql_base::StatusOr<std::unique_ptr<ProcedureDefinition>>
+absl::StatusOr<std::unique_ptr<ProcedureDefinition>>
 DeserializeProcedureDefinitionProto(
     const ScriptExecutorStateProto::ProcedureDefinition& proto,
     const std::vector<const google::protobuf::DescriptorPool*>& pools,

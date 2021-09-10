@@ -22,7 +22,6 @@ cc_library(
     hdrs = ["collation.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -30,7 +29,11 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
+        "//zetasql/base:ret_check",
         "//zetasql/common:errors",
+        "//zetasql/parser:parse_tree",
+        "//zetasql/public:function",
+        "//zetasql/public:function_cc_proto",
         "//zetasql/public:type",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",

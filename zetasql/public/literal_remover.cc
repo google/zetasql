@@ -18,6 +18,8 @@
 // Tested by parse_locations.test.
 
 #include <algorithm>
+#include <memory>
+#include <queue>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -81,6 +83,116 @@ static std::string GenerateParameterName(
   return param_name;
 }
 
+template <typename T>
+static absl::Status AddCollationLiteralToIgnoringSetIfPresent(
+    const T* node,
+    absl::flat_hash_set<const ResolvedLiteral*>* ignore_literals) {
+  if (node->collation_name() != nullptr) {
+    ZETASQL_RET_CHECK_EQ(node->collation_name()->node_kind(), RESOLVED_LITERAL);
+    // <collation_name> may be generated from CTAS query and doesn't have a
+    // parse location attached.
+    if (node->collation_name()->GetParseLocationRangeOrNULL() != nullptr) {
+      ignore_literals->insert(
+          node->collation_name()->template GetAs<ResolvedLiteral>());
+    }
+  }
+    return absl::OkStatus();
+}
+
+static absl::Status AddAnnotationLiteralsToIgnoringSet(
+    absl::flat_hash_set<const ResolvedLiteral*>* ignore_literals,
+    std::vector<const ResolvedNode*>* annotation_nodes) {
+  std::queue<const ResolvedColumnAnnotations*> annotation_nodes_queue;
+  for (const ResolvedNode* node : *annotation_nodes) {
+    const ResolvedColumnAnnotations* annotation_node =
+        node->GetAs<ResolvedColumnAnnotations>();
+    annotation_nodes_queue.push(annotation_node);
+  }
+  std::vector<const ResolvedNode*> tmp_vector;
+  while (!annotation_nodes_queue.empty()) {
+    const ResolvedColumnAnnotations* node = annotation_nodes_queue.front();
+    annotation_nodes_queue.pop();
+    if (node != nullptr) {
+      ZETASQL_RETURN_IF_ERROR(
+          AddCollationLiteralToIgnoringSetIfPresent<ResolvedColumnAnnotations>(
+              node, ignore_literals));
+    }
+    tmp_vector.clear();
+    node->GetChildNodes(&tmp_vector);
+    for (const ResolvedNode* tmp_node : tmp_vector) {
+      if (tmp_node->node_kind() == RESOLVED_COLUMN_ANNOTATIONS)
+        annotation_nodes_queue.push(
+            tmp_node->GetAs<ResolvedColumnAnnotations>());
+    }
+  }
+  return absl::OkStatus();
+}
+
+static absl::Status AddDefaultCollationLiteralToIgnoringSet(
+    absl::flat_hash_set<const ResolvedLiteral*>* ignore_literals,
+    const ResolvedStatement* stmt) {
+  switch (stmt->node_kind()) {
+    case RESOLVED_CREATE_TABLE_STMT: {
+      const ResolvedCreateTableStmt* create_table_stmt =
+          stmt->GetAs<ResolvedCreateTableStmt>();
+      ZETASQL_RETURN_IF_ERROR(
+          AddCollationLiteralToIgnoringSetIfPresent<ResolvedCreateTableStmt>(
+              create_table_stmt, ignore_literals));
+      break;
+    }
+    case RESOLVED_CREATE_EXTERNAL_TABLE_STMT: {
+      const ResolvedCreateExternalTableStmt* create_external_table_stmt =
+          stmt->GetAs<ResolvedCreateExternalTableStmt>();
+      ZETASQL_RETURN_IF_ERROR(AddCollationLiteralToIgnoringSetIfPresent<
+                      ResolvedCreateExternalTableStmt>(
+          create_external_table_stmt, ignore_literals));
+      break;
+    }
+    case RESOLVED_CREATE_SCHEMA_STMT: {
+      const ResolvedCreateSchemaStmt* create_schema_stmt =
+          stmt->GetAs<ResolvedCreateSchemaStmt>();
+      ZETASQL_RETURN_IF_ERROR(
+          AddCollationLiteralToIgnoringSetIfPresent<ResolvedCreateSchemaStmt>(
+              create_schema_stmt, ignore_literals));
+      break;
+    }
+    case RESOLVED_ALTER_TABLE_STMT: {
+      const ResolvedAlterTableStmt* alter_table_stmt =
+          stmt->GetAs<ResolvedAlterTableStmt>();
+      for (const std::unique_ptr<const zetasql::ResolvedAlterAction>& action :
+           alter_table_stmt->alter_action_list()) {
+        if (action->node_kind() == RESOLVED_SET_COLLATE_CLAUSE) {
+          const ResolvedSetCollateClause* set_collate_clause =
+              action->GetAs<ResolvedSetCollateClause>();
+          ZETASQL_RETURN_IF_ERROR(AddCollationLiteralToIgnoringSetIfPresent<
+                          ResolvedSetCollateClause>(set_collate_clause,
+                                                    ignore_literals));
+        }
+      }
+      break;
+    }
+    case RESOLVED_ALTER_SCHEMA_STMT: {
+      const ResolvedAlterSchemaStmt* alter_schema_stmt =
+          stmt->GetAs<ResolvedAlterSchemaStmt>();
+      for (const std::unique_ptr<const zetasql::ResolvedAlterAction>& action :
+           alter_schema_stmt->alter_action_list()) {
+        if (action->node_kind() == RESOLVED_SET_COLLATE_CLAUSE) {
+          const ResolvedSetCollateClause* set_collate_clause =
+              action->GetAs<ResolvedSetCollateClause>();
+          ZETASQL_RETURN_IF_ERROR(AddCollationLiteralToIgnoringSetIfPresent<
+                          ResolvedSetCollateClause>(set_collate_clause,
+                                                    ignore_literals));
+        }
+      }
+      break;
+    }
+    default:
+      // Ignore the other statements.
+      break;
+  }
+  return absl::OkStatus();
+}
+
 absl::Status ReplaceLiteralsByParameters(
     const std::string& sql,
     const absl::node_hash_set<std::string>& option_names_to_ignore,
@@ -96,7 +208,7 @@ absl::Status ReplaceLiteralsByParameters(
   // locations.
   std::vector<const ResolvedNode*> option_nodes;
   stmt->GetDescendantsWithKinds({RESOLVED_OPTION}, &option_nodes);
-  absl::flat_hash_set<const ResolvedLiteral*> ignore_options_literals;
+  absl::flat_hash_set<const ResolvedLiteral*> ignore_literals;
   for (const ResolvedNode* node : option_nodes) {
     const ResolvedOption* option = node->GetAs<ResolvedOption>();
     if (option->value()->node_kind() == RESOLVED_LITERAL &&
@@ -104,10 +216,19 @@ absl::Status ReplaceLiteralsByParameters(
       const ResolvedLiteral* option_literal =
           option->value()->GetAs<ResolvedLiteral>();
       if (zetasql_base::ContainsKey(option_names_to_ignore, option->name())) {
-        ignore_options_literals.insert(option_literal);
+        ignore_literals.insert(option_literal);
       }
     }
   }
+
+  // Collect all <literals> that are for collations that have parse locations.
+  std::vector<const ResolvedNode*> annotation_nodes;
+  stmt->GetDescendantsWithKinds({RESOLVED_COLUMN_ANNOTATIONS},
+                                &annotation_nodes);
+  ZETASQL_RETURN_IF_ERROR(AddAnnotationLiteralsToIgnoringSet(&ignore_literals,
+                                                     &annotation_nodes));
+  ZETASQL_RETURN_IF_ERROR(
+      AddDefaultCollationLiteralToIgnoringSet(&ignore_literals, stmt));
 
   // Collect all <literals> that have a parse location and not marked to be
   // preserved.
@@ -118,7 +239,7 @@ absl::Status ReplaceLiteralsByParameters(
     const ResolvedLiteral* literal = node->GetAs<ResolvedLiteral>();
     if (literal->GetParseLocationRangeOrNULL() != nullptr &&
         !literal->preserve_in_literal_remover() &&
-        !zetasql_base::ContainsKey(ignore_options_literals, literal)) {
+        !zetasql_base::ContainsKey(ignore_literals, literal)) {
       literals.push_back(literal);
     }
   }

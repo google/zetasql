@@ -1,5 +1,5 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB, zetasql_test.TestExtraPB, zetasql_test.KitchenSinkPB.Nested, zetasql_test.KitchenSinkExtension, zetasql_test.RecursivePB, zetasql_test.TestNullabilityMiddlePB, zetasql_test.MessageWithMapField, zetasql_test.MessageWithMapField.StringInt32MapEntry]
+[load_proto_names=zetasql_test__.KitchenSinkPB, zetasql_test__.TestExtraPB, zetasql_test__.KitchenSinkPB.Nested, zetasql_test__.KitchenSinkExtension, zetasql_test__.RecursivePB, zetasql_test__.TestNullabilityMiddlePB, zetasql_test__.MessageWithMapField, zetasql_test__.MessageWithMapField.StringInt32MapEntry]
 
 [name=replace_fields_proto_top_level]
 [required_features=V_1_3_REPLACE_FIELDS]
@@ -7,14 +7,14 @@ SELECT
   REPLACE_FIELDS(
     CAST(
       "int64_key_1:13, int64_key_2:123, string_val:'sample'"
-        as zetasql_test.KitchenSinkPB
+        as zetasql_test__.KitchenSinkPB
     ),
     11 as int64_val, "abc" as string_val, true as bool_val,
     [1,2,3] as repeated_int64_val, 321 as int64_key_2,
     "nested_int64:99999" as nested_value
   )
 --
-ARRAY<STRUCT<PROTO<zetasql_test.KitchenSinkPB>>>[
+ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
   {{
      int64_key_1: 13
      int64_key_2: 321
@@ -37,13 +37,13 @@ SELECT
   REPLACE_FIELDS(
     CAST(
       "int64_key_1:1, int64_key_2:2, nested_value:{nested_int64:3}"
-        as zetasql_test.KitchenSinkPB
+        as zetasql_test__.KitchenSinkPB
     ),
     13 as nested_value.nested_int64,
     [1,2,3] as nested_value.nested_repeated_int64
   )
 --
-ARRAY<STRUCT<PROTO<zetasql_test.KitchenSinkPB>>>[
+ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
   {{
      int64_key_1: 1
      int64_key_2: 2
@@ -62,25 +62,25 @@ ARRAY<STRUCT<PROTO<zetasql_test.KitchenSinkPB>>>[
 SELECT
   REPLACE_FIELDS(
     NEW
-      zetasql_test.RecursivePB(
+      zetasql_test__.RecursivePB(
         NEW
-          zetasql_test.RecursivePB(
+          zetasql_test__.RecursivePB(
             13 as int64_val,
             "int64_val:5432"
-              as (zetasql_test.RecursivePB.recursive_pb_extension)
+              as (zetasql_test__.RecursivePB.recursive_pb_extension)
           ) as recursive_pb
       ),
       192837
         as recursive_pb.(
-          zetasql_test.RecursivePB.recursive_pb_extension
+          zetasql_test__.RecursivePB.recursive_pb_extension
         ).int64_val
   )
 --
-ARRAY<STRUCT<PROTO<zetasql_test.RecursivePB>>>[
+ARRAY<STRUCT<PROTO<zetasql_test__.RecursivePB>>>[
   {{
      recursive_pb {
        int64_val: 13
-       [zetasql_test.RecursivePB.recursive_pb_extension] {
+       [zetasql_test__.RecursivePB.recursive_pb_extension] {
          int64_val: 192837
        }
      }
@@ -94,13 +94,13 @@ SELECT
   REPLACE_FIELDS(
     CAST(
       "int64_key_1:1, int64_key_2:2, date:10950, nested_dates:{timestamp_millis:0}"
-        as zetasql_test.KitchenSinkPB
+        as zetasql_test__.KitchenSinkPB
     ),
     "2023-06-01"
       as date, "2008-12-25 15:30:00 UTC" as nested_dates.timestamp_millis
   )
 --
-ARRAY<STRUCT<PROTO<zetasql_test.KitchenSinkPB>>>[
+ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
   {{
      int64_key_1: 1
      int64_key_2: 2
@@ -116,7 +116,7 @@ ARRAY<STRUCT<PROTO<zetasql_test.KitchenSinkPB>>>[
 [required_features=V_1_3_REPLACE_FIELDS]
 WITH KitchenSinkTable as (SELECT CAST(
       "int64_key_1:13, int64_key_2:123, repeated_int64_val:[3,2,1]"
-        as zetasql_test.KitchenSinkPB
+        as zetasql_test__.KitchenSinkPB
    ) foo)
 SELECT
   REPLACE_FIELDS(
@@ -124,7 +124,7 @@ SELECT
   )
 FROM KitchenSinkTable
 --
-ARRAY<STRUCT<PROTO<zetasql_test.KitchenSinkPB>>>[
+ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
   {{
      int64_key_1: 13
      int64_key_2: 123
@@ -145,7 +145,7 @@ SELECT
       REPLACE_FIELDS(array_element, array_element.int32_val1 + 5 as int32_val1)
     FROM
       UNNEST(
-        ARRAY<zetasql_test.TestExtraPB> ["int32_val1:1",
+        ARRAY<zetasql_test__.TestExtraPB> ["int32_val1:1",
         "int32_val1:2",
         "int32_val1:3"]
       ) array_element
@@ -153,7 +153,7 @@ SELECT
   )
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.TestExtraPB>>[
+  {ARRAY<PROTO<zetasql_test__.TestExtraPB>>[
      {int32_val1: 6},
      {int32_val1: 7},
      {int32_val1: 8}
@@ -166,41 +166,41 @@ ARRAY<STRUCT<ARRAY<>>>[
 SELECT
   REPLACE_FIELDS(
     NEW
-      zetasql_test.KitchenSinkPB(
+      zetasql_test__.KitchenSinkPB(
         1 as int64_key_1,
         2 as int64_key_2,
         "nested_int64:3" as nested_value,
-        13 as (zetasql_test.int_top_level_extension),
-        "1980-08-08" as (zetasql_test.date_extension),
+        13 as (zetasql_test__.int_top_level_extension),
+        "1980-08-08" as (zetasql_test__.date_extension),
         "value:'abc'"
-            as (zetasql_test.KitchenSinkExtension.optional_extension)
+            as (zetasql_test__.KitchenSinkExtension.optional_extension)
       ),
-      NULL as (zetasql_test.date_extension),
-      321 as (zetasql_test.int_top_level_extension),
+      NULL as (zetasql_test__.date_extension),
+      321 as (zetasql_test__.int_top_level_extension),
       ["sample","data"]
          as (
-           zetasql_test.KitchenSinkExtension.optional_extension
+           zetasql_test__.KitchenSinkExtension.optional_extension
          ).repeated_value,
          123
            as nested_value.(
-             zetasql_test.KitchenSinkPB.nested_extension_int64
+             zetasql_test__.KitchenSinkPB.nested_extension_int64
            )
   )
 --
-ARRAY<STRUCT<PROTO<zetasql_test.KitchenSinkPB>>>[
+ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
   {{
      int64_key_1: 1
      int64_key_2: 2
      nested_value {
        nested_int64: 3
-       [zetasql_test.KitchenSinkPB.nested_extension_int64]: 123
+       [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 123
      }
-     [zetasql_test.KitchenSinkExtension.optional_extension] {
+     [zetasql_test__.KitchenSinkExtension.optional_extension] {
        value: "abc"
        repeated_value: "sample"
        repeated_value: "data"
      }
-     [zetasql_test.int_top_level_extension]: 321
+     [zetasql_test__.int_top_level_extension]: 321
    }}
 ]
 ==
@@ -210,20 +210,20 @@ ARRAY<STRUCT<PROTO<zetasql_test.KitchenSinkPB>>>[
 SELECT
   REPLACE_FIELDS(
     NEW
-       zetasql_test.KitchenSinkPB(
+       zetasql_test__.KitchenSinkPB(
          1 as int64_key_1,
          2 as int64_key_2,
          "nested_int64:3" as nested_value,
          NEW
-           zetasql_test.TestExtraPB(
+           zetasql_test__.TestExtraPB(
              "ext_value:[1,2,3]"
-               as (zetasql_test.TestExtraPBExtensionHolder.named_extension)
+               as (zetasql_test__.TestExtraPBExtensionHolder.named_extension)
            ) as test_extra_pb
        ),
        ARRAY<INT32> [3, 2, 1] as test_extra_pb.named_extension.ext_value
   )
 --
-ARRAY<STRUCT<PROTO<zetasql_test.KitchenSinkPB>>>[
+ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
   {{
      int64_key_1: 1
      int64_key_2: 2
@@ -231,7 +231,7 @@ ARRAY<STRUCT<PROTO<zetasql_test.KitchenSinkPB>>>[
        nested_int64: 3
      }
      test_extra_pb {
-       [zetasql_test.TestExtraPBExtensionHolder.named_extension] {
+       [zetasql_test__.TestExtraPBExtensionHolder.named_extension] {
          ext_value: 3
          ext_value: 2
          ext_value: 1
@@ -247,7 +247,7 @@ SELECT
   REPLACE_FIELDS(
     CAST(
       "int64_key_1:13, int64_key_2:123, string_val:'sample', repeated_int64_val:[3,2,1], repeated_bool_val:[true,false,true], nested_value:{nested_int64:3}, nested_dates:{date:10950}"
-        as zetasql_test.KitchenSinkPB
+        as zetasql_test__.KitchenSinkPB
     ),
       NULL as string_val,
       NULL as nested_value.nested_int64,
@@ -256,7 +256,7 @@ SELECT
       ARRAY<BOOL>[] as repeated_bool_val
   )
 --
-ARRAY<STRUCT<PROTO<zetasql_test.KitchenSinkPB>>>[
+ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
   {{
      int64_key_1: 13
      int64_key_2: 123
@@ -272,7 +272,7 @@ SELECT
   REPLACE_FIELDS(
     CAST(
       "int64_key_1:13, int64_key_2:123"
-        as zetasql_test.KitchenSinkPB
+        as zetasql_test__.KitchenSinkPB
     ),
     NULL as int64_key_1
   )
@@ -286,7 +286,7 @@ SELECT
   REPLACE_FIELDS(
     CAST(
       "required_field:13, required_nested:{required_field:34432}"
-        as zetasql_test.TestNullabilityMiddlePB
+        as zetasql_test__.TestNullabilityMiddlePB
     ),
     NULL as required_nested.required_field
   )
@@ -300,7 +300,7 @@ SELECT
   REPLACE_FIELDS(
     CAST(
       "int64_key_1:13, int64_key_2:123"
-        as zetasql_test.KitchenSinkPB
+        as zetasql_test__.KitchenSinkPB
     ),
     500 as nested_value.nested_int64
   )
@@ -314,12 +314,12 @@ SELECT
   REPLACE_FIELDS(
     CAST(
       "int64_key_1:13, int64_key_2:123, int64_one_of:1111"
-        as zetasql_test.KitchenSinkPB
+        as zetasql_test__.KitchenSinkPB
     ),
     22222 as int64_one_of, "oneof_field" as string_one_of
   )
 --
-ARRAY<STRUCT<PROTO<zetasql_test.KitchenSinkPB>>>[
+ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
   {{
      int64_key_1: 13
      int64_key_2: 123
@@ -436,7 +436,7 @@ SELECT
     STRUCT(
       CAST(
         "int64_key_1:13, int64_key_2:123, string_val:'sample'"
-          as zetasql_test.KitchenSinkPB
+          as zetasql_test__.KitchenSinkPB
       ) as nested_proto
     ),
       11 as nested_proto.int64_val,
@@ -446,7 +446,7 @@ SELECT
       321 as nested_proto.int64_key_2
   )
 --
-ARRAY<STRUCT<STRUCT<nested_proto PROTO<zetasql_test.KitchenSinkPB>>>>[
+ARRAY<STRUCT<STRUCT<nested_proto PROTO<zetasql_test__.KitchenSinkPB>>>>[
   {{{
       int64_key_1: 13
       int64_key_2: 321
@@ -466,13 +466,13 @@ SELECT
   REPLACE_FIELDS(STRUCT(
     CAST(
       "int64_key_1:13, int64_key_2:123, nested_value:{nested_int64:3}"
-        as zetasql_test.KitchenSinkPB
+        as zetasql_test__.KitchenSinkPB
     ) as proto_field),
     99999 as proto_field.nested_value.nested_int64,
     [1,2,3] as proto_field.nested_value.nested_repeated_int64
 )
 --
-ARRAY<STRUCT<STRUCT<proto_field PROTO<zetasql_test.KitchenSinkPB>>>>[
+ARRAY<STRUCT<STRUCT<proto_field PROTO<zetasql_test__.KitchenSinkPB>>>>[
   {{{
       int64_key_1: 13
       int64_key_2: 123
@@ -492,39 +492,39 @@ SELECT
   REPLACE_FIELDS(
     STRUCT(
       NEW
-        zetasql_test.KitchenSinkPB(
+        zetasql_test__.KitchenSinkPB(
           1 as int64_key_1,
           2 as int64_key_2,
           "nested_int64:3" as nested_value,
-          13 as (zetasql_test.int_top_level_extension),
+          13 as (zetasql_test__.int_top_level_extension),
           "value:'abc'"
-              as (zetasql_test.KitchenSinkExtension.optional_extension)
+              as (zetasql_test__.KitchenSinkExtension.optional_extension)
         ) as nested_proto
     ),
-    321 as nested_proto.(zetasql_test.int_top_level_extension),
+    321 as nested_proto.(zetasql_test__.int_top_level_extension),
       ["sample","data"]
             as nested_proto.(
-              zetasql_test.KitchenSinkExtension.optional_extension
+              zetasql_test__.KitchenSinkExtension.optional_extension
             ).repeated_value,
       123 as nested_proto.nested_value.(
-                zetasql_test.KitchenSinkPB.nested_extension_int64
+                zetasql_test__.KitchenSinkPB.nested_extension_int64
               )
   )
 --
-ARRAY<STRUCT<STRUCT<nested_proto PROTO<zetasql_test.KitchenSinkPB>>>>[
+ARRAY<STRUCT<STRUCT<nested_proto PROTO<zetasql_test__.KitchenSinkPB>>>>[
   {{{
       int64_key_1: 1
       int64_key_2: 2
       nested_value {
         nested_int64: 3
-        [zetasql_test.KitchenSinkPB.nested_extension_int64]: 123
+        [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 123
       }
-      [zetasql_test.KitchenSinkExtension.optional_extension] {
+      [zetasql_test__.KitchenSinkExtension.optional_extension] {
         value: "abc"
         repeated_value: "sample"
         repeated_value: "data"
       }
-      [zetasql_test.int_top_level_extension]: 321
+      [zetasql_test__.int_top_level_extension]: 321
     }}}
 ]
 ==
@@ -536,12 +536,12 @@ SELECT
     STRUCT(
       STRUCT(
         NEW
-          zetasql_test.RecursivePB(
+          zetasql_test__.RecursivePB(
             NEW
-              zetasql_test.RecursivePB(
+              zetasql_test__.RecursivePB(
                 13 as int64_val,
                 "int64_val:5432"
-                  as (zetasql_test.RecursivePB.recursive_pb_extension)
+                  as (zetasql_test__.RecursivePB.recursive_pb_extension)
               ) as recursive_pb
           ) as nested_recursive_pb,
           "abc" as nested_string_field
@@ -550,7 +550,7 @@ SELECT
     ),
     192837
       as nested_struct.nested_recursive_pb.recursive_pb.(
-        zetasql_test.RecursivePB.recursive_pb_extension
+        zetasql_test__.RecursivePB.recursive_pb_extension
       ).int64_val,
     321 as int64_field, "zzzzz" as nested_struct.nested_string_field
   )
@@ -558,7 +558,7 @@ SELECT
 ARRAY<STRUCT<
         STRUCT<
                nested_struct STRUCT<
-                      nested_recursive_pb PROTO<zetasql_test.RecursivePB>,
+                      nested_recursive_pb PROTO<zetasql_test__.RecursivePB>,
                       nested_string_field STRING
                     >,
                int64_field INT64
@@ -567,7 +567,7 @@ ARRAY<STRUCT<
 [{{{{
       recursive_pb {
         int64_val: 13
-        [zetasql_test.RecursivePB.recursive_pb_extension] {
+        [zetasql_test__.RecursivePB.recursive_pb_extension] {
           int64_val: 192837
         }
       }
@@ -582,7 +582,7 @@ SELECT
   REPLACE_FIELDS(
     STRUCT(CAST(
       "int64_key_1:13, int64_key_2:123"
-        as zetasql_test.KitchenSinkPB
+        as zetasql_test__.KitchenSinkPB
     ) as nested_proto),
     NULL as nested_proto.int64_key_1
   )
@@ -596,7 +596,7 @@ SELECT
   REPLACE_FIELDS(
     STRUCT(CAST(
       "int64_key_1:13, int64_key_2:123"
-        as zetasql_test.KitchenSinkPB
+        as zetasql_test__.KitchenSinkPB
     ) as nested_proto),
     313 as nested_proto.nested_value.nested_int64
   )
@@ -609,11 +609,11 @@ ERROR: generic::out_of_range: REPLACE_FIELDS() cannot be used to modify the fiel
 
 SELECT
   REPLACE_FIELDS(
-    CAST("" as zetasql_test.MessageWithMapField),
-    [NEW zetasql_test.MessageWithMapField.StringInt32MapEntry("foo" AS key, 123 AS value)] as string_int32_map
+    CAST("" as zetasql_test__.MessageWithMapField),
+    [NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry("foo" AS key, 123 AS value)] as string_int32_map
   )
 --
-ARRAY<STRUCT<PROTO<zetasql_test.MessageWithMapField>>>[
+ARRAY<STRUCT<PROTO<zetasql_test__.MessageWithMapField>>>[
   {{
      string_int32_map {
        key: "foo"
@@ -628,8 +628,8 @@ ARRAY<STRUCT<PROTO<zetasql_test.MessageWithMapField>>>[
 
 SELECT
   REPLACE_FIELDS(
-    CAST("" as zetasql_test.MessageWithMapField),
-    [NEW zetasql_test.MessageWithMapField.StringInt32MapEntry(CAST(NULL as STRING) AS key, 123 AS value)] as string_int32_map
+    CAST("" as zetasql_test__.MessageWithMapField),
+    [NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry(CAST(NULL as STRING) AS key, 123 AS value)] as string_int32_map
   )
 --
 ERROR: generic::out_of_range: Cannot write NULL to key or value of map field in StringInt32MapEntry
@@ -640,8 +640,8 @@ ERROR: generic::out_of_range: Cannot write NULL to key or value of map field in 
 
 SELECT
   REPLACE_FIELDS(
-    CAST("" as zetasql_test.MessageWithMapField),
-    [NEW zetasql_test.MessageWithMapField.StringInt32MapEntry("foo" AS key, CAST(NULL as INT32) AS value)] as string_int32_map
+    CAST("" as zetasql_test__.MessageWithMapField),
+    [NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry("foo" AS key, CAST(NULL as INT32) AS value)] as string_int32_map
   )
 --
 ERROR: generic::out_of_range: Cannot write NULL to key or value of map field in StringInt32MapEntry
@@ -651,11 +651,11 @@ ERROR: generic::out_of_range: Cannot write NULL to key or value of map field in 
 
 SELECT
   REPLACE_FIELDS(
-    CAST("key: 'foo' value: 123" as zetasql_test.MessageWithMapField.StringInt32MapEntry),
+    CAST("key: 'foo' value: 123" as zetasql_test__.MessageWithMapField.StringInt32MapEntry),
     "bar" as key
   )
 --
-ARRAY<STRUCT<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>>[
+ARRAY<STRUCT<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>>[
   {{
      key: "bar"
      value: 123
@@ -667,11 +667,11 @@ ARRAY<STRUCT<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>>[
 [required_features=V_1_3_REPLACE_FIELDS,V_1_3_PROTO_MAPS]
 SELECT
   REPLACE_FIELDS(
-    CAST("key: 'foo' value: 123" as zetasql_test.MessageWithMapField.StringInt32MapEntry),
+    CAST("key: 'foo' value: 123" as zetasql_test__.MessageWithMapField.StringInt32MapEntry),
     456 as value
   )
 --
-ARRAY<STRUCT<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>>[
+ARRAY<STRUCT<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>>[
   {{
      key: "foo"
      value: 456
@@ -683,7 +683,7 @@ ARRAY<STRUCT<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>>[
 [required_features=V_1_3_REPLACE_FIELDS,V_1_3_PROTO_MAPS]
 SELECT
   REPLACE_FIELDS(
-    CAST("key: 'foo' value: 123" as zetasql_test.MessageWithMapField.StringInt32MapEntry),
+    CAST("key: 'foo' value: 123" as zetasql_test__.MessageWithMapField.StringInt32MapEntry),
     NULL as key
   )
 --
@@ -694,7 +694,7 @@ ERROR: generic::out_of_range: REPLACE_FIELDS() cannot be used to clear a field o
 [required_features=V_1_3_REPLACE_FIELDS,V_1_3_PROTO_MAPS]
 SELECT
   REPLACE_FIELDS(
-    CAST("key: 'foo' value: 123" as zetasql_test.MessageWithMapField.StringInt32MapEntry),
+    CAST("key: 'foo' value: 123" as zetasql_test__.MessageWithMapField.StringInt32MapEntry),
     NULL as value
   )
 --

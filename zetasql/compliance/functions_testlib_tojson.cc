@@ -520,20 +520,20 @@ void AddJsonTestCases(bool is_to_json,
                       std::vector<FunctionTestCall>& all_tests) {
   constexpr absl::string_view kJsonValueString =
       R"({
-          "array_val": [
-            null,
-            3,
-            "world"
-          ],
-          "bool_val": true,
-          "int64_val_1": 1,
-          "int64_val_2": 2,
-          "json_val": {
-            "bool_val": false,
-            "string_value": "hello"
-          },
-          "string_val": "foo"
-        })";
+  "array_val": [
+    null,
+    3,
+    "world"
+  ],
+  "bool_val": true,
+  "int64_val_1": 1,
+  "int64_val_2": 2,
+  "json_val": {
+    "bool_val": false,
+    "string_value": "hello"
+  },
+  "string_val": "foo"
+})";
   const Value json_value =
       Json(JSONValue::ParseJSONString(kJsonValueString).value());
   // Clean up the string to make it the same as FORMAT %p output.
@@ -562,6 +562,7 @@ void AddJsonTestCases(bool is_to_json,
       {values::Json(JSONValue(std::string("string"))), "\"string\""},
       {json_value, json_value_str},
       {escape_chars_json_value, escape_chars_json_str}};
+
   for (const auto& test_case : json_test_cases) {
     all_tests.emplace_back(
         is_to_json ? "to_json" : "to_json_string",
@@ -569,6 +570,127 @@ void AddJsonTestCases(bool is_to_json,
             {test_case.first},
             is_to_json ? test_case.first : values::String(test_case.second))
             .WrapWithFeatureSet({FEATURE_JSON_TYPE}));
+  }
+
+  constexpr absl::string_view kStructJson =
+      R"({"x":"foo","y":10,"z":{"a":15,"b":[true,10]}})";
+  const Value struct_json_value =
+      Struct({"x", "y", "z"},
+             {Json(JSONValue(std::string("foo"))), Int64(10),
+              Json(JSONValue::ParseJSONString("{\"a\": 15, \"b\": [true, 10]}")
+                       .value())});
+
+  if (is_to_json) {
+    all_tests.emplace_back(
+        "to_json", QueryParamsWithResult(
+                       {struct_json_value},
+                       Json(JSONValue::ParseJSONString(kStructJson).value()))
+                       .WrapWithFeature(FEATURE_JSON_TYPE));
+    all_tests.emplace_back(
+        "to_json", QueryParamsWithResult(
+                       {Value::UnvalidatedJsonString(R"({"a": 10})")},
+                       Json(JSONValue::ParseJSONString(R"({"a": 10})").value()))
+                       .WrapWithFeatureSet(
+                           {FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION}));
+    all_tests.emplace_back(
+        "to_json",
+        QueryParamsWithResult({Value::UnvalidatedJsonString(R"({"a": 10)")},
+                              values::NullJson(), kOutOfRange)
+            .WrapWithFeatureSet(
+                {FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION}));
+    all_tests.emplace_back(
+        "to_json",
+        QueryParamsWithResult(
+            {Value::UnvalidatedJsonString(R"({"a": 18446744073709551616})")},
+            values::NullJson(), kOutOfRange)
+            .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION,
+                                 FEATURE_JSON_STRICT_NUMBER_PARSING}));
+  } else {
+    // Tests for TO_JSON_STRING with pretty_print argument.
+    all_tests.emplace_back(
+        "to_json_string",
+        QueryParamsWithResult({values::Json(JSONValue(std::string("string"))),
+                               values::Bool(true)},
+                              values::String("\"string\""))
+            .WrapWithFeature(FEATURE_JSON_TYPE));
+    all_tests.emplace_back(
+        "to_json_string",
+        QueryParamsWithResult(
+            {values::Json(JSONValue(std::string("hello\nworld"))),
+             values::Bool(true)},
+            values::String(R"("hello\nworld")"))
+            .WrapWithFeature(FEATURE_JSON_TYPE));
+    all_tests.emplace_back(
+        "to_json_string",
+        QueryParamsWithResult({json_value, values::Bool(true)},
+                              values::String(kJsonValueString))
+            .WrapWithFeature(FEATURE_JSON_TYPE));
+    all_tests.emplace_back(
+        "to_json_string",
+        QueryParamsWithResult({struct_json_value, Bool(false)},
+                              String(kStructJson))
+            .WrapWithFeature(FEATURE_JSON_TYPE));
+    all_tests.emplace_back(
+        "to_json_string",
+        QueryParamsWithResult({struct_json_value, Bool(true)}, String(R"({
+  "x": "foo",
+  "y": 10,
+  "z": {
+    "a": 15,
+    "b": [
+      true,
+      10
+    ]
+  }
+})"))
+            .WrapWithFeature(FEATURE_JSON_TYPE));
+    all_tests.emplace_back(
+        "to_json_string",
+        QueryParamsWithResult({Array({Json(JSONValue(std::string("foo"))),
+                                      Json(JSONValue::ParseJSONString(
+                                               "{\"a\": 15, \"b\": [true, 10]}")
+                                               .value())}),
+                               Bool(true)},
+                              String(R"([
+  "foo",
+  {
+    "a": 15,
+    "b": [
+      true,
+      10
+    ]
+  }
+])"))
+            .WrapWithFeature(FEATURE_JSON_TYPE));
+    all_tests.emplace_back(
+        "to_json_string",
+        QueryParamsWithResult(
+            {Value::UnvalidatedJsonString(R"({"a": 10})"), Bool(false)},
+            String(R"({"a":10})"))
+            .WrapWithFeatureSet(
+                {FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION}));
+    all_tests.emplace_back(
+        "to_json_string",
+        QueryParamsWithResult(
+            {Value::UnvalidatedJsonString(R"({"a": 10})"), Bool(true)},
+            String(R"({
+  "a": 10
+})"))
+            .WrapWithFeatureSet(
+                {FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION}));
+    all_tests.emplace_back(
+        "to_json_string",
+        QueryParamsWithResult({Value::UnvalidatedJsonString(R"({"a": 10)")},
+                              values::NullString(), kOutOfRange)
+            .WrapWithFeatureSet(
+                {FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION}));
+    all_tests.emplace_back(
+        "to_json_string",
+        QueryParamsWithResult(
+            {Value::UnvalidatedJsonString(R"({"a": 18446744073709551616})")},
+            values::NullString(), kOutOfRange)
+            .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION,
+                                 FEATURE_JSON_STRICT_NUMBER_PARSING}));
   }
 }
 

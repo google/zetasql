@@ -16,6 +16,8 @@
 
 #include "zetasql/public/analyzer_options.h"
 
+#include "zetasql/base/case.h"
+
 namespace zetasql {
 
 bool StringVectorCaseLess::operator()(
@@ -23,7 +25,7 @@ bool StringVectorCaseLess::operator()(
     const std::vector<std::string>& v2) const {
   auto common_length = std::min(v1.size(), v2.size());
   for (int idx = 0; idx < common_length; ++idx) {
-    const int cmp = zetasql_base::StringCaseCompare(v1[idx], v2[idx]);
+    const int cmp = zetasql_base::CaseCompare(v1[idx], v2[idx]);
     if (cmp < 0) return true;
     if (cmp > 0) return false;
     // Otherwise the strings compared equal, so compare the next array
@@ -213,7 +215,7 @@ AnalyzerOptions::AnalyzerOptions() : AnalyzerOptions(LanguageOptions()) {}
 
 AnalyzerOptions::AnalyzerOptions(const LanguageOptions& language_options)
     : language_options_(language_options) {
-  ZETASQL_CHECK(LoadTimeZone("America/Los_Angeles", &default_timezone_));
+  ZETASQL_CHECK(absl::LoadTimeZone("America/Los_Angeles", &default_timezone_));
 }
 
 AnalyzerOptions::~AnalyzerOptions() {}
@@ -286,7 +288,8 @@ absl::Status AnalyzerOptions::Deserialize(
   result->SetDdlPseudoColumns(ddl_pseudo_columns);
 
   if (proto.has_default_timezone() &&
-      !LoadTimeZone(proto.default_timezone(), &result->default_timezone_)) {
+      !absl::LoadTimeZone(proto.default_timezone(),
+                          &result->default_timezone_)) {
     return MakeSqlError() << "Timezone string not parseable: "
                           << proto.default_timezone();
   }
@@ -321,21 +324,8 @@ absl::Status AnalyzerOptions::Deserialize(
     result->enabled_rewrites_.insert(static_cast<ResolvedASTRewrite>(rewrite));
   }
 
-  if (proto.has_parse_location_options() ||
-      proto.has_record_parse_locations()) {
-    result->parse_location_options_.record_parse_locations =
-        (proto.parse_location_options().record_parse_locations() ||
-         proto.record_parse_locations());
-    switch (proto.parse_location_options().function_call_record_type()) {
-      case AnalyzerOptionsProto::ParseLocationOptionsProto::FUNCTION_NAME:
-        result->parse_location_options_.function_call_record_type =
-            AnalyzerOptions::FUNCTION_NAME;
-        break;
-      case AnalyzerOptionsProto::ParseLocationOptionsProto::FUNCTION_CALL:
-        result->parse_location_options_.function_call_record_type =
-            AnalyzerOptions::FUNCTION_CALL;
-        break;
-    }
+  if (proto.has_parse_location_record_type()) {
+    result->parse_location_record_type_ = proto.parse_location_record_type();
   }
 
   return absl::OkStatus();
@@ -403,21 +393,8 @@ absl::Status AnalyzerOptions::Serialize(FileDescriptorSetMap* map,
   ZETASQL_RETURN_IF_ERROR(allowed_hints_and_options_.Serialize(
       map, proto->mutable_allowed_hints_and_options()));
 
-  if (parse_location_options_.record_parse_locations) {
-    proto->set_record_parse_locations(true);
-    AnalyzerOptionsProto::ParseLocationOptionsProto* option =
-        proto->mutable_parse_location_options();
-    option->set_record_parse_locations(true);
-    switch (parse_location_options_.function_call_record_type) {
-      case FUNCTION_NAME:
-        option->set_function_call_record_type(
-            AnalyzerOptionsProto::ParseLocationOptionsProto::FUNCTION_NAME);
-        break;
-      case FUNCTION_CALL:
-        option->set_function_call_record_type(
-            AnalyzerOptionsProto::ParseLocationOptionsProto::FUNCTION_CALL);
-        break;
-    }
+  if (parse_location_record_type_ != PARSE_LOCATION_RECORD_NONE) {
+    proto->set_parse_location_record_type(parse_location_record_type_);
   }
 
   for (const Type* type : target_column_types_) {

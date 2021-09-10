@@ -16,7 +16,7 @@
 
 syntax = "proto2";
 
-package zetasql_test;
+package zetasql_test__;
 
 enum TestReferencedEnum {
   REFERENCED_ENUM_0 = 0;

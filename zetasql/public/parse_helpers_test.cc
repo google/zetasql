@@ -21,6 +21,7 @@
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/parse_resume_location.h"
+#include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/strings/match.h"
@@ -358,38 +359,101 @@ struct StatementPropertiesTestCase {
 
 std::vector<StatementPropertiesTestCase> GetStatementPropertiesTestCases() {
   return {
-    {"SELECT * FROM T", RESOLVED_QUERY_STMT, StatementProperties::SELECT,
-     false, {},
-    },
-    {"CREATE TABLE T AS SELECT 1", RESOLVED_CREATE_TABLE_AS_SELECT_STMT,
-     StatementProperties::DDL, false, {},
-    },
-    {"CREATE TEMP TABLE T (A INT64);", RESOLVED_CREATE_TABLE_STMT,
-     StatementProperties::DDL, true, {},
-    },
-    {"INSERT INTO FOO VALUES (1,2,3)", RESOLVED_INSERT_STMT,
-     StatementProperties::DML, false, {},
-    },
-    {"EXPORT DATA OPTIONS", RESOLVED_EXPORT_DATA_STMT,
-     StatementProperties::OTHER, false, {},
-    },
-    {"@{a = 4, b = 1 +2} SELECT * FROM T", RESOLVED_QUERY_STMT,
-     StatementProperties::SELECT, false, {{"a", "4"}, {"b", "1 +2"}},
-    },
-    {"@{b = 5, a = 1 +2} SELECT * FROM T", RESOLVED_QUERY_STMT,
-     StatementProperties::SELECT, false, {{"a", "1 +2"}, {"b", "5"}},
-    },
-    {"@2 SELECT * FROM T", RESOLVED_QUERY_STMT,
-     StatementProperties::SELECT, false, {},
-    },
-    {"@{b = 9} CREATE TABLE T AS SELECT 1",
-     RESOLVED_CREATE_TABLE_AS_SELECT_STMT,
-     StatementProperties::DDL, false, {{"b", "9"}},
-    },
-    {"  /**/ @{b = 9} /**/ CREATE TABLE T AS SELECT 1",
-     RESOLVED_CREATE_TABLE_AS_SELECT_STMT,
-     StatementProperties::DDL, false, {{"b", "9"}},
-    }
+      {
+          "SELECT * FROM T",
+          RESOLVED_QUERY_STMT,
+          StatementProperties::SELECT,
+          false,
+          {},
+      },
+      {
+          "CREATE TABLE T AS SELECT 1",
+          RESOLVED_CREATE_TABLE_AS_SELECT_STMT,
+          StatementProperties::DDL,
+          false,
+          {},
+      },
+      {
+          "CREATE TEMP TABLE T (A INT64);",
+          RESOLVED_CREATE_TABLE_STMT,
+          StatementProperties::DDL,
+          true,
+          {},
+      },
+      {
+          "INSERT INTO FOO VALUES (1,2,3)",
+          RESOLVED_INSERT_STMT,
+          StatementProperties::DML,
+          false,
+          {},
+      },
+      {
+          "EXPORT DATA OPTIONS",
+          RESOLVED_EXPORT_DATA_STMT,
+          StatementProperties::OTHER,
+          false,
+          {},
+      },
+      {
+          "@{a = 4, b = 1 +2} SELECT * FROM T",
+          RESOLVED_QUERY_STMT,
+          StatementProperties::SELECT,
+          false,
+          {{"a", "4"}, {"b", "1 +2"}},
+      },
+      {
+          "@{b = 5, a = 1 +2} SELECT * FROM T",
+          RESOLVED_QUERY_STMT,
+          StatementProperties::SELECT,
+          false,
+          {{"a", "1 +2"}, {"b", "5"}},
+      },
+      {
+          "@2 SELECT * FROM T",
+          RESOLVED_QUERY_STMT,
+          StatementProperties::SELECT,
+          false,
+          {},
+      },
+      {
+          "@{b = 9} CREATE TABLE T AS SELECT 1",
+          RESOLVED_CREATE_TABLE_AS_SELECT_STMT,
+          StatementProperties::DDL,
+          false,
+          {{"b", "9"}},
+      },
+      {
+          "  /**/ @{b = 9} /**/ CREATE TABLE T AS SELECT 1",
+          RESOLVED_CREATE_TABLE_AS_SELECT_STMT,
+          StatementProperties::DDL,
+          false,
+          {{"b", "9"}},
+      },
+      {"RETURN 'foo'", RESOLVED_LITERAL, StatementProperties::OTHER, false, {}},
+      {R"(IF TRUE THEN
+            SELECT 5;
+          END IF;)",
+       RESOLVED_LITERAL,
+       StatementProperties::OTHER,
+       false,
+       {}},
+      {R"(LOOP
+          END LOOP;)",
+       RESOLVED_LITERAL,
+       StatementProperties::OTHER,
+       false,
+       {}},
+      {R"(SET (a, b) = (1, 2))",
+       RESOLVED_LITERAL,
+       StatementProperties::OTHER,
+       false,
+       {}},
+      {R"(L1: REPEAT UNTIL TRUE
+          END REPEAT;)",
+       RESOLVED_LITERAL,
+       StatementProperties::OTHER,
+       false,
+       {}},
   };
 }
 

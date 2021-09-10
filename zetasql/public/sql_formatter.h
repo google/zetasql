@@ -19,6 +19,7 @@
 
 #include <string>
 
+#include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -37,7 +38,7 @@ namespace zetasql {
 // 1. This can only reformat SQL statements that can be parsed successfully.
 // Statements that cannot be parsed are returned unchanged.
 // 2. Comments are stripped in the formatted output.
-absl::Status FormatSql(const std::string& sql, std::string* formatted_sql);
+absl::Status FormatSql(absl::string_view sql, std::string* formatted_sql);
 
 }  // namespace zetasql
 

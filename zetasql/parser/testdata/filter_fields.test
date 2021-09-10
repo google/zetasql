@@ -146,6 +146,34 @@ SELECT
   FILTER_FIELDS(some_proto, +int32_field, +proto_field)
 ==
 
+select filter_fields(some_proto, +int32_field, +`where`)
+--
+QueryStatement [0-56]
+  Query [0-56]
+    Select [0-56]
+      SelectList [7-56]
+        SelectColumn [7-56]
+          FilterFieldsExpression [7-56]
+            PathExpression [21-31]
+              Identifier(some_proto) [21-31]
+            FilterFieldsArg(+) [33-45]
+              PathExpression [34-45]
+                Identifier(int32_field) [34-45]
+            FilterFieldsArg(+) [47-55]
+              PathExpression [48-55]
+                Identifier(`where`) [48-55]
+--
+SELECT
+  FILTER_FIELDS(some_proto, +int32_field, +`where`)
+==
+
+select filter_fields(some_proto, +int32_field, +where)
+--
+ERROR: Syntax error: Unexpected keyword WHERE [at 1:49]
+select filter_fields(some_proto, +int32_field, +where)
+                                                ^
+==
+
 select filter_fields(some_proto)
 --
 ERROR: Syntax error: Unexpected ")" [at 1:32]

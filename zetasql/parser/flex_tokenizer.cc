@@ -25,9 +25,8 @@
 // flag. Before that, we'll turn on this feature in test environment and soak
 // for a while. Then roll out to Evenflow prod instances and eventually
 // deprecate this flag.
-ABSL_FLAG(
-    bool, zetasql_use_customized_flex_istream, false,
-    "If true, use customized StringStreamWithSentinel to read input.");
+ABSL_FLAG(bool, zetasql_use_customized_flex_istream, true,
+          "If true, use customized StringStreamWithSentinel to read input.");
 
 namespace zetasql {
 namespace parser {
@@ -48,7 +47,7 @@ absl::Status ZetaSqlFlexTokenizer::GetNextToken(
 }
 
 bool ZetaSqlFlexTokenizer::IsDotGeneralizedIdentifierPrefixToken(
-    int bison_token) {
+    int bison_token) const {
   if (bison_token ==
           zetasql_bison_parser::BisonParserImpl::token::IDENTIFIER ||
       bison_token == ')' || bison_token == ']' || bison_token == '?') {
@@ -58,7 +57,54 @@ bool ZetaSqlFlexTokenizer::IsDotGeneralizedIdentifierPrefixToken(
   if (keyword_info == nullptr) {
     return false;
   }
-  return !keyword_info->IsReserved();
+  return !IsReservedKeyword(keyword_info->keyword());
+}
+
+bool ZetaSqlFlexTokenizer::IsReservedKeyword(absl::string_view text) const {
+  if (language_options_ != nullptr) {
+    return language_options_->IsReservedKeyword(text);
+  }
+
+  // For backward compatibility reasons, assume conditionally reserved keywords
+  // are nonreserved when no LanguageOptions is specified.
+  const KeywordInfo* keyword_info = GetKeywordInfo(text);
+  return keyword_info != nullptr && keyword_info->IsAlwaysReserved();
+}
+
+int ZetaSqlFlexTokenizer::GetIdentifierLength(absl::string_view text) {
+  if (text[0] == '`') {
+    // Identifier is backquoted. Find the closing quote, accounting for escape
+    // sequences.
+    for (int i = 1; i < text.size(); ++i) {
+      switch (text[i]) {
+        case '\\':
+          // Next character is a literal - ignore it
+          ++i;
+          continue;
+        case '`':
+          // Reached the end of the backquoted string
+          return i + 1;
+        default:
+          break;
+      }
+    }
+    // Backquoted identifier is not closed. For lexer purposes, assume the
+    // identifier portion spans the entire text. An error will be issued later.
+    return static_cast<int>(text.size());
+  }
+
+  // The identifier is not backquoted - the identifier terminates at the first
+  // character that is not either a letter, digit, or underscore.
+  if (!isalpha(text[0]) && text[0] != '_') {
+    return 0;
+  }
+  for (int i = 1; i < text.size(); ++i) {
+    if (!isalnum(text[i]) && text[i] != '_') {
+      return i;
+    }
+  }
+
+  return static_cast<int>(text.size());
 }
 
 }  // namespace parser

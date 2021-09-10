@@ -24,7 +24,6 @@ cc_library(
     hdrs = ["proto_matchers.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -40,7 +39,6 @@ cc_library(
     hdrs = ["testing_proto_util.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -75,7 +73,6 @@ cc_library(
     hdrs = ["status_payload_matchers.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -94,7 +91,6 @@ cc_library(
     hdrs = ["status_payload_matchers_oss.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -102,10 +98,10 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
-        "//zetasql/base:statusor",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/common:status_payload_utils",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf",
     ],
@@ -127,10 +123,10 @@ cc_test(
     deps = [
         ":status_payload_matchers_oss",
         ":status_payload_matchers_test_cc_proto",
-        "//zetasql/base:statusor",
         "//zetasql/base/testing:proto_matchers_oss",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/common:status_payload_utils",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
     ],
 )

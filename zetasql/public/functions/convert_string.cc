@@ -22,7 +22,7 @@
 #include "zetasql/public/functions/util.h"
 #include "zetasql/base/string_numbers.h"
 #include "absl/base/optimization.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"

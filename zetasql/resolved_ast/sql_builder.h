@@ -41,7 +41,7 @@
 #include <cstdint>
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 
@@ -329,6 +329,8 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status VisitResolvedSingleRowScan(
       const ResolvedSingleRowScan* node) override;
   absl::Status VisitResolvedPivotScan(const ResolvedPivotScan* node) override;
+  absl::Status VisitResolvedUnpivotScan(
+      const ResolvedUnpivotScan* node) override;
   absl::Status VisitResolvedGroupRowsScan(
       const ResolvedGroupRowsScan* node) override;
 
@@ -347,6 +349,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedCreateEntityStmt* node) override;
   absl::Status VisitResolvedAlterEntityStmt(
       const ResolvedAlterEntityStmt* node) override;
+  absl::Status VisitResolvedAuxLoadDataStmt(
+      const ResolvedAuxLoadDataStmt* node) override;
 
   absl::Status DefaultVisit(const ResolvedNode* node) override;
 
@@ -394,9 +398,9 @@ class SQLBuilder : public ResolvedASTVisitor {
 
   // Helper function which Visits the given <node> and returns the corresponding
   // QueryFragment generated.
-  zetasql_base::StatusOr<std::unique_ptr<QueryFragment>> ProcessNode(
+  absl::StatusOr<std::unique_ptr<QueryFragment>> ProcessNode(
       const ResolvedNode* node);
-  zetasql_base::StatusOr<std::string> ProcessExecuteImmediateArgument(
+  absl::StatusOr<std::string> ProcessExecuteImmediateArgument(
       const ResolvedExecuteImmediateArgument* node);
 
   // Wraps the given <query_expression> corresponding to the scan <node> as a
@@ -429,9 +433,9 @@ class SQLBuilder : public ResolvedASTVisitor {
       const Type* type, bool is_hidden,
       const ResolvedColumnAnnotations* annotations,
       const ResolvedGeneratedColumnInfo* generated_column_info,
-      const ResolvedExpr* default_expression, std::string* text);
+      const ResolvedColumnDefaultValue* default_value, std::string* text);
 
-  zetasql_base::StatusOr<std::string> GetHintListString(
+  absl::StatusOr<std::string> GetHintListString(
       const std::vector<std::unique_ptr<const ResolvedOption>>& hint_list);
 
   absl::Status AppendCloneDataSource(const ResolvedScan* source,
@@ -465,10 +469,10 @@ class SQLBuilder : public ResolvedASTVisitor {
 
   // Returns the sql text associated with a left/right join scan. Adds explicit
   // scan alias if necessary.
-  zetasql_base::StatusOr<std::string> GetJoinOperand(const ResolvedScan* scan);
+  absl::StatusOr<std::string> GetJoinOperand(const ResolvedScan* scan);
 
   // Helper function which fetches the list of function arguments
-  zetasql_base::StatusOr<std::string> GetFunctionArgListString(
+  absl::StatusOr<std::string> GetFunctionArgListString(
       const std::vector<std::string>& arg_name_list,
       const FunctionSignature& signature);
 
@@ -545,20 +549,20 @@ class SQLBuilder : public ResolvedASTVisitor {
   // corresponding QueryExpression. Also ensures that the query produces columns
   // matching the order and aliases in <output_column_list>.
   // Caller owns the returned QueryExpression.
-  zetasql_base::StatusOr<QueryExpression*> ProcessQuery(
+  absl::StatusOr<QueryExpression*> ProcessQuery(
       const ResolvedScan* query,
       const std::vector<std::unique_ptr<const ResolvedOutputColumn>>&
           output_column_list);
 
-  static zetasql_base::StatusOr<absl::string_view> GetNullHandlingModifier(
+  static absl::StatusOr<absl::string_view> GetNullHandlingModifier(
       ResolvedNonScalarFunctionCallBase::NullHandlingModifier kind);
 
-  zetasql_base::StatusOr<std::string> GetSQL(const Value& value, ProductMode mode,
+  absl::StatusOr<std::string> GetSQL(const Value& value, ProductMode mode,
                                      bool is_constant_value = false);
 
   // Helper function to return corresponding SQL for a list of
   // ResolvedUpdateItems.
-  zetasql_base::StatusOr<std::string> GetUpdateItemListSQL(
+  absl::StatusOr<std::string> GetUpdateItemListSQL(
       const std::vector<std::unique_ptr<const ResolvedUpdateItem>>&
           update_item_list);
 
@@ -570,7 +574,7 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status ProcessWithPartitionColumns(
       std::string* sql, const ResolvedWithPartitionColumns* node);
 
-  zetasql_base::StatusOr<std::string> ProcessCreateTableStmtBase(
+  absl::StatusOr<std::string> ProcessCreateTableStmtBase(
       const ResolvedCreateTableStmtBase* node, bool process_column_definitions,
       const std::string& table_type);
 
@@ -581,7 +585,7 @@ class SQLBuilder : public ResolvedASTVisitor {
       QueryExpression* query_expression);
 
   // Helper function to return corresponding SQL for ResolvedAlterAction
-  zetasql_base::StatusOr<std::string> GetAlterActionSQL(
+  absl::StatusOr<std::string> GetAlterActionSQL(
       const std::vector<std::unique_ptr<const ResolvedAlterAction>>&
           alter_action_list);
 
@@ -591,7 +595,7 @@ class SQLBuilder : public ResolvedASTVisitor {
 
   // Helper function to return corresponding SQL from the grantee list of
   // GRANT, REVOKE, CREATE/ALTER ROW POLICY statements.
-  zetasql_base::StatusOr<std::string> GetGranteeListSQL(
+  absl::StatusOr<std::string> GetGranteeListSQL(
       const std::string& prefix, const std::vector<std::string>& grantee_list,
       const std::vector<std::unique_ptr<const ResolvedExpr>>&
           grantee_expr_list);
@@ -607,10 +611,10 @@ class SQLBuilder : public ResolvedASTVisitor {
       const std::vector<std::unique_ptr<const ResolvedCheckConstraint>>&
           check_constraint_list);
   // Helper function to append foreign key table constraint.
-  zetasql_base::StatusOr<std::string> ProcessForeignKey(
+  absl::StatusOr<std::string> ProcessForeignKey(
       const ResolvedForeignKey* foreign_key, bool is_if_not_exists);
   // Helper function to append primary key table constraint.
-  zetasql_base::StatusOr<std::string> ProcessPrimaryKey(
+  absl::StatusOr<std::string> ProcessPrimaryKey(
       const ResolvedPrimaryKey* primary_key);
   std::string ComputedColumnAliasDebugString() const;
 

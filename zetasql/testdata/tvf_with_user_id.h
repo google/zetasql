@@ -38,7 +38,7 @@ class TVFSignatureWithUid : public TVFSignature {
                       absl::Span<const std::string> uid_column_name_path)
       : TVFSignature(input_arguments, result_schema) {
     SetAnonymizationInfo(
-        AnonymizationInfo::Create(uid_column_name_path).ValueOrDie());
+        AnonymizationInfo::Create(uid_column_name_path).value());
   }
 };
 

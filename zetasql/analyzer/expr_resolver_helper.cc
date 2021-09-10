@@ -16,29 +16,28 @@
 
 #include "zetasql/analyzer/expr_resolver_helper.h"
 
-#include <cstdint>
+#include <memory>
+#include <string>
 #include <utility>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/analyzer/name_scope.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/parser/parse_tree.h"
-#include "zetasql/parser/parse_tree_errors.h"
+#include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
-#include "zetasql/public/input_argument_type.h"
-#include "zetasql/public/strings.h"
-#include "zetasql/public/value.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
-#include "zetasql/base/string_numbers.h"
-#include "absl/strings/numbers.h"
+#include "absl/memory/memory.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
-#include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
-bool IsConstantExpression(const ResolvedExpr* expr) {
+absl::StatusOr<bool> IsConstantExpression(const ResolvedExpr* expr) {
 
   switch (expr->node_kind()) {
     case RESOLVED_CONSTANT:
@@ -69,14 +68,18 @@ bool IsConstantExpression(const ResolvedExpr* expr) {
       }
       for (const std::unique_ptr<const ResolvedExpr>& arg :
            function_call->argument_list()) {
-        if (!IsConstantExpression(arg.get())) {
+        ZETASQL_ASSIGN_OR_RETURN(bool arg_is_constant_expr,
+                         IsConstantExpression(arg.get()));
+        if (!arg_is_constant_expr) {
           return false;
         }
       }
       for (const std::unique_ptr<const ResolvedFunctionArgument>& arg :
            function_call->generic_argument_list()) {
         if (arg->expr() != nullptr) {
-          if (!IsConstantExpression(arg->expr())) {
+          ZETASQL_ASSIGN_OR_RETURN(bool arg_is_constant_expr,
+                           IsConstantExpression(arg->expr()));
+          if (!arg_is_constant_expr) {
             return false;
           }
         } else if (arg->inline_lambda() != nullptr) {
@@ -109,7 +112,9 @@ bool IsConstantExpression(const ResolvedExpr* expr) {
 
     case RESOLVED_FLATTEN:
       for (const auto& arg : expr->GetAs<ResolvedFlatten>()->get_field_list()) {
-        if (!IsConstantExpression(arg.get())) return false;
+        ZETASQL_ASSIGN_OR_RETURN(bool arg_is_constant_expr,
+                         IsConstantExpression(arg.get()));
+        if (arg_is_constant_expr) return false;
       }
       return IsConstantExpression(expr->GetAs<ResolvedFlatten>()->expr());
 
@@ -124,12 +129,16 @@ bool IsConstantExpression(const ResolvedExpr* expr) {
     case RESOLVED_REPLACE_FIELD: {
       const ResolvedReplaceField* replace_field =
           expr->GetAs<ResolvedReplaceField>();
-      if (!IsConstantExpression(replace_field->expr())) {
+      ZETASQL_ASSIGN_OR_RETURN(bool replace_field_is_constant_expr,
+                       IsConstantExpression(replace_field->expr()));
+      if (!replace_field_is_constant_expr) {
         return false;
       }
       for (const std::unique_ptr<const ResolvedReplaceFieldItem>&
                replace_field_item : replace_field->replace_field_item_list()) {
-        if (!IsConstantExpression(replace_field_item->expr())) {
+        ZETASQL_ASSIGN_OR_RETURN(bool replace_field_item_is_constant_expr,
+                         IsConstantExpression(replace_field_item->expr()));
+        if (!replace_field_item_is_constant_expr) {
           return false;
         }
       }
@@ -142,11 +151,17 @@ bool IsConstantExpression(const ResolvedExpr* expr) {
       const ResolvedMakeStruct* make_struct = expr->GetAs<ResolvedMakeStruct>();
       for (const std::unique_ptr<const ResolvedExpr>& child_expr :
            make_struct->field_list()) {
-        if (!IsConstantExpression(child_expr.get())) {
+        ZETASQL_ASSIGN_OR_RETURN(bool child_expr_is_constant_expr,
+                         IsConstantExpression(child_expr.get()));
+        if (!child_expr_is_constant_expr) {
           return false;
         }
       }
       return true;
+    }
+
+    case RESOLVED_FILTER_FIELD: {
+      return IsConstantExpression(expr->GetAs<ResolvedFilterField>()->expr());
     }
 
     case RESOLVED_MAKE_PROTO: {
@@ -155,7 +170,9 @@ bool IsConstantExpression(const ResolvedExpr* expr) {
       const ResolvedMakeProto* make_proto = expr->GetAs<ResolvedMakeProto>();
       for (const std::unique_ptr<const ResolvedMakeProtoField>& field :
            make_proto->field_list()) {
-        if (!IsConstantExpression(field->expr())) {
+        ZETASQL_ASSIGN_OR_RETURN(bool field_is_constant_expr,
+                         IsConstantExpression(field->expr()));
+        if (!field_is_constant_expr) {
           return false;
         }
       }
@@ -165,205 +182,11 @@ bool IsConstantExpression(const ResolvedExpr* expr) {
     default:
       // Update the static_assert above if adding or removing cases in
       // this switch.
-      ZETASQL_LOG(DFATAL)
-          << "Unhandled expression type " << expr->node_kind_string()
-          << " in IsConstantExpression";
+      ZETASQL_RET_CHECK_FAIL() << "Unhandled expression type "
+                       << expr->node_kind_string()
+                       << " in IsConstantExpression";
       return false;
   }
-}
-
-const Type* SelectColumnState::GetType() const {
-  if (resolved_select_column.IsInitialized()) {
-    return resolved_select_column.type();
-  }
-  if (resolved_expr != nullptr) {
-    return resolved_expr->type();
-  }
-  return nullptr;
-}
-
-std::string SelectColumnState::DebugString(absl::string_view indent) const {
-  std::string debug_string;
-  absl::StrAppend(&debug_string, indent, "expr:\n   ", ast_expr->DebugString(),
-                  "\n");
-  absl::StrAppend(&debug_string, indent, "alias: ", alias.ToStringView(), "\n");
-  absl::StrAppend(&debug_string, indent, "is_explicit: ", is_explicit, "\n");
-  absl::StrAppend(&debug_string, indent,
-                  "select_list_position: ", select_list_position, "\n");
-  absl::StrAppend(
-      &debug_string, indent, "resolved_expr:\n  ",
-      (resolved_expr != nullptr ? resolved_expr->DebugString() : "<null>"),
-      "\n");
-  absl::StrAppend(&debug_string, indent, "resolved_computed_column:\n  ",
-                  (resolved_computed_column != nullptr
-                       ? resolved_computed_column->DebugString()
-                       : "<null>"),
-                  "\n");
-  absl::StrAppend(&debug_string, indent, "has_aggregation: ", has_aggregation,
-                  "\n");
-  absl::StrAppend(&debug_string, indent, "has_analytic: ", has_analytic, "\n");
-  absl::StrAppend(&debug_string, indent,
-                  "is_group_by_column: ", is_group_by_column, "\n");
-  absl::StrAppend(&debug_string, indent, "resolved_select_column: ",
-                  (resolved_select_column.IsInitialized()
-                       ? resolved_select_column.DebugString()
-                       : "<uninitialized>"),
-                  "\n");
-  absl::StrAppend(&debug_string, indent,
-                  "resolved_pre_group_by_select_column: ",
-                  (resolved_pre_group_by_select_column.IsInitialized()
-                       ? resolved_pre_group_by_select_column.DebugString()
-                       : "<uninitialized>"));
-  return debug_string;
-}
-
-SelectColumnState* SelectColumnStateList::AddSelectColumn(
-    const ASTExpression* ast_expr, IdString alias,
-    bool is_explicit) {
-  SelectColumnState* select_column_state = new SelectColumnState(
-      ast_expr, alias, is_explicit, -1 /* select_list_position */);
-  AddSelectColumn(select_column_state);
-  return select_column_state;
-}
-
-void SelectColumnStateList::AddSelectColumn(
-    SelectColumnState* select_column_state) {
-  ZETASQL_DCHECK_EQ(select_column_state->select_list_position, -1);
-  select_column_state->select_list_position = select_column_state_list_.size();
-  // Save a mapping from the alias to this SelectColumnState. The mapping is
-  // later used for validations performed by
-  // FindAndValidateSelectColumnStateByAlias().
-  const IdString alias = select_column_state->alias;
-  if (!IsInternalAlias(alias)) {
-    if (!zetasql_base::InsertIfNotPresent(&column_alias_to_state_list_position_, alias,
-                                 select_column_state->select_list_position)) {
-      // Now ambiguous.
-      column_alias_to_state_list_position_[alias] = -1;
-    }
-  }
-  select_column_state_list_.push_back(absl::WrapUnique(select_column_state));
-}
-
-absl::Status SelectColumnStateList::FindAndValidateSelectColumnStateByAlias(
-    const char* clause_name, const ASTNode* ast_location,
-    IdString alias,
-    const ExprResolutionInfo* expr_resolution_info,
-    const SelectColumnState** select_column_state) const {
-  *select_column_state = nullptr;
-  // TODO Should probably do this more generally with name scoping.
-  const int* state_list_position =
-      zetasql_base::FindOrNull(column_alias_to_state_list_position_, alias);
-  if (state_list_position != nullptr) {
-    if (*state_list_position == -1) {
-      return MakeSqlErrorAt(ast_location)
-             << "Name " << alias << " in " << clause_name
-             << " is ambiguous; it may refer to multiple columns in the"
-                " SELECT-list";
-    } else {
-      const SelectColumnState* found_select_column_state =
-          select_column_state_list_[*state_list_position].get();
-      ZETASQL_RETURN_IF_ERROR(ValidateAggregateAndAnalyticSupport(
-          alias.ToStringView(), ast_location, found_select_column_state,
-          expr_resolution_info));
-      *select_column_state = found_select_column_state;
-    }
-  }
-  return absl::OkStatus();
-}
-
-absl::Status SelectColumnStateList::FindAndValidateSelectColumnStateByOrdinal(
-    const std::string& expr_description, const ASTNode* ast_location,
-    const int64_t ordinal, const ExprResolutionInfo* expr_resolution_info,
-    const SelectColumnState** select_column_state) const {
-  *select_column_state = nullptr;
-  if (ordinal < 1 || ordinal > select_column_state_list_.size()) {
-    return MakeSqlErrorAt(ast_location)
-           << expr_description
-           << " is out of SELECT column number range: " << ordinal;
-  }
-  const SelectColumnState* found_select_column_state =
-      select_column_state_list_[ordinal - 1].get();  // Convert to 0-based.
-  ZETASQL_RETURN_IF_ERROR(ValidateAggregateAndAnalyticSupport(
-      absl::StrCat(ordinal), ast_location, found_select_column_state,
-      expr_resolution_info));
-  *select_column_state = found_select_column_state;
-  return absl::OkStatus();
-}
-
-absl::Status SelectColumnStateList::ValidateAggregateAndAnalyticSupport(
-    const absl::string_view& column_description, const ASTNode* ast_location,
-    const SelectColumnState* select_column_state,
-    const ExprResolutionInfo* expr_resolution_info) {
-  if (select_column_state->has_aggregation &&
-      !expr_resolution_info->allows_aggregation) {
-    return MakeSqlErrorAt(ast_location)
-           << "Column " << column_description
-           << " contains an aggregation function, which is not allowed in "
-           << expr_resolution_info->clause_name
-           << (expr_resolution_info->is_post_distinct()
-                   ? " after SELECT DISTINCT"
-                   : "");
-  }
-  if (select_column_state->has_analytic &&
-      !expr_resolution_info->allows_analytic) {
-    return MakeSqlErrorAt(ast_location)
-           << "Column " << column_description
-           << " contains an analytic function, which is not allowed in "
-           << expr_resolution_info->clause_name
-           << (expr_resolution_info->is_post_distinct()
-                   ? " after SELECT DISTINCT"
-                   : "");
-  }
-  return absl::OkStatus();
-}
-
-SelectColumnState* SelectColumnStateList::GetSelectColumnState(
-    int select_list_position) {
-  ZETASQL_CHECK_GE(select_list_position, 0);
-  ZETASQL_CHECK_LT(select_list_position, select_column_state_list_.size());
-  return select_column_state_list_[select_list_position].get();
-}
-
-const SelectColumnState* SelectColumnStateList::GetSelectColumnState(
-    int select_list_position) const {
-  ZETASQL_CHECK_GE(select_list_position, 0);
-  ZETASQL_CHECK_LT(select_list_position, select_column_state_list_.size());
-  return select_column_state_list_[select_list_position].get();
-}
-
-const std::vector<std::unique_ptr<SelectColumnState>>&
-SelectColumnStateList::select_column_state_list() const {
-  return select_column_state_list_;
-}
-
-const ResolvedColumnList SelectColumnStateList::resolved_column_list() const {
-  ResolvedColumnList resolved_column_list;
-  resolved_column_list.reserve(select_column_state_list_.size());
-  for (const std::unique_ptr<SelectColumnState>& select_column_state :
-       select_column_state_list_) {
-    resolved_column_list.push_back(select_column_state->resolved_select_column);
-  }
-  return resolved_column_list;
-}
-
-int SelectColumnStateList::Size() const {
-  return select_column_state_list_.size();
-}
-
-std::string SelectColumnStateList::DebugString() const {
-  std::string debug_string("SelectColumnStateList, size = ");
-  absl::StrAppend(&debug_string, Size(), "\n");
-  for (int idx = 0; idx < Size(); ++idx) {
-    absl::StrAppend(&debug_string, "    [", idx, "]:\n",
-                    GetSelectColumnState(idx)->DebugString("       "), "\n");
-  }
-  absl::StrAppend(&debug_string, "  alias map:\n");
-  for (const auto& alias_to_position : column_alias_to_state_list_position_) {
-    absl::StrAppend(&debug_string, "    ",
-                    alias_to_position.first.ToStringView(), " : ",
-                    alias_to_position.second, "\n");
-  }
-  return debug_string;
 }
 
 ExprResolutionInfo::ExprResolutionInfo(
@@ -465,236 +288,6 @@ std::string ExprResolutionInfo::DebugString() const {
       (query_resolution_info != nullptr ? query_resolution_info->DebugString()
                                         : "NULL"));
   return debugstring;
-}
-
-InputArgumentType GetInputArgumentTypeForExpr(const ResolvedExpr* expr) {
-  ZETASQL_DCHECK(expr != nullptr);
-  if (expr->type()->IsStruct() && expr->node_kind() == RESOLVED_MAKE_STRUCT) {
-    const ResolvedMakeStruct* struct_expr = expr->GetAs<ResolvedMakeStruct>();
-    std::vector<InputArgumentType> field_types;
-    GetInputArgumentTypesForExprList(struct_expr->field_list(), &field_types);
-    // We construct a custom InputArgumentType for structs that may have
-    // some literal and some non-literal fields.
-    return InputArgumentType(expr->type()->AsStruct(), field_types);
-  }
-
-  // Literals that were explicitly casted (i.e., the original expression was
-  // 'CAST(<literal> AS <type>)') are treated like non-literals with
-  // respect to subsequent coercion.
-  if (expr->node_kind() == RESOLVED_LITERAL &&
-      !expr->GetAs<ResolvedLiteral>()->has_explicit_type()) {
-    if (expr->GetAs<ResolvedLiteral>()->value().is_null()) {
-      // This is a literal NULL that does not have an explicit type, so
-      // it can coerce to anything.
-      return InputArgumentType::UntypedNull();
-    }
-    // This is a literal empty array that does not have an explicit type,
-    // so it can coerce to any array type.
-    if (expr->GetAs<ResolvedLiteral>()->value().is_empty_array()) {
-      return InputArgumentType::UntypedEmptyArray();
-    }
-    return InputArgumentType(expr->GetAs<ResolvedLiteral>()->value());
-  }
-
-  if (expr->node_kind() == RESOLVED_PARAMETER &&
-      expr->GetAs<ResolvedParameter>()->is_untyped()) {
-    // Undeclared parameters can be coerced to any type.
-    return InputArgumentType::UntypedQueryParameter();
-  }
-
-  if (expr->node_kind() == RESOLVED_FUNCTION_CALL &&
-      expr->GetAs<ResolvedFunctionCall>()->function()->FullName(
-          true /* include_group */) == "ZetaSQL:error") {
-    // This is an ERROR(message) function call.  We special case this to
-    // make the output argument coercible to anything so expressions like
-    //   IF(<condition>, <value>, ERROR("message"))
-    // work for any value type.
-    //
-    // Note that this case does not apply if ERROR() is wrapped in a CAST, since
-    // that expression has an explicit type. For example,
-    // COALESCE('abc', CAST(ERROR('def') AS BYTES)) fails because BYTES does not
-    // implicitly coerce to STRING.
-    return InputArgumentType::UntypedNull();
-  }
-
-  return InputArgumentType(expr->type(),
-                           expr->node_kind() == RESOLVED_PARAMETER);
-}
-
-void GetInputArgumentTypesForExprList(
-    const std::vector<std::unique_ptr<const ResolvedExpr>>& arguments,
-    std::vector<InputArgumentType>* input_arguments) {
-  input_arguments->clear();
-  input_arguments->reserve(arguments.size());
-  for (const std::unique_ptr<const ResolvedExpr>& argument : arguments) {
-    input_arguments->push_back(GetInputArgumentTypeForExpr(argument.get()));
-  }
-}
-
-static InputArgumentType GetInputArgumentTypeForGenericArgument(
-    const ASTNode* argument_ast_node, const ResolvedExpr* expr) {
-  ZETASQL_DCHECK(argument_ast_node != nullptr);
-  // Only lambdas uses nullptr as placeholder.
-  if (argument_ast_node->Is<ASTLambda>() || expr == nullptr) {
-    ZETASQL_DCHECK(expr == nullptr) << "Lambda must have a nullptr placeholder";
-    ZETASQL_DCHECK(argument_ast_node->Is<ASTLambda>())
-        << "A nullptr placeholder can only be used for a lambda argument";
-    return InputArgumentType::LambdaInputArgumentType();
-  }
-  ZETASQL_DCHECK(expr != nullptr);
-  return GetInputArgumentTypeForExpr(expr);
-}
-
-void GetInputArgumentTypesForGenericArgumentList(
-    const std::vector<const ASTNode*>& argument_ast_nodes,
-    const std::vector<std::unique_ptr<const ResolvedExpr>>& arguments,
-    std::vector<InputArgumentType>* input_arguments) {
-  ZETASQL_DCHECK_EQ(argument_ast_nodes.size(), arguments.size());
-  input_arguments->clear();
-  input_arguments->reserve(arguments.size());
-  for (int i = 0; i < argument_ast_nodes.size(); i++) {
-    input_arguments->push_back(GetInputArgumentTypeForGenericArgument(
-        argument_ast_nodes[i], arguments[i].get()));
-  }
-}
-
-bool IsSameExpressionForGroupBy(const ResolvedExpr* expr1,
-                                const ResolvedExpr* expr2) {
-  if (expr1->node_kind() != expr2->node_kind() ||
-      !expr1->type()->Equals(expr2->type())) {
-    return false;
-  }
-
-  // Need to make sure that all non-default fields of expressions were accessed
-  // to make sure that if new fields are added, this function checks them or
-  // expressions are not considered the same.
-  expr1->ClearFieldsAccessed();
-  expr2->ClearFieldsAccessed();
-
-  switch (expr1->node_kind()) {
-    case RESOLVED_LITERAL: {
-      const ResolvedLiteral* lit1 = expr1->GetAs<ResolvedLiteral>();
-      const ResolvedLiteral* lit2 = expr2->GetAs<ResolvedLiteral>();
-      // Value::Equals does the right thing for GROUP BY - NULLs, NaNs, infs
-      // etc are considered equal.
-      if (!lit1->value().Equals(lit2->value())) {
-        return false;
-      }
-      break;
-    }
-    case RESOLVED_PARAMETER: {
-      const ResolvedParameter* param1 = expr1->GetAs<ResolvedParameter>();
-      const ResolvedParameter* param2 = expr2->GetAs<ResolvedParameter>();
-      // Parameter names are normalized, so case sensitive comparison is ok.
-      if (param1->name() != param2->name() ||
-          param1->position() != param2->position()) {
-        return false;
-      }
-      break;
-    }
-    case RESOLVED_EXPRESSION_COLUMN: {
-      const ResolvedExpressionColumn* col1 =
-          expr1->GetAs<ResolvedExpressionColumn>();
-      const ResolvedExpressionColumn* col2 =
-          expr2->GetAs<ResolvedExpressionColumn>();
-      // Engine could be case sensitive for column names, so stay conservative
-      // and do case sensitive comparison.
-      if (col1->name() != col2->name()) {
-        return false;
-      }
-      break;
-    }
-    case RESOLVED_COLUMN_REF: {
-      const ResolvedColumnRef* ref1 = expr1->GetAs<ResolvedColumnRef>();
-      const ResolvedColumnRef* ref2 = expr2->GetAs<ResolvedColumnRef>();
-      if (ref1->column().column_id() != ref2->column().column_id()) {
-        return false;
-      }
-      break;
-    }
-    case RESOLVED_GET_STRUCT_FIELD: {
-      const ResolvedGetStructField* str1 =
-          expr1->GetAs<ResolvedGetStructField>();
-      const ResolvedGetStructField* str2 =
-          expr2->GetAs<ResolvedGetStructField>();
-      if (str1->field_idx() != str2->field_idx() ||
-          !IsSameExpressionForGroupBy(str1->expr(), str2->expr())) {
-        return false;
-      }
-      break;
-    }
-    case RESOLVED_GET_PROTO_FIELD: {
-      const ResolvedGetProtoField* proto_field1 =
-          expr1->GetAs<ResolvedGetProtoField>();
-      const ResolvedGetProtoField* proto_field2 =
-          expr2->GetAs<ResolvedGetProtoField>();
-      return proto_field1->expr()->type()->kind() ==
-                 proto_field2->expr()->type()->kind() &&
-             proto_field1->field_descriptor()->number() ==
-                 proto_field2->field_descriptor()->number() &&
-             proto_field1->default_value() == proto_field2->default_value() &&
-             proto_field1->get_has_bit() == proto_field2->get_has_bit() &&
-             proto_field1->format() == proto_field2->format() &&
-             IsSameExpressionForGroupBy(proto_field1->expr(),
-                                        proto_field2->expr());
-      break;
-    }
-    case RESOLVED_CAST: {
-      const ResolvedCast* cast1 = expr1->GetAs<ResolvedCast>();
-      const ResolvedCast* cast2 = expr2->GetAs<ResolvedCast>();
-      if (!IsSameExpressionForGroupBy(cast1->expr(), cast2->expr())) {
-        return false;
-      }
-      if (cast1->return_null_on_error() != cast2->return_null_on_error()) {
-        return false;
-      }
-      break;
-    }
-    case RESOLVED_FUNCTION_CALL: {
-      const ResolvedFunctionCall* func1 = expr1->GetAs<ResolvedFunctionCall>();
-      const ResolvedFunctionCall* func2 = expr2->GetAs<ResolvedFunctionCall>();
-      if (func1->function() != func2->function()) {
-        return false;
-      }
-      if (func1->error_mode() != func2->error_mode()) {
-        return false;
-      }
-      if (func1->function()->function_options().volatility ==
-          FunctionEnums::VOLATILE) {
-        return false;
-      }
-      const std::vector<std::unique_ptr<const ResolvedExpr>>& arg1_list =
-          func1->argument_list();
-      const std::vector<std::unique_ptr<const ResolvedExpr>>& arg2_list =
-          func2->argument_list();
-      if (arg1_list.size() != arg2_list.size()) {
-        return false;
-      }
-      for (int idx = 0; idx < arg1_list.size(); ++idx) {
-        if (!IsSameExpressionForGroupBy(arg1_list[idx].get(),
-                                        arg2_list[idx].get())) {
-          return false;
-        }
-      }
-      break;
-    }
-    default:
-      // Without explicit support for this type of expression, pessimistically
-      // say that they are not equal.
-      // TODO: Add the following:
-      // - RESOLVED_MAKE_STRUCT
-      return false;
-  }
-
-  absl::Status status;
-  status.Update(expr1->CheckFieldsAccessed());
-  status.Update(expr2->CheckFieldsAccessed());
-  if (!status.ok()) {
-    ZETASQL_LOG(DFATAL) << status;
-    return false;
-  }
-
-  return true;
 }
 
 }  // namespace zetasql

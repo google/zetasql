@@ -21,20 +21,20 @@ END
 
 **Description**
 
-Compares `expr` to `expr_to_match` of each successive `WHEN` clause and returns the
-first result where this comparison returns true. The remaining `WHEN` clauses
-and `else_result` are not evaluated. If the `expr = expr_to_match` comparison
-returns false or NULL for all `WHEN` clauses, returns `else_result` if present;
-if not present, returns NULL.
+Compares `expr` to `expr_to_match` of each successive `WHEN` clause and returns
+the first result where this comparison returns true. The remaining `WHEN`
+clauses and `else_result` are not evaluated. If the `expr = expr_to_match`
+comparison returns false or NULL for all `WHEN` clauses, returns `else_result`
+if present; if not present, returns NULL.
 
 `expr` and `expr_to_match` can be any type. They must be implicitly
-coercible to a common supertype; equality comparisons are done on
-coerced values. There may be multiple `result` types. `result` and
+coercible to a common [supertype][cond-exp-supertype]; equality comparisons are
+done on coerced values. There may be multiple `result` types. `result` and
 `else_result` expressions must be coercible to a common supertype.
 
 **Return Data Type**
 
-Supertype of `result`[, ...] and `else_result`.
+[Supertype][cond-exp-supertype] of `result`[, ...] and `else_result`.
 
 **Example**
 
@@ -70,7 +70,7 @@ CASE
   WHEN condition THEN result
   [ ... ]
   [ ELSE else_result ]
-  END
+END
 ```
 
 **Description**
@@ -82,11 +82,11 @@ returns `else_result` if present; if not present, returns NULL.
 
 `condition` must be a boolean expression. There may be multiple `result` types.
 `result` and `else_result` expressions must be implicitly coercible to a
-common supertype.
+common [supertype][cond-exp-supertype].
 
 **Return Data Type**
 
-Supertype of `result`[, ...] and `else_result`.
+[Supertype][cond-exp-supertype] of `result`[, ...] and `else_result`.
 
 **Example**
 
@@ -124,11 +124,12 @@ COALESCE(expr[, ...])
 Returns the value of the first non-null expression. The remaining
 expressions are not evaluated. An input expression can be any type.
 There may be multiple input expression types.
-All input expressions must be implicitly coercible to a common supertype.
+All input expressions must be implicitly coercible to a common
+[supertype][cond-exp-supertype].
 
 **Return Data Type**
 
-Supertype of `expr`[, ...].
+[Supertype][cond-exp-supertype] of `expr`[, ...].
 
 **Examples**
 
@@ -165,11 +166,11 @@ If `expr` is true, returns `true_result`, else returns `else_result`.
 evaluated if `expr` is false or NULL.
 
 `expr` must be a boolean expression. `true_result` and `else_result`
-must be coercible to a common supertype.
+must be coercible to a common [supertype][cond-exp-supertype].
 
 **Return Data Type**
 
-Supertype of `true_result` and `else_result`.
+[Supertype][cond-exp-supertype] of `true_result` and `else_result`.
 
 **Example**
 
@@ -204,11 +205,12 @@ If `expr` is NULL, return `null_result`. Otherwise, return `expr`. If `expr`
 is not NULL, `null_result` is not evaluated.
 
 `expr` and `null_result` can be any type and must be implicitly coercible to
-a common supertype. Synonym for `COALESCE(expr, null_result)`.
+a common [supertype][cond-exp-supertype]. Synonym for
+`COALESCE(expr, null_result)`.
 
 **Return Data Type**
 
-Supertype of `expr` or `null_result`.
+[Supertype][cond-exp-supertype] of `expr` or `null_result`.
 
 **Examples**
 
@@ -244,11 +246,11 @@ Returns NULL if `expr = expr_to_match` is true, otherwise
 returns `expr`.
 
 `expr` and `expr_to_match` must be implicitly coercible to a
-common supertype, and must be comparable.
+common [supertype][cond-exp-supertype], and must be comparable.
 
 **Return Data Type**
 
-Supertype of `expr` and `expr_to_match`.
+[Supertype][cond-exp-supertype] of `expr` and `expr_to_match`.
 
 **Example**
 
@@ -271,4 +273,6 @@ SELECT NULLIF(10, 0) as result
 | 10     |
 +--------+
 ```
+
+[cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
 

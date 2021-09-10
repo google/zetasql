@@ -49,6 +49,11 @@ class ExecuteQueryWriter {
     return absl::UnimplementedError(
         "ExecuteQueryWriter::executed is not implemented");
   }
+  virtual absl::Status ExecutedExpression(const ResolvedNode& ast,
+                                          const Value& value) {
+    return absl::UnimplementedError(
+        "ExecuteQueryWriter::executed is not implemented");
+  }
 };
 
 // Writes a human-readable representation of the query result to an output
@@ -65,6 +70,8 @@ class ExecuteQueryStreamWriter : public ExecuteQueryWriter {
                          absl::string_view explain) override;
   absl::Status executed(const ResolvedNode& ast,
                         std::unique_ptr<EvaluatorTableIterator> iter) override;
+  absl::Status ExecutedExpression(const ResolvedNode& ast,
+                                  const Value& value) override;
 
  private:
   std::ostream& stream_;

@@ -18,10 +18,15 @@
 #define ZETASQL_PUBLIC_TYPES_VALUE_REPRESENTATIONS_H_
 
 #include <cstdint>
+#include <memory>
+#include <string>
+#include <utility>
 
+#include "zetasql/base/logging.h"
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
+#include "absl/strings/cord.h"
 #include "absl/types/optional.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/simple_reference_counted.h"
@@ -38,8 +43,8 @@
 
 namespace zetasql {
 
-class Type;
 class ProtoType;
+class Type;
 
 namespace internal {  // For ZetaSQL internal use only
 

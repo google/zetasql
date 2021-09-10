@@ -30,9 +30,10 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/type_deserializer.h"
 #include "zetasql/public/value.h"
 #include "absl/base/attributes.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"
@@ -110,14 +111,14 @@ using PostResolutionArgumentConstraintsCallback = std::function<absl::Status(
 // This is invoked after the post_resolution_constraint callback.  If this
 // returns an error, that error is used as the reason a function call isn't
 // valid.
-using ComputeResultTypeCallback = std::function<zetasql_base::StatusOr<const Type*>(
+using ComputeResultTypeCallback = std::function<absl::StatusOr<const Type*>(
     Catalog*, TypeFactory*, CycleDetector*,
     const FunctionSignature&, const std::vector<InputArgumentType>&,
     const AnalyzerOptions&)>;
 // The legacy signature of the ComputeResultTypeCallback. It does not take the
 // matched signature as input.
 using LegacyComputeResultTypeCallback =
-    std::function<zetasql_base::StatusOr<const Type*>(
+    std::function<absl::StatusOr<const Type*>(
         Catalog*, TypeFactory*, CycleDetector*,
         const std::vector<InputArgumentType>&, const AnalyzerOptions&)>;
 
@@ -149,13 +150,13 @@ using BadArgumentErrorPrefixCallback =
 
 // Evaluates a function on the given arguments. Returns a status on error, and a
 // value on success.
-using FunctionEvaluator = std::function<zetasql_base::StatusOr<Value>(
+using FunctionEvaluator = std::function<absl::StatusOr<Value>(
     const absl::Span<const Value> arguments)>;
 
 // Takes a concrete function signature and returns a function evaluator or an
 // error if one cannot be constructed.
 using FunctionEvaluatorFactory =
-    std::function<zetasql_base::StatusOr<FunctionEvaluator>(const FunctionSignature&)>;
+    std::function<absl::StatusOr<FunctionEvaluator>(const FunctionSignature&)>;
 
 // Options that apply to a function.
 // The setter methods here return a reference to *self so options can be
@@ -345,7 +346,7 @@ struct FunctionOptions {
   // Returns whether or not all language features required by a function is
   // enabled.
   ABSL_MUST_USE_RESULT bool check_all_required_features_are_enabled(
-      const std::set<LanguageFeature>& enabled_features) const;
+      const LanguageOptions::LanguageFeatureSet& enabled_features) const;
 
   // Sets the evaluator factory used to associate a concrete signature of this
   // function with a FunctionEvaluator. This method is used only for evaluating
@@ -535,6 +536,9 @@ class Function {
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory,
       std::unique_ptr<Function>* result);
+
+  static absl::StatusOr<std::unique_ptr<Function>> Deserialize(
+      const FunctionProto& proto, const TypeDeserializer& type_deserializer);
 
   virtual absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
                                  FunctionProto* proto,

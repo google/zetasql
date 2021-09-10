@@ -1,4 +1,4 @@
-[default required_features=TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE]
+[default required_features=TABLESAMPLE]
 
 [name=bernoulli_none]
 SELECT COUNT(*) FROM (SELECT * FROM UNNEST(GENERATE_ARRAY(1, 50)))
@@ -249,6 +249,7 @@ FROM
 ARRAY<STRUCT<INT64, weight DOUBLE>>[]
 ==
 
+[default required_features=TABLESAMPLE,STRATIFIED_RESERVOIR_TABLESAMPLE]
 [name=stratified_reservoir]
 SELECT COUNT(*)
 FROM

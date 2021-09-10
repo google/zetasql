@@ -30,7 +30,7 @@ namespace functions {
 namespace {
 
 TEST(ConvertProtoTest, BasicPrintingCord) {
-  zetasql_test::KitchenSinkPB proto;
+  zetasql_test__::KitchenSinkPB proto;
   absl::Status error;
   absl::Cord out;
 
@@ -53,7 +53,7 @@ TEST(ConvertProtoTest, BasicPrintingCord) {
 }
 
 TEST(ConvertProtoTest, BasicParsing) {
-  zetasql_test::KitchenSinkPB proto;
+  zetasql_test__::KitchenSinkPB proto;
   absl::Status error;
 
   EXPECT_TRUE(StringToProto("int64_key_1: 1 int64_key_2: 2", &proto, &error));
@@ -70,7 +70,7 @@ TEST(ConvertProtoTest, BasicParsing) {
 }
 
 TEST(ConvertProtoTest, ParsingWithoutRequiredField) {
-  zetasql_test::KitchenSinkPB proto;
+  zetasql_test__::KitchenSinkPB proto;
   absl::Status error;
 
   EXPECT_FALSE(StringToProto("", &proto, &error));
@@ -82,7 +82,7 @@ TEST(ConvertProtoTest, ParsingWithoutRequiredField) {
 }
 
 TEST(ConvertProtoTest, ParsingWithUnknownField) {
-  zetasql_test::KitchenSinkPB proto;
+  zetasql_test__::KitchenSinkPB proto;
   absl::Status error;
 
   EXPECT_FALSE(
@@ -95,34 +95,34 @@ TEST(ConvertProtoTest, ParsingWithUnknownField) {
 }
 
 TEST(ConvertProtoTest, ParsingWithExtensionsCord) {
-  zetasql_test::KitchenSinkPB proto;
+  zetasql_test__::KitchenSinkPB proto;
   absl::Status error;
   absl::Cord out;
 
   EXPECT_TRUE(
       StringToProto("int64_key_1: 1 int64_key_2: 2 "
-                    "[zetasql_test.KitchenSinkExtension.int_extension]: 1234",
+                    "[zetasql_test__.KitchenSinkExtension.int_extension]: 1234",
                     &proto, &error));
   EXPECT_EQ(
-      proto.GetExtension(zetasql_test::KitchenSinkExtension::int_extension),
+      proto.GetExtension(zetasql_test__::KitchenSinkExtension::int_extension),
       1234);
   ZETASQL_EXPECT_OK(error);
 }
 
 TEST(ConvertProtoTest, ParsingWithUnknownExtensionCord) {
-  zetasql_test::KitchenSinkPB proto;
+  zetasql_test__::KitchenSinkPB proto;
   absl::Status error;
   absl::Cord out;
 
   EXPECT_FALSE(
       StringToProto("int64_key_1: 1 int64_key_2: 2 "
-                    "[zetasql_test.UnknownExtension.int_extension]: 1234",
+                    "[zetasql_test__.UnknownExtension.int_extension]: 1234",
                     &proto, &error));
   EXPECT_THAT(
       error,
-      StatusIs(_, HasSubstr("Error parsing proto: Extension \"zetasql_test."
+      StatusIs(_, HasSubstr("Error parsing proto: Extension \"zetasql_test__."
                             "UnknownExtension.int_extension\" is not defined or"
-                            " is not an extension of \"zetasql_test."
+                            " is not an extension of \"zetasql_test__."
                             "KitchenSinkPB\".")));
 }
 

@@ -32,14 +32,14 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=STRING
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | |   +-field_descriptor=string_val
     | |   +-default_value="default_name"
     | +-bytes_val#5 :=
     |   +-GetProtoField
     |     +-type=BYTES
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-field_descriptor=bytes_val
     |     +-default_value=b""
     +-input_scan=
@@ -133,34 +133,34 @@ QueryStmt
     |     | +-GetProtoField
     |     |   +-type=INT64
     |     |   +-expr=
-    |     |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     |   +-field_descriptor=int64_val
     |     |   +-default_value=0
     |     +-Cast(UINT32 -> DOUBLE)
     |     | +-GetProtoField
     |     |   +-type=UINT32
     |     |   +-expr=
-    |     |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     |   +-field_descriptor=uint32_val
     |     |   +-default_value=777
     |     +-Cast(INT32 -> DOUBLE)
     |     | +-GetProtoField
     |     |   +-type=INT32
     |     |   +-expr=
-    |     |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     |   +-field_descriptor=int32_val
     |     |   +-default_value=77
     |     +-Cast(INT64 -> DOUBLE)
     |     | +-GetProtoField
     |     |   +-type=INT64
     |     |   +-expr=
-    |     |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     |   +-field_descriptor=int64_val
     |     |   +-default_value=0
     |     +-GetProtoField
     |       +-type=DOUBLE
     |       +-expr=
-    |       | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |       | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |       +-field_descriptor=double_val
     |       +-default_value=0
     +-input_scan=
@@ -207,7 +207,7 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(ZetaSQL:$in(INT64, repeated(2) INT64) -> BOOL)
     |     +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
-    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
     |     +-Literal(type=INT64, value=1234567890123)
     +-input_scan=
       +-SingleRowScan
@@ -229,7 +229,7 @@ QueryStmt
         | +-TableScan(table=TestTable)
         +-filter_expr=
           +-FunctionCall(ZetaSQL:$in(INT64, repeated(1) INT64) -> BOOL)
-            +-Literal(type=INT64, value=1)
+            +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
             +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
 ==
 
@@ -423,7 +423,7 @@ QueryStmt
     |       +-ProjectScan
     |         +-column_list=[$in_subquery_cast.$col1#3]
     |         +-expr_list=
-    |         | +-$col1#3 := Literal(type=INT64, value=1)
+    |         | +-$col1#3 := Literal(type=INT64, value=1, has_explicit_type=TRUE)
     |         +-input_scan=
     |           +-ProjectScan
     |             +-column_list=[$expr_subquery.$col1#1]
@@ -449,7 +449,7 @@ QueryStmt
     |     +-type=BOOL
     |     +-subquery_type=IN
     |     +-in_expr=
-    |     | +-Literal(type=INT64, value=1)
+    |     | +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
     |     +-subquery=
     |       +-ProjectScan
     |         +-column_list=[$expr_subquery.$col1#1]
@@ -598,7 +598,7 @@ QueryStmt
     |     +-type=BOOL
     |     +-subquery_type=IN
     |     +-in_expr=
-    |     | +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=TestTable.TestEnum#2)
+    |     | +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=TestTable.TestEnum#2)
     |     +-subquery=
     |       +-ProjectScan
     |         +-column_list=[TestTable.TestEnum#5]
@@ -610,10 +610,10 @@ QueryStmt
 
 # Equivalent enums from different descriptor pools.
 select
-  CAST(1 as zetasql_test.TestEnum) IN (
-    select CAST(2 as alt_descriptor_pool.zetasql_test.TestEnum)),
-  CAST(2 as alt_descriptor_pool.zetasql_test.TestEnum) IN (
-    select CAST(1 as zetasql_test.TestEnum))
+  CAST(1 as zetasql_test__.TestEnum) IN (
+    select CAST(2 as alt_descriptor_pool.zetasql_test__.TestEnum)),
+  CAST(2 as alt_descriptor_pool.zetasql_test__.TestEnum) IN (
+    select CAST(1 as zetasql_test__.TestEnum))
 --
 QueryStmt
 +-output_column_list=
@@ -628,17 +628,17 @@ QueryStmt
     | |   +-type=BOOL
     | |   +-subquery_type=IN
     | |   +-in_expr=
-    | |   | +-Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
+    | |   | +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
     | |   +-subquery=
     | |     +-ProjectScan
     | |       +-column_list=[$in_subquery_cast.$col1#3]
     | |       +-expr_list=
-    | |       | +-$col1#3 := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM2)
+    | |       | +-$col1#3 := Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM2, has_explicit_type=TRUE)
     | |       +-input_scan=
     | |         +-ProjectScan
     | |           +-column_list=[$expr_subquery.$col1#1]
     | |           +-expr_list=
-    | |           | +-$col1#1 := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM2, has_explicit_type=TRUE)
+    | |           | +-$col1#1 := Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM2, has_explicit_type=TRUE)
     | |           +-input_scan=
     | |             +-SingleRowScan
     | +-$col2#8 :=
@@ -646,17 +646,17 @@ QueryStmt
     |     +-type=BOOL
     |     +-subquery_type=IN
     |     +-in_expr=
-    |     | +-Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM2, has_explicit_type=TRUE)
+    |     | +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM2, has_explicit_type=TRUE)
     |     +-subquery=
     |       +-ProjectScan
     |         +-column_list=[$in_subquery_cast.$col1#6]
     |         +-expr_list=
-    |         | +-$col1#6 := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1)
+    |         | +-$col1#6 := Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
     |         +-input_scan=
     |           +-ProjectScan
     |             +-column_list=[$expr_subquery.$col1#4]
     |             +-expr_list=
-    |             | +-$col1#4 := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
+    |             | +-$col1#4 := Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
@@ -668,10 +668,10 @@ QueryStmt
 # common supertype when the enums are equivalent but not equal.  We do
 # this above also, but it's not obvious in the output due to constant
 # folding.
-WITH t1 as (select CAST(1 as zetasql_test.TestEnum) as enum1,
-                   CAST(2 as alt_descriptor_pool.zetasql_test.TestEnum) as enum2),
-     t2 as (select CAST(1 as zetasql_test.TestEnum) as enum1,
-                   CAST(2 as alt_descriptor_pool.zetasql_test.TestEnum) as enum2)
+WITH t1 as (select CAST(1 as zetasql_test__.TestEnum) as enum1,
+                   CAST(2 as alt_descriptor_pool.zetasql_test__.TestEnum) as enum2),
+     t2 as (select CAST(1 as zetasql_test__.TestEnum) as enum1,
+                   CAST(2 as alt_descriptor_pool.zetasql_test__.TestEnum) as enum2)
 select *
 from t1
 where t1.enum1 IN (select enum2 from t2)
@@ -679,8 +679,8 @@ where t1.enum1 IN (select enum2 from t2)
 --
 QueryStmt
 +-output_column_list=
-| +-t1.enum1#5 AS enum1 [ENUM<zetasql_test.TestEnum>]
-| +-t1.enum2#6 AS enum2 [ENUM<zetasql_test.TestEnum>]
+| +-t1.enum1#5 AS enum1 [ENUM<zetasql_test__.TestEnum>]
+| +-t1.enum2#6 AS enum2 [ENUM<zetasql_test__.TestEnum>]
 +-query=
   +-WithScan
     +-column_list=t1.[enum1#5, enum2#6]
@@ -691,8 +691,8 @@ QueryStmt
     | |   +-ProjectScan
     | |     +-column_list=t1.[enum1#1, enum2#2]
     | |     +-expr_list=
-    | |     | +-enum1#1 := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
-    | |     | +-enum2#2 := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM2, has_explicit_type=TRUE)
+    | |     | +-enum1#1 := Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
+    | |     | +-enum2#2 := Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM2, has_explicit_type=TRUE)
     | |     +-input_scan=
     | |       +-SingleRowScan
     | +-WithEntry
@@ -701,8 +701,8 @@ QueryStmt
     |     +-ProjectScan
     |       +-column_list=t2.[enum1#3, enum2#4]
     |       +-expr_list=
-    |       | +-enum1#3 := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
-    |       | +-enum2#4 := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM2, has_explicit_type=TRUE)
+    |       | +-enum1#3 := Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
+    |       | +-enum2#4 := Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM2, has_explicit_type=TRUE)
     |       +-input_scan=
     |         +-SingleRowScan
     +-query=
@@ -719,14 +719,14 @@ QueryStmt
                 | +-type=BOOL
                 | +-subquery_type=IN
                 | +-in_expr=
-                | | +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=t1.enum1#5)
+                | | +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=t1.enum1#5)
                 | +-subquery=
                 |   +-ProjectScan
                 |     +-column_list=[$in_subquery_cast.enum2#10]
                 |     +-expr_list=
                 |     | +-enum2#10 :=
-                |     |   +-Cast(ENUM<zetasql_test.TestEnum> -> ENUM<zetasql_test.TestEnum>)
-                |     |     +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=t2.enum2#8)
+                |     |   +-Cast(ENUM<zetasql_test__.TestEnum> -> ENUM<zetasql_test__.TestEnum>)
+                |     |     +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=t2.enum2#8)
                 |     +-input_scan=
                 |       +-ProjectScan
                 |         +-column_list=[t2.enum2#8]
@@ -736,14 +736,14 @@ QueryStmt
                   +-type=BOOL
                   +-subquery_type=IN
                   +-in_expr=
-                  | +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=t1.enum2#6)
+                  | +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=t1.enum2#6)
                   +-subquery=
                     +-ProjectScan
                       +-column_list=[$in_subquery_cast.enum1#14]
                       +-expr_list=
                       | +-enum1#14 :=
-                      |   +-Cast(ENUM<zetasql_test.TestEnum> -> ENUM<zetasql_test.TestEnum>)
-                      |     +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=t2.enum1#11)
+                      |   +-Cast(ENUM<zetasql_test__.TestEnum> -> ENUM<zetasql_test__.TestEnum>)
+                      |     +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=t2.enum1#11)
                       +-input_scan=
                         +-ProjectScan
                           +-column_list=[t2.enum1#11]
@@ -752,10 +752,10 @@ QueryStmt
 ==
 
 select
-  CAST(1 as zetasql_test.TestEnum) =
-    CAST(2 as alt_descriptor_pool.zetasql_test.TestEnum),
-  CAST(2 as alt_descriptor_pool.zetasql_test.TestEnum) !=
-    CAST(1 as zetasql_test.TestEnum)
+  CAST(1 as zetasql_test__.TestEnum) =
+    CAST(2 as alt_descriptor_pool.zetasql_test__.TestEnum),
+  CAST(2 as alt_descriptor_pool.zetasql_test__.TestEnum) !=
+    CAST(1 as zetasql_test__.TestEnum)
 --
 QueryStmt
 +-output_column_list=
@@ -766,19 +766,19 @@ QueryStmt
     +-column_list=$query.[$col1#1, $col2#2]
     +-expr_list=
     | +-$col1#1 :=
-    | | +-FunctionCall(ZetaSQL:$equal(ENUM<zetasql_test.TestEnum>, ENUM<zetasql_test.TestEnum>) -> BOOL)
-    | |   +-Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
-    | |   +-Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM2)
+    | | +-FunctionCall(ZetaSQL:$equal(ENUM<zetasql_test__.TestEnum>, ENUM<zetasql_test__.TestEnum>) -> BOOL)
+    | |   +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
+    | |   +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM2, has_explicit_type=TRUE)
     | +-$col2#2 :=
-    |   +-FunctionCall(ZetaSQL:$not_equal(ENUM<zetasql_test.TestEnum>, ENUM<zetasql_test.TestEnum>) -> BOOL)
-    |     +-Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM2, has_explicit_type=TRUE)
-    |     +-Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1)
+    |   +-FunctionCall(ZetaSQL:$not_equal(ENUM<zetasql_test__.TestEnum>, ENUM<zetasql_test__.TestEnum>) -> BOOL)
+    |     +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM2, has_explicit_type=TRUE)
+    |     +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
 ==
 
-WITH t1 as (select CAST(1 as zetasql_test.TestEnum) as enum1,
-                   CAST(2 as alt_descriptor_pool.zetasql_test.TestEnum) as enum2)
+WITH t1 as (select CAST(1 as zetasql_test__.TestEnum) as enum1,
+                   CAST(2 as alt_descriptor_pool.zetasql_test__.TestEnum) as enum2)
 select *
 from t1
 where t1.enum1 = t1.enum2
@@ -786,8 +786,8 @@ where t1.enum1 = t1.enum2
 --
 QueryStmt
 +-output_column_list=
-| +-t1.enum1#3 AS enum1 [ENUM<zetasql_test.TestEnum>]
-| +-t1.enum2#4 AS enum2 [ENUM<zetasql_test.TestEnum>]
+| +-t1.enum1#3 AS enum1 [ENUM<zetasql_test__.TestEnum>]
+| +-t1.enum2#4 AS enum2 [ENUM<zetasql_test__.TestEnum>]
 +-query=
   +-WithScan
     +-column_list=t1.[enum1#3, enum2#4]
@@ -798,8 +798,8 @@ QueryStmt
     |     +-ProjectScan
     |       +-column_list=t1.[enum1#1, enum2#2]
     |       +-expr_list=
-    |       | +-enum1#1 := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
-    |       | +-enum2#2 := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM2, has_explicit_type=TRUE)
+    |       | +-enum1#1 := Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
+    |       | +-enum2#2 := Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM2, has_explicit_type=TRUE)
     |       +-input_scan=
     |         +-SingleRowScan
     +-query=
@@ -812,14 +812,14 @@ QueryStmt
             | +-WithRefScan(column_list=t1.[enum1#3, enum2#4], with_query_name="t1")
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
-                +-FunctionCall(ZetaSQL:$equal(ENUM<zetasql_test.TestEnum>, ENUM<zetasql_test.TestEnum>) -> BOOL)
-                | +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=t1.enum1#3)
-                | +-Cast(ENUM<zetasql_test.TestEnum> -> ENUM<zetasql_test.TestEnum>)
-                |   +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=t1.enum2#4)
-                +-FunctionCall(ZetaSQL:$equal(ENUM<zetasql_test.TestEnum>, ENUM<zetasql_test.TestEnum>) -> BOOL)
-                  +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=t1.enum2#4)
-                  +-Cast(ENUM<zetasql_test.TestEnum> -> ENUM<zetasql_test.TestEnum>)
-                    +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=t1.enum1#3)
+                +-FunctionCall(ZetaSQL:$equal(ENUM<zetasql_test__.TestEnum>, ENUM<zetasql_test__.TestEnum>) -> BOOL)
+                | +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=t1.enum1#3)
+                | +-Cast(ENUM<zetasql_test__.TestEnum> -> ENUM<zetasql_test__.TestEnum>)
+                |   +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=t1.enum2#4)
+                +-FunctionCall(ZetaSQL:$equal(ENUM<zetasql_test__.TestEnum>, ENUM<zetasql_test__.TestEnum>) -> BOOL)
+                  +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=t1.enum2#4)
+                  +-Cast(ENUM<zetasql_test__.TestEnum> -> ENUM<zetasql_test__.TestEnum>)
+                    +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=t1.enum1#3)
 ==
 
 # TODO: These should probably work, for cases where the left
@@ -827,7 +827,7 @@ QueryStmt
 # column type.
 select 'TESTENUM0' IN (select testenum from TestTable)
 --
-ERROR: Cannot execute IN subquery with uncomparable types STRING and zetasql_test.TestEnum [at 1:8]
+ERROR: Cannot execute IN subquery with uncomparable types STRING and zetasql_test__.TestEnum [at 1:8]
 select 'TESTENUM0' IN (select testenum from TestTable)
        ^
 ==
@@ -835,7 +835,7 @@ select 'TESTENUM0' IN (select testenum from TestTable)
 # TODO: This should probably work.
 select 1 IN (select testenum from TestTable)
 --
-ERROR: Cannot execute IN subquery with uncomparable types INT64 and zetasql_test.TestEnum [at 1:8]
+ERROR: Cannot execute IN subquery with uncomparable types INT64 and zetasql_test__.TestEnum [at 1:8]
 select 1 IN (select testenum from TestTable)
        ^
 ==
@@ -844,7 +844,7 @@ select 1 IN (select testenum from TestTable)
 select testenum IN (select 1)
 from TestTable
 --
-ERROR: Cannot execute IN subquery with uncomparable types zetasql_test.TestEnum and INT64 [at 1:8]
+ERROR: Cannot execute IN subquery with uncomparable types zetasql_test__.TestEnum and INT64 [at 1:8]
 select testenum IN (select 1)
        ^
 ==
@@ -1116,12 +1116,12 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     | | +-FunctionCall(ZetaSQL:$in(STRUCT<INT64>, repeated(1) STRUCT<INT64>) -> BOOL)
-    | |   +-Literal(type=STRUCT<INT64>, value={1})
+    | |   +-Literal(type=STRUCT<INT64>, value={1}, has_explicit_type=TRUE)
     | |   +-Literal(type=STRUCT<INT64>, value={1}, has_explicit_type=TRUE)
     | +-$col2#2 :=
     |   +-FunctionCall(ZetaSQL:$in(STRUCT<INT64>, repeated(1) STRUCT<INT64>) -> BOOL)
     |     +-Literal(type=STRUCT<INT64>, value={1}, has_explicit_type=TRUE)
-    |     +-Literal(type=STRUCT<INT64>, value={1})
+    |     +-Literal(type=STRUCT<INT64>, value={1}, has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -1157,7 +1157,7 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(ZetaSQL:$in_array(STRUCT<INT64>, ARRAY<STRUCT<INT64>>) -> BOOL)
-    |     +-Literal(type=STRUCT<INT64>, value={1})
+    |     +-Literal(type=STRUCT<INT64>, value={1}, has_explicit_type=TRUE)
     |     +-Literal(type=ARRAY<STRUCT<INT64>>, value=[{1}], has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
@@ -1313,10 +1313,10 @@ QueryStmt
     +-column_list=[$query.$col1#6]
     +-expr_list=
     | +-$col1#6 :=
-    |   +-FunctionCall(ZetaSQL:$in_array(ENUM<zetasql_test.TestEnum>, ARRAY<ENUM<zetasql_test.TestEnum>>) -> BOOL)
-    |     +-Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM0)
-    |     +-FunctionCall(ZetaSQL:$make_array(repeated(1) ENUM<zetasql_test.TestEnum>) -> ARRAY<ENUM<zetasql_test.TestEnum>>)
-    |       +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=EnumTable.TestEnum#2)
+    |   +-FunctionCall(ZetaSQL:$in_array(ENUM<zetasql_test__.TestEnum>, ARRAY<ENUM<zetasql_test__.TestEnum>>) -> BOOL)
+    |     +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM0)
+    |     +-FunctionCall(ZetaSQL:$make_array(repeated(1) ENUM<zetasql_test__.TestEnum>) -> ARRAY<ENUM<zetasql_test__.TestEnum>>)
+    |       +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=EnumTable.TestEnum#2)
     +-input_scan=
       +-TableScan(column_list=[EnumTable.TestEnum#2], table=EnumTable, column_index_list=[1])
 ==
@@ -1385,17 +1385,17 @@ select struct(cast(1 as int64)) IN UNNEST([struct(cast(1 as int32))])
 ==
 
 [language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES}}]
-select struct(cast(1 as zetasql_test.TestEnum))
+select struct(cast(1 as zetasql_test__.TestEnum))
     IN UNNEST([struct('TESTENUM1')])
 --
-ERROR: No matching signature for operator IN UNNEST for argument types: STRUCT<zetasql_test.TestEnum>, ARRAY<STRUCT<STRING>> [at 2:5]
+ERROR: No matching signature for operator IN UNNEST for argument types: STRUCT<zetasql_test__.TestEnum>, ARRAY<STRUCT<STRING>> [at 2:5]
     IN UNNEST([struct('TESTENUM1')])
     ^
 ==
 
 [language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES}}]
 select struct('TESTENUM1')
-    IN UNNEST([struct(cast(1 as zetasql_test.TestEnum))])
+    IN UNNEST([struct(cast(1 as zetasql_test__.TestEnum))])
 --
 QueryStmt
 +-output_column_list=
@@ -1405,9 +1405,9 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:$in_array(STRUCT<ENUM<zetasql_test.TestEnum>>, ARRAY<STRUCT<ENUM<zetasql_test.TestEnum>>>) -> BOOL)
-    |     +-Literal(type=STRUCT<ENUM<zetasql_test.TestEnum>>, value={TESTENUM1})
-    |     +-Literal(type=ARRAY<STRUCT<ENUM<zetasql_test.TestEnum>>>, value=[{TESTENUM1}], has_explicit_type=TRUE)
+    |   +-FunctionCall(ZetaSQL:$in_array(STRUCT<ENUM<zetasql_test__.TestEnum>>, ARRAY<STRUCT<ENUM<zetasql_test__.TestEnum>>>) -> BOOL)
+    |     +-Literal(type=STRUCT<ENUM<zetasql_test__.TestEnum>>, value={TESTENUM1})
+    |     +-Literal(type=ARRAY<STRUCT<ENUM<zetasql_test__.TestEnum>>>, value=[{TESTENUM1}], has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -1536,12 +1536,12 @@ QueryStmt
             +-type=BOOL
             +-subquery_type=IN
             +-parameter_list=
-            | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             +-in_expr=
             | +-GetProtoField
             |   +-type=INT32
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             |   +-field_descriptor=int32_val
             |   +-default_value=77
             +-subquery=
@@ -1554,7 +1554,7 @@ QueryStmt
                     | +-GetProtoField
                     |   +-type=ARRAY<INT32>
                     |   +-expr=
-                    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+                    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                     |   +-field_descriptor=repeated_int32_val
                     |   +-default_value=[]
                     +-element_column=$array.repeated_int32_val#4
@@ -1701,20 +1701,20 @@ QueryStmt
 ==
 
 [language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES}}]
-select KitchenSink IN UNNEST(ARRAY<`zetasql_test.KitchenSinkPB`>[])
+select KitchenSink IN UNNEST(ARRAY<`zetasql_test__.KitchenSinkPB`>[])
 from TestTable
 --
-ERROR: First argument to IN UNNEST of type PROTO<zetasql_test.KitchenSinkPB> does not support equality comparison [at 1:20]
-select KitchenSink IN UNNEST(ARRAY<`zetasql_test.KitchenSinkPB`>[])
+ERROR: First argument to IN UNNEST of type PROTO<zetasql_test__.KitchenSinkPB> does not support equality comparison [at 1:20]
+select KitchenSink IN UNNEST(ARRAY<`zetasql_test__.KitchenSinkPB`>[])
                    ^
 ==
 
 [language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES}}]
-select KitchenSink.int32_val IN UNNEST(ARRAY<`zetasql_test.KitchenSinkPB`>[])
+select KitchenSink.int32_val IN UNNEST(ARRAY<`zetasql_test__.KitchenSinkPB`>[])
 from TestTable
 --
-ERROR: Second argument to IN UNNEST of type ARRAY<PROTO<zetasql_test.KitchenSinkPB>> is not supported because array element type is not equality comparable [at 1:30]
-select KitchenSink.int32_val IN UNNEST(ARRAY<`zetasql_test.KitchenSinkPB`>[])
+ERROR: Second argument to IN UNNEST of type ARRAY<PROTO<zetasql_test__.KitchenSinkPB>> is not supported because array element type is not equality comparable [at 1:30]
+select KitchenSink.int32_val IN UNNEST(ARRAY<`zetasql_test__.KitchenSinkPB`>[])
                              ^
 ==
 
@@ -1727,7 +1727,7 @@ select 1 from SimpleTypes where `int32` IN UNNEST( (select `int32`) )
 
 select 1 IN UNNEST(1)
 --
-ERROR: Second argument of IN UNNEST must be an array but was literal INT64 [at 1:10]
+ERROR: Second argument of IN UNNEST must be an array but was INT64 [at 1:10]
 select 1 IN UNNEST(1)
          ^
 ==
@@ -1755,13 +1755,13 @@ QueryStmt
             +-GetProtoField
             | +-type=STRING
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=string_val
             | +-default_value="default_name"
             +-GetProtoField
               +-type=ARRAY<STRING>
               +-expr=
-              | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+              | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
               +-field_descriptor=repeated_string_val
               +-default_value=[]
 ==
@@ -1825,7 +1825,7 @@ QueryStmt
             +-GetProtoField
             | +-type=DATE
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=date
             | +-default_value=1970-01-01
             | +-format=DATE
@@ -1833,7 +1833,7 @@ QueryStmt
               +-type=ARRAY<DATE>
               +-subquery_type=ARRAY
               +-parameter_list=
-              | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+              | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
               +-subquery=
                 +-ProjectScan
                   +-column_list=[$expr_subquery.date#4]
@@ -1842,7 +1842,7 @@ QueryStmt
                   |   +-GetProtoField
                   |     +-type=DATE
                   |     +-expr=
-                  |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+                  |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                   |     +-field_descriptor=date
                   |     +-default_value=1970-01-01
                   |     +-format=DATE

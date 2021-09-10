@@ -17,6 +17,8 @@
 #ifndef ZETASQL_ANALYZER_RESOLVER_COMMON_INL_H_
 #define ZETASQL_ANALYZER_RESOLVER_COMMON_INL_H_
 
+#include <memory>
+#include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -26,7 +28,6 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {

@@ -81,7 +81,7 @@ public class ImmutableDescriptorPoolTest {
             .build();
     assertFileDescriptorsAreDependencyOrdered(pool);
     EnumDescriptor testEnumDescriptor =
-        pool.findEnumTypeByName("zetasql_test.TestEnum").getDescriptor();
+        pool.findEnumTypeByName("zetasql_test__.TestEnum").getDescriptor();
     assertThat(testEnumDescriptor).isEqualTo(TestEnum.getDescriptor());
 
     ImmutableSet<String> expectedDescriptorNames =
@@ -97,7 +97,7 @@ public class ImmutableDescriptorPoolTest {
     assertThat(getFilenames(reserializedPool)).containsExactlyElementsIn(expectedDescriptorNames);
 
     EnumDescriptor reserializedTestEnumDescriptor =
-        reserializedPool.findEnumTypeByName("zetasql_test.TestEnum").getDescriptor();
+        reserializedPool.findEnumTypeByName("zetasql_test__.TestEnum").getDescriptor();
 
     // We expect that the descriptor will not be equal to the input.
     assertThat(reserializedTestEnumDescriptor).isNotEqualTo(testEnumDescriptor);

@@ -15,7 +15,7 @@ DeleteStmt
     +-GetProtoField
     | +-type=INT32
     | +-expr=
-    | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | +-field_descriptor=int32_val
     | +-default_value=77
     +-Literal(type=INT32, value=1)
@@ -93,7 +93,7 @@ DeleteStmt
     +-type=BOOL
     +-subquery_type=EXISTS
     +-parameter_list=
-    | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     +-subquery=
       +-ProjectScan
         +-column_list=[$expr_subquery.$col1#5]
@@ -105,7 +105,7 @@ DeleteStmt
             | +-GetProtoField
             |   +-type=ARRAY<INT32>
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
             |   +-field_descriptor=repeated_int32_val
             |   +-default_value=[]
             +-element_column=$array.repeated_int32_val#4
@@ -138,7 +138,7 @@ DeleteStmt
             | +-GetProtoField
             |   +-type=ARRAY<INT32>
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#6)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#6)
             |   +-field_descriptor=repeated_int32_val
             |   +-default_value=[]
             +-element_column=$array.repeated_int32_val#7
@@ -155,7 +155,7 @@ DeleteStmt
     +-type=BOOL
     +-subquery_type=EXISTS
     +-parameter_list=
-    | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     +-subquery=
       +-ProjectScan
         +-column_list=[$expr_subquery.$col1#5]
@@ -167,7 +167,7 @@ DeleteStmt
             | +-GetProtoField
             |   +-type=ARRAY<INT32>
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
             |   +-field_descriptor=repeated_int32_val
             |   +-default_value=[]
             +-element_column=$array.$unnest1#4
@@ -185,12 +185,12 @@ DeleteStmt
     +-type=BOOL
     +-subquery_type=IN
     +-parameter_list=
-    | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     +-in_expr=
     | +-GetProtoField
     |   +-type=INT32
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=int32_val
     |   +-default_value=77
     +-subquery=
@@ -203,7 +203,7 @@ DeleteStmt
             | +-GetProtoField
             |   +-type=ARRAY<INT32>
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
             |   +-field_descriptor=repeated_int32_val
             |   +-default_value=[]
             +-element_column=$array.r#4
@@ -220,13 +220,13 @@ DeleteStmt
     +-GetProtoField
     | +-type=INT32
     | +-expr=
-    | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | +-field_descriptor=int32_val
     | +-default_value=77
     +-GetProtoField
       +-type=ARRAY<INT32>
       +-expr=
-      | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+      | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
       +-field_descriptor=repeated_int32_val
       +-default_value=[]
 ==
@@ -248,24 +248,24 @@ DeleteStmt
     | +-GetProtoField
     |   +-type=FLOAT
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |   +-field_descriptor=float_val
     |   +-default_value=0
     +-Cast(INT32 -> DOUBLE)
       +-GetProtoField
         +-type=INT32
         +-expr=
-        | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+        | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
         +-field_descriptor=int32_val
         +-default_value=77
 ==
 
-DELETE `zetasql_test.KeyValueStruct`
+DELETE `zetasql_test__.KeyValueStruct`
 WHERE key > 1
 ASSERT_ROWS_MODIFIED 0
 --
-ERROR: Table not found: `zetasql_test.KeyValueStruct` [at 1:8]
-DELETE `zetasql_test.KeyValueStruct`
+ERROR: Table not found: `zetasql_test__.KeyValueStruct` [at 1:8]
+DELETE `zetasql_test__.KeyValueStruct`
        ^
 ==
 
@@ -338,7 +338,7 @@ DeleteStmt
 +-assert_rows_modified=
 | +-AssertRowsModified
 |   +-rows=
-|     +-Literal(type=INT64, value=1)
+|     +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
 +-where_expr=
   +-Literal(type=BOOL, value=true)
 --
@@ -407,14 +407,14 @@ DeleteStmt
     | +-GetProtoField
     |   +-type=FLOAT
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |   +-field_descriptor=float_val
     |   +-default_value=0
     +-Cast(INT32 -> DOUBLE)
       +-GetProtoField
         +-type=INT32
         +-expr=
-        | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+        | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
         +-field_descriptor=int32_val
         +-default_value=77
 ==

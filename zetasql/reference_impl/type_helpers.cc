@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-#include "zetasql/compliance/type_helpers.h"
+#include "zetasql/reference_impl/type_helpers.h"
 
 #include <memory>
 #include <string>
@@ -22,7 +22,7 @@
 
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -34,7 +34,7 @@ static std::string GetColumnAlias(const std::string& alias) {
   return IsInternalAlias(alias) ? "" : alias;
 }
 
-static zetasql_base::StatusOr<const StructType*> CreateStructTypeForTableRow(
+static absl::StatusOr<const StructType*> CreateStructTypeForTableRow(
     const ResolvedColumnList& table_columns, TypeFactory* type_factory) {
   std::vector<StructType::StructField> fields;
   fields.reserve(table_columns.size());
@@ -51,7 +51,7 @@ const char* kDMLOutputNumRowsModifiedColumnName = "num_rows_modified";
 const char* kDMLOutputAllRowsColumnName = "all_rows";
 const char* kDMLOutputReturningColumnName = "returning_rows";
 
-zetasql_base::StatusOr<const ArrayType*> CreateTableArrayType(
+absl::StatusOr<const ArrayType*> CreateTableArrayType(
     const ResolvedColumnList& table_columns, bool is_value_table,
     TypeFactory* type_factory) {
   const Type* element_type = nullptr;
@@ -68,7 +68,7 @@ zetasql_base::StatusOr<const ArrayType*> CreateTableArrayType(
   return table_array;
 }
 
-zetasql_base::StatusOr<const StructType*> CreatePrimaryKeyType(
+absl::StatusOr<const StructType*> CreatePrimaryKeyType(
     const ResolvedColumnList& table_columns,
     const std::vector<int>& key_column_indexes, TypeFactory* type_factory) {
   std::vector<StructType::StructField> fields;
@@ -82,14 +82,14 @@ zetasql_base::StatusOr<const StructType*> CreatePrimaryKeyType(
   return key_struct;
 }
 
-zetasql_base::StatusOr<const StructType*> CreateDMLOutputType(
+absl::StatusOr<const StructType*> CreateDMLOutputType(
     const ArrayType* table_array_type, TypeFactory* type_factory) {
   return CreateDMLOutputTypeWithReturning(table_array_type,
                                           /*returning_array_type=*/nullptr,
                                           type_factory);
 }
 
-zetasql_base::StatusOr<const StructType*> CreateDMLOutputTypeWithReturning(
+absl::StatusOr<const StructType*> CreateDMLOutputTypeWithReturning(
     const ArrayType* table_array_type, const ArrayType* returning_array_type,
     TypeFactory* type_factory) {
   std::vector<StructType::StructField> fields;

@@ -19,7 +19,7 @@
 #include <memory>
 
 #include "zetasql/resolved_ast/serialization.pb.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/status_macros.h"
 
@@ -53,7 +53,7 @@ absl::Status ResolvedColumn::SaveTo(
       proto->mutable_type(), file_descriptor_set_map);
 }
 
-zetasql_base::StatusOr<ResolvedColumn> ResolvedColumn::RestoreFrom(
+absl::StatusOr<ResolvedColumn> ResolvedColumn::RestoreFrom(
     const ResolvedColumnProto& proto,
     const ResolvedNode::RestoreParams& params) {
   const IdString table_name = params.string_pool->Make(proto.table_name());

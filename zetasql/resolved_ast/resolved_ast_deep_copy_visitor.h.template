@@ -31,7 +31,7 @@
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 
@@ -199,7 +199,7 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
   // Node->Accept(&copier) must be called for this to be valid. See usage
   // and example comment above.
   template <typename ResolvedNodeType>
-  zetasql_base::StatusOr<std::unique_ptr<ResolvedNodeType>> ConsumeRootNode() {
+  absl::StatusOr<std::unique_ptr<ResolvedNodeType>> ConsumeRootNode() {
     ZETASQL_RET_CHECK_EQ(1, stack_.size());
     return ConsumeTopOfStack<ResolvedNodeType>();
   }
@@ -234,7 +234,7 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
 
   // Calls Visit on the node, pops the result off of the stack, and returns it.
   template <typename ResolvedNodeType>
-  zetasql_base::StatusOr<std::unique_ptr<ResolvedNodeType>> ProcessNode(
+  absl::StatusOr<std::unique_ptr<ResolvedNodeType>> ProcessNode(
       const ResolvedNodeType* node) {
     ZETASQL_DCHECK(stack_.empty());
     if (node == nullptr) {
@@ -247,7 +247,7 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
   // Calls ProcessNode for all nodes of a vector, and returns a new vector of the
   // processed nodes.
   template <typename ResolvedNodeType>
-  zetasql_base::StatusOr<std::vector<std::unique_ptr<ResolvedNodeType>>>
+  absl::StatusOr<std::vector<std::unique_ptr<ResolvedNodeType>>>
   ProcessNodeList(
       const std::vector<std::unique_ptr<const ResolvedNodeType>>& node_list) {
     std::vector<std::unique_ptr<ResolvedNodeType>> output_node_list;
@@ -257,7 +257,7 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
       ZETASQL_RETURN_IF_ERROR(processed_node.status());
       output_node_list.push_back(std::move(*processed_node));
     }
-    return std::move(output_node_list);
+    return output_node_list;
   }
 
   // The following CopyVisitResolvedX functions create a deep copy of node

@@ -29,7 +29,7 @@ This codebase is being open sourced in multiple phases:
 
 Multiplatform support is planned for the following platforms:
 
- - Linux (Ubuntu 1804 is our reference platform, but others may work).
+ - Linux (Ubuntu 1804 _with gcc8_ is our reference platform, but others may work).
  - MacOS (Experimental)
  - Windows (version TDB)
 

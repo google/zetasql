@@ -188,7 +188,7 @@ class BytesTrimmer {
   absl::string_view Trim(absl::string_view str);
 
  private:
-  bool bytes_to_trim_[256];
+  bool bytes_to_trim_[256] = {};
 };
 
 // TRIM(STRING) -> STRING

@@ -66,7 +66,7 @@
 #include "absl/hash/hash.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
@@ -365,7 +365,7 @@ class WindowFrameBoundaryArg final : public AlgebraArg {
 
   // Creates a validated WindowFrameBoundaryArg that checks
   // whether expr is allowed for boundary_type.
-  static zetasql_base::StatusOr<std::unique_ptr<WindowFrameBoundaryArg>> Create(
+  static absl::StatusOr<std::unique_ptr<WindowFrameBoundaryArg>> Create(
       BoundaryType boundary_type, std::unique_ptr<ValueExpr> expr);
 
   // Sets the schemas used in the methods that take parameters.
@@ -523,7 +523,7 @@ class WindowFrameArg final : public AlgebraArg {
  public:
   enum WindowFrameType { kRows, kRange };
 
-  static zetasql_base::StatusOr<std::unique_ptr<WindowFrameArg>> Create(
+  static absl::StatusOr<std::unique_ptr<WindowFrameArg>> Create(
       WindowFrameType window_frame_type,
       std::unique_ptr<WindowFrameBoundaryArg> start_boundary_arg,
       std::unique_ptr<WindowFrameBoundaryArg> end_boundary_arg) {
@@ -673,7 +673,7 @@ class AggregateArgAccumulator {
   // should be true if the order that values were passed to Accumulate() was
   // defined by ZetaSQL semantics. The value of 'inputs_in_defined_order' is
   // only important if we are doing compliance or random query testing.
-  virtual zetasql_base::StatusOr<Value> GetFinalResult(
+  virtual absl::StatusOr<Value> GetFinalResult(
       bool inputs_in_defined_order) = 0;
 };
 
@@ -687,7 +687,7 @@ class AggregateArg final : public ExprArg {
   // With any other HavingModifierKind, having_expr must be non-null.
   enum HavingModifierKind { kHavingNone, kHavingMax, kHavingMin };
 
-  static zetasql_base::StatusOr<std::unique_ptr<AggregateArg>> Create(
+  static absl::StatusOr<std::unique_ptr<AggregateArg>> Create(
       const VariableId& variable,
       std::unique_ptr<const AggregateFunctionBody> function,
       std::vector<std::unique_ptr<ValueExpr>> arguments = {},
@@ -696,9 +696,11 @@ class AggregateArg final : public ExprArg {
       const HavingModifierKind having_modifier_kind = kHavingNone,
       std::vector<std::unique_ptr<KeyArg>> order_by_keys = {},
       std::unique_ptr<ValueExpr> limit = nullptr,
+      std::unique_ptr<RelationalOp> group_rows_subquery = {},
       ResolvedFunctionCallBase::ErrorMode error_mode =
           ResolvedFunctionCallBase::DEFAULT_ERROR_MODE,
-      std::unique_ptr<ValueExpr> filter = nullptr);
+      std::unique_ptr<ValueExpr> filter = nullptr,
+      const std::vector<ResolvedCollation>& collation_list = {});
 
   // Sets the schemas used in CreateAccumulator/EvalAgg.
   absl::Status SetSchemasForEvaluation(
@@ -706,13 +708,13 @@ class AggregateArg final : public ExprArg {
       absl::Span<const TupleSchema* const> params_schemas);
 
   // Returns an accumulator corresponding this aggregation operations.
-  zetasql_base::StatusOr<std::unique_ptr<AggregateArgAccumulator>> CreateAccumulator(
+  absl::StatusOr<std::unique_ptr<AggregateArgAccumulator>> CreateAccumulator(
       absl::Span<const TupleData* const> params,
       EvaluationContext* context) const;
 
-  // Convenience method that creates an accumulator, accumulates all the rows in
-  // 'group', and then returns the result.
-  zetasql_base::StatusOr<Value> EvalAgg(absl::Span<const TupleData* const> group,
+  // Convenience method that creates an accumulator, accumulates all the rows
+  // in 'group', and then returns the result.
+  absl::StatusOr<Value> EvalAgg(absl::Span<const TupleData* const> group,
                                 absl::Span<const TupleData* const> params,
                                 EvaluationContext* context) const;
 
@@ -729,8 +731,10 @@ class AggregateArg final : public ExprArg {
                const HavingModifierKind having_modifier_kind,
                std::vector<std::unique_ptr<KeyArg>> order_by_keys,
                std::unique_ptr<ValueExpr> limit,
+               std::unique_ptr<RelationalOp> group_rows_subquery,
                ResolvedFunctionCallBase::ErrorMode error_mode,
-               std::unique_ptr<ValueExpr> filter);
+               std::unique_ptr<ValueExpr> filter,
+               const std::vector<ResolvedCollation>& collation_list);
 
   AggregateArg(const AggregateArg&) = delete;
   AggregateArg& operator=(const AggregateArg&) = delete;
@@ -760,9 +764,7 @@ class AggregateArg final : public ExprArg {
     return having_modifier_kind_;
   }
 
-  ResolvedFunctionCallBase::ErrorMode error_mode() const {
-    return error_mode_;
-  }
+  ResolvedFunctionCallBase::ErrorMode error_mode() const { return error_mode_; }
 
   // The fields to be aggregated.
   int input_field_list_size() const { return num_input_fields(); }
@@ -778,16 +780,22 @@ class AggregateArg final : public ExprArg {
   const ValueExpr* filter() const;
   ValueExpr* mutable_filter();
 
+  const std::vector<ResolvedCollation>& collation_list() const {
+    return collation_list_;
+  }
+
   const Distinctness distinct_;
   const std::unique_ptr<ValueExpr> having_expr_;
   const HavingModifierKind having_modifier_kind_;
   std::vector<const KeyArg*> order_by_keys_;
   zetasql_base::ElementDeleter order_by_keys_deleter_;
   const std::unique_ptr<ValueExpr> limit_;
+  std::unique_ptr<RelationalOp> group_rows_subquery_;
   const ResolvedFunctionCallBase::ErrorMode error_mode_;
   // Set by SetSchemasForEvaluation().
   std::unique_ptr<const TupleSchema> group_schema_;
   std::unique_ptr<ValueExpr> filter_;
+  const std::vector<ResolvedCollation> collation_list_;
 };
 
 // Abstract expression argument class that specifies an analytic function and
@@ -831,7 +839,7 @@ class AggregateAnalyticArg final : public AnalyticArg {
  public:
   // 'window_frame' cannot be nullptr, because all aggregate functions must
   // support window framing.
-  static zetasql_base::StatusOr<std::unique_ptr<AggregateAnalyticArg>> Create(
+  static absl::StatusOr<std::unique_ptr<AggregateAnalyticArg>> Create(
       std::unique_ptr<WindowFrameArg> window_frame,
       std::unique_ptr<AggregateArg> aggregator,
       ResolvedFunctionCallBase::ErrorMode error_mode) {
@@ -877,7 +885,7 @@ class NonAggregateAnalyticArg final : public AnalyticArg {
   NonAggregateAnalyticArg& operator=(const NonAggregateAnalyticArg&) = delete;
 
   // <window_frame> can be null if <function> does not support window frames.
-  static zetasql_base::StatusOr<std::unique_ptr<NonAggregateAnalyticArg>> Create(
+  static absl::StatusOr<std::unique_ptr<NonAggregateAnalyticArg>> Create(
       const VariableId& variable_id,
       std::unique_ptr<WindowFrameArg> window_frame,
       std::unique_ptr<const AnalyticFunctionBody> function,
@@ -926,7 +934,7 @@ class ColumnFilterArg : public AlgebraArg {
       absl::Span<const TupleSchema* const> params_schemas) = 0;
 
   // Returns a ColumnFilter corresponding to the given parameters.
-  virtual zetasql_base::StatusOr<std::unique_ptr<ColumnFilter>> Eval(
+  virtual absl::StatusOr<std::unique_ptr<ColumnFilter>> Eval(
       absl::Span<const TupleData* const> params,
       EvaluationContext* context) const = 0;
 
@@ -948,14 +956,14 @@ class InArrayColumnFilterArg final : public ColumnFilterArg {
   // 'variable' is the VariableId used for the column for debug
   // logging. 'column_idx' is the index of the column in the scan (not the
   // Table).
-  static zetasql_base::StatusOr<std::unique_ptr<InArrayColumnFilterArg>> Create(
+  static absl::StatusOr<std::unique_ptr<InArrayColumnFilterArg>> Create(
       const VariableId& variable, int column_idx,
       std::unique_ptr<ValueExpr> array);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
 
-  zetasql_base::StatusOr<std::unique_ptr<ColumnFilter>> Eval(
+  absl::StatusOr<std::unique_ptr<ColumnFilter>> Eval(
       absl::Span<const TupleData* const> params,
       EvaluationContext* context) const override;
 
@@ -982,14 +990,14 @@ class InListColumnFilterArg final : public ColumnFilterArg {
   // 'variable' is the VariableId used for the column for debug
   // logging. 'column_idx' is the index of the column in the scan (not the
   // Table).
-  static zetasql_base::StatusOr<std::unique_ptr<InListColumnFilterArg>> Create(
+  static absl::StatusOr<std::unique_ptr<InListColumnFilterArg>> Create(
       const VariableId& variable, int column_idx,
       std::vector<std::unique_ptr<ValueExpr>> elements);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
 
-  zetasql_base::StatusOr<std::unique_ptr<ColumnFilter>> Eval(
+  absl::StatusOr<std::unique_ptr<ColumnFilter>> Eval(
       absl::Span<const TupleData* const> params,
       EvaluationContext* context) const override;
 
@@ -1016,14 +1024,14 @@ class HalfUnboundedColumnFilterArg final : public ColumnFilterArg {
   // 'variable' is the VariableId used for the column for debug
   // logging. 'column_idx' is the index of the column in the scan (not the
   // Table).
-  static zetasql_base::StatusOr<std::unique_ptr<HalfUnboundedColumnFilterArg>> Create(
+  static absl::StatusOr<std::unique_ptr<HalfUnboundedColumnFilterArg>> Create(
       const VariableId& variable, int column_idx, Kind kind,
       std::unique_ptr<ValueExpr> arg);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
 
-  zetasql_base::StatusOr<std::unique_ptr<ColumnFilter>> Eval(
+  absl::StatusOr<std::unique_ptr<ColumnFilter>> Eval(
       absl::Span<const TupleData* const> params,
       EvaluationContext* context) const override;
 
@@ -1230,7 +1238,7 @@ class RelationalOp : public AlgebraNode {
   //
   // The schemas for 'params' must have already been set by a call to
   // SetSchemasForEvaluation().
-  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> Eval(
+  absl::StatusOr<std::unique_ptr<TupleIterator>> Eval(
       absl::Span<const TupleData* const> params, int num_extra_slots,
       EvaluationContext* context) const;
 
@@ -1238,7 +1246,7 @@ class RelationalOp : public AlgebraNode {
   // wraps it in a PassThroughTupleIterator to allow for cancellation while it
   // is running. This method is only public for internal purposes. Users should
   // call Eval() instead.
-  virtual zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+  virtual absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
       absl::Span<const TupleData* const> params, int num_extra_slots,
       EvaluationContext* context) const = 0;
 
@@ -1272,7 +1280,7 @@ class RelationalOp : public AlgebraNode {
  protected:
   // Depending on the EvaluationOptions in 'context', either returns 'iter' or a
   // ReorderingTupleIterator that wraps 'iter'.
-  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> MaybeReorder(
+  absl::StatusOr<std::unique_ptr<TupleIterator>> MaybeReorder(
       std::unique_ptr<TupleIterator> iter, EvaluationContext* context) const;
 
  private:
@@ -1293,7 +1301,7 @@ class EvaluatorTableScanOp final : public RelationalOp {
 
   static std::string GetIteratorDebugString(absl::string_view table_name);
 
-  static zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableScanOp>> Create(
+  static absl::StatusOr<std::unique_ptr<EvaluatorTableScanOp>> Create(
       const Table* table, const std::string& alias,
       absl::Span<const int> column_idxs,
       absl::Span<const std::string> column_names,
@@ -1303,13 +1311,13 @@ class EvaluatorTableScanOp final : public RelationalOp {
 
   // Returns a ColumnFilter corresponding to the intersection of 'filters'. This
   // method is only public for unit testing purposes.
-  static zetasql_base::StatusOr<std::unique_ptr<ColumnFilter>> IntersectColumnFilters(
+  static absl::StatusOr<std::unique_ptr<ColumnFilter>> IntersectColumnFilters(
       const std::vector<std::unique_ptr<ColumnFilter>>& filters);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
 
-  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
       absl::Span<const TupleData* const> params, int num_extra_slots,
       EvaluationContext* context) const override;
 
@@ -1350,7 +1358,7 @@ class LetOp final : public RelationalOp {
   static std::string GetIteratorDebugString(
       absl::string_view input_debug_string);
 
-  static zetasql_base::StatusOr<std::unique_ptr<LetOp>> Create(
+  static absl::StatusOr<std::unique_ptr<LetOp>> Create(
       std::vector<std::unique_ptr<ExprArg>> assign,
       std::vector<std::unique_ptr<CppValueArg>> cpp_assign,
       std::unique_ptr<RelationalOp> body);
@@ -1358,7 +1366,7 @@ class LetOp final : public RelationalOp {
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
 
-  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
       absl::Span<const TupleData* const> params, int num_extra_slots,
       EvaluationContext* context) const override;
 
@@ -1447,7 +1455,7 @@ class JoinOp final : public RelationalOp {
       absl::string_view right_input_debug_string);
 
   // 'equality_exprs' must be empty for cross/outer apply.
-  static zetasql_base::StatusOr<std::unique_ptr<JoinOp>> Create(
+  static absl::StatusOr<std::unique_ptr<JoinOp>> Create(
       JoinKind kind, std::vector<HashJoinEqualityExprs> equality_exprs,
       std::unique_ptr<ValueExpr> remaining_condition,
       std::unique_ptr<RelationalOp> left, std::unique_ptr<RelationalOp> right,
@@ -1457,7 +1465,7 @@ class JoinOp final : public RelationalOp {
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
 
-  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
       absl::Span<const TupleData* const> params, int num_extra_slots,
       EvaluationContext* context) const override;
 
@@ -1527,7 +1535,7 @@ class AggregateOp final : public RelationalOp {
 
   // Creates a validated AggregateOp that checks whether the keys can be
   // compared for equality and that no collations are used.
-  static zetasql_base::StatusOr<std::unique_ptr<AggregateOp>> Create(
+  static absl::StatusOr<std::unique_ptr<AggregateOp>> Create(
       std::vector<std::unique_ptr<KeyArg>> keys,
       std::vector<std::unique_ptr<AggregateArg>> aggregators,
       std::unique_ptr<RelationalOp> input);
@@ -1535,7 +1543,7 @@ class AggregateOp final : public RelationalOp {
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
 
-  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
       absl::Span<const TupleData* const> params, int num_extra_slots,
       EvaluationContext* context) const override;
 
@@ -1565,6 +1573,44 @@ class AggregateOp final : public RelationalOp {
   RelationalOp* mutable_input();
 };
 
+// Represents scan operator for returning all rows corresponding to the current
+// group, before these rows are aggregated.
+class GroupRowsOp : public RelationalOp {
+ public:
+  GroupRowsOp(const GroupRowsOp&) = delete;
+  GroupRowsOp& operator=(const GroupRowsOp&) = delete;
+
+  static std::string GetIteratorDebugString(
+      absl::string_view input_iter_debug_string);
+
+  static absl::StatusOr<std::unique_ptr<GroupRowsOp>> Create(
+      std::vector<std::unique_ptr<ExprArg>> columns);
+
+  absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) override;
+
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+      absl::Span<const TupleData* const> params, int num_extra_slots,
+      EvaluationContext* context) const override;
+
+  // Returns the schema consisting of variables passed as 'columns' to the
+  // constructor.
+  std::unique_ptr<TupleSchema> CreateOutputSchema() const override;
+
+  std::string IteratorDebugString() const override;
+
+  std::string DebugInternal(const std::string& indent,
+                            bool verbose) const override;
+
+ private:
+  enum ArgKind { kColumn };
+
+  explicit GroupRowsOp(std::vector<std::unique_ptr<ExprArg>> columns);
+
+  absl::Span<const ExprArg* const> columns() const;
+  absl::Span<ExprArg* const> mutable_columns();
+};
+
 // Partitions the input by <partition_keys>, and evaluates a number of analytic
 // functions on each input tuple based on a set of related tuples in the same
 // partition. All analytic functions in an AnalyticOp must have the exact same
@@ -1584,7 +1630,7 @@ class AnalyticOp final : public RelationalOp {
   static std::string GetIteratorDebugString(
       absl::string_view input_iter_debug_string);
 
-  static zetasql_base::StatusOr<std::unique_ptr<AnalyticOp>> Create(
+  static absl::StatusOr<std::unique_ptr<AnalyticOp>> Create(
       std::vector<std::unique_ptr<KeyArg>> partition_keys,
       std::vector<std::unique_ptr<KeyArg>> order_keys,
       std::vector<std::unique_ptr<AnalyticArg>> analytic_args,
@@ -1593,7 +1639,7 @@ class AnalyticOp final : public RelationalOp {
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
 
-  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
       absl::Span<const TupleData* const> params, int num_extra_slots,
       EvaluationContext* context) const override;
 
@@ -1650,7 +1696,7 @@ class SortOp final : public RelationalOp {
   // spurious test failures.
   //
   // We do not support setting both 'limit' and 'is_stable_sort'.
-  static zetasql_base::StatusOr<std::unique_ptr<SortOp>> Create(
+  static absl::StatusOr<std::unique_ptr<SortOp>> Create(
       std::vector<std::unique_ptr<KeyArg>> keys,
       std::vector<std::unique_ptr<ExprArg>> values,
       std::unique_ptr<ValueExpr> limit, std::unique_ptr<ValueExpr> offset,
@@ -1660,7 +1706,7 @@ class SortOp final : public RelationalOp {
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
 
-  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
       absl::Span<const TupleData* const> params, int num_extra_slots,
       EvaluationContext* context) const override;
 
@@ -1737,7 +1783,7 @@ class ArrayScanOp final : public RelationalOp {
   static std::string GetIteratorDebugString(
       absl::string_view array_debug_string);
 
-  static zetasql_base::StatusOr<std::unique_ptr<ArrayScanOp>> Create(
+  static absl::StatusOr<std::unique_ptr<ArrayScanOp>> Create(
       const VariableId& element, const VariableId& position,
       absl::Span<const std::pair<VariableId, int>> fields,
       std::unique_ptr<ValueExpr> array);
@@ -1745,7 +1791,7 @@ class ArrayScanOp final : public RelationalOp {
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
 
-  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
       absl::Span<const TupleData* const> params, int num_extra_slots,
       EvaluationContext* context) const override;
 
@@ -1793,7 +1839,7 @@ class DistinctOp final : public RelationalOp {
   //   Every DistinctOp should be used in conjunction with a LetOp which
   //   initializes the <row_set> variable to a C++ Value. The corresponding
   //   CppValueArg should be obtained from calling MakeCppValueArgForScope().
-  static zetasql_base::StatusOr<std::unique_ptr<DistinctOp>> Create(
+  static absl::StatusOr<std::unique_ptr<DistinctOp>> Create(
       std::unique_ptr<RelationalOp> input,
       std::vector<std::unique_ptr<KeyArg>> keys, VariableId row_set);
 
@@ -1807,7 +1853,7 @@ class DistinctOp final : public RelationalOp {
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
 
-  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
       absl::Span<const TupleData* const> params, int num_extra_slots,
       EvaluationContext* context) const override;
 
@@ -1848,13 +1894,13 @@ class UnionAllOp final : public RelationalOp {
   static std::string GetIteratorDebugString(
       absl::Span<const std::string> input_iter_debug_string);
 
-  static zetasql_base::StatusOr<std::unique_ptr<UnionAllOp>> Create(
+  static absl::StatusOr<std::unique_ptr<UnionAllOp>> Create(
       std::vector<Input> inputs);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
 
-  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
       absl::Span<const TupleData* const> params, int num_extra_slots,
       EvaluationContext* context) const override;
 
@@ -1916,7 +1962,7 @@ class UnionAllOp final : public RelationalOp {
 // END LOOP
 class LoopOp final : public RelationalOp {
  public:
-  static zetasql_base::StatusOr<std::unique_ptr<LoopOp>> Create(
+  static absl::StatusOr<std::unique_ptr<LoopOp>> Create(
       std::vector<std::unique_ptr<ExprArg>> initial_assign,
       std::unique_ptr<RelationalOp> body,
       std::vector<std::unique_ptr<ExprArg>> loop_assign);
@@ -1924,7 +1970,7 @@ class LoopOp final : public RelationalOp {
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
 
-  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
       absl::Span<const TupleData* const> params, int num_extra_slots,
       EvaluationContext* context) const override;
 
@@ -1953,7 +1999,7 @@ class LoopOp final : public RelationalOp {
   // requires the variables used in <loop_assign_expr()> to be a subset of the
   // variables used in <initial_assign_expr()>, as well as for the variables in
   // <initial_assign_expr()> to be unique.
-  zetasql_base::StatusOr<int> GetVariableIndexFromLoopAssignIndex(int i) const;
+  absl::StatusOr<int> GetVariableIndexFromLoopAssignIndex(int i) const;
 
  private:
   enum ArgKind { kInitialAssign, kBody, kLoopAssign };
@@ -1982,14 +2028,14 @@ class ComputeOp final : public RelationalOp {
   static std::string GetIteratorDebugString(
       absl::string_view input_iter_debug_string);
 
-  static zetasql_base::StatusOr<std::unique_ptr<ComputeOp>> Create(
+  static absl::StatusOr<std::unique_ptr<ComputeOp>> Create(
       std::vector<std::unique_ptr<ExprArg>> map,
       std::unique_ptr<RelationalOp> input);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
 
-  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
       absl::Span<const TupleData* const> params, int num_extra_slots,
       EvaluationContext* context) const override;
 
@@ -2024,14 +2070,14 @@ class FilterOp final : public RelationalOp {
   static std::string GetIteratorDebugString(
       absl::string_view input_iter_debug_string);
 
-  static zetasql_base::StatusOr<std::unique_ptr<FilterOp>> Create(
+  static absl::StatusOr<std::unique_ptr<FilterOp>> Create(
       std::unique_ptr<ValueExpr> predicate,
       std::unique_ptr<RelationalOp> input);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
 
-  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
       absl::Span<const TupleData* const> params, int num_extra_slots,
       EvaluationContext* context) const override;
 
@@ -2066,14 +2112,14 @@ class LimitOp final : public RelationalOp {
   static std::string GetIteratorDebugString(
       absl::string_view input_iter_debug_string);
 
-  static zetasql_base::StatusOr<std::unique_ptr<LimitOp>> Create(
+  static absl::StatusOr<std::unique_ptr<LimitOp>> Create(
       std::unique_ptr<ValueExpr> row_count, std::unique_ptr<ValueExpr> offset,
       std::unique_ptr<RelationalOp> input, bool is_order_preserving);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
 
-  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
       absl::Span<const TupleData* const> params, int num_extra_slots,
       EvaluationContext* context) const override;
 
@@ -2124,7 +2170,7 @@ class SampleScanOp final : public RelationalOp {
   static std::string GetIteratorDebugString(
       absl::string_view input_iter_debug_string);
 
-  static zetasql_base::StatusOr<std::unique_ptr<SampleScanOp>> Create(
+  static absl::StatusOr<std::unique_ptr<SampleScanOp>> Create(
       Method method, std::unique_ptr<ValueExpr> size,
       std::unique_ptr<ValueExpr> repeatable,
       std::unique_ptr<RelationalOp> input,
@@ -2134,7 +2180,7 @@ class SampleScanOp final : public RelationalOp {
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
 
-  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
       absl::Span<const TupleData* const> params, int num_extra_slots,
       EvaluationContext* context) const override;
 
@@ -2194,13 +2240,13 @@ class EnumerateOp final : public RelationalOp {
   static std::string GetIteratorDebugString(
       absl::string_view count_debug_string);
 
-  static zetasql_base::StatusOr<std::unique_ptr<EnumerateOp>> Create(
+  static absl::StatusOr<std::unique_ptr<EnumerateOp>> Create(
       std::unique_ptr<ValueExpr> row_count);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
 
-  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
       absl::Span<const TupleData* const> params, int num_extra_slots,
       EvaluationContext* context) const override;
 
@@ -2231,7 +2277,7 @@ class TableAsArrayExpr final : public ValueExpr {
   TableAsArrayExpr(const TableAsArrayExpr&) = delete;
   TableAsArrayExpr& operator=(const TableAsArrayExpr&) = delete;
 
-  static zetasql_base::StatusOr<std::unique_ptr<TableAsArrayExpr>> Create(
+  static absl::StatusOr<std::unique_ptr<TableAsArrayExpr>> Create(
       const std::string& table_name, const ArrayType* type);
 
   const std::string& table_name() const { return table_name_; }
@@ -2258,7 +2304,7 @@ class DerefExpr final : public ValueExpr {
   DerefExpr(const DerefExpr&) = delete;
   DerefExpr& operator=(const DerefExpr&) = delete;
 
-  static zetasql_base::StatusOr<std::unique_ptr<DerefExpr>> Create(
+  static absl::StatusOr<std::unique_ptr<DerefExpr>> Create(
       const VariableId& name, const Type* type);
 
   const VariableId& name() const { return name_; }
@@ -2288,7 +2334,7 @@ class FieldValueExpr final : public ValueExpr {
   FieldValueExpr(const FieldValueExpr&) = delete;
   FieldValueExpr& operator=(const FieldValueExpr&) = delete;
 
-  static zetasql_base::StatusOr<std::unique_ptr<FieldValueExpr>> Create(
+  static absl::StatusOr<std::unique_ptr<FieldValueExpr>> Create(
       int field_index, std::unique_ptr<ValueExpr> expr);
 
   absl::Status SetSchemasForEvaluation(
@@ -2337,7 +2383,7 @@ class ProtoFieldReader {
   // ProtoFieldValueList in 'proto_slot', reads all of them. If
   // EvaluationOptions::store_proto_field_value_maps is true, also stores
   // them in 'proto_slot'. On failure, returns false and populates
-  // 'status'. (This method does not return zetasql_base::StatusOr<Value> for
+  // 'status'. (This method does not return absl::StatusOr<Value> for
   // performance reasons.)
   bool GetFieldValue(const TupleSlot& proto_slot, EvaluationContext* context,
                      Value* field_value, absl::Status* status) const;
@@ -2414,7 +2460,7 @@ class GetProtoFieldExpr final : public ValueExpr {
   GetProtoFieldExpr(const GetProtoFieldExpr&) = delete;
   GetProtoFieldExpr& operator=(const GetProtoFieldExpr&) = delete;
 
-  static zetasql_base::StatusOr<std::unique_ptr<GetProtoFieldExpr>> Create(
+  static absl::StatusOr<std::unique_ptr<GetProtoFieldExpr>> Create(
       std::unique_ptr<ValueExpr> proto_expr,
       const ProtoFieldReader* field_reader);
 
@@ -2456,7 +2502,7 @@ class FlattenExpr final : public ValueExpr {
   //
   // For each array point (which always includes expr), the next step is
   // executed for each intermediate result.
-  static zetasql_base::StatusOr<std::unique_ptr<FlattenExpr>> Create(
+  static absl::StatusOr<std::unique_ptr<FlattenExpr>> Create(
       const Type* output_type, std::unique_ptr<ValueExpr> expr,
       std::vector<std::unique_ptr<ValueExpr>> get_fields,
       std::unique_ptr<const Value*> flattened_arg_input);
@@ -2488,7 +2534,7 @@ class FlattenedArgExpr final : public ValueExpr {
   FlattenedArgExpr(const FlattenedArgExpr&) = delete;
   FlattenedArgExpr& operator=(const FlattenedArgExpr&) = delete;
 
-  static zetasql_base::StatusOr<std::unique_ptr<FlattenedArgExpr>> Create(
+  static absl::StatusOr<std::unique_ptr<FlattenedArgExpr>> Create(
       const Type* output_type, const Value** input) {
     return absl::WrapUnique(new FlattenedArgExpr(output_type, input));
   }
@@ -2526,7 +2572,7 @@ class ArrayNestExpr final : public ValueExpr {
   ArrayNestExpr(const ArrayNestExpr&) = delete;
   ArrayNestExpr& operator=(const ArrayNestExpr&) = delete;
 
-  static zetasql_base::StatusOr<std::unique_ptr<ArrayNestExpr>> Create(
+  static absl::StatusOr<std::unique_ptr<ArrayNestExpr>> Create(
       const ArrayType* array_type, std::unique_ptr<ValueExpr> element,
       std::unique_ptr<RelationalOp> input, bool is_with_table);
 
@@ -2566,7 +2612,7 @@ class NewStructExpr final : public ValueExpr {
   NewStructExpr(const NewStructExpr&) = delete;
   NewStructExpr& operator=(const NewStructExpr&) = delete;
 
-  static zetasql_base::StatusOr<std::unique_ptr<NewStructExpr>> Create(
+  static absl::StatusOr<std::unique_ptr<NewStructExpr>> Create(
       const StructType* type, std::vector<std::unique_ptr<ExprArg>> args);
 
   absl::Status SetSchemasForEvaluation(
@@ -2595,7 +2641,7 @@ class NewArrayExpr final : public ValueExpr {
   NewArrayExpr(const NewArrayExpr&) = delete;
   NewArrayExpr& operator=(const NewArrayExpr&) = delete;
 
-  static zetasql_base::StatusOr<std::unique_ptr<NewArrayExpr>> Create(
+  static absl::StatusOr<std::unique_ptr<NewArrayExpr>> Create(
       const ArrayType* array_type,
       std::vector<std::unique_ptr<ValueExpr>> elements);
 
@@ -2625,7 +2671,7 @@ class ConstExpr final : public ValueExpr {
   ConstExpr(const ConstExpr&) = delete;
   ConstExpr& operator=(const ConstExpr&) = delete;
 
-  static zetasql_base::StatusOr<std::unique_ptr<ConstExpr>> Create(const Value& value);
+  static absl::StatusOr<std::unique_ptr<ConstExpr>> Create(const Value& value);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
@@ -2658,7 +2704,7 @@ class SingleValueExpr final : public ValueExpr {
   SingleValueExpr(const SingleValueExpr&) = delete;
   SingleValueExpr& operator=(const SingleValueExpr&) = delete;
 
-  static zetasql_base::StatusOr<std::unique_ptr<SingleValueExpr>> Create(
+  static absl::StatusOr<std::unique_ptr<SingleValueExpr>> Create(
       std::unique_ptr<ValueExpr> value, std::unique_ptr<RelationalOp> input);
 
   absl::Status SetSchemasForEvaluation(
@@ -2691,7 +2737,7 @@ class ExistsExpr final : public ValueExpr {
   ExistsExpr(const ExistsExpr&) = delete;
   ExistsExpr& operator=(const ExistsExpr&) = delete;
 
-  static zetasql_base::StatusOr<std::unique_ptr<ExistsExpr>> Create(
+  static absl::StatusOr<std::unique_ptr<ExistsExpr>> Create(
       std::unique_ptr<RelationalOp> input);
 
   absl::Status SetSchemasForEvaluation(
@@ -2751,7 +2797,7 @@ class ScalarFunctionBody : public FunctionBody {
 
   // Evaluates the function using 'args'. On success, populates 'result' and
   // returns true. On failure, populates 'status' and returns false. We avoid
-  // returning zetasql_base::StatusOr<Value> for performance reasons.
+  // returning absl::StatusOr<Value> for performance reasons.
   virtual bool Eval(absl::Span<const Value> args, EvaluationContext* context,
                     Value* result, absl::Status* status) const = 0;
 };
@@ -2788,7 +2834,7 @@ class AggregateAccumulator {
   // should be true if the order that values wered passed to Accumulate() was
   // defined by ZetaSQL semantics. The value of 'inputs_in_defined_order' is
   // only important if we are doing compliance or random query testing.
-  virtual zetasql_base::StatusOr<Value> GetFinalResult(
+  virtual absl::StatusOr<Value> GetFinalResult(
       bool inputs_in_defined_order) = 0;
 };
 
@@ -2816,7 +2862,7 @@ class AggregateFunctionBody : public FunctionBody {
 
   // 'args' contains the constant arguments for the aggregation
   // function (e.g., the delimeter for STRING_AGG).
-  virtual zetasql_base::StatusOr<std::unique_ptr<AggregateAccumulator>>
+  virtual absl::StatusOr<std::unique_ptr<AggregateAccumulator>>
   CreateAccumulator(absl::Span<const Value> args,
                     EvaluationContext* context) const = 0;
 
@@ -2829,7 +2875,7 @@ class AggregateFunctionBody : public FunctionBody {
 // Evaluates a scalar function of the given 'function' and 'arguments'.
 class ScalarFunctionCallExpr final : public ValueExpr {
  public:
-  static zetasql_base::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>> Create(
+  static absl::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>> Create(
       std::unique_ptr<const ScalarFunctionBody> function,
       std::vector<std::unique_ptr<ValueExpr>> exprs,
       ResolvedFunctionCallBase::ErrorMode error_mode =
@@ -2866,7 +2912,7 @@ class ScalarFunctionCallExpr final : public ValueExpr {
 // in AggregateArg.
 class AggregateFunctionCallExpr final : public ValueExpr {
  public:
-  static zetasql_base::StatusOr<std::unique_ptr<AggregateFunctionCallExpr>> Create(
+  static absl::StatusOr<std::unique_ptr<AggregateFunctionCallExpr>> Create(
       std::unique_ptr<const AggregateFunctionBody> function,
       std::vector<std::unique_ptr<ValueExpr>> exprs);
 
@@ -2963,7 +3009,7 @@ class AnalyticFunctionCallExpr final : public ValueExpr {
 
   // <const_arguments> contains the argument expressions that must be constant,
   // while other argument expressions are in <non_const_arguments>.
-  static zetasql_base::StatusOr<std::unique_ptr<AnalyticFunctionCallExpr>> Create(
+  static absl::StatusOr<std::unique_ptr<AnalyticFunctionCallExpr>> Create(
       std::unique_ptr<const AnalyticFunctionBody> function,
       std::vector<std::unique_ptr<ValueExpr>> non_const_arguments,
       std::vector<std::unique_ptr<ValueExpr>> const_arguments);
@@ -3010,7 +3056,7 @@ class IfExpr final : public ValueExpr {
   IfExpr(const IfExpr&) = delete;
   IfExpr& operator=(const IfExpr&) = delete;
 
-  static zetasql_base::StatusOr<std::unique_ptr<IfExpr>> Create(
+  static absl::StatusOr<std::unique_ptr<IfExpr>> Create(
       std::unique_ptr<ValueExpr> condition,
       std::unique_ptr<ValueExpr> true_value,
       std::unique_ptr<ValueExpr> false_value);
@@ -3059,7 +3105,7 @@ class LetExpr final : public ValueExpr {
   LetExpr(const LetExpr&) = delete;
   LetExpr& operator=(const LetExpr&) = delete;
 
-  static zetasql_base::StatusOr<std::unique_ptr<LetExpr>> Create(
+  static absl::StatusOr<std::unique_ptr<LetExpr>> Create(
       std::vector<std::unique_ptr<ExprArg>> assign,
       std::unique_ptr<ValueExpr> body);
 
@@ -3158,8 +3204,13 @@ class ArrayFunctionWithLambdaExpr : public ValueExpr {
    public:
     virtual ~LambdaResultHandler() {}
 
-    virtual void OnLambdaEvaluation(const Value& element,
-                                    const Value& lambda_body) = 0;
+    // Called when a lambda body is successfully evaluated on one element of the
+    // array being handled by `ArrayFunctionWithLambdaExpr`.
+    // If `short_circuit` is set to true, the loop will NOT continue.
+    // Implementations can assume `short_circuit` starts as false.
+    virtual absl::Status OnLambdaEvaluation(const Value& element,
+                                            const Value& lambda_body,
+                                            bool& short_circuit) = 0;
 
     virtual Value GetReturnValue(const Type* output_type) = 0;
   };
@@ -3167,7 +3218,7 @@ class ArrayFunctionWithLambdaExpr : public ValueExpr {
   using LambdaResultHandlerCreator =
       std::function<std::unique_ptr<LambdaResultHandler>()>;
 
-  static zetasql_base::StatusOr<std::unique_ptr<ArrayFunctionWithLambdaExpr>> Create(
+  static absl::StatusOr<std::unique_ptr<ArrayFunctionWithLambdaExpr>> Create(
       absl::string_view func_name,
       std::vector<std::unique_ptr<AlgebraArg>> args, const Type* output_type);
 
@@ -3242,7 +3293,7 @@ class DMLValueExpr : public ValueExpr {
 
   // More convenient form of the above, since performance doesn't matter for DML
   // because it is just for compliance testing.
-  virtual zetasql_base::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+  virtual absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                                      EvaluationContext* context) const = 0;
 
  protected:
@@ -3280,12 +3331,12 @@ class DMLValueExpr : public ValueExpr {
 
   // RET_CHECKs that 'resolved_scan' is in 'resolved_scan_map_', and then
   // returns the corresponding RelationalOp.
-  zetasql_base::StatusOr<RelationalOp*> LookupResolvedScan(
+  absl::StatusOr<RelationalOp*> LookupResolvedScan(
       const ResolvedScan* resolved_scan) const;
 
   // RET_CHECKs that 'resolved_expr' is in 'resolved_expr_map_', and then
   // returns the corresponding ValueExpr.
-  zetasql_base::StatusOr<ValueExpr*> LookupResolvedExpr(
+  absl::StatusOr<ValueExpr*> LookupResolvedExpr(
       const ResolvedExpr* resolved_expr) const;
 
   // Returns a absl::Status corresponding to whether 'actual_num_rows_modified'
@@ -3303,11 +3354,11 @@ class DMLValueExpr : public ValueExpr {
 
   // Returns a vector of Values corresponding to 't'. The elements of the
   // returned vector correspond to 'column_list'.
-  zetasql_base::StatusOr<std::vector<Value>> GetScannedTupleAsColumnValues(
+  absl::StatusOr<std::vector<Value>> GetScannedTupleAsColumnValues(
       const ResolvedColumnList& column_list, const Tuple& t) const;
 
   // Returns the value of 'column' in 't'.
-  zetasql_base::StatusOr<Value> GetColumnValue(const ResolvedColumn& column,
+  absl::StatusOr<Value> GetColumnValue(const ResolvedColumn& column,
                                        const Tuple& t) const;
 
   // Populates 'row_map' according to 'original_rows'. If the table does not
@@ -3326,13 +3377,13 @@ class DMLValueExpr : public ValueExpr {
   // a primary key, we use the row number as the primary key. If
   // 'has_primary_key' is non-NULL, sets it to true if the table has a primary
   // key.
-  zetasql_base::StatusOr<Value> GetPrimaryKeyOrRowNumber(
+  absl::StatusOr<Value> GetPrimaryKeyOrRowNumber(
       const RowNumberAndValues& row_number_and_values,
       EvaluationContext* context, bool* has_primary_key = nullptr) const;
 
   // Returns indexes of the primary columns in 'column_list_', if there exists
   // a primary key.
-  zetasql_base::StatusOr<absl::optional<std::vector<int>>> GetPrimaryKeyColumnIndexes(
+  absl::StatusOr<absl::optional<std::vector<int>>> GetPrimaryKeyColumnIndexes(
       EvaluationContext* context) const;
 
   // Returns the output of Eval(), which has type 'dml_output_type_',
@@ -3341,7 +3392,7 @@ class DMLValueExpr : public ValueExpr {
   // The returned value is a struct with two fields: an int64_t representing the
   // number of rows modified by the statement, and an array of structs, where
   // each element of the array represents a row of the modified table.
-  zetasql_base::StatusOr<Value> GetDMLOutputValue(
+  absl::StatusOr<Value> GetDMLOutputValue(
       int64_t num_rows_modified,
       const std::vector<std::vector<Value>>& dml_output_rows,
       const std::vector<std::vector<Value>>& dml_returning_rows,
@@ -3380,7 +3431,7 @@ class DMLDeleteValueExpr final : public DMLValueExpr {
 
   // 'primary_key_type' may be NULL if the table doesn't have a primary key or
   // its primary key is not to be used in evaluting the DML expression.
-  static zetasql_base::StatusOr<std::unique_ptr<DMLDeleteValueExpr>> Create(
+  static absl::StatusOr<std::unique_ptr<DMLDeleteValueExpr>> Create(
       const Table* table, const ArrayType* table_array_type,
       const ArrayType* returning_array_type, const StructType* primary_key_type,
       const StructType* dml_output_type,
@@ -3395,7 +3446,7 @@ class DMLDeleteValueExpr final : public DMLValueExpr {
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
 
-  zetasql_base::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              EvaluationContext* context) const override;
 
   std::string DebugInternal(const std::string& indent,
@@ -3429,7 +3480,7 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
 
   // 'primary_key_type' may be NULL if the table doesn't have a primary key or
   // its primary key is not to be used in evaluting the DML expression.
-  static zetasql_base::StatusOr<std::unique_ptr<DMLUpdateValueExpr>> Create(
+  static absl::StatusOr<std::unique_ptr<DMLUpdateValueExpr>> Create(
       const Table* table, const ArrayType* table_array_type,
       const ArrayType* returning_array_type, const StructType* primary_key_type,
       const StructType* dml_output_type,
@@ -3444,7 +3495,7 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
 
-  zetasql_base::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              EvaluationContext* context) const override;
 
   std::string DebugInternal(const std::string& indent,
@@ -3567,13 +3618,13 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
 
     // Returns the new value obtained by modifying 'original_value' according to
     // the update information represented by this object.
-    zetasql_base::StatusOr<Value> GetNewValue(const Value& original_value,
+    absl::StatusOr<Value> GetNewValue(const Value& original_value,
                                       EvaluationContext* context) const;
 
    private:
     // Same as GetNewValue(), but specifically for an UpdateNode that represents
     // a proto.
-    zetasql_base::StatusOr<Value> GetNewProtoValue(const Value& original_value,
+    absl::StatusOr<Value> GetNewProtoValue(const Value& original_value,
                                            EvaluationContext* context) const;
 
     absl::variant<Value, ChildMap> contents_;
@@ -3739,14 +3790,14 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
   // Returns the Value to store in the leaf UpdateNode corresponding to
   // 'update_item' (which must not have any ResolvedArrayUpdateItem children)
   // for the variables given by 'tuples_for_row'.
-  zetasql_base::StatusOr<Value> GetLeafValue(
+  absl::StatusOr<Value> GetLeafValue(
       const ResolvedUpdateItem* update_item,
       absl::Span<const TupleData* const> tuples_for_row,
       EvaluationContext* context) const;
 
   // Returns the DML output row corresponding to the input row represented by
   // 'tuple' and 'update_map'.
-  zetasql_base::StatusOr<std::vector<Value>> GetDMLOutputRow(
+  absl::StatusOr<std::vector<Value>> GetDMLOutputRow(
       const Tuple& tuple, const UpdateMap& update_map,
       EvaluationContext* context) const;
 
@@ -3802,7 +3853,7 @@ class DMLInsertValueExpr final : public DMLValueExpr {
 
   // 'primary_key_type' may be NULL if the table doesn't have a primary key or
   // its primary key is not to be used in evaluting the DML expression.
-  static zetasql_base::StatusOr<std::unique_ptr<DMLInsertValueExpr>> Create(
+  static absl::StatusOr<std::unique_ptr<DMLInsertValueExpr>> Create(
       const Table* table, const ArrayType* table_array_type,
       const ArrayType* returning_array_type, const StructType* primary_key_type,
       const StructType* dml_output_type,
@@ -3817,7 +3868,7 @@ class DMLInsertValueExpr final : public DMLValueExpr {
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
 
-  zetasql_base::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              EvaluationContext* context) const override;
 
   std::string DebugInternal(const std::string& indent,
@@ -3894,14 +3945,14 @@ class DMLInsertValueExpr final : public DMLValueExpr {
   // an error if there is a primary key collision.
   // If "WITH ACTION" is present in the returning clause, update the insert
   // mode properly for each corresponding row in "dml_returning_rows".
-  zetasql_base::StatusOr<int64_t> InsertRows(
+  absl::StatusOr<int64_t> InsertRows(
       const InsertColumnMap& insert_column_map,
       const std::vector<std::vector<Value>>& rows_to_insert,
       std::vector<std::vector<Value>>& dml_returning_rows,
       EvaluationContext* context, PrimaryKeyRowMap* row_map) const;
 
   // Returns the DML output value corresponding to the arguments.
-  zetasql_base::StatusOr<Value> GetDMLOutputValue(
+  absl::StatusOr<Value> GetDMLOutputValue(
       int64_t num_rows_modified, const PrimaryKeyRowMap& row_map,
       const std::vector<std::vector<Value>>& dml_returning_rows,
       EvaluationContext* context) const;
@@ -3924,13 +3975,13 @@ class RootOp final : public RelationalOp {
   RootOp(const RootOp&) = delete;
   RootOp& operator=(const RootOp&) = delete;
 
-  static zetasql_base::StatusOr<std::unique_ptr<RootOp>> Create(
+  static absl::StatusOr<std::unique_ptr<RootOp>> Create(
       std::unique_ptr<RelationalOp> input, std::unique_ptr<RootData> root_data);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
 
-  zetasql_base::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
       absl::Span<const TupleData* const> params, int num_extra_slots,
       EvaluationContext* context) const override;
 
@@ -3961,7 +4012,7 @@ class RootExpr final : public ValueExpr {
   RootExpr(const RootExpr&) = delete;
   RootExpr& operator=(const RootExpr&) = delete;
 
-  static zetasql_base::StatusOr<std::unique_ptr<RootExpr>> Create(
+  static absl::StatusOr<std::unique_ptr<RootExpr>> Create(
       std::unique_ptr<ValueExpr> value_expr,
       std::unique_ptr<RootData> root_data);
 

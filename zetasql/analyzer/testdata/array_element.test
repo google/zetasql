@@ -17,7 +17,7 @@ select xxx[5]
 
 select KitchenSink[5] from TestTable
 --
-ERROR: Subscript access using [INT64] is not supported on values of type zetasql_test.KitchenSinkPB [at 1:20]
+ERROR: Subscript access using [INT64] is not supported on values of type zetasql_test__.KitchenSinkPB [at 1:20]
 select KitchenSink[5] from TestTable
                    ^
 ==
@@ -76,7 +76,7 @@ QueryStmt
     | |   +-GetProtoField
     | |   | +-type=ARRAY<DOUBLE>
     | |   | +-expr=
-    | |   | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | |   | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | |   | +-field_descriptor=repeated_double_val
     | |   | +-default_value=[]
     | |   +-Literal(type=INT64, value=0)
@@ -85,7 +85,7 @@ QueryStmt
     |     +-GetProtoField
     |     | +-type=ARRAY<DOUBLE>
     |     | +-expr=
-    |     | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     | +-field_descriptor=repeated_double_val
     |     | +-default_value=[]
     |     +-Literal(type=INT64, value=1)
@@ -111,7 +111,7 @@ QueryStmt
     | |   +-GetProtoField
     | |   | +-type=ARRAY<DOUBLE>
     | |   | +-expr=
-    | |   | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | |   | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | |   | +-field_descriptor=repeated_double_val
     | |   | +-default_value=[]
     | |   +-Literal(type=INT64, value=0)
@@ -120,7 +120,7 @@ QueryStmt
     |     +-GetProtoField
     |     | +-type=ARRAY<DOUBLE>
     |     | +-expr=
-    |     | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     | +-field_descriptor=repeated_double_val
     |     | +-default_value=[]
     |     +-Literal(type=INT64, value=1)
@@ -149,7 +149,7 @@ QueryStmt
     |     +-GetProtoField
     |     | +-type=ARRAY<DOUBLE>
     |     | +-expr=
-    |     | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     | +-field_descriptor=repeated_double_val
     |     | +-default_value=[]
     |     +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
@@ -182,7 +182,7 @@ QueryStmt
     | |   +-GetProtoField
     | |   | +-type=ARRAY<DOUBLE>
     | |   | +-expr=
-    | |   | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | |   | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | |   | +-field_descriptor=repeated_double_val
     | |   | +-default_value=[]
     | |   +-Literal(type=INT64, value=0)
@@ -191,7 +191,7 @@ QueryStmt
     |     +-GetProtoField
     |     | +-type=ARRAY<DOUBLE>
     |     | +-expr=
-    |     | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     | +-field_descriptor=repeated_double_val
     |     | +-default_value=[]
     |     +-Literal(type=INT64, value=-1)
@@ -213,7 +213,7 @@ QueryStmt
     |     +-GetProtoField
     |     | +-type=ARRAY<DOUBLE>
     |     | +-expr=
-    |     | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     | +-field_descriptor=repeated_double_val
     |     | +-default_value=[]
     |     +-Literal(type=INT64, value=NULL)
@@ -308,15 +308,15 @@ QueryStmt
             +-GetProtoField
             | +-type=INT64
             | +-expr=
-            | | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup.NestedRepeatedGroupNested>>, INT64) -> PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup.NestedRepeatedGroupNested>)
+            | | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup.NestedRepeatedGroupNested>>, INT64) -> PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup.NestedRepeatedGroupNested>)
             | |   +-GetProtoField
-            | |   | +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup.NestedRepeatedGroupNested>>
+            | |   | +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup.NestedRepeatedGroupNested>>
             | |   | +-expr=
-            | |   | | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>>, INT64) -> PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>)
+            | |   | | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>>, INT64) -> PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>)
             | |   | |   +-GetProtoField
-            | |   | |   | +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>>
+            | |   | |   | +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>>
             | |   | |   | +-expr=
-            | |   | |   | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | |   | |   | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | |   | |   | +-field_descriptor=nested_repeated_group
             | |   | |   | +-default_value=[]
             | |   | |   +-Literal(type=INT64, value=2)
@@ -363,27 +363,27 @@ QueryStmt
             +-GetProtoField
             | +-type=INT64
             | +-expr=
-            | | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>>, INT64) -> PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>)
+            | | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>>, INT64) -> PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>)
             | |   +-GetProtoField
-            | |   | +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>>
+            | |   | +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>>
             | |   | +-expr=
-            | |   | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | |   | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | |   | +-field_descriptor=nested_repeated_group
             | |   | +-default_value=[]
             | |   +-GetProtoField
             | |     +-type=INT64
             | |     +-expr=
-            | |     | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>>, INT64) -> PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>)
+            | |     | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>>, INT64) -> PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>)
             | |     |   +-GetProtoField
-            | |     |   | +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>>
+            | |     |   | +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>>
             | |     |   | +-expr=
-            | |     |   | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | |     |   | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | |     |   | +-field_descriptor=nested_repeated_group
             | |     |   | +-default_value=[]
             | |     |   +-GetProtoField
             | |     |     +-type=INT64
             | |     |     +-expr=
-            | |     |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | |     |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | |     |     +-field_descriptor=int64_val
             | |     |     +-default_value=0
             | |     +-field_descriptor=id
@@ -410,7 +410,7 @@ QueryStmt
     |     |     +-GetProtoField
     |     |     | +-type=ARRAY<INT64>
     |     |     | +-expr=
-    |     |     | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     |     | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     |     | +-field_descriptor=repeated_int64_val
     |     |     | +-default_value=[]
     |     |     +-Literal(type=INT64, value=2)
@@ -423,7 +423,7 @@ QueryStmt
 
 select KitchenSink[OFFSET(1)] from TestTable;
 --
-ERROR: Subscript access using [OFFSET(INT64)] is not supported on values of type zetasql_test.KitchenSinkPB [at 1:20]
+ERROR: Subscript access using [OFFSET(INT64)] is not supported on values of type zetasql_test__.KitchenSinkPB [at 1:20]
 select KitchenSink[OFFSET(1)] from TestTable;
                    ^
 ==
@@ -445,7 +445,7 @@ QueryStmt
     | |   +-GetProtoField
     | |   | +-type=ARRAY<INT64>
     | |   | +-expr=
-    | |   | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | |   | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | |   | +-field_descriptor=repeated_int64_val
     | |   | +-default_value=[]
     | |   +-Literal(type=INT64, value=3)
@@ -454,7 +454,7 @@ QueryStmt
     |     +-GetProtoField
     |     | +-type=ARRAY<INT64>
     |     | +-expr=
-    |     | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     | +-field_descriptor=repeated_int64_val
     |     | +-default_value=[]
     |     +-Literal(type=INT64, value=3)
@@ -691,11 +691,11 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(ZetaSQL:$proto_map_at_key(ARRAY<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>, STRING) -> INT32)
+    |   +-FunctionCall(ZetaSQL:$proto_map_at_key(ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>, STRING) -> INT32)
     |     +-GetProtoField
-    |     | +-type=ARRAY<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>
+    |     | +-type=ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>
     |     | +-expr=
-    |     | | +-ColumnRef(type=PROTO<zetasql_test.MessageWithMapField>, column=MapFieldTable.MessageWithMapField#2)
+    |     | | +-ColumnRef(type=PROTO<zetasql_test__.MessageWithMapField>, column=MapFieldTable.MessageWithMapField#2)
     |     | +-field_descriptor=string_int32_map
     |     | +-default_value=[]
     |     +-Literal(type=STRING, value="foo")
@@ -708,13 +708,13 @@ from MapFieldTable
 --
 ALTERNATION GROUP: SAFE_
 --
-ERROR: Element access using [SAFE_KEY()] is not supported on values of type ARRAY<zetasql_test.MessageWithMapField.StringInt32MapEntry> [at 1:45]
+ERROR: Element access using [SAFE_KEY()] is not supported on values of type ARRAY<zetasql_test__.MessageWithMapField.StringInt32MapEntry> [at 1:45]
 select MessageWithMapField.string_int32_map[SAFE_KEY("foo")]
                                             ^
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Element access using [KEY()] is not supported on values of type ARRAY<zetasql_test.MessageWithMapField.StringInt32MapEntry> [at 1:45]
+ERROR: Element access using [KEY()] is not supported on values of type ARRAY<zetasql_test__.MessageWithMapField.StringInt32MapEntry> [at 1:45]
 select MessageWithMapField.string_int32_map[KEY("foo")]
                                             ^
 ==
@@ -732,11 +732,11 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(ZetaSQL:$safe_proto_map_at_key(ARRAY<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>, STRING) -> INT32)
+    |   +-FunctionCall(ZetaSQL:$safe_proto_map_at_key(ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>, STRING) -> INT32)
     |     +-GetProtoField
-    |     | +-type=ARRAY<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>
+    |     | +-type=ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>
     |     | +-expr=
-    |     | | +-ColumnRef(type=PROTO<zetasql_test.MessageWithMapField>, column=MapFieldTable.MessageWithMapField#2)
+    |     | | +-ColumnRef(type=PROTO<zetasql_test__.MessageWithMapField>, column=MapFieldTable.MessageWithMapField#2)
     |     | +-field_descriptor=string_int32_map
     |     | +-default_value=[]
     |     +-Literal(type=STRING, value="foo")
@@ -756,15 +756,15 @@ QueryStmt
     |     +-type=INT32
     |     +-subquery_type=SCALAR
     |     +-parameter_list=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.MessageWithMapField>, column=MapFieldTable.MessageWithMapField#2)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.MessageWithMapField>, column=MapFieldTable.MessageWithMapField#2)
     |     +-subquery=
     |       +-ProjectScan
     |         +-column_list=[$expr_subquery.$col1#9]
     |         +-expr_list=
     |         | +-$col1#9 :=
     |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(2) BOOL, repeated(2) INT32, INT32) -> INT32)
-    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>, column=$subquery1.m#5)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>, column=$subquery1.m#5)
     |         |     +-Literal(type=INT32, value=NULL)
     |         |     +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
     |         |     | +-ColumnRef(type=STRING, column=$subquery1.k#4)
@@ -774,7 +774,7 @@ QueryStmt
     |         |       +-subquery_type=SCALAR
     |         |       +-parameter_list=
     |         |       | +-ColumnRef(type=STRING, column=$subquery1.k#4)
-    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>, column=$subquery1.m#5)
+    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>, column=$subquery1.m#5)
     |         |       +-subquery=
     |         |         +-LimitOffsetScan
     |         |           +-column_list=[$expr_subquery.value#8]
@@ -784,24 +784,24 @@ QueryStmt
     |         |           |   +-is_ordered=TRUE
     |         |           |   +-input_scan=
     |         |           |   | +-ProjectScan
-    |         |           |   |   +-column_list=[$array.$unnest1#6, $array_offset.offset#7, $expr_subquery.value#8]
+    |         |           |   |   +-column_list=[$array.elem#6, $array_offset.offset#7, $expr_subquery.value#8]
     |         |           |   |   +-expr_list=
     |         |           |   |   | +-value#8 :=
     |         |           |   |   |   +-GetProtoField
     |         |           |   |   |     +-type=INT32
     |         |           |   |   |     +-expr=
-    |         |           |   |   |     | +-ColumnRef(type=PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>, column=$array.$unnest1#6)
+    |         |           |   |   |     | +-ColumnRef(type=PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>, column=$array.elem#6)
     |         |           |   |   |     +-field_descriptor=value
     |         |           |   |   |     +-default_value=0
     |         |           |   |   +-input_scan=
     |         |           |   |     +-FilterScan
-    |         |           |   |       +-column_list=[$array.$unnest1#6, $array_offset.offset#7]
+    |         |           |   |       +-column_list=[$array.elem#6, $array_offset.offset#7]
     |         |           |   |       +-input_scan=
     |         |           |   |       | +-ArrayScan
-    |         |           |   |       |   +-column_list=[$array.$unnest1#6, $array_offset.offset#7]
+    |         |           |   |       |   +-column_list=[$array.elem#6, $array_offset.offset#7]
     |         |           |   |       |   +-array_expr=
-    |         |           |   |       |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>, column=$subquery1.m#5, is_correlated=TRUE)
-    |         |           |   |       |   +-element_column=$array.$unnest1#6
+    |         |           |   |       |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>, column=$subquery1.m#5, is_correlated=TRUE)
+    |         |           |   |       |   +-element_column=$array.elem#6
     |         |           |   |       |   +-array_offset_column=
     |         |           |   |       |     +-ColumnHolder(column=$array_offset.offset#7)
     |         |           |   |       +-filter_expr=
@@ -809,7 +809,7 @@ QueryStmt
     |         |           |   |           +-GetProtoField
     |         |           |   |           | +-type=STRING
     |         |           |   |           | +-expr=
-    |         |           |   |           | | +-ColumnRef(type=PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>, column=$array.$unnest1#6)
+    |         |           |   |           | | +-ColumnRef(type=PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>, column=$array.elem#6)
     |         |           |   |           | +-field_descriptor=key
     |         |           |   |           | +-default_value=""
     |         |           |   |           +-ColumnRef(type=STRING, column=$subquery1.k#4, is_correlated=TRUE)
@@ -827,9 +827,9 @@ QueryStmt
     |             | +-k#4 := Literal(type=STRING, value="foo")
     |             | +-m#5 :=
     |             |   +-GetProtoField
-    |             |     +-type=ARRAY<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>
+    |             |     +-type=ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>
     |             |     +-expr=
-    |             |     | +-ColumnRef(type=PROTO<zetasql_test.MessageWithMapField>, column=MapFieldTable.MessageWithMapField#2, is_correlated=TRUE)
+    |             |     | +-ColumnRef(type=PROTO<zetasql_test__.MessageWithMapField>, column=MapFieldTable.MessageWithMapField#2, is_correlated=TRUE)
     |             |     +-field_descriptor=string_int32_map
     |             |     +-default_value=[]
     |             +-input_scan=
@@ -851,11 +851,11 @@ QueryStmt
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(ZetaSQL:$proto_map_at_key(ARRAY<PROTO<zetasql_test.MessageWithMapField.Int64Uint64MapEntry>>, INT64) -> UINT64)
+    |   +-FunctionCall(ZetaSQL:$proto_map_at_key(ARRAY<PROTO<zetasql_test__.MessageWithMapField.Int64Uint64MapEntry>>, INT64) -> UINT64)
     |     +-GetProtoField
-    |     | +-type=ARRAY<PROTO<zetasql_test.MessageWithMapField.Int64Uint64MapEntry>>
+    |     | +-type=ARRAY<PROTO<zetasql_test__.MessageWithMapField.Int64Uint64MapEntry>>
     |     | +-expr=
-    |     | | +-ColumnRef(type=PROTO<zetasql_test.MessageWithMapField>, column=MapFieldTable.MessageWithMapField#2)
+    |     | | +-ColumnRef(type=PROTO<zetasql_test__.MessageWithMapField>, column=MapFieldTable.MessageWithMapField#2)
     |     | +-field_descriptor=int64_uint64_map
     |     | +-default_value=[]
     |     +-Cast(INT32 -> INT64)
@@ -877,15 +877,15 @@ QueryStmt
     |     +-subquery_type=SCALAR
     |     +-parameter_list=
     |     | +-ColumnRef(type=INT32, column=MapFieldTable.key#1)
-    |     | +-ColumnRef(type=PROTO<zetasql_test.MessageWithMapField>, column=MapFieldTable.MessageWithMapField#2)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.MessageWithMapField>, column=MapFieldTable.MessageWithMapField#2)
     |     +-subquery=
     |       +-ProjectScan
     |         +-column_list=[$expr_subquery.$col1#9]
     |         +-expr_list=
     |         | +-$col1#9 :=
     |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(2) BOOL, repeated(2) UINT64, UINT64) -> UINT64)
-    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test.MessageWithMapField.Int64Uint64MapEntry>>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.MessageWithMapField.Int64Uint64MapEntry>>, column=$subquery1.m#5)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.MessageWithMapField.Int64Uint64MapEntry>>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.MessageWithMapField.Int64Uint64MapEntry>>, column=$subquery1.m#5)
     |         |     +-Literal(type=UINT64, value=NULL)
     |         |     +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
     |         |     | +-ColumnRef(type=INT64, column=$subquery1.k#4)
@@ -896,7 +896,7 @@ QueryStmt
     |         |       | +-subquery_type=SCALAR
     |         |       | +-parameter_list=
     |         |       | | +-ColumnRef(type=INT64, column=$subquery1.k#4)
-    |         |       | | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.MessageWithMapField.Int64Uint64MapEntry>>, column=$subquery1.m#5)
+    |         |       | | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.MessageWithMapField.Int64Uint64MapEntry>>, column=$subquery1.m#5)
     |         |       | +-subquery=
     |         |       |   +-LimitOffsetScan
     |         |       |     +-column_list=[$expr_subquery.value#8]
@@ -906,24 +906,24 @@ QueryStmt
     |         |       |     |   +-is_ordered=TRUE
     |         |       |     |   +-input_scan=
     |         |       |     |   | +-ProjectScan
-    |         |       |     |   |   +-column_list=[$array.$unnest1#6, $array_offset.offset#7, $expr_subquery.value#8]
+    |         |       |     |   |   +-column_list=[$array.elem#6, $array_offset.offset#7, $expr_subquery.value#8]
     |         |       |     |   |   +-expr_list=
     |         |       |     |   |   | +-value#8 :=
     |         |       |     |   |   |   +-GetProtoField
     |         |       |     |   |   |     +-type=UINT64
     |         |       |     |   |   |     +-expr=
-    |         |       |     |   |   |     | +-ColumnRef(type=PROTO<zetasql_test.MessageWithMapField.Int64Uint64MapEntry>, column=$array.$unnest1#6)
+    |         |       |     |   |   |     | +-ColumnRef(type=PROTO<zetasql_test__.MessageWithMapField.Int64Uint64MapEntry>, column=$array.elem#6)
     |         |       |     |   |   |     +-field_descriptor=value
     |         |       |     |   |   |     +-default_value=0
     |         |       |     |   |   +-input_scan=
     |         |       |     |   |     +-FilterScan
-    |         |       |     |   |       +-column_list=[$array.$unnest1#6, $array_offset.offset#7]
+    |         |       |     |   |       +-column_list=[$array.elem#6, $array_offset.offset#7]
     |         |       |     |   |       +-input_scan=
     |         |       |     |   |       | +-ArrayScan
-    |         |       |     |   |       |   +-column_list=[$array.$unnest1#6, $array_offset.offset#7]
+    |         |       |     |   |       |   +-column_list=[$array.elem#6, $array_offset.offset#7]
     |         |       |     |   |       |   +-array_expr=
-    |         |       |     |   |       |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.MessageWithMapField.Int64Uint64MapEntry>>, column=$subquery1.m#5, is_correlated=TRUE)
-    |         |       |     |   |       |   +-element_column=$array.$unnest1#6
+    |         |       |     |   |       |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.MessageWithMapField.Int64Uint64MapEntry>>, column=$subquery1.m#5, is_correlated=TRUE)
+    |         |       |     |   |       |   +-element_column=$array.elem#6
     |         |       |     |   |       |   +-array_offset_column=
     |         |       |     |   |       |     +-ColumnHolder(column=$array_offset.offset#7)
     |         |       |     |   |       +-filter_expr=
@@ -931,7 +931,7 @@ QueryStmt
     |         |       |     |   |           +-GetProtoField
     |         |       |     |   |           | +-type=INT64
     |         |       |     |   |           | +-expr=
-    |         |       |     |   |           | | +-ColumnRef(type=PROTO<zetasql_test.MessageWithMapField.Int64Uint64MapEntry>, column=$array.$unnest1#6)
+    |         |       |     |   |           | | +-ColumnRef(type=PROTO<zetasql_test__.MessageWithMapField.Int64Uint64MapEntry>, column=$array.elem#6)
     |         |       |     |   |           | +-field_descriptor=key
     |         |       |     |   |           | +-default_value=0
     |         |       |     |   |           +-ColumnRef(type=INT64, column=$subquery1.k#4, is_correlated=TRUE)
@@ -956,9 +956,9 @@ QueryStmt
     |             | |   +-ColumnRef(type=INT32, column=MapFieldTable.key#1, is_correlated=TRUE)
     |             | +-m#5 :=
     |             |   +-GetProtoField
-    |             |     +-type=ARRAY<PROTO<zetasql_test.MessageWithMapField.Int64Uint64MapEntry>>
+    |             |     +-type=ARRAY<PROTO<zetasql_test__.MessageWithMapField.Int64Uint64MapEntry>>
     |             |     +-expr=
-    |             |     | +-ColumnRef(type=PROTO<zetasql_test.MessageWithMapField>, column=MapFieldTable.MessageWithMapField#2, is_correlated=TRUE)
+    |             |     | +-ColumnRef(type=PROTO<zetasql_test__.MessageWithMapField>, column=MapFieldTable.MessageWithMapField#2, is_correlated=TRUE)
     |             |     +-field_descriptor=int64_uint64_map
     |             |     +-default_value=[]
     |             +-input_scan=
@@ -980,7 +980,7 @@ select MessageWithMapField.int32_int32_map[SAFE_KEY(key + 1)]
 select MODIFY_MAP(MessageWithMapField.int32_int32_map, key + 1, key + 2)
 from MapFieldTable
 --
-ERROR: No matching signature for function MODIFY_MAP(ARRAY<zetasql_test.MessageWithMapField.Int32Int32MapEntry>, INT64, INT64); some key or value did not match the map's key or value type. Supported signature: MODIFY_MAP(PROTO_MAP, [PROTO_MAP_KEY, ...], [PROTO_MAP_VALUE, ...]) [at 1:8]
+ERROR: No matching signature for function MODIFY_MAP(ARRAY<zetasql_test__.MessageWithMapField.Int32Int32MapEntry>, INT64, INT64); some key or value did not match the map's key or value type. Supported signature: MODIFY_MAP(PROTO_MAP, [PROTO_MAP_KEY, ...], [PROTO_MAP_VALUE, ...]) [at 1:8]
 select MODIFY_MAP(MessageWithMapField.int32_int32_map, key + 1, key + 2)
        ^
 ==
@@ -992,17 +992,17 @@ from MapFieldTable
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#3 AS `$col1` [ARRAY<PROTO<zetasql_test.MessageWithMapField.Int32Int32MapEntry>>]
+| +-$query.$col1#3 AS `$col1` [ARRAY<PROTO<zetasql_test__.MessageWithMapField.Int32Int32MapEntry>>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.$col1#3]
     +-expr_list=
     | +-$col1#3 :=
-    |   +-FunctionCall(ZetaSQL:modify_map(ARRAY<PROTO<zetasql_test.MessageWithMapField.Int32Int32MapEntry>>, repeated(1) INT32, repeated(1) INT32) -> ARRAY<PROTO<zetasql_test.MessageWithMapField.Int32Int32MapEntry>>)
+    |   +-FunctionCall(ZetaSQL:modify_map(ARRAY<PROTO<zetasql_test__.MessageWithMapField.Int32Int32MapEntry>>, repeated(1) INT32, repeated(1) INT32) -> ARRAY<PROTO<zetasql_test__.MessageWithMapField.Int32Int32MapEntry>>)
     |     +-GetProtoField
-    |     | +-type=ARRAY<PROTO<zetasql_test.MessageWithMapField.Int32Int32MapEntry>>
+    |     | +-type=ARRAY<PROTO<zetasql_test__.MessageWithMapField.Int32Int32MapEntry>>
     |     | +-expr=
-    |     | | +-ColumnRef(type=PROTO<zetasql_test.MessageWithMapField>, column=MapFieldTable.MessageWithMapField#2)
+    |     | | +-ColumnRef(type=PROTO<zetasql_test__.MessageWithMapField>, column=MapFieldTable.MessageWithMapField#2)
     |     | +-field_descriptor=int32_int32_map
     |     | +-default_value=[]
     |     +-Cast(INT64 -> INT32)

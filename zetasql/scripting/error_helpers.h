@@ -23,7 +23,7 @@
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/scripting/script_exception.pb.h"
 #include "zetasql/scripting/script_segment.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/substitute.h"
 #include "zetasql/base/status.h"
@@ -52,7 +52,7 @@ ConvertLocalErrorToScriptError(const ScriptSegment& segment);
 // Similar to the above function, but consumes and returns an ErrorLocation,
 // rather than a status.  Returns a generic::internal status if
 // <error_location_in> is outside the bounds of the script.
-zetasql_base::StatusOr<ErrorLocation> ConvertLocalErrorToScriptError(
+absl::StatusOr<ErrorLocation> ConvertLocalErrorToScriptError(
     const ScriptSegment& segment, const ErrorLocation& error_location_in);
 
 // Helper functions for evaluator and native procedure implementations to mark

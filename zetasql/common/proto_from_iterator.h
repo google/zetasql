@@ -28,7 +28,7 @@
 #include "zetasql/public/convert_type_to_proto.h"
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
@@ -78,7 +78,7 @@ struct IteratorProtoDescriptors {
 // Build protobuf descriptor representing columns in a given table iterator. See
 // IteratorProtoDescriptorOptions for details on the generated structure and how
 // to control them.
-zetasql_base::StatusOr<IteratorProtoDescriptors> ConvertIteratorToProto(
+absl::StatusOr<IteratorProtoDescriptors> ConvertIteratorToProto(
     const EvaluatorTableIterator& iter,
     const IteratorProtoDescriptorOptions& options,
     google::protobuf::DescriptorPool& pool);
@@ -92,7 +92,7 @@ absl::Status MergeRowToProto(const EvaluatorTableIterator& iter,
 // Create a new proto message containing all rows from the given iterator. The
 // given proto descriptor must have a repeated message type field as its first
 // field. Its type is used to create a new message for each row.
-zetasql_base::StatusOr<std::unique_ptr<google::protobuf::Message>> ProtoFromIterator(
+absl::StatusOr<std::unique_ptr<google::protobuf::Message>> ProtoFromIterator(
     EvaluatorTableIterator& iter, const google::protobuf::Descriptor& table_desc,
     google::protobuf::MessageFactory& message_factory);
 

@@ -3,7 +3,7 @@
 # (2 uncorrelated and 3 correlated ones) times 5 clauses (SELECT, WHERE, HAVING,
 # GROUP BY, ORDER BY).
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB, zetasql_test.TestExtraPB, zetasql_test.KitchenSinkPB.Nested, zetasql_test.RepeatedHolderPB]
+[load_proto_names=zetasql_test__.KitchenSinkPB, zetasql_test__.TestExtraPB, zetasql_test__.KitchenSinkPB.Nested, zetasql_test__.RepeatedHolderPB]
 
 [prepare_database]
 CREATE TABLE Table1 AS
@@ -25,16 +25,16 @@ ARRAY<STRUCT<primary_key INT64,
 [prepare_database]
 CREATE TABLE Table2 AS
 SELECT 1 id,
-       (SELECT AS `zetasql_test.TestExtraPB`
+       (SELECT AS `zetasql_test__.TestExtraPB`
          1 int32_val1, ['a', 'b', 'c'] str_value) Info
 UNION ALL
 SELECT 2 id,
-       (SELECT AS `zetasql_test.TestExtraPB`
+       (SELECT AS `zetasql_test__.TestExtraPB`
          2 int32_val1, ['d'] str_value) Info
 --
 ARRAY<STRUCT<
         id INT64,
-        Info PROTO<zetasql_test.TestExtraPB>
+        Info PROTO<zetasql_test__.TestExtraPB>
       >>
 [{1,
   {

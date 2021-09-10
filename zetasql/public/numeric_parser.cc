@@ -74,6 +74,8 @@ bool SplitENotationParts(absl::string_view str, ENotationParts* parts) {
 // Parses <exp_part> and add <extra_scale> to the result.
 // If <exp_part> represents an integer that is below int64min, the result is
 // int64min.
+// If <exp_part> represents an integer that is above int64max, the result is
+// int64max.
 bool ParseExponent(absl::string_view exp_part, uint extra_scale, int64_t* exp) {
   *exp = extra_scale;
   if (!exp_part.empty()) {
@@ -89,7 +91,10 @@ bool ParseExponent(absl::string_view exp_part, uint extra_scale, int64_t* exp) {
       }
       *exp = std::numeric_limits<int64_t>::min();
     } else {
-      return false;
+      for (char c : exp_part) {
+        RETURN_FALSE_IF(!std::isdigit(c));
+      }
+      *exp = std::numeric_limits<int64_t>::max();
     }
   }
   return true;
@@ -132,17 +137,19 @@ bool ParseNumber(absl::string_view int_part, absl::string_view fract_part,
           !output->ParseFromStringSegments(int_part, {promoted_fract_part}));
       int_part = absl::string_view();
     }
-
-    // If exp is greater than the number of promoted fractional digits,
-    // scale the result up by pow(10, exp - num_promoted_fract_digits).
-    size_t extra_exp = static_cast<size_t>(exp) - num_promoted_fract_digits;
-    for (; extra_exp >= 19; extra_exp -= 19) {
-      RETURN_FALSE_IF(output->MultiplyOverflow(internal::k1e19));
-    }
-    if (extra_exp != 0) {
-      static constexpr std::array<uint64_t, 19> kPowers =
-          PowersAsc<uint64_t, 1, 10, 19>();
-      RETURN_FALSE_IF(output->MultiplyOverflow(kPowers[extra_exp]));
+    // If output is zero, avoid scaling.
+    if (!output->is_zero()) {
+      // If exp is greater than the number of promoted fractional digits,
+      // scale the result up by pow(10, exp - num_promoted_fract_digits).
+      size_t extra_exp = static_cast<size_t>(exp) - num_promoted_fract_digits;
+      for (; extra_exp >= 19; extra_exp -= 19) {
+        RETURN_FALSE_IF(output->MultiplyOverflow(internal::k1e19));
+      }
+      if (extra_exp != 0) {
+        static constexpr std::array<uint64_t, 19> kPowers =
+            PowersAsc<uint64_t, 1, 10, 19>();
+        RETURN_FALSE_IF(output->MultiplyOverflow(kPowers[extra_exp]));
+      }
     }
   } else {  // exp < 0
     RETURN_FALSE_IF(int_part.size() + fract_part.size() == 0);

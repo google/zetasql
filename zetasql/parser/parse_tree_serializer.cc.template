@@ -1,0 +1,93 @@
+//
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+#include "zetasql/parser/parse_tree_serializer.h"
+
+// NOLINTBEGIN(whitespace/line_length)
+
+namespace zetasql {
+
+
+absl::Status ParseTreeSerializer::Serialize(const ASTNode* node,
+                                            ASTNodeProto* proto) {
+  ZETASQL_ASSIGN_OR_RETURN(*proto->mutable_parse_location_range(),
+                   node->GetParseLocationRange().ToProto());
+  return absl::OkStatus();
+}
+
+
+# for node in nodes
+absl::Status ParseTreeSerializer::Serialize(const {{node.name}}* node,
+                                            {{node.proto_type}}* proto) {
+  {# The primary Serialize() first invokes Serialize() for the immediate #}
+  {# parent, then sets each field in the current node. If those fields   #}
+  {# are themselves nodes, invoke their respective Serialize() methods.  #}
+  ZETASQL_RETURN_IF_ERROR(Serialize(node, proto->mutable_parent()));
+ # for field in node.fields|sort_by_tag_id
+  # if field.is_node_ptr
+  if (node->{{field.member_name}} != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(Serialize(node->{{field.member_name}}, proto->mutable_{{field.name}}()));
+  }
+  # elif field.is_vector
+  for (int i = 0; i < node->{{field.name}}().length(); i++) {
+    {{field.element_storage_type}} {{field.member_name}} = node->{{field.name}}().at(i);
+    {{field.proto_type}}* proto2 = proto->add_{{field.name}}();
+    ZETASQL_RETURN_IF_ERROR(Serialize({{field.member_name}}, proto2));
+  }
+  # elif field.is_enum
+  proto->set_{{field.name}}(static_cast<{{field.enum_value}}>(node->{{field.member_name}}));
+  # elif field.member_type is eq('IdString')
+  proto->set_{{field.name}}(node->{{field.member_name}}.ToString());
+  # else
+  {# This case includes bool, int, std::string, TypeKind. #}
+  proto->set_{{field.name}}(node->{{field.member_name}});
+  # endif
+ # endfor
+  return absl::OkStatus();
+}
+  # for tag_id, ancestor in node.ancestors|dictsort
+absl::Status ParseTreeSerializer::Serialize(const {{node.name}}* node,
+                                           {{ancestor.proto_field_type}}* proto) {
+  {{ancestor.container_type}}* {{ancestor.member_name}}_proto =
+      proto->mutable_{{ancestor.member_name}}_node();
+  ZETASQL_RETURN_IF_ERROR(Serialize(node, {{ancestor.member_name}}_proto));
+  return absl::OkStatus();
+}
+  # endfor
+ # if node.is_abstract
+absl::Status ParseTreeSerializer::Serialize(const {{node.name}}* node,
+                                           {{node.proto_field_type}}* proto) {
+  {# Serialize() for an abstract class delegates to Serialize() of the #}
+  {# immediate subclass, which may itself be abstract or final.        #}
+  # for tag_id, subclass in node.subclasses|dictsort
+    {# We cannot use node_kind() here to determine the subclass because it #}
+    {# returns the final class rather than any intermediate abstract class. #}
+    {% if loop.index == 1 %}  if{% else %}  } else if{% endif %} (dynamic_cast<const {{subclass.name}}*>(node)) {
+    ZETASQL_RETURN_IF_ERROR(Serialize(static_cast<const {{subclass.name}}*>(node),
+                              proto->mutable_{{subclass.member_name}}_node()));
+  # endfor
+  } else {
+    return absl::InvalidArgumentError("Unknown subclass of {{node.name}}");
+  }
+  return absl::OkStatus();
+}
+ # endif
+{{blank_line}}
+# endfor
+
+}  // namespace zetasql
+// NOLINTEND
+{{blank_line}}

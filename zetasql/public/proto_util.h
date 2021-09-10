@@ -28,7 +28,7 @@
 #include <cstdint>
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/declare.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "zetasql/base/status.h"
 
@@ -197,7 +197,7 @@ struct ProtoFieldInfo {
 // or an error (e.g., for a missing required field, or a problem interpreting a
 // wire format value according to a FieldFormat). ProtoFieldInfos with
 // 'get_has_bit = true' are represented by a Value of type Bool.
-using ProtoFieldValueList = std::vector<zetasql_base::StatusOr<Value>>;
+using ProtoFieldValueList = std::vector<absl::StatusOr<Value>>;
 
 // Reads the (tag, value) pairs in bytes and sets 'field_value_list' according
 // to 'field_infos' (which must be non-empty). The field descriptors in

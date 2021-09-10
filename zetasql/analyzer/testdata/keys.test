@@ -15,7 +15,7 @@ SELECT KEYS.NEW_KEYSET(CAST(NULL AS STRING))
 
 SELECT KEYS.NEW_KEYSET('invalid key type')
 --
-ERROR: First argument (key type) in function KEYS.NEW_KEYSET must be 'AEAD_AES_GCM_256', but is 'invalid key type' [at 1:8]
+ERROR: First argument (key type) in function KEYS.NEW_KEYSET must be one of 'AEAD_AES_GCM_256', 'DETERMINISTIC_AEAD_AES_SIV_CMAC_256', but is 'invalid key type' [at 1:8]
 SELECT KEYS.NEW_KEYSET('invalid key type')
        ^
 ==
@@ -52,6 +52,42 @@ QueryStmt
     |     | +-Literal(type=STRING, value="AEAD_AES_GCM_256")
     |     +-FunctionCall(ZetaSQL:keys.new_keyset(STRING) -> BYTES)
     |       +-Literal(type=STRING, value="AEAD_AES_GCM_256")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT KEYS.NEW_KEYSET('DETERMINISTIC_AEAD_AES_SIV_CMAC_256')
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:keys.new_keyset(STRING) -> BYTES)
+    |     +-Literal(type=STRING, value="DETERMINISTIC_AEAD_AES_SIV_CMAC_256")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT
+  KEYS.NEW_KEYSET('DETERMINISTIC_AEAD_AES_SIV_CMAC_256') != KEYS.NEW_KEYSET('DETERMINISTIC_AEAD_AES_SIV_CMAC_256')
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$not_equal(BYTES, BYTES) -> BOOL)
+    |     +-FunctionCall(ZetaSQL:keys.new_keyset(STRING) -> BYTES)
+    |     | +-Literal(type=STRING, value="DETERMINISTIC_AEAD_AES_SIV_CMAC_256")
+    |     +-FunctionCall(ZetaSQL:keys.new_keyset(STRING) -> BYTES)
+    |       +-Literal(type=STRING, value="DETERMINISTIC_AEAD_AES_SIV_CMAC_256")
     +-input_scan=
       +-SingleRowScan
 ==
@@ -223,7 +259,7 @@ SELECT KEYS.ROTATE_KEYSET(b'', NULL)
 
 SELECT KEYS.ROTATE_KEYSET(b'', 'invalid_key_type')
 --
-ERROR: Second argument (key type) in function KEYS.ROTATE_KEYSET must be 'AEAD_AES_GCM_256', but is 'invalid_key_type' [at 1:8]
+ERROR: Second argument (key type) in function KEYS.ROTATE_KEYSET must be one of 'AEAD_AES_GCM_256', 'DETERMINISTIC_AEAD_AES_SIV_CMAC_256', but is 'invalid_key_type' [at 1:8]
 SELECT KEYS.ROTATE_KEYSET(b'', 'invalid_key_type')
        ^
 ==
@@ -241,6 +277,23 @@ QueryStmt
     |   +-FunctionCall(ZetaSQL:keys.rotate_keyset(BYTES, STRING) -> BYTES)
     |     +-Literal(type=BYTES, value=b"")
     |     +-Literal(type=STRING, value="AEAD_AES_GCM_256")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT KEYS.ROTATE_KEYSET(b'', 'DETERMINISTIC_AEAD_AES_SIV_CMAC_256')
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:keys.rotate_keyset(BYTES, STRING) -> BYTES)
+    |     +-Literal(type=BYTES, value=b"")
+    |     +-Literal(type=STRING, value="DETERMINISTIC_AEAD_AES_SIV_CMAC_256")
     +-input_scan=
       +-SingleRowScan
 ==
@@ -346,6 +399,51 @@ QueryStmt
     |       +-ColumnRef(type=STRING, column=KeyValue.Value#2)
     +-input_scan=
       +-TableScan(column_list=[KeyValue.Value#2], table=KeyValue, column_index_list=[1])
+==
+
+SELECT AEAD.DECRYPT_STRING(KEYS.KEYSET_CHAIN(@test_param_string, b'0123456789abcdef'), CAST(@test_param_string AS BYTES), @test_param_string)
+FROM KeyValue
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-FunctionCall(ZetaSQL:aead.decrypt_string(STRUCT<kms_resource_name STRING, first_level_keyset BYTES, second_level_keyset BYTES>, BYTES, STRING) -> STRING)
+    |     +-FunctionCall(ZetaSQL:keys.keyset_chain(STRING, BYTES) -> STRUCT<kms_resource_name STRING, first_level_keyset BYTES, second_level_keyset BYTES>)
+    |     | +-Parameter(type=STRING, name="test_param_string")
+    |     | +-Literal(type=BYTES, value=b"0123456789abcdef")
+    |     +-Cast(STRING -> BYTES)
+    |     | +-Parameter(type=STRING, name="test_param_string")
+    |     +-Parameter(type=STRING, name="test_param_string")
+    +-input_scan=
+      +-TableScan(table=KeyValue)
+==
+
+SELECT AEAD.DECRYPT_BYTES(KEYS.KEYSET_CHAIN(@test_param_string, b'0123456789abcdef'), CAST(@test_param_string AS BYTES), CAST(@test_param_string as BYTES))
+FROM KeyValue
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-FunctionCall(ZetaSQL:aead.decrypt_bytes(STRUCT<kms_resource_name STRING, first_level_keyset BYTES, second_level_keyset BYTES>, BYTES, BYTES) -> BYTES)
+    |     +-FunctionCall(ZetaSQL:keys.keyset_chain(STRING, BYTES) -> STRUCT<kms_resource_name STRING, first_level_keyset BYTES, second_level_keyset BYTES>)
+    |     | +-Parameter(type=STRING, name="test_param_string")
+    |     | +-Literal(type=BYTES, value=b"0123456789abcdef")
+    |     +-Cast(STRING -> BYTES)
+    |     | +-Parameter(type=STRING, name="test_param_string")
+    |     +-Cast(STRING -> BYTES)
+    |       +-Parameter(type=STRING, name="test_param_string")
+    +-input_scan=
+      +-TableScan(table=KeyValue)
 ==
 
 SELECT KEYS.KEYSET_CHAIN(@test_param_string, CAST(value AS BYTES))

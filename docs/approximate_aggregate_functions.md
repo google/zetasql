@@ -20,8 +20,10 @@ sketches. If you would like specify precision with sketches, see:
 
 ### APPROX_COUNT_DISTINCT
 
-```
-APPROX_COUNT_DISTINCT(expression)
+```sql
+APPROX_COUNT_DISTINCT(
+  expression
+)
 ```
 
 **Description**
@@ -62,8 +64,13 @@ FROM UNNEST([0, 1, 1, 2, 3, 5]) as x;
 
 ### APPROX_QUANTILES
 
-```
-APPROX_QUANTILES([DISTINCT] expression, number [{IGNORE|RESPECT} NULLS] [HAVING {MAX | MIN} expression2])
+```sql
+APPROX_QUANTILES(
+  [DISTINCT]
+  expression, number
+  [{IGNORE|RESPECT} NULLS]
+  [HAVING {MAX | MIN} expression2]
+)
 ```
 
 **Description**
@@ -168,8 +175,11 @@ FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
 ### APPROX_TOP_COUNT
 
-```
-APPROX_TOP_COUNT(expression, number [HAVING {MAX | MIN} expression2])
+```sql
+APPROX_TOP_COUNT(
+  expression, number
+  [HAVING {MAX | MIN} expression2]
+)
 ```
 
 **Description**
@@ -233,8 +243,11 @@ FROM UNNEST([NULL, "pear", "pear", "pear", "apple", NULL]) as x;
 
 ### APPROX_TOP_SUM
 
-```
-APPROX_TOP_SUM(expression, weight, number [HAVING {MAX | MIN} expression2])
+```sql
+APPROX_TOP_SUM(
+  expression, weight, number
+  [HAVING {MAX | MIN} expression2]
+)
 ```
 
 **Description**

@@ -211,3 +211,11 @@ ARRAY<STRUCT<INT64>>[{15}]
 SELECT 1 IN (WITH a AS (SELECT true as b, 15 as c) SELECT IF(b, c, -1) FROM a);
 --
 ARRAY<STRUCT<BOOL>>[{false}]
+==
+[name=bug197119610]
+[required_features=V_1_1_WITH_ON_SUBQUERY]
+WITH table1 AS (SELECT 1 AS col1 )
+    (WITH table2 AS (SELECT 1 AS col2)
+     SELECT col2 FROM table2);
+--
+ARRAY<STRUCT<col2 INT64>>[{1}]

@@ -19,6 +19,9 @@
 #include <cstdint>
 #include <sstream>
 
+#include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/parse_resume_location.h"
+#include "zetasql/public/parse_tokens.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/strings/str_cat.h"
@@ -163,6 +166,70 @@ TEST(StringStreamWithSentinel, Unget) {
     s.read(c, 6);
     EXPECT_EQ(absl::string_view(c, 2), "d\n");
     EXPECT_TRUE(s.eof());
+  }
+}
+
+// Generate a SELECT statement with `length`.
+// The SQL will look like SELECT aaa...(variable number of 'a's);\n
+std::string GenerateSelectStmtWithLength(int32_t length) {
+  std::string res = "SELECT ";
+  for (int i = 0; i < length - 9; ++i) {
+    res += "a";
+  }
+  res += ";\n";
+  return res;
+}
+
+const int32_t k_65535 = 65535;
+
+void VerifyParseTokenWithSqlSize(int32_t sql_size, int32_t max_token) {
+  ZETASQL_LOG(INFO) << "SQL size " << sql_size << ". Max token: " << max_token;
+  std::string sql = GenerateSelectStmtWithLength(sql_size);
+  EXPECT_EQ(sql.size(), sql_size);
+  ParseResumeLocation resume_location = ParseResumeLocation::FromString(sql);
+  ParseTokenOptions options;
+  ParseToken last_token;
+  std::vector<ParseToken> parse_tokens;
+  options.max_tokens = max_token;
+  ZETASQL_EXPECT_OK(GetParseTokens(options, &resume_location, &parse_tokens));
+  for (int i = 0; i < parse_tokens.size(); ++i) {
+    // Since the SQL is in the format of "SELECT aa..;\n", the total number of
+    // tokens is 4, which are {KEYWORD:SELECT, IDENTIFIER_OR_KEYWORD:aaa...,
+    // KEYWORD:;, EOF}.
+    const ParseToken &token = parse_tokens[i];
+    if (i == 0) {
+      EXPECT_EQ(token.kind(), ParseToken::Kind::KEYWORD);
+      continue;
+    }
+    if (i == 1) {
+      EXPECT_EQ(token.kind(), ParseToken::Kind::IDENTIFIER_OR_KEYWORD);
+      continue;
+    }
+    if (i == 2) {
+      EXPECT_EQ(token.kind(), ParseToken::Kind::KEYWORD);
+      continue;
+    }
+    if (i == 3) {
+      EXPECT_EQ(token.kind(), ParseToken::Kind::END_OF_INPUT);
+      continue;
+    }
+  }
+}
+
+TEST(StringStreamWithSentinel, ParseTokenFuzzTest) {
+  // Call GetParseTokens with SQL sizes around 65535 or multiples of 65535,
+  // Since xsgetn() is normally called with size 65536, this test makes sure
+  // StringStreamBufWithSentinel::xsgetn() returns the correct number of
+  // characters read after passing kEofSentinelInput.
+  for (int32_t sql_size :
+       {k_65535 - 2, k_65535 - 1, k_65535, k_65535 + 1, k_65535 + 2,
+        2 * k_65535 - 2, 2 * k_65535 - 1, 2 * k_65535, 2 * k_65535 + 1,
+        2 * k_65535 + 2, 3 * k_65535 - 2, 3 * k_65535 - 1, 3 * k_65535,
+        3 * k_65535 + 1, 3 * k_65535 + 2}) {
+    // Try out different values of ParseTokenOptions.max_tokens.
+    for (int32_t max_token : {0, 1, 2, 3, 4, 5}) {
+      VerifyParseTokenWithSqlSize(sql_size, max_token);
+    }
   }
 }
 

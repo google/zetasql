@@ -18,13 +18,27 @@
 #define ZETASQL_PUBLIC_TYPES_ARRAY_TYPE_H_
 
 #include <cstdint>
+#include <string>
+#include <vector>
 
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type.h"
+#include "absl/hash/hash.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 
 // An array type.
 // Arrays of arrays are not supported.
+class LanguageOptions;
+class TypeFactory;
+class TypeParameterValue;
+class TypeParameters;
+class ValueContent;
+class ValueProto;
+
 class ArrayType : public Type {
  public:
 #ifndef SWIG
@@ -52,7 +66,7 @@ class ArrayType : public Type {
   // Same as above, but if <type_params> is not empty, any nested SimpleTypes
   // include their type parameters within parenthesis appended to their SQL
   // name.
-  zetasql_base::StatusOr<std::string> TypeNameWithParameters(
+  absl::StatusOr<std::string> TypeNameWithParameters(
       const TypeParameters& type_params, ProductMode mode) const override;
 
   bool UsingFeatureV12CivilTimeType() const override {
@@ -67,7 +81,7 @@ class ArrayType : public Type {
 
   // Validate and resolve type parameters for array type, currently always
   // return error since array type itself doesn't support type parameters.
-  zetasql_base::StatusOr<TypeParameters> ValidateAndResolveTypeParameters(
+  absl::StatusOr<TypeParameters> ValidateAndResolveTypeParameters(
       const std::vector<TypeParameterValue>& type_parameter_values,
       ProductMode mode) const override;
   // Validates resolved type parameters for array element recursively.

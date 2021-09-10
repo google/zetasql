@@ -27,7 +27,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/serialization.pb.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -93,7 +93,7 @@ class ResolvedColumn {
       FileDescriptorSetMap* file_descriptor_set_map,
       ResolvedColumnProto* proto) const;
 
-  static zetasql_base::StatusOr<ResolvedColumn> RestoreFrom(
+  static absl::StatusOr<ResolvedColumn> RestoreFrom(
       const ResolvedColumnProto& proto,
       const ResolvedNode::RestoreParams& params);
 

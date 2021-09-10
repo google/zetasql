@@ -17,6 +17,7 @@
 #include "zetasql/public/functions/util.h"
 
 #include <cstdint>
+#include <string>
 
 #include "zetasql/common/utf_util.h"
 #include "zetasql/base/status.h"
@@ -31,16 +32,21 @@ constexpr char ArithmeticType<uint32_t>::kName[];
 constexpr char ArithmeticType<uint64_t>::kName[];
 constexpr char ArithmeticType<float>::kName[];
 constexpr char ArithmeticType<double>::kName[];
+constexpr char ArithmeticType<long double>::kName[];
+
+absl::Status CreateFunctionError(absl::string_view msg) {
+  // 'msg' could potentially contain invalid UTF-8 characters. As example
+  // RegEx generates an error for invalid input, but the input could be
+  // invalid UTF-8.
+  // absl::Status will generate a warning in DEBUG mode if the error
+  // message is not UTF-8, so coerce it to be a valid UTF-8 string.
+  return absl::Status(absl::StatusCode::kOutOfRange,
+                      CoerceToWellFormedUTF8(msg));
+}
 
 bool UpdateError(absl::Status* status, absl::string_view msg) {
   if (status != nullptr && status->ok()) {
-    // 'msg' could potentially contain invalid UTF-8 characters. As example
-    // RegEx generates an error for invalid input, but the input could be
-    // invalid UTF-8.
-    // absl::Status will generate a warning in DEBUG mode if the error
-    // message is not UTF-8, so coerce it to be a valid UTF-8 string.
-    std::string error = CoerceToWellFormedUTF8(msg);
-    *status = absl::Status(absl::StatusCode::kOutOfRange, error);
+    *status = CreateFunctionError(msg);
   }
   return false;
 }
@@ -86,6 +92,14 @@ template std::string BinaryOverflowMessage<float>(
     float in1, float in2, absl::string_view operator_symbol);
 template std::string BinaryOverflowMessage<double>(
     double in1, double in2, absl::string_view operator_symbol);
+// This override is introduced because StrCat does not support long double.
+template <>
+std::string BinaryOverflowMessage<long double>(
+    long double in1, long double in2, absl::string_view operator_symbol) {
+  return absl::StrCat(ArithmeticType<long double>::kName,
+                      " overflow: ", std::to_string(in1), operator_symbol,
+                      std::to_string(in2));
+}
 
 template <typename T>
 std::string DivisionByZeroMessage(T in1, T in2) {
@@ -95,6 +109,13 @@ std::string DivisionByZeroMessage(T in1, T in2) {
 template std::string DivisionByZeroMessage<int64_t>(int64_t in1, int64_t in2);
 template std::string DivisionByZeroMessage<uint64_t>(uint64_t in1, uint64_t in2);
 template std::string DivisionByZeroMessage<double>(double in1, double in2);
+// This override is introduced because StrCat does not support long double.
+template <>
+std::string DivisionByZeroMessage<long double>(long double in1,
+                                               long double in2) {
+  return absl::StrCat("division by zero: ", std::to_string(in1), " / ",
+                      std::to_string(in2));
+}
 
 }  // namespace internal
 }  // namespace functions

@@ -45,7 +45,7 @@
 #include "absl/container/node_hash_map.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
@@ -222,7 +222,7 @@ class Evaluator {
         options, expression_output_value, query_output_iterator);
   }
 
-  zetasql_base::StatusOr<std::string> ExplainAfterPrepare() const
+  absl::StatusOr<std::string> ExplainAfterPrepare() const
       ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Returns NULL if this object is for a query instead of an expression.
@@ -230,22 +230,22 @@ class Evaluator {
 
   // Returns the column names referenced in the expression.
   // REQUIRES: Prepare() or Execute() has been called successfully.
-  zetasql_base::StatusOr<std::vector<std::string>> GetReferencedColumns() const
+  absl::StatusOr<std::vector<std::string>> GetReferencedColumns() const
       ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Returns the parameters referenced in the expression.
   // REQUIRES: Prepare() or Execute() has been called successfully.
-  zetasql_base::StatusOr<std::vector<std::string>> GetReferencedParameters() const
+  absl::StatusOr<std::vector<std::string>> GetReferencedParameters() const
       ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Returns the number of positional parameters in the expression.
   // REQUIRES: Prepare() or Execute() has been called successfully.
-  zetasql_base::StatusOr<int> GetPositionalParameterCount() const
+  absl::StatusOr<int> GetPositionalParameterCount() const
       ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Makes an EvaluatorTableModifyIterator from the result of evaluating a
   // DMLValueExpr and its input ResolvedStatement.
-  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
+  absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
   MakeUpdateIterator(const Value& value, const ResolvedStatement* statement);
 
   // REQUIRES: !is_expr_ and Prepare() has been called successfully.
@@ -372,7 +372,7 @@ class Evaluator {
     LanguageOptions language_options{analyzer_options_.language()};
     language_options.EnableLanguageFeature(
         FEATURE_DISALLOW_PRIMARY_KEY_UPDATES);
-    context->SetLanguageOptions(language_options);
+    context->SetLanguageOptions(std::move(language_options));
 
     if (create_evaluation_context_cb_test_only_ != nullptr) {
       (*create_evaluation_context_cb_test_only_)(context.get());
@@ -599,7 +599,7 @@ absl::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<std::vector<std::string>> Evaluator::GetReferencedColumns()
+absl::StatusOr<std::vector<std::string>> Evaluator::GetReferencedColumns()
     const {
   absl::ReaderMutexLock l(&mutex_);
   if (!is_prepared()) {
@@ -617,7 +617,7 @@ zetasql_base::StatusOr<std::vector<std::string>> Evaluator::GetReferencedColumns
   return referenced_columns;
 }
 
-zetasql_base::StatusOr<std::vector<std::string>> Evaluator::GetReferencedParameters()
+absl::StatusOr<std::vector<std::string>> Evaluator::GetReferencedParameters()
     const {
   absl::ReaderMutexLock l(&mutex_);
   if (!is_prepared()) {
@@ -637,7 +637,7 @@ zetasql_base::StatusOr<std::vector<std::string>> Evaluator::GetReferencedParamet
   return referenced_parameters;
 }
 
-zetasql_base::StatusOr<int> Evaluator::GetPositionalParameterCount() const {
+absl::StatusOr<int> Evaluator::GetPositionalParameterCount() const {
   absl::ReaderMutexLock l(&mutex_);
   if (!is_prepared()) {
     return ::zetasql_base::FailedPreconditionErrorBuilder()
@@ -771,7 +771,7 @@ absl::Status Evaluator::ExecuteAfterPrepareLocked(
       new_options, expression_output_value, query_output_iterator);
 }
 
-zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
+absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
 Evaluator::MakeUpdateIterator(const Value& value,
                               const ResolvedStatement* statement) {
   const Table* table;
@@ -946,7 +946,7 @@ absl::Status Evaluator::ExecuteAfterPrepareWithOrderedParamsLocked(
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<std::string> Evaluator::ExplainAfterPrepare() const {
+absl::StatusOr<std::string> Evaluator::ExplainAfterPrepare() const {
   absl::ReaderMutexLock l(&mutex_);
   ZETASQL_RET_CHECK(is_prepared()) << "Prepare must be called first";
   if (compiled_relational_op_ != nullptr) {
@@ -1157,17 +1157,17 @@ absl::Status PreparedExpressionBase::Prepare(const AnalyzerOptions& options,
   return evaluator_->Prepare(options, catalog);
 }
 
-zetasql_base::StatusOr<std::vector<std::string>>
+absl::StatusOr<std::vector<std::string>>
 PreparedExpressionBase::GetReferencedColumns() const {
   return evaluator_->GetReferencedColumns();
 }
 
-zetasql_base::StatusOr<std::vector<std::string>>
+absl::StatusOr<std::vector<std::string>>
 PreparedExpressionBase::GetReferencedParameters() const {
   return evaluator_->GetReferencedParameters();
 }
 
-zetasql_base::StatusOr<int> PreparedExpressionBase::GetPositionalParameterCount()
+absl::StatusOr<int> PreparedExpressionBase::GetPositionalParameterCount()
     const {
   return evaluator_->GetPositionalParameterCount();
 }
@@ -1209,7 +1209,7 @@ void GiveDefaultParameters(ExpressionOptions* options) {
 }
 };  // namespace
 
-zetasql_base::StatusOr<Value> PreparedExpressionBase::Execute(
+absl::StatusOr<Value> PreparedExpressionBase::Execute(
     ExpressionOptions options) {
   GiveDefaultParameters(&options);
   ZETASQL_RETURN_IF_ERROR(ValidateExpressionOptions(options));
@@ -1222,17 +1222,17 @@ zetasql_base::StatusOr<Value> PreparedExpressionBase::Execute(
   return output;
 }
 
-zetasql_base::StatusOr<Value> PreparedExpressionBase::Execute(
+absl::StatusOr<Value> PreparedExpressionBase::Execute(
     const ParameterValueMap& columns, const ParameterValueMap& parameters,
     const SystemVariableValuesMap& system_variables) {
   ExpressionOptions options;
   options.columns = columns;
   options.parameters = parameters;
   options.system_variables = system_variables;
-  return Execute(options);
+  return Execute(std::move(options));
 }
 
-zetasql_base::StatusOr<Value> PreparedExpressionBase::ExecuteWithPositionalParams(
+absl::StatusOr<Value> PreparedExpressionBase::ExecuteWithPositionalParams(
     const ParameterValueMap& columns,
     const ParameterValueList& positional_parameters,
     const SystemVariableValuesMap& system_variables) {
@@ -1240,10 +1240,10 @@ zetasql_base::StatusOr<Value> PreparedExpressionBase::ExecuteWithPositionalParam
   options.columns = columns;
   options.ordered_parameters = positional_parameters;
   options.system_variables = system_variables;
-  return Execute(options);
+  return Execute(std::move(options));
 }
 
-zetasql_base::StatusOr<Value> PreparedExpressionBase::ExecuteAfterPrepare(
+absl::StatusOr<Value> PreparedExpressionBase::ExecuteAfterPrepare(
     ExpressionOptions options) const {
   GiveDefaultParameters(&options);
   ZETASQL_RETURN_IF_ERROR(ValidateExpressionOptions(options));
@@ -1262,17 +1262,17 @@ zetasql_base::StatusOr<Value> PreparedExpressionBase::ExecuteAfterPrepare(
   return output;
 }
 
-zetasql_base::StatusOr<Value> PreparedExpressionBase::ExecuteAfterPrepare(
+absl::StatusOr<Value> PreparedExpressionBase::ExecuteAfterPrepare(
     const ParameterValueMap& columns, const ParameterValueMap& parameters,
     const SystemVariableValuesMap& system_variables) const {
   ExpressionOptions options;
   options.columns = columns;
   options.parameters = parameters;
   options.system_variables = system_variables;
-  return ExecuteAfterPrepare(options);
+  return ExecuteAfterPrepare(std::move(options));
 }
 
-zetasql_base::StatusOr<Value>
+absl::StatusOr<Value>
 PreparedExpressionBase::ExecuteAfterPrepareWithPositionalParams(
     const ParameterValueMap& columns,
     const ParameterValueList& positional_parameters,
@@ -1281,10 +1281,10 @@ PreparedExpressionBase::ExecuteAfterPrepareWithPositionalParams(
   options.columns = columns;
   options.ordered_parameters = positional_parameters;
   options.system_variables = system_variables;
-  return ExecuteAfterPrepare(options);
+  return ExecuteAfterPrepare(std::move(options));
 }
 
-zetasql_base::StatusOr<Value>
+absl::StatusOr<Value>
 PreparedExpressionBase::ExecuteAfterPrepareWithOrderedParams(
     const ParameterValueList& columns, const ParameterValueList& parameters,
     const SystemVariableValuesMap& system_variables) const {
@@ -1292,10 +1292,10 @@ PreparedExpressionBase::ExecuteAfterPrepareWithOrderedParams(
   options.ordered_columns = columns;
   options.ordered_parameters = parameters;
   options.system_variables = system_variables;
-  return ExecuteAfterPrepare(options);
+  return ExecuteAfterPrepare(std::move(options));
 }
 
-zetasql_base::StatusOr<std::string> PreparedExpressionBase::ExplainAfterPrepare()
+absl::StatusOr<std::string> PreparedExpressionBase::ExplainAfterPrepare()
     const {
   return evaluator_->ExplainAfterPrepare();
 }
@@ -1327,16 +1327,16 @@ absl::Status PreparedQueryBase::Prepare(const AnalyzerOptions& options,
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<std::vector<std::string>>
+absl::StatusOr<std::vector<std::string>>
 PreparedQueryBase::GetReferencedParameters() const {
   return evaluator_->GetReferencedParameters();
 }
 
-zetasql_base::StatusOr<int> PreparedQueryBase::GetPositionalParameterCount() const {
+absl::StatusOr<int> PreparedQueryBase::GetPositionalParameterCount() const {
   return evaluator_->GetPositionalParameterCount();
 }
 
-zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
 PreparedQueryBase::Execute(const QueryOptions& options) {
   std::unique_ptr<EvaluatorTableIterator> output;
   ExpressionOptions expr_options = QueryOptionsToExpressionOptions(options);
@@ -1348,7 +1348,7 @@ PreparedQueryBase::Execute(const QueryOptions& options) {
   return output;
 }
 
-zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
 PreparedQueryBase::Execute(const ParameterValueMap& parameters,
                            const SystemVariableValuesMap& system_variables) {
   QueryOptions options;
@@ -1357,7 +1357,7 @@ PreparedQueryBase::Execute(const ParameterValueMap& parameters,
   return Execute(options);
 }
 
-zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
 PreparedQueryBase::ExecuteWithPositionalParams(
     const ParameterValueList& positional_parameters,
     const SystemVariableValuesMap& system_variables) {
@@ -1367,7 +1367,7 @@ PreparedQueryBase::ExecuteWithPositionalParams(
   return Execute(options);
 }
 
-zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
 PreparedQueryBase::ExecuteAfterPrepare(const QueryOptions& options) const {
   std::unique_ptr<EvaluatorTableIterator> output;
   ExpressionOptions expr_options = QueryOptionsToExpressionOptions(options);
@@ -1388,7 +1388,7 @@ PreparedQueryBase::ExecuteAfterPrepare(const QueryOptions& options) const {
   return output;
 }
 
-zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
 PreparedQueryBase::ExecuteAfterPrepare(
     const ParameterValueList& parameters,
     const SystemVariableValuesMap& system_variables) const {
@@ -1398,7 +1398,7 @@ PreparedQueryBase::ExecuteAfterPrepare(
   return ExecuteAfterPrepare(options);
 }
 
-zetasql_base::StatusOr<std::string> PreparedQueryBase::ExplainAfterPrepare() const {
+absl::StatusOr<std::string> PreparedQueryBase::ExplainAfterPrepare() const {
   return evaluator_->ExplainAfterPrepare();
 }
 
@@ -1457,7 +1457,7 @@ absl::Status PreparedModifyBase::Prepare(const AnalyzerOptions& options,
   }
 }
 
-zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
+absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
 PreparedModifyBase::Execute(const ParameterValueMap& parameters,
                             const SystemVariableValuesMap& system_variables) {
   ExpressionOptions options;
@@ -1470,7 +1470,7 @@ PreparedModifyBase::Execute(const ParameterValueMap& parameters,
   return evaluator_->MakeUpdateIterator(value, resolved_statement());
 }
 
-zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
+absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
 PreparedModifyBase::ExecuteWithPositionalParams(
     const ParameterValueList& positional_parameters,
     const SystemVariableValuesMap& system_variables) {
@@ -1484,7 +1484,7 @@ PreparedModifyBase::ExecuteWithPositionalParams(
   return evaluator_->MakeUpdateIterator(value, resolved_statement());
 }
 
-zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
+absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
 PreparedModifyBase::ExecuteAfterPrepareWithOrderedParams(
     const ParameterValueList& parameters,
     const SystemVariableValuesMap& system_variables) const {
@@ -1498,7 +1498,7 @@ PreparedModifyBase::ExecuteAfterPrepareWithOrderedParams(
   return evaluator_->MakeUpdateIterator(value, resolved_statement());
 }
 
-zetasql_base::StatusOr<std::string> PreparedModifyBase::ExplainAfterPrepare() const {
+absl::StatusOr<std::string> PreparedModifyBase::ExplainAfterPrepare() const {
   return evaluator_->ExplainAfterPrepare();
 }
 
@@ -1506,12 +1506,12 @@ const ResolvedStatement* PreparedModifyBase::resolved_statement() const {
   return evaluator_->resolved_statement();
 }
 
-zetasql_base::StatusOr<std::vector<std::string>>
+absl::StatusOr<std::vector<std::string>>
 PreparedModifyBase::GetReferencedParameters() const {
   return evaluator_->GetReferencedParameters();
 }
 
-zetasql_base::StatusOr<int> PreparedModifyBase::GetPositionalParameterCount() const {
+absl::StatusOr<int> PreparedModifyBase::GetPositionalParameterCount() const {
   return evaluator_->GetPositionalParameterCount();
 }
 

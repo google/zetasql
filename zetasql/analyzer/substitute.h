@@ -18,17 +18,19 @@
 #define ZETASQL_ANALYZER_SUBSTITUTE_H_
 
 #include <memory>
-#include <vector>
+#include <string>
 
 #include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
-#include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "absl/container/flat_hash_map.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+#include "zetasql/base/status_builder.h"
 
 namespace zetasql {
 
@@ -88,7 +90,7 @@ namespace zetasql {
 //
 // Note that actually producing this AST by hand would take possibly more than
 // a hundred lines of code.
-zetasql_base::StatusOr<std::unique_ptr<ResolvedExpr>> AnalyzeSubstitute(
+absl::StatusOr<std::unique_ptr<ResolvedExpr>> AnalyzeSubstitute(
     AnalyzerOptions options, absl::Span<const Rewriter* const> rewriters,
     Catalog& catalog, TypeFactory& type_factory, absl::string_view expression,
     const absl::flat_hash_map<std::string, const ResolvedExpr*>& variables,

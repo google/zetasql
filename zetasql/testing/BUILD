@@ -23,7 +23,6 @@ cc_library(
     hdrs = ["sql_types_test.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -60,7 +59,6 @@ cc_library(
     hdrs = ["test_catalog.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -114,7 +112,6 @@ cc_library(
     ],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -124,7 +121,6 @@ cc_library(
     deps = [
         "//zetasql/base",
         "//zetasql/base:status",
-        "//zetasql/base:statusor",
         "//zetasql/common:float_margin",
         "//zetasql/common:internal_value",
         "//zetasql/compliance:test_driver",
@@ -132,6 +128,8 @@ cc_library(
         "//zetasql/public:type",
         "//zetasql/public:value",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
         "@com_google_googletest//:gtest",
         "@com_google_protobuf//:protobuf",
@@ -145,7 +143,6 @@ cc_library(
     hdrs = ["test_function.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -174,7 +171,6 @@ cc_library(
     hdrs = ["type_util.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",

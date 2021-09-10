@@ -1,6 +1,6 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB]
-[load_enum_names=zetasql_test.TestEnum]
+[load_proto_names=zetasql_test__.KitchenSinkPB]
+[load_enum_names=zetasql_test__.TestEnum]
 [prepare_database]
 CREATE TABLE TestTable AS
 SELECT cast(1 as int64) as row_id,
@@ -106,27 +106,27 @@ ARRAY<STRUCT<
 [prepare_database]
 CREATE TABLE TableEnumStructProto AS
 SELECT cast(1 as int64) as row_id,
-       cast(null as `zetasql_test.TestEnum`) as enum_val,
+       cast(null as `zetasql_test__.TestEnum`) as enum_val,
        cast(null as STRUCT<a int64, b int64>) as struct_val,
-       cast(null as `zetasql_test.KitchenSinkPB`) as proto_val UNION ALL
+       cast(null as `zetasql_test__.KitchenSinkPB`) as proto_val UNION ALL
 SELECT 2, 1, struct(2, 4),
-       NEW zetasql_test.KitchenSinkPB(6 AS int64_key_1,
+       NEW zetasql_test__.KitchenSinkPB(6 AS int64_key_1,
                                         6 AS int64_key_2) UNION ALL
 SELECT 3, 1, struct(2, 4),
-       NEW zetasql_test.KitchenSinkPB(5 AS int64_key_1,
+       NEW zetasql_test__.KitchenSinkPB(5 AS int64_key_1,
                                         6 AS int64_key_2) UNION ALL
 SELECT 4, 2, struct(3, 4),
-       NEW zetasql_test.KitchenSinkPB(6 AS int64_key_1,
+       NEW zetasql_test__.KitchenSinkPB(6 AS int64_key_1,
                                         6 AS int64_key_2) UNION ALL
 SELECT 5, 0, struct(2, cast(null as int64)),
-       NEW zetasql_test.KitchenSinkPB(5 AS int64_key_1,
+       NEW zetasql_test__.KitchenSinkPB(5 AS int64_key_1,
                                         7 AS int64_key_2)
 --
 ARRAY<STRUCT<
         row_id INT64,
-        enum_val ENUM<zetasql_test.TestEnum>,
+        enum_val ENUM<zetasql_test__.TestEnum>,
         struct_val STRUCT<a INT64, b INT64>,
-        proto_val PROTO<zetasql_test.KitchenSinkPB>
+        proto_val PROTO<zetasql_test__.KitchenSinkPB>
       >>
 [{1, NULL, NULL, NULL},
  {2,
@@ -529,8 +529,8 @@ WINDOW test_window AS (ORDER BY row_id)
 --
 ARRAY<STRUCT<
         row_id INT64,
-        enum_val ENUM<zetasql_test.TestEnum>,
-        ENUM<zetasql_test.TestEnum>
+        enum_val ENUM<zetasql_test__.TestEnum>,
+        ENUM<zetasql_test__.TestEnum>
       >>
 [
   {1, NULL, NULL},
@@ -549,8 +549,8 @@ WINDOW test_window AS (ORDER BY row_id)
 --
 ARRAY<STRUCT<
         row_id INT64,
-        enum_val ENUM<zetasql_test.TestEnum>,
-        ENUM<zetasql_test.TestEnum>
+        enum_val ENUM<zetasql_test__.TestEnum>,
+        ENUM<zetasql_test__.TestEnum>
       >>
 [
   {1, NULL, TESTENUM0},
@@ -569,8 +569,8 @@ WINDOW test_window AS (ORDER BY row_id)
 --
 ARRAY<STRUCT<
         row_id INT64,
-        proto_val PROTO<zetasql_test.KitchenSinkPB>,
-        PROTO<zetasql_test.KitchenSinkPB>
+        proto_val PROTO<zetasql_test__.KitchenSinkPB>,
+        PROTO<zetasql_test__.KitchenSinkPB>
       >>
 [{1, NULL, NULL},
  {2,
@@ -609,7 +609,7 @@ ARRAY<STRUCT<
 ==
 
 [name=lag_proto_default_expression]
-[parameters=CAST("int64_key_1: 999 int64_key_2: 999" AS `zetasql_test.KitchenSinkPB`) AS proto_default_expression]
+[parameters=CAST("int64_key_1: 999 int64_key_2: 999" AS `zetasql_test__.KitchenSinkPB`) AS proto_default_expression]
 SELECT row_id, proto_val,
        LAG(proto_val, 2, @proto_default_expression)
        OVER test_window
@@ -618,8 +618,8 @@ WINDOW test_window AS (ORDER BY row_id)
 --
 ARRAY<STRUCT<
         row_id INT64,
-        proto_val PROTO<zetasql_test.KitchenSinkPB>,
-        PROTO<zetasql_test.KitchenSinkPB>
+        proto_val PROTO<zetasql_test__.KitchenSinkPB>,
+        PROTO<zetasql_test__.KitchenSinkPB>
       >>
 [{1,
   NULL,

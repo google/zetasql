@@ -45,12 +45,12 @@ namespace zetasql {
 //     Value: STRING
 //
 //   KitchenSinkValueTable:
-//     Value table of type zetasql_test::KitchenSinkPB
+//     Value table of type zetasql_test__::KitchenSinkPB
 //
 //   ComplexTypes:
 //     key: INT32
-//     TestEnum: zetasql_test::TestEnum
-//     KitchenSink: zetasql_test::KitchenSink
+//     TestEnum: zetasql_test__::TestEnum
+//     KitchenSink: zetasql_test__::KitchenSink
 //     Int32Array: ARRAY<INT32>
 //     TestStruct: STRUCT: {c: INT32, d: STRUCT {a: INT32, b: STRING} }
 absl::Status PopulateSampleTables(TypeFactory* type_factory,

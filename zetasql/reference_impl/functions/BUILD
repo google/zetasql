@@ -31,7 +31,6 @@ cc_library(
     hdrs = ["register_all.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -51,7 +50,6 @@ cc_library(
     hdrs = ["hash.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -59,10 +57,10 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
-        "//zetasql/base:statusor",
         "//zetasql/public:value",
         "//zetasql/public/functions:hash",
         "//zetasql/reference_impl:evaluation",
+        "@com_google_absl//absl/status:statusor",
     ],
 )
 
@@ -72,7 +70,6 @@ cc_library(
     hdrs = ["json.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -81,7 +78,6 @@ cc_library(
     ],
     deps = [
         "//zetasql/base:ret_check",
-        "//zetasql/base:statusor",
         "//zetasql/common:errors",
         "//zetasql/public:json_value",
         "//zetasql/public:type_cc_proto",
@@ -90,6 +86,7 @@ cc_library(
         "//zetasql/public/functions:to_json",
         "//zetasql/public/types",
         "//zetasql/reference_impl:evaluation",
+        "@com_google_absl//absl/status:statusor",
     ],
 )
 
@@ -99,7 +96,6 @@ cc_library(
     hdrs = ["uuid.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -107,9 +103,9 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
-        "//zetasql/base:statusor",
         "//zetasql/public:value",
         "//zetasql/public/functions:uuid",
         "//zetasql/reference_impl:evaluation",
+        "@com_google_absl//absl/status:statusor",
     ],
 )

@@ -16,12 +16,15 @@
 
 #include "zetasql/analyzer/column_cycle_detector.h"
 
-#include <memory>
+#include <optional>
 #include <string>
+#include <type_traits>
+#include <vector>
 
 #include "zetasql/base/logging.h"
-#include "zetasql/common/errors.h"
 #include "zetasql/parser/parse_tree_errors.h"
+#include "zetasql/public/id_string.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"

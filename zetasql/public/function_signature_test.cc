@@ -29,6 +29,7 @@
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_deserializer.h"
 #include "zetasql/public/types/type_factory.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -150,9 +151,10 @@ void TestDefaultValueAfterSerialization(const FunctionArgumentType& arg_type) {
     pools[pair.second->descriptor_set_index] = pair.first;
   }
 
-  std::unique_ptr<FunctionArgumentType> dummy_type;
-  ZETASQL_EXPECT_OK(
-      FunctionArgumentType::Deserialize(proto, pools, &factory, &dummy_type));
+  std::unique_ptr<FunctionArgumentType> dummy_type =
+      FunctionArgumentType::Deserialize(proto,
+                                        TypeDeserializer(&factory, pools))
+          .value();
   EXPECT_TRUE(
       dummy_type->GetDefault().value().Equals(arg_type.GetDefault().value()));
 }
@@ -442,9 +444,10 @@ void TestLambdaSerialization(const FunctionArgumentType lambda_type,
   ZETASQL_ASSERT_OK(lambda_type.Serialize(&fdset_map, &proto));
   ASSERT_TRUE(fdset_map.empty());
   std::vector<const google::protobuf::DescriptorPool*> pools;
-  std::unique_ptr<FunctionArgumentType> deserialized_type;
-  ZETASQL_ASSERT_OK(FunctionArgumentType::Deserialize(proto, pools, type_factory,
-                                              &deserialized_type));
+  std::unique_ptr<FunctionArgumentType> deserialized_type =
+      FunctionArgumentType::Deserialize(proto,
+                                        TypeDeserializer(type_factory, pools))
+          .value();
   ASSERT_TRUE(deserialized_type->IsLambda());
 
   const auto& original_lambda = lambda_type.lambda();

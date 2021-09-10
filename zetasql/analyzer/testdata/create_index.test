@@ -115,7 +115,7 @@ CreateIndexStmt
     +-GetProtoField
       +-type=TIMESTAMP
       +-expr=
-      | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+      | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
       +-field_descriptor=timestamp_seconds
       +-default_value=1970-01-01 00:00:00+00
       +-format=TIMESTAMP_SECONDS
@@ -140,7 +140,7 @@ CreateIndexStmt
     +-GetProtoField
       +-type=ARRAY<INT32>
       +-expr=
-      | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+      | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
       +-field_descriptor=repeated_int32_val
       +-default_value=[]
 ==
@@ -167,7 +167,7 @@ CreateIndexStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT32>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int32_val
     |   +-default_value=[]
     +-element_column=$array.repeated_int32_val#4
@@ -194,7 +194,7 @@ CreateIndexStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT32>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int32_val
     |   +-default_value=[]
     +-element_column=$array.repeated_int32_val#4
@@ -221,7 +221,7 @@ CreateIndexStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT32>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int32_val
     |   +-default_value=[]
     +-element_column=$array.repeated_int32_val#4
@@ -247,7 +247,7 @@ CreateIndexStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT32>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int32_val
     |   +-default_value=[]
     +-element_column=$array.foo#4
@@ -277,7 +277,7 @@ CreateIndexStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT32>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int32_val
     |   +-default_value=[]
     +-element_column=$array.foo#4
@@ -310,7 +310,7 @@ CreateIndexStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT32>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int32_val
     |   +-default_value=[]
     +-element_column=$array.foo#4
@@ -343,7 +343,7 @@ CreateIndexStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT32>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int32_val
     |   +-default_value=[]
     +-element_column=$array.foo#4
@@ -371,16 +371,16 @@ CreateIndexStmt
 |   +-GetProtoField
 |     +-type=INT64
 |     +-expr=
-|     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.nested_repeated_value#4)
+|     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nested_repeated_value#4)
 |     +-field_descriptor=nested_int64
 |     +-default_value=88
 +-unnest_expressions_list=
   +-UnnestItem
     +-array_expr=
     | +-GetProtoField
-    |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+    |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=nested_repeated_value
     |   +-default_value=[]
     +-element_column=$array.nested_repeated_value#4
@@ -411,7 +411,7 @@ CreateIndexStmt
   | | +-GetProtoField
   | |   +-type=ARRAY<INT32>
   | |   +-expr=
-  | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+  | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
   | |   +-field_descriptor=repeated_int32_val
   | |   +-default_value=[]
   | +-element_column=$array.repeated_int32_val#4
@@ -420,7 +420,7 @@ CreateIndexStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT64>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int64_val
     |   +-default_value=[]
     +-element_column=$array.repeated_int64_val#5
@@ -440,7 +440,7 @@ CreateIndexStmt
 +-index_item_list=
 | +-IndexItem
 | | +-column_ref=
-| | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.nested_repeated_value#4)
+| | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nested_repeated_value#4)
 | | +-descending=FALSE
 | +-IndexItem
 |   +-column_ref=
@@ -450,9 +450,9 @@ CreateIndexStmt
   +-UnnestItem
   | +-array_expr=
   | | +-GetProtoField
-  | |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+  | |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
   | |   +-expr=
-  | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+  | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
   | |   +-field_descriptor=nested_repeated_value
   | |   +-default_value=[]
   | +-element_column=$array.nested_repeated_value#4
@@ -461,7 +461,7 @@ CreateIndexStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT64>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.nested_repeated_value#4)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nested_repeated_value#4)
     |   +-field_descriptor=nested_repeated_int64
     |   +-default_value=[]
     +-element_column=$array.nested_repeated_int64#5
@@ -491,23 +491,23 @@ CreateIndexStmt
 | | +-GetProtoField
 | |   +-type=ARRAY<INT64>
 | |   +-expr=
-| |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.nested_repeated_value#4)
+| |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nested_repeated_value#4)
 | |   +-field_descriptor=nested_repeated_int64
 | |   +-default_value=[]
 | +-nested_repeated_int32#6 :=
 |   +-GetProtoField
 |     +-type=ARRAY<INT32>
 |     +-expr=
-|     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.nested_repeated_value#4)
+|     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nested_repeated_value#4)
 |     +-field_descriptor=nested_repeated_int32
 |     +-default_value=[]
 +-unnest_expressions_list=
   +-UnnestItem
     +-array_expr=
     | +-GetProtoField
-    |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+    |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=nested_repeated_value
     |   +-default_value=[]
     +-element_column=$array.nested_repeated_value#4
@@ -552,7 +552,7 @@ CreateIndexStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT32>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int32_val
     |   +-default_value=[]
     +-element_column=$array.key#4
@@ -580,9 +580,9 @@ CreateIndexStmt
     |   +-type=ARRAY<INT32>
     |   +-expr=
     |   | +-GetProtoField
-    |   |   +-type=PROTO<zetasql_test.KitchenSinkPB.Nested>
+    |   |   +-type=PROTO<zetasql_test__.KitchenSinkPB.Nested>
     |   |   +-expr=
-    |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   |   +-field_descriptor=nested_value
     |   |   +-default_value=NULL
     |   +-field_descriptor=value
@@ -639,7 +639,7 @@ create index i1 on TestTable UNNEST([1,2,3]) AS foo (foo);
 
 create index i1 on TestTable(KitchenSink.NoSuchField);
 --
-ERROR: Protocol buffer zetasql_test.KitchenSinkPB does not have a field called NoSuchField [at 1:42]
+ERROR: Protocol buffer zetasql_test__.KitchenSinkPB does not have a field called NoSuchField [at 1:42]
 create index i1 on TestTable(KitchenSink.NoSuchField);
                                          ^
 ==
@@ -726,7 +726,7 @@ CreateIndexStmt
 +-index_item_list=
   +-IndexItem
     +-column_ref=
-    | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     +-descending=FALSE
 ==
 
@@ -772,7 +772,7 @@ CreateIndexStmt
     +-GetProtoField
       +-type=INT32
       +-expr=
-      | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+      | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
       +-field_descriptor=int32_val1
       +-default_value=0
 ==
@@ -797,7 +797,7 @@ CreateIndexStmt
     | +-GetProtoField
     |   +-type=ARRAY<STRING>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     |   +-field_descriptor=str_value
     |   +-default_value=[]
     +-element_column=$array.str_value#4
@@ -1116,13 +1116,13 @@ CreateIndexStmt
 +-index_item_list=
 | +-IndexItem
 |   +-column_ref=
-|   | +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=TestTable.TestEnum#2)
+|   | +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=TestTable.TestEnum#2)
 |   +-descending=FALSE
 +-storing_expression_list=
   +-GetProtoField
     +-type=INT32
     +-expr=
-    | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     +-field_descriptor=int32_val
     +-default_value=77
 ==
@@ -1173,7 +1173,7 @@ CreateIndexStmt
 +-index_item_list=
   +-IndexItem
     +-column_ref=
-    | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     +-descending=FALSE
 ==
 
@@ -1209,3 +1209,31 @@ ERROR: CREATE SEARCH INDEX does not yet support expressions to define index keys
 create search index i1 on ComplexTypes (TestStruct.c);
                                         ^
 ==
+
+# Create a search index and index all columns should succeed.
+create search index i1 on ComplexTypes (ALL COLUMNS);
+--
+CreateIndexStmt
++-name_path=i1
++-table_name_path=ComplexTypes
++-table_scan=
+| +-TableScan(table=ComplexTypes)
++-is_unique=FALSE
++-is_search=TRUE
++-index_all_columns=TRUE
+==
+
+# Create a non-search index with ALL COLUMNS in key_expression should fail.
+create index i1 on ComplexTypes (ALL COLUMNS);
+--
+ERROR: 'ALL COLUMNS' is not a supported index key expression for CREATE INDEX statement [at 1:33]
+create index i1 on ComplexTypes (ALL COLUMNS);
+                                ^
+==
+
+# Index an non-exist `ALL COLUMNS` column should fail.
+create search index i1 on ComplexTypes (`ALL COLUMNS`);
+--
+ERROR: Unrecognized name: `ALL COLUMNS` [at 1:41]
+create search index i1 on ComplexTypes (`ALL COLUMNS`);
+                                        ^

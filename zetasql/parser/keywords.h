@@ -21,8 +21,10 @@
 #include <string>
 #include <vector>
 
+#include "zetasql/base/logging.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/optional.h"
 
 namespace zetasql {
 namespace parser {
@@ -30,45 +32,66 @@ namespace parser {
 // Metadata for a keyword.
 class KeywordInfo {
  public:
-  // The type of keyword.
-  enum KeywordClass {
-    kReserved,
-    kNotReserved,
-  };
-  KeywordInfo(absl::string_view keyword, int bison_token,
-              KeywordClass keyword_class = kNotReserved)
+  KeywordInfo(absl::string_view keyword,
+              absl::optional<int> reserved_bison_token,
+              absl::optional<int> nonreserved_bison_token)
       : keyword_(absl::AsciiStrToUpper(keyword)),
-        bison_token_(bison_token),
-        keyword_class_(keyword_class) {}
+        reserved_bison_token_(reserved_bison_token),
+        nonreserved_bison_token_(nonreserved_bison_token) {
+    ZETASQL_DCHECK(reserved_bison_token.has_value() ||
+           nonreserved_bison_token.has_value())
+        << "Either reserved or nonreserved must have a Bison token";
+  }
 
   // The keyword, in upper case.
   const std::string& keyword() const { return keyword_; }
 
-  // The Bison parser token for this keyword.
-  int bison_token() const { return bison_token_; }
+  // The Bison parser token for this keyword, when it is reserved.
+  // Valid only when CanBeReserved() is true.
+  int reserved_bison_token() const { return reserved_bison_token_.value(); }
 
-  bool IsReserved() const { return keyword_class_ != kNotReserved; }
+  // The Bison parser token for this keyword, when it is nonreserved.
+  // Valid only when IsAlwaysReserved() is false.
+  int nonreserved_bison_token() const {
+    return nonreserved_bison_token_.value();
+  }
+
+  // True if this keyword can be reserved under any LanguageOptions.
+  bool CanBeReserved() const { return reserved_bison_token_.has_value(); }
+
+  // True if this keyword is reserved under all LanguageOptions.
+  bool IsAlwaysReserved() const {
+    return !nonreserved_bison_token_.has_value();
+  }
+
+  // True if this keyword can be either reserved or nonreserved, depending on
+  // the LanguageOptions.
+  bool IsConditionallyReserved() const {
+    return reserved_bison_token_.has_value() &&
+           nonreserved_bison_token_.has_value();
+  }
 
  private:
   std::string keyword_;
 
-  // The bison parser token code for this keyword.
-  int bison_token_;
+  // The Bison parser token code when this keyword is reserved, or
+  // absl::nullopt if this keyword is never reserved.
+  absl::optional<int> reserved_bison_token_;
 
-  // The type of keyword.
-  KeywordClass keyword_class_ = kNotReserved;
+  // The Bison parser token code when this keyword is nonreserved, or
+  // absl::nullopt if this keyword is always reserved.
+  absl::optional<int> nonreserved_bison_token_;
 };
 
-// Returns the KeywordInfo for reserved word 'keyword' (case insensitively), or
-// NULL if 'keyword' is not a reserved word.
-const KeywordInfo* GetReservedKeywordInfo(absl::string_view keyword);
-
-// Returns the KeywordInfo for keyword 'keyword' (case insensitively), or NULL
-// if 'keyword' is not a keyword.
+// Returns the KeywordInfo for keyword 'keyword' (case insensitively), or
+// nullptr if 'keyword' is not a keyword.
 const KeywordInfo* GetKeywordInfo(absl::string_view keyword);
 
-// Returns the KeywordInfo for token 'bison_token', or NULL if the 'bison_token'
-// is not a keyword token.
+// Returns the KeywordInfo for token 'bison_token', or nullptr if the
+// 'bison_token' is not a keyword token.
+//
+// For conditionally reserved keywords, both the reserved and nonreserved Bison
+// tokens are accepted.
 const KeywordInfo* GetKeywordInfoForBisonToken(int bison_token);
 
 // Returns a vector of all keywords with their metadata.

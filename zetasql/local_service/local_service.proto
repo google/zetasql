@@ -178,7 +178,7 @@ service ZetaSqlLocalService {
 // SimpleCatalog:DescriporPool - a simple catalog _may_ have a DescriptorPool
 //                               provided to add all of Message types in that
 //                               pool to the catalog. I.e. if you want to allow
-//                               `select new zetasql_test.KitchenSinkPB(...)`
+//                               `select new zetasql_test__.KitchenSinkPB(...)`
 //                               the simple catalog must have a DescriptorPool
 //                               set to perform the lookup.
 // QueryParameters - these can, in theory, have proto types, and those types

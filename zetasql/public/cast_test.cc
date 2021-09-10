@@ -35,7 +35,7 @@
 #include "zetasql/testing/using_test_value.cc"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
@@ -113,7 +113,7 @@ TEST(CastValueWithTimezoneArgumentTests, TimestampCastTest) {
   absl::LoadTimeZone("America/Los_Angeles", &los_angeles);
   const Value struct_value = Value::Struct(
       SimpleStructType(), {string_with_timezone, string_without_timezone});
-  const zetasql_base::StatusOr<Value> status_or_value = CastValue(
+  const absl::StatusOr<Value> status_or_value = CastValue(
       struct_value, los_angeles, LanguageOptions(), TimestampStructType());
   ZETASQL_EXPECT_OK(status_or_value);
 
@@ -141,9 +141,6 @@ TEST(ConversionTest, ValueCastTest) {
                          CastFunctionProperty(CastFunctionType::IMPLICIT,
                                               /*coercion_cost=*/50)));
   ASSERT_TRUE(conversion.is_valid());
-  EXPECT_DEATH(
-      conversion.evaluator().Eval(Value::Double(1)).value(),
-      "Type of casted value doesn't match the source type of conversion");
   ZETASQL_ASSERT_OK_AND_ASSIGN(Value casted_value,
                        conversion.evaluator().Eval(Value::Int32(12)));
   EXPECT_EQ(casted_value, Value::String("12"));
@@ -265,7 +262,7 @@ static void ExecuteTest(const QueryParamsWithResult& test_case) {
       continue;
     }
     const Type* expected_type = expected_result.result.type();
-    const zetasql_base::StatusOr<Value> status_or_value =
+    const absl::StatusOr<Value> status_or_value =
         CastValue(from_value, los_angeles, language_options, expected_type);
     const std::string error_string = absl::StrCat(
         "from type: ", from_value.type()->DebugString(),
@@ -295,10 +292,10 @@ static std::vector<QueryParamsWithResult>
 GetProtoAndBytesCastsWithoutValidation() {
   const ProtoType* kitchen_sink_proto_type;
   ZETASQL_CHECK_OK(type_factory->MakeProtoType(
-      zetasql_test::KitchenSinkPB::descriptor(), &kitchen_sink_proto_type));
+      zetasql_test__::KitchenSinkPB::descriptor(), &kitchen_sink_proto_type));
   const ProtoType* nullable_int_proto_type;
   ZETASQL_CHECK_OK(type_factory->MakeProtoType(
-      zetasql_test::NullableInt::descriptor(), &nullable_int_proto_type));
+      zetasql_test__::NullableInt::descriptor(), &nullable_int_proto_type));
 
   return {
       // As currently implemented in CastValue(), casting between BYTES and

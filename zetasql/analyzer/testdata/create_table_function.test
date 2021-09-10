@@ -144,13 +144,13 @@ some caret string for foo_2
 
 # The function calls another function that has a deprecation warning. The
 # warning should propagate to this function.
-create table function myfunc( msg zetasql_test.Proto3KitchenSink )
+create table function myfunc( msg zetasql_test__.Proto3KitchenSink )
   returns table<x string> as (select "foo" x from tvf_deprecation_warning());
 --
 CreateTableFunctionStmt
 +-name_path=myfunc
 +-argument_name_list=[msg]
-+-signature=(PROTO<zetasql_test.Proto3KitchenSink> msg) -> TABLE<x STRING> (1 deprecation warning)
++-signature=(PROTO<zetasql_test__.Proto3KitchenSink> msg) -> TABLE<x STRING> (1 deprecation warning)
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
 +-code='(select "foo" x from tvf_deprecation_warning())'
@@ -177,7 +177,7 @@ some caret string for foo_11
 
 # The function calls another function that has a deprecation warning, twice. The
 # warning should propagate to this function, but should be de-duplicated.
-create table function myfunc( msg zetasql_test.Proto3KitchenSink )
+create table function myfunc( msg zetasql_test__.Proto3KitchenSink )
   returns table<x string> as
     (select "foo" x from tvf_deprecation_warning()
      union all
@@ -186,7 +186,7 @@ create table function myfunc( msg zetasql_test.Proto3KitchenSink )
 CreateTableFunctionStmt
 +-name_path=myfunc
 +-argument_name_list=[msg]
-+-signature=(PROTO<zetasql_test.Proto3KitchenSink> msg) -> TABLE<x STRING> (1 deprecation warning)
++-signature=(PROTO<zetasql_test__.Proto3KitchenSink> msg) -> TABLE<x STRING> (1 deprecation warning)
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
 +-code='(select "foo" x from tvf_deprecation_warning()\n     union all\n     select "bar" from tvf_deprecation_warning())'
@@ -229,14 +229,14 @@ some caret string for foo_11
 
 # The function calls a function that has two deprecation warnings of the same
 # kind. The first warning should propagate to this function.
-create table function myfunc( msg zetasql_test.Proto3KitchenSink )
+create table function myfunc( msg zetasql_test__.Proto3KitchenSink )
   returns table<x string> as
     (select "foo" x from tvf_two_deprecation_warnings_same_kind());
 --
 CreateTableFunctionStmt
 +-name_path=myfunc
 +-argument_name_list=[msg]
-+-signature=(PROTO<zetasql_test.Proto3KitchenSink> msg) -> TABLE<x STRING> (1 deprecation warning)
++-signature=(PROTO<zetasql_test__.Proto3KitchenSink> msg) -> TABLE<x STRING> (1 deprecation warning)
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
 +-code='(select "foo" x from tvf_two_deprecation_warnings_same_kind())'
@@ -263,14 +263,14 @@ some caret string for foo_12
 
 # The function calls a function that has two deprecation warnings with different
 # kinds. Both should propagate to this function.
-create table function myfunc( msg zetasql_test.Proto3KitchenSink )
+create table function myfunc( msg zetasql_test__.Proto3KitchenSink )
   returns table<x string> as
     (select "foo" x from tvf_two_deprecation_warnings());
 --
 CreateTableFunctionStmt
 +-name_path=myfunc
 +-argument_name_list=[msg]
-+-signature=(PROTO<zetasql_test.Proto3KitchenSink> msg) -> TABLE<x STRING> (2 deprecation warnings)
++-signature=(PROTO<zetasql_test__.Proto3KitchenSink> msg) -> TABLE<x STRING> (2 deprecation warnings)
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
 +-code='(select "foo" x from tvf_two_deprecation_warnings())'
@@ -309,7 +309,7 @@ some caret string for foo_15
 # two deprecation warnings with different kinds. The result should have one
 # deprecation warning for each function, using the first deprecation warning for
 # each kind, for a total of 4 warnings.
-create table function myfunc( msg zetasql_test.Proto3KitchenSink )
+create table function myfunc( msg zetasql_test__.Proto3KitchenSink )
   returns table<x string> as
     (select "foo" x from tvf_deprecation_warning()
      union all
@@ -320,7 +320,7 @@ create table function myfunc( msg zetasql_test.Proto3KitchenSink )
 CreateTableFunctionStmt
 +-name_path=myfunc
 +-argument_name_list=[msg]
-+-signature=(PROTO<zetasql_test.Proto3KitchenSink> msg) -> TABLE<x STRING> (4 deprecation warnings)
++-signature=(PROTO<zetasql_test__.Proto3KitchenSink> msg) -> TABLE<x STRING> (4 deprecation warnings)
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
 +-code='(select "foo" x from tvf_deprecation_warning()\n     union all\n     select "bar" from tvf_two_deprecation_warnings_same_kind()\n     union all\n     select "baz" from tvf_two_deprecation_warnings())'
@@ -399,7 +399,7 @@ some caret string for foo_15
 
 # Same as the previous test, except each function is called twice. The
 # deprecation warnings are de-duplicated, so there are still only 4 warnings.
-create table function myfunc( msg zetasql_test.Proto3KitchenSink )
+create table function myfunc( msg zetasql_test__.Proto3KitchenSink )
   returns table<x string> as
     (select "foo1" x from tvf_deprecation_warning()
      union all
@@ -416,7 +416,7 @@ create table function myfunc( msg zetasql_test.Proto3KitchenSink )
 CreateTableFunctionStmt
 +-name_path=myfunc
 +-argument_name_list=[msg]
-+-signature=(PROTO<zetasql_test.Proto3KitchenSink> msg) -> TABLE<x STRING> (4 deprecation warnings)
++-signature=(PROTO<zetasql_test__.Proto3KitchenSink> msg) -> TABLE<x STRING> (4 deprecation warnings)
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
 +-code='(select "foo1" x from tvf_deprecation_warning()\n     union all\n     select "foo2" x from tvf_deprecation_warning()\n     union all\n     select "bar1" from tvf_two_deprecation_warnings_same_kind()\n     union all\n     select "bar2" from tvf_two_deprecation_warnings_same_kind()\n     union all\n     select "baz1" from tvf_two_deprecation_warnings()\n     union all\n     select "baz2" from tvf_two_deprecation_warnings())'
@@ -659,7 +659,7 @@ create temporary table function maketable(t table<int64>)
   returns table<string>
   language testlang;
 --
-CreateTableFunctionStmt(name_path=maketable, create_scope=CREATE_TEMP, argument_name_list=[t], signature=(TABLE<INT64>) -> TABLE<STRING>, has_explicit_return_schema=TRUE, language="testlang", is_value_table=TRUE)
+CreateTableFunctionStmt(name_path=maketable, create_scope=CREATE_TEMP, argument_name_list=[t], signature=(TABLE<INT64> t) -> TABLE<STRING>, has_explicit_return_schema=TRUE, language="testlang", is_value_table=TRUE)
 ==
 
 # Table argument and return type. These names are non-keywords.
@@ -667,7 +667,7 @@ create temporary table function maketable(t table<x int64, y string>)
   returns table<x int64, y string>
   language testlang;
 --
-CreateTableFunctionStmt(name_path=maketable, create_scope=CREATE_TEMP, argument_name_list=[t], signature=(TABLE<x INT64, y STRING>) -> TABLE<x INT64, y STRING>, has_explicit_return_schema=TRUE, language="testlang")
+CreateTableFunctionStmt(name_path=maketable, create_scope=CREATE_TEMP, argument_name_list=[t], signature=(TABLE<x INT64, y STRING> t) -> TABLE<x INT64, y STRING>, has_explicit_return_schema=TRUE, language="testlang")
 ==
 
 # Table argument and return type. These names are unreserved keywords that can
@@ -676,7 +676,7 @@ create temporary table function maketable(begin table<call int64, drop string>)
   returns table<call int64, drop string>
   language testlang;
 --
-CreateTableFunctionStmt(name_path=maketable, create_scope=CREATE_TEMP, argument_name_list=[begin], signature=(TABLE<call INT64, drop STRING>) -> TABLE<call INT64, drop STRING>, has_explicit_return_schema=TRUE, language="testlang")
+CreateTableFunctionStmt(name_path=maketable, create_scope=CREATE_TEMP, argument_name_list=[begin], signature=(TABLE<call INT64, drop STRING> begin) -> TABLE<call INT64, drop STRING>, has_explicit_return_schema=TRUE, language="testlang")
 ==
 
 # Table return type with required column list and the function has a SQL body.
@@ -1022,7 +1022,7 @@ CreateTableFunctionStmt
 +-name_path=maketable
 +-create_scope=CREATE_TEMP
 +-argument_name_list=[t]
-+-signature=(TABLE<x INT64, y STRING>) -> TABLE<x INT64, y STRING>
++-signature=(TABLE<x INT64, y STRING> t) -> TABLE<x INT64, y STRING>
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
 +-code="select x, y from t"
@@ -1047,7 +1047,7 @@ CreateTableFunctionStmt
 +-name_path=maketable
 +-create_scope=CREATE_TEMP
 +-argument_name_list=[t1, t2]
-+-signature=(TABLE<x INT64, y STRING>, TABLE<a INT64, b STRING>) -> TABLE<x INT64, y STRING>
++-signature=(TABLE<x INT64, y STRING> t1, TABLE<a INT64, b STRING> t2) -> TABLE<x INT64, y STRING>
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
 +-code="select * from t1 union all select * from t2"
@@ -1086,7 +1086,7 @@ CreateTableFunctionStmt
 +-name_path=maketable
 +-create_scope=CREATE_TEMP
 +-argument_name_list=[t1, t2]
-+-signature=(TABLE<x INT64, y STRING>, TABLE<a INT64, b STRING>) -> TABLE<x INT64, y STRING>
++-signature=(TABLE<x INT64, y STRING> t1, TABLE<a INT64, b STRING> t2) -> TABLE<x INT64, y STRING>
 +-language="SQL"
 +-code="select * from t1 union all select * from t2"
 +-query=
@@ -1134,7 +1134,7 @@ CreateTableFunctionStmt
 +-name_path=maketable
 +-create_scope=CREATE_TEMP
 +-argument_name_list=[a, t1, b, t2]
-+-signature=(INT64 a, TABLE<x INT64, y STRING>, STRING b, TABLE<x INT64, y STRING>) -> TABLE<x INT64, y STRING>
++-signature=(INT64 a, TABLE<x INT64, y STRING> t1, STRING b, TABLE<x INT64, y STRING> t2) -> TABLE<x INT64, y STRING>
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
 +-code="select x, y from t1 union all select x, y from t2 where x < a and y = b"
@@ -1192,7 +1192,7 @@ CreateTableFunctionStmt
 +-name_path=maketable
 +-create_scope=CREATE_TEMP
 +-argument_name_list=[a, t1, b, t2]
-+-signature=(INT64 a, TABLE<x INT64, y STRING>, STRING b, TABLE<x INT64, y STRING>) -> TABLE<x INT64, y STRING>
++-signature=(INT64 a, TABLE<x INT64, y STRING> t1, STRING b, TABLE<x INT64, y STRING> t2) -> TABLE<x INT64, y STRING>
 +-language="SQL"
 +-code="select x, y\n    from t1\n    union all\n    select x, y\n    from t2\n    where x < a and y = b"
 +-query=
@@ -1241,7 +1241,7 @@ CreateTableFunctionStmt
 +-name_path=maketable
 +-create_scope=CREATE_TEMP
 +-argument_name_list=[t]
-+-signature=(TABLE<x INT64, y STRING>) -> TABLE<x INT64, y STRING>
++-signature=(TABLE<x INT64, y STRING> t) -> TABLE<x INT64, y STRING>
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
 +-code="with w1 as (select x, y from t)\n    select x, y from w1"
@@ -1280,7 +1280,7 @@ CreateTableFunctionStmt
 +-name_path=maketable
 +-create_scope=CREATE_TEMP
 +-argument_name_list=[t]
-+-signature=(TABLE<x INT64, y STRING>) -> TABLE<a INT64, b STRING>
++-signature=(TABLE<x INT64, y STRING> t) -> TABLE<a INT64, b STRING>
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
 +-code='with t as (select 1 as a, "abc" as b)\n    select a, b from t'
@@ -1319,7 +1319,7 @@ CreateTableFunctionStmt
 +-name_path=maketable
 +-create_scope=CREATE_TEMP
 +-argument_name_list=[keyvalue]
-+-signature=(TABLE<x INT64, y STRING>) -> TABLE<x INT64, y STRING>
++-signature=(TABLE<x INT64, y STRING> keyvalue) -> TABLE<x INT64, y STRING>
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
 +-code="select x, y from keyvalue"
@@ -1461,7 +1461,7 @@ create table function fn(
 CreateTableFunctionStmt
 +-name_path=fn
 +-argument_name_list=[valuetable]
-+-signature=(TABLE<STRUCT<x INT64, y STRING>>) -> TABLE<x INT64, y STRING>
++-signature=(TABLE<STRUCT<x INT64, y STRING>> valuetable) -> TABLE<x INT64, y STRING>
 +-language="SQL"
 +-code="select x, y\n    from valuetable"
 +-query=
@@ -1497,7 +1497,7 @@ create table function fn(
 CreateTableFunctionStmt
 +-name_path=fn
 +-argument_name_list=[valuetable]
-+-signature=(TABLE<STRUCT<x INT64, y STRING>>) -> TABLE<x INT64, y STRING>
++-signature=(TABLE<STRUCT<x INT64, y STRING>> valuetable) -> TABLE<x INT64, y STRING>
 +-language="SQL"
 +-code="select *\n    from valuetable"
 +-query=
@@ -1534,7 +1534,7 @@ create table function fn(
 CreateTableFunctionStmt
 +-name_path=fn
 +-argument_name_list=[valuetable]
-+-signature=(TABLE<STRUCT<x INT64, y STRING>>) -> TABLE<v STRUCT<x INT64, y STRING>>
++-signature=(TABLE<STRUCT<x INT64, y STRING>> valuetable) -> TABLE<v STRUCT<x INT64, y STRING>>
 +-language="SQL"
 +-code="select v\n    from valuetable v"
 +-query=
@@ -1558,7 +1558,7 @@ create table function fn(
 CreateTableFunctionStmt
 +-name_path=fn
 +-argument_name_list=[valuetable]
-+-signature=(TABLE<STRUCT<x INT64, y STRING>>) -> TABLE<constant INT64>
++-signature=(TABLE<STRUCT<x INT64, y STRING>> valuetable) -> TABLE<constant INT64>
 +-language="SQL"
 +-code='select 1 as constant\n    from valuetable\n    where x = 1 and y = "abc"'
 +-query=
@@ -1604,7 +1604,7 @@ create table function fn(
 CreateTableFunctionStmt
 +-name_path=fn
 +-argument_name_list=[valuetable]
-+-signature=(TABLE<STRUCT<x INT64, y STRING>>) -> TABLE<x INT64, y STRING>
++-signature=(TABLE<STRUCT<x INT64, y STRING>> valuetable) -> TABLE<x INT64, y STRING>
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
 +-code="select *\n    from valuetable"
@@ -1647,7 +1647,7 @@ create table function fn(
 CreateTableFunctionStmt
 +-name_path=fn
 +-argument_name_list=[valuetable, othervaluetable]
-+-signature=(TABLE<STRUCT<x INT64, y STRING>>, TABLE<STRUCT<a INT64, b STRING>>) -> TABLE<first INT64, second STRING>
++-signature=(TABLE<STRUCT<x INT64, y STRING>> valuetable, TABLE<STRUCT<a INT64, b STRING>> othervaluetable) -> TABLE<first INT64, second STRING>
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
 +-code="select x as first, y as second\n    from valuetable\n    union all\n    select a as first, b as second\n    from othervaluetable"
@@ -1717,7 +1717,7 @@ create table function fn(
 CreateTableFunctionStmt
 +-name_path=fn
 +-argument_name_list=[valuetable, othervaluetable]
-+-signature=(TABLE<STRUCT<x INT64, y STRING>>, TABLE<STRUCT<x INT64, y STRING>>) -> TABLE<first INT64, second STRING>
++-signature=(TABLE<STRUCT<x INT64, y STRING>> valuetable, TABLE<STRUCT<x INT64, y STRING>> othervaluetable) -> TABLE<first INT64, second STRING>
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
 +-code="select x as first, y as second\n    from valuetable\n    union all\n    select x as first, y as second\n    from othervaluetable"
@@ -1782,7 +1782,7 @@ create table function fn(t table<column struct<x int64, y string>>)
 CreateTableFunctionStmt
 +-name_path=fn
 +-argument_name_list=[t]
-+-signature=(TABLE<column STRUCT<x INT64, y STRING>>) -> TABLE<STRUCT<x INT64, y STRING>>
++-signature=(TABLE<column STRUCT<x INT64, y STRING>> t) -> TABLE<STRUCT<x INT64, y STRING>>
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
 +-code="select column from t"
@@ -1854,9 +1854,9 @@ CreateTableFunctionStmt
 # even if the SQL body returns a single named column. ZetaSQL intentionally
 # accepts the named column in this case.
 create table function fn(t table<struct<x int32, y string>>)
-  returns table<zetasql_test.TestExtraPB>
+  returns table<zetasql_test__.TestExtraPB>
   as
-    select new zetasql_test.TestExtraPB(
+    select new zetasql_test__.TestExtraPB(
         x as int32_val2,
         [y, y] as str_value)
     from t;
@@ -1864,17 +1864,17 @@ create table function fn(t table<struct<x int32, y string>>)
 CreateTableFunctionStmt
 +-name_path=fn
 +-argument_name_list=[t]
-+-signature=(TABLE<STRUCT<x INT32, y STRING>>) -> TABLE<PROTO<zetasql_test.TestExtraPB>>
++-signature=(TABLE<STRUCT<x INT32, y STRING>> t) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
-+-code="select new zetasql_test.TestExtraPB(\n        x as int32_val2,\n        [y, y] as str_value)\n    from t"
++-code="select new zetasql_test__.TestExtraPB(\n        x as int32_val2,\n        [y, y] as str_value)\n    from t"
 +-query=
 | +-ProjectScan
 |   +-column_list=[$query.$col1#2]
 |   +-expr_list=
 |   | +-$col1#2 :=
 |   |   +-MakeProto
-|   |     +-type=PROTO<zetasql_test.TestExtraPB>
+|   |     +-type=PROTO<zetasql_test__.TestExtraPB>
 |   |     +-field_list=
 |   |       +-int32_val2 :=
 |   |       | +-GetStructField
@@ -1897,7 +1897,7 @@ CreateTableFunctionStmt
 |   +-input_scan=
 |     +-RelationArgumentScan(column_list=[t.$value_column#1], name="t", is_value_table=TRUE)
 +-output_column_list=
-| +-$query.$col1#2 AS `$col1` [PROTO<zetasql_test.TestExtraPB>]
+| +-$query.$col1#2 AS `$col1` [PROTO<zetasql_test__.TestExtraPB>]
 +-is_value_table=TRUE
 ==
 
@@ -1905,7 +1905,7 @@ CreateTableFunctionStmt
 # AS... The return type of the table is not specified.
 create table function fn(t table<struct<x int32, y string>>)
   as
-    select as zetasql_test.TestExtraPB
+    select as zetasql_test__.TestExtraPB
         x as int32_val2,
         [y, y] as str_value
     from t;
@@ -1913,16 +1913,16 @@ create table function fn(t table<struct<x int32, y string>>)
 CreateTableFunctionStmt
 +-name_path=fn
 +-argument_name_list=[t]
-+-signature=(TABLE<STRUCT<x INT32, y STRING>>) -> TABLE<PROTO<zetasql_test.TestExtraPB>>
++-signature=(TABLE<STRUCT<x INT32, y STRING>> t) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>
 +-language="SQL"
-+-code="select as zetasql_test.TestExtraPB\n        x as int32_val2,\n        [y, y] as str_value\n    from t"
++-code="select as zetasql_test__.TestExtraPB\n        x as int32_val2,\n        [y, y] as str_value\n    from t"
 +-query=
 | +-ProjectScan
 |   +-column_list=[$make_proto.$proto#4]
 |   +-expr_list=
 |   | +-$proto#4 :=
 |   |   +-MakeProto
-|   |     +-type=PROTO<zetasql_test.TestExtraPB>
+|   |     +-type=PROTO<zetasql_test__.TestExtraPB>
 |   |     +-field_list=
 |   |       +-int32_val2 := ColumnRef(type=INT32, column=$query.int32_val2#2)
 |   |       +-str_value := ColumnRef(type=ARRAY<STRING>, column=$query.str_value#3)
@@ -1951,7 +1951,7 @@ CreateTableFunctionStmt
 |       +-input_scan=
 |         +-RelationArgumentScan(column_list=[t.$value_column#1], name="t", is_value_table=TRUE)
 +-output_column_list=
-| +-$make_proto.$proto#4 AS `$proto` [PROTO<zetasql_test.TestExtraPB>]
+| +-$make_proto.$proto#4 AS `$proto` [PROTO<zetasql_test__.TestExtraPB>]
 +-is_value_table=TRUE
 ==
 
@@ -1966,7 +1966,7 @@ create table function fn(t table<column struct<x int32, y string>>)
 CreateTableFunctionStmt
 +-name_path=fn
 +-argument_name_list=[t]
-+-signature=(TABLE<column STRUCT<x INT32, y STRING>>) -> TABLE<INT64>
++-signature=(TABLE<column STRUCT<x INT32, y STRING>> t) -> TABLE<INT64>
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
 +-code="select column.x as x from t"
@@ -1996,9 +1996,9 @@ CreateTableFunctionStmt
 
 # This function declaration returns a value table with proto type.
 create table function fn(t table<struct<x int32, y string>>)
-  returns table<zetasql_test.TestExtraPB>
+  returns table<zetasql_test__.TestExtraPB>
   as
-    select new zetasql_test.TestExtraPB(
+    select new zetasql_test__.TestExtraPB(
         x as int32_val2,
         [y, y] as str_value) as test_extra_pb
     from t;
@@ -2006,17 +2006,17 @@ create table function fn(t table<struct<x int32, y string>>)
 CreateTableFunctionStmt
 +-name_path=fn
 +-argument_name_list=[t]
-+-signature=(TABLE<STRUCT<x INT32, y STRING>>) -> TABLE<PROTO<zetasql_test.TestExtraPB>>
++-signature=(TABLE<STRUCT<x INT32, y STRING>> t) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
-+-code="select new zetasql_test.TestExtraPB(\n        x as int32_val2,\n        [y, y] as str_value) as test_extra_pb\n    from t"
++-code="select new zetasql_test__.TestExtraPB(\n        x as int32_val2,\n        [y, y] as str_value) as test_extra_pb\n    from t"
 +-query=
 | +-ProjectScan
 |   +-column_list=[$query.test_extra_pb#2]
 |   +-expr_list=
 |   | +-test_extra_pb#2 :=
 |   |   +-MakeProto
-|   |     +-type=PROTO<zetasql_test.TestExtraPB>
+|   |     +-type=PROTO<zetasql_test__.TestExtraPB>
 |   |     +-field_list=
 |   |       +-int32_val2 :=
 |   |       | +-GetStructField
@@ -2039,15 +2039,15 @@ CreateTableFunctionStmt
 |   +-input_scan=
 |     +-RelationArgumentScan(column_list=[t.$value_column#1], name="t", is_value_table=TRUE)
 +-output_column_list=
-| +-$query.test_extra_pb#2 AS test_extra_pb [PROTO<zetasql_test.TestExtraPB>]
+| +-$query.test_extra_pb#2 AS test_extra_pb [PROTO<zetasql_test__.TestExtraPB>]
 +-is_value_table=TRUE
 ==
 
 # This function declaration returns a table with a named column of proto type.
 create table function fn(t table<struct<x int32, y string>>)
-  returns table<outputcol zetasql_test.TestExtraPB>
+  returns table<outputcol zetasql_test__.TestExtraPB>
   as
-    select new zetasql_test.TestExtraPB(
+    select new zetasql_test__.TestExtraPB(
         x as int32_val2,
         [y, y] as str_value)
       as outputcol
@@ -2056,17 +2056,17 @@ create table function fn(t table<struct<x int32, y string>>)
 CreateTableFunctionStmt
 +-name_path=fn
 +-argument_name_list=[t]
-+-signature=(TABLE<STRUCT<x INT32, y STRING>>) -> TABLE<outputcol PROTO<zetasql_test.TestExtraPB>>
++-signature=(TABLE<STRUCT<x INT32, y STRING>> t) -> TABLE<outputcol PROTO<zetasql_test__.TestExtraPB>>
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
-+-code="select new zetasql_test.TestExtraPB(\n        x as int32_val2,\n        [y, y] as str_value)\n      as outputcol\n    from t"
++-code="select new zetasql_test__.TestExtraPB(\n        x as int32_val2,\n        [y, y] as str_value)\n      as outputcol\n    from t"
 +-query=
 | +-ProjectScan
 |   +-column_list=[$query.outputcol#2]
 |   +-expr_list=
 |   | +-outputcol#2 :=
 |   |   +-MakeProto
-|   |     +-type=PROTO<zetasql_test.TestExtraPB>
+|   |     +-type=PROTO<zetasql_test__.TestExtraPB>
 |   |     +-field_list=
 |   |       +-int32_val2 :=
 |   |       | +-GetStructField
@@ -2089,15 +2089,15 @@ CreateTableFunctionStmt
 |   +-input_scan=
 |     +-RelationArgumentScan(column_list=[t.$value_column#1], name="t", is_value_table=TRUE)
 +-output_column_list=
-  +-$query.outputcol#2 AS outputcol [PROTO<zetasql_test.TestExtraPB>]
+  +-$query.outputcol#2 AS outputcol [PROTO<zetasql_test__.TestExtraPB>]
 ==
 
 # This function declaration returns a table with a named column of proto type,
 # but the SQL body returns a value table. ZetaSQL accepts the statement.
 create table function fn(t table<struct<x int32, y string>>)
-  returns table<outputcol zetasql_test.TestExtraPB>
+  returns table<outputcol zetasql_test__.TestExtraPB>
   as
-    select as zetasql_test.TestExtraPB
+    select as zetasql_test__.TestExtraPB
         x as int32_val2,
         [y, y] as str_value
     from t;
@@ -2105,10 +2105,10 @@ create table function fn(t table<struct<x int32, y string>>)
 CreateTableFunctionStmt
 +-name_path=fn
 +-argument_name_list=[t]
-+-signature=(TABLE<STRUCT<x INT32, y STRING>>) -> TABLE<outputcol PROTO<zetasql_test.TestExtraPB>>
++-signature=(TABLE<STRUCT<x INT32, y STRING>> t) -> TABLE<outputcol PROTO<zetasql_test__.TestExtraPB>>
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
-+-code="select as zetasql_test.TestExtraPB\n        x as int32_val2,\n        [y, y] as str_value\n    from t"
++-code="select as zetasql_test__.TestExtraPB\n        x as int32_val2,\n        [y, y] as str_value\n    from t"
 +-query=
 | +-ProjectScan
 |   +-column_list=[$make_proto.$proto#4]
@@ -2118,7 +2118,7 @@ CreateTableFunctionStmt
 |       +-expr_list=
 |       | +-$proto#4 :=
 |       |   +-MakeProto
-|       |     +-type=PROTO<zetasql_test.TestExtraPB>
+|       |     +-type=PROTO<zetasql_test__.TestExtraPB>
 |       |     +-field_list=
 |       |       +-int32_val2 := ColumnRef(type=INT32, column=$query.int32_val2#2)
 |       |       +-str_value := ColumnRef(type=ARRAY<STRING>, column=$query.str_value#3)
@@ -2147,7 +2147,7 @@ CreateTableFunctionStmt
 |           +-input_scan=
 |             +-RelationArgumentScan(column_list=[t.$value_column#1], name="t", is_value_table=TRUE)
 +-output_column_list=
-  +-$make_proto.$proto#4 AS outputcol [PROTO<zetasql_test.TestExtraPB>]
+  +-$make_proto.$proto#4 AS outputcol [PROTO<zetasql_test__.TestExtraPB>]
 ==
 
 # This function declaration selects from a value table and returns another
@@ -2160,7 +2160,7 @@ create table function fn(t table<struct<x int64>>)
 CreateTableFunctionStmt
 +-name_path=fn
 +-argument_name_list=[t]
-+-signature=(TABLE<STRUCT<x INT64>>) -> TABLE<INT64>
++-signature=(TABLE<STRUCT<x INT64>> t) -> TABLE<INT64>
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
 +-code="select x from t"
@@ -2338,7 +2338,7 @@ CreateTableFunctionStmt(name_path=f, argument_name_list=[x, y], signature=(ANY T
 # A combination of ANY TABLE and concrete table parameters are supported.
 create table function f(x any table, y table<z int64>);
 --
-CreateTableFunctionStmt(name_path=f, argument_name_list=[x, y], signature=(ANY TABLE x, TABLE<z INT64>) -> ANY TABLE, language="UNDECLARED")
+CreateTableFunctionStmt(name_path=f, argument_name_list=[x, y], signature=(ANY TABLE x, TABLE<z INT64> y) -> ANY TABLE, language="UNDECLARED")
 ==
 
 # ANY TABLE is supported when the table-valued function has a SQL body.
@@ -2460,7 +2460,7 @@ as select col as unused, col as unused, 42 as result from t;
 CreateTableFunctionStmt
 +-name_path=f
 +-argument_name_list=[t]
-+-signature=(TABLE<col INT64>) -> TABLE<result INT64>
++-signature=(TABLE<col INT64> t) -> TABLE<result INT64>
 +-has_explicit_return_schema=TRUE
 +-language="SQL"
 +-code="select col as unused, col as unused, 42 as result from t"
@@ -2486,7 +2486,7 @@ as select * from tvf_one_relation_arg_with_fixed_output(table t);
 CreateTableFunctionStmt
 +-name_path=f
 +-argument_name_list=[t]
-+-signature=(TABLE<col BOOL>) -> TABLE<column_bool BOOL, column_bytes BYTES>
++-signature=(TABLE<col BOOL> t) -> TABLE<column_bool BOOL, column_bytes BYTES>
 +-language="SQL"
 +-code="select * from tvf_one_relation_arg_with_fixed_output(table t)"
 +-query=
@@ -2517,7 +2517,7 @@ select * from tvf_one_relation_arg_with_fixed_output(table t);
 CreateTableFunctionStmt
 +-name_path=f
 +-argument_name_list=[t]
-+-signature=(TABLE<col BOOL>) -> TABLE<column_bool BOOL, column_bytes BYTES>
++-signature=(TABLE<col BOOL> t) -> TABLE<column_bool BOOL, column_bytes BYTES>
 +-language="SQL"
 +-code="with t as (select 1 as col)\nselect * from tvf_one_relation_arg_with_fixed_output(table t)"
 +-query=
@@ -2586,7 +2586,7 @@ AS SELECT * FROM nested_catalog.KeyValue;
 CreateTableFunctionStmt
 +-name_path=f
 +-argument_name_list=[t]
-+-signature=(TABLE<col BOOL>) -> TABLE<Key INT64, Value STRING>
++-signature=(TABLE<col BOOL> t) -> TABLE<Key INT64, Value STRING>
 +-language="SQL"
 +-code="SELECT * FROM nested_catalog.KeyValue"
 +-query=
@@ -2614,7 +2614,7 @@ AS SELECT * FROM nested_catalog.KeyValue;
 CreateTableFunctionStmt
 +-name_path=f
 +-argument_name_list=[nested_catalog]
-+-signature=(TABLE<col BOOL>) -> TABLE<Key INT64, Value STRING>
++-signature=(TABLE<col BOOL> nested_catalog) -> TABLE<Key INT64, Value STRING>
 +-language="SQL"
 +-code="SELECT * FROM nested_catalog.KeyValue"
 +-query=
@@ -2714,7 +2714,7 @@ FROM KeyValue;
 CreateTableFunctionStmt
 +-name_path=foo_tvf
 +-argument_name_list=[KeyValue]
-+-signature=(TABLE<Key INT64, Value INT64>) -> TABLE<count_star INT64>
++-signature=(TABLE<Key INT64, Value INT64> KeyValue) -> TABLE<count_star INT64>
 +-language="SQL"
 +-code="SELECT count(*) AS count_star\nFROM KeyValue"
 +-query=
@@ -2748,7 +2748,7 @@ ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION
 CreateTableFunctionStmt
 +-name_path=foo_tvf
 +-argument_name_list=[KeyValue]
-+-signature=(TABLE<Key INT64, Value INT64>) -> TABLE<count_star INT64>
++-signature=(TABLE<Key INT64, Value INT64> KeyValue) -> TABLE<count_star INT64>
 +-language="SQL"
 +-code="SELECT count(*) AS count_star\nFROM tvf_one_relation_arg_with_fixed_output(TABLE KeyValue)"
 +-query=
@@ -2776,7 +2776,7 @@ ALTERNATION GROUP: TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,FUNCTION_ARGUMEN
 CreateTableFunctionStmt
 +-name_path=foo_tvf
 +-argument_name_list=[KeyValue]
-+-signature=(TABLE<Key INT64, Value INT64>) -> TABLE<count_star INT64>
++-signature=(TABLE<Key INT64, Value INT64> KeyValue) -> TABLE<count_star INT64>
 +-language="SQL"
 +-code="SELECT count(*) AS count_star\nFROM tvf_one_relation_arg_with_fixed_output(TABLE KeyValue)"
 +-query=

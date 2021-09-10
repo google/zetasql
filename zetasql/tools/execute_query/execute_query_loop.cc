@@ -17,21 +17,24 @@
 #include "zetasql/tools/execute_query/execute_query_loop.h"
 
 #include <string>
-#include <utility>
 
+#include "zetasql/common/status_payload_utils.h"
+#include "zetasql/tools/execute_query/execute_query.pb.h"
 #include "zetasql/tools/execute_query/execute_query_prompt.h"
 #include "zetasql/tools/execute_query/execute_query_tool.h"
 #include "zetasql/tools/execute_query/execute_query_writer.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
-absl::Status ExecuteQueryLoopNoOpStatusHandler(absl::Status status,
-                                               absl::string_view sql) {
+using execute_query::ParserErrorContext;
+
+absl::Status ExecuteQueryLoopNoOpStatusHandler(absl::Status status) {
   return status;
 }
 
@@ -40,10 +43,10 @@ absl::Status ExecuteQueryLoop(
     ExecuteQueryWriter& writer,
     const ExecuteQueryLoopStatusHandler status_handler) {
   for (;;) {
-    const zetasql_base::StatusOr<std::optional<std::string>> input = prompt.Read();
+    const absl::StatusOr<std::optional<std::string>> input = prompt.Read();
 
     if (!input.ok()) {
-      ZETASQL_RETURN_IF_ERROR(status_handler(input.status(), ""));
+      ZETASQL_RETURN_IF_ERROR(status_handler(input.status()));
       continue;
     }
 
@@ -52,10 +55,15 @@ absl::Status ExecuteQueryLoop(
       return absl::OkStatus();
     }
 
-    // TODO: Use error payload instead of passing statement as
-    // parameter (there's no valid value in case reading failed)
-    ZETASQL_RETURN_IF_ERROR(
-        status_handler(ExecuteQuery(**input, config, writer), **input));
+    absl::Status status = ExecuteQuery(**input, config, writer);
+
+    if (!status.ok()) {
+      ParserErrorContext ctx;
+      ctx.set_text(std::string{absl::StripAsciiWhitespace(**input)});
+      internal::AttachPayload(&status, ctx);
+    }
+
+    ZETASQL_RETURN_IF_ERROR(status_handler(status));
   }
 }
 

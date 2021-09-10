@@ -41,7 +41,7 @@
 #include "zetasql/public/value.h"
 #include <cstdint>
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/ret_check.h"
@@ -57,6 +57,30 @@ class TVFRelationColumnProto;
 class TVFRelationProto;
 class TVFSignature;
 class TableValuedFunctionProto;
+class TableValuedFunctionOptionsProto;
+
+// Options that apply to a table-valued function.
+// The setter methods here return a reference to *self so options can be
+// constructed inline, and chained if desired.
+struct TableValuedFunctionOptions {
+  TableValuedFunctionOptions() {}
+
+  static absl::Status Deserialize(
+      const TableValuedFunctionOptionsProto& proto,
+      std::unique_ptr<TableValuedFunctionOptions>* result);
+
+  void Serialize(TableValuedFunctionOptionsProto* proto) const;
+
+  TableValuedFunctionOptions& set_uses_upper_case_sql_name(bool value) {
+    uses_upper_case_sql_name = value;
+    return *this;
+  }
+
+  // Indicates whether to use upper case name in GetSignatureUserFacingText(),
+  // which is used for error messages such as
+  // "No matching signature for function ...".
+  bool uses_upper_case_sql_name = true;
+};
 
 // This interface describes a table-valued function (TVF) available in a query
 // engine.
@@ -98,15 +122,31 @@ class TableValuedFunction {
   // should use ARG_TYPE_RELATION, and any relation will be accepted as an
   // argument.
   TableValuedFunction(const std::vector<std::string>& function_name_path,
-                      const FunctionSignature& signature)
-      : function_name_path_(function_name_path), signatures_({signature}) {
+                      const FunctionSignature& signature,
+                      TableValuedFunctionOptions tvf_options = {})
+      : function_name_path_(function_name_path),
+        signatures_({signature}),
+        tvf_options_(std::move(tvf_options)) {
     ZETASQL_CHECK_OK(signature.IsValidForTableValuedFunction());
   }
   // Table functions constructed this way should use AddSignature() to
   // add a related signature.
   explicit TableValuedFunction(
-      const std::vector<std::string>& function_name_path)
-      : function_name_path_(function_name_path) {}
+      const std::vector<std::string>& function_name_path,
+      TableValuedFunctionOptions tvf_options = {})
+      : function_name_path_(function_name_path),
+        tvf_options_(std::move(tvf_options)) {}
+
+  TableValuedFunction(const std::vector<std::string>& function_name_path,
+                      const FunctionSignature& signature,
+                      std::unique_ptr<AnonymizationInfo> anonymization_info,
+                      TableValuedFunctionOptions tvf_options = {})
+      : function_name_path_(function_name_path),
+        signatures_({signature}),
+        anonymization_info_(std::move(anonymization_info)),
+        tvf_options_(std::move(tvf_options)) {
+    ZETASQL_CHECK_OK(signature.IsValidForTableValuedFunction());
+  }
 
   TableValuedFunction(const TableValuedFunction&) = delete;
   TableValuedFunction& operator=(const TableValuedFunction&) = delete;
@@ -211,6 +251,25 @@ class TableValuedFunction {
     return static_cast<const TableValuedFunctionSubclass*>(this);
   }
 
+  // Sets the <anonymization_info_> with the specified <userid_column_name_path>
+  // (overwriting any previous anonymization info).  An error is returned if
+  // the named column is ambiguous or does not exist in this table valued
+  // function.
+  //
+  // Setting the AnonymizationInfo defines this table valued function as
+  // supporting anonymization semantics and returning sensitive private data.
+  absl::Status SetUserIdColumnNamePath(
+      absl::Span<const std::string> userid_column_name_path);
+
+  // Returns anonymization info for a table valued function, including a column
+  // reference that indicates the userid column for anonymization purposes.
+  std::optional<const AnonymizationInfo> anonymization_info() const {
+    if (anonymization_info_ != nullptr) {
+      return *anonymization_info_;
+    }
+    return std::nullopt;
+  }
+
   // The Resolve method determines the output schema of a particular call to
   // this TVF based on the input arguments provided in the query.
   //
@@ -247,6 +306,10 @@ class TableValuedFunction {
       TypeFactory* type_factory,
       std::shared_ptr<TVFSignature>* output_tvf_signature) const = 0;
 
+  const TableValuedFunctionOptions& tvf_options() const {
+    return tvf_options_;
+  }
+
  protected:
   // Returns user facing text (to be used in error messages) for the
   // specified table function <signature>. For example:
@@ -264,6 +327,12 @@ class TableValuedFunction {
   // The signatures describe the input arguments that this TVF accepts.
   // Currently, only one signature is supported.
   std::vector<FunctionSignature> signatures_;
+
+  // The AnonymizationInfo related to a TVF. See
+  // (broken link) for further details.
+  std::unique_ptr<AnonymizationInfo> anonymization_info_;
+
+  TableValuedFunctionOptions tvf_options_ = {};
 };
 
 // Represents a column for some TVF input argument types (e.g. TVFRelation and
@@ -274,7 +343,7 @@ struct TVFSchemaColumn {
       : name(name_in), type(type_in), is_pseudo_column(is_pseudo_column_in) {}
 
   // Serializes this TVFRelation column to a protocol buffer.
-  zetasql_base::StatusOr<TVFRelationColumnProto> ToProto(
+  absl::StatusOr<TVFRelationColumnProto> ToProto(
       FileDescriptorSetMap* file_descriptor_set_map) const;
 
   // Deserializes a TVFSchema column from a protocol buffer.
@@ -283,7 +352,7 @@ struct TVFSchemaColumn {
   // 'proto', and therefore 'proto' must outlive the returned value.
   // TODO Add support for storing filename as string in
   // ParseLocationPoint.
-  static zetasql_base::StatusOr<TVFSchemaColumn> FromProto(
+  static absl::StatusOr<TVFSchemaColumn> FromProto(
       const TVFRelationColumnProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory);
@@ -344,7 +413,7 @@ class TVFRelation {
   // Creates a new value-table TVFRelation with at least one column, and the
   // first column (column 0) is treated as the value of the row. Additional
   // columns may be present and must be pseudo-columns.
-  static zetasql_base::StatusOr<TVFRelation> ValueTable(
+  static absl::StatusOr<TVFRelation> ValueTable(
       const Type* type, const ColumnList& pseudo_columns) {
     ColumnList columns;
     columns.reserve(pseudo_columns.size() + 1);
@@ -377,7 +446,7 @@ class TVFRelation {
   // useful when serializing the ZetaSQL catalog.
   absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
                          TVFRelationProto* proto) const;
-  static zetasql_base::StatusOr<TVFRelation> Deserialize(
+  static absl::StatusOr<TVFRelation> Deserialize(
       const TVFRelationProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       TypeFactory* factory);
@@ -488,7 +557,7 @@ class TVFInputArgumentType {
   bool is_descriptor() const {
     return kind_ == TVFInputArgumentTypeKind::DESCRIPTOR;
   }
-  zetasql_base::StatusOr<InputArgumentType> GetScalarArgType() const {
+  absl::StatusOr<InputArgumentType> GetScalarArgType() const {
     ZETASQL_RET_CHECK(kind_ == TVFInputArgumentTypeKind::SCALAR);
     if (scalar_arg_value_ != nullptr) {
       return InputArgumentType(*scalar_arg_value_);
@@ -695,8 +764,20 @@ class FixedOutputSchemaTVF : public TableValuedFunction {
   // Constructs a new TVF object with the given name and fixed output schema.
   FixedOutputSchemaTVF(const std::vector<std::string>& function_name_path,
                        const FunctionSignature& signature,
-                       const TVFRelation& result_schema)
-      : TableValuedFunction(function_name_path, signature),
+                       const TVFRelation& result_schema,
+                       TableValuedFunctionOptions tvf_options = {})
+      : TableValuedFunction(function_name_path, signature, tvf_options),
+        result_schema_(result_schema) {}
+
+  // Constructs a new TVF object with the given name, anonymization info and
+  // fixed output schema.
+  FixedOutputSchemaTVF(const std::vector<std::string>& function_name_path,
+                       const FunctionSignature& signature,
+                       std::unique_ptr<AnonymizationInfo> anonymization_info,
+                       const TVFRelation& result_schema,
+                       TableValuedFunctionOptions tvf_options = {})
+      : TableValuedFunction(function_name_path, signature,
+                            std::move(anonymization_info), tvf_options),
         result_schema_(result_schema) {}
 
   FixedOutputSchemaTVF(const FixedOutputSchemaTVF&) = delete;
@@ -739,8 +820,9 @@ class ForwardInputSchemaToOutputSchemaTVF : public TableValuedFunction {
   // error.
   ForwardInputSchemaToOutputSchemaTVF(
       const std::vector<std::string>& function_name_path,
-      const FunctionSignature& signature)
-      : TableValuedFunction(function_name_path, signature) {
+      const FunctionSignature& signature,
+      TableValuedFunctionOptions tvf_options = {})
+      : TableValuedFunction(function_name_path, signature, tvf_options) {
     ZETASQL_CHECK_OK(CheckIsValid());
   }
 
@@ -781,8 +863,9 @@ class ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF
   ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
       const std::vector<std::string>& function_name_path,
       const FunctionSignature& signature,
-      const std::vector<TVFSchemaColumn>& extra_columns)
-      : TableValuedFunction(function_name_path, signature),
+      const std::vector<TVFSchemaColumn>& extra_columns,
+      TableValuedFunctionOptions tvf_options = {})
+      : TableValuedFunction(function_name_path, signature, tvf_options),
         extra_columns_(extra_columns) {
     ZETASQL_CHECK_OK(IsValidForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
         signature.IsTemplated(), extra_columns));

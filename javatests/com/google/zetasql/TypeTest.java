@@ -86,7 +86,6 @@ public class TypeTest {
     verifyIsType(Arrays.asList(TypeKind.TYPE_INTERVAL), Type::isInterval, "isInterval");
     verifyIsType(Arrays.asList(TypeKind.TYPE_GEOGRAPHY), Type::isGeography, "isGeography");
     verifyIsType(Arrays.asList(TypeKind.TYPE_JSON), Type::isJson, "isJson");
-    verifyIsType(Arrays.asList(TypeKind.TYPE_TOKENLIST), Type::isTokenList, "isTokensList");
     verifyIsType(Arrays.asList(TypeKind.TYPE_ENUM), Type::isEnum, "isEnum");
     verifyIsType(Arrays.asList(TypeKind.TYPE_ARRAY), Type::isArray, "isArray");
     verifyIsType(Arrays.asList(TypeKind.TYPE_STRUCT), Type::isStruct, "isStruct");
@@ -132,7 +131,6 @@ public class TypeTest {
     types.add(TypeFactory.createSimpleType(TypeKind.TYPE_NUMERIC));
     types.add(TypeFactory.createSimpleType(TypeKind.TYPE_BIGNUMERIC));
     types.add(TypeFactory.createSimpleType(TypeKind.TYPE_JSON));
-    types.add(TypeFactory.createSimpleType(TypeKind.TYPE_TOKENLIST));
 
     for (Type type : types) {
       String typeString = type.getKind().toString();
@@ -156,7 +154,7 @@ public class TypeTest {
             "The number of fields of TypeProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(TypeProto.getDescriptor().getFields())
-        .hasSize(6);
+        .hasSize(7);
     assertWithMessage(
             "The number of fields in Type class has changed, "
                 + "please also update the proto and serialization code accordingly.")

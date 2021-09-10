@@ -54,7 +54,7 @@ TEST(TestDriverTest, ClassAndProtoSize) {
                 "TestDatabaseProto (test_driver.proto) tests if TestDatabase "
                 "is modified.");
   EXPECT_EQ(5, TestDatabaseProto::descriptor()->field_count());
-  EXPECT_EQ(6, TestTableOptionsProto::descriptor()->field_count());
+  EXPECT_EQ(7, TestTableOptionsProto::descriptor()->field_count());
   EXPECT_EQ(3, TestTableProto::descriptor()->field_count());
 }
 

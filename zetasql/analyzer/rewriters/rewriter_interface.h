@@ -17,13 +17,17 @@
 #ifndef ZETASQL_ANALYZER_REWRITERS_REWRITER_INTERFACE_H_
 #define ZETASQL_ANALYZER_REWRITERS_REWRITER_INTERFACE_H_
 
-#include <vector>
+#include <memory>
+#include <string>
 
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
+#include "zetasql/public/analyzer_output_properties.h"
+#include "zetasql/public/catalog.h"
 #include "zetasql/public/types/type_factory.h"
-#include "zetasql/base/statusor.h"
-#include "absl/synchronization/mutex.h"
+#include "zetasql/resolved_ast/resolved_node.h"
+#include "absl/status/statusor.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 
@@ -52,7 +56,7 @@ class Rewriter {
   // new columns and ids. Likewise, any new types must be allocated via
   // 'type_factory'. 'rewriters' are the rewriters passed to the analyzer,
   // for use with the internal analyzer functions or AnalyzeSubstitute.
-  virtual zetasql_base::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
+  virtual absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
       const AnalyzerOptions& options,
       absl::Span<const Rewriter* const> rewriters, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,

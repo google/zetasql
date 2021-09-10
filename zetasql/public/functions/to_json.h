@@ -21,7 +21,7 @@
 
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/value.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -38,7 +38,7 @@ const int kNestingLevelStackCheckThreshold = 10;
 // <stringify_wide_numbers> is true. Otherwise, JSON number
 // type is used to represent all values of ZetaSQL number types, including
 // values outside of DOUBLE domain.
-zetasql_base::StatusOr<JSONValue> ToJson(const Value& value,
+absl::StatusOr<JSONValue> ToJson(const Value& value,
                                  bool stringify_wide_numbers,
                                  const LanguageOptions& language_options);
 

@@ -279,7 +279,7 @@ CreateFunctionStatement [0-63]
 --
 CREATE FUNCTION myfunc(a int64)
 AS (
-  `if`(a > 0, a, - 1)
+  `if`(a > 0, a, -1)
 )
 ==
 
@@ -316,7 +316,7 @@ CreateFunctionStatement [0-79]
 --
 CREATE FUNCTION myfunc(a int32)
 RETURNS int32 AS (
-  `if`(a > 0, a, - 1)
+  `if`(a > 0, a, -1)
 )
 ==
 

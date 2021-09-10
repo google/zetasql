@@ -16,21 +16,33 @@
 
 #include "zetasql/analyzer/analyzer_impl.h"
 
+#include <iostream>
+#include <memory>
+#include <utility>
+#include <vector>
+
 #include <thread>
 
+#include "zetasql/base/logging.h"
 #include "zetasql/analyzer/resolver.h"
 #include "zetasql/analyzer/rewrite_resolved_ast.h"
 #include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
-#include "zetasql/public/options.pb.h"
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/language_options.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
-#include "zetasql/resolved_ast/rewrite_utils.h"
 #include "zetasql/resolved_ast/validator.h"
 #include "absl/flags/flag.h"
+#include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/status_macros.h"
 
 ABSL_FLAG(bool, zetasql_validate_resolved_ast, true,
@@ -90,8 +102,7 @@ absl::Status ConvertExprToTargetType(
   Resolver resolver(catalog, type_factory, &analyzer_options);
   return ConvertInternalErrorLocationToExternal(
       resolver.CoerceExprToType(&ast_expression, target_type,
-                                /*assignment_semantics=*/true,
-                                /*clause_name=*/nullptr, resolved_expr),
+                                Resolver::kImplicitAssignment, resolved_expr),
       sql);
 }
 

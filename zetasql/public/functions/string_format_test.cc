@@ -141,7 +141,7 @@ TEST(StringFormatTest, TestBadUtf8Values) {
   TestBadValue("%t", bad_array_of_struct_value);
   TestBadValue("%T", bad_array_of_struct_value);
 
-  zetasql_test::KitchenSinkPB proto;
+  zetasql_test__::KitchenSinkPB proto;
   proto.set_string_val("abc\xc1xyz");
 
   const ProtoType* proto_type;

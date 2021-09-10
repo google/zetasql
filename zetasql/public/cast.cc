@@ -48,7 +48,7 @@
 #include "zetasql/public/type.pb.h"
 #include <cstdint>
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_split.h"
 #include "absl/time/time.h"
@@ -241,8 +241,6 @@ const CastHashMap* InitializeZetaSQLCasts() {
 
   ADD_TO_MAP(JSON,       JSON,       IMPLICIT);
 
-  ADD_TO_MAP(TOKENLIST,  TOKENLIST,   IMPLICIT);
-
   ADD_TO_MAP(ENUM,       STRING,     EXPLICIT);
 
   ADD_TO_MAP(ENUM,       INT32,      EXPLICIT);
@@ -271,7 +269,7 @@ constexpr uint64_t FCT(TypeKind input_kind, TypeKind output_kind) {
 }
 
 template <typename FromType, typename ToType>
-zetasql_base::StatusOr<Value> NumericCast(const Value& value) {
+absl::StatusOr<Value> NumericCast(const Value& value) {
   absl::Status status;
   FromType in = value.Get<FromType>();
   ToType out;
@@ -284,7 +282,7 @@ zetasql_base::StatusOr<Value> NumericCast(const Value& value) {
 }
 
 template <typename FromType, typename ToType>
-zetasql_base::StatusOr<Value> NumericValueCast(const FromType& in) {
+absl::StatusOr<Value> NumericValueCast(const FromType& in) {
   absl::Status status;
   ToType out;
   functions::Convert<FromType, ToType>(in, &out, &status);
@@ -335,7 +333,7 @@ absl::Status CheckLegacyRanges(int64_t timestamp,
 //
 // Crashes if the Value type does not correspond with <T>.
 template <typename T>
-zetasql_base::StatusOr<Value> NumericToString(const Value& v) {
+absl::StatusOr<Value> NumericToString(const Value& v) {
   if (v.is_null()) return Value::NullString();
   T value = v.Get<T>();
   std::string str;
@@ -355,7 +353,7 @@ zetasql_base::StatusOr<Value> NumericToString(const Value& v) {
 //
 // Crashes if the Value <v> is not a string.
 template <typename T>
-zetasql_base::StatusOr<Value> StringToNumeric(const Value& v) {
+absl::StatusOr<Value> StringToNumeric(const Value& v) {
   if (v.is_null()) return Value::MakeNull<T>();
   std::string value = v.string_value();
   T out;
@@ -377,7 +375,7 @@ bool IsMapEntryCast(const Type* from, const Type* to) {
 // (broken link). <from_value> is a two-field struct where
 // the fields represent the key and value of the requested map_entry proto
 // in <to_type>.
-zetasql_base::StatusOr<Value> DoMapEntryCast(const Value& from_value,
+absl::StatusOr<Value> DoMapEntryCast(const Value& from_value,
                                      absl::TimeZone default_timezone,
                                      const LanguageOptions& language_options,
                                      const Type* to_type) {
@@ -486,7 +484,7 @@ class CastContext {
   CastContext(const CastContext&) = delete;
   CastContext& operator=(const CastContext&) = delete;
 
-  zetasql_base::StatusOr<Value> CastValue(
+  absl::StatusOr<Value> CastValue(
       const Value& from_value,
       const Type* to_type,
       const absl::optional<std::string>& format = absl::nullopt)
@@ -503,7 +501,7 @@ class CastContext {
  private:
   // Executes a cast which involves extended types: source and/or destination
   // type is extended.
-  virtual zetasql_base::StatusOr<Value> CastWithExtendedType(
+  virtual absl::StatusOr<Value> CastWithExtendedType(
       const Value& from_value, const Type* to_type) const = 0;
 
   // Checks that coercion is valid using Coercer.
@@ -553,7 +551,7 @@ static absl::Status ValidateFormatStringFromTimestamp(
   return functions::ValidateFormatStringForFormatting(format, TYPE_TIMESTAMP);
 }
 
-zetasql_base::StatusOr<Value> NumericToStringWithFormat(const Value& v,
+absl::StatusOr<Value> NumericToStringWithFormat(const Value& v,
                                                 absl::string_view format,
                                                 ProductMode product_mode) {
   if (v.is_null()) {
@@ -566,7 +564,7 @@ zetasql_base::StatusOr<Value> NumericToStringWithFormat(const Value& v,
   return Value::String(str);
 }
 
-zetasql_base::StatusOr<Value> CastContext::CastValue(
+absl::StatusOr<Value> CastContext::CastValue(
     const Value& from_value,
     const Type* to_type,
     const absl::optional<std::string>& format) const {
@@ -1252,7 +1250,7 @@ class CastContextWithValidation : public CastContext {
         catalog_(catalog) {}
 
  private:
-  zetasql_base::StatusOr<Value> CastWithExtendedType(
+  absl::StatusOr<Value> CastWithExtendedType(
       const Value& from_value, const Type* to_type) const override {
     if (catalog_ == nullptr) {
       return zetasql_base::FailedPreconditionErrorBuilder()
@@ -1299,7 +1297,7 @@ class CastContextWithoutValidation : public CastContext {
       : CastContext(default_timezone, current_timestamp, language_options),
         extended_cast_evaluator_(extended_cast_evaluator) {}
 
-  zetasql_base::StatusOr<Value> CastWithExtendedType(
+  absl::StatusOr<Value> CastWithExtendedType(
       const Value& from_value, const Type* to_type) const override {
     if (extended_cast_evaluator_ == nullptr) {
       return zetasql_base::FailedPreconditionErrorBuilder()
@@ -1321,7 +1319,7 @@ class CastContextWithoutValidation : public CastContext {
 
 }  // namespace
 
-zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
+absl::StatusOr<Value> CastValue(const Value& from_value,
                                 absl::TimeZone default_timezone,
                                 const LanguageOptions& language_options,
                                 const Type* to_type, Catalog* catalog) {
@@ -1329,7 +1327,7 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
                    /*format=*/absl::nullopt, catalog);
 }
 
-zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
+absl::StatusOr<Value> CastValue(const Value& from_value,
                                 absl::TimeZone default_timezone,
                                 const LanguageOptions& language_options,
                                 const Type* to_type,
@@ -1343,7 +1341,7 @@ zetasql_base::StatusOr<Value> CastValue(const Value& from_value,
 
 namespace internal {
 
-zetasql_base::StatusOr<Value> CastValueWithoutTypeValidation(
+absl::StatusOr<Value> CastValueWithoutTypeValidation(
     const Value& from_value, absl::TimeZone default_timezone,
     absl::optional<absl::Time> current_timestamp,
     const LanguageOptions& language_options, const Type* to_type,
@@ -1421,7 +1419,7 @@ const CastFormatMap& GetCastFormatMap() {
 
 }  // namespace internal
 
-zetasql_base::StatusOr<ConversionEvaluator> ConversionEvaluator::Create(
+absl::StatusOr<ConversionEvaluator> ConversionEvaluator::Create(
     const Type* from_type, const Type* to_type, const Function* function) {
   ZETASQL_RET_CHECK(from_type);
   ZETASQL_RET_CHECK(to_type);
@@ -1438,7 +1436,7 @@ FunctionSignature ConversionEvaluator::GetFunctionSignature(
                            /*context_ptr=*/nullptr);
 }
 
-zetasql_base::StatusOr<Value> ConversionEvaluator::Eval(const Value& from_value) const {
+absl::StatusOr<Value> ConversionEvaluator::Eval(const Value& from_value) const {
   if (!is_valid()) {
     return zetasql_base::FailedPreconditionErrorBuilder()
            << "Attempt to cast a value using invalid conversion";
@@ -1455,7 +1453,7 @@ zetasql_base::StatusOr<Value> ConversionEvaluator::Eval(const Value& from_value)
   return evaluator({from_value});
 }
 
-zetasql_base::StatusOr<Conversion> Conversion::Create(
+absl::StatusOr<Conversion> Conversion::Create(
     const Type* from_type, const Type* to_type, const Function* function,
     const CastFunctionProperty& property) {
   ZETASQL_ASSIGN_OR_RETURN(ConversionEvaluator evaluator,
@@ -1463,7 +1461,7 @@ zetasql_base::StatusOr<Conversion> Conversion::Create(
   return Create(evaluator, property);
 }
 
-zetasql_base::StatusOr<Conversion> Conversion::Create(
+absl::StatusOr<Conversion> Conversion::Create(
     const ConversionEvaluator& evaluator,
     const CastFunctionProperty& property) {
   ZETASQL_RET_CHECK(evaluator.is_valid());
@@ -1504,7 +1502,7 @@ bool Conversion::IsMatch(const Catalog::FindConversionOptions& options) const {
   }
 }
 
-zetasql_base::StatusOr<Value> ExtendedCompositeCastEvaluator::Eval(
+absl::StatusOr<Value> ExtendedCompositeCastEvaluator::Eval(
     const Value& from_value, const Type* to_type) const {
   for (const ConversionEvaluator& evaluator : evaluators_) {
     if (evaluator.from_type()->Equals(from_value.type()) &&

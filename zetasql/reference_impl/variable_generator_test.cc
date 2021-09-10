@@ -210,27 +210,27 @@ TEST_F(ColumnToVariableMappingTest, Basic) {
   EXPECT_EQ(expected_map, mapping.map());
 
   // 'column_1_' is not in the mapping.
-  EXPECT_THAT(mapping.LookupVariableNameForColumn(&column_1_),
+  EXPECT_THAT(mapping.LookupVariableNameForColumn(column_1_),
               StatusIs(absl::StatusCode::kNotFound, HasSubstr(kColumnName1)));
 
   // Insert 'column_1_' into the mapping and verify that it's there.
-  EXPECT_EQ(mapping.AssignNewVariableToColumn(&column_1_), variable_1_);
+  EXPECT_EQ(mapping.AssignNewVariableToColumn(column_1_), variable_1_);
   expected_map[column_1_] = variable_1_;
   EXPECT_EQ(expected_map, mapping.map());
-  EXPECT_THAT(mapping.LookupVariableNameForColumn(&column_1_),
+  EXPECT_THAT(mapping.LookupVariableNameForColumn(column_1_),
               IsOkAndHolds(variable_1_));
 
   // 'column_2_' is not in the mapping.
-  EXPECT_THAT(mapping.LookupVariableNameForColumn(&column_2_),
+  EXPECT_THAT(mapping.LookupVariableNameForColumn(column_2_),
               StatusIs(absl::StatusCode::kNotFound, HasSubstr(kColumnName2)));
 
   // Insert 'column_2_' into the mapping and verify that both columns are there.
-  EXPECT_EQ(mapping.AssignNewVariableToColumn(&column_2_), variable_2_);
+  EXPECT_EQ(mapping.AssignNewVariableToColumn(column_2_), variable_2_);
   expected_map[column_2_] = variable_2_;
   EXPECT_EQ(expected_map, mapping.map());
-  EXPECT_THAT(mapping.LookupVariableNameForColumn(&column_1_),
+  EXPECT_THAT(mapping.LookupVariableNameForColumn(column_1_),
               IsOkAndHolds(variable_1_));
-  EXPECT_THAT(mapping.LookupVariableNameForColumn(&column_2_),
+  EXPECT_THAT(mapping.LookupVariableNameForColumn(column_2_),
               IsOkAndHolds(variable_2_));
 }
 
@@ -242,16 +242,16 @@ TEST_F(ColumnToVariableMappingTest, GetVariableNameFromColumn) {
   ColumnToVariableMapping::Map expected_map;
   EXPECT_EQ(expected_map, mapping.map());
 
-  EXPECT_EQ(mapping.GetVariableNameFromColumn(&column_1_), variable_1_);
+  EXPECT_EQ(mapping.GetVariableNameFromColumn(column_1_), variable_1_);
   expected_map[column_1_] = variable_1_;
   EXPECT_EQ(expected_map, mapping.map());
 
-  EXPECT_EQ(mapping.GetVariableNameFromColumn(&column_2_), variable_2_);
+  EXPECT_EQ(mapping.GetVariableNameFromColumn(column_2_), variable_2_);
   expected_map[column_2_] = variable_2_;
   EXPECT_EQ(expected_map, mapping.map());
 
   // 'column_3' has the same name as 'column_1', but it is in a different table.
-  EXPECT_EQ(mapping.GetVariableNameFromColumn(&column_3_), variable_3_);
+  EXPECT_EQ(mapping.GetVariableNameFromColumn(column_3_), variable_3_);
   expected_map[column_3_] = variable_3_;
   EXPECT_EQ(expected_map, mapping.map());
 }
@@ -261,9 +261,9 @@ TEST_F(ColumnToVariableMappingTest, SetMap) {
   ColumnToVariableMapping::Map expected_map;
 
   EXPECT_EQ(expected_map, mapping.map());
-  EXPECT_THAT(mapping.LookupVariableNameForColumn(&column_1_),
+  EXPECT_THAT(mapping.LookupVariableNameForColumn(column_1_),
               StatusIs(absl::StatusCode::kNotFound));
-  EXPECT_THAT(mapping.LookupVariableNameForColumn(&column_2_),
+  EXPECT_THAT(mapping.LookupVariableNameForColumn(column_2_),
               StatusIs(absl::StatusCode::kNotFound));
 
   expected_map[column_1_] = variable_1_;
@@ -271,9 +271,9 @@ TEST_F(ColumnToVariableMappingTest, SetMap) {
 
   mapping.set_map(expected_map);
   EXPECT_EQ(expected_map, mapping.map());
-  EXPECT_THAT(mapping.LookupVariableNameForColumn(&column_1_),
+  EXPECT_THAT(mapping.LookupVariableNameForColumn(column_1_),
               IsOkAndHolds(variable_1_));
-  EXPECT_THAT(mapping.LookupVariableNameForColumn(&column_2_),
+  EXPECT_THAT(mapping.LookupVariableNameForColumn(column_2_),
               IsOkAndHolds(variable_2_));
 }
 

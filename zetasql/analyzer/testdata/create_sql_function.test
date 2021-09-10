@@ -36,9 +36,9 @@ CreateFunctionStmt
 # Return type is not compatible with the type of the constant function body.
 create function myfunc () returns string as ( 42 );
 --
-ERROR: Function declared to return STRING but the function body produces incompatible type INT64 [at 1:35]
+ERROR: Function declared to return STRING but the function body produces incompatible type INT64 [at 1:47]
 create function myfunc () returns string as ( 42 );
-                                  ^
+                                              ^
 ==
 
 # Return type is compatible with the type of the constant function body.
@@ -58,9 +58,9 @@ CreateFunctionStmt
 # Return type is not compatible with the type of the variable function body.
 create function myfunc (x int64) returns int32 as (x);
 --
-ERROR: Function declared to return INT32 but the function body produces incompatible type INT64 [at 1:42]
+ERROR: Function declared to return INT32 but the function body produces incompatible type INT64 [at 1:52]
 create function myfunc (x int64) returns int32 as (x);
-                                         ^
+                                                   ^
 ==
 
 # Return type is compatible with the type of the variable function body.
@@ -781,4 +781,3 @@ CreateFunctionStmt
 |   +-ArgumentRef(type=INT64, name="y")
 +-option_list=
   +-ui_hints := Literal(type=STRUCT<semantic_type STRING, paths ARRAY<STRUCT<STRING, STRING>>>, value={semantic_type:"CURRENCY", paths:[{"impressions.clicks", "impressions.clicks.conversions"}, {"clicks2", "clicks2.conversions"}]})
-==

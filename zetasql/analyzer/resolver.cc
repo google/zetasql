@@ -16,53 +16,81 @@
 
 #include "zetasql/analyzer/resolver.h"
 
+#include <stddef.h>
+
 #include <algorithm>
 #include <cstdint>
+#include <limits>
+#include <map>
 #include <memory>
+#include <optional>
 #include <set>
+#include <string>
+#include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/base/logging.h"
-#include "zetasql/common/errors.h"
-#include "zetasql/public/annotation/collation.h"
-#include "zetasql/public/options.pb.h"
-#include "zetasql/base/case.h"
-#include <cstdint>
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/analyzer/function_resolver.h"
-#include "absl/container/flat_hash_map.h"
+#include "zetasql/analyzer/name_scope.h"
 // This includes common macro definitions to define in the resolver cc files.
 #include "zetasql/analyzer/resolver_common_inl.h"
+#include "zetasql/common/errors.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/proto/internal_error_location.pb.h"
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/coercer.h"
+#include "zetasql/public/deprecation_warning.pb.h"
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function.pb.h"
 #include "zetasql/public/functions/convert_string.h"
-#include "zetasql/public/input_argument_type.h"
+#include "zetasql/public/id_string.h"
+#include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/simple_value.h"
+#include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/make_node_vector.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_collation.h"
+#include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/testdata/sample_annotation.h"
+#include "zetasql/base/case.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
+#include "absl/strings/substitute.h"
+#include "absl/types/span.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
-#include "zetasql/base/status_payload.h"
 
 namespace zetasql {
 
@@ -409,7 +437,7 @@ ResolvedColumnList Resolver::ConcatColumnListWithComputedColumnsAndSort(
   return out;
 }
 
-zetasql_base::StatusOr<bool> Resolver::MaybeAssignTypeToUndeclaredParameter(
+absl::StatusOr<bool> Resolver::MaybeAssignTypeToUndeclaredParameter(
     std::unique_ptr<const ResolvedExpr>* expr, const Type* type) {
   if (expr->get()->node_kind() != RESOLVED_PARAMETER) {
     return false;
@@ -763,27 +791,23 @@ absl::Status Resolver::ResolveHintOrOptionAndAppend(
   // If we found the option, try to coerce the value to the appropriate type.
   if (found_ptr != nullptr && *found_ptr != nullptr) {
     const Type* expected_type = *found_ptr;
-    SignatureMatchResult result;
-    if (!coercer_.CoercesTo(
-            GetInputArgumentTypeForExpr(resolved_expr.get()), expected_type,
-            /*is_explicit=*/false, &result)) {
-      return MakeSqlErrorAt(ast_value)
-             << (is_hint ? "Hint " : "Option ") << HintName(qualifier, name)
-             << " value has type "
-             << resolved_expr->type()->ShortTypeName(product_mode())
-             << " which cannot be coerced to expected type "
-             << expected_type->ShortTypeName(product_mode());
-    }
-
-    ZETASQL_RETURN_IF_ERROR(function_resolver_->AddCastOrConvertLiteral(
-        ast_value, expected_type, /*format=*/nullptr, /*time_zone=*/nullptr,
-        TypeParameters(), /*scan=*/nullptr,
-        /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
-        &resolved_expr));
+    auto make_error_msg = [is_hint, &qualifier, &name](
+                              absl::string_view target_t,
+                              absl::string_view arg_t) {
+      return absl::Substitute(
+          "$2 $3 value has type $0 which cannot be coerced to expected type $1",
+          arg_t, target_t, (is_hint ? "Hint" : "Option"),
+          HintName(qualifier, name));
+    };
+    ZETASQL_RETURN_IF_ERROR(CoerceExprToType(ast_value, expected_type,
+                                     kImplicitCoercion, make_error_msg,
+                                     &resolved_expr));
   }
 
-  option_list->push_back(
-      MakeResolvedOption(qualifier, name, std::move(resolved_expr)));
+  auto resolved_option =
+      MakeResolvedOption(qualifier, name, std::move(resolved_expr));
+  MaybeRecordParseLocation(ast_name->parent(), resolved_option.get());
+  option_list->push_back(std::move(resolved_option));
 
   return absl::OkStatus();
 }
@@ -930,7 +954,7 @@ absl::Status Resolver::ResolveAnonymizationOptionsList(
     const ASTOptionsList* options_list,
     std::vector<std::unique_ptr<const ResolvedOption>>* resolved_options) {
   if (options_list != nullptr) {
-    // ZetaSQL defines a whitelist of valid option names for anonymization
+    // ZetaSQL defines an allowlist of valid option names for anonymization
     // options.
     AllowedHintsAndOptions allowed_anonymization_options(/*qualifier=*/"");
     allowed_anonymization_options.AddOption(kDelta, types::DoubleType());
@@ -1121,7 +1145,7 @@ absl::Status Resolver::ResolveStructType(
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<std::vector<TypeParameterValue>>
+absl::StatusOr<std::vector<TypeParameterValue>>
 Resolver::ResolveParameterLiterals(
     const ASTTypeParameterList& type_parameters) {
   std::vector<TypeParameterValue> resolved_literals;
@@ -1174,6 +1198,34 @@ Resolver::ResolveParameterLiterals(
     }
   }
   return resolved_literals;
+}
+
+absl::Status Resolver::MaybeResolveCollationForFunctionCallBase(
+    const ASTNode* error_location, ResolvedFunctionCallBase* function_call) {
+  ZETASQL_RET_CHECK_NE(function_call, nullptr);
+  if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT)) {
+    return absl::OkStatus();
+  }
+  // Aggregate function call with is_distinct should resolve the collation for
+  // the 'distinct' operation. When the input argument has non-string type, the
+  // collation resolution still produces empty collation correctly.
+  const bool is_aggregate_function_with_distinct =
+      function_call->node_kind() == RESOLVED_AGGREGATE_FUNCTION_CALL &&
+      function_call->GetAs<ResolvedAggregateFunctionCall>()->distinct();
+  if (function_call->signature().options().uses_operation_collation() ||
+      is_aggregate_function_with_distinct) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        const AnnotationMap* annotation_map,
+        CollationAnnotation::GetCollationFromFunctionArguments(
+            error_location, *function_call, FunctionEnums::AFFECTS_OPERATION));
+    if (annotation_map != nullptr) {
+      ZETASQL_ASSIGN_OR_RETURN(
+          ResolvedCollation resolved_collation,
+          ResolvedCollation::MakeResolvedCollation(*annotation_map));
+      function_call->add_collation_list(std::move(resolved_collation));
+    }
+  }
+  return absl::OkStatus();
 }
 
 void Resolver::RecordColumnAccess(
@@ -1411,7 +1463,7 @@ void Resolver::FindColumnIndex(const Table* table, const std::string& name,
   }
 }
 
-zetasql_base::StatusOr<bool> Resolver::SupportsEquality(const Type* type1,
+absl::StatusOr<bool> Resolver::SupportsEquality(const Type* type1,
                                                 const Type* type2) {
   ZETASQL_RET_CHECK_NE(type1, nullptr);
   ZETASQL_RET_CHECK_NE(type2, nullptr);
@@ -1452,6 +1504,9 @@ void Resolver::InitializeAnnotationSpecs() {
   }
   // TODO: add analyzer option to add engine specific
   // AnnotationSpec.
+  // TODO: add SampleAnnotation to the Resolver via AnalyzerOptions
+  // when available
+  annotation_specs_.push_back(std::make_unique<SampleAnnotation>());
 }
 
 static absl::Status CheckAndPropagateAnnotationsImpl(
@@ -1469,6 +1524,36 @@ static absl::Status CheckAndPropagateAnnotationsImpl(
         auto* get_struct_field = resolved_node->GetAs<ResolvedGetStructField>();
         ZETASQL_RETURN_IF_ERROR(annotation_spec->CheckAndPropagateForGetStructField(
             *get_struct_field, annotation_map));
+      } break;
+      case RESOLVED_MAKE_STRUCT: {
+        ZETASQL_RET_CHECK(annotation_map->IsStructMap());
+        auto* make_struct = resolved_node->GetAs<ResolvedMakeStruct>();
+        ZETASQL_RETURN_IF_ERROR(annotation_spec->CheckAndPropagateForMakeStruct(
+            *make_struct, annotation_map->AsStructMap()));
+      } break;
+      case RESOLVED_FUNCTION_CALL: {
+        auto* function_call = resolved_node->GetAs<ResolvedFunctionCall>();
+        ZETASQL_RETURN_IF_ERROR(annotation_spec->CheckAndPropagateForFunctionCallBase(
+            *function_call, annotation_map));
+      } break;
+      case RESOLVED_AGGREGATE_FUNCTION_CALL: {
+        auto* function_call =
+            resolved_node->GetAs<ResolvedAggregateFunctionCall>();
+        ZETASQL_RETURN_IF_ERROR(
+            annotation_spec->CheckAndPropagateForFunctionCallBase(
+                *function_call, annotation_map));
+      } break;
+      case RESOLVED_ANALYTIC_FUNCTION_CALL: {
+        auto* function_call =
+            resolved_node->GetAs<ResolvedAnalyticFunctionCall>();
+        ZETASQL_RETURN_IF_ERROR(
+            annotation_spec->CheckAndPropagateForFunctionCallBase(
+                *function_call, annotation_map));
+      } break;
+      case RESOLVED_SUBQUERY_EXPR: {
+        auto* subquery_expr = resolved_node->GetAs<ResolvedSubqueryExpr>();
+        ZETASQL_RETURN_IF_ERROR(annotation_spec->CheckAndPropagateForSubqueryExpr(
+            *subquery_expr, annotation_map));
       } break;
       default:
         break;
@@ -1504,6 +1589,19 @@ absl::Status Resolver::CheckAndPropagateAnnotations(
                        type_factory_->TakeOwnership(std::move(annotation_map)));
       expr->set_type_annotation_map(type_factory_owned_map);
     }
+  } else if (resolved_node->Is<ResolvedSetOperationScan>()) {
+    // Disable collation propagation through SetOp.
+    // TODO: Implement collation propagation logic for SetOp.
+    for (const auto& item :
+         resolved_node->GetAs<ResolvedSetOperationScan>()->input_item_list()) {
+      for (const auto& output_column : item->output_column_list()) {
+        if (CollationAnnotation::ExistsIn(
+                output_column.type_annotation_map())) {
+          return MakeSqlErrorAt(error_node)
+                 << "Collation is not supported in set operations";
+        }
+      }
+    }
   }
   return absl::OkStatus();
 }
@@ -1513,6 +1611,60 @@ Resolver::AutoUnsetArgumentInfo Resolver::SetArgumentInfo(
   function_argument_info_ = arg_info;
   return AutoUnsetArgumentInfo(
       [this]() { this->function_argument_info_ = nullptr; });
+}
+
+absl::Status Resolver::ResolveCollate(
+    const ASTCollate* ast_collate,
+    std::unique_ptr<const ResolvedExpr>* resolved_collate) {
+  ZETASQL_RET_CHECK_NE(nullptr, ast_collate);
+
+  ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_collate->collation_name(),
+                                    empty_name_scope_.get(), "COLLATE",
+                                    resolved_collate));
+
+  // parameter after COLLATE is only allowed in ORDER BY COLLATE
+  ResolvedNodeKind kind = resolved_collate->get()->node_kind();
+  bool is_order_by_collate =
+      ast_collate->parent()->node_kind() == AST_ORDERING_EXPRESSION;
+  if (kind == RESOLVED_LITERAL &&
+      resolved_collate->get()->type()->IsString()) {
+    return absl::OkStatus();
+  }
+  if (kind == RESOLVED_PARAMETER &&
+      resolved_collate->get()->type()->IsString() &&
+      is_order_by_collate) {
+    return absl::OkStatus();
+  }
+  if (is_order_by_collate) {
+    return MakeSqlErrorAt(ast_collate->collation_name())
+           << "COLLATE must be followed by a string literal or a string "
+              "parameter";
+  }
+  return MakeSqlErrorAt(ast_collate->collation_name())
+         << "COLLATE must be followed by a string literal";
+}
+
+absl::Status Resolver::ValidateAndResolveDefaultCollate(
+    const ASTCollate* ast_collate, const ASTNode* ast_location,
+    std::unique_ptr<const ResolvedExpr>* resolved_collate) {
+  ZETASQL_RET_CHECK_NE(nullptr, ast_collate);
+  ZETASQL_RET_CHECK(language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT));
+  return ResolveCollate(ast_collate, resolved_collate);
+}
+
+absl::Status Resolver::ValidateAndResolveCollate(
+    const ASTCollate* ast_collate, const ASTNode* ast_location,
+    const Type* column_type,
+    std::unique_ptr<const ResolvedExpr>* resolved_collate) {
+  ZETASQL_RET_CHECK_NE(nullptr, ast_collate);
+  ZETASQL_RET_CHECK(language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT));
+  if (!column_type->IsString()) {
+    return MakeSqlErrorAt(ast_location)
+           << "COLLATE can only be applied to columns or expressions of type "
+              "STRING, but was applied to "
+           << column_type->ShortTypeName(product_mode());
+  }
+  return ResolveCollate(ast_collate, resolved_collate);
 }
 
 std::vector<std::string> FunctionArgumentInfo::ArgumentNames() const {

@@ -16,8 +16,10 @@
 
 #include "zetasql/analyzer/filter_fields_path_validator.h"
 
+#include <memory>
+
 #include "google/protobuf/descriptor.h"
-#include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/base/testing/status_matchers.h"  
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -25,7 +27,7 @@
 
 namespace zetasql {
 
-using zetasql_test::KitchenSinkPB;
+using zetasql_test__::KitchenSinkPB;
 using google::protobuf::DescriptorPool;
 using zetasql_base::testing::StatusIs;
 
@@ -53,7 +55,7 @@ TEST_F(FilterFieldsPathValidatorTest, ValidateIncludeFieldPaths) {
       /*include=*/true,
       {KitchenSinkPB::descriptor()->FindFieldByName("nested_repeated_value"),
        DescriptorPool::generated_pool()->FindExtensionByName(
-           "zetasql_test.KitchenSinkPB.nested_extension_int64")}));
+           "zetasql_test__.KitchenSinkPB.nested_extension_int64")}));
 }
 
 TEST_F(FilterFieldsPathValidatorTest, ValidateExcludeFieldPaths) {
@@ -78,7 +80,7 @@ TEST_F(FilterFieldsPathValidatorTest, ValidateExcludeFieldPaths) {
       /*include=*/false,
       {KitchenSinkPB::descriptor()->FindFieldByName("nested_repeated_value"),
        DescriptorPool::generated_pool()->FindExtensionByName(
-           "zetasql_test.KitchenSinkPB.nested_extension_int64")}));
+           "zetasql_test__.KitchenSinkPB.nested_extension_int64")}));
 }
 
 TEST_F(FilterFieldsPathValidatorTest, ValidateOverridingFieldPaths) {
@@ -100,7 +102,7 @@ TEST_F(FilterFieldsPathValidatorTest, ValidateOverridingFieldPaths) {
       /*include=*/false,
       {KitchenSinkPB::descriptor()->FindFieldByName("nested_repeated_value"),
        DescriptorPool::generated_pool()->FindExtensionByName(
-           "zetasql_test.KitchenSinkPB.nested_extension_int64")}));
+           "zetasql_test__.KitchenSinkPB.nested_extension_int64")}));
 }
 
 TEST_F(FilterFieldsPathValidatorTest,
@@ -157,7 +159,7 @@ TEST_F(FilterFieldsPathValidatorTest, FailWhenNotOverridingParent) {
       /*include=*/false,
       {KitchenSinkPB::descriptor()->FindFieldByName("nested_repeated_value"),
        DescriptorPool::generated_pool()->FindExtensionByName(
-           "zetasql_test.KitchenSinkPB.nested_extension_int64")}));
+           "zetasql_test__.KitchenSinkPB.nested_extension_int64")}));
 
   EXPECT_THAT(
       validator.ValidateFieldPath(

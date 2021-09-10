@@ -29,7 +29,7 @@
 #include "zetasql/scripting/parsed_script.h"
 #include "zetasql/scripting/script_executor.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/canonical_errors.h"
 
@@ -56,16 +56,16 @@ class StatementEvaluatorCallback {
   // Invoked on an attempted statement evaluation, whether successful or not.
   virtual void OnStatementResult(
       const ScriptSegment& segment, const ResolvedStatement* resolved_stmt,
-      const zetasql_base::StatusOr<Value>& status_or_result) {}
+      const absl::StatusOr<Value>& status_or_result) {}
 
   // Invoked on an attempted expression evaluation, whether successful or not.
   virtual void OnScalarExpressionResult(
       const ScriptSegment& segment, const ResolvedExpr* resolved_expr,
-      const zetasql_base::StatusOr<Value>& status_or_result) {}
+      const absl::StatusOr<Value>& status_or_result) {}
 
   // Invoked on an attempt to resolve a type name, whether successful or not.
   virtual void OnTypeResult(const ScriptSegment& segment,
-                            zetasql_base::StatusOr<const Type*> status_or_type) {}
+                            absl::StatusOr<const Type*> status_or_type) {}
 
   // Invoked on an attempt to check if variable type is supported.
   // This method may return false to disallow certain variable types.
@@ -79,7 +79,7 @@ class StatementEvaluatorCallback {
   }
 
   // Invoked on an attempt to load a procedure.
-  virtual zetasql_base::StatusOr<std::unique_ptr<ProcedureDefinition>> LoadProcedure(
+  virtual absl::StatusOr<std::unique_ptr<ProcedureDefinition>> LoadProcedure(
       const absl::Span<const std::string>& path) {
     return absl::NotFoundError("");
   }
@@ -110,11 +110,13 @@ class StatementEvaluatorImpl : public StatementEvaluator {
   //   - For DML statements, all fields of <evaluator_options> are ignored,
   //       except for <clock>.
   StatementEvaluatorImpl(
+      const AnalyzerOptions& initial_analyzer_options,
       const EvaluatorOptions& evaluator_options,
       absl::variant<ParameterValueList, ParameterValueMap> parameters,
       TypeFactory* type_factory, Catalog* catalog,
       StatementEvaluatorCallback* callback)
-      : options_(evaluator_options),
+      : initial_analyzer_options_(initial_analyzer_options),
+        options_(evaluator_options),
         parameters_(parameters),
         type_factory_(type_factory),
         catalog_(catalog),
@@ -123,7 +125,7 @@ class StatementEvaluatorImpl : public StatementEvaluator {
   absl::Status ExecuteStatement(const ScriptExecutor& executor,
                                 const ScriptSegment& segment) override;
 
-  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+  absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
   ExecuteQueryWithResult(const ScriptExecutor& executor,
                          const ScriptSegment& segment) override;
 
@@ -131,20 +133,25 @@ class StatementEvaluatorImpl : public StatementEvaluator {
       const EvaluatorTableIterator& iterator,
       google::protobuf::Any& out) override;
 
-  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+  absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
   DeserializeToIterator(
     const google::protobuf::Any& msg,
     const ScriptExecutor& executor,
     const ParsedScript& parsed_script) override;
 
-  zetasql_base::StatusOr<int64_t> GetIteratorMemoryUsage(
+  absl::StatusOr<int64_t> GetIteratorMemoryUsage(
       const EvaluatorTableIterator& iterator) override;
 
-  zetasql_base::StatusOr<Value> EvaluateScalarExpression(
+  absl::StatusOr<int> EvaluateCaseExpression(
+      const ScriptSegment& case_value,
+      const std::vector<ScriptSegment>& when_values,
+      const ScriptExecutor& executor) override;
+
+  absl::StatusOr<Value> EvaluateScalarExpression(
       const ScriptExecutor& executor, const ScriptSegment& segment,
       const Type* target_type) override;
 
-  zetasql_base::StatusOr<TypeWithParameters> ResolveTypeName(
+  absl::StatusOr<TypeWithParameters> ResolveTypeName(
       const ScriptExecutor& executor, const ScriptSegment& segment) override;
 
   bool IsSupportedVariableType(
@@ -153,11 +160,14 @@ class StatementEvaluatorImpl : public StatementEvaluator {
   absl::Status ApplyTypeParameterConstraints(
       const TypeParameters& type_params, Value* value) override;
 
-  zetasql_base::StatusOr<std::unique_ptr<ProcedureDefinition>> LoadProcedure(
+  absl::StatusOr<std::unique_ptr<ProcedureDefinition>> LoadProcedure(
       const ScriptExecutor& executor,
       const absl::Span<const std::string>& path) override;
 
   TypeFactory* type_factory() { return type_factory_; }
+  const AnalyzerOptions& initial_analyzer_options() const {
+    return initial_analyzer_options_;
+  }
   const EvaluatorOptions& options() const { return options_; }
   const ParameterValueMap* named_parameters() const {
     return absl::get_if<ParameterValueMap>(&parameters_);
@@ -247,7 +257,7 @@ class StatementEvaluatorImpl : public StatementEvaluator {
     // Invoked after executing a DML statement; updates the modified table to
     // reflect the result. Returns the total number of rows inserted, modified,
     // or removed.
-    zetasql_base::StatusOr<int> DoDmlSideEffects(
+    absl::StatusOr<int> DoDmlSideEffects(
         EvaluatorTableModifyIterator* iterator);
 
     // Set from Execute().
@@ -287,6 +297,10 @@ class StatementEvaluatorImpl : public StatementEvaluator {
     // Set from Execute().
     Value result_;
   };
+
+  // AnalyzerOptions, excluding those, such as system variables, that are set by
+  // the execution of the script.
+  const AnalyzerOptions initial_analyzer_options_;
 
   EvaluatorOptions options_;
   const absl::variant<ParameterValueList, ParameterValueMap> parameters_;

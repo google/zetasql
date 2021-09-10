@@ -21,7 +21,7 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_column.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 
@@ -35,7 +35,7 @@ class ResolvedASTComparator {
   // * We check the two nodes have the same structure of the tree (recursively
   //   matching the node kinds).
   // * We check for each node in the tree that all field values are equal.
-  static zetasql_base::StatusOr<bool> CompareResolvedAST(const ResolvedNode* node1,
+  static absl::StatusOr<bool> CompareResolvedAST(const ResolvedNode* node1,
                                                  const ResolvedNode* node2);
  private:
   // Status object returned when the stack overflows.
@@ -45,7 +45,7 @@ class ResolvedASTComparator {
 
 # for node in nodes
  # if not node.is_abstract
-  static zetasql_base::StatusOr<bool> Compare{{node.name}}(const {{node.name}}* node1,
+  static absl::StatusOr<bool> Compare{{node.name}}(const {{node.name}}* node1,
                                                    const {{node.name}}* node2);
  # endif
 # endfor

@@ -34,7 +34,7 @@
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include <cstdint>
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"

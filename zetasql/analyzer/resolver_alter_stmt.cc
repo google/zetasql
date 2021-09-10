@@ -16,9 +16,12 @@
 
 // This file contains the implementation of ALTER related resolver
 // methods from resolver.h.
-#include <map>
 #include <memory>
+#include <set>
+#include <string>
+#include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/analyzer/name_scope.h"
@@ -26,17 +29,26 @@
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/coercer.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/input_argument_type.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
-#include "zetasql/public/strings.h"
+#include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_parameters.h"
+#include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/status.h"
+#include "absl/types/span.h"
+#include "zetasql/base/map_util.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -49,6 +61,20 @@ bool OptionsPresent(const ResolvedColumnAnnotations* annotations) {
     }
     for (int i = 0; i < annotations->child_list_size(); ++i) {
       if (OptionsPresent(annotations->child_list(i))) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+bool NotNullPresent(
+    const ResolvedColumnAnnotations* annotations) {
+  if (annotations != nullptr) {
+    if (annotations->not_null()) {
+      return true;
+    }
+    for (int i = 0; i < annotations->child_list_size(); ++i) {
+      if (NotNullPresent(annotations->child_list(i))) {
         return true;
       }
     }
@@ -68,8 +94,21 @@ absl::Status Resolver::ResolveAlterActions(
       MakeIdString(ast_statement->path()->ToIdentifierPathString());
 
   IdStringSetCase new_columns, column_to_drop;
+
+  // <columns_to_rename> is used to store old column names of columns renamed by
+  // RENAME COLUMN. If a column is renamed multiple times in same statement,
+  // the column's original name (the column name in catalog) will be stored in
+  // <columns_to_rename>.
+  IdStringSetCase columns_to_rename;
+
+  // This <columns_rename_map> map takes the new column name as key and the old
+  // column name as value. If a column is renamed multiple times in the same
+  // statement, the column's original name (the column name in the catalog) will
+  // be stored in the map as the value.
+  IdStringHashMapCase<IdString> columns_rename_map;
   const Table* altered_table = nullptr;
   bool existing_rename_to_action = false;
+
   // Some engines do not add all the referenced tables into the catalog. Thus,
   // if the lookup here fails it does not necessarily mean that the table does
   // not exist.
@@ -77,10 +116,29 @@ absl::Status Resolver::ResolveAlterActions(
 
   *has_only_set_options_action = true;
   bool already_added_primary_key = false;
+  bool has_rename_column = false;
+  bool has_non_rename_column_action = false;
   const ASTAlterActionList* action_list = ast_statement->action_list();
   for (const ASTAlterAction* const action : action_list->actions()) {
     if (action->node_kind() != AST_SET_OPTIONS_ACTION) {
       *has_only_set_options_action = false;
+    }
+    if (action->node_kind() == AST_RENAME_COLUMN_ACTION) {
+      if (has_non_rename_column_action) {
+        return MakeSqlErrorAt(action)
+               << "ALTER " << alter_statement_kind
+               << " does not support combining "
+               << action->GetSQLForAlterAction() << " with other alter actions";
+      }
+      has_rename_column = true;
+    } else {
+      if (has_rename_column) {
+        return MakeSqlErrorAt(action)
+               << "ALTER " << alter_statement_kind
+               << " does not support combining "
+               << action->GetSQLForAlterAction() << " with RENAME COLUMN";
+      }
+      has_non_rename_column_action = true;
     }
     switch (action->node_kind()) {
       case AST_SET_OPTIONS_ACTION: {
@@ -136,9 +194,11 @@ absl::Status Resolver::ResolveAlterActions(
                << "ALTER CONSTRAINT SET OPTIONS is not supported";
       case AST_ADD_COLUMN_ACTION:
       case AST_DROP_COLUMN_ACTION:
+      case AST_RENAME_COLUMN_ACTION:
       case AST_ALTER_COLUMN_TYPE_ACTION: {
         if (ast_statement->node_kind() != AST_ALTER_TABLE_STATEMENT) {
-          // Views, models, etc don't support ADD/DROP/SET DATA TYPE columns.
+          // Views, models, etc don't support ADD/DROP/RENAME/SET DATA TYPE
+          // columns.
           return MakeSqlErrorAt(action)
                  << "ALTER " << alter_statement_kind << " does not support "
                  << action->GetSQLForAlterAction();
@@ -147,26 +207,50 @@ absl::Status Resolver::ResolveAlterActions(
           ZETASQL_RETURN_IF_ERROR(table_status);
         }
         std::unique_ptr<const ResolvedAlterAction> resolved_action;
-        if (action->node_kind() == AST_ADD_COLUMN_ACTION) {
-          ZETASQL_RETURN_IF_ERROR(ResolveAddColumnAction(
-              table_name_id_string, altered_table,
-              action->GetAsOrDie<ASTAddColumnAction>(), &new_columns,
-              &column_to_drop, &resolved_action));
-        } else if (action->node_kind() == AST_DROP_COLUMN_ACTION) {
-          ZETASQL_RETURN_IF_ERROR(ResolveDropColumnAction(
-              table_name_id_string, altered_table,
-              action->GetAsOrDie<ASTDropColumnAction>(), &new_columns,
-              &column_to_drop, &resolved_action));
-        } else if (language().LanguageFeatureEnabled(
-                       FEATURE_ALTER_COLUMN_SET_DATA_TYPE)) {
-          ZETASQL_RETURN_IF_ERROR(ResolveAlterColumnTypeAction(
-              table_name_id_string, altered_table,
-              action->GetAsOrDie<ASTAlterColumnTypeAction>(),
-              &resolved_action));
-        } else {
-          return MakeSqlErrorAt(action)
-                 << "ALTER " << alter_statement_kind << " does not support "
-                 << action->GetSQLForAlterAction();
+        switch (action->node_kind()) {
+          case AST_ADD_COLUMN_ACTION: {
+            ZETASQL_RETURN_IF_ERROR(ResolveAddColumnAction(
+                table_name_id_string, altered_table,
+                action->GetAsOrDie<ASTAddColumnAction>(), &new_columns,
+                &column_to_drop, &resolved_action));
+          } break;
+          case AST_DROP_COLUMN_ACTION: {
+            ZETASQL_RETURN_IF_ERROR(ResolveDropColumnAction(
+                table_name_id_string, altered_table,
+                action->GetAsOrDie<ASTDropColumnAction>(), &new_columns,
+                &column_to_drop, &resolved_action));
+          } break;
+          case AST_ALTER_COLUMN_TYPE_ACTION: {
+            if (language().LanguageFeatureEnabled(
+                    FEATURE_ALTER_COLUMN_SET_DATA_TYPE)) {
+              ZETASQL_RETURN_IF_ERROR(ResolveAlterColumnTypeAction(
+                  table_name_id_string, altered_table,
+                  action->GetAsOrDie<ASTAlterColumnTypeAction>(),
+                  &resolved_action));
+            } else {
+              return MakeSqlErrorAt(action)
+                     << "ALTER " << alter_statement_kind << " does not support "
+                     << action->GetSQLForAlterAction();
+            }
+          } break;
+          case AST_RENAME_COLUMN_ACTION: {
+            if (language().LanguageFeatureEnabled(
+                    FEATURE_ALTER_TABLE_RENAME_COLUMN) &&
+                action->node_kind() == AST_RENAME_COLUMN_ACTION) {
+              ZETASQL_RETURN_IF_ERROR(ResolveRenameColumnAction(
+                  table_name_id_string, altered_table,
+                  action->GetAsOrDie<ASTRenameColumnAction>(),
+                  &columns_to_rename, &columns_rename_map, &resolved_action));
+            } else {
+              return MakeSqlErrorAt(action)
+                     << "ALTER " << alter_statement_kind << " does not support "
+                     << action->GetSQLForAlterAction();
+            }
+          } break;
+          default:
+            return MakeSqlErrorAt(action)
+                   << "ALTER " << alter_statement_kind << " does not support "
+                   << action->GetSQLForAlterAction();
         }
         alter_actions->push_back(std::move(resolved_action));
       } break;
@@ -248,10 +332,23 @@ absl::Status Resolver::ResolveAlterActions(
         alter_actions->push_back(std::move(resolved_action));
       } break;
       case AST_SET_COLLATE_CLAUSE: {
-        return MakeSqlErrorAt(action)
-               << "ALTER " << alter_statement_kind << " does not support "
-               << action->GetSQLForAlterAction() << " action.";
-      }
+        if (!language().LanguageFeatureEnabled(
+                FEATURE_V_1_3_COLLATION_SUPPORT) ||
+            (ast_statement->node_kind() != AST_ALTER_TABLE_STATEMENT &&
+             ast_statement->node_kind() != AST_ALTER_SCHEMA_STATEMENT)) {
+          // AST_SET_COLLATE_CLAUSE supports ALTER TABLE and ALTER SCHEMA
+          // statement.
+          return MakeSqlErrorAt(action)
+                 << "ALTER " << alter_statement_kind << " does not support "
+                 << action->GetSQLForAlterAction();
+        }
+        std::unique_ptr<const ResolvedAlterAction> resolved_alter_action;
+        const auto* collate_clause = action->GetAsOrDie<ASTSetCollateClause>();
+        ZETASQL_RETURN_IF_ERROR(ResolveSetCollateClause(table_name_id_string,
+                                                collate_clause,
+                                                &resolved_alter_action));
+        alter_actions->push_back(std::move(resolved_alter_action));
+      } break;
       default:
         return MakeSqlErrorAt(action)
                << "ALTER " << alter_statement_kind << " does not support "
@@ -282,10 +379,6 @@ absl::Status Resolver::ResolveAlterSchemaStatement(
   bool has_only_set_options_action = true;
   std::vector<std::unique_ptr<const ResolvedAlterAction>>
       resolved_alter_actions;
-  if (ast_statement->collate() != nullptr) {
-      return MakeSqlErrorAt(ast_statement->collate())
-          << "COLLATE is unsupported";
-  }
   ZETASQL_RETURN_IF_ERROR(ResolveAlterActions(ast_statement, "SCHEMA", output,
                                       &has_only_set_options_action,
                                       &resolved_alter_actions));
@@ -301,10 +394,6 @@ absl::Status Resolver::ResolveAlterTableStatement(
   bool has_only_set_options_action = true;
   std::vector<std::unique_ptr<const ResolvedAlterAction>>
       resolved_alter_actions;
-  if (ast_statement->collate() != nullptr) {
-      return MakeSqlErrorAt(ast_statement->collate())
-          << "COLLATE is unsupported";
-  }
   ZETASQL_RETURN_IF_ERROR(ResolveAlterActions(ast_statement, "TABLE", output,
                                       &has_only_set_options_action,
                                       &resolved_alter_actions));
@@ -446,6 +535,76 @@ absl::Status Resolver::ResolveDropColumnAction(
   return absl::OkStatus();
 }
 
+absl::Status Resolver::ResolveRenameColumnAction(
+    IdString table_name_id_string, const Table* table,
+    const ASTRenameColumnAction* action, IdStringSetCase* columns_to_rename,
+    IdStringHashMapCase<IdString>* columns_rename_map,
+    std::unique_ptr<const ResolvedAlterAction>* alter_action) {
+  ZETASQL_RET_CHECK(*alter_action == nullptr);
+
+  const IdString new_column_name = action->new_column_name()->GetAsIdString();
+  if (zetasql_base::ContainsKey(*columns_rename_map, new_column_name)) {
+    return MakeSqlErrorAt(action->new_column_name())
+           << "Another column was renamed to " << new_column_name
+           << " in a previous command of the same ALTER TABLE statement";
+  }
+  // Check the new column name does not exist, unless it was renamed by RENAME
+  // COLUMN.
+  if (table != nullptr &&
+      !zetasql_base::ContainsKey(*columns_to_rename, new_column_name) &&
+      table->FindColumnByName(new_column_name.ToString()) != nullptr) {
+    return MakeSqlErrorAt(action->new_column_name())
+           << "Column already exists: " << new_column_name;
+  }
+
+  // Check the existence of old column name:
+  // 1. Check if there is a column renamed to this old column name.
+  // 2. Check if the column has been renamed in previous actions of the same
+  // statement.
+  // 3. Check if the column name exists in the table.
+  const IdString old_column_name = action->column_name()->GetAsIdString();
+  if (table != nullptr) {
+    if (zetasql_base::ContainsKey(*columns_rename_map, old_column_name)) {
+      // This case is renaming a column that was already renamed, e.g., RENAME a
+      // TO b, RENAME b TO c. In this case, we replace key-value pair
+      // {old_column_name, catalog_column_name} with {new_column_name,
+      // catalog_column_name} in columns_rename_map. Here catalog_column_name
+      // represents the actual column name in table before the ALTER statement
+      // happens.
+      const IdString catalog_column_name =
+          (*columns_rename_map)[old_column_name];
+      columns_rename_map->erase(old_column_name);
+      columns_rename_map->insert({new_column_name, catalog_column_name});
+    } else if (zetasql_base::ContainsKey(*columns_to_rename, old_column_name)) {
+      // This case is renaming a table column that has already been renamed,
+      // e.g., RENAME a TO b, RENAME a TO c
+      return MakeSqlErrorAt(action->column_name())
+             << "Column " << old_column_name
+             << " has been renamed in a previous alter action";
+    } else {
+      // Verify that the old column exists and can be renamed.
+      const Column* column =
+          table->FindColumnByName(old_column_name.ToString());
+      if (column == nullptr && !action->is_if_exists()) {
+        return MakeSqlErrorAt(action->column_name())
+               << "ALTER TABLE RENAME COLUMN not found: " << old_column_name;
+      }
+      if (column != nullptr && column->IsPseudoColumn()) {
+        return MakeSqlErrorAt(action->column_name())
+               << "ALTER TABLE RENAME COLUMN cannot rename pseudo-column "
+               << old_column_name;
+      }
+      columns_rename_map->insert({new_column_name, old_column_name});
+      columns_to_rename->insert(old_column_name);
+    }
+  }
+
+  *alter_action = MakeResolvedRenameColumnAction(action->is_if_exists(),
+                                                 old_column_name.ToString(),
+                                                 new_column_name.ToString());
+  return absl::OkStatus();
+}
+
 absl::Status Resolver::ResolveAlterColumnTypeAction(
     IdString table_name_id_string, const Table* table,
     const ASTAlterColumnTypeAction* action,
@@ -457,6 +616,7 @@ absl::Status Resolver::ResolveAlterColumnTypeAction(
   std::unique_ptr<ResolvedColumnRef> column_reference;
   const Type* resolved_type = nullptr;
   TypeParameters type_parameters;
+  std::unique_ptr<const ResolvedColumnAnnotations> annotations;
 
   if (table != nullptr) {
     const Column* column = table->FindColumnByName(column_name.ToString());
@@ -476,16 +636,18 @@ absl::Status Resolver::ResolveAlterColumnTypeAction(
     }
 
     NameList column_name_list;
-    std::unique_ptr<const ResolvedColumnAnnotations> annotations;
     std::unique_ptr<ResolvedGeneratedColumnInfo> generated_column_info;
-    std::unique_ptr<const ResolvedExpr> column_default_expr;
+    std::unique_ptr<ResolvedColumnDefaultValue> column_default_value;
 
-    ZETASQL_RETURN_IF_ERROR(ResolveColumnSchema(
-        action->schema(), column_name_list, &resolved_type, &annotations,
-        &generated_column_info, &column_default_expr));
+    ZETASQL_RETURN_IF_ERROR(
+        ResolveColumnSchema(action->schema(), column_name_list, &resolved_type,
+                            &annotations, &generated_column_info,
+                            &column_default_value));
 
+    // Parser already made sure SET DATA TYPE won't have generated column, or
+    // default value expression. That's why we throw ZETASQL_RET_CHECK here.
     ZETASQL_RET_CHECK(generated_column_info == nullptr);
-    ZETASQL_RET_CHECK(column_default_expr == nullptr);
+    ZETASQL_RET_CHECK(column_default_value == nullptr);
 
     if (annotations != nullptr) {
       // OPTIONS not allowed.
@@ -493,6 +655,12 @@ absl::Status Resolver::ResolveAlterColumnTypeAction(
         return MakeSqlErrorAt(action->schema())
                << "For ALTER TABLE ALTER COLUMN SET DATA TYPE, the updated "
                << "data type cannot contain OPTIONS";
+      }
+      // NOT NULL not allowed.
+      if (NotNullPresent(annotations.get())) {
+        return MakeSqlErrorAt(action->schema())
+               << "For ALTER TABLE ALTER COLUMN SET DATA TYPE, the updated "
+               << "data type cannot contain NOT NULL";
       }
 
       ZETASQL_ASSIGN_OR_RETURN(type_parameters,
@@ -522,7 +690,7 @@ absl::Status Resolver::ResolveAlterColumnTypeAction(
 
   *alter_action = MakeResolvedAlterColumnSetDataTypeAction(
       action->is_if_exists(), column_name.ToString(), resolved_type,
-      type_parameters);
+      type_parameters, std::move(annotations));
   return absl::OkStatus();
 }
 
@@ -717,5 +885,14 @@ absl::Status Resolver::ResolveAddConstraintAction(
 
   return MakeSqlErrorAt(alter_action)
          << "ALTER TABLE ADD CONSTRAINT is not implemented";
+}
+absl::Status Resolver::ResolveSetCollateClause(
+    IdString table_name_id_string, const ASTSetCollateClause* action,
+    std::unique_ptr<const ResolvedAlterAction>* alter_action) {
+  std::unique_ptr<const ResolvedExpr> resolved_collation;
+  ZETASQL_RETURN_IF_ERROR(ValidateAndResolveDefaultCollate(
+      action->collate(), action->collate(), &resolved_collation));
+  *alter_action = MakeResolvedSetCollateClause(std::move(resolved_collation));
+  return absl::OkStatus();
 }
 }  // namespace zetasql

@@ -22,7 +22,7 @@
 
 #include "zetasql/common/internal_value.h"
 #include "zetasql/public/collator.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
 
@@ -38,7 +38,7 @@ class TupleComparator {
   // Validates the collators in <keys> if non-nullptr, returns both the tuple
   // comparator and the collators upon success. 'slots_for_keys[i]' is the index
   // of 'keys[i]' in a TupleData passed to operator().
-  static zetasql_base::StatusOr<std::unique_ptr<TupleComparator>> Create(
+  static absl::StatusOr<std::unique_ptr<TupleComparator>> Create(
       absl::Span<const KeyArg* const> keys,
       absl::Span<const int> slots_for_keys,
       absl::Span<const TupleData* const> params, EvaluationContext* context);

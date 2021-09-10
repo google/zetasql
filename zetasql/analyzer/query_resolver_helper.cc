@@ -16,127 +16,41 @@
 
 #include "zetasql/analyzer/query_resolver_helper.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <algorithm>
+#include <map>
+#include <memory>
 #include <set>
-#include <tuple>
+#include <string>
+#include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/descriptor.h"
 #include "zetasql/analyzer/analytic_function_resolver.h"
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/analyzer/name_scope.h"
+#include "zetasql/parser/parse_tree.h"
+#include "zetasql/parser/parse_tree_errors.h"
+#include "zetasql/public/id_string.h"
+#include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/container/flat_hash_map.h"
-#include "absl/hash/hash.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
-
-size_t FieldPathHash(const ResolvedExpr* expr) {
-  ZETASQL_DCHECK(expr != nullptr);
-  switch (expr->node_kind()) {
-    case RESOLVED_GET_PROTO_FIELD: {
-      // Note that this only hashes the top-level type (e.g. ARRAY).
-      const ResolvedGetProtoField* proto_field =
-          expr->GetAs<ResolvedGetProtoField>();
-      return absl::Hash<std::tuple<int, int, int, size_t>>()(
-          std::make_tuple(expr->node_kind(), expr->type()->kind(),
-                          proto_field->field_descriptor()->number(),
-                          FieldPathHash(proto_field->expr())));
-    }
-    case RESOLVED_GET_STRUCT_FIELD: {
-      const ResolvedGetStructField* struct_field =
-          expr->GetAs<ResolvedGetStructField>();
-      // Note that this only hashes the top-level type (e.g. ARRAY).
-      return absl::Hash<std::tuple<int, int, int, size_t>>()(std::make_tuple(
-          expr->node_kind(), expr->type()->kind(), struct_field->field_idx(),
-          FieldPathHash(struct_field->expr())));
-    }
-    case RESOLVED_COLUMN_REF:
-      return absl::Hash<std::pair<int, int>>()(std::make_pair(
-          expr->node_kind(),
-          expr->GetAs<ResolvedColumnRef>()->column().column_id()));
-    default:
-      return absl::Hash<int>()(expr->node_kind());
-  }
-}
-
-bool IsSameFieldPath(const ResolvedExpr* field_path1,
-                     const ResolvedExpr* field_path2,
-                     FieldPathMatchingOption match_option) {
-  // Checking types is a useful optimization to allow returning early. However,
-  // we can't rely on Type::Equals() because it considers two otherwise
-  // identical proto descriptors from different descriptor pools to be
-  // different. So we compare Type::Kinds instead.
-  if (field_path1->node_kind() != field_path2->node_kind() ||
-      field_path1->type()->kind() != field_path2->type()->kind()) {
-    return false;
-  }
-
-  switch (field_path1->node_kind()) {
-    case RESOLVED_GET_PROTO_FIELD: {
-      const ResolvedGetProtoField* proto_field1 =
-          field_path1->GetAs<ResolvedGetProtoField>();
-      const ResolvedGetProtoField* proto_field2 =
-          field_path2->GetAs<ResolvedGetProtoField>();
-
-      const bool field_paths_match =
-          (proto_field1->expr()->type()->kind() ==
-           proto_field2->expr()->type()->kind()) &&
-          proto_field1->field_descriptor()->number() ==
-              proto_field2->field_descriptor()->number() &&
-          proto_field1->default_value() == proto_field2->default_value() &&
-          proto_field1->get_has_bit() == proto_field2->get_has_bit() &&
-          proto_field1->format() == proto_field2->format() &&
-          IsSameFieldPath(proto_field1->expr(), proto_field2->expr(),
-                          match_option);
-      if (match_option == FieldPathMatchingOption::kFieldPath) {
-        return field_paths_match;
-      }
-      return field_paths_match &&
-             proto_field1->type()->Equals(proto_field2->type()) &&
-             proto_field1->expr()->type()->Equals(
-                 proto_field2->expr()->type()) &&
-             proto_field1->return_default_value_when_unset() ==
-                 proto_field2->return_default_value_when_unset();
-    }
-    case RESOLVED_GET_STRUCT_FIELD: {
-      const ResolvedGetStructField* struct_field1 =
-          field_path1->GetAs<ResolvedGetStructField>();
-      const ResolvedGetStructField* struct_field2 =
-          field_path2->GetAs<ResolvedGetStructField>();
-
-      const bool field_paths_match =
-          (struct_field1->expr()->type()->kind() ==
-           struct_field2->expr()->type()->kind()) &&
-          (struct_field1->field_idx() == struct_field2->field_idx()) &&
-          IsSameFieldPath(struct_field1->expr(), struct_field2->expr(),
-                          match_option);
-      if (match_option == FieldPathMatchingOption::kFieldPath) {
-        return field_paths_match;
-      }
-      return field_paths_match &&
-             struct_field1->type()->Equals(struct_field2->type());
-    }
-    case RESOLVED_COLUMN_REF: {
-      // Ignore ResolvedColumnRef::is_correlated because it is IGNORABLE and
-      // therefore semantically meaningless. If the ResolvedColumnRefs indicate
-      // the same ResolvedColumn, then the expressions must be equivalent.
-      return field_path1->GetAs<ResolvedColumnRef>()->column() ==
-             field_path2->GetAs<ResolvedColumnRef>()->column();
-    }
-    default:
-      return false;
-  }
-}
 
 void QueryGroupByAndAggregateInfo::Reset() {
   has_group_by = false;
@@ -149,6 +63,200 @@ void QueryGroupByAndAggregateInfo::Reset() {
   aggregate_columns_to_compute.clear();
   group_by_valid_field_info_map.Clear();
   is_post_distinct = false;
+}
+
+const Type* SelectColumnState::GetType() const {
+  if (resolved_select_column.IsInitialized()) {
+    return resolved_select_column.type();
+  }
+  if (resolved_expr != nullptr) {
+    return resolved_expr->type();
+  }
+  return nullptr;
+}
+
+std::string SelectColumnState::DebugString(absl::string_view indent) const {
+  std::string debug_string;
+  absl::StrAppend(&debug_string, indent, "expr:\n   ", ast_expr->DebugString(),
+                  "\n");
+  absl::StrAppend(&debug_string, indent, "alias: ", alias.ToStringView(), "\n");
+  absl::StrAppend(&debug_string, indent, "is_explicit: ", is_explicit, "\n");
+  absl::StrAppend(&debug_string, indent,
+                  "select_list_position: ", select_list_position, "\n");
+  absl::StrAppend(
+      &debug_string, indent, "resolved_expr:\n  ",
+      (resolved_expr != nullptr ? resolved_expr->DebugString() : "<null>"),
+      "\n");
+  absl::StrAppend(&debug_string, indent, "resolved_computed_column:\n  ",
+                  (resolved_computed_column != nullptr
+                       ? resolved_computed_column->DebugString()
+                       : "<null>"),
+                  "\n");
+  absl::StrAppend(&debug_string, indent, "has_aggregation: ", has_aggregation,
+                  "\n");
+  absl::StrAppend(&debug_string, indent, "has_analytic: ", has_analytic, "\n");
+  absl::StrAppend(&debug_string, indent,
+                  "is_group_by_column: ", is_group_by_column, "\n");
+  absl::StrAppend(&debug_string, indent, "resolved_select_column: ",
+                  (resolved_select_column.IsInitialized()
+                       ? resolved_select_column.DebugString()
+                       : "<uninitialized>"),
+                  "\n");
+  absl::StrAppend(&debug_string, indent,
+                  "resolved_pre_group_by_select_column: ",
+                  (resolved_pre_group_by_select_column.IsInitialized()
+                       ? resolved_pre_group_by_select_column.DebugString()
+                       : "<uninitialized>"));
+  return debug_string;
+}
+
+void SelectColumnStateList::AddSelectColumn(
+    const ASTExpression* ast_expr, IdString alias, bool is_explicit,
+    bool has_aggregation, bool has_analytic,
+    std::unique_ptr<const ResolvedExpr> resolved_expr) {
+  AddSelectColumn(absl::make_unique<SelectColumnState>(
+      ast_expr, alias, is_explicit, has_aggregation, has_analytic,
+      std::move(resolved_expr)));
+}
+
+void SelectColumnStateList::AddSelectColumn(
+    std::unique_ptr<SelectColumnState> select_column_state) {
+  ZETASQL_DCHECK_EQ(select_column_state->select_list_position, -1);
+  select_column_state->select_list_position =
+      static_cast<int>(select_column_state_list_.size());
+  // Save a mapping from the alias to this SelectColumnState. The mapping is
+  // later used for validations performed by
+  // FindAndValidateSelectColumnStateByAlias().
+  const IdString alias = select_column_state->alias;
+  if (!IsInternalAlias(alias)) {
+    if (!zetasql_base::InsertIfNotPresent(&column_alias_to_state_list_position_, alias,
+                                 select_column_state->select_list_position)) {
+      // Now ambiguous.
+      column_alias_to_state_list_position_[alias] = -1;
+    }
+  }
+  select_column_state_list_.emplace_back(std::move(select_column_state));
+}
+
+absl::Status SelectColumnStateList::FindAndValidateSelectColumnStateByAlias(
+    const char* clause_name, const ASTNode* ast_location, IdString alias,
+    const ExprResolutionInfo* expr_resolution_info,
+    const SelectColumnState** select_column_state) const {
+  *select_column_state = nullptr;
+  // TODO Should probably do this more generally with name scoping.
+  const int* state_list_position =
+      zetasql_base::FindOrNull(column_alias_to_state_list_position_, alias);
+  if (state_list_position != nullptr) {
+    if (*state_list_position == -1) {
+      return MakeSqlErrorAt(ast_location)
+             << "Name " << alias << " in " << clause_name
+             << " is ambiguous; it may refer to multiple columns in the"
+                " SELECT-list";
+    } else {
+      const SelectColumnState* found_select_column_state =
+          select_column_state_list_[*state_list_position].get();
+      ZETASQL_RETURN_IF_ERROR(ValidateAggregateAndAnalyticSupport(
+          alias.ToStringView(), ast_location, found_select_column_state,
+          expr_resolution_info));
+      *select_column_state = found_select_column_state;
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status SelectColumnStateList::FindAndValidateSelectColumnStateByOrdinal(
+    const std::string& expr_description, const ASTNode* ast_location,
+    const int64_t ordinal, const ExprResolutionInfo* expr_resolution_info,
+    const SelectColumnState** select_column_state) const {
+  *select_column_state = nullptr;
+  if (ordinal < 1 || ordinal > select_column_state_list_.size()) {
+    return MakeSqlErrorAt(ast_location)
+           << expr_description
+           << " is out of SELECT column number range: " << ordinal;
+  }
+  const SelectColumnState* found_select_column_state =
+      select_column_state_list_[ordinal - 1].get();  // Convert to 0-based.
+  ZETASQL_RETURN_IF_ERROR(ValidateAggregateAndAnalyticSupport(
+      absl::StrCat(ordinal), ast_location, found_select_column_state,
+      expr_resolution_info));
+  *select_column_state = found_select_column_state;
+  return absl::OkStatus();
+}
+
+absl::Status SelectColumnStateList::ValidateAggregateAndAnalyticSupport(
+    const absl::string_view column_description, const ASTNode* ast_location,
+    const SelectColumnState* select_column_state,
+    const ExprResolutionInfo* expr_resolution_info) {
+  if (select_column_state->has_aggregation &&
+      !expr_resolution_info->allows_aggregation) {
+    return MakeSqlErrorAt(ast_location)
+           << "Column " << column_description
+           << " contains an aggregation function, which is not allowed in "
+           << expr_resolution_info->clause_name
+           << (expr_resolution_info->is_post_distinct()
+                   ? " after SELECT DISTINCT"
+                   : "");
+  }
+  if (select_column_state->has_analytic &&
+      !expr_resolution_info->allows_analytic) {
+    return MakeSqlErrorAt(ast_location)
+           << "Column " << column_description
+           << " contains an analytic function, which is not allowed in "
+           << expr_resolution_info->clause_name
+           << (expr_resolution_info->is_post_distinct()
+                   ? " after SELECT DISTINCT"
+                   : "");
+  }
+  return absl::OkStatus();
+}
+
+SelectColumnState* SelectColumnStateList::GetSelectColumnState(
+    int select_list_position) {
+  ZETASQL_CHECK_GE(select_list_position, 0);
+  ZETASQL_CHECK_LT(select_list_position, select_column_state_list_.size());
+  return select_column_state_list_[select_list_position].get();
+}
+
+const SelectColumnState* SelectColumnStateList::GetSelectColumnState(
+    int select_list_position) const {
+  ZETASQL_CHECK_GE(select_list_position, 0);
+  ZETASQL_CHECK_LT(select_list_position, select_column_state_list_.size());
+  return select_column_state_list_[select_list_position].get();
+}
+
+const std::vector<std::unique_ptr<SelectColumnState>>&
+SelectColumnStateList::select_column_state_list() const {
+  return select_column_state_list_;
+}
+
+const ResolvedColumnList SelectColumnStateList::resolved_column_list() const {
+  ResolvedColumnList resolved_column_list;
+  resolved_column_list.reserve(select_column_state_list_.size());
+  for (const std::unique_ptr<SelectColumnState>& select_column_state :
+       select_column_state_list_) {
+    resolved_column_list.push_back(select_column_state->resolved_select_column);
+  }
+  return resolved_column_list;
+}
+
+size_t SelectColumnStateList::Size() const {
+  return select_column_state_list_.size();
+}
+
+std::string SelectColumnStateList::DebugString() const {
+  std::string debug_string("SelectColumnStateList, size = ");
+  absl::StrAppend(&debug_string, Size(), "\n");
+  for (int idx = 0; idx < Size(); ++idx) {
+    absl::StrAppend(&debug_string, "    [", idx, "]:\n",
+                    GetSelectColumnState(idx)->DebugString("       "), "\n");
+  }
+  absl::StrAppend(&debug_string, "  alias map:\n");
+  for (const auto& alias_to_position : column_alias_to_state_list_position_) {
+    absl::StrAppend(&debug_string, "    ",
+                    alias_to_position.first.ToStringView(), " : ",
+                    alias_to_position.second, "\n");
+  }
+  return debug_string;
 }
 
 QueryResolutionInfo::QueryResolutionInfo(Resolver* resolver) {

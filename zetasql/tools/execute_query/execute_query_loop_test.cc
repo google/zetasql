@@ -20,35 +20,41 @@
 #include <string>
 #include <utility>
 
+#include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/common/testing/status_payload_matchers.h"
+#include "zetasql/tools/execute_query/execute_query.pb.h"
 #include "zetasql/tools/execute_query/execute_query_prompt.h"
 #include "zetasql/tools/execute_query/execute_query_tool.h"
 #include "zetasql/tools/execute_query/execute_query_writer.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 
 namespace zetasql {
 
-using testing::IsEmpty;
-using zetasql_base::testing::StatusIs;
+using execute_query::ParserErrorContext;
+using zetasql::testing::StatusHasPayload;
+using testing::EqualsProto;
+using ::testing::IsEmpty;
+using ::zetasql_base::testing::StatusIs;
 
 namespace {
 class StaticResultPrompt : public ExecuteQueryPrompt {
  public:
-  void set_read_result(zetasql_base::StatusOr<absl::optional<std::string>> r) {
+  void set_read_result(absl::StatusOr<absl::optional<std::string>> r) {
     read_result_ = std::move(r);
   }
 
-  zetasql_base::StatusOr<absl::optional<std::string>> Read() override {
+  absl::StatusOr<absl::optional<std::string>> Read() override {
     return read_result_;
   }
 
  private:
-  zetasql_base::StatusOr<absl::optional<std::string>> read_result_;
+  absl::StatusOr<absl::optional<std::string>> read_result_;
 };
 }  // namespace
 
@@ -97,13 +103,13 @@ TEST(ExecuteQueryLoopTest, NoInput) {
 TEST(ExecuteQueryLoopTest, Callback) {
   StaticResultPrompt prompt;
 
-  prompt.set_read_result("test error");
+  prompt.set_read_result("\ntest error   ");
 
   ExecuteQueryConfig config;
   std::ostringstream output;
   ExecuteQueryStreamWriter writer{output};
 
-  const auto handler = [&prompt](absl::Status status, absl::string_view sql) {
+  const auto handler = [&prompt](absl::Status status) {
     if (status.code() == absl::StatusCode::kUnavailable &&
         status.message() == "input error") {
       return status;
@@ -111,7 +117,9 @@ TEST(ExecuteQueryLoopTest, Callback) {
 
     // The query used invalid syntax
     EXPECT_THAT(status, StatusIs(absl::StatusCode::kInvalidArgument));
-    EXPECT_EQ(sql, "test error");
+    EXPECT_THAT(status, StatusHasPayload<ParserErrorContext>(EqualsProto(R"pb(
+                  text: "test error"
+                )pb")));
 
     // Provoke another error
     prompt.set_read_result(absl::UnavailableError("input error"));

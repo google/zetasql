@@ -23,10 +23,10 @@
 #include "gtest/gtest.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status_builder.h"
-#include "zetasql/base/statusor.h"
 
 namespace {
 
@@ -49,13 +49,13 @@ zetasql_base::StatusBuilder ReturnErrorBuilder(absl::string_view msg) {
       absl::Status(absl::StatusCode::kUnknown, msg), ZETASQL_LOC);
 }
 
-zetasql_base::StatusOr<int> ReturnStatusOrValue(int v) { return v; }
+absl::StatusOr<int> ReturnStatusOrValue(int v) { return v; }
 
-zetasql_base::StatusOr<int> ReturnStatusOrError(absl::string_view msg) {
+absl::StatusOr<int> ReturnStatusOrError(absl::string_view msg) {
   return absl::Status(absl::StatusCode::kUnknown, msg);
 }
 
-zetasql_base::StatusOr<std::unique_ptr<int>> ReturnStatusOrPtrValue(int v) {
+absl::StatusOr<std::unique_ptr<int>> ReturnStatusOrPtrValue(int v) {
   return absl::make_unique<int>(v);
 }
 

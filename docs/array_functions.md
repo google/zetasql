@@ -94,12 +94,14 @@ SELECT ARRAY
 ### ARRAY_CONCAT
 
 ```sql
-ARRAY_CONCAT(array_expression_1 [, array_expression_n])
+ARRAY_CONCAT(array_expression[, ...])
 ```
 
 **Description**
 
 Concatenates one or more arrays with the same element type into a single array.
+
+The function returns `NULL` if any input argument is `NULL`.
 
 Note: You can also use the [|| concatenation operator][array-link-to-operators]
 to concatenate arrays.

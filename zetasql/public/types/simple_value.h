@@ -18,11 +18,13 @@
 #define ZETASQL_PUBLIC_TYPES_SIMPLE_VALUE_H_
 
 #include <cstdint>
+#include <string>
+#include <utility>
 
 #include "zetasql/public/simple_value.pb.h"
 #include "zetasql/public/types/value_representations.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 
@@ -89,7 +91,7 @@ class SimpleValue {
   absl::Status Serialize(SimpleValueProto* proto) const;
 
   // Deserializes and returns an instance from a proto.
-  static zetasql_base::StatusOr<SimpleValue> Deserialize(const SimpleValueProto& proto);
+  static absl::StatusOr<SimpleValue> Deserialize(const SimpleValueProto& proto);
 
   std::string DebugString() const;
 

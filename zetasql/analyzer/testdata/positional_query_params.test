@@ -35,7 +35,7 @@ QueryStmt
             +-GetProtoField
             | +-type=BOOL
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=bool_val
             | +-default_value=false
             +-Parameter(parse_location=53-54, type=BOOL, position=1)
@@ -65,7 +65,7 @@ QueryStmt
             +-GetProtoField
             | +-type=BOOL
             | +-expr=
-            | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             | +-field_descriptor=bool_val
             | +-default_value=false
             +-Parameter(type=BOOL, position=1)
@@ -697,16 +697,16 @@ QueryStmt
     +-column_list=$query.[$col1#1, $col2#2, $col3#3]
     +-expr_list=
     | +-$col1#1 :=
-    | | +-FunctionCall(sample_functions:fn_on_TestEnum(ENUM<zetasql_test.TestEnum>) -> BOOL)
-    | |   +-Cast(INT32 -> ENUM<zetasql_test.TestEnum>)
+    | | +-FunctionCall(sample_functions:fn_on_TestEnum(ENUM<zetasql_test__.TestEnum>) -> BOOL)
+    | |   +-Cast(INT32 -> ENUM<zetasql_test__.TestEnum>)
     | |     +-Parameter(type=INT32, position=1)
     | +-$col2#2 :=
-    | | +-FunctionCall(sample_functions:fn_on_TestEnum(ENUM<zetasql_test.TestEnum>) -> BOOL)
-    | |   +-Cast(INT64 -> ENUM<zetasql_test.TestEnum>)
+    | | +-FunctionCall(sample_functions:fn_on_TestEnum(ENUM<zetasql_test__.TestEnum>) -> BOOL)
+    | |   +-Cast(INT64 -> ENUM<zetasql_test__.TestEnum>)
     | |     +-Parameter(type=INT64, position=2)
     | +-$col3#3 :=
-    |   +-FunctionCall(sample_functions:fn_on_TestEnum(ENUM<zetasql_test.TestEnum>) -> BOOL)
-    |     +-Cast(STRING -> ENUM<zetasql_test.TestEnum>)
+    |   +-FunctionCall(sample_functions:fn_on_TestEnum(ENUM<zetasql_test__.TestEnum>) -> BOOL)
+    |     +-Cast(STRING -> ENUM<zetasql_test__.TestEnum>)
     |       +-Parameter(type=STRING, position=3)
     +-input_scan=
       +-SingleRowScan

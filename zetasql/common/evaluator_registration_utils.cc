@@ -30,7 +30,10 @@ void EnableFullEvaluatorFeatures() {
   static absl::once_flag once;
   absl::call_once(once, []() {
     RegisterAllOptionalBuiltinFunctions();
-    RegisterIcuCollatorImpl(&zetasql::MakeSqlCollator);
+    RegisterIcuCollatorImpl(
+        [](absl::string_view collation_name, CollatorLegacyUnicodeMode mode) {
+          return zetasql::MakeSqlCollator(collation_name, mode);
+        });
   });
 }
 

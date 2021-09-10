@@ -46,7 +46,7 @@
 #include "gtest/gtest.h"
 #include <cstdint>
 #include "absl/memory/memory.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/substitute.h"
 #include "zetasql/base/map_util.h"
@@ -95,7 +95,7 @@ class AlgebrizerTestBase : public ::testing::Test {
   static constexpr int kBoolColId2 = kBoolColId + kTotalColumns;
   static constexpr int kDoubleColId2 = kDoubleColId + kTotalColumns;
 
-  zetasql_base::StatusOr<std::unique_ptr<const ValueExpr>>
+  absl::StatusOr<std::unique_ptr<const ValueExpr>>
   TestAlgebrizeExpressionInternal(
       const ResolvedExpr* resolved_expr,
       const ColumnToVariableMapping::Map* column_to_variable_map = nullptr) {
@@ -104,7 +104,7 @@ class AlgebrizerTestBase : public ::testing::Test {
       original_map = algebrizer_->column_to_variable_->map();
       algebrizer_->column_to_variable_->set_map(*column_to_variable_map);
     }
-    zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> result =
+    absl::StatusOr<std::unique_ptr<ValueExpr>> result =
         algebrizer_->AlgebrizeExpression(resolved_expr);
     if (original_map.has_value()) {
       algebrizer_->column_to_variable_->set_map(original_map.value());
@@ -115,7 +115,7 @@ class AlgebrizerTestBase : public ::testing::Test {
   void TestAlgebrizeExpression(
       const ResolvedExpr* resolved_expr, const std::string& expected,
       const ColumnToVariableMapping::Map* column_to_variable_map = nullptr) {
-    zetasql_base::StatusOr<std::unique_ptr<const ValueExpr>> expr =
+    absl::StatusOr<std::unique_ptr<const ValueExpr>> expr =
         TestAlgebrizeExpressionInternal(resolved_expr, column_to_variable_map);
     ZETASQL_EXPECT_OK(expr.status());
     if (expr.ok()) {
@@ -267,7 +267,7 @@ class AlgebrizerTestBase : public ::testing::Test {
                                    std::move(input_scan));
   }
 
-  zetasql_base::StatusOr<std::unique_ptr<ArrayNestExpr>> AlgebrizeAndNestInStruct(
+  absl::StatusOr<std::unique_ptr<ArrayNestExpr>> AlgebrizeAndNestInStruct(
       const ResolvedScan* resolved_scan) {
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> relation,
                      algebrizer_->AlgebrizeScan(resolved_scan));
@@ -998,7 +998,7 @@ const Function* AlgebrizerTestFunctions::fn_or =
 // This test algebrizes functions in isolation.
 TEST_P(AlgebrizerTestFunctions, Functions) {
   FunctionTest function_test = GetParam();
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> fct =
+  absl::StatusOr<std::unique_ptr<ValueExpr>> fct =
       algebrizer_->AlgebrizeExpression(function_test.function);
   EXPECT_EQ(function_test.function_call, fct.value()->DebugString());
 }
@@ -1049,7 +1049,7 @@ TEST_F(ExpressionAlgebrizerTest, UnknownFunction) {
   auto function_call = MakeResolvedFunctionCall(
       BoolType(), &bogus_function, bool_int64,
       AlgebrizerTestFunctions::OneInt64Literal(), DEFAULT_ERROR_MODE);
-  zetasql_base::StatusOr<std::unique_ptr<const ValueExpr>> fct =
+  absl::StatusOr<std::unique_ptr<const ValueExpr>> fct =
       TestAlgebrizeExpressionInternal(function_call.get());
   ASSERT_FALSE(fct.ok());
 }

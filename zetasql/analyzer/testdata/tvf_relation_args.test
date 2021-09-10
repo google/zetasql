@@ -426,11 +426,11 @@ QueryStmt
 
 # A TVF relation argument selects a value table using 'select as value'.
 select * from tvf_one_relation_arg_output_schema_is_input_schema(
-    (select as value new zetasql_test.EmptyMessage()))
+    (select as value new zetasql_test__.EmptyMessage()))
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_one_relation_arg_output_schema_is_input_schema.$col0#2 AS `$col0` [PROTO<zetasql_test.EmptyMessage>]
+| +-tvf_one_relation_arg_output_schema_is_input_schema.$col0#2 AS `$col0` [PROTO<zetasql_test__.EmptyMessage>]
 +-query=
   +-ProjectScan
     +-column_list=[tvf_one_relation_arg_output_schema_is_input_schema.$col0#2]
@@ -438,14 +438,14 @@ QueryStmt
       +-TVFScan
         +-column_list=[tvf_one_relation_arg_output_schema_is_input_schema.$col0#2]
         +-tvf=tvf_one_relation_arg_output_schema_is_input_schema((ANY TABLE) -> ANY TABLE)
-        +-signature=(TABLE<PROTO<zetasql_test.EmptyMessage>>) -> TABLE<PROTO<zetasql_test.EmptyMessage>>
+        +-signature=(TABLE<PROTO<zetasql_test__.EmptyMessage>>) -> TABLE<PROTO<zetasql_test__.EmptyMessage>>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
         |   | +-ProjectScan
         |   |   +-column_list=[$subquery1.$col1#1]
         |   |   +-expr_list=
-        |   |   | +-$col1#1 := MakeProto(type=PROTO<zetasql_test.EmptyMessage>)
+        |   |   | +-$col1#1 := MakeProto(type=PROTO<zetasql_test__.EmptyMessage>)
         |   |   +-input_scan=
         |   |     +-SingleRowScan
         |   +-argument_column_list=[$subquery1.$col1#1]
@@ -455,7 +455,7 @@ QueryStmt
 # A TVF relation argument selects a value table using 'select as <type>'.
 select int64_key_1, int64_key_2, int32_val
 from tvf_one_relation_arg_output_schema_is_input_schema(
-    (select as zetasql_test.KitchenSinkPB
+    (select as zetasql_test__.KitchenSinkPB
       null int32_VAL, null int64_key_1, null int64_key_2, null float_val))
 --
 QueryStmt
@@ -471,26 +471,26 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT64
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=tvf_one_relation_arg_output_schema_is_input_schema.$col0#6)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=tvf_one_relation_arg_output_schema_is_input_schema.$col0#6)
     | |   +-field_descriptor=int64_key_1
     | +-int64_key_2#8 :=
     | | +-GetProtoField
     | |   +-type=INT64
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=tvf_one_relation_arg_output_schema_is_input_schema.$col0#6)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=tvf_one_relation_arg_output_schema_is_input_schema.$col0#6)
     | |   +-field_descriptor=int64_key_2
     | +-int32_val#9 :=
     |   +-GetProtoField
     |     +-type=INT32
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=tvf_one_relation_arg_output_schema_is_input_schema.$col0#6)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=tvf_one_relation_arg_output_schema_is_input_schema.$col0#6)
     |     +-field_descriptor=int32_val
     |     +-default_value=77
     +-input_scan=
       +-TVFScan
         +-column_list=[tvf_one_relation_arg_output_schema_is_input_schema.$col0#6]
         +-tvf=tvf_one_relation_arg_output_schema_is_input_schema((ANY TABLE) -> ANY TABLE)
-        +-signature=(TABLE<PROTO<zetasql_test.KitchenSinkPB>>) -> TABLE<PROTO<zetasql_test.KitchenSinkPB>>
+        +-signature=(TABLE<PROTO<zetasql_test__.KitchenSinkPB>>) -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
@@ -499,7 +499,7 @@ QueryStmt
         |   |   +-expr_list=
         |   |   | +-$proto#5 :=
         |   |   |   +-MakeProto
-        |   |   |     +-type=PROTO<zetasql_test.KitchenSinkPB>
+        |   |   |     +-type=PROTO<zetasql_test__.KitchenSinkPB>
         |   |   |     +-field_list=
         |   |   |       +-int32_val := Literal(type=INT32, value=NULL)
         |   |   |       +-int64_key_1 := ColumnRef(type=INT64, column=$subquery1.int64_key_1#2)
@@ -527,7 +527,7 @@ from tvf_two_relation_args_return_proto_value_table(
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_two_relation_args_return_proto_value_table.$col0#5 AS mytvf [PROTO<zetasql_test.TestExtraPB>]
+| +-tvf_two_relation_args_return_proto_value_table.$col0#5 AS mytvf [PROTO<zetasql_test__.TestExtraPB>]
 | +-$query.$col2#6 AS `$col2` [STRING]
 | +-$query.int32_val1#7 AS int32_val1 [INT32]
 | +-$query.$col4#8 AS `$col4` [STRING]
@@ -549,7 +549,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
     | |   +-field_descriptor=int32_val1
     | |   +-default_value=0
     | +-$col4#8 := Literal(type=STRING, value="--")
@@ -557,7 +557,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
     | |   +-field_descriptor=int32_val1
     | |   +-default_value=0
     | +-$col6#10 := Literal(type=STRING, value="--")
@@ -565,21 +565,21 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
     | |   +-field_descriptor=int32_val1
     | |   +-default_value=0
     | +-int32_val2#12 :=
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
     | |   +-field_descriptor=int32_val2
     | |   +-default_value=0
     | +-str_value#13 :=
     | | +-GetProtoField
     | |   +-type=ARRAY<STRING>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
     | |   +-field_descriptor=str_value
     | |   +-default_value=[]
     | +-$col8#14 := Literal(type=STRING, value="--")
@@ -587,28 +587,28 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
     | |   +-field_descriptor=int32_val1
     | |   +-default_value=0
     | +-int32_val2#16 :=
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
     | |   +-field_descriptor=int32_val2
     | |   +-default_value=0
     | +-str_value#17 :=
     |   +-GetProtoField
     |     +-type=ARRAY<STRING>
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
     |     +-field_descriptor=str_value
     |     +-default_value=[]
     +-input_scan=
       +-TVFScan
         +-column_list=[tvf_two_relation_args_return_proto_value_table.$col0#5]
-        +-tvf=tvf_two_relation_args_return_proto_value_table((ANY TABLE, ANY TABLE) -> TABLE<PROTO<zetasql_test.TestExtraPB>>)
-        +-signature=(TABLE<$col1 INT64, $col2 INT64>, TABLE<$col1 INT64, $col2 INT64>) -> TABLE<PROTO<zetasql_test.TestExtraPB>>
+        +-tvf=tvf_two_relation_args_return_proto_value_table((ANY TABLE, ANY TABLE) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>)
+        +-signature=(TABLE<$col1 INT64, $col2 INT64>, TABLE<$col1 INT64, $col2 INT64>) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>
         +-argument_list=
         | +-FunctionArgument
         | | +-scan=
@@ -760,15 +760,15 @@ from tvf_two_relation_args_return_proto_value_table(
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_two_relation_args_return_proto_value_table.$col0#5 AS t [PROTO<zetasql_test.TestExtraPB>]
+| +-tvf_two_relation_args_return_proto_value_table.$col0#5 AS t [PROTO<zetasql_test__.TestExtraPB>]
 +-query=
   +-ProjectScan
     +-column_list=[tvf_two_relation_args_return_proto_value_table.$col0#5]
     +-input_scan=
       +-TVFScan
         +-column_list=[tvf_two_relation_args_return_proto_value_table.$col0#5]
-        +-tvf=tvf_two_relation_args_return_proto_value_table((ANY TABLE, ANY TABLE) -> TABLE<PROTO<zetasql_test.TestExtraPB>>)
-        +-signature=(TABLE<$col1 INT64, $col2 INT64>, TABLE<$col1 INT64, $col2 INT64>) -> TABLE<PROTO<zetasql_test.TestExtraPB>>
+        +-tvf=tvf_two_relation_args_return_proto_value_table((ANY TABLE, ANY TABLE) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>)
+        +-signature=(TABLE<$col1 INT64, $col2 INT64>, TABLE<$col1 INT64, $col2 INT64>) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>
         +-argument_list=
         | +-FunctionArgument
         | | +-scan=
@@ -809,14 +809,14 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=INT32
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
     |     +-field_descriptor=int32_val1
     |     +-default_value=0
     +-input_scan=
       +-TVFScan
         +-column_list=[tvf_two_relation_args_return_proto_value_table.$col0#5]
-        +-tvf=tvf_two_relation_args_return_proto_value_table((ANY TABLE, ANY TABLE) -> TABLE<PROTO<zetasql_test.TestExtraPB>>)
-        +-signature=(TABLE<$col1 INT64, $col2 INT64>, TABLE<$col1 INT64, $col2 INT64>) -> TABLE<PROTO<zetasql_test.TestExtraPB>>
+        +-tvf=tvf_two_relation_args_return_proto_value_table((ANY TABLE, ANY TABLE) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>)
+        +-signature=(TABLE<$col1 INT64, $col2 INT64>, TABLE<$col1 INT64, $col2 INT64>) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>
         +-argument_list=
         | +-FunctionArgument
         | | +-scan=
@@ -1131,28 +1131,28 @@ QueryStmt
         |   |   | | +-GetProtoField
         |   |   | |   +-type=INT32
         |   |   | |   +-expr=
-        |   |   | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
+        |   |   | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
         |   |   | |   +-field_descriptor=int32_val1
         |   |   | |   +-default_value=0
         |   |   | +-int32_val2#7 :=
         |   |   | | +-GetProtoField
         |   |   | |   +-type=INT32
         |   |   | |   +-expr=
-        |   |   | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
+        |   |   | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
         |   |   | |   +-field_descriptor=int32_val2
         |   |   | |   +-default_value=0
         |   |   | +-str_value#8 :=
         |   |   |   +-GetProtoField
         |   |   |     +-type=ARRAY<STRING>
         |   |   |     +-expr=
-        |   |   |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
+        |   |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
         |   |   |     +-field_descriptor=str_value
         |   |   |     +-default_value=[]
         |   |   +-input_scan=
         |   |     +-TVFScan
         |   |       +-column_list=[tvf_two_relation_args_return_proto_value_table.$col0#5]
-        |   |       +-tvf=tvf_two_relation_args_return_proto_value_table((ANY TABLE, ANY TABLE) -> TABLE<PROTO<zetasql_test.TestExtraPB>>)
-        |   |       +-signature=(TABLE<$col1 INT64, $col2 INT64>, TABLE<$col1 INT64, $col2 INT64>) -> TABLE<PROTO<zetasql_test.TestExtraPB>>
+        |   |       +-tvf=tvf_two_relation_args_return_proto_value_table((ANY TABLE, ANY TABLE) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>)
+        |   |       +-signature=(TABLE<$col1 INT64, $col2 INT64>, TABLE<$col1 INT64, $col2 INT64>) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>
         |   |       +-argument_list=
         |   |       | +-FunctionArgument
         |   |       | | +-scan=
@@ -1211,28 +1211,28 @@ QueryStmt
         |   |   | | +-GetProtoField
         |   |   | |   +-type=INT32
         |   |   | |   +-expr=
-        |   |   | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
+        |   |   | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
         |   |   | |   +-field_descriptor=int32_val1
         |   |   | |   +-default_value=0
         |   |   | +-int32_val2#7 :=
         |   |   | | +-GetProtoField
         |   |   | |   +-type=INT32
         |   |   | |   +-expr=
-        |   |   | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
+        |   |   | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
         |   |   | |   +-field_descriptor=int32_val2
         |   |   | |   +-default_value=0
         |   |   | +-str_value#8 :=
         |   |   |   +-GetProtoField
         |   |   |     +-type=ARRAY<STRING>
         |   |   |     +-expr=
-        |   |   |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
+        |   |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#5)
         |   |   |     +-field_descriptor=str_value
         |   |   |     +-default_value=[]
         |   |   +-input_scan=
         |   |     +-TVFScan
         |   |       +-column_list=[tvf_two_relation_args_return_proto_value_table.$col0#5]
-        |   |       +-tvf=tvf_two_relation_args_return_proto_value_table((ANY TABLE, ANY TABLE) -> TABLE<PROTO<zetasql_test.TestExtraPB>>)
-        |   |       +-signature=(TABLE<$col1 INT64, $col2 INT64>, TABLE<$col1 INT64, $col2 INT64>) -> TABLE<PROTO<zetasql_test.TestExtraPB>>
+        |   |       +-tvf=tvf_two_relation_args_return_proto_value_table((ANY TABLE, ANY TABLE) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>)
+        |   |       +-signature=(TABLE<$col1 INT64, $col2 INT64>, TABLE<$col1 INT64, $col2 INT64>) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>
         |   |       +-argument_list=
         |   |       | +-FunctionArgument
         |   |       | | +-scan=
@@ -2398,8 +2398,8 @@ QueryStmt
     +-input_scan=
       +-TVFScan
         +-column_list=tvf_one_relation_arg_input_proto_value_table.[column_bool#6, column_bytes#7]
-        +-tvf=tvf_one_relation_arg_input_proto_value_table((TABLE<PROTO<zetasql_test.TestExtraPB>>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        +-signature=(TABLE<PROTO<zetasql_test.TestExtraPB>>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-tvf=tvf_one_relation_arg_input_proto_value_table((TABLE<PROTO<zetasql_test__.TestExtraPB>>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<PROTO<zetasql_test__.TestExtraPB>>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
@@ -2408,8 +2408,8 @@ QueryStmt
         |   |   +-input_scan=
         |   |     +-TVFScan
         |   |       +-column_list=[tvf_two_relation_args_return_proto_value_table.$col0#5]
-        |   |       +-tvf=tvf_two_relation_args_return_proto_value_table((ANY TABLE, ANY TABLE) -> TABLE<PROTO<zetasql_test.TestExtraPB>>)
-        |   |       +-signature=(TABLE<$col1 INT64, $col2 INT64>, TABLE<$col1 INT64, $col2 INT64>) -> TABLE<PROTO<zetasql_test.TestExtraPB>>
+        |   |       +-tvf=tvf_two_relation_args_return_proto_value_table((ANY TABLE, ANY TABLE) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>)
+        |   |       +-signature=(TABLE<$col1 INT64, $col2 INT64>, TABLE<$col1 INT64, $col2 INT64>) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>
         |   |       +-argument_list=
         |   |       | +-FunctionArgument
         |   |       | | +-scan=
@@ -2441,7 +2441,7 @@ QueryStmt
 # The query passes a relation with the correct literal enum value.
 select *
 from tvf_one_relation_arg_one_enum_input_column(
-    (select cast(1 AS `zetasql_test.TestEnum`) as myenum))
+    (select cast(1 AS `zetasql_test__.TestEnum`) as myenum))
 --
 QueryStmt
 +-output_column_list=
@@ -2453,15 +2453,15 @@ QueryStmt
     +-input_scan=
       +-TVFScan
         +-column_list=tvf_one_relation_arg_one_enum_input_column.[column_bool#2, column_bytes#3]
-        +-tvf=tvf_one_relation_arg_one_enum_input_column((TABLE<myenum ENUM<zetasql_test.TestEnum>>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        +-signature=(TABLE<myenum ENUM<zetasql_test.TestEnum>>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-tvf=tvf_one_relation_arg_one_enum_input_column((TABLE<myenum ENUM<zetasql_test__.TestEnum>>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<myenum ENUM<zetasql_test__.TestEnum>>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
         |   | +-ProjectScan
         |   |   +-column_list=[$subquery1.myenum#1]
         |   |   +-expr_list=
-        |   |   | +-myenum#1 := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
+        |   |   | +-myenum#1 := Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
         |   |   +-input_scan=
         |   |     +-SingleRowScan
         |   +-argument_column_list=[$subquery1.myenum#1]
@@ -2472,7 +2472,7 @@ QueryStmt
 # The query passes a relation with a correct enum-valued column reference.
 select *
 from tvf_one_relation_arg_one_enum_input_column(
-    (select * from (select cast(1 AS `zetasql_test.TestEnum`) as myenum)))
+    (select * from (select cast(1 AS `zetasql_test__.TestEnum`) as myenum)))
 --
 QueryStmt
 +-output_column_list=
@@ -2484,8 +2484,8 @@ QueryStmt
     +-input_scan=
       +-TVFScan
         +-column_list=tvf_one_relation_arg_one_enum_input_column.[column_bool#2, column_bytes#3]
-        +-tvf=tvf_one_relation_arg_one_enum_input_column((TABLE<myenum ENUM<zetasql_test.TestEnum>>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        +-signature=(TABLE<myenum ENUM<zetasql_test.TestEnum>>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-tvf=tvf_one_relation_arg_one_enum_input_column((TABLE<myenum ENUM<zetasql_test__.TestEnum>>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<myenum ENUM<zetasql_test__.TestEnum>>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
@@ -2495,7 +2495,7 @@ QueryStmt
         |   |     +-ProjectScan
         |   |       +-column_list=[$subquery2.myenum#1]
         |   |       +-expr_list=
-        |   |       | +-myenum#1 := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
+        |   |       | +-myenum#1 := Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
         |   |       +-input_scan=
         |   |         +-SingleRowScan
         |   +-argument_column_list=[$subquery2.myenum#1]
@@ -2508,7 +2508,7 @@ QueryStmt
 select *
 from tvf_one_relation_arg_one_enum_input_column(
     (select * from (
-        select cast(1 AS alt_descriptor_pool.zetasql_test.TestEnum)
+        select cast(1 AS alt_descriptor_pool.zetasql_test__.TestEnum)
         as myenum)))
 --
 QueryStmt
@@ -2521,8 +2521,8 @@ QueryStmt
     +-input_scan=
       +-TVFScan
         +-column_list=tvf_one_relation_arg_one_enum_input_column.[column_bool#3, column_bytes#4]
-        +-tvf=tvf_one_relation_arg_one_enum_input_column((TABLE<myenum ENUM<zetasql_test.TestEnum>>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        +-signature=(TABLE<myenum ENUM<zetasql_test.TestEnum>>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-tvf=tvf_one_relation_arg_one_enum_input_column((TABLE<myenum ENUM<zetasql_test__.TestEnum>>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<myenum ENUM<zetasql_test__.TestEnum>>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
@@ -2530,8 +2530,8 @@ QueryStmt
         |   |   +-column_list=[$subquery3.myenum#2]
         |   |   +-expr_list=
         |   |   | +-myenum#2 :=
-        |   |   |   +-Cast(ENUM<zetasql_test.TestEnum> -> ENUM<zetasql_test.TestEnum>)
-        |   |   |     +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=$subquery2.myenum#1)
+        |   |   |   +-Cast(ENUM<zetasql_test__.TestEnum> -> ENUM<zetasql_test__.TestEnum>)
+        |   |   |     +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=$subquery2.myenum#1)
         |   |   +-input_scan=
         |   |     +-ProjectScan
         |   |       +-column_list=[$subquery2.myenum#1]
@@ -2539,7 +2539,7 @@ QueryStmt
         |   |         +-ProjectScan
         |   |           +-column_list=[$subquery2.myenum#1]
         |   |           +-expr_list=
-        |   |           | +-myenum#1 := Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
+        |   |           | +-myenum#1 := Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
         |   |           +-input_scan=
         |   |             +-SingleRowScan
         |   +-argument_column_list=[$subquery3.myenum#2]
@@ -2615,28 +2615,28 @@ QueryStmt
     |             | | +-GetProtoField
     |             | |   +-type=INT32
     |             | |   +-expr=
-    |             | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_one_relation_arg_return_proto_value_table.$col0#5)
+    |             | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_one_relation_arg_return_proto_value_table.$col0#5)
     |             | |   +-field_descriptor=int32_val1
     |             | |   +-default_value=0
     |             | +-int32_val2#7 :=
     |             | | +-GetProtoField
     |             | |   +-type=INT32
     |             | |   +-expr=
-    |             | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_one_relation_arg_return_proto_value_table.$col0#5)
+    |             | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_one_relation_arg_return_proto_value_table.$col0#5)
     |             | |   +-field_descriptor=int32_val2
     |             | |   +-default_value=0
     |             | +-str_value#8 :=
     |             |   +-GetProtoField
     |             |     +-type=ARRAY<STRING>
     |             |     +-expr=
-    |             |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_one_relation_arg_return_proto_value_table.$col0#5)
+    |             |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_one_relation_arg_return_proto_value_table.$col0#5)
     |             |     +-field_descriptor=str_value
     |             |     +-default_value=[]
     |             +-input_scan=
     |               +-TVFScan
     |                 +-column_list=[tvf_one_relation_arg_return_proto_value_table.$col0#5]
-    |                 +-tvf=tvf_one_relation_arg_return_proto_value_table((TABLE<string STRING, int64 INT64>) -> TABLE<PROTO<zetasql_test.TestExtraPB>>)
-    |                 +-signature=(TABLE<string STRING, int64 INT64>) -> TABLE<PROTO<zetasql_test.TestExtraPB>>
+    |                 +-tvf=tvf_one_relation_arg_return_proto_value_table((TABLE<string STRING, int64 INT64>) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>)
+    |                 +-signature=(TABLE<string STRING, int64 INT64>) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>
     |                 +-argument_list=
     |                 | +-FunctionArgument
     |                 |   +-scan=
@@ -2670,6 +2670,130 @@ QueryStmt
         | +-structval#1 := Literal(type=ARRAY<STRUCT<string STRING, int64 INT64>>, value=[{string:"e", int64:123}])
         +-input_scan=
           +-SingleRowScan
+==
+
+# A TVF accepts one relation argument. The relation argument refers to a range
+# variable for a table reference to its left in the FROM cluase via the lateral
+# behavior of UNNEST.
+select *
+from (select [struct("e" as string, 123 as int64)] as structval) as i,
+      unnest(array(select as struct *
+                   from tvf_one_relation_arg_return_proto_value_table(
+                       (select * from unnest(i.structval))))) as u
+--
+QueryStmt
++-output_column_list=
+| +-i.structval#1 AS structval [ARRAY<STRUCT<string STRING, int64 INT64>>]
+| +-$query.int32_val1#11 AS int32_val1 [INT32]
+| +-$query.int32_val2#12 AS int32_val2 [INT32]
+| +-$query.str_value#13 AS str_value [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[i.structval#1, $query.int32_val1#11, $query.int32_val2#12, $query.str_value#13]
+    +-expr_list=
+    | +-int32_val1#11 :=
+    | | +-GetStructField
+    | |   +-type=INT32
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<int32_val1 INT32, int32_val2 INT32, str_value ARRAY<STRING>>, column=$array.u#10)
+    | |   +-field_idx=0
+    | +-int32_val2#12 :=
+    | | +-GetStructField
+    | |   +-type=INT32
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<int32_val1 INT32, int32_val2 INT32, str_value ARRAY<STRING>>, column=$array.u#10)
+    | |   +-field_idx=1
+    | +-str_value#13 :=
+    |   +-GetStructField
+    |     +-type=ARRAY<STRING>
+    |     +-expr=
+    |     | +-ColumnRef(type=STRUCT<int32_val1 INT32, int32_val2 INT32, str_value ARRAY<STRING>>, column=$array.u#10)
+    |     +-field_idx=2
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[i.structval#1, $array.u#10]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[i.structval#1]
+        |   +-expr_list=
+        |   | +-structval#1 := Literal(type=ARRAY<STRUCT<string STRING, int64 INT64>>, value=[{string:"e", int64:123}])
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-array_expr=
+        | +-SubqueryExpr
+        |   +-type=ARRAY<STRUCT<int32_val1 INT32, int32_val2 INT32, str_value ARRAY<STRING>>>
+        |   +-subquery_type=ARRAY
+        |   +-parameter_list=
+        |   | +-ColumnRef(type=ARRAY<STRUCT<string STRING, int64 INT64>>, column=i.structval#1)
+        |   +-subquery=
+        |     +-ProjectScan
+        |       +-column_list=[$make_struct.$struct#9]
+        |       +-expr_list=
+        |       | +-$struct#9 :=
+        |       |   +-MakeStruct
+        |       |     +-type=STRUCT<int32_val1 INT32, int32_val2 INT32, str_value ARRAY<STRING>>
+        |       |     +-field_list=
+        |       |       +-ColumnRef(type=INT32, column=$expr_subquery.int32_val1#6)
+        |       |       +-ColumnRef(type=INT32, column=$expr_subquery.int32_val2#7)
+        |       |       +-ColumnRef(type=ARRAY<STRING>, column=$expr_subquery.str_value#8)
+        |       +-input_scan=
+        |         +-ProjectScan
+        |           +-column_list=$expr_subquery.[int32_val1#6, int32_val2#7, str_value#8]
+        |           +-expr_list=
+        |           | +-int32_val1#6 :=
+        |           | | +-GetProtoField
+        |           | |   +-type=INT32
+        |           | |   +-expr=
+        |           | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_one_relation_arg_return_proto_value_table.$col0#5)
+        |           | |   +-field_descriptor=int32_val1
+        |           | |   +-default_value=0
+        |           | +-int32_val2#7 :=
+        |           | | +-GetProtoField
+        |           | |   +-type=INT32
+        |           | |   +-expr=
+        |           | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_one_relation_arg_return_proto_value_table.$col0#5)
+        |           | |   +-field_descriptor=int32_val2
+        |           | |   +-default_value=0
+        |           | +-str_value#8 :=
+        |           |   +-GetProtoField
+        |           |     +-type=ARRAY<STRING>
+        |           |     +-expr=
+        |           |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_one_relation_arg_return_proto_value_table.$col0#5)
+        |           |     +-field_descriptor=str_value
+        |           |     +-default_value=[]
+        |           +-input_scan=
+        |             +-TVFScan
+        |               +-column_list=[tvf_one_relation_arg_return_proto_value_table.$col0#5]
+        |               +-tvf=tvf_one_relation_arg_return_proto_value_table((TABLE<string STRING, int64 INT64>) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>)
+        |               +-signature=(TABLE<string STRING, int64 INT64>) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>
+        |               +-argument_list=
+        |               | +-FunctionArgument
+        |               |   +-scan=
+        |               |   | +-ProjectScan
+        |               |   |   +-column_list=$subquery1.[string#3, int64#4]
+        |               |   |   +-expr_list=
+        |               |   |   | +-string#3 :=
+        |               |   |   | | +-GetStructField
+        |               |   |   | |   +-type=STRING
+        |               |   |   | |   +-expr=
+        |               |   |   | |   | +-ColumnRef(type=STRUCT<string STRING, int64 INT64>, column=$array.$unnest1#2)
+        |               |   |   | |   +-field_idx=0
+        |               |   |   | +-int64#4 :=
+        |               |   |   |   +-GetStructField
+        |               |   |   |     +-type=INT64
+        |               |   |   |     +-expr=
+        |               |   |   |     | +-ColumnRef(type=STRUCT<string STRING, int64 INT64>, column=$array.$unnest1#2)
+        |               |   |   |     +-field_idx=1
+        |               |   |   +-input_scan=
+        |               |   |     +-ArrayScan
+        |               |   |       +-column_list=[$array.$unnest1#2]
+        |               |   |       +-array_expr=
+        |               |   |       | +-ColumnRef(type=ARRAY<STRUCT<string STRING, int64 INT64>>, column=i.structval#1, is_correlated=TRUE)
+        |               |   |       +-element_column=$array.$unnest1#2
+        |               |   +-argument_column_list=$subquery1.[string#3, int64#4]
+        |               +-column_index_list=[0]
+        +-element_column=$array.u#10
+
 ==
 
 # A TVF accepts one relation argument and one scalar argument. The scalar
@@ -2875,7 +2999,7 @@ QueryStmt
       +-TVFScan
         +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#6, column_bytes#7]
         +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        +-signature=(TABLE<key INT32, TestEnum ENUM<zetasql_test.TestEnum>, AnotherTestEnum ENUM<zetasql_test.AnotherTestEnum>>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-signature=(TABLE<key INT32, TestEnum ENUM<zetasql_test__.TestEnum>, AnotherTestEnum ENUM<zetasql_test__.AnotherTestEnum>>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
@@ -2901,7 +3025,7 @@ QueryStmt
       +-TVFScan
         +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#4, column_bytes#5]
         +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        +-signature=(TABLE<PROTO<zetasql_test.TestExtraPB>>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-signature=(TABLE<PROTO<zetasql_test__.TestExtraPB>>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
@@ -4297,7 +4421,7 @@ from tvf_two_relation_args_return_proto_value_table(
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_two_relation_args_return_proto_value_table.$col0#7 AS mytvf [PROTO<zetasql_test.TestExtraPB>]
+| +-tvf_two_relation_args_return_proto_value_table.$col0#7 AS mytvf [PROTO<zetasql_test__.TestExtraPB>]
 | +-$query.$col2#8 AS `$col2` [STRING]
 | +-$query.int32_val1#9 AS int32_val1 [INT32]
 | +-$query.$col4#10 AS `$col4` [STRING]
@@ -4319,7 +4443,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#7)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#7)
     | |   +-field_descriptor=int32_val1
     | |   +-default_value=0
     | +-$col4#10 := Literal(type=STRING, value="--")
@@ -4327,7 +4451,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#7)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#7)
     | |   +-field_descriptor=int32_val1
     | |   +-default_value=0
     | +-$col6#12 := Literal(type=STRING, value="--")
@@ -4335,21 +4459,21 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#7)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#7)
     | |   +-field_descriptor=int32_val1
     | |   +-default_value=0
     | +-int32_val2#14 :=
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#7)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#7)
     | |   +-field_descriptor=int32_val2
     | |   +-default_value=0
     | +-str_value#15 :=
     | | +-GetProtoField
     | |   +-type=ARRAY<STRING>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#7)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#7)
     | |   +-field_descriptor=str_value
     | |   +-default_value=[]
     | +-$col8#16 := Literal(type=STRING, value="--")
@@ -4357,28 +4481,28 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#7)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#7)
     | |   +-field_descriptor=int32_val1
     | |   +-default_value=0
     | +-int32_val2#18 :=
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#7)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#7)
     | |   +-field_descriptor=int32_val2
     | |   +-default_value=0
     | +-str_value#19 :=
     |   +-GetProtoField
     |     +-type=ARRAY<STRING>
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#7)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#7)
     |     +-field_descriptor=str_value
     |     +-default_value=[]
     +-input_scan=
       +-TVFScan
         +-column_list=[tvf_two_relation_args_return_proto_value_table.$col0#7]
-        +-tvf=tvf_two_relation_args_return_proto_value_table((ANY TABLE, ANY TABLE) -> TABLE<PROTO<zetasql_test.TestExtraPB>>)
-        +-signature=(TABLE<column_bool BOOL, column_bytes BYTES>, TABLE<column_bool BOOL, column_bytes BYTES>) -> TABLE<PROTO<zetasql_test.TestExtraPB>>
+        +-tvf=tvf_two_relation_args_return_proto_value_table((ANY TABLE, ANY TABLE) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>)
+        +-signature=(TABLE<column_bool BOOL, column_bytes BYTES>, TABLE<column_bool BOOL, column_bytes BYTES>) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>
         +-argument_list=
         | +-FunctionArgument
         | | +-scan=
@@ -5009,28 +5133,28 @@ QueryStmt
                 | | +-GetProtoField
                 | |   +-type=INT32
                 | |   +-expr=
-                | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#7)
+                | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#7)
                 | |   +-field_descriptor=int32_val1
                 | |   +-default_value=0
                 | +-int32_val2#9 :=
                 | | +-GetProtoField
                 | |   +-type=INT32
                 | |   +-expr=
-                | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#7)
+                | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#7)
                 | |   +-field_descriptor=int32_val2
                 | |   +-default_value=0
                 | +-str_value#10 :=
                 |   +-GetProtoField
                 |     +-type=ARRAY<STRING>
                 |     +-expr=
-                |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#7)
+                |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_two_relation_args_return_proto_value_table.$col0#7)
                 |     +-field_descriptor=str_value
                 |     +-default_value=[]
                 +-input_scan=
                   +-TVFScan
                     +-column_list=[tvf_two_relation_args_return_proto_value_table.$col0#7]
-                    +-tvf=tvf_two_relation_args_return_proto_value_table((ANY TABLE, ANY TABLE) -> TABLE<PROTO<zetasql_test.TestExtraPB>>)
-                    +-signature=(TABLE<key INT64>, TABLE<value STRING>) -> TABLE<PROTO<zetasql_test.TestExtraPB>>
+                    +-tvf=tvf_two_relation_args_return_proto_value_table((ANY TABLE, ANY TABLE) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>)
+                    +-signature=(TABLE<key INT64>, TABLE<value STRING>) -> TABLE<PROTO<zetasql_test__.TestExtraPB>>
                     +-argument_list=
                     | +-FunctionArgument
                     | | +-scan=
@@ -5369,8 +5493,8 @@ select * from tvf_append_columns_any_relation_arg(TABLE EnumTable)
 QueryStmt
 +-output_column_list=
 | +-tvf_append_columns_any_relation_arg.key#6 AS key [INT32]
-| +-tvf_append_columns_any_relation_arg.TestEnum#7 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-tvf_append_columns_any_relation_arg.AnotherTestEnum#8 AS AnotherTestEnum [ENUM<zetasql_test.AnotherTestEnum>]
+| +-tvf_append_columns_any_relation_arg.TestEnum#7 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-tvf_append_columns_any_relation_arg.AnotherTestEnum#8 AS AnotherTestEnum [ENUM<zetasql_test__.AnotherTestEnum>]
 | +-tvf_append_columns_any_relation_arg.append_col_int32#9 AS append_col_int32 [INT32]
 +-query=
   +-ProjectScan
@@ -5379,7 +5503,7 @@ QueryStmt
       +-TVFScan
         +-column_list=tvf_append_columns_any_relation_arg.[key#6, TestEnum#7, AnotherTestEnum#8, append_col_int32#9]
         +-tvf=tvf_append_columns_any_relation_arg((ANY TABLE any_relation_arg) -> ANY TABLE)
-        +-signature=(TABLE<key INT32, TestEnum ENUM<zetasql_test.TestEnum>, AnotherTestEnum ENUM<zetasql_test.AnotherTestEnum>>) -> TABLE<key INT32, TestEnum ENUM<zetasql_test.TestEnum>, AnotherTestEnum ENUM<zetasql_test.AnotherTestEnum>, append_col_int32 INT32>
+        +-signature=(TABLE<key INT32, TestEnum ENUM<zetasql_test__.TestEnum>, AnotherTestEnum ENUM<zetasql_test__.AnotherTestEnum>>) -> TABLE<key INT32, TestEnum ENUM<zetasql_test__.TestEnum>, AnotherTestEnum ENUM<zetasql_test__.AnotherTestEnum>, append_col_int32 INT32>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
@@ -6495,7 +6619,7 @@ select t.value_table_column
 from tvf_two_relation_args_return_proto_value_table(
     (select 1, 2), (select 3, 4)) t
 --
-ERROR: Protocol buffer zetasql_test.TestExtraPB does not have a field called value_table_column [at 1:10]
+ERROR: Protocol buffer zetasql_test__.TestExtraPB does not have a field called value_table_column [at 1:10]
 select t.value_table_column
          ^
 ==
@@ -6634,7 +6758,7 @@ select *
 from tvf_one_relation_arg_input_proto_value_table(
     (select as value key from KeyValue))
 --
-ERROR: Invalid type INT64 for value table column with expected type "zetasql_test.TestExtraPB" of argument 1 of TVF_ONE_RELATION_ARG_INPUT_PROTO_VALUE_TABLE(TABLE<zetasql_test.TestExtraPB>) [at 3:5]
+ERROR: Invalid type INT64 for value table column with expected type "zetasql_test__.TestExtraPB" of argument 1 of TVF_ONE_RELATION_ARG_INPUT_PROTO_VALUE_TABLE(TABLE<zetasql_test__.TestExtraPB>) [at 3:5]
     (select as value key from KeyValue))
     ^
 ==
@@ -6643,10 +6767,10 @@ ERROR: Invalid type INT64 for value table column with expected type "zetasql_tes
 # The query passes a relation with the wrong enum value.
 select *
 from tvf_one_relation_arg_one_enum_input_column(
-    (select cast(1 AS `zetasql_test.AnotherTestEnum`) as myenum))
+    (select cast(1 AS `zetasql_test__.AnotherTestEnum`) as myenum))
 --
-ERROR: Invalid type zetasql_test.AnotherTestEnum for column "myenum zetasql_test.TestEnum" of argument 1 of TVF_ONE_RELATION_ARG_ONE_ENUM_INPUT_COLUMN(TABLE<myenum zetasql_test.TestEnum>) [at 3:5]
-    (select cast(1 AS `zetasql_test.AnotherTestEnum`) as myenum))
+ERROR: Invalid type zetasql_test__.AnotherTestEnum for column "myenum zetasql_test__.TestEnum" of argument 1 of TVF_ONE_RELATION_ARG_ONE_ENUM_INPUT_COLUMN(TABLE<myenum zetasql_test__.TestEnum>) [at 3:5]
+    (select cast(1 AS `zetasql_test__.AnotherTestEnum`) as myenum))
     ^
 ==
 
@@ -6669,7 +6793,7 @@ ERROR: Invalid type STRING for column "uint64 UINT64" of argument 1 of TVF_TWO_R
 select *
 from tvf_one_relation_arg_one_enum_input_column((select 1 as myenum))
 --
-ERROR: Invalid type INT64 for column "myenum zetasql_test.TestEnum" of argument 1 of TVF_ONE_RELATION_ARG_ONE_ENUM_INPUT_COLUMN(TABLE<myenum zetasql_test.TestEnum>) [at 2:49]
+ERROR: Invalid type INT64 for column "myenum zetasql_test__.TestEnum" of argument 1 of TVF_ONE_RELATION_ARG_ONE_ENUM_INPUT_COLUMN(TABLE<myenum zetasql_test__.TestEnum>) [at 2:49]
 from tvf_one_relation_arg_one_enum_input_column((select 1 as myenum))
                                                 ^
 ==
@@ -6680,7 +6804,7 @@ select *
 from tvf_one_relation_arg_one_enum_input_column(
     (select * from (select 1 as myenum)))
 --
-ERROR: Invalid type INT64 for column "myenum zetasql_test.TestEnum" of argument 1 of TVF_ONE_RELATION_ARG_ONE_ENUM_INPUT_COLUMN(TABLE<myenum zetasql_test.TestEnum>) [at 3:5]
+ERROR: Invalid type INT64 for column "myenum zetasql_test__.TestEnum" of argument 1 of TVF_ONE_RELATION_ARG_ONE_ENUM_INPUT_COLUMN(TABLE<myenum zetasql_test__.TestEnum>) [at 3:5]
     (select * from (select 1 as myenum)))
     ^
 ==
@@ -6690,7 +6814,7 @@ ERROR: Invalid type INT64 for column "myenum zetasql_test.TestEnum" of argument 
 select *
 from tvf_one_relation_arg_one_enum_input_column((select 'testenum1' as myenum))
 --
-ERROR: Invalid type STRING for column "myenum zetasql_test.TestEnum" of argument 1 of TVF_ONE_RELATION_ARG_ONE_ENUM_INPUT_COLUMN(TABLE<myenum zetasql_test.TestEnum>) [at 2:49]
+ERROR: Invalid type STRING for column "myenum zetasql_test__.TestEnum" of argument 1 of TVF_ONE_RELATION_ARG_ONE_ENUM_INPUT_COLUMN(TABLE<myenum zetasql_test__.TestEnum>) [at 2:49]
 from tvf_one_relation_arg_one_enum_input_column((select 'testenum1' as myenum))
                                                 ^
 ==
@@ -6701,7 +6825,7 @@ select *
 from tvf_one_relation_arg_one_enum_input_column(
     (select * from (select 'testenum1' as myenum)))
 --
-ERROR: Invalid type STRING for column "myenum zetasql_test.TestEnum" of argument 1 of TVF_ONE_RELATION_ARG_ONE_ENUM_INPUT_COLUMN(TABLE<myenum zetasql_test.TestEnum>) [at 3:5]
+ERROR: Invalid type STRING for column "myenum zetasql_test__.TestEnum" of argument 1 of TVF_ONE_RELATION_ARG_ONE_ENUM_INPUT_COLUMN(TABLE<myenum zetasql_test__.TestEnum>) [at 3:5]
     (select * from (select 'testenum1' as myenum)))
     ^
 ==
@@ -7289,4 +7413,3 @@ select * from tvf_required_named_optional_required_tables((select '1'),
 ERROR: No matching signature for tvf_required_named_optional_required_tables for argument types: TABLE<$col1 STRING>, TABLE<$col1 STRING>, NULL, NULL. Supported signature: TVF_REQUIRED_NAMED_OPTIONAL_REQUIRED_TABLES(TABLE, TABLE, [TABLE], [TABLE]) [at 1:15]
 select * from tvf_required_named_optional_required_tables((select '1'),
               ^
-==

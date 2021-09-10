@@ -28,7 +28,11 @@ struct AnalyzerOutputProperties {
 
   // True if a ResolvedFunctionCall node for ARRAY_FILTER or ARRAY_TRANSFORM
   // was generated in the analyzer output.
-  bool has_array_functions_to_rewrite = false;
+  bool has_array_filter_or_transform = false;
+
+  // True if a ResolvedFunctionCall node for ARRAY_INCLUDES or
+  // ARRAY_INCLUDES_ANY was generated in the analyzer output.
+  bool has_array_includes = false;
 
   // Indicates if anonymization was found during analysis.  When resolving
   // queries, anonymization is found if an AnonymizedAggregateScan is
@@ -52,6 +56,9 @@ struct AnalyzerOutputProperties {
   // Returns whether any proto map functions that may be rewritten by
   // MapFunctionRewriter are used in the expression.
   bool has_proto_map_functions = false;
+
+  // Returns whether the TYPEOF meta-function is used in the query.
+  bool has_typeof_function = false;
 };
 
 }  // namespace zetasql

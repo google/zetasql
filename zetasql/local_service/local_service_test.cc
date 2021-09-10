@@ -166,7 +166,7 @@ void AddRegisteredDescriptorPool(DescriptorPoolListProto* list, int64_t id) {
 void AddKitchenSinkDescriptorPool(DescriptorPoolListProto* list) {
   TypeFactory factory;
   const ProtoType* proto_type = nullptr;
-  ZETASQL_CHECK_OK(factory.MakeProtoType(zetasql_test::KitchenSinkPB::descriptor(),
+  ZETASQL_CHECK_OK(factory.MakeProtoType(zetasql_test__::KitchenSinkPB::descriptor(),
                                  &proto_type));
   TypeProto ignored;
 
@@ -178,7 +178,7 @@ void AddKitchenSink3DescriptorPool(DescriptorPoolListProto* list) {
   TypeFactory factory;
   const ProtoType* proto_type = nullptr;
   ZETASQL_CHECK_OK(factory.MakeProtoType(
-      zetasql_test::Proto3KitchenSink::descriptor(), &proto_type));
+      zetasql_test__::Proto3KitchenSink::descriptor(), &proto_type));
   TypeProto ignored;
 
   ZETASQL_CHECK_OK(proto_type->SerializeToProtoAndFileDescriptors(
@@ -320,7 +320,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, TableFromProto) {
   TypeProto proto;
   google::protobuf::FileDescriptorSet descriptor_set;
 
-  ZETASQL_CHECK_OK(factory.MakeProtoType(zetasql_test::TestSQLTable::descriptor(),
+  ZETASQL_CHECK_OK(factory.MakeProtoType(zetasql_test__::TestSQLTable::descriptor(),
                                  &proto_type));
   ZETASQL_CHECK_OK(
       proto_type->SerializeToProtoAndFileDescriptors(&proto, &descriptor_set));
@@ -343,7 +343,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, NonZetaSQLTableFromProto) {
   SimpleTableProto response;
   const ProtoType* proto_type;
   TypeFactory factory;
-  ZETASQL_CHECK_OK(factory.MakeProtoType(zetasql_test::KitchenSinkPB::descriptor(),
+  ZETASQL_CHECK_OK(factory.MakeProtoType(zetasql_test__::KitchenSinkPB::descriptor(),
                                  &proto_type));
   TypeProto proto;
   google::protobuf::FileDescriptorSet descriptor_set;
@@ -361,7 +361,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, NonZetaSQLTableFromProto) {
       type {
         type_kind: TYPE_PROTO
         proto_type {
-          proto_name: "zetasql_test.KitchenSinkPB"
+          proto_name: "zetasql_test__.KitchenSinkPB"
           proto_file_name: "zetasql/testdata/test_schema.proto"
         }
       }
@@ -376,7 +376,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, BadTableFromProto) {
   SimpleTableProto response;
   const ProtoType* proto_type;
   TypeFactory factory;
-  ZETASQL_CHECK_OK(factory.MakeProtoType(zetasql_test::KitchenSinkPB::descriptor(),
+  ZETASQL_CHECK_OK(factory.MakeProtoType(zetasql_test__::KitchenSinkPB::descriptor(),
                                  &proto_type));
   TypeProto proto;
   google::protobuf::FileDescriptorSet descriptor_set;
@@ -385,7 +385,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, BadTableFromProto) {
   *request.mutable_proto() = proto.proto_type();
   absl::Status status = GetTableFromProto(request, &response);
   ASSERT_FALSE(status.ok());
-  EXPECT_EQ("Proto type name not found: zetasql_test.KitchenSinkPB",
+  EXPECT_EQ("Proto type name not found: zetasql_test__.KitchenSinkPB",
             status.message());
   EXPECT_TRUE(response.DebugString().empty());
 
@@ -393,7 +393,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, BadTableFromProto) {
   *request.mutable_file_descriptor_set() = descriptor_set;
   status = GetTableFromProto(request, &response);
   ASSERT_FALSE(status.ok());
-  EXPECT_EQ(absl::StrCat("Proto zetasql_test.KitchenSinkPB found in ",
+  EXPECT_EQ(absl::StrCat("Proto zetasql_test__.KitchenSinkPB found in ",
                          "zetasql/testdata/test_schema.proto",
                          ", not unmatched_file_name as specified."),
             status.message());
@@ -724,9 +724,9 @@ TEST_F(ZetaSqlLocalServiceImplTest,
   constexpr int32_t kKitchenSink3Pool = 2;
   AnalyzeRequest request;
   request.set_sql_statement(
-      R"(select new zetasql_test.KitchenSinkPB(1 as int64_key_1, 2 as int64_key_2),
-                new a.zetasql_test.Proto3KitchenSink(1 as int64_val),
-                new b.zetasql_test.KitchenSinkPB(1 as int64_key_1, 2 as int64_key_2))");
+      R"(select new zetasql_test__.KitchenSinkPB(1 as int64_key_1, 2 as int64_key_2),
+                new a.zetasql_test__.Proto3KitchenSink(1 as int64_val),
+                new b.zetasql_test__.KitchenSinkPB(1 as int64_key_1, 2 as int64_key_2))");
   AddBuiltin(request.mutable_descriptor_pool_list());
   // kKitchenSinkPool ->
   AddKitchenSinkDescriptorPool(request.mutable_descriptor_pool_list());
@@ -752,7 +752,7 @@ TEST_F(ZetaSqlLocalServiceImplTest,
       R"pb(
         type_kind: TYPE_PROTO
         proto_type {
-          proto_name: "zetasql_test.KitchenSinkPB"
+          proto_name: "zetasql_test__.KitchenSinkPB"
           proto_file_name: "zetasql/testdata/test_schema.proto"
           file_descriptor_set_index: 1
         })pb",
@@ -763,7 +763,7 @@ TEST_F(ZetaSqlLocalServiceImplTest,
       R"pb(
         type_kind: TYPE_PROTO
         proto_type {
-          proto_name: "zetasql_test.Proto3KitchenSink"
+          proto_name: "zetasql_test__.Proto3KitchenSink"
           proto_file_name: "zetasql/testdata/test_proto3.proto"
           file_descriptor_set_index: 2
         })pb",
@@ -797,7 +797,7 @@ TypeProto MakeInt64TypeProto(int file_descriptor_pool_index) {
 TypeProto MakeTestEnumTypeProto(int file_descriptor_pool_index) {
   TypeProto proto;
   proto.set_type_kind(TYPE_ENUM);
-  proto.mutable_enum_type()->set_enum_name("zetasql_test.TestEnum");
+  proto.mutable_enum_type()->set_enum_name("zetasql_test__.TestEnum");
   proto.mutable_enum_type()->set_enum_file_name(
       "zetasql/testdata/test_schema.proto");
   proto.mutable_enum_type()->set_file_descriptor_set_index(
@@ -837,13 +837,13 @@ EvaluateRequest::Parameter MakeInt64ValueParameter(absl::string_view name,
 }
 
 EvaluateRequest::Parameter MakeTestEnumParameter(absl::string_view name,
-                                                 zetasql_test::TestEnum v) {
+                                                 zetasql_test__::TestEnum v) {
   EvaluateRequest::Parameter parameter;
   parameter.set_name(std::string(name));
 
   TypeFactory factory;
   const EnumType* type;
-  ZETASQL_EXPECT_OK(factory.MakeEnumType(zetasql_test::TestEnum_descriptor(), &type));
+  ZETASQL_EXPECT_OK(factory.MakeEnumType(zetasql_test__::TestEnum_descriptor(), &type));
   ZETASQL_EXPECT_OK(values::Enum(type, v).Serialize(parameter.mutable_value()));
   return parameter;
 }
@@ -975,7 +975,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, AnalyzeWithRegisteredCatalog) {
 
   analyze_request.set_registered_catalog_id(catalog_id);
   analyze_request.set_sql_statement(
-      R"(select new zetasql_test.KitchenSinkPB(1 as int64_key_1, 2 as int64_key_2))");
+      R"(select new zetasql_test__.KitchenSinkPB(1 as int64_key_1, 2 as int64_key_2))");
 
   AnalyzeResponse analyze_response;
 
@@ -984,7 +984,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, AnalyzeWithRegisteredCatalog) {
       GetOutputType(analyze_response.resolved_statement());
   EXPECT_EQ(output_column_type.type_kind(), TYPE_PROTO);
   EXPECT_EQ(output_column_type.proto_type().proto_name(),
-            "zetasql_test.KitchenSinkPB");
+            "zetasql_test__.KitchenSinkPB");
   EXPECT_EQ(output_column_type.proto_type().file_descriptor_set_index(),
             kKitchenSinkPoolIndex);
   ZETASQL_ASSERT_OK(UnregisterCatalog(catalog_id));
@@ -1014,7 +1014,7 @@ TEST_F(ZetaSqlLocalServiceImplTest,
   // descriptor pools as part of the request.
   analyze_request.set_registered_catalog_id(catalog_id);
   analyze_request.set_sql_statement(
-      R"(select new zetasql_test.KitchenSinkPB(1 as int64_key_1, 2 as int64_key_2))");
+      R"(select new zetasql_test__.KitchenSinkPB(1 as int64_key_1, 2 as int64_key_2))");
 
   AnalyzeResponse analyze_response;
   EXPECT_THAT(Analyze(analyze_request, &analyze_response),
@@ -1058,7 +1058,7 @@ TEST_F(ZetaSqlLocalServiceImplTest,
                               builtin_pool_id);
   analyze_request.mutable_simple_catalog()->set_file_descriptor_set_index(0);
   analyze_request.set_sql_statement(
-      R"(select new zetasql_test.KitchenSinkPB(1 as int64_key_1, 2 as int64_key_2))");
+      R"(select new zetasql_test__.KitchenSinkPB(1 as int64_key_1, 2 as int64_key_2))");
 
   AnalyzeResponse analyze_response;
 
@@ -1093,7 +1093,7 @@ void ExpectOutputIsDate(const EvaluateResponse& response, int year, int month,
 void ExpectTypeIsTestEnum(const TypeProto& type,
                           int file_descriptor_set_index) {
   EXPECT_EQ(type.type_kind(), TYPE_ENUM);
-  EXPECT_EQ(type.enum_type().enum_name(), "zetasql_test.TestEnum");
+  EXPECT_EQ(type.enum_type().enum_name(), "zetasql_test__.TestEnum");
   EXPECT_EQ(type.enum_type().enum_file_name(),
             "zetasql/testdata/test_schema.proto");
   EXPECT_EQ(type.enum_type().file_descriptor_set_index(),
@@ -1101,14 +1101,14 @@ void ExpectTypeIsTestEnum(const TypeProto& type,
 }
 
 void ExpectValueIsTestEnum(const ValueProto& value,
-                           zetasql_test::TestEnum expected) {
+                           zetasql_test__::TestEnum expected) {
   EXPECT_EQ(value.enum_value(), expected);
 }
 
 void ExpectTypeIsKitchenSink3(const TypeProto& type,
                               int64_t file_descriptor_set_index) {
   EXPECT_EQ(type.type_kind(), TYPE_PROTO);
-  EXPECT_EQ(type.proto_type().proto_name(), "zetasql_test.Proto3KitchenSink");
+  EXPECT_EQ(type.proto_type().proto_name(), "zetasql_test__.Proto3KitchenSink");
   EXPECT_EQ(type.proto_type().proto_file_name(),
             "zetasql/testdata/test_proto3.proto");
   EXPECT_EQ(type.proto_type().file_descriptor_set_index(),
@@ -1117,8 +1117,8 @@ void ExpectTypeIsKitchenSink3(const TypeProto& type,
 
 void ExpectValueIsKitchenSink3(
     const ValueProto& value,
-    const zetasql_test::Proto3KitchenSink& expected) {
-  zetasql_test::Proto3KitchenSink actual;
+    const zetasql_test__::Proto3KitchenSink& expected) {
+  zetasql_test__::Proto3KitchenSink actual;
   ASSERT_TRUE(ParseFromCord(absl::Cord(value.proto_value()), &actual));
   EXPECT_THAT(actual, EqualsProto(expected));
 }
@@ -1229,7 +1229,7 @@ TEST_F(ZetaSqlLocalServiceImplTest,
 
   *evaluate_request.add_params() = MakeInt64ValueParameter("p1", 5);
   *evaluate_request.add_params() =
-      MakeTestEnumParameter("p2", zetasql_test::TestEnum::TESTENUM1);
+      MakeTestEnumParameter("p2", zetasql_test__::TestEnum::TESTENUM1);
 
   EvaluateResponse evaluate_response;
   ZETASQL_EXPECT_OK(Evaluate(evaluate_request, &evaluate_response));
@@ -1240,7 +1240,7 @@ TEST_F(ZetaSqlLocalServiceImplTest,
   ExpectTypeIsTestEnum(evaluate_response.prepared().output_type(),
                        /*file_descriptor_set_index=*/2);
   ExpectValueIsTestEnum(evaluate_response.value(),
-                        zetasql_test::TestEnum::TESTENUM1);
+                        zetasql_test__::TestEnum::TESTENUM1);
   // Evaluate always creates a prepared expression, make sure we delete it.
   ZETASQL_EXPECT_OK(Unprepare(evaluate_response.prepared().prepared_expression_id()));
 }
@@ -1280,7 +1280,7 @@ TEST_F(ZetaSqlLocalServiceImplTest,
 
   *evaluate_request.add_params() = MakeInt64ValueParameter("p1", 5);
   *evaluate_request.add_params() =
-      MakeTestEnumParameter("p2", zetasql_test::TestEnum::TESTENUM1);
+      MakeTestEnumParameter("p2", zetasql_test__::TestEnum::TESTENUM1);
 
   EvaluateResponse evaluate_response;
   ZETASQL_EXPECT_OK(Evaluate(evaluate_request, &evaluate_response));
@@ -1291,7 +1291,7 @@ TEST_F(ZetaSqlLocalServiceImplTest,
                 .registered_ids_size(),
             0);
   ExpectValueIsTestEnum(evaluate_response.value(),
-                        zetasql_test::TestEnum::TESTENUM1);
+                        zetasql_test__::TestEnum::TESTENUM1);
 
   // Evaluate always creates a prepared expression, make sure we delete it.
   ZETASQL_EXPECT_OK(Unprepare(evaluate_response.prepared().prepared_expression_id()));
@@ -1352,7 +1352,7 @@ TEST_F(ZetaSqlLocalServiceImplTest,
 
   *evaluate_request.add_params() = MakeInt64ValueParameter("p1", 5);
   *evaluate_request.add_params() =
-      MakeTestEnumParameter("p2", zetasql_test::TestEnum::TESTENUM1);
+      MakeTestEnumParameter("p2", zetasql_test__::TestEnum::TESTENUM1);
 
   EvaluateResponse evaluate_response;
   ZETASQL_EXPECT_OK(Evaluate(evaluate_request, &evaluate_response));
@@ -1361,7 +1361,7 @@ TEST_F(ZetaSqlLocalServiceImplTest,
                 .registered_ids_size(),
             0);
   ExpectValueIsTestEnum(evaluate_response.value(),
-                        zetasql_test::TestEnum::TESTENUM1);
+                        zetasql_test__::TestEnum::TESTENUM1);
 
   ZETASQL_EXPECT_OK(Unprepare(evaluate_response.prepared().prepared_expression_id()));
   ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_response.registered_id()));
@@ -1390,11 +1390,11 @@ TEST_F(ZetaSqlLocalServiceImplTest,
 
   PrepareRequest prepare_request;
   prepare_request.set_registered_catalog_id(catalog_id);
-  prepare_request.set_sql(R"(new zetasql_test.Proto3KitchenSink(
+  prepare_request.set_sql(R"(new zetasql_test__.Proto3KitchenSink(
       @p1.value as int64_val,
       if (cast(@p2 as INT32) = 1,
-          cast('ENUM1' as zetasql_test.TestProto3Enum),
-          cast('ENUM2' as zetasql_test.TestProto3Enum)) as test_enum))");
+          cast('ENUM1' as zetasql_test__.TestProto3Enum),
+          cast('ENUM2' as zetasql_test__.TestProto3Enum)) as test_enum))");
 
   // Used for p1
   AddBuiltin(prepare_request.mutable_descriptor_pool_list());
@@ -1430,32 +1430,32 @@ TEST_F(ZetaSqlLocalServiceImplTest,
     EvaluateRequest evaluate_request = base_evaluate_request;
     *evaluate_request.add_params() = MakeInt64ValueParameter("p1", 5);
     *evaluate_request.add_params() =
-        MakeTestEnumParameter("p2", zetasql_test::TestEnum::TESTENUM1);
+        MakeTestEnumParameter("p2", zetasql_test__::TestEnum::TESTENUM1);
     EvaluateResponse evaluate_response;
     ZETASQL_EXPECT_OK(Evaluate(evaluate_request, &evaluate_response));
     EXPECT_EQ(evaluate_response.prepared()
                   .descriptor_pool_id_list()
                   .registered_ids_size(),
               0);
-    zetasql_test::Proto3KitchenSink expected_output_1;
+    zetasql_test__::Proto3KitchenSink expected_output_1;
     expected_output_1.set_int64_val(5);
-    expected_output_1.set_test_enum(zetasql_test::TestProto3Enum::ENUM1);
+    expected_output_1.set_test_enum(zetasql_test__::TestProto3Enum::ENUM1);
     ExpectValueIsKitchenSink3(evaluate_response.value(), expected_output_1);
   }
   {
     EvaluateRequest evaluate_request = base_evaluate_request;
     *evaluate_request.add_params() = MakeInt64ValueParameter("p1", 7);
     *evaluate_request.add_params() = MakeTestEnumParameter(
-        "p2", zetasql_test::TestEnum::TESTENUM2147483647);
+        "p2", zetasql_test__::TestEnum::TESTENUM2147483647);
     EvaluateResponse evaluate_response;
     ZETASQL_EXPECT_OK(Evaluate(evaluate_request, &evaluate_response));
     EXPECT_EQ(evaluate_response.prepared()
                   .descriptor_pool_id_list()
                   .registered_ids_size(),
               0);
-    zetasql_test::Proto3KitchenSink expected_output_1;
+    zetasql_test__::Proto3KitchenSink expected_output_1;
     expected_output_1.set_int64_val(7);
-    expected_output_1.set_test_enum(zetasql_test::TestProto3Enum::ENUM2);
+    expected_output_1.set_test_enum(zetasql_test__::TestProto3Enum::ENUM2);
     ExpectValueIsKitchenSink3(evaluate_response.value(), expected_output_1);
   }
 
@@ -1527,7 +1527,7 @@ TEST_F(ZetaSqlLocalServiceImplTest,
                               builtin_pool_id);
   analyze_request.mutable_simple_catalog()->set_file_descriptor_set_index(0);
   analyze_request.set_sql_statement(
-      R"(select new zetasql_test.KitchenSinkPB(1 as int64_key_1, 2 as int64_key_2))");
+      R"(select new zetasql_test__.KitchenSinkPB(1 as int64_key_1, 2 as int64_key_2))");
 
   {
     AnalyzeResponse analyze_response;
@@ -1544,7 +1544,7 @@ TEST_F(ZetaSqlLocalServiceImplTest,
   analyze_kitchen_sink3_request.mutable_simple_catalog()
       ->set_file_descriptor_set_index(0);
   analyze_kitchen_sink3_request.set_sql_statement(
-      R"(select new zetasql_test.Proto3KitchenSink(1 as int32_val))");
+      R"(select new zetasql_test__.Proto3KitchenSink(1 as int32_val))");
 
   {
     AnalyzeResponse analyze_response;
@@ -1656,7 +1656,10 @@ TEST_F(ZetaSqlLocalServiceImplTest, AnalyzeExpression) {
                        num_occurrences: 1
                      }
                      context_id: 105
-                     options { is_deprecated: false }
+                     options {
+                       is_deprecated: false
+                       uses_operation_collation: true
+                     }
                    }
                    argument_list {
                      resolved_expression_column_node {
@@ -1925,6 +1928,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, GetBuiltinFunctions) {
         context_id: 42
         options {
           is_deprecated: false
+          uses_operation_collation: true
         }
       }
       options {

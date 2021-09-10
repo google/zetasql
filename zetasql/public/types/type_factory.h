@@ -17,11 +17,16 @@
 #ifndef ZETASQL_PUBLIC_TYPES_TYPE_FACTORY_H_
 #define ZETASQL_PUBLIC_TYPES_TYPE_FACTORY_H_
 
+#include <atomic>
 #include <cstdint>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
+#include "google/protobuf/descriptor.h"
+#include "zetasql/public/annotation.pb.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/enum_type.h"
@@ -29,10 +34,22 @@
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/types/simple_type.h"
 #include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type.h"
+#include "absl/base/attributes.h"
+#include "absl/base/thread_annotations.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/container/node_hash_map.h"
-#include "absl/strings/string_view.h"
+#include "absl/flags/declare.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/synchronization/mutex.h"
 #include "absl/types/span.h"
+
+namespace zetasql {
+class TypeFactory;
+}  // namespace zetasql
 
 ABSL_DECLARE_FLAG(int32_t, zetasql_type_factory_nesting_depth_limit);
 
@@ -181,7 +198,6 @@ class TypeFactory {
   const Type* get_numeric();
   const Type* get_bignumeric();
   const Type* get_json();
-  const Type* get_tokenlist();
 
   // Return a Type object for a simple type.  This works for all
   // non-parameterized scalar types.  Enums, arrays, structs and protos must
@@ -226,6 +242,15 @@ class TypeFactory {
                              const Type** result,
                              std::vector<std::string> catalog_name_path = {});
 
+  // Stores the unique copy of an ExtendedType in the TypeFactory. If such
+  // extended type already exists in the cache, frees `extended_type` and
+  // returns a pointer to existing type. Otherwise, returns a pointer to added
+  // type. Type equality is checked with TypeEquals and TypeHash functions.
+  // These rely on correct implementations of Type::HashTypeParameter and
+  // Type::EqualsForSameKind on the ExtendedType.
+  absl::StatusOr<const ExtendedType*> InternalizeExtendedType(
+      std::unique_ptr<const ExtendedType> extended_type);
+
   // Make a zetasql type from a proto, honoring zetasql.is_struct and
   // zetasql.is_wrapper annotations.
   // These annotations allow creating a proto representation of any zetasql
@@ -239,6 +264,7 @@ class TypeFactory {
   }
   // DEPRECATED: Callers should remove their dependencies on obsolete types and
   // move to the method above.
+  ABSL_DEPRECATED("Obsolete timestamp types are deprecated")
   absl::Status MakeUnwrappedTypeFromProto(const google::protobuf::Descriptor* message,
                                           bool use_obsolete_timestamp,
                                           const Type** result_type);
@@ -252,6 +278,7 @@ class TypeFactory {
   }
   // DEPRECATED: Callers should remove their dependencies on obsolete types and
   // move to the method above.
+  ABSL_DEPRECATED("Obsolete timestamp types are deprecated")
   absl::Status UnwrapTypeIfAnnotatedProto(const Type* input_type,
                                           bool use_obsolete_timestamp,
                                           const Type** result_type);
@@ -288,6 +315,7 @@ class TypeFactory {
   }
   // DEPRECATED: Callers should remove their dependencies on obsolete types and
   // move to the method above.
+  ABSL_DEPRECATED("Obsolete timestamp types are deprecated")
   absl::Status GetProtoFieldType(const google::protobuf::FieldDescriptor* field_descr,
                                  bool use_obsolete_timestamp,
                                  const Type** type);
@@ -298,7 +326,7 @@ class TypeFactory {
 
   // Takes ownership of <annotation_map> and returns a raw pointer owned by this
   // TypeFactory. The output pointer may be different from the input.
-  zetasql_base::StatusOr<const AnnotationMap*> TakeOwnership(
+  absl::StatusOr<const AnnotationMap*> TakeOwnership(
       std::unique_ptr<AnnotationMap> annotation_map);
 
   // Makes a ZetaSQL Type from a self-contained ZetaSQL TypeProto.  The
@@ -308,6 +336,10 @@ class TypeFactory {
   // i.e. if type_proto.file_descriptor_set_size() > 1.  For serialized types
   // spanning multiple pools, see
   // DeserializeFromSelfContainedProtoWithDistinctFiles below.
+  ABSL_DEPRECATED(
+      "Use TypeDeserializer calling "
+      "DeserializeFromSelfContainedProtoWithDistinctFiles to populate "
+      "DesciptorPools and Deserialize for type deserialization")
   absl::Status DeserializeFromSelfContainedProto(
       const TypeProto& type_proto,
       google::protobuf::DescriptorPool* pool,
@@ -317,6 +349,10 @@ class TypeFactory {
   // DescriptorPools.  The provided pools must match the number of
   // FileDescriptorSets stored in <type_proto>.  Each FileDescriptorSet from
   // <type_proto> is loaded into the DescriptorPool corresponding to its index.
+  ABSL_DEPRECATED(
+      "Use TypeDeserializer calling "
+      "DeserializeFromSelfContainedProtoWithDistinctFiles to populate "
+      "DesciptorPools and Deserialize for type deserialization")
   absl::Status DeserializeFromSelfContainedProtoWithDistinctFiles(
       const TypeProto& type_proto,
       const std::vector<google::protobuf::DescriptorPool*>& pools,
@@ -326,6 +362,7 @@ class TypeFactory {
   // by <type_proto> must already have related descriptors in the <pool>.
   // The <pool> must outlive the TypeFactory.  May only be used with a
   // <type_proto> serialized via Type::SerializeToProtoAndFileDescriptors.
+  ABSL_DEPRECATED("Use TypeDeserializer instead")
   absl::Status DeserializeFromProtoUsingExistingPool(
       const TypeProto& type_proto,
       const google::protobuf::DescriptorPool* pool,
@@ -337,6 +374,7 @@ class TypeFactory {
   // used with a <type_proto> serialized via
   // Type::SerializeToProtoAndFileDescriptors or
   // Type::SerializeToProtoAndDistinctFileDescriptors.
+  ABSL_DEPRECATED("Use TypeDeserializer instead")
   absl::Status DeserializeFromProtoUsingExistingPools(
       const TypeProto& type_proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
@@ -403,6 +441,7 @@ class TypeFactory {
   // Implementation of MakeUnwrappedTypeFromProto above that detects invalid use
   // of type annotations with recursive protos by storing all visited message
   // types in 'ancestor_messages'.
+  ABSL_DEPRECATED("Obsolete timestamp types are deprecated")
   absl::Status MakeUnwrappedTypeFromProtoImpl(
       const google::protobuf::Descriptor* message, const Type* existing_message_type,
       bool use_obsolete_timestamp, const Type** result_type,
@@ -411,6 +450,7 @@ class TypeFactory {
   // Implementation of UnwrapTypeIfAnnotatedProto above that detects invalid use
   // of type annotations with recursive protos by storing all visited message
   // types in 'ancestor_messages'.
+  ABSL_DEPRECATED("Obsolete timestamp types are deprecated")
   absl::Status UnwrapTypeIfAnnotatedProtoImpl(
       const Type* input_type, bool use_obsolete_timestamp,
       const Type** result_type,
@@ -438,6 +478,9 @@ class TypeFactory {
   // The key is a catalog name path.
   absl::node_hash_map<std::string, internal::CatalogName> cached_catalog_names_
       ABSL_GUARDED_BY(store_->mutex_);
+
+  // Cached extended types.
+  TypeFlatHashSet<> cached_extended_types_ ABSL_GUARDED_BY(store_->mutex_);
 
   internal::TypeStore* store_;  // Stores created types.
 
@@ -469,7 +512,6 @@ const Type* GeographyType();
 const Type* NumericType();
 const Type* BigNumericType();
 const Type* JsonType();
-const Type* TokenListType();
 const StructType* EmptyStructType();
 
 // ArrayTypes
@@ -491,7 +533,6 @@ const ArrayType* GeographyArrayType();
 const ArrayType* NumericArrayType();
 const ArrayType* BigNumericArrayType();
 const ArrayType* JsonArrayType();
-const ArrayType* TokenListArrayType();
 
 // Accessor for the ZetaSQL enum Type (functions::DateTimestampPart)
 // that represents date parts in function signatures.  Intended

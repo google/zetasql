@@ -6,8 +6,12 @@
 ZetaSQL supports the following statistical aggregate functions.
 
 ### CORR
-```
-CORR(X1, X2 [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+CORR(
+  X1, X2
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -47,8 +51,12 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### COVAR_POP
-```
-COVAR_POP(X1, X2 [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+COVAR_POP(
+  X1, X2
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -87,8 +95,12 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### COVAR_SAMP
-```
-COVAR_SAMP(X1, X2 [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+COVAR_SAMP(
+  X1, X2
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -127,8 +139,13 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### STDDEV_POP
-```
-STDDEV_POP([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+STDDEV_POP(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -168,8 +185,13 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### STDDEV_SAMP
-```
-STDDEV_SAMP([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+STDDEV_SAMP(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -207,8 +229,13 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### STDDEV
-```
-STDDEV([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+STDDEV(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -216,8 +243,13 @@ STDDEV([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 An alias of [STDDEV_SAMP][stat-agg-link-to-stddev-samp].
 
 ### VAR_POP
-```
-VAR_POP([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+VAR_POP(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -257,8 +289,13 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### VAR_SAMP
-```
-VAR_SAMP([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+VAR_SAMP(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -296,8 +333,13 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### VARIANCE
-```
-VARIANCE([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+VARIANCE(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**

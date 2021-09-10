@@ -188,7 +188,7 @@ struct ParsedNumberString {
 // and well-formed.
 // TODO: Move it to convert_string_with_format.cc after output
 // generation is implemented.
-zetasql_base::StatusOr<ParsedNumberString> ParseFormattedRealNumber(
+absl::StatusOr<ParsedNumberString> ParseFormattedRealNumber(
     absl::string_view number_string);
 
 // Parses the <format> string and returns the ParsedFormatElementInfo.
@@ -197,7 +197,7 @@ zetasql_base::StatusOr<ParsedNumberString> ParseFormattedRealNumber(
 // start generating outputs, this method is not needed. Case handling will be
 // fully covered by NumericalToStringWithFormat() by then. Remove this method
 // once output generation is implemented.
-zetasql_base::StatusOr<ParsedFormatElementInfo> ParseForTest(absl::string_view format);
+absl::StatusOr<ParsedFormatElementInfo> ParseForTest(absl::string_view format);
 
 // Returns the string representation of the format element. This is intended to
 // be used to generate error messages.
@@ -226,7 +226,7 @@ class NumericalToStringFormatter {
   // - SetFormatString() must have been called,
   // - <v> cannot be a NullValue,
   // - the type of <v> has to be numerical.
-  zetasql_base::StatusOr<std::string> Format(const Value& v);
+  absl::StatusOr<std::string> Format(const Value& v);
 
  private:
   ProductMode product_mode_;
@@ -237,7 +237,7 @@ class NumericalToStringFormatter {
 absl::Status ValidateNumericalToStringFormat(absl::string_view format);
 
 // Shorthand for doing the format in one call.
-zetasql_base::StatusOr<std::string> NumericalToStringWithFormat(
+absl::StatusOr<std::string> NumericalToStringWithFormat(
     const Value& v, absl::string_view format, ProductMode product_mode);
 
 }  // namespace functions

@@ -435,8 +435,8 @@ from TestTable tt,
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 | +-$array.d#4 AS d [DATE]
 +-query=
   +-ProjectScan
@@ -450,7 +450,7 @@ QueryStmt
         | +-GetProtoField
         |   +-type=ARRAY<DATE>
         |   +-expr=
-        |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=repeated_date
         |   +-default_value=[]
         |   +-format=DATE
@@ -472,8 +472,8 @@ from TestTable tt,
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 | +-$query.nested_int64#6 AS nested_int64 [INT64]
 | +-$query.nested_repeated_int64#7 AS nested_repeated_int64 [ARRAY<INT64>]
 | +-$query.nested_repeated_int32#8 AS nested_repeated_int32 [ARRAY<INT32>]
@@ -487,28 +487,28 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT64
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.nrv#4)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nrv#4)
     | |   +-field_descriptor=nested_int64
     | |   +-default_value=88
     | +-nested_repeated_int64#7 :=
     | | +-GetProtoField
     | |   +-type=ARRAY<INT64>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.nrv#4)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nrv#4)
     | |   +-field_descriptor=nested_repeated_int64
     | |   +-default_value=[]
     | +-nested_repeated_int32#8 :=
     | | +-GetProtoField
     | |   +-type=ARRAY<INT32>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.nrv#4)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nrv#4)
     | |   +-field_descriptor=nested_repeated_int32
     | |   +-default_value=[]
     | +-value#9 :=
     |   +-GetProtoField
     |     +-type=ARRAY<INT32>
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.nrv#4)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nrv#4)
     |     +-field_descriptor=value
     |     +-default_value=[]
     +-input_scan=
@@ -521,9 +521,9 @@ QueryStmt
         |   | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2], alias="tt")
         |   +-array_expr=
         |   | +-GetProtoField
-        |   |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+        |   |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
         |   |   +-expr=
-        |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   |   +-field_descriptor=nested_repeated_value
         |   |   +-default_value=[]
         |   +-element_column=$array.nrv#4
@@ -531,7 +531,7 @@ QueryStmt
         | +-GetProtoField
         |   +-type=ARRAY<INT64>
         |   +-expr=
-        |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.nrv#4)
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nrv#4)
         |   +-field_descriptor=nested_repeated_int64
         |   +-default_value=[]
         +-element_column=$array.$unnest1#5
@@ -566,8 +566,8 @@ from TestTable tt,
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 | +-$array.$unnest1#5 AS `$unnest1` [INT32]
 +-query=
   +-ProjectScan
@@ -582,7 +582,7 @@ QueryStmt
         |   +-type=ARRAY<INT32>
         |   +-subquery_type=ARRAY
         |   +-parameter_list=
-        |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-subquery=
         |     +-ProjectScan
         |       +-column_list=[$array.repeated_int32_val#4]
@@ -593,7 +593,7 @@ QueryStmt
         |           | +-GetProtoField
         |           |   +-type=ARRAY<INT32>
         |           |   +-expr=
-        |           |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+        |           |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
         |           |   +-field_descriptor=repeated_int32_val
         |           |   +-default_value=[]
         |           +-element_column=$array.repeated_int32_val#4
@@ -623,7 +623,7 @@ QueryStmt
     |     +-type=INT64
     |     +-subquery_type=SCALAR
     |     +-parameter_list=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-subquery=
     |       +-ProjectScan
     |         +-column_list=[$aggregate.$agg1#5]
@@ -636,7 +636,7 @@ QueryStmt
     |             |   | +-GetProtoField
     |             |   |   +-type=ARRAY<INT32>
     |             |   |   +-expr=
-    |             |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+    |             |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
     |             |   |   +-field_descriptor=repeated_int32_val
     |             |   |   +-default_value=[]
     |             |   +-element_column=$array.$unnest1#4
@@ -776,7 +776,7 @@ QueryStmt
     |     +-type=INT64
     |     +-subquery_type=SCALAR
     |     +-parameter_list=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-subquery=
     |       +-ProjectScan
     |         +-column_list=[$array.arr#4]
@@ -787,11 +787,11 @@ QueryStmt
     |             | +-GetProtoField
     |             |   +-type=ARRAY<INT64>
     |             |   +-expr=
-    |             |   | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>, INT64) -> PROTO<zetasql_test.KitchenSinkPB.Nested>)
+    |             |   | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>, INT64) -> PROTO<zetasql_test__.KitchenSinkPB.Nested>)
     |             |   |   +-GetProtoField
-    |             |   |   | +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+    |             |   |   | +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
     |             |   |   | +-expr=
-    |             |   |   | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+    |             |   |   | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
     |             |   |   | +-field_descriptor=nested_repeated_value
     |             |   |   | +-default_value=[]
     |             |   |   +-Literal(type=INT64, value=1)
@@ -823,11 +823,11 @@ QueryStmt
         | +-GetProtoField
         |   +-type=ARRAY<INT64>
         |   +-expr=
-        |   | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>, INT64) -> PROTO<zetasql_test.KitchenSinkPB.Nested>)
+        |   | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>, INT64) -> PROTO<zetasql_test__.KitchenSinkPB.Nested>)
         |   |   +-GetProtoField
-        |   |   | +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+        |   |   | +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
         |   |   | +-expr=
-        |   |   | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   |   | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   |   | +-field_descriptor=nested_repeated_value
         |   |   | +-default_value=[]
         |   |   +-Literal(type=INT64, value=0)
@@ -848,7 +848,7 @@ ERROR: Syntax error: Array element access is not allowed in the FROM clause with
 select v
 from TestTable,
      UNNEST(TestTable.KitchenSink
-                     .(zetasql_test.KitchenSinkExtension.optional_extension)
+                     .(zetasql_test__.KitchenSinkExtension.optional_extension)
                      .repeated_value) v
 --
 QueryStmt
@@ -867,10 +867,10 @@ QueryStmt
         |   +-type=ARRAY<STRING>
         |   +-expr=
         |   | +-GetProtoField
-        |   |   +-type=PROTO<zetasql_test.KitchenSinkExtension>
+        |   |   +-type=PROTO<zetasql_test__.KitchenSinkExtension>
         |   |   +-expr=
-        |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
-        |   |   +-field_descriptor=[zetasql_test.KitchenSinkExtension.optional_extension]
+        |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   |   +-field_descriptor=[zetasql_test__.KitchenSinkExtension.optional_extension]
         |   |   +-default_value=NULL
         |   +-field_descriptor=repeated_value
         |   +-default_value=[]
@@ -880,11 +880,11 @@ QueryStmt
 select v
 from TestTable,
      TestTable.KitchenSink
-         .(zetasql_test.KitchenSinkExtension.optional_extension)
+         .(zetasql_test__.KitchenSinkExtension.optional_extension)
          .repeated_value v
 --
 ERROR: Syntax error: Generalized field access is not allowed in the FROM clause without UNNEST; Use UNNEST(<expression>) [at 4:11]
-         .(zetasql_test.KitchenSinkExtension.optional_extension)
+         .(zetasql_test__.KitchenSinkExtension.optional_extension)
           ^
 ==
 
@@ -893,7 +893,7 @@ ERROR: Syntax error: Generalized field access is not allowed in the FROM clause 
 select v
 from TestTable,
      UNNEST(TestTable.KitchenSink
-                     .(zetasql_test.KitchenSinkExtension.repeated_extension)
+                     .(zetasql_test__.KitchenSinkExtension.repeated_extension)
                      [OFFSET(2)]
                      .repeated_value) v
 --
@@ -912,12 +912,12 @@ QueryStmt
         | +-GetProtoField
         |   +-type=ARRAY<STRING>
         |   +-expr=
-        |   | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test.KitchenSinkExtension>>, INT64) -> PROTO<zetasql_test.KitchenSinkExtension>)
+        |   | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test__.KitchenSinkExtension>>, INT64) -> PROTO<zetasql_test__.KitchenSinkExtension>)
         |   |   +-GetProtoField
-        |   |   | +-type=ARRAY<PROTO<zetasql_test.KitchenSinkExtension>>
+        |   |   | +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkExtension>>
         |   |   | +-expr=
-        |   |   | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
-        |   |   | +-field_descriptor=[zetasql_test.KitchenSinkExtension.repeated_extension]
+        |   |   | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   |   | +-field_descriptor=[zetasql_test__.KitchenSinkExtension.repeated_extension]
         |   |   | +-default_value=[]
         |   |   +-Literal(type=INT64, value=2)
         |   +-field_descriptor=repeated_value

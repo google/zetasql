@@ -19,7 +19,7 @@
 #include "zetasql/public/functions/hash.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/function.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 namespace {
@@ -27,7 +27,7 @@ namespace {
 class HashFunction : public SimpleBuiltinScalarFunction {
  public:
   explicit HashFunction(FunctionKind kind);
-  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 
  private:
@@ -39,7 +39,7 @@ class FarmFingerprintFunction : public SimpleBuiltinScalarFunction {
   FarmFingerprintFunction()
       : SimpleBuiltinScalarFunction(FunctionKind::kFarmFingerprint,
                                     types::Int64Type()) {}
-  zetasql_base::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -64,7 +64,7 @@ HashFunction::HashFunction(FunctionKind kind)
             }
           }())) {}
 
-zetasql_base::StatusOr<Value> HashFunction::Eval(absl::Span<const Value> args,
+absl::StatusOr<Value> HashFunction::Eval(absl::Span<const Value> args,
                                          EvaluationContext* context) const {
   ZETASQL_RET_CHECK_EQ(1, args.size());
   if (args[0].is_null()) {
@@ -78,7 +78,7 @@ zetasql_base::StatusOr<Value> HashFunction::Eval(absl::Span<const Value> args,
   return Value::Bytes(hasher_->Hash(input));
 }
 
-zetasql_base::StatusOr<Value> FarmFingerprintFunction::Eval(
+absl::StatusOr<Value> FarmFingerprintFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
   ZETASQL_RET_CHECK_EQ(1, args.size());
   if (args[0].is_null()) {

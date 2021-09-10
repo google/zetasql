@@ -17,6 +17,7 @@
 #include "zetasql/public/sql_formatter.h"
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -37,11 +38,11 @@
 
 namespace zetasql {
 
-absl::Status FormatSql(const std::string& sql, std::string* formatted_sql) {
+absl::Status FormatSql(absl::string_view sql, std::string* formatted_sql) {
   ZETASQL_RET_CHECK_NE(formatted_sql, nullptr);
   formatted_sql->clear();
 
-  *formatted_sql = sql;
+  *formatted_sql = std::string(sql);
 
   std::vector<std::string> formatted_statement;
 
@@ -89,7 +90,8 @@ absl::Status FormatSql(const std::string& sql, std::string* formatted_sql) {
         // It should not be treated as a statement. If there's more than one
         // token, then we treat the remainder of the input as a statement.
         if (parse_tokens.size() != 1) {
-          formatted_statement.push_back(sql.substr(statement_start));
+          formatted_statement.push_back(
+              std::string(sql.substr(statement_start)));
         }
         at_end_of_input = true;
       } else {
@@ -100,7 +102,7 @@ absl::Status FormatSql(const std::string& sql, std::string* formatted_sql) {
             parse_tokens.back().GetLocationRange().start().GetByteOffset() -
             statement_start;
         formatted_statement.push_back(
-            sql.substr(statement_start, statement_length));
+            std::string(sql.substr(statement_start, statement_length)));
       }
     }
   }

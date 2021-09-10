@@ -61,7 +61,7 @@
 #include "absl/container/node_hash_map.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
@@ -92,7 +92,7 @@ ValueExpr::~ValueExpr() {}
 // TableAsArrayExpr
 // -------------------------------------------------------
 
-zetasql_base::StatusOr<std::unique_ptr<TableAsArrayExpr>> TableAsArrayExpr::Create(
+absl::StatusOr<std::unique_ptr<TableAsArrayExpr>> TableAsArrayExpr::Create(
     const std::string& table_name, const ArrayType* type) {
   return absl::WrapUnique(new TableAsArrayExpr(table_name, type));
 }
@@ -139,7 +139,7 @@ TableAsArrayExpr::TableAsArrayExpr(const std::string& table_name,
 // NewStructExpr
 // -------------------------------------------------------
 
-zetasql_base::StatusOr<std::unique_ptr<NewStructExpr>> NewStructExpr::Create(
+absl::StatusOr<std::unique_ptr<NewStructExpr>> NewStructExpr::Create(
     const StructType* type, std::vector<std::unique_ptr<ExprArg>> args) {
   ZETASQL_RET_CHECK_EQ(type->num_fields(), args.size());
   for (int i = 0; i < args.size(); i++) {
@@ -221,7 +221,7 @@ absl::Span<ExprArg* const> NewStructExpr::mutable_field_list() {
 // NewArrayExpr
 // -------------------------------------------------------
 
-zetasql_base::StatusOr<std::unique_ptr<NewArrayExpr>> NewArrayExpr::Create(
+absl::StatusOr<std::unique_ptr<NewArrayExpr>> NewArrayExpr::Create(
     const ArrayType* array_type,
     std::vector<std::unique_ptr<ValueExpr>> elements) {
   for (const auto& e : elements) {
@@ -310,7 +310,7 @@ std::string ArrayNestExpr::DebugInternal(const std::string& indent,
       ArgDebugString({"element", "input"}, {k1, k1}, indent, verbose), ")");
 }
 
-zetasql_base::StatusOr<std::unique_ptr<ArrayNestExpr>> ArrayNestExpr::Create(
+absl::StatusOr<std::unique_ptr<ArrayNestExpr>> ArrayNestExpr::Create(
     const ArrayType* array_type, std::unique_ptr<ValueExpr> element,
     std::unique_ptr<RelationalOp> input, bool is_with_table) {
   return absl::WrapUnique(new ArrayNestExpr(array_type, std::move(element),
@@ -420,7 +420,7 @@ RelationalOp* ArrayNestExpr::mutable_input() {
 // DerefExpr
 // -------------------------------------------------------
 
-zetasql_base::StatusOr<std::unique_ptr<DerefExpr>> DerefExpr::Create(
+absl::StatusOr<std::unique_ptr<DerefExpr>> DerefExpr::Create(
     const VariableId& name, const Type* type) {
   return absl::WrapUnique(new DerefExpr(name, type));
 }
@@ -466,7 +466,7 @@ DerefExpr::DerefExpr(const VariableId& name, const Type* type)
 // ConstExpr
 // -------------------------------------------------------
 
-zetasql_base::StatusOr<std::unique_ptr<ConstExpr>> ConstExpr::Create(
+absl::StatusOr<std::unique_ptr<ConstExpr>> ConstExpr::Create(
     const Value& value) {
   return absl::WrapUnique(new ConstExpr(value));
 }
@@ -497,7 +497,7 @@ ConstExpr::ConstExpr(const Value& value) : ValueExpr(value.type()) {
 // FieldValueExpr
 // -------------------------------------------------------
 
-zetasql_base::StatusOr<std::unique_ptr<FieldValueExpr>> FieldValueExpr::Create(
+absl::StatusOr<std::unique_ptr<FieldValueExpr>> FieldValueExpr::Create(
     int field_index, std::unique_ptr<ValueExpr> expr) {
   return absl::WrapUnique(new FieldValueExpr(field_index, std::move(expr)));
 }
@@ -634,7 +634,7 @@ bool ProtoFieldReader::GetFieldValue(const TupleSlot& proto_slot,
     *status = zetasql_base::InternalErrorBuilder() << "Corrupt ProtoFieldValueList";
     return false;
   }
-  const zetasql_base::StatusOr<Value>& value = (*value_list)[access_info_registry_id_];
+  const absl::StatusOr<Value>& value = (*value_list)[access_info_registry_id_];
 
   if (!value.ok()) {
     *status = value.status();
@@ -649,7 +649,7 @@ bool ProtoFieldReader::GetFieldValue(const TupleSlot& proto_slot,
 // GetProtoFieldExpr
 // -------------------------------------------------------
 
-zetasql_base::StatusOr<std::unique_ptr<GetProtoFieldExpr>> GetProtoFieldExpr::Create(
+absl::StatusOr<std::unique_ptr<GetProtoFieldExpr>> GetProtoFieldExpr::Create(
     std::unique_ptr<ValueExpr> proto_expr,
     const ProtoFieldReader* field_reader) {
   return absl::WrapUnique(
@@ -707,7 +707,7 @@ std::string GetProtoFieldExpr::DebugInternal(const std::string& indent,
 // FlattenExpr
 // -------------------------------------------------------
 
-zetasql_base::StatusOr<std::unique_ptr<FlattenExpr>> FlattenExpr::Create(
+absl::StatusOr<std::unique_ptr<FlattenExpr>> FlattenExpr::Create(
     const Type* output_type, std::unique_ptr<ValueExpr> expr,
     std::vector<std::unique_ptr<ValueExpr>> get_fields,
     std::unique_ptr<const Value*> flattened_arg_input) {
@@ -820,7 +820,7 @@ FlattenExpr::FlattenExpr(const Type* output_type,
 // SingleValueExpr
 // -------------------------------------------------------
 
-zetasql_base::StatusOr<std::unique_ptr<SingleValueExpr>> SingleValueExpr::Create(
+absl::StatusOr<std::unique_ptr<SingleValueExpr>> SingleValueExpr::Create(
     std::unique_ptr<ValueExpr> value, std::unique_ptr<RelationalOp> input) {
   return absl::WrapUnique(
       new SingleValueExpr(std::move(value), std::move(input)));
@@ -905,7 +905,7 @@ ValueExpr* SingleValueExpr::mutable_value() {
 // ExistsExpr
 // -------------------------------------------------------
 
-zetasql_base::StatusOr<std::unique_ptr<ExistsExpr>> ExistsExpr::Create(
+absl::StatusOr<std::unique_ptr<ExistsExpr>> ExistsExpr::Create(
     std::unique_ptr<RelationalOp> input) {
   return absl::WrapUnique(new ExistsExpr(std::move(input)));
 }
@@ -962,7 +962,7 @@ RelationalOp* ExistsExpr::mutable_input() {
 // ScalarFunctionCallExpr
 // -------------------------------------------------------
 
-zetasql_base::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>>
+absl::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>>
 ScalarFunctionCallExpr::Create(
     std::unique_ptr<const ScalarFunctionBody> function,
     std::vector<std::unique_ptr<ValueExpr>> exprs,
@@ -1038,7 +1038,7 @@ ScalarFunctionCallExpr::ScalarFunctionCallExpr(
 // AggregateFunctionCallExpr
 // -------------------------------------------------------
 
-zetasql_base::StatusOr<std::unique_ptr<AggregateFunctionCallExpr>>
+absl::StatusOr<std::unique_ptr<AggregateFunctionCallExpr>>
 AggregateFunctionCallExpr::Create(
     std::unique_ptr<const AggregateFunctionBody> function,
     std::vector<std::unique_ptr<ValueExpr>> exprs) {
@@ -1093,7 +1093,7 @@ bool AggregateFunctionCallExpr::Eval(absl::Span<const TupleData* const> params,
 // AnalyticFunctionCallExpr
 // -------------------------------------------------------
 
-zetasql_base::StatusOr<std::unique_ptr<AnalyticFunctionCallExpr>>
+absl::StatusOr<std::unique_ptr<AnalyticFunctionCallExpr>>
 AnalyticFunctionCallExpr::Create(
     std::unique_ptr<const AnalyticFunctionBody> function,
     std::vector<std::unique_ptr<ValueExpr>> non_const_arguments,
@@ -1184,7 +1184,7 @@ bool AnalyticFunctionCallExpr::Eval(absl::Span<const TupleData* const> params,
 // IfExpr
 // -------------------------------------------------------
 
-zetasql_base::StatusOr<std::unique_ptr<IfExpr>> IfExpr::Create(
+absl::StatusOr<std::unique_ptr<IfExpr>> IfExpr::Create(
     std::unique_ptr<ValueExpr> condition, std::unique_ptr<ValueExpr> true_value,
     std::unique_ptr<ValueExpr> false_value) {
   ZETASQL_RET_CHECK(true_value->output_type()->Equals(false_value->output_type()));
@@ -1257,7 +1257,7 @@ ValueExpr* IfExpr::mutable_false_value() {
 // LetExpr
 // -------------------------------------------------------
 
-zetasql_base::StatusOr<std::unique_ptr<LetExpr>> LetExpr::Create(
+absl::StatusOr<std::unique_ptr<LetExpr>> LetExpr::Create(
     std::vector<std::unique_ptr<ExprArg>> assign,
     std::unique_ptr<ValueExpr> body) {
   return absl::WrapUnique(new LetExpr(std::move(assign), std::move(body)));
@@ -1503,7 +1503,14 @@ bool ArrayFunctionWithLambdaExpr::Eval(
       return false;
     }
 
-    handler->OnLambdaEvaluation(element_value, lambda_body_value);
+    bool short_circuit = false;
+    *status = handler->OnLambdaEvaluation(element_value, lambda_body_value,
+                                          short_circuit);
+    if (!status->ok()) return false;
+    // The handler asks us to stop.
+    if (short_circuit) {
+      break;
+    }
   }
 
   result->SetValue(handler->GetReturnValue(output_type()));
@@ -1538,8 +1545,9 @@ class ArrayFilterLambdaEvaluationHandler
 
   // If the lambda value is TRUE, puts the element input output.
   // If the lambda value is FALSE or NULL, skips the element.
-  void OnLambdaEvaluation(const Value& element,
-                          const Value& lambda_body) override;
+  absl::Status OnLambdaEvaluation(const Value& element,
+                                  const Value& lambda_body,
+                                  bool& short_circuit) override;
 
   Value GetReturnValue(const Type* output_type) override;
 
@@ -1547,11 +1555,12 @@ class ArrayFilterLambdaEvaluationHandler
   std::vector<Value> filtered_elements_;
 };
 
-void ArrayFilterLambdaEvaluationHandler::OnLambdaEvaluation(
-    const Value& element, const Value& lambda_body) {
+absl::Status ArrayFilterLambdaEvaluationHandler::OnLambdaEvaluation(
+    const Value& element, const Value& lambda_body, bool& short_circuit) {
   if (!lambda_body.is_null() && lambda_body.bool_value()) {
     filtered_elements_.push_back(element);
   }
+  return absl::OkStatus();
 }
 
 Value ArrayFilterLambdaEvaluationHandler::GetReturnValue(
@@ -1566,8 +1575,9 @@ class ArrayTransformLambdaEvaluationHandler
   ~ArrayTransformLambdaEvaluationHandler() override{};
 
   // Puts the lambda body value into the result array.
-  void OnLambdaEvaluation(const Value& element,
-                          const Value& lambda_body) override;
+  absl::Status OnLambdaEvaluation(const Value& element,
+                                  const Value& lambda_body,
+                                  bool& short_circuit) override;
 
   Value GetReturnValue(const Type* output_type) override;
 
@@ -1575,9 +1585,10 @@ class ArrayTransformLambdaEvaluationHandler
   std::vector<Value> transformed_elements_;
 };
 
-void ArrayTransformLambdaEvaluationHandler::OnLambdaEvaluation(
-    const Value& element, const Value& lambda_body) {
+absl::Status ArrayTransformLambdaEvaluationHandler::OnLambdaEvaluation(
+    const Value& element, const Value& lambda_body, bool& short_circuit) {
   transformed_elements_.push_back(lambda_body);
+  return absl::OkStatus();
 }
 
 Value ArrayTransformLambdaEvaluationHandler::GetReturnValue(
@@ -1585,7 +1596,39 @@ Value ArrayTransformLambdaEvaluationHandler::GetReturnValue(
   return Value::Array(output_type->AsArray(), transformed_elements_);
 }
 
-zetasql_base::StatusOr<std::unique_ptr<ArrayFunctionWithLambdaExpr>>
+// Lambda evaluation handler for FN_ARRAY_INCLUDES_LAMBDA.
+class ArrayIncludesLambdaEvaluationHandler
+    : public ArrayFunctionWithLambdaExpr::LambdaResultHandler {
+ public:
+  ~ArrayIncludesLambdaEvaluationHandler() override{};
+
+  absl::Status OnLambdaEvaluation(const Value& element,
+                                  const Value& lambda_body,
+                                  bool& short_circuit) override;
+
+  Value GetReturnValue(const Type* output_type) override;
+
+ private:
+  bool found_ = false;
+};
+
+absl::Status ArrayIncludesLambdaEvaluationHandler::OnLambdaEvaluation(
+    const Value& element, const Value& lambda_body, bool& short_circuit) {
+  ZETASQL_RET_CHECK(lambda_body.type()->IsBool()) << lambda_body.DebugString();
+  if (lambda_body.is_null() || !lambda_body.bool_value()) {
+    return absl::OkStatus();
+  }
+  found_ = true;
+  short_circuit = true;
+  return absl::OkStatus();
+}
+
+Value ArrayIncludesLambdaEvaluationHandler::GetReturnValue(
+    const Type* output_type) {
+  return Value::Bool(found_);
+}
+
+absl::StatusOr<std::unique_ptr<ArrayFunctionWithLambdaExpr>>
 ArrayFunctionWithLambdaExpr::Create(
     absl::string_view func_name, std::vector<std::unique_ptr<AlgebraArg>> args,
     const Type* output_type) {
@@ -1598,6 +1641,11 @@ ArrayFunctionWithLambdaExpr::Create(
     return absl::WrapUnique(new ArrayFunctionWithLambdaExpr(
         func_name, std::move(args[0]), std::move(args[1]), output_type, []() {
           return absl::make_unique<ArrayTransformLambdaEvaluationHandler>();
+        }));
+  } else if (func_name == "array_includes") {
+    return absl::WrapUnique(new ArrayFunctionWithLambdaExpr(
+        func_name, std::move(args[0]), std::move(args[1]), output_type, []() {
+          return absl::make_unique<ArrayIncludesLambdaEvaluationHandler>();
         }));
   }
 
@@ -1734,7 +1782,7 @@ DMLValueExpr::DMLValueExpr(
       resolved_scan_map_(std::move(resolved_scan_map)),
       resolved_expr_map_(std::move(resolved_expr_map)) {}
 
-zetasql_base::StatusOr<RelationalOp*> DMLValueExpr::LookupResolvedScan(
+absl::StatusOr<RelationalOp*> DMLValueExpr::LookupResolvedScan(
     const ResolvedScan* resolved_scan) const {
   const std::unique_ptr<RelationalOp>* relational_op =
       zetasql_base::FindOrNull(*resolved_scan_map_, resolved_scan);
@@ -1742,7 +1790,7 @@ zetasql_base::StatusOr<RelationalOp*> DMLValueExpr::LookupResolvedScan(
   return relational_op->get();
 }
 
-zetasql_base::StatusOr<ValueExpr*> DMLValueExpr::LookupResolvedExpr(
+absl::StatusOr<ValueExpr*> DMLValueExpr::LookupResolvedExpr(
     const ResolvedExpr* resolved_expr) const {
   const std::unique_ptr<ValueExpr>* value_expr =
       zetasql_base::FindOrNull(*resolved_expr_map_, resolved_expr);
@@ -1753,7 +1801,7 @@ zetasql_base::StatusOr<ValueExpr*> DMLValueExpr::LookupResolvedExpr(
 // Convenience helper to make ValueExpr::Eval() easier to call (at the cost of
 // some performance, which doesn't matter for DML ValueExprs since they are just
 // for compliance testing).
-static zetasql_base::StatusOr<Value> EvalExpr(const ValueExpr& value_expr,
+static absl::StatusOr<Value> EvalExpr(const ValueExpr& value_expr,
                                       absl::Span<const TupleData* const> params,
                                       EvaluationContext* context) {
   TupleSlot slot;
@@ -1793,7 +1841,7 @@ absl::Status DMLValueExpr::VerifyNumRowsModified(
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<std::vector<Value>> DMLValueExpr::GetScannedTupleAsColumnValues(
+absl::StatusOr<std::vector<Value>> DMLValueExpr::GetScannedTupleAsColumnValues(
     const ResolvedColumnList& column_list, const Tuple& t) const {
   std::vector<Value> values;
   for (const ResolvedColumn& column : column_list) {
@@ -1803,11 +1851,11 @@ zetasql_base::StatusOr<std::vector<Value>> DMLValueExpr::GetScannedTupleAsColumn
   return values;
 }
 
-zetasql_base::StatusOr<Value> DMLValueExpr::GetColumnValue(const ResolvedColumn& column,
+absl::StatusOr<Value> DMLValueExpr::GetColumnValue(const ResolvedColumn& column,
                                                    const Tuple& t) const {
   ZETASQL_ASSIGN_OR_RETURN(
       const VariableId variable_id,
-      column_to_variable_mapping_->LookupVariableNameForColumn(&column));
+      column_to_variable_mapping_->LookupVariableNameForColumn(column));
   absl::optional<int> slot = t.schema->FindIndexForVariable(variable_id);
   ZETASQL_RET_CHECK(slot.has_value()) << variable_id;
   return t.data->slot(slot.value()).value();
@@ -1847,7 +1895,7 @@ absl::Status DMLValueExpr::PopulatePrimaryKeyRowMap(
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<Value> DMLValueExpr::GetPrimaryKeyOrRowNumber(
+absl::StatusOr<Value> DMLValueExpr::GetPrimaryKeyOrRowNumber(
     const RowNumberAndValues& row_number_and_values, EvaluationContext* context,
     bool* has_primary_key) const {
   ZETASQL_ASSIGN_OR_RETURN(const absl::optional<std::vector<int>> primary_key_indexes,
@@ -1875,7 +1923,7 @@ zetasql_base::StatusOr<Value> DMLValueExpr::GetPrimaryKeyOrRowNumber(
   return Value::Struct(primary_key_type_, key_column_values);
 }
 
-zetasql_base::StatusOr<absl::optional<std::vector<int>>>
+absl::StatusOr<absl::optional<std::vector<int>>>
 DMLValueExpr::GetPrimaryKeyColumnIndexes(EvaluationContext* context) const {
   if (is_value_table()) {
     return absl::optional<std::vector<int>>();
@@ -1892,7 +1940,7 @@ DMLValueExpr::GetPrimaryKeyColumnIndexes(EvaluationContext* context) const {
   return table_->PrimaryKey();
 }
 
-zetasql_base::StatusOr<Value> DMLValueExpr::GetDMLOutputValue(
+absl::StatusOr<Value> DMLValueExpr::GetDMLOutputValue(
     int64_t num_rows_modified,
     const std::vector<std::vector<Value>>& dml_output_rows,
     const std::vector<std::vector<Value>>& dml_returning_rows,
@@ -2008,7 +2056,7 @@ static absl::Status EvalRelationalOp(
 // DMLDeleteValueExpr
 // -------------------------------------------------------
 
-zetasql_base::StatusOr<std::unique_ptr<DMLDeleteValueExpr>> DMLDeleteValueExpr::Create(
+absl::StatusOr<std::unique_ptr<DMLDeleteValueExpr>> DMLDeleteValueExpr::Create(
     const Table* table, const ArrayType* table_array_type,
     const ArrayType* returning_array_type, const StructType* primary_key_type,
     const StructType* dml_output_type, const ResolvedDeleteStmt* resolved_node,
@@ -2056,7 +2104,7 @@ absl::Status DMLDeleteValueExpr::SetSchemasForEvaluation(
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<Value> DMLDeleteValueExpr::Eval(
+absl::StatusOr<Value> DMLDeleteValueExpr::Eval(
     absl::Span<const TupleData* const> params,
     EvaluationContext* context) const {
   ZETASQL_ASSIGN_OR_RETURN(const ValueExpr* where_expr,
@@ -2139,7 +2187,7 @@ DMLDeleteValueExpr::DMLDeleteValueExpr(
 // DMLUpdateValueExpr
 // -------------------------------------------------------
 
-zetasql_base::StatusOr<std::unique_ptr<DMLUpdateValueExpr>> DMLUpdateValueExpr::Create(
+absl::StatusOr<std::unique_ptr<DMLUpdateValueExpr>> DMLUpdateValueExpr::Create(
     const Table* table, const ArrayType* table_array_type,
     const ArrayType* returning_array_type, const StructType* primary_key_type,
     const StructType* dml_output_type, const ResolvedUpdateStmt* resolved_node,
@@ -2205,7 +2253,7 @@ absl::Status DMLUpdateValueExpr::SetSchemasForEvaluation(
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<Value> DMLUpdateValueExpr::Eval(
+absl::StatusOr<Value> DMLUpdateValueExpr::Eval(
     absl::Span<const TupleData* const> params,
     EvaluationContext* context) const {
   // Schema of tuples from the from scan. NULL if there is no from scan.
@@ -2304,7 +2352,7 @@ std::string DMLUpdateValueExpr::DebugInternal(const std::string& indent,
   return absl::StrCat("DMLUpdateValueExpr : ", DebugDMLCommon(indent, verbose));
 }
 
-zetasql_base::StatusOr<Value> DMLUpdateValueExpr::UpdateNode::GetNewValue(
+absl::StatusOr<Value> DMLUpdateValueExpr::UpdateNode::GetNewValue(
     const Value& original_value, EvaluationContext* context) const {
   if (is_leaf()) return leaf_value();
 
@@ -2378,7 +2426,7 @@ zetasql_base::StatusOr<Value> DMLUpdateValueExpr::UpdateNode::GetNewValue(
   }
 }
 
-zetasql_base::StatusOr<Value> DMLUpdateValueExpr::UpdateNode::GetNewProtoValue(
+absl::StatusOr<Value> DMLUpdateValueExpr::UpdateNode::GetNewProtoValue(
     const Value& original_value, EvaluationContext* context) const {
   ZETASQL_RET_CHECK_EQ(original_value.type_kind(), TYPE_PROTO);
 
@@ -2532,9 +2580,9 @@ absl::Status DMLUpdateValueExpr::SetSchemasForEvaluationOfNestedDelete(
     const ResolvedDeleteStmt* nested_delete,
     const ResolvedColumn& element_column,
     absl::Span<const TupleSchema* const> params_schemas) {
-  ZETASQL_ASSIGN_OR_RETURN(const VariableId element_column_variable_id,
-                   column_to_variable_mapping_->LookupVariableNameForColumn(
-                       &element_column));
+  ZETASQL_ASSIGN_OR_RETURN(
+      const VariableId element_column_variable_id,
+      column_to_variable_mapping_->LookupVariableNameForColumn(element_column));
 
   std::vector<VariableId> new_variables;
   new_variables.push_back(element_column_variable_id);
@@ -2542,7 +2590,7 @@ absl::Status DMLUpdateValueExpr::SetSchemasForEvaluationOfNestedDelete(
   if (nested_delete->array_offset_column() != nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(const VariableId array_offset_column_variable_id,
                      column_to_variable_mapping_->LookupVariableNameForColumn(
-                         &nested_delete->array_offset_column()->column()));
+                         nested_delete->array_offset_column()->column()));
     new_variables.push_back(array_offset_column_variable_id);
   }
   const TupleSchema new_schema(new_variables);
@@ -2568,16 +2616,16 @@ absl::Status DMLUpdateValueExpr::SetSchemasForEvaluationOfNestedUpdate(
     const ResolvedUpdateStmt* nested_update,
     const ResolvedColumn& element_column,
     absl::Span<const TupleSchema* const> params_schemas) {
-  ZETASQL_ASSIGN_OR_RETURN(const VariableId element_column_variable_id,
-                   column_to_variable_mapping_->LookupVariableNameForColumn(
-                       &element_column));
+  ZETASQL_ASSIGN_OR_RETURN(
+      const VariableId element_column_variable_id,
+      column_to_variable_mapping_->LookupVariableNameForColumn(element_column));
   std::vector<VariableId> new_variables;
   new_variables.push_back(element_column_variable_id);
 
   if (nested_update->array_offset_column() != nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(const VariableId array_offset_column_variable_id,
                      column_to_variable_mapping_->LookupVariableNameForColumn(
-                         &nested_update->array_offset_column()->column()));
+                         nested_update->array_offset_column()->column()));
     new_variables.push_back(array_offset_column_variable_id);
   }
   const TupleSchema new_schema(new_variables);
@@ -2832,7 +2880,7 @@ absl::Status DMLUpdateValueExpr::AddToUpdateNode(
                          &next_update_node);
 }
 
-zetasql_base::StatusOr<Value> DMLUpdateValueExpr::GetLeafValue(
+absl::StatusOr<Value> DMLUpdateValueExpr::GetLeafValue(
     const ResolvedUpdateItem* update_item,
     absl::Span<const TupleData* const> tuples_for_row,
     EvaluationContext* context) const {
@@ -2907,7 +2955,7 @@ zetasql_base::StatusOr<Value> DMLUpdateValueExpr::GetLeafValue(
   return Value::Array(original_value.type()->AsArray(), new_elements);
 }
 
-zetasql_base::StatusOr<std::vector<Value>> DMLUpdateValueExpr::GetDMLOutputRow(
+absl::StatusOr<std::vector<Value>> DMLUpdateValueExpr::GetDMLOutputRow(
     const Tuple& tuple, const UpdateMap& update_map,
     EvaluationContext* context) const {
   absl::flat_hash_set<int> key_index_set;
@@ -3012,15 +3060,15 @@ absl::Status DMLUpdateValueExpr::ProcessNestedUpdate(
     const ResolvedColumn& element_column,
     const std::vector<Value>& original_elements, EvaluationContext* context,
     std::vector<UpdatedElement>* new_elements) const {
-  ZETASQL_ASSIGN_OR_RETURN(const VariableId element_column_variable_id,
-                   column_to_variable_mapping_->LookupVariableNameForColumn(
-                       &element_column));
+  ZETASQL_ASSIGN_OR_RETURN(
+      const VariableId element_column_variable_id,
+      column_to_variable_mapping_->LookupVariableNameForColumn(element_column));
 
   absl::optional<VariableId> array_offset_column_variable_id;
   if (nested_update->array_offset_column() != nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(array_offset_column_variable_id,
                      column_to_variable_mapping_->LookupVariableNameForColumn(
-                         &nested_update->array_offset_column()->column()));
+                         nested_update->array_offset_column()->column()));
   }
 
   ZETASQL_ASSIGN_OR_RETURN(const ValueExpr* where_expr,
@@ -3102,7 +3150,7 @@ absl::Status DMLUpdateValueExpr::ProcessNestedInsert(
     ZETASQL_RET_CHECK_EQ(nested_insert->query_output_column_list().size(), 1);
     ZETASQL_ASSIGN_OR_RETURN(const VariableId query_output_variable_id,
                      column_to_variable_mapping_->LookupVariableNameForColumn(
-                         &nested_insert->query_output_column_list()[0]));
+                         nested_insert->query_output_column_list()[0]));
 
     ZETASQL_ASSIGN_OR_RETURN(const RelationalOp* relational_op,
                      LookupResolvedScan(nested_insert->query()));
@@ -3158,7 +3206,7 @@ absl::Status DMLUpdateValueExpr::ProcessNestedInsert(
 // DMLInsertValueExpr
 // -------------------------------------------------------
 
-zetasql_base::StatusOr<std::unique_ptr<DMLInsertValueExpr>> DMLInsertValueExpr::Create(
+absl::StatusOr<std::unique_ptr<DMLInsertValueExpr>> DMLInsertValueExpr::Create(
     const Table* table, const ArrayType* table_array_type,
     const ArrayType* returning_array_type, const StructType* primary_key_type,
     const StructType* dml_output_type, const ResolvedInsertStmt* resolved_node,
@@ -3216,7 +3264,7 @@ absl::Status DMLInsertValueExpr::SetSchemasForEvaluation(
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<Value> DMLInsertValueExpr::Eval(
+absl::StatusOr<Value> DMLInsertValueExpr::Eval(
     absl::Span<const TupleData* const> params,
     EvaluationContext* context) const {
   InsertColumnMap insert_column_map;
@@ -3465,7 +3513,7 @@ absl::Status DMLInsertValueExpr::PopulateRowsInOriginalTable(
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<int64_t> DMLInsertValueExpr::InsertRows(
+absl::StatusOr<int64_t> DMLInsertValueExpr::InsertRows(
     const InsertColumnMap& insert_column_map,
     const std::vector<std::vector<Value>>& rows_to_insert,
     std::vector<std::vector<Value>>& dml_returning_rows,
@@ -3605,7 +3653,7 @@ zetasql_base::StatusOr<int64_t> DMLInsertValueExpr::InsertRows(
   return modified_primary_keys.size();
 }
 
-zetasql_base::StatusOr<Value> DMLInsertValueExpr::GetDMLOutputValue(
+absl::StatusOr<Value> DMLInsertValueExpr::GetDMLOutputValue(
     int64_t num_rows_modified, const PrimaryKeyRowMap& row_map,
     const std::vector<std::vector<Value>>& dml_returning_rows,
     EvaluationContext* context) const {
@@ -3627,7 +3675,7 @@ zetasql_base::StatusOr<Value> DMLInsertValueExpr::GetDMLOutputValue(
 // RootExpr
 // -------------------------------------------------------
 
-zetasql_base::StatusOr<std::unique_ptr<RootExpr>> RootExpr::Create(
+absl::StatusOr<std::unique_ptr<RootExpr>> RootExpr::Create(
     std::unique_ptr<ValueExpr> value_expr,
     std::unique_ptr<RootData> root_data) {
   return absl::WrapUnique(

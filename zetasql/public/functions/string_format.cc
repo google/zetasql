@@ -396,7 +396,7 @@ bool StringFormatEvaluator::ValueLiteralSetter(const FormatPart& part,
   // GetSQLLiteral() for JSON value can return an invalid JSON SQL literal
   // if the original JSON value is invalid.
   if (value_var->type_kind() == TYPE_JSON && value_var->is_unparsed_json()) {
-    zetasql_base::StatusOr<JSONValue> json =
+    absl::StatusOr<JSONValue> json =
         JSONValue::ParseJSONString(value_var->json_value_unparsed());
     if (!json.ok()) {
       status_ = ValueError(part.var_index, json.status().message());
@@ -705,7 +705,7 @@ bool StringFormatEvaluator::PrintJson(const Value& value, bool single_line,
     JSONValueConstRef json_ref = value.json_value();
     out = single_line ? json_ref.ToString() : json_ref.Format();
   } else {
-    zetasql_base::StatusOr<JSONValue> json =
+    absl::StatusOr<JSONValue> json =
         JSONValue::ParseJSONString(value.json_value_unparsed());
     if (!json.ok()) {
       status_ = ValueError(var_index, json.status().message());
@@ -870,7 +870,7 @@ bool StringFormatEvaluator::ProcessPattern() {
       break;
     }
 
-    bool grouping = flags.find('\'') != absl::string_view::npos;
+    bool grouping = absl::StrContains(flags, '\'');
     std::string stripped_flags;
     if (grouping) {
       for (char c : flags) {

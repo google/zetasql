@@ -16,32 +16,54 @@
 
 #include "zetasql/public/types/type_factory.h"
 
+#include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <iterator>
+#include <limits>
+#include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "zetasql/base/logging.h"
+#include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
-#include "google/protobuf/repeated_field.h"
-#include "zetasql/common/proto_helper.h"
+#include "zetasql/common/errors.h"
+#include "zetasql/public/annotation.pb.h"
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/functions/normalize_mode.pb.h"
-#include "zetasql/public/proto/type_annotation.pb.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto/wire_format_annotation.pb.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/enum_type.h"
 #include "zetasql/public/types/internal_utils.h"
+#include "zetasql/public/types/proto_type.h"
+#include "zetasql/public/types/simple_type.h"
+#include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_deserializer.h"
 #include "absl/algorithm/container.h"
+#include "absl/base/optimization.h"
 #include "absl/cleanup/cleanup.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
+#include "absl/container/inlined_vector.h"
+#include "absl/container/node_hash_map.h"
 #include "absl/flags/flag.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
-#include "absl/strings/str_cat.h"
-#include "absl/strings/str_join.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
+#include "absl/synchronization/mutex.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 ABSL_FLAG(int32_t, zetasql_type_factory_nesting_depth_limit,
@@ -142,6 +164,12 @@ int64_t TypeStoreHelper::Test_GetRefCount(const TypeStore* store) {
 
 }  // namespace internal
 
+// Staticly initialize a few commonly used types.
+static TypeFactory* s_type_factory() {
+  static TypeFactory* s_type_factory = new TypeFactory();
+  return s_type_factory;
+}
+
 TypeFactory::TypeFactory(const TypeFactoryOptions& options)
     : store_(new internal::TypeStore(
           options.keep_alive_while_referenced_from_value)),
@@ -201,7 +229,8 @@ int64_t TypeFactory::GetEstimatedOwnedMemoryBytesSize() const {
              cached_proto_types_with_catalog_name_) +
          internal::GetExternallyAllocatedMemoryEstimate(
              cached_enum_types_with_catalog_name_) +
-         internal::GetExternallyAllocatedMemoryEstimate(cached_catalog_names_);
+         internal::GetExternallyAllocatedMemoryEstimate(cached_catalog_names_) +
+         internal::GetExternallyAllocatedMemoryEstimate(cached_extended_types_);
 }
 
 template <class TYPE>
@@ -245,7 +274,6 @@ const Type* TypeFactory::get_geography() { return types::GeographyType(); }
 const Type* TypeFactory::get_numeric() { return types::NumericType(); }
 const Type* TypeFactory::get_bignumeric() { return types::BigNumericType(); }
 const Type* TypeFactory::get_json() { return types::JsonType(); }
-const Type* TypeFactory::get_tokenlist() { return types::TokenListType(); }
 
 const Type* TypeFactory::MakeSimpleType(TypeKind kind) {
   ZETASQL_CHECK(Type::IsSimpleType(kind)) << kind;
@@ -256,26 +284,49 @@ const Type* TypeFactory::MakeSimpleType(TypeKind kind) {
 
 absl::Status TypeFactory::MakeArrayType(const Type* element_type,
                                         const ArrayType** result) {
+  static const auto* kStaticTypeSet = new absl::flat_hash_set<const Type*>{
+      types::Int32Type(),
+      types::Int64Type(),
+      types::Uint32Type(),
+      types::Uint64Type(),
+      types::BoolType(),
+      types::FloatType(),
+      types::DoubleType(),
+      types::StringType(),
+      types::BytesType(),
+      types::TimestampType(),
+      types::DateType(),
+      types::DatetimeType(),
+      types::TimeType(),
+      types::IntervalType(),
+      types::GeographyType(),
+      types::NumericType(),
+      types::BigNumericType(),
+      types::JsonType(),
+  };
+  if (this != s_type_factory() && kStaticTypeSet->contains(element_type)) {
+    return s_type_factory()->MakeArrayType(element_type, result);
+  }
+
   *result = nullptr;
   AddDependency(element_type);
   if (element_type->IsArray()) {
     return ::zetasql_base::InvalidArgumentErrorBuilder()
            << "Array of array types are not supported";
-  } else {
-    const int depth_limit = nesting_depth_limit();
-    if (element_type->nesting_depth() + 1 > depth_limit) {
-      return ::zetasql_base::InvalidArgumentErrorBuilder()
-             << "Array type would exceed nesting depth limit of "
-             << depth_limit;
-    }
-    absl::MutexLock lock(&store_->mutex_);
-    auto& cached_result = cached_array_types_[element_type];
-    if (cached_result == nullptr) {
-      cached_result = TakeOwnershipLocked(new ArrayType(this, element_type));
-    }
-    *result = cached_result;
-    return absl::OkStatus();
   }
+
+  const int depth_limit = nesting_depth_limit();
+  if (element_type->nesting_depth() + 1 > depth_limit) {
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
+           << "Array type would exceed nesting depth limit of " << depth_limit;
+  }
+  absl::MutexLock lock(&store_->mutex_);
+  auto& cached_result = cached_array_types_[element_type];
+  if (cached_result == nullptr) {
+    cached_result = TakeOwnershipLocked(new ArrayType(this, element_type));
+  }
+  *result = cached_result;
+  return absl::OkStatus();
 }
 
 absl::Status TypeFactory::MakeArrayType(const Type* element_type,
@@ -410,6 +461,24 @@ absl::Status TypeFactory::MakeEnumType(
     std::vector<std::string> catalog_name_path) {
   *result = MakeDescribedType(enum_descriptor, std::move(catalog_name_path));
   return absl::OkStatus();
+}
+
+absl::StatusOr<const ExtendedType*> TypeFactory::InternalizeExtendedType(
+    std::unique_ptr<const ExtendedType> extended_type) {
+  ZETASQL_RET_CHECK(extended_type);
+  ZETASQL_RET_CHECK_EQ(extended_type->type_store_, store_);
+
+  absl::MutexLock lock(&store_->mutex_);
+  auto [it, inserted] = cached_extended_types_.emplace(extended_type.get());
+  if (!inserted) {
+    // Type is already present in the cache. Return existing type, so
+    // `extended_type` will be freed.
+    return (*it)->AsExtendedType();
+  }
+
+  // We've just added the type to `cached_extended_types_`, so add it to the
+  // list of types for removal.
+  return TakeOwnershipLocked(extended_type.release());
 }
 
 absl::Status TypeFactory::MakeUnwrappedTypeFromProto(
@@ -595,7 +664,7 @@ absl::Status TypeFactory::GetProtoFieldType(
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<const AnnotationMap*> TypeFactory::TakeOwnership(
+absl::StatusOr<const AnnotationMap*> TypeFactory::TakeOwnership(
     std::unique_ptr<AnnotationMap> annotation_map) {
   // TODO: look up in cache and return deduped AnnotationMap
   // pointer.
@@ -634,118 +703,10 @@ absl::Status TypeFactory::DeserializeFromProtoUsingExistingPools(
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
     const Type** type) {
   *type = nullptr;
-  if (!type_proto.has_type_kind() ||
-      (type_proto.type_kind() == TYPE_ARRAY) != type_proto.has_array_type() ||
-      (type_proto.type_kind() == TYPE_ENUM) != type_proto.has_enum_type() ||
-      (type_proto.type_kind() == TYPE_PROTO) != type_proto.has_proto_type() ||
-      (type_proto.type_kind() == TYPE_STRUCT) != type_proto.has_struct_type() ||
-      type_proto.type_kind() == __TypeKind__switch_must_have_a_default__) {
-    // TODO: Temporary hack to allow deserialization of existing
-    // zetasql::TypeProto with TYPE_GEOGRAPHY which have proto_type for
-    // stlib.proto.Geography in them.
-    if (type_proto.type_kind() != TYPE_GEOGRAPHY) {
-      return MakeSqlError()
-             << "Invalid TypeProto provided for deserialization: "
-             << type_proto.DebugString();
-    }
-  }
-  if (Type::IsSimpleType(type_proto.type_kind())) {
-    *type = MakeSimpleType(type_proto.type_kind());
-    return absl::OkStatus();
-  }
-  switch (type_proto.type_kind()) {
-    case TYPE_ARRAY: {
-      const Type* element_type;
-      const ArrayType* array_type;
-      ZETASQL_RETURN_IF_ERROR(DeserializeFromProtoUsingExistingPools(
-          type_proto.array_type().element_type(), pools, &element_type));
-      ZETASQL_RETURN_IF_ERROR(MakeArrayType(element_type, &array_type));
-      *type = array_type;
-    } break;
-    case TYPE_STRUCT: {
-      std::vector<StructType::StructField> fields;
-      const StructType* struct_type;
-      for (int idx = 0; idx < type_proto.struct_type().field_size(); ++idx) {
-        const StructFieldProto& field_proto =
-            type_proto.struct_type().field(idx);
-        const Type* field_type;
-        ZETASQL_RETURN_IF_ERROR(DeserializeFromProtoUsingExistingPools(
-            field_proto.field_type(), pools, &field_type));
-        StructType::StructField struct_field(field_proto.field_name(),
-                                             field_type);
-        fields.push_back(struct_field);
-      }
-      ZETASQL_RETURN_IF_ERROR(MakeStructType(fields, &struct_type));
-      *type = struct_type;
-    } break;
-    case TYPE_ENUM: {
-      const EnumType* enum_type;
-      const int set_index = type_proto.enum_type().file_descriptor_set_index();
-      if (set_index < 0 || set_index >= pools.size()) {
-        return MakeSqlError()
-               << "Descriptor pool index " << set_index
-               << " is out of range for the provided pools of size "
-               << pools.size();
-      }
-      const google::protobuf::DescriptorPool* pool = pools[set_index];
-      const google::protobuf::EnumDescriptor* enum_descr =
-          pool->FindEnumTypeByName(type_proto.enum_type().enum_name());
-      if (enum_descr == nullptr) {
-        return MakeSqlError()
-               << "Enum type name not found in the specified DescriptorPool: "
-               << type_proto.enum_type().enum_name();
-      }
-      if (enum_descr->file()->name() !=
-          type_proto.enum_type().enum_file_name()) {
-        return MakeSqlError()
-               << "Enum " << type_proto.enum_type().enum_name() << " found in "
-               << enum_descr->file()->name() << ", not "
-               << type_proto.enum_type().enum_file_name() << " as specified.";
-      }
-      const google::protobuf::RepeatedPtrField<std::string>& catalog_name_path =
-          type_proto.enum_type().catalog_name_path();
-      ZETASQL_RETURN_IF_ERROR(
-          MakeEnumType(enum_descr, &enum_type,
-                       {catalog_name_path.begin(), catalog_name_path.end()}));
-      *type = enum_type;
-    } break;
-    case TYPE_PROTO: {
-      const ProtoType* proto_type;
-      const int set_index = type_proto.proto_type().file_descriptor_set_index();
-      if (set_index < 0 || set_index >= pools.size()) {
-        return MakeSqlError()
-               << "Descriptor pool index " << set_index
-               << " is out of range for the provided pools of size "
-               << pools.size();
-      }
-      const google::protobuf::DescriptorPool* pool = pools[set_index];
-      const google::protobuf::Descriptor* proto_descr =
-          pool->FindMessageTypeByName(type_proto.proto_type().proto_name());
-      if (proto_descr == nullptr) {
-        return MakeSqlError()
-               << "Proto type name not found in the specified DescriptorPool: "
-               << type_proto.proto_type().proto_name();
-      }
-      if (proto_descr->file()->name() !=
-          type_proto.proto_type().proto_file_name()) {
-        return MakeSqlError()
-               << "Proto " << type_proto.proto_type().proto_name()
-               << " found in " << proto_descr->file()->name() << ", not "
-               << type_proto.proto_type().proto_file_name() << " as specified.";
-      }
-      const google::protobuf::RepeatedPtrField<std::string>& catalog_name_path =
-          type_proto.proto_type().catalog_name_path();
-      ZETASQL_RETURN_IF_ERROR(
-          MakeProtoType(proto_descr, &proto_type,
-                        {catalog_name_path.begin(), catalog_name_path.end()}));
-      *type = proto_type;
-    } break;
-    default:
-      return ::zetasql_base::UnimplementedErrorBuilder()
-             << "Making Type of kind "
-             << Type::TypeKindToString(type_proto.type_kind(), PRODUCT_INTERNAL)
-             << " from TypeProto is not implemented.";
-  }
+
+  ZETASQL_ASSIGN_OR_RETURN(*type,
+                   TypeDeserializer(this, pools).Deserialize(type_proto));
+
   return absl::OkStatus();
 }
 
@@ -765,21 +726,14 @@ absl::Status TypeFactory::DeserializeFromSelfContainedProto(
 absl::Status TypeFactory::DeserializeFromSelfContainedProtoWithDistinctFiles(
     const TypeProto& type_proto,
     const std::vector<google::protobuf::DescriptorPool*>& pools, const Type** type) {
-  if (!type_proto.file_descriptor_set().empty() &&
-      type_proto.file_descriptor_set_size() != pools.size()) {
-    return MakeSqlError()
-           << "Expected the number of provided FileDescriptorSets "
-              "and DescriptorPools to match. Found "
-           << type_proto.file_descriptor_set_size()
-           << " FileDescriptorSets and " << pools.size() << " DescriptorPools";
-  }
-  for (int i = 0; i < type_proto.file_descriptor_set_size(); ++i) {
-    ZETASQL_RETURN_IF_ERROR(AddFileDescriptorSetToPool(
-        &type_proto.file_descriptor_set(i), pools[i]));
-  }
-  const std::vector<const google::protobuf::DescriptorPool*> const_pools(pools.begin(),
-                                                               pools.end());
-  return DeserializeFromProtoUsingExistingPools(type_proto, const_pools, type);
+  ZETASQL_RETURN_IF_ERROR(
+      TypeDeserializer::DeserializeDescriptorPoolsFromSelfContainedProto(
+          type_proto, pools));
+
+  ZETASQL_ASSIGN_OR_RETURN(*type,
+                   TypeDeserializer(this, pools).Deserialize(type_proto));
+
+  return absl::OkStatus();
 }
 
 bool IsValidTypeKind(int kind) {
@@ -788,12 +742,6 @@ bool IsValidTypeKind(int kind) {
 }
 
 namespace {
-
-// Staticly initialize a few commonly used types.
-static TypeFactory* s_type_factory() {
-  static TypeFactory* s_type_factory = new TypeFactory();
-  return s_type_factory;
-}
 
 static const Type* s_int32_type() {
   static const Type* s_int32_type =
@@ -897,12 +845,6 @@ static const Type* s_bignumeric_type() {
 static const Type* s_json_type() {
   static const Type* s_json_type = new SimpleType(s_type_factory(), TYPE_JSON);
   return s_json_type;
-}
-
-static const Type* s_tokenlist_type() {
-  static const Type* s_tokenlist_type =
-      new SimpleType(s_type_factory(), TYPE_TOKENLIST);
-  return s_tokenlist_type;
 }
 
 static const EnumType* s_date_part_enum_type() {
@@ -1048,12 +990,6 @@ static const ArrayType* s_json_array_type() {
   return s_json_array_type;
 }
 
-static const ArrayType* s_tokenlist_array_type() {
-  static const ArrayType* s_tokenlist_array_type =
-      MakeArrayType(s_type_factory()->get_tokenlist());
-  return s_tokenlist_array_type;
-}
-
 }  // namespace
 
 namespace types {
@@ -1076,7 +1012,6 @@ const Type* GeographyType() { return s_geography_type(); }
 const Type* NumericType() { return s_numeric_type(); }
 const Type* BigNumericType() { return s_bignumeric_type(); }
 const Type* JsonType() { return s_json_type(); }
-const Type* TokenListType() { return s_tokenlist_type(); }
 const StructType* EmptyStructType() { return s_empty_struct_type(); }
 const EnumType* DatePartEnumType() { return s_date_part_enum_type(); }
 const EnumType* NormalizeModeEnumType() { return s_normalize_mode_enum_type(); }
@@ -1107,8 +1042,6 @@ const ArrayType* NumericArrayType() { return s_numeric_array_type(); }
 const ArrayType* BigNumericArrayType() { return s_bignumeric_array_type(); }
 
 const ArrayType* JsonArrayType() { return s_json_array_type(); }
-
-const ArrayType* TokenListArrayType() { return s_tokenlist_array_type(); }
 
 const Type* TypeFromSimpleTypeKind(TypeKind type_kind) {
   switch (type_kind) {
@@ -1148,8 +1081,6 @@ const Type* TypeFromSimpleTypeKind(TypeKind type_kind) {
       return BigNumericType();
     case TYPE_JSON:
       return JsonType();
-    case TYPE_TOKENLIST:
-      return TokenListType();
     default:
       ZETASQL_VLOG(1) << "Could not build static Type from type: "
               << Type::TypeKindToString(type_kind, PRODUCT_INTERNAL);
@@ -1195,8 +1126,6 @@ const ArrayType* ArrayTypeFromSimpleTypeKind(TypeKind type_kind) {
       return BigNumericArrayType();
     case TYPE_JSON:
       return JsonArrayType();
-    case TYPE_TOKENLIST:
-      return TokenListArrayType();
     default:
       ZETASQL_VLOG(1) << "Could not build static ArrayType from type: "
               << Type::TypeKindToString(type_kind, PRODUCT_INTERNAL);

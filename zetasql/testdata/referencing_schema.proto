@@ -16,7 +16,7 @@
 
 syntax = "proto2";
 
-package zetasql_test;
+package zetasql_test__;
 
 import "zetasql/testdata/referenced_schema.proto";
 import "zetasql/testdata/test_schema.proto";

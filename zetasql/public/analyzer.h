@@ -17,48 +17,27 @@
 #ifndef ZETASQL_PUBLIC_ANALYZER_H_
 #define ZETASQL_PUBLIC_ANALYZER_H_
 
-#include <functional>
 #include <map>
 #include <memory>
 #include <set>
 #include <string>
-#include <utility>
 #include <vector>
 
-#include "zetasql/base/arena.h"
-#include "zetasql/base/atomic_sequence_num.h"
-#include "google/protobuf/descriptor.h"
-#include "zetasql/proto/options.pb.h"
+#include "zetasql/parser/parse_tree.h"
+#include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
-#include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/catalog.h"
-#include "zetasql/public/id_string.h"
-#include "zetasql/public/language_options.h"
-#include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
-#include "absl/container/flat_hash_map.h"
-#include "absl/container/node_hash_set.h"
-#include "zetasql/base/statusor.h"
-#include "zetasql/base/case.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
-#include "absl/time/time.h"
-#include "zetasql/base/status.h"
+
 namespace zetasql {
 
-class ASTExpression;
-class ASTScript;
-class ASTStatement;
 class ParseResumeLocation;
-class ParserOptions;
-class ParserOutput;
-class ResolvedExpr;
-class ResolvedLiteral;
-class ResolvedOption;
-class ResolvedStatement;
-class ResolvedTableScan;
-class ResolvedAnonymizedAggregateScan;
 
 // Associates each system variable with its current value.
 using SystemVariableValuesMap =
@@ -448,7 +427,7 @@ absl::Status ExtractTableResolutionTimeFromASTStatement(
 // track rewrite status and provide idempotence.
 //
 // Does not take ownership of <catalog> or <type_factory>.
-zetasql_base::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
+absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
     const std::unique_ptr<const AnalyzerOutput>& analyzer_output,
     const AnalyzerOptions& analyzer_options, Catalog* catalog,
     TypeFactory* type_factory);

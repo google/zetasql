@@ -17,21 +17,21 @@
 #ifndef ZETASQL_ANALYZER_NAME_SCOPE_H_
 #define ZETASQL_ANALYZER_NAME_SCOPE_H_
 
+#include <functional>
 #include <map>
 #include <memory>
-#include <set>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 #include "zetasql/base/logging.h"
-
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "gtest/gtest_prod.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 
@@ -1013,7 +1013,7 @@ class NameList {
   // In practice, note that some <clone_column> function
   // implementations remember the mapping from the original
   // column to the cloned column.
-  zetasql_base::StatusOr<std::shared_ptr<NameList>> CloneWithNewColumns(
+  absl::StatusOr<std::shared_ptr<NameList>> CloneWithNewColumns(
       const ASTNode* ast_location, absl::string_view value_table_error,
       const ASTAlias* alias,
       std::function<ResolvedColumn(const ResolvedColumn&)> clone_column,
@@ -1074,7 +1074,7 @@ class NameList {
   // The subquery produces a NameList with [a,b,c].
   // To add the range variable S, we construct a NameList [a,b,c,S->[a,b,c]].
   // Adding S to the initial NameList would allow cyclic lookups like S.S.S.a.
-  static zetasql_base::StatusOr<std::shared_ptr<NameList>>
+  static absl::StatusOr<std::shared_ptr<NameList>>
   AddRangeVariableInWrappingNameList(
       IdString alias, const ASTNode* ast_location,
       std::shared_ptr<const NameList> original_name_list);

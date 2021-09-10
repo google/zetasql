@@ -135,11 +135,6 @@ select
   st_difference(geo1, geo2),
   st_unaryunion(geo1),
   st_centroid(geo1),
-  st_buffer(geo1, 1.2345),
-  st_buffer(geo2, 0.5, 10),
-  st_buffer(geo1, 10, 0, false),
-  st_bufferwithtolerance(geo1, 52, 1e-5),
-  st_bufferwithtolerance(geo2, 3.1, 0.002, false),
   st_simplify(geo1, 2.3),
   st_snaptogrid(geo1, 3e-3),
   st_closestpoint(geo1, geo2),
@@ -163,16 +158,11 @@ QueryStmt
 | +-$query.$col10#14 AS `$col10` [GEOGRAPHY]
 | +-$query.$col11#15 AS `$col11` [GEOGRAPHY]
 | +-$query.$col12#16 AS `$col12` [GEOGRAPHY]
-| +-$query.$col13#17 AS `$col13` [GEOGRAPHY]
-| +-$query.$col14#18 AS `$col14` [GEOGRAPHY]
-| +-$query.$col15#19 AS `$col15` [GEOGRAPHY]
-| +-$query.$col16#20 AS `$col16` [GEOGRAPHY]
-| +-$query.$col17#21 AS `$col17` [GEOGRAPHY]
-| +-$query.$col18#22 AS `$col18` [DOUBLE]
-| +-$query.$col19#23 AS `$col19` [DOUBLE]
+| +-$query.$col13#17 AS `$col13` [DOUBLE]
+| +-$query.$col14#18 AS `$col14` [DOUBLE]
 +-query=
   +-ProjectScan
-    +-column_list=$query.[$col1#5, $col2#6, $col3#7, $col4#8, $col5#9, $col6#10, $col7#11, $col8#12, $col9#13, $col10#14, $col11#15, $col12#16, $col13#17, $col14#18, $col15#19, $col16#20, $col17#21, $col18#22, $col19#23]
+    +-column_list=$query.[$col1#5, $col2#6, $col3#7, $col4#8, $col5#9, $col6#10, $col7#11, $col8#12, $col9#13, $col10#14, $col11#15, $col12#16, $col13#17, $col14#18]
     +-expr_list=
     | +-$col1#5 :=
     | | +-FunctionCall(ZetaSQL:st_union(GEOGRAPHY, GEOGRAPHY) -> GEOGRAPHY)
@@ -204,55 +194,29 @@ QueryStmt
     | | +-FunctionCall(ZetaSQL:st_centroid(GEOGRAPHY) -> GEOGRAPHY)
     | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
     | +-$col8#12 :=
-    | | +-FunctionCall(ZetaSQL:st_buffer(GEOGRAPHY, DOUBLE, optional(0) INT64, optional(0) BOOL) -> GEOGRAPHY)
-    | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
-    | |   +-Literal(type=DOUBLE, value=1.2345)
-    | +-$col9#13 :=
-    | | +-FunctionCall(ZetaSQL:st_buffer(GEOGRAPHY, DOUBLE, optional(1) INT64, optional(0) BOOL) -> GEOGRAPHY)
-    | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo2#4)
-    | |   +-Literal(type=DOUBLE, value=0.5)
-    | |   +-Literal(type=INT64, value=10)
-    | +-$col10#14 :=
-    | | +-FunctionCall(ZetaSQL:st_buffer(GEOGRAPHY, DOUBLE, optional(1) INT64, optional(1) BOOL) -> GEOGRAPHY)
-    | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
-    | |   +-Literal(type=DOUBLE, value=10)
-    | |   +-Literal(type=INT64, value=0)
-    | |   +-Literal(type=BOOL, value=false)
-    | +-$col11#15 :=
-    | | +-FunctionCall(ZetaSQL:st_bufferwithtolerance(GEOGRAPHY, DOUBLE, DOUBLE, optional(0) BOOL) -> GEOGRAPHY)
-    | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
-    | |   +-Literal(type=DOUBLE, value=52)
-    | |   +-Literal(type=DOUBLE, value=1e-05)
-    | +-$col12#16 :=
-    | | +-FunctionCall(ZetaSQL:st_bufferwithtolerance(GEOGRAPHY, DOUBLE, DOUBLE, optional(1) BOOL) -> GEOGRAPHY)
-    | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo2#4)
-    | |   +-Literal(type=DOUBLE, value=3.1)
-    | |   +-Literal(type=DOUBLE, value=0.002)
-    | |   +-Literal(type=BOOL, value=false)
-    | +-$col13#17 :=
     | | +-FunctionCall(ZetaSQL:st_simplify(GEOGRAPHY, DOUBLE) -> GEOGRAPHY)
     | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
     | |   +-Literal(type=DOUBLE, value=2.3)
-    | +-$col14#18 :=
+    | +-$col9#13 :=
     | | +-FunctionCall(ZetaSQL:st_snaptogrid(GEOGRAPHY, DOUBLE) -> GEOGRAPHY)
     | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
     | |   +-Literal(type=DOUBLE, value=0.003)
-    | +-$col15#19 :=
+    | +-$col10#14 :=
     | | +-FunctionCall(ZetaSQL:st_closestpoint(GEOGRAPHY, GEOGRAPHY, optional(0) BOOL) -> GEOGRAPHY)
     | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
     | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo2#4)
-    | +-$col16#20 :=
+    | +-$col11#15 :=
     | | +-FunctionCall(ZetaSQL:st_closestpoint(GEOGRAPHY, GEOGRAPHY, optional(1) BOOL) -> GEOGRAPHY)
     | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
     | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo2#4)
     | |   +-Literal(type=BOOL, value=false)
-    | +-$col17#21 :=
+    | +-$col12#16 :=
     | | +-FunctionCall(ZetaSQL:st_boundary(GEOGRAPHY) -> GEOGRAPHY)
     | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
-    | +-$col18#22 :=
+    | +-$col13#17 :=
     | | +-FunctionCall(ZetaSQL:st_x(GEOGRAPHY) -> DOUBLE)
     | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
-    | +-$col19#23 :=
+    | +-$col14#18 :=
     |   +-FunctionCall(ZetaSQL:st_y(GEOGRAPHY) -> DOUBLE)
     |     +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
     +-input_scan=
@@ -805,3 +769,201 @@ select st_geogfromtext('point(0 0)', planar => x) from unnest([true, false]) x
 ERROR: Argument 'planar' to ST_GEOGFROMTEXT must be a literal or query parameter [at 1:38]
 select st_geogfromtext('point(0 0)', planar => x) from unnest([true, false]) x
                                      ^
+==
+
+[language_features=GEOGRAPHY,NAMED_ARGUMENTS]
+select
+  # Permutation of named arguments produce same resolved AST.
+  st_buffer(geo1, 100.1, num_seg_quarter_circle => 8, use_spheroid => false, endcap => 'flat', side => 'left'),
+  st_buffer(geo2, 5.2, 8, use_spheroid => false, endcap => 'flat', side => 'left'),
+  st_buffer(geo1, 200.5, 8, false, side => 'left', endcap => 'flat'),
+  st_bufferwithtolerance(geo1, 100.1, tolerance_meters => 10.01, use_spheroid => false, endcap => 'flat', side => 'left'),
+  st_bufferwithtolerance(geo2, 5.2, 0.052, use_spheroid => false, endcap => 'flat', side => 'left'),
+  st_bufferwithtolerance(geo1, 200.5, 4.01, false, side => 'left', endcap => 'flat'),
+  # Some named arguments are missing - test that defaults are set correctly.
+  st_buffer(geo2, 0.0),
+  st_buffer(geo1, 10, num_seg_quarter_circle => 10),
+  st_buffer(geo2, 0.0, use_spheroid => false),
+  st_buffer(geo1, 100.2, endcap => 'flat'),
+  st_buffer(geo1, 100.2, side => 'right'),
+  st_bufferwithtolerance(geo1, 10, tolerance_meters => 5),
+  st_bufferwithtolerance(geo2, 0.0, 5),
+  st_bufferwithtolerance(geo2, 0.0, 10, use_spheroid => false),
+  st_bufferwithtolerance(geo1, 100.2, 10, endcap => 'round'),
+  st_bufferwithtolerance(geo1, 100.2, 10, side => 'right')
+from GeographyTable
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [GEOGRAPHY]
+| +-$query.$col2#6 AS `$col2` [GEOGRAPHY]
+| +-$query.$col3#7 AS `$col3` [GEOGRAPHY]
+| +-$query.$col4#8 AS `$col4` [GEOGRAPHY]
+| +-$query.$col5#9 AS `$col5` [GEOGRAPHY]
+| +-$query.$col6#10 AS `$col6` [GEOGRAPHY]
+| +-$query.$col7#11 AS `$col7` [GEOGRAPHY]
+| +-$query.$col8#12 AS `$col8` [GEOGRAPHY]
+| +-$query.$col9#13 AS `$col9` [GEOGRAPHY]
+| +-$query.$col10#14 AS `$col10` [GEOGRAPHY]
+| +-$query.$col11#15 AS `$col11` [GEOGRAPHY]
+| +-$query.$col12#16 AS `$col12` [GEOGRAPHY]
+| +-$query.$col13#17 AS `$col13` [GEOGRAPHY]
+| +-$query.$col14#18 AS `$col14` [GEOGRAPHY]
+| +-$query.$col15#19 AS `$col15` [GEOGRAPHY]
+| +-$query.$col16#20 AS `$col16` [GEOGRAPHY]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#5, $col2#6, $col3#7, $col4#8, $col5#9, $col6#10, $col7#11, $col8#12, $col9#13, $col10#14, $col11#15, $col12#16, $col13#17, $col14#18, $col15#19, $col16#20]
+    +-expr_list=
+    | +-$col1#5 :=
+    | | +-FunctionCall(ZetaSQL:st_buffer(GEOGRAPHY, DOUBLE, optional(1) DOUBLE num_seg_quarter_circle, optional(1) BOOL use_spheroid, optional(1) STRING endcap, optional(1) STRING side) -> GEOGRAPHY)
+    | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
+    | |   +-Literal(type=DOUBLE, value=100.1)
+    | |   +-Literal(type=DOUBLE, value=8)
+    | |   +-Literal(type=BOOL, value=false)
+    | |   +-Literal(type=STRING, value="flat")
+    | |   +-Literal(type=STRING, value="left")
+    | +-$col2#6 :=
+    | | +-FunctionCall(ZetaSQL:st_buffer(GEOGRAPHY, DOUBLE, optional(1) DOUBLE num_seg_quarter_circle, optional(1) BOOL use_spheroid, optional(1) STRING endcap, optional(1) STRING side) -> GEOGRAPHY)
+    | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo2#4)
+    | |   +-Literal(type=DOUBLE, value=5.2)
+    | |   +-Literal(type=DOUBLE, value=8)
+    | |   +-Literal(type=BOOL, value=false)
+    | |   +-Literal(type=STRING, value="flat")
+    | |   +-Literal(type=STRING, value="left")
+    | +-$col3#7 :=
+    | | +-FunctionCall(ZetaSQL:st_buffer(GEOGRAPHY, DOUBLE, optional(1) DOUBLE num_seg_quarter_circle, optional(1) BOOL use_spheroid, optional(1) STRING endcap, optional(1) STRING side) -> GEOGRAPHY)
+    | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
+    | |   +-Literal(type=DOUBLE, value=200.5)
+    | |   +-Literal(type=DOUBLE, value=8)
+    | |   +-Literal(type=BOOL, value=false)
+    | |   +-Literal(type=STRING, value="flat")
+    | |   +-Literal(type=STRING, value="left")
+    | +-$col4#8 :=
+    | | +-FunctionCall(ZetaSQL:st_bufferwithtolerance(GEOGRAPHY, DOUBLE, DOUBLE tolerance_meters, optional(1) BOOL use_spheroid, optional(1) STRING endcap, optional(1) STRING side) -> GEOGRAPHY)
+    | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
+    | |   +-Literal(type=DOUBLE, value=100.1)
+    | |   +-Literal(type=DOUBLE, value=10.01)
+    | |   +-Literal(type=BOOL, value=false)
+    | |   +-Literal(type=STRING, value="flat")
+    | |   +-Literal(type=STRING, value="left")
+    | +-$col5#9 :=
+    | | +-FunctionCall(ZetaSQL:st_bufferwithtolerance(GEOGRAPHY, DOUBLE, DOUBLE tolerance_meters, optional(1) BOOL use_spheroid, optional(1) STRING endcap, optional(1) STRING side) -> GEOGRAPHY)
+    | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo2#4)
+    | |   +-Literal(type=DOUBLE, value=5.2)
+    | |   +-Literal(type=DOUBLE, value=0.052)
+    | |   +-Literal(type=BOOL, value=false)
+    | |   +-Literal(type=STRING, value="flat")
+    | |   +-Literal(type=STRING, value="left")
+    | +-$col6#10 :=
+    | | +-FunctionCall(ZetaSQL:st_bufferwithtolerance(GEOGRAPHY, DOUBLE, DOUBLE tolerance_meters, optional(1) BOOL use_spheroid, optional(1) STRING endcap, optional(1) STRING side) -> GEOGRAPHY)
+    | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
+    | |   +-Literal(type=DOUBLE, value=200.5)
+    | |   +-Literal(type=DOUBLE, value=4.01)
+    | |   +-Literal(type=BOOL, value=false)
+    | |   +-Literal(type=STRING, value="flat")
+    | |   +-Literal(type=STRING, value="left")
+    | +-$col7#11 :=
+    | | +-FunctionCall(ZetaSQL:st_buffer(GEOGRAPHY, DOUBLE, optional(1) DOUBLE num_seg_quarter_circle, optional(1) BOOL use_spheroid, optional(1) STRING endcap, optional(1) STRING side) -> GEOGRAPHY)
+    | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo2#4)
+    | |   +-Literal(type=DOUBLE, value=0)
+    | |   +-Literal(type=DOUBLE, value=8)
+    | |   +-Literal(type=BOOL, value=false)
+    | |   +-Literal(type=STRING, value="ROUND")
+    | |   +-Literal(type=STRING, value="BOTH")
+    | +-$col8#12 :=
+    | | +-FunctionCall(ZetaSQL:st_buffer(GEOGRAPHY, DOUBLE, optional(1) DOUBLE num_seg_quarter_circle, optional(1) BOOL use_spheroid, optional(1) STRING endcap, optional(1) STRING side) -> GEOGRAPHY)
+    | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
+    | |   +-Literal(type=DOUBLE, value=10)
+    | |   +-Literal(type=DOUBLE, value=10)
+    | |   +-Literal(type=BOOL, value=false)
+    | |   +-Literal(type=STRING, value="ROUND")
+    | |   +-Literal(type=STRING, value="BOTH")
+    | +-$col9#13 :=
+    | | +-FunctionCall(ZetaSQL:st_buffer(GEOGRAPHY, DOUBLE, optional(1) DOUBLE num_seg_quarter_circle, optional(1) BOOL use_spheroid, optional(1) STRING endcap, optional(1) STRING side) -> GEOGRAPHY)
+    | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo2#4)
+    | |   +-Literal(type=DOUBLE, value=0)
+    | |   +-Literal(type=DOUBLE, value=8)
+    | |   +-Literal(type=BOOL, value=false)
+    | |   +-Literal(type=STRING, value="ROUND")
+    | |   +-Literal(type=STRING, value="BOTH")
+    | +-$col10#14 :=
+    | | +-FunctionCall(ZetaSQL:st_buffer(GEOGRAPHY, DOUBLE, optional(1) DOUBLE num_seg_quarter_circle, optional(1) BOOL use_spheroid, optional(1) STRING endcap, optional(1) STRING side) -> GEOGRAPHY)
+    | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
+    | |   +-Literal(type=DOUBLE, value=100.2)
+    | |   +-Literal(type=DOUBLE, value=8)
+    | |   +-Literal(type=BOOL, value=false)
+    | |   +-Literal(type=STRING, value="flat")
+    | |   +-Literal(type=STRING, value="BOTH")
+    | +-$col11#15 :=
+    | | +-FunctionCall(ZetaSQL:st_buffer(GEOGRAPHY, DOUBLE, optional(1) DOUBLE num_seg_quarter_circle, optional(1) BOOL use_spheroid, optional(1) STRING endcap, optional(1) STRING side) -> GEOGRAPHY)
+    | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
+    | |   +-Literal(type=DOUBLE, value=100.2)
+    | |   +-Literal(type=DOUBLE, value=8)
+    | |   +-Literal(type=BOOL, value=false)
+    | |   +-Literal(type=STRING, value="ROUND")
+    | |   +-Literal(type=STRING, value="right")
+    | +-$col12#16 :=
+    | | +-FunctionCall(ZetaSQL:st_bufferwithtolerance(GEOGRAPHY, DOUBLE, DOUBLE tolerance_meters, optional(1) BOOL use_spheroid, optional(1) STRING endcap, optional(1) STRING side) -> GEOGRAPHY)
+    | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
+    | |   +-Literal(type=DOUBLE, value=10)
+    | |   +-Literal(type=DOUBLE, value=5)
+    | |   +-Literal(type=BOOL, value=false)
+    | |   +-Literal(type=STRING, value="ROUND")
+    | |   +-Literal(type=STRING, value="BOTH")
+    | +-$col13#17 :=
+    | | +-FunctionCall(ZetaSQL:st_bufferwithtolerance(GEOGRAPHY, DOUBLE, DOUBLE tolerance_meters, optional(1) BOOL use_spheroid, optional(1) STRING endcap, optional(1) STRING side) -> GEOGRAPHY)
+    | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo2#4)
+    | |   +-Literal(type=DOUBLE, value=0)
+    | |   +-Literal(type=DOUBLE, value=5)
+    | |   +-Literal(type=BOOL, value=false)
+    | |   +-Literal(type=STRING, value="ROUND")
+    | |   +-Literal(type=STRING, value="BOTH")
+    | +-$col14#18 :=
+    | | +-FunctionCall(ZetaSQL:st_bufferwithtolerance(GEOGRAPHY, DOUBLE, DOUBLE tolerance_meters, optional(1) BOOL use_spheroid, optional(1) STRING endcap, optional(1) STRING side) -> GEOGRAPHY)
+    | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo2#4)
+    | |   +-Literal(type=DOUBLE, value=0)
+    | |   +-Literal(type=DOUBLE, value=10)
+    | |   +-Literal(type=BOOL, value=false)
+    | |   +-Literal(type=STRING, value="ROUND")
+    | |   +-Literal(type=STRING, value="BOTH")
+    | +-$col15#19 :=
+    | | +-FunctionCall(ZetaSQL:st_bufferwithtolerance(GEOGRAPHY, DOUBLE, DOUBLE tolerance_meters, optional(1) BOOL use_spheroid, optional(1) STRING endcap, optional(1) STRING side) -> GEOGRAPHY)
+    | |   +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
+    | |   +-Literal(type=DOUBLE, value=100.2)
+    | |   +-Literal(type=DOUBLE, value=10)
+    | |   +-Literal(type=BOOL, value=false)
+    | |   +-Literal(type=STRING, value="round")
+    | |   +-Literal(type=STRING, value="BOTH")
+    | +-$col16#20 :=
+    |   +-FunctionCall(ZetaSQL:st_bufferwithtolerance(GEOGRAPHY, DOUBLE, DOUBLE tolerance_meters, optional(1) BOOL use_spheroid, optional(1) STRING endcap, optional(1) STRING side) -> GEOGRAPHY)
+    |     +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
+    |     +-Literal(type=DOUBLE, value=100.2)
+    |     +-Literal(type=DOUBLE, value=10)
+    |     +-Literal(type=BOOL, value=false)
+    |     +-Literal(type=STRING, value="ROUND")
+    |     +-Literal(type=STRING, value="right")
+    +-input_scan=
+      +-TableScan(column_list=GeographyTable.[geo1#3, geo2#4], table=GeographyTable, column_index_list=[2, 3])
+
+==
+
+[language_features=GEOGRAPHY,NAMED_ARGUMENTS]
+select s2_coveringcellids(geo1) from GeographyTable;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-FunctionCall(ZetaSQL:s2_coveringcellids(GEOGRAPHY, optional(1) INT64 min_level, optional(1) INT64 max_level, optional(1) INT64 max_cells, optional(1) DOUBLE buffer) -> ARRAY<INT64>)
+    |     +-ColumnRef(type=GEOGRAPHY, column=GeographyTable.geo1#3)
+    |     +-Literal(type=INT64, value=0)
+    |     +-Literal(type=INT64, value=30)
+    |     +-Literal(type=INT64, value=8)
+    |     +-Literal(type=DOUBLE, value=0)
+    +-input_scan=
+      +-TableScan(column_list=[GeographyTable.geo1#3], table=GeographyTable, column_index_list=[2])

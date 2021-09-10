@@ -24,6 +24,7 @@
 #include <string>
 
 #include "zetasql/parser/position.hh"
+#include "zetasql/public/language_options.h"
 #include <cstdint>
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
@@ -60,11 +61,13 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
   // determines the starting production used by the parser.  The 'filename' and
   // 'input' must outlive this object.
   ZetaSqlFlexTokenizer(BisonParserMode mode, absl::string_view filename,
-                         absl::string_view input, int start_offset)
+                         absl::string_view input, int start_offset,
+                         const LanguageOptions* language_options = nullptr)
       : filename_(filename),
         start_offset_(start_offset),
         input_size_(static_cast<int64_t>(input.size())),
-        mode_(mode) {
+        mode_(mode),
+        language_options_(language_options) {
     if (absl::GetFlag(FLAGS_zetasql_use_customized_flex_istream)) {
       input_stream_ = absl::make_unique<StringStreamWithSentinel>(input);
     } else {
@@ -107,7 +110,7 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
 
   // Helper function for determining if the given 'bison_token' followed by "."
   // should trigger the generalized identifier tokenizer mode.
-  static bool IsDotGeneralizedIdentifierPrefixToken(int bison_token);
+  bool IsDotGeneralizedIdentifierPrefixToken(int bison_token) const;
 
  private:
   void SetOverrideError(const zetasql_bison_parser::location& yylloc,
@@ -125,6 +128,13 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
   void LexerError(const char* msg) override {
     override_error_ = MakeSqlError() << msg;
   }
+
+  // Given a fragment of text that starts with an identifier, returns the length
+  // of just the identifier portion of the text. Backquotes are included in the
+  // returned length if the identifier is correctly backquoted.
+  int GetIdentifierLength(absl::string_view text);
+
+  bool IsReservedKeyword(absl::string_view text) const;
 
   // EOF sentinel input. This is appended to the input and used as a sentinel in
   // the tokenizer. The reason for doing this is that some tokenizer rules
@@ -177,6 +187,13 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
   // If this is set to true, the next token returned will be EOF, even if we're
   // not at the end of the input.
   bool force_terminate_ = false;
+
+  // LanguageOptions passed in from parser, used to decide if reservable
+  // keywords are reserved or not.
+  //
+  // Can be nullptr, in which case, all reservable keywords are considered
+  // nonreserved to match behavior from before reservable keywords existed.
+  const LanguageOptions* language_options_ = nullptr;
 };
 
 }  // namespace parser

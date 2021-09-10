@@ -73,9 +73,6 @@ enum TypeKind {
 
   // INTERVAL type is controlled by FEATURE_INTERVAL_TYPE
   TYPE_INTERVAL = 27;
-
-  // TOKENLIST type is controlled by FEATURE_TOKENIZED_SEARCH
-  TYPE_TOKENLIST = 28;
 }
 
 // This represents the serialized form of the zetasql::Type.
@@ -103,6 +100,16 @@ message TypeProto {
   // For example, serializing a struct with two proto fields from different
   // DescriptorPools would result in two FileDescriptorSets.
   repeated google.protobuf.FileDescriptorSet file_descriptor_set = 6;
+
+  // Full name of an extended type. Extended types can either use this field to
+  // encode their name and/or use their own proto extensions. It's up to the
+  // ExtendedTypeDeserializer implementation to look at the name and what
+  // extensions are present to figure out what ExtendedType to create.
+  optional string extended_type_name = 7;
+
+  // Extensions below can be used by extended types to encode type parameter
+  // information.
+  extensions 100000 to max;
 }
 
 message ArrayTypeProto {

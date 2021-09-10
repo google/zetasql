@@ -32,7 +32,7 @@
 
 #include "absl/numeric/int128.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_format.h"
@@ -234,7 +234,7 @@ std::string IPAddress::ToPackedString() const {
   }
 }
 
-zetasql_base::StatusOr<IPAddress> MakeIPAddressWithScopeId(const in6_addr& addr,
+absl::StatusOr<IPAddress> MakeIPAddressWithScopeId(const in6_addr& addr,
                                                    uint32_t scope_id) {
   if (scope_id == 0) return IPAddress(addr);
 
@@ -329,7 +329,7 @@ absl::Status InternalGetaddrinfoErrorToStatus(int rval, int copied_errno) {
 
 }  // namespace
 
-zetasql_base::StatusOr<IPAddress> StringToIPAddressWithOptionalScope(
+absl::StatusOr<IPAddress> StringToIPAddressWithOptionalScope(
     const absl::string_view str) {
   const auto scope_delimiter = str.rfind('%');
   if (scope_delimiter == absl::string_view::npos) {

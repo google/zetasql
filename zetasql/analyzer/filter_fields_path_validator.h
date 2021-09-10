@@ -17,14 +17,13 @@
 #ifndef ZETASQL_ANALYZER_FILTER_FIELDS_PATH_VALIDATOR_H_
 #define ZETASQL_ANALYZER_FILTER_FIELDS_PATH_VALIDATOR_H_
 
+#include <memory>
 #include <vector>
 
 #include "google/protobuf/descriptor.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "absl/strings/substitute.h"
-#include "zetasql/base/ret_check.h"
 
 namespace zetasql {
 

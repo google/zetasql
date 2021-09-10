@@ -18,6 +18,8 @@
 
 #include <cstdint>
 #include <stack>
+#include <string>
+#include <utility>
 
 #include "zetasql/common/errors.h"
 #include "zetasql/parser/ast_node_kind.h"
@@ -28,7 +30,8 @@
 #include "zetasql/scripting/error_helpers.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/canonical_errors.h"
@@ -50,7 +53,7 @@ namespace {
 // a stack overflow later, while traversing the tree.
 class VerifyMaxScriptingDepthVisitor : public NonRecursiveParseTreeVisitor {
  public:
-  zetasql_base::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
+  absl::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
     // We limit the nesting level of script constructs to a fixed depth,
     // so that which scripts can and cannot execute is stable across
     // implementation changes to either the script executor code or the
@@ -94,14 +97,14 @@ class ValidateRaiseStatementsVisitor : public NonRecursiveParseTreeVisitor {
     ZETASQL_DCHECK_EQ(exception_handler_nesting_level_, 0);
   }
 
-  zetasql_base::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
+  absl::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
     if (node->IsExpression() || node->IsSqlStatement()) {
       return VisitResult::Empty();
     }
     return VisitResult::VisitChildren(node);
   }
 
-  zetasql_base::StatusOr<VisitResult> visitASTExceptionHandler(
+  absl::StatusOr<VisitResult> visitASTExceptionHandler(
       const ASTExceptionHandler* node) override {
     ++exception_handler_nesting_level_;
     return VisitResult::VisitChildren(node, [this]() {
@@ -110,7 +113,7 @@ class ValidateRaiseStatementsVisitor : public NonRecursiveParseTreeVisitor {
     });
   }
 
-  zetasql_base::StatusOr<VisitResult> visitASTRaiseStatement(
+  absl::StatusOr<VisitResult> visitASTRaiseStatement(
       const ASTRaiseStatement* node) override {
     if (node->is_rethrow() && exception_handler_nesting_level_ == 0) {
       return MakeSqlErrorAt(node)
@@ -136,7 +139,7 @@ class ValidateVariableDeclarationsVisitor
       const ParsedScript* parsed_script)
       : parsed_script_(parsed_script) {}
 
-  zetasql_base::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
+  absl::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
     return VisitResult::VisitChildren(node);
   }
 
@@ -148,7 +151,7 @@ class ValidateVariableDeclarationsVisitor
     return stmt_list->variable_declarations_allowed();
   }
 
-  zetasql_base::StatusOr<VisitResult> visitASTStatementList(
+  absl::StatusOr<VisitResult> visitASTStatementList(
       const ASTStatementList* node) override {
     bool found_non_variable_decl = false;
 
@@ -167,7 +170,9 @@ class ValidateVariableDeclarationsVisitor
              statement->GetAs<ASTVariableDeclaration>()
                  ->variable_list()
                  ->identifier_list()) {
-          ZETASQL_RETURN_IF_ERROR(CheckForVariableRedeclaration(id));
+          ZETASQL_RETURN_IF_ERROR(CheckForVariableRedeclaration(
+              id, /*check_predefined_vars=*/(node->parent()->node_kind() ==
+                                             AST_BEGIN_END_BLOCK)));
         }
       } else {
         found_non_variable_decl = true;
@@ -190,9 +195,10 @@ class ValidateVariableDeclarationsVisitor
     });
   }
 
-  zetasql_base::StatusOr<VisitResult> visitASTForInStatement(
+  absl::StatusOr<VisitResult> visitASTForInStatement(
       const ASTForInStatement* node) override {
-    ZETASQL_RETURN_IF_ERROR(CheckForVariableRedeclaration(node->variable()));
+    ZETASQL_RETURN_IF_ERROR(CheckForVariableRedeclaration(
+        node->variable(), /*check_predefined_vars=*/true));
     return VisitResult::VisitChildren(node, [this, node]() {
       // Remove FOR variable created here so that subsequent statements
       // can reuse the variable name.
@@ -220,7 +226,32 @@ class ValidateVariableDeclarationsVisitor
     return MakeSqlError().Attach(location) << error_message;
   }
 
-  absl::Status CheckForVariableRedeclaration(const ASTIdentifier* id) {
+  absl::Status MakeVariableDeclarationErrorSkipSourceLocation(
+      const ASTNode* node, const std::string& error_message,
+      absl::string_view source_message) {
+    std::string script_text(parsed_script_->script_text());
+    const InternalErrorLocation location = SetErrorSourcesFromStatus(
+        MakeInternalErrorLocation(node),
+        ConvertInternalErrorLocationToExternal(MakeSqlError() << source_message,
+                                               script_text),
+        parsed_script_->error_message_mode(), script_text);
+    return MakeSqlError().Attach(location) << error_message;
+  }
+
+  // Check with existing variables for variable redeclaration. Local variables
+  // are not allowed to have same name as top level variables, including
+  // predefined variables.
+  absl::Status CheckForVariableRedeclaration(const ASTIdentifier* id,
+                                             bool check_predefined_vars) {
+    if (check_predefined_vars) {
+      if (parsed_script_->GetPredefinedVariables().contains(
+              id->GetAsIdString())) {
+        return MakeVariableDeclarationErrorSkipSourceLocation(
+            id,
+            absl::StrCat("Variable '", id->GetAsString(), "' redeclaration"),
+            absl::StrCat(id->GetAsString(), "redeclaration"));
+      }
+    }
     if (!zetasql_base::InsertIfNotPresent(&variables_, id->GetAsIdString(),
                                  id->GetParseLocationRange().start())) {
       return MakeVariableDeclarationError(
@@ -258,7 +289,7 @@ class PopulateIndexMapsVisitor : public NonRecursiveParseTreeVisitor {
   explicit PopulateIndexMapsVisitor(ParsedScript::NodeIndexMap* map_node_index)
       : map_node_index_(map_node_index) {}
 
-  zetasql_base::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
+  absl::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
     for (int i = 0; i < node->num_children(); i++) {
       (*map_node_index_)[node->child(i)] = i;
     }
@@ -280,12 +311,13 @@ class FindNodeFromPositionVisitor : public NonRecursiveParseTreeVisitor {
 
   const ASTNode* match() const { return match_; }
 
-  zetasql_base::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
+  absl::StatusOr<VisitResult> defaultVisit(const ASTNode* node) override {
     if (match_ != nullptr) {
       return VisitResult::Empty();
     }
     if (node->IsStatement()
         || node->node_kind() == AST_ELSEIF_CLAUSE
+        || node->node_kind() == AST_WHEN_THEN_CLAUSE
         || node->node_kind() == AST_UNTIL_CLAUSE
         || node->node_kind() == AST_QUERY) {
       const ParseLocationRange& stmt_range = node->GetParseLocationRange();
@@ -298,27 +330,32 @@ class FindNodeFromPositionVisitor : public NonRecursiveParseTreeVisitor {
     return VisitResult::Empty();
   }
 
-  zetasql_base::StatusOr<VisitResult> visitASTExceptionHandlerList(
+  absl::StatusOr<VisitResult> visitASTExceptionHandlerList(
       const ASTExceptionHandlerList* node) override {
     return VisitResult::VisitChildren(node);
   }
 
-  zetasql_base::StatusOr<VisitResult> visitASTExceptionHandler(
+  absl::StatusOr<VisitResult> visitASTExceptionHandler(
       const ASTExceptionHandler* node) override {
     return VisitResult::VisitChildren(node);
   }
 
-  zetasql_base::StatusOr<VisitResult> visitASTElseifClauseList(
+  absl::StatusOr<VisitResult> visitASTElseifClauseList(
       const ASTElseifClauseList* node) override {
     return VisitResult::VisitChildren(node);
   }
 
-  zetasql_base::StatusOr<VisitResult> visitASTStatementList(
+  absl::StatusOr<VisitResult> visitASTWhenThenClauseList(
+      const ASTWhenThenClauseList* node) override {
+    return VisitResult::VisitChildren(node);
+  }
+
+  absl::StatusOr<VisitResult> visitASTStatementList(
       const ASTStatementList* node) override {
     return VisitResult::VisitChildren(node);
   }
 
-  zetasql_base::StatusOr<VisitResult> visitASTScript(const ASTScript* node) override {
+  absl::StatusOr<VisitResult> visitASTScript(const ASTScript* node) override {
     return VisitResult::VisitChildren(node);
   }
 
@@ -328,14 +365,14 @@ class FindNodeFromPositionVisitor : public NonRecursiveParseTreeVisitor {
 };
 }  // namespace
 
-zetasql_base::StatusOr<const ASTNode*> ParsedScript::FindScriptNodeFromPosition(
+absl::StatusOr<const ASTNode*> ParsedScript::FindScriptNodeFromPosition(
     const ParseLocationPoint& start_pos) const {
   FindNodeFromPositionVisitor visitor(start_pos);
   ZETASQL_RETURN_IF_ERROR(script()->TraverseNonRecursive(&visitor));
   return visitor.match();
 }
 
-zetasql_base::StatusOr<ParsedScript::VariableCreationMap>
+absl::StatusOr<ParsedScript::VariableCreationMap>
 ParsedScript::GetVariablesInScopeAtNode(
     const ControlFlowNode * node) const {
   VariableCreationMap variables;
@@ -423,59 +460,74 @@ absl::Status ParsedScript::GatherInformationAndRunChecks() {
       GatherInformationAndRunChecksInternal());
 }
 
-ParsedScript::ParsedScript(absl::string_view script_string,
-                           const ASTScript* ast_script,
-                           std::unique_ptr<ParserOutput> parser_output,
-                           ErrorMessageMode error_message_mode,
-                           ArgumentTypeMap routine_arguments)
+ParsedScript::ParsedScript(
+    absl::string_view script_string, const ASTScript* ast_script,
+    std::unique_ptr<ParserOutput> parser_output,
+    ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments,
+    bool is_procedure,
+    const VariableWithTypeParameterMap& predefined_variable_names)
     : parser_output_(std::move(parser_output)),
       ast_script_(ast_script),
       script_string_(script_string),
       error_message_mode_(error_message_mode),
-      routine_arguments_(std::move(routine_arguments)) {}
+      routine_arguments_(std::move(routine_arguments)),
+      is_procedure_(is_procedure),
+      predefined_variable_names_(predefined_variable_names) {}
 
-zetasql_base::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::CreateInternal(
+absl::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::CreateInternal(
     absl::string_view script_string, const ParserOptions& parser_options,
-    ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments) {
+    ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments,
+    bool is_procedure,
+    const VariableWithTypeParameterMap& predefined_variable_names) {
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_RETURN_IF_ERROR(ParseScript(script_string, parser_options, error_message_mode,
                               &parser_output));
   const ASTScript* ast_script = parser_output->script();
   std::unique_ptr<ParsedScript> parsed_script = absl::WrapUnique(
       new ParsedScript(script_string, ast_script, std::move(parser_output),
-                       error_message_mode, std::move(routine_arguments)));
+                       error_message_mode, std::move(routine_arguments),
+                       is_procedure, predefined_variable_names));
   ZETASQL_RETURN_IF_ERROR(parsed_script->GatherInformationAndRunChecks());
   return parsed_script;
 }
 
-zetasql_base::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::Create(
+absl::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::Create(
     absl::string_view script_string, const ParserOptions& parser_options,
-    ErrorMessageMode error_message_mode) {
-  return CreateInternal(script_string, parser_options, error_message_mode, {});
+    ErrorMessageMode error_message_mode,
+    const VariableWithTypeParameterMap& predefined_variable_names) {
+  return CreateInternal(script_string, parser_options, error_message_mode, {},
+                        false, predefined_variable_names);
 }
-zetasql_base::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::CreateForRoutine(
+
+absl::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::CreateForRoutine(
     absl::string_view script_string, const ParserOptions& parser_options,
-    ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments) {
+    ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments,
+    const VariableWithTypeParameterMap& predefined_variable_names) {
   return CreateInternal(script_string, parser_options, error_message_mode,
-                        std::move(routine_arguments));
+                        std::move(routine_arguments),
+                        /*is_procedure=*/true, predefined_variable_names);
 }
 
-zetasql_base::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::CreateForRoutine(
+absl::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::CreateForRoutine(
     absl::string_view script_string, const ASTScript* ast_script,
-    ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments) {
+    ErrorMessageMode error_message_mode, ArgumentTypeMap routine_arguments,
+    const VariableWithTypeParameterMap& predefined_variable_names) {
   std::unique_ptr<ParsedScript> parsed_script = absl::WrapUnique(
       new ParsedScript(script_string, ast_script, /*parser_output=*/nullptr,
-                       error_message_mode, std::move(routine_arguments)));
+                       error_message_mode, std::move(routine_arguments),
+                       /*is_procedure=*/true, predefined_variable_names));
   ZETASQL_RETURN_IF_ERROR(parsed_script->GatherInformationAndRunChecks());
   return parsed_script;
 }
 
-zetasql_base::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::Create(
+absl::StatusOr<std::unique_ptr<ParsedScript>> ParsedScript::Create(
     absl::string_view script_string, const ASTScript* ast_script,
-    ErrorMessageMode error_message_mode) {
+    ErrorMessageMode error_message_mode,
+    const VariableWithTypeParameterMap& predefined_variable_names) {
   std::unique_ptr<ParsedScript> parsed_script = absl::WrapUnique(
       new ParsedScript(script_string, ast_script, /*parser_output=*/nullptr,
-                       error_message_mode, {}));
+                       error_message_mode, {}, /*is_procedure=*/false,
+                       predefined_variable_names));
   ZETASQL_RETURN_IF_ERROR(parsed_script->GatherInformationAndRunChecks());
   return parsed_script;
 }

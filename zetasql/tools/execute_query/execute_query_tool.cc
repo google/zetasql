@@ -40,7 +40,7 @@
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
@@ -59,6 +59,10 @@ ABSL_FLAG(std::string, table_spec, "",
           "The table spec to use for building the ZetaSQL Catalog. This is a "
           "comma-delimited list of strings of the form <table_name>=<spec>, "
           "where <spec> is of the form:"
+          "\n    binproto:<proto>:<path> - binary proto file that is "
+          "represented by a value table"
+          "\n    textproto:<proto>:<path> - text proto file that is "
+          "represented by a value table"
           "\n    csv:<path> - csv file that is represented by a table whose "
           "string-typed column names are determined from the header row.");
 
@@ -78,10 +82,16 @@ ABSL_FLAG(std::string, output_mode, "box",
           "\njson - JSON serialization"
           "\ntextproto - Protocol buffer text format");
 
+ABSL_FLAG(std::string, sql_mode, "query",
+          "How to interpret the input sql. Available choices:"
+          "\nquery"
+          "\nexpression");
+
 namespace zetasql {
 
 namespace {
 using ToolMode = ExecuteQueryConfig::ToolMode;
+using SqlMode = ExecuteQueryConfig::SqlMode;
 }  // namespace
 
 absl::Status SetToolModeFromFlags(ExecuteQueryConfig& config) {
@@ -98,10 +108,23 @@ absl::Status SetToolModeFromFlags(ExecuteQueryConfig& config) {
   } else if (mode == "execute") {
     config.set_tool_mode(ToolMode::kExecute);
     return absl::OkStatus();
-  } else if (mode.empty()) {
-    return zetasql_base::InvalidArgumentErrorBuilder() << "Must specify --mode";
   } else {
-    return zetasql_base::InvalidArgumentErrorBuilder() << "Invalid --mode: " << mode;
+    return zetasql_base::InvalidArgumentErrorBuilder()
+           << "Invalid --mode: '" << mode << "'";
+  }
+}
+
+absl::Status SetSqlModeFromFlags(ExecuteQueryConfig& config) {
+  const std::string sql_mode = absl::GetFlag(FLAGS_sql_mode);
+  if (sql_mode == "query") {
+    config.set_sql_mode(SqlMode::kQuery);
+    return absl::OkStatus();
+  } else if (sql_mode == "expression") {
+    config.set_sql_mode(SqlMode::kExpression);
+    return absl::OkStatus();
+  } else {
+    return zetasql_base::InvalidArgumentErrorBuilder()
+           << "Invalid --sql_mode: '" << sql_mode << "'";
   }
 }
 
@@ -121,7 +144,7 @@ absl::Status SetDescriptorPoolFromFlags(ExecuteQueryConfig& config) {
   }
 }
 
-static zetasql_base::StatusOr<const ProtoType*> GetProtoType(
+static absl::StatusOr<const ProtoType*> GetProtoType(
     ExecuteQueryConfig& config, absl::string_view proto_name) {
   const zetasql::Type* type = nullptr;
   if (!config.mutable_catalog().GetType(std::string(proto_name), &type).ok() ||
@@ -133,7 +156,7 @@ static zetasql_base::StatusOr<const ProtoType*> GetProtoType(
   return type->AsProto();
 }
 
-static zetasql_base::StatusOr<std::unique_ptr<const Table>> MakeTableFromTableSpec(
+static absl::StatusOr<std::unique_ptr<const Table>> MakeTableFromTableSpec(
     absl::string_view table_spec, ExecuteQueryConfig& config) {
   std::vector<absl::string_view> table_spec_parts =
       absl::StrSplit(table_spec, '=');
@@ -158,6 +181,30 @@ static zetasql_base::StatusOr<std::unique_ptr<const Table>> MakeTableFromTableSp
     }
     absl::string_view path = spec_parts[1];
     return MakeTableFromCsvFile(table_name, path);
+  } else if (format == "binproto") {
+    if (spec_parts.size() != 3) {
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << "Invalid specification for table " << table_name << ": "
+             << table_spec;
+    }
+    absl::string_view proto_name = spec_parts[1];
+    absl::string_view path = spec_parts[2];
+
+    ZETASQL_ASSIGN_OR_RETURN(const ProtoType* record_type,
+                     GetProtoType(config, proto_name));
+    return MakeTableFromBinaryProtoFile(table_name, path, record_type);
+  } else if (format == "textproto") {
+    if (spec_parts.size() != 3) {
+      return zetasql_base::InvalidArgumentErrorBuilder()
+             << "Invalid specification for table " << table_name << ": "
+             << table_spec;
+    }
+    absl::string_view proto_name = spec_parts[1];
+    absl::string_view path = spec_parts[2];
+
+    ZETASQL_ASSIGN_OR_RETURN(const ProtoType* record_type,
+                     GetProtoType(config, proto_name));
+    return MakeTableFromTextProtoFile(table_name, path, record_type);
   } else {
     return zetasql_base::InvalidArgumentErrorBuilder()
            << "Unknown format " << format << " for table " << table_name;
@@ -175,7 +222,7 @@ absl::Status AddTablesFromFlags(ExecuteQueryConfig& config) {
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<std::unique_ptr<ExecuteQueryWriter>> MakeWriterFromFlags(
+absl::StatusOr<std::unique_ptr<ExecuteQueryWriter>> MakeWriterFromFlags(
     const ExecuteQueryConfig& config, std::ostream& output) {
   const std::string mode = absl::GetFlag(FLAGS_output_mode);
 
@@ -245,10 +292,22 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
     std::unique_ptr<ParserOutput> parser_output;
     ParserOptions parser_options;
 
-    parser_options.set_language_options(&config.analyzer_options().language());
-    ZETASQL_RETURN_IF_ERROR(ParseStatement(sql, parser_options, &parser_output));
+    const ASTNode* root = nullptr;
+    if (config.sql_mode() == SqlMode::kQuery) {
+      parser_options.set_language_options(
+          &config.analyzer_options().language());
+      ZETASQL_RETURN_IF_ERROR(ParseStatement(sql, parser_options, &parser_output));
 
-    const ASTNode* root = parser_output->statement();
+      root = parser_output->statement();
+    } else if (config.sql_mode() == SqlMode::kExpression) {
+      parser_options.set_language_options(
+          &config.analyzer_options().language());
+      ZETASQL_RETURN_IF_ERROR(ParseExpression(sql, parser_options, &parser_output));
+      root = parser_output->expression();
+    } else {
+      return absl::InternalError(absl::StrCat(
+          "unknown sql_mode", static_cast<int>(config.sql_mode())));
+    }
     ZETASQL_RET_CHECK_NE(root, nullptr);
 
     // Note, ASTNode is not public, and therefore cannot be part of the public
@@ -257,48 +316,84 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
   }
 
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
-  ZETASQL_RETURN_IF_ERROR(AnalyzeStatement(
-      sql, config.analyzer_options(), &config.mutable_catalog(),
-      config.mutable_catalog().type_factory(), &analyzer_output));
+  const ResolvedNode* resolved_node = nullptr;
+  if (config.sql_mode() == SqlMode::kQuery) {
+    ZETASQL_RETURN_IF_ERROR(AnalyzeStatement(
+        sql, config.analyzer_options(), &config.mutable_catalog(),
+        config.mutable_catalog().type_factory(), &analyzer_output));
+    resolved_node = analyzer_output->resolved_statement();
+  } else if (config.sql_mode() == SqlMode::kExpression) {
+    ZETASQL_RETURN_IF_ERROR(AnalyzeExpression(
+        sql, config.analyzer_options(), &config.mutable_catalog(),
+        config.mutable_catalog().type_factory(), &analyzer_output));
+    resolved_node = analyzer_output->resolved_expr();
+  }
 
-  const ResolvedStatement* resolved_statement =
-      analyzer_output->resolved_statement();
-
-  ZETASQL_RET_CHECK_NE(resolved_statement, nullptr);
-
+  ZETASQL_RET_CHECK_NE(resolved_node, nullptr);
   if (const ExecuteQueryConfig::ExamineResolvedASTCallback callback =
           config.examine_resolved_ast_callback();
       callback) {
-    ZETASQL_RETURN_IF_ERROR(callback(resolved_statement));
+    ZETASQL_RETURN_IF_ERROR(callback(resolved_node));
   }
 
   if (config.tool_mode() == ToolMode::kResolve) {
-    return writer.resolved(*resolved_statement);
+    return writer.resolved(*resolved_node);
   }
 
-  ZETASQL_RET_CHECK_EQ(resolved_statement->node_kind(), RESOLVED_QUERY_STMT);
+  if (config.sql_mode() == SqlMode::kQuery) {
+    ZETASQL_RET_CHECK_EQ(resolved_node->node_kind(), RESOLVED_QUERY_STMT);
 
-  PreparedQuery query{resolved_statement->GetAs<ResolvedQueryStmt>(),
-                      EvaluatorOptions()};
+    PreparedQuery query{resolved_node->GetAs<ResolvedQueryStmt>(),
+                        EvaluatorOptions()};
 
-  ZETASQL_RETURN_IF_ERROR(
-      query.Prepare(config.analyzer_options(), &config.mutable_catalog()));
+    ZETASQL_RETURN_IF_ERROR(
+        query.Prepare(config.analyzer_options(), &config.mutable_catalog()));
 
-  switch (config.tool_mode()) {
-    case ToolMode::kExplain: {
-      ZETASQL_ASSIGN_OR_RETURN(const std::string explain, query.ExplainAfterPrepare());
+    switch (config.tool_mode()) {
+      case ToolMode::kExplain: {
+        ZETASQL_ASSIGN_OR_RETURN(const std::string explain,
+                         query.ExplainAfterPrepare());
 
-      return writer.explained(*resolved_statement, explain);
+        return writer.explained(*resolved_node, explain);
+      }
+      case ToolMode::kExecute: {
+        ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<EvaluatorTableIterator> iter,
+                         query.ExecuteAfterPrepare());
+
+        return writer.executed(*resolved_node, std::move(iter));
+      }
+      default:
+        return absl::InternalError(absl::StrCat(
+            "unknown tool mode: ", static_cast<int>(config.tool_mode())));
     }
-    case ToolMode::kExecute: {
-      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<EvaluatorTableIterator> iter,
-                       query.ExecuteAfterPrepare());
+  } else if (config.sql_mode() == SqlMode::kExpression) {
+    ZETASQL_RET_CHECK(resolved_node->IsExpression());
 
-      return writer.executed(*resolved_statement, std::move(iter));
+    PreparedExpression expression{resolved_node->GetAs<ResolvedExpr>(),
+                                  EvaluatorOptions()};
+
+    ZETASQL_RETURN_IF_ERROR(expression.Prepare(config.analyzer_options(),
+                                       &config.mutable_catalog()));
+
+    switch (config.tool_mode()) {
+      case ToolMode::kExplain: {
+        ZETASQL_ASSIGN_OR_RETURN(const std::string explain,
+                         expression.ExplainAfterPrepare());
+
+        return writer.explained(*resolved_node, explain);
+      }
+      case ToolMode::kExecute: {
+        ZETASQL_ASSIGN_OR_RETURN(Value value, expression.ExecuteAfterPrepare());
+
+        return writer.ExecutedExpression(*resolved_node, value);
+      }
+      default:
+        return absl::InternalError(absl::StrCat(
+            "unknown tool mode: ", static_cast<int>(config.tool_mode())));
     }
-    default:
-      return absl::InternalError(absl::StrCat(
-          "unknown tool mode: ", static_cast<int>(config.tool_mode())));
+  } else {
+    return absl::InternalError(
+        absl::StrCat("unknown sql_mode", static_cast<int>(config.sql_mode())));
   }
 }
 

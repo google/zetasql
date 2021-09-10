@@ -33,12 +33,13 @@
 #include "absl/functional/bind_front.h"
 #include "absl/random/random.h"
 #include "absl/strings/str_cat.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/map_util.h"
 
 namespace zetasql {
 namespace functions {
 
+using ::testing::HasSubstr;
 using ::zetasql_base::testing::StatusIs;
 
 // Type of an implementation of Format, used to abstract out the actual
@@ -457,7 +458,7 @@ TEST_P(FormatFunctionTests, Test) {
 
   TypeFactory type_factory;
   const EnumType* enum_type;
-  ZETASQL_ASSERT_OK(type_factory.MakeEnumType(zetasql_test::TestEnum_descriptor(),
+  ZETASQL_ASSERT_OK(type_factory.MakeEnumType(zetasql_test__::TestEnum_descriptor(),
                                       &enum_type));
   const Value enum_value = Value::Enum(enum_type, 2);
 
@@ -528,9 +529,9 @@ TEST_P(FormatFunctionTests, Test) {
 
   const ProtoType* proto_type;
   ZETASQL_ASSERT_OK(type_factory.MakeProtoType(
-      zetasql_test::TestExtraPB::descriptor(), &proto_type));
+      zetasql_test__::TestExtraPB::descriptor(), &proto_type));
 
-  zetasql_test::TestExtraPB proto_pb;
+  zetasql_test__::TestExtraPB proto_pb;
   proto_pb.set_int32_val1(123);
   proto_pb.add_str_value("foo");
   proto_pb.add_str_value("bar");
@@ -580,13 +581,13 @@ str_value: "bar"
   const Value bad_json_value = Value::UnvalidatedJsonString(R"({"a": 12)");
 
   EXPECT_THAT(TestFormat("%t", {bad_json_value}),
-              ::testing::HasSubstr("syntax error while parsing object"));
+              HasSubstr("syntax error while parsing object"));
   EXPECT_THAT(TestFormat("%T", {bad_json_value}),
-              ::testing::HasSubstr("syntax error while parsing object"));
+              HasSubstr("syntax error while parsing object"));
   EXPECT_THAT(TestFormat("%p", {bad_json_value}),
-              ::testing::HasSubstr("syntax error while parsing object"));
+              HasSubstr("syntax error while parsing object"));
   EXPECT_THAT(TestFormat("%P", {bad_json_value}),
-              ::testing::HasSubstr("syntax error while parsing object"));
+              HasSubstr("syntax error while parsing object"));
 
   const StructType* struct_of_arrays_type;
   ZETASQL_ASSERT_OK(type_factory.MakeStructType({{"a1", array_type}, {"", array_type}},
@@ -836,28 +837,25 @@ TEST_P(FormatFunctionTests, NumericFormat_Errors) {
 
   // Ensure that %a and %A (hex format) trigger an error.
   EXPECT_THAT(TestFormat("%a", {NumericFromString("1.5")}),
-              ::testing::HasSubstr("Invalid format specifier character"));
+              HasSubstr("Invalid format specifier character"));
   EXPECT_THAT(TestFormat("%A", {NumericFromString("1.5")}),
-              ::testing::HasSubstr("Invalid format specifier character"));
+              HasSubstr("Invalid format specifier character"));
 
   // Exceeds maximum output length.
-  EXPECT_THAT(
-      TestFormat("%*f", {Int32(std::numeric_limits<int32_t>::max()),
-                         Numeric(NumericValue::MaxValue())}),
-      ::testing::HasSubstr("Output string too long while evaluating FORMAT"));
+  EXPECT_THAT(TestFormat("%*f", {Int32(std::numeric_limits<int32_t>::max()),
+                                 Numeric(NumericValue::MaxValue())}),
+              HasSubstr("Output string too long while evaluating FORMAT"));
 
   auto flag_resetter = absl::MakeCleanup(absl::bind_front(
       absl::SetFlag<int32_t>, &FLAGS_zetasql_format_max_output_width,
       absl::GetFlag(FLAGS_zetasql_format_max_output_width)));
   // No minimum output size, but string ends up being too long.
   absl::SetFlag(&FLAGS_zetasql_format_max_output_width, 20);
-  EXPECT_THAT(
-      TestFormat("%.9f", {Numeric(NumericValue::MaxValue())}),
-      ::testing::HasSubstr("Output string too long while evaluating FORMAT"));
+  EXPECT_THAT(TestFormat("%.9f", {Numeric(NumericValue::MaxValue())}),
+              HasSubstr("Output string too long while evaluating FORMAT"));
   absl::SetFlag(&FLAGS_zetasql_format_max_output_width, 12);
-  EXPECT_THAT(
-      TestFormat("%.9e", {NumericFromString("3.141592653")}),
-      ::testing::HasSubstr("Output string too long while evaluating FORMAT"));
+  EXPECT_THAT(TestFormat("%.9e", {NumericFromString("3.141592653")}),
+              HasSubstr("Output string too long while evaluating FORMAT"));
 }
 
 TEST_P(FormatFunctionTests, BigNumericFormat_Errors) {
@@ -871,28 +869,25 @@ TEST_P(FormatFunctionTests, BigNumericFormat_Errors) {
 
   // Ensure that %a and %A (hex format) trigger an error.
   EXPECT_THAT(TestFormat("%a", {BigNumericFromString("1.5")}),
-              ::testing::HasSubstr("Invalid format specifier character"));
+              HasSubstr("Invalid format specifier character"));
   EXPECT_THAT(TestFormat("%A", {BigNumericFromString("1.5")}),
-              ::testing::HasSubstr("Invalid format specifier character"));
+              HasSubstr("Invalid format specifier character"));
 
   // Exceeds maximum output length.
-  EXPECT_THAT(
-      TestFormat("%*f", {Int32(std::numeric_limits<int32_t>::max()),
-                         BigNumeric(BigNumericValue::MaxValue())}),
-      ::testing::HasSubstr("Output string too long while evaluating FORMAT"));
+  EXPECT_THAT(TestFormat("%*f", {Int32(std::numeric_limits<int32_t>::max()),
+                                 BigNumeric(BigNumericValue::MaxValue())}),
+              HasSubstr("Output string too long while evaluating FORMAT"));
 
   auto flag_resetter = absl::MakeCleanup(absl::bind_front(
       absl::SetFlag<int32_t>, &FLAGS_zetasql_format_max_output_width,
       absl::GetFlag(FLAGS_zetasql_format_max_output_width)));
   // No minimum output size, but string ends up being too long.
   absl::SetFlag(&FLAGS_zetasql_format_max_output_width, 20);
-  EXPECT_THAT(
-      TestFormat("%.9f", {BigNumeric(BigNumericValue::MaxValue())}),
-      ::testing::HasSubstr("Output string too long while evaluating FORMAT"));
+  EXPECT_THAT(TestFormat("%.9f", {BigNumeric(BigNumericValue::MaxValue())}),
+              HasSubstr("Output string too long while evaluating FORMAT"));
   absl::SetFlag(&FLAGS_zetasql_format_max_output_width, 12);
-  EXPECT_THAT(
-      TestFormat("%.9e", {BigNumericFromString("3.141592653")}),
-      ::testing::HasSubstr("Output string too long while evaluating FORMAT"));
+  EXPECT_THAT(TestFormat("%.9e", {BigNumericFromString("3.141592653")}),
+              HasSubstr("Output string too long while evaluating FORMAT"));
 }
 
 INSTANTIATE_TEST_SUITE_P(FormatTests, FormatFunctionTests,

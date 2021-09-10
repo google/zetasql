@@ -414,6 +414,9 @@ public final class FunctionArgumentType implements Serializable {
     @Nullable
     public abstract Value getDefault();
 
+    @Nullable
+    public abstract FunctionEnums.ArgumentCollationMode getArgumentCollationMode();
+
     public FunctionArgumentTypeOptionsProto serialize(
         @Nullable Type argType, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
       FunctionArgumentTypeOptionsProto.Builder builder =
@@ -474,6 +477,9 @@ public final class FunctionArgumentType implements Serializable {
               .serialize(builder.getDefaultValueTypeBuilder(), fileDescriptorSetsBuilder);
         }
         builder.setDefaultValue(getDefault().getProto());
+      }
+      if (getArgumentCollationMode() != null) {
+        builder.setArgumentCollationMode(getArgumentCollationMode());
       }
       return builder.build();
     }
@@ -542,6 +548,9 @@ public final class FunctionArgumentType implements Serializable {
           type = typeFactory.deserialize(proto.getDefaultValueType(), pools);
         }
         builder.setDefault(Value.deserialize(type, proto.getDefaultValue()));
+      }
+      if (proto.hasArgumentCollationMode()) {
+        builder.setArgumentCollationMode(proto.getArgumentCollationMode());
       }
       return builder.build();
     }
@@ -612,6 +621,9 @@ public final class FunctionArgumentType implements Serializable {
       public abstract Builder setDescriptorResolutionTableOffset(Integer offset);
 
       public abstract Builder setDefault(Value defaultValue);
+
+      public abstract Builder setArgumentCollationMode(
+          FunctionEnums.ArgumentCollationMode argumentCollationMode);
 
       abstract FunctionArgumentTypeOptions autoBuild();
 

@@ -20,6 +20,7 @@
 
 #include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/types/type_deserializer.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/strings/str_cat.h"
@@ -77,9 +78,8 @@ TEST(ProcedureTest, SerializeDeserializeTest) {
     pools[pair.second->descriptor_set_index] = pair.first;
   }
 
-  std::unique_ptr<Procedure> procedure2;
-  ZETASQL_EXPECT_OK(Procedure::Deserialize(proto, pools, &factory, &procedure2));
-
+  std::unique_ptr<Procedure> procedure2 =
+      Procedure::Deserialize(proto, TypeDeserializer(&factory, pools)).value();
   EXPECT_EQ(procedure.FullName(), procedure2->FullName());
   EXPECT_EQ(procedure.signature().DebugString(),
             procedure2->signature().DebugString());

@@ -156,7 +156,7 @@ QueryStmt
         |   +-GetProtoField
         |     +-type=DATE
         |     +-expr=
-        |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |     +-field_descriptor=date
         |     +-default_value=1970-01-01
         |     +-format=DATE
@@ -166,7 +166,7 @@ QueryStmt
         | |   +-GetProtoField
         | |     +-type=INT64
         | |     +-expr=
-        | |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        | |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         | |     +-field_descriptor=int64_val
         | |     +-default_value=0
         | +-$agg2#5 :=
@@ -174,7 +174,7 @@ QueryStmt
         |     +-GetProtoField
         |       +-type=DOUBLE
         |       +-expr=
-        |       | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |       | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |       +-field_descriptor=double_val
         |       +-default_value=0
         +-grouping_set_list=
@@ -219,14 +219,14 @@ QueryStmt
         | | +-GetProtoField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         | |   +-field_descriptor=int64_val
         | |   +-default_value=0
         | +-date#7 :=
         |   +-GetProtoField
         |     +-type=DATE
         |     +-expr=
-        |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |     +-field_descriptor=date
         |     +-default_value=1970-01-01
         |     +-format=DATE
@@ -236,7 +236,7 @@ QueryStmt
         |     +-GetProtoField
         |       +-type=DOUBLE
         |       +-expr=
-        |       | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |       | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |       +-field_descriptor=double_val
         |       +-default_value=0
         +-grouping_set_list=
@@ -286,7 +286,7 @@ QueryStmt
         | | +-GetProtoField
         | |   +-type=DATE
         | |   +-expr=
-        | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         | |   +-field_descriptor=date
         | |   +-default_value=1970-01-01
         | |   +-format=DATE
@@ -295,7 +295,7 @@ QueryStmt
         |   +-GetProtoField
         |     +-type=INT64
         |     +-expr=
-        |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |     +-field_descriptor=int64_val
         |     +-default_value=0
         +-aggregate_list=
@@ -304,7 +304,7 @@ QueryStmt
         |     +-GetProtoField
         |       +-type=DOUBLE
         |       +-expr=
-        |       | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |       | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |       +-field_descriptor=double_val
         |       +-default_value=0
         +-grouping_set_list=
@@ -359,14 +359,14 @@ QueryStmt
         | | +-GetProtoField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         | |   +-field_descriptor=int64_val
         | |   +-default_value=0
         | +-dAtE#7 :=
         |   +-GetProtoField
         |     +-type=DATE
         |     +-expr=
-        |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |     +-field_descriptor=date
         |     +-default_value=1970-01-01
         |     +-format=DATE
@@ -376,7 +376,7 @@ QueryStmt
         |     +-GetProtoField
         |       +-type=DOUBLE
         |       +-expr=
-        |       | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |       | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |       +-field_descriptor=double_val
         |       +-default_value=0
         +-grouping_set_list=
@@ -455,7 +455,7 @@ QueryStmt
         |     +-GetProtoField
         |       +-type=INT64
         |       +-expr=
-        |       | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |       | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |       +-field_descriptor=int64_val
         |       +-default_value=0
         +-grouping_set_list=
@@ -503,7 +503,7 @@ QueryStmt
         |   +-GetProtoField
         |     +-type=INT64
         |     +-expr=
-        |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |     +-field_descriptor=int64_val
         |     +-default_value=0
         +-aggregate_list=
@@ -512,7 +512,7 @@ QueryStmt
         |     +-GetProtoField
         |       +-type=DOUBLE
         |       +-expr=
-        |       | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |       | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |       +-field_descriptor=double_val
         |       +-default_value=0
         +-grouping_set_list=
@@ -565,7 +565,7 @@ QueryStmt
         |   +-GetProtoField
         |     +-type=DATE
         |     +-expr=
-        |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |     +-field_descriptor=date
         |     +-default_value=1970-01-01
         |     +-format=DATE
@@ -575,7 +575,7 @@ QueryStmt
         | |   +-GetProtoField
         | |     +-type=INT64
         | |     +-expr=
-        | |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        | |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         | |     +-field_descriptor=int64_val
         | |     +-default_value=0
         | +-$agg2#5 :=
@@ -583,7 +583,7 @@ QueryStmt
         |     +-GetProtoField
         |       +-type=DOUBLE
         |       +-expr=
-        |       | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |       | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |       +-field_descriptor=double_val
         |       +-default_value=0
         +-grouping_set_list=
@@ -938,7 +938,7 @@ QueryStmt
         | |   +-expr=
         | |   | +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5)
         | |   +-field_idx=1
-        | +-TestEnum#10 := ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=ComplexTypes.TestEnum#2)
+        | +-TestEnum#10 := ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=ComplexTypes.TestEnum#2)
         +-aggregate_list=
         | +-$agg1#7 :=
         | | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
@@ -955,14 +955,14 @@ QueryStmt
         | +-GroupingSet
         | | +-group_by_column_list=
         | |   +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.d#9)
-        | |   +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=$groupby.TestEnum#10)
+        | |   +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=$groupby.TestEnum#10)
         | +-GroupingSet
         | | +-group_by_column_list=
         | |   +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.d#9)
         | +-GroupingSet
         +-rollup_column_list=
           +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.d#9)
-          +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=$groupby.TestEnum#10)
+          +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=$groupby.TestEnum#10)
 --
 ALTERNATION GROUP: GROUP_BY_ROLLUP
 --

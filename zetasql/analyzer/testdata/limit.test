@@ -297,7 +297,7 @@ QueryStmt
     |   +-input_scan=
     |     +-SingleRowScan
     +-limit=
-    | +-Literal(type=INT64, value=1)
+    | +-Literal(type=INT64, value=1, has_explicit_type=TRUE)
     +-offset=
       +-Cast(INT32 -> INT64)
         +-Parameter(type=INT32, name="test_param_int32")
@@ -496,3 +496,18 @@ select key from KeyValue order by 1 offset 5;
 ERROR: Syntax error: Expected end of input but got keyword OFFSET [at 1:37]
 select key from KeyValue order by 1 offset 5;
                                     ^
+==
+
+select key FROM KeyValue ORDER BY 1 {{LIMIT|LIMIT 1 OFFSET}} 18446744073709551615;
+--
+ALTERNATION GROUP: LIMIT
+--
+ERROR: Could not cast literal 18446744073709551615 to type INT64 [at 1:43]
+select key FROM KeyValue ORDER BY 1 LIMIT 18446744073709551615;
+                                          ^
+--
+ALTERNATION GROUP: LIMIT 1 OFFSET
+--
+ERROR: Could not cast literal 18446744073709551615 to type INT64 [at 1:52]
+select key FROM KeyValue ORDER BY 1 LIMIT 1 OFFSET 18446744073709551615;
+                                                   ^

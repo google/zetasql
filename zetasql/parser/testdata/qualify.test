@@ -1,21 +1,145 @@
 # The initial few test cases document the errors when oneof(WHERE, GROUP BY, HAVING)
 # is missing before QUALIFY. We require those to be present to make resolve parser
 # ambiguity in the short term. More details at (broken link)
+# Ideally the marker in error for T QUALIFY QUALIFY should be at the following
+# QUALIFY, but we are not able to correctly output that. This usage should be
+# rare so we can probably live with this mis-handling.
 # TODO: Remove no_show_parse_location_text after parse locations
 # have been manually verified as correct.
 [default no_show_parse_location_text]
-select f1, f2 from T QUALIFY row_number() OVER (PARTITION BY f2 ORDER BY f3) = 1
+[default no_qualify_reserved]
+select f1, f2 from {{T|T QUALIFY|T AS QUALIFY|T SOMETHING}}
+  QUALIFY row_number() OVER (PARTITION BY f2 ORDER BY f3) = 1
 --
-ERROR: Syntax error: Expected end of input but got identifier "row_number" [at 1:30]
-select f1, f2 from T QUALIFY row_number() OVER (PARTITION BY f2 ORDER BY f3) = 1
-                             ^
+ALTERNATION GROUPS:
+    T
+    T AS QUALIFY
+    T SOMETHING
+--
+ERROR: QUALIFY clause must be used in conjunction with WHERE or GROUP BY or HAVING clause [at 2:3]
+  QUALIFY row_number() OVER (PARTITION BY f2 ORDER BY f3) = 1
+  ^
+
+--
+ALTERNATION GROUP: T QUALIFY
+--
+ERROR: QUALIFY clause must be used in conjunction with WHERE or GROUP BY or HAVING clause [at 1:22]
+select f1, f2 from T QUALIFY
+                     ^
 ==
 
-select f1, f2 from T QUALIFY QUALIFY row_number() OVER (PARTITION BY f2 ORDER BY f3) = 1
+# The following tests cases are using QUALIFY as an identifier, these are to
+# make sure that we are not err'ing out when used as identifier.
+select f1, f2 from T QUALIFY
 --
-ERROR: Syntax error: Expected end of input but got keyword QUALIFY [at 1:30]
-select f1, f2 from T QUALIFY QUALIFY row_number() OVER (PARTITION BY f2 ORDER...
-                             ^
+QueryStatement [0-28]
+  Query [0-28]
+    Select [0-28]
+      SelectList [7-13]
+        SelectColumn [7-9]
+          PathExpression [7-9]
+            Identifier(f1) [7-9]
+        SelectColumn [11-13]
+          PathExpression [11-13]
+            Identifier(f2) [11-13]
+      FromClause [14-28]
+        TablePathExpression [19-28]
+          PathExpression [19-20]
+            Identifier(T) [19-20]
+          Alias [21-28]
+            Identifier(`QUALIFY`) [21-28]
+--
+SELECT
+  f1,
+  f2
+FROM
+  T AS `QUALIFY`
+==
+
+select f1, f2 from T AS QUALIFY
+--
+QueryStatement [0-31]
+  Query [0-31]
+    Select [0-31]
+      SelectList [7-13]
+        SelectColumn [7-9]
+          PathExpression [7-9]
+            Identifier(f1) [7-9]
+        SelectColumn [11-13]
+          PathExpression [11-13]
+            Identifier(f2) [11-13]
+      FromClause [14-31]
+        TablePathExpression [19-31]
+          PathExpression [19-20]
+            Identifier(T) [19-20]
+          Alias [21-31]
+            Identifier(`QUALIFY`) [24-31]
+--
+SELECT
+  f1,
+  f2
+FROM
+  T AS `QUALIFY`
+==
+
+select f1, f2 from T QUALIFY WHERE true
+--
+QueryStatement [0-39]
+  Query [0-39]
+    Select [0-39]
+      SelectList [7-13]
+        SelectColumn [7-9]
+          PathExpression [7-9]
+            Identifier(f1) [7-9]
+        SelectColumn [11-13]
+          PathExpression [11-13]
+            Identifier(f2) [11-13]
+      FromClause [14-28]
+        TablePathExpression [19-28]
+          PathExpression [19-20]
+            Identifier(T) [19-20]
+          Alias [21-28]
+            Identifier(`QUALIFY`) [21-28]
+      WhereClause [29-39]
+        BooleanLiteral(true) [35-39]
+--
+SELECT
+  f1,
+  f2
+FROM
+  T AS `QUALIFY`
+WHERE
+  true
+==
+
+select f1, f2 from T AS QUALIFY WHERE false
+--
+QueryStatement [0-43]
+  Query [0-43]
+    Select [0-43]
+      SelectList [7-13]
+        SelectColumn [7-9]
+          PathExpression [7-9]
+            Identifier(f1) [7-9]
+        SelectColumn [11-13]
+          PathExpression [11-13]
+            Identifier(f2) [11-13]
+      FromClause [14-31]
+        TablePathExpression [19-31]
+          PathExpression [19-20]
+            Identifier(T) [19-20]
+          Alias [21-31]
+            Identifier(`QUALIFY`) [24-31]
+      WhereClause [32-43]
+        BooleanLiteral(false) [38-43]
+--
+SELECT
+  f1,
+  f2
+FROM
+  T AS `QUALIFY`
+WHERE
+  false
 ==
 
 # QUALIFY language option disabled when QUALIFY is used as a table alias
@@ -37,13 +161,13 @@ QueryStatement [0-28]
           PathExpression [19-20]
             Identifier(T) [19-20]
           Alias [21-28]
-            Identifier(QUALIFY) [21-28]
+            Identifier(`QUALIFY`) [21-28]
 --
 SELECT
   f1,
   f2
 FROM
-  T AS QUALIFY
+  T AS `QUALIFY`
 ==
 
 # QUALIFY language option disabled when QUALIFY is used as a clause
@@ -357,3 +481,5 @@ QUALIFY sum_f2 IN (
   HAVING min(f3) > 3
 )
 ==
+
+

@@ -117,7 +117,7 @@ absl::optional<int32_t> ForwardN(absl::string_view str, int32_t str_length32,
   return str_offset;
 }
 
-zetasql_base::StatusOr<int32_t> LengthUtf8(absl::string_view str) {
+absl::StatusOr<int32_t> LengthUtf8(absl::string_view str) {
   ZETASQL_RET_CHECK_LE(str.size(), std::numeric_limits<int32_t>::max());
   int32_t str_length32 = static_cast<int32_t>(str.size());
 
@@ -197,7 +197,7 @@ absl::Status ComputePrefixBeforeEllipses(absl::string_view str,
 // 2) <str> is long enough that truncation is required.
 //
 // Computes the string to appear after the "...".
-zetasql_base::StatusOr<std::string> ComputeSuffixAfterEllipses(
+absl::StatusOr<std::string> ComputeSuffixAfterEllipses(
     absl::string_view str, int min_suffix_code_points,
     int max_total_code_points) {
   // Build the suffix in reverse order, then reverse it at the end.
@@ -238,7 +238,7 @@ zetasql_base::StatusOr<std::string> ComputeSuffixAfterEllipses(
 }
 }  // namespace
 
-zetasql_base::StatusOr<std::string> GetSummaryString(absl::string_view str,
+absl::StatusOr<std::string> GetSummaryString(absl::string_view str,
                                              int max_code_points) {
   ZETASQL_RET_CHECK_LE(str.size(), std::numeric_limits<int32_t>::max());
   ZETASQL_RET_CHECK_GE(max_code_points, 5);  // minimum length to hold "a...b"

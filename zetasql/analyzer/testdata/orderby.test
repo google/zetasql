@@ -53,8 +53,8 @@ select * from TestTable order by 1;
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-OrderByScan
     +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
@@ -194,7 +194,7 @@ select * from (select key, KitchenSink from TestTable order by 1);
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=TestTable.[key#1, KitchenSink#3]
@@ -347,7 +347,7 @@ order by 1;
 --
 QueryStmt
 +-output_column_list=
-| +-ComplexTypes.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
+| +-ComplexTypes.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
 +-query=
   +-OrderByScan
     +-column_list=[ComplexTypes.TestEnum#2]
@@ -357,7 +357,7 @@ QueryStmt
     +-order_by_item_list=
       +-OrderByItem
         +-column_ref=
-          +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=ComplexTypes.TestEnum#2)
+          +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=ComplexTypes.TestEnum#2)
 ==
 
 # ORDER BY attaches outside of the UNION ALL when unparenthesized.
@@ -511,7 +511,7 @@ union all
 select KitchenSink from ComplexTypes
 order by 1;
 --
-ERROR: ORDER BY does not support expressions of type zetasql_test.KitchenSinkPB [at 4:10]
+ERROR: ORDER BY does not support expressions of type zetasql_test__.KitchenSinkPB [at 4:10]
 order by 1;
          ^
 ==
@@ -539,7 +539,7 @@ select 1, 2, 3 order by 1;
 select KitchenSink from ComplexTypes
 order by 1;
 --
-ERROR: ORDER BY does not support expressions of type zetasql_test.KitchenSinkPB [at 2:10]
+ERROR: ORDER BY does not support expressions of type zetasql_test__.KitchenSinkPB [at 2:10]
 order by 1;
          ^
 ==
@@ -578,7 +578,7 @@ QueryStmt
 select [KitchenSink] from ComplexTypes
 order by 1;
 --
-ERROR: ORDER BY does not support expressions of type ARRAY<zetasql_test.KitchenSinkPB> [at 2:10]
+ERROR: ORDER BY does not support expressions of type ARRAY<zetasql_test__.KitchenSinkPB> [at 2:10]
 order by 1;
          ^
 ==
@@ -2129,13 +2129,13 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$distinct.Key#3)
 ==
 
-select distinct as `zetasql_test.KeyValueStruct` key, value
+select distinct as `zetasql_test__.KeyValueStruct` key, value
 from KeyValue
 order by 1, key, value, KeyValue.key, KeyValue.value
 --
 QueryStmt
 +-output_column_list=
-| +-$make_proto.$proto#5 AS `$proto` [PROTO<zetasql_test.KeyValueStruct>]
+| +-$make_proto.$proto#5 AS `$proto` [PROTO<zetasql_test__.KeyValueStruct>]
 +-is_value_table=TRUE
 +-query=
   +-ProjectScan
@@ -2144,7 +2144,7 @@ QueryStmt
     +-expr_list=
     | +-$proto#5 :=
     |   +-MakeProto
-    |     +-type=PROTO<zetasql_test.KeyValueStruct>
+    |     +-type=PROTO<zetasql_test__.KeyValueStruct>
     |     +-field_list=
     |       +-key :=
     |       | +-Cast(INT64 -> STRING)
@@ -2206,9 +2206,9 @@ QueryStmt
     |   |   |     +-type=INT64
     |   |   |     +-expr=
     |   |   |     | +-GetProtoField
-    |   |   |     |   +-type=PROTO<zetasql_test.KitchenSinkPB.Nested>
+    |   |   |     |   +-type=PROTO<zetasql_test__.KitchenSinkPB.Nested>
     |   |   |     |   +-expr=
-    |   |   |     |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |   |   |     |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |   |   |     |   +-field_descriptor=nested_value
     |   |   |     |   +-default_value=NULL
     |   |   |     +-field_descriptor=nested_int64
@@ -2259,9 +2259,9 @@ QueryStmt
     |       |   |   |     +-type=INT64
     |       |   |   |     +-expr=
     |       |   |   |     | +-GetProtoField
-    |       |   |   |     |   +-type=PROTO<zetasql_test.KitchenSinkPB.Nested>
+    |       |   |   |     |   +-type=PROTO<zetasql_test__.KitchenSinkPB.Nested>
     |       |   |   |     |   +-expr=
-    |       |   |   |     |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |       |   |   |     |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |       |   |   |     |   +-field_descriptor=nested_value
     |       |   |   |     |   +-default_value=NULL
     |       |   |   |     +-field_descriptor=nested_int64
@@ -2653,7 +2653,7 @@ QueryStmt
     |         |       |   +-GetProtoField
     |         |       |     +-type=INT64
     |         |       |     +-expr=
-    |         |       |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#5)
+    |         |       |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#5)
     |         |       |     +-field_descriptor=int64_val
     |         |       |     +-default_value=0
     |         |       +-input_scan=
@@ -2699,7 +2699,7 @@ QueryStmt
     |         |   |     +-GetProtoField
     |         |   |       +-type=INT64
     |         |   |       +-expr=
-    |         |   |       | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#5)
+    |         |   |       | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#5)
     |         |   |       +-field_descriptor=int64_val
     |         |   |       +-default_value=0
     |         |   +-input_scan=
@@ -2710,7 +2710,7 @@ QueryStmt
     |         |       |   +-GetProtoField
     |         |       |     +-type=INT64
     |         |       |     +-expr=
-    |         |       |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#5)
+    |         |       |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#5)
     |         |       |     +-field_descriptor=int64_val
     |         |       |     +-default_value=0
     |         |       +-input_scan=
@@ -2767,7 +2767,7 @@ QueryStmt
     |         |         | |   |   +-GetProtoField
     |         |         | |   |     +-type=INT64
     |         |         | |   |     +-expr=
-    |         |         | |   |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#5)
+    |         |         | |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#5)
     |         |         | |   |     +-field_descriptor=int64_val
     |         |         | |   |     +-default_value=0
     |         |         | |   +-input_scan=

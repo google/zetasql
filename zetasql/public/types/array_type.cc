@@ -16,10 +16,25 @@
 
 #include "zetasql/public/types/array_type.h"
 
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "zetasql/base/logging.h"
+#include "zetasql/common/errors.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value_content.h"
+#include "absl/hash/hash.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "zetasql/base/simple_reference_counted.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -135,7 +150,7 @@ std::string ArrayType::TypeName(ProductMode mode) const {
   return absl::StrCat("ARRAY<", element_type_->TypeName(mode), ">");
 }
 
-zetasql_base::StatusOr<std::string> ArrayType::TypeNameWithParameters(
+absl::StatusOr<std::string> ArrayType::TypeNameWithParameters(
     const TypeParameters& type_params, ProductMode mode) const {
   if (type_params.IsEmpty()) {
     return TypeName(mode);
@@ -150,7 +165,7 @@ zetasql_base::StatusOr<std::string> ArrayType::TypeNameWithParameters(
   return absl::StrCat("ARRAY<", element_parameters, ">");
 }
 
-zetasql_base::StatusOr<TypeParameters> ArrayType::ValidateAndResolveTypeParameters(
+absl::StatusOr<TypeParameters> ArrayType::ValidateAndResolveTypeParameters(
     const std::vector<TypeParameterValue>& type_parameter_values,
     ProductMode mode) const {
   return MakeSqlError() << ShortTypeName(mode)

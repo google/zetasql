@@ -25,22 +25,17 @@
 namespace zetasql {
 
 // static
-absl::Status Procedure::Deserialize(
-    const ProcedureProto& proto,
-    const std::vector<const google::protobuf::DescriptorPool*>& pools,
-    TypeFactory* factory,
-    std::unique_ptr<Procedure>* result) {
+absl::StatusOr<std::unique_ptr<Procedure>> Procedure::Deserialize(
+    const ProcedureProto& proto, const TypeDeserializer& type_deserializer) {
   std::vector<std::string> name_path;
   for (const std::string& name : proto.name_path()) {
     name_path.push_back(name);
   }
-  std::unique_ptr<FunctionSignature> signature;
-  ZETASQL_RETURN_IF_ERROR(FunctionSignature::Deserialize(
-      proto.signature(), pools, factory, &signature));
 
-  *result = absl::make_unique<Procedure>(name_path, *signature);
-
-  return absl::OkStatus();
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<FunctionSignature> signature,
+      FunctionSignature::Deserialize(proto.signature(), type_deserializer));
+  return absl::make_unique<Procedure>(name_path, *signature);
 }
 
 absl::Status Procedure::Serialize(

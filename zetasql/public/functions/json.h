@@ -23,11 +23,12 @@
 #include <string>
 #include <vector>
 
+#include "zetasql/public/functions/json_format.h"
 #include "zetasql/public/json_value.h"
 #include "zetasql/base/string_numbers.h"  
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
@@ -60,7 +61,7 @@ class JsonPathEvaluator {
   // Error cases:
   // * OUT_OF_RANGE - json_path is malformed.
   // * OUT_OF_RANGE - json_path uses a (currently) unsupported expression type.
-  static zetasql_base::StatusOr<std::unique_ptr<JsonPathEvaluator>> Create(
+  static absl::StatusOr<std::unique_ptr<JsonPathEvaluator>> Create(
       absl::string_view json_path, bool sql_standard_mode);
 
   // Extracts a value from 'json' according to the JSONPath string 'json_path'
@@ -236,13 +237,37 @@ std::string ConvertJSONPathTokenToSqlStandardMode(
 // $['an "array" field'][3] to $."an \"array\" field".3
 //
 // See (broken link) for more info.
-zetasql_base::StatusOr<std::string> ConvertJSONPathToSqlStandardMode(
+absl::StatusOr<std::string> ConvertJSONPathToSqlStandardMode(
     absl::string_view json_path);
 
 // Merges JSONPaths into a SQL standard JSONPath. Each JSONPath input can be in
 // either SQL standard mode.
-zetasql_base::StatusOr<std::string> MergeJSONPathsIntoSqlStandardMode(
+absl::StatusOr<std::string> MergeJSONPathsIntoSqlStandardMode(
     absl::Span<const std::string> json_paths);
+
+// Converts 'input' into a INT64.
+// Returns an error if:
+// - 'input' does not contain a number.
+// - 'input' is not within the INT64 value domain (meaning the number has a
+//   fractional part or is not within the INT64 range).
+absl::StatusOr<int64_t> ConvertJsonToInt64(JSONValueConstRef input);
+
+// Converts 'input' into a Boolean.
+absl::StatusOr<bool> ConvertJsonToBool(JSONValueConstRef input);
+
+// Converts 'input' into a String.
+absl::StatusOr<std::string> ConvertJsonToString(JSONValueConstRef input);
+
+// Converts 'input' into a Double, `wide_number_mode` defines what happens with
+// a number that cannot be round-tripped through double and accepts two
+// case-sensitive values:
+// - ‘exact’: function fails if result cannot be round-tripped through double.
+// - ‘round’: the numeric value stored in JSON will be rounded to DOUBLE.
+absl::StatusOr<double> ConvertJsonToDouble(JSONValueConstRef input,
+                                           absl::string_view wide_number_mode);
+
+// Returns the type of the outermost JSON value as a text string.
+absl::StatusOr<std::string> GetJsonType(JSONValueConstRef input);
 
 }  // namespace functions
 }  // namespace zetasql

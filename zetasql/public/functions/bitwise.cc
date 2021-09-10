@@ -105,7 +105,7 @@ bool BitwiseRightShiftBytes(absl::string_view in1, int64_t in2,
 int64_t BitCount(absl::string_view in) {
   int64_t result = 0;
   for (unsigned char c : in) {
-    result += zetasql_base::Bits::CountOnesInByte(c);
+    result += absl::popcount(c);
   }
   return result;
 }

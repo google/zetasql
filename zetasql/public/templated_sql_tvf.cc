@@ -37,13 +37,14 @@
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/parse_location.h"
+#include "zetasql/public/simple_table.pb.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/memory/memory.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
@@ -84,8 +85,23 @@ absl::Status TemplatedSQLTVF::Deserialize(
   ZETASQL_RET_CHECK(proto.has_parse_resume_location()) << proto.DebugString();
   const ParseResumeLocation parse_resume_location =
       ParseResumeLocation::FromProto(proto.parse_resume_location());
+
+  std::unique_ptr<TableValuedFunctionOptions> options;
+  ZETASQL_RETURN_IF_ERROR(
+      TableValuedFunctionOptions::Deserialize(proto.options(), &options));
+
   *result = absl::make_unique<TemplatedSQLTVF>(path, *signature, arg_name_list,
-                                               parse_resume_location);
+                                               parse_resume_location, *options);
+
+  if (proto.has_anonymization_info()) {
+    ZETASQL_RET_CHECK(!proto.anonymization_info().userid_column_name().empty());
+    const std::vector<std::string> userid_column_name_path = {
+        proto.anonymization_info().userid_column_name().begin(),
+        proto.anonymization_info().userid_column_name().end()};
+    ZETASQL_RETURN_IF_ERROR(
+        (*result)->GetAs<TemplatedSQLTVF>()->SetUserIdColumnNamePath(
+            userid_column_name_path));
+  }
   return absl::OkStatus();
 }
 

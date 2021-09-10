@@ -152,7 +152,7 @@ class ZetaSqlLocalServiceImpl {
   std::unique_ptr<PreparedExpressionPool> prepared_expressions_;
 
   absl::Status RegisterPrepared(
-      std::shared_ptr<PreparedExpressionState>& state,
+      std::shared_ptr<PreparedExpressionState> state,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       PreparedState* response);
 

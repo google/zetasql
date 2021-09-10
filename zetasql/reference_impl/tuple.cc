@@ -23,7 +23,7 @@
 #include "zetasql/public/value.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/map_util.h"
@@ -82,7 +82,7 @@ int64_t TupleSlot::GetPhysicalByteSize() const {
         num_bytes += sizeof(entry);
         const std::unique_ptr<ProtoFieldValueList>& values = entry.second;
         if (values != nullptr) {
-          for (const zetasql_base::StatusOr<Value>& status_or_value : *values) {
+          for (const absl::StatusOr<Value>& status_or_value : *values) {
             num_bytes += sizeof(status_or_value);
             if (status_or_value.ok()) {
               num_bytes += status_or_value.value().physical_byte_size();

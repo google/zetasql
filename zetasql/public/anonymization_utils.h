@@ -19,7 +19,7 @@
 
 #include "zetasql/public/value.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -33,7 +33,7 @@ namespace anonymization {
 // GROUP BY groups, while an invalid kappa implies the opposite.
 //
 // Returns an error if the inputs are not logically valid.
-zetasql_base::StatusOr<Value> ComputeKThresholdFromEpsilonDeltaKappa(
+absl::StatusOr<Value> ComputeKThresholdFromEpsilonDeltaKappa(
     Value epsilon_value, Value delta_value, Value kappa_value);
 
 // Computes anonymization option delta from epsilon, k-threshold, and kappa.
@@ -45,7 +45,7 @@ zetasql_base::StatusOr<Value> ComputeKThresholdFromEpsilonDeltaKappa(
 //
 // Returns an error if the inputs are not logically valid, or if the computed
 // delta is outside the valid range [0.0, 1.0).
-zetasql_base::StatusOr<Value> ComputeDeltaFromEpsilonKThresholdKappa(
+absl::StatusOr<Value> ComputeDeltaFromEpsilonKThresholdKappa(
     Value epsilon_value, Value k_threshold_value, Value kappa_value);
 
 }  // namespace anonymization

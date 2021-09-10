@@ -51,7 +51,7 @@ ARRAY<STRUCT<right1 BOOL, right2 BOOL>>[{true, true}]
 ==
 
 [name=branches_of_union]
-SELECT COUNT(DISTINCT val) >= 2
+SELECT COUNT(DISTINCT val) >= 3
 FROM (
   SELECT RAND() val
   UNION ALL
@@ -61,3 +61,27 @@ FROM (
 )
 --
 ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+[name=array_elements]
+SELECT COUNT(DISTINCT val) = 3
+FROM UNNEST([RAND(), RAND(), RAND()]) val
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+[name=expression]
+SELECT RAND() = RAND(), RAND() - RAND() = 0
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{false, false}]
+==
+
+[name=join]
+SELECT * FROM (
+  SELECT RAND() AS x) a
+INNER JOIN (
+  SELECT * FROM (
+    SELECT RAND() AS x)) b
+ON a.x = b.x
+--
+ARRAY<STRUCT<x DOUBLE, x DOUBLE>>[]

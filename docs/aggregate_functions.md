@@ -33,8 +33,12 @@ supports.
 
 ### ANY_VALUE
 
-```
-ANY_VALUE(expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+ANY_VALUE(
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -97,9 +101,15 @@ FROM UNNEST(["apple", "banana", "pear"]) as fruit;
 ```
 
 ### ARRAY_AGG
-```
-ARRAY_AGG([DISTINCT] expression [{IGNORE|RESPECT} NULLS] [HAVING {MAX | MIN} expression2]
-          [ORDER BY key [{ASC|DESC}] [, ... ]]  [LIMIT n])
+```sql
+ARRAY_AGG(
+  [DISTINCT]
+  expression
+  [{IGNORE|RESPECT} NULLS]
+  [HAVING {MAX | MIN} expression2]
+  [ORDER BY key [{ASC|DESC}] [, ... ]]
+  [LIMIT n]
+)
 [OVER (...)]
 ```
 
@@ -243,8 +253,13 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 
 ### ARRAY_CONCAT_AGG
 
-```
-ARRAY_CONCAT_AGG(expression [HAVING {MAX | MIN} expression2]  [ORDER BY key [{ASC|DESC}] [, ... ]]  [LIMIT n])
+```sql
+ARRAY_CONCAT_AGG(
+  expression
+  [HAVING {MAX | MIN} expression2]
+  [ORDER BY key [{ASC|DESC}] [, ... ]]
+  [LIMIT n]
+)
 ```
 
 **Description**
@@ -354,8 +369,13 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x) LIMIT 2) AS array_concat_agg 
 ```
 
 ### AVG
-```
-AVG([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+AVG(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -443,8 +463,12 @@ FROM UNNEST([0, 2, NULL, 4, 4, 5]) AS x;
 ```
 
 ### BIT_AND
-```
-BIT_AND([DISTINCT] expression [HAVING {MAX | MIN} expression2])
+```sql
+BIT_AND(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
 ```
 
 **Description**
@@ -489,8 +513,12 @@ SELECT BIT_AND(x) as bit_and FROM UNNEST([0xF001, 0x00A1]) as x;
 ```
 
 ### BIT_OR
-```
-BIT_OR([DISTINCT] expression [HAVING {MAX | MIN} expression2])
+```sql
+BIT_OR(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
 ```
 
 **Description**
@@ -535,8 +563,12 @@ SELECT BIT_OR(x) as bit_or FROM UNNEST([0xF001, 0x00A1]) as x;
 ```
 
 ### BIT_XOR
-```
-BIT_XOR([DISTINCT] expression [HAVING {MAX | MIN} expression2])
+```sql
+BIT_XOR(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
 ```
 
 **Description**
@@ -608,8 +640,13 @@ COUNT(*)  [OVER (...)]
 ```
 
 2.
-```
-COUNT([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+COUNT(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -645,6 +682,9 @@ The clauses are applied *in the following order*:
 INT64
 
 **Examples**
+
+You can use the `COUNT` function to return the number of rows in a table or the
+number of distinct values of an expression. For example:
 
 ```sql
 SELECT
@@ -694,15 +734,89 @@ FROM UNNEST([1, 4, NULL, 4, 5]) AS x;
 +------+------------+---------+
 ```
 
-### COUNTIF
+If you want to count the number of distinct values of an expression for which a
+certain condition is satisfied, this is one recipe that you can use:
+
+```sql
+COUNT(DISTINCT IF(condition, expression, NULL))
 ```
-COUNTIF([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+
+Here, `IF` will return the value of `expression` if `condition` is `TRUE`, or
+`NULL` otherwise. The surrounding `COUNT(DISTINCT ...)` will ignore the `NULL`
+values, so it will count only the distinct values of `expression` for which
+`condition` is `TRUE`.
+
+For example, to count the number of distinct positive values of `x`:
+
+```sql
+SELECT COUNT(DISTINCT IF(x > 0, x, NULL)) AS distinct_positive
+FROM UNNEST([1, -2, 4, 1, -5, 4, 1, 3, -6, 1]) AS x;
+
++-------------------+
+| distinct_positive |
++-------------------+
+| 3                 |
++-------------------+
+```
+
+Or to count the number of distinct dates on which a certain kind of event
+occurred:
+
+```sql
+WITH Events AS (
+  SELECT DATE '2021-01-01' AS event_date, 'SUCCESS' AS event_type
+  UNION ALL
+  SELECT DATE '2021-01-02' AS event_date, 'SUCCESS' AS event_type
+  UNION ALL
+  SELECT DATE '2021-01-02' AS event_date, 'FAILURE' AS event_type
+  UNION ALL
+  SELECT DATE '2021-01-03' AS event_date, 'SUCCESS' AS event_type
+  UNION ALL
+  SELECT DATE '2021-01-04' AS event_date, 'FAILURE' AS event_type
+  UNION ALL
+  SELECT DATE '2021-01-04' AS event_date, 'FAILURE' AS event_type
+)
+SELECT
+  COUNT(DISTINCT IF(event_type = 'FAILURE', event_date, NULL))
+    AS distinct_dates_with_failures
+FROM Events;
+
++------------------------------+
+| distinct_dates_with_failures |
++------------------------------+
+| 2                            |
++------------------------------+
+```
+
+### COUNTIF
+```sql
+COUNTIF(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
 
 Returns the count of `TRUE` values for `expression`. Returns `0` if there are
 zero input rows, or if `expression` evaluates to `FALSE` or `NULL` for all rows.
+
+Since `expression` must be a `BOOL`, the form
+`COUNTIF(DISTINCT ...)` is generally not useful: there is only one distinct
+value of `TRUE`. So `COUNTIF(DISTINCT ...)` will return 1 if `expression`
+evaluates to `TRUE` for one or more input rows, or 0 otherwise.
+Usually when someone wants to combine `COUNTIF` and `DISTINCT`, they
+want to count the number of distinct values of an expression for which a certain
+condition is satisfied. One recipe to achieve this is the following:
+
+```sql
+COUNT(DISTINCT IF(condition, expression, NULL))
+```
+
+Note that this uses `COUNT`, not `COUNTIF`; the `IF` part has been moved inside.
+To learn more, see the examples for [`COUNT`](#count).
 
 **Supported Argument Types**
 
@@ -763,8 +877,12 @@ FROM UNNEST([5, -2, 3, 6, -10, NULL, -7, 4, 0]) AS x;
 ```
 
 ### LOGICAL_AND
-```
-LOGICAL_AND(expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+LOGICAL_AND(
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -807,8 +925,12 @@ SELECT LOGICAL_AND(x) AS logical_and FROM UNNEST([true, false, true]) AS x;
 ```
 
 ### LOGICAL_OR
-```
-LOGICAL_OR(expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+LOGICAL_OR(
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -851,8 +973,12 @@ SELECT LOGICAL_OR(x) AS logical_or FROM UNNEST([true, false, true]) AS x;
 ```
 
 ### MAX
-```
-MAX(expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+MAX(
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -863,7 +989,7 @@ Returns `NaN` if the input contains a `NaN`.
 
 **Supported Argument Types**
 
-Any data type except: `ARRAY` `STRUCT` `PROTO`
+Any [orderable data type][agg-data-type-properties].
 
 **Optional Clauses**
 
@@ -913,8 +1039,12 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 ```
 
 ### MIN
-```
-MIN(expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+MIN(
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -925,7 +1055,7 @@ Returns `NaN` if the input contains a `NaN`.
 
 **Supported Argument Types**
 
-Any data type except: `ARRAY` `STRUCT` `PROTO`
+Any [orderable data type][agg-data-type-properties].
 
 **Optional Clauses**
 
@@ -975,8 +1105,14 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 ```
 
 ### STRING_AGG
-```
-STRING_AGG([DISTINCT] expression [, delimiter] [HAVING {MAX | MIN} expression2]  [ORDER BY key [{ASC|DESC}] [, ... ]]  [LIMIT n])
+```sql
+STRING_AGG(
+  [DISTINCT]
+  expression [, delimiter]
+  [HAVING {MAX | MIN} expression2]
+  [ORDER BY key [{ASC|DESC}] [, ... ]]
+  [LIMIT n]
+)
 [OVER (...)]
 ```
 
@@ -1119,8 +1255,13 @@ FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
 ```
 
 ### SUM
-```
-SUM([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+SUM(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -1132,7 +1273,7 @@ means you might receive a different result each time you use this function.
 
 **Supported Argument Types**
 
-Any supported numeric data types.
+Any supported numeric data types and INTERVAL.
 
 **Optional Clauses**
 
@@ -1156,11 +1297,11 @@ The clauses are applied *in the following order*:
 
 <thead>
 <tr>
-<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>BIGNUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>BIGNUMERIC</th><th>FLOAT</th><th>DOUBLE</th><th>INTERVAL</th>
 </tr>
 </thead>
 <tbody>
-<tr><th>OUTPUT</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>OUTPUT</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">INTERVAL</td></tr>
 </tbody>
 
 </table>
@@ -1282,11 +1423,8 @@ aggregate_function(expression1 [HAVING {MAX | MIN} expression2])
 These clauses ignore `NULL` values when computing the maximum or minimum
 value unless `expression2` evaluates to `NULL` for all rows.
 
- These clauses do not support the following
-data types:
-`ARRAY`
-`STRUCT`
-`PROTO`
+ These clauses only support
+[orderable data types][agg-data-type-properties].
 
 **Example**
 

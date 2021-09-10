@@ -294,7 +294,7 @@ const ArrayType* ZetaSQLTypesTest::GetStructArrayType() {
 const EnumType* ZetaSQLTypesTest::GetTestEnumType() {
   if (enum_type_ == nullptr) {
     const google::protobuf::EnumDescriptor* enum_descriptor =
-        zetasql_test::TestEnum_descriptor();
+        zetasql_test__::TestEnum_descriptor();
     ZETASQL_CHECK_OK(type_factory_.MakeEnumType(enum_descriptor, &enum_type_));
   }
   return enum_type_;
@@ -303,7 +303,7 @@ const EnumType* ZetaSQLTypesTest::GetTestEnumType() {
 const EnumType* ZetaSQLTypesTest::GetAnotherTestEnumType() {
   if (another_enum_type_ == nullptr) {
     const google::protobuf::EnumDescriptor* enum_descriptor =
-        zetasql_test::AnotherTestEnum_descriptor();
+        zetasql_test__::AnotherTestEnum_descriptor();
     ZETASQL_CHECK_OK(type_factory_.MakeEnumType(enum_descriptor, &another_enum_type_));
   }
   return another_enum_type_;
@@ -312,7 +312,7 @@ const EnumType* ZetaSQLTypesTest::GetAnotherTestEnumType() {
 const ProtoType* ZetaSQLTypesTest::GetKitchenSinkNestedProtoType() {
   if (kitchen_sink_nested_proto_type_ == nullptr) {
     ZETASQL_CHECK_OK(type_factory_.MakeProtoType(
-        zetasql_test::KitchenSinkPB::Nested::descriptor(),
+        zetasql_test__::KitchenSinkPB::Nested::descriptor(),
         &kitchen_sink_nested_proto_type_));
   }
   return kitchen_sink_nested_proto_type_;
@@ -321,7 +321,7 @@ const ProtoType* ZetaSQLTypesTest::GetKitchenSinkNestedProtoType() {
 const ProtoType* ZetaSQLTypesTest::GetKitchenSinkNestedDatesProtoType() {
   if (kitchen_sink_nested_dates_proto_type_ == nullptr) {
     ZETASQL_CHECK_OK(type_factory_.MakeProtoType(
-        zetasql_test::KitchenSinkPB::NestedDates::descriptor(),
+        zetasql_test__::KitchenSinkPB::NestedDates::descriptor(),
         &kitchen_sink_nested_dates_proto_type_));
   }
   return kitchen_sink_nested_dates_proto_type_;

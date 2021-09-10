@@ -29,7 +29,7 @@
 #include "zetasql/public/type.h"
 #include <cstdint>
 #include "absl/container/flat_hash_set.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/types/span.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/source_location.h"
@@ -358,7 +358,7 @@ class Catalog {
   // Catalog. Returned supertypes can be built-in and/or extended types.
   //
   // REQUIRES: type->IsExtendedType().
-  virtual zetasql_base::StatusOr<TypeListView> GetExtendedTypeSuperTypes(
+  virtual absl::StatusOr<TypeListView> GetExtendedTypeSuperTypes(
       const Type* type);
 
   // Given an identifier path, return the type name that results when combining
@@ -591,7 +591,7 @@ class AnonymizationUserIdInfo {
   // This Create() method is used when the userid column of the associated
   // Table is a Column in that Table's Column list (i.e., a Column
   // accessible through GetColumn() and FindColumnByName()).
-  static zetasql_base::StatusOr<AnonymizationUserIdInfo> Create(const Column* column);
+  static absl::StatusOr<AnonymizationUserIdInfo> Create(const Column* column);
 
   // Creates a AnonymizationUserIdInfo with the specified column_name, which
   // must not be empty.
@@ -600,7 +600,7 @@ class AnonymizationUserIdInfo {
   // Table, and the userid column is actually a field from the value
   // table's value column.
 
-  static zetasql_base::StatusOr<AnonymizationUserIdInfo> Create(
+  static absl::StatusOr<AnonymizationUserIdInfo> Create(
       absl::Span<const std::string> column_name_path);
 
   // Returns the userid column name if the name path's length is 1. Otherwise,
@@ -647,12 +647,12 @@ class AnonymizationInfo {
   // Creates an AnonymizationInfo for the specified <table> and
   // <userid_column_name_path>.  Returns an error if the
   // <userid_column_name_path> does not exist in <table> or is ambiguous.
-  static zetasql_base::StatusOr<std::unique_ptr<AnonymizationInfo>> Create(
+  static absl::StatusOr<std::unique_ptr<AnonymizationInfo>> Create(
       const Table* table,
       absl::Span<const std::string> userid_column_name_path);
 
   // Creates an AnonymizationInfo for the specified <userid_column_name_path>.
-  static zetasql_base::StatusOr<std::unique_ptr<AnonymizationInfo>> Create(
+  static absl::StatusOr<std::unique_ptr<AnonymizationInfo>> Create(
       absl::Span<const std::string> userid_column_name_path);
 
   // Returns AnonymizationUserIdInfo related to the Table.
@@ -730,7 +730,7 @@ class Table {
   // Not used for zetasql analysis.
   // Used only for evaluating queries on this table with the reference
   // implementation, using the interfaces in evaluator.h.
-  virtual zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+  virtual absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
   CreateEvaluatorTableIterator(absl::Span<const int> column_idxs) const {
     return zetasql_base::UnimplementedErrorBuilder()
            << "Table " << FullName()

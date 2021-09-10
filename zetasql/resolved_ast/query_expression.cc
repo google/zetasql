@@ -64,6 +64,7 @@ void QueryExpression::ClearAllClauses() {
   anonymization_options_.clear();
   with_recursive_ = false;
   pivot_.clear();
+  unpivot_.clear();
 }
 
 std::string QueryExpression::GetSQLQuery() const {
@@ -113,6 +114,9 @@ std::string QueryExpression::GetSQLQuery() const {
 
   if (!pivot_.empty()) {
     absl::StrAppend(&sql, pivot_);
+  }
+  if (!unpivot_.empty()) {
+    absl::StrAppend(&sql, unpivot_);
   }
 
   if (!where_.empty()) {
@@ -297,6 +301,14 @@ bool QueryExpression::TrySetPivotClause(const std::string& pivot) {
   return true;
 }
 
+bool QueryExpression::TrySetUnpivotClause(const std::string& unpivot) {
+  if (!CanSetUnpivotClause()) {
+    return false;
+  }
+  unpivot_ = unpivot;
+  return true;
+}
+
 bool QueryExpression::CanSetWithClause() const {
   return !HasWithClause();
 }
@@ -326,6 +338,10 @@ bool QueryExpression::CanSetLimitClause() const {
 bool QueryExpression::CanSetOffsetClause() const { return !HasOffsetClause(); }
 
 bool QueryExpression::CanSetPivotClause() const { return !HasPivotClause(); }
+
+bool QueryExpression::CanSetUnpivotClause() const {
+  return !HasUnpivotClause();
+}
 
 const std::vector<std::pair<std::string, std::string>>&
 QueryExpression::SelectList() const {

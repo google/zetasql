@@ -341,8 +341,8 @@ contribute no elements to the resulting array.
 The flatten path `v.sales.prices` describes the array
 `[100.0, 50.0, 25.0, 75.0, 200.0]`.
 
-The array element access operator (the `[]` operator) is allowed in a
-flatten path. If the element access occurs after a field access on an `ARRAY`,
+The subscript operator (`[]`) is allowed in a flatten path to access
+array elements. If the operator occurs after a field access on an `ARRAY`,
 then it applies locally to each array element. If the supplied element offset
 or ordinal value is outside the bounds of the array within any element, an out
 of bounds error is generated.
@@ -1625,19 +1625,35 @@ SELECT ARRAY(
 +--------------+
 ```
 
-[flattening-arrays]: #flattening_arrays
-[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#array_type
-[unnest-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest
-[cross-join-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#cross_join
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [convolution]: https://en.wikipedia.org/wiki/Convolution_(computer_science)
 
-[in-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md#in_operators
-[expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries.md
-[casting]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#casting
-[array-function]: https://github.com/google/zetasql/blob/master/docs/array_functions.md
-[array-agg-function]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#array_agg
-[generate-array-function]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#generate_array
-[generate-date-array]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#generate_date_array
-[offset-and-ordinal]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#offset_and_ordinal
-[flatten-operator]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#flatten
+[flattening-arrays]: #flattening_arrays
+
+[array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#array_type
+
+[unnest-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest
+
+[cross-join-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#cross_join
+
+[in-operators]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#in_operators
+
+[expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#expression_subqueries
+
+[casting]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#casting
+
+[array-function]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#array_functions
+
+[array-agg-function]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#array_agg
+
+[generate-array-function]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#generate_array
+
+[generate-date-array]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#generate_date_array
+
+[offset-and-ordinal]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#offset_and_ordinal
+
+[flatten-operator]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#flatten
+
+<!-- mdlint on -->
 

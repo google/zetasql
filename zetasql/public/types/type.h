@@ -19,33 +19,28 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <functional>
+#include <map>
 #include <memory>
+#include <set>
 #include <string>
-#include <utility>
+#include <variant>
 #include <vector>
 
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
-#include "zetasql/common/errors.h"
 #include "zetasql/common/float_margin.h"
 #include "zetasql/public/options.pb.h"
-#include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/timestamp_util.h"
 #include "absl/base/attributes.h"
-#include <cstdint>
-#include "absl/base/macros.h"
-#include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/flags/declare.h"
-#include "zetasql/base/case.h"
+#include "absl/hash/hash.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
-#include "absl/synchronization/mutex.h"
+#include "absl/types/optional.h"
 #include "absl/types/span.h"
-#include "zetasql/base/status.h"
-#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -57,8 +52,8 @@ class ProtoType;
 class StructType;
 class Type;
 class TypeFactory;
-class TypeParameters;
 class TypeParameterValue;
+class TypeParameters;
 class Value;
 class ValueContent;
 class ValueProto;
@@ -103,7 +98,6 @@ class Type {
   bool IsNumericType() const { return kind_ == TYPE_NUMERIC; }
   bool IsBigNumericType() const { return kind_ == TYPE_BIGNUMERIC; }
   bool IsJsonType() const { return kind_ == TYPE_JSON; }
-  bool IsTokenListType() const { return kind_ == TYPE_TOKENLIST; }
 
   // DEPRECATED, use UsingFeatureV12CivilTimeType() instead.
   //
@@ -135,7 +129,6 @@ class Type {
 
   bool IsGeography() const { return kind_ == TYPE_GEOGRAPHY; }
   bool IsJson() const { return kind_ == TYPE_JSON; }
-  bool IsTokenList() const { return kind_ == TYPE_TOKENLIST; }
   bool IsEnum() const { return kind_ == TYPE_ENUM; }
   bool IsArray() const { return kind_ == TYPE_ARRAY; }
   bool IsStruct() const { return kind_ == TYPE_STRUCT; }
@@ -163,6 +156,24 @@ class Type {
       case TYPE_INT32:
       case TYPE_INT64:
       case TYPE_UINT32:
+      case TYPE_UINT64:
+        return true;
+      default:
+        return false;
+    }
+  }
+  bool IsInteger32() const {
+    switch (kind_) {
+      case TYPE_INT32:
+      case TYPE_UINT32:
+        return true;
+      default:
+        return false;
+    }
+  }
+  bool IsInteger64() const {
+    switch (kind_) {
+      case TYPE_INT64:
       case TYPE_UINT64:
         return true;
       default:
@@ -259,7 +270,7 @@ class Type {
   // Two versions of identical descriptors (from different DescriptorPools)
   // will not be considered equal.
   bool Equals(const Type* other_type) const {
-    return EqualsImpl(other_type, false /* equivalent */);
+    return EqualsImpl(other_type, /*equivalent=*/false);
   }
 
   // Compare types for equivalence.  Equivalent types can be used
@@ -275,14 +286,14 @@ class Type {
   // have the same number of fields and the corresponding fields have
   // Equivalent types.
   bool Equivalent(const Type* other_type) const {
-    return EqualsImpl(other_type, true /* equivalent */);
+    return EqualsImpl(other_type, /*equivalent=*/true);
   }
 
   // Hashes a Type using absl::Hash library.
   template <typename H>
   friend H AbslHashValue(H state, const Type& value) {
     value.Hash(absl::HashState::Create(&state));
-    return std::move(state);
+    return state;
   }
 
   // Serialize the Type to a fully self-contained protocol buffer into
@@ -398,7 +409,7 @@ class Type {
   // values are included with the SQL name for this type. The output is
   // reparseable as part of a query. If <type_params> is an invalid input for
   // the given Type, then an error status will be returned.
-  virtual zetasql_base::StatusOr<std::string> TypeNameWithParameters(
+  virtual absl::StatusOr<std::string> TypeNameWithParameters(
       const TypeParameters& type_params, ProductMode mode) const = 0;
 
   // Returns the full description of the type without truncation. This should
@@ -502,7 +513,7 @@ class Type {
   // The output <TypeParameters> class is the final representation
   // of type parameters in the ResolvedAST, storing the resolved type parameters
   // as a TypeParametersProto.
-  virtual zetasql_base::StatusOr<TypeParameters> ValidateAndResolveTypeParameters(
+  virtual absl::StatusOr<TypeParameters> ValidateAndResolveTypeParameters(
       const std::vector<TypeParameterValue>& type_parameter_values,
       ProductMode mode) const;
 

@@ -34,7 +34,7 @@ ResolvedCollation ResolvedCollation::MakeScalar(
 }
 
 // static
-zetasql_base::StatusOr<ResolvedCollation> ResolvedCollation::MakeResolvedCollation(
+absl::StatusOr<ResolvedCollation> ResolvedCollation::MakeResolvedCollation(
     const AnnotationMap& annotation_map) {
   ResolvedCollation resolved_collation;
   if (annotation_map.IsStructMap()) {
@@ -93,7 +93,7 @@ absl::Status ResolvedCollation::Serialize(ResolvedCollationProto* proto) const {
 }
 
 // static
-zetasql_base::StatusOr<ResolvedCollation> ResolvedCollation::Deserialize(
+absl::StatusOr<ResolvedCollation> ResolvedCollation::Deserialize(
     const ResolvedCollationProto& proto) {
   ResolvedCollation resolved_collation;
   if (proto.has_collation_name()) {
@@ -150,4 +150,13 @@ bool ResolvedCollation::HasCompatibleStructure(const Type* type) const {
   return false;
 }
 
+std::string ResolvedCollation::ToString(
+    const std::vector<ResolvedCollation>& resolved_collation_list) {
+  std::string joined = absl::StrJoin(
+      resolved_collation_list, ",",
+      [](std::string* out, const ResolvedCollation& resolved_collation) {
+        absl::StrAppend(out, resolved_collation.DebugString());
+      });
+  return absl::StrCat("[", joined, "]");
+}
 }  // namespace zetasql

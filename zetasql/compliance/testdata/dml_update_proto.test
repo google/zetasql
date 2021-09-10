@@ -2,14 +2,14 @@
 # test output size small.
 
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB,zetasql_test.RecursivePB]
+[load_proto_names=zetasql_test__.KitchenSinkPB,zetasql_test__.RecursivePB]
 
 [prepare_database]
 CREATE TABLE BasicProtoTable AS
 SELECT cast(1 as int64) as primary_key,
        cast('''int64_key_1: 11
                int64_key_2: 12'''
-            as `zetasql_test.KitchenSinkPB`) as proto_value
+            as `zetasql_test__.KitchenSinkPB`) as proto_value
 UNION ALL
 SELECT 2,
   '''
@@ -24,7 +24,7 @@ SELECT 2,
 --
 ARRAY<STRUCT<
         primary_key INT64,
-        proto_value PROTO<zetasql_test.KitchenSinkPB>
+        proto_value PROTO<zetasql_test__.KitchenSinkPB>
       >>
 [{1,
   {
@@ -46,11 +46,11 @@ ARRAY<STRUCT<
 [prepare_database]
 CREATE Table NullProtoTable AS
 SELECT cast(1 as int64) as primary_key,
-       cast(NULL as `zetasql_test.KitchenSinkPB`) as proto_value
+       cast(NULL as `zetasql_test__.KitchenSinkPB`) as proto_value
 --
 ARRAY<STRUCT<
         primary_key INT64,
-        proto_value PROTO<zetasql_test.KitchenSinkPB>
+        proto_value PROTO<zetasql_test__.KitchenSinkPB>
       >>[{1, NULL}]
 ==
 
@@ -59,7 +59,7 @@ CREATE TABLE NestedProtoTable AS
 SELECT cast(1 as int64) as primary_key,
        cast('''int64_key_1: 11
                int64_key_2: 12'''
-            as `zetasql_test.KitchenSinkPB`) as proto_value
+            as `zetasql_test__.KitchenSinkPB`) as proto_value
 UNION ALL
 SELECT 2,
   '''
@@ -84,7 +84,7 @@ SELECT 2,
 --
 ARRAY<STRUCT<
         primary_key INT64,
-        proto_value PROTO<zetasql_test.KitchenSinkPB>
+        proto_value PROTO<zetasql_test__.KitchenSinkPB>
       >>
 [{1,
   {
@@ -118,7 +118,7 @@ CREATE TABLE NullableProtoTable AS
 SELECT cast(1 as int64) as primary_key,
        cast('''int64_key_1: 11
                int64_key_2: 12'''
-            as `zetasql_test.KitchenSinkPB`) as proto_value
+            as `zetasql_test__.KitchenSinkPB`) as proto_value
 UNION ALL
 SELECT 2,
   '''
@@ -137,7 +137,7 @@ SELECT 2,
 --
 ARRAY<STRUCT<
         primary_key INT64,
-        proto_value PROTO<zetasql_test.KitchenSinkPB>
+        proto_value PROTO<zetasql_test__.KitchenSinkPB>
       >>
 [{1,
   {
@@ -165,7 +165,7 @@ CREATE TABLE KeyValueProtoTable AS
 SELECT cast(1 as int64) as primary_key,
        cast('''int64_key_1: 11
                int64_key_2: 12'''
-            as `zetasql_test.KitchenSinkPB`) as proto_value
+            as `zetasql_test__.KitchenSinkPB`) as proto_value
 UNION ALL
 SELECT 2,
   '''
@@ -187,7 +187,7 @@ SELECT 2,
 --
 ARRAY<STRUCT<
         primary_key INT64,
-        proto_value PROTO<zetasql_test.KitchenSinkPB>
+        proto_value PROTO<zetasql_test__.KitchenSinkPB>
       >>
 [{1,
   {
@@ -218,19 +218,19 @@ CREATE Table ExtensionProtoTable AS
 SELECT cast(1 as int64) as primary_key,
        cast('''int64_key_1: 11
                int64_key_2: 12'''
-            as `zetasql_test.KitchenSinkPB`) as proto_value
+            as `zetasql_test__.KitchenSinkPB`) as proto_value
 UNION ALL
 SELECT 2,
   '''
   int64_key_1: 21
   int64_key_2: 22
-  [zetasql_test.int_top_level_extension]: 100
-  [zetasql_test.date_extension]: 5
+  [zetasql_test__.int_top_level_extension]: 100
+  [zetasql_test__.date_extension]: 5
   '''
 --
 ARRAY<STRUCT<
         primary_key INT64,
-        proto_value PROTO<zetasql_test.KitchenSinkPB>
+        proto_value PROTO<zetasql_test__.KitchenSinkPB>
       >>
 [{1,
   {
@@ -241,8 +241,8 @@ ARRAY<STRUCT<
   {
     int64_key_1: 21
     int64_key_2: 22
-    [zetasql_test.int_top_level_extension]: 100
-    [zetasql_test.date_extension]: 5
+    [zetasql_test__.int_top_level_extension]: 100
+    [zetasql_test__.date_extension]: 5
   }}]
 ==
 
@@ -264,11 +264,11 @@ SELECT cast(1 as int64) as primary_key,
                      }
                    }
                  }
-               }''' as zetasql_test.RecursivePB) as proto_value
+               }''' as zetasql_test__.RecursivePB) as proto_value
 --
 ARRAY<STRUCT<
         primary_key INT64,
-        proto_value PROTO<zetasql_test.RecursivePB>
+        proto_value PROTO<zetasql_test__.RecursivePB>
       >>
 [{1,
   {
@@ -322,11 +322,11 @@ SELECT cast(1 as int64) as primary_key,
                      }
                    }
                  }
-               }''' as zetasql_test.RecursivePB) as proto_value
+               }''' as zetasql_test__.RecursivePB) as proto_value
 --
 ARRAY<STRUCT<
         primary_key INT64,
-        proto_value PROTO<zetasql_test.RecursivePB>
+        proto_value PROTO<zetasql_test__.RecursivePB>
       >>
 [{1,
   {
@@ -369,15 +369,15 @@ SELECT cast(1 as int64) as primary_key,
          cast('''int64_key_1: 111
                  int64_key_2: 112
                  int64_val: 113'''
-              as `zetasql_test.KitchenSinkPB`),
+              as `zetasql_test__.KitchenSinkPB`),
          cast('''int64_key_1: 121
                  int64_key_2: 122
                  int64_val: 123'''
-              as `zetasql_test.KitchenSinkPB`),
+              as `zetasql_test__.KitchenSinkPB`),
          cast('''int64_key_1: 131
                  int64_key_2: 132
                  int64_val: 133'''
-              as `zetasql_test.KitchenSinkPB`)
+              as `zetasql_test__.KitchenSinkPB`)
        ] as array_value
 UNION ALL
 SELECT 2,
@@ -385,22 +385,22 @@ SELECT 2,
          cast('''int64_key_1: 211
                  int64_key_2: 212
                  int64_val: 213'''
-              as `zetasql_test.KitchenSinkPB`),
+              as `zetasql_test__.KitchenSinkPB`),
          cast('''int64_key_1: 221
                  int64_key_2: 222
                  int64_val: 223'''
-              as `zetasql_test.KitchenSinkPB`),
+              as `zetasql_test__.KitchenSinkPB`),
          cast('''int64_key_1: 321
                  int64_key_2: 322
                  int64_val: 323'''
-              as `zetasql_test.KitchenSinkPB`)
+              as `zetasql_test__.KitchenSinkPB`)
        ]
 UNION ALL
 SELECT 3, NULL
 --
 ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
   {1,
-   ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+   ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 111
        int64_key_2: 112
@@ -418,7 +418,7 @@ ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
      }
    ]},
   {2,
-   ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+   ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 211
        int64_key_2: 212
@@ -437,7 +437,7 @@ ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
    ]},
   {
     3,
-    ARRAY<PROTO<zetasql_test.KitchenSinkPB>>(NULL)
+    ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>(NULL)
   }
 ]
 ==
@@ -460,13 +460,13 @@ SELECT cast(1 as int64) primary_key,
                  nested_repeated_value {
                    nested_int64: 203
                  }'''
-              as `zetasql_test.KitchenSinkPB`),
+              as `zetasql_test__.KitchenSinkPB`),
          NULL
        ] as array_value
 --
 ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
   {1,
-   ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+   ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 11
        int64_key_2: 12
@@ -499,7 +499,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -522,7 +522,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1, NULL}, {2, NULL}]}
 ==
@@ -536,7 +536,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1, NULL}, {2, NULL}]}
 ==
@@ -544,7 +544,7 @@ STRUCT<
 [name=assign_null_proto_column_subfield]
 UPDATE NullProtoTable SET proto_value.int64_key_1 = 10 WHERE True
 --
-ERROR: generic::out_of_range: Cannot set field of NULL `zetasql_test.KitchenSinkPB`
+ERROR: generic::out_of_range: Cannot set field of NULL `zetasql_test__.KitchenSinkPB`
 ==
 
 [name=assign_required_proto_field]
@@ -556,7 +556,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -579,7 +579,7 @@ STRUCT<
 [name=clear_required_proto_field]
 UPDATE BasicProtoTable SET proto_value.int64_key_1 = NULL WHERE True
 --
-ERROR: generic::out_of_range: Cannot clear required proto field zetasql_test.KitchenSinkPB.int64_key_1
+ERROR: generic::out_of_range: Cannot clear required proto field zetasql_test__.KitchenSinkPB.int64_key_1
 ==
 
 # Same as above, but there is no error because no rows are updated.
@@ -592,7 +592,7 @@ STRUCT<
 >{0,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -615,7 +615,7 @@ STRUCT<
 [name=assign_required_proto_field_default]
 UPDATE BasicProtoTable SET proto_value.int64_key_1 = DEFAULT WHERE True
 --
-ERROR: generic::out_of_range: Cannot clear required proto field zetasql_test.KitchenSinkPB.int64_key_1
+ERROR: generic::out_of_range: Cannot clear required proto field zetasql_test__.KitchenSinkPB.int64_key_1
 ==
 
 [name=assign_optional_proto_field]
@@ -627,7 +627,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -657,7 +657,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -685,7 +685,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -706,8 +706,8 @@ STRUCT<
 [name=assign_extension_proto_field]
 [required_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
 UPDATE ExtensionProtoTable
-  SET proto_value.(zetasql_test.int_top_level_extension) =
-      proto_value.(zetasql_test.int_top_level_extension) + 1000
+  SET proto_value.(zetasql_test__.int_top_level_extension) =
+      proto_value.(zetasql_test__.int_top_level_extension) + 1000
 WHERE True
 --
 STRUCT<
@@ -716,27 +716,27 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
         int64_key_1: 11
         int64_key_2: 12
-        [zetasql_test.int_top_level_extension]: 1000
+        [zetasql_test__.int_top_level_extension]: 1000
       }},
      {2,
       {
         int64_key_1: 21
         int64_key_2: 22
-        [zetasql_test.int_top_level_extension]: 1100
-        [zetasql_test.date_extension]: 5
+        [zetasql_test__.int_top_level_extension]: 1100
+        [zetasql_test__.date_extension]: 5
       }}]}
 ==
 
 [name=clear_extension_proto_field]
 [required_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
 UPDATE ExtensionProtoTable
-  SET proto_value.(zetasql_test.int_top_level_extension) = NULL
+  SET proto_value.(zetasql_test__.int_top_level_extension) = NULL
 WHERE True
 --
 STRUCT<
@@ -745,7 +745,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -756,14 +756,14 @@ STRUCT<
       {
         int64_key_1: 21
         int64_key_2: 22
-        [zetasql_test.date_extension]: 5
+        [zetasql_test__.date_extension]: 5
       }}]}
 ==
 
 [name=assign_extension_proto_field_default]
 [required_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
 UPDATE ExtensionProtoTable
-  SET proto_value.(zetasql_test.int_top_level_extension) = DEFAULT
+  SET proto_value.(zetasql_test__.int_top_level_extension) = DEFAULT
 WHERE True
 --
 STRUCT<
@@ -772,7 +772,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -783,7 +783,7 @@ STRUCT<
       {
         int64_key_1: 21
         int64_key_2: 22
-        [zetasql_test.date_extension]: 5
+        [zetasql_test__.date_extension]: 5
       }}]}
 ==
 
@@ -796,7 +796,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -825,7 +825,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -852,7 +852,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -873,7 +873,7 @@ STRUCT<
 [name=assign_extension_proto_field_with_format_annotation]
 [required_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
 UPDATE ExtensionProtoTable
-  SET proto_value.(zetasql_test.date_extension) = DATE '2017-12-15'
+  SET proto_value.(zetasql_test__.date_extension) = DATE '2017-12-15'
 WHERE True
 --
 STRUCT<
@@ -882,27 +882,27 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
         int64_key_1: 11
         int64_key_2: 12
-        [zetasql_test.date_extension]: 17515
+        [zetasql_test__.date_extension]: 17515
       }},
      {2,
       {
         int64_key_1: 21
         int64_key_2: 22
-        [zetasql_test.int_top_level_extension]: 100
-        [zetasql_test.date_extension]: 17515
+        [zetasql_test__.int_top_level_extension]: 100
+        [zetasql_test__.date_extension]: 17515
       }}]}
 ==
 
 [name=assign_extension_proto_field_with_format_annotation_null]
 [required_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
 UPDATE ExtensionProtoTable
-  SET proto_value.(zetasql_test.date_extension) = NULL
+  SET proto_value.(zetasql_test__.date_extension) = NULL
 WHERE True
 --
 STRUCT<
@@ -911,7 +911,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -922,14 +922,14 @@ STRUCT<
       {
         int64_key_1: 21
         int64_key_2: 22
-        [zetasql_test.int_top_level_extension]: 100
+        [zetasql_test__.int_top_level_extension]: 100
       }}]}
 ==
 
 [name=assign_extension_proto_field_with_format_annotation_default]
 [required_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
 UPDATE ExtensionProtoTable
-  SET proto_value.(zetasql_test.date_extension) = DEFAULT
+  SET proto_value.(zetasql_test__.date_extension) = DEFAULT
 WHERE True
 --
 STRUCT<
@@ -938,7 +938,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -949,7 +949,7 @@ STRUCT<
       {
         int64_key_1: 21
         int64_key_2: 22
-        [zetasql_test.int_top_level_extension]: 100
+        [zetasql_test__.int_top_level_extension]: 100
       }}]}
 ==
 
@@ -964,7 +964,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -995,7 +995,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -1017,7 +1017,7 @@ UPDATE BasicProtoTable
 SET proto_value.repeated_int64_val = [1, NULL, 3]
 WHERE True
 --
-ERROR: generic::out_of_range: Cannot store a NULL element in repeated proto field zetasql_test.KitchenSinkPB.repeated_int64_val
+ERROR: generic::out_of_range: Cannot store a NULL element in repeated proto field zetasql_test__.KitchenSinkPB.repeated_int64_val
 ==
 
 [name=assign_repeated_proto_field_default]
@@ -1029,7 +1029,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -1056,7 +1056,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -1081,7 +1081,7 @@ UPDATE NestedProtoTable
 SET proto_value.nested_value.nested_repeated_int64[OFFSET(0)] = 1000
 WHERE primary_key = 1
 --
-ERROR: generic::out_of_range: Cannot set field of NULL `zetasql_test.KitchenSinkPB.Nested`
+ERROR: generic::out_of_range: Cannot set field of NULL `zetasql_test__.KitchenSinkPB.Nested`
 ==
 
 # Repeated fields cannot represent NULL elements.
@@ -1090,7 +1090,7 @@ ERROR: generic::out_of_range: Cannot set field of NULL `zetasql_test.KitchenSink
 UPDATE BasicProtoTable SET proto_value.repeated_int64_val[OFFSET(0)] = NULL
 WHERE primary_key = 2
 --
-ERROR: generic::out_of_range: Cannot store a NULL element in repeated proto field zetasql_test.KitchenSinkPB.repeated_int64_val
+ERROR: generic::out_of_range: Cannot store a NULL element in repeated proto field zetasql_test__.KitchenSinkPB.repeated_int64_val
 ==
 
 [name=update_repeated_proto_field_second_element_with_set]
@@ -1104,7 +1104,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -1135,7 +1135,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -1167,7 +1167,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -1247,7 +1247,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.RecursivePB>
+          proto_value PROTO<zetasql_test__.RecursivePB>
         >>
   [{1,
       {
@@ -1287,7 +1287,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -1329,7 +1329,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -1369,7 +1369,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -1412,7 +1412,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -1457,7 +1457,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -1497,7 +1497,7 @@ SET proto_value.nested_repeated_value[OFFSET(0)]
                .nested_repeated_int64 = [20000]
 WHERE primary_key = 2
 --
-ERROR: generic::out_of_range: Cannot perform multiple updates to offset 0 of an ARRAY<`zetasql_test.KitchenSinkPB.Nested`>
+ERROR: generic::out_of_range: Cannot perform multiple updates to offset 0 of an ARRAY<`zetasql_test__.KitchenSinkPB.Nested`>
 ==
 
 # TODO: Ideally the spec would allow this. See the comments for
@@ -1510,7 +1510,7 @@ SET proto_value.nested_repeated_value[OFFSET(0)]
     proto_value.nested_repeated_value[OFFSET(0)].nested_int64 = 20000
 WHERE primary_key = 2
 --
-ERROR: generic::out_of_range: Cannot perform multiple updates to offset 0 of an ARRAY<`zetasql_test.KitchenSinkPB.Nested`>
+ERROR: generic::out_of_range: Cannot perform multiple updates to offset 0 of an ARRAY<`zetasql_test__.KitchenSinkPB.Nested`>
 ==
 
 [name=update_element_in_repeated_field_of_proto_type_with_set_null_index]
@@ -1519,7 +1519,7 @@ UPDATE NestedProtoTable
 SET proto_value.nested_repeated_value[OFFSET(NULL)].nested_int64 = 10000
 WHERE primary_key = 2
 --
-ERROR: generic::out_of_range: Cannot SET a NULL offset of an ARRAY<`zetasql_test.KitchenSinkPB.Nested`>
+ERROR: generic::out_of_range: Cannot SET a NULL offset of an ARRAY<`zetasql_test__.KitchenSinkPB.Nested`>
 ==
 
 [name=update_element_in_repeated_field_of_proto_type_with_set_negative_index]
@@ -1528,7 +1528,7 @@ UPDATE NestedProtoTable
 SET proto_value.nested_repeated_value[OFFSET(-1)].nested_int64 = 1000
 WHERE primary_key = 2
 --
-ERROR: generic::out_of_range: Cannot SET array offset -1 of an ARRAY<`zetasql_test.KitchenSinkPB.Nested`> of size 3
+ERROR: generic::out_of_range: Cannot SET array offset -1 of an ARRAY<`zetasql_test__.KitchenSinkPB.Nested`> of size 3
 ==
 
 [name=update_element_in_repeated_field_of_proto_type_with_set_index_too_large]
@@ -1537,7 +1537,7 @@ UPDATE NestedProtoTable
 SET proto_value.nested_repeated_value[OFFSET(1000)].nested_int64 = 1000
 WHERE primary_key = 2
 --
-ERROR: generic::out_of_range: Cannot SET array offset 1000 of an ARRAY<`zetasql_test.KitchenSinkPB.Nested`> of size 3
+ERROR: generic::out_of_range: Cannot SET array offset 1000 of an ARRAY<`zetasql_test__.KitchenSinkPB.Nested`> of size 3
 ==
 
 [name=update_element_in_repeated_of_proto_type_with_set_index_barely_too_large]
@@ -1546,7 +1546,7 @@ UPDATE NestedProtoTable
 SET proto_value.nested_repeated_value[OFFSET(3)].nested_int64 = 1000
 WHERE primary_key = 2
 --
-ERROR: generic::out_of_range: Cannot SET array offset 3 of an ARRAY<`zetasql_test.KitchenSinkPB.Nested`> of size 3
+ERROR: generic::out_of_range: Cannot SET array offset 3 of an ARRAY<`zetasql_test__.KitchenSinkPB.Nested`> of size 3
 ==
 
 [name=update_repeated_proto_field_complex_long_path_with_set]
@@ -1564,7 +1564,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.RecursivePB>
+          proto_value PROTO<zetasql_test__.RecursivePB>
         >>
   [{1,
       {
@@ -1611,7 +1611,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
     {1,
-     ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
        {
          int64_key_1: 1000
          int64_key_2: 112
@@ -1629,7 +1629,7 @@ STRUCT<
        }
      ]},
     {2,
-     ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
        {
          int64_key_1: 1000
          int64_key_2: 212
@@ -1648,7 +1648,7 @@ STRUCT<
      ]},
     {
       3,
-      ARRAY<PROTO<zetasql_test.KitchenSinkPB>>(NULL)
+      ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>(NULL)
     }
   ]}
 ==
@@ -1664,7 +1664,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
     {1,
-     ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
        {
          int64_key_1: 111
          int64_key_2: 112
@@ -1681,7 +1681,7 @@ STRUCT<
        }
      ]},
     {2,
-     ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
        {
          int64_key_1: 211
          int64_key_2: 212
@@ -1699,7 +1699,7 @@ STRUCT<
      ]},
     {
       3,
-      ARRAY<PROTO<zetasql_test.KitchenSinkPB>>(NULL)
+      ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>(NULL)
     }
   ]}
 ==
@@ -1715,7 +1715,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
     {1,
-     ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
        {
          int64_key_1: 111
          int64_key_2: 112
@@ -1733,7 +1733,7 @@ STRUCT<
        }
      ]},
     {2,
-     ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
        {
          int64_key_1: 211
          int64_key_2: 212
@@ -1752,7 +1752,7 @@ STRUCT<
      ]},
     {
       3,
-      ARRAY<PROTO<zetasql_test.KitchenSinkPB>>(NULL)
+      ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>(NULL)
     }
   ]}
 ==
@@ -1769,7 +1769,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
     {1,
-     ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
        {
          int64_key_1: 111
          int64_key_2: 112
@@ -1787,7 +1787,7 @@ STRUCT<
        }
      ]},
     {2,
-     ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
        {
          int64_key_1: 211
          int64_key_2: 212
@@ -1806,7 +1806,7 @@ STRUCT<
      ]},
     {
       3,
-      ARRAY<PROTO<zetasql_test.KitchenSinkPB>>(NULL)
+      ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>(NULL)
     }
   ]}
 ==
@@ -1824,7 +1824,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
     {1,
-     ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
        {
          int64_key_1: 1000
          int64_key_2: 112
@@ -1842,7 +1842,7 @@ STRUCT<
        }
      ]},
     {2,
-     ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
        {
          int64_key_1: 1000
          int64_key_2: 212
@@ -1861,7 +1861,7 @@ STRUCT<
      ]},
     {
       3,
-      ARRAY<PROTO<zetasql_test.KitchenSinkPB>>(NULL)
+      ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>(NULL)
     }
   ]}
 ==
@@ -1873,7 +1873,7 @@ SET array_value[OFFSET(0)].int64_key_1 = 1000,
     array_value[OFFSET(0)].int64_key_1 = 2000
 WHERE primary_key != 3
 --
-ERROR: generic::out_of_range: Cannot perform multiple updates to offset 0 of an ARRAY<`zetasql_test.KitchenSinkPB`>
+ERROR: generic::out_of_range: Cannot perform multiple updates to offset 0 of an ARRAY<`zetasql_test__.KitchenSinkPB`>
 ==
 
 # TODO: Ideally the spec would allow this. See the comments for
@@ -1885,7 +1885,7 @@ SET array_value[OFFSET(0)].int64_key_1 = 1000,
     array_value[OFFSET(0)].int64_key_2 = 2000
 WHERE primary_key != 3
 --
-ERROR: generic::out_of_range: Cannot perform multiple updates to offset 0 of an ARRAY<`zetasql_test.KitchenSinkPB`>
+ERROR: generic::out_of_range: Cannot perform multiple updates to offset 0 of an ARRAY<`zetasql_test__.KitchenSinkPB`>
 ==
 
 [name=update_null_element_in_array_of_protos_with_set]
@@ -1894,7 +1894,7 @@ UPDATE ArrayOfProtosTable
 SET array_value[OFFSET(0)].int64_key_1 = 1000
 WHERE True
 --
-ERROR: generic::out_of_range: Cannot use [] to modify a NULL array of type ARRAY<`zetasql_test.KitchenSinkPB`>
+ERROR: generic::out_of_range: Cannot use [] to modify a NULL array of type ARRAY<`zetasql_test__.KitchenSinkPB`>
 ==
 
 [name=update_element_in_array_of_protos_with_set_null_index]
@@ -1903,7 +1903,7 @@ UPDATE ArrayOfProtosTable
 SET array_value[OFFSET(NULL)].int64_key_1 = 1000
 WHERE primary_key != 3
 --
-ERROR: generic::out_of_range: Cannot SET a NULL offset of an ARRAY<`zetasql_test.KitchenSinkPB`>
+ERROR: generic::out_of_range: Cannot SET a NULL offset of an ARRAY<`zetasql_test__.KitchenSinkPB`>
 ==
 
 [name=update_element_in_array_of_protos_with_set_negative_index]
@@ -1912,7 +1912,7 @@ UPDATE ArrayOfProtosTable
 SET array_value[OFFSET(-1)].int64_key_1 = 1000
 WHERE primary_key != 3
 --
-ERROR: generic::out_of_range: Cannot SET array offset -1 of an ARRAY<`zetasql_test.KitchenSinkPB`> of size 3
+ERROR: generic::out_of_range: Cannot SET array offset -1 of an ARRAY<`zetasql_test__.KitchenSinkPB`> of size 3
 ==
 
 [name=update_element_in_array_of_protos_with_set_index_too_large]
@@ -1921,7 +1921,7 @@ UPDATE ArrayOfProtosTable
 SET array_value[OFFSET(1000)].int64_key_1 = 1000
 WHERE primary_key != 3
 --
-ERROR: generic::out_of_range: Cannot SET array offset 1000 of an ARRAY<`zetasql_test.KitchenSinkPB`> of size 3
+ERROR: generic::out_of_range: Cannot SET array offset 1000 of an ARRAY<`zetasql_test__.KitchenSinkPB`> of size 3
 ==
 
 [name=update_element_in_array_of_protos_with_set_index_barely_too_large]
@@ -1930,7 +1930,7 @@ UPDATE ArrayOfProtosTable
 SET array_value[OFFSET(3)].int64_key_1 = 1000
 WHERE primary_key != 3
 --
-ERROR: generic::out_of_range: Cannot SET array offset 3 of an ARRAY<`zetasql_test.KitchenSinkPB`> of size 3
+ERROR: generic::out_of_range: Cannot SET array offset 3 of an ARRAY<`zetasql_test__.KitchenSinkPB`> of size 3
 ==
 
 # A brief, somewhat tortuous test involving an array of protos wrapping a
@@ -1947,7 +1947,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
     {1,
-     ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
        {
          int64_key_1: 11
          int64_key_2: 12
@@ -1984,7 +1984,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[
     {1,
-     ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+     ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
        {
          int64_key_1: 11
          int64_key_2: 12
@@ -2017,7 +2017,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2055,7 +2055,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2091,7 +2091,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2123,7 +2123,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2152,7 +2152,7 @@ UPDATE NestedProtoTable
 SET proto_value.nested_value.nested_int64 = 1000
 WHERE True
 --
-ERROR: generic::out_of_range: Cannot set field of NULL `zetasql_test.KitchenSinkPB.Nested`
+ERROR: generic::out_of_range: Cannot set field of NULL `zetasql_test__.KitchenSinkPB.Nested`
 ==
 
 [name=assign_proto_subfield]
@@ -2165,7 +2165,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2204,7 +2204,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2242,7 +2242,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2281,7 +2281,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2321,7 +2321,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2358,7 +2358,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2386,9 +2386,9 @@ STRUCT<
 
 [name=assign_repeated_proto_message_field]
 UPDATE NestedProtoTable SET proto_value.nested_repeated_value =
-  [CAST("nested_int64: 50" AS `zetasql_test.KitchenSinkPB.Nested`),
-   CAST("nested_int64: 51" AS `zetasql_test.KitchenSinkPB.Nested`),
-   CAST("nested_int64: 52" AS `zetasql_test.KitchenSinkPB.Nested`)]
+  [CAST("nested_int64: 50" AS `zetasql_test__.KitchenSinkPB.Nested`),
+   CAST("nested_int64: 51" AS `zetasql_test__.KitchenSinkPB.Nested`),
+   CAST("nested_int64: 52" AS `zetasql_test__.KitchenSinkPB.Nested`)]
 WHERE True
 --
 STRUCT<
@@ -2397,7 +2397,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2444,7 +2444,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2475,7 +2475,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2505,7 +2505,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2540,7 +2540,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2573,7 +2573,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2603,7 +2603,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2636,7 +2636,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2661,9 +2661,9 @@ STRUCT<
 # Wire format annotations have no effect on statement semantics.
 [name=assign_repeated_proto_wrapper_message]
 UPDATE NullableProtoTable SET proto_value.nullable_int_array =
-  [CAST("value: 100" AS `zetasql_test.NullableInt`),
-   CAST("value: 101" AS `zetasql_test.NullableInt`),
-   CAST("value: 102" AS `zetasql_test.NullableInt`)]
+  [CAST("value: 100" AS `zetasql_test__.NullableInt`),
+   CAST("value: 101" AS `zetasql_test__.NullableInt`),
+   CAST("value: 102" AS `zetasql_test__.NullableInt`)]
 WHERE True
 --
 STRUCT<
@@ -2672,7 +2672,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2716,7 +2716,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2745,7 +2745,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2784,7 +2784,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2819,7 +2819,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2851,7 +2851,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2887,7 +2887,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2915,9 +2915,9 @@ STRUCT<
 # Wire format annotations have no effect on statement semantics.
 [name=assign_repeated_proto_struct_message]
 UPDATE KeyValueProtoTable SET proto_value.key_value_array =
-  [CAST('key: "foo1" value:1000' AS `zetasql_test.KeyValueStruct`),
-   CAST('key: "foo2" value:2000' AS `zetasql_test.KeyValueStruct`),
-   CAST('key: "foo3" value:3000' AS `zetasql_test.KeyValueStruct`)]
+  [CAST('key: "foo1" value:1000' AS `zetasql_test__.KeyValueStruct`),
+   CAST('key: "foo2" value:2000' AS `zetasql_test__.KeyValueStruct`),
+   CAST('key: "foo3" value:3000' AS `zetasql_test__.KeyValueStruct`)]
 WHERE True
 --
 STRUCT<
@@ -2926,7 +2926,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -2977,7 +2977,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -3007,7 +3007,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -3031,7 +3031,7 @@ STRUCT<
 UPDATE ExtensionProtoTable SET
   proto_value.int64_key_1 = 1000,
   proto_value.int64_key_2 = 2000,
-  proto_value.(zetasql_test.int_top_level_extension) = 3000
+  proto_value.(zetasql_test__.int_top_level_extension) = 3000
 WHERE True
 --
 STRUCT<
@@ -3040,20 +3040,20 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
         int64_key_1: 1000
         int64_key_2: 2000
-        [zetasql_test.int_top_level_extension]: 3000
+        [zetasql_test__.int_top_level_extension]: 3000
       }},
      {2,
       {
         int64_key_1: 1000
         int64_key_2: 2000
-        [zetasql_test.int_top_level_extension]: 3000
-        [zetasql_test.date_extension]: 5
+        [zetasql_test__.int_top_level_extension]: 3000
+        [zetasql_test__.date_extension]: 5
       }}]}
 ==
 
@@ -3070,7 +3070,7 @@ STRUCT<
 >{1,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {

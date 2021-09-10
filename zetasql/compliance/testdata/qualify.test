@@ -47,6 +47,15 @@ SELECT i, p, o, ROW_NUMBER() OVER (PARTITION BY p ORDER BY o) as row_num FROM t1
 ARRAY<STRUCT<i INT64, p STRING, o INT64, row_num INT64>>[{1, "A", 1, 1}]
 ==
 
+# Regression test for b/189237442
+[name=qualify_analytic_function_expression_in_select_list]
+SELECT i, p, o, (ROW_NUMBER() OVER (PARTITION BY p ORDER BY o) + 100) as row_num FROM t1
+  WHERE true
+  QUALIFY p NOT LIKE 'B' and row_num = 101;
+--
+ARRAY<STRUCT<i INT64, p STRING, o INT64, row_num INT64>>[{1, "A", 1, 101}]
+==
+
 [name=qualify_aggregate_with_analytic_filter]
 SELECT SUM(i) as sum_i, ROW_NUMBER() OVER (ORDER BY o) as row_num FROM t1
 GROUP BY o

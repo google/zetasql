@@ -18,6 +18,8 @@ known_errors {
   # regression.test for details.
   mode: ALLOW_ERROR_OR_WRONG_ANSWER
   label: "bug_in_reference_impl"
+  # TODO: Implement in reference impl
+  label: "orderby_collate_queries_test:orderby_collate_disallow_legacy_unicode_collation"
 }
 
 known_errors {

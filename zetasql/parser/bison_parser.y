@@ -90,7 +90,7 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
   void Accept(zetasql::ParseTreeVisitor* visitor, void* data) const override {
     ZETASQL_LOG(FATAL) << "SeparatedIdentifierTmpNode does not support Accept";
   }
-  zetasql_base::StatusOr<zetasql::VisitResult> Accept(
+  absl::StatusOr<zetasql::VisitResult> Accept(
       zetasql::NonRecursiveParseTreeVisitor* visitor) const override {
     ZETASQL_LOG(FATAL) << "SeparatedIdentifierTmpNode does not support Accept";
   }
@@ -141,7 +141,7 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
   // concatenate the components of each sublist together to form a single
   // identifier and return a list of these identifiers, which can be used to
   // build an ASTPathExpression.
-  static zetasql_base::StatusOr<std::vector<zetasql::ASTNode*>> BuildPathParts(
+  static absl::StatusOr<std::vector<zetasql::ASTNode*>> BuildPathParts(
     const zetasql_bison_parser::location& bison_location,
     PathParts raw_parts, zetasql::parser::BisonParser* parser) {
     if(raw_parts.empty()) {
@@ -437,6 +437,15 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 // rule that starts with "ANALYZE"  "OPTIONS" "(". It is resolved in favor of
 // the OPTIONS( rule, which is the desired behavior.
 //
+// AMBIGUOUS CASE 13: SELECT * FROM T QUALIFY
+// --------------------------------
+// The QUALIFY keyword is non-reserved and can be used as an identifier.
+// This causes a shift/reduce conflict between keyword_as_identifier and the
+// rule that starts with "QUALIFY". It is resolved in favor of the QUALIFY rule,
+// which is the desired behavior. Currently this is only used to report
+// error messages to user when QUALIFY clause is used without
+// WHERE/GROUP BY/HAVING.
+//
 // Total expected shift/reduce conflicts as described above:
 //   2: EXPRESSION SUBQUERY
 //   1: INSERT VALUES
@@ -451,7 +460,8 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 //   1: FILTER FIELDS
 //   1: WITH ANONYMIZATION
 //   1: ANALYZE
-%expect 20
+//   6: QUALIFY
+%expect 26
 
 %union {
   bool boolean;
@@ -477,6 +487,7 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
   TableOrTableFunctionKeywords table_or_table_function_keywords;
   ShiftOperator shift_operator;
   ImportType import_type;
+  zetasql::ASTAuxLoadDataStatement::InsertionMode insertion_mode;
   zetasql::ASTCreateStatement::Scope create_scope;
   zetasql::ASTCreateStatement::SqlSecurity sql_security;
   zetasql::ASTDropStatement::DropMode drop_mode;
@@ -523,6 +534,11 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
     zetasql::ASTWithPartitionColumnsClause* with_partition_columns_clause;
     zetasql::ASTWithConnectionClause* with_connection_clause;
   } external_table_with_clauses;
+  struct {
+    zetasql::ASTIdentifier* language;
+    bool is_remote;
+    zetasql::ASTWithConnectionClause* with_connection_clause;
+  } language_or_remote_with_connection;
 }
 // YYEOF is a special token used to indicate the end of the input. It's alias
 // defaults to "end of file", but "end of input" is more appropriate for us.
@@ -537,6 +553,13 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 %token INTEGER_LITERAL "integer literal"
 %token FLOATING_POINT_LITERAL "floating point literal"
 %token IDENTIFIER "identifier"
+
+// Script labels. This is set apart from IDENTIFIER for two reasons:
+// - Identifiers should still be disallowed at statement beginnings in all
+//   other cases.
+// - (Unreserved) Keywords don't need to be recognized as labels since
+//   flex_tokenizer.l takes care of that.
+%token LABEL "label"
 
 // Comments. They are only returned if the tokenizer is run in a special comment
 // preserving mode. They are not returned by the tokenizer when used with the
@@ -638,14 +661,24 @@ inline int zetasql_bison_parserlex(
       YYABORT; \
     } while (0)
 
-#define WithStartLocation(node, location) \
-  parser->WithStartLocation(node, location)
+#define CHECK_LABEL_SUPPORT(node, location) \
+    if (node != nullptr \
+        && (parser->language_options() == nullptr \
+            || !parser->language_options()->LanguageFeatureEnabled( \
+                    zetasql::FEATURE_V_1_3_SCRIPT_LABEL))) { \
+      YYERROR_AND_ABORT_AT(location, "Script labels are not supported"); \
+    }
 
-#define WithEndLocation(node, location) \
-  parser->WithEndLocation(node, location)
-
-#define WithLocation(node, location) \
-  parser->WithLocation(node, location)
+#define CHECK_END_LABEL_VALID( \
+  label_node, label_location, end_label_node, end_label_location) \
+    if (end_label_node != nullptr \
+        && !end_label_node->GetAsIdString().CaseEquals( \
+              label_node->GetAsIdString())) { \
+      YYERROR_AND_ABORT_AT(end_label_location, \
+          absl::StrCat("Mismatched end label; expected ", \
+              label_node->GetAsStringView(), ", got ", \
+              end_label_node->GetAsStringView())); \
+    } \
 
 // Adds 'children' to 'node' and then returns 'node'.
 template <typename ASTNodeType>
@@ -804,6 +837,7 @@ using zetasql::ASTDropStatement;
 %token KW_SOME "SOME"
 %token KW_TREAT "TREAT"
 %token KW_WITHIN "WITHIN"
+%token KW_QUALIFY_RESERVED
 // END_RESERVED_KEYWORDS -- Do not remove this!
 
 // This is a different token because using KW_NOT for BETWEEN/IN/LIKE would
@@ -863,6 +897,7 @@ using zetasql::ASTDropStatement;
 %token KW_EXPLAIN "EXPLAIN"
 %token KW_EXPORT "EXPORT"
 %token KW_EXTERNAL "EXTERNAL"
+%token KW_FILES "FILES"
 %token KW_FILTER "FILTER"
 %token KW_FILTER_FIELDS "FILTER_FIELDS"
 %token KW_FILL "FILL"
@@ -890,6 +925,7 @@ using zetasql::ASTDropStatement;
 %token KW_LAST "LAST"
 %token KW_LEAVE "LEAVE"
 %token KW_LEVEL "LEVEL"
+%token KW_LOAD "LOAD"
 %token KW_LOOP "LOOP"
 %token KW_MATCH "MATCH"
 %token KW_MATCHED "MATCHED"
@@ -904,25 +940,29 @@ using zetasql::ASTDropStatement;
 %token KW_ONLY "ONLY"
 %token KW_OPTIONS "OPTIONS"
 %token KW_OUT "OUT"
+%token KW_OVERWRITE "OVERWRITE"
 %token KW_PERCENT "PERCENT"
 %token KW_PIVOT "PIVOT"
 %token KW_POLICIES "POLICIES"
 %token KW_POLICY "POLICY"
 %token KW_PRIMARY "PRIMARY"
 %token KW_PRIVATE "PRIVATE"
+%token KW_PRIVILEGE "PRIVILEGE"
 %token KW_PRIVILEGES "PRIVILEGES"
 %token KW_PROCEDURE "PROCEDURE"
 %token KW_PUBLIC "PUBLIC"
-%token KW_QUALIFY "QUALIFY"
+%token KW_QUALIFY_NONRESERVED
 %token KW_RAISE "RAISE"
 %token KW_READ "READ"
 %token KW_REFERENCES "REFERENCES"
+%token KW_REMOTE "REMOTE"
 %token KW_RENAME "RENAME"
 %token KW_REPEAT "REPEAT"
 %token KW_REPEATABLE "REPEATABLE"
 %token KW_REPLACE "REPLACE"
 %token KW_REPLACE_FIELDS "REPLACE_FIELDS"
 %token KW_RESTRICT "RESTRICT"
+%token KW_RESTRICTION "RESTRICTION"
 %token KW_RETURN "RETURN"
 %token KW_RETURNS "RETURNS"
 %token KW_REVOKE "REVOKE"
@@ -998,6 +1038,8 @@ using zetasql::ASTDropStatement;
 %type <node> assert_statement
 %type <expression_subquery> bare_expression_subquery
 %type <node> begin_statement
+%type <node> aux_load_data_from_files_options_list
+%type <node> aux_load_data_statement
 %type <expression> bignumeric_literal
 %type <expression> boolean_literal
 %type <expression> bytes_literal
@@ -1019,6 +1061,7 @@ using zetasql::ASTDropStatement;
 %type <node> create_database_statement
 %type <node> create_function_statement
 %type <node> create_procedure_statement
+%type <node> create_privilege_restriction_statement
 %type <node> create_row_access_policy_grant_to_clause
 %type <node> create_row_access_policy_statement
 %type <node> create_external_table_statement
@@ -1045,6 +1088,8 @@ using zetasql::ASTDropStatement;
 %type <expression> expression
 %type <node> generic_entity_type
 %type <node> grant_to_clause
+%type <node> restrict_to_clause
+%type <node> opt_restrict_to_clause
 %type <node> index_storing_expression_list_prefix
 %type <node> index_storing_expression_list
 %type <expression> interval_expression
@@ -1088,6 +1133,7 @@ using zetasql::ASTDropStatement;
 %type <node> hint_with_body
 %type <node> hint_with_body_prefix
 %type <identifier> identifier
+%type <identifier> label
 %type <identifier> identifier_in_hints
 %type <node> if_statement
 %type <node> elseif_clauses
@@ -1101,16 +1147,21 @@ using zetasql::ASTDropStatement;
 %type <node> execute_using_argument_list
 %type <node> opt_elseif_clauses
 %type <node> begin_end_block
+%type <node> unlabeled_begin_end_block
 %type <node> opt_exception_handler
 %type <node> if_statement_unclosed
 %type <node> break_statement
 %type <node> continue_statement
 %type <node> return_statement
 %type <node> loop_statement
+%type <node> unlabeled_loop_statement
 %type <node> while_statement
+%type <node> unlabeled_while_statement
 %type <node> until_clause
 %type <node> repeat_statement
+%type <node> unlabeled_repeat_statement
 %type <node> for_in_statement
+%type <node> unlabeled_for_in_statement
 %type <node> import_statement
 %type <node> variable_declaration
 %type <node> opt_default_expression
@@ -1119,6 +1170,7 @@ using zetasql::ASTDropStatement;
 %type <node> path_expression_list_with_opt_parens
 %type <node> set_statement
 %type <node> index_order_by
+%type <node> index_all_columns
 %type <node> index_order_by_prefix
 %type <node> index_storing_list
 %type <node> index_unnest_expression_list
@@ -1174,6 +1226,7 @@ using zetasql::ASTDropStatement;
 %type <node> opt_cluster_by_clause_no_hint
 %type <node> collate_clause
 %type <node> opt_collate_clause
+%type <node> opt_default_collate_clause
 %type <node> opt_column_list
 %type <node> opt_constraint_identity
 %type <node> opt_create_row_access_policy_grant_to_clause
@@ -1183,6 +1236,7 @@ using zetasql::ASTDropStatement;
 %type <expression> opt_at_time_zone
 %type <node> opt_format
 %type <drop_mode> opt_drop_mode
+%type <insertion_mode> append_or_overwrite
 %type <node> opt_else
 %type <external_table_with_clauses> opt_external_table_with_clauses
 %type <node> opt_on_path_expression
@@ -1202,7 +1256,8 @@ using zetasql::ASTDropStatement;
 %type <identifier> opt_identifier
 %type <node> opt_index_storing_list
 %type <node> opt_index_unnest_expression_list
-%type <node> opt_language
+%type <identifier> opt_language
+%type <language_or_remote_with_connection> opt_language_or_remote_with_connection
 %type <node> opt_like_string_literal
 %type <node> opt_like_path_expression
 %type <node> opt_limit_offset_clause
@@ -1215,7 +1270,11 @@ using zetasql::ASTDropStatement;
 %type <node> opt_partition_by_clause
 %type <node> opt_partition_by_clause_no_hint
 %type <node> opt_qualify_clause
+%type <node> qualify_clause_nonreserved
+%type <node> qualify_clause_reserved
+%type <node> opt_qualify_clause_reserved
 %type <node> opt_repeatable_clause
+%type <language_or_remote_with_connection> opt_remote_with_connection_clause
 %type <node> opt_returns
 %type <node> opt_returning_clause
 %type <sql_security> opt_sql_security_clause
@@ -1265,6 +1324,7 @@ using zetasql::ASTDropStatement;
 %type <expression> slashed_path_expression
 %type <expression> dashed_path_expression
 %type <expression> maybe_dashed_path_expression
+%type <expression> maybe_slashed_or_dashed_path_expression
 %type <node> path_expression_or_string
 %type <expression> possibly_cast_int_literal_or_parameter
 %type <node> possibly_empty_column_list
@@ -1274,6 +1334,8 @@ using zetasql::ASTDropStatement;
 %type <node> privilege_list
 %type <node> privilege_name
 %type <node> privileges
+%type <node> column_privilege
+%type <node> column_privilege_list
 %type <query> query
 %type <node> query_maybe_expression
 %type <node> query_primary
@@ -1287,6 +1349,7 @@ using zetasql::ASTDropStatement;
 %type <node> query_statement
 %type <node> raw_type
 %type <node> raw_column_schema_inner
+%type <language_or_remote_with_connection> remote_with_connection_clause
 %type <node> repeatable_clause
 %type <expression> generalized_extension_path
 %type <node> replace_fields_arg
@@ -1575,6 +1638,7 @@ sql_statement_body:
     | alter_statement
     | analyze_statement
     | assert_statement
+    | aux_load_data_statement
     | clone_data_statement
     | dml_statement
     | merge_statement
@@ -1590,6 +1654,7 @@ sql_statement_body:
     | create_function_statement
     | create_procedure_statement
     | create_index_statement
+    | create_privilege_restriction_statement
     | create_row_access_policy_statement
     | create_external_table_statement
     | create_external_table_function_statement
@@ -1648,7 +1713,7 @@ alter_action:
       {
         auto* constraint = $5;
         constraint->AddChild($4);
-        WithStartLocation(constraint, @4);
+        parser->WithStartLocation(constraint, @4);
         auto* node = MAKE_NODE(ASTAddConstraintAction, @$, {constraint});
         node->set_is_if_not_exists($3);
         $$ = node;
@@ -1701,9 +1766,9 @@ alter_action:
         $$ = node;
       }
     | "ALTER" "COLUMN" opt_if_exists identifier "SET" "DATA" "TYPE"
-          column_schema_inner opt_collate_clause
+          field_schema
       {
-        auto* node = MAKE_NODE(ASTAlterColumnTypeAction, @$, {$4, $8, $9});
+        auto* node = MAKE_NODE(ASTAlterColumnTypeAction, @$, {$4, $8});
         node->set_is_if_exists($3);
         $$ = node;
       }
@@ -1723,9 +1788,9 @@ alter_action:
       {
         $$ = MAKE_NODE(ASTRenameToClause, @$, {$3});
       }
-    | "SET" collate_clause
+    | "SET" "DEFAULT" collate_clause
       {
-        $$ = MAKE_NODE(ASTSetCollateClause, @$, {$2});
+        $$ = MAKE_NODE(ASTSetCollateClause, @$, {$3});
       }
     ;
 
@@ -1736,7 +1801,7 @@ alter_action_list:
       }
     | alter_action_list "," alter_action
       {
-        $$ = WithEndLocation(WithExtraChildren($1, {$3}), @$);
+        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
       }
     ;
 
@@ -1777,7 +1842,7 @@ row_access_policy_alter_action_list:
       }
     | row_access_policy_alter_action_list "," row_access_policy_alter_action
       {
-        $$ = WithEndLocation(WithExtraChildren($1, {$3}), @$);
+        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
       }
     ;
 
@@ -1853,7 +1918,7 @@ alter_statement:
         }
         node->set_is_if_exists($3);
         node->AddChildren({$4, $5});
-        $$ = WithLocation(node, @$);
+        $$ = parser->WithLocation(node, @$);
       }
     | "ALTER" generic_entity_type opt_if_exists path_expression
       alter_action_list
@@ -2090,46 +2155,58 @@ create_database_statement:
 create_function_statement:
     "CREATE" opt_or_replace opt_create_scope opt_aggregate
         "FUNCTION" opt_if_not_exists function_declaration opt_function_returns
-        opt_sql_security_clause opt_determinism_level opt_language
+        opt_sql_security_clause opt_determinism_level
+        opt_language_or_remote_with_connection
         as_sql_function_body_or_string opt_options_list
       {
-        auto* create = MAKE_NODE(ASTCreateFunctionStatement, @$,
-                                 {$7, $8, $11, $12, $13});
+        auto* create =
+            MAKE_NODE(ASTCreateFunctionStatement, @$,
+                      {$7, $8, $11.language, $11.with_connection_clause, $12,
+                       $13});
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_is_aggregate($4);
         create->set_is_if_not_exists($6);
         create->set_sql_security($9);
         create->set_determinism_level($10);
+        create->set_is_remote($11.is_remote);
         $$ = create;
       }
     | "CREATE" opt_or_replace opt_create_scope opt_aggregate
         "FUNCTION" opt_if_not_exists function_declaration opt_function_returns
-        opt_sql_security_clause opt_determinism_level opt_language "OPTIONS" options_list
+        opt_sql_security_clause opt_determinism_level
+        opt_language_or_remote_with_connection "OPTIONS" options_list
         opt_as_sql_function_body_or_string
       {
-        auto* create = MAKE_NODE(ASTCreateFunctionStatement, @$,
-                                 {$7, $8, $11, $14, $13});
+        auto* create =
+            MAKE_NODE(ASTCreateFunctionStatement, @$,
+                      {$7, $8, $11.language, $11.with_connection_clause, $14,
+                       $13});
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_is_aggregate($4);
         create->set_is_if_not_exists($6);
         create->set_sql_security($9);
         create->set_determinism_level($10);
+        create->set_is_remote($11.is_remote);
         $$ = create;
       }
     | "CREATE" opt_or_replace opt_create_scope opt_aggregate
         "FUNCTION" opt_if_not_exists function_declaration opt_function_returns
-        opt_sql_security_clause opt_determinism_level opt_language
+        opt_sql_security_clause opt_determinism_level
+        opt_language_or_remote_with_connection
       {
-        auto* create = MAKE_NODE(ASTCreateFunctionStatement, @$,
-                                 {$7, $8, $11, nullptr, nullptr});
+        auto* create =
+            MAKE_NODE(ASTCreateFunctionStatement, @$,
+                      {$7, $8, $11.language, $11.with_connection_clause,
+                       nullptr, nullptr});
         create->set_is_or_replace($2);
         create->set_scope($3);
         create->set_is_aggregate($4);
         create->set_is_if_not_exists($6);
         create->set_sql_security($9);
         create->set_determinism_level($10);
+        create->set_is_remote($11.is_remote);
         $$ = create;
       }
     ;
@@ -2183,7 +2260,7 @@ function_parameters_prefix:
 function_parameters:
     function_parameters_prefix ")"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     | "(" ")"
       {
@@ -2193,7 +2270,8 @@ function_parameters:
 
 create_procedure_statement:
     "CREATE" opt_or_replace opt_create_scope "PROCEDURE" opt_if_not_exists
-    path_expression procedure_parameters opt_options_list begin_end_block
+    path_expression procedure_parameters opt_options_list
+    unlabeled_begin_end_block
       {
         zetasql::ASTStatementList* stmt_list = MAKE_NODE(
             ASTStatementList, @9, {$9});
@@ -2221,7 +2299,7 @@ procedure_parameters_prefix:
 procedure_parameters:
     procedure_parameters_prefix ")"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     | "(" ")"
       {
@@ -2325,6 +2403,69 @@ opt_language:
       }
     ;
 
+remote_with_connection_clause:
+    "REMOTE" opt_with_connection_clause
+      {
+        if (parser->language_options() != nullptr &&
+            !parser->language_options()->LanguageFeatureEnabled(
+                zetasql::FEATURE_V_1_3_REMOTE_FUNCTION)) {
+          YYERROR_AND_ABORT_AT(@1, "REMOTE is not supported");
+        }
+
+        $$.language = nullptr;
+        $$.is_remote = true;
+        if ($2 == nullptr) {
+          $$.with_connection_clause = nullptr;
+        } else {
+          $$.with_connection_clause =
+              $2->GetAsOrDie<zetasql::ASTWithConnectionClause>();
+        }
+      }
+    | with_connection_clause
+      {
+        // This case is to generate more informative error message. Otherwise
+        // the error message for WITH CONNECTION without leading REMOTE will be
+        // something like "Expected end of input but got keyword WITH".
+        YYERROR_AND_ABORT_AT(
+            @1,
+            "WITH CONNECTION is only allowed after REMOTE in CREATE FUNCTION");
+      }
+    ;
+
+opt_remote_with_connection_clause:
+    remote_with_connection_clause
+      {
+        $$ = $1;
+      }
+    | /* Nothing */
+      {
+        $$.language = nullptr;
+        $$.is_remote = false;
+        $$.with_connection_clause = nullptr;
+      }
+    ;
+
+
+opt_language_or_remote_with_connection:
+    "LANGUAGE" identifier opt_remote_with_connection_clause
+      {
+        $$ = $3;
+        $$.language = $2;
+      }
+    | remote_with_connection_clause opt_language
+      {
+        $$ = $1;
+        $$.language = $2;
+      }
+    |  /* Nothing */
+      {
+        $$.language = nullptr;
+        $$.is_remote = false;
+        $$.with_connection_clause = nullptr;
+      }
+    ;
+
+
 opt_sql_security_clause:
     "SQL" "SECURITY" sql_security_clause_kind { $$ = $3; }
     | /* Nothing */
@@ -2382,6 +2523,29 @@ sql_function_body:
       }
     ;
 
+// Parens are required for statements where this clause can be one of many
+// actions, so that it's unambiguous where the restrictee list ends and the next
+// action begins.
+restrict_to_clause:
+    "RESTRICT" "TO" "(" grantee_list ")"
+      {
+        zetasql::ASTRestrictToClause* node =
+            MAKE_NODE(ASTRestrictToClause, @$, {$4});
+        $$ = node;
+      }
+    ;
+
+opt_restrict_to_clause:
+    restrict_to_clause
+      {
+        $$ = $1;
+      }
+    | /* Nothing */
+      {
+        $$ = nullptr;
+      }
+    ;
+
 grant_to_clause:
     "GRANT" "TO" "(" grantee_list ")"
       {
@@ -2432,6 +2596,19 @@ filter_using_clause:
         filter_using->set_has_filter_keyword($1);
         $$ = filter_using;
       }
+
+create_privilege_restriction_statement:
+    "CREATE" opt_or_replace "PRIVILEGE" "RESTRICTION" opt_if_not_exists
+    "ON" column_privilege_list "ON" path_expression opt_restrict_to_clause
+      {
+        zetasql::ASTCreatePrivilegeRestrictionStatement* node =
+            MAKE_NODE(ASTCreatePrivilegeRestrictionStatement, @$,
+                      {$7, $9, $10});
+        node->set_is_or_replace($2);
+        node->set_is_if_not_exists($5);
+        $$ = node;
+      }
+    ;
 
 create_row_access_policy_statement:
     "CREATE" opt_or_replace "ROW" opt_access "POLICY" opt_if_not_exists
@@ -2501,7 +2678,7 @@ opt_external_table_with_clauses:
 create_external_table_statement:
     "CREATE" opt_or_replace opt_create_scope "EXTERNAL"
     "TABLE" opt_if_not_exists maybe_dashed_path_expression
-    opt_table_element_list opt_like_path_expression opt_collate_clause
+    opt_table_element_list opt_like_path_expression opt_default_collate_clause
     opt_external_table_with_clauses opt_options_list
       {
         if ($12 == nullptr) {
@@ -2550,7 +2727,8 @@ create_index_statement:
     ;
 
 create_schema_statement:
-    "CREATE" opt_or_replace "SCHEMA" opt_if_not_exists path_expression opt_collate_clause opt_options_list
+    "CREATE" opt_or_replace "SCHEMA" opt_if_not_exists path_expression
+    opt_default_collate_clause opt_options_list
       {
         auto* create = MAKE_NODE(ASTCreateSchemaStatement, @$, {$5, $6, $7});
         create->set_is_or_replace($2);
@@ -2610,9 +2788,9 @@ create_table_function_statement:
 create_table_statement:
     "CREATE" opt_or_replace opt_create_scope "TABLE" opt_if_not_exists
     maybe_dashed_path_expression opt_table_element_list
-    opt_like_path_expression opt_clone_table opt_copy_table opt_collate_clause
-    opt_partition_by_clause_no_hint opt_cluster_by_clause_no_hint
-    opt_options_list opt_as_query
+    opt_like_path_expression opt_clone_table opt_copy_table
+    opt_default_collate_clause opt_partition_by_clause_no_hint
+    opt_cluster_by_clause_no_hint opt_options_list opt_as_query
       {
         zetasql::ASTCreateStatement* create =
             MAKE_NODE(ASTCreateTableStatement, @$, {$6, $7, $8, $9, $10, $11, $12, $13, $14, $15});
@@ -2620,6 +2798,42 @@ create_table_statement:
         create->set_scope($3);
         create->set_is_if_not_exists($5);
         $$ = create;
+      }
+    ;
+
+append_or_overwrite:
+    "INTO" {  // INTO to mean append, which is consistent with INSERT INTO
+      $$ = zetasql::ASTAuxLoadDataStatement::InsertionMode::APPEND;
+    }
+    | "OVERWRITE" {
+      $$ = zetasql::ASTAuxLoadDataStatement::InsertionMode::OVERWRITE;
+    }
+    ;
+
+aux_load_data_from_files_options_list:
+    "FROM" "FILES" options_list
+      {
+        $$ = MAKE_NODE(ASTAuxLoadDataFromFilesOptionsList, @$, {$3});
+      }
+    ;
+
+aux_load_data_statement:
+    "LOAD" "DATA" append_or_overwrite
+    maybe_dashed_path_expression opt_table_element_list
+    opt_collate_clause
+    opt_partition_by_clause_no_hint
+    opt_cluster_by_clause_no_hint
+    opt_options_list
+    aux_load_data_from_files_options_list
+    opt_external_table_with_clauses
+      {
+        zetasql::ASTAuxLoadDataStatement* statement =
+            MAKE_NODE(
+                ASTAuxLoadDataStatement, @$,
+                {$4, $5, $6, $7, $8, $9, $10, $11.with_partition_columns_clause,
+                 $11.with_connection_clause});
+        statement->set_insertion_mode($3);
+        $$ = statement;
       }
     ;
 
@@ -2699,7 +2913,7 @@ opt_table_element_list:
 table_element_list:
     table_element_list_prefix ")"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
       ;
 
@@ -2714,7 +2928,7 @@ table_element_list_prefix:
       }
     | table_element_list_prefix ","
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     ;
 
@@ -2758,7 +2972,8 @@ table_element:
 table_column_definition:
     identifier table_column_schema opt_column_attributes opt_options_list
       {
-        auto* schema = WithEndLocation(WithExtraChildren($2, {$3, $4}), @$);
+        auto* schema = parser->WithEndLocation(
+            WithExtraChildren($2, {$3, $4}), @$);
         $$ = MAKE_NODE(ASTColumnDefinition, @$, {$1, schema});
       }
     ;
@@ -2767,15 +2982,15 @@ table_column_schema:
     column_schema_inner opt_column_info opt_collate_clause
       {
         if ($2.generated_column_info != nullptr) {
-          $$ = WithEndLocation(
+          $$ = parser->WithEndLocation(
               WithExtraChildren($1, {$2.generated_column_info,
                                      /*default_expression=*/nullptr, $3}), @$);
         } else if ($2.default_expression != nullptr) {
-          $$ = WithEndLocation(
+          $$ = parser->WithEndLocation(
               WithExtraChildren($1, {/*generated_column_info=*/nullptr,
                                      $2.default_expression, $3}), @$);
         } else {
-          $$ = WithEndLocation(
+          $$ = parser->WithEndLocation(
               WithExtraChildren($1, {/*generated_column_info=*/nullptr,
                                      /*default_expression=*/nullptr, $3}), @$);
         }
@@ -2827,7 +3042,8 @@ struct_column_field:
     // which have reserved keywords.
     column_schema_inner opt_collate_clause opt_field_attributes
       {
-        auto* schema = WithEndLocation(WithExtraChildren($1, {$2, $3}), @$);
+        auto* schema = parser->WithEndLocation(
+            WithExtraChildren($1, {$2, $3}), @$);
         $$ = MAKE_NODE(ASTStructColumnField, @$, {schema});
       }
     | identifier field_schema
@@ -2847,7 +3063,8 @@ struct_column_schema_prefix:
       }
     ;
 
-// This node does not apply WithEndLocation. column_schema and field_schema do.
+// This node does not apply parser->WithEndLocation. column_schema and
+// field_schema do.
 struct_column_schema_inner:
     "STRUCT" "<" ">"
       {
@@ -2865,7 +3082,7 @@ raw_column_schema_inner:
 column_schema_inner:
     raw_column_schema_inner opt_type_parameters
     {
-      $$ = WithExtraChildren(WithEndLocation($1, @2), {$2});
+      $$ = WithExtraChildren(parser->WithEndLocation($1, @2), {$2});
     };
 
 generated_as_keywords:
@@ -2962,7 +3179,7 @@ opt_column_info:
 field_schema:
   column_schema_inner opt_collate_clause opt_field_attributes opt_options_list
     {
-      $$ = WithEndLocation(WithExtraChildren($1, {$2, $3, $4}), @$);
+      $$ = parser->WithEndLocation(WithExtraChildren($1, {$2, $3, $4}), @$);
     }
     ;
 
@@ -2977,7 +3194,7 @@ foreign_key_column_attribute:
   opt_constraint_identity foreign_key_reference
     {
       auto* node = MAKE_NODE(ASTForeignKeyColumnAttribute, @$, {$1, $2});
-      $$ = WithStartLocation(node, FirstNonEmptyLocation({@1, @2}));
+      $$ = parser->WithStartLocation(node, FirstNonEmptyLocation({@1, @2}));
     }
   ;
 
@@ -3025,7 +3242,7 @@ column_attributes:
       }
     | column_attributes column_attribute
       {
-        $$ = WithEndLocation(WithExtraChildren($1, {$2}), @$);
+        $$ = parser->WithEndLocation(WithExtraChildren($1, {$2}), @$);
       }
     | column_attributes constraint_enforcement
       {
@@ -3036,7 +3253,7 @@ column_attributes:
               "Syntax error: Unexpected constraint enforcement clause");
         }
         // Update the node's location to include constraint_enforcement.
-        last = WithEndLocation(last, @$);
+        last = parser->WithEndLocation(last, @$);
         if (last->node_kind() == zetasql::AST_FOREIGN_KEY_COLUMN_ATTRIBUTE) {
           int index = last->find_child_index(
               zetasql::AST_FOREIGN_KEY_REFERENCE);
@@ -3053,7 +3270,7 @@ column_attributes:
               last->GetAsOrDie<zetasql::ASTPrimaryKeyColumnAttribute>();
           primary_key->set_enforced($2);
         }
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     ;
 
@@ -3158,7 +3375,7 @@ table_constraint_definition:
           }
         }
         node->AddChild($2);
-        $$ = WithLocation(node, @$);
+        $$ = parser->WithLocation(node, @$);
       }
     ;
 
@@ -3287,7 +3504,7 @@ tvf_schema_prefix:
 tvf_schema:
     tvf_schema_prefix ">"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     ;
 
@@ -3349,23 +3566,23 @@ opt_if_not_exists:
 describe_statement:
     describe_keyword describe_info
       {
-        $$ = WithStartLocation($2, @$);
+        $$ = parser->WithStartLocation($2, @$);
       }
     ;
 
 describe_info:
-    identifier path_expression opt_from_path_expression
+    identifier maybe_slashed_or_dashed_path_expression opt_from_path_expression
       {
         $$ = MAKE_NODE(ASTDescribeStatement, @$, {$1, $2, $3});
       }
-    | path_expression opt_from_path_expression
+    | maybe_slashed_or_dashed_path_expression opt_from_path_expression
       {
         $$ = MAKE_NODE(ASTDescribeStatement, @$, {nullptr, $1, $2});
       }
     ;
 
 opt_from_path_expression:
-    "FROM" path_expression
+    "FROM" maybe_slashed_or_dashed_path_expression
       {
         $$ = $2;
       }
@@ -3438,12 +3655,30 @@ privilege_list:
       }
     | privilege_list "," privilege
       {
-        $$ = WithEndLocation(WithExtraChildren($1, {$3}), @$);
+        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+      }
+    ;
+
+column_privilege_list:
+    column_privilege
+      {
+        $$ = MAKE_NODE(ASTPrivileges, @$, {$1});
+      }
+    | column_privilege_list "," column_privilege
+      {
+        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
       }
     ;
 
 privilege:
     privilege_name opt_column_list
+      {
+        $$ = MAKE_NODE(ASTPrivilege, @$, {$1, $2});
+      }
+    ;
+
+column_privilege:
+    privilege_name column_list
       {
         $$ = MAKE_NODE(ASTPrivilege, @$, {$1, $2});
       }
@@ -3503,10 +3738,27 @@ index_order_by_prefix:
       }
     ;
 
+index_all_columns:
+    "(" "ALL" "COLUMNS" ")"
+      {
+        auto* all_columns = MAKE_NODE(ASTIndexAllColumns, @$);
+        all_columns->set_image("ALL COLUMNS");
+        auto* ordering_expr =
+            MAKE_NODE(ASTOrderingExpression, @$,
+                      {all_columns, nullptr, nullptr});
+        ordering_expr->set_ordering_spec(
+                                zetasql::ASTOrderingExpression::UNSPECIFIED);
+        $$ = MAKE_NODE(ASTIndexItemList, @$, {ordering_expr});
+      }
+
 index_order_by:
     index_order_by_prefix ")"
     {
-      $$ = WithEndLocation($1, @$);
+      $$ = parser->WithEndLocation($1, @$);
+    }
+    | index_all_columns
+    {
+      $$ = parser->WithEndLocation($1, @$);
     }
     ;
 
@@ -3541,7 +3793,7 @@ index_storing_expression_list_prefix:
 index_storing_expression_list:
     index_storing_expression_list_prefix ")"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     ;
 
@@ -3570,7 +3822,7 @@ column_list_prefix:
 column_list:
     column_list_prefix ")"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     ;
 
@@ -3582,7 +3834,7 @@ opt_column_list:
 possibly_empty_column_list:
     column_list_prefix ")"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     | "(" ")"
       {
@@ -3597,7 +3849,7 @@ grantee_list:
       }
     | grantee_list "," string_literal_or_parameter
       {
-        $$ = WithEndLocation(WithExtraChildren($1, {$3}), @$);
+        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
       }
     ;
 
@@ -3786,7 +4038,7 @@ query_set_operation_prefix:
 query_set_operation:
    query_set_operation_prefix
      {
-       $$ = WithEndLocation($1, @$);
+       $$ = parser->WithEndLocation($1, @$);
      }
    ;
 
@@ -3830,7 +4082,7 @@ query_set_operation_prefix_maybe_expression:
 query_set_operation_maybe_expression:
    query_set_operation_prefix_maybe_expression
      {
-       $$ = WithEndLocation($1, @$);
+       $$ = parser->WithEndLocation($1, @$);
      }
    ;
 
@@ -3996,7 +4248,7 @@ hint_with_body_prefix:
 hint_with_body:
     hint_with_body_prefix "}"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     ;
 
@@ -4032,12 +4284,12 @@ select_list_prefix:
 select_list:
     select_list_prefix
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     |
     select_list_prefix ","
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     ;
 
@@ -4055,7 +4307,7 @@ star_except_list_prefix:
 star_except_list:
     star_except_list_prefix ")"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     ;
 
@@ -4088,7 +4340,7 @@ star_modifiers:
       }
     | star_modifiers_with_replace_prefix ")"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     ;
 
@@ -4273,7 +4525,7 @@ pivot_expression_list:
     $$ = MAKE_NODE(ASTPivotExpressionList, @$, {$1});
   }
   | pivot_expression_list "," pivot_expression {
-    $$ = WithEndLocation(WithExtraChildren($1, {$3}), @$);
+    $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
   }
 ;
 
@@ -4287,7 +4539,7 @@ pivot_value_list:
     $$ = MAKE_NODE(ASTPivotValueList, @$, {$1});
   }
   | pivot_value_list "," pivot_value {
-    $$ = WithEndLocation(WithExtraChildren($1, {$3}), @$);
+    $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
   };
 
 pivot_clause:
@@ -4316,7 +4568,7 @@ path_expression_list:
     }
     | path_expression_list "," path_expression
     {
-      $$ = WithEndLocation(WithExtraChildren($1, {$3}), @$);
+      $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
     };
 
 path_expression_list_with_opt_parens:
@@ -4343,7 +4595,7 @@ unpivot_in_item_list_prefix:
 
 unpivot_in_item_list:
   unpivot_in_item_list_prefix ")" {
-    $$ = WithEndLocation($1, @$);
+    $$ = parser->WithEndLocation($1, @$);
   } ;
 
 opt_unpivot_nulls_filter:
@@ -4386,17 +4638,23 @@ opt_pivot_or_unpivot_clause_and_alias:
   }
   | "AS" identifier pivot_clause opt_as_alias {
     $$.alias = MAKE_NODE(ASTAlias, @1, {$2});
-    $$.alias = WithEndLocation($$.alias, @2);
+    $$.alias = parser->WithEndLocation($$.alias, @2);
     $$.pivot_clause = WithExtraChildren($3,
         {static_cast<zetasql::ASTAlias*>($4)});
     $$.unpivot_clause = nullptr;
   }
   | "AS" identifier unpivot_clause opt_as_alias {
     $$.alias = MAKE_NODE(ASTAlias, @1, {$2});
-    $$.alias = WithEndLocation($$.alias, @2);
+    $$.alias = parser->WithEndLocation($$.alias, @2);
     $$.unpivot_clause = WithExtraChildren($3,
         {static_cast<zetasql::ASTAlias*>($4)});
     $$.pivot_clause = nullptr;
+  }
+  | "AS" identifier qualify_clause_nonreserved {
+    YYERROR_AND_ABORT_AT(
+        @3,
+        "QUALIFY clause must be used in conjunction with WHERE or GROUP BY "
+        "or HAVING clause");
   }
   | identifier pivot_clause opt_as_alias {
     $$.alias = MAKE_NODE(ASTAlias, @1, {$1});
@@ -4410,6 +4668,12 @@ opt_pivot_or_unpivot_clause_and_alias:
         {static_cast<zetasql::ASTAlias*>($3)});
     $$.pivot_clause = nullptr;
   }
+  | identifier qualify_clause_nonreserved {
+    YYERROR_AND_ABORT_AT(
+        @2,
+        "QUALIFY clause must be used in conjunction with WHERE or GROUP BY "
+        "or HAVING clause");
+  }
   | pivot_clause opt_as_alias {
     $$.alias = nullptr;
     $$.pivot_clause = WithExtraChildren($1,
@@ -4421,6 +4685,12 @@ opt_pivot_or_unpivot_clause_and_alias:
     $$.unpivot_clause = WithExtraChildren($1,
         {static_cast<zetasql::ASTAlias*>($2)});
     $$.pivot_clause = nullptr;
+  }
+  | qualify_clause_nonreserved {
+    YYERROR_AND_ABORT_AT(
+        @1,
+        "QUALIFY clause must be used in conjunction with WHERE or GROUP BY "
+        "or HAVING clause");
   }
   | /* Nothing */ {
     $$.alias = nullptr;
@@ -4598,36 +4868,20 @@ tvf:
     tvf_prefix_no_args ")" opt_hint opt_pivot_or_unpivot_clause_and_alias
     opt_sample_clause
       {
-        $$ = WithExtraChildren(WithEndLocation($1, @$), {
+        $$ = WithExtraChildren(parser->WithEndLocation($1, @$), {
             $3, $4.alias, $5, $4.pivot_clause, $4.unpivot_clause});
       }
     | tvf_prefix ")" opt_hint opt_pivot_or_unpivot_clause_and_alias
     opt_sample_clause
       {
-        $$ = WithExtraChildren(WithEndLocation($1, @$), {
+        $$ = WithExtraChildren(parser->WithEndLocation($1, @$), {
             $3, $4.alias, $4.pivot_clause, $4.unpivot_clause, $5});
       }
     ;
 
 table_path_expression_base:
     unnest_expression
-    | maybe_dashed_path_expression { $$ = $1; }
-    | slashed_path_expression
-      {
-        if (parser->language_options() != nullptr &&
-            parser->language_options()->LanguageFeatureEnabled(
-               zetasql::FEATURE_V_1_3_ALLOW_SLASH_PATHS)) {
-          $$ = $1;
-        } else {
-          YYERROR_AND_ABORT_AT(
-              @1,
-              absl::StrCat(
-                "Syntax error: Table name contains '/' character. "
-                "It needs to be quoted: ",
-                zetasql::ToIdentifierLiteral(
-                  parser->GetInputText(@1), false)));
-        }
-      }
+    | maybe_slashed_or_dashed_path_expression { $$ = $1; }
     | path_expression "["
       {
         YYERROR_AND_ABORT_AT(
@@ -4755,7 +5009,7 @@ using_clause_prefix:
 using_clause:
     using_clause_prefix ")"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     ;
 
@@ -4777,7 +5031,7 @@ on_or_using_clause_list:
         if (parser->language_options() != nullptr &&
             parser->language_options()->LanguageFeatureEnabled(
                zetasql::FEATURE_V_1_3_ALLOW_CONSECUTIVE_ON)) {
-          $$ = WithEndLocation(WithExtraChildren($1, {$2}), @$);
+          $$ = parser->WithEndLocation(WithExtraChildren($1, {$2}), @$);
         } else {
           YYERROR_AND_ABORT_AT(
               @2,
@@ -4925,11 +5179,15 @@ opt_from_clause:
     ;
 
 // The rules opt_clauses_following_from, opt_clauses_following_where and
-// opt_clauses_following_group_by are added to separate QUALIFY clause
-// (which does not have a reserved keyword at the beginning) from the FROM
-// clause (which can have a keyword_as_identifier as the trailing thing) by
-// ensuring there is a clause that starts with a reserved keyword
-// (WHERE, GROUP BY or HAVING) between them.
+// opt_clauses_following_group_by exist to constrain QUALIFY clauses to require
+// a WHERE, GROUP BY, or HAVING clause when the QUALIFY keyword is nonreserved.
+//
+// This restriction exists to ensure that there is a clause that starts with a
+// reserved keyword (WHERE, GROUP BY or HAVING) between them.
+//
+// When QUALIFY is enabled as a reserved keyword in the LanguageOptions, the
+// requirement for the QUALIFY clause to have WHERE, GROUP BY, or HAVING
+// preceding it goes away.
 opt_clauses_following_from:
     where_clause opt_group_by_clause opt_having_clause
     opt_qualify_clause opt_window_clause
@@ -4957,10 +5215,10 @@ opt_clauses_following_group_by:
       {
         $$ = {/*where=*/nullptr, /*group_by=*/nullptr, $1, $2, $3};
       }
-    | opt_window_clause
+    | opt_qualify_clause_reserved opt_window_clause
       {
         $$ = {/*where=*/nullptr, /*group_by=*/nullptr, /*having=*/nullptr,
-              /*qualify=*/nullptr, $1};
+              $1, $2};
       };
 
 where_clause:
@@ -4989,7 +5247,7 @@ grouping_item:
       }
     | rollup_list ")"
       {
-        $1 = WithEndLocation($1, @$);
+        $1 = parser->WithEndLocation($1, @$);
         $$ = MAKE_NODE(ASTGroupingItem, @$, {$1});
       }
     ;
@@ -5008,7 +5266,7 @@ group_by_clause_prefix:
 group_by_clause:
     group_by_clause_prefix
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       };
 
 opt_group_by_clause:
@@ -5048,13 +5306,19 @@ window_clause_prefix:
 opt_window_clause:
     window_clause_prefix
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     | /* Nothing */ { $$ = nullptr; }
     ;
 
 opt_qualify_clause:
-    "QUALIFY" expression
+      qualify_clause_reserved { $$ = $1; }
+    | qualify_clause_nonreserved { $$ = $1; }
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
+qualify_clause_reserved:
+    KW_QUALIFY_RESERVED expression
       {
        if (parser->language_options() == nullptr ||
             !parser->language_options()->LanguageFeatureEnabled(
@@ -5063,7 +5327,22 @@ opt_qualify_clause:
         }
         $$ = MAKE_NODE(ASTQualify, @$, {$2});
       }
-    | /* Nothing */ { $$ = nullptr; }
+    ;
+
+opt_qualify_clause_reserved:
+   qualify_clause_reserved { $$ = $1; }
+   | /* Nothing */ { $$ = nullptr; }
+
+qualify_clause_nonreserved:
+    KW_QUALIFY_NONRESERVED expression
+      {
+       if (parser->language_options() == nullptr ||
+            !parser->language_options()->LanguageFeatureEnabled(
+                zetasql::FEATURE_V_1_3_QUALIFY)) {
+          YYERROR_AND_ABORT_AT(@1, "QUALIFY is not supported");
+        }
+        $$ = MAKE_NODE(ASTQualify, @$, {$2});
+      }
     ;
 
 opt_limit_offset_clause:
@@ -5131,19 +5410,19 @@ with_clause:
     "WITH" with_clause_entry
       {
         $$ = MAKE_NODE(ASTWithClause, @$, {$2});
-        $$ = WithEndLocation($$, @$);
+        $$ = parser->WithEndLocation($$, @$);
       }
     | "WITH" "RECURSIVE" with_clause_entry
       {
         zetasql::ASTWithClause* with_clause =
             MAKE_NODE(ASTWithClause, @$, {$3})
-        with_clause = WithEndLocation(with_clause, @$);
+        with_clause = parser->WithEndLocation(with_clause, @$);
         with_clause->set_recursive(true);
         $$ = with_clause;
       }
     | with_clause "," with_clause_entry
       {
-        $$ = WithEndLocation(WithExtraChildren($1, {$3}), @$);
+        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
       }
     ;
 
@@ -5155,7 +5434,7 @@ opt_with_connection_clause:
 with_clause_with_trailing_comma:
     with_clause ","
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     ;
 
@@ -5198,6 +5477,14 @@ opt_collate_clause:
     | /* Nothing */ { $$ = nullptr; }
     ;
 
+opt_default_collate_clause:
+    "DEFAULT" collate_clause
+      {
+        $$ = $2;
+      }
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
 ordering_expression:
     expression opt_collate_clause opt_asc_or_desc opt_null_order
       {
@@ -5222,7 +5509,7 @@ order_by_clause_prefix:
 opt_order_by_clause:
     order_by_clause_prefix
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     | /* Nothing */ { $$ = nullptr; }
     ;
@@ -5285,7 +5572,7 @@ parenthesized_in_rhs:
       {
         // Don't include the ")" in the location, to match the JavaCC parser.
         // TODO: Fix that.
-        $$ = WithEndLocation($1, @1);
+        $$ = parser->WithEndLocation($1, @1);
       }
     ;
 
@@ -5539,7 +5826,7 @@ expression:
         // DotIdentifier.
         if ($1->node_kind() == zetasql::AST_PATH_EXPRESSION &&
             !$1->parenthesized()) {
-          $$ = WithExtraChildren(WithEndLocation($1, @3), {$3});
+          $$ = WithExtraChildren(parser->WithEndLocation($1, @3), {$3});
         } else {
           $$ = MAKE_NODE(ASTDotIdentifier, @2, @3, {$1, $3});
         }
@@ -5549,7 +5836,7 @@ expression:
         if ($1->node_kind() == zetasql::AST_OR_EXPR &&
             !$1->parenthesized()) {
           // Embrace and extend $1's ASTNode.
-          $$ = WithExtraChildren(WithEndLocation($1, @3), {$3});
+          $$ = WithExtraChildren(parser->WithEndLocation($1, @3), {$3});
         } else {
           $$ = MAKE_NODE(ASTOrExpr, @$, {$1, $3});
         }
@@ -5559,7 +5846,7 @@ expression:
         if ($1->node_kind() == zetasql::AST_AND_EXPR &&
             !$1->parenthesized()) {
           // Embrace and extend $1's ASTNode to flatten a series of ANDs.
-          $$ = WithExtraChildren(WithEndLocation($1, @3), {$3});
+          $$ = WithExtraChildren(parser->WithEndLocation($1, @3), {$3});
         } else {
           $$ = MAKE_NODE(ASTAndExpr, @$, {$1, $3});
         }
@@ -5908,7 +6195,7 @@ path_expression:
       }
     | path_expression "." identifier
       {
-        $$ = WithExtraChildren(WithEndLocation($1, @3), {$3});
+        $$ = WithExtraChildren(parser->WithEndLocation($1, @3), {$3});
       }
     ;
 
@@ -6021,7 +6308,7 @@ dashed_identifier:
 dashed_path_expression:
     dashed_identifier
       {
-        zetasql_base::StatusOr<std::vector<zetasql::ASTNode*>> path_parts =
+        absl::StatusOr<std::vector<zetasql::ASTNode*>> path_parts =
           SeparatedIdentifierTmpNode::BuildPathParts(@1,
             std::move($1->release_path_parts()), parser);
         if (!path_parts.ok()) {
@@ -6031,7 +6318,7 @@ dashed_path_expression:
       }
     | dashed_path_expression "." identifier
       {
-        $$ = WithExtraChildren(WithEndLocation($1, @3), {$3});
+        $$ = WithExtraChildren(parser->WithEndLocation($1, @3), {$3});
       }
     ;
 
@@ -6053,11 +6340,33 @@ maybe_dashed_path_expression:
                   parser->GetInputText(@1), false)));
         }
       }
+
+maybe_slashed_or_dashed_path_expression:
+    maybe_dashed_path_expression { $$ = $1; }
+    | slashed_path_expression
+      {
+        if (parser->language_options() != nullptr &&
+            parser->language_options()->LanguageFeatureEnabled(
+               zetasql::FEATURE_V_1_3_ALLOW_SLASH_PATHS)) {
+          $$ = $1;
+        } else {
+          YYERROR_AND_ABORT_AT(
+              @1,
+              absl::StrCat(
+                "Syntax error: Table name contains '/' character. "
+                "It needs to be quoted: ",
+                zetasql::ToIdentifierLiteral(
+                  parser->GetInputText(@1), false)));
+        }
+      }
     ;
 
 slashed_identifier_separator: "-" | "/" | ":"
 
-identifier_or_integer: identifier | INTEGER_LITERAL
+// Identifier or integer. LABEL is also included so that a ":" in a path
+// followed by begin/while/loop/repeat/for doesn't trigger the
+// script label grammar.
+identifier_or_integer: identifier | INTEGER_LITERAL | LABEL
 
 // An identifier that starts with a "/" and can contain non-adjacent /:-
 // separators.
@@ -6157,7 +6466,7 @@ slashed_path_expression:
   slashed_identifier
      {
        // Build the path.
-       zetasql_base::StatusOr<std::vector<zetasql::ASTNode*>> path_parts =
+       absl::StatusOr<std::vector<zetasql::ASTNode*>> path_parts =
           SeparatedIdentifierTmpNode::BuildPathParts(@1,
             std::move($1->release_path_parts()), parser);
        if (!path_parts.ok()) {
@@ -6210,7 +6519,7 @@ slashed_path_expression:
       prev.push_back({id});
 
       // Build the path.
-      zetasql_base::StatusOr<std::vector<zetasql::ASTNode*>> path_parts =
+      absl::StatusOr<std::vector<zetasql::ASTNode*>> path_parts =
         SeparatedIdentifierTmpNode::BuildPathParts(@$,
           std::move(prev), parser);
       if (!path_parts.ok()) {
@@ -6254,7 +6563,7 @@ slashed_path_expression:
       prev.back().push_back(float_literal);
 
       // Build the slash path.
-      zetasql_base::StatusOr<std::vector<zetasql::ASTNode*>> path_parts =
+      absl::StatusOr<std::vector<zetasql::ASTNode*>> path_parts =
         SeparatedIdentifierTmpNode::BuildPathParts(@$,
           std::move(prev), parser);
       if (!path_parts.ok()) {
@@ -6266,7 +6575,7 @@ slashed_path_expression:
     }
   | slashed_path_expression "." identifier
     {
-      $$ = WithExtraChildren(WithEndLocation($1, @3), {$3});
+      $$ = WithExtraChildren(parser->WithEndLocation($1, @3), {$3});
     }
   ;
 
@@ -6293,11 +6602,11 @@ array_constructor_prefix:
 array_constructor:
     array_constructor_prefix_no_expressions "]"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     | array_constructor_prefix "]"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     ;
 
@@ -6404,7 +6713,7 @@ struct_type:
       }
     | struct_type_prefix ">"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     ;
 
@@ -6433,7 +6742,7 @@ type_parameters_prefix:
       }
     | type_parameters_prefix "," type_parameter
       {
-        $$ = WithEndLocation(WithExtraChildren($1, {$3}), @$);
+        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
       }
     ;
 
@@ -6450,7 +6759,7 @@ opt_type_parameters:
 
 type: raw_type opt_type_parameters
     {
-      $$ = WithEndLocation(WithExtraChildren($1, {$2}), @$);
+      $$ = parser->WithEndLocation(WithExtraChildren($1, {$2}), @$);
     };
 
 templated_parameter_kind:
@@ -6534,11 +6843,11 @@ new_constructor_prefix:
 new_constructor:
     new_constructor_prefix ")"
       {
-        $$ = WithEndLocation($1, @2);
+        $$ = parser->WithEndLocation($1, @2);
       }
     | new_constructor_prefix_no_arg ")"
       {
-        $$ = WithEndLocation($1, @2);
+        $$ = parser->WithEndLocation($1, @2);
       }
     ;
 
@@ -6572,11 +6881,11 @@ case_expression_prefix:
 case_expression:
     case_expression_prefix "END"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     | case_expression_prefix "ELSE" expression "END"
       {
-        $$ = WithExtraChildren(WithEndLocation($1, @$), {$3});
+        $$ = WithExtraChildren(parser->WithEndLocation($1, @$), {$3});
       }
     ;
 
@@ -6640,11 +6949,11 @@ extract_expression_base:
 extract_expression:
     extract_expression_base ")"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     | extract_expression_base "AT" "TIME" "ZONE" expression ")"
       {
-        $$ = WithExtraChildren(WithEndLocation($1, @$), {$5});
+        $$ = WithExtraChildren(parser->WithEndLocation($1, @$), {$5});
       }
     ;
 
@@ -6673,7 +6982,7 @@ replace_fields_prefix:
 replace_fields_expression:
     replace_fields_prefix ")"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     ;
 
@@ -6716,7 +7025,7 @@ filter_fields_prefix:
 filter_fields_expression:
     filter_fields_prefix ")"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     ;
 
@@ -6734,6 +7043,10 @@ function_name_from_keyword:
         $$ = parser->MakeIdentifier(@1, parser->GetInputText(@1));
       }
     | "RIGHT"
+      {
+        $$ = parser->MakeIdentifier(@1, parser->GetInputText(@1));
+      }
+    | "COLLATE"
       {
         $$ = parser->MakeIdentifier(@1, parser->GetInputText(@1));
       }
@@ -6925,7 +7238,7 @@ function_call_expression:
     function_call_expression_base opt_having_modifier opt_order_by_clause
       opt_limit_offset_clause ")"
       {
-        $$ = WithExtraChildren(WithEndLocation($1, @$), {$2, $3, $4});
+        $$ = WithExtraChildren(parser->WithEndLocation($1, @$), {$2, $3, $4});
       }
     // Non-empty argument list.
     // opt_clamped_between_modifier and
@@ -6938,7 +7251,7 @@ function_call_expression:
       opt_limit_offset_clause ")"
       {
         $1->set_null_handling_modifier($2);
-        $$ = WithExtraChildren(WithEndLocation($1, @$), {
+        $$ = WithExtraChildren(parser->WithEndLocation($1, @$), {
             $3,
             $4,
             $5, $6});
@@ -6962,7 +7275,7 @@ partition_by_clause_prefix:
     ;
 
 opt_partition_by_clause:
-    partition_by_clause_prefix { $$ = WithEndLocation($1, @$); }
+    partition_by_clause_prefix { $$ = parser->WithEndLocation($1, @$); }
     | /* Nothing */ { $$ = nullptr; }
     ;
 
@@ -6978,7 +7291,7 @@ partition_by_clause_prefix_no_hint:
     ;
 
 opt_partition_by_clause_no_hint:
-    partition_by_clause_prefix_no_hint { $$ = WithEndLocation($1, @$); }
+    partition_by_clause_prefix_no_hint { $$ = parser->WithEndLocation($1, @$); }
     | /* Nothing */ { $$ = nullptr; }
     ;
 
@@ -6994,7 +7307,7 @@ cluster_by_clause_prefix_no_hint:
     ;
 
 opt_cluster_by_clause_no_hint:
-    cluster_by_clause_prefix_no_hint { $$ = WithEndLocation($1, @$); }
+    cluster_by_clause_prefix_no_hint { $$ = parser->WithEndLocation($1, @$); }
     | /* Nothing */ { $$ = nullptr; }
     ;
 
@@ -7159,15 +7472,15 @@ struct_constructor_prefix_without_keyword:
 struct_constructor:
     struct_constructor_prefix_with_keyword ")"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     | struct_constructor_prefix_with_keyword_no_arg ")"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     | struct_constructor_prefix_without_keyword ")"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     ;
 
@@ -7383,6 +7696,39 @@ identifier:
       }
     ;
 
+label:
+  LABEL
+    {
+      const absl::string_view label_text = parser->GetInputText(@1);
+      // The tokenizer rule already validates that the identifier is valid and
+      // non-empty, except for backquoted identifiers.
+      if (label_text[0] == '`') {
+        std::string str;
+        std::string error_string;
+        int error_offset;
+        const absl::Status parse_status =
+            zetasql::ParseGeneralizedIdentifier(
+                label_text, &str, &error_string, &error_offset);
+        if (!parse_status.ok()) {
+          zetasql_bison_parser::location location = yyla.location;
+          location.begin.column += error_offset;
+          if (!error_string.empty()) {
+            YYERROR_AND_ABORT_AT(location,
+                                 absl::StrCat("Syntax error: ",
+                                              error_string));
+          }
+          ZETASQL_DLOG(FATAL) << "ParseIdentifier did not return an error string";
+          YYERROR_AND_ABORT_AT(location,
+                               absl::StrCat("Syntax error: ",
+                                            parse_status.message()));
+        }
+        $$ = parser->MakeIdentifier(@1, str);
+      } else {
+        $$ = parser->MakeIdentifier(@1, label_text);
+      }
+    }
+;
+
 system_variable_expression:
     KW_DOUBLE_AT path_expression %prec DOUBLE_AT_PRECEDENCE
     {
@@ -7496,6 +7842,7 @@ reserved_keyword_rule:
     | "LATERAL"
     | "NO"
     | "OF"
+    | KW_QUALIFY_RESERVED
     | "SOME"
     | "TREAT"
     | "WITHIN"
@@ -7557,6 +7904,7 @@ keyword_as_identifier:
     | "EXPLAIN"
     | "EXPORT"
     | "EXTERNAL"
+    | "FILES"
     | "FILTER"
     | "FILTER_FIELDS"
     | "FILL"
@@ -7584,6 +7932,7 @@ keyword_as_identifier:
     | "LAST"
     | "LEAVE"
     | "LEVEL"
+    | "LOAD"
     | "LOOP"
     | "MATCH"
     | "MATCHED"
@@ -7598,25 +7947,29 @@ keyword_as_identifier:
     | "ONLY"
     | "OPTIONS"
     | "OUT"
+    | "OVERWRITE"
     | "PERCENT"
     | "PIVOT"
     | "POLICIES"
     | "POLICY"
     | "PRIMARY"
     | "PRIVATE"
+    | "PRIVILEGE"
     | "PRIVILEGES"
     | "PROCEDURE"
     | "PUBLIC"
-    | "QUALIFY"
+    | KW_QUALIFY_NONRESERVED
     | "RAISE"
     | "READ"
     | "REFERENCES"
+    | "REMOTE"
     | "RENAME"
     | "REPEAT"
     | "REPEATABLE"
     | "REPLACE"
     | "REPLACE_FIELDS"
     | "RESTRICT"
+    | "RESTRICTION"
     | "RETURNS"
     | "RETURN"
     | "REVOKE"
@@ -7707,7 +8060,7 @@ options_list_prefix:
 options_list:
     options_list_prefix ")"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     | "(" ")"
       {
@@ -7886,7 +8239,7 @@ insert_statement_prefix:
     | insert_statement_prefix "VALUES" insert_values_list
       {
         zetasql::ASTInsertStatement* insert = $1;
-        $3 = WithStartLocation($3, @2);
+        $3 = parser->WithStartLocation($3, @2);
         if (insert->parse_progress() < ASTInsertStatement::kSeenTargetPath) {
           // We haven't seen a target path yet. That means the "VALUES" should
           // be reinterpreted as a target path, and the insert_values_list as a
@@ -7950,7 +8303,7 @@ insert_statement_prefix:
                    ASTInsertStatement::kSeenTargetPath) {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Expecting INSERT target name");
         } else {
-          $$ = WithEndLocation(WithExtraChildren(insert, {$3}), @$);
+          $$ = parser->WithEndLocation(WithExtraChildren(insert, {$3}), @$);
           insert->set_parse_progress(
               ASTInsertStatement::kSeenValuesList);
         }
@@ -8023,7 +8376,7 @@ insert_statement:
           YYERROR_AND_ABORT_AT(@2,
                                "Syntax error: Expecting VALUES list or query");
         }
-        $$ = WithEndLocation(WithExtraChildren(insert, {$2, $3}), @$);
+        $$ = parser->WithEndLocation(WithExtraChildren(insert, {$2, $3}), @$);
       }
     | insert_statement_prefix query opt_assert_rows_modified opt_returning_clause
       {
@@ -8035,7 +8388,8 @@ insert_statement:
         if (insert->parse_progress() >= ASTInsertStatement::kSeenValuesList) {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected query");
         }
-        $$ = WithEndLocation(WithExtraChildren(insert, {$2, $3, $4}), @$);
+        $$ = parser->WithEndLocation(
+            WithExtraChildren(insert, {$2, $3, $4}), @$);
       }
     ;
 
@@ -8094,7 +8448,7 @@ insert_values_row_prefix:
 insert_values_row:
     insert_values_row_prefix ")"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     ;
 
@@ -8105,7 +8459,7 @@ insert_values_list:
       }
     | insert_values_list "," insert_values_row
       {
-        $$ = WithEndLocation(WithExtraChildren($1, {$3}), @$);
+        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
       }
     ;
 
@@ -8172,7 +8526,7 @@ generalized_path_expression:
     | generalized_path_expression "." identifier
       {
         if ($1->node_kind() == zetasql::AST_PATH_EXPRESSION) {
-          $$ = WithExtraChildren(WithEndLocation($1, @3), {$3});
+          $$ = WithExtraChildren(parser->WithEndLocation($1, @3), {$3});
         } else {
           $$ = MAKE_NODE(ASTDotIdentifier, @2, @3, {$1, $3});
         }
@@ -8254,7 +8608,7 @@ update_item_list:
      }
    | update_item_list "," update_item
      {
-       $$ = WithEndLocation(WithExtraChildren($1, {$3}), @$);
+       $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
      }
    ;
 
@@ -8343,7 +8697,7 @@ merge_when_clause_list:
     }
   | merge_when_clause_list merge_when_clause
     {
-      $$ = WithEndLocation(WithExtraChildren($1, {$2}), @$);
+      $$ = parser->WithEndLocation(WithExtraChildren($1, {$2}), @$);
     }
   ;
 
@@ -8365,7 +8719,7 @@ merge_statement_prefix:
 merge_statement:
   merge_statement_prefix merge_when_clause_list
     {
-      WithEndLocation(WithExtraChildren($1, {$2}), @$);
+      parser->WithEndLocation(WithExtraChildren($1, {$2}), @$);
     }
   ;
 
@@ -8383,7 +8737,7 @@ call_statement_with_args_prefix:
 call_statement:
     call_statement_with_args_prefix ")"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     | "CALL" path_expression "(" ")"
       {
@@ -8581,7 +8935,7 @@ non_empty_statement_list:
       }
     | non_empty_statement_list terminated_statement
       {
-        $$ = WithEndLocation(WithExtraChildren($1, {$2}), @$);
+        $$ = parser->WithEndLocation(WithExtraChildren($1, {$2}), @$);
       };
 
 unterminated_non_empty_statement_list:
@@ -8591,7 +8945,7 @@ unterminated_non_empty_statement_list:
       }
     | non_empty_statement_list unterminated_statement
       {
-        $$ = WithEndLocation(WithExtraChildren($1, {$2}), @$);
+        $$ = parser->WithEndLocation(WithExtraChildren($1, {$2}), @$);
       };
 
 opt_execute_into_clause:
@@ -8626,7 +8980,7 @@ execute_using_argument_list:
     }
   | execute_using_argument_list "," execute_using_argument
     {
-      $$ = WithEndLocation(WithExtraChildren($1, {$3}), @$);
+      $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
     }
   ;
 
@@ -8703,8 +9057,8 @@ elseif_clauses:
   {
     zetasql::ASTElseifClause* elseif_clause = MAKE_NODE(
         ASTElseifClause, @2, {$3, $5});
-    $$ = WithEndLocation(WithExtraChildren(
-        $1, {WithEndLocation(elseif_clause, @$)}), @$);
+    $$ = parser->WithEndLocation(WithExtraChildren(
+        $1, {parser->WithEndLocation(elseif_clause, @$)}), @$);
   };
 
 opt_elseif_clauses:
@@ -8729,7 +9083,7 @@ if_statement:
     if_statement_unclosed
     "END" "IF"
       {
-        $$ = WithEndLocation($1, @$);
+        $$ = parser->WithEndLocation($1, @$);
       }
     |
     if_statement_unclosed error
@@ -8752,8 +9106,8 @@ when_then_clauses:
     {
       zetasql::ASTWhenThenClause* when_then_clause = MAKE_NODE(
           ASTWhenThenClause, @2, {$3, $5});
-      $$ = WithEndLocation(WithExtraChildren(
-          $1, {WithEndLocation(when_then_clause, @$)}), @$);
+      $$ = parser->WithEndLocation(WithExtraChildren(
+          $1, {parser->WithEndLocation(when_then_clause, @$)}), @$);
     };
 
 opt_expression:
@@ -8779,10 +9133,23 @@ case_statement:
       }
     ;
 
-begin_end_block:
+unlabeled_begin_end_block:
     "BEGIN" statement_list opt_exception_handler "END" {
       $2->set_variable_declarations_allowed(true);
       $$ = MAKE_NODE(ASTBeginEndBlock, @$, {$2, $3});
+    }
+    ;
+
+begin_end_block:
+    unlabeled_begin_end_block
+    |
+    label ":" unlabeled_begin_end_block opt_identifier {
+      CHECK_LABEL_SUPPORT($1, @1);
+      CHECK_END_LABEL_VALID($1, @1, $4, @4);
+      auto block = static_cast<zetasql::ASTBeginEndBlock*>($3);
+      auto label = MAKE_NODE(ASTLabel, @1, {$1});
+      block->AddChildFront(label);
+      $$ = parser->WithLocation(block, @$);
     }
     ;
 
@@ -8816,7 +9183,7 @@ identifier_list:
     }
     | identifier_list "," identifier
     {
-      $$ = WithEndLocation(WithExtraChildren($1, {$3}), @$);
+      $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
     }
     ;
 
@@ -8832,17 +9199,43 @@ variable_declaration:
     }
     ;
 
-loop_statement:
+unlabeled_loop_statement:
     "LOOP" statement_list "END" "LOOP"
     {
       $$ = MAKE_NODE(ASTWhileStatement, @$, {$2});
     }
     ;
 
-while_statement:
+loop_statement:
+    unlabeled_loop_statement
+    |
+    label ":" unlabeled_loop_statement opt_identifier {
+      CHECK_LABEL_SUPPORT($1, @1);
+      CHECK_END_LABEL_VALID($1, @1, $4, @4);
+      auto loop = static_cast<zetasql::ASTWhileStatement*>($3);
+      auto label = MAKE_NODE(ASTLabel, @1, {$1});
+      loop->AddChildFront(label);
+      $$ = parser->WithLocation(loop, @$);
+    }
+    ;
+
+unlabeled_while_statement:
     "WHILE" expression "DO" statement_list "END" "WHILE"
     {
       $$ = MAKE_NODE(ASTWhileStatement, @$, {$2, $4});
+    }
+    ;
+
+while_statement:
+    unlabeled_while_statement
+    |
+    label ":" unlabeled_while_statement opt_identifier {
+      CHECK_LABEL_SUPPORT($1, @1);
+      CHECK_END_LABEL_VALID($1, @1, $4, @4);
+      auto loop = static_cast<zetasql::ASTWhileStatement*>($3);
+      auto label = MAKE_NODE(ASTLabel, @1, {$1});
+      loop->AddChildFront(label);
+      $$ = parser->WithLocation(loop, @$);
     }
     ;
 
@@ -8853,7 +9246,7 @@ until_clause:
     }
     ;
 
-repeat_statement:
+unlabeled_repeat_statement:
     "REPEAT" statement_list until_clause "END" "REPEAT"
     {
      if (parser->language_options() != nullptr &&
@@ -8865,7 +9258,20 @@ repeat_statement:
     }
     ;
 
-for_in_statement:
+repeat_statement:
+    unlabeled_repeat_statement
+    |
+    label ":" unlabeled_repeat_statement opt_identifier {
+      CHECK_LABEL_SUPPORT($1, @1);
+      CHECK_END_LABEL_VALID($1, @1, $4, @4);
+      auto loop = static_cast<zetasql::ASTRepeatStatement*>($3);
+      auto label = MAKE_NODE(ASTLabel, @1, {$1});
+      loop->AddChildFront(label);
+      $$ = parser->WithLocation(loop, @$);
+    }
+    ;
+
+unlabeled_for_in_statement:
     "FOR" identifier "IN" "(" query ")" "DO" statement_list "END" "FOR"
     {
      if (parser->language_options() != nullptr &&
@@ -8877,33 +9283,72 @@ for_in_statement:
     }
     ;
 
+for_in_statement:
+    unlabeled_for_in_statement
+    |
+    label ":" unlabeled_for_in_statement opt_identifier {
+      CHECK_LABEL_SUPPORT($1, @1);
+      CHECK_END_LABEL_VALID($1, @1, $4, @4);
+      auto loop = static_cast<zetasql::ASTForInStatement*>($3);
+      auto label = MAKE_NODE(ASTLabel, @1, {$1});
+      loop->AddChildFront(label);
+      $$ = parser->WithLocation(loop, @$);;
+    }
+    ;
+
 break_statement:
-    "BREAK"
+    "BREAK" opt_identifier
     {
-      zetasql::ASTBreakStatement* stmt = MAKE_NODE(ASTBreakStatement, @$, {});
+      CHECK_LABEL_SUPPORT($2, @2);
+      zetasql::ASTBreakStatement* stmt;
+      if ($2 == nullptr) {
+        stmt = MAKE_NODE(ASTBreakStatement, @$, {});
+      } else {
+        auto label = MAKE_NODE(ASTLabel, @2, {$2});
+        stmt = MAKE_NODE(ASTBreakStatement, @$, {label});
+      }
       stmt->set_keyword(zetasql::ASTBreakContinueStatement::BREAK);
       $$ = stmt;
     }
-    | "LEAVE"
+    | "LEAVE" opt_identifier
     {
-      zetasql::ASTBreakStatement* stmt = MAKE_NODE(ASTBreakStatement, @$, {});
+      CHECK_LABEL_SUPPORT($2, @2);
+      zetasql::ASTBreakStatement* stmt;
+      if ($2 == nullptr) {
+        stmt = MAKE_NODE(ASTBreakStatement, @$, {});
+      } else {
+        auto label = MAKE_NODE(ASTLabel, @2, {$2});
+        stmt = MAKE_NODE(ASTBreakStatement, @$, {label});
+      }
       stmt->set_keyword(zetasql::ASTBreakContinueStatement::LEAVE);
       $$ = stmt;
     }
     ;
 
 continue_statement:
-    "CONTINUE"
+    "CONTINUE" opt_identifier
     {
-      zetasql::ASTContinueStatement* stmt = MAKE_NODE(ASTContinueStatement,
-          @$, {});
+      CHECK_LABEL_SUPPORT($2, @2);
+      zetasql::ASTContinueStatement* stmt;
+      if ($2 == nullptr) {
+        stmt = MAKE_NODE(ASTContinueStatement, @$, {});
+      } else {
+        auto label = MAKE_NODE(ASTLabel, @2, {$2});
+        stmt = MAKE_NODE(ASTContinueStatement, @$, {label});
+      }
       stmt->set_keyword(zetasql::ASTBreakContinueStatement::CONTINUE);
       $$ = stmt;
     }
-    | "ITERATE"
+    | "ITERATE" opt_identifier
     {
-      zetasql::ASTContinueStatement* stmt = MAKE_NODE(ASTContinueStatement,
-          @$, {});
+      CHECK_LABEL_SUPPORT($2, @2);
+      zetasql::ASTContinueStatement* stmt;
+      if ($2 == nullptr) {
+        stmt = MAKE_NODE(ASTContinueStatement, @$, {});
+      } else {
+        auto label = MAKE_NODE(ASTLabel, @2, {$2});
+        stmt = MAKE_NODE(ASTContinueStatement, @$, {label});
+      }
       stmt->set_keyword(zetasql::ASTBreakContinueStatement::ITERATE);
       $$ = stmt;
     }
@@ -8986,6 +9431,8 @@ next_statement_kind_without_hint:
     | "MERGE" { $$ = zetasql::ASTMergeStatement::kConcreteNodeKind; }
     | "CLONE" "DATA"
       { $$ = zetasql::ASTCloneDataStatement::kConcreteNodeKind; }
+    | "LOAD" "DATA"
+      { $$ = zetasql::ASTAuxLoadDataStatement::kConcreteNodeKind; }
     | describe_keyword
       { $$ = zetasql::ASTDescribeStatement::kConcreteNodeKind; }
     | "SHOW" { $$ = zetasql::ASTShowStatement::kConcreteNodeKind; }
@@ -9087,7 +9534,8 @@ next_statement_kind_without_hint:
     | "CREATE" next_statement_kind_create_modifiers
       next_statement_kind_table opt_if_not_exists
       maybe_dashed_path_expression opt_table_element_list
-      opt_like_path_expression opt_clone_table opt_copy_table opt_collate_clause
+      opt_like_path_expression opt_clone_table opt_copy_table
+      opt_default_collate_clause
       opt_partition_by_clause_no_hint
       opt_cluster_by_clause_no_hint opt_options_list
       next_statement_kind_create_table_opt_as_or_semicolon
@@ -9106,6 +9554,10 @@ next_statement_kind_without_hint:
     | "CREATE" next_statement_kind_create_modifiers "EXTERNAL"
       {
         $$ = zetasql::ASTCreateExternalTableStatement::kConcreteNodeKind;
+      }
+    | "CREATE" opt_or_replace "PRIVILEGE"
+      {
+        $$ = zetasql::ASTCreatePrivilegeRestrictionStatement::kConcreteNodeKind;
       }
     | "CREATE" opt_or_replace "ROW" opt_access "POLICY"
       { $$ = zetasql::ASTCreateRowAccessPolicyStatement::kConcreteNodeKind; }
@@ -9131,6 +9583,38 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTAssertStatement::kConcreteNodeKind; }
     | "TRUNCATE"
       { $$ = zetasql::ASTTruncateStatement::kConcreteNodeKind; }
+    | "IF"
+      { $$ = zetasql::ASTIfStatement::kConcreteNodeKind; }
+    | "WHILE"
+      { $$ = zetasql::ASTWhileStatement::kConcreteNodeKind; }
+    | "LOOP"
+      { $$ = zetasql::ASTWhileStatement::kConcreteNodeKind; }
+    | "DECLARE"
+      { $$ = zetasql::ASTVariableDeclaration::kConcreteNodeKind; }
+    | "BREAK"
+      { $$ = zetasql::ASTBreakStatement::kConcreteNodeKind; }
+    | "LEAVE"
+      { $$ = zetasql::ASTBreakStatement::kConcreteNodeKind; }
+    | "CONTINUE"
+      { $$ = zetasql::ASTContinueStatement::kConcreteNodeKind; }
+    | "ITERATE"
+      { $$ = zetasql::ASTContinueStatement::kConcreteNodeKind; }
+    | "RAISE"
+      { $$ = zetasql::ASTRaiseStatement::kConcreteNodeKind; }
+    | "FOR"
+      { $$ = zetasql::ASTForInStatement::kConcreteNodeKind; }
+    | "REPEAT"
+      { $$ = zetasql::ASTRepeatStatement::kConcreteNodeKind; }
+    | label ":" "BEGIN"
+      { $$ = zetasql::ASTBeginStatement::kConcreteNodeKind; }
+    | label ":" "LOOP"
+      { $$ = zetasql::ASTWhileStatement::kConcreteNodeKind; }
+    | label ":" "WHILE"
+      { $$ = zetasql::ASTWhileStatement::kConcreteNodeKind; }
+    | label ":" "FOR"
+      { $$ = zetasql::ASTForInStatement::kConcreteNodeKind; }
+    | label ":" "REPEAT"
+      { $$ = zetasql::ASTRepeatStatement::kConcreteNodeKind; }
     ;
 
 %%

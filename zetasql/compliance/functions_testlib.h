@@ -208,6 +208,8 @@ std::vector<FunctionTestCall> GetFunctionTestsString();
 std::vector<FunctionTestCall> GetFunctionTestsInstr1();
 std::vector<FunctionTestCall> GetFunctionTestsInstr2();
 std::vector<FunctionTestCall> GetFunctionTestsInstr3();
+std::vector<FunctionTestCall> GetFunctionTestsInstrNoCollator();
+std::vector<FunctionTestCall> GetFunctionTestsStringWithCollator();
 std::vector<FunctionTestCall> GetFunctionTestsSoundex();
 std::vector<FunctionTestCall> GetFunctionTestsTranslate();
 std::vector<FunctionTestCall> GetFunctionTestsInitCap();
@@ -268,6 +270,7 @@ std::vector<FunctionTestCall> GetFunctionTestsToJson(
     bool include_nano_timestamp);
 std::vector<QueryParamsWithResult> GetFunctionTestsJsonIsNull();
 std::vector<FunctionTestCall> GetFunctionTestsParseJson();
+std::vector<FunctionTestCall> GetFunctionTestsConvertJson();
 
 std::vector<FunctionTestCall> GetFunctionTestsHash();
 std::vector<FunctionTestCall> GetFunctionTestsFarmFingerprint();

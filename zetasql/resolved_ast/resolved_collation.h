@@ -32,7 +32,7 @@ class ResolvedCollation {
  public:
   // Iterates the <annotation_map> and makes a normalized ResolvedCollation
   // instance.
-  static zetasql_base::StatusOr<ResolvedCollation> MakeResolvedCollation(
+  static absl::StatusOr<ResolvedCollation> MakeResolvedCollation(
       const AnnotationMap& annotation_map);
 
   // Makes a ResolvedCollation instance for scalar type.
@@ -96,10 +96,13 @@ class ResolvedCollation {
   uint64_t num_children() const { return child_list_.size(); }
 
   absl::Status Serialize(ResolvedCollationProto* proto) const;
-  static zetasql_base::StatusOr<ResolvedCollation> Deserialize(
+  static absl::StatusOr<ResolvedCollation> Deserialize(
       const ResolvedCollationProto& proto);
 
   std::string DebugString() const;
+
+  static std::string ToString(
+      const std::vector<ResolvedCollation>& resolved_collation_list);
 
  private:
   // Stores ResolvedCollation for subfields for ARRAY/STRUCT types.

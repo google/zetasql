@@ -306,7 +306,7 @@ QueryStatement [0-15]
                       IntLiteral(3) [14-15]
 --
 SELECT
-  - - + - + + 3
+  - -+-++3
 ==
 
 select not(not a not like b);

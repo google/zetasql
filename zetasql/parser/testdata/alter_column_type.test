@@ -1,18 +1,15 @@
 # ALTER TABLE to set column type.
-# TODO: Remove this after parse locations have been manually
-# verified as correct.
-[default no_show_parse_location_text]
 ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE STRING;
 --
-AlterTableStatement [0-53]
-  PathExpression [12-15]
-    Identifier(foo) [12-15]
-  AlterActionList [16-53]
-    AlterColumnTypeAction [16-53]
-      Identifier(bar) [29-32]
-      SimpleColumnSchema [47-53]
-        PathExpression [47-53]
-          Identifier(STRING) [47-53]
+AlterTableStatement [0-53] [ALTER TABLE...TYPE STRING]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-53] [ALTER COLUMN...TYPE STRING]
+    AlterColumnTypeAction [16-53] [ALTER COLUMN...TYPE STRING]
+      Identifier(bar) [29-32] [bar]
+      SimpleColumnSchema [47-53] [STRING]
+        PathExpression [47-53] [STRING]
+          Identifier(STRING) [47-53] [STRING]
 --
 ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE STRING
 
@@ -21,15 +18,15 @@ ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE STRING
 # ALTER TABLE to set column type with IF EXISTS.
 ALTER TABLE foo ALTER COLUMN IF EXISTS bar SET DATA TYPE STRING;
 --
-AlterTableStatement [0-63]
-  PathExpression [12-15]
-    Identifier(foo) [12-15]
-  AlterActionList [16-63]
-    AlterColumnTypeAction(is_if_exists) [16-63]
-      Identifier(bar) [39-42]
-      SimpleColumnSchema [57-63]
-        PathExpression [57-63]
-          Identifier(STRING) [57-63]
+AlterTableStatement [0-63] [ALTER TABLE...TYPE STRING]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-63] [ALTER COLUMN...TYPE STRING]
+    AlterColumnTypeAction(is_if_exists) [16-63] [ALTER COLUMN...TYPE STRING]
+      Identifier(bar) [39-42] [bar]
+      SimpleColumnSchema [57-63] [STRING]
+        PathExpression [57-63] [STRING]
+          Identifier(STRING) [57-63] [STRING]
 --
 ALTER TABLE foo ALTER COLUMN IF EXISTS bar SET DATA TYPE STRING
 
@@ -38,15 +35,15 @@ ALTER TABLE foo ALTER COLUMN IF EXISTS bar SET DATA TYPE STRING
 # ALTER TABLE to set column type.
 ALTER TABLE foo ALTER COLUMN `CAST` SET DATA TYPE STRING;
 --
-AlterTableStatement [0-56]
-  PathExpression [12-15]
-    Identifier(foo) [12-15]
-  AlterActionList [16-56]
-    AlterColumnTypeAction [16-56]
-      Identifier(`CAST`) [29-35]
-      SimpleColumnSchema [50-56]
-        PathExpression [50-56]
-          Identifier(STRING) [50-56]
+AlterTableStatement [0-56] [ALTER TABLE...TYPE STRING]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-56] [ALTER COLUMN...TYPE STRING]
+    AlterColumnTypeAction [16-56] [ALTER COLUMN...TYPE STRING]
+      Identifier(`CAST`) [29-35] [`CAST`]
+      SimpleColumnSchema [50-56] [STRING]
+        PathExpression [50-56] [STRING]
+          Identifier(STRING) [50-56] [STRING]
 --
 ALTER TABLE foo ALTER COLUMN `CAST` SET DATA TYPE STRING
 
@@ -117,16 +114,32 @@ ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE 42;
 
 ==
 
+# Set data type can't change DEFAULT VALUE clause.
+ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE STRING DEFAULT 10;
+--
+ERROR: Syntax error: Expected end of input but got keyword DEFAULT [at 1:55]
+ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE STRING DEFAULT 10;
+                                                      ^
+==
+
+# Set data type can't change GENERATED AS clause.
+ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE STRING GENERATED AS 10;
+--
+ERROR: Syntax error: Expected end of input but got keyword GENERATED [at 1:55]
+ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE STRING GENERATED AS 10;
+                                                      ^
+==
+
 # ALTER TABLE to add empty options.
 ALTER TABLE foo ALTER COLUMN bar SET OPTIONS ();
 --
-AlterTableStatement [0-47]
-  PathExpression [12-15]
-    Identifier(foo) [12-15]
-  AlterActionList [16-47]
-    AlterColumnOptionsAction [16-47]
-      Identifier(bar) [29-32]
-      OptionsList [45-47]
+AlterTableStatement [0-47] [ALTER TABLE...OPTIONS ()]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-47] [ALTER COLUMN...OPTIONS ()]
+    AlterColumnOptionsAction [16-47] [ALTER COLUMN...OPTIONS ()]
+      Identifier(bar) [29-32] [bar]
+      OptionsList [45-47] [()]
 
 --
 ALTER TABLE foo ALTER COLUMN bar SET OPTIONS()
@@ -136,16 +149,16 @@ ALTER TABLE foo ALTER COLUMN bar SET OPTIONS()
 # ALTER TABLE to add options.
 ALTER TABLE foo ALTER COLUMN bar SET OPTIONS (foo="bar");
 --
-AlterTableStatement [0-56]
-  PathExpression [12-15]
-    Identifier(foo) [12-15]
-  AlterActionList [16-56]
-    AlterColumnOptionsAction [16-56]
-      Identifier(bar) [29-32]
-      OptionsList [45-56]
-        OptionsEntry [46-55]
-          Identifier(foo) [46-49]
-          StringLiteral("bar") [50-55]
+AlterTableStatement [0-56] [ALTER TABLE...foo="bar")]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-56] [ALTER COLUMN...foo="bar")]
+    AlterColumnOptionsAction [16-56] [ALTER COLUMN...foo="bar")]
+      Identifier(bar) [29-32] [bar]
+      OptionsList [45-56] [(foo="bar")]
+        OptionsEntry [46-55] [foo="bar"]
+          Identifier(foo) [46-49] [foo]
+          StringLiteral("bar") [50-55] ["bar"]
 
 --
 ALTER TABLE foo ALTER COLUMN bar SET OPTIONS(foo = "bar")
@@ -155,16 +168,16 @@ ALTER TABLE foo ALTER COLUMN bar SET OPTIONS(foo = "bar")
 # ALTER TABLE to add options with IF EXISTS.
 ALTER TABLE foo ALTER COLUMN IF EXISTS bar SET OPTIONS (foo="bar");
 --
-AlterTableStatement [0-66]
-  PathExpression [12-15]
-    Identifier(foo) [12-15]
-  AlterActionList [16-66]
-    AlterColumnOptionsAction(is_if_exists) [16-66]
-      Identifier(bar) [39-42]
-      OptionsList [55-66]
-        OptionsEntry [56-65]
-          Identifier(foo) [56-59]
-          StringLiteral("bar") [60-65]
+AlterTableStatement [0-66] [ALTER TABLE...foo="bar")]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-66] [ALTER COLUMN...foo="bar")]
+    AlterColumnOptionsAction(is_if_exists) [16-66] [ALTER COLUMN...foo="bar")]
+      Identifier(bar) [39-42] [bar]
+      OptionsList [55-66] [(foo="bar")]
+        OptionsEntry [56-65] [foo="bar"]
+          Identifier(foo) [56-59] [foo]
+          StringLiteral("bar") [60-65] ["bar"]
 
 --
 ALTER TABLE foo ALTER COLUMN IF EXISTS bar SET OPTIONS(foo = "bar")
@@ -173,17 +186,17 @@ ALTER TABLE foo ALTER COLUMN IF EXISTS bar SET OPTIONS(foo = "bar")
 
 ALTER TABLE foo ALTER COLUMN bar SET OPTIONS (foo=bar);
 --
-AlterTableStatement [0-54]
-  PathExpression [12-15]
-    Identifier(foo) [12-15]
-  AlterActionList [16-54]
-    AlterColumnOptionsAction [16-54]
-      Identifier(bar) [29-32]
-      OptionsList [45-54]
-        OptionsEntry [46-53]
-          Identifier(foo) [46-49]
-          PathExpression [50-53]
-            Identifier(bar) [50-53]
+AlterTableStatement [0-54] [ALTER TABLE...(foo=bar)]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-54] [ALTER COLUMN...(foo=bar)]
+    AlterColumnOptionsAction [16-54] [ALTER COLUMN...(foo=bar)]
+      Identifier(bar) [29-32] [bar]
+      OptionsList [45-54] [(foo=bar)]
+        OptionsEntry [46-53] [foo=bar]
+          Identifier(foo) [46-49] [foo]
+          PathExpression [50-53] [bar]
+            Identifier(bar) [50-53] [bar]
 --
 ALTER TABLE foo ALTER COLUMN bar SET OPTIONS(foo = bar)
 
@@ -191,38 +204,82 @@ ALTER TABLE foo ALTER COLUMN bar SET OPTIONS(foo = bar)
 
 ALTER TABLE foo ALTER COLUMN bar DROP NOT NULL;
 --
-AlterTableStatement [0-46]
-  PathExpression [12-15]
-    Identifier(foo) [12-15]
-  AlterActionList [16-46]
-    AlterColumnDropNotNullAction [16-46]
-      Identifier(bar) [29-32]
+AlterTableStatement [0-46] [ALTER TABLE...DROP NOT NULL]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-46] [ALTER COLUMN bar DROP NOT NULL]
+    AlterColumnDropNotNullAction [16-46] [ALTER COLUMN bar DROP NOT NULL]
+      Identifier(bar) [29-32] [bar]
 --
 ALTER TABLE foo ALTER COLUMN bar DROP NOT NULL
 ==
 
 ALTER TABLE IF EXISTS foo ALTER COLUMN bar DROP NOT NULL;
 --
-AlterTableStatement(is_if_exists) [0-56]
-  PathExpression [22-25]
-    Identifier(foo) [22-25]
-  AlterActionList [26-56]
-    AlterColumnDropNotNullAction [26-56]
-      Identifier(bar) [39-42]
+AlterTableStatement(is_if_exists) [0-56] [ALTER TABLE...DROP NOT NULL]
+  PathExpression [22-25] [foo]
+    Identifier(foo) [22-25] [foo]
+  AlterActionList [26-56] [ALTER COLUMN bar DROP NOT NULL]
+    AlterColumnDropNotNullAction [26-56] [ALTER COLUMN bar DROP NOT NULL]
+      Identifier(bar) [39-42] [bar]
 --
 ALTER TABLE IF EXISTS foo ALTER COLUMN bar DROP NOT NULL
 ==
 
 ALTER TABLE foo ALTER COLUMN IF EXISTS bar DROP NOT NULL;
 --
-AlterTableStatement [0-56]
-  PathExpression [12-15]
-    Identifier(foo) [12-15]
-  AlterActionList [16-56]
-    AlterColumnDropNotNullAction(is_if_exists) [16-56]
-      Identifier(bar) [39-42]
+AlterTableStatement [0-56] [ALTER TABLE...DROP NOT NULL]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-56] [ALTER COLUMN...DROP NOT NULL]
+    AlterColumnDropNotNullAction(is_if_exists) [16-56] [ALTER COLUMN...DROP NOT NULL]
+      Identifier(bar) [39-42] [bar]
 --
 ALTER TABLE foo ALTER COLUMN IF EXISTS bar DROP NOT NULL
+==
+
+# ALTER TABLE to set column type with NOT NULL and OPTIONS ().
+ALTER TABLE foo ALTER COLUMN {{|IF EXISTS}} bar SET DATA TYPE STRING NOT NULL OPTIONS (description="new description");
+--
+ALTERNATION GROUP: <empty>
+--
+AlterTableStatement [0-103] [ALTER TABLE...description")]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-103] [ALTER COLUMN...description")]
+    AlterColumnTypeAction [16-103] [ALTER COLUMN...description")]
+      Identifier(bar) [30-33] [bar]
+      SimpleColumnSchema [48-103] [STRING NOT...description")]
+        PathExpression [48-54] [STRING]
+          Identifier(STRING) [48-54] [STRING]
+        ColumnAttributeList [55-63] [NOT NULL]
+          NotNullColumnAttribute [55-63] [NOT NULL]
+        OptionsList [72-103] [(description...description")]
+          OptionsEntry [73-102] [description="new description"]
+            Identifier(description) [73-84] [description]
+            StringLiteral("new description") [85-102] ["new description"]
+--
+ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE STRING NOT NULL OPTIONS(description = "new description")
+--
+ALTERNATION GROUP: IF EXISTS
+--
+AlterTableStatement [0-112] [ALTER TABLE...description")]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-112] [ALTER COLUMN...description")]
+    AlterColumnTypeAction(is_if_exists) [16-112] [ALTER COLUMN...description")]
+      Identifier(bar) [39-42] [bar]
+      SimpleColumnSchema [57-112] [STRING NOT...description")]
+        PathExpression [57-63] [STRING]
+          Identifier(STRING) [57-63] [STRING]
+        ColumnAttributeList [64-72] [NOT NULL]
+          NotNullColumnAttribute [64-72] [NOT NULL]
+        OptionsList [81-112] [(description...description")]
+          OptionsEntry [82-111] [description="new description"]
+            Identifier(description) [82-93] [description]
+            StringLiteral("new description") [94-111] ["new description"]
+--
+ALTER TABLE foo ALTER COLUMN IF EXISTS bar SET DATA TYPE STRING NOT NULL OPTIONS(description = "new description")
 ==
 
 # ALTER TABLE to set column type with COLLATE.
@@ -230,33 +287,123 @@ ALTER TABLE foo ALTER COLUMN {{|IF EXISTS}} bar SET DATA TYPE STRING COLLATE 'un
 --
 ALTERNATION GROUP: <empty>
 --
-AlterTableStatement [0-75]
-  PathExpression [12-15]
-    Identifier(foo) [12-15]
-  AlterActionList [16-75]
-    AlterColumnTypeAction [16-75]
-      Identifier(bar) [30-33]
-      SimpleColumnSchema [48-54]
-        PathExpression [48-54]
-          Identifier(STRING) [48-54]
-      Collate [55-75]
-        StringLiteral('unicode:ci') [63-75]
+AlterTableStatement [0-75] [ALTER TABLE...unicode:ci']
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-75] [ALTER COLUMN...unicode:ci']
+    AlterColumnTypeAction [16-75] [ALTER COLUMN...unicode:ci']
+      Identifier(bar) [30-33] [bar]
+      SimpleColumnSchema [48-75] [STRING COLLATE 'unicode:ci']
+        PathExpression [48-54] [STRING]
+          Identifier(STRING) [48-54] [STRING]
+        Collate [55-75] [COLLATE 'unicode:ci']
+          StringLiteral('unicode:ci') [63-75] ['unicode:ci']
 --
 ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE STRING COLLATE 'unicode:ci'
 --
 ALTERNATION GROUP: IF EXISTS
 --
-AlterTableStatement [0-84]
-  PathExpression [12-15]
-    Identifier(foo) [12-15]
-  AlterActionList [16-84]
-    AlterColumnTypeAction(is_if_exists) [16-84]
-      Identifier(bar) [39-42]
-      SimpleColumnSchema [57-63]
-        PathExpression [57-63]
-          Identifier(STRING) [57-63]
-      Collate [64-84]
-        StringLiteral('unicode:ci') [72-84]
+AlterTableStatement [0-84] [ALTER TABLE...unicode:ci']
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-84] [ALTER COLUMN...unicode:ci']
+    AlterColumnTypeAction(is_if_exists) [16-84] [ALTER COLUMN...unicode:ci']
+      Identifier(bar) [39-42] [bar]
+      SimpleColumnSchema [57-84] [STRING COLLATE 'unicode:ci']
+        PathExpression [57-63] [STRING]
+          Identifier(STRING) [57-63] [STRING]
+        Collate [64-84] [COLLATE 'unicode:ci']
+          StringLiteral('unicode:ci') [72-84] ['unicode:ci']
 --
 ALTER TABLE foo ALTER COLUMN IF EXISTS bar SET DATA TYPE STRING COLLATE 'unicode:ci'
 ==
+
+
+# ALTER TABLE to set ARRAY column type with COLLATE.
+ALTER TABLE foo ALTER COLUMN {{|IF EXISTS}} bar SET DATA TYPE ARRAY<STRING COLLATE 'unicode:ci'>;
+--
+ALTERNATION GROUP: <empty>
+--
+AlterTableStatement [0-82] [ALTER TABLE...unicode:ci'>]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-82] [ALTER COLUMN...unicode:ci'>]
+    AlterColumnTypeAction [16-82] [ALTER COLUMN...unicode:ci'>]
+      Identifier(bar) [30-33] [bar]
+      ArrayColumnSchema [48-82] [ARRAY<STRING...unicode:ci'>]
+        SimpleColumnSchema [54-81] [STRING COLLATE 'unicode:ci']
+          PathExpression [54-60] [STRING]
+            Identifier(STRING) [54-60] [STRING]
+          Collate [61-81] [COLLATE 'unicode:ci']
+            StringLiteral('unicode:ci') [69-81] ['unicode:ci']
+--
+ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE ARRAY< STRING COLLATE 'unicode:ci' >
+--
+ALTERNATION GROUP: IF EXISTS
+--
+AlterTableStatement [0-91] [ALTER TABLE...unicode:ci'>]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-91] [ALTER COLUMN...unicode:ci'>]
+    AlterColumnTypeAction(is_if_exists) [16-91] [ALTER COLUMN...unicode:ci'>]
+      Identifier(bar) [39-42] [bar]
+      ArrayColumnSchema [57-91] [ARRAY<STRING...unicode:ci'>]
+        SimpleColumnSchema [63-90] [STRING COLLATE 'unicode:ci']
+          PathExpression [63-69] [STRING]
+            Identifier(STRING) [63-69] [STRING]
+          Collate [70-90] [COLLATE 'unicode:ci']
+            StringLiteral('unicode:ci') [78-90] ['unicode:ci']
+--
+ALTER TABLE foo ALTER COLUMN IF EXISTS bar SET DATA TYPE ARRAY< STRING COLLATE 'unicode:ci' >
+==
+
+# ALTER TABLE to set complex column type with COLLATE.
+ALTER TABLE foo ALTER COLUMN {{|IF EXISTS}} bar SET DATA TYPE STRUCT<a STRING COLLATE 'unicode:ci', b NUMERIC>;
+--
+ALTERNATION GROUP: <empty>
+--
+AlterTableStatement [0-96] [ALTER TABLE...b NUMERIC>]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-96] [ALTER COLUMN...b NUMERIC>]
+    AlterColumnTypeAction [16-96] [ALTER COLUMN...b NUMERIC>]
+      Identifier(bar) [30-33] [bar]
+      StructColumnSchema [48-96] [STRUCT<a STRING...b NUMERIC>]
+        StructColumnField [55-84] [a STRING COLLATE 'unicode:ci']
+          Identifier(a) [55-56] [a]
+          SimpleColumnSchema [57-84] [STRING COLLATE 'unicode:ci']
+            PathExpression [57-63] [STRING]
+              Identifier(STRING) [57-63] [STRING]
+            Collate [64-84] [COLLATE 'unicode:ci']
+              StringLiteral('unicode:ci') [72-84] ['unicode:ci']
+        StructColumnField [86-95] [b NUMERIC]
+          Identifier(b) [86-87] [b]
+          SimpleColumnSchema [88-95] [NUMERIC]
+            PathExpression [88-95] [NUMERIC]
+              Identifier(NUMERIC) [88-95] [NUMERIC]
+--
+ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE STRUCT< a STRING COLLATE 'unicode:ci', b NUMERIC >
+--
+ALTERNATION GROUP: IF EXISTS
+--
+AlterTableStatement [0-105] [ALTER TABLE...b NUMERIC>]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-105] [ALTER COLUMN...b NUMERIC>]
+    AlterColumnTypeAction(is_if_exists) [16-105] [ALTER COLUMN...b NUMERIC>]
+      Identifier(bar) [39-42] [bar]
+      StructColumnSchema [57-105] [STRUCT<a STRING...b NUMERIC>]
+        StructColumnField [64-93] [a STRING COLLATE 'unicode:ci']
+          Identifier(a) [64-65] [a]
+          SimpleColumnSchema [66-93] [STRING COLLATE 'unicode:ci']
+            PathExpression [66-72] [STRING]
+              Identifier(STRING) [66-72] [STRING]
+            Collate [73-93] [COLLATE 'unicode:ci']
+              StringLiteral('unicode:ci') [81-93] ['unicode:ci']
+        StructColumnField [95-104] [b NUMERIC]
+          Identifier(b) [95-96] [b]
+          SimpleColumnSchema [97-104] [NUMERIC]
+            PathExpression [97-104] [NUMERIC]
+              Identifier(NUMERIC) [97-104] [NUMERIC]
+--
+ALTER TABLE foo ALTER COLUMN IF EXISTS bar SET DATA TYPE STRUCT< a STRING COLLATE 'unicode:ci', b NUMERIC >

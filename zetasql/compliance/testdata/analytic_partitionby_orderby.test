@@ -1,6 +1,6 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB]
-[load_enum_names=zetasql_test.TestEnum]
+[load_proto_names=zetasql_test__.KitchenSinkPB]
+[load_enum_names=zetasql_test__.TestEnum]
 [prepare_database]
 CREATE TABLE TableAllTypes AS
 SELECT CAST(1 AS int64) as row_id,
@@ -211,16 +211,16 @@ ARRAY<STRUCT<int_val INT64, INT64>>[
 
 [name=partitionby_enum]
 SELECT enum_val, COUNT(enum_val) OVER (PARTITION BY enum_val)
-FROM (SELECT CAST(0 AS `zetasql_test.TestEnum`) enum_val UNION ALL
-      SELECT CAST(1 AS `zetasql_test.TestEnum`) UNION ALL
-      SELECT CAST(1 AS `zetasql_test.TestEnum`) UNION ALL
-      SELECT CAST(2 AS `zetasql_test.TestEnum`) UNION ALL
-      SELECT CAST(2 AS `zetasql_test.TestEnum`) UNION ALL
-      SELECT CAST(null AS `zetasql_test.TestEnum`) UNION ALL
-      SELECT CAST(null AS `zetasql_test.TestEnum`))
+FROM (SELECT CAST(0 AS `zetasql_test__.TestEnum`) enum_val UNION ALL
+      SELECT CAST(1 AS `zetasql_test__.TestEnum`) UNION ALL
+      SELECT CAST(1 AS `zetasql_test__.TestEnum`) UNION ALL
+      SELECT CAST(2 AS `zetasql_test__.TestEnum`) UNION ALL
+      SELECT CAST(2 AS `zetasql_test__.TestEnum`) UNION ALL
+      SELECT CAST(null AS `zetasql_test__.TestEnum`) UNION ALL
+      SELECT CAST(null AS `zetasql_test__.TestEnum`))
 --
 ARRAY<STRUCT<
-        enum_val ENUM<zetasql_test.TestEnum>,
+        enum_val ENUM<zetasql_test__.TestEnum>,
         INT64
       >>
 [{NULL, 0},
@@ -249,16 +249,16 @@ ARRAY<STRUCT<
 
 [name=partitionby_proto]
 SELECT proto_val, COUNT(proto_val) OVER (PARTITION BY proto_val)
-FROM (SELECT NEW zetasql_test.KitchenSinkPB(5 AS int64_key_1,
+FROM (SELECT NEW zetasql_test__.KitchenSinkPB(5 AS int64_key_1,
                                               6 AS int64_key_2) proto_val
       UNION ALL
-      SELECT NEW zetasql_test.KitchenSinkPB(4 AS int64_key_1,
+      SELECT NEW zetasql_test__.KitchenSinkPB(4 AS int64_key_1,
                                               6 AS int64_key_2)
       UNION ALL
-      SELECT NEW zetasql_test.KitchenSinkPB(5 AS int64_key_1,
+      SELECT NEW zetasql_test__.KitchenSinkPB(5 AS int64_key_1,
                                               6 AS int64_key_2)
       UNION ALL
-      SELECT NEW zetasql_test.KitchenSinkPB(5 AS int64_key_1,
+      SELECT NEW zetasql_test__.KitchenSinkPB(5 AS int64_key_1,
                                               6 AS int64_key_2,
                                               NULL AS int32_val))
 --
@@ -301,12 +301,12 @@ SELECT a.int64_key_1,
        (SELECT SUM(a.int64_key_1)
                    OVER (PARTITION BY a.int_with_default_nullable)
         FROM a.repeated_uint32_val r ORDER BY r LIMIT 1)
-FROM (SELECT NEW zetasql_test.KitchenSinkPB(
+FROM (SELECT NEW zetasql_test__.KitchenSinkPB(
                      1 AS int64_key_1,
                      2 AS int64_key_2,
                      ARRAY<UINT32>[7, 8, 9]
                          as repeated_uint32_val) AS a UNION ALL
-      SELECT NEW zetasql_test.KitchenSinkPB(
+      SELECT NEW zetasql_test__.KitchenSinkPB(
                      3 AS int64_key_1,
                      4 AS int64_key_2)) AS outer_table
 --
@@ -320,12 +320,12 @@ SELECT a.int64_key_1,
             SUM(a.int64_key_1) OVER (PARTITION BY r,
                                                   a.int_with_default_nullable)
         FROM a.repeated_uint32_val r ORDER BY r LIMIT 1)
-FROM (SELECT NEW zetasql_test.KitchenSinkPB(
+FROM (SELECT NEW zetasql_test__.KitchenSinkPB(
                      1 AS int64_key_1,
                      2 AS int64_key_2,
                      ARRAY<UINT32>[7, 7, 9]
                          as repeated_uint32_val) AS a UNION ALL
-      SELECT NEW zetasql_test.KitchenSinkPB(
+      SELECT NEW zetasql_test__.KitchenSinkPB(
                      3 AS int64_key_1,
                      4 AS int64_key_2)) AS outer_table
 --
@@ -563,16 +563,16 @@ ARRAY<STRUCT<float_val FLOAT, INT64>>[
 
 [name=orderby_enum]
 SELECT enum_val, RANK() OVER (ORDER BY enum_val DESC)
-FROM (SELECT CAST(0 AS `zetasql_test.TestEnum`) as enum_val UNION ALL
+FROM (SELECT CAST(0 AS `zetasql_test__.TestEnum`) as enum_val UNION ALL
       SELECT 1 UNION ALL
       SELECT 1 UNION ALL
       SELECT 2 UNION ALL
       SELECT 2 UNION ALL
-      SELECT CAST(null AS `zetasql_test.TestEnum`) UNION ALL
-      SELECT CAST(null AS `zetasql_test.TestEnum`))
+      SELECT CAST(null AS `zetasql_test__.TestEnum`) UNION ALL
+      SELECT CAST(null AS `zetasql_test__.TestEnum`))
 --
 ARRAY<STRUCT<
-        enum_val ENUM<zetasql_test.TestEnum>,
+        enum_val ENUM<zetasql_test__.TestEnum>,
         INT64
       >>
 [{TESTENUM2, 1},
@@ -622,16 +622,16 @@ SELECT array_val, RANK() OVER (ORDER BY array_val)
 
 [name=orderby_proto]
 SELECT proto_val, RANK() OVER (ORDER BY proto_val)
-FROM (SELECT NEW zetasql_test.KitchenSinkPB(5 AS int64_key_1,
+FROM (SELECT NEW zetasql_test__.KitchenSinkPB(5 AS int64_key_1,
                                              6 AS int64_key_2) proto_val
       UNION ALL
-      SELECT NEW zetasql_test.KitchenSinkPB(4 AS int64_key_1,
+      SELECT NEW zetasql_test__.KitchenSinkPB(4 AS int64_key_1,
                                               6 AS int64_key_2)
       UNION ALL
-      SELECT NEW zetasql_test.KitchenSinkPB(5 AS int64_key_1,
+      SELECT NEW zetasql_test__.KitchenSinkPB(5 AS int64_key_1,
                                               6 AS int64_key_2)
       UNION ALL
-      SELECT NEW zetasql_test.KitchenSinkPB(5 AS int64_key_1,
+      SELECT NEW zetasql_test__.KitchenSinkPB(5 AS int64_key_1,
                                               6 AS int64_key_2,
                                               NULL AS int32_val))
 --
@@ -641,9 +641,9 @@ SELECT proto_val, RANK() OVER (ORDER BY proto_val)
 ==
 
 [test_features1=V_1_1_ORDER_BY_COLLATE]
-[name=orderby_collate_unicode_us]
+[name=orderby_collate_binary_us]
 SELECT str_val,
-       RANK() OVER (ORDER BY str_val COLLATE "unicode"),
+       RANK() OVER (ORDER BY str_val COLLATE "binary"),
        RANK() OVER (ORDER BY str_val COLLATE "en_US")
 FROM unnest(['A', 'e', 'a', 'b', 'C', 'd', 'A']) as str_val
 --
@@ -660,14 +660,14 @@ ARRAY<STRUCT<str_val STRING, INT64, INT64>>[
 --
 WITH FEATURES: ANALYTIC_FUNCTIONS
 ERROR: generic::invalid_argument: COLLATE is not supported [at 2:38]
-       RANK() OVER (ORDER BY str_val COLLATE "unicode"),
+       RANK() OVER (ORDER BY str_val COLLATE "binary"),
                                      ^
 ==
 
 [test_features1=V_1_1_ORDER_BY_COLLATE]
-[name=orderby_collate_unicode_ci]
+[name=orderby_collate_und_ci]
 SELECT str_val,
-       RANK() OVER (ORDER BY str_val COLLATE "unicode:ci"),
+       RANK() OVER (ORDER BY str_val COLLATE "und:ci"),
        RANK() OVER (ORDER BY str_val)
 FROM unnest(['A', 'e', 'a', 'b', 'C', 'd', 'A']) as str_val
 --
@@ -684,7 +684,7 @@ ARRAY<STRUCT<str_val STRING, INT64, INT64>>[
 --
 WITH FEATURES: ANALYTIC_FUNCTIONS
 ERROR: generic::invalid_argument: COLLATE is not supported [at 2:38]
-       RANK() OVER (ORDER BY str_val COLLATE "unicode:ci"),
+       RANK() OVER (ORDER BY str_val COLLATE "und:ci"),
                                      ^
 ==
 
@@ -724,12 +724,12 @@ SELECT b,
         FROM (SELECT count(*) OVER (ORDER BY outer_table.b) count
               FROM outer_table.a.repeated_uint32_val)
         GROUP BY count)
-FROM (SELECT NEW zetasql_test.KitchenSinkPB(
+FROM (SELECT NEW zetasql_test__.KitchenSinkPB(
                      1 AS int64_key_1,
                      2 AS int64_key_2,
                      ARRAY<UINT32>[7, 8, 9]
                          as repeated_uint32_val) AS a, 5 b UNION ALL
-      SELECT NEW zetasql_test.KitchenSinkPB(
+      SELECT NEW zetasql_test__.KitchenSinkPB(
                      1 AS int64_key_1,
                      2 AS int64_key_2,
                      ARRAY<UINT32>[7, 8]
@@ -747,12 +747,12 @@ SELECT b,
                                     RANGE 2 PRECEDING) count
               FROM outer_table.a.repeated_uint32_val)
         GROUP BY count)
-FROM (SELECT NEW zetasql_test.KitchenSinkPB(
+FROM (SELECT NEW zetasql_test__.KitchenSinkPB(
                      1 AS int64_key_1,
                      2 AS int64_key_2,
                      ARRAY<UINT32>[7, 8, 9]
                          as repeated_uint32_val) AS a, NULL b UNION ALL
-      SELECT NEW zetasql_test.KitchenSinkPB(
+      SELECT NEW zetasql_test__.KitchenSinkPB(
                      1 AS int64_key_1,
                      2 AS int64_key_2,
                      ARRAY<UINT32>[7, 8]
@@ -771,12 +771,12 @@ SELECT b,
                                                   3 PRECEDING) count
               FROM outer_table.a.repeated_uint32_val)
         GROUP BY count)
-FROM (SELECT NEW zetasql_test.KitchenSinkPB(
+FROM (SELECT NEW zetasql_test__.KitchenSinkPB(
                      1 AS int64_key_1,
                      2 AS int64_key_2,
                      ARRAY<UINT32>[7, 8, 9]
                          as repeated_uint32_val) AS a, NULL b UNION ALL
-      SELECT NEW zetasql_test.KitchenSinkPB(
+      SELECT NEW zetasql_test__.KitchenSinkPB(
                      1 AS int64_key_1,
                      2 AS int64_key_2,
                      ARRAY<UINT32>[7, 8, 9]
@@ -793,12 +793,12 @@ SELECT b,
               FROM outer_table.a.repeated_uint32_val r)
         WHERE count = 2
         GROUP BY r)
-FROM (SELECT NEW zetasql_test.KitchenSinkPB(
+FROM (SELECT NEW zetasql_test__.KitchenSinkPB(
                      1 AS int64_key_1,
                      2 AS int64_key_2,
                      ARRAY<UINT32>[7, 7, 9]
                          as repeated_uint32_val) AS a, 5 b UNION ALL
-      SELECT NEW zetasql_test.KitchenSinkPB(
+      SELECT NEW zetasql_test__.KitchenSinkPB(
                      1 AS int64_key_1,
                      2 AS int64_key_2,
                      ARRAY<UINT32>[7, 8]

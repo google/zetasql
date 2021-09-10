@@ -543,9 +543,9 @@ QueryStmt
 | +-$query.$col1#4 AS `$col1` [BOOL]
 | +-$query.$col2#5 AS `$col2` [ARRAY<INT32>]
 | +-$query.$col3#6 AS `$col3` [BOOL]
-| +-$query.$col4#7 AS `$col4` [ENUM<zetasql_test.TestEnum>]
+| +-$query.$col4#7 AS `$col4` [ENUM<zetasql_test__.TestEnum>]
 | +-$query.key#8 AS key [STRING]
-| +-$query.$col6#9 AS `$col6` [ARRAY<PROTO<zetasql_test.KeyValueStruct>>]
+| +-$query.$col6#9 AS `$col6` [ARRAY<PROTO<zetasql_test__.KeyValueStruct>>]
 +-query=
   +-ProjectScan
     +-column_list=$query.[$col1#4, $col2#5, $col3#6, $col4#7, key#8, $col6#9]
@@ -556,7 +556,7 @@ QueryStmt
     | |   +-GetProtoField
     | |     +-type=ARRAY<INT32>
     | |     +-expr=
-    | |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | |     +-field_descriptor=repeated_int32_val
     | |     +-default_value=[]
     | +-$col2#5 :=
@@ -566,62 +566,62 @@ QueryStmt
     | |   +-GetProtoField
     | |     +-type=ARRAY<INT32>
     | |     +-expr=
-    | |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | |     +-field_descriptor=repeated_int32_val
     | |     +-default_value=[]
     | +-$col3#6 :=
-    | | +-FunctionCall(ZetaSQL:$equal(ENUM<zetasql_test.TestEnum>, ENUM<zetasql_test.TestEnum>) -> BOOL)
-    | |   +-Parameter(parse_location=127-133, type=ENUM<zetasql_test.TestEnum>, name="enum1")
+    | | +-FunctionCall(ZetaSQL:$equal(ENUM<zetasql_test__.TestEnum>, ENUM<zetasql_test__.TestEnum>) -> BOOL)
+    | |   +-Parameter(parse_location=127-133, type=ENUM<zetasql_test__.TestEnum>, name="enum1")
     | |   +-GetProtoField
-    | |     +-type=ENUM<zetasql_test.TestEnum>
+    | |     +-type=ENUM<zetasql_test__.TestEnum>
     | |     +-expr=
-    | |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | |     +-field_descriptor=test_enum
     | |     +-default_value=TESTENUM0
     | +-$col4#7 :=
-    | | +-FunctionCall(ZetaSQL:if(BOOL, ENUM<zetasql_test.TestEnum>, ENUM<zetasql_test.TestEnum>) -> ENUM<zetasql_test.TestEnum>)
+    | | +-FunctionCall(ZetaSQL:if(BOOL, ENUM<zetasql_test__.TestEnum>, ENUM<zetasql_test__.TestEnum>) -> ENUM<zetasql_test__.TestEnum>)
     | |   +-Literal(type=BOOL, value=true)
     | |   +-GetProtoField
-    | |   | +-type=ENUM<zetasql_test.TestEnum>
+    | |   | +-type=ENUM<zetasql_test__.TestEnum>
     | |   | +-expr=
-    | |   | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | |   | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | |   | +-field_descriptor=test_enum
     | |   | +-default_value=TESTENUM0
-    | |   +-Parameter(parse_location=198-204, type=ENUM<zetasql_test.TestEnum>, name="enum2")
+    | |   +-Parameter(parse_location=198-204, type=ENUM<zetasql_test__.TestEnum>, name="enum2")
     | +-key#8 :=
     | | +-GetProtoField
     | |   +-type=STRING
     | |   +-expr=
-    | |   | +-FunctionCall(ZetaSQL:if(BOOL, PROTO<zetasql_test.KeyValueStruct>, PROTO<zetasql_test.KeyValueStruct>) -> PROTO<zetasql_test.KeyValueStruct>)
+    | |   | +-FunctionCall(ZetaSQL:if(BOOL, PROTO<zetasql_test__.KeyValueStruct>, PROTO<zetasql_test__.KeyValueStruct>) -> PROTO<zetasql_test__.KeyValueStruct>)
     | |   |   +-Literal(type=BOOL, value=true)
-    | |   |   +-Parameter(parse_location=223-231, type=PROTO<zetasql_test.KeyValueStruct>, name="p_proto")
+    | |   |   +-Parameter(parse_location=223-231, type=PROTO<zetasql_test__.KeyValueStruct>, name="p_proto")
     | |   |   +-GetProtoField
-    | |   |     +-type=PROTO<zetasql_test.KeyValueStruct>
+    | |   |     +-type=PROTO<zetasql_test__.KeyValueStruct>
     | |   |     +-expr=
-    | |   |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | |   |     +-field_descriptor=key_value
     | |   |     +-default_value=NULL
     | |   +-field_descriptor=key
     | |   +-default_value=NULL
     | +-$col6#9 :=
-    |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<PROTO<zetasql_test.KeyValueStruct>>, ARRAY<PROTO<zetasql_test.KeyValueStruct>>) -> ARRAY<PROTO<zetasql_test.KeyValueStruct>>)
+    |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<PROTO<zetasql_test__.KeyValueStruct>>, ARRAY<PROTO<zetasql_test__.KeyValueStruct>>) -> ARRAY<PROTO<zetasql_test__.KeyValueStruct>>)
     |     +-Literal(type=BOOL, value=true)
-    |     +-Parameter(parse_location=277-290, type=ARRAY<PROTO<zetasql_test.KeyValueStruct>>, name="struct_array")
+    |     +-Parameter(parse_location=277-290, type=ARRAY<PROTO<zetasql_test__.KeyValueStruct>>, name="struct_array")
     |     +-GetProtoField
-    |       +-type=ARRAY<PROTO<zetasql_test.KeyValueStruct>>
+    |       +-type=ARRAY<PROTO<zetasql_test__.KeyValueStruct>>
     |       +-expr=
-    |       | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |       | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |       +-field_descriptor=key_value_array
     |       +-default_value=[]
     +-input_scan=
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
 [UNDECLARED_PARAMETERS]
-enum1: ENUM<zetasql_test.TestEnum>
-enum2: ENUM<zetasql_test.TestEnum>
+enum1: ENUM<zetasql_test__.TestEnum>
+enum2: ENUM<zetasql_test__.TestEnum>
 int32: INT32
 int32_array: ARRAY<INT32>
-p_proto: PROTO<zetasql_test.KeyValueStruct>
-struct_array: ARRAY<PROTO<zetasql_test.KeyValueStruct>>
+p_proto: PROTO<zetasql_test__.KeyValueStruct>
+struct_array: ARRAY<PROTO<zetasql_test__.KeyValueStruct>>
 ==
 
 ## Parameter type cannot be reconciled. Parameter names are case insensitive.
@@ -651,7 +651,7 @@ DeleteStmt
     +-GetProtoField
     | +-type=INT32
     | +-expr=
-    | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | +-field_descriptor=int32_val
     | +-default_value=77
     +-Parameter(parse_location=47-49, type=INT32, name="p")
@@ -1110,12 +1110,12 @@ QueryStmt
 
 # Parameter types using two copies of the same proto from different
 # DescriptorPools.
-select CAST(@p as zetasql_test.TestExtraPB)
+select CAST(@p as zetasql_test__.TestExtraPB)
 union all
-select CAST(@p as alt_descriptor_pool.zetasql_test.TestExtraPB)
+select CAST(@p as alt_descriptor_pool.zetasql_test__.TestExtraPB)
 --
-ERROR: Undeclared parameter 'p' is used assuming different versions of the same type (zetasql_test.TestExtraPB) [at 3:13]
-select CAST(@p as alt_descriptor_pool.zetasql_test.TestExtraPB)
+ERROR: Undeclared parameter 'p' is used assuming different versions of the same type (zetasql_test__.TestExtraPB) [at 3:13]
+select CAST(@p as alt_descriptor_pool.zetasql_test__.TestExtraPB)
             ^
 ==
 

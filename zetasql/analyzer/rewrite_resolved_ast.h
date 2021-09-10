@@ -22,6 +22,9 @@
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/types/type_factory.h"
+#include "absl/status/status.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 // Similar to RewriteResolvedAst() overload in analyzer.h, except that it allows

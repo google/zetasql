@@ -28,7 +28,7 @@
 #include "zetasql/reference_impl/variable_id.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "absl/container/flat_hash_map.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/types/variant.h"
 
 namespace zetasql {
@@ -86,15 +86,15 @@ class ColumnToVariableMapping {
   VariableGenerator* variable_generator() { return variable_gen_.get(); }
 
   // Assigns a new variable name and returns it.
-  VariableId AssignNewVariableToColumn(const ResolvedColumn* column);
+  VariableId AssignNewVariableToColumn(const ResolvedColumn& column);
 
   // Returns a unique variable name for a given column, inserting one if it is
   // not already present.
-  VariableId GetVariableNameFromColumn(const ResolvedColumn* column);
+  VariableId GetVariableNameFromColumn(const ResolvedColumn& column);
 
   // Same as above, but returns NOT_FOUND if the column is missing.
-  zetasql_base::StatusOr<VariableId> LookupVariableNameForColumn(
-      const ResolvedColumn* column) const;
+  absl::StatusOr<VariableId> LookupVariableNameForColumn(
+      const ResolvedColumn& column) const;
 
   const Map& map() const { return column_to_variable_; }
   void set_map(const Map& column_to_variable) {

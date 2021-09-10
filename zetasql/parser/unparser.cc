@@ -90,7 +90,9 @@ void Formatter::Format(absl::string_view s) {
       default:
         {
           char curr_char = s[0];
-          if (curr_char == '(') {
+          if (last_was_single_char_unary_) {
+            absl::StrAppend(&buffer_, s);
+          } else if (curr_char == '(') {
             // Inserts a space if last token is a separator, otherwise regards
             // it as a function call.
             if (LastTokenIsSeparator()) {
@@ -120,11 +122,24 @@ void Formatter::Format(absl::string_view s) {
       LastTokenIsSeparator()) {
     FlushLine();
   }
+
+  // Reset last_was_single_char_unary_. If this was called with a unary it'll
+  // get set after this returns.
+  last_was_single_char_unary_ = false;
 }
 
 void Formatter::FormatLine(absl::string_view s) {
   Format(s);
   FlushLine();
+}
+
+void Formatter::AddUnary(absl::string_view s) {
+  if (last_was_single_char_unary_ && absl::EndsWith(buffer_, "-") && s == "-") {
+    // Pretend it's not a unary so we don't get '--' which is a comment.
+    last_was_single_char_unary_ = false;
+  }
+  Format(s);
+  last_was_single_char_unary_ = s.size() == 1;
 }
 
 bool Formatter::LastTokenIsSeparator() {
@@ -446,6 +461,12 @@ void Unparser::visitASTCreateFunctionStatement(
     print("LANGUAGE");
     node->language()->Accept(this, data);
   }
+  if (node->is_remote()) {
+    print("REMOTE");
+    if (node->with_connection_clause() != nullptr) {
+      node->with_connection_clause()->Accept(this, data);
+    }
+  }
   if (node->code() != nullptr) {
     print("AS");
     node->code()->Accept(this, data);
@@ -470,6 +491,7 @@ void Unparser::visitASTCreateSchemaStatement(
   print(GetCreateStatementPrefix(node, "SCHEMA"));
   node->name()->Accept(this, data);
   if (node->collate() != nullptr) {
+    print("DEFAULT");
     visitASTCollate(node->collate(), data);
   }
   if (node->options_list() != nullptr) {
@@ -514,6 +536,57 @@ void Unparser::visitASTCreateTableFunctionStatement(
   }
 }
 
+void Unparser::visitASTAuxLoadDataFromFilesOptionsList(
+    const ASTAuxLoadDataFromFilesOptionsList* node, void* data) {
+  node->options_list()->Accept(this, data);
+}
+
+void Unparser::visitASTAuxLoadDataStatement(
+    const ASTAuxLoadDataStatement* node, void* data) {
+  print("LOAD DATA");
+  switch (node->insertion_mode()) {
+    case ASTAuxLoadDataStatement::InsertionMode::APPEND:
+      print("INTO");
+      break;
+    case ASTAuxLoadDataStatement::InsertionMode::OVERWRITE:
+      print("OVERWRITE");
+      break;
+    default:
+      break;
+  }
+  node->name()->Accept(this, data);
+  if (node->table_element_list() != nullptr) {
+    node->table_element_list()->Accept(this, data);
+  }
+  if (node->collate() != nullptr) {
+    visitASTCollate(node->collate(), data);
+  }
+  if (node->partition_by() != nullptr) {
+    println();
+    node->partition_by()->Accept(this, data);
+  }
+  if (node->cluster_by() != nullptr) {
+    println();
+    node->cluster_by()->Accept(this, data);
+  }
+  if (node->options_list() != nullptr) {
+    println();
+    print("OPTIONS");
+    node->options_list()->Accept(this, data);
+  }
+  println();
+  print("FROM FILES");
+  node->from_files()->Accept(this, data);
+  if (node->with_partition_columns_clause() != nullptr) {
+    println();
+    node->with_partition_columns_clause()->Accept(this, data);
+  }
+  if (node->with_connection_clause() != nullptr) {
+    println();
+    node->with_connection_clause()->Accept(this, data);
+  }
+}
+
 void Unparser::visitASTCreateTableStatement(
     const ASTCreateTableStatement* node, void* data) {
   print(GetCreateStatementPrefix(node, "TABLE"));
@@ -523,6 +596,7 @@ void Unparser::visitASTCreateTableStatement(
     node->table_element_list()->Accept(this, data);
   }
   if (node->collate() != nullptr) {
+    print("DEFAULT");
     visitASTCollate(node->collate(), data);
   }
   if (node->like_table_name() != nullptr) {
@@ -721,6 +795,7 @@ void Unparser::visitASTCreateExternalTableStatement(
     node->table_element_list()->Accept(this, data);
   }
   if (node->collate() != nullptr) {
+    print("DEFAULT");
     visitASTCollate(node->collate(), data);
   }
   if (node->like_table_name() != nullptr) {
@@ -768,6 +843,13 @@ void Unparser::visitASTGrantToClause(const ASTGrantToClause* node, void* data) {
   }
 }
 
+void Unparser::visitASTRestrictToClause(const ASTRestrictToClause* node,
+                                        void* data) {
+  print("RESTRICT TO (");
+  node->restrictee_list()->Accept(this, data);
+  print(")");
+}
+
 void Unparser::visitASTFilterUsingClause(const ASTFilterUsingClause* node,
                                          void* data) {
   if (node->has_filter_keyword()) {
@@ -776,6 +858,25 @@ void Unparser::visitASTFilterUsingClause(const ASTFilterUsingClause* node,
   print("USING (");
   node->predicate()->Accept(this, data);
   print(")");
+}
+
+void Unparser::visitASTCreatePrivilegeRestrictionStatement(
+    const ASTCreatePrivilegeRestrictionStatement* node, void* data) {
+  print("CREATE");
+  if (node->is_or_replace()) {
+    print("OR REPLACE");
+  }
+  print("PRIVILEGE RESTRICTION");
+  if (node->is_if_not_exists()) {
+    print("IF NOT EXISTS");
+  }
+  print("ON");
+  node->column_privilege_list()->Accept(this, data);
+  print("ON");
+  node->name_path()->Accept(this, data);
+  if (node->restrict_to() != nullptr) {
+    node->restrict_to()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTCreateRowAccessPolicyStatement(
@@ -1755,11 +1856,8 @@ void Unparser::visitASTAndExpr(const ASTAndExpr* node, void* data) {
 
 void Unparser::visitASTUnaryExpression(const ASTUnaryExpression* node,
                                        void* data) {
-  // Nested unary expressions like "--1" would be printed as " - - 1"
-  // by the formatter and not "-- 1", as the latter would be detected
-  // as partial line comment by the parser.
   PrintOpenParenIfNeeded(node);
-  print(node->GetSQLForOperator());
+  formatter_.AddUnary(node->GetSQLForOperator());
   node->operand()->Accept(this, data);
   PrintCloseParenIfNeeded(node);
 }
@@ -2839,18 +2937,12 @@ void Unparser::visitASTAlterDatabaseStatement(
 void Unparser::visitASTAlterSchemaStatement(
     const ASTAlterSchemaStatement* node, void* data) {
   print("ALTER SCHEMA");
-  if (node->collate() != nullptr) {
-    visitASTCollate(node->collate(), data);
-  }
   VisitAlterStatementBase(node, data);
 }
 
 void Unparser::visitASTAlterTableStatement(const ASTAlterTableStatement* node,
                                            void* data) {
   print("ALTER TABLE");
-  if (node->collate() != nullptr) {
-    visitASTCollate(node->collate(), data);
-  }
   VisitAlterStatementBase(node, data);
 }
 
@@ -3045,7 +3137,7 @@ void Unparser::visitASTRenameToClause(const ASTRenameToClause* node,
 
 void Unparser::visitASTSetCollateClause(const ASTSetCollateClause* node,
                                         void* data) {
-  print("SET");
+  print("SET DEFAULT");
   visitASTCollate(node->collate(), data);
 }
 
@@ -3189,6 +3281,10 @@ void Unparser::visitASTCaseStatement(
 }
 
 void Unparser::visitASTBeginEndBlock(const ASTBeginEndBlock* node, void* data) {
+  if (node->label() != nullptr) {
+    node->label()->Accept(this, data);
+    print(":");
+  }
   println("BEGIN");
   {
     Formatter::Indenter indenter(&formatter_);
@@ -3198,6 +3294,14 @@ void Unparser::visitASTBeginEndBlock(const ASTBeginEndBlock* node, void* data) {
     node->handler_list()->Accept(this, data);
   }
   println("END");
+  if (node->label() != nullptr) {
+    node->label()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTIndexAllColumns(const ASTIndexAllColumns* node,
+                                       void* data) {
+  UnparseLeafNode(node);
 }
 
 void Unparser::visitASTIndexItemList(const ASTIndexItemList* node, void* data) {
@@ -3329,6 +3433,10 @@ void Unparser::visitASTAssignmentFromStruct(const ASTAssignmentFromStruct* node,
 
 void Unparser::visitASTWhileStatement(const ASTWhileStatement* node,
                                       void* data) {
+  if (node->label() != nullptr) {
+    node->label()->Accept(this, data);
+    print(":");
+  }
   if (node->condition() != nullptr) {
     print("WHILE");
     node->condition()->Accept(this, data);
@@ -3348,6 +3456,9 @@ void Unparser::visitASTWhileStatement(const ASTWhileStatement* node,
     print("END");
     print("LOOP");
   }
+  if (node->label() != nullptr) {
+    node->label()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTUntilClause(const ASTUntilClause* node,
@@ -3358,6 +3469,10 @@ void Unparser::visitASTUntilClause(const ASTUntilClause* node,
 
 void Unparser::visitASTRepeatStatement(const ASTRepeatStatement* node,
                                        void* data) {
+  if (node->label() != nullptr) {
+    node->label()->Accept(this, data);
+    print(":");
+  }
   println("REPEAT");
   {
     Formatter::Indenter indenter(&formatter_);
@@ -3367,10 +3482,17 @@ void Unparser::visitASTRepeatStatement(const ASTRepeatStatement* node,
   println();
   print("END");
   print("REPEAT");
+  if (node->label() != nullptr) {
+    node->label()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTForInStatement(const ASTForInStatement* node,
                                       void* data) {
+  if (node->label() != nullptr) {
+    node->label()->Accept(this, data);
+    print(":");
+  }
   print("FOR");
   node->variable()->Accept(this, data);
   print("IN");
@@ -3384,6 +3506,13 @@ void Unparser::visitASTForInStatement(const ASTForInStatement* node,
   }
   print("END");
   print("FOR");
+  if (node->label() != nullptr) {
+    node->label()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTLabel(const ASTLabel* node, void* data) {
+  visitASTChildren(node, data);
 }
 
 void Unparser::visitASTScript(const ASTScript* node, void* data) {
@@ -3393,11 +3522,17 @@ void Unparser::visitASTScript(const ASTScript* node, void* data) {
 void Unparser::visitASTBreakStatement(const ASTBreakStatement* node,
                                       void* data) {
   print(node->GetKeywordText());
+  if (node->label() != nullptr) {
+    node->label()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTContinueStatement(const ASTContinueStatement* node,
                                          void* data) {
   print(node->GetKeywordText());
+  if (node->label() != nullptr) {
+    node->label()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTReturnStatement(const ASTReturnStatement* node,

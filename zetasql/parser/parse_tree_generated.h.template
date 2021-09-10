@@ -49,7 +49,7 @@ class {{node.name}} {{node.class_final}}: public {{node.parent}} {
 
  # if not node.is_abstract
   void Accept(ParseTreeVisitor* visitor, void* data) const override;
-  zetasql_base::StatusOr<VisitResult> Accept(
+  absl::StatusOr<VisitResult> Accept(
       NonRecursiveParseTreeVisitor* visitor) const override;
  # endif
 
@@ -122,12 +122,38 @@ class {{node.name}} {{node.class_final}}: public {{node.parent}} {
   # endif
  # endfor
 
- # if node.extra_defs
+ # if node.extra_public_defs
 {{blank_line}}
-{{node.extra_defs}}
+{{node.extra_public_defs}}
+ # endif
+{{blank_line}}
+  friend class ParseTreeSerializer;
+ # if node.has_protected_fields or node.extra_protected_defs
+{{blank_line}}
+ protected:
+  # set ns.section_blank_line = false
+  # for field in node.fields if field.visibility == 'PROTECTED'
+   # if ns.section_blank_line
+{{blank_line}}
+   # set ns.section_blank_line = false
+   # endif
+   # if field.private_comment
+{{blank_line}}
+{{field.private_comment}}
+   # set ns.section_blank_line = true
+   # endif
+  {{field.member_type}} {{field.member_name}}{%if field.cpp_default%} = {{field.cpp_default}}{%endif%};
+  # endfor
+  # if node.extra_protected_defs
+   # if node.has_protected_fields
+{{blank_line}}
+   # endif
+{{node.extra_protected_defs}}
+  # endif
  # endif
 
- # if node.fields or node.extra_private_defs or node.gen_init_fields
+
+ # if node.has_private_fields or node.extra_private_defs or node.gen_init_fields
 {{blank_line}}
  private:
   # if node.gen_init_fields
@@ -162,7 +188,7 @@ class {{node.name}} {{node.class_final}}: public {{node.parent}} {
 {{blank_line}}
   # endif
 {% set ns = namespace(section_blank_line=false) %}
-  # for field in node.fields
+  # for field in node.fields if field.visibility == 'PRIVATE'
    # if ns.section_blank_line
 {{blank_line}}
    # set ns.section_blank_line = false
@@ -175,6 +201,9 @@ class {{node.name}} {{node.class_final}}: public {{node.parent}} {
   {{field.member_type}} {{field.member_name}}{%if field.cpp_default%} = {{field.cpp_default}}{%endif%};
   # endfor
   # if node.extra_private_defs
+   # if node.has_private_fields
+{{blank_line}}
+   # endif
 {{node.extra_private_defs}}
   # endif
  # endif

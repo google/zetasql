@@ -30,6 +30,7 @@ import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
 import com.google.zetasql.FunctionProtos.FunctionOptionsProto;
+import com.google.zetasql.FunctionProtos.TableValuedFunctionOptionsProto;
 import com.google.zetasql.ZetaSQLFunction.FunctionSignatureId;
 import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.ArgumentCardinality;
 import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.Mode;
@@ -474,7 +475,10 @@ public class SimpleCatalogTest {
     TableValuedFunction tvf =
         new ForwardInputSchemaToOutputSchemaTVF(
             ImmutableList.of("test_tvf_name"),
-            new FunctionSignature(TABLE_TYPE, ImmutableList.of(TABLE_TYPE), -1));
+            new FunctionSignature(TABLE_TYPE, ImmutableList.of(TABLE_TYPE), -1),
+            TableValuedFunctionOptionsProto.newBuilder()
+                .setUsesUpperCaseSqlName(false)
+                .build());
     List<FunctionArgumentType> arguments = new ArrayList<>();
     FunctionArgumentType typeInt64 =
         new FunctionArgumentType(TypeFactory.createSimpleType(TypeKind.TYPE_INT64));
@@ -600,6 +604,9 @@ public class SimpleCatalogTest {
             + "    }\n"
             + "  }\n"
             + "  type: FORWARD_INPUT_SCHEMA_TO_OUTPUT_SCHEMA_TVF\n"
+            + "  options {"
+            + "    uses_upper_case_sql_name: false"
+            + "  }"
             + "}",
         expected);
     expected.getTableBuilder(0).setSerializationId(table.getId());

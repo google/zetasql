@@ -21,6 +21,7 @@
 #include <numeric>
 #include <stack>
 #include <tuple>
+#include <utility>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/status_payload_utils.h"
@@ -31,6 +32,7 @@
 #include "zetasql/parser/parse_tree_visitor.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/cast.h"
 #include "zetasql/public/coercer.h"
 #include "zetasql/public/evaluator_table_iterator.h"
@@ -39,6 +41,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type_parameters.h"
 #include "zetasql/scripting/error_helpers.h"
 #include "zetasql/scripting/parsed_script.h"
 #include "zetasql/scripting/script_exception.pb.h"
@@ -46,7 +49,8 @@
 #include "zetasql/scripting/script_segment.h"
 #include "zetasql/scripting/serialization_helpers.h"
 #include "absl/container/flat_hash_set.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_replace.h"
@@ -65,6 +69,7 @@ namespace {
 using StackFrameProto = ScriptExecutorStateProto::StackFrame;
 using ProcedureDefinitionProto = ScriptExecutorStateProto::ProcedureDefinition;
 using StackFrameTrace = ScriptExecutor::StackFrameTrace;
+using VariableChange = StatementEvaluator::VariableChange;
 
 constexpr char kTimeZoneSystemVarName[] = "time_zone";
 
@@ -77,26 +82,6 @@ absl::Status CheckConstraintStatus(const absl::Status& constraint_status,
     return constraint_status;
   }
   return MakeScriptExceptionAt(error_node) << constraint_status.message();
-}
-
-ParsedScript::QueryParameters GetQueryParameters(
-    const ScriptExecutorOptions& options) {
-  const AnalyzerOptions& analyzer_options = options.analyzer_options();
-  switch (analyzer_options.parameter_mode()) {
-    case PARAMETER_NAMED: {
-      ParsedScript::StringSet parameter_names;
-      for (auto itr = analyzer_options.query_parameters().begin();
-           itr != analyzer_options.query_parameters().end(); ++itr) {
-        parameter_names.insert(itr->first);
-      }
-      return parameter_names;
-    }
-    case PARAMETER_POSITIONAL:
-      return static_cast<int64_t>(
-          analyzer_options.positional_query_parameters().size());
-    default:
-      return absl::nullopt;
-  }
 }
 
 ParsedScript::QueryParameters GetQueryParameters(
@@ -117,31 +102,36 @@ ParsedScript::QueryParameters GetQueryParameters(
 }
 }  // namespace
 
-zetasql_base::StatusOr<std::unique_ptr<ScriptExecutor>> ScriptExecutorImpl::Create(
+absl::StatusOr<std::unique_ptr<ScriptExecutor>> ScriptExecutorImpl::Create(
     absl::string_view script, const ASTScript* ast_script,
     const ScriptExecutorOptions& options, StatementEvaluator* evaluator) {
   ZETASQL_RET_CHECK_GE(options.maximum_stack_depth(), 1) << absl::Substitute(
       "Maximum stack depth must be at least 1, $0 was provided",
       options.maximum_stack_depth());
-  ErrorMessageMode error_message_mode =
-      options.analyzer_options().error_message_mode();
+  ErrorMessageMode error_message_mode = options.error_message_mode();
+
   std::unique_ptr<const ParsedScript> parsed_script;
   if (ast_script != nullptr) {
-    ZETASQL_ASSIGN_OR_RETURN(parsed_script, ParsedScript::Create(script, ast_script,
-                                                         error_message_mode));
+    ZETASQL_ASSIGN_OR_RETURN(parsed_script, ParsedScript::Create(
+                                        script, ast_script, error_message_mode,
+                                        options.script_variables()));
   } else {
+    ParserOptions parser_options;
+    parser_options.set_language_options(&options.language_options());
     ZETASQL_ASSIGN_OR_RETURN(
         parsed_script,
-        ParsedScript::Create(script,
-                             options.analyzer_options().GetParserOptions(),
-                             error_message_mode));
+        ParsedScript::Create(script, parser_options, error_message_mode,
+                             options.script_variables()));
   }
   if (!options.dry_run()) {
     ZETASQL_RETURN_IF_ERROR(
-        parsed_script->CheckQueryParameters(GetQueryParameters(options)));
+        parsed_script->CheckQueryParameters(options.query_parameters()));
   }
-  return absl::WrapUnique<ScriptExecutor>(
+  std::unique_ptr<ScriptExecutorImpl> script_executor(
       new ScriptExecutorImpl(options, std::move(parsed_script), evaluator));
+  ZETASQL_RETURN_IF_ERROR(
+      script_executor->SetPredefinedVariables(options.script_variables()));
+  return absl::WrapUnique<ScriptExecutor>(script_executor.release());
 }
 
 ScriptExecutorImpl::ScriptExecutorImpl(
@@ -160,23 +150,9 @@ ScriptExecutorImpl::ScriptExecutorImpl(
     type_factory_ = type_factory_holder_.get();
   }
   SetSystemVariablesForPendingException();
-  system_variables_.emplace(
-      std::vector<std::string>{kTimeZoneSystemVarName},
-      Value::String(options.analyzer_options().default_time_zone().name()));
-
-  // Setup initial analyzer options
-  analyzer_options_ = options.analyzer_options();
-  for (const auto& system_variable : system_variables_) {
-    // For system variables built into scripting, this should never fail;
-    // the names are all unique, and their types should be supported under all
-    // language options; it is the engine's responsibility not to predefine
-    // system variables in the analyzer options that are defined here.
-    ZETASQL_CHECK_OK(analyzer_options_.AddSystemVariable(system_variable.first,
-                                                 system_variable.second.type()))
-        << "Failed to add system variable "
-        << absl::StrJoin(system_variable.first, ".") << "("
-        << system_variable.second.type()->DebugString() << ")";
-  }
+  system_variables_.emplace(std::vector<std::string>{kTimeZoneSystemVarName},
+                            Value::String(options.default_time_zone().name()));
+  time_zone_ = options.default_time_zone();
 }
 
 void ScriptExecutorImpl::SetSystemVariablesForPendingException() {
@@ -197,7 +173,7 @@ void ScriptExecutorImpl::SetSystemVariablesForPendingException() {
     system_variables_[{"error", "statement_text"}] = Value::NullString();
   }
   if (!exception.internal().stack_trace().empty()) {
-    zetasql_base::StatusOr<Value> stack_trace_value =
+    absl::StatusOr<Value> stack_trace_value =
         GetStackTraceSystemVariable(exception.internal());
     if (stack_trace_value.ok()) {
       system_variables_[{"error", "stack_trace"}] = stack_trace_value.value();
@@ -208,7 +184,7 @@ void ScriptExecutorImpl::SetSystemVariablesForPendingException() {
     system_variables_[{"error", "formatted_stack_trace"}] =
         GetFormattedStackTrace(exception.internal());
   } else {
-    zetasql_base::StatusOr<const Type*> stack_trace_type =
+    absl::StatusOr<const Type*> stack_trace_type =
         GetStackTraceSystemVariableType();
     if (stack_trace_type.ok()) {
       system_variables_[{"error", "stack_trace"}] =
@@ -234,7 +210,7 @@ Value ScriptExecutorImpl::GetFormattedStackTrace(
       StackTraceString(absl::MakeSpan(frames), /*verbose=*/false));
 }
 
-zetasql_base::StatusOr<Value> ScriptExecutorImpl::GetStackTraceSystemVariable(
+absl::StatusOr<Value> ScriptExecutorImpl::GetStackTraceSystemVariable(
     const ScriptException::Internal& internal_exception) {
   ZETASQL_ASSIGN_OR_RETURN(const ArrayType* type, GetStackTraceSystemVariableType());
   std::vector<Value> frame_values;
@@ -250,7 +226,7 @@ zetasql_base::StatusOr<Value> ScriptExecutorImpl::GetStackTraceSystemVariable(
   return Value::Array(type, frame_values);
 }
 
-zetasql_base::StatusOr<const ArrayType*>
+absl::StatusOr<const ArrayType*>
 ScriptExecutorImpl::GetStackTraceSystemVariableType() {
   if (stack_trace_system_variable_type_ == nullptr) {
     const StructType* stack_frame_type;
@@ -288,7 +264,7 @@ absl::Status ScriptExecutorImpl::GenerateStackTraceSystemVariable(
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<std::string>
+absl::StatusOr<std::string>
 ScriptExecutorImpl::GenerateStatementTextSystemVariable() const {
   const ASTNode* current_node = callstack_.back().current_node()->ast_node();
   ZETASQL_RET_CHECK_NE(current_node, nullptr);
@@ -332,7 +308,7 @@ ScriptExecutorImpl::GenerateStatementTextSystemVariable() const {
   }
 }
 
-zetasql_base::StatusOr<ScriptException> ScriptExecutorImpl::SetupNewException(
+absl::StatusOr<ScriptException> ScriptExecutorImpl::SetupNewException(
     const absl::Status& status) {
   ZETASQL_DCHECK(!status.ok() && internal::HasPayloadWithType<ScriptException>(status));
   ZETASQL_DCHECK(!options_.dry_run());
@@ -384,8 +360,8 @@ absl::Status ScriptExecutorImpl::ExitForLoop() {
   ZETASQL_RET_CHECK(!options_.dry_run());
   ZETASQL_RET_CHECK(!callstack_.back().mutable_for_loop_stack()->empty());
   ZETASQL_ASSIGN_OR_RETURN(int64_t iterator_memory,
-                   evaluator_->GetIteratorMemoryUsage(
-                       *callstack_.back().for_loop_stack().back()));
+                   GetIteratorMemoryUsage(
+                       callstack_.back().for_loop_stack().back().get()));
   ZETASQL_RETURN_IF_ERROR(UpdateAndCheckMemorySize(
       GetCurrentNode()->ast_node(),
       /*current_memory_size=*/ 0,
@@ -394,7 +370,7 @@ absl::Status ScriptExecutorImpl::ExitForLoop() {
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<const ASTStatement*> ScriptExecutorImpl::ExitProcedure(
+absl::StatusOr<const ASTStatement*> ScriptExecutorImpl::ExitProcedure(
     bool normal_return) {
   if (callstack_.size() > 1) {
     ZETASQL_RETURN_IF_ERROR(ExitFromProcedure(*CurrentProcedure(), &callstack_.back(),
@@ -424,8 +400,7 @@ bool ScriptExecutorImpl::IsComplete() const {
 absl::Status ScriptExecutorImpl::ExecuteNext() {
   absl::Status status = ExecuteNextImpl();
   return ConvertInternalErrorLocationAndAdjustErrorString(
-      options_.analyzer_options().error_message_mode(),
-      CurrentScript()->script_text(), status);
+      options_.error_message_mode(), CurrentScript()->script_text(), status);
 }
 
 absl::Status ScriptExecutorImpl::ExecuteNextImpl() {
@@ -448,6 +423,14 @@ absl::Status ScriptExecutorImpl::ExecuteNextImpl() {
     case AST_ELSEIF_CLAUSE:
       ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentCondition(EvaluateCondition(
           curr_ast_node->GetAs<ASTElseifClause>()->condition())));
+      break;
+    case AST_CASE_STATEMENT:
+      ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentStatement(
+          ExecuteCaseStatement()));
+      break;
+    case AST_WHEN_THEN_CLAUSE:
+      ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentCondition(
+          EvaluateWhenThenClause()));
       break;
     case AST_ASSIGNMENT_FROM_STRUCT:
       ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentStatement(
@@ -473,7 +456,7 @@ absl::Status ScriptExecutorImpl::ExecuteNextImpl() {
           curr_ast_node->GetAs<ASTUntilClause>()->condition())));
       break;
     case AST_FOR_IN_STATEMENT:
-      ZETASQL_RETURN_IF_ERROR(ExecuteForInStatement());
+      ZETASQL_RETURN_IF_ERROR(MaybeDispatchException(ExecuteForInStatement()));
       break;
     case AST_CALL_STATEMENT:
       triggered_features_.insert(ScriptExecutorStateProto::CALL_STATEMENT);
@@ -510,7 +493,7 @@ absl::Status ScriptExecutorImpl::ExecuteNextImpl() {
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<bool> ScriptExecutorImpl::DefaultAssignSystemVariable(
+absl::StatusOr<bool> ScriptExecutorImpl::DefaultAssignSystemVariable(
     const ASTSystemVariableAssignment* ast_assignment, const Value& value) {
   // @@time_zone can be assigned to; all other executor-owned system variables
   // are read-only
@@ -541,7 +524,7 @@ absl::Status ScriptExecutorImpl::SetTimezone(const Value& timezone_value,
   }
   // Save the timezone in both the analyzer options and in the system variable
   // map for when "@@time_zone" is evaluated directly.
-  analyzer_options_.set_default_time_zone(new_timezone);
+  time_zone_ = new_timezone;
   system_variables_[{kTimeZoneSystemVarName}] = timezone_value;
   return absl::OkStatus();
 }
@@ -550,13 +533,25 @@ absl::Status ScriptExecutorImpl::ExecuteSystemVariableAssignment(
     const ASTSystemVariableAssignment* stmt) {
   std::vector<std::string> var_name =
       stmt->system_variable()->path()->ToIdentifierVector();
-  auto it = analyzer_options_.system_variables().find(var_name);
-  if (it == analyzer_options_.system_variables().end()) {
-    return MakeUnknownSystemVariableError(stmt->system_variable());
+  // Try ScriptExecutor-owned system variables.
+  auto it_scriptexecutor = system_variables_.find(var_name);
+  if (it_scriptexecutor != system_variables_.end()) {
+    ZETASQL_ASSIGN_OR_RETURN(Value new_value,
+                     EvaluateExpression(stmt->expression(),
+                                        it_scriptexecutor->second.type()));
+    return evaluator_->AssignSystemVariable(this, stmt, new_value);
   }
-  ZETASQL_ASSIGN_OR_RETURN(Value new_value,
-                   EvaluateExpression(stmt->expression(), it->second));
-  return evaluator_->AssignSystemVariable(this, stmt, new_value);
+
+  // Now, try engine-owned system variables, which appear in the options.
+  auto it_engine = options_.engine_owned_system_variables().find(var_name);
+  if (it_engine != options_.engine_owned_system_variables().end()) {
+    ZETASQL_ASSIGN_OR_RETURN(Value new_value,
+                     EvaluateExpression(stmt->expression(), it_engine->second));
+    return evaluator_->AssignSystemVariable(this, stmt, new_value);
+  }
+
+  // System variable is neither ScriptExecutor-owned nor engine-owned.
+  return MakeUnknownSystemVariableError(stmt->system_variable());
 }
 
 absl::Status ScriptExecutorImpl::ExecuteRaiseStatement(
@@ -570,7 +565,7 @@ absl::Status ScriptExecutorImpl::ExecuteRaiseStatement(
 
 absl::Status ScriptExecutorImpl::RaiseNewException(
     const ASTRaiseStatement* stmt) {
-  zetasql_base::StatusOr<Value> status_or_message_value =
+  absl::StatusOr<Value> status_or_message_value =
       EvaluateExpression(stmt->message(), type_factory_->get_string());
   if (!status_or_message_value.ok()) {
     return AdvancePastCurrentStatement(
@@ -621,8 +616,7 @@ absl::Status ScriptExecutorImpl::UpdateAndCheckMemorySize(
   if (total_memory_usage_ >
       options_.variable_size_limit_options().total_memory_limit()) {
     return MakeNoSizeRemainingError(
-        node,
-        options_.variable_size_limit_options().total_memory_limit(),
+        node, options_.variable_size_limit_options().total_memory_limit(),
         callstack_);
   }
   return absl::OkStatus();
@@ -650,6 +644,35 @@ absl::Status ScriptExecutorImpl::UpdateAndCheckVariableSize(
   }
 
   return absl::OkStatus();
+}
+
+absl::Status ScriptExecutorImpl::OnVariablesValueChangedWithoutSizeCheck(
+    bool notify_evaluator, const StackFrame& var_declaration_stack_frame,
+    const ASTNode* current_node,
+    const std::vector<VariableChange>& variable_changes) {
+  if (variable_changes.empty() ||!notify_evaluator) {
+    return absl::OkStatus();
+  }
+  return evaluator_->OnVariablesChanged(
+      *this, current_node, var_declaration_stack_frame, variable_changes);
+}
+
+absl::Status ScriptExecutorImpl::OnVariablesValueChangedWithSizeCheck(
+    bool notify_evaluator, const StackFrame& var_declaration_stack_frame,
+    const ASTNode* current_node,
+    const std::vector<VariableChange>& variable_changes,
+    VariableSizesMap* variable_sizes_map) {
+  if (variable_changes.empty()) {
+    return absl::OkStatus();
+  }
+  for (auto& var : variable_changes) {
+    ZETASQL_RETURN_IF_ERROR(UpdateAndCheckVariableSize(current_node, var.var_name,
+                                               var.value.physical_byte_size(),
+                                               variable_sizes_map));
+  }
+  return OnVariablesValueChangedWithoutSizeCheck(
+      notify_evaluator, var_declaration_stack_frame, current_node,
+      variable_changes);
 }
 
 // static
@@ -685,14 +708,19 @@ absl::Status ScriptExecutorImpl::ExecuteSingleAssignment() {
 
   // If type parameters exist for the variable, apply type parameter constraints
   // to the variable.
+  TypeParameters type_param;
   auto it = GetCurrentVariableTypeParameters().find(var_name);
   if (it != GetCurrentVariableTypeParameters().end()) {
+    type_param = it->second;
     ZETASQL_RETURN_IF_ERROR(CheckConstraintStatus(
-        evaluator_->ApplyTypeParameterConstraints(it->second, value),
+        evaluator_->ApplyTypeParameterConstraints(type_param, value),
         assignment->expression()));
   }
-  ZETASQL_RETURN_IF_ERROR(UpdateAndCheckVariableSizeOnStackTop(
-      assignment, var_name, value->physical_byte_size()));
+
+  VariableChange var = {var_name, *value, type_param};
+  ZETASQL_RETURN_IF_ERROR(OnVariablesValueChangedWithSizeCheck(
+      /*notify_evaluator=*/true, callstack_.back(), assignment, {var},
+      MutableCurrentVariableSizes()));
   return absl::OkStatus();
 }
 
@@ -701,7 +729,6 @@ absl::Status ScriptExecutorImpl::ExecuteAssignmentFromStruct() {
                         .current_node()
                         ->ast_node()
                         ->GetAs<ASTAssignmentFromStruct>();
-
   // Build up a list of variables to assign, and make sure the same variable is
   // not being assigned to more than once.
   absl::flat_hash_set<IdString, IdStringCaseHash, IdStringCaseEqualFunc>
@@ -736,6 +763,8 @@ absl::Status ScriptExecutorImpl::ExecuteAssignmentFromStruct() {
                assignment->variables()->identifier_list().size())
       << "Wrong number of fields; type conversion should have failed in "
          "EvaluateExpression()";
+
+  std::vector<VariableChange> variable_changes;
   for (int i = 0; i < struct_value.type()->AsStruct()->num_fields(); i++) {
     const IdString& var_name =
         assignment->variables()->identifier_list()[i]->GetAsIdString();
@@ -748,15 +777,23 @@ absl::Status ScriptExecutorImpl::ExecuteAssignmentFromStruct() {
 
     // If type parameters exist for the variable, apply type parameter
     // constraints to the variable.
+    TypeParameters type_param;
     auto it = GetCurrentVariableTypeParameters().find(var_name);
     if (it != GetCurrentVariableTypeParameters().end()) {
+      type_param = it->second;
       ZETASQL_RETURN_IF_ERROR(CheckConstraintStatus(
-          evaluator_->ApplyTypeParameterConstraints(it->second, &var_value),
+          evaluator_->ApplyTypeParameterConstraints(type_param, &var_value),
           assignment->struct_expression()->child(i)));
     }
-    ZETASQL_RETURN_IF_ERROR(UpdateAndCheckVariableSizeOnStackTop(
-        assignment, var_name, var_value.physical_byte_size()));
+    ZETASQL_RETURN_IF_ERROR(UpdateAndCheckVariableSize(assignment, var_name,
+                                               var_value.physical_byte_size(),
+                                               MutableCurrentVariableSizes()));
+    VariableChange var = {var_name, var_value, type_param};
+    variable_changes.emplace_back(var);
   }
+  ZETASQL_RETURN_IF_ERROR(OnVariablesValueChangedWithoutSizeCheck(
+      /*notify_evaluator=*/true, callstack_.back(), assignment,
+      variable_changes));
   return absl::OkStatus();
 }
 
@@ -793,7 +830,7 @@ absl::Status ScriptExecutorImpl::ExecuteVariableDeclaration() {
       return MakeScriptExceptionAt(declaration->default_value())
              << "Unsupported variable type: "
              << default_value.type()->TypeName(
-                    analyzer_options_.language().product_mode());
+                    options_.language_options().product_mode());
     }
   } else {
     // The grammar forbids a DECLARE statement missing both a type and a default
@@ -805,6 +842,7 @@ absl::Status ScriptExecutorImpl::ExecuteVariableDeclaration() {
     default_value = Value::Null(type_with_params.type);
   }
 
+  std::vector<VariableChange> variable_changes;
   for (const ASTIdentifier* var_id :
        declaration->variable_list()->identifier_list()) {
     ZETASQL_RETURN_IF_ERROR(
@@ -818,15 +856,22 @@ absl::Status ScriptExecutorImpl::ExecuteVariableDeclaration() {
                           var_id->GetAsIdString(),
                           type_with_params.type_params);
     }
-    ZETASQL_RETURN_IF_ERROR(UpdateAndCheckVariableSizeOnStackTop(
-        callstack_.back().current_node()->ast_node(), var_id->GetAsIdString(),
-        default_value.physical_byte_size()));
+    ZETASQL_RETURN_IF_ERROR(UpdateAndCheckVariableSize(
+        declaration, var_id->GetAsIdString(),
+        default_value.physical_byte_size(), MutableCurrentVariableSizes()));
+    VariableChange var = {var_id->GetAsIdString(), default_value,
+                          type_with_params.type_params};
+    variable_changes.emplace_back(var);
   }
+
+  ZETASQL_RETURN_IF_ERROR(OnVariablesValueChangedWithoutSizeCheck(
+      /*notify_evaluator=*/true, callstack_.back(), declaration,
+      variable_changes));
 
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<Value> ScriptExecutorImpl::EvaluateExpression(
+absl::StatusOr<Value> ScriptExecutorImpl::EvaluateExpression(
     const ASTExpression* expr, const Type* target_type) const {
   ScriptSegment segment = SegmentForScalarExpression(expr);
   ZETASQL_ASSIGN_OR_RETURN(Value value, evaluator_->EvaluateScalarExpression(
@@ -834,7 +879,7 @@ zetasql_base::StatusOr<Value> ScriptExecutorImpl::EvaluateExpression(
   return value;
 }
 
-zetasql_base::StatusOr<bool> ScriptExecutorImpl::EvaluateCondition(
+absl::StatusOr<bool> ScriptExecutorImpl::EvaluateCondition(
     const ASTExpression* condition) const {
   ZETASQL_ASSIGN_OR_RETURN(Value value,
                    EvaluateExpression(condition, types::BoolType()));
@@ -857,7 +902,45 @@ absl::Status ScriptExecutorImpl::ExecuteWhileCondition() {
   }
 }
 
-zetasql_base::StatusOr<Value> ScriptExecutorImpl::GenerateStructValueFromRow(
+absl::Status ScriptExecutorImpl::ExecuteCaseStatement() {
+  const ASTCaseStatement* const case_stmt =
+      callstack_.back().current_node()->ast_node()->GetAs<ASTCaseStatement>();
+  if (case_stmt->expression() == nullptr) {
+    return absl::OkStatus();
+  }
+
+  // Evaluate CASE expression and WHEN conditions, fetch the index of the WHEN
+  // branch that should be entered.
+  std::vector<ScriptSegment> conditions;
+  auto when_clauses = case_stmt->when_then_clauses()->when_then_clauses();
+  conditions.reserve(when_clauses.length());
+  for (int i = 0; i < when_clauses.length(); i++) {
+    conditions.push_back(SegmentForScalarExpression(
+        when_clauses.at(i)->condition()));
+  }
+  ZETASQL_ASSIGN_OR_RETURN(
+      case_stmt_true_branch_index_,
+      evaluator_->EvaluateCaseExpression(
+          SegmentForScalarExpression(case_stmt->expression()),
+          conditions, *this));
+  // Reset WHEN branch tracker index.
+  case_stmt_current_branch_index_ = -1;
+
+  return absl::OkStatus();
+}
+
+absl::StatusOr<bool> ScriptExecutorImpl::EvaluateWhenThenClause() {
+  const ASTWhenThenClause* const when_clause =
+      callstack_.back().current_node()->ast_node()->GetAs<ASTWhenThenClause>();
+  if (when_clause->case_stmt()->expression() == nullptr) {
+    return EvaluateCondition(when_clause->condition());
+  }
+
+  case_stmt_current_branch_index_++;
+  return case_stmt_current_branch_index_ == case_stmt_true_branch_index_;
+}
+
+absl::StatusOr<Value> ScriptExecutorImpl::GenerateStructValueFromRow(
     TypeFactory* type_factory,
     const EvaluatorTableIterator& iterator,
     const StructType* struct_type) const {
@@ -892,6 +975,8 @@ absl::Status ScriptExecutorImpl::ExecuteForInStatement() {
     ScriptSegment query_segment = ScriptSegment::FromASTNode(
         CurrentScript()->script_text(),
         for_stmt->query());
+    // Placeholder value in case function exits early with error.
+    for_loop_stack->push_back(nullptr);
     ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<EvaluatorTableIterator> iterator,
       evaluator_->ExecuteQueryWithResult(*this, query_segment));
@@ -906,15 +991,18 @@ absl::Status ScriptExecutorImpl::ExecuteForInStatement() {
       ZETASQL_RET_CHECK(zetasql_base::InsertIfNotPresent(MutableCurrentVariables(),
                                         for_stmt->variable()->GetAsIdString(),
                                         variable_value));
-      ZETASQL_RETURN_IF_ERROR(UpdateAndCheckVariableSizeOnStackTop(
-          callstack_.back().current_node()->ast_node(),
-          for_stmt->variable()->GetAsIdString(),
-          variable_value.physical_byte_size()));
+      VariableChange var = {for_stmt->variable()->GetAsIdString(),
+                            variable_value, TypeParameters()};
+      ZETASQL_RETURN_IF_ERROR(OnVariablesValueChangedWithSizeCheck(
+          /*notify_evaluator=*/true, callstack_.back(),
+          callstack_.back().current_node()->ast_node(), {var},
+          MutableCurrentVariableSizes()));
 
+      for_loop_stack->pop_back();
       for_loop_stack->push_back(std::move(iterator));
-      ZETASQL_ASSIGN_OR_RETURN(int64_t iterator_memory,
-                       evaluator_->GetIteratorMemoryUsage(
-                           *for_loop_stack->back()));
+      ZETASQL_ASSIGN_OR_RETURN(
+          int64_t iterator_memory,
+          GetIteratorMemoryUsage(for_loop_stack->back().get()));
       ZETASQL_RETURN_IF_ERROR(UpdateAndCheckMemorySize(
           for_stmt, iterator_memory, /*previous_memory_size=*/ 0));
 
@@ -925,10 +1013,11 @@ absl::Status ScriptExecutorImpl::ExecuteForInStatement() {
     if (!iterator->Status().ok()) {
       return MakeScriptExceptionAt(for_stmt) << iterator->Status();
     }
+    for_loop_stack->pop_back();
     for_loop_stack->push_back(std::move(iterator));
-    ZETASQL_ASSIGN_OR_RETURN(int64_t iterator_memory,
-                     evaluator_->GetIteratorMemoryUsage(
-                         *for_loop_stack->back()));
+    ZETASQL_ASSIGN_OR_RETURN(
+        int64_t iterator_memory,
+        GetIteratorMemoryUsage(for_loop_stack->back().get()));
     ZETASQL_RETURN_IF_ERROR(UpdateAndCheckMemorySize(
         for_stmt, iterator_memory, /*previous_memory_size=*/ 0));
 
@@ -938,7 +1027,7 @@ absl::Status ScriptExecutorImpl::ExecuteForInStatement() {
     ZETASQL_RET_CHECK(!for_loop_stack->empty());
     EvaluatorTableIterator * iterator = for_loop_stack->back().get();
     ZETASQL_ASSIGN_OR_RETURN(int64_t previous_iterator_memory,
-                     evaluator_->GetIteratorMemoryUsage(*iterator));
+                     GetIteratorMemoryUsage(iterator));
 
     // If next row exists, store the row as a struct.
     if (iterator->NextRow()) {
@@ -954,13 +1043,15 @@ absl::Status ScriptExecutorImpl::ExecuteForInStatement() {
       ZETASQL_ASSIGN_OR_RETURN(*variable_value, GenerateStructValueFromRow(
           &type_factory, *iterator, variable_value->type()->AsStruct()));
 
-      ZETASQL_RETURN_IF_ERROR(UpdateAndCheckVariableSizeOnStackTop(
-          callstack_.back().current_node()->ast_node(),
-          for_stmt->variable()->GetAsIdString(),
-          variable_value->physical_byte_size()));
+      VariableChange var = {for_stmt->variable()->GetAsIdString(),
+                            *variable_value, TypeParameters()};
+      ZETASQL_RETURN_IF_ERROR(OnVariablesValueChangedWithSizeCheck(
+          /*notify_evaluator=*/true, callstack_.back(),
+          callstack_.back().current_node()->ast_node(), {var},
+          MutableCurrentVariableSizes()));
 
       ZETASQL_ASSIGN_OR_RETURN(int64_t iterator_memory,
-                       evaluator_->GetIteratorMemoryUsage(*iterator));
+                       GetIteratorMemoryUsage(iterator));
       ZETASQL_RETURN_IF_ERROR(UpdateAndCheckMemorySize(
           for_stmt, iterator_memory, previous_iterator_memory));
 
@@ -971,7 +1062,7 @@ absl::Status ScriptExecutorImpl::ExecuteForInStatement() {
       return MakeScriptExceptionAt(for_stmt) << iterator->Status();
     }
     ZETASQL_ASSIGN_OR_RETURN(int64_t iterator_memory,
-                     evaluator_->GetIteratorMemoryUsage(*iterator));
+                     GetIteratorMemoryUsage(iterator));
     ZETASQL_RETURN_IF_ERROR(UpdateAndCheckMemorySize(
         for_stmt, iterator_memory, previous_iterator_memory));
 
@@ -986,7 +1077,7 @@ absl::Status ScriptExecutorImpl::ExecuteForInStatement() {
 // Given <call_statement> calling a procedure defined <procedure_definition>,
 // verifies if passed-in OUT/INOUT argument is valid. Returns a map from
 // <passed-in variable name> to <argument_name>.
-zetasql_base::StatusOr<OutputArgumentMap> VerifyOutputArgumentsAndBuildMap(
+absl::StatusOr<OutputArgumentMap> VerifyOutputArgumentsAndBuildMap(
     const ProcedureDefinition& procedure_definition,
     const ASTCallStatement* call_statement, IdStringPool* id_string_pool) {
   OutputArgumentMap output_argument_map;
@@ -1029,7 +1120,7 @@ zetasql_base::StatusOr<OutputArgumentMap> VerifyOutputArgumentsAndBuildMap(
   return output_argument_map;
 }
 
-zetasql_base::StatusOr<Value> ScriptExecutorImpl::EvaluateProcedureArgument(
+absl::StatusOr<Value> ScriptExecutorImpl::EvaluateProcedureArgument(
     absl::string_view argument_name,
     const FunctionArgumentType& function_argument_type,
     const ASTExpression* argument_expr) {
@@ -1156,8 +1247,9 @@ absl::Status ScriptExecutorImpl::CheckAndEvaluateProcedureArguments(
     ZETASQL_ASSIGN_OR_RETURN(Value argument_value,
                      EvaluateProcedureArgument(argument_name.ToStringView(),
                                                function_argument_type, expr));
-    ZETASQL_RETURN_IF_ERROR(UpdateAndCheckVariableSize(
-        call_statement, argument_name, argument_value.physical_byte_size(),
+    VariableChange var = {argument_name, argument_value, TypeParameters()};
+    ZETASQL_RETURN_IF_ERROR(OnVariablesValueChangedWithSizeCheck(
+        /*notify_evaluator=*/false, callstack_.back(), call_statement, {var},
         variable_sizes));
     (*variables)[argument_name] = std::move(argument_value);
   }
@@ -1177,7 +1269,7 @@ absl::Status ScriptExecutorImpl::ExecuteCallStatement() {
                "Out of stack space due to deeply-nested procedure call to $0",
                path_node->ToIdentifierPathString());
   }
-  zetasql_base::StatusOr<std::unique_ptr<ProcedureDefinition>> status_or_definition =
+  absl::StatusOr<std::unique_ptr<ProcedureDefinition>> status_or_definition =
       evaluator_->LoadProcedure(*this, path_node->ToIdentifierVector());
   const absl::Status& status = status_or_definition.status();
   if (!status.ok()) {
@@ -1249,12 +1341,10 @@ absl::Status ScriptExecutorImpl::ExecuteCallStatement() {
   for (const auto& variable : variables) {
     arguments_map[variable.first] = variable.second.type();
   }
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<ParsedScript> parsed_script,
-      ParsedScript::CreateForRoutine(
-          procedure_definition->body(),
-          options_.analyzer_options().GetParserOptions(),
-          options_.analyzer_options().error_message_mode(), arguments_map));
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ParsedScript> parsed_script,
+                   ParsedScript::CreateForRoutine(
+                       procedure_definition->body(), GetParserOptions(),
+                       options_.error_message_mode(), arguments_map));
   const ControlFlowNode* start_node =
       parsed_script->control_flow_graph().start_node();
   // For empty procedure, we don't have to create a stack frame, only assign
@@ -1284,6 +1374,21 @@ absl::Status ScriptExecutorImpl::ExecuteCallStatement() {
   return absl::OkStatus();
 }
 
+absl::TimeZone ScriptExecutorImpl::time_zone() const { return time_zone_; }
+
+absl::Status ScriptExecutorImpl::UpdateAnalyzerOptions(
+    AnalyzerOptions& analyzer_options) const {
+  analyzer_options.set_default_time_zone(time_zone_);
+  for (const auto& system_variable : system_variables_) {
+    ZETASQL_RETURN_IF_ERROR(analyzer_options.AddSystemVariable(
+        system_variable.first, system_variable.second.type()))
+        << "Failed to add system variable "
+        << absl::StrJoin(system_variable.first, ".") << "("
+        << system_variable.second.type()->DebugString() << ")";
+  }
+  return UpdateAnalyzerOptionParameters(&analyzer_options);
+}
+
 absl::Status ScriptExecutorImpl::UpdateAnalyzerOptionParameters(
     AnalyzerOptions* options) const {
   if (GetCurrentParameterValues().has_value()) {
@@ -1307,7 +1412,7 @@ absl::Status ScriptExecutorImpl::UpdateAnalyzerOptionParameters(
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<
+absl::StatusOr<
     std::optional<absl::variant<ParameterValueList, ParameterValueMap>>>
 ScriptExecutorImpl::EvaluateDynamicParams(
     const ASTExecuteUsingClause* using_clause,
@@ -1339,9 +1444,11 @@ ScriptExecutorImpl::EvaluateDynamicParams(
                << "EXECUTE IMMEDIATE USING parameters must be all positional "
                   "or all named.";
       }
-      ZETASQL_RETURN_IF_ERROR(UpdateAndCheckVariableSize(
-          using_arg->expression(), using_arg->alias()->GetAsIdString(),
-          param_value.physical_byte_size(), variable_sizes_map));
+      VariableChange var = {using_arg->alias()->GetAsIdString(), param_value,
+                            TypeParameters()};
+      ZETASQL_RETURN_IF_ERROR(OnVariablesValueChangedWithSizeCheck(
+          /*notify_evaluator=*/true, callstack_.back(),
+          using_arg->expression(), {var}, variable_sizes_map));
       std::string param_name =
           absl::AsciiStrToLower(using_arg->alias()->GetAsString());
       // Params must be all unique (map::insert will return true in its second
@@ -1362,9 +1469,11 @@ ScriptExecutorImpl::EvaluateDynamicParams(
       }
       // TODO: Use better name when reporting positional parameter
       // size error
-      ZETASQL_RETURN_IF_ERROR(UpdateAndCheckVariableSize(
-          using_arg->expression(), IdString::MakeGlobal("positional parameter"),
-          param_value.physical_byte_size(), variable_sizes_map));
+      VariableChange var = {IdString::MakeGlobal("positional parameter"),
+                            param_value, TypeParameters()};
+      ZETASQL_RETURN_IF_ERROR(OnVariablesValueChangedWithSizeCheck(
+          /*notify_evaluator=*/true, callstack_.back(),
+          using_arg->expression(), {var}, variable_sizes_map));
       absl::get<ParameterValueList>(*stack_params).push_back(param_value);
     }
   }
@@ -1407,17 +1516,14 @@ absl::Status ScriptExecutorImpl::ExecuteDynamicIntoStatement(
     ZETASQL_RET_CHECK(it != variables->end());
     Value* value = &it->second;
     if (has_row) {
-      Coercer coercer(type_factory_, analyzer_options_.default_time_zone(),
-                      &options_.analyzer_options().language());
+      Coercer coercer(type_factory_, time_zone_, &options_.language_options());
       SignatureMatchResult unused;
       if (coercer.AssignableTo(InputArgumentType(iterator->GetValue(i).type()),
                                value->type(),
                                /*is_explicit=*/false, &unused)) {
-        ZETASQL_ASSIGN_OR_RETURN(
-            *value,
-            CastValue(iterator->GetValue(i),
-                      analyzer_options_.default_time_zone(),
-                      options_.analyzer_options().language(), value->type()));
+        ZETASQL_ASSIGN_OR_RETURN(*value,
+                         CastValue(iterator->GetValue(i), time_zone_,
+                                   options_.language_options(), value->type()));
       } else {
         // Because we're currently in the dynamic SQL stack frame, we cannot
         // reference the AST Node of the original variable ID, so just indicate
@@ -1436,15 +1542,21 @@ absl::Status ScriptExecutorImpl::ExecuteDynamicIntoStatement(
 
     // If type parameters exist for the variable, apply type parameter
     // constraints to the variable.
+    TypeParameters type_params;
     auto param_it = variable_type_params.find(into_ids[i]->GetAsIdString());
     if (param_it != variable_type_params.end()) {
+      type_params = param_it->second;
       ZETASQL_RETURN_IF_ERROR(CheckConstraintStatus(
-          evaluator_->ApplyTypeParameterConstraints(param_it->second, value),
+          evaluator_->ApplyTypeParameterConstraints(type_params, value),
           curr_ast_node));
     }
-    absl::Status variable_size_result = UpdateAndCheckVariableSize(
-        into_ids[i], into_ids[i]->GetAsIdString(), value->physical_byte_size(),
-        variable_sizes_map);
+    // Use the previous stack frame since the variables for INTO statement need
+    // to be defined at least one level up.
+    ZETASQL_RET_CHECK(callstack_.size() >= 2);
+    VariableChange var = {into_ids[i]->GetAsIdString(), *value, type_params};
+    absl::Status variable_size_result = OnVariablesValueChangedWithSizeCheck(
+        /*notify_evaluator=*/true, callstack_[callstack_.size() - 2],
+        into_ids[i], {var}, variable_sizes_map);
     if (!variable_size_result.ok()) {
       // We don't want to advance past the current statement here, as otherwise
       // the script will report an error past the DynamicSQL statement.
@@ -1535,10 +1647,11 @@ absl::Status ScriptExecutorImpl::ExecuteDynamicStatement() {
   std::string sql_string = sql_value.string_value();
   auto procedure_definition =
       absl::make_unique<ProcedureDefinition>(signature, sql_string);
-  zetasql_base::StatusOr<std::unique_ptr<ParsedScript>> parsed_script_or_error =
-      ParsedScript::Create(procedure_definition->body(),
-                           options_.analyzer_options().GetParserOptions(),
-                           options_.analyzer_options().error_message_mode());
+  absl::StatusOr<std::unique_ptr<ParsedScript>> parsed_script_or_error =
+      ParsedScript::Create(
+          procedure_definition->body(), GetParserOptions(),
+          options_.error_message_mode(),
+          /*predefined_variable_names=*/options_.script_variables());
   if (!parsed_script_or_error.ok()) {
     return MakeScriptExceptionAt(execute_immediate_statement->sql())
            << "Invalid EXECUTE IMMEDIATE sql string `" << sql_string << "`, "
@@ -1592,10 +1705,10 @@ absl::Status ScriptExecutorImpl::ExecuteDynamicStatement() {
                           ->identifiers()
                           ->identifier_list();
       StackFrameImpl* parent_frame = GetMutableParentStackFrame();
-      VariableMap* variables = parent_frame->mutable_variables();
+      const VariableMap& variables = parent_frame->variables();
       for (int i = 0; i < into_ids.size(); ++i) {
-        auto it = variables->find(into_ids[i]->GetAsIdString());
-        ZETASQL_RET_CHECK(it != variables->end());
+        auto it = variables.find(into_ids[i]->GetAsIdString());
+        ZETASQL_RET_CHECK(it != variables.end());
       }
       absl::Status into_result = ExecuteDynamicIntoStatement(
           execute_immediate_statement->into_clause());
@@ -1652,7 +1765,7 @@ absl::Status ScriptExecutorImpl::ValidateVariablesOnSetState(
       }
     } else if (zetasql_base::ContainsKey(arguments, var_name)) {
       type_at_creation = zetasql_base::EraseKeyReturnValuePtr(&arguments, var_name);
-    } else {
+    } else if (!predefined_variable_names_.contains(var_name)) {
       ZETASQL_RET_CHECK_FAIL() << "ScriptExecutorImpl::SetState(): Variable "
                        << var_name.ToString() << " not in scope";
     }
@@ -1660,7 +1773,7 @@ absl::Status ScriptExecutorImpl::ValidateVariablesOnSetState(
     // applies for variables which automatically infer their types from the
     // default value expression, or for struct-type variables whose fields
     // are determined by a query result, or for ANY TYPE procedure
-    // arguments.
+    // arguments, or the predefined variables declared outside of the script.
     if (type_at_creation != nullptr) {
       ZETASQL_RET_CHECK(type_at_creation->Equivalent(new_variable_value.type()))
           << "ScriptExecutorImpl::SetState(): Variable " << var_name.ToString()
@@ -1678,6 +1791,12 @@ absl::Status ScriptExecutorImpl::ValidateVariablesOnSetState(
   return absl::OkStatus();
 }
 
+ParserOptions ScriptExecutorImpl::GetParserOptions() const {
+  ParserOptions parser_options;
+  parser_options.set_language_options(&options_.language_options());
+  return parser_options;
+}
+
 absl::Status ScriptExecutorImpl::SetState(
     const ScriptExecutorStateProto& state) {
   ZETASQL_RETURN_IF_ERROR(Reset());
@@ -1691,18 +1810,19 @@ absl::Status ScriptExecutorImpl::SetState(
   system_variables_[{kTimeZoneSystemVarName}] = Value::String(state.timezone());
   absl::TimeZone timezone;
   if (absl::LoadTimeZone(state.timezone(), &timezone)) {
-    analyzer_options_.set_default_time_zone(timezone);
+    time_zone_ = timezone;
   } else {
-    // Unable to load timezone from state proto - fall back to default analyzer
-    // options.  This can happen if we are restoring from an older version of
+    // Unable to load timezone from state proto - fall back to default time
+    // zone.  This can happen if we are restoring from an older version of
     // ScriptExecutorStateProto, which did not persist timezone values.
     ZETASQL_LOG_IF(WARNING, !state.timezone().empty())
         << "Unable to load timezone '" << state.timezone()
         << "' from state proto; using default timezone instead: "
-        << options_.analyzer_options().default_time_zone().name();
-    analyzer_options_.set_default_time_zone(
-        options_.analyzer_options().default_time_zone());
+        << options_.default_time_zone().name();
+    time_zone_ = options_.default_time_zone();
   }
+  case_stmt_true_branch_index_ = state.case_stmt_true_branch_index();
+  case_stmt_current_branch_index_ = state.case_stmt_current_branch_index();
 
   std::vector<const google::protobuf::DescriptorPool*> pools;
   std::vector<StackFrameImpl> new_callstack;
@@ -1750,12 +1870,10 @@ absl::Status ScriptExecutorImpl::SetState(
         arguments_map[id_string_pool->Make(argument_name)] =
             procedure_definition->signature().arguments().at(i).type();
       }
-      ZETASQL_ASSIGN_OR_RETURN(
-          parsed_script,
-          ParsedScript::CreateForRoutine(
-              procedure_definition->body(),
-              options_.analyzer_options().GetParserOptions(),
-              options_.analyzer_options().error_message_mode(), arguments_map));
+      ZETASQL_ASSIGN_OR_RETURN(parsed_script,
+                       ParsedScript::CreateForRoutine(
+                           procedure_definition->body(), GetParserOptions(),
+                           options_.error_message_mode(), arguments_map));
     } else {
       ZETASQL_RET_CHECK_EQ(new_callstack.size(), 0)
           << "Procedure definition is missing";
@@ -1830,7 +1948,7 @@ absl::Status ScriptExecutorImpl::SetState(
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<ScriptExecutorStateProto> ScriptExecutorImpl::GetState() const {
+absl::StatusOr<ScriptExecutorStateProto> ScriptExecutorImpl::GetState() const {
   ScriptExecutorStateProto state_proto;
   FileDescriptorSetMap file_descriptor_set_map;
   for (const StackFrameImpl& stack_frame : callstack_) {
@@ -1860,8 +1978,10 @@ zetasql_base::StatusOr<ScriptExecutorStateProto> ScriptExecutorImpl::GetState() 
     }
     for (const std::unique_ptr<EvaluatorTableIterator>& it
              : stack_frame.for_loop_stack()) {
-      ZETASQL_RETURN_IF_ERROR(evaluator_->SerializeIterator(
-          *it, *stack_frame_proto->add_for_loop_stack()));
+      if (it != nullptr) {
+        ZETASQL_RETURN_IF_ERROR(evaluator_->SerializeIterator(
+            *it, *stack_frame_proto->add_for_loop_stack()));
+      }
     }
   }
   for (const ScriptException& exception : pending_exceptions_) {
@@ -1871,6 +1991,9 @@ zetasql_base::StatusOr<ScriptExecutorStateProto> ScriptExecutorImpl::GetState() 
        triggered_features_) {
     state_proto.add_triggered_features(triggered_feature);
   }
+  state_proto.set_case_stmt_true_branch_index(case_stmt_true_branch_index_);
+  state_proto.set_case_stmt_current_branch_index(
+      case_stmt_current_branch_index_);
   state_proto.set_timezone(
       system_variables_.at({kTimeZoneSystemVarName}).string_value());
   return state_proto;
@@ -1893,7 +2016,7 @@ absl::Status ScriptExecutorImpl::ResetIteratorSizes(
     const std::vector<std::unique_ptr<EvaluatorTableIterator>>& iterator_vec) {
   for (const std::unique_ptr<EvaluatorTableIterator>& iterator : iterator_vec) {
     ZETASQL_ASSIGN_OR_RETURN(int64_t iterator_memory,
-                     evaluator_->GetIteratorMemoryUsage(*iterator));
+                     GetIteratorMemoryUsage(iterator.get()));
     ZETASQL_RETURN_IF_ERROR(UpdateAndCheckMemorySize(
         node, iterator_memory, /*previous_memory_size=*/ 0));
   }
@@ -1901,7 +2024,7 @@ absl::Status ScriptExecutorImpl::ResetIteratorSizes(
 }
 
 std::string ScriptExecutorImpl::CallStackDebugString(bool verbose) const {
-  zetasql_base::StatusOr<std::vector<StackFrameTrace>> status_or_stack_trace =
+  absl::StatusOr<std::vector<StackFrameTrace>> status_or_stack_trace =
       StackTrace();
   if (!status_or_stack_trace.ok()) {
     return absl::StrCat("Error fetching stack trace: ",
@@ -1964,7 +2087,7 @@ std::string ScriptExecutorImpl::VariablesDebugString() const {
       type_name = variable.second.type()
                       ->TypeNameWithParameters(it->second,
                                                LanguageOptions().product_mode())
-                      .ValueOrDie();
+                      .value();
     } else {
       type_name = variable.second.type()->DebugString();
     }
@@ -2021,7 +2144,7 @@ absl::string_view ScriptExecutorImpl::GetCurrentStackFrameName() const {
   }
 }
 
-zetasql_base::StatusOr<std::vector<StackFrameTrace>> ScriptExecutorImpl::StackTrace()
+absl::StatusOr<std::vector<StackFrameTrace>> ScriptExecutorImpl::StackTrace()
     const {
   std::vector<StackFrameTrace> stack_trace;
   if (IsComplete()) {
@@ -2123,9 +2246,15 @@ absl::Status ScriptExecutorImpl::AssignOutArguments(
     ZETASQL_ASSIGN_OR_RETURN(
         Value to_value,
         CastValueToType(from_value_iter->second, to_value_iter->second.type()));
-    ZETASQL_RETURN_IF_ERROR(UpdateAndCheckVariableSize(
-        frame_return_to->current_node()->ast_node(), passed_in_variable,
-        to_value.physical_byte_size(),
+
+    // Use the previous stack frame since the variables for OUT arguments need
+    // to be defined at least one level up or at the root level.
+    int64_t var_declaration_stack =
+        callstack_.size() >= 2 ? callstack_.size() - 2 : 0;
+    VariableChange var = {passed_in_variable, to_value, TypeParameters()};
+    ZETASQL_RETURN_IF_ERROR(OnVariablesValueChangedWithSizeCheck(
+        /*notify_evaluator=*/true, callstack_[var_declaration_stack],
+        frame_return_to->current_node()->ast_node(), {var},
         frame_return_to->mutable_variable_sizes()));
     to_value_iter->second = to_value;
   }
@@ -2156,17 +2285,15 @@ bool ScriptExecutorImpl::CoercesTo(const Type* from_type,
                                    const Type* to_type) const {
   TypeFactory type_factory;
   SignatureMatchResult unused;
-  Coercer coercer(&type_factory,
-                  options_.analyzer_options().default_time_zone(),
-                  &options_.analyzer_options().language());
+  Coercer coercer(&type_factory, time_zone_, &options_.language_options());
   return coercer.CoercesTo(InputArgumentType(from_type), to_type,
                            /*is_explicit=*/false, &unused);
 }
 
-zetasql_base::StatusOr<Value> ScriptExecutorImpl::CastValueToType(
+absl::StatusOr<Value> ScriptExecutorImpl::CastValueToType(
     const Value& from_value, const Type* to_type) const {
-  return CastValue(from_value, options_.analyzer_options().default_time_zone(),
-                   LanguageOptions(), to_type);
+  return CastValue(from_value, time_zone_, options_.language_options(),
+                   to_type);
 }
 
 ScriptSegment ScriptExecutorImpl::SegmentForScalarExpression(
@@ -2177,7 +2304,7 @@ ScriptSegment ScriptExecutorImpl::SegmentForScalarExpression(
   return ScriptSegment::FromASTNode(CurrentScript()->script_text(), expr);
 }
 
-zetasql_base::StatusOr<bool> ScriptExecutorImpl::CheckIfExceptionHandled() const {
+absl::StatusOr<bool> ScriptExecutorImpl::CheckIfExceptionHandled() const {
   for (auto frame_it = callstack_.rbegin();
        frame_it != callstack_.rend(); ++frame_it) {
     const StackFrame& stack_frame = *frame_it;
@@ -2244,7 +2371,7 @@ absl::Status ScriptExecutorImpl::ExecuteSideEffects(
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<bool> ScriptExecutorImpl::UpdateCurrentLocation(
+absl::StatusOr<bool> ScriptExecutorImpl::UpdateCurrentLocation(
     const ControlFlowEdge& edge) {
   if (edge.successor()->ast_node() == nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(const ASTStatement* call_stmt,
@@ -2310,8 +2437,9 @@ absl::Status ScriptExecutorImpl::AdvancePastCurrentStatement(
   }
   return AdvanceInternal(ControlFlowEdge::Kind::kNormal);
 }
+
 absl::Status ScriptExecutorImpl::AdvancePastCurrentCondition(
-    const zetasql_base::StatusOr<bool>& condition_value) {
+    const absl::StatusOr<bool>& condition_value) {
   if (!condition_value.ok()) {
     return MaybeDispatchException(condition_value.status());
   }
@@ -2326,6 +2454,7 @@ absl::Status ScriptExecutorImpl::AdvancePastCurrentCondition(
                              ? ControlFlowEdge::Kind::kTrueCondition
                              : ControlFlowEdge::Kind::kFalseCondition);
 }
+
 absl::Status ScriptExecutorImpl::MaybeDispatchException(
     const absl::Status& status) {
   // In dry runs, any exception indicates that the script has failed validation.
@@ -2344,6 +2473,7 @@ absl::Status ScriptExecutorImpl::MaybeDispatchException(
   }
   return status;
 }
+
 absl::Status ScriptExecutorImpl::RethrowException(
     const ScriptException& exception) {
   ZETASQL_ASSIGN_OR_RETURN(bool handled, CheckIfExceptionHandled());
@@ -2352,7 +2482,43 @@ absl::Status ScriptExecutorImpl::RethrowException(
   }
   return MakeScriptException(exception) << exception.message();
 }
+
 absl::Status ScriptExecutorImpl::EnterBlock() {
   return AdvanceInternal(ControlFlowEdge::Kind::kNormal);
+}
+
+absl::Status ScriptExecutorImpl::SetPredefinedVariables(
+    const VariableWithTypeParameterMap& variables) {
+  if (variables.empty()) {
+    return absl::OkStatus();
+  }
+
+  // Make sure the current stack frame is the main script.
+  ZETASQL_RET_CHECK_EQ(callstack_.size(), 1)
+      << "Can't set variables to a non-main script stack frame.";
+  // Make sure the current node is the start node.
+  const StackFrameImpl& current_frame = callstack_.front();
+  const ControlFlowNode* start_cfg_node =
+      current_frame.parsed_script()->control_flow_graph().start_node();
+  ZETASQL_RET_CHECK_EQ(start_cfg_node, current_frame.current_node())
+      << "Can't set variables if the script is already in progress.";
+
+  VariableMap new_variables;
+  VariableTypeParametersMap new_variable_type_params;
+  predefined_variable_names_.clear();
+  for (const auto& it : variables) {
+    predefined_variable_names_.insert(it.first);
+    new_variables.insert_or_assign(it.first, it.second.value);
+    new_variable_type_params.insert_or_assign(it.first, it.second.type_params);
+  }
+  VariableSizesMap new_variable_sizes;
+  ZETASQL_RETURN_IF_ERROR(ResetVariableSizes(start_cfg_node->ast_node(), new_variables,
+                                     &new_variable_sizes));
+
+  *MutableCurrentVariables() = std::move(new_variables);
+  *MutableCurrentVariableSizes() = std::move(new_variable_sizes);
+  *MutableCurrentVariableTypeParameters() = std::move(new_variable_type_params);
+
+  return absl::OkStatus();
 }
 }  // namespace zetasql

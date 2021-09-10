@@ -17,20 +17,19 @@
 #include "zetasql/public/collator.h"
 
 #include <cstdint>
+#include <string>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_format.h"
 
 namespace zetasql {
 using ::zetasql_base::testing::StatusIs;
-enum class CompareType {
-  kCompare
-};
+enum class CompareType { kSortKey, kCompare };
 
 class CollatorTest : public ::testing::TestWithParam<CompareType> {
  protected:
@@ -43,6 +42,13 @@ class CollatorTest : public ::testing::TestWithParam<CompareType> {
         ZETASQL_EXPECT_OK(error);
         EXPECT_EQ(0, collator->CompareUtf8(s2, s1, &error)) << s2 << "==" << s1;
         ZETASQL_EXPECT_OK(error);
+        break;
+      }
+      case CompareType::kSortKey: {
+        absl::Cord c1, c2;
+        ZETASQL_EXPECT_OK(collator->GetSortKeyUtf8(s1, &c1));
+        ZETASQL_EXPECT_OK(collator->GetSortKeyUtf8(s2, &c2));
+        EXPECT_EQ(c1, c2) << s1 << "==" << s2;
         break;
       }
     }
@@ -59,6 +65,15 @@ class CollatorTest : public ::testing::TestWithParam<CompareType> {
         ZETASQL_EXPECT_OK(error);
         break;
       }
+
+      case CompareType::kSortKey: {
+        absl::Cord c1, c2;
+        ZETASQL_EXPECT_OK(collator->GetSortKeyUtf8(s1, &c1));
+        ZETASQL_EXPECT_OK(collator->GetSortKeyUtf8(s2, &c2));
+        EXPECT_LT(std::string(c1).compare(std::string(c2)), 0)
+            << s1 << "<" << s2;
+        break;
+      }
     }
   }
 };
@@ -66,7 +81,7 @@ class CollatorTest : public ::testing::TestWithParam<CompareType> {
 TEST_P(CollatorTest, MakeSqlCollator) {
   const std::vector<std::string> valid_collation_names = {
       "unicode", "en", "zh-cmn", "en_US", "zh_Hans_HK", "zh_Hant_HK",
-      "de@collation=phonebook",
+      "de@collation=phonebook", "binary",
       // Collation names are case insensitive.
       "EN", "EN_us",
       // Collation names with attributes.
@@ -80,6 +95,11 @@ TEST_P(CollatorTest, MakeSqlCollator) {
 
 TEST_P(CollatorTest, MakeSqlCollatorErrors) {
   EXPECT_THAT(MakeSqlCollator(":cs"), StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(MakeSqlCollator("binary:cs"),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(MakeSqlCollator("binary:ci"),
+              StatusIs(absl::StatusCode::kOutOfRange));
+
   EXPECT_THAT(MakeSqlCollator("en_US:nonsense_case"),
               StatusIs(absl::StatusCode::kOutOfRange));
   EXPECT_THAT(MakeSqlCollator("en_US:cs:extra_attr"),
@@ -91,15 +111,16 @@ TEST_P(CollatorTest, Comparison) {
 
   // Comparison with "unicode" collation. Is same as the comparison with no
   // collation.
-  collator = MakeSqlCollator("unicode").value();
-  ASSERT_NE(collator.get(), nullptr);
-  TestEquals("\u205abc", "\u205abc", collator.get());
-  TestLessThan("", "a", collator.get());
-  TestLessThan("B", "a", collator.get());
-  TestLessThan("a", "aa", collator.get());
-  TestLessThan("@", "a", collator.get());
-  TestLessThan("Case sensitive", "case sensitive", collator.get());
-
+  for (auto name : {"unicode", "binary"}) {
+    collator = MakeSqlCollator(name).value();
+    ASSERT_NE(collator.get(), nullptr);
+    TestEquals("\u205abc", "\u205abc", collator.get());
+    TestLessThan("", "a", collator.get());
+    TestLessThan("B", "a", collator.get());
+    TestLessThan("a", "aa", collator.get());
+    TestLessThan("@", "a", collator.get());
+    TestLessThan("Case sensitive", "case sensitive", collator.get());
+  }
   // Comparison with "unicode:ci" collation.
   collator = MakeSqlCollator("unicode:ci").value();
   ASSERT_NE(collator.get(), nullptr);
@@ -169,6 +190,95 @@ TEST_P(CollatorTest, Comparison) {
 
 INSTANTIATE_TEST_SUITE_P(CollatorTest, CollatorTest,
                          ::testing::Values(
+                             CompareType::kSortKey,
                              CompareType::kCompare));
+
+void TestLegacyUnicodeModeIsConstructErr(absl::string_view collation_name,
+                                         CollatorLegacyUnicodeMode mode) {
+  absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>> collator =
+      MakeSqlCollator(collation_name, mode);
+  EXPECT_EQ(collator.ok(), false) << collator.status();
+}
+
+void TestLegacyUnicodeMode(absl::string_view collation_name,
+                           CollatorLegacyUnicodeMode mode,
+                           bool expect_is_binary, bool expect_has_icu,
+                           bool expect_collated_compare,
+                           bool expect_sort_key_ok) {
+  absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>> collator =
+      MakeSqlCollator(collation_name, mode);
+  ZETASQL_EXPECT_OK(collator);
+  EXPECT_EQ(expect_is_binary, (*collator)->IsBinaryComparison());
+  EXPECT_EQ(expect_has_icu, (*collator)->GetIcuCollator() != nullptr);
+
+  absl::Status status;
+  if (expect_collated_compare) {
+    EXPECT_GT(0, (*collator)->CompareUtf8("ä", "z", &status));
+  } else {
+    EXPECT_LT(0, (*collator)->CompareUtf8("ä", "z", &status));
+  }
+  ZETASQL_EXPECT_OK(status);
+
+  absl::Cord ignore;
+  absl::Status sort_key_status = (*collator)->GetSortKeyUtf8("", &ignore);
+  EXPECT_EQ(expect_sort_key_ok, sort_key_status.ok()) << sort_key_status;
+  if (expect_sort_key_ok) {
+    absl::Cord a_umlaut_sort_key;
+    absl::Cord z_sort_key;
+    ZETASQL_ASSERT_OK((*collator)->GetSortKeyUtf8("ä", &a_umlaut_sort_key));
+    ZETASQL_ASSERT_OK((*collator)->GetSortKeyUtf8("z", &z_sort_key));
+    if (expect_has_icu) {
+      EXPECT_GT(0, a_umlaut_sort_key.Compare(z_sort_key));
+    } else {
+      EXPECT_LT(0, a_umlaut_sort_key.Compare(z_sort_key));
+    }
+  }
+}
+
+TEST_F(CollatorTest, LegacyUnicodeModes) {
+  constexpr bool kIsBinary = true;
+  constexpr bool kNotBinary = false;
+  constexpr bool kHasIcu = true;
+  constexpr bool kNoIcu = false;
+  constexpr bool kCollatedCompare = true;
+  constexpr bool kCodepointCompare = false;
+  constexpr bool kSortKeyOk = true;
+
+  auto TestIsErr = TestLegacyUnicodeModeIsConstructErr;
+  auto Test = TestLegacyUnicodeMode;
+  // clang-format off
+  // binary is supported by everything.
+  Test("binary", CollatorLegacyUnicodeMode::kError,
+       kIsBinary, kNoIcu, kCodepointCompare, kSortKeyOk);
+  Test("binary", CollatorLegacyUnicodeMode::kLegacyIcuOnly,
+       kIsBinary, kNoIcu, kCodepointCompare, kSortKeyOk);
+
+
+  // unicode is always the same as binary, except for kError
+  TestIsErr("unicode", CollatorLegacyUnicodeMode::kError);
+  Test("unicode", CollatorLegacyUnicodeMode::kLegacyIcuOnly,
+       kIsBinary, kNoIcu, kCodepointCompare, kSortKeyOk);
+
+
+  // This is a synonym for 'unicode' in every way.
+  TestIsErr("unicode:cs", CollatorLegacyUnicodeMode::kError);
+  Test("unicode:cs", CollatorLegacyUnicodeMode::kLegacyIcuOnly,
+       kIsBinary, kNoIcu, kCodepointCompare, kSortKeyOk);
+
+
+  // This is the weird case
+  TestIsErr("unicode:ci", CollatorLegacyUnicodeMode::kError);
+  Test("unicode:ci", CollatorLegacyUnicodeMode::kLegacyIcuOnly,
+       kNotBinary, kHasIcu, kCollatedCompare, kSortKeyOk);
+
+
+  // Normal case, should perform the same in all cases
+  Test("und", CollatorLegacyUnicodeMode::kError,
+       kNotBinary, kHasIcu, kCollatedCompare, kSortKeyOk);
+  Test("und", CollatorLegacyUnicodeMode::kLegacyIcuOnly,
+       kNotBinary, kHasIcu, kCollatedCompare, kSortKeyOk);
+
+  // clang-format on
+}
 
 }  // namespace zetasql

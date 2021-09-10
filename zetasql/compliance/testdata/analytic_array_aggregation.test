@@ -1,8 +1,8 @@
 # ARRAY_AGG queries with nulls
 
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB]
-[load_enum_names=zetasql_test.TestEnum]
+[load_proto_names=zetasql_test__.KitchenSinkPB]
+[load_enum_names=zetasql_test__.TestEnum]
 [default required_features=ANALYTIC_FUNCTIONS]
 [name=array_agg_with_null_BOOL_analytic]
 SELECT ARRAY_AGG(elem) OVER()
@@ -327,22 +327,22 @@ ARRAY<STRUCT<ARRAY<>>>[
 ==
 [name=array_agg_with_null_enum_analytic]
 SELECT ARRAY_AGG(elem) OVER(PARTITION BY elem)
-FROM UNNEST(ARRAY<zetasql_test.TestEnum>[
+FROM UNNEST(ARRAY<zetasql_test__.TestEnum>[
     "TESTENUM0", "TESTENUM1", "TESTENUM0", "TESTENUM2", "TESTENUM2"]) elem;
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM0, TESTENUM0]},
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM0, TESTENUM0]},
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM1]},
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM2, TESTENUM2]},
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM2, TESTENUM2]}
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM0]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM0]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM1]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM2, TESTENUM2]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM2, TESTENUM2]}
 ]
 ==
 [name=array_agg_with_null_proto_analytic]
 SELECT ARRAY_AGG(elem)
   OVER(PARTITION BY elem.int64_key_1 ORDER BY elem.int_with_no_default_nullable
      ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING)
-FROM UNNEST(ARRAY<`zetasql_test.KitchenSinkPB`>[
+FROM UNNEST(ARRAY<`zetasql_test__.KitchenSinkPB`>[
   '''
     int64_key_1: 0
     int64_key_2: 100
@@ -378,7 +378,7 @@ FROM UNNEST(ARRAY<`zetasql_test.KitchenSinkPB`>[
   ''']) elem;
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 0
        int64_key_2: 100
@@ -389,7 +389,7 @@ ARRAY<STRUCT<ARRAY<>>>[
        int_with_no_default_nullable: -10
      }
    ]},
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 0
        int64_key_2: 100
@@ -401,7 +401,7 @@ ARRAY<STRUCT<ARRAY<>>>[
        int_with_no_default_nullable: 0
      }
    ]},
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 0
        int64_key_2: 100
@@ -413,14 +413,14 @@ ARRAY<STRUCT<ARRAY<>>>[
        int_with_no_default_nullable: 10
      }
    ]},
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 0
        int64_key_2: 100
        int_with_no_default_nullable: 10
      }
    ]},
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 2
        int64_key_2: 102
@@ -432,14 +432,14 @@ ARRAY<STRUCT<ARRAY<>>>[
        int_with_no_default_nullable: 10
      }
    ]},
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 2
        int64_key_2: 102
        int_with_no_default_nullable: 10
      }
    ]},
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 3
        int64_key_2: 103
@@ -828,22 +828,22 @@ ARRAY<STRUCT<ARRAY<>>>[
 ==
 [name=array_agg_without_null_enum_analytic]
 SELECT ARRAY_AGG(elem) OVER(PARTITION BY elem)
-FROM UNNEST(ARRAY<zetasql_test.TestEnum>[
+FROM UNNEST(ARRAY<zetasql_test__.TestEnum>[
     "TESTENUM0", "TESTENUM1", "TESTENUM0", "TESTENUM2", "TESTENUM2"]) elem;
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM0, TESTENUM0]},
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM0, TESTENUM0]},
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM1]},
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM2, TESTENUM2]},
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM2, TESTENUM2]}
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM0]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM0]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM1]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM2, TESTENUM2]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM2, TESTENUM2]}
 ]
 ==
 [name=array_agg_without_null_proto_analytic]
 SELECT ARRAY_AGG(elem)
   OVER(PARTITION BY elem.int64_key_1 ORDER BY elem.int_with_no_default_nullable
      ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING)
-FROM UNNEST(ARRAY<`zetasql_test.KitchenSinkPB`>[
+FROM UNNEST(ARRAY<`zetasql_test__.KitchenSinkPB`>[
   '''
     int64_key_1: 0
     int64_key_2: 100
@@ -879,7 +879,7 @@ FROM UNNEST(ARRAY<`zetasql_test.KitchenSinkPB`>[
   ''']) elem;
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 0
        int64_key_2: 100
@@ -890,7 +890,7 @@ ARRAY<STRUCT<ARRAY<>>>[
        int_with_no_default_nullable: -10
      }
    ]},
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 0
        int64_key_2: 100
@@ -902,7 +902,7 @@ ARRAY<STRUCT<ARRAY<>>>[
        int_with_no_default_nullable: 0
      }
    ]},
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 0
        int64_key_2: 100
@@ -914,14 +914,14 @@ ARRAY<STRUCT<ARRAY<>>>[
        int_with_no_default_nullable: 10
      }
    ]},
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 0
        int64_key_2: 100
        int_with_no_default_nullable: 10
      }
    ]},
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 2
        int64_key_2: 102
@@ -933,14 +933,14 @@ ARRAY<STRUCT<ARRAY<>>>[
        int_with_no_default_nullable: 10
      }
    ]},
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 2
        int64_key_2: 102
        int_with_no_default_nullable: 10
      }
    ]},
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 3
        int64_key_2: 103

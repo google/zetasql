@@ -39,7 +39,7 @@
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.h"
 #include "zetasql/base/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 
@@ -113,7 +113,9 @@ class {{node.name}} {{node.class_final}} : public {{node.parent}} {
 
 # endif
 # if node.fields
-  absl::Status CheckFieldsAccessed() const {{node.override_or_final}};
+  absl::Status CheckFieldsAccessedImpl(const ResolvedNode* root) const
+      {{node.override_or_final}};
+  absl::Status CheckNoFieldsAccessed() const {{node.override_or_final}};
   void ClearFieldsAccessed() const {{node.override_or_final}};
   void MarkFieldsAccessed() const {{node.override_or_final}};
 
@@ -145,7 +147,7 @@ class {{node.name}} {{node.class_final}} : public {{node.parent}} {
       {{node.proto_field_type}}* proto) const = 0;
 # endif
 
-  static zetasql_base::StatusOr<std::unique_ptr<{{node.name}}>> RestoreFrom(
+  static absl::StatusOr<std::unique_ptr<{{node.name}}>> RestoreFrom(
       const {{node.proto_field_type}}& proto,
       const ResolvedNode::RestoreParams& params);
 

@@ -34,7 +34,7 @@
 #include <cstdint>  
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 
@@ -281,6 +281,7 @@ TEST(JSONValueTest, ObjectValue) {
   EXPECT_FALSE(ref.IsString());
   EXPECT_FALSE(ref.IsNumber());
 
+  EXPECT_EQ(ref.GetObjectSize(), 1);
   EXPECT_TRUE(ref.HasMember(kKey));
   EXPECT_FALSE(ref.HasMember(kWrongKey));
 
@@ -323,10 +324,12 @@ TEST(JSONValueTest, EmptyObjectValue) {
   EXPECT_FALSE(ref.IsString());
   EXPECT_FALSE(ref.IsNumber());
 
+  EXPECT_EQ(ref.GetObjectSize(), 0);
   EXPECT_THAT(ref.GetMembers(), IsEmpty());
 
   JSONValueRef member_ref = ref.GetMember(kKey);
 
+  EXPECT_EQ(ref.GetObjectSize(), 1);
   EXPECT_TRUE(ref.HasMember(kKey));
   EXPECT_FALSE(ref.HasMember(kWrongKey));
   EXPECT_TRUE(member_ref.IsNull());
@@ -529,6 +532,7 @@ TEST_P(JSONParserTest, ParseArray) {
 
 TEST_P(JSONParserTest, ParseObject) {
   JSONValue value = JSONValue::ParseJSONString(kJSONStr, GetParam()).value();
+  EXPECT_EQ(value.GetConstRef().GetObjectSize(), 7);
   ASSERT_TRUE(value.GetConstRef().IsObject());
   ASSERT_TRUE(value.GetConstRef().GetMember("pi").IsDouble());
   EXPECT_EQ(3.141, value.GetConstRef().GetMember("pi").GetDouble());
@@ -808,6 +812,7 @@ TEST(JSONLegacyParserTest, ParseSingleQuotes) {
                                            .strict_number_parsing = false})
               .value();
   ASSERT_TRUE(value.GetConstRef().IsObject());
+  EXPECT_EQ(value.GetConstRef().GetObjectSize(), 7);
   ASSERT_TRUE(value.GetConstRef().GetMember("pi").IsDouble());
   EXPECT_EQ(3.141, value.GetConstRef().GetMember("pi").GetDouble());
   ASSERT_TRUE(value.GetConstRef().GetMember("happy").IsBoolean());
@@ -1002,6 +1007,40 @@ TEST(JSONValueTest, DeserializeFromProtoBytesError) {
   ASSERT_FALSE(result.status().ok());
   EXPECT_THAT(result.status().ToString(),
               testing::HasSubstr("syntax error while parsing UBJSON value"));
+}
+
+TEST(JSONValueTest, NestingLevelExceedsMaxTest) {
+  std::vector<std::tuple<std::string, int, bool>> test_cases = {
+      {"1", -1, false},
+      {"1", 0, false},
+      {"1", 1, false},
+      {R"("abc")", 0, false},
+      {R"("abc")", 1, false},
+      {R"({})", -1, true},
+      {R"({})", 0, true},
+      {R"({})", 1, false},
+      {R"([])", 0, true},
+      {R"([])", 1, false},
+      {R"([[]])", 0, true},
+      {R"([[]])", 1, true},
+      {R"([[]])", 2, false},
+      {R"({"a":1})", 0, true},
+      {R"({"a":1})", 1, false},
+      {R"({"a":[1,2]})", 1, true},
+      {R"({"a":[1,2]})", 2, false},
+      {R"({"a":{"b":{"c":null}}})", 2, true},
+      {R"({"a":{"b":{"c":null}}})", 3, false},
+      {R"({"a":[{"1":1},{"2":2}],"b":[{"3":3},{"4":4}]})", 2, true},
+      {R"({"a":[{"1":1},{"2":2}],"b":[{"3":3},{"4":4}]})", 3, false},
+      {R"([{"a":1},{"a":2}])", 1, true},
+      {R"([{"a":1},{"a":2}])", 2, false},
+      {R"([{"a":1},{"a":2}])", 3, false},
+  };
+  for (const auto& [json, max_nesting, is_excess] : test_cases) {
+    JSONValue value = JSONValue::ParseJSONString(json).value();
+    EXPECT_EQ(value.GetConstRef().NestingLevelExceedsMax(max_nesting),
+              is_excess);
+  }
 }
 
 TEST(JSONValueTest, NormalizedEqualsNull) {

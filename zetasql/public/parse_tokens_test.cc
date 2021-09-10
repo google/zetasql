@@ -54,6 +54,24 @@ static std::string Call(const std::vector<ParseToken>& parse_tokens,
   return result;
 }
 
+// Make sure that the GetParseTokens() api behaves correctly when it encounters
+// a keyword token that could be reserved or nonreserved, depending on
+// LanguageOptions.
+TEST(GetNextTokensTest, ConditionallyReservedKeywords) {
+  ParseTokenOptions options;
+  std::vector<ParseToken> parse_tokens;
+  const std::string filename = "filename_Locations";
+  const std::string input = "seLect QuAlIfY";
+
+  ParseResumeLocation location =
+      ParseResumeLocation::FromStringView(filename, input);
+  ZETASQL_ASSERT_OK(GetParseTokens(options, &location, &parse_tokens));
+
+  EXPECT_EQ("KEYWORD:SELECT", parse_tokens[0].DebugString());
+  EXPECT_EQ("KEYWORD:QUALIFY", parse_tokens[1].DebugString());
+  EXPECT_TRUE(parse_tokens[1].IsKeyword());
+}
+
 TEST(GetNextTokensTest, Locations) {
   ParseTokenOptions options;
   std::vector<ParseToken> parse_tokens;

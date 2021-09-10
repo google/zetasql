@@ -305,6 +305,12 @@ std::string KeyArg::DebugInternal(const std::string& indent,
     default:
       break;
   }
+
+  if (collation() != nullptr) {
+    absl::StrAppend(
+        &sort, " collation=", collation()->DebugInternal(indent, verbose));
+  }
+
   return absl::StrCat(ExprArg::DebugInternal(indent, verbose), sort);
 }
 

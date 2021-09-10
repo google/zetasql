@@ -1,6 +1,6 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB]
-[load_enum_names=zetasql_test.TestEnum]
+[load_proto_names=zetasql_test__.KitchenSinkPB]
+[load_enum_names=zetasql_test__.TestEnum]
 [prepare_database]
 CREATE TABLE Table1 AS
 SELECT cast(1 as int64) as primary_key,
@@ -186,22 +186,22 @@ ARRAY<STRUCT<str_val STRING>>[{"2"}, {"1"}, {"4"}, {"3"}]
 ==
 # SELECT enum column.
 [name=unionall_datatype_enum]
-SELECT CAST(0 AS `zetasql_test.TestEnum`) as enum_val
+SELECT CAST(0 AS `zetasql_test__.TestEnum`) as enum_val
 UNION ALL
-SELECT CAST(1 AS `zetasql_test.TestEnum`);
+SELECT CAST(1 AS `zetasql_test__.TestEnum`);
 --
-ARRAY<STRUCT<enum_val ENUM<zetasql_test.TestEnum>>>[
+ARRAY<STRUCT<enum_val ENUM<zetasql_test__.TestEnum>>>[
   {TESTENUM0},
   {TESTENUM1}
 ]
 ==
 # SELECT proto column.
 [name=unionall_datatype_proto]
-SELECT AS `zetasql_test.KitchenSinkPB` 5 int64_key_1, 6 int64_key_2
+SELECT AS `zetasql_test__.KitchenSinkPB` 5 int64_key_1, 6 int64_key_2
 UNION ALL
-SELECT AS `zetasql_test.KitchenSinkPB` 7 int64_key_1, 8 int64_key_2
+SELECT AS `zetasql_test__.KitchenSinkPB` 7 int64_key_1, 8 int64_key_2
 --
-ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
   {
     int64_key_1: 5
     int64_key_2: 6
@@ -295,11 +295,11 @@ ARRAY<STRUCT<array_val ARRAY<>>>[
 ==
 # UNION ALL over NULL and non-NULL enum values
 [name=unionall_nulls_enum]
-SELECT CAST(0 as `zetasql_test.TestEnum`) AS enum_val
+SELECT CAST(0 as `zetasql_test__.TestEnum`) AS enum_val
 UNION ALL
 SELECT NULL
 --
-ARRAY<STRUCT<enum_val ENUM<zetasql_test.TestEnum>>>[{TESTENUM0}, {NULL}]
+ARRAY<STRUCT<enum_val ENUM<zetasql_test__.TestEnum>>>[{TESTENUM0}, {NULL}]
 ==
 # UNION ALL over NULL and non-NULL struct values
 [name=unionall_nulls_struct]
@@ -311,13 +311,13 @@ ARRAY<STRUCT<INT64>>[{NULL}, {3}]
 ==
 # UNION ALL over NULL and non-NULL proto columns.
 [name=unionall_nulls_proto]
-SELECT (SELECT AS `zetasql_test.KitchenSinkPB` 5 int64_key_1, 6 int64_key_2)
+SELECT (SELECT AS `zetasql_test__.KitchenSinkPB` 5 int64_key_1, 6 int64_key_2)
 UNION ALL
-SELECT (SELECT AS `zetasql_test.KitchenSinkPB` 7 int64_key_1, 8 int64_key_2)
+SELECT (SELECT AS `zetasql_test__.KitchenSinkPB` 7 int64_key_1, 8 int64_key_2)
 UNION ALL
-SELECT NULL AS `zetasql_test.KitchenSinkPB`
+SELECT NULL AS `zetasql_test__.KitchenSinkPB`
 --
-ARRAY<STRUCT<PROTO<zetasql_test.KitchenSinkPB>>>[
+ARRAY<STRUCT<PROTO<zetasql_test__.KitchenSinkPB>>>[
   {{
      int64_key_1: 5
      int64_key_2: 6
@@ -519,7 +519,7 @@ SELECT int64_val, int32_val FROM TableDataTypes
 ==
 # @nan_01 and @nan02 are both nans with different bitwise representation.
 [name=union_all_nan_different_bitwise_representation]
-[parameters=CAST(b"\x08\x00\x10\x00\x49\x01\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test.KitchenSinkPB).double_val as nan_01, CAST(b"\x08\x00\x10\x00\x49\x02\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test.KitchenSinkPB).double_val as nan_02]
+[parameters=CAST(b"\x08\x00\x10\x00\x49\x01\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test__.KitchenSinkPB).double_val as nan_01, CAST(b"\x08\x00\x10\x00\x49\x02\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test__.KitchenSinkPB).double_val as nan_02]
 SELECT * FROM UNNEST([@nan_01])
 UNION ALL
 SELECT * FROM UNNEST([@nan_02]);

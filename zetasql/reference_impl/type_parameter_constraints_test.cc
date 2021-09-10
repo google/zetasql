@@ -176,8 +176,8 @@ TEST(TypeParametersTest, NumericInvalidPrecisionScaleFails) {
                        TypeParameters::MakeNumericTypeParameters(proto));
   EXPECT_THAT(ApplyConstraints(type_params, PRODUCT_INTERNAL, numeric_value),
               StatusIs(absl::StatusCode::kInternal,
-                       HasSubstr("In NUMERIC(P, S), P must be within range "
-                                 "[max(S,1), 29+S], actual precision: 35")));
+                       HasSubstr("In NUMERIC(P, 5), P must be between 5 and "
+                                 "34, actual precision: 35")));
 }
 
 TEST(TypeParametersTest, BigNumericEveryValidIntegerPrecisionAndScaleSucceeds) {
@@ -324,8 +324,8 @@ TEST(TypeParametersTest, BigNumericInvalidPrecisionScaleFails) {
                        TypeParameters::MakeNumericTypeParameters(proto));
   EXPECT_THAT(ApplyConstraints(type_params, PRODUCT_INTERNAL, bignumeric_value),
               StatusIs(absl::StatusCode::kInternal,
-                       HasSubstr("In BIGNUMERIC(P, S), P must be within range "
-                                 "[max(S,1), 38+S], actual precision: 55")));
+                       HasSubstr("In BIGNUMERIC(P, 5), P must be between 5 and "
+                                 "43, actual precision: 55")));
 }
 
 TEST(TypeParametersTest, ArrayWithTypeParametersOk) {

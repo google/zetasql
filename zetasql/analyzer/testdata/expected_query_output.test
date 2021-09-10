@@ -277,12 +277,12 @@ SELECT true;
 ^
 ==
 
-[coerced_query_output_types=struct<zetasql_test.KitchenSinkPB>]
-SELECT AS zetasql_test.KitchenSinkPB 1 int64_key_1, 2 int64_key_2;
+[coerced_query_output_types=struct<zetasql_test__.KitchenSinkPB>]
+SELECT AS zetasql_test__.KitchenSinkPB 1 int64_key_1, 2 int64_key_2;
 --
 QueryStmt
 +-output_column_list=
-| +-$make_proto.$proto#3 AS `$proto` [PROTO<zetasql_test.KitchenSinkPB>]
+| +-$make_proto.$proto#3 AS `$proto` [PROTO<zetasql_test__.KitchenSinkPB>]
 +-is_value_table=TRUE
 +-query=
   +-ProjectScan
@@ -290,7 +290,7 @@ QueryStmt
     +-expr_list=
     | +-$proto#3 :=
     |   +-MakeProto
-    |     +-type=PROTO<zetasql_test.KitchenSinkPB>
+    |     +-type=PROTO<zetasql_test__.KitchenSinkPB>
     |     +-field_list=
     |       +-int64_key_1 := ColumnRef(type=INT64, column=$query.int64_key_1#1)
     |       +-int64_key_2 := ColumnRef(type=INT64, column=$query.int64_key_2#2)
@@ -304,12 +304,12 @@ QueryStmt
           +-SingleRowScan
 ==
 
-[coerced_query_output_types=struct<zetasql_test.KitchenSinkPB>]
+[coerced_query_output_types=struct<zetasql_test__.KitchenSinkPB>]
 SELECT KitchenSink FROM TestTable;
 --
 QueryStmt
 +-output_column_list=
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=[TestTable.KitchenSink#3]
@@ -571,21 +571,21 @@ QueryStmt
         | | +-GetProtoField
         | |   +-type=INT32
         | |   +-expr=
-        | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         | |   +-field_descriptor=int32_val
         | |   +-default_value=77
         | +-b#5 :=
         | | +-GetProtoField
         | |   +-type=INT32
         | |   +-expr=
-        | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         | |   +-field_descriptor=int32_val
         | |   +-default_value=77
         | +-c#6 :=
         |   +-GetProtoField
         |     +-type=INT32
         |     +-expr=
-        |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |     +-field_descriptor=int32_val
         |     +-default_value=77
         +-input_scan=

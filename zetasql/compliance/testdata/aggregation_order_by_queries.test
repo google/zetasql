@@ -1,5 +1,5 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB]
+[load_proto_names=zetasql_test__.KitchenSinkPB]
 [default test_features1=V_1_1_ORDER_BY_IN_AGGREGATE,V_1_1_LIMIT_IN_AGGREGATE]
 [prepare_database]
 CREATE TABLE TestTable AS
@@ -553,12 +553,12 @@ SELECT w, ARRAY_CONCAT_AGG(x ORDER BY y)
 [name=aggregate_order_by_correlated_column_1]
 SELECT b, (SELECT ARRAY_AGG(outer_table.b ORDER BY outer_table.b)
            FROM outer_table.a.repeated_uint32_val)
-FROM (SELECT NEW zetasql_test.KitchenSinkPB(
+FROM (SELECT NEW zetasql_test__.KitchenSinkPB(
                      1 AS int64_key_1,
                      2 AS int64_key_2,
                      ARRAY<UINT32>[7, 8, 9]
                          as repeated_uint32_val) AS a, "abc" b UNION ALL
-      SELECT NEW zetasql_test.KitchenSinkPB(
+      SELECT NEW zetasql_test__.KitchenSinkPB(
                      1 AS int64_key_1,
                      2 AS int64_key_2) AS a, "def" b) AS outer_table
 --
@@ -580,12 +580,12 @@ SELECT b, (SELECT ARRAY_AGG(outer_table.b ORDER BY outer_table.b)
 [name=aggregate_order_by_correlated_column_2]
 SELECT b, (SELECT ARRAY_AGG(CAST(r AS string) ORDER BY outer_table.b, r)
            FROM outer_table.a.repeated_uint32_val r)
-FROM (SELECT NEW zetasql_test.KitchenSinkPB(
+FROM (SELECT NEW zetasql_test__.KitchenSinkPB(
                      1 AS int64_key_1,
                      2 AS int64_key_2,
                      ARRAY<uint32>[8, 7, 9]
                          as repeated_uint32_val) AS a, "abc" b UNION ALL
-      SELECT NEW zetasql_test.KitchenSinkPB(
+      SELECT NEW zetasql_test__.KitchenSinkPB(
                      1 AS int64_key_1,
                      2 AS int64_key_2) AS a, "def" b) AS outer_table
 --

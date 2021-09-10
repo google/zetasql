@@ -104,7 +104,7 @@ TEST(ErrorHelpersTest, FormatError) {
       internal::StatusToString(status4));
   EXPECT_EQ(internal::StatusToString(status4), FormatError(status4));
 
-  zetasql_test::TestStatusPayload extra_extension;
+  zetasql_test__::TestStatusPayload extra_extension;
   extra_extension.set_value("abc");
 
   // Error with a non-ErrorLocation payload.
@@ -112,7 +112,7 @@ TEST(ErrorHelpersTest, FormatError) {
                          << "Message5";
   EXPECT_EQ(
       "generic::unknown: Message5 "
-      "[zetasql_test.TestStatusPayload] { value: \"abc\" }",
+      "[zetasql_test__.TestStatusPayload] { value: \"abc\" }",
       internal::StatusToString(status5));
   EXPECT_EQ(internal::StatusToString(status5), FormatError(status5));
 
@@ -129,10 +129,10 @@ TEST(ErrorHelpersTest, FormatError) {
       AllOf(
           HasSubstr("generic::invalid_argument: Message6"),
           HasSubstr("[zetasql.ErrorLocation] { line: 2 column: 22 }"),
-          HasSubstr("[zetasql_test.TestStatusPayload] { value: \"abc\" }")));
+          HasSubstr("[zetasql_test__.TestStatusPayload] { value: \"abc\" }")));
   EXPECT_EQ(
       "Message6 [at 2:22] "
-      "[zetasql_test.TestStatusPayload] { value: \"abc\" }",
+      "[zetasql_test__.TestStatusPayload] { value: \"abc\" }",
       FormatError(status6));
 }
 
@@ -167,7 +167,7 @@ TEST(ErrorHelpersTest, ErrorLocationHelpers) {
   EXPECT_FALSE(HasErrorLocation(status2));
   ClearErrorLocation(&status2);
 
-  zetasql_test::TestStatusPayload extra_extension;
+  zetasql_test__::TestStatusPayload extra_extension;
 
   extra_extension.set_value("abc");
 
@@ -185,7 +185,7 @@ TEST(ErrorHelpersTest, ErrorLocationHelpers) {
       AllOf(
           HasSubstr("generic::invalid_argument: Message3"),
           HasSubstr("[zetasql.ErrorLocation] { line: 3 column: 4 }"),
-          HasSubstr("[zetasql_test.TestStatusPayload] { value: \"abc\" }")));
+          HasSubstr("[zetasql_test__.TestStatusPayload] { value: \"abc\" }")));
 
   EXPECT_TRUE(HasErrorLocation(status3));
   EXPECT_TRUE(GetErrorLocation(status3, &location));
@@ -193,7 +193,7 @@ TEST(ErrorHelpersTest, ErrorLocationHelpers) {
   ClearErrorLocation(&status3);
   EXPECT_EQ(
       "generic::invalid_argument: Message3 "
-      "[zetasql_test.TestStatusPayload] { value: \"abc\" }",
+      "[zetasql_test__.TestStatusPayload] { value: \"abc\" }",
       internal::StatusToString(status3));
   EXPECT_FALSE(HasErrorLocation(status3));
   ClearErrorLocation(&status3);
@@ -639,7 +639,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorLocationPayloadTests) {
 
   // Error with a non-ErrorLocation payload.  Since no location,
   // MaybeUpdateErrorFromPayload() has no affect.
-  zetasql_test::TestStatusPayload extra_extension;
+  zetasql_test__::TestStatusPayload extra_extension;
   extra_extension.set_value("abc");
   const absl::Status status4 =
       ::zetasql_base::UnknownErrorBuilder().Attach(extra_extension) << "Message4";
@@ -663,23 +663,23 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorLocationPayloadTests) {
       AllOf(
           HasSubstr("Message5"),
           HasSubstr("[zetasql.InternalErrorLocation] { byte_offset: 43 }"),
-          HasSubstr("[zetasql_test.TestStatusPayload] { value: \"abc\" }")));
+          HasSubstr("[zetasql_test__.TestStatusPayload] { value: \"abc\" }")));
 
   status5 = ConvertInternalErrorLocationToExternal(status5, dummy_query);
   EXPECT_EQ(
       "Message5 [at 2:22] "
-      "[zetasql_test.TestStatusPayload] { value: \"abc\" }",
+      "[zetasql_test__.TestStatusPayload] { value: \"abc\" }",
       FormatError(status5));
 
   const std::string expected_payload_string5 =
-      "Message5 [at 2:22] [zetasql_test.TestStatusPayload] "
+      "Message5 [at 2:22] [zetasql_test__.TestStatusPayload] "
       "{ value: \"abc\" }";
   const std::string expected_oneline_string5 =
-      "Message5 [at 2:22] [zetasql_test.TestStatusPayload] "
+      "Message5 [at 2:22] [zetasql_test__.TestStatusPayload] "
       "{ value: \"abc\" }";
   const std::string expected_caret_string5 =
       "Message5 [at 2:22]\n1234567890123456789_2\n                     ^\n"
-      "[zetasql_test.TestStatusPayload] { value: \"abc\" }";
+      "[zetasql_test__.TestStatusPayload] { value: \"abc\" }";
   expected_result.clear();
   zetasql_base::InsertIfNotPresent(&expected_result, ERROR_MESSAGE_WITH_PAYLOAD,
                           expected_payload_string5);
@@ -697,14 +697,14 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorLocationPayloadTests) {
       << "Message6";
   status6 = ConvertInternalErrorLocationToExternal(status6, dummy_query);
   const std::string expected_payload_string6 =
-      "Message6 [at 2:22] [zetasql_test.TestStatusPayload] "
+      "Message6 [at 2:22] [zetasql_test__.TestStatusPayload] "
       "{ value: \"abc\" }";
   const std::string expected_oneline_string6 =
-      "Message6 [at 2:22] [zetasql_test.TestStatusPayload] "
+      "Message6 [at 2:22] [zetasql_test__.TestStatusPayload] "
       "{ value: \"abc\" }";
   const std::string expected_caret_string6 =
       "Message6 [at 2:22]\n1234567890123456789_2\n                     ^\n"
-      "[zetasql_test.TestStatusPayload] { value: \"abc\" }";
+      "[zetasql_test__.TestStatusPayload] { value: \"abc\" }";
   expected_result.clear();
   zetasql_base::InsertIfNotPresent(&expected_result, ERROR_MESSAGE_WITH_PAYLOAD,
                           expected_payload_string6);
@@ -969,7 +969,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorSourcePayloadTests) {
 
   // Status with an ErrorLocation with an ErrorSource, and another payload.
   error_source.set_error_message("Nested message 7");
-  zetasql_test::TestStatusPayload extra_extension;
+  zetasql_test__::TestStatusPayload extra_extension;
   extra_extension.set_value("abc");
   location.clear_error_source();
   *location.add_error_source() = error_source;
@@ -979,7 +979,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorSourcePayloadTests) {
   expected_oneline_string =
       "Message7 [at location_file:2:2]; "
       "Nested message 7 [at error_filename:1:7] "
-      "[zetasql_test.TestStatusPayload] { value: \"abc\" }";
+      "[zetasql_test__.TestStatusPayload] { value: \"abc\" }";
 
   expected_payload_string = expected_oneline_string;
 
@@ -989,7 +989,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromErrorSourcePayloadTests) {
 Nested message 7 [at error_filename:1:7]
 abcdefghijklmnopqrs
       ^
-[zetasql_test.TestStatusPayload] { value: "abc" })";
+[zetasql_test__.TestStatusPayload] { value: "abc" })";
 
   EXPECT_EQ(expected_oneline_string, FormatError(status));
 
@@ -1043,7 +1043,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromNestedErrorSourcePayloadTests) {
   *location.add_error_source() = nested_error_source;
   *location.add_error_source() = error_source;
 
-  zetasql_test::TestStatusPayload extra_extension;
+  zetasql_test__::TestStatusPayload extra_extension;
   extra_extension.set_value("abc");
 
   absl::Status status =
@@ -1054,7 +1054,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromNestedErrorSourcePayloadTests) {
       FormatError(status),
       AllOf(
           HasSubstr("ErrorMessage"),
-          HasSubstr("[zetasql_test.TestStatusPayload] { value: \"abc\" }"),
+          HasSubstr("[zetasql_test__.TestStatusPayload] { value: \"abc\" }"),
           HasSubstr("[zetasql.InternalErrorLocation] { "
                     "byte_offset: 43 "
                     "error_source { "
@@ -1073,7 +1073,7 @@ TEST(ErrorHelpersTest, UpdateErrorFromNestedErrorSourcePayloadTests) {
       "ErrorMessage [at 2:22]; "
       "source_error_message [at filename:1:3]; "
       "nested_source_error_message [at nested_filename:1:5] "
-      "[zetasql_test.TestStatusPayload] { value: \"abc\" }";
+      "[zetasql_test__.TestStatusPayload] { value: \"abc\" }";
 
   const std::string expected_payload_string = expected_oneline_string;
 
@@ -1086,7 +1086,7 @@ abcdefghijklmnopqrs
 nested_source_error_message [at nested_filename:1:5]
 123456
     ^
-[zetasql_test.TestStatusPayload] { value: "abc" })";
+[zetasql_test__.TestStatusPayload] { value: "abc" })";
 
   EXPECT_EQ(expected_oneline_string, FormatError(status));
 

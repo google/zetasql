@@ -19,9 +19,12 @@ package com.google.zetasql;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.zetasql.FunctionProtos.FunctionOptionsProto;
+import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.Mode;
 import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.Volatility;
 import com.google.zetasql.ZetaSQLFunctions.SignatureArgumentKind;
 import com.google.zetasql.ZetaSQLOptions.LanguageFeature;
@@ -161,12 +164,12 @@ public class AnalyzerTest {
   public void testAnalyzeStatementWithCatalogProtoType() {
     SimpleCatalog catalog = new SimpleCatalog("foo");
     ProtoType kitchenSinkType = catalog.getTypeFactory().createProtoType(KitchenSinkPB.class);
-    catalog.addType("zetasql_test.KitchenSinkPB", kitchenSinkType);
+    catalog.addType("zetasql_test__.KitchenSinkPB", kitchenSinkType);
     // TODO: Use ImmutableDescriptorPool
     catalog.setDescriptorPool(ZetaSQLDescriptorPool.getGeneratedPool());
 
     AnalyzerOptions options = new AnalyzerOptions();
-    String sql = "select new zetasql_test.KitchenSinkPB(1 as int64_key_1, 2 as int64_key_2)";
+    String sql = "select new zetasql_test__.KitchenSinkPB(1 as int64_key_1, 2 as int64_key_2)";
     assertOutputColumnType(Analyzer.analyzeStatement(sql, options, catalog), kitchenSinkType);
 
     // Try registering the catalog.
@@ -211,12 +214,12 @@ public class AnalyzerTest {
     SimpleCatalog catalog = new SimpleCatalog("foo");
 
     EnumType testEnumType = catalog.getTypeFactory().createEnumType(TestEnum.class);
-    catalog.addType("zetasql_test.TestEnum", testEnumType);
+    catalog.addType("zetasql_test__.TestEnum", testEnumType);
     // TODO: Use ImmutableDescriptorPool
     catalog.setDescriptorPool(ZetaSQLDescriptorPool.getGeneratedPool());
 
     AnalyzerOptions options = new AnalyzerOptions();
-    String sql = "select cast('TESTENUM1' as zetasql_test.TestEnum)";
+    String sql = "select cast('TESTENUM1' as zetasql_test__.TestEnum)";
     assertOutputColumnType(Analyzer.analyzeStatement(sql, options, catalog), testEnumType);
 
     // Try registering the catalog.
@@ -368,8 +371,8 @@ public class AnalyzerTest {
   @Test
   public void testExtractTableNamesFromStatement() {
     List<List<String>> tableNames =
-        Analyzer.extractTableNamesFromStatement("select count(1) from foo.bar",
-            new AnalyzerOptions());
+        Analyzer.extractTableNamesFromStatement(
+            "select count(1) from foo.bar", new AnalyzerOptions());
 
     assertThat(tableNames).containsExactly(Arrays.asList("foo", "bar"));
   }
@@ -399,8 +402,7 @@ public class AnalyzerTest {
         .getLanguageOptions()
         .setSupportedStatementKinds(
             ImmutableSet.of(
-                ResolvedNodeKind.RESOLVED_INSERT_STMT,
-                ResolvedNodeKind.RESOLVED_QUERY_STMT));
+                ResolvedNodeKind.RESOLVED_INSERT_STMT, ResolvedNodeKind.RESOLVED_QUERY_STMT));
 
     List<List<String>> tableNames =
         Analyzer.extractTableNamesFromStatement(
@@ -464,6 +466,65 @@ public class AnalyzerTest {
             "select append_col_1, append_col_2 from test_tvf((select cast (12 as int64)))");
     // Test if select extra columns query is analyzed correctly.
     assertThat(resolvedStatement).isNotNull();
+  }
+
+  @Test
+  /* This test method is a substitution of extended subscript tests defined at
+   * `coercion.test` and `extended_sbuscript.test`.
+   * With current setup, there is no good way to load extended signatures
+   * defined in the SampleCatalog that are not defined in the zetasql built-in functions.
+   * See more context at b/186869835.
+   */
+  public void testExtendedSubscriptFunction() {
+    FunctionArgumentType stringType =
+        new FunctionArgumentType(TypeFactory.createSimpleType(TypeKind.TYPE_STRING));
+    FunctionArgumentType int64Type =
+        new FunctionArgumentType(TypeFactory.createSimpleType(TypeKind.TYPE_INT64));
+    Function func =
+        new Function(
+            "$subscript_with_offset",
+            "ZetaSQL",
+            Mode.SCALAR,
+            ImmutableList.of(
+                new FunctionSignature(
+                    stringType, ImmutableList.of(stringType, int64Type), /* contextId= */ -1),
+                new FunctionSignature(
+                    stringType, ImmutableList.of(stringType, stringType), /* contextId= */ -1)),
+            FunctionOptionsProto.newBuilder().setSupportsSafeErrorMode(true).build());
+
+    SimpleCatalog catalog = new SimpleCatalog("foo");
+    catalog.addFunction(func);
+
+    LanguageOptions options = new LanguageOptions();
+    options.enableLanguageFeature(LanguageFeature.FEATURE_V_1_2_SAFE_FUNCTION_CALL);
+    AnalyzerOptions analyzerOptions = new AnalyzerOptions();
+    analyzerOptions.setLanguageOptions(options);
+    Analyzer analyzer = new Analyzer(analyzerOptions, catalog);
+
+    ResolvedStatement resolvedStatement = analyzer.analyzeStatement("SELECT \"abc\"[OFFSET(1)];");
+    assertThat(resolvedStatement).isNotNull();
+
+    resolvedStatement = analyzer.analyzeStatement("SELECT \"abc\"[OFFSET(\"1\")];");
+    assertThat(resolvedStatement).isNotNull();
+
+    resolvedStatement = analyzer.analyzeStatement("SELECT \"abc\"[SAFE_OFFSET(1)];");
+    assertThat(resolvedStatement).isNotNull();
+
+    resolvedStatement = analyzer.analyzeStatement("SELECT \"abc\"[SAFE_OFFSET(\"1\")];");
+    assertThat(resolvedStatement).isNotNull();
+
+    resolvedStatement = analyzer.analyzeStatement("SELECT NULL[OFFSET(0)];");
+    assertThat(resolvedStatement).isNotNull();
+
+    // No signature for function signature `STRING[DOUBLE]` defined.
+    SqlException thrown =
+        assertThrows(
+            SqlException.class, () -> analyzer.analyzeStatement("SELECT \"abc\"[OFFSET(1.0)];"));
+    assertThat(thrown)
+        .hasMessageThat()
+        .contains(
+            "No matching signature for operator SUBSCRIPT WITH OFFSET for argument types: STRING,"
+                + " DOUBLE.");
   }
 
   @Test

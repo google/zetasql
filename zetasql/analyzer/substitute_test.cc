@@ -16,17 +16,35 @@
 
 #include "zetasql/analyzer/substitute.h"
 
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "zetasql/base/atomic_sequence_num.h"
+#include "zetasql/base/logging.h"
 #include "zetasql/analyzer/all_rewriters.h"
-#include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/base/testing/status_matchers.h"  
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/evaluator.h"
+#include "zetasql/public/id_string.h"
+#include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/testing/test_catalog.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
+#include "zetasql/base/status.h"
 
 namespace zetasql {
 namespace {

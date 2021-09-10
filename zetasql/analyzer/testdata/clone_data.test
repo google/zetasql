@@ -11,7 +11,7 @@ CLONE DATA INTO ds.tbl
 CLONE DATA INTO KeyValue
 FROM Int64ValueTable
 --
-ERROR: Cannot clone from value table: Int64ValueTable [at 2:6]
+ERROR: Cannot copy from value table: Int64ValueTable [at 2:6]
 FROM Int64ValueTable
      ^
 ==

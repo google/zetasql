@@ -29,7 +29,7 @@
 #include "zetasql/common/multiprecision_int.h"
 #include "zetasql/public/numeric_value.h"
 #include <cstdint>
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status_macros.h"
 
@@ -46,7 +46,7 @@ class PercentileEvaluator {
   // For PercentileType = BigNumericValue, Weight = BigNumericValue.
   using Weight = typename PercentileHelper<PercentileType>::Weight;
   // Returns an error if percentile is not in [0, 1].
-  static zetasql_base::StatusOr<PercentileEvaluator> Create(PercentileType percentile) {
+  static absl::StatusOr<PercentileEvaluator> Create(PercentileType percentile) {
     ZETASQL_ASSIGN_OR_RETURN(PercentileHelper<PercentileType> helper,
                      PercentileHelper<PercentileType>::Create(percentile));
     return PercentileEvaluator(helper);
@@ -242,7 +242,7 @@ class PercentileHelper<double> {
   // Use long double to minimize floating point errors in
   // ComputeLinearInterpolation.
   using Weight = long double;
-  static zetasql_base::StatusOr<PercentileHelper> Create(double percentile);
+  static absl::StatusOr<PercentileHelper> Create(double percentile);
   PercentileHelper(const PercentileHelper& src) = default;
   size_t ComputePercentileIndex(size_t max_index, long double* left_weight,
                                 long double* right_weight) const;
@@ -270,7 +270,7 @@ template <>
 class PercentileHelper<NumericValue> {
  public:
   using Weight = NumericValue;
-  static zetasql_base::StatusOr<PercentileHelper> Create(NumericValue percentile);
+  static absl::StatusOr<PercentileHelper> Create(NumericValue percentile);
   PercentileHelper(const PercentileHelper& src) = default;
   size_t ComputePercentileIndex(size_t max_index, NumericValue* left_weight,
                                 NumericValue* right_weight) const;
@@ -289,7 +289,7 @@ template <>
 class PercentileHelper<BigNumericValue> {
  public:
   using Weight = BigNumericValue;
-  static zetasql_base::StatusOr<PercentileHelper> Create(BigNumericValue percentile);
+  static absl::StatusOr<PercentileHelper> Create(BigNumericValue percentile);
   PercentileHelper(const PercentileHelper& src) = default;
   size_t ComputePercentileIndex(size_t max_index, BigNumericValue* left_weight,
                                 BigNumericValue* right_weight) const;

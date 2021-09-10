@@ -31,7 +31,7 @@
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/types/timestamp_util.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "zetasql/common/utf_util.h"
 #include "absl/strings/escaping.h"
@@ -91,7 +91,7 @@ static bool IsValidCivilDay(absl::CivilDay day) {
   return IsValidDate(CivilDayToEpochDays(day));
 }
 
-static bool IsValidDay(absl::civil_year_t year, int month, int day) {
+bool IsValidDay(absl::civil_year_t year, int month, int day) {
   // absl::CivilDay will 'normalize' its arguments, so simply compare
   // the input against the result to check whether a YMD is valid.
   absl::CivilDay civil_day(year, month, day);
@@ -1082,7 +1082,8 @@ static void NarrowTimestampIfPossible(int64_t* timestamp,
 
 static absl::Status FormatTimestampToStringInternal(
     absl::string_view format_string, absl::Time base_time,
-    absl::TimeZone timezone, bool truncate_tz, bool expand_quarter,
+    absl::TimeZone timezone,
+    const internal_functions::ExpansionOptions expansion_options,
     std::string* output) {
   if (!IsValidTime(base_time)) {
     return MakeEvalError() << "Invalid timestamp value: "
@@ -1092,14 +1093,15 @@ static absl::Status FormatTimestampToStringInternal(
   absl::TimeZone normalized_timezone =
       internal_functions::GetNormalizedTimeZone(base_time, timezone);
   std::string updated_format_string;
-  // We handle %Z and %Q here instead of passing them through to FormatTime()
-  // because ZetaSQL behavior is different than FormatTime() behavior.
-  ZETASQL_RETURN_IF_ERROR(internal_functions::ExpandPercentZQ(
-      format_string, base_time, normalized_timezone, expand_quarter,
+  // We handle %Z, %Q, and %J here instead of passing them through to
+  // FormatTime() because ZetaSQL behavior is different than FormatTime()
+  // behavior.
+  ZETASQL_RETURN_IF_ERROR(internal_functions::ExpandPercentZQJ(
+      format_string, base_time, normalized_timezone, expansion_options,
       &updated_format_string));
   *output =
       absl::FormatTime(updated_format_string, base_time, normalized_timezone);
-  if (truncate_tz) {
+  if (expansion_options.truncate_tz) {
     // If ":00" appears at the end, remove it.  This is consistent with
     // Postgres.
     if (absl::EndsWith(*output, ":00")) {
@@ -1118,14 +1120,17 @@ static absl::Status ConvertTimestampToStringInternal(
     NarrowTimestampIfPossible(&timestamp, &scale);
   }
   const absl::Time base_time = MakeTime(timestamp, scale);
+  // Note that the DefaultTimestampFormatStr does not use %Q or %J, so the
+  // 'expand_quarter' and 'expand_iso_dayofyear' settings in ExpansionOptions
+  // are not relevant.
   return FormatTimestampToStringInternal(
       DefaultTimestampFormatStr(scale), base_time, timezone,
-      /*truncate_tz=*/true, /*expand_quarter=*/true, out);
+      /*expansion_options=*/{.truncate_tz = true}, out);
 }
 
 // Returns the absl::Weekday corresponding to 'part', which must be one of the
 // WEEK values.
-static zetasql_base::StatusOr<absl::Weekday> GetFirstWeekDayOfWeek(
+static absl::StatusOr<absl::Weekday> GetFirstWeekDayOfWeek(
     DateTimestampPart part) {
   switch (part) {
     case WEEK:
@@ -1778,7 +1783,7 @@ absl::Status ConvertDateToString(int32_t date, std::string* out) {
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<absl::CivilDay> ConvertDateToCivilDay(int32_t date) {
+absl::StatusOr<absl::CivilDay> ConvertDateToCivilDay(int32_t date) {
   if (!IsValidDate(date)) {
     return MakeEvalError() << "Invalid date value: " << date;
   }
@@ -2053,8 +2058,9 @@ static void SanitizeDatetimeFormat(absl::string_view format_string,
   return SanitizeFormat(format_string, "Zz", out);
 }
 
-absl::Status FormatDateToString(absl::string_view format_string, int32_t date,
-                                bool expand_quarter, std::string* out) {
+absl::Status FormatDateToString(
+    absl::string_view format_string, int64_t date,
+    const FormatDateTimestampOptions& format_options, std::string* out) {
   if (!IsValidDate(date)) {
     return MakeEvalError() << "Invalid date value: " << date;
   }
@@ -2064,19 +2070,20 @@ absl::Status FormatDateToString(absl::string_view format_string, int32_t date,
   // format_timestamp function.
   int64_t date_timestamp = static_cast<int64_t>(date) * kNaiveNumMicrosPerDay;
   ZETASQL_RETURN_IF_ERROR(FormatTimestampToString(date_format_string, date_timestamp,
-                                          absl::UTCTimeZone(), expand_quarter,
+                                          absl::UTCTimeZone(), format_options,
                                           out));
   return absl::OkStatus();
 }
 
 absl::Status FormatDateToString(absl::string_view format_string, int32_t date,
                                 std::string* out) {
-  return FormatDateToString(format_string, date, /*expand_quarter=*/true, out);
+  return FormatDateToString(format_string, date,
+                            {.expand_Q = true, .expand_J = false}, out);
 }
 
-absl::Status FormatDatetimeToString(absl::string_view format_string,
-                                    const DatetimeValue& datetime,
-                                    std::string* out) {
+absl::Status FormatDatetimeToStringWithOptions(
+    absl::string_view format_string, const DatetimeValue& datetime,
+    const FormatDateTimestampOptions& format_options, std::string* out) {
   if (!datetime.IsValid()) {
     return MakeEvalError() << "Invalid datetime value: "
                            << datetime.DebugString();
@@ -2088,8 +2095,19 @@ absl::Status FormatDatetimeToString(absl::string_view format_string,
   datetime_in_utc += absl::Nanoseconds(datetime.Nanoseconds());
 
   ZETASQL_RETURN_IF_ERROR(FormatTimestampToString(
-      datetime_format_string, datetime_in_utc, absl::UTCTimeZone(), out));
+      datetime_format_string, datetime_in_utc, absl::UTCTimeZone(),
+      format_options, out));
   return absl::OkStatus();
+}
+
+absl::Status FormatDatetimeToString(absl::string_view format_string,
+                                    const DatetimeValue& datetime,
+                                    std::string* out) {
+  // By default, expand %Q but not %J.
+  return FormatDatetimeToStringWithOptions(format_string, datetime,
+                                           {.expand_Q = true,
+                                            .expand_J = false},
+                                           out);
 }
 
 absl::Status FormatTimeToString(absl::string_view format_string,
@@ -2106,23 +2124,60 @@ absl::Status FormatTimeToString(absl::string_view format_string,
           .pre;
   time_in_epoch_day += absl::Nanoseconds(time.Nanoseconds());
 
-  ZETASQL_RETURN_IF_ERROR(FormatTimestampToString(time_format_string, time_in_epoch_day,
-                                          absl::UTCTimeZone(), out));
+  // TIME does not support %Q or %J, so 'expand_Q' and 'expand_J' are not
+  // relevant.
+  ZETASQL_RETURN_IF_ERROR(FormatTimestampToString(
+      time_format_string, time_in_epoch_day, absl::UTCTimeZone(),
+      {.expand_Q = false, .expand_J = false}, out));
   return absl::OkStatus();
 }
 
-absl::Status FormatTimestampToString(absl::string_view format_str,
-                                     int64_t timestamp, absl::TimeZone timezone,
-                                     bool expand_quarter, std::string* out) {
+absl::Status FormatTimestampToString(
+    absl::string_view format_str, absl::Time timestamp, absl::TimeZone timezone,
+    const FormatDateTimestampOptions& format_options, std::string* out) {
+  return FormatTimestampToStringInternal(
+      format_str, timestamp, timezone,
+      {.truncate_tz = false,
+       .expand_quarter = format_options.expand_Q,
+       .expand_iso_dayofyear = format_options.expand_J}, out);
+}
+
+absl::Status FormatTimestampToString(
+    absl::string_view format_str, absl::Time timestamp,
+    absl::string_view timezone_string,
+    const FormatDateTimestampOptions& format_options, std::string* out) {
+  absl::TimeZone timezone;
+  ZETASQL_RETURN_IF_ERROR(MakeTimeZone(timezone_string, &timezone));
+  return FormatTimestampToString(format_str, timestamp, timezone,
+                                 format_options, out);
+}
+
+absl::Status FormatTimestampToString(
+    absl::string_view format_str, int64_t timestamp,
+    absl::string_view timezone_string,
+    const FormatDateTimestampOptions& format_options, std::string* out) {
+  absl::TimeZone timezone;
+  ZETASQL_RETURN_IF_ERROR(MakeTimeZone(timezone_string, &timezone));
   return FormatTimestampToString(format_str, MakeTime(timestamp, kMicroseconds),
-                                 timezone, expand_quarter, out);
+                                 timezone, format_options, out);
+}
+
+absl::Status FormatTimestampToString(
+    absl::string_view format_str, int64_t timestamp, absl::TimeZone timezone,
+    const FormatDateTimestampOptions& format_options, std::string* out) {
+  return FormatTimestampToString(format_str, MakeTime(timestamp, kMicroseconds),
+                                 timezone, format_options, out);
 }
 
 absl::Status FormatTimestampToString(absl::string_view format_str,
                                      int64_t timestamp, absl::TimeZone timezone,
                                      std::string* out) {
-  return FormatTimestampToString(format_str, timestamp, timezone,
-                                 /*expand_quarter=*/true, out);
+  return FormatTimestampToStringInternal(format_str,
+                                         MakeTime(timestamp, kMicroseconds),
+                                         timezone,
+                                         {.truncate_tz = false,
+                                          .expand_quarter = true,
+                                          .expand_iso_dayofyear = false}, out);
 }
 
 absl::Status FormatTimestampToString(absl::string_view format_str,
@@ -2136,38 +2191,24 @@ absl::Status FormatTimestampToString(absl::string_view format_str,
 
 absl::Status FormatTimestampToString(absl::string_view format_str,
                                      absl::Time timestamp,
-                                     absl::string_view timezone_string,
-                                     bool expand_quarter, std::string* out) {
-  absl::TimeZone timezone;
-  ZETASQL_RETURN_IF_ERROR(MakeTimeZone(timezone_string, &timezone));
-  return FormatTimestampToStringInternal(format_str, timestamp, timezone,
-                                         /*truncate_tz=*/false, expand_quarter,
-                                         out);
-}
-
-absl::Status FormatTimestampToString(absl::string_view format_str,
-                                     absl::Time timestamp,
-                                     absl::TimeZone timezone,
-                                     bool expand_quarter, std::string* out) {
-  return FormatTimestampToStringInternal(format_str, timestamp, timezone,
-                                         /*truncate_tz=*/false, expand_quarter,
-                                         out);
-}
-
-absl::Status FormatTimestampToString(absl::string_view format_str,
-                                     absl::Time timestamp,
                                      absl::TimeZone timezone,
                                      std::string* out) {
-  return FormatTimestampToString(format_str, timestamp, timezone,
-                                 /*expand_quarter=*/true, out);
+  return FormatTimestampToStringInternal(format_str, timestamp, timezone,
+                                         {.truncate_tz = false,
+                                          .expand_quarter = true,
+                                          .expand_iso_dayofyear = false}, out);
 }
 
 absl::Status FormatTimestampToString(absl::string_view format_string,
                                      absl::Time timestamp,
                                      absl::string_view timezone_string,
                                      std::string* out) {
-  return FormatTimestampToString(format_string, timestamp, timezone_string,
-                                 /*expand_quarter=*/true, out);
+  absl::TimeZone timezone;
+  ZETASQL_RETURN_IF_ERROR(MakeTimeZone(timezone_string, &timezone));
+  return FormatTimestampToStringInternal(format_string, timestamp, timezone,
+                                         {.truncate_tz = false,
+                                          .expand_quarter = true,
+                                          .expand_iso_dayofyear = false}, out);
 }
 
 absl::Status ConvertTimestampToString(absl::Time input, TimestampScale scale,
@@ -2175,8 +2216,11 @@ absl::Status ConvertTimestampToString(absl::Time input, TimestampScale scale,
                                       std::string* output) {
   NarrowTimestampScaleIfPossible(input, &scale);
   return FormatTimestampToStringInternal(DefaultTimestampFormatStr(scale),
-                                         input, timezone, /*truncate_tz=*/true,
-                                         /*expand_quarter=*/true, output);
+                                         input, timezone,
+                                         {.truncate_tz = true,
+                                          .expand_quarter = true,
+                                          .expand_iso_dayofyear = false},
+                                         output);
 }
 
 absl::Status ConvertTimestampToString(absl::Time input, TimestampScale scale,
@@ -2213,7 +2257,7 @@ absl::Status MakeTimeZone(absl::string_view timezone_string,
   // Otherwise, try to look the time zone up from the Abseil time library.
   // This ultimately looks into the zoneinfo directory (typically
   // /usr/share/zoneinfo, /usr/share/lib/zoneinfo, etc.).
-  if (!absl::LoadTimeZone(std::string(timezone_string), timezone)) {
+  if (!absl::LoadTimeZone(timezone_string, timezone)) {
     return MakeEvalError() << "Invalid time zone: " << timezone_string;
   }
   return absl::OkStatus();
@@ -2234,7 +2278,7 @@ absl::Status ConvertStringToDate(absl::string_view str, int32_t* date) {
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<int32_t> ConvertCivilDayToDate(absl::CivilDay civil_day) {
+absl::StatusOr<int32_t> ConvertCivilDayToDate(absl::CivilDay civil_day) {
   const int32_t date = CivilDayToEpochDays(civil_day);
   if (!IsValidDate(date)) {
     return MakeEvalError() << "Date value out of range: '" << civil_day << "'";
@@ -3123,7 +3167,7 @@ absl::Status DiffDates(int32_t date1, int32_t date2, DateTimestampPart part,
 
 // INTERVAL difference between DATEs is DAY granularity.
 // Months and nanos are always zero.
-zetasql_base::StatusOr<IntervalValue> IntervalDiffDates(int32_t date1, int32_t date2) {
+absl::StatusOr<IntervalValue> IntervalDiffDates(int32_t date1, int32_t date2) {
   return IntervalValue::FromDays(date1 - date2);
 }
 
@@ -3284,7 +3328,7 @@ absl::Status DiffDatetimes(const DatetimeValue& datetime1,
 // Months is always zero, days is the full number of days difference between two
 // datetimes (based on 24 hour days), and any DATETIME remainder is encoded as
 // nanos.
-zetasql_base::StatusOr<IntervalValue> IntervalDiffDatetimes(
+absl::StatusOr<IntervalValue> IntervalDiffDatetimes(
     const DatetimeValue& datetime1, const DatetimeValue& datetime2) {
   int64_t seconds;
   ZETASQL_RETURN_IF_ERROR(DiffDatetimes(datetime1, datetime2, SECOND, &seconds));
@@ -3542,7 +3586,8 @@ absl::Status SubTimestamp(absl::Time timestamp, absl::TimeZone timezone,
     return MakeEvalError() << "Invalid timestamp: " << timestamp;
   }
   bool had_overflow_unused;
-  if (!AddTimestampInternal(timestamp, timezone, part, -interval, output,
+  if (interval == std::numeric_limits<int64_t>::lowest() ||
+      !AddTimestampInternal(timestamp, timezone, part, -interval, output,
                             &had_overflow_unused)
            .ok() ||
       !IsValidTime(*output)) {
@@ -3749,7 +3794,7 @@ absl::Status DiffTimes(const TimeValue& time1, const TimeValue& time2,
 
 // INTERVAL difference between TIMEs is HOUR TO SECOND granularity.
 // Months and days are always zero.
-zetasql_base::StatusOr<IntervalValue> IntervalDiffTimes(const TimeValue& time1,
+absl::StatusOr<IntervalValue> IntervalDiffTimes(const TimeValue& time1,
                                                 const TimeValue& time2) {
   int64_t nanos;
   ZETASQL_RETURN_IF_ERROR(DiffTimes(time1, time2, NANOSECOND, &nanos));
@@ -4008,7 +4053,7 @@ absl::Status TimestampDiff(absl::Time timestamp1, absl::Time timestamp2,
 
 // INTERVAL difference between TIMESTAMPs is HOUR TO SECOND granularity.
 // Months and days are always zero.
-zetasql_base::StatusOr<IntervalValue> IntervalDiffTimestamps(absl::Time timestamp1,
+absl::StatusOr<IntervalValue> IntervalDiffTimestamps(absl::Time timestamp1,
                                                      absl::Time timestamp2) {
   absl::Duration duration = timestamp1 - timestamp2;
   absl::Duration nanos_rem;
@@ -4120,7 +4165,7 @@ absl::Status CurrentDate(absl::string_view timezone_string, int32_t* date) {
   return absl::OkStatus();
 }
 
-int64_t CurrentTimestamp() { return ToUnixMicros(absl::Now()); }
+int64_t CurrentTimestamp() { return absl::ToUnixMicros(absl::Now()); }
 
 // TODO: Consider replace NarrowTimestampIfPossible with
 // NarrowTimestampScaleIfPossible. Need to run some perf/benchmark first.
@@ -4153,13 +4198,17 @@ namespace internal_functions {
 // ZetaSQL's extension to strftime format strings (see b/26564776).  We have
 // to do it here because absl::FormatTime does not support %Q.
 //
+// Expand "%J" in <format_string> into an ISO day of year number.  This is a
+// ZetaSQL extension to strftime, and we have to do it here because
+// absl::FormatTime does not support %J.
+//
 // Requires that the <expanded_format_string> is empty, and if %Z is present
 // then the <timezone> is normalized to an hours/minutes offset
 // (i.e., <timezone> does not include any 'seconds' offset).
-absl::Status ExpandPercentZQ(absl::string_view format_string,
-                             absl::Time base_time, absl::TimeZone timezone,
-                             bool expand_quarter,
-                             std::string* expanded_format_string) {
+absl::Status ExpandPercentZQJ(absl::string_view format_string,
+                              absl::Time base_time, absl::TimeZone timezone,
+                              const ExpansionOptions& expansion_options,
+                              std::string* expanded_format_string) {
   ZETASQL_RET_CHECK(expanded_format_string->empty());
   if (format_string.empty()) {
     return absl::OkStatus();
@@ -4180,7 +4229,7 @@ absl::Status ExpandPercentZQ(absl::string_view format_string,
                       format_string.substr(index, pct - index));
       index = pct;
     }
-    if (expand_quarter && format_string[pct + 1] == 'Q') {
+    if (expansion_options.expand_quarter && format_string[pct + 1] == 'Q') {
       // Handle %Q, computing quarter from month.
       absl::StrAppend(
           expanded_format_string,
@@ -4213,8 +4262,14 @@ absl::Status ExpandPercentZQ(absl::string_view format_string,
           absl::StrAppend(expanded_format_string, absl::StrFormat("%d", hours));
         }
       }
+    } else if (expansion_options.expand_iso_dayofyear &&
+               format_string[pct + 1] == 'J') {
+      // Handle %J, computing ISO day of year.
+      const absl::TimeZone::CivilInfo info = timezone.At(base_time);
+      const absl::CivilDay civil_day = absl::CivilDay(info.cs);
+      return MakeEvalError() << "Format element %J not supported yet";
     } else {
-      // Neither %Q nor %Z, copy as is.
+      // None of %J, %Q, %Z. Copy as is.
       absl::StrAppend(expanded_format_string, format_string.substr(index, 2));
     }
   }

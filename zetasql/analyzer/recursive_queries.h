@@ -17,10 +17,11 @@
 #ifndef ZETASQL_ANALYZER_RECURSIVE_QUERIES_H_
 #define ZETASQL_ANALYZER_RECURSIVE_QUERIES_H_
 
+#include <vector>
+
 #include "zetasql/parser/parse_tree.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 
@@ -45,12 +46,12 @@ struct WithEntrySortResult {
 // themself are allowed; the sort result includes a set of such entries,
 // allowing them to be easily identified. Dependency cycles of length >= 2
 // result in an error.
-zetasql_base::StatusOr<WithEntrySortResult> SortWithEntries(
+absl::StatusOr<WithEntrySortResult> SortWithEntries(
     const ASTWithClause* with_clause);
 
 // Returns true if the given CREATE RECURSIVE VIEW statement is actually
 // recursive.
-zetasql_base::StatusOr<bool> IsViewSelfRecursive(
+absl::StatusOr<bool> IsViewSelfRecursive(
     const ASTCreateViewStatementBase* stmt);
 
 }  // namespace zetasql

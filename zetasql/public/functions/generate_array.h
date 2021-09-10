@@ -28,7 +28,7 @@
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/numeric_value.h"
 #include <cstdint>
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/time/time.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status.h"

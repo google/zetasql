@@ -22,7 +22,7 @@
 #include "zetasql/parser/parse_tree.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 
@@ -209,7 +209,7 @@ class ControlFlowGraph {
  public:
   // Creates a ControlFlowGraph for the given script.
   // (Both arguments must remain alive while the control-flow graph is alive).
-  static zetasql_base::StatusOr<std::unique_ptr<const ControlFlowGraph>> Create(
+  static absl::StatusOr<std::unique_ptr<const ControlFlowGraph>> Create(
       const ASTScript* script, absl::string_view script_text);
 
   // Node to execute at the start of the script, or <end_node()> if the script

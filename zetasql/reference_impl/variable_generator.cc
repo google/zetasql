@@ -18,7 +18,7 @@
 
 #include <map>
 
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
@@ -98,28 +98,28 @@ VariableId VariableGenerator::GetVariableNameFromParameter(
 }
 
 VariableId ColumnToVariableMapping::AssignNewVariableToColumn(
-    const ResolvedColumn* column) {
-  VariableId varname = variable_gen_->GetNewVariableName(column->name());
-  column_to_variable_[*column] = varname;
+    const ResolvedColumn& column) {
+  VariableId varname = variable_gen_->GetNewVariableName(column.name());
+  column_to_variable_[column] = varname;
   return varname;
 }
 
 VariableId ColumnToVariableMapping::GetVariableNameFromColumn(
-    const ResolvedColumn* column) {
-  const zetasql_base::StatusOr<VariableId> status_or_id =
+    const ResolvedColumn& column) {
+  const absl::StatusOr<VariableId> status_or_id =
       LookupVariableNameForColumn(column);
   if (status_or_id.ok()) return status_or_id.value();
   return AssignNewVariableToColumn(column);
 }
 
-zetasql_base::StatusOr<VariableId> ColumnToVariableMapping::LookupVariableNameForColumn(
-    const ResolvedColumn* column) const {
-  Map::const_iterator it = column_to_variable_.find(*column);
+absl::StatusOr<VariableId> ColumnToVariableMapping::LookupVariableNameForColumn(
+    const ResolvedColumn& column) const {
+  Map::const_iterator it = column_to_variable_.find(column);
   if (it != column_to_variable_.end()) {
     return (*it).second;
   }
   return zetasql_base::NotFoundErrorBuilder()
-         << "Failed to find column: " << column->DebugString();
+         << "Failed to find column: " << column.DebugString();
 }
 
 std::string ColumnToVariableMapping::DebugString() const {

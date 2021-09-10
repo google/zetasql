@@ -2,8 +2,8 @@
 ## ARRAY_LENGTH queries
 ##
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB, zetasql_test.TestExtraPB, zetasql_test.KitchenSinkPB.Nested, zetasql_test.RepeatedHolderPB, zetasql_test.EmptyMessage, zetasql_test.MessageWithNulls]
-[load_enum_names=zetasql_test.TestEnum]
+[load_proto_names=zetasql_test__.KitchenSinkPB, zetasql_test__.TestExtraPB, zetasql_test__.KitchenSinkPB.Nested, zetasql_test__.RepeatedHolderPB, zetasql_test__.EmptyMessage, zetasql_test__.MessageWithNulls]
+[load_enum_names=zetasql_test__.TestEnum]
 
 [name=array_length_null]
 SELECT ARRAY_LENGTH(CAST(NULL AS ARRAY<INT64>))
@@ -427,19 +427,19 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 ==
 [name=array_concat_enum]
-SELECT ARRAY_CONCAT(ARRAY<zetasql_test.TestEnum>["TESTENUM0"],
-       ARRAY<zetasql_test.TestEnum>["TESTENUM1"]);
+SELECT ARRAY_CONCAT(ARRAY<zetasql_test__.TestEnum>["TESTENUM0"],
+       ARRAY<zetasql_test__.TestEnum>["TESTENUM1"]);
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM0, TESTENUM1]}
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM1]}
 ]
 ==
 [name=array_concat_operator_enum]
-SELECT ARRAY<zetasql_test.TestEnum>["TESTENUM0"] ||
-       ARRAY<zetasql_test.TestEnum>["TESTENUM1"];
+SELECT ARRAY<zetasql_test__.TestEnum>["TESTENUM0"] ||
+       ARRAY<zetasql_test__.TestEnum>["TESTENUM1"];
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM0, TESTENUM1]}
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM1]}
 ]
 ==
 [name=array_concat_struct]
@@ -467,18 +467,18 @@ SELECT ARRAY[ARRAY[1]] || ARRAY[ARRAY[2]]
              ^
 ==
 [name=array_concat_proto]
-SELECT ARRAY_CONCAT(ARRAY<`zetasql_test.KitchenSinkPB`>[
+SELECT ARRAY_CONCAT(ARRAY<`zetasql_test__.KitchenSinkPB`>[
   '''
     int64_key_1: 11
     int64_key_2: 12
-  '''], ARRAY<`zetasql_test.KitchenSinkPB`>[
+  '''], ARRAY<`zetasql_test__.KitchenSinkPB`>[
   '''
     int64_key_1: 21
     int64_key_2: 22
   '''])
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 11
        int64_key_2: 12
@@ -493,18 +493,18 @@ ARRAY<STRUCT<ARRAY<>>>[
 
 ==
 [name=array_concat_operator_proto]
-SELECT ARRAY<`zetasql_test.KitchenSinkPB`>[
+SELECT ARRAY<`zetasql_test__.KitchenSinkPB`>[
   '''
     int64_key_1: 11
     int64_key_2: 12
-  '''] || ARRAY<`zetasql_test.KitchenSinkPB`>[
+  '''] || ARRAY<`zetasql_test__.KitchenSinkPB`>[
   '''
     int64_key_1: 21
     int64_key_2: 22
   ''']
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 11
        int64_key_2: 12
@@ -775,9 +775,9 @@ SELECT ARRAY_IS_DISTINCT([STRUCT(1.0), STRUCT(1.0)])
 ==
 [name=array_is_distinct_single_proto]
 SELECT ARRAY_IS_DISTINCT([
-  (SELECT AS `zetasql_test.KitchenSinkPB` 5 int64_key_1, 6 int64_key_2)])
+  (SELECT AS `zetasql_test__.KitchenSinkPB` 5 int64_key_1, 6 int64_key_2)])
 --
-ERROR: generic::invalid_argument: ARRAY_IS_DISTINCT cannot be used on argument of type ARRAY<zetasql_test.KitchenSinkPB> because the array's element type does not support grouping [at 1:8]
+ERROR: generic::invalid_argument: ARRAY_IS_DISTINCT cannot be used on argument of type ARRAY<zetasql_test__.KitchenSinkPB> because the array's element type does not support grouping [at 1:8]
 SELECT ARRAY_IS_DISTINCT([
        ^
 ==

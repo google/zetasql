@@ -499,14 +499,14 @@ by a space.</td>
     <td>%</td>
  </tr>
  <tr>
-    <td>%E#S</td>
-    <td>Seconds with # digits of fractional precision.</td>
-    <td>00.000</td>
+    <td>%E&lt;number&gt;S</td>
+    <td>Seconds with &lt;number&gt; digits of fractional precision.</td>
+    <td>00.000 for %E3S</td>
  </tr>
  <tr>
     <td>%E*S</td>
     <td>Seconds with full fractional precision (a literal '*').</td>
-    <td>00</td>
+    <td>00.123456</td>
  </tr>
 </table>
 

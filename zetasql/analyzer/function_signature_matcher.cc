@@ -16,7 +16,7 @@
 
 #include "zetasql/analyzer/function_signature_matcher.h"
 
-#include <functional>
+#include <limits>
 #include <map>
 #include <memory>
 #include <set>
@@ -26,9 +26,11 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/analyzer/lambda_util.h"
+#include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/coercer.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/proto_util.h"
 #include "zetasql/public/signature_match_result.h"
@@ -41,10 +43,12 @@
 #include "zetasql/base/case.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace {
@@ -78,7 +82,7 @@ class FunctionSignatureMatcher {
   //   <CheckResolveLambdaTypeAndCollectTemplatedArguments> about how a lambda
   //   is resolved. The resolved lambdas is put in <arg_overrides> with the
   //   corresponding index, if it matches the signature specification.
-  zetasql_base::StatusOr<bool> SignatureMatches(
+  absl::StatusOr<bool> SignatureMatches(
       const std::vector<const ASTNode*>& arg_ast_nodes,
       const std::vector<InputArgumentType>& input_arguments,
       const FunctionSignature& signature,
@@ -170,7 +174,7 @@ class FunctionSignatureMatcher {
   // using the mapping from templated to concrete argument types in
   // <templated_argument_map>. Also used for result types.
   // Returns a non-OK status for any internal error.
-  zetasql_base::StatusOr<bool> GetConcreteArgument(
+  absl::StatusOr<bool> GetConcreteArgument(
       const FunctionArgumentType& argument, int num_occurrences,
       const ArgKindToResolvedTypeMap& templated_argument_map,
       std::unique_ptr<FunctionArgumentType>* output_argument) const;
@@ -179,7 +183,7 @@ class FunctionSignatureMatcher {
   // on each entry and setting <num_occurrences_> with appropriate argument
   // counts.
   // Returns a non-OK status for any internal error.
-  zetasql_base::StatusOr<FunctionArgumentTypeList> GetConcreteArguments(
+  absl::StatusOr<FunctionArgumentTypeList> GetConcreteArguments(
       const std::vector<InputArgumentType>& input_arguments,
       const FunctionSignature& signature, int repetitions, int optionals,
       const ArgKindToResolvedTypeMap& templated_argument_map) const;
@@ -343,7 +347,7 @@ SignatureArgumentKind RelatedTemplatedKind(SignatureArgumentKind kind) {
   return kind;
 }
 
-zetasql_base::StatusOr<bool> FunctionSignatureMatcher::GetConcreteArgument(
+absl::StatusOr<bool> FunctionSignatureMatcher::GetConcreteArgument(
     const FunctionArgumentType& argument, int num_occurrences,
     const ArgKindToResolvedTypeMap& templated_argument_map,
     std::unique_ptr<FunctionArgumentType>* output_argument) const {
@@ -422,7 +426,7 @@ zetasql_base::StatusOr<bool> FunctionSignatureMatcher::GetConcreteArgument(
   return true;
 }
 
-zetasql_base::StatusOr<FunctionArgumentTypeList>
+absl::StatusOr<FunctionArgumentTypeList>
 FunctionSignatureMatcher::GetConcreteArguments(
     const std::vector<InputArgumentType>& input_arguments,
     const FunctionSignature& signature, int repetitions, int optionals,
@@ -611,7 +615,7 @@ bool FunctionSignatureMatcher::
 
   // Get lambda argument names from AST
   const ASTLambda* ast_lambda = arg_ast_node->GetAs<ASTLambda>();
-  zetasql_base::StatusOr<std::vector<IdString>> arg_names_or =
+  absl::StatusOr<std::vector<IdString>> arg_names_or =
       ExtractLambdaArgumentNames(ast_lambda);
   // Lambda argument names are already validated by
   // ValidateLambdaArgumentListIsIdentifierList before signature matching so it
@@ -796,7 +800,7 @@ struct MapEntryTypes {
   const Type* key_type;
   const Type* value_type;
 };
-zetasql_base::StatusOr<MapEntryTypes> GetMapEntryTypes(const Type* map_type,
+absl::StatusOr<MapEntryTypes> GetMapEntryTypes(const Type* map_type,
                                                TypeFactory& factory) {
   ZETASQL_RET_CHECK(IsProtoMap(map_type)) << map_type->DebugString();
 
@@ -966,7 +970,7 @@ bool FunctionSignatureMatcher::
     if (signature_argument_kind == ARG_PROTO_MAP_ANY) {
       // If this is a proto map argument, we can infer the templated types
       // for the key and value.
-      zetasql_base::StatusOr<MapEntryTypes> entry_types =
+      absl::StatusOr<MapEntryTypes> entry_types =
           GetMapEntryTypes(input_argument.type(), *type_factory_);
       if (!entry_types.ok()) {
         ZETASQL_VLOG(1) << "Error computing map entry types: " << entry_types.status();
@@ -1228,7 +1232,7 @@ bool FunctionSignatureMatcher::DetermineResolvedTypesForTemplatedArguments(
   return true;
 }
 
-zetasql_base::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
+absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
     const std::vector<const ASTNode*>& arg_ast_nodes,
     const std::vector<InputArgumentType>& input_arguments,
     const FunctionSignature& signature,
@@ -1406,7 +1410,7 @@ bool FunctionSignatureMatches(
     std::unique_ptr<FunctionSignature>* result_signature,
     SignatureMatchResult* signature_match_result,
     std::vector<FunctionArgumentOverride>* arg_overrides) {
-  zetasql_base::StatusOr<bool> status_or = FunctionSignatureMatchesWithStatus(
+  absl::StatusOr<bool> status_or = FunctionSignatureMatchesWithStatus(
       language_options, coercer, arg_ast_nodes, input_arguments, signature,
       allow_argument_coercion, type_factory, resolve_lambda_callback,
       result_signature, signature_match_result, arg_overrides);
@@ -1414,7 +1418,7 @@ bool FunctionSignatureMatches(
   return status_or.value_or(false);
 }
 
-zetasql_base::StatusOr<bool> FunctionSignatureMatchesWithStatus(
+absl::StatusOr<bool> FunctionSignatureMatchesWithStatus(
     const LanguageOptions& language_options, const Coercer& coercer,
     const std::vector<const ASTNode*>& arg_ast_nodes,
     const std::vector<InputArgumentType>& input_arguments,

@@ -32,7 +32,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "zetasql/testing/using_test_value.cc"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
@@ -58,7 +58,7 @@ TypeFactory* type_factory() {
 const EnumType* TestEnumType() {
   const EnumType* enum_type;
   const google::protobuf::EnumDescriptor* enum_descriptor =
-      zetasql_test::TestEnum_descriptor();
+      zetasql_test__::TestEnum_descriptor();
   ZETASQL_CHECK_OK(type_factory()->MakeEnumType(enum_descriptor, &enum_type));
   return enum_type;
 }
@@ -66,7 +66,7 @@ const EnumType* TestEnumType() {
 const ProtoType* KitchenSinkProtoType() {
   const ProtoType* kitchen_sink_proto_type;
   ZETASQL_CHECK_OK(type_factory()->MakeProtoType(
-      zetasql_test::KitchenSinkPB::descriptor(), &kitchen_sink_proto_type));
+      zetasql_test__::KitchenSinkPB::descriptor(), &kitchen_sink_proto_type));
   return kitchen_sink_proto_type;
 }
 
@@ -101,7 +101,7 @@ const ProtoType* Proto3TimeOfDayType() {
 const ProtoType* CivilTimeTypesSinkProtoType() {
   const ProtoType* civil_time_types_sink_proto_type;
   ZETASQL_CHECK_OK(type_factory()->MakeProtoType(
-      zetasql_test::CivilTimeTypesSinkPB::descriptor(),
+      zetasql_test__::CivilTimeTypesSinkPB::descriptor(),
       &civil_time_types_sink_proto_type));
   return civil_time_types_sink_proto_type;
 }
@@ -109,7 +109,7 @@ const ProtoType* CivilTimeTypesSinkProtoType() {
 const ProtoType* NullableIntProtoType() {
   const ProtoType* nullable_int_proto_type;
   ZETASQL_CHECK_OK(type_factory()->MakeProtoType(
-      zetasql_test::NullableInt::descriptor(), &nullable_int_proto_type));
+      zetasql_test__::NullableInt::descriptor(), &nullable_int_proto_type));
   return nullable_int_proto_type;
 }
 
@@ -171,7 +171,7 @@ Value DatetimeNanos(int year, int month, int day, int hour, int minute,
       year, month, day, hour, minute, second, nanoseconds));
 }
 Value KitchenSink(const std::string& proto_str) {
-  zetasql_test::KitchenSinkPB kitchen_sink_message;
+  zetasql_test__::KitchenSinkPB kitchen_sink_message;
   ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(proto_str,
                                             &kitchen_sink_message));
   return ProtoToValue(KitchenSinkProtoType(), kitchen_sink_message);
@@ -213,7 +213,7 @@ Value Proto3TimeOfDay(int32_t hour, int32_t minute, int32_t seconds,
 }
 
 Value CivilTimeTypesSink(const std::string& proto_str) {
-  zetasql_test::CivilTimeTypesSinkPB civil_time_types_sink_message;
+  zetasql_test__::CivilTimeTypesSinkPB civil_time_types_sink_message;
   ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(proto_str,
                                             &civil_time_types_sink_message));
   return ProtoToValue(CivilTimeTypesSinkProtoType(),
@@ -221,7 +221,7 @@ Value CivilTimeTypesSink(const std::string& proto_str) {
 }
 
 Value NullableInt(const std::string& proto_str) {
-  zetasql_test::NullableInt nullable_int_message;
+  zetasql_test__::NullableInt nullable_int_message;
   ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(proto_str,
                                             &nullable_int_message));
   return ProtoToValue(NullableIntProtoType(), nullable_int_message);
@@ -261,8 +261,8 @@ std::vector<std::vector<Value>> GetRowsOfValues() {
 
 CivilTimeTestCase::CivilTimeTestCase(
     const std::vector<ValueConstructor>& input,
-    const zetasql_base::StatusOr<Value>& micros_output,
-    const zetasql_base::StatusOr<Value>& nanos_output, const Type* output_type,
+    const absl::StatusOr<Value>& micros_output,
+    const absl::StatusOr<Value>& nanos_output, const Type* output_type,
     const std::set<LanguageFeature>& required_features)
     : input(input),
       micros_output(micros_output),

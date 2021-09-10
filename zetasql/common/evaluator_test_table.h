@@ -30,7 +30,7 @@
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/clock.h"
@@ -63,7 +63,7 @@ class EvaluatorTestTable : public SimpleTable {
   EvaluatorTestTable(const EvaluatorTestTable&) = delete;
   EvaluatorTestTable& operator=(const EvaluatorTestTable&) = delete;
 
-  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+  absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
   CreateEvaluatorTableIterator(
       absl::Span<const int> column_idxs) const override {
     std::vector<const Column*> columns;

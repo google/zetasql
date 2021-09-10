@@ -1675,7 +1675,8 @@ TYPED_TEST(FixedIntGeneratedDataTest, Shift) {
       EXPECT_EQ(v, T(x >> i)) << std::hex << std::showbase << x << " >> " << i;
 
       v = (T(x) <<= i);
-      EXPECT_EQ(static_cast<V128<T>>(v), x << i)
+      V128<T> mask = static_cast<V128<T>>(~uint128{0} >> i);
+      EXPECT_EQ(static_cast<V128<T>>(v), (x & mask) << i)
           << std::hex << std::showbase << x << " << " << i;
       if (T::kNumBits > 128) {
         using Word = typename T::Word;
@@ -2152,7 +2153,11 @@ void TestConversion(V128 x) {
   Src<32, 3> x_32_3(std::array<uint32_t, 3>{static_cast<uint32_t>(x),
                                             static_cast<uint32_t>(x >> 32),
                                             static_cast<uint32_t>(x >> 64)});
-  V128 x_lo96 = (x << 32) >> 32;
+  constexpr V128 kMask = (V128{1} << 96) - 1;
+  // Interpret the low 96 bits as int96 or uint96 depending on whether V128 is
+  // signed, and cast the int96/uint96 to V128 by extending the sign bit if
+  // signed.
+  V128 x_lo96 = ((x & kMask) << 32) >> 32;
 
   EXPECT_EQ((Dest<64, 3>(x_64_2).number()), x_64_3.number());
   EXPECT_EQ((Dest<64, 2>(x_64_2).number()), x_64_2.number());

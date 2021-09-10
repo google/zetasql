@@ -31,7 +31,7 @@
 #include "absl/cleanup/cleanup.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -153,7 +153,7 @@ static std::string ShortenBytesLiteralForError(absl::string_view literal) {
 // 'bison_error_message'. The other arguments should match those passed into
 // BisonParser::Parse(). It is required that 'bison_error_message' is the actual
 // error message produced by the bison parser for the given inputs.
-static zetasql_base::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
+static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
     ParseLocationPoint error_location, absl::string_view bison_error_message,
     BisonParserMode mode, absl::string_view input, int start_offset) {
   // Bison error messages are always of the form "syntax error, unexpected X,
@@ -347,7 +347,8 @@ absl::Status BisonParser::Parse(
   filename_ = id_string_pool->Make(filename);
   input_ = input;
   tokenizer_ = absl::make_unique<ZetaSqlFlexTokenizer>(
-      mode, filename_.ToStringView(), input_, start_byte_offset);
+      mode, filename_.ToStringView(), input_, start_byte_offset,
+      language_options);
   ASTNode* output_node = nullptr;
   std::string error_message;
   ParseLocationPoint error_location;
@@ -393,7 +394,7 @@ absl::Status BisonParser::Parse(
       // location be moved past any whitespace onto the next token.
       ZetaSqlFlexTokenizer skip_whitespace_tokenizer(
           BisonParserMode::kTokenizer, filename_.ToStringView(), input_,
-          error_location.GetByteOffset());
+          error_location.GetByteOffset(), language_options_);
       ParseLocationRange next_token_location;
       int token;
       ZETASQL_RETURN_IF_ERROR(

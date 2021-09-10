@@ -56,7 +56,7 @@ CREATE PROCEDURE procedure_name(
 BEGIN
 END;
 --
-CreateProcedureStmt(name_path=procedure_name, argument_name_list=[param_d, param_f], signature=(TABLE<col_a INT32, col_b INT32>, ANY TABLE param_f) -> <void>, procedure_body="BEGIN\nEND")
+CreateProcedureStmt(name_path=procedure_name, argument_name_list=[param_d, param_f], signature=(TABLE<col_a INT32, col_b INT32> param_d, ANY TABLE param_f) -> <void>, procedure_body="BEGIN\nEND")
 ==
 
 # valid statement with procedure body

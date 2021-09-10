@@ -1,6 +1,3 @@
-# TODO: Unparser is disabled only temporarily until UNPIVOT support
-# in SQLBuilder is implemented.
-[default no_run_unparser]
 [default enable_ast_rewrites]
 [default language_features=V_1_3_UNPIVOT,TABLESAMPLE,TABLE_VALUED_FUNCTIONS]
 
@@ -17,15 +14,15 @@ ALTERNATION GROUP: V_1_3_UNPIVOT
 --
 QueryStmt
 +-output_column_list=
-| +-KeyValue.Value#2 AS Value [STRING]
+| +-$unpivot.Value#5 AS Value [STRING]
 | +-$unpivot.a#3 AS a [INT64]
 | +-$unpivot.b#4 AS b [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+    +-column_list=$unpivot.[Value#5, a#3, b#4]
     +-input_scan=
       +-UnpivotScan
-        +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+        +-column_list=$unpivot.[Value#5, a#3, b#4]
         +-input_scan=
         | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         +-value_column_list=[$unpivot.a#3]
@@ -36,40 +33,42 @@ QueryStmt
         | +-UnpivotArg
         |   +-column_list=
         |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-projected_input_column_list=
+        | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-include_nulls=FALSE
-
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-KeyValue.Value#2 AS Value [STRING]
+| +-$unpivot.Value#5 AS Value [STRING]
 | +-$unpivot.a#3 AS a [INT64]
 | +-$unpivot.b#4 AS b [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+    +-column_list=$unpivot.[Value#5, a#3, b#4]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+        +-column_list=$unpivot.[Value#5, a#3, b#4]
         +-expr_list=
+        | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         | +-a#3 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#5)
+        | |   | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#6)
         | |   +-field_idx=0
         | +-b#4 :=
         |   +-GetStructField
         |     +-type=STRING
         |     +-expr=
-        |     | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#5)
+        |     | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#6)
         |     +-field_idx=1
         +-input_scan=
           +-FilterScan
-            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#5]
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#6]
             +-input_scan=
             | +-ArrayScan
-            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#5]
+            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#6]
             |   +-input_scan=
             |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
             |   +-array_expr=
@@ -79,7 +78,7 @@ QueryStmt
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             |   |       +-Literal(type=STRING, value="Key", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#5
+            |   +-element_column=unpivot_array_0.unpivot_unnest#6
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(1) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -87,7 +86,7 @@ QueryStmt
                     +-GetStructField
                       +-type=INT64
                       +-expr=
-                      | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#5)
+                      | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#6)
                       +-field_idx=0
 ==
 
@@ -95,19 +94,19 @@ SELECT * FROM MultipleColumns UNPIVOT INCLUDE NULLS((a, b) for c in ((int_a, int
 --
 QueryStmt
 +-output_column_list=
-| +-MultipleColumns.string_a#2 AS string_a [STRING]
-| +-MultipleColumns.string_b#4 AS string_b [STRING]
-| +-MultipleColumns.int_c#5 AS int_c [INT64]
-| +-MultipleColumns.int_d#6 AS int_d [INT64]
+| +-$unpivot.string_a#10 AS string_a [STRING]
+| +-$unpivot.string_b#11 AS string_b [STRING]
+| +-$unpivot.int_c#12 AS int_c [INT64]
+| +-$unpivot.int_d#13 AS int_d [INT64]
 | +-$unpivot.a#7 AS a [INT64]
 | +-$unpivot.b#8 AS b [INT64]
 | +-$unpivot.c#9 AS c [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.a#7, $unpivot.b#8, $unpivot.c#9]
+    +-column_list=$unpivot.[string_a#10, string_b#11, int_c#12, int_d#13, a#7, b#8, c#9]
     +-input_scan=
       +-UnpivotScan
-        +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.a#7, $unpivot.b#8, $unpivot.c#9]
+        +-column_list=$unpivot.[string_a#10, string_b#11, int_c#12, int_d#13, a#7, b#8, c#9]
         +-input_scan=
         | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
         +-value_column_list=$unpivot.[a#7, b#8]
@@ -119,47 +118,55 @@ QueryStmt
         |   +-column_list=
         |     +-ColumnRef(type=INT64, column=MultipleColumns.int_a#1)
         |     +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
+        +-projected_input_column_list=
+        | +-string_a#10 := ColumnRef(type=STRING, column=MultipleColumns.string_a#2)
+        | +-string_b#11 := ColumnRef(type=STRING, column=MultipleColumns.string_b#4)
+        | +-int_c#12 := ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
+        | +-int_d#13 := ColumnRef(type=INT64, column=MultipleColumns.int_d#6)
         +-include_nulls=TRUE
-
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-MultipleColumns.string_a#2 AS string_a [STRING]
-| +-MultipleColumns.string_b#4 AS string_b [STRING]
-| +-MultipleColumns.int_c#5 AS int_c [INT64]
-| +-MultipleColumns.int_d#6 AS int_d [INT64]
+| +-$unpivot.string_a#10 AS string_a [STRING]
+| +-$unpivot.string_b#11 AS string_b [STRING]
+| +-$unpivot.int_c#12 AS int_c [INT64]
+| +-$unpivot.int_d#13 AS int_d [INT64]
 | +-$unpivot.a#7 AS a [INT64]
 | +-$unpivot.b#8 AS b [INT64]
 | +-$unpivot.c#9 AS c [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.a#7, $unpivot.b#8, $unpivot.c#9]
+    +-column_list=$unpivot.[string_a#10, string_b#11, int_c#12, int_d#13, a#7, b#8, c#9]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.a#7, $unpivot.b#8, $unpivot.c#9]
+        +-column_list=$unpivot.[string_a#10, string_b#11, int_c#12, int_d#13, a#7, b#8, c#9]
         +-expr_list=
+        | +-string_a#10 := ColumnRef(type=STRING, column=MultipleColumns.string_a#2)
+        | +-string_b#11 := ColumnRef(type=STRING, column=MultipleColumns.string_b#4)
+        | +-int_c#12 := ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
+        | +-int_d#13 := ColumnRef(type=INT64, column=MultipleColumns.int_d#6)
         | +-a#7 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#10)
+        | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#14)
         | |   +-field_idx=0
         | +-b#8 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#10)
+        | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#14)
         | |   +-field_idx=1
         | +-c#9 :=
         |   +-GetStructField
         |     +-type=STRING
         |     +-expr=
-        |     | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#10)
+        |     | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#14)
         |     +-field_idx=2
         +-input_scan=
           +-ArrayScan
-            +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#10]
+            +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#14]
             +-input_scan=
             | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
             +-array_expr=
@@ -170,26 +177,26 @@ QueryStmt
             |       +-ColumnRef(type=INT64, column=MultipleColumns.int_a#1)
             |       +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
             |       +-Literal(type=STRING, value="int_a_int_b", has_explicit_type=TRUE)
-            +-element_column=unpivot_array_0.unpivot_unnest#10
+            +-element_column=unpivot_array_0.unpivot_unnest#14
 ==
 
 SELECT * FROM MultipleColumns UNPIVOT EXCLUDE NULLS((a, b) for c in ((int_a, int_b)));
 --
 QueryStmt
 +-output_column_list=
-| +-MultipleColumns.string_a#2 AS string_a [STRING]
-| +-MultipleColumns.string_b#4 AS string_b [STRING]
-| +-MultipleColumns.int_c#5 AS int_c [INT64]
-| +-MultipleColumns.int_d#6 AS int_d [INT64]
+| +-$unpivot.string_a#10 AS string_a [STRING]
+| +-$unpivot.string_b#11 AS string_b [STRING]
+| +-$unpivot.int_c#12 AS int_c [INT64]
+| +-$unpivot.int_d#13 AS int_d [INT64]
 | +-$unpivot.a#7 AS a [INT64]
 | +-$unpivot.b#8 AS b [INT64]
 | +-$unpivot.c#9 AS c [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.a#7, $unpivot.b#8, $unpivot.c#9]
+    +-column_list=$unpivot.[string_a#10, string_b#11, int_c#12, int_d#13, a#7, b#8, c#9]
     +-input_scan=
       +-UnpivotScan
-        +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.a#7, $unpivot.b#8, $unpivot.c#9]
+        +-column_list=$unpivot.[string_a#10, string_b#11, int_c#12, int_d#13, a#7, b#8, c#9]
         +-input_scan=
         | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
         +-value_column_list=$unpivot.[a#7, b#8]
@@ -201,50 +208,58 @@ QueryStmt
         |   +-column_list=
         |     +-ColumnRef(type=INT64, column=MultipleColumns.int_a#1)
         |     +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
+        +-projected_input_column_list=
+        | +-string_a#10 := ColumnRef(type=STRING, column=MultipleColumns.string_a#2)
+        | +-string_b#11 := ColumnRef(type=STRING, column=MultipleColumns.string_b#4)
+        | +-int_c#12 := ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
+        | +-int_d#13 := ColumnRef(type=INT64, column=MultipleColumns.int_d#6)
         +-include_nulls=FALSE
-
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-MultipleColumns.string_a#2 AS string_a [STRING]
-| +-MultipleColumns.string_b#4 AS string_b [STRING]
-| +-MultipleColumns.int_c#5 AS int_c [INT64]
-| +-MultipleColumns.int_d#6 AS int_d [INT64]
+| +-$unpivot.string_a#10 AS string_a [STRING]
+| +-$unpivot.string_b#11 AS string_b [STRING]
+| +-$unpivot.int_c#12 AS int_c [INT64]
+| +-$unpivot.int_d#13 AS int_d [INT64]
 | +-$unpivot.a#7 AS a [INT64]
 | +-$unpivot.b#8 AS b [INT64]
 | +-$unpivot.c#9 AS c [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.a#7, $unpivot.b#8, $unpivot.c#9]
+    +-column_list=$unpivot.[string_a#10, string_b#11, int_c#12, int_d#13, a#7, b#8, c#9]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.a#7, $unpivot.b#8, $unpivot.c#9]
+        +-column_list=$unpivot.[string_a#10, string_b#11, int_c#12, int_d#13, a#7, b#8, c#9]
         +-expr_list=
+        | +-string_a#10 := ColumnRef(type=STRING, column=MultipleColumns.string_a#2)
+        | +-string_b#11 := ColumnRef(type=STRING, column=MultipleColumns.string_b#4)
+        | +-int_c#12 := ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
+        | +-int_d#13 := ColumnRef(type=INT64, column=MultipleColumns.int_d#6)
         | +-a#7 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#10)
+        | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#14)
         | |   +-field_idx=0
         | +-b#8 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#10)
+        | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#14)
         | |   +-field_idx=1
         | +-c#9 :=
         |   +-GetStructField
         |     +-type=STRING
         |     +-expr=
-        |     | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#10)
+        |     | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#14)
         |     +-field_idx=2
         +-input_scan=
           +-FilterScan
-            +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#10]
+            +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#14]
             +-input_scan=
             | +-ArrayScan
-            |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#10]
+            |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#14]
             |   +-input_scan=
             |   | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
             |   +-array_expr=
@@ -255,7 +270,7 @@ QueryStmt
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_a#1)
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
             |   |       +-Literal(type=STRING, value="int_a_int_b", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#10
+            |   +-element_column=unpivot_array_0.unpivot_unnest#14
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -263,14 +278,14 @@ QueryStmt
                 |   +-GetStructField
                 |     +-type=INT64
                 |     +-expr=
-                |     | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#10)
+                |     | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#14)
                 |     +-field_idx=0
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
                   +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
                     +-GetStructField
                       +-type=INT64
                       +-expr=
-                      | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#10)
+                      | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#14)
                       +-field_idx=1
 ==
 
@@ -296,15 +311,15 @@ SELECT a , int_a FROM MultipleColumns UNPIVOT((a , b) for c in (( int_c, int_d )
 QueryStmt
 +-output_column_list=
 | +-$unpivot.a#7 AS a [INT64]
-| +-MultipleColumns.int_a#1 AS int_a [INT64]
+| +-$unpivot.int_a#10 AS int_a [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$unpivot.a#7, MultipleColumns.int_a#1]
+    +-column_list=$unpivot.[a#7, int_a#10]
     +-input_scan=
       +-UnpivotScan
-        +-column_list=[MultipleColumns.int_a#1, $unpivot.a#7]
+        +-column_list=$unpivot.[int_a#10, a#7]
         +-input_scan=
-        | +-TableScan(column_list=MultipleColumns.[int_a#1, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 4, 5])
+        | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
         +-value_column_list=$unpivot.[a#7, b#8]
         +-label_column=$unpivot.c#9
         +-label_list=
@@ -314,47 +329,55 @@ QueryStmt
         |   +-column_list=
         |     +-ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
         |     +-ColumnRef(type=INT64, column=MultipleColumns.int_d#6)
+        +-projected_input_column_list=
+        | +-int_a#10 := ColumnRef(type=INT64, column=MultipleColumns.int_a#1)
+        | +-string_a#11 := ColumnRef(type=STRING, column=MultipleColumns.string_a#2)
+        | +-int_b#12 := ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
+        | +-string_b#13 := ColumnRef(type=STRING, column=MultipleColumns.string_b#4)
         +-include_nulls=FALSE
-
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
 | +-$unpivot.a#7 AS a [INT64]
-| +-MultipleColumns.int_a#1 AS int_a [INT64]
+| +-$unpivot.int_a#10 AS int_a [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$unpivot.a#7, MultipleColumns.int_a#1]
+    +-column_list=$unpivot.[a#7, int_a#10]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[MultipleColumns.int_a#1, $unpivot.a#7]
+        +-column_list=$unpivot.[int_a#10, a#7]
         +-expr_list=
+        | +-int_a#10 := ColumnRef(type=INT64, column=MultipleColumns.int_a#1)
+        | +-string_a#11 := ColumnRef(type=STRING, column=MultipleColumns.string_a#2)
+        | +-int_b#12 := ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
+        | +-string_b#13 := ColumnRef(type=STRING, column=MultipleColumns.string_b#4)
         | +-a#7 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#10)
+        | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#14)
         | |   +-field_idx=0
         | +-b#8 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#10)
+        | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#14)
         | |   +-field_idx=1
         | +-c#9 :=
         |   +-GetStructField
         |     +-type=STRING
         |     +-expr=
-        |     | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#10)
+        |     | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#14)
         |     +-field_idx=2
         +-input_scan=
           +-FilterScan
-            +-column_list=[MultipleColumns.int_a#1, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#10]
+            +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#14]
             +-input_scan=
             | +-ArrayScan
-            |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#10]
+            |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#14]
             |   +-input_scan=
-            |   | +-TableScan(column_list=MultipleColumns.[int_a#1, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 4, 5])
+            |   | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
             |   +-array_expr=
             |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a INT64, b INT64, c STRING>) -> ARRAY<STRUCT<a INT64, b INT64, c STRING>>)
             |   |   +-MakeStruct
@@ -363,7 +386,7 @@ QueryStmt
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_d#6)
             |   |       +-Literal(type=STRING, value="Label", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#10
+            |   +-element_column=unpivot_array_0.unpivot_unnest#14
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -371,14 +394,14 @@ QueryStmt
                 |   +-GetStructField
                 |     +-type=INT64
                 |     +-expr=
-                |     | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#10)
+                |     | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#14)
                 |     +-field_idx=0
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
                   +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
                     +-GetStructField
                       +-type=INT64
                       +-expr=
-                      | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#10)
+                      | +-ColumnRef(type=STRUCT<a INT64, b INT64, c STRING>, column=unpivot_array_0.unpivot_unnest#14)
                       +-field_idx=1
 ==
 
@@ -395,15 +418,15 @@ SELECT * FROM (SELECT Key, Value FROM KeyValue) UNPIVOT(a for b in (Key));
 --
 QueryStmt
 +-output_column_list=
-| +-KeyValue.Value#2 AS Value [STRING]
+| +-$unpivot.Value#5 AS Value [STRING]
 | +-$unpivot.a#3 AS a [INT64]
 | +-$unpivot.b#4 AS b [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+    +-column_list=$unpivot.[Value#5, a#3, b#4]
     +-input_scan=
       +-UnpivotScan
-        +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+        +-column_list=$unpivot.[Value#5, a#3, b#4]
         +-input_scan=
         | +-ProjectScan
         |   +-column_list=KeyValue.[Key#1, Value#2]
@@ -417,40 +440,42 @@ QueryStmt
         | +-UnpivotArg
         |   +-column_list=
         |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-projected_input_column_list=
+        | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-include_nulls=FALSE
-
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-KeyValue.Value#2 AS Value [STRING]
+| +-$unpivot.Value#5 AS Value [STRING]
 | +-$unpivot.a#3 AS a [INT64]
 | +-$unpivot.b#4 AS b [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+    +-column_list=$unpivot.[Value#5, a#3, b#4]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+        +-column_list=$unpivot.[Value#5, a#3, b#4]
         +-expr_list=
+        | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         | +-a#3 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#5)
+        | |   | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#6)
         | |   +-field_idx=0
         | +-b#4 :=
         |   +-GetStructField
         |     +-type=STRING
         |     +-expr=
-        |     | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#5)
+        |     | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#6)
         |     +-field_idx=1
         +-input_scan=
           +-FilterScan
-            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#5]
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#6]
             +-input_scan=
             | +-ArrayScan
-            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#5]
+            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#6]
             |   +-input_scan=
             |   | +-ProjectScan
             |   |   +-column_list=KeyValue.[Key#1, Value#2]
@@ -463,7 +488,7 @@ QueryStmt
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             |   |       +-Literal(type=STRING, value="Key", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#5
+            |   +-element_column=unpivot_array_0.unpivot_unnest#6
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(1) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -471,7 +496,7 @@ QueryStmt
                     +-GetStructField
                       +-type=INT64
                       +-expr=
-                      | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#5)
+                      | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#6)
                       +-field_idx=0
 ==
 
@@ -482,20 +507,20 @@ QueryStmt
 +-output_column_list=
 | +-KeyValue.Key#1 AS Key [INT64]
 | +-KeyValue.Value#2 AS Value [STRING]
-| +-KeyValue.Value#4 AS Value [STRING]
+| +-$unpivot.Value#7 AS Value [STRING]
 | +-$unpivot.a#5 AS a [INT64]
 | +-$unpivot.b#6 AS b [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[KeyValue.Key#1, KeyValue.Value#2, KeyValue.Value#4, $unpivot.a#5, $unpivot.b#6]
+    +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $unpivot.Value#7, $unpivot.a#5, $unpivot.b#6]
     +-input_scan=
       +-JoinScan
-        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, KeyValue.Value#4, $unpivot.a#5, $unpivot.b#6]
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $unpivot.Value#7, $unpivot.a#5, $unpivot.b#6]
         +-left_scan=
         | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         +-right_scan=
           +-UnpivotScan
-            +-column_list=[KeyValue.Value#4, $unpivot.a#5, $unpivot.b#6]
+            +-column_list=$unpivot.[Value#7, a#5, b#6]
             +-input_scan=
             | +-TableScan(column_list=KeyValue.[Key#3, Value#4], table=KeyValue, column_index_list=[0, 1])
             +-value_column_list=[$unpivot.a#5]
@@ -506,47 +531,49 @@ QueryStmt
             | +-UnpivotArg
             |   +-column_list=
             |     +-ColumnRef(type=INT64, column=KeyValue.Key#3)
+            +-projected_input_column_list=
+            | +-Value#7 := ColumnRef(type=STRING, column=KeyValue.Value#4)
             +-include_nulls=FALSE
-
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
 | +-KeyValue.Key#1 AS Key [INT64]
 | +-KeyValue.Value#2 AS Value [STRING]
-| +-KeyValue.Value#4 AS Value [STRING]
+| +-$unpivot.Value#7 AS Value [STRING]
 | +-$unpivot.a#5 AS a [INT64]
 | +-$unpivot.b#6 AS b [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[KeyValue.Key#1, KeyValue.Value#2, KeyValue.Value#4, $unpivot.a#5, $unpivot.b#6]
+    +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $unpivot.Value#7, $unpivot.a#5, $unpivot.b#6]
     +-input_scan=
       +-JoinScan
-        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, KeyValue.Value#4, $unpivot.a#5, $unpivot.b#6]
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $unpivot.Value#7, $unpivot.a#5, $unpivot.b#6]
         +-left_scan=
         | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         +-right_scan=
           +-ProjectScan
-            +-column_list=[KeyValue.Value#4, $unpivot.a#5, $unpivot.b#6]
+            +-column_list=$unpivot.[Value#7, a#5, b#6]
             +-expr_list=
+            | +-Value#7 := ColumnRef(type=STRING, column=KeyValue.Value#4)
             | +-a#5 :=
             | | +-GetStructField
             | |   +-type=INT64
             | |   +-expr=
-            | |   | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#7)
+            | |   | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#8)
             | |   +-field_idx=0
             | +-b#6 :=
             |   +-GetStructField
             |     +-type=STRING
             |     +-expr=
-            |     | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#7)
+            |     | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#8)
             |     +-field_idx=1
             +-input_scan=
               +-FilterScan
-                +-column_list=[KeyValue.Key#3, KeyValue.Value#4, unpivot_array_0.unpivot_unnest#7]
+                +-column_list=[KeyValue.Key#3, KeyValue.Value#4, unpivot_array_0.unpivot_unnest#8]
                 +-input_scan=
                 | +-ArrayScan
-                |   +-column_list=[KeyValue.Key#3, KeyValue.Value#4, unpivot_array_0.unpivot_unnest#7]
+                |   +-column_list=[KeyValue.Key#3, KeyValue.Value#4, unpivot_array_0.unpivot_unnest#8]
                 |   +-input_scan=
                 |   | +-TableScan(column_list=KeyValue.[Key#3, Value#4], table=KeyValue, column_index_list=[0, 1])
                 |   +-array_expr=
@@ -556,7 +583,7 @@ QueryStmt
                 |   |     +-field_list=
                 |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#3)
                 |   |       +-Literal(type=STRING, value="Key", has_explicit_type=TRUE)
-                |   +-element_column=unpivot_array_0.unpivot_unnest#7
+                |   +-element_column=unpivot_array_0.unpivot_unnest#8
                 +-filter_expr=
                   +-FunctionCall(ZetaSQL:$or(repeated(1) BOOL) -> BOOL)
                     +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -564,7 +591,7 @@ QueryStmt
                         +-GetStructField
                           +-type=INT64
                           +-expr=
-                          | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#7)
+                          | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#8)
                           +-field_idx=0
 ==
 
@@ -627,7 +654,6 @@ QueryStmt
             |   +-column_list=
             |     +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=t.s2#4)
             +-include_nulls=FALSE
-
 
 [REWRITTEN AST]
 QueryStmt
@@ -760,15 +786,15 @@ ALTERNATION GROUP: kv.Key
 --
 QueryStmt
 +-output_column_list=
-| +-KeyValue.Value#2 AS Value [STRING]
+| +-$unpivot.Value#5 AS Value [STRING]
 | +-$unpivot.a#3 AS a [INT64]
 | +-$unpivot.b#4 AS b [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+    +-column_list=$unpivot.[Value#5, a#3, b#4]
     +-input_scan=
       +-UnpivotScan
-        +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+        +-column_list=$unpivot.[Value#5, a#3, b#4]
         +-input_scan=
         | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="kv")
         +-value_column_list=[$unpivot.a#3]
@@ -779,40 +805,42 @@ QueryStmt
         | +-UnpivotArg
         |   +-column_list=
         |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-projected_input_column_list=
+        | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-include_nulls=FALSE
-
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-KeyValue.Value#2 AS Value [STRING]
+| +-$unpivot.Value#5 AS Value [STRING]
 | +-$unpivot.a#3 AS a [INT64]
 | +-$unpivot.b#4 AS b [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+    +-column_list=$unpivot.[Value#5, a#3, b#4]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+        +-column_list=$unpivot.[Value#5, a#3, b#4]
         +-expr_list=
+        | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         | +-a#3 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#5)
+        | |   | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#6)
         | |   +-field_idx=0
         | +-b#4 :=
         |   +-GetStructField
         |     +-type=STRING
         |     +-expr=
-        |     | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#5)
+        |     | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#6)
         |     +-field_idx=1
         +-input_scan=
           +-FilterScan
-            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#5]
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#6]
             +-input_scan=
             | +-ArrayScan
-            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#5]
+            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#6]
             |   +-input_scan=
             |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="kv")
             |   +-array_expr=
@@ -822,7 +850,7 @@ QueryStmt
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             |   |       +-Literal(type=STRING, value="Key", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#5
+            |   +-element_column=unpivot_array_0.unpivot_unnest#6
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(1) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -830,7 +858,7 @@ QueryStmt
                     +-GetStructField
                       +-type=INT64
                       +-expr=
-                      | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#5)
+                      | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#6)
                       +-field_idx=0
 --
 ALTERNATION GROUP: KeyValue.Key
@@ -869,15 +897,15 @@ select * from tvf_no_args() UNPIVOT(a for b in (column_bytes));
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_no_args.column_bool#1 AS column_bool [BOOL]
+| +-$unpivot.column_bool#5 AS column_bool [BOOL]
 | +-$unpivot.a#3 AS a [BYTES]
 | +-$unpivot.b#4 AS b [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[tvf_no_args.column_bool#1, $unpivot.a#3, $unpivot.b#4]
+    +-column_list=$unpivot.[column_bool#5, a#3, b#4]
     +-input_scan=
       +-UnpivotScan
-        +-column_list=[tvf_no_args.column_bool#1, $unpivot.a#3, $unpivot.b#4]
+        +-column_list=$unpivot.[column_bool#5, a#3, b#4]
         +-input_scan=
         | +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
         +-value_column_list=[$unpivot.a#3]
@@ -888,40 +916,42 @@ QueryStmt
         | +-UnpivotArg
         |   +-column_list=
         |     +-ColumnRef(type=BYTES, column=tvf_no_args.column_bytes#2)
+        +-projected_input_column_list=
+        | +-column_bool#5 := ColumnRef(type=BOOL, column=tvf_no_args.column_bool#1)
         +-include_nulls=FALSE
-
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-tvf_no_args.column_bool#1 AS column_bool [BOOL]
+| +-$unpivot.column_bool#5 AS column_bool [BOOL]
 | +-$unpivot.a#3 AS a [BYTES]
 | +-$unpivot.b#4 AS b [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[tvf_no_args.column_bool#1, $unpivot.a#3, $unpivot.b#4]
+    +-column_list=$unpivot.[column_bool#5, a#3, b#4]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[tvf_no_args.column_bool#1, $unpivot.a#3, $unpivot.b#4]
+        +-column_list=$unpivot.[column_bool#5, a#3, b#4]
         +-expr_list=
+        | +-column_bool#5 := ColumnRef(type=BOOL, column=tvf_no_args.column_bool#1)
         | +-a#3 :=
         | | +-GetStructField
         | |   +-type=BYTES
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<a BYTES, b STRING>, column=unpivot_array_0.unpivot_unnest#5)
+        | |   | +-ColumnRef(type=STRUCT<a BYTES, b STRING>, column=unpivot_array_0.unpivot_unnest#6)
         | |   +-field_idx=0
         | +-b#4 :=
         |   +-GetStructField
         |     +-type=STRING
         |     +-expr=
-        |     | +-ColumnRef(type=STRUCT<a BYTES, b STRING>, column=unpivot_array_0.unpivot_unnest#5)
+        |     | +-ColumnRef(type=STRUCT<a BYTES, b STRING>, column=unpivot_array_0.unpivot_unnest#6)
         |     +-field_idx=1
         +-input_scan=
           +-FilterScan
-            +-column_list=[tvf_no_args.column_bool#1, tvf_no_args.column_bytes#2, unpivot_array_0.unpivot_unnest#5]
+            +-column_list=[tvf_no_args.column_bool#1, tvf_no_args.column_bytes#2, unpivot_array_0.unpivot_unnest#6]
             +-input_scan=
             | +-ArrayScan
-            |   +-column_list=[tvf_no_args.column_bool#1, tvf_no_args.column_bytes#2, unpivot_array_0.unpivot_unnest#5]
+            |   +-column_list=[tvf_no_args.column_bool#1, tvf_no_args.column_bytes#2, unpivot_array_0.unpivot_unnest#6]
             |   +-input_scan=
             |   | +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
             |   +-array_expr=
@@ -931,7 +961,7 @@ QueryStmt
             |   |     +-field_list=
             |   |       +-ColumnRef(type=BYTES, column=tvf_no_args.column_bytes#2)
             |   |       +-Literal(type=STRING, value="column_bytes", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#5
+            |   +-element_column=unpivot_array_0.unpivot_unnest#6
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(1) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -939,7 +969,7 @@ QueryStmt
                     +-GetStructField
                       +-type=BYTES
                       +-expr=
-                      | +-ColumnRef(type=STRUCT<a BYTES, b STRING>, column=unpivot_array_0.unpivot_unnest#5)
+                      | +-ColumnRef(type=STRUCT<a BYTES, b STRING>, column=unpivot_array_0.unpivot_unnest#6)
                       +-field_idx=0
 ==
 
@@ -948,16 +978,16 @@ select 1, Value from KeyValue UNPIVOT(a for b in (Key));
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#5 AS `$col1` [INT64]
-| +-KeyValue.Value#2 AS Value [STRING]
+| +-$query.$col1#6 AS `$col1` [INT64]
+| +-$unpivot.Value#5 AS Value [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#5, KeyValue.Value#2]
+    +-column_list=[$query.$col1#6, $unpivot.Value#5]
     +-expr_list=
-    | +-$col1#5 := Literal(type=INT64, value=1)
+    | +-$col1#6 := Literal(type=INT64, value=1)
     +-input_scan=
       +-UnpivotScan
-        +-column_list=[KeyValue.Value#2]
+        +-column_list=[$unpivot.Value#5]
         +-input_scan=
         | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         +-value_column_list=[$unpivot.a#3]
@@ -968,41 +998,43 @@ QueryStmt
         | +-UnpivotArg
         |   +-column_list=
         |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-projected_input_column_list=
+        | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-include_nulls=FALSE
-
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#5 AS `$col1` [INT64]
-| +-KeyValue.Value#2 AS Value [STRING]
+| +-$query.$col1#6 AS `$col1` [INT64]
+| +-$unpivot.Value#5 AS Value [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#5, KeyValue.Value#2]
+    +-column_list=[$query.$col1#6, $unpivot.Value#5]
     +-expr_list=
-    | +-$col1#5 := Literal(type=INT64, value=1)
+    | +-$col1#6 := Literal(type=INT64, value=1)
     +-input_scan=
       +-ProjectScan
-        +-column_list=[KeyValue.Value#2]
+        +-column_list=[$unpivot.Value#5]
         +-expr_list=
+        | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         | +-a#3 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#6)
+        | |   | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#7)
         | |   +-field_idx=0
         | +-b#4 :=
         |   +-GetStructField
         |     +-type=STRING
         |     +-expr=
-        |     | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#6)
+        |     | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#7)
         |     +-field_idx=1
         +-input_scan=
           +-FilterScan
-            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#6]
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#7]
             +-input_scan=
             | +-ArrayScan
-            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#6]
+            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#7]
             |   +-input_scan=
             |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
             |   +-array_expr=
@@ -1012,7 +1044,7 @@ QueryStmt
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             |   |       +-Literal(type=STRING, value="Key", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#6
+            |   +-element_column=unpivot_array_0.unpivot_unnest#7
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(1) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -1020,7 +1052,7 @@ QueryStmt
                     +-GetStructField
                       +-type=INT64
                       +-expr=
-                      | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#6)
+                      | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#7)
                       +-field_idx=0
 ==
 
@@ -1031,24 +1063,24 @@ select * from tvf_one_relation_arg_with_fixed_output(
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_one_relation_arg_with_fixed_output.column_bool#5 AS column_bool [BOOL]
-| +-tvf_one_relation_arg_with_fixed_output.column_bytes#6 AS column_bytes [BYTES]
+| +-tvf_one_relation_arg_with_fixed_output.column_bool#6 AS column_bool [BOOL]
+| +-tvf_one_relation_arg_with_fixed_output.column_bytes#7 AS column_bytes [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#5, column_bytes#6]
+    +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#6, column_bytes#7]
     +-input_scan=
       +-TVFScan
-        +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#5, column_bytes#6]
+        +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#6, column_bytes#7]
         +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
         +-signature=(TABLE<Value STRING, a INT64, b STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
         |   | +-ProjectScan
-        |   |   +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+        |   |   +-column_list=$unpivot.[Value#5, a#3, b#4]
         |   |   +-input_scan=
         |   |     +-UnpivotScan
-        |   |       +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+        |   |       +-column_list=$unpivot.[Value#5, a#3, b#4]
         |   |       +-input_scan=
         |   |       | +-ProjectScan
         |   |       |   +-column_list=KeyValue.[Key#1, Value#2]
@@ -1062,51 +1094,53 @@ QueryStmt
         |   |       | +-UnpivotArg
         |   |       |   +-column_list=
         |   |       |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   |       +-projected_input_column_list=
+        |   |       | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         |   |       +-include_nulls=FALSE
-        |   +-argument_column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+        |   +-argument_column_list=$unpivot.[Value#5, a#3, b#4]
         +-column_index_list=[0, 1]
-
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-tvf_one_relation_arg_with_fixed_output.column_bool#5 AS column_bool [BOOL]
-| +-tvf_one_relation_arg_with_fixed_output.column_bytes#6 AS column_bytes [BYTES]
+| +-tvf_one_relation_arg_with_fixed_output.column_bool#6 AS column_bool [BOOL]
+| +-tvf_one_relation_arg_with_fixed_output.column_bytes#7 AS column_bytes [BYTES]
 +-query=
   +-ProjectScan
-    +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#5, column_bytes#6]
+    +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#6, column_bytes#7]
     +-input_scan=
       +-TVFScan
-        +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#5, column_bytes#6]
+        +-column_list=tvf_one_relation_arg_with_fixed_output.[column_bool#6, column_bytes#7]
         +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
         +-signature=(TABLE<Value STRING, a INT64, b STRING>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
         |   | +-ProjectScan
-        |   |   +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+        |   |   +-column_list=$unpivot.[Value#5, a#3, b#4]
         |   |   +-input_scan=
         |   |     +-ProjectScan
-        |   |       +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+        |   |       +-column_list=$unpivot.[Value#5, a#3, b#4]
         |   |       +-expr_list=
+        |   |       | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         |   |       | +-a#3 :=
         |   |       | | +-GetStructField
         |   |       | |   +-type=INT64
         |   |       | |   +-expr=
-        |   |       | |   | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#7)
+        |   |       | |   | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#8)
         |   |       | |   +-field_idx=0
         |   |       | +-b#4 :=
         |   |       |   +-GetStructField
         |   |       |     +-type=STRING
         |   |       |     +-expr=
-        |   |       |     | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#7)
+        |   |       |     | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#8)
         |   |       |     +-field_idx=1
         |   |       +-input_scan=
         |   |         +-FilterScan
-        |   |           +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#7]
+        |   |           +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#8]
         |   |           +-input_scan=
         |   |           | +-ArrayScan
-        |   |           |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#7]
+        |   |           |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#8]
         |   |           |   +-input_scan=
         |   |           |   | +-ProjectScan
         |   |           |   |   +-column_list=KeyValue.[Key#1, Value#2]
@@ -1119,7 +1153,7 @@ QueryStmt
         |   |           |   |     +-field_list=
         |   |           |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         |   |           |   |       +-Literal(type=STRING, value="Key", has_explicit_type=TRUE)
-        |   |           |   +-element_column=unpivot_array_0.unpivot_unnest#7
+        |   |           |   +-element_column=unpivot_array_0.unpivot_unnest#8
         |   |           +-filter_expr=
         |   |             +-FunctionCall(ZetaSQL:$or(repeated(1) BOOL) -> BOOL)
         |   |               +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -1127,9 +1161,9 @@ QueryStmt
         |   |                   +-GetStructField
         |   |                     +-type=INT64
         |   |                     +-expr=
-        |   |                     | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#7)
+        |   |                     | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#8)
         |   |                     +-field_idx=0
-        |   +-argument_column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+        |   +-argument_column_list=$unpivot.[Value#5, a#3, b#4]
         +-column_index_list=[0, 1]
 ==
 
@@ -1139,18 +1173,18 @@ SELECT * FROM KeyValue UNPIVOT(a for b in (Key))
 --
 QueryStmt
 +-output_column_list=
-| +-KeyValue.Value#2 AS Value [STRING]
+| +-$unpivot.Value#5 AS Value [STRING]
 | +-$unpivot.a#3 AS a [INT64]
 | +-$unpivot.b#4 AS b [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+    +-column_list=$unpivot.[Value#5, a#3, b#4]
     +-input_scan=
       +-SampleScan
-        +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+        +-column_list=$unpivot.[Value#5, a#3, b#4]
         +-input_scan=
         | +-UnpivotScan
-        |   +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+        |   +-column_list=$unpivot.[Value#5, a#3, b#4]
         |   +-input_scan=
         |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         |   +-value_column_list=[$unpivot.a#3]
@@ -1161,6 +1195,8 @@ QueryStmt
         |   | +-UnpivotArg
         |   |   +-column_list=
         |   |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   +-projected_input_column_list=
+        |   | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         |   +-include_nulls=FALSE
         +-method="system"
         +-size=
@@ -1169,41 +1205,41 @@ QueryStmt
         +-repeatable_argument=
           +-Literal(type=INT64, value=10)
 
-
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-KeyValue.Value#2 AS Value [STRING]
+| +-$unpivot.Value#5 AS Value [STRING]
 | +-$unpivot.a#3 AS a [INT64]
 | +-$unpivot.b#4 AS b [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+    +-column_list=$unpivot.[Value#5, a#3, b#4]
     +-input_scan=
       +-SampleScan
-        +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+        +-column_list=$unpivot.[Value#5, a#3, b#4]
         +-input_scan=
         | +-ProjectScan
-        |   +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+        |   +-column_list=$unpivot.[Value#5, a#3, b#4]
         |   +-expr_list=
+        |   | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         |   | +-a#3 :=
         |   | | +-GetStructField
         |   | |   +-type=INT64
         |   | |   +-expr=
-        |   | |   | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#5)
+        |   | |   | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#6)
         |   | |   +-field_idx=0
         |   | +-b#4 :=
         |   |   +-GetStructField
         |   |     +-type=STRING
         |   |     +-expr=
-        |   |     | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#5)
+        |   |     | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#6)
         |   |     +-field_idx=1
         |   +-input_scan=
         |     +-FilterScan
-        |       +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#5]
+        |       +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#6]
         |       +-input_scan=
         |       | +-ArrayScan
-        |       |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#5]
+        |       |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#6]
         |       |   +-input_scan=
         |       |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         |       |   +-array_expr=
@@ -1213,7 +1249,7 @@ QueryStmt
         |       |   |     +-field_list=
         |       |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         |       |   |       +-Literal(type=STRING, value="Key", has_explicit_type=TRUE)
-        |       |   +-element_column=unpivot_array_0.unpivot_unnest#5
+        |       |   +-element_column=unpivot_array_0.unpivot_unnest#6
         |       +-filter_expr=
         |         +-FunctionCall(ZetaSQL:$or(repeated(1) BOOL) -> BOOL)
         |           +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -1221,7 +1257,7 @@ QueryStmt
         |               +-GetStructField
         |                 +-type=INT64
         |                 +-expr=
-        |                 | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#5)
+        |                 | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#6)
         |                 +-field_idx=0
         +-method="system"
         +-size=
@@ -1236,17 +1272,17 @@ SELECT * FROM MultipleColumns UNPIVOT((x,y) for z in ((int_a,int_b), (int_c,int_
 --
 QueryStmt
 +-output_column_list=
-| +-MultipleColumns.string_a#2 AS string_a [STRING]
-| +-MultipleColumns.string_b#4 AS string_b [STRING]
+| +-$unpivot.string_a#10 AS string_a [STRING]
+| +-$unpivot.string_b#11 AS string_b [STRING]
 | +-$unpivot.x#7 AS x [INT64]
 | +-$unpivot.y#8 AS y [INT64]
 | +-$unpivot.z#9 AS z [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, $unpivot.x#7, $unpivot.y#8, $unpivot.z#9]
+    +-column_list=$unpivot.[string_a#10, string_b#11, x#7, y#8, z#9]
     +-input_scan=
       +-UnpivotScan
-        +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, $unpivot.x#7, $unpivot.y#8, $unpivot.z#9]
+        +-column_list=$unpivot.[string_a#10, string_b#11, x#7, y#8, z#9]
         +-input_scan=
         | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
         +-value_column_list=$unpivot.[x#7, y#8]
@@ -1263,48 +1299,52 @@ QueryStmt
         |   +-column_list=
         |     +-ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
         |     +-ColumnRef(type=INT64, column=MultipleColumns.int_d#6)
+        +-projected_input_column_list=
+        | +-string_a#10 := ColumnRef(type=STRING, column=MultipleColumns.string_a#2)
+        | +-string_b#11 := ColumnRef(type=STRING, column=MultipleColumns.string_b#4)
         +-include_nulls=FALSE
-
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-MultipleColumns.string_a#2 AS string_a [STRING]
-| +-MultipleColumns.string_b#4 AS string_b [STRING]
+| +-$unpivot.string_a#10 AS string_a [STRING]
+| +-$unpivot.string_b#11 AS string_b [STRING]
 | +-$unpivot.x#7 AS x [INT64]
 | +-$unpivot.y#8 AS y [INT64]
 | +-$unpivot.z#9 AS z [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, $unpivot.x#7, $unpivot.y#8, $unpivot.z#9]
+    +-column_list=$unpivot.[string_a#10, string_b#11, x#7, y#8, z#9]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, $unpivot.x#7, $unpivot.y#8, $unpivot.z#9]
+        +-column_list=$unpivot.[string_a#10, string_b#11, x#7, y#8, z#9]
         +-expr_list=
+        | +-string_a#10 := ColumnRef(type=STRING, column=MultipleColumns.string_a#2)
+        | +-string_b#11 := ColumnRef(type=STRING, column=MultipleColumns.string_b#4)
         | +-x#7 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<x INT64, y INT64, z STRING>, column=unpivot_array_0.unpivot_unnest#10)
+        | |   | +-ColumnRef(type=STRUCT<x INT64, y INT64, z STRING>, column=unpivot_array_0.unpivot_unnest#12)
         | |   +-field_idx=0
         | +-y#8 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<x INT64, y INT64, z STRING>, column=unpivot_array_0.unpivot_unnest#10)
+        | |   | +-ColumnRef(type=STRUCT<x INT64, y INT64, z STRING>, column=unpivot_array_0.unpivot_unnest#12)
         | |   +-field_idx=1
         | +-z#9 :=
         |   +-GetStructField
         |     +-type=STRING
         |     +-expr=
-        |     | +-ColumnRef(type=STRUCT<x INT64, y INT64, z STRING>, column=unpivot_array_0.unpivot_unnest#10)
+        |     | +-ColumnRef(type=STRUCT<x INT64, y INT64, z STRING>, column=unpivot_array_0.unpivot_unnest#12)
         |     +-field_idx=2
         +-input_scan=
           +-FilterScan
-            +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#10]
+            +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#12]
             +-input_scan=
             | +-ArrayScan
-            |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#10]
+            |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#12]
             |   +-input_scan=
             |   | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
             |   +-array_expr=
@@ -1321,7 +1361,7 @@ QueryStmt
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_d#6)
             |   |       +-Literal(type=STRING, value="int_c_int_d", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#10
+            |   +-element_column=unpivot_array_0.unpivot_unnest#12
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -1329,14 +1369,14 @@ QueryStmt
                 |   +-GetStructField
                 |     +-type=INT64
                 |     +-expr=
-                |     | +-ColumnRef(type=STRUCT<x INT64, y INT64, z STRING>, column=unpivot_array_0.unpivot_unnest#10)
+                |     | +-ColumnRef(type=STRUCT<x INT64, y INT64, z STRING>, column=unpivot_array_0.unpivot_unnest#12)
                 |     +-field_idx=0
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
                   +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
                     +-GetStructField
                       +-type=INT64
                       +-expr=
-                      | +-ColumnRef(type=STRUCT<x INT64, y INT64, z STRING>, column=unpivot_array_0.unpivot_unnest#10)
+                      | +-ColumnRef(type=STRUCT<x INT64, y INT64, z STRING>, column=unpivot_array_0.unpivot_unnest#12)
                       +-field_idx=1
 ==
 
@@ -1345,17 +1385,17 @@ SELECT * FROM MultipleColumns UNPIVOT((x,y) for z in ((int_a,string_a), (int_b,s
 --
 QueryStmt
 +-output_column_list=
-| +-MultipleColumns.int_c#5 AS int_c [INT64]
-| +-MultipleColumns.int_d#6 AS int_d [INT64]
+| +-$unpivot.int_c#10 AS int_c [INT64]
+| +-$unpivot.int_d#11 AS int_d [INT64]
 | +-$unpivot.x#7 AS x [INT64]
 | +-$unpivot.y#8 AS y [STRING]
 | +-$unpivot.z#9 AS z [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.x#7, $unpivot.y#8, $unpivot.z#9]
+    +-column_list=$unpivot.[int_c#10, int_d#11, x#7, y#8, z#9]
     +-input_scan=
       +-UnpivotScan
-        +-column_list=[MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.x#7, $unpivot.y#8, $unpivot.z#9]
+        +-column_list=$unpivot.[int_c#10, int_d#11, x#7, y#8, z#9]
         +-input_scan=
         | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
         +-value_column_list=$unpivot.[x#7, y#8]
@@ -1372,48 +1412,52 @@ QueryStmt
         |   +-column_list=
         |     +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
         |     +-ColumnRef(type=STRING, column=MultipleColumns.string_b#4)
+        +-projected_input_column_list=
+        | +-int_c#10 := ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
+        | +-int_d#11 := ColumnRef(type=INT64, column=MultipleColumns.int_d#6)
         +-include_nulls=FALSE
-
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-MultipleColumns.int_c#5 AS int_c [INT64]
-| +-MultipleColumns.int_d#6 AS int_d [INT64]
+| +-$unpivot.int_c#10 AS int_c [INT64]
+| +-$unpivot.int_d#11 AS int_d [INT64]
 | +-$unpivot.x#7 AS x [INT64]
 | +-$unpivot.y#8 AS y [STRING]
 | +-$unpivot.z#9 AS z [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.x#7, $unpivot.y#8, $unpivot.z#9]
+    +-column_list=$unpivot.[int_c#10, int_d#11, x#7, y#8, z#9]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.x#7, $unpivot.y#8, $unpivot.z#9]
+        +-column_list=$unpivot.[int_c#10, int_d#11, x#7, y#8, z#9]
         +-expr_list=
+        | +-int_c#10 := ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
+        | +-int_d#11 := ColumnRef(type=INT64, column=MultipleColumns.int_d#6)
         | +-x#7 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<x INT64, y STRING, z STRING>, column=unpivot_array_0.unpivot_unnest#10)
+        | |   | +-ColumnRef(type=STRUCT<x INT64, y STRING, z STRING>, column=unpivot_array_0.unpivot_unnest#12)
         | |   +-field_idx=0
         | +-y#8 :=
         | | +-GetStructField
         | |   +-type=STRING
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<x INT64, y STRING, z STRING>, column=unpivot_array_0.unpivot_unnest#10)
+        | |   | +-ColumnRef(type=STRUCT<x INT64, y STRING, z STRING>, column=unpivot_array_0.unpivot_unnest#12)
         | |   +-field_idx=1
         | +-z#9 :=
         |   +-GetStructField
         |     +-type=STRING
         |     +-expr=
-        |     | +-ColumnRef(type=STRUCT<x INT64, y STRING, z STRING>, column=unpivot_array_0.unpivot_unnest#10)
+        |     | +-ColumnRef(type=STRUCT<x INT64, y STRING, z STRING>, column=unpivot_array_0.unpivot_unnest#12)
         |     +-field_idx=2
         +-input_scan=
           +-FilterScan
-            +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#10]
+            +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#12]
             +-input_scan=
             | +-ArrayScan
-            |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#10]
+            |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#12]
             |   +-input_scan=
             |   | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
             |   +-array_expr=
@@ -1430,7 +1474,7 @@ QueryStmt
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
             |   |       +-ColumnRef(type=STRING, column=MultipleColumns.string_b#4)
             |   |       +-Literal(type=STRING, value="int_b_string_b", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#10
+            |   +-element_column=unpivot_array_0.unpivot_unnest#12
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -1438,14 +1482,14 @@ QueryStmt
                 |   +-GetStructField
                 |     +-type=INT64
                 |     +-expr=
-                |     | +-ColumnRef(type=STRUCT<x INT64, y STRING, z STRING>, column=unpivot_array_0.unpivot_unnest#10)
+                |     | +-ColumnRef(type=STRUCT<x INT64, y STRING, z STRING>, column=unpivot_array_0.unpivot_unnest#12)
                 |     +-field_idx=0
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
                   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
                     +-GetStructField
                       +-type=STRING
                       +-expr=
-                      | +-ColumnRef(type=STRUCT<x INT64, y STRING, z STRING>, column=unpivot_array_0.unpivot_unnest#10)
+                      | +-ColumnRef(type=STRUCT<x INT64, y STRING, z STRING>, column=unpivot_array_0.unpivot_unnest#12)
                       +-field_idx=1
 ==
 
@@ -1490,15 +1534,15 @@ SELECT * FROM KeyValue UNPIVOT(a for b in (Key AS "Label"));
 --
 QueryStmt
 +-output_column_list=
-| +-KeyValue.Value#2 AS Value [STRING]
+| +-$unpivot.Value#5 AS Value [STRING]
 | +-$unpivot.a#3 AS a [INT64]
 | +-$unpivot.b#4 AS b [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+    +-column_list=$unpivot.[Value#5, a#3, b#4]
     +-input_scan=
       +-UnpivotScan
-        +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+        +-column_list=$unpivot.[Value#5, a#3, b#4]
         +-input_scan=
         | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         +-value_column_list=[$unpivot.a#3]
@@ -1509,40 +1553,42 @@ QueryStmt
         | +-UnpivotArg
         |   +-column_list=
         |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-projected_input_column_list=
+        | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-include_nulls=FALSE
-
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-KeyValue.Value#2 AS Value [STRING]
+| +-$unpivot.Value#5 AS Value [STRING]
 | +-$unpivot.a#3 AS a [INT64]
 | +-$unpivot.b#4 AS b [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+    +-column_list=$unpivot.[Value#5, a#3, b#4]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+        +-column_list=$unpivot.[Value#5, a#3, b#4]
         +-expr_list=
+        | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         | +-a#3 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#5)
+        | |   | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#6)
         | |   +-field_idx=0
         | +-b#4 :=
         |   +-GetStructField
         |     +-type=STRING
         |     +-expr=
-        |     | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#5)
+        |     | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#6)
         |     +-field_idx=1
         +-input_scan=
           +-FilterScan
-            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#5]
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#6]
             +-input_scan=
             | +-ArrayScan
-            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#5]
+            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#6]
             |   +-input_scan=
             |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
             |   +-array_expr=
@@ -1552,7 +1598,7 @@ QueryStmt
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             |   |       +-Literal(type=STRING, value="Label", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#5
+            |   +-element_column=unpivot_array_0.unpivot_unnest#6
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(1) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -1560,7 +1606,7 @@ QueryStmt
                     +-GetStructField
                       +-type=INT64
                       +-expr=
-                      | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#5)
+                      | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#6)
                       +-field_idx=0
 ==
 
@@ -1569,18 +1615,18 @@ SELECT * FROM MultipleColumns UNPIVOT(a for b in (int_a AS 1, int_b as 2));
 --
 QueryStmt
 +-output_column_list=
-| +-MultipleColumns.string_a#2 AS string_a [STRING]
-| +-MultipleColumns.string_b#4 AS string_b [STRING]
-| +-MultipleColumns.int_c#5 AS int_c [INT64]
-| +-MultipleColumns.int_d#6 AS int_d [INT64]
+| +-$unpivot.string_a#9 AS string_a [STRING]
+| +-$unpivot.string_b#10 AS string_b [STRING]
+| +-$unpivot.int_c#11 AS int_c [INT64]
+| +-$unpivot.int_d#12 AS int_d [INT64]
 | +-$unpivot.a#7 AS a [INT64]
 | +-$unpivot.b#8 AS b [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.a#7, $unpivot.b#8]
+    +-column_list=$unpivot.[string_a#9, string_b#10, int_c#11, int_d#12, a#7, b#8]
     +-input_scan=
       +-UnpivotScan
-        +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.a#7, $unpivot.b#8]
+        +-column_list=$unpivot.[string_a#9, string_b#10, int_c#11, int_d#12, a#7, b#8]
         +-input_scan=
         | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
         +-value_column_list=[$unpivot.a#7]
@@ -1595,43 +1641,51 @@ QueryStmt
         | +-UnpivotArg
         |   +-column_list=
         |     +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
+        +-projected_input_column_list=
+        | +-string_a#9 := ColumnRef(type=STRING, column=MultipleColumns.string_a#2)
+        | +-string_b#10 := ColumnRef(type=STRING, column=MultipleColumns.string_b#4)
+        | +-int_c#11 := ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
+        | +-int_d#12 := ColumnRef(type=INT64, column=MultipleColumns.int_d#6)
         +-include_nulls=FALSE
-
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-MultipleColumns.string_a#2 AS string_a [STRING]
-| +-MultipleColumns.string_b#4 AS string_b [STRING]
-| +-MultipleColumns.int_c#5 AS int_c [INT64]
-| +-MultipleColumns.int_d#6 AS int_d [INT64]
+| +-$unpivot.string_a#9 AS string_a [STRING]
+| +-$unpivot.string_b#10 AS string_b [STRING]
+| +-$unpivot.int_c#11 AS int_c [INT64]
+| +-$unpivot.int_d#12 AS int_d [INT64]
 | +-$unpivot.a#7 AS a [INT64]
 | +-$unpivot.b#8 AS b [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.a#7, $unpivot.b#8]
+    +-column_list=$unpivot.[string_a#9, string_b#10, int_c#11, int_d#12, a#7, b#8]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.a#7, $unpivot.b#8]
+        +-column_list=$unpivot.[string_a#9, string_b#10, int_c#11, int_d#12, a#7, b#8]
         +-expr_list=
+        | +-string_a#9 := ColumnRef(type=STRING, column=MultipleColumns.string_a#2)
+        | +-string_b#10 := ColumnRef(type=STRING, column=MultipleColumns.string_b#4)
+        | +-int_c#11 := ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
+        | +-int_d#12 := ColumnRef(type=INT64, column=MultipleColumns.int_d#6)
         | +-a#7 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=unpivot_array_0.unpivot_unnest#9)
+        | |   | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=unpivot_array_0.unpivot_unnest#13)
         | |   +-field_idx=0
         | +-b#8 :=
         |   +-GetStructField
         |     +-type=INT64
         |     +-expr=
-        |     | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=unpivot_array_0.unpivot_unnest#9)
+        |     | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=unpivot_array_0.unpivot_unnest#13)
         |     +-field_idx=1
         +-input_scan=
           +-FilterScan
-            +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#9]
+            +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#13]
             +-input_scan=
             | +-ArrayScan
-            |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#9]
+            |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#13]
             |   +-input_scan=
             |   | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
             |   +-array_expr=
@@ -1646,7 +1700,7 @@ QueryStmt
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
             |   |       +-Literal(type=INT64, value=2, has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#9
+            |   +-element_column=unpivot_array_0.unpivot_unnest#13
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(1) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -1654,7 +1708,7 @@ QueryStmt
                     +-GetStructField
                       +-type=INT64
                       +-expr=
-                      | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=unpivot_array_0.unpivot_unnest#9)
+                      | +-ColumnRef(type=STRUCT<a INT64, b INT64>, column=unpivot_array_0.unpivot_unnest#13)
                       +-field_idx=0
 ==
 
@@ -1664,15 +1718,15 @@ SELECT * FROM KeyValue UNPIVOT(a for b in (Key as 9223372036854775808));
 --
 QueryStmt
 +-output_column_list=
-| +-KeyValue.Value#2 AS Value [STRING]
+| +-$unpivot.Value#5 AS Value [STRING]
 | +-$unpivot.a#3 AS a [INT64]
 | +-$unpivot.b#4 AS b [UINT64]
 +-query=
   +-ProjectScan
-    +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+    +-column_list=$unpivot.[Value#5, a#3, b#4]
     +-input_scan=
       +-UnpivotScan
-        +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+        +-column_list=$unpivot.[Value#5, a#3, b#4]
         +-input_scan=
         | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         +-value_column_list=[$unpivot.a#3]
@@ -1683,40 +1737,42 @@ QueryStmt
         | +-UnpivotArg
         |   +-column_list=
         |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-projected_input_column_list=
+        | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-include_nulls=FALSE
-
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-KeyValue.Value#2 AS Value [STRING]
+| +-$unpivot.Value#5 AS Value [STRING]
 | +-$unpivot.a#3 AS a [INT64]
 | +-$unpivot.b#4 AS b [UINT64]
 +-query=
   +-ProjectScan
-    +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+    +-column_list=$unpivot.[Value#5, a#3, b#4]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+        +-column_list=$unpivot.[Value#5, a#3, b#4]
         +-expr_list=
+        | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         | +-a#3 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<a INT64, b UINT64>, column=unpivot_array_0.unpivot_unnest#5)
+        | |   | +-ColumnRef(type=STRUCT<a INT64, b UINT64>, column=unpivot_array_0.unpivot_unnest#6)
         | |   +-field_idx=0
         | +-b#4 :=
         |   +-GetStructField
         |     +-type=UINT64
         |     +-expr=
-        |     | +-ColumnRef(type=STRUCT<a INT64, b UINT64>, column=unpivot_array_0.unpivot_unnest#5)
+        |     | +-ColumnRef(type=STRUCT<a INT64, b UINT64>, column=unpivot_array_0.unpivot_unnest#6)
         |     +-field_idx=1
         +-input_scan=
           +-FilterScan
-            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#5]
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#6]
             +-input_scan=
             | +-ArrayScan
-            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#5]
+            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#6]
             |   +-input_scan=
             |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
             |   +-array_expr=
@@ -1726,7 +1782,7 @@ QueryStmt
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             |   |       +-Literal(type=UINT64, value=9223372036854775808, has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#5
+            |   +-element_column=unpivot_array_0.unpivot_unnest#6
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(1) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -1734,7 +1790,7 @@ QueryStmt
                     +-GetStructField
                       +-type=INT64
                       +-expr=
-                      | +-ColumnRef(type=STRUCT<a INT64, b UINT64>, column=unpivot_array_0.unpivot_unnest#5)
+                      | +-ColumnRef(type=STRUCT<a INT64, b UINT64>, column=unpivot_array_0.unpivot_unnest#6)
                       +-field_idx=0
 ==
 
@@ -1779,15 +1835,15 @@ SELECT * FROM (SELECT int_a, int_b, int_c FROM MultipleColumns) UNPIVOT(int_a fo
 --
 QueryStmt
 +-output_column_list=
-| +-MultipleColumns.int_c#5 AS int_c [INT64]
+| +-$unpivot.int_c#9 AS int_c [INT64]
 | +-$unpivot.int_a#7 AS int_a [INT64]
 | +-$unpivot.int_c#8 AS int_c [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[MultipleColumns.int_c#5, $unpivot.int_a#7, $unpivot.int_c#8]
+    +-column_list=$unpivot.[int_c#9, int_a#7, int_c#8]
     +-input_scan=
       +-UnpivotScan
-        +-column_list=[MultipleColumns.int_c#5, $unpivot.int_a#7, $unpivot.int_c#8]
+        +-column_list=$unpivot.[int_c#9, int_a#7, int_c#8]
         +-input_scan=
         | +-ProjectScan
         |   +-column_list=MultipleColumns.[int_a#1, int_b#3, int_c#5]
@@ -1805,40 +1861,42 @@ QueryStmt
         | +-UnpivotArg
         |   +-column_list=
         |     +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
+        +-projected_input_column_list=
+        | +-int_c#9 := ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
         +-include_nulls=FALSE
-
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-MultipleColumns.int_c#5 AS int_c [INT64]
+| +-$unpivot.int_c#9 AS int_c [INT64]
 | +-$unpivot.int_a#7 AS int_a [INT64]
 | +-$unpivot.int_c#8 AS int_c [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[MultipleColumns.int_c#5, $unpivot.int_a#7, $unpivot.int_c#8]
+    +-column_list=$unpivot.[int_c#9, int_a#7, int_c#8]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[MultipleColumns.int_c#5, $unpivot.int_a#7, $unpivot.int_c#8]
+        +-column_list=$unpivot.[int_c#9, int_a#7, int_c#8]
         +-expr_list=
+        | +-int_c#9 := ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
         | +-int_a#7 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<int_a INT64, int_c STRING>, column=unpivot_array_0.unpivot_unnest#9)
+        | |   | +-ColumnRef(type=STRUCT<int_a INT64, int_c STRING>, column=unpivot_array_0.unpivot_unnest#10)
         | |   +-field_idx=0
         | +-int_c#8 :=
         |   +-GetStructField
         |     +-type=STRING
         |     +-expr=
-        |     | +-ColumnRef(type=STRUCT<int_a INT64, int_c STRING>, column=unpivot_array_0.unpivot_unnest#9)
+        |     | +-ColumnRef(type=STRUCT<int_a INT64, int_c STRING>, column=unpivot_array_0.unpivot_unnest#10)
         |     +-field_idx=1
         +-input_scan=
           +-FilterScan
-            +-column_list=[MultipleColumns.int_a#1, MultipleColumns.int_b#3, MultipleColumns.int_c#5, unpivot_array_0.unpivot_unnest#9]
+            +-column_list=[MultipleColumns.int_a#1, MultipleColumns.int_b#3, MultipleColumns.int_c#5, unpivot_array_0.unpivot_unnest#10]
             +-input_scan=
             | +-ArrayScan
-            |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.int_b#3, MultipleColumns.int_c#5, unpivot_array_0.unpivot_unnest#9]
+            |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.int_b#3, MultipleColumns.int_c#5, unpivot_array_0.unpivot_unnest#10]
             |   +-input_scan=
             |   | +-ProjectScan
             |   |   +-column_list=MultipleColumns.[int_a#1, int_b#3, int_c#5]
@@ -1856,7 +1914,7 @@ QueryStmt
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
             |   |       +-Literal(type=STRING, value="int_b", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#9
+            |   +-element_column=unpivot_array_0.unpivot_unnest#10
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(1) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -1864,7 +1922,7 @@ QueryStmt
                     +-GetStructField
                       +-type=INT64
                       +-expr=
-                      | +-ColumnRef(type=STRUCT<int_a INT64, int_c STRING>, column=unpivot_array_0.unpivot_unnest#9)
+                      | +-ColumnRef(type=STRUCT<int_a INT64, int_c STRING>, column=unpivot_array_0.unpivot_unnest#10)
                       +-field_idx=0
 ==
 
@@ -1873,19 +1931,19 @@ SELECT * from MultipleColumns UNPIVOT((x,x) FOR y IN ((int_a, int_b)));
 --
 QueryStmt
 +-output_column_list=
-| +-MultipleColumns.string_a#2 AS string_a [STRING]
-| +-MultipleColumns.string_b#4 AS string_b [STRING]
-| +-MultipleColumns.int_c#5 AS int_c [INT64]
-| +-MultipleColumns.int_d#6 AS int_d [INT64]
+| +-$unpivot.string_a#10 AS string_a [STRING]
+| +-$unpivot.string_b#11 AS string_b [STRING]
+| +-$unpivot.int_c#12 AS int_c [INT64]
+| +-$unpivot.int_d#13 AS int_d [INT64]
 | +-$unpivot.x#7 AS x [INT64]
 | +-$unpivot.x#8 AS x [INT64]
 | +-$unpivot.y#9 AS y [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.x#7, $unpivot.x#8, $unpivot.y#9]
+    +-column_list=$unpivot.[string_a#10, string_b#11, int_c#12, int_d#13, x#7, x#8, y#9]
     +-input_scan=
       +-UnpivotScan
-        +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.x#7, $unpivot.x#8, $unpivot.y#9]
+        +-column_list=$unpivot.[string_a#10, string_b#11, int_c#12, int_d#13, x#7, x#8, y#9]
         +-input_scan=
         | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
         +-value_column_list=$unpivot.[x#7, x#8]
@@ -1897,50 +1955,58 @@ QueryStmt
         |   +-column_list=
         |     +-ColumnRef(type=INT64, column=MultipleColumns.int_a#1)
         |     +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
+        +-projected_input_column_list=
+        | +-string_a#10 := ColumnRef(type=STRING, column=MultipleColumns.string_a#2)
+        | +-string_b#11 := ColumnRef(type=STRING, column=MultipleColumns.string_b#4)
+        | +-int_c#12 := ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
+        | +-int_d#13 := ColumnRef(type=INT64, column=MultipleColumns.int_d#6)
         +-include_nulls=FALSE
-
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-MultipleColumns.string_a#2 AS string_a [STRING]
-| +-MultipleColumns.string_b#4 AS string_b [STRING]
-| +-MultipleColumns.int_c#5 AS int_c [INT64]
-| +-MultipleColumns.int_d#6 AS int_d [INT64]
+| +-$unpivot.string_a#10 AS string_a [STRING]
+| +-$unpivot.string_b#11 AS string_b [STRING]
+| +-$unpivot.int_c#12 AS int_c [INT64]
+| +-$unpivot.int_d#13 AS int_d [INT64]
 | +-$unpivot.x#7 AS x [INT64]
 | +-$unpivot.x#8 AS x [INT64]
 | +-$unpivot.y#9 AS y [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.x#7, $unpivot.x#8, $unpivot.y#9]
+    +-column_list=$unpivot.[string_a#10, string_b#11, int_c#12, int_d#13, x#7, x#8, y#9]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.x#7, $unpivot.x#8, $unpivot.y#9]
+        +-column_list=$unpivot.[string_a#10, string_b#11, int_c#12, int_d#13, x#7, x#8, y#9]
         +-expr_list=
+        | +-string_a#10 := ColumnRef(type=STRING, column=MultipleColumns.string_a#2)
+        | +-string_b#11 := ColumnRef(type=STRING, column=MultipleColumns.string_b#4)
+        | +-int_c#12 := ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
+        | +-int_d#13 := ColumnRef(type=INT64, column=MultipleColumns.int_d#6)
         | +-x#7 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<x INT64, x INT64, y STRING>, column=unpivot_array_0.unpivot_unnest#10)
+        | |   | +-ColumnRef(type=STRUCT<x INT64, x INT64, y STRING>, column=unpivot_array_0.unpivot_unnest#14)
         | |   +-field_idx=0
         | +-x#8 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<x INT64, x INT64, y STRING>, column=unpivot_array_0.unpivot_unnest#10)
+        | |   | +-ColumnRef(type=STRUCT<x INT64, x INT64, y STRING>, column=unpivot_array_0.unpivot_unnest#14)
         | |   +-field_idx=1
         | +-y#9 :=
         |   +-GetStructField
         |     +-type=STRING
         |     +-expr=
-        |     | +-ColumnRef(type=STRUCT<x INT64, x INT64, y STRING>, column=unpivot_array_0.unpivot_unnest#10)
+        |     | +-ColumnRef(type=STRUCT<x INT64, x INT64, y STRING>, column=unpivot_array_0.unpivot_unnest#14)
         |     +-field_idx=2
         +-input_scan=
           +-FilterScan
-            +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#10]
+            +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#14]
             +-input_scan=
             | +-ArrayScan
-            |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#10]
+            |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#14]
             |   +-input_scan=
             |   | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
             |   +-array_expr=
@@ -1951,7 +2017,7 @@ QueryStmt
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_a#1)
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
             |   |       +-Literal(type=STRING, value="int_a_int_b", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#10
+            |   +-element_column=unpivot_array_0.unpivot_unnest#14
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(2) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -1959,14 +2025,14 @@ QueryStmt
                 |   +-GetStructField
                 |     +-type=INT64
                 |     +-expr=
-                |     | +-ColumnRef(type=STRUCT<x INT64, x INT64, y STRING>, column=unpivot_array_0.unpivot_unnest#10)
+                |     | +-ColumnRef(type=STRUCT<x INT64, x INT64, y STRING>, column=unpivot_array_0.unpivot_unnest#14)
                 |     +-field_idx=0
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
                   +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
                     +-GetStructField
                       +-type=INT64
                       +-expr=
-                      | +-ColumnRef(type=STRUCT<x INT64, x INT64, y STRING>, column=unpivot_array_0.unpivot_unnest#10)
+                      | +-ColumnRef(type=STRUCT<x INT64, x INT64, y STRING>, column=unpivot_array_0.unpivot_unnest#14)
                       +-field_idx=1
 ==
 
@@ -1975,19 +2041,19 @@ SELECT * from MultipleColumns UNPIVOT(x FOR x IN ((int_a)));
 --
 QueryStmt
 +-output_column_list=
-| +-MultipleColumns.string_a#2 AS string_a [STRING]
-| +-MultipleColumns.int_b#3 AS int_b [INT64]
-| +-MultipleColumns.string_b#4 AS string_b [STRING]
-| +-MultipleColumns.int_c#5 AS int_c [INT64]
-| +-MultipleColumns.int_d#6 AS int_d [INT64]
+| +-$unpivot.string_a#9 AS string_a [STRING]
+| +-$unpivot.int_b#10 AS int_b [INT64]
+| +-$unpivot.string_b#11 AS string_b [STRING]
+| +-$unpivot.int_c#12 AS int_c [INT64]
+| +-$unpivot.int_d#13 AS int_d [INT64]
 | +-$unpivot.x#7 AS x [INT64]
 | +-$unpivot.x#8 AS x [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.x#7, $unpivot.x#8]
+    +-column_list=$unpivot.[string_a#9, int_b#10, string_b#11, int_c#12, int_d#13, x#7, x#8]
     +-input_scan=
       +-UnpivotScan
-        +-column_list=[MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.x#7, $unpivot.x#8]
+        +-column_list=$unpivot.[string_a#9, int_b#10, string_b#11, int_c#12, int_d#13, x#7, x#8]
         +-input_scan=
         | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
         +-value_column_list=[$unpivot.x#7]
@@ -1998,44 +2064,54 @@ QueryStmt
         | +-UnpivotArg
         |   +-column_list=
         |     +-ColumnRef(type=INT64, column=MultipleColumns.int_a#1)
+        +-projected_input_column_list=
+        | +-string_a#9 := ColumnRef(type=STRING, column=MultipleColumns.string_a#2)
+        | +-int_b#10 := ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
+        | +-string_b#11 := ColumnRef(type=STRING, column=MultipleColumns.string_b#4)
+        | +-int_c#12 := ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
+        | +-int_d#13 := ColumnRef(type=INT64, column=MultipleColumns.int_d#6)
         +-include_nulls=FALSE
-
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-MultipleColumns.string_a#2 AS string_a [STRING]
-| +-MultipleColumns.int_b#3 AS int_b [INT64]
-| +-MultipleColumns.string_b#4 AS string_b [STRING]
-| +-MultipleColumns.int_c#5 AS int_c [INT64]
-| +-MultipleColumns.int_d#6 AS int_d [INT64]
+| +-$unpivot.string_a#9 AS string_a [STRING]
+| +-$unpivot.int_b#10 AS int_b [INT64]
+| +-$unpivot.string_b#11 AS string_b [STRING]
+| +-$unpivot.int_c#12 AS int_c [INT64]
+| +-$unpivot.int_d#13 AS int_d [INT64]
 | +-$unpivot.x#7 AS x [INT64]
 | +-$unpivot.x#8 AS x [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.x#7, $unpivot.x#8]
+    +-column_list=$unpivot.[string_a#9, int_b#10, string_b#11, int_c#12, int_d#13, x#7, x#8]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.x#7, $unpivot.x#8]
+        +-column_list=$unpivot.[string_a#9, int_b#10, string_b#11, int_c#12, int_d#13, x#7, x#8]
         +-expr_list=
+        | +-string_a#9 := ColumnRef(type=STRING, column=MultipleColumns.string_a#2)
+        | +-int_b#10 := ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
+        | +-string_b#11 := ColumnRef(type=STRING, column=MultipleColumns.string_b#4)
+        | +-int_c#12 := ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
+        | +-int_d#13 := ColumnRef(type=INT64, column=MultipleColumns.int_d#6)
         | +-x#7 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<x INT64, x STRING>, column=unpivot_array_0.unpivot_unnest#9)
+        | |   | +-ColumnRef(type=STRUCT<x INT64, x STRING>, column=unpivot_array_0.unpivot_unnest#14)
         | |   +-field_idx=0
         | +-x#8 :=
         |   +-GetStructField
         |     +-type=STRING
         |     +-expr=
-        |     | +-ColumnRef(type=STRUCT<x INT64, x STRING>, column=unpivot_array_0.unpivot_unnest#9)
+        |     | +-ColumnRef(type=STRUCT<x INT64, x STRING>, column=unpivot_array_0.unpivot_unnest#14)
         |     +-field_idx=1
         +-input_scan=
           +-FilterScan
-            +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#9]
+            +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#14]
             +-input_scan=
             | +-ArrayScan
-            |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#9]
+            |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#14]
             |   +-input_scan=
             |   | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
             |   +-array_expr=
@@ -2045,7 +2121,7 @@ QueryStmt
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_a#1)
             |   |       +-Literal(type=STRING, value="int_a", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#9
+            |   +-element_column=unpivot_array_0.unpivot_unnest#14
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(1) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -2053,7 +2129,94 @@ QueryStmt
                     +-GetStructField
                       +-type=INT64
                       +-expr=
-                      | +-ColumnRef(type=STRUCT<x INT64, x STRING>, column=unpivot_array_0.unpivot_unnest#9)
+                      | +-ColumnRef(type=STRUCT<x INT64, x STRING>, column=unpivot_array_0.unpivot_unnest#14)
+                      +-field_idx=0
+==
+
+# Duplicate column aliases
+select 1 as Value, * from KeyValue UNPIVOT(Value for b in (Key));
+--
+QueryStmt
++-output_column_list=
+| +-$query.Value#6 AS Value [INT64]
+| +-$unpivot.Value#5 AS Value [STRING]
+| +-$unpivot.Value#3 AS Value [INT64]
+| +-$unpivot.b#4 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.Value#6, $unpivot.Value#5, $unpivot.Value#3, $unpivot.b#4]
+    +-expr_list=
+    | +-Value#6 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-UnpivotScan
+        +-column_list=$unpivot.[Value#5, Value#3, b#4]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-value_column_list=[$unpivot.Value#3]
+        +-label_column=$unpivot.b#4
+        +-label_list=
+        | +-Literal(type=STRING, value="Key")
+        +-unpivot_arg_list=
+        | +-UnpivotArg
+        |   +-column_list=
+        |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        +-projected_input_column_list=
+        | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        +-include_nulls=FALSE
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.Value#6 AS Value [INT64]
+| +-$unpivot.Value#5 AS Value [STRING]
+| +-$unpivot.Value#3 AS Value [INT64]
+| +-$unpivot.b#4 AS b [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.Value#6, $unpivot.Value#5, $unpivot.Value#3, $unpivot.b#4]
+    +-expr_list=
+    | +-Value#6 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=$unpivot.[Value#5, Value#3, b#4]
+        +-expr_list=
+        | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        | +-Value#3 :=
+        | | +-GetStructField
+        | |   +-type=INT64
+        | |   +-expr=
+        | |   | +-ColumnRef(type=STRUCT<Value INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#7)
+        | |   +-field_idx=0
+        | +-b#4 :=
+        |   +-GetStructField
+        |     +-type=STRING
+        |     +-expr=
+        |     | +-ColumnRef(type=STRUCT<Value INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#7)
+        |     +-field_idx=1
+        +-input_scan=
+          +-FilterScan
+            +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#7]
+            +-input_scan=
+            | +-ArrayScan
+            |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#7]
+            |   +-input_scan=
+            |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+            |   +-array_expr=
+            |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<Value INT64, b STRING>) -> ARRAY<STRUCT<Value INT64, b STRING>>)
+            |   |   +-MakeStruct
+            |   |     +-type=STRUCT<Value INT64, b STRING>
+            |   |     +-field_list=
+            |   |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            |   |       +-Literal(type=STRING, value="Key", has_explicit_type=TRUE)
+            |   +-element_column=unpivot_array_0.unpivot_unnest#7
+            +-filter_expr=
+              +-FunctionCall(ZetaSQL:$or(repeated(1) BOOL) -> BOOL)
+                +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+                  +-FunctionCall(ZetaSQL:$is_null(INT64) -> BOOL)
+                    +-GetStructField
+                      +-type=INT64
+                      +-expr=
+                      | +-ColumnRef(type=STRUCT<Value INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#7)
                       +-field_idx=0
 ==
 
@@ -2107,18 +2270,18 @@ SELECT * from MultipleColumns UNPIVOT(x for y in (int_a AS "Label1", int_b AS "L
 --
 QueryStmt
 +-output_column_list=
-| +-MultipleColumns.string_a#2 AS string_a [STRING]
-| +-MultipleColumns.string_b#4 AS string_b [STRING]
-| +-MultipleColumns.int_c#5 AS int_c [INT64]
-| +-MultipleColumns.int_d#6 AS int_d [INT64]
+| +-$unpivot.string_a#9 AS string_a [STRING]
+| +-$unpivot.string_b#10 AS string_b [STRING]
+| +-$unpivot.int_c#11 AS int_c [INT64]
+| +-$unpivot.int_d#12 AS int_d [INT64]
 | +-$unpivot.x#7 AS x [INT64]
 | +-$unpivot.y#8 AS y [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.x#7, $unpivot.y#8]
+    +-column_list=$unpivot.[string_a#9, string_b#10, int_c#11, int_d#12, x#7, y#8]
     +-input_scan=
       +-UnpivotScan
-        +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.x#7, $unpivot.y#8]
+        +-column_list=$unpivot.[string_a#9, string_b#10, int_c#11, int_d#12, x#7, y#8]
         +-input_scan=
         | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
         +-value_column_list=[$unpivot.x#7]
@@ -2133,43 +2296,51 @@ QueryStmt
         | +-UnpivotArg
         |   +-column_list=
         |     +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
+        +-projected_input_column_list=
+        | +-string_a#9 := ColumnRef(type=STRING, column=MultipleColumns.string_a#2)
+        | +-string_b#10 := ColumnRef(type=STRING, column=MultipleColumns.string_b#4)
+        | +-int_c#11 := ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
+        | +-int_d#12 := ColumnRef(type=INT64, column=MultipleColumns.int_d#6)
         +-include_nulls=FALSE
-
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-MultipleColumns.string_a#2 AS string_a [STRING]
-| +-MultipleColumns.string_b#4 AS string_b [STRING]
-| +-MultipleColumns.int_c#5 AS int_c [INT64]
-| +-MultipleColumns.int_d#6 AS int_d [INT64]
+| +-$unpivot.string_a#9 AS string_a [STRING]
+| +-$unpivot.string_b#10 AS string_b [STRING]
+| +-$unpivot.int_c#11 AS int_c [INT64]
+| +-$unpivot.int_d#12 AS int_d [INT64]
 | +-$unpivot.x#7 AS x [INT64]
 | +-$unpivot.y#8 AS y [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.x#7, $unpivot.y#8]
+    +-column_list=$unpivot.[string_a#9, string_b#10, int_c#11, int_d#12, x#7, y#8]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[MultipleColumns.string_a#2, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, $unpivot.x#7, $unpivot.y#8]
+        +-column_list=$unpivot.[string_a#9, string_b#10, int_c#11, int_d#12, x#7, y#8]
         +-expr_list=
+        | +-string_a#9 := ColumnRef(type=STRING, column=MultipleColumns.string_a#2)
+        | +-string_b#10 := ColumnRef(type=STRING, column=MultipleColumns.string_b#4)
+        | +-int_c#11 := ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
+        | +-int_d#12 := ColumnRef(type=INT64, column=MultipleColumns.int_d#6)
         | +-x#7 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<x INT64, y STRING>, column=unpivot_array_0.unpivot_unnest#9)
+        | |   | +-ColumnRef(type=STRUCT<x INT64, y STRING>, column=unpivot_array_0.unpivot_unnest#13)
         | |   +-field_idx=0
         | +-y#8 :=
         |   +-GetStructField
         |     +-type=STRING
         |     +-expr=
-        |     | +-ColumnRef(type=STRUCT<x INT64, y STRING>, column=unpivot_array_0.unpivot_unnest#9)
+        |     | +-ColumnRef(type=STRUCT<x INT64, y STRING>, column=unpivot_array_0.unpivot_unnest#13)
         |     +-field_idx=1
         +-input_scan=
           +-FilterScan
-            +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#9]
+            +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#13]
             +-input_scan=
             | +-ArrayScan
-            |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#9]
+            |   +-column_list=[MultipleColumns.int_a#1, MultipleColumns.string_a#2, MultipleColumns.int_b#3, MultipleColumns.string_b#4, MultipleColumns.int_c#5, MultipleColumns.int_d#6, unpivot_array_0.unpivot_unnest#13]
             |   +-input_scan=
             |   | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
             |   +-array_expr=
@@ -2184,7 +2355,7 @@ QueryStmt
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
             |   |       +-Literal(type=STRING, value="Label1", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#9
+            |   +-element_column=unpivot_array_0.unpivot_unnest#13
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(1) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -2192,7 +2363,7 @@ QueryStmt
                     +-GetStructField
                       +-type=INT64
                       +-expr=
-                      | +-ColumnRef(type=STRUCT<x INT64, y STRING>, column=unpivot_array_0.unpivot_unnest#9)
+                      | +-ColumnRef(type=STRUCT<x INT64, y STRING>, column=unpivot_array_0.unpivot_unnest#13)
                       +-field_idx=0
 ==
 
@@ -2210,15 +2381,15 @@ SELECT * FROM (SELECT int_a + 1, int_b FROM MultipleColumns) UNPIVOT(x for y in 
 --
 QueryStmt
 +-output_column_list=
-| +-$subquery1.$col1#7 AS `$col1` [INT64]
+| +-$unpivot.$col1#10 AS `$col1` [INT64]
 | +-$unpivot.x#8 AS x [INT64]
 | +-$unpivot.y#9 AS y [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$subquery1.$col1#7, $unpivot.x#8, $unpivot.y#9]
+    +-column_list=$unpivot.[$col1#10, x#8, y#9]
     +-input_scan=
       +-UnpivotScan
-        +-column_list=[$subquery1.$col1#7, $unpivot.x#8, $unpivot.y#9]
+        +-column_list=$unpivot.[$col1#10, x#8, y#9]
         +-input_scan=
         | +-ProjectScan
         |   +-column_list=[$subquery1.$col1#7, MultipleColumns.int_b#3]
@@ -2237,40 +2408,42 @@ QueryStmt
         | +-UnpivotArg
         |   +-column_list=
         |     +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
+        +-projected_input_column_list=
+        | +-$col1#10 := ColumnRef(type=INT64, column=$subquery1.$col1#7)
         +-include_nulls=FALSE
-
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-$subquery1.$col1#7 AS `$col1` [INT64]
+| +-$unpivot.$col1#10 AS `$col1` [INT64]
 | +-$unpivot.x#8 AS x [INT64]
 | +-$unpivot.y#9 AS y [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[$subquery1.$col1#7, $unpivot.x#8, $unpivot.y#9]
+    +-column_list=$unpivot.[$col1#10, x#8, y#9]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[$subquery1.$col1#7, $unpivot.x#8, $unpivot.y#9]
+        +-column_list=$unpivot.[$col1#10, x#8, y#9]
         +-expr_list=
+        | +-$col1#10 := ColumnRef(type=INT64, column=$subquery1.$col1#7)
         | +-x#8 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<x INT64, y STRING>, column=unpivot_array_0.unpivot_unnest#10)
+        | |   | +-ColumnRef(type=STRUCT<x INT64, y STRING>, column=unpivot_array_0.unpivot_unnest#11)
         | |   +-field_idx=0
         | +-y#9 :=
         |   +-GetStructField
         |     +-type=STRING
         |     +-expr=
-        |     | +-ColumnRef(type=STRUCT<x INT64, y STRING>, column=unpivot_array_0.unpivot_unnest#10)
+        |     | +-ColumnRef(type=STRUCT<x INT64, y STRING>, column=unpivot_array_0.unpivot_unnest#11)
         |     +-field_idx=1
         +-input_scan=
           +-FilterScan
-            +-column_list=[$subquery1.$col1#7, MultipleColumns.int_b#3, unpivot_array_0.unpivot_unnest#10]
+            +-column_list=[$subquery1.$col1#7, MultipleColumns.int_b#3, unpivot_array_0.unpivot_unnest#11]
             +-input_scan=
             | +-ArrayScan
-            |   +-column_list=[$subquery1.$col1#7, MultipleColumns.int_b#3, unpivot_array_0.unpivot_unnest#10]
+            |   +-column_list=[$subquery1.$col1#7, MultipleColumns.int_b#3, unpivot_array_0.unpivot_unnest#11]
             |   +-input_scan=
             |   | +-ProjectScan
             |   |   +-column_list=[$subquery1.$col1#7, MultipleColumns.int_b#3]
@@ -2288,7 +2461,7 @@ QueryStmt
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
             |   |       +-Literal(type=STRING, value="int_b", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_0.unpivot_unnest#10
+            |   +-element_column=unpivot_array_0.unpivot_unnest#11
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(1) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -2296,7 +2469,7 @@ QueryStmt
                     +-GetStructField
                       +-type=INT64
                       +-expr=
-                      | +-ColumnRef(type=STRUCT<x INT64, y STRING>, column=unpivot_array_0.unpivot_unnest#10)
+                      | +-ColumnRef(type=STRUCT<x INT64, y STRING>, column=unpivot_array_0.unpivot_unnest#11)
                       +-field_idx=0
 ==
 
@@ -2307,22 +2480,22 @@ UNPIVOT INCLUDE NULLS(a for b in (Key AS "Label"))) UNPIVOT EXCLUDE NULLS(x for 
 --
 QueryStmt
 +-output_column_list=
-| +-KeyValue.Value#2 AS Value [STRING]
-| +-$unpivot.b#4 AS b [STRING]
-| +-$unpivot.x#5 AS x [INT64]
-| +-$unpivot.y#6 AS y [STRING]
+| +-$unpivot.Value#8 AS Value [STRING]
+| +-$unpivot.b#9 AS b [STRING]
+| +-$unpivot.x#6 AS x [INT64]
+| +-$unpivot.y#7 AS y [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[KeyValue.Value#2, $unpivot.b#4, $unpivot.x#5, $unpivot.y#6]
+    +-column_list=$unpivot.[Value#8, b#9, x#6, y#7]
     +-input_scan=
       +-UnpivotScan
-        +-column_list=[KeyValue.Value#2, $unpivot.b#4, $unpivot.x#5, $unpivot.y#6]
+        +-column_list=$unpivot.[Value#8, b#9, x#6, y#7]
         +-input_scan=
         | +-ProjectScan
-        |   +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+        |   +-column_list=$unpivot.[Value#5, a#3, b#4]
         |   +-input_scan=
         |     +-UnpivotScan
-        |       +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+        |       +-column_list=$unpivot.[Value#5, a#3, b#4]
         |       +-input_scan=
         |       | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         |       +-value_column_list=[$unpivot.a#3]
@@ -2333,72 +2506,79 @@ QueryStmt
         |       | +-UnpivotArg
         |       |   +-column_list=
         |       |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |       +-projected_input_column_list=
+        |       | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         |       +-include_nulls=TRUE
-        +-value_column_list=[$unpivot.x#5]
-        +-label_column=$unpivot.y#6
+        +-value_column_list=[$unpivot.x#6]
+        +-label_column=$unpivot.y#7
         +-label_list=
         | +-Literal(type=STRING, value="a")
         +-unpivot_arg_list=
         | +-UnpivotArg
         |   +-column_list=
         |     +-ColumnRef(type=INT64, column=$unpivot.a#3)
+        +-projected_input_column_list=
+        | +-Value#8 := ColumnRef(type=STRING, column=$unpivot.Value#5)
+        | +-b#9 := ColumnRef(type=STRING, column=$unpivot.b#4)
         +-include_nulls=FALSE
-
 
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
-| +-KeyValue.Value#2 AS Value [STRING]
-| +-$unpivot.b#4 AS b [STRING]
-| +-$unpivot.x#5 AS x [INT64]
-| +-$unpivot.y#6 AS y [STRING]
+| +-$unpivot.Value#8 AS Value [STRING]
+| +-$unpivot.b#9 AS b [STRING]
+| +-$unpivot.x#6 AS x [INT64]
+| +-$unpivot.y#7 AS y [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[KeyValue.Value#2, $unpivot.b#4, $unpivot.x#5, $unpivot.y#6]
+    +-column_list=$unpivot.[Value#8, b#9, x#6, y#7]
     +-input_scan=
       +-ProjectScan
-        +-column_list=[KeyValue.Value#2, $unpivot.b#4, $unpivot.x#5, $unpivot.y#6]
+        +-column_list=$unpivot.[Value#8, b#9, x#6, y#7]
         +-expr_list=
-        | +-x#5 :=
+        | +-Value#8 := ColumnRef(type=STRING, column=$unpivot.Value#5)
+        | +-b#9 := ColumnRef(type=STRING, column=$unpivot.b#4)
+        | +-x#6 :=
         | | +-GetStructField
         | |   +-type=INT64
         | |   +-expr=
-        | |   | +-ColumnRef(type=STRUCT<x INT64, y STRING>, column=unpivot_array_1.unpivot_unnest#8)
+        | |   | +-ColumnRef(type=STRUCT<x INT64, y STRING>, column=unpivot_array_1.unpivot_unnest#11)
         | |   +-field_idx=0
-        | +-y#6 :=
+        | +-y#7 :=
         |   +-GetStructField
         |     +-type=STRING
         |     +-expr=
-        |     | +-ColumnRef(type=STRUCT<x INT64, y STRING>, column=unpivot_array_1.unpivot_unnest#8)
+        |     | +-ColumnRef(type=STRUCT<x INT64, y STRING>, column=unpivot_array_1.unpivot_unnest#11)
         |     +-field_idx=1
         +-input_scan=
           +-FilterScan
-            +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4, unpivot_array_1.unpivot_unnest#8]
+            +-column_list=[$unpivot.Value#5, $unpivot.a#3, $unpivot.b#4, unpivot_array_1.unpivot_unnest#11]
             +-input_scan=
             | +-ArrayScan
-            |   +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4, unpivot_array_1.unpivot_unnest#8]
+            |   +-column_list=[$unpivot.Value#5, $unpivot.a#3, $unpivot.b#4, unpivot_array_1.unpivot_unnest#11]
             |   +-input_scan=
             |   | +-ProjectScan
-            |   |   +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+            |   |   +-column_list=$unpivot.[Value#5, a#3, b#4]
             |   |   +-input_scan=
             |   |     +-ProjectScan
-            |   |       +-column_list=[KeyValue.Value#2, $unpivot.a#3, $unpivot.b#4]
+            |   |       +-column_list=$unpivot.[Value#5, a#3, b#4]
             |   |       +-expr_list=
+            |   |       | +-Value#5 := ColumnRef(type=STRING, column=KeyValue.Value#2)
             |   |       | +-a#3 :=
             |   |       | | +-GetStructField
             |   |       | |   +-type=INT64
             |   |       | |   +-expr=
-            |   |       | |   | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#7)
+            |   |       | |   | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#10)
             |   |       | |   +-field_idx=0
             |   |       | +-b#4 :=
             |   |       |   +-GetStructField
             |   |       |     +-type=STRING
             |   |       |     +-expr=
-            |   |       |     | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#7)
+            |   |       |     | +-ColumnRef(type=STRUCT<a INT64, b STRING>, column=unpivot_array_0.unpivot_unnest#10)
             |   |       |     +-field_idx=1
             |   |       +-input_scan=
             |   |         +-ArrayScan
-            |   |           +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#7]
+            |   |           +-column_list=[KeyValue.Key#1, KeyValue.Value#2, unpivot_array_0.unpivot_unnest#10]
             |   |           +-input_scan=
             |   |           | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
             |   |           +-array_expr=
@@ -2408,7 +2588,7 @@ QueryStmt
             |   |           |     +-field_list=
             |   |           |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
             |   |           |       +-Literal(type=STRING, value="Label", has_explicit_type=TRUE)
-            |   |           +-element_column=unpivot_array_0.unpivot_unnest#7
+            |   |           +-element_column=unpivot_array_0.unpivot_unnest#10
             |   +-array_expr=
             |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<x INT64, y STRING>) -> ARRAY<STRUCT<x INT64, y STRING>>)
             |   |   +-MakeStruct
@@ -2416,7 +2596,7 @@ QueryStmt
             |   |     +-field_list=
             |   |       +-ColumnRef(type=INT64, column=$unpivot.a#3)
             |   |       +-Literal(type=STRING, value="a", has_explicit_type=TRUE)
-            |   +-element_column=unpivot_array_1.unpivot_unnest#8
+            |   +-element_column=unpivot_array_1.unpivot_unnest#11
             +-filter_expr=
               +-FunctionCall(ZetaSQL:$or(repeated(1) BOOL) -> BOOL)
                 +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
@@ -2424,6 +2604,6 @@ QueryStmt
                     +-GetStructField
                       +-type=INT64
                       +-expr=
-                      | +-ColumnRef(type=STRUCT<x INT64, y STRING>, column=unpivot_array_1.unpivot_unnest#8)
+                      | +-ColumnRef(type=STRUCT<x INT64, y STRING>, column=unpivot_array_1.unpivot_unnest#11)
                       +-field_idx=0
 ==

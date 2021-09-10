@@ -16,9 +16,21 @@
 
 #include "zetasql/public/types/simple_value.h"
 
-#include <cstdint>
+#include <string.h>
 
+#include <cstdint>
+#include <string>
+#include <utility>
+
+#include "zetasql/base/logging.h"
+#include "zetasql/public/simple_value.pb.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/public/types/value_representations.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_builder.h"
 
 namespace zetasql {
 
@@ -168,7 +180,7 @@ absl::Status SimpleValue::Serialize(SimpleValueProto* proto) const {
 }
 
 // static
-zetasql_base::StatusOr<SimpleValue> SimpleValue::Deserialize(
+absl::StatusOr<SimpleValue> SimpleValue::Deserialize(
     const SimpleValueProto& proto) {
   SimpleValue value;
   switch (proto.value_case()) {

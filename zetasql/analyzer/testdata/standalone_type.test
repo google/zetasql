@@ -287,7 +287,7 @@ numeric("hello")
 [language_features={{PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
 numeric(30)
 --
-ERROR: In NUMERIC(P), P must be within range [1, 29] [at 1:8]
+ERROR: In NUMERIC(P), P must be between 1 and 29 [at 1:8]
 numeric(30)
        ^
 ==
@@ -295,7 +295,7 @@ numeric(30)
 [language_features={{PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
 numeric(1, 9)
 --
-ERROR: In NUMERIC(P, S), P must be within range [max(S,1), 29+S] [at 1:8]
+ERROR: In NUMERIC(P, 9), P must be between 9 and 38 [at 1:8]
 numeric(1, 9)
        ^
 ==
@@ -303,7 +303,7 @@ numeric(1, 9)
 [language_features={{PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
 numeric(12, 10)
 --
-ERROR: In NUMERIC(P, S), S must be within range [0, 9] [at 1:8]
+ERROR: In NUMERIC(P, S), S must be between 0 and 9 [at 1:8]
 numeric(12, 10)
        ^
 ==
@@ -359,7 +359,7 @@ bignumeric(1, 2, 3)
 [language_features={{PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
 bignumeric(39)
 --
-ERROR: In BIGNUMERIC(P), P must be within range [1, 38] [at 1:11]
+ERROR: In BIGNUMERIC(P), P must be between 1 and 38 [at 1:11]
 bignumeric(39)
           ^
 ==
@@ -367,7 +367,7 @@ bignumeric(39)
 [language_features={{PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
 bignumeric(1, 9)
 --
-ERROR: In BIGNUMERIC(P, S), P must be within range [max(S,1), 38+S] [at 1:11]
+ERROR: In BIGNUMERIC(P, 9), P must be between 9 and 47 [at 1:11]
 bignumeric(1, 9)
           ^
 ==
@@ -375,7 +375,7 @@ bignumeric(1, 9)
 [language_features={{PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
 bignumeric(40, 39)
 --
-ERROR: In BIGNUMERIC(P, S), S must be within range [0, 38] [at 1:11]
+ERROR: In BIGNUMERIC(P, S), S must be between 0 and 38 [at 1:11]
 bignumeric(40, 39)
           ^
 ==
@@ -383,7 +383,7 @@ bignumeric(40, 39)
 [language_features={{PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
 bignumeric(MAX, 39)
 --
-ERROR: In BIGNUMERIC(P, S), S must be within range [0, 38] [at 1:11]
+ERROR: In BIGNUMERIC(P, S), S must be between 0 and 38 [at 1:11]
 bignumeric(MAX, 39)
           ^
 ==
@@ -669,120 +669,120 @@ struct<
 STRUCT<STRUCT<x INT32>, STRUCT<y INT64>>
 ==
 
-`zetasql_test.TestEnum`
+`zetasql_test__.TestEnum`
 --
-`zetasql_test.TestEnum`
+`zetasql_test__.TestEnum`
 ==
 
 # Proto enums work as paths or as quoted fullnames.
-zetasql_test.TestEnum
+zetasql_test__.TestEnum
 --
-`zetasql_test.TestEnum`
+`zetasql_test__.TestEnum`
 ==
 
-`zetasql_test.TestEnum`
+`zetasql_test__.TestEnum`
 --
-`zetasql_test.TestEnum`
+`zetasql_test__.TestEnum`
 ==
 
-`zetasql_test.KeyValueStruct`
+`zetasql_test__.KeyValueStruct`
 --
-`zetasql_test.KeyValueStruct`
+`zetasql_test__.KeyValueStruct`
 ==
 
 # Protos  work as paths or as quoted fullnames.
-zetasql_test.KeyValueStruct
+zetasql_test__.KeyValueStruct
 --
-`zetasql_test.KeyValueStruct`
+`zetasql_test__.KeyValueStruct`
 ==
 
-`zetasql_test.KeyValueStruct`
+`zetasql_test__.KeyValueStruct`
 --
-`zetasql_test.KeyValueStruct`
+`zetasql_test__.KeyValueStruct`
 ==
 
-zetasql_test.KitchenSinkPB.Nested
+zetasql_test__.KitchenSinkPB.Nested
 --
-`zetasql_test.KitchenSinkPB.Nested`
+`zetasql_test__.KitchenSinkPB.Nested`
 ==
 
-`zetasql_test.KitchenSinkPB.Nested`
+`zetasql_test__.KitchenSinkPB.Nested`
 --
-`zetasql_test.KitchenSinkPB.Nested`
+`zetasql_test__.KitchenSinkPB.Nested`
 ==
 
-zetasql_test.`KitchenSinkPB.Nested`
+zetasql_test__.`KitchenSinkPB.Nested`
 --
-ERROR: Type not found: zetasql_test.`KitchenSinkPB.Nested` [at 1:1]
-zetasql_test.`KitchenSinkPB.Nested`
+ERROR: Type not found: zetasql_test__.`KitchenSinkPB.Nested` [at 1:1]
+zetasql_test__.`KitchenSinkPB.Nested`
 ^
 ==
 
-`zetasql_test.KitchenSinkPB`.Nested
+`zetasql_test__.KitchenSinkPB`.Nested
 --
-ERROR: Type not found: `zetasql_test.KitchenSinkPB`.Nested [at 1:1]
-`zetasql_test.KitchenSinkPB`.Nested
+ERROR: Type not found: `zetasql_test__.KitchenSinkPB`.Nested [at 1:1]
+`zetasql_test__.KitchenSinkPB`.Nested
 ^
 ==
 
 
 # Proto and enum type names are case sensitive.
-`zetasql_test.keyVALUESTRUCT`
+`zetasql_test__.keyVALUESTRUCT`
 --
-ERROR: Type not found: `zetasql_test.keyVALUESTRUCT` [at 1:1]
-`zetasql_test.keyVALUESTRUCT`
+ERROR: Type not found: `zetasql_test__.keyVALUESTRUCT` [at 1:1]
+`zetasql_test__.keyVALUESTRUCT`
 ^
 ==
 
 # Proto and enum type names are case sensitive.
-`zetasql_test.TESTenum`
+`zetasql_test__.TESTenum`
 --
-ERROR: Type not found: `zetasql_test.TESTenum` [at 1:1]
-`zetasql_test.TESTenum`
+ERROR: Type not found: `zetasql_test__.TESTenum` [at 1:1]
+`zetasql_test__.TESTenum`
 ^
 ==
 
-`zetasql_test.TestOptionalFields.Nested`
+`zetasql_test__.TestOptionalFields.Nested`
 --
-`zetasql_test.TestOptionalFields.Nested`
+`zetasql_test__.TestOptionalFields.Nested`
 ==
 
-ARRAY<zetasql_test.TestEnum>
+ARRAY<zetasql_test__.TestEnum>
 --
-ARRAY<`zetasql_test.TestEnum`>
+ARRAY<`zetasql_test__.TestEnum`>
 ==
 
-STRUCT<`zetasql_test.TestEnum`, f2 zetasql_test.KeyValueStruct>
+STRUCT<`zetasql_test__.TestEnum`, f2 zetasql_test__.KeyValueStruct>
 --
-STRUCT<`zetasql_test.TestEnum`, f2 `zetasql_test.KeyValueStruct`>
+STRUCT<`zetasql_test__.TestEnum`, f2 `zetasql_test__.KeyValueStruct`>
 ==
 
-nested_catalog.`zetasql_test.TestEnum`
+nested_catalog.`zetasql_test__.TestEnum`
 --
-`zetasql_test.TestEnum`
+`zetasql_test__.TestEnum`
 ==
 
-nested_catalog.`zetasql_test.KitchenSinkPB`
+nested_catalog.`zetasql_test__.KitchenSinkPB`
 --
-`zetasql_test.KitchenSinkPB`
+`zetasql_test__.KitchenSinkPB`
 ==
 
 # Path is a catalog and then a proto name as a path.
-nested_catalog.zetasql_test.KitchenSinkPB
+nested_catalog.zetasql_test__.KitchenSinkPB
 --
-`zetasql_test.KitchenSinkPB`
+`zetasql_test__.KitchenSinkPB`
 ==
 
-nested_catalog.`zetasql_test.KitchenSinkPB`
+nested_catalog.`zetasql_test__.KitchenSinkPB`
 --
-`zetasql_test.KitchenSinkPB`
+`zetasql_test__.KitchenSinkPB`
 ==
 
 # Catalog name cannot be part of the proto fullname as a single identifier.
-`nested_catalog.zetasql_test.KitchenSinkPB`
+`nested_catalog.zetasql_test__.KitchenSinkPB`
 --
-ERROR: Type not found: `nested_catalog.zetasql_test.KitchenSinkPB` [at 1:1]
-`nested_catalog.zetasql_test.KitchenSinkPB`
+ERROR: Type not found: `nested_catalog.zetasql_test__.KitchenSinkPB` [at 1:1]
+`nested_catalog.zetasql_test__.KitchenSinkPB`
 ^
 ==
 

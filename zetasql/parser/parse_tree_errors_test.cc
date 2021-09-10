@@ -30,8 +30,6 @@
 
 using ::zetasql::testing::EqualsProto;
 using testing::HasSubstr;
-using testing::IsEmpty;
-using zetasql_base::testing::IsOkAndHolds;
 using zetasql_base::testing::StatusIs;
 
 namespace zetasql {
@@ -48,32 +46,10 @@ static absl::Status ErrorWithLocation() {
 }
 
 static absl::Status ErrorNonSQL() {
-  return ::zetasql_base::NotFoundErrorBuilder() << "Non-SQL error";
+  return absl::NotFoundError("Non-SQL error");
 }
 
-static absl::Status ReturnIfTest1() {
-  FakeASTNode ast_location;
-  ast_location.InitFields();
-  RETURN_SQL_ERROR_AT_IF_ERROR(&ast_location, NoError());
-  RETURN_SQL_ERROR_AT_IF_ERROR(&ast_location, ErrorWithoutLocation());
-  return absl::OkStatus();
-}
-
-static absl::Status ReturnIfTest2() {
-  FakeASTNode ast_location;
-  ast_location.InitFields();
-  RETURN_SQL_ERROR_AT_IF_ERROR(&ast_location, NoError());
-  RETURN_SQL_ERROR_AT_IF_ERROR(&ast_location, ErrorWithLocation());
-  return absl::OkStatus();
-}
-
-static absl::Status ReturnIfTest3() {
-  FakeASTNode ast_location;
-  ast_location.InitFields();
-  RETURN_SQL_ERROR_AT_IF_ERROR(&ast_location, NoError());
-  RETURN_SQL_ERROR_AT_IF_ERROR(&ast_location, ErrorNonSQL());
-  return absl::OkStatus();
-}
+static absl::Status RetCheckError() { ZETASQL_RET_CHECK_FAIL() << "ret_check_error"; }
 
 TEST(GetErrorLocationPoint, Basic) {
   FakeASTNode ast_location;
@@ -120,19 +96,87 @@ TEST(Errors, ReturnIf) {
                 ErrorWithLocation(), query)));
   EXPECT_EQ("generic::not_found: Non-SQL error", FormatError(ErrorNonSQL()));
 
+  auto ReturnIfTest = [](std::function<absl::Status()> error) -> absl::Status {
+    FakeASTNode ast_location;
+    ast_location.InitFields();
+    RETURN_SQL_ERROR_AT_IF_ERROR(&ast_location, NoError());
+    RETURN_SQL_ERROR_AT_IF_ERROR(&ast_location, error());
+    return absl::OkStatus();
+  };
+
   // Now call via ReturnIfTest and see how the errors get modified to
   // override the location.  The added location is 4,2 (the fake location of
   // FakeASTNode)
-  EXPECT_EQ("No location [at fake_filename:4:2]",
-            FormatError(ConvertInternalErrorLocationToExternal(ReturnIfTest1(),
-                                                               query)));
-  EXPECT_EQ("With location [at fake_filename:4:2]",
-            FormatError(ConvertInternalErrorLocationToExternal(ReturnIfTest2(),
-                                                               query)));
+  absl::Status test_status = ConvertInternalErrorLocationToExternal(
+      ReturnIfTest(&ErrorWithoutLocation), query);
+  EXPECT_EQ("No location [at fake_filename:4:2]", FormatError(test_status));
+  EXPECT_THAT(test_status, StatusIs(absl::StatusCode::kInvalidArgument));
+
+  test_status = ConvertInternalErrorLocationToExternal(
+      ReturnIfTest(&ErrorWithLocation), query);
+  EXPECT_EQ("With location [at fake_filename:4:2]", FormatError(test_status));
+  EXPECT_THAT(test_status, StatusIs(absl::StatusCode::kInvalidArgument));
+
+  test_status =
+      ConvertInternalErrorLocationToExternal(ReturnIfTest(&ErrorNonSQL), query);
   // This also converts the error to a SQL error, dropping the old error code.
-  EXPECT_EQ("Non-SQL error [at fake_filename:4:2]",
-            FormatError(ConvertInternalErrorLocationToExternal(ReturnIfTest3(),
-                                                               query)));
+  EXPECT_EQ("Non-SQL error [at fake_filename:4:2]", FormatError(test_status));
+  EXPECT_THAT(test_status, StatusIs(absl::StatusCode::kInvalidArgument));
+
+  test_status = ConvertInternalErrorLocationToExternal(
+      ReturnIfTest(&RetCheckError), query);
+  EXPECT_THAT(FormatError(test_status),
+              HasSubstr("ret_check_error [at fake_filename:4:2]"));
+  // TODO: This error code should be Internal. Internal error code
+  // should never be dropped.
+  EXPECT_THAT(test_status, StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(Errors, LocationOverride) {
+  // Dummy query that can be used to resolve all lines and columns in
+  // InternalErrorLocations in this test.
+  const std::string query = "1\n2\n3\n42345\n";
+
+  auto ReturnWithLocationOverride =
+      [](std::function<absl::Status()> make_error) -> absl::Status {
+    FakeASTNode ast_location;
+    ast_location.InitFields();
+    ZETASQL_RETURN_IF_ERROR(make_error()).With(LocationOverride(&ast_location));
+    return absl::OkStatus();
+  };
+
+  absl::Status test_status = ConvertInternalErrorLocationToExternal(
+      ReturnWithLocationOverride(RetCheckError), query);
+  EXPECT_THAT(test_status, StatusIs(absl::StatusCode::kInternal));
+  EXPECT_THAT(FormatError(test_status),
+              HasSubstr("ret_check_error [zetasql.ErrorLocation] { line: 4 "
+                        "column: 2 filename: \"fake_filename\" }"));
+
+  ZETASQL_EXPECT_OK(ConvertInternalErrorLocationToExternal(
+      ReturnWithLocationOverride(&NoError), query));
+
+  test_status = ConvertInternalErrorLocationToExternal(
+      ReturnWithLocationOverride(&ErrorWithoutLocation), query);
+  EXPECT_THAT(test_status, StatusIs(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(FormatError(test_status),
+              HasSubstr("No location [at fake_filename:4:2]"));
+
+  test_status = ConvertInternalErrorLocationToExternal(
+      ReturnWithLocationOverride(&ErrorWithLocation), query);
+  EXPECT_THAT(test_status, StatusIs(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(FormatError(test_status),
+              HasSubstr("With location [at fake_filename:4:2]"));
+
+  // LocationOverride only overrides location, never error code. We took the
+  // philosophy that any overriding of specific error cods should be explicit
+  // at the place where they need to be overridden.
+  test_status = ConvertInternalErrorLocationToExternal(
+      ReturnWithLocationOverride(&ErrorNonSQL), query);
+  EXPECT_THAT(test_status, StatusIs(absl::StatusCode::kNotFound));
+  EXPECT_THAT(
+      FormatError(test_status),
+      HasSubstr("generic::not_found: Non-SQL error [zetasql.ErrorLocation] { "
+                "line: 4 column: 2 filename: \"fake_filename\" }"));
 }
 
 }  // namespace zetasql

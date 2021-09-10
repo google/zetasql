@@ -27,6 +27,8 @@
 #include "zetasql/proto/function.pb.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/types/type_deserializer.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "zetasql/base/case.h"
@@ -116,10 +118,13 @@ FunctionOptions& FunctionOptions::set_evaluator(
 }
 
 bool FunctionOptions::check_all_required_features_are_enabled(
-    const std::set<LanguageFeature>& enabled_features) const {
-  return std::includes(enabled_features.begin(), enabled_features.end(),
-                       required_language_features.begin(),
-                       required_language_features.end());
+    const LanguageOptions::LanguageFeatureSet& enabled_features) const {
+  for (const LanguageFeature& feature : required_language_features) {
+    if (enabled_features.find(feature) == enabled_features.end()) {
+      return false;
+    }
+  }
+  return true;
 }
 
 const char Function::kZetaSQLFunctionGroupName[] = "ZetaSQL";
@@ -183,15 +188,28 @@ FunctionDeserializers() {
 absl::Status Function::Deserialize(
     const FunctionProto& proto,
     const std::vector<const google::protobuf::DescriptorPool*>& pools,
-    TypeFactory* factory,
-    std::unique_ptr<Function>* result) {
+    TypeFactory* factory, std::unique_ptr<Function>* result) {
+  ZETASQL_ASSIGN_OR_RETURN(*result,
+                   Deserialize(proto, TypeDeserializer(factory, pools)));
+  return absl::OkStatus();
+}
+
+absl::StatusOr<std::unique_ptr<Function>> Function::Deserialize(
+    const FunctionProto& proto, const TypeDeserializer& type_deserializer) {
   // First check if there is a custom deserializer for this function group.
   // If so, invoke it early and return instead.
   if (proto.has_group()) {
     FunctionDeserializer* custom_deserializer =
         zetasql_base::FindOrNull(*FunctionDeserializers(), proto.group());
     if (custom_deserializer != nullptr) {
-      return (*custom_deserializer)(proto, pools, factory, result);
+      std::unique_ptr<Function> result;
+      ZETASQL_RETURN_IF_ERROR((*custom_deserializer)(
+          proto,
+          std::vector<const google::protobuf::DescriptorPool*>(
+              type_deserializer.descriptor_pools().begin(),
+              type_deserializer.descriptor_pools().end()),
+          type_deserializer.type_factory(), &result));
+      return result;
     }
   }
 
@@ -202,19 +220,17 @@ absl::Status Function::Deserialize(
 
   std::vector<FunctionSignature> function_signatures;
   for (const auto& signature_proto : proto.signature()) {
-    std::unique_ptr<FunctionSignature> signature;
-    ZETASQL_RETURN_IF_ERROR(FunctionSignature::Deserialize(
-        signature_proto, pools, factory, &signature));
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<FunctionSignature> signature,
+        FunctionSignature::Deserialize(signature_proto, type_deserializer));
     function_signatures.push_back(*signature);
   }
 
   std::unique_ptr<FunctionOptions> options;
   ZETASQL_RETURN_IF_ERROR(FunctionOptions::Deserialize(proto.options(), &options));
 
-  *result = absl::make_unique<Function>(name_path, proto.group(), proto.mode(),
-                                        function_signatures, *options);
-
-  return absl::OkStatus();
+  return absl::make_unique<Function>(name_path, proto.group(), proto.mode(),
+                                     function_signatures, *options);
 }
 
 absl::Status Function::Serialize(
@@ -516,7 +532,7 @@ const std::string Function::GetSupportedSignaturesUserFacingText(
   for (const FunctionSignature& signature : signatures()) {
     // Ignore deprecated signatures, and signatures that include
     // unsupported data types.
-    if (signature.IsDeprecated() ||
+    if (signature.IsDeprecated() || signature.IsInternal() ||
         signature.HasUnsupportedType(language_options) ||
         !signature.options().check_all_required_features_are_enabled(
             language_options.GetEnabledLanguageFeatures())) {

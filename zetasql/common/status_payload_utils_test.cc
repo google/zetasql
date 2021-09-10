@@ -30,18 +30,18 @@ using ::zetasql::testing::EqualsProto;
 using ::testing::HasSubstr;
 
 std::string StatusPayloadTypeUrl() {
-  return GetTypeUrl<zetasql_test::TestStatusPayload>();
+  return GetTypeUrl<zetasql_test__::TestStatusPayload>();
 }
 
 std::string StatusPayload2TypeUrl() {
-  return GetTypeUrl<zetasql_test::TestStatusPayload2>();
+  return GetTypeUrl<zetasql_test__::TestStatusPayload2>();
 }
 
-absl::Cord ToStatusCord(const zetasql_test::TestStatusPayload& p) {
+absl::Cord ToStatusCord(const zetasql_test__::TestStatusPayload& p) {
   return absl::Cord(p.SerializeAsString());
 }
 
-absl::Cord ToStatusCord(const zetasql_test::TestStatusPayload2& p) {
+absl::Cord ToStatusCord(const zetasql_test__::TestStatusPayload2& p) {
   return absl::Cord(p.SerializeAsString());
 }
 
@@ -55,14 +55,14 @@ TEST(StatusPayloadUtils, HasPayload) {
 
   absl::Status ok_status = absl::OkStatus();
   ok_status.SetPayload(StatusPayloadTypeUrl(),
-                       ToStatusCord(zetasql_test::TestStatusPayload()));
+                       ToStatusCord(zetasql_test__::TestStatusPayload()));
   // Ok Status should never have a payload.
   EXPECT_FALSE(HasPayload(ok_status));
 
   absl::Status status1 =
       absl::Status(absl::StatusCode::kCancelled, "");
   status1.SetPayload(StatusPayloadTypeUrl(),
-                     ToStatusCord(zetasql_test::TestStatusPayload()));
+                     ToStatusCord(zetasql_test__::TestStatusPayload()));
   EXPECT_TRUE(HasPayload(status1));
 }
 
@@ -76,115 +76,115 @@ TEST(StatusPayloadUtils, GetPayloadCount) {
   absl::Status status1 =
       absl::Status(absl::StatusCode::kCancelled, "");
   status1.SetPayload(StatusPayloadTypeUrl(),
-                     ToStatusCord(zetasql_test::TestStatusPayload()));
+                     ToStatusCord(zetasql_test__::TestStatusPayload()));
   EXPECT_EQ(GetPayloadCount(status1), 1);
 
   // Attaching the same message twice overwrites, count should be the same.
   absl::Status status2 =
       absl::Status(absl::StatusCode::kCancelled, "");
   status2.SetPayload(StatusPayloadTypeUrl(),
-                     ToStatusCord(zetasql_test::TestStatusPayload()));
+                     ToStatusCord(zetasql_test__::TestStatusPayload()));
   status2.SetPayload(StatusPayloadTypeUrl(),
-                     ToStatusCord(zetasql_test::TestStatusPayload()));
+                     ToStatusCord(zetasql_test__::TestStatusPayload()));
   EXPECT_EQ(GetPayloadCount(status2), 1);
 
   // Attaching the same message twice overwrites, count should be the same
   absl::Status status3 =
       absl::Status(absl::StatusCode::kCancelled, "");
   status3.SetPayload(StatusPayloadTypeUrl(),
-                     ToStatusCord(zetasql_test::TestStatusPayload()));
+                     ToStatusCord(zetasql_test__::TestStatusPayload()));
   status3.SetPayload(StatusPayload2TypeUrl(),
-                     ToStatusCord(zetasql_test::TestStatusPayload2()));
+                     ToStatusCord(zetasql_test__::TestStatusPayload2()));
   EXPECT_EQ(GetPayloadCount(status3), 2);
 }
 
 TEST(StatusPayloadUtils, HasProto) {
-  EXPECT_FALSE(HasPayloadWithType<zetasql_test::TestStatusPayload>(
+  EXPECT_FALSE(HasPayloadWithType<zetasql_test__::TestStatusPayload>(
       absl::OkStatus()));
 
   absl::Status status1 =
       absl::Status(absl::StatusCode::kCancelled, "");
   status1.SetPayload(StatusPayloadTypeUrl(),
-                     ToStatusCord(zetasql_test::TestStatusPayload()));
-  EXPECT_TRUE(HasPayloadWithType<zetasql_test::TestStatusPayload>(status1));
-  EXPECT_FALSE(HasPayloadWithType<zetasql_test::TestStatusPayload2>(status1));
+                     ToStatusCord(zetasql_test__::TestStatusPayload()));
+  EXPECT_TRUE(HasPayloadWithType<zetasql_test__::TestStatusPayload>(status1));
+  EXPECT_FALSE(HasPayloadWithType<zetasql_test__::TestStatusPayload2>(status1));
 
   absl::Status status2 =
       absl::Status(absl::StatusCode::kCancelled, "");
   status2.SetPayload(StatusPayloadTypeUrl(),
-                     ToStatusCord(zetasql_test::TestStatusPayload()));
+                     ToStatusCord(zetasql_test__::TestStatusPayload()));
   status2.SetPayload(StatusPayload2TypeUrl(),
-                     ToStatusCord(zetasql_test::TestStatusPayload2()));
-  EXPECT_TRUE(HasPayloadWithType<zetasql_test::TestStatusPayload>(status2));
-  EXPECT_TRUE(HasPayloadWithType<zetasql_test::TestStatusPayload2>(status2));
+                     ToStatusCord(zetasql_test__::TestStatusPayload2()));
+  EXPECT_TRUE(HasPayloadWithType<zetasql_test__::TestStatusPayload>(status2));
+  EXPECT_TRUE(HasPayloadWithType<zetasql_test__::TestStatusPayload2>(status2));
 }
 
 TEST(StatusPayloadUtils, GetPayload) {
   // Results undefined, but don't crash.
-  GetPayload<zetasql_test::TestStatusPayload>(absl::OkStatus());
+  GetPayload<zetasql_test__::TestStatusPayload>(absl::OkStatus());
 
   absl::Status status1 =
       absl::Status(absl::StatusCode::kCancelled, "");
   // Results undefined, but don't crash.
-  GetPayload<zetasql_test::TestStatusPayload>(status1);
+  GetPayload<zetasql_test__::TestStatusPayload>(status1);
 
-  zetasql_test::TestStatusPayload status_payload1;
+  zetasql_test__::TestStatusPayload status_payload1;
   status_payload1.set_value("msg1");
 
-  zetasql_test::TestStatusPayload2 status_payload2;
+  zetasql_test__::TestStatusPayload2 status_payload2;
   status_payload2.set_f1(15);
   status_payload2.set_f2(12);
 
   absl::Status status2 =
       absl::Status(absl::StatusCode::kCancelled, "");
   status2.SetPayload(StatusPayloadTypeUrl(), ToStatusCord(status_payload1));
-  EXPECT_THAT(GetPayload<zetasql_test::TestStatusPayload>(status2),
+  EXPECT_THAT(GetPayload<zetasql_test__::TestStatusPayload>(status2),
               EqualsProto(status_payload1));
   // Results undefined, but don't crash.
-  GetPayload<zetasql_test::TestStatusPayload2>(status2);
+  GetPayload<zetasql_test__::TestStatusPayload2>(status2);
 
   absl::Status status3 =
       absl::Status(absl::StatusCode::kCancelled, "");
   status3.SetPayload(StatusPayloadTypeUrl(), ToStatusCord(status_payload1));
   status3.SetPayload(StatusPayload2TypeUrl(), ToStatusCord(status_payload2));
   EXPECT_THAT(
-      zetasql::internal::GetPayload<zetasql_test::TestStatusPayload>(status3),
+      zetasql::internal::GetPayload<zetasql_test__::TestStatusPayload>(status3),
       EqualsProto(status_payload1));
-  EXPECT_THAT(zetasql::internal::GetPayload<zetasql_test::TestStatusPayload2>(
+  EXPECT_THAT(zetasql::internal::GetPayload<zetasql_test__::TestStatusPayload2>(
                   status3),
               EqualsProto(status_payload2));
 }
 
 TEST(StatusPayloadUtils, SetPayload_NoOpForOkStatus) {
   absl::Status status = absl::OkStatus();
-  internal::AttachPayload(&status, zetasql_test::TestStatusPayload());
+  internal::AttachPayload(&status, zetasql_test__::TestStatusPayload());
 
   EXPECT_FALSE(HasPayload(status));
 }
 
 TEST(StatusPayloadUtils, ErasePayloadTyped_NoOpForOkStatus) {
   absl::Status status = absl::OkStatus();
-  ErasePayloadTyped<zetasql_test::TestStatusPayload>(&status);
+  ErasePayloadTyped<zetasql_test__::TestStatusPayload>(&status);
   EXPECT_EQ(status, absl::OkStatus());
 }
 
 TEST(StatusPayloadUtils, ErasePayloadTyped_ClearEverything) {
   absl::Status status =
       absl::Status(absl::StatusCode::kCancelled, "");
-  zetasql_test::TestStatusPayload payload;
+  zetasql_test__::TestStatusPayload payload;
   payload.set_value("my payload");
 
   status.SetPayload(StatusPayloadTypeUrl(), ToStatusCord(payload));
-  ErasePayloadTyped<zetasql_test::TestStatusPayload>(&status);
+  ErasePayloadTyped<zetasql_test__::TestStatusPayload>(&status);
   EXPECT_EQ(status,
             absl::Status(absl::StatusCode::kCancelled, ""));
   EXPECT_FALSE(HasPayload(status));
 }
 
 TEST(StatusPayloadUtils, ErasePayloadTyped_ClearOnlyOneThing) {
-  zetasql_test::TestStatusPayload payload1;
+  zetasql_test__::TestStatusPayload payload1;
   payload1.set_value("my payload");
-  zetasql_test::TestStatusPayload2 payload2;
+  zetasql_test__::TestStatusPayload2 payload2;
   payload2.set_f1(15);
 
   absl::Status status =
@@ -192,7 +192,7 @@ TEST(StatusPayloadUtils, ErasePayloadTyped_ClearOnlyOneThing) {
   status.SetPayload(StatusPayloadTypeUrl(), ToStatusCord(payload1));
   status.SetPayload(StatusPayload2TypeUrl(), ToStatusCord(payload2));
 
-  ErasePayloadTyped<zetasql_test::TestStatusPayload>(&status);
+  ErasePayloadTyped<zetasql_test__::TestStatusPayload>(&status);
 
   absl::Status expected =
       absl::Status(absl::StatusCode::kCancelled, "msg");
@@ -213,9 +213,9 @@ TEST(StatusPayloadUtils, ToString) {
 
   absl::Status cancelled_with_payload =
       absl::Status(absl::StatusCode::kCancelled, "msg");
-  zetasql_test::TestStatusPayload payload1;
+  zetasql_test__::TestStatusPayload payload1;
   payload1.set_value("my payload");
-  zetasql_test::TestStatusPayload2 payload2;
+  zetasql_test__::TestStatusPayload2 payload2;
   payload2.set_f1(15);
 
   internal::AttachPayload(&cancelled_with_payload, payload1);

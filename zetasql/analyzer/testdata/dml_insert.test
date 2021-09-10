@@ -384,18 +384,18 @@ InsertStmt
   | +-value_list=
   |   +-DMLValue
   |     +-value=
-  |       +-Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1)
+  |       +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1)
   +-InsertRow
     +-value_list=
       +-DMLValue
         +-value=
-          +-Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM0)
+          +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM0)
 ==
 
 INSERT TestTable (TestEnum)
 VALUES ("INVALID_ENUM")
 --
-ERROR: Could not cast literal "INVALID_ENUM" to type ENUM<zetasql_test.TestEnum> [at 2:9]
+ERROR: Could not cast literal "INVALID_ENUM" to type ENUM<zetasql_test__.TestEnum> [at 2:9]
 VALUES ("INVALID_ENUM")
         ^
 ==
@@ -516,10 +516,10 @@ InsertStmt
       |   +-Literal(type=INT32, value=100)
       +-DMLValue
       | +-value=
-      |   +-Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM0)
+      |   +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM0)
       +-DMLValue
         +-value=
-          +-Literal(type=ENUM<zetasql_test.AnotherTestEnum>, value=ANOTHERTESTENUM2)
+          +-Literal(type=ENUM<zetasql_test__.AnotherTestEnum>, value=ANOTHERTESTENUM2)
 ==
 
 # All columns are pseudo-columns
@@ -565,7 +565,7 @@ InsertStmt
 ==
 
 INSERT KitchenSinkValueTable
-select as `zetasql_test.KitchenSinkPB` 1 as int64_key_1, 2 as int64_key_2
+select as `zetasql_test__.KitchenSinkPB` 1 as int64_key_1, 2 as int64_key_2
 --
 InsertStmt
 +-table_scan=
@@ -577,7 +577,7 @@ InsertStmt
 |   +-expr_list=
 |   | +-$proto#4 :=
 |   |   +-MakeProto
-|   |     +-type=PROTO<zetasql_test.KitchenSinkPB>
+|   |     +-type=PROTO<zetasql_test__.KitchenSinkPB>
 |   |     +-field_list=
 |   |       +-int64_key_1 := ColumnRef(type=INT64, column=$insert.int64_key_1#2)
 |   |       +-int64_key_2 := ColumnRef(type=INT64, column=$insert.int64_key_2#3)
@@ -672,7 +672,7 @@ InsertStmt
 
 INSERT TestTable (key, KitchenSink)
 VALUES (CAST(1 as INT32),
-        (select as `zetasql_test.KitchenSinkPB`
+        (select as `zetasql_test__.KitchenSinkPB`
            1 as int64_key_1, 2 as int64_key_2)),
        (1, "int64_key_1: 1, int64_key_2: 2")
 --
@@ -689,7 +689,7 @@ InsertStmt
   |   +-DMLValue
   |     +-value=
   |       +-SubqueryExpr
-  |         +-type=PROTO<zetasql_test.KitchenSinkPB>
+  |         +-type=PROTO<zetasql_test__.KitchenSinkPB>
   |         +-subquery_type=SCALAR
   |         +-subquery=
   |           +-ProjectScan
@@ -697,7 +697,7 @@ InsertStmt
   |             +-expr_list=
   |             | +-$proto#6 :=
   |             |   +-MakeProto
-  |             |     +-type=PROTO<zetasql_test.KitchenSinkPB>
+  |             |     +-type=PROTO<zetasql_test__.KitchenSinkPB>
   |             |     +-field_list=
   |             |       +-int64_key_1 := ColumnRef(type=INT64, column=$expr_subquery.int64_key_1#4)
   |             |       +-int64_key_2 := ColumnRef(type=INT64, column=$expr_subquery.int64_key_2#5)
@@ -716,13 +716,13 @@ InsertStmt
       |   +-Literal(type=INT32, value=1)
       +-DMLValue
         +-value=
-          +-Literal(type=PROTO<zetasql_test.KitchenSinkPB>, value={int64_key_1: 1 int64_key_2: 2})
+          +-Literal(type=PROTO<zetasql_test__.KitchenSinkPB>, value={int64_key_1: 1 int64_key_2: 2})
 ==
 
 INSERT TestTable (KitchenSink)
 VALUES ("aaa")
 --
-ERROR: Could not cast literal "aaa" to type PROTO<zetasql_test.KitchenSinkPB> (Error parsing proto: Message type "zetasql_test.KitchenSinkPB" has no field named "aaa". [1:4]) [at 2:9]
+ERROR: Could not cast literal "aaa" to type PROTO<zetasql_test__.KitchenSinkPB> (Error parsing proto: Message type "zetasql_test__.KitchenSinkPB" has no field named "aaa". [1:4]) [at 2:9]
 VALUES ("aaa")
         ^
 ==
@@ -870,11 +870,11 @@ InsertStmt
 |   +-column_list=$insert_cast.[$col1#13, $col2#14, $col3#15, $col4#16, $col5#17, $col6#18]
 |   +-expr_list=
 |   | +-$col1#13 := Literal(type=INT32, value=NULL)
-|   | +-$col2#14 := Literal(type=ENUM<zetasql_test.TestEnum>, value=NULL)
-|   | +-$col3#15 := Literal(type=PROTO<zetasql_test.KitchenSinkPB>, value=NULL)
+|   | +-$col2#14 := Literal(type=ENUM<zetasql_test__.TestEnum>, value=NULL)
+|   | +-$col3#15 := Literal(type=PROTO<zetasql_test__.KitchenSinkPB>, value=NULL)
 |   | +-$col4#16 := Literal(type=ARRAY<INT32>, value=NULL)
 |   | +-$col5#17 := Literal(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, value=NULL)
-|   | +-$col6#18 := Literal(type=PROTO<zetasql_test.TestExtraPB>, value=NULL)
+|   | +-$col6#18 := Literal(type=PROTO<zetasql_test__.TestExtraPB>, value=NULL)
 |   +-input_scan=
 |     +-ProjectScan
 |       +-column_list=$insert.[$col1#7, $col2#8, $col3#9, $col4#10, $col5#11, $col6#12]
@@ -901,7 +901,7 @@ InsertStmt
 | +-ProjectScan
 |   +-column_list=[$insert_cast.$col1#3]
 |   +-expr_list=
-|   | +-$col1#3 := Literal(type=PROTO<zetasql_test.KitchenSinkPB>, value=NULL)
+|   | +-$col1#3 := Literal(type=PROTO<zetasql_test__.KitchenSinkPB>, value=NULL)
 |   +-input_scan=
 |     +-ProjectScan
 |       +-column_list=[$insert.$col1#2]
@@ -1027,7 +1027,7 @@ InsertStmt
     +-value_list=
       +-DMLValue
         +-value=
-          +-DMLDefault(type=PROTO<zetasql_test.KitchenSinkPB>)
+          +-DMLDefault(type=PROTO<zetasql_test__.KitchenSinkPB>)
 ==
 
 INSERT KeyValue (value, key)
@@ -1206,7 +1206,7 @@ InsertStmt
           +-MakeStruct
             +-type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>
             +-field_list=
-              +-Literal(type=INT32, value=1)
+              +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
               +-Literal(type=STRUCT<a INT32, b STRING>, value={a:1, b:"a"})
 ==
 
@@ -1463,7 +1463,7 @@ InsertStmt
               +-MakeStruct
               | +-type=STRUCT<a INT32, b STRING>
               | +-field_list=
-              |   +-Literal(type=INT32, value=1)
+              |   +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
               |   +-Literal(type=STRING, value="b")
               +-Cast(ARRAY<STRUCT<j1 INT32, k1 STRING>> -> ARRAY<STRUCT<a INT32, b STRING>>)
                 +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRUCT<j1 INT32, k1 STRING>) -> ARRAY<STRUCT<j1 INT32, k1 STRING>>)
@@ -1603,7 +1603,7 @@ InsertStmt
     +-value_list=
       +-DMLValue
         +-value=
-          +-Literal(type=INT32, value=1)
+          +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
 ==
 
 INSERT SimpleTypes (uint32)
@@ -1623,16 +1623,16 @@ InsertStmt
     +-value_list=
       +-DMLValue
         +-value=
-          +-Literal(type=UINT32, value=1)
+          +-Literal(type=UINT32, value=1, has_explicit_type=TRUE)
 ==
 
 # Inserting protos from different DescriptorPools. A cast gets added.
 insert into TestTable (KitchenSink)
 values
   ((select coalesce(CAST("""int64_key_1: 1 int64_key_2"""
-                    as zetasql_test.KitchenSinkPB)))),
+                    as zetasql_test__.KitchenSinkPB)))),
   ((select coalesce(CAST("""int64_key_1: 1 int64_key_2"""
-                    as alt_descriptor_pool.zetasql_test.KitchenSinkPB))))
+                    as alt_descriptor_pool.zetasql_test__.KitchenSinkPB))))
 --
 InsertStmt
 +-table_scan=
@@ -1644,15 +1644,15 @@ InsertStmt
   |   +-DMLValue
   |     +-value=
   |       +-SubqueryExpr
-  |         +-type=PROTO<zetasql_test.KitchenSinkPB>
+  |         +-type=PROTO<zetasql_test__.KitchenSinkPB>
   |         +-subquery_type=SCALAR
   |         +-subquery=
   |           +-ProjectScan
   |             +-column_list=[$expr_subquery.$col1#4]
   |             +-expr_list=
   |             | +-$col1#4 :=
-  |             |   +-FunctionCall(ZetaSQL:coalesce(repeated(1) PROTO<zetasql_test.KitchenSinkPB>) -> PROTO<zetasql_test.KitchenSinkPB>)
-  |             |     +-Cast(STRING -> PROTO<zetasql_test.KitchenSinkPB>)
+  |             |   +-FunctionCall(ZetaSQL:coalesce(repeated(1) PROTO<zetasql_test__.KitchenSinkPB>) -> PROTO<zetasql_test__.KitchenSinkPB>)
+  |             |     +-Cast(STRING -> PROTO<zetasql_test__.KitchenSinkPB>)
   |             |       +-Literal(type=STRING, value="int64_key_1: 1 int64_key_2")
   |             +-input_scan=
   |               +-SingleRowScan
@@ -1660,24 +1660,24 @@ InsertStmt
     +-value_list=
       +-DMLValue
         +-value=
-          +-Cast(PROTO<zetasql_test.KitchenSinkPB> -> PROTO<zetasql_test.KitchenSinkPB>)
+          +-Cast(PROTO<zetasql_test__.KitchenSinkPB> -> PROTO<zetasql_test__.KitchenSinkPB>)
             +-SubqueryExpr
-              +-type=PROTO<zetasql_test.KitchenSinkPB>
+              +-type=PROTO<zetasql_test__.KitchenSinkPB>
               +-subquery_type=SCALAR
               +-subquery=
                 +-ProjectScan
                   +-column_list=[$expr_subquery.$col1#5]
                   +-expr_list=
                   | +-$col1#5 :=
-                  |   +-FunctionCall(ZetaSQL:coalesce(repeated(1) PROTO<zetasql_test.KitchenSinkPB>) -> PROTO<zetasql_test.KitchenSinkPB>)
-                  |     +-Cast(STRING -> PROTO<zetasql_test.KitchenSinkPB>)
+                  |   +-FunctionCall(ZetaSQL:coalesce(repeated(1) PROTO<zetasql_test__.KitchenSinkPB>) -> PROTO<zetasql_test__.KitchenSinkPB>)
+                  |     +-Cast(STRING -> PROTO<zetasql_test__.KitchenSinkPB>)
                   |       +-Literal(type=STRING, value="int64_key_1: 1 int64_key_2")
                   +-input_scan=
                     +-SingleRowScan
 ==
 
 INSERT KitchenSinkValueTable
-select as `zetasql_test.KitchenSinkPB`
+select as `zetasql_test__.KitchenSinkPB`
     1 as int64_key_1, 2 as int64_key_2,
     [] as repeated_int64_val, [] as repeated_int32_val,
     [] as repeated_string_val
@@ -1692,7 +1692,7 @@ InsertStmt
 |   +-expr_list=
 |   | +-$proto#7 :=
 |   |   +-MakeProto
-|   |     +-type=PROTO<zetasql_test.KitchenSinkPB>
+|   |     +-type=PROTO<zetasql_test__.KitchenSinkPB>
 |   |     +-field_list=
 |   |       +-int64_key_1 := ColumnRef(type=INT64, column=$insert.int64_key_1#2)
 |   |       +-int64_key_2 := ColumnRef(type=INT64, column=$insert.int64_key_2#3)
@@ -1714,7 +1714,7 @@ InsertStmt
 ==
 
 INSERT KitchenSinkValueTable
-select as `zetasql_test.KitchenSinkPB`
+select as `zetasql_test__.KitchenSinkPB`
     int64_key_1, int64_key_1 as int64_key_2
 from (select int64_key_1 from KitchenSinkValueTable)
 --
@@ -1728,7 +1728,7 @@ InsertStmt
 |   +-expr_list=
 |   | +-$proto#4 :=
 |   |   +-MakeProto
-|   |     +-type=PROTO<zetasql_test.KitchenSinkPB>
+|   |     +-type=PROTO<zetasql_test__.KitchenSinkPB>
 |   |     +-field_list=
 |   |       +-int64_key_1 := ColumnRef(type=INT64, column=$subquery1.int64_key_1#3)
 |   |       +-int64_key_2 := ColumnRef(type=INT64, column=$subquery1.int64_key_1#3)
@@ -1743,7 +1743,7 @@ InsertStmt
 |           |   +-GetProtoField
 |           |     +-type=INT64
 |           |     +-expr=
-|           |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#2)
+|           |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#2)
 |           |     +-field_descriptor=int64_key_1
 |           +-input_scan=
 |             +-TableScan(column_list=[KitchenSinkValueTable.value#2], table=KitchenSinkValueTable, column_index_list=[0])

@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-#include "zetasql/compliance/type_helpers.h"
+#include "zetasql/reference_impl/type_helpers.h"
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/testing/using_test_value.cc"  // NOLINT

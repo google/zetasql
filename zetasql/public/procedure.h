@@ -27,6 +27,7 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type_deserializer.h"
 #include "absl/strings/str_join.h"
 #include "zetasql/base/status.h"
 
@@ -61,11 +62,8 @@ class Procedure {
   // Returns the argument signature of this procedure;
   const FunctionSignature& signature() const { return signature_; }
 
-  static absl::Status Deserialize(
-      const ProcedureProto& proto,
-      const std::vector<const google::protobuf::DescriptorPool*>& pools,
-      TypeFactory* factory,
-      std::unique_ptr<Procedure>* result);
+  static absl::StatusOr<std::unique_ptr<Procedure>> Deserialize(
+      const ProcedureProto& proto, const TypeDeserializer& type_deserializer);
 
   absl::Status Serialize(
       FileDescriptorSetMap* file_descriptor_set_map,

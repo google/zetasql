@@ -29,7 +29,7 @@ Not applicable
 
 **Result Data Type**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Examples**
 
@@ -84,7 +84,8 @@ Allowed `part` values are:
 + `SECOND`
 + `MINUTE`
 + `HOUR`
-+ `DAYOFWEEK`
++ `DAYOFWEEK`: Returns values in the range [1,7] with Sunday as the first day of
+   of the week.
 + `DAY`
 + `DAYOFYEAR`
 + `WEEK`: Returns the week number of the date in the range [0, 53].  Weeks begin
@@ -113,7 +114,7 @@ seconds, `EXTRACT` truncates the millisecond and microsecond values.
 
 **Return Data Type**
 
-INT64, except when:
+`INT64`, except when:
 
 + `part` is `DATE`, returns a `DATE` object.
 + `part` is `DATETIME`, returns a `DATETIME` object.
@@ -159,7 +160,7 @@ SELECT
 FROM Timestamps
 ORDER BY timestamp_value;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+---------+---------+------+------+
 | timestamp_value                             | isoyear | isoweek | year | week |
 +---------------------------------------------+---------+---------+------+------+
@@ -184,7 +185,7 @@ SELECT
   EXTRACT(WEEK(MONDAY) FROM timestamp_value) AS week_monday
 FROM table;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+-------------+---------------+
 | timestamp_value                             | week_sunday | week_monday   |
 +---------------------------------------------+-------------+---------------+
@@ -249,14 +250,14 @@ is used.
 
 **Return Data Type**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Examples**
 
 ```sql
 SELECT TIMESTAMP("2008-12-25 15:30:00+00") AS timestamp_str;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+
 | timestamp_str                               |
 +---------------------------------------------+
@@ -267,7 +268,7 @@ SELECT TIMESTAMP("2008-12-25 15:30:00+00") AS timestamp_str;
 ```sql
 SELECT TIMESTAMP("2008-12-25 15:30:00", "America/Los_Angeles") AS timestamp_str;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+
 | timestamp_str                               |
 +---------------------------------------------+
@@ -278,7 +279,7 @@ SELECT TIMESTAMP("2008-12-25 15:30:00", "America/Los_Angeles") AS timestamp_str;
 ```sql
 SELECT TIMESTAMP("2008-12-25 15:30:00 UTC") AS timestamp_str;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+
 | timestamp_str                               |
 +---------------------------------------------+
@@ -289,7 +290,7 @@ SELECT TIMESTAMP("2008-12-25 15:30:00 UTC") AS timestamp_str;
 ```sql
 SELECT TIMESTAMP(DATETIME "2008-12-25 15:30:00") AS timestamp_datetime;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+
 | timestamp_datetime                          |
 +---------------------------------------------+
@@ -300,7 +301,7 @@ SELECT TIMESTAMP(DATETIME "2008-12-25 15:30:00") AS timestamp_datetime;
 ```sql
 SELECT TIMESTAMP(DATE "2008-12-25") AS timestamp_date;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+
 | timestamp_date                              |
 +---------------------------------------------+
@@ -332,7 +333,7 @@ any time zone.
 
 **Return Data Types**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Example**
 
@@ -341,7 +342,7 @@ SELECT
   TIMESTAMP("2008-12-25 15:30:00+00") AS original,
   TIMESTAMP_ADD(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE) AS later;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+---------------------------------------------+
 | original                                    | later                                       |
 +---------------------------------------------+---------------------------------------------+
@@ -373,7 +374,7 @@ independent of any time zone.
 
 **Return Data Type**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Example**
 
@@ -382,7 +383,7 @@ SELECT
   TIMESTAMP("2008-12-25 15:30:00+00") AS original,
   TIMESTAMP_SUB(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE) AS earlier;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+---------------------------------------------+
 | original                                    | earlier                                     |
 +---------------------------------------------+---------------------------------------------+
@@ -418,7 +419,7 @@ between the two `TIMESTAMP` objects would overflow an `INT64` value.
 
 **Return Data Type**
 
-INT64
+`INT64`
 
 **Example**
 
@@ -428,7 +429,7 @@ SELECT
   TIMESTAMP("2008-12-25 15:30:00+00") AS earlier_timestamp,
   TIMESTAMP_DIFF(TIMESTAMP "2010-07-07 10:20:00+00", TIMESTAMP "2008-12-25 15:30:00+00", HOUR) AS hours;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+---------------------------------------------+-------+
 | later_timestamp                             | earlier_timestamp                           | hours |
 +---------------------------------------------+---------------------------------------------+-------+
@@ -528,7 +529,7 @@ non-intuitive near daylight savings transitions that are not hour aligned.
 
 **Return Data Type**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Examples**
 
@@ -537,7 +538,7 @@ SELECT
   TIMESTAMP_TRUNC(TIMESTAMP "2008-12-25 15:30:00+00", DAY, "UTC") AS utc,
   TIMESTAMP_TRUNC(TIMESTAMP "2008-12-25 15:30:00+00", DAY, "America/Los_Angeles") AS la;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+---------------------------------------------+
 | utc                                         | la                                          |
 +---------------------------------------------+---------------------------------------------+
@@ -562,7 +563,7 @@ SELECT
   TIMESTAMP_TRUNC(timestamp_value, WEEK(MONDAY), "Pacific/Auckland") AS nzdt_truncated
 FROM (SELECT TIMESTAMP("2017-11-06 00:00:00+12") AS timestamp_value);
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+---------------------------------------------+---------------------------------------------+
 | timestamp_value                             | utc_truncated                               | nzdt_truncated                              |
 +---------------------------------------------+---------------------------------------------+---------------------------------------------+
@@ -583,7 +584,7 @@ SELECT
   TIMESTAMP_TRUNC("2015-06-15 00:00:00+00", ISOYEAR) AS isoyear_boundary,
   EXTRACT(ISOYEAR FROM TIMESTAMP "2015-06-15 00:00:00+00") AS isoyear_number;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+----------------+
 | isoyear_boundary                            | isoyear_number |
 +---------------------------------------------+----------------+
@@ -606,7 +607,7 @@ for a list of format elements that this function supports.
 
 **Return Data Type**
 
-STRING
+`STRING`
 
 **Example**
 
@@ -697,14 +698,14 @@ of `%s`, `%C`, and `%y`).
 
 **Return Data Type**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Example**
 
 ```sql
 SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+
 | parsed                                      |
 +---------------------------------------------+
@@ -721,23 +722,23 @@ TIMESTAMP_SECONDS(int64_expression)
 **Description**
 
 Interprets `int64_expression` as the number of seconds since 1970-01-01 00:00:00
-UTC.
+UTC and returns a timestamp.
 
 **Return Data Type**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Example**
 
 ```sql
 SELECT TIMESTAMP_SECONDS(1230219000) AS timestamp_value;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+
-| timestamp_value                             |
-+---------------------------------------------+
-| 2008-12-25 07:30:00.000 America/Los_Angeles |
-+---------------------------------------------+
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
++------------------------+
+| timestamp_value        |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
 ```
 
 ### TIMESTAMP_MILLIS
@@ -749,23 +750,23 @@ TIMESTAMP_MILLIS(int64_expression)
 **Description**
 
 Interprets `int64_expression` as the number of milliseconds since 1970-01-01
-00:00:00 UTC.
+00:00:00 UTC and returns a timestamp.
 
 **Return Data Type**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Example**
 
 ```sql
 SELECT TIMESTAMP_MILLIS(1230219000000) AS timestamp_value;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+
-| timestamp_value                             |
-+---------------------------------------------+
-| 2008-12-25 07:30:00.000 America/Los_Angeles |
-+---------------------------------------------+
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
++------------------------+
+| timestamp_value        |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
 ```
 
 ### TIMESTAMP_MICROS
@@ -777,23 +778,23 @@ TIMESTAMP_MICROS(int64_expression)
 **Description**
 
 Interprets `int64_expression` as the number of microseconds since 1970-01-01
-00:00:00 UTC.
+00:00:00 UTC and returns a timestamp.
 
 **Return Data Type**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Example**
 
 ```sql
 SELECT TIMESTAMP_MICROS(1230219000000000) AS timestamp_value;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+
-| timestamp_value                             |
-+---------------------------------------------+
-| 2008-12-25 07:30:00.000 America/Los_Angeles |
-+---------------------------------------------+
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
++------------------------+
+| timestamp_value        |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
 ```
 
 ### UNIX_SECONDS
@@ -809,7 +810,7 @@ levels of precision.
 
 **Return Data Type**
 
-INT64
+`INT64`
 
 **Example**
 
@@ -836,7 +837,7 @@ higher levels of precision.
 
 **Return Data Type**
 
-INT64
+`INT64`
 
 **Example**
 
@@ -863,7 +864,7 @@ higher levels of precision.
 
 **Return Data Type**
 
-INT64
+`INT64`
 
 **Example**
 
@@ -883,20 +884,26 @@ SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00+00") AS micros;
 TIMESTAMP_FROM_UNIX_SECONDS(int64_expression)
 ```
 
+```sql
+TIMESTAMP_FROM_UNIX_SECONDS(timestamp_expression)
+```
+
 **Description**
 
 Interprets `int64_expression` as the number of seconds since
-1970-01-01 00:00:00 UTC and creates a timestamp.
+1970-01-01 00:00:00 UTC and returns a timestamp. If a timestamp is passed in,
+the same timestamp is returned.
 
 **Return Data Type**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Example**
 
 ```sql
 SELECT TIMESTAMP_FROM_UNIX_SECONDS(1230219000) AS timestamp_value;
 
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +------------------------+
 | timestamp_value        |
 +------------------------+
@@ -910,20 +917,26 @@ SELECT TIMESTAMP_FROM_UNIX_SECONDS(1230219000) AS timestamp_value;
 TIMESTAMP_FROM_UNIX_MILLIS(int64_expression)
 ```
 
+```sql
+TIMESTAMP_FROM_UNIX_MILLIS(timestamp_expression)
+```
+
 **Description**
 
 Interprets `int64_expression` as the number of milliseconds since
-1970-01-01 00:00:00 UTC and creates a timestamp.
+1970-01-01 00:00:00 UTC and returns a timestamp. If a timestamp is passed in,
+the same timestamp is returned.
 
 **Return Data Type**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Example**
 
 ```sql
 SELECT TIMESTAMP_FROM_UNIX_MILLIS(1230219000000) AS timestamp_value;
 
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +------------------------+
 | timestamp_value        |
 +------------------------+
@@ -937,20 +950,26 @@ SELECT TIMESTAMP_FROM_UNIX_MILLIS(1230219000000) AS timestamp_value;
 TIMESTAMP_FROM_UNIX_MICROS(int64_expression)
 ```
 
+```sql
+TIMESTAMP_FROM_UNIX_MICROS(timestamp_expression)
+```
+
 **Description**
 
 Interprets `int64_expression` as the number of microseconds since
-1970-01-01 00:00:00 UTC and creates a timestamp.
+1970-01-01 00:00:00 UTC and returns a timestamp. If a timestamp is passed in,
+the same timestamp is returned.
 
 **Return Data Type**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Example**
 
 ```sql
 SELECT TIMESTAMP_FROM_UNIX_MICROS(1230219000000000) AS timestamp_value;
 
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +------------------------+
 | timestamp_value        |
 +------------------------+
@@ -1214,14 +1233,14 @@ with positive values representing locations east of Greenwich.</td>
     <td>-05:00</td>
  </tr>
  <tr>
-    <td>%E#S</td>
-    <td>Seconds with # digits of fractional precision.</td>
-    <td>00.000</td>
+    <td>%E&lt;number&gt;S</td>
+    <td>Seconds with &lt;number&gt; digits of fractional precision.</td>
+    <td>00.000 for %E3S</td>
  </tr>
  <tr>
     <td>%E*S</td>
     <td>Seconds with full fractional precision (a literal '*').</td>
-    <td>00</td>
+    <td>00.123456</td>
  </tr>
  <tr>
     <td>%E4Y</td>

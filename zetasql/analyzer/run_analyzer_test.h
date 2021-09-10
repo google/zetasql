@@ -18,10 +18,13 @@
 #define ZETASQL_ANALYZER_RUN_ANALYZER_TEST_H_
 
 #include <functional>
-#include <string>
+#include <memory>
 
-#include "zetasql/public/analyzer.h"
-#include "zetasql/base/statusor.h"
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/analyzer_output.h"
+#include "zetasql/resolved_ast/resolved_node.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "file_based_test_driver/run_test_case_result.h"
 #include "file_based_test_driver/test_case_options.h"
 
@@ -31,7 +34,7 @@ using TestDumperCallback = std::function<void(
     absl::string_view input,
     const file_based_test_driver::TestCaseOptions& test_options,
     const AnalyzerOptions& options,
-    const zetasql_base::StatusOr<const AnalyzerOutput*>& output,
+    const absl::StatusOr<const AnalyzerOutput*>& output,
     const file_based_test_driver::RunTestCaseResult* result)>;
 
 bool RunAllTests(TestDumperCallback callback);

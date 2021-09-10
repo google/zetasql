@@ -388,7 +388,7 @@ public class SimpleTableTest {
       SimpleTable.tableFromProto(factory.createProtoType(InvalidSQLTable1.class));
       fail();
     } catch (SqlException expected) {
-      assertThat(expected.getMessage().contains("PROTO<zetasql_test.InvalidSQLTable1>")).isTrue();
+      assertThat(expected.getMessage().contains("PROTO<zetasql_test__.InvalidSQLTable1>")).isTrue();
       assertThat(expected.getMessage().contains("decodes to non-struct type")).isTrue();
     }
 

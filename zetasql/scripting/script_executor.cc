@@ -19,19 +19,49 @@
 #include "zetasql/parser/parser.h"
 #include "zetasql/scripting/error_helpers.h"
 #include "zetasql/scripting/script_executor_impl.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
 
-zetasql_base::StatusOr<std::unique_ptr<ScriptExecutor>> ScriptExecutor::Create(
+namespace {
+ParsedScript::QueryParameters GetQueryParameters(
+    const AnalyzerOptions& analyzer_options) {
+  switch (analyzer_options.parameter_mode()) {
+    case PARAMETER_NAMED: {
+      ParsedScript::StringSet parameter_names;
+      for (auto itr = analyzer_options.query_parameters().begin();
+           itr != analyzer_options.query_parameters().end(); ++itr) {
+        parameter_names.insert(itr->first);
+      }
+      return parameter_names;
+    }
+    case PARAMETER_POSITIONAL:
+      return static_cast<int64_t>(
+          analyzer_options.positional_query_parameters().size());
+    default:
+      return absl::nullopt;
+  }
+}
+}  // namespace
+
+void ScriptExecutorOptions::PopulateFromAnalyzerOptions(
+    const AnalyzerOptions& analyzer_options) {
+  default_time_zone_ = analyzer_options.default_time_zone();
+  language_options_ = analyzer_options.language();
+  engine_owned_system_variables_ = analyzer_options.system_variables();
+  query_parameters_ = GetQueryParameters(analyzer_options);
+  error_message_mode_ = analyzer_options.error_message_mode();
+}
+
+absl::StatusOr<std::unique_ptr<ScriptExecutor>> ScriptExecutor::Create(
     absl::string_view script, const ScriptExecutorOptions& options,
     StatementEvaluator* statement_evaluator) {
   return ScriptExecutorImpl::Create(script, /*ast_script=*/nullptr, options,
                                     statement_evaluator);
 }
 
-zetasql_base::StatusOr<std::unique_ptr<ScriptExecutor>> ScriptExecutor::CreateFromAST(
+absl::StatusOr<std::unique_ptr<ScriptExecutor>> ScriptExecutor::CreateFromAST(
     absl::string_view script, const ASTScript* ast_script,
     const ScriptExecutorOptions& options,
     StatementEvaluator* statement_evaluator) {

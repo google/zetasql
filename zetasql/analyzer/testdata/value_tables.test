@@ -199,7 +199,7 @@ select k from TestExtraValueTable k
 --
 QueryStmt
 +-output_column_list=
-| +-TestExtraValueTable.value#1 AS k [PROTO<zetasql_test.TestExtraPB>]
+| +-TestExtraValueTable.value#1 AS k [PROTO<zetasql_test__.TestExtraPB>]
 +-query=
   +-ProjectScan
     +-column_list=[TestExtraValueTable.value#1]
@@ -223,21 +223,21 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     | |   +-field_descriptor=int32_val1
     | |   +-default_value=0
     | +-str_value#5 :=
     | | +-GetProtoField
     | |   +-type=ARRAY<STRING>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     | |   +-field_descriptor=str_value
     | |   +-default_value=[]
     | +-has_int32_val2#6 :=
     |   +-GetProtoField
     |     +-type=BOOL
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     |     +-field_descriptor=int32_val2
     |     +-get_has_bit=TRUE
     +-input_scan=
@@ -263,7 +263,7 @@ QueryStmt
     |     +-type=ARRAY<STRUCT<int32_val1 INT32, str_value ARRAY<STRING>, has_int32_val2 BOOL>>
     |     +-subquery_type=ARRAY
     |     +-parameter_list=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     |     +-subquery=
     |       +-ProjectScan
     |         +-column_list=[$make_struct.$struct#7]
@@ -283,21 +283,21 @@ QueryStmt
     |             | | +-GetProtoField
     |             | |   +-type=INT32
     |             | |   +-expr=
-    |             | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1, is_correlated=TRUE)
+    |             | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1, is_correlated=TRUE)
     |             | |   +-field_descriptor=int32_val1
     |             | |   +-default_value=0
     |             | +-str_value#5 :=
     |             | | +-GetProtoField
     |             | |   +-type=ARRAY<STRING>
     |             | |   +-expr=
-    |             | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1, is_correlated=TRUE)
+    |             | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1, is_correlated=TRUE)
     |             | |   +-field_descriptor=str_value
     |             | |   +-default_value=[]
     |             | +-has_int32_val2#6 :=
     |             |   +-GetProtoField
     |             |     +-type=BOOL
     |             |     +-expr=
-    |             |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1, is_correlated=TRUE)
+    |             |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1, is_correlated=TRUE)
     |             |     +-field_descriptor=int32_val2
     |             |     +-get_has_bit=TRUE
     |             +-input_scan=
@@ -321,21 +321,21 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     | |   +-field_descriptor=int32_val1
     | |   +-default_value=0
     | +-int32_val2#5 :=
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     | |   +-field_descriptor=int32_val2
     | |   +-default_value=0
     | +-str_value#6 :=
     |   +-GetProtoField
     |     +-type=ARRAY<STRING>
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     |     +-field_descriptor=str_value
     |     +-default_value=[]
     +-input_scan=
@@ -349,7 +349,7 @@ select k.* from TestExtraValueTable k
 
 select k.k from TestExtraValueTable k
 --
-ERROR: Protocol buffer zetasql_test.TestExtraPB does not have a field called k [at 1:10]
+ERROR: Protocol buffer zetasql_test__.TestExtraPB does not have a field called k [at 1:10]
 select k.k from TestExtraValueTable k
          ^
 ==
@@ -360,7 +360,7 @@ select int32_val1 from TestExtraValueTable int32_val1
 --
 QueryStmt
 +-output_column_list=
-| +-TestExtraValueTable.value#1 AS int32_val1 [PROTO<zetasql_test.TestExtraPB>]
+| +-TestExtraValueTable.value#1 AS int32_val1 [PROTO<zetasql_test__.TestExtraPB>]
 +-query=
   +-ProjectScan
     +-column_list=[TestExtraValueTable.value#1]
@@ -381,7 +381,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=INT32
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     |     +-field_descriptor=int32_val1
     |     +-default_value=0
     +-input_scan=
@@ -399,7 +399,7 @@ select e from EmptyMessageValueTable e
 --
 QueryStmt
 +-output_column_list=
-| +-EmptyMessageValueTable.value#1 AS e [PROTO<zetasql_test.EmptyMessage>]
+| +-EmptyMessageValueTable.value#1 AS e [PROTO<zetasql_test__.EmptyMessage>]
 +-query=
   +-ProjectScan
     +-column_list=[EmptyMessageValueTable.value#1]
@@ -413,7 +413,7 @@ select * from EmptyMessageValueTable e
 --
 QueryStmt
 +-output_column_list=
-| +-EmptyMessageValueTable.value#1 AS e [PROTO<zetasql_test.EmptyMessage>]
+| +-EmptyMessageValueTable.value#1 AS e [PROTO<zetasql_test__.EmptyMessage>]
 +-query=
   +-ProjectScan
     +-column_list=[EmptyMessageValueTable.value#1]
@@ -423,14 +423,14 @@ QueryStmt
 
 select e.* from EmptyMessageValueTable e
 --
-ERROR: Star expansion is not allowed on proto zetasql_test.EmptyMessage which has zero fields [at 1:8]
+ERROR: Star expansion is not allowed on proto zetasql_test__.EmptyMessage which has zero fields [at 1:8]
 select e.* from EmptyMessageValueTable e
        ^
 ==
 
 select e.f from EmptyMessageValueTable e
 --
-ERROR: Protocol buffer zetasql_test.EmptyMessage does not have a field called f; Proto has no fields. Is the full proto descriptor available? [at 1:10]
+ERROR: Protocol buffer zetasql_test__.EmptyMessage does not have a field called f; Proto has no fields. Is the full proto descriptor available? [at 1:10]
 select e.f from EmptyMessageValueTable e
          ^
 ==
@@ -576,7 +576,7 @@ QueryStmt
 +-output_column_list=
 | +-TestStructValueTable.value#1 AS s [STRUCT<a INT32, b STRING>]
 | +-Int32ValueTable.value#2 AS i [INT32]
-| +-TestExtraValueTable.value#3 AS p [PROTO<zetasql_test.TestExtraPB>]
+| +-TestExtraValueTable.value#3 AS p [PROTO<zetasql_test__.TestExtraPB>]
 +-query=
   +-ProjectScan
     +-column_list=[TestStructValueTable.value#1, Int32ValueTable.value#2, TestExtraValueTable.value#3]
@@ -624,21 +624,21 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#3)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#3)
     | |   +-field_descriptor=int32_val1
     | |   +-default_value=0
     | +-int32_val2#9 :=
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#3)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#3)
     | |   +-field_descriptor=int32_val2
     | |   +-default_value=0
     | +-str_value#10 :=
     |   +-GetProtoField
     |     +-type=ARRAY<STRING>
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#3)
     |     +-field_descriptor=str_value
     |     +-default_value=[]
     +-input_scan=
@@ -678,7 +678,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=INT32
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#3)
     |     +-field_descriptor=int32_val1
     |     +-default_value=0
     +-input_scan=
@@ -1158,14 +1158,14 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT64
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.nrv#4)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nrv#4)
     | |   +-field_descriptor=nested_int64
     | |   +-default_value=88
     | +-nested_repeated_int64#6 :=
     |   +-GetProtoField
     |     +-type=ARRAY<INT64>
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.nrv#4)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nrv#4)
     |     +-field_descriptor=nested_repeated_int64
     |     +-default_value=[]
     +-input_scan=
@@ -1175,9 +1175,9 @@ QueryStmt
         | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="t")
         +-array_expr=
         | +-GetProtoField
-        |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+        |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
         |   +-expr=
-        |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   +-field_descriptor=nested_repeated_value
         |   +-default_value=[]
         +-element_column=$array.nrv#4
@@ -1222,9 +1222,9 @@ QueryStmt
         |   | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="t")
         |   +-array_expr=
         |   | +-GetProtoField
-        |   |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+        |   |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
         |   |   +-expr=
-        |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   |   +-field_descriptor=nested_repeated_value
         |   |   +-default_value=[]
         |   +-element_column=$array.nrv#4
@@ -1232,7 +1232,7 @@ QueryStmt
         | +-GetProtoField
         |   +-type=ARRAY<INT64>
         |   +-expr=
-        |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.nrv#4)
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nrv#4)
         |   +-field_descriptor=nested_repeated_int64
         |   +-default_value=[]
         +-element_column=$array.$unnest1#5
@@ -1316,11 +1316,11 @@ QueryStmt
 ==
 
 # Output table from SELECT AS PROTO is a value table.
-select as `zetasql_test.KeyValueStruct` 17 value, 'k' key
+select as `zetasql_test__.KeyValueStruct` 17 value, 'k' key
 --
 QueryStmt
 +-output_column_list=
-| +-$make_proto.$proto#3 AS `$proto` [PROTO<zetasql_test.KeyValueStruct>]
+| +-$make_proto.$proto#3 AS `$proto` [PROTO<zetasql_test__.KeyValueStruct>]
 +-is_value_table=TRUE
 +-query=
   +-ProjectScan
@@ -1328,7 +1328,7 @@ QueryStmt
     +-expr_list=
     | +-$proto#3 :=
     |   +-MakeProto
-    |     +-type=PROTO<zetasql_test.KeyValueStruct>
+    |     +-type=PROTO<zetasql_test__.KeyValueStruct>
     |     +-field_list=
     |       +-value := ColumnRef(type=INT64, column=$query.value#1)
     |       +-key := ColumnRef(type=STRING, column=$query.key#2)
@@ -1418,7 +1418,7 @@ QueryStmt
 # referencing the subquery range variable.
 # Implicit column/field names will work in either case.
 select t, key, t.key
-from (select {{|as `zetasql_test.KeyValueStruct`}} 17 value, 'k' key) t
+from (select {{|as `zetasql_test__.KeyValueStruct`}} 17 value, 'k' key) t
 --
 ALTERNATION GROUP: <empty>
 --
@@ -1446,11 +1446,11 @@ QueryStmt
         +-input_scan=
           +-SingleRowScan
 --
-ALTERNATION GROUP: as `zetasql_test.KeyValueStruct`
+ALTERNATION GROUP: as `zetasql_test__.KeyValueStruct`
 --
 QueryStmt
 +-output_column_list=
-| +-$make_proto.$proto#3 AS t [PROTO<zetasql_test.KeyValueStruct>]
+| +-$make_proto.$proto#3 AS t [PROTO<zetasql_test__.KeyValueStruct>]
 | +-$query.key#4 AS key [STRING]
 | +-$query.key#5 AS key [STRING]
 +-query=
@@ -1461,14 +1461,14 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=STRING
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.KeyValueStruct>, column=$make_proto.$proto#3)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KeyValueStruct>, column=$make_proto.$proto#3)
     | |   +-field_descriptor=key
     | |   +-default_value=NULL
     | +-key#5 :=
     |   +-GetProtoField
     |     +-type=STRING
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KeyValueStruct>, column=$make_proto.$proto#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KeyValueStruct>, column=$make_proto.$proto#3)
     |     +-field_descriptor=key
     |     +-default_value=NULL
     +-input_scan=
@@ -1477,7 +1477,7 @@ QueryStmt
         +-expr_list=
         | +-$proto#3 :=
         |   +-MakeProto
-        |     +-type=PROTO<zetasql_test.KeyValueStruct>
+        |     +-type=PROTO<zetasql_test__.KeyValueStruct>
         |     +-field_list=
         |       +-value := ColumnRef(type=INT64, column=t.value#1)
         |       +-key := ColumnRef(type=STRING, column=t.key#2)
@@ -1643,14 +1643,14 @@ select as struct 1,2
 
 # We can union all proto value tables, even with different sets of fields set.
 # We still get a value table after doing limit and offset.
-select as `zetasql_test.KeyValueStruct` 17 value, 'k' key
+select as `zetasql_test__.KeyValueStruct` 17 value, 'k' key
 union all
-select as `zetasql_test.KeyValueStruct` 'abc' key from TestTable
+select as `zetasql_test__.KeyValueStruct` 'abc' key from TestTable
 limit 5 offset 3
 --
 QueryStmt
 +-output_column_list=
-| +-$union_all.$proto#9 AS `$proto` [PROTO<zetasql_test.KeyValueStruct>]
+| +-$union_all.$proto#9 AS `$proto` [PROTO<zetasql_test__.KeyValueStruct>]
 +-is_value_table=TRUE
 +-query=
   +-LimitOffsetScan
@@ -1667,7 +1667,7 @@ QueryStmt
     |     | |   +-expr_list=
     |     | |   | +-$proto#3 :=
     |     | |   |   +-MakeProto
-    |     | |   |     +-type=PROTO<zetasql_test.KeyValueStruct>
+    |     | |   |     +-type=PROTO<zetasql_test__.KeyValueStruct>
     |     | |   |     +-field_list=
     |     | |   |       +-value := ColumnRef(type=INT64, column=$union_all1.value#1)
     |     | |   |       +-key := ColumnRef(type=STRING, column=$union_all1.key#2)
@@ -1687,7 +1687,7 @@ QueryStmt
     |       |   +-expr_list=
     |       |   | +-$proto#8 :=
     |       |   |   +-MakeProto
-    |       |   |     +-type=PROTO<zetasql_test.KeyValueStruct>
+    |       |   |     +-type=PROTO<zetasql_test__.KeyValueStruct>
     |       |   |     +-field_list=
     |       |   |       +-key := ColumnRef(type=STRING, column=$union_all2.key#7)
     |       |   +-input_scan=
@@ -1705,22 +1705,22 @@ QueryStmt
 ==
 
 # We can't do other set operations because equality is not defined on protos.
-select as `zetasql_test.KeyValueStruct` 17 value, 'k' key
+select as `zetasql_test__.KeyValueStruct` 17 value, 'k' key
 intersect distinct
-select as `zetasql_test.KeyValueStruct` 'abc' key
+select as `zetasql_test__.KeyValueStruct` 'abc' key
 --
 ERROR: Column 1 in INTERSECT DISTINCT has type that does not support set operation comparisons: PROTO [at 3:1]
-select as `zetasql_test.KeyValueStruct` 'abc' key
+select as `zetasql_test__.KeyValueStruct` 'abc' key
 ^
 ==
 
 # We can't do other set operations because equality is not defined on protos.
-select as `zetasql_test.KeyValueStruct` 17 value, 'k' key
+select as `zetasql_test__.KeyValueStruct` 17 value, 'k' key
 union distinct
-select as `zetasql_test.KeyValueStruct` 'abc' key
+select as `zetasql_test__.KeyValueStruct` 'abc' key
 --
 ERROR: Column 1 in UNION DISTINCT has type that does not support set operation comparisons: PROTO [at 3:1]
-select as `zetasql_test.KeyValueStruct` 'abc' key
+select as `zetasql_test__.KeyValueStruct` 'abc' key
 ^
 ==
 
@@ -1747,14 +1747,14 @@ QueryStmt
     |   | | +-GetProtoField
     |   | |   +-type=BYTES
     |   | |   +-expr=
-    |   | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |   | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |   | |   +-field_descriptor=bytes_val
     |   | |   +-default_value=b""
     |   | +-$orderbycol2#4 :=
     |   |   +-GetProtoField
     |   |     +-type=BOOL
     |   |     +-expr=
-    |   |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |   |     +-field_descriptor=bool_val
     |   |     +-default_value=false
     |   +-input_scan=
@@ -1765,7 +1765,7 @@ QueryStmt
     |       |   +-GetProtoField
     |       |     +-type=DATE
     |       |     +-expr=
-    |       |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |       |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |       |     +-field_descriptor=date
     |       |     +-default_value=1970-01-01
     |       |     +-format=DATE
@@ -1780,14 +1780,14 @@ QueryStmt
     |               | +-GetProtoField
     |               |   +-type=FLOAT
     |               |   +-expr=
-    |               |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |               |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |               |   +-field_descriptor=float_val
     |               |   +-default_value=0
     |               +-Cast(INT32 -> DOUBLE)
     |                 +-GetProtoField
     |                   +-type=INT32
     |                   +-expr=
-    |                   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |                   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |                   +-field_descriptor=int32_val
     |                   +-default_value=77
     +-order_by_item_list=
@@ -1831,9 +1831,9 @@ QueryStmt
 # We can't do an order by on value tables after a set operation because
 # we aren't resolving field names in order by there.
 # TODO Maybe this should work.
-select as `zetasql_test.KeyValueStruct` 17 value, 'k' key
+select as `zetasql_test__.KeyValueStruct` 17 value, 'k' key
 union all
-select as `zetasql_test.KeyValueStruct` 'abc' key from TestTable
+select as `zetasql_test__.KeyValueStruct` 'abc' key from TestTable
 order by key
 --
 ERROR: Unrecognized name: key [at 4:10]
@@ -1847,7 +1847,7 @@ order by key
 # that annotation is not processed after the named type lookup from the Catalog
 # returns us a ProtoType.  TODO We may want to consider changing that.
 select distinct
-   as `zetasql_test.KeyValueStruct` key, min(value1) as value
+   as `zetasql_test__.KeyValueStruct` key, min(value1) as value
 from (select key, value as value1 from KeyValue)
 where key<10
 group by key
@@ -1857,7 +1857,7 @@ limit 50
 --
 QueryStmt
 +-output_column_list=
-| +-$make_proto.$proto#8 AS `$proto` [PROTO<zetasql_test.KeyValueStruct>]
+| +-$make_proto.$proto#8 AS `$proto` [PROTO<zetasql_test__.KeyValueStruct>]
 +-is_value_table=TRUE
 +-query=
   +-ProjectScan
@@ -1866,7 +1866,7 @@ QueryStmt
     +-expr_list=
     | +-$proto#8 :=
     |   +-MakeProto
-    |     +-type=PROTO<zetasql_test.KeyValueStruct>
+    |     +-type=PROTO<zetasql_test__.KeyValueStruct>
     |     +-field_list=
     |       +-key :=
     |       | +-Cast(INT64 -> STRING)
@@ -1945,11 +1945,11 @@ select as struct 1 a, 2 b
 ^
 ==
 
-select as `zetasql_test.KeyValueStruct` 'a' key
+select as `zetasql_test__.KeyValueStruct` 'a' key
 union all
 select as struct 'b' key
 --
-ERROR: Column 1 in UNION ALL has incompatible types: zetasql_test.KeyValueStruct, STRUCT<key STRING> [at 3:1]
+ERROR: Column 1 in UNION ALL has incompatible types: zetasql_test__.KeyValueStruct, STRUCT<key STRING> [at 3:1]
 select as struct 'b' key
 ^
 ==
@@ -1957,11 +1957,11 @@ select as struct 'b' key
 # Same as previous query, but we have a SELECT AS STRUCT which exactly matches
 # the annotated struct type for the proto KeyValueStruct.  The is_struct
 # annotation is currently ignored for named type lookups like this.
-select as `zetasql_test.KeyValueStruct` 'a' key, 123 value
+select as `zetasql_test__.KeyValueStruct` 'a' key, 123 value
 union all
 select as struct 'b' key, 123 value
 --
-ERROR: Column 1 in UNION ALL has incompatible types: zetasql_test.KeyValueStruct, STRUCT<key STRING, value INT64> [at 3:1]
+ERROR: Column 1 in UNION ALL has incompatible types: zetasql_test__.KeyValueStruct, STRUCT<key STRING, value INT64> [at 3:1]
 select as struct 'b' key, 123 value
 ^
 ==
@@ -1989,7 +1989,7 @@ QueryStmt
     |   |   |   +-GetProtoField
     |   |   |     +-type=INT32
     |   |   |     +-expr=
-    |   |   |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    |   |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     |   |   |     +-field_descriptor=int32_val1
     |   |   |     +-default_value=0
     |   |   +-input_scan=
@@ -2031,7 +2031,7 @@ QueryStmt
     |   |   |   |   +-GetProtoField
     |   |   |   |     +-type=INT32
     |   |   |   |     +-expr=
-    |   |   |   |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    |   |   |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     |   |   |   |     +-field_descriptor=int32_val1
     |   |   |   |     +-default_value=0
     |   |   |   +-input_scan=
@@ -2071,7 +2071,7 @@ QueryStmt
             +-GetProtoField
               +-type=INT32
               +-expr=
-              | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+              | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
               +-field_descriptor=int32_val1
               +-default_value=0
 ==
@@ -2100,7 +2100,7 @@ QueryStmt
         |   |   +-GetProtoField
         |   |     +-type=INT32
         |   |     +-expr=
-        |   |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+        |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
         |   |     +-field_descriptor=int32_val2
         |   |     +-default_value=0
         |   +-aggregate_list=
@@ -2110,7 +2110,7 @@ QueryStmt
         |           +-GetProtoField
         |             +-type=INT32
         |             +-expr=
-        |             | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+        |             | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
         |             +-field_descriptor=int32_val1
         |             +-default_value=0
         +-filter_expr=
@@ -2147,7 +2147,7 @@ QueryStmt
         |   |       +-GetProtoField
         |   |       | +-type=INT32
         |   |       | +-expr=
-        |   |       | | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+        |   |       | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
         |   |       | +-field_descriptor=int32_val1
         |   |       | +-default_value=0
         |   |       +-Literal(type=INT32, value=5)
@@ -2156,7 +2156,7 @@ QueryStmt
         |   |   +-GetProtoField
         |   |     +-type=INT32
         |   |     +-expr=
-        |   |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+        |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
         |   |     +-field_descriptor=int32_val1
         |   |     +-default_value=0
         |   +-aggregate_list=
@@ -2166,7 +2166,7 @@ QueryStmt
         |     |     +-GetProtoField
         |     |       +-type=INT32
         |     |       +-expr=
-        |     |       | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+        |     |       | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
         |     |       +-field_descriptor=int32_val1
         |     |       +-default_value=0
         |     +-$agg2#6 :=
@@ -2175,7 +2175,7 @@ QueryStmt
         |           +-GetProtoField
         |             +-type=INT32
         |             +-expr=
-        |             | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+        |             | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
         |             +-field_descriptor=int32_val1
         |             +-default_value=0
         +-filter_expr=
@@ -2212,7 +2212,7 @@ QueryStmt
     |   |   |   +-GetProtoField
     |   |   |     +-type=INT32
     |   |   |     +-expr=
-    |   |   |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    |   |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     |   |   |     +-field_descriptor=int32_val1
     |   |   |     +-default_value=0
     |   |   +-input_scan=
@@ -2225,7 +2225,7 @@ QueryStmt
     |         +-GetProtoField
     |           +-type=INT32
     |           +-expr=
-    |           | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    |           | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     |           +-field_descriptor=int32_val2
     |           +-default_value=0
     +-order_by_item_list=
@@ -2262,7 +2262,7 @@ QueryStmt
     |   |       | +-GetProtoField
     |   |       | | +-type=INT32
     |   |       | | +-expr=
-    |   |       | | | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    |   |       | | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     |   |       | | +-field_descriptor=int32_val1
     |   |       | | +-default_value=0
     |   |       | +-Literal(type=INT32, value=1000000)
@@ -2270,7 +2270,7 @@ QueryStmt
     |   |         +-GetProtoField
     |   |         | +-type=INT32
     |   |         | +-expr=
-    |   |         | | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    |   |         | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     |   |         | +-field_descriptor=int32_val1
     |   |         | +-default_value=0
     |   |         +-Literal(type=INT32, value=1500000)
@@ -2279,7 +2279,7 @@ QueryStmt
     |   |   +-GetProtoField
     |   |     +-type=INT32
     |   |     +-expr=
-    |   |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     |   |     +-field_descriptor=int32_val1
     |   |     +-default_value=0
     |   +-aggregate_list=
@@ -2288,7 +2288,7 @@ QueryStmt
     |         +-GetProtoField
     |           +-type=INT32
     |           +-expr=
-    |           | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    |           | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     |           +-field_descriptor=int32_val2
     |           +-default_value=0
     +-order_by_item_list=
@@ -2318,14 +2318,14 @@ QueryStmt
           | +-GetProtoField
           |   +-type=INT32
           |   +-expr=
-          |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+          |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
           |   +-field_descriptor=int32_val2
           |   +-default_value=0
           +-int32_val1#5 :=
             +-GetProtoField
               +-type=INT32
               +-expr=
-              | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+              | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
               +-field_descriptor=int32_val1
               +-default_value=0
 ==
@@ -2363,7 +2363,7 @@ QueryStmt
             +-GetProtoField
               +-type=INT32
               +-expr=
-              | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+              | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
               +-field_descriptor=int32_val1
               +-default_value=0
 ==
@@ -2402,7 +2402,7 @@ QueryStmt
             +-GetProtoField
               +-type=INT32
               +-expr=
-              | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+              | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
               +-field_descriptor=int32_val1
               +-default_value=0
 ==
@@ -2441,7 +2441,7 @@ QueryStmt
             +-GetProtoField
               +-type=INT32
               +-expr=
-              | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+              | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
               +-field_descriptor=int32_val1
               +-default_value=0
 ==
@@ -2470,7 +2470,7 @@ QueryStmt
             +-GetProtoField
               +-type=INT32
               +-expr=
-              | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+              | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
               +-field_descriptor=int32_val1
               +-default_value=0
 ==
@@ -2501,7 +2501,7 @@ QueryStmt
         |   +-GetProtoField
         |     +-type=INT32
         |     +-expr=
-        |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+        |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
         |     +-field_descriptor=int32_val1
         |     +-default_value=0
         +-aggregate_list=
@@ -2510,7 +2510,7 @@ QueryStmt
               +-GetProtoField
                 +-type=INT32
                 +-expr=
-                | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+                | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
                 +-field_descriptor=int32_val2
                 +-default_value=0
 ==
@@ -2554,16 +2554,16 @@ QueryStmt
     |   |   |   | | +-GetProtoField
     |   |   |   | |   +-type=INT64
     |   |   |   | |   +-expr=
-    |   |   |   | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |   |   |   | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |   |   |   | |   +-field_descriptor=int64_key_1
     |   |   |   | +-nested_int64#3 :=
     |   |   |   |   +-GetProtoField
     |   |   |   |     +-type=INT64
     |   |   |   |     +-expr=
     |   |   |   |     | +-GetProtoField
-    |   |   |   |     |   +-type=PROTO<zetasql_test.KitchenSinkPB.Nested>
+    |   |   |   |     |   +-type=PROTO<zetasql_test__.KitchenSinkPB.Nested>
     |   |   |   |     |   +-expr=
-    |   |   |   |     |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |   |   |   |     |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |   |   |   |     |   +-field_descriptor=nested_value
     |   |   |   |     |   +-default_value=NULL
     |   |   |   |     +-field_descriptor=nested_int64
@@ -2580,7 +2580,7 @@ QueryStmt
     |   |     |     +-GetProtoField
     |   |     |       +-type=INT32
     |   |     |       +-expr=
-    |   |     |       | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |   |     |       | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |   |     |       +-field_descriptor=int32_val
     |   |     |       +-default_value=77
     |   |     +-$agg2#7 :=
@@ -2589,7 +2589,7 @@ QueryStmt
     |   |           +-GetProtoField
     |   |             +-type=INT32
     |   |             +-expr=
-    |   |             | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |   |             | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |   |             +-field_descriptor=int32_val
     |   |             +-default_value=77
     |   +-filter_expr=
@@ -2660,9 +2660,9 @@ QueryStmt
     |       |             +-type=INT64
     |       |             +-expr=
     |       |             | +-GetProtoField
-    |       |             |   +-type=PROTO<zetasql_test.KitchenSinkPB.Nested>
+    |       |             |   +-type=PROTO<zetasql_test__.KitchenSinkPB.Nested>
     |       |             |   +-expr=
-    |       |             |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |       |             |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |       |             |   +-field_descriptor=nested_value
     |       |             |   +-default_value=NULL
     |       |             +-field_descriptor=nested_int64
@@ -2715,22 +2715,22 @@ QueryStmt
     |   |   |   | | +-GetProtoField
     |   |   |   | |   +-type=INT64
     |   |   |   | |   +-expr=
-    |   |   |   | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |   |   |   | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |   |   |   | |   +-field_descriptor=int64_key_1
     |   |   |   | +-int64_key_2#3 :=
     |   |   |   | | +-GetProtoField
     |   |   |   | |   +-type=INT64
     |   |   |   | |   +-expr=
-    |   |   |   | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |   |   |   | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |   |   |   | |   +-field_descriptor=int64_key_2
     |   |   |   | +-nested_int64#4 :=
     |   |   |   | | +-GetProtoField
     |   |   |   | |   +-type=INT64
     |   |   |   | |   +-expr=
     |   |   |   | |   | +-GetProtoField
-    |   |   |   | |   |   +-type=PROTO<zetasql_test.KitchenSinkPB.Nested>
+    |   |   |   | |   |   +-type=PROTO<zetasql_test__.KitchenSinkPB.Nested>
     |   |   |   | |   |   +-expr=
-    |   |   |   | |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |   |   |   | |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |   |   |   | |   |   +-field_descriptor=nested_value
     |   |   |   | |   |   +-default_value=NULL
     |   |   |   | |   +-field_descriptor=nested_int64
@@ -2740,9 +2740,9 @@ QueryStmt
     |   |   |   |     +-type=INT64
     |   |   |   |     +-expr=
     |   |   |   |     | +-GetProtoField
-    |   |   |   |     |   +-type=PROTO<zetasql_test.KitchenSinkPB.Nested>
+    |   |   |   |     |   +-type=PROTO<zetasql_test__.KitchenSinkPB.Nested>
     |   |   |   |     |   +-expr=
-    |   |   |   |     |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |   |   |   |     |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |   |   |   |     |   +-field_descriptor=nested_value
     |   |   |   |     |   +-default_value=NULL
     |   |   |   |     +-field_descriptor=nested_int64
@@ -2760,7 +2760,7 @@ QueryStmt
     |   |     |     +-GetProtoField
     |   |     |       +-type=INT32
     |   |     |       +-expr=
-    |   |     |       | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |   |     |       | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |   |     |       +-field_descriptor=int32_val
     |   |     |       +-default_value=77
     |   |     +-$agg2#10 :=
@@ -2768,7 +2768,7 @@ QueryStmt
     |   |     |   +-GetProtoField
     |   |     |     +-type=UINT32
     |   |     |     +-expr=
-    |   |     |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |   |     |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |   |     |     +-field_descriptor=uint32_val
     |   |     |     +-default_value=777
     |   |     +-$agg3#11 :=
@@ -2777,7 +2777,7 @@ QueryStmt
     |   |     |     +-GetProtoField
     |   |     |       +-type=INT32
     |   |     |       +-expr=
-    |   |     |       | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |   |     |       | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |   |     |       +-field_descriptor=int32_val
     |   |     |       +-default_value=77
     |   |     +-$agg4#12 :=
@@ -2785,7 +2785,7 @@ QueryStmt
     |   |         +-GetProtoField
     |   |           +-type=UINT32
     |   |           +-expr=
-    |   |           | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |   |           | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |   |           +-field_descriptor=uint32_val
     |   |           +-default_value=777
     |   +-filter_expr=

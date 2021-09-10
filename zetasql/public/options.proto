@@ -355,10 +355,6 @@ enum LanguageFeature {
   // INTERVAL data type. (broken link)
   FEATURE_INTERVAL_TYPE = 49 [(language_feature_options).in_development = true];
 
-  // Enables tokenized search ((broken link)).
-  FEATURE_TOKENIZED_SEARCH = 51
-      [(language_feature_options).in_development = true];
-
   // If enabled, JSON parsing fails for JSON documents containing number values
   // that cannot fit into the range of numbers supported by uint64, int64 or
   // double.
@@ -377,14 +373,6 @@ enum LanguageFeature {
     (language_feature_options).ideally_enabled = false,
     (language_feature_options).in_development = true
   ];
-
-  // Enables CONTAINS_SUBSTR -- an experimental function whose semantics are
-  // not yet finalized.
-  FEATURE_CONTAINS_SUBSTR = 53 [
-    (language_feature_options).ideally_enabled = false,
-    (language_feature_options).in_development = true
-  ];
-
   // When enabled, (table) function argument names will hide column names in
   // expression resolution and relational table function argument names will
   // hide table names from the catalog. This changes name resolution and is
@@ -459,6 +447,25 @@ enum LanguageFeature {
   // CREATE TABLE t1 COPY t2
   FEATURE_CREATE_TABLE_COPY = 66
       [(language_feature_options).in_development = true];
+
+  // Enables support for ALTER TABLE RENAME COLUMN.
+  // See (broken link) for details.
+  FEATURE_ALTER_TABLE_RENAME_COLUMN = 67;
+
+  // Enables STRING(JSON), INT64(JSON), BOOL(JSON), DOUBLE(JSON),
+  // JSON_TYPE(JSON) functions.
+  // See (broken link) for details.
+  FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS = 68;
+
+  // Disallows "unicode", "unicode:ci", "unicode:cs" in ORDER BY ... COLLATE and
+  // other collation features. "unicode" is a legacy feature, and the desired
+  // behavior is to allow only "binary" and valid icu language tags.
+  // Enabling this feature must produce an error if 'unicode' is specified as
+  // a collation name.
+  FEATURE_DISALLOW_LEGACY_UNICODE_COLLATION = 69 [
+    (language_feature_options).in_development = true,
+    (language_feature_options).ideally_enabled = false
+  ];
 
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
@@ -675,7 +682,7 @@ enum LanguageFeature {
   //    t1 JOIN t2 JOIN t3 ON cond1 USING (col2)
   FEATURE_V_1_3_ALLOW_CONSECUTIVE_ON = 13016;
 
-  // Enables support for optional paramaters position and occurrence in
+  // Enables support for optional parameters position and occurrence in
   // REGEXP_EXTRACT. In addition, allows alias REGEXP_SUBSTR.
   // ((broken link))
   FEATURE_V_1_3_ALLOW_REGEXP_EXTRACT_OPTIONALS = 13017
@@ -707,8 +714,7 @@ enum LanguageFeature {
   FEATURE_V_1_3_INLINE_LAMBDA_ARGUMENT = 13024;
 
   // PIVOT clause ((broken link)).
-  FEATURE_V_1_3_PIVOT = 13025
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_3_PIVOT = 13025;
 
   // This flag enables propagation of annotation during query analysis. See
   // public/types/annotation.h for the introduction of annotation framework.
@@ -735,8 +741,7 @@ enum LanguageFeature {
       [(language_feature_options).in_development = true];
 
   // UNPIVOT clause ((broken link)).
-  FEATURE_V_1_3_UNPIVOT = 13030
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_3_UNPIVOT = 13030;
 
   // If true, dml returning is supported ((broken link))
   FEATURE_V_1_3_DML_RETURNING = 13031
@@ -789,6 +794,19 @@ enum LanguageFeature {
   // and colons before the first dot: /span/test/my-grp:db.Table.
   // (broken link)
   FEATURE_V_1_3_ALLOW_SLASH_PATHS = 13040;
+
+  // Enable the TYPEOF(expr) debugging and exploration function.
+  FEATURE_V_1_3_TYPEOF_FUNCTION = 13041;
+
+  // Enable support for SCRIPT LABELS (e.g. L1: BEGIN...END)
+  // (broken link)
+  FEATURE_V_1_3_SCRIPT_LABEL = 13042
+      [(language_feature_options).in_development = true];
+
+  // Enable support for remote function (e.g. CREATE FUNCTION ... REMOTE ...)
+  // (broken link)
+  FEATURE_V_1_3_REMOTE_FUNCTION = 13043
+      [(language_feature_options).in_development = true];
 
   // EXPERIMENTAL FEATURES
   // These are features supported in the code that are not currently part of
@@ -854,14 +872,19 @@ enum ResolvedASTRewrite {
   REWRITE_PROTO_MAP_FNS = 3 [(rewrite_options).default_enabled = true];
 
   // Rewrites array function calls into equivalent SubqueryExpr.
-  REWRITE_ARRAY_FUNCTIONS_WITH_LAMBDA = 4
-      [(rewrite_options).default_enabled = true];
+  REWRITE_ARRAY_FILTER_TRANSFORM = 4 [(rewrite_options).default_enabled = true];
 
   // Rewrites unpivot ast to equivalent scan.
   REWRITE_UNPIVOT = 5 [(rewrite_options).default_enabled = true];
 
   // Rewrites PIVOT scans. See (broken link).
   REWRITE_PIVOT = 6 [(rewrite_options).default_enabled = true];
+
+  // Rewrites ARRAY_INCLUDES function calls into equivalent SubqueryExpr.
+  REWRITE_ARRAY_INCLUDES = 7 [(rewrite_options).default_enabled = true];
+
+  // Rewrite typeof function. See (broken link)
+  REWRITE_TYPEOF_FUNCTION = 8 [(rewrite_options).default_enabled = true];
 }
 
 // This can be used to select strict name resolution mode.
@@ -937,4 +960,22 @@ enum ParameterMode {
 
   // No parameters are allowed in the query.
   PARAMETER_NONE = 2;
+}
+
+// The option controlling what kind of parse location is recorded in a resolved
+// AST node.
+enum ParseLocationRecordType {
+  // Parse locations are not recorded.
+  PARSE_LOCATION_RECORD_NONE = 0;
+
+  // Parse locations cover the entire range of the related node, e.g., the full
+  // function call text associated with a ResolvedFunctionCall, or the full
+  // expression text associated with a ResolvedCast.
+  PARSE_LOCATION_RECORD_FULL_NODE_SCOPE = 1;
+
+  // Parse locations of nodes cover a related object name in the text, as
+  // convenient for code search, e.g., just the function name associated with a
+  // ResolvedFunctionCall, or the target Type text associated with a
+  // ResolvedCast.
+  PARSE_LOCATION_RECORD_CODE_SEARCH = 2;
 }

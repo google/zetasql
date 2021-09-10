@@ -1,0 +1,934 @@
+[default required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+
+[prepare_database]
+CREATE TABLE StringTable(
+  primary_Key INT64,
+  col_ci STRING COLLATE 'und:ci',
+  col_binary STRING COLLATE 'binary',
+  col_no_collation STRING) AS
+SELECT 1 primary_Key, "" col_ci, "a" col_binary, "c" UNION ALL
+SELECT 2, "hello", "a", "c" UNION ALL
+SELECT 3, "Case sensitive", "a", "c" UNION ALL
+SELECT 4, "@", "A", "C" UNION ALL
+SELECT 5, "\u205Fabc", "A", "C"  UNION ALL
+SELECT 6, "B", "A", "C" UNION ALL
+SELECT 7, NULL, "A", "C" UNION ALL
+SELECT 8, "aa", "A", "C" UNION ALL
+SELECT 9, "@", "B", "D" UNION ALL
+SELECT 10, "", "B", "D" UNION ALL
+SELECT 11, "a", "B", "D" UNION ALL
+SELECT 12, "case sensitive", "a", "c" UNION ALL
+SELECT 13, NULL, "B", "D" UNION ALL
+SELECT 14, "Hello", "a", "c" UNION ALL
+SELECT 15, "\u0413", "B", "D" UNION ALL
+SELECT 16, "hel\u06DDlo", "a", "c" UNION ALL
+SELECT 17, "h\u070Fello", "a", "c"
+--
+ARRAY<STRUCT<
+        primary_Key INT64,
+        col_ci STRING,
+        col_binary STRING,
+        col_no_collation STRING
+      >>
+[
+  {1, "", "a", "c"},
+  {2, "hello", "a", "c"},
+  {3, "Case sensitive", "a", "c"},
+  {4, "@", "A", "C"},
+  {5, " abc", "A", "C"},
+  {6, "B", "A", "C"},
+  {7, NULL, "A", "C"},
+  {8, "aa", "A", "C"},
+  {9, "@", "B", "D"},
+  {10, "", "B", "D"},
+  {11, "a", "B", "D"},
+  {12, "case sensitive", "a", "c"},
+  {13, NULL, "B", "D"},
+  {14, "Hello", "a", "c"},
+  {15, "Г", "B", "D"},
+  {16, "hel۝lo", "a", "c"},
+  {17, "h܏ello", "a", "c"}
+]
+==
+
+[prepare_database]
+CREATE TABLE StringTableToJoin(
+  primary_Key INT64,
+  col_ci STRING COLLATE 'und:ci',
+  col_binary STRING COLLATE 'binary',
+  col_no_collation STRING) AS
+SELECT 1 primary_Key, "hello" col_ci, "a" col_binary, "HELLO" UNION ALL
+SELECT 2, "Case sensitive", "a", "b" UNION ALL
+SELECT 3, "case sensitive", "a", "c" UNION ALL
+SELECT 4, "Hello", "a", "B" UNION ALL
+SELECT 5, "h܏ello", "a", "Case Sensitive"
+--
+ARRAY<STRUCT<
+        primary_Key INT64,
+        col_ci STRING,
+        col_binary STRING,
+        col_no_collation STRING
+      >>
+[
+  {1, "hello", "a", "HELLO"},
+  {2, "Case sensitive", "a", "b"},
+  {3, "case sensitive", "a", "c"},
+  {4, "Hello", "a", "B"},
+  {5, "h܏ello", "a", "Case Sensitive"}
+]
+==
+
+[name=orderby_with_column_collation_ci]
+select primary_key, col_ci from StringTable ORDER BY col_ci
+--
+ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
+  {7, NULL},
+  {13, NULL},
+  {10, ""},
+  {1, ""},
+  {5, " abc"},
+  {4, "@"},
+  {9, "@"},
+  {11, "a"},
+  {8, "aa"},
+  {6, "B"},
+  {12, "case sensitive"},
+  {3, "Case sensitive"},
+  {2, "hello"},
+  {14, "Hello"},
+  {16, "hel۝lo"},
+  {17, "h܏ello"},
+  {15, "Г"}
+]
+==
+
+[name=orderby_with_column_collation_cs]
+select primary_key, col_binary from StringTable ORDER BY col_binary
+--
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
+  {4, "A"},
+  {6, "A"},
+  {8, "A"},
+  {5, "A"},
+  {7, "A"},
+  {10, "B"},
+  {9, "B"},
+  {11, "B"},
+  {13, "B"},
+  {15, "B"},
+  {2, "a"},
+  {12, "a"},
+  {14, "a"},
+  {16, "a"},
+  {1, "a"},
+  {3, "a"},
+  {17, "a"}
+]
+==
+
+[name=orderby_with_column_collation_binary_ci]
+select primary_key, col_binary, col_ci from StringTable ORDER BY col_binary, col_ci
+--
+ARRAY<STRUCT<primary_key INT64, col_binary STRING, col_ci STRING>>[
+  {7, "A", NULL},
+  {5, "A", " abc"},
+  {4, "A", "@"},
+  {8, "A", "aa"},
+  {6, "A", "B"},
+  {13, "B", NULL},
+  {10, "B", ""},
+  {9, "B", "@"},
+  {11, "B", "a"},
+  {15, "B", "Г"},
+  {1, "a", ""},
+  {12, "a", "case sensitive"},
+  {3, "a", "Case sensitive"},
+  {2, "a", "hello"},
+  {14, "a", "Hello"},
+  {16, "a", "hel۝lo"},
+  {17, "a", "h܏ello"}
+]
+==
+
+[name=orderby_with_column_collation_ci_no_collation]
+select primary_key, col_ci, col_no_collation from StringTable ORDER BY col_ci, col_no_collation
+--
+ARRAY<STRUCT<
+        primary_key INT64,
+        col_ci STRING,
+        col_no_collation STRING
+      >>
+[
+  {7, NULL, "C"},
+  {13, NULL, "D"},
+  {10, "", "D"},
+  {1, "", "c"},
+  {5, " abc", "C"},
+  {4, "@", "C"},
+  {9, "@", "D"},
+  {11, "a", "D"},
+  {8, "aa", "C"},
+  {6, "B", "C"},
+  {12, "case sensitive", "c"},
+  {3, "Case sensitive", "c"},
+  {2, "hello", "c"},
+  {14, "Hello", "c"},
+  {16, "hel۝lo", "c"},
+  {17, "h܏ello", "c"},
+  {15, "Г", "D"}
+]
+==
+
+[name=comparison_with_column_collation_ci_eq]
+select primary_key, col_ci from StringTable WHERE col_ci = 'hello'
+--
+ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
+  {2, "hello"},
+  {14, "Hello"},
+  {16, "hel۝lo"},
+  {17, "h܏ello"}
+]
+==
+
+[name=comparison_with_column_collation_binary_eq]
+select primary_key, col_binary from StringTable WHERE col_binary = 'a'
+--
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
+  {2, "a"},
+  {12, "a"},
+  {14, "a"},
+  {16, "a"},
+  {1, "a"},
+  {3, "a"},
+  {17, "a"}
+]
+==
+
+[name=comparison_with_column_collation_ci_not_eq]
+select primary_key, col_ci from StringTable WHERE col_ci != 'hello'
+--
+ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
+  {4, "@"},
+  {6, "B"},
+  {8, "aa"},
+  {10, ""},
+  {12, "case sensitive"},
+  {1, ""},
+  {3, "Case sensitive"},
+  {5, " abc"},
+  {9, "@"},
+  {11, "a"},
+  {15, "Г"}
+]
+==
+
+[name=comparison_with_column_collation_binary_not_eq]
+select primary_key, col_binary from StringTable WHERE col_binary != 'a'
+--
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
+  {4, "A"},
+  {6, "A"},
+  {8, "A"},
+  {10, "B"},
+  {5, "A"},
+  {7, "A"},
+  {9, "B"},
+  {11, "B"},
+  {13, "B"},
+  {15, "B"}
+]
+==
+
+[name=comparison_with_column_collation_ci_greater]
+select primary_key, col_ci from StringTable WHERE col_ci > 'hello'
+--
+ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[{15, "Г"}]
+==
+
+[name=comparison_with_column_collation_binary_greater]
+select primary_key, col_binary from StringTable WHERE col_binary > 'B'
+--
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
+  {2, "a"},
+  {12, "a"},
+  {14, "a"},
+  {16, "a"},
+  {1, "a"},
+  {3, "a"},
+  {17, "a"}
+]
+==
+
+[name=comparison_with_column_collation_ci_greater_or_eq]
+select primary_key, col_ci from StringTable WHERE col_ci >= 'hello'
+--
+ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
+  {2, "hello"},
+  {14, "Hello"},
+  {16, "hel۝lo"},
+  {15, "Г"},
+  {17, "h܏ello"}
+]
+==
+
+[name=comparison_with_column_collation_binary_greater_or_eq]
+select primary_key, col_binary from StringTable WHERE col_binary >= 'B'
+--
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
+  {2, "a"},
+  {10, "B"},
+  {12, "a"},
+  {14, "a"},
+  {16, "a"},
+  {1, "a"},
+  {3, "a"},
+  {9, "B"},
+  {11, "B"},
+  {13, "B"},
+  {15, "B"},
+  {17, "a"}
+]
+==
+
+[name=comparison_with_column_collation_ci_less]
+select primary_key, col_ci from StringTable WHERE col_ci < 'hello'
+--
+ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
+  {4, "@"},
+  {6, "B"},
+  {8, "aa"},
+  {10, ""},
+  {12, "case sensitive"},
+  {1, ""},
+  {3, "Case sensitive"},
+  {5, " abc"},
+  {9, "@"},
+  {11, "a"}
+]
+==
+
+[name=comparison_with_column_collation_binary_less]
+select primary_key, col_binary from StringTable WHERE col_binary < 'B'
+--
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
+  {4, "A"},
+  {6, "A"},
+  {8, "A"},
+  {5, "A"},
+  {7, "A"}
+]
+==
+
+[name=comparison_with_column_collation_ci_less_or_eq]
+select primary_key, col_ci from StringTable WHERE col_ci <= 'hello'
+--
+ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
+  {2, "hello"},
+  {4, "@"},
+  {6, "B"},
+  {8, "aa"},
+  {10, ""},
+  {12, "case sensitive"},
+  {14, "Hello"},
+  {16, "hel۝lo"},
+  {1, ""},
+  {3, "Case sensitive"},
+  {5, " abc"},
+  {9, "@"},
+  {11, "a"},
+  {17, "h܏ello"}
+]
+==
+
+[name=comparison_with_column_collation_binary_less_or_eq]
+select primary_key, col_binary from StringTable WHERE col_binary <= 'B'
+--
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
+  {4, "A"},
+  {6, "A"},
+  {8, "A"},
+  {10, "B"},
+  {5, "A"},
+  {7, "A"},
+  {9, "B"},
+  {11, "B"},
+  {13, "B"},
+  {15, "B"}
+]
+==
+
+[name=comparison_with_column_collation_ci_between]
+select primary_key, col_ci from StringTable WHERE col_ci between 'a' and 'zzzzz'
+--
+ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
+  {2, "hello"},
+  {6, "B"},
+  {8, "aa"},
+  {12, "case sensitive"},
+  {14, "Hello"},
+  {16, "hel۝lo"},
+  {3, "Case sensitive"},
+  {11, "a"},
+  {17, "h܏ello"}
+]
+==
+
+[name=comparison_with_column_collation_binary_between]
+select primary_key, col_binary from StringTable WHERE col_binary between 'a' and 'zzzzz'
+--
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
+  {2, "a"},
+  {12, "a"},
+  {14, "a"},
+  {16, "a"},
+  {1, "a"},
+  {3, "a"},
+  {17, "a"}
+]
+==
+
+[name=comparison_with_column_collation_ci_in]
+select primary_key, col_ci from StringTable WHERE col_ci in ('case sensitive', 'hello', 'b', 'c')
+--
+ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
+  {2, "hello"},
+  {6, "B"},
+  {12, "case sensitive"},
+  {14, "Hello"},
+  {16, "hel۝lo"},
+  {3, "Case sensitive"},
+  {17, "h܏ello"}
+]
+==
+
+[name=comparison_with_column_collation_binary_in]
+select primary_key, col_binary from StringTable WHERE col_binary in ('a', 'B')
+--
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
+  {2, "a"},
+  {10, "B"},
+  {12, "a"},
+  {14, "a"},
+  {16, "a"},
+  {1, "a"},
+  {3, "a"},
+  {9, "B"},
+  {11, "B"},
+  {13, "B"},
+  {15, "B"},
+  {17, "a"}
+]
+==
+
+[name=comparison_with_column_collation_ci_is_distinct_from]
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_IS_DISTINCT]
+select primary_key, col_ci from StringTable WHERE col_ci is distinct from 'hello'
+--
+ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
+  {4, "@"},
+  {6, "B"},
+  {8, "aa"},
+  {10, ""},
+  {12, "case sensitive"},
+  {1, ""},
+  {3, "Case sensitive"},
+  {5, " abc"},
+  {7, NULL},
+  {9, "@"},
+  {11, "a"},
+  {13, NULL},
+  {15, "Г"}
+]
+==
+
+[name=comparison_with_column_collation_binary_is_distinct_from]
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_IS_DISTINCT]
+select primary_key, col_binary from StringTable WHERE col_binary is distinct from 'a'
+--
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
+  {4, "A"},
+  {6, "A"},
+  {8, "A"},
+  {10, "B"},
+  {5, "A"},
+  {7, "A"},
+  {9, "B"},
+  {11, "B"},
+  {13, "B"},
+  {15, "B"}
+]
+==
+
+[name=comparison_with_column_collation_ci_is_not_distinct_from]
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_IS_DISTINCT]
+select primary_key, col_ci from StringTable WHERE col_ci is not distinct from 'hello'
+--
+ARRAY<STRUCT<primary_key INT64, col_ci STRING>>[
+  {2, "hello"},
+  {14, "Hello"},
+  {16, "hel۝lo"},
+  {17, "h܏ello"}
+]
+==
+
+[name=comparison_with_column_collation_binary_is_not_distinct_from]
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_IS_DISTINCT]
+select primary_key, col_binary from StringTable WHERE col_binary is not distinct from 'a'
+--
+ARRAY<STRUCT<primary_key INT64, col_binary STRING>>[
+  {2, "a"},
+  {12, "a"},
+  {14, "a"},
+  {16, "a"},
+  {1, "a"},
+  {3, "a"},
+  {17, "a"}
+]
+==
+
+[name=groupby_with_column_collation_ci]
+select CAST(col_ci AS BYTES) IN (b"hello", b"Hello", b"hel۝lo", b"h܏ello"), count(col_ci) from StringTable
+# We pick 4 rows of "hello" strings with different casing and inserted Unicode characters.
+where primary_Key IN (2, 14, 16, 17)
+group by col_ci
+--
+ARRAY<STRUCT<BOOL, INT64>>[{true, 4}]
+==
+
+[name=groupby_having_with_column_collation_ci]
+select cast(col_ci AS BYTES) in (b"hello", b"Hello", b"hel۝lo", b"h܏ello"), count(col_ci) from StringTable
+group by col_ci
+having col_ci = "HELLO"
+--
+ARRAY<STRUCT<BOOL, INT64>>[{true, 4}]
+==
+
+[name=groupby_with_column_collation_ci_cs]
+select CAST(col_ci AS BYTES) IN (b"hello", b"Hello", b"hel۝lo", b"h܏ello"), col_binary, count(*) from StringTable
+# We pick 4 rows of "hello" strings with different casing and inserted Unicode characters, plus one row of "@".
+where primary_Key IN (2, 4, 14, 16, 17)
+group by col_ci, col_binary
+--
+ARRAY<STRUCT<BOOL, col_binary STRING, INT64>>[{true, "a", 4}, {false, "A", 1}]
+==
+
+[name=groupby_with_column_collation_ci_no_collation]
+select CAST(col_ci AS BYTES) IN (b"hello", b"Hello", b"hel۝lo", b"h܏ello"), col_no_collation, count(*) from StringTable
+# We pick 4 rows of "hello" strings with different casing and inserted Unicode characters, plus one row of "@".
+where primary_Key IN (2, 4, 14, 16, 17)
+group by col_ci, col_no_collation
+--
+ARRAY<STRUCT<
+        BOOL,
+        col_no_collation STRING,
+        INT64
+      >>
+[{true, "c", 4}, {false, "C", 1}]
+==
+
+[name=replace_with_collation_ci]
+select
+  replace(collate(NULL, 'und:ci'), 'abc', 'def'),
+  replace(collate('defabcdef', 'und:ci'), 'abc', 'def'),
+  replace(collate('defAbCdef', 'und:ci'), 'abc', 'def'),
+  replace(collate('defA\u070FbCdef', 'und:ci'), 'abc', 'def'),
+--
+ARRAY<STRUCT<STRING, STRING, STRING, STRING>>[
+  {NULL, "defdefdef", "defdefdef", "defdefdef"}
+]
+==
+
+[name=replace_with_collation_binary]
+select
+  replace(collate(NULL, 'binary'), 'abc', 'def'),
+  replace(collate('defabcdef', 'binary'), 'abc', 'def'),
+  replace(collate('defAbCdef', 'binary'), 'abc', 'def'),
+--
+ARRAY<STRUCT<STRING, STRING, STRING>>[{NULL, "defdefdef", "defAbCdef"}]
+==
+
+[name=split_with_collation_ci]
+select
+  split(collate(NULL, 'und:ci'), 'abc'),
+  split(collate('defabcdef', 'und:ci'), 'abc'),
+  split(collate('defAbCdef', 'und:ci'), 'abc'),
+  split(collate('defA\u06DDbCdef', 'und:ci'), 'abc'),
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>, ARRAY<>>>[
+  {
+    ARRAY<STRING>(NULL),
+    ARRAY<STRING>["def", "def"],
+    ARRAY<STRING>["def", "def"],
+    ARRAY<STRING>["def", "def"]
+  }
+]
+==
+
+[name=split_with_collation_binary]
+select
+  split(collate(NULL, 'binary'), 'abc'),
+  split(collate('defabcdef', 'binary'), 'abc'),
+  split(collate('defAbCdef', 'binary'), 'abc'),
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>, ARRAY<>>>[
+  {
+    ARRAY<STRING>(NULL),
+    ARRAY<STRING>["def", "def"],
+    ARRAY<STRING>["defAbCdef"]
+  }
+]
+==
+
+[name=strpos_with_collation_ci]
+select
+  strpos(collate(NULL, 'und:ci'), 'ABC'),
+  strpos(collate('..abc,.,', 'und:ci'), 'ABC'),
+  strpos(collate(',,AbC,..', 'und:ci'), 'ABC'),
+  strpos(collate(',,A\u070Fbc,..', 'und:ci'), 'ABC')
+--
+ARRAY<STRUCT<INT64, INT64, INT64, INT64>>[{NULL, 3, 3, 3}]
+==
+
+[name=strpos_with_collation_binary]
+select
+  strpos(collate(NULL, 'binary'), 'ABC'),
+  strpos(collate('..abc,.,', 'binary'), 'abc'),
+  strpos(collate(',,AbC,..', 'binary'), 'abc'),
+--
+ARRAY<STRUCT<INT64, INT64, INT64>>[{NULL, 3, 0}]
+==
+
+[name=instr_with_collation_ci]
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+select
+  instr(collate(NULL, 'und:ci'), 'ABC'),
+  instr(collate('..abc,.,', 'und:ci'), 'ABC'),
+  instr(collate('..abc,.,', 'und:ci'), 'ABC', 1),
+  instr(collate(',,A\u070Fbc,..', 'und:ci'), 'ABC'),
+  instr(collate(',,.,A\u070Fbc,..', 'und:ci'), 'ABC', 3),
+  instr(collate('..abc,,.aBc,', 'und:ci'), 'ABC', 2, 2),
+  instr(collate('..abc,,.aBc,', 'und:ci'), 'ABC', -1, 2),
+--
+ARRAY<STRUCT<INT64, INT64, INT64, INT64, INT64, INT64, INT64>>[
+  {NULL, 3, 3, 3, 5, 9, 3}
+]
+==
+
+[name=instr_with_collation_binary]
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+select
+  instr(collate(NULL, 'binary'), 'ABC'),
+  instr(collate('..abc,.,', 'binary'), 'abc'),
+  instr(collate('..abc,.,', 'binary'), 'abc', 1),
+  instr(collate('..abc,,.abc,', 'binary'), 'abc', 2, 2),
+  instr(collate('..abc,,.abc,', 'binary'), 'abc', -1, 2),
+--
+ARRAY<STRUCT<INT64, INT64, INT64, INT64, INT64>>[{NULL, 3, 3, 9, 3}]
+==
+
+[name=starts_with_with_collation_ci]
+select
+  starts_with(collate(NULL, 'und:ci'), 'ABC'),
+  starts_with(collate('abc,.,', 'und:ci'), 'ABC'),
+  starts_with(collate('AbC,..', 'und:ci'), 'ABC'),
+  starts_with(collate('A\u070Fbc,..', 'und:ci'), 'ABC'),
+  starts_with('A\u070Fbc,..', collate('ABC', 'und:ci'))
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{NULL, true, true, true, true}]
+==
+
+[name=starts_with_with_collation_binary]
+select
+  starts_with(collate(NULL, 'binary'), 'ABC'),
+  starts_with(collate('abc,.,', 'binary'), 'abc'),
+  starts_with(collate('AbC,..', 'binary'), 'abc'),
+  starts_with('AbC,..', collate('abc', 'binary'))
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{NULL, true, false, false}]
+==
+
+[name=ends_with_with_collation_ci]
+select
+  ends_with(collate(NULL, 'und:ci'), 'ABC'),
+  ends_with(collate(',.,abc', 'und:ci'), 'ABC'),
+  ends_with(collate(',..AbC', 'und:ci'), 'ABC'),
+  ends_with(collate(',..A\u070Fbc', 'und:ci'), 'ABC')
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{NULL, true, true, true}]
+==
+
+[name=ends_with_with_collation_binary]
+select
+  ends_with(collate(NULL, 'binary'), 'ABC'),
+  ends_with(collate(',.,abc', 'binary'), 'abc'),
+  ends_with(collate(',..AbC', 'binary'), 'abc'),
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{NULL, true, false}]
+==
+
+[name=case_with_value_with_collation_ci]
+select
+  case collate(NULL, 'und:ci') when 'abc' then 1 else 2 end,
+  case collate('abc', 'und:ci') when 'abc' then 1 else 2 end,
+  case collate('AbC', 'und:ci') when 'abc' then 1 when 'AbC' then 2 else 3 end,
+  case collate('A\u070Fbc', 'und:ci') when 'abc' then 1 when 'A\u070Fbc' then 2 else 3 end,
+  case 'AB' when collate('abc', 'und:ci') then 1 when 'ab' then 2 else 3 end,
+  case collate('AB', 'und:ci') when 'abc' then 1 when collate('AB', 'und:ci') then 2 else 3 end
+--
+ARRAY<STRUCT<INT64, INT64, INT64, INT64, INT64, INT64>>[{2, 1, 1, 1, 2, 2}]
+==
+
+[name=case_with_value_with_collation_binary]
+select
+  case collate(NULL, 'binary') when 'abc' then 1 else 2 end,
+  case collate('abc', 'binary') when 'abc' then 1 else 2 end,
+  case collate('AbC', 'binary') when 'abc' then 1 when 'AbC' then 2 else 3 end,
+  case collate('A\u070Fbc', 'binary') when 'abc' then 1 when 'A\u070Fbc' then 2 else 3 end,
+  case 'AB' when collate('ab', 'binary') then 1 when 'AB' then 2 else 3 end,
+  case collate('AB', 'binary') when 'ab' then 1 when collate('AB', 'binary') then 2 else 3 end
+--
+ARRAY<STRUCT<INT64, INT64, INT64, INT64, INT64, INT64>>[{2, 1, 2, 2, 2, 2}]
+==
+
+[name=count_distinct_with_collation_ci]
+with TestTable as (
+select 'aB' col union all
+select 'AB' union all
+select 'ab' union all
+select 'Hello' union all
+select 'heLLo' union all
+select 'hel\u06DDlo'
+)
+select count(distinct collate(col, 'und:ci')) from TestTable
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+
+[name=count_distinct_with_collation_binary]
+with TestTable as (
+select 'aB' col union all
+select 'AB' union all
+select 'ab' union all
+select 'Hello' union all
+select 'heLLo' union all
+select 'hel\u06DDlo'
+)
+select count(distinct collate(col, 'binary')) from TestTable
+--
+ARRAY<STRUCT<INT64>>[{6}]
+==
+
+[name=collate_function_with_valid_second_argument]
+select
+  collate('abc', 'und:ci'),
+  collate(collate('abc', 'und:ci'), ''),
+  collate('abc', 'und:ci') = 'ABC',
+  collate('abc', 'binary') = 'ABC',
+  collate(collate('abc', 'und:ci'), '') = 'ABC',
+  collate(collate('abc', 'und:ci'), 'binary') = 'ABC',
+  replace(collate('hello', 'und:ci'), 'HELLO', 'hi'),
+  replace(collate(collate('hello', 'und:ci'), ''), 'HELLO', 'hi'),
+  replace(collate(collate('hello', 'und:ci'), 'binary'), 'HELLO', 'hi')
+--
+ARRAY<STRUCT<STRING, STRING, BOOL, BOOL, BOOL, BOOL, STRING, STRING, STRING>>[
+  {"abc", "abc", true, false, false, false, "hi", "hello", "hello"}
+]
+==
+
+[name=collate_function_with_second_argument_being_expression]
+select collate('abc', upper('und:ci'));
+--
+ERROR: generic::invalid_argument: The second argument of COLLATE() must be a string literal [at 1:8]
+select collate('abc', upper('und:ci'));
+       ^
+==
+
+[name=collate_function_with_second_argument_being_null]
+select collate('abc', CAST(NULL AS STRING));
+--
+ERROR: generic::invalid_argument: The second argument of COLLATE() must be a string literal [at 1:8]
+select collate('abc', CAST(NULL AS STRING));
+       ^
+==
+
+[name=collate_function_with_second_argument_being_parameter]
+[parameters="und:ci" as test_param_string]
+select collate('abc', @test_param_string);
+--
+ERROR: generic::invalid_argument: The second argument of COLLATE() must be a string literal [at 1:8]
+select collate('abc', @test_param_string);
+       ^
+==
+
+[name=inner_join_with_column_collation]
+[parameters="und:ci" as test_param_string]
+select a.primary_Key, a.col_ci, b.primary_Key, b.col_no_collation
+from StringTable as a join StringTableToJoin as b
+on a.col_ci = b.col_no_collation
+order by a.primary_Key, b.primary_Key
+--
+ARRAY<STRUCT<
+        primary_Key INT64,
+        col_ci STRING,
+        primary_Key INT64,
+        col_no_collation STRING
+      >>
+[
+  {2, "hello", 1, "HELLO"},
+  {3, "Case sensitive", 5, "Case Sensitive"},
+  {6, "B", 2, "b"},
+  {6, "B", 4, "B"},
+  {12, "case sensitive", 5, "Case Sensitive"},
+  {14, "Hello", 1, "HELLO"},
+  {16, "hel۝lo", 1, "HELLO"},
+  {17, "h܏ello", 1, "HELLO"}
+]
+==
+
+[name=inner_join_using_with_column_collation]
+[parameters="und:ci" as test_param_string]
+select a.primary_Key,
+cast(col_ci AS BYTES) in (b"hello", b"Hello", b"hel۝lo", b"h܏ello") as group_hello,
+cast(col_ci AS BYTES) in (b"case sensitive", b"Case sensitive") as group_case_sensitive,
+b.primary_Key
+from StringTable as a join StringTableToJoin as b using(col_ci)
+order by a.primary_Key, b.primary_Key
+--
+ARRAY<STRUCT<
+        primary_Key INT64,
+        group_hello BOOL,
+        group_case_sensitive BOOL,
+        primary_Key INT64
+      >>
+[{2, true, false, 1},
+ {2, true, false, 4},
+ {2, true, false, 5},
+ {3, false, true, 2},
+ {3, false, true, 3},
+ {12, false, true, 2},
+ {12, false, true, 3},
+ {14, true, false, 1},
+ {14, true, false, 4},
+ {14, true, false, 5},
+ {16, true, false, 1},
+ {16, true, false, 4},
+ {16, true, false, 5},
+ {17, true, false, 1},
+ {17, true, false, 4},
+ {17, true, false, 5}]
+==
+
+[name=cross_join_with_column_collation]
+[parameters="und:ci" as test_param_string]
+select a.primary_Key, a.col_binary, b.primary_Key, b.col_no_collation
+from StringTable as a, StringTableToJoin as b
+where a.col_binary = b.col_no_collation
+--
+ARRAY<STRUCT<
+        primary_Key INT64,
+        col_binary STRING,
+        primary_Key INT64,
+        col_no_collation STRING
+      >>
+[{10, "B", 4, "B"},
+ {9, "B", 4, "B"},
+ {13, "B", 4, "B"},
+ {11, "B", 4, "B"},
+ {15, "B", 4, "B"}]
+==
+
+[name=full_join_with_column_collation]
+[parameters="und:ci" as test_param_string]
+select a.primary_Key, a.col_ci, b.primary_Key, b.col_no_collation
+from StringTable as a full join StringTableToJoin as b
+on a.col_ci = b.col_no_collation
+order by a.primary_Key, b.primary_Key
+--
+ARRAY<STRUCT<
+        primary_Key INT64,
+        col_ci STRING,
+        primary_Key INT64,
+        col_no_collation STRING
+      >>
+[
+  {NULL, NULL, 3, "c"},
+  {1, "", NULL, NULL},
+  {2, "hello", 1, "HELLO"},
+  {3, "Case sensitive", 5, "Case Sensitive"},
+  {4, "@", NULL, NULL},
+  {5, " abc", NULL, NULL},
+  {6, "B", 2, "b"},
+  {6, "B", 4, "B"},
+  {7, NULL, NULL, NULL},
+  {8, "aa", NULL, NULL},
+  {9, "@", NULL, NULL},
+  {10, "", NULL, NULL},
+  {11, "a", NULL, NULL},
+  {12, "case sensitive", 5, "Case Sensitive"},
+  {13, NULL, NULL, NULL},
+  {14, "Hello", 1, "HELLO"},
+  {15, "Г", NULL, NULL},
+  {16, "hel۝lo", 1, "HELLO"},
+  {17, "h܏ello", 1, "HELLO"}
+]
+==
+
+[name=left_join_with_column_collation]
+[parameters="und:ci" as test_param_string]
+select a.primary_Key, a.col_ci, b.primary_Key, b.col_no_collation
+from StringTable as a left join StringTableToJoin as b
+on a.col_ci = b.col_no_collation
+order by a.primary_Key
+--
+ARRAY<STRUCT<
+        primary_Key INT64,
+        col_ci STRING,
+        primary_Key INT64,
+        col_no_collation STRING
+      >>
+[
+  {1, "", NULL, NULL},
+  {2, "hello", 1, "HELLO"},
+  {3, "Case sensitive", 5, "Case Sensitive"},
+  {4, "@", NULL, NULL},
+  {5, " abc", NULL, NULL},
+  {6, "B", 4, "B"},
+  {6, "B", 2, "b"},
+  {7, NULL, NULL, NULL},
+  {8, "aa", NULL, NULL},
+  {9, "@", NULL, NULL},
+  {10, "", NULL, NULL},
+  {11, "a", NULL, NULL},
+  {12, "case sensitive", 5, "Case Sensitive"},
+  {13, NULL, NULL, NULL},
+  {14, "Hello", 1, "HELLO"},
+  {15, "Г", NULL, NULL},
+  {16, "hel۝lo", 1, "HELLO"},
+  {17, "h܏ello", 1, "HELLO"}
+]
+==
+
+[name=right_join_with_column_collation]
+[parameters="und:ci" as test_param_string]
+select b.primary_Key, b.col_no_collation, a.primary_Key, a.col_ci
+from StringTable as a right join StringTableToJoin as b
+on a.col_ci = b.col_no_collation
+order by b.primary_Key
+--
+ARRAY<STRUCT<
+        primary_Key INT64,
+        col_no_collation STRING,
+        primary_Key INT64,
+        col_ci STRING
+      >>
+[
+  {1, "HELLO", 16, "hel۝lo"},
+  {1, "HELLO", 17, "h܏ello"},
+  {1, "HELLO", 2, "hello"},
+  {1, "HELLO", 14, "Hello"},
+  {2, "b", 6, "B"},
+  {3, "c", NULL, NULL},
+  {4, "B", 6, "B"},
+  {5, "Case Sensitive", 12, "case sensitive"},
+  {5, "Case Sensitive", 3, "Case sensitive"}
+]

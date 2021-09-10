@@ -17,8 +17,7 @@
 #ifndef ZETASQL_COMMON_TESTING_STATUS_PAYLOAD_MATCHERS_OSS_H_
 #define ZETASQL_COMMON_TESTING_STATUS_PAYLOAD_MATCHERS_OSS_H_
 
-// Testing utilities for working with ::absl::Status and
-// ::zetasql_base::StatusOr.
+// Testing utilities for working with absl::Status and absl::StatusOr.
 //
 // Defines the following utilities:
 //
@@ -26,7 +25,7 @@
 //   StatusHasPayload(payload_matcher)
 //   =================================
 //
-//   Matches an absl::Status or zetasql_base::StatusOr<T> value whose status value is
+//   Matches an absl::Status or absl::StatusOr<T> value whose status value is
 //   not absl::Status::Ok and whose payload has a matching message. Note
 //   that it is sufficient for the payload_matcher to match a single payload
 //   message which is selected based on the requested type.
@@ -56,8 +55,8 @@
 #include "google/protobuf/descriptor.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
-#include "zetasql/base/statusor.h"
 #include "zetasql/base/testing/status_matchers.h"
 
 namespace zetasql {

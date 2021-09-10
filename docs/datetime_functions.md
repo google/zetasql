@@ -108,7 +108,8 @@ Allowed `part` values are:
 + `SECOND`
 + `MINUTE`
 + `HOUR`
-+ `DAYOFWEEK`
++ `DAYOFWEEK`: Returns values in the range [1,7] with Sunday as the first day of
+   of the week.
 + `DAY`
 + `DAYOFYEAR`
 + `WEEK`: Returns the week number of the date in the range [0, 53].  Weeks begin
@@ -999,14 +1000,14 @@ by a space.</td>
     <td>%</td>
  </tr>
  <tr>
-    <td>%E#S</td>
-    <td>Seconds with # digits of fractional precision.</td>
-    <td>00.000</td>
+    <td>%E&lt;number&gt;S</td>
+    <td>Seconds with &lt;number&gt; digits of fractional precision.</td>
+    <td>00.000 for %E3S</td>
  </tr>
  <tr>
     <td>%E*S</td>
     <td>Seconds with full fractional precision (a literal '*').</td>
-    <td>00</td>
+    <td>00.123456</td>
  </tr>
  <tr>
     <td>%E4Y</td>

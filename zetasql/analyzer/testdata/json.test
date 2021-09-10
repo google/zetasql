@@ -160,7 +160,7 @@ QueryStmt
     | +-$col1#2 :=
     |   +-FunctionCall(ZetaSQL:$subscript(JSON, INT64) -> JSON)
     |     +-ColumnRef(type=JSON, column=JSONTable.json_col#1)
-    |     +-Literal(type=INT64, value=0)
+    |     +-Literal(type=INT64, value=0, has_explicit_type=TRUE)
     +-input_scan=
       +-TableScan(column_list=[JSONTable.json_col#1], table=JSONTable, column_index_list=[0])
 ==
@@ -268,12 +268,12 @@ QueryStmt
     | |   +-ColumnRef(type=INT32, column=TestTable.key#1)
     | |   +-Literal(type=BOOL, value=false)
     | +-$col2#5 :=
-    | | +-FunctionCall(ZetaSQL:to_json(ENUM<zetasql_test.TestEnum>, optional(1) BOOL stringify_wide_numbers) -> JSON)
-    | |   +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=TestTable.TestEnum#2)
+    | | +-FunctionCall(ZetaSQL:to_json(ENUM<zetasql_test__.TestEnum>, optional(1) BOOL stringify_wide_numbers) -> JSON)
+    | |   +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=TestTable.TestEnum#2)
     | |   +-Literal(type=BOOL, value=true)
     | +-$col3#6 :=
-    |   +-FunctionCall(ZetaSQL:to_json(PROTO<zetasql_test.KitchenSinkPB>, optional(1) BOOL stringify_wide_numbers) -> JSON)
-    |     +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   +-FunctionCall(ZetaSQL:to_json(PROTO<zetasql_test__.KitchenSinkPB>, optional(1) BOOL stringify_wide_numbers) -> JSON)
+    |     +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-Literal(type=BOOL, value=false)
     +-input_scan=
       +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2])

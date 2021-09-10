@@ -17,16 +17,36 @@
 #include "zetasql/public/types/struct_type.h"
 
 #include <cstdint>
+#include <functional>
+#include <limits>
+#include <string>
+#include <tuple>
+#include <utility>
+#include <vector>
 
+#include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/internal_utils.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value_content.h"
+#include "absl/base/optimization.h"
+#include "absl/container/flat_hash_map.h"
+#include "absl/hash/hash.h"
+#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
+#include "absl/synchronization/mutex.h"
 #include "zetasql/base/simple_reference_counted.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -151,9 +171,9 @@ absl::Status StructType::SerializeToProtoAndDistinctFileDescriptorsImpl(
 
 // TODO DebugString and other recursive methods on struct types
 // may cause a stack overflow for deeply nested types.
-zetasql_base::StatusOr<std::string> StructType::TypeNameImpl(
+absl::StatusOr<std::string> StructType::TypeNameImpl(
     int field_limit,
-    const std::function<zetasql_base::StatusOr<std::string>(
+    const std::function<absl::StatusOr<std::string>(
         const zetasql::Type*, int field_index)>& field_debug_fn) const {
   const int num_fields_to_show = std::min<int>(field_limit, fields_.size());
   const bool output_truncated = num_fields_to_show < fields_.size();
@@ -194,7 +214,7 @@ std::string StructType::TypeName(ProductMode mode) const {
   return TypeNameImpl(std::numeric_limits<int>::max(), field_debug_fn).value();
 }
 
-zetasql_base::StatusOr<std::string> StructType::TypeNameWithParameters(
+absl::StatusOr<std::string> StructType::TypeNameWithParameters(
     const TypeParameters& type_params, ProductMode mode) const {
   if (type_params.IsEmpty()) {
     return TypeName(mode);
@@ -211,7 +231,7 @@ zetasql_base::StatusOr<std::string> StructType::TypeNameWithParameters(
   return TypeNameImpl(std::numeric_limits<int>::max(), field_debug_fn);
 }
 
-zetasql_base::StatusOr<TypeParameters> StructType::ValidateAndResolveTypeParameters(
+absl::StatusOr<TypeParameters> StructType::ValidateAndResolveTypeParameters(
     const std::vector<TypeParameterValue>& type_parameter_values,
     ProductMode mode) const {
   return MakeSqlError() << ShortTypeName(mode)

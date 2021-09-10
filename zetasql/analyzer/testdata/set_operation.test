@@ -271,7 +271,7 @@ select KitchenSink from TestTable
 --
 QueryStmt
 +-output_column_list=
-| +-$union_all.KitchenSink#7 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-$union_all.KitchenSink#7 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-SetOperationScan
     +-column_list=[$union_all.KitchenSink#7]
@@ -300,7 +300,7 @@ select "int64_key_1: 1, int64_key_2: 2"
 --
 QueryStmt
 +-output_column_list=
-| +-$union_all.KitchenSink#5 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-$union_all.KitchenSink#5 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-SetOperationScan
     +-column_list=[$union_all.KitchenSink#5]
@@ -318,7 +318,7 @@ QueryStmt
         | +-ProjectScan
         |   +-column_list=[$union_all2_cast.$col1#6]
         |   +-expr_list=
-        |   | +-$col1#6 := Literal(type=PROTO<zetasql_test.KitchenSinkPB>, value={int64_key_1: 1 int64_key_2: 2})
+        |   | +-$col1#6 := Literal(type=PROTO<zetasql_test__.KitchenSinkPB>, value={int64_key_1: 1 int64_key_2: 2})
         |   +-input_scan=
         |     +-ProjectScan
         |       +-column_list=[$union_all2.$col1#4]
@@ -334,7 +334,7 @@ select KitchenSink from TestTable
 union all
 select "aaa"
 --
-ERROR: Could not cast literal "aaa" to type PROTO<zetasql_test.KitchenSinkPB> (Error parsing proto: Message type "zetasql_test.KitchenSinkPB" has no field named "aaa". [1:4]) [at 3:8]
+ERROR: Could not cast literal "aaa" to type PROTO<zetasql_test__.KitchenSinkPB> (Error parsing proto: Message type "zetasql_test__.KitchenSinkPB" has no field named "aaa". [1:4]) [at 3:8]
 select "aaa"
        ^
 ==
@@ -346,7 +346,7 @@ select b"aaa"
 --
 QueryStmt
 +-output_column_list=
-| +-$union_all.KitchenSink#5 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-$union_all.KitchenSink#5 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-SetOperationScan
     +-column_list=[$union_all.KitchenSink#5]
@@ -364,7 +364,7 @@ QueryStmt
         | +-ProjectScan
         |   +-column_list=[$union_all2_cast.$col1#6]
         |   +-expr_list=
-        |   | +-$col1#6 := Literal(type=PROTO<zetasql_test.KitchenSinkPB>, value={<unparseable>})
+        |   | +-$col1#6 := Literal(type=PROTO<zetasql_test__.KitchenSinkPB>, value={<unparseable>})
         |   +-input_scan=
         |     +-ProjectScan
         |       +-column_list=[$union_all2.$col1#4]
@@ -380,7 +380,7 @@ select KitchenSink.message_with_nulls from TestTable
 union all
 select KitchenSink.nested_value from TestTable
 --
-ERROR: Column 1 in UNION ALL has incompatible types: zetasql_test.MessageWithNulls, zetasql_test.KitchenSinkPB.Nested [at 3:1]
+ERROR: Column 1 in UNION ALL has incompatible types: zetasql_test__.MessageWithNulls, zetasql_test__.KitchenSinkPB.Nested [at 3:1]
 select KitchenSink.nested_value from TestTable
 ^
 ==
@@ -981,7 +981,7 @@ QueryStmt
         | +-ProjectScan
         |   +-column_list=[$union_all2_cast.e#6]
         |   +-expr_list=
-        |   | +-e#6 := Literal(type=STRUCT<a INT64, b INT64>, value={a:3, b:4})
+        |   | +-e#6 := Literal(type=STRUCT<a INT64, b INT64>, value={a:3, b:4}, has_explicit_type=TRUE)
         |   +-input_scan=
         |     +-ProjectScan
         |       +-column_list=[$union_all2.e#4]
@@ -2255,13 +2255,13 @@ select [1,2] as y union all select NULL having y is null
 # Union between a value table and a regular table with one column with
 # matching type.
 # Output is a value table because the first input is a value table.
-select as `zetasql_test.KitchenSinkPB` 1 int64_key_1, 2 int64_key_2
+select as `zetasql_test__.KitchenSinkPB` 1 int64_key_1, 2 int64_key_2
 union all
 select KitchenSink out from TestTable
 --
 QueryStmt
 +-output_column_list=
-| +-$union_all.$proto#7 AS `$proto` [PROTO<zetasql_test.KitchenSinkPB>]
+| +-$union_all.$proto#7 AS `$proto` [PROTO<zetasql_test__.KitchenSinkPB>]
 +-is_value_table=TRUE
 +-query=
   +-SetOperationScan
@@ -2275,7 +2275,7 @@ QueryStmt
       | |   +-expr_list=
       | |   | +-$proto#3 :=
       | |   |   +-MakeProto
-      | |   |     +-type=PROTO<zetasql_test.KitchenSinkPB>
+      | |   |     +-type=PROTO<zetasql_test__.KitchenSinkPB>
       | |   |     +-field_list=
       | |   |       +-int64_key_1 := ColumnRef(type=INT64, column=$union_all1.int64_key_1#1)
       | |   |       +-int64_key_2 := ColumnRef(type=INT64, column=$union_all1.int64_key_2#2)
@@ -2301,11 +2301,11 @@ QueryStmt
 # Output is a regular table because the first input is a regular table.
 select KitchenSink out from TestTable
 union all
-select as `zetasql_test.KitchenSinkPB` 1 int64_key_1, 2 int64_key_2
+select as `zetasql_test__.KitchenSinkPB` 1 int64_key_1, 2 int64_key_2
 --
 QueryStmt
 +-output_column_list=
-| +-$union_all.out#7 AS `out` [PROTO<zetasql_test.KitchenSinkPB>]
+| +-$union_all.out#7 AS `out` [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-SetOperationScan
     +-column_list=[$union_all.out#7]
@@ -2325,7 +2325,7 @@ QueryStmt
         |   +-expr_list=
         |   | +-$proto#6 :=
         |   |   +-MakeProto
-        |   |     +-type=PROTO<zetasql_test.KitchenSinkPB>
+        |   |     +-type=PROTO<zetasql_test__.KitchenSinkPB>
         |   |     +-field_list=
         |   |       +-int64_key_1 := ColumnRef(type=INT64, column=$union_all2.int64_key_1#4)
         |   |       +-int64_key_2 := ColumnRef(type=INT64, column=$union_all2.int64_key_2#5)
@@ -2402,13 +2402,13 @@ QueryStmt
         +-output_column_list=[$union_all2.$col1#2]
 ==
 
-select cast(null as zetasql_test.TestInvalidTypeAnnotations)
+select cast(null as zetasql_test__.TestInvalidTypeAnnotations)
 union all
-select cast(null as zetasql_test.TestInvalidTypeAnnotations)
+select cast(null as zetasql_test__.TestInvalidTypeAnnotations)
 --
 QueryStmt
 +-output_column_list=
-| +-$union_all.$col1#3 AS `$col1` [PROTO<zetasql_test.TestInvalidTypeAnnotations>]
+| +-$union_all.$col1#3 AS `$col1` [PROTO<zetasql_test__.TestInvalidTypeAnnotations>]
 +-query=
   +-SetOperationScan
     +-column_list=[$union_all.$col1#3]
@@ -2419,7 +2419,7 @@ QueryStmt
       | | +-ProjectScan
       | |   +-column_list=[$union_all1.$col1#1]
       | |   +-expr_list=
-      | |   | +-$col1#1 := Literal(type=PROTO<zetasql_test.TestInvalidTypeAnnotations>, value=NULL, has_explicit_type=TRUE)
+      | |   | +-$col1#1 := Literal(type=PROTO<zetasql_test__.TestInvalidTypeAnnotations>, value=NULL, has_explicit_type=TRUE)
       | |   +-input_scan=
       | |     +-SingleRowScan
       | +-output_column_list=[$union_all1.$col1#1]
@@ -2428,7 +2428,7 @@ QueryStmt
         | +-ProjectScan
         |   +-column_list=[$union_all2.$col1#2]
         |   +-expr_list=
-        |   | +-$col1#2 := Literal(type=PROTO<zetasql_test.TestInvalidTypeAnnotations>, value=NULL, has_explicit_type=TRUE)
+        |   | +-$col1#2 := Literal(type=PROTO<zetasql_test__.TestInvalidTypeAnnotations>, value=NULL, has_explicit_type=TRUE)
         |   +-input_scan=
         |     +-SingleRowScan
         +-output_column_list=[$union_all2.$col1#2]
@@ -2934,13 +2934,13 @@ select [1, 1] intersect all select [2, 3, 4];
                             ^
 ==
 
-select cast(null as zetasql_test.TestInvalidTypeAnnotations)
+select cast(null as zetasql_test__.TestInvalidTypeAnnotations)
 except all
-select cast(null as zetasql_test.TestInvalidTypeAnnotations)
+select cast(null as zetasql_test__.TestInvalidTypeAnnotations)
 --
 
 ERROR: Column 1 in EXCEPT ALL has type that does not support set operation comparisons: PROTO [at 3:1]
-select cast(null as zetasql_test.TestInvalidTypeAnnotations)
+select cast(null as zetasql_test__.TestInvalidTypeAnnotations)
 ^
 ==
 
@@ -3197,7 +3197,7 @@ select key, key, key, KitchenSink from TestTable
 union all
 select *, "abc" from (select 1, 2, 3)
 --
-ERROR: Could not cast literal "abc" to type PROTO<zetasql_test.KitchenSinkPB> (Error parsing proto: Message type "zetasql_test.KitchenSinkPB" has no field named "abc". [1:4]) [at 3:1]
+ERROR: Could not cast literal "abc" to type PROTO<zetasql_test__.KitchenSinkPB> (Error parsing proto: Message type "zetasql_test__.KitchenSinkPB" has no field named "abc". [1:4]) [at 3:1]
 select *, "abc" from (select 1, 2, 3)
 ^
 ==
@@ -3209,7 +3209,7 @@ select key, KitchenSink from TestTable
 union all
 select *, "abc" from (select 1)
 --
-ERROR: Could not cast literal "abc" to type PROTO<zetasql_test.KitchenSinkPB> (Error parsing proto: Message type "zetasql_test.KitchenSinkPB" has no field named "abc". [1:4]) [at 3:11]
+ERROR: Could not cast literal "abc" to type PROTO<zetasql_test__.KitchenSinkPB> (Error parsing proto: Message type "zetasql_test__.KitchenSinkPB" has no field named "abc". [1:4]) [at 3:11]
 select *, "abc" from (select 1)
           ^
 ==

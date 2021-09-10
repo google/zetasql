@@ -160,7 +160,7 @@ TEST(DeprecationWarnings, StatusToDeprecationWarning) {
   EXPECT_THAT(StatusToDeprecationWarning(correct_deprecation_status, sql),
               IsOkAndHolds(EqualsProto(expected_warning)));
 
-  zetasql_test::TestStatusPayload extra_payload;
+  zetasql_test__::TestStatusPayload extra_payload;
   extra_payload.set_value("extra");
 
   absl::Status extra_payload_status = correct_deprecation_status;

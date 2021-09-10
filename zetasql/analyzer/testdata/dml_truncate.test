@@ -35,7 +35,7 @@ TruncateStmt
     +-GetProtoField
     | +-type=INT32
     | +-expr=
-    | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | +-field_descriptor=int32_val
     | +-default_value=77
     +-Literal(type=INT32, value=1)
@@ -71,7 +71,7 @@ TruncateStmt
     +-type=BOOL
     +-subquery_type=EXISTS
     +-parameter_list=
-    | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     +-subquery=
       +-ProjectScan
         +-column_list=[$expr_subquery.$col1#5]
@@ -83,7 +83,7 @@ TruncateStmt
             | +-GetProtoField
             |   +-type=ARRAY<INT32>
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
             |   +-field_descriptor=repeated_int32_val
             |   +-default_value=[]
             +-element_column=$array.$unnest1#4
@@ -115,7 +115,7 @@ TruncateStmt
     +-GetProtoField
     | +-type=BOOL
     | +-expr=
-    | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | +-field_descriptor=bool_val
     | +-default_value=false
     +-Parameter(type=BOOL, name="test_param_bool")

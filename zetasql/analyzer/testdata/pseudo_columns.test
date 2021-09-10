@@ -9,8 +9,8 @@ select * from EnumTable
 QueryStmt
 +-output_column_list=
 | +-EnumTable.key#1 AS key [INT32]
-| +-EnumTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-EnumTable.AnotherTestEnum#3 AS AnotherTestEnum [ENUM<zetasql_test.AnotherTestEnum>]
+| +-EnumTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-EnumTable.AnotherTestEnum#3 AS AnotherTestEnum [ENUM<zetasql_test__.AnotherTestEnum>]
 +-query=
   +-ProjectScan
     +-column_list=EnumTable.[key#1, TestEnum#2, AnotherTestEnum#3]
@@ -28,18 +28,18 @@ select EnumTable from EnumTable
 --
 QueryStmt
 +-output_column_list=
-| +-$query.EnumTable#7 AS EnumTable [STRUCT<key INT32, TestEnum ENUM<zetasql_test.TestEnum>, AnotherTestEnum ENUM<zetasql_test.AnotherTestEnum>>]
+| +-$query.EnumTable#7 AS EnumTable [STRUCT<key INT32, TestEnum ENUM<zetasql_test__.TestEnum>, AnotherTestEnum ENUM<zetasql_test__.AnotherTestEnum>>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.EnumTable#7]
     +-expr_list=
     | +-EnumTable#7 :=
     |   +-MakeStruct
-    |     +-type=STRUCT<key INT32, TestEnum ENUM<zetasql_test.TestEnum>, AnotherTestEnum ENUM<zetasql_test.AnotherTestEnum>>
+    |     +-type=STRUCT<key INT32, TestEnum ENUM<zetasql_test__.TestEnum>, AnotherTestEnum ENUM<zetasql_test__.AnotherTestEnum>>
     |     +-field_list=
     |       +-ColumnRef(type=INT32, column=EnumTable.key#1)
-    |       +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=EnumTable.TestEnum#2)
-    |       +-ColumnRef(type=ENUM<zetasql_test.AnotherTestEnum>, column=EnumTable.AnotherTestEnum#3)
+    |       +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=EnumTable.TestEnum#2)
+    |       +-ColumnRef(type=ENUM<zetasql_test__.AnotherTestEnum>, column=EnumTable.AnotherTestEnum#3)
     +-input_scan=
       +-TableScan(column_list=EnumTable.[key#1, TestEnum#2, AnotherTestEnum#3], table=EnumTable, column_index_list=[0, 1, 2])
 ==
@@ -64,8 +64,8 @@ select *, '--', Filename, RowID from EnumTable
 QueryStmt
 +-output_column_list=
 | +-EnumTable.key#1 AS key [INT32]
-| +-EnumTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-EnumTable.AnotherTestEnum#3 AS AnotherTestEnum [ENUM<zetasql_test.AnotherTestEnum>]
+| +-EnumTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-EnumTable.AnotherTestEnum#3 AS AnotherTestEnum [ENUM<zetasql_test__.AnotherTestEnum>]
 | +-$query.$col2#6 AS `$col2` [STRING]
 | +-EnumTable.Filename#4 AS Filename [STRING]
 | +-EnumTable.RowId#5 AS RowID [BYTES]
@@ -90,7 +90,7 @@ select v, * from TestExtraValueTable v
 --
 QueryStmt
 +-output_column_list=
-| +-TestExtraValueTable.value#1 AS v [PROTO<zetasql_test.TestExtraPB>]
+| +-TestExtraValueTable.value#1 AS v [PROTO<zetasql_test__.TestExtraPB>]
 | +-$query.int32_val1#4 AS int32_val1 [INT32]
 | +-$query.int32_val2#5 AS int32_val2 [INT32]
 | +-$query.str_value#6 AS str_value [ARRAY<STRING>]
@@ -102,21 +102,21 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     | |   +-field_descriptor=int32_val1
     | |   +-default_value=0
     | +-int32_val2#5 :=
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     | |   +-field_descriptor=int32_val2
     | |   +-default_value=0
     | +-str_value#6 :=
     |   +-GetProtoField
     |     +-type=ARRAY<STRING>
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     |     +-field_descriptor=str_value
     |     +-default_value=[]
     +-input_scan=
@@ -139,7 +139,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=INT32
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     |     +-field_descriptor=int32_val1
     |     +-default_value=0
     +-input_scan=
@@ -165,21 +165,21 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     | |   +-field_descriptor=int32_val1
     | |   +-default_value=0
     | +-int32_val2#5 :=
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     | |   +-field_descriptor=int32_val2
     | |   +-default_value=0
     | +-str_value#6 :=
     | | +-GetProtoField
     | |   +-type=ARRAY<STRING>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     | |   +-field_descriptor=str_value
     | |   +-default_value=[]
     | +-$col2#7 := Literal(type=STRING, value="--")
@@ -360,8 +360,8 @@ select null, null, null, null
 QueryStmt
 +-output_column_list=
 | +-$union_all.key#10 AS key [INT32]
-| +-$union_all.TestEnum#11 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-$union_all.AnotherTestEnum#12 AS AnotherTestEnum [ENUM<zetasql_test.AnotherTestEnum>]
+| +-$union_all.TestEnum#11 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-$union_all.AnotherTestEnum#12 AS AnotherTestEnum [ENUM<zetasql_test__.AnotherTestEnum>]
 | +-$union_all.filename#13 AS filename [STRING]
 +-query=
   +-SetOperationScan
@@ -381,8 +381,8 @@ QueryStmt
         |   +-column_list=$union_all2_cast.[$col1#14, $col2#15, $col3#16, $col4#17]
         |   +-expr_list=
         |   | +-$col1#14 := Literal(type=INT32, value=NULL)
-        |   | +-$col2#15 := Literal(type=ENUM<zetasql_test.TestEnum>, value=NULL)
-        |   | +-$col3#16 := Literal(type=ENUM<zetasql_test.AnotherTestEnum>, value=NULL)
+        |   | +-$col2#15 := Literal(type=ENUM<zetasql_test__.TestEnum>, value=NULL)
+        |   | +-$col3#16 := Literal(type=ENUM<zetasql_test__.AnotherTestEnum>, value=NULL)
         |   | +-$col4#17 := Literal(type=STRING, value=NULL)
         |   +-input_scan=
         |     +-ProjectScan
@@ -459,7 +459,7 @@ QueryStmt
     |     +-type=STRUCT<int32_val1 INT32, int32_val2 INT32, rowid BYTES, filename STRING>
     |     +-subquery_type=SCALAR
     |     +-parameter_list=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1)
     |     | +-ColumnRef(type=STRING, column=TestExtraValueTable.Filename#2)
     |     | +-ColumnRef(type=BYTES, column=TestExtraValueTable.RowId#3)
     |     +-subquery=
@@ -482,14 +482,14 @@ QueryStmt
     |             | | +-GetProtoField
     |             | |   +-type=INT32
     |             | |   +-expr=
-    |             | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1, is_correlated=TRUE)
+    |             | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1, is_correlated=TRUE)
     |             | |   +-field_descriptor=int32_val1
     |             | |   +-default_value=0
     |             | +-int32_val2#5 :=
     |             | | +-GetProtoField
     |             | |   +-type=INT32
     |             | |   +-expr=
-    |             | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=TestExtraValueTable.value#1, is_correlated=TRUE)
+    |             | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=TestExtraValueTable.value#1, is_correlated=TRUE)
     |             | |   +-field_descriptor=int32_val2
     |             | |   +-default_value=0
     |             | +-rowid#6 := ColumnRef(type=BYTES, column=TestExtraValueTable.RowId#3, is_correlated=TRUE)

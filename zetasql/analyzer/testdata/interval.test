@@ -58,7 +58,7 @@ select interval concat("1", "2") month
 --
 ALTERNATION GROUP: INTERVAL_TYPE
 --
-ERROR: Invalid interval literal. Expected INTERVAL keyword to be followed by a string literal [at 1:17]
+ERROR: Invalid interval literal. Expected INTERVAL keyword to be followed by an INT64 expression or STRING literal [at 1:17]
 select interval concat("1", "2") month
                 ^
 ==

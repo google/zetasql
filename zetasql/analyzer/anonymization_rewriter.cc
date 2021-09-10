@@ -17,36 +17,57 @@
 #include "zetasql/analyzer/anonymization_rewriter.h"
 
 #include <cstdint>
+#include <iterator>
+#include <limits>
+#include <map>
 #include <memory>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
 
-#include "zetasql/base/atomic_sequence_num.h"
+#include "google/protobuf/descriptor.h"
 #include "zetasql/analyzer/expr_resolver_helper.h"
+#include "zetasql/analyzer/name_scope.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/analyzer/resolver.h"
 #include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
+#include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/anon_function.h"
+#include "zetasql/public/builtin_function.pb.h"
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/function.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto_util.h"
-#include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
+#include "zetasql/public/type.h"
+#include "zetasql/public/types/proto_type.h"
+#include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/make_node_vector.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
+#include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
+#include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/resolved_node.h"
+#include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/rewrite_utils.h"
-#include "zetasql/resolved_ast/validator.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/types/span.h"
 #include "zetasql/base/source_location.h"
-#include "zetasql/base/canonical_errors.h"
-#include "zetasql/base/status.h"
-#include "zetasql/base/status_builder.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace {
@@ -113,7 +134,7 @@ class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
         table_scan_to_anon_aggr_scan_map_(table_scan_to_anon_aggr_scan_map) {}
 
  private:
-  zetasql_base::StatusOr<std::unique_ptr<ResolvedAggregateScan>>
+  absl::StatusOr<std::unique_ptr<ResolvedAggregateScan>>
   RewriteInnerAggregateScan(
       const ResolvedAnonymizedAggregateScan* node,
       std::map<ResolvedColumn, ResolvedColumn>* injected_col_map,
@@ -138,7 +159,7 @@ class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
 // Use the resolver to create a new function call using resolved arguments. The
 // calling code must ensure that the arguments can always be coerced and
 // resolved to a valid function. Any returned status is an internal error.
-zetasql_base::StatusOr<std::unique_ptr<ResolvedExpr>> ResolveFunctionCall(
+absl::StatusOr<std::unique_ptr<ResolvedExpr>> ResolveFunctionCall(
     const std::string& function_name,
     std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
     Resolver* resolver) {
@@ -186,14 +207,25 @@ zetasql_base::StatusOr<std::unique_ptr<ResolvedExpr>> ResolveFunctionCall(
   return absl::WrapUnique(const_cast<ResolvedExpr*>(result.release()));
 }
 
+std::unique_ptr<ResolvedColumnRef> MakeColRef(const ResolvedColumn& col) {
+  return MakeResolvedColumnRef(col.type(), col, /*is_correlated=*/false);
+}
+
 // Given a call to an ANON_* function, resolve a concrete function signature for
 // the matching per-user aggregate call. For example,
 // ANON_COUNT(expr, 0, 1) -> COUNT(expr)
-zetasql_base::StatusOr<std::unique_ptr<ResolvedExpr>>
+absl::StatusOr<std::unique_ptr<ResolvedExpr>>
 ResolveInnerAggregateFunctionCallForAnonFunction(
     const ResolvedAggregateFunctionCall* node,
     std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
-    Resolver* resolver) {
+    Resolver* resolver, ResolvedColumn* order_by_column,
+    ColumnFactory* allocator) {
+  // We are rewriting ANON_VAR_POP/ANON_STDDEV_POP/ANON_PERCENTILE_CONT to
+  // per-user aggregation ARRAY_AGG(expr IGNORE NULLS ORDER BY rand() LIMIT 5).
+  // The limit of 5 is proposed to be consistent with the current Penumbra
+  // implementation, and at some point we may want to make this configurable.
+  // For more information, see (broken link).
+  static constexpr int kPerUserArrayAggLimit = 5;
   if (!node->function()->Is<AnonFunction>()) {
     return zetasql_base::InvalidArgumentErrorBuilder()
            << "Unsupported function in SELECT WITH ANONYMIZATION select "
@@ -210,9 +242,42 @@ ResolveInnerAggregateFunctionCallForAnonFunction(
     arguments.resize(1);
   }
 
-  return ResolveFunctionCall(
-      node->function()->GetAs<AnonFunction>()->GetPartialAggregateName(),
-      std::move(arguments), resolver);
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<ResolvedExpr> result,
+      ResolveFunctionCall(
+          node->function()->GetAs<AnonFunction>()->GetPartialAggregateName(),
+          std::move(arguments), resolver));
+
+  // If the anon function is ANON_VAR_POP/ANON_STDDEV_POP/ANON_PERCENTILE_CONT,
+  // we allocate a new column "$orderbycol1" and set the limit as 5.
+  if (node->function()->GetGroup() == Function::kZetaSQLFunctionGroupName &&
+      (node->signature().context_id() ==
+           FunctionSignatureId::FN_ANON_VAR_POP_DOUBLE ||
+       node->signature().context_id() ==
+           FunctionSignatureId::FN_ANON_STDDEV_POP_DOUBLE ||
+       node->signature().context_id() ==
+           FunctionSignatureId::FN_ANON_PERCENTILE_CONT_DOUBLE)) {
+    if (!order_by_column->IsInitialized()) {
+      *order_by_column =
+          allocator->MakeCol("$orderby", "$orderbycol1", types::DoubleType());
+    }
+    std::unique_ptr<const ResolvedColumnRef> resolved_column_ref =
+        MakeColRef(*order_by_column);
+    std::unique_ptr<const ResolvedOrderByItem> resolved_order_by_item =
+        MakeResolvedOrderByItem(std::move(resolved_column_ref), nullptr,
+                                /*is_descending=*/false,
+                                ResolvedOrderByItemEnums::ORDER_UNSPECIFIED);
+
+    ResolvedAggregateFunctionCall* resolved_aggregate_function_call =
+        result->GetAs<ResolvedAggregateFunctionCall>();
+    resolved_aggregate_function_call->add_order_by_item_list(
+        std::move(resolved_order_by_item));
+    resolved_aggregate_function_call->set_null_handling_modifier(
+        ResolvedNonScalarFunctionCallBaseEnums::IGNORE_NULLS);
+    resolved_aggregate_function_call->set_limit(
+        MakeResolvedLiteral(Value::Int64(kPerUserArrayAggLimit)));
+  }
+  return result;
 }
 
 // Rewrites the aggregate and group by list for the inner per-user aggregate
@@ -227,6 +292,8 @@ class InnerAggregateListRewriterVisitor : public ResolvedASTDeepCopyVisitor {
       : injected_col_map_(injected_col_map),
         allocator_(allocator),
         resolver_(resolver) {}
+
+  const ResolvedColumn& order_by_column() { return order_by_column_; }
 
  private:
   absl::Status VisitResolvedAggregateFunctionCall(
@@ -243,7 +310,7 @@ class InnerAggregateListRewriterVisitor : public ResolvedASTDeepCopyVisitor {
                          // std::vector<std::unique_ptr<__const__ ResolvedExpr>>
                          {std::make_move_iterator(argument_list.begin()),
                           std::make_move_iterator(argument_list.end())},
-                         resolver_));
+                         resolver_, &order_by_column_, allocator_));
     ZETASQL_RET_CHECK_EQ(result->node_kind(), RESOLVED_AGGREGATE_FUNCTION_CALL)
         << result->DebugString();
     PushNodeToStack(std::move(result));
@@ -272,17 +339,14 @@ class InnerAggregateListRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   std::map<ResolvedColumn, ResolvedColumn>* injected_col_map_;
   ColumnFactory* allocator_;
   Resolver* resolver_;
+  ResolvedColumn order_by_column_;
 };
-
-std::unique_ptr<ResolvedColumnRef> MakeColRef(const ResolvedColumn& col) {
-  return MakeResolvedColumnRef(col.type(), col, /*is_correlated=*/false);
-}
 
 // Given a call to an ANON_* function, resolve an aggregate function call for
 // use in the outer cross-user aggregation scan. This function will always be an
 // ANON_* function, and the first argument will always point to the appropriate
 // column produced by the per-user scan (target_column).
-zetasql_base::StatusOr<std::unique_ptr<ResolvedExpr>>
+absl::StatusOr<std::unique_ptr<ResolvedExpr>>
 ResolveOuterAggregateFunctionCallForAnonFunction(
     const ResolvedAggregateFunctionCall* node,
     const ResolvedColumn& target_column,
@@ -299,7 +363,7 @@ ResolveOuterAggregateFunctionCallForAnonFunction(
       case FunctionSignatureId::FN_ANON_COUNT_STAR:
         target = "anon_sum";
         // Insert a dummy 'expr' column here, the original call will not include
-        // one because we are rewritting ANON_COUNT(*) to ANON_SUM(expr). The
+        // one because we are rewriting ANON_COUNT(*) to ANON_SUM(expr). The
         // actual column reference will be set below.
         arguments.insert(arguments.begin(), nullptr);
         break;
@@ -420,34 +484,20 @@ bool JoinExprIncludesUid(const ResolvedExpr* join_expr,
 }
 
 // This class is used by VisitResolvedTVFScan to validate that none of the TVF
-// argument trees contain nodes that could possibly contain a nested
-// table/TVF/anonymization node.
+// argument trees contain nodes that are not supported yet as TVF arguments.
 //
-// Eventually we want to allow relation TVF arguments containing table/TVF
-// references, but that's left to future work.
-class NoTableDataValidatorVisitor : public ResolvedASTVisitor {
+// The current implementation does not support subqueries that have
+// anonymization, where we will need to recursively call the rewriter on
+// these (sub)queries.
+class TVFArgumentValidatorVisitor : public ResolvedASTVisitor {
  public:
-  explicit NoTableDataValidatorVisitor(const std::string& tvf_name)
+  explicit TVFArgumentValidatorVisitor(const std::string& tvf_name)
       : tvf_name_(tvf_name) {}
 
   absl::Status VisitResolvedAnonymizedAggregateScan(
       const ResolvedAnonymizedAggregateScan* node) override {
     return absl::InvalidArgumentError(
-        "Nested SELECT WITH ANONYMIZATION queries are not supported");
-  }
-
-  absl::Status VisitResolvedTableScan(const ResolvedTableScan* node) override {
-    return absl::InvalidArgumentError(absl::StrCat(
-        "A TVF inside a SELECT WITH ANONYMIZATION query may not reference "
-        "a table in that TVF's arguments, but found table ",
-        node->table()->FullName(), " in arguments of TVF ", tvf_name_));
-  }
-
-  absl::Status VisitResolvedTVFScan(const ResolvedTVFScan* node) override {
-    return absl::InvalidArgumentError(absl::StrCat(
-        "A TVF inside a SELECT WITH ANONYMIZATION query may not reference "
-        "another TVF in that TVF's arguments, but found TVF ",
-        node->tvf()->FullName(), " in arguments of TVF ", tvf_name_));
+        "TVF arguments do not support SELECT WITH ANONYMIZATION queries");
   }
 
  private:
@@ -472,13 +522,18 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
         resolver_(resolver),
         resolved_table_scans_(resolved_table_scans) {}
 
-  zetasql_base::StatusOr<ResolvedColumn> uid_column() const {
+  absl::StatusOr<ResolvedColumn> uid_column() const {
     if (current_uid_column_.IsInitialized()) {
       return current_uid_column_;
     } else {
+      const std::string or_tvf_string(
+          resolver_->language().LanguageFeatureEnabled(
+              FEATURE_TABLE_VALUED_FUNCTIONS) ?
+          "or TVF " :
+          "");
       return zetasql_base::InvalidArgumentErrorBuilder()
-             << "A SELECT WITH ANONYMIZATION query must query at least one "
-                "table containing user data";
+          << "A SELECT WITH ANONYMIZATION query must query at least one table "
+          << or_tvf_string << "containing user data";
     }
   }
 
@@ -518,7 +573,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     return absl::OkStatus();
   }
 
-  zetasql_base::StatusOr<std::unique_ptr<ResolvedComputedColumn>>
+  absl::StatusOr<std::unique_ptr<ResolvedComputedColumn>>
   MakeGetFieldComputedColumn(
       absl::Span<const std::string> userid_column_name_path,
       const ResolvedColumn& value_table_value_resolved_column) {
@@ -699,6 +754,14 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   }
 
   absl::Status VisitResolvedTVFScan(const ResolvedTVFScan* node) override {
+    // We do not currently allow TVF arguments to contain anonymization,
+    // because we are not invoking the rewriter on the TVF arguments yet.
+    for (const std::unique_ptr<const ResolvedFunctionArgument>& arg :
+         node->argument_list()) {
+      TVFArgumentValidatorVisitor visitor(node->tvf()->FullName());
+      ZETASQL_RETURN_IF_ERROR(arg->Accept(&visitor));
+    }
+
     {
       ResolvedASTDeepCopyVisitor copy_visitor;
       ZETASQL_RETURN_IF_ERROR(node->Accept(&copy_visitor));
@@ -708,15 +771,59 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     }
     ResolvedTVFScan* copy = GetUnownedTopOfStack<ResolvedTVFScan>();
 
-    for (const std::unique_ptr<const ResolvedFunctionArgument>& arg :
-         node->argument_list()) {
-      NoTableDataValidatorVisitor visitor(node->tvf()->FullName());
-      ZETASQL_RETURN_IF_ERROR(arg->Accept(&visitor));
-    }
-
     // The TVF doesn't produce user data or an anonymization userid column, so
     // we can return early.
+    //
+    // TODO: Figure out how we can take an early exit without the
+    // copy. Does this method take ownership of <node>? Can we effectively
+    // push it back onto the top of the stack (which requires a non-const
+    // std::unique_ptr<ResolvedNode>)?  I tried creating a non-const unique_ptr
+    // and that failed with what looked like a double free condition.  It's
+    // unclear at present what the contracts are and how we can avoid the
+    // needless copy.
     if (!copy->signature()->SupportsAnonymization()) {
+      return absl::OkStatus();
+    }
+
+    if (copy->signature()->result_schema().is_value_table()) {
+      ZETASQL_RET_CHECK_EQ(copy->signature()->result_schema().num_columns(), 1);
+      const std::optional<const AnonymizationInfo> anonymization_info =
+          copy->signature()->GetAnonymizationInfo();
+      ZETASQL_RET_CHECK(anonymization_info.has_value());
+
+      ResolvedColumn uid_column;
+      // Check if the $uid column is already being projected.
+      if (copy->column_list_size() > 0) {
+        ZETASQL_RET_CHECK_EQ(copy->column_list_size(), 1);
+        uid_column = copy->column_list(0);
+      } else {
+        // Create and project the column of the entire proto.
+        uid_column = allocator_->MakeCol(
+            copy->tvf()->Name(), "$value",
+            copy->signature()->result_schema().column(0).type);
+        copy->mutable_column_list()->push_back(uid_column);
+        copy->mutable_column_index_list()->push_back(0);
+      }
+
+      // Build an expression to extract the userid column from the
+      // value table row value.
+      ZETASQL_ASSIGN_OR_RETURN(
+          std::unique_ptr<ResolvedComputedColumn> projected_userid_column,
+          MakeGetFieldComputedColumn(anonymization_info->UserIdColumnNamePath(),
+                                     uid_column));
+
+      current_uid_column_ = projected_userid_column->column();
+      uid_qualifier_ = copy->alias();
+
+      std::vector<ResolvedColumn> project_column_list_with_userid =
+          copy->column_list();
+      project_column_list_with_userid.emplace_back(current_uid_column_);
+
+      PushNodeToStack(MakeResolvedProjectScan(
+          project_column_list_with_userid,
+          MakeNodeVector(std::move(projected_userid_column)),
+          ConsumeTopOfStack<ResolvedScan>()));
+
       return absl::OkStatus();
     }
 
@@ -728,14 +835,6 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
              << "Nested user IDs are not currently supported for TVFs (in TVF "
              << copy->tvf()->FullName() << ")";
     }
-
-    if (copy->signature()->result_schema().is_value_table()) {
-      return zetasql_base::InvalidArgumentErrorBuilder()
-             << "Anonymization is not currently supported for TVFs that "
-             << "produce value tables (in TVF " << copy->tvf()->FullName()
-             << ")";
-    }
-
     // Since we got to here, the TVF produces a userid column so we must ensure
     // that the column is projected for use in the anonymized aggregation.
     const std::string& userid_column_name = copy->signature()
@@ -1189,7 +1288,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   std::string uid_qualifier_;
 };
 
-zetasql_base::StatusOr<std::unique_ptr<ResolvedAggregateScan>>
+absl::StatusOr<std::unique_ptr<ResolvedAggregateScan>>
 RewriterVisitor::RewriteInnerAggregateScan(
     const ResolvedAnonymizedAggregateScan* node,
     std::map<ResolvedColumn, ResolvedColumn>* injected_col_map,
@@ -1199,7 +1298,7 @@ RewriterVisitor::RewriteInnerAggregateScan(
   PerUserRewriterVisitor per_user_visitor(allocator_, type_factory_, resolver_,
                                           resolved_table_scans_);
   ZETASQL_RETURN_IF_ERROR(node->input_scan()->Accept(&per_user_visitor));
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedScan> input_scan,
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedScan> input_scan,
                    per_user_visitor.ConsumeRootNode<ResolvedScan>());
 
   // Rewrite the aggregate list to change ANON_* functions to their per-user
@@ -1255,6 +1354,33 @@ RewriterVisitor::RewriteInnerAggregateScan(
   }
   for (const auto& column : inner_group_by_list) {
     new_column_list.push_back(column->column());
+  }
+
+  // We need to rewrite the ANON_VAR_POP/ANON_STDDEV_POP/ANON_PERCENTILE_CONT's
+  // InnerAggregateScan to ARRAY_AGG(expr ORDER BY rand() LIMIT 5).
+  // We allocated an `order_by_column` in the InnerAggregateListRewriter, the
+  // `order_by_column` will be rand(). Then we can use the new_project_scan as
+  // the input_scan of ResolvedAggregateScan.
+  if (inner_rewriter_visitor.order_by_column().IsInitialized()) {
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> rand_function,
+                     ResolveFunctionCall("rand", {}, resolver_));
+    std::vector<std::unique_ptr<ResolvedComputedColumn>> order_by_expr_list;
+    std::unique_ptr<ResolvedComputedColumn> rand_expr =
+        MakeResolvedComputedColumn(inner_rewriter_visitor.order_by_column(),
+                                   std::move(rand_function));
+    ZETASQL_RET_CHECK(rand_expr != nullptr);
+    order_by_expr_list.emplace_back(std::move(rand_expr));
+
+    ResolvedColumnList wrapper_column_list = input_scan->column_list();
+    for (const auto& computed_column : order_by_expr_list) {
+      wrapper_column_list.push_back(computed_column->column());
+    }
+    std::unique_ptr<const ResolvedScan> new_project_scan =
+        MakeResolvedProjectScan(wrapper_column_list,
+                                std::move(order_by_expr_list),
+                                std::move(input_scan));
+
+    input_scan = std::move(new_project_scan);
   }
   return MakeResolvedAggregateScan(new_column_list, std::move(input_scan),
                                    std::move(inner_group_by_list),
@@ -1393,7 +1519,7 @@ absl::Status RewriterVisitor::VisitResolvedAnonymizedAggregateScan(
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<std::unique_ptr<const ResolvedNode>> RewriteInternal(
+absl::StatusOr<std::unique_ptr<const ResolvedNode>> RewriteInternal(
     const ResolvedNode& tree, AnalyzerOptions options,
     ColumnFactory& column_factory, Catalog& catalog, TypeFactory& type_factory,
     RewriteForAnonymizationOutput::TableScanToAnonAggrScanMap&
@@ -1432,7 +1558,7 @@ class AnonymizationRewriter : public Rewriter {
            analyzer_output.analyzer_output_properties().has_anonymization;
   }
 
-  zetasql_base::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
       const AnalyzerOptions& options,
       absl::Span<const Rewriter* const> rewriters, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,
@@ -1453,7 +1579,7 @@ class AnonymizationRewriter : public Rewriter {
   std::string Name() const override { return "AnonymizationRewriter"; }
 };
 
-zetasql_base::StatusOr<RewriteForAnonymizationOutput>
+absl::StatusOr<RewriteForAnonymizationOutput>
 RewriteForAnonymization(const ResolvedNode& query, Catalog* catalog,
                         TypeFactory* type_factory,
                         const AnalyzerOptions& analyzer_options,

@@ -624,7 +624,7 @@ QueryStmt
     |       +-GetProtoField
     |         +-type=INT64
     |         +-expr=
-    |         | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |         | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |         +-field_descriptor=int64_val
     |         +-default_value=0
     +-input_scan=
@@ -691,22 +691,22 @@ QueryStmt
     |       +-GetProtoField
     |         +-type=INT64
     |         +-expr=
-    |         | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |         | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |         +-field_descriptor=int64_key_1
     +-input_scan=
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
 ==
 
-select struct<f1 date, zetasql_test.TestEnum>("2011-02-05", "TESTENUM1")
+select struct<f1 date, zetasql_test__.TestEnum>("2011-02-05", "TESTENUM1")
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1 AS `$col1` [STRUCT<f1 DATE, ENUM<zetasql_test.TestEnum>>]
+| +-$query.$col1#1 AS `$col1` [STRUCT<f1 DATE, ENUM<zetasql_test__.TestEnum>>]
 +-query=
   +-ProjectScan
     +-column_list=[$query.$col1#1]
     +-expr_list=
-    | +-$col1#1 := Literal(type=STRUCT<f1 DATE, ENUM<zetasql_test.TestEnum>>, value={f1:2011-02-05, TESTENUM1}, has_explicit_type=TRUE)
+    | +-$col1#1 := Literal(type=STRUCT<f1 DATE, ENUM<zetasql_test__.TestEnum>>, value={f1:2011-02-05, TESTENUM1}, has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
 ==

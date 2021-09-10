@@ -25,11 +25,13 @@
 #include "zetasql/public/parse_tokens.h"
 #include "absl/functional/bind_front.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
+#include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/substitute.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/status_macros.h"
 
@@ -48,7 +50,7 @@ bool IsUnclosedTripleQuotedLiteralError(absl::Status status) {
 
 // Pluck next statement terminated by a semiclon from input string. nullopt is
 // returned if more input is necessary, e.g. because a statement is incomplete.
-zetasql_base::StatusOr<absl::optional<absl::string_view>> NextStatement(
+absl::StatusOr<absl::optional<absl::string_view>> NextStatement(
     absl::string_view input) {
   ZETASQL_DCHECK(!input.empty());
 
@@ -81,37 +83,71 @@ zetasql_base::StatusOr<absl::optional<absl::string_view>> NextStatement(
 }
 }  // namespace
 
+std::string ExecuteQueryCompletionRequest::DebugString() const {
+  return absl::Substitute(
+      "body:\"$0\" cursor_pos:$1 word_start:$2 word_end:$3 word:\"$4\"",
+      absl::CEscape(body), cursor_position, word_start, word_end,
+      absl::CEscape(word));
+}
+
+absl::Status ExecuteQueryCompletionRequest::Validate() const {
+  // There are too many offsets to leave them unchecked.
+  ZETASQL_RET_CHECK_LE(cursor_position, body.length());
+  ZETASQL_RET_CHECK_LE(word_start, body.length());
+  ZETASQL_RET_CHECK_LE(word_end, body.length());
+  ZETASQL_RET_CHECK_LE(word_start, word_end);
+  ZETASQL_RET_CHECK_LE(word.size(), word_end - word_start);
+
+  return absl::OkStatus();
+}
+
 ExecuteQueryStatementPrompt::ExecuteQueryStatementPrompt(
-    std::function<zetasql_base::StatusOr<absl::optional<std::string>>(bool)>
-        read_next_func,
-    std::function<zetasql_base::StatusOr<std::vector<std::string>>(absl::string_view,
-                                                           size_t)>
-        autocomplete_func)
-    : read_next_func_{read_next_func}, autocomplete_func_{autocomplete_func} {
+    std::function<absl::StatusOr<absl::optional<std::string>>(bool)>
+        read_next_func)
+    : read_next_func_{read_next_func} {
   ZETASQL_CHECK(read_next_func_);
 }
 
-zetasql_base::StatusOr<std::vector<std::string>>
-ExecuteQueryStatementPrompt::Autocomplete(absl::string_view body,
-                                          size_t cursor_position) {
-  ZETASQL_RET_CHECK_LE(cursor_position, body.length());
+absl::StatusOr<ExecuteQueryCompletionResult>
+ExecuteQueryStatementPrompt::Autocomplete(
+    const ExecuteQueryCompletionRequest &req) {
+  ZETASQL_RET_CHECK_OK(req.Validate());
 
   if (autocomplete_func_ == nullptr) {
-    return std::vector<std::string>{};
+    return ExecuteQueryCompletionResult{};
   }
 
   // Storage for buffered input and new input before cursor position; the rest
   // uses views into this data.
-  const std::string complete_body = absl::StrCat(buf_.Flatten(), body);
+  const std::string complete_body = absl::StrCat(buf_.Flatten(), req.body);
 
-  return autocomplete_func_(complete_body, buf_.size() + cursor_position);
+  // Prepend previously read text
+  const ExecuteQueryCompletionRequest inner_req{
+      .body = complete_body,
+      .cursor_position = buf_.size() + req.cursor_position,
+      .word_start = buf_.size() + req.word_start,
+      .word_end = buf_.size() + req.word_end,
+      .word = req.word,
+  };
+
+  ZETASQL_ASSIGN_OR_RETURN(ExecuteQueryCompletionResult result,
+                   autocomplete_func_(inner_req));
+
+  result.prefix_start -= buf_.size();
+
+  // Append a space for better usability in case the completion is unambiguous.
+  if (result.items.size() == 1) {
+    result.items[0].append(" ");
+  }
+
+  return result;
 }
 
-zetasql_base::StatusOr<absl::optional<std::string>>
+absl::StatusOr<absl::optional<std::string>>
 ExecuteQueryStatementPrompt::Read() {
   while (!(eof_ && buf_.empty() && queue_.empty())) {
     if (!queue_.empty()) {
-      const zetasql_base::StatusOr<absl::optional<std::string>> front{
+      const absl::StatusOr<absl::optional<std::string>> front{
           std::move(queue_.front())};
       queue_.pop_front();
       return front;
@@ -133,7 +169,7 @@ void ExecuteQueryStatementPrompt::ReadInput(bool continuation) {
   ZETASQL_DCHECK(queue_.empty()) << "Queue must be drained before reading again";
   ZETASQL_DCHECK(!eof_) << "Can't read after EOF";
 
-  zetasql_base::StatusOr<absl::optional<std::string>> input{
+  absl::StatusOr<absl::optional<std::string>> input{
       read_next_func_(continuation)};
 
   if (!input.ok()) {
@@ -166,7 +202,7 @@ void ExecuteQueryStatementPrompt::ReadInput(bool continuation) {
 
 void ExecuteQueryStatementPrompt::ProcessBuffer() {
   while (!buf_.empty()) {
-    zetasql_base::StatusOr<absl::optional<absl::string_view>> stmt =
+    absl::StatusOr<absl::optional<absl::string_view>> stmt =
         NextStatement(buf_.Flatten());
 
     if (!stmt.ok()) {

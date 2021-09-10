@@ -44,7 +44,7 @@
 #include "absl/container/inlined_vector.h"
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
@@ -587,14 +587,14 @@ static std::string MakeReadValueErrorReason(
 namespace {
 
 struct VisitIntegerWireValueAsInt64 {
-  zetasql_base::StatusOr<int64_t> operator()(int32_t i) const { return i; }
-  zetasql_base::StatusOr<int64_t> operator()(int64_t i) const { return i; }
-  zetasql_base::StatusOr<int64_t> operator()(uint32_t i) const { return i; }
-  zetasql_base::StatusOr<int64_t> operator()(uint64_t i) const {
+  absl::StatusOr<int64_t> operator()(int32_t i) const { return i; }
+  absl::StatusOr<int64_t> operator()(int64_t i) const { return i; }
+  absl::StatusOr<int64_t> operator()(uint32_t i) const { return i; }
+  absl::StatusOr<int64_t> operator()(uint64_t i) const {
     return absl::bit_cast<int64_t>(i);
   }
   template <typename T>
-  zetasql_base::StatusOr<int64_t> operator()(T) const {
+  absl::StatusOr<int64_t> operator()(T) const {
     ZETASQL_RET_CHECK_FAIL() << "Unexpected type kind " << typeid(T).name()
                      << " in IntegerWireValueAsInt64()";
   }
@@ -602,7 +602,7 @@ struct VisitIntegerWireValueAsInt64 {
 
 // Same as 'value.ToInt64()', except uint64s are casted to int64_t, and bools and
 // enums are not supported.
-zetasql_base::StatusOr<int64_t> IntegerWireValueAsInt64(const WireValueType& value) {
+absl::StatusOr<int64_t> IntegerWireValueAsInt64(const WireValueType& value) {
   return absl::visit(VisitIntegerWireValueAsInt64(), value);
 }
 
@@ -611,7 +611,7 @@ zetasql_base::StatusOr<int64_t> IntegerWireValueAsInt64(const WireValueType& val
 // Translate the proto field value 'wire_value' (obtained from ReadWireValue())
 // to the corresponding zetasql Value. 'type' must correspond to
 // 'field_descriptor' and 'format'.
-static zetasql_base::StatusOr<Value> TranslateWireValue(
+static absl::StatusOr<Value> TranslateWireValue(
     const WireValueType& wire_value,
     const google::protobuf::FieldDescriptor* field_descriptor, FieldFormat::Format format,
     const Type* type) {
@@ -774,7 +774,7 @@ static bool ReadPackedWireValues(int tag_number,
 }
 
 // Optimized version of ReadProtoFields where only one field is being fetched.
-static zetasql_base::StatusOr<Value> ReadSingularProtoField(
+static absl::StatusOr<Value> ReadSingularProtoField(
     const ProtoFieldInfo& field_info, const absl::Cord& bytes) {
   const int field_info_tag = field_info.descriptor->number();
 
@@ -862,6 +862,15 @@ static zetasql_base::StatusOr<Value> ReadSingularProtoField(
       return field_info.default_value;
     }
   }
+  if (elements.size() > 1 &&
+      field_info.type->IsProto()) {
+    // Merge multiple occurrences of embedded message
+    absl::Cord merged_message;
+    for (const auto& element : elements) {
+      merged_message.Append(element.ToCord());
+    }
+    return Value::Proto(field_info.type->AsProto(), merged_message);
+  }
   return std::move(elements.back());
 }
 
@@ -873,7 +882,7 @@ using FieldInfoMap = absl::flat_hash_map<int, std::vector<int>>;
 // Maps a ProtoFieldInfo (by its index) to the corresponding Values we have
 // seen for it, with errors for failure to convert wire values to the
 // appropriate FieldFormats.
-using ElementValueList = std::vector<std::vector<zetasql_base::StatusOr<Value>>>;
+using ElementValueList = std::vector<std::vector<absl::StatusOr<Value>>>;
 
 }  // namespace
 
@@ -885,7 +894,7 @@ absl::Status ReadProtoFields(
       absl::GetFlag(FLAGS_zetasql_read_proto_field_optimized_path);
 
   if (use_optimization) {
-    ZETASQL_ASSIGN_OR_RETURN(zetasql_base::StatusOr<Value> value,
+    ZETASQL_ASSIGN_OR_RETURN(absl::StatusOr<Value> value,
                      ReadSingularProtoField(*field_infos[0], bytes));
     field_value_list->push_back(std::move(value));
     return absl::OkStatus();
@@ -957,7 +966,7 @@ absl::Status ReadProtoFields(
       for (int i = 0; i < info_idxs->size(); ++i) {
         const int idx = (*info_idxs)[i];
         const ProtoFieldInfo* info = field_infos[idx];
-        std::vector<zetasql_base::StatusOr<Value>>& elements = element_value_list[idx];
+        std::vector<absl::StatusOr<Value>>& elements = element_value_list[idx];
 
         if (info->get_has_bit) {
           if (elements.empty()) {
@@ -979,18 +988,18 @@ absl::Status ReadProtoFields(
   // 'field_value_list'.
   for (int i = 0; i < field_infos.size(); ++i) {
     const ProtoFieldInfo* info = field_infos[i];
-    std::vector<zetasql_base::StatusOr<Value>>& values = element_value_list[i];
+    std::vector<absl::StatusOr<Value>>& values = element_value_list[i];
     if (info->get_has_bit) {
       (*field_value_list)[i] = Value::Bool(!values.empty());
     } else {
-      zetasql_base::StatusOr<Value> new_value;
+      absl::StatusOr<Value> new_value;
 
       ZETASQL_RET_CHECK_EQ(info->type->IsArray(), info->descriptor->is_repeated());
       if (info->type->IsArray()) {
         std::vector<Value> element_values;
         element_values.reserve(values.size());
         bool success = true;
-        for (zetasql_base::StatusOr<Value>& value : values) {
+        for (absl::StatusOr<Value>& value : values) {
           if (ABSL_PREDICT_FALSE(!value.ok())) {
             success = false;
             new_value = value.status();
@@ -1010,6 +1019,23 @@ absl::Status ReadProtoFields(
                                        info->descriptor->full_name());
         } else {
           new_value = info->default_value;
+        }
+      } else if (
+          values.size() > 1 &&
+          info->type->IsProto()) {
+        // Merge multiple occurrences of embedded message
+        absl::Cord merged_message;
+        bool success = true;
+        for (const absl::StatusOr<Value>& value : values) {
+          if (!value.ok()) {
+            success = false;
+            new_value = value;
+            break;
+          }
+          merged_message.Append(value->ToCord());
+        }
+        if (success) {
+          new_value = Value::Proto(info->type->AsProto(), merged_message);
         }
       } else {
         new_value = std::move(values.back());
@@ -1036,7 +1062,7 @@ absl::Status ReadProtoField(const google::protobuf::FieldDescriptor* field_descr
   ProtoFieldValueList field_value_list;
   ZETASQL_RETURN_IF_ERROR(ReadProtoFields({&info}, bytes, &field_value_list));
   ZETASQL_RET_CHECK_EQ(field_value_list.size(), 1);
-  const zetasql_base::StatusOr<Value>& status_or_value = field_value_list[0];
+  const absl::StatusOr<Value>& status_or_value = field_value_list[0];
   ZETASQL_RETURN_IF_ERROR(status_or_value.status());
   *output_value = status_or_value.value();
   return absl::OkStatus();
@@ -1075,6 +1101,9 @@ absl::Status ProtoHasField(
 }
 
 bool IsProtoMap(const Type* type) {
+  if (type == nullptr) {
+    return false;
+  }
   if (!type->IsArray()) return false;
   const Type* element = type->AsArray()->element_type();
   if (!element->IsProto()) return false;

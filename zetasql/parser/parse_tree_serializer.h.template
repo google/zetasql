@@ -1,0 +1,76 @@
+//
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+#ifndef ZETASQL_PARSER_PARSE_TREE_SERIALIZER_H_
+#define ZETASQL_PARSER_PARSE_TREE_SERIALIZER_H_
+
+#include "zetasql/parser/parse_tree.h"
+#include "zetasql/parser/parse_tree.pb.h"
+#include "zetasql/base/status.h"
+
+// NOLINTBEGIN(whitespace/line_length)
+
+namespace zetasql {
+
+class ParseTreeSerializer {
+ public:
+  // Serialize an ASTStatement to proto.
+  static absl::Status Serialize(const ASTStatement* node,
+                                AnyASTStatementProto* proto);
+
+  // Serialize an ASTExpression to proto.
+  static absl::Status Serialize(const ASTExpression* node,
+                                AnyASTExpressionProto* proto);
+
+  // Serialize an ASTType to proto.
+  static absl::Status Serialize(const ASTType* node, AnyASTTypeProto* proto);
+
+ private:
+  // Every class ASTFoo, whether abstract or final, has a corresponding
+  // static method in ParseTreeSerializer class with signature:
+  //   Serialize(const ASTFoo*, ASTFooProto* proto).
+  //
+  // Additionally, for each abstract parent class ASTBar below ASTNode
+  // in ASTFoo's ancestry there is a method with signature:
+  //   Serialize(const ASTFoo*, AnyASTBarProto* proto).
+  //
+  // If ASTFoo is abstract, it also has a method with signature:
+  //   Serialize(const ASTFoo*, AnyASTFooProto* proto)
+  //
+  // The public API comprises only the Serialize() method for ASTStatement,
+  // ASTExpression and ASTType.
+
+  static absl::Status Serialize(const ASTNode* node,
+                                ASTNodeProto* proto);
+
+# for node in nodes
+{{blank_line}}
+  static absl::Status Serialize(const {{node.name}}* node,
+                                {{node.proto_type}}* proto);
+ # for tag_id, ancestor in node.ancestors|dictsort
+  static absl::Status Serialize(const {{node.name}}* node,
+                                {{ancestor.proto_field_type}}* proto);
+ # endfor
+ # if node.is_abstract and not node.name in ['ASTStatement', 'ASTExpression', 'ASTType']
+  static absl::Status Serialize(const {{node.name}}* node,
+                                {{node.proto_field_type}}* proto);
+ # endif
+# endfor
+};
+}  // namespace zetasql
+// NOLINTEND
+#endif  // ZETASQL_PARSER_PARSE_TREE_SERIALIZER_H_
+{{blank_line}}

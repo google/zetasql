@@ -25,7 +25,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
@@ -107,7 +107,7 @@ inline std::vector<TupleData> ReadFromTupleIteratorFull(
 
 // Simpler form of the above that returns an error if the final status is an
 // error.
-inline zetasql_base::StatusOr<std::vector<TupleData>> ReadFromTupleIterator(
+inline absl::StatusOr<std::vector<TupleData>> ReadFromTupleIterator(
     TupleIterator* iter) {
   absl::Status end_status;
   std::vector<TupleData> data = ReadFromTupleIteratorFull(iter, &end_status);

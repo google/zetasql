@@ -18,10 +18,16 @@
 #define ZETASQL_PUBLIC_TYPES_TYPE_PARAMETERS_H_
 
 #include <cstdint>
+#include <string>
+#include <utility>
+#include <vector>
 
+#include "zetasql/base/logging.h"
 #include "zetasql/public/type_parameters.pb.h"
 #include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/type.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/types/optional.h"
 #include "absl/types/variant.h"
 
@@ -40,7 +46,7 @@ class ExtendedTypeParameters {
 
   std::string DebugString() const;
   absl::Status Serialize(ExtendedTypeParametersProto* proto) const;
-  static zetasql_base::StatusOr<ExtendedTypeParameters> Deserialize(
+  static absl::StatusOr<ExtendedTypeParameters> Deserialize(
       const ExtendedTypeParametersProto& proto);
   bool Equals(const ExtendedTypeParameters& that) const;
 
@@ -58,11 +64,11 @@ class TypeParameters {
   TypeParameters();
 
   // Constructs type parameters for STRING(L) or BYTES(L) type.
-  static zetasql_base::StatusOr<TypeParameters> MakeStringTypeParameters(
+  static absl::StatusOr<TypeParameters> MakeStringTypeParameters(
       const StringTypeParametersProto& string_type_parameters);
 
   // Constructs type parameters for NUMERIC(P[,S]) or BIGNUMERIC(P[,S]) type.
-  static zetasql_base::StatusOr<TypeParameters> MakeNumericTypeParameters(
+  static absl::StatusOr<TypeParameters> MakeNumericTypeParameters(
       const NumericTypeParametersProto& numeric_type_parameters);
 
   // Constructs type parameters for extended type. <child_list> is optional;
@@ -150,8 +156,8 @@ class TypeParameters {
   void set_child_list(std::vector<TypeParameters> child_list);
 
   absl::Status Serialize(TypeParametersProto* proto) const;
-  zetasql_base::StatusOr<std::string> SerializeAsString() const;
-  static zetasql_base::StatusOr<TypeParameters> Deserialize(
+  absl::StatusOr<std::string> SerializeAsString() const;
+  static absl::StatusOr<TypeParameters> Deserialize(
       const TypeParametersProto& proto);
   std::string DebugString() const;
   bool Equals(const TypeParameters& that) const;

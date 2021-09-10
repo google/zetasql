@@ -33,7 +33,7 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
@@ -859,6 +859,12 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
       }
       return absl::OkStatus();
     }
+    case AST_AUX_LOAD_DATA_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_AUX_LOAD_DATA_STMT)) {
+        return absl::OkStatus();
+      }
+      break;
     default:
       break;
   }

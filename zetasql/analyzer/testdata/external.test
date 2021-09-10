@@ -237,25 +237,25 @@ select ARRAY<INT32>[1, 2]
 ==
 
 # Named proto types are not allowed
-select new zetasql_test.EmptyMessage()
+select new zetasql_test__.EmptyMessage()
 --
-ERROR: Type not found: zetasql_test.EmptyMessage [at 1:12]
-select new zetasql_test.EmptyMessage()
+ERROR: Type not found: zetasql_test__.EmptyMessage [at 1:12]
+select new zetasql_test__.EmptyMessage()
            ^
 ==
 
 # Named enum types are not allowed
-select CAST(1 as `zetasql_test.TestEnum`)
+select CAST(1 as `zetasql_test__.TestEnum`)
 --
-ERROR: Type not found: `zetasql_test.TestEnum` [at 1:18]
-select CAST(1 as `zetasql_test.TestEnum`)
+ERROR: Type not found: `zetasql_test__.TestEnum` [at 1:18]
+select CAST(1 as `zetasql_test__.TestEnum`)
                  ^
 ==
 
-select CAST(1 as zetasql_test.TestEnum)
+select CAST(1 as zetasql_test__.TestEnum)
 --
-ERROR: Type not found: zetasql_test.TestEnum [at 1:18]
-select CAST(1 as zetasql_test.TestEnum)
+ERROR: Type not found: zetasql_test__.TestEnum [at 1:18]
+select CAST(1 as zetasql_test__.TestEnum)
                  ^
 ==
 

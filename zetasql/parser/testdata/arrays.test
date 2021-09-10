@@ -544,7 +544,7 @@ QueryStatement [0-29]
             NullLiteral(NULL) [24-28]
 --
 SELECT
-  a[- 1],
+  a[-1],
   a['x'],
   a[NULL]
 ==

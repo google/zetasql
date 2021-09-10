@@ -22,15 +22,21 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "google/protobuf/message.h"
 #include "zetasql/public/collator.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
+#include "zetasql/reference_impl/common.h"
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/tuple.h"
 #include <cstdint>
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/source_location.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
@@ -56,9 +62,25 @@ static absl::Status GetZetaSqlCollators(
                << "COLLATE requires non-NULL collation name";
       }
 
-      const std::string& collation_name = collation_value.string_value();
-      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ZetaSqlCollator> collator,
-                       MakeSqlCollatorLite(collation_name));
+      std::unique_ptr<const ZetaSqlCollator> collator;
+      switch (collation_value.type_kind()) {
+        case TYPE_STRING: {
+          ZETASQL_ASSIGN_OR_RETURN(collator,
+                           MakeSqlCollatorLite(collation_value.string_value()));
+          break;
+        }
+        case TYPE_PROTO: {
+          ZETASQL_ASSIGN_OR_RETURN(
+              collator, GetCollatorFromResolvedCollationValue(collation_value));
+          break;
+        }
+        default:
+          ZETASQL_RET_CHECK_FAIL() << "Unexpected type kind of collation_value "
+                           << Type::TypeKindToString(
+                                  collation_value.type_kind(),
+                                  PRODUCT_INTERNAL);
+      }
+
       collators->emplace_back(std::move(collator));
     } else {
       collators->emplace_back(nullptr);
@@ -68,7 +90,7 @@ static absl::Status GetZetaSqlCollators(
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<std::unique_ptr<TupleComparator>> TupleComparator::Create(
+absl::StatusOr<std::unique_ptr<TupleComparator>> TupleComparator::Create(
     absl::Span<const KeyArg* const> keys, absl::Span<const int> slots_for_keys,
     absl::Span<const TupleData* const> params, EvaluationContext* context) {
   std::shared_ptr<Collators> collators =

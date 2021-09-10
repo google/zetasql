@@ -85,7 +85,7 @@
 #include "absl/cleanup/cleanup.h"
 #include "absl/container/node_hash_set.h"
 #include "absl/memory/memory.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "file_based_test_driver/file_based_test_driver.h"  
@@ -160,7 +160,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
 
   // Returns a debug string.
   static std::string ToString(
-      const zetasql_base::StatusOr<ComplianceTestCaseResult>& status);
+      const absl::StatusOr<ComplianceTestCaseResult>& status);
   static std::string ToString(const std::map<std::string, Value>& parameters);
 
   // Returns the error matcher to match legal runtime errors.
@@ -214,12 +214,12 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
 
   // Executes a test case, either as a standalone statement, or as a script,
   // depending on <script_mode_>.
-  zetasql_base::StatusOr<ComplianceTestCaseResult> ExecuteTestCase(
+  absl::StatusOr<ComplianceTestCaseResult> ExecuteTestCase(
       const std::string& sql, const std::map<std::string, Value>& parameters);
 
  public:
   // Executes 'sql', as a standalone statement.
-  virtual zetasql_base::StatusOr<Value> ExecuteStatement(
+  virtual absl::StatusOr<Value> ExecuteStatement(
       const std::string& sql, const std::map<std::string, Value>& parameters);
 
   // Use file-based test driver to run tests of a given file. Will be called
@@ -287,34 +287,34 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // Sample syntax of the gMock matchers.
   //   EXPECT_THAT(RunStatement(sql), Returns(x));
   //   EXPECT_THAT(RunStatement(sql), ReturnsSuccess());
-  ::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&> Returns(
+  ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&> Returns(
       const Value& result, const absl::Status& status = absl::OkStatus(),
       FloatMargin float_margin = kExactFloatMargin) {
     return Returns(ComplianceTestCaseResult(result), status, float_margin);
   }
-  ::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&> Returns(
+  ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&> Returns(
       const ComplianceTestCaseResult& result,
       const absl::Status& status = absl::OkStatus(),
       FloatMargin float_margin = kExactFloatMargin);
-  ::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&> Returns(
-      const zetasql_base::StatusOr<ComplianceTestCaseResult>& result,
+  ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&> Returns(
+      const absl::StatusOr<ComplianceTestCaseResult>& result,
       FloatMargin float_margin = kExactFloatMargin);
-  ::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&> Returns(
+  ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&> Returns(
       const std::string& result);
-  ::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&> Returns(
-      const ::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&>
+  ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&> Returns(
+      const ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>
           matcher);
   // A googletest matcher that only checks if the result has OK status.
-  ::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&>
+  ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>
   ReturnsSuccess();
   // A googletest matcher that only checks the result and records nothing.
-  ::testing::Matcher<const zetasql_base::StatusOr<ComplianceTestCaseResult>&>
-  ReturnsCheckOnly(const zetasql_base::StatusOr<ComplianceTestCaseResult>& result,
+  ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>
+  ReturnsCheckOnly(const absl::StatusOr<ComplianceTestCaseResult>& result,
                    FloatMargin float_margin = kExactFloatMargin);
 
   // Runs statements with optional parameters. Parameters can have optional
   // names.
-  zetasql_base::StatusOr<ComplianceTestCaseResult> RunStatement(
+  absl::StatusOr<ComplianceTestCaseResult> RunStatement(
       const std::string& sql, const std::vector<Value>& params = {},
       const std::vector<std::string>& param_names = {});
 
@@ -423,7 +423,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
     // running a file-based test.
     void StartFileBasedStatements() { file_based_statements_ = true; }
     void EndFileBasedStatements() { file_based_statements_ = false; }
-    // Used by ::testing::Matcher<const zetasql_base::StatusOr<Value>&> to call
+    // Used by ::testing::Matcher<const absl::StatusOr<Value>&> to call
     // the right RecordFailed*Statement().
     bool IsFileBasedStatement() { return file_based_statements_; }
 
@@ -503,7 +503,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
 
   // Helper function to implement ExecuteTestCase(), either when
   // executing a script, or when ExecuteStatement() isn't overridden.
-  zetasql_base::StatusOr<ComplianceTestCaseResult> ExecuteTestCaseImpl(
+  absl::StatusOr<ComplianceTestCaseResult> ExecuteTestCaseImpl(
       const std::string& sql, const std::map<std::string, Value>& parameters);
 
   // Internal state that controls the file-level workflow.
@@ -566,8 +566,36 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // File-level workflow step functions.
   // Prepare default timezone, protos and enums.
   virtual void StepPrepareTimeZoneProtosEnums();
+
   // Prepare a test database for a *.test file.
+  // Per-File Schema and Data
+  //
+  // Tables can be created in a *.test file by one of the two test case options:
+  //
+  //   [prepare_database]
+  //   CREATE TABLE <table_name> AS SELECT ...
+  //
+  // The "SELECT ..." or the "CREATE TABLE ..." is not considered a test case.
+  // The statement will be executed by the reference implementation engine, and
+  // the result is used to create a table under name "table_name". A
+  // [prepare_database] and its CREATE TABLE ... statement define a section, and
+  // must be separated from others by "==". Multiple tables can be created by a
+  // group of [prepare_database] sections, which must precede any tests in the
+  // file.
+  //
+  // Use "UNION ALL" construct to create multiple rows. Define value types and
+  // column names in the first row and subsequent rows will inherit the types
+  // and column names. For example:
+  //
+  //   SELECT int32_t(1) as Column_1, int64_t(2) as Column_2 UNION ALL
+  //     SELECT 4, 5 UNION ALL
+  //     SELECT 7, 8
+  //
+  // [prepare_database] sections are not considered test cases. They do not
+  // require names and any names, labels, global labels, or descriptions will be
+  // ignored.
   virtual void StepPrepareDatabase();
+
   // Create the prepared test database for a *.test file.
   virtual void StepCreateDatabase();
   // Statement-level workflow step functions.
@@ -898,47 +926,9 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // Set of labels in known_error files that affect current statement.
   std::set<std::string> by_set_;
 
-  // Per-File Schema and Data
-  //
-  // Tables can be created in a *.test file by one of the two test case options:
-  //
-  //   [prepare_database]
-  //   CREATE TABLE <table_name> AS SELECT ...
-  //
-  // The "SELECT ..." or the "CREATE TABLE ..." is not considered a test case.
-  // The statement will be executed by the reference implementation engine, and
-  // the result is used to create a table under name "table_name". A
-  // [prepare_database] and its CREATE TABLE ... statement define a section, and
-  // must be separated from others by "==". Multiple tables can be created by a
-  // group of [prepare_database] sections, which must precede any tests in the
-  // file.
-  //
-  // Use "UNION ALL" construct to create multiple rows. Define value types and
-  // column names in the first row and subsequent rows will inherit the types
-  // and column names. For example:
-  //
-  //   SELECT int32_t(1) as Column_1, int64_t(2) as Column_2 UNION ALL
-  //     SELECT 4, 5 UNION ALL
-  //     SELECT 7, 8
-  //
-  // [prepare_database] sections are not considered test cases. They do not
-  // require names and any names, labels, global labels, or descriptions will be
-  // ignored.
-
-  // Construct a Value by executing the SQL statement sql_without_options on
-  // the reference implementation engine. Store it to be the content of the
-  // table that will be be created later.
-  absl::Status PrepareTable(const std::string& table_name,
-                            const std::string& sql_without_options,
-                            const std::map<std::string, Value>& parameters,
-                            const std::set<LanguageFeature>& required_features
-                            ,
-                            const std::string& userid_column
-  );
-
   // Validate a statement result to make sure the status is OK, the value is not
   // null, and is valid.
-  absl::Status ValidateStatementResult(const zetasql_base::StatusOr<Value>& result,
+  absl::Status ValidateStatementResult(const absl::StatusOr<Value>& result,
                                        const std::string& statement) const;
 
   // Processes test case options [load_proto_files], [load_proto_names], and
@@ -1034,9 +1024,9 @@ namespace internal {
 
 // Teaches googletest to print StatusOr<Value>.
 template <>
-class UniversalPrinter<zetasql_base::StatusOr<::zetasql::Value>> {
+class UniversalPrinter<absl::StatusOr<::zetasql::Value>> {
  public:
-  static void Print(const zetasql_base::StatusOr<::zetasql::Value>& status_or,
+  static void Print(const absl::StatusOr<::zetasql::Value>& status_or,
                     ::std::ostream* os) {
     *os << ::zetasql::SQLTestBase::ToString(status_or);
   }

@@ -1767,7 +1767,7 @@ QueryStatement [0-108]
 --
 SELECT
   0x0,
-  - 0x01 AS a,
+  -0x01 AS a,
   0X000000001 AS a,
   0x0123456789AbCdEf,
   0xffffffffffffffffffffffffffffffffffffffff
@@ -2081,7 +2081,7 @@ QueryStatement [0-21]
             NumericLiteral('100') [8-21]
 --
 SELECT
-  - NUMERIC '100'
+  -NUMERIC '100'
 ==
 
 # Note that some of the literals here do not construct valid BIGNUMERIC values.
@@ -2262,7 +2262,7 @@ QueryStatement [0-24]
             BigNumericLiteral('100') [8-24]
 --
 SELECT
-  - BIGNUMERIC '100'
+  -BIGNUMERIC '100'
 ==
 
 select JSON '1'

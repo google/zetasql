@@ -25,6 +25,7 @@
 #include <memory>
 #include <optional>
 #include <queue>
+#include <stack>
 #include <string>
 #include <utility>
 #include <vector>
@@ -37,7 +38,7 @@
 #include <cstdint>  
 #include "absl/base/optimization.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
@@ -50,7 +51,7 @@
 namespace zetasql {
 
 using JSON = ::nlohmann::json;
-using ::zetasql_base::StatusOr;
+using ::absl::StatusOr;
 
 namespace {
 
@@ -167,7 +168,7 @@ class JSONValueBuilder {
   // Returns non-ok status in case of failure. Otherwise, returns the pointer
   // to the added value.
   template <typename Value>
-  zetasql_base::StatusOr<JSON*> HandleValue(Value&& v) {
+  absl::StatusOr<JSON*> HandleValue(Value&& v) {
     if (ref_stack_.empty()) {
       value_ = JSON(std::forward<Value>(v));
       return &value_;
@@ -502,6 +503,13 @@ std::string JSONValueConstRef::GetString() const {
 
 bool JSONValueConstRef::GetBoolean() const { return impl_->value.get<bool>(); }
 
+size_t JSONValueConstRef::GetObjectSize() const {
+  if (ABSL_PREDICT_FALSE(!IsObject())) {
+    ZETASQL_LOG(FATAL) << "JSON value is not an object";
+  }
+  return impl_->value.size();
+}
+
 bool JSONValueConstRef::HasMember(absl::string_view key) const {
   return impl_->value.find(key) != impl_->value.end();
 }
@@ -533,7 +541,12 @@ JSONValueConstRef::GetMembers() const {
   return members;
 }
 
-size_t JSONValueConstRef::GetArraySize() const { return impl_->value.size(); }
+size_t JSONValueConstRef::GetArraySize() const {
+  if (ABSL_PREDICT_FALSE(!IsArray())) {
+    ZETASQL_LOG(FATAL) << "JSON value is not an array";
+  }
+  return impl_->value.size();
+}
 
 JSONValueConstRef JSONValueConstRef::GetArrayElement(size_t index) const {
   return JSONValueConstRef(
@@ -600,6 +613,37 @@ uint64_t JSONValueConstRef::SpaceUsed() const {
     }
   }
   return space_used;
+}
+
+bool JSONValueConstRef::NestingLevelExceedsMax(int64_t max_nesting) const {
+  // Align the max_nesting behavior with definition in `JSONParsingOptions`.
+  if (max_nesting < 0) {
+    max_nesting = 0;
+  }
+  if (!IsArray() && !IsObject()) {
+    return false;
+  }
+  // For each element in the stack, it holds the [begin,end) iterators of
+  // unproccessed JSON document.
+  std::stack<std::pair<JSON::const_iterator, JSON::const_iterator>> stack;
+  stack.emplace(impl_->value.cbegin(), impl_->value.cend());
+  while (!stack.empty()) {
+    if (stack.size() > max_nesting) {
+      return true;
+    }
+    if (stack.top().first == stack.top().second) {
+      stack.pop();
+      continue;
+    }
+    JSON::const_iterator first_child = stack.top().first;
+    // Advance the iterator to next unprocessed child JSON document.
+    ++stack.top().first;
+    // Push the first child's [begin,end) iff it's nonscalar json document.
+    if (first_child->is_array() || first_child->is_object()) {
+      stack.emplace(first_child->cbegin(), first_child->cend());
+    }
+  }
+  return false;
 }
 
 // This equality operation uses nlohmann's implementation.

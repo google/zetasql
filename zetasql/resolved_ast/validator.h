@@ -32,6 +32,16 @@
 #include "zetasql/base/status_builder.h"
 namespace zetasql {
 
+// Options to disable certain validations. Options are used to retroactively
+// add validations of invariants even if some client code still needs to be
+// cleaned up. A non-default ValidatorOptions in client code signals a cleanup
+// is needed to resolve broken invariants.
+struct ValidatorOptions {
+  // When set to false disables checking that all parameter columns of a
+  // ResolvedSubquery are referenced somewhere in that subquery.
+  bool validate_no_unreferenced_subquery_params = true;
+};
+
 // Used to validate generated Resolved AST structures.
 //  * verifies that any column reference  within the resolved tree should be
 //    either from the column_list of one of the child nodes of the parent scan
@@ -39,7 +49,8 @@ namespace zetasql {
 class Validator {
  public:
   Validator();
-  explicit Validator(const LanguageOptions& language_options);
+  explicit Validator(const LanguageOptions& language_options,
+                     ValidatorOptions validator_options = {});
   Validator(const Validator&) = delete;
   Validator& operator=(const Validator&) = delete;
   ~Validator();
@@ -407,8 +418,19 @@ class Validator {
       const std::vector<std::unique_ptr<const ResolvedTableAndColumnInfo>>&
           table_and_column_info_list);
 
+  absl::Status ValidateCollateExpr(
+      const ResolvedExpr* resolved_collate);
+
   absl::Status ValidateColumnAnnotations(
       const ResolvedColumnAnnotations* annotations);
+
+  absl::Status ValidateUpdatedAnnotations(
+      const ResolvedColumnAnnotations* annotations);
+
+  absl::Status ValidateColumnDefinitions(
+      const std::vector<std::unique_ptr<const ResolvedColumnDefinition>>&
+          column_definitions,
+      std::set<ResolvedColumn>* visible_columns);
 
   absl::Status ValidatePercentArgument(const ResolvedExpr* expr);
 
@@ -525,6 +547,9 @@ class Validator {
       const ResolvedAddConstraintAction* action,
       absl::flat_hash_set<std::string>* constraint_names);
 
+  absl::Status ValidateResolvedAuxLoadDataStmt(
+      const ResolvedAuxLoadDataStmt* stmt);
+
   // Checks that <expr> contains only ColumnRefs, GetProtoField, GetStructField
   // and GetJsonField expressions. Sets 'ref' to point to the leaf
   // ResolvedColumnRef.
@@ -603,6 +628,9 @@ class Validator {
     const ResolvedRecursiveScan* scan;
     bool saw_recursive_ref = false;
   };
+
+  // Options that disable validation of certain invariants.
+  const ValidatorOptions options_;
 
   ArgumentKindSet allowed_argument_kinds_;
 

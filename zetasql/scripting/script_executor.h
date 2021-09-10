@@ -23,9 +23,11 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/evaluator.h"
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/function_signature.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/scripting/control_flow_graph.h"
@@ -33,7 +35,9 @@
 #include "zetasql/scripting/script_segment.h"
 #include "zetasql/scripting/stack_frame.h"
 #include "zetasql/scripting/type_aliases.h"
-#include "zetasql/base/statusor.h"
+#include "zetasql/scripting/variable.pb.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -94,13 +98,13 @@ class ScriptExecutor {
   // references an invalid column, table name, etc.  Such errors will appear
   // only during execution, and only if the statement causing the error is
   // reached.
-  static zetasql_base::StatusOr<std::unique_ptr<ScriptExecutor>> Create(
+  static absl::StatusOr<std::unique_ptr<ScriptExecutor>> Create(
       absl::string_view script, const ScriptExecutorOptions& options,
       StatementEvaluator* statement_evaluator);
 
   // Similar to the above function, but uses an existing, externally-owned
   // AST, rather than parsing the script text.
-  static zetasql_base::StatusOr<std::unique_ptr<ScriptExecutor>> CreateFromAST(
+  static absl::StatusOr<std::unique_ptr<ScriptExecutor>> CreateFromAST(
       absl::string_view script, const ASTScript* ast_script,
       const ScriptExecutorOptions& options,
       StatementEvaluator* statement_evaluator);
@@ -136,20 +140,28 @@ class ScriptExecutor {
   // Returns the text of the original script, as passed to Create().
   virtual absl::string_view GetScriptText() const = 0;
 
-  // Returns the analyzer options to be used for resolving queries.  This can
-  // change as the script executes, and should not be cached by the
-  // StatementEvaluator implementation.
-  virtual const AnalyzerOptions& GetAnalyzerOptions() const = 0;
+  // Returns the current time zone. The initial value is determined from the
+  // ScriptExecutorOptions, but can change as the script executes via
+  // assignments to @@time_zone.
+  virtual absl::TimeZone time_zone() const = 0;
+
+  virtual int64_t stack_depth() const = 0;
+
+  // Updates <analyzer_options> to reflect the current state of the script:
+  // - Registers all system variables owned by ScriptExecutor. (Returns an error
+  //     if any of these system variables already exist).
+  // - Sets the default time zone according to @@time_zone
+  // - If the current stack frame uses custom query parameters, updates the
+  //    query parameters accordingly. (This is currently possible only through
+  //    dynamic SQL).
+  // Other attributes of <analyzer_options> remain unchanged.
+  virtual absl::Status UpdateAnalyzerOptions(
+      AnalyzerOptions& analyzer_options) const = 0;
 
   // Returns current stack frame's query parameters
   virtual const std::optional<
       absl::variant<ParameterValueList, ParameterValueMap>>&
   GetCurrentParameterValues() const = 0;
-
-  // Updates AnalyzerOptions's query parameters based on the current stack
-  // frame.
-  virtual absl::Status UpdateAnalyzerOptionParameters(
-      AnalyzerOptions* options) const = 0;
 
   // Returns the next statement or clause to be executed. Nullptr if the script
   // has finished.
@@ -169,7 +181,7 @@ class ScriptExecutor {
   // Gets stack trace of current execution stack. Vector index 0 is the current
   // StackFrame that is being executed and on the top of callstack. Returns
   // empty vector if script has completed.
-  virtual zetasql_base::StatusOr<std::vector<StackFrameTrace>> StackTrace() const = 0;
+  virtual absl::StatusOr<std::vector<StackFrameTrace>> StackTrace() const = 0;
 
   // Returns the currently executing stack frame. Returns null is the script
   // has completed.
@@ -211,17 +223,21 @@ class ScriptExecutor {
   //
   // <ast_assignment> represents the AST node of the assignment statement, and
   // should used to determine error locations.
-  virtual zetasql_base::StatusOr<bool> DefaultAssignSystemVariable(
+  virtual absl::StatusOr<bool> DefaultAssignSystemVariable(
       const ASTSystemVariableAssignment* ast_assignment,
       const Value& value) = 0;
 
   // Gets a snapshot of state of currently executing script. See
   // ScriptExecutorStateProto definition for detail.
-  virtual zetasql_base::StatusOr<ScriptExecutorStateProto> GetState() const = 0;
+  virtual absl::StatusOr<ScriptExecutorStateProto> GetState() const = 0;
 
   // Sets the state of the currently executing script, including full call
   // stack. See ScriptExecutorStateProto definition for detail.
   virtual absl::Status SetState(const ScriptExecutorStateProto& state) = 0;
+
+  // Get the predefined variables that were created before script run and exist
+  // outside of the script scope.
+  virtual VariableSet GetPredefinedVariableNames() const = 0;
 };
 
 // Interface for native procedure.
@@ -305,6 +321,12 @@ class ProcedureDefinition {
 //
 class StatementEvaluator {
  public:
+  struct VariableChange {
+    IdString var_name;
+    Value value;
+    TypeParameters type_params;
+  };
+
   virtual ~StatementEvaluator() = default;
 
   // Executes a single ZetaSQL statement.
@@ -320,27 +342,39 @@ class StatementEvaluator {
   // - AST_QUERY_STATEMENT
   // - AST_QUERY
   // Should not be called in dry run.
-  virtual zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+  virtual absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
   ExecuteQueryWithResult(const ScriptExecutor& executor,
                          const ScriptSegment& segment) = 0;
 
   // Serializes iterator to an Any message.
-  virtual absl::Status SerializeIterator(
-      const EvaluatorTableIterator& iterator,
-      google::protobuf::Any& out) = 0;
+  virtual absl::Status SerializeIterator(const EvaluatorTableIterator& iterator,
+                                         google::protobuf::Any& out) = 0;
 
   // Deserializes an Any message to EvaluatorTableIterator.
-  virtual zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
-  DeserializeToIterator(
-      const google::protobuf::Any& msg,
-      const ScriptExecutor& executor,
-      const ParsedScript& parsed_script) = 0;
+  virtual absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+  DeserializeToIterator(const google::protobuf::Any& msg,
+                        const ScriptExecutor& executor,
+                        const ParsedScript& parsed_script) = 0;
+
+  // Evaluates the following expression:
+  //  CASE <case_value>
+  //     WHEN <when_conditions[0]> 0
+  //     WHEN <when_conditions[1]> 1
+  //     ...
+  //  ELSE -1
+  //
+  // Used for CASE...WHEN statements to determine which CASE branch
+  // to take.
+  virtual absl::StatusOr<int> EvaluateCaseExpression(
+      const ScriptSegment& case_value,
+      const std::vector<ScriptSegment>& when_values,
+      const ScriptExecutor& executor) = 0;
 
   // Returns the number of bytes of memory used by <iterator> that was
   // previously returned by ExecuteQueryWithResult() or
   // DeserializeToIterator(). This is used to enforce memory
   // limits when running a script.
-  virtual zetasql_base::StatusOr<int64_t> GetIteratorMemoryUsage(
+  virtual absl::StatusOr<int64_t> GetIteratorMemoryUsage(
       const EvaluatorTableIterator& iterator) = 0;
 
   // Determines if a statement is legal as dynamic SQL
@@ -360,14 +394,14 @@ class StatementEvaluator {
   // During dry runs (executor.GetOptions().dry_run()), the implementation
   // should validate the expression, and return a NULL value if the expression
   // is valid, but cannot be evaluated quickly.
-  virtual zetasql_base::StatusOr<Value> EvaluateScalarExpression(
+  virtual absl::StatusOr<Value> EvaluateScalarExpression(
       const ScriptExecutor& executor, const ScriptSegment& segment,
       const Type* target_type) = 0;
 
   // Parses and resolves the type named specified by the text
   // <segment.GetSegmentText()>.  The type must be owned by a type factory that
   // remains alive throughout the execution of the script.
-  virtual zetasql_base::StatusOr<TypeWithParameters> ResolveTypeName(
+  virtual absl::StatusOr<TypeWithParameters> ResolveTypeName(
       const ScriptExecutor& executor, const ScriptSegment& segment) = 0;
 
   // Returns whether the engine supports the specified type as a variable type
@@ -389,7 +423,7 @@ class StatementEvaluator {
   // In dry run, the returned pointer may be null. This indicates that
   // the respective CALL is assumed to exist with unknown signature
   // and will result in argument validation only.
-  virtual zetasql_base::StatusOr<std::unique_ptr<ProcedureDefinition>> LoadProcedure(
+  virtual absl::StatusOr<std::unique_ptr<ProcedureDefinition>> LoadProcedure(
       const ScriptExecutor& executor,
       const absl::Span<const std::string>& path) {
     return absl::UnimplementedError("LoadProcedure is not supported");
@@ -423,6 +457,19 @@ class StatementEvaluator {
   virtual absl::Status AssignSystemVariable(
       ScriptExecutor* executor,
       const ASTSystemVariableAssignment* ast_assignment, const Value& value);
+
+  // Perform any engine-specific additional actions when the variable changes
+  // (i.e. declaration or updates). Not intended for when the variable is
+  // destroyed (i.e. when a block ends or procedure exits).
+  // The input node is the current ast node for statement changing the
+  // variables.
+  virtual absl::Status OnVariablesChanged(
+      const ScriptExecutor& executor, const zetasql::ASTNode* current_node,
+      const StackFrame& var_declaration_stack_frame,
+      const std::vector<VariableChange>& variable_changes) {
+    // By default no additional work is needed.
+    return absl::OkStatus();
+  }
 };
 
 class MemoryLimitOptions {
@@ -459,6 +506,7 @@ class MemoryLimitOptions {
 class ScriptExecutorOptions {
  public:
   constexpr static int kDefaultMaximumStackDepth = 50;
+
   ScriptExecutorOptions() {}
   ScriptExecutorOptions(const ScriptExecutorOptions&) = default;
   ScriptExecutorOptions& operator=(const ScriptExecutorOptions&) = default;
@@ -474,20 +522,43 @@ class ScriptExecutorOptions {
     type_factory_ = type_factory;
   }
 
-  // Sets the analyzer options used to evaluate statements in the script:
-  //
-  // System variables owned by the script executor should not be set here.
-  // They will be added automatically by the script executor and included when
-  // ScriptExecutor::GetAnalyzerOptions() is called.
-  //
-  // The initial value of @@time_zone will be set automatically to reflect
-  // <analyzer_options.default_time_zone()>
-  void set_analyzer_options(const AnalyzerOptions& analyzer_options) {
-    analyzer_options_ = analyzer_options;
-  }
   void set_dry_run(bool dry_run) { dry_run_ = dry_run; }
 
-  const AnalyzerOptions& analyzer_options() const { return analyzer_options_; }
+  absl::TimeZone default_time_zone() const { return default_time_zone_; }
+  void set_default_time_zone(absl::TimeZone time_zone) {
+    default_time_zone_ = time_zone;
+  }
+  const LanguageOptions& language_options() const { return language_options_; }
+  void set_language_options(const LanguageOptions& language_options) {
+    language_options_ = language_options;
+  }
+  const SystemVariablesMap& engine_owned_system_variables() const {
+    return engine_owned_system_variables_;
+  }
+  void set_engine_owned_system_variables(
+      SystemVariablesMap engine_owned_system_variables) {
+    engine_owned_system_variables_ = std::move(engine_owned_system_variables);
+  }
+
+  const ParsedScript::QueryParameters& query_parameters() const {
+    return query_parameters_;
+  }
+  void set_query_parameters(ParsedScript::QueryParameters query_parameters) {
+    query_parameters_ = std::move(query_parameters);
+  }
+
+  const VariableWithTypeParameterMap& script_variables() const {
+    return script_variables_;
+  }
+  void set_script_variables(const VariableWithTypeParameterMap& variables) {
+    script_variables_ = std::move(variables);
+  }
+
+  ErrorMessageMode error_message_mode() const { return error_message_mode_; }
+  void set_error_message_mode(ErrorMessageMode error_message_mode) {
+    error_message_mode_ = error_message_mode;
+  }
+
   const MemoryLimitOptions& variable_size_limit_options() const {
     return variable_size_limit_options_;
   }
@@ -495,8 +566,25 @@ class ScriptExecutorOptions {
   TypeFactory* type_factory() const { return type_factory_; }
   bool dry_run() const { return dry_run_; }
 
+  // Propagates fields from <analyzer_options> that have corresponding fields in
+  // ScriptExecutorOptions.
+  //
+  // Note: All system variables in <analyzer_options> will be propagated to
+  // <engine_owned_system_variables_>. It is assumed that all system variables
+  // present are engine-owned.
+  void PopulateFromAnalyzerOptions(const AnalyzerOptions& analyzer_options);
+
  private:
-  AnalyzerOptions analyzer_options_;
+  absl::TimeZone default_time_zone_;
+  LanguageOptions language_options_;
+  SystemVariablesMap engine_owned_system_variables_;
+  ParsedScript::QueryParameters query_parameters_;
+  // Script variables declared before the script starts. For example, when a
+  // script runs as part of a session, the script will inherit the session
+  // variables.
+  VariableWithTypeParameterMap script_variables_;
+  ErrorMessageMode error_message_mode_ = ERROR_MESSAGE_ONE_LINE;
+
   MemoryLimitOptions variable_size_limit_options_ =
       MemoryLimitOptions::Unlimited();
   // Maximum stack depth that ScriptExecutor may execute a script with.

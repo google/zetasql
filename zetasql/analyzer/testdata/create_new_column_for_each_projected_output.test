@@ -7,7 +7,7 @@
 # The second AST (produced with the flag set to true) contains parse
 # location information for columns 'c' and 'd', whereas the first does not.
 
-[default record_parse_locations]
+[default parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 [{{no_|}}create_new_column_for_each_projected_output]
 SELECT c AS d FROM (SELECT b AS c FROM (SELECT 1 AS a, 2 AS b));
 --

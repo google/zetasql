@@ -21,12 +21,14 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
+#include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_split.h"
 #include "unicode/coll.h"
 #include "unicode/errorcode.h"
+#include "unicode/tblcoll.h"
 #include "unicode/utypes.h"
 #include "zetasql/base/ret_check.h"
 
@@ -44,18 +46,62 @@ static absl::Status MakeCollationError(absl::string_view collation_name,
   }
 }
 
-// Returns true if <collation_name> is valid and we were able to extract the
-// collation parts from it successfully. Otherwise false.
-static absl::Status ExtractCollationParts(absl::string_view collation_name,
-                                          std::string* language_tag,
-                                          std::string* collation_attribute) {
-  language_tag->clear();
-  collation_attribute->clear();
+enum class CollatorMode {
+  kInvalidCollatorMode,
+  kBinary,
+  kIcu
+};
 
-  const std::vector<std::string> parts = absl::StrSplit(collation_name, ':');
+static absl::Status ValidateLanguageTag(
+    absl::string_view language_tag,
+    absl::string_view collation_name_for_error) {
+  return absl::OkStatus();
+}
+constexpr absl::string_view kUndLanguageTag = "und";
+
+static absl::Status ValidateCollationName(
+    absl::string_view collation_name,
+    CollatorLegacyUnicodeMode legacy_unicode_mode,
+    CollatorMode& collator_mode_out,
+    absl::optional<std::string>& icu_language_tag_out,
+    absl::optional<bool>& case_insensitive_out) {
+  collator_mode_out = CollatorMode::kInvalidCollatorMode;
+  icu_language_tag_out = absl::nullopt;
+  case_insensitive_out = absl::nullopt;  // default is case-sensitive
+
+  const std::vector<absl::string_view> parts =
+      absl::StrSplit(collation_name, ':');
   ZETASQL_RET_CHECK_GT(parts.size(), 0);
-  if (parts[0].empty()) {
-    return MakeCollationError(collation_name, "cannot contain empty parts");
+  absl::string_view raw_language_tag = parts[0];
+
+  if (raw_language_tag.empty()) {
+    return MakeCollationError(collation_name,
+                              "cannot contain empty language_tag");
+  }
+
+  if (raw_language_tag == "binary") {
+    // Handle 'binary'
+    if (parts.size() > 1) {
+      return MakeCollationError(collation_name,
+                                "binary cannot be combined with a suffix");
+    }
+    collator_mode_out = CollatorMode::kBinary;
+    // Binary has no tag, and no concept of case sensitivity.
+    icu_language_tag_out = absl::nullopt;
+    case_insensitive_out = absl::nullopt;
+    return absl::OkStatus();
+  }
+
+  bool is_legacy_unicode_tag = false;
+
+  if (raw_language_tag == "unicode") {
+    if (legacy_unicode_mode == CollatorLegacyUnicodeMode::kError) {
+      // 'unicode' is not allowed at all.
+      return MakeCollationError(collation_name);
+    }
+    is_legacy_unicode_tag = true;
+  } else {
+    ZETASQL_RETURN_IF_ERROR(ValidateLanguageTag(raw_language_tag, collation_name));
   }
 
   if (parts.size() > 2) {
@@ -64,64 +110,87 @@ static absl::Status ExtractCollationParts(absl::string_view collation_name,
     return MakeCollationError(collation_name,
                               "only case sensitivity attribute is supported");
   }
-
-  // Only ":ci" or ":cs" as a suffix are allowed now for modifying
-  // case-sensitivity.
-  if (parts.size() == 2 && parts[1] != "ci" && parts[1] != "cs") {
-    return MakeCollationError(collation_name,
-                              "case sensitivity must be 'ci' or 'cs'");
-  }
-
-  *language_tag = parts[0];
+  bool case_insensitive = false;
   if (parts.size() == 2) {
-    *collation_attribute = parts[1];
+    absl::string_view suffix = parts[1];
+    if (suffix == "ci") {
+      case_insensitive = true;
+    } else if (suffix == "cs") {
+      case_insensitive = false;
+    } else {
+      return MakeCollationError(collation_name,
+                                "case sensitivity must be 'ci' or 'cs'");
+    }
   }
-  return absl::OkStatus();
+  if (is_legacy_unicode_tag && case_insensitive) {
+    // This is the weird case.
+    if (legacy_unicode_mode == CollatorLegacyUnicodeMode::kLegacyIcuOnly) {
+      collator_mode_out = CollatorMode::kIcu;
+      icu_language_tag_out = kUndLanguageTag;
+      case_insensitive_out = case_insensitive;
+      return absl::OkStatus();
+    }
+
+    return absl::Status(
+        absl::StatusCode::kInternal,
+        absl::StrCat("invalid legacy_unicode_mode: ", legacy_unicode_mode));
+  }
+  if (is_legacy_unicode_tag && !case_insensitive) {
+    // Regular binary comparison
+    collator_mode_out = CollatorMode::kBinary;
+    icu_language_tag_out = absl::nullopt;
+    case_insensitive_out = absl::nullopt;
+    return absl::OkStatus();
+  } else /* !is_legacy_unicode_tag */ {
+    // Normal icu case.
+    collator_mode_out = CollatorMode::kIcu;
+    icu_language_tag_out = raw_language_tag;
+    case_insensitive_out = case_insensitive;
+    return absl::OkStatus();
+  }
 }
 
 class ZetaSqlCollatorIcu : public ZetaSqlCollator {
  public:
-  ZetaSqlCollatorIcu(std::unique_ptr<icu::Collator> icu_collator,
-                       bool is_unicode, bool is_case_insensitive);
+  ZetaSqlCollatorIcu(
+      CollatorMode mode,
+      std::unique_ptr<const icu::RuleBasedCollator> icu_collator);
   ~ZetaSqlCollatorIcu() override {}
 
   int64_t CompareUtf8(const absl::string_view s1, const absl::string_view s2,
                       absl::Status* error) const override;
 
+  absl::Status GetSortKeyUtf8(absl::string_view input,
+                              absl::Cord* output) const override;
+
   bool IsBinaryComparison() const override {
-    return icu_collator_ == nullptr && !is_case_insensitive_;
+    return mode_ == CollatorMode::kBinary;
+  }
+
+  const icu::RuleBasedCollator* GetIcuCollator() const override {
+    return icu_collator_.get();
   }
 
  private:
-  // icu::Collator used for locale-specific ordering. Not initialized for case
-  // sensitive Unicode locale (i.e. is_unicode && !is_case_insensitive_).
-  const std::unique_ptr<const icu::Collator> icu_collator_;
-
-  // Set to true if instantiated with "unicode", i.e. default Unicode collation.
-  const bool is_unicode_;
-
-  // Collation attribute to specify whether the comparisons should be
-  // case-insensitive.
-  const bool is_case_insensitive_;
+  const CollatorMode mode_;
+  const std::unique_ptr<const icu::RuleBasedCollator> icu_collator_;
 };
 
 ZetaSqlCollatorIcu::ZetaSqlCollatorIcu(
-    std::unique_ptr<icu::Collator> icu_collator, bool is_unicode,
-    bool is_case_insensitive)
-    : icu_collator_(std::move(icu_collator)),
-      is_unicode_(is_unicode),
-      is_case_insensitive_(is_case_insensitive) {}
+    CollatorMode mode,
+    std::unique_ptr<const icu::RuleBasedCollator> icu_collator)
+    : mode_(mode), icu_collator_(std::move(icu_collator)) {}
 
 int64_t ZetaSqlCollatorIcu::CompareUtf8(const absl::string_view s1,
                                           const absl::string_view s2,
                                           absl::Status* error) const {
-  if (is_unicode_) {
-    if (is_case_insensitive_) {
-      ; // Just fall back to icu.
-    } else {
-      const int result = s1.compare(s2);
-      return result < 0 ? -1 : (result > 0 ? 1 : 0);
-    }
+  if (mode_ == CollatorMode::kBinary) {
+    const int result = s1.compare(s2);
+    return result < 0 ? -1 : (result > 0 ? 1 : 0);
+  } else if (mode_ != CollatorMode::kIcu || icu_collator_ == nullptr) {
+    *error = absl::Status(absl::StatusCode::kInternal,
+                          absl::StrCat("Unknown collation mode: ", mode_));
+    return 0;
   }
 
   icu::ErrorCode icu_error;
@@ -142,51 +211,106 @@ int64_t ZetaSqlCollatorIcu::CompareUtf8(const absl::string_view s1,
   return result;
 }
 
+absl::Status ZetaSqlCollatorIcu::GetSortKeyUtf8(absl::string_view input,
+                                                  absl::Cord* output) const {
+  if (mode_ == CollatorMode::kBinary) {
+    // Binary collation, so just copy the input.
+    output->Clear();
+    output->Append(input);
+    return absl::OkStatus();
+  }
+
+  ZETASQL_RET_CHECK(icu_collator_ != nullptr);
+
+  // Convert the input UTF-8 string to UTF-16 (which is what collation API
+  // unfortunately expects).
+  icu::UnicodeString input_unicode = icu::UnicodeString::fromUTF8(input);
+
+  // We don't know how large the output buffer needs to be. Per recommendation
+  // on http://userguide.icu-project.org/collation/api#TOC-GetSortKey we create
+  // a small buffer on stack. If it is insufficient, we reallocate it on heap.
+  // Otherwise we allocate the exact needed size and call getSortKey again.
+  char initial_output_buffer[512];
+  int32_t output_size = icu_collator_->getSortKey(
+      input_unicode, reinterpret_cast<uint8_t*>(initial_output_buffer),
+      sizeof(initial_output_buffer));
+  ZETASQL_RET_CHECK_NE(output_size, 0) << "Failed to generate the sort key";
+  if (output_size <= sizeof(initial_output_buffer)) {
+    // Chop off the NULL terminator (which we don't need for Cord).
+    *output =
+        absl::Cord(absl::string_view(initial_output_buffer, output_size - 1));
+    return absl::OkStatus();
+  }
+
+  // The output buffer was not large enough, but now we know how large the
+  // buffer really needs to be.
+  const int32_t output_buffer_size = output_size;
+  std::unique_ptr<char[]> output_buffer(new char[output_buffer_size]);
+  output_size = icu_collator_->getSortKey(
+      input_unicode, reinterpret_cast<uint8_t*>(output_buffer.get()),
+      output_buffer_size);
+  ZETASQL_RET_CHECK_GT(output_size, 0) << "Failed to generate the sort key";
+  ZETASQL_RET_CHECK_LE(output_size, output_buffer_size)
+      << "Insufficient buffer for the sort key";
+
+  // Return the output buffer as Cord chopping off the NULL terminator (which we
+  // don't need for Cord).
+  *output = absl::MakeCordFromExternal(
+      {output_buffer.release(), static_cast<size_t>(output_size - 1)},
+      [](absl::string_view s) { delete[] s.data(); });
+  return absl::OkStatus();
+}
+
 }  // namespace
 
-zetasql_base::StatusOr<std::unique_ptr<const ZetaSqlCollator>> MakeSqlCollator(
-    absl::string_view collation_name) {
-  std::string language_tag;
-  std::string collation_attribute;
-  ZETASQL_RETURN_IF_ERROR(ExtractCollationParts(collation_name, &language_tag,
-                                        &collation_attribute));
+absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>> MakeSqlCollator(
+    absl::string_view collation_name,
+    CollatorLegacyUnicodeMode legacy_unicode_mode) {
+  CollatorMode collator_mode = CollatorMode::kInvalidCollatorMode;
+  absl::optional<std::string> icu_language_tag;
+  absl::optional<bool> case_insensitive;
 
-  const bool is_case_insensitive = (collation_attribute == "ci");
-  const bool is_unicode = (language_tag == "unicode");
+  ZETASQL_RETURN_IF_ERROR(ValidateCollationName(collation_name, legacy_unicode_mode,
+                                        collator_mode, icu_language_tag,
+                                        case_insensitive));
 
-  std::unique_ptr<icu::Collator> icu_collator;
-  ZETASQL_RET_CHECK(!language_tag.empty());
+  ZETASQL_RET_CHECK(collator_mode != CollatorMode::kInvalidCollatorMode);
 
-  if (is_unicode && !is_case_insensitive) {
-    // No need to instantiate icu::Collator for case-sensitive Unicode
-    // collation. In that case we can just compare strings as binary BLOBs.
-    return absl::make_unique<const ZetaSqlCollatorIcu>(nullptr, is_unicode,
-                                                         is_case_insensitive);
+  if (collator_mode == CollatorMode::kBinary
+      ) {
+    // Don't need icu for this case.
+    return absl::make_unique<const ZetaSqlCollatorIcu>(
+        collator_mode, /*icu_collator=*/nullptr);
   }
-  // icu::Collator library returns a nullptr if it is unable to create an
-  // instance from the LanguageCode identified by <collation_name>.
-  icu::Locale locale = icu::Locale::createCanonical(language_tag.c_str());
+
+  std::unique_ptr<icu::RuleBasedCollator> icu_collator;
+  ZETASQL_RET_CHECK(icu_language_tag.has_value() && !icu_language_tag->empty());
+  ZETASQL_RET_CHECK(case_insensitive.has_value());
+
+  icu::Locale locale = icu::Locale::createCanonical(icu_language_tag->c_str());
   if (locale.isBogus()) {
     return MakeCollationError(collation_name);
   }
   icu::ErrorCode icu_error;
-  icu_collator.reset(icu::Collator::createInstance(locale, icu_error));
+  icu_collator.reset(
+      (icu::RuleBasedCollator*)icu::RuleBasedCollator::createInstance(
+          locale, icu_error));
   if (icu_error.isFailure() || icu_collator == nullptr) {
     icu_error.reset();
     return MakeCollationError(collation_name, absl::StrCat(" is invalid - ",
         icu_error.errorName()));
   }
 
-  if (is_case_insensitive) {
+  if (*case_insensitive) {
     // Setting the icu::Collator strength to SECONDARY will ignore case
     // level comparisons.
     icu_collator->setStrength(icu::Collator::SECONDARY);
   } else {
     // We do nothing here as comparisons are case-sensitive by default in
-    // icu::Collator.
+    // icu::RuleBasedCollator.
   }
-  return absl::make_unique<const ZetaSqlCollatorIcu>(
-      std::move(icu_collator), is_unicode, is_case_insensitive);
+  return absl::make_unique<const ZetaSqlCollatorIcu>(collator_mode,
+                                                       std::move(icu_collator));
 }
 
 }  // namespace zetasql

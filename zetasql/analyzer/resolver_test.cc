@@ -17,23 +17,37 @@
 #include "zetasql/analyzer/resolver.h"
 
 #include <memory>
+#include <string>
+#include <type_traits>
+#include <vector>
 
 #include "zetasql/base/logging.h"
+#include "google/protobuf/descriptor.h"
 #include "zetasql/analyzer/expr_resolver_helper.h"
-#include "zetasql/analyzer/lambda_util.h"
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
-#include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/base/testing/status_matchers.h"  
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
-#include "zetasql/proto/function.pb.h"
 #include "zetasql/public/analyzer.h"
-#include "zetasql/public/function_signature.h"
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/analyzer_output.h"
+#include "zetasql/public/analyzer_output_properties.h"
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/function.h"
+#include "zetasql/public/function.pb.h"
+#include "zetasql/public/id_string.h"
+#include "zetasql/public/language_options.h"
+#include "zetasql/public/numeric_value.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/table_valued_function.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/testdata/error_catalog.h"
 #include "zetasql/testdata/sample_catalog.h"
@@ -42,9 +56,12 @@
 #include "gtest/gtest.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/substitute.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
+#include "zetasql/base/status.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -167,9 +184,9 @@ class ResolverTest : public ::testing::Test {
         << cast_expression;
   }
 
-  zetasql_base::StatusOr<std::unique_ptr<const ResolvedExpr>> ResolveAndCoerce(
+  absl::StatusOr<std::unique_ptr<const ResolvedExpr>> ResolveAndCoerce(
       const std::string& query, const Type* target_type,
-      bool assignment_semantics, const char* clause_name) {
+      Resolver::CoercionMode mode, absl::string_view error_template) {
     std::unique_ptr<ParserOutput> parser_output;
     std::unique_ptr<const ResolvedExpr> resolved_expression;
     ZETASQL_CHECK_OK(ParseExpression(query, ParserOptions(), &parser_output)) << query;
@@ -177,9 +194,14 @@ class ResolverTest : public ::testing::Test {
     ZETASQL_CHECK_OK(ResolveExpr(parsed_expression, &resolved_expression))
         << "Query: " << query
         << "\nParsed/Unparsed expression: " << Unparse(parsed_expression);
-    ZETASQL_RETURN_IF_ERROR(resolver_->CoerceExprToType(
-        parsed_expression, target_type, assignment_semantics, clause_name,
-        &resolved_expression));
+    if (error_template.empty()) {
+      ZETASQL_RETURN_IF_ERROR(resolver_->CoerceExprToType(
+          parsed_expression, target_type, mode, &resolved_expression));
+    } else {
+      ZETASQL_RETURN_IF_ERROR(
+          resolver_->CoerceExprToType(parsed_expression, target_type, mode,
+                                      error_template, &resolved_expression));
+    }
     return resolved_expression;
   }
 
@@ -485,34 +507,34 @@ TEST_F(ResolverTest, TestResolveTypeName) {
        &type));
   EXPECT_EQ("STRUCT<INT32, x INT64, DOUBLE>", type->DebugString());
 
-  ZETASQL_EXPECT_OK(resolver_->ResolveTypeName("`zetasql_test.KitchenSinkPB`",
+  ZETASQL_EXPECT_OK(resolver_->ResolveTypeName("`zetasql_test__.KitchenSinkPB`",
                                        &type));
   EXPECT_THAT(type, NotNull());
   EXPECT_TRUE(type->IsProto()) << type->DebugString();
 
-  ZETASQL_EXPECT_OK(resolver_->ResolveTypeName("zetasql_test.KitchenSinkPB.Nested",
+  ZETASQL_EXPECT_OK(resolver_->ResolveTypeName("zetasql_test__.KitchenSinkPB.Nested",
                                        &type));
   EXPECT_THAT(type, NotNull());
   EXPECT_TRUE(type->IsProto()) << type->DebugString();
 
   EXPECT_THAT(
-      resolver_->ResolveTypeName("zetasql_test.KitchenSinkPBXXX", &type),
+      resolver_->ResolveTypeName("zetasql_test__.KitchenSinkPBXXX", &type),
       StatusIs(_,
-               HasSubstr("Type not found: zetasql_test.KitchenSinkPBXXX")));
+               HasSubstr("Type not found: zetasql_test__.KitchenSinkPBXXX")));
 
-  ZETASQL_EXPECT_OK(resolver_->ResolveTypeName("`zetasql_test.TestEnum`",
+  ZETASQL_EXPECT_OK(resolver_->ResolveTypeName("`zetasql_test__.TestEnum`",
                                        &type));
   EXPECT_THAT(type, NotNull());
   EXPECT_TRUE(type->IsEnum()) << type->DebugString();
 
-  ZETASQL_EXPECT_OK(resolver_->ResolveTypeName("zetasql_test.TestEnum",
+  ZETASQL_EXPECT_OK(resolver_->ResolveTypeName("zetasql_test__.TestEnum",
                                        &type));
   EXPECT_THAT(type, NotNull());
   EXPECT_TRUE(type->IsEnum()) << type->DebugString();
 
   EXPECT_THAT(
-      resolver_->ResolveTypeName("`zetasql_TEST.TeSTeNum`", &type),
-      StatusIs(_, HasSubstr("Type not found: `zetasql_TEST.TeSTeNum`")));
+      resolver_->ResolveTypeName("`zetasql_TEST__.TeSTeNum`", &type),
+      StatusIs(_, HasSubstr("Type not found: `zetasql_TEST__.TeSTeNum`")));
   EXPECT_EQ(type, nullptr);
 }
 
@@ -641,16 +663,16 @@ TEST_F(ResolverTest, TestResolveCastExpression) {
   TestCastExpression("CAST(1.0 as STRING)", types::StringType());
 
   TestCastExpression(
-      "CAST(CAST('TESTENUM1' as `zetasql_test.TestEnum`) as STRING)",
+      "CAST(CAST('TESTENUM1' as `zetasql_test__.TestEnum`) as STRING)",
       types::StringType());
 
-  TestCastExpression("CAST(CAST(1 as `zetasql_test.TestEnum`) as INT32)",
+  TestCastExpression("CAST(CAST(1 as `zetasql_test__.TestEnum`) as INT32)",
                      types::Int32Type());
-  TestCastExpression("CAST(CAST(1 as `zetasql_test.TestEnum`) as INT64)",
+  TestCastExpression("CAST(CAST(1 as `zetasql_test__.TestEnum`) as INT64)",
                      types::Int64Type());
-  TestCastExpression("CAST(CAST(1 as `zetasql_test.TestEnum`) as UINT32)",
+  TestCastExpression("CAST(CAST(1 as `zetasql_test__.TestEnum`) as UINT32)",
                      types::Uint32Type());
-  TestCastExpression("CAST(CAST(1 as `zetasql_test.TestEnum`) as UINT64)",
+  TestCastExpression("CAST(CAST(1 as `zetasql_test__.TestEnum`) as UINT64)",
                      types::Uint64Type());
 
   // TODO: Add basic CAST resolution tests for ENUM, PROTO, STRUCT,
@@ -682,9 +704,9 @@ TEST_F(ResolverTest, TestResolveCastExpression) {
   // Enum value names are case-sensitive.
   // 'TESTENUM1' is good, 'TestEnum1' is not.
   ResolveFunctionFails(
-      "CAST(CAST('TestEnum1' as `zetasql_test.TestEnum`) as STRING)",
+      "CAST(CAST('TestEnum1' as `zetasql_test__.TestEnum`) as STRING)",
       "Could not cast literal \"TestEnum1\" to type "
-        "ENUM<zetasql_test.TestEnum>");
+        "ENUM<zetasql_test__.TestEnum>");
 
   ResolveFunctionFails("CAST(1 as blah)", "Type not found: blah");
   ResolveFunctionFails("CAST(1.0 as bool)",
@@ -717,31 +739,36 @@ TEST_F(ResolverTest, TestResolveCastExpression) {
 }
 
 TEST_F(ResolverTest, TestCoerceToBoolSuccess) {
-  for (bool assignment_semantics : {true, false}) {
+  for (Resolver::CoercionMode mode :
+       {Resolver::kImplicitAssignment, Resolver::kImplicitCoercion,
+        Resolver::kExplicitCoercion}) {
     std::unique_ptr<const ResolvedExpr> resolved;
-    ZETASQL_ASSERT_OK_AND_ASSIGN(resolved,
-                         ResolveAndCoerce("TRUE", type_factory_.get_bool(),
-                                          assignment_semantics, "test clause"));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        resolved, ResolveAndCoerce("TRUE", type_factory_.get_bool(), mode,
+                                   "error message"));
     EXPECT_THAT(resolved->node_kind(), RESOLVED_LITERAL)
         << resolved->DebugString();
   }
 }
 
 TEST_F(ResolverTest, TestCoerceToBoolFail) {
-  for (bool assignment_semantics : {true, false}) {
-    EXPECT_THAT(
-        ResolveAndCoerce("5", type_factory_.get_bool(), assignment_semantics,
-                         "test clause"),
-        StatusIs(_, ::testing::AllOf(HasSubstr("test clause"),
-                                     HasSubstr("INT64"), HasSubstr("BOOL"))));
+  for (Resolver::CoercionMode mode :
+       {Resolver::kImplicitAssignment, Resolver::kImplicitCoercion}) {
+    EXPECT_THAT(ResolveAndCoerce("5", type_factory_.get_bool(), mode,
+                                 "error message $0 $1"),
+                StatusIs(_, HasSubstr("error message BOOL INT64")));
   }
+  ZETASQL_EXPECT_OK(ResolveAndCoerce("5", type_factory_.get_bool(),
+                             Resolver::kExplicitCoercion,
+                             "error message $0 $1"));
 }
 
-TEST_F(ResolverTest, TestCoerceToBoolFailNoClauseName) {
-  for (bool assignment_semantics : {true, false}) {
+TEST_F(ResolverTest, TestCoerceToBoolFailNoErrorMsgTemplate) {
+  for (Resolver::CoercionMode mode :
+       {Resolver::kImplicitAssignment, Resolver::kImplicitCoercion}) {
     EXPECT_THAT(
-        ResolveAndCoerce("5", type_factory_.get_bool(), assignment_semantics,
-                         nullptr),
+        ResolveAndCoerce("5", type_factory_.get_bool(), mode,
+                         /*error_template=*/""),
         StatusIs(_, ::testing::AllOf(HasSubstr("INT64"), HasSubstr("BOOL"))));
   }
 }
@@ -749,9 +776,8 @@ TEST_F(ResolverTest, TestCoerceToBoolFailNoClauseName) {
 TEST_F(ResolverTest, TestImplicitCoerceInt64LiteralToInt32Succeed) {
   std::unique_ptr<const ResolvedExpr> resolved;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
-      resolved,
-      ResolveAndCoerce("5", type_factory_.get_int32(),
-                       /*assignment_semantics=*/false, "test clause"));
+      resolved, ResolveAndCoerce("5", type_factory_.get_int32(),
+                                 Resolver::kImplicitCoercion, "error message"));
   EXPECT_THAT(resolved->node_kind(), RESOLVED_LITERAL)
       << resolved->DebugString();
 }
@@ -759,9 +785,8 @@ TEST_F(ResolverTest, TestImplicitCoerceInt64LiteralToInt32Succeed) {
 TEST_F(ResolverTest, TestImplicitCoerceInt64ExprToInt32Fail) {
   EXPECT_THAT(
       ResolveAndCoerce("TestConstantInt64 + 1", type_factory_.get_int32(),
-                       /*assignment_semantics=*/false, "test clause"),
-      StatusIs(_, ::testing::AllOf(HasSubstr("test clause"), HasSubstr("INT64"),
-                                   HasSubstr("INT32"))));
+                       Resolver::kImplicitCoercion, "error message $0 $1"),
+      StatusIs(_, HasSubstr("error message INT32 INT64")));
 }
 
 TEST_F(ResolverTest, TestAssignmentCoerceInt64ExprToInt32Succeed) {
@@ -769,7 +794,7 @@ TEST_F(ResolverTest, TestAssignmentCoerceInt64ExprToInt32Succeed) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       resolved,
       ResolveAndCoerce("TestConstantInt64 + 1", type_factory_.get_int32(),
-                       /*assignment_semantics=*/true, "test clause"));
+                       Resolver::kImplicitAssignment, "error message"));
   EXPECT_THAT(resolved->node_kind(), RESOLVED_CAST) << resolved->DebugString();
 }
 
@@ -880,7 +905,7 @@ TEST_F(ResolverTest, ResolvingBuiltinFucntionsFail) {
 }
 
 TEST_F(ResolverTest, TestFindFieldDescriptorsSuccess) {
-  zetasql_test::KitchenSinkPB kitchen_sink;
+  zetasql_test__::KitchenSinkPB kitchen_sink;
   TestFindFieldDescriptorsSuccess("int64_key_1", kitchen_sink.descriptor());
   TestFindFieldDescriptorsSuccess("int32_val", kitchen_sink.descriptor());
   TestFindFieldDescriptorsSuccess("repeated_int32_val",
@@ -890,13 +915,13 @@ TEST_F(ResolverTest, TestFindFieldDescriptorsSuccess) {
                                   kitchen_sink.descriptor());
   TestFindFieldDescriptorsSuccess("nested_value.nested_repeated_int64",
                                   kitchen_sink.descriptor());
-  zetasql_test::RecursivePB recursive_pb;
+  zetasql_test__::RecursivePB recursive_pb;
   TestFindFieldDescriptorsSuccess("recursive_pb.recursive_pb.int64_val",
                                   recursive_pb.descriptor());
 }
 
 TEST_F(ResolverTest, TestFindFieldDescriptorsFail) {
-  zetasql_test::KitchenSinkPB kitchen_sink;
+  zetasql_test__::KitchenSinkPB kitchen_sink;
   const std::string& does_not_have_field = "does not have a field named ";
   TestFindFieldDescriptorsFail(
       "invalid_field", kitchen_sink.descriptor(),
@@ -1140,7 +1165,7 @@ TEST_F(ResolverTest, TestHasFlatten) {
   EXPECT_FALSE(resolver_->analyzer_output_properties().has_flatten);
 
   // Test an expression with flattening
-  sql = "FLATTEN(CAST('' AS zetasql_test.RecursivePB)."
+  sql = "FLATTEN(CAST('' AS zetasql_test__.RecursivePB)."
         "repeated_recursive_pb.int64_val)";
   ResetResolver(sample_catalog_->catalog());
   ZETASQL_ASSERT_OK(ParseExpression(sql, ParserOptions(), &parser_output));

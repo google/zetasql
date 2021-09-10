@@ -17,17 +17,23 @@
 #ifndef ZETASQL_ANALYZER_FUNCTION_SIGNATURE_MATCHER_H_
 #define ZETASQL_ANALYZER_FUNCTION_SIGNATURE_MATCHER_H_
 
+#include <functional>
 #include <memory>
 #include <vector>
 
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/coercer.h"
 #include "zetasql/public/function_signature.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/signature_match_result.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 
@@ -71,7 +77,7 @@ bool FunctionSignatureMatches(
     std::vector<FunctionArgumentOverride>* arg_overrides);
 
 // Similar as above, but also exposes internal errors with a status.
-zetasql_base::StatusOr<bool> FunctionSignatureMatchesWithStatus(
+absl::StatusOr<bool> FunctionSignatureMatchesWithStatus(
     const LanguageOptions& language_options, const Coercer& coercer,
     const std::vector<const ASTNode*>& arg_ast_nodes,
     const std::vector<InputArgumentType>& input_arguments,

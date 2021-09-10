@@ -35,6 +35,15 @@ const char SQLTableValuedFunction::kSQLTableValuedFunctionGroup[] =
 absl::Status SQLTableValuedFunction::Create(
     const ::zetasql::ResolvedCreateTableFunctionStmt* create_tvf_statement,
     std::unique_ptr<SQLTableValuedFunction>* simple_sql_tvf) {
+  return Create(
+      create_tvf_statement, /*tvf_options=*/ {}, simple_sql_tvf);
+}
+
+// static
+absl::Status SQLTableValuedFunction::Create(
+    const ::zetasql::ResolvedCreateTableFunctionStmt* create_tvf_statement,
+    TableValuedFunctionOptions tvf_options,
+    std::unique_ptr<SQLTableValuedFunction>* simple_sql_tvf) {
   ZETASQL_RET_CHECK_NE(create_tvf_statement, nullptr);
   // Only SQL TVFs are supported.
   ZETASQL_RET_CHECK_NE(create_tvf_statement->query(), nullptr);
@@ -44,7 +53,8 @@ absl::Status SQLTableValuedFunction::Create(
   ZETASQL_RETURN_IF_ERROR(
       create_tvf_statement->signature().IsValidForTableValuedFunction());
 
-  simple_sql_tvf->reset(new SQLTableValuedFunction(create_tvf_statement));
+  simple_sql_tvf->reset(
+      new SQLTableValuedFunction(create_tvf_statement, tvf_options));
   return absl::OkStatus();
 }
 

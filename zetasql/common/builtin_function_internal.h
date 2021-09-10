@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <map>
 #include <string>
+#include <utility>
 
 #include "zetasql/proto/options.pb.h"
 #include "zetasql/public/builtin_function.pb.h"
@@ -30,7 +31,7 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/type.h"
 #include "absl/container/flat_hash_set.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 
@@ -257,7 +258,7 @@ absl::Status CheckDatetimeAddSubDiffArguments(
 // This function returns a ZetaSQL ProtoType for
 // google::protobuf::EnumValueDescriptorProto, which is either from the <catalog> (if this
 // ProtoType is present) or newly created in the <type_factory>.
-zetasql_base::StatusOr<const Type*> GetOrMakeEnumValueDescriptorType(
+absl::StatusOr<const Type*> GetOrMakeEnumValueDescriptorType(
     Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle,
     const FunctionSignature& /*signature*/,
     const std::vector<InputArgumentType>& arguments,
@@ -475,7 +476,7 @@ bool CanStringConcatCoerceFrom(const zetasql::Type* arg_type);
 //   ARRAY<
 //     STRUCT<`value` <arguments[0].type()>,
 //            `<field2_name>` <arguments[1].type()> > >
-zetasql_base::StatusOr<const Type*> ComputeResultTypeForTopStruct(
+absl::StatusOr<const Type*> ComputeResultTypeForTopStruct(
     const std::string& field2_name, Catalog* catalog, TypeFactory* type_factory,
     CycleDetector* cycle_detector,
     const FunctionSignature& /*signature*/,
@@ -487,7 +488,7 @@ zetasql_base::StatusOr<const Type*> ComputeResultTypeForTopStruct(
 //   ARRAY<
 //     STRUCT<`neighbor` <arguments[0].type>,
 //            `distance` Double> >
-zetasql_base::StatusOr<const Type*> ComputeResultTypeForNearestNeighborsStruct(
+absl::StatusOr<const Type*> ComputeResultTypeForNearestNeighborsStruct(
     Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
     const FunctionSignature& /*signature*/,
     const std::vector<InputArgumentType>& arguments,
@@ -686,9 +687,10 @@ void GetAnonFunctions(TypeFactory* type_factory,
                       const ZetaSQLBuiltinFunctionOptions& options,
                       NameToFunctionMap* functions);
 
-void GetContainsSubstrFunction(TypeFactory* type_factory,
-                               const ZetaSQLBuiltinFunctionOptions& options,
-                               NameToFunctionMap* functions);
+void GetTypeOfFunction(TypeFactory* type_factory,
+                       const ZetaSQLBuiltinFunctionOptions& options,
+                       NameToFunctionMap* functions);
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_COMMON_BUILTIN_FUNCTION_INTERNAL_H_

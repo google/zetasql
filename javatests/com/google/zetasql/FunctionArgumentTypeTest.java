@@ -23,6 +23,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.zetasql.FunctionArgumentType.FunctionArgumentTypeOptions;
 import com.google.zetasql.FunctionProtos.FunctionArgumentTypeProto;
+import com.google.zetasql.ZetaSQLFunctions.FunctionEnums;
 import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.ArgumentCardinality;
 import com.google.zetasql.ZetaSQLFunctions.FunctionEnums.ProcedureArgumentMode;
 import com.google.zetasql.ZetaSQLFunctions.SignatureArgumentKind;
@@ -256,6 +257,7 @@ public class FunctionArgumentTypeTest {
             .setProcedureArgumentMode(ProcedureArgumentMode.INOUT)
             .setArgumentNameIsMandatory(true)
             .setDescriptorResolutionTableOffset(1234)
+            .setArgumentCollationMode(FunctionEnums.ArgumentCollationMode.AFFECTS_PROPAGATION)
             .build();
     FileDescriptorSetsBuilder fileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();
     assertThat(options)

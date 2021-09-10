@@ -116,6 +116,22 @@ inline ::zetasql_base::StatusBuilder MakeSqlErrorAtLocalNode(const ASTNode* ast_
     }                                                                        \
   } while (0)
 
+// Returns a team policy that attaches a parse location to an error status
+// without changing the error message or code. If the error status already has a
+// location, that will be overridden by this one.
+//
+// Example:
+//
+//  ZETASQL_RETURN_IF_ERROR(DoAThing()).With(LocationOverride(ast_node));
+//
+inline auto LocationOverride(const ASTNode* node) {
+  return [node](zetasql_base::StatusBuilder error) -> zetasql_base::StatusBuilder {
+    return error.Attach(
+        GetErrorLocationPoint(node, /*include_leftmost_child=*/true)
+            .ToInternalErrorLocation());
+  };
+}
+
 // If <status> is an error, returns a absl::Status with the
 // InternalErrorLocation of the ErrorLocationPoint from <ast_node> attached.
 // Otherwise, just returns <status>.

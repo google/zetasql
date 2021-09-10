@@ -69,6 +69,7 @@ class InputArgumentType {
 
   ~InputArgumentType() {}
 
+  // This may return nullptr (such as for for lambda).
   const Type* type() const { return type_; }
 
   const std::vector<InputArgumentType>& field_types() const {
@@ -231,7 +232,7 @@ class InputArgumentType {
       : category_(category), type_(type) {}
 
   Category category_ = kUntypedNull;
-  const Type* type_ = nullptr;  // never nullptr, even for kUntyped categories
+  const Type* type_ = nullptr;
   absl::optional<Value> literal_value_;  // only set for kTypedLiteral.
 
   // True if this InputArgumentType was constructed from a default function
@@ -271,7 +272,11 @@ class InputArgumentType {
 // Address this if/when we support IN-list of non-simple types, which may
 // require updating the InputArgumentType::operator==() function.
 struct InputArgumentTypeLossyHasher {
-  size_t operator()(const InputArgumentType& type) const;
+  size_t operator()(const InputArgumentType& type) const {
+    return absl::HashOf(type.type() != nullptr ? type.type()->kind() : -2,
+                        type.is_literal(), type.is_untyped(),
+                        type.is_query_parameter(), type.is_literal_null());
+  }
 };
 
 // Less function for InputArgumentType.  It is currently used to provide

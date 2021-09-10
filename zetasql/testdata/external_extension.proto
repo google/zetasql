@@ -20,7 +20,7 @@
 
 syntax = "proto2";
 
-package zetasql_test;
+package zetasql_test__;
 
 import "google/protobuf/descriptor.proto";
 import "zetasql/testdata/test_schema.proto";

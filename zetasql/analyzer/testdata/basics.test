@@ -432,7 +432,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=DATE
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | |   +-field_descriptor=date
     | |   +-default_value=1970-01-01
     | |   +-format=DATE
@@ -440,7 +440,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=TIMESTAMP
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | |   +-field_descriptor=timestamp_seconds
     | |   +-default_value=1970-01-01 00:00:00+00
     | |   +-format=TIMESTAMP_SECONDS
@@ -448,7 +448,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=TIMESTAMP
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | |   +-field_descriptor=timestamp_millis
     | |   +-default_value=1970-01-01 00:00:00+00
     | |   +-format=TIMESTAMP_MILLIS
@@ -456,7 +456,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=TIMESTAMP
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-field_descriptor=timestamp_micros
     |     +-default_value=1970-01-01 00:00:00+00
     |     +-format=TIMESTAMP_MICROS
@@ -489,7 +489,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=DATE
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | |   +-field_descriptor=date
     | |   +-default_value=1970-01-01
     | |   +-format=DATE
@@ -497,7 +497,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=DATE
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | |   +-field_descriptor=date64
     | |   +-default_value=1970-01-01
     | |   +-format=DATE
@@ -505,7 +505,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=DATE
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | |   +-field_descriptor=date_decimal
     | |   +-default_value=NULL
     | |   +-format=DATE_DECIMAL
@@ -513,7 +513,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=DATE
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | |   +-field_descriptor=date64_decimal
     | |   +-default_value=NULL
     | |   +-format=DATE_DECIMAL
@@ -521,7 +521,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=DATE
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | |   +-field_descriptor=date_decimal_legacy
     | |   +-default_value=NULL
     | |   +-format=DATE_DECIMAL
@@ -529,7 +529,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=DATE
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-field_descriptor=date64_decimal_legacy
     |     +-default_value=NULL
     |     +-format=DATE_DECIMAL
@@ -552,7 +552,7 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=ARRAY<DATE>
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | |   +-field_descriptor=repeated_date
     | |   +-default_value=[]
     | |   +-format=DATE
@@ -560,7 +560,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=ARRAY<TIMESTAMP>
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-field_descriptor=repeated_timestamp_micros
     |     +-default_value=[]
     |     +-format=TIMESTAMP_MICROS
@@ -608,7 +608,7 @@ ExplainStmt
         | | +-GetProtoField
         | |   +-type=ARRAY<DATE>
         | |   +-expr=
-        | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         | |   +-field_descriptor=repeated_date
         | |   +-default_value=[]
         | |   +-format=DATE
@@ -616,7 +616,7 @@ ExplainStmt
         |   +-GetProtoField
         |     +-type=ARRAY<TIMESTAMP>
         |     +-expr=
-        |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |     +-field_descriptor=repeated_timestamp_micros
         |     +-default_value=[]
         |     +-format=TIMESTAMP_MICROS

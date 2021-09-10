@@ -1,5 +1,5 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB]
+[load_proto_names=zetasql_test__.KitchenSinkPB]
 [prepare_database]
 CREATE TABLE Table1 AS
 SELECT cast(1 as int64) as primary_key, 1 AS key, ['one'] AS values  UNION ALL
@@ -391,9 +391,9 @@ SELECT (SELECT s FROM (SELECT 'x' a, 5 b) s) LIMIT 1
 ARRAY<STRUCT<STRUCT<a STRING, b INT64>>>[{{"x", 5}}]
 ==
 [name=type_proto]
-SELECT p FROM (SELECT (SELECT AS `zetasql_test.KitchenSinkPB` 5 int64_key_1, 6 int64_key_2) p) LIMIT 1
+SELECT p FROM (SELECT (SELECT AS `zetasql_test__.KitchenSinkPB` 5 int64_key_1, 6 int64_key_2) p) LIMIT 1
 --
-ARRAY<STRUCT<p PROTO<zetasql_test.KitchenSinkPB>>>[
+ARRAY<STRUCT<p PROTO<zetasql_test__.KitchenSinkPB>>>[
   {{
      int64_key_1: 5
      int64_key_2: 6
@@ -401,7 +401,7 @@ ARRAY<STRUCT<p PROTO<zetasql_test.KitchenSinkPB>>>[
 ]
 ==
 [name=many_columns]
-SELECT * FROM (SELECT false, CAST(1 AS INT32), 'foo', 9.18, [1., -2e-5], (SELECT AS `zetasql_test.KitchenSinkPB` 7 int64_key_1, 8 int64_key_2)) LIMIT 1
+SELECT * FROM (SELECT false, CAST(1 AS INT32), 'foo', 9.18, [1., -2e-5], (SELECT AS `zetasql_test__.KitchenSinkPB` 7 int64_key_1, 8 int64_key_2)) LIMIT 1
 --
 ARRAY<STRUCT<
         BOOL,
@@ -409,7 +409,7 @@ ARRAY<STRUCT<
         STRING,
         DOUBLE,
         ARRAY<>,
-        PROTO<zetasql_test.KitchenSinkPB>
+        PROTO<zetasql_test__.KitchenSinkPB>
       >>
 [{false,
   1,

@@ -21,7 +21,7 @@
 #include <type_traits>
 
 #include "absl/base/macros.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 namespace functions {
@@ -253,7 +253,7 @@ bool TruncDecimal(float in, int64_t digits, float* out, absl::Status* error) {
 
 namespace {
 template <typename T>
-inline bool SetNumericResultOrError(const zetasql_base::StatusOr<T>& status_or_numeric,
+inline bool SetNumericResultOrError(const absl::StatusOr<T>& status_or_numeric,
                                     T* out, absl::Status* error) {
   if (ABSL_PREDICT_TRUE(status_or_numeric.ok())) {
     *out = status_or_numeric.value();

@@ -15,19 +15,31 @@
 //
 
 #include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "zetasql/analyzer/rewriters/rewriter_interface.h"
-#include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
-#include "zetasql/public/builtin_function.pb.h"
-#include "zetasql/public/function.h"
+#include "zetasql/public/analyzer_output_properties.h"
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
+#include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
+#include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/rewrite_utils.h"
-#include "zetasql/resolved_ast/validator.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/types/span.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace {
@@ -38,9 +50,7 @@ class FlattenRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   explicit FlattenRewriterVisitor(const AnalyzerOptions* options,
                                   Catalog* catalog,
                                   ColumnFactory* column_factory)
-      : analyzer_options_(*options),
-        catalog_(catalog),
-        column_factory_(column_factory) {}
+      : fn_builder_(*options, *catalog), column_factory_(column_factory) {}
 
  private:
   absl::Status VisitResolvedArrayScan(const ResolvedArrayScan* node) override;
@@ -67,14 +77,13 @@ class FlattenRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   // UNNEST with OFFSET.
   //
   // The result is the last column in the output scan's column list.
-  zetasql_base::StatusOr<std::unique_ptr<ResolvedScan>> FlattenToScan(
+  absl::StatusOr<std::unique_ptr<ResolvedScan>> FlattenToScan(
       std::unique_ptr<ResolvedExpr> flatten_expr,
       const std::vector<std::unique_ptr<const ResolvedExpr>>& get_field_list,
       std::unique_ptr<ResolvedScan> input_scan, bool order_results,
       bool in_subquery);
 
-  const AnalyzerOptions& analyzer_options_;
-  Catalog* catalog_;
+  FunctionCallBuilder fn_builder_;
   ColumnFactory* column_factory_;
 };
 
@@ -175,24 +184,16 @@ absl::Status FlattenRewriterVisitor::VisitResolvedFlatten(
   // empty array.
   //
   // TODO: Use AnalyzeSubstitute once it's ready.
-  std::vector<std::unique_ptr<ResolvedExpr>> if_args;
+
   // Check if the input expression is NULL.
-  const Function* is_null_fn;
-  ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"$is_null"}, &is_null_fn,
-                                      analyzer_options_.find_options()));
-  FunctionArgumentType bool_arg = FunctionArgumentType(types::BoolType(), 1);
-  FunctionSignature is_null_signature(
-      bool_arg, {FunctionArgumentType(flatten_expr_column.type(), 1)},
-      FN_IS_NULL);
-  std::vector<std::unique_ptr<ResolvedExpr>> is_null_args;
-  is_null_args.push_back(MakeResolvedColumnRef(flatten_expr_column.type(),
-                                               flatten_expr_column,
-                                               /*is_correlated=*/false));
-  if_args.push_back(MakeResolvedFunctionCall(
-      types::BoolType(), is_null_fn, is_null_signature, std::move(is_null_args),
-      ResolvedFunctionCall::DEFAULT_ERROR_MODE));
+  std::unique_ptr<ResolvedExpr> input_col =
+      MakeResolvedColumnRef(flatten_expr_column.type(), flatten_expr_column,
+                            /*is_correlated=*/false);
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> if_condition,
+                   fn_builder_.IsNull(std::move(input_col)));
   // If so, we return NULL.
-  if_args.push_back(MakeResolvedLiteral(Value::Null(node->type())));
+  std::unique_ptr<ResolvedExpr> if_then =
+      MakeResolvedLiteral(Value::Null(node->type()));
   // Otherwise, return the flattened result.
   std::vector<std::unique_ptr<const ResolvedColumnRef>> column_refs;
   column_refs.push_back(MakeResolvedColumnRef(flatten_expr_column.type(),
@@ -209,22 +210,18 @@ absl::Status FlattenRewriterVisitor::VisitResolvedFlatten(
                                 /*is_correlated=*/true),
           node->get_field_list(), /*input_scan=*/nullptr,
           /*order_results=*/true, /*in_subquery=*/true));
-  if_args.push_back(MakeResolvedSubqueryExpr(
+  std::unique_ptr<ResolvedExpr> if_else = MakeResolvedSubqueryExpr(
       node->type(), ResolvedSubqueryExpr::ARRAY, std::move(column_refs),
-      /*in_expr=*/nullptr, std::move(rewritten_flatten)));
+      /*in_expr=*/nullptr, std::move(rewritten_flatten));
 
-  const Function* if_fn;
-  ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"if"}, &if_fn,
-                                      analyzer_options_.find_options()));
-  FunctionArgumentType out_arg = FunctionArgumentType(node->type(), 1);
-  FunctionSignature if_signature(out_arg, {bool_arg, out_arg, out_arg}, FN_IF);
+  ZETASQL_ASSIGN_OR_RETURN(auto resolved_if,
+                   fn_builder_.If(std::move(if_condition), std::move(if_then),
+                                  std::move(if_else)));
   ResolvedColumn result_column =
       column_factory_->MakeCol("$flatten", "injected", node->type());
   expr_list.clear();
-  expr_list.push_back(MakeResolvedComputedColumn(
-      result_column, MakeResolvedFunctionCall(
-                         node->type(), if_fn, if_signature, std::move(if_args),
-                         ResolvedFunctionCall::DEFAULT_ERROR_MODE)));
+  expr_list.push_back(
+      MakeResolvedComputedColumn(result_column, std::move(resolved_if)));
 
   // Putting it all together, we use a subquery whose result is the result of
   // the if condition above, with a projection input of the flatten expression.
@@ -238,7 +235,7 @@ absl::Status FlattenRewriterVisitor::VisitResolvedFlatten(
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<std::unique_ptr<ResolvedScan>>
+absl::StatusOr<std::unique_ptr<ResolvedScan>>
 FlattenRewriterVisitor::FlattenToScan(
     std::unique_ptr<ResolvedExpr> flatten_expr,
     const std::vector<std::unique_ptr<const ResolvedExpr>>& get_field_list,
@@ -358,7 +355,7 @@ class FlattenRewriter : public Rewriter {
            analyzer_output.analyzer_output_properties().has_flatten;
   }
 
-  zetasql_base::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
       const AnalyzerOptions& options,
       absl::Span<const Rewriter* const> rewriters, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,

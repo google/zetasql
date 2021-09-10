@@ -17,8 +17,10 @@
 #ifndef ZETASQL_PUBLIC_ANNOTATION_COLLATION_H_
 #define ZETASQL_PUBLIC_ANNOTATION_COLLATION_H_
 
+#include "zetasql/parser/ast_node.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/annotation.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
 
 namespace zetasql {
 
@@ -34,12 +36,15 @@ class CollationAnnotation : public AnnotationSpec {
 
   int Id() const override { return GetId(); }
 
-  // TODO: implement propagation rules for functions.
-  absl::Status CheckAndPropagateForFunctionCall(
-      const ResolvedFunctionCall& function_call,
-      AnnotationMap* result_annotation_map) override {
-    ZETASQL_RET_CHECK_FAIL() << "Not implemented";
-  }
+  // Determines whether collation should be propagated to the function's result,
+  // as defined by the function call's signature.  If appropriate, propagates
+  // collation from the function argument(s) to <result_annotation_map>.
+  // Currently only supports default collation propagation, which returns an
+  // error if multiple arguments have different collation, or returns the
+  // common collation otherwise.
+  absl::Status CheckAndPropagateForFunctionCallBase(
+      const ResolvedFunctionCallBase& function_call,
+      AnnotationMap* result_annotation_map) override;
 
   // Replicates collation from <column_ref>.column to <result_annotation_map>.
   absl::Status CheckAndPropagateForColumnRef(
@@ -51,6 +56,38 @@ class CollationAnnotation : public AnnotationSpec {
   absl::Status CheckAndPropagateForGetStructField(
       const ResolvedGetStructField& get_struct_field,
       AnnotationMap* result_annotation_map) override;
+
+  // Propagates annotation from the struct fields to
+  // <result_annotation_map>.
+  absl::Status CheckAndPropagateForMakeStruct(
+      const ResolvedMakeStruct& make_struct,
+      StructAnnotationMap* result_annotation_map) override;
+
+  // Propagates annotation from the subquery to <result_annotation_map>.
+  absl::Status CheckAndPropagateForSubqueryExpr(
+      const ResolvedSubqueryExpr& subquery_expr,
+      AnnotationMap* result_annotation_map) override;
+
+  // Returns false when <map> is nullptr or CollationAnnotation is not
+  // present in <map> or any of its nested AnnotationMaps.
+  static bool ExistsIn(const AnnotationMap* map) {
+    return map != nullptr && map->Has<CollationAnnotation>();
+  }
+
+  // Validates that all collations present on function arguments (if any) are
+  // consistent, and returns that collation.  Only function arguments which have
+  // the option argument_collation_mode matching the <collation_mode_mask> are
+  // considered.  Returns nullptr to indicate no (non-default) collation. Throws
+  // an error if function arguments have different collations.  If non-null,
+  // <error_location> is used for error messages.
+  static absl::StatusOr<const AnnotationMap*> GetCollationFromFunctionArguments(
+      const ASTNode* error_location,
+      const ResolvedFunctionCallBase& function_call,
+      FunctionEnums::ArgumentCollationMode collation_mode_mask);
+
+  // Resolves the collation for ORDER BY item.
+  static absl::Status ResolveCollationForResolvedOrderByItem(
+      ResolvedOrderByItem* resolved_order_by_item);
 };
 
 }  // namespace zetasql

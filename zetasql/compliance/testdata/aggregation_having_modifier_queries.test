@@ -1,5 +1,5 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.TestNullabilityInnerPB]
+[load_proto_names=zetasql_test__.TestNullabilityInnerPB]
 [default required_features=V_1_1_HAVING_IN_AGGREGATE]
 [prepare_database]
 CREATE TABLE TableAllTypes AS

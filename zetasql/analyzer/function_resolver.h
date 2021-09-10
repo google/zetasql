@@ -18,9 +18,7 @@
 #define ZETASQL_ANALYZER_FUNCTION_RESOLVER_H_
 
 #include <functional>
-#include <map>
 #include <memory>
-#include <set>
 #include <string>
 #include <vector>
 
@@ -29,21 +27,25 @@
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/coercer.h"
 #include "zetasql/public/function.h"
-#include "zetasql/public/function.pb.h"
-#include "zetasql/public/function_signature.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/templated_sql_function.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
-#include "zetasql/base/statusor.h"
-#include "zetasql/base/status.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 
-class Coercer;
 class Resolver;
-class SignatureMatchResult;
+class AnalyzerOptions;
+class QueryResolutionInfo;
 
 // This class performs function resolution during ZetaSQL analysis.
 // The functions here generally traverse the function expressions recursively,
@@ -153,6 +155,13 @@ class FunctionResolver {
   // the cast. If no type parameters exist, <type_params> should be an empty
   // TypeParameters object.
   //
+  // If <scan> is non-null, then we will peek to see if <argument> is a
+  // reference to a column computed by a literal. If so, we replace the column
+  // reference with a copy of the literal that is converted to <target_type>.
+  // TODO: This is expression pulling. We are already questioning how
+  //     much constant expression folding should happen in analysis (as opposed
+  //     to rewrite), so maybe we should consider removing the pulling as well.
+  //
   // Note: <ast_location> is expected to refer to the location of <argument>,
   // and would be more appropriate as type ASTExpression, though this would
   // require refactoring some callers.
@@ -193,7 +202,7 @@ class FunctionResolver {
   // resolved.
   // Returns non-OK status only for internal errors, like ZETASQL_RET_CHECK failures.
   // E.g., the ones in FunctionSignatureMatcher::GetConcreteArguments.
-  zetasql_base::StatusOr<bool> SignatureMatches(
+  absl::StatusOr<bool> SignatureMatches(
       const std::vector<const ASTNode*>& arg_ast_nodes,
       const std::vector<InputArgumentType>& input_arguments,
       const FunctionSignature& signature, bool allow_argument_coercion,
@@ -349,7 +358,7 @@ class FunctionResolver {
   // GetFunctionArgumentIndexMappingPerSignature against the matching signature,
   // so that the caller can reorder the input argument list representations
   // accordingly.
-  zetasql_base::StatusOr<const FunctionSignature*> FindMatchingSignature(
+  absl::StatusOr<const FunctionSignature*> FindMatchingSignature(
       const Function* function,
       const ASTNode* ast_location,
       const std::vector<const ASTNode*>& arg_locations,
@@ -376,18 +385,23 @@ class FunctionResolver {
       const FunctionArgumentType& concrete_argument,
       const std::function<std::string(int)>& BadArgErrorPrefix) const;
 
-  // Converts <argument_literal> to <target_type> and replaces <coerced_literal>
-  // with the new expression if successful. If <set_has_explicit_type> is true,
-  // then the new ResolvedLiteral is marked as having been explicitly cast (and
-  // it will thereafter be treated as a non-literal with respect to coercion).
-  // <return_null_on_error> indicates whether the cast should return a NULL
-  // value of the <target_type> in case of cast failures, which should only be
-  // set to true when using SAFE_CAST.
+  // Converts <argument_literal> to <target_type> and replaces
+  // <converted_literal> with the new expression if successful. If
+  // <set_has_explicit_type> is true, then the new ResolvedLiteral is marked as
+  // having been explicitly cast (and it will thereafter be treated as a
+  // non-literal with respect to coercion). <return_null_on_error> indicates
+  // whether the cast should return a NULL value of the <target_type> in case of
+  // cast failures, which should only be set to true when using SAFE_CAST.
   absl::Status ConvertLiteralToType(
       const ASTNode* ast_location, const ResolvedLiteral* argument_literal,
       const Type* target_type, const ResolvedScan* scan,
       bool set_has_explicit_type, bool return_null_on_error,
       std::unique_ptr<const ResolvedLiteral>* converted_literal) const;
+
+  // For COLLATE(<string_expr>, <collation_spec>) function, resolves collation
+  // and set the annotation on the <function_call>.type_annotation_map field.
+  absl::Status ResolveCollationForCollateFunction(
+      const ASTNode* error_location, ResolvedFunctionCall* function_call);
 
   friend class FunctionResolverTest;
 };

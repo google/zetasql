@@ -20,7 +20,7 @@ Literal(type=STRING, value="abc")
 
 column_KitchenSink
 --
-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="column_kitchensink")
+ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="column_kitchensink")
 ==
 
 # The columns are only visible in AnalyzeStatement mode, not AnalyzeQuery.
@@ -63,7 +63,7 @@ FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
   +-GetProtoField
   | +-type=FLOAT
   | +-expr=
-  | | +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="column_kitchensink")
+  | | +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="column_kitchensink")
   | +-field_descriptor=float_val
   | +-default_value=0
   +-Literal(type=FLOAT, value=0)
@@ -319,14 +319,14 @@ SubqueryExpr
         |   | +-ProjectScan
         |   |   +-column_list=[s1.ks#1]
         |   |   +-expr_list=
-        |   |   | +-ks#1 := ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="column_kitchensink")
+        |   |   | +-ks#1 := ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="column_kitchensink")
         |   |   +-input_scan=
         |   |     +-SingleRowScan
         |   +-array_expr=
         |   | +-GetProtoField
         |   |   +-type=ARRAY<DATE>
         |   |   +-expr=
-        |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=s1.ks#1)
+        |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=s1.ks#1)
         |   |   +-field_descriptor=repeated_date
         |   |   +-default_value=[]
         |   |   +-format=DATE
@@ -353,7 +353,7 @@ SubqueryExpr
         |   | +-GetProtoField
         |   |   +-type=ARRAY<DATE>
         |   |   +-expr=
-        |   |   | +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="column_kitchensink")
+        |   |   | +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="column_kitchensink")
         |   |   +-field_descriptor=repeated_date
         |   |   +-default_value=[]
         |   |   +-format=DATE
@@ -694,7 +694,7 @@ datetime '2006-13-02 03:04:05.123456 UTC'
 [in_scope_expression_column_name=value]
 value
 --
-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="value")
+ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="value")
 ==
 
 # Setting the [in_scope_expression_column_name] switches us to have one
@@ -705,7 +705,7 @@ int64_key_1
 GetProtoField
 +-type=INT64
 +-expr=
-| +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="value")
+| +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="value")
 +-field_descriptor=int64_key_1
 ==
 
@@ -715,7 +715,7 @@ has_int64_key_1
 GetProtoField
 +-type=BOOL
 +-expr=
-| +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="value")
+| +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="value")
 +-field_descriptor=int64_key_1
 +-get_has_bit=TRUE
 ==
@@ -729,9 +729,9 @@ FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
 | +-type=INT64
 | +-expr=
 | | +-GetProtoField
-| |   +-type=PROTO<zetasql_test.KitchenSinkPB.Nested>
+| |   +-type=PROTO<zetasql_test__.KitchenSinkPB.Nested>
 | |   +-expr=
-| |   | +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="value")
+| |   | +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="value")
 | |   +-field_descriptor=nested_value
 | |   +-default_value=NULL
 | +-field_descriptor=nested_int64
@@ -739,15 +739,15 @@ FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
 +-GetProtoField
   +-type=INT64
   +-expr=
-  | +-FunctionCall(ZetaSQL:$array_at_ordinal(ARRAY<PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup.NestedRepeatedGroupNested>>, INT64) -> PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup.NestedRepeatedGroupNested>)
+  | +-FunctionCall(ZetaSQL:$array_at_ordinal(ARRAY<PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup.NestedRepeatedGroupNested>>, INT64) -> PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup.NestedRepeatedGroupNested>)
   |   +-GetProtoField
-  |   | +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup.NestedRepeatedGroupNested>>
+  |   | +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup.NestedRepeatedGroupNested>>
   |   | +-expr=
-  |   | | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>>, INT64) -> PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>)
+  |   | | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>>, INT64) -> PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>)
   |   | |   +-GetProtoField
-  |   | |   | +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>>
+  |   | |   | +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>>
   |   | |   | +-expr=
-  |   | |   | | +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="value")
+  |   | |   | | +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="value")
   |   | |   | +-field_descriptor=nested_repeated_group
   |   | |   | +-default_value=[]
   |   | |   +-Literal(type=INT64, value=0)
@@ -769,51 +769,51 @@ FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
  sink)
 --
 MakeStruct
-+-type=STRUCT<INT64, BOOL, ARRAY<DATE>, BOOL, STRING, BOOL, PROTO<zetasql_test.KitchenSinkPB>>
++-type=STRUCT<INT64, BOOL, ARRAY<DATE>, BOOL, STRING, BOOL, PROTO<zetasql_test__.KitchenSinkPB>>
 +-field_list=
   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
   | +-GetProtoField
   | | +-type=INT64
   | | +-expr=
-  | | | +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="sink")
+  | | | +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="sink")
   | | +-field_descriptor=int64_key_1
   | +-GetProtoField
   |   +-type=INT64
   |   +-expr=
-  |   | +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="sink")
+  |   | +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="sink")
   |   +-field_descriptor=int64_key_2
   +-GetProtoField
   | +-type=BOOL
   | +-expr=
-  | | +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="sink")
+  | | +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="sink")
   | +-field_descriptor=int32_val
   | +-get_has_bit=TRUE
   +-GetProtoField
   | +-type=ARRAY<DATE>
   | +-expr=
-  | | +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="sink")
+  | | +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="sink")
   | +-field_descriptor=repeated_date
   | +-default_value=[]
   | +-format=DATE
   +-GetProtoField
   | +-type=BOOL
   | +-expr=
-  | | +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="sink")
+  | | +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="sink")
   | +-field_descriptor=timestamp_micros
   | +-get_has_bit=TRUE
   +-GetProtoField
   | +-type=STRING
   | +-expr=
-  | | +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="sink")
+  | | +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="sink")
   | +-field_descriptor=MIXED_case
   | +-default_value=""
   +-GetProtoField
   | +-type=BOOL
   | +-expr=
-  | | +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="sink")
+  | | +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="sink")
   | +-field_descriptor=MIXED_case
   | +-get_has_bit=TRUE
-  +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="sink")
+  +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="sink")
 ==
 
 # We can use UNNEST to scan an array field of the value column.
@@ -835,7 +835,7 @@ SubqueryExpr
         |   | +-GetProtoField
         |   |   +-type=ARRAY<DATE>
         |   |   +-expr=
-        |   |   | +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="sink")
+        |   |   | +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="sink")
         |   |   +-field_descriptor=repeated_date
         |   |   +-default_value=[]
         |   |   +-format=DATE
@@ -872,12 +872,12 @@ MakeStruct
   +-GetProtoField
   | +-type=INT64
   | +-expr=
-  | | +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="")
+  | | +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="")
   | +-field_descriptor=int64_key_1
   +-GetProtoField
     +-type=BOOL
     +-expr=
-    | +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="")
+    | +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="")
     +-field_descriptor=date
     +-get_has_bit=TRUE
 ==
@@ -917,13 +917,13 @@ has_bad_name
 --
 ALTERNATION GROUP: value.bad_name
 --
-ERROR: Protocol buffer zetasql_test.KitchenSinkPB does not have a field called bad_name [at 1:7]
+ERROR: Protocol buffer zetasql_test__.KitchenSinkPB does not have a field called bad_name [at 1:7]
 value.bad_name
       ^
 --
 ALTERNATION GROUP: value.has_bad_name
 --
-ERROR: Protocol buffer zetasql_test.KitchenSinkPB does not have a field called has_bad_name [at 1:7]
+ERROR: Protocol buffer zetasql_test__.KitchenSinkPB does not have a field called has_bad_name [at 1:7]
 value.has_bad_name
       ^
 ==
@@ -1039,18 +1039,18 @@ FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
 | +-GetProtoField
 | | +-type=INT64
 | | +-expr=
-| | | +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="column_kitchensink")
+| | | +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="column_kitchensink")
 | | +-field_descriptor=int64_key_1
 | +-GetProtoField
 |   +-type=INT64
 |   +-expr=
-|   | +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="value")
+|   | +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="value")
 |   +-field_descriptor=int64_key_2
 +-Cast(INT32 -> INT64)
   +-GetProtoField
     +-type=INT32
     +-expr=
-    | +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="value")
+    | +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="value")
     +-field_descriptor=int32_val
     +-default_value=77
 ==
@@ -1062,13 +1062,13 @@ FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
 (int32_val, int32_val.int32_val)
 --
 MakeStruct
-+-type=STRUCT<PROTO<zetasql_test.KitchenSinkPB>, INT32>
++-type=STRUCT<PROTO<zetasql_test__.KitchenSinkPB>, INT32>
 +-field_list=
-  +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="int32_val")
+  +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="int32_val")
   +-GetProtoField
     +-type=INT32
     +-expr=
-    | +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="int32_val")
+    | +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="int32_val")
     +-field_descriptor=int32_val
     +-default_value=77
 ==
@@ -1104,7 +1104,7 @@ SubqueryExpr
             |   +-GetProtoField
             |     +-type=INT64
             |     +-expr=
-            |     | +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="value")
+            |     | +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="value")
             |     +-field_descriptor=int64_key_2
             +-input_scan=
               +-SingleRowScan
@@ -1169,12 +1169,12 @@ FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
                           +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
 ==
 
-NEW zetasql_test.TestExtraPB(
+NEW zetasql_test__.TestExtraPB(
   ["abc", "def"] AS str_value,
   17 AS int32_val1)
 --
 MakeProto
-+-type=PROTO<zetasql_test.TestExtraPB>
++-type=PROTO<zetasql_test__.TestExtraPB>
 +-field_list=
   +-str_value := Literal(type=ARRAY<STRING>, value=["abc", "def"])
   +-int32_val1 := Literal(type=INT32, value=17)
@@ -1232,7 +1232,7 @@ SubqueryExpr
 (SELECT AS STRUCT column_KitchenSink, column_KitchenSink.float_val, TestConstantInt64)
 --
 SubqueryExpr
-+-type=STRUCT<column_KitchenSink PROTO<zetasql_test.KitchenSinkPB>, float_val FLOAT, TestConstantInt64 INT64>
++-type=STRUCT<column_KitchenSink PROTO<zetasql_test__.KitchenSinkPB>, float_val FLOAT, TestConstantInt64 INT64>
 +-subquery_type=SCALAR
 +-subquery=
   +-ProjectScan
@@ -1240,21 +1240,21 @@ SubqueryExpr
     +-expr_list=
     | +-$struct#4 :=
     |   +-MakeStruct
-    |     +-type=STRUCT<column_KitchenSink PROTO<zetasql_test.KitchenSinkPB>, float_val FLOAT, TestConstantInt64 INT64>
+    |     +-type=STRUCT<column_KitchenSink PROTO<zetasql_test__.KitchenSinkPB>, float_val FLOAT, TestConstantInt64 INT64>
     |     +-field_list=
-    |       +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=$expr_subquery.column_KitchenSink#1)
+    |       +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=$expr_subquery.column_KitchenSink#1)
     |       +-ColumnRef(type=FLOAT, column=$expr_subquery.float_val#2)
     |       +-ColumnRef(type=INT64, column=$expr_subquery.TestConstantInt64#3)
     +-input_scan=
       +-ProjectScan
         +-column_list=$expr_subquery.[column_KitchenSink#1, float_val#2, TestConstantInt64#3]
         +-expr_list=
-        | +-column_KitchenSink#1 := ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="column_kitchensink")
+        | +-column_KitchenSink#1 := ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="column_kitchensink")
         | +-float_val#2 :=
         | | +-GetProtoField
         | |   +-type=FLOAT
         | |   +-expr=
-        | |   | +-ExpressionColumn(type=PROTO<zetasql_test.KitchenSinkPB>, name="column_kitchensink")
+        | |   | +-ExpressionColumn(type=PROTO<zetasql_test__.KitchenSinkPB>, name="column_kitchensink")
         | |   +-field_descriptor=float_val
         | |   +-default_value=0
         | +-TestConstantInt64#3 := Constant(TestConstantInt64, type=INT64, value=1)

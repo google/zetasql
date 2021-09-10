@@ -55,12 +55,12 @@ DEFINE TABLE t1();
 ==
 
 export data
-as select as `zetasql_test.TestExtraPB` 55 int32_val1
+as select as `zetasql_test__.TestExtraPB` 55 int32_val1
 --
 [UNPARSED_SQL]
 EXPORT DATA AS
 SELECT AS VALUE
-  NEW `zetasql_test.TestExtraPB`(CAST(55 AS INT32) AS int32_val1) AS a_3
+  NEW `zetasql_test__.TestExtraPB`(CAST(55 AS INT32) AS int32_val1) AS a_3
 FROM
   (
     SELECT
@@ -446,7 +446,7 @@ create function `my func` ( a int32 )
 [UNPARSED_SQL]
 CREATE FUNCTION `my func`(a INT32)
 RETURNS INT32 AS (
-  `IF`(a > CAST(0 AS INT32), a, CAST(- 1 AS INT32))
+  `IF`(a > CAST(0 AS INT32), a, CAST(-1 AS INT32))
 );
 ==
 
@@ -458,7 +458,7 @@ create function myfunc ( a int32 )
 [UNPARSED_SQL]
 CREATE FUNCTION myfunc(a INT32)
 RETURNS INT32 AS (
-  `IF`(a > CAST(0 AS INT32), a, CAST(- 1 AS INT32))
+  `IF`(a > CAST(0 AS INT32), a, CAST(-1 AS INT32))
 );
 ==
 
@@ -469,7 +469,7 @@ create function myfunc ( a int32 )
 [UNPARSED_SQL]
 CREATE FUNCTION myfunc(a INT32)
 RETURNS INT32 AS (
-  `IF`(a > CAST(0 AS INT32), a, CAST(- 1 AS INT32))
+  `IF`(a > CAST(0 AS INT32), a, CAST(-1 AS INT32))
 );
 ==
 
@@ -481,7 +481,7 @@ create function foo.myfunc ( `four score` int32 )
 [UNPARSED_SQL]
 CREATE FUNCTION foo.myfunc(`four score` INT32)
 RETURNS INT32 AS (
-  `IF`((`four score`) > CAST(0 AS INT32), `four score`, CAST(- 1 AS INT32))
+  `IF`((`four score`) > CAST(0 AS INT32), `four score`, CAST(-1 AS INT32))
 );
 ==
 
@@ -542,7 +542,7 @@ create temporary function if not exists myfunc ( a int32 )
 [UNPARSED_SQL]
 CREATE TEMP FUNCTION IF NOT EXISTS myfunc(a INT32)
 RETURNS INT32 AS (
-  `IF`(a > CAST(0 AS INT32), a, CAST(- 1 AS INT32))
+  `IF`(a > CAST(0 AS INT32), a, CAST(-1 AS INT32))
 );
 ==
 
@@ -554,7 +554,7 @@ create or replace temporary function myfunc ( a int32 )
 [UNPARSED_SQL]
 CREATE OR REPLACE TEMP FUNCTION myfunc(a INT32)
 RETURNS INT32 AS (
-  `IF`(a > CAST(0 AS INT32), a, CAST(- 1 AS INT32))
+  `IF`(a > CAST(0 AS INT32), a, CAST(-1 AS INT32))
 );
 ==
 

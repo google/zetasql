@@ -37,9 +37,9 @@ call proc_on_TestEnum("TESTENUM0")
 --
 CallStmt
 +-procedure=proc_on_TestEnum
-+-signature=(ENUM<zetasql_test.TestEnum>) -> BOOL
++-signature=(ENUM<zetasql_test__.TestEnum>) -> BOOL
 +-argument_list=
-  +-Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM0)
+  +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM0)
 ==
 
 call proc_on_Date("2016-01-01")

@@ -2,7 +2,7 @@
 # Create tables
 #
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_enum_names=zetasql_test.TestEnum]
+[load_enum_names=zetasql_test__.TestEnum]
 
 [prepare_database]
 CREATE TABLE TableDistincts AS
@@ -322,10 +322,10 @@ ERROR: generic::invalid_argument: Column float_val of type FLOAT cannot be used 
 
 [name=null_enum]
 SELECT DISTINCT val.NULL_ENUM
-from (select cast(NULL as `zetasql_test.TestEnum`) NULL_ENUM union all
-      select cast(NULL as `zetasql_test.TestEnum`)) val
+from (select cast(NULL as `zetasql_test__.TestEnum`) NULL_ENUM union all
+      select cast(NULL as `zetasql_test__.TestEnum`)) val
 --
-ARRAY<STRUCT<NULL_ENUM ENUM<zetasql_test.TestEnum>>>[{NULL}]
+ARRAY<STRUCT<NULL_ENUM ENUM<zetasql_test__.TestEnum>>>[{NULL}]
 ==
 
 # ------------------------------
@@ -496,13 +496,13 @@ ARRAY<STRUCT<DATE DATE>>[{NULL}, {2014-01-01}, {2014-01-02}]
 
 [name=distinct_enum]
 SELECT DISTINCT val.ENUM_col
-from (select cast(0 AS `zetasql_test.TestEnum`) ENUM_col union all
-      select cast(NULL as `zetasql_test.TestEnum`) union all
-      select cast(1 AS `zetasql_test.TestEnum`) union all
-      select cast("TESTENUM0" AS `zetasql_test.TestEnum`) union all
-      select cast(NULL as `zetasql_test.TestEnum`)) val
+from (select cast(0 AS `zetasql_test__.TestEnum`) ENUM_col union all
+      select cast(NULL as `zetasql_test__.TestEnum`) union all
+      select cast(1 AS `zetasql_test__.TestEnum`) union all
+      select cast("TESTENUM0" AS `zetasql_test__.TestEnum`) union all
+      select cast(NULL as `zetasql_test__.TestEnum`)) val
 --
-ARRAY<STRUCT<ENUM_col ENUM<zetasql_test.TestEnum>>>[
+ARRAY<STRUCT<ENUM_col ENUM<zetasql_test__.TestEnum>>>[
   {NULL},
   {TESTENUM0},
   {TESTENUM1}

@@ -37,7 +37,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
@@ -51,7 +51,7 @@ bool IsExtendedCoercion(const Type* from_type, const Type* to_type) {
   return from_type->IsExtendedType() || to_type->IsExtendedType();
 }
 
-bool StatusToBool(const zetasql_base::StatusOr<bool>& status) {
+bool StatusToBool(const absl::StatusOr<bool>& status) {
   // This function is used by old CoercesTo functions that return bool to
   // convert StatusOr<bool> values returned by new CoercesTo API. Old API
   // functions should never be called for expressions that may involve extended
@@ -109,7 +109,7 @@ const SuperTypesMap& GetBuiltinSuperTypesMap() {
   return *built_in_supertypes_map;
 }
 
-zetasql_base::StatusOr<TypeListView> GetSuperTypesOfBuiltinType(const Type* type) {
+absl::StatusOr<TypeListView> GetSuperTypesOfBuiltinType(const Type* type) {
   ZETASQL_RET_CHECK_NE(type, nullptr);
   ZETASQL_RET_CHECK_NE(type->kind(), TypeKind::TYPE_EXTENDED);
 
@@ -314,7 +314,7 @@ absl::Status CheckSupertypesGlobalOrderForCoercer(
 
 }  // namespace
 
-zetasql_base::StatusOr<TypeListView> GetCandidateSuperTypes(const Type* type,
+absl::StatusOr<TypeListView> GetCandidateSuperTypes(const Type* type,
                                                     Catalog* catalog) {
   ZETASQL_RET_CHECK_NE(type, nullptr);
   ZETASQL_RET_CHECK(!type->IsStruct());
@@ -401,36 +401,36 @@ class Coercer::Context : public Coercer::ContextBase {
  public:
   using Coercer::ContextBase::ContextBase;
 
-  zetasql_base::StatusOr<bool> CoercesTo(const InputArgumentType& from_argument,
+  absl::StatusOr<bool> CoercesTo(const InputArgumentType& from_argument,
                                  const Type* to_type,
                                  SignatureMatchResult* result);
 
-  zetasql_base::StatusOr<bool> ExtendedTypeCoercesTo(
+  absl::StatusOr<bool> ExtendedTypeCoercesTo(
       const Type* from_type, const Type* to_type,
       Catalog::ConversionSourceExpressionKind source_kind,
       SignatureMatchResult* result);
 
-  zetasql_base::StatusOr<bool> ExtendedTypeCoercesTo(const InputArgumentType& argument,
+  absl::StatusOr<bool> ExtendedTypeCoercesTo(const InputArgumentType& argument,
                                              const Type* to_type,
                                              SignatureMatchResult* result);
 
-  zetasql_base::StatusOr<bool> StructCoercesTo(const InputArgumentType& struct_argument,
+  absl::StatusOr<bool> StructCoercesTo(const InputArgumentType& struct_argument,
                                        const Type* to_type,
                                        SignatureMatchResult* result);
 
-  zetasql_base::StatusOr<bool> ArrayCoercesTo(const InputArgumentType& array_argument,
+  absl::StatusOr<bool> ArrayCoercesTo(const InputArgumentType& array_argument,
                                       const Type* to_type,
                                       SignatureMatchResult* result);
 
-  zetasql_base::StatusOr<bool> ParameterCoercesTo(const Type* from_type,
+  absl::StatusOr<bool> ParameterCoercesTo(const Type* from_type,
                                           const Type* to_type,
                                           SignatureMatchResult* result);
 
-  zetasql_base::StatusOr<bool> LiteralCoercesTo(const Value& literal_value,
+  absl::StatusOr<bool> LiteralCoercesTo(const Value& literal_value,
                                         const Type* to_type,
                                         SignatureMatchResult* result);
 
-  zetasql_base::StatusOr<bool> TypeCoercesTo(const Type* from_type, const Type* to_type,
+  absl::StatusOr<bool> TypeCoercesTo(const Type* from_type, const Type* to_type,
                                      SignatureMatchResult* result);
 
   // Returns whether <from_struct> can be coerced to <to_type>. <to_type>
@@ -441,7 +441,7 @@ class Coercer::Context : public Coercer::ContextBase {
   //
   // The result of this function is definitive for struct->proto coercion,
   // so <result> is always updated.
-  zetasql_base::StatusOr<bool> StructCoercesToProtoMapEntry(
+  absl::StatusOr<bool> StructCoercesToProtoMapEntry(
       const StructType* from_struct, const ProtoType* to_type,
       SignatureMatchResult* result);
 };
@@ -486,7 +486,7 @@ void Coercer::StripFieldAliasesFromStructType(const Type** struct_type) const {
   ZETASQL_CHECK_OK(type_factory_->MakeStructType(struct_field_types, struct_type));
 }
 
-zetasql_base::StatusOr<const StructType*> Coercer::GetCommonStructSuperType(
+absl::StatusOr<const StructType*> Coercer::GetCommonStructSuperType(
     const InputArgumentTypeSet& argument_set) const {
   ZETASQL_RET_CHECK(!argument_set.arguments().empty());
   const InputArgumentType* dominant_argument = argument_set.dominant_argument();
@@ -585,7 +585,7 @@ zetasql_base::StatusOr<const StructType*> Coercer::GetCommonStructSuperType(
   return supertyped_struct_type;
 }
 
-zetasql_base::StatusOr<const ArrayType*> Coercer::GetCommonArraySuperType(
+absl::StatusOr<const ArrayType*> Coercer::GetCommonArraySuperType(
     const InputArgumentTypeSet& argument_set,
     bool treat_query_parameters_as_literals) const {
   // First build an InputArgumentTypeSet corresponding to the element types in
@@ -664,7 +664,7 @@ absl::Status Coercer::GetCommonSuperType(
 
 // TODO: Add some unit tests for untyped empty array to coercer_test
 // and coercer_supertypes_test.
-zetasql_base::StatusOr<const Type*> Coercer::GetCommonSuperTypeImpl(
+absl::StatusOr<const Type*> Coercer::GetCommonSuperTypeImpl(
     const InputArgumentTypeSet& argument_set,
     bool treat_parameters_as_literals) const {
   if (argument_set.empty()) {
@@ -930,7 +930,7 @@ zetasql_base::StatusOr<const Type*> Coercer::GetCommonSuperTypeImpl(
   return nullptr;  // No common supertype.
 }
 
-zetasql_base::StatusOr<bool> Coercer::Context::CoercesTo(
+absl::StatusOr<bool> Coercer::Context::CoercesTo(
     const InputArgumentType& from_argument, const Type* to_type,
     SignatureMatchResult* result) {
   if (from_argument.is_untyped()) {
@@ -970,7 +970,7 @@ bool Coercer::AssignableTo(const InputArgumentType& from_argument,
   return false;
 }
 
-zetasql_base::StatusOr<bool> Coercer::Context::ExtendedTypeCoercesTo(
+absl::StatusOr<bool> Coercer::Context::ExtendedTypeCoercesTo(
     const Type* from_type, const Type* to_type,
     Catalog::ConversionSourceExpressionKind source_kind,
     SignatureMatchResult* result) {
@@ -1011,7 +1011,7 @@ zetasql_base::StatusOr<bool> Coercer::Context::ExtendedTypeCoercesTo(
   return true;
 }
 
-zetasql_base::StatusOr<bool> Coercer::Context::ParameterCoercesTo(
+absl::StatusOr<bool> Coercer::Context::ParameterCoercesTo(
     const Type* from_type, const Type* to_type, SignatureMatchResult* result) {
   if (IsExtendedCoercion(from_type, to_type)) {
     return ExtendedTypeCoercesTo(
@@ -1050,7 +1050,7 @@ zetasql_base::StatusOr<bool> Coercer::Context::ParameterCoercesTo(
   return false;
 }
 
-zetasql_base::StatusOr<bool> Coercer::Context::TypeCoercesTo(
+absl::StatusOr<bool> Coercer::Context::TypeCoercesTo(
     const Type* from_type, const Type* to_type, SignatureMatchResult* result) {
   if (IsExtendedCoercion(from_type, to_type)) {
     return ExtendedTypeCoercesTo(
@@ -1094,7 +1094,7 @@ zetasql_base::StatusOr<bool> Coercer::Context::TypeCoercesTo(
   return true;
 }
 
-zetasql_base::StatusOr<bool> Coercer::Context::StructCoercesTo(
+absl::StatusOr<bool> Coercer::Context::StructCoercesTo(
     const InputArgumentType& struct_argument, const Type* to_type,
     SignatureMatchResult* result) {
   // Expected invariant.
@@ -1177,7 +1177,7 @@ zetasql_base::StatusOr<bool> Coercer::Context::StructCoercesTo(
   return true;
 }
 
-zetasql_base::StatusOr<bool> Coercer::Context::StructCoercesToProtoMapEntry(
+absl::StatusOr<bool> Coercer::Context::StructCoercesToProtoMapEntry(
     const StructType* from_struct, const ProtoType* to_type,
     SignatureMatchResult* result) {
   const ProtoType* to_type_proto = to_type->AsProto();
@@ -1225,7 +1225,7 @@ zetasql_base::StatusOr<bool> Coercer::Context::StructCoercesToProtoMapEntry(
   return true;
 }
 
-zetasql_base::StatusOr<bool> Coercer::Context::ArrayCoercesTo(
+absl::StatusOr<bool> Coercer::Context::ArrayCoercesTo(
     const InputArgumentType& array_argument, const Type* to_type,
     SignatureMatchResult* result) {
   ZETASQL_RET_CHECK(array_argument.type()->IsArray());
@@ -1266,7 +1266,7 @@ zetasql_base::StatusOr<bool> Coercer::Context::ArrayCoercesTo(
   return false;
 }
 
-zetasql_base::StatusOr<bool> Coercer::Context::LiteralCoercesTo(
+absl::StatusOr<bool> Coercer::Context::LiteralCoercesTo(
     const Value& literal_value, const Type* to_type,
     SignatureMatchResult* result) {
   if (IsExtendedCoercion(literal_value.type(), to_type)) {
@@ -1330,7 +1330,7 @@ bool Coercer::CoercesTo(const InputArgumentType& from_argument,
                                 &extended_conversion_evaluator));
 }
 
-zetasql_base::StatusOr<bool> Coercer::CoercesTo(
+absl::StatusOr<bool> Coercer::CoercesTo(
     const InputArgumentType& from_argument, const Type* to_type,
     bool is_explicit, SignatureMatchResult* result,
     ExtendedCompositeCastEvaluator* extended_conversion_evaluator) const {

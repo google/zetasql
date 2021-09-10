@@ -1,11 +1,11 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB, zetasql_test.KitchenSinkExtension]
+[load_proto_names=zetasql_test__.KitchenSinkPB, zetasql_test__.KitchenSinkExtension]
 [prepare_database]
 CREATE TABLE Extensions AS
 SELECT 1 key, cast('''
   int64_key_1: 1
   int64_key_2: 1
-''' as `zetasql_test.KitchenSinkPB`) as value
+''' as `zetasql_test__.KitchenSinkPB`) as value
 union all
 select 2, null
 union all
@@ -13,15 +13,15 @@ select 4, cast('''
   int64_key_1: 4
   int64_key_2: 4
 
-  [zetasql_test.KitchenSinkExtension.optional_extension] { value: "504" }
-  [zetasql_test.KitchenSinkExtension.int_extension]: 506
-  [zetasql_test.KitchenSinkExtension.repeated_extension] { value: "507" }
-  [zetasql_test.KitchenSinkExtension.repeated_extension] { value: "508" }
-''' as `zetasql_test.KitchenSinkPB`) as value
+  [zetasql_test__.KitchenSinkExtension.optional_extension] { value: "504" }
+  [zetasql_test__.KitchenSinkExtension.int_extension]: 506
+  [zetasql_test__.KitchenSinkExtension.repeated_extension] { value: "507" }
+  [zetasql_test__.KitchenSinkExtension.repeated_extension] { value: "508" }
+''' as `zetasql_test__.KitchenSinkPB`) as value
 --
 ARRAY<STRUCT<
         key INT64,
-        value PROTO<zetasql_test.KitchenSinkPB>
+        value PROTO<zetasql_test__.KitchenSinkPB>
       >>
 [{1,
   {
@@ -33,21 +33,21 @@ ARRAY<STRUCT<
   {
     int64_key_1: 4
     int64_key_2: 4
-    [zetasql_test.KitchenSinkExtension.int_extension]: 506
-    [zetasql_test.KitchenSinkExtension.optional_extension] {
+    [zetasql_test__.KitchenSinkExtension.int_extension]: 506
+    [zetasql_test__.KitchenSinkExtension.optional_extension] {
       value: "504"
     }
-    [zetasql_test.KitchenSinkExtension.repeated_extension] {
+    [zetasql_test__.KitchenSinkExtension.repeated_extension] {
       value: "507"
     }
-    [zetasql_test.KitchenSinkExtension.repeated_extension] {
+    [zetasql_test__.KitchenSinkExtension.repeated_extension] {
       value: "508"
     }
   }}]
 ==
 
 [name=select_scalar_extension]
-select key, value.(zetasql_test.KitchenSinkExtension.int_extension)
+select key, value.(zetasql_test__.KitchenSinkExtension.int_extension)
 from Extensions order by 1
 --
 ARRAY<STRUCT<key INT64, INT64>>[{1, 0}, {2, NULL}, {4, 506}]
@@ -55,13 +55,13 @@ ARRAY<STRUCT<key INT64, INT64>>[{1, 0}, {2, NULL}, {4, 506}]
 
 [name=select_optional_extension]
 select key,
-       value.(zetasql_test.KitchenSinkExtension.optional_extension),
-       value.(zetasql_test.KitchenSinkExtension.optional_extension).value
+       value.(zetasql_test__.KitchenSinkExtension.optional_extension),
+       value.(zetasql_test__.KitchenSinkExtension.optional_extension).value
 from Extensions order by 1
 --
 ARRAY<STRUCT<
         key INT64,
-        PROTO<zetasql_test.KitchenSinkExtension>,
+        PROTO<zetasql_test__.KitchenSinkExtension>,
         value STRING
       >>
 [
@@ -73,20 +73,20 @@ ARRAY<STRUCT<
 
 [name=select_repeated_extension]
 select key,
-       value.(zetasql_test.KitchenSinkExtension.repeated_extension)
+       value.(zetasql_test__.KitchenSinkExtension.repeated_extension)
 from Extensions order by 1
 --
 ARRAY<STRUCT<key INT64, ARRAY<>>>[
   {
     1,
-    ARRAY<PROTO<zetasql_test.KitchenSinkExtension>>[]
+    ARRAY<PROTO<zetasql_test__.KitchenSinkExtension>>[]
   },
   {
     2,
-    ARRAY<PROTO<zetasql_test.KitchenSinkExtension>>(NULL)
+    ARRAY<PROTO<zetasql_test__.KitchenSinkExtension>>(NULL)
   },
   {4,
-   ARRAY<PROTO<zetasql_test.KitchenSinkExtension>>[
+   ARRAY<PROTO<zetasql_test__.KitchenSinkExtension>>[
      {value: "507"},
      {value: "508"}
    ]}
@@ -96,12 +96,12 @@ ARRAY<STRUCT<key INT64, ARRAY<>>>[
 [name=select_repeated_extension_unnested]
 select key, u, u.value
 from Extensions,
-     UNNEST(value.(zetasql_test.KitchenSinkExtension.repeated_extension)) u
+     UNNEST(value.(zetasql_test__.KitchenSinkExtension.repeated_extension)) u
 order by 1
 --
 ARRAY<STRUCT<
         key INT64,
-        u PROTO<zetasql_test.KitchenSinkExtension>,
+        u PROTO<zetasql_test__.KitchenSinkExtension>,
         value STRING
       >>
 [

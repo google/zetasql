@@ -100,32 +100,36 @@ SELECT SAFE.SUBSTR('bar', 0, 2) AS safe_output;
 
 ## Conversion rules
 
-"Conversion" includes, but is not limited to, casting and coercion.
+Conversion includes, but is not limited to, casting, coercion, and
+supertyping.
 
 + Casting is explicit conversion and uses the
   [`CAST()`][con-rules-link-to-cast] function.
 + Coercion is implicit conversion, which ZetaSQL performs
   automatically under the conditions described below.
++ A supertype is a common type to which two or more expressions can be coerced.
 
 There are also conversions that have their own function names, such as
 `PARSE_DATE()`. To learn more about these functions, see
 [Conversion functions][con-rules-link-to-conversion-functions-other]
 
-### Comparison chart
+### Comparison of casting and coercion 
+<a id="comparison_chart"></a>
 
-The table below summarizes all possible `CAST` and coercion possibilities for
-ZetaSQL data types. "Coercion To" applies to all *expressions* of a
-given data type, (for example, a
-column), but literals
-and parameters can also be coerced. See [Literal Coercion][con-rules-link-to-literal-coercion] and
-[Parameter Coercion][con-rules-link-to-parameter-coercion] for details.
+The following table summarizes all possible cast and coercion possibilities for
+ZetaSQL data types. The _Coerce to_ column applies to all
+expressions of a given data type, (for example, a
+column), but
+literals and parameters can also be coerced. See
+[literal coercion][con-rules-link-to-literal-coercion] and
+[parameter coercion][con-rules-link-to-parameter-coercion] for details.
 
 <table>
 <thead>
 <tr>
-<th>From Type</th>
-<th>CAST to</th>
-<th>Coercion To</th>
+<th>From type</th>
+<th>Cast to</th>
+<th>Coerce to</th>
 </tr>
 </thead>
 <tbody>
@@ -267,11 +271,11 @@ other casting functions, see
 ### Coercion
 
 ZetaSQL coerces the result type of an argument expression to another
-type if needed to match function signatures. For example, if function func() is
-defined to take a single argument of type DOUBLE and
-an expression is used as an argument that has a result type of
-INT64, then the result of the expression will be
-coerced to DOUBLE type before func() is computed.
+type if needed to match function signatures. For example, if function `func()`
+is defined to take a single argument of type `DOUBLE`
+and an expression is used as an argument that has a result type of
+`INT64`, then the result of the expression will be
+coerced to `DOUBLE` type before `func()` is computed.
 
 #### Literal coercion
 
@@ -280,8 +284,8 @@ ZetaSQL supports the following literal coercions:
 <table>
 <thead>
 <tr>
-<th>Input Data Type</th>
-<th>Result Data Type</th>
+<th>Input data type</th>
+<th>Result data type</th>
 <th>Notes</th>
 </tr>
 </thead>
@@ -334,14 +338,15 @@ ENUM type name.
 
 Literal coercion is needed when the actual literal type is different from the
 type expected by the function in question. For
-example, if function `func()` takes a DATE argument, then the expression
-`func("2014-09-27")` is valid because the STRING literal `"2014-09-27"`
-is coerced to DATE.
+example, if function `func()` takes a DATE argument,
+then the expression `func("2014-09-27")` is valid because the
+string literal `"2014-09-27"` is coerced to
+`DATE`.
 
 Literal conversion is evaluated at analysis time, and gives an error if the
 input literal cannot be converted successfully to the target type.
 
-**Note:** String literals do not coerce to numeric types.
+Note: String literals do not coerce to numeric types.
 
 #### Parameter coercion
 
@@ -350,8 +355,8 @@ ZetaSQL supports the following parameter coercions:
 <table>
 <thead>
 <tr>
-<th>Input Data Type</th>
-<th>Result Data Type</th>
+<th>Input data type</th>
+<th>Result data type</th>
 </tr>
 </thead>
 <tbody>
@@ -382,19 +387,504 @@ ZetaSQL supports the following parameter coercions:
 If the parameter value cannot be coerced successfully to the target type, an
 error is provided.
 
+### Supertypes
+
+A supertype is a common type to which two or more expressions can be coerced.
+Supertypes are used with set operations such as `UNION ALL` and expressions such
+as `CASE` that expect multiple arguments with matching types. Each type has one
+or more supertypes, including itself, which defines its set of supertypes.
+
+<table>
+  <thead>
+    <tr>
+      <th>Input type</th>
+      <th>Supertypes</th>
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>BOOL</td>
+      <td>BOOL</td>
+    </tr>
+    
+    
+    <tr>
+      <td>INT32</td>
+      <td>
+
+<span> INT32</span><br /><span> INT64</span><br /><span> FLOAT</span><br /><span> DOUBLE</span><br /><span> NUMERIC</span><br /><span> BIGNUMERIC</span><br />
+</td>
+    </tr>
+    
+    
+    <tr>
+      <td>INT64</td>
+      <td>
+
+<span> INT64</span><br /><span> FLOAT</span><br /><span> DOUBLE</span><br /><span> NUMERIC</span><br /><span> BIGNUMERIC</span><br />
+</td>
+    </tr>
+    
+    
+    <tr>
+      <td>UINT32</td>
+      <td>
+
+<span> UINT32</span><br /><span> INT64</span><br /><span> UINT64</span><br /><span> FLOAT</span><br /><span> DOUBLE</span><br /><span> NUMERIC</span><br /><span> BIGNUMERIC</span><br />
+</td>
+    </tr>
+    
+    
+    <tr>
+      <td>UINT64</td>
+      <td>
+
+<span> UINT64</span><br /><span> FLOAT</span><br /><span> DOUBLE</span><br /><span> NUMERIC</span><br /><span> BIGNUMERIC</span><br />
+</td>
+    </tr>
+    
+    
+    <tr>
+      <td>FLOAT</td>
+      <td>
+
+<span> FLOAT</span><br /><span> DOUBLE</span><br />
+</td>
+    </tr>
+    
+    
+    <tr>
+      <td>DOUBLE</td>
+      <td>
+
+<span> DOUBLE</span><br />
+</td>
+    </tr>
+    
+    
+    <tr>
+      <td>NUMERIC</td>
+      <td>
+
+<span> NUMERIC</span><br /><span> BIGNUMERIC</span><br /><span> DOUBLE</span><br />
+</td>
+    </tr>
+    
+    
+    <tr>
+      <td>DECIMAL</td>
+      <td>
+
+<span> DECIMAL</span><br /><span> BIGDECIMAL</span><br /><span> DOUBLE</span><br />
+</td>
+    </tr>
+    
+    
+    <tr>
+      <td>BIGNUMERIC</td>
+      <td>
+
+<span> BIGNUMERIC</span><br /><span> DOUBLE</span><br />
+</td>
+    </tr>
+    
+    
+    <tr>
+      <td>BIGDECIMAL</td>
+      <td>
+
+<span> BIGDECIMAL</span><br /><span> DOUBLE</span><br />
+</td>
+    </tr>
+    
+    
+    <tr>
+      <td>STRING</td>
+      <td>STRING</td>
+    </tr>
+    
+    
+    <tr>
+      <td>DATE</td>
+      <td>DATE</td>
+    </tr>
+    
+    
+    <tr>
+      <td>TIME</td>
+      <td>TIME</td>
+    </tr>
+    
+    
+    <tr>
+      <td>DATETIME</td>
+      <td>DATETIME</td>
+    </tr>
+    
+    
+    <tr>
+      <td>TIMESTAMP</td>
+      <td>TIMESTAMP</td>
+    </tr>
+    
+    
+    <tr>
+      <td>ENUM</td>
+      <td>
+        ENUM with the same name. The resulting enum supertype is the one that
+        occurred first.
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>BYTES</td>
+      <td>BYTES</td>
+    </tr>
+    
+    
+    <tr>
+      <td>STRUCT</td>
+      <td>
+        STRUCT with the same field position types.
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>ARRAY</td>
+      <td>
+        ARRAY with the same element types.
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>PROTO</td>
+      <td>
+        PROTO with the same name. The resulting PROTO supertype is the one that
+        occurred first. For example, the first occurrence could be in the
+        first branch of a set operation or the first result expression in
+        a CASE statement.
+      </td>
+    </tr>
+    
+    
+  </tbody>
+</table>
+
+If you want to find the supertype for a set of input types, first determine the
+intersection of the set of supertypes for each input type. If that set is empty
+then the input types have no common supertype. If that set is non-empty, then
+the common supertype is generally the
+[most specific][con-supertype-specificity] type in that set. Generally,
+the most specific type is the type with the most restrictive domain.
+
+**Examples**
+
+<table>
+  <thead>
+    <tr>
+      <th>Input types</th>
+      <th>Common supertype</th>
+      <th>Returns</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>
+
+<span> INT64</span><br /><span> FLOAT</span><br />
+</td>
+      <td>DOUBLE</td>
+      <td>DOUBLE</td>
+      <td>
+        If you apply supertyping to INT64 and FLOAT, supertyping
+        succeeds because they they share a supertype,
+        DOUBLE.
+      </td>
+    </tr>
+    
+    <tr>
+      <td>
+
+<span> INT64</span><br /><span> DOUBLE</span><br />
+</td>
+      <td>DOUBLE</td>
+      <td>DOUBLE</td>
+      <td>
+        If you apply supertyping to INT64 and DOUBLE,
+        supertyping succeeds because they they share a supertype,
+        DOUBLE.
+      </td>
+    </tr>
+    <tr>
+      <td>
+
+<span> INT64</span><br /><span> BOOL</span><br />
+</td>
+      <td>None</td>
+      <td>Error</td>
+      <td>
+        If you apply supertyping to INT64 and BOOL, supertyping
+        fails because they do not share a common supertype.
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+#### Exact and inexact types
+
+Numeric types can be exact or inexact. For supertyping, if all of the
+input types are exact types, then the resulting supertype can only be an
+exact type.
+
+The following table contains a list of exact and inexact numeric data types.
+
+<table>
+  <thead>
+    <tr>
+      <th>Exact types</th>
+      <th>Inexact types</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+
+<span> INT32</span><br /><span> UINT32</span><br /><span> INT64</span><br /><span> UINT64</span><br /><span> NUMERIC</span><br /><span> BIGNUMERIC</span><br />
+</td>
+      <td>
+
+<span> FLOAT</span><br /><span> DOUBLE</span><br />
+</td>
+    </tr>
+  </tbody>
+</table>
+
+**Examples**
+
+<table>
+  <thead>
+    <tr>
+      <th>Input types</th>
+      <th>Common supertype</th>
+      <th>Returns</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>
+
+<span> UINT64</span><br /><span> INT64</span><br />
+</td>
+      <td>DOUBLE</td>
+      <td>Error</td>
+      <td>
+        If you apply supertyping to INT64 and UINT64, supertyping fails
+        because they are both exact numeric types and the only shared supertype
+        is DOUBLE, which is an inexact numeric type.
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td>
+
+<span> UINT32</span><br /><span> INT32</span><br />
+</td>
+      <td>INT64</td>
+      <td>INT64</td>
+      <td>
+        If you apply supertyping to INT32 and UINT32, supertyping
+        succeeds because they are both exact numeric types and they share an
+        exact supertype, INT64.
+      </td>
+    </tr>
+    
+    <tr>
+      <td>
+
+<span> INT64</span><br /><span> DOUBLE</span><br />
+</td>
+      <td>DOUBLE</td>
+      <td>DOUBLE</td>
+      <td>
+        If supertyping is applied to INT64 and DOUBLE, supertyping
+        succeeds because there are exact and inexact numeric types being
+        supertyped.
+      </td>
+    </tr>
+    
+    <tr>
+      <td>
+
+<span> UINT64</span><br /><span> INT64</span><br /><span> DOUBLE</span><br />
+</td>
+      <td>DOUBLE</td>
+      <td>DOUBLE</td>
+      <td>
+        If supertyping is applied to INT64, UINT64, and
+        DOUBLE, supertyping succeeds because there are
+        exact and inexact numeric types being supertyped.
+      </td>
+    </tr>
+    
+  </tbody>
+</table>
+
+#### Types specificity 
+<a id="supertype_specificity"></a>
+
+Each type has a domain of values that it supports. A type with a
+narrow domain is more specific than a type with a wider domain. Exact types
+are more specific than inexact types because inexact types have a wider range
+of domain values that are supported than exact types. For example,
+`INT64` is more specific than `DOUBLE`.
+
+#### Supertypes and literals
+
+Supertype rules for literals are more permissive than for normal expressions,
+and are consistent with implicit coercion rules. The following algorithm is used
+when the input set of types includes types related to literals:
+
++ If there exists non-literals in the set, find the set of common supertypes
+  of the non-literals.
++ If there is at least one possible supertype, find the
+  [most specific][con-supertype-specificity] type to
+  which the remaining literal types can be implicitly coerced and return that
+  supertype. Otherwise, there is no supertype.
++ If the set only contains types related to literals, compute the supertype of
+  the literal types.
++ If all input types are related to `NULL` literals, then the resulting
+  supertype is `INT64`.
++ If no common supertype is found, an error is produced.
+
+**Examples**
+
+<table>
+  <thead>
+    <tr>
+      <th>Input types</th>
+      <th>Common supertype</th>
+      <th>Returns</th>
+    </tr>
+  </thead>
+  <tbody>
+    
+    <tr>
+      <td>
+        INT64 literal<br />
+        INT32 expression<br />
+      </td>
+      <td>INT32</td>
+      <td>INT32</td>
+    </tr>
+    
+    
+    <tr>
+      <td>
+        INT64 literal<br />
+        UINT32 expression<br />
+      </td>
+      <td>UINT32</td>
+      <td>UINT32</td>
+    </tr>
+    
+    <tr>
+      <td>
+        INT64 literal<br />
+        UINT64 expression<br />
+      </td>
+      <td>UINT64</td>
+      <td>UINT64</td>
+    </tr>
+    
+    <tr>
+      <td>
+        DOUBLE literal<br />
+        FLOAT expression<br />
+      </td>
+      <td>FLOAT</td>
+      <td>FLOAT</td>
+    </tr>
+    
+    
+    <tr>
+      <td>
+        INT64 literal<br />
+        DOUBLE literal<br />
+      </td>
+      <td>DOUBLE</td>
+      <td>DOUBLE</td>
+    </tr>
+    
+    
+    <tr>
+      <td>
+        INT64 expression<br />
+        UINT64 expression<br />
+        DOUBLE literal<br />
+      </td>
+      <td>DOUBLE</td>
+      <td>DOUBLE</td>
+    </tr>
+    
+    
+    <tr>
+      <td>
+        TIMESTAMP expression<br />
+        STRING literal<br />
+      </td>
+      <td>TIMESTAMP</td>
+      <td>TIMESTAMP</td>
+    </tr>
+    
+    <tr>
+      <td>
+        NULL literal<br />
+        NULL literal<br />
+      </td>
+      <td>INT64</td>
+      <td>INT64</td>
+    </tr>
+    <tr>
+      <td>
+        BOOL literal<br />
+        TIMESTAMP literal<br />
+      </td>
+      <td>None</td>
+      <td>Error</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [conversion-rules-table]: #conversion_rules
+
 [con-rules-link-to-literal-coercion]: #literal_coercion
+
 [con-rules-link-to-parameter-coercion]: #parameter_coercion
+
+[con-rules-link-to-casting]: #casting
+
+[con-supertype-specificity]: #supertype_specificity
+
 [con-rules-link-to-time-zones]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time_zones
 
-[con-rules-link-to-safe-convert-bytes-to-string]: #safe_convert_bytes_to_string
-[con-rules-link-to-date-functions]: #date_functions
-[con-rules-link-to-datetime-functions]: #datetime_functions
-[con-rules-link-to-time-functions]: #time_functions
-[con-rules-link-to-timestamp-functions]: #timestamp_functions
 [con-rules-link-to-conversion-functions]: #conversion_functions
+
 [con-rules-link-to-cast]: #cast
+
 [con-rules-link-to-conversion-functions-other]: #other_conv_functions
+
+<!-- mdlint on -->
 
 ## Aggregate functions
 
@@ -428,8 +918,12 @@ supports.
 
 ### ANY_VALUE
 
-```
-ANY_VALUE(expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+ANY_VALUE(
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -492,9 +986,15 @@ FROM UNNEST(["apple", "banana", "pear"]) as fruit;
 ```
 
 ### ARRAY_AGG
-```
-ARRAY_AGG([DISTINCT] expression [{IGNORE|RESPECT} NULLS] [HAVING {MAX | MIN} expression2]
-          [ORDER BY key [{ASC|DESC}] [, ... ]]  [LIMIT n])
+```sql
+ARRAY_AGG(
+  [DISTINCT]
+  expression
+  [{IGNORE|RESPECT} NULLS]
+  [HAVING {MAX | MIN} expression2]
+  [ORDER BY key [{ASC|DESC}] [, ... ]]
+  [LIMIT n]
+)
 [OVER (...)]
 ```
 
@@ -638,8 +1138,13 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 
 ### ARRAY_CONCAT_AGG
 
-```
-ARRAY_CONCAT_AGG(expression [HAVING {MAX | MIN} expression2]  [ORDER BY key [{ASC|DESC}] [, ... ]]  [LIMIT n])
+```sql
+ARRAY_CONCAT_AGG(
+  expression
+  [HAVING {MAX | MIN} expression2]
+  [ORDER BY key [{ASC|DESC}] [, ... ]]
+  [LIMIT n]
+)
 ```
 
 **Description**
@@ -749,8 +1254,13 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x) LIMIT 2) AS array_concat_agg 
 ```
 
 ### AVG
-```
-AVG([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+AVG(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -838,8 +1348,12 @@ FROM UNNEST([0, 2, NULL, 4, 4, 5]) AS x;
 ```
 
 ### BIT_AND
-```
-BIT_AND([DISTINCT] expression [HAVING {MAX | MIN} expression2])
+```sql
+BIT_AND(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
 ```
 
 **Description**
@@ -884,8 +1398,12 @@ SELECT BIT_AND(x) as bit_and FROM UNNEST([0xF001, 0x00A1]) as x;
 ```
 
 ### BIT_OR
-```
-BIT_OR([DISTINCT] expression [HAVING {MAX | MIN} expression2])
+```sql
+BIT_OR(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
 ```
 
 **Description**
@@ -930,8 +1448,12 @@ SELECT BIT_OR(x) as bit_or FROM UNNEST([0xF001, 0x00A1]) as x;
 ```
 
 ### BIT_XOR
-```
-BIT_XOR([DISTINCT] expression [HAVING {MAX | MIN} expression2])
+```sql
+BIT_XOR(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
 ```
 
 **Description**
@@ -1003,8 +1525,13 @@ COUNT(*)  [OVER (...)]
 ```
 
 2.
-```
-COUNT([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+COUNT(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -1040,6 +1567,9 @@ The clauses are applied *in the following order*:
 INT64
 
 **Examples**
+
+You can use the `COUNT` function to return the number of rows in a table or the
+number of distinct values of an expression. For example:
 
 ```sql
 SELECT
@@ -1089,15 +1619,89 @@ FROM UNNEST([1, 4, NULL, 4, 5]) AS x;
 +------+------------+---------+
 ```
 
-### COUNTIF
+If you want to count the number of distinct values of an expression for which a
+certain condition is satisfied, this is one recipe that you can use:
+
+```sql
+COUNT(DISTINCT IF(condition, expression, NULL))
 ```
-COUNTIF([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+
+Here, `IF` will return the value of `expression` if `condition` is `TRUE`, or
+`NULL` otherwise. The surrounding `COUNT(DISTINCT ...)` will ignore the `NULL`
+values, so it will count only the distinct values of `expression` for which
+`condition` is `TRUE`.
+
+For example, to count the number of distinct positive values of `x`:
+
+```sql
+SELECT COUNT(DISTINCT IF(x > 0, x, NULL)) AS distinct_positive
+FROM UNNEST([1, -2, 4, 1, -5, 4, 1, 3, -6, 1]) AS x;
+
++-------------------+
+| distinct_positive |
++-------------------+
+| 3                 |
++-------------------+
+```
+
+Or to count the number of distinct dates on which a certain kind of event
+occurred:
+
+```sql
+WITH Events AS (
+  SELECT DATE '2021-01-01' AS event_date, 'SUCCESS' AS event_type
+  UNION ALL
+  SELECT DATE '2021-01-02' AS event_date, 'SUCCESS' AS event_type
+  UNION ALL
+  SELECT DATE '2021-01-02' AS event_date, 'FAILURE' AS event_type
+  UNION ALL
+  SELECT DATE '2021-01-03' AS event_date, 'SUCCESS' AS event_type
+  UNION ALL
+  SELECT DATE '2021-01-04' AS event_date, 'FAILURE' AS event_type
+  UNION ALL
+  SELECT DATE '2021-01-04' AS event_date, 'FAILURE' AS event_type
+)
+SELECT
+  COUNT(DISTINCT IF(event_type = 'FAILURE', event_date, NULL))
+    AS distinct_dates_with_failures
+FROM Events;
+
++------------------------------+
+| distinct_dates_with_failures |
++------------------------------+
+| 2                            |
++------------------------------+
+```
+
+### COUNTIF
+```sql
+COUNTIF(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
 
 Returns the count of `TRUE` values for `expression`. Returns `0` if there are
 zero input rows, or if `expression` evaluates to `FALSE` or `NULL` for all rows.
+
+Since `expression` must be a `BOOL`, the form
+`COUNTIF(DISTINCT ...)` is generally not useful: there is only one distinct
+value of `TRUE`. So `COUNTIF(DISTINCT ...)` will return 1 if `expression`
+evaluates to `TRUE` for one or more input rows, or 0 otherwise.
+Usually when someone wants to combine `COUNTIF` and `DISTINCT`, they
+want to count the number of distinct values of an expression for which a certain
+condition is satisfied. One recipe to achieve this is the following:
+
+```sql
+COUNT(DISTINCT IF(condition, expression, NULL))
+```
+
+Note that this uses `COUNT`, not `COUNTIF`; the `IF` part has been moved inside.
+To learn more, see the examples for [`COUNT`](#count).
 
 **Supported Argument Types**
 
@@ -1158,8 +1762,12 @@ FROM UNNEST([5, -2, 3, 6, -10, NULL, -7, 4, 0]) AS x;
 ```
 
 ### LOGICAL_AND
-```
-LOGICAL_AND(expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+LOGICAL_AND(
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -1202,8 +1810,12 @@ SELECT LOGICAL_AND(x) AS logical_and FROM UNNEST([true, false, true]) AS x;
 ```
 
 ### LOGICAL_OR
-```
-LOGICAL_OR(expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+LOGICAL_OR(
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -1246,8 +1858,12 @@ SELECT LOGICAL_OR(x) AS logical_or FROM UNNEST([true, false, true]) AS x;
 ```
 
 ### MAX
-```
-MAX(expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+MAX(
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -1258,7 +1874,7 @@ Returns `NaN` if the input contains a `NaN`.
 
 **Supported Argument Types**
 
-Any data type except: `ARRAY` `STRUCT` `PROTO`
+Any [orderable data type][agg-data-type-properties].
 
 **Optional Clauses**
 
@@ -1308,8 +1924,12 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 ```
 
 ### MIN
-```
-MIN(expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+MIN(
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -1320,7 +1940,7 @@ Returns `NaN` if the input contains a `NaN`.
 
 **Supported Argument Types**
 
-Any data type except: `ARRAY` `STRUCT` `PROTO`
+Any [orderable data type][agg-data-type-properties].
 
 **Optional Clauses**
 
@@ -1370,8 +1990,14 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 ```
 
 ### STRING_AGG
-```
-STRING_AGG([DISTINCT] expression [, delimiter] [HAVING {MAX | MIN} expression2]  [ORDER BY key [{ASC|DESC}] [, ... ]]  [LIMIT n])
+```sql
+STRING_AGG(
+  [DISTINCT]
+  expression [, delimiter]
+  [HAVING {MAX | MIN} expression2]
+  [ORDER BY key [{ASC|DESC}] [, ... ]]
+  [LIMIT n]
+)
 [OVER (...)]
 ```
 
@@ -1514,8 +2140,13 @@ FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
 ```
 
 ### SUM
-```
-SUM([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+SUM(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -1527,7 +2158,7 @@ means you might receive a different result each time you use this function.
 
 **Supported Argument Types**
 
-Any supported numeric data types.
+Any supported numeric data types and INTERVAL.
 
 **Optional Clauses**
 
@@ -1551,11 +2182,11 @@ The clauses are applied *in the following order*:
 
 <thead>
 <tr>
-<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>BIGNUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
+<th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>BIGNUMERIC</th><th>FLOAT</th><th>DOUBLE</th><th>INTERVAL</th>
 </tr>
 </thead>
 <tbody>
-<tr><th>OUTPUT</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
+<tr><th>OUTPUT</th><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">INT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">UINT64</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">INTERVAL</td></tr>
 </tbody>
 
 </table>
@@ -1677,11 +2308,8 @@ aggregate_function(expression1 [HAVING {MAX | MIN} expression2])
 These clauses ignore `NULL` values when computing the maximum or minimum
 value unless `expression2` evaluates to `NULL` for all rows.
 
- These clauses do not support the following
-data types:
-`ARRAY`
-`STRUCT`
-`PROTO`
+ These clauses only support
+[orderable data types][agg-data-type-properties].
 
 **Example**
 
@@ -1735,8 +2363,12 @@ this result:
 ZetaSQL supports the following statistical aggregate functions.
 
 ### CORR
-```
-CORR(X1, X2 [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+CORR(
+  X1, X2
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -1776,8 +2408,12 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### COVAR_POP
-```
-COVAR_POP(X1, X2 [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+COVAR_POP(
+  X1, X2
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -1816,8 +2452,12 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### COVAR_SAMP
-```
-COVAR_SAMP(X1, X2 [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+COVAR_SAMP(
+  X1, X2
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -1856,8 +2496,13 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### STDDEV_POP
-```
-STDDEV_POP([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+STDDEV_POP(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -1897,8 +2542,13 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### STDDEV_SAMP
-```
-STDDEV_SAMP([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+STDDEV_SAMP(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -1936,8 +2586,13 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### STDDEV
-```
-STDDEV([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+STDDEV(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -1945,8 +2600,13 @@ STDDEV([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
 An alias of [STDDEV_SAMP][stat-agg-link-to-stddev-samp].
 
 ### VAR_POP
-```
-VAR_POP([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+VAR_POP(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -1986,8 +2646,13 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### VAR_SAMP
-```
-VAR_SAMP([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+VAR_SAMP(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -2025,8 +2690,13 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### VARIANCE
-```
-VARIANCE([DISTINCT] expression [HAVING {MAX | MIN} expression2])  [OVER (...)]
+```sql
+VARIANCE(
+  [DISTINCT]
+  expression
+  [HAVING {MAX | MIN} expression2]
+)
+[OVER (...)]
 ```
 
 **Description**
@@ -2058,8 +2728,10 @@ sketches. If you would like specify precision with sketches, see:
 
 ### APPROX_COUNT_DISTINCT
 
-```
-APPROX_COUNT_DISTINCT(expression)
+```sql
+APPROX_COUNT_DISTINCT(
+  expression
+)
 ```
 
 **Description**
@@ -2100,8 +2772,13 @@ FROM UNNEST([0, 1, 1, 2, 3, 5]) as x;
 
 ### APPROX_QUANTILES
 
-```
-APPROX_QUANTILES([DISTINCT] expression, number [{IGNORE|RESPECT} NULLS] [HAVING {MAX | MIN} expression2])
+```sql
+APPROX_QUANTILES(
+  [DISTINCT]
+  expression, number
+  [{IGNORE|RESPECT} NULLS]
+  [HAVING {MAX | MIN} expression2]
+)
 ```
 
 **Description**
@@ -2206,8 +2883,11 @@ FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 
 ### APPROX_TOP_COUNT
 
-```
-APPROX_TOP_COUNT(expression, number [HAVING {MAX | MIN} expression2])
+```sql
+APPROX_TOP_COUNT(
+  expression, number
+  [HAVING {MAX | MIN} expression2]
+)
 ```
 
 **Description**
@@ -2271,8 +2951,11 @@ FROM UNNEST([NULL, "pear", "pear", "pear", "apple", NULL]) as x;
 
 ### APPROX_TOP_SUM
 
-```
-APPROX_TOP_SUM(expression, weight, number [HAVING {MAX | MIN} expression2])
+```sql
+APPROX_TOP_SUM(
+  expression, weight, number
+  [HAVING {MAX | MIN} expression2]
+)
 ```
 
 **Description**
@@ -2439,18 +3122,23 @@ interval (CI) of typical precisions:
 | 23           | 8192                   | ±0.04% | ±0.07% | ±0.11% |
 | 24           | 16384                  | ±0.03% | ±0.05% | ±0.08% |
 
-If the input is NULL, this function returns NULL.
+If the input is `NULL`, this function returns `NULL`.
 
 For more information, see
 [HyperLogLog in Practice: Algorithmic Engineering of a State of The Art Cardinality Estimation Algorithm][hll-link-to-research-whitepaper].
 
 **Supported input types**
 
-INT64, UINT64, NUMERIC, BIGNUMERIC, STRING, BYTES
++ `INT64`
++ `UINT64`
++ `NUMERIC`
++ `BIGNUMERIC`
++ `STRING`
++ `BYTES`
 
 **Return type**
 
-BYTES
+`BYTES`
 
 **Example**
 
@@ -2477,21 +3165,23 @@ HLL_COUNT.MERGE(sketch)
 An aggregate function that returns the cardinality of several
 [HLL++][hll-link-to-research-whitepaper] set sketches by computing their union.
 
-Each `sketch` must have the same precision and be initialized on the same type.
-Attempts to merge sketches with different precisions or for different types
-results in an error. For example, you cannot merge a sketch initialized
-from INT64 data with one initialized from STRING data.
+Each `sketch` must be initialized on the same type. Attempts to merge sketches
+for different types results in an error. For example, you cannot merge a sketch
+initialized from `INT64` data with one initialized from `STRING` data.
 
-This function ignores NULL values when merging sketches. If the merge happens
-over zero rows or only over NULL values, the function returns `0`.
+If the merged sketches were initialized with different precisions, the precision
+will be downgraded to the lowest precision involved in the merge.
+
+This function ignores `NULL` values when merging sketches. If the merge happens
+over zero rows or only over `NULL` values, the function returns `0`.
 
 **Supported input types**
 
-BYTES
+`BYTES`
 
 **Return type**
 
-INT64
+`INT64`
 
 **Example**
 
@@ -2522,15 +3212,24 @@ An aggregate function that takes one or more
 [HLL++][hll-link-to-research-whitepaper] `sketch`
 inputs and merges them into a new sketch.
 
-This function returns NULL if there is no input or all inputs are NULL.
+Each `sketch` must be initialized on the same type. Attempts to merge sketches
+for different types results in an error. For example, you cannot merge a sketch
+initialized from `INT64` data with one initialized from `STRING` data.
+
+If the merged sketches were initialized with different precisions, the precision
+will be downgraded to the lowest precision involved in the merge. For example,
+if `MERGE_PARTIAL` encounters sketches of precision 14 and 15, the returned new
+sketch will have precision 14.
+
+This function returns `NULL` if there is no input or all inputs are `NULL`.
 
 **Supported input types**
 
-BYTES
+`BYTES`
 
 **Return type**
 
-BYTES
+`BYTES`
 
 **Example**
 
@@ -2560,15 +3259,15 @@ HLL_COUNT.EXTRACT(sketch)
 A scalar function that extracts a cardinality estimate of a single
 [HLL++][hll-link-to-research-whitepaper] sketch.
 
-If `sketch` is NULL, this function returns a cardinality estimate of `0`.
+If `sketch` is `NULL`, this function returns a cardinality estimate of `0`.
 
 **Supported input types**
 
-BYTES
+`BYTES`
 
 **Return type**
 
-INT64
+`INT64`
 
 **Example**
 
@@ -2659,7 +3358,7 @@ ZetaSQL supports the following KLL16 functions:
 
 ### KLL_QUANTILES.INIT_INT64
 
-```
+```sql
 KLL_QUANTILES.INIT_INT64(input[, precision])
 ```
 
@@ -2684,7 +3383,7 @@ value for a quantile can be arbitrarily large.
 
 **Example**
 
-```
+```sql
 SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
 FROM (SELECT 1 AS x UNION ALL
       SELECT 2 AS x UNION ALL
@@ -2720,7 +3419,7 @@ that allows you to retrieve values whose ranks are within
 
 ### KLL_QUANTILES.INIT_UINT64
 
-```
+```sql
 KLL_QUANTILES.INIT_UINT64(input[, precision])
 ```
 
@@ -2744,7 +3443,7 @@ Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64), but accepts
 
 ### KLL_QUANTILES.INIT_DOUBLE
 
-```
+```sql
 KLL_QUANTILES.INIT_DOUBLE(input[, precision])
 ```
 
@@ -2772,7 +3471,7 @@ Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64), but accepts
 
 ### KLL_QUANTILES.MERGE_PARTIAL
 
-```
+```sql
 KLL_QUANTILES.MERGE_PARTIAL(sketch)
 ```
 
@@ -2781,11 +3480,14 @@ KLL_QUANTILES.MERGE_PARTIAL(sketch)
 Takes KLL16 sketches of the same underlying type and merges them to return a new
 sketch of the same underlying type. This is an aggregate function.
 
+If the merged sketches were initialized with different precisions, the precision
+is downgraded to the lowest precision involved in the merge — except if the
+aggregations are small enough to still capture the input exactly — then the
+mergee's precision is maintained.
+
 Returns an error if two or more sketches don't have compatible underlying types,
 such as one sketch of `INT64` values and another of
 `DOUBLE` values.
-
-Returns an error if two or more sketches have different precisions.
 
 Returns an error if one or more inputs are not a valid KLL16 quantiles sketch.
 
@@ -2800,7 +3502,7 @@ the resulting sketch may still contain duplicates.
 
 **Example**
 
-```
+```sql
 SELECT KLL_QUANTILES.MERGE_PARTIAL(kll_sketch) AS merged_sketch
 FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
       FROM (SELECT 1 AS x UNION ALL
@@ -2839,7 +3541,7 @@ data type and precision.
 
 ### KLL_QUANTILES.MERGE_INT64
 
-```
+```sql
 KLL_QUANTILES.MERGE_INT64(sketch, number)
 ```
 
@@ -2854,16 +3556,19 @@ the input data that you used
 to initialize the sketches, each approximate quantile, and the exact maximum
 value from the initial input data. This is an aggregate function.
 
+If the merged sketches were initialized with different precisions, the precision
+is downgraded to the lowest precision involved in the merge — except if the
+aggregations are small enough to still capture the input exactly — then the
+mergee's precision is maintained.
+
 Returns an error if the underlying type of one or more input sketches is not
 compatible with type `INT64`.
-
-Returns an error if two or more sketches have different precisions.
 
 Returns an error if the input is not a valid KLL16 quantiles sketch.
 
 **Example**
 
-```
+```sql
 SELECT KLL_QUANTILES.MERGE_INT64(kll_sketch, 2) AS merged_sketch
 FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
       FROM (SELECT 1 AS x UNION ALL
@@ -2902,11 +3607,11 @@ of type `INT64`.
 
 **Return Types**
 
-`ARRAY` of type INT64.
+`ARRAY` of type `INT64`.
 
 ### KLL_QUANTILES.MERGE_UINT64
 
-```
+```sql
 KLL_QUANTILES.MERGE_UINT64(sketch, number)
 ```
 
@@ -2930,7 +3635,7 @@ of type `UINT64`.
 
 ### KLL_QUANTILES.MERGE_DOUBLE
 
-```
+```sql
 KLL_QUANTILES.MERGE_DOUBLE(sketch, number)
 ```
 
@@ -2958,7 +3663,7 @@ of type `DOUBLE`.
 
 ### KLL_QUANTILES.MERGE_POINT_INT64
 
-```
+```sql
 KLL_QUANTILES.MERGE_POINT_INT64(sketch, phi)
 ```
 
@@ -2972,16 +3677,19 @@ between 0 and 1. This means that the function will return a value *v* such that
 approximately Φ * *n* inputs are less than or equal to *v*, and a (1-Φ) / *n*
 inputs are greater than or equal to *v*. This is an aggregate function.
 
+If the merged sketches were initialized with different precisions, the precision
+is downgraded to the lowest precision involved in the merge — except if the
+aggregations are small enough to still capture the input exactly — then the
+mergee's precision is maintained.
+
 Returns an error if the underlying type of one or more input sketches is not
 compatible with type `INT64`.
 
 Returns an error if the input is not a valid KLL16 quantiles sketch.
 
-Returns an error if two or more sketches have different precisions.
-
 **Example**
 
-```
+```sql
 SELECT KLL_QUANTILES.MERGE_POINT_INT64(kll_sketch, .9) AS merged_sketch
 FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
       FROM (SELECT 1 AS x UNION ALL
@@ -3024,7 +3732,7 @@ percentile of the merged sketch.
 
 ### KLL_QUANTILES.MERGE_POINT_UINT64
 
-```
+```sql
 KLL_QUANTILES.MERGE_POINT_UINT64(sketch, phi)
 ```
 
@@ -3049,7 +3757,7 @@ accepts `input` of type `UINT64`.
 
 ### KLL_QUANTILES.MERGE_POINT_DOUBLE
 
-```
+```sql
 KLL_QUANTILES.MERGE_POINT_DOUBLE(sketch, phi)
 ```
 
@@ -3077,7 +3785,8 @@ accepts `input` of type `DOUBLE`.
 `DOUBLE`
 
 ### KLL_QUANTILES.EXTRACT_INT64
-```
+
+```sql
 KLL_QUANTILES.EXTRACT_INT64(sketch, number)
 ```
 
@@ -3099,7 +3808,7 @@ Returns an error if the input is not a valid KLL16 quantiles sketch.
 
 **Example**
 
-```
+```sql
 SELECT KLL_QUANTILES.EXTRACT_INT64(kll_sketch, 2) AS median
 FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
       FROM (SELECT 1 AS x UNION ALL
@@ -3129,7 +3838,8 @@ of type `INT64`.
 `ARRAY` of type `INT64`.
 
 ### KLL_QUANTILES.EXTRACT_UINT64
-```
+
+```sql
 KLL_QUANTILES.EXTRACT_UINT64(sketch, number)
 ```
 
@@ -3148,7 +3858,8 @@ of type `UINT64`.
 `ARRAY` of type `UINT64`.
 
 ### KLL_QUANTILES.EXTRACT_DOUBLE
-```
+
+```sql
 KLL_QUANTILES.EXTRACT_DOUBLE(sketch, number)
 ```
 
@@ -3167,7 +3878,8 @@ of type `DOUBLE`.
 `ARRAY` of type `DOUBLE`.
 
 ### KLL_QUANTILES.EXTRACT_POINT_INT64
-```
+
+```sql
 KLL_QUANTILES.EXTRACT_POINT_INT64(sketch, phi)
 ```
 
@@ -3188,7 +3900,7 @@ Returns an error if the input is not a valid KLL16 quantiles sketch.
 
 **Example**
 
-```
+```sql
 SELECT KLL_QUANTILES.EXTRACT_POINT_INT64(kll_sketch, .8) AS quintile
 FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
       FROM (SELECT 1 AS x UNION ALL
@@ -3218,7 +3930,8 @@ it returns the value of the eighth decile or 80th percentile of the sketch.
 `INT64`
 
 ### KLL_QUANTILES.EXTRACT_POINT_UINT64
-```
+
+```sql
 KLL_QUANTILES.EXTRACT_POINT_UINT64(sketch, phi)
 ```
 
@@ -3239,7 +3952,8 @@ but accepts sketches initialized on data of type of type
 `UINT64`
 
 ### KLL_QUANTILES.EXTRACT_POINT_DOUBLE
-```
+
+```sql
 KLL_QUANTILES.EXTRACT_POINT_DOUBLE(sketch, phi)
 ```
 
@@ -3700,7 +4414,8 @@ parameter can represent an expression for these data types:
   </tr>
 </table>
 
-### CAST AS BIGNUMERIC
+### CAST AS BIGNUMERIC 
+<a id="cast_bignumeric"></a>
 
 ```sql
 CAST(expression AS BIGNUMERIC)
@@ -4187,7 +4902,66 @@ SELECT '-0x123' as hex_value, CAST('-0x123' as INT64) as hex_to_int;
 +-----------+------------+
 ```
 
-### CAST AS NUMERIC
+### CAST AS INTERVAL
+
+<pre class="lang-sql prettyprint">
+<code>CAST(expression AS INTERVAL)</code>
+</pre>
+
+**Description**
+
+ZetaSQL supports [casting][con-func-cast] to INTERVAL. The
+`expression` parameter can represent an expression for these data types:
+
++ `STRING`
+
+**Conversion rules**
+
+<table>
+  <tr>
+    <th>From</th>
+    <th>To</th>
+    <th>Rule(s) when casting <code>x</code></th>
+  </tr>
+  <tr>
+    <td>STRING</td>
+    <td>INTERVAL</td>
+    <td>
+      When casting from string to interval, the string must conform to either
+      <a href="https://en.wikipedia.org/wiki/ISO_8601#Durations">ISO 8601 Duration</a> standard or to interval literal
+      format 'Y-M D H:M:S.F'. Partial interval literal formats are also accepted
+      when they are not ambiguous, for example 'H:M:S'.
+      If the string expression is invalid or represents an interval that is
+      outside of the supported min/max range, then an error is produced.
+    </td>
+  </tr>
+</table>
+
+**Examples**
+
+```sql
+SELECT input, CAST(input AS INTERVAL) AS output
+FROM UNNEST([
+  '1-2 3 10:20:30.456',
+  '1-2',
+  '10:20:30',
+  'P1Y2M3D',
+  'PT10H20M30,456S'
+]) input
+
++--------------------+--------------------+
+| input              | output             |
++--------------------+--------------------+
+| 1-2 3 10:20:30.456 | 1-2 3 10:20:30.456 |
+| 1-2                | 1-2 0 0:0:0        |
+| 10:20:30           | 0-0 0 10:20:30     |
+| P1Y2M3D            | 1-2 3 0:0:0        |
+| PT10H20M30,456S    | 0-0 0 10:20:30.456 |
++--------------------+--------------------+
+```
+
+### CAST AS NUMERIC 
+<a id="cast_numeric"></a>
 
 ```sql
 CAST(expression AS NUMERIC)
@@ -4437,6 +5211,15 @@ For more information, see the following topics:
       subsecond digits produced depends on the number of trailing zeroes in the
       subsecond part: the CAST function will truncate zero, three, or six
       digits.
+    </td>
+  </tr>
+  
+  <tr>
+    <td>INTERVAL</td>
+    <td>STRING</td>
+    <td>
+      Casting from an interval to a string is of the form
+      <code>Y-M D H:M:S</code>.
     </td>
   </tr>
   
@@ -4747,6 +5530,7 @@ Conversion function                    | From               | To
 [FROM_PROTO][F_PROTO]                  | PROTO value        | Most data types
 [PARSE_DATE][P_DATE]                   | STRING             | DATE
 [PARSE_DATETIME][P_DATETIME]           | STRING             | DATETIME
+[PARSE_JSON][P_JSON]                   | STRING             | JSON
 [PARSE_TIME][P_TIME]                   | STRING             | TIME
 [PARSE_TIMESTAMP][P_TIMESTAMP]         | STRING             | TIMESTAMP
 [SAFE_CONVERT_BYTES_TO_STRING][SC_BTS] | BYTES              | STRING
@@ -4756,6 +5540,8 @@ Conversion function                    | From               | To
 [TO_BASE32][T_B32]                     | BYTES              | STRING
 [TO_BASE64][T_B64]                     | BYTES              | STRING
 [TO_HEX][T_HEX]                        | BYTES              | STRING
+[TO_JSON][T_JSON]                      | All data types     | JSON
+[TO_JSON_STRING][T_JSON_STRING]        | All data types     | STRING
 [TO_PROTO][T_PROTO]                    | Most data types    | PROTO value
 
 ## Format clause for CAST 
@@ -6865,9 +7651,15 @@ will output the same result.
 [format-string-as-meridian]: #format_string_as_meridian
 [format-string-as-tz]: #format_string_as_tz
 [format-string-as-literal]: #format_string_as_literal
+
 [con-func-cast]: #cast
 [con-func-safecast]: #safe_casting
+[cast-bignumeric]: #cast_bignumeric
+[cast-numeric]: #cast_numeric
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
+[bignumeric-type]: https://github.com/google/zetasql/blob/master/docs/data-types#decimal_types
+[numeric-type]: https://github.com/google/zetasql/blob/master/docs/data-types#decimal_types
+[half-from-zero-wikipedia]: https://en.wikipedia.org/wiki/Rounding#Round_half_away_from_zero
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#conversion_rules
 [ARRAY_STRING]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#array_to_string
@@ -6881,6 +7673,7 @@ will output the same result.
 [F_PROTO]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#from_proto
 [P_DATE]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#parse_date
 [P_DATETIME]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#parse_datetime
+[P_JSON]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#parse_json
 [P_TIME]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#parse_time
 [P_TIMESTAMP]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#parse_timestamp
 [SC_BTS]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#safe_convert_bytes_to_string
@@ -6888,6 +7681,8 @@ will output the same result.
 [T_B32]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#to_base32
 [T_B64]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#to_base64
 [T_HEX]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#to_hex
+[T_JSON]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#to_json
+[T_JSON_STRING]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#to_json_string
 [T_PROTO]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#to_proto
 [T_DATE]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#date
 [T_DATETIME]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#datetime
@@ -9835,6 +10630,7 @@ SELECT CODE_POINTS_TO_BYTES(ARRAY_AGG(
      (SELECT code, CODE_POINTS_TO_BYTES([code]) chr)
   ) ORDER BY OFFSET)) AS encoded_string
 FROM UNNEST(TO_CODE_POINTS(b'Test String!')) code WITH OFFSET;
+```
 
 +------------------+
 | encoded_string   |
@@ -10042,11 +10838,29 @@ FROM items;
 ### FORMAT 
 <a id="format_string"></a>
 
-ZetaSQL supports a `FORMAT()` function for formatting strings. This
-function is similar to the C `printf` function. It produces a `STRING` from a
-format string that contains zero or more format specifiers, along with a
-variable length list of additional arguments that matches the format specifiers.
-Here are some examples:
+```sql
+FORMAT(format_string_expression, data_type_expression[, ...])
+```
+
+**Description**
+
+`FORMAT` formats a data type expression as a string.
+
++ `format_string_expression`: Can contain zero or more
+  [format specifiers][format-specifiers]. Each format specifier is introduced
+  by the `%` symbol, and must map to one or more of the remaining arguments.
+  In general, this is a one-to-one mapping, except when the `*` specifier is
+  present. For example, `%.*i` maps to two arguments&mdash;a length argument
+  and a signed integer argument.  If the number of arguments related to the
+  format specifiers is not the same as the number of arguments, an error occurs.
++ `data_type_expression`: The value to format as a string. This can be any
+  ZetaSQL data type.
+
+**Return type**
+
+`STRING`
+
+**Examples**
 
 <table>
 <tr>
@@ -10116,33 +10930,31 @@ Returns
 date: January 02, 2015!
 ```
 
-#### Syntax
-
-The `FORMAT()` syntax takes a format string and variable length list of
-arguments and produces a `STRING` result:
-
-```sql
-FORMAT(format_string, ...)
-```
-
-The `format_string` expression can contain zero or more format specifiers.
-Each format specifier is introduced by the `%` symbol, and must map to one or
-more of the remaining arguments.  For the most part, this is a one-to-one
-mapping, except when the `*` specifier is present. For example, `%.*i` maps to
-two arguments&mdash;a length argument and a signed integer argument.  If the
-number of arguments related to the format specifiers is not the same as the
-number of arguments, an error occurs.
-
-#### Supported format specifiers
-
-The `FORMAT()` function format specifier follows this prototype:
+#### Supported format specifiers 
+<a id="format_specifiers"></a>
 
 ```
 %[flags][width][.precision]specifier
 ```
 
-The supported format specifiers are identified in the following table.
-Deviations from printf() are identified in <em>italics</em>.
+A [format specifier][format-specifier-list] adds formatting when casting a
+value to a string. It can optionally contain these sub-specifiers:
+
++ [Flags][flags]
++ [Width][width]
++ [Precision][precision]
+
+Additional information about format specifiers:
+
++ [%g and %G behavior][g-and-g-behavior]
++ [%p and %P behavior][p-and-p-behavior]
++ [%t and %T behavior][t-and-t-behavior]
++ [Error conditions][error-format-specifiers]
++ [NULL argument handling][null-format-specifiers]
++ [Additional semantic rules][rules-format-specifiers]
+
+##### Format specifiers 
+<a id="format_specifier_list"></a>
 
 <table>
  <tr>
@@ -10267,36 +11079,60 @@ Deviations from printf() are identified in <em>italics</em>.
  </tr>
 
  <tr>
-    <td><em><code>p</code></em></td>
-    <td><em>
-      <p>Produces a one-line printable string representing a protocol buffer.</p>
-      <p>This protocol buffer generates the example to the right:</p>
-      <pre>
-      message ReleaseDate {
-       required int32 year = 1 [default=2019];
-       required int32 month = 2 [default=10];
-      }</pre>
-    </em></td>
-    <td><em>year: 2019 month: 10</em></td>
-    <td><em>ShortDebugString</em></td>
+    <td><code>p</code></td>
+    <td>
+      
+      Produces a one-line printable string representing a protocol buffer
+      or JSON.
+      
+      See <a href="#p_and_p_behavior">%p and %P behavior</a>.
+    </td>
+    <td>
+      
+<pre>year: 2019 month: 10</pre>
+      
+      
+<pre>{"month":10,"year":2019}</pre>
+      
+    </td>
+    <td>
+      PROTO
+      <br />
+      JSON
+    </td>
  </tr>
- <tr>
-    <td><em><code>P</code></em></td>
-    <td><em>
-      <p>Produces a multi-line printable string representing a protocol buffer.</p>
-      <p>This protocol buffer generates the example to the right:</p>
-      <pre>
-      message ReleaseDate {
-       required int32 year = 1 [default=2019];
-       required int32 month = 2 [default=10];
-      }</pre>
-    </em></td>
-    <td><em>
-      year: 2019<br/>
-      month: 10
-      </em></td>
-    <td><em>DebugString</em></td>
- </tr>
+
+  <tr>
+    <td><code>P</code></td>
+    <td>
+      
+      Produces a multi-line printable string representing a protocol buffer
+      or JSON.
+      
+      See <a href="#p_and_p_behavior">%p and %P behavior</a>.
+    </td>
+    <td>
+      
+<pre>
+year: 2019
+month: 10
+</pre>
+      
+      
+<pre>
+{
+  "month": 10,
+  "year": 2019
+}
+</pre>
+      
+    </td>
+    <td>
+      PROTO
+      <br />
+      JSON
+    </td>
+  </tr>
 
  <tr>
     <td><code>s</code></td>
@@ -10305,33 +11141,33 @@ Deviations from printf() are identified in <em>italics</em>.
     <td>STRING</td>
  </tr>
  <tr>
-    <td><em><code>t</code></em></td>
+    <td><code>t</code></td>
     <td>
-      <em>Returns a printable string representing the value. Often looks
+      Returns a printable string representing the value. Often looks
       similar to casting the argument to <code>STRING</code>.
-      See <a href="#t_and_t_behavior">%t and %T behavior</a>.</em>
+      See <a href="#t_and_t_behavior">%t and %T behavior</a>.
     </td>
     <td>
-      <em>sample</em><br/>
-      <em>2014&#8209;01&#8209;01</em>
+      sample<br/>
+      2014&#8209;01&#8209;01
     </td>
-    <td><em>&lt;any&gt;</em></td>
+    <td>&lt;any&gt;</td>
  </tr>
  <tr>
-    <td><em><code>T</code></em></td>
+    <td><code>T</code></td>
     <td>
-      <em>Produces a string that is a valid ZetaSQL constant with a
+      Produces a string that is a valid ZetaSQL constant with a
       similar type to the value's type (maybe wider, or maybe string).
-      See <a href="#t_and_t_behavior">%t and %T behavior</a>.</em>
+      See <a href="#t_and_t_behavior">%t and %T behavior</a>.
     </td>
     <td>
-      <em>'sample'</em><br/>
-      <em>b'bytes&nbsp;sample'</em><br/>
-      <em>1234</em><br/>
-      <em>2.3</em><br/>
-      <em>date&nbsp;'2014&#8209;01&#8209;01'</em>
+      'sample'<br/>
+      b'bytes&nbsp;sample'<br/>
+      1234<br/>
+      2.3<br/>
+      date&nbsp;'2014&#8209;01&#8209;01'
     </td>
-    <td><em>&lt;any&gt;</em></td>
+    <td>&lt;any&gt;</td>
  </tr>
  <tr>
     <td><code>%</code></td>
@@ -10341,15 +11177,16 @@ Deviations from printf() are identified in <em>italics</em>.
  </tr>
 </table>
 
-<i><a id="oxX"></a><sup>*</sup>The specifiers `%o`, `%x`, and `%X` raise an
-error if negative values are used.</i>
+<a id="oxX"></a><sup>*</sup>The specifiers `%o`, `%x`, and `%X` raise an
+error if negative values are used.
 
 The format specifier can optionally contain the sub-specifiers identified above
 in the specifier prototype.
 
 These sub-specifiers must comply with the following specifications.
 
-##### Flags
+##### Flags 
+<a id="flags"></a>
 
 <table>
  <tr>
@@ -10410,7 +11247,8 @@ value</td>
 Flags may be specified in any order. Duplicate flags are not an error. When
 flags are not relevant for some element type, they are ignored.
 
-##### Width
+##### Width 
+<a id="width"></a>
 
 <table>
   <tr>
@@ -10434,7 +11272,8 @@ flags are not relevant for some element type, they are ignored.
   </tr>
 </table>
 
-##### Precision
+##### Precision 
+<a id="precision"></a>
 
 <table>
  <tr>
@@ -10470,7 +11309,7 @@ flags are not relevant for some element type, they are ignored.
   </tr>
 </table>
 
-#### %g and %G behavior 
+##### %g and %G behavior 
 <a id="g_and_g_behavior"></a>
 The `%g` and `%G` format specifiers choose either the decimal notation (like
 the `%f` and `%F` specifiers) or the scientific notation (like the `%e` and `%E`
@@ -10488,7 +11327,84 @@ Unless [`#` flag](#flags) is present, the trailing zeros after the decimal point
 are removed, and the decimal point is also removed if there is no digit after
 it.
 
-#### %t and %T behavior 
+##### %p and %P behavior 
+<a id="p_and_p_behavior"></a>
+
+The `%p` format specifier produces a one-line printable string. The `%P`
+format specifier produces a multi-line printable string. You can use these
+format specifiers with the following data types:
+
+<table>
+  <tr>
+    <td><strong>Type</strong></td>
+    <td><strong>%p</strong></td>
+    <td><strong>%P</strong></td>
+  </tr>
+ 
+  <tr>
+    <td>PROTO</td>
+    <td valign="top">
+      <p>PROTO input:</p>
+<pre>
+message ReleaseDate {
+ required int32 year = 1 [default=2019];
+ required int32 month = 2 [default=10];
+}</pre>
+      <p>Produces a one-line printable string representing a protocol buffer:</p>
+      <pre>year: 2019 month: 10</pre>
+    </td>
+    <td valign="top">
+      <p>PROTO input:</p>
+<pre>
+message ReleaseDate {
+ required int32 year = 1 [default=2019];
+ required int32 month = 2 [default=10];
+}</pre>
+      <p>Produces a multi-line printable string representing a protocol buffer:</p>
+<pre>
+year: 2019
+month: 10
+</pre>
+    </td>
+  </tr>
+ 
+ 
+  <tr>
+    <td>JSON</td>
+    <td valign="top">
+      <p>JSON input:</p>
+<pre>
+JSON '
+{
+  "month": 10,
+  "year": 2019
+}
+'</pre>
+      <p>Produces a one-line printable string representing JSON:</p>
+      <pre>{"month":10,"year":2019}</pre>
+    </td>
+    <td valign="top">
+      <p>JSON input:</p>
+<pre>
+JSON '
+{
+  "month": 10,
+  "year": 2019
+}
+'</pre>
+      <p>Produces a multi-line printable string representing JSON:</p>
+<pre>
+{
+  "month": 10,
+  "year": 2019
+}
+</pre>
+    </td>
+  </tr>
+ 
+</table>
+
+##### %t and %T behavior 
 <a id="t_and_t_behavior"></a>
 
 The `%t` and `%T` format specifiers are defined for all types. The
@@ -10583,13 +11499,21 @@ The `STRING` is formatted as follows:
   </tr>
 
  
+  <tr>
+    <td>INTERVAL</td>
+    <td>1-2 3 4:5:6.789</td>
+    <td>INTERVAL "1-2 3 4:5:6.789" YEAR TO SECOND</td>
+  </tr>
+ 
  
   <tr>
     <td>PROTO</td>
-    <td>proto ShortDebugString</td>
     <td>
-      quoted string literal with proto<br/>
-      ShortDebugString
+      one-line printable string representing a protocol buffer.
+    </td>
+    <td>
+      quoted string literal with one-line printable string representing a
+      protocol buffer.
     </td>
   </tr>
  
@@ -10613,9 +11537,23 @@ The `STRING` is formatted as follows:
     One field: STRUCT(value)</td>
   </tr>
   
+ 
+  <tr>
+    <td>JSON</td>
+    <td>
+      one-line printable string representing JSON.<br />
+      <pre class="lang-json prettyprint">{"name":"apple","stock":3}</pre>
+    </td>
+    <td>
+      one-line printable string representing a JSON literal.<br />
+      <pre class="lang-sql prettyprint">JSON '{"name":"apple","stock":3}'</pre>
+    </td>
+  </tr>
+ 
 </table>
 
-#### Error conditions
+##### Error conditions 
+<a id="error_format_specifiers"></a>
 
 If a format specifier is invalid, or is not compatible with the related
 argument type, or the wrong number or arguments are provided, then an error is
@@ -10629,7 +11567,8 @@ FORMAT('%s', 1)
 FORMAT('%')
 ```
 
-#### NULL argument handling
+##### NULL argument handling 
+<a id="null_format_specifiers"></a>
 
 A `NULL` format string results in a `NULL` output `STRING`. Any other arguments
 are ignored in this case.
@@ -10653,7 +11592,8 @@ Returns
 00-NULL-00
 ```
 
-#### Additional semantic rules
+##### Additional semantic rules 
+<a id="rules_format_specifiers"></a>
 
 `DOUBLE` and
 `FLOAT` values can be `+/-inf` or `NaN`.
@@ -11262,7 +12202,8 @@ NORMALIZE(value[, normalization_mode])
 
 **Description**
 
-Takes a string value and returns it as a normalized string.
+Takes a string value and returns it as a normalized string. If you do not
+provide a normalization mode, `NFC` is used.
 
 [Normalization][string-link-to-normalization-wikipedia] is used to ensure that
 two strings are equivalent. Normalization is often used in situations in which
@@ -11271,14 +12212,12 @@ points.
 
 `NORMALIZE` supports four optional normalization modes:
 
-| Value | Name | Description|
-|-------|------|------------|
-| NFC | Normalization Form Canonical Composition | Decomposes and recomposes characters by canonical equivalence.
-| NFKC | Normalization Form Compatibility Composition | Decomposes characters by compatibility, then recomposes them by canonical equivalence. |
-| NFD   | Normalization Form Canonical Decomposition | Decomposes characters by canonical equivalence, and multiple combining characters are arranged in a specific order.
-| NFKD | Normalization Form Compatibility Decomposition | Decomposes characters by compatibility, and multiple combining characters are arranged in a specific order.|
-
-The default normalization mode is `NFC`.
+| Value   | Name                                           | Description|
+|---------|------------------------------------------------|------------|
+| `NFC`   | Normalization Form Canonical Composition       | Decomposes and recomposes characters by canonical equivalence.|
+| `NFKC`  | Normalization Form Compatibility Composition   | Decomposes characters by compatibility, then recomposes them by canonical equivalence.|
+| `NFD`   | Normalization Form Canonical Decomposition     | Decomposes characters by canonical equivalence, and multiple combining characters are arranged in a specific order.|
+| `NFKD`  | Normalization Form Compatibility Decomposition | Decomposes characters by compatibility, and multiple combining characters are arranged in a specific order.|
 
 **Return type**
 
@@ -11288,8 +12227,7 @@ The default normalization mode is `NFC`.
 
 ```sql
 SELECT a, b, a = b as normalized
-FROM (SELECT NORMALIZE('\u00ea') as a, NORMALIZE('\u0065\u0302') as b)
-AS normalize_example;
+FROM (SELECT NORMALIZE('\u00ea') as a, NORMALIZE('\u0065\u0302') as b);
 
 +---+---+------------+
 | a | b | normalized |
@@ -11331,27 +12269,47 @@ NORMALIZE_AND_CASEFOLD(value[, normalization_mode])
 
 **Description**
 
-Takes a `STRING`, `value`, and performs the same actions as
-[`NORMALIZE`][string-link-to-normalize], as well as
-[casefolding][string-link-to-case-folding-wikipedia] for
-case-insensitive operations.
+Takes a string value and returns it as a normalized string with
+normalization.
+
+[Normalization][string-link-to-normalization-wikipedia] is used to ensure that
+two strings are equivalent. Normalization is often used in situations in which
+two strings render the same on the screen but have different Unicode code
+points.
+
+[Case folding][string-link-to-case-folding-wikipedia] is used for the caseless
+comparison of strings. If you need to compare strings and case should not be
+considered, use `NORMALIZE_AND_CASEFOLD`, otherwise use
+[`NORMALIZE`][string-link-to-normalize].
 
 `NORMALIZE_AND_CASEFOLD` supports four optional normalization modes:
 
-| Value | Name | Description|
-|-------|------|------------|
-| NFC | Normalization Form Canonical Composition | Decomposes and recomposes characters by canonical equivalence.
-| NFKC | Normalization Form Compatibility Composition | Decomposes characters by compatibility, then recomposes them by canonical equivalence. |
-| NFD   | Normalization Form Canonical Decomposition | Decomposes characters by canonical equivalence, and multiple combining characters are arranged in a specific order.
-| NFKD | Normalization Form Compatibility Decomposition | Decomposes characters by compatibility, and multiple combining characters are arranged in a specific order.|
-
-The default normalization mode is `NFC`.
+| Value   | Name                                           | Description|
+|---------|------------------------------------------------|------------|
+| `NFC`   | Normalization Form Canonical Composition       | Decomposes and recomposes characters by canonical equivalence.|
+| `NFKC`  | Normalization Form Compatibility Composition   | Decomposes characters by compatibility, then recomposes them by canonical equivalence.|
+| `NFD`   | Normalization Form Canonical Decomposition     | Decomposes characters by canonical equivalence, and multiple combining characters are arranged in a specific order.|
+| `NFKD`  | Normalization Form Compatibility Decomposition | Decomposes characters by compatibility, and multiple combining characters are arranged in a specific order.|
 
 **Return type**
 
 `STRING`
 
-**Example**
+**Examples**
+
+```sql
+SELECT
+  a, b,
+  NORMALIZE(a) = NORMALIZE(b) as normalized,
+  NORMALIZE_AND_CASEFOLD(a) = NORMALIZE_AND_CASEFOLD(b) as normalized_with_case_folding
+FROM (SELECT 'The red barn' AS a, 'The Red Barn' AS b);
+
++--------------+--------------+------------+------------------------------+
+| a            | b            | normalized | normalized_with_case_folding |
++--------------+--------------+------------+------------------------------+
+| The red barn | The Red Barn | false      | true                         |
++--------------+--------------+------------+------------------------------+
+```
 
 ```sql
 WITH Strings AS (
@@ -11426,9 +12384,9 @@ FROM
 | www.example.net | false    |
 +-----------------+----------+
 
-# Performs a full match, using ^ and $. Due to regular expression operator
-# precedence, it is good practice to use parentheses around everything between ^
-# and $.
+-- Performs a full match, using ^ and $. Due to regular expression operator
+-- precedence, it is good practice to use parentheses around everything between ^
+-- and $.
 SELECT
   email,
   REGEXP_CONTAINS(email, r"^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$")
@@ -11747,8 +12705,10 @@ You can use backslashed-escaped digits (\1 to \9) within the `replacement`
 argument to insert text matching the corresponding parenthesized group in the
 `regexp` pattern. Use \0 to refer to the entire matching text.
 
-Note: To add a backslash in your regular expression, you must first escape it.
-For example, `SELECT REGEXP_REPLACE("abc", "b(.)", "X\\1");` returns `aXc`.
+To add a backslash in your regular expression, you must first escape it. For
+example, `SELECT REGEXP_REPLACE("abc", "b(.)", "X\\1");` returns `aXc`. You can
+also use [raw strings][string-link-to-lexical-literals] to remove one layer of
+escaping, for example `SELECT REGEXP_REPLACE("abc", "b(.)", r"X\1");`.
 
 The `REGEXP_REPLACE` function only replaces non-overlapping matches. For
 example, replacing `ana` within `banana` results in only one replacement, not
@@ -12848,6 +13808,7 @@ FROM items;
 [string-link-to-base64]: #to_base64
 [string-link-to-trim]: #trim
 [string-link-to-normalize]: #normalize
+[string-link-to-normalize-casefold]: #normalize_and_casefold
 [string-link-to-from-base64]: #from_base64
 [string-link-to-codepoints-to-string]: #code_points_to_string
 [string-link-to-codepoints-to-bytes]: #code_points_to_bytes
@@ -12856,13 +13817,25 @@ FROM items;
 [string-link-to-from-hex]: #from_hex
 [string-link-to-to-hex]: #to_hex
 
+[string-link-to-lexical-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#string_and_bytes_literals
+[format-specifiers]: #format_specifiers
+[format-specifier-list]: #format_specifier_list
+[flags]: #flags
+[width]: #width
+[precision]: #precision
+[g-and-g-behavior]: #g_and_g_behavior
+[p-and-p-behavior]: #p_and_p_behavior
+[t-and-t-behavior]: #t_and_t_behavior
+[error-format-specifiers]: #error_format_specifiers
+[null-format-specifiers]: #null_format_specifiers
+[rules-format-specifiers]: #rules_format_specifiers
+
 [string-link-to-operators]: #operators
 
 ## JSON functions
 
-ZetaSQL supports functions that help you retrieve data stored in
-JSON-formatted strings and functions that help you transform data into
-JSON-formatted strings.
+ZetaSQL supports the following functions, which can retrieve and
+transform JSON data.
 
 ### Function overview
 
@@ -12886,16 +13859,21 @@ This behavior is consistent with the ANSI standard.
     <tr>
       <td><a href="#json_query"><code>JSON_QUERY</code></a></td>
       <td>
-        Extracts a JSON value, such as an array or object, or a JSON-formatted
-        scalar value, such as a string, integer, or boolean.
+        Extracts a JSON value, such as an array or object, or a JSON
+        scalar value, such as a string, number, or boolean.
       </td>
-      <td>JSON-formatted <code>STRING</code></td>
+      <td>
+        JSON-formatted <code>STRING</code>
+         or
+        <code>JSON</code>
+        
+      </td>
     </tr>
     <tr>
       <td><a href="#json_value"><code>JSON_VALUE</code></a></td>
       <td>
         Extracts a scalar value.
-        A scalar value can represent a string, integer, or boolean.
+        A scalar value can represent a string, number, or boolean.
         Removes the outermost quotes and unescapes the values.
         Returns a SQL <code>NULL</code> if a non-scalar value is selected.
       </td>
@@ -12903,6 +13881,32 @@ This behavior is consistent with the ANSI standard.
     </tr>
     
     
+    <tr>
+      <td><a href="#json_query_array"><code>JSON_QUERY_ARRAY</code></a></td>
+      <td>
+        Extracts an array of JSON values, such as arrays or objects, and
+        JSON scalar values, such as strings, numbers, and booleans.
+      </td>
+      <td>
+        <code>ARRAY&lt;JSON-formatted STRING&gt;</code>
+         or
+        <code>ARRAY&lt;JSON&gt;</code>
+        
+      </td>
+    </tr>
+    
+    
+    <tr>
+      <td><a href="#json_value_array"><code>JSON_VALUE_ARRAY</code></a></td>
+      <td>
+        Extracts an array of scalar values. A scalar value can represent a
+        string, number, or boolean.
+        Removes the outermost quotes and unescapes the values.
+        Returns a SQL <code>NULL</code> if the selected value is not an array or
+        not an array containing only scalar values.
+      </td>
+      <td><code>ARRAY&lt;STRING&gt;</code></td>
+    </tr>
     
   </tbody>
 </table>
@@ -12928,16 +13932,21 @@ the functions in the previous table.
     <tr>
       <td><a href="#json_extract"><code>JSON_EXTRACT</code></a></td>
       <td>
-        Extracts a JSON value, such as an array or object, or a JSON-formatted
-        scalar value, such as a string, integer, or boolean.
+        Extracts a JSON value, such as an array or object, or a JSON
+        scalar value, such as a string, number, or boolean.
       </td>
-      <td>JSON-formatted <code>STRING</code></td>
+      <td>
+        JSON-formatted <code>STRING</code>
+         or
+        <code>JSON</code>
+        
+      </td>
     </tr>
     <tr>
       <td><a href="#json_extract_scalar"><code>JSON_EXTRACT_SCALAR</code></a></td>
       <td>
         Extracts a scalar value.
-        A scalar value can represent a string, integer, or boolean.
+        A scalar value can represent a string, number, or boolean.
         Removes the outermost quotes and unescapes the values.
         Returns a SQL <code>NULL</code> if a non-scalar value is selected.
       </td>
@@ -12962,11 +13971,20 @@ the functions in the previous table.
   <tbody>
     
     <tr>
+      <td><a href="#parse_json"><code>PARSE_JSON</code></a></td>
+      <td>
+        Takes a JSON-formatted string and returns a JSON value.
+      </td>
+      <td><code>JSON</code></td>
+    </tr>
+    
+    
+    <tr>
       <td><a href="#to_json"><code>TO_JSON</code></a></td>
       <td>
         Takes a SQL value and returns a JSON value.
       </td>
-      <td>JSON value</td>
+      <td><code>JSON</code></td>
     </tr>
     
     
@@ -12979,6 +13997,7 @@ the functions in the previous table.
       <td>JSON-formatted <code>STRING</code></td>
     </tr>
     
+    
   </tbody>
 </table>
 
@@ -12988,31 +14007,84 @@ the functions in the previous table.
 JSON_EXTRACT(json_string_expr, json_path)
 ```
 
+```sql
+JSON_EXTRACT(json_expr, json_path)
+```
+
 **Description**
 
-Extracts a JSON value, such as an array or object, or a JSON-formatted scalar
-value, such as a string, integer, or boolean. If a JSON key uses invalid
+Extracts a JSON value, such as an array or object, or a JSON scalar
+value, such as a string, number, or boolean. If a JSON key uses invalid
 [JSONPath][JSONPath-format] characters, then you can escape those characters
 using single quotes and brackets.
 
 +   `json_string_expr`: A JSON-formatted string. For example:
 
     ```
-    {"class" : {"students" : [{"name" : "Jane"}]}}
+    '{"class" : {"students" : [{"name" : "Jane"}]}}'
     ```
-+   `json_path`: The [JSONPath][JSONPath-format]. This identifies the value or
-    values that you want to obtain from the JSON-formatted string. If
-    `json_path` returns a JSON `null`, then this is converted into a SQL `NULL`.
+
+    Extracts a SQL `NULL` when a JSON-formatted string "null" is encountered.
+    For example:
+
+    ```sql
+    SELECT JSON_EXTRACT("null", "$") -- Returns a SQL NULL
+    ```
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    ```
+
+    Extracts a JSON `null` when a JSON `null` is encountered.
+
+    ```sql
+    SELECT JSON_EXTRACT(JSON 'null', "$") -- Returns a JSON 'null'
+    ```
++   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
+    you want to obtain from the input. If this optional parameter is not
+    provided, then the JSONPath `$` symbol is applied, which means that all of
+    the data is analyzed.
+
+    ```sql
+    SELECT JSON_EXTRACT('{"a":null}', "$.a"); -- Returns a SQL NULL
+    SELECT JSON_EXTRACT('{"a":null}', "$.b"); -- Returns a SQL NULL
+    ```
+
+    
+    ```sql
+    SELECT JSON_EXTRACT(JSON '{"a":null}', "$.a"); -- Returns a JSON 'null'
+    SELECT JSON_EXTRACT(JSON '{"a":null}', "$.b"); -- Returns a SQL NULL
+    ```
+    
 
 If you want to include non-scalar values such as arrays in the extraction, then
 use `JSON_EXTRACT`. If you only want to extract scalar values such strings,
-integers, and booleans, then use `JSON_EXTRACT_SCALAR`.
+numbers, and booleans, then use `JSON_EXTRACT_SCALAR`.
 
 **Return type**
 
-A JSON-formatted `STRING`
++ `json_string_expr`: A JSON-formatted `STRING`
++ `json_expr`: `JSON`
 
 **Examples**
+
+In the following example, JSON data is extracted and returned as JSON.
+
+```sql
+SELECT
+  JSON_EXTRACT(JSON '{"class":{"students":[{"id":5},{"id":12}]}}', '$.class')
+  AS json_data;
+
++-----------------------------------+
+| json_data                         |
++-----------------------------------+
+| {"students":[{"id":5},{"id":12}]} |
++-----------------------------------+
+```
+
+In the following examples, JSON data is extracted and returned as
+JSON-formatted strings.
 
 ```sql
 SELECT JSON_EXTRACT(json_text, '$') AS json_text_string
@@ -13090,31 +14162,84 @@ FROM UNNEST([
 JSON_QUERY(json_string_expr, json_path)
 ```
 
+```sql
+JSON_QUERY(json_expr, json_path)
+```
+
 **Description**
 
-Extracts a JSON value, such as an array or object, or a JSON-formatted scalar
-value, such as a string, integer, or boolean. If a JSON key uses invalid
+Extracts a JSON value, such as an array or object, or a JSON scalar
+value, such as a string, number, or boolean. If a JSON key uses invalid
 [JSONPath][JSONPath-format] characters, then you can escape those characters
 using double quotes.
 
 +   `json_string_expr`: A JSON-formatted string. For example:
 
     ```
-    {"class" : {"students" : [{"name" : "Jane"}]}}
+    '{"class" : {"students" : [{"name" : "Jane"}]}}'
     ```
-+   `json_path`: The [JSONPath][JSONPath-format]. This identifies the value or
-    values that you want to obtain from the JSON-formatted string. If
-    `json_path` returns a JSON `null`, then this is converted into a SQL `NULL`.
+
+    Extracts a SQL `NULL` when a JSON-formatted string "null" is encountered.
+    For example:
+
+    ```sql
+    SELECT JSON_QUERY("null", "$") -- Returns a SQL NULL
+    ```
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    ```
+
+    Extracts a JSON `null` when a JSON `null` is encountered.
+
+    ```sql
+    SELECT JSON_QUERY(JSON 'null', "$") -- Returns a JSON 'null'
+    ```
++   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
+    you want to obtain from the input. If this optional parameter is not
+    provided, then the JSONPath `$` symbol is applied, which means that all of
+    the data is analyzed.
+
+    ```sql
+    SELECT JSON_QUERY('{"a":null}', "$.a"); -- Returns a SQL NULL
+    SELECT JSON_QUERY('{"a":null}', "$.b"); -- Returns a SQL NULL
+    ```
+
+    
+    ```sql
+    SELECT JSON_QUERY(JSON '{"a":null}', "$.a"); -- Returns a JSON 'null'
+    SELECT JSON_QUERY(JSON '{"a":null}', "$.b"); -- Returns a SQL NULL
+    ```
+    
 
 If you want to include non-scalar values such as arrays in the extraction, then
 use `JSON_QUERY`. If you only want to extract scalar values such strings,
-integers, and booleans, then use `JSON_VALUE`.
+numbers, and booleans, then use `JSON_VALUE`.
 
 **Return type**
 
-A JSON-formatted `STRING`
++ `json_string_expr`: A JSON-formatted `STRING`
++ `json_expr`: `JSON`
 
 **Examples**
+
+In the following example, JSON data is extracted and returned as JSON.
+
+```sql
+SELECT
+  JSON_QUERY(JSON '{"class":{"students":[{"id":5},{"id":12}]}}', '$.class')
+  AS json_data;
+
++-----------------------------------+
+| json_data                         |
++-----------------------------------+
+| {"students":[{"id":5},{"id":12}]} |
++-----------------------------------+
+```
+
+In the following examples, JSON data is extracted and returned as
+JSON-formatted strings.
 
 ```sql
 SELECT JSON_QUERY(json_text, '$') AS json_text_string
@@ -13192,10 +14317,14 @@ FROM UNNEST([
 JSON_EXTRACT_SCALAR(json_string_expr[, json_path])
 ```
 
+```sql
+JSON_EXTRACT_SCALAR(json_expr[, json_path])
+```
+
 **Description**
 
 Extracts a scalar value and then returns it as a string. A scalar value can
-represent a string, integer, or boolean. Removes the outermost quotes and
+represent a string, number, or boolean. Removes the outermost quotes and
 unescapes the return values. If a JSON key uses invalid
 [JSONPath][JSONPath-format] characters, then you can escape those characters
 using single quotes and brackets.
@@ -13203,16 +14332,25 @@ using single quotes and brackets.
 +   `json_string_expr`: A JSON-formatted string. For example:
 
     ```
-    {"class" : {"students" : [{"name" : "Jane"}]}}
+    '{"class" : {"students" : [{"name" : "Jane"}]}}'
     ```
-+   `json_path`: The [JSONPath][JSONPath-format]. This identifies the value or
-    values that you want to obtain from the JSON-formatted string. If
-    `json_path` returns a JSON `null` or a non-scalar value (in other words, if
-    `json_path` refers to an object or an array), then a SQL `NULL` is returned.
-    If this optional parameter is not provided, then the JSONPath `$` symbol is
-    applied, which means that the entire JSON-formatted string is analyzed.
++   `json_expr`: JSON. For example:
 
-If you only want to extract scalar values such strings, integers, and booleans,
+    ```
+    JSON '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    ```
++   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
+    you want to obtain from the input. If this optional parameter is not
+    provided, then the JSONPath `$` symbol is applied, which means that all of
+    the data is analyzed.
+
+    If `json_path` returns a JSON `null` or a non-scalar value (in other words,
+    if `json_path` refers to an object or an array), then a SQL `NULL` is
+    returned. If this optional parameter is not provided, then the JSONPath `$`
+    symbol is applied, which means that the entire JSON-formatted string is
+    analyzed.
+
+If you only want to extract scalar values such strings, numbers, and booleans,
 then use `JSON_EXTRACT_SCALAR`. If you want to include non-scalar values such as
 arrays in the extraction, then use `JSON_EXTRACT`.
 
@@ -13221,6 +14359,18 @@ arrays in the extraction, then use `JSON_EXTRACT`.
 `STRING`
 
 **Examples**
+
+In the following example, `age` is extracted.
+
+```sql
+SELECT JSON_EXTRACT_SCALAR(JSON '{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
+
++------------+
+| scalar_age |
++------------+
+| 6          |
++------------+
+```
 
 The following example compares how results are returned for the `JSON_EXTRACT`
 and `JSON_EXTRACT_SCALAR` functions.
@@ -13236,7 +14386,9 @@ SELECT JSON_EXTRACT('{ "name" : "Jakob", "age" : "6" }', '$.name') AS json_name,
 +-----------+-------------+----------+------------+
 | "Jakob"   | Jakob       | "6"      | 6          |
 +-----------+-------------+----------+------------+
+```
 
+```sql
 SELECT JSON_EXTRACT('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_extract,
   JSON_EXTRACT_SCALAR('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_extract_scalar;
 
@@ -13266,10 +14418,14 @@ SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") AS hello;
 JSON_VALUE(json_string_expr[, json_path])
 ```
 
+```sql
+JSON_VALUE(json_expr[, json_path])
+```
+
 **Description**
 
 Extracts a scalar value and then returns it as a string. A scalar value can
-represent a string, integer, or boolean. Removes the outermost quotes and
+represent a string, number, or boolean. Removes the outermost quotes and
 unescapes the return values. If a JSON key uses invalid
 [JSONPath][JSONPath-format] characters, then you can escape those characters
 using double quotes.
@@ -13277,16 +14433,25 @@ using double quotes.
 +   `json_string_expr`: A JSON-formatted string. For example:
 
     ```
-    {"class" : {"students" : [{"name" : "Jane"}]}}
+    '{"class" : {"students" : [{"name" : "Jane"}]}}'
     ```
-+   `json_path`: The [JSONPath][JSONPath-format]. This identifies the value or
-    values that you want to obtain from the JSON-formatted string. If
-    `json_path` returns a JSON `null` or a non-scalar value (in other words, if
-    `json_path` refers to an object or an array), then a SQL `NULL` is returned.
-    If this optional parameter is not provided, then the JSONPath `$` symbol is
-    applied, which means that the entire JSON-formatted string is analyzed.
++   `json_expr`: JSON. For example:
 
-If you only want to extract scalar values such strings, integers, and booleans,
+    ```
+    JSON '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    ```
++   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
+    you want to obtain from the input. If this optional parameter is not
+    provided, then the JSONPath `$` symbol is applied, which means that all of
+    the data is analyzed.
+
+    If `json_path` returns a JSON `null` or a non-scalar value (in other words,
+    if `json_path` refers to an object or an array), then a SQL `NULL` is
+    returned. If this optional parameter is not provided, then the JSONPath `$`
+    symbol is applied, which means that the entire JSON-formatted string is
+    analyzed.
+
+If you only want to extract scalar values such strings, numbers, and booleans,
 then use `JSON_VALUE`. If you want to include non-scalar values such as arrays
 in the extraction, then use `JSON_QUERY`.
 
@@ -13295,6 +14460,21 @@ in the extraction, then use `JSON_QUERY`.
 `STRING`
 
 **Examples**
+
+In the following example, JSON data is extracted and returned as a scalar value.
+
+```sql
+SELECT JSON_VALUE(JSON '{ "name" : "Jakob", "age" : "6" }', '$.age') AS scalar_age;
+
++------------+
+| scalar_age |
++------------+
+| 6          |
++------------+
+```
+
+The following example compares how results are returned for the `JSON_QUERY`
+and `JSON_VALUE` functions.
 
 ```sql
 SELECT JSON_QUERY('{ "name" : "Jakob", "age" : "6" }', '$.name') AS json_name,
@@ -13307,7 +14487,9 @@ SELECT JSON_QUERY('{ "name" : "Jakob", "age" : "6" }', '$.name') AS json_name,
 +-----------+-------------+----------+------------+
 | "Jakob"   | Jakob       | "6"      | 6          |
 +-----------+-------------+----------+------------+
+```
 
+```sql
 SELECT JSON_QUERY('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_query,
   JSON_VALUE('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_value;
 
@@ -13331,6 +14513,472 @@ SELECT JSON_VALUE('{"a.b": {"c": "world"}}', '$."a.b".c') AS hello;
 +-------+
 ```
 
+### JSON_QUERY_ARRAY
+
+```sql
+JSON_QUERY_ARRAY(json_string_expr[, json_path])
+```
+
+```sql
+JSON_QUERY_ARRAY(json_expr[, json_path])
+```
+
+**Description**
+
+Extracts an array of JSON values, such as arrays or objects, and
+JSON scalar values, such as strings, numbers, and booleans.
+If a JSON key uses invalid
+[JSONPath][JSONPath-format] characters, then you can escape those characters
+using double quotes.
+
++   `json_string_expr`: A JSON-formatted string. For example:
+
+    ```
+    '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    ```
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    ```
++   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
+    you want to obtain from the input. If this optional parameter is not
+    provided, then the JSONPath `$` symbol is applied, which means that all of
+    the data is analyzed.
+
+**Return type**
+
++ `json_string_expr`: `ARRAY<JSON-formatted STRING>`
++ `json_expr`: `ARRAY<JSON>`
+
+**Examples**
+
+This extracts items in JSON to an array of `JSON` values:
+
+```sql
+SELECT JSON_QUERY_ARRAY(
+  JSON '{"fruits":["apples","oranges","grapes"]}','$.fruits'
+  ) AS json_array;
+
++---------------------------------+
+| json_array                      |
++---------------------------------+
+| ["apples", "oranges", "grapes"] |
++---------------------------------+
+```
+
+This extracts the items in a JSON-formatted string to a string array:
+
+```sql
+SELECT JSON_QUERY_ARRAY('[1,2,3]') AS string_array;
+
++--------------+
+| string_array |
++--------------+
+| [1, 2, 3]    |
++--------------+
+```
+
+This extracts a string array and converts it to an integer array:
+
+```sql
+SELECT ARRAY(
+  SELECT CAST(integer_element AS INT64)
+  FROM UNNEST(
+    JSON_QUERY_ARRAY('[1,2,3]','$')
+  ) AS integer_element
+) AS integer_array;
+
++---------------+
+| integer_array |
++---------------+
+| [1, 2, 3]     |
++---------------+
+```
+
+This extracts string values in a JSON-formatted string to an array:
+
+```sql
+-- Doesn't strip the double quotes
+SELECT JSON_QUERY_ARRAY('["apples","oranges","grapes"]', '$') AS string_array;
+
++---------------------------------+
+| string_array                    |
++---------------------------------+
+| ["apples", "oranges", "grapes"] |
++---------------------------------+
+
+-- Strips the double quotes
+SELECT ARRAY(
+  SELECT JSON_VALUE(string_element, '$')
+  FROM UNNEST(JSON_QUERY_ARRAY('["apples","oranges","grapes"]','$')) AS string_element
+) AS string_array;
+
++---------------------------+
+| string_array              |
++---------------------------+
+| [apples, oranges, grapes] |
++---------------------------+
+```
+
+This extracts only the items in the `fruit` property to an array:
+
+```sql
+SELECT JSON_QUERY_ARRAY(
+  '{"fruit":[{"apples":5,"oranges":10},{"apples":2,"oranges":4}],"vegetables":[{"lettuce":7,"kale": 8}]}',
+  '$.fruit'
+) AS string_array;
+
++-------------------------------------------------------+
+| string_array                                          |
++-------------------------------------------------------+
+| [{"apples":5,"oranges":10}, {"apples":2,"oranges":4}] |
++-------------------------------------------------------+
+```
+
+These are equivalent:
+
+```sql
+SELECT JSON_QUERY_ARRAY('{"fruits":["apples","oranges","grapes"]}','$.fruits') AS string_array;
+
+SELECT JSON_QUERY_ARRAY('{"fruits":["apples","oranges","grapes"]}','$."fruits"') AS string_array;
+
+-- The queries above produce the following result:
++---------------------------------+
+| string_array                    |
++---------------------------------+
+| ["apples", "oranges", "grapes"] |
++---------------------------------+
+```
+
+In cases where a JSON key uses invalid JSONPath characters, you can escape those
+characters using double quotes: `" "`. For example:
+
+```sql
+SELECT JSON_QUERY_ARRAY('{"a.b": {"c": ["world"]}}', '$."a.b".c') AS hello;
+
++-----------+
+| hello     |
++-----------+
+| ["world"] |
++-----------+
+```
+
+The following examples show how invalid requests and empty arrays are handled:
+
+```sql
+-- An error is returned if you provide an invalid JSONPath.
+SELECT JSON_QUERY_ARRAY('["foo","bar","baz"]','INVALID_JSONPath') AS result;
+
+-- If the JSONPath does not refer to an array, then NULL is returned.
+SELECT JSON_QUERY_ARRAY('{"a":"foo"}','$.a') AS result;
+
++--------+
+| result |
++--------+
+| NULL   |
++--------+
+
+-- If a key that does not exist is specified, then the result is NULL.
+SELECT JSON_QUERY_ARRAY('{"a":"foo"}','$.b') AS result;
+
++--------+
+| result |
++--------+
+| NULL   |
++--------+
+
+-- Empty arrays in JSON-formatted strings are supported.
+SELECT JSON_QUERY_ARRAY('{"a":"foo","b":[]}','$.b') AS result;
+
++--------+
+| result |
++--------+
+| []     |
++--------+
+```
+
+### JSON_VALUE_ARRAY
+
+```sql
+JSON_VALUE_ARRAY(json_string_expr[, json_path])
+```
+
+```sql
+JSON_VALUE_ARRAY(json_expr[, json_path])
+```
+
+**Description**
+
+Extracts an array of scalar values and returns an array of string-formatted
+scalar values. A scalar value can represent a string, number, or boolean. If a
+JSON key uses invalid [JSONPath][JSONPath-format] characters, you can escape
+those characters using double quotes.
+
++   `json_string_expr`: A JSON-formatted string. For example:
+
+    ```
+    '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    ```
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"class" : {"students" : [{"name" : "Jane"}]}}'
+    ```
++   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
+    you want to obtain from the input. If this optional parameter is not
+    provided, then the JSONPath `$` symbol is applied, which means that all of
+    the data is analyzed.
+
+**Return type**
+
+`ARRAY<STRING>`
+
+**Examples**
+
+This extracts items in JSON to a string array:
+
+```sql
+SELECT JSON_VALUE_ARRAY(
+  JSON '{"fruits":["apples","oranges","grapes"]}','$.fruits'
+  ) AS string_array;
+
++---------------------------+
+| string_array              |
++---------------------------+
+| [apples, oranges, grapes] |
++---------------------------+
+```
+
+The following example compares how results are returned for the
+`JSON_QUERY_ARRAY` and `JSON_VALUE_ARRAY` functions.
+
+```sql
+SELECT JSON_QUERY_ARRAY('["apples","oranges"]') AS json_array,
+       JSON_VALUE_ARRAY('["apples","oranges"]') AS string_array;
+
++-----------------------+-------------------+
+| json_array            | string_array      |
++-----------------------+-------------------+
+| ["apples", "oranges"] | [apples, oranges] |
++-----------------------+-------------------+
+```
+
+This extracts the items in a JSON-formatted string to a string array:
+
+```sql
+-- Strips the double quotes
+SELECT JSON_VALUE_ARRAY('["foo","bar","baz"]','$') AS string_array;
+
++-----------------+
+| string_array    |
++-----------------+
+| [foo, bar, baz] |
++-----------------+
+```
+
+This extracts a string array and converts it to an integer array:
+
+```sql
+SELECT ARRAY(
+  SELECT CAST(integer_element AS INT64)
+  FROM UNNEST(
+    JSON_VALUE_ARRAY('[1,2,3]','$')
+  ) AS integer_element
+) AS integer_array;
+
++---------------+
+| integer_array |
++---------------+
+| [1, 2, 3]     |
++---------------+
+```
+
+These are equivalent:
+
+```sql
+SELECT JSON_VALUE_ARRAY('{"fruits":["apples","oranges","grapes"]}','$.fruits') AS string_array;
+SELECT JSON_VALUE_ARRAY('{"fruits":["apples","oranges","grapes"]}','$."fruits"') AS string_array;
+
+-- The queries above produce the following result:
++---------------------------+
+| string_array              |
++---------------------------+
+| [apples, oranges, grapes] |
++---------------------------+
+```
+
+In cases where a JSON key uses invalid JSONPath characters, you can escape those
+characters using double quotes: `" "`. For example:
+
+```sql
+SELECT JSON_VALUE_ARRAY('{"a.b": {"c": ["world"]}}', '$."a.b".c') AS hello;
+
++---------+
+| hello   |
++---------+
+| [world] |
++---------+
+```
+
+The following examples explore how invalid requests and empty arrays are
+handled:
+
+```sql
+-- An error is thrown if you provide an invalid JSONPath.
+SELECT JSON_VALUE_ARRAY('["foo","bar","baz"]','INVALID_JSONPath') AS result;
+
+-- If the JSON-formatted string is invalid, then NULL is returned.
+SELECT JSON_VALUE_ARRAY('}}','$') AS result;
+
++--------+
+| result |
++--------+
+| NULL   |
++--------+
+
+-- If the JSON document is NULL, then NULL is returned.
+SELECT JSON_VALUE_ARRAY(NULL,'$') AS result;
+
++--------+
+| result |
++--------+
+| NULL   |
++--------+
+
+-- If a JSONPath does not match anything, then the output is NULL.
+SELECT JSON_VALUE_ARRAY('{"a":["foo","bar","baz"]}','$.b') AS result;
+
++--------+
+| result |
++--------+
+| NULL   |
++--------+
+
+-- If a JSONPath matches an object that is not an array, then the output is NULL.
+SELECT JSON_VALUE_ARRAY('{"a":"foo"}','$') AS result;
+
++--------+
+| result |
++--------+
+| NULL   |
++--------+
+
+-- If a JSONPath matches an array of non-scalar objects, then the output is NULL.
+SELECT JSON_VALUE_ARRAY('{"a":[{"b":"foo","c":1},{"b":"bar","c":2}],"d":"baz"}','$.a') AS result;
+
++--------+
+| result |
++--------+
+| NULL   |
++--------+
+
+-- If a JSONPath matches an array of mixed scalar and non-scalar objects,
+-- then the output is NULL.
+SELECT JSON_VALUE_ARRAY('{"a":[10, {"b": 20}]','$.a') AS result;
+
++--------+
+| result |
++--------+
+| NULL   |
++--------+
+
+-- If a JSONPath matches an empty JSON array, then the output is an empty array instead of NULL.
+SELECT JSON_VALUE_ARRAY('{"a":"foo","b":[]}','$.b') AS result;
+
++--------+
+| result |
++--------+
+| []     |
++--------+
+
+-- If a JSONPath matches an array that contains scalar objects and a JSON null,
+-- then the output is an array of the scalar objects and a SQL NULL.
+SELECT JSON_VALUE_ARRAY('["world", null, 1]') AS result;
+
++------------------+
+| result           |
++------------------+
+| [world, NULL, 1] |
++------------------+
+
+```
+
+### PARSE_JSON
+
+```sql
+PARSE_JSON(json_string_expr[, wide_number_mode=>{ 'exact' | 'round' } ])
+```
+
+**Description**
+
+Takes a SQL `STRING` value and returns a SQL `JSON` value.
+The `STRING` value represents a string-formatted JSON value.
+
+This function supports an optional mandatory-named argument called
+`wide_number_mode` that determines how to handle numbers that cannot be stored
+in a `JSON` value without the loss of precision. If used,
+`wide_number_mode` must include one of these values:
+
++ `exact`: Only accept numbers that can be stored without loss of precision. If
+  a number that cannot be stored without loss of precision is encountered,
+  the function throws an error.
++ `round`: If a number that cannot be stored without loss of precision is
+  encountered, attempt to round it to a number that can be stored without
+  loss of precision. If the number cannot be rounded, the function throws an
+  error.
+
+If `wide_number_mode` is not used, the function implicitly includes
+`wide_number_mode=>'exact'`. If a number appears in a JSON object or array,
+the `wide_number_mode` argument is applied to the number in the object or array.
+
+Numbers from the following domains can be stored in JSON without loss of
+precision:
+
++ 64-bit signed/unsigned integers, such as `INT64`
++ `DOUBLE`
+
+**Return type**
+
+`JSON`
+
+**Examples**
+
+In the following example, a JSON-formatted string is converted to `JSON`.
+
+```sql
+SELECT PARSE_JSON('{"coordinates":[10,20],"id":1}') AS json_data;
+
++--------------------------------+
+| json_data                      |
++--------------------------------+
+| {"coordinates":[10,20],"id":1} |
++--------------------------------+
+```
+
+The following queries fail because:
+
++ The number that was passed in cannot be stored without loss of precision.
++ `wide_number_mode=>'exact'` is used implicitly in the first query and
+  explicitly in the second query.
+
+```sql
+SELECT PARSE_JSON('{"id":922337203685477580701}') AS json_data; -- fails
+SELECT PARSE_JSON('{"id":922337203685477580701}', wide_number_mode=>'exact') AS json_data; -- fails
+```
+
+The following query rounds the number to a number that can be stored in JSON.
+
+```sql
+SELECT PARSE_JSON('{"id":922337203685477580701}', wide_number_mode=>'round') AS json_data;
+
++--------------------------------+
+| json_data                      |
++--------------------------------+
+| {"id":9.223372036854776e+20}   |
++--------------------------------+
+```
+
 ### TO_JSON
 
 ```sql
@@ -13345,12 +14993,16 @@ ZetaSQL data types that this function supports and their
 JSON encodings [here][json-encodings].
 
 This function supports an optional mandatory-named argument called
-`stringify_wide_numbers`. If this argument is `TRUE`, numeric values outside
-of the `DOUBLE` type domain are encoded as strings.
-If this argument is not used or is `FALSE`, numeric values outside
-of the `DOUBLE` type domain are not encoded
-as strings and there may be loss of precision when numeric values are encoded
-as JSON numbers. The following numerical data types are affected by the
+`stringify_wide_numbers`.
+
++ If this argument is `TRUE`, numeric values outside
+  of the `DOUBLE` type domain are encoded as strings.
++ If this argument is not used or is `FALSE`, numeric values outside
+  of the `DOUBLE` type domain are not encoded
+  as strings, but are stored as JSON numbers. If a numerical value cannot be
+  stored in JSON without loss of precision, an error is thrown.
+
+The following numerical data types are affected by the
 `stringify_wide_numbers` argument:
 
 + `INT64`
@@ -13623,8 +15275,18 @@ or `TO_JSON` function.
         <p>
           If the <code>stringify_wide_numbers</code> argument
           is <code>TRUE</code> and the value is outside of the
-          DOUBLE type domain, it is
-          encoded as a string. Otherwise, it's encoded as a number.
+          DOUBLE type domain, the value is
+          encoded as a string. If the value cannot be stored in
+          JSON without loss of precision, the function fails.
+          Otherwise, the value is encoded as a number.
+        </p>
+        <p>
+          If the <code>stringify_wide_numbers</code> is not used or is
+          <code>FALSE</code>, numeric values outside of the
+          `DOUBLE` type domain are not
+          encoded as strings, but are stored as JSON numbers. If a
+          numerical value cannot be stored in JSON without loss of precision,
+          an error is thrown.
         </p>
       <td>
         SQL input: <code>9007199254740992</code><br />
@@ -13726,7 +15388,7 @@ or `TO_JSON` function.
         <p>
           <code>+/-inf</code> and <code>NaN</code> are encoded as
           <code>Infinity</code>, <code>-Infinity</code>, and <code>NaN</code>.
-          Otherwise, this value is encoded as a string.
+          Otherwise, this value is encoded as a number.
         </p>
       </td>
       <td>
@@ -13857,8 +15519,7 @@ or `TO_JSON` function.
       <td>
         <p>array</p>
         <p>
-          Can contain zero or more elements. Each element is formatted according
-          to its type.
+          Can contain zero or more elements.
         </p>
       </td>
       <td>
@@ -13881,16 +15542,14 @@ or `TO_JSON` function.
         </p>
         <p>
           For <code>TO_JSON</code>, a field is
-          inluded in the output string and any duplicates of this field are
+          included in the output string and any duplicates of this field are
           omitted.
           For <code>TO_JSON_STRING</code>,
           a field and any duplicates of this field are included in the
           output string.
         </p>
         <p>
-          Anonymous fields are represented with <code>""</code>. If a field is
-          a non-empty array or object, elements/fields are indented
-          to the appropriate level.
+          Anonymous fields are represented with <code>""</code>.
         </p>
         <p>
           Invalid UTF-8 field names might result in unparseable JSON. String
@@ -13901,7 +15560,7 @@ or `TO_JSON` function.
       </td>
       <td>
         SQL input: <code>STRUCT(12 AS purchases, TRUE AS inStock)</code><br />
-        JSON output: <code>{"purchases":12,"inStock": true}</code><br />
+        JSON output: <code>{"inStock": true,"purchases":12}</code><br />
       </td>
     </tr>
     
@@ -13961,7 +15620,7 @@ The `json_string_expr` parameter must be a JSON string that is
 formatted like this:
 
 ```json
-{"class" : {"students" : [{"name" : "Jane"}]}}
+'{"class" : {"students" : [{"name" : "Jane"}]}}'
 ```
 
 You construct the `json_path` parameter using the
@@ -14083,12 +15742,14 @@ SELECT ARRAY
 ### ARRAY_CONCAT
 
 ```sql
-ARRAY_CONCAT(array_expression_1 [, array_expression_n])
+ARRAY_CONCAT(array_expression[, ...])
 ```
 
 **Description**
 
 Concatenates one or more arrays with the same element type into a single array.
+
+The function returns `NULL` if any input argument is `NULL`.
 
 Note: You can also use the [|| concatenation operator][array-link-to-operators]
 to concatenate arrays.
@@ -15137,7 +16798,7 @@ DATE
 **Example**
 
 ```sql
-SELECT CURRENT_DATE() as the_date;
+SELECT CURRENT_DATE() AS the_date;
 
 +--------------+
 | the_date     |
@@ -15207,7 +16868,7 @@ In the following example, `EXTRACT` returns a value corresponding to the `DAY`
 date part.
 
 ```sql
-SELECT EXTRACT(DAY FROM DATE '2013-12-25') as the_day;
+SELECT EXTRACT(DAY FROM DATE '2013-12-25') AS the_day;
 
 +---------+
 | the_day |
@@ -15295,9 +16956,9 @@ DATE
 
 ```sql
 SELECT
-  DATE(2016, 12, 25) as date_ymd,
-  DATE(DATETIME "2016-12-25 23:59:59") as date_dt,
-  DATE(TIMESTAMP "2016-12-25 05:30:00+07", "America/Los_Angeles") as date_tstz;
+  DATE(2016, 12, 25) AS date_ymd,
+  DATE(DATETIME "2016-12-25 23:59:59") AS date_dt,
+  DATE(TIMESTAMP "2016-12-25 05:30:00+07", "America/Los_Angeles") AS date_tstz;
 
 +------------+------------+------------+
 | date_ymd   | date_dt    | date_tstz  |
@@ -15325,10 +16986,10 @@ Adds a specified time interval to a DATE.
 +  `QUARTER`
 +  `YEAR`
 
-Special handling is required for MONTH, QUARTER, and YEAR parts when the
-date is at (or near) the last day of the month. If the resulting month has fewer
-days than the original date's day, then the result day is the last day of the
-new month.
+Special handling is required for MONTH, QUARTER, and YEAR parts when
+the date is at (or near) the last day of the month. If the resulting
+month has fewer days than the original date's day, then the resulting
+date is the last date of that month.
 
 **Return Data Type**
 
@@ -15337,7 +16998,7 @@ DATE
 **Example**
 
 ```sql
-SELECT DATE_ADD(DATE "2008-12-25", INTERVAL 5 DAY) as five_days_later;
+SELECT DATE_ADD(DATE "2008-12-25", INTERVAL 5 DAY) AS five_days_later;
 
 +--------------------+
 | five_days_later    |
@@ -15364,10 +17025,10 @@ Subtracts a specified time interval from a DATE.
 +  `QUARTER`
 +  `YEAR`
 
-Special handling is required for MONTH, QUARTER, and YEAR parts when the
-date is at (or near) the last day of the month. If the resulting month has fewer
-days than the original date's day, then the result day is the last day of the
-new month.
+Special handling is required for MONTH, QUARTER, and YEAR parts when
+the date is at (or near) the last day of the month. If the resulting
+month has fewer days than the original date's day, then the resulting
+date is the last date of that month.
 
 **Return Data Type**
 
@@ -15376,7 +17037,7 @@ DATE
 **Example**
 
 ```sql
-SELECT DATE_SUB(DATE "2008-12-25", INTERVAL 5 DAY) as five_days_ago;
+SELECT DATE_SUB(DATE "2008-12-25", INTERVAL 5 DAY) AS five_days_ago;
 
 +---------------+
 | five_days_ago |
@@ -15422,7 +17083,7 @@ INT64
 **Example**
 
 ```sql
-SELECT DATE_DIFF(DATE '2010-07-07', DATE '2008-12-25', DAY) as days_diff;
+SELECT DATE_DIFF(DATE '2010-07-07', DATE '2008-12-25', DAY) AS days_diff;
 
 +-----------+
 | days_diff |
@@ -15433,8 +17094,8 @@ SELECT DATE_DIFF(DATE '2010-07-07', DATE '2008-12-25', DAY) as days_diff;
 
 ```sql
 SELECT
-  DATE_DIFF(DATE '2017-10-15', DATE '2017-10-14', DAY) as days_diff,
-  DATE_DIFF(DATE '2017-10-15', DATE '2017-10-14', WEEK) as weeks_diff;
+  DATE_DIFF(DATE '2017-10-15', DATE '2017-10-14', DAY) AS days_diff,
+  DATE_DIFF(DATE '2017-10-15', DATE '2017-10-14', WEEK) AS weeks_diff;
 
 +-----------+------------+
 | days_diff | weeks_diff |
@@ -15526,7 +17187,7 @@ DATE
 **Examples**
 
 ```sql
-SELECT DATE_TRUNC(DATE '2008-12-25', MONTH) as month;
+SELECT DATE_TRUNC(DATE '2008-12-25', MONTH) AS month;
 
 +------------+
 | month      |
@@ -15587,7 +17248,7 @@ DATE
 **Example**
 
 ```sql
-SELECT DATE_FROM_UNIX_DATE(14238) as date_from_epoch;
+SELECT DATE_FROM_UNIX_DATE(14238) AS date_from_epoch;
 
 +-----------------+
 | date_from_epoch |
@@ -15616,7 +17277,7 @@ STRING
 **Examples**
 
 ```sql
-SELECT FORMAT_DATE("%x", DATE "2008-12-25") as US_format;
+SELECT FORMAT_DATE("%x", DATE "2008-12-25") AS US_format;
 
 +------------+
 | US_format  |
@@ -15794,7 +17455,7 @@ DATE
 This example converts a `MM/DD/YY` formatted string to a `DATE` object:
 
 ```sql
-SELECT PARSE_DATE("%x", "12/25/08") as parsed;
+SELECT PARSE_DATE("%x", "12/25/08") AS parsed;
 
 +------------+
 | parsed     |
@@ -15806,7 +17467,7 @@ SELECT PARSE_DATE("%x", "12/25/08") as parsed;
 This example converts a `YYYYMMDD` formatted string to a `DATE` object:
 
 ```sql
-SELECT PARSE_DATE("%Y%m%d", "20081225") as parsed;
+SELECT PARSE_DATE("%Y%m%d", "20081225") AS parsed;
 
 +------------+
 | parsed     |
@@ -15832,7 +17493,7 @@ INT64
 **Example**
 
 ```sql
-SELECT UNIX_DATE(DATE "2008-12-25") as days_from_epoch;
+SELECT UNIX_DATE(DATE "2008-12-25") AS days_from_epoch;
 
 +-----------------+
 | days_from_epoch |
@@ -16120,7 +17781,8 @@ Allowed `part` values are:
 + `SECOND`
 + `MINUTE`
 + `HOUR`
-+ `DAYOFWEEK`
++ `DAYOFWEEK`: Returns values in the range [1,7] with Sunday as the first day of
+   of the week.
 + `DAY`
 + `DAYOFYEAR`
 + `WEEK`: Returns the week number of the date in the range [0, 53].  Weeks begin
@@ -17011,14 +18673,14 @@ by a space.</td>
     <td>%</td>
  </tr>
  <tr>
-    <td>%E#S</td>
-    <td>Seconds with # digits of fractional precision.</td>
-    <td>00.000</td>
+    <td>%E&lt;number&gt;S</td>
+    <td>Seconds with &lt;number&gt; digits of fractional precision.</td>
+    <td>00.000 for %E3S</td>
  </tr>
  <tr>
     <td>%E*S</td>
     <td>Seconds with full fractional precision (a literal '*').</td>
-    <td>00</td>
+    <td>00.123456</td>
  </tr>
  <tr>
     <td>%E4Y</td>
@@ -17536,14 +19198,14 @@ by a space.</td>
     <td>%</td>
  </tr>
  <tr>
-    <td>%E#S</td>
-    <td>Seconds with # digits of fractional precision.</td>
-    <td>00.000</td>
+    <td>%E&lt;number&gt;S</td>
+    <td>Seconds with &lt;number&gt; digits of fractional precision.</td>
+    <td>00.000 for %E3S</td>
  </tr>
  <tr>
     <td>%E*S</td>
     <td>Seconds with full fractional precision (a literal '*').</td>
-    <td>00</td>
+    <td>00.123456</td>
  </tr>
 </table>
 
@@ -17583,7 +19245,7 @@ Not applicable
 
 **Result Data Type**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Examples**
 
@@ -17638,7 +19300,8 @@ Allowed `part` values are:
 + `SECOND`
 + `MINUTE`
 + `HOUR`
-+ `DAYOFWEEK`
++ `DAYOFWEEK`: Returns values in the range [1,7] with Sunday as the first day of
+   of the week.
 + `DAY`
 + `DAYOFYEAR`
 + `WEEK`: Returns the week number of the date in the range [0, 53].  Weeks begin
@@ -17667,7 +19330,7 @@ seconds, `EXTRACT` truncates the millisecond and microsecond values.
 
 **Return Data Type**
 
-INT64, except when:
+`INT64`, except when:
 
 + `part` is `DATE`, returns a `DATE` object.
 + `part` is `DATETIME`, returns a `DATETIME` object.
@@ -17713,7 +19376,7 @@ SELECT
 FROM Timestamps
 ORDER BY timestamp_value;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+---------+---------+------+------+
 | timestamp_value                             | isoyear | isoweek | year | week |
 +---------------------------------------------+---------+---------+------+------+
@@ -17738,7 +19401,7 @@ SELECT
   EXTRACT(WEEK(MONDAY) FROM timestamp_value) AS week_monday
 FROM table;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+-------------+---------------+
 | timestamp_value                             | week_sunday | week_monday   |
 +---------------------------------------------+-------------+---------------+
@@ -17803,14 +19466,14 @@ is used.
 
 **Return Data Type**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Examples**
 
 ```sql
 SELECT TIMESTAMP("2008-12-25 15:30:00+00") AS timestamp_str;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+
 | timestamp_str                               |
 +---------------------------------------------+
@@ -17821,7 +19484,7 @@ SELECT TIMESTAMP("2008-12-25 15:30:00+00") AS timestamp_str;
 ```sql
 SELECT TIMESTAMP("2008-12-25 15:30:00", "America/Los_Angeles") AS timestamp_str;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+
 | timestamp_str                               |
 +---------------------------------------------+
@@ -17832,7 +19495,7 @@ SELECT TIMESTAMP("2008-12-25 15:30:00", "America/Los_Angeles") AS timestamp_str;
 ```sql
 SELECT TIMESTAMP("2008-12-25 15:30:00 UTC") AS timestamp_str;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+
 | timestamp_str                               |
 +---------------------------------------------+
@@ -17843,7 +19506,7 @@ SELECT TIMESTAMP("2008-12-25 15:30:00 UTC") AS timestamp_str;
 ```sql
 SELECT TIMESTAMP(DATETIME "2008-12-25 15:30:00") AS timestamp_datetime;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+
 | timestamp_datetime                          |
 +---------------------------------------------+
@@ -17854,7 +19517,7 @@ SELECT TIMESTAMP(DATETIME "2008-12-25 15:30:00") AS timestamp_datetime;
 ```sql
 SELECT TIMESTAMP(DATE "2008-12-25") AS timestamp_date;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+
 | timestamp_date                              |
 +---------------------------------------------+
@@ -17886,7 +19549,7 @@ any time zone.
 
 **Return Data Types**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Example**
 
@@ -17895,7 +19558,7 @@ SELECT
   TIMESTAMP("2008-12-25 15:30:00+00") AS original,
   TIMESTAMP_ADD(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE) AS later;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+---------------------------------------------+
 | original                                    | later                                       |
 +---------------------------------------------+---------------------------------------------+
@@ -17927,7 +19590,7 @@ independent of any time zone.
 
 **Return Data Type**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Example**
 
@@ -17936,7 +19599,7 @@ SELECT
   TIMESTAMP("2008-12-25 15:30:00+00") AS original,
   TIMESTAMP_SUB(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE) AS earlier;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+---------------------------------------------+
 | original                                    | earlier                                     |
 +---------------------------------------------+---------------------------------------------+
@@ -17972,7 +19635,7 @@ between the two `TIMESTAMP` objects would overflow an `INT64` value.
 
 **Return Data Type**
 
-INT64
+`INT64`
 
 **Example**
 
@@ -17982,7 +19645,7 @@ SELECT
   TIMESTAMP("2008-12-25 15:30:00+00") AS earlier_timestamp,
   TIMESTAMP_DIFF(TIMESTAMP "2010-07-07 10:20:00+00", TIMESTAMP "2008-12-25 15:30:00+00", HOUR) AS hours;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+---------------------------------------------+-------+
 | later_timestamp                             | earlier_timestamp                           | hours |
 +---------------------------------------------+---------------------------------------------+-------+
@@ -18082,7 +19745,7 @@ non-intuitive near daylight savings transitions that are not hour aligned.
 
 **Return Data Type**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Examples**
 
@@ -18091,7 +19754,7 @@ SELECT
   TIMESTAMP_TRUNC(TIMESTAMP "2008-12-25 15:30:00+00", DAY, "UTC") AS utc,
   TIMESTAMP_TRUNC(TIMESTAMP "2008-12-25 15:30:00+00", DAY, "America/Los_Angeles") AS la;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+---------------------------------------------+
 | utc                                         | la                                          |
 +---------------------------------------------+---------------------------------------------+
@@ -18116,7 +19779,7 @@ SELECT
   TIMESTAMP_TRUNC(timestamp_value, WEEK(MONDAY), "Pacific/Auckland") AS nzdt_truncated
 FROM (SELECT TIMESTAMP("2017-11-06 00:00:00+12") AS timestamp_value);
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+---------------------------------------------+---------------------------------------------+
 | timestamp_value                             | utc_truncated                               | nzdt_truncated                              |
 +---------------------------------------------+---------------------------------------------+---------------------------------------------+
@@ -18137,7 +19800,7 @@ SELECT
   TIMESTAMP_TRUNC("2015-06-15 00:00:00+00", ISOYEAR) AS isoyear_boundary,
   EXTRACT(ISOYEAR FROM TIMESTAMP "2015-06-15 00:00:00+00") AS isoyear_number;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+----------------+
 | isoyear_boundary                            | isoyear_number |
 +---------------------------------------------+----------------+
@@ -18160,7 +19823,7 @@ for a list of format elements that this function supports.
 
 **Return Data Type**
 
-STRING
+`STRING`
 
 **Example**
 
@@ -18251,14 +19914,14 @@ of `%s`, `%C`, and `%y`).
 
 **Return Data Type**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Example**
 
 ```sql
 SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +---------------------------------------------+
 | parsed                                      |
 +---------------------------------------------+
@@ -18275,23 +19938,23 @@ TIMESTAMP_SECONDS(int64_expression)
 **Description**
 
 Interprets `int64_expression` as the number of seconds since 1970-01-01 00:00:00
-UTC.
+UTC and returns a timestamp.
 
 **Return Data Type**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Example**
 
 ```sql
 SELECT TIMESTAMP_SECONDS(1230219000) AS timestamp_value;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+
-| timestamp_value                             |
-+---------------------------------------------+
-| 2008-12-25 07:30:00.000 America/Los_Angeles |
-+---------------------------------------------+
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
++------------------------+
+| timestamp_value        |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
 ```
 
 ### TIMESTAMP_MILLIS
@@ -18303,23 +19966,23 @@ TIMESTAMP_MILLIS(int64_expression)
 **Description**
 
 Interprets `int64_expression` as the number of milliseconds since 1970-01-01
-00:00:00 UTC.
+00:00:00 UTC and returns a timestamp.
 
 **Return Data Type**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Example**
 
 ```sql
 SELECT TIMESTAMP_MILLIS(1230219000000) AS timestamp_value;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+
-| timestamp_value                             |
-+---------------------------------------------+
-| 2008-12-25 07:30:00.000 America/Los_Angeles |
-+---------------------------------------------+
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
++------------------------+
+| timestamp_value        |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
 ```
 
 ### TIMESTAMP_MICROS
@@ -18331,23 +19994,23 @@ TIMESTAMP_MICROS(int64_expression)
 **Description**
 
 Interprets `int64_expression` as the number of microseconds since 1970-01-01
-00:00:00 UTC.
+00:00:00 UTC and returns a timestamp.
 
 **Return Data Type**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Example**
 
 ```sql
 SELECT TIMESTAMP_MICROS(1230219000000000) AS timestamp_value;
 
--- Results may differ, depending upon the environment and time zone where this query was executed.
-+---------------------------------------------+
-| timestamp_value                             |
-+---------------------------------------------+
-| 2008-12-25 07:30:00.000 America/Los_Angeles |
-+---------------------------------------------+
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
++------------------------+
+| timestamp_value        |
++------------------------+
+| 2008-12-25 15:30:00+00 |
++------------------------+
 ```
 
 ### UNIX_SECONDS
@@ -18363,7 +20026,7 @@ levels of precision.
 
 **Return Data Type**
 
-INT64
+`INT64`
 
 **Example**
 
@@ -18390,7 +20053,7 @@ higher levels of precision.
 
 **Return Data Type**
 
-INT64
+`INT64`
 
 **Example**
 
@@ -18417,7 +20080,7 @@ higher levels of precision.
 
 **Return Data Type**
 
-INT64
+`INT64`
 
 **Example**
 
@@ -18437,20 +20100,26 @@ SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00+00") AS micros;
 TIMESTAMP_FROM_UNIX_SECONDS(int64_expression)
 ```
 
+```sql
+TIMESTAMP_FROM_UNIX_SECONDS(timestamp_expression)
+```
+
 **Description**
 
 Interprets `int64_expression` as the number of seconds since
-1970-01-01 00:00:00 UTC and creates a timestamp.
+1970-01-01 00:00:00 UTC and returns a timestamp. If a timestamp is passed in,
+the same timestamp is returned.
 
 **Return Data Type**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Example**
 
 ```sql
 SELECT TIMESTAMP_FROM_UNIX_SECONDS(1230219000) AS timestamp_value;
 
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +------------------------+
 | timestamp_value        |
 +------------------------+
@@ -18464,20 +20133,26 @@ SELECT TIMESTAMP_FROM_UNIX_SECONDS(1230219000) AS timestamp_value;
 TIMESTAMP_FROM_UNIX_MILLIS(int64_expression)
 ```
 
+```sql
+TIMESTAMP_FROM_UNIX_MILLIS(timestamp_expression)
+```
+
 **Description**
 
 Interprets `int64_expression` as the number of milliseconds since
-1970-01-01 00:00:00 UTC and creates a timestamp.
+1970-01-01 00:00:00 UTC and returns a timestamp. If a timestamp is passed in,
+the same timestamp is returned.
 
 **Return Data Type**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Example**
 
 ```sql
 SELECT TIMESTAMP_FROM_UNIX_MILLIS(1230219000000) AS timestamp_value;
 
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +------------------------+
 | timestamp_value        |
 +------------------------+
@@ -18491,20 +20166,26 @@ SELECT TIMESTAMP_FROM_UNIX_MILLIS(1230219000000) AS timestamp_value;
 TIMESTAMP_FROM_UNIX_MICROS(int64_expression)
 ```
 
+```sql
+TIMESTAMP_FROM_UNIX_MICROS(timestamp_expression)
+```
+
 **Description**
 
 Interprets `int64_expression` as the number of microseconds since
-1970-01-01 00:00:00 UTC and creates a timestamp.
+1970-01-01 00:00:00 UTC and returns a timestamp. If a timestamp is passed in,
+the same timestamp is returned.
 
 **Return Data Type**
 
-TIMESTAMP
+`TIMESTAMP`
 
 **Example**
 
 ```sql
 SELECT TIMESTAMP_FROM_UNIX_MICROS(1230219000000000) AS timestamp_value;
 
+-- Display of results may differ, depending upon the environment and time zone where this query was executed.
 +------------------------+
 | timestamp_value        |
 +------------------------+
@@ -18768,14 +20449,14 @@ with positive values representing locations east of Greenwich.</td>
     <td>-05:00</td>
  </tr>
  <tr>
-    <td>%E#S</td>
-    <td>Seconds with # digits of fractional precision.</td>
-    <td>00.000</td>
+    <td>%E&lt;number&gt;S</td>
+    <td>Seconds with &lt;number&gt; digits of fractional precision.</td>
+    <td>00.000 for %E3S</td>
  </tr>
  <tr>
     <td>%E*S</td>
     <td>Seconds with full fractional precision (a literal '*').</td>
-    <td>00</td>
+    <td>00.123456</td>
  </tr>
  <tr>
     <td>%E4Y</td>
@@ -18821,6 +20502,170 @@ SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00-08:00") as millis;
 [timestamp-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
 [data-types-link-to-date_type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#date_type
 [data-types-link-to-timestamp_type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#timestamp_type
+
+## Interval functions
+
+ZetaSQL supports the following `INTERVAL` functions.
+
+### MAKE_INTERVAL
+
+```sql
+MAKE_INTERVAL(year, month, day, hour, minute, second)
+```
+
+**Description**
+
+Constructs an `INTERVAL` object using `INT64` values representing the year,
+month, day, hour, minute, and second. All arguments are optional with default
+value of 0 and can be used as named arguments.
+
+**Return Data Type**
+
+`INTERVAL`
+
+**Example**
+
+```sql
+SELECT
+  MAKE_INTERVAL(1, 6, 15) AS i1,
+  MAKE_INTERVAL(hour => 10, second => 20) AS i2,
+  MAKE_INTERVAL(1, minute => 5, day => 2) AS i3
+
++--------------+---------------+-------------+
+| i1           | i2            | i3          |
++--------------+---------------+-------------+
+| 1-6 15 0:0:0 | 0-0 0 10:0:20 | 1-0 2 0:5:0 |
++--------------+---------------+-------------+
+```
+
+### EXTRACT
+
+```sql
+EXTRACT(part FROM interval_expression)
+```
+
+**Description**
+
+Returns the value corresponding to the specified date part. The `part` must be
+one of `YEAR`, `MONTH`, `DAY`, `HOUR`, `MINUTE`, `SECOND`, `MILLISECOND` or
+`MICROSECOND`.
+
+**Return Data Type**
+
+`INTERVAL`
+
+**Example**
+
+```sql
+SELECT
+  EXTRACT(YEAR FROM i) AS year,
+  EXTRACT(MONTH FROM i) AS month,
+  EXTRACT(DAY FROM i) AS day,
+  EXTRACT(HOUR FROM i) AS hour,
+  EXTRACT(MINUTE FROM i) AS minute,
+  EXTRACT(SECOND FROM i) AS second,
+  EXTRACT(MILLISECOND FROM i) AS milli,
+  EXTRACT(MICROSECOND FROM i) AS micro
+FROM
+  UNNEST([INTERVAL '1-2 3 4:5:6.789999' YEAR TO SECOND,
+          INTERVAL '0-13 370 48:61:61' YEAR TO SECOND]) AS i
+
++------+-------+-----+------+--------+--------+-------+--------+
+| year | month | day | hour | minute | second | milli | micro  |
++------+-------+-----+------+--------+--------+-------+--------+
+| 1    | 2     | 3   | 4    | 5      | 6      | 789   | 789999 |
+| 1    | 1     | 370 | 49   | 2      | 1      | 0     | 0      |
++------+-------+-----+------+--------+--------+-------+--------+
+```
+
+### JUSTIFY_DAYS
+
+```sql
+JUSTIFY_DAYS(interval_expression)
+```
+
+**Description**
+
+Normalizes the day part of the interval to the range from -29 to 29 by
+incrementing/decrementing the month or year part of the interval.
+
+**Return Data Type**
+
+`INTERVAL`
+
+**Example**
+
+```sql
+SELECT
+  JUSTIFY_DAYS(INTERVAL 29 DAY) AS i1,
+  JUSTIFY_DAYS(INTERVAL -30 DAY) AS i2,
+  JUSTIFY_DAYS(INTERVAL 31 DAY) AS i3,
+  JUSTIFY_DAYS(INTERVAL -65 DAY) AS i4,
+  JUSTIFY_DAYS(INTERVAL 370 DAY) AS i5
+
++--------------+--------------+-------------+---------------+--------------+
+| i1           | i2           | i3          | i4            | i5           |
++--------------+--------------+-------------+---------------+--------------+
+| 0-0 29 0:0:0 | -0-1 0 0:0:0 | 0-1 1 0:0:0 | -0-2 -5 0:0:0 | 1-0 10 0:0:0 |
++--------------+--------------+-------------+---------------+--------------+
+```
+
+### JUSTIFY_HOURS
+
+```sql
+JUSTIFY_HOURS(interval_expression)
+```
+
+**Description**
+
+Normalizes the time part of the interval to the range from -23:59:59.999999 to
+23:59:59.999999 by incrementing/decrementing the day part of the interval.
+
+**Return Data Type**
+
+`INTERVAL`
+
+**Example**
+
+```sql
+SELECT
+  JUSTIFY_HOURS(INTERVAL 23 HOUR) AS i1,
+  JUSTIFY_HOURS(INTERVAL -24 HOUR) AS i2,
+  JUSTIFY_HOURS(INTERVAL 47 HOUR) AS i3,
+  JUSTIFY_HOURS(INTERVAL -12345 MINUTE) AS i4
+
++--------------+--------------+--------------+-----------------+
+| i1           | i2           | i3           | i4              |
++--------------+--------------+--------------+-----------------+
+| 0-0 0 23:0:0 | 0-0 -1 0:0:0 | 0-0 1 23:0:0 | 0-0 -8 -13:45:0 |
++--------------+--------------+--------------+-----------------+
+```
+
+### JUSTIFY_INTERVAL
+
+```sql
+JUSTIFY_INTERVAL(interval_expression)
+```
+
+**Description**
+
+Normalizes the days and time parts of the interval.
+
+**Return Data Type**
+
+`INTERVAL`
+
+**Example**
+
+```sql
+SELECT JUSTIFY_INTERVAL(INTERVAL '29 49:00:00' DAY TO SECOND) AS i
+
++-------------+
+| i           |
++-------------+
+| 0-1 1 1:0:0 |
++-------------+
+```
 
 ## Protocol buffer functions
 
@@ -20108,6 +21953,8 @@ Common conventions:
    if one of the operands is `+/-inf` or `NaN`. In other cases, an error is
    returned.
 
+### Operator precedence
+
 The following table lists all ZetaSQL operators from highest to
 lowest precedence, i.e. the order in which they will be evaluated within a
 statement.
@@ -20126,13 +21973,13 @@ statement.
     <tr>
       <td>1</td>
       <td>.</td>
-      <td><span> PROTO</span><br><span> STRUCT</span><br></td>
-      <td>Member field access operator</td>
+      <td><span> JSON</span><br><span> PROTO</span><br><span> STRUCT</span><br></td>
+      <td>Field access operator</td>
       <td>Binary</td>
     </tr>
     <tr>
       <td>&nbsp;</td>
-      <td>[ ]</td>
+      <td>Array subscript operator</td>
       <td>ARRAY</td>
       <td>Array position. Must be used with OFFSET or ORDINAL&mdash;see
       
@@ -20144,6 +21991,15 @@ Array Functions
 .</td>
       <td>Binary</td>
     </tr>
+    
+    <tr>
+      <td>&nbsp;</td>
+      <td>JSON subscript operator</td>
+      <td>JSON</td>
+      <td>Field name or array position in JSON.</td>
+      <td>Binary</td>
+    </tr>
+    
     <tr>
       <td>2</td>
       <td>+</td>
@@ -20191,14 +22047,22 @@ Array Functions
     <tr>
       <td>4</td>
       <td>+</td>
-      <td>All numeric types<br>DATE and INT64</td>
+      <td>
+        All numeric types, DATE with
+        INT64
+        , INTERVAL
+      </td>
       <td>Addition</td>
       <td>Binary</td>
     </tr>
     <tr>
       <td>&nbsp;</td>
       <td>-</td>
-      <td>All numeric types<br>DATE and INT64</td>
+      <td>
+        All numeric types, DATE with
+        INT64
+        , INTERVAL
+      </td>
       <td>Subtraction</td>
       <td>Binary</td>
     </tr>
@@ -20437,43 +22301,90 @@ ambiguity. For example:
 
 `(x < y) IS FALSE`
 
-### Element access operators
+### Field access operator
 
-<table>
-<thead>
-<tr>
-<th>Operator</th>
-<th>Syntax</th>
-<th>Input Data Types</th>
-<th>Result Data Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>.</td>
-<td>expression.fieldname1...</td>
-<td><span> PROTO<span><br><span> STRUCT<span><br></td>
-<td>Type T stored in fieldname1</td>
-<td>Dot operator. Can be used to access nested fields,
-e.g.expression.fieldname1.fieldname2...</td>
-</tr>
-<tr>
-<td>[ ]</td>
-<td>array_expression [position_keyword (int_expression ) ]</td>
-<td>See ARRAY Functions.</td>
-<td>Type T stored in ARRAY</td>
-<td>position_keyword is either OFFSET or ORDINAL. See
+```
+expression.fieldname[. ...]
+```
 
-<a href="functions-and-operators.md#array_functions">
+**Description**
 
-Array Functions
-</a>
+Gets the value of a field. Alternatively known as the dot operator. Can be
+used to access nested fields. For example, `expression.fieldname1.fieldname2`.
 
-for the two functions that use this operator.</td>
-</tr>
-</tbody>
-</table>
+**Input types**
+
++ `STRUCT`
++ `PROTO`
++ `JSON`
+
+**Return type**
+
++ For `STRUCT`: SQL data type of `fieldname`. If a field is not found in
+  the struct, an error is thrown.
++ For `PROTO`: SQL data type of `fieldname`. If a field is not found in
+  the protocol buffer, an error is thrown.
++ For `JSON`: `JSON`. If a field is not found in a JSON value, a SQL `NULL` is
+  returned.
+
+### Array subscript operator
+
+```
+array_expression [position_keyword (array_element_id)]
+```
+
+**Description**
+
+Get a value in an array at a specific location.
+Supported by some array functions.
+
+**Input types**
+
++ `position_keyword`: `OFFSET` or `ORDINAL`.
+  To learn more, see [OFFSET and ORDINAL][operators-link-to-array-offset]
++ `array_element_id`: An integer that represents an index in the array.
+
+**Return type**
+
+Type `T` stored at the index in an array.
+
+### JSON subscript operator
+
+```
+json_expression[array_element_id]
+```
+
+```
+json_expression[field_name]
+```
+
+**Description**
+
+Gets a value of an array element or field in a JSON expression. Can be
+used to access nested data. For example:
+
+```sql
+(JSON '["apple", "orange", "pear"]')[1] -- Returns JSON 'orange'
+(JSON '{"apple": "10", "pear": "5"}')['pear'] -- Returns JSON '5'
+(JSON '[ {"fruit": "apple"}, {"fruit": "pear"}]')[0]['fruit'] -- Returns JSON 'apple'
+(JSON '[ {"fruit": "apple"}, {"fruit": "pear"}]')[1]['fruit'] -- Returns JSON 'pear'
+```
+
+**Input data types**
+
++ `JSON expression`: The `JSON` expression that contains an array element or
+  field to return.
++ `[array_element_id]`: An `INT64` expression that represents a zero-based index
+  in the array. If a negative value is entered, or the value is greater than
+  or equal to the size of the array, or the JSON expression doesn't represent
+  a JSON array, a SQL `NULL` is returned.
++ `[field_name]`: A `STRING` expression that represents the name of a field in
+  JSON. If the field name is not found, or the JSON expression is not a
+  JSON object, a SQL `NULL` is returned.
+
+**Result data type**
+
+`JSON`
 
 ### Arithmetic operators
 
@@ -20643,6 +22554,97 @@ SELECT DATE "2020-09-22" + 1 AS day_later, DATE "2020-09-22" - 7 AS week_ago
 +------------+------------+
 | 2020-09-23 | 2020-09-15 |
 +------------+------------+
+```
+
+### Datetime subtraction
+
+```sql
+date_expression - date_expression
+timestamp_expression - timestamp_expression
+datetime_expression - datetime_expression
+
+```
+
+**Description**
+
+Computes the difference between two datetime values as an interval.
+
+**Return Data Type**
+
+INTERVAL
+
+**Example**
+
+```sql
+SELECT
+  DATE "2021-05-20" - DATE "2020-04-19" AS date_diff,
+  TIMESTAMP "2021-06-01 12:34:56.789" - TIMESTAMP "2021-05-31 00:00:00" AS time_diff
+
++-------------------+------------------------+
+| date_diff         | time_diff              |
++-------------------+------------------------+
+| 0-0 396 0:0:0     | 0-0 0 36:34:56.789     |
++-------------------+------------------------+
+```
+
+### Interval arithmetic operators
+
+**Addition and subtraction**
+
+```sql
+date_expression + interval_expression = DATETIME
+date_expression - interval_expression = DATETIME
+timestamp_expression + interval_expression = TIMESTAMP
+timestamp_expression - interval_expression = TIMESTAMP
+datetime_expression + interval_expression = DATETIME
+datetime_expression - interval_expression = DATETIME
+
+```
+
+**Description**
+
+Adds an interval to a datetime value or subtracts an interval from a datetime
+value.
+**Example**
+
+```sql
+SELECT
+  DATE "2021-04-20" + INTERVAL 25 HOUR AS date_plus,
+  TIMESTAMP "2021-05-02 00:01:02.345" - INTERVAL 10 SECOND AS time_minus;
+
++-------------------------+--------------------------------+
+| date_plus               | time_minus                     |
++-------------------------+--------------------------------+
+| 2021-04-21 01:00:00     | 2021-05-02 00:00:52.345+00     |
++-------------------------+--------------------------------+
+```
+
+**Multiplication and division**
+
+```sql
+interval_expression * integer_expression = INTERVAL
+interval_expression / integer_expression = INTERVAL
+
+```
+
+**Description**
+
+Multiplies or divides an interval value by an integer.
+
+**Example**
+
+```sql
+SELECT
+  INTERVAL '1:2:3' HOUR TO SECOND * 10 AS mul1,
+  INTERVAL 35 SECOND * 4 AS mul2,
+  INTERVAL 10 YEAR / 3 AS div1,
+  INTERVAL 1 MONTH / 12 AS div2
+
++----------------+--------------+-------------+--------------+
+| mul1           | mul2         | div1        | div2         |
++----------------+--------------+-------------+--------------+
+| 0-0 0 10:20:30 | 0-0 0 0:2:20 | 3-4 0 0:0:0 | 0-0 2 12:0:0 |
++----------------+--------------+-------------+--------------+
 ```
 
 ### Bitwise operators
@@ -20854,39 +22856,69 @@ The following rules apply when comparing these data types:
 <tr>
 <td>Less Than</td>
 <td>X &lt; Y</td>
-<td>Returns TRUE if X is less than Y.</td>
+<td>
+  Returns TRUE if X is less than Y.
+  
+
+</td>
 </tr>
 <tr>
 <td>Less Than or Equal To</td>
 <td>X &lt;= Y</td>
-<td>Returns TRUE if X is less than or equal to Y.</td>
+<td>
+  Returns TRUE if X is less than or equal to Y.
+  
+
+</td>
 </tr>
 <tr>
 <td>Greater Than</td>
 <td>X &gt; Y</td>
-<td>Returns TRUE if X is greater than Y.</td>
+<td>
+  Returns TRUE if X is greater than Y.
+  
+
+</td>
 </tr>
 <tr>
 <td>Greater Than or Equal To</td>
 <td>X &gt;= Y</td>
-<td>Returns TRUE if X is greater than or equal to Y.</td>
+<td>
+  Returns TRUE if X is greater than or equal to Y.
+  
+
+</td>
 </tr>
 <tr>
 <td>Equal</td>
 <td>X = Y</td>
-<td>Returns TRUE if X is equal to Y.</td>
+<td>
+  Returns TRUE if X is equal to Y.
+  
+
+</td>
 </tr>
 <tr>
 <td>Not Equal</td>
 <td>X != Y<br>X &lt;&gt; Y</td>
-<td>Returns TRUE if X is not equal to Y.</td>
+<td>
+  Returns TRUE if X is not equal to Y.
+  
+
+</td>
 </tr>
 <tr>
 <td>BETWEEN</td>
 <td>X [NOT] BETWEEN Y AND Z</td>
-<td>Returns TRUE if X is [not] within the range specified. The result of "X
-BETWEEN Y AND Z" is equivalent to "Y &lt;= X AND X &lt;= Z" but X is evaluated
-only once in the former.</td>
+<td>
+  <p>
+    Returns TRUE if X is [not] within the range specified. The result of "X
+    BETWEEN Y AND Z" is equivalent to "Y &lt;= X AND X &lt;= Z" but X is
+    evaluated only once in the former.
+    
+
+  </p>
+</td>
 </tr>
 <tr>
 <td>LIKE</td>
@@ -20906,11 +22938,16 @@ required. For example, <code>r"\%"</code>.</li>
 <tr>
 <td>IN</td>
 <td>Multiple - see below</td>
-<td>Returns FALSE if the right operand is empty. Returns <code>NULL</code> if the left
-operand is <code>NULL</code>. Returns TRUE or <code>NULL</code>, never FALSE, if the right operand
-contains <code>NULL</code>. Arguments on either side of IN are general expressions. Neither
-operand is required to be a literal, although using a literal on the right is
-most common. X is evaluated only once.</td>
+<td>
+  Returns FALSE if the right operand is empty. Returns <code>NULL</code> if
+  the left operand is <code>NULL</code>. Returns TRUE or <code>NULL</code>,
+  never FALSE, if the right operand contains <code>NULL</code>. Arguments on
+  either side of IN are general expressions. Neither operand is required to be
+  a literal, although using a literal on the right is most common. X is
+  evaluated only once.
+  
+
+</td>
 </tr>
 </tbody>
 </table>
@@ -20951,20 +22988,62 @@ types are compared when they have fields that are `NULL` valued.
 </tbody>
 </table>
 
-### IN operators
+### IN operator 
+<a id="in_operators"></a>
 
-The `IN` operator supports the following syntaxes:
+The `IN` operator supports the following syntax:
 
+```sql
+search_value [NOT] IN value_set
+
+value_set:
+  {
+    (expression[, ...])
+    | (subquery)
+    | UNNEST(array_expression)
+  }
 ```
-x [NOT] IN (y, z, ... ) # Requires at least one element
-x [NOT] IN (<subquery>)
-x [NOT] IN UNNEST(<array expression>) # analysis error if the expression
-                                      # does not return an ARRAY type.
-```
 
-Arguments on either side of the `IN` operator  are general expressions.
-It is common to use literals on the right side expression; however, this is not
-required.
+**Description**
+
+Checks for an equal value in a set of values.
+[Semantic rules][semantic-rules-in] apply, but in general, `IN` returns `TRUE`
+if an equal value is found, `FALSE` if an equal value is excluded, otherwise
+`NULL`. `NOT IN` returns `FALSE` if an equal value is found, `TRUE` if an
+equal value is excluded, otherwise `NULL`.
+
++ `search_value`: The expression that is compared to a set of values.
++ `value_set`: One or more values to compare to a search value.
+   + `(expression[, ...])`: A list of expressions.
+   + `(subquery)`: A [subquery][operators-subqueries] that returns
+     a single column. The values in that column are the set of values.
+     If no rows are produced, the set of values is empty.
+   + `UNNEST(array_expression)`: An [UNNEST operator][operators-link-to-unnest]
+      that returns a column of values from an array expression. This is
+      equivalent to:
+
+      ```sql
+      IN (SELECT element FROM UNNEST(array_expression) AS element)
+      ```
+
+<a id="semantic_rules_in"></a>
+**Semantic rules**
+
+When using the `IN` operator, the following semantics apply in this order:
+
++ Returns `FALSE` if `value_set` is empty.
++ Returns `NULL` if `search_value` is `NULL`.
++ Returns `TRUE` if `value_set` contains a value equal to `search_value`.
++ Returns `NULL` if `value_set` contains a `NULL`.
++ Returns `FALSE`.
+
+When using the `NOT IN` operator, the following semantics apply in this order:
+
++ Returns `TRUE` if `value_set` is empty.
++ Returns `NULL` if `search_value` is `NULL`.
++ Returns `FALSE` if `value_set` contains a value equal to `search_value`.
++ Returns `NULL` if `value_set` contains a `NULL`.
++ Returns `TRUE`.
 
 The semantics of:
 
@@ -20990,34 +23069,21 @@ is equivalent to:
 NOT(x IN ...)
 ```
 
-The UNNEST form treats an array scan like `UNNEST` in the
+The `UNNEST` form treats an array scan like `UNNEST` in the
 [FROM][operators-link-to-from-clause] clause:
 
 ```
 x [NOT] IN UNNEST(<array expression>)
 ```
 
-This form is often used with ARRAY parameters. For example:
+This form is often used with `ARRAY` parameters. For example:
 
 ```
 x IN UNNEST(@array_parameter)
 ```
 
-**Note:** A `NULL` ARRAY will be treated equivalently to an empty ARRAY.
-
-See the [Arrays][operators-link-to-filtering-arrays] topic for more information on
-how to use this syntax.
-
-When using the `IN` operator, the following semantics apply:
-
-+ `IN` with an empty right side expression is always FALSE
-+ `IN` with a `NULL` left side expression and a non-empty right side expression is
-  always `NULL`
-+ `IN` with a `NULL` in the `IN`-list can only return TRUE or `NULL`, never FALSE
-+ `NULL IN (NULL)` returns `NULL`
-+ `IN UNNEST(<NULL array>)` returns FALSE (not `NULL`)
-+ `NOT IN` with a `NULL` in the `IN`-list can only return FALSE or `NULL`, never
-   TRUE
+See the [Arrays][operators-link-to-filtering-arrays] topic for more information
+on how to use this syntax.
 
 `IN` can be used with multi-part keys by using the struct constructor syntax.
 For example:
@@ -21027,8 +23093,124 @@ For example:
 (Key1, Key2) IN ( SELECT (table.a, table.b) FROM table )
 ```
 
-See the [Struct Type][operators-link-to-struct-type] section of the Data Types topic for more
-information on this syntax.
+See the [Struct Type][operators-link-to-struct-type] for more information.
+
+**Return Data Type**
+
+`BOOL`
+
+**Examples**
+
+You can use these `WITH` clauses to emulate temporary tables for
+`Words` and `Items` in the following examples:
+
+```sql
+WITH Words AS (
+  SELECT 'Intend' as value UNION ALL
+  SELECT 'Secure' UNION ALL
+  SELECT 'Clarity' UNION ALL
+  SELECT 'Peace' UNION ALL
+  SELECT 'Intend' UNION ALL
+ )
+SELECT * FROM Words;
+
++----------+
+| value    |
++----------+
+| Intend   |
+| Secure   |
+| Clarity  |
+| Intend   |
++----------+
+```
+
+```sql
+WITH
+  Items AS (
+    SELECT STRUCT('blue' AS color, 'round' AS shape) AS info UNION ALL
+    SELECT STRUCT('blue', 'square') UNION ALL
+    SELECT STRUCT('red', 'round')
+  )
+SELECT * FROM Items;
+
++----------------------------+
+| info                       |
++----------------------------+
+| {blue color, round shape}  |
+| {blue color, square shape} |
+| {red color, round shape}   |
++----------------------------+
+```
+
+Example with `IN` and an expression:
+
+```sql
+SELECT * FROM Words WHERE value IN ('Intend', 'Secure');
+
++----------+
+| value    |
++----------+
+| Intend   |
+| Secure   |
+| Intend   |
++----------+
+```
+
+Example with `NOT IN` and an expression:
+
+```sql
+SELECT * FROM Words WHERE value NOT IN ('Intend');
+
++----------+
+| value    |
++----------+
+| Secure   |
+| Clarity  |
++----------+
+```
+
+Example with `IN`, a scalar subquery, and an expression:
+
+```sql
+SELECT * FROM Words WHERE value IN ((SELECT 'Intend'), 'Clarity');
+
++----------+
+| value    |
++----------+
+| Intend   |
+| Clarity  |
+| Intend   |
++----------+
+```
+
+Example with `IN` and an `UNNEST` operation:
+
+```sql
+SELECT * FROM Words WHERE value IN UNNEST(['Secure', 'Clarity']);
+
++----------+
+| value    |
++----------+
+| Secure   |
+| Clarity  |
++----------+
+```
+
+Example with `IN` and a `STRUCT`:
+
+```sql
+SELECT
+  (SELECT AS STRUCT Items.info) as item
+FROM
+  Items
+WHERE (info.shape, info.color) IN (('round', 'blue'));
+
++------------------------------------+
+| item                               |
++------------------------------------+
+| { {blue color, round shape} info } |
++------------------------------------+
+```
 
 ### IS operators
 
@@ -21102,13 +23284,17 @@ The concatenation operator combines multiple values into one.
 </tbody>
 </table>
 
+[semantic-rules-in]: #semantic_rules_in
 [operators-link-to-filtering-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering-arrays
 [operators-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
 [operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
+[operators-link-to-unnest]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
+[operators-subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#about-subqueries
 [operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct_type
 
-[operators-link-to-math-functions]: #mathematical_functions
-[link-to-coercion]: #coercion
+[operators-link-to-math-functions]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#mathematical_functions
+[link-to-coercion]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#coercion
+[operators-link-to-array-offset]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#offset_and_ordinal
 
 ## Conditional expressions
 
@@ -21131,20 +23317,20 @@ END
 
 **Description**
 
-Compares `expr` to `expr_to_match` of each successive `WHEN` clause and returns the
-first result where this comparison returns true. The remaining `WHEN` clauses
-and `else_result` are not evaluated. If the `expr = expr_to_match` comparison
-returns false or NULL for all `WHEN` clauses, returns `else_result` if present;
-if not present, returns NULL.
+Compares `expr` to `expr_to_match` of each successive `WHEN` clause and returns
+the first result where this comparison returns true. The remaining `WHEN`
+clauses and `else_result` are not evaluated. If the `expr = expr_to_match`
+comparison returns false or NULL for all `WHEN` clauses, returns `else_result`
+if present; if not present, returns NULL.
 
 `expr` and `expr_to_match` can be any type. They must be implicitly
-coercible to a common supertype; equality comparisons are done on
-coerced values. There may be multiple `result` types. `result` and
+coercible to a common [supertype][cond-exp-supertype]; equality comparisons are
+done on coerced values. There may be multiple `result` types. `result` and
 `else_result` expressions must be coercible to a common supertype.
 
 **Return Data Type**
 
-Supertype of `result`[, ...] and `else_result`.
+[Supertype][cond-exp-supertype] of `result`[, ...] and `else_result`.
 
 **Example**
 
@@ -21180,7 +23366,7 @@ CASE
   WHEN condition THEN result
   [ ... ]
   [ ELSE else_result ]
-  END
+END
 ```
 
 **Description**
@@ -21192,11 +23378,11 @@ returns `else_result` if present; if not present, returns NULL.
 
 `condition` must be a boolean expression. There may be multiple `result` types.
 `result` and `else_result` expressions must be implicitly coercible to a
-common supertype.
+common [supertype][cond-exp-supertype].
 
 **Return Data Type**
 
-Supertype of `result`[, ...] and `else_result`.
+[Supertype][cond-exp-supertype] of `result`[, ...] and `else_result`.
 
 **Example**
 
@@ -21234,11 +23420,12 @@ COALESCE(expr[, ...])
 Returns the value of the first non-null expression. The remaining
 expressions are not evaluated. An input expression can be any type.
 There may be multiple input expression types.
-All input expressions must be implicitly coercible to a common supertype.
+All input expressions must be implicitly coercible to a common
+[supertype][cond-exp-supertype].
 
 **Return Data Type**
 
-Supertype of `expr`[, ...].
+[Supertype][cond-exp-supertype] of `expr`[, ...].
 
 **Examples**
 
@@ -21275,11 +23462,11 @@ If `expr` is true, returns `true_result`, else returns `else_result`.
 evaluated if `expr` is false or NULL.
 
 `expr` must be a boolean expression. `true_result` and `else_result`
-must be coercible to a common supertype.
+must be coercible to a common [supertype][cond-exp-supertype].
 
 **Return Data Type**
 
-Supertype of `true_result` and `else_result`.
+[Supertype][cond-exp-supertype] of `true_result` and `else_result`.
 
 **Example**
 
@@ -21314,11 +23501,12 @@ If `expr` is NULL, return `null_result`. Otherwise, return `expr`. If `expr`
 is not NULL, `null_result` is not evaluated.
 
 `expr` and `null_result` can be any type and must be implicitly coercible to
-a common supertype. Synonym for `COALESCE(expr, null_result)`.
+a common [supertype][cond-exp-supertype]. Synonym for
+`COALESCE(expr, null_result)`.
 
 **Return Data Type**
 
-Supertype of `expr` or `null_result`.
+[Supertype][cond-exp-supertype] of `expr` or `null_result`.
 
 **Examples**
 
@@ -21354,11 +23542,11 @@ Returns NULL if `expr = expr_to_match` is true, otherwise
 returns `expr`.
 
 `expr` and `expr_to_match` must be implicitly coercible to a
-common supertype, and must be comparable.
+common [supertype][cond-exp-supertype], and must be comparable.
 
 **Return Data Type**
 
-Supertype of `expr` and `expr_to_match`.
+[Supertype][cond-exp-supertype] of `expr` and `expr_to_match`.
 
 **Example**
 
@@ -21381,6 +23569,8 @@ SELECT NULLIF(10, 0) as result
 | 10     |
 +--------+
 ```
+
+[cond-exp-supertype]: #supertypes
 
 ## Expression subqueries
 
@@ -21437,7 +23627,6 @@ Comparison Operators
 </a>
 
 for full semantics.</td>
-
 </tr>
 
 <tr>

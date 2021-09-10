@@ -20,6 +20,7 @@
 
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/value.h"
 #include "absl/status/status.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status_macros.h"
@@ -95,6 +96,45 @@ absl::Status ValidateTypeSupportsOrderComparison(const Type* type) {
       return ::zetasql_base::InvalidArgumentErrorBuilder()
              << "No order comparison for type " << type->DebugString();
   }
+}
+
+absl::StatusOr<std::string>
+GetCollationNameFromResolvedCollation(
+    const ResolvedCollation& resolved_collation) {
+  ZETASQL_RET_CHECK(!resolved_collation.Empty())
+      << "Cannot get collation name from empty ResolvedCollation.";
+  // TODO: So far we only support to get collation name from
+  // ResolvedCollation for String type. Will extend to get collation info for
+  // other types such as Array and Struct.
+  if (!resolved_collation.HasCompatibleStructure(types::StringType())) {
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
+           << "Collation for non-String type is not supported: "
+           << resolved_collation.DebugString();
+  }
+  ZETASQL_RET_CHECK(resolved_collation.HasCollation());
+  return std::string(resolved_collation.CollationName());
+}
+
+absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>>
+GetCollatorFromResolvedCollation(const ResolvedCollation& resolved_collation) {
+  ZETASQL_ASSIGN_OR_RETURN(std::string collation_name,
+                   GetCollationNameFromResolvedCollation(resolved_collation));
+  return MakeSqlCollator(collation_name);
+}
+
+absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>>
+GetCollatorFromResolvedCollationValue(const Value& collation_value) {
+  ResolvedCollationProto resolved_collation_proto;
+  bool is_valid = resolved_collation_proto.ParsePartialFromString(
+      std::string(collation_value.ToCord()));
+  ZETASQL_RET_CHECK(is_valid)
+      << "Failed to parse collation_value to ResolvedCollation proto: "
+      << collation_value.ToCord();
+
+  ResolvedCollation resolved_collation;
+  ZETASQL_ASSIGN_OR_RETURN(resolved_collation,
+                   ResolvedCollation::Deserialize(resolved_collation_proto));
+  return GetCollatorFromResolvedCollation(resolved_collation);
 }
 
 }  // namespace zetasql

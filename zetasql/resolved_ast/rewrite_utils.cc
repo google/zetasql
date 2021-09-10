@@ -16,6 +16,11 @@
 
 #include "zetasql/resolved_ast/rewrite_utils.h"
 
+#include <string>
+#include <utility>
+
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
@@ -168,7 +173,7 @@ ResolvedColumn ColumnFactory::MakeCol(const std::string& table_name,
   }
 }
 
-zetasql_base::StatusOr<std::unique_ptr<ResolvedExpr>> CorrelateColumnRefs(
+absl::StatusOr<std::unique_ptr<ResolvedExpr>> CorrelateColumnRefs(
     const ResolvedExpr& expr) {
   CorrelateColumnRefVisitor correlator;
   ZETASQL_RETURN_IF_ERROR(expr.Accept(&correlator));
@@ -181,6 +186,51 @@ absl::Status CollectColumnRefs(
     bool correlate) {
   ColumnRefCollector column_ref_collector(column_refs, correlate);
   return node.Accept(&column_ref_collector);
+}
+
+absl::StatusOr<std::unique_ptr<ResolvedFunctionCall>> FunctionCallBuilder::If(
+    std::unique_ptr<const ResolvedExpr> condition,
+    std::unique_ptr<const ResolvedExpr> then_case,
+    std::unique_ptr<const ResolvedExpr> else_case) {
+  ZETASQL_RET_CHECK_NE(condition.get(), nullptr);
+  ZETASQL_RET_CHECK_NE(then_case.get(), nullptr);
+  ZETASQL_RET_CHECK_NE(else_case.get(), nullptr);
+  ZETASQL_RET_CHECK(condition->type()->IsBool());
+  ZETASQL_RET_CHECK(then_case->type()->Equals(else_case->type()));
+
+  const Function* if_fn;
+  ZETASQL_RET_CHECK_OK(
+      catalog_.FindFunction({"if"}, &if_fn, analyzer_options_.find_options()));
+  ZETASQL_RET_CHECK_NE(if_fn, nullptr);
+  FunctionArgumentType condition_arg(condition->type(), 1);
+  FunctionArgumentType arg(then_case->type(), 1);
+  FunctionSignature if_signature(arg, {condition_arg, arg, arg}, FN_IF);
+  const Type* result_type = then_case->type();
+  std::vector<std::unique_ptr<const ResolvedExpr>> if_args(3);
+  if_args[0] = std::move(condition);
+  if_args[1] = std::move(then_case);
+  if_args[2] = std::move(else_case);
+  return MakeResolvedFunctionCall(result_type, if_fn, if_signature,
+                                  std::move(if_args),
+                                  ResolvedFunctionCall::DEFAULT_ERROR_MODE);
+}
+
+absl::StatusOr<std::unique_ptr<ResolvedFunctionCall>>
+FunctionCallBuilder::IsNull(std::unique_ptr<const ResolvedExpr> arg) {
+  ZETASQL_RET_CHECK_NE(arg.get(), nullptr);
+
+  const Function* is_null_fn;
+  ZETASQL_RET_CHECK_OK(catalog_.FindFunction({"$is_null"}, &is_null_fn,
+                                     analyzer_options_.find_options()));
+  ZETASQL_RET_CHECK_NE(is_null_fn, nullptr);
+  FunctionSignature is_null_signature(
+      FunctionArgumentType(types::BoolType(), 1),
+      {FunctionArgumentType(arg->type(), 1)}, FN_IS_NULL);
+  std::vector<std::unique_ptr<const ResolvedExpr>> is_null_args(1);
+  is_null_args[0] = std::move(arg);
+  return MakeResolvedFunctionCall(types::BoolType(), is_null_fn,
+                                  is_null_signature, std::move(is_null_args),
+                                  ResolvedFunctionCall::DEFAULT_ERROR_MODE);
 }
 
 }  // namespace zetasql

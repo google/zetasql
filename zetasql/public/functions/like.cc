@@ -50,7 +50,7 @@ bool IsRegexSpecialChar(char c) {
   }
 }
 
-zetasql_base::StatusOr<std::string> GetRePatternFromLikePattern(
+absl::StatusOr<std::string> GetRePatternFromLikePattern(
     absl::string_view pattern) {
   std::string re_pattern;
   size_t size = pattern.size();

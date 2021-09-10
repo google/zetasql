@@ -1,5 +1,5 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.TestNullabilityInnerPB, zetasql_test.KitchenSinkPB]
+[load_proto_names=zetasql_test__.TestNullabilityInnerPB, zetasql_test__.KitchenSinkPB]
 [prepare_database]
 CREATE TABLE TableAllNull AS
 SELECT CAST(1 as int64) as row_id,
@@ -1328,6 +1328,16 @@ ARRAY<STRUCT<ARRAY<>, row_id INT64>>[
   {ARRAY<BOOL>[NULL], 17}
 ]
 ==
+[required_features=JSON_TYPE]
+[name=aggregation_array_agg_json]
+SELECT ARRAY_AGG(val) FROM (
+SELECT JSON '{"a": 10}' val UNION ALL
+SELECT JSON 'null' UNION ALL
+SELECT CAST(NULL AS JSON) UNION ALL
+SELECT JSON '10')
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[null, 10, {"a":10}, NULL]}]
+==
 # ----------------------------------------------------------------------------
 # ARRAY_AGG over empty input produces NULL
 # ----------------------------------------------------------------------------
@@ -2038,14 +2048,14 @@ ARRAY<STRUCT<BOOL,
 SELECT any_value(array_val), any_value(struct_val), any_value(proto_val) FROM (
   SELECT [1, 2, 3] as array_val,
          STRUCT(1 as int_field, 'foo' as str_field) as struct_val,
-         NEW zetasql_test.TestNullabilityInnerPB(1 as required_field,
+         NEW zetasql_test__.TestNullabilityInnerPB(1 as required_field,
                                                    2 as optional_field)
          as proto_val)
 --
 ARRAY<STRUCT<
         ARRAY<>,
         STRUCT<int_field INT64, str_field STRING>,
-        PROTO<zetasql_test.TestNullabilityInnerPB>
+        PROTO<zetasql_test__.TestNullabilityInnerPB>
       >>
 [{ARRAY<INT64>[1, 2, 3],
   {1, "foo"},
@@ -2121,6 +2131,21 @@ SELECT BIGNUMERIC '1e2')
 --
 ARRAY<STRUCT<BIGNUMERIC>>[{100}]
 ==
+[required_features=JSON_TYPE]
+[name=aggregation_any_value_json]
+SELECT ANY_VALUE(x) FROM (
+SELECT JSON '{"a": 10}' x UNION ALL
+SELECT JSON '{"a": 10}')
+--
+ARRAY<STRUCT<JSON>>[{{"a":10}}]
+==
+[required_features=JSON_TYPE]
+[name=aggregation_any_value_null_json]
+SELECT ANY_VALUE(x) FROM (
+SELECT CAST(NULL AS JSON) x)
+--
+ARRAY<STRUCT<JSON>>[{NULL}]
+==
 
 # ----------------------------------------------------------------------------
 # AGGREGATING EMPTY TABLE (ZERO ROWS)
@@ -2165,7 +2190,7 @@ ARRAY<STRUCT<INT64,
 ==
 # @nan_01 and @nan02 are both nans with different bitwise representation.
 [name=count_distinct_nan_different_bitwise_representation]
-[parameters=CAST(b"\x08\x00\x10\x00\x49\x01\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test.KitchenSinkPB).double_val as nan_01, CAST(b"\x08\x00\x10\x00\x49\x02\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test.KitchenSinkPB).double_val as nan_02]
+[parameters=CAST(b"\x08\x00\x10\x00\x49\x01\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test__.KitchenSinkPB).double_val as nan_01, CAST(b"\x08\x00\x10\x00\x49\x02\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test__.KitchenSinkPB).double_val as nan_02]
 SELECT COUNT(DISTINCT A) FROM UNNEST([@nan_01, @nan_02]) AS A;
 --
 ARRAY<STRUCT<INT64>>[{1}]

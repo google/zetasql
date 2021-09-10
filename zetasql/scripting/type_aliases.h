@@ -40,6 +40,18 @@ struct TypeWithParameters {
 using VariableSet =
     absl::flat_hash_set<IdString, IdStringCaseHash, IdStringCaseEqualFunc>;
 
+// Mapping of script variable names to its value and type parameter . Using
+// case-insensitive comparator since script variable names are
+// case-insensitive.
+struct ValueWithTypeParameter {
+  Value value;
+  TypeParameters type_params;
+};
+
+using VariableWithTypeParameterMap =
+    absl::flat_hash_map<IdString, ValueWithTypeParameter, IdStringCaseHash,
+                        IdStringCaseEqualFunc>;
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_SCRIPTING_TYPE_ALIASES_H_

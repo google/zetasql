@@ -17,6 +17,10 @@
 #ifndef ZETASQL_ANALYZER_CONTAINER_HASH_EQUALS_H_
 #define ZETASQL_ANALYZER_CONTAINER_HASH_EQUALS_H_
 
+#include <stddef.h>
+
+#include <utility>
+
 #include "absl/hash/hash.h"
 #include "absl/types/span.h"
 

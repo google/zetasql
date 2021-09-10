@@ -25,6 +25,7 @@
 
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/type.h"
+#include "zetasql/testdata/test_schema.pb.h"
 #include <cstdint>
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
@@ -125,6 +126,34 @@ std::unique_ptr<SimpleCatalog> GetSpecialCatalog() {
         {{"key", types->get_int32()},
          {"" /* anonymous column name */, types->get_int32()},
          {"" /* anonymous column name */, types->get_int32()}}));
+
+  // Add types with custom catalog path to the catalog.
+  const EnumType* enum_EnumAnnotations = nullptr;
+  ZETASQL_CHECK_OK(catalog->type_factory()->MakeEnumType(
+      zetasql_test__::EnumAnnotations_NestedEnum_descriptor(),
+      &enum_EnumAnnotations, {"custom", "catalog"}));
+  catalog->AddType("zetasql_test__.EnumAnnotations.NestedEnum",
+                    enum_EnumAnnotations);
+
+  const ProtoType* proto_FakeStringInt32EntryType = nullptr;
+  ZETASQL_CHECK_OK(catalog->type_factory()->MakeProtoType(
+      zetasql_test__::FakeStringInt32EntryType::descriptor(),
+      &proto_FakeStringInt32EntryType, {"custom", "catalog"}));
+  catalog->AddType("zetasql_test__.FakeStringInt32EntryType",
+                    proto_FakeStringInt32EntryType);
+
+  // Add the sub-catalogs to make the re-analysis happy.
+  auto sub_catalog = absl::make_unique<SimpleCatalog>("custom",
+                                                      /*type_factory=*/nullptr);
+  auto sub_catalog2 =
+      absl::make_unique<SimpleCatalog>("catalog",
+                                       /*type_factory=*/nullptr);
+  sub_catalog2->AddType("zetasql_test__.EnumAnnotations.NestedEnum",
+                        enum_EnumAnnotations);
+  sub_catalog2->AddType("zetasql_test__.FakeStringInt32EntryType",
+                        proto_FakeStringInt32EntryType);
+  sub_catalog->AddOwnedCatalog(std::move(sub_catalog2));
+  catalog->AddOwnedCatalog(std::move(sub_catalog));
 
   return catalog;
 }

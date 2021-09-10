@@ -28,6 +28,7 @@
 #include "absl/base/macros.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/ascii.h"
+#include "absl/types/variant.h"
 #include "zetasql/base/map_util.h"
 
 enum BisonKeywordTokenCode {
@@ -42,10 +43,28 @@ namespace parser {
 
 namespace {
 
+enum KeywordClass {
+  // Keyword is always reserved
+  kReserved,
+
+  // Keyword is never reserved
+  kNotReserved,
+
+  // LanguageOptions indicates whether the keyword is reserved or unreserved.
+  // The "reserved" and "nonreserved" forms of the keyword produce different
+  // Bison tokens.
+  kConditionallyReserved
+};
+
+struct ConditionallyReservedToken {
+  int reserved_bison_token;
+  int nonreserved_bison_token;
+};
+
 struct KeywordInfoPOD {
   absl::string_view keyword;
-  int bison_token;
-  KeywordInfo::KeywordClass keyword_class = KeywordInfo::kNotReserved;
+  absl::variant<int, ConditionallyReservedToken> bison_token;
+  KeywordClass keyword_class = kNotReserved;
 };
 
 constexpr KeywordInfoPOD kAllKeywords[] = {
@@ -54,132 +73,134 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"action", KW_ACTION},
     {"add", KW_ADD},
     {"aggregate", KW_AGGREGATE},
-    {"all", KW_ALL, KeywordInfo::kReserved},
+    {"all", KW_ALL, kReserved},
     {"alter", KW_ALTER},
     {"analyze", KW_ANALYZE},
-    {"and", KW_AND, KeywordInfo::kReserved},
+    {"and", KW_AND, kReserved},
     {"anonymization", KW_ANONYMIZATION},
-    {"any", KW_ANY, KeywordInfo::kReserved},
-    {"array", KW_ARRAY, KeywordInfo::kReserved},
-    {"as", KW_AS, KeywordInfo::kReserved},
-    {"asc", KW_ASC, KeywordInfo::kReserved},
+    {"any", KW_ANY, kReserved},
+    {"array", KW_ARRAY, kReserved},
+    {"as", KW_AS, kReserved},
+    {"asc", KW_ASC, kReserved},
     {"assert", KW_ASSERT},
-    {"assert_rows_modified", KW_ASSERT_ROWS_MODIFIED, KeywordInfo::kReserved},
-    {"at", KW_AT, KeywordInfo::kReserved},
+    {"assert_rows_modified", KW_ASSERT_ROWS_MODIFIED, kReserved},
+    {"at", KW_AT, kReserved},
     {"batch", KW_BATCH},
     {"begin", KW_BEGIN},
-    {"between", KW_BETWEEN, KeywordInfo::kReserved},
+    {"between", KW_BETWEEN, kReserved},
     {"bigdecimal", KW_BIGDECIMAL},
     {"bignumeric", KW_BIGNUMERIC},
     {"break", KW_BREAK},
-    {"by", KW_BY, KeywordInfo::kReserved},
+    {"by", KW_BY, kReserved},
     {"call", KW_CALL},
     {"cascade", KW_CASCADE},
-    {"case", KW_CASE, KeywordInfo::kReserved},
-    {"cast", KW_CAST, KeywordInfo::kReserved},
+    {"case", KW_CASE, kReserved},
+    {"cast", KW_CAST, kReserved},
     {"check", KW_CHECK},
     {"clamped", KW_CLAMPED},
     {"cluster", KW_CLUSTER},
-    {"collate", KW_COLLATE, KeywordInfo::kReserved},
+    {"collate", KW_COLLATE, kReserved},
     {"column", KW_COLUMN},
     {"columns", KW_COLUMNS},
     {"commit", KW_COMMIT},
     {"connection", KW_CONNECTION},
     {"constant", KW_CONSTANT},
     {"constraint", KW_CONSTRAINT},
-    {"contains", KW_CONTAINS, KeywordInfo::kReserved},
+    {"contains", KW_CONTAINS, kReserved},
     {"continue", KW_CONTINUE},
     {"clone", KW_CLONE},
     {"copy", KW_COPY},
-    {"create", KW_CREATE, KeywordInfo::kReserved},
-    {"cross", KW_CROSS, KeywordInfo::kReserved},
-    {"cube", KW_CUBE, KeywordInfo::kReserved},
-    {"current", KW_CURRENT, KeywordInfo::kReserved},
+    {"create", KW_CREATE, kReserved},
+    {"cross", KW_CROSS, kReserved},
+    {"cube", KW_CUBE, kReserved},
+    {"current", KW_CURRENT, kReserved},
     {"data", KW_DATA},
     {"database", KW_DATABASE},
     {"date", KW_DATE},
     {"datetime", KW_DATETIME},
     {"decimal", KW_DECIMAL},
     {"declare", KW_DECLARE},
-    {"default", KW_DEFAULT, KeywordInfo::kReserved},
-    {"define", KW_DEFINE, KeywordInfo::kReserved},
+    {"default", KW_DEFAULT, kReserved},
+    {"define", KW_DEFINE, kReserved},
     {"definer", KW_DEFINER},
     {"delete", KW_DELETE},
-    {"desc", KW_DESC, KeywordInfo::kReserved},
+    {"desc", KW_DESC, kReserved},
     {"describe", KW_DESCRIBE},
     {"descriptor", KW_DESCRIPTOR},
     {"deterministic", KW_DETERMINISTIC},
-    {"distinct", KW_DISTINCT, KeywordInfo::kReserved},
+    {"distinct", KW_DISTINCT, kReserved},
     {"do", KW_DO},
     {"drop", KW_DROP},
-    {"else", KW_ELSE, KeywordInfo::kReserved},
+    {"else", KW_ELSE, kReserved},
     {"elseif", KW_ELSEIF},
-    {"end", KW_END, KeywordInfo::kReserved},
+    {"end", KW_END, kReserved},
     {"enforced", KW_ENFORCED},
-    {"enum", KW_ENUM, KeywordInfo::kReserved},
+    {"enum", KW_ENUM, kReserved},
     {"error", KW_ERROR},
-    {"escape", KW_ESCAPE, KeywordInfo::kReserved},
-    {"except", KW_EXCEPT, KeywordInfo::kReserved},
+    {"escape", KW_ESCAPE, kReserved},
+    {"except", KW_EXCEPT, kReserved},
     {"exception", KW_EXCEPTION},
-    {"exclude", KW_EXCLUDE, KeywordInfo::kReserved},
+    {"exclude", KW_EXCLUDE, kReserved},
     {"execute", KW_EXECUTE},
-    {"exists", KW_EXISTS, KeywordInfo::kReserved},
+    {"exists", KW_EXISTS, kReserved},
     {"explain", KW_EXPLAIN},
     {"export", KW_EXPORT},
     {"external", KW_EXTERNAL},
-    {"extract", KW_EXTRACT, KeywordInfo::kReserved},
-    {"false", KW_FALSE, KeywordInfo::kReserved},
-    {"fetch", KW_FETCH, KeywordInfo::kReserved},
+    {"extract", KW_EXTRACT, kReserved},
+    {"false", KW_FALSE, kReserved},
+    {"fetch", KW_FETCH, kReserved},
+    {"files", KW_FILES},
     {"filter", KW_FILTER},
     {"filter_fields", KW_FILTER_FIELDS},
     {"fill", KW_FILL},
     {"first", KW_FIRST},
-    {"following", KW_FOLLOWING, KeywordInfo::kReserved},
-    {"for", KW_FOR, KeywordInfo::kReserved},
+    {"following", KW_FOLLOWING, kReserved},
+    {"for", KW_FOR, kReserved},
     {"foreign", KW_FOREIGN},
     {"format", KW_FORMAT},
-    {"from", KW_FROM, KeywordInfo::kReserved},
-    {"full", KW_FULL, KeywordInfo::kReserved},
+    {"from", KW_FROM, kReserved},
+    {"full", KW_FULL, kReserved},
     {"function", KW_FUNCTION},
     {"generated", KW_GENERATED},
     {"grant", KW_GRANT},
-    {"group", KW_GROUP, KeywordInfo::kReserved},
+    {"group", KW_GROUP, kReserved},
     {"group_rows", KW_GROUP_ROWS},
-    {"grouping", KW_GROUPING, KeywordInfo::kReserved},
-    {"groups", KW_GROUPS, KeywordInfo::kReserved},
-    {"hash", KW_HASH, KeywordInfo::kReserved},
-    {"having", KW_HAVING, KeywordInfo::kReserved},
+    {"grouping", KW_GROUPING, kReserved},
+    {"groups", KW_GROUPS, kReserved},
+    {"hash", KW_HASH, kReserved},
+    {"having", KW_HAVING, kReserved},
     {"hidden", KW_HIDDEN},
-    {"if", KW_IF, KeywordInfo::kReserved},
-    {"ignore", KW_IGNORE, KeywordInfo::kReserved},
+    {"if", KW_IF, kReserved},
+    {"ignore", KW_IGNORE, kReserved},
     {"immediate", KW_IMMEDIATE},
     {"immutable", KW_IMMUTABLE},
     {"import", KW_IMPORT},
-    {"in", KW_IN, KeywordInfo::kReserved},
+    {"in", KW_IN, kReserved},
     {"include", KW_INCLUDE},
     {"inout", KW_INOUT},
     {"index", KW_INDEX},
-    {"inner", KW_INNER, KeywordInfo::kReserved},
+    {"inner", KW_INNER, kReserved},
     {"insert", KW_INSERT},
-    {"intersect", KW_INTERSECT, KeywordInfo::kReserved},
-    {"interval", KW_INTERVAL, KeywordInfo::kReserved},
+    {"intersect", KW_INTERSECT, kReserved},
+    {"interval", KW_INTERVAL, kReserved},
     {"iterate", KW_ITERATE},
-    {"into", KW_INTO, KeywordInfo::kReserved},
+    {"into", KW_INTO, kReserved},
     {"invoker", KW_INVOKER},
-    {"is", KW_IS, KeywordInfo::kReserved},
+    {"is", KW_IS, kReserved},
     {"isolation", KW_ISOLATION},
-    {"join", KW_JOIN, KeywordInfo::kReserved},
+    {"join", KW_JOIN, kReserved},
     {"json", KW_JSON},
     {"key", KW_KEY},
     {"language", KW_LANGUAGE},
     {"last", KW_LAST},
-    {"lateral", KW_LATERAL, KeywordInfo::kReserved},
+    {"lateral", KW_LATERAL, kReserved},
     {"leave", KW_LEAVE},
-    {"left", KW_LEFT, KeywordInfo::kReserved},
+    {"left", KW_LEFT, kReserved},
     {"level", KW_LEVEL},
-    {"like", KW_LIKE, KeywordInfo::kReserved},
-    {"limit", KW_LIMIT, KeywordInfo::kReserved},
-    {"lookup", KW_LOOKUP, KeywordInfo::kReserved},
+    {"like", KW_LIKE, kReserved},
+    {"limit", KW_LIMIT, kReserved},
+    {"load", KW_LOAD},
+    {"lookup", KW_LOOKUP, kReserved},
     {"loop", KW_LOOP},
     {"match", KW_MATCH},
     {"matched", KW_MATCHED},
@@ -189,112 +210,118 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"min", KW_MIN},
     {"model", KW_MODEL},
     {"module", KW_MODULE},
-    {"merge", KW_MERGE, KeywordInfo::kReserved},
-    {"natural", KW_NATURAL, KeywordInfo::kReserved},
-    {"new", KW_NEW, KeywordInfo::kReserved},
-    {"no", KW_NO, KeywordInfo::kReserved},
-    {"not", KW_NOT, KeywordInfo::kReserved},
-    {"null", KW_NULL, KeywordInfo::kReserved},
-    {"nulls", KW_NULLS, KeywordInfo::kReserved},
+    {"merge", KW_MERGE, kReserved},
+    {"natural", KW_NATURAL, kReserved},
+    {"new", KW_NEW, kReserved},
+    {"no", KW_NO, kReserved},
+    {"not", KW_NOT, kReserved},
+    {"null", KW_NULL, kReserved},
+    {"nulls", KW_NULLS, kReserved},
     {"numeric", KW_NUMERIC},
-    {"of", KW_OF, KeywordInfo::kReserved},
+    {"of", KW_OF, kReserved},
     {"offset", KW_OFFSET},
-    {"on", KW_ON, KeywordInfo::kReserved},
+    {"on", KW_ON, kReserved},
     {"only", KW_ONLY},
     {"options", KW_OPTIONS},
-    {"or", KW_OR, KeywordInfo::kReserved},
-    {"order", KW_ORDER, KeywordInfo::kReserved},
+    {"or", KW_OR, kReserved},
+    {"order", KW_ORDER, kReserved},
     {"out", KW_OUT},
-    {"outer", KW_OUTER, KeywordInfo::kReserved},
-    {"over", KW_OVER, KeywordInfo::kReserved},
-    {"partition", KW_PARTITION, KeywordInfo::kReserved},
+    {"outer", KW_OUTER, kReserved},
+    {"over", KW_OVER, kReserved},
+    {"overwrite", KW_OVERWRITE},
+    {"partition", KW_PARTITION, kReserved},
     {"percent", KW_PERCENT},
     {"pivot", KW_PIVOT},
     {"unpivot", KW_UNPIVOT},
     {"policies", KW_POLICIES},
     {"policy", KW_POLICY},
     {"primary", KW_PRIMARY},
-    {"preceding", KW_PRECEDING, KeywordInfo::kReserved},
+    {"preceding", KW_PRECEDING, kReserved},
     {"procedure", KW_PROCEDURE},
     {"private", KW_PRIVATE},
+    {"privilege", KW_PRIVILEGE},
     {"privileges", KW_PRIVILEGES},
-    {"proto", KW_PROTO, KeywordInfo::kReserved},
+    {"proto", KW_PROTO, kReserved},
     {"public", KW_PUBLIC},
-    {"qualify", KW_QUALIFY},
+    {"qualify",
+     ConditionallyReservedToken{KW_QUALIFY_RESERVED, KW_QUALIFY_NONRESERVED},
+     kConditionallyReserved},
     {"raise", KW_RAISE},
-    {"range", KW_RANGE, KeywordInfo::kReserved},
+    {"range", KW_RANGE, kReserved},
     {"read", KW_READ},
-    {"recursive", KW_RECURSIVE, KeywordInfo::kReserved},
+    {"recursive", KW_RECURSIVE, kReserved},
     {"references", KW_REFERENCES},
+    {"remote", KW_REMOTE},
     {"rename", KW_RENAME},
     {"repeat", KW_REPEAT},
     {"repeatable", KW_REPEATABLE},
     {"replace", KW_REPLACE},
     {"replace_fields", KW_REPLACE_FIELDS},
-    {"respect", KW_RESPECT, KeywordInfo::kReserved},
+    {"respect", KW_RESPECT, kReserved},
+    {"restriction", KW_RESTRICTION},
     {"restrict", KW_RESTRICT},
     {"return", KW_RETURN},
     {"returns", KW_RETURNS},
     {"revoke", KW_REVOKE},
-    {"right", KW_RIGHT, KeywordInfo::kReserved},
+    {"right", KW_RIGHT, kReserved},
     {"rollback", KW_ROLLBACK},
-    {"rollup", KW_ROLLUP, KeywordInfo::kReserved},
+    {"rollup", KW_ROLLUP, kReserved},
     {"row", KW_ROW},
-    {"rows", KW_ROWS, KeywordInfo::kReserved},
+    {"rows", KW_ROWS, kReserved},
     {"run", KW_RUN},
     {"safe_cast", KW_SAFE_CAST},
     {"schema", KW_SCHEMA},
     {"search", KW_SEARCH},
     {"security", KW_SECURITY},
-    {"select", KW_SELECT, KeywordInfo::kReserved},
-    {"set", KW_SET, KeywordInfo::kReserved},
+    {"select", KW_SELECT, kReserved},
+    {"set", KW_SET, kReserved},
     {"show", KW_SHOW},
     {"simple", KW_SIMPLE},
     {"snapshot", KW_SNAPSHOT},
-    {"some", KW_SOME, KeywordInfo::kReserved},
+    {"some", KW_SOME, kReserved},
     {"source", KW_SOURCE},
     {"storing", KW_STORING},
     {"sql", KW_SQL},
     {"stable", KW_STABLE},
     {"start", KW_START},
     {"stored", KW_STORED},
-    {"struct", KW_STRUCT, KeywordInfo::kReserved},
+    {"struct", KW_STRUCT, kReserved},
     {"system", KW_SYSTEM},
     {"system_time", KW_SYSTEM_TIME},
     {"table", KW_TABLE},
-    {"tablesample", KW_TABLESAMPLE, KeywordInfo::kReserved},
+    {"tablesample", KW_TABLESAMPLE, kReserved},
     {"target", KW_TARGET},
     {"temp", KW_TEMP},
     {"temporary", KW_TEMPORARY},
-    {"then", KW_THEN, KeywordInfo::kReserved},
+    {"then", KW_THEN, kReserved},
     {"time", KW_TIME},
     {"timestamp", KW_TIMESTAMP},
-    {"to", KW_TO, KeywordInfo::kReserved},
+    {"to", KW_TO, kReserved},
     {"transaction", KW_TRANSACTION},
     {"transform", KW_TRANSFORM},
-    {"treat", KW_TREAT, KeywordInfo::kReserved},
-    {"true", KW_TRUE, KeywordInfo::kReserved},
+    {"treat", KW_TREAT, kReserved},
+    {"true", KW_TRUE, kReserved},
     {"truncate", KW_TRUNCATE},
     {"type", KW_TYPE},
-    {"unbounded", KW_UNBOUNDED, KeywordInfo::kReserved},
-    {"union", KW_UNION, KeywordInfo::kReserved},
-    {"unnest", KW_UNNEST, KeywordInfo::kReserved},
+    {"unbounded", KW_UNBOUNDED, kReserved},
+    {"union", KW_UNION, kReserved},
+    {"unnest", KW_UNNEST, kReserved},
     {"unique", KW_UNIQUE},
     {"until", KW_UNTIL},
     {"update", KW_UPDATE},
-    {"using", KW_USING, KeywordInfo::kReserved},
+    {"using", KW_USING, kReserved},
     {"value", KW_VALUE},
     {"values", KW_VALUES},
     {"volatile", KW_VOLATILE},
     {"view", KW_VIEW},
     {"views", KW_VIEWS},
     {"weight", KW_WEIGHT},
-    {"when", KW_WHEN, KeywordInfo::kReserved},
-    {"where", KW_WHERE, KeywordInfo::kReserved},
+    {"when", KW_WHEN, kReserved},
+    {"where", KW_WHERE, kReserved},
     {"while", KW_WHILE},
-    {"window", KW_WINDOW, KeywordInfo::kReserved},
-    {"with", KW_WITH, KeywordInfo::kReserved},
-    {"within", KW_WITHIN, KeywordInfo::kReserved},
+    {"window", KW_WINDOW, kReserved},
+    {"with", KW_WITH, kReserved},
+    {"within", KW_WITHIN, kReserved},
     {"write", KW_WRITE},
     {"zone", KW_ZONE},
 };
@@ -366,24 +393,6 @@ class CaseInsensitiveAsciiAlphaTrie {
 };
 }  // namespace
 
-static std::unique_ptr<const CaseInsensitiveAsciiAlphaTrie<const KeywordInfo>>
-CreateReservedKeywordTrie() {
-  const std::vector<KeywordInfo>& all_keywords = GetAllKeywords();
-  auto trie =
-      absl::make_unique<CaseInsensitiveAsciiAlphaTrie<const KeywordInfo>>();
-  for (const KeywordInfo& keyword_info : all_keywords) {
-    if (keyword_info.IsReserved()) {
-      trie->Insert(keyword_info.keyword(), &keyword_info);
-    }
-  }
-  return std::move(trie);
-}
-
-const KeywordInfo* GetReservedKeywordInfo(absl::string_view keyword) {
-  static const auto& trie = *CreateReservedKeywordTrie().release();
-  return trie.Get(keyword);
-}
-
 std::unique_ptr<const CaseInsensitiveAsciiAlphaTrie<const KeywordInfo>>
 CreateKeywordTrie() {
   const auto& all_keywords = GetAllKeywords();
@@ -406,8 +415,14 @@ CreateTokenToKeywordInfoMap() {
   auto keyword_info_map =
       absl::make_unique<std::unordered_map<int, const KeywordInfo*>>();
   for (const KeywordInfo& keyword_info : all_keywords) {
-    zetasql_base::InsertOrDie(keyword_info_map.get(), keyword_info.bison_token(),
-                     &keyword_info);
+    if (keyword_info.CanBeReserved()) {
+      zetasql_base::InsertOrDie(keyword_info_map.get(),
+                       keyword_info.reserved_bison_token(), &keyword_info);
+    }
+    if (!keyword_info.IsAlwaysReserved()) {
+      zetasql_base::InsertOrDie(keyword_info_map.get(),
+                       keyword_info.nonreserved_bison_token(), &keyword_info);
+    }
   }
   return std::move(keyword_info_map);
 }
@@ -434,8 +449,24 @@ const std::vector<KeywordInfo>& GetAllKeywords() {
   static const std::vector<KeywordInfo>* all_keywords = []() {
     std::vector<KeywordInfo>* keywords = new std::vector<KeywordInfo>();
     for (const KeywordInfoPOD& keyword : kAllKeywords) {
-      keywords->push_back(
-          {keyword.keyword, keyword.bison_token, keyword.keyword_class});
+      switch (keyword.keyword_class) {
+        case kReserved:
+          keywords->push_back({keyword.keyword,
+                               absl::get<int>(keyword.bison_token),
+                               absl::nullopt});
+          break;
+        case kNotReserved:
+          keywords->push_back({keyword.keyword, absl::nullopt,
+                               absl::get<int>(keyword.bison_token)});
+          break;
+        case kConditionallyReserved: {
+          auto bison_token =
+              absl::get<ConditionallyReservedToken>(keyword.bison_token);
+          keywords->push_back({keyword.keyword,
+                               bison_token.reserved_bison_token,
+                               bison_token.nonreserved_bison_token});
+        }
+      }
     }
     return keywords;
   }();
@@ -460,7 +491,8 @@ CreateKeywordInTokenizerTrie() {
        }) {
     // We don't care about the KeywordInfo, but we have to create one because
     // the trie needs a non-NULL value. We use an arbitrary bison token.
-    KeywordInfo* keyword_info = new KeywordInfo(keyword, KW_SELECT);
+    KeywordInfo* keyword_info =
+        new KeywordInfo(keyword, KW_SELECT, absl::nullopt);
     trie->Insert(keyword_info->keyword(), keyword_info);
   }
   return std::move(trie);
@@ -505,7 +537,8 @@ CreateNonReservedIdentifiersThatMustBeBackquotedTrie() {
        }) {
     // We don't care about the KeywordInfo, but we have to create one because
     // the trie needs a non-NULL value. We use an arbitrary bison token.
-    KeywordInfo* keyword_info = new KeywordInfo(keyword, KW_SELECT);
+    KeywordInfo* keyword_info =
+        new KeywordInfo(keyword, KW_SELECT, absl::nullopt);
     trie->Insert(keyword_info->keyword(), keyword_info);
   }
   return std::move(trie);

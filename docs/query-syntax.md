@@ -14,8 +14,8 @@ ZetaSQL.
     <span class="var">query_expr</span>
 
 <span class="var">query_expr</span>:
-    [ <a href="#with_clause">WITH</a> [ <a href="#recursive_keyword">RECURSIVE</a> ] <a href="#with_clause"><span class="var">with_clause</span></a> ]
-    { <span class="var">select</span> | ( <span class="var">query_expr</span> ) | <span class="var">query_expr</span> <span class="var">set_op</span> <span class="var">query_expr</span> }
+    [ <a href="#with_clause">WITH</a> [ <a href="#recursive_keyword">RECURSIVE</a> ] { <a href="#simple_cte"><span class="var">non_recursive_cte</span></a> | <a href="#recursive_cte"><span class="var">recursive_cte</span></a> }[, ...] ]
+    { <span class="var">select</span> | ( <span class="var">query_expr</span> ) | <a href="#set_clause"><span class="var">set_operation</span></a> }
     [ <a href="#order_by_clause">ORDER</a> BY <span class="var">expression</span> [{ ASC | DESC }] [, ...] ]
     [ <a href="#limit_and_offset_clause">LIMIT</a> <span class="var">count</span> [ OFFSET <span class="var">skip_rows</span> ] ]
 
@@ -29,9 +29,6 @@ ZetaSQL.
     [ <a href="#having_clause">HAVING</a> <span class="var">bool_expression</span> ]
     [ <a href="#qualify_clause">QUALIFY</a> <span class="var">bool_expression</span> ]
     [ <a href="#window_clause">WINDOW</a> <a href="#window_clause"><span class="var">window_clause</span></a> ]
-
-<span class="var">set_op</span>:
-    <a href="#union">UNION</a> { ALL | DISTINCT } | <a href="#intersect">INTERSECT</a> { ALL | DISTINCT } | <a href="#except">EXCEPT</a> { ALL | DISTINCT }
 
 </pre>
 
@@ -457,7 +454,7 @@ FROM <span class="var">from_clause</span>[, ...]
       | ( <span class="var">query_expr</span> ) [ <span class="var">as_alias</span> ]
       | <span class="var">field_path</span>
       | <a href="#unnest_operator"><span class="var">unnest_operator</span></a>
-      | <span class="var"><a href="#with_query_name">with_query_name</a></span> [ <span class="var">as_alias</span> ]
+      | <span class="var"><a href="#cte_name">cte_name</a></span> [ <span class="var">as_alias</span> ]
     }
 
 <span class="var">as_alias</span>:
@@ -535,11 +532,11 @@ a table name, wrap the path using <code>`</code>.
 
 See [UNNEST operator][unnest-operator].
 
-#### with_query_name
+#### cte_name
 
-The query names in a `WITH` clause (see [WITH Clause][with_clause]) act like
-names of temporary tables that you can reference anywhere in the `FROM` clause.
-In the example below, `subQ1` and `subQ2` are `with_query_names`.
+Common table expressions (CTEs) in a [`WITH` Clause][with-clause] act like
+temporary tables that you can reference anywhere in the `FROM` clause.
+In the example below, `subQ1` and `subQ2` are CTEs.
 
 Example:
 
@@ -579,8 +576,8 @@ one column. This single column has an optional `alias`, which you can use to
 refer to the column elsewhere in the query. `ARRAYS` with these element types
 return multiple columns:
 
- + STRUCT
- + PROTO
++ STRUCT
++ PROTO
 
 `UNNEST` destroys the order of elements in the input
 `ARRAY`. Use the optional `WITH OFFSET` clause to
@@ -1021,7 +1018,7 @@ amounts of data and you don't need precise answers.
    `ROWS` or `PERCENT`. If you choose `PERCENT`, the value must be between
    0 and 100. If you choose `ROWS`, the value must be greater than or equal
    to 0.
-+  `partition_by`: Optional. Perform [stratified sampling][stratefied-sampling]
++  `partition_by`: Optional. Perform [stratified sampling][stratified-sampling]
    for each distinct group identified by the `PARTITION BY` clause. That is,
    if the number of rows in a particular group is less than the specified row
    count, all rows in that group are assigned to the sample. Otherwise, it
@@ -1124,7 +1121,7 @@ SELECT country, SUM(click_cost * weight) FROM ClickEvents
 ```
 
 ### Stratified sampling 
-<a id="stratefied_sampling"></a>
+<a id="stratified_sampling"></a>
 
 If you want better quality generated samples for under-represented groups,
 you can use stratified sampling. Stratified sampling helps you
@@ -1210,7 +1207,7 @@ is two. With 1% uniform sampling, it is statistically probable that all the
 sampled rows are from the `US` and none of them are from the `VN` partition.
 As a result, the output of the second query does not contain the `SUM` estimate
 for the group `VN`. We refer to this as the _missing-group problem_, which
-can be solved with [stratified sampling][stratefied-sampling].
+can be solved with [stratified sampling][stratified-sampling].
 
 ## JOIN operation 
 <a id="join_types"></a>
@@ -1866,7 +1863,8 @@ for the `expression` in the `GROUP BY` clause. For multiple rows in the
 source table with non-distinct values for `expression`, the
 `GROUP BY` clause produces a single combined row. `GROUP BY` is commonly used
 when aggregate functions are present in the `SELECT` list, or to eliminate
-redundancy in the output. The data type of `expression` must be [groupable][data-type-properties].
+redundancy in the output. The data type of `expression` must be
+[groupable][data-type-properties].
 
 Example:
 
@@ -2113,6 +2111,7 @@ HAVING SUM(PointsScored) > 15;
 
 <pre>
 ORDER BY expression
+  [COLLATE collate_string]
   [{ ASC | DESC }]
   [, ...]
 </pre>
@@ -2121,10 +2120,12 @@ The `ORDER BY` clause specifies a column or expression as the sort criterion for
 the result set. If an ORDER BY clause is not present, the order of the results
 of a query is not defined. Column aliases from a `FROM` clause or `SELECT` list
 are allowed. If a query contains aliases in the `SELECT` clause, those aliases
-override names in the corresponding `FROM` clause.
+override names in the corresponding `FROM` clause. The data type of
+`expression` must be [orderable][data-type-properties].
 
 **Optional Clauses**
 
++ `COLLATE`: Refine how a data is ordered.
 +  `ASC | DESC`: Sort the results in ascending or descending
     order of `expression` values. `ASC` is the default value. 
 
@@ -2220,50 +2221,158 @@ Example - the following two queries are equivalent:
 ```sql
 SELECT SUM(PointsScored), LastName
 FROM PlayerStats
+GROUP BY LastName
 ORDER BY LastName;
 ```
 
 ```sql
 SELECT SUM(PointsScored), LastName
 FROM PlayerStats
+GROUP BY 2
 ORDER BY 2;
 ```
 
-### COLLATE
+### COLLATE clause
+
+<pre>
+COLLATE collate_string
+
+collate_string:
+  language_tag[:collation_attribute]
+</pre>
 
 You can use the `COLLATE` clause to refine how a data is ordered from an `ORDER
-BY` clause. *Collation* refers to a set of rules that determine how
-STRINGs are compared according to the conventions and
-standards of a particular language, region or country. These rules might define
-the correct character sequence, with options for specifying case-insensitivity.
+BY` clause. _Collation_ refers to a set of rules that determine how
+strings are compared according to the conventions and
+standards of a particular written language, region, or country. These rules
+might define the correct character sequence, with options for specifying
+case-insensitivity.
 
-Note: You can use `COLLATE` only on columns of type
-STRING.
+Note: You can use `COLLATE` only on columns of type `STRING`.
 
-You add collation to your statement as follows:
+A `collate_string` contains a `language_tag` and can have an optional
+`collation_attribute` as a suffix, separated by a colon.
 
-```sql
-SELECT ...
-FROM ...
-ORDER BY value COLLATE collation_string
-```
+The `language_tag` is a literal or a query parameter:
 
-A `collation_string` contains a `collation_name` and can have an optional
-`collation_attribute` as a suffix, separated by a colon. The `collation_string`
-is a literal or a parameter.  Usually, this name is two letters that represent
-the language optionally followed by an underscore and two letters that
-represent the region&mdash;for example, `en_US`. These names are defined by the
-[Common Locale Data Repository (CLDR)][language-territory-information].
-A statement can also have a `collation_name` of `unicode`. This value means that
-the statement should return data using the default unicode collation.
++ A standard locale string. This name is usually two or three letters
+that represent the language, optionally followed by an underscore or dash and
+two letters that represent the region &mdash; for example, `en_US`. These names
+are defined by the
+[Common Locale Data Repository (CLDR)][unicode-locale-identifier]. See
+Unicode Collation below.
 
-In addition to the `collation_name`, a `collation_string` can have an optional
-`collation_attribute` as a suffix, separated by a colon. This attribute
-specifies if the data comparisons should be case sensitive. Allowed values are
-`cs`, for case sensitive, and `ci`, for case insensitive. If a
-`collation_attribute` is not supplied, the
-[CLDR defaults][tr35-collation-settings]
-are used.
++ `und`, a locale string representing the _undetermined_ locale. See
+Unicode Collation below.
+
++ `binary` to indicate that the statement should return data in Unicode
+code point order, which is identical to the ordering behavior when `COLLATE` is
+not used. The sort order will look largely arbitrary to human users.
+
++ `unicode`, a legacy language tag, see below for details.
+
+In addition to the `language_tag`, a `collate_string`
+ other than `binary`, can have an
+optional `collation_attribute` as a suffix, separated by a colon. Allowed values
+are:
+ + `ci` for case insensitive
+ + `cs` for case sensitive (Note: 'cs' is the default so specifying it never has
+        an effect).
+
+#### Unicode Collation
+
+For `language_tag`s other than `binary`,
+ZetaSQL follows the
+[Unicode Collation Algorithm][tr10-collation-algorithm]. The standard defines
+the format of language tags, which includes some useful extensions as well as
+the algorithm used for comparison.
+
+`und` is a special language tag defined in the
+[IANA language subtag registry][iana-language-subtag-registry] and used to
+indicate an undetermined locale. This is also known as the _root_ locale and
+can be considered the _default_ Unicode collation. It defines a reasonable,
+locale agnostic collation. It differs significantly from
+`binary`.
+
+A `language_tag` may be extended by appending `-u-<extension>`, for example
+the extension to specify numeric ordering is `kn-true`. So, `en-us-u-kn-true`
+would indicate the US English locale, with numeric sorting (`abc1` is considered
+less than `abc12`). Some useful examples of extensions:
+
+<table>
+  <thead>
+    <tr>
+      <th>Extension</th>
+      <th>Name</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>-ks-level2</td>
+      <td>Case Insensitive</td>
+      <td>"a1" < "A2"</td>
+    </tr>
+    <tr>
+      <td>-ks-level1</td>
+      <td>Accent and Case Insensitive</td>
+      <td>"ä1" < "a2" < "A3"</td>
+    </tr>
+    <tr>
+      <td>-ks-level1-kc-true</td>
+      <td>Accent Insensitive</td>
+      <td>"ä1" < "a2"</td>
+    </tr>
+    <tr>
+      <td>-kn-true</td>
+      <td>Numeric Ordering</td>
+      <td>"a1b" < "a12b" </td>
+    </tr>
+  </tbody>
+</table>
+
+For a complete list and in depth technical details, consult
+[Unicode Locale Data Markup Language Part 5: Collation]
+[tr35-collation-settings].
+
+Caveats:
+
+ * Differing strings can be considered equal:
+      For instance, ẞ (LATIN CAPITAL LETTER SHARP S) is considered equal to 'SS'
+      on primary level thus 'ẞ1' < 'SS2'. This is similar to how case
+      insensitivity works.
+
+ * Ignorable code points: Unicode collation specifies a wide range of code
+      points that are mostly treated as if they are not there. So strings with
+      and without them are sorted identically, for example U2060 -
+      'WORD JOINER'.
+
+      ```sql
+      SELECT "oran\u2060ge1" UNION ALL SELECT "\u2060orange2" UNION ALL SELECT "orange3"
+      ORDER BY 1 COLLATE "und"
+      +---------+
+      |         |
+      +---------+
+      | orange1 |
+      | orange2 |
+      | orange3 |
+      +---------+
+      ```
+
+ * Ordering _may_ change: Unicode occasionally makes changes to the default
+   collation ("und") which could, in rare circumstances, change the relative
+   ordering of strings. The sort orders for
+   languages other than "und" change more frequently as standards change or new
+   information is collected. If a fixed sort order is required, use
+   `binary`.
+
+Additionally, a legacy `language_tag` of
+`unicode` is supported. If used without a `collation_attribute`, or
+with `:cs`, this is identical to `binary`. However, `unicode:ci` uses a
+case-mapped comparison, which is roughly equivalent to using the `LOWER`
+function on the inputs prior to ordering, but lacking the properties of Unicode
+Collation. It is recommended to migrate existing usage to either `binary` or
+`und`.
 
 **Examples**
 
@@ -2307,7 +2416,7 @@ Default Unicode case-insensitive collation:
 ```sql
 SELECT Place
 FROM Locations
-ORDER BY Place COLLATE "unicode:ci"
+ORDER BY Place COLLATE "und:ci"
 ```
 
 ## QUALIFY clause
@@ -2442,11 +2551,17 @@ WINDOW
   c AS b
 ```
 
+<a id="set_clause"></a>
+
 ## Set operators 
 <a id="set_operators"></a>
 
 <pre>
-UNION { ALL | DISTINCT } | <a href="#intersect">INTERSECT</a> { ALL | DISTINCT } | <a href="#except">EXCEPT</a> { ALL | DISTINCT }
+<span class="var">set_operation</span>:
+  <a href="#sql_syntax">query_expr</a> set_operator <a href="#sql_syntax">query_expr</a>
+
+<span class="var">set_operator</span>:
+  UNION { ALL | DISTINCT } | <a href="#intersect">INTERSECT</a> { ALL | DISTINCT } | <a href="#except">EXCEPT</a> { ALL | DISTINCT }
 </pre>
 
 Set operators combine results from two or
@@ -2595,35 +2710,61 @@ ORDER BY letter ASC LIMIT 3 OFFSET 1
 <a id="with_clause"></a>
 
 <pre class="lang-sql prettyprint">
-WITH [ <a href="#recursive_keyword">RECURSIVE</a> ] with_clause
-
-with_clause:
-    { with_subquery | <a href="#with_clause_recursive">with_recursive_subquery</a> }[, ...]
-
-with_subquery:
-    <a href="#with_query_name">with_query_name</a> AS ( <a href="#query_syntax">query_expr</a> )
-
-<a href="#with_clause_recursive">with_recursive_subquery</a>:
-    <a href="#with_query_name">with_query_name</a> AS ( <a href="#with_clause_anchor_rules">anchor_subquery</a> set_operator <a href="#with_clause_recursive_rules">recursive_subquery</a> )
-
-<a href="#with_clause_anchor_rules">anchor_subquery</a>, <a href="#with_clause_recursive_rules">recursive_subquery</a>:
-    { <a href="#query_syntax">query_expr</a> | ( <a href="#query_syntax">query_expr</a> ) }
-
-set_operator:
-    { UNION | UNION ALL | UNION DISTINCT }
+WITH [ <a href="#recursive_keyword">RECURSIVE</a> ] { <a href="#simple_cte"><span class="var">non_recursive_cte</span></a> | <a href="#recursive_cte"><span class="var">recursive_cte</span></a> }[, ...]
 </pre>
 
-The `WITH` clause binds the results of one or more named
-[subqueries][subquery-concepts] to temporary table names.  Each introduced
-table name is visible in subsequent `SELECT` expressions within the same
-query expression. This includes the following kinds of `SELECT` expressions:
+A `WITH` clause contains one or more common table expressions (CTEs).
+A CTE acts like a temporary table that you can reference within a single
+query expression. Each CTE binds the results of a [subquery][subquery-concepts]
+to a table name, which can be used elsewhere in the same query expression,
+but [rules apply][cte-rules].
 
-+ Any `SELECT` expressions in subsequent `WITH` bindings
-+ Top level `SELECT` expressions in the query expression on both sides of a set
-  operator such as `UNION`
-+ `SELECT` expressions inside subqueries within the same query expression
+CTEs can be [non-recursive][non-recursive-cte] or
+[recursive][recursive-cte] and you can include both of these in your
+`WITH` clause. A recursive CTE references itself, where a
+non-recursive CTE does not. If a recursive CTE is included in the `WITH` clause,
+the `RECURSIVE` keyword must also be included.
 
-Example:
+You can include the `RECURSIVE` keyword in a `WITH` clause even if no
+recursive CTEs are present. You can learn more about the `RECURSIVE` keyword
+[here][recursive-keyword].
+
+### RECURSIVE keyword 
+<a id="recursive_keyword"></a>
+
+A `WITH` clause can optionally include the `RECURSIVE` keyword, which does
+two things:
+
++ Enables recursion in the `WITH` clause. If this keyword is not present,
+  you can only include non-recursive common table expressions (CTEs).
+  If this keyword is present, you can use both [recursive][recursive-cte] and
+  [non-recursive][non-recursive-cte] CTEs.
++ [Changes the visibility][cte-visibility] of CTEs in the `WITH` clause. If this
+  keyword is not present, a CTE is only visible to CTEs defined after it in the
+  `WITH` clause. If this keyword is present, a CTE is visible to all CTEs in the
+  `WITH` clause where it was created.
+
+### Non-recursive CTEs 
+<a id="simple_cte"></a>
+
+<pre class="lang-sql prettyprint">
+non_recursive_cte:
+    <a href="#cte_name">cte_name</a> AS ( <a href="#sql_syntax">query_expr</a> )
+</pre>
+
+A non-recursive common table expression (CTE) contains
+a non-recursive[subquery][subquery-concepts]
+and a name associated with the CTE.
+
++ A non-recursive CTE cannot reference itself.
++ A non-recursive CTE can be referenced by the query expression that
+  contains the `WITH` clause, but [rules apply][cte-rules].
+
+##### Examples
+
+In this example, a `WITH` clause defines two non-recursive CTEs that
+are referenced in the related set operation, where one CTE is referenced by
+each of the set operation's input query expressions:
 
 ```sql
 WITH subQ1 AS (SELECT SchoolID FROM Roster),
@@ -2633,9 +2774,9 @@ UNION ALL
 SELECT * FROM subQ2
 ```
 
-You can use `WITH` to break up more complex queries into a `WITH` `SELECT`
-statement and `WITH` clauses, where the less desirable alternative is writing
-nested table subqueries. For example:
+You can break up more complex queries into a `WITH` clause and
+`WITH` `SELECT` statement instead of writing nested table subqueries.
+For example:
 
 ```sql
 WITH q1 AS (my_query)
@@ -2644,24 +2785,6 @@ FROM
   (WITH q2 AS (SELECT * FROM q1) SELECT * FROM q2)
 ```
 
-Note: If a `WITH` clause contains multiple subqueries, the subquery names cannot
-repeat.
-
-The following are scoping rules for `WITH` clauses:
-
-+ Aliases are scoped so that the aliases introduced in a `WITH` clause are
-  visible only in the later subqueries in the same `WITH` clause, and in the
-  query under the `WITH` clause.
-+ Aliases introduced in the same `WITH` clause must be unique, but the same
-  alias can be used in multiple `WITH` clauses in the same query.  The local
-  alias overrides any outer aliases anywhere that the local alias is visible.
-+ Aliased subqueries in a `WITH` clause can never be correlated. No columns from
-  outside the query are visible.  The only names from outside that are visible
-  are other `WITH` aliases that were introduced earlier in the same `WITH`
-  clause.
-
-Here's an example of a statement that uses aliases in `WITH` subqueries:
-
 ```sql
 WITH q1 AS (my_query)
 SELECT *
@@ -2669,83 +2792,123 @@ FROM
   (WITH q2 AS (SELECT * FROM q1),  # q1 resolves to my_query
         q3 AS (SELECT * FROM q1),  # q1 resolves to my_query
         q1 AS (SELECT * FROM q1),  # q1 (in the query) resolves to my_query
-        q4 AS (SELECT * FROM q1)   # q1 resolves to the WITH subquery
-                                   # on the previous line.
-    SELECT * FROM q1)  # q1 resolves to the third inner WITH subquery.
+        q4 AS (SELECT * FROM q1)   # q1 resolves to the WITH subquery on the previous line.
+    SELECT * FROM q1)              # q1 resolves to the third inner WITH subquery.
 ```
 
-### RECURSIVE keyword 
-<a id="recursive_keyword"></a>
-
-You can include one or more [recursive subqueries][with-clause-recursive] in
-your `WITH` clause. If you include a recursive subquery, you must also include
-the `RECURSIVE` keyword in your `WITH` clause.
-
-When you include the `RECURSIVE` keyword in a `WITH` clause,
-references between subqueries can go backwards and forwards, but cycles are not
-allowed.
-
-This is what happens when you have two subqueries that reference
-themselves or each other in a `WITH RECURSIVE` query.
-Assume that `A` is the first subquery and `B` is the second subquery in a
-`WITH RECURSIVE` clause:
-
-+ A -> A = Runs
-+ A -> B = Runs
-+ B -> A = Runs
-+ A -> B -> A = Error
-
-When you don't include the `RECURSIVE` keyword in a `WITH` clause, references
-between subqueries can go backward but not forward.
-
-This is what happens when you have two subqueries that reference
-themselves or each other in a `WITH` query without the `RECURSIVE` keyword.
-Assume that `A` is the first subquery and `B` is the second subquery in a
-`WITH` clause:
-
-+ A -> A = Error
-+ A -> B = Error
-+ B -> A = Runs
-+ A -> B -> A = Error
-
-### WITH RECURSIVE subqueries 
-<a id="with_clause_recursive"></a>
+### Recursive CTEs 
+<a id="recursive_cte"></a>
 
 <pre class="lang-sql prettyprint">
-with_recursive_subquery:
-    <a href="#with_query_name">with_query_name</a> AS ( <a href="#with_clause_anchor_rules">anchor_subquery</a> set_operator <a href="#with_clause_recursive_rules">recursive_subquery</a> )
+recursive_cte:
+    <a href="#cte_name">cte_name</a> AS ( recursive_union_operation )
 
-<a href="#with_clause_anchor_rules">anchor_subquery</a>, <a href="#with_clause_recursive_rules">recursive_subquery</a>:
-    { <a href="#query_syntax">query_expr</a> | ( <a href="#query_syntax">query_expr</a> ) }
+recursive_union_operation:
+    base_term union_operator iterative_term
 
-set_operator:
-    { UNION | UNION ALL | UNION DISTINCT }
+base_term:
+    <a href="#sql_syntax">query_expr</a>
+
+iterative_term:
+    <a href="#sql_syntax">query_expr</a>
+
+union_operator:
+    { UNION ALL | UNION DISTINCT }
 </pre>
 
-A `WITH` clause can contain one or more recursive subqueries that reference
-themselves. If a recursive subquery is added to a `WITH` clause, the clause
-must include the `RECURSIVE` keyword. This type of clause is referred to as
-a `WITH RECURSIVE` clause.
+A recursive common table expression (CTE) contains a
+recursive [subquery][subquery-concepts] and a name associated with the CTE.
 
-Recursion is permitted by combining an anchor subquery with a
-recursive subquery, using one of these set operators:
++ A recursive CTE references itself.
++ A recursive CTE can be referenced in the query expression that contains the
+  `WITH` clause, but [rules apply][cte-rules].
++ When a recursive CTE is present in a WITH clause, the
+  [`RECURSIVE`][recursive-keyword] keyword must be present.
 
-+ `UNION`
-+ `UNION ALL`
-+ `UNION DISTINCT`
+A recursive CTE is defined by a _recursive union operation_. The
+recursive union operation defines how input is recursively processed
+to produce the final table result. The recursive union operation has the
+following parts:
 
-The anchor subquery and recursive subquery are similar to
-[`WITH` subqueries][with_clause], but additional rules apply to them.
++ `base_term`: The base term runs the first iteration of the
+  recursive union operation. The base term must follow the
+  [base term rules][base-term-rules].
++ `union_operator`: The `UNION` operator returns the rows that are from
+  the union of the base term and iterative term. With `UNION ALL`,
+  each row produced in iteration `N` becomes part of the final query output and
+  input for iteration `N+1`. With
+  `UNION DISTINCT`, only distinct rows become part of the final query output,
+  and only new distinct rows move into iteration `N+1`. Iteration
+  stops when an iteration produces no rows to move into the next iteration.
++ `iterative_term`: The iterative term runs the remaining iterations.
+  It must include a self-reference to the recursive CTE. All recursive
+  references must be in the iterative term. The iterative term
+  must follow the [iterative term rules][recursive-cte-rules].
 
-+ [Anchor subquery rules][with-clause-anchor-rules]
-+ [Recursive subquery rules][with-clause-recursive-rules]
-
-Example:
+A recursive CTE looks like this:
 
 ```sql
 WITH RECURSIVE
-  T1 AS ( (SELECT 1 AS n) UNION ALL (SELECT n + 1 AS n FROM T1 WHERE n < 4) )
+  T1 AS ( (SELECT 1 AS n) UNION ALL (SELECT n + 1 AS n FROM T1 WHERE n < 3) )
 SELECT n FROM T1
+
++---+
+| n |
++---+
+| 1 |
+| 2 |
+| 3 |
++---+
+```
+
+The first iteration of a recursive union operation runs the base term.
+Then, each subsequent iteration runs the iterative term and produces
+_new rows_ which are unioned with the previous iteration. The recursive
+union operation terminates when an iterative term iteration produces no new
+rows.
+
+If recursion does not terminate, the query will not terminate.
+
+To avoid a non-terminating iteration in a recursive union operation, you can
+use the `LIMIT` clause in a query.
+
+A recursive CTE can include nested `WITH` clauses, however, you can't reference
+the recursive term inside of an inner `WITH` clause. An inner `WITH`
+clause can't be recursive unless it includes its own `RECURSIVE` keyword.
+The `RECURSIVE` keyword affects only the particular `WITH` clause to which it
+belongs.
+
+##### Examples of allowed recursive CTEs
+
+This is a simple recursive CTE:
+
+```sql
+WITH RECURSIVE
+  T1 AS (
+    (SELECT 1 AS n) UNION ALL
+    (SELECT n + 2 FROM T1 WHERE n < 4))
+SELECT * FROM T1
+
++---+
+| n |
++---+
+| 1 |
+| 3 |
+| 5 |
++---+
+```
+
+Multiple subqueries in the same recursive CTE are okay, as
+long as each recursion has a cycle length of 1. It is also okay for recursive
+entries to depend on non-recursive entries and vice-versa:
+
+```sql
+WITH RECURSIVE
+  T0 AS (SELECT 1 AS n),
+  T1 AS ((SELECT * FROM T0) UNION ALL (SELECT n + 1 FROM T1 WHERE n < 4)),
+  T2 AS ((SELECT 1 AS n) UNION ALL (SELECT n + 1 FROM T2 WHERE n < 4)),
+  T3 AS (SELECT * FROM T1 INNER JOIN T2 USING (n))
+SELECT * FROM T3
 
 +---+
 | n |
@@ -2757,34 +2920,65 @@ SELECT n FROM T1
 +---+
 ```
 
-A recursive query using `UNION` or `UNION ALL` is evaluated by first evaluating
-the anchor subquery, followed by the recursive subquery. The first time the
-recursive subquery is evaluated, the recursive reference represents the result
-of the anchor subquery. On subsequent iterations, the recursive subquery
-represents the result of the prior evaluation of the recursive subquery.
-The iteration continues until the recursive subquery produces no rows.
-The final result is the union of the anchor subquery result with all of the
-recursive subquery results.
+Aggregate functions can be invoked in subqueries, as long as they are not
+aggregating on the table being defined:
 
-A recursive query using `UNION DISTINCT` is evaluated similarly, except that
-each time the recursive subquery is evaluated, any rows which duplicate a row
-from either the anchor subquery or any prior evaluation of the
-recursive subquery are discarded; the next iteration of the recursive subquery,
-along with the final result, will see only the unique rows.
+```sql
+WITH RECURSIVE
+  T0 AS (SELECT * FROM UNNEST ([60, 20, 30])),
+  T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n + (SELECT COUNT(*) FROM T0) FROM T1 WHERE n < 4))
+SELECT * FROM T1
 
-Example:
++---+
+| n |
++---+
+| 1 |
+| 4 |
++---+
+```
+
+`INNER JOIN` can be used inside subqueries:
+
+```sql
+WITH RECURSIVE
+  T0 AS (SELECT 1 AS n),
+  T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n + 1 FROM T1 INNER JOIN T0 USING (n)))
+SELECT * FROM T1;
+
++---+
+| n |
++---+
+| 1 |
+| 2 |
++---+
+```
+
+`CROSS JOIN` can be used inside subqueries:
+
+```sql
+WITH RECURSIVE
+  T0 AS (SELECT 2 AS p),
+  T1 AS ((SELECT 1 AS n) UNION ALL (SELECT T1.n + T0.p FROM T1 CROSS JOIN T0 WHERE T1.n < 4))
+SELECT * FROM T1 CROSS JOIN T0;
+
++---+---+
+| n | p |
++---+---+
+| 1 | 2 |
+| 3 | 2 |
+| 5 | 2 |
++---+---+
+```
 
 In the following query, if `UNION DISTINCT` was replaced with `UNION ALL`,
-this query would never terminate; it would keep on generating rows
+this query would never terminate; it would keep generating rows
 `0, 1, 2, 3, 4, 0, 1, 2, 3, 4...`. With `UNION DISTINCT`, however, the only row
 produced by iteration `5` is a duplicate, so the query terminates.
 
 ```sql
-WITH RECURSIVE T1 AS (
-  SELECT 0 AS n
-  UNION DISTINCT
-  SELECT MOD(n + 1, 5) FROM T1)
-SELECT * FROM T1
+WITH RECURSIVE
+  T1 AS ( (SELECT 0 AS n) UNION DISTINCT (SELECT MOD(n + 1, 5) FROM T1) )
+SELECT * FROM T1;
 
 +---+
 | n |
@@ -2797,114 +2991,11 @@ SELECT * FROM T1
 +---+
 ```
 
-#### Nested WITH subqueries 
-<a id="with_clause_nesting"></a>
+##### Examples of disallowed recursive CTEs
 
-The `RECURSIVE` keyword affects only the particular `WITH` clause it refers to,
-not other `WITH` clauses in the same query.
-
-A `WITH RECURSIVE` clause can include nested `WITH` clauses. An inner `WITH`
-clause can't be recursive unless it includes its own `RECURSIVE` keyword.
-
-#### Anchor subquery rules 
-<a id="with_clause_anchor_rules"></a>
-
-The following rules apply to the anchor subquery:
-
-+ The anchor subquery is required to be non-recursive.
-+ The anchor subquery determines the names and types of all of the
-  table columns.
-
-#### Recursive subquery rules 
-<a id="with_clause_recursive_rules"></a>
-
-The following rules apply to the recursive subquery:
-
-+ The recursive subquery must include exactly one reference to the
-  recursively-defined table in the anchor subquery.
-+ The recursive subquery must contain the same number of columns as the
-  anchor subquery, and the type of each column must be implicitly coercible to
-  the type of the corresponding column in the anchor subquery.
-
-The following rules apply to the recursive subquery, which includes any
-subquery including it in any way. These rules do not apply to
-subqueries within the recursive subquery which do not reference
-the recursive table.
-
-+ The recursive subquery may not be used as an operand to a `FULL JOIN`, a
-  right operand to a `LEFT JOIN`, or a left operand to a `RIGHT JOIN`.
-+ The recursive subquery may not be used with the `TABLESAMPLE` operator.
-+ The recursive subquery may not be used in an operand to a
-  table-valued function (TVF).
-
-The following rules apply to any subquery derived from the
-recursive subquery. These rules do not apply to subqueries within the
-recursive subquery which do not reference the recursive table.
-
-+ The subquery must be a `SELECT` expression, not a set operation, such as
-  `UNION`.
-+ The subquery may not contain directly or indirectly a recursive reference
-  anywhere outside of its `FROM` clause.
-+ The subquery may not contain an `ORDER BY` or `LIMIT` clause.
-+ The subquery cannot invoke aggregate functions.
-+ The subquery cannot invoke analytic functions.
-+ The `DISTINCT` keyword and `GROUP BY` clause are not
-  allowed. To filter duplicates, use
-  `UNION DISTINCT` in the top-level set operation, instead.
-
-#### Examples of allowed queries
-
-This is a simple recursive query:
-
-```sql
-WITH RECURSIVE
-  T1 AS (
-    (SELECT 1 AS n) UNION ALL
-    (SELECT n + 2 FROM T1 WHERE n < 4))
-SELECT * FROM T1
-```
-
-Multiple recursive queries in same `WITH` clause are okay, as long as each
-recursion has a cycle length of 1. It is also okay for recursive entries to
-depend on non-recursive entries and vice-versa:
-
-```sql
-WITH RECURSIVE
-  T0 AS (SELECT 1 AS n),
-  T1 AS ((SELECT * FROM T0) UNION ALL (SELECT n + 1 FROM T1 WHERE n < 4)),
-  T2 AS ((SELECT 1 AS n) UNION ALL (SELECT n + 1 FROM T2 WHERE n < 4)),
-  T3 AS (SELECT * FROM T1 INNER JOIN T2 USING (n))
-SELECT * FROM T3
-```
-
-Aggregate functions can be invoked in subqueries, as long as they are not
-aggregating on the table being defined:
-
-```sql
-WITH RECURSIVE
-  T1 AS (
-    (SELECT 1 AS n) UNION ALL
-    (SELECT (SELECT COUNT(*) FROM OtherTable) FROM T1))
-SELECT * FROM T1
-```
-
-`INNER JOIN` and `CROSS JOIN` can be used inside subqueries:
-
-```sql
-WITH RECURSIVE
-  T1 AS (
-    (SELECT 1 AS n) UNION ALL
-    (SELECT n + 1 FROM T1 INNER JOIN OtherTable USING (n))),
-  T2 AS (
-    (SELECT 1 AS n) UNION ALL
-    (SELECT n + 1 FROM T1 CROSS JOIN OtherTable))
-SELECT * FROM T1 CROSS JOIN T2
-```
-
-#### Examples of disallowed queries
-
-The following query is disallowed because the self-reference does not include
-a set operator, anchor subquery, and recursive subquery.
+The following recursive CTE is disallowed because the
+self-reference does not include a set operator, base term, and
+iterative term.
 
 ```sql {.bad}
 WITH RECURSIVE
@@ -2912,8 +3003,9 @@ WITH RECURSIVE
 SELECT * FROM T1
 ```
 
-The following query is disallowed because the self-reference in the
-anchor subquery is allowed only in the recursive subquery.
+The following recursive CTE is disallowed because the
+self-reference to `T1` is in the base term. Self references are only allowed in
+the iterative term.
 
 ```sql {.bad}
 WITH RECURSIVE
@@ -2921,8 +3013,8 @@ WITH RECURSIVE
 SELECT * FROM T1
 ```
 
-The following query is disallowed because there are multiple self-references in
-the recursive subquery when there must only be one.
+The following recursive CTE is disallowed because there are multiple
+self-references in the iterative term when there must only be one.
 
 ```sql {.bad}
 WITH RECURSIVE
@@ -2930,8 +3022,8 @@ WITH RECURSIVE
 SELECT * FROM T1
 ```
 
-The following query is disallowed because there is a self-reference within the
-subquery.
+The following recursive CTE is disallowed because the self-reference is
+inside an [expression subquery][expression-subquery-concepts]
 
 ```sql {.bad}
 WITH RECURSIVE
@@ -2939,29 +3031,29 @@ WITH RECURSIVE
 SELECT * FROM T1
 ```
 
-The following query is disallowed because there is a self-reference as an
-argument to a table-valued function (TVF).
+The following recursive CTE is disallowed because there is a
+self-reference as an argument to a table-valued function (TVF).
 
 ```sql {.bad}
 WITH RECURSIVE
   T1 AS (
     (SELECT 1 AS n) UNION ALL
-    (SELECT * FROM MY_TVF(T1))
+    (SELECT * FROM MY_TVF(T1)))
 SELECT * FROM T1;
 ```
 
-The following query is disallowed because there is a self-reference as input
-to an outer join.
+The following recursive CTE is disallowed because there is a
+self-reference as input to an outer join.
 
 ```sql {.bad}
 WITH RECURSIVE
-  T1 AS (
-    (SELECT 1 AS n) UNION ALL
-    (SELECT * T1 FULL OUTER JOIN some_other_table USING (n))
+  T0 AS (SELECT 1 AS n),
+  T1 AS ((SELECT 1 AS n) UNION ALL (SELECT * FROM T1 FULL OUTER JOIN T0 USING (n)))
 SELECT * FROM T1;
 ```
 
-The following query is disallowed due to multiple self-references.
+The following recursive CTE is disallowed due to multiple
+self-references.
 
 ```sql {.bad}
 WITH RECURSIVE
@@ -2971,7 +3063,8 @@ WITH RECURSIVE
 SELECT * FROM T1;
 ```
 
-The following query is disallowed due to illegal aggregation.
+The following recursive CTE is disallowed due to illegal
+aggregation.
 
 ```sql {.bad}
 WITH RECURSIVE
@@ -2981,8 +3074,8 @@ WITH RECURSIVE
 SELECT * FROM T1;
 ```
 
-The following query is disallowed due to an illegal analytic function
-`OVER` clause.
+The following recursive CTE is disallowed due to an illegal
+analytic function `OVER` clause.
 
 ```sql {.bad}
 WITH RECURSIVE
@@ -2992,7 +3085,8 @@ WITH RECURSIVE
 SELECT n FROM T1;
 ```
 
-The following query is disallowed due to an illegal `LIMIT` clause.
+The following recursive CTE is disallowed due to an illegal
+`LIMIT` clause.
 
 ```sql {.bad}
 WITH RECURSIVE
@@ -3000,7 +3094,8 @@ WITH RECURSIVE
 SELECT * FROM T1;
 ```
 
-The following query is disallowed due to an illegal `ORDER BY` clause.
+The following recursive CTE is disallowed due to an illegal
+`ORDER BY` clause.
 
 ```sql {.bad}
 WITH RECURSIVE
@@ -3008,12 +3103,228 @@ WITH RECURSIVE
 SELECT * FROM T1;
 ```
 
-The following query is disallowed due to an illegal `ORDER BY` clause.
+The following recursive CTE is disallowed due to an illegal
+`ORDER BY` clause.
 
 ```sql {.bad}
 WITH RECURSIVE
   T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n + 1 FROM T1) ORDER BY n)
 SELECT * FROM T1;
+```
+
+The following recursive CTE is disallowed because table `T1` can't be
+recursively referenced from inside an inner `WITH` clause
+
+```sql {.bad}
+WITH RECURSIVE
+  T1 AS ((SELECT 1 AS n) UNION ALL (WITH t AS (SELECT n FROM T1) SELECT * FROM t))
+SELECT * FROM T1
+```
+
+### CTE rules and constraints 
+<a id="cte_rules"></a>
+
+Common table exprpessions (CTEs) can be referenced inside the query expression
+that contains the `WITH` clause.
+
+##### General rules 
+<a id="cte_general_rules"></a>
+
+Here are some general rules and constraints to consider when working with CTEs:
+
++ Each CTE in the same `WITH` clause must have a unique name.
++ You must include the [`RECURSIVE` keyword][recursive-keyword] keyword if the
+  `WITH` clause contains a recursive CTE.
++ The [`RECURSIVE` keyword][recursive-keyword] in
+  the `WITH` clause changes the visibility of CTEs to other CTEs in the
+  same `WITH` clause. You can learn more [here][recursive-keyword].
++ A local CTE overrides an outer CTE or table with the same name.
++ A CTE on a subquery may not reference correlated columns from the outer query.
+
+##### Base term rules 
+<a id="base_term_rules"></a>
+
+The following rules apply to the base term in a recursive CTE:
+
++ The base term is required to be non-recursive.
++ The base term determines the names and types of all of the
+  table columns.
+
+##### Iterative term rules 
+<a id="recursive_cte_rules"></a>
+
+The following rules apply to the iterative term in a recursive CTE:
+
++ The iterative term must include exactly one reference to the
+  recursively-defined table in the base term.
++ The iterative term must contain the same number of columns as the
+  base term, and the type of each column must be implicitly coercible to
+  the type of the corresponding column in the base term.
++ A recursive table reference cannot be used as an operand to a `FULL JOIN`,
+  a right operand to a `LEFT JOIN`, or a left operand to a `RIGHT JOIN`.
++ A recursive table reference cannot be used with the `TABLESAMPLE` operator.
++ A recursive table reference cannot be used as an operand to a
+  table-valued function (TVF).
+
+The following rules apply to a subquery inside an iterative term:
+
++ A subquery with a recursive table reference must be a `SELECT` expression,
+  not a set operation, such as `UNION ALL`.
++ A subquery cannot contain, directly or indirectly, a
+  recursive table reference anywhere outside of its `FROM` clause.
++ A subquery with a recursive table reference cannot contain an `ORDER BY` or
+  `LIMIT` clause.
++ A subquery with a recursive table reference cannot invoke aggregate functions.
++ A subquery with a recursive table reference cannot invoke analytic functions.
++ A subquery with a recursive table reference cannot contain the
+  `DISTINCT` keyword or
+  `GROUP BY` clause. To filter
+  duplicates, use `UNION DISTINCT` in the top-level set operation,
+  instead.
+
+### CTE visibility 
+<a id="cte_visibility"></a>
+
+The visibility of a common table expression (CTE) within a query expression
+is determined by whether or not you add the `RECURSIVE` keyword to the
+`WITH` clause where the CTE was defined. You can learn more about these
+differences in the following sections.
+
+#### Visibility of CTEs in a `WITH` clause with the `RECURSIVE` keyword
+
+When you include the `RECURSIVE` keyword, references between CTEs in the `WITH`
+clause can go backwards and forwards. Cycles are not allowed.
+
+This is what happens when you have two CTEs that reference
+themselves or each other in a `WITH` clause with the `RECURSIVE`
+keyword. Assume that `A` is the first CTE and `B` is the second
+CTE in the clause:
+
++ A references A = Valid
++ A references B = Valid
++ B references A = Valid
++ A references B references A = Invalid (cycles are not allowed)
+
+`A` can reference itself because self-references are supported:
+
+```sql
+WITH RECURSIVE
+  A AS (SELECT 1 AS n UNION ALL (SELECT n + 1 FROM A WHERE n < 3))
+SELECT * FROM A
+
++---+
+| n |
++---+
+| 1 |
+| 2 |
+| 3 |
++---+
+```
+
+`A` can reference `B` because references between CTEs can go forwards:
+
+```sql
+WITH RECURSIVE
+  A AS (SELECT * FROM B),
+  B AS (SELECT 1 AS n)
+SELECT * FROM B
+
++---+
+| n |
++---+
+| 1 |
++---+
+```
+
+`B` can reference `A` because references between CTEs can go backwards:
+
+```sql
+WITH RECURSIVE
+  A AS (SELECT 1 AS n),
+  B AS (SELECT * FROM A)
+SELECT * FROM B
+
++---+
+| n |
++---+
+| 1 |
++---+
+```
+
+This produces an error. `A` and `B` reference each other, which creates a cycle:
+
+```sql
+WITH RECURSIVE
+  A AS (SELECT * FROM B),
+  B AS (SELECT * FROM A)
+SELECT * FROM B
+
+-- Error
+```
+
+#### Visibility of CTEs in a `WITH` clause without the `RECURSIVE` keyword
+
+When you don't include the `RECURSIVE` keyword in the `WITH` clause,
+references between CTEs in the clause can go backward but not forward.
+
+This is what happens when you have two CTEs that reference
+themselves or each other in a `WITH` clause without
+the `RECURSIVE` keyword. Assume that `A` is the first CTE and `B`
+is the second CTE in the clause:
+
++ A references A = Invalid
++ A references B = Invalid
++ B references A = Valid
++ A references B references A = Invalid (cycles are not allowed)
+
+This produces an error. `A` cannot reference itself because self-references are
+not supported:
+
+```sql
+WITH
+  A AS (SELECT 1 AS n UNION ALL (SELECT n + 1 FROM A WHERE n < 3))
+SELECT * FROM A
+
+-- Error
+```
+
+This produces an error. `A` cannot reference `B` because references between
+CTEs can go backwards but not forwards:
+
+```sql
+WITH
+  A AS (SELECT * FROM B),
+  B AS (SELECT 1 AS n)
+SELECT * FROM B
+
+-- Error
+```
+
+`B` can reference `A` because references between CTEs can go backwards:
+
+```sql
+WITH
+  A AS (SELECT 1 AS n),
+  B AS (SELECT * FROM A)
+SELECT * FROM B
+
++---+
+| n |
++---+
+| 1 |
++---+
+```
+
+This produces an error. `A` and `B` reference each other, which creates a
+cycle:
+
+```sql
+WITH
+  A AS (SELECT * FROM B),
+  B AS (SELECT * FROM A)
+SELECT * FROM B
+
+-- Error
 ```
 
 ## WITH ANONYMIZATION clause 
@@ -3314,40 +3625,6 @@ GROUP BY BirthYear;
 The alias `BirthYear` is not ambiguous because it resolves to the same
 underlying column, `Singers.BirthYear`.
 
-### Implicit aliases 
-<a id="implicit_aliases"></a>
-
-In the `SELECT` list, if there is an expression that does not have an explicit
-alias, ZetaSQL assigns an implicit alias according to the following
-rules. There can be multiple columns with the same alias in the `SELECT` list.
-
-+  For identifiers, the alias is the identifier. For example, `SELECT abc`
-   implies `AS abc`.
-+  For path expressions, the alias is the last identifier in the path. For
-   example, `SELECT abc.def.ghi` implies `AS ghi`.
-+  For field access using the "dot" member field access operator, the alias is
-   the field name. For example, `SELECT (struct_function()).fname` implies `AS
-   fname`.
-
-In all other cases, there is no implicit alias, so the column is anonymous and
-cannot be referenced by name. The data from that column will still be returned
-and the displayed query results may have a generated label for that column, but
-the label cannot be used like an alias.
-
-In a `FROM` clause, `from_item`s are not required to have an alias. The
-following rules apply:
-
-+  If there is an expression that does not have an explicit alias,
-   ZetaSQL assigns an implicit alias in these cases:
-   +  For identifiers, the alias is the identifier. For example, `FROM abc`
-         implies `AS abc`.
-   +  For path expressions, the alias is the last identifier in the path. For
-      example, `FROM abc.def.ghi` implies `AS ghi`
-   +  The column produced using `WITH OFFSET` has the implicit
-      alias `offset`.
-+  Table subqueries do not have implicit aliases.
-+  `FROM UNNEST(x)` does not have an implicit alias.
-
 ### Range variables 
 <a id="range_variables"></a>
 
@@ -3613,8 +3890,10 @@ Results:
 (empty)
 ```
 
-[language-territory-information]: http://www.unicode.org/cldr/charts/latest/supplemental/language_territory_information.html
+[iana-language-subtag-registry]: https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry
+[unicode-locale-identifier]: https://www.unicode.org/reports/tr35/#Unicode_locale_identifier
 [tr35-collation-settings]: http://www.unicode.org/reports/tr35/tr35-collation.html#Setting_Options
+[tr10-collation-algorithm]: http://www.unicode.org/reports/tr10/
 
 [implicit-aliases]: #implicit_aliases
 [using-aliases]: #using_aliases
@@ -3626,18 +3905,22 @@ Results:
 [roster-table]: #roster_table
 [playerstats-table]: #playerstats_table
 [teammascot-table]: #teammascot_table
-[stratefied-sampling]: #stratefied_sampling
+[stratified-sampling]: #stratified_sampling
 [scaling-weight]: #scaling_weight
 [query-joins]: #join_types
 [ambiguous-aliases]: #ambiguous_aliases
-[with_clause]: #with_clause
+[with-clause]: #with_clause
+[cte-rules]: #cte_rules
+[non-recursive-cte]: #simple_cte
 [unnest-operator]: #unnest_operator
+[cte-visibility]: #cte_visibility
 
 [unpivot-operator]: #unpivot_operator
 [tablesample-operator]: #tablesample_operator
-[with-clause-anchor-rules]: #with_clause_anchor_rules
-[with-clause-recursive-rules]: #with_clause_recursive_rules
-[with-clause-recursive]: #with_clause_recursive
+[recursive-keyword]: #recursive_keyword
+[base-term-rules]: #base_term_rules
+[recursive-cte-rules]: #recursive_cte_rules
+[recursive-cte]: #recursive_cte
 [analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
 [query-window-specification]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#def_window_spec
 [named-window-example]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#def_use_named_window

@@ -119,6 +119,48 @@ ARRAY<STRUCT<
  {4, NULL, NULL}]
 ==
 
+[prepare_database]
+CREATE TABLE DeterministicKeysetTable AS
+SELECT
+  1 AS kt_id,
+  FROM_BASE64('CIGYpMkDEoQBCngKMHR5cGUuZ29vZ2xlYXBpcy5jb20vZ29vZ2xlLmNyeXB0by50aW5rLkFlc1NpdktleRJCEkBKAovGAOp+siYkuWvTYKXRW6V/3Z5en87KNgswc+8TKZUzumbh/qVtCYQ8qHo7li/fYDx43MoBYwbfUPhv3//xGAEQARiBmKTJAyAB') AS keyset,
+  'abc' AS aad_string,
+  b'\x00\x01\x02' AS aad_bytes
+UNION ALL
+SELECT
+  2,
+  FROM_BASE64('CL3/4a8DEoQBCngKMHR5cGUuZ29vZ2xlYXBpcy5jb20vZ29vZ2xlLmNyeXB0by50aW5rLkFlc1NpdktleRJCEkAnQis9RHtvntHepDCBDr/F6oPv3hehuA845ks9Q1l5BgJm3Ypu9U8sAhNnOjJuzaMcgOmOfiT9iQJCdLxb//O0GAEQARi9/+GvAyAB'),
+  '',
+  b''
+UNION ALL
+SELECT
+  3,
+  FROM_BASE64('CKaF2KwCEoQBCngKMHR5cGUuZ29vZ2xlYXBpcy5jb20vZ29vZ2xlLmNyeXB0by50aW5rLkFlc1NpdktleRJCEkDx0cmGLyknWx/5rcyRNeacQYtEGeASUMfadtGnPe/MMCtg0BLO6YiRnugTkzuWtR09hWeRoo1+nOfyJTx8HAfwGAEQARimhdisAiAB'),
+  REPEAT('abc', 10),
+  REPEAT(b'abc', 10)
+--
+ARRAY<STRUCT<kt_id INT64, keyset BYTES, aad_string STRING, aad_bytes BYTES>>[
+  {
+    1,
+    b"\x08\x81\x98\xa4\xc9\x03\x12\x84\x01\x0ax\x0a0type.googleapis.com/google.crypto.tink.AesSivKey\x12B\x12@J\x02\x8b\xc6\x00\xea~\xb2&$\xb9k\xd3`\xa5\xd1[\xa5\x7f\xdd\x9e^\x9f\xce\xca6\x0b0s\xef\x13)\x953\xbaf\xe1\xfe\xa5m\x09\x84<\xa8z;\x96/\xdf`<x\xdc\xca\x01c\x06\xdfP\xf8o\xdf\xff\xf1\x18\x01\x10\x01\x18\x81\x98\xa4\xc9\x03 \x01",
+    "abc",
+    b"\x00\x01\x02"
+  },
+  {
+    2,
+    b"\x08\xbd\xff\xe1\xaf\x03\x12\x84\x01\x0ax\x0a0type.googleapis.com/google.crypto.tink.AesSivKey\x12B\x12@'B+=D{o\x9e\xd1\xde\xa40\x81\x0e\xbf\xc5\xea\x83\xef\xde\x17\xa1\xb8\x0f8\xe6K=CYy\x06\x02f\xdd\x8an\xf5O,\x02\x13g:2n\xcd\xa3\x1c\x80\xe9\x8e~$\xfd\x89\x02Bt\xbc[\xff\xf3\xb4\x18\x01\x10\x01\x18\xbd\xff\xe1\xaf\x03 \x01",
+    "",
+    b""
+  },
+  {
+    3,
+    b"\x08\xa6\x85\xd8\xac\x02\x12\x84\x01\x0ax\x0a0type.googleapis.com/google.crypto.tink.AesSivKey\x12B\x12@\xf1\xd1\xc9\x86/)'[\x1f\xf9\xad\xcc\x915\xe6\x9cA\x8bD\x19\xe0\x12P\xc7\xdav\xd1\xa7=\xef\xcc0+`\xd0\x12\xce\xe9\x88\x91\x9e\xe8\x13\x93;\x96\xb5\x1d=\x85g\x91\xa2\x8d~\x9c\xe7\xf2%<|\x1c\x07\xf0\x18\x01\x10\x01\x18\xa6\x85\xd8\xac\x02 \x01",
+    "abcabcabcabcabcabcabcabcabcabc",
+    b"abcabcabcabcabcabcabcabcabcabc"
+  }
+]
+==
+
 [name=encrypt_decrypt_roundtrip]
 [required_features=ENCRYPTION]
 SELECT
@@ -344,5 +386,186 @@ SELECT
   SAFE.AEAD.DECRYPT_BYTES(b'', b'', b''),
   -- Bad ciphertext/aad for the keyset
   SAFE.AEAD.DECRYPT_BYTES(KEYS.NEW_KEYSET('AEAD_AES_GCM_256'), b'', b'')
+--
+ARRAY<STRUCT<BYTES, BYTES, BYTES>>[{NULL, NULL, NULL}]
+==
+
+[name=deterministic_encrypt_decrypt_roundtrip]
+[required_features=ENCRYPTION]
+SELECT
+  kt_id,
+  pt_id,
+  plaintext_string,
+  plaintext_bytes,
+  DETERMINISTIC_DECRYPT_STRING(
+    keyset,
+    DETERMINISTIC_ENCRYPT(keyset, plaintext_string, aad_string),
+    aad_string),
+  DETERMINISTIC_DECRYPT_BYTES(
+    keyset,
+    DETERMINISTIC_ENCRYPT(keyset, plaintext_bytes, aad_bytes),
+    aad_bytes),
+  -- Decrypting the string as bytes is fine
+  DETERMINISTIC_DECRYPT_BYTES(
+    keyset,
+    DETERMINISTIC_ENCRYPT(keyset, CAST(plaintext_string AS BYTES), aad_bytes),
+    aad_bytes)
+FROM DeterministicKeysetTable
+CROSS JOIN PlaintextTable
+ORDER BY 1, 2
+--
+ARRAY<STRUCT<
+        kt_id INT64,
+        pt_id INT64,
+        plaintext_string STRING,
+        plaintext_bytes BYTES,
+        STRING,
+        BYTES,
+        BYTES
+      >>
+[
+  {1, 1, "plaintext", b"plaintext", "plaintext", b"plaintext", b"plaintext"},
+  {
+    1,
+    2,
+    "жэчыщчыщя",
+    b"\x00\x01\x02\x03\x03\xff\xfe\xfd",
+    "жэчыщчыщя",
+    b"\x00\x01\x02\x03\x03\xff\xfe\xfd",
+    b"\xd0\xb6\xd1\x8d\xd1\x87\xd1\x8b\xd1\x89\xd1\x87\xd1\x8b\xd1\x89\xd1\x8f"
+  },
+  {1, 3, "", b"", "", b"", b""},
+  {1, 4, NULL, NULL, NULL, NULL, NULL},
+  {2, 1, "plaintext", b"plaintext", "plaintext", b"plaintext", b"plaintext"},
+  {
+    2,
+    2,
+    "жэчыщчыщя",
+    b"\x00\x01\x02\x03\x03\xff\xfe\xfd",
+    "жэчыщчыщя",
+    b"\x00\x01\x02\x03\x03\xff\xfe\xfd",
+    b"\xd0\xb6\xd1\x8d\xd1\x87\xd1\x8b\xd1\x89\xd1\x87\xd1\x8b\xd1\x89\xd1\x8f"
+  },
+  {2, 3, "", b"", "", b"", b""},
+  {2, 4, NULL, NULL, NULL, NULL, NULL},
+  {3, 1, "plaintext", b"plaintext", "plaintext", b"plaintext", b"plaintext"},
+  {
+    3,
+    2,
+    "жэчыщчыщя",
+    b"\x00\x01\x02\x03\x03\xff\xfe\xfd",
+    "жэчыщчыщя",
+    b"\x00\x01\x02\x03\x03\xff\xfe\xfd",
+    b"\xd0\xb6\xd1\x8d\xd1\x87\xd1\x8b\xd1\x89\xd1\x87\xd1\x8b\xd1\x89\xd1\x8f"
+  },
+  {3, 3, "", b"", "", b"", b""},
+  {3, 4, NULL, NULL, NULL, NULL, NULL}
+]
+==
+
+[name=deterministic_encrypt_different_outputs]
+[required_features=ENCRYPTION]
+SELECT COUNT(DISTINCT DETERMINISTIC_ENCRYPT(keyset, 'plaintext', aad_string))
+FROM DeterministicKeysetTable
+--
+ARRAY<STRUCT<INT64>>[{3}]
+==
+
+# Verify that encrypting the same input with the same keyset produces SAME
+# outputs
+[name=deterministic_encrypt_same_keyset_different_outputs]
+[required_features=ENCRYPTION]
+SELECT
+  DETERMINISTIC_ENCRYPT(keyset, 'plaintext', aad_string) =
+    DETERMINISTIC_ENCRYPT(keyset, 'plaintext', aad_string),
+  DETERMINISTIC_ENCRYPT(keyset, b'plaintext', aad_bytes) =
+    DETERMINISTIC_ENCRYPT(keyset, b'plaintext', aad_bytes)
+FROM DeterministicKeysetTable
+GROUP BY 1, 2
+ORDER BY 1, 2
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{true, true}]
+==
+
+[required_features=ENCRYPTION]
+[name=deterministic_decrypt_invalid_keyset]
+SELECT
+  DETERMINISTIC_DECRYPT_STRING(
+    b'', DETERMINISTIC_ENCRYPT(keyset, 'plaintext', aad_string), aad_string
+  )
+FROM DeterministicKeysetTable
+--
+ERROR: generic::out_of_range: DETERMINISTIC_DECRYPT_STRING failed: Creation of Deterministic AEAD primitive failed: A valid keyset must contain at least one key.
+==
+
+[required_features=ENCRYPTION]
+[name=deterministic_decrypt_invalid_ciphertext]
+SELECT
+  DETERMINISTIC_DECRYPT_STRING(keyset, b'123', aad_string)
+FROM DeterministicKeysetTable
+--
+ERROR: generic::out_of_range: DETERMINISTIC_DECRYPT_STRING failed: decryption failed
+==
+
+[required_features=ENCRYPTION]
+[name=deterministic_decrypt_invalid_additional_data]
+SELECT
+  DETERMINISTIC_DECRYPT_STRING(
+    keyset, DETERMINISTIC_ENCRYPT(keyset, 'plaintext', aad_string), 'different aad'
+  )
+FROM DeterministicKeysetTable
+--
+ERROR: generic::out_of_range: DETERMINISTIC_DECRYPT_STRING failed: decryption failed
+==
+
+[required_features=ENCRYPTION]
+[name=deterministic_decrypt_bytes_invalid_additional_data]
+SELECT
+  DETERMINISTIC_DECRYPT_BYTES(
+    keyset, DETERMINISTIC_ENCRYPT(keyset, b'plaintext', aad_bytes), b'different aad'
+  )
+FROM DeterministicKeysetTable
+--
+ERROR: generic::out_of_range: DETERMINISTIC_DECRYPT_BYTES failed: decryption failed
+==
+
+[required_features=ENCRYPTION]
+[name=deterministic_decrypt_invalid_string]
+SELECT
+  DETERMINISTIC_DECRYPT_STRING(
+    keyset, DETERMINISTIC_ENCRYPT(keyset, b'\xFF\xFE', CAST(aad_string AS BYTES)),
+    aad_string
+  )
+FROM DeterministicKeysetTable
+--
+ERROR: generic::out_of_range: DETERMINISTIC_DECRYPT_STRING failed: Decrypted plaintext is not a valid UTF-8 string. To decrypt to BYTES, use DETERMINISTIC_DECRYPT_BYTES
+==
+
+# The WITH clause should have exactly-once semantics for evaluation of the
+# expression.
+[required_features=ENCRYPTION]
+[name=deterministic_encrypt_with_clause]
+WITH T AS (
+  SELECT DETERMINISTIC_ENCRYPT(keyset, plaintext_string, aad_string) AS ciphertext
+  FROM DeterministicKeysetTable
+  CROSS JOIN PlaintextTable
+  WHERE kt_id = 1 AND pt_id = 1
+)
+SELECT ciphertext = ciphertext
+FROM T
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+# Various error cases with the SAFE version of the functions.
+[required_features=ENCRYPTION,V_1_2_SAFE_FUNCTION_CALL]
+[name=deterministic_safe_functions]
+SELECT
+  -- Bad keyset
+  SAFE.DETERMINISTIC_ENCRYPT(b'', b'', b''),
+  -- Bad keyset
+  SAFE.DETERMINISTIC_DECRYPT_BYTES(b'', b'', b''),
+  -- Bad ciphertext/aad for the keyset
+  SAFE.DETERMINISTIC_DECRYPT_BYTES(KEYS.NEW_KEYSET('DETERMINISTIC_AEAD_AES_SIV_CMAC_256'), b'', b'')
 --
 ARRAY<STRUCT<BYTES, BYTES, BYTES>>[{NULL, NULL, NULL}]

@@ -1,5 +1,5 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkExtension,zetasql_test.KitchenSinkPB]
+[load_proto_names=zetasql_test__.KitchenSinkExtension,zetasql_test__.KitchenSinkPB]
 
 [prepare_database]
 CREATE TABLE BasicTable AS
@@ -69,7 +69,7 @@ CREATE TABLE ProtoTable AS
 SELECT cast(1 as int64) as primary_key,
        cast('''int64_key_1: 11
                int64_key_2: 12'''
-            as `zetasql_test.KitchenSinkPB`) as proto_value
+            as `zetasql_test__.KitchenSinkPB`) as proto_value
 UNION ALL
 SELECT 2,
   '''
@@ -78,18 +78,18 @@ SELECT 2,
   repeated_int64_val: 100
   repeated_int64_val: 101
   nested_repeated_value: <
-    [zetasql_test.KitchenSinkPB.nested_extension_int64]: 200
+    [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 200
   >
   nested_repeated_value: <
-    [zetasql_test.KitchenSinkPB.nested_extension_int64]: 201
+    [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
   >
-  [zetasql_test.KitchenSinkExtension.repeated_extension]: <value: 'value1'>
-  [zetasql_test.KitchenSinkExtension.repeated_extension]: <value: 'value2'>
+  [zetasql_test__.KitchenSinkExtension.repeated_extension]: <value: 'value1'>
+  [zetasql_test__.KitchenSinkExtension.repeated_extension]: <value: 'value2'>
   '''
 --
 ARRAY<STRUCT<
         primary_key INT64,
-        proto_value PROTO<zetasql_test.KitchenSinkPB>
+        proto_value PROTO<zetasql_test__.KitchenSinkPB>
       >>
 [{1,
   {
@@ -103,15 +103,15 @@ ARRAY<STRUCT<
     repeated_int64_val: 100
     repeated_int64_val: 101
     nested_repeated_value {
-      [zetasql_test.KitchenSinkPB.nested_extension_int64]: 200
+      [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 200
     }
     nested_repeated_value {
-      [zetasql_test.KitchenSinkPB.nested_extension_int64]: 201
+      [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
     }
-    [zetasql_test.KitchenSinkExtension.repeated_extension] {
+    [zetasql_test__.KitchenSinkExtension.repeated_extension] {
       value: "value1"
     }
-    [zetasql_test.KitchenSinkExtension.repeated_extension] {
+    [zetasql_test__.KitchenSinkExtension.repeated_extension] {
       value: "value2"
     }
   }}]
@@ -540,7 +540,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -553,15 +553,15 @@ STRUCT<
         int64_key_2: 22
         repeated_int64_val: 101
         nested_repeated_value {
-          [zetasql_test.KitchenSinkPB.nested_extension_int64]: 200
+          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 200
         }
         nested_repeated_value {
-          [zetasql_test.KitchenSinkPB.nested_extension_int64]: 201
+          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
         }
-        [zetasql_test.KitchenSinkExtension.repeated_extension] {
+        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
           value: "value1"
         }
-        [zetasql_test.KitchenSinkExtension.repeated_extension] {
+        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
           value: "value2"
         }
       }}]}
@@ -571,7 +571,7 @@ STRUCT<
 [name=nested_delete_repeated_extension_proto_field]
 [required_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
 UPDATE ProtoTable SET
-  (DELETE proto_value.(zetasql_test.KitchenSinkExtension.repeated_extension) x
+  (DELETE proto_value.(zetasql_test__.KitchenSinkExtension.repeated_extension) x
    WHERE x.value = "value1")
 WHERE True
 --
@@ -581,7 +581,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -595,12 +595,12 @@ STRUCT<
         repeated_int64_val: 100
         repeated_int64_val: 101
         nested_repeated_value {
-          [zetasql_test.KitchenSinkPB.nested_extension_int64]: 200
+          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 200
         }
         nested_repeated_value {
-          [zetasql_test.KitchenSinkPB.nested_extension_int64]: 201
+          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
         }
-        [zetasql_test.KitchenSinkExtension.repeated_extension] {
+        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
           value: "value2"
         }
       }}]}
@@ -1180,7 +1180,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -1194,15 +1194,15 @@ STRUCT<
         repeated_int64_val: 500
         repeated_int64_val: 101
         nested_repeated_value {
-          [zetasql_test.KitchenSinkPB.nested_extension_int64]: 200
+          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 200
         }
         nested_repeated_value {
-          [zetasql_test.KitchenSinkPB.nested_extension_int64]: 201
+          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
         }
-        [zetasql_test.KitchenSinkExtension.repeated_extension] {
+        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
           value: "value1"
         }
-        [zetasql_test.KitchenSinkExtension.repeated_extension] {
+        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
           value: "value2"
         }
       }}]}
@@ -1212,8 +1212,8 @@ STRUCT<
 [name=nested_update_repeated_extension_proto_field]
 [required_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
 UPDATE ProtoTable SET
-  (UPDATE proto_value.(zetasql_test.KitchenSinkExtension.repeated_extension) x
-   SET x = CAST('value: "new_value"' AS zetasql_test.KitchenSinkExtension)
+  (UPDATE proto_value.(zetasql_test__.KitchenSinkExtension.repeated_extension) x
+   SET x = CAST('value: "new_value"' AS zetasql_test__.KitchenSinkExtension)
    WHERE x.value = "value1")
 WHERE True
 --
@@ -1223,7 +1223,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -1237,15 +1237,15 @@ STRUCT<
         repeated_int64_val: 100
         repeated_int64_val: 101
         nested_repeated_value {
-          [zetasql_test.KitchenSinkPB.nested_extension_int64]: 200
+          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 200
         }
         nested_repeated_value {
-          [zetasql_test.KitchenSinkPB.nested_extension_int64]: 201
+          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
         }
-        [zetasql_test.KitchenSinkExtension.repeated_extension] {
+        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
           value: "new_value"
         }
-        [zetasql_test.KitchenSinkExtension.repeated_extension] {
+        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
           value: "value2"
         }
       }}]}
@@ -1256,9 +1256,9 @@ STRUCT<
 UPDATE ProtoTable SET
   (UPDATE proto_value.nested_repeated_value
    SET nested_repeated_value.
-         (zetasql_test.KitchenSinkPB.nested_extension_int64) = 1000
+         (zetasql_test__.KitchenSinkPB.nested_extension_int64) = 1000
    WHERE nested_repeated_value.
-           (zetasql_test.KitchenSinkPB.nested_extension_int64) = 200)
+           (zetasql_test__.KitchenSinkPB.nested_extension_int64) = 200)
 WHERE True
 --
 STRUCT<
@@ -1267,7 +1267,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -1281,15 +1281,15 @@ STRUCT<
         repeated_int64_val: 100
         repeated_int64_val: 101
         nested_repeated_value {
-          [zetasql_test.KitchenSinkPB.nested_extension_int64]: 1000
+          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 1000
         }
         nested_repeated_value {
-          [zetasql_test.KitchenSinkPB.nested_extension_int64]: 201
+          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
         }
-        [zetasql_test.KitchenSinkExtension.repeated_extension] {
+        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
           value: "value1"
         }
-        [zetasql_test.KitchenSinkExtension.repeated_extension] {
+        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
           value: "value2"
         }
       }}]}
@@ -1963,7 +1963,7 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
@@ -1983,15 +1983,15 @@ STRUCT<
         repeated_int64_val: 600
         repeated_int64_val: 700
         nested_repeated_value {
-          [zetasql_test.KitchenSinkPB.nested_extension_int64]: 200
+          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 200
         }
         nested_repeated_value {
-          [zetasql_test.KitchenSinkPB.nested_extension_int64]: 201
+          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
         }
-        [zetasql_test.KitchenSinkExtension.repeated_extension] {
+        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
           value: "value1"
         }
-        [zetasql_test.KitchenSinkExtension.repeated_extension] {
+        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
           value: "value2"
         }
       }}]}
@@ -2001,10 +2001,10 @@ STRUCT<
 [name=nested_insert_repeated_extension_proto_field]
 [required_features=V_1_2_PROTO_EXTENSIONS_WITH_SET]
 UPDATE ProtoTable SET
-  (INSERT proto_value.(zetasql_test.KitchenSinkExtension.repeated_extension)
-   VALUES (CAST('value: "new_value1"' AS zetasql_test.KitchenSinkExtension)),
-          (CAST('value: "new_value2"' AS zetasql_test.KitchenSinkExtension)),
-          (CAST('value: "new_value3"' AS zetasql_test.KitchenSinkExtension)))
+  (INSERT proto_value.(zetasql_test__.KitchenSinkExtension.repeated_extension)
+   VALUES (CAST('value: "new_value1"' AS zetasql_test__.KitchenSinkExtension)),
+          (CAST('value: "new_value2"' AS zetasql_test__.KitchenSinkExtension)),
+          (CAST('value: "new_value3"' AS zetasql_test__.KitchenSinkExtension)))
 WHERE True
 --
 STRUCT<
@@ -2013,19 +2013,19 @@ STRUCT<
 >{2,
   ARRAY<STRUCT<
           primary_key INT64,
-          proto_value PROTO<zetasql_test.KitchenSinkPB>
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
         >>
   [{1,
       {
         int64_key_1: 11
         int64_key_2: 12
-        [zetasql_test.KitchenSinkExtension.repeated_extension] {
+        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
           value: "new_value1"
         }
-        [zetasql_test.KitchenSinkExtension.repeated_extension] {
+        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
           value: "new_value2"
         }
-        [zetasql_test.KitchenSinkExtension.repeated_extension] {
+        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
           value: "new_value3"
         }
       }},
@@ -2036,24 +2036,24 @@ STRUCT<
         repeated_int64_val: 100
         repeated_int64_val: 101
         nested_repeated_value {
-          [zetasql_test.KitchenSinkPB.nested_extension_int64]: 200
+          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 200
         }
         nested_repeated_value {
-          [zetasql_test.KitchenSinkPB.nested_extension_int64]: 201
+          [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
         }
-        [zetasql_test.KitchenSinkExtension.repeated_extension] {
+        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
           value: "value1"
         }
-        [zetasql_test.KitchenSinkExtension.repeated_extension] {
+        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
           value: "value2"
         }
-        [zetasql_test.KitchenSinkExtension.repeated_extension] {
+        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
           value: "new_value1"
         }
-        [zetasql_test.KitchenSinkExtension.repeated_extension] {
+        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
           value: "new_value2"
         }
-        [zetasql_test.KitchenSinkExtension.repeated_extension] {
+        [zetasql_test__.KitchenSinkExtension.repeated_extension] {
           value: "new_value3"
         }
       }}]}

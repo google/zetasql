@@ -23,6 +23,7 @@ import static org.junit.Assert.fail;
 
 import com.google.zetasql.ZetaSQLOptions.ErrorMessageMode;
 import com.google.zetasql.ZetaSQLOptions.ParameterMode;
+import com.google.zetasql.ZetaSQLOptions.ParseLocationRecordType;
 import com.google.zetasql.ZetaSQLOptions.ResolvedASTRewrite;
 import com.google.zetasql.ZetaSQLOptionsProto.AnalyzerOptionsProto;
 import com.google.zetasql.ZetaSQLType.TypeKind;
@@ -42,14 +43,18 @@ public class AnalyzerOptionsTest {
   public void testRecordParseLocations() {
     FileDescriptorSetsBuilder builder = new FileDescriptorSetsBuilder();
     AnalyzerOptions options = new AnalyzerOptions();
-    assertThat(options.getRecordParseLocations()).isFalse();
+    assertThat(options.getParseLocationRecordType())
+        .isEqualTo(ParseLocationRecordType.PARSE_LOCATION_RECORD_NONE);
     AnalyzerOptionsProto proto = options.serialize(builder);
-    assertThat(proto.getRecordParseLocations()).isFalse();
+    assertThat(proto.getParseLocationRecordType())
+        .isEqualTo(ParseLocationRecordType.PARSE_LOCATION_RECORD_NONE);
     checkDeserialize(proto, builder.getDescriptorPools());
-    options.setRecordParseLocations(true);
-    assertThat(options.getRecordParseLocations()).isTrue();
+    options.setParseLocationRecordType(ParseLocationRecordType.PARSE_LOCATION_RECORD_CODE_SEARCH);
+    assertThat(options.getParseLocationRecordType())
+        .isEqualTo(ParseLocationRecordType.PARSE_LOCATION_RECORD_CODE_SEARCH);
     proto = options.serialize(builder);
-    assertThat(proto.getRecordParseLocations()).isTrue();
+    assertThat(proto.getParseLocationRecordType())
+        .isEqualTo(ParseLocationRecordType.PARSE_LOCATION_RECORD_CODE_SEARCH);
     checkDeserialize(proto, builder.getDescriptorPools());
   }
 
@@ -336,7 +341,7 @@ public class AnalyzerOptionsTest {
             "The number of fields of AnalyzerOptionsProto has changed, please also update the "
                 + "serialization code accordingly.")
         .that(AnalyzerOptionsProto.getDescriptor().getFields())
-        .hasSize(20);
+        .hasSize(19);
     assertWithMessage(
             "The number of fields in AnalyzerOptions class has changed, please also update the "
                 + "proto and serialization code accordingly.")

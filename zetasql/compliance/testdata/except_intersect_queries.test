@@ -7,8 +7,8 @@
 [default global_labels=set_operations]
 
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB]
-[load_enum_names=zetasql_test.TestEnum]
+[load_proto_names=zetasql_test__.KitchenSinkPB]
+[load_enum_names=zetasql_test__.TestEnum]
 
 [prepare_database]
 CREATE TABLE Table1 AS
@@ -166,15 +166,15 @@ ARRAY<STRUCT<primary_key INT64,
 # Table with enums, arrays, structs (both values and nulls)
 [prepare_database]
 CREATE TABLE TableComplex1 AS
-SELECT cast(1 as int64) as primary_key, CAST(0 AS `zetasql_test.TestEnum`) as enum_val,
+SELECT cast(1 as int64) as primary_key, CAST(0 AS `zetasql_test__.TestEnum`) as enum_val,
        [0, 0, 0] AS array_val,
        (0, 0) AS struct_val
 UNION ALL
-SELECT 2, CAST(1 AS `zetasql_test.TestEnum`), [1, 1, 1], (1, 1)
+SELECT 2, CAST(1 AS `zetasql_test__.TestEnum`), [1, 1, 1], (1, 1)
 UNION ALL
-SELECT 3, CAST(1 AS `zetasql_test.TestEnum`), [1, 1, 1], (1, 1)
+SELECT 3, CAST(1 AS `zetasql_test__.TestEnum`), [1, 1, 1], (1, 1)
 UNION ALL
-SELECT 4, CAST(1 AS `zetasql_test.TestEnum`), [1, 1, 1], (1, 1)
+SELECT 4, CAST(1 AS `zetasql_test__.TestEnum`), [1, 1, 1], (1, 1)
 UNION ALL
 SELECT 5, NULL, NULL, NULL
 UNION ALL
@@ -182,7 +182,7 @@ SELECT 6, NULL, NULL, NULL
 --
 ARRAY<STRUCT<
         primary_key INT64,
-        enum_val ENUM<zetasql_test.TestEnum>,
+        enum_val ENUM<zetasql_test__.TestEnum>,
         array_val ARRAY<>,
         struct_val STRUCT<INT64, INT64>
       >>
@@ -215,11 +215,11 @@ ARRAY<STRUCT<
 ==
 [prepare_database]
 CREATE TABLE TableComplex2 AS
-SELECT cast(1 as int64) as primary_key, CAST(0 AS `zetasql_test.TestEnum`) as enum_val,
+SELECT cast(1 as int64) as primary_key, CAST(0 AS `zetasql_test__.TestEnum`) as enum_val,
        [0, 0, 0] AS array_val,
        (0, 0) AS struct_val
 UNION ALL
-SELECT 2, CAST(1 AS `zetasql_test.TestEnum`), [1, 1, 1], (1, 1)
+SELECT 2, CAST(1 AS `zetasql_test__.TestEnum`), [1, 1, 1], (1, 1)
 UNION ALL
 SELECT 3, NULL, NULL, NULL
 UNION ALL
@@ -227,7 +227,7 @@ SELECT 4, NULL, NULL, NULL
 --
 ARRAY<STRUCT<
         primary_key INT64,
-        enum_val ENUM<zetasql_test.TestEnum>,
+        enum_val ENUM<zetasql_test__.TestEnum>,
         array_val ARRAY<>,
         struct_val STRUCT<INT64, INT64>
       >>
@@ -1003,7 +1003,7 @@ INTERSECT DISTINCT
 SELECT enum_val FROM TableComplex2
 --
 # SELECT enum column.
-ARRAY<STRUCT<enum_val ENUM<zetasql_test.TestEnum>>>[
+ARRAY<STRUCT<enum_val ENUM<zetasql_test__.TestEnum>>>[
   {TESTENUM0},
   {NULL},
   {TESTENUM1}
@@ -1015,7 +1015,7 @@ SELECT enum_val FROM TableComplex1
 INTERSECT ALL
 SELECT enum_val FROM TableComplex2
 --
-ARRAY<STRUCT<enum_val ENUM<zetasql_test.TestEnum>>>[
+ARRAY<STRUCT<enum_val ENUM<zetasql_test__.TestEnum>>>[
   {TESTENUM0},
   {NULL},
   {NULL},
@@ -1028,7 +1028,7 @@ SELECT enum_val FROM TableComplex1
 EXCEPT DISTINCT
 SELECT enum_val FROM TableComplex2
 --
-ARRAY<STRUCT<enum_val ENUM<zetasql_test.TestEnum>>>[]
+ARRAY<STRUCT<enum_val ENUM<zetasql_test__.TestEnum>>>[]
 ==
 # SELECT enum column.
 [name=except_all_datatype_enum]
@@ -1036,7 +1036,7 @@ SELECT enum_val FROM TableComplex1
 EXCEPT ALL
 SELECT enum_val FROM TableComplex2
 --
-ARRAY<STRUCT<enum_val ENUM<zetasql_test.TestEnum>>>[
+ARRAY<STRUCT<enum_val ENUM<zetasql_test__.TestEnum>>>[
   {TESTENUM1},
   {TESTENUM1}
 ]
@@ -1185,7 +1185,7 @@ ARRAY<STRUCT<bool_val BOOL, int32_val INT32, int64_val INT64>>[]
 ==
 # @nan_01 and @nan_02 are both nans with different bitwise representation.
 [name=intersect_distinct_nan_different_bitwise_representation]
-[parameters=CAST(b"\x08\x00\x10\x00\x49\x01\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test.KitchenSinkPB).double_val as nan_01, CAST(b"\x08\x00\x10\x00\x49\x02\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test.KitchenSinkPB).double_val as nan_02]
+[parameters=CAST(b"\x08\x00\x10\x00\x49\x01\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test__.KitchenSinkPB).double_val as nan_01, CAST(b"\x08\x00\x10\x00\x49\x02\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test__.KitchenSinkPB).double_val as nan_02]
 SELECT * FROM UNNEST([@nan_01])
 INTERSECT DISTINCT
 SELECT * FROM UNNEST([@nan_02]);
@@ -1194,7 +1194,7 @@ ARRAY<STRUCT<DOUBLE>>[{nan}]
 ==
 # @nan_01 and @nan02 are both nans with different bitwise representation.
 [name=except_distinct_nan_different_bitwise_representation_empty1]
-[parameters=CAST(b"\x08\x00\x10\x00\x49\x01\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test.KitchenSinkPB).double_val as nan_01, CAST(b"\x08\x00\x10\x00\x49\x02\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test.KitchenSinkPB).double_val as nan_02]
+[parameters=CAST(b"\x08\x00\x10\x00\x49\x01\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test__.KitchenSinkPB).double_val as nan_01, CAST(b"\x08\x00\x10\x00\x49\x02\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test__.KitchenSinkPB).double_val as nan_02]
 SELECT * FROM UNNEST([@nan_01])
 EXCEPT DISTINCT
 SELECT * FROM UNNEST([@nan_02]);
@@ -1203,7 +1203,7 @@ ARRAY<STRUCT<DOUBLE>>[]
 ==
 # @nan_01 and @nan02 are both nans with different bitwise representation.
 [name=intersect_all_nan_different_bitwise_representation]
-[parameters=CAST(b"\x08\x00\x10\x00\x49\x01\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test.KitchenSinkPB).double_val as nan_01, CAST(b"\x08\x00\x10\x00\x49\x02\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test.KitchenSinkPB).double_val as nan_02]
+[parameters=CAST(b"\x08\x00\x10\x00\x49\x01\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test__.KitchenSinkPB).double_val as nan_01, CAST(b"\x08\x00\x10\x00\x49\x02\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test__.KitchenSinkPB).double_val as nan_02]
 SELECT * FROM UNNEST([@nan_02])
 INTERSECT ALL
 SELECT * FROM UNNEST([@nan_01]);
@@ -1212,7 +1212,7 @@ ARRAY<STRUCT<DOUBLE>>[{nan}]
 ==
 # @nan_01 and @nan02 are both nans with different bitwise representation.
 [name=except_all_nan_different_bitwise_representation]
-[parameters=CAST(b"\x08\x00\x10\x00\x49\x01\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test.KitchenSinkPB).double_val as nan_01, CAST(b"\x08\x00\x10\x00\x49\x02\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test.KitchenSinkPB).double_val as nan_02]
+[parameters=CAST(b"\x08\x00\x10\x00\x49\x01\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test__.KitchenSinkPB).double_val as nan_01, CAST(b"\x08\x00\x10\x00\x49\x02\x00\x00\x00\x00\x00\xf0\x7f" as zetasql_test__.KitchenSinkPB).double_val as nan_02]
 SELECT * FROM UNNEST([@nan_01])
 EXCEPT ALL
 SELECT * FROM UNNEST([@nan_02]);

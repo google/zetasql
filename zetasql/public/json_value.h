@@ -29,7 +29,7 @@
 
 #include <cstdint>  
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 
@@ -88,7 +88,7 @@ class JSONValue final {
   JSONValueConstRef GetConstRef() const;
 
   // Parses a given JSON document string and returns a JSON value.
-  static zetasql_base::StatusOr<JSONValue> ParseJSONString(
+  static absl::StatusOr<JSONValue> ParseJSONString(
       absl::string_view str,
       JSONParsingOptions parsing_options = {.legacy_mode = false,
                                             .strict_number_parsing = false,
@@ -97,7 +97,7 @@ class JSONValue final {
   // Decodes a binary representation of a JSON value produced by
   // JSONValueConstRef::SerializeAndAppendToProtoBytes(). Returns an error if
   // 'str' is not a valid binary representation.
-  static zetasql_base::StatusOr<JSONValue> DeserializeFromProtoBytes(
+  static absl::StatusOr<JSONValue> DeserializeFromProtoBytes(
       absl::string_view str);
 
   // Returns a JSON value that is a deep copy of the given value.
@@ -151,6 +151,11 @@ class JSONValueConstRef {
   // Requires IsBoolean() to be true. Otherwise, the call results in ZETASQL_LOG(FATAL).
   bool GetBoolean() const;
 
+  // If the JSON value being referenced is an object, returns the number of
+  // elements.
+  //
+  // Requires IsObject() to be true. Otherwise, the call results in ZETASQL_LOG(FATAL).
+  size_t GetObjectSize() const;
   // If the JSON value being referenced is an object, returns whether the 'key'
   // references an existing member. If the JSON value is not an object, returns
   // false.
@@ -204,6 +209,11 @@ class JSONValueConstRef {
 
   // Returns the number of bytes used to store the JSON value.
   uint64_t SpaceUsed() const;
+
+  // Returns true iff the nesting level of JSON value larger than `max_nesting`.
+  // JSON Scalar value has level 0. Example JSON '{"a":1}', '[1,2]' has level 1.
+  // Space complexity: O(min(depth(JSON), max_nesting)).
+  bool NestingLevelExceedsMax(int64_t max_nesting) const;
 
   // Returns true if the JSON value referenced by 'this' equals the one
   // referenced by 'that'. This is only used in testing and is *not* the SQL

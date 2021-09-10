@@ -56,7 +56,7 @@
 #include <cstdint>
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
@@ -611,7 +611,7 @@ void ComplianceCodebasedTests::RunStatementTestsCustom(
   }
 }
 
-zetasql_base::StatusOr<Value> ComplianceCodebasedTests::ExecuteStatementWithFeatures(
+absl::StatusOr<Value> ComplianceCodebasedTests::ExecuteStatementWithFeatures(
     const std::string& sql, const std::map<std::string, Value>& params,
     const QueryParamsWithResult::FeatureSet& features) {
   if (!DriverCanRunTests()) {
@@ -623,7 +623,8 @@ zetasql_base::StatusOr<Value> ComplianceCodebasedTests::ExecuteStatementWithFeat
         driver()->GetSupportedLanguageOptions();
 
     LanguageOptions language_options;
-    language_options.SetEnabledLanguageFeatures(features);
+    language_options.SetEnabledLanguageFeatures(
+        LanguageOptions::LanguageFeatureSet(features.begin(), features.end()));
 
     auto* reference_driver = static_cast<ReferenceDriver*>(driver());
     reference_driver->SetLanguageOptions(language_options);
@@ -643,7 +644,7 @@ zetasql_base::StatusOr<Value> ComplianceCodebasedTests::ExecuteStatementWithFeat
   TypeFactory type_factory;
   bool is_deterministic_output;
   bool uses_unsupported_type = false;
-  zetasql_base::StatusOr<Value> reference_result =
+  absl::StatusOr<Value> reference_result =
       reference_driver()->ExecuteStatementForReferenceDriver(
           sql, params, GetExecuteStatementOptions(), &type_factory,
           &is_deterministic_output, &uses_unsupported_type);
@@ -679,13 +680,17 @@ void ComplianceCodebasedTests::RunStatementOnFeatures(
           driver()->GetSupportedLanguageOptions();
 
       LanguageOptions language_options;
-      language_options.SetEnabledLanguageFeatures(test_features);
+      language_options.SetEnabledLanguageFeatures(
+          LanguageOptions::LanguageFeatureSet(test_features.begin(),
+                                              test_features.end()));
 
       auto* reference_driver = static_cast<ReferenceDriver*>(driver());
       reference_driver->SetLanguageOptions(language_options);
 
       EXPECT_THAT(ExecuteStatement(sql, param_map),
-                  Returns(result, status, float_margin));
+                  Returns(result, status, float_margin))
+          << "FullName: " << full_name() << "; "
+          << "Labels: " << absl::StrJoin(GetCodeBasedLabels(), ", ");
 
       reference_driver->SetLanguageOptions(original_language_options);
     }
@@ -715,7 +720,7 @@ void ComplianceCodebasedTests::RunStatementOnFeatures(
       TypeFactory type_factory;
       bool is_deterministic_output;
       bool uses_unsupported_type = false;
-      zetasql_base::StatusOr<Value> reference_result =
+      absl::StatusOr<Value> reference_result =
           reference_driver()->ExecuteStatementForReferenceDriver(
               sql, param_map, GetExecuteStatementOptions(), &type_factory,
               &is_deterministic_output, &uses_unsupported_type);
@@ -725,7 +730,9 @@ void ComplianceCodebasedTests::RunStatementOnFeatures(
       SCOPED_TRACE(sql);
       // TODO: Should we do something with 'is_deterministic_output'?
       EXPECT_THAT(ExecuteStatement(sql, param_map),
-                  Returns(reference_result, float_margin));
+                  Returns(reference_result, float_margin))
+          << "FullName: " << full_name() << "; "
+          << "Labels: " << absl::StrJoin(GetCodeBasedLabels(), ", ");
       return;
     }
     return;  // Skip this test.
@@ -1279,6 +1286,19 @@ std::vector<FunctionTestCall> EnableJsonFeatureForTest(
   return tests;
 }
 
+// Wraps test cases with FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS.
+// If a test case already has a feature set, do not wrap it.
+std::vector<FunctionTestCall> EnableJsonValueExtractionFunctionsForTest(
+    std::vector<FunctionTestCall> tests) {
+  for (auto& test_case : tests) {
+    if (test_case.params.HasEmptyFeatureSetAndNothingElse()) {
+      test_case.params = test_case.params.WrapWithFeatureSet(
+          {FEATURE_JSON_TYPE, FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS});
+    }
+  }
+  return tests;
+}
+
 // Wraps test cases with FEATURE_JSON_TYPE and FEATURE_JSON_ARRAY_FUNCTIONS.
 // If a test case already has a feature set, do not wrap it.
 std::vector<FunctionTestCall> EnableNativeJsonArrayFunctionsForTest(
@@ -1373,6 +1393,12 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestParseJson, 1) {
   RunFunctionTestsCustom(
       Shard(EnableJsonFeatureForTest(GetFunctionTestsParseJson())),
       parse_json_fn_expr);
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestConvertJson, 1) {
+  SetNamePrefix("ConvertJson");
+  RunFunctionCalls(Shard(EnableJsonValueExtractionFunctionsForTest(
+      GetFunctionTestsConvertJson())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestHash, 1) {
@@ -1473,7 +1499,7 @@ TEST_F(ComplianceCodebasedTests, TestAggregation) {
               Returns(any_result_nulls));
   // There are too many possible results to comprehensively check the result.
   SetNamePrefix("TableLarge");
-  zetasql_base::StatusOr<Value> result(ExecuteStatement(
+  absl::StatusOr<Value> result(ExecuteStatement(
       "SELECT ANY_VALUE(bool_val) bool_any, "
       "       ANY_VALUE(double_val) double_any, "
       "       ANY_VALUE(int64_val) int64_any, ANY_VALUE(str_val) str_val "
@@ -1614,7 +1640,7 @@ TEST_F(ComplianceCodebasedTests, TestProto) {
   if (!DriverCanRunTests()) {
     return;
   }
-  zetasql_test::KitchenSinkPB p;
+  zetasql_test__::KitchenSinkPB p;
   // Roundtrip proto parameter.
   // TODO: can we expect the same byte serialization in general?
   p.Clear();
@@ -1658,7 +1684,7 @@ TEST_F(ComplianceCodebasedTests, TestProto) {
   p.set_int64_key_1(3);
   p.set_int64_key_2(0);
   // Nested repeated value. nested_int64 has default 88.
-  zetasql_test::KitchenSinkPB::Nested* n = p.mutable_nested_value();
+  zetasql_test__::KitchenSinkPB::Nested* n = p.mutable_nested_value();
   n->add_nested_repeated_int64(300);
   n->add_nested_repeated_int64(301);
   SetNamePrefix("ProtoNested");
@@ -2305,7 +2331,7 @@ void ComplianceCodebasedTests::TestProtoFieldImpl(
             {{Value::Null(expected_filled_value.type())}, empty_value},
             {{expected_filled_value}, filled_value},
         }),
-        absl::StrCat("NEW zetasql_test.", proto_name,
+        absl::StrCat("NEW zetasql_test__.", proto_name,
                      "(1 AS int64_key_1, "
                      "2 AS int64_key_2, @p0 AS ",
                      field_name, ")"));
@@ -2314,14 +2340,14 @@ void ComplianceCodebasedTests::TestProtoFieldImpl(
 
 std::vector<std::function<void()>>
 ComplianceCodebasedTests::GetProtoFieldTests() {
-  zetasql_test::KitchenSinkPB empty_proto;
+  zetasql_test__::KitchenSinkPB empty_proto;
   empty_proto.set_int64_key_1(1);
   empty_proto.set_int64_key_2(2);
 
   const Value empty_value = MakeProtoValue(&empty_proto);
   const Value null_value = Value::Null(empty_value.type());
 
-  zetasql_test::CivilTimeTypesSinkPB empty_civil_time_proto;
+  zetasql_test__::CivilTimeTypesSinkPB empty_civil_time_proto;
   empty_civil_time_proto.set_int64_key_1(1);
   empty_civil_time_proto.set_int64_key_2(2);
 
@@ -2356,7 +2382,7 @@ ComplianceCodebasedTests::GetProtoFieldTests() {
                             field_name, setter_value, expected_default,       \
                             expected_value, expected_status)                  \
   {                                                                           \
-    zetasql_test::proto_name filled_proto = empty_proto;                    \
+    zetasql_test__::proto_name filled_proto = empty_proto;                    \
     filled_proto.set_##field_name(setter_value);                              \
     const Value filled_value = MakeProtoValue(&filled_proto);                 \
     TestProtoFieldImpl(null_value, empty_value, filled_value, #proto_name,    \
@@ -2389,7 +2415,7 @@ ComplianceCodebasedTests::GetProtoFieldTests() {
                                      null_value, field_name, setter_value, \
                                      element_value, expected_status)       \
   {                                                                        \
-    zetasql_test::proto_name filled_proto = empty_proto;                 \
+    zetasql_test__::proto_name filled_proto = empty_proto;                 \
     filled_proto.add_##field_name(setter_value);                           \
     filled_proto.add_##field_name(setter_value);                           \
     const Value filled_value = MakeProtoValue(&filled_proto);              \
@@ -2427,7 +2453,7 @@ ComplianceCodebasedTests::GetProtoFieldTests() {
                                     expected_status)                           \
   {                                                                            \
     const Value wrapped_field_value = MakeProtoValue(&field_value);            \
-    zetasql_test::proto_name filled_proto = empty_proto;                     \
+    zetasql_test__::proto_name filled_proto = empty_proto;                     \
     *filled_proto.mutable_##field_name() = field_value;                        \
     TestProtoFieldImpl(null_value, empty_value, MakeProtoValue(&filled_proto), \
                        #proto_name, #field_name,                               \
@@ -2446,7 +2472,7 @@ ComplianceCodebasedTests::GetProtoFieldTests() {
 #define TEST_REPEATED_MESSAGE_FIELD(field_name, element_value)          \
   {                                                                     \
     const Value wrapped_element_value = MakeProtoValue(&element_value); \
-    zetasql_test::KitchenSinkPB filled_proto = empty_proto;           \
+    zetasql_test__::KitchenSinkPB filled_proto = empty_proto;           \
     *filled_proto.add_##field_name() = element_value;                   \
     *filled_proto.add_##field_name() = element_value;                   \
     const ArrayType* array_type =                                       \
@@ -2547,10 +2573,10 @@ ComplianceCodebasedTests::GetProtoFieldTests() {
   COLLECT_TEST(
       TEST_REPEATED_FIELD(repeated_sint64_packed, -12, Value::Int64(-12)));
   const EnumType* enum_type = test_values::MakeEnumType(
-      zetasql_test::TestEnum_descriptor());
+      zetasql_test__::TestEnum_descriptor());
   COLLECT_TEST(TEST_REPEATED_FIELD(
-      repeated_enum_packed, zetasql_test::TESTENUMNEGATIVE,
-      Value::Enum(enum_type, zetasql_test::TESTENUMNEGATIVE)));
+      repeated_enum_packed, zetasql_test__::TESTENUMNEGATIVE,
+      Value::Enum(enum_type, zetasql_test__::TESTENUMNEGATIVE)));
 
   // Dates with default and alternate encodings, and as int32_t and int64_t,
   // and with different forms of the annotation.
@@ -2735,15 +2761,15 @@ ComplianceCodebasedTests::GetProtoFieldTests() {
   }
 
   // Test enums.
-  COLLECT_TEST(TEST_FIELD(test_enum, zetasql_test::TESTENUM2,
-                          Value::Enum(enum_type, zetasql_test::TESTENUM0),
-                          Value::Enum(enum_type, zetasql_test::TESTENUM2)));
+  COLLECT_TEST(TEST_FIELD(test_enum, zetasql_test__::TESTENUM2,
+                          Value::Enum(enum_type, zetasql_test__::TESTENUM0),
+                          Value::Enum(enum_type, zetasql_test__::TESTENUM2)));
   COLLECT_TEST(TEST_REPEATED_FIELD(
-      repeated_test_enum, zetasql_test::TESTENUMNEGATIVE,
-      Value::Enum(enum_type, zetasql_test::TESTENUMNEGATIVE)));
+      repeated_test_enum, zetasql_test__::TESTENUMNEGATIVE,
+      Value::Enum(enum_type, zetasql_test__::TESTENUMNEGATIVE)));
 
   // Test nested proto.
-  zetasql_test::KitchenSinkPB::Nested nested;
+  zetasql_test__::KitchenSinkPB::Nested nested;
   nested.set_nested_int64(1234);
   nested.add_nested_repeated_int64(55);
   nested.add_nested_repeated_int64(-66);
@@ -2752,7 +2778,7 @@ ComplianceCodebasedTests::GetProtoFieldTests() {
 
   // Test nested civil time proto
   if (DriverSupportsFeature(FEATURE_V_1_2_CIVIL_TIME)) {
-    zetasql_test::CivilTimeTypesSinkPB::NestedCivilTimeFields
+    zetasql_test__::CivilTimeTypesSinkPB::NestedCivilTimeFields
         civil_time_nested;
     civil_time_nested.set_time_micros(
         TimeValue::FromHMSAndMicros(12, 34, 56, 654321).Packed64TimeMicros());
@@ -2762,7 +2788,7 @@ ComplianceCodebasedTests::GetProtoFieldTests() {
     COLLECT_TEST(TEST_MESSAGE_CIVIL_TIME_FIELD(nested_civil_time_fields,
                                                civil_time_nested));
 
-    zetasql_test::CivilTimeTypesSinkPB::NestedCivilTimeRepeatedFields
+    zetasql_test__::CivilTimeTypesSinkPB::NestedCivilTimeRepeatedFields
         civil_time_nested_repeated;
     civil_time_nested_repeated.add_repeated_datetime_micros(
         TimeValue::FromHMSAndMicros(0, 0, 0, 0).Packed64TimeMicros());
@@ -2776,12 +2802,12 @@ ComplianceCodebasedTests::GetProtoFieldTests() {
   }
 
   // Test group.
-  zetasql_test::KitchenSinkPB::OptionalGroup optional_group;
+  zetasql_test__::KitchenSinkPB::OptionalGroup optional_group;
   optional_group.set_int64_val(-123);
   optional_group.add_optionalgroupnested()->set_int64_val(555);
   COLLECT_TEST(TEST_MESSAGE_FIELD(optional_group, optional_group));
 
-  zetasql_test::KitchenSinkPB::NestedRepeatedGroup nrg;
+  zetasql_test__::KitchenSinkPB::NestedRepeatedGroup nrg;
   nrg.set_id(10);
   nrg.set_idstr("abc");
   COLLECT_TEST(TEST_REPEATED_MESSAGE_FIELD(nested_repeated_group, nrg));
@@ -2798,9 +2824,9 @@ ComplianceCodebasedTests::GetProtoFieldTests() {
 
   // These are annotated with is_struct and is_wrapper, but we treat them
   // as regular protos and don't unwrap them to zetasql types.
-  zetasql_test::NullableInt nullable_int;
+  zetasql_test__::NullableInt nullable_int;
   nullable_int.set_value(111);
-  zetasql_test::KeyValueStruct key_value_struct;;
+  zetasql_test__::KeyValueStruct key_value_struct;;
   key_value_struct.set_key("aaa");
   COLLECT_TEST(TEST_MESSAGE_FIELD(nullable_int, nullable_int));
   COLLECT_TEST(TEST_MESSAGE_FIELD(key_value, key_value_struct));
@@ -2814,7 +2840,7 @@ ComplianceCodebasedTests::GetProtoFieldTests() {
   COLLECT_TEST(
       TEST_FIELD(mixed_case, "abc", Value::String(""), Value::String("abc")));
 
-  zetasql_test::EmptyMessage empty_message;
+  zetasql_test__::EmptyMessage empty_message;
   COLLECT_TEST(TEST_MESSAGE_FIELD(empty_message, empty_message));
 
   return all_functions;
@@ -2944,7 +2970,7 @@ TEST_F(ComplianceCodebasedTests, TestRecursiveProto) {
 
   const int kDepth = 20;
 
-  zetasql_test::RecursiveMessage message;
+  zetasql_test__::RecursiveMessage message;
   const ProtoType* proto_type =
       test_values::MakeProtoType(message.GetDescriptor());
 
@@ -2952,11 +2978,11 @@ TEST_F(ComplianceCodebasedTests, TestRecursiveProto) {
   SetNamePrefix("TestRecursiveProto_NULL");
   RunStatementTests(
       {QueryParamsWithResult({}, ValueConstructor(Value::Null(proto_type)))},
-      "CAST(NULL AS zetasql_test.RecursiveMessage)");
+      "CAST(NULL AS zetasql_test__.RecursiveMessage)");
 
   // Add one more recursion level at every step.
   SetNamePrefix("TestRecursiveProto_Message");
-  zetasql_test::RecursiveMessage* innermost_message = &message;
+  zetasql_test__::RecursiveMessage* innermost_message = &message;
   Value proto_value;
   for (int i = 0; i < kDepth; i++) {
     proto_value = Value::Proto(proto_type, SerializeToCord(message));

@@ -20,7 +20,7 @@
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/scripting/parsed_script.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
@@ -29,7 +29,7 @@ namespace zetasql {
 // - All BREAK and CONTINUE statements happen within a loop
 // - Variable declarations do not have the same name as another variable in
 //   the same block or any enclosing block.
-zetasql_base::StatusOr<std::unique_ptr<ParserOutput>> ParseAndValidateScript(
+absl::StatusOr<std::unique_ptr<ParserOutput>> ParseAndValidateScript(
     absl::string_view script_string, const ParserOptions& parser_options,
     ErrorMessageMode error_message_mode);
 

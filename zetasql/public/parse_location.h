@@ -25,7 +25,7 @@
 
 #include "zetasql/public/parse_location_range.pb.h"
 #include "absl/base/attributes.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/canonical_errors.h"
@@ -128,7 +128,7 @@ class ParseLocationRange {
   ParseLocationPoint start() const { return start_; }
   ParseLocationPoint end() const { return end_; }
 
-  zetasql_base::StatusOr<ParseLocationRangeProto> ToProto() const {
+  absl::StatusOr<ParseLocationRangeProto> ToProto() const {
     // The ParseLocationProto only has a single field for the filename, so it
     // cannot represent a ParseLocationRange where the start and end locations
     // have different filenames. We ZETASQL_CHECK that condition here.
@@ -146,7 +146,7 @@ class ParseLocationRange {
   // ParseLocationRange.
   // TODO Add support for storing filename as string in
   // ParseLocationPoint.
-  static zetasql_base::StatusOr<ParseLocationRange> Create(
+  static absl::StatusOr<ParseLocationRange> Create(
       const ParseLocationRangeProto& proto) {
     ZETASQL_RET_CHECK(proto.has_start() && proto.has_end())
         << "Provided ParseLocationRangeProto does not have start and/or end "
@@ -216,12 +216,12 @@ class ParseLocationTranslator {
   //
   // Returns a generic::INTERNAL status for invalid positions (byte offset < 0
   // or > length of input).
-  zetasql_base::StatusOr<std::pair<int, int>> GetLineAndColumnAfterTabExpansion(
+  absl::StatusOr<std::pair<int, int>> GetLineAndColumnAfterTabExpansion(
       ParseLocationPoint point) const;
 
   // Gets the text for line number <line>.  If the line is invalid, returns
   // a failed absl::Status.
-  zetasql_base::StatusOr<absl::string_view> GetLineText(int line) const;
+  absl::StatusOr<absl::string_view> GetLineText(int line) const;
 
   // Return <input> with tabs expanded to spaces, assuming 8-char tabs.
   // <input> must not contain any new line characters.
@@ -233,14 +233,14 @@ class ParseLocationTranslator {
   // status if the line and/or column are invalid.  Line and column have the
   // same semantics as described in GetLineAndColumnAfterTabExpansion, i.e.,
   // they are post-tab-expansion.
-  zetasql_base::StatusOr<int> GetByteOffsetFromLineAndColumn(int line,
+  absl::StatusOr<int> GetByteOffsetFromLineAndColumn(int line,
                                                      int column) const;
 
  private:
   // Calculates and returns the line and column number for byte offset
   // 'byte_offset', using the same line and column semantics as described in
   // GetLineAndColumnAfterTabExpansion().
-  zetasql_base::StatusOr<std::pair<int, int>> GetLineAndColumnFromByteOffset(
+  absl::StatusOr<std::pair<int, int>> GetLineAndColumnFromByteOffset(
       int byte_offset) const;
 
   // Calculates line_offsets_ if it has not been calculated yet.

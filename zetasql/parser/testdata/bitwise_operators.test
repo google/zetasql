@@ -202,7 +202,7 @@ QueryStatement [0-27]
                 Identifier(a) [26-27]
 --
 SELECT
-  - ~a >> (a[b]).c << 2 + a
+  -~a >> (a[b]).c << 2 + a
 ==
 
 # Verifies that we do give parse errors for a malformed bitwise expression

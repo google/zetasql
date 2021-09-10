@@ -890,3 +890,124 @@ create index SimpleTypesStoringZeroValues on SimpleTypes(int32) STORING ();
 ERROR: Syntax error: Unexpected ")" [at 1:74]
 create index SimpleTypesStoringZeroValues on SimpleTypes(int32) STORING ();
                                                                          ^
+==
+
+CREATE SEARCH INDEX i1 ON t1 (`ALL COLUMNS`) OPTIONS();
+--
+
+CreateIndexStatement(SEARCH) [0-54]
+  PathExpression [20-22]
+    Identifier(i1) [20-22]
+  PathExpression [26-28]
+    Identifier(t1) [26-28]
+  IndexItemList [29-44]
+    OrderingExpression(ASC) [30-43]
+      PathExpression [30-43]
+        Identifier(`ALL COLUMNS`) [30-43]
+  OptionsList [52-54]
+--
+CREATE SEARCH INDEX i1 ON t1(`ALL COLUMNS`)
+OPTIONS()
+==
+
+CREATE SEARCH INDEX i1 ON t1 (ALL COLUMNS) OPTIONS();
+--
+
+CreateIndexStatement(SEARCH) [0-52]
+  PathExpression [20-22]
+    Identifier(i1) [20-22]
+  PathExpression [26-28]
+    Identifier(t1) [26-28]
+  IndexItemList [29-42]
+    OrderingExpression(ASC) [29-42]
+      IndexAllColumns(ALL COLUMNS) [29-42]
+  OptionsList [50-52]
+--
+CREATE SEARCH INDEX i1 ON t1(ALL COLUMNS)
+OPTIONS()
+==
+
+CREATE SEARCH INDEX i1 ON t1 ( all columns ) OPTIONS (key=value);
+--
+
+CreateIndexStatement(SEARCH) [0-64]
+  PathExpression [20-22]
+    Identifier(i1) [20-22]
+  PathExpression [26-28]
+    Identifier(t1) [26-28]
+  IndexItemList [29-44]
+    OrderingExpression(ASC) [29-44]
+      IndexAllColumns(ALL COLUMNS) [29-44]
+  OptionsList [53-64]
+    OptionsEntry [54-63]
+      Identifier(key) [54-57]
+      PathExpression [58-63]
+        Identifier(value) [58-63]
+--
+CREATE SEARCH INDEX i1 ON t1(ALL COLUMNS)
+OPTIONS(key = value)
+==
+
+CREATE SEARCH INDEX i1 ON t1 (ALL, COLUMNS) OPTIONS();
+--
+
+ERROR: Syntax error: Expected keyword COLUMNS but got "," [at 1:34]
+CREATE SEARCH INDEX i1 ON t1 (ALL, COLUMNS) OPTIONS();
+                                 ^
+==
+
+CREATE SEARCH INDEX i1 ON t1 ('ALL', COLUMNS) OPTIONS();
+--
+
+CreateIndexStatement(SEARCH) [0-55]
+  PathExpression [20-22]
+    Identifier(i1) [20-22]
+  PathExpression [26-28]
+    Identifier(t1) [26-28]
+  IndexItemList [29-45]
+    OrderingExpression(ASC) [30-35]
+      StringLiteral('ALL') [30-35]
+    OrderingExpression(ASC) [37-44]
+      PathExpression [37-44]
+        Identifier(COLUMNS) [37-44]
+  OptionsList [53-55]
+--
+CREATE SEARCH INDEX i1 ON t1('ALL', COLUMNS)
+OPTIONS()
+==
+
+# Create a search index use ALL COLUMNS and other column keys should fail.
+create search index i1 on ComplexTypes (ALL COLUMNS,TestStruct);
+--
+ERROR: Syntax error: Expected ")" but got "," [at 1:52]
+create search index i1 on ComplexTypes (ALL COLUMNS,TestStruct);
+                                                   ^
+==
+
+# Create a search index use a column and ALL COLUMNS together should fail.
+create search index i1 on ComplexTypes (TestStruct, ALL COLUMNS);
+--
+ERROR: Syntax error: Unexpected keyword ALL [at 1:53]
+create search index i1 on ComplexTypes (TestStruct, ALL COLUMNS);
+                                                    ^
+==
+
+CREATE SEARCH INDEX i1 ON t1 (ALL COLUMNS EXCEPT (a)) OPTIONS();
+--
+ERROR: Syntax error: Expected ")" but got keyword EXCEPT [at 1:43]
+CREATE SEARCH INDEX i1 ON t1 (ALL COLUMNS EXCEPT (a)) OPTIONS();
+                                          ^
+==
+
+CREATE SEARCH INDEX i1 ON t1 (*) OPTIONS();
+--
+ERROR: Syntax error: Unexpected "*" [at 1:31]
+CREATE SEARCH INDEX i1 ON t1 (*) OPTIONS();
+                              ^
+==
+
+CREATE SEARCH INDEX i1 ON t1 (* EXCEPT a) OPTIONS();
+--
+ERROR: Syntax error: Unexpected "*" [at 1:31]
+CREATE SEARCH INDEX i1 ON t1 (* EXCEPT a) OPTIONS();
+                              ^

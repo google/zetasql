@@ -32,17 +32,19 @@
 #include "absl/flags/flag.h"
 #include "absl/flags/reflection.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/strip.h"
 
 namespace zetasql {
 namespace {
 
-using zetasql_test::EmptyMessage;
-using zetasql_test::KitchenSinkPB;
+using zetasql_test__::EmptyMessage;
+using zetasql_test__::KitchenSinkPB;
 using testing::IsEmpty;
 using testing::NotNull;
 using zetasql_base::testing::StatusIs;
 using ToolMode = ExecuteQueryConfig::ToolMode;
+using SqlMode = ExecuteQueryConfig::SqlMode;
 
 absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
                           std::ostream& out_stream) {
@@ -61,6 +63,31 @@ TEST(SetToolModeFromFlags, ToolMode) {
   CheckFlag("resolve", ToolMode::kResolve);
   CheckFlag("explain", ToolMode::kExplain);
   CheckFlag("execute", ToolMode::kExecute);
+}
+
+TEST(SetToolModeFromFlags, BadToolMode) {
+  absl::SetFlag(&FLAGS_mode, "bad-mode");
+  ExecuteQueryConfig config;
+  EXPECT_THAT(SetToolModeFromFlags(config),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(SetSqlModeFromFlags, SqlMode) {
+  auto CheckFlag = [](absl::string_view name, SqlMode expected_mode) {
+    absl::SetFlag(&FLAGS_sql_mode, name);
+    ExecuteQueryConfig config;
+    ZETASQL_EXPECT_OK(SetSqlModeFromFlags(config));
+    EXPECT_EQ(config.sql_mode(), expected_mode);
+  };
+  CheckFlag("query", SqlMode::kQuery);
+  CheckFlag("expression", SqlMode::kExpression);
+}
+
+TEST(SetSqlModeFromFlags, BadSqlMode) {
+  absl::SetFlag(&FLAGS_sql_mode, "bad-mode");
+  ExecuteQueryConfig config;
+  EXPECT_THAT(SetSqlModeFromFlags(config),
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(MakeWriterFromFlagsTest, Empty) {
@@ -155,15 +182,8 @@ TEST(SetDescriptorPoolFromFlags, DescriptorPool) {
 
   const Type* type = nullptr;
   ZETASQL_EXPECT_OK(
-      config.mutable_catalog().GetType("zetasql_test.KitchenSinkPB", &type));
+      config.mutable_catalog().GetType("zetasql_test__.KitchenSinkPB", &type));
   EXPECT_EQ(type, nullptr);
-}
-
-TEST(SetToolModeFromFlags, BadToolMode) {
-  absl::SetFlag(&FLAGS_mode, "bad-mode");
-  ExecuteQueryConfig config;
-  EXPECT_THAT(SetToolModeFromFlags(config),
-              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 static std::string TestDataDir() {
@@ -179,7 +199,7 @@ static void VerifyDataMatches(
     all_columns.push_back(i);
   }
 
-  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>> iterator_or =
+  absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> iterator_or =
       table.CreateEvaluatorTableIterator(all_columns);
   ZETASQL_EXPECT_OK(iterator_or);
   EvaluatorTableIterator* iter = iterator_or->get();
@@ -207,7 +227,7 @@ TEST(MakeTableFromCsvFile, NoFile) {
 }
 
 TEST(MakeTableFromCsvFile, Read) {
-  zetasql_base::StatusOr<std::unique_ptr<const Table>> table_or =
+  absl::StatusOr<std::unique_ptr<const Table>> table_or =
       MakeTableFromCsvFile("great-table-name", CsvFilePath());
   ZETASQL_EXPECT_OK(table_or);
   const Table& table = **table_or;
@@ -231,6 +251,10 @@ TEST(MakeTableFromCsvFile, Read) {
                              Value::String("867.5309")}});
 }
 
+static std::string TextProtoFilePath() {
+  return zetasql_base::JoinPath(TestDataDir(), "KitchenSinkPB.textproto");
+}
+
 TEST(AddTablesFromFlags, BadFlags) {
   auto ExpectTableSpecIsInvalid = [](absl::string_view table_spec) {
     ExecuteQueryConfig config;
@@ -246,6 +270,14 @@ TEST(AddTablesFromFlags, BadFlags) {
   // SSTable
   ExpectTableSpecIsInvalid("BadTable=sstable::");  // empty path
   ExpectTableSpecIsInvalid("BadTable=sstable:too:many:args");
+
+  // BinProto
+  ExpectTableSpecIsInvalid("BadTable=binproto:missing_proto");
+  ExpectTableSpecIsInvalid("BadTable=binproto:::extra");
+
+  // TextProto
+  ExpectTableSpecIsInvalid("BadTable=textproto:missing_proto");
+  ExpectTableSpecIsInvalid("BadTable=textproto:::extra");
 }
 
 TEST(AddTablesFromFlags, GoodFlags) {
@@ -255,6 +287,9 @@ TEST(AddTablesFromFlags, GoodFlags) {
 
   absl::SetFlag(&FLAGS_table_spec,
                 absl::StrCat(
+                    "TextProtoTable=textproto:zetasql_test__.KitchenSinkPB:",
+                    TextProtoFilePath(),
+                    ","
                     "CsvTable=csv:",
                     CsvFilePath()));
   ZETASQL_EXPECT_OK(AddTablesFromFlags(config));
@@ -262,12 +297,18 @@ TEST(AddTablesFromFlags, GoodFlags) {
   absl::flat_hash_set<const Table*> tables;
   ZETASQL_EXPECT_OK(config.catalog().GetTables(&tables));
   EXPECT_EQ(tables.size(),  //
-            1);
+            2);
 
   const Table* csv_table = nullptr;
   ZETASQL_EXPECT_OK(config.mutable_catalog().GetTable("CsvTable", &csv_table));
   EXPECT_NE(csv_table, nullptr);
   EXPECT_EQ(csv_table->NumColumns(), 3);
+
+  const Table* textproto_table = nullptr;
+  ZETASQL_EXPECT_OK(
+      config.mutable_catalog().GetTable("TextProtoTable", &textproto_table));
+  EXPECT_NE(textproto_table, nullptr);
+  EXPECT_EQ(textproto_table->NumColumns(), 1);
 }
 
 TEST(ExecuteQuery, ReadCsvTableFileEndToEnd) {
@@ -291,7 +332,7 @@ TEST(ExecuteQuery, ReadCsvTableFileEndToEnd) {
 )");
 }
 
-TEST(ExecuteQuery, Parse) {
+TEST(ExecuteQuery, ParseQuery) {
   ExecuteQueryConfig config;
   config.set_tool_mode(ToolMode::kParse);
   std::ostringstream output;
@@ -306,7 +347,7 @@ TEST(ExecuteQuery, Parse) {
 )");
 }
 
-TEST(ExecuteQuery, Resolve) {
+TEST(ExecuteQuery, ResolveQuery) {
   ExecuteQueryConfig config;
   config.set_tool_mode(ToolMode::kResolve);
   std::ostringstream output;
@@ -325,7 +366,7 @@ TEST(ExecuteQuery, Resolve) {
 )");
 }
 
-TEST(ExecuteQuery, Explain) {
+TEST(ExecuteQuery, ExplainQuery) {
   ExecuteQueryConfig config;
   config.set_tool_mode(ToolMode::kExplain);
   std::ostringstream output;
@@ -338,7 +379,7 @@ TEST(ExecuteQuery, Explain) {
 )");
 }
 
-TEST(ExecuteQuery, Execute) {
+TEST(ExecuteQuery, ExecuteQuery) {
   ExecuteQueryConfig config;
   config.set_tool_mode(ToolMode::kExecute);
   std::ostringstream output;
@@ -350,6 +391,49 @@ TEST(ExecuteQuery, Execute) {
 +---+
 
 )");
+}
+
+TEST(ExecuteQuery, ParseExpression) {
+  ExecuteQueryConfig config;
+  config.set_tool_mode(ToolMode::kParse);
+  config.set_sql_mode(SqlMode::kExpression);
+  std::ostringstream output;
+  ZETASQL_EXPECT_OK(ExecuteQuery("1", config, output));
+  EXPECT_EQ(output.str(), R"(IntLiteral(1) [0-1]
+
+)");
+}
+
+TEST(ExecuteQuery, ResolveExpression) {
+  ExecuteQueryConfig config;
+  config.set_tool_mode(ToolMode::kResolve);
+  config.set_sql_mode(SqlMode::kExpression);
+  std::ostringstream output;
+  ZETASQL_EXPECT_OK(ExecuteQuery("1", config, output));
+  EXPECT_EQ(output.str(), R"(Literal(type=INT64, value=1)
+
+)");
+}
+
+TEST(ExecuteQuery, ExplainExpression) {
+  ExecuteQueryConfig config;
+  config.set_tool_mode(ToolMode::kExplain);
+  config.set_sql_mode(SqlMode::kExpression);
+
+  std::ostringstream output;
+  ZETASQL_EXPECT_OK(ExecuteQuery("1", config, output));
+  EXPECT_EQ(output.str(), R"(RootExpr(ConstExpr(1))
+)");
+}
+
+TEST(ExecuteQuery, ExecuteExpression) {
+  ExecuteQueryConfig config;
+  config.set_tool_mode(ToolMode::kExecute);
+  config.set_sql_mode(SqlMode::kExpression);
+
+  std::ostringstream output;
+  ZETASQL_EXPECT_OK(ExecuteQuery("1", config, output));
+  EXPECT_EQ(output.str(), "1");
 }
 
 TEST(ExecuteQuery, ExecuteError) {

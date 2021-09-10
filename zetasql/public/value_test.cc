@@ -55,7 +55,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/hash/hash.h"
 #include "absl/hash/hash_testing.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
@@ -103,7 +103,7 @@ static Value TestGetSQL(const Value& value) {
   SimpleCatalog catalog("type_catalog");
   catalog.AddZetaSQLFunctions();
   catalog.SetDescriptorPool(
-      zetasql_test::KitchenSinkPB::descriptor()->file()->pool());
+      zetasql_test__::KitchenSinkPB::descriptor()->file()->pool());
 
   AnalyzerOptions analyzer_options;
   analyzer_options.mutable_language()->EnableLanguageFeature(
@@ -129,7 +129,7 @@ static Value TestGetSQL(const Value& value) {
         << "Value: " << value.DebugString() << "\nSQL: " << sql;
 
     if (prepare_status.ok()) {
-      const zetasql_base::StatusOr<Value> result = expr.Execute();
+      const absl::StatusOr<Value> result = expr.Execute();
       ZETASQL_EXPECT_OK(result.status()) << value.DebugString();
       if (result.ok()) {
         const Value& new_value = result.value();
@@ -156,7 +156,7 @@ static Value TestGetSQL(const Value& value) {
           << "Value: " << value.DebugString() << "\nSQL: " << sql;
 
       if (prepare_status.ok()) {
-        const zetasql_base::StatusOr<Value> result = expr.Execute();
+        const absl::StatusOr<Value> result = expr.Execute();
         ZETASQL_EXPECT_OK(result.status()) << value.DebugString();
         if (result.ok()) {
           const Value& new_value = result.value();
@@ -215,7 +215,7 @@ static Value TestGetSQL(const Value& value) {
           << "Value: " << value.DebugString() << "\nSQL: " << cast_expr;
 
       if (prepare_status.ok()) {
-        const zetasql_base::StatusOr<Value> result = expr.Execute();
+        const absl::StatusOr<Value> result = expr.Execute();
         ZETASQL_EXPECT_OK(result.status()) << value.DebugString();
         if (result.ok()) {
           const Value& new_value = result.value();
@@ -242,7 +242,7 @@ class ValueTest : public ::testing::Test {
   const EnumType* GetTestEnumType() {
     const EnumType* enum_type;
     const google::protobuf::EnumDescriptor* enum_descriptor =
-        zetasql_test::TestEnum_descriptor();
+        zetasql_test__::TestEnum_descriptor();
     ZETASQL_CHECK_OK(type_factory_.MakeEnumType(enum_descriptor, &enum_type));
     return enum_type;
   }
@@ -250,7 +250,7 @@ class ValueTest : public ::testing::Test {
   const EnumType* GetOtherTestEnumType() {
     const EnumType* enum_type;
     const google::protobuf::EnumDescriptor* enum_descriptor =
-        zetasql_test::AnotherTestEnum_descriptor();
+        zetasql_test__::AnotherTestEnum_descriptor();
     ZETASQL_CHECK_OK(type_factory_.MakeEnumType(enum_descriptor, &enum_type));
     return enum_type;
   }
@@ -268,12 +268,12 @@ class ValueTest : public ::testing::Test {
   }
 
   const ProtoType* GetTestProtoType() {
-    zetasql_test::KitchenSinkPB kitchen_sink;
+    zetasql_test__::KitchenSinkPB kitchen_sink;
     return test_values::MakeProtoType(kitchen_sink.GetDescriptor());
   }
 
   const ProtoType* GetOtherTestProtoType() {
-    zetasql_test::TestExtraPB test_extra;
+    zetasql_test__::TestExtraPB test_extra;
     return test_values::MakeProtoType(test_extra.GetDescriptor());
   }
 
@@ -1583,10 +1583,10 @@ TEST_F(ValueTest, Enum) {
   Value v(Value::Enum(enum_type, 1));
   EXPECT_EQ(v, Value::Enum(enum_type, 1));
   EXPECT_EQ("TESTENUM1", Value::Enum(enum_type, 1).ShortDebugString());
-  EXPECT_EQ("Enum<zetasql_test.TestEnum>(TESTENUM1:1)",
+  EXPECT_EQ("Enum<zetasql_test__.TestEnum>(TESTENUM1:1)",
             Value::Enum(enum_type, 1).FullDebugString());
   EXPECT_EQ("NULL", Value::Null(enum_type).ShortDebugString());
-  EXPECT_EQ("Enum<zetasql_test.TestEnum>(NULL)",
+  EXPECT_EQ("Enum<zetasql_test__.TestEnum>(NULL)",
             Value::Null(enum_type).FullDebugString());
   // Null enums.
   const EnumType* other_enum_type = GetOtherTestEnumType();
@@ -1812,7 +1812,7 @@ TEST_F(ValueTest, Proto) {
   TypeFactory type_factory;
 
   const ProtoType* proto_type = GetTestProtoType();
-  zetasql_test::KitchenSinkPB k;
+  zetasql_test__::KitchenSinkPB k;
   absl::Cord bytes = SerializePartialToCord(k);
   // Empty proto.
   EXPECT_EQ(0, bytes.size());
@@ -1820,21 +1820,21 @@ TEST_F(ValueTest, Proto) {
   if (ZETASQL_DEBUG_MODE) {
     EXPECT_THROW(Proto(proto_type, k), std::exception);
   }
-  zetasql_test::KitchenSinkPB kvalid;
+  zetasql_test__::KitchenSinkPB kvalid;
   kvalid.set_int64_key_1(1);
   kvalid.set_int64_key_2(2);
   EXPECT_EQ("{int64_key_1: 1 int64_key_2: 2}",
             Proto(proto_type, kvalid).ShortDebugString());
   EXPECT_TRUE(Value::Null(proto_type).type()->Equals(proto_type));
   EXPECT_TRUE(Value::Null(proto_type).is_null());
-  EXPECT_EQ("Proto<zetasql_test.KitchenSinkPB>(NULL)",
+  EXPECT_EQ("Proto<zetasql_test__.KitchenSinkPB>(NULL)",
             Value::Null(proto_type).FullDebugString());
   EXPECT_EQ("NULL", Value::Null(proto_type).ShortDebugString());
   TestGetSQL(Value::Null(proto_type));
   EXPECT_FALSE(Value::Proto(proto_type, bytes).is_null());
   Value proto = TestGetSQL(Proto(proto_type, bytes));
   EXPECT_EQ(bytes, proto.ToCord());
-  EXPECT_EQ("Proto<zetasql_test.KitchenSinkPB>{}", proto.FullDebugString());
+  EXPECT_EQ("Proto<zetasql_test__.KitchenSinkPB>{}", proto.FullDebugString());
   EXPECT_EQ("{}", proto.ShortDebugString());
   // Non-empty proto.
   k.set_int32_val(3);
@@ -1844,7 +1844,7 @@ TEST_F(ValueTest, Proto) {
   Value proto2 = proto1;
   TestHashEqual(proto1, proto2);
   EXPECT_EQ(proto1, proto2);
-  EXPECT_EQ("Proto<zetasql_test.KitchenSinkPB>{int32_val: 3\n}",
+  EXPECT_EQ("Proto<zetasql_test__.KitchenSinkPB>{int32_val: 3\n}",
             proto1.FullDebugString());
   EXPECT_EQ("{int32_val: 3}", proto1.ShortDebugString());
   // Duplicate int32_val tag.
@@ -1925,7 +1925,7 @@ TEST_F(ValueTest, Proto) {
         WireFormatLite::MakeTag(150776, WireFormatLite::WIRETYPE_END_GROUP));
   }
   bytes = absl::Cord(str_bytes);
-  EXPECT_EQ("Proto<zetasql_test.KitchenSinkPB>{<unparseable>}",
+  EXPECT_EQ("Proto<zetasql_test__.KitchenSinkPB>{<unparseable>}",
             Proto(proto_type, bytes).FullDebugString());
   google::protobuf::DynamicMessageFactory message_factory;
   std::unique_ptr<google::protobuf::Message> message(
@@ -1951,7 +1951,7 @@ TEST_F(ValueTest, Proto) {
   EXPECT_EQ(proto_1_2, proto_2_1);
   TestHashEqual(proto_1_2, proto_2_1);
   EXPECT_EQ(
-      "Proto<zetasql_test.KitchenSinkPB>{int32_val: 5\n"
+      "Proto<zetasql_test__.KitchenSinkPB>{int32_val: 5\n"
       "string_val: \"abc\"\n}",
       proto_2_1.FullDebugString());
   EXPECT_EQ(proto_1_2.FullDebugString(), proto_2_1.FullDebugString());
@@ -1968,11 +1968,11 @@ TEST_F(ValueTest, Proto) {
   EXPECT_NE(set_value, unset_value);
   EXPECT_NE(set_value.FullDebugString(), unset_value.FullDebugString());
   EXPECT_EQ(
-      "Proto<zetasql_test.KitchenSinkPB>{int64_key_1: 1\n"
+      "Proto<zetasql_test__.KitchenSinkPB>{int64_key_1: 1\n"
       "int64_key_2: 2\nbool_val: false\n}",
       set_value.FullDebugString());
   EXPECT_EQ(
-      "Proto<zetasql_test.KitchenSinkPB>{int64_key_1: 1\n"
+      "Proto<zetasql_test__.KitchenSinkPB>{int64_key_1: 1\n"
       "int64_key_2: 2\n}",
       unset_value.FullDebugString());
   EXPECT_FALSE(unset_value.Equals(set_value));
@@ -2293,7 +2293,7 @@ TEST_F(ValueTest, FormatWrapAfterMultiLineArrayType) {
 }
 
 TEST_F(ValueTest, ProtoFormatTest) {
-  zetasql_test::KitchenSinkPB k;
+  zetasql_test__::KitchenSinkPB k;
   k.set_int64_key_1(1);
   k.set_int64_key_2(2);
   k.set_int32_val(3);
@@ -2303,7 +2303,7 @@ TEST_F(ValueTest, ProtoFormatTest) {
   const ProtoType* proto_type = GetTestProtoType();
   EXPECT_EQ(Struct({"p", "i"}, {Proto(proto_type, bytes), 1}).Format(),
             R"(STRUCT<
-  p PROTO<zetasql_test.KitchenSinkPB>,
+  p PROTO<zetasql_test__.KitchenSinkPB>,
   i INT32
 >{{
     int64_key_1: 1
@@ -2326,15 +2326,15 @@ TEST_F(ValueTest, EquivalentProtos) {
   const ProtoType* proto_type;
   const ProtoType* alt_proto_type;
   ZETASQL_ASSERT_OK(type_factory.MakeProtoType(
-      zetasql_test::TestExtraPB::descriptor(), &proto_type));
+      zetasql_test__::TestExtraPB::descriptor(), &proto_type));
   ZETASQL_ASSERT_OK(type_factory.MakeProtoType(
-      alt_pool.FindMessageTypeByName("zetasql_test.TestExtraPB"),
+      alt_pool.FindMessageTypeByName("zetasql_test__.TestExtraPB"),
       &alt_proto_type));
 
   EXPECT_FALSE(proto_type->Equals(alt_proto_type));
   EXPECT_TRUE(proto_type->Equivalent(alt_proto_type));
 
-  zetasql_test::TestExtraPB proto_value;
+  zetasql_test__::TestExtraPB proto_value;
   proto_value.set_int32_val1(5);
   absl::Cord bytes = absl::Cord(proto_value.SerializeAsString());
   Value value1 = Value::Proto(proto_type, bytes);
@@ -2350,10 +2350,10 @@ TEST_F(ValueTest, EquivalentProtos) {
   // Do the same test with a proto enum type.
   const EnumType* enum_type;
   const EnumType* alt_enum_type;
-  ZETASQL_ASSERT_OK(type_factory.MakeEnumType(zetasql_test::TestEnum_descriptor(),
+  ZETASQL_ASSERT_OK(type_factory.MakeEnumType(zetasql_test__::TestEnum_descriptor(),
                                       &enum_type));
   ZETASQL_ASSERT_OK(type_factory.MakeEnumType(
-      alt_pool.FindEnumTypeByName("zetasql_test.TestEnum"), &alt_enum_type));
+      alt_pool.FindEnumTypeByName("zetasql_test__.TestEnum"), &alt_enum_type));
 
   EXPECT_FALSE(enum_type->Equals(alt_enum_type));
   EXPECT_TRUE(enum_type->Equivalent(alt_enum_type));
@@ -2473,9 +2473,9 @@ void ValueTest::TestParameterizedValueAfterReleaseOfTypeFactory(
       // Proto value
       const ProtoType* proto_type;
       ZETASQL_ASSERT_OK(type_factory.MakeProtoType(
-          zetasql_test::TestExtraPB::descriptor(), &proto_type));
+          zetasql_test__::TestExtraPB::descriptor(), &proto_type));
 
-      zetasql_test::TestExtraPB proto_msg;
+      zetasql_test__::TestExtraPB proto_msg;
       proto_msg.set_int32_val1(5);
       absl::Cord bytes = absl::Cord(proto_msg.SerializeAsString());
       proto_value = Value::Proto(proto_type, bytes);
@@ -2483,7 +2483,7 @@ void ValueTest::TestParameterizedValueAfterReleaseOfTypeFactory(
       // Enum value
       const EnumType* enum_type;
       const google::protobuf::EnumDescriptor* enum_descriptor =
-          zetasql_test::TestEnum_descriptor();
+          zetasql_test__::TestEnum_descriptor();
       ZETASQL_ASSERT_OK(type_factory.MakeEnumType(enum_descriptor, &enum_type));
       enum_value = values::Enum(enum_type, 1);
 
@@ -2842,7 +2842,7 @@ TEST_F(ValueTest, Serialize) {
   // Proto
   const ProtoType* proto_type = GetTestProtoType();
 
-  zetasql_test::KitchenSinkPB ks;
+  zetasql_test__::KitchenSinkPB ks;
   ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString(R"(
       int64_key_1: 1
       int64_key_2: 2
@@ -2973,7 +2973,7 @@ TEST_F(ValueTest, Deserialize) {
                        struct_type);
 
   ValueProto value_proto;
-  zetasql_base::StatusOr<Value> status_or_value;
+  absl::StatusOr<Value> status_or_value;
 
   // Timestamp value.
   ZETASQL_CHECK(google::protobuf::TextFormat::ParseFromString("timestamp_value: <seconds: 5>",

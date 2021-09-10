@@ -20,7 +20,7 @@
 #include "zetasql/common/testing/status_payload_matchers_test.pb.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/testing/proto_matchers_oss.h"
 
 using ::testing::AllOf;
@@ -47,7 +47,7 @@ absl::Status StatusWithPayload(const std::string &text) {
   return status;
 }
 
-zetasql_base::StatusOr<int> StatusOrWithPayload(const std::string &text) {
+absl::StatusOr<int> StatusOrWithPayload(const std::string &text) {
   return StatusWithPayload(text);
 }
 

@@ -45,7 +45,7 @@
 #include "gtest/gtest_prod.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/optional.h"
 #include "absl/types/variant.h"
@@ -120,6 +120,9 @@ class Algebrizer {
   // For DML statements, 'output' is only valid for as long as 'type_factory'
   // and 'ast_root' are valid. Also, 'output' is always a DMLValueExpr.
   //
+  // For CREATE TABLE AS SELECT statements, algebrizes the query that would
+  // go into the newly created table.
+  //
   // On output, <system_variables_map> is populated with a
   // name path=>variable id map for each system variable used in the
   // statement/expression.
@@ -190,77 +193,82 @@ class Algebrizer {
              ParameterMap* column_map,
              SystemVariablesAlgebrizerMap* system_variables_map);
 
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeCast(
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeCast(
       const ResolvedCast* cast);
 
-  zetasql_base::StatusOr<std::unique_ptr<InlineLambdaExpr>> AlgebrizeLambda(
+  absl::StatusOr<std::unique_ptr<InlineLambdaExpr>> AlgebrizeLambda(
       const ResolvedInlineLambda* inline_lambda);
 
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeFunctionCallWithLambda(
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeFunctionCallWithLambda(
       const ResolvedFunctionCall* function_call);
 
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeFunctionCall(
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeFunctionCall(
       const ResolvedFunctionCall* function_call);
 
-  zetasql_base::StatusOr<std::unique_ptr<NewStructExpr>> MakeStruct(
+  absl::StatusOr<std::unique_ptr<NewStructExpr>> MakeStruct(
       const ResolvedMakeStruct* make_struct);
 
-  zetasql_base::StatusOr<std::unique_ptr<FieldValueExpr>> AlgebrizeGetStructField(
+  absl::StatusOr<std::unique_ptr<FieldValueExpr>> AlgebrizeGetStructField(
       const ResolvedGetStructField* get_struct_field);
 
-  zetasql_base::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>> AlgebrizeGetJsonField(
+  absl::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>> AlgebrizeGetJsonField(
       const ResolvedGetJsonField* get_json_field);
 
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeGetProtoField(
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeGetProtoField(
       const ResolvedGetProtoField* get_proto_field);
 
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeFlatten(
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeFlatten(
       const ResolvedFlatten* flatten);
 
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeFlattenedArg(
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeFlattenedArg(
       const ResolvedFlattenedArg* flattened_arg);
 
   // Helper for AlgebrizeGetProtoField() for the case where we are getting a
   // proto field of an expression of the form
   // <column_or_param_expr>.<path>. <column_or_param> must be a
   // ResolvedColumnRef, a ResolvedParameter, or a ResolvedExpressionColumn.
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeGetProtoFieldOfPath(
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeGetProtoFieldOfPath(
       const ResolvedExpr* column_or_param_expr,
       const std::vector<absl::variant<const ResolvedGetProtoField*,
                                       const ResolvedGetStructField*>>& path);
 
   // Algebrize specific expressions.
-  zetasql_base::StatusOr<std::unique_ptr<AggregateArg>>
+  absl::StatusOr<std::unique_ptr<AggregateArg>>
   AlgebrizeAggregateFnWithAlgebrizedArguments(
       const VariableId& variable,
       absl::optional<AnonymizationOptions> anonymization_options,
       std::unique_ptr<ValueExpr> filter, const ResolvedExpr* expr,
-      std::vector<std::unique_ptr<ValueExpr>> arguments);
-  zetasql_base::StatusOr<std::unique_ptr<AggregateArg>> AlgebrizeAggregateFn(
+      std::vector<std::unique_ptr<ValueExpr>> arguments,
+      std::unique_ptr<RelationalOp> group_rows_subquery);
+  absl::StatusOr<std::unique_ptr<AggregateArg>> AlgebrizeAggregateFn(
       const VariableId& variable,
       absl::optional<AnonymizationOptions> anonymization_options,
       std::unique_ptr<ValueExpr> filter, const ResolvedExpr* expr);
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeSubqueryExpr(
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeSubqueryExpr(
       const ResolvedSubqueryExpr* subquery_expr);
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeInArray(
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeInArray(
       std::unique_ptr<ValueExpr> in_value,
       std::unique_ptr<ValueExpr> array_value);
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeInRelation(
-      std::unique_ptr<ValueExpr> in_value, const VariableId& haystack_var,
+
+  // Algebrizes IN, LIKE ANY, or LIKE ALL when the rhs is a subquery.
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeInLikeAnyLikeAllRelation(
+      std::unique_ptr<ValueExpr> lhs,
+      ResolvedSubqueryExpr::SubqueryType subquery_type,
+      const VariableId& haystack_var,
       std::unique_ptr<RelationalOp> haystack_rel);
 
   // Wrapper around AlgebrizeExpression() for use on standalone expressions.
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeStandaloneExpression(
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeStandaloneExpression(
       const ResolvedExpr* expr);
 
   // Algebrize a resolved expression. For aggregate function expressions, call
   // AlgebrizeAggregateFn.
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeExpression(
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeExpression(
       const ResolvedExpr* expr);
 
   // Wraps 'value_expr' in a RootExpr to manage ownership of some objects
   // required by the algebrized tree.
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> WrapWithRootExpr(
+  absl::StatusOr<std::unique_ptr<ValueExpr>> WrapWithRootExpr(
       std::unique_ptr<ValueExpr> value_expr);
 
   // Moves state from this algebrizer into a RootData and returns it.
@@ -279,7 +287,7 @@ class Algebrizer {
       kOther
     };
 
-    static zetasql_base::StatusOr<std::unique_ptr<FilterConjunctInfo>> Create(
+    static absl::StatusOr<std::unique_ptr<FilterConjunctInfo>> Create(
         const ResolvedExpr* conjunct);
 
     Kind kind = kOther;
@@ -344,62 +352,72 @@ class Algebrizer {
   //     + ResolvedTableScan(active FilterConjunctInfos = {key > 10})))
   // The algebrized tree will ultimately push down the filters as far as they
   // can go.
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeSingleRowScan();
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeJoinScan(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeSingleRowScan();
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeJoinScan(
       const ResolvedJoinScan* join_scan,
       std::vector<FilterConjunctInfo*>* active_conjuncts);
   // Returns an algebrized right scan with the given active conjuncts.
   using RightScanAlgebrizerCb =
-      std::function<zetasql_base::StatusOr<std::unique_ptr<RelationalOp>>(
+      std::function<absl::StatusOr<std::unique_ptr<RelationalOp>>(
           std::vector<FilterConjunctInfo*>*)>;
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeJoinScanInternal(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeJoinScanInternal(
       JoinOp::JoinKind join_kind,
       const ResolvedExpr* join_expr,  // May be NULL
       const ResolvedScan* left_scan,
       const std::vector<ResolvedColumn>& right_output_column_list,
       const RightScanAlgebrizerCb& right_scan_algebrizer_cb,
       std::vector<FilterConjunctInfo*>* active_conjuncts);
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeFilterScan(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeFilterScan(
       const ResolvedFilterScan* filter_scan,
       std::vector<FilterConjunctInfo*>* active_conjuncts);
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeSampleScan(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeSampleScan(
       const ResolvedSampleScan* sample_scan,
       std::vector<FilterConjunctInfo*>* active_conjuncts);
-  zetasql_base::StatusOr<std::unique_ptr<AggregateOp>> AlgebrizeAggregateScan(
+  absl::StatusOr<std::unique_ptr<AggregateOp>> AlgebrizeAggregateScan(
       const ResolvedAggregateScan* aggregate_scan);
-  zetasql_base::StatusOr<std::unique_ptr<AggregateOp>> AlgebrizePivotScan(
+  absl::StatusOr<std::unique_ptr<AggregateOp>> AlgebrizePivotScan(
       const ResolvedPivotScan* pivot_scan);
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>>
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeUnpivotScan(
+      const ResolvedUnpivotScan* unpivot_scan);
+  absl::StatusOr<UnionAllOp::Input> AlgebrizeUnpivotArg(
+      const ResolvedUnpivotScan* unpivot_scan, const ExprArg& input,
+      int arg_index);
+  absl::StatusOr<std::unique_ptr<FilterOp>> AlgebrizeNullFilterForUnpivotScan(
+      const ResolvedUnpivotScan* unpivot_scan,
+      std::unique_ptr<RelationalOp> input);
+  absl::StatusOr<std::unique_ptr<RelationalOp>>
   AlgebrizeAnonymizedAggregateScan(
       const ResolvedAnonymizedAggregateScan* aggregate_scan);
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeSetOperationScan(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeSetOperationScan(
       const ResolvedSetOperationScan* set_scan);
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeUnionScan(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeUnionScan(
       const ResolvedSetOperationScan* set_scan);
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeExceptIntersectScan(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeExceptIntersectScan(
       const ResolvedSetOperationScan* set_scan);
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeProjectScan(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeProjectScan(
       const ResolvedProjectScan* resolved_project,
       std::vector<FilterConjunctInfo*>* active_conjuncts);
   // 'limit' and 'offset' may both be NULL or both non-NULL.
-  zetasql_base::StatusOr<std::unique_ptr<SortOp>> AlgebrizeOrderByScan(
+  absl::StatusOr<std::unique_ptr<SortOp>> AlgebrizeOrderByScan(
       const ResolvedOrderByScan* scan, std::unique_ptr<ValueExpr> limit,
       std::unique_ptr<ValueExpr> offset);
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeArrayScan(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeArrayScan(
       const ResolvedArrayScan* array_scan,
       std::vector<FilterConjunctInfo*>* active_conjuncts);
   // Algebrizes 'array_scan', ignoring any input scan or join condition.
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeArrayScanWithoutJoin(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeArrayScanWithoutJoin(
       const ResolvedArrayScan* array_scan,
       std::vector<FilterConjunctInfo*>* active_conjuncts);
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeLimitOffsetScan(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeLimitOffsetScan(
       const ResolvedLimitOffsetScan* scan);
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeWithScan(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeWithScan(
       const ResolvedWithScan* scan);
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeWithRefScan(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeWithRefScan(
       const ResolvedWithRefScan* scan);
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeGroupRowsScan(
+      const ResolvedGroupRowsScan* group_rows_scan);
 
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeTableScan(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeTableScan(
       const ResolvedTableScan* table_scan,
       std::vector<FilterConjunctInfo*>* active_conjuncts);
 
@@ -420,13 +438,13 @@ class Algebrizer {
   // For each analytic function group, a SortOp is also created if it contains
   // partitioning and ordering expressions, even when the input relation has
   // been already sorted by those expressions.
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeAnalyticScan(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeAnalyticScan(
       const ResolvedAnalyticScan* analytic_scan);
 
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeRecursiveScan(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeRecursiveScan(
       const ResolvedRecursiveScan* recursive_scan);
 
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeRecursiveRefScan(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeRecursiveRefScan(
       const ResolvedRecursiveRefScan* recursive_ref_scan);
 
   // Returns an AnalyticOp for 'analytic_group'. A SortOp is also created under
@@ -436,7 +454,7 @@ class Algebrizer {
   // groups. 'input_is_from_same_analytic_scan' must be true if 'analytic_group'
   // and 'input_relation_op' correspond to the same AnalyticScan resolved AST
   // node.
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeAnalyticFunctionGroup(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeAnalyticFunctionGroup(
       const std::set<ResolvedColumn>& input_resolved_columns,
       const ResolvedAnalyticFunctionGroup* analytic_group,
       std::unique_ptr<RelationalOp> input_relation_op,
@@ -449,7 +467,7 @@ class Algebrizer {
   // 'input_resolved_columns' contains the input columns produced by
   // 'input_relation_op'. If 'require_stable_sort' is true, then any SortOp
   // created performs a stable sort over its input.
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>>
+  absl::StatusOr<std::unique_ptr<RelationalOp>>
   MaybeCreateSortForAnalyticOperator(
       const std::set<ResolvedColumn>& input_resolved_columns,
       const ResolvedAnalyticFunctionGroup* analytic_group,
@@ -483,42 +501,42 @@ class Algebrizer {
       std::vector<std::unique_ptr<KeyArg>>* partition_by_keys);
 
   // Converts a ResolvedAnalyticFunctionCall to an AnalyticArg.
-  zetasql_base::StatusOr<std::unique_ptr<AnalyticArg>> AlgebrizeAnalyticFunctionCall(
+  absl::StatusOr<std::unique_ptr<AnalyticArg>> AlgebrizeAnalyticFunctionCall(
       const VariableId& variable,
       const ResolvedAnalyticFunctionCall* analytic_function_call);
 
   // Converts a ResolvedWindowFrame to a WindowFrameArg.
-  zetasql_base::StatusOr<std::unique_ptr<WindowFrameArg>> AlgebrizeWindowFrame(
+  absl::StatusOr<std::unique_ptr<WindowFrameArg>> AlgebrizeWindowFrame(
       const ResolvedWindowFrame* window_frame);
 
   // Converts a ResolvedWindowFrameExpr to a WindowFrameBoundaryArg.
-  zetasql_base::StatusOr<std::unique_ptr<WindowFrameBoundaryArg>>
+  absl::StatusOr<std::unique_ptr<WindowFrameBoundaryArg>>
   AlgebrizeWindowFrameExpr(const ResolvedWindowFrameExpr* window_frame_expr);
 
   // Algebrize the resolved AST for a scan.
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeScan(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeScan(
       const ResolvedScan* scan,
       std::vector<FilterConjunctInfo*>* active_conjuncts);
 
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeScan(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> AlgebrizeScan(
       const ResolvedScan* scan);
 
   // 'output_columns' are needed to compensate for the extra implicit
   // 'ProjectScan' in top-level queries.
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeRootScanAsValueExpr(
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeRootScanAsValueExpr(
       const ResolvedColumnList& output_columns, bool is_value_table,
       const ResolvedScan* scan);
 
   // Populates 'output_column_list', 'output_column_names', and
   // 'output_column_variables' according to the output of 'query' and returns a
   // RelationalOp corresponding to the scan (which may have extra variables).
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>>
+  absl::StatusOr<std::unique_ptr<RelationalOp>>
   AlgebrizeQueryStatementAsRelation(
       const ResolvedQueryStmt* query, ResolvedColumnList* output_column_list,
       std::vector<std::string>* output_column_names,
       std::vector<VariableId>* output_column_variables);
 
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeDMLStatement(
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeDMLStatement(
       const ResolvedStatement* ast_root);
 
   // Populates the ResolvedScanMap and the ResolvedExprMap corresponding to
@@ -556,7 +574,7 @@ class Algebrizer {
   // (whose key is 'resolved_scan' and whose value is the algebrized scan). Note
   // that the map does not own the ResolvedScan nodes.
   absl::Status PopulateResolvedScanMap(const ResolvedScan* resolved_scan,
-                                         ResolvedScanMap* resolved_scan_map);
+                                       ResolvedScanMap* resolved_scan_map);
 
   // Adds the entry corresponding to 'resolved_expr' to 'resolved_expr_map'
   // (whose key is 'resolved_expr' and whose value is the algebrized
@@ -580,43 +598,44 @@ class Algebrizer {
   // <column_list> denotes the columns of each row returned by <input>. Two
   // rows are considered to be duplicates only if all of the columns in
   // <column_list> hold identical values.
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> FilterDuplicates(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> FilterDuplicates(
       std::unique_ptr<RelationalOp> input,
       const ResolvedColumnList& column_list, VariableId row_set_id);
 
   // Cap the algebra for a relation in a struct with a ArrayNestExpr.
-  zetasql_base::StatusOr<std::unique_ptr<ArrayNestExpr>> NestRelationInStruct(
+  absl::StatusOr<std::unique_ptr<ArrayNestExpr>> NestRelationInStruct(
       const ResolvedColumnList& output_columns,
       std::unique_ptr<RelationalOp> relation, bool is_with_table);
   // Cap the algebra for a relation with a ArrayNestExpr. This is used to
   // encapsulate the result of a subquery expression which is always a single
   // column (but may be a struct containing multiple columns).
-  zetasql_base::StatusOr<std::unique_ptr<ArrayNestExpr>> NestSingleColumnRelation(
+  absl::StatusOr<std::unique_ptr<ArrayNestExpr>> NestSingleColumnRelation(
       const ResolvedColumnList& output_columns,
       std::unique_ptr<RelationalOp> relation, bool is_with_table);
 
   // Creates a scan operator iterating over 'table_expr'.
-  zetasql_base::StatusOr<std::unique_ptr<ArrayScanOp>> CreateScanOfTableAsArray(
+  absl::StatusOr<std::unique_ptr<ArrayScanOp>> CreateScanOfTableAsArray(
       const ResolvedScan* scan, bool is_value_table,
       std::unique_ptr<ValueExpr> table_expr);
 
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeIf(
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeIf(
       const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args);
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeIfNull(
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeIfNull(
       const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args);
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeNullIf(
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeNullIf(
       const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args);
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeCoalesce(
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeCoalesce(
       const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args);
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeCaseNoValue(
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeCaseNoValue(
       const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args);
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeCaseWithValue(
-      const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args);
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeNotEqual(
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeCaseWithValue(
+      const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args,
+      const std::vector<ResolvedCollation>& collation_list);
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeNotEqual(
       std::vector<std::unique_ptr<ValueExpr>> args);
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeIn(
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeIn(
       const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args);
-  zetasql_base::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeBetween(
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeBetween(
       const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args);
 
   // If the presence of 'conjunct_info' above the join allows us to remove the
@@ -663,7 +682,7 @@ class Algebrizer {
 
   // If 'conjunct_info' can be represented by a HashJoinEqualityExprs, populates
   // 'equality_exprs'. Else returns false.
-  zetasql_base::StatusOr<bool> TryAlgebrizeFilterConjunctAsHashJoinEqualityExprs(
+  absl::StatusOr<bool> TryAlgebrizeFilterConjunctAsHashJoinEqualityExprs(
       const FilterConjunctInfo& conjunct_info,
       const absl::flat_hash_set<ResolvedColumn>& left_output_columns,
       const absl::flat_hash_set<ResolvedColumn>& right_output_columns,
@@ -672,21 +691,20 @@ class Algebrizer {
 
   // Creates a new variable for each column and returns a vector of arguments,
   // each assigning the new variable from a DerefExpr of the old variable.
-  absl::Status RemapJoinColumns(
-      const ResolvedColumnList& columns,
-      std::vector<std::unique_ptr<ExprArg>>* output);
+  absl::Status RemapJoinColumns(const ResolvedColumnList& columns,
+                                std::vector<std::unique_ptr<ExprArg>>* output);
 
   // If 'algebrizer_options_.push_down_filters' is false, returns
   // 'input'. Otherwise returns a RelationalOp that applies the non-redundant
   // entries in 'active_conjuncts' to 'input', marking everything in
   // 'active_conjuncts' as redundant.
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> MaybeApplyFilterConjuncts(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> MaybeApplyFilterConjuncts(
       std::unique_ptr<RelationalOp> input,
       std::vector<FilterConjunctInfo*>* active_conjuncts);
 
   // Returns a RelationalOp corresponding to 'input' that applies
   // 'algebrized_conjuncts' as filters.
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> ApplyAlgebrizedFilterConjuncts(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> ApplyAlgebrizedFilterConjuncts(
       std::unique_ptr<RelationalOp> input,
       std::vector<std::unique_ptr<ValueExpr>> algebrized_conjuncts);
 
@@ -829,14 +847,14 @@ class Algebrizer {
   // Adds a FieldRegistry to 'get_proto_field_caches_' and returns the
   // corresponding pointer. If 'id' is set, also updates
   // 'proto_field_registry_map_'.
-  zetasql_base::StatusOr<ProtoFieldRegistry*> AddProtoFieldRegistry(
+  absl::StatusOr<ProtoFieldRegistry*> AddProtoFieldRegistry(
       const absl::optional<SharedProtoFieldPath>& id);
 
   // Adds a ProtoFieldReader corresponding to 'access_info' and 'registry' to
   // 'get_proto_field_readers_' and returns the corresponding pointer. If 'id'
   // is set and 'access_info' represents a proto-valued field, also updates
   // 'get_proto_field_reader_map_'.
-  zetasql_base::StatusOr<ProtoFieldReader*> AddProtoFieldReader(
+  absl::StatusOr<ProtoFieldReader*> AddProtoFieldReader(
       const absl::optional<SharedProtoFieldPath>& id,
       const ProtoFieldAccessInfo& access_info, ProtoFieldRegistry* registry);
 
@@ -850,7 +868,7 @@ class Algebrizer {
   //      <output_columns[0]>: DerefExpr(<input_columns[0]>)
   //      <output_columns[1]>: DerefExpr(<input_columns[1]>)
   //      ...
-  zetasql_base::StatusOr<std::unique_ptr<RelationalOp>> MapColumns(
+  absl::StatusOr<std::unique_ptr<RelationalOp>> MapColumns(
       std::unique_ptr<RelationalOp> input,
       const ResolvedColumnList& input_columns,
       const ResolvedColumnList& output_columns);

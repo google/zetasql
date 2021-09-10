@@ -20,16 +20,16 @@
 
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_column.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 
-#ifndef ZETASQL_COMPLIANCE_TYPE_HELPERS_H_
-#define ZETASQL_COMPLIANCE_TYPE_HELPERS_H_
+#ifndef ZETASQL_REFERENCE_IMPL_TYPE_HELPERS_H_
+#define ZETASQL_REFERENCE_IMPL_TYPE_HELPERS_H_
 
 namespace zetasql {
 
 // Creates the Relational Algebra representation of a relation from the
 // resolved AST, which is modeled as an array in the compliance tests.
-zetasql_base::StatusOr<const ArrayType*> CreateTableArrayType(
+absl::StatusOr<const ArrayType*> CreateTableArrayType(
     const ResolvedColumnList& table_columns, bool is_value_table,
     TypeFactory* type_factory);
 
@@ -44,7 +44,7 @@ extern const char* kDMLOutputReturningColumnName;
 //
 // key_column_indexes are positional indexes of primary key columns in
 // table_columns.
-zetasql_base::StatusOr<const StructType*> CreatePrimaryKeyType(
+absl::StatusOr<const StructType*> CreatePrimaryKeyType(
     const ResolvedColumnList& table_columns,
     const std::vector<int>& key_column_indexes, TypeFactory* type_factory);
 
@@ -54,7 +54,7 @@ zetasql_base::StatusOr<const StructType*> CreatePrimaryKeyType(
 // The returned type is a struct with two fields: an int64_t representing the
 // number of rows modified by the statement, and an array of structs, where each
 // element of the array represents a row of the modified table.
-zetasql_base::StatusOr<const StructType*> CreateDMLOutputType(
+absl::StatusOr<const StructType*> CreateDMLOutputType(
     const ArrayType* table_array_type, TypeFactory* type_factory);
 
 // Creates the DML output struct type corresponding to a DML statement on a
@@ -67,10 +67,10 @@ zetasql_base::StatusOr<const StructType*> CreateDMLOutputType(
 // The returned type is a struct with three fields: an int64_t representing the
 // number of rows modified by the statement, and an array of structs, where each
 // element of the array represents a row of the modified table.
-zetasql_base::StatusOr<const StructType*> CreateDMLOutputTypeWithReturning(
+absl::StatusOr<const StructType*> CreateDMLOutputTypeWithReturning(
     const ArrayType* table_array_type, const ArrayType* returning_array_type,
     TypeFactory* type_factory);
 
 }  // namespace zetasql
 
-#endif  // ZETASQL_COMPLIANCE_TYPE_HELPERS_H_
+#endif  // ZETASQL_REFERENCE_IMPL_TYPE_HELPERS_H_

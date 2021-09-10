@@ -23,7 +23,6 @@
 // consume the same tests using appropriate options.
 
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "zetasql/public/type.h"
@@ -57,7 +56,8 @@ class AnalyzerTestCase;
 //   show_resolved_ast - if true (default), show the resolved AST.
 //   show_strict_mode - also show strict mode resolver output if it differs.
 //                      By default, we run strict mode but don't show output.
-//   record_parse_locations - record parse locations of ResolvedLiterals.
+//   parse_location_record_type - What parse location to record in Resolved AST
+//                                nodes.
 //   parse_multiple - if true, use AnalyzeNextStatement to analyze a sequence
 //                    of statements from the same string.
 //   default_timezone - default timezone to use for analysis.
@@ -86,9 +86,9 @@ class AnalyzerTestCase;
 //       - "external" or "internal". Maps to ProductMode analyzer option.
 //   statement_context
 //       - "default" or "module". Maps to StatementContext analyzer option.
-//   use_hints_whitelist
+//   use_hints_allowlist
 //       - if true, fill in AllowedHintsAndOptions in AnalyzerOptions with a
-//         set of whitelisted hint/option names. (False by default)
+//         set of allowed hint/option names. (False by default)
 //   use_catalog
 //       - must be either "SampleCatalog" (default) to use the standard catalog
 //         defined in sample_catalog.cc, or "SpecialCatalog" to use a hardcoded
@@ -113,8 +113,7 @@ extern const char* const kParameterMode;
 extern const char* const kParseMultiple;
 extern const char* const kPositionalParameters;
 extern const char* const kProductMode;
-extern const char* const kRecordParseLocations;
-extern const char* const kFunctionCallParseLocationRecordType;
+extern const char* const kParseLocationRecordType;
 extern const char* const kCreateNewColumnForEachProjectedOutput;
 extern const char* const kRunInJava;
 extern const char* const kRunUnparser;
@@ -130,7 +129,7 @@ extern const char* const kTestExtractTableNames;
 extern const char* const kUnparserPositionalParameterMode;
 extern const char* const kUseCatalog;
 extern const char* const kRunDeserializer;
-extern const char* const kUseHintsWhitelist;
+extern const char* const kUseHintsAllowlist;
 extern const char* const kUseSharedIdSequence;
 extern const char* const kEnableLiteralReplacement;
 extern const char* const kErrorMessageMode;

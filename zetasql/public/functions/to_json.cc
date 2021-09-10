@@ -42,7 +42,7 @@
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/value.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -61,7 +61,7 @@ constexpr uint64_t kUint64Max = std::numeric_limits<uint64_t>::max();
 // construct the json if no loss. Otherwide returns the rounded value iff
 // FEATURE_JSON_STRICT_NUMBER_PARSING is false.
 template <typename T>
-zetasql_base::StatusOr<JSONValue> ToJsonFromNumeric(
+absl::StatusOr<JSONValue> ToJsonFromNumeric(
     const T& value, bool stringify_wide_number,
     const LanguageOptions& language_options, const std::string_view type_name) {
   if (!value.HasFractionalPart()) {
@@ -115,7 +115,7 @@ JSONValue ToJsonFromFloat(FloatType value) {
 // space when <current_nesting_level> not less than
 // kNestingLevelStackCheckThreshold. Returns StatusCode::kResourceExhausted when
 // stack overflows.
-zetasql_base::StatusOr<JSONValue> ToJsonHelper(const Value& value,
+absl::StatusOr<JSONValue> ToJsonHelper(const Value& value,
                                        bool stringify_wide_numbers,
                                        const LanguageOptions& language_options,
                                        int current_nesting_level) {
@@ -201,16 +201,16 @@ zetasql_base::StatusOr<JSONValue> ToJsonHelper(const Value& value,
       if (value.is_validated_json()) {
         return JSONValue::CopyFrom(value.json_value());
       }
-      ZETASQL_ASSIGN_OR_RETURN(
-          JSONValue input_json,
-          JSONValue::ParseJSONString(
-              value.json_value_unparsed(),
-              JSONParsingOptions{
-                  .legacy_mode = language_options.LanguageFeatureEnabled(
-                      FEATURE_JSON_LEGACY_PARSE),
-                  .strict_number_parsing =
-                      language_options.LanguageFeatureEnabled(
-                          FEATURE_JSON_STRICT_NUMBER_PARSING)}));
+      auto input_json = JSONValue::ParseJSONString(
+          value.json_value_unparsed(),
+          JSONParsingOptions{
+              .legacy_mode = language_options.LanguageFeatureEnabled(
+                  FEATURE_JSON_LEGACY_PARSE),
+              .strict_number_parsing = language_options.LanguageFeatureEnabled(
+                  FEATURE_JSON_STRICT_NUMBER_PARSING)});
+      if (!input_json.ok()) {
+        return MakeEvalError() << input_json.status().message();
+      }
       return input_json;
     }
     case TYPE_STRUCT: {
@@ -267,7 +267,7 @@ zetasql_base::StatusOr<JSONValue> ToJsonHelper(const Value& value,
 
 }  // namespace
 
-zetasql_base::StatusOr<JSONValue> ToJson(const Value& value,
+absl::StatusOr<JSONValue> ToJson(const Value& value,
                                  bool stringify_wide_numbers,
                                  const LanguageOptions& language_options) {
   return ToJsonHelper(value, stringify_wide_numbers, language_options,

@@ -394,6 +394,38 @@ PIVOT(MAX(y HAVING MAX x) FOR x IN (1, 2));
 ARRAY<STRUCT<_1 INT64, _2 INT64>>[{101, 102}]
 ==
 
+# Regression test for b/191772920:
+# This checks two issues:
+# 1) Engines which inline WITH entries referenced only once do not get tripped
+#      up when that one reference occurs within a PIVOT expression that is
+#      evaluated more than once, due to multiple pivot values.
+# 2) HAVING MIN/MAX works with COUNT(*) when used as a PIVOT expression.
+[name=having_min_with_reference]
+[required_features=V_1_3_PIVOT,V_1_1_HAVING_IN_AGGREGATE]
+WITH
+  table_bool_decimal AS (
+    SELECT 1.2 AS double_val
+  )
+SELECT
+  a_23_a_33
+FROM
+  (
+    SELECT 1.2 AS a_10
+  ) AS projectscan_22
+  PIVOT(
+    COUNT(*
+      HAVING MIN(
+        SELECT
+          1.2
+        FROM
+          table_bool_decimal
+        )
+    )
+AS a_23 FOR(a_10) IN (1.3 AS a_33, 2 AS a_34))
+--
+ARRAY<STRUCT<a_23_a_33 INT64>>[{0}]
+==
+
 [required_features=V_1_3_PIVOT]
 [name=pivot_array_agg]
 SELECT * FROM (
@@ -497,4 +529,127 @@ ARRAY<STRUCT<_0 ARRAY<>, _1 ARRAY<>>>[
     ARRAY<STRUCT<neighbor INT64, distance DOUBLE>>(NULL),
     ARRAY<STRUCT<neighbor INT64, distance DOUBLE>>[{1, 1177772.5464204482}]
   }
+]
+==
+
+[required_features=V_1_3_PIVOT]
+[name=pivot_any_value_no_groupby]
+SELECT
+  any_x_100 IN (1,2),
+  any_x_500 IS NULL,
+  any_x_null = 2
+FROM (SELECT x, y FROM t1)
+  PIVOT(ANY_VALUE(x) AS any_x FOR y IN (100, 500, NULL AS `null`));
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{true, true, true}]
+==
+
+[required_features=V_1_3_PIVOT]
+[name=pivot_any_value_groupby_z]
+SELECT
+  z,
+  any_x_100 IN (1,2),
+  any_x_500 IS NULL,
+  any_x_null = 2
+FROM (SELECT x, y, z FROM t1)
+  PIVOT(ANY_VALUE(x) AS any_x FOR y IN (100, 500, NULL AS `null`));
+--
+ARRAY<STRUCT<z INT64, BOOL, BOOL, BOOL>>[
+  {1000, true, true, NULL},
+  {1002, true, true, true},
+  {1004, true, true, NULL},
+  {NULL, NULL, true, NULL},
+  {1001, true, true, NULL},
+  {1003, true, true, NULL}
+]
+==
+
+[required_features=V_1_3_PIVOT]
+[name=pivot_any_value_array_no_groupby]
+SELECT
+  any_x_100[OFFSET(0)] IN (1,2),
+  any_x_500 IS NULL,
+  any_x_null[OFFSET(0)] = 2
+FROM (SELECT [x] AS x, y FROM t1)
+  PIVOT(ANY_VALUE(x) AS any_x FOR y IN (100, 500, NULL AS `null`));
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{true, true, true}]
+==
+[required_features=V_1_3_PIVOT]
+[name=pivot_any_value_array_groupby]
+SELECT
+  z,
+  any_x_100[OFFSET(0)] IN (1,2),
+  any_x_500 IS NULL,
+  any_x_null[OFFSET(0)] = 2
+FROM (SELECT [x] AS x, y, z FROM t1)
+  PIVOT(ANY_VALUE(x) AS any_x FOR y IN (100, 500, NULL AS `null`));
+--
+ARRAY<STRUCT<z INT64, BOOL, BOOL, BOOL>>[
+  {1000, true, true, NULL},
+  {1002, true, true, true},
+  {1004, true, true, NULL},
+  {NULL, NULL, true, NULL},
+  {1001, true, true, NULL},
+  {1003, true, true, NULL}
+]
+==
+
+[required_features=V_1_3_PIVOT]
+[name=pivot_any_value_empty_input]
+SELECT
+  any_x_100 IN (1,2),
+  any_x_500 IS NULL,
+  any_x_null = 2
+FROM (SELECT x, y FROM t1 WHERE FALSE)
+  PIVOT(ANY_VALUE(x) AS any_x FOR y IN (100, 500, NULL AS `null`));
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{NULL, true, NULL}]
+==
+
+[required_features=V_1_3_PIVOT]
+[name=pivot_any_value_empty_input_array]
+SELECT
+  any_x_100[OFFSET(0)] IN (1,2),
+  any_x_500[OFFSET(0)] IS NULL,
+  any_x_null[OFFSET(0)] = 2
+FROM (SELECT x, y FROM t1 WHERE FALSE)
+  PIVOT(ANY_VALUE([x]) AS any_x FOR y IN (100, 500, NULL AS `null`));
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL>>[{NULL, true, NULL}]
+==
+
+[required_features=V_1_3_PIVOT]
+[name=pivot_any_value_multiple]
+
+SELECT
+  any_array_x_100[OFFSET(0)] IN (1,2),
+  any_array_x_500[OFFSET(0)] IS NULL,
+  any_array_x_null[OFFSET(0)] = 2,
+
+  any_struct_x_100.struct_x IN (1,2),
+  any_struct_x_500 IS NULL,
+  any_struct_x_null.struct_x = 2,
+
+  sum_x_100,
+  sum_x_500,
+  sum_x_null
+FROM (SELECT x, y FROM t1)
+  PIVOT(
+    ANY_VALUE([x]) AS any_array_x,
+    ANY_VALUE(STRUCT(x AS struct_x)) AS any_struct_x,
+    SUM(x) AS sum_x,
+    AVG(x) AS avg_x
+  FOR y IN (100, 500, NULL AS `null`));
+--
+ARRAY<STRUCT<BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             BOOL,
+             sum_x_100 INT64,
+             sum_x_500 INT64,
+             sum_x_null INT64>>[
+  {true, true, true, true, true, true, 8, NULL, 4}
 ]

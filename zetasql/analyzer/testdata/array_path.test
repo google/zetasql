@@ -19,12 +19,12 @@ QueryStmt
         | +-Flatten
         |   +-type=ARRAY<INT32>
         |   +-expr=
-        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   +-get_field_list=
         |     +-GetProtoField
         |       +-type=INT32
         |       +-expr=
-        |       | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPB>)
+        |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=int32_val1
         |       +-default_value=0
         +-element_column=$array.value#18
@@ -49,7 +49,7 @@ QueryStmt
             |   +-GetProtoField
             |     +-type=INT32
             |     +-expr=
-            |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$flatten.injected#19)
+            |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#19)
             |     +-field_descriptor=int32_val1
             |     +-default_value=0
             +-input_scan=
@@ -58,7 +58,7 @@ QueryStmt
                 +-input_scan=
                 | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
                 +-array_expr=
-                | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+                | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
                 +-element_column=$flatten.injected#19
 ==
 
@@ -80,12 +80,12 @@ QueryStmt
         | +-Flatten
         |   +-type=ARRAY<BOOL>
         |   +-expr=
-        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   +-get_field_list=
         |     +-GetProtoField
         |       +-type=BOOL
         |       +-expr=
-        |       | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPB>)
+        |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=int32_val1
         |       +-get_has_bit=TRUE
         +-element_column=$array.value#18
@@ -110,7 +110,7 @@ QueryStmt
             |   +-GetProtoField
             |     +-type=BOOL
             |     +-expr=
-            |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$flatten.injected#19)
+            |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#19)
             |     +-field_descriptor=int32_val1
             |     +-get_has_bit=TRUE
             +-input_scan=
@@ -119,7 +119,7 @@ QueryStmt
                 +-input_scan=
                 | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
                 +-array_expr=
-                | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+                | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
                 +-element_column=$flatten.injected#19
 ==
 
@@ -141,12 +141,12 @@ QueryStmt
         | +-Flatten
         |   +-type=ARRAY<INT32>
         |   +-expr=
-        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   +-get_field_list=
         |     +-GetProtoField
         |       +-type=INT32
         |       +-expr=
-        |       | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPB>)
+        |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=int32_val1
         |       +-default_value=0
         +-element_column=$array.value#18
@@ -171,7 +171,7 @@ QueryStmt
             |   +-GetProtoField
             |     +-type=INT32
             |     +-expr=
-            |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$flatten.injected#19)
+            |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#19)
             |     +-field_descriptor=int32_val1
             |     +-default_value=0
             +-input_scan=
@@ -180,7 +180,7 @@ QueryStmt
                 +-input_scan=
                 | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
                 +-array_expr=
-                | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+                | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
                 +-element_column=$flatten.injected#19
 ==
 
@@ -202,12 +202,12 @@ QueryStmt
         | +-Flatten
         |   +-type=ARRAY<STRING>
         |   +-expr=
-        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   +-get_field_list=
         |     +-GetProtoField
         |       +-type=ARRAY<STRING>
         |       +-expr=
-        |       | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPB>)
+        |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=str_value
         |       +-default_value=[]
         +-element_column=$array.str_value#18
@@ -233,13 +233,13 @@ QueryStmt
             |   +-input_scan=
             |   | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
             |   +-array_expr=
-            |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+            |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
             |   +-element_column=$flatten.injected#19
             +-array_expr=
             | +-GetProtoField
             |   +-type=ARRAY<STRING>
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$flatten.injected#19)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#19)
             |   +-field_descriptor=str_value
             |   +-default_value=[]
             +-element_column=$flatten.injected#20
@@ -265,16 +265,16 @@ QueryStmt
         |   +-type=ARRAY<INT64>
         |   +-expr=
         |   | +-GetProtoField
-        |   |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+        |   |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
         |   |   +-expr=
-        |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   |   +-field_descriptor=nested_repeated_value
         |   |   +-default_value=[]
         |   +-get_field_list=
         |     +-GetProtoField
         |       +-type=INT64
         |       +-expr=
-        |       | +-FlattenedArg(type=PROTO<zetasql_test.KitchenSinkPB.Nested>)
+        |       | +-FlattenedArg(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>)
         |       +-field_descriptor=nested_int64
         |       +-default_value=88
         +-element_column=$array.value#4
@@ -300,7 +300,7 @@ QueryStmt
             |   +-GetProtoField
             |     +-type=INT64
             |     +-expr=
-            |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$flatten.injected#5)
+            |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$flatten.injected#5)
             |     +-field_descriptor=nested_int64
             |     +-default_value=88
             +-input_scan=
@@ -310,9 +310,9 @@ QueryStmt
                 | +-TableScan(column_list=TestTable.[key#1, KitchenSink#3], table=TestTable, column_index_list=[0, 2], alias="t")
                 +-array_expr=
                 | +-GetProtoField
-                |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+                |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
                 |   +-expr=
-                |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+                |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
                 |   +-field_descriptor=nested_repeated_value
                 |   +-default_value=[]
                 +-element_column=$flatten.injected#5
@@ -337,16 +337,16 @@ QueryStmt
         |   +-type=ARRAY<INT64>
         |   +-expr=
         |   | +-GetProtoField
-        |   |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+        |   |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
         |   |   +-expr=
-        |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   |   +-field_descriptor=nested_repeated_value
         |   |   +-default_value=[]
         |   +-get_field_list=
         |     +-GetProtoField
         |       +-type=ARRAY<INT64>
         |       +-expr=
-        |       | +-FlattenedArg(type=PROTO<zetasql_test.KitchenSinkPB.Nested>)
+        |       | +-FlattenedArg(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>)
         |       +-field_descriptor=nested_repeated_int64
         |       +-default_value=[]
         +-element_column=$array.value#4
@@ -373,9 +373,9 @@ QueryStmt
             |   | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="t")
             |   +-array_expr=
             |   | +-GetProtoField
-            |   |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+            |   |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
             |   |   +-expr=
-            |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             |   |   +-field_descriptor=nested_repeated_value
             |   |   +-default_value=[]
             |   +-element_column=$flatten.injected#5
@@ -383,7 +383,7 @@ QueryStmt
             | +-GetProtoField
             |   +-type=ARRAY<INT64>
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$flatten.injected#5)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$flatten.injected#5)
             |   +-field_descriptor=nested_repeated_int64
             |   +-default_value=[]
             +-element_column=$flatten.injected#6
@@ -408,22 +408,22 @@ QueryStmt
         |   +-type=ARRAY<INT32>
         |   +-expr=
         |   | +-GetProtoField
-        |   |   +-type=ARRAY<PROTO<zetasql_test.RepeatedHolderPB>>
+        |   |   +-type=ARRAY<PROTO<zetasql_test__.RepeatedHolderPB>>
         |   |   +-expr=
-        |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   |   +-field_descriptor=repeated_holder
         |   |   +-default_value=[]
         |   +-get_field_list=
         |     +-GetProtoField
-        |     | +-type=ARRAY<PROTO<zetasql_test.TestExtraPB>>
+        |     | +-type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=PROTO<zetasql_test.RepeatedHolderPB>)
+        |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RepeatedHolderPB>)
         |     | +-field_descriptor=repeated_field
         |     | +-default_value=[]
         |     +-GetProtoField
         |       +-type=INT32
         |       +-expr=
-        |       | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPB>)
+        |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=int32_val1
         |       +-default_value=0
         +-element_column=$array.value#4
@@ -448,7 +448,7 @@ QueryStmt
             |   +-GetProtoField
             |     +-type=INT32
             |     +-expr=
-            |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$flatten.injected#6)
+            |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#6)
             |     +-field_descriptor=int32_val1
             |     +-default_value=0
             +-input_scan=
@@ -461,17 +461,17 @@ QueryStmt
                 |   | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="t")
                 |   +-array_expr=
                 |   | +-GetProtoField
-                |   |   +-type=ARRAY<PROTO<zetasql_test.RepeatedHolderPB>>
+                |   |   +-type=ARRAY<PROTO<zetasql_test__.RepeatedHolderPB>>
                 |   |   +-expr=
-                |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+                |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
                 |   |   +-field_descriptor=repeated_holder
                 |   |   +-default_value=[]
                 |   +-element_column=$flatten.injected#5
                 +-array_expr=
                 | +-GetProtoField
-                |   +-type=ARRAY<PROTO<zetasql_test.TestExtraPB>>
+                |   +-type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>
                 |   +-expr=
-                |   | +-ColumnRef(type=PROTO<zetasql_test.RepeatedHolderPB>, column=$flatten.injected#5)
+                |   | +-ColumnRef(type=PROTO<zetasql_test__.RepeatedHolderPB>, column=$flatten.injected#5)
                 |   +-field_descriptor=repeated_field
                 |   +-default_value=[]
                 +-element_column=$flatten.injected#6
@@ -496,22 +496,22 @@ QueryStmt
         |   +-type=ARRAY<STRING>
         |   +-expr=
         |   | +-GetProtoField
-        |   |   +-type=ARRAY<PROTO<zetasql_test.RepeatedHolderPB>>
+        |   |   +-type=ARRAY<PROTO<zetasql_test__.RepeatedHolderPB>>
         |   |   +-expr=
-        |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |   |   +-field_descriptor=repeated_holder
         |   |   +-default_value=[]
         |   +-get_field_list=
         |     +-GetProtoField
-        |     | +-type=ARRAY<PROTO<zetasql_test.TestExtraPB>>
+        |     | +-type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=PROTO<zetasql_test.RepeatedHolderPB>)
+        |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RepeatedHolderPB>)
         |     | +-field_descriptor=repeated_field
         |     | +-default_value=[]
         |     +-GetProtoField
         |       +-type=ARRAY<STRING>
         |       +-expr=
-        |       | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPB>)
+        |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=str_value
         |       +-default_value=[]
         +-element_column=$array.value#4
@@ -541,17 +541,17 @@ QueryStmt
             |   |   | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="t")
             |   |   +-array_expr=
             |   |   | +-GetProtoField
-            |   |   |   +-type=ARRAY<PROTO<zetasql_test.RepeatedHolderPB>>
+            |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RepeatedHolderPB>>
             |   |   |   +-expr=
-            |   |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            |   |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
             |   |   |   +-field_descriptor=repeated_holder
             |   |   |   +-default_value=[]
             |   |   +-element_column=$flatten.injected#5
             |   +-array_expr=
             |   | +-GetProtoField
-            |   |   +-type=ARRAY<PROTO<zetasql_test.TestExtraPB>>
+            |   |   +-type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>
             |   |   +-expr=
-            |   |   | +-ColumnRef(type=PROTO<zetasql_test.RepeatedHolderPB>, column=$flatten.injected#5)
+            |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RepeatedHolderPB>, column=$flatten.injected#5)
             |   |   +-field_descriptor=repeated_field
             |   |   +-default_value=[]
             |   +-element_column=$flatten.injected#6
@@ -559,7 +559,7 @@ QueryStmt
             | +-GetProtoField
             |   +-type=ARRAY<STRING>
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$flatten.injected#6)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#6)
             |   +-field_descriptor=str_value
             |   +-default_value=[]
             +-element_column=$flatten.injected#7
@@ -584,40 +584,40 @@ QueryStmt
         |   +-type=ARRAY<INT64>
         |   +-expr=
         |   | +-GetProtoField
-        |   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |   |   +-expr=
-        |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
+        |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
         |   |   +-field_descriptor=repeated_recursive_pb
         |   |   +-default_value=[]
         |   +-get_field_list=
         |     +-GetProtoField
-        |     | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |     | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |     | +-field_descriptor=repeated_recursive_pb
         |     | +-default_value=[]
         |     +-GetProtoField
-        |     | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |     | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |     | +-field_descriptor=repeated_recursive_pb
         |     | +-default_value=[]
         |     +-GetProtoField
-        |     | +-type=PROTO<zetasql_test.RecursivePB>
+        |     | +-type=PROTO<zetasql_test__.RecursivePB>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |     | +-field_descriptor=recursive_pb
         |     | +-default_value=NULL
         |     +-GetProtoField
-        |     | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |     | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |     | +-field_descriptor=repeated_recursive_pb
         |     | +-default_value=[]
         |     +-GetProtoField
         |       +-type=INT64
         |       +-expr=
-        |       | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |       | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |       +-field_descriptor=int64_val
         |       +-default_value=0
         +-element_column=$array.value#2
@@ -642,7 +642,7 @@ QueryStmt
             |   +-GetProtoField
             |     +-type=INT64
             |     +-expr=
-            |     | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#6)
+            |     | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#6)
             |     +-field_descriptor=int64_val
             |     +-default_value=0
             +-input_scan=
@@ -661,36 +661,36 @@ QueryStmt
                 |   |   |   | +-TableScan(column_list=[RecursivePBTable.RecursivePB#1], table=RecursivePBTable, column_index_list=[0], alias="t")
                 |   |   |   +-array_expr=
                 |   |   |   | +-GetProtoField
-                |   |   |   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+                |   |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   |   |   +-expr=
-                |   |   |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
+                |   |   |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
                 |   |   |   |   +-field_descriptor=repeated_recursive_pb
                 |   |   |   |   +-default_value=[]
                 |   |   |   +-element_column=$flatten.injected#3
                 |   |   +-array_expr=
                 |   |   | +-GetProtoField
-                |   |   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+                |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   |   +-expr=
-                |   |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#3)
+                |   |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#3)
                 |   |   |   +-field_descriptor=repeated_recursive_pb
                 |   |   |   +-default_value=[]
                 |   |   +-element_column=$flatten.injected#4
                 |   +-array_expr=
                 |   | +-GetProtoField
-                |   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+                |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   +-expr=
-                |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#4)
+                |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#4)
                 |   |   +-field_descriptor=repeated_recursive_pb
                 |   |   +-default_value=[]
                 |   +-element_column=$flatten.injected#5
                 +-array_expr=
                 | +-GetProtoField
-                |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+                |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   +-expr=
                 |   | +-GetProtoField
-                |   |   +-type=PROTO<zetasql_test.RecursivePB>
+                |   |   +-type=PROTO<zetasql_test__.RecursivePB>
                 |   |   +-expr=
-                |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#5)
+                |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#5)
                 |   |   +-field_descriptor=recursive_pb
                 |   |   +-default_value=NULL
                 |   +-field_descriptor=repeated_recursive_pb
@@ -717,36 +717,36 @@ QueryStmt
         |   +-type=ARRAY<INT64>
         |   +-expr=
         |   | +-GetProtoField
-        |   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |   |   +-expr=
-        |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
+        |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
         |   |   +-field_descriptor=repeated_recursive_pb
         |   |   +-default_value=[]
         |   +-get_field_list=
         |     +-GetProtoField
-        |     | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |     | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |     | +-field_descriptor=repeated_recursive_pb
         |     | +-default_value=[]
-        |     +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test.RecursivePB>>, INT64) -> PROTO<zetasql_test.RecursivePB>)
+        |     +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test__.RecursivePB>>, INT64) -> PROTO<zetasql_test__.RecursivePB>)
         |     | +-GetProtoField
-        |     | | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |     | | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |     | | +-expr=
-        |     | | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |     | | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |     | | +-field_descriptor=repeated_recursive_pb
         |     | | +-default_value=[]
         |     | +-Literal(type=INT64, value=0)
         |     +-GetProtoField
-        |     | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |     | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |     | +-field_descriptor=repeated_recursive_pb
         |     | +-default_value=[]
         |     +-GetProtoField
         |       +-type=INT64
         |       +-expr=
-        |       | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |       | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |       +-field_descriptor=int64_val
         |       +-default_value=0
         +-element_column=$array.value#2
@@ -771,7 +771,7 @@ QueryStmt
             |   +-GetProtoField
             |     +-type=INT64
             |     +-expr=
-            |     | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#5)
+            |     | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#5)
             |     +-field_descriptor=int64_val
             |     +-default_value=0
             +-input_scan=
@@ -787,29 +787,29 @@ QueryStmt
                 |   |   | +-TableScan(column_list=[RecursivePBTable.RecursivePB#1], table=RecursivePBTable, column_index_list=[0], alias="t")
                 |   |   +-array_expr=
                 |   |   | +-GetProtoField
-                |   |   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+                |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   |   +-expr=
-                |   |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
+                |   |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
                 |   |   |   +-field_descriptor=repeated_recursive_pb
                 |   |   |   +-default_value=[]
                 |   |   +-element_column=$flatten.injected#3
                 |   +-array_expr=
                 |   | +-GetProtoField
-                |   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+                |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   +-expr=
-                |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#3)
+                |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#3)
                 |   |   +-field_descriptor=repeated_recursive_pb
                 |   |   +-default_value=[]
                 |   +-element_column=$flatten.injected#4
                 +-array_expr=
                 | +-GetProtoField
-                |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+                |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   +-expr=
-                |   | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test.RecursivePB>>, INT64) -> PROTO<zetasql_test.RecursivePB>)
+                |   | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test__.RecursivePB>>, INT64) -> PROTO<zetasql_test__.RecursivePB>)
                 |   |   +-GetProtoField
-                |   |   | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+                |   |   | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   | +-expr=
-                |   |   | | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#4)
+                |   |   | | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#4)
                 |   |   | +-field_descriptor=repeated_recursive_pb
                 |   |   | +-default_value=[]
                 |   |   +-Literal(type=INT64, value=0)
@@ -820,7 +820,7 @@ QueryStmt
 ==
 
 select value
-from unnest(new zetasql_test.RecursivePB().recursive_pb.repeated_recursive_pb.repeated_recursive_pb.recursive_pb.repeated_recursive_pb.int64_val) value
+from unnest(new zetasql_test__.RecursivePB().recursive_pb.repeated_recursive_pb.repeated_recursive_pb.recursive_pb.repeated_recursive_pb.int64_val) value
 --
 QueryStmt
 +-output_column_list=
@@ -836,39 +836,39 @@ QueryStmt
         |   +-type=ARRAY<INT64>
         |   +-expr=
         |   | +-GetProtoField
-        |   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |   |   +-expr=
         |   |   | +-GetProtoField
-        |   |   |   +-type=PROTO<zetasql_test.RecursivePB>
+        |   |   |   +-type=PROTO<zetasql_test__.RecursivePB>
         |   |   |   +-expr=
-        |   |   |   | +-MakeProto(type=PROTO<zetasql_test.RecursivePB>)
+        |   |   |   | +-MakeProto(type=PROTO<zetasql_test__.RecursivePB>)
         |   |   |   +-field_descriptor=recursive_pb
         |   |   |   +-default_value=NULL
         |   |   +-field_descriptor=repeated_recursive_pb
         |   |   +-default_value=[]
         |   +-get_field_list=
         |     +-GetProtoField
-        |     | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |     | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |     | +-field_descriptor=repeated_recursive_pb
         |     | +-default_value=[]
         |     +-GetProtoField
-        |     | +-type=PROTO<zetasql_test.RecursivePB>
+        |     | +-type=PROTO<zetasql_test__.RecursivePB>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |     | +-field_descriptor=recursive_pb
         |     | +-default_value=NULL
         |     +-GetProtoField
-        |     | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |     | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |     | +-field_descriptor=repeated_recursive_pb
         |     | +-default_value=[]
         |     +-GetProtoField
         |       +-type=INT64
         |       +-expr=
-        |       | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |       | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |       +-field_descriptor=int64_val
         |       +-default_value=0
         +-element_column=$array.value#1
@@ -893,7 +893,7 @@ QueryStmt
             |   +-GetProtoField
             |     +-type=INT64
             |     +-expr=
-            |     | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#4)
+            |     | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#4)
             |     +-field_descriptor=int64_val
             |     +-default_value=0
             +-input_scan=
@@ -907,12 +907,12 @@ QueryStmt
                 |   |   +-column_list=[$flatten.injected#2]
                 |   |   +-array_expr=
                 |   |   | +-GetProtoField
-                |   |   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+                |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   |   +-expr=
                 |   |   |   | +-GetProtoField
-                |   |   |   |   +-type=PROTO<zetasql_test.RecursivePB>
+                |   |   |   |   +-type=PROTO<zetasql_test__.RecursivePB>
                 |   |   |   |   +-expr=
-                |   |   |   |   | +-MakeProto(type=PROTO<zetasql_test.RecursivePB>)
+                |   |   |   |   | +-MakeProto(type=PROTO<zetasql_test__.RecursivePB>)
                 |   |   |   |   +-field_descriptor=recursive_pb
                 |   |   |   |   +-default_value=NULL
                 |   |   |   +-field_descriptor=repeated_recursive_pb
@@ -920,20 +920,20 @@ QueryStmt
                 |   |   +-element_column=$flatten.injected#2
                 |   +-array_expr=
                 |   | +-GetProtoField
-                |   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+                |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   +-expr=
-                |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#2)
+                |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#2)
                 |   |   +-field_descriptor=repeated_recursive_pb
                 |   |   +-default_value=[]
                 |   +-element_column=$flatten.injected#3
                 +-array_expr=
                 | +-GetProtoField
-                |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+                |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   +-expr=
                 |   | +-GetProtoField
-                |   |   +-type=PROTO<zetasql_test.RecursivePB>
+                |   |   +-type=PROTO<zetasql_test__.RecursivePB>
                 |   |   +-expr=
-                |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#3)
+                |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#3)
                 |   |   +-field_descriptor=recursive_pb
                 |   |   +-default_value=NULL
                 |   +-field_descriptor=repeated_recursive_pb
@@ -942,7 +942,7 @@ QueryStmt
 ==
 
 select value
-from unnest(new zetasql_test.RecursivePB().repeated_recursive_pb.repeated_recursive_pb.repeated_recursive_pb.recursive_pb.repeated_recursive_pb.int64_val) value
+from unnest(new zetasql_test__.RecursivePB().repeated_recursive_pb.repeated_recursive_pb.repeated_recursive_pb.recursive_pb.repeated_recursive_pb.int64_val) value
 --
 QueryStmt
 +-output_column_list=
@@ -958,40 +958,40 @@ QueryStmt
         |   +-type=ARRAY<INT64>
         |   +-expr=
         |   | +-GetProtoField
-        |   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |   |   +-expr=
-        |   |   | +-MakeProto(type=PROTO<zetasql_test.RecursivePB>)
+        |   |   | +-MakeProto(type=PROTO<zetasql_test__.RecursivePB>)
         |   |   +-field_descriptor=repeated_recursive_pb
         |   |   +-default_value=[]
         |   +-get_field_list=
         |     +-GetProtoField
-        |     | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |     | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |     | +-field_descriptor=repeated_recursive_pb
         |     | +-default_value=[]
         |     +-GetProtoField
-        |     | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |     | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |     | +-field_descriptor=repeated_recursive_pb
         |     | +-default_value=[]
         |     +-GetProtoField
-        |     | +-type=PROTO<zetasql_test.RecursivePB>
+        |     | +-type=PROTO<zetasql_test__.RecursivePB>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |     | +-field_descriptor=recursive_pb
         |     | +-default_value=NULL
         |     +-GetProtoField
-        |     | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |     | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |     | +-field_descriptor=repeated_recursive_pb
         |     | +-default_value=[]
         |     +-GetProtoField
         |       +-type=INT64
         |       +-expr=
-        |       | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |       | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |       +-field_descriptor=int64_val
         |       +-default_value=0
         +-element_column=$array.value#1
@@ -1016,7 +1016,7 @@ QueryStmt
             |   +-GetProtoField
             |     +-type=INT64
             |     +-expr=
-            |     | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#5)
+            |     | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#5)
             |     +-field_descriptor=int64_val
             |     +-default_value=0
             +-input_scan=
@@ -1033,36 +1033,36 @@ QueryStmt
                 |   |   |   +-column_list=[$flatten.injected#2]
                 |   |   |   +-array_expr=
                 |   |   |   | +-GetProtoField
-                |   |   |   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+                |   |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   |   |   +-expr=
-                |   |   |   |   | +-MakeProto(type=PROTO<zetasql_test.RecursivePB>)
+                |   |   |   |   | +-MakeProto(type=PROTO<zetasql_test__.RecursivePB>)
                 |   |   |   |   +-field_descriptor=repeated_recursive_pb
                 |   |   |   |   +-default_value=[]
                 |   |   |   +-element_column=$flatten.injected#2
                 |   |   +-array_expr=
                 |   |   | +-GetProtoField
-                |   |   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+                |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   |   +-expr=
-                |   |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#2)
+                |   |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#2)
                 |   |   |   +-field_descriptor=repeated_recursive_pb
                 |   |   |   +-default_value=[]
                 |   |   +-element_column=$flatten.injected#3
                 |   +-array_expr=
                 |   | +-GetProtoField
-                |   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+                |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   |   +-expr=
-                |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#3)
+                |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#3)
                 |   |   +-field_descriptor=repeated_recursive_pb
                 |   |   +-default_value=[]
                 |   +-element_column=$flatten.injected#4
                 +-array_expr=
                 | +-GetProtoField
-                |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+                |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   +-expr=
                 |   | +-GetProtoField
-                |   |   +-type=PROTO<zetasql_test.RecursivePB>
+                |   |   +-type=PROTO<zetasql_test__.RecursivePB>
                 |   |   +-expr=
-                |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#4)
+                |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#4)
                 |   |   +-field_descriptor=recursive_pb
                 |   |   +-default_value=NULL
                 |   +-field_descriptor=repeated_recursive_pb
@@ -1071,7 +1071,7 @@ QueryStmt
 ==
 
 select value
-from ArrayTypes t, unnest(t.ProtoArray.(zetasql_test.TestExtraPBExtensionHolder.test_extra_proto_extension).ext_value) value
+from ArrayTypes t, unnest(t.ProtoArray.(zetasql_test__.TestExtraPBExtensionHolder.test_extra_proto_extension).ext_value) value
 --
 QueryStmt
 +-output_column_list=
@@ -1088,18 +1088,18 @@ QueryStmt
         | +-Flatten
         |   +-type=ARRAY<INT32>
         |   +-expr=
-        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   +-get_field_list=
         |     +-GetProtoField
-        |     | +-type=PROTO<zetasql_test.TestExtraPBExtensionHolder>
+        |     | +-type=PROTO<zetasql_test__.TestExtraPBExtensionHolder>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPB>)
-        |     | +-field_descriptor=[zetasql_test.TestExtraPBExtensionHolder.test_extra_proto_extension]
+        |     | | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
+        |     | +-field_descriptor=[zetasql_test__.TestExtraPBExtensionHolder.test_extra_proto_extension]
         |     | +-default_value=NULL
         |     +-GetProtoField
         |       +-type=ARRAY<INT32>
         |       +-expr=
-        |       | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPBExtensionHolder>)
+        |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPBExtensionHolder>)
         |       +-field_descriptor=ext_value
         |       +-default_value=[]
         +-element_column=$array.value#18
@@ -1125,17 +1125,17 @@ QueryStmt
             |   +-input_scan=
             |   | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
             |   +-array_expr=
-            |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+            |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
             |   +-element_column=$flatten.injected#19
             +-array_expr=
             | +-GetProtoField
             |   +-type=ARRAY<INT32>
             |   +-expr=
             |   | +-GetProtoField
-            |   |   +-type=PROTO<zetasql_test.TestExtraPBExtensionHolder>
+            |   |   +-type=PROTO<zetasql_test__.TestExtraPBExtensionHolder>
             |   |   +-expr=
-            |   |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$flatten.injected#19)
-            |   |   +-field_descriptor=[zetasql_test.TestExtraPBExtensionHolder.test_extra_proto_extension]
+            |   |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#19)
+            |   |   +-field_descriptor=[zetasql_test__.TestExtraPBExtensionHolder.test_extra_proto_extension]
             |   |   +-default_value=NULL
             |   +-field_descriptor=ext_value
             |   +-default_value=[]
@@ -1143,7 +1143,7 @@ QueryStmt
 ==
 
 select value
-from TestTable t, unnest(t.KitchenSink.(zetasql_test.KitchenSinkExtension.repeated_extension).repeated_value) value
+from TestTable t, unnest(t.KitchenSink.(zetasql_test__.KitchenSinkExtension.repeated_extension).repeated_value) value
 --
 
 QueryStmt
@@ -1162,16 +1162,16 @@ QueryStmt
         |   +-type=ARRAY<STRING>
         |   +-expr=
         |   | +-GetProtoField
-        |   |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkExtension>>
+        |   |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkExtension>>
         |   |   +-expr=
-        |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
-        |   |   +-field_descriptor=[zetasql_test.KitchenSinkExtension.repeated_extension]
+        |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |   |   +-field_descriptor=[zetasql_test__.KitchenSinkExtension.repeated_extension]
         |   |   +-default_value=[]
         |   +-get_field_list=
         |     +-GetProtoField
         |       +-type=ARRAY<STRING>
         |       +-expr=
-        |       | +-FlattenedArg(type=PROTO<zetasql_test.KitchenSinkExtension>)
+        |       | +-FlattenedArg(type=PROTO<zetasql_test__.KitchenSinkExtension>)
         |       +-field_descriptor=repeated_value
         |       +-default_value=[]
         +-element_column=$array.value#4
@@ -1198,24 +1198,24 @@ QueryStmt
             |   | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2], alias="t")
             |   +-array_expr=
             |   | +-GetProtoField
-            |   |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkExtension>>
+            |   |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkExtension>>
             |   |   +-expr=
-            |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
-            |   |   +-field_descriptor=[zetasql_test.KitchenSinkExtension.repeated_extension]
+            |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            |   |   +-field_descriptor=[zetasql_test__.KitchenSinkExtension.repeated_extension]
             |   |   +-default_value=[]
             |   +-element_column=$flatten.injected#5
             +-array_expr=
             | +-GetProtoField
             |   +-type=ARRAY<STRING>
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkExtension>, column=$flatten.injected#5)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkExtension>, column=$flatten.injected#5)
             |   +-field_descriptor=repeated_value
             |   +-default_value=[]
             +-element_column=$flatten.injected#6
 ==
 
 select value
-from unnest([STRUCT([STRUCT(new zetasql_test.RecursivePB() AS y)] AS x)].x.y.repeated_recursive_pb.int64_val) value
+from unnest([STRUCT([STRUCT(new zetasql_test__.RecursivePB() AS y)] AS x)].x.y.repeated_recursive_pb.int64_val) value
 --
 QueryStmt
 +-output_column_list=
@@ -1230,36 +1230,36 @@ QueryStmt
         | +-Flatten
         |   +-type=ARRAY<INT64>
         |   +-expr=
-        |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<x ARRAY<STRUCT<y PROTO<zetasql_test.RecursivePB>>>>) -> ARRAY<STRUCT<x ARRAY<STRUCT<y PROTO<zetasql_test.RecursivePB>>>>>)
+        |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<x ARRAY<STRUCT<y PROTO<zetasql_test__.RecursivePB>>>>) -> ARRAY<STRUCT<x ARRAY<STRUCT<y PROTO<zetasql_test__.RecursivePB>>>>>)
         |   |   +-MakeStruct
-        |   |     +-type=STRUCT<x ARRAY<STRUCT<y PROTO<zetasql_test.RecursivePB>>>>
+        |   |     +-type=STRUCT<x ARRAY<STRUCT<y PROTO<zetasql_test__.RecursivePB>>>>
         |   |     +-field_list=
-        |   |       +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<y PROTO<zetasql_test.RecursivePB>>) -> ARRAY<STRUCT<y PROTO<zetasql_test.RecursivePB>>>)
+        |   |       +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<y PROTO<zetasql_test__.RecursivePB>>) -> ARRAY<STRUCT<y PROTO<zetasql_test__.RecursivePB>>>)
         |   |         +-MakeStruct
-        |   |           +-type=STRUCT<y PROTO<zetasql_test.RecursivePB>>
+        |   |           +-type=STRUCT<y PROTO<zetasql_test__.RecursivePB>>
         |   |           +-field_list=
-        |   |             +-MakeProto(type=PROTO<zetasql_test.RecursivePB>)
+        |   |             +-MakeProto(type=PROTO<zetasql_test__.RecursivePB>)
         |   +-get_field_list=
         |     +-GetStructField
-        |     | +-type=ARRAY<STRUCT<y PROTO<zetasql_test.RecursivePB>>>
+        |     | +-type=ARRAY<STRUCT<y PROTO<zetasql_test__.RecursivePB>>>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=STRUCT<x ARRAY<STRUCT<y PROTO<zetasql_test.RecursivePB>>>>)
+        |     | | +-FlattenedArg(type=STRUCT<x ARRAY<STRUCT<y PROTO<zetasql_test__.RecursivePB>>>>)
         |     | +-field_idx=0
         |     +-GetStructField
-        |     | +-type=PROTO<zetasql_test.RecursivePB>
+        |     | +-type=PROTO<zetasql_test__.RecursivePB>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=STRUCT<y PROTO<zetasql_test.RecursivePB>>)
+        |     | | +-FlattenedArg(type=STRUCT<y PROTO<zetasql_test__.RecursivePB>>)
         |     | +-field_idx=0
         |     +-GetProtoField
-        |     | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |     | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |     | +-field_descriptor=repeated_recursive_pb
         |     | +-default_value=[]
         |     +-GetProtoField
         |       +-type=INT64
         |       +-expr=
-        |       | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |       | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |       +-field_descriptor=int64_val
         |       +-default_value=0
         +-element_column=$array.value#1
@@ -1284,7 +1284,7 @@ QueryStmt
             |   +-GetProtoField
             |     +-type=INT64
             |     +-expr=
-            |     | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#4)
+            |     | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#4)
             |     +-field_descriptor=int64_val
             |     +-default_value=0
             +-input_scan=
@@ -1297,31 +1297,31 @@ QueryStmt
                 |   | +-ArrayScan
                 |   |   +-column_list=[$flatten.injected#2]
                 |   |   +-array_expr=
-                |   |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<x ARRAY<STRUCT<y PROTO<zetasql_test.RecursivePB>>>>) -> ARRAY<STRUCT<x ARRAY<STRUCT<y PROTO<zetasql_test.RecursivePB>>>>>)
+                |   |   | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<x ARRAY<STRUCT<y PROTO<zetasql_test__.RecursivePB>>>>) -> ARRAY<STRUCT<x ARRAY<STRUCT<y PROTO<zetasql_test__.RecursivePB>>>>>)
                 |   |   |   +-MakeStruct
-                |   |   |     +-type=STRUCT<x ARRAY<STRUCT<y PROTO<zetasql_test.RecursivePB>>>>
+                |   |   |     +-type=STRUCT<x ARRAY<STRUCT<y PROTO<zetasql_test__.RecursivePB>>>>
                 |   |   |     +-field_list=
-                |   |   |       +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<y PROTO<zetasql_test.RecursivePB>>) -> ARRAY<STRUCT<y PROTO<zetasql_test.RecursivePB>>>)
+                |   |   |       +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<y PROTO<zetasql_test__.RecursivePB>>) -> ARRAY<STRUCT<y PROTO<zetasql_test__.RecursivePB>>>)
                 |   |   |         +-MakeStruct
-                |   |   |           +-type=STRUCT<y PROTO<zetasql_test.RecursivePB>>
+                |   |   |           +-type=STRUCT<y PROTO<zetasql_test__.RecursivePB>>
                 |   |   |           +-field_list=
-                |   |   |             +-MakeProto(type=PROTO<zetasql_test.RecursivePB>)
+                |   |   |             +-MakeProto(type=PROTO<zetasql_test__.RecursivePB>)
                 |   |   +-element_column=$flatten.injected#2
                 |   +-array_expr=
                 |   | +-GetStructField
-                |   |   +-type=ARRAY<STRUCT<y PROTO<zetasql_test.RecursivePB>>>
+                |   |   +-type=ARRAY<STRUCT<y PROTO<zetasql_test__.RecursivePB>>>
                 |   |   +-expr=
-                |   |   | +-ColumnRef(type=STRUCT<x ARRAY<STRUCT<y PROTO<zetasql_test.RecursivePB>>>>, column=$flatten.injected#2)
+                |   |   | +-ColumnRef(type=STRUCT<x ARRAY<STRUCT<y PROTO<zetasql_test__.RecursivePB>>>>, column=$flatten.injected#2)
                 |   |   +-field_idx=0
                 |   +-element_column=$flatten.injected#3
                 +-array_expr=
                 | +-GetProtoField
-                |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+                |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                 |   +-expr=
                 |   | +-GetStructField
-                |   |   +-type=PROTO<zetasql_test.RecursivePB>
+                |   |   +-type=PROTO<zetasql_test__.RecursivePB>
                 |   |   +-expr=
-                |   |   | +-ColumnRef(type=STRUCT<y PROTO<zetasql_test.RecursivePB>>, column=$flatten.injected#3)
+                |   |   | +-ColumnRef(type=STRUCT<y PROTO<zetasql_test__.RecursivePB>>, column=$flatten.injected#3)
                 |   |   +-field_idx=0
                 |   +-field_descriptor=repeated_recursive_pb
                 |   +-default_value=[]
@@ -1331,7 +1331,7 @@ QueryStmt
 select value
 from ArrayTypes t, unnest(PROTO_DEFAULT_IF_NULL(t.ProtoArray.int32_val1)) value
 --
-ERROR: Cannot access field int32_val1 on a value with type ARRAY<zetasql_test.TestExtraPB>. You may need an explicit call to FLATTEN, and the flattened argument may only contain 'dot' after the first array [at 2:62]
+ERROR: Cannot access field int32_val1 on a value with type ARRAY<zetasql_test__.TestExtraPB>. You may need an explicit call to FLATTEN, and the flattened argument may only contain 'dot' after the first array [at 2:62]
 from ArrayTypes t, unnest(PROTO_DEFAULT_IF_NULL(t.ProtoArray.int32_val1)) value
                                                              ^
 ==
@@ -1354,14 +1354,14 @@ QueryStmt
         | +-Flatten
         |   +-type=ARRAY<STRING>
         |   +-expr=
-        |   | +-FunctionCall(ZetaSQL:array_concat(ARRAY<PROTO<zetasql_test.TestExtraPB>>, repeated(1) ARRAY<PROTO<zetasql_test.TestExtraPB>>) -> ARRAY<PROTO<zetasql_test.TestExtraPB>>)
-        |   |   +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-        |   |   +-Literal(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, value=[])
+        |   | +-FunctionCall(ZetaSQL:array_concat(ARRAY<PROTO<zetasql_test__.TestExtraPB>>, repeated(1) ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> ARRAY<PROTO<zetasql_test__.TestExtraPB>>)
+        |   |   +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |   |   +-Literal(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, value=[])
         |   +-get_field_list=
         |     +-GetProtoField
         |       +-type=ARRAY<STRING>
         |       +-expr=
-        |       | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPB>)
+        |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       +-field_descriptor=str_value
         |       +-default_value=[]
         +-element_column=$array.value#18
@@ -1387,15 +1387,15 @@ QueryStmt
             |   +-input_scan=
             |   | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
             |   +-array_expr=
-            |   | +-FunctionCall(ZetaSQL:array_concat(ARRAY<PROTO<zetasql_test.TestExtraPB>>, repeated(1) ARRAY<PROTO<zetasql_test.TestExtraPB>>) -> ARRAY<PROTO<zetasql_test.TestExtraPB>>)
-            |   |   +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-            |   |   +-Literal(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, value=[])
+            |   | +-FunctionCall(ZetaSQL:array_concat(ARRAY<PROTO<zetasql_test__.TestExtraPB>>, repeated(1) ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> ARRAY<PROTO<zetasql_test__.TestExtraPB>>)
+            |   |   +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+            |   |   +-Literal(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, value=[])
             |   +-element_column=$flatten.injected#19
             +-array_expr=
             | +-GetProtoField
             |   +-type=ARRAY<STRING>
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$flatten.injected#19)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#19)
             |   +-field_descriptor=str_value
             |   +-default_value=[]
             +-element_column=$flatten.injected#20
@@ -1404,7 +1404,7 @@ QueryStmt
 select value
 from ArrayTypes t, unnest(array_concat(t.ProtoArray.str_value, ["foo"])) value
 --
-ERROR: Cannot access field str_value on a value with type ARRAY<zetasql_test.TestExtraPB>. You may need an explicit call to FLATTEN, and the flattened argument may only contain 'dot' after the first array [at 2:53]
+ERROR: Cannot access field str_value on a value with type ARRAY<zetasql_test__.TestExtraPB>. You may need an explicit call to FLATTEN, and the flattened argument may only contain 'dot' after the first array [at 2:53]
 from ArrayTypes t, unnest(array_concat(t.ProtoArray.str_value, ["foo"])) value
                                                     ^
 ==
@@ -1428,12 +1428,12 @@ QueryStmt
         |   +-Flatten
         |   | +-type=ARRAY<STRING>
         |   | +-expr=
-        |   | | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |   | | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   | +-get_field_list=
         |   |   +-GetProtoField
         |   |     +-type=ARRAY<STRING>
         |   |     +-expr=
-        |   |     | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPB>)
+        |   |     | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |   |     +-field_descriptor=str_value
         |   |     +-default_value=[]
         |   +-Literal(type=ARRAY<STRING>, value=["foo"])
@@ -1457,21 +1457,21 @@ QueryStmt
         |   | +-type=ARRAY<STRING>
         |   | +-subquery_type=SCALAR
         |   | +-parameter_list=
-        |   | | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |   | | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   | +-subquery=
         |   |   +-ProjectScan
         |   |     +-column_list=[$flatten.injected#24]
         |   |     +-expr_list=
         |   |     | +-injected#24 :=
         |   |     |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
-        |   |     |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test.TestExtraPB>>) -> BOOL)
-        |   |     |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#19)
+        |   |     |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> BOOL)
+        |   |     |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
         |   |     |     +-Literal(type=ARRAY<STRING>, value=NULL)
         |   |     |     +-SubqueryExpr
         |   |     |       +-type=ARRAY<STRING>
         |   |     |       +-subquery_type=ARRAY
         |   |     |       +-parameter_list=
-        |   |     |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#19)
+        |   |     |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
         |   |     |       +-subquery=
         |   |     |         +-OrderByScan
         |   |     |           +-column_list=[$flatten.injected#22]
@@ -1483,7 +1483,7 @@ QueryStmt
         |   |     |           |   | +-ArrayScan
         |   |     |           |   |   +-column_list=[$flatten.injected#20, $offset.injected#21]
         |   |     |           |   |   +-array_expr=
-        |   |     |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
+        |   |     |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
         |   |     |           |   |   +-element_column=$flatten.injected#20
         |   |     |           |   |   +-array_offset_column=
         |   |     |           |   |     +-ColumnHolder(column=$offset.injected#21)
@@ -1491,7 +1491,7 @@ QueryStmt
         |   |     |           |   | +-GetProtoField
         |   |     |           |   |   +-type=ARRAY<STRING>
         |   |     |           |   |   +-expr=
-        |   |     |           |   |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$flatten.injected#20)
+        |   |     |           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
         |   |     |           |   |   +-field_descriptor=str_value
         |   |     |           |   |   +-default_value=[]
         |   |     |           |   +-element_column=$flatten.injected#22
@@ -1508,7 +1508,7 @@ QueryStmt
         |   |       +-ProjectScan
         |   |         +-column_list=[$flatten_input.injected#19]
         |   |         +-expr_list=
-        |   |         | +-injected#19 := ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+        |   |         | +-injected#19 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
         |   |         +-input_scan=
         |   |           +-SingleRowScan
         |   +-Literal(type=ARRAY<STRING>, value=["foo"])
@@ -1516,8 +1516,8 @@ QueryStmt
 ==
 
 select flatten([
-  CAST('repeated_recursive_pb { int64_val: 1 }' AS zetasql_test.RecursivePB),
-  CAST('repeated_recursive_pb { int64_val: 2 } repeated_recursive_pb { int64_val: 3 }' AS zetasql_test.RecursivePB)
+  CAST('repeated_recursive_pb { int64_val: 1 }' AS zetasql_test__.RecursivePB),
+  CAST('repeated_recursive_pb { int64_val: 2 } repeated_recursive_pb { int64_val: 3 }' AS zetasql_test__.RecursivePB)
 ].repeated_recursive_pb.int64_val) AS v
 --
 QueryStmt
@@ -1531,22 +1531,22 @@ QueryStmt
     |   +-Flatten
     |     +-type=ARRAY<INT64>
     |     +-expr=
-    |     | +-FunctionCall(ZetaSQL:$make_array(repeated(2) PROTO<zetasql_test.RecursivePB>) -> ARRAY<PROTO<zetasql_test.RecursivePB>>)
-    |     |   +-Cast(STRING -> PROTO<zetasql_test.RecursivePB>)
+    |     | +-FunctionCall(ZetaSQL:$make_array(repeated(2) PROTO<zetasql_test__.RecursivePB>) -> ARRAY<PROTO<zetasql_test__.RecursivePB>>)
+    |     |   +-Cast(STRING -> PROTO<zetasql_test__.RecursivePB>)
     |     |   | +-Literal(type=STRING, value="repeated_recursive_pb { int64_val: 1 }")
-    |     |   +-Cast(STRING -> PROTO<zetasql_test.RecursivePB>)
+    |     |   +-Cast(STRING -> PROTO<zetasql_test__.RecursivePB>)
     |     |     +-Literal(type=STRING, value="repeated_recursive_pb { int64_val: 2 } repeated_recursive_pb { int64_val: 3 }")
     |     +-get_field_list=
     |       +-GetProtoField
-    |       | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+    |       | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
     |       | +-expr=
-    |       | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+    |       | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
     |       | +-field_descriptor=repeated_recursive_pb
     |       | +-default_value=[]
     |       +-GetProtoField
     |         +-type=INT64
     |         +-expr=
-    |         | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+    |         | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
     |         +-field_descriptor=int64_val
     |         +-default_value=0
     +-input_scan=
@@ -1570,14 +1570,14 @@ QueryStmt
     |         +-expr_list=
     |         | +-injected#8 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
-    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test.RecursivePB>>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.RecursivePB>>, column=$flatten_input.injected#2)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.RecursivePB>>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.RecursivePB>>, column=$flatten_input.injected#2)
     |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |         |     +-SubqueryExpr
     |         |       +-type=ARRAY<INT64>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.RecursivePB>>, column=$flatten_input.injected#2)
+    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.RecursivePB>>, column=$flatten_input.injected#2)
     |         |       +-subquery=
     |         |         +-OrderByScan
     |         |           +-column_list=[$flatten.injected#7]
@@ -1590,7 +1590,7 @@ QueryStmt
     |         |           |   |   +-GetProtoField
     |         |           |   |     +-type=INT64
     |         |           |   |     +-expr=
-    |         |           |   |     | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#5)
+    |         |           |   |     | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#5)
     |         |           |   |     +-field_descriptor=int64_val
     |         |           |   |     +-default_value=0
     |         |           |   +-input_scan=
@@ -1600,15 +1600,15 @@ QueryStmt
     |         |           |       | +-ArrayScan
     |         |           |       |   +-column_list=[$flatten.injected#3, $offset.injected#4]
     |         |           |       |   +-array_expr=
-    |         |           |       |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.RecursivePB>>, column=$flatten_input.injected#2, is_correlated=TRUE)
+    |         |           |       |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.RecursivePB>>, column=$flatten_input.injected#2, is_correlated=TRUE)
     |         |           |       |   +-element_column=$flatten.injected#3
     |         |           |       |   +-array_offset_column=
     |         |           |       |     +-ColumnHolder(column=$offset.injected#4)
     |         |           |       +-array_expr=
     |         |           |       | +-GetProtoField
-    |         |           |       |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+    |         |           |       |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
     |         |           |       |   +-expr=
-    |         |           |       |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#3)
+    |         |           |       |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#3)
     |         |           |       |   +-field_descriptor=repeated_recursive_pb
     |         |           |       |   +-default_value=[]
     |         |           |       +-element_column=$flatten.injected#5
@@ -1626,10 +1626,10 @@ QueryStmt
     |             +-column_list=[$flatten_input.injected#2]
     |             +-expr_list=
     |             | +-injected#2 :=
-    |             |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) PROTO<zetasql_test.RecursivePB>) -> ARRAY<PROTO<zetasql_test.RecursivePB>>)
-    |             |     +-Cast(STRING -> PROTO<zetasql_test.RecursivePB>)
+    |             |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) PROTO<zetasql_test__.RecursivePB>) -> ARRAY<PROTO<zetasql_test__.RecursivePB>>)
+    |             |     +-Cast(STRING -> PROTO<zetasql_test__.RecursivePB>)
     |             |     | +-Literal(type=STRING, value="repeated_recursive_pb { int64_val: 1 }")
-    |             |     +-Cast(STRING -> PROTO<zetasql_test.RecursivePB>)
+    |             |     +-Cast(STRING -> PROTO<zetasql_test__.RecursivePB>)
     |             |       +-Literal(type=STRING, value="repeated_recursive_pb { int64_val: 2 } repeated_recursive_pb { int64_val: 3 }")
     |             +-input_scan=
     |               +-SingleRowScan
@@ -1651,7 +1651,7 @@ QueryStmt
     |   +-GetProtoField
     |     +-type=ARRAY<INT32>
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-field_descriptor=repeated_int32_val
     |     +-default_value=[]
     +-input_scan=
@@ -1672,12 +1672,12 @@ QueryStmt
     |   +-Flatten
     |     +-type=ARRAY<STRING>
     |     +-expr=
-    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |     +-get_field_list=
     |       +-GetProtoField
     |         +-type=ARRAY<STRING>
     |         +-expr=
-    |         | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPB>)
+    |         | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
     |         +-field_descriptor=str_value
     |         +-default_value=[]
     +-input_scan=
@@ -1696,21 +1696,21 @@ QueryStmt
     |     +-type=ARRAY<STRING>
     |     +-subquery_type=SCALAR
     |     +-parameter_list=
-    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |     +-subquery=
     |       +-ProjectScan
     |         +-column_list=[$flatten.injected#24]
     |         +-expr_list=
     |         | +-injected#24 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
-    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test.TestExtraPB>>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#19)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
     |         |     +-Literal(type=ARRAY<STRING>, value=NULL)
     |         |     +-SubqueryExpr
     |         |       +-type=ARRAY<STRING>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#19)
+    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
     |         |       +-subquery=
     |         |         +-OrderByScan
     |         |           +-column_list=[$flatten.injected#22]
@@ -1722,7 +1722,7 @@ QueryStmt
     |         |           |   | +-ArrayScan
     |         |           |   |   +-column_list=[$flatten.injected#20, $offset.injected#21]
     |         |           |   |   +-array_expr=
-    |         |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
+    |         |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
     |         |           |   |   +-element_column=$flatten.injected#20
     |         |           |   |   +-array_offset_column=
     |         |           |   |     +-ColumnHolder(column=$offset.injected#21)
@@ -1730,7 +1730,7 @@ QueryStmt
     |         |           |   | +-GetProtoField
     |         |           |   |   +-type=ARRAY<STRING>
     |         |           |   |   +-expr=
-    |         |           |   |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$flatten.injected#20)
+    |         |           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
     |         |           |   |   +-field_descriptor=str_value
     |         |           |   |   +-default_value=[]
     |         |           |   +-element_column=$flatten.injected#22
@@ -1747,7 +1747,7 @@ QueryStmt
     |           +-ProjectScan
     |             +-column_list=[$flatten_input.injected#19]
     |             +-expr_list=
-    |             | +-injected#19 := ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+    |             | +-injected#19 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
@@ -1768,12 +1768,12 @@ QueryStmt
     |   +-Flatten
     |     +-type=ARRAY<STRING>
     |     +-expr=
-    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |     +-get_field_list=
     |       +-GetProtoField
     |         +-type=ARRAY<STRING>
     |         +-expr=
-    |         | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPB>)
+    |         | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
     |         +-field_descriptor=str_value
     |         +-default_value=[]
     +-input_scan=
@@ -1792,21 +1792,21 @@ QueryStmt
     |     +-type=ARRAY<STRING>
     |     +-subquery_type=SCALAR
     |     +-parameter_list=
-    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |     +-subquery=
     |       +-ProjectScan
     |         +-column_list=[$flatten.injected#24]
     |         +-expr_list=
     |         | +-injected#24 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
-    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test.TestExtraPB>>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#19)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
     |         |     +-Literal(type=ARRAY<STRING>, value=NULL)
     |         |     +-SubqueryExpr
     |         |       +-type=ARRAY<STRING>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#19)
+    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
     |         |       +-subquery=
     |         |         +-OrderByScan
     |         |           +-column_list=[$flatten.injected#22]
@@ -1818,7 +1818,7 @@ QueryStmt
     |         |           |   | +-ArrayScan
     |         |           |   |   +-column_list=[$flatten.injected#20, $offset.injected#21]
     |         |           |   |   +-array_expr=
-    |         |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
+    |         |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
     |         |           |   |   +-element_column=$flatten.injected#20
     |         |           |   |   +-array_offset_column=
     |         |           |   |     +-ColumnHolder(column=$offset.injected#21)
@@ -1826,7 +1826,7 @@ QueryStmt
     |         |           |   | +-GetProtoField
     |         |           |   |   +-type=ARRAY<STRING>
     |         |           |   |   +-expr=
-    |         |           |   |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$flatten.injected#20)
+    |         |           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
     |         |           |   |   +-field_descriptor=str_value
     |         |           |   |   +-default_value=[]
     |         |           |   +-element_column=$flatten.injected#22
@@ -1843,7 +1843,7 @@ QueryStmt
     |           +-ProjectScan
     |             +-column_list=[$flatten_input.injected#19]
     |             +-expr_list=
-    |             | +-injected#19 := ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+    |             | +-injected#19 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
@@ -2100,8 +2100,8 @@ where t.key in UNNEST((SELECT flatten(t.KitchenSink.nested_repeated_value.nested
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
@@ -2118,7 +2118,7 @@ QueryStmt
               +-type=ARRAY<INT64>
               +-subquery_type=SCALAR
               +-parameter_list=
-              | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+              | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
               +-subquery=
                 +-ProjectScan
                   +-column_list=[$expr_subquery.$col1#4]
@@ -2128,16 +2128,16 @@ QueryStmt
                   |     +-type=ARRAY<INT64>
                   |     +-expr=
                   |     | +-GetProtoField
-                  |     |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+                  |     |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
                   |     |   +-expr=
-                  |     |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+                  |     |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                   |     |   +-field_descriptor=nested_repeated_value
                   |     |   +-default_value=[]
                   |     +-get_field_list=
                   |       +-GetProtoField
                   |         +-type=INT64
                   |         +-expr=
-                  |         | +-FlattenedArg(type=PROTO<zetasql_test.KitchenSinkPB.Nested>)
+                  |         | +-FlattenedArg(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>)
                   |         +-field_descriptor=nested_int64
                   |         +-default_value=88
                   +-input_scan=
@@ -2147,8 +2147,8 @@ QueryStmt
 QueryStmt
 +-output_column_list=
 | +-TestTable.key#1 AS key [INT32]
-| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-query=
   +-ProjectScan
     +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
@@ -2165,7 +2165,7 @@ QueryStmt
               +-type=ARRAY<INT64>
               +-subquery_type=SCALAR
               +-parameter_list=
-              | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+              | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
               +-subquery=
                 +-ProjectScan
                   +-column_list=[$expr_subquery.$col1#4]
@@ -2175,21 +2175,21 @@ QueryStmt
                   |     +-type=ARRAY<INT64>
                   |     +-subquery_type=SCALAR
                   |     +-parameter_list=
-                  |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+                  |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                   |     +-subquery=
                   |       +-ProjectScan
                   |         +-column_list=[$flatten.injected#9]
                   |         +-expr_list=
                   |         | +-injected#9 :=
                   |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
-                  |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>) -> BOOL)
-                  |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>, column=$flatten_input.injected#5)
+                  |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>) -> BOOL)
+                  |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>, column=$flatten_input.injected#5)
                   |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
                   |         |     +-SubqueryExpr
                   |         |       +-type=ARRAY<INT64>
                   |         |       +-subquery_type=ARRAY
                   |         |       +-parameter_list=
-                  |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>, column=$flatten_input.injected#5)
+                  |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>, column=$flatten_input.injected#5)
                   |         |       +-subquery=
                   |         |         +-OrderByScan
                   |         |           +-column_list=[$flatten.injected#8]
@@ -2202,14 +2202,14 @@ QueryStmt
                   |         |           |   |   +-GetProtoField
                   |         |           |   |     +-type=INT64
                   |         |           |   |     +-expr=
-                  |         |           |   |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$flatten.injected#6)
+                  |         |           |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$flatten.injected#6)
                   |         |           |   |     +-field_descriptor=nested_int64
                   |         |           |   |     +-default_value=88
                   |         |           |   +-input_scan=
                   |         |           |     +-ArrayScan
                   |         |           |       +-column_list=[$flatten.injected#6, $offset.injected#7]
                   |         |           |       +-array_expr=
-                  |         |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>, column=$flatten_input.injected#5, is_correlated=TRUE)
+                  |         |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>, column=$flatten_input.injected#5, is_correlated=TRUE)
                   |         |           |       +-element_column=$flatten.injected#6
                   |         |           |       +-array_offset_column=
                   |         |           |         +-ColumnHolder(column=$offset.injected#7)
@@ -2223,9 +2223,9 @@ QueryStmt
                   |             +-expr_list=
                   |             | +-injected#5 :=
                   |             |   +-GetProtoField
-                  |             |     +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+                  |             |     +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
                   |             |     +-expr=
-                  |             |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+                  |             |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                   |             |     +-field_descriptor=nested_repeated_value
                   |             |     +-default_value=[]
                   |             +-input_scan=
@@ -2254,12 +2254,12 @@ QueryStmt
     |   | +-Flatten
     |   |   +-type=ARRAY<INT32>
     |   |   +-expr=
-    |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+    |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |   |   +-get_field_list=
     |   |     +-GetProtoField
     |   |       +-type=INT32
     |   |       +-expr=
-    |   |       | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPB>)
+    |   |       | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
     |   |       +-field_descriptor=int32_val1
     |   |       +-default_value=0
     |   +-element_column=$array.value#18
@@ -2288,7 +2288,7 @@ QueryStmt
     |   |   +-type=ARRAY<INT32>
     |   |   +-subquery_type=ARRAY
     |   |   +-parameter_list=
-    |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+    |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |   |   +-subquery=
     |   |     +-OrderByScan
     |   |       +-column_list=[$flatten.injected#22]
@@ -2301,7 +2301,7 @@ QueryStmt
     |   |       |   |   +-GetProtoField
     |   |       |   |     +-type=INT32
     |   |       |   |     +-expr=
-    |   |       |   |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$flatten.injected#20)
+    |   |       |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
     |   |       |   |     +-field_descriptor=int32_val1
     |   |       |   |     +-default_value=0
     |   |       |   +-input_scan=
@@ -2310,7 +2310,7 @@ QueryStmt
     |   |       |       +-input_scan=
     |   |       |       | +-SingleRowScan
     |   |       |       +-array_expr=
-    |   |       |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+    |   |       |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
     |   |       |       +-element_column=$flatten.injected#20
     |   |       |       +-array_offset_column=
     |   |       |         +-ColumnHolder(column=$offset.injected#21)
@@ -2347,40 +2347,40 @@ QueryStmt
         |   +-type=ARRAY<INT64>
         |   +-expr=
         |   | +-GetProtoField
-        |   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |   |   +-expr=
-        |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
+        |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
         |   |   +-field_descriptor=repeated_recursive_pb
         |   |   +-default_value=[]
         |   +-get_field_list=
         |     +-GetProtoField
-        |     | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |     | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |     | +-field_descriptor=repeated_recursive_pb
         |     | +-default_value=[]
         |     +-GetProtoField
-        |     | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |     | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |     | +-field_descriptor=repeated_recursive_pb
         |     | +-default_value=[]
         |     +-GetProtoField
-        |     | +-type=PROTO<zetasql_test.RecursivePB>
+        |     | +-type=PROTO<zetasql_test__.RecursivePB>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |     | +-field_descriptor=recursive_pb
         |     | +-default_value=NULL
         |     +-GetProtoField
-        |     | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |     | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |     | +-expr=
-        |     | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |     | +-field_descriptor=repeated_recursive_pb
         |     | +-default_value=[]
         |     +-GetProtoField
         |       +-type=INT64
         |       +-expr=
-        |       | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+        |       | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
         |       +-field_descriptor=int64_val
         |       +-default_value=0
         +-element_column=$array.value#2
@@ -2405,7 +2405,7 @@ QueryStmt
         |   +-type=ARRAY<INT64>
         |   +-subquery_type=ARRAY
         |   +-parameter_list=
-        |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
+        |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
         |   +-subquery=
         |     +-OrderByScan
         |       +-column_list=[$flatten.injected#12]
@@ -2418,7 +2418,7 @@ QueryStmt
         |       |   |   +-GetProtoField
         |       |   |     +-type=INT64
         |       |   |     +-expr=
-        |       |   |     | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#10)
+        |       |   |     | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#10)
         |       |   |     +-field_descriptor=int64_val
         |       |   |     +-default_value=0
         |       |   +-input_scan=
@@ -2437,9 +2437,9 @@ QueryStmt
         |       |       |   |   |   | +-SingleRowScan
         |       |       |   |   |   +-array_expr=
         |       |       |   |   |   | +-GetProtoField
-        |       |       |   |   |   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |       |       |   |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |       |       |   |   |   |   +-expr=
-        |       |       |   |   |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=RecursivePBTable.RecursivePB#1, is_correlated=TRUE)
+        |       |       |   |   |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1, is_correlated=TRUE)
         |       |       |   |   |   |   +-field_descriptor=repeated_recursive_pb
         |       |       |   |   |   |   +-default_value=[]
         |       |       |   |   |   +-element_column=$flatten.injected#4
@@ -2447,9 +2447,9 @@ QueryStmt
         |       |       |   |   |     +-ColumnHolder(column=$offset.injected#5)
         |       |       |   |   +-array_expr=
         |       |       |   |   | +-GetProtoField
-        |       |       |   |   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |       |       |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |       |       |   |   |   +-expr=
-        |       |       |   |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#4)
+        |       |       |   |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#4)
         |       |       |   |   |   +-field_descriptor=repeated_recursive_pb
         |       |       |   |   |   +-default_value=[]
         |       |       |   |   +-element_column=$flatten.injected#6
@@ -2457,9 +2457,9 @@ QueryStmt
         |       |       |   |     +-ColumnHolder(column=$offset.injected#7)
         |       |       |   +-array_expr=
         |       |       |   | +-GetProtoField
-        |       |       |   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |       |       |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |       |       |   |   +-expr=
-        |       |       |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#6)
+        |       |       |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#6)
         |       |       |   |   +-field_descriptor=repeated_recursive_pb
         |       |       |   |   +-default_value=[]
         |       |       |   +-element_column=$flatten.injected#8
@@ -2467,12 +2467,12 @@ QueryStmt
         |       |       |     +-ColumnHolder(column=$offset.injected#9)
         |       |       +-array_expr=
         |       |       | +-GetProtoField
-        |       |       |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+        |       |       |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
         |       |       |   +-expr=
         |       |       |   | +-GetProtoField
-        |       |       |   |   +-type=PROTO<zetasql_test.RecursivePB>
+        |       |       |   |   +-type=PROTO<zetasql_test__.RecursivePB>
         |       |       |   |   +-expr=
-        |       |       |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#8)
+        |       |       |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#8)
         |       |       |   |   +-field_descriptor=recursive_pb
         |       |       |   |   +-default_value=NULL
         |       |       |   +-field_descriptor=repeated_recursive_pb
@@ -2521,40 +2521,40 @@ QueryStmt
     |   |   +-type=ARRAY<INT64>
     |   |   +-expr=
     |   |   | +-GetProtoField
-    |   |   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+    |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
     |   |   |   +-expr=
-    |   |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
+    |   |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
     |   |   |   +-field_descriptor=repeated_recursive_pb
     |   |   |   +-default_value=[]
     |   |   +-get_field_list=
     |   |     +-GetProtoField
-    |   |     | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+    |   |     | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
     |   |     | +-expr=
-    |   |     | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+    |   |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
     |   |     | +-field_descriptor=repeated_recursive_pb
     |   |     | +-default_value=[]
     |   |     +-GetProtoField
-    |   |     | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+    |   |     | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
     |   |     | +-expr=
-    |   |     | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+    |   |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
     |   |     | +-field_descriptor=repeated_recursive_pb
     |   |     | +-default_value=[]
     |   |     +-GetProtoField
-    |   |     | +-type=PROTO<zetasql_test.RecursivePB>
+    |   |     | +-type=PROTO<zetasql_test__.RecursivePB>
     |   |     | +-expr=
-    |   |     | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+    |   |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
     |   |     | +-field_descriptor=recursive_pb
     |   |     | +-default_value=NULL
     |   |     +-GetProtoField
-    |   |     | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+    |   |     | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
     |   |     | +-expr=
-    |   |     | | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+    |   |     | | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
     |   |     | +-field_descriptor=repeated_recursive_pb
     |   |     | +-default_value=[]
     |   |     +-GetProtoField
     |   |       +-type=INT64
     |   |       +-expr=
-    |   |       | +-FlattenedArg(type=PROTO<zetasql_test.RecursivePB>)
+    |   |       | +-FlattenedArg(type=PROTO<zetasql_test__.RecursivePB>)
     |   |       +-field_descriptor=int64_val
     |   |       +-default_value=0
     |   +-element_column=$array.value#2
@@ -2584,7 +2584,7 @@ QueryStmt
     |   |   +-type=ARRAY<INT64>
     |   |   +-subquery_type=ARRAY
     |   |   +-parameter_list=
-    |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
+    |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
     |   |   +-subquery=
     |   |     +-OrderByScan
     |   |       +-column_list=[$flatten.injected#12]
@@ -2597,7 +2597,7 @@ QueryStmt
     |   |       |   |   +-GetProtoField
     |   |       |   |     +-type=INT64
     |   |       |   |     +-expr=
-    |   |       |   |     | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#10)
+    |   |       |   |     | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#10)
     |   |       |   |     +-field_descriptor=int64_val
     |   |       |   |     +-default_value=0
     |   |       |   +-input_scan=
@@ -2616,9 +2616,9 @@ QueryStmt
     |   |       |       |   |   |   | +-SingleRowScan
     |   |       |       |   |   |   +-array_expr=
     |   |       |       |   |   |   | +-GetProtoField
-    |   |       |       |   |   |   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+    |   |       |       |   |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
     |   |       |       |   |   |   |   +-expr=
-    |   |       |       |   |   |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=RecursivePBTable.RecursivePB#1, is_correlated=TRUE)
+    |   |       |       |   |   |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1, is_correlated=TRUE)
     |   |       |       |   |   |   |   +-field_descriptor=repeated_recursive_pb
     |   |       |       |   |   |   |   +-default_value=[]
     |   |       |       |   |   |   +-element_column=$flatten.injected#4
@@ -2626,9 +2626,9 @@ QueryStmt
     |   |       |       |   |   |     +-ColumnHolder(column=$offset.injected#5)
     |   |       |       |   |   +-array_expr=
     |   |       |       |   |   | +-GetProtoField
-    |   |       |       |   |   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+    |   |       |       |   |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
     |   |       |       |   |   |   +-expr=
-    |   |       |       |   |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#4)
+    |   |       |       |   |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#4)
     |   |       |       |   |   |   +-field_descriptor=repeated_recursive_pb
     |   |       |       |   |   |   +-default_value=[]
     |   |       |       |   |   +-element_column=$flatten.injected#6
@@ -2636,9 +2636,9 @@ QueryStmt
     |   |       |       |   |     +-ColumnHolder(column=$offset.injected#7)
     |   |       |       |   +-array_expr=
     |   |       |       |   | +-GetProtoField
-    |   |       |       |   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+    |   |       |       |   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
     |   |       |       |   |   +-expr=
-    |   |       |       |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#6)
+    |   |       |       |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#6)
     |   |       |       |   |   +-field_descriptor=repeated_recursive_pb
     |   |       |       |   |   +-default_value=[]
     |   |       |       |   +-element_column=$flatten.injected#8
@@ -2646,12 +2646,12 @@ QueryStmt
     |   |       |       |     +-ColumnHolder(column=$offset.injected#9)
     |   |       |       +-array_expr=
     |   |       |       | +-GetProtoField
-    |   |       |       |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+    |   |       |       |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
     |   |       |       |   +-expr=
     |   |       |       |   | +-GetProtoField
-    |   |       |       |   |   +-type=PROTO<zetasql_test.RecursivePB>
+    |   |       |       |   |   +-type=PROTO<zetasql_test__.RecursivePB>
     |   |       |       |   |   +-expr=
-    |   |       |       |   |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$flatten.injected#8)
+    |   |       |       |   |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$flatten.injected#8)
     |   |       |       |   |   +-field_descriptor=recursive_pb
     |   |       |       |   |   +-default_value=NULL
     |   |       |       |   +-field_descriptor=repeated_recursive_pb
@@ -3870,7 +3870,7 @@ QueryStmt
     |     |   +-MakeStruct
     |     |     +-type=STRUCT<x JSON, y INT64>
     |     |     +-field_list=
-    |     |       +-Literal(type=JSON, value=11)
+    |     |       +-Literal(type=JSON, value=11, has_explicit_type=TRUE)
     |     |       +-Literal(type=INT64, value=22)
     |     +-get_field_list=
     |       +-GetStructField
@@ -3956,7 +3956,7 @@ QueryStmt
     |             |     +-MakeStruct
     |             |       +-type=STRUCT<x JSON, y INT64>
     |             |       +-field_list=
-    |             |         +-Literal(type=JSON, value=11)
+    |             |         +-Literal(type=JSON, value=11, has_explicit_type=TRUE)
     |             |         +-Literal(type=INT64, value=22)
     |             +-input_scan=
     |               +-SingleRowScan
@@ -4697,12 +4697,12 @@ QueryStmt
         |   |   +-Flatten
         |   |     +-type=ARRAY<STRING>
         |   |     +-expr=
-        |   |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |   |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   |     +-get_field_list=
         |   |       +-GetProtoField
         |   |         +-type=ARRAY<STRING>
         |   |         +-expr=
-        |   |         | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPB>)
+        |   |         | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |   |         +-field_descriptor=str_value
         |   |         +-default_value=[]
         |   +-input_scan=
@@ -4744,21 +4744,21 @@ QueryStmt
         |   |     +-type=ARRAY<STRING>
         |   |     +-subquery_type=SCALAR
         |   |     +-parameter_list=
-        |   |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |   |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   |     +-subquery=
         |   |       +-ProjectScan
         |   |         +-column_list=[$flatten.injected#25]
         |   |         +-expr_list=
         |   |         | +-injected#25 :=
         |   |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
-        |   |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test.TestExtraPB>>) -> BOOL)
-        |   |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#20)
+        |   |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> BOOL)
+        |   |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#20)
         |   |         |     +-Literal(type=ARRAY<STRING>, value=NULL)
         |   |         |     +-SubqueryExpr
         |   |         |       +-type=ARRAY<STRING>
         |   |         |       +-subquery_type=ARRAY
         |   |         |       +-parameter_list=
-        |   |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#20)
+        |   |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#20)
         |   |         |       +-subquery=
         |   |         |         +-OrderByScan
         |   |         |           +-column_list=[$flatten.injected#23]
@@ -4770,7 +4770,7 @@ QueryStmt
         |   |         |           |   | +-ArrayScan
         |   |         |           |   |   +-column_list=[$flatten.injected#21, $offset.injected#22]
         |   |         |           |   |   +-array_expr=
-        |   |         |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#20, is_correlated=TRUE)
+        |   |         |           |   |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#20, is_correlated=TRUE)
         |   |         |           |   |   +-element_column=$flatten.injected#21
         |   |         |           |   |   +-array_offset_column=
         |   |         |           |   |     +-ColumnHolder(column=$offset.injected#22)
@@ -4778,7 +4778,7 @@ QueryStmt
         |   |         |           |   | +-GetProtoField
         |   |         |           |   |   +-type=ARRAY<STRING>
         |   |         |           |   |   +-expr=
-        |   |         |           |   |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$flatten.injected#21)
+        |   |         |           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#21)
         |   |         |           |   |   +-field_descriptor=str_value
         |   |         |           |   |   +-default_value=[]
         |   |         |           |   +-element_column=$flatten.injected#23
@@ -4795,7 +4795,7 @@ QueryStmt
         |   |           +-ProjectScan
         |   |             +-column_list=[$flatten_input.injected#20]
         |   |             +-expr_list=
-        |   |             | +-injected#20 := ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+        |   |             | +-injected#20 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
         |   |             +-input_scan=
         |   |               +-SingleRowScan
         |   +-input_scan=
@@ -4851,12 +4851,12 @@ QueryStmt
         |       +-Flatten
         |         +-type=ARRAY<INT32>
         |         +-expr=
-        |         | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |         | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |         +-get_field_list=
         |           +-GetProtoField
         |             +-type=INT32
         |             +-expr=
-        |             | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPB>)
+        |             | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |             +-field_descriptor=int32_val1
         |             +-default_value=0
         +-aggregate_list=
@@ -4884,21 +4884,21 @@ QueryStmt
         |         +-type=ARRAY<INT32>
         |         +-subquery_type=SCALAR
         |         +-parameter_list=
-        |         | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |         | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |         +-subquery=
         |           +-ProjectScan
         |             +-column_list=[$flatten.injected#23]
         |             +-expr_list=
         |             | +-injected#23 :=
         |             |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT32>, ARRAY<INT32>) -> ARRAY<INT32>)
-        |             |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test.TestExtraPB>>) -> BOOL)
-        |             |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#19)
+        |             |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> BOOL)
+        |             |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
         |             |     +-Literal(type=ARRAY<INT32>, value=NULL)
         |             |     +-SubqueryExpr
         |             |       +-type=ARRAY<INT32>
         |             |       +-subquery_type=ARRAY
         |             |       +-parameter_list=
-        |             |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#19)
+        |             |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
         |             |       +-subquery=
         |             |         +-OrderByScan
         |             |           +-column_list=[$flatten.injected#22]
@@ -4911,14 +4911,14 @@ QueryStmt
         |             |           |   |   +-GetProtoField
         |             |           |   |     +-type=INT32
         |             |           |   |     +-expr=
-        |             |           |   |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$flatten.injected#20)
+        |             |           |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
         |             |           |   |     +-field_descriptor=int32_val1
         |             |           |   |     +-default_value=0
         |             |           |   +-input_scan=
         |             |           |     +-ArrayScan
         |             |           |       +-column_list=[$flatten.injected#20, $offset.injected#21]
         |             |           |       +-array_expr=
-        |             |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
+        |             |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
         |             |           |       +-element_column=$flatten.injected#20
         |             |           |       +-array_offset_column=
         |             |           |         +-ColumnHolder(column=$offset.injected#21)
@@ -4930,7 +4930,7 @@ QueryStmt
         |               +-ProjectScan
         |                 +-column_list=[$flatten_input.injected#19]
         |                 +-expr_list=
-        |                 | +-injected#19 := ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+        |                 | +-injected#19 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
         |                 +-input_scan=
         |                   +-SingleRowScan
         +-aggregate_list=
@@ -4951,13 +4951,13 @@ QueryStmt
     |   +-Flatten
     |     +-type=ARRAY<STRING>
     |     +-expr=
-    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |     +-get_field_list=
     |       +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
     |         +-GetProtoField
     |         | +-type=ARRAY<STRING>
     |         | +-expr=
-    |         | | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPB>)
+    |         | | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
     |         | +-field_descriptor=str_value
     |         | +-default_value=[]
     |         +-SubqueryExpr
@@ -4989,21 +4989,21 @@ QueryStmt
     |     +-type=ARRAY<STRING>
     |     +-subquery_type=SCALAR
     |     +-parameter_list=
-    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |     +-subquery=
     |       +-ProjectScan
     |         +-column_list=[$flatten.injected#27]
     |         +-expr_list=
     |         | +-injected#27 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
-    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test.TestExtraPB>>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#23)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#23)
     |         |     +-Literal(type=ARRAY<STRING>, value=NULL)
     |         |     +-SubqueryExpr
     |         |       +-type=ARRAY<STRING>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#23)
+    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#23)
     |         |       +-subquery=
     |         |         +-OrderByScan
     |         |           +-column_list=[$flatten.injected#26]
@@ -5017,7 +5017,7 @@ QueryStmt
     |         |           |   |     +-GetProtoField
     |         |           |   |     | +-type=ARRAY<STRING>
     |         |           |   |     | +-expr=
-    |         |           |   |     | | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$flatten.injected#24)
+    |         |           |   |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#24)
     |         |           |   |     | +-field_descriptor=str_value
     |         |           |   |     | +-default_value=[]
     |         |           |   |     +-SubqueryExpr
@@ -5037,7 +5037,7 @@ QueryStmt
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$flatten.injected#24, $offset.injected#25]
     |         |           |       +-array_expr=
-    |         |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#23, is_correlated=TRUE)
+    |         |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#23, is_correlated=TRUE)
     |         |           |       +-element_column=$flatten.injected#24
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$offset.injected#25)
@@ -5049,7 +5049,7 @@ QueryStmt
     |           +-ProjectScan
     |             +-column_list=[$flatten_input.injected#23]
     |             +-expr_list=
-    |             | +-injected#23 := ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+    |             | +-injected#23 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
@@ -5075,17 +5075,17 @@ QueryStmt
         | +-Flatten
         |   +-type=ARRAY<STRING>
         |   +-expr=
-        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   +-get_field_list=
         |     +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
         |       +-GetProtoField
         |       | +-type=ARRAY<STRING>
         |       | +-expr=
-        |       | | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPB>)
+        |       | | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       | +-field_descriptor=str_value
         |       | +-default_value=[]
-        |       +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test.TestExtraPB>>) -> INT64)
-        |         +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |       +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> INT64)
+        |         +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         +-element_column=$array.v#18
 
 [REWRITTEN AST]
@@ -5109,18 +5109,18 @@ QueryStmt
             |     +-GetProtoField
             |     | +-type=ARRAY<STRING>
             |     | +-expr=
-            |     | | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$flatten.injected#19)
+            |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#19)
             |     | +-field_descriptor=str_value
             |     | +-default_value=[]
-            |     +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test.TestExtraPB>>) -> INT64)
-            |       +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+            |     +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> INT64)
+            |       +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
             +-input_scan=
               +-ArrayScan
                 +-column_list=[ArrayTypes.ProtoArray#15, $flatten.injected#19]
                 +-input_scan=
                 | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
                 +-array_expr=
-                | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+                | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
                 +-element_column=$flatten.injected#19
 ==
 
@@ -5143,17 +5143,17 @@ QueryStmt
         | +-Flatten
         |   +-type=ARRAY<STRING>
         |   +-expr=
-        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   +-get_field_list=
         |     +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
         |       +-GetProtoField
         |       | +-type=ARRAY<STRING>
         |       | +-expr=
-        |       | | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPB>)
+        |       | | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       | +-field_descriptor=str_value
         |       | +-default_value=[]
-        |       +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test.TestExtraPB>>) -> INT64)
-        |         +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |       +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> INT64)
+        |         +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         +-element_column=$array.v#18
         +-array_offset_column=
           +-ColumnHolder(column=$array_offset.o#19)
@@ -5176,8 +5176,8 @@ QueryStmt
         |   +-type=ARRAY<STRING>
         |   +-subquery_type=ARRAY
         |   +-parameter_list=
-        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   +-subquery=
         |     +-OrderByScan
         |       +-column_list=[$flatten.injected#22]
@@ -5191,18 +5191,18 @@ QueryStmt
         |       |   |     +-GetProtoField
         |       |   |     | +-type=ARRAY<STRING>
         |       |   |     | +-expr=
-        |       |   |     | | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$flatten.injected#20)
+        |       |   |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
         |       |   |     | +-field_descriptor=str_value
         |       |   |     | +-default_value=[]
-        |       |   |     +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test.TestExtraPB>>) -> INT64)
-        |       |   |       +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+        |       |   |     +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> INT64)
+        |       |   |       +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
         |       |   +-input_scan=
         |       |     +-ArrayScan
         |       |       +-column_list=[$flatten.injected#20, $offset.injected#21]
         |       |       +-input_scan=
         |       |       | +-SingleRowScan
         |       |       +-array_expr=
-        |       |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+        |       |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
         |       |       +-element_column=$flatten.injected#20
         |       |       +-array_offset_column=
         |       |         +-ColumnHolder(column=$offset.injected#21)
@@ -5229,17 +5229,17 @@ QueryStmt
     |   +-Flatten
     |     +-type=ARRAY<STRING>
     |     +-expr=
-    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |     +-get_field_list=
     |       +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
     |         +-GetProtoField
     |         | +-type=ARRAY<STRING>
     |         | +-expr=
-    |         | | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPB>)
+    |         | | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
     |         | +-field_descriptor=str_value
     |         | +-default_value=[]
-    |         +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test.TestExtraPB>>) -> INT64)
-    |           +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+    |         +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> INT64)
+    |           +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     +-input_scan=
       +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
 
@@ -5256,23 +5256,23 @@ QueryStmt
     |     +-type=ARRAY<STRING>
     |     +-subquery_type=SCALAR
     |     +-parameter_list=
-    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |     +-subquery=
     |       +-ProjectScan
     |         +-column_list=[$flatten.injected#23]
     |         +-expr_list=
     |         | +-injected#23 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
-    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test.TestExtraPB>>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#19)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
     |         |     +-Literal(type=ARRAY<STRING>, value=NULL)
     |         |     +-SubqueryExpr
     |         |       +-type=ARRAY<STRING>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#19)
-    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
+    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
     |         |       +-subquery=
     |         |         +-OrderByScan
     |         |           +-column_list=[$flatten.injected#22]
@@ -5286,16 +5286,16 @@ QueryStmt
     |         |           |   |     +-GetProtoField
     |         |           |   |     | +-type=ARRAY<STRING>
     |         |           |   |     | +-expr=
-    |         |           |   |     | | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$flatten.injected#20)
+    |         |           |   |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
     |         |           |   |     | +-field_descriptor=str_value
     |         |           |   |     | +-default_value=[]
-    |         |           |   |     +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test.TestExtraPB>>) -> INT64)
-    |         |           |   |       +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+    |         |           |   |     +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> INT64)
+    |         |           |   |       +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$flatten.injected#20, $offset.injected#21]
     |         |           |       +-array_expr=
-    |         |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
+    |         |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
     |         |           |       +-element_column=$flatten.injected#20
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$offset.injected#21)
@@ -5307,7 +5307,7 @@ QueryStmt
     |           +-ProjectScan
     |             +-column_list=[$flatten_input.injected#19]
     |             +-expr_list=
-    |             | +-injected#19 := ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+    |             | +-injected#19 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
@@ -5329,13 +5329,13 @@ QueryStmt
     |   +-Flatten
     |     +-type=ARRAY<STRING>
     |     +-expr=
-    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |     +-get_field_list=
     |       +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
     |         +-GetProtoField
     |         | +-type=ARRAY<STRING>
     |         | +-expr=
-    |         | | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPB>)
+    |         | | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
     |         | +-field_descriptor=str_value
     |         | +-default_value=[]
     |         +-FunctionCall(ZetaSQL:array_length(ARRAY<INT32>) -> INT64)
@@ -5356,7 +5356,7 @@ QueryStmt
     |     +-type=ARRAY<STRING>
     |     +-subquery_type=SCALAR
     |     +-parameter_list=
-    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |     | +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
     |     +-subquery=
     |       +-ProjectScan
@@ -5364,14 +5364,14 @@ QueryStmt
     |         +-expr_list=
     |         | +-injected#23 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
-    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test.TestExtraPB>>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#19)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
     |         |     +-Literal(type=ARRAY<STRING>, value=NULL)
     |         |     +-SubqueryExpr
     |         |       +-type=ARRAY<STRING>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#19)
+    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
     |         |       | +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1, is_correlated=TRUE)
     |         |       +-subquery=
     |         |         +-OrderByScan
@@ -5386,7 +5386,7 @@ QueryStmt
     |         |           |   |     +-GetProtoField
     |         |           |   |     | +-type=ARRAY<STRING>
     |         |           |   |     | +-expr=
-    |         |           |   |     | | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$flatten.injected#20)
+    |         |           |   |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
     |         |           |   |     | +-field_descriptor=str_value
     |         |           |   |     | +-default_value=[]
     |         |           |   |     +-FunctionCall(ZetaSQL:array_length(ARRAY<INT32>) -> INT64)
@@ -5395,7 +5395,7 @@ QueryStmt
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$flatten.injected#20, $offset.injected#21]
     |         |           |       +-array_expr=
-    |         |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
+    |         |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19, is_correlated=TRUE)
     |         |           |       +-element_column=$flatten.injected#20
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$offset.injected#21)
@@ -5407,7 +5407,7 @@ QueryStmt
     |           +-ProjectScan
     |             +-column_list=[$flatten_input.injected#19]
     |             +-expr_list=
-    |             | +-injected#19 := ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+    |             | +-injected#19 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
@@ -5433,13 +5433,13 @@ QueryStmt
         | +-Flatten
         |   +-type=ARRAY<STRING>
         |   +-expr=
-        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   +-get_field_list=
         |     +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
         |       +-GetProtoField
         |       | +-type=ARRAY<STRING>
         |       | +-expr=
-        |       | | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPB>)
+        |       | | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       | +-field_descriptor=str_value
         |       | +-default_value=[]
         |       +-FunctionCall(ZetaSQL:array_length(ARRAY<INT32>) -> INT64)
@@ -5467,7 +5467,7 @@ QueryStmt
             |     +-GetProtoField
             |     | +-type=ARRAY<STRING>
             |     | +-expr=
-            |     | | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$flatten.injected#19)
+            |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#19)
             |     | +-field_descriptor=str_value
             |     | +-default_value=[]
             |     +-FunctionCall(ZetaSQL:array_length(ARRAY<INT32>) -> INT64)
@@ -5478,7 +5478,7 @@ QueryStmt
                 +-input_scan=
                 | +-TableScan(column_list=ArrayTypes.[Int32Array#1, ProtoArray#15], table=ArrayTypes, column_index_list=[0, 14], alias="t")
                 +-array_expr=
-                | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+                | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
                 +-element_column=$flatten.injected#19
 ==
 
@@ -5501,13 +5501,13 @@ QueryStmt
         | +-Flatten
         |   +-type=ARRAY<STRING>
         |   +-expr=
-        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   +-get_field_list=
         |     +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
         |       +-GetProtoField
         |       | +-type=ARRAY<STRING>
         |       | +-expr=
-        |       | | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPB>)
+        |       | | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
         |       | +-field_descriptor=str_value
         |       | +-default_value=[]
         |       +-FunctionCall(ZetaSQL:array_length(ARRAY<INT32>) -> INT64)
@@ -5534,7 +5534,7 @@ QueryStmt
         |   +-type=ARRAY<STRING>
         |   +-subquery_type=ARRAY
         |   +-parameter_list=
-        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   | +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
         |   +-subquery=
         |     +-OrderByScan
@@ -5549,7 +5549,7 @@ QueryStmt
         |       |   |     +-GetProtoField
         |       |   |     | +-type=ARRAY<STRING>
         |       |   |     | +-expr=
-        |       |   |     | | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$flatten.injected#20)
+        |       |   |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#20)
         |       |   |     | +-field_descriptor=str_value
         |       |   |     | +-default_value=[]
         |       |   |     +-FunctionCall(ZetaSQL:array_length(ARRAY<INT32>) -> INT64)
@@ -5560,7 +5560,7 @@ QueryStmt
         |       |       +-input_scan=
         |       |       | +-SingleRowScan
         |       |       +-array_expr=
-        |       |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+        |       |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
         |       |       +-element_column=$flatten.injected#20
         |       |       +-array_offset_column=
         |       |         +-ColumnHolder(column=$offset.injected#21)
@@ -5587,20 +5587,20 @@ QueryStmt
     |   +-Flatten
     |     +-type=ARRAY<STRING>
     |     +-expr=
-    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |     +-get_field_list=
     |       +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
     |         +-GetProtoField
     |         | +-type=ARRAY<STRING>
     |         | +-expr=
-    |         | | +-FlattenedArg(type=PROTO<zetasql_test.TestExtraPB>)
+    |         | | +-FlattenedArg(type=PROTO<zetasql_test__.TestExtraPB>)
     |         | +-field_descriptor=str_value
     |         | +-default_value=[]
-    |         +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>) -> INT64)
+    |         +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>) -> INT64)
     |           +-GetProtoField
-    |             +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+    |             +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
     |             +-expr=
-    |             | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#20)
+    |             | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#20)
     |             +-field_descriptor=nested_repeated_value
     |             +-default_value=[]
     +-input_scan=
@@ -5624,23 +5624,23 @@ QueryStmt
     |     +-type=ARRAY<STRING>
     |     +-subquery_type=SCALAR
     |     +-parameter_list=
-    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#20)
+    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#20)
     |     +-subquery=
     |       +-ProjectScan
     |         +-column_list=[$flatten.injected#26]
     |         +-expr_list=
     |         | +-injected#26 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
-    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test.TestExtraPB>>) -> BOOL)
-    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#22)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<PROTO<zetasql_test__.TestExtraPB>>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22)
     |         |     +-Literal(type=ARRAY<STRING>, value=NULL)
     |         |     +-SubqueryExpr
     |         |       +-type=ARRAY<STRING>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#22)
-    |         |       | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#20, is_correlated=TRUE)
+    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22)
+    |         |       | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#20, is_correlated=TRUE)
     |         |       +-subquery=
     |         |         +-OrderByScan
     |         |           +-column_list=[$flatten.injected#25]
@@ -5654,21 +5654,21 @@ QueryStmt
     |         |           |   |     +-GetProtoField
     |         |           |   |     | +-type=ARRAY<STRING>
     |         |           |   |     | +-expr=
-    |         |           |   |     | | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=$flatten.injected#23)
+    |         |           |   |     | | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=$flatten.injected#23)
     |         |           |   |     | +-field_descriptor=str_value
     |         |           |   |     | +-default_value=[]
-    |         |           |   |     +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>) -> INT64)
+    |         |           |   |     +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>) -> INT64)
     |         |           |   |       +-GetProtoField
-    |         |           |   |         +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+    |         |           |   |         +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
     |         |           |   |         +-expr=
-    |         |           |   |         | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#20, is_correlated=TRUE)
+    |         |           |   |         | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#20, is_correlated=TRUE)
     |         |           |   |         +-field_descriptor=nested_repeated_value
     |         |           |   |         +-default_value=[]
     |         |           |   +-input_scan=
     |         |           |     +-ArrayScan
     |         |           |       +-column_list=[$flatten.injected#23, $offset.injected#24]
     |         |           |       +-array_expr=
-    |         |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=$flatten_input.injected#22, is_correlated=TRUE)
+    |         |           |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22, is_correlated=TRUE)
     |         |           |       +-element_column=$flatten.injected#23
     |         |           |       +-array_offset_column=
     |         |           |         +-ColumnHolder(column=$offset.injected#24)
@@ -5680,7 +5680,7 @@ QueryStmt
     |           +-ProjectScan
     |             +-column_list=[$flatten_input.injected#22]
     |             +-expr_list=
-    |             | +-injected#22 := ColumnRef(type=ARRAY<PROTO<zetasql_test.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+    |             | +-injected#22 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
@@ -5690,3 +5690,11 @@ QueryStmt
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
         +-right_scan=
           +-TableScan(column_list=[TestTable.KitchenSink#20], table=TestTable, column_index_list=[2], alias="test")
+==
+
+select t.KitchenSink.nested_repeated_value.nested_int64 in unnest(t.KitchenSink.nested_repeated_value.nested_int64)
+from TestTable t;
+--
+ERROR: Cannot access field nested_int64 on a value with type ARRAY<zetasql_test__.KitchenSinkPB.Nested>. You may need an explicit call to FLATTEN, and the flattened argument may only contain 'dot' after the first array [at 1:44]
+select t.KitchenSink.nested_repeated_value.nested_int64 in unnest(t.KitchenSi...
+                                           ^

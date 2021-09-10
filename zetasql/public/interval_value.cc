@@ -24,7 +24,7 @@
 #include "absl/base/casts.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_format.h"
@@ -34,7 +34,7 @@
 
 namespace zetasql {
 
-zetasql_base::StatusOr<IntervalValue> IntervalValue::FromYMDHMS(
+absl::StatusOr<IntervalValue> IntervalValue::FromYMDHMS(
     int64_t years, int64_t months, int64_t days, int64_t hours, int64_t minutes,
     int64_t seconds) {
   absl::Status status;
@@ -57,7 +57,7 @@ size_t IntervalValue::HashCode() const {
   return absl::Hash<IntervalValue>()(*this);
 }
 
-zetasql_base::StatusOr<IntervalValue> IntervalValue::operator*(int64_t value) const {
+absl::StatusOr<IntervalValue> IntervalValue::operator*(int64_t value) const {
   absl::Status status;
   int64_t months;
   if (!zetasql::functions::Multiply(get_months(), value, &months, &status)) {
@@ -79,7 +79,7 @@ zetasql_base::StatusOr<IntervalValue> IntervalValue::operator*(int64_t value) co
                                             static_cast<__int128>(nanos));
 }
 
-zetasql_base::StatusOr<IntervalValue> IntervalValue::operator/(int64_t value) const {
+absl::StatusOr<IntervalValue> IntervalValue::operator/(int64_t value) const {
   if (value == 0) {
     return absl::OutOfRangeError("Interval division by zero");
   }
@@ -110,7 +110,7 @@ void IntervalValue::SumAggregator::Add(IntervalValue value) {
   nanos_ += FixedInt<64, 3>(value.get_nanos());
 }
 
-zetasql_base::StatusOr<IntervalValue> IntervalValue::SumAggregator::GetSum() const {
+absl::StatusOr<IntervalValue> IntervalValue::SumAggregator::GetSum() const {
   // It is unlikely that months/days will overflow int64_t, and that nanos will
   // overflow int128 - but check it nevertheless.
   if (months_ > std::numeric_limits<int64_t>::max() ||
@@ -127,7 +127,7 @@ zetasql_base::StatusOr<IntervalValue> IntervalValue::SumAggregator::GetSum() con
                                             static_cast<__int128>(nanos_));
 }
 
-zetasql_base::StatusOr<IntervalValue> IntervalValue::SumAggregator::GetAverage(
+absl::StatusOr<IntervalValue> IntervalValue::SumAggregator::GetAverage(
     int64_t count) const {
   ZETASQL_DCHECK_GT(count, 0);
 
@@ -171,14 +171,16 @@ void IntervalValue::SerializeAndAppendToBytes(std::string* bytes) const {
                 sizeof(months_nanos));
 }
 
-zetasql_base::StatusOr<IntervalValue> IntervalValue::DeserializeFromBytes(
+absl::StatusOr<IntervalValue> IntervalValue::DeserializeFromBytes(
     absl::string_view bytes) {
   // Empty translates to interval value 0
   if (bytes.empty()) {
     return IntervalValue();
   }
-  if (bytes.size() < sizeof(IntervalValue)) {
-    return absl::OutOfRangeError(absl::StrCat("Size : ", bytes.size()));
+  if (bytes.size() != sizeof(IntervalValue)) {
+    return absl::OutOfRangeError(absl::StrCat(
+        "Invalid serialized INTERVAL size, expected ", sizeof(IntervalValue),
+        " bytes, but got ", bytes.size(), " bytes."));
   }
   const char* ptr = reinterpret_cast<const char*>(bytes.data());
   int64_t micros = zetasql_base::LittleEndian::ToHost64(*absl::bit_cast<int64_t*>(ptr));
@@ -290,7 +292,7 @@ std::string IntervalValue::ToISO8601() const {
   return result;
 }
 
-zetasql_base::StatusOr<int64_t> NanosFromFractionDigits(absl::string_view input,
+absl::StatusOr<int64_t> NanosFromFractionDigits(absl::string_view input,
                                                 absl::string_view digits) {
   int64_t nano_fractions;
   if (!absl::SimpleAtoi(digits, &nano_fractions)) {
@@ -313,7 +315,7 @@ zetasql_base::StatusOr<int64_t> NanosFromFractionDigits(absl::string_view input,
 // there is a decimal dot in the input, therefore fractions are not optional.
 const LazyRE2 kRESecond = {R"(([-+])?(\d*)\.(\d+))"};
 
-zetasql_base::StatusOr<IntervalValue> IntervalValue::ParseFromString(
+absl::StatusOr<IntervalValue> IntervalValue::ParseFromString(
     absl::string_view input, functions::DateTimestampPart part) {
   absl::Status status;
   // SimpleAtoi ignores leading and trailing spaces, but we reject them.
@@ -451,7 +453,7 @@ const LazyRE2 kREHourToSecondFractions = {R"(([-+])?(\d+):(\d+):(\d+)\.(\d+))"};
 const LazyRE2 kREMinuteToSecond = {R"(([-+])?(\d+):(\d+))"};
 const LazyRE2 kREMinuteToSecondFractions = {R"(([-+])?(\d+):(\d+)\.(\d+))"};
 
-zetasql_base::StatusOr<IntervalValue> IntervalValue::ParseFromString(
+absl::StatusOr<IntervalValue> IntervalValue::ParseFromString(
     absl::string_view input, functions::DateTimestampPart from,
     functions::DateTimestampPart to) {
   // Sign (empty, '-' or '+') for months and nano fields. There is no special
@@ -612,7 +614,7 @@ zetasql_base::StatusOr<IntervalValue> IntervalValue::ParseFromString(
   return IntervalValue::FromMonthsDaysNanos(months, days, nanos);
 }
 
-zetasql_base::StatusOr<IntervalValue> IntervalValue::ParseFromString(
+absl::StatusOr<IntervalValue> IntervalValue::ParseFromString(
     absl::string_view input) {
   // We can unambiguously determine possible datetime fields by counting number
   // of spaces, colons and dashes after digit in the input
@@ -696,7 +698,7 @@ class ISO8601Parser {
   const char kEof = '\0';
 
  public:
-  zetasql_base::StatusOr<IntervalValue> Parse(absl::string_view input) {
+  absl::StatusOr<IntervalValue> Parse(absl::string_view input) {
     input_ = input;
     char c = GetChar();
     if (c != 'P') {
@@ -880,20 +882,20 @@ class ISO8601Parser {
 
 }  // namespace
 
-zetasql_base::StatusOr<IntervalValue> IntervalValue::ParseFromISO8601(
+absl::StatusOr<IntervalValue> IntervalValue::ParseFromISO8601(
     absl::string_view input) {
   ISO8601Parser parser;
   return parser.Parse(input);
 }
 
-zetasql_base::StatusOr<IntervalValue> IntervalValue::Parse(absl::string_view input) {
+absl::StatusOr<IntervalValue> IntervalValue::Parse(absl::string_view input) {
   if (absl::StartsWith(input, "P")) {
     return ParseFromISO8601(input);
   }
   return ParseFromString(input);
 }
 
-zetasql_base::StatusOr<IntervalValue> IntervalValue::FromInteger(
+absl::StatusOr<IntervalValue> IntervalValue::FromInteger(
     int64_t value, functions::DateTimestampPart part) {
   switch (part) {
     case functions::YEAR:
@@ -930,7 +932,7 @@ zetasql_base::StatusOr<IntervalValue> IntervalValue::FromInteger(
   }
 }
 
-zetasql_base::StatusOr<int64_t> IntervalValue::Extract(
+absl::StatusOr<int64_t> IntervalValue::Extract(
     functions::DateTimestampPart part) const {
   switch (part) {
     case functions::YEAR:
@@ -998,7 +1000,7 @@ std::ostream& operator<<(std::ostream& out, IntervalValue value) {
   return out << value.ToString();
 }
 
-zetasql_base::StatusOr<IntervalValue> JustifyHours(const IntervalValue& v) {
+absl::StatusOr<IntervalValue> JustifyHours(const IntervalValue& v) {
   __int128 nanos = v.get_nanos();
   int64_t days = v.get_days() + nanos / IntervalValue::kNanosInDay;
   nanos = nanos % IntervalValue::kNanosInDay;
@@ -1012,7 +1014,7 @@ zetasql_base::StatusOr<IntervalValue> JustifyHours(const IntervalValue& v) {
   return IntervalValue::FromMonthsDaysNanos(v.get_months(), days, nanos);
 }
 
-zetasql_base::StatusOr<IntervalValue> JustifyDays(const IntervalValue& v) {
+absl::StatusOr<IntervalValue> JustifyDays(const IntervalValue& v) {
   int64_t months = v.get_months() + v.get_days() / IntervalValue::kDaysInMonth;
   int64_t days = v.get_days() % IntervalValue::kDaysInMonth;
   if (months > 0 && days < 0) {
@@ -1025,7 +1027,7 @@ zetasql_base::StatusOr<IntervalValue> JustifyDays(const IntervalValue& v) {
   return IntervalValue::FromMonthsDaysNanos(months, days, v.get_nanos());
 }
 
-zetasql_base::StatusOr<IntervalValue> JustifyInterval(const IntervalValue& v) {
+absl::StatusOr<IntervalValue> JustifyInterval(const IntervalValue& v) {
   __int128 nanos = v.get_nanos();
   int64_t days = v.get_days() + nanos / IntervalValue::kNanosInDay;
   nanos = nanos % IntervalValue::kNanosInDay;

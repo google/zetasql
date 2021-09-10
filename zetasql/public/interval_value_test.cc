@@ -343,6 +343,13 @@ TEST(IntervalValueTest, Deserialize) {
         StatusIs(absl::StatusCode::kOutOfRange));
   }
   {
+    // Too many bytes
+    const char bytes[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    EXPECT_THAT(
+        IntervalValue::DeserializeFromBytes(absl::string_view(bytes, 17)),
+        StatusIs(absl::StatusCode::kOutOfRange));
+  }
+  {
     // Invalid fields
     const char bytes[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
     EXPECT_THAT(
@@ -485,8 +492,8 @@ void ExpectPlusFail(const IntervalValue& op1, const IntervalValue& op2) {
 }
 
 template <typename T>
-void ExpectEqStatusOr(const zetasql_base::StatusOr<T>& expected,
-                      const zetasql_base::StatusOr<T>& actual) {
+void ExpectEqStatusOr(const absl::StatusOr<T>& expected,
+                      const absl::StatusOr<T>& actual) {
   EXPECT_EQ(expected.status(), actual.status());
   if (expected.ok() && actual.ok()) {
     EXPECT_EQ(*expected, *actual);
@@ -920,7 +927,7 @@ TEST(IntervalValueTest, ToString) {
 
 std::string ParseToString(absl::string_view input,
                           functions::DateTimestampPart part) {
-  return IntervalValue::ParseFromString(input, part).ValueOrDie().ToString();
+  return IntervalValue::ParseFromString(input, part).value().ToString();
 }
 
 void ExpectParseError(absl::string_view input,
@@ -1122,9 +1129,7 @@ TEST(IntervalValueTest, ParseFromString1) {
 std::string ParseToString(absl::string_view input,
                           functions::DateTimestampPart from,
                           functions::DateTimestampPart to) {
-  return IntervalValue::ParseFromString(input, from, to)
-      .ValueOrDie()
-      .ToString();
+  return IntervalValue::ParseFromString(input, from, to).value().ToString();
 }
 
 void ExpectParseError(absl::string_view input,
@@ -1627,7 +1632,7 @@ TEST(IntervalValueTest, ParseFromStringYearToSecond) {
 }
 
 std::string ParseToString(absl::string_view input) {
-  return IntervalValue::ParseFromString(input).ValueOrDie().ToString();
+  return IntervalValue::ParseFromString(input).value().ToString();
 }
 
 void ExpectParseFromString(absl::string_view expected,
@@ -1955,7 +1960,7 @@ TEST(IntervalValueTest, ToStringParseRoundtrip) {
 
 std::string FromIntegerToString(int64_t value,
                                 functions::DateTimestampPart part) {
-  return IntervalValue::FromInteger(value, part).ValueOrDie().ToString();
+  return IntervalValue::FromInteger(value, part).value().ToString();
 }
 
 void ExpectFromIntegerError(int64_t value, functions::DateTimestampPart part) {

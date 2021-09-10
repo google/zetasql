@@ -234,7 +234,7 @@ DATE '2016-12-18'
 
 # Parse error can point at the first bad keyword, skipping initial comments.
 \-- abcdef
-\# ghijkl
+# ghijkl
 /* xyz */ xxx yyy;
 --
 ERROR: Syntax error: Unexpected identifier "xxx" [at 3:11]

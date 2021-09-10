@@ -15,24 +15,32 @@
 //
 
 #include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
-#include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/analyzer/substitute.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
+#include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/builtin_function.pb.h"
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/function.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto_util.h"
-#include "zetasql/public/value.h"
-#include "zetasql/resolved_ast/make_node_vector.h"
+#include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
-#include "zetasql/resolved_ast/rewrite_utils.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "absl/types/span.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -76,8 +84,8 @@ class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
       WHEN k IS NULL THEN NULL
       -- 'value' fields are present by proto2+3 definition, so nulls are only
       -- possible when the key is absent.
-      ELSE IFNULL( ( SELECT value FROM UNNEST(m) WITH OFFSET offset
-                     WHERE key = k ORDER BY offset DESC LIMIT 1 ),
+      ELSE IFNULL( ( SELECT elem.value FROM UNNEST(m) elem WITH OFFSET offset
+                     WHERE elem.key = k ORDER BY offset DESC LIMIT 1 ),
                    -- If the key isn't found, then it's an error.
                    ERROR(FORMAT("Key not found in map: %T", k)) )
     END
@@ -86,8 +94,8 @@ class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
     CASE
       WHEN m IS NULL THEN NULL
       WHEN k IS NULL THEN NULL
-      ELSE ( SELECT value FROM UNNEST(m) WITH OFFSET offset
-             WHERE key = k ORDER BY offset DESC LIMIT 1 )
+      ELSE ( SELECT elem.value FROM UNNEST(m) elem WITH OFFSET offset
+             WHERE elem.key = k ORDER BY offset DESC LIMIT 1 )
     END
     )sql";
 
@@ -112,7 +120,7 @@ class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
     constexpr absl::string_view kTemplate = R"sql(
     CASE
       WHEN m IS NULL THEN NULL
-      ELSE EXISTS(SELECT 1 FROM UNNEST(m) WHERE key = k)
+      ELSE EXISTS(SELECT 1 FROM UNNEST(m) elem WHERE elem.key = k)
     END
     )sql";
 
@@ -138,8 +146,8 @@ class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
         WHEN EXISTS(
             SELECT ERROR(
                 FORMAT("MODIFY_MAP: Only one instance of each key is allowed. Found multiple instances of key: %T", key))
-            FROM (SELECT key, count(*) AS num_dups
-                  FROM UNNEST(modifications) GROUP BY key
+            FROM (SELECT mod.key, count(*) AS num_dups
+                  FROM UNNEST(modifications) mod GROUP BY mod.key
                   HAVING num_dups > 1)) THEN NULL
         -- Error case: NULL keys are not allowed.
         WHEN EXISTS(
@@ -148,8 +156,9 @@ class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
                        -- Note that the MODIFY_MAP arg index is not the same
                        -- as the offset in the modifications array.
                        offset * 2 + 1))
-            FROM (SELECT offset FROM UNNEST(modifications) WITH OFFSET offset
-                  WHERE key IS NULL)) THEN NULL
+            FROM (SELECT offset
+                  FROM UNNEST(modifications) mod WITH OFFSET offset
+                  WHERE mod.key IS NULL)) THEN NULL
         WHEN original_map IS NULL THEN NULL
         ELSE ARRAY(
           -- Select all the entries from orig that haven't been replaced.
@@ -165,9 +174,9 @@ class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
              -- Union those with each entry from the modifications where the
              -- value isn't NULL. We use an offset that starts past the end of
              -- the original map to ensure a deterministic output order.
-            (SELECT key, value, ARRAY_LENGTH(original_map) + offset
-             FROM UNNEST(modifications) WITH OFFSET offset
-             WHERE value IS NOT NULL))
+            (SELECT mod.key, mod.value, ARRAY_LENGTH(original_map) + offset
+             FROM UNNEST(modifications) mod WITH OFFSET offset
+             WHERE mod.value IS NOT NULL))
           ORDER BY offset ASC)
         END
      FROM (SELECT AS VALUE $0) modifications)
@@ -225,7 +234,7 @@ class MapFunctionRewriter : public Rewriter {
                ResolvedASTRewrite::REWRITE_PROTO_MAP_FNS);
   }
 
-  zetasql_base::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
       const AnalyzerOptions& options,
       absl::Span<const Rewriter* const> rewriters, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,

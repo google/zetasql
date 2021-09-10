@@ -43,3 +43,37 @@ OPTIONS(a="b", c="d");
 ERROR: CREATE SCHEMA cannot have both OR REPLACE and IF NOT EXISTS [at 1:1]
 CREATE OR REPLACE SCHEMA IF NOT EXISTS myProject.mySchema
 ^
+==
+
+[language_features={{|V_1_3_COLLATION_SUPPORT}}]
+CREATE SCHEMA myProject.mySchema DEFAULT COLLATE 'und:ci';
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: CREATE SCHEMA with DEFAULT COLLATE is not supported [at 1:42]
+CREATE SCHEMA myProject.mySchema DEFAULT COLLATE 'und:ci';
+                                         ^
+--
+ALTERNATION GROUP: V_1_3_COLLATION_SUPPORT
+--
+CreateSchemaStmt
++-name_path=myProject.mySchema
++-collation_name=
+  +-Literal(type=STRING, value="und:ci")
+==
+
+[language_features={{|V_1_3_COLLATION_SUPPORT}}]
+CREATE SCHEMA myProject.mySchema DEFAULT COLLATE @test_param_string;
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: CREATE SCHEMA with DEFAULT COLLATE is not supported [at 1:42]
+CREATE SCHEMA myProject.mySchema DEFAULT COLLATE @test_param_string;
+                                         ^
+--
+ALTERNATION GROUP: V_1_3_COLLATION_SUPPORT
+--
+ERROR: COLLATE must be followed by a string literal [at 1:50]
+CREATE SCHEMA myProject.mySchema DEFAULT COLLATE @test_param_string;
+                                                 ^
+==

@@ -40,14 +40,14 @@ DeleteStmt
 | +-ReturningClause
 |   +-output_column_list=
 |     +-TestTable.key#1 AS key [INT32]
-|     +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-|     +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+|     +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+|     +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-where_expr=
   +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
     +-GetProtoField
     | +-type=INT32
     | +-expr=
-    | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | +-field_descriptor=int32_val
     | +-default_value=77
     +-Literal(type=INT32, value=1)
@@ -64,8 +64,8 @@ DeleteStmt
 | +-ReturningClause
 |   +-output_column_list=
 |   | +-TestTable.key#1 AS key [INT32]
-|   | +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-|   | +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+|   | +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+|   | +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 |   | +-$with_action.ACTION#4 AS ACTION [STRING]
 |   +-action_column=
 |     +-ColumnHolder(column=$with_action.ACTION#4)
@@ -74,7 +74,7 @@ DeleteStmt
     +-GetProtoField
     | +-type=INT32
     | +-expr=
-    | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | +-field_descriptor=int32_val
     | +-default_value=77
     +-Literal(type=INT32, value=1)
@@ -91,8 +91,8 @@ DeleteStmt
 | +-ReturningClause
 |   +-output_column_list=
 |   | +-TestTable.key#1 AS key [INT32]
-|   | +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-|   | +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+|   | +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+|   | +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 |   | +-$with_action.myaction#4 AS myaction [STRING]
 |   +-action_column=
 |     +-ColumnHolder(column=$with_action.myaction#4)
@@ -101,7 +101,7 @@ DeleteStmt
     +-GetProtoField
     | +-type=INT32
     | +-expr=
-    | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | +-field_descriptor=int32_val
     | +-default_value=77
     +-Literal(type=INT32, value=1)
@@ -123,7 +123,7 @@ DeleteStmt
     +-GetProtoField
     | +-type=INT32
     | +-expr=
-    | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | +-field_descriptor=int32_val
     | +-default_value=77
     +-Literal(type=INT32, value=1)
@@ -154,7 +154,7 @@ DeleteStmt
     +-GetProtoField
     | +-type=INT32
     | +-expr=
-    | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | +-field_descriptor=int32_val
     | +-default_value=77
     +-Literal(type=INT32, value=1)
@@ -173,7 +173,7 @@ DeleteStmt
 | +-ReturningClause
 |   +-output_column_list=
 |   | +-TestTable.newkey#4 AS newkey [INT64]
-|   | +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
+|   | +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
 |   | +-$with_action.ACTION#5 AS ACTION [STRING]
 |   +-action_column=
 |   | +-ColumnHolder(column=$with_action.ACTION#5)
@@ -188,7 +188,7 @@ DeleteStmt
     +-GetProtoField
     | +-type=INT32
     | +-expr=
-    | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | +-field_descriptor=int32_val
     | +-default_value=77
     +-Literal(type=INT32, value=1)
@@ -207,7 +207,7 @@ DeleteStmt
 | +-ReturningClause
 |   +-output_column_list=
 |   | +-TestTable.newkey#4 AS newkey [INT64]
-|   | +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
+|   | +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
 |   | +-TestTable.abs_key#5 AS abs_key [INT32]
 |   | +-$with_action.action#6 AS action [STRING]
 |   +-action_column=
@@ -226,7 +226,7 @@ DeleteStmt
     +-GetProtoField
     | +-type=INT32
     | +-expr=
-    | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | +-field_descriptor=int32_val
     | +-default_value=77
     +-Literal(type=INT32, value=1)
@@ -245,8 +245,8 @@ DeleteStmt
 |   +-output_column_list=
 |   | +-TestTable.abs_key#4 AS abs_key [INT32]
 |   | +-TestTable.key#1 AS key [INT32]
-|   | +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-|   | +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+|   | +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+|   | +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 |   | +-$with_action.ACTION#5 AS ACTION [STRING]
 |   +-action_column=
 |   | +-ColumnHolder(column=$with_action.ACTION#5)
@@ -259,7 +259,7 @@ DeleteStmt
     +-GetProtoField
     | +-type=INT32
     | +-expr=
-    | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     | +-field_descriptor=int32_val
     | +-default_value=77
     +-Literal(type=INT32, value=1)
@@ -901,7 +901,7 @@ UpdateStmt
 | +-ReturningClause
 |   +-output_column_list=
 |   | +-TestTable.key#1 AS key [INT32]
-|   | +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
+|   | +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
 |   | +-$with_action.ACTION#4 AS ACTION [STRING]
 |   +-action_column=
 |     +-ColumnHolder(column=$with_action.ACTION#4)
@@ -913,7 +913,7 @@ UpdateStmt
   | | +-GetProtoField
   | |   +-type=INT32
   | |   +-expr=
-  | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+  | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
   | |   +-field_descriptor=int32_val
   | |   +-default_value=77
   | +-set_value=
@@ -925,7 +925,7 @@ UpdateStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT64>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int64_val
     |   +-default_value=[]
     +-element_column=
@@ -976,8 +976,8 @@ UpdateStmt
 | +-ReturningClause
 |   +-output_column_list=
 |     +-TestTable.key#1 AS key [INT32]
-|     +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-|     +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+|     +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+|     +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 +-where_expr=
 | +-Literal(type=BOOL, value=true)
 +-update_item_list=
@@ -986,7 +986,7 @@ UpdateStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT64>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int64_val
     |   +-default_value=[]
     +-element_column=
@@ -1057,8 +1057,8 @@ UpdateStmt
 | +-ReturningClause
 |   +-output_column_list=
 |   | +-TestTable.key#1 AS key [INT32]
-|   | +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test.TestEnum>]
-|   | +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test.KitchenSinkPB>]
+|   | +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+|   | +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
 |   | +-$with_action.ACTION#4 AS ACTION [STRING]
 |   +-action_column=
 |     +-ColumnHolder(column=$with_action.ACTION#4)
@@ -1070,7 +1070,7 @@ UpdateStmt
   | | +-GetProtoField
   | |   +-type=INT32
   | |   +-expr=
-  | |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+  | |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
   | |   +-field_descriptor=int32_val
   | |   +-default_value=77
   | +-set_value=
@@ -1082,7 +1082,7 @@ UpdateStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT64>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int64_val
     |   +-default_value=[]
     +-element_column=

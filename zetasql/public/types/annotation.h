@@ -31,33 +31,28 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
+#include <string>
+#include <type_traits>
+#include <vector>
 
+#include "zetasql/base/logging.h"
 #include "zetasql/public/annotation.pb.h"
 #include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/type.h"
-#include "zetasql/public/types/value_representations.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/memory/memory.h"
-#include "absl/strings/str_cat.h"
-#include "absl/strings/str_split.h"
-#include "absl/strings/string_view.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/no_destructor.h"
-#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
-class AnnotationMap;
 class AnnotationSpec;
-class StructAnnotationMap;
 class ArrayAnnotationMap;
-
-// Built-in annotation IDs.
-enum class AnnotationKind {
-  kCollation = 0,
-  // Annotation ID up to kMaxBuiltinAnnotationKind are reserved for zetasql
-  // built-in annotations.
-  kMaxBuiltinAnnotationKind = 10000,
-};
+class StructAnnotationMap;
+class ArrayType;
+class StructType;
 
 // Maps from AnnotationSpec ID to SimpleValue.
 class AnnotationMap {
@@ -80,6 +75,18 @@ class AnnotationMap {
     annotations_[id] = value;
     return *this;
   }
+
+  // Sets annotation value for the given AnnotationSpec type, overwriting
+  // existing value if it exists.
+  // Returns a self reference for caller to be able to chain SetAnnotation()
+  // calls.
+  template <class T>
+  AnnotationMap& SetAnnotation(const SimpleValue& value) {
+    static_assert(std::is_base_of<AnnotationSpec, T>::value,
+                  "Must be a subclass of AnnotationSpec");
+    return SetAnnotation(T::GetId(), value);
+  }
+
   // Returns annotation value for given AnnotationSpec ID. Returns nullptr if
   // the ID is not in the map.
   const SimpleValue* GetAnnotation(int id) const {
@@ -93,13 +100,51 @@ class AnnotationMap {
   virtual ArrayAnnotationMap* AsArrayMap() { return nullptr; }
   virtual const ArrayAnnotationMap* AsArrayMap() const { return nullptr; }
 
-  virtual std::string DebugString() const;
+  virtual std::string DebugString() const {
+    return DebugStringInternal(/*annotation_spec_id=*/{});
+  }
+
+  virtual std::string DebugString(int annotation_spec_id) const {
+    return DebugStringInternal(annotation_spec_id);
+  }
+
+  // Print annotation values of an AnnotationMap recursively. If
+  // <annotation_spec_id> has value, we only print annotation values for the
+  // specific AnnotationSpec ID.
+  virtual std::string DebugStringInternal(
+      std::optional<int> annotation_spec_id) const;
 
   // Decides if two AnnotationMap instances are equal.
-  bool Equals(const AnnotationMap& that) const;
+  bool Equals(const AnnotationMap& that) const {
+    return EqualsInternal(this, &that, /*annotation_spec_id=*/{});
+  }
+
+  // Determines whether two AnnotationMap instances have equal annotation values
+  // recursively on all nested levels for the specified AnnotationSpec ID (all
+  // other annotations are ignored for this comparison).
+  bool HasEqualAnnotations(const AnnotationMap& that,
+                           int annotation_spec_id) const {
+    return EqualsInternal(this, &that, annotation_spec_id);
+  }
+
+  // Decides if two AnnotationMap instances are equal.
+  // Accepts nullptr and treats nullptr to be equal to an empty AnnotationMap
+  // (both for <lhs> and <rhs> as well as for any nested maps).
+  static bool Equals(const AnnotationMap* lhs, const AnnotationMap* rhs) {
+    return EqualsInternal(lhs, rhs, /*annotation_spec_id=*/{});
+  }
 
   // Returns true if this and all the nested AnnotationMap are empty.
-  bool Empty() const;
+  bool Empty() const { return EmptyInternal(/*annotation_spec_id=*/{}); }
+
+  // Returns true if this or any of the nested AnnotationMaps have an annotation
+  // for the given AnnotationSpec type.
+  template <class T>
+  bool Has() const {
+    static_assert(std::is_base_of<AnnotationSpec, T>::value,
+                  "Must be a subclass of AnnotationSpec");
+    return !EmptyInternal(T::GetId());
+  }
 
   // Returns true if this AnnotationMap has compatible nested structure with
   // <type>. The structures are compatible when they meet one of the conditions
@@ -133,7 +178,7 @@ class AnnotationMap {
   virtual absl::Status Serialize(AnnotationMapProto* proto) const;
 
   // Deserializes and creates an instance of AnnotationMap from protobuf.
-  static zetasql_base::StatusOr<std::unique_ptr<AnnotationMap>> Deserialize(
+  static absl::StatusOr<std::unique_ptr<AnnotationMap>> Deserialize(
       const AnnotationMapProto& proto);
 
  protected:
@@ -153,8 +198,19 @@ class AnnotationMap {
   // Decides if two AnnotationMap instances are equal.
   // Accepts nullptr and treats nullptr to be equal to an empty AnnotationMap
   // (both for <lhs> and <rhs> as well as for any nested maps).
-  static bool EqualsInternal(const AnnotationMap* lhs,
-                             const AnnotationMap* rhs);
+  // If <annotation_spec_id> has value, only compares annotation value for the
+  // given AnnotationSpec ID.
+  static bool EqualsInternal(const AnnotationMap* lhs, const AnnotationMap* rhs,
+                             std::optional<int> annotation_spec_id);
+
+  // Returns true if this and all the nested AnnotationMaps are empty.
+  // If <annotation_spec_id> has value, then this method only checks annotation
+  // value for the given AnnotationSpec ID (all other annotations are ignored).
+  bool EmptyInternal(std::optional<int> annotation_spec_id = {}) const;
+
+  // Returns true if two SimpleValue instances are equal.
+  static bool SimpleValueEqualsHelper(const SimpleValue* lhs,
+                                      const SimpleValue* rhs);
 
   // Returns true if <lhs> has compatible nested structure with <rhs>. The
   // structures are compatible when they meet one of the conditions below:
@@ -200,7 +256,9 @@ class StructAnnotationMap : public AnnotationMap {
   const std::vector<std::unique_ptr<AnnotationMap>>& fields() const {
     return fields_;
   }
-  std::string DebugString() const override;
+
+  std::string DebugStringInternal(
+      std::optional<int> annotation_spec_id) const override;
 
   absl::Status Serialize(AnnotationMapProto* proto) const override;
 
@@ -237,7 +295,8 @@ class ArrayAnnotationMap : public AnnotationMap {
   // structure as defined in AnnotationMap::HasCompatibleStructure(lhs, rhs)
   absl::Status CloneIntoElement(const AnnotationMap* from);
 
-  std::string DebugString() const override;
+  std::string DebugStringInternal(
+      std::optional<int> annotation_spec_id) const override;
 
   absl::Status Serialize(AnnotationMapProto* proto) const override;
 
@@ -274,8 +333,10 @@ struct AnnotatedType {
 };
 
 class ResolvedColumnRef;
-class ResolvedFunctionCall;
+class ResolvedFunctionCallBase;
 class ResolvedGetStructField;
+class ResolvedMakeStruct;
+class ResolvedSubqueryExpr;
 
 // Interface to define a possible annotation, with resolution and propagation
 // logic.
@@ -291,6 +352,8 @@ class AnnotationSpec {
   virtual ~AnnotationSpec() {}
 
   // Returns a unique ID for this kind of annotation.
+  // For zetasql AnnotationSpecs, the returned ID should be the same as the
+  // enum value of corresponding AnnotationKind.
   virtual int Id() const = 0;
 
   // Checks annotation in <function_call>.argument_list and propagates to
@@ -299,8 +362,8 @@ class AnnotationSpec {
   // To override logic for checking or propagation logic for a specific
   // function, an implementation could look at <function_call>.function and do
   // something differently.
-  virtual absl::Status CheckAndPropagateForFunctionCall(
-      const ResolvedFunctionCall& function_call,
+  virtual absl::Status CheckAndPropagateForFunctionCallBase(
+      const ResolvedFunctionCallBase& function_call,
       AnnotationMap* result_annotation_map) = 0;
 
   // Propagates annotation from <column_ref>.column to <result_annotation_map>.
@@ -312,8 +375,32 @@ class AnnotationSpec {
   // <result_annotation_map>.
   virtual absl::Status CheckAndPropagateForGetStructField(
       const ResolvedGetStructField& get_struct_field,
-      AnnotationMap* annotation_to_propagate) = 0;
+      AnnotationMap* result_annotation_map) = 0;
+
+  // Propagates annotation from the referenced struct field to
+  // <result_annotation_map>.
+  virtual absl::Status CheckAndPropagateForMakeStruct(
+      const ResolvedMakeStruct& make_struct,
+      StructAnnotationMap* result_annotation_map) = 0;
+
+  // Propagates annotation from the subquery to result_annotation_map>.
+  virtual absl::Status CheckAndPropagateForSubqueryExpr(
+      const ResolvedSubqueryExpr& subquery_expr,
+      AnnotationMap* result_annotation_map) = 0;
+
   // TODO: add more functions to handle different resolved nodes.
+};
+
+// Built-in annotation IDs.
+enum class AnnotationKind {
+  // Annotation id for zetasql::CollationAnnotation.
+  kCollation = 1,
+  // Annotation ID for the SampleAnnotation, which is used for testing
+  // purposes only.
+  kSampleAnnotation = 2,
+  // Annotation ID up to kMaxBuiltinAnnotationKind are reserved for zetasql
+  // built-in annotations.
+  kMaxBuiltinAnnotationKind = 10000,
 };
 
 }  // namespace zetasql

@@ -19,16 +19,21 @@
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
+#include "zetasql/parser/keywords.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/base/macros.h"
+#include "absl/status/status.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/str_join.h"
+#include "zetasql/base/status.h"
+#include "zetasql/base/status_builder.h"
 
 namespace zetasql {
 
-std::set<LanguageFeature> LanguageOptions::GetLanguageFeaturesForVersion(
-    LanguageVersion version) {
-  std::set<LanguageFeature> features;
+LanguageOptions::LanguageFeatureSet
+LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
+  LanguageFeatureSet features;
   switch (version) {
     // Include versions in decreasing order here, falling through to include
     // all features from previous versions.
@@ -73,6 +78,9 @@ std::set<LanguageFeature> LanguageOptions::GetLanguageFeaturesForVersion(
       features.insert(FEATURE_V_1_3_LIKE_ANY_SOME_ALL);
       features.insert(FEATURE_V_1_3_CASE_STMT);
       features.insert(FEATURE_V_1_3_ALLOW_SLASH_PATHS);
+      features.insert(FEATURE_V_1_3_TYPEOF_FUNCTION);
+      features.insert(FEATURE_V_1_3_SCRIPT_LABEL);
+      features.insert(FEATURE_V_1_3_REMOTE_FUNCTION);
       ABSL_FALLTHROUGH_INTENDED;
     // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are
     // supposed to be stable and frozen, except possibly for bug fixes.
@@ -125,8 +133,7 @@ std::string LanguageOptions::GetEnabledLanguageFeaturesAsString() const {
   return ToString(enabled_language_features_);
 }
 
-std::string LanguageOptions::ToString(
-    const std::set<LanguageFeature>& features) {
+std::string LanguageOptions::ToString(const LanguageFeatureSet& features) {
   std::set<std::string> strings;
   for (LanguageFeature feature : features) {
     strings.insert(LanguageFeature_Name(feature));
@@ -155,6 +162,14 @@ LanguageOptions::LanguageOptions(const LanguageOptionsProto& proto)
           proto.supported_generic_entity_types(i));
     }
   }
+  for (absl::string_view keyword : proto.reserved_keywords()) {
+    // Failure is possible if the proto is invalid, but a constructor cannot
+    // return a status. Crash in debug builds, but silently ignore the malformed
+    // keyword in production.
+    auto status = EnableReservableKeyword(keyword);
+    ZETASQL_DCHECK_OK(status);
+    status.IgnoreError();
+  }
 }
 
 void LanguageOptions::Serialize(LanguageOptionsProto* proto) const {
@@ -170,6 +185,9 @@ void LanguageOptions::Serialize(LanguageOptionsProto* proto) const {
   }
   for (const std::string& entity_type : supported_generic_entity_types_) {
     proto->add_supported_generic_entity_types(entity_type);
+  }
+  for (absl::string_view keyword : reserved_keywords_) {
+    proto->add_reserved_keywords(std::string(keyword));
   }
 }
 
@@ -188,6 +206,46 @@ void LanguageOptions::EnableMaximumLanguageFeatures(bool for_development) {
       EnableLanguageFeature(feature);
     }
   }
+  EnableAllReservableKeywords();
 }
 
+const LanguageOptions::KeywordSet& LanguageOptions::GetReservableKeywords() {
+  static auto* reservable_keywords = new KeywordSet{"QUALIFY"};
+  return *reservable_keywords;
+}
+
+bool LanguageOptions::IsReservedKeyword(absl::string_view keyword) const {
+  if (reserved_keywords_.contains(keyword)) {
+    return true;
+  }
+  const parser::KeywordInfo* keyword_info = parser::GetKeywordInfo(keyword);
+  return keyword_info != nullptr && keyword_info->IsAlwaysReserved();
+}
+
+absl::Status LanguageOptions::EnableReservableKeyword(absl::string_view keyword,
+                                                      bool reserved) {
+  std::string keyword_uppercase = absl::AsciiStrToUpper(keyword);
+  const auto& reservable_keywords = GetReservableKeywords();
+  auto it = reservable_keywords.find(keyword_uppercase);
+  if (it == reservable_keywords.end()) {
+    return zetasql_base::InvalidArgumentErrorBuilder()
+           << "Invalid keyword " << keyword
+           << " passed to LanguageOptions::EnableReservableKeyword()";
+  }
+
+  if (reserved) {
+    reserved_keywords_.insert(*it);
+  } else {
+    reserved_keywords_.erase(*it);
+  }
+  return absl::OkStatus();
+}
+
+void LanguageOptions::EnableAllReservableKeywords(bool reserved) {
+  if (reserved) {
+    reserved_keywords_ = GetReservableKeywords();
+  } else {
+    reserved_keywords_.clear();
+  }
+}
 }  // namespace zetasql

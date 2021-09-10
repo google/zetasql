@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.zetasql.ZetaSQLOptions.ErrorMessageMode;
 import com.google.zetasql.ZetaSQLOptions.ParameterMode;
+import com.google.zetasql.ZetaSQLOptions.ParseLocationRecordType;
 import com.google.zetasql.ZetaSQLOptions.ResolvedASTRewrite;
 import com.google.zetasql.ZetaSQLOptions.StatementContext;
 import com.google.zetasql.ZetaSQLOptionsProto.AnalyzerOptionsProto;
@@ -262,12 +263,34 @@ public class AnalyzerOptions implements Serializable {
     return builder.getStatementContext();
   }
 
+  /**
+   * @deprecated Use {@link #setParseLocationRecordType} below for more control on what location to
+   *             record.
+   */
+  @Deprecated
   public void setRecordParseLocations(boolean value) {
-    builder.setRecordParseLocations(value);
+    builder.setParseLocationRecordType(
+        value
+            ? ParseLocationRecordType.PARSE_LOCATION_RECORD_CODE_SEARCH
+            : ParseLocationRecordType.PARSE_LOCATION_RECORD_NONE);
   }
 
+  /**
+   * @deprecated Use {@link #getParseLocationRecordType} below for more control on what location to
+   *             record.
+   */
+  @Deprecated
   public boolean getRecordParseLocations() {
-    return builder.getRecordParseLocations();
+    return builder.getParseLocationRecordType()
+        != ParseLocationRecordType.PARSE_LOCATION_RECORD_NONE;
+  }
+
+  public void setParseLocationRecordType(ParseLocationRecordType value) {
+    builder.setParseLocationRecordType(value);
+  }
+
+  public ParseLocationRecordType getParseLocationRecordType() {
+    return builder.getParseLocationRecordType();
   }
 
   public void setCreateNewColumnForEachProjectedOutput(boolean value) {
@@ -332,7 +355,7 @@ public class AnalyzerOptions implements Serializable {
     setErrorMessageMode(proto.getErrorMessageMode());
     setStatementContext(proto.getStatementContext());
     setPruneUnusedColumns(proto.getPruneUnusedColumns());
-    setRecordParseLocations(proto.getRecordParseLocations());
+    setParseLocationRecordType(proto.getParseLocationRecordType());
     setCreateNewColumnForEachProjectedOutput(proto.getCreateNewColumnForEachProjectedOutput());
     setAllowUndeclaredParameters(proto.getAllowUndeclaredParameters());
     setParameterMode(proto.getParameterMode());

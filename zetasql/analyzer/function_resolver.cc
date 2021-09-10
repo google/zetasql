@@ -16,56 +16,78 @@
 
 #include "zetasql/analyzer/function_resolver.h"
 
+#include <algorithm>
 #include <cstdint>
+#include <functional>
 #include <limits>
+#include <map>
 #include <memory>
-#include <type_traits>
+#include <optional>
+#include <set>
+#include <string>
+#include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/analyzer/function_signature_matcher.h"
+#include "zetasql/analyzer/input_argument_type_resolver_helper.h"
+#include "zetasql/analyzer/name_scope.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/analyzer/resolver.h"
+#include "zetasql/common/errors.h"
 #include "zetasql/common/status_payload_utils.h"
-#include "zetasql/public/function.pb.h"
-#include "zetasql/public/function_signature.h"
-#include "zetasql/public/proto_util.h"
-#include "zetasql/base/case.h"
-#include <cstdint>
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/annotation/collation.h"
+#include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/cast.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/coercer.h"
 #include "zetasql/public/cycle_detector.h"
+#include "zetasql/public/error_helpers.h"
+#include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function.pb.h"
+#include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/parse_location.h"
+#include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/sql_function.h"
 #include "zetasql/public/strings.h"
-#include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/templated_sql_function.h"
+#include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/simple_value.h"
+#include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type_parameters.h"
+#include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_ast_helper.h"
+#include "zetasql/resolved_ast/resolved_column.h"
+#include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/base/case.h"
+#include "absl/base/attributes.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/memory/memory.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -183,7 +205,7 @@ const std::string& FunctionResolver::BinaryOperatorToFunctionName(
   }
 }
 
-zetasql_base::StatusOr<bool> FunctionResolver::SignatureMatches(
+absl::StatusOr<bool> FunctionResolver::SignatureMatches(
     const std::vector<const ASTNode*>& arg_ast_nodes,
     const std::vector<InputArgumentType>& input_arguments,
     const FunctionSignature& signature, bool allow_argument_coercion,
@@ -519,7 +541,7 @@ absl::Status FunctionResolver::
 namespace {
 // Helper function to generate a ResolvedExpr node for an injected function
 // argument whose value is either its default value or NULL.
-zetasql_base::StatusOr<std::unique_ptr<ResolvedExpr>>
+absl::StatusOr<std::unique_ptr<ResolvedExpr>>
 MakeResolvedLiteralForInjectedArgument(const InputArgumentType& input_arg_type,
                                        const Type* value_type) {
   // There should be a default value specified in <input_arg_type>,
@@ -653,7 +675,7 @@ std::string FunctionResolver::GenerateErrorMessageWithSupportedSignatures(
 // error message.  Currently, this code takes an early exit if a signature
 // does not match and does not accurately determine how close the signature
 // was, nor does it keep track of the best non-matching signature.
-zetasql_base::StatusOr<const FunctionSignature*>
+absl::StatusOr<const FunctionSignature*>
 FunctionResolver::FindMatchingSignature(
     const Function* function,
     const ASTNode* ast_location,
@@ -680,6 +702,13 @@ FunctionResolver::FindMatchingSignature(
   for (const FunctionSignature& signature : function->signatures()) {
     int repetitions = 0;
     int optionals = 0;
+    // If a user calls a function with an internal signature, we won't match it.
+    // Only when a fake ASTNode is used to call the function by the rewriter,
+    // the internal signature will be matched.
+    if (signature.IsInternal() && !arg_locations_in.empty() &&
+        arg_locations_in[0]->node_kind() != FakeASTNode::kConcreteNodeKind) {
+      continue;
+    }
     if (!SignatureArgumentCountMatches(signature, num_provided_args,
                                        &repetitions, &optionals)) {
       if (num_signatures == 1) {
@@ -880,12 +909,6 @@ absl::Status ExtractStructFieldLocations(
   return absl::OkStatus();
 }
 
-// TODO The intent of this function seems to be for the caller to
-// check that the types don't match before it calls this.  It may simplify
-// things if the check happens inside this function instead, and this turns
-// into a no-op if there's no change required.  I tried add an early bailout
-// if the types matched and a few tests started failing, mostly because of
-// differences in has_explicit_type.  This could probably be simplified.
 absl::Status FunctionResolver::AddCastOrConvertLiteral(
     const ASTNode* ast_location, const Type* target_type,
     std::unique_ptr<const ResolvedExpr> format,
@@ -893,7 +916,17 @@ absl::Status FunctionResolver::AddCastOrConvertLiteral(
     const TypeParameters& type_params, const ResolvedScan* scan,
     bool set_has_explicit_type, bool return_null_on_error,
     std::unique_ptr<const ResolvedExpr>* argument) const {
-  ZETASQL_RET_CHECK(ast_location != nullptr);
+  ZETASQL_RET_CHECK_NE(ast_location, nullptr);
+
+  // If this conversion is a no-op we can return early.
+  if (target_type->Equals(argument->get()->type()) && !set_has_explicit_type) {
+    // These fields should only be used for explicit casts when
+    // set_has_explicit_type is true.
+    ZETASQL_RET_CHECK(type_params.IsEmpty());
+    ZETASQL_RET_CHECK_EQ(format.get(), nullptr);
+    ZETASQL_RET_CHECK_EQ(time_zone.get(), nullptr);
+    return absl::OkStatus();
+  }
 
   // We add the casts field-by-field for struct expressions.  We will collapse
   // a ResolvedMakeStruct to a struct literal if all the fields are literals
@@ -946,13 +979,18 @@ absl::Status FunctionResolver::AddCastOrConvertLiteral(
           set_has_explicit_type, return_null_on_error, &field_exprs[i]);
       if (!cast_status.ok()) {
         // Propagate "Out of stack space" errors.
+        // TODO: Propagate internal, unimplemented, etc
         if (cast_status.code() == absl::StatusCode::kResourceExhausted) {
           return cast_status;
         }
         return MakeSqlErrorAt(field_arg_locations[i]) << cast_status.message();
       }
     }
-    *argument = MakeResolvedMakeStruct(target_type, std::move(field_exprs));
+    auto make_struct =
+        MakeResolvedMakeStruct(target_type, std::move(field_exprs));
+    ZETASQL_RETURN_IF_ERROR(resolver_->CheckAndPropagateAnnotations(
+        /*error_node=*/nullptr, make_struct.get()));
+    *argument = std::move(make_struct);
 
     // If all the fields are now explicitly casted literals, then we can
     // convert this MakeStruct into a Literal instead.
@@ -1007,6 +1045,8 @@ absl::Status FunctionResolver::AddCastOrConvertLiteral(
   // Implicitly convert literals if possible.  When casting to a parameterized
   // type, we first cast to the base type here, and then add an explicit cast to
   // the parameterized type after this implicit conversion.
+  //
+  // TODO: Should this look at time_zone and type_params too?
   if (argument_literal != nullptr && format == nullptr) {
     std::unique_ptr<const ResolvedLiteral> converted_literal;
     ZETASQL_RETURN_IF_ERROR(ConvertLiteralToType(
@@ -1058,7 +1098,7 @@ absl::Status FunctionResolver::ConvertLiteralToType(
     bool set_has_explicit_type, bool return_null_on_error,
     std::unique_ptr<const ResolvedLiteral>* converted_literal) const {
   const Value* argument_value = &argument_literal->value();
-  zetasql_base::StatusOr<Value> coerced_literal_value;  // Initialized to UNKNOWN
+  absl::StatusOr<Value> coerced_literal_value;  // Initialized to UNKNOWN
   absl::string_view float_literal_image;
   if (argument_value->is_null()) {
     coerced_literal_value = Value::Null(target_type);
@@ -1069,7 +1109,7 @@ absl::Status FunctionResolver::ConvertLiteralToType(
         Value::Array(target_type->AsArray(), {} /* values */);
   } else if (argument_value->type()->IsStruct()) {
     // TODO: Make this clearer by factoring it out to a helper function
-    // that returns an zetasql_base::StatusOr<Value>, making 'success' unnecessary and
+    // that returns an absl::StatusOr<Value>, making 'success' unnecessary and
     // allowing for a more detailed error message (like for string -> proto
     // conversion below).
     bool success = true;
@@ -1155,13 +1195,17 @@ absl::Status FunctionResolver::ConvertLiteralToType(
     }
   }
 
+  bool has_explicit_type = argument_literal->has_explicit_type();
+  if (set_has_explicit_type) {
+    has_explicit_type = true;
+  }
   auto replacement_literal = MakeResolvedLiteral(
-      target_type, coerced_literal_value.value(), set_has_explicit_type);
+      target_type, coerced_literal_value.value(), has_explicit_type);
   // The float literal cache entry (if there is one) is no longer valid after
   // replacement.
   resolver_->float_literal_images_.erase(argument_literal->float_literal_id());
-  if (resolver_->analyzer_options_.parse_location_options()
-          .record_parse_locations) {
+  if (resolver_->analyzer_options_.parse_location_record_type() !=
+      PARSE_LOCATION_RECORD_NONE) {
     // Copy parse location to the replacement literal.
     if (argument_literal->GetParseLocationRangeOrNULL() != nullptr) {
       replacement_literal->SetParseLocationRange(
@@ -1220,6 +1264,36 @@ static std::unique_ptr<ResolvedFunctionArgument> MakeResolvedFunctionArgument(
       MakeResolvedFunctionArgument();
   function_argument->set_expr(std::move(expr));
   return function_argument;
+}
+
+absl::Status FunctionResolver::ResolveCollationForCollateFunction(
+    const ASTNode* error_location, ResolvedFunctionCall* function_call) {
+  ZETASQL_RET_CHECK_EQ(function_call->argument_list_size(), 2);
+  const ResolvedExpr* arg_1 = function_call->argument_list(1);
+  // Pre-resolution check has made sure the second argument is a string literal.
+  ZETASQL_RET_CHECK(arg_1->type()->IsString() &&
+            arg_1->node_kind() == RESOLVED_LITERAL &&
+            !arg_1->GetAs<ResolvedLiteral>()->value().is_null());
+  const ResolvedLiteral* literal = arg_1->GetAs<ResolvedLiteral>();
+  const_cast<ResolvedLiteral*>(literal)->set_preserve_in_literal_remover(
+      true);
+  const std::string& collation_name =
+      arg_1->GetAs<ResolvedLiteral>()->value().string_value();
+  if (!collation_name.empty()) {
+    std::unique_ptr<AnnotationMap> mutable_annotation_map;
+    if (function_call->type_annotation_map() == nullptr) {
+      mutable_annotation_map = AnnotationMap::Create(function_call->type());
+    } else {
+      mutable_annotation_map = function_call->type_annotation_map()->Clone();
+    }
+    mutable_annotation_map->SetAnnotation<CollationAnnotation>(
+        SimpleValue::String(collation_name));
+    ZETASQL_ASSIGN_OR_RETURN(
+        const AnnotationMap* annotation_map,
+        type_factory_->TakeOwnership(std::move(mutable_annotation_map)));
+    function_call->set_type_annotation_map(annotation_map);
+  }
+  return absl::OkStatus();
 }
 
 absl::Status FunctionResolver::ResolveGeneralFunctionCall(
@@ -1430,10 +1504,8 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
 
     const Type* target_type = concrete_argument.type();
     if (!(arguments[idx])->type()->Equals(target_type)) {
-      ZETASQL_RETURN_IF_ERROR(AddCastOrConvertLiteral(
-          arg_locations[idx], target_type, /*format=*/nullptr,
-          /*time_zone=*/nullptr, TypeParameters(), /*scan=*/nullptr,
-          /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
+      ZETASQL_RETURN_IF_ERROR(resolver_->CoerceExprToType(
+          arg_locations[idx], target_type, Resolver::kExplicitCoercion,
           &arguments[idx]));
       // Update the argument type with the casted one, so that the
       // PostResolutionArgumentConstraintsCallback and the
@@ -1465,7 +1537,7 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
     ZETASQL_RET_CHECK(!function->Is<TemplatedSQLFunction>()) << function->DebugString();
     ZETASQL_RET_CHECK(!function->Is<SQLFunctionInterface>()) << function->DebugString();
     CycleDetector owned_cycle_detector;
-    const zetasql_base::StatusOr<const Type*> result_type =
+    const absl::StatusOr<const Type*> result_type =
         function->GetComputeResultTypeCallback()(
             catalog_, type_factory_, &owned_cycle_detector, *result_signature,
             input_argument_types, resolver_->analyzer_options());
@@ -1603,11 +1675,26 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
         std::move(arguments), /*generic_argument_list=*/{}, error_mode,
         function_call_info);
   }
+  ZETASQL_RETURN_IF_ERROR(resolver_->MaybeResolveCollationForFunctionCallBase(
+      /*error_location=*/ast_location, (*resolved_expr_out).get()));
+  ZETASQL_RETURN_IF_ERROR(resolver_->CheckAndPropagateAnnotations(
+      /*error_node=*/ast_location, (*resolved_expr_out).get()));
+
+  if ((*resolved_expr_out)->function()->GetGroup() ==
+          Function::kZetaSQLFunctionGroupName &&
+      (*resolved_expr_out)->signature().context_id() ==
+          FunctionSignatureId::FN_COLLATE) {
+    ZETASQL_RETURN_IF_ERROR(ResolveCollationForCollateFunction(
+        /*error_location=*/ast_location, (*resolved_expr_out).get()));
+  }
 
   if (ast_location->node_kind() == zetasql::ASTNodeKind::AST_FUNCTION_CALL) {
     auto ast_function_call = ast_location->GetAs<ASTFunctionCall>();
     resolver_->MaybeRecordFunctionCallParseLocation(ast_function_call,
                                                     resolved_expr_out->get());
+  } else if (resolver_->analyzer_options().parse_location_record_type() ==
+             PARSE_LOCATION_RECORD_FULL_NODE_SCOPE) {
+    resolver_->MaybeRecordParseLocation(ast_location, resolved_expr_out->get());
   }
   return absl::OkStatus();
 }
@@ -1765,36 +1852,21 @@ absl::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
   // Check the result type of the resolved expression against the expected
   // concrete return type of the function signature, if any. If the types do not
   // match, add a coercion or return an error.
-  const Type* return_type = resolved_sql_body->type();
+
   // Note that ZetaSQL does not yet support overloaded templated functions.
   // So we check that there is exactly one signature and retrieve it.
   ZETASQL_RET_CHECK_EQ(1, function.NumSignatures());
   const FunctionArgumentType& expected_type =
       function.signatures()[0].result_type();
-  if (expected_type.kind() == ARG_TYPE_FIXED &&
-      !return_type->Equals(expected_type.type())) {
-    const InputArgumentType input_argument_type =
-        GetInputArgumentTypeForExpr(resolved_sql_body.get());
-    SignatureMatchResult result;
-    if (coercer().CoercesTo(input_argument_type, expected_type.type(),
-                            /*is_explicit=*/false, &result)) {
-      const absl::Status status = this->AddCastOrConvertLiteral(
-          ast_location, expected_type.type(), /*format=*/nullptr,
-          /*time_zone=*/nullptr, TypeParameters(), /*scan=*/nullptr,
-          /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
-          &resolved_sql_body);
-      if (!status.ok()) {
-        return MakeFunctionExprAnalysisError(function, status.message());
-      }
-    } else {
-      return MakeFunctionExprAnalysisError(
-          function,
-          absl::StrCat("Function declared to return ",
-                       expected_type.type()->ShortTypeName(
-                           analyzer_options.language().product_mode()),
-                       " but the function body produces incompatible type ",
-                       return_type->ShortTypeName(
-                           analyzer_options.language().product_mode())));
+  if (expected_type.kind() == ARG_TYPE_FIXED) {
+    if (absl::Status status = resolver_->CoerceExprToType(
+            ast_location, expected_type.type(), Resolver::kImplicitCoercion,
+            "Function declared to return $0 but the function body produces "
+            "incompatible type $1",
+            &resolved_sql_body);
+        !status.ok()) {
+      // TODO: Propagate internal errors, unimplemented, etc
+      return MakeFunctionExprAnalysisError(function, status.message());
     }
   }
 

@@ -3867,7 +3867,7 @@ QueryStmt
     |   +-FunctionCall(ZetaSQL:$equal(DOUBLE, DOUBLE) -> BOOL)
     |     +-Cast(FLOAT -> DOUBLE)
     |     | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
-    |     +-Literal(type=DOUBLE, value=3.14)
+    |     +-Literal(type=DOUBLE, value=3.14, has_explicit_type=TRUE)
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.float#8], table=SimpleTypes, column_index_list=[7])
 --
@@ -3884,7 +3884,7 @@ QueryStmt
     |   +-FunctionCall(ZetaSQL:$equal(DOUBLE, DOUBLE) -> BOOL)
     |     +-Cast(FLOAT -> DOUBLE)
     |     | +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
-    |     +-Literal(type=DOUBLE, value=1.2345678901234568e+38)
+    |     +-Literal(type=DOUBLE, value=1.2345678901234568e+38, has_explicit_type=TRUE)
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.float#8], table=SimpleTypes, column_index_list=[7])
 --
@@ -3996,7 +3996,7 @@ QueryStmt
     | +-$col1#19 :=
     |   +-FunctionCall(ZetaSQL:$equal(DOUBLE, DOUBLE) -> BOOL)
     |     +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
-    |     +-Literal(type=DOUBLE, value=3.14)
+    |     +-Literal(type=DOUBLE, value=3.14, has_explicit_type=TRUE)
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.double#9], table=SimpleTypes, column_index_list=[8])
 --
@@ -4012,7 +4012,7 @@ QueryStmt
     | +-$col1#19 :=
     |   +-FunctionCall(ZetaSQL:$equal(DOUBLE, DOUBLE) -> BOOL)
     |     +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
-    |     +-Literal(type=DOUBLE, value=1.2345678901234568e+38)
+    |     +-Literal(type=DOUBLE, value=1.2345678901234568e+38, has_explicit_type=TRUE)
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.double#9], table=SimpleTypes, column_index_list=[8])
 --
@@ -4225,7 +4225,7 @@ QueryStmt
     | +-$col1#19 :=
     |   +-FunctionCall(ZetaSQL:$equal(BIGNUMERIC, BIGNUMERIC) -> BOOL)
     |     +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
-    |     +-Literal(type=BIGNUMERIC, value=3.14)
+    |     +-Literal(type=BIGNUMERIC, value=3.14, has_explicit_type=TRUE)
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.bignumeric#17], table=SimpleTypes, column_index_list=[16])
 --

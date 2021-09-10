@@ -1,5 +1,5 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_enum_names=zetasql_test.TestEnum]
+[load_enum_names=zetasql_test__.TestEnum]
 [prepare_database]
 CREATE TABLE TestTable AS
 SELECT cast(1 as int64) as row_id,
@@ -379,16 +379,16 @@ ARRAY<STRUCT<UINT32, int64_val INT64, INT64>>[
 
 [name=ntile_enum]
 SELECT enum_val, NTILE(6) OVER (ORDER BY enum_val DESC)
-FROM (SELECT CAST(0 AS `zetasql_test.TestEnum`) enum_val UNION ALL
-      SELECT CAST(1 AS `zetasql_test.TestEnum`)          UNION ALL
-      SELECT CAST(1 AS `zetasql_test.TestEnum`)          UNION ALL
-      SELECT CAST(2 AS `zetasql_test.TestEnum`)          UNION ALL
-      SELECT CAST(2 AS `zetasql_test.TestEnum`)          UNION ALL
-      SELECT CAST(null AS `zetasql_test.TestEnum`)       UNION ALL
-      SELECT CAST(null AS `zetasql_test.TestEnum`))
+FROM (SELECT CAST(0 AS `zetasql_test__.TestEnum`) enum_val UNION ALL
+      SELECT CAST(1 AS `zetasql_test__.TestEnum`)          UNION ALL
+      SELECT CAST(1 AS `zetasql_test__.TestEnum`)          UNION ALL
+      SELECT CAST(2 AS `zetasql_test__.TestEnum`)          UNION ALL
+      SELECT CAST(2 AS `zetasql_test__.TestEnum`)          UNION ALL
+      SELECT CAST(null AS `zetasql_test__.TestEnum`)       UNION ALL
+      SELECT CAST(null AS `zetasql_test__.TestEnum`))
 --
 ARRAY<STRUCT<
-        enum_val ENUM<zetasql_test.TestEnum>,
+        enum_val ENUM<zetasql_test__.TestEnum>,
         INT64
       >>
 [{TESTENUM2, 1},

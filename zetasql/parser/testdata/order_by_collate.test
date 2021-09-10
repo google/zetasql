@@ -285,9 +285,9 @@ order by col ASC COLLATE "en_US"
 select * from T
 order by COLLATE "en_US" col
 --
-ERROR: Syntax error: Unexpected keyword COLLATE [at 2:10]
+ERROR: Syntax error: Expected "(" but got string literal "en_US" [at 2:18]
 order by COLLATE "en_US" col
-         ^
+                 ^
 ==
 
 # -------------------------------------------

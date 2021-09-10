@@ -16,12 +16,18 @@
 
 #include "zetasql/public/table_valued_function.h"
 
+#include <memory>
+
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/proto/function.pb.h"
+#include "zetasql/public/function_signature.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/type.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
+#include "zetasql/base/status.h"
 
 namespace zetasql {
 
@@ -43,6 +49,13 @@ void ExpectEqualTVFRelations(const TVFRelation& relation1,
   for (int i = 0; i < relation1.num_columns(); ++i) {
     ExpectEqualTVFSchemaColumn(relation1.column(i), relation2.column(i));
   }
+}
+
+void ExpectEqualTableValuedFunctionOptions(
+    const TableValuedFunctionOptions& options1,
+    const TableValuedFunctionOptions& options2) {
+  EXPECT_EQ(options1.uses_upper_case_sql_name,
+            options2.uses_upper_case_sql_name);
 }
 
 // Serializes given TVFRelation first. Then deserializes and returns the
@@ -84,6 +97,17 @@ void SerializeDeserializeAndCompare(const TVFSchemaColumn& column) {
       TVFSchemaColumn::FromProto(tvf_schema_column, pools, &type_factory));
 
   ExpectEqualTVFSchemaColumn(column, result);
+}
+
+void SerializeDeserializeAndCompare(const TableValuedFunctionOptions& options) {
+  TableValuedFunctionOptionsProto tvf_options_proto;
+  options.Serialize(&tvf_options_proto);
+
+  std::unique_ptr<TableValuedFunctionOptions> result;
+  ZETASQL_ASSERT_OK(
+      TableValuedFunctionOptions::Deserialize(tvf_options_proto, &result));
+
+  ExpectEqualTableValuedFunctionOptions(options, *result);
 }
 
 // Check serialization and deserialization of TVFRelation.
@@ -232,4 +256,206 @@ TEST(TVFTest, TestInputTableWithPseudoColumnForTVFWithExtraColumns) {
           FunctionSignature(ARG_TYPE_RELATION, {arg_type}, -1), {double_col})),
       "Does not support non-templated argument type");
 }
+
+TEST(TVFTest, TestSignatureTextUppercasesNameByDefault) {
+  TypeFactory factory;
+
+  const std::vector<std::string> function_path = {"test_tvf_name"};
+
+  ::zetasql::TVFRelation::ColumnList tvf_schema_columns;
+    tvf_schema_columns.emplace_back("value",
+                                    factory.MakeSimpleType(TYPE_INT64));
+    auto tvf_schema = absl::make_unique<::zetasql::TVFRelation>(
+        tvf_schema_columns);
+
+  std::unique_ptr<TableValuedFunction> deserialized_tvf =
+      absl::make_unique<FixedOutputSchemaTVF>(
+          function_path,
+          ::zetasql::FunctionSignature(
+                  ::zetasql::ARG_TYPE_RELATION,
+                  {::zetasql::FunctionArgumentType(
+                      ::zetasql::ARG_TYPE_ARBITRARY,
+                      ::zetasql::FunctionArgumentType::REPEATED)},
+                  /*context_id=*/static_cast<int64_t>(0)),
+          *tvf_schema);
+
+  EXPECT_EQ(
+      deserialized_tvf->GetSupportedSignaturesUserFacingText(LanguageOptions()),
+      "TEST_TVF_NAME([ANY, ...])");
+}
+
+TEST(TVFTest, TestSignatureTextLowercasesNameWhenSpecified) {
+  TypeFactory factory;
+
+  const std::vector<std::string> function_path = {"test_tvf_name"};
+
+  ::zetasql::TVFRelation::ColumnList tvf_schema_columns;
+    tvf_schema_columns.emplace_back("value",
+                                    factory.MakeSimpleType(TYPE_INT64));
+    auto tvf_schema = absl::make_unique<::zetasql::TVFRelation>(
+        tvf_schema_columns);
+
+  TableValuedFunctionOptions tvf_options;
+  tvf_options.uses_upper_case_sql_name = false;
+
+  std::unique_ptr<TableValuedFunction> deserialized_tvf =
+      absl::make_unique<FixedOutputSchemaTVF>(
+          function_path,
+          ::zetasql::FunctionSignature(
+                  ::zetasql::ARG_TYPE_RELATION,
+                  {::zetasql::FunctionArgumentType(
+                      ::zetasql::ARG_TYPE_ARBITRARY,
+                      ::zetasql::FunctionArgumentType::REPEATED)},
+                  /*context_id=*/static_cast<int64_t>(0)),
+          *tvf_schema,
+          tvf_options);
+
+  EXPECT_EQ(
+      deserialized_tvf->GetSupportedSignaturesUserFacingText(LanguageOptions()),
+      "test_tvf_name([ANY, ...])");
+}
+
+TEST(TVFTest, TestFixedOutputSchemaTVFSerializeAndDeserialize) {
+  TypeFactory factory;
+
+  const std::vector<std::string> function_path = {"test_tvf_name"};
+
+  ::zetasql::TVFRelation::ColumnList tvf_schema_columns;
+  tvf_schema_columns.emplace_back("value", factory.MakeSimpleType(TYPE_INT64));
+  auto tvf_schema =
+      absl::make_unique<::zetasql::TVFRelation>(tvf_schema_columns);
+
+  TableValuedFunctionOptions tvf_options;
+  tvf_options.uses_upper_case_sql_name = false;
+
+  std::unique_ptr<TableValuedFunction> tvf =
+      absl::make_unique<FixedOutputSchemaTVF>(
+          function_path,
+          ::zetasql::FunctionSignature(
+              FunctionArgumentType::RelationWithSchema(
+                  *tvf_schema,
+                  /*extra_relation_input_columns_allowed=*/false),
+              {::zetasql::FunctionArgumentType(
+                  ::zetasql::ARG_TYPE_ARBITRARY,
+                  ::zetasql::FunctionArgumentType::REPEATED)},
+              /*context_id=*/static_cast<int64_t>(0)),
+          *tvf_schema, tvf_options);
+
+  FileDescriptorSetMap file_descriptor_set_map;
+  TableValuedFunctionProto tvf_proto;
+  ZETASQL_ASSERT_OK(tvf->Serialize(&file_descriptor_set_map, &tvf_proto));
+
+  std::vector<const google::protobuf::DescriptorPool*> pools(
+      file_descriptor_set_map.size());
+  for (const auto& pair : file_descriptor_set_map) {
+    pools[pair.second->descriptor_set_index] = pair.first;
+  }
+
+  TypeFactory type_factory;
+  std::unique_ptr<TableValuedFunction> deserialized_tvf;
+  ZETASQL_ASSERT_OK(TableValuedFunction::Deserialize(tvf_proto, pools, &type_factory,
+                                             &deserialized_tvf));
+  EXPECT_TRUE(deserialized_tvf->Is<FixedOutputSchemaTVF>());
+  ExpectEqualTVFRelations(
+      *tvf_schema,
+      deserialized_tvf->GetAs<FixedOutputSchemaTVF>()->result_schema());
+}
+
+TEST(TVFTest, TestAnonymizationInfo) {
+  TypeFactory factory;
+
+  const std::vector<std::string> function_path = {"test_tvf_name"};
+
+  ::zetasql::TVFRelation::ColumnList tvf_schema_columns;
+  tvf_schema_columns.emplace_back("value", factory.MakeSimpleType(TYPE_INT64));
+  auto tvf_schema =
+      absl::make_unique<::zetasql::TVFRelation>(tvf_schema_columns);
+
+  TableValuedFunctionOptions tvf_options;
+  tvf_options.uses_upper_case_sql_name = false;
+
+  std::unique_ptr<TableValuedFunction> tvf_with_userid =
+      absl::make_unique<FixedOutputSchemaTVF>(
+          function_path,
+          ::zetasql::FunctionSignature(
+              FunctionArgumentType::RelationWithSchema(
+                  *tvf_schema,
+                  /*extra_relation_input_columns_allowed=*/false),
+              {::zetasql::FunctionArgumentType(
+                  ::zetasql::ARG_TYPE_ARBITRARY,
+                  ::zetasql::FunctionArgumentType::REPEATED)},
+              /*context_id=*/static_cast<int64_t>(0)),
+          *tvf_schema, tvf_options);
+
+  ZETASQL_ASSERT_OK(tvf_with_userid->SetUserIdColumnNamePath({"value"}));
+
+  std::optional<const AnonymizationInfo> anonymization_info =
+      tvf_with_userid->anonymization_info();
+
+  EXPECT_TRUE(anonymization_info.has_value());
+  EXPECT_EQ(anonymization_info->UserIdColumnNamePath().size(), 1);
+  EXPECT_EQ(anonymization_info->UserIdColumnNamePath().at(0), "value");
+
+  FileDescriptorSetMap file_descriptor_set_map;
+  TableValuedFunctionProto tvf_proto;
+  ZETASQL_ASSERT_OK(tvf_with_userid->Serialize(&file_descriptor_set_map, &tvf_proto));
+
+  std::vector<const google::protobuf::DescriptorPool*> pools(
+      file_descriptor_set_map.size());
+  for (const auto& pair : file_descriptor_set_map) {
+    pools[pair.second->descriptor_set_index] = pair.first;
+  }
+
+  TypeFactory type_factory;
+  std::unique_ptr<TableValuedFunction> deserialized_tvf_with_userid;
+  ZETASQL_ASSERT_OK(TableValuedFunction::Deserialize(tvf_proto, pools, &type_factory,
+                                             &deserialized_tvf_with_userid));
+  EXPECT_TRUE(deserialized_tvf_with_userid->Is<TableValuedFunction>());
+  std::optional<const AnonymizationInfo> deserialized_anonymization_info =
+      deserialized_tvf_with_userid->GetAs<TableValuedFunction>()
+          ->anonymization_info();
+
+  EXPECT_TRUE(deserialized_anonymization_info.has_value());
+  EXPECT_EQ(deserialized_anonymization_info->UserIdColumnNamePath().size(), 1);
+  EXPECT_EQ(deserialized_anonymization_info->UserIdColumnNamePath().at(0),
+            "value");
+}
+
+TEST(TVFTest, TestTableValueFunctionConstructorWithAnonymizationInfo) {
+  TypeFactory factory;
+
+  const std::vector<std::string> function_path = {"test_tvf_name"};
+
+  ::zetasql::TVFRelation::ColumnList tvf_schema_columns;
+  tvf_schema_columns.emplace_back("value", factory.MakeSimpleType(TYPE_INT64));
+  auto tvf_schema =
+      absl::make_unique<::zetasql::TVFRelation>(tvf_schema_columns);
+
+  TableValuedFunctionOptions tvf_options;
+  tvf_options.uses_upper_case_sql_name = false;
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<AnonymizationInfo> anonymization_info,
+                       AnonymizationInfo::Create({"value"}));
+
+  std::unique_ptr<TableValuedFunction> tvf_with_userid =
+      absl::make_unique<FixedOutputSchemaTVF>(
+          function_path,
+          ::zetasql::FunctionSignature(
+              FunctionArgumentType::RelationWithSchema(
+                  *tvf_schema,
+                  /*extra_relation_input_columns_allowed=*/false),
+              {::zetasql::FunctionArgumentType(
+                  ::zetasql::ARG_TYPE_ARBITRARY,
+                  ::zetasql::FunctionArgumentType::REPEATED)},
+              /*context_id=*/static_cast<int64_t>(0)),
+          std::move(anonymization_info), *tvf_schema, tvf_options);
+
+  std::optional<const AnonymizationInfo> tvf_anonymization_info =
+      tvf_with_userid->anonymization_info();
+
+  EXPECT_TRUE(tvf_anonymization_info.has_value());
+  EXPECT_EQ(tvf_anonymization_info->UserIdColumnNamePath().size(), 1);
+  EXPECT_EQ(tvf_anonymization_info->UserIdColumnNamePath().at(0), "value");
+}
+
 }  // namespace zetasql

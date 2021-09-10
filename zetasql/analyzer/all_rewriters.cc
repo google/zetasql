@@ -24,15 +24,20 @@
 #include "zetasql/analyzer/rewriters/map_function_rewriter.h"
 #include "zetasql/analyzer/rewriters/pivot_rewriter.h"
 #include "zetasql/analyzer/rewriters/rewriter_interface.h"
+#include "zetasql/analyzer/rewriters/typeof_function_rewriter.h"
 #include "zetasql/analyzer/rewriters/unpivot_rewriter.h"
 
 namespace zetasql {
 
 const std::vector<const Rewriter*>& AllRewriters() {
   static const auto* const kRewriters = new std::vector<const Rewriter*>{
-      GetAnonymizationRewriter(), GetArrayFunctionsRewriter(),
-      GetFlattenRewriter(),       GetMapFunctionRewriter(),
-      GetPivotRewriter(),         GetUnpivotRewriter(),
+      GetAnonymizationRewriter() /* One per line reduces change conflicts */,
+      GetArrayFunctionsRewriter(),
+      GetFlattenRewriter(),
+      GetMapFunctionRewriter(),
+      GetPivotRewriter(),
+      GetTypeofFunctionRewriter(),
+      GetUnpivotRewriter(),
   };
   return *kRewriters;
 }

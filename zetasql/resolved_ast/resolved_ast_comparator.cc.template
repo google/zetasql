@@ -97,7 +97,7 @@ absl::Status* ResolvedASTComparator::stack_overflow_status_ =
         "Out of stack space due to deeply nested query expressions when"
         " comparing");
 
-zetasql_base::StatusOr<bool> ResolvedASTComparator::CompareResolvedAST(
+absl::StatusOr<bool> ResolvedASTComparator::CompareResolvedAST(
     const ResolvedNode* node1, const ResolvedNode* node2) {
   if (node1 == nullptr && node2 == nullptr) return true;
   if (node1 == nullptr || node2 == nullptr) return false;
@@ -117,10 +117,10 @@ zetasql_base::StatusOr<bool> ResolvedASTComparator::CompareResolvedAST(
 
 # for node in nodes
  # if not node.is_abstract
-zetasql_base::StatusOr<bool> ResolvedASTComparator::Compare{{node.name}}(
+absl::StatusOr<bool> ResolvedASTComparator::Compare{{node.name}}(
     const {{node.name}}* node1, const {{node.name}}* node2) {
 
-  zetasql_base::StatusOr<bool> result;
+  absl::StatusOr<bool> result;
 # for field in (node.inherited_fields + node.fields)
  # if field.is_node_ptr
   result = CompareResolvedAST(node1->{{field.name}}(),

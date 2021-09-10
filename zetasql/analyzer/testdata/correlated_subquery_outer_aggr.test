@@ -370,7 +370,7 @@ QueryStmt
               +-type=INT64
               +-subquery_type=SCALAR
               +-parameter_list=
-              | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+              | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
               +-subquery=
                 +-ProjectScan
                   +-column_list=[$aggregate.$agg1#5]
@@ -383,7 +383,7 @@ QueryStmt
                       |   | +-GetProtoField
                       |   |   +-type=ARRAY<INT32>
                       |   |   +-expr=
-                      |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+                      |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                       |   |   +-field_descriptor=repeated_int32_val
                       |   |   +-default_value=[]
                       |   +-element_column=$array.repeated_int32_val#4
@@ -583,7 +583,7 @@ group by 1;
 --
 QueryStmt
 +-output_column_list=
-| +-$groupby.TestEnum#6 AS TestEnum [ENUM<zetasql_test.TestEnum>]
+| +-$groupby.TestEnum#6 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
 +-query=
   +-ProjectScan
     +-column_list=[$groupby.TestEnum#6]
@@ -601,7 +601,7 @@ QueryStmt
         |       | +-type=INT64
         |       | +-subquery_type=SCALAR
         |       | +-parameter_list=
-        |       | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |       | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |       | +-subquery=
         |       |   +-ProjectScan
         |       |     +-column_list=[$aggregate.$agg1#5]
@@ -614,7 +614,7 @@ QueryStmt
         |       |         |   | +-GetProtoField
         |       |         |   |   +-type=ARRAY<INT32>
         |       |         |   |   +-expr=
-        |       |         |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+        |       |         |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
         |       |         |   |   +-field_descriptor=repeated_int32_val
         |       |         |   |   +-default_value=[]
         |       |         |   +-element_column=$array.repeated_int32_val#4
@@ -622,7 +622,7 @@ QueryStmt
         |       |           +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
         |       +-Literal(type=INT64, value=5)
         +-group_by_list=
-          +-TestEnum#6 := ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=TestTable.TestEnum#2)
+          +-TestEnum#6 := ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=TestTable.TestEnum#2)
 ==
 
 # Error, the WHERE clause subquery cannot see SELECT list aliases.
@@ -717,7 +717,7 @@ QueryStmt
               +-type=INT64
               +-subquery_type=SCALAR
               +-parameter_list=
-              | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+              | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
               +-subquery=
                 +-ProjectScan
                   +-column_list=[$aggregate.$agg1#5]
@@ -730,7 +730,7 @@ QueryStmt
                       |   | +-GetProtoField
                       |   |   +-type=ARRAY<INT32>
                       |   |   +-expr=
-                      |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+                      |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                       |   |   +-field_descriptor=repeated_int32_val
                       |   |   +-default_value=[]
                       |   +-element_column=$array.repeated_int32_val#4
@@ -1415,7 +1415,7 @@ QueryStmt
               +-type=INT64
               +-subquery_type=SCALAR
               +-parameter_list=
-              | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+              | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
               +-subquery=
                 +-ProjectScan
                   +-column_list=[$expr_subquery.$col1#6]
@@ -1425,7 +1425,7 @@ QueryStmt
                   |     +-type=INT64
                   |     +-subquery_type=SCALAR
                   |     +-parameter_list=
-                  |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+                  |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                   |     +-subquery=
                   |       +-ProjectScan
                   |         +-column_list=[$aggregate.$agg1#5]
@@ -1438,7 +1438,7 @@ QueryStmt
                   |             |   | +-GetProtoField
                   |             |   |   +-type=ARRAY<INT32>
                   |             |   |   +-expr=
-                  |             |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+                  |             |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                   |             |   |   +-field_descriptor=repeated_int32_val
                   |             |   |   +-default_value=[]
                   |             |   +-element_column=$array.repeated_int32_val#4
@@ -1471,7 +1471,7 @@ QueryStmt
                 +-type=INT64
                 +-subquery_type=SCALAR
                 +-parameter_list=
-                | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+                | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
                 +-subquery=
                   +-ProjectScan
                     +-column_list=[$expr_subquery.$col1#6]
@@ -1481,7 +1481,7 @@ QueryStmt
                     |     +-type=INT64
                     |     +-subquery_type=SCALAR
                     |     +-parameter_list=
-                    |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+                    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                     |     +-subquery=
                     |       +-ProjectScan
                     |         +-column_list=[$aggregate.$agg1#5]
@@ -1494,7 +1494,7 @@ QueryStmt
                     |             |   | +-GetProtoField
                     |             |   |   +-type=ARRAY<INT32>
                     |             |   |   +-expr=
-                    |             |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+                    |             |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                     |             |   |   +-field_descriptor=repeated_int32_val
                     |             |   |   +-default_value=[]
                     |             |   +-element_column=$array.repeated_int32_val#4
@@ -1583,7 +1583,7 @@ group by 1;
 --
 QueryStmt
 +-output_column_list=
-| +-$groupby.TestEnum#7 AS TestEnum [ENUM<zetasql_test.TestEnum>]
+| +-$groupby.TestEnum#7 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
 +-query=
   +-ProjectScan
     +-column_list=[$groupby.TestEnum#7]
@@ -1601,7 +1601,7 @@ QueryStmt
         |       | +-type=INT64
         |       | +-subquery_type=SCALAR
         |       | +-parameter_list=
-        |       | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |       | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |       | +-subquery=
         |       |   +-ProjectScan
         |       |     +-column_list=[$expr_subquery.$col1#6]
@@ -1611,7 +1611,7 @@ QueryStmt
         |       |     |     +-type=INT64
         |       |     |     +-subquery_type=SCALAR
         |       |     |     +-parameter_list=
-        |       |     |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+        |       |     |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
         |       |     |     +-subquery=
         |       |     |       +-ProjectScan
         |       |     |         +-column_list=[$aggregate.$agg1#5]
@@ -1624,7 +1624,7 @@ QueryStmt
         |       |     |             |   | +-GetProtoField
         |       |     |             |   |   +-type=ARRAY<INT32>
         |       |     |             |   |   +-expr=
-        |       |     |             |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+        |       |     |             |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
         |       |     |             |   |   +-field_descriptor=repeated_int32_val
         |       |     |             |   |   +-default_value=[]
         |       |     |             |   +-element_column=$array.repeated_int32_val#4
@@ -1634,7 +1634,7 @@ QueryStmt
         |       |       +-SingleRowScan
         |       +-Literal(type=INT64, value=5)
         +-group_by_list=
-          +-TestEnum#7 := ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=TestTable.TestEnum#2)
+          +-TestEnum#7 := ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=TestTable.TestEnum#2)
 ==
 
 # Correlated subquery in the GROUP BY clause.
@@ -1706,7 +1706,7 @@ QueryStmt
               +-type=INT64
               +-subquery_type=SCALAR
               +-parameter_list=
-              | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+              | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
               +-subquery=
                 +-ProjectScan
                   +-column_list=[$expr_subquery.$col1#6]
@@ -1716,7 +1716,7 @@ QueryStmt
                   |     +-type=INT64
                   |     +-subquery_type=SCALAR
                   |     +-parameter_list=
-                  |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+                  |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                   |     +-subquery=
                   |       +-ProjectScan
                   |         +-column_list=[$aggregate.$agg1#5]
@@ -1729,7 +1729,7 @@ QueryStmt
                   |             |   | +-GetProtoField
                   |             |   |   +-type=ARRAY<INT32>
                   |             |   |   +-expr=
-                  |             |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+                  |             |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                   |             |   |   +-field_descriptor=repeated_int32_val
                   |             |   |   +-default_value=[]
                   |             |   +-element_column=$array.repeated_int32_val#4
@@ -2173,7 +2173,7 @@ GROUP BY value
 QueryStmt
 +-output_column_list=
 | +-$groupby.value#11 AS value [STRING]
-| +-$aggregate.$agg1#10 AS `$col2` [STRUCT<ENUM<zetasql_test.TestEnum>, STRING>]
+| +-$aggregate.$agg1#10 AS `$col2` [STRUCT<ENUM<zetasql_test__.TestEnum>, STRING>]
 +-query=
   +-ProjectScan
     +-column_list=[$groupby.value#11, $aggregate.$agg1#10]
@@ -2186,9 +2186,9 @@ QueryStmt
         | +-value#11 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-aggregate_list=
           +-$agg1#10 :=
-            +-AggregateFunctionCall(ZetaSQL:any_value(STRUCT<ENUM<zetasql_test.TestEnum>, STRING>) -> STRUCT<ENUM<zetasql_test.TestEnum>, STRING>)
+            +-AggregateFunctionCall(ZetaSQL:any_value(STRUCT<ENUM<zetasql_test__.TestEnum>, STRING>) -> STRUCT<ENUM<zetasql_test__.TestEnum>, STRING>)
               +-SubqueryExpr
-                +-type=STRUCT<ENUM<zetasql_test.TestEnum>, STRING>
+                +-type=STRUCT<ENUM<zetasql_test__.TestEnum>, STRING>
                 +-subquery_type=SCALAR
                 +-parameter_list=
                 | +-ColumnRef(type=STRING, column=KeyValue.Value#2)
@@ -2198,9 +2198,9 @@ QueryStmt
                     +-expr_list=
                     | +-$col1#9 :=
                     |   +-MakeStruct
-                    |     +-type=STRUCT<ENUM<zetasql_test.TestEnum>, STRING>
+                    |     +-type=STRUCT<ENUM<zetasql_test__.TestEnum>, STRING>
                     |     +-field_list=
-                    |       +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=$groupby.TestEnum#7)
+                    |       +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=$groupby.TestEnum#7)
                     |       +-SubqueryExpr
                     |         +-type=STRING
                     |         +-subquery_type=SCALAR
@@ -2219,7 +2219,7 @@ QueryStmt
                         +-input_scan=
                         | +-TableScan(column_list=[TestTable.TestEnum#4], table=TestTable, column_index_list=[1], alias="TT")
                         +-group_by_list=
-                          +-TestEnum#7 := ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=TestTable.TestEnum#4)
+                          +-TestEnum#7 := ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=TestTable.TestEnum#4)
 ==
 
 # The correlated reference 'KeyValue.key' is correlated to the outermost query,
@@ -2231,7 +2231,7 @@ group by key
 having (select tt.TestEnum
         from TestTable TT
         group by tt.TestEnum
-        having (select TestEnum = cast(KeyValue.key as `zetasql_test.TestEnum`))) = 1;
+        having (select TestEnum = cast(KeyValue.key as `zetasql_test__.TestEnum`))) = 1;
 --
 QueryStmt
 +-output_column_list=
@@ -2250,9 +2250,9 @@ QueryStmt
         |   +-group_by_list=
         |     +-key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
         +-filter_expr=
-          +-FunctionCall(ZetaSQL:$equal(ENUM<zetasql_test.TestEnum>, ENUM<zetasql_test.TestEnum>) -> BOOL)
+          +-FunctionCall(ZetaSQL:$equal(ENUM<zetasql_test__.TestEnum>, ENUM<zetasql_test__.TestEnum>) -> BOOL)
             +-SubqueryExpr
-            | +-type=ENUM<zetasql_test.TestEnum>
+            | +-type=ENUM<zetasql_test__.TestEnum>
             | +-subquery_type=SCALAR
             | +-parameter_list=
             | | +-ColumnRef(type=INT64, column=$groupby.key#3)
@@ -2268,26 +2268,26 @@ QueryStmt
             |         |   +-input_scan=
             |         |   | +-TableScan(column_list=[TestTable.TestEnum#5], table=TestTable, column_index_list=[1], alias="TT")
             |         |   +-group_by_list=
-            |         |     +-TestEnum#7 := ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=TestTable.TestEnum#5)
+            |         |     +-TestEnum#7 := ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=TestTable.TestEnum#5)
             |         +-filter_expr=
             |           +-SubqueryExpr
             |             +-type=BOOL
             |             +-subquery_type=SCALAR
             |             +-parameter_list=
             |             | +-ColumnRef(type=INT64, column=$groupby.key#3, is_correlated=TRUE)
-            |             | +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=$groupby.TestEnum#7)
+            |             | +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=$groupby.TestEnum#7)
             |             +-subquery=
             |               +-ProjectScan
             |                 +-column_list=[$expr_subquery.$col1#8]
             |                 +-expr_list=
             |                 | +-$col1#8 :=
-            |                 |   +-FunctionCall(ZetaSQL:$equal(ENUM<zetasql_test.TestEnum>, ENUM<zetasql_test.TestEnum>) -> BOOL)
-            |                 |     +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=$groupby.TestEnum#7, is_correlated=TRUE)
-            |                 |     +-Cast(INT64 -> ENUM<zetasql_test.TestEnum>)
+            |                 |   +-FunctionCall(ZetaSQL:$equal(ENUM<zetasql_test__.TestEnum>, ENUM<zetasql_test__.TestEnum>) -> BOOL)
+            |                 |     +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=$groupby.TestEnum#7, is_correlated=TRUE)
+            |                 |     +-Cast(INT64 -> ENUM<zetasql_test__.TestEnum>)
             |                 |       +-ColumnRef(type=INT64, column=$groupby.key#3, is_correlated=TRUE)
             |                 +-input_scan=
             |                   +-SingleRowScan
-            +-Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1)
+            +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1)
 ==
 
 # Similar test as the previous query, but the correlated subquery is in
@@ -2298,7 +2298,7 @@ group by key
 order by (select tt.TestEnum
           from TestTable TT
           group by tt.TestEnum
-          order by (select TestEnum = cast(KeyValue.key as `zetasql_test.TestEnum`)));
+          order by (select TestEnum = cast(KeyValue.key as `zetasql_test__.TestEnum`)));
 --
 QueryStmt
 +-output_column_list=
@@ -2313,7 +2313,7 @@ QueryStmt
     |   +-expr_list=
     |   | +-$orderbycol1#10 :=
     |   |   +-SubqueryExpr
-    |   |     +-type=ENUM<zetasql_test.TestEnum>
+    |   |     +-type=ENUM<zetasql_test__.TestEnum>
     |   |     +-subquery_type=SCALAR
     |   |     +-parameter_list=
     |   |     | +-ColumnRef(type=INT64, column=$groupby.key#3)
@@ -2330,15 +2330,15 @@ QueryStmt
     |   |         |   |     +-subquery_type=SCALAR
     |   |         |   |     +-parameter_list=
     |   |         |   |     | +-ColumnRef(type=INT64, column=$groupby.key#3, is_correlated=TRUE)
-    |   |         |   |     | +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=$groupby.TestEnum#7)
+    |   |         |   |     | +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=$groupby.TestEnum#7)
     |   |         |   |     +-subquery=
     |   |         |   |       +-ProjectScan
     |   |         |   |         +-column_list=[$expr_subquery.$col1#8]
     |   |         |   |         +-expr_list=
     |   |         |   |         | +-$col1#8 :=
-    |   |         |   |         |   +-FunctionCall(ZetaSQL:$equal(ENUM<zetasql_test.TestEnum>, ENUM<zetasql_test.TestEnum>) -> BOOL)
-    |   |         |   |         |     +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=$groupby.TestEnum#7, is_correlated=TRUE)
-    |   |         |   |         |     +-Cast(INT64 -> ENUM<zetasql_test.TestEnum>)
+    |   |         |   |         |   +-FunctionCall(ZetaSQL:$equal(ENUM<zetasql_test__.TestEnum>, ENUM<zetasql_test__.TestEnum>) -> BOOL)
+    |   |         |   |         |     +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=$groupby.TestEnum#7, is_correlated=TRUE)
+    |   |         |   |         |     +-Cast(INT64 -> ENUM<zetasql_test__.TestEnum>)
     |   |         |   |         |       +-ColumnRef(type=INT64, column=$groupby.key#3, is_correlated=TRUE)
     |   |         |   |         +-input_scan=
     |   |         |   |           +-SingleRowScan
@@ -2348,7 +2348,7 @@ QueryStmt
     |   |         |       +-input_scan=
     |   |         |       | +-TableScan(column_list=[TestTable.TestEnum#5], table=TestTable, column_index_list=[1], alias="TT")
     |   |         |       +-group_by_list=
-    |   |         |         +-TestEnum#7 := ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=TestTable.TestEnum#5)
+    |   |         |         +-TestEnum#7 := ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=TestTable.TestEnum#5)
     |   |         +-order_by_item_list=
     |   |           +-OrderByItem
     |   |             +-column_ref=
@@ -2363,7 +2363,7 @@ QueryStmt
     +-order_by_item_list=
       +-OrderByItem
         +-column_ref=
-          +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=$orderby.$orderbycol1#10)
+          +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=$orderby.$orderbycol1#10)
 ==
 
 # The correlated reference in the HAVING clause is 'key'.  Both outer queries
@@ -2381,10 +2381,10 @@ group by key
 having (select tt.TestEnum
         from TestTable TT
         group by tt.TestEnum
-        having (select TestEnum = cast(key as `zetasql_test.TestEnum`))) = 1;
+        having (select TestEnum = cast(key as `zetasql_test__.TestEnum`))) = 1;
 --
 ERROR: An expression references column key which is neither grouped nor aggregated [at 7:40]
-        having (select TestEnum = cast(key as `zetasql_test.TestEnum`))) = 1;
+        having (select TestEnum = cast(key as `zetasql_test__.TestEnum`))) = 1;
                                        ^
 ==
 
@@ -2415,9 +2415,9 @@ QueryStmt
         |   +-group_by_list=
         |     +-key#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
         +-filter_expr=
-          +-FunctionCall(ZetaSQL:$equal(ENUM<zetasql_test.TestEnum>, ENUM<zetasql_test.TestEnum>) -> BOOL)
+          +-FunctionCall(ZetaSQL:$equal(ENUM<zetasql_test__.TestEnum>, ENUM<zetasql_test__.TestEnum>) -> BOOL)
             +-SubqueryExpr
-            | +-type=ENUM<zetasql_test.TestEnum>
+            | +-type=ENUM<zetasql_test__.TestEnum>
             | +-subquery_type=SCALAR
             | +-subquery=
             |   +-ProjectScan
@@ -2431,24 +2431,24 @@ QueryStmt
             |         |   +-input_scan=
             |         |   | +-TableScan(column_list=[TestTable.TestEnum#5], table=TestTable, column_index_list=[1], alias="TT")
             |         |   +-group_by_list=
-            |         |     +-TestEnum#7 := ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=TestTable.TestEnum#5)
+            |         |     +-TestEnum#7 := ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=TestTable.TestEnum#5)
             |         +-filter_expr=
             |           +-SubqueryExpr
             |             +-type=BOOL
             |             +-subquery_type=SCALAR
             |             +-parameter_list=
-            |             | +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=$groupby.TestEnum#7)
+            |             | +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=$groupby.TestEnum#7)
             |             +-subquery=
             |               +-ProjectScan
             |                 +-column_list=[$expr_subquery.$col1#8]
             |                 +-expr_list=
             |                 | +-$col1#8 :=
-            |                 |   +-FunctionCall(ZetaSQL:$equal(ENUM<zetasql_test.TestEnum>, ENUM<zetasql_test.TestEnum>) -> BOOL)
-            |                 |     +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=$groupby.TestEnum#7, is_correlated=TRUE)
-            |                 |     +-Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1)
+            |                 |   +-FunctionCall(ZetaSQL:$equal(ENUM<zetasql_test__.TestEnum>, ENUM<zetasql_test__.TestEnum>) -> BOOL)
+            |                 |     +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=$groupby.TestEnum#7, is_correlated=TRUE)
+            |                 |     +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1)
             |                 +-input_scan=
             |                   +-SingleRowScan
-            +-Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM2)
+            +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM2)
 ==
 
 # This query mirrors a powerdrill test query.
@@ -2513,8 +2513,8 @@ QueryStmt
     |   |   |       |   +-expr_list=
     |   |   |       |   | +-field#9 :=
     |   |   |       |   |   +-FunctionCall(ZetaSQL:ifnull(INT64, INT64) -> INT64)
-    |   |   |       |   |     +-Cast(ENUM<zetasql_test.TestEnum> -> INT64)
-    |   |   |       |   |     | +-ColumnRef(type=ENUM<zetasql_test.TestEnum>, column=TestTable.TestEnum#2)
+    |   |   |       |   |     +-Cast(ENUM<zetasql_test__.TestEnum> -> INT64)
+    |   |   |       |   |     | +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=TestTable.TestEnum#2)
     |   |   |       |   |     +-Literal(type=INT64, value=0)
     |   |   |       |   +-input_scan=
     |   |   |       |     +-ArrayScan
@@ -2523,9 +2523,9 @@ QueryStmt
     |   |   |       |       | +-TableScan(column_list=TestTable.[TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[1, 2], alias="__table0")
     |   |   |       |       +-array_expr=
     |   |   |       |       | +-GetProtoField
-    |   |   |       |       |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+    |   |   |       |       |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
     |   |   |       |       |   +-expr=
-    |   |   |       |       |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   |   |       |       |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   |   |       |       |   +-field_descriptor=nested_repeated_value
     |   |   |       |       |   +-default_value=[]
     |   |   |       |       +-element_column=$array.__flat1#4
@@ -2538,7 +2538,7 @@ QueryStmt
     |   |   |         |     +-type=DOUBLE
     |   |   |         |     +-subquery_type=SCALAR
     |   |   |         |     +-parameter_list=
-    |   |   |         |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.__flat1#4)
+    |   |   |         |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.__flat1#4)
     |   |   |         |     +-subquery=
     |   |   |         |       +-ProjectScan
     |   |   |         |         +-column_list=[$expr_subquery.$col1#7]
@@ -2557,7 +2557,7 @@ QueryStmt
     |   |   |         |             |   | +-GetProtoField
     |   |   |         |             |   |   +-type=ARRAY<INT64>
     |   |   |         |             |   |   +-expr=
-    |   |   |         |             |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.__flat1#4, is_correlated=TRUE)
+    |   |   |         |             |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.__flat1#4, is_correlated=TRUE)
     |   |   |         |             |   |   +-field_descriptor=nested_repeated_int64
     |   |   |         |             |   |   +-default_value=[]
     |   |   |         |             |   +-element_column=$array.__for2#5
@@ -2574,7 +2574,7 @@ QueryStmt
     |   |   |               +-type=DOUBLE
     |   |   |               +-subquery_type=SCALAR
     |   |   |               +-parameter_list=
-    |   |   |               | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.__flat1#4)
+    |   |   |               | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.__flat1#4)
     |   |   |               +-subquery=
     |   |   |                 +-ProjectScan
     |   |   |                   +-column_list=[$expr_subquery.$col1#14]
@@ -2593,7 +2593,7 @@ QueryStmt
     |   |   |                       |   | +-GetProtoField
     |   |   |                       |   |   +-type=ARRAY<INT64>
     |   |   |                       |   |   +-expr=
-    |   |   |                       |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.__flat1#4, is_correlated=TRUE)
+    |   |   |                       |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.__flat1#4, is_correlated=TRUE)
     |   |   |                       |   |   +-field_descriptor=nested_repeated_int64
     |   |   |                       |   |   +-default_value=[]
     |   |   |                       |   +-element_column=$array.__for3#12
@@ -2653,7 +2653,7 @@ QueryStmt
         |   |   |   +-GetProtoField
         |   |   |     +-type=INT32
         |   |   |     +-expr=
-        |   |   |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+        |   |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
         |   |   |     +-field_descriptor=int32_val
         |   |   |     +-default_value=77
         |   |   +-input_scan=
@@ -2663,9 +2663,9 @@ QueryStmt
         |   |       | +-TableScan(column_list=[KitchenSinkValueTable.value#1], table=KitchenSinkValueTable, column_index_list=[0], alias="t0")
         |   |       +-array_expr=
         |   |       | +-GetProtoField
-        |   |       |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+        |   |       |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
         |   |       |   +-expr=
-        |   |       |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+        |   |       |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
         |   |       |   +-field_descriptor=nested_repeated_value
         |   |       |   +-default_value=[]
         |   |       +-element_column=$array.t1#2
@@ -2678,7 +2678,7 @@ QueryStmt
         |     |     +-type=INT64
         |     |     +-subquery_type=SCALAR
         |     |     +-parameter_list=
-        |     |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.t1#2)
+        |     |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.t1#2)
         |     |     +-subquery=
         |     |       +-ProjectScan
         |     |         +-column_list=[$aggregate.$agg1#4]
@@ -2692,7 +2692,7 @@ QueryStmt
         |     |             |   | +-GetProtoField
         |     |             |   |   +-type=ARRAY<INT64>
         |     |             |   |   +-expr=
-        |     |             |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.t1#2, is_correlated=TRUE)
+        |     |             |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.t1#2, is_correlated=TRUE)
         |     |             |   |   +-field_descriptor=nested_repeated_int64
         |     |             |   |   +-default_value=[]
         |     |             |   +-element_column=$array.t2#3
@@ -2706,7 +2706,7 @@ QueryStmt
         |           +-type=INT64
         |           +-subquery_type=SCALAR
         |           +-parameter_list=
-        |           | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.t1#2)
+        |           | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.t1#2)
         |           +-subquery=
         |             +-ProjectScan
         |               +-column_list=[$aggregate.$agg1#9]
@@ -2720,7 +2720,7 @@ QueryStmt
         |                   |   | +-GetProtoField
         |                   |   |   +-type=ARRAY<INT64>
         |                   |   |   +-expr=
-        |                   |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.t1#2, is_correlated=TRUE)
+        |                   |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.t1#2, is_correlated=TRUE)
         |                   |   |   +-field_descriptor=nested_repeated_int64
         |                   |   |   +-default_value=[]
         |                   |   +-element_column=$array.t3#8
@@ -4868,7 +4868,7 @@ QueryStmt
     |       |   |   +-GetProtoField
     |       |   |     +-type=BOOL
     |       |   |     +-expr=
-    |       |   |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |       |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |       |   |     +-field_descriptor=int32_val
     |       |   |     +-get_has_bit=TRUE
     |       |   +-input_scan=
@@ -4922,7 +4922,7 @@ QueryStmt
     |       |   |   +-GetProtoField
     |       |   |     +-type=BOOL
     |       |   |     +-expr=
-    |       |   |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
+    |       |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkValueTable.value#1)
     |       |   |     +-field_descriptor=int32_val
     |       |   |     +-get_has_bit=TRUE
     |       |   +-input_scan=
@@ -4941,7 +4941,7 @@ select int32_val, (select t0.some_bogus_field_name)
 from KitchenSinkValueTable t0
 group by int32_val
 --
-ERROR: Protocol buffer zetasql_test.KitchenSinkPB does not have a field called some_bogus_field_name [at 1:30]
+ERROR: Protocol buffer zetasql_test__.KitchenSinkPB does not have a field called some_bogus_field_name [at 1:30]
 select int32_val, (select t0.some_bogus_field_name)
                              ^
 ==

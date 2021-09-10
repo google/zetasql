@@ -39,7 +39,7 @@ static void CreateTestAnnotationMap(const Type* type, TypeFactory* type_factory,
   std::unique_ptr<AnnotationMap> annotation = AnnotationMap::Create(type);
   annotation->SetAnnotation(CollationAnnotation::GetId(),
                             SimpleValue::Int64(10000));
-  zetasql_base::StatusOr<const AnnotationMap*> statusOrMap =
+  absl::StatusOr<const AnnotationMap*> statusOrMap =
       type_factory->TakeOwnership(std::move(annotation));
   ZETASQL_CHECK_OK(statusOrMap.status());
   *annotation_map = statusOrMap.value();

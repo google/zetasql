@@ -27,7 +27,7 @@
 
 namespace zetasql {
 
-using zetasql_test::KitchenSinkPB;
+using zetasql_test__::KitchenSinkPB;
 
 using zetasql::test_values::Array;
 using zetasql::test_values::Struct;
@@ -95,9 +95,9 @@ absl::Status PopulateSampleTables(TypeFactory* type_factory,
   // Table ComplexTypes
   const Type *enum_type, *test_extra_pb_type;
   ZETASQL_RETURN_IF_ERROR(catalog->catalog()->FindType(
-      {zetasql_test::TestEnum_descriptor()->full_name()}, &enum_type));
+      {zetasql_test__::TestEnum_descriptor()->full_name()}, &enum_type));
   ZETASQL_RETURN_IF_ERROR(catalog->catalog()->FindType(
-      {zetasql_test::TestExtraPB::descriptor()->full_name()},
+      {zetasql_test__::TestExtraPB::descriptor()->full_name()},
       &test_extra_pb_type));
   KitchenSinkPB proto;
   proto.set_int64_key_1(1);

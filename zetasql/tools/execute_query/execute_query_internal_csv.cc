@@ -30,7 +30,7 @@
 #include "zetasql/public/value.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "riegeli/bytes/fd_reader.h"
@@ -39,7 +39,7 @@
 
 namespace zetasql {
 
-zetasql_base::StatusOr<std::unique_ptr<SimpleTable>> MakeTableFromCsvFile(
+absl::StatusOr<std::unique_ptr<SimpleTable>> MakeTableFromCsvFile(
     absl::string_view table_name, absl::string_view path) {
   riegeli::CsvReader csv_reader(riegeli::FdReader(path, O_RDONLY));
 

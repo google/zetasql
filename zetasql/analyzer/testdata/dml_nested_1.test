@@ -43,7 +43,7 @@ UpdateStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT32>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int32_val
     |   +-default_value=[]
     +-element_column=
@@ -57,7 +57,7 @@ UpdateStmt
         |   +-GetProtoField
         |     +-type=INT64
         |     +-expr=
-        |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         |     +-field_descriptor=int64_val
         |     +-default_value=0
         +-update_item_list=
@@ -114,7 +114,7 @@ UpdateStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT32>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int32_val
     |   +-default_value=[]
     +-element_column=
@@ -130,7 +130,7 @@ UpdateStmt
                     +-GetProtoField
                       +-type=INT64
                       +-expr=
-                      | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+                      | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
                       +-field_descriptor=int64_val
                       +-default_value=0
 ==
@@ -183,7 +183,7 @@ UpdateStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT32>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int32_val
     |   +-default_value=[]
     +-element_column=
@@ -191,7 +191,7 @@ UpdateStmt
     +-insert_list=
       +-InsertStmt
         +-query_parameter_list=
-        | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         +-query=
         | +-ProjectScan
         |   +-column_list=[$insert_cast.repeated_int64_val#6]
@@ -209,7 +209,7 @@ UpdateStmt
         |           | +-GetProtoField
         |           |   +-type=ARRAY<INT64>
         |           |   +-expr=
-        |           |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+        |           |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
         |           |   +-field_descriptor=repeated_int64_val
         |           |   +-default_value=[]
         |           +-element_column=$array.repeated_int64_val#5
@@ -222,7 +222,7 @@ UPDATE RecursivePBTable t SET (
   UPDATE t.RecursivePB.repeated_recursive_pb a SET (
     UPDATE a.repeated_recursive_pb b SET (
       INSERT b.repeated_recursive_pb
-      SELECT NEW zetasql_test.RecursivePB(
+      SELECT NEW zetasql_test__.RecursivePB(
         (t.RecursivePB.int64_val + a.int64_val + b.int64_val + 10)
         AS int64_val))
     WHERE true)
@@ -239,9 +239,9 @@ UpdateStmt
   +-UpdateItem
     +-target=
     | +-GetProtoField
-    |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+    |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
     |   +-field_descriptor=repeated_recursive_pb
     |   +-default_value=[]
     +-element_column=
@@ -254,9 +254,9 @@ UpdateStmt
           +-UpdateItem
             +-target=
             | +-GetProtoField
-            |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+            |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$array.a#2)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$array.a#2)
             |   +-field_descriptor=repeated_recursive_pb
             |   +-default_value=[]
             +-element_column=
@@ -269,9 +269,9 @@ UpdateStmt
                   +-UpdateItem
                     +-target=
                     | +-GetProtoField
-                    |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+                    |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
                     |   +-expr=
-                    |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$array.b#3)
+                    |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$array.b#3)
                     |   +-field_descriptor=repeated_recursive_pb
                     |   +-default_value=[]
                     +-element_column=
@@ -279,16 +279,16 @@ UpdateStmt
                     +-insert_list=
                       +-InsertStmt
                         +-query_parameter_list=
-                        | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
-                        | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$array.a#2)
-                        | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$array.b#3)
+                        | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
+                        | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$array.a#2)
+                        | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$array.b#3)
                         +-query=
                         | +-ProjectScan
                         |   +-column_list=[$insert.$col1#5]
                         |   +-expr_list=
                         |   | +-$col1#5 :=
                         |   |   +-MakeProto
-                        |   |     +-type=PROTO<zetasql_test.RecursivePB>
+                        |   |     +-type=PROTO<zetasql_test__.RecursivePB>
                         |   |     +-field_list=
                         |   |       +-int64_val :=
                         |   |         +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
@@ -297,19 +297,19 @@ UpdateStmt
                         |   |           | | +-GetProtoField
                         |   |           | | | +-type=INT64
                         |   |           | | | +-expr=
-                        |   |           | | | | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=RecursivePBTable.RecursivePB#1, is_correlated=TRUE)
+                        |   |           | | | | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1, is_correlated=TRUE)
                         |   |           | | | +-field_descriptor=int64_val
                         |   |           | | | +-default_value=0
                         |   |           | | +-GetProtoField
                         |   |           | |   +-type=INT64
                         |   |           | |   +-expr=
-                        |   |           | |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$array.a#2, is_correlated=TRUE)
+                        |   |           | |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$array.a#2, is_correlated=TRUE)
                         |   |           | |   +-field_descriptor=int64_val
                         |   |           | |   +-default_value=0
                         |   |           | +-GetProtoField
                         |   |           |   +-type=INT64
                         |   |           |   +-expr=
-                        |   |           |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$array.b#3, is_correlated=TRUE)
+                        |   |           |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$array.b#3, is_correlated=TRUE)
                         |   |           |   +-field_descriptor=int64_val
                         |   |           |   +-default_value=0
                         |   |           +-Literal(type=INT64, value=10)
@@ -338,7 +338,7 @@ UpdateStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT64>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int64_val
     |   +-default_value=[]
     +-element_column=
@@ -346,7 +346,7 @@ UpdateStmt
     +-insert_list=
       +-InsertStmt
         +-query_parameter_list=
-        | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+        | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
         +-query=
         | +-ProjectScan
         |   +-column_list=[$insert.$col1#9]
@@ -357,7 +357,7 @@ UpdateStmt
         |   |     | +-GetProtoField
         |   |     |   +-type=INT32
         |   |     |   +-expr=
-        |   |     |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+        |   |     |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
         |   |     |   +-field_descriptor=int32_val
         |   |     |   +-default_value=77
         |   |     +-SubqueryExpr
@@ -430,7 +430,7 @@ UpdateStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT32>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int32_val
     |   +-default_value=[]
     +-element_column=
@@ -444,7 +444,7 @@ UpdateStmt
             +-GetProtoField
               +-type=INT64
               +-expr=
-              | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+              | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
               +-field_descriptor=int64_val
               +-default_value=0
 ==
@@ -466,7 +466,7 @@ UpdateStmt
 |   +-GetProtoField
 |   | +-type=INT32
 |   | +-expr=
-|   | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+|   | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
 |   | +-field_descriptor=int32_val
 |   | +-default_value=77
 |   +-Literal(type=INT32, value=20)
@@ -476,7 +476,7 @@ UpdateStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT32>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int32_val
     |   +-default_value=[]
     +-element_column=
@@ -509,7 +509,7 @@ UpdateStmt
 |   +-GetProtoField
 |   | +-type=INT32
 |   | +-expr=
-|   | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+|   | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
 |   | +-field_descriptor=int32_val
 |   | +-default_value=77
 |   +-Literal(type=INT32, value=20)
@@ -519,7 +519,7 @@ UpdateStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT32>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int32_val
     |   +-default_value=[]
     +-element_column=
@@ -567,7 +567,7 @@ UpdateStmt
 |   +-GetProtoField
 |   | +-type=INT32
 |   | +-expr=
-|   | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+|   | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
 |   | +-field_descriptor=int32_val
 |   | +-default_value=77
 |   +-Literal(type=INT32, value=20)
@@ -577,7 +577,7 @@ UpdateStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT32>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int32_val
     |   +-default_value=[]
     +-element_column=
@@ -608,7 +608,7 @@ UpdateStmt
 |   +-GetProtoField
 |   | +-type=INT32
 |   | +-expr=
-|   | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+|   | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
 |   | +-field_descriptor=int32_val
 |   | +-default_value=77
 |   +-Literal(type=INT32, value=20)
@@ -618,7 +618,7 @@ UpdateStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT32>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int32_val
     |   +-default_value=[]
     +-element_column=
@@ -678,7 +678,7 @@ UpdateStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT32>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int32_val
     |   +-default_value=[]
     +-element_column=
@@ -721,7 +721,7 @@ UpdateStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT32>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int32_val
     |   +-default_value=[]
     +-element_column=
@@ -735,7 +735,7 @@ UpdateStmt
               +-type=INT32
               +-subquery_type=SCALAR
               +-parameter_list=
-              | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+              | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
               +-subquery=
                 +-ProjectScan
                   +-column_list=[$aggregate.$agg1#6]
@@ -749,7 +749,7 @@ UpdateStmt
                       |   | +-GetProtoField
                       |   |   +-type=ARRAY<INT32>
                       |   |   +-expr=
-                      |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+                      |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                       |   |   +-field_descriptor=repeated_int32_val
                       |   |   +-default_value=[]
                       |   +-element_column=$array.val#5
@@ -780,7 +780,7 @@ UpdateStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT32>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int32_val
     |   +-default_value=[]
     +-element_column=
@@ -800,7 +800,7 @@ UpdateStmt
                     +-type=INT32
                     +-subquery_type=SCALAR
                     +-parameter_list=
-                    | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+                    | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
                     +-subquery=
                       +-ProjectScan
                         +-column_list=[$aggregate.$agg1#6]
@@ -814,7 +814,7 @@ UpdateStmt
                             |   | +-GetProtoField
                             |   |   +-type=ARRAY<INT32>
                             |   |   +-expr=
-                            |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+                            |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                             |   |   +-field_descriptor=repeated_int32_val
                             |   |   +-default_value=[]
                             |   +-element_column=$array.val#5
@@ -844,7 +844,7 @@ UpdateStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT32>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int32_val
     |   +-default_value=[]
     +-element_column=
@@ -860,7 +860,7 @@ UpdateStmt
                     +-type=INT32
                     +-subquery_type=SCALAR
                     +-parameter_list=
-                    | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+                    | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
                     +-subquery=
                       +-ProjectScan
                         +-column_list=[$aggregate.$agg1#6]
@@ -874,7 +874,7 @@ UpdateStmt
                             |   | +-GetProtoField
                             |   |   +-type=ARRAY<INT32>
                             |   |   +-expr=
-                            |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+                            |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                             |   |   +-field_descriptor=repeated_int32_val
                             |   |   +-default_value=[]
                             |   +-element_column=$array.val#5
@@ -903,9 +903,9 @@ UpdateStmt
   +-UpdateItem
     +-target=
     | +-GetProtoField
-    |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+    |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=nested_repeated_value
     |   +-default_value=[]
     +-element_column=
@@ -920,7 +920,7 @@ UpdateStmt
             | +-GetProtoField
             |   +-type=ARRAY<INT64>
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.n#4)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.n#4)
             |   +-field_descriptor=nested_repeated_int64
             |   +-default_value=[]
             +-element_column=
@@ -933,7 +933,7 @@ UpdateStmt
                     +-GetProtoField
                       +-type=INT64
                       +-expr=
-                      | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+                      | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
                       +-field_descriptor=int64_val
                       +-default_value=0
 ==
@@ -958,9 +958,9 @@ UpdateStmt
   +-UpdateItem
     +-target=
     | +-GetProtoField
-    |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+    |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=nested_repeated_value
     |   +-default_value=[]
     +-element_column=
@@ -975,7 +975,7 @@ UpdateStmt
             | +-GetProtoField
             |   +-type=ARRAY<INT64>
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.n#4)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.n#4)
             |   +-field_descriptor=nested_repeated_int64
             |   +-default_value=[]
             +-element_column=
@@ -994,7 +994,7 @@ UpdateStmt
                           +-GetProtoField
                             +-type=INT64
                             +-expr=
-                            | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+                            | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
                             +-field_descriptor=int64_val
                             +-default_value=0
 ==
@@ -1018,9 +1018,9 @@ UpdateStmt
   +-UpdateItem
     +-target=
     | +-GetProtoField
-    |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.Nested>>
+    |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=nested_repeated_value
     |   +-default_value=[]
     +-element_column=
@@ -1035,7 +1035,7 @@ UpdateStmt
             | +-GetProtoField
             |   +-type=ARRAY<INT64>
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.Nested>, column=$array.n#4)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.n#4)
             |   +-field_descriptor=nested_repeated_int64
             |   +-default_value=[]
             +-element_column=
@@ -1050,7 +1050,7 @@ UpdateStmt
                           +-GetProtoField
                             +-type=INT64
                             +-expr=
-                            | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+                            | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
                             +-field_descriptor=int64_val
                             +-default_value=0
 ==
@@ -1190,7 +1190,7 @@ UpdateStmt
 |   +-type=BOOL
 |   +-subquery_type=EXISTS
 |   +-parameter_list=
-|   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+|   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
 |   +-subquery=
 |     +-ProjectScan
 |       +-column_list=[$array.c#4]
@@ -1202,9 +1202,9 @@ UpdateStmt
 |           |   +-column_list=[$array.c#4]
 |           |   +-array_expr=
 |           |   | +-GetProtoField
-|           |   |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>>
+|           |   |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>>
 |           |   |   +-expr=
-|           |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+|           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
 |           |   |   +-field_descriptor=nested_repeated_group
 |           |   |   +-default_value=[]
 |           |   +-element_column=$array.c#4
@@ -1213,16 +1213,16 @@ UpdateStmt
 |               +-GetProtoField
 |                 +-type=STRING
 |                 +-expr=
-|                 | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>, column=$array.c#4)
+|                 | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>, column=$array.c#4)
 |                 +-field_descriptor=idstr
 |                 +-default_value=""
 +-update_item_list=
   +-UpdateItem
     +-target=
     | +-GetProtoField
-    |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>>
+    |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=nested_repeated_group
     |   +-default_value=[]
     +-element_column=
@@ -1235,14 +1235,14 @@ UpdateStmt
             | +-GetProtoField
             |   +-type=STRING
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>, column=$array.c#5)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>, column=$array.c#5)
             |   +-field_descriptor=idstr
             |   +-default_value=""
             +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
               +-GetProtoField
               | +-type=INT64
               | +-expr=
-              | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>, column=$array.c#5)
+              | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>, column=$array.c#5)
               | +-field_descriptor=id
               +-Cast(INT32 -> INT64)
                 +-ColumnRef(type=INT32, column=TestTable.key#1)
@@ -1292,7 +1292,7 @@ UpdateStmt
 |   +-type=BOOL
 |   +-subquery_type=EXISTS
 |   +-parameter_list=
-|   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+|   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
 |   +-subquery=
 |     +-ProjectScan
 |       +-column_list=[$array.c#4]
@@ -1304,9 +1304,9 @@ UpdateStmt
 |           |   +-column_list=[$array.c#4]
 |           |   +-array_expr=
 |           |   | +-GetProtoField
-|           |   |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>>
+|           |   |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>>
 |           |   |   +-expr=
-|           |   |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+|           |   |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
 |           |   |   +-field_descriptor=nested_repeated_group
 |           |   |   +-default_value=[]
 |           |   +-element_column=$array.c#4
@@ -1315,16 +1315,16 @@ UpdateStmt
 |               +-GetProtoField
 |                 +-type=STRING
 |                 +-expr=
-|                 | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>, column=$array.c#4)
+|                 | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>, column=$array.c#4)
 |                 +-field_descriptor=idstr
 |                 +-default_value=""
 +-update_item_list=
   +-UpdateItem
     +-target=
     | +-GetProtoField
-    |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>>
+    |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=nested_repeated_group
     |   +-default_value=[]
     +-element_column=
@@ -1336,7 +1336,7 @@ UpdateStmt
         |   +-GetProtoField
         |     +-type=STRING
         |     +-expr=
-        |     | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>, column=$array.c#5)
+        |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>, column=$array.c#5)
         |     +-field_descriptor=idstr
         |     +-default_value=""
         +-update_item_list=
@@ -1345,7 +1345,7 @@ UpdateStmt
             | +-GetProtoField
             |   +-type=INT64
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>, column=$array.c#5)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>, column=$array.c#5)
             |   +-field_descriptor=id
             +-set_value=
               +-DMLValue
@@ -1381,7 +1381,7 @@ UpdateStmt
     | +-GetProtoField
     |   +-type=ARRAY<INT32>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=repeated_int32_val
     |   +-default_value=[]
     +-element_column=
@@ -1680,9 +1680,9 @@ UpdateStmt
   +-UpdateItem
     +-target=
     | +-GetProtoField
-    |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+    |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
     |   +-field_descriptor=repeated_recursive_pb
     |   +-default_value=[]
     +-element_column=
@@ -1695,9 +1695,9 @@ UpdateStmt
           +-UpdateItem
             +-target=
             | +-GetProtoField
-            |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+            |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$array.$element#2)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$array.$element#2)
             |   +-field_descriptor=repeated_recursive_pb
             |   +-default_value=[]
             +-element_column=
@@ -1712,7 +1712,7 @@ UpdateStmt
                     | +-GetProtoField
                     |   +-type=INT64
                     |   +-expr=
-                    |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$array.$element#3)
+                    |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$array.$element#3)
                     |   +-field_descriptor=int64_val
                     |   +-default_value=0
                     +-set_value=
@@ -1738,15 +1738,15 @@ UpdateStmt
 |   +-GetProtoField
 |   | +-type=INT64
 |   | +-expr=
-|   | | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test.RecursivePB>>, INT64) -> PROTO<zetasql_test.RecursivePB>)
+|   | | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test__.RecursivePB>>, INT64) -> PROTO<zetasql_test__.RecursivePB>)
 |   | |   +-GetProtoField
-|   | |   | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+|   | |   | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
 |   | |   | +-expr=
-|   | |   | | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test.RecursivePB>>, INT64) -> PROTO<zetasql_test.RecursivePB>)
+|   | |   | | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test__.RecursivePB>>, INT64) -> PROTO<zetasql_test__.RecursivePB>)
 |   | |   | |   +-GetProtoField
-|   | |   | |   | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+|   | |   | |   | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
 |   | |   | |   | +-expr=
-|   | |   | |   | | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
+|   | |   | |   | | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
 |   | |   | |   | +-field_descriptor=repeated_recursive_pb
 |   | |   | |   | +-default_value=[]
 |   | |   | |   +-Literal(type=INT64, value=1)
@@ -1760,9 +1760,9 @@ UpdateStmt
   +-UpdateItem
     +-target=
     | +-GetProtoField
-    |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+    |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
     |   +-field_descriptor=repeated_recursive_pb
     |   +-default_value=[]
     +-element_column=
@@ -1775,9 +1775,9 @@ UpdateStmt
           +-UpdateItem
             +-target=
             | +-GetProtoField
-            |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+            |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$array.$element#2)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$array.$element#2)
             |   +-field_descriptor=repeated_recursive_pb
             |   +-default_value=[]
             +-element_column=
@@ -1792,7 +1792,7 @@ UpdateStmt
                     | +-GetProtoField
                     |   +-type=INT64
                     |   +-expr=
-                    |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$array.$element#3)
+                    |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$array.$element#3)
                     |   +-field_descriptor=int64_val
                     |   +-default_value=0
                     +-set_value=
@@ -1817,9 +1817,9 @@ UpdateStmt
   +-UpdateItem
     +-target=
     | +-GetProtoField
-    |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+    |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
     |   +-field_descriptor=repeated_recursive_pb
     |   +-default_value=[]
     +-element_column=
@@ -1832,9 +1832,9 @@ UpdateStmt
           +-UpdateItem
             +-target=
             | +-GetProtoField
-            |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+            |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$array.$element#2)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$array.$element#2)
             |   +-field_descriptor=repeated_recursive_pb
             |   +-default_value=[]
             +-element_column=
@@ -1846,11 +1846,11 @@ UpdateStmt
                 +-update_item=
                   +-UpdateItem
                     +-target=
-                    | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$array.$element#3)
+                    | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$array.$element#3)
                     +-set_value=
                       +-DMLValue
                         +-value=
-                          +-Literal(type=PROTO<zetasql_test.RecursivePB>, value=NULL)
+                          +-Literal(type=PROTO<zetasql_test__.RecursivePB>, value=NULL)
 ==
 
 [language_features=V_1_2_ARRAY_ELEMENTS_WITH_SET]
@@ -1866,15 +1866,15 @@ UpdateStmt
 +-column_access_list=READ_WRITE
 +-where_expr=
 | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-|   +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test.RecursivePB>>) -> INT64)
+|   +-FunctionCall(ZetaSQL:array_length(ARRAY<PROTO<zetasql_test__.RecursivePB>>) -> INT64)
 |   | +-GetProtoField
-|   |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+|   |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
 |   |   +-expr=
-|   |   | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test.RecursivePB>>, INT64) -> PROTO<zetasql_test.RecursivePB>)
+|   |   | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<PROTO<zetasql_test__.RecursivePB>>, INT64) -> PROTO<zetasql_test__.RecursivePB>)
 |   |   |   +-GetProtoField
-|   |   |   | +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+|   |   |   | +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
 |   |   |   | +-expr=
-|   |   |   | | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
+|   |   |   | | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
 |   |   |   | +-field_descriptor=repeated_recursive_pb
 |   |   |   | +-default_value=[]
 |   |   |   +-Literal(type=INT64, value=1)
@@ -1885,9 +1885,9 @@ UpdateStmt
   +-UpdateItem
     +-target=
     | +-GetProtoField
-    |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+    |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
     |   +-field_descriptor=repeated_recursive_pb
     |   +-default_value=[]
     +-element_column=
@@ -1900,9 +1900,9 @@ UpdateStmt
           +-UpdateItem
             +-target=
             | +-GetProtoField
-            |   +-type=ARRAY<PROTO<zetasql_test.RecursivePB>>
+            |   +-type=ARRAY<PROTO<zetasql_test__.RecursivePB>>
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$array.$element#2)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$array.$element#2)
             |   +-field_descriptor=repeated_recursive_pb
             |   +-default_value=[]
             +-element_column=
@@ -1914,11 +1914,11 @@ UpdateStmt
                 +-update_item=
                   +-UpdateItem
                     +-target=
-                    | +-ColumnRef(type=PROTO<zetasql_test.RecursivePB>, column=$array.$element#3)
+                    | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=$array.$element#3)
                     +-set_value=
                       +-DMLValue
                         +-value=
-                          +-Literal(type=PROTO<zetasql_test.RecursivePB>, value=NULL)
+                          +-Literal(type=PROTO<zetasql_test__.RecursivePB>, value=NULL)
 ==
 
 UPDATE RecursivePBTable SET
@@ -1984,9 +1984,9 @@ UpdateStmt
   +-UpdateItem
     +-target=
     | +-GetProtoField
-    |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>>
+    |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=nested_repeated_group
     |   +-default_value=[]
     +-element_column=
@@ -2001,7 +2001,7 @@ UpdateStmt
             | +-GetProtoField
             |   +-type=INT64
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>, column=$array.c#4)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>, column=$array.c#4)
             |   +-field_descriptor=id
             +-set_value=
               +-DMLValue
@@ -2026,9 +2026,9 @@ UpdateStmt
   +-UpdateItem
     +-target=
     | +-GetProtoField
-    |   +-type=ARRAY<PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>>
+    |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>>
     |   +-expr=
-    |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |   +-field_descriptor=nested_repeated_group
     |   +-default_value=[]
     +-element_column=
@@ -2040,7 +2040,7 @@ UpdateStmt
         |   +-GetProtoField
         |   | +-type=INT64
         |   | +-expr=
-        |   | | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>, column=$array.c#4)
+        |   | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>, column=$array.c#4)
         |   | +-field_descriptor=id
         |   +-Literal(type=INT64, value=1)
         +-update_item_list=
@@ -2049,7 +2049,7 @@ UpdateStmt
             | +-GetProtoField
             |   +-type=INT64
             |   +-expr=
-            |   | +-ColumnRef(type=PROTO<zetasql_test.KitchenSinkPB.NestedRepeatedGroup>, column=$array.c#4)
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.NestedRepeatedGroup>, column=$array.c#4)
             |   +-field_descriptor=id
             +-set_value=
               +-DMLValue

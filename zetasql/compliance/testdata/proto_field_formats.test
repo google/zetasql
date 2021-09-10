@@ -1,5 +1,5 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.FieldFormatsProto]
+[load_proto_names=zetasql_test__.FieldFormatsProto]
 
 [prepare_database]
 CREATE TABLE Table0 AS
@@ -108,7 +108,7 @@ cast('''
   repeated_f_millis_format: 1360397511666
   repeated_f_micros_format: 1360397511777555
   repeated_f_micros_format: 1360397511666444
-''' as zetasql_test.FieldFormatsProto) as data
+''' as zetasql_test__.FieldFormatsProto) as data
 union all
 select 2, cast('''
   date: 16473
@@ -204,15 +204,15 @@ select 2, cast('''
   f_seconds_default_format: 1360397511
   f_millis_default_format: 1360397511777
   f_micros_default_format: 1360397511777555
-''' as zetasql_test.FieldFormatsProto)
+''' as zetasql_test__.FieldFormatsProto)
 union all
-select 3, cast('''''' as zetasql_test.FieldFormatsProto) as value
+select 3, cast('''''' as zetasql_test__.FieldFormatsProto) as value
 union all
-select 4, cast(null as zetasql_test.FieldFormatsProto)
+select 4, cast(null as zetasql_test__.FieldFormatsProto)
 --
 ARRAY<STRUCT<
         key INT64,
-        data PROTO<zetasql_test.FieldFormatsProto>
+        data PROTO<zetasql_test__.FieldFormatsProto>
       >>
 [{1,
   {

@@ -109,4 +109,10 @@ absl::Status ExecuteQueryStreamWriter::executed(
   return PrintResults(std::move(iter), stream_);
 }
 
+absl::Status ExecuteQueryStreamWriter::ExecutedExpression(
+    const ResolvedNode& ast, const Value& value) {
+  stream_ << OutputPrettyStyleExpressionResult(value, /*include_box=*/false);
+  return absl::OkStatus();
+}
+
 }  // namespace zetasql

@@ -27,7 +27,6 @@ genrule(
     name = "gen_extra_files",
     srcs = [
         "parse_tree_generated.h",
-        "parse_tree_manual.h",
     ],
     outs = [
         "parse_tree_visitor.h",
@@ -57,6 +56,51 @@ genrule(
     exec_tools = [":gen_parse_tree"],
 )
 
+genrule(
+    name = "gen_protos",
+    srcs = [
+        "parse_tree.proto.template",
+    ],
+    outs = ["parse_tree.proto"],
+    cmd = "$(location :gen_parse_tree) $(OUTS) $(SRCS)",
+    exec_tools = [":gen_parse_tree"],
+)
+
+genrule(
+    name = "gen_parse_tree_serializer_cc",
+    srcs = [
+        "parse_tree_serializer.cc.template",
+    ],
+    outs = ["parse_tree_serializer.cc"],
+    cmd = "$(location :gen_parse_tree) $(OUTS) $(SRCS)",
+    exec_tools = [":gen_parse_tree"],
+)
+
+genrule(
+    name = "gen_parse_tree_serializer_headers",
+    srcs = [
+        "parse_tree_serializer.h.template",
+    ],
+    outs = ["parse_tree_serializer.h"],
+    cmd = "$(location :gen_parse_tree) $(OUTS) $(SRCS)",
+    exec_tools = [":gen_parse_tree"],
+)
+
+proto_library(
+    name = "parse_tree_proto",
+    srcs = ["parse_tree.proto"],
+    deps = [
+        ":ast_enums_proto",
+        "//zetasql/public:parse_location_range_proto",
+        "//zetasql/public:type_proto",
+    ],
+)
+
+cc_proto_library(
+    name = "parse_tree_cc_proto",
+    deps = [":parse_tree_proto"],
+)
+
 py_library(
     name = "generator_utils",
     srcs = ["generator_utils.py"],
@@ -76,7 +120,6 @@ py_test(
 py_binary(
     name = "gen_parse_tree",
     srcs = ["gen_parse_tree.py"],
-    data = ["parse_tree_generated.h.template"],
     main = "gen_parse_tree.py",
     deps = [
         ":ast_enums_py_pb2",
@@ -124,10 +167,10 @@ cc_library(
         "parser.h",
         "statement_properties.h",
         "unparser.h",
+        "visit_result.h",
     ],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -146,7 +189,6 @@ cc_library(
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
-        "//zetasql/base:statusor",
         "//zetasql/common:errors",
         "//zetasql/common:utf_util",
         "//zetasql/proto:internal_error_location_cc_proto",
@@ -167,6 +209,7 @@ cc_library(
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
         "@com_google_absl//absl/types:variant",
@@ -204,7 +247,6 @@ cc_library(
         "-Wno-char-subscripts",
         "-Wno-implicit-fallthrough",
         "-O2",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -242,7 +284,6 @@ cc_library(
     hdrs = ["flex_istream.h"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -269,9 +310,32 @@ cc_test(
     ],
     deps = [
         ":flex_istream",
+        "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:parse_helpers",
+        "//zetasql/public:parse_resume_location",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
+    ],
+)
+
+cc_library(
+    name = "parse_tree_serializer",
+    srcs = ["parse_tree_serializer.cc"],
+    hdrs = ["parse_tree_serializer.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":parse_tree",
+        ":parse_tree_cc_proto",
+        "//zetasql/base:status",
+        "//zetasql/public:parse_location",
     ],
 )
 
@@ -289,13 +353,11 @@ cc_library(
         "parse_tree_decls.h",
         "parse_tree_errors.h",
         "parse_tree_generated.h",
-        "parse_tree_manual.h",
         "parse_tree_visitor.h",
         "visit_result.h",
     ],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -310,7 +372,6 @@ cc_library(
         "//zetasql/base:ret_check",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
-        "//zetasql/base:statusor",
         "//zetasql/common:errors",
         "//zetasql/common:utf_util",
         "//zetasql/proto:internal_error_location_cc_proto",
@@ -330,6 +391,7 @@ cc_library(
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
         "@com_googlesource_code_re2//:re2",
@@ -355,7 +417,6 @@ cc_test(
         ":parser",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
-        "//zetasql/base:statusor",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/common:errors",
@@ -365,6 +426,7 @@ cc_test(
         "//zetasql/public:parse_location",
         "//zetasql/testdata:test_schema_cc_proto",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -402,7 +464,6 @@ cc_library(
     srcs = ["run_parser_test.cc"],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -416,7 +477,6 @@ cc_library(
         "//zetasql/base:path",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
-        "//zetasql/base:statusor",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public:error_helpers",
@@ -430,6 +490,7 @@ cc_library(
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/functional:bind_front",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
         "@com_google_file_based_test_driver//file_based_test_driver",
@@ -469,7 +530,6 @@ cc_library(
     ],
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -483,6 +543,8 @@ cc_library(
         "//zetasql/base:map_util",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/types:optional",
+        "@com_google_absl//absl/types:variant",
     ],
 )
 
@@ -490,7 +552,6 @@ cc_library(
     name = "bison_keyword_token_codes_inc",
     copts = [
         "-Wno-char-subscripts",
-        "-Wno-return-type",
         "-Wno-sign-compare",
         "-Wno-switch",
         "-Wno-unused-but-set-parameter",
@@ -559,7 +620,10 @@ genyacc(
 
 [gen_parser_test(
     filename = f.split("/")[-1],
-) for f in glob(["testdata/*.test"])]
+) for f in glob(
+    ["testdata/*.test"],
+    exclude = ["testdata/parse_tree_serializer.test"],
+)]
 
 bzl_library(
     name = "builddefs_bzl",

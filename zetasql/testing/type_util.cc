@@ -56,7 +56,7 @@ std::vector<const Type*> ZetaSqlComplexTestTypes(
     zetasql::TypeFactory* type_factory) {
   std::vector<const Type*> output;
   std::vector<const google::protobuf::Descriptor*> proto_descriptors = {
-      zetasql_test::KitchenSinkPB::descriptor(),
+      zetasql_test__::KitchenSinkPB::descriptor(),
       google::protobuf::Timestamp::descriptor(),
       google::type::Date::descriptor(),
       google::type::TimeOfDay::descriptor(),
@@ -77,7 +77,7 @@ std::vector<const Type*> ZetaSqlComplexTestTypes(
   }
 
   std::vector<const google::protobuf::EnumDescriptor*> enum_descriptors = {
-      zetasql_test::TestEnum_descriptor()};
+      zetasql_test__::TestEnum_descriptor()};
   for (const auto& descriptor : enum_descriptors) {
     const Type* enum_type;
     ZETASQL_CHECK_OK(type_factory->MakeEnumType(descriptor, &enum_type));
@@ -103,16 +103,16 @@ std::vector<std::string> ZetaSqlTestProtoFilepaths() {
 }
 
 std::vector<std::string> ZetaSqlTestProtoNames() {
-  return {"zetasql_test.KitchenSinkPB",
-          "zetasql_test.MessageWithMapField",
-          "zetasql_test.MessageWithMapField.StringInt32MapEntry",
-          "zetasql_test.CivilTimeTypesSinkPB",
-          "zetasql_test.RecursiveMessage",
-          "zetasql_test.Proto3KitchenSink",
-          "zetasql_test.Proto3KitchenSink.Nested",
-          "zetasql_test.Proto3MessageWithNulls",
-          "zetasql_test.EmptyMessage",
-          "zetasql_test.Proto3TestExtraPB",
+  return {"zetasql_test__.KitchenSinkPB",
+          "zetasql_test__.MessageWithMapField",
+          "zetasql_test__.MessageWithMapField.StringInt32MapEntry",
+          "zetasql_test__.CivilTimeTypesSinkPB",
+          "zetasql_test__.RecursiveMessage",
+          "zetasql_test__.Proto3KitchenSink",
+          "zetasql_test__.Proto3KitchenSink.Nested",
+          "zetasql_test__.Proto3MessageWithNulls",
+          "zetasql_test__.EmptyMessage",
+          "zetasql_test__.Proto3TestExtraPB",
           "google.protobuf.Timestamp",
           "google.type.Date",
           "google.type.TimeOfDay",
@@ -129,7 +129,7 @@ std::vector<std::string> ZetaSqlTestProtoNames() {
 }
 
 std::vector<std::string> ZetaSqlRandomTestProtoNames() {
-  return {"zetasql_test.KitchenSinkPB",
+  return {"zetasql_test__.KitchenSinkPB",
           "google.protobuf.Timestamp",
           "google.type.Date",
           "google.type.TimeOfDay",
@@ -146,7 +146,7 @@ std::vector<std::string> ZetaSqlRandomTestProtoNames() {
 }
 
 std::vector<std::string> ZetaSqlTestEnumNames() {
-  return {"zetasql_test.TestEnum", "zetasql_test.AnotherTestEnum"};
+  return {"zetasql_test__.TestEnum", "zetasql_test__.AnotherTestEnum"};
 }
 
 }  // namespace testing

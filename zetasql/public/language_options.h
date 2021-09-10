@@ -17,18 +17,22 @@
 #ifndef ZETASQL_PUBLIC_LANGUAGE_OPTIONS_H_
 #define ZETASQL_PUBLIC_LANGUAGE_OPTIONS_H_
 
+#include <algorithm>
 #include <set>
 #include <string>
 
 #include "zetasql/proto/options.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "gtest/gtest_prod.h"
 #include "absl/base/attributes.h"
 #include "absl/base/macros.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/hash/hash.h"
+#include "absl/status/status.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/match.h"
+#include "zetasql/base/case.h"
 #include "zetasql/base/map_util.h"
 
 namespace zetasql {
@@ -38,6 +42,15 @@ namespace zetasql {
 // behavior differs by language version, flags, or other options.
 class LanguageOptions {
  public:
+  // Users may assume that this is set-like, but it may change to be unordered
+  // and unstable on insertion/erasure.
+  using LanguageFeatureSet = absl::flat_hash_set<LanguageFeature>;
+
+  // Represents a set of keywords.
+  using KeywordSet =
+      absl::flat_hash_set<absl::string_view, zetasql_base::StringViewCaseHash,
+                          zetasql_base::StringViewCaseEqual>;
+
   LanguageOptions() = default;
   ~LanguageOptions() = default;
   LanguageOptions(const LanguageOptions&) = default;
@@ -100,7 +113,7 @@ class LanguageOptions {
   void SetLanguageVersion(LanguageVersion version);
 
   // Get the set of features enabled as of a particular version.
-  static std::set<LanguageFeature> GetLanguageFeaturesForVersion(
+  static LanguageFeatureSet GetLanguageFeaturesForVersion(
       LanguageVersion version);
 
   // Enables support for the specified <feature>.
@@ -108,31 +121,31 @@ class LanguageOptions {
     zetasql_base::InsertIfNotPresent(&enabled_language_features_, feature);
   }
 
-  void SetEnabledLanguageFeatures(const std::set<LanguageFeature>& features) {
+  void SetEnabledLanguageFeatures(const LanguageFeatureSet& features) {
     enabled_language_features_ = features;
   }
 
-  const std::set<LanguageFeature>& GetEnabledLanguageFeatures() const {
+  const LanguageFeatureSet& GetEnabledLanguageFeatures() const {
     return enabled_language_features_;
   }
 
   // Returns a comma-separated string listing enabled LanguageFeatures.
   std::string GetEnabledLanguageFeaturesAsString() const;
-  static std::string ToString(const std::set<LanguageFeature>& features);
+  static std::string ToString(const LanguageFeatureSet& features);
 
   void DisableAllLanguageFeatures() {
     enabled_language_features_.clear();
   }
 
-  // Enable all optional features that are enabled in the idealized ZetaSQL
-  // and are released to users.
+  // Enable all optional features and reservable keywords that are enabled in
+  // the idealized ZetaSQL and are released to users.
   void EnableMaximumLanguageFeatures() {
     EnableMaximumLanguageFeatures(/*for_development=*/false);
   }
 
-  // Enable all optional features that are enabled in the idealized ZetaSQL,
-  // including features that are still under development. For internal ZetaSQL
-  // use only.
+  // Enable all optional features and reservable keywords that are enabled in
+  // the idealized ZetaSQL, including features that are still under
+  // development. For internal ZetaSQL use only.
   void EnableMaximumLanguageFeaturesForDevelopment() {
     EnableMaximumLanguageFeatures(/*for_development=*/true);
   }
@@ -185,22 +198,74 @@ class LanguageOptions {
            product_mode_ == rhs.product_mode_ &&
            error_on_deprecated_syntax_ == rhs.error_on_deprecated_syntax_ &&
            supported_generic_entity_types_ ==
-               rhs.supported_generic_entity_types_;
+               rhs.supported_generic_entity_types_ &&
+           reserved_keywords_ == rhs.reserved_keywords_;
   }
   template <typename H>
   friend H AbslHashValue(H h, const LanguageOptions& value) {
-    return H::combine(std::move(h), value.enabled_language_features_,
+    // absl::flat_hash_set does not support being absl Hash-ed.
+    std::vector<LanguageFeature> enabled_language_features;
+    enabled_language_features.reserve(value.enabled_language_features_.size());
+    enabled_language_features.insert(enabled_language_features.end(),
+                                     value.enabled_language_features_.begin(),
+                                     value.enabled_language_features_.end());
+    std::sort(enabled_language_features.begin(),
+              enabled_language_features.end());
+    return H::combine(std::move(h), enabled_language_features,
                       value.supported_statement_kinds_,
                       value.name_resolution_mode_, value.product_mode_,
                       value.error_on_deprecated_syntax_,
                       /* we just hash on the size, because this uses
                          a case insensitive comparator, which makes it awkward
                          to get into the hash value */
-                      value.supported_generic_entity_types_.size());
+                      value.supported_generic_entity_types_.size(),
+                      value.reserved_keywords_.size());
   }
   bool operator!=(const LanguageOptions& rhs) const { return !(*this == rhs); }
 
+  // Returns a set of keywords which can be reserved or unreserved through
+  // LanguageOptions.
+  //
+  // This set may grow over time as new keywords are added to ZetaSQL.
+  //
+  // While lookups into the returned set are case-insensitive, iterating through
+  // the set always produces uppercase keywords.
+  //
+  // string_views in the set have unlimited lifetime.
+  static const KeywordSet& GetReservableKeywords();
+
+  // Returns true if <keyword> is reserved.
+  //
+  // reservable keywords are non-reserved by default, but can be made reserved
+  // by calling EnableReservableKeyword().
+  //
+  // For non-reservable keywords, the return value simply indicates the fixed
+  // behavior as to whether the keyword is reserved or not (e.g. true for
+  // SELECT, false for DECIMAL).
+  //
+  // For non-keywords, the return value is false.
+  //
+  // <keyword> is case-insensitive.
+  bool IsReservedKeyword(absl::string_view keyword) const;
+
+  // Indicates whether or not <keyword> should be considered "reserved".
+  // reservable keywords are nonreserved by default. When nonreserved, they
+  // still exist as keywords, but may also be used in queries as identifiers,
+  // without backticks.
+  //
+  // Returns an error if <keyword> is not reservable.
+  //
+  // <keyword> is case-insensitive.
+  absl::Status EnableReservableKeyword(absl::string_view keyword,
+                                       bool reserved = true);
+
+  // Similar to EnableReservableKeyword(), but applies to all reservable
+  // keywords.
+  void EnableAllReservableKeywords(bool reserved = true);
+
  private:
+  FRIEND_TEST(LanguageOptions, ClassAndProtoSize);
+
   // Enable all optional features that are enabled in the idealized ZetaSQL.
   // If 'for_development' is false, features that are still under development
   // are excluded.
@@ -232,26 +297,22 @@ class LanguageOptions {
   // opted into by the caller.  An empty set indicates no optional features
   // are supported.  If a query includes unsupported features an error is
   // returned.
-  std::set<LanguageFeature> enabled_language_features_;
+  LanguageFeatureSet enabled_language_features_;
 
   // If true, return an error on deprecated syntax rather than returning
   // deprecation_warnings.
   bool error_on_deprecated_syntax_ = false;
 
-  struct CaseHash {
-    size_t operator()(absl::string_view s1) const {
-      return absl::Hash<std::string>()(absl::AsciiStrToLower(s1));
-    }
-  };
-  struct CaseEq {
-    size_t operator()(absl::string_view s1, absl::string_view s2) const {
-      return zetasql_base::CaseEqual(s1, s2);
-    }
-  };
   // For generic DDLs CREATE/DROP/ALTER <entity_type>, parser will report
   // error unless generic entity type is listed here.
-  absl::flat_hash_set<std::string, CaseHash, CaseEq>
+  absl::flat_hash_set<std::string, zetasql_base::StringViewCaseHash,
+                      zetasql_base::StringViewCaseEqual>
       supported_generic_entity_types_;
+
+  // Keywords that the engine has opted into being reserved.
+  // All keywords in this set belong to GetReservableKeywords(), are
+  // uppercase, and have unlimited lifetime.
+  KeywordSet reserved_keywords_;
 
   // Copyable
 };

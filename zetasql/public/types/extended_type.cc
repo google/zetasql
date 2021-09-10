@@ -16,7 +16,13 @@
 
 #include "zetasql/public/types/extended_type.h"
 
+#include <string>
+
+#include "zetasql/base/logging.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/types/type_parameters.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 
@@ -25,7 +31,7 @@ bool ExtendedType::IsSupportedType(
   return language_options.LanguageFeatureEnabled(FEATURE_EXTENDED_TYPES);
 }
 
-zetasql_base::StatusOr<std::string> ExtendedType::TypeNameWithParameters(
+absl::StatusOr<std::string> ExtendedType::TypeNameWithParameters(
     const TypeParameters& type_params, ProductMode mode) const {
   ZETASQL_DCHECK(type_params.IsEmpty());
   return TypeName(mode);

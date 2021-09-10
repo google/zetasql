@@ -1,20 +1,20 @@
 # See specification at (broken link)
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB,zetasql_test.TestExtraPB]
+[load_proto_names=zetasql_test__.KitchenSinkPB,zetasql_test__.TestExtraPB]
 
 [prepare_database]
 CREATE TABLE TestTable AS
 SELECT 1 foo, "abc" bar,
-  cast("int64_key_1: 100, int64_key_2: 200" AS zetasql_test.KitchenSinkPB) pb
+  cast("int64_key_1: 100, int64_key_2: 200" AS zetasql_test__.KitchenSinkPB) pb
 UNION ALL
 SELECT 2 foo, "def" bar,
   cast("int64_key_1: 300, int64_key_2: 400 double_val: 3.14"
-       AS zetasql_test.KitchenSinkPB) pb
+       AS zetasql_test__.KitchenSinkPB) pb
 --
 ARRAY<STRUCT<
         foo INT64,
         bar STRING,
-        pb PROTO<zetasql_test.KitchenSinkPB>
+        pb PROTO<zetasql_test__.KitchenSinkPB>
       >>
 [{1,
   "abc",
@@ -33,12 +33,12 @@ ARRAY<STRUCT<
 ==
 [prepare_database]
 CREATE TABLE KitchenSinkValueTable AS
-SELECT AS `zetasql_test.KitchenSinkPB` 55 int64_key_1, 66 int64_key_2
+SELECT AS `zetasql_test__.KitchenSinkPB` 55 int64_key_1, 66 int64_key_2
 UNION ALL
-SELECT AS `zetasql_test.KitchenSinkPB` 77 int64_key_1, 88 int64_key_2,
+SELECT AS `zetasql_test__.KitchenSinkPB` 77 int64_key_1, 88 int64_key_2,
   true bool_val
 --
-ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
   {
     int64_key_1: 55
     int64_key_2: 66
@@ -55,12 +55,12 @@ ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
 # is_wrapper and is_struct annotations, so we can apply SELECT * on those.
 [prepare_database]
 CREATE TABLE TestExtraPBValueTable AS
-SELECT AS `zetasql_test.TestExtraPB` 55 int32_val1
+SELECT AS `zetasql_test__.TestExtraPB` 55 int32_val1
 UNION ALL
-SELECT AS `zetasql_test.TestExtraPB` 77 int32_val1,
+SELECT AS `zetasql_test__.TestExtraPB` 77 int32_val1,
   ["77one", "77two"] str_value
 --
-ARRAY<PROTO<zetasql_test.TestExtraPB>>[
+ARRAY<PROTO<zetasql_test__.TestExtraPB>>[
   {int32_val1: 55},
   {
     int32_val1: 77
@@ -84,9 +84,9 @@ ARRAY<STRUCT<foo INT64, bar STRING>>[
 # Queries returning value tables.
 ==
 [name=value_table_proto_single]
-SELECT AS `zetasql_test.KitchenSinkPB` 5 int64_key_1, 6 int64_key_2;
+SELECT AS `zetasql_test__.KitchenSinkPB` 5 int64_key_1, 6 int64_key_2;
 --
-ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
   {
     int64_key_1: 5
     int64_key_2: 6
@@ -94,11 +94,11 @@ ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
 ]
 ==
 [name=value_table_proto_union_all]
-SELECT AS `zetasql_test.KitchenSinkPB` 5 int64_key_1, 6 int64_key_2
+SELECT AS `zetasql_test__.KitchenSinkPB` 5 int64_key_1, 6 int64_key_2
 UNION ALL
-SELECT AS `zetasql_test.KitchenSinkPB` 7 int64_key_1, 8 int64_key_2
+SELECT AS `zetasql_test__.KitchenSinkPB` 7 int64_key_1, 8 int64_key_2
 --
-ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
   {
     int64_key_1: 5
     int64_key_2: 6
@@ -110,11 +110,11 @@ ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
 ]
 ==
 [name=value_table_proto_from]
-SELECT AS `zetasql_test.KitchenSinkPB`
+SELECT AS `zetasql_test__.KitchenSinkPB`
   foo int64_key_1, foo int64_key_2
 FROM TestTable
 --
-ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
   {
     int64_key_1: 2
     int64_key_2: 2
@@ -158,11 +158,11 @@ FROM TestTable
 ARRAY<STRUCT<foo INT64, bar STRING>>[{2, "def"}, {1, "abc"}]
 ==
 [name=value_table_distinct_proto_from]
-SELECT DISTINCT AS `zetasql_test.KitchenSinkPB`
+SELECT DISTINCT AS `zetasql_test__.KitchenSinkPB`
   foo int64_key_1, foo int64_key_2
 FROM TestTable
 --
-ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
   {
     int64_key_1: 2
     int64_key_2: 2
@@ -180,11 +180,11 @@ FROM TestTable
 ARRAY<STRUCT<foo INT64, bar STRING>>[{2, "def"}, {1, "abc"}]
 ==
 [name=value_table_proto_union_all_table]
-SELECT AS `zetasql_test.KitchenSinkPB` 5 int64_key_1, 6 int64_key_2
+SELECT AS `zetasql_test__.KitchenSinkPB` 5 int64_key_1, 6 int64_key_2
 UNION ALL
 SELECT pb FROM TestTable
 --
-ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
   {
     int64_key_1: 5
     int64_key_2: 6
@@ -217,7 +217,7 @@ ARRAY<STRUCT<int32_val1 INT32, int32_val2 INT32, str_value ARRAY<>>>[
 [name=value_table_source_proto_self]
 SELECT p FROM TestExtraPBValueTable p
 --
-ARRAY<STRUCT<p PROTO<zetasql_test.TestExtraPB>>>[
+ARRAY<STRUCT<p PROTO<zetasql_test__.TestExtraPB>>>[
   {{int32_val1: 55}},
   {{
      int32_val1: 77
@@ -227,10 +227,10 @@ ARRAY<STRUCT<p PROTO<zetasql_test.TestExtraPB>>>[
 ]
 ==
 [name=value_table_source_proto_filter]
-SELECT AS zetasql_test.TestExtraPB p.* FROM TestExtraPBValueTable p
+SELECT AS zetasql_test__.TestExtraPB p.* FROM TestExtraPBValueTable p
 WHERE p.int32_val1 = 77
 --
-ARRAY<PROTO<zetasql_test.TestExtraPB>>[
+ARRAY<PROTO<zetasql_test__.TestExtraPB>>[
   {
     int32_val1: 77
     int32_val2: 0
@@ -240,11 +240,11 @@ ARRAY<PROTO<zetasql_test.TestExtraPB>>[
 ]
 ==
 [name=value_table_source_proto_explicit_filter]
-SELECT AS zetasql_test.KitchenSinkPB int64_key_1, int64_key_2, bool_val
+SELECT AS zetasql_test__.KitchenSinkPB int64_key_1, int64_key_2, bool_val
 FROM KitchenSinkValueTable
 WHERE int64_key_1 = 77
 --
-ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
   {
     int64_key_1: 77
     int64_key_2: 88
@@ -258,7 +258,7 @@ select AS VALUE v
 FROM KitchenSinkValueTable v
 where int64_key_1=77
 --
-ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
   {
     int64_key_1: 77
     int64_key_2: 88
@@ -293,9 +293,9 @@ ARRAY<STRUCT<foo INT64, bar STRING>>[{77, "seventy seven"}]
 [name=value_table_with_proto_star]
 WITH
   WithProtoValueTable AS
-    (SELECT AS `zetasql_test.TestExtraPB` 55 int32_val1
+    (SELECT AS `zetasql_test__.TestExtraPB` 55 int32_val1
      UNION ALL
-     SELECT AS `zetasql_test.TestExtraPB` 77 int32_val1)
+     SELECT AS `zetasql_test__.TestExtraPB` 77 int32_val1)
 SELECT * FROM WithProtoValueTable
 --
 ARRAY<STRUCT<int32_val1 INT32, int32_val2 INT32, str_value ARRAY<>>>[
@@ -306,12 +306,12 @@ ARRAY<STRUCT<int32_val1 INT32, int32_val2 INT32, str_value ARRAY<>>>[
 [name=value_table_with_proto_filter]
 WITH
   WithProtoValueTable AS
-    (SELECT AS `zetasql_test.TestExtraPB` 55 int32_val1
+    (SELECT AS `zetasql_test__.TestExtraPB` 55 int32_val1
      UNION ALL
-     SELECT AS `zetasql_test.TestExtraPB` 77 int32_val1)
-SELECT AS zetasql_test.TestExtraPB p.* FROM WithProtoValueTable p
+     SELECT AS `zetasql_test__.TestExtraPB` 77 int32_val1)
+SELECT AS zetasql_test__.TestExtraPB p.* FROM WithProtoValueTable p
 --
-ARRAY<PROTO<zetasql_test.TestExtraPB>>[
+ARRAY<PROTO<zetasql_test__.TestExtraPB>>[
   {
     int32_val1: 55
     int32_val2: 0

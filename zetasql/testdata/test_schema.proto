@@ -18,7 +18,7 @@
 // LINT: LEGACY_NAMES - need to test weird casing
 syntax = "proto2";
 
-package zetasql_test;
+package zetasql_test__;
 
 import "google/protobuf/descriptor.proto";
 import "zetasql/public/proto/type_annotation.proto";
@@ -836,6 +836,14 @@ message FieldFormatsProto {
 
 extend FieldFormatsProto {
   optional bytes b_numeric_extension = 1000 [(zetasql.format) = NUMERIC];
+}
+
+// This message is convenient for testing coercion of [] to a type that INT64
+// does not coerce or cast to. A small proto is useful for that because
+// FieldFormatsProto or KitchenSinkPB cause huge query plans when used with
+// SELECT col.*
+message MicrosArrayProto {
+  repeated sint64 ts_micros_array = 507 [(zetasql.type) = TIMESTAMP_MICROS];
 }
 
 message TestSQLTable {

@@ -17,13 +17,32 @@
 #ifndef ZETASQL_PUBLIC_TYPES_PROTO_TYPE_H_
 #define ZETASQL_PUBLIC_TYPES_PROTO_TYPE_H_
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 
+#include "zetasql/base/logging.h"
+#include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
+#include "zetasql/common/errors.h"
+#include "zetasql/public/options.pb.h"
+#include "zetasql/public/proto/type_annotation.pb.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_parameters.h"
+#include "absl/hash/hash.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
+#include "zetasql/base/status_macros.h"
+
+namespace zetasql {
+class LanguageOptions;
+class TypeFactory;
+class ValueContent;
+class ValueProto;
+}  // namespace zetasql
 
 namespace zetasql {
 
@@ -71,7 +90,7 @@ class ProtoType : public Type {
   std::string TypeName(ProductMode mode_unused) const override;
   // ProtoType does not support type parameters, which is why TypeName(mode) is
   // used.
-  zetasql_base::StatusOr<std::string> TypeNameWithParameters(
+  absl::StatusOr<std::string> TypeNameWithParameters(
       const TypeParameters& type_params, ProductMode mode) const override {
     ZETASQL_DCHECK(type_params.IsEmpty());
     return TypeName(mode);
@@ -103,10 +122,12 @@ class ProtoType : public Type {
 
   // DEPRECATED: Callers should remove their dependencies on obsolete types and
   // move to the methods above.
+  ABSL_DEPRECATED("Use overload without 'use_obsolete_timestamp' argument.")
   absl::Status GetFieldTypeByTagNumber(int number, TypeFactory* factory,
                                        bool use_obsolete_timestamp,
                                        const Type** type,
                                        std::string* name = nullptr) const;
+  ABSL_DEPRECATED("Use overload without 'use_obsolete_timestamp' argument.")
   absl::Status GetFieldTypeByName(const std::string& name, TypeFactory* factory,
                                   bool use_obsolete_timestamp,
                                   const Type** type,
@@ -134,6 +155,7 @@ class ProtoType : public Type {
   }
   // DEPRECATED: Callers should remove their dependencies on obsolete types and
   // move to the method above.
+  ABSL_DEPRECATED("Use overload without 'use_obsolete_timestamp' argument.")
   static absl::Status FieldDescriptorToTypeKind(
       const google::protobuf::FieldDescriptor* field, bool use_obsolete_timestamp,
       TypeKind* kind);
@@ -155,6 +177,7 @@ class ProtoType : public Type {
   }
   // DEPRECATED: Callers should remove their dependencies on obsolete types and
   // move to the method above.
+  ABSL_DEPRECATED("Use overload without 'use_obsolete_timestamp' argument.")
   static absl::Status FieldDescriptorToTypeKindBase(
       const google::protobuf::FieldDescriptor* field, bool use_obsolete_timestamp,
       TypeKind* kind) {
@@ -284,6 +307,7 @@ class ProtoType : public Type {
   // Get the ZetaSQL TypeKind of the requested proto field. If
   // <ignore_format_annotations> is true, then format annotations are ignored
   // and the default TypeKind for the proto field type is returned.
+  ABSL_DEPRECATED("Use overload without 'use_obsolete_timestamp' argument.")
   static absl::Status GetTypeKindFromFieldDescriptor(
       const google::protobuf::FieldDescriptor* field, bool ignore_format_annotations,
       bool use_obsolete_timestamp, TypeKind* kind);

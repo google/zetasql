@@ -34,12 +34,13 @@
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/annotation.h"
+#include "zetasql/public/types/type_deserializer.h"
 #include "zetasql/public/value.h"
 #include <cstdint>
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
@@ -320,6 +321,11 @@ class SimpleCatalog : public EnumerableCatalog {
   // type serialization, and all proto types in the catalog are treated as
   // references into these pools. The DescriptorPools must both outlive the
   // result SimpleCatalog.
+  static absl::StatusOr<std::unique_ptr<SimpleCatalog>> Deserialize(
+      const SimpleCatalogProto& proto,
+      absl::Span<const google::protobuf::DescriptorPool* const> pools,
+      const ExtendedTypeDeserializer* extended_type_deserializer = nullptr);
+  ABSL_DEPRECATED("Use Deserialize(proto, pools, extended_type_deserializer")
   static absl::Status Deserialize(
       const SimpleCatalogProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
@@ -372,6 +378,10 @@ class SimpleCatalog : public EnumerableCatalog {
       ABSL_LOCKS_EXCLUDED(mutex_);
   std::vector<std::string> catalog_names() const ABSL_LOCKS_EXCLUDED(mutex_);
   std::vector<std::string> constant_names() const ABSL_LOCKS_EXCLUDED(mutex_);
+
+ protected:
+  absl::Status DeserializeImpl(const SimpleCatalogProto& proto,
+                               const TypeDeserializer& type_deserializer);
 
  private:
   absl::Status SerializeImpl(absl::flat_hash_set<const Catalog*>* seen_catalogs,
@@ -473,7 +483,11 @@ class SimpleTable : public Table {
   // by calls to GetSerializationId(); it should be unique across all tables in
   // the same catalog.
   typedef std::pair<std::string, const Type*> NameAndType;
+  typedef std::pair<std::string, AnnotatedType> NameAndAnnotatedType;
   SimpleTable(absl::string_view name, const std::vector<NameAndType>& columns,
+              const int64_t serialization_id = 0);
+  SimpleTable(absl::string_view name,
+              const std::vector<NameAndAnnotatedType>& columns,
               const int64_t serialization_id = 0);
 
   // Make a table with the given Columns.
@@ -556,7 +570,7 @@ class SimpleTable : public Table {
   // Constructs an EvaluatorTableIterator from a list of column indexes.
   // Represents the signature of Table::CreateEvaluatorTableIterator().
   using EvaluatorTableIteratorFactory =
-      std::function<zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>(
+      std::function<absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>(
           absl::Span<const int>)>;
 
   // Sets a factory to be returned by CreateEvaluatorTableIterator().
@@ -576,7 +590,7 @@ class SimpleTable : public Table {
   // relevant to users of the evaluator API defined in public/evaluator.h.
   void SetContents(const std::vector<std::vector<Value>>& rows);
 
-  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+  absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
   CreateEvaluatorTableIterator(
       absl::Span<const int> column_idxs) const override;
 
@@ -616,12 +630,17 @@ class SimpleTable : public Table {
       FileDescriptorSetMap* file_descriptor_set_map,
       SimpleTableProto* proto) const;
 
+  // Deserializes SimpleTable from proto using TypeDeserializer.
+  static absl::StatusOr<std::unique_ptr<SimpleTable>> Deserialize(
+      const SimpleTableProto& proto, const TypeDeserializer& deserializer);
+
   // Deserialize SimpleTable from proto. Types will be deserialized using
   // the given TypeFactory and Descriptors from the given DescriptorPools.
   // The DescriptorPools should have been created by type serialization for
   // columns, and all proto type are treated as references into these pools.
   // The TypeFactory and the DescriptorPools must both outlive the result
   // SimpleTable.
+  ABSL_DEPRECATED("Use Deserialize(SimpleTableProto, TypeDeserializer) instead")
   static absl::Status Deserialize(
       const SimpleTableProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
@@ -781,20 +800,13 @@ class SimpleColumn : public Column {
   // DescriptorPools in order to reconstruct the Type. The map may be
   // non-empty and may be used across calls to this method in order to
   // serialize multiple types. The map may NOT be null.
-  absl::Status Serialize(
-      FileDescriptorSetMap* file_descriptor_set_map,
-      SimpleColumnProto* proto)const;
+  absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
+                         SimpleColumnProto* proto) const;
 
-  // Deserialize SimpleColumn from proto. Types will be deserialized using
-  // the given TypeFactory and Descriptors from the given DescriptorPools.
-  // The DescriptorPools should have been created by type serialization,
-  // and all proto types are treated as references into these pools.
-  // The TypeFactory and the DescriptorPools must both outlive the result
-  // SimpleColumn.
-  static absl::Status Deserialize(
+  // Deserializes SimpleColumn from proto using TypeDeserializer.
+  static absl::StatusOr<std::unique_ptr<SimpleColumn>> Deserialize(
       const SimpleColumnProto& proto, const std::string& table_name,
-      const std::vector<const google::protobuf::DescriptorPool*>& pools,
-      TypeFactory* factory, std::unique_ptr<SimpleColumn>* result);
+      const TypeDeserializer& type_deserializer);
 
  private:
   const std::string name_;
@@ -829,11 +841,9 @@ class SimpleConstant : public Constant {
   // Deserializes this SimpleConstant from proto.
   //
   // See SimpleCatalog::Deserialize() for details about <descriptor_pools>.
-  static absl::Status Deserialize(
+  static absl::StatusOr<std::unique_ptr<SimpleConstant>> Deserialize(
       const SimpleConstantProto& simple_constant_proto,
-      const std::vector<const google::protobuf::DescriptorPool*>& descriptor_pools,
-      TypeFactory* type_factory,
-      std::unique_ptr<SimpleConstant>* simple_constant);
+      const TypeDeserializer& type_deserializer);
 
   const Type* type() const override { return value_.type(); }
 
@@ -845,8 +855,8 @@ class SimpleConstant : public Constant {
   std::string VerboseDebugString() const;
 
  private:
-  SimpleConstant(const std::vector<std::string>& name_path, Value value)
-      : Constant(name_path), value_(std::move(value)) {}
+  SimpleConstant(std::vector<std::string> name_path, Value value)
+      : Constant(std::move(name_path)), value_(std::move(value)) {}
 
   // The value of this Constant. This is the RHS in a CREATE CONSTANT statement.
   Value value_;

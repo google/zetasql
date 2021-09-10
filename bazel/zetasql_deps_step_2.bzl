@@ -136,10 +136,10 @@ cc_proto_library(
             #
             http_archive(
                 name = "com_google_absl",
-                # Commit from 2021-02-23
-                url = "https://github.com/abseil/abseil-cpp/archive/a50ae369a30f99f79d7559002aba3413dac1bd48.tar.gz",
-                sha256 = "be2a9d7ea7ee15f9317b57beff37e8ffb67418fb0df64592366b04c8618c2584",
-                strip_prefix = "abseil-cpp-a50ae369a30f99f79d7559002aba3413dac1bd48",
+                # Commit from 2021-08-06
+                url = "https://github.com/abseil/abseil-cpp/archive/bf31a10b65d945665cecfb9d8807702ae4a7fde1.tar.gz",
+                sha256 = "3179b97f202d7e6b81ccf1d835693463498d0523bfcfaf3089a6226f19d97a7f",
+                strip_prefix = "abseil-cpp-bf31a10b65d945665cecfb9d8807702ae4a7fde1",
             )
 
     if analyzer_deps:
@@ -206,20 +206,20 @@ cc_proto_library(
         if not native.existing_rule("com_google_differential_privacy"):
             http_archive(
                 name = "com_google_differential_privacy",
-                # Commit from 2021-01-21
-                url = "https://github.com/google/differential-privacy/archive/de8460c9791de4c89a9dbb906b11a8f62e045f7b.tar.gz",
-                sha256 = "e9f01b00e760724909a7ff7acf26855a802417a23bde54d6baec9168cfbe1dc4",
-                strip_prefix = "differential-privacy-de8460c9791de4c89a9dbb906b11a8f62e045f7b",
+                # Release from 2021-04-21
+                url = "https://github.com/google/differential-privacy/archive/refs/tags/v1.0.0.tar.gz",
+                sha256 = "2ff780cdbffd8e3e84425c2ed38a0a48d0307f4df655dfd7b0d7f5143078d8c8",
+                strip_prefix = "differential-privacy-1.0.0",
             )
 
         # Differential Privacy - cc
         if not native.existing_rule("com_google_cc_differential_privacy"):
             http_archive(
                 name = "com_google_cc_differential_privacy",
-                # Commit from 2021-01-21
-                url = "https://github.com/google/differential-privacy/archive/de8460c9791de4c89a9dbb906b11a8f62e045f7b.tar.gz",
-                sha256 = "e9f01b00e760724909a7ff7acf26855a802417a23bde54d6baec9168cfbe1dc4",
-                strip_prefix = "differential-privacy-de8460c9791de4c89a9dbb906b11a8f62e045f7b/cc",
+                # Release from 2021-04-21
+                url = "https://github.com/google/differential-privacy/archive/refs/tags/v1.0.0.tar.gz",
+                sha256 = "2ff780cdbffd8e3e84425c2ed38a0a48d0307f4df655dfd7b0d7f5143078d8c8",
+                strip_prefix = "differential-privacy-1.0.0/cc",
             )
 
         # Boringssl
@@ -292,9 +292,9 @@ cc_proto_library(
             http_archive(
                 name = "com_google_file_based_test_driver",
                 # Commit from 2020-11-24
-                url = "https://github.com/google/file-based-test-driver/archive/77e24638ad40ec67dcbf6e37fd57e20c5d98976e.tar.gz",
-                sha256 = "fdb5d0138cc013b8b8d21b0d1827a1296621f1bfa599ef889a69eeed73a6f24b",
-                strip_prefix = "file-based-test-driver-77e24638ad40ec67dcbf6e37fd57e20c5d98976e",
+                url = "https://github.com/google/file-based-test-driver/archive/fd7661b168f640f68da39f97dad26e426eb6c339.tar.gz",
+                sha256 = "b564acb6f083ce6e91fc2734bdad259cc4edf1a95766f93750a16784ff86218a",
+                strip_prefix = "file-based-test-driver-fd7661b168f640f68da39f97dad26e426eb6c339",
             )
     if analyzer_deps:
         # gRPC

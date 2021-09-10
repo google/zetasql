@@ -72,7 +72,8 @@ ROOT_NODE_NAME = 'ResolvedNode'
 # pylint: disable=bad-continuation
 
 
-SCALAR_TYPE = ScalarType('const Type*', 'TypeProto', 'Type')
+SCALAR_TYPE = ScalarType(
+    'const Type*', 'TypeProto', 'Type', java_default='null')
 SCALAR_TYPE_PARAMETERS = ScalarType(
     'TypeParameters',
     'TypeParametersProto',
@@ -209,6 +210,8 @@ SCALAR_DETERMINISM_LEVEL = EnumScalarType('DeterminismLevel',
                                           'ResolvedCreateStatement')
 SCALAR_STORED_MODE = EnumScalarType('StoredMode', 'ResolvedGeneratedColumnInfo')
 SCALAR_DROP_MODE = EnumScalarType('DropMode', 'ResolvedDropStmt')
+SCALAR_INSERTION_MODE = EnumScalarType('InsertionMode',
+                                       'ResolvedAuxLoadDataStmt')
 
 
 def _JavaDoc(text, indent=0):
@@ -497,7 +500,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 185.
+          Next tag_id: 189.
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -1258,6 +1261,13 @@ def main(argv):
       is used. If any of the argument is not a ResolvedExpr,
       <generic_argument_list> will be used. Only one of <argument_list> or
       <generic_argument_list> can be non-empty.
+
+      <collation_list> (only set when FEATURE_V_1_3_COLLATION_SUPPORT is
+      enabled) is the operation collation to use.
+      (broken link) lists the functions affected by
+      collation, where this can show up.
+      <collation_list> is a vector for future extension. For now, functions
+      could have at most one element in the <collation_list>.
               """,
       fields=[
           Field(
@@ -1312,7 +1322,15 @@ def main(argv):
               vector=True,
               comment="""
               Function call hints.
-                      """)
+                      """),
+          Field(
+              'collation_list',
+              SCALAR_RESOLVED_COLLATION,
+              tag_id=8,
+              ignorable=IGNORABLE_DEFAULT,
+              vector=True,
+              java_to_string_method='toStringCommaSeparated',
+              is_constructor_arg=False),
       ])
 
   gen.AddNode(
@@ -2748,7 +2766,7 @@ right.
       parent='ResolvedArgument',
       comment="""
       This is used in CREATE TABLE statements to provide column annotations
-      such as NOT NULL, type parameters, and OPTIONS().
+      such as collation, NOT NULL, type parameters, and OPTIONS().
 
       This class is recursive. It mirrors the structure of the column type
       except that child_list might be truncated.
@@ -2766,6 +2784,15 @@ right.
       For other types, child_list is empty.
               """,
       fields=[
+          Field(
+              'collation_name',
+              'ResolvedExpr',
+              tag_id=6,
+              ignorable=IGNORABLE_DEFAULT,
+              comment="""
+              <collation_name> can only be a string literal, and is only set
+              when FEATURE_V_1_3_COLLATION_SUPPORT is enabled. See
+              (broken link)."""),
           Field(
               'not_null',
               SCALAR_BOOL,
@@ -2798,7 +2825,7 @@ right.
       extra_defs="""
         // Get the full TypeParameters object for these annotations given a
         // type, including parameters on nested fields.
-        zetasql_base::StatusOr<TypeParameters> GetFullTypeParameters(
+        absl::StatusOr<TypeParameters> GetFullTypeParameters(
             const Type* type) const;
       """)
 
@@ -2831,6 +2858,28 @@ right.
       ])
 
   gen.AddNode(
+      name='ResolvedColumnDefaultValue',
+      tag_id=188,
+      parent='ResolvedArgument',
+      comment="""
+      <expression> is the default value expression of the column. The type of
+      the expression will always match the type of the column.
+        - <default_value> cannot contain any references to another column.
+        - <default_value> cannot include a subquery, aggregation, or window
+          function.
+
+      <sql> is the original SQL string for the default value expression.
+
+      Since we can't enforce engines to access at least one of the fields, we
+      leave both fields NOT_IGNORABLE to ensure engines access at least one of
+      them.
+      """,
+      fields=[
+          Field('expression', 'ResolvedExpr', tag_id=2),
+          Field('sql', SCALAR_STRING, tag_id=3),
+      ])
+
+  gen.AddNode(
       name='ResolvedColumnDefinition',
       tag_id=91,
       parent='ResolvedArgument',
@@ -2843,13 +2892,9 @@ right.
       if <generated_column_info> is non-NULL, then this column is a generated
       column.
 
-      if <default_expression> is non-NULL, then this column contains a default
-      value expression. The expression type should always match the column type.
-        - <default_expression> cannot contain any references to another column.
-        - <default_expression> cannot include a subquery, aggregation, or window
-          function.
+      if <default_value> is non-NULL, then this column has default value.
 
-      <generated_column_info> and <default_expression> cannot both be set at the
+      <generated_column_info> and <default_value> cannot both be set at the
       same time.
 
       <column> defines an ID for the column, which may appear in expressions in
@@ -2880,16 +2925,16 @@ right.
               tag_id=7,
               ignorable=IGNORABLE_DEFAULT),
           Field(
-              'default_expression',
-              'ResolvedExpr',
-              tag_id=8,
-              ignorable=IGNORABLE_DEFAULT)
+              'default_value',
+              'ResolvedColumnDefaultValue',
+              tag_id=9,
+              ignorable=IGNORABLE_DEFAULT),
       ],
       extra_defs="""
         // Get the full TypeParameters object for this column, including
         // parameters on nested fields. <annotations.type_parameters> includes
         // only parameters on the outermost type.
-        zetasql_base::StatusOr<TypeParameters> GetFullTypeParameters() const;
+        absl::StatusOr<TypeParameters> GetFullTypeParameters() const;
       """)
 
   gen.AddNode(
@@ -3025,10 +3070,10 @@ right.
       tag_id=113,
       parent='ResolvedConstraint',
       comment="""
-      This represents the CHECK constraint on a table. It is of the form:
+      This represents the ZETASQL_CHECK constraint on a table. It is of the form:
 
         CONSTRAINT <constraint_name>
-        CHECK <expression>
+        ZETASQL_CHECK <expression>
         <enforced>
         <option_list>
 
@@ -3461,6 +3506,9 @@ right.
       <table_scan> is a TableScan on the table being indexed.
       <is_unique> specifies if the index has unique entries.
       <is_search> specifies if the index is for search.
+      <index_all_columns> specifies if indexing all the columns of the table.
+                          When this field is true, index_item_list must be
+                          empty and is_search must be true.
       <index_item_list> has the columns being indexed, specified as references
                         to 'computed_columns_list' entries or the columns of
                         'table_scan'.
@@ -3487,6 +3535,12 @@ right.
               'is_search',
               SCALAR_BOOL,
               tag_id=10,
+              is_optional_constructor_arg=True,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'index_all_columns',
+              SCALAR_BOOL,
+              tag_id=11,
               is_optional_constructor_arg=True,
               ignorable=IGNORABLE_DEFAULT),
           Field(
@@ -3526,12 +3580,28 @@ right.
       parent='ResolvedCreateStatement',
       comment="""
       This statement:
-      CREATE [OR REPLACE] SCHEMA [IF NOT EXISTS] <name>
-      [OPTIONS (name=value, ...)];
+        CREATE [OR REPLACE] SCHEMA [IF NOT EXISTS] <name>
+        [DEFAULT COLLATE <collation>]
+        [OPTIONS (name=value, ...)]
 
       <option_list> engine-specific options.
+      <collation_name> specifies the default collation specification for future
+        tables created in the dataset. If a table is created in this dataset
+        without specifying table-level default collation, it inherits the
+        dataset default collation. A change to this field affects only tables
+        created afterwards, not the existing tables. Only string literals
+        are allowed for this field.
+
+        Note: If a table being created in this schema does not specify table
+        default collation, the engine should copy the dataset default collation
+        to the table as the table default collation.
               """,
       fields=[
+          Field(
+              'collation_name',
+              'ResolvedExpr',
+              tag_id=3,
+              ignorable=IGNORABLE_DEFAULT),
           Field(
               'option_list',
               'ResolvedOption',
@@ -3548,8 +3618,8 @@ right.
       comment="""
       This statement:
         CREATE [TEMP] TABLE <name> [(column type, ...) | LIKE <name_path>]
-        [PARTITION BY expr, ...] [CLUSTER BY expr, ...]
-        [OPTIONS (...)]
+        [DEFAULT COLLATE <collation>] [PARTITION BY expr, ...]
+        [CLUSTER BY expr, ...] [OPTIONS (...)]
 
       <option_list> has engine-specific directives for how and where to
                     materialize this table.
@@ -3565,9 +3635,11 @@ right.
       <primary_key> specifies the PRIMARY KEY constraint on the table, it is
                     nullptr when no PRIMARY KEY is specified.
       <foreign_key_list> specifies the FOREIGN KEY constraints on the table.
-      <check_constraint_list> specifies the CHECK constraints on the table.
+      <check_constraint_list> specifies the ZETASQL_CHECK constraints on the table.
       <partition_by_list> specifies the partitioning expressions for the table.
       <cluster_by_list> specifies the clustering expressions for the table.
+      TODO: Return error when the PARTITION BY / CLUSTER BY
+      expression resolves to have collation specified.
       <is_value_table> specifies whether the table is a value table.
                        See (broken link).
       <like_table> identifies the table in the LIKE <name_path>.
@@ -3575,7 +3647,15 @@ right.
                    keys, clustering etc.) will be inherited from the source
                    table. But if explicitly set, the explicit settings will
                    take precedence.
+      <collation_name> specifies the default collation specification to apply to
+        newly added STRING fields in this table. A change of this field affects
+        only the STRING columns and the STRING fields in STRUCTs added
+        afterwards, not existing columns. Only string literals are allowed for
+        this field.
 
+        Note: During table creation or alteration, if a STRING field is added to
+        this table without explicit collation specified, the engine should copy
+        the table default collation to the STRING field.
               """,
       fields=[
           Field(
@@ -3624,6 +3704,11 @@ right.
               SCALAR_TABLE,
               tag_id=11,
               ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'collation_name',
+              'ResolvedExpr',
+              tag_id=12,
+              ignorable=IGNORABLE_DEFAULT),
       ])
 
   gen.AddNode(
@@ -3634,31 +3719,42 @@ right.
       This statement:
         CREATE [TEMP] TABLE <name>
         [(column schema, ...) | LIKE <name_path> |
-            CLONE <name_path>
+            {CLONE|COPY} <name_path>
                 [FOR SYSTEM_TIME AS OF <time_expr>]
                 [WHERE <where_clause>]]
+        [DEFAULT COLLATE <collation_name>]
         [PARTITION BY expr, ...] [CLUSTER BY expr, ...]
         [OPTIONS (...)]
 
-      <clone_from> the source data to clone data from.
-                   ResolvedTableScan will represent the source table, with an
-                   optional for_system_time_expr.
-                   The ResolvedTableScan may be wrapped inside a
-                   ResolvedFilterScan if the source table has a where clause.
-                   No other Scan types are allowed here.
-                   By default, all fields (column names, types, constraints,
-                   partition, clustering, options etc.) will be inherited from
-                   the source table. If table options are explicitly set, the
-                   explicit options will take precedence.
-                   The 'clone_from.column_list' field may be set, but should be
-                   ignored.
-                   Cannot be value table.
+      One of <clone_from> or <copy_from> can be present for CLONE or COPY.
+        <clone_from> specifes the data source to clone from (cheap, typically
+        O(1) operation); while <copy_from> is intended for a full copy.
+
+        ResolvedTableScan will represent the source table, with an optional
+        for_system_time_expr.
+
+        The ResolvedTableScan may be wrapped inside a ResolvedFilterScan if the
+        source table has a where clause. No other Scan types are allowed here.
+
+        If the OPTIONS clause is explicitly specified, the option values are
+        intended to be used for the created or replaced table.
+        If any OPTION is unspecified, the corresponding option from the source
+        table will be used instead.
+
+        The 'clone_from.column_list' field may be set, but should be ignored.
+
+        clone_from and copy_from cannot be value tables.
               """,
       fields=[
           Field(
               'clone_from',
               'ResolvedScan',
               tag_id=7,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'copy_from',
+              'ResolvedScan',
+              tag_id=8,
               ignorable=IGNORABLE_DEFAULT),
           Field(
               'partition_by_list',
@@ -3681,7 +3777,8 @@ right.
       comment="""
       This statement:
         CREATE [TEMP] TABLE <name> [(column schema, ...) | LIKE <name_path>]
-        [PARTITION BY expr, ...] [CLUSTER BY expr, ...] [OPTIONS (...)]
+        [DEFAULT COLLATE <collation_name>] [PARTITION BY expr, ...]
+        [CLUSTER BY expr, ...] [OPTIONS (...)]
         AS SELECT ...
 
       The <output_column_list> matches 1:1 with the <column_definition_list> in
@@ -3958,6 +4055,7 @@ right.
       comment="""
       This statement:
         CREATE [TEMP] EXTERNAL TABLE <name> [(column type, ...)]
+        [DEFAULT COLLATE <collation_name>]
         [WITH PARTITION COLUMN [(column type, ...)]]
         [WITH CONNECTION connection_name]
         OPTIONS (...)
@@ -5597,7 +5695,10 @@ right.
       tag_id=181,
       parent='ResolvedAlterAction',
       comment="""
-      ALTER COLUMN SET DATA TYPE action for ALTER TABLE statement.
+              ALTER COLUMN <column> SET DATA TYPE action for ALTER TABLE
+              statement. It supports updating the data type of the column as
+              well as updating type parameters and collation specifications of
+              the column (and on struct fields and array elements).
               """,
       fields=[
           Field(
@@ -5628,6 +5729,17 @@ right.
               The new type parameters for the column, if the new type has
               parameters. Note that unlike with CREATE TABLE, the child_list is
               populated for ARRAY and STRUCT types.
+              TODO Use updated_annotations to pass type parameters.
+              """),
+          Field(
+              'updated_annotations',
+              'ResolvedColumnAnnotations',
+              tag_id=6,
+              ignorable=IGNORABLE,
+              comment="""
+              The new annotations for the column including the new collation
+              specifications. Changing options using SET DATA TYPE action is not
+              allowed.
               """),
       ])
 
@@ -5643,6 +5755,33 @@ right.
       fields=[
           Field('is_if_exists', SCALAR_BOOL, tag_id=2),
           Field('name', SCALAR_STRING, tag_id=3),
+      ])
+
+  gen.AddNode(
+      name='ResolvedRenameColumnAction',
+      tag_id=185,
+      parent='ResolvedAlterAction',
+      comment="""
+      RENAME COLUMN action for ALTER TABLE statement.
+
+      <name> is the name of the column to rename.
+      <new_name> is the new name of the column.
+
+      RENAME COLUMN actions cannot be part of the same alter_action_list as any
+      other type of action.
+      Chains of RENAME COLUMN will be interpreted as a sequence of mutations.
+      The order of actions matters. Each <name> refers to a column name that
+      exists after all preceding renames have been applied.
+              """,
+      fields=[
+          Field(
+              'is_if_exists',
+              SCALAR_BOOL,
+              tag_id=4,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+          Field('name', SCALAR_STRING, tag_id=2),
+          Field('new_name', SCALAR_STRING, tag_id=3),
       ])
 
   gen.AddNode(
@@ -5669,6 +5808,26 @@ right.
               SCALAR_STRING,
               tag_id=3,
               ignorable=IGNORABLE_DEFAULT),
+      ])
+
+  gen.AddNode(
+      name='ResolvedSetCollateClause',
+      tag_id=187,
+      parent='ResolvedAlterAction',
+      comment="""
+      SET DEFAULT COLLATE clause for generic ALTER <entity_type> statement.
+
+      <collation_name> specifies the new default collation specification for a
+        table or schema. Modifying the default collation for a table or schema
+        does not affect any existing columns or tables - the new default
+        collation only affects new tables and/or columns if applicable. Only
+        string literals are allowed for this field.
+              """,
+      fields=[
+          Field(
+              'collation_name',
+              'ResolvedExpr',
+              tag_id=2),
       ])
 
   gen.AddNode(
@@ -6092,7 +6251,11 @@ ResolvedArgumentRef(y)
               tag_id=13,
               ignorable=IGNORABLE),
           Field(
-              'return_type', SCALAR_TYPE, tag_id=3, ignorable=IGNORABLE),
+              'return_type',
+              SCALAR_TYPE,
+              tag_id=3,
+              is_optional_constructor_arg=True,
+              ignorable=IGNORABLE),
           Field(
               'argument_name_list',
               SCALAR_STRING,
@@ -7176,9 +7339,24 @@ ResolvedArgumentRef(y)
               in the <label_column>.
                       """),
           Field(
+              'projected_input_column_list',
+              'ResolvedComputedColumn',
+              tag_id=7,
+              vector=True,
+              ignorable=IGNORABLE,
+              comment="""
+              The columns from <input_scan> that are not unpivoted in UNPIVOT
+              IN clause. Columns in <projected_input_column_list> and
+              <unpivot_arg_list> are mutually exclusive and their union is the
+              complete set of columns in the unpivot input-source.
+
+              The expression of each ResolvedComputedColumn is a
+              ResolvedColumnRef that references a column from <input_scan>.
+              """),
+          Field(
               'include_nulls',
               SCALAR_BOOL,
-              tag_id=7,
+              tag_id=8,
               comment="""
               Whether we need to include the rows from output where ALL columns
               from <value_column_list> are null.
@@ -7268,6 +7446,148 @@ ResolvedArgumentRef(y)
               tag_id=3,
               vector=True,
               ignorable=IGNORABLE_DEFAULT),
+      ])
+
+  gen.AddNode(
+      name='ResolvedAuxLoadDataStmt',
+      tag_id=186,
+      parent='ResolvedStatement',
+      comment="""
+      LOAD DATA {OVERWRITE|INTO} <table_name> ... FROM FILES ...
+        This statement loads an external file to a new or existing table.
+        See (broken link).
+
+      <insertion_mode> either OVERWRITE or APPEND (INTO) the destination table.
+      <name_path> the table to load data into.
+      <output_column_list> the list of visible columns of the destination table.
+        If <column_definition_list> is explicitly specified:
+          <output_column_list> =
+              <column_definition_list> + <with_partition_columns>
+        Or if the table already exists:
+          <output_column_list> = <name_path>.columns
+        Last, if the table doesn't exist and <column_definition_list> isn't
+        explicitly specified:
+          <output_column_list> = detected-columns + <with_partition_columns>
+      <column_definition_list> If not empty, the explicit columns of the
+          destination table. Must be coerciable from the source file's fields.
+
+          When the destination table doesn't already exist, it will be created
+          with these columns (plus the additional columns from WITH PARTITION
+          COLUMNS subclause); otherwise, the destination table's schema must
+          match the explicit columns by both name and type.
+      <pseudo_column_list> is a list of pseudo-columns expected to be present on
+          the created table (provided by AnalyzerOptions::SetDdlPseudoColumns*).
+          These can be referenced in expressions in <partition_by_list> and
+          <cluster_by_list>.
+      <primary_key> specifies the PRIMARY KEY constraint on the table. It is
+          nullptr when no PRIMARY KEY is specified.
+          If specified, and the table already exists, the primary_key is
+          required to be the same as that of the existing.
+      <foreign_key_list> specifies the FOREIGN KEY constraints on the table.
+          If specified, and the table already exists, the foreign keys are
+          required to be the same as that of the existing.
+      <check_constraint_list> specifies the ZETASQL_CHECK constraints on the table.
+          If specified, and the table already exists, the constraints are
+          required to be the same as that of the existing.
+      <partition_by_list> The list of columns to partition the destination
+          table. Similar to <column_definition_list>, it must match the
+          destination table's partitioning spec if it already exists.
+      <cluster_by_list> The list of columns to cluster the destination
+          table. Similar to <column_definition_list>, it must match the
+          destination table's partitioning spec if it already exists.
+      <option_list> the options list describing the destination table.
+          If the destination doesn't already exist, it will be created with
+          these options; otherwise it must match the existing destination
+          table's options.
+      <with_partition_columns> The columns decoded from partitioned source
+          files. If the destination table doesn't already exist, these columns
+          will be implicitly added to the destination table's schema; otherwise
+          the destination table must already have these columns
+          (matching by both names and types).
+
+          The hive partition columns from the source file do not automatically
+          partition the destination table. To apply the partition, the
+          <partition_by_list> must be specified.
+      <connection> optional connection reference for accessing files.
+      <from_files_option_list> the options list describing the source file(s).
+              """,
+      fields=[
+          Field('insertion_mode', SCALAR_INSERTION_MODE, tag_id=2),
+          Field(
+              'name_path',
+              SCALAR_STRING,
+              tag_id=3,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'output_column_list',
+              'ResolvedOutputColumn',
+              tag_id=4,
+              vector=True,
+              ignorable=IGNORABLE),
+          Field(
+              'column_definition_list',
+              'ResolvedColumnDefinition',
+              tag_id=5,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'pseudo_column_list',
+              SCALAR_RESOLVED_COLUMN,
+              tag_id=6,
+              vector=True,
+              ignorable=IGNORABLE),
+          Field(
+              'primary_key',
+              'ResolvedPrimaryKey',
+              tag_id=7,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'foreign_key_list',
+              'ResolvedForeignKey',
+              tag_id=8,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'check_constraint_list',
+              'ResolvedCheckConstraint',
+              tag_id=9,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'partition_by_list',
+              'ResolvedExpr',
+              tag_id=10,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'cluster_by_list',
+              'ResolvedExpr',
+              tag_id=11,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'option_list',
+              'ResolvedOption',
+              tag_id=12,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'with_partition_columns',
+              'ResolvedWithPartitionColumns',
+              tag_id=13,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'connection',
+              'ResolvedConnection',
+              tag_id=14,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'from_files_option_list',
+              'ResolvedOption',
+              tag_id=15,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT)
       ])
 
   gen.Generate(input_file_paths, output_file_paths)

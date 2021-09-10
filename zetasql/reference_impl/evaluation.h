@@ -148,8 +148,8 @@ class EvaluationContext {
 
   bool IsDeterministicOutput() const { return deterministic_output_; }
 
-  void SetLanguageOptions(const LanguageOptions& options) {
-    language_options_ = options;
+  void SetLanguageOptions(LanguageOptions options) {
+    language_options_ = std::move(options);
   }
   const LanguageOptions& GetLanguageOptions() const {
     return language_options_;
@@ -348,6 +348,11 @@ class EvaluationContext {
   // Deletes the C++ value associated with the given variable Id.
   void ClearCppValue(VariableId variable) { cpp_values_.erase(variable); }
 
+  const TupleDataDeque* active_group_rows() const { return active_group_rows_; }
+  void set_active_group_rows(const TupleDataDeque* group_rows) {
+    active_group_rows_ = group_rows;
+  }
+
  private:
   void LazilyInitializeDefaultTimeZone() {
     if (!default_timezone_.has_value()) {
@@ -369,6 +374,8 @@ class EvaluationContext {
   MemoryAccountant memory_accountant_;
   // Tables added by AddTableAsArray().
   std::map<std::string, Value> tables_;
+
+  const TupleDataDeque* active_group_rows_ = nullptr;
   // Indicates that the result of evaluation is non-deterministic.
   bool deterministic_output_;
   LanguageOptions language_options_;

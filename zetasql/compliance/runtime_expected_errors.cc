@@ -77,8 +77,7 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange,
       "Elements in input array to RANGE_BUCKET"));
   error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
-      absl::StatusCode::kOutOfRange,
-      "Invalid return_position_after_match"));
+      absl::StatusCode::kOutOfRange, "Invalid return_position_after_match"));
 
   // Out of range errors
   //
@@ -327,6 +326,12 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "because it would be out of the allowed range between "
       "(-\\d+) to (\\d+) \\(microseconds\\)"));
 
+  // PercentileDisc function.
+  // TODO: Support array args in percentile_disc
+  error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kUnimplemented,
+      "Unsupported argument type for percentile_disc."));
+
   // Parsing and analysis errors.
   //
   error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
@@ -401,6 +406,10 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   // TODO: implement
   error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kUnimplemented, "Precision argument of ST_AsGeoJSON "));
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kUnimplemented,
+      "(ST_BUFFER|ST_BUFFERWITHTOLERANCE) does not yet implement "
+      "use_spheroid=true"));
 
   // REPLACE_FIELDS() specific
   error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
@@ -410,6 +419,15 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kInvalidArgument,
       "Modifying multiple fields from the same OneOf is unsupported by "
       "REPLACE_FIELDS()"));
+
+  // COLLATION related errors
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kUnimplemented,
+      "(ResolvedFunctionCallBase::collation_list not accessed and has "
+      "non-default value)"));
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "The second argument of COLLATE\\(\\) must be a string literal"));
 
   return absl::make_unique<MatcherCollection<absl::Status>>(
       matcher_name, std::move(error_matchers));
@@ -461,6 +479,20 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeDMLExpectedErrorMatcher(
   // TODO: b/109660988 DML RQG: account for constraints
   error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kNotFound, "Parent row is missing"));
+
+  // Aggregate values can overflow in large queries.
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "Aggregate values are limited to .*"));
+
+  // TODO: Not yet implemented/supported.
+  error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kUnimplemented,
+      "does not yet implement use_spheroid=true"));
+
+  // TODO PARSE_JSON sometimes is generated with invalid string
+  // inputs.
+  error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kInvalidArgument, "parse error at line"));
 
   error_matchers.emplace_back(RuntimeExpectedErrorMatcher("RuntimeErrors"));
   return absl::make_unique<MatcherCollection<absl::Status>>(

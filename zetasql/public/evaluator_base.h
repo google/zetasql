@@ -179,7 +179,7 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/memory/memory.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/synchronization/mutex.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/clock.h"
@@ -326,7 +326,7 @@ class PreparedExpressionBase {
   //   auto result = expr.Execute(col_map);
   //
   // REQUIRES: Prepare() or Execute() has been called successfully.
-  zetasql_base::StatusOr<std::vector<std::string>> GetReferencedColumns() const;
+  absl::StatusOr<std::vector<std::string>> GetReferencedColumns() const;
 
   // Get the list of parameters referenced in this expression.
   //
@@ -337,7 +337,7 @@ class PreparedExpressionBase {
   // non-zero number.
   //
   // REQUIRES: Prepare() or Execute() has been called successfully.
-  zetasql_base::StatusOr<std::vector<std::string>> GetReferencedParameters() const;
+  absl::StatusOr<std::vector<std::string>> GetReferencedParameters() const;
 
   // Gets the number of positional parameters in this expression.
   //
@@ -347,7 +347,7 @@ class PreparedExpressionBase {
   // GetReferencedParameters() returns a non-empty list.
   //
   // REQUIRES: Prepare() or Execute() has been called successfully.
-  zetasql_base::StatusOr<int> GetPositionalParameterCount() const;
+  absl::StatusOr<int> GetPositionalParameterCount() const;
 
   // Options struct for Execute() and ExecuteAfterPrepare() function calls.
   struct ExpressionOptions {
@@ -395,17 +395,17 @@ class PreparedExpressionBase {
   // NOTE: The returned Value is only valid for the lifetime of this
   // PreparedExpression unless an external TypeFactory was passed to the
   // constructor.
-  zetasql_base::StatusOr<Value> Execute(
+  absl::StatusOr<Value> Execute(
       ExpressionOptions options = ExpressionOptions());
 
   // Shorthand for calling Execute, filling the options using maps.
-  zetasql_base::StatusOr<Value> Execute(
+  absl::StatusOr<Value> Execute(
       const ParameterValueMap& columns,
       const ParameterValueMap& parameters = {},
       const SystemVariableValuesMap& system_variables = {});
 
   // Shorthand for calling Execute, filling the options positionally.
-  zetasql_base::StatusOr<Value> ExecuteWithPositionalParams(
+  absl::StatusOr<Value> ExecuteWithPositionalParams(
       const ParameterValueMap& columns,
       const ParameterValueList& positional_parameters,
       const SystemVariableValuesMap& system_variables = {});
@@ -416,25 +416,25 @@ class PreparedExpressionBase {
   //
   // Thread safe. Multiple evaluations can proceed in parallel.
   // REQUIRES: Prepare() has been called successfully.
-  zetasql_base::StatusOr<Value> ExecuteAfterPrepare(
+  absl::StatusOr<Value> ExecuteAfterPrepare(
       ExpressionOptions options = ExpressionOptions()) const;
 
   // Shorthand for calling ExecuteAfterPrepare, filling the options using maps.
-  zetasql_base::StatusOr<Value> ExecuteAfterPrepare(
+  absl::StatusOr<Value> ExecuteAfterPrepare(
       const ParameterValueMap& columns,
       const ParameterValueMap& parameters = {},
       const SystemVariableValuesMap& system_variables = {}) const;
 
   // Shorthand for calling ExecuteAfterPrepare, filling the options
   // positionally.
-  zetasql_base::StatusOr<Value> ExecuteAfterPrepareWithPositionalParams(
+  absl::StatusOr<Value> ExecuteAfterPrepareWithPositionalParams(
       const ParameterValueMap& columns,
       const ParameterValueList& positional_parameters,
       const SystemVariableValuesMap& system_variables = {}) const;
 
   // Shorthand for calling ExecuteAfterPrepare, filling the options
   // positionally.
-  zetasql_base::StatusOr<Value> ExecuteAfterPrepareWithOrderedParams(
+  absl::StatusOr<Value> ExecuteAfterPrepareWithOrderedParams(
       const ParameterValueList& columns, const ParameterValueList& parameters,
       const SystemVariableValuesMap& system_variables = {}) const;
 
@@ -442,7 +442,7 @@ class PreparedExpressionBase {
   // actually be executed. Do not try to interpret this string with code, as the
   // format can change at any time. Requires that Prepare has already been
   // called.
-  zetasql_base::StatusOr<std::string> ExplainAfterPrepare() const;
+  absl::StatusOr<std::string> ExplainAfterPrepare() const;
 
   // REQUIRES: Prepare() or Execute() must be called first.
   const Type* output_type() const;
@@ -451,6 +451,7 @@ class PreparedExpressionBase {
   std::unique_ptr<internal::Evaluator> evaluator_;
 };
 
+// See evaluator_base.h for the full interface and usage instructions.
 class PreparedQueryBase {
  public:
   // Constructor. Additional options can be provided by filling out the
@@ -502,7 +503,7 @@ class PreparedQueryBase {
   // to Execute().
   //
   // REQUIRES: Prepare() or Execute() has been called successfully.
-  zetasql_base::StatusOr<std::vector<std::string>> GetReferencedParameters() const;
+  absl::StatusOr<std::vector<std::string>> GetReferencedParameters() const;
 
   // Gets the number of positional parameters in this query.
   //
@@ -512,7 +513,7 @@ class PreparedQueryBase {
   // non-empty list.
   //
   // REQUIRES: Prepare() or Execute() has been called successfully.
-  zetasql_base::StatusOr<int> GetPositionalParameterCount() const;
+  absl::StatusOr<int> GetPositionalParameterCount() const;
 
   // Options struct for Execute() and ExecuteAfterPrepareWithOrderedParams()
   // function calls.
@@ -536,16 +537,16 @@ class PreparedQueryBase {
   //
   // This method is thread safe. Multiple executions can proceed in parallel,
   // each using a different iterator.
-  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>> Execute(
+  absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> Execute(
       const QueryOptions& options = QueryOptions());
 
   // Shorthand for calling Execute, filling the options using maps.
-  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>> Execute(
+  absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> Execute(
       const ParameterValueMap& parameters,
       const SystemVariableValuesMap& system_variables = {});
 
   // Shorthand for calling Execute, filling the options positionally.
-  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+  absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
   ExecuteWithPositionalParams(
       const ParameterValueList& positional_parameters,
       const SystemVariableValuesMap& system_variables = {});
@@ -559,12 +560,12 @@ class PreparedQueryBase {
   //
   // Thread safe. Multiple evaluations can proceed in parallel.
   // REQUIRES: Prepare() has been called successfully.
-  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>> ExecuteAfterPrepare(
+  absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> ExecuteAfterPrepare(
       const QueryOptions& options = QueryOptions()) const;
 
   // Shorthand for calling ExecuteAfterPrepare, filling the options
   // positionally.
-  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>> ExecuteAfterPrepare(
+  absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> ExecuteAfterPrepare(
       const ParameterValueList& parameters,
       const SystemVariableValuesMap& system_variables = {}) const;
 
@@ -572,7 +573,7 @@ class PreparedQueryBase {
   // be executed. Do not try to interpret this string with code, as the
   // format can change at any time. Requires that Prepare has already been
   // called.
-  zetasql_base::StatusOr<std::string> ExplainAfterPrepare() const;
+  absl::StatusOr<std::string> ExplainAfterPrepare() const;
 
   // Get the schema of the output table of this query. Anonymous column names
   // are empty. (There may be more than one column with the same name.)
@@ -725,12 +726,12 @@ class PreparedModifyBase {
   //
   // This method is thread safe. Multiple executions can proceed in parallel,
   // each using a different iterator.
-  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>> Execute(
+  absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>> Execute(
       const ParameterValueMap& parameters = {},
       const SystemVariableValuesMap& system_variables = {});
 
   // Same as above, but uses positional instead of named parameters.
-  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
+  absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
   ExecuteWithPositionalParams(
       const ParameterValueList& positional_parameters,
       const SystemVariableValuesMap& system_variables = {});
@@ -741,7 +742,7 @@ class PreparedModifyBase {
   // `parameters` in the order returned by GetReferencedParameters.
   //
   // REQUIRES: Prepare() has been called successfully.
-  zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
+  absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
   ExecuteAfterPrepareWithOrderedParams(
       const ParameterValueList& parameters,
       const SystemVariableValuesMap& system_variables = {}) const;
@@ -750,7 +751,7 @@ class PreparedModifyBase {
   // actually be executed. Do not try to interpret this string with code, as the
   // format can change at any time. Requires that Prepare has already been
   // called.
-  zetasql_base::StatusOr<std::string> ExplainAfterPrepare() const;
+  absl::StatusOr<std::string> ExplainAfterPrepare() const;
 
   // Get the list of parameters referenced in this statement.
   //
@@ -761,7 +762,7 @@ class PreparedModifyBase {
   // non-zero number.
   //
   // REQUIRES: Prepare() or Execute() has been called successfully.
-  zetasql_base::StatusOr<std::vector<std::string>> GetReferencedParameters() const;
+  absl::StatusOr<std::vector<std::string>> GetReferencedParameters() const;
 
   // Gets the number of positional parameters in this statement.
   //
@@ -771,7 +772,7 @@ class PreparedModifyBase {
   // GetReferencedParameters() returns a non-empty list.
   //
   // REQUIRES: Prepare() or Execute() has been called successfully.
-  zetasql_base::StatusOr<int> GetPositionalParameterCount() const;
+  absl::StatusOr<int> GetPositionalParameterCount() const;
 
   // Gets the resolved statement.
   //

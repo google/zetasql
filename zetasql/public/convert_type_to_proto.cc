@@ -223,9 +223,6 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
           zetasql::format, FieldFormat::JSON);
       break;
     }
-    case TYPE_TOKENLIST: {
-      return absl::UnimplementedError("TOKENLIST type not yet implemented");
-    }
     case TYPE_ENUM: {
       const EnumType* enum_type = field_type->AsEnum();
       proto_field->set_type(google::protobuf::FieldDescriptorProto::TYPE_ENUM);

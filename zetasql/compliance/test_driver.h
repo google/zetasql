@@ -24,6 +24,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -36,9 +37,10 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/annotation.h"
 #include "zetasql/public/value.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/time.h"
@@ -143,6 +145,15 @@ class TestTableOptions {
     userid_column_ = userid_column;
   }
 
+  const std::vector<const AnnotationMap*>& column_annotations() const {
+    return column_annotations_;
+  }
+
+  void set_column_annotations(
+      std::vector<const AnnotationMap*> column_annotations) {
+    column_annotations_ = std::move(column_annotations);
+  }
+
  private:
   // LINT.IfChange
   // Defines expected table size after populating it with random data. The
@@ -168,6 +179,12 @@ class TestTableOptions {
   // An empty string means no user id column is set for this table (the default
   // case).
   std::string userid_column_;
+
+  // Annotations for each column of the table. <column_annotations_> is either
+  // empty or has the same number of elements as the number of the columns in
+  // the table. May have nullptr to indicate the corresponding table column
+  // doesn't have annotation.
+  std::vector<const AnnotationMap*> column_annotations_;
 };
 
 // This describes a table that should be present in the created database.
@@ -218,6 +235,13 @@ struct TestDatabase {
 
 // The result of executing a single statement in a script.
 struct StatementResult {
+  // Name of the procedure the statement belongs to, empty if the statement
+  // is not part of a procedure.
+  //
+  // If the statement belongs to a procedure, line/column numbers, below are
+  // relative to the procedure body, rather than the overall script.
+  std::string procedure_name;
+
   // Line number of the start of the statement, 1-based.
   // 0 if the line number cannot be determined.
   int line = 0;
@@ -229,7 +253,7 @@ struct StatementResult {
   // The result of the statement. See TestDriver::ExecuteStatement() for a
   // description on what types of values are expected for different statement
   // types.
-  zetasql_base::StatusOr<Value> result;
+  absl::StatusOr<Value> result;
 };
 
 // Represents the result of executing a script through a TestDriver.
@@ -276,7 +300,7 @@ class TestDriver {
   //   keys and skip tests with PrimaryKeyMode::NO_PRIMARY_KEY, and the second
   //   test driver can store all test tables without primary keys and only run
   //   tests with PrimaryKeyMode::NO_PRIMARY_KEY.
-  virtual zetasql_base::StatusOr<bool> SkipTestsWithPrimaryKeyMode(
+  virtual absl::StatusOr<bool> SkipTestsWithPrimaryKeyMode(
       PrimaryKeyMode primary_key_mode) {
     if (IsReferenceImplementation()) {
       ZETASQL_RET_CHECK_FAIL()
@@ -312,13 +336,13 @@ class TestDriver {
   // types in type_helpers.h.
   //
   // This method must not be called if IsReferenceImplementation() returns true.
-  virtual zetasql_base::StatusOr<Value> ExecuteStatement(
+  virtual absl::StatusOr<Value> ExecuteStatement(
       const std::string& sql, const std::map<std::string, Value>& parameters,
       TypeFactory* type_factory) = 0;
 
   // Similar to ExecuteStatement(), but executes 'sql' as a script, rather than
   // an individual statement.
-  virtual zetasql_base::StatusOr<ScriptResult> ExecuteScript(
+  virtual absl::StatusOr<ScriptResult> ExecuteScript(
       const std::string& sql, const std::map<std::string, Value>& parameters,
       TypeFactory* type_factory) {
     return absl::UnimplementedError("Scripts are not supported");

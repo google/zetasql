@@ -32,7 +32,7 @@
 #include "absl/base/attributes.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "re2/re2.h"
@@ -52,7 +52,7 @@ class ValidJSONPathIterator {
  public:
   typedef std::string Token;
 
-  static zetasql_base::StatusOr<std::unique_ptr<ValidJSONPathIterator>> Create(
+  static absl::StatusOr<std::unique_ptr<ValidJSONPathIterator>> Create(
       absl::string_view js_path, bool sql_standard_mode);
 
   // Rewind the iterator and reuse the tokens already parsed.

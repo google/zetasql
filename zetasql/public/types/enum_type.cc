@@ -17,17 +17,29 @@
 #include "zetasql/public/types/enum_type.h"
 
 #include <cstdint>
+#include <limits>
+#include <string>
+#include <utility>
 
-#include "google/protobuf/repeated_field.h"
+#include "zetasql/base/logging.h"
+#include "google/protobuf/descriptor.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/internal_utils.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
 #include "absl/algorithm/container.h"
+#include <cstdint>
+#include "absl/container/inlined_vector.h"
+#include "absl/hash/hash.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/types/span.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 

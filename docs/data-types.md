@@ -41,6 +41,7 @@ All data types.
 <li>PROTO</li>
 <li>ARRAY</li>
 <li>STRUCT</li>
+<li>JSON</li>
 </ul>
 </td>
 </tr>
@@ -54,6 +55,7 @@ All data types.
 </td>
 <td>All data types except for:<ul>
  <li>PROTO</li>
+ <li>JSON</li>
 </ul>
 An ARRAY type is groupable if its element type is
 groupable. Two arrays are in the same group if and only if one of the following
@@ -92,6 +94,9 @@ supported.
 
 <br/><br/>
 Protocol Buffer comparisons are not supported.
+
+<br/><br/>
+JSON comparisons are not supported.
 
 <br /><br />
 All types that support comparisons
@@ -355,6 +360,88 @@ qualified name.
 
 You cannot create new ENUM types using ZetaSQL.
 
+## Interval type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Range</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>INTERVAL</code></td>
+<td>
+-10000-0 -3660000 -87840000:0:0 to 10000-0 3660000 87840000:0:0
+</td>
+</tr>
+</tbody>
+</table>
+
+An INTERVAL object represents duration or amount of time.
+Interval is composed of three independent parts:
+<ul>
+  <li>`[sign]Y-M`: Years and Months</li>
+  <li>`[sign]D`: Days</li>
+  <li>
+    `[sign]H:M:S.F`: Hours, Minutes, Seconds and
+    Subseconds. The
+    range of subsecond precision is determined by the SQL engine.
+  </li>
+</ul>
+
+##### Canonical format
+
+```
+[sign]Y-M [sign]D [sign]H:M:S[.F]
+```
+
+<ul>
+    <li><code>Y</code>: Year</li>
+    <li><code>M</code>: Month</li>
+    <li><code>D</code>: Day</li>
+    <li><code>H</code>: Hour</li>
+    <li><code>M</code>: Minute</li>
+    <li><code>S</code>: Second</li>
+    <li>
+      <code>[.F]</code>: Up to nine fractional
+      digits (nanosecond precision)
+    </li>
+</ul>
+
+## JSON type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>JSON</code></td>
+<td>Represents JSON, a lightweight data-interchange format.</td>
+</tr>
+</tbody>
+</table>
+
+Expect these canonicalization behaviors when creating a value of `JSON` type:
+
++  Booleans, strings, and nulls are preserved exactly.
++  Whitespace characters are not preserved.
++  A JSON value can store integers in the range of
+   -9,223,372,036,854,775,808 (minimal signed 64-bit integer) to
+   18,446,744,073,709,551,615 (maximal unsigned 64-bit integer) and
+   floating point numbers within a domain of
+   `DOUBLE`.
++  The order of elements in an array is preserved exactly.
++  The order of the members of an object is not guaranteed or preserved.
++  If an object has duplicate keys, the first key that is found is preserved.
++  The format of the original string representation of a JSON number may not be
+   preserved.
+
 ## Numeric types
 
 Numeric types include the following types:
@@ -407,7 +494,7 @@ Integers are numeric values that do not have fractional components.
 
 ### Decimal types
 
-Decimal type values are numeric values with fixed precision and scale.
+Decimal type values are numeric values with fixed decimal precision and scale.
 Precision is the number of digits that the number contains. Scale is
 how many of these digits appear after the decimal point.
 
@@ -771,7 +858,8 @@ STRUCT&lt;inner_array ARRAY&lt;INT64&gt;&gt;
 <tbody>
 </table>
 
-### Constructing a STRUCT
+### Constructing a STRUCT 
+<a id="constructing-a-struct"></a>
 
 #### Tuple syntax
 

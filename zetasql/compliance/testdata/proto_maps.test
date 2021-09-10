@@ -1,17 +1,17 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB, zetasql_test.MessageWithMapField, zetasql_test.MessageWithMapField.StringInt32MapEntry]
+[load_proto_names=zetasql_test__.KitchenSinkPB, zetasql_test__.MessageWithMapField, zetasql_test__.MessageWithMapField.StringInt32MapEntry]
 [default required_features=V_1_3_PROTO_MAPS]
 [prepare_database]
 
 CREATE TABLE Table0 AS
-SELECT 0 key, NEW zetasql_test.MessageWithMapField(
-  [NEW zetasql_test.MessageWithMapField.StringInt32MapEntry("foo" AS key, 123 AS value),
-   NEW zetasql_test.MessageWithMapField.StringInt32MapEntry("bar" AS key, 456 AS value)] AS string_int32_map
+SELECT 0 key, NEW zetasql_test__.MessageWithMapField(
+  [NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry("foo" AS key, 123 AS value),
+   NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry("bar" AS key, 456 AS value)] AS string_int32_map
 ) value
 --
 ARRAY<STRUCT<
         key INT64,
-        value PROTO<zetasql_test.MessageWithMapField>
+        value PROTO<zetasql_test__.MessageWithMapField>
       >>
 [{0,
   {
@@ -27,11 +27,11 @@ ARRAY<STRUCT<
 ==
 
 [name=map_entry]
-SELECT NEW zetasql_test.MessageWithMapField(
-  [NEW zetasql_test.MessageWithMapField.StringInt32MapEntry("foo" AS key, 123 AS value)] AS string_int32_map
+SELECT NEW zetasql_test__.MessageWithMapField(
+  [NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry("foo" AS key, 123 AS value)] AS string_int32_map
 ) as pb
 --
-ARRAY<STRUCT<pb PROTO<zetasql_test.MessageWithMapField>>>[
+ARRAY<STRUCT<pb PROTO<zetasql_test__.MessageWithMapField>>>[
   {{
      string_int32_map {
        key: "foo"
@@ -42,16 +42,16 @@ ARRAY<STRUCT<pb PROTO<zetasql_test.MessageWithMapField>>>[
 ==
 
 [name=map_entry_key_null]
-SELECT NEW zetasql_test.MessageWithMapField(
-  [NEW zetasql_test.MessageWithMapField.StringInt32MapEntry(CAST(NULL AS STRING) AS key, 123 AS value)] AS string_int32_map
+SELECT NEW zetasql_test__.MessageWithMapField(
+  [NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry(CAST(NULL AS STRING) AS key, 123 AS value)] AS string_int32_map
 ) as pb
 --
 ERROR: generic::out_of_range: Cannot write NULL to key or value of map field in StringInt32MapEntry
 ==
 
 [name=map_entry_value_null]
-SELECT NEW zetasql_test.MessageWithMapField(
-  [NEW zetasql_test.MessageWithMapField.StringInt32MapEntry("foo" AS key, CAST(NULL AS INT32) AS value)] AS string_int32_map
+SELECT NEW zetasql_test__.MessageWithMapField(
+  [NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry("foo" AS key, CAST(NULL AS INT32) AS value)] AS string_int32_map
 ) as pb
 --
 ERROR: generic::out_of_range: Cannot write NULL to key or value of map field in StringInt32MapEntry
@@ -70,15 +70,15 @@ ARRAY<STRUCT<INT32>>[{456}]
 ==
 
 [name=map_lookup_with_conflicting_values_for_key_takes_last_matching_value]
-(SELECT [NEW zetasql_test.MessageWithMapField.StringInt32MapEntry("foo" AS key, 123 AS value),
-         NEW zetasql_test.MessageWithMapField.StringInt32MapEntry("bar" AS key, 456 AS value),
-         NEW zetasql_test.MessageWithMapField.StringInt32MapEntry("foo" AS key, 789 AS value)][KEY("foo")])
+(SELECT [NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry("foo" AS key, 123 AS value),
+         NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry("bar" AS key, 456 AS value),
+         NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry("foo" AS key, 789 AS value)][KEY("foo")])
 --
 ARRAY<STRUCT<INT32>>[{789}]
 ==
 
 [name=lookup_in_null]
-SELECT CAST(NULL AS ARRAY<zetasql_test.MessageWithMapField.StringInt32MapEntry>)[KEY("foo")];
+SELECT CAST(NULL AS ARRAY<zetasql_test__.MessageWithMapField.StringInt32MapEntry>)[KEY("foo")];
 --
 ARRAY<STRUCT<INT32>>[{NULL}]
 ==
@@ -103,8 +103,8 @@ ARRAY<STRUCT<INT32>>[{NULL}]
 
 [name=lookup_depending_on_other_map_key]
 WITH Input AS (
-    SELECT [NEW zetasql_test.MessageWithMapField.StringStringMapEntry("foo" AS key, "bar" AS value),
-            NEW zetasql_test.MessageWithMapField.StringStringMapEntry("bar" AS key, "success" AS value)] AS map)
+    SELECT [NEW zetasql_test__.MessageWithMapField.StringStringMapEntry("foo" AS key, "bar" AS value),
+            NEW zetasql_test__.MessageWithMapField.StringStringMapEntry("bar" AS key, "success" AS value)] AS map)
 SELECT i.map[KEY(i.map[KEY("foo")])] FROM Input i;
 --
 ARRAY<STRUCT<STRING>>[{"success"}]
@@ -114,7 +114,7 @@ ARRAY<STRUCT<STRING>>[{"success"}]
 SELECT MODIFY_MAP(value.string_int32_map, "foo", 789) FROM Table0;
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>[
+  {ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>[
      {
        key: "bar"
        value: 456
@@ -128,18 +128,18 @@ ARRAY<STRUCT<ARRAY<>>>[
 ==
 
 [name=modify_map_null_map]
-SELECT MODIFY_MAP(CAST(NULL AS ARRAY<zetasql_test.MessageWithMapField.StringInt32MapEntry>), "foo", 789) FROM Table0;
+SELECT MODIFY_MAP(CAST(NULL AS ARRAY<zetasql_test__.MessageWithMapField.StringInt32MapEntry>), "foo", 789) FROM Table0;
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>(NULL)}
+  {ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>(NULL)}
 ]
 ==
 
 [name=modify_map_empty_map]
-SELECT MODIFY_MAP(CAST([] AS ARRAY<zetasql_test.MessageWithMapField.StringInt32MapEntry>), "foo", 789) FROM Table0;
+SELECT MODIFY_MAP(CAST([] AS ARRAY<zetasql_test__.MessageWithMapField.StringInt32MapEntry>), "foo", 789) FROM Table0;
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>[
+  {ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>[
      {
        key: "foo"
        value: 789
@@ -152,7 +152,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 SELECT MODIFY_MAP(value.string_int32_map, "foo", 789, "quux", 1337) FROM Table0;
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>[
+  {ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>[
      {
        key: "bar"
        value: 456
@@ -173,7 +173,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 SELECT MODIFY_MAP(value.string_int32_map, "foo", CAST(value.string_int32_map[KEY("bar")] + 1 AS INT32)) FROM Table0;
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>[
+  {ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>[
      {
        key: "bar"
        value: 456
@@ -196,7 +196,7 @@ ERROR: generic::out_of_range: MODIFY_MAP: Only one instance of each key is allow
 SELECT MODIFY_MAP(value.string_int32_map, "baz", 789) FROM Table0;
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>[
+  {ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>[
      {
        key: "foo"
        value: 123
@@ -217,7 +217,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 SELECT MODIFY_MAP(value.string_int32_map, "bar", NULL) FROM Table0;
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>[
+  {ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>[
      {
        key: "foo"
        value: 123
@@ -230,7 +230,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 SELECT MODIFY_MAP(value.string_int32_map, "quux", NULL) FROM Table0;
 --
 ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.MessageWithMapField.StringInt32MapEntry>>[
+  {ARRAY<PROTO<zetasql_test__.MessageWithMapField.StringInt32MapEntry>>[
      {
        key: "foo"
        value: 123
@@ -255,7 +255,7 @@ SELECT CONTAINS_KEY(value.string_int32_map, "foo") has_foo,
        CONTAINS_KEY(value.string_int32_map, CONCAT("ba", "r")) has_concat_making_bar,
        CONTAINS_KEY(value.string_int32_map, "baz") has_baz,
        CONTAINS_KEY(value.string_int32_map, NULL) has_null,
-       CONTAINS_KEY(CAST(NULL AS ARRAY<zetasql_test.MessageWithMapField.StringInt32MapEntry>), "foo") null_has_foo
+       CONTAINS_KEY(CAST(NULL AS ARRAY<zetasql_test__.MessageWithMapField.StringInt32MapEntry>), "foo") null_has_foo
 FROM Table0;
 --
 ARRAY<STRUCT<

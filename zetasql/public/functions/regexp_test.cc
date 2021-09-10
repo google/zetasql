@@ -19,11 +19,13 @@
 #include <cstdint>
 #include <utility>
 
+#include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
 #include "zetasql/base/status.h"
@@ -45,30 +47,29 @@ TEST_P(RegexpTemplateTest, TestLib) {
   const FunctionTestCall& param = GetParam();
   const std::string& function = param.function_name;
   const std::vector<Value>& args = param.params.params();
-  bool expected_ok = param.params.status().ok();
+  const bool expected_ok = param.params.status().ok();
   for (const Value& arg : args) {
     // Ignore tests with null arguments.
     if (arg.is_null()) return;
   }
-  RegExp re;
-  bool ok;
-  absl::Status status;
+  absl::StatusOr<std::unique_ptr<const RegExp>> re;
   RegExp::PositionUnit position_unit;
   if (args[1].type_kind() == TYPE_STRING) {
-    ok = re.InitializePatternUtf8(args[1].string_value(), &status);
+    re = MakeRegExpUtf8(args[1].string_value());
     position_unit = RegExp::kUtf8Chars;
   } else {
-    ok = re.InitializePatternBytes(args[1].bytes_value(), &status);
+    re = MakeRegExpBytes(args[1].bytes_value());
     position_unit = RegExp::kBytes;
   }
-  if (!ok) {
+  if (!re.ok()) {
     ASSERT_FALSE(expected_ok);
-    ASSERT_EQ(param.params.status().code(), status.code());
+    ASSERT_EQ(param.params.status().code(), re.status().code());
     return;
   }
+  absl::Status status;
   if (function == "regexp_contains") {
     bool out;
-    ok = re.Contains(StringValue(args[0]), &out, &status);
+    bool ok = (*re)->Contains(StringValue(args[0]), &out, &status);
     ASSERT_EQ(expected_ok, ok);
     ASSERT_EQ(param.params.status().code(), status.code());
     if (ok) {
@@ -76,7 +77,7 @@ TEST_P(RegexpTemplateTest, TestLib) {
     }
   } else if (function == "regexp_match") {
     bool out;
-    ok = re.Match(StringValue(args[0]), &out, &status);
+    bool ok = (*re)->Match(StringValue(args[0]), &out, &status);
     ASSERT_EQ(expected_ok, ok);
     ASSERT_EQ(param.params.status().code(), status.code());
     if (ok) {
@@ -94,8 +95,8 @@ TEST_P(RegexpTemplateTest, TestLib) {
         occurrence = args[3].int64_value();
       }
     }
-    ok = re.Extract(in, position_unit, position, occurrence, &out, &is_null,
-                    &status);
+    bool ok = (*re)->Extract(in, position_unit, position, occurrence, &out,
+                             &is_null, &status);
     ASSERT_EQ(expected_ok, ok);
     ASSERT_EQ(param.params.status().code(), status.code());
     if (ok) {
@@ -109,7 +110,8 @@ TEST_P(RegexpTemplateTest, TestLib) {
     }
   } else if (function == "regexp_replace") {
     std::string out;
-    ok = re.Replace(StringValue(args[0]), StringValue(args[2]), &out, &status);
+    bool ok = (*re)->Replace(StringValue(args[0]), StringValue(args[2]), &out,
+                             &status);
     ASSERT_EQ(expected_ok, ok);
     ASSERT_EQ(param.params.status().code(), status.code());
     if (ok) {
@@ -118,11 +120,11 @@ TEST_P(RegexpTemplateTest, TestLib) {
   } else if (function == "regexp_extract_all") {
     std::string in_str = StringValue(args[0]);
     absl::string_view in = in_str;
-    re.ExtractAllReset(in);
+    RegExp::ExtractAllIterator iter = (*re)->CreateExtractAllIterator(in);
     std::vector<Value> values;
     while (true) {
       absl::string_view out;
-      if (!re.ExtractAllNext(&out, &status)) {
+      if (!iter.Next(&out, &status)) {
         ASSERT_EQ(expected_ok, status.ok());
         if (!expected_ok) {
           ASSERT_EQ(param.params.status().code(), status.code());
@@ -162,22 +164,20 @@ TEST_P(RegexpInstrTest, TestLib) {
     // Ignore tests with null arguments.
     if (arg.is_null()) return;
   }
-  RegExp re;
-  bool ok;
-  absl::Status status;
+  absl::StatusOr<std::unique_ptr<const RegExp>> re;
   RegExp::InstrParams options;
   if (args[1].type_kind() == TYPE_STRING) {
-    ok = re.InitializePatternUtf8(args[1].string_value(), &status);
+    re = MakeRegExpUtf8(args[1].string_value());
     options.input_str = args[0].string_value();
     options.position_unit = RegExp::kUtf8Chars;
   } else {
-    ok = re.InitializePatternBytes(args[1].bytes_value(), &status);
+    re = MakeRegExpBytes(args[1].bytes_value());
     options.input_str = args[0].bytes_value();
     options.position_unit = RegExp::kBytes;
   }
-  if (!ok) {
+  if (!re.status().ok()) {
     ASSERT_FALSE(expected_ok);
-    ASSERT_EQ(param.params.status().code(), status.code());
+    ASSERT_EQ(param.params.status().code(), re.status().code());
     return;
   }
 
@@ -196,9 +196,10 @@ TEST_P(RegexpInstrTest, TestLib) {
       }
     }
   }
+  absl::Status status;
   int64_t out;
   options.out = &out;
-  ok = re.Instr(options, &status);
+  bool ok = (*re)->Instr(options, &status);
   ASSERT_EQ(expected_ok, ok);
   ASSERT_EQ(param.params.status().code(), status.code());
   if (ok) {
@@ -220,14 +221,12 @@ TEST(RegexpExtract, NullStringView) {
                              {empty_string, empty_string}};
 
   for (const auto& pattern_and_input : patterns_and_inputs) {
-    RegExp regexp;
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto regexp, MakeRegExpUtf8(pattern_and_input.first));
     absl::Status status;
-    ASSERT_TRUE(regexp.InitializePatternUtf8(pattern_and_input.first, &status))
-        << status;
     absl::string_view out;
     bool is_null;
     ASSERT_TRUE(
-        regexp.Extract(pattern_and_input.second, &out, &is_null, &status))
+        regexp->Extract(pattern_and_input.second, &out, &is_null, &status))
         << status;
     EXPECT_NE(nullptr, out.data());
     EXPECT_TRUE(out.empty());
@@ -236,17 +235,15 @@ TEST(RegexpExtract, NullStringView) {
 }
 
 TEST(RegexpReplace, MemLimit) {
-  RegExp re;
-  absl::Status error;
-  ASSERT_TRUE(re.InitializePatternUtf8("A", &error));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto re, MakeRegExpUtf8("A"));
 
   std::string in(64 * 1024, 'A');
   std::string out;
-  EXPECT_TRUE(re.Replace(in, "BB", &out, &error));
+  absl::Status error;
+  EXPECT_TRUE(re->Replace(in, "BB", &out, &error));
 
-  re.SetMaxOutSize(64 * 1024);
-  EXPECT_TRUE(re.Replace(in, "B", &out, &error));
-  EXPECT_FALSE(re.Replace(in, "BB", &out, &error));
+  EXPECT_TRUE(re->Replace(in, "B", 64 * 1024, &out, &error));
+  EXPECT_FALSE(re->Replace(in, "BB", 64 * 1024, &out, &error));
 }
 
 TEST(RegexpReplace, NullStringView) {
@@ -260,12 +257,11 @@ TEST(RegexpReplace, NullStringView) {
                              {empty_string, empty_string}};
 
   for (const auto& pattern_and_input : patterns_and_inputs) {
-    RegExp regexp;
     absl::Status status;
-    ASSERT_TRUE(regexp.InitializePatternUtf8(pattern_and_input.first, &status))
-        << status;
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto regexp, MakeRegExpUtf8(pattern_and_input.first));
+
     std::string out;
-    ASSERT_TRUE(regexp.Replace(pattern_and_input.second, "foo", &out, &status))
+    ASSERT_TRUE(regexp->Replace(pattern_and_input.second, "foo", &out, &status))
         << status;
     EXPECT_EQ("foo", out);
   }
@@ -275,17 +271,16 @@ TEST(InitializeWithOptions, CaseInsensitive) {
   RE2::Options options;
   options.set_case_sensitive(false);
   absl::Status status;
-  RegExp reg_exp;
-  EXPECT_TRUE(reg_exp.InitializeWithOptions("abc", options, &status));
-  EXPECT_FALSE(reg_exp.re().options().case_sensitive());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto reg_exp, MakeRegExpWithOptions("abc", options));
+  EXPECT_FALSE(reg_exp->re().options().case_sensitive());
 
   bool out;
-  ASSERT_TRUE(reg_exp.Match("abc", &out, &status));
+  ASSERT_TRUE(reg_exp->Match("abc", &out, &status));
   EXPECT_TRUE(out);
-  ASSERT_TRUE(reg_exp.Match("AbC", &out, &status));
+  ASSERT_TRUE(reg_exp->Match("AbC", &out, &status));
   EXPECT_TRUE(out);
 
-  ASSERT_TRUE(reg_exp.Match("defgh", &out, &status));
+  ASSERT_TRUE(reg_exp->Match("defgh", &out, &status));
   EXPECT_FALSE(out);
 }
 

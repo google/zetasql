@@ -15,14 +15,20 @@
 //
 
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
+#include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/builtin_function.pb.h"
+#include "zetasql/public/catalog.h"
+#include "zetasql/public/function.h"
+#include "zetasql/public/id_string.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type_factory.h"
@@ -30,7 +36,13 @@
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
+#include "zetasql/resolved_ast/rewrite_utils.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
+#include "absl/types/span.h"
+#include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace {
@@ -57,6 +69,7 @@ class UnpivotRewriterVisitor : public ResolvedASTDeepCopyVisitor {
       : analyzer_options_(*analyzer_options),
         catalog_(catalog),
         type_factory_(type_factory),
+        fn_builder_(*analyzer_options, *catalog),
         rewriters_(rewriters) {}
 
   UnpivotRewriterVisitor(const UnpivotRewriterVisitor&) = delete;
@@ -75,13 +88,14 @@ class UnpivotRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   // struct_type : STRUCT <a type, b type, c type>
   // vector of struct elements :
   // { <w , x, label_list[0]>, <y , z , label_list[1]> }
-  zetasql_base::StatusOr<std::unique_ptr<ResolvedArrayScan>>
+  absl::StatusOr<std::unique_ptr<ResolvedArrayScan>>
   CreateArrayScanWithStructElements(const ResolvedUnpivotScan* node,
                                     const StructType** struct_type);
 
   const AnalyzerOptions& analyzer_options_;
   Catalog* const catalog_;
   TypeFactory* type_factory_;
+  FunctionCallBuilder fn_builder_;
   absl::Span<const Rewriter* const> rewriters_;
   // id used to assign a sequence number to element_column of ArrayScan of
   // unpivot rewrite tree. This helps to identify the column in the case of
@@ -99,7 +113,16 @@ absl::Status UnpivotRewriterVisitor::VisitResolvedUnpivotScan(
   // Create a ResolvedProjectScan that gets the individual struct fields from
   // the element_column of the ArrayScan and puts their values into the new
   // unpivot value and name columns, in that order.
-  std::vector<std::unique_ptr<ResolvedComputedColumn>> expr_list;
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>> expr_list;
+  for (const std::unique_ptr<const ResolvedComputedColumn>&
+           input_projected_column : node->projected_input_column_list()) {
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> column_ref_exp,
+                     ProcessNode(input_projected_column->expr()));
+    std::unique_ptr<ResolvedComputedColumn> computed_projected_column =
+        MakeResolvedComputedColumn(input_projected_column->column(),
+                                   std::move(column_ref_exp));
+    expr_list.push_back(std::move(computed_projected_column));
+  }
   std::vector<const ResolvedGetStructField*> value_column_struct_fields;
   ResolvedColumn unnest_column = struct_elements_array_scan->element_column();
   ZETASQL_RET_CHECK(struct_type->fields().size() ==
@@ -137,25 +160,13 @@ absl::Status UnpivotRewriterVisitor::VisitResolvedUnpivotScan(
   std::vector<std::unique_ptr<ResolvedExpr>> or_function_args;
   for (const zetasql::ResolvedExpr* value_column_struct_field :
        value_column_struct_fields) {
-    std::vector<std::unique_ptr<ResolvedExpr>> is_null_args;
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> value_struct_expr,
                      ProcessNode(value_column_struct_field));
-    is_null_args.push_back(std::move(value_struct_expr));
-    const Function* is_null_function;
-    ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"$is_null"}, &is_null_function,
-                                        analyzer_options_.find_options()));
     // The null function checks that the struct field that holds the values for
     // the unpivot value columns is null. We then use a not function since we
     // want to add a filter for this value to not be null.
-    std::unique_ptr<ResolvedExpr> is_null_function_expr =
-        MakeResolvedFunctionCall(
-            types::BoolType(), is_null_function,
-            FunctionSignature(
-                FunctionArgumentType(types::BoolType(), /*num_occurrences=*/1),
-                {FunctionArgumentType(value_column_struct_field->type(),
-                                      /*num_occurrences=*/1)},
-                FN_IS_NULL),
-            std::move(is_null_args), ResolvedFunctionCall::DEFAULT_ERROR_MODE);
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> is_null_function_expr,
+                     fn_builder_.IsNull(std::move(value_struct_expr)));
 
     const Function* is_not_function;
     ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"$not"}, &is_not_function,
@@ -204,7 +215,7 @@ absl::Status UnpivotRewriterVisitor::VisitResolvedUnpivotScan(
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<std::unique_ptr<ResolvedArrayScan>>
+absl::StatusOr<std::unique_ptr<ResolvedArrayScan>>
 UnpivotRewriterVisitor::CreateArrayScanWithStructElements(
     const ResolvedUnpivotScan* node, const StructType** struct_type) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedScan> input_scan,
@@ -295,7 +306,7 @@ class UnpivotRewriter : public Rewriter {
            analyzer_output.analyzer_output_properties().has_unpivot;
   }
 
-  zetasql_base::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
       const AnalyzerOptions& options,
       absl::Span<const Rewriter* const> rewriters, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,

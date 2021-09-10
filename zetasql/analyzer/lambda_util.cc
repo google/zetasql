@@ -17,20 +17,26 @@
 #include "zetasql/analyzer/lambda_util.h"
 
 #include <algorithm>
+#include <type_traits>
 #include <vector>
 
+#include "zetasql/base/logging.h"
+#include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/id_string.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
 // Extracts lambda argument name from the `arg_expr` and appends it to `names`.
 // Return error if the `arg_expr` is not a path expression with a single
 // identifier.
-static zetasql_base::StatusOr<IdString> ExtractArgumentNameFromExpr(
+static absl::StatusOr<IdString> ExtractArgumentNameFromExpr(
     const ASTExpression* arg_expr) {
   const ASTPathExpression* path_expr =
       arg_expr->GetAsOrNull<ASTPathExpression>();
@@ -81,7 +87,7 @@ static absl::Status ExtractLambdaArgumentNames(const ASTLambda* ast_lambda,
   return MakeSqlErrorAt(args_expr) << "Expecting lambda argument list";
 }
 
-zetasql_base::StatusOr<std::vector<IdString>> ExtractLambdaArgumentNames(
+absl::StatusOr<std::vector<IdString>> ExtractLambdaArgumentNames(
     const ASTLambda* ast_lambda) {
   std::vector<IdString> names;
   ZETASQL_RETURN_IF_ERROR(ExtractLambdaArgumentNames(ast_lambda, &names));

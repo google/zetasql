@@ -55,7 +55,9 @@ absl::Status NonSqlFunction::Create(
     ZETASQL_RET_CHECK_EQ(function_signatures.size(), 1);
   }
   ZETASQL_RET_CHECK(resolved_create_function_statement != nullptr);
-  ZETASQL_RET_CHECK(!resolved_create_function_statement->code().empty());
+  ZETASQL_RET_CHECK(!resolved_create_function_statement->code().empty() ||
+            absl::AsciiStrToUpper(
+                resolved_create_function_statement->language()) == "REMOTE");
   ZETASQL_RET_CHECK(!resolved_create_function_statement->language().empty());
   ZETASQL_RET_CHECK_NE(
       absl::AsciiStrToUpper(resolved_create_function_statement->language()),

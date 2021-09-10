@@ -226,6 +226,12 @@ static std::string ToStringImpl(ResolvedArgumentDef::ArgumentKind kind) {
 static std::string ToStringImpl(ResolvedImportStmt::ImportKind kind) {
   return ResolvedImportStmt::ImportKindToString(kind);
 }
+static std::string ToStringImpl(ResolvedAuxLoadDataStmt::InsertionMode mode) {
+  std::string name = ResolvedAuxLoadDataStmtEnums::InsertionMode_Name(mode);
+  if (!name.empty()) return name;
+  ZETASQL_LOG(DFATAL) << "Invalid InsertionMode: " << mode;
+  return absl::StrCat("INVALID_INSERTION_MODE(", mode, ")");
+}
 static std::string ToStringImpl(const FunctionSignature& signature) {
   return signature.DebugString();
 }
@@ -378,7 +384,7 @@ static std::string ToStringCommaSeparated(const std::vector<std::string>& value_
 // Use template functions to allow functions with the same argument list but
 // different return types.
 template <class R, class P>
-zetasql_base::StatusOr<R> RestoreFromImpl(const P& proto, const ResolvedNode::RestoreParams& params);
+absl::StatusOr<R> RestoreFromImpl(const P& proto, const ResolvedNode::RestoreParams& params);
 
 // The SaveToImpl(ScalarType, FileDescriptorSetMap*, ScalarProtoType*) functions
 // implement the serialization logic for scalar types. The FileDescriptorSetMap
@@ -399,7 +405,7 @@ static absl::Status SaveToImpl(
 
 // The RestoreFrom functions reverse the effect of the SaveTo functions.
 template<>
-zetasql_base::StatusOr<const Table*> RestoreFromImpl(
+absl::StatusOr<const Table*> RestoreFromImpl(
     const TableRefProto& proto,
     const ResolvedNode::RestoreParams& params) {
   const Table* table;
@@ -425,7 +431,7 @@ static absl::Status SaveToImpl(
 
 // The RestoreFrom functions reverse the effect of the SaveTo functions.
 template<>
-zetasql_base::StatusOr<const Model*> RestoreFromImpl(
+absl::StatusOr<const Model*> RestoreFromImpl(
     const ModelRefProto& proto,
     const ResolvedNode::RestoreParams& params) {
   const Model* model;
@@ -444,7 +450,7 @@ static absl::Status SaveToImpl(
 }
 
 template<>
-zetasql_base::StatusOr<const Connection*> RestoreFromImpl(
+absl::StatusOr<const Connection*> RestoreFromImpl(
     const ConnectionRefProto& proto,
     const ResolvedNode::RestoreParams& params) {
   const Connection* connection;
@@ -463,7 +469,7 @@ static absl::Status SaveToImpl(
 }
 
 template<>
-zetasql_base::StatusOr<const Constant*> RestoreFromImpl(
+absl::StatusOr<const Constant*> RestoreFromImpl(
     const ConstantRefProto& proto, const ResolvedNode::RestoreParams& params) {
   if (proto.name().empty()) {
     return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)
@@ -486,7 +492,7 @@ static absl::Status SaveToImpl(
 }
 
 template<>
-zetasql_base::StatusOr<const Function*> RestoreFromImpl(
+absl::StatusOr<const Function*> RestoreFromImpl(
     const FunctionRefProto& proto,
     const ResolvedNode::RestoreParams& params) {
   // Serialized function names include the group. We do not need this to look
@@ -513,7 +519,7 @@ static absl::Status SaveToImpl(
 }
 
 template<>
-zetasql_base::StatusOr<const TableValuedFunction*> RestoreFromImpl(
+absl::StatusOr<const TableValuedFunction*> RestoreFromImpl(
     const TableValuedFunctionRefProto& proto,
     const ResolvedNode::RestoreParams& params) {
   const TableValuedFunction* func;
@@ -531,7 +537,7 @@ static absl::Status SaveToImpl(
 }
 
 template<>
-zetasql_base::StatusOr<const Procedure*> RestoreFromImpl(
+absl::StatusOr<const Procedure*> RestoreFromImpl(
     const ProcedureRefProto& proto,
     const ResolvedNode::RestoreParams& params) {
   const Procedure* procedure;
@@ -548,7 +554,7 @@ static absl::Status SaveToImpl(
 }
 
 template<>
-zetasql_base::StatusOr<FunctionSignature> RestoreFromImpl(
+absl::StatusOr<FunctionSignature> RestoreFromImpl(
     const FunctionSignatureProto& proto,
     const ResolvedNode::RestoreParams& params) {
   // Some fields demand being set as FunctionSignature, not
@@ -571,7 +577,7 @@ static absl::Status SaveToImpl(
 }
 
 template<>
-zetasql_base::StatusOr<std::shared_ptr<FunctionSignature>> RestoreFromImpl(
+absl::StatusOr<std::shared_ptr<FunctionSignature>> RestoreFromImpl(
     const FunctionSignatureProto& proto,
     const ResolvedNode::RestoreParams& params) {
   // Some fields demand being set as FunctionSignature, not
@@ -580,7 +586,7 @@ zetasql_base::StatusOr<std::shared_ptr<FunctionSignature>> RestoreFromImpl(
   std::unique_ptr<FunctionSignature> sig;
   ZETASQL_RETURN_IF_ERROR(FunctionSignature::Deserialize(
       proto, params.pools, params.type_factory, &sig));
-  return std::move(sig);
+  return sig;
 }
 
 static absl::Status SaveToImpl(
@@ -592,7 +598,7 @@ static absl::Status SaveToImpl(
 }
 
 template<>
-zetasql_base::StatusOr<const Type*> RestoreFromImpl(
+absl::StatusOr<const Type*> RestoreFromImpl(
     const TypeProto& proto,
     const ResolvedNode::RestoreParams& params) {
   const Type* type;
@@ -617,7 +623,7 @@ static absl::Status SaveToImpl(
 }
 
 template<>
-zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*> RestoreFromImpl(
+absl::StatusOr<const google::protobuf::FieldDescriptor*> RestoreFromImpl(
     const FieldDescriptorRefProto& proto,
     const ResolvedNode::RestoreParams& params) {
   TypeProto type_proto;
@@ -664,7 +670,7 @@ static absl::Status SaveToImpl(const google::protobuf::OneofDescriptor* oneof_de
 }
 
 template<>
-zetasql_base::StatusOr<const google::protobuf::OneofDescriptor*> RestoreFromImpl(
+absl::StatusOr<const google::protobuf::OneofDescriptor*> RestoreFromImpl(
     const OneofDescriptorRefProto& oneof_proto,
     const ResolvedNode::RestoreParams& params) {
   TypeProto containing_proto;
@@ -694,7 +700,7 @@ static absl::Status SaveToImpl(
 }
 
 template<>
-zetasql_base::StatusOr<ResolvedColumn> RestoreFromImpl(
+absl::StatusOr<ResolvedColumn> RestoreFromImpl(
     const ResolvedColumnProto& proto,
     const ResolvedNode::RestoreParams& params) {
   return ResolvedColumn::RestoreFrom(proto, params);
@@ -713,7 +719,7 @@ static absl::Status SaveToImpl(
 }
 
 template<>
-zetasql_base::StatusOr<Value> RestoreFromImpl(
+absl::StatusOr<Value> RestoreFromImpl(
     const ValueWithTypeProto& proto,
     const ResolvedNode::RestoreParams& params) {
   if (!proto.has_value()) {
@@ -792,7 +798,7 @@ static absl::Status SaveToImpl(
 }
 
 template<>
-zetasql_base::StatusOr<std::shared_ptr<TVFSignature>> RestoreFromImpl(
+absl::StatusOr<std::shared_ptr<TVFSignature>> RestoreFromImpl(
     const TVFSignatureProto& proto,
     const ResolvedNode::RestoreParams& params) {
   std::vector<TVFInputArgumentType> input_args;
@@ -889,7 +895,7 @@ static absl::Status SaveToImpl(
 }
 
 template<>
-zetasql_base::StatusOr<std::shared_ptr<ResolvedFunctionCallInfo>>
+absl::StatusOr<std::shared_ptr<ResolvedFunctionCallInfo>>
     RestoreFromImpl(
         const ResolvedFunctionCallInfoProto& proto,
         const ResolvedNode::RestoreParams& params) {
@@ -904,13 +910,7 @@ static std::string ToStringImpl(const ResolvedCollation& resolved_collation) {
 
 static std::string ToStringImpl(
     const std::vector<ResolvedCollation>& resolved_collation_list) {
-  std::string joined =
-      absl::StrJoin(
-          resolved_collation_list, ",",
-          [] (std::string* out, const ResolvedCollation& resolved_collation) {
-            absl::StrAppend(out, resolved_collation.DebugString());
-          });
-  return absl::StrCat("[", joined, "]");
+  return ResolvedCollation::ToString(resolved_collation_list);
 }
 
 static absl::Status SaveToImpl(
@@ -921,7 +921,7 @@ static absl::Status SaveToImpl(
 }
 
 template<>
-zetasql_base::StatusOr<ResolvedCollation>
+absl::StatusOr<ResolvedCollation>
     RestoreFromImpl(
         const ResolvedCollationProto& proto,
         const ResolvedNode::RestoreParams& params) {
@@ -943,7 +943,7 @@ static absl::Status SaveToImpl(
 }
 
 template<>
-zetasql_base::StatusOr<const AnnotationMap*>
+absl::StatusOr<const AnnotationMap*>
     RestoreFromImpl(
         const AnnotationMapProto& proto,
         const ResolvedNode::RestoreParams& params) {
@@ -973,7 +973,7 @@ static absl::Status SaveToImpl(
 }
 
 template<>
-zetasql_base::StatusOr<TypeParameters>
+absl::StatusOr<TypeParameters>
     RestoreFromImpl(
         const TypeParametersProto& proto,
         const ResolvedNode::RestoreParams& params) {
@@ -998,7 +998,7 @@ zetasql_base::StatusOr<TypeParameters>
 // This is defined separately from the rest of the RestoreFrom implementations
 // because the root node does not have a proper entry in the tree generated in
 // gen_resolved_ast.py, so we have to iterate the nodes in a different way.
-zetasql_base::StatusOr<std::unique_ptr<ResolvedNode>> ResolvedNode::RestoreFrom(
+absl::StatusOr<std::unique_ptr<ResolvedNode>> ResolvedNode::RestoreFrom(
     const AnyResolvedNodeProto& proto, const RestoreParams& params) {
   switch (proto.node_case()) {
 # for node in root_child_nodes|sort_by_tag
@@ -1097,7 +1097,7 @@ absl::Status {{node.name}}::SaveTo(
   subclasses, checking if the proto contains one of those. If it does, we
   delegate to the subclass' RestoreFrom method.
 -#}
-zetasql_base::StatusOr<std::unique_ptr<{{node.name}}>> {{node.name}}::RestoreFrom(
+absl::StatusOr<std::unique_ptr<{{node.name}}>> {{node.name}}::RestoreFrom(
     const {{node.proto_field_type}}& proto,
     const ResolvedNode::RestoreParams& params) {
   switch (proto.node_case()) {
@@ -1114,7 +1114,7 @@ zetasql_base::StatusOr<std::unique_ptr<{{node.name}}>> {{node.name}}::RestoreFro
 
 # else
 
-zetasql_base::StatusOr<std::unique_ptr<{{node.name}}>> {{node.name}}::RestoreFrom(
+absl::StatusOr<std::unique_ptr<{{node.name}}>> {{node.name}}::RestoreFrom(
     const {{node.proto_type}}& proto,
     const ResolvedNode::RestoreParams& params) {
  # for field in node.fields + node.inherited_fields
@@ -1196,7 +1196,7 @@ zetasql_base::StatusOr<std::unique_ptr<{{node.name}}>> {{node.name}}::RestoreFro
   node->set_{{field.name}}(std::move({{field.name}}));
  # endfor
 
-  return std::move(node);
+  return node;
 }
 
 # endif
@@ -1269,7 +1269,7 @@ void {{node.name}}::CollectDebugStringFields(
  # for field in node.fields
   # if field.is_node_ptr
   if ({{field.member_name}} != nullptr) {
-    fields->emplace_back("{{field.name}}", {{field.member_accessor}});
+    fields->emplace_back("{{field.name}}", {{field.member_name}}.get());
   }
   # elif field.is_node_vector
   if (!{{field.member_name}}.empty()) {
@@ -1289,24 +1289,35 @@ void {{node.name}}::CollectDebugStringFields(
 
 # endif
 # if node.fields
-absl::Status {{node.name}}::CheckFieldsAccessed() const {
-  ZETASQL_RETURN_IF_ERROR(SUPER::CheckFieldsAccessed());
+absl::Status {{node.name}}::CheckFieldsAccessedImpl(
+    const ResolvedNode* root) const {
+  ZETASQL_RETURN_IF_ERROR(SUPER::CheckFieldsAccessedImpl(root));
 
  # for field in node.fields
   # if field.is_not_ignorable
   if ((accessed_ & {{field.bitmap}}) == 0) {
+    NodeAnnotation annotation = {
+      .node = this,
+      .annotation = "(*** This node has unaccessed field ***)"
+    };
     return ::zetasql_base::UnimplementedErrorBuilder(ZETASQL_LOC).LogError()
         << "Unimplemented feature "
-           "({{node.name}}::{{field.name}} not accessed)";
+           "({{node.name}}::{{field.name}} not accessed)\n"
+        << root->DebugString({annotation});
   }
   # endif
   # if field.is_ignorable_default
   if ((accessed_ & {{field.bitmap}}) == 0 &&
       !IsDefaultValue({{field.member_name}})) {
+    NodeAnnotation annotation = {
+      .node = this,
+      .annotation = "(*** This node has unaccessed field ***)"
+    };
     return ::zetasql_base::UnimplementedErrorBuilder(ZETASQL_LOC).LogError()
         << "Unimplemented feature "
            "({{node.name}}::{{field.name}} not accessed "
-           "and has non-default value)";
+           "and has non-default value)\n"
+        << root->DebugString({annotation});
   }
   # endif
  # endfor
@@ -1315,10 +1326,49 @@ absl::Status {{node.name}}::CheckFieldsAccessed() const {
   # if field.is_node_vector or field.is_node_ptr
   if ((accessed_ & {{field.bitmap}}) != 0) {
    # if field.is_node_vector
-    for (const auto& it : {{field.member_name}}) ZETASQL_RETURN_IF_ERROR(it->CheckFieldsAccessed());
+    for (const auto& it : {{field.member_name}}) {
+      ZETASQL_RETURN_IF_ERROR(CheckFieldsAccessedInternal(it.get(), root));
+    }
    # elif field.is_node_ptr
     if ({{field.member_name}} != nullptr) {
-      ZETASQL_RETURN_IF_ERROR({{field.member_name}}->CheckFieldsAccessed());
+      ZETASQL_RETURN_IF_ERROR(CheckFieldsAccessedInternal(
+          {{field.member_name}}.get(), root));
+    }
+   # endif
+  }
+  # endif
+ # endfor
+  return absl::OkStatus();
+}
+
+absl::Status {{node.name}}::CheckNoFieldsAccessed() const {
+  ZETASQL_RETURN_IF_ERROR(SUPER::CheckNoFieldsAccessed());
+
+ # for field in node.fields
+  # if field.is_not_ignorable
+  if ((accessed_ & {{field.bitmap}}) != 0) {
+    return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC).LogError()
+        << "({{node.name}}::{{field.name}} is accessed, but shouldn't be)";
+  }
+  # endif
+  # if field.is_ignorable_default
+  if ((accessed_ & {{field.bitmap}}) != 0 ) {
+    return ::zetasql_base::InternalErrorBuilder(ZETASQL_LOC).LogError()
+        << "({{node.name}}::{{field.name}} is accessed, but shouldn't be)";
+  }
+  # endif
+ # endfor
+
+ # for field in node.fields
+  # if field.is_node_vector or field.is_node_ptr
+  if ((accessed_ & {{field.bitmap}}) != 0) {
+   # if field.is_node_vector
+    for (const auto& it : {{field.member_name}}) {
+      ZETASQL_RETURN_IF_ERROR(it->CheckNoFieldsAccessed());
+    }
+   # elif field.is_node_ptr
+    if ({{field.member_name}} != nullptr) {
+      ZETASQL_RETURN_IF_ERROR({{field.member_name}}->CheckNoFieldsAccessed());
     }
    # endif
   }

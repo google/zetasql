@@ -21,12 +21,31 @@
 #include <string>
 
 #include "gtest/gtest_prod.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 
 namespace zetasql {
+
+struct ExecuteQueryCompletionRequest {
+  absl::string_view body;
+  size_t cursor_position = 0;
+
+  size_t word_start = 0;
+  size_t word_end = 0;
+  absl::string_view word;
+
+  std::string DebugString() const;
+  absl::Status Validate() const;
+};
+
+struct ExecuteQueryCompletionResult {
+  // The start of the range that should be replaced with the item text. This
+  // position always precedes the cursor provided in the completion request.
+  size_t prefix_start = 0;
+  std::vector<std::string> items;
+};
 
 class ExecuteQueryPrompt {
  public:
@@ -34,7 +53,7 @@ class ExecuteQueryPrompt {
 
   // Read next statement. Return empty optional when input is finished (e.g. at
   // EOF).
-  virtual zetasql_base::StatusOr<absl::optional<std::string>> Read() = 0;
+  virtual absl::StatusOr<absl::optional<std::string>> Read() = 0;
 };
 
 // A prompt implementation returning whole SQL statements. They're read using
@@ -45,10 +64,6 @@ class ExecuteQueryStatementPrompt : public ExecuteQueryPrompt {
  public:
   // Maximum accepted statement length in bytes
   constexpr static size_t kMaxLength = 8 * 1024 * 1024;
-
-  constexpr static zetasql_base::StatusOr<std::vector<std::string>> (
-      *kDefaultCompletionFunc)(absl::string_view body, size_t cursor_position) =
-      nullptr;
 
   // `read_next_func` is a function reading more input. Such inputs may contain
   // newlines and don't need to be line-separated. Must not be nullptr. The
@@ -62,28 +77,31 @@ class ExecuteQueryStatementPrompt : public ExecuteQueryPrompt {
   // payload. The context contains the statement text producing the error. The
   // caller may log the error and proceed as if nothing happened, therefore
   // handling SQL syntax issues gracefully.
-  //
-  // `autocomplete_func` is a function returning possible tokens to use at the
-  // given cursor position. It's given a full view into the body composed thus
-  // far. The body may continue beyond the cursor position. Errors are returned
-  // to the caller of the `Autocomplete` member function.
   explicit ExecuteQueryStatementPrompt(
       std::function<
-          zetasql_base::StatusOr<absl::optional<std::string>>(bool continuation)>
-          read_next_func,
-      std::function<zetasql_base::StatusOr<std::vector<std::string>>(
-          absl::string_view body, size_t cursor_position)>
-          autocomplete_func = kDefaultCompletionFunc);
+          absl::StatusOr<absl::optional<std::string>>(bool continuation)>
+          read_next_func);
   ExecuteQueryStatementPrompt(const ExecuteQueryStatementPrompt&) = delete;
   ExecuteQueryStatementPrompt& operator=(const ExecuteQueryStatementPrompt&) =
       delete;
 
+  // An autocompletion function returns possible tokens to use at the given
+  // cursor position. It's given a full view into the body composed thus far.
+  // The body may continue beyond the cursor position. Errors are returned to
+  // the caller of the `Autocomplete` member function.
+  void set_autocompletion_function(
+      std::function<absl::StatusOr<ExecuteQueryCompletionResult>(
+          const ExecuteQueryCompletionRequest& req)>
+          func) {
+    autocomplete_func_ = std::move(func);
+  }
+
   // Produce list of possible tokens at cursor position. Errors should generally
   // not be considered fatal as they may occur due to faulty syntax.
-  zetasql_base::StatusOr<std::vector<std::string>> Autocomplete(absl::string_view body,
-                                                        size_t cursor_position);
+  absl::StatusOr<ExecuteQueryCompletionResult> Autocomplete(
+      const ExecuteQueryCompletionRequest& req);
 
-  zetasql_base::StatusOr<absl::optional<std::string>> Read() override;
+  absl::StatusOr<absl::optional<std::string>> Read() override;
 
  private:
   void ReadInput(bool continuation);
@@ -93,17 +111,17 @@ class ExecuteQueryStatementPrompt : public ExecuteQueryPrompt {
   FRIEND_TEST(ExecuteQueryStatementPrompt, LargeInput);
 
   size_t max_length_ = kMaxLength;
-  const std::function<zetasql_base::StatusOr<absl::optional<std::string>>(bool)>
+  const std::function<absl::StatusOr<absl::optional<std::string>>(bool)>
       read_next_func_;
   const std::function<absl::Status(absl::Status, absl::string_view)>
       parser_error_handler_;
-  const std::function<zetasql_base::StatusOr<std::vector<std::string>>(
-      absl::string_view body, size_t cursor_position)>
+  std::function<absl::StatusOr<ExecuteQueryCompletionResult>(
+      const ExecuteQueryCompletionRequest& req)>
       autocomplete_func_;
   bool continuation_ = false;
   bool eof_ = false;
   absl::Cord buf_;
-  std::deque<zetasql_base::StatusOr<absl::optional<std::string>>> queue_;
+  std::deque<absl::StatusOr<absl::optional<std::string>>> queue_;
 };
 
 class ExecuteQuerySingleInput : public ExecuteQueryStatementPrompt {

@@ -21,7 +21,7 @@
 
 #include "zetasql/public/type.pb.h"
 #include "absl/base/attributes.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "re2/re2.h"
 #include "zetasql/base/status.h"
@@ -33,7 +33,7 @@ namespace functions {
 bool IsRegexSpecialChar(char c);
 
 // Generates regexp pattern from the pattern of LIKE function <pattern>.
-zetasql_base::StatusOr<std::string> GetRePatternFromLikePattern(
+absl::StatusOr<std::string> GetRePatternFromLikePattern(
     absl::string_view pattern);
 
 // Creates a regexp that can be used to compute LIKE function with a given

@@ -18,16 +18,22 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
+#include <utility>
+#include <vector>
 
+#include "zetasql/public/annotation.pb.h"
 #include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
-#include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -37,6 +43,8 @@ static std::string GetAnnotationKindName(AnnotationKind kind) {
   switch (kind) {
     case AnnotationKind::kCollation:
       return "Collation";
+    case AnnotationKind::kSampleAnnotation:
+      return "SampleAnnotation";
     case AnnotationKind::kMaxBuiltinAnnotationKind:
       return "MaxBuiltinAnnotationKind";
   }
@@ -53,7 +61,7 @@ absl::Status AnnotationMap::Serialize(AnnotationMapProto* proto) const {
 }
 
 // static
-zetasql_base::StatusOr<std::unique_ptr<AnnotationMap>> AnnotationMap::Deserialize(
+absl::StatusOr<std::unique_ptr<AnnotationMap>> AnnotationMap::Deserialize(
     const AnnotationMapProto& proto) {
   ZETASQL_RET_CHECK(!proto.is_null())
       << "is_null could only be true for struct field or array element";
@@ -240,21 +248,33 @@ int64_t AnnotationMap::GetEstimatedOwnedMemoryBytesSize() const {
   return total_size;
 }
 
-bool AnnotationMap::Equals(const AnnotationMap& that) const {
-  return EqualsInternal(this, &that);
+// static
+bool AnnotationMap::SimpleValueEqualsHelper(const SimpleValue* lhs,
+                                            const SimpleValue* rhs) {
+  return (lhs == nullptr && rhs == nullptr) ||
+         (lhs != nullptr && rhs != nullptr && lhs->Equals(*rhs));
 }
 
 // static
 bool AnnotationMap::EqualsInternal(const AnnotationMap* lhs,
-                                   const AnnotationMap* rhs) {
+                                   const AnnotationMap* rhs,
+                                   std::optional<int> annotation_spec_id) {
   if (lhs == nullptr) {
-    return rhs == nullptr || rhs->Empty();
+    return rhs == nullptr || rhs->EmptyInternal(annotation_spec_id);
   }
   if (rhs == nullptr) {
-    return lhs->Empty();
+    return lhs->EmptyInternal(annotation_spec_id);
   }
   // lhs and rhs have been guaranteed to be non-null.
-  if (lhs->annotations_ != rhs->annotations_) {
+  if (annotation_spec_id.has_value()) {
+    // If <annotation_spec_id> has value, only compares annotation value for the
+    // given AnnotationSpec id.
+    if (!SimpleValueEqualsHelper(
+            lhs->GetAnnotation(annotation_spec_id.value()),
+            rhs->GetAnnotation(annotation_spec_id.value()))) {
+      return false;
+    }
+  } else if (lhs->annotations_ != rhs->annotations_) {
     return false;
   }
   if (lhs->IsStructMap()) {
@@ -264,33 +284,38 @@ bool AnnotationMap::EqualsInternal(const AnnotationMap* lhs,
     }
     for (int i = 0; i < lhs->AsStructMap()->num_fields(); i++) {
       if (!EqualsInternal(lhs->AsStructMap()->field(i),
-                          rhs->AsStructMap()->field(i))) {
+                          rhs->AsStructMap()->field(i), annotation_spec_id)) {
         return false;
       }
     }
     return true;
   } else if (lhs->IsArrayMap()) {
-    return rhs->AsArrayMap() && EqualsInternal(lhs->AsArrayMap()->element(),
-                                               rhs->AsArrayMap()->element());
+    return rhs->IsArrayMap() &&
+           EqualsInternal(lhs->AsArrayMap()->element(),
+                          rhs->AsArrayMap()->element(), annotation_spec_id);
   }
   // lhs is neither a struct nor an array.
   return !rhs->IsStructMap() && !rhs->IsArrayMap();
 }
 
-bool AnnotationMap::Empty() const {
-  if (!annotations_.empty()) {
+bool AnnotationMap::EmptyInternal(std::optional<int> annotation_spec_id) const {
+  if (annotation_spec_id.has_value()) {
+    if (GetAnnotation(annotation_spec_id.value()) != nullptr) {
+      return false;
+    }
+  } else if (!annotations_.empty()) {
     return false;
   }
   if (IsStructMap()) {
     for (int i = 0; i < AsStructMap()->num_fields(); i++) {
       if (AsStructMap()->field(i) != nullptr &&
-          !AsStructMap()->field(i)->Empty()) {
+          !AsStructMap()->field(i)->EmptyInternal(annotation_spec_id)) {
         return false;
       }
     }
   } else if (IsArrayMap()) {
     if (AsArrayMap()->element() != nullptr &&
-        !AsArrayMap()->element()->Empty()) {
+        !AsArrayMap()->element()->EmptyInternal(annotation_spec_id)) {
       return false;
     }
   }
@@ -308,25 +333,37 @@ std::unique_ptr<AnnotationMap> AnnotationMap::Create(const Type* type) {
   }
 }
 
-std::string AnnotationMap::DebugString() const {
+std::string AnnotationMap::DebugStringInternal(
+    std::optional<int> annotation_spec_id) const {
   if (annotations_.empty()) {
     return "";
   }
-  std::string out("{");
-  absl::StrAppend(
-      &out,
-      absl::StrJoin(annotations_, ", ", [](std::string* out, const auto& pair) {
-        std::string annotation_id;
-        if (pair.first <=
-            static_cast<int>(AnnotationKind::kMaxBuiltinAnnotationKind)) {
-          annotation_id =
-              GetAnnotationKindName(static_cast<AnnotationKind>(pair.first));
-        } else {
-          annotation_id = std::to_string(pair.first);
-        }
-        absl::StrAppend(out, annotation_id, ":", pair.second.DebugString());
-      }));
-  absl::StrAppend(&out, "}");
+
+  std::string out;
+  if (annotation_spec_id.has_value()) {
+    const SimpleValue* annotation = GetAnnotation(annotation_spec_id.value());
+    if (annotation != nullptr) {
+      out = annotation->DebugString();
+    }
+  } else {
+    out = "{";
+    absl::StrAppend(
+        &out,
+        absl::StrJoin(
+            annotations_, ", ", [](std::string* out, const auto& pair) {
+              std::string annotation_id;
+              if (pair.first <=
+                  static_cast<int>(AnnotationKind::kMaxBuiltinAnnotationKind)) {
+                annotation_id = GetAnnotationKindName(
+                    static_cast<AnnotationKind>(pair.first));
+              } else {
+                annotation_id = std::to_string(pair.first);
+              }
+              absl::StrAppend(out, annotation_id, ":",
+                              pair.second.DebugString());
+            }));
+    absl::StrAppend(&out, "}");
+  }
   return out;
 }
 
@@ -352,14 +389,19 @@ absl::Status StructAnnotationMap::Serialize(AnnotationMapProto* proto) const {
   return absl::OkStatus();
 }
 
-std::string StructAnnotationMap::DebugString() const {
-  std::string out(AnnotationMap::DebugString());
+std::string StructAnnotationMap::DebugStringInternal(
+    std::optional<int> annotation_spec_id) const {
+  std::string out(AnnotationMap::DebugStringInternal(annotation_spec_id));
   absl::StrAppend(&out, "<");
   for (int i = 0; i < num_fields(); i++) {
     std::string field_debug_string =
-        field(i) == nullptr ? "null" : field(i)->DebugString();
-    absl::StrAppend(&out,
-                    field_debug_string.empty() ? "{}" : field_debug_string);
+        field(i) == nullptr ? "_"
+                            : field(i)->DebugStringInternal(annotation_spec_id);
+    if (field_debug_string.empty() && !annotation_spec_id.has_value()) {
+      field_debug_string = "{}";
+    }
+
+    absl::StrAppend(&out, field_debug_string);
     if (i != num_fields() - 1) {
       absl::StrAppend(&out, ",");
     }
@@ -394,10 +436,17 @@ ArrayAnnotationMap::ArrayAnnotationMap(const ArrayType* array_type) {
   element_ = AnnotationMap::Create(array_type->element_type());
 }
 
-std::string ArrayAnnotationMap::DebugString() const {
-  std::string out(AnnotationMap::DebugString());
+std::string ArrayAnnotationMap::DebugStringInternal(
+    std::optional<int> annotation_spec_id) const {
+  std::string out(AnnotationMap::DebugStringInternal(annotation_spec_id));
   absl::StrAppend(&out, "[");
-  absl::StrAppend(&out, element() == nullptr ? "" : element()->DebugString());
+  std::string element_debug_string =
+      element() == nullptr ? "_"
+                           : element()->DebugStringInternal(annotation_spec_id);
+  if (element_debug_string.empty() && !annotation_spec_id.has_value()) {
+    element_debug_string = "{}";
+  }
+  absl::StrAppend(&out, element_debug_string);
   absl::StrAppend(&out, "]");
   return out;
 }

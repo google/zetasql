@@ -268,11 +268,16 @@ cs_embed_star         ({cs_not_star}*({cs_star}+{cs_not_star_or_slash})*)*
 cs_comment_begin      {cs_start}{cs_embed_star}{cs_star}*
 cs_comment            {cs_start}{cs_embed_star}{cs_star}+{cs_slash}
 
+/* Requiring a newline at the end of dash_coment and pound_comment does not
+   cause an error even if the comment comes in the last line of a query,
+   thanks to the newline sentinel input (See:
+   https://github.com/google/zetasql/blob/master/zetasql/parser/flex_tokenizer.h?l=128).
+*/
 /* Dash comments using -- */
-dash_comment          \-\-[^\r\n]*(\r|\n|\r\n)?
+dash_comment          \-\-[^\r\n]*(\r|\n|\r\n)
 
 /* # comment ignores anything from # to the end of the line. */
-pound_comment         #[^\r\n]*(\r|\n|\r\n)?
+pound_comment         #[^\r\n]*(\r|\n|\r\n)
 
 comment               ({cs_comment}|{dash_comment}|{pound_comment})
 
@@ -326,6 +331,26 @@ comment               ({cs_comment}|{dash_comment}|{pound_comment})
     }
     yylloc->begin = yylloc->end;
 %}
+
+ /* IMPORTANT: This rule must come before keywords, since it conditionally
+  *   force-emits the IDENTIFIER token, even if a keyword is present.
+ */
+{identifier}{opt_whitespace}[:]{opt_whitespace}(begin|while|loop|repeat|for) {
+  // We have a label declaration, so force a LABEL token even if it
+  // matches a non-reserved keyword. Note that label names cannot be handled in
+  // the grammar via the keyword_as_identifier rule, due to reduce/reduce
+  // conflicts.
+  SET_RETURN_PREFIX_LENGTH(GetIdentifierLength(YYText()));
+
+  if (IsReservedKeyword(YYText())) {
+    SetOverrideError(*yylloc,
+                     absl::StrCat("Reserved keyword '", YYText(),
+                     "' may not be used as a label name without backquotes"));
+    yyterminate();
+  } else {
+    return zetasql_bison_parser::BisonParserImpl::token::LABEL;
+  }
+}
 
  /* All keywords (used, reserved, and usable-as-identifiers). These are
     ambiguous with the identifier rule, but they win because they are
@@ -451,6 +476,7 @@ external { return BisonParserImpl::token::KW_EXTERNAL; }
 extract { return BisonParserImpl::token::KW_EXTRACT; }
 false { return BisonParserImpl::token::KW_FALSE; }
 fetch { return BisonParserImpl::token::KW_FETCH; }
+files { return BisonParserImpl::token::KW_FILES; }
 fill { return BisonParserImpl::token::KW_FILL; }
 filter { return BisonParserImpl::token::KW_FILTER; }
 filter_fields { return BisonParserImpl::token::KW_FILTER_FIELDS; }
@@ -500,6 +526,7 @@ left { return BisonParserImpl::token::KW_LEFT; }
 level { return BisonParserImpl::token::KW_LEVEL; }
 like { return BisonParserImpl::token::KW_LIKE; }
 limit { return BisonParserImpl::token::KW_LIMIT; }
+load { return BisonParserImpl::token::KW_LOAD; }
 lookup { return BisonParserImpl::token::KW_LOOKUP; }
 loop { return BisonParserImpl::token::KW_LOOP; }
 match { return BisonParserImpl::token::KW_MATCH; }
@@ -543,6 +570,7 @@ order { return BisonParserImpl::token::KW_ORDER; }
 out { return BisonParserImpl::token::KW_OUT; }
 outer { return BisonParserImpl::token::KW_OUTER; }
 over { return BisonParserImpl::token::KW_OVER; }
+overwrite { return BisonParserImpl::token::KW_OVERWRITE; }
 partition { return BisonParserImpl::token::KW_PARTITION; }
 percent { return BisonParserImpl::token::KW_PERCENT; }
 policies { return BisonParserImpl::token::KW_POLICIES; }
@@ -551,15 +579,21 @@ preceding { return BisonParserImpl::token::KW_PRECEDING; }
 procedure { return BisonParserImpl::token::KW_PROCEDURE; }
 primary { return BisonParserImpl::token::KW_PRIMARY; }
 private { return BisonParserImpl::token::KW_PRIVATE; }
+privilege { return BisonParserImpl::token::KW_PRIVILEGE; }
 privileges { return BisonParserImpl::token::KW_PRIVILEGES; }
 proto { return BisonParserImpl::token::KW_PROTO; }
 public { return BisonParserImpl::token::KW_PUBLIC; }
-qualify { return BisonParserImpl::token::KW_QUALIFY; }
+qualify {
+  return IsReservedKeyword("QUALIFY") ?
+      BisonParserImpl::token::KW_QUALIFY_RESERVED :
+      BisonParserImpl::token::KW_QUALIFY_NONRESERVED;
+}
 raise { return BisonParserImpl::token::KW_RAISE; }
 range { return BisonParserImpl::token::KW_RANGE; }
 read { return BisonParserImpl::token::KW_READ; }
 recursive { return BisonParserImpl::token::KW_RECURSIVE; }
 references { return BisonParserImpl::token::KW_REFERENCES; }
+remote { return BisonParserImpl::token::KW_REMOTE; }
 rename { return BisonParserImpl::token::KW_RENAME; }
 repeat { return BisonParserImpl::token::KW_REPEAT; }
 repeatable { return BisonParserImpl::token::KW_REPEATABLE; }
@@ -567,6 +601,7 @@ replace { return BisonParserImpl::token::KW_REPLACE; }
 replace_fields { return BisonParserImpl::token::KW_REPLACE_FIELDS; }
 respect { return BisonParserImpl::token::KW_RESPECT; }
 restrict { return BisonParserImpl::token::KW_RESTRICT; }
+restriction { return BisonParserImpl::token::KW_RESTRICTION; }
 return { return BisonParserImpl::token::KW_RETURN; }
 returns { return BisonParserImpl::token::KW_RETURNS; }
 revoke { return BisonParserImpl::token::KW_REVOKE; }

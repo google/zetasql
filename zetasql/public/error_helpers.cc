@@ -26,8 +26,9 @@
 #include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/error_location.pb.h"
 #include "zetasql/public/parse_location.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/cord.h"  
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/substitute.h"
@@ -139,7 +140,7 @@ std::string FormatError(const absl::Status& status) {
     // to avoid turning a single-line error message into a multi-line one.
     absl::string_view payload_separator;
     if (!payload_string.empty()) {
-      const bool multiline = message.find('\n') != std::string::npos;
+      const bool multiline = absl::StrContains(message, '\n');
       payload_separator = multiline ? "\n" : " ";
     }
     absl::StrAppend(&message, location_string, payload_separator,
@@ -193,7 +194,7 @@ static void GetTruncatedInputStringInfo(absl::string_view input,
   ZETASQL_DCHECK_GT(location.column(), 0);
 
   ParseLocationTranslator translator(input);
-  zetasql_base::StatusOr<absl::string_view> line_text =
+  absl::StatusOr<absl::string_view> line_text =
       translator.GetLineText(location.line());
   ZETASQL_DCHECK_OK(line_text.status());
 

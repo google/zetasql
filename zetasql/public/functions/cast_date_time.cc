@@ -41,7 +41,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
@@ -494,7 +494,7 @@ bool IsSupportedForParsing(const DateTimeFormatElement& format_element) {
 
 // For example, "YYY", standalone, matches 1-3 digits, but in the context of
 // "YYYMM", "YYY" must match exactly 3 digits.
-zetasql_base::StatusOr<std::vector<bool>> ComputeElementPrecedesDigits(
+absl::StatusOr<std::vector<bool>> ComputeElementPrecedesDigits(
     std::vector<DateTimeFormatElement> format_elements) {
   std::vector<bool> element_precedes_digits;
   element_precedes_digits.resize(format_elements.size(), false);
@@ -563,7 +563,7 @@ struct DigitCountRange {
 // parse more than one digit blocks (e.g. "Y,YYY"), we set both <min> and
 // <max> to be 0, and do not use them in parsing process. Returns an error if
 // any format element inside <format_elements> is not supported for parsing.
-zetasql_base::StatusOr<std::vector<DigitCountRange>> ComputeDigitCountRanges(
+absl::StatusOr<std::vector<DigitCountRange>> ComputeDigitCountRanges(
     const std::vector<DateTimeFormatElement>& format_elements) {
   std::vector<DigitCountRange> digit_count_ranges;
   digit_count_ranges.resize(format_elements.size());
@@ -1566,7 +1566,7 @@ const FormatElementTypeTrie& GetFormatElementTypeTrie() {
 
 // Decides the <format_casing_type> field for a non-literal format element
 // based on its original string and category.
-zetasql_base::StatusOr<FormatCasingType> GetFormatCasingTypeOfNonLiteralElements(
+absl::StatusOr<FormatCasingType> GetFormatCasingTypeOfNonLiteralElements(
     absl::string_view format_element_str, FormatElementCategory category) {
   ZETASQL_RET_CHECK(category != FormatElementCategory::kLiteral);
   ZETASQL_RET_CHECK(!format_element_str.empty() &&
@@ -1608,7 +1608,7 @@ zetasql_base::StatusOr<FormatCasingType> GetFormatCasingTypeOfNonLiteralElements
 // We need the upper <format_str> to do the search in prefix tree since matching
 // are case-sensitive and we need the original <format_str> to extract the
 // original_str for the format element object.
-zetasql_base::StatusOr<DateTimeFormatElement> GetNextDateTimeFormatElement(
+absl::StatusOr<DateTimeFormatElement> GetNextDateTimeFormatElement(
     absl::string_view format_str, absl::string_view upper_format_str) {
   DateTimeFormatElement format_element;
   int matched_len;
@@ -1697,7 +1697,7 @@ zetasql_base::StatusOr<DateTimeFormatElement> GetNextDateTimeFormatElement(
 // We need the upper format_str to do the search in prefix tree since matching
 // are case-sensitive and we need the original format_str to extract the
 // original_str for the format element object.
-zetasql_base::StatusOr<std::vector<DateTimeFormatElement>> GetDateTimeFormatElements(
+absl::StatusOr<std::vector<DateTimeFormatElement>> GetDateTimeFormatElements(
     absl::string_view format_str) {
   std::vector<DateTimeFormatElement> format_elements;
   size_t processed_len = 0;
@@ -1725,7 +1725,7 @@ zetasql_base::StatusOr<std::vector<DateTimeFormatElement>> GetDateTimeFormatElem
 // supported by FormatTime will be formatted manually in this function. Any
 // non-literal elements that output strings will be outputted with the first
 // letter capitalized and all subsequent letters will be lowercase.
-zetasql_base::StatusOr<std::string> FromDateTimeFormatElementToFormatString(
+absl::StatusOr<std::string> FromDateTimeFormatElementToFormatString(
     const DateTimeFormatElement& format_element,
     const absl::TimeZone::CivilInfo info) {
   switch (format_element.type) {
@@ -1795,7 +1795,7 @@ zetasql_base::StatusOr<std::string> FromDateTimeFormatElementToFormatString(
     }
     case FormatElementType::kAM:
     case FormatElementType::kPM: {
-      if (info.cs.hour() > 12) {
+      if (info.cs.hour() >= 12) {
         return "PM";
       } else {
         return "AM";
@@ -1803,7 +1803,7 @@ zetasql_base::StatusOr<std::string> FromDateTimeFormatElementToFormatString(
     }
     case FormatElementType::kAMWithDots:
     case FormatElementType::kPMWithDots: {
-      if (info.cs.hour() > 12) {
+      if (info.cs.hour() >= 12) {
         return "P.M.";
       } else {
         return "A.M.";
@@ -1829,7 +1829,7 @@ zetasql_base::StatusOr<std::string> FromDateTimeFormatElementToFormatString(
   }
 }
 
-zetasql_base::StatusOr<std::string> ResolveFormatString(
+absl::StatusOr<std::string> ResolveFormatString(
     const DateTimeFormatElement& format_element, absl::Time base_time,
     absl::TimeZone timezone) {
   const absl::TimeZone::CivilInfo info = timezone.At(base_time);
@@ -1863,7 +1863,7 @@ zetasql_base::StatusOr<std::string> ResolveFormatString(
   }
 }
 
-zetasql_base::StatusOr<std::string> FromCastFormatTimestampToStringInternal(
+absl::StatusOr<std::string> FromCastFormatTimestampToStringInternal(
     absl::Span<const DateTimeFormatElement> format_elements,
     absl::Time base_time, absl::TimeZone timezone) {
   if (!IsValidTime(base_time)) {

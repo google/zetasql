@@ -868,7 +868,7 @@ QueryStmt
       | |       +-argument_list=
       | |       | +-FunctionArgument
       | |       |   +-expr=
-      | |       |     +-Literal(type=DOUBLE, value=42)
+      | |       |     +-Literal(type=DOUBLE, value=42, has_explicit_type=TRUE)
       | |       +-column_index_list=[0]
       | +-output_column_list=[tvf_exactly_1_double_arg.column_bool#1]
       +-SetOperationItem
@@ -883,7 +883,7 @@ QueryStmt
       | |       +-argument_list=
       | |       | +-FunctionArgument
       | |       |   +-expr=
-      | |       |     +-Literal(type=DOUBLE, value=42)
+      | |       |     +-Literal(type=DOUBLE, value=42, has_explicit_type=TRUE)
       | |       +-column_index_list=[0]
       | +-output_column_list=[tvf_exactly_1_double_arg.column_bool#3]
       +-SetOperationItem
@@ -898,7 +898,7 @@ QueryStmt
       | |       +-argument_list=
       | |       | +-FunctionArgument
       | |       |   +-expr=
-      | |       |     +-Literal(type=DOUBLE, value=42)
+      | |       |     +-Literal(type=DOUBLE, value=42, has_explicit_type=TRUE)
       | |       +-column_index_list=[0]
       | +-output_column_list=[tvf_exactly_1_double_arg.column_bool#5]
       +-SetOperationItem
@@ -913,7 +913,7 @@ QueryStmt
       | |       +-argument_list=
       | |       | +-FunctionArgument
       | |       |   +-expr=
-      | |       |     +-Literal(type=DOUBLE, value=42)
+      | |       |     +-Literal(type=DOUBLE, value=42, has_explicit_type=TRUE)
       | |       +-column_index_list=[0]
       | +-output_column_list=[tvf_exactly_1_double_arg.column_bool#7]
       +-SetOperationItem
@@ -928,7 +928,7 @@ QueryStmt
       | |       +-argument_list=
       | |       | +-FunctionArgument
       | |       |   +-expr=
-      | |       |     +-Literal(type=DOUBLE, value=42)
+      | |       |     +-Literal(type=DOUBLE, value=42, has_explicit_type=TRUE)
       | |       +-column_index_list=[0]
       | +-output_column_list=[tvf_exactly_1_double_arg.column_bool#9]
       +-SetOperationItem
@@ -958,7 +958,7 @@ QueryStmt
       | |       +-argument_list=
       | |       | +-FunctionArgument
       | |       |   +-expr=
-      | |       |     +-Literal(type=INT64, value=42)
+      | |       |     +-Literal(type=INT64, value=42, has_explicit_type=TRUE)
       | |       +-column_index_list=[0]
       | +-output_column_list=[tvf_exactly_1_int64_arg.column_bool#13]
       +-SetOperationItem
@@ -973,7 +973,7 @@ QueryStmt
         |       +-argument_list=
         |       | +-FunctionArgument
         |       |   +-expr=
-        |       |     +-Literal(type=UINT64, value=42)
+        |       |     +-Literal(type=UINT64, value=42, has_explicit_type=TRUE)
         |       +-column_index_list=[0]
         +-output_column_list=[tvf_exactly_1_uint64_arg.column_bool#15]
 ==
@@ -1173,7 +1173,7 @@ QueryStmt
 
 # The TVF accepts a templated argument.
 select column_bool from
-tvf_exactly_one_arg_proto_any(new zetasql_test.TestExtraPB())
+tvf_exactly_one_arg_proto_any(new zetasql_test__.TestExtraPB())
 --
 QueryStmt
 +-output_column_list=
@@ -1185,11 +1185,11 @@ QueryStmt
       +-TVFScan
         +-column_list=[tvf_exactly_one_arg_proto_any.column_bool#1]
         +-tvf=tvf_exactly_one_arg_proto_any((<proto>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        +-signature=(PROTO<zetasql_test.TestExtraPB>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-signature=(PROTO<zetasql_test__.TestExtraPB>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
         | +-FunctionArgument
         |   +-expr=
-        |     +-MakeProto(type=PROTO<zetasql_test.TestExtraPB>)
+        |     +-MakeProto(type=PROTO<zetasql_test__.TestExtraPB>)
         +-column_index_list=[0]
 ==
 
@@ -1226,7 +1226,7 @@ QueryStmt
 
 # The TVF accepts a templated argument.
 select column_bool from
-tvf_exactly_one_arg_enum_any(CAST(1 AS `zetasql_test.TestEnum`))
+tvf_exactly_one_arg_enum_any(CAST(1 AS `zetasql_test__.TestEnum`))
 --
 QueryStmt
 +-output_column_list=
@@ -1238,11 +1238,11 @@ QueryStmt
       +-TVFScan
         +-column_list=[tvf_exactly_one_arg_enum_any.column_bool#1]
         +-tvf=tvf_exactly_one_arg_enum_any((<enum>) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        +-signature=(ENUM<zetasql_test.TestEnum>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-signature=(ENUM<zetasql_test__.TestEnum>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
         | +-FunctionArgument
         |   +-expr=
-        |     +-Literal(type=ENUM<zetasql_test.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
+        |     +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1, has_explicit_type=TRUE)
         +-column_index_list=[0]
 ==
 
@@ -1555,6 +1555,47 @@ QueryStmt
       +-OrderByItem
         +-column_ref=
           +-ColumnRef(type=INT64, column=$orderby.$orderbycol1#6)
+==
+
+# A TVF has a correlated reference to the left hand table via the lateral
+# behavior of UNNEST
+select *
+from KeyValue kv,
+     unnest(array(select column_bool from tvf_exactly_1_int64_arg(kv.key)));
+--
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
+| +-$array.$unnest1#5 AS `$unnest1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $array.$unnest1#5]
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $array.$unnest1#5]
+        +-input_scan=
+        | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1], alias="kv")
+        +-array_expr=
+        | +-SubqueryExpr
+        |   +-type=ARRAY<BOOL>
+        |   +-subquery_type=ARRAY
+        |   +-parameter_list=
+        |   | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   +-subquery=
+        |     +-ProjectScan
+        |       +-column_list=[tvf_exactly_1_int64_arg.column_bool#3]
+        |       +-input_scan=
+        |         +-TVFScan
+        |           +-column_list=[tvf_exactly_1_int64_arg.column_bool#3]
+        |           +-tvf=tvf_exactly_1_int64_arg((INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        |           +-signature=(INT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        |           +-argument_list=
+        |           | +-FunctionArgument
+        |           |   +-expr=
+        |           |     +-ColumnRef(type=INT64, column=KeyValue.Key#1, is_correlated=TRUE)
+        |           +-column_index_list=[0]
+        +-element_column=$array.$unnest1#5
 ==
 
 # Call a TVF passing a query parameter within a scalar argument.
@@ -3144,14 +3185,14 @@ QueryStmt
 # With a value table, pseudo-columns don't show up in the value or in *.
 # Java diffs:
 #      +-input_scan=
-# -      +-TVFScan(column_list=[tvf_no_arg_returning_value_table_with_pseudo_columns.$col0#1], tvf=tvf_no_arg_returning_value_table_with_pseudo_columns(() -> TABLE<PROTO<zetasql_test.TestExtraPB>, RowId INT64, PartitionName STRING>), signature=() -> TABLE<PROTO<zetasql_test.TestExtraPB>, RowId INT64, PartitionName STRING>, alias="t")
-# +      +-TVFScan(column_list=[tvf_no_arg_returning_value_table_with_pseudo_columns.$col0#1], tvf=tvf_no_arg_returning_value_table_with_pseudo_columns(() -> TABLE<PROTO<zetasql_test.TestExtraPB>>), signature=() -> TABLE<PROTO<zetasql_test.TestExtraPB>>, alias="t")
+# -      +-TVFScan(column_list=[tvf_no_arg_returning_value_table_with_pseudo_columns.$col0#1], tvf=tvf_no_arg_returning_value_table_with_pseudo_columns(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>, RowId INT64, PartitionName STRING>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>, RowId INT64, PartitionName STRING>, alias="t")
+# +      +-TVFScan(column_list=[tvf_no_arg_returning_value_table_with_pseudo_columns.$col0#1], tvf=tvf_no_arg_returning_value_table_with_pseudo_columns(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>, alias="t")
 [no_java]
 select t, * from tvf_no_arg_returning_value_table_with_pseudo_columns() t;
 --
 QueryStmt
 +-output_column_list=
-| +-tvf_no_arg_returning_value_table_with_pseudo_columns.$col0#1 AS t [PROTO<zetasql_test.TestExtraPB>]
+| +-tvf_no_arg_returning_value_table_with_pseudo_columns.$col0#1 AS t [PROTO<zetasql_test__.TestExtraPB>]
 | +-$query.int32_val1#4 AS int32_val1 [INT32]
 | +-$query.int32_val2#5 AS int32_val2 [INT32]
 | +-$query.str_value#6 AS str_value [ARRAY<STRING>]
@@ -3163,25 +3204,25 @@ QueryStmt
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_no_arg_returning_value_table_with_pseudo_columns.$col0#1)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_no_arg_returning_value_table_with_pseudo_columns.$col0#1)
     | |   +-field_descriptor=int32_val1
     | |   +-default_value=0
     | +-int32_val2#5 :=
     | | +-GetProtoField
     | |   +-type=INT32
     | |   +-expr=
-    | |   | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_no_arg_returning_value_table_with_pseudo_columns.$col0#1)
+    | |   | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_no_arg_returning_value_table_with_pseudo_columns.$col0#1)
     | |   +-field_descriptor=int32_val2
     | |   +-default_value=0
     | +-str_value#6 :=
     |   +-GetProtoField
     |     +-type=ARRAY<STRING>
     |     +-expr=
-    |     | +-ColumnRef(type=PROTO<zetasql_test.TestExtraPB>, column=tvf_no_arg_returning_value_table_with_pseudo_columns.$col0#1)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_no_arg_returning_value_table_with_pseudo_columns.$col0#1)
     |     +-field_descriptor=str_value
     |     +-default_value=[]
     +-input_scan=
-      +-TVFScan(column_list=[tvf_no_arg_returning_value_table_with_pseudo_columns.$col0#1], tvf=tvf_no_arg_returning_value_table_with_pseudo_columns(() -> TABLE<PROTO<zetasql_test.TestExtraPB>, RowId INT64, PartitionName STRING>), signature=() -> TABLE<PROTO<zetasql_test.TestExtraPB>, RowId INT64, PartitionName STRING>, column_index_list=[0], alias="t")
+      +-TVFScan(column_list=[tvf_no_arg_returning_value_table_with_pseudo_columns.$col0#1], tvf=tvf_no_arg_returning_value_table_with_pseudo_columns(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>, RowId INT64, PartitionName STRING>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>, RowId INT64, PartitionName STRING>, column_index_list=[0], alias="t")
 ==
 
 # Value table pseudo-columns can be selected unqualified or qualified.
@@ -3197,12 +3238,12 @@ QueryStmt
 +-output_column_list=
 | +-tvf_no_arg_returning_value_table_with_pseudo_columns.PartitionName#3 AS PartitionName [STRING]
 | +-tvf_no_arg_returning_value_table_with_pseudo_columns.RowId#2 AS RowId [INT64]
-| +-tvf_no_arg_returning_value_table_with_pseudo_columns.$col0#1 AS t [PROTO<zetasql_test.TestExtraPB>]
+| +-tvf_no_arg_returning_value_table_with_pseudo_columns.$col0#1 AS t [PROTO<zetasql_test__.TestExtraPB>]
 +-query=
   +-ProjectScan
     +-column_list=tvf_no_arg_returning_value_table_with_pseudo_columns.[PartitionName#3, RowId#2, $col0#1]
     +-input_scan=
-      +-TVFScan(column_list=tvf_no_arg_returning_value_table_with_pseudo_columns.[$col0#1, RowId#2, PartitionName#3], tvf=tvf_no_arg_returning_value_table_with_pseudo_columns(() -> TABLE<PROTO<zetasql_test.TestExtraPB>, RowId INT64, PartitionName STRING>), signature=() -> TABLE<PROTO<zetasql_test.TestExtraPB>, RowId INT64, PartitionName STRING>, column_index_list=[0, 1, 2], alias="t")
+      +-TVFScan(column_list=tvf_no_arg_returning_value_table_with_pseudo_columns.[$col0#1, RowId#2, PartitionName#3], tvf=tvf_no_arg_returning_value_table_with_pseudo_columns(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>, RowId INT64, PartitionName STRING>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>, RowId INT64, PartitionName STRING>, column_index_list=[0, 1, 2], alias="t")
 ==
 
 # Regression test against b/182060963: Make sure the AST location of TVF

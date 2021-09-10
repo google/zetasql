@@ -573,3 +573,43 @@ QueryStmt
         +-column_list=[d.x#2]
         +-input_scan=
           +-WithRefScan(column_list=[d.x#2], with_query_name="d")
+==
+
+WITH table1 AS (SELECT 1 AS col1 )
+    (WITH table2 AS (SELECT 1 AS col2)
+     SELECT col2 FROM table2);
+--
+QueryStmt
++-output_column_list=
+| +-table2.col2#3 AS col2 [INT64]
++-query=
+  +-WithScan
+    +-column_list=[table2.col2#3]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="table1"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-column_list=[table1.col1#1]
+    |       +-expr_list=
+    |       | +-col1#1 := Literal(type=INT64, value=1)
+    |       +-input_scan=
+    |         +-SingleRowScan
+    +-query=
+      +-WithScan
+        +-column_list=[table2.col2#3]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="table2"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=[table2.col2#2]
+        |       +-expr_list=
+        |       | +-col2#2 := Literal(type=INT64, value=1)
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=[table2.col2#3]
+            +-input_scan=
+              +-WithRefScan(column_list=[table2.col2#3], with_query_name="table2")

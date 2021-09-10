@@ -18,6 +18,7 @@ syntax = "proto2";
 
 package zetasql;
 
+import "zetasql/public/annotation.proto";
 import "zetasql/public/options.proto";
 import "zetasql/public/type.proto";
 import "zetasql/public/value.proto";
@@ -59,6 +60,11 @@ message TestTableOptionsProto {
   // If unset, no user id metadata is set for this table. This field should not
   // be set to an empty string.
   optional string userid_column = 6;
+
+  // Annotations for each column of the table. nullptr from
+  // <TestTableOptions.column_annotations_> is serialized into an empty
+  // AnnotationMapProto object.
+  repeated zetasql.AnnotationMapProto column_annotations = 7;
 }
 
 message TestTableProto {

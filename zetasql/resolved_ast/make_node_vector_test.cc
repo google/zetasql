@@ -268,19 +268,22 @@ TEST(MakeNodeVector, MakeVectorConstructionConstness) {
 
 TEST(Construction, MultipleLists) {
   // Ensure Empty initializer lists work okay.
-  auto a1 = MakeResolvedColumnAnnotations(false, {}, {}, TypeParameters());
+  auto a1 = MakeResolvedColumnAnnotations(/*collation_name=*/nullptr, false, {},
+                                          {}, TypeParameters());
   auto a2 = MakeResolvedColumnAnnotations(
-      false, MakeNodeVector(MakeResolvedOption()), {}, TypeParameters());
+      /*collation_name=*/nullptr, false, MakeNodeVector(MakeResolvedOption()),
+      {}, TypeParameters());
   auto a3 = MakeResolvedColumnAnnotations(
-      false, {}, MakeNodeVector(MakeResolvedColumnAnnotations()),
-      TypeParameters());
+      /*collation_name=*/nullptr, false, {},
+      MakeNodeVector(MakeResolvedColumnAnnotations()), TypeParameters());
 
   // Ensure non-empty lists all work (and nesting, incidentally).
   auto a4 = MakeResolvedColumnAnnotations(
-      false, MakeNodeVector(MakeResolvedOption()),
+      /*collation_name=*/nullptr, false, MakeNodeVector(MakeResolvedOption()),
       MakeNodeVector(
           MakeResolvedColumnAnnotations(),
-          MakeResolvedColumnAnnotations(false, {}, {}, TypeParameters())),
+          MakeResolvedColumnAnnotations(/*collation_name=*/nullptr, false, {},
+                                        {}, TypeParameters())),
       TypeParameters());
 }
 

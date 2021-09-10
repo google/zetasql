@@ -1,6 +1,6 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test.KitchenSinkPB, zetasql_test.TestExtraPB, zetasql_test.KitchenSinkPB.Nested, zetasql_test.RepeatedHolderPB, zetasql_test.EmptyMessage]
-[load_enum_names=zetasql_test.TestEnum]
+[load_proto_names=zetasql_test__.KitchenSinkPB, zetasql_test__.TestExtraPB, zetasql_test__.KitchenSinkPB.Nested, zetasql_test__.RepeatedHolderPB, zetasql_test__.EmptyMessage]
+[load_enum_names=zetasql_test__.TestEnum]
 
 [prepare_database]
 CREATE TABLE AllArraysTable AS
@@ -19,9 +19,9 @@ CREATE TABLE AllArraysTable AS
     ARRAY<TIMESTAMP>["1984-08-02 01:01:01.001001 UTC",
                      "2000-01-01 01:01:01.001001 UTC",
                      "2014-09-11 01:01:01.001001 UTC"] micros_arrcol,
-    ARRAY<zetasql_test.TestEnum>[
+    ARRAY<zetasql_test__.TestEnum>[
       "TESTENUM0", "TESTENUM1", "TESTENUM2"] enum_arrcol,
-    ARRAY<zetasql_test.KitchenSinkPB>[
+    ARRAY<zetasql_test__.KitchenSinkPB>[
       '''
         int64_key_1: 11
         int64_key_2: 12
@@ -50,8 +50,8 @@ UNION ALL
     ARRAY<DATE>["1984-08-02", NULL, "2014-09-11"],
     ARRAY<TIMESTAMP>["1984-08-02 01:01:01.001001 UTC", NULL,
                      "2014-09-11 01:01:01.001001 UTC"],
-    ARRAY<zetasql_test.TestEnum>["TESTENUM0", NULL, "TESTENUM2"],
-    ARRAY<zetasql_test.KitchenSinkPB>[
+    ARRAY<zetasql_test__.TestEnum>["TESTENUM0", NULL, "TESTENUM2"],
+    ARRAY<zetasql_test__.KitchenSinkPB>[
       '''
         int64_key_1: 11
         int64_key_2: 12
@@ -76,8 +76,8 @@ UNION ALL
     ARRAY<BYTES>[NULL, b"c"],
     ARRAY<DATE>[NULL, "2014-09-11"],
     ARRAY<TIMESTAMP>[NULL, "2014-09-11 01:01:01.001001 UTC"],
-    ARRAY<zetasql_test.TestEnum>[NULL, "TESTENUM2"],
-    ARRAY<zetasql_test.KitchenSinkPB>[
+    ARRAY<zetasql_test__.TestEnum>[NULL, "TESTENUM2"],
+    ARRAY<zetasql_test__.KitchenSinkPB>[
       NULL,
       '''
         int64_key_1: 31
@@ -98,8 +98,8 @@ UNION ALL
     ARRAY<BYTES>[b"a", NULL],
     ARRAY<DATE>["1984-08-02", NULL],
     ARRAY<TIMESTAMP>["1984-08-02 01:01:01.001001 UTC", NULL],
-    ARRAY<zetasql_test.TestEnum>["TESTENUM0", NULL],
-    ARRAY<zetasql_test.KitchenSinkPB>[
+    ARRAY<zetasql_test__.TestEnum>["TESTENUM0", NULL],
+    ARRAY<zetasql_test__.KitchenSinkPB>[
       '''
         int64_key_1: 11
         int64_key_2: 12
@@ -119,8 +119,8 @@ UNION ALL
     ARRAY<BYTES>[NULL, NULL],
     ARRAY<DATE>[NULL, NULL],
     ARRAY<TIMESTAMP>[NULL, NULL],
-    ARRAY<zetasql_test.TestEnum>[NULL, NULL],
-    ARRAY<zetasql_test.KitchenSinkPB>[NULL, NULL],
+    ARRAY<zetasql_test__.TestEnum>[NULL, NULL],
+    ARRAY<zetasql_test__.KitchenSinkPB>[NULL, NULL],
     ARRAY<STRUCT<int64, int64>>[NULL, NULL]
 UNION ALL
   SELECT
@@ -136,8 +136,8 @@ UNION ALL
     ARRAY<BYTES>[NULL],
     ARRAY<DATE>[NULL],
     ARRAY<TIMESTAMP>[NULL],
-    ARRAY<zetasql_test.TestEnum>[NULL],
-    ARRAY<zetasql_test.KitchenSinkPB>[NULL],
+    ARRAY<zetasql_test__.TestEnum>[NULL],
+    ARRAY<zetasql_test__.KitchenSinkPB>[NULL],
     ARRAY<STRUCT<int64, int64>>[NULL]
 UNION ALL
   SELECT
@@ -153,8 +153,8 @@ UNION ALL
     ARRAY<BYTES>[b"a"],
     ARRAY<DATE>["1984-08-02"],
     ARRAY<TIMESTAMP>["1984-08-02 01:01:01.001001 UTC"],
-    ARRAY<zetasql_test.TestEnum>["TESTENUM0"],
-    ARRAY<zetasql_test.KitchenSinkPB>[
+    ARRAY<zetasql_test__.TestEnum>["TESTENUM0"],
+    ARRAY<zetasql_test__.KitchenSinkPB>[
       '''
         int64_key_1: 11
         int64_key_2: 12
@@ -174,8 +174,8 @@ UNION ALL
     ARRAY<BYTES>[],
     ARRAY<DATE>[],
     ARRAY<TIMESTAMP>[],
-    ARRAY<zetasql_test.TestEnum>[],
-    ARRAY<zetasql_test.KitchenSinkPB>[],
+    ARRAY<zetasql_test__.TestEnum>[],
+    ARRAY<zetasql_test__.KitchenSinkPB>[],
     ARRAY<STRUCT<int64, int64>>[]
 UNION ALL
   SELECT
@@ -191,8 +191,8 @@ UNION ALL
     IF(FALSE, ARRAY<BYTES>[], NULL),
     IF(FALSE, ARRAY<DATE>[], NULL),
     IF(FALSE, ARRAY<TIMESTAMP>[], NULL),
-    IF(FALSE, ARRAY<zetasql_test.TestEnum>[], NULL),
-    IF(FALSE, ARRAY<zetasql_test.KitchenSinkPB>[], NULL),
+    IF(FALSE, ARRAY<zetasql_test__.TestEnum>[], NULL),
+    IF(FALSE, ARRAY<zetasql_test__.KitchenSinkPB>[], NULL),
     IF(FALSE, ARRAY<STRUCT<int64, int64>>[], NULL)
 --
 ARRAY<STRUCT<
@@ -228,8 +228,8 @@ ARRAY<STRUCT<
     2000-01-01 01:01:01.001001+00,
     2014-09-11 01:01:01.001001+00
   ],
-  ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM0, TESTENUM1, TESTENUM2],
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM1, TESTENUM2],
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     {
       int64_key_1: 11
       int64_key_2: 12
@@ -260,8 +260,8 @@ ARRAY<STRUCT<
     NULL,
     2014-09-11 01:01:01.001001+00
   ],
-  ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM0, NULL, TESTENUM2],
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, NULL, TESTENUM2],
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     {
       int64_key_1: 11
       int64_key_2: 12
@@ -288,8 +288,8 @@ ARRAY<STRUCT<
     NULL,
     2014-09-11 01:01:01.001001+00
   ],
-  ARRAY<ENUM<zetasql_test.TestEnum>>[NULL, TESTENUM2],
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<ENUM<zetasql_test__.TestEnum>>[NULL, TESTENUM2],
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     NULL,
     {
       int64_key_1: 31
@@ -312,8 +312,8 @@ ARRAY<STRUCT<
     1984-08-02 01:01:01.001001+00,
     NULL
   ],
-  ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM0, NULL],
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, NULL],
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     {
       int64_key_1: 11
       int64_key_2: 12
@@ -334,8 +334,8 @@ ARRAY<STRUCT<
    ARRAY<BYTES>[NULL, NULL],
    ARRAY<DATE>[NULL, NULL],
    ARRAY<TIMESTAMP>[NULL, NULL],
-   ARRAY<ENUM<zetasql_test.TestEnum>>[NULL, NULL],
-   ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[NULL, NULL],
+   ARRAY<ENUM<zetasql_test__.TestEnum>>[NULL, NULL],
+   ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[NULL, NULL],
    ARRAY<STRUCT<INT64, INT64>>[NULL, NULL]
  },
  {
@@ -351,8 +351,8 @@ ARRAY<STRUCT<
    ARRAY<BYTES>[NULL],
    ARRAY<DATE>[NULL],
    ARRAY<TIMESTAMP>[NULL],
-   ARRAY<ENUM<zetasql_test.TestEnum>>[NULL],
-   ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[NULL],
+   ARRAY<ENUM<zetasql_test__.TestEnum>>[NULL],
+   ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[NULL],
    ARRAY<STRUCT<INT64, INT64>>[NULL]
  },
  {7,
@@ -367,8 +367,8 @@ ARRAY<STRUCT<
   ARRAY<BYTES>[b"a"],
   ARRAY<DATE>[1984-08-02],
   ARRAY<TIMESTAMP>[1984-08-02 01:01:01.001001+00],
-  ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM0],
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0],
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     {
       int64_key_1: 11
       int64_key_2: 12
@@ -388,8 +388,8 @@ ARRAY<STRUCT<
    ARRAY<BYTES>[],
    ARRAY<DATE>[],
    ARRAY<TIMESTAMP>[],
-   ARRAY<ENUM<zetasql_test.TestEnum>>[],
-   ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[],
+   ARRAY<ENUM<zetasql_test__.TestEnum>>[],
+   ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[],
    ARRAY<STRUCT<INT64, INT64>>[]
  },
  {
@@ -405,8 +405,8 @@ ARRAY<STRUCT<
    ARRAY<BYTES>(NULL),
    ARRAY<DATE>(NULL),
    ARRAY<TIMESTAMP>(NULL),
-   ARRAY<ENUM<zetasql_test.TestEnum>>(NULL),
-   ARRAY<PROTO<zetasql_test.KitchenSinkPB>>(NULL),
+   ARRAY<ENUM<zetasql_test__.TestEnum>>(NULL),
+   ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>(NULL),
    ARRAY<STRUCT<INT64, INT64>>(NULL)
  }]
 ==
@@ -813,21 +813,21 @@ ARRAY<STRUCT<elem TIMESTAMP>>[
 SELECT enum_arrcol FROM AllArraysTable
 --
 ARRAY<STRUCT<enum_arrcol ARRAY<>>>[
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM0, TESTENUM1, TESTENUM2]},
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM0, NULL, TESTENUM2]},
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[NULL, TESTENUM2]},
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM0, NULL]},
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[NULL, NULL]},
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[NULL]},
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM0]},
-  {ARRAY<ENUM<zetasql_test.TestEnum>>[]},
-  {ARRAY<ENUM<zetasql_test.TestEnum>>(NULL)}
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM1, TESTENUM2]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, NULL, TESTENUM2]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[NULL, TESTENUM2]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, NULL]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[NULL, NULL]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[NULL]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>[]},
+  {ARRAY<ENUM<zetasql_test__.TestEnum>>(NULL)}
 ]
 ==
 [name=select_enum_array_unnest]
 SELECT elem FROM AllArraysTable t, t.enum_arrcol elem
 --
-ARRAY<STRUCT<elem ENUM<zetasql_test.TestEnum>>>[
+ARRAY<STRUCT<elem ENUM<zetasql_test__.TestEnum>>>[
   {NULL},
   {TESTENUM0},
   {TESTENUM2},
@@ -848,7 +848,7 @@ ARRAY<STRUCT<elem ENUM<zetasql_test.TestEnum>>>[
 SELECT proto_arrcol FROM AllArraysTable
 --
 ARRAY<STRUCT<proto_arrcol ARRAY<>>>[
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 11
        int64_key_2: 12
@@ -862,7 +862,7 @@ ARRAY<STRUCT<proto_arrcol ARRAY<>>>[
        int64_key_2: 32
      }
    ]},
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 11
        int64_key_2: 12
@@ -873,36 +873,36 @@ ARRAY<STRUCT<proto_arrcol ARRAY<>>>[
        int64_key_2: 32
      }
    ]},
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      NULL,
      {
        int64_key_1: 31
        int64_key_2: 32
      }
    ]},
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 11
        int64_key_2: 12
      },
      NULL
    ]},
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[NULL, NULL]},
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[NULL]},
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[NULL, NULL]},
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[NULL]},
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
      {
        int64_key_1: 11
        int64_key_2: 12
      }
    ]},
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[]},
-  {ARRAY<PROTO<zetasql_test.KitchenSinkPB>>(NULL)}
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[]},
+  {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>(NULL)}
 ]
 ==
 [name=select_proto_array_unnest]
 SELECT elem FROM AllArraysTable t, t.proto_arrcol elem
 --
-ARRAY<STRUCT<elem PROTO<zetasql_test.KitchenSinkPB>>>[
+ARRAY<STRUCT<elem PROTO<zetasql_test__.KitchenSinkPB>>>[
   {NULL},
   {{
      int64_key_1: 11
@@ -1228,8 +1228,8 @@ ARRAY<STRUCT<
    ARRAY<BYTES>[],
    ARRAY<DATE>[],
    ARRAY<TIMESTAMP>[],
-   ARRAY<ENUM<zetasql_test.TestEnum>>[],
-   ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[],
+   ARRAY<ENUM<zetasql_test__.TestEnum>>[],
+   ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[],
    ARRAY<STRUCT<INT64, INT64>>[],
    8,
    ARRAY<BOOL>[],
@@ -1243,8 +1243,8 @@ ARRAY<STRUCT<
    ARRAY<BYTES>[],
    ARRAY<DATE>[],
    ARRAY<TIMESTAMP>[],
-   ARRAY<ENUM<zetasql_test.TestEnum>>[],
-   ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[],
+   ARRAY<ENUM<zetasql_test__.TestEnum>>[],
+   ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[],
    ARRAY<STRUCT<INT64, INT64>>[]
  },
  {1,
@@ -1263,8 +1263,8 @@ ARRAY<STRUCT<
     2000-01-01 01:01:01.001001+00,
     2014-09-11 01:01:01.001001+00
   ],
-  ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM0, TESTENUM1, TESTENUM2],
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM1, TESTENUM2],
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     {
       int64_key_1: 11
       int64_key_2: 12
@@ -1295,8 +1295,8 @@ ARRAY<STRUCT<
     2000-01-01 01:01:01.001001+00,
     2014-09-11 01:01:01.001001+00
   ],
-  ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM0, TESTENUM1, TESTENUM2],
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0, TESTENUM1, TESTENUM2],
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     {
       int64_key_1: 11
       int64_key_2: 12
@@ -1323,8 +1323,8 @@ ARRAY<STRUCT<
   ARRAY<BYTES>[b"a"],
   ARRAY<DATE>[1984-08-02],
   ARRAY<TIMESTAMP>[1984-08-02 01:01:01.001001+00],
-  ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM0],
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0],
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     {
       int64_key_1: 11
       int64_key_2: 12
@@ -1343,8 +1343,8 @@ ARRAY<STRUCT<
   ARRAY<BYTES>[b"a"],
   ARRAY<DATE>[1984-08-02],
   ARRAY<TIMESTAMP>[1984-08-02 01:01:01.001001+00],
-  ARRAY<ENUM<zetasql_test.TestEnum>>[TESTENUM0],
-  ARRAY<PROTO<zetasql_test.KitchenSinkPB>>[
+  ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM0],
+  ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
     {
       int64_key_1: 11
       int64_key_2: 12

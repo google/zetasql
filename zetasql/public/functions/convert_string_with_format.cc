@@ -53,7 +53,7 @@ constexpr size_t kRomanNumeralOutputSize = 15;
 class FormatParser {
  public:
   // Parses the format string and returns <parsed_format_element_info>.
-  zetasql_base::StatusOr<ParsedFormatElementInfo> Parse(absl::string_view format);
+  absl::StatusOr<ParsedFormatElementInfo> Parse(absl::string_view format);
 
  private:
   // There are 4 types of format strings:
@@ -745,7 +745,7 @@ absl::optional<FormatElement> GetFormatElement(absl::string_view str,
   }
 }
 
-zetasql_base::StatusOr<ParsedFormatElementInfo> FormatParser::Parse(
+absl::StatusOr<ParsedFormatElementInfo> FormatParser::Parse(
     absl::string_view format) {
   if (format.size() > absl::GetFlag(FLAGS_zetasql_format_max_output_width)) {
     return FormatStringErrorBuilder()
@@ -853,7 +853,7 @@ zetasql_base::StatusOr<ParsedFormatElementInfo> FormatParser::Parse(
 }
 
 // Generates and returns the fractional part of the output.
-zetasql_base::StatusOr<std::string> GenerateFractionalPart(
+absl::StatusOr<std::string> GenerateFractionalPart(
     const ParsedFormatElementInfo& parsed_info, const ParsedNumberString& n) {
   std::string result;
   bool overflow = n.integer_part.size() > parsed_info.num_integer_digit;
@@ -936,7 +936,7 @@ struct IntegerPart {
 // <left_padding_size> of the return value contains the number of spaces that
 // should be left padded the output.  For example, for input 12.3, format string
 // "9999.99", calling this method returns { text = "12", left_padding_size = 2}.
-zetasql_base::StatusOr<IntegerPart> FormatIntegerPartOfDecimal(
+absl::StatusOr<IntegerPart> FormatIntegerPartOfDecimal(
     const ParsedFormatElementInfo& parsed_info, const ParsedNumberString& n) {
   std::string result;
   result.reserve(parsed_info.decimal_point_index);
@@ -997,7 +997,7 @@ zetasql_base::StatusOr<IntegerPart> FormatIntegerPartOfDecimal(
   return IntegerPart{.text = result, .left_padding_size = format_index + 1};
 }
 
-zetasql_base::StatusOr<std::string> GenerateCurrencyOutput(
+absl::StatusOr<std::string> GenerateCurrencyOutput(
     bool is_b_effective, const ParsedFormatElementInfo& parsed_info) {
   std::string result;
 
@@ -1031,7 +1031,7 @@ struct SignOutput {
 };
 
 // Generate the output for sign.
-zetasql_base::StatusOr<SignOutput> GenerateSignOutput(
+absl::StatusOr<SignOutput> GenerateSignOutput(
     bool negative, bool is_b_effective,
     const ParsedFormatElementInfo& parsed_info) {
   std::string prefix, suffix;
@@ -1081,7 +1081,7 @@ bool OverflowForInfinityOrNaN(
   return parsed_info.decimal_point_index < 3;
 }
 
-zetasql_base::StatusOr<std::string> GenerateFractionalPartForInfinityOrNaN(
+absl::StatusOr<std::string> GenerateFractionalPartForInfinityOrNaN(
     const ParsedFormatElementInfo& parsed_info) {
   const bool overflow = OverflowForInfinityOrNaN(parsed_info);
 
@@ -1124,7 +1124,7 @@ zetasql_base::StatusOr<std::string> GenerateFractionalPartForInfinityOrNaN(
   return result;
 }
 
-zetasql_base::StatusOr<IntegerPart> FormatIntegerPartForInfinityOrNaN(
+absl::StatusOr<IntegerPart> FormatIntegerPartForInfinityOrNaN(
     const ParsedFormatElementInfo& parsed_info, const ParsedNumberString& n) {
   const std::string input = n.is_infinity ? "INF" : "NAN";
   const bool overflow = OverflowForInfinityOrNaN(parsed_info);
@@ -1171,7 +1171,7 @@ zetasql_base::StatusOr<IntegerPart> FormatIntegerPartForInfinityOrNaN(
   return IntegerPart{.text = result, .left_padding_size = format_index + 1};
 }
 
-zetasql_base::StatusOr<std::string> FormatInfinityOrNaN(
+absl::StatusOr<std::string> FormatInfinityOrNaN(
     const ParsedFormatElementInfo& parsed_info, const ParsedNumberString& n) {
   std::string result;
   std::string input = n.is_infinity ? "INF" : "NAN";
@@ -1219,7 +1219,7 @@ zetasql_base::StatusOr<std::string> FormatInfinityOrNaN(
   return result;
 }
 
-zetasql_base::StatusOr<std::string> FormatAsDecimalInternal(
+absl::StatusOr<std::string> FormatAsDecimalInternal(
     const ParsedFormatElementInfo& parsed_info, const ParsedNumberString& n) {
   if (n.is_infinity || n.is_nan) {
     return FormatInfinityOrNaN(parsed_info, n);
@@ -1281,7 +1281,7 @@ zetasql_base::StatusOr<std::string> FormatAsDecimalInternal(
   return result;
 }
 
-zetasql_base::StatusOr<std::string> FormatAsDecimal(
+absl::StatusOr<std::string> FormatAsDecimal(
     const ParsedFormatElementInfo& parsed_info, const Value& v,
     ProductMode product_mode) {
   if (v.type()->IsInteger()) {
@@ -1349,7 +1349,7 @@ struct HexNumber {
   std::string hex_string;
 };
 
-zetasql_base::StatusOr<HexNumber> GenerateHexNumber(const Value& v) {
+absl::StatusOr<HexNumber> GenerateHexNumber(const Value& v) {
   bool negative = false;
   absl::Status status;
   uint64_t value;
@@ -1412,7 +1412,7 @@ zetasql_base::StatusOr<HexNumber> GenerateHexNumber(const Value& v) {
                         : std::string(kMaxHexDigitNumber + 1, '0')};
 }
 
-zetasql_base::StatusOr<std::string> FormatAsHexadecimal(
+absl::StatusOr<std::string> FormatAsHexadecimal(
     const ParsedFormatElementInfo& parsed_info, const Value& v) {
   ZETASQL_ASSIGN_OR_RETURN(HexNumber hex, GenerateHexNumber(v));
 
@@ -1476,7 +1476,7 @@ zetasql_base::StatusOr<std::string> FormatAsHexadecimal(
 
   return result;
 }
-zetasql_base::StatusOr<ParsedNumberString> ParseFormattedRealNumber(
+absl::StatusOr<ParsedNumberString> ParseFormattedRealNumber(
     absl::string_view number_string) {
   ParsedNumberString output;
   if (number_string == "inf") {
@@ -1523,7 +1523,7 @@ zetasql_base::StatusOr<ParsedNumberString> ParseFormattedRealNumber(
   return output;
 }
 
-zetasql_base::StatusOr<ParsedFormatElementInfo> ParseForTest(absl::string_view format) {
+absl::StatusOr<ParsedFormatElementInfo> ParseForTest(absl::string_view format) {
   FormatParser parser;
   ZETASQL_ASSIGN_OR_RETURN(ParsedFormatElementInfo parsed_info, parser.Parse(format));
   return parsed_info;
@@ -1531,7 +1531,7 @@ zetasql_base::StatusOr<ParsedFormatElementInfo> ParseForTest(absl::string_view f
 
 }  // namespace internal
 
-zetasql_base::StatusOr<std::string> NumericalToStringFormatter::Format(const Value& v) {
+absl::StatusOr<std::string> NumericalToStringFormatter::Format(const Value& v) {
   ZETASQL_RET_CHECK(!v.is_null());
   ZETASQL_RET_CHECK(parsed_info_.has_value())
       << "SetFormatString() should have been called";
@@ -1564,7 +1564,7 @@ absl::Status ValidateNumericalToStringFormat(absl::string_view format) {
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<std::string> NumericalToStringWithFormat(
+absl::StatusOr<std::string> NumericalToStringWithFormat(
     const Value& v, absl::string_view format, ProductMode product_mode) {
   NumericalToStringFormatter formatter(product_mode);
   ZETASQL_RETURN_IF_ERROR(formatter.SetFormatString(format));

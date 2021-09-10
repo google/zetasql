@@ -31,7 +31,7 @@
 #include "zetasql/resolved_ast/resolved_ast.pb.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/serialization.pb.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
@@ -154,7 +154,7 @@ class ResolvedNode {
   };
 
   // Deserializes any node type from <proto>.
-  static zetasql_base::StatusOr<std::unique_ptr<ResolvedNode>> RestoreFrom(
+  static absl::StatusOr<std::unique_ptr<ResolvedNode>> RestoreFrom(
       const AnyResolvedNodeProto& proto, const RestoreParams& params);
 
   // Specifies that <node> should be annotated with <annotation> in its tree
@@ -190,7 +190,14 @@ class ResolvedNode {
   // ZetaSQL query safely and not missing anything. We assume that if an
   // engine reads a field and sees a value it does not understand, the engine
   // itself will generate an unimplemented error.
-  virtual absl::Status CheckFieldsAccessed() const;
+  absl::Status CheckFieldsAccessed() const {
+    return CheckFieldsAccessedImpl(this);
+  }
+
+  // Verifies that no non-ignorable fields are accessed. Used for testing
+  // purposes to verify that methods such as DebugString(), that should not mark
+  // fields as accessed, do not accidentally do so.
+  virtual absl::Status CheckNoFieldsAccessed() const;
 
   // Reset the field accessed markers in this node and its children.
   virtual void ClearFieldsAccessed() const;
@@ -297,11 +304,19 @@ class ResolvedNode {
 
   // Add all fields that should be printed in DebugString to <fields>.
   // Recursively calls same method in the superclass.
+  //
+  // Note: implementations should use raw member fields, rather than
+  // accessor methods so that DebugString() does not accidentally cause fields
+  // to be marked as "accessed".
   virtual void CollectDebugStringFields(
       std::vector<DebugStringField>* fields) const;
 
   // Get the name string displayed for this node in the DebugString.
   // Normally it's just node_kind_string(), but it can be customized.
+  //
+  // Note: implementations should use raw member fields, rather than
+  // accessor methods so that DebugString() does not accidentally cause fields
+  // to be marked as "accessed".
   virtual std::string GetNameForDebugString() const;
 
   // Return true if the fields returned from CollectDebugStringFields would
@@ -315,6 +330,20 @@ class ResolvedNode {
       const ResolvedNode* node, std::vector<DebugStringField>* fields) const;
   std::string GetNameForDebugStringWithNameFormat(
       const std::string& name, const ResolvedNode* node) const;
+
+  // Helper function to implement CheckFieldsAccessed(), which plumbs through
+  // the "root" node of the tree. This is used to provide a better error message
+  // about which specific field is not accessed.
+  virtual absl::Status CheckFieldsAccessedImpl(const ResolvedNode* root) const {
+    return absl::OkStatus();
+  }
+
+  // Helper function to allow implementations of CheckFieldsAccessedImpl()
+  // to call another object's CheckFieldsAccessedImpl() method.
+  static absl::Status CheckFieldsAccessedInternal(const ResolvedNode* node,
+                                                  const ResolvedNode* root) {
+    return node->CheckFieldsAccessedImpl(root);
+  }
 
   // Given a vector of unique_ptrs, this returns a vector of raw pointers.
   // The output vector then owns the pointers, and the input vector is cleared.

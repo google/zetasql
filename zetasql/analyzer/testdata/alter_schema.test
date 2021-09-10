@@ -26,3 +26,22 @@ ERROR: Syntax error: Unexpected identifier "FALSE_ACTION" [at 2:1]
 FALSE_ACTION;
 ^
 ==
+
+[language_features=V_1_3_COLLATION_SUPPORT]
+alter schema if exists entity set default collate 'unicode:ci';
+--
+AlterSchemaStmt
++-name_path=entity
++-alter_action_list=
+| +-SetCollateClause
+|   +-collation_name=
+|     +-Literal(type=STRING, value="unicode:ci")
++-is_if_exists=TRUE
+==
+
+[language_features=V_1_3_COLLATION_SUPPORT]
+alter schema if exists entity set default collate @test_param_string;
+--
+ERROR: COLLATE must be followed by a string literal [at 1:51]
+alter schema if exists entity set default collate @test_param_string;
+                                                  ^

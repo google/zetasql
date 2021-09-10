@@ -42,7 +42,7 @@ def GetClasses(input_filename):
     is a list of non-final class names.
   """
   concrete_classes = []
-  abstract_classes = []
+  abstract_classes = ['ASTNode']
   for input_line in open(input_filename):
     m = re.search('^class (AST[a-zA-Z]*) final : public', input_line)
     if m:
@@ -99,13 +99,13 @@ def GenerateParseTreeVisitor(concrete_classes):
       class NonRecursiveParseTreeVisitor {
        public:
         virtual ~NonRecursiveParseTreeVisitor() {}
-        virtual zetasql_base::StatusOr<VisitResult> defaultVisit(const ASTNode* node) = 0;
-        zetasql_base::StatusOr<VisitResult> visit(const ASTNode* node) {
+        virtual absl::StatusOr<VisitResult> defaultVisit(const ASTNode* node) = 0;
+        absl::StatusOr<VisitResult> visit(const ASTNode* node) {
           return defaultVisit(node);
         }
       ''')
   for cls in concrete_classes:
-    yield (('  virtual zetasql_base::StatusOr<VisitResult> visit{0}(const {0}* node) ' +
+    yield (('  virtual absl::StatusOr<VisitResult> visit{0}(const {0}* node) ' +
             '{{return defaultVisit(node);}};\n\n').format(cls))
   yield textwrap.dedent('''\
       };
@@ -162,7 +162,7 @@ def GeneerateParseTreeAcceptMethods(
         ''').format(cls)
   for cls in concrete_classes:
     yield textwrap.dedent('''\
-        zetasql_base::StatusOr<VisitResult> {0}::Accept(NonRecursiveParseTreeVisitor* visitor) const {{
+        absl::StatusOr<VisitResult> {0}::Accept(NonRecursiveParseTreeVisitor* visitor) const {{
           return visitor->visit{0}(this);
         }}
 
@@ -183,20 +183,15 @@ def ToFile(output_filename, data):
 
 
 def main(argv):
-  if len(argv) != 6:
+  if len(argv) != 5:
     raise Exception(
-        'Usage: %s <input/path/to/parse_tree_generated.h> <input/path/to/parse_tree_manual.h> <output/path/to/parse_tree_visitor.h> <output/path/to/parse_tree_decls.h> <output/path/to/parse_tree_accept_methods.inc>'
+        'Usage: %s <input/path/to/parse_tree_generated.h> <output/path/to/parse_tree_visitor.h> <output/path/to/parse_tree_decls.h> <output/path/to/parse_tree_accept_methods.inc>'
     )
 
-  # Classes defined in parse_tree_generated.h
-  (concrete_classes1, abstract_classes1) = GetClasses(argv[1])
-  # Classes defined in parse_tree_manual.h
-  (concrete_classes2, abstract_classes2) = GetClasses(argv[2])
-  concrete_classes = concrete_classes1 + concrete_classes2
-  abstract_classes = ['ASTNode'] + abstract_classes1 + abstract_classes2
-  ToFile(argv[3], GenerateParseTreeVisitor(concrete_classes))
-  ToFile(argv[4], GenerateParseTreeDecls(concrete_classes, abstract_classes))
-  ToFile(argv[5], GeneerateParseTreeAcceptMethods(concrete_classes))
+  (concrete_classes, abstract_classes) = GetClasses(argv[1])
+  ToFile(argv[2], GenerateParseTreeVisitor(concrete_classes))
+  ToFile(argv[3], GenerateParseTreeDecls(concrete_classes, abstract_classes))
+  ToFile(argv[4], GeneerateParseTreeAcceptMethods(concrete_classes))
 
 
 if __name__ == '__main__':

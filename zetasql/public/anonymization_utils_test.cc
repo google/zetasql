@@ -21,7 +21,7 @@
 #include "zetasql/public/value.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 namespace anonymization {
@@ -90,7 +90,7 @@ static void RunDeltaTest(ComputeDeltaTest test_case) {
                    ", k_threshold: ", k_threshold_value.DebugString(),
                    ", kappa: ", kappa_value.DebugString());
 
-  zetasql_base::StatusOr<Value> status_or_delta =
+  absl::StatusOr<Value> status_or_delta =
       ComputeDeltaFromEpsilonKThresholdKappa(epsilon_value, k_threshold_value,
                                              kappa_value);
 
@@ -155,7 +155,7 @@ static void RunKThresholdTest(ComputeKThresholdTest test_case) {
                    ", delta: ", delta_value.DebugString(),
                    ", kappa: ", kappa_value.DebugString());
 
-  zetasql_base::StatusOr<Value> status_or_k_threshold =
+  absl::StatusOr<Value> status_or_k_threshold =
       ComputeKThresholdFromEpsilonDeltaKappa(epsilon_value, delta_value,
                                              kappa_value);
 
@@ -453,7 +453,7 @@ TEST(ComputeAnonymizationUtilsTest, RoundTripKThresholdTests) {
           Value::Int64(k_threshold);
       std::string test_case_string =
           absl::StrCat("k_threshold: ", k_threshold, ", kappa: ", kappa);
-      zetasql_base::StatusOr<Value> status_or_delta =
+      absl::StatusOr<Value> status_or_delta =
           ComputeDeltaFromEpsilonKThresholdKappa(
               epsilon_value, k_threshold_value, kappa_value);
       ASSERT_TRUE(status_or_delta.ok()) << status_or_delta.status() << "\n"
@@ -476,7 +476,7 @@ TEST(ComputeAnonymizationUtilsTest, RoundTripKThresholdTests) {
         continue;
       }
 
-      zetasql_base::StatusOr<Value> status_or_computed_k_threshold =
+      absl::StatusOr<Value> status_or_computed_k_threshold =
           ComputeKThresholdFromEpsilonDeltaKappa(epsilon_value, delta_value,
                                                  kappa_value);
       ASSERT_TRUE(status_or_computed_k_threshold.ok())
@@ -498,10 +498,10 @@ TEST(ComputeAnonymizationUtilsTest, RoundTripKThresholdTests) {
 }
 
 // Helper function for computing delta from (epsilon, k_threshold, kappa).
-static zetasql_base::StatusOr<double> ComputeDelta(Value epsilon_value,
+static absl::StatusOr<double> ComputeDelta(Value epsilon_value,
                                            Value k_threshold_value,
                                            Value kappa_value) {
-  zetasql_base::StatusOr<Value> status_or_computed_delta =
+  absl::StatusOr<Value> status_or_computed_delta =
       ComputeDeltaFromEpsilonKThresholdKappa(epsilon_value, k_threshold_value,
                                              kappa_value);
   if (!status_or_computed_delta.ok()) {
@@ -535,7 +535,7 @@ TEST(ComputeAnonymizationUtilsTest, RoundTripDeltaTests) {
       std::string test_case_string =
           absl::StrCat("delta: ", delta, ", kappa: ", kappa);
 
-      zetasql_base::StatusOr<Value> status_or_k_threshold =
+      absl::StatusOr<Value> status_or_k_threshold =
           ComputeKThresholdFromEpsilonDeltaKappa(epsilon_value, delta_value,
                                                  kappa_value);
       ASSERT_TRUE(status_or_k_threshold.ok())
@@ -545,17 +545,17 @@ TEST(ComputeAnonymizationUtilsTest, RoundTripDeltaTests) {
       absl::StrAppend(&test_case_string, ", computed k_threshold: ",
                       k_threshold_value.int64_value());
 
-      const zetasql_base::StatusOr<double> computed_delta =
+      const absl::StatusOr<double> computed_delta =
           ComputeDelta(epsilon_value, k_threshold_value, kappa_value);
 
       const Value k_threshold_plus_one_value =
           values::Int64(k_threshold_value.int64_value() + 1);
-      const zetasql_base::StatusOr<double> computed_delta_plus_one =
+      const absl::StatusOr<double> computed_delta_plus_one =
           ComputeDelta(epsilon_value, k_threshold_plus_one_value, kappa_value);
 
       const Value k_threshold_minus_one_value =
           values::Int64(k_threshold_value.int64_value() - 1);
-      const zetasql_base::StatusOr<double> computed_delta_minus_one =
+      const absl::StatusOr<double> computed_delta_minus_one =
           ComputeDelta(epsilon_value, k_threshold_minus_one_value, kappa_value);
 
       // Expect that the original delta is closer to the computed delta than

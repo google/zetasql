@@ -36,6 +36,7 @@
 #include "zetasql/public/sql_function.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type_deserializer.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "gmock/gmock.h"
@@ -261,6 +262,12 @@ class FunctionSerializationTests : public ::testing::Test {
               argument2.options().argument_name_parse_location());
     EXPECT_EQ(argument1.options().argument_type_parse_location(),
               argument2.options().argument_type_parse_location());
+    EXPECT_EQ(argument1.options().argument_collation_mode(),
+              argument2.options().argument_collation_mode());
+    EXPECT_EQ(argument1.options().uses_array_element_for_collation(),
+              argument2.options().uses_array_element_for_collation());
+    EXPECT_EQ(argument1.options().procedure_argument_mode(),
+              argument2.options().procedure_argument_mode());
   }
 
   static void ExpectEqualsIgnoringCallbacks(
@@ -287,6 +294,9 @@ class FunctionSerializationTests : public ::testing::Test {
     EXPECT_EQ(options1.required_language_features_,
               options2.required_language_features_);
     EXPECT_EQ(options1.is_aliased_signature(), options2.is_aliased_signature());
+    EXPECT_EQ(options1.propagates_collation(), options2.propagates_collation());
+    EXPECT_EQ(options1.uses_operation_collation(),
+              options2.uses_operation_collation());
   }
 
   static void ExpectEqualsIgnoringCallbacks(
@@ -365,6 +375,24 @@ class FunctionSerializationTests : public ::testing::Test {
     std::unique_ptr<Function> result;
     ZETASQL_CHECK_OK(Function::Deserialize(proto, pools, &factory, &result));
     ExpectEqualsIgnoringCallbacks(function, *result);
+  }
+
+  static void CheckSerializationAndDeserialization(
+      const FunctionArgumentType& argument_type) {
+    FileDescriptorSetMap file_descriptor_set_map;
+    FunctionArgumentTypeProto proto;
+    ZETASQL_ASSERT_OK(argument_type.Serialize(&file_descriptor_set_map, &proto));
+    std::vector<const google::protobuf::DescriptorPool*> pools(
+        file_descriptor_set_map.size());
+    for (const auto& pair : file_descriptor_set_map) {
+      pools[pair.second->descriptor_set_index] = pair.first;
+    }
+    TypeFactory factory;
+    std::unique_ptr<FunctionArgumentType> result =
+        FunctionArgumentType::Deserialize(proto,
+                                          TypeDeserializer(&factory, pools))
+            .value();
+    ExpectEqualsIgnoringCallbacks(argument_type, *result);
   }
 };
 
@@ -481,6 +509,21 @@ TEST_F(FunctionSerializationTests, SignatureRequiredLanguageFeaturesTest) {
   options.Serialize(&proto);
   EXPECT_EQ(1, proto.required_language_feature_size());
   EXPECT_EQ(FEATURE_V_1_2_CIVIL_TIME, proto.required_language_feature(0));
+
+  std::unique_ptr<FunctionSignatureOptions> deserialize_result;
+  ZETASQL_EXPECT_OK(FunctionSignatureOptions::Deserialize(proto, &deserialize_result));
+  ExpectEqualsIgnoringCallbacks(options, *deserialize_result);
+}
+
+TEST_F(FunctionSerializationTests, CollationOptionsTest) {
+  FunctionSignatureOptions options;
+  options.set_propagates_collation(false);
+  options.set_uses_operation_collation(true);
+
+  FunctionSignatureOptionsProto proto;
+  options.Serialize(&proto);
+  EXPECT_FALSE(proto.propagates_collation());
+  EXPECT_TRUE(proto.uses_operation_collation());
 
   std::unique_ptr<FunctionSignatureOptions> deserialize_result;
   ZETASQL_EXPECT_OK(FunctionSignatureOptions::Deserialize(proto, &deserialize_result));
@@ -730,23 +773,7 @@ TEST_F(FunctionSerializationTests,
   options.set_argument_type_parse_location(location2);
   FunctionArgumentType argument_type(zetasql::types::Int64Type(), options);
 
-  FileDescriptorSetMap file_descriptor_set_map;
-  FunctionArgumentTypeProto proto;
-  ZETASQL_ASSERT_OK(argument_type.Serialize(&file_descriptor_set_map, &proto));
-  std::vector<const google::protobuf::DescriptorPool*> pools(
-      file_descriptor_set_map.size());
-  for (const auto& pair : file_descriptor_set_map) {
-    pools[pair.second->descriptor_set_index] = pair.first;
-  }
-  TypeFactory factory;
-  std::unique_ptr<FunctionArgumentType> result;
-  ZETASQL_ASSERT_OK(FunctionArgumentType::Deserialize(proto, pools, &factory, &result));
-  ExpectEqualsIgnoringCallbacks(argument_type, *result);
-
-  EXPECT_THAT(result->options().argument_name_parse_location(),
-              Optional(location1));
-  EXPECT_THAT(result->options().argument_type_parse_location(),
-              Optional(location2));
+  CheckSerializationAndDeserialization(argument_type);
 }
 
 // Test serialization and deserialization of the optional procedure argument
@@ -757,20 +784,23 @@ TEST_F(FunctionSerializationTests,
   options.set_procedure_argument_mode(FunctionEnums::INOUT);
   FunctionArgumentType argument_type(zetasql::types::Int64Type(), options);
 
-  FileDescriptorSetMap file_descriptor_set_map;
-  FunctionArgumentTypeProto proto;
-  ZETASQL_ASSERT_OK(argument_type.Serialize(&file_descriptor_set_map, &proto));
-  std::vector<const google::protobuf::DescriptorPool*> pools(
-      file_descriptor_set_map.size());
-  for (const auto& pair : file_descriptor_set_map) {
-    pools[pair.second->descriptor_set_index] = pair.first;
-  }
-  TypeFactory factory;
-  std::unique_ptr<FunctionArgumentType> result;
-  ZETASQL_ASSERT_OK(FunctionArgumentType::Deserialize(proto, pools, &factory, &result));
-  ExpectEqualsIgnoringCallbacks(argument_type, *result);
+  CheckSerializationAndDeserialization(argument_type);
+}
 
-  EXPECT_EQ(result->options().procedure_argument_mode(), FunctionEnums::INOUT);
+// Test serialization and deserialization of the optional argument collation
+// mode in the function argument type options.
+TEST_F(FunctionSerializationTests,
+       SerializationAndDeserializationWithCollationOptions) {
+  for (int mode = FunctionEnums::AFFECTS_NONE;
+       mode <= FunctionEnums::AFFECTS_OPERATION_AND_PROPAGATION; mode++) {
+    FunctionArgumentTypeOptions options;
+    options.set_argument_collation_mode(
+        static_cast<FunctionArgumentTypeOptions::ArgumentCollationMode>(mode));
+    options.set_uses_array_element_for_collation(true);
+    FunctionArgumentType argument_type(zetasql::types::StringType(), options);
+
+    CheckSerializationAndDeserialization(argument_type);
+  }
 }
 
 }  // namespace zetasql

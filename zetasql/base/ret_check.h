@@ -29,7 +29,7 @@
 //   error";
 //
 // The ZETASQL_RET_CHECK* macros can only be used in functions that return
-// absl::Status or zetasql_base::StatusOr.  The generated
+// absl::Status or absl::StatusOr.  The generated
 // `absl::Status` will contain the string "ZETASQL_RET_CHECK failure".
 //
 // On failure these routines will log a stack trace to `ERROR`.  The

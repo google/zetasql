@@ -24,12 +24,15 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/common/utf_util.h"
 #include "zetasql/parser/keywords.h"
+#include "zetasql/public/language_options.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "zetasql/base/case.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "zetasql/base/case.h"
 #include "unicode/utf.h"
 #include "unicode/utf8.h"
 #include "zetasql/base/map_util.h"
@@ -751,8 +754,11 @@ std::string ToDoubleQuotedBytesLiteral(absl::string_view str) {
       "b\"", EscapeBytes(str, false /* escape_all_bytes */, '"'), "\"");
 }
 
-// Return true if <str> is a valid identifier without quoting.
+// Return true if <str> is guaranteed to be a valid identifier without quoting.
+// If <allow_reserved_keywords> is false, returns false if <str> is a reserved
+// or conditionally reserved keyword.
 static bool IsValidUnquotedIdentifier(absl::string_view str,
+                                      const LanguageOptions& language_options,
                                       bool allow_reserved_keywords) {
   if (str.empty()) return false;
   if (!isalpha(str[0]) && str[0] != '_') return false;
@@ -762,14 +768,12 @@ static bool IsValidUnquotedIdentifier(absl::string_view str,
     }
   }
   // Reserved keywords cannot be used as identifiers without quoting.
-  if (!allow_reserved_keywords &&
-      parser::GetReservedKeywordInfo(str) != nullptr) {
-    return false;
-  }
-  return true;
+  return allow_reserved_keywords || !language_options.IsReservedKeyword(str);
 }
 
-static absl::Status ParseIdentifierImpl(absl::string_view str, std::string* out,
+static absl::Status ParseIdentifierImpl(absl::string_view str,
+                                        const LanguageOptions& language_options,
+                                        std::string* out,
                                         std::string* error_string,
                                         int* error_offset,
                                         bool allow_reserved_keywords) {
@@ -800,7 +804,8 @@ static absl::Status ParseIdentifierImpl(absl::string_view str, std::string* out,
       return MakeSqlError() << error;
     }
   } else {
-    if (!IsValidUnquotedIdentifier(str, allow_reserved_keywords)) {
+    if (!IsValidUnquotedIdentifier(str, language_options,
+                                   allow_reserved_keywords)) {
       const std::string error = "Invalid identifier";
       if (error_string) *error_string = error;
       return MakeSqlError() << error;
@@ -811,22 +816,31 @@ static absl::Status ParseIdentifierImpl(absl::string_view str, std::string* out,
   return absl::OkStatus();
 }
 
-absl::Status ParseIdentifier(absl::string_view str, std::string* out,
-                             std::string* error_string, int* error_offset) {
-  return ParseIdentifierImpl(str, out, error_string, error_offset,
-                             false /* allow_reserved_keywords */);
+absl::Status ParseIdentifier(absl::string_view str,
+                             const LanguageOptions& language_options,
+                             std::string* out, std::string* error_string,
+                             int* error_offset) {
+  return ParseIdentifierImpl(str, language_options, out, error_string,
+                             error_offset, false /* allow_reserved_keywords */);
 }
 
 absl::Status ParseGeneralizedIdentifier(absl::string_view str, std::string* out,
                                         std::string* error_string,
                                         int* error_offset) {
-  return ParseIdentifierImpl(str, out, error_string, error_offset,
-                             true /* allow_reserved_keywords */);
+  // LanguageOptions do not matter since reserved keywords are allowed
+  LanguageOptions language_options;
+
+  return ParseIdentifierImpl(str, language_options, out, error_string,
+                             error_offset, true /* allow_reserved_keywords */);
 }
 
 std::string ToIdentifierLiteral(absl::string_view str,
                                 bool quote_reserved_keywords) {
-  return IsValidUnquotedIdentifier(str, !quote_reserved_keywords) &&
+  LanguageOptions language_options;
+  language_options.EnableAllReservableKeywords();
+
+  return IsValidUnquotedIdentifier(str, language_options,
+                                   !quote_reserved_keywords) &&
                  !parser::NonReservedIdentifierMustBeBackquoted(str)
              ? std::string(str)
              : absl::StrCat(
@@ -903,32 +917,49 @@ static bool AdvanceToNextBackquote(absl::string_view::const_iterator end,
 //
 // Note: If `segment` is not backquoted and is not the first element of `out`,
 // it will be escaped/wrapped in backquotes before parsing.
-static absl::Status AddIdentifierPathSegment(absl::string_view segment,
-                                             std::vector<std::string>* out) {
+static absl::Status AddIdentifierPathSegment(
+    absl::string_view segment, const LanguageOptions& language_options,
+    std::vector<std::string>* out) {
   ZETASQL_RET_CHECK(!segment.empty());
   std::string out_string;
   if (segment[0] == '`') {
-    ZETASQL_RETURN_IF_ERROR(ParseIdentifier(segment, &out_string));
+    ZETASQL_RETURN_IF_ERROR(ParseIdentifier(segment, language_options, &out_string));
   } else {
     // DOT_IDENTIFIER mode only applies to path components after the first. If
     // the input vector is empty, use ParseIdentifier to catch cases where the
     // first path value is "123", "select", etc.
-    if (out->empty()) {
-      ZETASQL_RETURN_IF_ERROR(ParseIdentifier(segment, &out_string));
+    if (out->empty() && segment[0] != '/') {
+      ZETASQL_RETURN_IF_ERROR(ParseIdentifier(segment, language_options, &out_string));
     } else {
       // Unescaped path components beginning with digits/containing reserved
-      // keywords are valid but need to be quoted to ensure they are correctly
-      // parsed.
+      // keywords or slash paths are valid but need to be quoted to ensure they
+      // are correctly parsed.
       const std::string quoted_segment = absl::StrCat(
           "`", CEscapeInternal(segment, true /* utf8_safe */, '`'), "`");
-      ZETASQL_RETURN_IF_ERROR(ParseIdentifier(quoted_segment, &out_string));
+      ZETASQL_RETURN_IF_ERROR(
+          ParseIdentifier(quoted_segment, language_options, &out_string));
     }
   }
   out->push_back(out_string);
   return absl::OkStatus();
 }
 
+static absl::StatusOr<bool> IsSlashPath(
+    absl::string_view str, const LanguageOptions& language_options) {
+  if (str.empty() || str[0] != '/') return false;
+  if (!language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_3_ALLOW_SLASH_PATHS)) {
+    return MakeSqlError() << "Path starts with an invalid character '/'";
+  }
+  return true;
+}
+
+static bool IsSlashPathSpecialCharacter(char character) {
+  return character == '/' || character == '-' || character == ':';
+}
+
 absl::Status ParseIdentifierPath(absl::string_view str,
+                                 const LanguageOptions& language_options,
                                  std::vector<std::string>* out) {
   if (str.empty()) return MakeSqlError() << "Path strings cannot be empty";
 
@@ -944,6 +975,17 @@ absl::Status ParseIdentifierPath(absl::string_view str,
   absl::string_view::const_iterator segment_start = p;
   absl::string_view::const_iterator end = str.end();
   std::vector<std::string> temp_out;
+  // If the paths starts with '/' and FEATURE_V_1_3_ALLOW_SLASH_PATHS is
+  // enabled, then the first segment of the path can contain slash, dash, and
+  // colon.
+  ZETASQL_ASSIGN_OR_RETURN(bool allow_slash_path_segment,
+                   IsSlashPath(str, language_options));
+  // A path cannot end in '/'. '-', or ':'.
+  if (allow_slash_path_segment &&
+      IsSlashPathSpecialCharacter(str[str.size() - 1])) {
+    return MakeSqlError() << "Path string cannot end with `"
+                          << str[str.size() - 1] << "`";
+  }
   while (p < end) {
     // Check for consecutive '.'s (e.g. 'table..name').
     if (*p == '.') {
@@ -954,37 +996,57 @@ absl::Status ParseIdentifierPath(absl::string_view str,
 
     // Find the next '.'. The main logic applied here is to skip dots within
     // backquoted sections - validation is handled when parsing the value.
+    absl::string_view::const_iterator previous = str.end();
     while (p < end && *p != '.') {
-      // Path identifiers can only be alphanumeric or '_'. Backquotes indicate
-      // the beginning of an escape sequence and are therefore allowed.
-      if (!isalnum(*p) && *p != '_' && *p != '`') {
-        return MakeSqlError() << "Path contains an invalid character";
-      }
-      // Skip over dots within backquoted sections (e.g. 'table.`name.dot`).
-      if (*p == '`') {
-        // Fail if the unescaped backquote is not the first piece of the
-        // component (e.g. abc.`def` is allowed,  abc.d`ef` is not).
-        if (p != segment_start) {
+      if (allow_slash_path_segment && IsSlashPathSpecialCharacter(*p)) {
+        // Do not allow these characters to appear next to each other.
+        if (previous != end && IsSlashPathSpecialCharacter(*previous)) {
+          return MakeSqlError() << "Path contains an invalid character '" << *p
+                                << " after character '" << *previous << "'";
+        }
+      } else {
+        // Path identifiers can only be alphanumeric or '_'. Backquotes indicate
+        // the beginning of an escape sequence and are therefore allowed.
+        if (!isalnum(*p) && *p != '_' && *p != '`') {
           return MakeSqlError() << "Path contains an invalid character";
         }
-        // Skip the opening backquote.
-        ++p;
-        // Note that this will end on the closing backquote.
-        if (!AdvanceToNextBackquote(end, &p)) {
-          return MakeSqlError() << "Path contains an unmatched `";
+        // Skip over dots within backquoted sections (e.g. 'table.`name.dot`).
+        if (*p == '`') {
+          // Fail if the unescaped backquote is not the first piece of the
+          // component (e.g. abc.`def` is allowed,  abc.d`ef` is not).
+          if (p != segment_start) {
+            return MakeSqlError() << "Path contains an invalid character";
+          }
+          // Skip the opening backquote.
+          ++p;
+          // Note that this will end on the closing backquote.
+          if (!AdvanceToNextBackquote(end, &p)) {
+            return MakeSqlError() << "Path contains an unmatched `";
+          }
         }
       }
       // Advance to the next character.
+      previous = p;
       ++p;
+    }
+
+    // Make sure that '/', '-', ':' do not precede the dot e.g.
+    // '/span/global/.Table' is invalid.
+    if (p != end && *p == '.' && previous != end &&
+        IsSlashPathSpecialCharacter(*previous)) {
+      return MakeSqlError()
+             << "Path contains an invalid character '" << *previous << "'";
     }
 
     // Extract the segment and attempt to parse as an identifier.
     absl::string_view segment(segment_start, std::distance(segment_start, p));
-    ZETASQL_RETURN_IF_ERROR(AddIdentifierPathSegment(segment, &temp_out));
+    ZETASQL_RETURN_IF_ERROR(
+        AddIdentifierPathSegment(segment, language_options, &temp_out));
 
     // Advance past the dot and reset the start position.
     ++p;
     segment_start = p;
+    allow_slash_path_segment = false;
   }
 
   *out = temp_out;
@@ -1004,14 +1066,22 @@ bool IsKeyword(absl::string_view str) {
 }
 
 bool IsReservedKeyword(absl::string_view str) {
-  return parser::GetReservedKeywordInfo(str) != nullptr;
+  // For backward compatibility reasons, this must return false for
+  // conditionally reserved keywords.
+  const parser::KeywordInfo* keyword_info = parser::GetKeywordInfo(str);
+  return keyword_info != nullptr && keyword_info->IsAlwaysReserved();
 }
 
 // Make a hash_set of all upper-cased reserved keywords.
-static absl::flat_hash_set<std::string> MakeReservedKeywordsUpperSet() {
+// For backward compatibility reasons, this set includes unconditionally
+// reserved keywords only.
+static absl::flat_hash_set<std::string> MakeReservedKeywordsUpperSet(
+    bool include_conditionally_reserved_keywords) {
   absl::flat_hash_set<std::string> result;
   for (const parser::KeywordInfo& keyword_info : parser::GetAllKeywords()) {
-    if (keyword_info.IsReserved()) {
+    if (include_conditionally_reserved_keywords
+            ? keyword_info.CanBeReserved()
+            : keyword_info.IsAlwaysReserved()) {
       zetasql_base::InsertOrDie(&result, absl::AsciiStrToUpper(keyword_info.keyword()));
     }
   }
@@ -1020,7 +1090,15 @@ static absl::flat_hash_set<std::string> MakeReservedKeywordsUpperSet() {
 
 const absl::flat_hash_set<std::string>& GetReservedKeywords() {
   static const absl::flat_hash_set<std::string>& keywords =
-      *new auto(MakeReservedKeywordsUpperSet());
+      *new auto(MakeReservedKeywordsUpperSet(
+          /*include_conditionally_reserved_keywords=*/false));
+  return keywords;
+}
+
+const absl::flat_hash_set<std::string>& GetPotentiallyReservedKeywords() {
+  static const absl::flat_hash_set<std::string>& keywords =
+      *new auto(MakeReservedKeywordsUpperSet(
+          /*include_conditionally_reserved_keywords=*/true));
   return keywords;
 }
 

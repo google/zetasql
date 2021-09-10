@@ -515,7 +515,7 @@ public class ZetaSQLDescriptorPoolTest {
     ZetaSQLDescriptorPool pool = new ZetaSQLDescriptorPool();
     pool.addFileDescriptor(TestEnum.getDescriptor().getFile());
     EnumDescriptor testEnumDescriptor =
-        pool.findEnumTypeByName("zetasql_test.TestEnum").getDescriptor();
+        pool.findEnumTypeByName("zetasql_test__.TestEnum").getDescriptor();
     assertThat(testEnumDescriptor).isEqualTo(TestEnum.getDescriptor());
 
     ImmutableSet<String> expectedDescriptorNames =
@@ -530,7 +530,7 @@ public class ZetaSQLDescriptorPoolTest {
     assertThat(getFilenames(reserializedPool)).containsExactlyElementsIn(expectedDescriptorNames);
 
     EnumDescriptor reserializedTestEnumDescriptor =
-        reserializedPool.findEnumTypeByName("zetasql_test.TestEnum").getDescriptor();
+        reserializedPool.findEnumTypeByName("zetasql_test__.TestEnum").getDescriptor();
 
     // We expect that the descriptor will not be equal to the input.
     assertThat(reserializedTestEnumDescriptor).isNotEqualTo(testEnumDescriptor);
@@ -544,7 +544,7 @@ public class ZetaSQLDescriptorPoolTest {
     assertFileDescriptorsAreDependencyOrdered(ZetaSQLDescriptorPool.getGeneratedPool());
     ZetaSQLDescriptorPool.importIntoGeneratedPool(TestEnum.getDescriptor());
     EnumDescriptor testEnumDescriptor =
-        pool.findEnumTypeByName("zetasql_test.TestEnum").getDescriptor();
+        pool.findEnumTypeByName("zetasql_test__.TestEnum").getDescriptor();
     assertThat(testEnumDescriptor).isEqualTo(TestEnum.getDescriptor());
 
     ImmutableSet<String> expectedDescriptorNames =
@@ -561,7 +561,7 @@ public class ZetaSQLDescriptorPoolTest {
     assertThat(getFilenames(reserializedPool)).containsAtLeastElementsIn(expectedDescriptorNames);
 
     EnumDescriptor reserializedTestEnumDescriptor =
-        reserializedPool.findEnumTypeByName("zetasql_test.TestEnum").getDescriptor();
+        reserializedPool.findEnumTypeByName("zetasql_test__.TestEnum").getDescriptor();
 
     // We expect that the descriptor _will_ be equal to the input, because it is as singleton, and
     // we dedup preserving the existing copy.

@@ -1,3 +1,15 @@
+# The TVFs in this test file have the following userid columns, as
+# defined in the SampleCatalog.
+#
+# tvf_no_args - <no userid>
+# tvf_one_relation_arg_with_fixed_output - <no userid>
+# tvf_one_templated_arg_with_anonymization_uid - column_int64
+# tvf_one_relation_arg_with_anonymization_uid - column_int64
+# tvf_no_args_with_anonymization_uid - column_int64
+# tvf_no_args_with_nested_anonymization_uid - user_info.int32_val1
+# tvf_no_args_value_table_with_anonymization_uid - int32_val1
+# tvf_no_args_value_table_with_nested_anonymization_uid - nested_value.nested_int64
+
 [default language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS]
 [default enable_ast_rewrites]
 [no_expect_error_location]
@@ -22,7 +34,7 @@ QueryStmt
               +-Literal(type=INT64, value=0)
               +-Literal(type=INT64, value=100)
 
-Rewrite ERROR: A SELECT WITH ANONYMIZATION query must query at least one table containing user data
+Rewrite ERROR: A SELECT WITH ANONYMIZATION query must query at least one table or TVF containing user data
 ==
 
 # Allow expression TVF arguments that don't reference other tables/tvfs
@@ -108,12 +120,11 @@ QueryStmt
           +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
 ==
 
-# Disallow expression TVF arguments that reference other tables/tvfs
+# TVF arguments that are subqueries can reference tables with userids.
 select with anonymization anon_count(*)
 from tvf_one_templated_arg_with_anonymization_uid(
   (select cast(42 as bool) as bool_column from SimpleTypesWithAnonymizationUid))
 --
-[PRE-REWRITE AST]
 QueryStmt
 +-output_column_list=
 | +-$aggregate.$agg1#25 AS `$col1` [INT64]
@@ -143,15 +154,60 @@ QueryStmt
         +-aggregate_list=
           +-$agg1#25 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
 
-Rewrite ERROR: A TVF inside a SELECT WITH ANONYMIZATION query may not reference a table in that TVF's arguments, but found table SimpleTypesWithAnonymizationUid in arguments of TVF tvf_one_templated_arg_with_anonymization_uid
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#25 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#25]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#25]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#28, $group_by.$uid#29]
+        |   +-input_scan=
+        |   | +-TVFScan
+        |   |   +-column_list=[tvf_one_templated_arg_with_anonymization_uid.column_int64#26]
+        |   |   +-tvf=tvf_one_templated_arg_with_anonymization_uid((ANY TYPE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
+        |   |   +-signature=(BOOL) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
+        |   |   +-argument_list=
+        |   |   | +-FunctionArgument
+        |   |   |   +-expr=
+        |   |   |     +-SubqueryExpr
+        |   |   |       +-type=BOOL
+        |   |   |       +-subquery_type=SCALAR
+        |   |   |       +-subquery=
+        |   |   |         +-ProjectScan
+        |   |   |           +-column_list=[$expr_subquery.bool_column#13]
+        |   |   |           +-expr_list=
+        |   |   |           | +-bool_column#13 := Literal(type=BOOL, value=true, has_explicit_type=TRUE)
+        |   |   |           +-input_scan=
+        |   |   |             +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        |   |   +-column_index_list=[6]
+        |   +-group_by_list=
+        |   | +-$uid#29 := ColumnRef(type=INT64, column=tvf_one_templated_arg_with_anonymization_uid.column_int64#26)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#28 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+        | +-$agg1#25 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#28)
+        | +-$k_threshold_col#32 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#32)
 ==
 
-# Disallow relation arguments that reference other tables/tvfs
+# TVF arguments that are subqueries can reference tables.
 select with anonymization anon_count(*)
 from tvf_one_relation_arg_with_anonymization_uid(
   (select * from SimpleTypes))
 --
-[PRE-REWRITE AST]
 QueryStmt
 +-output_column_list=
 | +-$aggregate.$agg1#30 AS `$col1` [INT64]
@@ -176,14 +232,54 @@ QueryStmt
         +-aggregate_list=
           +-$agg1#30 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
 
-Rewrite ERROR: A TVF inside a SELECT WITH ANONYMIZATION query may not reference a table in that TVF's arguments, but found table SimpleTypes in arguments of TVF tvf_one_relation_arg_with_anonymization_uid
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#30 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#30]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#30]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#33, $group_by.$uid#34]
+        |   +-input_scan=
+        |   | +-TVFScan
+        |   |   +-column_list=[tvf_one_relation_arg_with_anonymization_uid.column_int64#31]
+        |   |   +-tvf=tvf_one_relation_arg_with_anonymization_uid((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
+        |   |   +-signature=(TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, timestamp_seconds TIMESTAMP, timestamp_millis TIMESTAMP, timestamp_micros TIMESTAMP, timestamp_nanos TIMESTAMP, timestamp TIMESTAMP, numeric NUMERIC, bignumeric BIGNUMERIC, json JSON>) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
+        |   |   +-argument_list=
+        |   |   | +-FunctionArgument
+        |   |   |   +-scan=
+        |   |   |   | +-ProjectScan
+        |   |   |   |   +-column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18]
+        |   |   |   |   +-input_scan=
+        |   |   |   |     +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
+        |   |   |   +-argument_column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18]
+        |   |   +-column_index_list=[6]
+        |   +-group_by_list=
+        |   | +-$uid#34 := ColumnRef(type=INT64, column=tvf_one_relation_arg_with_anonymization_uid.column_int64#31)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#33 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+        | +-$agg1#30 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#33)
+        | +-$k_threshold_col#37 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#37)
 ==
 
-# Disallow relation arguments that reference other tables/tvfs
+# TVF arguments that are TABLE arguments are allowed.
 select with anonymization anon_count(*)
 from tvf_one_relation_arg_with_anonymization_uid(TABLE SimpleTypes)
 --
-[PRE-REWRITE AST]
 QueryStmt
 +-output_column_list=
 | +-$aggregate.$agg1#30 AS `$col1` [INT64]
@@ -205,10 +301,221 @@ QueryStmt
         +-aggregate_list=
           +-$agg1#30 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
 
-Rewrite ERROR: A TVF inside a SELECT WITH ANONYMIZATION query may not reference a table in that TVF's arguments, but found table SimpleTypes in arguments of TVF tvf_one_relation_arg_with_anonymization_uid
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#30 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#30]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#30]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#33, $group_by.$uid#34]
+        |   +-input_scan=
+        |   | +-TVFScan
+        |   |   +-column_list=[tvf_one_relation_arg_with_anonymization_uid.column_int64#31]
+        |   |   +-tvf=tvf_one_relation_arg_with_anonymization_uid((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
+        |   |   +-signature=(TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, timestamp_seconds TIMESTAMP, timestamp_millis TIMESTAMP, timestamp_micros TIMESTAMP, timestamp_nanos TIMESTAMP, timestamp TIMESTAMP, numeric NUMERIC, bignumeric BIGNUMERIC, json JSON>) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
+        |   |   +-argument_list=
+        |   |   | +-FunctionArgument
+        |   |   |   +-scan=
+        |   |   |   | +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
+        |   |   |   +-argument_column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18]
+        |   |   +-column_index_list=[6]
+        |   +-group_by_list=
+        |   | +-$uid#34 := ColumnRef(type=INT64, column=tvf_one_relation_arg_with_anonymization_uid.column_int64#31)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#33 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+        | +-$agg1#30 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#33)
+        | +-$k_threshold_col#37 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#37)
 ==
 
-# Disallow relation arguments that reference other tables/tvfs
+# TVF arguments that are subqueries can reference tvfs.
+select with anonymization anon_count(*)
+from tvf_one_relation_arg_with_anonymization_uid(
+  (select * from tvf_no_args()))
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#14 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#14]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#14]
+        +-input_scan=
+        | +-TVFScan
+        |   +-tvf=tvf_one_relation_arg_with_anonymization_uid((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
+        |   +-signature=(TABLE<column_bool BOOL, column_bytes BYTES>) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
+        |   +-argument_list=
+        |     +-FunctionArgument
+        |       +-scan=
+        |       | +-ProjectScan
+        |       |   +-column_list=tvf_no_args.[column_bool#1, column_bytes#2]
+        |       |   +-input_scan=
+        |       |     +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+        |       +-argument_column_list=tvf_no_args.[column_bool#1, column_bytes#2]
+        +-aggregate_list=
+          +-$agg1#14 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#14 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#14]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#14]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#17, $group_by.$uid#18]
+        |   +-input_scan=
+        |   | +-TVFScan
+        |   |   +-column_list=[tvf_one_relation_arg_with_anonymization_uid.column_int64#15]
+        |   |   +-tvf=tvf_one_relation_arg_with_anonymization_uid((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
+        |   |   +-signature=(TABLE<column_bool BOOL, column_bytes BYTES>) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
+        |   |   +-argument_list=
+        |   |   | +-FunctionArgument
+        |   |   |   +-scan=
+        |   |   |   | +-ProjectScan
+        |   |   |   |   +-column_list=tvf_no_args.[column_bool#1, column_bytes#2]
+        |   |   |   |   +-input_scan=
+        |   |   |   |     +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+        |   |   |   +-argument_column_list=tvf_no_args.[column_bool#1, column_bytes#2]
+        |   |   +-column_index_list=[6]
+        |   +-group_by_list=
+        |   | +-$uid#18 := ColumnRef(type=INT64, column=tvf_one_relation_arg_with_anonymization_uid.column_int64#15)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#17 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+        | +-$agg1#14 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#17)
+        | +-$k_threshold_col#21 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#21)
+==
+
+# TVF arguments that are subqueries can reference tvfs which themselves have
+# userids.
+select with anonymization anon_count(*)
+from tvf_one_relation_arg_with_anonymization_uid(
+         (select * from tvf_one_relation_arg_with_anonymization_uid(
+             (select * from tvf_no_args()))));
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#25 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#25]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#25]
+        +-input_scan=
+        | +-TVFScan
+        |   +-tvf=tvf_one_relation_arg_with_anonymization_uid((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
+        |   +-signature=(TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
+        |   +-argument_list=
+        |     +-FunctionArgument
+        |       +-scan=
+        |       | +-ProjectScan
+        |       |   +-column_list=tvf_one_relation_arg_with_anonymization_uid.[column_bool#3, column_bytes#4, column_date#5, column_double#6, column_float#7, column_int32#8, column_int64#9, column_string#10, column_time#11, column_uint32#12, column_uint64#13]
+        |       |   +-input_scan=
+        |       |     +-TVFScan
+        |       |       +-column_list=tvf_one_relation_arg_with_anonymization_uid.[column_bool#3, column_bytes#4, column_date#5, column_double#6, column_float#7, column_int32#8, column_int64#9, column_string#10, column_time#11, column_uint32#12, column_uint64#13]
+        |       |       +-tvf=tvf_one_relation_arg_with_anonymization_uid((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
+        |       |       +-signature=(TABLE<column_bool BOOL, column_bytes BYTES>) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
+        |       |       +-argument_list=
+        |       |       | +-FunctionArgument
+        |       |       |   +-scan=
+        |       |       |   | +-ProjectScan
+        |       |       |   |   +-column_list=tvf_no_args.[column_bool#1, column_bytes#2]
+        |       |       |   |   +-input_scan=
+        |       |       |   |     +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+        |       |       |   +-argument_column_list=tvf_no_args.[column_bool#1, column_bytes#2]
+        |       |       +-column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        |       +-argument_column_list=tvf_one_relation_arg_with_anonymization_uid.[column_bool#3, column_bytes#4, column_date#5, column_double#6, column_float#7, column_int32#8, column_int64#9, column_string#10, column_time#11, column_uint32#12, column_uint64#13]
+        +-aggregate_list=
+          +-$agg1#25 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#25 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#25]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#25]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#28, $group_by.$uid#29]
+        |   +-input_scan=
+        |   | +-TVFScan
+        |   |   +-column_list=[tvf_one_relation_arg_with_anonymization_uid.column_int64#26]
+        |   |   +-tvf=tvf_one_relation_arg_with_anonymization_uid((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
+        |   |   +-signature=(TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
+        |   |   +-argument_list=
+        |   |   | +-FunctionArgument
+        |   |   |   +-scan=
+        |   |   |   | +-ProjectScan
+        |   |   |   |   +-column_list=tvf_one_relation_arg_with_anonymization_uid.[column_bool#3, column_bytes#4, column_date#5, column_double#6, column_float#7, column_int32#8, column_int64#9, column_string#10, column_time#11, column_uint32#12, column_uint64#13]
+        |   |   |   |   +-input_scan=
+        |   |   |   |     +-TVFScan
+        |   |   |   |       +-column_list=tvf_one_relation_arg_with_anonymization_uid.[column_bool#3, column_bytes#4, column_date#5, column_double#6, column_float#7, column_int32#8, column_int64#9, column_string#10, column_time#11, column_uint32#12, column_uint64#13]
+        |   |   |   |       +-tvf=tvf_one_relation_arg_with_anonymization_uid((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
+        |   |   |   |       +-signature=(TABLE<column_bool BOOL, column_bytes BYTES>) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
+        |   |   |   |       +-argument_list=
+        |   |   |   |       | +-FunctionArgument
+        |   |   |   |       |   +-scan=
+        |   |   |   |       |   | +-ProjectScan
+        |   |   |   |       |   |   +-column_list=tvf_no_args.[column_bool#1, column_bytes#2]
+        |   |   |   |       |   |   +-input_scan=
+        |   |   |   |       |   |     +-TVFScan(column_list=tvf_no_args.[column_bool#1, column_bytes#2], tvf=tvf_no_args(() -> TABLE<column_bool BOOL, column_bytes BYTES>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES>, column_index_list=[0, 1])
+        |   |   |   |       |   +-argument_column_list=tvf_no_args.[column_bool#1, column_bytes#2]
+        |   |   |   |       +-column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        |   |   |   +-argument_column_list=tvf_one_relation_arg_with_anonymization_uid.[column_bool#3, column_bytes#4, column_date#5, column_double#6, column_float#7, column_int32#8, column_int64#9, column_string#10, column_time#11, column_uint32#12, column_uint64#13]
+        |   |   +-column_index_list=[6]
+        |   +-group_by_list=
+        |   | +-$uid#29 := ColumnRef(type=INT64, column=tvf_one_relation_arg_with_anonymization_uid.column_int64#26)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#28 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+        | +-$agg1#25 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#28)
+        | +-$k_threshold_col#32 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#32)
+==
+
+# TVFs must have a userid or the query fails, even in an input table has a
+# userid.
 select with anonymization anon_count(*)
 from tvf_one_relation_arg_with_fixed_output(
   (select * from SimpleTypesWithAnonymizationUid))
@@ -238,10 +545,11 @@ QueryStmt
         +-aggregate_list=
           +-$agg1#15 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
 
-Rewrite ERROR: A TVF inside a SELECT WITH ANONYMIZATION query may not reference a table in that TVF's arguments, but found table SimpleTypesWithAnonymizationUid in arguments of TVF tvf_one_relation_arg_with_fixed_output
+Rewrite ERROR: A SELECT WITH ANONYMIZATION query must query at least one table or TVF containing user data
 ==
 
-# Disallow relation arguments that reference other tables/tvfs
+# TVFs must have their own userid or the query fails, even if an input TABLE
+# argument has a userid.
 select with anonymization anon_count(*)
 from tvf_one_relation_arg_with_fixed_output(
   TABLE SimpleTypesWithAnonymizationUid)
@@ -268,28 +576,29 @@ QueryStmt
         +-aggregate_list=
           +-$agg1#15 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
 
-Rewrite ERROR: A TVF inside a SELECT WITH ANONYMIZATION query may not reference a table in that TVF's arguments, but found table SimpleTypesWithAnonymizationUid in arguments of TVF tvf_one_relation_arg_with_fixed_output
+Rewrite ERROR: A SELECT WITH ANONYMIZATION query must query at least one table or TVF containing user data
 ==
 
-# Disallow nested anonymization in TVF args
+# The rewriter does not support anonymization queries as arguments
+# to TVFs yet.
 select with anonymization anon_count(*)
-from tvf_one_relation_arg_with_fixed_output(
+from tvf_one_relation_arg_with_anonymization_uid(
   (select with anonymization anon_count(*) from SimpleTypesWithAnonymizationUid))
 --
 [PRE-REWRITE AST]
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#16 AS `$col1` [INT64]
+| +-$aggregate.$agg1#25 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#16]
+    +-column_list=[$aggregate.$agg1#25]
     +-input_scan=
       +-AnonymizedAggregateScan
-        +-column_list=[$aggregate.$agg1#16]
+        +-column_list=[$aggregate.$agg1#25]
         +-input_scan=
         | +-TVFScan
-        |   +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        |   +-signature=(TABLE<$col1 INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        |   +-tvf=tvf_one_relation_arg_with_anonymization_uid((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
+        |   +-signature=(TABLE<$col1 INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         |   +-argument_list=
         |     +-FunctionArgument
         |       +-scan=
@@ -304,42 +613,9 @@ QueryStmt
         |       |         +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
         |       +-argument_column_list=[$aggregate.$agg1#13]
         +-aggregate_list=
-          +-$agg1#16 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+          +-$agg1#25 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
 
-Rewrite ERROR: Nested SELECT WITH ANONYMIZATION queries are not supported
-==
-
-# Disallow relation arguments that reference other tables/tvfs
-select with anonymization anon_count(*)
-from tvf_one_relation_arg_with_fixed_output(
-  (select * from SimpleTypesWithAnonymizationUid))
---
-[PRE-REWRITE AST]
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#15 AS `$col1` [INT64]
-+-query=
-  +-ProjectScan
-    +-column_list=[$aggregate.$agg1#15]
-    +-input_scan=
-      +-AnonymizedAggregateScan
-        +-column_list=[$aggregate.$agg1#15]
-        +-input_scan=
-        | +-TVFScan
-        |   +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        |   +-signature=(TABLE<int32 INT32, int64 INT64, uint32 UINT32, uint64 UINT64, string STRING, bytes BYTES, bool BOOL, float FLOAT, double DOUBLE, date DATE, uid INT64, numeric NUMERIC>) -> TABLE<column_bool BOOL, column_bytes BYTES>
-        |   +-argument_list=
-        |     +-FunctionArgument
-        |       +-scan=
-        |       | +-ProjectScan
-        |       |   +-column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12]
-        |       |   +-input_scan=
-        |       |     +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-        |       +-argument_column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12]
-        +-aggregate_list=
-          +-$agg1#15 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
-
-Rewrite ERROR: A TVF inside a SELECT WITH ANONYMIZATION query may not reference a table in that TVF's arguments, but found table SimpleTypesWithAnonymizationUid in arguments of TVF tvf_one_relation_arg_with_fixed_output
+Rewrite ERROR: TVF arguments do not support SELECT WITH ANONYMIZATION queries
 ==
 
 # Allow tables containing user data to be referenced in TVFs that are not child
@@ -463,25 +739,26 @@ QueryStmt
 }
 ==
 
-# Disallow nested anonymization in TVF args
+# The rewriter does not support anonymization queries as arguments
+# to TVFs yet.
 select with anonymization anon_count(*)
-from tvf_one_relation_arg_with_fixed_output(
+from tvf_one_relation_arg_with_anonymization_uid(
   (select with anonymization anon_count(*) from SimpleTypes))
 --
 [PRE-REWRITE AST]
 QueryStmt
 +-output_column_list=
-| +-$aggregate.$agg1#22 AS `$col1` [INT64]
+| +-$aggregate.$agg1#31 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[$aggregate.$agg1#22]
+    +-column_list=[$aggregate.$agg1#31]
     +-input_scan=
       +-AnonymizedAggregateScan
-        +-column_list=[$aggregate.$agg1#22]
+        +-column_list=[$aggregate.$agg1#31]
         +-input_scan=
         | +-TVFScan
-        |   +-tvf=tvf_one_relation_arg_with_fixed_output((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        |   +-signature=(TABLE<$col1 INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        |   +-tvf=tvf_one_relation_arg_with_anonymization_uid((ANY TABLE) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>)
+        |   +-signature=(TABLE<$col1 INT64>) -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>
         |   +-argument_list=
         |     +-FunctionArgument
         |       +-scan=
@@ -496,9 +773,9 @@ QueryStmt
         |       |         +-$agg1#19 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
         |       +-argument_column_list=[$aggregate.$agg1#19]
         +-aggregate_list=
-          +-$agg1#22 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+          +-$agg1#31 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
 
-Rewrite ERROR: Nested SELECT WITH ANONYMIZATION queries are not supported
+Rewrite ERROR: TVF arguments do not support SELECT WITH ANONYMIZATION queries
 ==
 
 # Valid TVF query that doesn't explicitly project the uid column
@@ -914,19 +1191,17 @@ QueryStmt
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#2]
         +-input_scan=
-        | +-TVFScan(tvf=tvf_no_args_with_nested_anonymization_uid(() -> TABLE<user_info PROTO<zetasql_test.TestExtraPB>>), signature=() -> TABLE<user_info PROTO<zetasql_test.TestExtraPB>>)
+        | +-TVFScan(tvf=tvf_no_args_with_nested_anonymization_uid(() -> TABLE<user_info PROTO<zetasql_test__.TestExtraPB>>), signature=() -> TABLE<user_info PROTO<zetasql_test__.TestExtraPB>>)
         +-aggregate_list=
           +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
 
 Rewrite ERROR: Nested user IDs are not currently supported for TVFs (in TVF tvf_no_args_with_nested_anonymization_uid)
 ==
 
-# TODO: Fetching user IDs from a value tables is not currently
-# supported.
+# Fetching user IDs from a value table.
 select with anonymization anon_count(*)
-from tvf_no_args_value_table_with_nested_anonymization_uid();
+from tvf_no_args_value_table_with_anonymization_uid();
 --
-[PRE-REWRITE AST]
 QueryStmt
 +-output_column_list=
 | +-$aggregate.$agg1#2 AS `$col1` [INT64]
@@ -937,8 +1212,262 @@ QueryStmt
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#2]
         +-input_scan=
-        | +-TVFScan(tvf=tvf_no_args_value_table_with_nested_anonymization_uid(() -> TABLE<PROTO<zetasql_test.TestExtraPB>>), signature=() -> TABLE<PROTO<zetasql_test.TestExtraPB>>)
+        | +-TVFScan(tvf=tvf_no_args_value_table_with_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>)
         +-aggregate_list=
           +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
 
-Rewrite ERROR: Anonymization is not currently supported for TVFs that produce value tables (in TVF tvf_no_args_value_table_with_nested_anonymization_uid)
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#2 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#2]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#2]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#6, $group_by.$uid#7]
+        |   +-input_scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[tvf_no_args_value_table_with_anonymization_uid.$value#3, $project.$int32_val1#4]
+        |   |   +-expr_list=
+        |   |   | +-$int32_val1#4 :=
+        |   |   |   +-GetProtoField
+        |   |   |     +-type=INT32
+        |   |   |     +-expr=
+        |   |   |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=tvf_no_args_value_table_with_anonymization_uid.$value#3)
+        |   |   |     +-field_descriptor=int32_val1
+        |   |   |     +-default_value=0
+        |   |   +-input_scan=
+        |   |     +-TVFScan(column_list=[tvf_no_args_value_table_with_anonymization_uid.$value#3], tvf=tvf_no_args_value_table_with_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>), signature=() -> TABLE<PROTO<zetasql_test__.TestExtraPB>>, column_index_list=[0])
+        |   +-group_by_list=
+        |   | +-$uid#7 := ColumnRef(type=INT32, column=$project.$int32_val1#4)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#6 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+        | +-$agg1#2 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#6)
+        | +-$k_threshold_col#10 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#10)
+==
+
+# Fetching nested user IDs from a value table.
+select with anonymization anon_count(*)
+from tvf_no_args_value_table_with_nested_anonymization_uid();
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#2 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#2]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#2]
+        +-input_scan=
+        | +-TVFScan(tvf=tvf_no_args_value_table_with_nested_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>), signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>)
+        +-aggregate_list=
+          +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#2 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#2]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#2]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#7, $group_by.$uid#8]
+        |   +-input_scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[tvf_no_args_value_table_with_nested_anonymization_uid.$value#3, $project.$nested_int64#5]
+        |   |   +-expr_list=
+        |   |   | +-$nested_int64#5 :=
+        |   |   |   +-GetProtoField
+        |   |   |     +-type=INT64
+        |   |   |     +-expr=
+        |   |   |     | +-GetProtoField
+        |   |   |     |   +-type=PROTO<zetasql_test__.KitchenSinkPB.Nested>
+        |   |   |     |   +-expr=
+        |   |   |     |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=tvf_no_args_value_table_with_nested_anonymization_uid.$value#3)
+        |   |   |     |   +-field_descriptor=nested_value
+        |   |   |     |   +-default_value=NULL
+        |   |   |     +-field_descriptor=nested_int64
+        |   |   |     +-default_value=88
+        |   |   +-input_scan=
+        |   |     +-TVFScan(column_list=[tvf_no_args_value_table_with_nested_anonymization_uid.$value#3], tvf=tvf_no_args_value_table_with_nested_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>), signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>, column_index_list=[0])
+        |   +-group_by_list=
+        |   | +-$uid#8 := ColumnRef(type=INT64, column=$project.$nested_int64#5)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#7 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+        | +-$agg1#2 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#7)
+        | +-$k_threshold_col#11 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#11)
+==
+
+# Selecting anon functions over and fetching nested user IDs from a value table.
+select with anonymization anon_sum(nested_value.nested_int64),
+                          anon_avg(nested_value.nested_int64),
+                          anon_sum(int32_val)
+    from tvf_no_args_value_table_with_nested_anonymization_uid();
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#2 AS `$col1` [INT64]
+| +-$aggregate.$agg2#3 AS `$col2` [DOUBLE]
+| +-$aggregate.$agg3#4 AS `$col3` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$aggregate.[$agg1#2, $agg2#3, $agg3#4]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=$aggregate.[$agg1#2, $agg2#3, $agg3#4]
+        +-input_scan=
+        | +-TVFScan(column_list=[tvf_no_args_value_table_with_nested_anonymization_uid.$col0#1], tvf=tvf_no_args_value_table_with_nested_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>), signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>, column_index_list=[0])
+        +-aggregate_list=
+          +-$agg1#2 :=
+          | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+          |   +-GetProtoField
+          |     +-type=INT64
+          |     +-expr=
+          |     | +-GetProtoField
+          |     |   +-type=PROTO<zetasql_test__.KitchenSinkPB.Nested>
+          |     |   +-expr=
+          |     |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=tvf_no_args_value_table_with_nested_anonymization_uid.$col0#1)
+          |     |   +-field_descriptor=nested_value
+          |     |   +-default_value=NULL
+          |     +-field_descriptor=nested_int64
+          |     +-default_value=88
+          +-$agg2#3 :=
+          | +-AggregateFunctionCall(ZetaSQL:anon_avg(DOUBLE, optional(0) DOUBLE, optional(0) DOUBLE) -> DOUBLE)
+          |   +-Cast(INT64 -> DOUBLE)
+          |     +-GetProtoField
+          |       +-type=INT64
+          |       +-expr=
+          |       | +-GetProtoField
+          |       |   +-type=PROTO<zetasql_test__.KitchenSinkPB.Nested>
+          |       |   +-expr=
+          |       |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=tvf_no_args_value_table_with_nested_anonymization_uid.$col0#1)
+          |       |   +-field_descriptor=nested_value
+          |       |   +-default_value=NULL
+          |       +-field_descriptor=nested_int64
+          |       +-default_value=88
+          +-$agg3#4 :=
+            +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+              +-Cast(INT32 -> INT64)
+                +-GetProtoField
+                  +-type=INT32
+                  +-expr=
+                  | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=tvf_no_args_value_table_with_nested_anonymization_uid.$col0#1)
+                  +-field_descriptor=int32_val
+                  +-default_value=77
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#2 AS `$col1` [INT64]
+| +-$aggregate.$agg2#3 AS `$col2` [DOUBLE]
+| +-$aggregate.$agg3#4 AS `$col3` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$aggregate.[$agg1#2, $agg2#3, $agg3#4]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=$aggregate.[$agg1#2, $agg2#3, $agg3#4]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#8, $aggregate.$agg2_partial#10, $aggregate.$agg3_partial#12, $group_by.$uid#13]
+        |   +-input_scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[tvf_no_args_value_table_with_nested_anonymization_uid.$col0#1, $project.$nested_int64#6]
+        |   |   +-expr_list=
+        |   |   | +-$nested_int64#6 :=
+        |   |   |   +-GetProtoField
+        |   |   |     +-type=INT64
+        |   |   |     +-expr=
+        |   |   |     | +-GetProtoField
+        |   |   |     |   +-type=PROTO<zetasql_test__.KitchenSinkPB.Nested>
+        |   |   |     |   +-expr=
+        |   |   |     |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=tvf_no_args_value_table_with_nested_anonymization_uid.$col0#1)
+        |   |   |     |   +-field_descriptor=nested_value
+        |   |   |     |   +-default_value=NULL
+        |   |   |     +-field_descriptor=nested_int64
+        |   |   |     +-default_value=88
+        |   |   +-input_scan=
+        |   |     +-TVFScan(column_list=[tvf_no_args_value_table_with_nested_anonymization_uid.$col0#1], tvf=tvf_no_args_value_table_with_nested_anonymization_uid(() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>), signature=() -> TABLE<PROTO<zetasql_test__.KitchenSinkPB>>, column_index_list=[0])
+        |   +-group_by_list=
+        |   | +-$uid#13 := ColumnRef(type=INT64, column=$project.$nested_int64#6)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#8 :=
+        |     | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |     |   +-GetProtoField
+        |     |     +-type=INT64
+        |     |     +-expr=
+        |     |     | +-GetProtoField
+        |     |     |   +-type=PROTO<zetasql_test__.KitchenSinkPB.Nested>
+        |     |     |   +-expr=
+        |     |     |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=tvf_no_args_value_table_with_nested_anonymization_uid.$col0#1)
+        |     |     |   +-field_descriptor=nested_value
+        |     |     |   +-default_value=NULL
+        |     |     +-field_descriptor=nested_int64
+        |     |     +-default_value=88
+        |     +-$agg2_partial#10 :=
+        |     | +-AggregateFunctionCall(ZetaSQL:avg(DOUBLE) -> DOUBLE)
+        |     |   +-Cast(INT64 -> DOUBLE)
+        |     |     +-GetProtoField
+        |     |       +-type=INT64
+        |     |       +-expr=
+        |     |       | +-GetProtoField
+        |     |       |   +-type=PROTO<zetasql_test__.KitchenSinkPB.Nested>
+        |     |       |   +-expr=
+        |     |       |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=tvf_no_args_value_table_with_nested_anonymization_uid.$col0#1)
+        |     |       |   +-field_descriptor=nested_value
+        |     |       |   +-default_value=NULL
+        |     |       +-field_descriptor=nested_int64
+        |     |       +-default_value=88
+        |     +-$agg3_partial#12 :=
+        |       +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |         +-Cast(INT32 -> INT64)
+        |           +-GetProtoField
+        |             +-type=INT32
+        |             +-expr=
+        |             | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=tvf_no_args_value_table_with_nested_anonymization_uid.$col0#1)
+        |             +-field_descriptor=int32_val
+        |             +-default_value=77
+        +-aggregate_list=
+        | +-$agg1#2 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#8)
+        | +-$agg2#3 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_avg(DOUBLE, optional(0) DOUBLE, optional(0) DOUBLE) -> DOUBLE)
+        | |   +-ColumnRef(type=DOUBLE, column=$aggregate.$agg2_partial#10)
+        | +-$agg3#4 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg3_partial#12)
+        | +-$k_threshold_col#18 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#18)

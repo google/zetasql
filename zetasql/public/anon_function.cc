@@ -28,12 +28,23 @@ namespace zetasql {
 
 static std::string AnonFunctionSQL(absl::string_view display_name,
                                    const std::vector<std::string>& inputs) {
-  ZETASQL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
-  return absl::StrCat(absl::AsciiStrToUpper(display_name), "(", inputs[0],
-                      inputs.size() == 3
-                          ? absl::StrCat(" CLAMPED BETWEEN ", inputs[1],
-                                         " AND ", inputs[2], ")")
-                          : ")");
+  const std::string upper_case_display_name =
+      absl::AsciiStrToUpper(display_name);
+  if (upper_case_display_name == "ANON_PERCENTILE_CONT") {
+    ZETASQL_DCHECK(inputs.size() == 2 || inputs.size() == 4);
+    return absl::StrCat(
+        upper_case_display_name, "(", inputs[0], ", ", inputs[1],
+        inputs.size() == 4 ? absl::StrCat(" CLAMPED BETWEEN ", inputs[2],
+                                          " AND ", inputs[3], ")")
+                           : ")");
+  } else {
+    ZETASQL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
+    return absl::StrCat(upper_case_display_name, "(", inputs[0],
+                        inputs.size() == 3
+                            ? absl::StrCat(" CLAMPED BETWEEN ", inputs[1],
+                                           " AND ", inputs[2], ")")
+                            : ")");
+  }
 }
 
 static std::string SupportedSignaturesForAnonFunction(
@@ -41,22 +52,41 @@ static std::string SupportedSignaturesForAnonFunction(
     const Function& function) {
   std::string supported_signatures;
   for (const FunctionSignature& signature : function.signatures()) {
-    // The expected invariant for the current list of anonymized aggregate
-    // functions is that they have one input argument along with two
-    // optional clamped bounds arguments (in that order).
-    ZETASQL_DCHECK_EQ(signature.arguments().size(), 3)
-        << signature.DebugString(function_name, /*verbose=*/true);
+    std::string percentile = "";
+    bool is_percentile_cont = false;
+    if (absl::AsciiStrToUpper(function_name) == "ANON_PERCENTILE_CONT") {
+      // The expected signature of ANON_PERCENTILE_CONT is that it has two
+      // input arguments along with two optional clamped bounds arguments (in
+      // that order).
+      ZETASQL_DCHECK_EQ(signature.arguments().size(), 4)
+          << signature.DebugString(function_name, /*verbose=*/true);
+      is_percentile_cont = true;
+      percentile = absl::StrCat(", ", signature.argument(1).UserFacingName(
+                                          language_options.product_mode()));
+    } else {
+      // The expected invariant for the current list of the anonymized aggregate
+      // functions other than ANON_PERCENTILE_CONT is that they have one input
+      // argument along with two optional clamped bounds arguments (in that
+      // order).
+      ZETASQL_DCHECK_EQ(signature.arguments().size(), 3)
+          << signature.DebugString(function_name, /*verbose=*/true);
+    }
+    if (signature.IsInternal()) {
+      continue;
+    }
     const std::string base_argument_type =
         signature.argument(0).UserFacingName(language_options.product_mode());
     const std::string lower_bound_type =
-        signature.argument(1).UserFacingName(language_options.product_mode());
+        signature.argument(is_percentile_cont ? 2 : 1)
+            .UserFacingName(language_options.product_mode());
     const std::string upper_bound_type =
-        signature.argument(2).UserFacingName(language_options.product_mode());
+        signature.argument(is_percentile_cont ? 3 : 2)
+            .UserFacingName(language_options.product_mode());
     if (!supported_signatures.empty()) {
       absl::StrAppend(&supported_signatures, ", ");
     }
     absl::StrAppend(&supported_signatures, absl::AsciiStrToUpper(function_name),
-                    "(", base_argument_type, " [CLAMPED BETWEEN ",
+                    "(", base_argument_type, percentile, " [CLAMPED BETWEEN ",
                     lower_bound_type, " AND ", upper_bound_type, "])");
   }
   return supported_signatures;
@@ -65,19 +95,38 @@ static std::string SupportedSignaturesForAnonFunction(
 static std::string AnonFunctionBadArgumentErrorPrefix(
     absl::string_view display_name, const FunctionSignature& signature,
     int idx) {
-  switch (idx) {
-    case 0:
-      return absl::StrCat(signature.NumConcreteArguments() == 3
-                              ? "The argument to "
-                              : "Argument 1 to ",
-                          absl::AsciiStrToUpper(display_name));
-    case 1:
-      return "Lower bound on CLAMPED BETWEEN";
-    case 2:
-      return "Upper bound on CLAMPED BETWEEN";
-    default:
-      return absl::StrCat("Argument ", idx - 1, " to ",
-                          absl::AsciiStrToUpper(display_name));
+  if (absl::AsciiStrToUpper(display_name) == "ANON_PERCENTILE_CONT") {
+    switch (idx) {
+      case 0:
+        return absl::StrCat(signature.NumConcreteArguments() == 3
+                                ? "The argument to "
+                                : "Argument 1 to ",
+                            absl::AsciiStrToUpper(display_name));
+      case 1:
+        return "Percentile";
+      case 2:
+        return "Lower bound on CLAMPED BETWEEN";
+      case 3:
+        return "Upper bound on CLAMPED BETWEEN";
+      default:
+        return absl::StrCat("Argument ", idx - 1, " to ",
+                            absl::AsciiStrToUpper(display_name));
+    }
+  } else {
+    switch (idx) {
+      case 0:
+        return absl::StrCat(signature.NumConcreteArguments() == 3
+                                ? "The argument to "
+                                : "Argument 1 to ",
+                            absl::AsciiStrToUpper(display_name));
+      case 1:
+        return "Lower bound on CLAMPED BETWEEN";
+      case 2:
+        return "Upper bound on CLAMPED BETWEEN";
+      default:
+        return absl::StrCat("Argument ", idx - 1, " to ",
+                            absl::AsciiStrToUpper(display_name));
+    }
   }
 }
 

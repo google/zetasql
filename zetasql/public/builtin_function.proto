@@ -39,20 +39,21 @@ enum FunctionSignatureId {
   // in ranges:
   //
   // 0002-0999 Non-standard function calls    (NextId: 302)
-  // 1000-1099 String functions               (NextId: 1082)
+  // 1000-1099 String functions               (NextId: 1083)
   // 1100-1199 Control flow functions         (NextId: 1104)
   // 1200-1299 Time functions                 (Fully used)
   // 1300-1399 Math functions                 (Fully used)
   // 1400-1499 Aggregate functions            (NextId: 1491)
   // 1500-1599 Analytic functions             (NextId: 1513)
-  // 1600-1699 Misc functions                 (NextId: 1699)
+  // 1600-1699 Misc functions                 (Fully used)
   // 1700-1799 Net functions                  (NextId: 1716)
   // 1800-1899 More time functions            (NextId: 1861)
-  // 1900-1999 Hashing/encryption functions   (NextId: 1928)
-  // 2000-2199 Geography functions            (NextId: 2078)
-  // 2200-2299 Anonymization functions        (NextId: 2208)
+  // 1900-1999 Hashing/encryption functions   (NextId: 1938)
+  // 2000-2199 Geography functions            (NextId: 2086)
+  // 2200-2299 Anonymization functions        (NextId: 2214)
   // 2300-2499 Numeric & more math functions  (NextId: 2316)
   // 2500-2599 Array and proto map functions  (NextId: 2510)
+  // 2600-2699 More misc functions.           (NextId: 2604)
 
   // enum value                       // Related function name
   // ----------                       // ---------------------
@@ -200,7 +201,8 @@ enum FunctionSignatureId {
   FN_BIT_COUNT_UINT64 = 146;  // bit_count(uint64) -> int64
   FN_BIT_COUNT_BYTES = 247;   // bit_count(bytes) -> int64
 
-  FN_ERROR = 253;  // error(string) -> {unused result, coercible to any type}
+  FN_TYPEOF = 1699;  // typeof(any) -> string
+  FN_ERROR = 253;    // error(string) -> {unused result, coercible to any type}
 
   FN_COUNT_STAR = 57;  // $count_star
 
@@ -302,11 +304,11 @@ enum FunctionSignatureId {
   FN_INITCAP_STRING = 1076;    // initcap(string[, string]) -> string
   FN_UNICODE_STRING = 1077;    // unicode(string) -> int64
   FN_CHR_STRING = 1078;        // chr(int64) -> string
+  FN_COLLATE = 1082;           // collate(string, string) -> string
   FN_REGEXP_INSTR_STRING =
       1079;  // regex_instr(string, string[, int64[, int64[, int64]]])
   FN_REGEXP_INSTR_BYTES =
       1080;  // regex_instr(bytes, bytes[, int64[, int64[, int64]]])
-  FN_CONTAINS_SUBSTR = 1081;  // contains_substr(any, string) -> bool
 
   // Control flow functions
   FN_IF = 1100;  // if
@@ -855,14 +857,16 @@ enum FunctionSignatureId {
   FN_KEYS_KEYSET_LENGTH = 1913;     // keys.keyset_length(bytes)
   FN_KEYS_KEYSET_TO_JSON = 1914;    // keys.keyset_to_json(bytes)
   FN_KEYS_KEYSET_FROM_JSON = 1915;  // keys.keyset_from_json(string)
-  FN_AEAD_ENCRYPT_STRING = 1916;    // aead.encrypt(bytes, string, string)
-  FN_AEAD_ENCRYPT_BYTES = 1917;     // aead.encrypt(bytes, bytes, bytes)
-  FN_AEAD_DECRYPT_STRING = 1918;    // aead.decrypt_string(bytes, bytes, string)
-  FN_AEAD_DECRYPT_BYTES = 1919;     // aead.decrypt_bytes(bytes, bytes, bytes)
-  FN_KMS_ENCRYPT_STRING = 1920;     // kms.encrypt(string, string)
-  FN_KMS_ENCRYPT_BYTES = 1921;      // kms.encrypt(string, bytes)
-  FN_KMS_DECRYPT_STRING = 1922;     // kms.decrypt_string(string, bytes)
-  FN_KMS_DECRYPT_BYTES = 1923;      // kms.decrypt_bytes(string, bytes)
+  // keys.keyset_chain(string, bytes, bytes)
+  FN_KEYS_KEYSET_CHAIN_STRING_BYTES_BYTES = 1928;
+  // keys.keyset_chain(string, bytes)
+  FN_KEYS_KEYSET_CHAIN_STRING_BYTES = 1929;
+
+  FN_KMS_ENCRYPT_STRING = 1920;  // kms.encrypt(string, string)
+  FN_KMS_ENCRYPT_BYTES = 1921;   // kms.encrypt(string, bytes)
+  FN_KMS_DECRYPT_STRING = 1922;  // kms.decrypt_string(string, bytes)
+  FN_KMS_DECRYPT_BYTES = 1923;   // kms.decrypt_bytes(string, bytes)
+
   // aead.envelope_encrypt(string, bytes, string, string)
   FN_AEAD_ENVELOPE_ENCRYPT_STRING = 1924;
   // aead.envelope_encrypt(string, bytes, bytes, bytes)
@@ -871,14 +875,30 @@ enum FunctionSignatureId {
   FN_AEAD_ENVELOPE_DECRYPT_STRING = 1926;
   // aead.envelope_decrypt_bytes(string, bytes, bytes, bytes)
   FN_AEAD_ENVELOPE_DECRYPT_BYTES = 1927;
-  // keys.keyset_chain(string, bytes, bytes)
-  FN_KEYS_KEYSET_CHAIN_STRING_BYTES_BYTES = 1928;
-  // keys.keyset_chain(string, bytes)
-  FN_KEYS_KEYSET_CHAIN_STRING_BYTES = 1929;
+  // aead.encrypt(bytes, string, string)
+  FN_AEAD_ENCRYPT_STRING = 1916;
+  // aead.encrypt(bytes, bytes, bytes)
+  FN_AEAD_ENCRYPT_BYTES = 1917;
   // aead.encrypt(struct, string, string)
   FN_AEAD_ENCRYPT_STRUCT_STRING = 1930;
   // aead.encrypt(struct, bytes, bytes)
   FN_AEAD_ENCRYPT_STRUCT_BYTES = 1931;
+  // aead.decrypt_string(bytes, bytes, string)
+  FN_AEAD_DECRYPT_STRING = 1918;
+  // aead.decrypt_bytes(bytes, bytes, bytes)
+  FN_AEAD_DECRYPT_BYTES = 1919;
+  // aead.decrypt(struct, string, string)
+  FN_AEAD_DECRYPT_STRUCT_STRING = 1932;
+  // aead.decrypt(struct, bytes, bytes)
+  FN_AEAD_DECRYPT_STRUCT_BYTES = 1933;
+  // deterministic_encrypt(bytes, string, string)
+  FN_DETERMINISTIC_ENCRYPT_STRING = 1934;
+  // deterministic_encrypt(bytes, bytes, bytes)
+  FN_DETERMINISTIC_ENCRYPT_BYTES = 1935;
+  // deterministic_decrypt_string(bytes, bytes, string)
+  FN_DETERMINISTIC_DECRYPT_STRING = 1936;
+  // deterministic_decrypt_bytes(bytes, bytes, bytes)
+  FN_DETERMINISTIC_DECRYPT_BYTES = 1937;
 
   // ST_ family of functions (Geography related - (broken link))
   // Constructors
@@ -902,6 +922,8 @@ enum FunctionSignatureId {
   FN_ST_CLOSEST_POINT = 2017;
   FN_ST_BOUNDARY = 2018;
   FN_ST_CONVEXHULL = 2065;
+  FN_ST_EXTERIORRING = 2078;
+  FN_ST_INTERIORRINGS = 2079;
 
   // Predicates
   FN_ST_EQUALS = 2020;
@@ -921,6 +943,7 @@ enum FunctionSignatureId {
   FN_ST_DIMENSION = 2032;
   FN_ST_NUM_POINTS = 2033;
   FN_ST_NUM_GEOMETRIES = 2034;
+  FN_ST_GEOMETRY_TYPE = 2035;
   FN_ST_DUMP = 2064;
   FN_ST_POINT_N = 2075;
   FN_ST_START_POINT = 2076;
@@ -932,6 +955,8 @@ enum FunctionSignatureId {
   FN_ST_AREA = 2042;
   FN_ST_DISTANCE = 2043;
   FN_ST_MAX_DISTANCE = 2044;
+  FN_ST_AZIMUTH = 2080;
+  FN_ST_ANGLE = 2081;
 
   // Parsers/formatters
   FN_ST_GEOG_FROM_TEXT = 2050;
@@ -955,12 +980,17 @@ enum FunctionSignatureId {
   FN_ST_ACCUM = 2062;
   FN_ST_CENTROID_AGG = 2063;
   FN_ST_NEAREST_NEIGHBORS = 2067;
+  FN_ST_EXTENT = 2083;
+
+  // S2 Functions
+  FN_S2_COVERINGCELLIDS = 2082;
+  FN_S2_CELLIDFROMPOINT = 2085;
 
   // Other geography functions
   FN_ST_X = 2070;
   FN_ST_Y = 2071;
-
   FN_ST_CLUSTERDBSCAN = 2066;
+  FN_ST_BOUNDING_BOX = 2084;
 
   // Differentially private anonymization functions
   // ((broken link)).
@@ -972,6 +1002,15 @@ enum FunctionSignatureId {
   FN_ANON_SUM_NUMERIC = 2205;
   FN_ANON_AVG_DOUBLE = 2206;
   FN_ANON_AVG_NUMERIC = 2207;
+  FN_ANON_VAR_POP_DOUBLE = 2208;
+  // This is an internal function signature, and is not in the language.
+  FN_ANON_VAR_POP_DOUBLE_ARRAY = 2209;
+  FN_ANON_STDDEV_POP_DOUBLE = 2210;
+  // This is an internal function signature, and is not in the language.
+  FN_ANON_STDDEV_POP_DOUBLE_ARRAY = 2211;
+  FN_ANON_PERCENTILE_CONT_DOUBLE = 2212;
+  // This is an internal function signature, and is not in the language.
+  FN_ANON_PERCENTILE_CONT_DOUBLE_ARRAY = 2213;
 
   // Array and proto map functions.
   FN_FLATTEN = 2500;  // flatten(array path) -> array
@@ -1002,4 +1041,10 @@ enum FunctionSignatureId {
   FN_ARRAY_INCLUDES = 2511;         // ARRAY_INCLUDES(array, element) -> bool
   FN_ARRAY_INCLUDES_LAMBDA = 2512;  // ARRAY_INCLUDES(array, lambda) -> bool
   FN_ARRAY_INCLUDES_ANY = 2513;     // ARRAY_INCLUDES(array, element) -> bool
+
+  // More misc functions
+  FN_JSON_TO_INT64 = 2600;   // int64(json) -> int64
+  FN_JSON_TO_BOOL = 2601;    // bool(json) -> bool
+  FN_JSON_TO_STRING = 2602;  // string(json) -> string
+  FN_JSON_TYPE = 2603;       // json_type(json) -> type
 }

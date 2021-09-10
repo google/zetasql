@@ -19,6 +19,34 @@ syntax = "proto2";
 
 package zetasql;
 
+// Defines schema object kinds used by a parser rule to indicate the parsed
+// object kind for ALTER and DROP statements.  These enum values are also
+// used in the generic ASTDropStatement to identify what type of object is
+// being dropped.
+//
+// Note that this list excludes ROW POLICY for practical reasons - it is not
+// needed in the parser rules and it is not needed for the ASTDropStatement
+// (DROP ROW POLICY has its own ASTDropRowPolicyStatement).
+enum SchemaObjectKind {
+  __SchemaObjectKind__switch_must_have_a_default__ = -1;
+  // 0 reserved for future NOT_SET. See b/186246331.
+  kInvalidSchemaObjectKind = 1;
+  kAggregateFunction = 2;
+  kConstant = 3;
+  kDatabase = 4;
+  kExternalTable = 5;
+  kFunction = 6;
+  kIndex = 7;
+  kMaterializedView = 8;
+  kModel = 9;
+  kProcedure = 10;
+  kSchema = 11;
+  kTable = 12;
+  kTableFunction = 13;
+  kView = 14;
+  kSnapshotTable = 15;
+}
+
 message ASTBinaryExpressionEnums {
   // All supported operators.
   enum Op {
@@ -241,5 +269,69 @@ message ASTMergeWhenClauseEnums {
     MATCHED = 1;
     NOT_MATCHED_BY_SOURCE = 2;
     NOT_MATCHED_BY_TARGET = 3;
+  }
+}
+message ASTFilterFieldsArgEnums {
+  enum FilterType {
+    NOT_SET = 0;
+    INCLUDE = 1;
+    EXCLUDE = 2;
+  }
+}
+message ASTSampleSizeEnums {
+  enum Unit {
+    NOT_SET = 0;
+    ROWS = 1;
+    PERCENT = 2;
+  }
+}
+message ASTForeignKeyActionsEnums {
+  enum Action {
+    NO_ACTION = 0;
+    RESTRICT = 1;
+    CASCADE = 2;
+    SET_NULL = 3;
+  }
+}
+message ASTForeignKeyReferenceEnums {
+  enum Match {
+    // 0 reserved for future NOT_SET. See b/186246331.
+    SIMPLE = 1;
+    FULL = 2;
+    NOT_DISTINCT = 3;
+  }
+}
+message ASTBreakContinueStatementEnums {
+  enum BreakContinueKeyword {
+    // 0 reserved for future NOT_SET. See b/186246331.
+    BREAK = 1;
+    LEAVE = 2;
+    CONTINUE = 3;
+    ITERATE = 4;
+  }
+}
+message ASTDropStatementEnums {
+  enum DropMode {
+    DROP_MODE_UNSPECIFIED = 0;
+    RESTRICT = 1;
+    CASCADE = 2;
+  }
+}
+message ASTCreateFunctionStmtBaseEnums {
+  enum DeterminismLevel {
+    DETERMINISM_UNSPECIFIED = 0;
+    DETERMINISTIC = 1;
+    NOT_DETERMINISTIC = 2;
+    IMMUTABLE = 3;
+    STABLE = 4;
+    VOLATILE = 5;
+  }
+}
+
+message ASTAuxLoadDataStatementEnums {
+  enum InsertionMode {
+    NOT_SET = 0;
+    APPEND = 1;
+    OVERWRITE = 2;
   }
 }

@@ -74,7 +74,7 @@ TEST(TupleSlotTest, GetPhysicalByteSize) {
   TypeFactory type_factory;
   const ProtoType* proto_type;
   ZETASQL_ASSERT_OK(type_factory.MakeProtoType(
-      zetasql_test::KitchenSinkPB::descriptor(), &proto_type));
+      zetasql_test__::KitchenSinkPB::descriptor(), &proto_type));
 
   const absl::Cord raw_bytes("garbage");
   const Value proto_value = Value::Proto(proto_type, raw_bytes);
@@ -857,7 +857,7 @@ TEST(PassThroughTupleIterator, IteratorFails) {
     auto iter = absl::make_unique<TestTupleIterator>(
         schema.variables(), std::vector<TupleData>(),
         /*preserves_order=*/true, iterator_failure);
-    return zetasql_base::StatusOr<std::unique_ptr<TupleIterator>>(std::move(iter));
+    return absl::StatusOr<std::unique_ptr<TupleIterator>>(std::move(iter));
   };
   PassThroughTupleIterator::DebugStringFactory string_factory = [] {
     return "VeryLongString";
@@ -885,7 +885,7 @@ TEST(PassThroughTupleIterator, Success) {
     auto iter = absl::make_unique<TestTupleIterator>(
         schema.variables(), values,
         /*preserves_order=*/true, /*end_status=*/absl::OkStatus());
-    return zetasql_base::StatusOr<std::unique_ptr<TupleIterator>>(std::move(iter));
+    return absl::StatusOr<std::unique_ptr<TupleIterator>>(std::move(iter));
   };
   PassThroughTupleIterator::DebugStringFactory string_factory = [] {
     return "VeryLongString";

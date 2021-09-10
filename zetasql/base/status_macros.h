@@ -62,7 +62,7 @@
   } else /* NOLINT */                                               \
     return status_macro_internal_adaptor.Consume()
 
-// Executes an expression `rexpr` that returns a `zetasql_base::StatusOr<T>`. On
+// Executes an expression `rexpr` that returns a `absl::StatusOr<T>`. On
 // OK, extracts its value into the variable defined by `lhs`, otherwise returns
 // from the current function. By default the error status is returned
 // unchanged, but it may be modified by an `error_expression`. If there is an
@@ -137,7 +137,7 @@
     (void)_; /* error_expression is allowed to not use this variable */    \
     return (error_expression);                                             \
   }                                                                        \
-  lhs = std::move(statusor).ValueOrDie()
+  lhs = std::move(statusor).value()
 
 // Internal helper for concatenating macro values.
 #define ZETASQL_STATUS_MACROS_IMPL_CONCAT_INNER_(x, y) x##y

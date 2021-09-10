@@ -68,19 +68,36 @@ TEST(JsonFormatTest, Compliance) {
     // Otherwise just use the default result.
     const QueryParamsWithResult::Result* result =
         zetasql_base::FindOrNull(test.params.results(), default_feature_set);
-    const Value result_value =
+    const Value expected_result_value =
         result == nullptr ? test.params.results().begin()->second.result
                           : result->result;
-    ASSERT_FALSE(result_value.is_null());
+    const absl::Status expected_status =
+        result == nullptr ? test.params.results().begin()->second.status
+                          : result->status;
 
     JsonPrettyPrinter pretty_printer(pretty_print, PRODUCT_INTERNAL);
-    std::string output;
-    ZETASQL_ASSERT_OK(JsonFromValue(input_value, &pretty_printer, &output));
-    EXPECT_EQ(result_value.string_value(), output);
+    JSONParsingOptions json_parsing_options = JSONParsingOptions();
+    if (test.params.results().size() == 1 &&
+        zetasql_base::ContainsKey(test.params.results().begin()->first,
+                         FEATURE_JSON_STRICT_NUMBER_PARSING)) {
+      json_parsing_options.strict_number_parsing = true;
+    }
+    std::string actual_output;
+    auto actual_status = JsonFromValue(input_value, &pretty_printer,
+                                       &actual_output, json_parsing_options);
 
-    output = "dummy.prefix";
-    ZETASQL_ASSERT_OK(JsonFromValue(input_value, &pretty_printer, &output));
-    EXPECT_EQ("dummy.prefix" + result_value.string_value(), output);
+    if (expected_status.ok()) {
+      ZETASQL_ASSERT_OK(actual_status);
+      EXPECT_EQ(expected_result_value.string_value(), actual_output);
+
+      actual_output = "dummy.prefix";
+      ZETASQL_ASSERT_OK(JsonFromValue(input_value, &pretty_printer, &actual_output,
+                              json_parsing_options));
+      EXPECT_EQ("dummy.prefix" + expected_result_value.string_value(),
+                actual_output);
+    } else {
+      EXPECT_EQ(expected_status.code(), actual_status.code());
+    }
   }
 }
 
@@ -137,4 +154,3 @@ TEST(JsonFormatTest, LargeOutput) {
 }  // namespace
 }  // namespace functions
 }  // namespace zetasql
-

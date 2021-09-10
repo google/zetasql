@@ -16,23 +16,50 @@
 
 #include "zetasql/public/types/simple_type.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
+#include <map>
+#include <memory>
+#include <optional>
 #include <string>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
+#include "zetasql/base/logging.h"
+#include "google/protobuf/timestamp.pb.h"
+#include "zetasql/common/errors.h"
+#include "zetasql/common/float_margin.h"
 #include "zetasql/common/string_util.h"
+#include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/interval_value.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/public/type.pb.h"
+#include "zetasql/public/type_parameters.pb.h"
 #include "zetasql/public/types/internal_utils.h"
+#include "zetasql/public/types/simple_value.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/types/value_representations.h"
 #include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
+#include <cstdint>
+#include "absl/hash/hash.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/ascii.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "absl/time/time.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status.h"
+#include "zetasql/base/status_macros.h"
 #include "zetasql/base/time_proto_util.h"
 
 namespace zetasql {
@@ -65,7 +92,7 @@ struct TypeNameInfo {
   // If false, this type name can be used in both the internal mode and the
   // external mode. If true, this type name can be used in the internal mode
   // only.
-  bool internal_only = false;
+  bool internal_product_mode_only = false;
   // If present, then the feature controls whether the type name is enabled.
   // If absent, then the type name does not require any language feature.
   absl::optional<LanguageFeature> alias_feature;
@@ -96,7 +123,6 @@ const std::map<absl::string_view, TypeNameInfo>& SimpleTypeNameInfoMap() {
       {"bignumeric", {TYPE_BIGNUMERIC}},
       {"bigdecimal", {TYPE_BIGNUMERIC, false, FEATURE_V_1_3_DECIMAL_ALIAS}},
       {"json", {TYPE_JSON}},
-      {"tokenlist", {TYPE_TOKENLIST}},
   };
   return *result;
 }
@@ -106,7 +132,7 @@ struct TypeKindInfo {
   // If true, this type kind can be used in both the internal mode and the
   // external mode. If false, this type kind can be used in the internal mode
   // only .
-  bool internal_only = false;
+  bool internal_product_mode_only = false;
   // If present, then the feature controls whether the type kind is enabled.
   // If absent, then the type kind does not require any language feature.
   absl::optional<LanguageFeature> type_feature;
@@ -132,7 +158,6 @@ const std::map<TypeKind, TypeKindInfo>& SimpleTypeKindInfoMap() {
       {TYPE_NUMERIC, {false, FEATURE_NUMERIC_TYPE}},
       {TYPE_BIGNUMERIC, {false, FEATURE_BIGNUMERIC_TYPE}},
       {TYPE_JSON, {false, FEATURE_JSON_TYPE}},
-      {TYPE_TOKENLIST, {false, FEATURE_TOKENIZED_SEARCH}},
   };
   return *result;
 }
@@ -140,7 +165,7 @@ const std::map<TypeKind, TypeKindInfo>& SimpleTypeKindInfoMap() {
 // Joined result of TypeNameInfo and TypeKindInfo.
 struct TypeInfo {
   TypeKind type_kind;
-  bool internal_only = false;
+  bool internal_product_mode_only = false;
   absl::optional<LanguageFeature> type_feature;
   absl::optional<LanguageFeature> alias_feature;
 };
@@ -161,7 +186,8 @@ std::map<absl::string_view, TypeInfo>* BuildSimpleTypeInfoMap() {
     result->emplace(
         item.first,
         TypeInfo{type_kind,
-                 type_name_info.internal_only || type_kind_info.internal_only,
+                 type_name_info.internal_product_mode_only ||
+                     type_kind_info.internal_product_mode_only,
                  type_kind_info.type_feature, type_name_info.alias_feature});
   }
   return result;
@@ -240,7 +266,7 @@ bool SimpleType::IsSupportedType(
   }
   const TypeKindInfo& info = itr->second;
   if (language_options.product_mode() == PRODUCT_EXTERNAL &&
-      info.internal_only) {
+      info.internal_product_mode_only) {
     return false;
   }
   if (info.type_feature.has_value() &&
@@ -266,7 +292,7 @@ std::string SimpleType::TypeName(ProductMode mode) const {
   return TypeKindToString(kind(), mode);
 }
 
-zetasql_base::StatusOr<std::string> SimpleType::TypeNameWithParameters(
+absl::StatusOr<std::string> SimpleType::TypeNameWithParameters(
     const TypeParameters& type_params, ProductMode mode) const {
   if (type_params.IsStructOrArrayParameters() ||
       type_params.IsExtendedTypeParameters()) {
@@ -298,7 +324,7 @@ zetasql_base::StatusOr<std::string> SimpleType::TypeNameWithParameters(
 
 TypeKind SimpleType::GetTypeKindIfSimple(
     absl::string_view type_name, ProductMode mode,
-    const std::set<LanguageFeature>* language_features) {
+    const LanguageOptions::LanguageFeatureSet* language_features) {
   static const std::map<absl::string_view, TypeInfo>* type_map =
       BuildSimpleTypeInfoMap();
   const TypeInfo* type_info =
@@ -306,7 +332,7 @@ TypeKind SimpleType::GetTypeKindIfSimple(
   if (type_info == nullptr) {
     return TYPE_UNKNOWN;
   }
-  if (mode == PRODUCT_EXTERNAL && type_info->internal_only) {
+  if (mode == PRODUCT_EXTERNAL && type_info->internal_product_mode_only) {
     return TYPE_UNKNOWN;
   }
   if (language_features != nullptr) {
@@ -329,7 +355,6 @@ bool SimpleType::SupportsGroupingImpl(const LanguageOptions& language_options,
   const bool supports_grouping =
       !this->IsGeography() &&
       !this->IsJson() &&
-      !this->IsTokenList() &&
       !(this->IsFloatingPoint() && language_options.LanguageFeatureEnabled(
                                        FEATURE_DISALLOW_GROUP_BY_FLOAT));
   if (no_grouping_type != nullptr) {
@@ -1007,7 +1032,7 @@ absl::Status SimpleType::SetDateTimeValue(DatetimeValue datetime,
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<TypeParameters> SimpleType::ValidateAndResolveTypeParameters(
+absl::StatusOr<TypeParameters> SimpleType::ValidateAndResolveTypeParameters(
     const std::vector<TypeParameterValue>& type_parameter_values,
     ProductMode mode) const {
   if (IsString() || IsBytes()) {
@@ -1020,7 +1045,7 @@ zetasql_base::StatusOr<TypeParameters> SimpleType::ValidateAndResolveTypeParamet
                         << " does not support type parameters";
 }
 
-zetasql_base::StatusOr<TypeParameters> SimpleType::ResolveStringBytesTypeParameters(
+absl::StatusOr<TypeParameters> SimpleType::ResolveStringBytesTypeParameters(
     const std::vector<TypeParameterValue>& type_parameter_values,
     ProductMode mode) const {
   if (type_parameter_values.size() != 1) {
@@ -1049,7 +1074,7 @@ zetasql_base::StatusOr<TypeParameters> SimpleType::ResolveStringBytesTypeParamet
          << " length parameter must be an integer or MAX keyword";
 }
 
-zetasql_base::StatusOr<TypeParameters>
+absl::StatusOr<TypeParameters>
 SimpleType::ResolveNumericBignumericTypeParameters(
     const std::vector<TypeParameterValue>& type_parameter_values,
     ProductMode mode) const {
@@ -1073,9 +1098,9 @@ SimpleType::ResolveNumericBignumericTypeParameters(
   const int max_scale =
       IsNumericType() ? kNumericMaxScale : kBigNumericMaxScale;
   if (scale < 0 || scale > max_scale) {
-    return MakeSqlError() << "In " << ShortTypeName(mode)
-                          << "(P, S), S must be within range [0, " << max_scale
-                          << "]";
+    return MakeSqlError() << absl::Substitute(
+               "In $0(P, S), S must be between 0 and $1", ShortTypeName(mode),
+               max_scale);
   }
   type_parameters_proto.set_scale(scale);
 
@@ -1091,12 +1116,13 @@ SimpleType::ResolveNumericBignumericTypeParameters(
         precision > max_precision + scale) {
       if (type_parameter_values.size() == 1) {
         return MakeSqlError()
-               << "In " << ShortTypeName(mode)
-               << "(P), P must be within range [1, " << max_precision << "]";
+               << absl::Substitute("In $0(P), P must be between 1 and $1",
+                                   ShortTypeName(mode), max_precision);
       }
-      return MakeSqlError() << "In " << ShortTypeName(mode)
-                            << "(P, S), P must be within range [max(S,1), "
-                            << max_precision << "+S]";
+      return MakeSqlError()
+             << absl::Substitute("In $0(P, $1), P must be between $2 and $3",
+                                 ShortTypeName(mode), scale,
+                                 scale == 0 ? 1 : scale, max_precision + scale);
     }
     type_parameters_proto.set_precision(precision);
     return TypeParameters::MakeNumericTypeParameters(type_parameters_proto);
@@ -1141,9 +1167,9 @@ absl::Status SimpleType::ValidateNumericTypeParameters(
   // Validate value range for scale.
   int max_scale = IsNumericType() ? kNumericMaxScale : kBigNumericMaxScale;
   int64_t scale = numeric_param.scale();
-  ZETASQL_RET_CHECK(scale >= 0 && scale <= max_scale)
-      << "In " << ShortTypeName(mode) << "(P, S), S must be within range [0, "
-      << max_scale << "], actual scale: " << scale;
+  ZETASQL_RET_CHECK(scale >= 0 && scale <= max_scale) << absl::Substitute(
+      "In $0(P, S), S must be between 0 and $1, actual scale: $2",
+      ShortTypeName(mode), max_scale, scale);
 
   // Validate value range for precision.
   if (numeric_param.has_is_max_precision()) {
@@ -1156,9 +1182,11 @@ absl::Status SimpleType::ValidateNumericTypeParameters(
         IsNumericType() ? kNumericMaxPrecision : kBigNumericMaxPrecision;
     ZETASQL_RET_CHECK(precision >= std::max(int64_t{1}, scale) &&
               precision <= max_precision + scale)
-        << "In " << ShortTypeName(mode)
-        << "(P, S), P must be within range [max(S,1), " << max_precision
-        << "+S], actual precision: " << precision;
+        << absl::Substitute(
+               "In $0(P, $1), P must be between $2 and $3, actual "
+               "precision: $4",
+               ShortTypeName(mode), scale, scale == 0 ? 1 : scale,
+               max_precision + scale, precision);
   }
   return absl::OkStatus();
 }

@@ -1312,4 +1312,3 @@ ARRAY<STRUCT<STRING, STRING, STRING, STRING, STRING, STRING>>[
 SELECT JSON_EXTRACT_SCALAR('"extract scalar"'), JSON_VALUE('"extract value"')
 --
 ARRAY<STRUCT<STRING, STRING>>[{"extract scalar", "extract value"}]
-==

@@ -16,34 +16,33 @@
 
 // This file contains the implementation of expression-related resolver methods
 // from resolver.h.
+#include <stddef.h>
+
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
+#include <deque>
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
+#include <stack>
 #include <string>
-#include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "zetasql/analyzer/filter_fields_path_validator.h"
-#include "zetasql/parser/parse_tree_decls.h"
-#include "zetasql/public/annotation/collation.h"
-#include "zetasql/public/anon_function.h"
-#include "zetasql/public/builtin_function.pb.h"
-#include "zetasql/public/interval_value.h"
-#include "zetasql/public/simple_catalog.h"
-#include "zetasql/public/types/type_parameters.h"
-#include <cstdint>
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/analyzer/analytic_function_resolver.h"
 #include "zetasql/analyzer/column_cycle_detector.h"
+#include "zetasql/analyzer/expr_matching_helpers.h"
 #include "zetasql/analyzer/expr_resolver_helper.h"
+#include "zetasql/analyzer/filter_fields_path_validator.h"
 #include "zetasql/analyzer/function_resolver.h"
+#include "zetasql/analyzer/input_argument_type_resolver_helper.h"
 #include "zetasql/analyzer/lambda_util.h"
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
@@ -54,6 +53,9 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/analyzer_output_properties.h"
+#include "zetasql/public/annotation/collation.h"
+#include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/cast.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/catalog_helper.h"
@@ -69,7 +71,8 @@
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/functions/normalize_mode.pb.h"
 #include "zetasql/public/id_string.h"
-#include "zetasql/public/input_argument_type.h"
+#include "zetasql/public/interval_value.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
@@ -77,33 +80,37 @@
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/proto_util.h"
 #include "zetasql/public/signature_match_result.h"
+#include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/templated_sql_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/enum_type.h"
+#include "zetasql/public/types/proto_type.h"
+#include "zetasql/public/types/struct_type.h"
+#include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/base/case.h"
 #include "zetasql/base/string_numbers.h"  
-#include "absl/algorithm/container.h"
 #include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
-#include "zetasql/base/case.h"
 #include "absl/strings/match.h"
-#include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
-#include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
+#include "absl/strings/substitute.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
 #include "absl/types/variant.h"
@@ -127,7 +134,7 @@ namespace {
 
 // Verifies that 'field_descriptor' is an extension corresponding to the same
 // message as descriptor, and then returns 'field_descriptor'.
-zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*> VerifyFieldExtendsMessage(
+absl::StatusOr<const google::protobuf::FieldDescriptor*> VerifyFieldExtendsMessage(
     const ASTNode* ast_node, const google::protobuf::FieldDescriptor* field_descriptor,
     const google::protobuf::Descriptor* descriptor) {
   const google::protobuf::Descriptor* containing_type_descriptor =
@@ -328,27 +335,28 @@ absl::Status Resolver::ResolveBuildProto(
     }
 
     // Add coercion if necessary.
-    if (!expr->type()->Equals(proto_field_type)) {
-      const absl::Status cast_status =
-          function_resolver_->AddCastOrConvertLiteral(
-              argument.ast_location, proto_field_type,
-              /*format=*/nullptr, /*time_zone=*/nullptr, TypeParameters(),
-              input_scan,
-              /*set_has_explicit_type=*/false,
-              /*return_null_on_error=*/false, &expr);
-      if (!cast_status.ok()) {
-        // Propagate "Out of stack space" errors.
-        if (cast_status.code() == absl::StatusCode::kResourceExhausted) {
-          return cast_status;
-        }
-        return MakeSqlErrorAt(argument.ast_location)
-               << "Could not store value with type "
-               << GetInputArgumentTypeForExpr(expr.get())
-                      .UserFacingName(product_mode())
-               << " into proto field " << field->full_name()
-               << " which has SQL type "
-               << proto_field_type->ShortTypeName(product_mode());
+    // TODO: Remove input_scan arg and convert to CoerceExprToType
+    //     This will be a separate change because it churns test files.
+    // TODO: Check coercer->AssignableTo
+    if (const absl::Status cast_status =
+            function_resolver_->AddCastOrConvertLiteral(
+                argument.ast_location, proto_field_type, /*format=*/nullptr,
+                /*time_zone=*/nullptr, TypeParameters(), input_scan,
+                /*set_has_explicit_type=*/false,
+                /*return_null_on_error=*/false, &expr);
+        !cast_status.ok()) {
+      // Propagate "Out of stack space" errors.
+      // TODO
+      if (cast_status.code() == absl::StatusCode::kResourceExhausted) {
+        return cast_status;
       }
+      return MakeSqlErrorAt(argument.ast_location)
+             << "Could not store value with type "
+             << GetInputArgumentTypeForExpr(expr.get())
+                    .UserFacingName(product_mode())
+             << " into proto field " << field->full_name()
+             << " which has SQL type "
+             << proto_field_type->ShortTypeName(product_mode());
     }
 
     resolved_make_fields.emplace_back(MakeResolvedMakeProtoField(
@@ -406,7 +414,7 @@ absl::Status Resolver::ResolveBuildProto(
 // proto we are reading from. This lets some cases work where the proto does not
 // exist or has an unexpected name in the catalog, like a global_proto_db
 // qualified name.
-zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*>
+absl::StatusOr<const google::protobuf::FieldDescriptor*>
 Resolver::FindExtensionFieldDescriptor(const ASTPathExpression* ast_path_expr,
                                        const google::protobuf::Descriptor* descriptor) {
   // First try to find the extension in the DescriptorPool of the relevant proto
@@ -501,7 +509,7 @@ Resolver::FindExtensionFieldDescriptor(const ASTPathExpression* ast_path_expr,
          << " not found";
 }
 
-zetasql_base::StatusOr<const google::protobuf::Descriptor*> Resolver::FindMessageTypeForExtension(
+absl::StatusOr<const google::protobuf::Descriptor*> Resolver::FindMessageTypeForExtension(
     const ASTPathExpression* ast_path_expr,
     const std::vector<std::string>& type_name_path,
     const google::protobuf::DescriptorPool* descriptor_pool,
@@ -644,7 +652,7 @@ absl::Status Resolver::ResolveScalarExpr(
   return ResolveExpr(ast_expr, &expr_resolution_info, resolved_expr_out);
 }
 
-zetasql_base::StatusOr<std::unique_ptr<const ResolvedLiteral>>
+absl::StatusOr<std::unique_ptr<const ResolvedLiteral>>
 Resolver::ResolveJsonLiteral(const ASTJSONLiteral* json_literal) {
   std::string unquoted_image;
   ZETASQL_RETURN_IF_ERROR(ParseStringLiteral(json_literal->image(), &unquoted_image));
@@ -664,10 +672,9 @@ Resolver::ResolveJsonLiteral(const ASTJSONLiteral* json_literal) {
       return MakeSqlErrorAt(json_literal)
              << "Invalid JSON literal: " << status_or_value.status().message();
     }
-    return MakeResolvedLiteral(
-        json_literal, types::JsonType(),
-        Value::Json(std::move(status_or_value.ValueOrDie())),
-        /*has_explicit_type=*/true);
+    return MakeResolvedLiteral(json_literal, types::JsonType(),
+                               Value::Json(std::move(status_or_value.value())),
+                               /*has_explicit_type=*/true);
   }
 }
 
@@ -1359,7 +1366,7 @@ absl::Status Resolver::ResolvePathExpressionAsExpression(
         ZETASQL_RETURN_IF_ERROR(ResolveFieldAccess(
             MakeColumnRefWithCorrelation(target.column_containing_field(),
                                          correlated_columns_sets, access_flags),
-            ast_first_name, &expr_resolution_info->flatten_state,
+            path_expr, ast_first_name, &expr_resolution_info->flatten_state,
             &resolved_expr));
         break;
       case NameTarget::ACCESS_ERROR:
@@ -1403,10 +1410,11 @@ absl::Status Resolver::ResolvePathExpressionAsExpression(
         MaybeResolveProtoFieldOptions options;
         options.error_if_not_found = false;
         ZETASQL_RETURN_IF_ERROR(MaybeResolveProtoFieldAccess(
-            ast_first_name, options, std::move(value_column), &resolved_expr));
+            path_expr, ast_first_name, options, std::move(value_column),
+            &resolved_expr));
       } else if (column_type->IsStruct()) {
         ZETASQL_RETURN_IF_ERROR(MaybeResolveStructFieldAccess(
-            ast_first_name, /*error_if_not_found=*/false,
+            path_expr, ast_first_name, /*error_if_not_found=*/false,
             std::move(value_column), &resolved_expr));
       }
 
@@ -1512,9 +1520,10 @@ absl::Status Resolver::ResolvePathExpressionAsExpression(
 
   // Resolve any further identifiers in <path_expr> as field accesses.
   for (; num_names_consumed < path_expr->num_names(); ++num_names_consumed) {
-    ZETASQL_RETURN_IF_ERROR(ResolveFieldAccess(
-        std::move(resolved_expr), path_expr->name(num_names_consumed),
-        &expr_resolution_info->flatten_state, &resolved_expr));
+    ZETASQL_RETURN_IF_ERROR(ResolveFieldAccess(std::move(resolved_expr), path_expr,
+                                       path_expr->name(num_names_consumed),
+                                       &expr_resolution_info->flatten_state,
+                                       &resolved_expr));
   }
 
   *resolved_expr_out = std::move(resolved_expr);
@@ -1632,13 +1641,14 @@ absl::Status Resolver::ResolveDotIdentifier(
   ZETASQL_RETURN_IF_ERROR(ResolveExpr(dot_identifier->expr(), expr_resolution_info,
                               &resolved_expr));
 
-  return ResolveFieldAccess(std::move(resolved_expr), dot_identifier->name(),
+  return ResolveFieldAccess(std::move(resolved_expr), dot_identifier,
+                            dot_identifier->name(),
                             &expr_resolution_info->flatten_state,
                             resolved_expr_out);
 }
 
 absl::Status Resolver::MaybeResolveProtoFieldAccess(
-    const ASTIdentifier* identifier,
+    const ASTNode* ast_path_expression, const ASTIdentifier* identifier,
     const MaybeResolveProtoFieldOptions& options,
     std::unique_ptr<const ResolvedExpr> resolved_lhs,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -1790,14 +1800,15 @@ absl::Status Resolver::MaybeResolveProtoFieldAccess(
            ? FieldFormat::DEFAULT_FORMAT
            : ProtoType::GetFormatAnnotation(field)),
       /*return_default_value_when_unset=*/false);
-  MaybeRecordParseLocation(identifier, resolved_get_proto_field.get());
+  MaybeRecordFieldAccessParseLocation(ast_path_expression, identifier,
+                                      resolved_get_proto_field.get());
   *resolved_expr_out = std::move(resolved_get_proto_field);
   return absl::OkStatus();
 }
 
 absl::Status Resolver::MaybeResolveStructFieldAccess(
-    const ASTIdentifier* identifier, bool error_if_not_found,
-    std::unique_ptr<const ResolvedExpr> resolved_lhs,
+    const ASTNode* ast_path_expression, const ASTIdentifier* identifier,
+    bool error_if_not_found, std::unique_ptr<const ResolvedExpr> resolved_lhs,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   resolved_expr_out->reset();
 
@@ -1843,6 +1854,8 @@ absl::Status Resolver::MaybeResolveStructFieldAccess(
       field->type, std::move(resolved_lhs), found_idx);
   ZETASQL_RETURN_IF_ERROR(CheckAndPropagateAnnotations(/*error_node=*/nullptr,
                                                resolved_node.get()));
+  MaybeRecordFieldAccessParseLocation(ast_path_expression, identifier,
+                                      resolved_node.get());
   *resolved_expr_out = std::move(resolved_node);
   return absl::OkStatus();
 }
@@ -1862,6 +1875,7 @@ absl::Status Resolver::ResolveJsonFieldAccess(
 
 absl::Status Resolver::ResolveFieldAccess(
     std::unique_ptr<const ResolvedExpr> resolved_lhs,
+    const ASTNode* ast_path_expression,
     const ASTIdentifier* identifier, FlattenState* flatten_state,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   const Type* lhs_type = resolved_lhs->type();
@@ -1869,7 +1883,7 @@ absl::Status Resolver::ResolveFieldAccess(
   if (lhs_type->IsArray() && flatten_state != nullptr &&
       flatten_state->can_flatten()) {
     lhs_type = ArrayElementTypeOrType(resolved_lhs->type());
-    if (resolved_lhs->Is<ResolvedFlatten>() && flatten_state != nullptr &&
+    if (resolved_lhs->Is<ResolvedFlatten>() &&
         flatten_state->active_flatten() != nullptr) {
       resolved_flatten.reset(const_cast<ResolvedFlatten*>(
           resolved_lhs.release()->GetAs<ResolvedFlatten>()));
@@ -1886,12 +1900,12 @@ absl::Status Resolver::ResolveFieldAccess(
 
   if (lhs_type->IsProto()) {
     ZETASQL_RETURN_IF_ERROR(MaybeResolveProtoFieldAccess(
-        identifier, MaybeResolveProtoFieldOptions(), std::move(resolved_lhs),
-        resolved_expr_out));
+        ast_path_expression, identifier, MaybeResolveProtoFieldOptions(),
+        std::move(resolved_lhs), resolved_expr_out));
   } else if (lhs_type->IsStruct()) {
     ZETASQL_RETURN_IF_ERROR(MaybeResolveStructFieldAccess(
-        identifier, /*error_if_not_found=*/true, std::move(resolved_lhs),
-        resolved_expr_out));
+        ast_path_expression, identifier, /*error_if_not_found=*/true,
+        std::move(resolved_lhs), resolved_expr_out));
   } else if (lhs_type->IsJson()) {
     ZETASQL_RETURN_IF_ERROR(ResolveJsonFieldAccess(identifier, std::move(resolved_lhs),
                                            resolved_expr_out));
@@ -2040,7 +2054,7 @@ absl::Status Resolver::ResolveDotGeneralizedField(
       resolved_expr_out);
 }
 
-zetasql_base::StatusOr<const google::protobuf::FieldDescriptor*> Resolver::FindFieldDescriptor(
+absl::StatusOr<const google::protobuf::FieldDescriptor*> Resolver::FindFieldDescriptor(
     const ASTNode* ast_name_location, const google::protobuf::Descriptor* descriptor,
     absl::string_view name) {
   const google::protobuf::FieldDescriptor* field =
@@ -2446,7 +2460,7 @@ absl::Status Resolver::ResolveSystemVariableExpression(
   for (; num_names_consumed < ast_system_variable_expr->path()->num_names();
        ++num_names_consumed) {
     ZETASQL_RETURN_IF_ERROR(ResolveFieldAccess(
-        std::move(*resolved_expr_out),
+        std::move(*resolved_expr_out), ast_system_variable_expr->path(),
         ast_system_variable_expr->path()->name(num_names_consumed),
         &expr_resolution_info->flatten_state, resolved_expr_out));
   }
@@ -2557,24 +2571,10 @@ absl::Status Resolver::ResolveReplaceFieldsExpression(
       ZETASQL_RETURN_IF_ERROR(type_factory_->GetProtoFieldType(
           field_descriptor_path.back(), &field_type));
     }
-    zetasql::SignatureMatchResult match_result;
-    if (!field_type->Equals(replaced_field_expr->type())) {
-      if (!coercer_.AssignableTo(
-              zetasql::InputArgumentType(
-                  GetInputArgumentTypeForExpr(replaced_field_expr.get())),
-              field_type,
-              /*is_explicit=*/false, &match_result)) {
-        return MakeSqlErrorAt(replace_arg->expression())
-               << "Cannot replace field of type " << field_type->DebugString()
-               << " with value of type "
-               << replaced_field_expr->type()->DebugString();
-      }
-      ZETASQL_RETURN_IF_ERROR(function_resolver_->AddCastOrConvertLiteral(
-          replace_arg->expression(), field_type, /*format=*/nullptr,
-          /*time_zone=*/nullptr, TypeParameters(), /*scan=*/nullptr,
-          /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
-          &replaced_field_expr));
-    }
+    ZETASQL_RETURN_IF_ERROR(CoerceExprToType(
+        replace_arg->expression(), field_type, kImplicitAssignment,
+        "Cannot replace field of type $0 with value of type $1",
+        &replaced_field_expr));
     std::vector<int> struct_index_path;
     struct_index_path.reserve(struct_path.size());
     for (const std::pair<int, const StructType::StructField*> struct_field :
@@ -2796,14 +2796,23 @@ absl::Status Resolver::ResolveInExpr(
   } else {
     const ASTUnnestExpression* unnest_expr = in_expr->unnest_expr();
     ZETASQL_RET_CHECK(unnest_expr != nullptr);
-    const bool restore_can_flatten =
-        expr_resolution_info->flatten_state.can_flatten();
-    expr_resolution_info->flatten_state.set_can_flatten(true);
-    ZETASQL_RETURN_IF_ERROR(ResolveFunctionCallByNameWithoutAggregatePropertyCheck(
-        in_expr, "$in_array",
-        {in_expr->lhs(), in_expr->unnest_expr()->expression()},
-        *kEmptyArgumentOptionMap, expr_resolution_info, &resolved_in_expr));
-    expr_resolution_info->flatten_state.set_can_flatten(restore_can_flatten);
+
+    std::vector<std::unique_ptr<const ResolvedExpr>> args;
+    ZETASQL_RETURN_IF_ERROR(
+        ResolveExpressionArgument(in_expr->lhs(), expr_resolution_info, &args));
+
+    {
+      // The unnest expression is allowed to flatten.
+      FlattenState::Restorer restorer;
+      expr_resolution_info->flatten_state.set_can_flatten(true, &restorer);
+      ZETASQL_RETURN_IF_ERROR(ResolveExpressionArgument(
+          in_expr->unnest_expr()->expression(), expr_resolution_info, &args));
+    }
+
+    ZETASQL_RETURN_IF_ERROR(ResolveFunctionCallWithResolvedArguments(
+        in_expr, {in_expr->lhs(), in_expr->unnest_expr()->expression()},
+        "$in_array", std::move(args), /*named_arguments=*/{},
+        expr_resolution_info, &resolved_in_expr));
   }
 
   if (in_expr->is_not()) {
@@ -2922,11 +2931,8 @@ absl::Status Resolver::ResolveInSubquery(
     }
     if (in_expr_cast_type != nullptr) {
       // Add a cast to <in_expr>.
-      ZETASQL_RETURN_IF_ERROR(function_resolver_->AddCastOrConvertLiteral(
-          in_expr, in_expr_cast_type, /*format=*/nullptr, /*time_zone=*/nullptr,
-          TypeParameters(), /*scan=*/nullptr,
-          /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
-          &resolved_in_expr));
+      ZETASQL_RETURN_IF_ERROR(CoerceExprToType(in_expr, in_expr_cast_type,
+                                       kExplicitCoercion, &resolved_in_expr));
     }
     if (in_subquery_cast_type != nullptr) {
       // Add a project on top of the subquery scan that casts its (only)
@@ -2954,6 +2960,8 @@ absl::Status Resolver::ResolveInSubquery(
                                ResolvedSubqueryExpr::IN, std::move(parameters),
                                std::move(resolved_in_expr),
                                std::move(resolved_in_subquery));
+  ZETASQL_RETURN_IF_ERROR(CheckAndPropagateAnnotations(
+      /*error_node=*/in_subquery_expr->query(), resolved_expr.get()));
   MaybeRecordParseLocation(in_subquery_expr->query(), resolved_expr.get());
   ZETASQL_RETURN_IF_ERROR(
       ResolveHintsForNode(in_subquery_expr->hint(), resolved_expr.get()));
@@ -2998,9 +3006,8 @@ absl::Status Resolver::ResolveLikeExpr(
         like_expr, function_type, like_arguments, *kEmptyArgumentOptionMap,
         expr_resolution_info, &resolved_like_expr));
   } else if (like_expr->unnest_expr() != nullptr) {
-    const bool restore_can_flatten =
-        expr_resolution_info->flatten_state.can_flatten();
-    expr_resolution_info->flatten_state.set_can_flatten(true);
+    FlattenState::Restorer restorer;
+    expr_resolution_info->flatten_state.set_can_flatten(true, &restorer);
     std::string function_type = "";
     switch (like_expr->op()->op()) {
       case ASTAnySomeAllOp::kAny:
@@ -3020,7 +3027,6 @@ absl::Status Resolver::ResolveLikeExpr(
         like_expr, function_type,
         {like_expr->lhs(), like_expr->unnest_expr()->expression()},
         *kEmptyArgumentOptionMap, expr_resolution_info, &resolved_like_expr));
-    expr_resolution_info->flatten_state.set_can_flatten(restore_can_flatten);
   } else {
     return MakeSqlErrorAt(like_expr)
            << "Internal: Unsupported LIKE expression.";
@@ -3096,6 +3102,8 @@ absl::Status Resolver::ResolveLikeExprSubquery(
                                subquery_type, std::move(parameters),
                                std::move(resolved_like_expr),
                                std::move(resolved_like_subquery));
+  ZETASQL_RETURN_IF_ERROR(CheckAndPropagateAnnotations(
+      /*error_node=*/like_subquery_expr->query(), resolved_expr.get()));
   ZETASQL_RETURN_IF_ERROR(
       ResolveHintsForNode(like_subquery_expr->hint(), resolved_expr.get()));
   *resolved_expr_out = std::move(resolved_expr);
@@ -3233,8 +3241,10 @@ absl::Status Resolver::ResolveExprSubquery(
       MakeResolvedSubqueryExpr(output_type, subquery_type,
                                std::move(parameters), /*in_expr=*/nullptr,
                                std::move(resolved_query));
-
-  MaybeRecordParseLocation(expr_subquery->query(), resolved_expr.get());
+  ZETASQL_RETURN_IF_ERROR(CheckAndPropagateAnnotations(
+      /*error_node=*/expr_subquery, resolved_expr.get()));
+  MaybeRecordExpressionSubqueryParseLocation(expr_subquery,
+                                             resolved_expr.get());
   ZETASQL_RETURN_IF_ERROR(
       ResolveHintsForNode(expr_subquery->hint(), resolved_expr.get()));
   *resolved_expr_out = std::move(resolved_expr);
@@ -3406,7 +3416,7 @@ absl::Status Resolver::ResolveDatePartArgument(
 }
 
 // static
-zetasql_base::StatusOr<Resolver::ProtoExtractionType>
+absl::StatusOr<Resolver::ProtoExtractionType>
 Resolver::ProtoExtractionTypeFromName(const std::string& extraction_type_name) {
   std::string upper_name = absl::AsciiStrToUpper(extraction_type_name);
   if (upper_name == "HAS") {
@@ -3459,7 +3469,7 @@ absl::Status Resolver::ResolveProtoExtractExpression(
 
   std::string extraction_type_name =
       ast_function_call->function()->first_name()->GetAsString();
-  zetasql_base::StatusOr<const Resolver::ProtoExtractionType> field_extraction_type_or =
+  absl::StatusOr<const Resolver::ProtoExtractionType> field_extraction_type_or =
       ProtoExtractionTypeFromName(extraction_type_name);
   if (!field_extraction_type_or.ok()) {
     return MakeSqlErrorAt(field_extraction_type_ast_location)
@@ -3565,7 +3575,7 @@ absl::Status Resolver::ResolveProtoExtractWithExtractTypeAndField(
         << " must be a top level field, but found "
         << field_path->ToIdentifierPathString();
     return MaybeResolveProtoFieldAccess(
-        field_path->first_name(), top_level_field_options,
+        field_path, field_path->first_name(), top_level_field_options,
         std::move(resolved_proto_input), resolved_expr_out);
   }
 }
@@ -3652,12 +3662,9 @@ absl::Status Resolver::ResolveIntervalArgument(
         coercer_.CoercesTo(
             GetInputArgumentTypeForExpr(resolved_interval_value_arg.get()),
             type_factory_->get_int64(), /*is_explicit=*/false, &result)) {
-      ZETASQL_RETURN_IF_ERROR(function_resolver_->AddCastOrConvertLiteral(
+      ZETASQL_RETURN_IF_ERROR(CoerceExprToType(
           interval_expr->interval_value(), type_factory_->get_int64(),
-          /*format=*/nullptr, /*time_zone=*/nullptr, TypeParameters(),
-          /*scan=*/nullptr,
-          /*set_has_explicit_type=*/false,
-          /*return_null_on_error=*/false, &resolved_interval_value_arg));
+          kExplicitCoercion, &resolved_interval_value_arg));
       resolved_arguments_out->push_back(std::move(resolved_interval_value_arg));
     } else {
       return MakeSqlErrorAt(interval_expr->interval_value())
@@ -3801,17 +3808,27 @@ absl::Status Resolver::GetFunctionNameAndArguments(
         if (language().LanguageFeatureEnabled(FEATURE_ANONYMIZATION)) {
           is_anon_function = true;
           // The currently supported anonymous aggregate functions each require
-          // exactly one 'normal argument', along with an optional CLAMPED
-          // clause.  We transform the CLAMPED clause into normal function call
-          // arguments here.  Note that after this transformation we cannot
-          // tell if the function call arguments were originally derived from
+          // exactly one 'normal argument' (two for ANON_PERCENTILE_CONT), along
+          // with an optional CLAMPED clause.  We transform the CLAMPED clause
+          // into normal function call arguments here. Note that after this
+          // transformation we cannot tell if the function call arguments were
+          // originally derived from
           // the CLAMPED clause or not, so we won't be able to tell the
           // following apart:
           //   ANON_SUM(x CLAMPED BETWEEN 1 AND 10)
           //   ANON_SUM(x, 1, 10)
           // Since the latter is invalid, we must detect that case here and
           // provide an error.
-          if (function_call->arguments().size() != 1) {
+          if (absl::AsciiStrToUpper(function->last_name()->GetAsString()) ==
+              "ANON_PERCENTILE_CONT") {
+            if (function_call->arguments().size() != 2) {
+              size_t arg_size = function_call->arguments().size();
+              return MakeSqlErrorAt(function_call)
+                     << "Anonymized aggregate function anon_percentile_cont"
+                     << " expects exactly 2 arguments but found " << arg_size
+                     << (arg_size == 1 ? " argument" : " arguments");
+            }
+          } else if (function_call->arguments().size() != 1) {
             return MakeSqlErrorAt(function_call)
                    << "Anonymized aggregate function "
                    << absl::AsciiStrToUpper(
@@ -3904,7 +3921,8 @@ static bool IsLetterO(char c) { return c == 'o' || c == 'O'; }
 // is present, returns function_name.
 absl::string_view StripSafeCaseInsensitive(absl::string_view function_name) {
   if ((function_name[0] == 's' || function_name[0] == 'S') &&
-      zetasql_base::CaseCompare(function_name.substr(0, 5), "SAFE_") == 0) {
+      zetasql_base::CaseCompare(function_name.substr(0, 5),
+                                           "SAFE_") == 0) {
     return function_name.substr(5);
   }
   return function_name;
@@ -3970,13 +3988,10 @@ absl::Status Resolver::ResolveLambda(
 
   // If <body_result_type> is set, the body expr is expected to have
   // specific type.
-  if (body_result_type != nullptr) {
-    if (!resolved_body->type()->Equals(body_result_type) &&
-        allow_argument_coercion) {
-      ZETASQL_RETURN_IF_ERROR(CoerceExprToType(ast_lambda->body(), body_result_type,
-                                       /*assignment_semantics=*/false, kLambda,
-                                       &resolved_body));
-    }
+  if (body_result_type != nullptr && allow_argument_coercion) {
+    ZETASQL_RETURN_IF_ERROR(CoerceExprToType(
+        ast_lambda->body(), body_result_type, kImplicitCoercion,
+        "Lambda should return type $0, but returns $1", &resolved_body));
   }
 
   // Gather the correlated column references: columns other than the lambda
@@ -4310,7 +4325,7 @@ bool Resolver::IsValidExplicitCast(
       .value_or(false);
 }
 
-zetasql_base::StatusOr<bool> Resolver::CheckExplicitCast(
+absl::StatusOr<bool> Resolver::CheckExplicitCast(
     const ResolvedExpr* resolved_argument, const Type* to_type,
     ExtendedCompositeCastEvaluator* extended_conversion_evaluator) {
   SignatureMatchResult result;
@@ -4341,13 +4356,17 @@ absl::Status Resolver::ResolveFormatOrTimeZoneExpr(
   ZETASQL_RETURN_IF_ERROR(ResolveExpr(expr, expr_resolution_info, resolved_expr));
 
   auto expr_type = GetInputArgumentTypeForExpr(resolved_expr->get());
-  if (!expr_type.type()->IsString()) {
-    auto status = CoerceExprToType(expr, type_factory_->get_string(),
-                                   /*assignment_semantics=*/false, clause_name,
-                                   resolved_expr);
-    if (!status.ok()) {
-      return MakeSqlErrorAt(expr) << status.message();
-    }
+  auto make_error_msg = [clause_name](absl::string_view target_type_name,
+                                      absl::string_view actual_type_name) {
+    return absl::Substitute("$2 should return type $0, but returns $1",
+                            target_type_name, actual_type_name, clause_name);
+  };
+  auto status =
+      CoerceExprToType(expr, type_factory_->get_string(), kImplicitCoercion,
+                       make_error_msg, resolved_expr);
+  // TODO
+  if (!status.ok()) {
+    return MakeSqlErrorAt(expr) << status.message();
   }
 
   return absl::OkStatus();
@@ -4512,7 +4531,11 @@ absl::Status Resolver::ResolveExplicitCast(
         &resolved_argument));
     if (resolved_argument->node_kind() == RESOLVED_CAST) {
       MaybeRecordParseLocation(
-          cast->type(), const_cast<ResolvedExpr*>(resolved_argument.get()));
+          analyzer_options_.parse_location_record_type() ==
+                  PARSE_LOCATION_RECORD_FULL_NODE_SCOPE
+              ? static_cast<const ASTNode*>(cast)
+              : static_cast<const ASTNode*>(cast->type()),
+          const_cast<ResolvedExpr*>(resolved_argument.get()));
     }
     *resolved_expr_out = std::move(resolved_argument);
     return absl::OkStatus();
@@ -4539,7 +4562,11 @@ absl::Status Resolver::ResolveExplicitCast(
     }
     if (resolved_argument->node_kind() == RESOLVED_CAST) {
       MaybeRecordParseLocation(
-          cast->type(), const_cast<ResolvedExpr*>(resolved_argument.get()));
+          analyzer_options_.parse_location_record_type() ==
+                  PARSE_LOCATION_RECORD_FULL_NODE_SCOPE
+              ? static_cast<const ASTNode*>(cast)
+              : static_cast<const ASTNode*>(cast->type()),
+          const_cast<ResolvedExpr*>(resolved_argument.get()));
     }
     *resolved_expr_out = std::move(resolved_argument);
     return absl::OkStatus();
@@ -4548,7 +4575,7 @@ absl::Status Resolver::ResolveExplicitCast(
                              resolved_cast_type, product_mode());
 }
 
-zetasql_base::StatusOr<TypeParameters> Resolver::ResolveTypeParameters(
+absl::StatusOr<TypeParameters> Resolver::ResolveTypeParameters(
     const ASTTypeParameterList* type_parameters, const Type& resolved_type,
     const std::vector<TypeParameters>& child_parameter_list) {
   if (type_parameters != nullptr &&
@@ -4572,7 +4599,7 @@ zetasql_base::StatusOr<TypeParameters> Resolver::ResolveTypeParameters(
                    ResolveParameterLiterals(*type_parameters));
 
   // Validate type parameters and get the resolved TypeParameters class.
-  zetasql_base::StatusOr<TypeParameters> type_params_or_status =
+  absl::StatusOr<TypeParameters> type_params_or_status =
       resolved_type.ValidateAndResolveTypeParameters(
           resolved_type_parameter_list, product_mode());
   // TODO: Modify ValidateAndResolveTypeParameters to
@@ -4610,7 +4637,14 @@ absl::Status Resolver::ResolveCastWithResolvedArgument(
     const TypeParameters& type_params, bool return_null_on_error,
     std::unique_ptr<const ResolvedExpr>* resolved_argument) {
 
-  if (to_type->Equals((*resolved_argument)->type()) && type_params.IsEmpty()) {
+  // We can return without creating a ResolvedCast if the original type and
+  // target type are the same.
+  if (to_type->Equals((*resolved_argument)->type()) && type_params.IsEmpty() &&
+      // TODO: the condition below will be comparing the source collation
+      // and target collation after CAST(... AS STRING COLLATE '...') syntax is
+      // supported.
+      !CollationAnnotation::ExistsIn(
+          (*resolved_argument)->type_annotation_map())) {
     return absl::OkStatus();
   }
 
@@ -4859,21 +4893,10 @@ absl::Status Resolver::ResolveArrayElementAccess(
   }
 
   // Coerce to INT64 if necessary.
-  if (!is_map_at && (*resolved_expr_out)->type()->kind() != TYPE_INT64) {
-    SignatureMatchResult result;
-    const InputArgumentType input_argument_type =
-        GetInputArgumentTypeForExpr(resolved_expr_out->get());
-    if (!coercer_.CoercesTo(input_argument_type, type_factory_->get_int64(),
-                            /*is_explicit=*/false, &result)) {
-      return MakeSqlErrorAt(*unwrapped_ast_position_expr)
-             << "Array position in [] must be coercible to INT64 type, "
-                "but has type "
-             << input_argument_type.UserFacingName(product_mode());
-    }
-    ZETASQL_RETURN_IF_ERROR(function_resolver_->AddCastOrConvertLiteral(
-        *unwrapped_ast_position_expr, types::Int64Type(), /*format=*/nullptr,
-        /*time_zone=*/nullptr, TypeParameters(), /*scan=*/nullptr,
-        /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
+  if (!is_map_at) {
+    ZETASQL_RETURN_IF_ERROR(CoerceExprToType(
+        *unwrapped_ast_position_expr, types::Int64Type(), kImplicitCoercion,
+        "Array position in [] must be coercible to $0 type, but has type $1",
         resolved_expr_out));
   }
 
@@ -4891,26 +4914,9 @@ absl::Status Resolver::ResolveArrayElementAccess(
     const Type* key_type;
     ZETASQL_RETURN_IF_ERROR(
         type_factory_->GetProtoFieldType(proto_type->map_key(), &key_type));
-    if (key_type->Equals((*resolved_expr_out)->type())) {
-      return absl::OkStatus();
-    }
-
-    // If the key type is not exactly the same as the argument, try coercing.
-    SignatureMatchResult result;
-    const InputArgumentType input_argument_type =
-        GetInputArgumentTypeForExpr(resolved_expr_out->get());
-    if (!coercer_.CoercesTo(input_argument_type, key_type,
-                            /*is_explicit=*/false, &result)) {
-      return MakeSqlErrorAt(*unwrapped_ast_position_expr)
-             << "Map key in [] must be coercible to type "
-             << key_type->ShortTypeName(product_mode()) << ", but has type "
-             << input_argument_type.UserFacingName(product_mode());
-    }
-
-    ZETASQL_RETURN_IF_ERROR(function_resolver_->AddCastOrConvertLiteral(
-        *unwrapped_ast_position_expr, key_type, /*format=*/nullptr,
-        /*time_zone=*/nullptr, TypeParameters(), /*scan=*/nullptr,
-        /*set_has_explicit_type=*/false, /*return_null_on_error=*/false,
+    ZETASQL_RETURN_IF_ERROR(CoerceExprToType(
+        *unwrapped_ast_position_expr, key_type, kImplicitCoercion,
+        "Map key in [] must be coercible to type $0, but has type $1",
         resolved_expr_out));
   }
 
@@ -5272,25 +5278,10 @@ absl::Status Resolver::ResolveArrayConstructor(
   // Add casts or convert literal values to array element type if necessary.
   bool is_array_literal = true;
   for (int i = 0; i < resolved_elements.size(); ++i) {
-    if (!resolved_elements[i]->type()->Equals(array_type->element_type())) {
-      SignatureMatchResult result;
-      const InputArgumentType input_argument_type =
-          GetInputArgumentTypeForExpr(resolved_elements[i].get());
-      if (!coercer_.CoercesTo(input_argument_type, array_type->element_type(),
-                              /*is_explicit=*/false, &result)) {
-        return MakeSqlErrorAt(ast_array_constructor->element(i))
-               << "Array element type "
-               << input_argument_type.UserFacingName(product_mode())
-               << " does not coerce to "
-               << array_type->element_type()->ShortTypeName(product_mode());
-      }
-
-      ZETASQL_RETURN_IF_ERROR(function_resolver_->AddCastOrConvertLiteral(
-          ast_array_constructor->element(i), array_type->element_type(),
-          /*format=*/nullptr, /*time_zone=*/nullptr, TypeParameters(),
-          /*scan=*/nullptr, /*set_has_explicit_type=*/false,
-          /*return_null_on_error=*/false, &resolved_elements[i]));
-    }
+    ZETASQL_RETURN_IF_ERROR(CoerceExprToType(
+        ast_array_constructor->element(i), array_type->element_type(),
+        kImplicitCoercion, "Array element type $1 does not coerce to $0",
+        &resolved_elements[i]));
 
     if (resolved_elements[i]->node_kind() != RESOLVED_LITERAL) {
       is_array_literal = false;
@@ -5520,6 +5511,9 @@ absl::Status Resolver::ResolveStructConstructorImpl(
                  << target_field_type->ShortTypeName(product_mode());
         }
 
+        // We cannot use CoerceExprToType in this case because we need to
+        // propagate 'struct_has_explicit_type' so that NULL and [] literals
+        // are typed correctly.
         ZETASQL_RETURN_IF_ERROR(function_resolver_->AddCastOrConvertLiteral(
             ast_expression, target_field_type, /*format=*/nullptr,
             /*time_zone=*/nullptr, TypeParameters(),
@@ -5629,8 +5623,14 @@ absl::Status Resolver::ResolveStructConstructorImpl(
         ast_location, struct_type, Value::Struct(struct_type, literal_values),
         struct_has_explicit_type || all_fields_have_explicit_type);
   } else {
-    *resolved_expr_out = MakeResolvedMakeStruct(
+    auto node = MakeResolvedMakeStruct(
         struct_type, std::move(resolved_field_expressions));
+    if (ast_struct_type != nullptr) {
+      MaybeRecordParseLocation(ast_struct_type, node.get());
+    }
+    ZETASQL_RETURN_IF_ERROR(CheckAndPropagateAnnotations(
+        /*error_node=*/ast_struct_type, node.get()));
+    *resolved_expr_out = std::move(node);
   }
   return absl::OkStatus();
 }
@@ -5749,9 +5749,12 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
       // must be a subset of the DISTINCT arguments.
       for (const OrderByItemInfo& item_info : order_by_info) {
         bool is_order_by_argument_matched = false;
+        bool is_same_expr;
         for (const auto& argument : arg_list) {
-          if (IsSameExpressionForGroupBy(argument.get(),
-                                         item_info.order_expression.get())) {
+          ZETASQL_ASSIGN_OR_RETURN(is_same_expr, IsSameExpressionForGroupBy(
+                                             argument.get(),
+                                             item_info.order_expression.get()));
+          if (is_same_expr) {
             is_order_by_argument_matched = true;
             break;
           }
@@ -5779,13 +5782,16 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
              ->empty()) {
       std::vector<std::unique_ptr<const ResolvedExpr>> updated_args =
           (*resolved_function_call)->release_argument_list();
+      bool is_same_expr;
       for (int arg_idx = 0; arg_idx < updated_args.size(); ++arg_idx) {
         for (const std::unique_ptr<const ResolvedComputedColumn>&
                  computed_column :
              *query_resolution_info
                   ->select_list_columns_to_compute_before_aggregation()) {
-          if (IsSameExpressionForGroupBy(updated_args[arg_idx].get(),
-                                         computed_column->expr())) {
+          ZETASQL_ASSIGN_OR_RETURN(is_same_expr, IsSameExpressionForGroupBy(
+                                             updated_args[arg_idx].get(),
+                                             computed_column->expr()));
+          if (is_same_expr) {
             updated_args[arg_idx] = MakeColumnRef(computed_column->column());
             break;
           }
@@ -5897,8 +5903,11 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
     const TemplatedSQLFunction* sql_function =
         function->GetAs<TemplatedSQLFunction>();
     std::vector<InputArgumentType> input_arguments;
-    GetInputArgumentTypesForExprList((*resolved_function_call)->argument_list(),
-                                     &input_arguments);
+    const absl::Span<const ASTExpression* const> ast_nodes =
+        ast_function_call->arguments();
+    GetInputArgumentTypesForGenericArgumentList(
+        {ast_nodes.begin(), ast_nodes.end()},
+        (*resolved_function_call)->argument_list(), &input_arguments);
 
     // Call the TemplatedSQLFunction::Resolve() method to get the output type.
     // Use a new empty cycle detector, or the cycle detector from this
@@ -5963,8 +5972,14 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
       std::move(with_group_rows_subquery));
   resolved_agg_call->set_with_group_rows_parameter_list(
       std::move(with_group_rows_correlation_references));
+  resolved_agg_call->set_hint_list(
+      (*resolved_function_call)->release_hint_list());
   MaybeRecordFunctionCallParseLocation(ast_function_call,
                                        resolved_agg_call.get());
+  ZETASQL_RETURN_IF_ERROR(MaybeResolveCollationForFunctionCallBase(
+      /*error_location=*/ast_function_call, resolved_agg_call.get()));
+  ZETASQL_RETURN_IF_ERROR(CheckAndPropagateAnnotations(
+      /*error_node=*/ast_function_call, resolved_agg_call.get()));
 
   // If this <ast_function_call> is the top level function call in
   // <expr_resolution_info> and it has an alias, then use that alias.
@@ -5982,7 +5997,7 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
   // The actual ResolvedExpr we return is a ColumnRef pointing to that
   // function call.
   ResolvedColumn aggregate_column(AllocateColumnId(), kAggregateId, alias,
-                                  resolved_agg_call->type());
+                                  resolved_agg_call->annotated_type());
 
   query_resolution_info->AddAggregateComputedColumn(
       ast_function_call, MakeResolvedComputedColumn(
@@ -6185,6 +6200,12 @@ bool IsProtoDefaultIfNull(const std::vector<std::string>& function_name_path) {
   return false;
 }
 
+bool IsTypeOf(const Function* function) {
+  return function->NumSignatures() == 1 &&
+         function->signatures()[0].context_id() == FN_TYPEOF &&
+         function->IsZetaSQLBuiltin();
+}
+
 bool IsFlatten(const Function* function) {
   return function->NumSignatures() == 1 &&
          function->signatures()[0].context_id() == FN_FLATTEN &&
@@ -6251,10 +6272,19 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
                      function->QualifiedSQLName())));
   }
 
+  // Down-casting the 'ast_location' pointer doesn't seem like the right thing
+  // to be doing here. Probably we should be plumbing the hints into this code
+  // explicitly.
+  // TODO: Eliminate this bad code smell.
   const auto* ast_function = ast_location->GetAsOrNull<ASTFunctionCall>();
   if (ast_function != nullptr) {
     ZETASQL_RETURN_IF_ERROR(ResolveHintsForNode(ast_function->hint(),
                                         resolved_function_call.get()));
+
+    if (IsTypeOf(function) && resolved_function_call->hint_list_size() > 0) {
+      return MakeSqlErrorAt(ast_function->hint())
+             << "The TYPEOF() operator does not allow hints.";
+    }
   }
 
   ZETASQL_RETURN_IF_ERROR(AddAdditionalDeprecationWarningsForCalledFunction(
@@ -6312,11 +6342,19 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
         case FN_ARRAY_FILTER_WITH_INDEX:
         case FN_ARRAY_TRANSFORM:
         case FN_ARRAY_TRANSFORM_WITH_INDEX:
-          analyzer_output_properties_.has_array_functions_to_rewrite = true;
+          analyzer_output_properties_.has_array_filter_or_transform = true;
+          break;
+        case FN_ARRAY_INCLUDES:
+        case FN_ARRAY_INCLUDES_LAMBDA:
+        case FN_ARRAY_INCLUDES_ANY:
+          analyzer_output_properties_.has_array_includes = true;
           break;
         case FN_CONTAINS_KEY:
         case FN_MODIFY_MAP:
           analyzer_output_properties_.has_proto_map_functions = true;
+          break;
+        case FN_TYPEOF:
+          analyzer_output_properties_.has_typeof_function = true;
           break;
         default:
           break;
@@ -6540,11 +6578,10 @@ absl::Status Resolver::ResolveFunctionCallImpl(
   }
 
   // A "flatten" function allows the child to flatten.
-  const bool restore_can_flatten =
-      expr_resolution_info->flatten_state.can_flatten();
+  FlattenState::Restorer restorer;
   ZETASQL_RET_CHECK_EQ(nullptr, expr_resolution_info->flatten_state.active_flatten());
   if (IsFlatten(function)) {
-    expr_resolution_info->flatten_state.set_can_flatten(true);
+    expr_resolution_info->flatten_state.set_can_flatten(true, &restorer);
   }
 
   std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments;
@@ -6552,7 +6589,6 @@ absl::Status Resolver::ResolveFunctionCallImpl(
   ZETASQL_RETURN_IF_ERROR(ResolveExpressionArguments(
       expr_resolution_info, arguments, argument_option_map, &resolved_arguments,
       &ast_arguments));
-  expr_resolution_info->flatten_state.set_can_flatten(restore_can_flatten);
 
   return ResolveFunctionCallWithResolvedArguments(
       ast_location,
@@ -6574,68 +6610,77 @@ IdString Resolver::GetColumnAliasForTopLevelExpression(
 }
 
 absl::Status Resolver::CoerceExprToBool(
-    const ASTExpression* ast_expression, const char* clause_name,
-    std::unique_ptr<const ResolvedExpr>* resolved_expr) {
-  return CoerceExprToType(ast_expression, type_factory_->get_bool(),
-                          /*assignment_semantics=*/false, clause_name,
-                          resolved_expr);
+    const ASTNode* ast_location, absl::string_view clause_name,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr) const {
+  auto make_error_msg = [clause_name](absl::string_view target_type_name,
+                                      absl::string_view actual_type_name) {
+    return absl::Substitute("$2 should return type $0, but returns $1",
+                            target_type_name, actual_type_name, clause_name);
+  };
+  return CoerceExprToType(ast_location, type_factory_->get_bool(),
+                          kImplicitCoercion, make_error_msg, resolved_expr);
 }
 
 absl::Status Resolver::CoerceExprToType(
-    const ASTExpression* ast_expression, const Type* target_type,
-    bool assignment_semantics,
-    std::function<std::string(const std::string& target_type_name,
-                              const std::string& actual_type_name)>
-        error_lambda,
-    std::unique_ptr<const ResolvedExpr>* resolved_expr) {
+    const ASTNode* ast_location, const Type* target_type, CoercionMode mode,
+    CoercionErrorMessageFunction make_error,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr) const {
+  ZETASQL_RET_CHECK_NE(target_type, nullptr);
+  if (target_type->Equals(resolved_expr->get()->type())) {
+    return absl::OkStatus();
+  }
   InputArgumentType expr_arg_type =
       GetInputArgumentTypeForExpr(resolved_expr->get());
   SignatureMatchResult sig_match_result;
   Coercer coercer(type_factory_, &language(), catalog_);
   bool success;
-  if (assignment_semantics) {
-    success = coercer.AssignableTo(expr_arg_type, target_type,
-                                   /*is_explicit=*/false, &sig_match_result);
-  } else {
-    success = coercer.CoercesTo(expr_arg_type, target_type,
-                                /*is_explicit=*/false, &sig_match_result);
+  switch (mode) {
+    case kImplicitAssignment:
+      success = coercer.AssignableTo(expr_arg_type, target_type,
+                                     /*is_explicit=*/false, &sig_match_result);
+      break;
+    case kImplicitCoercion:
+      success = coercer.CoercesTo(expr_arg_type, target_type,
+                                  /*is_explicit=*/false, &sig_match_result);
+      break;
+    case kExplicitCoercion:
+      success = coercer.CoercesTo(expr_arg_type, target_type,
+                                  /*is_explicit=*/true, &sig_match_result);
+      break;
   }
   if (!success) {
     const std::string target_type_name =
         target_type->ShortTypeName(language().product_mode());
     const std::string expr_type_name =
-        resolved_expr->get()->type()->ShortTypeName(language().product_mode());
-    return MakeSqlErrorAt(ast_expression)
-           << error_lambda(target_type_name, expr_type_name);
+        expr_arg_type.UserFacingName(language().product_mode());
+    return MakeSqlErrorAt(ast_location)
+           << make_error(target_type_name, expr_type_name);
   }
 
   // The coercion is legal, so implement it by adding a cast.  Note that
   // AddCastOrConvertLiteral() adds a cast node only when necessary.
-  ZETASQL_RETURN_IF_ERROR(FunctionResolver(catalog_, type_factory_, this)
-                      .AddCastOrConvertLiteral(
-                          ast_expression, target_type,
-                          /*format=*/nullptr, /*time_zone=*/nullptr,
-                          TypeParameters(), /*scan=*/nullptr,
-                          /*set_has_explicit_type=*/false,
-                          /*return_null_on_error=*/false, resolved_expr));
-  return absl::OkStatus();
+  return function_resolver_->AddCastOrConvertLiteral(
+      ast_location, target_type, /*format=*/nullptr, /*time_zone=*/nullptr,
+      TypeParameters(), /*scan=*/nullptr, /*set_has_explicit_type=*/false,
+      /*return_null_on_error=*/false, resolved_expr);
 }
 
 absl::Status Resolver::CoerceExprToType(
-    const ASTExpression* ast_expression, const Type* target_type,
-    bool assignment_semantics, const char* clause_name,
-    std::unique_ptr<const ResolvedExpr>* resolved_expr) {
-  auto error_lambda = [clause_name](const std::string& target_type_name,
-                                    const std::string& actual_type_name) {
-    if (clause_name != nullptr) {
-      return absl::StrCat(clause_name, " should return type ", target_type_name,
-                          ", but returns ", actual_type_name);
-    }
-    return absl::StrCat("Expected type ", target_type_name, "; found ",
-                        actual_type_name);
+    const ASTNode* ast_location, const Type* target_type, CoercionMode mode,
+    absl::string_view error_template,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr) const {
+  auto make_error_msg = [error_template](absl::string_view target_type_name,
+                                         absl::string_view actual_type_name) {
+    return absl::Substitute(error_template, target_type_name, actual_type_name);
   };
-  return CoerceExprToType(ast_expression, target_type, assignment_semantics,
-                          error_lambda, resolved_expr);
+  return CoerceExprToType(ast_location, target_type, mode, make_error_msg,
+                          resolved_expr);
+}
+absl::Status Resolver::CoerceExprToType(
+    const ASTNode* ast_location, const Type* target_type, CoercionMode mode,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr) const {
+  return CoerceExprToType(ast_location, target_type, mode,
+                          "Expected type $0; found $1", resolved_expr);
 }
 
 absl::Status Resolver::ResolveExecuteImmediateArgument(
@@ -6652,7 +6697,7 @@ absl::Status Resolver::ResolveExecuteImmediateArgument(
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<functions::DateTimestampPart> Resolver::ResolveDateTimestampPart(
+absl::StatusOr<functions::DateTimestampPart> Resolver::ResolveDateTimestampPart(
     const ASTIdentifier* date_part_identifier) {
   std::unique_ptr<const ResolvedExpr> resolved_date_part;
   ZETASQL_RETURN_IF_ERROR(
@@ -6721,12 +6766,12 @@ absl::Status Resolver::ResolveIntervalExpr(
       !resolved_interval_value->type()->IsString()) {
     return MakeSqlErrorAt(interval_value_expr)
            << "Invalid interval literal. Expected INTERVAL keyword to be "
-              "followed by a string literal";
+              "followed by an INT64 expression or STRING literal";
   }
 
   const ResolvedLiteral* interval_value_literal =
       resolved_interval_value->GetAs<ResolvedLiteral>();
-  zetasql_base::StatusOr<IntervalValue> interval_value_or_status;
+  absl::StatusOr<IntervalValue> interval_value_or_status;
   if (interval_expr->date_part_name_to() == nullptr) {
     interval_value_or_status = IntervalValue::ParseFromString(
         interval_value_literal->value().string_value(), date_part);

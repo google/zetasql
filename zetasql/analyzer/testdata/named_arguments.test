@@ -515,7 +515,7 @@ QueryStmt
 
 # Valid TVF call with one relation named argument with a value table.
 select * from tvf_named_required_value_table_relation_arg(
-    value_table_relation_arg => (select as value cast (null as zetasql_test.TestExtraPB) from keyvalue))
+    value_table_relation_arg => (select as value cast (null as zetasql_test__.TestExtraPB) from keyvalue))
 --
 QueryStmt
 +-output_column_list=
@@ -527,15 +527,15 @@ QueryStmt
     +-input_scan=
       +-TVFScan
         +-column_list=tvf_named_required_value_table_relation_arg.[column_bool#4, column_bytes#5]
-        +-tvf=tvf_named_required_value_table_relation_arg((TABLE<PROTO<zetasql_test.TestExtraPB>> value_table_relation_arg) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        +-signature=(TABLE<PROTO<zetasql_test.TestExtraPB>>) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        +-tvf=tvf_named_required_value_table_relation_arg((TABLE<PROTO<zetasql_test__.TestExtraPB>> value_table_relation_arg) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        +-signature=(TABLE<PROTO<zetasql_test__.TestExtraPB>>) -> TABLE<column_bool BOOL, column_bytes BYTES>
         +-argument_list=
         | +-FunctionArgument
         |   +-scan=
         |   | +-ProjectScan
         |   |   +-column_list=[$subquery1.$col1#3]
         |   |   +-expr_list=
-        |   |   | +-$col1#3 := Literal(type=PROTO<zetasql_test.TestExtraPB>, value=NULL, has_explicit_type=TRUE)
+        |   |   | +-$col1#3 := Literal(type=PROTO<zetasql_test__.TestExtraPB>, value=NULL, has_explicit_type=TRUE)
         |   |   +-input_scan=
         |   |     +-TableScan(table=KeyValue)
         |   +-argument_column_list=[$subquery1.$col1#3]

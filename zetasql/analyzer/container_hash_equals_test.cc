@@ -16,12 +16,13 @@
 
 #include "zetasql/analyzer/container_hash_equals.h"
 
+#include <vector>
+
 #include "zetasql/public/id_string.h"
-#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/container/flat_hash_map.h"
-#include "absl/container/flat_hash_set.h"
-#include "absl/strings/ascii.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 
 namespace zetasql {

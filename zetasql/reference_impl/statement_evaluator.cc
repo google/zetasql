@@ -21,12 +21,11 @@
 
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/common/status_payload_utils.h"
-#include "zetasql/compliance/type_helpers.h"
 #include "zetasql/parser/parse_tree_errors.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/coercer.h"
 #include "zetasql/public/error_helpers.h"
-#include "zetasql/public/evaluator_base.h"
+#include "zetasql/public/evaluator.h"
 #include "zetasql/public/multi_catalog.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
@@ -34,6 +33,7 @@
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/reference_impl/evaluator_table_iterator.pb.h"
+#include "zetasql/reference_impl/type_helpers.h"
 #include "zetasql/reference_impl/type_parameter_constraints.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
@@ -42,7 +42,7 @@
 #include "zetasql/scripting/script_exception.pb.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
-#include "zetasql/base/statusor.h"
+#include "absl/status/statusor.h"
 #include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
@@ -181,12 +181,8 @@ absl::Status StatementEvaluatorImpl::Evaluation::EvaluateInternal(
   ZETASQL_CHECK(evaluator_ == nullptr) << "StatementEvaluatorImpl::Evaluation::"
                                   "Evaluate() called multiple times.";
   evaluator_ = evaluator;
-  AnalyzerOptions analyzer_options = script_executor.GetAnalyzerOptions();
-
-  // Script executor stack frames can have custom query parameters, override
-  // the evaluator parameters if they are present
-  ZETASQL_RETURN_IF_ERROR(
-      script_executor.UpdateAnalyzerOptionParameters(&analyzer_options));
+  AnalyzerOptions analyzer_options = evaluator->initial_analyzer_options_;
+  ZETASQL_RETURN_IF_ERROR(script_executor.UpdateAnalyzerOptions(analyzer_options));
 
   SystemVariableValuesMap system_variables =
       script_executor.GetKnownSystemVariables();
@@ -245,7 +241,7 @@ absl::Status StatementEvaluatorImpl::StatementEvaluation::Analyze(
 namespace {
 // Returns the type of a Value that would contain the table whose values are
 // provided in <iterator>.
-zetasql_base::StatusOr<const ArrayType*> GetTableType(
+absl::StatusOr<const ArrayType*> GetTableType(
     TypeFactory* type_factory, const EvaluatorTableIterator* iterator,
     bool is_value_table) {
   if (is_value_table) {
@@ -287,7 +283,7 @@ bool IsDml(const ResolvedStatement* statement) {
 //      Each element of the array corresponds to a value in the table.
 // - Otherwise, each element of the array is a struct, with one field per
 //      column.  Each field is the value of the corresponding row/column.
-zetasql_base::StatusOr<Value> IteratorToValue(TypeFactory* type_factory,
+absl::StatusOr<Value> IteratorToValue(TypeFactory* type_factory,
                                       EvaluatorTableIterator* iterator,
                                       bool is_value_table) {
   ZETASQL_ASSIGN_OR_RETURN(const ArrayType* type,
@@ -313,7 +309,7 @@ zetasql_base::StatusOr<Value> IteratorToValue(TypeFactory* type_factory,
   return Value::UnsafeArray(type, std::move(values));
 }
 
-zetasql_base::StatusOr<Value> GetTableContents(const Table* table,
+absl::StatusOr<Value> GetTableContents(const Table* table,
                                        TypeFactory* type_factory) {
   std::vector<int> column_idxs;
   column_idxs.reserve(table->NumColumns());
@@ -327,7 +323,7 @@ zetasql_base::StatusOr<Value> GetTableContents(const Table* table,
 
 }  // namespace
 
-zetasql_base::StatusOr<int>
+absl::StatusOr<int>
 StatementEvaluatorImpl::StatementEvaluation::DoDmlSideEffects(
     EvaluatorTableModifyIterator* iterator) {
   // Obtain original table, as a vector of rows
@@ -544,7 +540,7 @@ absl::Status WrapIfHandleable(const absl::Status& status) {
 }
 
 template <class T>
-zetasql_base::StatusOr<Value> MakeStatusOrValue(const absl::Status& status,
+absl::StatusOr<Value> MakeStatusOrValue(const absl::Status& status,
                                         const T& evaluation) {
   if (status.ok()) {
     return evaluation.result();
@@ -560,7 +556,7 @@ absl::Status StatementEvaluatorImpl::ExecuteStatement(
   absl::Status status =
       WrapIfHandleable(evaluation.Evaluate(executor, this, segment));
   if (callback_ != nullptr) {
-    const zetasql_base::StatusOr<Value> status_or_result =
+    const absl::StatusOr<Value> status_or_result =
         MakeStatusOrValue(status, evaluation);
     callback_->OnStatementResult(segment, evaluation.resolved_statement(),
                                  status_or_result);
@@ -568,7 +564,7 @@ absl::Status StatementEvaluatorImpl::ExecuteStatement(
   return status;
 }
 
-zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
 StatementEvaluatorImpl::ExecuteQueryWithResult(
     const ScriptExecutor& executor, const ScriptSegment& segment) {
   if (segment.node()->node_kind() != AST_QUERY_STATEMENT
@@ -579,7 +575,7 @@ StatementEvaluatorImpl::ExecuteQueryWithResult(
   StatementEvaluation evaluation;
   absl::Status status =
       WrapIfHandleable(evaluation.Evaluate(executor, this, segment));
-  const zetasql_base::StatusOr<Value> status_or_result =
+  const absl::StatusOr<Value> status_or_result =
       MakeStatusOrValue(status, evaluation);
   if (callback_ != nullptr) {
     callback_->OnStatementResult(segment, evaluation.resolved_statement(),
@@ -610,7 +606,7 @@ absl::Status StatementEvaluatorImpl::SerializeIterator(
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
 StatementEvaluatorImpl::DeserializeToIterator(
     const google::protobuf::Any& msg,
     const ScriptExecutor& executor,
@@ -643,21 +639,90 @@ StatementEvaluatorImpl::DeserializeToIterator(
       ZETASQL_RET_CHECK(wrapper->Status().ok());
     }
   }
-  return std::move(wrapper);
+  return wrapper;
 }
 
-zetasql_base::StatusOr<int64_t> StatementEvaluatorImpl::GetIteratorMemoryUsage(
+absl::StatusOr<int64_t> StatementEvaluatorImpl::GetIteratorMemoryUsage(
       const EvaluatorTableIterator& iterator) {
   return callback_->get_bytes_per_iterator();
 }
 
-zetasql_base::StatusOr<Value> StatementEvaluatorImpl::EvaluateScalarExpression(
+absl::StatusOr<int>
+StatementEvaluatorImpl::EvaluateCaseExpression(
+    const ScriptSegment& case_value,
+    const std::vector<ScriptSegment>& when_values,
+    const ScriptExecutor& executor) {
+  // Generate CASE...WHEN...END expression.
+  std::string query_str = absl::StrCat("CASE ", case_value.GetSegmentText());
+  // Store byte offset of each expression, so that ErrorLocation can be
+  // translated to the corresponding location in the original script text.
+  std::vector<size_t> offsets;
+  offsets.push_back(query_str.size());
+  for (int i = 0; i < when_values.size(); i++) {
+    absl::StrAppend(&query_str,
+                    " WHEN ", when_values[i].GetSegmentText(), " THEN ", i);
+    offsets.push_back(query_str.size());
+  }
+  absl::StrAppend(&query_str, " ELSE -1 END");
+  offsets.push_back(query_str.size());
+
+  ParserOptions parser_options(initial_analyzer_options_.id_string_pool(),
+                               initial_analyzer_options_.arena(),
+                               &initial_analyzer_options_.language());
+  std::unique_ptr<ParserOutput> parser_output;
+  ZETASQL_RET_CHECK_OK(ParseExpression(query_str, parser_options, &parser_output));
+  ScriptSegment query_segment = ScriptSegment::FromASTNode(
+      query_str,
+      parser_output->expression());
+  auto status_or_index =
+      EvaluateScalarExpression(executor, query_segment, nullptr);
+
+  if (!status_or_index.status().ok()) {
+    auto status = status_or_index.status();
+    if (absl::StrContains(status.message(), "argument types")) {
+      status = zetasql_base::InvalidArgumentErrorBuilder()
+          << "CASE...WHEN statement values have incompatible types";
+      internal::AttachPayload(&status, ScriptException());
+    }
+    std::pair<int, int> line_and_column;
+    ErrorLocation location;
+    ParseLocationTranslator translator(executor.GetScriptText());
+    ZETASQL_ASSIGN_OR_RETURN(line_and_column,
+                     translator.GetLineAndColumnAfterTabExpansion(
+                         executor.GetCurrentNode()->ast_node()
+                         ->GetParseLocationRange().start()));
+    if (internal::HasPayloadWithType<ErrorLocation>(status)) {
+      location = internal::GetPayload<ErrorLocation>(status);
+      auto it = std::upper_bound(offsets.begin(), offsets.end(),
+                                 location.column() - 1);
+      int64_t vec_index = it - offsets.begin();
+      if (vec_index == 0) {
+        ZETASQL_ASSIGN_OR_RETURN(line_and_column,
+                         translator.GetLineAndColumnAfterTabExpansion(
+                             case_value.range().start()));
+      } else if (vec_index <= when_values.size()) {
+        ZETASQL_ASSIGN_OR_RETURN(line_and_column,
+                         translator.GetLineAndColumnAfterTabExpansion(
+                             when_values[vec_index - 1].range().start()));
+      }
+    }
+    location.set_line(line_and_column.first);
+    location.set_column(line_and_column.second);
+    internal::AttachPayload(&status, location);
+    return status;
+  }
+
+  ZETASQL_RET_CHECK(status_or_index.value().type()->IsInt64());
+  return status_or_index.value().int64_value();
+}
+
+absl::StatusOr<Value> StatementEvaluatorImpl::EvaluateScalarExpression(
     const ScriptExecutor& executor, const ScriptSegment& segment,
     const Type* target_type) {
   ExpressionEvaluation evaluation(target_type);
   absl::Status status =
       WrapIfHandleable(evaluation.Evaluate(executor, this, segment));
-  const zetasql_base::StatusOr<Value> status_or_result =
+  const absl::StatusOr<Value> status_or_result =
       MakeStatusOrValue(status, evaluation);
   if (callback_ != nullptr) {
     callback_->OnScalarExpressionResult(segment, evaluation.resolved_expr(),
@@ -681,7 +746,7 @@ absl::Status StatementEvaluatorImpl::ApplyTypeParameterConstraints(
   return ApplyConstraints(type_params, PRODUCT_INTERNAL, *value);
 }
 
-zetasql_base::StatusOr<std::unique_ptr<ProcedureDefinition>>
+absl::StatusOr<std::unique_ptr<ProcedureDefinition>>
 StatementEvaluatorImpl::LoadProcedure(
     const ScriptExecutor& executor, const absl::Span<const std::string>& path) {
   if (callback_ != nullptr) {
@@ -691,7 +756,7 @@ StatementEvaluatorImpl::LoadProcedure(
 }
 
 namespace {
-zetasql_base::StatusOr<const Type*> MakeStatusOrType(const ScriptSegment& segment,
+absl::StatusOr<const Type*> MakeStatusOrType(const ScriptSegment& segment,
                                              const absl::Status& status,
                                              const Type* type) {
   if (status.ok()) {
@@ -701,9 +766,10 @@ zetasql_base::StatusOr<const Type*> MakeStatusOrType(const ScriptSegment& segmen
 }
 }  // namespace
 
-zetasql_base::StatusOr<TypeWithParameters> StatementEvaluatorImpl::ResolveTypeName(
+absl::StatusOr<TypeWithParameters> StatementEvaluatorImpl::ResolveTypeName(
     const ScriptExecutor& executor, const ScriptSegment& segment) {
-  AnalyzerOptions analyzer_options = executor.GetAnalyzerOptions();
+  AnalyzerOptions analyzer_options = initial_analyzer_options_;
+  ZETASQL_RETURN_IF_ERROR(executor.UpdateAnalyzerOptions(analyzer_options));
   analyzer_options.CreateDefaultArenasIfNotSet();
 
   const Type* type;
@@ -712,7 +778,7 @@ zetasql_base::StatusOr<TypeWithParameters> StatementEvaluatorImpl::ResolveTypeNa
       AnalyzeType(std::string(segment.GetSegmentText()), analyzer_options,
                   catalog_, type_factory_, &type, &type_params));
   TypeWithParameters type_with_params = {type, type_params};
-  zetasql_base::StatusOr<const Type*> status_or_result =
+  absl::StatusOr<const Type*> status_or_result =
       MakeStatusOrType(segment, status, type_with_params.type);
   if (callback_ != nullptr) {
     callback_->OnTypeResult(segment, status_or_result);

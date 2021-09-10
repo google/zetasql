@@ -47,6 +47,87 @@ QueryStmt
             +-Literal(type=INT64, value=1)
 ==
 
+# Qualify clause references analytic function present in the select list
+# with additional computation
+select {{|DISTINCT}} (row_number() over ()) + 1 as a from KeyValue WHERE true QUALIFY a = 1
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.a#5 AS a [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.a#5]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[$analytic.$analytic1#4, $query.a#5]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[$analytic.$analytic1#4, $query.a#5]
+        |   +-expr_list=
+        |   | +-a#5 :=
+        |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |   |     +-ColumnRef(type=INT64, column=$analytic.$analytic1#4)
+        |   |     +-Literal(type=INT64, value=1)
+        |   +-input_scan=
+        |     +-AnalyticScan
+        |       +-column_list=[$analytic.$analytic1#4]
+        |       +-input_scan=
+        |       | +-FilterScan
+        |       |   +-input_scan=
+        |       |   | +-TableScan(table=KeyValue)
+        |       |   +-filter_expr=
+        |       |     +-Literal(type=BOOL, value=true)
+        |       +-function_group_list=
+        |         +-AnalyticFunctionGroup
+        |           +-analytic_function_list=
+        |             +-$analytic1#4 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+            +-ColumnRef(type=INT64, column=$query.a#5)
+            +-Literal(type=INT64, value=1)
+--
+ALTERNATION GROUP: DISTINCT
+--
+QueryStmt
++-output_column_list=
+| +-$distinct.a#6 AS a [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$distinct.a#6]
+    +-input_scan=
+    | +-FilterScan
+    |   +-column_list=[$analytic.$analytic1#4, $query.a#5]
+    |   +-input_scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=[$analytic.$analytic1#4, $query.a#5]
+    |   |   +-expr_list=
+    |   |   | +-a#5 :=
+    |   |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |   |   |     +-ColumnRef(type=INT64, column=$analytic.$analytic1#4)
+    |   |   |     +-Literal(type=INT64, value=1)
+    |   |   +-input_scan=
+    |   |     +-AnalyticScan
+    |   |       +-column_list=[$analytic.$analytic1#4]
+    |   |       +-input_scan=
+    |   |       | +-FilterScan
+    |   |       |   +-input_scan=
+    |   |       |   | +-TableScan(table=KeyValue)
+    |   |       |   +-filter_expr=
+    |   |       |     +-Literal(type=BOOL, value=true)
+    |   |       +-function_group_list=
+    |   |         +-AnalyticFunctionGroup
+    |   |           +-analytic_function_list=
+    |   |             +-$analytic1#4 := AnalyticFunctionCall(ZetaSQL:row_number() -> INT64)
+    |   +-filter_expr=
+    |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |       +-ColumnRef(type=INT64, column=$query.a#5)
+    |       +-Literal(type=INT64, value=1)
+    +-group_by_list=
+      +-a#6 := ColumnRef(type=INT64, column=$query.a#5)
+==
+
 # Qualify expression is not a bool
 select row_number() over () as a from KeyValue WHERE true QUALIFY a
 --
@@ -1433,4 +1514,13 @@ QueryStmt
           +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
             +-ColumnRef(type=INT64, column=$analytic.$analytic1#5)
             +-Literal(type=INT64, value=1)
+==
+
+# Qualify clause referencing a column that is not grouped or aggregated.
+with t as (select 1 AS x, 2 as y)
+SELECT SUM(x) AS s, row_number() over() as row_num FROM t where true group by t.x QUALIFY 1 < y;
+--
+ERROR: QUALIFY clause expression references column y which is neither grouped nor aggregated [at 2:95]
+...row_num FROM t where true group by t.x QUALIFY 1 < y;
+                                                      ^
 ==
