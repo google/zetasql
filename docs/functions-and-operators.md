@@ -402,133 +402,90 @@ or more supertypes, including itself, which defines its set of supertypes.
     </tr>
   </thead>
   <tbody>
-    
     <tr>
       <td>BOOL</td>
       <td>BOOL</td>
     </tr>
-    
-    
     <tr>
       <td>INT32</td>
       <td>
-
-<span> INT32</span><br /><span> INT64</span><br /><span> FLOAT</span><br /><span> DOUBLE</span><br /><span> NUMERIC</span><br /><span> BIGNUMERIC</span><br />
-</td>
+        <span> INT32</span><br /><span> INT64</span><br /><span> FLOAT</span><br /><span> DOUBLE</span><br /><span> NUMERIC</span><br /><span> BIGNUMERIC</span><br />
+      </td>
     </tr>
-    
-    
     <tr>
       <td>INT64</td>
       <td>
-
-<span> INT64</span><br /><span> FLOAT</span><br /><span> DOUBLE</span><br /><span> NUMERIC</span><br /><span> BIGNUMERIC</span><br />
-</td>
+        <span> INT64</span><br /><span> FLOAT</span><br /><span> DOUBLE</span><br /><span> NUMERIC</span><br /><span> BIGNUMERIC</span><br />
+      </td>
     </tr>
-    
-    
     <tr>
       <td>UINT32</td>
       <td>
-
-<span> UINT32</span><br /><span> INT64</span><br /><span> UINT64</span><br /><span> FLOAT</span><br /><span> DOUBLE</span><br /><span> NUMERIC</span><br /><span> BIGNUMERIC</span><br />
-</td>
+        <span> UINT32</span><br /><span> INT64</span><br /><span> UINT64</span><br /><span> FLOAT</span><br /><span> DOUBLE</span><br /><span> NUMERIC</span><br /><span> BIGNUMERIC</span><br />
+      </td>
     </tr>
-    
-    
     <tr>
       <td>UINT64</td>
       <td>
-
-<span> UINT64</span><br /><span> FLOAT</span><br /><span> DOUBLE</span><br /><span> NUMERIC</span><br /><span> BIGNUMERIC</span><br />
-</td>
+        <span> UINT64</span><br /><span> FLOAT</span><br /><span> DOUBLE</span><br /><span> NUMERIC</span><br /><span> BIGNUMERIC</span><br />
+      </td>
     </tr>
-    
-    
     <tr>
       <td>FLOAT</td>
       <td>
-
-<span> FLOAT</span><br /><span> DOUBLE</span><br />
-</td>
+        <span> FLOAT</span><br /><span> DOUBLE</span><br />
+      </td>
     </tr>
-    
-    
     <tr>
       <td>DOUBLE</td>
       <td>
-
-<span> DOUBLE</span><br />
-</td>
+        <span> DOUBLE</span><br />
+      </td>
     </tr>
-    
-    
     <tr>
       <td>NUMERIC</td>
       <td>
-
-<span> NUMERIC</span><br /><span> BIGNUMERIC</span><br /><span> DOUBLE</span><br />
-</td>
+        <span> NUMERIC</span><br /><span> BIGNUMERIC</span><br /><span> DOUBLE</span><br />
+      </td>
     </tr>
-    
-    
     <tr>
       <td>DECIMAL</td>
       <td>
-
-<span> DECIMAL</span><br /><span> BIGDECIMAL</span><br /><span> DOUBLE</span><br />
-</td>
+        <span> DECIMAL</span><br /><span> BIGDECIMAL</span><br /><span> DOUBLE</span><br />
+      </td>
     </tr>
-    
-    
     <tr>
       <td>BIGNUMERIC</td>
       <td>
-
-<span> BIGNUMERIC</span><br /><span> DOUBLE</span><br />
-</td>
+        <span> BIGNUMERIC</span><br /><span> DOUBLE</span><br />
+      </td>
     </tr>
-    
-    
     <tr>
       <td>BIGDECIMAL</td>
       <td>
-
-<span> BIGDECIMAL</span><br /><span> DOUBLE</span><br />
-</td>
+        <span> BIGDECIMAL</span><br /><span> DOUBLE</span><br />
+      </td>
     </tr>
-    
-    
     <tr>
       <td>STRING</td>
       <td>STRING</td>
     </tr>
-    
-    
     <tr>
       <td>DATE</td>
       <td>DATE</td>
     </tr>
-    
-    
     <tr>
       <td>TIME</td>
       <td>TIME</td>
     </tr>
-    
-    
     <tr>
       <td>DATETIME</td>
       <td>DATETIME</td>
     </tr>
-    
-    
     <tr>
       <td>TIMESTAMP</td>
       <td>TIMESTAMP</td>
     </tr>
-    
-    
     <tr>
       <td>ENUM</td>
       <td>
@@ -536,30 +493,22 @@ or more supertypes, including itself, which defines its set of supertypes.
         occurred first.
       </td>
     </tr>
-    
-    
     <tr>
       <td>BYTES</td>
       <td>BYTES</td>
     </tr>
-    
-    
     <tr>
       <td>STRUCT</td>
       <td>
         STRUCT with the same field position types.
       </td>
     </tr>
-    
-    
     <tr>
       <td>ARRAY</td>
       <td>
         ARRAY with the same element types.
       </td>
     </tr>
-    
-    
     <tr>
       <td>PROTO</td>
       <td>
@@ -569,8 +518,6 @@ or more supertypes, including itself, which defines its set of supertypes.
         a CASE statement.
       </td>
     </tr>
-    
-    
   </tbody>
 </table>
 
@@ -593,12 +540,10 @@ the most specific type is the type with the most restrictive domain.
     </tr>
   </thead>
   <tbody>
-    
     <tr>
       <td>
-
-<span> INT64</span><br /><span> FLOAT</span><br />
-</td>
+        <span> INT64</span><br /><span> FLOAT</span><br />
+      </td>
       <td>DOUBLE</td>
       <td>DOUBLE</td>
       <td>
@@ -607,12 +552,10 @@ the most specific type is the type with the most restrictive domain.
         DOUBLE.
       </td>
     </tr>
-    
     <tr>
       <td>
-
-<span> INT64</span><br /><span> DOUBLE</span><br />
-</td>
+        <span> INT64</span><br /><span> DOUBLE</span><br />
+      </td>
       <td>DOUBLE</td>
       <td>DOUBLE</td>
       <td>
@@ -623,9 +566,8 @@ the most specific type is the type with the most restrictive domain.
     </tr>
     <tr>
       <td>
-
-<span> INT64</span><br /><span> BOOL</span><br />
-</td>
+        <span> INT64</span><br /><span> BOOL</span><br />
+      </td>
       <td>None</td>
       <td>Error</td>
       <td>
@@ -654,13 +596,11 @@ The following table contains a list of exact and inexact numeric data types.
   <tbody>
     <tr>
       <td>
-
-<span> INT32</span><br /><span> UINT32</span><br /><span> INT64</span><br /><span> UINT64</span><br /><span> NUMERIC</span><br /><span> BIGNUMERIC</span><br />
-</td>
+        <span> INT32</span><br /><span> UINT32</span><br /><span> INT64</span><br /><span> UINT64</span><br /><span> NUMERIC</span><br /><span> BIGNUMERIC</span><br />
+      </td>
       <td>
-
-<span> FLOAT</span><br /><span> DOUBLE</span><br />
-</td>
+        <span> FLOAT</span><br /><span> DOUBLE</span><br />
+      </td>
     </tr>
   </tbody>
 </table>
@@ -677,12 +617,10 @@ The following table contains a list of exact and inexact numeric data types.
     </tr>
   </thead>
   <tbody>
-    
     <tr>
       <td>
-
-<span> UINT64</span><br /><span> INT64</span><br />
-</td>
+        <span> UINT64</span><br /><span> INT64</span><br />
+      </td>
       <td>DOUBLE</td>
       <td>Error</td>
       <td>
@@ -691,13 +629,10 @@ The following table contains a list of exact and inexact numeric data types.
         is DOUBLE, which is an inexact numeric type.
       </td>
     </tr>
-    
-    
     <tr>
       <td>
-
-<span> UINT32</span><br /><span> INT32</span><br />
-</td>
+        <span> UINT32</span><br /><span> INT32</span><br />
+      </td>
       <td>INT64</td>
       <td>INT64</td>
       <td>
@@ -706,12 +641,10 @@ The following table contains a list of exact and inexact numeric data types.
         exact supertype, INT64.
       </td>
     </tr>
-    
     <tr>
       <td>
-
-<span> INT64</span><br /><span> DOUBLE</span><br />
-</td>
+        <span> INT64</span><br /><span> DOUBLE</span><br />
+      </td>
       <td>DOUBLE</td>
       <td>DOUBLE</td>
       <td>
@@ -720,12 +653,10 @@ The following table contains a list of exact and inexact numeric data types.
         supertyped.
       </td>
     </tr>
-    
     <tr>
       <td>
-
-<span> UINT64</span><br /><span> INT64</span><br /><span> DOUBLE</span><br />
-</td>
+        <span> UINT64</span><br /><span> INT64</span><br /><span> DOUBLE</span><br />
+      </td>
       <td>DOUBLE</td>
       <td>DOUBLE</td>
       <td>
@@ -734,7 +665,6 @@ The following table contains a list of exact and inexact numeric data types.
         exact and inexact numeric types being supertyped.
       </td>
     </tr>
-    
   </tbody>
 </table>
 
@@ -776,7 +706,6 @@ when the input set of types includes types related to literals:
     </tr>
   </thead>
   <tbody>
-    
     <tr>
       <td>
         INT64 literal<br />
@@ -785,8 +714,6 @@ when the input set of types includes types related to literals:
       <td>INT32</td>
       <td>INT32</td>
     </tr>
-    
-    
     <tr>
       <td>
         INT64 literal<br />
@@ -795,7 +722,6 @@ when the input set of types includes types related to literals:
       <td>UINT32</td>
       <td>UINT32</td>
     </tr>
-    
     <tr>
       <td>
         INT64 literal<br />
@@ -804,7 +730,6 @@ when the input set of types includes types related to literals:
       <td>UINT64</td>
       <td>UINT64</td>
     </tr>
-    
     <tr>
       <td>
         DOUBLE literal<br />
@@ -813,8 +738,6 @@ when the input set of types includes types related to literals:
       <td>FLOAT</td>
       <td>FLOAT</td>
     </tr>
-    
-    
     <tr>
       <td>
         INT64 literal<br />
@@ -823,8 +746,6 @@ when the input set of types includes types related to literals:
       <td>DOUBLE</td>
       <td>DOUBLE</td>
     </tr>
-    
-    
     <tr>
       <td>
         INT64 expression<br />
@@ -834,8 +755,6 @@ when the input set of types includes types related to literals:
       <td>DOUBLE</td>
       <td>DOUBLE</td>
     </tr>
-    
-    
     <tr>
       <td>
         TIMESTAMP expression<br />
@@ -844,7 +763,6 @@ when the input set of types includes types related to literals:
       <td>TIMESTAMP</td>
       <td>TIMESTAMP</td>
     </tr>
-    
     <tr>
       <td>
         NULL literal<br />
@@ -1293,7 +1211,6 @@ The clauses are applied *in the following order*:
 **Returned Data Types**
 
 <table>
-
 <thead>
 <tr>
 <th>INPUT</th><th>INT32</th><th>INT64</th><th>UINT32</th><th>UINT64</th><th>NUMERIC</th><th>BIGNUMERIC</th><th>FLOAT</th><th>DOUBLE</th>
@@ -1302,7 +1219,6 @@ The clauses are applied *in the following order*:
 <tbody>
 <tr><th>OUTPUT</th><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">NUMERIC</td><td style="vertical-align:middle">BIGNUMERIC</td><td style="vertical-align:middle">DOUBLE</td><td style="vertical-align:middle">DOUBLE</td></tr>
 </tbody>
-
 </table>
 
 **Examples**
