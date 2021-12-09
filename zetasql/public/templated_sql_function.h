@@ -127,17 +127,6 @@ class TemplatedSQLFunction : public Function {
 // types of the arguments provided to the function call.
 class TemplatedSQLFunctionCall : public ResolvedFunctionCallInfo {
  public:
-  // Takes ownership of 'expr'.  Used for scalar UDFs.
-  explicit TemplatedSQLFunctionCall(const ResolvedExpr* expr);
-
-  // Takes ownership of 'expr' and the ResolvedComputedColumns inside of
-  // 'aggregate_expr_list'.  Used for UDAs.
-  // TODO: Migrate callers to unique_ptr.
-  TemplatedSQLFunctionCall(
-      const ResolvedExpr* expr,
-      const std::vector<const ResolvedComputedColumn*>& aggregate_expr_list);
-
-  // Used for UDAs.
   TemplatedSQLFunctionCall(
       std::unique_ptr<const ResolvedExpr> expr,
       std::vector<std::unique_ptr<const ResolvedComputedColumn>>
@@ -146,16 +135,14 @@ class TemplatedSQLFunctionCall : public ResolvedFunctionCallInfo {
   TemplatedSQLFunctionCall(const TemplatedSQLFunctionCall&) = delete;
   TemplatedSQLFunctionCall& operator=(const TemplatedSQLFunctionCall&) = delete;
 
-  ~TemplatedSQLFunctionCall() override;
-
-  const ResolvedExpr* expr() const { return expr_; }
+  const ResolvedExpr* expr() const { return expr_.get(); }
   const std::vector<std::unique_ptr<const ResolvedComputedColumn>>&
       aggregate_expression_list() const;
 
   std::string DebugString() const override;
 
  private:
-  const ResolvedExpr* const expr_;  // Owned
+  std::unique_ptr<const ResolvedExpr> expr_;
   std::vector<std::unique_ptr<const ResolvedComputedColumn>>
       aggregate_expression_list_;
 };

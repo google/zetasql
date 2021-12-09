@@ -128,7 +128,10 @@ SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six;
 ARRAY_FILTER(array_expression, lambda_expression)
 
 lambda_expression:
-  { e->boolean_expression | (e, i)->boolean_expression }
+  {
+    element_alias->boolean_expression
+    | (element_alias, index_alias)->boolean_expression
+  }
 ```
 
 **Description**
@@ -140,8 +143,9 @@ array.
 +   `lambda_expression`: Each element in `array_expression` is evaluated against
     the [lambda expression][lambda-definition]. If the expression evaluates to
     `FALSE` or `NULL`, the element is removed from the resulting array.
-+   `e`: An array element.
-+   `i`: The zero-based offset of the array element.
++   `element_alias`: An alias that represents an array element.
++   `index_alias`: An alias that represents the zero-based offset of the array
+    element.
 +   `boolean_expression`: The predicate used to filter the array elements.
 
 Returns `NULL` if the `array_expression` is `NULL`.
@@ -162,6 +166,135 @@ SELECT
 +-------+-------+
 | [2,3] | [2,3] |
 +-------+-------+
+```
+
+### ARRAY_INCLUDES
+
++   [Signature 1](#array_includes_signature1): `ARRAY_INCLUDES(array_expression,
+    target_element)`
++   [Signature 2](#array_includes_signature2): `ARRAY_INCLUDES(array_expression,
+    lambda_expression)`
+
+#### Signature 1 
+<a id="array_includes_signature1"></a>
+
+```sql
+ARRAY_INCLUDES(array_expression, target_element)
+```
+
+**Description**
+
+Takes an array and returns `TRUE` if there is an element in the array that is
+equal to the target element.
+
++   `array_expression`: The array to search.
++   `target_element`: The target element to search for in the array.
+
+Returns `NULL` if `array_expression` or `target_element` is `NULL`.
+
+**Return type**
+
+BOOL
+
+**Example**
+
+In the following example, the query first checks to see if `0` exists in an
+array. Then the query checks to see if `1` exists in an array.
+
+```sql
+SELECT
+  ARRAY_INCLUDES([1,2,3], 0) AS a1,
+  ARRAY_INCLUDES([1,2,3], 1) AS a2;
+
++-------+------+
+| a1    | a2   |
++-------+------+
+| false | true |
++-------+------+
+```
+
+#### Signature 2 
+<a id="array_includes_signature2"></a>
+
+```sql
+ARRAY_INCLUDES(array_expression, lambda_expression)
+
+lambda_expression: element_alias->boolean_expression
+```
+
+**Description**
+
+Takes an array and returns `TRUE` if the lambda expression evaluates to `TRUE`
+for any element in the array.
+
++   `array_expression`: The array to search.
++   `lambda_expression`: Each element in `array_expression` is evaluated against
+    the [lambda expression][lambda-definition].
++   `element_alias`: An alias that represents an array element.
++   `boolean_expression`: The predicate used to evaluate the array elements.
+
+Returns `NULL` if `array_expression` is `NULL`.
+
+**Return type**
+
+BOOL
+
+**Example**
+
+In the following example, the query first checks to see if any elements that are
+greater than 3 exist in an array (`e>3`). Then the query checks to see if any
+any elements that are greater than 0 exist in an array (`e>0`).
+
+```sql
+SELECT
+  ARRAY_INCLUDES([1,2,3], e->e>3) AS a1,
+  ARRAY_INCLUDES([1,2,3], e->e>0) AS a2;
+
++-------+------+
+| a1    | a2   |
++-------+------+
+| false | true |
++-------+------+
+```
+
+### ARRAY_INCLUDES_ANY
+
+```sql
+ARRAY_INCLUDES_ANY(source_array_expression, target_array_expression)
+```
+
+**Description**
+
+Takes a source and target array. Returns `TRUE` if any elements in the target
+array are in the source array, otherwise returns `FALSE`.
+
++   `source_array_expression`: The array to search.
++   `target_array_expression`: The target array that contains the elements to
+    search for in the source array.
+
+Returns `NULL` if `source_array_expression` or `target_array_expression` is
+`NULL`.
+
+**Return type**
+
+BOOL
+
+**Example**
+
+In the following example, the query first checks to see if `3`, `4`, or `5`
+exists in an array. Then the query checks to see if `4`, `5`, or `6` exists in
+an array.
+
+```sql
+SELECT
+  ARRAY_INCLUDES_ANY([1,2,3], [3,4,5]) AS a1,
+  ARRAY_INCLUDES_ANY([1,2,3], [4,5,6]) AS a2;
+
++------+-------+
+| a1   | a2    |
++------+-------+
+| true | false |
++------+-------+
 ```
 
 ### ARRAY_LENGTH
@@ -259,7 +392,10 @@ FROM items;
 ARRAY_TRANSFORM(array_expression, lambda_expression)
 
 lambda_expression:
-  { e->transform_expression | (e, i)->transform_expression }
+  {
+    element_alias->transform_expression
+    | (element_alias, index_alias)->transform_expression
+  }
 ```
 
 **Description**
@@ -270,8 +406,9 @@ Takes an array, transforms the elements, and returns the results in a new array.
 +   `lambda_expression`: Each element in `array_expression` is evaluated against
     the [lambda expression][lambda-definition]. The evaluation results are
     returned in a new array.
-+   `e`: An array element.
-+   `i`: The zero-based offset of the array element.
++   `element_alias`: An alias that represents an array element.
++   `index_alias`: An alias that represents the zero-based offset of the array
+    element.
 +   `transform_expression`: The expression used to transform the array elements.
 
 Returns `NULL` if the `array_expression` is `NULL`.
@@ -323,10 +460,11 @@ nested array from left to right. For example,
 + `flatten_path.array_field`: A concatenation of elements of
   `element.array_field` for all elements of `FLATTEN(flatten_path)`.
   `array_field` represents an array field.
-  + `[{offset_clause | safe_offset_clause}]`: If the optional
-    [`OFFSET`][offset-clause] or [`SAFE_OFFSET`][safe-offset-clause] is present,
-    for each array_field value, `FLATTEN` includes only the array element at
-    the selected offset, rather than all elements.
++ `[{offset_clause | safe_offset_clause}]`: If the optional
+  [`OFFSET`][array-subscript-operator] or
+  [`SAFE_OFFSET`][array-subscript-operator] is present,
+  for each array_field value, `FLATTEN` includes only the array element at
+  the selected offset, rather than all elements.
 
 `FLATTEN` can return `NULL` if following the flatten path encounters a
 `NULL` before it encounters an array. Once a non-null array is encountered,
@@ -940,51 +1078,6 @@ FROM
 +--------------------------------------------------------------------------+
 ```
 
-### OFFSET and ORDINAL
-
-```sql
-array_expression[OFFSET(zero_based_offset)]
-array_expression[ORDINAL(one_based_offset)]
-```
-
-**Description**
-
-Accesses an ARRAY element by position and returns the
-element. `OFFSET` means that the numbering starts at zero, `ORDINAL` means that
-the numbering starts at one.
-
-A given array can be interpreted as either 0-based or 1-based. When accessing an
-array element, you must preface the array position with `OFFSET` or `ORDINAL`,
-respectively; there is no default behavior.
-
-Both `OFFSET` and `ORDINAL` generate an error if the index is out of range.
-
-**Return type**
-
-Varies depending on the elements in the ARRAY.
-
-**Examples**
-
-```sql
-WITH items AS
-  (SELECT ["apples", "bananas", "pears", "grapes"] as list
-  UNION ALL
-  SELECT ["coffee", "tea", "milk" ] as list
-  UNION ALL
-  SELECT ["cake", "pie"] as list)
-
-SELECT list, list[OFFSET(1)] as offset_1, list[ORDINAL(1)] as ordinal_1
-FROM items;
-
-+----------------------------------+-----------+-----------+
-| list                             | offset_1  | ordinal_1 |
-+----------------------------------+-----------+-----------+
-| [apples, bananas, pears, grapes] | bananas   | apples    |
-| [coffee, tea, milk]              | tea       | coffee    |
-| [cake, pie]                      | pie       | cake      |
-+----------------------------------+-----------+-----------+
-```
-
 ### ARRAY_REVERSE
 
 ```sql
@@ -1066,56 +1159,23 @@ FROM example;
 +-----------------+-------------+
 ```
 
-### SAFE_OFFSET and SAFE_ORDINAL
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-```sql
-array_expression[SAFE_OFFSET(zero_based_offset)]
-array_expression[SAFE_ORDINAL(one_based_offset)]
-```
+[array-subscript-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#array_subscript_operator
 
-**Description**
-
-Identical to `OFFSET` and `ORDINAL`, except returns `NULL` if the index is out
-of range.
-
-**Return type**
-
-Varies depending on the elements in the ARRAY.
-
-**Example**
-
-```sql
-WITH items AS
-  (SELECT ["apples", "bananas", "pears", "grapes"] as list
-  UNION ALL
-  SELECT ["coffee", "tea", "milk" ] as list
-  UNION ALL
-  SELECT ["cake", "pie"] as list)
-
-SELECT list,
-  list[SAFE_OFFSET(3)] as safe_offset_3,
-  list[SAFE_ORDINAL(3)] as safe_ordinal_3
-FROM items;
-
-+----------------------------------+---------------+----------------+
-| list                             | safe_offset_3 | safe_ordinal_3 |
-+----------------------------------+---------------+----------------+
-| [apples, bananas, pears, grapes] | grapes        | pears          |
-| [coffee, tea, milk]              | NULL          | milk           |
-| [cake, pie]                      | NULL          | NULL           |
-+----------------------------------+---------------+----------------+
-```
-
-[offset-clause]: #offset_and_ordinal
-[safe-offset-clause]: #safe_offset_and_safe_ordinal
 [subqueries]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#subqueries
-[datamodel-sql-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#standard-sql-tables
-[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value-tables
+
+[datamodel-sql-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#standard_sql_tables
+
+[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value_tables
+
 [array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#array_type
-[flatten-tree-to-array]:https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_nested_data_into_arrays
+
+[flatten-tree-to-array]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_nested_data_into_arrays
 
 [array-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md
 
- [lambda-definition]:
-https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas 
+[lambda-definition]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas
+
+<!-- mdlint on -->
 

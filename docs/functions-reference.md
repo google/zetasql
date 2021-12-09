@@ -1,5 +1,4 @@
 
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
 
 # Function reference
 
@@ -94,7 +93,13 @@ SELECT SAFE.SUBSTR('bar', 0, 2) AS safe_output;
 +-------------+
 ```
 
-[link-to-SAFE_DIVIDE]: #safe_divide
-[link-to-SAFE_CAST]: #safe_casting
-[link-to-operators]: #operators
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md
+
+[link-to-SAFE_DIVIDE]: https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md#safe_divide
+
+[link-to-SAFE_CAST]: https://github.com/google/zetasql/blob/master/docs/conversion_functions.md#safe_casting
+
+<!-- mdlint on -->
 

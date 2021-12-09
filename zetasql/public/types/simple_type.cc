@@ -499,6 +499,14 @@ absl::HashState SimpleType::HashValueContent(const ValueContent& value,
   }
 }
 
+// Returns true if two INTERVAL values are an exact match (where 1 MONTH and
+// 30 DAYS are *not* considered equal).
+bool AllPartsIntervalMatch(const IntervalValue& x, const IntervalValue& y) {
+  return x.get_months() == y.get_months() && x.get_days() == y.get_days() &&
+         x.get_micros() == y.get_micros() &&
+         x.get_nano_fractions() == y.get_nano_fractions();
+}
+
 bool SimpleType::ValueContentEquals(
     const ValueContent& x, const ValueContent& y,
     const ValueEqualityCheckOptions& options) const {
@@ -532,7 +540,14 @@ bool SimpleType::ValueContentEquals(
       return ContentEquals<DateTimeValueContentType>(x, y) &&
              x.simple_type_extended_content_ == y.simple_type_extended_content_;
     case TYPE_INTERVAL:
-      return ReferencedValueEquals<internal::IntervalRef>(x, y);
+      switch (options.interval_compare_mode) {
+        case IntervalCompareMode::kAllPartsEqual:
+          return AllPartsIntervalMatch(
+              x.GetAs<internal::IntervalRef*>()->value(),
+              y.GetAs<internal::IntervalRef*>()->value());
+        case IntervalCompareMode::kSqlEquals:
+          return ReferencedValueEquals<internal::IntervalRef>(x, y);
+      }
     case TYPE_NUMERIC:
       return ReferencedValueEquals<internal::NumericRef>(x, y);
     case TYPE_BIGNUMERIC:

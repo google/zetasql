@@ -271,6 +271,7 @@ std::vector<FunctionTestCall> GetFunctionTestsToJson(
 std::vector<QueryParamsWithResult> GetFunctionTestsJsonIsNull();
 std::vector<FunctionTestCall> GetFunctionTestsParseJson();
 std::vector<FunctionTestCall> GetFunctionTestsConvertJson();
+std::vector<FunctionTestCall> GetFunctionTestsConvertJsonIncompatibleTypes();
 
 std::vector<FunctionTestCall> GetFunctionTestsHash();
 std::vector<FunctionTestCall> GetFunctionTestsFarmFingerprint();

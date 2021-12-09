@@ -18,9 +18,11 @@
 #define ZETASQL_TESTDATA_SAMPLE_CATALOG_H_
 
 #include <memory>
+#include <string>
 
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/descriptor_database.h"
+#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/constant.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/simple_catalog.h"
@@ -115,6 +117,14 @@ class SampleCatalog {
 
   void AddOwnedTable(SimpleTable* table);
 
+  // Add a SQL function to catalog starting from a full create_function
+  // statement.
+  void AddSqlDefinedFunctionFromCreate(absl::string_view create_function,
+                                       const LanguageOptions& language_options,
+                                       bool inline_sql_functions = true);
+
+  void LoadSqlFunctions(const LanguageOptions& language_options);
+
   const ProtoType* GetProtoType(const google::protobuf::Descriptor* descriptor);
   const EnumType* GetEnumType(const google::protobuf::EnumDescriptor* descriptor);
 
@@ -171,6 +181,9 @@ class SampleCatalog {
   // Connections owned by this catalog.
   std::unordered_map<std::string, std::unique_ptr<SimpleConnection>>
       owned_connections_;
+
+  // Manages the lifetime of SQLFunction body expressions.
+  std::vector<std::unique_ptr<const AnalyzerOutput>> sql_function_artifacts_;
 };
 
 }  // namespace zetasql

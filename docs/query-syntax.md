@@ -1,5 +1,4 @@
 
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
 
 # Query syntax
 
@@ -450,7 +449,7 @@ FROM <span class="var">from_clause</span>[, ...]
 <span class="var">from_item</span>:
     {
       <span class="var">table_name</span> [ <span class="var">as_alias</span> ]
-      | <a href="#join_types"><span class="var">join_operation</span></a>
+      | { <a href="#join_types"><span class="var">join_operation</span></a> | ( <a href="#join_types"><span class="var">join_operation</span></a> ) }
       | ( <span class="var">query_expr</span> ) [ <span class="var">as_alias</span> ]
       | <span class="var">field_path</span>
       | <a href="#unnest_operator"><span class="var">unnest_operator</span></a>
@@ -1212,19 +1211,29 @@ can be solved with [stratified sampling][stratified-sampling].
 ## JOIN operation 
 <a id="join_types"></a>
 
-<pre>
+<pre class="lang-sql prettyprint">
 <span class="var">join_operation</span>:
-    { <span class="var">cross_join_operation</span> | <span class="var">join_operation_with_condition</span> }
+    { <span class="var">cross_join_operation</span> | <span class="var">condition_join_operation</span> }
 
 <span class="var">cross_join_operation</span>:
-    <span class="var"><a href="#from_clause">from_item</a></span> <a href="#cross_join">CROSS</a> JOIN <span class="var"><a href="#from_clause">from_item</a></span>
+    <span class="var"><a href="#from_clause">from_item</a></span> <span class="var">cross_join_operator</span> <span class="var"><a href="#from_clause">from_item</a></span>
 
-<span class="var">join_operation_with_condition</span>:
-    <span class="var"><a href="#from_clause">from_item</a></span> [ <span class="var">join_type</span> ] JOIN <span class="var"><a href="#from_clause">from_item</a></span>
-    [ { <span class="var">on_clause</span> | <span class="var">using_clause</span> } ]
+<span class="var">condition_join_operation</span>:
+    <span class="var"><a href="#from_clause">from_item</a></span> <span class="var">condition_join_operator</span> <span class="var"><a href="#from_clause">from_item</a></span> <span class="var">join_condition</span>
 
-<span class="var">join_type</span>:
-    { <a href="#inner_join">[INNER]</a> | <a href="#cross_join">CROSS</a> | <a href="#full_outer_join">FULL [OUTER]</a> | <a href="#left_outer_join">LEFT [OUTER]</a> | <a href="#right_outer_join">RIGHT [OUTER]</a> }
+<span class="var">cross_join_operator</span>:
+    { <a href="#cross_join">CROSS JOIN</a> | <a href="#comma_cross_join">,</a> }
+
+<span class="var">condition_join_operator</span>:
+    {
+      <a href="#inner_join">[INNER] JOIN</a>
+      | <a href="#full_outer_join">FULL [OUTER] JOIN</a>
+      | <a href="#left_outer_join">LEFT [OUTER] JOIN</a>
+      | <a href="#right_outer_join">RIGHT [OUTER] JOIN</a>
+    }
+
+<span class="var">join_condition</span>:
+    { <a href="#on_clause"><span class="var">on_clause</span></a> | <a href="#using_clause"><span class="var">using_clause</span></a> }
 
 <span class="var">on_clause</span>:
     ON <span class="var">bool_expression</span>
@@ -1237,16 +1246,6 @@ The `JOIN` operation merges two `from_item`s so that the `SELECT` clause can
 query them as one source. The `join_type` and `ON` or `USING` clause (a
 "join condition") specify how to combine and discard rows from the two
 `from_item`s to form a single source.
-
-All `JOIN` operations require a `join_type`. If no `join_type` is provided with
-a `JOIN` operation, an `INNER JOIN` is performed.
-
-A `JOIN` operation requires a join condition unless one of the following conditions
-is true:
-
-+  `join_type` is `CROSS`.
-+  One or both of the `from_item`s is not a table, for example, an
-   `array_path` or a `field_path`.
 
 ### [INNER] JOIN
 
@@ -1314,6 +1313,8 @@ If the rows of the two `from_item`s are independent, then the result has *M* *
 *N* rows, given *M* rows in one `from_item` and *N* in the other. Note that this
 still holds for the case when either `from_item` has zero rows.
 
+In a `FROM` clause, a `CROSS JOIN` can be written like this:
+
 ```sql
 FROM A CROSS JOIN B
 
@@ -1328,49 +1329,13 @@ Table A       Table B       Result
                             +---------------+
 ```
 
-You can use *correlated* `CROSS JOIN`s to
-[flatten `ARRAY` columns][flattening-arrays]. In this case, the rows of the
-second `from_item` vary for each row of the first `from_item`.
-
-```sql
-FROM A CROSS JOIN A.y
-
-Table A                    Result
-+-------------------+      +-----------+
-| w | x | y         |  ->  | w | x | y |
-+-------------------+      +-----------+
-| 1 | a | [P, Q]    |      | 1 | a | P |
-| 2 | b | [R, S, T] |      | 1 | a | Q |
-+-------------------+      | 2 | b | R |
-                           | 2 | b | S |
-                           | 2 | b | T |
-                           +-----------+
-```
-
-`CROSS JOIN`s can be written explicitly like this:
-
-```sql
-FROM a CROSS JOIN b
-```
-
-Or implicitly as a comma cross join like this:
-
-```sql
-FROM a, b
-```
-
-You cannot write comma cross joins inside parentheses:
-
-```sql {.bad}
-FROM a CROSS JOIN (b, c)  // INVALID
-```
-
-See [Sequences of JOINs][sequences-of-joins] for details on how a comma cross
-join behaves in a sequence of JOINs.
+You can use a [correlated][correlated-join] cross join to convert or
+flatten an `ARRAY` into a set of rows. To learn more, see
+[Convert elements in an array to rows in a table][flattening-arrays].
 
 **Examples**
 
-This query performs an explicit `CROSS JOIN` on the [`Roster`][roster-table]
+This query performs an `CROSS JOIN` on the [`Roster`][roster-table]
 and [`TeamMascot`][teammascot-table] tables.
 
 ```sql
@@ -1392,12 +1357,61 @@ FROM Roster CROSS JOIN TeamMascot;
 +---------------------------+
 ```
 
-This query performs a comma cross join that produces the same results as the
-explicit `CROSS JOIN` above:
+### Comma cross join (,) 
+<a id="comma_cross_join"></a>
+
+[`CROSS JOIN`][cross-join]s can be written implicitly with a comma. This is
+called a comma cross join.
+
+A comma cross join looks like this in a `FROM` clause:
+
+```sql
+FROM A, B
+
+Table A       Table B       Result
++-------+     +-------+     +---------------+
+| w | x |  *  | y | z |  =  | w | x | y | z |
++-------+     +-------+     +---------------+
+| 1 | a |     | 2 | c |     | 1 | a | 2 | c |
+| 2 | b |     | 3 | d |     | 1 | a | 3 | d |
++-------+     +-------+     | 2 | b | 2 | c |
+                            | 2 | b | 3 | d |
+                            +---------------+
+```
+
+You cannot write comma cross joins inside parentheses. To learn more, see
+[Join operations in a sequence][sequences-of-joins].
+
+```sql {.bad}
+FROM (A, B)  // INVALID
+```
+
+You can use a [correlated][correlated-join] comma cross join to convert or
+flatten an `ARRAY` into a set of rows. To learn more, see
+[Convert elements in an array to rows in a table][flattening-arrays].
+
+**Examples**
+
+This query performs a comma cross join on the [`Roster`][roster-table]
+and [`TeamMascot`][teammascot-table] tables.
 
 ```sql
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster, TeamMascot;
+
++---------------------------+
+| LastName   | Mascot       |
++---------------------------+
+| Adams      | Jaguars      |
+| Adams      | Knights      |
+| Adams      | Lakers       |
+| Adams      | Mustangs     |
+| Buchanan   | Jaguars      |
+| Buchanan   | Knights      |
+| Buchanan   | Lakers       |
+| Buchanan   | Mustangs     |
+| ...                       |
++---------------------------+
 ```
 
 ### FULL [OUTER] JOIN
@@ -1592,9 +1606,8 @@ FROM Roster RIGHT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 ### ON clause 
 <a id="on_clause"></a>
 
-The `ON` clause contains a `bool_expression`. A combined row (the result of
-joining two rows) meets the join condition if `bool_expression` returns
-TRUE.
+A combined row (the result of joining two rows) meets the `ON` join condition
+if join condition returns `TRUE`.
 
 ```sql
 FROM A JOIN B ON A.x = B.x
@@ -1631,9 +1644,9 @@ FROM Roster JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 ### USING clause 
 <a id="using_clause"></a>
 
-The `USING` clause requires a `column_list` of one or more columns which
+The `USING` clause requires a column list of one or more columns which
 occur in both input tables. It performs an equality comparison on that column,
-and the rows meet the join condition if the equality comparison returns TRUE.
+and the rows meet the join condition if the equality comparison returns `TRUE`.
 
 ```sql
 FROM A JOIN B USING (x)
@@ -1710,7 +1723,7 @@ Table A   Table B   Result
 +---+     +---+
 ```
 
-### Sequences of JOINs 
+### Join operations in a sequence 
 <a id="sequences_of_joins"></a>
 
 The `FROM` clause can contain multiple `JOIN` operations in a sequence.
@@ -1745,15 +1758,15 @@ FROM ( A JOIN (B JOIN C USING (x)) USING (x) )
 -- result_2                 = return value
 ```
 
-A `FROM` clause can have multiple joins. Provided there are no comma joins in
-the `FROM` clause, joins do not require parenthesis, though parenthesis can
+A `FROM` clause can have multiple joins. Provided there are no comma cross joins
+in the `FROM` clause, joins do not require parenthesis, though parenthesis can
 help readability:
 
 ```sql
 FROM A JOIN B JOIN C JOIN D USING (w) ON B.x = C.y ON A.z = B.x
 ```
 
-If your clause contains comma joins, you must use parentheses:
+If your clause contains comma cross joins, you must use parentheses:
 
 ```sql {.bad}
 FROM A, B JOIN C JOIN D ON C.x = D.y ON B.z = C.x    // INVALID
@@ -1774,7 +1787,8 @@ FROM A JOIN B USING (x) JOIN C USING (x), D
 -- result_2 CROSS JOIN D     = return value
 ```
 
-There cannot be a `RIGHT JOIN` or `FULL JOIN` after a comma join:
+There cannot be a `RIGHT JOIN` or `FULL JOIN` after a comma cross join unless it
+is parenthsized:
 
 ```sql {.bad}
 FROM A, B RIGHT JOIN C ON TRUE // INVALID
@@ -1786,6 +1800,169 @@ FROM A, B FULL JOIN C ON TRUE  // INVALID
 
 ```sql
 FROM A, B JOIN C ON TRUE       // VALID
+```
+
+```sql
+FROM A, (B RIGHT JOIN C ON TRUE) // VALID
+```
+
+```sql
+FROM A, (B FULL JOIN C ON TRUE)  // VALID
+```
+
+### Correlated join operation 
+<a id="correlated_join"></a>
+
+A join operation is _correlated_ when the right `from_item` contains a
+reference to at least one range variable or
+column name introduced by the left `from_item`.
+
+In a correlated join operation, rows from the right `from_item` are determined
+by a row from the left `from_item`. Consequently, `RIGHT OUTER` and `FULL OUTER`
+joins cannot be correlated because right `from_item` rows cannot be determined
+in the case when there is no row from the left `from_item`.
+
+All correlated join operations must reference an array in the right `from_item`.
+
+This is a conceptual example of a correlated join operation that includes
+a [correlated subquery][correlated-subquery]:
+
+```sql
+FROM A JOIN UNNEST(ARRAY(SELECT AS STRUCT * FROM B WHERE A.ID = B.ID)) AS C
+```
+
++ Left `from_item`: `A`
++ Right `from_item`: `UNNEST(...) AS C`
++ A correlated subquery: `(SELECT AS STRUCT * FROM B WHERE A.ID = B.ID)`
+
+This is another conceptual example of a correlated join operation.
+`array_of_IDs` is part of the left `from_item` but is referenced in the
+right `from_item`.
+
+```sql
+FROM A JOIN UNNEST(A.array_of_IDs) AS C
+```
+
+The [`UNNEST` operator][unnest-operator] can be explicit or implicit.
+These are both allowed:
+
+```sql
+FROM A JOIN UNNEST(A.array_of_IDs) AS IDs
+```
+
+```sql
+FROM A JOIN A.array_of_IDs AS IDs
+```
+
+In a correlated join operation, the right `from_item` is re-evaluated
+against each distinct row from the left `from_item`. In the following
+conceptual example, the correlated join operation first
+evaluates `A` and `B`, then `A` and `C`:
+
+```sql
+FROM
+  A
+  JOIN
+  UNNEST(ARRAY(SELECT AS STRUCT * FROM B WHERE A.ID = B.ID)) AS C
+  ON A.Name = C.Name
+```
+
+**Caveats**
+
++ In a correlated `LEFT JOIN`, when the input table on the right side is empty
+  for some row from the left side, it is as if no rows from the right side
+  satisfied the join condition in a regular `LEFT JOIN`. When there are no
+  joining rows, a row with `NULL` values for all columns on the right side is
+  generated to join with the row from the left side.
++ In a correlated `CROSS JOIN`, when the when the input table on the right side
+  is empty for some row from the left side, it is as if no rows from the right
+  side satisfied the join condition in a regular correlated `INNER JOIN`.
+  This means that the row is dropped from the results.
+
+**Examples**
+
+This is an example of a correlated join, using the
+[Roster][roster-table] and [PlayerStats][playerstats-table] tables:
+
+```sql
+SELECT *
+FROM
+  Roster
+JOIN
+  UNNEST(
+    ARRAY(
+      SELECT AS STRUCT *
+      FROM PlayerStats
+      WHERE PlayerStats.OpponentID = Roster.SchoolID
+    )) AS PlayerMatches
+  ON PlayerMatches.LastName = 'Buchanan'
+
++------------+----------+----------+------------+--------------+
+| LastName   | SchoolID | LastName | OpponentID | PointsScored |
++------------+----------+----------+------------+--------------+
+| Adams      | 50       | Buchanan | 50         | 13           |
+| Eisenhower | 77       | Buchanan | 77         | 0            |
++------------+----------+----------+------------+--------------+
+```
+
+A common pattern for a correlated `LEFT JOIN` is to have an `UNNEST` operation
+on the right side that references an array from some column introduced by
+input on the left side. For rows where that array is empty or `NULL`,
+the `UNNEST` operation produces no rows on the right input. In that case, a row
+with a `NULL` entry in each column of the right input is created to join with
+the row from the left input. For example:
+
+```sql
+SELECT A.name, item, ARRAY_LENGTH(A.items) item_count_for_name
+FROM
+  UNNEST(
+    [
+      STRUCT(
+        'first' AS name,
+        [1, 2, 3, 4] AS items),
+      STRUCT(
+        'second' AS name,
+        [] AS items)]) AS A
+LEFT JOIN
+  A.items AS item;
+
++--------+------+---------------------+
+| name   | item | item_count_for_name |
++--------+------+---------------------+
+| first  | 1    | 4                   |
+| first  | 2    | 4                   |
+| first  | 3    | 4                   |
+| first  | 4    | 4                   |
+| second | NULL | 0                   |
++--------+------+---------------------+
+```
+
+In the case of a correlated `CROSS JOIN`, when the input on the right side
+is empty for some row from the left side, the final row is dropped from the
+results. For example:
+
+```sql
+SELECT A.name, item
+FROM
+  UNNEST(
+    [
+      STRUCT(
+        'first' AS name,
+        [1, 2, 3, 4] AS items),
+      STRUCT(
+        'second' AS name,
+        [] AS items)]) AS A
+CROSS JOIN
+  A.items AS item;
+
++-------+------+
+| name  | item |
++-------+------+
+| first | 1    |
+| first | 2    |
+| first | 3    |
+| first | 4    |
++-------+------+
 ```
 
 ## WHERE clause 
@@ -2106,14 +2283,18 @@ GROUP BY LastName
 HAVING SUM(PointsScored) > 15;
 ```
 
+<a id="collate_clause"></a>
 ## ORDER BY clause 
 <a id="order_by_clause"></a>
 
 <pre>
 ORDER BY expression
-  [COLLATE collate_string]
+  [COLLATE collation_specification]
   [{ ASC | DESC }]
   [, ...]
+
+collation_specification:
+  language_tag[:collation_attribute]
 </pre>
 
 The `ORDER BY` clause specifies a column or expression as the sort criterion for
@@ -2125,7 +2306,17 @@ override names in the corresponding `FROM` clause. The data type of
 
 **Optional Clauses**
 
-+ `COLLATE`: Refine how a data is ordered.
++ `COLLATE`: You can use the `COLLATE` clause to refine how data is ordered
+  by an `ORDER BY` clause. _Collation_ refers to a set of rules that determine
+  how strings are compared according to the conventions and
+  standards of a particular written language, region, or country. These rules
+  might define the correct character sequence, with options for specifying
+  case-insensitivity. You can use `COLLATE` only on columns of type `STRING`.
+
+  `collation_specification` represents the collation specification for the
+  `COLLATE` clause. The collation specification can be a `STRING` literal or
+   a query parameter. To learn more see
+   [collation specification details][collation-spec].
 +  `ASC | DESC`: Sort the results in ascending or descending
     order of `expression` values. `ASC` is the default value. 
 
@@ -2231,150 +2422,6 @@ FROM PlayerStats
 GROUP BY 2
 ORDER BY 2;
 ```
-
-### COLLATE clause
-
-<pre>
-COLLATE collate_string
-
-collate_string:
-  language_tag[:collation_attribute]
-</pre>
-
-You can use the `COLLATE` clause to refine how a data is ordered from an `ORDER
-BY` clause. _Collation_ refers to a set of rules that determine how
-strings are compared according to the conventions and
-standards of a particular written language, region, or country. These rules
-might define the correct character sequence, with options for specifying
-case-insensitivity.
-
-Note: You can use `COLLATE` only on columns of type `STRING`.
-
-A `collate_string` contains a `language_tag` and can have an optional
-`collation_attribute` as a suffix, separated by a colon.
-
-The `language_tag` is a literal or a query parameter:
-
-+ A standard locale string. This name is usually two or three letters
-that represent the language, optionally followed by an underscore or dash and
-two letters that represent the region &mdash; for example, `en_US`. These names
-are defined by the
-[Common Locale Data Repository (CLDR)][unicode-locale-identifier]. See
-Unicode Collation below.
-
-+ `und`, a locale string representing the _undetermined_ locale. See
-Unicode Collation below.
-
-+ `binary` to indicate that the statement should return data in Unicode
-code point order, which is identical to the ordering behavior when `COLLATE` is
-not used. The sort order will look largely arbitrary to human users.
-
-+ `unicode`, a legacy language tag, see below for details.
-
-In addition to the `language_tag`, a `collate_string`
- other than `binary`, can have an
-optional `collation_attribute` as a suffix, separated by a colon. Allowed values
-are:
- + `ci` for case insensitive
- + `cs` for case sensitive (Note: 'cs' is the default so specifying it never has
-        an effect).
-
-#### Unicode Collation
-
-For `language_tag`s other than `binary`,
-ZetaSQL follows the
-[Unicode Collation Algorithm][tr10-collation-algorithm]. The standard defines
-the format of language tags, which includes some useful extensions as well as
-the algorithm used for comparison.
-
-`und` is a special language tag defined in the
-[IANA language subtag registry][iana-language-subtag-registry] and used to
-indicate an undetermined locale. This is also known as the _root_ locale and
-can be considered the _default_ Unicode collation. It defines a reasonable,
-locale agnostic collation. It differs significantly from
-`binary`.
-
-A `language_tag` may be extended by appending `-u-<extension>`, for example
-the extension to specify numeric ordering is `kn-true`. So, `en-us-u-kn-true`
-would indicate the US English locale, with numeric sorting (`abc1` is considered
-less than `abc12`). Some useful examples of extensions:
-
-<table>
-  <thead>
-    <tr>
-      <th>Extension</th>
-      <th>Name</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>-ks-level2</td>
-      <td>Case Insensitive</td>
-      <td>"a1" < "A2"</td>
-    </tr>
-    <tr>
-      <td>-ks-level1</td>
-      <td>Accent and Case Insensitive</td>
-      <td>"ä1" < "a2" < "A3"</td>
-    </tr>
-    <tr>
-      <td>-ks-level1-kc-true</td>
-      <td>Accent Insensitive</td>
-      <td>"ä1" < "a2"</td>
-    </tr>
-    <tr>
-      <td>-kn-true</td>
-      <td>Numeric Ordering</td>
-      <td>"a1b" < "a12b" </td>
-    </tr>
-  </tbody>
-</table>
-
-For a complete list and in depth technical details, consult
-[Unicode Locale Data Markup Language Part 5: Collation]
-[tr35-collation-settings].
-
-Caveats:
-
- * Differing strings can be considered equal:
-      For instance, ẞ (LATIN CAPITAL LETTER SHARP S) is considered equal to 'SS'
-      on primary level thus 'ẞ1' < 'SS2'. This is similar to how case
-      insensitivity works.
-
- * Ignorable code points: Unicode collation specifies a wide range of code
-      points that are mostly treated as if they are not there. So strings with
-      and without them are sorted identically, for example U2060 -
-      'WORD JOINER'.
-
-      ```sql
-      SELECT "oran\u2060ge1" UNION ALL SELECT "\u2060orange2" UNION ALL SELECT "orange3"
-      ORDER BY 1 COLLATE "und"
-      +---------+
-      |         |
-      +---------+
-      | orange1 |
-      | orange2 |
-      | orange3 |
-      +---------+
-      ```
-
- * Ordering _may_ change: Unicode occasionally makes changes to the default
-   collation ("und") which could, in rare circumstances, change the relative
-   ordering of strings. The sort orders for
-   languages other than "und" change more frequently as standards change or new
-   information is collected. If a fixed sort order is required, use
-   `binary`.
-
-Additionally, a legacy `language_tag` of
-`unicode` is supported. If used without a `collation_attribute`, or
-with `:cs`, this is identical to `binary`. However, `unicode:ci` uses a
-case-mapped comparison, which is roughly equivalent to using the `LOWER`
-function on the inputs prior to ordering, but lacking the properties of Unicode
-Collation. It is recommended to migrate existing usage to either `binary` or
-`und`.
-
-**Examples**
 
 Collate results using English - Canada:
 
@@ -2753,7 +2800,7 @@ non_recursive_cte:
 </pre>
 
 A non-recursive common table expression (CTE) contains
-a non-recursive[subquery][subquery-concepts]
+a non-recursive [subquery][subquery-concepts]
 and a name associated with the CTE.
 
 + A non-recursive CTE cannot reference itself.
@@ -2804,12 +2851,12 @@ recursive_cte:
     <a href="#cte_name">cte_name</a> AS ( recursive_union_operation )
 
 recursive_union_operation:
-    base_term union_operator iterative_term
+    base_term union_operator recursive_term
 
 base_term:
     <a href="#sql_syntax">query_expr</a>
 
-iterative_term:
+recursive_term:
     <a href="#sql_syntax">query_expr</a>
 
 union_operator:
@@ -2830,20 +2877,20 @@ recursive union operation defines how input is recursively processed
 to produce the final table result. The recursive union operation has the
 following parts:
 
-+ `base_term`: The base term runs the first iteration of the
-  recursive union operation. The base term must follow the
++ `base_term`: Runs the first iteration of the
+  recursive union operation. This term must follow the
   [base term rules][base-term-rules].
 + `union_operator`: The `UNION` operator returns the rows that are from
-  the union of the base term and iterative term. With `UNION ALL`,
+  the union of the base term and recursive term. With `UNION ALL`,
   each row produced in iteration `N` becomes part of the final query output and
   input for iteration `N+1`. With
   `UNION DISTINCT`, only distinct rows become part of the final query output,
   and only new distinct rows move into iteration `N+1`. Iteration
   stops when an iteration produces no rows to move into the next iteration.
-+ `iterative_term`: The iterative term runs the remaining iterations.
++ `recursive_term`: Runs the remaining iterations.
   It must include a self-reference to the recursive CTE. All recursive
-  references must be in the iterative term. The iterative term
-  must follow the [iterative term rules][recursive-cte-rules].
+  references must be in this term. This term
+  must follow the [recursive term rules][recursive-cte-rules].
 
 A recursive CTE looks like this:
 
@@ -2862,9 +2909,9 @@ SELECT n FROM T1
 ```
 
 The first iteration of a recursive union operation runs the base term.
-Then, each subsequent iteration runs the iterative term and produces
+Then, each subsequent iteration runs the recursive term and produces
 _new rows_ which are unioned with the previous iteration. The recursive
-union operation terminates when an iterative term iteration produces no new
+union operation terminates when an recursive term iteration produces no new
 rows.
 
 If recursion does not terminate, the query will not terminate.
@@ -2873,7 +2920,7 @@ To avoid a non-terminating iteration in a recursive union operation, you can
 use the `LIMIT` clause in a query.
 
 A recursive CTE can include nested `WITH` clauses, however, you can't reference
-the recursive term inside of an inner `WITH` clause. An inner `WITH`
+`recursive_term` inside of an inner `WITH` clause. An inner `WITH`
 clause can't be recursive unless it includes its own `RECURSIVE` keyword.
 The `RECURSIVE` keyword affects only the particular `WITH` clause to which it
 belongs.
@@ -2995,7 +3042,7 @@ SELECT * FROM T1;
 
 The following recursive CTE is disallowed because the
 self-reference does not include a set operator, base term, and
-iterative term.
+recursive term.
 
 ```sql {.bad}
 WITH RECURSIVE
@@ -3005,7 +3052,7 @@ SELECT * FROM T1
 
 The following recursive CTE is disallowed because the
 self-reference to `T1` is in the base term. Self references are only allowed in
-the iterative term.
+the recursive term.
 
 ```sql {.bad}
 WITH RECURSIVE
@@ -3014,7 +3061,7 @@ SELECT * FROM T1
 ```
 
 The following recursive CTE is disallowed because there are multiple
-self-references in the iterative term when there must only be one.
+self-references in the recursive term when there must only be one.
 
 ```sql {.bad}
 WITH RECURSIVE
@@ -3124,7 +3171,7 @@ SELECT * FROM T1
 ### CTE rules and constraints 
 <a id="cte_rules"></a>
 
-Common table exprpessions (CTEs) can be referenced inside the query expression
+Common table expressions (CTEs) can be referenced inside the query expression
 that contains the `WITH` clause.
 
 ##### General rules 
@@ -3150,14 +3197,14 @@ The following rules apply to the base term in a recursive CTE:
 + The base term determines the names and types of all of the
   table columns.
 
-##### Iterative term rules 
+##### Recursive term rules 
 <a id="recursive_cte_rules"></a>
 
-The following rules apply to the iterative term in a recursive CTE:
+The following rules apply to the recursive term in a recursive CTE:
 
-+ The iterative term must include exactly one reference to the
++ The recursive term must include exactly one reference to the
   recursively-defined table in the base term.
-+ The iterative term must contain the same number of columns as the
++ The recursive term must contain the same number of columns as the
   base term, and the type of each column must be implicitly coercible to
   the type of the corresponding column in the base term.
 + A recursive table reference cannot be used as an operand to a `FULL JOIN`,
@@ -3166,7 +3213,7 @@ The following rules apply to the iterative term in a recursive CTE:
 + A recursive table reference cannot be used as an operand to a
   table-valued function (TVF).
 
-The following rules apply to a subquery inside an iterative term:
+The following rules apply to a subquery inside an recursive term:
 
 + A subquery with a recursive table reference must be a `SELECT` expression,
   not a set operation, such as `UNION ALL`.
@@ -3890,53 +3937,109 @@ Results:
 (empty)
 ```
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [iana-language-subtag-registry]: https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry
+
 [unicode-locale-identifier]: https://www.unicode.org/reports/tr35/#Unicode_locale_identifier
+
 [tr35-collation-settings]: http://www.unicode.org/reports/tr35/tr35-collation.html#Setting_Options
+
 [tr10-collation-algorithm]: http://www.unicode.org/reports/tr10/
 
 [implicit-aliases]: #implicit_aliases
+
 [using-aliases]: #using_aliases
+
 [sequences-of-joins]: #sequences_of_joins
+
 [set-operators]: #set_operators
+
 [union-syntax]: #union
+
 [join-hints]: #join_hints
+
 [query-value-tables]: #value_tables
+
 [roster-table]: #roster_table
+
 [playerstats-table]: #playerstats_table
+
 [teammascot-table]: #teammascot_table
+
 [stratified-sampling]: #stratified_sampling
+
 [scaling-weight]: #scaling_weight
+
 [query-joins]: #join_types
+
 [ambiguous-aliases]: #ambiguous_aliases
+
 [with-clause]: #with_clause
+
 [cte-rules]: #cte_rules
+
 [non-recursive-cte]: #simple_cte
+
 [unnest-operator]: #unnest_operator
+
 [cte-visibility]: #cte_visibility
 
+[comma-cross-join]: #comma_cross_join
+
+[cross-join]: #cross_join
+
+[correlated-join]: #correlated_join
+
 [unpivot-operator]: #unpivot_operator
+
 [tablesample-operator]: #tablesample_operator
+
 [recursive-keyword]: #recursive_keyword
+
 [base-term-rules]: #base_term_rules
+
 [recursive-cte-rules]: #recursive_cte_rules
+
 [recursive-cte]: #recursive_cte
+
 [analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [query-window-specification]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#def_window_spec
+
 [named-window-example]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#def_use_named_window
-[produce-table]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#produce-table
+
+[produce-table]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#produce_table
+
 [tvf-concepts]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md#tvfs
+
 [anon-concepts]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md
+
 [flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_arrays
+
 [flattening-trees-into-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_nested_data_into_arrays
+
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md
-[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data-type-properties
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating-point-semantics
+
+[data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
+
+[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
 [subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries.md
+
+[correlated-subquery]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#correlated_subquery_concepts
+
 [table-subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#table_subquery_concepts
+
 [expression-subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#expression_subquery_concepts
 
 [in-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#in_operators
+
 [expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries.md
+
 [flatten-operator]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#flatten
+
+[collation-spec]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_spec_details
+
+<!-- mdlint on -->
 

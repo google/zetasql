@@ -738,10 +738,12 @@ std::string ProtoType::FormatValueContent(
       return "{<unparseable>}";
     }
 
-    return absl::StrCat(
-        "{",
-        options.verbose ? message->DebugString() : message->ShortDebugString(),
-        "}");
+    return absl::StrCat("{",
+                        options.verbose
+                            ?
+                        message->DebugString()
+                        : message->ShortDebugString(),
+                        "}");
   }
 
   absl::Status status;

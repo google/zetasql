@@ -166,18 +166,11 @@ absl::Status FlattenRewriterVisitor::VisitResolvedArrayScan(
 
 absl::Status FlattenRewriterVisitor::VisitResolvedFlatten(
     const ResolvedFlatten* node) {
-  // Project the input to a name so we can evaluate it once for NULL checking
-  // and using as input to flattening.
+  // Define a column to represent the result of evaluating the input. We want
+  // the input value referenced both by null checking and flattening, so we use
+  // a column to ensure it is only evaluated once.
   ResolvedColumn flatten_expr_column = column_factory_->MakeCol(
       "$flatten_input", "injected", node->expr()->type());
-  std::vector<std::unique_ptr<const ResolvedComputedColumn>> expr_list;
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> flatten_expr,
-                   ProcessNode(node->expr()));
-  ZETASQL_ASSIGN_OR_RETURN(flatten_expr, CorrelateColumnRefs(*flatten_expr));
-  expr_list.push_back(
-      MakeResolvedComputedColumn(flatten_expr_column, std::move(flatten_expr)));
-  std::unique_ptr<ResolvedProjectScan> flatten_input = MakeResolvedProjectScan(
-      {flatten_expr_column}, std::move(expr_list), MakeResolvedSingleRowScan());
 
   // To avoid returning an empty array if the input is NULL, we rewrite to
   // explicitly return NULL in that case. The flatten rewrite would return an
@@ -200,8 +193,7 @@ absl::Status FlattenRewriterVisitor::VisitResolvedFlatten(
                                               flatten_expr_column,
                                               /*is_correlated=*/false));
   for (const auto& get_field : node->get_field_list()) {
-    ZETASQL_RETURN_IF_ERROR(
-        CollectColumnRefs(*get_field, &column_refs, /*correlate=*/true));
+    ZETASQL_RETURN_IF_ERROR(CollectColumnRefs(*get_field, &column_refs));
   }
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<ResolvedScan> rewritten_flatten,
@@ -217,21 +209,15 @@ absl::Status FlattenRewriterVisitor::VisitResolvedFlatten(
   ZETASQL_ASSIGN_OR_RETURN(auto resolved_if,
                    fn_builder_.If(std::move(if_condition), std::move(if_then),
                                   std::move(if_else)));
-  ResolvedColumn result_column =
-      column_factory_->MakeCol("$flatten", "injected", node->type());
-  expr_list.clear();
-  expr_list.push_back(
-      MakeResolvedComputedColumn(result_column, std::move(resolved_if)));
 
-  // Putting it all together, we use a subquery whose result is the result of
-  // the if condition above, with a projection input of the flatten expression.
-  column_refs.clear();
-  ZETASQL_RETURN_IF_ERROR(CollectColumnRefs(*node, &column_refs));
-  PushNodeToStack(MakeResolvedSubqueryExpr(
-      node->type(), ResolvedSubqueryExpr::SCALAR, std::move(column_refs),
-      /*in_expr=*/nullptr,
-      MakeResolvedProjectScan({result_column}, std::move(expr_list),
-                              std::move(flatten_input))));
+  // Use a ResolvedLetExpr to populate the input variable.
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> flatten_expr,
+                   ProcessNode(node->expr()));
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>> let_assignments;
+  let_assignments.push_back(
+      MakeResolvedComputedColumn(flatten_expr_column, std::move(flatten_expr)));
+  PushNodeToStack(MakeResolvedLetExpr(node->type(), std::move(let_assignments),
+                                      std::move(resolved_if)));
   return absl::OkStatus();
 }
 
@@ -351,13 +337,11 @@ class FlattenRewriter : public Rewriter {
  public:
   bool ShouldRewrite(const AnalyzerOptions& analyzer_options,
                      const AnalyzerOutput& analyzer_output) const override {
-    return analyzer_options.rewrite_enabled(REWRITE_FLATTEN) &&
-           analyzer_output.analyzer_output_properties().has_flatten;
+    return analyzer_output.analyzer_output_properties().has_flatten;
   }
 
   absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
-      const AnalyzerOptions& options,
-      absl::Span<const Rewriter* const> rewriters, const ResolvedNode& input,
+      const AnalyzerOptions& options, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,
       AnalyzerOutputProperties& output_properties) const override {
     ZETASQL_RET_CHECK(options.column_id_sequence_number() != nullptr);
@@ -368,6 +352,7 @@ class FlattenRewriter : public Rewriter {
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedNode> result,
                      rewriter.ConsumeRootNode<ResolvedNode>());
     output_properties.has_flatten = false;
+    output_properties.has_let = true;
     return result;
   }
 

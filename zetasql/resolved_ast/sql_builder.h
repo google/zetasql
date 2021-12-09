@@ -67,15 +67,22 @@ class SQLBuilder : public ResolvedASTVisitor {
  public:
   // Options to use when generating SQL.
   struct SQLBuilderOptions {
-    SQLBuilderOptions() {}
-    explicit SQLBuilderOptions(ProductMode product_mode_in)
-        : product_mode(product_mode_in) {}
+    SQLBuilderOptions() {
+      // PRODUCT_EXTERNAL is the default product mode.
+      language_options.set_product_mode(PRODUCT_EXTERNAL);
+    }
+    explicit SQLBuilderOptions(ProductMode product_mode) {
+      language_options.set_product_mode(product_mode);
+    }
+    explicit SQLBuilderOptions(const LanguageOptions& language_options)
+        : language_options(language_options) {}
     ~SQLBuilderOptions() {}
 
-    // Whether the generated SQL is for INTERNAL or EXTERNAL mode.  For example,
+    // Language options included enabled/disabled features and product mode,
+    // whether the generated SQL is for INTERNAL or EXTERNAL mode.  For example,
     // EXTERNAL mode supports FLOAT64 only as a type name, not DOUBLE
     // (INTERNAL supports both as type names).
-    ProductMode product_mode = PRODUCT_EXTERNAL;
+    LanguageOptions language_options;
 
     // Undeclared query parameters get wrapped in explicit CASTs. This is needed
     // because explicit CASTs may get dropped from the resolved AST upon parsing
@@ -140,6 +147,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedCreateMaterializedViewStmt* node) override;
   absl::Status VisitResolvedCreateExternalTableStmt(
       const ResolvedCreateExternalTableStmt* node) override;
+  absl::Status VisitResolvedCreatePrivilegeRestrictionStmt(
+      const ResolvedCreatePrivilegeRestrictionStmt* node) override;
   absl::Status VisitResolvedCreateRowAccessPolicyStmt(
       const ResolvedCreateRowAccessPolicyStmt* node) override;
   absl::Status VisitResolvedCreateConstantStmt(
@@ -189,6 +198,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedDropTableFunctionStmt* node) override;
   absl::Status VisitResolvedDropMaterializedViewStmt(
       const ResolvedDropMaterializedViewStmt* node) override;
+  absl::Status VisitResolvedDropPrivilegeRestrictionStmt(
+      const ResolvedDropPrivilegeRestrictionStmt* node) override;
   absl::Status VisitResolvedDropRowAccessPolicyStmt(
       const ResolvedDropRowAccessPolicyStmt* node) override;
   absl::Status VisitResolvedDropSnapshotTableStmt(
@@ -209,6 +220,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedRevokeStmt* node) override;
   absl::Status VisitResolvedAlterDatabaseStmt(
       const ResolvedAlterDatabaseStmt* node) override;
+  absl::Status VisitResolvedAlterPrivilegeRestrictionStmt(
+      const ResolvedAlterPrivilegeRestrictionStmt* node) override;
   absl::Status VisitResolvedAlterRowAccessPolicyStmt(
       const ResolvedAlterRowAccessPolicyStmt* node) override;
   absl::Status VisitResolvedAlterAllRowAccessPoliciesStmt(
@@ -263,6 +276,7 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedColumnHolder* node) override;
   absl::Status VisitResolvedSubqueryExpr(
       const ResolvedSubqueryExpr* node) override;
+  absl::Status VisitResolvedLetExpr(const ResolvedLetExpr* node) override;
   absl::Status VisitResolvedTableAndColumnInfo(
       const ResolvedTableAndColumnInfo* node) override;
   absl::Status VisitResolvedOption(const ResolvedOption* node) override;
@@ -488,6 +502,13 @@ class SQLBuilder : public ResolvedASTVisitor {
   // conflict with a column name.
   std::string MakeNonconflictingAlias(const std::string& name);
 
+  // Checks whether the table can be used without an explicit "AS" clause, which
+  // will use the last component of its table name as its alias. If we have two
+  // tables with the same local name in two catalogs/nested catalogs, then we
+  // cannot use both without an explicit alias (for example, S.T vs. T, or
+  // S1.T vs. S2.T).
+  bool CanTableBeUsedWithImplicitAlias(const Table* table);
+
   // Returns a unique incremental id each time this is called.
   int64_t GetUniqueId();
 
@@ -650,6 +671,14 @@ class SQLBuilder : public ResolvedASTVisitor {
   // Stores the unique aliases assigned to tables.
   absl::flat_hash_map<const Table*, std::string> table_alias_map_;
 
+  // Stores the tables that have been used without an explicit alias.
+  // This is a map from the implicit alias to the identifier (as returned by
+  // TableToIdentifierLiteral).
+  // This is because if we have two tables in different nested catalogs S1.T
+  // and S2.T, they cannot both use the same implicit alias "t" and one of them
+  // needs to be explicitly aliased.
+  absl::flat_hash_map<std::string, std::string> tables_with_implicit_alias_;
+
   // Expected position of the next unparsed positional query parameter. Used for
   // validation only.
   int expected_next_parameter_position_ = 1;
@@ -746,6 +775,10 @@ class SQLBuilder : public ResolvedASTVisitor {
   virtual absl::Status AddValueTableAliasForVisitResolvedTableScan(
       absl::string_view table_alias, const ResolvedColumn& column,
       std::vector<std::pair<std::string, std::string>>* select_list);
+
+  // Returns a ZetaSQL identifier literal for a table's name.
+  // The output will be quoted (with backticks) and escaped if necessary.
+  virtual std::string TableToIdentifierLiteral(const Table* table);
 
   // Converts a table name string to a ZetaSQL identifier literal.
   // The output will be quoted (with backticks) and escaped if necessary.

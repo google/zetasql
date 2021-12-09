@@ -127,6 +127,16 @@ class AnnotationMap {
     return EqualsInternal(this, &that, annotation_spec_id);
   }
 
+  // Determines whether two AnnotationMap instances have equal annotation values
+  // given specified AnnotationSpec ID.
+  // Accepts nullptr and treats nullptr to be equal to a non-nullptr
+  // AnnotationMap that does not contain the specified AnnotationSpec ID.
+  static bool HasEqualAnnotations(const AnnotationMap* lhs,
+                                  const AnnotationMap* rhs,
+                                  int annotation_spec_id) {
+    return EqualsInternal(lhs, rhs, annotation_spec_id);
+  }
+
   // Decides if two AnnotationMap instances are equal.
   // Accepts nullptr and treats nullptr to be equal to an empty AnnotationMap
   // (both for <lhs> and <rhs> as well as for any nested maps).
@@ -317,6 +327,8 @@ class ArrayAnnotationMap : public AnnotationMap {
 // nullptr to indicate that the <type> doesn't have annotation. This struct is
 // cheap to copy, should always be passed by value.
 struct AnnotatedType {
+  // TODO: Add a constructor that only takes <type> and sets
+  // <annotation_map> to nullptr implicitly.
   AnnotatedType(const Type* type, const AnnotationMap* annotation_map)
       : type(type), annotation_map(annotation_map) {}
 

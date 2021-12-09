@@ -19,6 +19,7 @@
 
 #include "zetasql/common/errors.h"
 #include "zetasql/parser/parse_tree_errors.h"
+#include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/types/annotation.h"
@@ -131,11 +132,57 @@ absl::Status CollationAnnotation::CheckAndPropagateForMakeStruct(
   return absl::OkStatus();
 }
 
+absl::Status CollationAnnotation::RejectsCollationOnFunctionArguments(
+    const ResolvedFunctionCallBase& function_call) {
+  const FunctionSignature& signature = function_call.signature();
+  // Index or name of argument is kept for error message.
+  for (int i = 0; i < signature.NumConcreteArguments(); i++) {
+    const zetasql::ResolvedExpr* arg_i = nullptr;
+    if (function_call.argument_list_size() > 0) {
+      arg_i = function_call.argument_list(i);
+      // If the input path expression of FLATTEN function is effectively a
+      // single array and does not dot into fields of its elements, the first
+      // argument of FLATTEN function is the input array. Otherwise, the first
+      // argument of FLATTEN function is set to be a ResolvedFlatten node whose
+      // <expr> contains the input array.
+      if (function_call.function()->IsZetaSQLBuiltin() &&
+          signature.context_id() == FN_FLATTEN &&
+          arg_i->node_kind() == RESOLVED_FLATTEN) {
+        arg_i = arg_i->GetAs<ResolvedFlatten>()->expr();
+      }
+    } else if (function_call.generic_argument_list(i)->expr() != nullptr) {
+      arg_i = function_call.generic_argument_list(i)->expr();
+    } else {
+      continue;
+    }
+    const AnnotationMap* argi_annotation_map = arg_i->type_annotation_map();
+    if (CollationAnnotation::ExistsIn(argi_annotation_map)) {
+      const std::string argument_name =
+          (function_call.function()->IsZetaSQLBuiltin() &&
+           signature.context_id() == FN_FLATTEN)
+              ? "input array to FLATTEN"
+              : absl::StrCat("argument ", GetArgumentNameOrIndex(signature, i));
+      return MakeSqlError() << absl::Substitute(
+                 "Collation is not allowed on $0 ($1)$2",
+                 argument_name,
+                 argi_annotation_map->DebugString(GetId()),
+                 arg_i->type()->IsString()
+                     ? ". Use COLLATE(arg, '') to remove collation"
+                     : "");
+    }
+  }
+  return absl::OkStatus();
+}
+
 absl::Status CollationAnnotation::CheckAndPropagateForFunctionCallBase(
     const ResolvedFunctionCallBase& function_call,
     AnnotationMap* result_annotation_map) {
   // TODO: add non-default propapation logic for functions.
   const FunctionSignature& signature = function_call.signature();
+  if (signature.options().rejects_collation()) {
+    ZETASQL_RETURN_IF_ERROR(RejectsCollationOnFunctionArguments(function_call));
+    return absl::OkStatus();
+  }
   // Default propagation rules.
   if (signature.options().propagates_collation() && signature.IsConcrete() &&
       SupportsCollation(signature.result_type().type())) {

@@ -27,6 +27,10 @@ namespace zetasql {
 // in ZetaSQL. Does not pass ownership of the returned pointers.
 const std::vector<const Rewriter*>& AllRewriters();
 
+// Registers the built-in rewriters with the global RewriteRegistry.
+// After the first call, takes no action.
+void RegisterBuiltinRewriters();
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_ANALYZER_ALL_REWRITERS_H_

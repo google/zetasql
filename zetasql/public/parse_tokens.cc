@@ -17,6 +17,7 @@
 #include "zetasql/public/parse_tokens.h"
 
 #include <ctype.h>
+
 #include <memory>
 #include <utility>
 
@@ -30,9 +31,9 @@
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/value.h"
+#include "zetasql/base/case.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/ascii.h"
-#include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"

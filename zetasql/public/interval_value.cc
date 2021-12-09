@@ -34,6 +34,43 @@
 
 namespace zetasql {
 
+namespace {
+
+std::string ToString(int64_t value) {
+  std::string s;
+  uint64_t v = value;
+  if (value < 0) {
+    v = 0 - v;  // MSVC 2013 errors on unary negation of unsigned.
+    s += "-";
+  }
+  if (v < int64_t{1000}) {
+    absl::StrAppendFormat(&s, "%d", v);
+  } else if (v >= int64_t{1000000000000000}) {
+    // Number bigger than 1E15; use that notation.
+    absl::StrAppendFormat(&s, "%0.3G", static_cast<double>(v));
+  } else {
+    static const char units[] = "kMBT";
+    const char* unit = units;
+    while (v >= int64_t{1000000}) {
+      v /= int64_t{1000};
+      ++unit;
+      ZETASQL_CHECK(unit < units + ABSL_ARRAYSIZE(units));
+    }
+    absl::StrAppendFormat(&s, "%.2f%c", v / 1000.0, *unit);
+  }
+  return s;
+}
+
+std::string Int128ToString(absl::int128 value) {
+  if (value >= int64_t{1000000000000000} ||
+      value <= int64_t{-1000000000000000}) {
+    // Number bigger than 1E15; use that notation.
+    return absl::StrFormat("%0.3G", static_cast<double>(value));
+  }
+  return ToString(static_cast<int64_t>(value));
+}
+}  // namespace
+
 absl::StatusOr<IntervalValue> IntervalValue::FromYMDHMS(
     int64_t years, int64_t months, int64_t days, int64_t hours, int64_t minutes,
     int64_t seconds) {
@@ -159,6 +196,67 @@ absl::StatusOr<IntervalValue> IntervalValue::SumAggregator::GetAverage(
   return IntervalValue::FromMonthsDaysNanos(static_cast<int64_t>(months),
                                             static_cast<int64_t>(days),
                                             static_cast<__int128>(nanos));
+}
+
+std::string IntervalValue::SumAggregator::SerializeAsProtoBytes() const {
+  std::string result;
+  SerializeAndAppendToProtoBytes(&result);
+  return result;
+}
+
+void IntervalValue::SumAggregator::SerializeAndAppendToProtoBytes(
+    std::string* bytes) const {
+  absl::uint128 months = zetasql_base::LittleEndian::FromHost128(months_);
+  bytes->append(reinterpret_cast<const char*>(&months), sizeof(months));
+  absl::uint128 days = zetasql_base::LittleEndian::FromHost128(days_);
+  bytes->append(reinterpret_cast<const char*>(&days), sizeof(days));
+  nanos_.SerializeToBytes(bytes);
+}
+
+absl::StatusOr<IntervalValue::SumAggregator>
+IntervalValue::SumAggregator::DeserializeFromProtoBytes(
+    absl::string_view bytes) {
+  IntervalValue::SumAggregator aggregator;
+  if (bytes.empty()) {
+    return aggregator;
+  }
+
+  if (bytes.size() < sizeof(absl::uint128) * 2) {
+    return absl::OutOfRangeError(
+        "Invalid serialized INTERVAL::SumAggregator size too small");
+  }
+
+  const char* ptr = reinterpret_cast<const char*>(bytes.data());
+  aggregator.months_ = static_cast<__int128>(
+      zetasql_base::LittleEndian::ToHost128(*absl::bit_cast<absl::uint128*>(ptr)));
+  ptr += sizeof(absl::uint128);
+
+  aggregator.days_ = static_cast<__int128>(
+      zetasql_base::LittleEndian::ToHost128(*absl::bit_cast<absl::uint128*>(ptr)));
+  ptr += sizeof(absl::uint128);
+
+  if (!aggregator.nanos_.DeserializeFromBytes(
+          bytes.substr(sizeof(absl::uint128) * 2))) {
+    return absl::OutOfRangeError(
+        "Invalid serialized INTERVAL::SumAggregator failed to deserialize "
+        "nanos");
+  }
+
+  return aggregator;
+}
+
+std::string IntervalValue::SumAggregator::DebugString() const {
+  return absl::StrCat(
+      "IntervalValue::SumAggregator (months=",
+      Int128ToString(months_),
+      ", days=", Int128ToString(days_),
+      ", nanos=", nanos_.ToString(), ")");
+}
+
+void IntervalValue::SumAggregator::MergeWith(const SumAggregator& other) {
+  months_ += other.months_;
+  days_ += other.days_;
+  nanos_ += other.nanos_;
 }
 
 void IntervalValue::SerializeAndAppendToBytes(std::string* bytes) const {

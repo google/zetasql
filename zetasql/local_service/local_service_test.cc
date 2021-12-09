@@ -72,6 +72,8 @@ class ZetaSqlLocalServiceImplTest : public ::testing::Test {
     EXPECT_EQ(1, service_.NumRegisteredDescriptorPools());
     EXPECT_EQ(0, service_.NumRegisteredCatalogs());
     EXPECT_EQ(0, service_.NumSavedPreparedExpression());
+    EXPECT_EQ(0, service_.NumSavedPreparedQueries());
+    EXPECT_EQ(0, service_.NumSavedPreparedModifies());
   }
 
   void TearDown() override {
@@ -79,6 +81,8 @@ class ZetaSqlLocalServiceImplTest : public ::testing::Test {
     EXPECT_EQ(1, service_.NumRegisteredDescriptorPools());
     EXPECT_EQ(0, service_.NumRegisteredCatalogs());
     EXPECT_EQ(0, service_.NumSavedPreparedExpression());
+    EXPECT_EQ(0, service_.NumSavedPreparedQueries());
+    EXPECT_EQ(0, service_.NumSavedPreparedModifies());
   }
 
   absl::Status Prepare(const PrepareRequest& request,
@@ -86,16 +90,48 @@ class ZetaSqlLocalServiceImplTest : public ::testing::Test {
     return service_.Prepare(request, response);
   }
 
+  absl::Status PrepareQuery(const PrepareQueryRequest& request,
+                            PrepareQueryResponse* response) {
+    return service_.PrepareQuery(request, response);
+  }
+
+  absl::Status PrepareModify(const PrepareModifyRequest& request,
+                             PrepareModifyResponse* response) {
+    return service_.PrepareModify(request, response);
+  }
+
   absl::Status Unprepare(int64_t id) { return service_.Unprepare(id); }
+
+  absl::Status UnprepareQuery(int64_t id) {
+    return service_.UnprepareQuery(id);
+  }
+
+  absl::Status UnprepareModify(int64_t id) {
+    return service_.UnprepareModify(id);
+  }
 
   absl::Status Evaluate(const EvaluateRequest& request,
                         EvaluateResponse* response) {
     return service_.Evaluate(request, response);
   }
 
+  absl::Status EvaluateQuery(const EvaluateQueryRequest& request,
+                             EvaluateQueryResponse* response) {
+    return service_.EvaluateQuery(request, response);
+  }
+
+  absl::Status EvaluateModify(const EvaluateModifyRequest& request,
+                              EvaluateModifyResponse* response) {
+    return service_.EvaluateModify(request, response);
+  }
+
   absl::Status Analyze(const AnalyzeRequest& request,
                        AnalyzeResponse* response) {
     return service_.Analyze(request, response);
+  }
+
+  absl::Status Parse(const ParseRequest& request, ParseResponse* response) {
+    return service_.Parse(request, response);
   }
 
   absl::Status BuildSql(const BuildSqlRequest& request,
@@ -131,6 +167,14 @@ class ZetaSqlLocalServiceImplTest : public ::testing::Test {
 
   size_t NumSavedPreparedExpression() {
     return service_.NumSavedPreparedExpression();
+  }
+
+  size_t NumSavedPreparedQueries() {
+    return service_.NumSavedPreparedQueries();
+  }
+
+  size_t NumSavedPreparedModifies() {
+    return service_.NumSavedPreparedModifies();
   }
 
   absl::Status GetTableFromProto(const TableFromProtoRequest& request,
@@ -185,6 +229,48 @@ void AddKitchenSink3DescriptorPool(DescriptorPoolListProto* list) {
       &ignored, list->add_definitions()->mutable_file_descriptor_set()));
 }
 
+void AddTestTable(SimpleTableProto* table, const std::string& table_name) {
+  table->set_name(table_name);
+  SimpleColumnProto* col1 = table->add_column();
+  col1->set_name("column_str");
+  col1->mutable_type()->set_type_kind(TYPE_STRING);
+  SimpleColumnProto* col2 = table->add_column();
+  col2->set_name("column_bool");
+  col2->mutable_type()->set_type_kind(TYPE_BOOL);
+  SimpleColumnProto* col3 = table->add_column();
+  col3->set_name("column_int");
+  col3->mutable_type()->set_type_kind(TYPE_INT32);
+}
+
+void InsertTestTableContent(
+    google::protobuf::Map<std::string, ::zetasql::local_service::TableContent>*
+        tables_contents,
+    const std::string& table_name) {
+  TableContent table_content;
+  TableData* table_data = table_content.mutable_table_data();
+
+  TableData_Row* table_data_row_1 = table_data->add_row();
+  table_data_row_1->add_cell()->set_string_value("string_1");
+  table_data_row_1->add_cell()->set_bool_value(true);
+  table_data_row_1->add_cell()->set_int32_value(123);
+
+  TableData_Row* table_data_row_2 = table_data->add_row();
+  table_data_row_2->add_cell()->set_string_value("string_2");
+  table_data_row_2->add_cell()->set_bool_value(true);
+  table_data_row_2->add_cell()->set_int32_value(321);
+
+  (*tables_contents)[table_name] = table_content;
+}
+
+void InsertEmptyTestTableContent(
+    google::protobuf::Map<std::string, ::zetasql::local_service::TableContent>*
+        tables_contents,
+    const std::string& table_name) {
+  TableContent table_content;
+  table_content.mutable_table_data();
+
+  (*tables_contents)[table_name] = table_content;
+}
 
 TEST_F(ZetaSqlLocalServiceImplTest, PrepareCleansUpPoolsAndCatalogsOnError) {
   PrepareRequest request;
@@ -617,6 +703,97 @@ TEST_F(ZetaSqlLocalServiceImplTest, UnregisterWrongCatalogId) {
             internal::StatusToString(status));
 }
 
+TEST_F(ZetaSqlLocalServiceImplTest, Parse) {
+  ParseRequest request;
+  request.set_sql_statement("select 9");
+  ParseResponse response;
+  ZETASQL_ASSERT_OK(Parse(request, &response));
+
+  ParseResponse expectedResponse;
+  google::protobuf::TextFormat::ParseFromString(
+      R"pb(parsed_statement {
+            ast_query_statement_node {
+              parent {
+                parent {
+                  parse_location_range {
+                    filename: ""
+                    start: 0
+                    end: 8
+                  }
+                }
+              }
+              query {
+                parent {
+                  parent {
+                    parse_location_range {
+                      filename: ""
+                      start: 0
+                      end: 8
+                    }
+                  }
+                  parenthesized: false
+                }
+                query_expr {
+                  ast_select_node {
+                    parent {
+                      parent {
+                        parse_location_range {
+                          filename: ""
+                          start: 0
+                          end: 8
+                        }
+                      }
+                      parenthesized: false
+                    }
+                    distinct: false
+                    select_list {
+                      parent {
+                        parse_location_range {
+                          filename: ""
+                          start: 7
+                          end: 8
+                        }
+                      }
+                      columns {
+                        parent {
+                          parse_location_range {
+                            filename: ""
+                            start: 7
+                            end: 8
+                          }
+                        }
+                        expression {
+                          ast_leaf_node {
+                            ast_int_literal_node {
+                              parent {
+                                parent {
+                                  parent {
+                                    parse_location_range {
+                                      filename: ""
+                                      start: 7
+                                      end: 8
+                                    }
+                                  }
+                                  parenthesized: false
+                                }
+                                image: "9"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+                is_nested: false
+                is_pivot_input: false
+              }
+            }
+           })pb",
+      &expectedResponse);
+  EXPECT_THAT(response, EqualsProto(expectedResponse));
+}
+
 TEST_F(ZetaSqlLocalServiceImplTest, Analyze) {
   const std::string catalog_proto_text = R"pb(
     name: "foo"
@@ -931,6 +1108,21 @@ TEST_F(ZetaSqlLocalServiceImplTest,
   ASSERT_FALSE(RegisterCatalog(request, &response).ok());
 }
 
+TEST_F(ZetaSqlLocalServiceImplTest, RegisterCatalogWithTableData) {
+  RegisterCatalogRequest request;
+  AddTestTable(request.mutable_simple_catalog()->add_table(), "TestTable");
+  // Add an empty list, to trigger the correct response codepath.
+  request.mutable_descriptor_pool_list();
+  InsertTestTableContent(request.mutable_table_content(), "TestTable");
+
+  RegisterResponse response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(request, &response));
+  // We expect an empty (but present) descriptor_pool_id_list.
+  EXPECT_FALSE(response.has_descriptor_pool_id_list());
+  EXPECT_THAT(response.descriptor_pool_id_list().registered_ids(), IsEmpty());
+  ZETASQL_ASSERT_OK(UnregisterCatalog(response.registered_id()));
+}
+
 std::vector<TypeProto> GetOutputTypes(
     const AnyResolvedStatementProto& resolved_statement) {
   EXPECT_TRUE(resolved_statement.has_resolved_query_stmt_node());
@@ -1075,6 +1267,19 @@ TEST_F(ZetaSqlLocalServiceImplTest,
 void ExpectTypeIsDate(const TypeProto& type) {
   EXPECT_EQ(type.type_kind(), TYPE_DATE);
 }
+
+void ExpectTypeIsString(const TypeProto& type) {
+  EXPECT_EQ(type.type_kind(), TYPE_STRING);
+}
+
+void ExpectTypeIsBool(const TypeProto& type) {
+  EXPECT_EQ(type.type_kind(), TYPE_BOOL);
+}
+
+void ExpectTypeIsInt32(const TypeProto& type) {
+  EXPECT_EQ(type.type_kind(), TYPE_INT32);
+}
+
 void ExpectOutputTypeIsDate(const PrepareResponse& response) {
   ExpectTypeIsDate(response.prepared().output_type());
 }
@@ -1103,6 +1308,18 @@ void ExpectTypeIsTestEnum(const TypeProto& type,
 void ExpectValueIsTestEnum(const ValueProto& value,
                            zetasql_test__::TestEnum expected) {
   EXPECT_EQ(value.enum_value(), expected);
+}
+
+void ExpectValueIsString(const ValueProto& value, std::string expected) {
+  EXPECT_EQ(value.string_value(), expected);
+}
+
+void ExpectValueIsBool(const ValueProto& value, bool expected) {
+  EXPECT_EQ(value.bool_value(), expected);
+}
+
+void ExpectValueIsInt32(const ValueProto& value, int32_t expected) {
+  EXPECT_EQ(value.int32_value(), expected);
 }
 
 void ExpectTypeIsKitchenSink3(const TypeProto& type,
@@ -2006,6 +2223,1855 @@ TEST_F(ZetaSqlLocalServiceImplTest, GetBuiltinFunctions) {
   EXPECT_EQ(2, response.function_size());
   EXPECT_EQ(function1.DebugString(), response.function(0).DebugString());
   EXPECT_EQ(function2.DebugString(), response.function(1).DebugString());
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       PrepareQueryNoCatalogWithDescriptorPoolListProto) {
+  // Prepare Query
+  PrepareQueryRequest prepare_request;
+  prepare_request.set_sql(R"(SELECT "apple" AS fruit)");
+  prepare_request.mutable_descriptor_pool_list();
+
+  PrepareQueryResponse prepare_response;
+  ZETASQL_EXPECT_OK(PrepareQuery(prepare_request, &prepare_response));
+
+  EXPECT_EQ(prepare_response.prepared().columns_size(), 1);
+  EXPECT_EQ(prepare_response.prepared().columns(0).name(), "fruit");
+  ExpectTypeIsString(prepare_response.prepared().columns(0).type());
+
+  EXPECT_EQ(prepare_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            0);
+
+  // Unprepare Query
+  ZETASQL_EXPECT_OK(UnprepareQuery(prepare_response.prepared().prepared_query_id()));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       PrepareQueryRegisteredCatalogWithDescriptorPoolListProto) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+
+  // We register the pools with the catalog, even though it doesn't use them
+  // it should 'owned' these pools, and let us reference them in the future.
+  // fake empty pool to ensure '0' isn't magic
+  AddEmptyFileDescriptorSet(catalog_request.mutable_descriptor_pool_list());
+  AddBuiltin(catalog_request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(catalog_request.mutable_descriptor_pool_list());
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  const int64_t empty_descriptor_pool_id =
+      catalog_response.descriptor_pool_id_list().registered_ids(0);
+  const int64_t kitchen_sink_pool_id =
+      catalog_response.descriptor_pool_id_list().registered_ids(2);
+
+  // Prepare Query
+  PrepareQueryRequest prepare_request;
+  prepare_request.set_registered_catalog_id(catalog_id);
+  prepare_request.set_sql(R"(SELECT "apple" AS fruit)");
+
+  AddRegisteredDescriptorPool(prepare_request.mutable_descriptor_pool_list(),
+                              empty_descriptor_pool_id);
+  AddBuiltin(prepare_request.mutable_descriptor_pool_list());
+  AddRegisteredDescriptorPool(prepare_request.mutable_descriptor_pool_list(),
+                              kitchen_sink_pool_id);
+
+  PrepareQueryResponse prepare_response;
+  ZETASQL_EXPECT_OK(PrepareQuery(prepare_request, &prepare_response));
+
+  EXPECT_EQ(prepare_response.prepared().columns_size(), 1);
+  EXPECT_EQ(prepare_response.prepared().columns(0).name(), "fruit");
+  ExpectTypeIsString(prepare_response.prepared().columns(0).type());
+
+  EXPECT_THAT(
+      catalog_response.descriptor_pool_id_list(),
+      EqualsProto(prepare_response.prepared().descriptor_pool_id_list()));
+
+  // Unprepare Query
+  ZETASQL_EXPECT_OK(UnprepareQuery(prepare_response.prepared().prepared_query_id()));
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_response.registered_id()));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       PrepareQueryFullCatalogNoTableDataWithDescriptorPoolListProto) {
+  // Prepare Query
+  PrepareQueryRequest prepare_request;
+  prepare_request.set_sql(R"(SELECT "apple" AS fruit)");
+  prepare_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(prepare_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+
+  // fake empty pool to ensure '0' isn't magic
+  AddEmptyFileDescriptorSet(prepare_request.mutable_descriptor_pool_list());
+  AddBuiltin(prepare_request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(prepare_request.mutable_descriptor_pool_list());
+
+  PrepareQueryResponse prepare_response;
+  ZETASQL_EXPECT_OK(PrepareQuery(prepare_request, &prepare_response));
+
+  EXPECT_EQ(prepare_response.prepared().columns_size(), 1);
+  EXPECT_EQ(prepare_response.prepared().columns(0).name(), "fruit");
+  ExpectTypeIsString(prepare_response.prepared().columns(0).type());
+
+  EXPECT_EQ(prepare_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            3);
+
+  // Unprepare query
+  ZETASQL_EXPECT_OK(UnprepareQuery(prepare_response.prepared().prepared_query_id()));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       PrepareQueryFullCatalogTableDataWithDescriptorPoolListProto) {
+  // Prepare Query
+  PrepareQueryRequest prepare_request;
+  prepare_request.set_sql(R"(SELECT "apple" AS fruit)");
+  prepare_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(prepare_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+  InsertTestTableContent(prepare_request.mutable_table_content(), "TestTable");
+
+  // fake empty pool to ensure '0' isn't magic
+  AddEmptyFileDescriptorSet(prepare_request.mutable_descriptor_pool_list());
+  AddBuiltin(prepare_request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(prepare_request.mutable_descriptor_pool_list());
+
+  PrepareQueryResponse prepare_response;
+  ZETASQL_EXPECT_OK(PrepareQuery(prepare_request, &prepare_response));
+
+  EXPECT_EQ(prepare_response.prepared().columns_size(), 1);
+  EXPECT_EQ(prepare_response.prepared().columns(0).name(), "fruit");
+  ExpectTypeIsString(prepare_response.prepared().columns(0).type());
+
+  EXPECT_EQ(prepare_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            3);
+
+  // Unprepare query
+  ZETASQL_EXPECT_OK(UnprepareQuery(prepare_response.prepared().prepared_query_id()));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       PrepareQueryCleansUpPoolsAndCatalogsOnError) {
+  PrepareQueryRequest request;
+  PrepareQueryResponse response;
+
+  request.set_sql(R"(SELECT "apple" AS fruit)");
+
+  // Fails on deserializing 3rd pool
+  AddBuiltin(request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(request.mutable_descriptor_pool_list());
+  AddRegisteredDescriptorPool(request.mutable_descriptor_pool_list(), -5);
+
+  ASSERT_FALSE(PrepareQuery(request, &response).ok());
+  // No prepared state saved on failure.
+  EXPECT_EQ(0, NumSavedPreparedQueries());
+
+  // Fix descriptor pools
+  request.mutable_descriptor_pool_list()->Clear();
+  AddBuiltin(request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(request.mutable_descriptor_pool_list());
+
+  // Bad catalog id
+  request.set_registered_catalog_id(-1);
+  ASSERT_FALSE(PrepareQuery(request, &response).ok());
+  // No prepared state saved on failure.
+  EXPECT_EQ(0, NumSavedPreparedQueries());
+
+  // Fix bad catalog id
+  request.clear_registered_catalog_id();
+  request.mutable_simple_catalog()->add_constant();
+  ASSERT_FALSE(PrepareQuery(request, &response).ok());
+  // No prepared state saved on failure.
+  EXPECT_EQ(0, NumSavedPreparedQueries());
+
+  // make the catalog valid again
+  request.mutable_simple_catalog()->clear_constant();
+
+  request.set_sql(R"(SELECT @foo AS fruit)");
+  ASSERT_FALSE(PrepareQuery(request, &response).ok());
+  // No prepared state saved on failure.
+  EXPECT_EQ(0, NumSavedPreparedQueries());
+
+  request.set_sql(R"(SELECT MOD(@foo, @bar) AS modulo)");
+  auto* foo_param = request.mutable_options()->add_query_parameters();
+  foo_param->set_name("foo");
+  foo_param->mutable_type()->set_type_kind(TYPE_INT64);
+
+  ASSERT_FALSE(PrepareQuery(request, &response).ok());
+  // No prepared state saved on failure.
+  EXPECT_EQ(0, NumSavedPreparedQueries());
+
+  auto* bar_param = request.mutable_options()->add_query_parameters();
+  bar_param->set_name("bar");
+  bar_param->mutable_type()->set_type_kind(TYPE_STRING);
+
+  ASSERT_FALSE(PrepareQuery(request, &response).ok());
+  // No prepared state saved on failure.
+  EXPECT_EQ(0, NumSavedPreparedQueries());
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, UnprepareQueryUnknownId) {
+  ASSERT_FALSE(UnprepareQuery(10086).ok());
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       PrepareModifyRegisteredCatalogWithDescriptorPoolListProto) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(), "table");
+
+  // We register the pools with the catalog, even though it doesn't use them
+  // it should 'owned' these pools, and let us reference them in the future.
+  // fake empty pool to ensure '0' isn't magic
+  AddEmptyFileDescriptorSet(catalog_request.mutable_descriptor_pool_list());
+  AddBuiltin(catalog_request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(catalog_request.mutable_descriptor_pool_list());
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  const int64_t empty_descriptor_pool_id =
+      catalog_response.descriptor_pool_id_list().registered_ids(0);
+  const int64_t kitchen_sink_pool_id =
+      catalog_response.descriptor_pool_id_list().registered_ids(2);
+
+  // Prepare Modify
+  PrepareModifyRequest prepare_request;
+  prepare_request.set_registered_catalog_id(catalog_id);
+  prepare_request.set_sql(R"(DELETE FROM table WHERE true)");
+
+  AddRegisteredDescriptorPool(prepare_request.mutable_descriptor_pool_list(),
+                              empty_descriptor_pool_id);
+  AddBuiltin(prepare_request.mutable_descriptor_pool_list());
+  AddRegisteredDescriptorPool(prepare_request.mutable_descriptor_pool_list(),
+                              kitchen_sink_pool_id);
+
+  PrepareModifyResponse prepare_response;
+  ZETASQL_EXPECT_OK(PrepareModify(prepare_request, &prepare_response));
+
+  EXPECT_THAT(
+      catalog_response.descriptor_pool_id_list(),
+      EqualsProto(prepare_response.prepared().descriptor_pool_id_list()));
+
+  // Unprepare Modify
+  ZETASQL_EXPECT_OK(UnprepareModify(prepare_response.prepared().prepared_modify_id()));
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_response.registered_id()));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       PrepareModifyFullCatalogNoTableDataWithDescriptorPoolListProto) {
+  // Prepare Modify
+  PrepareModifyRequest prepare_request;
+  prepare_request.set_sql(R"(DELETE FROM table WHERE true)");
+  prepare_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(prepare_request.mutable_simple_catalog()->add_table(), "table");
+
+  // fake empty pool to ensure '0' isn't magic
+  AddEmptyFileDescriptorSet(prepare_request.mutable_descriptor_pool_list());
+  AddBuiltin(prepare_request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(prepare_request.mutable_descriptor_pool_list());
+
+  PrepareModifyResponse prepare_response;
+  ZETASQL_EXPECT_OK(PrepareModify(prepare_request, &prepare_response));
+
+  EXPECT_EQ(prepare_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            3);
+
+  // Unprepare Modify
+  ZETASQL_EXPECT_OK(UnprepareModify(prepare_response.prepared().prepared_modify_id()));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       PrepareModifyFullCatalogTableDataWithDescriptorPoolListProto) {
+  // Prepare Modify
+  PrepareModifyRequest prepare_request;
+  prepare_request.set_sql(R"(DELETE FROM table WHERE true)");
+  prepare_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(prepare_request.mutable_simple_catalog()->add_table(), "table");
+  InsertTestTableContent(prepare_request.mutable_table_content(), "table");
+
+  // fake empty pool to ensure '0' isn't magic
+  AddEmptyFileDescriptorSet(prepare_request.mutable_descriptor_pool_list());
+  AddBuiltin(prepare_request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(prepare_request.mutable_descriptor_pool_list());
+
+  PrepareModifyResponse prepare_response;
+  ZETASQL_EXPECT_OK(PrepareModify(prepare_request, &prepare_response));
+
+  EXPECT_EQ(prepare_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            3);
+
+  // Unprepare Modify
+  ZETASQL_EXPECT_OK(UnprepareModify(prepare_response.prepared().prepared_modify_id()));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       PrepareModifyCleansUpPoolsAndCatalogsOnError) {
+  PrepareModifyRequest request;
+  PrepareModifyResponse response;
+
+  request.set_sql(R"(DELETE FROM table WHERE true)");
+
+  // Fails on deserializing 3rd pool
+  AddBuiltin(request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(request.mutable_descriptor_pool_list());
+  AddRegisteredDescriptorPool(request.mutable_descriptor_pool_list(), -5);
+
+  ASSERT_FALSE(PrepareModify(request, &response).ok());
+  // No prepared state saved on failure.
+  EXPECT_EQ(0, NumSavedPreparedModifies());
+
+  // Fix descriptor pools
+  request.mutable_descriptor_pool_list()->Clear();
+  AddBuiltin(request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(request.mutable_descriptor_pool_list());
+
+  // Bad catalog id
+  request.set_registered_catalog_id(-1);
+  ASSERT_FALSE(PrepareModify(request, &response).ok());
+  // No prepared state saved on failure.
+  EXPECT_EQ(0, NumSavedPreparedModifies());
+
+  // Fix bad catalog id
+  request.clear_registered_catalog_id();
+  request.mutable_simple_catalog()->add_constant();
+  ASSERT_FALSE(PrepareModify(request, &response).ok());
+  // No prepared state saved on failure.
+  EXPECT_EQ(0, NumSavedPreparedModifies());
+
+  // make the catalog valid again
+  request.mutable_simple_catalog()->clear_constant();
+  // request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(request.mutable_simple_catalog()->add_table(), "table");
+
+  request.set_sql(R"(DELETE FROM table WHERE column_str = @foo)");
+  ASSERT_FALSE(PrepareModify(request, &response).ok());
+  // No prepared state saved on failure.
+  EXPECT_EQ(0, NumSavedPreparedModifies());
+
+  // set the foo parameter with a wrong type
+  auto* foo_param = request.mutable_options()->add_query_parameters();
+  foo_param->set_name("foo");
+  foo_param->mutable_type()->set_type_kind(TYPE_INT64);
+
+  ASSERT_FALSE(PrepareModify(request, &response).ok());
+  // No prepared state saved on failure.
+  EXPECT_EQ(0, NumSavedPreparedModifies());
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, UnprepareModifyUnknownId) {
+  ASSERT_FALSE(UnprepareModify(10086).ok());
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, EvaluateQueryWithSql) {
+  // Evaluate Query
+  EvaluateQueryRequest evaluate_request;
+  evaluate_request.set_sql(R"(SELECT "apple" AS fruit)");
+
+  EvaluateQueryResponse evaluate_response;
+  ZETASQL_EXPECT_OK(EvaluateQuery(evaluate_request, &evaluate_response));
+
+  EXPECT_EQ(evaluate_response.prepared().columns_size(), 1);
+  EXPECT_EQ(evaluate_response.prepared().columns(0).name(), "fruit");
+  ExpectTypeIsString(evaluate_response.prepared().columns(0).type());
+  EXPECT_EQ(evaluate_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            0);
+
+  EXPECT_EQ(evaluate_response.content().table_data().row_size(), 1);
+  const TableData::Row row_0 = evaluate_response.content().table_data().row(0);
+  EXPECT_EQ(row_0.cell_size(), 1);
+  ExpectValueIsString(row_0.cell(0), "apple");
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, EvaluateQueryWithSqlWithParam) {
+  // Evaluate Query
+  EvaluateQueryRequest evaluate_request;
+  // Note: for now, evaluate without prepare always creates a default simple
+  // catalog with all builtin function included.
+  evaluate_request.set_sql(R"(SELECT @foo AS fruit)");
+
+  auto* foo_query_param =
+      evaluate_request.mutable_options()->add_query_parameters();
+  foo_query_param->set_name("foo");
+  foo_query_param->mutable_type()->set_type_kind(TYPE_STRING);
+
+  auto* foo_param = evaluate_request.mutable_params()->Add();
+  foo_param->set_name("foo");
+  foo_param->mutable_value()->set_string_value("cherry");
+
+  EvaluateQueryResponse evaluate_response;
+  ZETASQL_EXPECT_OK(EvaluateQuery(evaluate_request, &evaluate_response));
+
+  EXPECT_EQ(evaluate_response.prepared().columns_size(), 1);
+  EXPECT_EQ(evaluate_response.prepared().columns(0).name(), "fruit");
+  ExpectTypeIsString(evaluate_response.prepared().columns(0).type());
+  EXPECT_EQ(evaluate_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            0);
+
+  EXPECT_EQ(evaluate_response.content().table_data().row_size(), 1);
+  const TableData::Row row_0 = evaluate_response.content().table_data().row(0);
+  EXPECT_EQ(row_0.cell_size(), 1);
+  ExpectValueIsString(row_0.cell(0), "cherry");
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateQueryWithDescriptorPoolListProto) {
+  // Evaluate Query
+  EvaluateQueryRequest evaluate_request;
+  evaluate_request.set_sql(R"(SELECT "apple" AS fruit)");
+
+  // fake empty pool to ensure '0' isn't magic
+  AddEmptyFileDescriptorSet(evaluate_request.mutable_descriptor_pool_list());
+  AddBuiltin(evaluate_request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(evaluate_request.mutable_descriptor_pool_list());
+
+  EvaluateQueryResponse evaluate_response;
+  ZETASQL_EXPECT_OK(EvaluateQuery(evaluate_request, &evaluate_response));
+
+  EXPECT_EQ(evaluate_response.prepared().columns_size(), 1);
+  EXPECT_EQ(evaluate_response.prepared().columns(0).name(), "fruit");
+  ExpectTypeIsString(evaluate_response.prepared().columns(0).type());
+  EXPECT_EQ(evaluate_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            0);
+
+  EXPECT_EQ(evaluate_response.content().table_data().row_size(), 1);
+  const TableData::Row row_0 = evaluate_response.content().table_data().row(0);
+  EXPECT_EQ(row_0.cell_size(), 1);
+  ExpectValueIsString(row_0.cell(0), "apple");
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateQueryWithDescriptorPoolListProtoWithParam) {
+  // Evaluate Query
+  EvaluateQueryRequest evaluate_request;
+  // Note: for now, evaluate without prepare always creates a default simple
+  // catalog with all builtin function included.
+  evaluate_request.set_sql(R"(SELECT @foo AS fruit)");
+
+  // fake empty pool to ensure '0' isn't magic
+  AddEmptyFileDescriptorSet(evaluate_request.mutable_descriptor_pool_list());
+  AddBuiltin(evaluate_request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(evaluate_request.mutable_descriptor_pool_list());
+
+  auto* foo_query_param =
+      evaluate_request.mutable_options()->add_query_parameters();
+  foo_query_param->set_name("foo");
+  foo_query_param->mutable_type()->set_type_kind(TYPE_STRING);
+
+  auto* foo_param = evaluate_request.mutable_params()->Add();
+  foo_param->set_name("foo");
+  foo_param->mutable_value()->set_string_value("apple");
+
+  EvaluateQueryResponse evaluate_response;
+  ZETASQL_EXPECT_OK(EvaluateQuery(evaluate_request, &evaluate_response));
+
+  EXPECT_EQ(evaluate_response.prepared().columns_size(), 1);
+  EXPECT_EQ(evaluate_response.prepared().columns(0).name(), "fruit");
+  ExpectTypeIsString(evaluate_response.prepared().columns(0).type());
+  EXPECT_EQ(evaluate_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            0);
+
+  EXPECT_EQ(evaluate_response.content().table_data().row_size(), 1);
+  const TableData::Row row_0 = evaluate_response.content().table_data().row(0);
+  EXPECT_EQ(row_0.cell_size(), 1);
+  ExpectValueIsString(row_0.cell(0), "apple");
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, EvaluateQueryErrors) {
+  EvaluateQueryRequest request;
+  EvaluateQueryResponse response;
+
+  // Invalid SQL query
+  request.set_sql(R"(Invalid SQL)");
+  ASSERT_FALSE(EvaluateQuery(request, &response).ok());
+  // No prepared state saved on failure.
+  EXPECT_EQ(0, NumSavedPreparedQueries());
+
+  // Non-existent table
+  request.set_sql(R"(SELECT * FROM non_existent_table)");
+  ASSERT_FALSE(EvaluateQuery(request, &response).ok());
+  // No prepared state saved on failure.
+  EXPECT_EQ(0, NumSavedPreparedQueries());
+
+  request.set_sql(R"(SELECT "apple" AS fruit)");
+
+  // Fails on deserializing 3rd pool
+  AddBuiltin(request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(request.mutable_descriptor_pool_list());
+  AddRegisteredDescriptorPool(request.mutable_descriptor_pool_list(), -5);
+
+  ASSERT_FALSE(EvaluateQuery(request, &response).ok());
+  // No prepared state saved on failure.
+  EXPECT_EQ(0, NumSavedPreparedQueries());
+
+  // Fix descriptor pools
+  request.mutable_descriptor_pool_list()->Clear();
+  AddBuiltin(request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(request.mutable_descriptor_pool_list());
+
+  request.set_sql(R"(SELECT @foo AS fruit)");
+  ASSERT_FALSE(EvaluateQuery(request, &response).ok());
+  // No prepared state saved on failure.
+  EXPECT_EQ(0, NumSavedPreparedQueries());
+
+  request.set_sql(R"(SELECT MOD(@foo, @bar) AS modulo)");
+  auto* foo_param = request.mutable_options()->add_query_parameters();
+  foo_param->set_name("foo");
+  foo_param->mutable_type()->set_type_kind(TYPE_INT64);
+
+  ASSERT_FALSE(EvaluateQuery(request, &response).ok());
+  // No prepared state saved on failure.
+  EXPECT_EQ(0, NumSavedPreparedQueries());
+
+  auto* bar_param = request.mutable_options()->add_query_parameters();
+  bar_param->set_name("bar");
+  bar_param->mutable_type()->set_type_kind(TYPE_STRING);
+
+  ASSERT_FALSE(EvaluateQuery(request, &response).ok());
+  // No prepared state saved on failure.
+  EXPECT_EQ(0, NumSavedPreparedQueries());
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, EvaluateQueryWithFullCatalogNoTableData) {
+  // Evaluate Query
+  EvaluateQueryRequest evaluate_request;
+  evaluate_request.set_sql(R"(SELECT * FROM TestTable)");
+  evaluate_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(evaluate_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+
+  EvaluateQueryResponse evaluate_response;
+  EXPECT_EQ(EvaluateQuery(evaluate_request, &evaluate_response).code(),
+            absl::StatusCode::kInvalidArgument);
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateQueryWithDescriptorPoolListProtoWithFullCatalogNoTableData) {
+  // Evaluate Query
+  EvaluateQueryRequest evaluate_request;
+  evaluate_request.set_sql(R"(SELECT * FROM TestTable)");
+  evaluate_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(evaluate_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+
+  // fake empty pool to ensure '0' isn't magic
+  AddEmptyFileDescriptorSet(evaluate_request.mutable_descriptor_pool_list());
+  AddBuiltin(evaluate_request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(evaluate_request.mutable_descriptor_pool_list());
+
+  EvaluateQueryResponse evaluate_response;
+  EXPECT_EQ(EvaluateQuery(evaluate_request, &evaluate_response).code(),
+            absl::StatusCode::kInvalidArgument);
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, EvaluateQueryWithFullCatalogTableData) {
+  // Evaluate Query
+  EvaluateQueryRequest evaluate_request;
+  evaluate_request.set_sql(
+      R"(SELECT column_int FROM TestTable WHERE column_str = "string_1")");
+  evaluate_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(evaluate_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+  InsertTestTableContent(evaluate_request.mutable_table_content(), "TestTable");
+
+  EvaluateQueryResponse evaluate_response;
+  ZETASQL_EXPECT_OK(EvaluateQuery(evaluate_request, &evaluate_response));
+
+  EXPECT_EQ(evaluate_response.prepared().columns_size(), 1);
+  EXPECT_EQ(evaluate_response.prepared().columns(0).name(), "column_int");
+  ExpectTypeIsInt32(evaluate_response.prepared().columns(0).type());
+  // No registered prepared query
+  EXPECT_FALSE(evaluate_response.prepared().has_prepared_query_id());
+
+  EXPECT_EQ(evaluate_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            0);
+
+  EXPECT_EQ(evaluate_response.content().table_data().row_size(), 1);
+  const TableData::Row row_0 = evaluate_response.content().table_data().row(0);
+  EXPECT_EQ(row_0.cell_size(), 1);
+  ExpectValueIsInt32(row_0.cell(0), 123);
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateQueryWithDescriptorPoolListProtoWithFullCatalogTableData) {
+  // Evaluate Query
+  EvaluateQueryRequest evaluate_request;
+  evaluate_request.set_sql(
+      R"(SELECT column_int FROM TestTable WHERE column_str = "string_1")");
+  evaluate_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(evaluate_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+  InsertTestTableContent(evaluate_request.mutable_table_content(), "TestTable");
+
+  // fake empty pool to ensure '0' isn't magic
+  AddEmptyFileDescriptorSet(evaluate_request.mutable_descriptor_pool_list());
+  AddBuiltin(evaluate_request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(evaluate_request.mutable_descriptor_pool_list());
+
+  EvaluateQueryResponse evaluate_response;
+  ZETASQL_EXPECT_OK(EvaluateQuery(evaluate_request, &evaluate_response));
+
+  EXPECT_EQ(evaluate_response.prepared().columns_size(), 1);
+  EXPECT_EQ(evaluate_response.prepared().columns(0).name(), "column_int");
+  ExpectTypeIsInt32(evaluate_response.prepared().columns(0).type());
+  // No registered prepared query
+  EXPECT_FALSE(evaluate_response.prepared().has_prepared_query_id());
+
+  EXPECT_EQ(evaluate_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            0);
+
+  EXPECT_EQ(evaluate_response.content().table_data().row_size(), 1);
+  const TableData::Row row_0 = evaluate_response.content().table_data().row(0);
+  EXPECT_EQ(row_0.cell_size(), 1);
+  ExpectValueIsInt32(row_0.cell(0), 123);
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateQueryWithRegisteredCatalogNoTableData) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  // Evaluate Query
+  EvaluateQueryRequest evaluate_request;
+  evaluate_request.set_sql(R"(SELECT * FROM TestTable)");
+  evaluate_request.set_registered_catalog_id(catalog_id);
+
+  EvaluateQueryResponse evaluate_response;
+  EXPECT_EQ(EvaluateQuery(evaluate_request, &evaluate_response).code(),
+            absl::StatusCode::kInvalidArgument);
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_id));
+}
+
+TEST_F(
+    ZetaSqlLocalServiceImplTest,
+    EvaluateQueryWithDescriptorPoolListProtoWithRegisteredCatalogNoTableData) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  // Evaluate Query
+  EvaluateQueryRequest evaluate_request;
+  evaluate_request.set_sql(R"(SELECT * FROM TestTable)");
+  evaluate_request.set_registered_catalog_id(catalog_id);
+
+  // fake empty pool to ensure '0' isn't magic
+  AddEmptyFileDescriptorSet(evaluate_request.mutable_descriptor_pool_list());
+  AddBuiltin(evaluate_request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(evaluate_request.mutable_descriptor_pool_list());
+
+  EvaluateQueryResponse evaluate_response;
+  EXPECT_EQ(EvaluateQuery(evaluate_request, &evaluate_response).code(),
+            absl::StatusCode::kInvalidArgument);
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_id));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateQueryWithRegisteredCatalogEmptyTableData) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+  InsertEmptyTestTableContent(catalog_request.mutable_table_content(),
+                              "TestTable");
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  // Evaluate Query
+  EvaluateQueryRequest evaluate_request;
+  evaluate_request.set_sql(R"(SELECT * FROM TestTable)");
+  evaluate_request.set_registered_catalog_id(catalog_id);
+
+  EvaluateQueryResponse evaluate_response;
+  ZETASQL_EXPECT_OK(EvaluateQuery(evaluate_request, &evaluate_response));
+
+  EXPECT_EQ(evaluate_response.prepared().columns_size(), 3);
+  EXPECT_EQ(evaluate_response.prepared().columns(0).name(), "column_str");
+  ExpectTypeIsString(evaluate_response.prepared().columns(0).type());
+  EXPECT_EQ(evaluate_response.prepared().columns(1).name(), "column_bool");
+  ExpectTypeIsBool(evaluate_response.prepared().columns(1).type());
+  EXPECT_EQ(evaluate_response.prepared().columns(2).name(), "column_int");
+  ExpectTypeIsInt32(evaluate_response.prepared().columns(2).type());
+  // No registered prepared query
+  EXPECT_FALSE(evaluate_response.prepared().has_prepared_query_id());
+
+  EXPECT_EQ(evaluate_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            0);
+
+  EXPECT_EQ(evaluate_response.content().table_data().row_size(), 0);
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_id));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateQueryWithRegisteredCatalogWithTableData) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+  InsertTestTableContent(catalog_request.mutable_table_content(), "TestTable");
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  // Evaluate Query
+  EvaluateQueryRequest evaluate_request;
+  evaluate_request.set_sql(
+      R"(SELECT * FROM TestTable WHERE column_str = "string_1")");
+  evaluate_request.set_registered_catalog_id(catalog_id);
+
+  EvaluateQueryResponse evaluate_response;
+  ZETASQL_EXPECT_OK(EvaluateQuery(evaluate_request, &evaluate_response));
+
+  EXPECT_EQ(evaluate_response.prepared().columns_size(), 3);
+  EXPECT_EQ(evaluate_response.prepared().columns(0).name(), "column_str");
+  ExpectTypeIsString(evaluate_response.prepared().columns(0).type());
+  EXPECT_EQ(evaluate_response.prepared().columns(1).name(), "column_bool");
+  ExpectTypeIsBool(evaluate_response.prepared().columns(1).type());
+  EXPECT_EQ(evaluate_response.prepared().columns(2).name(), "column_int");
+  ExpectTypeIsInt32(evaluate_response.prepared().columns(2).type());
+  // No registered prepared query
+  EXPECT_FALSE(evaluate_response.prepared().has_prepared_query_id());
+
+  EXPECT_EQ(evaluate_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            0);
+
+  EXPECT_EQ(evaluate_response.content().table_data().row_size(), 1);
+  const TableData::Row row_0 = evaluate_response.content().table_data().row(0);
+  EXPECT_EQ(row_0.cell_size(), 3);
+  ExpectValueIsString(row_0.cell(0), "string_1");
+  ExpectValueIsBool(row_0.cell(1), true);
+  ExpectValueIsInt32(row_0.cell(2), 123);
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_id));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateQueryWithRegisteredCatalogWithParamEmptyTableData) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+  InsertEmptyTestTableContent(catalog_request.mutable_table_content(),
+                              "TestTable");
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  // Evaluate Query
+  EvaluateQueryRequest evaluate_request;
+  evaluate_request.set_sql(
+      R"(SELECT * FROM TestTable WHERE column_str = "@str")");
+  evaluate_request.set_registered_catalog_id(catalog_id);
+
+  auto* str_query_param =
+      evaluate_request.mutable_options()->add_query_parameters();
+  str_query_param->set_name("str");
+  str_query_param->mutable_type()->set_type_kind(TYPE_STRING);
+
+  auto* str_param = evaluate_request.mutable_params()->Add();
+  str_param->set_name("str");
+  str_param->mutable_value()->set_string_value("string_1");
+
+  EvaluateQueryResponse evaluate_response;
+  ZETASQL_EXPECT_OK(EvaluateQuery(evaluate_request, &evaluate_response));
+
+  EXPECT_EQ(evaluate_response.prepared().columns_size(), 3);
+  EXPECT_EQ(evaluate_response.prepared().columns(0).name(), "column_str");
+  ExpectTypeIsString(evaluate_response.prepared().columns(0).type());
+  EXPECT_EQ(evaluate_response.prepared().columns(1).name(), "column_bool");
+  ExpectTypeIsBool(evaluate_response.prepared().columns(1).type());
+  EXPECT_EQ(evaluate_response.prepared().columns(2).name(), "column_int");
+  ExpectTypeIsInt32(evaluate_response.prepared().columns(2).type());
+  // No registered prepared query
+  EXPECT_FALSE(evaluate_response.prepared().has_prepared_query_id());
+
+  EXPECT_EQ(evaluate_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            0);
+
+  EXPECT_EQ(evaluate_response.content().table_data().row_size(), 0);
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_id));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateQueryWithRegisteredCatalogWithParamWithTableData) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+  InsertTestTableContent(catalog_request.mutable_table_content(), "TestTable");
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  // Evaluate Query
+  EvaluateQueryRequest evaluate_request;
+  evaluate_request.set_sql(
+      R"(SELECT * FROM TestTable WHERE column_str = @str)");
+  evaluate_request.set_registered_catalog_id(catalog_id);
+
+  auto* str_query_param =
+      evaluate_request.mutable_options()->add_query_parameters();
+  str_query_param->set_name("str");
+  str_query_param->mutable_type()->set_type_kind(TYPE_STRING);
+
+  auto* str_param = evaluate_request.mutable_params()->Add();
+  str_param->set_name("str");
+  str_param->mutable_value()->set_string_value("non_existent_string");
+
+  EvaluateQueryResponse evaluate_response;
+  ZETASQL_EXPECT_OK(EvaluateQuery(evaluate_request, &evaluate_response));
+
+  EXPECT_EQ(evaluate_response.prepared().columns_size(), 3);
+  EXPECT_EQ(evaluate_response.prepared().columns(0).name(), "column_str");
+  ExpectTypeIsString(evaluate_response.prepared().columns(0).type());
+  EXPECT_EQ(evaluate_response.prepared().columns(1).name(), "column_bool");
+  ExpectTypeIsBool(evaluate_response.prepared().columns(1).type());
+  EXPECT_EQ(evaluate_response.prepared().columns(2).name(), "column_int");
+  ExpectTypeIsInt32(evaluate_response.prepared().columns(2).type());
+  // No registered prepared query
+  EXPECT_FALSE(evaluate_response.prepared().has_prepared_query_id());
+
+  EXPECT_EQ(evaluate_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            0);
+
+  EXPECT_EQ(evaluate_response.content().table_data().row_size(), 0);
+
+  // Evaluate Query returning data
+  str_param->mutable_value()->set_string_value("string_1");
+
+  EvaluateQueryResponse evaluate_response_2;
+  ZETASQL_EXPECT_OK(EvaluateQuery(evaluate_request, &evaluate_response_2));
+
+  EXPECT_EQ(evaluate_response_2.prepared().columns_size(), 3);
+  EXPECT_EQ(evaluate_response_2.prepared().columns(0).name(), "column_str");
+  ExpectTypeIsString(evaluate_response_2.prepared().columns(0).type());
+  EXPECT_EQ(evaluate_response_2.prepared().columns(1).name(), "column_bool");
+  ExpectTypeIsBool(evaluate_response_2.prepared().columns(1).type());
+  EXPECT_EQ(evaluate_response_2.prepared().columns(2).name(), "column_int");
+  ExpectTypeIsInt32(evaluate_response_2.prepared().columns(2).type());
+  // No registered prepared query
+  EXPECT_FALSE(evaluate_response_2.prepared().has_prepared_query_id());
+
+  EXPECT_EQ(evaluate_response_2.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            0);
+
+  EXPECT_EQ(evaluate_response_2.content().table_data().row_size(), 1);
+  const TableData::Row row_0 =
+      evaluate_response_2.content().table_data().row(0);
+  EXPECT_EQ(row_0.cell_size(), 3);
+  ExpectValueIsString(row_0.cell(0), "string_1");
+  ExpectValueIsBool(row_0.cell(1), true);
+  ExpectValueIsInt32(row_0.cell(2), 123);
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_id));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateQueryWithRegisteredCatalogWithTableContentField) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  // Evaluate Query
+  EvaluateQueryRequest evaluate_request;
+  evaluate_request.set_sql(
+      R"(SELECT * FROM TestTable WHERE column_str = "string_1")");
+  evaluate_request.set_registered_catalog_id(catalog_id);
+  InsertTestTableContent(evaluate_request.mutable_table_content(), "TestTable");
+
+  EvaluateQueryResponse evaluate_response;
+  EXPECT_EQ(EvaluateQuery(evaluate_request, &evaluate_response).code(),
+            absl::StatusCode::kInvalidArgument);
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_id));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateQueryWithRegisteredQueryNoTableData) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+
+  // We register the pools with the catalog, even though it doesn't use them
+  // it should 'owned' these pools, and let us reference them in the future.
+  // fake empty pool to ensure '0' isn't magic
+  AddEmptyFileDescriptorSet(catalog_request.mutable_descriptor_pool_list());
+  AddBuiltin(catalog_request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(catalog_request.mutable_descriptor_pool_list());
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  // Prepare Query
+  PrepareQueryRequest prepare_request;
+  prepare_request.set_registered_catalog_id(catalog_id);
+  prepare_request.set_sql(R"(SELECT * FROM TestTable)");
+
+  PrepareQueryResponse prepare_response;
+  ZETASQL_EXPECT_OK(PrepareQuery(prepare_request, &prepare_response));
+  const int64_t prepared_query_id =
+      prepare_response.prepared().prepared_query_id();
+
+  // Evaluate Query
+  EvaluateQueryRequest evaluate_request;
+  evaluate_request.set_prepared_query_id(prepared_query_id);
+
+  EvaluateQueryResponse evaluate_response;
+  EXPECT_EQ(EvaluateQuery(evaluate_request, &evaluate_response).code(),
+            absl::StatusCode::kInvalidArgument);
+
+  // Unprepare Query
+  ZETASQL_EXPECT_OK(UnprepareQuery(prepared_query_id));
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_id));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateQueryWithRegisteredQueryEmptyTableData) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+  InsertEmptyTestTableContent(catalog_request.mutable_table_content(),
+                              "TestTable");
+
+  // We register the pools with the catalog, even though it doesn't use them
+  // it should 'owned' these pools, and let us reference them in the future.
+  // fake empty pool to ensure '0' isn't magic
+  AddEmptyFileDescriptorSet(catalog_request.mutable_descriptor_pool_list());
+  AddBuiltin(catalog_request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(catalog_request.mutable_descriptor_pool_list());
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  // Prepare Query
+  PrepareQueryRequest prepare_request;
+  prepare_request.set_registered_catalog_id(catalog_id);
+  prepare_request.set_sql(R"(SELECT * FROM TestTable)");
+
+  PrepareQueryResponse prepare_response;
+  ZETASQL_EXPECT_OK(PrepareQuery(prepare_request, &prepare_response));
+  const int64_t prepared_query_id =
+      prepare_response.prepared().prepared_query_id();
+
+  // Evaluate Query
+  EvaluateQueryRequest evaluate_request;
+  evaluate_request.set_prepared_query_id(prepared_query_id);
+
+  EvaluateQueryResponse evaluate_response;
+  ZETASQL_EXPECT_OK(EvaluateQuery(evaluate_request, &evaluate_response));
+
+  // Prepared Query State is not being returned when using a prepared query id
+  ASSERT_FALSE(evaluate_response.has_prepared());
+
+  EXPECT_EQ(evaluate_response.content().table_data().row_size(), 0);
+
+  // Unprepare Query
+  ZETASQL_EXPECT_OK(UnprepareQuery(prepared_query_id));
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_id));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateQueryWithRegisteredQueryWithTableData) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+  InsertTestTableContent(catalog_request.mutable_table_content(), "TestTable");
+
+  // We register the pools with the catalog, even though it doesn't use them
+  // it should 'owned' these pools, and let us reference them in the future.
+  // fake empty pool to ensure '0' isn't magic
+  AddEmptyFileDescriptorSet(catalog_request.mutable_descriptor_pool_list());
+  AddBuiltin(catalog_request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(catalog_request.mutable_descriptor_pool_list());
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  // Prepare Query
+  PrepareQueryRequest prepare_request;
+  prepare_request.set_registered_catalog_id(catalog_id);
+  prepare_request.set_sql(
+      R"(SELECT * FROM TestTable WHERE column_str = "string_1")");
+
+  PrepareQueryResponse prepare_response;
+  ZETASQL_EXPECT_OK(PrepareQuery(prepare_request, &prepare_response));
+  const int64_t prepared_query_id =
+      prepare_response.prepared().prepared_query_id();
+
+  // Evaluate Query
+  EvaluateQueryRequest evaluate_request;
+  evaluate_request.set_prepared_query_id(prepared_query_id);
+
+  EvaluateQueryResponse evaluate_response;
+  ZETASQL_EXPECT_OK(EvaluateQuery(evaluate_request, &evaluate_response));
+
+  // Prepared Query State is not being returned when using a prepared query id
+  ASSERT_FALSE(evaluate_response.has_prepared());
+
+  EXPECT_EQ(evaluate_response.content().table_data().row_size(), 1);
+  const TableData::Row row_0 = evaluate_response.content().table_data().row(0);
+  EXPECT_EQ(row_0.cell_size(), 3);
+  ExpectValueIsString(row_0.cell(0), "string_1");
+  ExpectValueIsBool(row_0.cell(1), true);
+  ExpectValueIsInt32(row_0.cell(2), 123);
+
+  // Unprepare Query
+  ZETASQL_EXPECT_OK(UnprepareQuery(prepared_query_id));
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_id));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateQueryWithRegisteredQueryWithParamEmptyTableData) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+  InsertEmptyTestTableContent(catalog_request.mutable_table_content(),
+                              "TestTable");
+
+  // We register the pools with the catalog, even though it doesn't use them
+  // it should 'owned' these pools, and let us reference them in the future.
+  // fake empty pool to ensure '0' isn't magic
+  AddEmptyFileDescriptorSet(catalog_request.mutable_descriptor_pool_list());
+  AddBuiltin(catalog_request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(catalog_request.mutable_descriptor_pool_list());
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  // Prepare Query
+  PrepareQueryRequest prepare_request;
+  prepare_request.set_registered_catalog_id(catalog_id);
+  prepare_request.set_sql(
+      R"(SELECT * FROM TestTable WHERE column_str = "@str")");
+  auto* str_query_param =
+      prepare_request.mutable_options()->add_query_parameters();
+  str_query_param->set_name("str");
+  str_query_param->mutable_type()->set_type_kind(TYPE_STRING);
+
+  PrepareQueryResponse prepare_response;
+  ZETASQL_EXPECT_OK(PrepareQuery(prepare_request, &prepare_response));
+  const int64_t prepared_query_id =
+      prepare_response.prepared().prepared_query_id();
+
+  // Evaluate Query
+  EvaluateQueryRequest evaluate_request;
+  evaluate_request.set_prepared_query_id(prepared_query_id);
+  auto* str_param = evaluate_request.mutable_params()->Add();
+  str_param->set_name("str");
+  str_param->mutable_value()->set_string_value("string_1");
+
+  EvaluateQueryResponse evaluate_response;
+  ZETASQL_EXPECT_OK(EvaluateQuery(evaluate_request, &evaluate_response));
+
+  // Prepared Query State is not being returned when using a prepared query id
+  ASSERT_FALSE(evaluate_response.has_prepared());
+
+  EXPECT_EQ(evaluate_response.content().table_data().row_size(), 0);
+
+  // Unprepare Query
+  ZETASQL_EXPECT_OK(UnprepareQuery(prepared_query_id));
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_id));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateQueryWithRegisteredQueryWithParamWithTableData) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+  InsertTestTableContent(catalog_request.mutable_table_content(), "TestTable");
+
+  // We register the pools with the catalog, even though it doesn't use them
+  // it should 'owned' these pools, and let us reference them in the future.
+  // fake empty pool to ensure '0' isn't magic
+  AddEmptyFileDescriptorSet(catalog_request.mutable_descriptor_pool_list());
+  AddBuiltin(catalog_request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(catalog_request.mutable_descriptor_pool_list());
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  // Prepare Query
+  PrepareQueryRequest prepare_request;
+  prepare_request.set_registered_catalog_id(catalog_id);
+  prepare_request.set_sql(R"(SELECT * FROM TestTable WHERE column_str = @str)");
+  auto* str_query_param =
+      prepare_request.mutable_options()->add_query_parameters();
+  str_query_param->set_name("str");
+  str_query_param->mutable_type()->set_type_kind(TYPE_STRING);
+
+  PrepareQueryResponse prepare_response;
+  ZETASQL_EXPECT_OK(PrepareQuery(prepare_request, &prepare_response));
+  const int64_t prepared_query_id =
+      prepare_response.prepared().prepared_query_id();
+
+  // Evaluate Query returning no data
+  EvaluateQueryRequest evaluate_request;
+  evaluate_request.set_prepared_query_id(prepared_query_id);
+  auto* str_param = evaluate_request.mutable_params()->Add();
+  str_param->set_name("str");
+  str_param->mutable_value()->set_string_value("non_existent_string");
+
+  EvaluateQueryResponse evaluate_response;
+  ZETASQL_EXPECT_OK(EvaluateQuery(evaluate_request, &evaluate_response));
+
+  // Prepared Query State is not being returned when using a prepared query id
+  ASSERT_FALSE(evaluate_response.has_prepared());
+
+  EXPECT_EQ(evaluate_response.content().table_data().row_size(), 0);
+
+  // Evaluate Query returning data
+  str_param->mutable_value()->set_string_value("string_1");
+
+  EvaluateQueryResponse evaluate_response_2;
+  ZETASQL_EXPECT_OK(EvaluateQuery(evaluate_request, &evaluate_response_2));
+
+  // Prepared Query State is not being returned when using a prepared query id
+  ASSERT_FALSE(evaluate_response_2.has_prepared());
+
+  EXPECT_EQ(evaluate_response_2.content().table_data().row_size(), 1);
+  const TableData::Row row_0 =
+      evaluate_response_2.content().table_data().row(0);
+  EXPECT_EQ(row_0.cell_size(), 3);
+  ExpectValueIsString(row_0.cell(0), "string_1");
+  ExpectValueIsBool(row_0.cell(1), true);
+  ExpectValueIsInt32(row_0.cell(2), 123);
+
+  // Unprepare Query
+  ZETASQL_EXPECT_OK(UnprepareQuery(prepared_query_id));
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_id));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateQueryWithRegisteredQueryWithTableContentField) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  // Prepare Query
+  PrepareQueryRequest prepare_request;
+  prepare_request.set_registered_catalog_id(catalog_id);
+  prepare_request.set_sql(
+      R"(SELECT * FROM TestTable WHERE column_str = "string_1")");
+
+  PrepareQueryResponse prepare_response;
+  ZETASQL_EXPECT_OK(PrepareQuery(prepare_request, &prepare_response));
+  const int64_t prepared_query_id =
+      prepare_response.prepared().prepared_query_id();
+
+  // Evaluate Query
+  EvaluateQueryRequest evaluate_request;
+  evaluate_request.set_prepared_query_id(prepared_query_id);
+  InsertTestTableContent(evaluate_request.mutable_table_content(), "TestTable");
+
+  EvaluateQueryResponse evaluate_response;
+  EXPECT_EQ(EvaluateQuery(evaluate_request, &evaluate_response).code(),
+            absl::StatusCode::kInvalidArgument);
+
+  // Unprepare Query
+  ZETASQL_EXPECT_OK(UnprepareQuery(prepared_query_id));
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_id));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateQueryWithInvalidRegisteredQueryId) {
+  // Evaluate Query returning no data
+  EvaluateQueryRequest evaluate_request;
+  evaluate_request.set_prepared_query_id(12345);
+
+  EvaluateQueryResponse evaluate_response;
+  ASSERT_FALSE(EvaluateQuery(evaluate_request, &evaluate_response).ok());
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateModifyWithFullCatalogNoTableData) {
+  // Evaluate Modify
+  EvaluateModifyRequest evaluate_request;
+  evaluate_request.set_sql(R"(DELETE FROM TestTable WHERE true)");
+  evaluate_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(evaluate_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+
+  EvaluateModifyResponse evaluate_response;
+  EXPECT_EQ(EvaluateModify(evaluate_request, &evaluate_response).code(),
+            absl::StatusCode::kInvalidArgument);
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateModifyWithDescriptorPoolListProtoWithFullCatalogNoTableData) {
+  // Evaluate Modify
+  EvaluateModifyRequest evaluate_request;
+  evaluate_request.set_sql(R"(DELETE FROM TestTable WHERE true)");
+  evaluate_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(evaluate_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+
+  // fake empty pool to ensure '0' isn't magic
+  AddEmptyFileDescriptorSet(evaluate_request.mutable_descriptor_pool_list());
+  AddBuiltin(evaluate_request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(evaluate_request.mutable_descriptor_pool_list());
+
+  EvaluateModifyResponse evaluate_response;
+  EXPECT_EQ(EvaluateModify(evaluate_request, &evaluate_response).code(),
+            absl::StatusCode::kInvalidArgument);
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateModifyWithFullCatalogTableDataDeleteOperation) {
+  // Evaluate Modify
+  EvaluateModifyRequest evaluate_request;
+  evaluate_request.set_sql(
+      R"(DELETE FROM TestTable WHERE column_str = "string_1")");
+  evaluate_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(evaluate_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+  InsertTestTableContent(evaluate_request.mutable_table_content(), "TestTable");
+
+  EvaluateModifyResponse evaluate_response;
+  ZETASQL_EXPECT_OK(EvaluateModify(evaluate_request, &evaluate_response));
+
+  // No registered prepared modify
+  EXPECT_FALSE(evaluate_response.prepared().has_prepared_modify_id());
+
+  EXPECT_EQ(evaluate_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            0);
+
+  EXPECT_EQ(evaluate_response.table_name(), "TestTable");
+
+  EXPECT_EQ(evaluate_response.content().size(), 1);
+
+  const EvaluateModifyResponse::Row row_0 = evaluate_response.content(0);
+  EXPECT_EQ(row_0.operation(), EvaluateModifyResponse::Row::DELETE);
+  // In case of DELETE, no values are being returned
+  EXPECT_EQ(row_0.cell_size(), 0);
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateModifyWithFullCatalogTableDataUpdateOperation) {
+  // Evaluate Modify
+  EvaluateModifyRequest evaluate_request;
+  evaluate_request.set_sql(
+      R"(UPDATE TestTable SET column_int = 333 WHERE column_str = "string_1")");
+  evaluate_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(evaluate_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+  InsertTestTableContent(evaluate_request.mutable_table_content(), "TestTable");
+
+  EvaluateModifyResponse evaluate_response;
+  ZETASQL_EXPECT_OK(EvaluateModify(evaluate_request, &evaluate_response));
+
+  // No registered prepared modify
+  EXPECT_FALSE(evaluate_response.prepared().has_prepared_modify_id());
+
+  EXPECT_EQ(evaluate_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            0);
+
+  EXPECT_EQ(evaluate_response.table_name(), "TestTable");
+
+  EXPECT_EQ(evaluate_response.content().size(), 1);
+
+  const EvaluateModifyResponse::Row row_0 = evaluate_response.content(0);
+  EXPECT_EQ(row_0.operation(), EvaluateModifyResponse::Row::UPDATE);
+  // In case of UPDATE, the updated values are being returned
+  EXPECT_EQ(row_0.cell_size(), 3);
+  ExpectValueIsString(row_0.cell(0), "string_1");
+  ExpectValueIsBool(row_0.cell(1), true);
+  ExpectValueIsInt32(row_0.cell(2), 333);
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateModifyWithFullCatalogTableDataInsertOperation) {
+  // Evaluate Modify
+  EvaluateModifyRequest evaluate_request;
+  evaluate_request.set_sql(
+      R"(INSERT INTO TestTable (column_str, column_bool, column_int)
+      VALUES ("string_4", false, 444))");
+  evaluate_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(evaluate_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+  InsertTestTableContent(evaluate_request.mutable_table_content(), "TestTable");
+
+  EvaluateModifyResponse evaluate_response;
+  ZETASQL_EXPECT_OK(EvaluateModify(evaluate_request, &evaluate_response));
+
+  // No registered prepared modify
+  EXPECT_FALSE(evaluate_response.prepared().has_prepared_modify_id());
+
+  EXPECT_EQ(evaluate_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            0);
+
+  EXPECT_EQ(evaluate_response.table_name(), "TestTable");
+
+  EXPECT_EQ(evaluate_response.content().size(), 1);
+
+  const EvaluateModifyResponse::Row row_0 = evaluate_response.content(0);
+  EXPECT_EQ(row_0.operation(), EvaluateModifyResponse::Row::INSERT);
+  // In case of INSERT, the newly added values are being returned
+  EXPECT_EQ(row_0.cell_size(), 3);
+  ExpectValueIsString(row_0.cell(0), "string_4");
+  ExpectValueIsBool(row_0.cell(1), false);
+  ExpectValueIsInt32(row_0.cell(2), 444);
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateModifyWithDescriptorPoolListProtoWithFullCatalogTableData) {
+  // Evaluate Modify
+  EvaluateModifyRequest evaluate_request;
+  evaluate_request.set_sql(
+      R"(DELETE FROM TestTable WHERE column_str = "string_1")");
+  evaluate_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(evaluate_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+  InsertTestTableContent(evaluate_request.mutable_table_content(), "TestTable");
+
+  // fake empty pool to ensure '0' isn't magic
+  AddEmptyFileDescriptorSet(evaluate_request.mutable_descriptor_pool_list());
+  AddBuiltin(evaluate_request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(evaluate_request.mutable_descriptor_pool_list());
+
+  EvaluateModifyResponse evaluate_response;
+  ZETASQL_EXPECT_OK(EvaluateModify(evaluate_request, &evaluate_response));
+
+  // No registered prepared modify
+  EXPECT_FALSE(evaluate_response.prepared().has_prepared_modify_id());
+
+  EXPECT_EQ(evaluate_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            0);
+
+  EXPECT_EQ(evaluate_response.table_name(), "TestTable");
+
+  EXPECT_EQ(evaluate_response.content().size(), 1);
+
+  const EvaluateModifyResponse::Row row_0 = evaluate_response.content(0);
+  EXPECT_EQ(row_0.operation(), EvaluateModifyResponse::Row::DELETE);
+  // In case of DELETE, no values are being returned
+  EXPECT_EQ(row_0.cell_size(), 0);
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateModifyWithRegisteredCatalogNoTableData) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  // Evaluate Modify
+  EvaluateModifyRequest evaluate_request;
+  evaluate_request.set_sql(R"(DELETE FROM TestTable WHERE true)");
+  evaluate_request.set_registered_catalog_id(catalog_id);
+
+  EvaluateModifyResponse evaluate_response;
+  EXPECT_EQ(EvaluateModify(evaluate_request, &evaluate_response).code(),
+            absl::StatusCode::kInvalidArgument);
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_id));
+}
+
+TEST_F(
+    ZetaSqlLocalServiceImplTest,
+    EvaluateModifyWithDescriptorPoolListProtoWithRegisteredCatalogNoTableData) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  // Evaluate Modify
+  EvaluateModifyRequest evaluate_request;
+  evaluate_request.set_sql(R"(DELETE FROM TestTable WHERE true)");
+  evaluate_request.set_registered_catalog_id(catalog_id);
+
+  // fake empty pool to ensure '0' isn't magic
+  AddEmptyFileDescriptorSet(evaluate_request.mutable_descriptor_pool_list());
+  AddBuiltin(evaluate_request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(evaluate_request.mutable_descriptor_pool_list());
+
+  EvaluateModifyResponse evaluate_response;
+  EXPECT_EQ(EvaluateModify(evaluate_request, &evaluate_response).code(),
+            absl::StatusCode::kInvalidArgument);
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_id));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateModifyWithRegisteredCatalogWithTableData) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+  InsertTestTableContent(catalog_request.mutable_table_content(), "TestTable");
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  // Evaluate Modify
+  EvaluateModifyRequest evaluate_request;
+  evaluate_request.set_sql(R"(DELETE FROM TestTable WHERE true)");
+  evaluate_request.set_registered_catalog_id(catalog_id);
+
+  EvaluateModifyResponse evaluate_response;
+  ZETASQL_EXPECT_OK(EvaluateModify(evaluate_request, &evaluate_response));
+
+  // No registered prepared modify
+  EXPECT_FALSE(evaluate_response.prepared().has_prepared_modify_id());
+
+  EXPECT_EQ(evaluate_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            0);
+
+  EXPECT_EQ(evaluate_response.table_name(), "TestTable");
+
+  EXPECT_EQ(evaluate_response.content().size(), 2);
+
+  const EvaluateModifyResponse::Row row_0 = evaluate_response.content(0);
+  EXPECT_EQ(row_0.operation(), EvaluateModifyResponse::Row::DELETE);
+  // In case of DELETE, no values are being returned
+  EXPECT_EQ(row_0.cell_size(), 0);
+
+  const EvaluateModifyResponse::Row row_1 = evaluate_response.content(1);
+  EXPECT_EQ(row_1.operation(), EvaluateModifyResponse::Row::DELETE);
+  // In case of DELETE, no values are being returned
+  EXPECT_EQ(row_1.cell_size(), 0);
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_id));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateModifyWithRegisteredCatalogWithParamWithTableData) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+  InsertTestTableContent(catalog_request.mutable_table_content(), "TestTable");
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  // Evaluate Modify
+  EvaluateModifyRequest evaluate_request;
+  evaluate_request.set_sql(R"(DELETE FROM TestTable WHERE column_int = @int)");
+  evaluate_request.set_registered_catalog_id(catalog_id);
+
+  auto* str_query_param =
+      evaluate_request.mutable_options()->add_query_parameters();
+  str_query_param->set_name("int");
+  str_query_param->mutable_type()->set_type_kind(TYPE_INT32);
+
+  auto* str_param = evaluate_request.mutable_params()->Add();
+  str_param->set_name("int");
+  str_param->mutable_value()->set_int32_value(123);
+
+  EvaluateModifyResponse evaluate_response;
+  ZETASQL_EXPECT_OK(EvaluateModify(evaluate_request, &evaluate_response));
+
+  // No registered prepared modify
+  EXPECT_FALSE(evaluate_response.prepared().has_prepared_modify_id());
+
+  EXPECT_EQ(evaluate_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            0);
+
+  EXPECT_EQ(evaluate_response.table_name(), "TestTable");
+
+  EXPECT_EQ(evaluate_response.content().size(), 1);
+
+  const EvaluateModifyResponse::Row row_0 = evaluate_response.content(0);
+  EXPECT_EQ(row_0.operation(), EvaluateModifyResponse::Row::DELETE);
+  // In case of DELETE, no values are being returned
+  EXPECT_EQ(row_0.cell_size(), 0);
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_id));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateModifyWithRegisteredCatalogWithTableContentField) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  // Evaluate Modify
+  EvaluateModifyRequest evaluate_request;
+  evaluate_request.set_sql(R"(DELETE FROM TestTable WHERE true)");
+  evaluate_request.set_registered_catalog_id(catalog_id);
+  InsertTestTableContent(evaluate_request.mutable_table_content(), "TestTable");
+
+  EvaluateModifyResponse evaluate_response;
+  EXPECT_EQ(EvaluateModify(evaluate_request, &evaluate_response).code(),
+            absl::StatusCode::kInvalidArgument);
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_id));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateModifyWithRegisteredQueryNoTableData) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+
+  // We register the pools with the catalog, even though it doesn't use them
+  // it should 'owned' these pools, and let us reference them in the future.
+  // fake empty pool to ensure '0' isn't magic
+  AddEmptyFileDescriptorSet(catalog_request.mutable_descriptor_pool_list());
+  AddBuiltin(catalog_request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(catalog_request.mutable_descriptor_pool_list());
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  // Prepare Modify
+  PrepareModifyRequest prepare_request;
+  prepare_request.set_sql(R"(DELETE FROM TestTable WHERE true)");
+  prepare_request.set_registered_catalog_id(catalog_id);
+
+  PrepareModifyResponse prepare_response;
+  ZETASQL_EXPECT_OK(PrepareModify(prepare_request, &prepare_response));
+  const int64_t prepared_modify_id =
+      prepare_response.prepared().prepared_modify_id();
+
+  // Evaluate Modify
+  EvaluateModifyRequest evaluate_request;
+  evaluate_request.set_prepared_modify_id(prepared_modify_id);
+
+  EvaluateModifyResponse evaluate_response;
+  EXPECT_EQ(EvaluateModify(evaluate_request, &evaluate_response).code(),
+            absl::StatusCode::kInvalidArgument);
+
+  // Unprepare Query
+  ZETASQL_EXPECT_OK(UnprepareModify(prepared_modify_id));
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_id));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateModifyWithRegisteredQueryWithTableData) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+  InsertTestTableContent(catalog_request.mutable_table_content(), "TestTable");
+
+  // We register the pools with the catalog, even though it doesn't use them
+  // it should 'owned' these pools, and let us reference them in the future.
+  // fake empty pool to ensure '0' isn't magic
+  AddEmptyFileDescriptorSet(catalog_request.mutable_descriptor_pool_list());
+  AddBuiltin(catalog_request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(catalog_request.mutable_descriptor_pool_list());
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  // Prepare Modify
+  PrepareModifyRequest prepare_request;
+  prepare_request.set_sql(R"(DELETE FROM TestTable WHERE true)");
+  prepare_request.set_registered_catalog_id(catalog_id);
+
+  PrepareModifyResponse prepare_response;
+  ZETASQL_EXPECT_OK(PrepareModify(prepare_request, &prepare_response));
+  const int64_t prepared_modify_id =
+      prepare_response.prepared().prepared_modify_id();
+
+  // Evaluate Modify
+  EvaluateModifyRequest evaluate_request;
+  evaluate_request.set_prepared_modify_id(prepared_modify_id);
+
+  EvaluateModifyResponse evaluate_response;
+  ZETASQL_EXPECT_OK(EvaluateModify(evaluate_request, &evaluate_response));
+
+  // No registered prepared modify
+  EXPECT_FALSE(evaluate_response.prepared().has_prepared_modify_id());
+
+  EXPECT_EQ(evaluate_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            0);
+
+  EXPECT_EQ(evaluate_response.table_name(), "TestTable");
+
+  EXPECT_EQ(evaluate_response.content().size(), 2);
+
+  const EvaluateModifyResponse::Row row_0 = evaluate_response.content(0);
+  EXPECT_EQ(row_0.operation(), EvaluateModifyResponse::Row::DELETE);
+  // In case of DELETE, no values are being returned
+  EXPECT_EQ(row_0.cell_size(), 0);
+
+  const EvaluateModifyResponse::Row row_1 = evaluate_response.content(1);
+  EXPECT_EQ(row_1.operation(), EvaluateModifyResponse::Row::DELETE);
+  // In case of DELETE, no values are being returned
+  EXPECT_EQ(row_1.cell_size(), 0);
+
+  // Unprepare Query
+  ZETASQL_EXPECT_OK(UnprepareModify(prepared_modify_id));
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_id));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateModifyWithRegisteredQueryWithParamWithTableData) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+  InsertTestTableContent(catalog_request.mutable_table_content(), "TestTable");
+
+  // We register the pools with the catalog, even though it doesn't use them
+  // it should 'owned' these pools, and let us reference them in the future.
+  // fake empty pool to ensure '0' isn't magic
+  AddEmptyFileDescriptorSet(catalog_request.mutable_descriptor_pool_list());
+  AddBuiltin(catalog_request.mutable_descriptor_pool_list());
+  AddKitchenSinkDescriptorPool(catalog_request.mutable_descriptor_pool_list());
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  // Prepare Modify
+  PrepareModifyRequest prepare_request;
+  prepare_request.set_sql(R"(DELETE FROM TestTable WHERE column_int = @int)");
+  prepare_request.set_registered_catalog_id(catalog_id);
+
+  auto* str_query_param =
+      prepare_request.mutable_options()->add_query_parameters();
+  str_query_param->set_name("int");
+  str_query_param->mutable_type()->set_type_kind(TYPE_INT32);
+
+  PrepareModifyResponse prepare_response;
+  ZETASQL_EXPECT_OK(PrepareModify(prepare_request, &prepare_response));
+  const int64_t prepared_modify_id =
+      prepare_response.prepared().prepared_modify_id();
+
+  // Evaluate Modify
+  EvaluateModifyRequest evaluate_request;
+  evaluate_request.set_prepared_modify_id(prepared_modify_id);
+
+  auto* str_param = evaluate_request.mutable_params()->Add();
+  str_param->set_name("int");
+  str_param->mutable_value()->set_int32_value(123);
+
+  EvaluateModifyResponse evaluate_response;
+  ZETASQL_EXPECT_OK(EvaluateModify(evaluate_request, &evaluate_response));
+
+  // No registered prepared modify
+  EXPECT_FALSE(evaluate_response.prepared().has_prepared_modify_id());
+
+  EXPECT_EQ(evaluate_response.prepared()
+                .descriptor_pool_id_list()
+                .registered_ids_size(),
+            0);
+
+  EXPECT_EQ(evaluate_response.table_name(), "TestTable");
+
+  EXPECT_EQ(evaluate_response.content().size(), 1);
+
+  const EvaluateModifyResponse::Row row_0 = evaluate_response.content(0);
+  EXPECT_EQ(row_0.operation(), EvaluateModifyResponse::Row::DELETE);
+  // In case of DELETE, no values are being returned
+  EXPECT_EQ(row_0.cell_size(), 0);
+
+  // Unprepare Query
+  ZETASQL_EXPECT_OK(UnprepareModify(prepared_modify_id));
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_id));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateModifyWithRegisteredQueryWithTableContentField) {
+  // Register Catalog
+  RegisterCatalogRequest catalog_request;
+  catalog_request.mutable_simple_catalog()->mutable_builtin_function_options();
+  AddTestTable(catalog_request.mutable_simple_catalog()->add_table(),
+               "TestTable");
+
+  RegisterResponse catalog_response;
+  ZETASQL_ASSERT_OK(RegisterCatalog(catalog_request, &catalog_response));
+  const int64_t catalog_id = catalog_response.registered_id();
+
+  // Prepare Modify
+  PrepareModifyRequest prepare_request;
+  prepare_request.set_sql(R"(DELETE FROM TestTable WHERE true)");
+  prepare_request.set_registered_catalog_id(catalog_id);
+
+  PrepareModifyResponse prepare_response;
+  ZETASQL_EXPECT_OK(PrepareModify(prepare_request, &prepare_response));
+  const int64_t prepared_modify_id =
+      prepare_response.prepared().prepared_modify_id();
+
+  // Evaluate Modify
+  EvaluateModifyRequest evaluate_request;
+  evaluate_request.set_prepared_modify_id(prepared_modify_id);
+  InsertTestTableContent(evaluate_request.mutable_table_content(), "TestTable");
+
+  EvaluateModifyResponse evaluate_response;
+  EXPECT_EQ(EvaluateModify(evaluate_request, &evaluate_response).code(),
+            absl::StatusCode::kInvalidArgument);
+
+  // Unprepare Query
+  ZETASQL_EXPECT_OK(UnprepareModify(prepared_modify_id));
+
+  // Unregister Catalog
+  ZETASQL_EXPECT_OK(UnregisterCatalog(catalog_id));
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest,
+       EvaluateModifyWithInvalidRegisteredModifyId) {
+  // Evaluate Modify returning no data
+  EvaluateModifyRequest evaluate_request;
+  evaluate_request.set_prepared_modify_id(12345);
+
+  EvaluateModifyResponse evaluate_response;
+  ASSERT_FALSE(EvaluateModify(evaluate_request, &evaluate_response).ok());
 }
 
 }  // namespace local_service

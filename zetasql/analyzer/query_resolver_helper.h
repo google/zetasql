@@ -588,6 +588,13 @@ class QueryResolutionInfo {
 
   bool HasHavingOrOrderBy() const { return has_having_ || has_order_by_; }
 
+  void set_is_resolving_returning_clause() {
+    is_resolving_returning_clause_ = true;
+  }
+  bool is_resolving_returning_clause() const {
+    return is_resolving_returning_clause_;
+  }
+
   std::shared_ptr<const NameList> from_clause_name_list() const {
     return from_clause_name_list_;
   }
@@ -687,6 +694,9 @@ class QueryResolutionInfo {
 
   // List of ORDER BY information.
   std::vector<OrderByItemInfo> order_by_item_info_;
+
+  // DML THEN RETURN information, where it also uses the select list.
+  bool is_resolving_returning_clause_ = false;
 
   // Columns that need to be computed for ORDER BY (before OrderByScan).
   std::vector<std::unique_ptr<const ResolvedComputedColumn>>

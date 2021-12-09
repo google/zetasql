@@ -280,6 +280,18 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
       {"format", {"%.*s", Float(10), "def"}, NullString(), OUT_OF_RANGE},
       {"format", {"%*s", Int64(4), "ab"}, "  ab"},
       {"format", {"%*s", Int32(4), "ab"}, "  ab"},
+      {"format",
+       {"%*i", Int32(-2147483648), Int64(10)},
+       NullString(),
+       OUT_OF_RANGE},
+      {"format",
+       {"%*i", Int64(2147483648), Int64(10)},
+       NullString(),
+       OUT_OF_RANGE},
+      {"format",
+       {"%.*f", Int64(2147483648), Double(5)},
+       NullString(),
+       OUT_OF_RANGE},
 
       // All combinations of argument types.
       {"format", {"%d", Int32(5)}, "5"},

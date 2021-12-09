@@ -66,7 +66,6 @@
 #include "absl/strings/substitute.h"
 #include "zetasql/base/file_util.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/canonical_errors.h"
 
 ABSL_FLAG(std::string, file_pattern, "*.test", "File pattern for test files.");
 
@@ -1397,8 +1396,18 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestParseJson, 1) {
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestConvertJson, 1) {
   SetNamePrefix("ConvertJson");
-  RunFunctionCalls(Shard(EnableJsonValueExtractionFunctionsForTest(
-      GetFunctionTestsConvertJson())));
+  auto convert_json_fn_expr = [](const FunctionTestCall& f) {
+    if (f.params.params().size() == 1) {
+      return absl::Substitute("$0(@p0)", f.function_name);
+    }
+    return absl::Substitute("$0(@p0, wide_number_mode=>@p1)", f.function_name);
+  };
+  RunFunctionTestsCustom(Shard(EnableJsonValueExtractionFunctionsForTest(
+                             GetFunctionTestsConvertJson())),
+                         convert_json_fn_expr);
+  RunFunctionTestsCustom(Shard(EnableJsonValueExtractionFunctionsForTest(
+                             GetFunctionTestsConvertJsonIncompatibleTypes())),
+                         convert_json_fn_expr);
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestHash, 1) {

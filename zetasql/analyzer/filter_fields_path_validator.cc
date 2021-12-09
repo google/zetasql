@@ -113,8 +113,15 @@ absl::Status FilterFieldsPathValidator::ValidateFieldPath(
   return absl::OkStatus();
 }
 
-absl::Status FilterFieldsPathValidator::ValidateRequiredFields() const {
-  return RecursivelyValidateNode(root_node_.get());
+absl::Status FilterFieldsPathValidator::FinalValidation(
+    bool reset_cleared_required_fields) const {
+  if (root_node_ == nullptr) {
+    return absl::InvalidArgumentError(
+        "FILTER_FIELDS() should have at least one field path");
+  }
+  return reset_cleared_required_fields
+             ? absl::OkStatus()
+             : RecursivelyValidateNode(root_node_.get());
 }
 
 absl::Status FilterFieldsPathValidator::RecursivelyValidateNode(

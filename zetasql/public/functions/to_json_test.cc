@@ -87,8 +87,9 @@ TEST(ToJsonTest, Compliance) {
                   values::Json(std::move(output.value())));
       } else {
         // For float and double, allow margin comparison.
-        InternalValue::Equals(expected_result_value,
-                              values::Json(std::move(output.value())), margin);
+        InternalValue::Equals(
+            expected_result_value, values::Json(std::move(output.value())),
+            ValueEqualityCheckOptions{.float_margin = margin});
       }
     } else {
       EXPECT_EQ(output.status().code(), expected_status.code());

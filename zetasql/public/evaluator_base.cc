@@ -42,11 +42,11 @@
 #include "zetasql/resolved_ast/resolved_node_kind.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/validator.h"
+#include "zetasql/base/case.h"
 #include "absl/container/node_hash_map.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "zetasql/base/case.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
@@ -1481,6 +1481,20 @@ PreparedModifyBase::ExecuteWithPositionalParams(
   Value value;
   ZETASQL_RETURN_IF_ERROR(
       evaluator_->Execute(options, &value, /*query_output_iterator=*/nullptr));
+  return evaluator_->MakeUpdateIterator(value, resolved_statement());
+}
+
+absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
+PreparedModifyBase::ExecuteAfterPrepare(
+    const ParameterValueMap& parameters,
+    const SystemVariableValuesMap& system_variables) const {
+  ExpressionOptions options;
+  options.columns = ParameterValueMap();
+  options.parameters = parameters;
+  options.system_variables = system_variables;
+  Value value;
+  ZETASQL_RETURN_IF_ERROR(evaluator_->ExecuteAfterPrepare(
+      options, &value, /*query_output_iterator=*/nullptr));
   return evaluator_->MakeUpdateIterator(value, resolved_statement());
 }
 

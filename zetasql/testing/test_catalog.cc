@@ -16,8 +16,8 @@
 
 #include "zetasql/testing/test_catalog.h"
 
-#include "absl/status/status.h"
 #include "zetasql/base/case.h"
+#include "absl/status/status.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status_macros.h"
 

@@ -1,0 +1,122 @@
+# ALTER TABLE to set column default value.
+ALTER TABLE foo ALTER COLUMN bar SET DEFAULT 'my default';
+--
+AlterTableStatement [0-57] [ALTER TABLE...my default']
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-57] [ALTER COLUMN...my default']
+    AlterColumnSetDefaultAction [16-57] [ALTER COLUMN...my default']
+      Identifier(bar) [29-32] [bar]
+      StringLiteral('my default') [45-57] ['my default']
+--
+ALTER TABLE foo ALTER COLUMN bar SET DEFAULT 'my default'
+==
+
+# ALTER TABLE to set column default value with IF EXISTS.
+ALTER TABLE foo ALTER COLUMN IF EXISTS bar SET DEFAULT 12345;
+--
+AlterTableStatement [0-60] [ALTER TABLE...DEFAULT 12345]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-60] [ALTER COLUMN...DEFAULT 12345]
+    AlterColumnSetDefaultAction(is_if_exists) [16-60] [ALTER COLUMN...DEFAULT 12345]
+      Identifier(bar) [39-42] [bar]
+      IntLiteral(12345) [55-60] [12345]
+--
+ALTER TABLE foo ALTER COLUMN IF EXISTS bar SET DEFAULT 12345
+==
+
+# ALTER TABLE to set column default value with quoted reserved keyword.
+ALTER TABLE foo ALTER COLUMN `SELECT` SET DEFAULT struct(1, 2);
+--
+AlterTableStatement [0-62] [ALTER TABLE...struct(1, 2)]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-62] [ALTER COLUMN...struct(1, 2)]
+    AlterColumnSetDefaultAction [16-62] [ALTER COLUMN...struct(1, 2)]
+      Identifier(`SELECT`) [29-37] [`SELECT`]
+      StructConstructorWithKeyword [50-62] [struct(1, 2)]
+        StructConstructorArg [57-58] [1]
+          IntLiteral(1) [57-58] [1]
+        StructConstructorArg [60-61] [2]
+          IntLiteral(2) [60-61] [2]
+--
+ALTER TABLE foo ALTER COLUMN `SELECT` SET DEFAULT STRUCT(1, 2)
+==
+
+# Alter column set default with collate function.
+ALTER TABLE foo ALTER COLUMN `collate` SET DEFAULT collate(y, 'x')
+--
+AlterTableStatement [0-66] [ALTER TABLE...collate(y, 'x')]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-66] [ALTER COLUMN...collate(y, 'x')]
+    AlterColumnSetDefaultAction [16-66] [ALTER COLUMN...collate(y, 'x')]
+      Identifier(`collate`) [29-38] [`collate`]
+      FunctionCall [51-66] [collate(y, 'x')]
+        PathExpression [51-58] [collate]
+          Identifier(`collate`) [51-58] [collate]
+        PathExpression [59-60] [y]
+          Identifier(y) [59-60] [y]
+        StringLiteral('x') [62-65] ['x']
+--
+ALTER TABLE foo ALTER COLUMN `collate` SET DEFAULT `collate`(y, 'x')
+==
+
+# ALTER TABLE to set column default value with reserved keyword (error)
+ALTER TABLE foo ALTER COLUMN SELECT SET DEFAULT struct(1, 2);
+--
+ERROR: Syntax error: Unexpected keyword SELECT [at 1:30]
+ALTER TABLE foo ALTER COLUMN SELECT SET DEFAULT struct(1, 2);
+                             ^
+==
+
+ALTER TABLE foo ALTER COLUMN EXISTS bar SET DEFAULT 'abc';
+--
+ERROR: Syntax error: Unexpected keyword EXISTS [at 1:30]
+ALTER TABLE foo ALTER COLUMN EXISTS bar SET DEFAULT 'abc';
+                             ^
+==
+
+ALTER TABLE foo ALTER COLUMN IF bar SET DEFAULT 'abc';
+--
+ERROR: Syntax error: Expected keyword EXISTS but got identifier "bar" [at 1:33]
+ALTER TABLE foo ALTER COLUMN IF bar SET DEFAULT 'abc';
+                                ^
+==
+
+ALTER TABLE foo ALTER COLUMN bar DROP DEFAULT;
+--
+AlterTableStatement [0-45] [ALTER TABLE...DROP DEFAULT]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-45] [ALTER COLUMN bar DROP DEFAULT]
+    AlterColumnDropDefaultAction [16-45] [ALTER COLUMN bar DROP DEFAULT]
+      Identifier(bar) [29-32] [bar]
+--
+ALTER TABLE foo ALTER COLUMN bar DROP DEFAULT
+==
+
+ALTER TABLE IF EXISTS foo ALTER COLUMN bar DROP DEFAULT;
+--
+AlterTableStatement(is_if_exists) [0-55] [ALTER TABLE...DROP DEFAULT]
+  PathExpression [22-25] [foo]
+    Identifier(foo) [22-25] [foo]
+  AlterActionList [26-55] [ALTER COLUMN bar DROP DEFAULT]
+    AlterColumnDropDefaultAction [26-55] [ALTER COLUMN bar DROP DEFAULT]
+      Identifier(bar) [39-42] [bar]
+--
+ALTER TABLE IF EXISTS foo ALTER COLUMN bar DROP DEFAULT
+==
+
+ALTER TABLE foo ALTER COLUMN IF EXISTS bar DROP DEFAULT;
+--
+AlterTableStatement [0-55] [ALTER TABLE...DROP DEFAULT]
+  PathExpression [12-15] [foo]
+    Identifier(foo) [12-15] [foo]
+  AlterActionList [16-55] [ALTER COLUMN...DROP DEFAULT]
+    AlterColumnDropDefaultAction(is_if_exists) [16-55] [ALTER COLUMN...DROP DEFAULT]
+      Identifier(bar) [39-42] [bar]
+--
+ALTER TABLE foo ALTER COLUMN IF EXISTS bar DROP DEFAULT
+==

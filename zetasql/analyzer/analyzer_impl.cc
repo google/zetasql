@@ -59,8 +59,7 @@ namespace zetasql {
 namespace {
 
 absl::Status AnalyzeExpressionImpl(
-    absl::string_view sql, const AnalyzerOptions& options_in,
-    absl::Span<const Rewriter* const> rewriters, Catalog* catalog,
+    absl::string_view sql, const AnalyzerOptions& options_in, Catalog* catalog,
     TypeFactory* type_factory, const Type* target_type,
     std::unique_ptr<const AnalyzerOutput>* output) {
   output->reset();
@@ -77,21 +76,20 @@ absl::Status AnalyzeExpressionImpl(
   ZETASQL_VLOG(5) << "Parsed AST:\n" << expression->DebugString();
 
   return InternalAnalyzeExpressionFromParserAST(
-      *expression, std::move(parser_output), sql, options, rewriters, catalog,
+      *expression, std::move(parser_output), sql, options, catalog,
       type_factory, target_type, output);
 }
 
 }  // namespace
 
 absl::Status InternalAnalyzeExpression(
-    absl::string_view sql, const AnalyzerOptions& options,
-    absl::Span<const Rewriter* const> rewriters, Catalog* catalog,
+    absl::string_view sql, const AnalyzerOptions& options, Catalog* catalog,
     TypeFactory* type_factory, const Type* target_type,
     std::unique_ptr<const AnalyzerOutput>* output) {
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), sql,
-      AnalyzeExpressionImpl(sql, options, rewriters, catalog, type_factory,
-                            target_type, output));
+      AnalyzeExpressionImpl(sql, options, catalog, type_factory, target_type,
+                            output));
 }
 
 absl::Status ConvertExprToTargetType(
@@ -109,9 +107,8 @@ absl::Status ConvertExprToTargetType(
 absl::Status InternalAnalyzeExpressionFromParserAST(
     const ASTExpression& ast_expression,
     std::unique_ptr<ParserOutput> parser_output, absl::string_view sql,
-    const AnalyzerOptions& options, absl::Span<const Rewriter* const> rewriters,
-    Catalog* catalog, TypeFactory* type_factory, const Type* target_type,
-    std::unique_ptr<const AnalyzerOutput>* output) {
+    const AnalyzerOptions& options, Catalog* catalog, TypeFactory* type_factory,
+    const Type* target_type, std::unique_ptr<const AnalyzerOutput>* output) {
   std::unique_ptr<const ResolvedExpr> resolved_expr;
   Resolver resolver(catalog, type_factory, &options);
   ZETASQL_RETURN_IF_ERROR(
@@ -152,8 +149,8 @@ absl::Status InternalAnalyzeExpressionFromParserAST(
           options.error_message_mode(), sql, resolver.deprecation_warnings()),
       resolver.undeclared_parameters(),
       resolver.undeclared_positional_parameters(), resolver.max_column_id());
-  ZETASQL_RETURN_IF_ERROR(RewriteResolvedAst(options, rewriters, sql, catalog,
-                                     type_factory, *original_output));
+  ZETASQL_RETURN_IF_ERROR(InternalRewriteResolvedAst(options, sql, catalog,
+                                             type_factory, *original_output));
   *output = std::move(original_output);
   return absl::OkStatus();
 }

@@ -32,6 +32,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/timestamp_util.h"
+#include "zetasql/public/types/value_equality_check_options.h"
 #include "absl/base/attributes.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -574,29 +575,6 @@ class Type {
   // this function never calls GetEstimatedOwnedMemoryBytesSize for other types
   // (such as element types of arrays or field types of structs).
   virtual int64_t GetEstimatedOwnedMemoryBytesSize() const = 0;
-
-  // Contains value equality check options that can be provided to
-  // ValueContentEquals function.
-  struct ValueEqualityCheckOptions {
-    ValueEqualityCheckOptions(const Type* other_value_type,
-                              FloatMargin float_margin, std::string* reason)
-        : other_value_type(other_value_type),
-          float_margin(float_margin),
-          reason(reason) {}
-
-    // The type of compared value. This type should always be equivalent to the
-    // type for which ValueContentEquals is called:
-    // this->Equivalent(options.other_value_type) == true.
-    const Type* other_value_type;
-
-    // Defines the maximum allowed absolute error when comparing floating point
-    // numbers (float and double).
-    FloatMargin float_margin = kExactFloatMargin;
-
-    // If 'reason' is not null, upon inequality it may be set to human-readable
-    // explanation of what parts of values differ.
-    std::string* reason = nullptr;
-  };
 
   // Formatting options that can be provided to FormatValueContent.
   struct FormatValueContentOptions {

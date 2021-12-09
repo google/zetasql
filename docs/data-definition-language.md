@@ -1,4 +1,4 @@
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
+
 
 # Data definition language
 
@@ -39,6 +39,7 @@ CREATE DATABASE library OPTIONS(
 +--------------------+
 ```
 
+<a id="create_table_statement"></a>
 ## CREATE TABLE
 
 <pre>
@@ -679,6 +680,11 @@ Use an implicit alias in the `STORING` clause.
 CREATE INDEX i1 ON KeyValue (Key) STORING (KeyValue);
 ```
 
+<a id="create_schema_statement"></a>
+## CREATE SCHEMA
+
+Documentation is pending for this feature.
+
 ## CREATE CONSTANT
 
 Documentation is pending for this feature.
@@ -710,6 +716,8 @@ DEFINE TABLE table_name (options);
 The `DEFINE TABLE` statement allows queries to run against an exported data
 source.
 
+<a id="alter_schema_collate_statement"></a>
+<a id="alter_table_collate_statement"></a>
 ## ALTER
 
 <pre>
@@ -848,10 +856,19 @@ primary key. For each row in this table, the tuple of values in the `title` and
 CREATE TABLE books (title STRING, name STRING, PRIMARY KEY (title, name));
 ```
 
-[primary-key]: #primary-key
-[create-table]: #create-table
-[hints]: lexical.md#hints
-[defining-columns]: #defining-columns
-[defining-constraints]: #defining-table-constraints
-[defining-foreign-reference]: #defining-foreign-references
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[primary-key]: #primary_key
+
+[create-table]: #create_table
+
+[hints]: https://github.com/google/zetasql/blob/master/docs/lexical.md#hints
+
+[defining-columns]: #defining_columns
+
+[defining-constraints]: #defining_table_constraints
+
+[defining-foreign-reference]: #defining_foreign_references
+
+<!-- mdlint on -->
 

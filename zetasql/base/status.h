@@ -18,11 +18,30 @@
 #define THIRD_PARTY_ZETASQL_ZETASQL_BASE_STATUS_H_
 
 #include "absl/status/status.h"  
+#include "absl/status/statusor.h"  
 
 // This is better than ZETASQL_CHECK((val).ok()) because the embedded
 // error string gets printed by the ZETASQL_CHECK_EQ.
-#define ZETASQL_CHECK_OK(val) ZETASQL_CHECK_EQ(::absl::OkStatus(), (val))
-#define ZETASQL_DCHECK_OK(val) ZETASQL_DCHECK_EQ(::absl::OkStatus(), (val))
-#define ZETASQL_ZETASQL_CHECK_OK(val) ZETASQL_DCHECK_EQ(::absl::OkStatus(), (val))
+#define ZETASQL_CHECK_OK(val) \
+  ZETASQL_CHECK_EQ(::absl::OkStatus(), ::zetasql::status_internal::AsStatus((val)))
+#define ZETASQL_DCHECK_OK(val) \
+  ZETASQL_DCHECK_EQ(::absl::OkStatus(), ::zetasql::status_internal::AsStatus((val)))
+#define ZETASQL_ZETASQL_CHECK_OK(val) \
+  ZETASQL_DCHECK_EQ(::absl::OkStatus(), ::zetasql::status_internal::AsStatus((val)))
+
+namespace zetasql::status_internal {
+
+// Returns a Status or StatusOr as a Status.
+// Only for use in template or macro code that must work with both Status and
+// StatusOr.
+template <typename T>
+inline const absl::Status& AsStatus(const absl::StatusOr<T>& status_or) {
+  return status_or.status();
+}
+inline const absl::Status& AsStatus(const absl::Status& status) {
+  return status;
+}
+
+}  // namespace zetasql::status_internal
 
 #endif  // THIRD_PARTY_ZETASQL_ZETASQL_BASE_STATUS_H_

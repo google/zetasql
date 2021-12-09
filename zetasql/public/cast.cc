@@ -355,7 +355,7 @@ absl::StatusOr<Value> NumericToString(const Value& v) {
 template <typename T>
 absl::StatusOr<Value> StringToNumeric(const Value& v) {
   if (v.is_null()) return Value::MakeNull<T>();
-  std::string value = v.string_value();
+  const std::string& value = v.string_value();
   T out;
   absl::Status error;
   if (zetasql::functions::StringToNumeric<T>(value, &out, &error)) {
@@ -592,8 +592,8 @@ absl::StatusOr<Value> CastContext::CastValue(
   }
 
   // Check to see if the type kinds are castable.
-  if (!zetasql_base::ContainsKey(internal::GetZetaSQLCasts(),
-                        TypeKindPair(v.type_kind(), to_type->kind()))) {
+  if (!internal::GetZetaSQLCasts().contains(
+          TypeKindPair(v.type_kind(), to_type->kind()))) {
     return MakeSqlError() << "Unsupported cast from " << v.type()->DebugString()
                           << " to " << to_type->DebugString();
   }

@@ -157,15 +157,10 @@ class {{node.name}} {{node.class_final}}: public {{node.parent}} {
 {{blank_line}}
  private:
   # if node.gen_init_fields
-   # if node.class_final
   void InitFields() final {
-   # else
-  void InitFields() override {
-   # endif
     FieldLoader fl(this);
-   # for field in node.fields
-    # if field.is_node_ptr or field.is_vector
-     # if field.field_loader == 'REQUIRED'
+   # for field in node.init_fields
+    # if field.field_loader == 'REQUIRED'
     fl.AddRequired(&{{field.member_name}});
      # elif field.field_loader == 'OPTIONAL'
     fl.AddOptional(&{{field.member_name}}, {{field.node_kind}});
@@ -179,7 +174,6 @@ class {{node.name}} {{node.class_final}}: public {{node.parent}} {
     fl.AddRepeatedWhileIsExpression(&{{field.member_name}});
      # elif field.field_loader == 'OPTIONAL_TYPE'
     fl.AddOptionalType(&{{field.member_name}});
-     # endif
     # endif
    # endfor
   }

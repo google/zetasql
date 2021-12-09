@@ -68,7 +68,7 @@ ALTER TABLE foo ALTER COLUMN bar SET DATA TYPE (STRING);
 
 ALTER TABLE foo ALTER COLUMN bar SET TYPE STRING;
 --
-ERROR: Syntax error: Expected keyword DATA or keyword OPTIONS but got keyword TYPE [at 1:38]
+ERROR: Syntax error: Expected keyword DATA or keyword DEFAULT or keyword OPTIONS but got keyword TYPE [at 1:38]
 ALTER TABLE foo ALTER COLUMN bar SET TYPE STRING;
                                      ^
 

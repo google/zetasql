@@ -158,6 +158,10 @@ public class Analyzer implements Serializable {
     return extractTableNamesFromStatementInternal(sql, options, /*allowScript=*/ false);
   }
 
+  public static List<List<String>> extractTableNamesFromStatement(String sql) {
+    return extractTableNamesFromStatement(sql, new AnalyzerOptions());
+  }
+
   public static List<List<String>> extractTableNamesFromScript(
       String sql, AnalyzerOptions options) {
     return extractTableNamesFromStatementInternal(sql, options, /*allowScript=*/ true);
@@ -186,10 +190,6 @@ public class Analyzer implements Serializable {
       result.add(nameList);
     }
     return result;
-  }
-
-  public static List<List<String>> extractTableNamesFromStatement(String sql) {
-    return extractTableNamesFromStatement(sql, new AnalyzerOptions());
   }
 
   public ResolvedStatement analyzeNextStatement(ParseResumeLocation parseResumeLocation) {

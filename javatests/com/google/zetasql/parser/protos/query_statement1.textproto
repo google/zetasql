@@ -1,0 +1,77 @@
+ast_query_statement_node {
+  parent {
+    parent {
+      parse_location_range {
+        filename: ""
+        start: 0
+        end: 10
+      }
+    }
+  }
+  query {
+    parent {
+      parent {
+        parse_location_range {
+          filename: ""
+          start: 0
+          end: 10
+        }
+      }
+      parenthesized: false
+    }
+    query_expr {
+      ast_select_node {
+        parent {
+          parent {
+            parse_location_range {
+              filename: ""
+              start: 0
+              end: 10
+            }
+          }
+          parenthesized: false
+        }
+        distinct: false
+        select_list {
+          parent {
+            parse_location_range {
+              filename: ""
+              start: 7
+              end: 10
+            }
+          }
+          columns {
+            parent {
+              parse_location_range {
+                filename: ""
+                start: 7
+                end: 10
+              }
+            }
+            expression {
+              ast_leaf_node {
+                ast_int_literal_node {
+                  parent {
+                    parent {
+                      parent {
+                        parse_location_range {
+                          filename: ""
+                          start: 7
+                          end: 10
+                        }
+                      }
+                      parenthesized: false
+                    }
+                    image: "123"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    is_nested: false
+    is_pivot_input: false
+  }
+}

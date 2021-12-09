@@ -8,8 +8,8 @@ select with anonymization sum();
 ==
 
 # Reject non-ANON_* aggregate functions
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization sum(int64)
 from SimpleTypes;
 --
@@ -19,21 +19,28 @@ QueryStmt
 | +-$aggregate.$agg1#19 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-53
     +-column_list=[$aggregate.$agg1#19]
     +-input_scan=
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#19]
         +-input_scan=
-        | +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
+        | +-TableScan(parse_location=42-53, column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
         +-aggregate_list=
           +-$agg1#19 :=
             +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
-              +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+              +-parse_location=26-29
+              +-ColumnRef(parse_location=30-35, type=INT64, column=SimpleTypes.int64#2)
+[REPLACED_LITERALS]
+select with anonymization sum(int64)
+from SimpleTypes;
 
-Rewrite ERROR: Unsupported function in SELECT WITH ANONYMIZATION select list: SUM
+Rewrite ERROR: Unsupported function in SELECT WITH ANONYMIZATION select list: SUM [at 1:27]
+select with anonymization sum(int64)
+                          ^
 ==
 
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select anon_sum(int64), sum(int64)
 from SimpleTypes;
 --
@@ -61,8 +68,7 @@ QueryStmt
 Rewrite ERROR: Unsupported function in SELECT WITH ANONYMIZATION select list: SUM
 ==
 
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select {{|with anonymization|with anonymization options ()}} anon_count(*)
 from SimpleTypesWithAnonymizationUid;
 --
@@ -117,8 +123,7 @@ QueryStmt
 }
 ==
 
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(int64)
 from SimpleTypesWithAnonymizationUid;
 --
@@ -177,8 +182,7 @@ QueryStmt
 }
 ==
 
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_sum(int64)
 from SimpleTypesWithAnonymizationUid;
 --
@@ -238,8 +242,7 @@ QueryStmt
 ==
 
 [language_features=ANONYMIZATION,NUMERIC_TYPE]
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_avg(int64)
 from SimpleTypesWithAnonymizationUid;
 --
@@ -301,8 +304,7 @@ QueryStmt
 ==
 
 [language_features=ANONYMIZATION,NUMERIC_TYPE]
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_avg(numeric)
 from SimpleTypesWithAnonymizationUid;
 --
@@ -361,7 +363,7 @@ QueryStmt
 }
 ==
 
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization int32,
                           anon_count(* clamped between 0 and 1),
                           anon_count(string clamped between 0 and 10),
@@ -463,8 +465,7 @@ QueryStmt
 ==
 
 # support engine defined anon_* functions
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_test(int64 clamped between 0 and 1)
 from SimpleTypesWithAnonymizationUid;
 --
@@ -575,7 +576,7 @@ QueryStmt
           +-delta := Literal(type=DOUBLE, value=0)
 ==
 
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization options(delta=0, epsilon=0, kappa=0, k_threshold=0)
        anon_count(* CLAMPED BETWEEN 0 AND 100)
 from SimpleTypesWithAnonymizationUid;
@@ -937,8 +938,8 @@ select with anonymization options(epsilon=(int64))
 ==
 
 # Reject queries not over private tables
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from SimpleTypes;
 --
@@ -948,24 +949,31 @@ QueryStmt
 | +-$aggregate.$agg1#19 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-82
     +-column_list=[$aggregate.$agg1#19]
     +-input_scan=
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#19]
         +-input_scan=
-        | +-TableScan(table=SimpleTypes)
+        | +-TableScan(parse_location=71-82, table=SimpleTypes)
         +-aggregate_list=
           +-$agg1#19 :=
             +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
-              +-Literal(type=INT64, value=0)
-              +-Literal(type=INT64, value=100)
+              +-parse_location=26-36
+              +-Literal(parse_location=55-56, type=INT64, value=0)
+              +-Literal(parse_location=61-64, type=INT64, value=100)
+[REPLACED_LITERALS]
+select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64)
+from SimpleTypes;
 
-Rewrite ERROR: A SELECT WITH ANONYMIZATION query must query at least one table containing user data
+Rewrite ERROR: A SELECT WITH ANONYMIZATION query must query at least one table containing user data [at 1:1]
+select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
+^
 ==
 
 # Reject queries when the $uid column type is not group-able
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from ProtoAnonymizationUid;
 --
@@ -975,23 +983,30 @@ QueryStmt
 | +-$aggregate.$agg1#2 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-92
     +-column_list=[$aggregate.$agg1#2]
     +-input_scan=
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#2]
         +-input_scan=
-        | +-TableScan(table=ProtoAnonymizationUid)
+        | +-TableScan(parse_location=71-92, table=ProtoAnonymizationUid)
         +-aggregate_list=
           +-$agg1#2 :=
             +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
-              +-Literal(type=INT64, value=0)
-              +-Literal(type=INT64, value=100)
+              +-parse_location=26-36
+              +-Literal(parse_location=55-56, type=INT64, value=0)
+              +-Literal(parse_location=61-64, type=INT64, value=100)
+[REPLACED_LITERALS]
+select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64)
+from ProtoAnonymizationUid;
 
-Rewrite ERROR: User id columns must support grouping, instead got type PROTO
+Rewrite ERROR: User id columns must support grouping, instead got type PROTO [at 2:6]
+from ProtoAnonymizationUid;
+     ^
 ==
 
 # Valid simple WITH ANONYMIZATION query
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select {{|with anonymization}} anon_count(int64 CLAMPED BETWEEN 0 AND 10)
 from SimpleTypesWithAnonymizationUid;
 --
@@ -1114,7 +1129,7 @@ ERROR: SELECT list expression references column int64 which is neither grouped n
 ==
 
 # Valid anonymization with GROUP BY
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(int64 CLAMPED BETWEEN 0 AND 10), string
 from SimpleTypesWithAnonymizationUid
 group by string;
@@ -1186,7 +1201,7 @@ QueryStmt
 ==
 
 # Valid anonymization with only GROUP BY
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization int64, string
 from SimpleTypesWithAnonymizationUid
 group by int64, string;
@@ -1246,7 +1261,7 @@ QueryStmt
 ==
 
 # Non-trivial computed column
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization 1 + anon_count(int64 CLAMPED BETWEEN 0 AND 10)
 from SimpleTypesWithAnonymizationUid;
 --
@@ -1320,7 +1335,7 @@ QueryStmt
 ==
 
 # Non-trivial computed column
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization int32 + anon_count(int64 CLAMPED BETWEEN 0 AND 10)
 from SimpleTypesWithAnonymizationUid
 group by int32;
@@ -1402,7 +1417,7 @@ QueryStmt
 ==
 
 # Nested projection without $uid column
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(int64 CLAMPED BETWEEN 0 AND 10)
 from (select int64 from SimpleTypesWithAnonymizationUid {{a|}});
 --
@@ -1460,7 +1475,7 @@ Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the us
 ==
 
 # Repeated nested projection clears uid column qualifier
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(int64 CLAMPED BETWEEN 0 AND 10)
 from (select int64 from (
       select a.int64, a.uid from SimpleTypesWithAnonymizationUid a));
@@ -1495,7 +1510,7 @@ Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the us
 
 # Updated qualifers in repeated nested projection aren't handled correctly
 # TODO: figure out how we can respect re-aliased qualifiers
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(int64 CLAMPED BETWEEN 0 AND 10)
 from (select b.int64 from (
       select a.int64, a.uid from SimpleTypesWithAnonymizationUid a) b);
@@ -1529,7 +1544,7 @@ Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the us
 ==
 
 # Nested projection with $uid column
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(int64 CLAMPED BETWEEN 0 AND 10)
 from (select int64, uid from SimpleTypesWithAnonymizationUid);
 --
@@ -1608,8 +1623,7 @@ select with anonymization sum(anon_count(int64 CLAMPED BETWEEN 0 AND 10))
 ==
 
 # Support basic nested aggregation scans
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select {{|with anonymization}} anon_count(* CLAMPED BETWEEN 0 AND 100)
 from (
   select count(*), uid
@@ -1693,8 +1707,8 @@ QueryStmt
 ==
 
 # Reject nested aggregation scans that don't group by $uid
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from (select count(*) from SimpleTypesWithAnonymizationUid a);
 --
@@ -1704,39 +1718,47 @@ QueryStmt
 | +-$aggregate.$agg1#14 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-127
     +-column_list=[$aggregate.$agg1#14]
     +-input_scan=
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#14]
         +-input_scan=
         | +-ProjectScan
+        |   +-parse_location=72-126
         |   +-column_list=[$aggregate.$agg1#13]
         |   +-input_scan=
         |     +-AggregateScan
         |       +-column_list=[$aggregate.$agg1#13]
         |       +-input_scan=
-        |       | +-TableScan(table=SimpleTypesWithAnonymizationUid, alias="a")
+        |       | +-TableScan(parse_location=93-124, table=SimpleTypesWithAnonymizationUid, alias="a")
         |       +-aggregate_list=
-        |         +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        |         +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)(parse_location=79-84)
         +-aggregate_list=
           +-$agg1#14 :=
             +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
-              +-Literal(type=INT64, value=0)
-              +-Literal(type=INT64, value=100)
+              +-parse_location=26-36
+              +-Literal(parse_location=55-56, type=INT64, value=0)
+              +-Literal(parse_location=61-64, type=INT64, value=100)
+[REPLACED_LITERALS]
+select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64)
+from (select count(*) from SimpleTypesWithAnonymizationUid a);
 
-Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column 'a.uid'
+Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column 'a.uid' [at 2:7]
+from (select count(*) from SimpleTypesWithAnonymizationUid a);
+      ^
 ==
 
 # Reject nested aggregation scans that don't project the grouped by $uid
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from (
   select count(*)
-  from SimpleTypesWithAnonymizationUid {{a|}}
+  from SimpleTypesWithAnonymizationUid{{ a|}}
   group by uid);
 --
-ALTERNATION GROUP: a
+ALTERNATION GROUP:  a
 --
 [PRE-REWRITE AST]
 QueryStmt
@@ -1744,29 +1766,40 @@ QueryStmt
 | +-$aggregate.$agg1#15 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-147
     +-column_list=[$aggregate.$agg1#15]
     +-input_scan=
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#15]
         +-input_scan=
         | +-ProjectScan
+        |   +-parse_location=75-146
         |   +-column_list=[$aggregate.$agg1#13]
         |   +-input_scan=
         |     +-AggregateScan
         |       +-column_list=[$aggregate.$agg1#13]
         |       +-input_scan=
-        |       | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
+        |       | +-TableScan(parse_location=98-129, column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
         |       +-group_by_list=
-        |       | +-uid#14 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
+        |       | +-uid#14 := ColumnRef(parse_location=143-146, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
         |       +-aggregate_list=
-        |         +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        |         +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)(parse_location=82-87)
         +-aggregate_list=
           +-$agg1#15 :=
             +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
-              +-Literal(type=INT64, value=0)
-              +-Literal(type=INT64, value=100)
+              +-parse_location=26-36
+              +-Literal(parse_location=55-56, type=INT64, value=0)
+              +-Literal(parse_location=61-64, type=INT64, value=100)
+[REPLACED_LITERALS]
+select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64)
+from (
+  select count(*)
+  from SimpleTypesWithAnonymizationUid a
+  group by uid);
 
-Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column 'a.uid'
+Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column 'a.uid' [at 3:3]
+  select count(*)
+  ^
 --
 ALTERNATION GROUP: <empty>
 --
@@ -1776,35 +1809,45 @@ QueryStmt
 | +-$aggregate.$agg1#15 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-145
     +-column_list=[$aggregate.$agg1#15]
     +-input_scan=
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#15]
         +-input_scan=
         | +-ProjectScan
+        |   +-parse_location=75-144
         |   +-column_list=[$aggregate.$agg1#13]
         |   +-input_scan=
         |     +-AggregateScan
         |       +-column_list=[$aggregate.$agg1#13]
         |       +-input_scan=
-        |       | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        |       | +-TableScan(parse_location=98-129, column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
         |       +-group_by_list=
-        |       | +-uid#14 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
+        |       | +-uid#14 := ColumnRef(parse_location=141-144, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
         |       +-aggregate_list=
-        |         +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        |         +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)(parse_location=82-87)
         +-aggregate_list=
           +-$agg1#15 :=
             +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
-              +-Literal(type=INT64, value=0)
-              +-Literal(type=INT64, value=100)
+              +-parse_location=26-36
+              +-Literal(parse_location=55-56, type=INT64, value=0)
+              +-Literal(parse_location=61-64, type=INT64, value=100)
+[REPLACED_LITERALS]
+select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64)
+from (
+  select count(*)
+  from SimpleTypesWithAnonymizationUid
+  group by uid);
 
-Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column 'uid'
+Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column 'uid' [at 3:3]
+  select count(*)
+  ^
 ==
 
 # Projecting, aliasing, grouping don't interfere with explicitly grouping by
 # $uid in nested aggregation
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from (
     select count(*), y
@@ -1915,15 +1958,15 @@ QueryStmt
 ==
 
 # Reject mutated group by $uid column in nested aggregation
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from
   (select count(*), 10+uid as x
-   from SimpleTypesWithAnonymizationUid {{a|}}
+   from SimpleTypesWithAnonymizationUid{{ a|}}
    group by x)
 --
-ALTERNATION GROUP: a
+ALTERNATION GROUP:  a
 --
 [PRE-REWRITE AST]
 QueryStmt
@@ -1931,32 +1974,43 @@ QueryStmt
 | +-$aggregate.$agg1#15 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-159
     +-column_list=[$aggregate.$agg1#15]
     +-input_scan=
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#15]
         +-input_scan=
         | +-ProjectScan
+        |   +-parse_location=74-158
         |   +-column_list=[$aggregate.$agg1#13, $groupby.x#14]
         |   +-input_scan=
         |     +-AggregateScan
         |       +-column_list=[$groupby.x#14, $aggregate.$agg1#13]
         |       +-input_scan=
-        |       | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
+        |       | +-TableScan(parse_location=111-142, column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
         |       +-group_by_list=
         |       | +-x#14 :=
         |       |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
-        |       |     +-Literal(type=INT64, value=10)
-        |       |     +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
+        |       |     +-Literal(parse_location=91-93, type=INT64, value=10)
+        |       |     +-ColumnRef(parse_location=94-97, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
         |       +-aggregate_list=
-        |         +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        |         +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)(parse_location=81-86)
         +-aggregate_list=
           +-$agg1#15 :=
             +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
-              +-Literal(type=INT64, value=0)
-              +-Literal(type=INT64, value=100)
+              +-parse_location=26-36
+              +-Literal(parse_location=55-56, type=INT64, value=0)
+              +-Literal(parse_location=61-64, type=INT64, value=100)
+[REPLACED_LITERALS]
+select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64)
+from
+  (select count(*), @_p2_INT64+uid as x
+   from SimpleTypesWithAnonymizationUid a
+   group by x)
 
-Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column 'a.uid'
+Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column 'a.uid' [at 3:4]
+  (select count(*), 10+uid as x
+   ^
 --
 ALTERNATION GROUP: <empty>
 --
@@ -1966,36 +2020,47 @@ QueryStmt
 | +-$aggregate.$agg1#15 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-157
     +-column_list=[$aggregate.$agg1#15]
     +-input_scan=
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#15]
         +-input_scan=
         | +-ProjectScan
+        |   +-parse_location=74-156
         |   +-column_list=[$aggregate.$agg1#13, $groupby.x#14]
         |   +-input_scan=
         |     +-AggregateScan
         |       +-column_list=[$groupby.x#14, $aggregate.$agg1#13]
         |       +-input_scan=
-        |       | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        |       | +-TableScan(parse_location=111-142, column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
         |       +-group_by_list=
         |       | +-x#14 :=
         |       |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
-        |       |     +-Literal(type=INT64, value=10)
-        |       |     +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
+        |       |     +-Literal(parse_location=91-93, type=INT64, value=10)
+        |       |     +-ColumnRef(parse_location=94-97, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
         |       +-aggregate_list=
-        |         +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        |         +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)(parse_location=81-86)
         +-aggregate_list=
           +-$agg1#15 :=
             +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
-              +-Literal(type=INT64, value=0)
-              +-Literal(type=INT64, value=100)
+              +-parse_location=26-36
+              +-Literal(parse_location=55-56, type=INT64, value=0)
+              +-Literal(parse_location=61-64, type=INT64, value=100)
+[REPLACED_LITERALS]
+select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64)
+from
+  (select count(*), @_p2_INT64+uid as x
+   from SimpleTypesWithAnonymizationUid
+   group by x)
 
-Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column 'uid'
+Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column 'uid' [at 3:4]
+  (select count(*), 10+uid as x
+   ^
 ==
 
 # Valid query using all supported per-user scan types
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from (
   select a.int64, (select 1) as b
@@ -2163,7 +2228,7 @@ QueryStmt
 ==
 
 # Outer scan can use join, aggregation, etc. with no issues
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select count(*) from (
   select with anonymization anon_count(string CLAMPED BETWEEN 0 AND 100)
   from SimpleTypesWithAnonymizationUid)
@@ -2256,7 +2321,6 @@ QueryStmt
 
 # Reject parameter privacy_budget_weight
 [no_enable_literal_replacement]
-[no_expect_error_location]
 select with anonymization anon_count(string CLAMPED BETWEEN 0 AND 100, @test_param_double)
 from SimpleTypesWithAnonymizationUid;
 --
@@ -2265,7 +2329,7 @@ ERROR: Syntax error: Expected ")" but got "," [at 1:70]
                                               ^
 ==
 
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [no_enable_literal_replacement]
 select with anonymization
   anon_count(string CLAMPED BETWEEN 0 AND 100),
@@ -2353,7 +2417,7 @@ select with anonymization distinct anon_count(int64 CLAMPED BETWEEN 0 AND 10)
 ==
 
 # Allow AS STRUCT syntax
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization as struct anon_count(int64 CLAMPED BETWEEN 0 AND 10)
 from SimpleTypesWithAnonymizationUid;
 --
@@ -2437,7 +2501,7 @@ QueryStmt
 ==
 
 # Anonymize node saves hint list
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select @{hint=1} with anonymization string
 from SimpleTypesWithAnonymizationUid
 group by string;
@@ -2502,7 +2566,7 @@ QueryStmt
 ==
 
 # Computed column arguments are respected
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(int64 + int32 CLAMPED BETWEEN 0 AND 1)
 from SimpleTypesWithAnonymizationUid;
 --
@@ -2572,7 +2636,7 @@ QueryStmt
 ==
 
 # Output computed columns are respected
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 1) + int64
 from SimpleTypesWithAnonymizationUid
 group by int64;
@@ -2649,7 +2713,7 @@ QueryStmt
 ==
 
 # Reject cross joins on two tables containing private data, there's no ON clause
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from SimpleTypesWithAnonymizationUid a,
                         SimpleTypesWithAnonymizationUid b;
@@ -2680,7 +2744,7 @@ Rewrite ERROR: Joins between tables containing private data must explicitly join
 ==
 
 # join where both tables contain user data with explicit left.uid = right.uid
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from SimpleTypesWithAnonymizationUid a
 inner join SimpleTypesWithAnonymizationUid b on a.uid = b.uid;
@@ -2761,7 +2825,7 @@ QueryStmt
 ==
 
 # don't show internal aliases for join condition errors
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from
 SimpleTypesWithAnonymizationUid a
@@ -2805,7 +2869,7 @@ Rewrite ERROR: Joins between tables containing private data must explicitly join
 ==
 
 # join where both tables contain user data with explicit using(uid)
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from SimpleTypesWithAnonymizationUid a
 inner join SimpleTypesWithAnonymizationUid b using(uid);
@@ -2886,7 +2950,7 @@ QueryStmt
 ==
 
 # join where both tables contain user data with where a.uid=b.uid
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from SimpleTypesWithAnonymizationUid a, SimpleTypesWithAnonymizationUid b
 where a.uid=b.uid;
@@ -2925,7 +2989,7 @@ Rewrite ERROR: Joins between tables containing private data must explicitly join
 ==
 
 # join with 'where' clause for join condition, and implicit aliasing
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from SimpleTypesWithAnonymizationUid, SimpleTypesWithAnonymizationUid b
 where SimpleTypesWithAnonymizationUid.uid=b.uid;
@@ -2964,7 +3028,7 @@ Rewrite ERROR: Joins between tables containing private data must explicitly join
 ==
 
 # use full table names as uid qualifiers where it reduces ambiguity
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from T1StringAnonymizationUid, T2StringAnonymizationUid;
 --
@@ -2994,7 +3058,7 @@ Rewrite ERROR: Joins between tables containing private data must explicitly join
 ==
 
 # Nested cross/inner joins, with some tables containing user data and some not
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from
   ((SimpleTypes a cross join SimpleTypes b)
@@ -3095,7 +3159,7 @@ QueryStmt
 ==
 
 # reject joins where both tables contain user data without explict uid join
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from SimpleTypesWithAnonymizationUid a
 inner join SimpleTypesWithAnonymizationUid b on a.int64 = b.int64;
@@ -3131,7 +3195,7 @@ Rewrite ERROR: Joins between tables containing private data must also explicitly
 ==
 
 # allow joins where both tables contain user data with complex join expr
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from SimpleTypesWithAnonymizationUid a
 inner join SimpleTypesWithAnonymizationUid b on (a.int64 = b.int64 and
@@ -3235,8 +3299,8 @@ QueryStmt
 ==
 
 # reject right join with non-uid right table
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from SimpleTypesWithAnonymizationUid a
 right join SimpleTypes b on a.int64 = b.int64
@@ -3247,6 +3311,7 @@ QueryStmt
 | +-$aggregate.$agg1#31 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-150
     +-column_list=[$aggregate.$agg1#31]
     +-input_scan=
       +-AnonymizedAggregateScan
@@ -3256,25 +3321,31 @@ QueryStmt
         |   +-column_list=[SimpleTypesWithAnonymizationUid.int64#2, SimpleTypes.int64#14]
         |   +-join_type=RIGHT
         |   +-left_scan=
-        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1], alias="a")
+        |   | +-TableScan(parse_location=71-102, column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1], alias="a")
         |   +-right_scan=
-        |   | +-TableScan(column_list=[SimpleTypes.int64#14], table=SimpleTypes, column_index_list=[1], alias="b")
+        |   | +-TableScan(parse_location=116-127, column_list=[SimpleTypes.int64#14], table=SimpleTypes, column_index_list=[1], alias="b")
         |   +-join_expr=
         |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-        |       +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
-        |       +-ColumnRef(type=INT64, column=SimpleTypes.int64#14)
+        |       +-ColumnRef(parse_location=133-140, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        |       +-ColumnRef(parse_location=143-150, type=INT64, column=SimpleTypes.int64#14)
         +-aggregate_list=
           +-$agg1#31 :=
             +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
-              +-Literal(type=INT64, value=0)
-              +-Literal(type=INT64, value=100)
+              +-parse_location=26-36
+              +-Literal(parse_location=55-56, type=INT64, value=0)
+              +-Literal(parse_location=61-64, type=INT64, value=100)
+[REPLACED_LITERALS]
+select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64)
+from SimpleTypesWithAnonymizationUid a
+right join SimpleTypes b on a.int64 = b.int64
 
-Rewrite ERROR: The right table in a RIGHT OUTER join must contain user data
+Rewrite ERROR: The right table in a RIGHT OUTER join must contain user data [at 3:12]
+right join SimpleTypes b on a.int64 = b.int64
+           ^
 ==
 
 # accept right join with uid right table
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from (
   select b.uid from (
@@ -3365,8 +3436,9 @@ QueryStmt
 ==
 
 # reject right join projecting the wrong uid
-[enable_ast_rewrites]
-[no_expect_error_location]
+# TODO: Fix the error message column alias
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from (
   select a.uid from (
@@ -3380,37 +3452,48 @@ QueryStmt
 | +-$aggregate.$agg1#25 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-201
     +-column_list=[$aggregate.$agg1#25]
     +-input_scan=
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#25]
         +-input_scan=
         | +-ProjectScan
+        |   +-parse_location=75-199
         |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#11]
         |   +-input_scan=
         |     +-JoinScan
         |       +-column_list=SimpleTypesWithAnonymizationUid.[uid#11, uid#23]
         |       +-join_type=RIGHT
         |       +-left_scan=
-        |       | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
+        |       | +-TableScan(parse_location=99-130, column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
         |       +-right_scan=
-        |       | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#23], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
+        |       | +-TableScan(parse_location=148-179, column_list=[SimpleTypesWithAnonymizationUid.uid#23], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
         |       +-join_expr=
         |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-        |           +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
-        |           +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#23)
+        |           +-ColumnRef(parse_location=185-190, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
+        |           +-ColumnRef(parse_location=193-198, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#23)
         +-aggregate_list=
           +-$agg1#25 :=
             +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
-              +-Literal(type=INT64, value=0)
-              +-Literal(type=INT64, value=100)
+              +-parse_location=26-36
+              +-Literal(parse_location=55-56, type=INT64, value=0)
+              +-Literal(parse_location=61-64, type=INT64, value=100)
+[REPLACED_LITERALS]
+select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64)
+from (
+  select a.uid from (
+    SimpleTypesWithAnonymizationUid a
+    right join SimpleTypesWithAnonymizationUid b on a.uid = b.uid)
+)
 
-Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column 'uid'
+Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column 'uid' [at 3:3]
+  select a.uid from (
+  ^
 ==
 
 # accept left join with uid left table
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from (
   select a.uid from (
@@ -3501,8 +3584,8 @@ QueryStmt
 ==
 
 # reject left join with non-uid left table
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from SimpleTypes a
 left join SimpleTypesWithAnonymizationUid b on a.int64 = b.int64
@@ -3513,6 +3596,7 @@ QueryStmt
 | +-$aggregate.$agg1#31 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-149
     +-column_list=[$aggregate.$agg1#31]
     +-input_scan=
       +-AnonymizedAggregateScan
@@ -3522,25 +3606,33 @@ QueryStmt
         |   +-column_list=[SimpleTypes.int64#2, SimpleTypesWithAnonymizationUid.int64#20]
         |   +-join_type=LEFT
         |   +-left_scan=
-        |   | +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1], alias="a")
+        |   | +-TableScan(parse_location=71-82, column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1], alias="a")
         |   +-right_scan=
-        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.int64#20], table=SimpleTypesWithAnonymizationUid, column_index_list=[1], alias="b")
+        |   | +-TableScan(parse_location=95-126, column_list=[SimpleTypesWithAnonymizationUid.int64#20], table=SimpleTypesWithAnonymizationUid, column_index_list=[1], alias="b")
         |   +-join_expr=
         |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-        |       +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-        |       +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#20)
+        |       +-ColumnRef(parse_location=132-139, type=INT64, column=SimpleTypes.int64#2)
+        |       +-ColumnRef(parse_location=142-149, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#20)
         +-aggregate_list=
           +-$agg1#31 :=
             +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
-              +-Literal(type=INT64, value=0)
-              +-Literal(type=INT64, value=100)
+              +-parse_location=26-36
+              +-Literal(parse_location=55-56, type=INT64, value=0)
+              +-Literal(parse_location=61-64, type=INT64, value=100)
+[REPLACED_LITERALS]
+select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64)
+from SimpleTypes a
+left join SimpleTypesWithAnonymizationUid b on a.int64 = b.int64
 
-Rewrite ERROR: The left table in a LEFT OUTER join must contain user data
+Rewrite ERROR: The left table in a LEFT OUTER join must contain user data [at 2:6]
+from SimpleTypes a
+     ^
 ==
 
 # reject left join projecting the wrong uid
-[enable_ast_rewrites]
-[no_expect_error_location]
+# TODO: Fix the error message column alias
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from (
   select b.uid from (
@@ -3554,37 +3646,49 @@ QueryStmt
 | +-$aggregate.$agg1#25 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-200
     +-column_list=[$aggregate.$agg1#25]
     +-input_scan=
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#25]
         +-input_scan=
         | +-ProjectScan
+        |   +-parse_location=75-198
         |   +-column_list=[SimpleTypesWithAnonymizationUid.uid#23]
         |   +-input_scan=
         |     +-JoinScan
         |       +-column_list=SimpleTypesWithAnonymizationUid.[uid#11, uid#23]
         |       +-join_type=LEFT
         |       +-left_scan=
-        |       | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
+        |       | +-TableScan(parse_location=99-130, column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
         |       +-right_scan=
-        |       | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#23], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
+        |       | +-TableScan(parse_location=147-178, column_list=[SimpleTypesWithAnonymizationUid.uid#23], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
         |       +-join_expr=
         |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-        |           +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
-        |           +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#23)
+        |           +-ColumnRef(parse_location=184-189, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
+        |           +-ColumnRef(parse_location=192-197, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#23)
         +-aggregate_list=
           +-$agg1#25 :=
             +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
-              +-Literal(type=INT64, value=0)
-              +-Literal(type=INT64, value=100)
+              +-parse_location=26-36
+              +-Literal(parse_location=55-56, type=INT64, value=0)
+              +-Literal(parse_location=61-64, type=INT64, value=100)
+[REPLACED_LITERALS]
+select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64)
+from (
+  select b.uid from (
+    SimpleTypesWithAnonymizationUid a
+    left join SimpleTypesWithAnonymizationUid b on a.uid = b.uid)
+)
 
-Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column 'uid'
+Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column 'uid' [at 3:3]
+  select b.uid from (
+  ^
 ==
 
 # reject full join with non-uid left table
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from SimpleTypes a
 full outer join SimpleTypesWithAnonymizationUid b on a.int64 = b.int64
@@ -3595,6 +3699,7 @@ QueryStmt
 | +-$aggregate.$agg1#31 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-155
     +-column_list=[$aggregate.$agg1#31]
     +-input_scan=
       +-AnonymizedAggregateScan
@@ -3604,25 +3709,32 @@ QueryStmt
         |   +-column_list=[SimpleTypes.int64#2, SimpleTypesWithAnonymizationUid.int64#20]
         |   +-join_type=FULL
         |   +-left_scan=
-        |   | +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1], alias="a")
+        |   | +-TableScan(parse_location=71-82, column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1], alias="a")
         |   +-right_scan=
-        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.int64#20], table=SimpleTypesWithAnonymizationUid, column_index_list=[1], alias="b")
+        |   | +-TableScan(parse_location=101-132, column_list=[SimpleTypesWithAnonymizationUid.int64#20], table=SimpleTypesWithAnonymizationUid, column_index_list=[1], alias="b")
         |   +-join_expr=
         |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-        |       +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-        |       +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#20)
+        |       +-ColumnRef(parse_location=138-145, type=INT64, column=SimpleTypes.int64#2)
+        |       +-ColumnRef(parse_location=148-155, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#20)
         +-aggregate_list=
           +-$agg1#31 :=
             +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
-              +-Literal(type=INT64, value=0)
-              +-Literal(type=INT64, value=100)
+              +-parse_location=26-36
+              +-Literal(parse_location=55-56, type=INT64, value=0)
+              +-Literal(parse_location=61-64, type=INT64, value=100)
+[REPLACED_LITERALS]
+select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64)
+from SimpleTypes a
+full outer join SimpleTypesWithAnonymizationUid b on a.int64 = b.int64
 
-Rewrite ERROR: Both tables in a FULL OUTER join must contain user data
+Rewrite ERROR: Both tables in a FULL OUTER join must contain user data [at 2:6]
+from SimpleTypes a
+     ^
 ==
 
 # reject full join with non-uid right table
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from SimpleTypesWithAnonymizationUid a
 full outer join SimpleTypes b on a.int64 = b.int64
@@ -3633,6 +3745,7 @@ QueryStmt
 | +-$aggregate.$agg1#31 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-155
     +-column_list=[$aggregate.$agg1#31]
     +-input_scan=
       +-AnonymizedAggregateScan
@@ -3642,25 +3755,31 @@ QueryStmt
         |   +-column_list=[SimpleTypesWithAnonymizationUid.int64#2, SimpleTypes.int64#14]
         |   +-join_type=FULL
         |   +-left_scan=
-        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1], alias="a")
+        |   | +-TableScan(parse_location=71-102, column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1], alias="a")
         |   +-right_scan=
-        |   | +-TableScan(column_list=[SimpleTypes.int64#14], table=SimpleTypes, column_index_list=[1], alias="b")
+        |   | +-TableScan(parse_location=121-132, column_list=[SimpleTypes.int64#14], table=SimpleTypes, column_index_list=[1], alias="b")
         |   +-join_expr=
         |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-        |       +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
-        |       +-ColumnRef(type=INT64, column=SimpleTypes.int64#14)
+        |       +-ColumnRef(parse_location=138-145, type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        |       +-ColumnRef(parse_location=148-155, type=INT64, column=SimpleTypes.int64#14)
         +-aggregate_list=
           +-$agg1#31 :=
             +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
-              +-Literal(type=INT64, value=0)
-              +-Literal(type=INT64, value=100)
+              +-parse_location=26-36
+              +-Literal(parse_location=55-56, type=INT64, value=0)
+              +-Literal(parse_location=61-64, type=INT64, value=100)
+[REPLACED_LITERALS]
+select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64)
+from SimpleTypesWithAnonymizationUid a
+full outer join SimpleTypes b on a.int64 = b.int64
 
-Rewrite ERROR: Both tables in a FULL OUTER join must contain user data
+Rewrite ERROR: Both tables in a FULL OUTER join must contain user data [at 3:17]
+full outer join SimpleTypes b on a.int64 = b.int64
+                ^
 ==
 
 # accept full join with uid left and right table
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from SimpleTypesWithAnonymizationUid a
 full outer join SimpleTypesWithAnonymizationUid b on a.uid = b.uid
@@ -3751,8 +3870,9 @@ QueryStmt
 ==
 
 # reject full join with outer scan referencing uid
-[enable_ast_rewrites]
-[no_expect_error_location]
+# TODO: Fix this error message to be more actionable to the end user
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from (
   select a.uid, b.uid
@@ -3767,37 +3887,50 @@ QueryStmt
 | +-$aggregate.$agg1#25 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-215
     +-column_list=[$aggregate.$agg1#25]
     +-input_scan=
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#25]
         +-input_scan=
         | +-ProjectScan
+        |   +-parse_location=75-213
         |   +-column_list=SimpleTypesWithAnonymizationUid.[uid#11, uid#23]
         |   +-input_scan=
         |     +-JoinScan
         |       +-column_list=SimpleTypesWithAnonymizationUid.[uid#11, uid#23]
         |       +-join_type=FULL
         |       +-left_scan=
-        |       | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
+        |       | +-TableScan(parse_location=108-139, column_list=[SimpleTypesWithAnonymizationUid.uid#11], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="a")
         |       +-right_scan=
-        |       | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#23], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
+        |       | +-TableScan(parse_location=162-193, column_list=[SimpleTypesWithAnonymizationUid.uid#23], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="b")
         |       +-join_expr=
         |         +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-        |           +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
-        |           +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#23)
+        |           +-ColumnRef(parse_location=199-204, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#11)
+        |           +-ColumnRef(parse_location=207-212, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#23)
         +-aggregate_list=
           +-$agg1#25 :=
             +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
-              +-Literal(type=INT64, value=0)
-              +-Literal(type=INT64, value=100)
+              +-parse_location=26-36
+              +-Literal(parse_location=55-56, type=INT64, value=0)
+              +-Literal(parse_location=61-64, type=INT64, value=100)
+[REPLACED_LITERALS]
+select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64)
+from (
+  select a.uid, b.uid
+  from (
+    SimpleTypesWithAnonymizationUid a
+    full outer join SimpleTypesWithAnonymizationUid b on a.uid = b.uid)
+);
 
-Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column
+Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column '' [at 3:3]
+  select a.uid, b.uid
+  ^
 ==
 
 # joins require matching uid types
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from SimpleTypesWithAnonymizationUid a, T1StringAnonymizationUid b
 --
@@ -3807,6 +3940,7 @@ QueryStmt
 | +-$aggregate.$agg1#14 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-132
     +-column_list=[$aggregate.$agg1#14]
     +-input_scan=
       +-AnonymizedAggregateScan
@@ -3814,21 +3948,27 @@ QueryStmt
         +-input_scan=
         | +-JoinScan
         |   +-left_scan=
-        |   | +-TableScan(table=SimpleTypesWithAnonymizationUid, alias="a")
+        |   | +-TableScan(parse_location=71-102, table=SimpleTypesWithAnonymizationUid, alias="a")
         |   +-right_scan=
-        |     +-TableScan(table=T1StringAnonymizationUid, alias="b")
+        |     +-TableScan(parse_location=106-130, table=T1StringAnonymizationUid, alias="b")
         +-aggregate_list=
           +-$agg1#14 :=
             +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
-              +-Literal(type=INT64, value=0)
-              +-Literal(type=INT64, value=100)
+              +-parse_location=26-36
+              +-Literal(parse_location=55-56, type=INT64, value=0)
+              +-Literal(parse_location=61-64, type=INT64, value=100)
+[REPLACED_LITERALS]
+select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64)
+from SimpleTypesWithAnonymizationUid a, T1StringAnonymizationUid b
 
-Rewrite ERROR: Joining two tables containing private data requires matching user id column types, instead got INT64 and STRING
+Rewrite ERROR: Joining two tables containing private data requires matching user id column types, instead got INT64 and STRING [at 1:1]
+select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
+^
 ==
 
 # joins require equality comparable uid types
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from ProtoAnonymizationUid a, ProtoAnonymizationUid b
 --
@@ -3838,6 +3978,7 @@ QueryStmt
 | +-$aggregate.$agg1#3 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-119
     +-column_list=[$aggregate.$agg1#3]
     +-input_scan=
       +-AnonymizedAggregateScan
@@ -3845,21 +3986,26 @@ QueryStmt
         +-input_scan=
         | +-JoinScan
         |   +-left_scan=
-        |   | +-TableScan(table=ProtoAnonymizationUid, alias="a")
+        |   | +-TableScan(parse_location=71-92, table=ProtoAnonymizationUid, alias="a")
         |   +-right_scan=
-        |     +-TableScan(table=ProtoAnonymizationUid, alias="b")
+        |     +-TableScan(parse_location=96-117, table=ProtoAnonymizationUid, alias="b")
         +-aggregate_list=
           +-$agg1#3 :=
             +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
-              +-Literal(type=INT64, value=0)
-              +-Literal(type=INT64, value=100)
+              +-parse_location=26-36
+              +-Literal(parse_location=55-56, type=INT64, value=0)
+              +-Literal(parse_location=61-64, type=INT64, value=100)
+[REPLACED_LITERALS]
+select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64)
+from ProtoAnonymizationUid a, ProtoAnonymizationUid b
 
-Rewrite ERROR: Joining two tables containing private data requires the user id column types to support equality comparison, instead got PROTO
+Rewrite ERROR: User id columns must support grouping, instead got type PROTO [at 2:6]
+from ProtoAnonymizationUid a, ProtoAnonymizationUid b
+     ^
 ==
 
 # Support aggregation nested inside each side of a join
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from
   (select count(*), uid from SimpleTypesWithAnonymizationUid group by uid) a
@@ -3983,8 +4129,7 @@ QueryStmt
 ==
 
 # Support aggregation nested inside one side of a join
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from
   SimpleTypesWithAnonymizationUid a
@@ -4089,8 +4234,7 @@ QueryStmt
 
 # Support aggregation nested inside both sides of a join, with one side
 # querying a table with user data and the other not.
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from
   (select count(*), uid from SimpleTypesWithAnonymizationUid group by uid) a,
@@ -4199,8 +4343,7 @@ QueryStmt
 ==
 
 # A simple join+group by query.
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from SimpleTypesWithAnonymizationUid a, SimpleTypes b
 group by b.int64;
@@ -4277,8 +4420,7 @@ QueryStmt
 ==
 
 # Support ArrayScan
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(*)
 from ArrayWithAnonymizationUid t, t.int64_array a
 group by a;
@@ -4352,8 +4494,7 @@ QueryStmt
 ==
 
 # Support ArrayScan with join_expr
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(*)
 from ArrayWithAnonymizationUid t inner join unnest(t.int64_array) a on true;
 --
@@ -4425,8 +4566,9 @@ QueryStmt
 ==
 
 # Reject SetOperationScan
-[enable_ast_rewrites]
-[no_expect_error_location]
+# TODO: Fix this error message to be more actionable to the end user
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from (select 1 union all select 2);
 --
@@ -4436,12 +4578,14 @@ QueryStmt
 | +-$aggregate.$agg1#4 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-100
     +-column_list=[$aggregate.$agg1#4]
     +-input_scan=
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#4]
         +-input_scan=
         | +-SetOperationScan
+        |   +-parse_location=72-99
         |   +-column_list=[$union_all.$col1#3]
         |   +-op_type=UNION_ALL
         |   +-input_item_list=
@@ -4450,7 +4594,7 @@ QueryStmt
         |     | | +-ProjectScan
         |     | |   +-column_list=[$union_all1.$col1#1]
         |     | |   +-expr_list=
-        |     | |   | +-$col1#1 := Literal(type=INT64, value=1)
+        |     | |   | +-$col1#1 := Literal(parse_location=79-80, type=INT64, value=1)
         |     | |   +-input_scan=
         |     | |     +-SingleRowScan
         |     | +-output_column_list=[$union_all1.$col1#1]
@@ -4459,110 +4603,29 @@ QueryStmt
         |       | +-ProjectScan
         |       |   +-column_list=[$union_all2.$col1#2]
         |       |   +-expr_list=
-        |       |   | +-$col1#2 := Literal(type=INT64, value=2)
+        |       |   | +-$col1#2 := Literal(parse_location=98-99, type=INT64, value=2)
         |       |   +-input_scan=
         |       |     +-SingleRowScan
         |       +-output_column_list=[$union_all2.$col1#2]
         +-aggregate_list=
           +-$agg1#4 :=
             +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
-              +-Literal(type=INT64, value=0)
-              +-Literal(type=INT64, value=100)
+              +-parse_location=26-36
+              +-Literal(parse_location=55-56, type=INT64, value=0)
+              +-Literal(parse_location=61-64, type=INT64, value=100)
+[REPLACED_LITERALS]
+select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64)
+from (select @_p2_INT64 union all select @_p3_INT64);
 
-Rewrite ERROR: Unsupported scan type inside of SELECT WITH ANONYMIZATION from clause: ResolvedSetOperationScan
-==
-
-# Reject WithRefScan
-[enable_ast_rewrites]
-[no_expect_error_location]
-with with_scan as (select 1)
-select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
-from with_scan;
---
-[PRE-REWRITE AST]
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#3 AS `$col1` [INT64]
-+-query=
-  +-WithScan
-    +-column_list=[$aggregate.$agg1#3]
-    +-with_entry_list=
-    | +-WithEntry
-    |   +-with_query_name="with_scan"
-    |   +-with_subquery=
-    |     +-ProjectScan
-    |       +-column_list=[with_scan.$col1#1]
-    |       +-expr_list=
-    |       | +-$col1#1 := Literal(type=INT64, value=1)
-    |       +-input_scan=
-    |         +-SingleRowScan
-    +-query=
-      +-ProjectScan
-        +-column_list=[$aggregate.$agg1#3]
-        +-input_scan=
-          +-AnonymizedAggregateScan
-            +-column_list=[$aggregate.$agg1#3]
-            +-input_scan=
-            | +-WithRefScan(column_list=[with_scan.$col1#2], with_query_name="with_scan")
-            +-aggregate_list=
-              +-$agg1#3 :=
-                +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
-                  +-Literal(type=INT64, value=0)
-                  +-Literal(type=INT64, value=100)
-
-Rewrite ERROR: Unsupported scan type inside of SELECT WITH ANONYMIZATION from clause: ResolvedWithRefScan
-==
-
-# Reject WithScan
-[language_features=ANONYMIZATION,V_1_1_WITH_ON_SUBQUERY]
-[enable_ast_rewrites]
-[no_expect_error_location]
-select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
-from (
-  with with_scan as (select 1)
-  select * from with_scan);
---
-[PRE-REWRITE AST]
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#3 AS `$col1` [INT64]
-+-query=
-  +-ProjectScan
-    +-column_list=[$aggregate.$agg1#3]
-    +-input_scan=
-      +-AnonymizedAggregateScan
-        +-column_list=[$aggregate.$agg1#3]
-        +-input_scan=
-        | +-WithScan
-        |   +-column_list=[with_scan.$col1#2]
-        |   +-with_entry_list=
-        |   | +-WithEntry
-        |   |   +-with_query_name="with_scan"
-        |   |   +-with_subquery=
-        |   |     +-ProjectScan
-        |   |       +-column_list=[with_scan.$col1#1]
-        |   |       +-expr_list=
-        |   |       | +-$col1#1 := Literal(type=INT64, value=1)
-        |   |       +-input_scan=
-        |   |         +-SingleRowScan
-        |   +-query=
-        |     +-ProjectScan
-        |       +-column_list=[with_scan.$col1#2]
-        |       +-input_scan=
-        |         +-WithRefScan(column_list=[with_scan.$col1#2], with_query_name="with_scan")
-        +-aggregate_list=
-          +-$agg1#3 :=
-            +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
-              +-Literal(type=INT64, value=0)
-              +-Literal(type=INT64, value=100)
-
-Rewrite ERROR: Unsupported scan type inside of SELECT WITH ANONYMIZATION from clause: ResolvedWithScan
+Rewrite ERROR: Unsupported scan type inside of SELECT WITH ANONYMIZATION from clause: ResolvedSetOperationScan [at 2:7]
+from (select 1 union all select 2);
+      ^
 ==
 
 # Reject AnalyticScan
 [language_features=ANONYMIZATION,ANALYTIC_FUNCTIONS]
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from (
   select rank() over (order by int64) from SimpleTypesWithAnonymizationUid);
@@ -4573,18 +4636,20 @@ QueryStmt
 | +-$aggregate.$agg1#15 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-148
     +-column_list=[$aggregate.$agg1#15]
     +-input_scan=
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#15]
         +-input_scan=
         | +-ProjectScan
+        |   +-parse_location=75-147
         |   +-column_list=[$analytic.$analytic1#14]
         |   +-input_scan=
         |     +-AnalyticScan
         |       +-column_list=[SimpleTypesWithAnonymizationUid.int64#2, $analytic.$analytic1#14]
         |       +-input_scan=
-        |       | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
+        |       | +-TableScan(parse_location=116-147, column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
         |       +-function_group_list=
         |         +-AnalyticFunctionGroup
         |           +-order_by=
@@ -4598,16 +4663,23 @@ QueryStmt
         +-aggregate_list=
           +-$agg1#15 :=
             +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
-              +-Literal(type=INT64, value=0)
-              +-Literal(type=INT64, value=100)
+              +-parse_location=26-36
+              +-Literal(parse_location=55-56, type=INT64, value=0)
+              +-Literal(parse_location=61-64, type=INT64, value=100)
+[REPLACED_LITERALS]
+select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64)
+from (
+  select rank() over (order by int64) from SimpleTypesWithAnonymizationUid);
 
-Rewrite ERROR: Unsupported scan type inside of SELECT WITH ANONYMIZATION from clause: ResolvedAnalyticScan
+Rewrite ERROR: Unsupported scan type inside of SELECT WITH ANONYMIZATION from clause: ResolvedAnalyticScan [at 3:3]
+  select rank() over (order by int64) from SimpleTypesWithAnonymizationUid);
+  ^
 ==
 
 # Reject SampleScan
 [language_features=ANONYMIZATION,TABLESAMPLE]
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from SimpleTypesWithAnonymizationUid
 tablesample reservoir (1 rows);
@@ -4618,6 +4690,7 @@ QueryStmt
 | +-$aggregate.$agg1#13 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-133
     +-column_list=[$aggregate.$agg1#13]
     +-input_scan=
       +-AnonymizedAggregateScan
@@ -4625,26 +4698,32 @@ QueryStmt
         +-input_scan=
         | +-SampleScan
         |   +-input_scan=
-        |   | +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        |   | +-TableScan(parse_location=71-102, table=SimpleTypesWithAnonymizationUid)
         |   +-method="reservoir"
         |   +-size=
-        |   | +-Literal(type=INT64, value=1)
+        |   | +-Literal(parse_location=126-127, type=INT64, value=1)
         |   +-unit=ROWS
         +-aggregate_list=
           +-$agg1#13 :=
             +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
-              +-Literal(type=INT64, value=0)
-              +-Literal(type=INT64, value=100)
+              +-parse_location=26-36
+              +-Literal(parse_location=55-56, type=INT64, value=0)
+              +-Literal(parse_location=61-64, type=INT64, value=100)
+[REPLACED_LITERALS]
+select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64)
+from SimpleTypesWithAnonymizationUid
+tablesample reservoir (@_p2_INT64 rows);
 
-Rewrite ERROR: Unsupported scan type inside of SELECT WITH ANONYMIZATION from clause: ResolvedSampleScan
+Rewrite ERROR: Unsupported scan type inside of SELECT WITH ANONYMIZATION from clause: ResolvedSampleScan [at 1:1]
+select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
+^
 ==
 
 # For per-user aggregation we inject ANON_SUM(1 CLAMPED BETWEEN 0 AND 1).
 # This test and the next shows what the plan looks like if that aggregate
 # expression is actually in the query.  The injected expression is not
 # exactly the same as the query's expression.
-[no_expect_error_location]
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select anon_sum(1 clamped between 0 and 1)
 from SimpleTypesWithAnonymizationUid;
 --
@@ -4707,8 +4786,7 @@ QueryStmt
 }
 ==
 
-[no_expect_error_location]
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select int64, anon_count(*), anon_sum(1 clamped between 0 and 1)
 from SimpleTypesWithAnonymizationUid
 group by int64;
@@ -4786,7 +4864,7 @@ QueryStmt
 }
 ==
 
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select anon_count(*) as anon_count
 from SimpleTypesWithAnonymizationUid
 UNION {{ALL|DISTINCT}}
@@ -5012,7 +5090,7 @@ QueryStmt
 }
 ==
 
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select anon_count(*) as anon_count
 from SimpleTypesWithAnonymizationUid
 INTERSECT {{ALL|DISTINCT}}
@@ -5238,7 +5316,7 @@ QueryStmt
 }
 ==
 
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select anon_count(*) as anon_count
 from SimpleTypesWithAnonymizationUid
 EXCEPT {{ALL|DISTINCT}}
@@ -5465,7 +5543,7 @@ QueryStmt
 ==
 
 # Anonymization in the WITH clause
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 WITH t as (select anon_count(*) as anon_count
            from SimpleTypesWithAnonymizationUid)
 SELECT * from t;
@@ -5543,43 +5621,7 @@ QueryStmt
 }
 ==
 
-# Table with UID in the WITH clause, anonymization in the outer SELECT
-# TODO: Fix this, it should work.
-[enable_ast_rewrites]
-WITH t as (select *
-           from SimpleTypesWithAnonymizationUid)
-SELECT anon_count(*) as anon_count from t;
---
-[PRE-REWRITE AST]
-QueryStmt
-+-output_column_list=
-| +-$aggregate.anon_count#25 AS anon_count [INT64]
-+-query=
-  +-WithScan
-    +-column_list=[$aggregate.anon_count#25]
-    +-with_entry_list=
-    | +-WithEntry
-    |   +-with_query_name="t"
-    |   +-with_subquery=
-    |     +-ProjectScan
-    |       +-column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12]
-    |       +-input_scan=
-    |         +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, uid#11, numeric#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
-    +-query=
-      +-ProjectScan
-        +-column_list=[$aggregate.anon_count#25]
-        +-input_scan=
-          +-AnonymizedAggregateScan
-            +-column_list=[$aggregate.anon_count#25]
-            +-input_scan=
-            | +-WithRefScan(column_list=t.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], with_query_name="t")
-            +-aggregate_list=
-              +-anon_count#25 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
-
-Rewrite ERROR: Unsupported scan type inside of SELECT WITH ANONYMIZATION from clause: ResolvedWithRefScan
-==
-
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT *
 FROM UNNEST(ARRAY(select anon_count(*) as anon_count
                   from SimpleTypesWithAnonymizationUid));
@@ -5657,7 +5699,7 @@ QueryStmt
 }
 ==
 
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT *
 FROM UNNEST([1]) as u
 WHERE EXISTS (select anon_count(*) as anon_count
@@ -5746,7 +5788,7 @@ QueryStmt
 }
 ==
 
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT *
 FROM UNNEST([1]) as u
 WHERE u IN (select anon_count(*) as anon_count
@@ -5841,8 +5883,7 @@ QueryStmt
 
 # Anonymized query against a PROTO value table that does not explicitly
 # select any columns.
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT ANON_COUNT(*)
 FROM KitchenSinkWithUidValueTable;
 --
@@ -5910,8 +5951,7 @@ QueryStmt
 
 # Anonymized query against a PROTO value table that explicitly references
 # non-userid columns (the userid column is 'string_val').
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT int32_val, ANON_SUM(int64_val)
 FROM KitchenSinkWithUidValueTable
 GROUP BY int32_val;
@@ -6013,8 +6053,7 @@ QueryStmt
 
 # Anonymized query against a PROTO value table that explicitly references
 # userid and non-userid columns (the userid column is 'string_val').
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT int64_val, ANON_COUNT(string_val)
 FROM KitchenSinkWithUidValueTable
 GROUP BY int64_val;
@@ -6114,10 +6153,222 @@ QueryStmt
 }
 ==
 
+# Anonymized query against a PROTO value table that explicitly projects userid
+# columns (the userid column is 'string_val').
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+SELECT ANON_COUNT(*)
+FROM (SELECT string_val
+  FROM KitchenSinkWithUidValueTable);
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#3]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[$subquery1.string_val#2]
+        |   +-expr_list=
+        |   | +-string_val#2 :=
+        |   |   +-GetProtoField
+        |   |     +-type=STRING
+        |   |     +-expr=
+        |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkWithUidValueTable.value#1)
+        |   |     +-field_descriptor=string_val
+        |   |     +-default_value="default_name"
+        |   +-input_scan=
+        |     +-TableScan(column_list=[KitchenSinkWithUidValueTable.value#1], table=KitchenSinkWithUidValueTable, column_index_list=[0])
+        +-aggregate_list=
+          +-$agg1#3 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#3]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#6, $group_by.$uid#7]
+        |   +-input_scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[$subquery1.string_val#2]
+        |   |   +-expr_list=
+        |   |   | +-string_val#2 := ColumnRef(type=STRING, column=$project.$string_val#4)
+        |   |   +-input_scan=
+        |   |     +-ProjectScan
+        |   |       +-column_list=[KitchenSinkWithUidValueTable.value#1, $project.$string_val#4]
+        |   |       +-expr_list=
+        |   |       | +-$string_val#4 :=
+        |   |       |   +-GetProtoField
+        |   |       |     +-type=STRING
+        |   |       |     +-expr=
+        |   |       |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkWithUidValueTable.value#1)
+        |   |       |     +-field_descriptor=string_val
+        |   |       |     +-default_value="default_name"
+        |   |       +-input_scan=
+        |   |         +-TableScan(column_list=[KitchenSinkWithUidValueTable.value#1], table=KitchenSinkWithUidValueTable, column_index_list=[0])
+        |   +-group_by_list=
+        |   | +-$uid#7 := ColumnRef(type=STRING, column=$subquery1.string_val#2)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#6 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+        | +-$agg1#3 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#6)
+        | +-$k_threshold_col#10 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#10)
+
+[TableScan Groups]
+{
+  TableScan(column_list=[KitchenSinkWithUidValueTable.value#1], table=KitchenSinkWithUidValueTable, column_index_list=[0])
+}
+==
+
+# Anonymized query against a PROTO value table that explicitly aggregates userid
+# columns (the userid column is 'string_val').
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+SELECT ANON_COUNT(*)
+FROM (SELECT COUNT(*), string_val
+  FROM KitchenSinkWithUidValueTable
+  GROUP BY string_val);
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#4 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#4]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#4]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[$aggregate.$agg1#2, $groupby.string_val#3]
+        |   +-input_scan=
+        |     +-AggregateScan
+        |       +-column_list=[$groupby.string_val#3, $aggregate.$agg1#2]
+        |       +-input_scan=
+        |       | +-TableScan(column_list=[KitchenSinkWithUidValueTable.value#1], table=KitchenSinkWithUidValueTable, column_index_list=[0])
+        |       +-group_by_list=
+        |       | +-string_val#3 :=
+        |       |   +-GetProtoField
+        |       |     +-type=STRING
+        |       |     +-expr=
+        |       |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkWithUidValueTable.value#1)
+        |       |     +-field_descriptor=string_val
+        |       |     +-default_value="default_name"
+        |       +-aggregate_list=
+        |         +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+          +-$agg1#4 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#4 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#4]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#4]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#7, $group_by.$uid#8]
+        |   +-input_scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[$aggregate.$agg1#2, $groupby.string_val#3]
+        |   |   +-input_scan=
+        |   |     +-AggregateScan
+        |   |       +-column_list=[$groupby.string_val#3, $aggregate.$agg1#2]
+        |   |       +-input_scan=
+        |   |       | +-ProjectScan
+        |   |       |   +-column_list=[KitchenSinkWithUidValueTable.value#1, $project.$string_val#5]
+        |   |       |   +-expr_list=
+        |   |       |   | +-$string_val#5 :=
+        |   |       |   |   +-GetProtoField
+        |   |       |   |     +-type=STRING
+        |   |       |   |     +-expr=
+        |   |       |   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=KitchenSinkWithUidValueTable.value#1)
+        |   |       |   |     +-field_descriptor=string_val
+        |   |       |   |     +-default_value="default_name"
+        |   |       |   +-input_scan=
+        |   |       |     +-TableScan(column_list=[KitchenSinkWithUidValueTable.value#1], table=KitchenSinkWithUidValueTable, column_index_list=[0])
+        |   |       +-group_by_list=
+        |   |       | +-string_val#3 := ColumnRef(type=STRING, column=$project.$string_val#5)
+        |   |       +-aggregate_list=
+        |   |         +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        |   +-group_by_list=
+        |   | +-$uid#8 := ColumnRef(type=STRING, column=$groupby.string_val#3)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#7 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+        | +-$agg1#4 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#7)
+        | +-$k_threshold_col#11 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#11)
+
+[TableScan Groups]
+{
+  TableScan(column_list=[KitchenSinkWithUidValueTable.value#1], table=KitchenSinkWithUidValueTable, column_index_list=[0])
+}
+==
+
+# Anonymized query against a PROTO value table qualifies userid column errors.
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+SELECT ANON_COUNT(*)
+FROM (SELECT COUNT(*)
+  FROM KitchenSinkWithUidValueTable AS t);
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#3]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[$aggregate.$agg1#2]
+        |   +-input_scan=
+        |     +-AggregateScan
+        |       +-column_list=[$aggregate.$agg1#2]
+        |       +-input_scan=
+        |       | +-TableScan(table=KitchenSinkWithUidValueTable, alias="t")
+        |       +-aggregate_list=
+        |         +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+          +-$agg1#3 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+
+Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column 't.string_val'
+==
+
 # Anonymized query against a STRUCT value table that does not explicitly
 # reference any columns.
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT ANON_COUNT(*)
 FROM TestStructWithUidValueTable;
 --
@@ -6182,10 +6433,9 @@ QueryStmt
 }
 ==
 
-# Anonymized query against a PROTO value table that explicitly references
+# Anonymized query against a STRUCT value table that explicitly references
 # non-userid columns (the userid column is 'a').
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT b, ANON_COUNT(*)
 FROM TestStructWithUidValueTable
 GROUP BY b;
@@ -6268,10 +6518,9 @@ QueryStmt
 }
 ==
 
-# Anonymized query against a PROTO value table that explicitly references
+# Anonymized query against a STRUCT value table that explicitly references
 # userid and non-userid columns.
-[enable_ast_rewrites]
-[no_expect_error_location]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT b, ANON_SUM(a)
 FROM TestStructWithUidValueTable
 GROUP BY b;
@@ -6368,8 +6617,217 @@ QueryStmt
 }
 ==
 
+# Anonymized query against a STRUCT value table that explicitly projects userid
+# columns (the userid column is 'a').
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+SELECT ANON_COUNT(*)
+FROM (SELECT a
+  FROM TestStructWithUidValueTable);
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#3]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[$subquery1.a#2]
+        |   +-expr_list=
+        |   | +-a#2 :=
+        |   |   +-GetStructField
+        |   |     +-type=INT32
+        |   |     +-expr=
+        |   |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=TestStructWithUidValueTable.value#1)
+        |   |     +-field_idx=0
+        |   +-input_scan=
+        |     +-TableScan(column_list=[TestStructWithUidValueTable.value#1], table=TestStructWithUidValueTable, column_index_list=[0])
+        +-aggregate_list=
+          +-$agg1#3 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#3]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#6, $group_by.$uid#7]
+        |   +-input_scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[$subquery1.a#2]
+        |   |   +-expr_list=
+        |   |   | +-a#2 := ColumnRef(type=INT32, column=$project.$a#4)
+        |   |   +-input_scan=
+        |   |     +-ProjectScan
+        |   |       +-column_list=[TestStructWithUidValueTable.value#1, $project.$a#4]
+        |   |       +-expr_list=
+        |   |       | +-$a#4 :=
+        |   |       |   +-GetStructField
+        |   |       |     +-type=INT32
+        |   |       |     +-expr=
+        |   |       |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=TestStructWithUidValueTable.value#1)
+        |   |       |     +-field_idx=0
+        |   |       +-input_scan=
+        |   |         +-TableScan(column_list=[TestStructWithUidValueTable.value#1], table=TestStructWithUidValueTable, column_index_list=[0])
+        |   +-group_by_list=
+        |   | +-$uid#7 := ColumnRef(type=INT32, column=$subquery1.a#2)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#6 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+        | +-$agg1#3 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#6)
+        | +-$k_threshold_col#10 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#10)
+
+[TableScan Groups]
+{
+  TableScan(column_list=[TestStructWithUidValueTable.value#1], table=TestStructWithUidValueTable, column_index_list=[0])
+}
+==
+
+# Anonymized query against a STRUCT value table that explicitly aggregates userid
+# columns (the userid column is 'a').
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+SELECT ANON_COUNT(*)
+FROM (SELECT COUNT(*), a
+  FROM TestStructWithUidValueTable
+  GROUP BY a);
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#4 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#4]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#4]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[$aggregate.$agg1#2, $groupby.a#3]
+        |   +-input_scan=
+        |     +-AggregateScan
+        |       +-column_list=[$groupby.a#3, $aggregate.$agg1#2]
+        |       +-input_scan=
+        |       | +-TableScan(column_list=[TestStructWithUidValueTable.value#1], table=TestStructWithUidValueTable, column_index_list=[0])
+        |       +-group_by_list=
+        |       | +-a#3 :=
+        |       |   +-GetStructField
+        |       |     +-type=INT32
+        |       |     +-expr=
+        |       |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=TestStructWithUidValueTable.value#1)
+        |       |     +-field_idx=0
+        |       +-aggregate_list=
+        |         +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+          +-$agg1#4 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#4 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#4]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#4]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#7, $group_by.$uid#8]
+        |   +-input_scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[$aggregate.$agg1#2, $groupby.a#3]
+        |   |   +-input_scan=
+        |   |     +-AggregateScan
+        |   |       +-column_list=[$groupby.a#3, $aggregate.$agg1#2]
+        |   |       +-input_scan=
+        |   |       | +-ProjectScan
+        |   |       |   +-column_list=[TestStructWithUidValueTable.value#1, $project.$a#5]
+        |   |       |   +-expr_list=
+        |   |       |   | +-$a#5 :=
+        |   |       |   |   +-GetStructField
+        |   |       |   |     +-type=INT32
+        |   |       |   |     +-expr=
+        |   |       |   |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=TestStructWithUidValueTable.value#1)
+        |   |       |   |     +-field_idx=0
+        |   |       |   +-input_scan=
+        |   |       |     +-TableScan(column_list=[TestStructWithUidValueTable.value#1], table=TestStructWithUidValueTable, column_index_list=[0])
+        |   |       +-group_by_list=
+        |   |       | +-a#3 := ColumnRef(type=INT32, column=$project.$a#5)
+        |   |       +-aggregate_list=
+        |   |         +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        |   +-group_by_list=
+        |   | +-$uid#8 := ColumnRef(type=INT32, column=$groupby.a#3)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#7 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+        | +-$agg1#4 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#7)
+        | +-$k_threshold_col#11 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#11)
+
+[TableScan Groups]
+{
+  TableScan(column_list=[TestStructWithUidValueTable.value#1], table=TestStructWithUidValueTable, column_index_list=[0])
+}
+==
+
+# Anonymized query against a STRUCT value table qualifies userid column errors.
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+SELECT ANON_COUNT(*)
+FROM (SELECT COUNT(*)
+  FROM TestStructWithUidValueTable AS t);
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#3]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[$aggregate.$agg1#2]
+        |   +-input_scan=
+        |     +-AggregateScan
+        |       +-column_list=[$aggregate.$agg1#2]
+        |       +-input_scan=
+        |       | +-TableScan(table=TestStructWithUidValueTable, alias="t")
+        |       +-aggregate_list=
+        |         +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+          +-$agg1#3 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+
+Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the userid column 't.a'
+==
+
 # Nested anonymization
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from
   ((select with anonymization anon_count(*), uid
@@ -6429,7 +6887,7 @@ Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the us
 ==
 
 # Nested anonymization
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(* CLAMPED BETWEEN 0 AND 100)
 from
   (select count(*), uid
@@ -6479,7 +6937,7 @@ Rewrite ERROR: Subqueries of anonymization queries must explicitly SELECT the us
 ==
 
 # Join anonymization
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select * from
   ((select with anonymization anon_count(*), uid
        from SimpleTypesWithAnonymizationUid group by uid) a
@@ -6618,7 +7076,7 @@ QueryStmt
 }
 ==
 
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [mode=expression]
 (select with anonymization anon_count(int64)
 from SimpleTypesWithAnonymizationUid)
@@ -6679,7 +7137,7 @@ SubqueryExpr
 ==
 
 # doubly nested struct uid
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(*)
        from TestWithDoublyNestedStructUidValueTable;
 --
@@ -6753,7 +7211,7 @@ QueryStmt
 ==
 
 # nested proto uid
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(*)
        from TestWithProtoUidValueTable;
 --
@@ -6830,7 +7288,7 @@ QueryStmt
 ==
 
 # nested proto uid of wrong type.
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(*)
        from TestWithWrongTypeProtoUidValueTable;
 --
@@ -6854,7 +7312,7 @@ Rewrite ERROR: User id columns must support grouping, instead got type PROTO
 
 # TODO support join on nested struct uid.
 # JOIN on doubly nested struct uid
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_count(*)
        from TestWithDoublyNestedStructUidValueTable t1 inner join
             TestWithDoublyNestedStructUidValueTable t2 on t1.f.d.a = t2.f.d.a;
@@ -6910,8 +7368,10 @@ QueryStmt
 Rewrite ERROR: Joins between tables containing private data must also explicitly join on the user id column in each table
 ==
 
-[enable_ast_rewrites]
-[no_expect_error_location]
+# We can't run the unparser because the rewrite generates ORDER BY in an
+# aggregate function and the appropriate language feature is not enabled.
+[no_run_unparser]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization ANON_VAR_POP(int64)
 from SimpleTypesWithAnonymizationUid;
 --
@@ -6931,6 +7391,7 @@ QueryStmt
             +-AggregateFunctionCall(ZetaSQL:anon_var_pop(DOUBLE, optional(0) DOUBLE, optional(0) DOUBLE) -> DOUBLE)
               +-Cast(INT64 -> DOUBLE)
                 +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+
 
 [REWRITTEN AST]
 QueryStmt
@@ -6984,8 +7445,10 @@ QueryStmt
 }
 ==
 
-[enable_ast_rewrites]
-[no_expect_error_location]
+# We can't run the unparser because the rewrite generates ORDER BY in an
+# aggregate function and the appropriate language feature is not enabled.
+[no_run_unparser]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization ANON_VAR_POP(double), ANON_SUM(double)
 from SimpleTypesWithAnonymizationUid;
 --
@@ -7008,6 +7471,7 @@ QueryStmt
           +-$agg2#14 :=
             +-AggregateFunctionCall(ZetaSQL:anon_sum(DOUBLE, optional(0) DOUBLE, optional(0) DOUBLE) -> DOUBLE)
               +-ColumnRef(type=DOUBLE, column=SimpleTypesWithAnonymizationUid.double#9)
+
 
 [REWRITTEN AST]
 QueryStmt
@@ -7067,8 +7531,10 @@ QueryStmt
 }
 ==
 
-[enable_ast_rewrites]
-[no_expect_error_location]
+# We can't run the unparser because the rewrite generates ORDER BY in an
+# aggregate function and the appropriate language feature is not enabled.
+[no_run_unparser]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization ANON_VAR_POP(int64), ANON_VAR_POP(double)
 from SimpleTypesWithAnonymizationUid;
 --
@@ -7092,6 +7558,7 @@ QueryStmt
           +-$agg2#14 :=
             +-AggregateFunctionCall(ZetaSQL:anon_var_pop(DOUBLE, optional(0) DOUBLE, optional(0) DOUBLE) -> DOUBLE)
               +-ColumnRef(type=DOUBLE, column=SimpleTypesWithAnonymizationUid.double#9)
+
 
 [REWRITTEN AST]
 QueryStmt
@@ -7159,8 +7626,10 @@ QueryStmt
 }
 ==
 
-[enable_ast_rewrites]
-[no_expect_error_location]
+# We can't run the unparser because the rewrite generates ORDER BY in an
+# aggregate function and the appropriate language feature is not enabled.
+[no_run_unparser]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization ANON_STDDEV_POP(int64 CLAMPED BETWEEN 2 AND 3.5)
 from SimpleTypesWithAnonymizationUid;
 --
@@ -7182,6 +7651,7 @@ QueryStmt
               | +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
               +-Literal(type=DOUBLE, value=2)
               +-Literal(type=DOUBLE, value=3.5, float_literal_id=1)
+
 
 [REWRITTEN AST]
 QueryStmt
@@ -7237,8 +7707,10 @@ QueryStmt
 }
 ==
 
-[enable_ast_rewrites]
-[no_expect_error_location]
+# We can't run the unparser because the rewrite generates ORDER BY in an
+# aggregate function and the appropriate language feature is not enabled.
+[no_run_unparser]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization ANON_STDDEV_POP(int64)
 from SimpleTypesWithAnonymizationUid;
 --
@@ -7258,6 +7730,7 @@ QueryStmt
             +-AggregateFunctionCall(ZetaSQL:anon_stddev_pop(DOUBLE, optional(0) DOUBLE, optional(0) DOUBLE) -> DOUBLE)
               +-Cast(INT64 -> DOUBLE)
                 +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+
 
 [REWRITTEN AST]
 QueryStmt
@@ -7311,8 +7784,10 @@ QueryStmt
 }
 ==
 
-[enable_ast_rewrites]
-[no_expect_error_location]
+# We can't run the unparser because the rewrite generates ORDER BY in an
+# aggregate function and the appropriate language feature is not enabled.
+[no_run_unparser]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization ANON_STDDEV_POP(int64), ANON_STDDEV_POP(double)
 from SimpleTypesWithAnonymizationUid;
 --
@@ -7336,6 +7811,7 @@ QueryStmt
           +-$agg2#14 :=
             +-AggregateFunctionCall(ZetaSQL:anon_stddev_pop(DOUBLE, optional(0) DOUBLE, optional(0) DOUBLE) -> DOUBLE)
               +-ColumnRef(type=DOUBLE, column=SimpleTypesWithAnonymizationUid.double#9)
+
 
 [REWRITTEN AST]
 QueryStmt
@@ -7403,8 +7879,10 @@ QueryStmt
 }
 ==
 
-[enable_ast_rewrites]
-[no_expect_error_location]
+# We can't run the unparser because the rewrite generates ORDER BY in an
+# aggregate function and the appropriate language feature is not enabled.
+[no_run_unparser]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization ANON_STDDEV_POP(double), ANON_SUM(double)
 from SimpleTypesWithAnonymizationUid;
 --
@@ -7427,6 +7905,7 @@ QueryStmt
           +-$agg2#14 :=
             +-AggregateFunctionCall(ZetaSQL:anon_sum(DOUBLE, optional(0) DOUBLE, optional(0) DOUBLE) -> DOUBLE)
               +-ColumnRef(type=DOUBLE, column=SimpleTypesWithAnonymizationUid.double#9)
+
 
 [REWRITTEN AST]
 QueryStmt
@@ -7486,8 +7965,10 @@ QueryStmt
 }
 ==
 
-[enable_ast_rewrites]
-[no_expect_error_location]
+# We can't run the unparser because the rewrite generates ORDER BY in an
+# aggregate function and the appropriate language feature is not enabled.
+[no_run_unparser]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization ANON_STDDEV_POP(double), ANON_VAR_POP(double)
 from SimpleTypesWithAnonymizationUid;
 --
@@ -7510,6 +7991,7 @@ QueryStmt
           +-$agg2#14 :=
             +-AggregateFunctionCall(ZetaSQL:anon_var_pop(DOUBLE, optional(0) DOUBLE, optional(0) DOUBLE) -> DOUBLE)
               +-ColumnRef(type=DOUBLE, column=SimpleTypesWithAnonymizationUid.double#9)
+
 
 [REWRITTEN AST]
 QueryStmt
@@ -7576,8 +8058,10 @@ QueryStmt
 }
 ==
 
-[enable_ast_rewrites]
-[no_expect_error_location]
+# We can't run the unparser because the rewrite generates ORDER BY in an
+# aggregate function and the appropriate language feature is not enabled.
+[no_run_unparser]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization
     ANON_PERCENTILE_CONT(int64, 0.4),
     ANON_PERCENTILE_CONT(double, 0.6)
@@ -7605,6 +8089,7 @@ QueryStmt
             +-AggregateFunctionCall(ZetaSQL:anon_percentile_cont(DOUBLE, DOUBLE, optional(0) DOUBLE, optional(0) DOUBLE) -> DOUBLE)
               +-ColumnRef(type=DOUBLE, column=SimpleTypesWithAnonymizationUid.double#9)
               +-Literal(type=DOUBLE, value=0.6, float_literal_id=2)
+
 
 [REWRITTEN AST]
 QueryStmt
@@ -7674,8 +8159,10 @@ QueryStmt
 }
 ==
 
-[enable_ast_rewrites]
-[no_expect_error_location]
+# We can't run the unparser because the rewrite generates ORDER BY in an
+# aggregate function and the appropriate language feature is not enabled.
+[no_run_unparser]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization
     ANON_PERCENTILE_CONT(int64, 0.4 CLAMPED BETWEEN 2 AND 3),
     ANON_PERCENTILE_CONT(double, 0.6 CLAMPED BETWEEN 1 AND 4)
@@ -7707,6 +8194,7 @@ QueryStmt
               +-Literal(type=DOUBLE, value=0.6, float_literal_id=2)
               +-Literal(type=DOUBLE, value=1)
               +-Literal(type=DOUBLE, value=4)
+
 
 [REWRITTEN AST]
 QueryStmt

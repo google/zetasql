@@ -47,6 +47,7 @@ cc_library(
         "type_deserializer.h",
         "type_factory.h",
         "type_parameters.h",
+        "value_equality_check_options.h",
     ],
     copts = [
         "-Wno-char-subscripts",
@@ -65,6 +66,7 @@ cc_library(
         "//zetasql/base:refcount",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
+        "//zetasql/base:strings",
         "//zetasql/base:time_proto_util",
         "//zetasql/common:errors",
         "//zetasql/common:float_margin",
@@ -101,6 +103,7 @@ cc_library(
         "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",

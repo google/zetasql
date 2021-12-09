@@ -22,6 +22,7 @@
 
 #include <cstdint>
 #include <limits>
+#include <string>
 #include <type_traits>
 #include <utility>
 
@@ -44,6 +45,7 @@
 #include "zetasql/public/json_value.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/numeric_value.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type_factory.h"
@@ -58,6 +60,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"
@@ -65,8 +68,11 @@
 
 namespace zetasql {
 
+namespace {
+
 using ::google::protobuf::internal::WireFormatLite;
 using ::testing::HasSubstr;
+using ::testing::IsEmpty;
 using ::testing::Not;
 using ::zetasql_base::testing::StatusIs;
 
@@ -77,20 +83,35 @@ using interval_testing::MonthsDaysMicros;
 using interval_testing::MonthsDaysNanos;
 using interval_testing::Nanos;
 
-static void TestHashEqual(const Value& a, const Value& b) {
+void TestHashEqual(const Value& a, const Value& b) {
   EXPECT_EQ(a.HashCode(), b.HashCode()) << "\na: " << a << "\n"
                                         << "b: " << b;
   EXPECT_EQ(absl::Hash<Value>()(a), absl::Hash<Value>()(b))
       << "\na: " << a << "\n"
       << "b: " << b;
 }
-static void TestHashNotEqual(const Value& a, const Value& b) {
+void TestHashNotEqual(const Value& a, const Value& b) {
   EXPECT_NE(a.HashCode(), b.HashCode()) << "\na: " << a << "\n"
                                         << "b: " << b;
   EXPECT_NE(absl::Hash<Value>()(a), absl::Hash<Value>()(b))
       << "\na: " << a << "\n"
       << "b: " << b;
 }
+
+absl::Time ParseTimeWithFormat(absl::string_view format,
+                               absl::string_view time_literal) {
+  absl::Time time;
+  std::string error;
+  const bool successful = absl::ParseTime(format, time_literal, &time, &error);
+  ZETASQL_CHECK(successful) << error;
+  return time;
+}
+
+absl::Time ParseTimeHm(absl::string_view str) {
+  return ParseTimeWithFormat("%H:%M", str);
+}
+
+}  // namespace
 
 // Test that GetSQL returns a string that can be re-parsed as the Value.
 // Returns <value> so this can be used as a chained call anywhere we
@@ -1257,6 +1278,71 @@ TEST_F(ValueTest, StructNull) {
   EXPECT_DEATH(value.FindFieldByName("junk"), "Null value");
 }
 
+TEST_F(ValueTest, InvalidStructConstruction) {
+  const StructType* struct_type = MakeStructType({{"a", Int64Type()}});
+  // No values
+  std::vector<Value> as_vec;
+  absl::Span<const Value> as_span;
+  std::array<Value, 0> as_array;
+  // Initializer list
+  EXPECT_THAT(Value::MakeStruct(struct_type, {}),
+              StatusIs(absl::StatusCode::kInternal));
+  // Span
+  EXPECT_THAT(Value::MakeStruct(struct_type, as_span),
+              StatusIs(absl::StatusCode::kInternal));
+  EXPECT_THAT(Value::MakeStruct(struct_type, as_vec),
+              StatusIs(absl::StatusCode::kInternal));
+  // Make sure span coercion works correctly.
+  EXPECT_THAT(Value::MakeStruct(struct_type, as_array),
+              StatusIs(absl::StatusCode::kInternal));
+  const std::vector<Value>& as_vec_c = as_vec;
+  EXPECT_THAT(Value::MakeStruct(struct_type, as_vec_c),
+              StatusIs(absl::StatusCode::kInternal));
+
+  // Move constructor
+  EXPECT_THAT(Value::MakeStruct(struct_type, std::move(as_vec)),
+              StatusIs(absl::StatusCode::kInternal));
+#ifndef NDEBUG
+  // When in debug mode, we check anyway, and expect an error.
+  EXPECT_THAT(Value::MakeStructFromValidatedInputs(struct_type, {}),
+              StatusIs(absl::StatusCode::kInternal));
+#else
+  // In production, we don't expect any validation, thus OK.
+  ZETASQL_EXPECT_OK(Value::MakeStructFromValidatedInputs(struct_type, {}));
+#endif
+
+  // Deprecated API
+  EXPECT_DEATH(Value::Struct(struct_type, {}), "(1 vs. 0)");
+  EXPECT_DEATH(Value::SafeStruct(struct_type, {}), "(1 vs. 0)");
+#ifndef NDEBUG
+  EXPECT_DEATH(Value::UnsafeStruct(struct_type, {}), "(1 vs. 0)");
+#endif
+
+  // Type mismatch
+  EXPECT_THAT(Value::MakeStruct(struct_type, {Value::String("abc")}),
+              StatusIs(absl::StatusCode::kInternal));
+
+  // We actually _do_ validate since we are in debug mode
+#ifndef NDEBUG
+  EXPECT_THAT(
+      Value::MakeStructFromValidatedInputs(struct_type, {Value::String("abc")}),
+      StatusIs(absl::StatusCode::kInternal));
+#else
+  ZETASQL_EXPECT_OK(Value::MakeStructFromValidatedInputs(struct_type,
+                                                 {Value::String("abc")}));
+#endif
+
+  // Deprecated API
+  EXPECT_DEATH(Value::Struct(struct_type, {Value::String("abc")}),
+               "Field type: INT64");
+  EXPECT_DEATH(Value::SafeStruct(struct_type, {Value::String("abc")}),
+               "Field type: INT64");
+#ifndef NDEBUG
+  EXPECT_DEATH(Value::UnsafeStruct(struct_type, {Value::String("abc")}),
+               "Field type: INT64");
+#endif
+}
+
 TEST_F(ValueTest, StructWithOneAnonymousField) {
   Value value = TestGetSQL(Struct({std::string("")}, {Value::Int64(5)}));
   EXPECT_EQ(1, value.num_fields());
@@ -1313,6 +1399,61 @@ TEST_F(ValueTest, ArrayNull) {
   Value value2 = TestGetSQL(Value::Null(MakeArrayType(StringType())));
   EXPECT_TRUE(value2.is_null());
   EXPECT_FALSE(value.Equals(value2));
+}
+
+TEST_F(ValueTest, MakeArrayConstruction) {
+  const ArrayType* array_type = MakeArrayType(Int64Type());
+  // No values
+  std::vector<Value> as_vec;
+  absl::Span<const Value> as_span;
+  std::array<Value, 0> as_array;
+  const std::vector<Value>& as_vec_c = as_vec;
+  // Initializer list
+  ZETASQL_ASSERT_OK_AND_ASSIGN(Value result, Value::MakeArray(array_type, {}));
+  EXPECT_THAT(result.elements(), IsEmpty());
+
+  // Span
+  ZETASQL_ASSERT_OK_AND_ASSIGN(result, Value::MakeArray(array_type, as_span));
+  EXPECT_THAT(result.elements(), IsEmpty());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(result, Value::MakeArray(array_type, as_vec));
+  EXPECT_THAT(result.elements(), IsEmpty());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(result, Value::MakeArray(array_type, as_array));
+  EXPECT_THAT(result.elements(), IsEmpty());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(result, Value::MakeArray(array_type, as_vec_c));
+  EXPECT_THAT(result.elements(), IsEmpty());
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(result, Value::MakeArray(array_type, std::move(as_vec)));
+  EXPECT_THAT(result.elements(), IsEmpty());
+}
+
+TEST_F(ValueTest, InvalidArrayConstruction) {
+  const ArrayType* array_type = MakeArrayType(Int64Type());
+
+  // Type mismatch
+  EXPECT_THAT(Value::MakeArray(array_type, {Value::String("abc")}),
+              StatusIs(absl::StatusCode::kInternal));
+
+#ifndef NDEBUG
+  // We actually _do_ validate since we are in debug mode
+  EXPECT_THAT(
+      Value::MakeArrayFromValidatedInputs(array_type, {Value::String("abc")}),
+      StatusIs(absl::StatusCode::kInternal));
+#else
+  ZETASQL_EXPECT_OK(
+      Value::MakeArrayFromValidatedInputs(array_type, {Value::String("abc")}));
+#endif
+  // Deprecated API
+  EXPECT_DEATH(Value::Array(array_type, {Value::String("abc")}),
+               "must be of type INT64");
+  EXPECT_DEATH(Value::ArraySafe(array_type, {Value::String("abc")}),
+               "must be of type INT64");
+#ifndef NDEBUG
+  EXPECT_DEATH(Value::UnsafeArray(array_type, {Value::String("abc")}),
+               "must be of type INT64");
+#endif
 }
 
 TEST_F(ValueTest, NumericArray) {
@@ -1384,6 +1525,19 @@ TEST_F(ValueTest, DoubleArray) {
             v2.GetSQLLiteral(PRODUCT_EXTERNAL));
   EXPECT_EQ("[1.5, CAST(\"inf\" AS DOUBLE)]",
             v2.GetSQLLiteral(PRODUCT_INTERNAL));
+}
+
+TEST_F(ValueTest, TimestampArray) {
+  Value v1 = TestGetSQL(
+      values::TimestampArray({ParseTimeHm("12:00"), ParseTimeHm("13:00")}));
+  EXPECT_EQ(v1.DebugString(),
+            "[1970-01-01 12:00:00+00, 1970-01-01 13:00:00+00]");
+  EXPECT_EQ(v1.FullDebugString(),
+            "Array[Timestamp(1970-01-01 12:00:00+00), "
+            "Timestamp(1970-01-01 13:00:00+00)]");
+  absl::Time t1 = ParseTimeHm("12:00"), t2 = ParseTimeHm("13:00");
+  Value v2 = values::TimestampArray({t1, t2});
+  EXPECT_EQ(v1, v2);
 }
 
 TEST_F(ValueTest, JsonArray) {
@@ -1459,12 +1613,12 @@ TEST_F(ValueTest, NestedArrayBag) {
   EXPECT_TRUE(array_x == array_xx);
   EXPECT_FALSE(array_x == array_y);
   std::string reason;
-  EXPECT_TRUE(
-      InternalValue::Equals(array_x, array_y, kExactFloatMargin, &reason))
+  EXPECT_TRUE(InternalValue::Equals(
+      array_x, array_y, ValueEqualityCheckOptions{.reason = &reason}))
       << reason;
   EXPECT_TRUE(reason.empty());
-  EXPECT_FALSE(
-      InternalValue::Equals(array_x, array_z, kExactFloatMargin, &reason));
+  EXPECT_FALSE(InternalValue::Equals(
+      array_x, array_z, ValueEqualityCheckOptions{.reason = &reason}));
   EXPECT_FALSE(reason.empty());
   ZETASQL_LOG(INFO) << "Reason: " << reason;
 }
@@ -1483,36 +1637,42 @@ TEST_F(ValueTest, AsymetricNestedArrayBag) {
   std::string why = "";
 
   // Positive tests.
-  EXPECT_TRUE(InternalValue::Equals(Array({struct_ord1, struct_ord2}),
-                                    Array({struct_unord1, struct_unord2}),
-                                    FloatMargin::UlpMargin(0), &why))
+  EXPECT_TRUE(InternalValue::Equals(
+      Array({struct_ord1, struct_ord2}), Array({struct_unord1, struct_unord2}),
+      ValueEqualityCheckOptions{.float_margin = FloatMargin::UlpMargin(0),
+                                .reason = &why}))
       << why;
 
   EXPECT_TRUE(InternalValue::Equals(
       Array({struct_ord1, struct_ord2}, kPreservesOrder),
       Array({struct_unord1, struct_unord2}, kIgnoresOrder),
-      FloatMargin::UlpMargin(0), &why))
+      ValueEqualityCheckOptions{.float_margin = FloatMargin::UlpMargin(0),
+                                .reason = &why}))
       << why;
 
-  EXPECT_TRUE(InternalValue::Equals(Array({struct_unord1, struct_unord2}),
-                                    Array({struct_ord1, struct_ord2}),
-                                    FloatMargin::UlpMargin(0), &why))
+  EXPECT_TRUE(InternalValue::Equals(
+      Array({struct_unord1, struct_unord2}), Array({struct_ord1, struct_ord2}),
+      ValueEqualityCheckOptions{.float_margin = FloatMargin::UlpMargin(0),
+                                .reason = &why}))
       << why;
 
-  EXPECT_TRUE(InternalValue::Equals(Array({struct_unord1, struct_ord2}),
-                                    Array({struct_ord1, struct_ord2}),
-                                    FloatMargin::UlpMargin(0), &why))
+  EXPECT_TRUE(InternalValue::Equals(
+      Array({struct_unord1, struct_ord2}), Array({struct_ord1, struct_ord2}),
+      ValueEqualityCheckOptions{.float_margin = FloatMargin::UlpMargin(0),
+                                .reason = &why}))
       << why;
 
-  EXPECT_TRUE(InternalValue::Equals(Array({struct_ord1, struct_ord1}),
-                                    Array({struct_unord1, struct_unord2}),
-                                    FloatMargin::UlpMargin(0), &why))
+  EXPECT_TRUE(InternalValue::Equals(
+      Array({struct_ord1, struct_ord1}), Array({struct_unord1, struct_unord2}),
+      ValueEqualityCheckOptions{.float_margin = FloatMargin::UlpMargin(0),
+                                .reason = &why}))
       << why;
 
   // Negative tests.
-  EXPECT_FALSE(InternalValue::Equals(Array({struct_ord1, struct_ord1}),
-                                     Array({struct_ord1, struct_ord2}),
-                                     FloatMargin::UlpMargin(0), &why))
+  EXPECT_FALSE(InternalValue::Equals(
+      Array({struct_ord1, struct_ord1}), Array({struct_ord1, struct_ord2}),
+      ValueEqualityCheckOptions{.float_margin = FloatMargin::UlpMargin(0),
+                                .reason = &why}))
       << why;
 }
 
@@ -1523,8 +1683,10 @@ TEST_F(ValueTest, InternalEqualsOnDifferentSizedStructs) {
   auto struct_2 = Struct({"", ""}, {Value::Int64(1), Value::Int64(1)});
 
   std::string why = "";
-  EXPECT_FALSE(InternalValue::Equals(struct_1, struct_2,
-                                     FloatMargin::UlpMargin(0), &why));
+  EXPECT_FALSE(InternalValue::Equals(
+      struct_1, struct_2,
+      ValueEqualityCheckOptions{.float_margin = FloatMargin::UlpMargin(0),
+                                .reason = &why}));
 }
 
 TEST_F(ValueTest, Invalid) {
@@ -1896,8 +2058,8 @@ TEST_F(ValueTest, Proto) {
 
   // One example where we get a reason out from the proto MessageDifferencer.
   std::string reason;
-  EXPECT_FALSE(
-      InternalValue::Equals(proto1, proto4, kExactFloatMargin, &reason));
+  EXPECT_FALSE(InternalValue::Equals(
+      proto1, proto4, ValueEqualityCheckOptions{.reason = &reason}));
   // We test that get a reason but don't compare the actual reason string.
   EXPECT_FALSE(reason.empty());
   ZETASQL_LOG(INFO) << "Reason: " << reason;
@@ -2000,7 +2162,7 @@ TEST_F(ValueTest, ClassAndProtoSize) {
   EXPECT_EQ(16, sizeof(Value))
       << "The size of Value class has changed, please also update the proto "
       << "and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(23, ValueProto::descriptor()->field_count())
+      EXPECT_EQ(23, ValueProto::descriptor()->field_count())
       << "The number of fields in ValueProto has changed, please also update "
       << "the serialization code accordingly.";
   EXPECT_EQ(1, ValueProto::Array::descriptor()->field_count())
@@ -2497,7 +2659,6 @@ void ValueTest::TestParameterizedValueAfterReleaseOfTypeFactory(
       const ArrayType* array_type;
       ZETASQL_ASSERT_OK(type_factory.MakeArrayType(struct_type, &array_type));
       array_value = values::Array(array_type, {struct_value});
-
 #ifdef NDEBUG
       if (!keep_type_alive_while_referenced_from_value) {
         ASSERT_EQ(internal::TypeStoreHelper::Test_GetRefCount(store), 1);

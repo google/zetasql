@@ -17,6 +17,7 @@
 #include "zetasql/resolved_ast/validator.h"
 
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/make_node_vector.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -264,6 +265,173 @@ TEST(ValidateTest, QueryStmtWithNullExpr) {
       StatusIs(
           absl::StatusCode::kInternal,
           HasSubstr("| +-x#1 := <nullptr AST node> (validation failed here)")));
+}
+
+TEST(ValidateTest, CreateFunctionStmtWithRemoteAndInvalidLanguage) {
+  std::unique_ptr<ResolvedCreateFunctionStmt> create_function_stmt =
+      MakeResolvedCreateFunctionStmt(
+          /*name_path=*/{"foo"},
+          /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+          /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+          /*has_explicit_return_type=*/true,
+          types::Int32Type(),
+          /*argument_name_list=*/{},
+          /*signature=*/{{types::Int32Type()}, {}, nullptr},
+          /*is_aggregate=*/false,
+          /*language=*/"SQL",
+          /*code=*/"",
+          /*aggregate_expression_list=*/{},
+          /*function_expression=*/nullptr,
+          /*option_list=*/{},
+          /*sql_security=*/ResolvedCreateStatement::SQL_SECURITY_UNSPECIFIED,
+          /*determinism_level=*/
+          ResolvedCreateStatement::DETERMINISM_UNSPECIFIED,
+          /*is_remote=*/true,
+          /*connection=*/nullptr);
+
+  Validator validator;
+  ASSERT_THAT(
+      validator.ValidateResolvedStatement(create_function_stmt.get()),
+      StatusIs(absl::StatusCode::kInternal,
+               HasSubstr("is_remote is true iff language is \"REMOTE\"")));
+}
+
+TEST(ValidateTest, CreateFunctionStmtWithRemoteAndRemoteLanguage) {
+  std::unique_ptr<ResolvedCreateFunctionStmt> create_function_stmt =
+      MakeResolvedCreateFunctionStmt(
+          /*name_path=*/{"foo"},
+          /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+          /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+          /*has_explicit_return_type=*/true, types::Int32Type(),
+          /*argument_name_list=*/{},
+          /*signature=*/{{types::Int32Type()}, {}, nullptr},
+          /*is_aggregate=*/false,
+          /*language=*/"remote",
+          /*code=*/"",
+          /*aggregate_expression_list=*/{},
+          /*function_expression=*/nullptr,
+          /*option_list=*/{},
+          /*sql_security=*/ResolvedCreateStatement::SQL_SECURITY_UNSPECIFIED,
+          /*determinism_level=*/
+          ResolvedCreateStatement::DETERMINISM_UNSPECIFIED,
+          /*is_remote=*/true,
+          /*connection=*/nullptr);
+
+  Validator validator;
+  ZETASQL_ASSERT_OK(validator.ValidateResolvedStatement(create_function_stmt.get()));
+}
+
+TEST(ValidateTest,
+     CreateFunctionStmtWithRemoteAndCodeWithRemoteFunctionFeatureEnabled) {
+  std::unique_ptr<ResolvedCreateFunctionStmt> create_function_stmt =
+      MakeResolvedCreateFunctionStmt(
+          /*name_path=*/{"foo"},
+          /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+          /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+          /*has_explicit_return_type=*/true, types::Int32Type(),
+          /*argument_name_list=*/{},
+          /*signature=*/{{types::Int32Type()}, {}, nullptr},
+          /*is_aggregate=*/false,
+          /*language=*/"REMOTE",
+          /*code=*/"return 1;",
+          /*aggregate_expression_list=*/{},
+          /*function_expression=*/nullptr,
+          /*option_list=*/{},
+          /*sql_security=*/ResolvedCreateStatement::SQL_SECURITY_UNSPECIFIED,
+          /*determinism_level=*/
+          ResolvedCreateStatement::DETERMINISM_UNSPECIFIED,
+          /*is_remote=*/true,
+          /*connection=*/nullptr);
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_V_1_3_REMOTE_FUNCTION);
+  Validator validator(language_options);
+  ASSERT_THAT(
+      validator.ValidateResolvedStatement(create_function_stmt.get()),
+      StatusIs(absl::StatusCode::kInternal, HasSubstr("stmt->code().empty()")));
+}
+
+TEST(ValidateTest,
+     CreateFunctionStmtWithRemoteAndCodeWithRemoteFunctionFeatureNotEnabled) {
+  std::unique_ptr<ResolvedCreateFunctionStmt> create_function_stmt =
+      MakeResolvedCreateFunctionStmt(
+          /*name_path=*/{"foo"},
+          /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+          /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+          /*has_explicit_return_type=*/true, types::Int32Type(),
+          /*argument_name_list=*/{},
+          /*signature=*/{{types::Int32Type()}, {}, nullptr},
+          /*is_aggregate=*/false,
+          /*language=*/"REMOTE",
+          /*code=*/"return 1;",
+          /*aggregate_expression_list=*/{},
+          /*function_expression=*/nullptr,
+          /*option_list=*/{},
+          /*sql_security=*/ResolvedCreateStatement::SQL_SECURITY_UNSPECIFIED,
+          /*determinism_level=*/
+          ResolvedCreateStatement::DETERMINISM_UNSPECIFIED,
+          /*is_remote=*/true,
+          /*connection=*/nullptr);
+
+  Validator validator;
+  ZETASQL_ASSERT_OK(validator.ValidateResolvedStatement(create_function_stmt.get()));
+}
+
+TEST(ValidateTest, CreateFunctionStmtWithConnectionButNotRemote) {
+  SimpleConnection connection("connection_id");
+  std::unique_ptr<ResolvedCreateFunctionStmt> create_function_stmt =
+      MakeResolvedCreateFunctionStmt(
+          /*name_path=*/{"foo"},
+          /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+          /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+          /*has_explicit_return_type=*/true,
+          types::Int32Type(),
+          /*argument_name_list=*/{},
+          /*signature=*/{{types::Int32Type()}, {}, nullptr},
+          /*is_aggregate=*/false,
+          /*language=*/"SQL",
+          /*code=*/"",
+          /*aggregate_expression_list=*/{},
+          /*function_expression=*/nullptr,
+          /*option_list=*/{},
+          /*sql_security=*/ResolvedCreateStatement::SQL_SECURITY_UNSPECIFIED,
+          /*determinism_level=*/
+          ResolvedCreateStatement::DETERMINISM_UNSPECIFIED,
+          /*is_remote=*/false,
+          MakeResolvedConnection(&connection));
+
+  Validator validator;
+  ASSERT_THAT(
+      validator.ValidateResolvedStatement(create_function_stmt.get()),
+      StatusIs(absl::StatusCode::kInternal, HasSubstr("stmt->is_remote()")));
+}
+
+TEST(ValidateTest, CreateFunctionStmtWithRemoteLanguageButNotRemote) {
+  std::unique_ptr<ResolvedCreateFunctionStmt> create_function_stmt =
+      MakeResolvedCreateFunctionStmt(
+          /*name_path=*/{"foo"},
+          /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+          /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+          /*has_explicit_return_type=*/true,
+          types::Int32Type(),
+          /*argument_name_list=*/{},
+          /*signature=*/{{types::Int32Type()}, {}, nullptr},
+          /*is_aggregate=*/false,
+          /*language=*/"REMOTE",
+          /*code=*/"",
+          /*aggregate_expression_list=*/{},
+          /*function_expression=*/nullptr,
+          /*option_list=*/{},
+          /*sql_security=*/ResolvedCreateStatement::SQL_SECURITY_UNSPECIFIED,
+          /*determinism_level=*/
+          ResolvedCreateStatement::DETERMINISM_UNSPECIFIED,
+          /*is_remote=*/false,
+          /*connection=*/nullptr);
+
+  Validator validator;
+  ASSERT_THAT(
+      validator.ValidateResolvedStatement(create_function_stmt.get()),
+      StatusIs(absl::StatusCode::kInternal,
+               HasSubstr("is_remote is true iff language is \"REMOTE\"")));
 }
 
 }  // namespace testing

@@ -60,8 +60,7 @@ class Coercer {
 
   // Deprecate the constructor below since default_timezone shouldn't impact the
   // decision on whether cast/coercion is possible.
-  ABSL_DEPRECATED(
-      "use Coercer(type_factory, language_options, catalog) instead")
+  ABSL_DEPRECATED("Inline me!")
   Coercer(TypeFactory* type_factory, const absl::TimeZone default_timezone,
           const LanguageOptions* language_options)
       : Coercer(type_factory, language_options) {}

@@ -47,6 +47,40 @@ class ZetaSqlLocalServiceGrpcImpl
       grpc::ServerReaderWriter<EvaluateResponseBatch, EvaluateRequestBatch>*
           stream) override;
 
+  grpc::Status PrepareQuery(grpc::ServerContext* context,
+                            const PrepareQueryRequest* req,
+                            PrepareQueryResponse* resp) override;
+
+  grpc::Status UnprepareQuery(grpc::ServerContext* context,
+                              const UnprepareQueryRequest* req,
+                              google::protobuf::Empty* unused) override;
+
+  grpc::Status EvaluateQuery(grpc::ServerContext* context,
+                             const EvaluateQueryRequest* req,
+                             EvaluateQueryResponse* resp) override;
+
+  grpc::Status EvaluateQueryStream(
+      grpc::ServerContext* context,
+      grpc::ServerReaderWriter<EvaluateQueryBatchResponse,
+                               EvaluateQueryBatchRequest>* stream) override;
+
+  grpc::Status PrepareModify(grpc::ServerContext* context,
+                             const PrepareModifyRequest* req,
+                             PrepareModifyResponse* resp) override;
+
+  grpc::Status UnprepareModify(grpc::ServerContext* context,
+                               const UnprepareModifyRequest* req,
+                               google::protobuf::Empty* unused) override;
+
+  grpc::Status EvaluateModify(grpc::ServerContext* context,
+                              const EvaluateModifyRequest* req,
+                              EvaluateModifyResponse* resp) override;
+
+  grpc::Status EvaluateModifyStream(
+      grpc::ServerContext* context,
+      grpc::ServerReaderWriter<EvaluateModifyBatchResponse,
+                               EvaluateModifyBatchRequest>* stream) override;
+
   grpc::Status GetTableFromProto(grpc::ServerContext* context,
                                  const TableFromProtoRequest* req,
                                  SimpleTableProto* resp) override;
@@ -92,6 +126,10 @@ class ZetaSqlLocalServiceGrpcImpl
   grpc::Status GetAnalyzerOptions(grpc::ServerContext* context,
                                   const AnalyzerOptionsRequest* req,
                                   AnalyzerOptionsProto* resp) override;
+
+  grpc::Status Parse(grpc::ServerContext* context,
+                     const ParseRequest* req,
+                     ParseResponse* resp) override;
 
  private:
   ZetaSqlLocalServiceImpl service_;

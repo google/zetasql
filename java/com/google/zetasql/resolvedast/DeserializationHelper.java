@@ -124,9 +124,7 @@ public final class DeserializationHelper {
 
   Procedure deserialize(ProcedureRefProto proto) {
     ImmutableList.Builder<String> namePath = new ImmutableList.Builder<>();
-    for (String item : Splitter.on('.').split(proto.getName())) {
-      namePath.add(item);
-    }
+    namePath.addAll(Splitter.on('.').split(proto.getName()));
     Procedure procedure;
     try {
       procedure = catalog.findProcedure(namePath.build());

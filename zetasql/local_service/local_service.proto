@@ -20,6 +20,7 @@ package zetasql.local_service;
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/descriptor.proto";
+import "zetasql/parser/parse_tree.proto";
 import "zetasql/proto/function.proto";
 import "zetasql/proto/options.proto";
 import "zetasql/proto/simple_catalog.proto";
@@ -62,6 +63,48 @@ service ZetaSqlLocalService {
   }
   // Cleanup the prepared expression kept at server side with given id.
   rpc Unprepare(UnprepareRequest) returns (google.protobuf.Empty) {
+  }
+  // Prepare the sql query in PrepareQueryRequest with given parameters
+  // with zetasql::PreparedQuery and return the result type
+  // as PrepareQueryResponse. The prepared query will be kept at server
+  // side which can be referred to with the returned id.
+  rpc PrepareQuery(PrepareQueryRequest) returns (PrepareQueryResponse) {
+  }
+  // Cleanup the prepared query kept at server side with given id.
+  rpc UnprepareQuery(UnprepareQueryRequest) returns (google.protobuf.Empty) {
+  }
+  // Evaluate the prepared query in EvaluateQueryRequest with given parameters
+  // with zetasql::PreparedQuery and return the result and value
+  // as EvaluateQueryResponse.
+  rpc EvaluateQuery(EvaluateQueryRequest) returns (EvaluateQueryResponse) {
+  }
+  // Evaluate a Stream of prepared query batches and return a stream of
+  // result batches. Requests will be evaluated and returned in the same order
+  // as received, but batches may be packed differently.
+  rpc EvaluateQueryStream(stream EvaluateQueryBatchRequest)
+      returns (stream EvaluateQueryBatchResponse) {
+  }
+  // Prepare the sql modify statement in PrepareModifyRequest
+  // with given parameters with zetasql::PreparedModify and return
+  // the result type as PrepareModifyResponse. The prepared modify will be kept
+  // at server side which can be referred to with the returned id.
+  rpc PrepareModify(PrepareModifyRequest) returns (PrepareModifyResponse) {
+  }
+  // Cleanup the prepared modify kept at server side with given id.
+  rpc UnprepareModify(UnprepareModifyRequest) returns (google.protobuf.Empty) {
+  }
+  // Evaluate the prepared modify statement in EvaluateModifyRequest
+  // with given parameters with zetasql::PreparedModify and return
+  // the result and value as EvaluateModifyResponse.
+  // Note: This API does not actually modify the contents of any of the  tables
+  // being accessed
+  rpc EvaluateModify(EvaluateModifyRequest) returns (EvaluateModifyResponse) {
+  }
+  // Evaluate a Stream of prepared modify batches and return a stream of
+  // result batches. Requests will be evaluated and returned in the same order
+  // as received, but batches may be packed differently.
+  rpc EvaluateModifyStream(stream EvaluateModifyBatchRequest)
+      returns (stream EvaluateModifyBatchResponse) {
   }
   // Get a table schema from a proto.
   rpc GetTableFromProto(TableFromProtoRequest) returns (SimpleTableProto) {
@@ -137,6 +180,9 @@ service ZetaSqlLocalService {
   // Gets ZetaSQL analyzer options.
   rpc GetAnalyzerOptions(AnalyzerOptionsRequest)
       returns (AnalyzerOptionsProto) {
+  }
+  // Return the parsed SQL statement.
+  rpc Parse(ParseRequest) returns (ParseResponse) {
   }
 }
 
@@ -312,6 +358,220 @@ message UnprepareRequest {
   optional int64 prepared_expression_id = 1;
 }
 
+message PrepareQueryRequest {
+  optional string sql = 1;
+  optional AnalyzerOptionsProto options = 2;
+  optional DescriptorPoolListProto descriptor_pool_list = 3;
+  oneof catalog {
+    SimpleCatalogProto simple_catalog = 4;
+    // If using the registered_catalog_id, the service will return an error
+    // if the table_content is provide as well.
+    int64 registered_catalog_id = 5;
+  }
+
+  // A map between a table name and its content which enable
+  // users to set the content for their tables.
+  // This is needed because the SimpleTableProto does not provide such a field.
+  // When using a registered catalog, if the table_content is provided
+  // then an error will be returned.
+  // At the moment, because we don't have a concrete use case
+  // where the user needs to update the content of any of the tables
+  // after the catalog has been registered, we did not implement the required
+  // logic within the service. This could change once such an use case occurs.
+  map<string, TableContent> table_content = 6;
+}
+
+message PreparedQueryState {
+  optional int64 prepared_query_id = 1;
+
+  repeated string referenced_parameters = 2;
+  optional int64 positional_parameter_count = 3;
+
+  // The list of columns representing the resulting table
+  repeated SimpleColumnProto columns = 4;
+
+  // An ordered list of descriptor_pool_ids that match (in length and order)
+  // the descriptor_pool_list sent in PrepareQueryRequest.
+  // This may be necessary in the case of a PreparedQuery.
+  optional DescriptorPoolIdList descriptor_pool_id_list = 5;
+}
+
+message PrepareQueryResponse {
+  optional PreparedQueryState prepared = 1;
+}
+
+message Parameter {
+  optional string name = 1;
+  optional ValueProto value = 2;
+  reserved 3;
+}
+
+message UnprepareQueryRequest {
+  optional int64 prepared_query_id = 1;
+}
+
+message EvaluateQueryRequest {
+  optional string sql = 1;
+  optional AnalyzerOptionsProto options = 2;
+  // This list defines how to construct the list of DescriptorPools for
+  // use during deserialization.
+  optional DescriptorPoolListProto descriptor_pool_list = 3;
+
+  oneof catalog {
+    SimpleCatalogProto simple_catalog = 4;
+    // If using the registered_catalog_id, the service will return an error
+    // if the table_content is provide as well.
+    int64 registered_catalog_id = 5;
+    // Set if the query statement is already prepared, in which case
+    // sql, options and descriptor_pool_list will be ignored.
+    // An error is being return if a prepared query is being used and
+    // the table_content is provided as well.
+    int64 prepared_query_id = 6;
+  }
+
+  // A map between a table name and its content which enable
+  // users to set the content for their tables.
+  // This is needed because the SimpleTableProto does not provide such a field.
+  // When using a registered catalog or a prepared query statement,
+  // if the table_content is provided then an error will be returned.
+  // At the moment, because we don't have a concrete use case
+  // where the user needs to update the content of any of the tables
+  // after the catalog has been registered, we did not implement the required
+  // logic within the service. This could change once such an use case occurs.
+  map<string, TableContent> table_content = 7;
+
+  repeated Parameter params = 8;
+}
+
+message EvaluateQueryResponse {
+  // The content
+  optional TableContent content = 1;
+  // This contains the schema for the results table
+  optional PreparedQueryState prepared = 2;
+}
+
+message EvaluateQueryBatchRequest {
+  repeated EvaluateQueryRequest request = 1;
+}
+
+message EvaluateQueryBatchResponse {
+  repeated EvaluateQueryResponse response = 1;
+}
+
+message PrepareModifyRequest {
+  // This contains a single SQL statement of type INSERT, UPDATE or DELETE
+  optional string sql = 1;
+  optional AnalyzerOptionsProto options = 2;
+  optional DescriptorPoolListProto descriptor_pool_list = 3;
+  oneof catalog {
+    SimpleCatalogProto simple_catalog = 4;
+    // If using the registered_catalog_id, the service will return an error
+    // if the table_content is provide as well.
+    int64 registered_catalog_id = 5;
+  }
+
+  // A map between a table name and its content which enable
+  // users to set the content for their tables.
+  // This is needed because the SimpleTableProto does not provide such a field.
+  // When using a registered catalog, if the table_content is provided
+  // then an error will be returned.
+  // At the moment, because we don't have a concrete use case
+  // where the user needs to update the content of any of the tables
+  // after the catalog has been registered, we did not implement the required
+  // logic within the service. This could change once such an use case occurs.
+  map<string, TableContent> table_content = 6;
+}
+
+message PreparedModifyState {
+  optional int64 prepared_modify_id = 1;
+
+  repeated string referenced_parameters = 2;
+  optional int64 positional_parameter_count = 3;
+
+  // An ordered list of descriptor_pool_ids that match (in length and order)
+  // the descriptor_pool_list sent in PrepareModifyRequest.
+  // This may be necessary in the case of a PreparedModify.
+  optional DescriptorPoolIdList descriptor_pool_id_list = 5;
+}
+
+message PrepareModifyResponse {
+  optional PreparedModifyState prepared = 1;
+}
+
+message UnprepareModifyRequest {
+  optional int64 prepared_modify_id = 1;
+}
+
+message EvaluateModifyRequest {
+  // This contains a single SQL statement of type INSERT, UPDATE or DELETE
+  optional string sql = 1;
+  optional AnalyzerOptionsProto options = 2;
+  // This list defines how to construct the list of DescriptorPools for
+  // use during deserialization.
+  optional DescriptorPoolListProto descriptor_pool_list = 3;
+
+  oneof catalog {
+    SimpleCatalogProto simple_catalog = 4;
+    // If using the registered_catalog_id, the service will return an error
+    // if the table_content is provide as well.
+    int64 registered_catalog_id = 5;
+    // Set if the modify statement is already prepared, in which case
+    // sql, options and descriptor_pool_list will be ignored.
+    // An error is being return if a prepared modify is being used and
+    // the table_content is provided as well.
+    int64 prepared_modify_id = 6;
+  }
+
+  // A map between a table name and its content which enable
+  // users to set the content for their tables.
+  // This is needed because the SimpleTableProto does not provide such a field.
+  // When using a registered catalog or a prepared modify statement,
+  // if the table_content is provided then an error will be returned.
+  // At the moment, because we don't have a concrete use case
+  // where the user needs to update the content of any of the tables
+  // after the catalog has been registered, we did not implement the required
+  // logic within the service. This could change once such an use case occurs.
+  map<string, TableContent> table_content = 7;
+
+  repeated Parameter params = 8;
+}
+
+message EvaluateModifyResponse {
+  // The name of the table that has been modified
+  optional string table_name = 1;
+
+  // This represents a row that was modified by the sql statement
+  message Row {
+    enum Operation {
+      UNKNOWN = 0;
+      INSERT = 1;
+      DELETE = 2;
+      UPDATE = 3;
+    }
+
+    // The DML operation performed on the current row
+    optional Operation operation = 1;
+    // The new values for all cells inside the row after executing
+    // the sql statement
+    repeated ValueProto cell = 2;
+    // The old values of the primary keys before executing the sql statement
+    repeated ValueProto old_primary_key = 3;
+  }
+
+  // This will contain the list of rows being touched
+  repeated Row content = 2;
+
+  optional PreparedModifyState prepared = 3;
+}
+
+message EvaluateModifyBatchRequest {
+  repeated EvaluateModifyRequest request = 1;
+}
+
+message EvaluateModifyBatchResponse {
+  repeated EvaluateModifyResponse response = 1;
+}
+
 message TableFromProtoRequest {
   optional ProtoTypeProto proto = 1;
   optional google.protobuf.FileDescriptorSet file_descriptor_set = 2;
@@ -438,7 +698,24 @@ message RegisterCatalogRequest {
   // use during deserialization.
   optional DescriptorPoolListProto descriptor_pool_list = 3;
 
+  // A map between a table name and its content which enable
+  // users to set the content for their tables
+  // This is needed because the SimpleTableProto does not provide such a field
+  map<string, TableContent> table_content = 4;
+
   reserved 2;
+}
+
+message TableContent {
+  optional TableData table_data = 1;
+}
+
+message TableData {
+  // A list of Values representing one single row in the table
+  message Row {
+    repeated ValueProto cell = 1;
+  }
+  repeated Row row = 1;
 }
 
 message RegisterResponse {
@@ -463,3 +740,15 @@ message LanguageOptionsRequest {
 }
 
 message AnalyzerOptionsRequest {}
+
+message ParseRequest {
+  oneof target {
+    string sql_statement = 1;
+  }
+}
+
+message ParseResponse {
+  oneof result {
+    AnyASTStatementProto parsed_statement = 1;
+  }
+}

@@ -1,7 +1,7 @@
 <!-- resolved_ast.md GENERATED FROM
   -- https://github.com/google/zetasql/blob/master/zetasql/resolved_ast/resolved_ast.md.template
   -- by
-  -- https://github.com/google/zetasql/blob/master/docs/staging/dictionaries/zetasql/generate_resolved_ast.sh
+  -- https://github.com/google/zetasql/blob/master/zetasql/g3doc_source/dictionaries/zetasql/generate_resolved_ast.sh
   -->
 
 # ZetaSQL Resolved AST

@@ -131,24 +131,21 @@ TEST_F(ExpressionSubstitutorTest, RequiresArenas) {
   {
     AnalyzerOptions options = options_;
     options.set_column_id_sequence_number(nullptr);
-    EXPECT_THAT(AnalyzeSubstitute(options, AllRewriters(), catalog_,
-                                  type_factory_, "1 + 2", {})
+    EXPECT_THAT(AnalyzeSubstitute(options, catalog_, type_factory_, "1 + 2", {})
                     .status(),
                 zetasql_base::testing::StatusIs(absl::StatusCode::kInternal));
   }
   {
     AnalyzerOptions options = options_;
     options.set_id_string_pool(nullptr);
-    EXPECT_THAT(AnalyzeSubstitute(options, AllRewriters(), catalog_,
-                                  type_factory_, "1 + 2", {})
+    EXPECT_THAT(AnalyzeSubstitute(options, catalog_, type_factory_, "1 + 2", {})
                     .status(),
                 zetasql_base::testing::StatusIs(absl::StatusCode::kInternal));
   }
   {
     AnalyzerOptions options = options_;
     options.set_arena(nullptr);
-    EXPECT_THAT(AnalyzeSubstitute(options, AllRewriters(), catalog_,
-                                  type_factory_, "1 + 2", {})
+    EXPECT_THAT(AnalyzeSubstitute(options, catalog_, type_factory_, "1 + 2", {})
                     .status(),
                 zetasql_base::testing::StatusIs(absl::StatusCode::kInternal));
   }
@@ -158,8 +155,7 @@ TEST_F(ExpressionSubstitutorTest, ColumnReferences) {
   // Make sure the subquery's parameter list is set up properly when the
   // expressions being substituted in contain column references.
   auto result = *AnalyzeSubstitute(
-      options_, AllRewriters(), catalog_, type_factory_,
-      "col1 + col2 + col1 + col2",
+      options_, catalog_, type_factory_, "col1 + col2 + col1 + col2",
       {{"col1", col1_ref_.get()}, {"col2", col2_ref_.get()}});
   ASSERT_TRUE(result->type()->IsInt64());
   const auto& parameter_list =
@@ -183,7 +179,7 @@ TEST_F(ExpressionSubstitutorTest, SubstituteExpressions) {
       &type_factory_, types::Int64Type(), &base_arg_analyzer_output));
 
   auto result = *AnalyzeSubstitute(
-      options_, AllRewriters(), catalog_, type_factory_,
+      options_, catalog_, type_factory_,
       "ARRAY(SELECT x FROM UNNEST(array_arg) x WHERE MOD(x, "
       "base_arg) = 0)",
       {{"array_arg", array_arg_analyzer_output->resolved_expr()},
@@ -264,9 +260,9 @@ TEST_F(ExpressionSubstitutorTest, SubstituteLambda) {
   ARRAY(SELECT x FROM UNNEST([1,2,3]) x WITH OFFSET off
         WHERE INVOKE(@mylambda, x, off))
   )sql";
-  auto result = *AnalyzeSubstitute(options_, AllRewriters(), catalog_,
-                                   type_factory_, input_sql, {},
-                                   /*lambdas=*/{{"mylambda", filter_lambda_}});
+  auto result =
+      *AnalyzeSubstitute(options_, catalog_, type_factory_, input_sql, {},
+                         /*lambdas=*/{{"mylambda", filter_lambda_}});
 
   ZETASQL_VLOG(1) << result->DebugString();
   // NOTE:
@@ -324,9 +320,9 @@ TEST_F(ExpressionSubstitutorTest,
   ARRAY(SELECT x FROM UNNEST([1,2,3]) x WITH OFFSET off
         WHERE (SELECT INVOKE(@mylambda, x, off)))
   )sql";
-  auto result = *AnalyzeSubstitute(options_, AllRewriters(), catalog_,
-                                   type_factory_, input_sql, {},
-                                   /*lambdas=*/{{"mylambda", filter_lambda_}});
+  auto result =
+      *AnalyzeSubstitute(options_, catalog_, type_factory_, input_sql, {},
+                         /*lambdas=*/{{"mylambda", filter_lambda_}});
 
   ZETASQL_VLOG(1) << result->DebugString();
   // Note: ZetaSQL:$add arguments are correlated.
@@ -413,9 +409,8 @@ TEST_F(ExpressionSubstitutorTest, SubstituteErrors) {
   {
     // Use of undefined variable
     constexpr absl::string_view input_sql = "col2 + 1";
-    auto result =
-        AnalyzeSubstitute(options_, AllRewriters(), catalog_, type_factory_,
-                          input_sql, {{"col1", col1_ref_.get()}});
+    auto result = AnalyzeSubstitute(options_, catalog_, type_factory_,
+                                    input_sql, {{"col1", col1_ref_.get()}});
     ASSERT_THAT(result.status(), StatusIs(absl::StatusCode::kInvalidArgument,
                                           HasSubstr("Unrecognized name")));
   }
@@ -423,9 +418,9 @@ TEST_F(ExpressionSubstitutorTest, SubstituteErrors) {
   {
     // Using lambda as normal query parameter.
     constexpr absl::string_view input_sql = "@lambda AND FALSE";
-    auto result = AnalyzeSubstitute(
-        options_, AllRewriters(), catalog_, type_factory_, input_sql,
-        {{"col1", col1_ref_.get()}}, {{"lambda", lambda}});
+    auto result =
+        AnalyzeSubstitute(options_, catalog_, type_factory_, input_sql,
+                          {{"col1", col1_ref_.get()}}, {{"lambda", lambda}});
     ASSERT_THAT(
         result.status(),
         StatusIs(
@@ -437,9 +432,9 @@ TEST_F(ExpressionSubstitutorTest, SubstituteErrors) {
     // First argument of INVOKE is not named query parameter
     constexpr absl::string_view input_sql =
         "(SELECT INVOKE(element + 1,  element) FROM (SELECT 1 as element))";
-    auto result = AnalyzeSubstitute(
-        options_, AllRewriters(), catalog_, type_factory_, input_sql,
-        {{"col1", col1_ref_.get()}}, {{"lambda", lambda}});
+    auto result =
+        AnalyzeSubstitute(options_, catalog_, type_factory_, input_sql,
+                          {{"col1", col1_ref_.get()}}, {{"lambda", lambda}});
     ASSERT_THAT(
         result.status(),
         StatusIs(absl::StatusCode::kInvalidArgument,
@@ -451,9 +446,9 @@ TEST_F(ExpressionSubstitutorTest, SubstituteErrors) {
     // Lambda not found for INVOKE
     constexpr absl::string_view input_sql =
         "(SELECT INVOKE(@lambda2,  element) FROM (SELECT 1 as element))";
-    auto result = AnalyzeSubstitute(
-        options_, AllRewriters(), catalog_, type_factory_, input_sql,
-        {{"col1", col1_ref_.get()}}, {{"lambda", lambda}});
+    auto result =
+        AnalyzeSubstitute(options_, catalog_, type_factory_, input_sql,
+                          {{"col1", col1_ref_.get()}}, {{"lambda", lambda}});
     ASSERT_THAT(result.status(),
                 StatusIs(absl::StatusCode::kInvalidArgument,
                          HasSubstr("Query parameter 'lambda2' not found")));
@@ -463,9 +458,9 @@ TEST_F(ExpressionSubstitutorTest, SubstituteErrors) {
     // Using projected variable as lambda
     constexpr absl::string_view input_sql =
         "(SELECT INVOKE(@col1,  element) FROM (SELECT 1 as element))";
-    auto result = AnalyzeSubstitute(
-        options_, AllRewriters(), catalog_, type_factory_, input_sql,
-        {{"col1", col1_ref_.get()}}, {{"lambda", lambda}});
+    auto result =
+        AnalyzeSubstitute(options_, catalog_, type_factory_, input_sql,
+                          {{"col1", col1_ref_.get()}}, {{"lambda", lambda}});
     ASSERT_THAT(result.status(),
                 StatusIs(absl::StatusCode::kInvalidArgument,
                          HasSubstr("No lambda named col1 is found")));

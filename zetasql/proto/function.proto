@@ -115,6 +115,7 @@ message FunctionSignatureOptionsProto {
   optional bool is_aliased_signature = 5 [default = false];
   optional bool propagates_collation = 6 [default = true];
   optional bool uses_operation_collation = 7 [default = false];
+  optional bool rejects_collation = 8 [default = false];
 }
 
 message FunctionSignatureProto {

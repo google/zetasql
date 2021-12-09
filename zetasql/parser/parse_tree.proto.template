@@ -17,6 +17,8 @@
 syntax = "proto2";
 
 package zetasql;
+option java_package = "com.google.zetasql.parser";
+option java_multiple_files = true;
 
 import "zetasql/parser/ast_enums.proto";
 import "zetasql/public/parse_location_range.proto";

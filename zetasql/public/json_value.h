@@ -97,8 +97,11 @@ class JSONValue final {
   // Decodes a binary representation of a JSON value produced by
   // JSONValueConstRef::SerializeAndAppendToProtoBytes(). Returns an error if
   // 'str' is not a valid binary representation.
+  // Returns an error if the max nesting level of the JSON value exceeds
+  // 'max_nesting_level'. If 'max_nesting_level' < 0, 0 will be used instead.
   static absl::StatusOr<JSONValue> DeserializeFromProtoBytes(
-      absl::string_view str);
+      absl::string_view str,
+      absl::optional<int> max_nesting_level = absl::nullopt);
 
   // Returns a JSON value that is a deep copy of the given value.
   static JSONValue CopyFrom(JSONValueConstRef value);

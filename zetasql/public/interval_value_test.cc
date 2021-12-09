@@ -30,6 +30,7 @@
 namespace zetasql {
 namespace {
 
+using zetasql_base::testing::IsOkAndHolds;
 using zetasql_base::testing::StatusIs;
 
 using interval_testing::Days;
@@ -133,15 +134,15 @@ TEST(IntervalValueTest, Nanos) {
                                -1001,
                                123456789,
                                -987654321012345};
-  for (int64_t value : values) {
+  for (__int128 value : values) {
     ZETASQL_ASSERT_OK_AND_ASSIGN(interval, IntervalValue::FromNanos(value));
     EXPECT_EQ(value, interval.get_nanos());
     EXPECT_EQ(value, interval.GetAsNanos());
     EXPECT_GE(interval.get_nano_fractions(), 0);
   }
-  EXPECT_THAT(IntervalValue::FromMicros(IntervalValue::kMaxMicros + 1),
+  EXPECT_THAT(IntervalValue::FromNanos(IntervalValue::kMaxNanos + 1),
               StatusIs(absl::StatusCode::kOutOfRange));
-  EXPECT_THAT(IntervalValue::FromMicros(IntervalValue::kMinMicros - 1),
+  EXPECT_THAT(IntervalValue::FromNanos(IntervalValue::kMinNanos - 1),
               StatusIs(absl::StatusCode::kOutOfRange));
 }
 
@@ -832,6 +833,105 @@ TEST(IntervalValueTest, SumAggregatorAverage) {
   EXPECT_EQ(Nanos(-1), *agg2.GetAverage(4));
   EXPECT_EQ(Nanos(-1), *agg2.GetAverage(5));
   EXPECT_EQ(Nanos(0), *agg2.GetAverage(6));
+}
+
+TEST(IntervalValueTest, SumAggregatorDeserializeEdgeCases) {
+  // Empty string produces empty aggregator
+  EXPECT_THAT(IntervalValue::SumAggregator::DeserializeFromProtoBytes(""),
+              IsOkAndHolds(::testing::Property(
+                  &IntervalValue::SumAggregator::DebugString,
+                  "IntervalValue::SumAggregator (months=0, days=0, nanos=0)")));
+
+  // Input string too small to deserialize month
+  EXPECT_THAT(IntervalValue::SumAggregator::DeserializeFromProtoBytes("abc"),
+              StatusIs(absl::StatusCode::kOutOfRange));
+
+  // Input string too small to deserialize month and day
+  EXPECT_THAT(IntervalValue::SumAggregator::DeserializeFromProtoBytes(
+                  "1234567890123456abc"),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(
+      IntervalValue::SumAggregator::DeserializeFromProtoBytes("1234567890"),
+      StatusIs(absl::StatusCode::kOutOfRange));
+
+  // 32-byte input string, just barely long enough for month and day.
+  EXPECT_THAT(IntervalValue::SumAggregator::DeserializeFromProtoBytes(
+                  "123456789012345678901234567890123456789012"),
+              IsOkAndHolds(::testing::Property(
+                  &IntervalValue::SumAggregator::DebugString,
+                  "IntervalValue::SumAggregator (months=7.21E+37, "
+                  "days=6.67E+37, nanos=237025689473491305575475)")));
+  // 33-byte input string. Holds month and day, plus one extra byte for nanos.
+  EXPECT_THAT(IntervalValue::SumAggregator::DeserializeFromProtoBytes(
+                  "1234567890123456789012345678901234567890123"),
+              IsOkAndHolds(::testing::Property(
+                  &IntervalValue::SumAggregator::DebugString,
+                  "IntervalValue::SumAggregator (months=7.21E+37, "
+                  "days=6.67E+37, nanos=61892242489819579215590451)")));
+
+  // 1K input string, holds room for month, day, and nanos, with other stuff
+  // at the end.
+  EXPECT_THAT(IntervalValue::SumAggregator::DeserializeFromProtoBytes(
+                  std::string(1024, 'a')),
+              StatusIs(absl::StatusCode::kOutOfRange));
+}
+
+TEST(IntervalValueTest, SumAggregatorSerializeDeserialize) {
+  // Positive intervals
+  IntervalValue::SumAggregator agg1;
+  agg1.Add(Years(1));
+  agg1.Add(Months(2));
+  agg1.Add(Days(3));
+  agg1.Add(Hours(4));
+  agg1.Add(Minutes(5));
+  agg1.Add(Seconds(6));
+  agg1.Add(Nanos(7));
+
+  // Negative intervals
+  IntervalValue::SumAggregator agg2;
+  agg1.Add(Years(-1));
+  agg1.Add(Months(-2));
+  agg1.Add(Days(-3));
+  agg1.Add(Hours(-4));
+  agg1.Add(Minutes(-5));
+  agg1.Add(Seconds(-6));
+  agg1.Add(Nanos(-7));
+
+  // Intervals whose cumulative sum exceeds 10000 years
+  IntervalValue::SumAggregator agg3;
+  agg3.Add(Years(5000));
+  agg3.Add(Years(5000));
+  agg3.Add(Years(5000));
+
+  for (const IntervalValue::SumAggregator* agg : {&agg1, &agg2, &agg3}) {
+    SCOPED_TRACE(agg->DebugString());
+    // Make sure serialization result is the same when appending
+    std::string serialized = agg->SerializeAsProtoBytes();
+    std::string serialized_via_append("test");
+    agg->SerializeAndAppendToProtoBytes(&serialized_via_append);
+    EXPECT_EQ(absl::StrCat("test", serialized), serialized_via_append);
+
+    // Deserialize the serialized bytes and make sure the deserialized
+    // aggregator holds the same state as the original.
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        IntervalValue::SumAggregator deserialized,
+        IntervalValue::SumAggregator::DeserializeFromProtoBytes(serialized));
+
+    EXPECT_EQ(deserialized.DebugString(), agg->DebugString());
+  }
+}
+
+TEST(IntervalValueTest, SumAggregatorMerge) {
+  IntervalValue::SumAggregator agg1;
+  agg1.Add(Interval("1-2 3 4:5:6.123456789"));
+  agg1.Add(Days(15));
+
+  IntervalValue::SumAggregator agg2;
+  agg2.Add(Days(5));
+  agg2.Add(Seconds(30));
+
+  agg1.MergeWith(agg2);
+  EXPECT_THAT(agg1.GetSum(), IsOkAndHolds(Interval("1-2 23 4:5:36.123456789")));
 }
 
 TEST(IntervalValueTest, ToString) {

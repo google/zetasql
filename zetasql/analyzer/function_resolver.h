@@ -33,6 +33,7 @@
 #include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/templated_sql_function.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -165,8 +166,24 @@ class FunctionResolver {
   // Note: <ast_location> is expected to refer to the location of <argument>,
   // and would be more appropriate as type ASTExpression, though this would
   // require refactoring some callers.
+  ABSL_DEPRECATED(
+      "Use AddCastOrConvertLiteral function with <annotated_target_type> "
+      "argument.")
+  // TODO: Refactor and remove the deprecated functions in a quick
+  // follow up.
   absl::Status AddCastOrConvertLiteral(
       const ASTNode* ast_location, const Type* target_type,
+      std::unique_ptr<const ResolvedExpr> format,
+      std::unique_ptr<const ResolvedExpr> time_zone,
+      const TypeParameters& type_params,
+      const ResolvedScan* scan,  // May be null
+      bool set_has_explicit_type, bool return_null_on_error,
+      std::unique_ptr<const ResolvedExpr>* argument) const;
+
+  // Same as the previous method but <annotated_target_type> is used to contain
+  // both target type and its annotation information.
+  absl::Status AddCastOrConvertLiteral(
+      const ASTNode* ast_location, AnnotatedType annotated_target_type,
       std::unique_ptr<const ResolvedExpr> format,
       std::unique_ptr<const ResolvedExpr> time_zone,
       const TypeParameters& type_params,

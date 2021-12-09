@@ -43,7 +43,6 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_payload.h"
@@ -184,7 +183,7 @@ absl::Status StatementEvaluatorImpl::Evaluation::EvaluateInternal(
   AnalyzerOptions analyzer_options = evaluator->initial_analyzer_options_;
   ZETASQL_RETURN_IF_ERROR(script_executor.UpdateAnalyzerOptions(analyzer_options));
 
-  SystemVariableValuesMap system_variables =
+  const SystemVariableValuesMap& system_variables =
       script_executor.GetKnownSystemVariables();
   analyzer_options.CreateDefaultArenasIfNotSet();
 
@@ -747,8 +746,9 @@ absl::Status StatementEvaluatorImpl::ApplyTypeParameterConstraints(
 }
 
 absl::StatusOr<std::unique_ptr<ProcedureDefinition>>
-StatementEvaluatorImpl::LoadProcedure(
-    const ScriptExecutor& executor, const absl::Span<const std::string>& path) {
+StatementEvaluatorImpl::LoadProcedure(const ScriptExecutor& executor,
+                                      const absl::Span<const std::string>& path,
+                                      const int64_t num_arguments) {
   if (callback_ != nullptr) {
     return callback_->LoadProcedure(path);
   }

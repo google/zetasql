@@ -16,6 +16,7 @@
 
 #include "zetasql/analyzer/anonymization_rewriter.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <iterator>
 #include <limits>
@@ -27,12 +28,16 @@
 #include <vector>
 
 #include "google/protobuf/descriptor.h"
+#include "zetasql/analyzer/expr_matching_helpers.h"
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/analyzer/query_resolver_helper.h"
 #include "zetasql/analyzer/resolver.h"
 #include "zetasql/analyzer/rewriters/rewriter_interface.h"
+#include "zetasql/common/errors.h"
+#include "zetasql/common/status_payload_utils.h"
 #include "zetasql/parser/parse_tree.h"
+#include "zetasql/proto/internal_error_location.pb.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/analyzer_output_properties.h"
@@ -42,6 +47,7 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/public/proto_util.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
@@ -64,6 +70,7 @@
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_join.h"
 #include "absl/types/span.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
@@ -71,6 +78,8 @@
 
 namespace zetasql {
 namespace {
+
+struct WithEntryRewriteState;
 
 // Rewrites a given AST that includes a ResolvedAnonymizedAggregateScan to use
 // the semantics defined in https://arxiv.org/abs/1909.01917 and
@@ -147,6 +156,9 @@ class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
 
   absl::Status VisitResolvedAnonymizedAggregateScan(
       const ResolvedAnonymizedAggregateScan* node) override;
+  absl::Status VisitResolvedWithScan(const ResolvedWithScan* node) override;
+  absl::Status VisitResolvedProjectScan(
+      const ResolvedProjectScan* node) override;
 
   ColumnFactory* allocator_;  // unowned
   TypeFactory* type_factory_;  // unowned
@@ -154,6 +166,7 @@ class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
   RewriteForAnonymizationOutput::TableScanToAnonAggrScanMap&
       table_scan_to_anon_aggr_scan_map_;
   std::vector<const ResolvedTableScan*> resolved_table_scans_;  // unowned
+  std::vector<std::unique_ptr<WithEntryRewriteState>> with_entries_;
 };
 
 // Use the resolver to create a new function call using resolved arguments. The
@@ -211,6 +224,27 @@ std::unique_ptr<ResolvedColumnRef> MakeColRef(const ResolvedColumn& col) {
   return MakeResolvedColumnRef(col.type(), col, /*is_correlated=*/false);
 }
 
+zetasql_base::StatusBuilder MakeSqlErrorAtNode(const ResolvedNode& node) {
+  zetasql_base::StatusBuilder builder = MakeSqlError();
+  const auto* parse_location = node.GetParseLocationRangeOrNULL();
+  if (parse_location != nullptr) {
+    builder.Attach(parse_location->start().ToInternalErrorLocation());
+  }
+  return builder;
+}
+
+absl::Status MaybeAttachParseLocation(absl::Status status,
+                                      const ResolvedNode& node) {
+  const auto* parse_location = node.GetParseLocationRangeOrNULL();
+  if (!status.ok() &&
+      !zetasql::internal::HasPayloadWithType<InternalErrorLocation>(status) &&
+      parse_location != nullptr) {
+    zetasql::internal::AttachPayload(
+        &status, parse_location->start().ToInternalErrorLocation());
+  }
+  return status;
+}
+
 // Given a call to an ANON_* function, resolve a concrete function signature for
 // the matching per-user aggregate call. For example,
 // ANON_COUNT(expr, 0, 1) -> COUNT(expr)
@@ -227,7 +261,7 @@ ResolveInnerAggregateFunctionCallForAnonFunction(
   // For more information, see (broken link).
   static constexpr int kPerUserArrayAggLimit = 5;
   if (!node->function()->Is<AnonFunction>()) {
-    return zetasql_base::InvalidArgumentErrorBuilder()
+    return MakeSqlErrorAtNode(*node)
            << "Unsupported function in SELECT WITH ANONYMIZATION select "
               "list: "
            << node->function()->SQLName();
@@ -496,12 +530,139 @@ class TVFArgumentValidatorVisitor : public ResolvedASTVisitor {
 
   absl::Status VisitResolvedAnonymizedAggregateScan(
       const ResolvedAnonymizedAggregateScan* node) override {
-    return absl::InvalidArgumentError(
-        "TVF arguments do not support SELECT WITH ANONYMIZATION queries");
+    return MakeSqlErrorAtNode(*node)
+           << "TVF arguments do not support SELECT WITH ANONYMIZATION queries";
+  }
+
+  absl::Status VisitResolvedProjectScan(
+      const ResolvedProjectScan* node) override {
+    return MaybeAttachParseLocation(
+        ResolvedASTVisitor::VisitResolvedProjectScan(node), *node);
   }
 
  private:
   const std::string tvf_name_;
+};
+
+std::string FieldPathExpressionToString(const ResolvedExpr* expr) {
+  std::vector<std::string> field_path;
+  while (expr != nullptr) {
+    switch (expr->node_kind()) {
+      case RESOLVED_GET_PROTO_FIELD: {
+        auto* node = expr->GetAs<ResolvedGetProtoField>();
+        field_path.emplace_back(node->field_descriptor()->name());
+        expr = node->expr();
+        break;
+      }
+      case RESOLVED_GET_STRUCT_FIELD: {
+        auto* node = expr->GetAs<ResolvedGetStructField>();
+        field_path.emplace_back(
+            node->expr()->type()->AsStruct()->field(node->field_idx()).name);
+        expr = node->expr();
+        break;
+      }
+      case RESOLVED_COLUMN_REF: {
+        std::string name = expr->GetAs<ResolvedColumnRef>()->column().name();
+        if (!IsInternalAlias(name)) {
+          field_path.emplace_back(std::move(name));
+        }
+        expr = nullptr;
+        break;
+      }
+      default:
+        // Node types other than RESOLVED_GET_PROTO_FIELD /
+        // RESOLVED_GET_STRUCT_FIELD / RESOLVED_COLUMN_REF should never show up
+        // in a $uid column path expression.
+        return "<INVALID>";
+    }
+  }
+  return absl::StrJoin(field_path.rbegin(), field_path.rend(), ".");
+}
+
+// Wraps the ResolvedColumn for a given $uid column during AST rewrite. Also
+// tracks an optional alias for the column, this improves error messages with
+// aliased tables.
+struct UidColumnState {
+  void InitFromValueTable(const ResolvedComputedColumn* projected_userid_column,
+                          std::string value_table_alias) {
+    column = projected_userid_column->column();
+    alias = std::move(value_table_alias);
+    value_table_uid = projected_userid_column;
+  }
+
+  void Clear() {
+    column.Clear();
+    alias.clear();
+    value_table_uid = nullptr;
+  }
+
+  // Returns an alias qualified (if specified) user visible name for the $uid
+  // column to be returned in validation error messages.
+  std::string ToString() const {
+    const std::string alias_prefix =
+        absl::StrCat(alias.empty() ? "" : absl::StrCat(alias, "."));
+    if (!IsInternalAlias(column.name())) {
+      return absl::StrCat(alias_prefix, column.name());
+    } else if (value_table_uid != nullptr) {
+      return absl::StrCat(alias_prefix,
+                          FieldPathExpressionToString(value_table_uid->expr()));
+    } else {
+      return "";
+    }
+  }
+
+  // If the uid column is derived from a value table we insert a
+  // ResolvedProjectScan that extracts the uid column from the table row object.
+  // But existing references to the uid column in the query (like in a group by
+  // list) will reference a semantically equivalent but distinct column. This
+  // function replaces these semantically equivalent computed columns with
+  // column references to the 'canonical' uid column.
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>>
+  SubstituteUidComputedColumn(
+      std::vector<std::unique_ptr<const ResolvedComputedColumn>> expr_list) {
+    if (value_table_uid == nullptr) return expr_list;
+    for (auto& col : expr_list) {
+      if (IsSameFieldPath(col->expr(), value_table_uid->expr(),
+                          FieldPathMatchingOption::kExpression)) {
+        col = MakeResolvedComputedColumn(col->column(), MakeColRef(column));
+        column = col->column();
+      }
+    }
+
+    return expr_list;
+  }
+
+  // A column declared as the $uid column in a table or TVF schema definition.
+  // This gets passed up the AST during the rewriting process to validate the
+  // query, and gets replaced with computed columns as needed for joins and
+  // nested aggregations.
+  ResolvedColumn column;
+
+  // <alias> is only used for clarifying error messages, it's only set to a non
+  // empty string for table scan clauses like '... FROM Table as t' so that we
+  // can display error messages related to the $uid column as 't.userid' rather
+  // than 'userid' or 'Table.userid'. It has no impact on the actual rewriting
+  // logic.
+  std::string alias;
+
+ private:
+  const ResolvedComputedColumn* value_table_uid = nullptr;
+};
+
+// Tracks the lazily-rewritten state of a ResolvedWithEntry. The original AST
+// must outlive instances of this struct.
+struct WithEntryRewriteState {
+  // References the WITH entry in the original AST, always set.
+  const ResolvedWithEntry& original_entry;
+
+  // Contains the rewritten AST for this WITH entry, but only if it's been
+  // rewritten.
+  const ResolvedWithEntry* rewritten_entry;
+  std::unique_ptr<const ResolvedWithEntry> rewritten_entry_owned;
+
+  // Contains the $uid column state for this WITH entry IFF it's been rewritten
+  // AND it reads from a table, TVF, or another WITH entry that reads user data.
+  std::optional<UidColumnState> rewritten_uid;
 };
 
 // Rewrites the rest of the per-user scan, propagating the AnonymizationInfo()
@@ -516,24 +677,19 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
  public:
   explicit PerUserRewriterVisitor(
       ColumnFactory* allocator, TypeFactory* type_factory, Resolver* resolver,
-      std::vector<const ResolvedTableScan*>& resolved_table_scans)
+      std::vector<const ResolvedTableScan*>& resolved_table_scans,
+      std::vector<std::unique_ptr<WithEntryRewriteState>>& with_entries)
       : allocator_(allocator),
         type_factory_(type_factory),
         resolver_(resolver),
-        resolved_table_scans_(resolved_table_scans) {}
+        resolved_table_scans_(resolved_table_scans),
+        with_entries_(with_entries) {}
 
-  absl::StatusOr<ResolvedColumn> uid_column() const {
-    if (current_uid_column_.IsInitialized()) {
-      return current_uid_column_;
+  std::optional<ResolvedColumn> uid_column() const {
+    if (current_uid_.column.IsInitialized()) {
+      return current_uid_.column;
     } else {
-      const std::string or_tvf_string(
-          resolver_->language().LanguageFeatureEnabled(
-              FEATURE_TABLE_VALUED_FUNCTIONS) ?
-          "or TVF " :
-          "");
-      return zetasql_base::InvalidArgumentErrorBuilder()
-          << "A SELECT WITH ANONYMIZATION query must query at least one table "
-          << or_tvf_string << "containing user data";
+      return std::nullopt;
     }
   }
 
@@ -663,7 +819,10 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     // but its Column Name identifies the $uid field name of the value table
     // Value.
     ZETASQL_RET_CHECK(copy->table()->GetAnonymizationInfo().has_value());
-    uid_qualifier_ = copy->alias();
+    // Save the table alias with the $uid column. If the table doesn't have an
+    // alias, copy->alias() returns an empty string and the $uid column alias
+    // gets cleared.
+    current_uid_.alias = copy->alias();
     const Column* table_col = copy->table()
                                   ->GetAnonymizationInfo()
                                   .value()
@@ -680,14 +839,15 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
         int j = copy->column_index_list(i);
         if (table_col == copy->table()->GetColumn(j)) {
           // If the original query selects the $uid column, reuse it.
-          current_uid_column_ = copy->column_list(i);
+          current_uid_.column = copy->column_list(i);
+          ZETASQL_RETURN_IF_ERROR(ValidateUidColumnSupportsGrouping(*node));
           return absl::OkStatus();
         }
       }
 
-      current_uid_column_ = allocator_->MakeCol(
+      current_uid_.column = allocator_->MakeCol(
           copy->table()->Name(), table_col->Name(), table_col->GetType());
-      copy->add_column_list(current_uid_column_);
+      copy->add_column_list(current_uid_.column);
 
       int table_col_id = -1;
       for (int i = 0; i < copy->table()->NumColumns(); ++i) {
@@ -737,19 +897,21 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
                                          .UserIdColumnNamePath(),
                                      value_table_value_resolved_column));
 
-      current_uid_column_ = projected_userid_column->column();
+      current_uid_.InitFromValueTable(projected_userid_column.get(),
+                                      copy->alias());
 
       // Create a new Project node that projects the extracted userid
       // field from the table's row (proto or struct) value.
       std::vector<ResolvedColumn> project_column_list_with_userid =
           copy->column_list();
-      project_column_list_with_userid.emplace_back(current_uid_column_);
+      project_column_list_with_userid.emplace_back(current_uid_.column);
 
       PushNodeToStack(MakeResolvedProjectScan(
           project_column_list_with_userid,
           MakeNodeVector(std::move(projected_userid_column)),
           ConsumeTopOfStack<ResolvedScan>()));
     }
+    ZETASQL_RETURN_IF_ERROR(ValidateUidColumnSupportsGrouping(*node));
     return absl::OkStatus();
   }
 
@@ -791,17 +953,17 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
           copy->signature()->GetAnonymizationInfo();
       ZETASQL_RET_CHECK(anonymization_info.has_value());
 
-      ResolvedColumn uid_column;
-      // Check if the $uid column is already being projected.
+      ResolvedColumn value_column;
+      // Check if the value table column is already being projected.
       if (copy->column_list_size() > 0) {
         ZETASQL_RET_CHECK_EQ(copy->column_list_size(), 1);
-        uid_column = copy->column_list(0);
+        value_column = copy->column_list(0);
       } else {
         // Create and project the column of the entire proto.
-        uid_column = allocator_->MakeCol(
+        value_column = allocator_->MakeCol(
             copy->tvf()->Name(), "$value",
             copy->signature()->result_schema().column(0).type);
-        copy->mutable_column_list()->push_back(uid_column);
+        copy->mutable_column_list()->push_back(value_column);
         copy->mutable_column_index_list()->push_back(0);
       }
 
@@ -810,20 +972,21 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
       ZETASQL_ASSIGN_OR_RETURN(
           std::unique_ptr<ResolvedComputedColumn> projected_userid_column,
           MakeGetFieldComputedColumn(anonymization_info->UserIdColumnNamePath(),
-                                     uid_column));
+                                     value_column));
 
-      current_uid_column_ = projected_userid_column->column();
-      uid_qualifier_ = copy->alias();
+      current_uid_.InitFromValueTable(projected_userid_column.get(),
+                                      copy->alias());
 
       std::vector<ResolvedColumn> project_column_list_with_userid =
           copy->column_list();
-      project_column_list_with_userid.emplace_back(current_uid_column_);
+      project_column_list_with_userid.emplace_back(current_uid_.column);
 
       PushNodeToStack(MakeResolvedProjectScan(
           project_column_list_with_userid,
           MakeNodeVector(std::move(projected_userid_column)),
           ConsumeTopOfStack<ResolvedScan>()));
 
+      ZETASQL_RETURN_IF_ERROR(ValidateUidColumnSupportsGrouping(*node));
       return absl::OkStatus();
     }
 
@@ -831,7 +994,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
             ->GetAnonymizationInfo()
             ->UserIdColumnNamePath()
             .size() > 1) {
-      return zetasql_base::InvalidArgumentErrorBuilder()
+      return MakeSqlErrorAtNode(*node)
              << "Nested user IDs are not currently supported for TVFs (in TVF "
              << copy->tvf()->FullName() << ")";
     }
@@ -852,8 +1015,8 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
               .name;
       if (result_column_name == userid_column_name) {
         // Already projected, we're done.
-        current_uid_column_ = copy->column_list(i);
-        uid_qualifier_ = copy->alias();
+        current_uid_.column = copy->column_list(i);
+        current_uid_.alias = copy->alias();
         return absl::OkStatus();
       }
     }
@@ -868,9 +1031,17 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
         break;
       }
     }
-    ZETASQL_RET_CHECK_NE(tvf_userid_column_index, -1)
-        << "Failed to find tvf column " << userid_column_name << " in TVF "
-        << copy->tvf()->FullName();
+    // Engines should normally validate the userid column when creating/adding
+    // the TVF to the catalog whenever possible. However, this is not possible
+    // in all cases - for example for templated TVFs where the output schema is
+    // unknown until call time. So we produce a user-facing error message in
+    // this case.
+    if (tvf_userid_column_index == -1) {
+      return MakeSqlErrorAtNode(*node)
+             << "The anonymization userid column " << userid_column_name
+             << " defined for TVF " << copy->tvf()->FullName()
+             << " was not found in the output schema of the TVF";
+    }
 
     // Create and project the new $uid column.
     ResolvedColumn uid_column =
@@ -902,15 +1073,92 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     copy->mutable_column_index_list()->insert(
         copy->column_index_list().begin() + userid_column_insertion_index,
         tvf_userid_column_index);
-    current_uid_column_ = uid_column;
-    uid_qualifier_ = copy->alias();
+    current_uid_.column = uid_column;
+    current_uid_.alias = copy->alias();
 
+    return absl::OkStatus();
+  }
+
+  absl::Status VisitResolvedWithRefScan(
+      const ResolvedWithRefScan* node) override {
+    // No $uid column should have been encountered before now
+    ZETASQL_RET_CHECK(!current_uid_.column.IsInitialized());
+
+    // Lookup the referenced WITH entry
+    auto it = std::find_if(
+        with_entries_.begin(), with_entries_.end(),
+        [node](const std::unique_ptr<WithEntryRewriteState>& entry) {
+          return node->with_query_name() ==
+                 entry->original_entry.with_query_name();
+        });
+    ZETASQL_RET_CHECK(it != with_entries_.end())
+        << "Failed to find WITH entry " << node->with_query_name();
+    WithEntryRewriteState& entry = **it;
+
+    if (entry.rewritten_entry == nullptr) {
+      // This entry hasn't been rewritten yet, rewrite it as if it was just a
+      // nested subquery.
+      ZETASQL_ASSIGN_OR_RETURN(entry.rewritten_entry_owned,
+                       ProcessNode(&entry.original_entry));
+      // VisitResolvedWithEntry sets 'entry.rewritten_entry'
+      ZETASQL_RET_CHECK_EQ(entry.rewritten_entry, entry.rewritten_entry_owned.get())
+          << "Invalid rewrite state for " << node->with_query_name();
+    }
+
+    ZETASQL_RETURN_IF_ERROR(CopyVisitResolvedWithRefScan(node));
+    if (entry.rewritten_uid && entry.rewritten_uid->column.IsInitialized()) {
+      // The WITH entry contained a reference to user data, use its $uid column.
+      auto* copy = GetUnownedTopOfStack<ResolvedWithRefScan>();
+      // Update $uid column reference. The column_list in the
+      // ResolvedWithRefScan matches positionally with the column_list in the
+      // ResolvedWithEntry. But if the WithEntry explicitly selects columns and
+      // does not include the $uid column, ResolvedWithRefScan will have one
+      // less column.
+      for (int i = 0;
+           i < entry.rewritten_entry->with_subquery()->column_list().size() &&
+           i < copy->column_list().size();
+           ++i) {
+        if (entry.rewritten_entry->with_subquery()
+                ->column_list(i)
+                .column_id() == entry.rewritten_uid->column.column_id()) {
+          current_uid_.column = copy->column_list(i);
+          current_uid_.alias.clear();
+          return absl::OkStatus();
+        }
+      }
+    }
+    return absl::OkStatus();
+  }
+  absl::Status VisitResolvedWithEntry(const ResolvedWithEntry* node) override {
+    // No $uid column should have been encountered before now
+    ZETASQL_RET_CHECK(!current_uid_.column.IsInitialized());
+    ZETASQL_RETURN_IF_ERROR(CopyVisitResolvedWithEntry(node));
+    // Check if this entry is recorded in 'with_entries_', record the rewritten
+    // result and $uid column if so.
+    for (auto& entry : with_entries_) {
+      if (node->with_query_name() == entry->original_entry.with_query_name()) {
+        ZETASQL_RET_CHECK(entry->rewritten_entry == nullptr)
+            << "WITH entry has already been rewritten: "
+            << node->with_query_name();
+        entry->rewritten_entry = GetUnownedTopOfStack<ResolvedWithEntry>();
+        entry->rewritten_uid = std::move(current_uid_);
+        current_uid_.Clear();
+        return absl::OkStatus();
+      }
+    }
+    // Record this entry and corresponding rewrite state for use by
+    // VisitResolvedWithRefScan.
+    with_entries_.emplace_back(new WithEntryRewriteState{
+        .original_entry = *node,
+        .rewritten_entry = GetUnownedTopOfStack<ResolvedWithEntry>(),
+        .rewritten_uid = std::move(current_uid_)});
+    current_uid_.Clear();
     return absl::OkStatus();
   }
 
   absl::Status VisitResolvedJoinScan(const ResolvedJoinScan* node) override {
     // No $uid column should have been encountered before now
-    ZETASQL_RET_CHECK(!current_uid_column_.IsInitialized());
+    ZETASQL_RET_CHECK(!current_uid_.column.IsInitialized());
 
     // Make a simple copy of the join node that we can swap the left and right
     // scans out of later.
@@ -923,18 +1171,18 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
 
     // Rewrite and copy the left scan.
     PerUserRewriterVisitor left_visitor(allocator_, type_factory_, resolver_,
-                                        resolved_table_scans_);
+                                        resolved_table_scans_, with_entries_);
     ZETASQL_RETURN_IF_ERROR(node->left_scan()->Accept(&left_visitor));
-    ResolvedColumn left_uid = left_visitor.current_uid_column_;
+    const ResolvedColumn& left_uid = left_visitor.current_uid_.column;
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedScan> left_scan,
                      left_visitor.ConsumeRootNode<ResolvedScan>());
     copy->set_left_scan(std::move(left_scan));
 
     // Rewrite and copy the right scan.
     PerUserRewriterVisitor right_visitor(allocator_, type_factory_, resolver_,
-                                         resolved_table_scans_);
+                                         resolved_table_scans_, with_entries_);
     ZETASQL_RETURN_IF_ERROR(node->right_scan()->Accept(&right_visitor));
-    ResolvedColumn right_uid = right_visitor.current_uid_column_;
+    const ResolvedColumn& right_uid = right_visitor.current_uid_.column;
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedScan> right_scan,
                      right_visitor.ConsumeRootNode<ResolvedScan>());
     copy->set_right_scan(std::move(right_scan));
@@ -950,7 +1198,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
       // comparable
       // TODO: Revisit if we want to allow $uid type coercion
       if (!left_uid.type()->Equals(right_uid.type())) {
-        return zetasql_base::InvalidArgumentErrorBuilder() << absl::StrCat(
+        return MakeSqlErrorAtNode(*copy) << absl::StrCat(
                    "Joining two tables containing private data requires "
                    "matching user id column types, instead got ",
                    Type::TypeKindToString(left_uid.type()->kind(),
@@ -961,7 +1209,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
                        resolver_->language().product_mode()));
       }
       if (!left_uid.type()->SupportsEquality(resolver_->language())) {
-        return zetasql_base::InvalidArgumentErrorBuilder() << absl::StrCat(
+        return MakeSqlErrorAtNode(*copy) << absl::StrCat(
                    "Joining two tables containing private data requires "
                    "the user id column types to support equality comparison, "
                    "instead got ",
@@ -970,38 +1218,33 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
                        resolver_->language().product_mode()));
       }
 
-      // Reject joins with either missing join expressions, or join expressions
-      // that don't join on $uid
-      // TODO: Provide better error location information. It may
-      // make sense to move this check explicit $uid join expressions in the
-      // resolver. Or we could annotate the relavant ResolvedAST nodes with
-      // parse locations and continue validating here.
+      // Reject joins with either missing join expressions, or join
+      // expressions that don't join on $uid
       // TODO: also support uid constraints with a WHERE clause,
       // for example this query:
       //   select anon_count(*)
       //   from t1, t2
       //   where t1.uid = t2.uid;
       if (copy->join_expr() == nullptr) {
-        return zetasql_base::InvalidArgumentErrorBuilder() << absl::StrCat(
+        return MakeSqlErrorAtNode(*copy) << absl::StrCat(
                    "Joins between tables containing private data must "
                    "explicitly join on the user id column in each table",
                    FormatJoinUidError(", add 'ON %s=%s'",
-                                      left_visitor.uid_qualifier_, left_uid,
-                                      right_visitor.uid_qualifier_, right_uid));
+                                      left_visitor.current_uid_,
+                                      right_visitor.current_uid_));
       }
       if (!JoinExprIncludesUid(copy->join_expr(), left_uid, right_uid)) {
-        return zetasql_base::InvalidArgumentErrorBuilder() << absl::StrCat(
+        return MakeSqlErrorAtNode(*copy->join_expr()) << absl::StrCat(
                    "Joins between tables containing private data must also "
                    "explicitly join on the user id column in each table",
                    FormatJoinUidError(
                        ", add 'AND %s=%s' to the join ON expression",
-                       left_visitor.uid_qualifier_, left_uid,
-                       right_visitor.uid_qualifier_, right_uid));
+                       left_visitor.current_uid_, right_visitor.current_uid_));
       }
     }
 
-    // At this point, we are either joining two private tables and Left.$uid and
-    // Right.$uid are both valid, or joining a private table against a
+    // At this point, we are either joining two private tables and Left.$uid
+    // and Right.$uid are both valid, or joining a private table against a
     // non-private table and exactly one of {Left.$uid, Right.$uid} are valid.
     //
     // Now we want to check if a valid $uid column is being projected, and add
@@ -1011,7 +1254,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     // RIGHT JOIN: project (and require) Right.$uid
     // FULL JOIN:  require Left.$uid and Right.$uid, project
     //             COALESCE(Left.$uid, Right.$uid)
-    current_uid_column_.Clear();
+    current_uid_.column.Clear();
 
     switch (node->join_type()) {
       case ResolvedJoinScan::INNER:
@@ -1020,63 +1263,70 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
         // input that contains it.
         for (const ResolvedColumn& col : copy->column_list()) {
           if (col == left_uid || col == right_uid) {
-            current_uid_column_ = col;
+            current_uid_.column = col;
             return absl::OkStatus();
           }
         }
-        // We are not currently projecting either the Left or Right $uid column.
-        current_uid_column_ = left_uid.IsInitialized() ? left_uid : right_uid;
-        copy->add_column_list(current_uid_column_);
+        // We are not currently projecting either the Left or Right $uid
+        // column.
+        current_uid_.column = left_uid.IsInitialized() ? left_uid : right_uid;
+        copy->add_column_list(current_uid_.column);
         return absl::OkStatus();
 
       case ResolvedJoinScan::LEFT:
         // We must project the $uid from the Left table in a left outer join,
         // otherwise we end up with rows with NULL $uid.
         if (!left_uid.IsInitialized()) {
-          return zetasql_base::InvalidArgumentErrorBuilder()
+          return MakeSqlErrorAtNode(*copy->left_scan())
                  << "The left table in a LEFT OUTER join must contain user "
                     "data";
         }
         for (const ResolvedColumn& col : copy->column_list()) {
           if (col == left_uid) {
-            current_uid_column_ = col;
+            current_uid_.column = col;
             return absl::OkStatus();
           }
         }
-        current_uid_column_ = left_uid;
-        copy->add_column_list(current_uid_column_);
+        current_uid_.column = left_uid;
+        copy->add_column_list(current_uid_.column);
         return absl::OkStatus();
 
       case ResolvedJoinScan::RIGHT:
-        // We must project the $uid from the Right table in a right outer join,
-        // otherwise we end up with rows with NULL $uid.
+        // We must project the $uid from the Right table in a right outer
+        // join, otherwise we end up with rows with NULL $uid.
         if (!right_uid.IsInitialized()) {
-          return zetasql_base::InvalidArgumentErrorBuilder()
+          return MakeSqlErrorAtNode(*copy->right_scan())
                  << "The right table in a RIGHT OUTER join must contain user "
                     "data";
         }
         for (const ResolvedColumn& col : copy->column_list()) {
           if (col == right_uid) {
-            current_uid_column_ = col;
+            current_uid_.column = col;
             return absl::OkStatus();
           }
         }
-        current_uid_column_ = right_uid;
-        copy->add_column_list(current_uid_column_);
+        current_uid_.column = right_uid;
+        copy->add_column_list(current_uid_.column);
         return absl::OkStatus();
 
       case ResolvedJoinScan::FULL:
         // Full outer joins require both tables to have an attached $uid. We
-        // project COALESCE(Left.$uid, Right.$uid) because up to one of the $uid
-        // columns may be null for each output row.
+        // project COALESCE(Left.$uid, Right.$uid) because up to one of the
+        // $uid columns may be null for each output row.
         if (!left_uid.IsInitialized() || !right_uid.IsInitialized()) {
-          return zetasql_base::InvalidArgumentErrorBuilder()
+          return MakeSqlErrorAtNode(left_uid.IsInitialized()
+                                        ? *copy->right_scan()
+                                        : *copy->left_scan())
                  << "Both tables in a FULL OUTER join must contain user "
                     "data";
         }
 
         // Full outer join, the result $uid column is
         // COALESCE(Left.$uid, Right.$uid).
+        // TODO: This generated column is an internal name and
+        // isn't selectable by the end user, this makes full outer joins
+        // unusable in nested queries. Improve either error messages or change
+        // query semantics around full outer joins to fix this usability gap.
         std::vector<ResolvedColumn> wrapped_column_list = copy->column_list();
         copy->add_column_list(left_uid);
         copy->add_column_list(right_uid);
@@ -1092,8 +1342,8 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
             "$join", "$uid", coalesced_uid_function->type());
         auto coalesced_uid_column = MakeResolvedComputedColumn(
             uid_column, std::move(coalesced_uid_function));
-        current_uid_column_ = coalesced_uid_column->column();
-        wrapped_column_list.emplace_back(current_uid_column_);
+        current_uid_.column = coalesced_uid_column->column();
+        wrapped_column_list.emplace_back(current_uid_.column);
 
         PushNodeToStack(MakeResolvedProjectScan(
             wrapped_column_list,
@@ -1112,15 +1362,21 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   absl::Status VisitResolvedAggregateScan(
       const ResolvedAggregateScan* node) override {
     ZETASQL_RETURN_IF_ERROR(CopyVisitResolvedAggregateScan(node));
-    if (!current_uid_column_.IsInitialized()) {
+    if (!current_uid_.column.IsInitialized()) {
       // Table doesn't contain any private data, so do nothing.
       return absl::OkStatus();
     }
 
     ResolvedAggregateScan* copy = GetUnownedTopOfStack<ResolvedAggregateScan>();
 
-    // AggregateScan nodes in the per-user transform must always group by $uid.
-    // Check if we already do so, and add a group by element if not.
+    // If the source table is a value table the uid column refs will be
+    // GetProtoField or GetStructField expressions, replace them with ColumnRef
+    // expressions.
+    copy->set_group_by_list(current_uid_.SubstituteUidComputedColumn(
+        copy->release_group_by_list()));
+
+    // AggregateScan nodes in the per-user transform must always group by
+    // $uid. Check if we already do so, and add a group by element if not.
     ResolvedColumn group_by_uid_col;
     for (const auto& col : copy->group_by_list()) {
       if (col->expr()->node_kind() != zetasql::RESOLVED_COLUMN_REF) {
@@ -1130,7 +1386,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
       }
       const ResolvedColumn& grouped_by_column =
           col->expr()->GetAs<ResolvedColumnRef>()->column();
-      if (grouped_by_column.column_id() == current_uid_column_.column_id()) {
+      if (grouped_by_column.column_id() == current_uid_.column.column_id()) {
         group_by_uid_col = col->column();
         break;
       }
@@ -1139,11 +1395,11 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     if (group_by_uid_col.IsInitialized()) {
       // Point current_uid_column_ to the updated group by column, and verify
       // that the original query projected it.
-      current_uid_column_ = group_by_uid_col;
+      current_uid_.column = group_by_uid_col;
       for (const ResolvedColumn& col : copy->column_list()) {
-        if (col == current_uid_column_) {
-          // Explicitly projecting a column removes the qualifier.
-          uid_qualifier_ = "";
+        if (col == current_uid_.column) {
+          // Explicitly projecting a column removes the alias.
+          current_uid_.alias = "";
           return absl::OkStatus();
         }
       }
@@ -1155,49 +1411,46 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   // project $uid.
   absl::Status VisitResolvedProjectScan(
       const ResolvedProjectScan* node) override {
-    ZETASQL_RETURN_IF_ERROR(CopyVisitResolvedProjectScan(node));
-    if (!current_uid_column_.IsInitialized()) {
+    ZETASQL_RETURN_IF_ERROR(
+        MaybeAttachParseLocation(CopyVisitResolvedProjectScan(node), *node));
+
+    if (!current_uid_.column.IsInitialized()) {
       return absl::OkStatus();
     }
-    auto* scan = GetUnownedTopOfStack<ResolvedProjectScan>();
-    for (const ResolvedColumn& col : scan->column_list()) {
-      if (col.column_id() == current_uid_column_.column_id()) {
-        // Explicitly projecting a column removes the qualifier.
-        uid_qualifier_ = "";
+    auto* copy = GetUnownedTopOfStack<ResolvedProjectScan>();
+
+    // If the source table is a value table the uid column refs will be
+    // GetProtoField or GetStructField expressions, replace them with ColumnRef
+    // expressions.
+    copy->set_expr_list(
+        current_uid_.SubstituteUidComputedColumn(copy->release_expr_list()));
+
+    for (const ResolvedColumn& col : copy->column_list()) {
+      if (col.column_id() == current_uid_.column.column_id()) {
+        // Explicitly projecting a column removes the alias.
+        current_uid_.alias = "";
         return absl::OkStatus();
       }
     }
-    // TODO: Validate explicit $uid projection in the resolver so
-    // we can provide error location information.
-    return zetasql_base::InvalidArgumentErrorBuilder()
-           << "Subqueries of anonymization queries must explicitly "
-              "SELECT the userid column"
-           << FormatUidError(" '%s'", uid_qualifier_, current_uid_column_);
+
+    // TODO: Ensure that the $uid column name in the error message
+    // is appropriately alias/qualified.
+    return MakeSqlErrorAtNode(*copy) << absl::StrFormat(
+               "Subqueries of anonymization queries must explicitly "
+               "SELECT the userid column '%s'",
+               current_uid_.ToString());
   }
 
-  // ArrayScans are handled the same way as other simple scans (i.e.
-  // FilterScan).
-  //
-  // We don't need special handling for ResolvedArrayScan.join_expr because the
-  // unnested array is never derived from another table, and therefore always
-  // has an unambiguous owning user.
-  absl::Status VisitResolvedArrayScan(const ResolvedArrayScan* node) override {
-    ZETASQL_RETURN_IF_ERROR(CopyVisitResolvedArrayScan(node));
-    if (!current_uid_column_.IsInitialized()) {
-      return absl::OkStatus();
-    }
-
-    ResolvedArrayScan* copy = GetUnownedTopOfStack<ResolvedArrayScan>();
-
-    // Implicitly project $uid. This is needed if there's no explicit projection
-    // operators in the per-user subquery.
-    for (const ResolvedColumn& col : copy->column_list()) {
-      if (col == current_uid_column_) {
-        // Already projected.
-        return absl::OkStatus();
-      }
-    }
-    copy->add_column_list(current_uid_column_);
+  absl::Status VisitResolvedSubqueryExpr(
+      const ResolvedSubqueryExpr* node) override {
+    // In the subquery expression, if the uid is in the columns list of the
+    // TableScan, the `current_uid_` will be set, but cannot be accessed outside
+    // the subquery, which is not correct. In our design, the TableScan in the
+    // subquery expression should not update the `current_uid_`.
+    UidColumnState current_uid_before_subquery = current_uid_;
+    ZETASQL_RETURN_IF_ERROR(
+        ResolvedASTDeepCopyVisitor::CopyVisitResolvedSubqueryExpr(node));
+    current_uid_ = current_uid_before_subquery;
     return absl::OkStatus();
   }
 
@@ -1207,18 +1460,19 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
 #define PROJECT_UID(resolved_scan)                                        \
   absl::Status Visit##resolved_scan(const resolved_scan* node) override { \
     ZETASQL_RETURN_IF_ERROR(CopyVisit##resolved_scan(node));                      \
-    if (!current_uid_column_.IsInitialized()) {                           \
+    if (!current_uid_.column.IsInitialized()) {                           \
       return absl::OkStatus();                                            \
     }                                                                     \
     auto* scan = GetUnownedTopOfStack<resolved_scan>();                   \
     for (const ResolvedColumn& col : scan->column_list()) {               \
-      if (col.column_id() == current_uid_column_.column_id()) {           \
+      if (col.column_id() == current_uid_.column.column_id()) {           \
         return absl::OkStatus();                                          \
       }                                                                   \
     }                                                                     \
-    scan->add_column_list(current_uid_column_);                           \
+    scan->add_column_list(current_uid_.column);                           \
     return absl::OkStatus();                                              \
   }
+  PROJECT_UID(ResolvedArrayScan);
   PROJECT_UID(ResolvedSingleRowScan);
   PROJECT_UID(ResolvedFilterScan);
   PROJECT_UID(ResolvedOrderByScan);
@@ -1231,61 +1485,58 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   /////////////////////////////////////////////////////////////////////////////
 #define UNSUPPORTED(resolved_scan)                                         \
   absl::Status Visit##resolved_scan(const resolved_scan* node) override {  \
-    return zetasql_base::InvalidArgumentErrorBuilder(ZETASQL_LOC)                      \
+    return MakeSqlErrorAtNode(*node)                                       \
            << "Unsupported scan type inside of SELECT WITH ANONYMIZATION " \
               "from clause: " #resolved_scan;                              \
   }
   UNSUPPORTED(ResolvedSetOperationScan);
-  UNSUPPORTED(ResolvedWithRefScan);
   UNSUPPORTED(ResolvedAnalyticScan);
   UNSUPPORTED(ResolvedSampleScan);
-  UNSUPPORTED(ResolvedWithScan);
   UNSUPPORTED(ResolvedRelationArgumentScan);
+  UNSUPPORTED(ResolvedRecursiveScan);
+  UNSUPPORTED(ResolvedRecursiveRefScan);
 #undef UNSUPPORTED
-
-  static std::string FormatUidError(
-      const absl::FormatSpec<std::string>& format_str,
-      const std::string& qualifier, const ResolvedColumn& column) {
-    if (IsInternalAlias(column.name())) {
-      return "";
-    }
-    return absl::StrFormat(
-        format_str,
-        absl::StrCat((qualifier.empty() ? "" : absl::StrCat(qualifier, ".")),
-                     column.name()));
-  }
 
   // Join errors are special cased because:
   // 1) they reference uid columns from two different table subqueries
-  // 2) we want to suggest table names as implicit qualifiers, when helpful
+  // 2) we want to suggest table names as implicit aliases, when helpful
   static std::string FormatJoinUidError(
       const absl::FormatSpec<std::string, std::string>& format_str,
-      std::string qualifier1, const ResolvedColumn& column1,
-      std::string qualifier2, const ResolvedColumn& column2) {
-    if (IsInternalAlias(column1.name()) || IsInternalAlias(column2.name())) {
+      UidColumnState column1, UidColumnState column2) {
+    if (IsInternalAlias(column1.column.name()) ||
+        IsInternalAlias(column2.column.name())) {
       return "";
     }
-    // Use full table names as uid qualifiers where doing so reduces ambiguity:
+    // Use full table names as uid aliases where doing so reduces ambiguity:
     // 1) the tables must have different names
     // 2) the uid columns must have the same name
     // 3) the query doesn't specify a table alias
-    if (column1.table_name() != column2.table_name() &&
-        column1.name() == column2.name()) {
-      if (qualifier1.empty()) qualifier1 = column1.table_name();
-      if (qualifier2.empty()) qualifier2 = column2.table_name();
+    if (column1.column.table_name() != column2.column.table_name() &&
+        column1.column.name() == column2.column.name()) {
+      if (column1.alias.empty()) column1.alias = column1.column.table_name();
+      if (column2.alias.empty()) column2.alias = column2.column.table_name();
     }
-    return absl::StrFormat(format_str,
-                           FormatUidError("%s", qualifier1, column1),
-                           FormatUidError("%s", qualifier2, column2));
+    return absl::StrFormat(format_str, column1.ToString(), column2.ToString());
+  }
+
+  absl::Status ValidateUidColumnSupportsGrouping(const ResolvedNode& node) {
+    if (!current_uid_.column.type()->SupportsGrouping(resolver_->language())) {
+      return MakeSqlErrorAtNode(node)
+             << "User id columns must support grouping, instead got type "
+             << Type::TypeKindToString(current_uid_.column.type()->kind(),
+                                       resolver_->language().product_mode());
+    }
+    return absl::OkStatus();
   }
 
   ColumnFactory* allocator_;   // unowned
   TypeFactory* type_factory_;  // unowned
   Resolver* resolver_;         // unowned
   std::vector<const ResolvedTableScan*>& resolved_table_scans_;  // unowned
+  std::vector<std::unique_ptr<WithEntryRewriteState>>&
+      with_entries_;  // unowned
 
-  ResolvedColumn current_uid_column_;
-  std::string uid_qualifier_;
+  UidColumnState current_uid_;
 };
 
 absl::StatusOr<std::unique_ptr<ResolvedAggregateScan>>
@@ -1296,7 +1547,7 @@ RewriterVisitor::RewriteInnerAggregateScan(
   // Construct a deep copy of the per-user transform, rewriting along to the
   // way to group by and project $uid to the top.
   PerUserRewriterVisitor per_user_visitor(allocator_, type_factory_, resolver_,
-                                          resolved_table_scans_);
+                                          resolved_table_scans_, with_entries_);
   ZETASQL_RETURN_IF_ERROR(node->input_scan()->Accept(&per_user_visitor));
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedScan> input_scan,
                    per_user_visitor.ConsumeRootNode<ResolvedScan>());
@@ -1330,19 +1581,29 @@ RewriterVisitor::RewriteInnerAggregateScan(
         inner_rewriter_visitor.ConsumeRootNode<ResolvedComputedColumn>());
     inner_group_by_list.emplace_back(std::move(unique_ptr_node));
   }
+
   // Always group by the $uid column produced by the per-user visitor.
-  ZETASQL_ASSIGN_OR_RETURN(ResolvedColumn inner_uid_column,
-                   per_user_visitor.uid_column());
-  if (!inner_uid_column.type()->SupportsGrouping(resolver_->language())) {
-    return zetasql_base::InvalidArgumentErrorBuilder()
-           << "User id columns must support grouping, instead got type "
-           << Type::TypeKindToString(inner_uid_column.type()->kind(),
-                                     resolver_->language().product_mode());
+  std::optional<ResolvedColumn> inner_uid_column =
+      per_user_visitor.uid_column();
+  if (!inner_uid_column.has_value()) {
+    const std::string or_tvf_string(
+        resolver_->language().LanguageFeatureEnabled(
+            FEATURE_TABLE_VALUED_FUNCTIONS)
+            ? "or TVF "
+            : "");
+    return MakeSqlErrorAtNode(*node)
+           << "A SELECT WITH ANONYMIZATION query must query "
+              "at least one table "
+           << or_tvf_string << "containing user data";
   }
+
+  // This is validated by PerUserRewriterVisitor.
+  ZETASQL_RET_CHECK(inner_uid_column->type()->SupportsGrouping(resolver_->language()));
+
   *uid_column =
-      allocator_->MakeCol("$group_by", "$uid", inner_uid_column.type()),
+      allocator_->MakeCol("$group_by", "$uid", inner_uid_column->type()),
   inner_group_by_list.emplace_back(
-      MakeResolvedComputedColumn(*uid_column, MakeColRef(inner_uid_column)));
+      MakeResolvedComputedColumn(*uid_column, MakeColRef(*inner_uid_column)));
 
   // Collect an updated column list, the new list will be entirely disjoint
   // from the original due to intermediate column id rewriting.
@@ -1421,8 +1682,8 @@ absl::Status RewriterVisitor::VisitResolvedAnonymizedAggregateScan(
   for (const auto& option : node->anonymization_option_list()) {
     if (zetasql_base::CaseEqual(option->name(), "kappa")) {
       if (kappa_value != nullptr) {
-        return zetasql_base::InvalidArgumentErrorBuilder()
-            << "Anonymization option kappa must only be set once";
+        return MakeSqlErrorAtNode(*option)
+               << "Anonymization option kappa must only be set once";
       }
       if (option->value()->node_kind() == RESOLVED_LITERAL &&
           option->value()->GetAs<ResolvedLiteral>()->type()->IsInt64()) {
@@ -1431,13 +1692,13 @@ absl::Status RewriterVisitor::VisitResolvedAnonymizedAggregateScan(
         // error if the kappa value does not fit in that range.
         if (kappa_value->int64_value() < 1 ||
             kappa_value->int64_value() > std::numeric_limits<int32_t>::max()) {
-          return zetasql_base::InvalidArgumentErrorBuilder()
+          return MakeSqlErrorAtNode(*option)
                  << "Anonymization option kappa must be an INT64 literal "
                     "between "
                  << "1 and " << std::numeric_limits<int32_t>::max();
         }
       } else {
-        return zetasql_base::InvalidArgumentErrorBuilder()
+        return MakeSqlErrorAtNode(*option)
                << "Anonymization option kappa must be an INT64 literal between "
                << "1 and " << std::numeric_limits<int32_t>::max();
       }
@@ -1519,6 +1780,82 @@ absl::Status RewriterVisitor::VisitResolvedAnonymizedAggregateScan(
   return absl::OkStatus();
 }
 
+// The default behavior of ResolvedASTDeepCopyVisitor copies the WITH entries
+// before copying the subquery. This is backwards, we need to know if a WITH
+// entry is referenced inside a SELECT WITH ANONYMIZATION node to know how it
+// should be copied. Instead, WithScans are rewritten as follows:
+//
+// 1. Collect a list of all (at this point un-rewritten) WITH entries.
+// 2. Traverse and copy the WithScan subquery, providing the WITH entries list
+//    to the PerUserRewriterVisitor when a SELECT WITH ANONYMIZATION node is
+//    encountered.
+// 3. When a ResolvedWithRefScan is encountered during the per-user rewriting
+//    stage, begin rewriting the referenced WITH entry subquery. This can
+//    repeat recursively for nested WITH entries.
+// 4. Nested ResolvedWithScans inside of a SELECT WITH ANONYMIZATION node are
+//    rewritten immediately by PerUserRewriterVisitor and recorded into the WITH
+//    entries list.
+// 5. Copy non-rewritten-at-this-point WITH entries, they weren't referenced
+//    during the per-user rewriting stage and don't need special handling.
+absl::Status RewriterVisitor::VisitResolvedWithScan(
+    const ResolvedWithScan* node) {
+  // Remember the offset for the with_entry_list_size() number of nodes we add
+  // to the list of all WITH entries, those are the ones we need to add back to
+  // with_entry_list() after rewriting.
+  std::size_t local_with_entries_offset = with_entries_.size();
+  for (const std::unique_ptr<const ResolvedWithEntry>& entry :
+       node->with_entry_list()) {
+    with_entries_.emplace_back(new WithEntryRewriteState(
+        {.original_entry = *entry, .rewritten_entry = nullptr}));
+  }
+  // Copy the subquery. This will visit and copy referenced WITH entries.
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedScan> subquery,
+                   ProcessNode(node->query()));
+
+  // Extract (and rewrite if needed) the WITH entries belonging to this node
+  // out of the WITH entries list.
+  std::vector<std::unique_ptr<const ResolvedWithEntry>> copied_entries;
+  for (std::size_t i = local_with_entries_offset;
+       i < local_with_entries_offset + node->with_entry_list_size(); ++i) {
+    WithEntryRewriteState& entry = *with_entries_[i];
+    if (entry.rewritten_entry == nullptr) {
+      // Copy unreferenced WITH entries.
+      ZETASQL_RETURN_IF_ERROR(CopyVisitResolvedWithEntry(&entry.original_entry));
+      entry.rewritten_entry_owned = ConsumeTopOfStack<ResolvedWithEntry>();
+      entry.rewritten_entry = entry.rewritten_entry_owned.get();
+    }
+    copied_entries.emplace_back(std::move(entry.rewritten_entry_owned));
+  }
+  ZETASQL_RET_CHECK_EQ(copied_entries.size(), node->with_entry_list_size());
+
+  // Copy the with scan now that we have the subquery and WITH entry list
+  // copied.
+  auto copy =
+      MakeResolvedWithScan(node->column_list(), std::move(copied_entries),
+                           std::move(subquery), node->recursive());
+
+  // Copy node members that aren't constructor arguments.
+  ZETASQL_ASSIGN_OR_RETURN(std::vector<std::unique_ptr<ResolvedOption>> hint_list,
+                   ProcessNodeList(node->hint_list()));
+  for (std::unique_ptr<ResolvedOption>& hint : hint_list) {
+    copy->add_hint_list(std::move(hint));
+  }
+  copy->set_is_ordered(node->is_ordered());
+  const auto parse_location = node->GetParseLocationRangeOrNULL();
+  if (parse_location != nullptr) {
+    copy->SetParseLocationRange(*parse_location);
+  }
+
+  // Add the non-abstract node to the stack.
+  PushNodeToStack(std::move(copy));
+  return absl::OkStatus();
+}
+
+absl::Status RewriterVisitor::VisitResolvedProjectScan(
+    const ResolvedProjectScan* node) {
+  return MaybeAttachParseLocation(CopyVisitResolvedProjectScan(node), *node);
+}
+
 absl::StatusOr<std::unique_ptr<const ResolvedNode>> RewriteInternal(
     const ResolvedNode& tree, AnalyzerOptions options,
     ColumnFactory& column_factory, Catalog& catalog, TypeFactory& type_factory,
@@ -1554,13 +1891,11 @@ class AnonymizationRewriter : public Rewriter {
  public:
   bool ShouldRewrite(const AnalyzerOptions& analyzer_options,
                      const AnalyzerOutput& analyzer_output) const override {
-    return analyzer_options.rewrite_enabled(REWRITE_ANONYMIZATION) &&
-           analyzer_output.analyzer_output_properties().has_anonymization;
+    return analyzer_output.analyzer_output_properties().has_anonymization;
   }
 
   absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
-      const AnalyzerOptions& options,
-      absl::Span<const Rewriter* const> rewriters, const ResolvedNode& input,
+      const AnalyzerOptions& options, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,
       AnalyzerOutputProperties& output_properties) const override {
     ZETASQL_RET_CHECK(options.AllArenasAreInitialized());

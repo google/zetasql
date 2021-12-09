@@ -1,5 +1,5 @@
 [default language_features=ANONYMIZATION]
-[default enable_ast_rewrites]
+[default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 INSERT INTO SimpleTypesWithAnonymizationUid (int64)
 SELECT anon_count(*) AS anon_count
 FROM SimpleTypesWithAnonymizationUid;

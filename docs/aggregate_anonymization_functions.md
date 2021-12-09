@@ -3,10 +3,10 @@
 # Anonymization aggregate functions
 
 Anonymization aggregate functions can transform user data into anonymous
-information. This is important if you don't want anyone to identify or
-re-identify an individual user from the anonymized data.
-Anonymization aggregate functions can only be used with
-[anonymization-enabled queries][anon-syntax].
+information. This is done in such a way that it is not reasonably likely that
+anyone with access to the data can identify or re-identify an individual user
+from the anonymized data. Anonymization aggregate functions can only be used
+with [anonymization-enabled queries][anon-syntax].
 
 ### ANON_AVG
 
@@ -29,7 +29,7 @@ INT64.
 
 **Return type**
 
-DOUBLE
+`DOUBLE`
 
 **Examples**
 
@@ -97,7 +97,7 @@ anonymization ID.
 
 **Return type**
 
-INT64
+`INT64`
 
 **Examples**
 
@@ -160,7 +160,7 @@ input values are clamped implicitly. Clamping is performed per anonymization ID.
 
 **Return type**
 
-INT64
+`INT64`
 
 **Examples**
 
@@ -207,6 +207,110 @@ GROUP BY item;
 Note: You can learn more about when and when not to use
 noise [here][anon-noise].
 
+### ANON_PERCENTILE_CONT
+
+```sql
+ANON_PERCENTILE_CONT(expression, percentile [CLAMPED BETWEEN lower AND upper])
+```
+
+**Description**
+
+Takes an expression and computes a percentile for it. The final result is an
+aggregation across anonymization IDs. The percentile must be a literal in the
+range [0, 1]. You can [clamp the input values][anon-clamp] explicitly,
+otherwise input values are clamped implicitly. Clamping is performed per
+anonymization ID.
+
+Caveats:
+
++ `NUMERIC` arguments are not allowed. If you need them, cast them to
+  `DOUBLE` first.
++ `BIGNUMERIC` arguments are not allowed. If you need them, cast them to
+  `DOUBLE` first.
++ `NULL`s are always ignored. If all inputs are ignored, this function returns
+  `NULL`.
+
+**Return type**
+
+`DOUBLE`
+
+**Examples**
+
+The following anonymized query gets the percentile of items requested. Smaller
+aggregations may not be included. This query references a view called
+[`view_on_professors`][anon-example-views].
+
+```sql
+-- With noise
+SELECT
+  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=1)
+  item, ANON_PERCENTILE_CONT(quantity, 0.5 CLAMPED BETWEEN 0 AND 100) percentile_requested
+FROM view_on_professors
+GROUP BY item;
+
+-- These results will change each time you run the query.
+-- Smaller aggregations may be removed.
++----------+----------------------+
+| item     | percentile_requested |
++----------+----------------------+
+| pencil   | 72.00011444091797    |
+| scissors | 8.000175476074219    |
+| pen      | 23.001075744628906   |
++----------+----------------------+
+```
+
+### ANON_STDDEV_POP
+
+```sql
+ANON_STDDEV_POP(expression [CLAMPED BETWEEN lower AND upper])
+```
+
+**Description**
+
+Takes an expression and computes the population (biased) standard deviation of
+the values in the expression. The final result is an aggregation across
+anonymization IDs between `0` and `+Inf`. You can
+[clamp the input values][anon-clamp] explicitly, otherwise input values are
+clamped implicitly. Clamping is performed per individual user values.
+
+Caveats:
+
++ `NUMERIC` arguments are not allowed. If you need them, cast them to
+  `DOUBLE` first.
++ `BIGNUMERIC` arguments are not allowed. If you need them, cast them to
+  `DOUBLE` first.
++ `NULL`s are always ignored. If all inputs are ignored, this function returns
+  `NULL`.
+
+**Return type**
+
+`DOUBLE`
+
+**Examples**
+
+The following anonymized query gets the population (biased) standard deviation
+of items requested. Smaller aggregations may not be included. This query
+references a view called [`view_on_professors`][anon-example-views].
+
+```sql
+-- With noise
+SELECT
+  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=1)
+  item, ANON_STDDEV_POP(quantity CLAMPED BETWEEN 0 AND 100) pop_standard_deviation
+FROM view_on_professors
+GROUP BY item;
+
+-- These results will change each time you run the query.
+-- Smaller aggregations may be removed.
++----------+------------------------+
+| item     | pop_standard_deviation |
++----------+------------------------+
+| pencil   | 25.350871122442054     |
+| scissors | 50                     |
+| pen      | 2                      |
++----------+------------------------+
+```
+
 ### ANON_SUM
 
 ```sql
@@ -221,7 +325,7 @@ result is an aggregation across anonymization IDs. You can optionally
 anonymization ID.
 
 The expression can be any numeric input type, such as
-INT64.
+`INT64`.
 
 **Return type**
 
@@ -272,6 +376,58 @@ GROUP BY item;
 Note: You can learn more about when and when not to use
 noise [here][anon-noise].
 
+### ANON_VAR_POP
+
+```sql
+ANON_VAR_POP(expression [CLAMPED BETWEEN lower AND upper])
+```
+
+**Description**
+
+Takes an expression and computes the population (biased) variance of the values
+in the expression. The final result is an aggregation across
+anonymization IDs between `0` and `+Inf`. You can
+[clamp the input values][anon-clamp] explicitly, otherwise input values are
+clamped implicitly. Clamping is performed per individual user values.
+
+Caveats:
+
++ `NUMERIC` arguments are not allowed. If you need them, cast them to
+  `DOUBLE` first.
++ `BIGNUMERIC` arguments are not allowed. If you need them, cast them to
+  `DOUBLE` first.
++ `NULL`s are always ignored. If all inputs are ignored, this function returns
+  `NULL`.
+
+**Return type**
+
+`DOUBLE`
+
+**Examples**
+
+The following anonymized query gets the population (biased) variance
+of items requested. Smaller aggregations may not be included. This query
+references a view called [`view_on_professors`][anon-example-views].
+
+```sql
+-- With noise
+SELECT
+  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=1)
+  item, ANON_VAR_POP(quantity CLAMPED BETWEEN 0 AND 100) pop_variance
+FROM view_on_professors
+GROUP BY item;
+
+-- These results will change each time you run the query.
+-- Smaller aggregations may be removed.
++----------+-----------------+
+| item     | pop_variance    |
++----------+-----------------+
+| pencil   | 642             |
+| pen      | 2.6666666666665 |
+| scissors | 2500            |
++----------+-----------------+
+```
+
 ### CLAMPED BETWEEN clause 
 <a id="anon_clamping"></a>
 
@@ -296,7 +452,7 @@ references a view called [`view_on_professors`][anon-example-views].
 --Without noise (this un-noised version is for demonstration only)
 SELECT
   WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=1)
-  gender, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
+  item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
 FROM view_on_professors
 GROUP BY item;
 
@@ -318,7 +474,7 @@ bound.
 --Without noise (this un-noised version is for demonstration only)
 SELECT
   WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=1)
-  gender, ANON_AVG(quantity CLAMPED BETWEEN 50 AND 100) average_quantity
+  item, ANON_AVG(quantity CLAMPED BETWEEN 50 AND 100) average_quantity
 FROM view_on_professors
 GROUP BY item;
 
@@ -349,13 +505,10 @@ to each aggregation can be different.
 
 Explicit bounds should be chosen to reflect public information.
 For example, bounding ages between 0 and 100 reflects public information
-because in general, the age of most people falls within this range. However,
-bounding ages between 0 and 37 because only 5% of people in the dataset are
-older than 37 is a problem because it's based on the dataset, not public
-information.
+because in general, the age of most people falls within this range.
 
 Important: The results of the query reveal the explicit bounds. Do not use
-explicit bounds based on the dataset; explicit bounds should be based on
+explicit bounds based on the user data; explicit bounds should be based on
 public information.
 
 ### Implicit clamping 
@@ -381,12 +534,21 @@ information.
 When clamping is implicit, part of the total epsilon is spent picking bounds.
 This leaves less epsilon for aggregations, so these aggregations are noisier.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [anon-clamp]: #anon_clamping
+
 [anon-exp-clamp]: #anon_explicit_clamping
+
 [anon-imp-clamp]: #anon_implicit_clamping
 
 [anon-syntax]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md
+
 [anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
+
 [anon-from-clause]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_from
+
 [anon-noise]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#eliminate_noise
+
+<!-- mdlint on -->
 

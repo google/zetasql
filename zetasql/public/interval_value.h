@@ -288,6 +288,20 @@ class IntervalValue final {
     // Caller must ensure that count is positive non-zero.
     absl::StatusOr<IntervalValue> GetAverage(int64_t count) const;
 
+    // Merges the state with other SumAggregator instance's state.
+    void MergeWith(const SumAggregator& other);
+
+    // Serialization and deserialization methods for NUMERIC values that are
+    // intended to be used to store them in protos. The encoding is variable in
+    // length with max size of 32 bytes. SerializeAndAppendToProtoBytes is
+    // typically more efficient due to fewer memory allocations.
+    std::string SerializeAsProtoBytes() const;
+    void SerializeAndAppendToProtoBytes(std::string* bytes) const;
+    static absl::StatusOr<SumAggregator> DeserializeFromProtoBytes(
+        absl::string_view bytes);
+
+    std::string DebugString() const;
+
    private:
     __int128 months_ = 0;
     __int128 days_ = 0;

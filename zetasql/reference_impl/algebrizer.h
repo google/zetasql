@@ -246,6 +246,8 @@ class Algebrizer {
       std::unique_ptr<ValueExpr> filter, const ResolvedExpr* expr);
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeSubqueryExpr(
       const ResolvedSubqueryExpr* subquery_expr);
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeLetExpr(
+      const ResolvedLetExpr* let_expr);
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeInArray(
       std::unique_ptr<ValueExpr> in_value,
       std::unique_ptr<ValueExpr> array_value);

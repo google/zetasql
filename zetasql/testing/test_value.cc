@@ -17,6 +17,7 @@
 #include "zetasql/testing/test_value.h"
 
 #include "zetasql/base/logging.h"
+#include "zetasql/common/float_margin.h"
 #include "zetasql/public/type.h"
 
 namespace zetasql {
@@ -112,7 +113,11 @@ const EnumType* MakeEnumType(const google::protobuf::EnumDescriptor* descriptor,
 }
 
 bool AlmostEqualsValue(const Value& x, const Value& y, std::string* reason) {
-  return InternalValue::Equals(x, y, kDefaultFloatMargin, reason);
+  return InternalValue::Equals(
+      x, y,
+      {.interval_compare_mode = IntervalCompareMode::kAllPartsEqual,
+       .float_margin = kDefaultFloatMargin,
+       .reason = reason});
 }
 
 }  // namespace test_values

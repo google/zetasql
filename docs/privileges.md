@@ -1,4 +1,4 @@
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
+
 
 # Privileges
 
@@ -30,4 +30,8 @@ Both of these statements use the following variables:
   list of identifiers in parentheses. These identifiers are usually column
   names.
 + `grantees` is a comma-separated list of strings.
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+<!-- mdlint on -->
 

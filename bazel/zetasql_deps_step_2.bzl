@@ -226,12 +226,12 @@ cc_proto_library(
         if not native.existing_rule("boringssl"):
             http_archive(
                 name = "boringssl",
-                # Commit from 2019 October 29
+                # Commit from 2021-11-01
                 urls = [
-                    "https://github.com/google/boringssl/archive/9e18928936ccb882192e9779b0fd355bec739bdd.tar.gz",
+                    "https://github.com/google/boringssl/archive/4fb158925f7753d80fb858cb0239dff893ef9f15.tar.gz",
                 ],
-                sha256 = "19a951d1706a67be480809f6a6231675d29841be5682a7fe40bbcdf1e16f0147",
-                strip_prefix = "boringssl-9e18928936ccb882192e9779b0fd355bec739bdd",
+                sha256 = "e168777eb0fc14ea5a65749a2f53c095935a6ea65f38899a289808fb0c221dc4",
+                strip_prefix = "boringssl-4fb158925f7753d80fb858cb0239dff893ef9f15",
             )
 
         # Farmhash

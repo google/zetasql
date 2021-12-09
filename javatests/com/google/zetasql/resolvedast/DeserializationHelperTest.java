@@ -179,7 +179,7 @@ public class DeserializationHelperTest {
     FunctionSignatureProto functionSignature = signature.serialize(fileDescriptorSetsBuilder);
     FunctionSignature signature2 = helper.deserialize(functionSignature);
     assertThat(signature.serialize(fileDescriptorSetsBuilder))
-        .isEqualTo((signature2.serialize(fileDescriptorSetsBuilder)));
+        .isEqualTo(signature2.serialize(fileDescriptorSetsBuilder));
   }
 
   @Test

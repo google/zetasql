@@ -170,8 +170,8 @@ void PrintTo(const TupleSlot& slot, std::ostream* os) {
 // which must be castable to Matcher<std::shared_ptr<SharedProtoState>>.
 MATCHER_P2(IsTupleSlotWith, expected_value, shared_state_matcher, "") {
   std::string reason;
-  if (!InternalValue::Equals(expected_value, arg.value(), kDefaultFloatMargin,
-                             &reason)) {
+  if (!InternalValue::Equals(expected_value, arg.value(),
+                             ValueEqualityCheckOptions{.reason = &reason})) {
     *result_listener << reason;
     return false;
   }

@@ -235,7 +235,7 @@ TIME_DIFF(time_expression_a, time_expression_b, part)
 
 **Description**
 
-Returns the number of whole specified `part` intervals between two
+Returns the whole number of specified `part` intervals between two
 `TIME` objects (`time_expression_a` - `time_expression_b`). If the first
 `TIME` is earlier than the second one, the output is negative. Throws an error
 if the computation overflows the result type, such as if the difference in
@@ -373,14 +373,15 @@ The format string fully supports most format elements except for `%P`.
 When using `PARSE_TIME`, keep the following in mind:
 
 + **Unspecified fields.** Any unspecified field is initialized from
-`00:00:00.0`. For instance, if `seconds` is unspecified then it
-defaults to `00`, and so on.
+  `00:00:00.0`. For instance, if `seconds` is unspecified then it
+  defaults to `00`, and so on.
 + **Whitespace.** One or more consecutive white spaces in the format string
-matches zero or more consecutive white spaces in the `TIME` string. In
-addition, leading and trailing white spaces in the `TIME` string are always
-allowed, even if they are not in the format string.
+  matches zero or more consecutive white spaces in the `TIME` string. In
+  addition, leading and trailing white spaces in the `TIME` string are always
+  allowed, even if they are not in the format string.
 + **Format precedence.** When two (or more) format elements have overlapping
-information, the last one generally overrides any earlier ones.
+  information, the last one generally overrides any earlier ones.
++ **Format divergence.** `%p` can be used with `am`, `AM`, `pm`, and `PM`.
 
 **Return Data Type**
 
@@ -399,7 +400,7 @@ SELECT PARSE_TIME("%H", "15") as parsed_time;
 ```
 
 ```sql
-SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 PM') AS parsed_time
+SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time
 
 +-------------+
 | parsed_time |
@@ -510,10 +511,17 @@ by a space.</td>
  </tr>
 </table>
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [time-format]: #format_time
+
 [time-format-elements]: #supported_format_elements_for_time
+
 [time-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
 
 [time-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
+
 [time-to-string]: https://github.com/google/zetasql/blob/master/docs/conversion_functions.md#cast
+
+<!-- mdlint on -->
 

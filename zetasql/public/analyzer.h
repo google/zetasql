@@ -432,6 +432,11 @@ absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
     const AnalyzerOptions& analyzer_options, Catalog* catalog,
     TypeFactory* type_factory);
 
+absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
+    const AnalyzerOutput& analyzer_output,
+    const AnalyzerOptions& analyzer_options, Catalog* catalog,
+    TypeFactory* type_factory);
+
 // Performs resolved AST rewrites as requested with the enabled rewrites in
 // 'analyzer_options'.
 //

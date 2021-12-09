@@ -17,6 +17,8 @@
 #ifndef ZETASQL_TOOLS_EXECUTE_QUERY_SIMPLE_PROTO_EVALUATOR_TABLE_ITERATOR_H_
 #define ZETASQL_TOOLS_EXECUTE_QUERY_SIMPLE_PROTO_EVALUATOR_TABLE_ITERATOR_H_
 
+#include <string>
+
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/proto_type.h"

@@ -321,3 +321,58 @@ WITH FEATURES: BIGNUMERIC_TYPE
 ERROR: generic::invalid_argument: Function calls with SAFE are not supported [at 1:8]
 SELECT safe.parse_bignumeric(' - 1 2.34 '), safe.parse_bignumeric('1e100'), s...
        ^
+==
+
+[name=json_safe_string_resolve_to_null]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+SELECT safe.string(JSON '4325');
+--
+ARRAY<STRUCT<STRING>>[{NULL}]
+==
+
+[name=json_safe_string]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+SELECT safe.string(JSON '"json_string"');
+--
+ARRAY<STRUCT<STRING>>[{"json_string"}]
+==
+
+[name=json_safe_bool_resolve_to_null]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+SELECT safe.bool(JSON '4326');
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+
+[name=json_safe_bool]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+SELECT safe.bool(JSON 'true');
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+[name=json_int64_resolve_to_null]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+SELECT safe.int64(JSON '"not_a_number"');
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+==
+
+[name=json_safe_int64]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+SELECT safe.int64(JSON '133');
+--
+ARRAY<STRUCT<INT64>>[{133}]
+==
+
+[name=json_safe_double_fail_resolve_to_null]
+[required_features=JSON_TYPE,NAMED_ARGUMENTS,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+SELECT safe.double(JSON '18446744073709551615', wide_number_mode=>'exact');
+--
+ARRAY<STRUCT<DOUBLE>>[{NULL}]
+==
+[name=json_safe_double]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+SELECT safe.double(JSON '-1.1');
+--
+ARRAY<STRUCT<DOUBLE>>[{-1.1}]

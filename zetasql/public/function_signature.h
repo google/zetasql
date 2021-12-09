@@ -829,6 +829,16 @@ class FunctionSignatureOptions {
     return *this;
   }
 
+  // See comments on rejects_collation_ field.
+  bool rejects_collation() const { return rejects_collation_; }
+
+  // See comments on rejects_collation_ field.
+  FunctionSignatureOptions& set_rejects_collation(
+      bool rejects_collation = true) {
+    rejects_collation_ = rejects_collation;
+    return *this;
+  }
+
   static absl::Status Deserialize(
       const FunctionSignatureOptionsProto& proto,
       std::unique_ptr<FunctionSignatureOptions>* result);
@@ -884,6 +894,10 @@ class FunctionSignatureOptions {
   // This option is only effective when FEATURE_V_1_3_COLLATION_SUPPORT is
   // enabled.
   bool uses_operation_collation_ = false;
+
+  // When true, an error will be returned during resolution if any argument
+  // of the function has collation.
+  bool rejects_collation_ = false;
 
   // Copyable.
 };
@@ -942,7 +956,7 @@ class FunctionSignature {
 
   ~FunctionSignature() {}
 
-  ABSL_DEPRECATED("Use Deserialize(FunctionSignatureProto, TypeDeserializer)")
+  ABSL_DEPRECATED("Inline me!")
   static absl::Status Deserialize(
       const FunctionSignatureProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,

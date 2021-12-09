@@ -94,6 +94,10 @@ TEST_P(CollatorTest, MakeSqlCollator) {
 }
 
 TEST_P(CollatorTest, MakeSqlCollatorErrors) {
+  EXPECT_THAT(MakeSqlCollator({}), StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(MakeSqlCollator(""), StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(MakeSqlCollator(":"), StatusIs(absl::StatusCode::kOutOfRange));
+
   EXPECT_THAT(MakeSqlCollator(":cs"), StatusIs(absl::StatusCode::kOutOfRange));
   EXPECT_THAT(MakeSqlCollator("binary:cs"),
               StatusIs(absl::StatusCode::kOutOfRange));

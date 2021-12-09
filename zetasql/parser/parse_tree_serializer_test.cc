@@ -24,9 +24,11 @@
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/functional/bind_front.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "file_based_test_driver/file_based_test_driver.h"
 #include "file_based_test_driver/run_test_case_result.h"
 #include "file_based_test_driver/test_case_options.h"
@@ -58,6 +60,24 @@ class ParseTreeSerializerTest : public ::testing::Test {
     zetasql::AnyASTStatementProto proto;
     status = ParseTreeSerializer::Serialize(statement, &proto);
     test_result->AddTestOutput(proto.DebugString());
+
+    ParserOptions deserialize_parser_options =
+        ParserOptions(/*id_string_pool=*/nullptr,
+                      /*arena=*/nullptr, /* language_options=*/nullptr);
+
+    absl::StatusOr<std::unique_ptr<ParserOutput>> deserialized_parser_output =
+        ParseTreeSerializer::Deserialize(proto,
+                                         deserialize_parser_options);
+    ZETASQL_EXPECT_OK(deserialized_parser_output);
+    const zetasql::ASTStatement* deserialized_statement =
+        deserialized_parser_output.value()->statement();
+
+    // This is only a partially reliable test for node equality
+    // because not all attributes of a node are necessarily represented in
+    // the DebugString. Still need to generate a deep equals() method for
+    // better comparison.
+    EXPECT_EQ(statement->DebugString(), deserialized_statement->DebugString());
+    EXPECT_EQ(Unparse(statement), Unparse(deserialized_statement));
   }
 };
 

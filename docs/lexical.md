@@ -1,5 +1,4 @@
 
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
 
 # Lexical structure and syntax
 
@@ -981,7 +980,7 @@ Comments are sequences of characters that the parser ignores.
 ZetaSQL supports the following types of comments.
 
 ### Single-line comments 
-<a id="single-line-comments"></a>
+<a id="single_line_comments"></a>
 
 Use a single-line comment if you want the comment to appear on a line by itself.
 
@@ -1055,21 +1054,35 @@ on two lines */
 WHERE book = "Ulysses";
 ```
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [json-wiki]: https://en.wikipedia.org/wiki/JSON
+
 [tz-database]: http://www.iana.org/time-zones
+
 [tz-database-time-zones]: http://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 
 [lexical-identifiers]: #identifiers
+
 [lexical-literals]: #literals
+
 [case-sensitivity]: #case_sensitivity
+
 [time-zone]: #timezone
+
 [string-literals]: #string_and_bytes_literals
+
 [named-query-parameters]: #named_query_parameters
+
 [positional-query-parameters]: #positional_query_parameters
+
 [query-reference]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md
+
 [lexical-udfs-reference]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md
 
-[constructing-a-struct]: https://github.com/google/zetasql/blob/master/docs/data-types.md#constructing-a-struct
+[constructing-a-struct]: https://github.com/google/zetasql/blob/master/docs/data-types.md#constructing_a_struct
 
 [functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md
+
+<!-- mdlint on -->
 

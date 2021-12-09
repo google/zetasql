@@ -27,6 +27,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/base/case.h"
 #include "absl/base/attributes.h"
+#include "absl/container/btree_set.h"
 
 namespace zetasql {
 
@@ -149,8 +150,11 @@ struct AllowedHintsAndOptions {
 // language() member.
 class AnalyzerOptions {
  public:
-  typedef std::function<absl::Status(const std::string&, const Type**)>
-      LookupExpressionColumnCallback;
+  // Represents a set of ASTRewrites.
+  using ASTRewriteSet = absl::btree_set<ResolvedASTRewrite>;
+
+  using LookupExpressionColumnCallback =
+      std::function<absl::Status(const std::string&, const Type**)>;
 
   // Callback to retrieve pseudo-columns for the target of a DDL statement.
   // <options> is the contents of the OPTIONS clause attached to the statement,
@@ -197,10 +201,10 @@ class AnalyzerOptions {
   // Allows updating the set of enabled AST rewrites.
   // By default rewrites in DefaultResolvedASTRewrites() are enabled.
   // These are documented with the ResolvedASTRewrite enum.
-  void set_enabled_rewrites(absl::flat_hash_set<ResolvedASTRewrite> rewrites) {
+  void set_enabled_rewrites(absl::btree_set<ResolvedASTRewrite> rewrites) {
     enabled_rewrites_ = std::move(rewrites);
   }
-  const absl::flat_hash_set<ResolvedASTRewrite>& enabled_rewrites() const {
+  const absl::btree_set<ResolvedASTRewrite>& enabled_rewrites() const {
     return enabled_rewrites_;
   }
   // Enables or disables a particular rewrite.
@@ -210,7 +214,7 @@ class AnalyzerOptions {
     return enabled_rewrites_.contains(rewrite);
   }
   // Returns the set of rewrites that are enabled by default.
-  static absl::flat_hash_set<ResolvedASTRewrite> DefaultRewrites();
+  static absl::btree_set<ResolvedASTRewrite> DefaultRewrites();
 
   // Options for Find*() name lookups into the Catalog.
   const Catalog::FindOptions& find_options() const { return find_options_; }
@@ -429,7 +433,7 @@ class AnalyzerOptions {
     return parse_location_record_type_;
   }
   // Set this to true to record parse locations in resolved AST nodes,
-  ABSL_DEPRECATED("Use set_parse_location_record_type() instead")
+  ABSL_DEPRECATED("Inline me!")
   void set_record_parse_locations(bool value) {
     parse_location_record_type_ = (value ? PARSE_LOCATION_RECORD_CODE_SEARCH
                                          : PARSE_LOCATION_RECORD_NONE);
@@ -557,6 +561,8 @@ class AnalyzerOptions {
   // else an explicit list of columns. If ddl_pseudo_columns_ is non-empty, the
   // callback is a wrapper that returns ddl_pseudo_columns_ as output regardless
   // of the input.
+  // NOTE: Ensure that variables captured by this lamda either outlive this
+  // AnalyzerOptions and any copy of it OR are captured by value instead.
   DdlPseudoColumnsCallback ddl_pseudo_columns_callback_;
   std::vector<std::pair<std::string, const Type*>> ddl_pseudo_columns_;
 
@@ -645,7 +651,10 @@ class AnalyzerOptions {
   std::vector<const Type*> target_column_types_;
 
   // The set of ASTRewrites that are enabled.
-  absl::flat_hash_set<ResolvedASTRewrite> enabled_rewrites_ = DefaultRewrites();
+  // Note that we store these as a btree_set to make the order in which the
+  // rewrites are applied consistent, and thus prevent instability in the
+  // analyzer test column ids.
+  absl::btree_set<ResolvedASTRewrite> enabled_rewrites_ = DefaultRewrites();
 
   // Copyable
 };

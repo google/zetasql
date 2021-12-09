@@ -30,6 +30,7 @@
 
 #include "google/protobuf/descriptor.h"
 #include <cstdint>
+#include "absl/container/btree_map.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 
@@ -115,12 +116,12 @@ class ReproCommand {
 
  private:
   bool RemoveFromMapIfPresent(const std::string& key,
-                              std::map<std::string, std::string>* map);
+                              absl::btree_map<std::string, std::string>* map);
 
   std::string test_target_;
-  std::map<std::string, std::string> build_flags_;
-  std::map<std::string, std::string> test_arg_flags_;
-  std::map<std::string, std::string> test_envs_;
+  absl::btree_map<std::string, std::string> build_flags_;
+  absl::btree_map<std::string, std::string> test_arg_flags_;
+  absl::btree_map<std::string, std::string> test_envs_;
   const int64_t kDefaultTimeout = 300;  // Default to a 300 second timeout.
 };
 

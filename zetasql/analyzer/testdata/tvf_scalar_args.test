@@ -554,6 +554,7 @@ QueryStmt
       +-TVFScan(column_list=tvf_no_args_return_all_pod_types.[column_date#3, column_double#4, column_int32#6, column_time#9, column_uint64#11], tvf=tvf_no_args_return_all_pod_types(() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>), signature=() -> TABLE<column_bool BOOL, column_bytes BYTES, column_date DATE, column_double DOUBLE, column_float FLOAT, column_int32 INT32, column_int64 INT64, column_string STRING, column_time TIME, column_uint32 UINT32, column_uint64 UINT64>, column_index_list=[2, 3, 5, 8, 10])
 ==
 
+[language_features=TABLE_VALUED_FUNCTIONS,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES,INTERVAL_TYPE]
 # Test several TVFs, each of which accepts one argument of some POD type.
 select column_bool from tvf_exactly_1_bool_arg(true) union all
 select column_bool from tvf_exactly_1_bytes_arg(cast("" as bytes)) union all
@@ -563,14 +564,15 @@ select column_bool from tvf_exactly_1_int32_arg(cast(42 as int32)) union all
 select column_bool from tvf_exactly_1_int64_arg(cast(42 as int64)) union all
 select column_bool from tvf_exactly_1_string_arg("abc") union all
 select column_bool from tvf_exactly_1_uint32_arg(cast(42 as uint32)) union all
-select column_bool from tvf_exactly_1_uint64_arg(cast(42 as uint64))
+select column_bool from tvf_exactly_1_uint64_arg(cast(42 as uint64)) union all
+select column_bool from tvf_exactly_1_interval_arg(INTERVAL 5 MINUTE)
 --
 QueryStmt
 +-output_column_list=
-| +-$union_all.column_bool#19 AS column_bool [BOOL]
+| +-$union_all.column_bool#21 AS column_bool [BOOL]
 +-query=
   +-SetOperationScan
-    +-column_list=[$union_all.column_bool#19]
+    +-column_list=[$union_all.column_bool#21]
     +-op_type=UNION_ALL
     +-input_item_list=
       +-SetOperationItem
@@ -694,20 +696,37 @@ QueryStmt
       | |       +-column_index_list=[0]
       | +-output_column_list=[tvf_exactly_1_uint32_arg.column_bool#15]
       +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=[tvf_exactly_1_uint64_arg.column_bool#17]
+      | |   +-input_scan=
+      | |     +-TVFScan
+      | |       +-column_list=[tvf_exactly_1_uint64_arg.column_bool#17]
+      | |       +-tvf=tvf_exactly_1_uint64_arg((UINT64) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+      | |       +-signature=(literal UINT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
+      | |       +-argument_list=
+      | |       | +-FunctionArgument
+      | |       |   +-expr=
+      | |       |     +-Literal(type=UINT64, value=42, has_explicit_type=TRUE)
+      | |       +-column_index_list=[0]
+      | +-output_column_list=[tvf_exactly_1_uint64_arg.column_bool#17]
+      +-SetOperationItem
         +-scan=
         | +-ProjectScan
-        |   +-column_list=[tvf_exactly_1_uint64_arg.column_bool#17]
+        |   +-column_list=[tvf_exactly_1_interval_arg.column_bool#19]
         |   +-input_scan=
         |     +-TVFScan
-        |       +-column_list=[tvf_exactly_1_uint64_arg.column_bool#17]
-        |       +-tvf=tvf_exactly_1_uint64_arg((UINT64) -> TABLE<column_bool BOOL, column_bytes BYTES>)
-        |       +-signature=(literal UINT64) -> TABLE<column_bool BOOL, column_bytes BYTES>
+        |       +-column_list=[tvf_exactly_1_interval_arg.column_bool#19]
+        |       +-tvf=tvf_exactly_1_interval_arg((INTERVAL) -> TABLE<column_bool BOOL, column_bytes BYTES>)
+        |       +-signature=(INTERVAL) -> TABLE<column_bool BOOL, column_bytes BYTES>
         |       +-argument_list=
         |       | +-FunctionArgument
         |       |   +-expr=
-        |       |     +-Literal(type=UINT64, value=42, has_explicit_type=TRUE)
+        |       |     +-FunctionCall(ZetaSQL:$interval(INT64, ENUM<zetasql.functions.DateTimestampPart>) -> INTERVAL)
+        |       |       +-Literal(type=INT64, value=5)
+        |       |       +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=MINUTE)
         |       +-column_index_list=[0]
-        +-output_column_list=[tvf_exactly_1_uint64_arg.column_bool#17]
+        +-output_column_list=[tvf_exactly_1_interval_arg.column_bool#19]
 ==
 
 # Test coercion in TVF calls when scalar argument types don't exactly match the

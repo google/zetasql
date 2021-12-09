@@ -14,8 +14,8 @@
 // limitations under the License.
 //
 
-#ifndef ZETASQL_PARSER_JOIN_PROCCESSOR_H_
-#define ZETASQL_PARSER_JOIN_PROCCESSOR_H_
+#ifndef ZETASQL_PARSER_JOIN_PROCESSOR_H_
+#define ZETASQL_PARSER_JOIN_PROCESSOR_H_
 
 #include "zetasql/parser/bison_parser.h"
 
@@ -46,7 +46,7 @@ namespace parser {
 // - In the first step, consecutive ON/USING clauses are collected and saved as
 //   clause_list_ in ASTJoin nodes.
 //
-//   For example, for the follwing statement:
+//   For example, for the following statement:
 //
 //     SELECT * FROM t1 JOIN t2 JOIN t3 ON cond1 ON cond2
 //        JOIN t4 JOIN t5 ON cond3 ON cond4;
@@ -349,7 +349,7 @@ namespace parser {
 // is invalid since ON clause cannot be used with CROSS JOIN. But the query
 // could be successfully parsed before consecutive ON/USING clauses support was
 // added. The error is detected by the analyzer instead. Thus, to maintain
-// backward compatibily, we do not generate errors in this case. We only
+// backward compatibility, we do not generate errors in this case. We only
 // generate errors when consecutive ON/USING clauses are used. For example, for
 // this query
 //
@@ -417,4 +417,4 @@ ASTNode* TransformJoinExpression(ASTNode* node,
 }  // namespace parser
 }  // namespace zetasql
 
-#endif  // ZETASQL_PARSER_JOIN_PROCCESSOR_H_
+#endif  // ZETASQL_PARSER_JOIN_PROCESSOR_H_

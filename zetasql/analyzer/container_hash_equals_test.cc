@@ -43,12 +43,12 @@ TEST(ContainerHash, StdUnorderedMapOfVector) {
       m;
 
   m[values1] = 1;
-  ASSERT_TRUE(zetasql_base::ContainsKey(m, values1));
-  ASSERT_TRUE(zetasql_base::ContainsKey(m, values2));
-  ASSERT_FALSE(zetasql_base::ContainsKey(m, values3));
+  ASSERT_TRUE(m.contains(values1));
+  ASSERT_TRUE(m.contains(values2));
+  ASSERT_FALSE(m.contains(values3));
   ASSERT_EQ(m.at(values2), 1);
   m.erase(values2);
-  ASSERT_FALSE(zetasql_base::ContainsKey(m, values1));
+  ASSERT_FALSE(m.contains(values1));
 }
 
 TEST(ContainerHash, AbslFlatHashMapOfStdVector) {
@@ -63,12 +63,12 @@ TEST(ContainerHash, AbslFlatHashMapOfStdVector) {
       m;
 
   m[values1] = 1;
-  ASSERT_TRUE(zetasql_base::ContainsKey(m, values1));
-  ASSERT_TRUE(zetasql_base::ContainsKey(m, values2));
-  ASSERT_FALSE(zetasql_base::ContainsKey(m, values3));
+  ASSERT_TRUE(m.contains(values1));
+  ASSERT_TRUE(m.contains(values2));
+  ASSERT_FALSE(m.contains(values3));
   ASSERT_EQ(m.at(values2), 1);
   m.erase(values2);
-  ASSERT_FALSE(zetasql_base::ContainsKey(m, values1));
+  ASSERT_FALSE(m.contains(values1));
 }
 
 TEST(ContainerHash, AbslFlatHashMapOfAbslSpan) {
@@ -87,12 +87,12 @@ TEST(ContainerHash, AbslFlatHashMapOfAbslSpan) {
       m;
 
   m[span1] = 1;
-  ASSERT_TRUE(zetasql_base::ContainsKey(m, span1));
-  ASSERT_TRUE(zetasql_base::ContainsKey(m, span2));
-  ASSERT_FALSE(zetasql_base::ContainsKey(m, span3));
+  ASSERT_TRUE(m.contains(span1));
+  ASSERT_TRUE(m.contains(span2));
+  ASSERT_FALSE(m.contains(span3));
   ASSERT_EQ(m.at(span2), 1);
   m.erase(span2);
-  ASSERT_FALSE(zetasql_base::ContainsKey(m, span1));
+  ASSERT_FALSE(m.contains(span1));
 }
 
 TEST(ContainerHash, AbslFlatHashMapOfAbslConstSpan) {
@@ -111,12 +111,12 @@ TEST(ContainerHash, AbslFlatHashMapOfAbslConstSpan) {
       m;
 
   m[span1] = 1;
-  ASSERT_TRUE(zetasql_base::ContainsKey(m, span1));
-  ASSERT_TRUE(zetasql_base::ContainsKey(m, span2));
-  ASSERT_FALSE(zetasql_base::ContainsKey(m, span3));
+  ASSERT_TRUE(m.contains(span1));
+  ASSERT_TRUE(m.contains(span2));
+  ASSERT_FALSE(m.contains(span3));
   ASSERT_EQ(m.at(span2), 1);
   m.erase(span2);
-  ASSERT_FALSE(zetasql_base::ContainsKey(m, span1));
+  ASSERT_FALSE(m.contains(span1));
 }
 
 TEST(ContainerHash, CustomHashButDefaultEquals) {
@@ -132,14 +132,14 @@ TEST(ContainerHash, CustomHashButDefaultEquals) {
       m;
 
   m[values1] = 1;
-  ASSERT_TRUE(zetasql_base::ContainsKey(m, values1));
-  ASSERT_FALSE(zetasql_base::ContainsKey(m, values2));
-  ASSERT_FALSE(zetasql_base::ContainsKey(m, values3));
+  ASSERT_TRUE(m.contains(values1));
+  ASSERT_FALSE(m.contains(values2));
+  ASSERT_FALSE(m.contains(values3));
   m[values2] = 2;
   ASSERT_EQ(m.at(values1), 1);
   ASSERT_EQ(m.at(values2), 2);
   m.erase(values2);
-  ASSERT_TRUE(zetasql_base::ContainsKey(m, values1));
+  ASSERT_TRUE(m.contains(values1));
 }
 
 }  // namespace

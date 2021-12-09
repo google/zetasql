@@ -59,7 +59,6 @@
 #include "absl/time/time.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/source_location.h"
-#include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/clock.h"

@@ -336,14 +336,18 @@ enum LanguageFeature {
   FEATURE_JSON_TYPE = 43 [(language_feature_options).in_development = true];
 
   // If true, JSON values are not parsed and validated.
-  FEATURE_JSON_NO_VALIDATION = 44
-      [(language_feature_options).in_development = true];
+  FEATURE_JSON_NO_VALIDATION = 44 [
+    (language_feature_options).ideally_enabled = false,
+    (language_feature_options).in_development = true
+  ];
 
   // If true, JSON string documents will be parsed using the proto JSON parse
   // rules that are more relaxed than the JSON RFC (for example allowing single
   // quotes in the documents).
-  FEATURE_JSON_LEGACY_PARSE = 46
-      [(language_feature_options).in_development = true];
+  FEATURE_JSON_LEGACY_PARSE = 46 [
+    (language_feature_options).ideally_enabled = false,
+    (language_feature_options).in_development = true
+  ];
 
   // Enables support for WITH PARTITION COLUMNS in CREATE EXTERNAL TABLE.
   // Example:
@@ -455,7 +459,8 @@ enum LanguageFeature {
   // Enables STRING(JSON), INT64(JSON), BOOL(JSON), DOUBLE(JSON),
   // JSON_TYPE(JSON) functions.
   // See (broken link) for details.
-  FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS = 68;
+  FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS = 68
+      [(language_feature_options).in_development = true];
 
   // Disallows "unicode", "unicode:ci", "unicode:cs" in ORDER BY ... COLLATE and
   // other collation features. "unicode" is a legacy feature, and the desired
@@ -847,6 +852,10 @@ enum LanguageFeature {
 message ResolvedASTRewriteOptions {
   // Whether the rewrite is enabled by default or not.
   optional bool default_enabled = 1;
+  // Indicates whether a rewrite is still undergoing development. Users should
+  // not enable rewrites that are still in development for production code,
+  // and should check with zetasql-team@ before using in experimental code.
+  optional bool in_development = 2 [default = false];
 }
 
 // Supported ZetaSQL resolved AST rewrites.
@@ -885,6 +894,31 @@ enum ResolvedASTRewrite {
 
   // Rewrite typeof function. See (broken link)
   REWRITE_TYPEOF_FUNCTION = 8 [(rewrite_options).default_enabled = true];
+
+  // Rewrite LetExpr into subquery.
+  REWRITE_LET_EXPR = 9 [(rewrite_options).default_enabled = true];
+
+  // Inline SQL Functions.
+  // Experimental, functionality may change before generally available.
+  // Functions that are added to the Catalog that are subtypes of
+  // SQLFunctionBase will be inlined. That removes the ResolvedFunctionCall and
+  // replaces it with an expression that evaluates the function body.
+  // Currently, not all shapes of functions and function calls are supported:
+  // * SAFE. mode function calls will result in an kUnimplemented error.
+  //   TODO Fix this case when an if_error equivalent is supported.
+  // * Argument references inside WITH subqueries will result in an
+  //   kUnimplemented error.
+  //   TODO Fix this case when releasing TVF rewrites.
+  // * Will not rewrite a SQL function call that is inside another SQL function
+  //   call.
+  //   TODO Fix this case before removing "in_development".
+  // * Will only apply other rewrites (e.g. lambdas) if the invoking query also
+  //   requires that rewriter.
+  //   TODO Fix this case before removing "in_development".
+  REWRITE_INLINE_SQL_FUNCTIONS = 10 [
+    (rewrite_options).default_enabled = false,
+    (rewrite_options).in_development = true
+  ];
 }
 
 // This can be used to select strict name resolution mode.

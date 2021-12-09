@@ -586,8 +586,8 @@ class HavingExtremalValueAccumulator : public IntermediateAggregateAccumulator {
       const BuiltinAggregateFunction max_function(
           use_max_ ? FunctionKind::kMax : FunctionKind::kMin,
           having_value.type(), /*num_input_fields=*/1, having_value.type());
-      auto status_or_accumulator =
-          max_function.CreateAccumulator(/*args=*/{}, context_);
+      auto status_or_accumulator = max_function.CreateAccumulator(
+          /*args=*/{}, /*collator_list=*/{}, context_);
       if (!status_or_accumulator.ok()) {
         *status = status_or_accumulator.status();
         return false;
@@ -853,8 +853,6 @@ class IntermediateAggregateAccumulatorAdaptor : public AggregateArgAccumulator {
   IntermediateAggregateAccumulatorAdaptor& operator=(
       const IntermediateAggregateAccumulatorAdaptor&) = delete;
 
-  absl::Status Reset() override { return accumulator_->Reset(); }
-
   bool Accumulate(const TupleData& input_row, bool* stop_accumulation,
                   absl::Status* status) override {
     std::vector<Value> values(value_exprs_.size());
@@ -916,7 +914,7 @@ static absl::Status PopulateSlotsForKeysAndValues(
   // The other slots contain values.
   slots_for_values->reserve(schema.num_variables() - slots_for_keys_set.size());
   for (int i = 0; i < schema.num_variables(); ++i) {
-    if (!zetasql_base::ContainsKey(slots_for_keys_set, i)) {
+    if (!slots_for_keys_set.contains(i)) {
       slots_for_values->push_back(i);
     }
   }
@@ -925,8 +923,6 @@ static absl::Status PopulateSlotsForKeysAndValues(
 }
 
 namespace {
-
-using CollatorList = std::vector<std::unique_ptr<const ZetaSqlCollator>>;
 
 absl::StatusOr<CollatorList> MakeCollatorList(
     const std::vector<ResolvedCollation>& collation_list) {
@@ -950,14 +946,6 @@ absl::StatusOr<CollatorList> MakeCollatorList(
 absl::StatusOr<std::unique_ptr<AggregateArgAccumulator>>
 AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
                                 EvaluationContext* context) const {
-  // TODO: Modify this check to allow collation support for other
-  // types of aggregate functions in the fu.
-  if (!collation_list().empty() && distinct() != kDistinct) {
-    return ::zetasql_base::InvalidArgumentErrorBuilder()
-           << "Collation is not supported for aggregate function without "
-              "DISTINCT: "
-           << DebugString();
-  }
   // Build the underlying AggregateAccumulator.
   std::vector<Value> args(parameter_list_size());
   for (int i = 0; i < parameter_list_size(); ++i) {
@@ -966,9 +954,11 @@ AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
     absl::Status status;
     if (!parameter(i)->Eval(params, context, &slot, &status)) return status;
   }
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<AggregateAccumulator> underlying_accumulator,
-      aggregate_function()->function()->CreateAccumulator(args, context));
+  ZETASQL_ASSIGN_OR_RETURN(CollatorList collator_list,
+                   MakeCollatorList(collation_list()));
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AggregateAccumulator> underlying_accumulator,
+                   aggregate_function()->function()->CreateAccumulator(
+                       args, std::move(collator_list), context));
 
   // Adapt the underlying AggregateAccumulator to the
   // IntermediateAggregateAccumulator interface so that we can stack other
@@ -1409,7 +1399,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
   absl::flat_hash_map<TupleDataPtr, std::unique_ptr<GroupValue>> group_map;
   std::vector<std::unique_ptr<TupleData>> group_map_keys_memory;
 
-  std::vector<std::unique_ptr<const ZetaSqlCollator>> collators;
+  CollatorList collators;
 
   // Prepare collators for each KeyArg.
   for (const KeyArg* key : keys()) {
@@ -1671,10 +1661,6 @@ GroupRowsOp::GroupRowsOp(std::vector<std::unique_ptr<ExprArg>> columns) {
 
 absl::Span<const ExprArg* const> GroupRowsOp::columns() const {
   return GetArgs<ExprArg>(kColumn);
-}
-
-absl::Span<ExprArg* const> GroupRowsOp::mutable_columns() {
-  return GetMutableArgs<ExprArg>(kColumn);
 }
 
 std::unique_ptr<TupleSchema> GroupRowsOp::CreateOutputSchema() const {

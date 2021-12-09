@@ -63,11 +63,14 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_ABORT_BATCH_STATEMENT] = "AbortBatchStatement";
   map[AST_ADD_COLUMN_ACTION] = "AddColumnAction";
   map[AST_ADD_CONSTRAINT_ACTION] = "AddConstraintAction";
+  map[AST_ADD_TO_RESTRICTEE_LIST_CLAUSE] = "AddToRestricteeListClause";
   map[AST_ALIAS] = "Alias";
   map[AST_ALTER_ACTION_LIST] = "AlterActionList";
   map[AST_ALTER_COLUMN_OPTIONS_ACTION] = "AlterColumnOptionsAction";
   map[AST_ALTER_COLUMN_DROP_NOT_NULL_ACTION] = "AlterColumnDropNotNullAction";
   map[AST_ALTER_COLUMN_TYPE_ACTION] = "AlterColumnTypeAction";
+  map[AST_ALTER_COLUMN_SET_DEFAULT_ACTION] = "AlterColumnSetDefaultAction";
+  map[AST_ALTER_COLUMN_DROP_DEFAULT_ACTION] = "AlterColumnDropDefaultAction";
   map[AST_ALTER_CONSTRAINT_ENFORCEMENT_ACTION] =
       "AlterConstraintEnforcementAction";
   map[AST_ALTER_CONSTRAINT_SET_OPTIONS_ACTION] =
@@ -75,6 +78,8 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_ALTER_DATABASE_STATEMENT] = "AlterDatabaseStatement";
   map[AST_ALTER_ENTITY_STATEMENT] = "AlterEntityStatement";
   map[AST_ALTER_MATERIALIZED_VIEW_STATEMENT] = "AlterMaterializedViewStatement";
+  map[AST_ALTER_PRIVILEGE_RESTRICTION_STATEMENT] =
+      "AlterPrivilegeRestrictionStatement";
   map[AST_ALTER_ROW_ACCESS_POLICY_STATEMENT] = "AlterRowAccessPolicyStatement";
   map[AST_ALTER_ALL_ROW_ACCESS_POLICIES_STATEMENT] =
       "AlterAllRowAccessPoliciesStatement";
@@ -164,6 +169,8 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_DROP_FUNCTION_STATEMENT] = "DropFunctionStatement";
   map[AST_DROP_TABLE_FUNCTION_STATEMENT] = "DropTableFunctionStatement";
   map[AST_DROP_PRIMARY_KEY_ACTION] = "DropPrimaryKeyAction";
+  map[AST_DROP_PRIVILEGE_RESTRICTION_STATEMENT] =
+      "DropPrivilegeRestrictionStatement";
   map[AST_DROP_ROW_ACCESS_POLICY_STATEMENT] = "DropRowAccessPolicyStatement";
   map[AST_DROP_SEARCH_INDEX_STATEMENT] = "DropSearchIndexStatement";
   map[AST_DROP_STATEMENT] = "DropStatement";
@@ -279,6 +286,8 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_QUERY_STATEMENT] = "QueryStatement";
   map[AST_QUERY] = "Query";
   map[AST_RAISE_STATEMENT] = "Raise";
+  map[AST_REMOVE_FROM_RESTRICTEE_LIST_CLAUSE] =
+      "RemoveFromRestricteeListClause";
   map[AST_RENAME_COLUMN_ACTION] = "RenameColumnAction";
   map[AST_RENAME_TO_CLAUSE] = "RenameToClause";
   map[AST_RENAME_STATEMENT] = "RenameStatement";
@@ -286,6 +295,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_REPEATABLE_CLAUSE] = "RepeatableClause";
   map[AST_REPLACE_FIELDS_ARG] = "ReplaceFieldsArg";
   map[AST_REPLACE_FIELDS_EXPRESSION] = "ReplaceFieldsExpression";
+  map[AST_RESTRICT_TO_CLAUSE] = "RestrictToClause";
   map[AST_RETURN_STATEMENT] = "ReturnStatement";
   map[AST_RETURNING_CLAUSE] = "ReturningClause";
   map[AST_REVOKE_FROM_CLAUSE] = "RevokeFromClause";
@@ -374,8 +384,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_WITH_PARTITION_COLUMNS_CLAUSE] = "WithPartitionColumnsClause";
   for (int kind = kFirstASTNodeKind; kind <= kLastASTNodeKind;
        ++kind) {
-    ZETASQL_DCHECK(zetasql_base::ContainsKey(map, static_cast<ASTNodeKind>(kind)))
-        << "kind=" << kind;
+    ZETASQL_DCHECK(map.contains(static_cast<ASTNodeKind>(kind))) << "kind=" << kind;
   }
   return map;
 }
@@ -749,8 +758,7 @@ ASTGeneralizedPathExpression::VerifyIsPureGeneralizedPathExpression(
         path = path->GetAs<ASTArrayElement>()->array();
         break;
       default:
-        // This returns the rightmost error, but that's ok since this method is
-        // just for debugging.
+        // This returns the rightmost error
         return MakeSqlErrorAt(path) << "Expected pure generalized path "
                                     << "expression, but found node kind "
                                     << path->GetNodeKindString();
@@ -1640,6 +1648,24 @@ std::string ASTAlterColumnTypeAction::GetSQLForAlterAction() const {
   return "ALTER COLUMN SET DATA TYPE";
 }
 
+std::string ASTAlterColumnSetDefaultAction::SingleNodeDebugString() const {
+  return absl::StrCat(ASTNode::SingleNodeDebugString(),
+                      is_if_exists() ? "(is_if_exists)" : "");
+}
+
+std::string ASTAlterColumnSetDefaultAction::GetSQLForAlterAction() const {
+  return "ALTER COLUMN SET DEFAULT";
+}
+
+std::string ASTAlterColumnDropDefaultAction::SingleNodeDebugString() const {
+  return absl::StrCat(ASTNode::SingleNodeDebugString(),
+                      is_if_exists() ? "(is_if_exists)" : "");
+}
+
+std::string ASTAlterColumnDropDefaultAction::GetSQLForAlterAction() const {
+  return "ALTER COLUMN DROP DEFAULT";
+}
+
 std::string ASTAlterColumnDropNotNullAction::SingleNodeDebugString() const {
   return absl::StrCat(ASTNode::SingleNodeDebugString(),
                       is_if_exists() ? "(is_if_exists)" : "");
@@ -1673,6 +1699,14 @@ std::string ASTGrantToClause::GetSQLForAlterAction() const {
 
 std::string ASTRestrictToClause::GetSQLForAlterAction() const {
   return "RESTRICT TO";
+}
+
+std::string ASTAddToRestricteeListClause::GetSQLForAlterAction() const {
+  return "ADD";
+}
+
+std::string ASTRemoveFromRestricteeListClause::GetSQLForAlterAction() const {
+  return "REMOVE";
 }
 
 std::string ASTFilterFieldsArg::SingleNodeDebugString() const {

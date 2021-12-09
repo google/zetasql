@@ -92,18 +92,6 @@ absl::Status TemplatedSQLFunction::Serialize(
   return absl::OkStatus();
 }
 
-TemplatedSQLFunctionCall::TemplatedSQLFunctionCall(const ResolvedExpr* expr)
-    : expr_(expr) {}
-
-TemplatedSQLFunctionCall::TemplatedSQLFunctionCall(
-    const ResolvedExpr* expr,
-    const std::vector<const ResolvedComputedColumn*>& aggregate_expr_list)
-    : expr_(expr) {
-  for (const ResolvedComputedColumn* column : aggregate_expr_list) {
-    aggregate_expression_list_.push_back(absl::WrapUnique(column));
-  }
-}
-
 TemplatedSQLFunctionCall::TemplatedSQLFunctionCall(
     std::unique_ptr<const ResolvedExpr> expr,
     std::vector<std::unique_ptr<const ResolvedComputedColumn>>
@@ -128,10 +116,6 @@ std::string TemplatedSQLFunctionCall::DebugString() const {
                       "\naggregate_expression_list:\n",
                       absl::StrJoin(aggregate_expression_list_, "\n",
                                     ResolvedComputedColumnFormatter));
-}
-
-TemplatedSQLFunctionCall::~TemplatedSQLFunctionCall() {
-  delete expr_;
 }
 
 namespace {

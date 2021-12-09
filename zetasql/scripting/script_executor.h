@@ -422,10 +422,11 @@ class StatementEvaluator {
   // StatusCode::kNotFound if no procedure can be found in <path>.
   // In dry run, the returned pointer may be null. This indicates that
   // the respective CALL is assumed to exist with unknown signature
-  // and will result in argument validation only.
+  // and will result in argument validation only. <num_arguments> indicates
+  // the number of arguments passed into the body of the procedure.
   virtual absl::StatusOr<std::unique_ptr<ProcedureDefinition>> LoadProcedure(
-      const ScriptExecutor& executor,
-      const absl::Span<const std::string>& path) {
+      const ScriptExecutor& executor, const absl::Span<const std::string>& path,
+      const int64_t num_arguments) {
     return absl::UnimplementedError("LoadProcedure is not supported");
   }
 

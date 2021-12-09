@@ -1136,19 +1136,64 @@ create function myfunc ( ) returns string remote with connection;
 ==
 
 # Non-remote function with connection after language clause.
+# It's accepted by the parser when the feature is enabled but will be excluded
+# by the analyzer.
+[{{no_|}}allow_remote_function]
 create function myfunc ( ) returns string language js with connection c;
 --
-ERROR: WITH CONNECTION is only allowed after REMOTE in CREATE FUNCTION [at 1:55]
+ALTERNATION GROUP: no_
+--
+ERROR: WITH CONNECTION clause is not supported [at 1:55]
 create function myfunc ( ) returns string language js with connection c;
                                                       ^
+--
+ALTERNATION GROUP: <empty>
+--
+CreateFunctionStatement [0-71]
+  FunctionDeclaration [16-26]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-26]
+  SimpleType [35-41]
+    PathExpression [35-41]
+      Identifier(string) [35-41]
+  Identifier(js) [51-53]
+  WithConnectionClause [54-71]
+    ConnectionClause [59-71]
+      PathExpression [70-71]
+        Identifier(c) [70-71]
+--
+CREATE FUNCTION myfunc()
+RETURNS string LANGUAGE js WITH CONNECTION c
 ==
 
 # Non-remote function without language clause with connection.
+[{{no_|}}allow_remote_function]
 create function myfunc ( ) returns string with connection c;
 --
-ERROR: WITH CONNECTION is only allowed after REMOTE in CREATE FUNCTION [at 1:43]
+ALTERNATION GROUP: no_
+--
+ERROR: WITH CONNECTION clause is not supported [at 1:43]
 create function myfunc ( ) returns string with connection c;
                                           ^
+--
+ALTERNATION GROUP: <empty>
+--
+CreateFunctionStatement [0-59]
+  FunctionDeclaration [16-26]
+    PathExpression [16-22]
+      Identifier(myfunc) [16-22]
+    FunctionParameters [23-26]
+  SimpleType [35-41]
+    PathExpression [35-41]
+      Identifier(string) [35-41]
+  WithConnectionClause [42-59]
+    ConnectionClause [47-59]
+      PathExpression [58-59]
+        Identifier(c) [58-59]
+--
+CREATE FUNCTION myfunc()
+RETURNS string WITH CONNECTION c
 ==
 
 # Remote function with connection and options.
@@ -1304,7 +1349,7 @@ create function myfunc ( ) returns int language js remote;
 --
 ALTERNATION GROUP: no_
 --
-ERROR: REMOTE is not supported [at 1:52]
+ERROR: Keyword REMOTE is not supported [at 1:52]
 create function myfunc ( ) returns int language js remote;
                                                    ^
 --
@@ -1439,7 +1484,7 @@ RETURNS remote REMOTE
 [no_allow_remote_function]
 create function myfunc ( ) returns string remote;
 --
-ERROR: REMOTE is not supported [at 1:43]
+ERROR: Keyword REMOTE is not supported [at 1:43]
 create function myfunc ( ) returns string remote;
                                           ^
 ==
@@ -1449,7 +1494,7 @@ create function myfunc ( ) returns string remote;
 [no_allow_remote_function]
 create function myfunc ( ) returns string deterministic remote;
 --
-ERROR: REMOTE is not supported [at 1:57]
+ERROR: Keyword REMOTE is not supported [at 1:57]
 create function myfunc ( ) returns string deterministic remote;
                                                         ^
 ==
@@ -1459,7 +1504,7 @@ create function myfunc ( ) returns string deterministic remote;
 [no_allow_remote_function]
 create function myfunc ( ) returns string remote with connection c options(a=b);
 --
-ERROR: REMOTE is not supported [at 1:43]
+ERROR: Keyword REMOTE is not supported [at 1:43]
 create function myfunc ( ) returns string remote with connection c options(a=b);
                                           ^
 

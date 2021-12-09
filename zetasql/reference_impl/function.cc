@@ -46,6 +46,7 @@
 #include "google/protobuf/message.h"
 #include "google/protobuf/reflection.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/initialize_required_fields.h"
 #include "zetasql/common/internal_value.h"
 #include "zetasql/public/cast.h"
 #include "zetasql/public/civil_time.h"
@@ -71,6 +72,7 @@
 #include "zetasql/public/functions/regexp.h"
 #include "zetasql/public/functions/string.h"
 #include "zetasql/public/functions/string_with_collation.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto_util.h"
@@ -94,6 +96,7 @@
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/substitute.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
 #include "algorithms/algorithm.h"
@@ -562,6 +565,7 @@ FunctionMap::FunctionMap() {
                      "JsonValueArray");
     RegisterFunction(FunctionKind::kToJson, "to_json", "ToJson");
     RegisterFunction(FunctionKind::kInt64, "int64", "Int64");
+    RegisterFunction(FunctionKind::kDouble, "double", "Double");
     RegisterFunction(FunctionKind::kBool, "bool", "Bool");
     RegisterFunction(FunctionKind::kJsonType, "json_type", "JsonType");
     RegisterFunction(FunctionKind::kToJsonString, "to_json_string",
@@ -842,6 +846,8 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kLag, "lag", "Lag");
     RegisterFunction(FunctionKind::kPercentileCont, "percentile_cont",
                      "Percentile_cont");
+    RegisterFunction(FunctionKind::kPercentileDisc, "percentile_disc",
+                     "Percentile_disc");
     RegisterFunction(FunctionKind::kRand, "rand", "Rand");
     RegisterFunction(FunctionKind::kGenerateUuid, "generate_uuid",
                      "Generate_Uuid");
@@ -1329,20 +1335,14 @@ absl::Status ConcatError(int64_t max_output_size, zetasql_base::SourceLocation s
 }
 
 absl::StatusOr<JSONValueConstRef> GetJSONValueConstRef(
-    const Value& json, const LanguageOptions& language_options,
+    const Value& json, const JSONParsingOptions& json_parsing_options,
     JSONValue& json_storage) {
   if (json.is_validated_json()) {
     return json.json_value();
   }
-  ZETASQL_ASSIGN_OR_RETURN(
-      json_storage,
-      JSONValue::ParseJSONString(
-          json.json_value_unparsed(),
-          JSONParsingOptions{
-              .legacy_mode = language_options.LanguageFeatureEnabled(
-                  FEATURE_JSON_LEGACY_PARSE),
-              .strict_number_parsing = language_options.LanguageFeatureEnabled(
-                  FEATURE_JSON_STRICT_NUMBER_PARSING)}));
+  ZETASQL_ASSIGN_OR_RETURN(json_storage,
+                   JSONValue::ParseJSONString(json.json_value_unparsed(),
+                                              json_parsing_options));
   return json_storage.GetConstRef();
 }
 
@@ -1759,6 +1759,7 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kParseJson:
       return BuiltinFunctionRegistry::GetScalarFunction(kind, output_type);
     case FunctionKind::kInt64:
+    case FunctionKind::kDouble:
     case FunctionKind::kBool:
       return new ConvertJsonFunction(kind, output_type);
     case FunctionKind::kJsonType:
@@ -3320,9 +3321,11 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
  public:
   static absl::StatusOr<std::unique_ptr<BuiltinAggregateAccumulator>> Create(
       const BuiltinAggregateFunction* function, const Type* input_type,
-      absl::Span<const Value> args, EvaluationContext* context) {
-    auto accumulator = absl::WrapUnique(
-        new BuiltinAggregateAccumulator(function, input_type, args, context));
+      absl::Span<const Value> args, CollatorList collator_list,
+      EvaluationContext* context) {
+    auto accumulator = absl::WrapUnique(new BuiltinAggregateAccumulator(
+        function, input_type, args, std::move(collator_list), context));
+
     ZETASQL_RETURN_IF_ERROR(accumulator->Reset());
     return accumulator;
   }
@@ -3351,10 +3354,12 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   BuiltinAggregateAccumulator(const BuiltinAggregateFunction* function,
                               const Type* input_type,
                               absl::Span<const Value> args,
+                              CollatorList collator_list,
                               EvaluationContext* context)
       : function_(function),
         input_type_(input_type),
         args_(args.begin(), args.end()),
+        collator_list_(std::move(collator_list)),
         context_(context) {}
 
   absl::StatusOr<Value> GetFinalResultInternal(bool inputs_in_defined_order);
@@ -3364,6 +3369,8 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   const BuiltinAggregateFunction* function_;
   const Type* input_type_;
   const std::vector<Value> args_;
+  // The collators used for aggregate functions with collations.
+  CollatorList collator_list_;
   EvaluationContext* context_;
 
   // The number of bytes currently requested from 'accountant()'.
@@ -3404,6 +3411,9 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   uint32_t bit_uint32_ = 0;
   uint64_t bit_uint64_ = 0;
   std::vector<Value> array_agg_;  // ArrayAgg and ArrayConcatAgg.
+  // Percentile.
+  Value percentile_;
+  std::vector<Value> percentile_population_;
   // Used for ANON_* functions from (broken link).
   std::unique_ptr<::differential_privacy::Algorithm<double>> anon_double_;
   std::unique_ptr<::differential_privacy::Algorithm<int64_t>> anon_int64_;
@@ -3660,6 +3670,24 @@ absl::Status BuiltinAggregateAccumulator::Reset() {
     case FCT(FunctionKind::kVarSamp, TYPE_BIGNUMERIC):
       bignumeric_variance_aggregator_ = BigNumericValue::VarianceAggregator();
       break;
+
+    // PERCENTILE_CONT.
+    case FCT(FunctionKind::kPercentileCont, TYPE_DOUBLE):
+      ZETASQL_RET_CHECK_EQ(args_.size(), 1);
+      ZETASQL_RET_CHECK(args_[0].type()->IsDouble());
+      percentile_ = args_[0];
+      break;
+    case FCT(FunctionKind::kPercentileCont, TYPE_NUMERIC):
+      ZETASQL_RET_CHECK_EQ(args_.size(), 1);
+      ZETASQL_RET_CHECK(args_[0].type()->IsNumericType());
+      percentile_ = args_[0];
+      break;
+    case FCT(FunctionKind::kPercentileCont, TYPE_BIGNUMERIC):
+      ZETASQL_RET_CHECK_EQ(args_.size(), 1);
+      ZETASQL_RET_CHECK(args_[0].type()->IsBigNumericType());
+      percentile_ = args_[0];
+      break;
+
     // Anonymization functions.
     case FCT(FunctionKind::kAnonSum, TYPE_DOUBLE): {
       differential_privacy::BoundedSum<double>::Builder builder;
@@ -3724,6 +3752,9 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       array_agg_.push_back(value);
       break;
     }
+    case FunctionKind::kPercentileDisc:
+      percentile_population_.push_back(value);
+      break;
     default:
       break;
   }
@@ -3947,7 +3978,20 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
     }
     case FCT(FunctionKind::kMax, TYPE_STRING): {
       bytes_to_return = out_string_.size();
-      out_string_ = std::max(out_string_, value.string_value());
+      if (count_ <= 1) {
+        out_string_ = value.string_value();
+      } else if (collator_list_.empty()) {
+        out_string_ = std::max(out_string_, value.string_value());
+      } else {
+        int64_t result = collator_list_[0]->CompareUtf8(value.string_value(),
+                                                        out_string_, status);
+        if (!status->ok()) {
+          return false;
+        }
+        if (result > 0) {
+          out_string_ = value.string_value();
+        }
+      }
       additional_bytes_to_request = out_string_.size();
       break;
     }
@@ -4022,8 +4066,20 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
     }
     case FCT(FunctionKind::kMin, TYPE_STRING): {
       bytes_to_return = out_string_.size();
-      out_string_ = (count_ > 1) ? std::min(out_string_, value.string_value())
-                                 : value.string_value();
+      if (count_ <= 1) {
+        out_string_ = value.string_value();
+      } else if (collator_list_.empty()) {
+        out_string_ = std::min(out_string_, value.string_value());
+      } else {
+        int64_t result = collator_list_[0]->CompareUtf8(value.string_value(),
+                                                        out_string_, status);
+        if (!status->ok()) {
+          return false;
+        }
+        if (result < 0) {
+          out_string_ = value.string_value();
+        }
+      }
       additional_bytes_to_request = out_string_.size();
       break;
     }
@@ -4106,6 +4162,11 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
       }
       break;
     }
+    case FCT(FunctionKind::kPercentileCont, TYPE_DOUBLE):
+    case FCT(FunctionKind::kPercentileCont, TYPE_NUMERIC):
+    case FCT(FunctionKind::kPercentileCont, TYPE_BIGNUMERIC):
+      percentile_population_.push_back(value);
+      break;
     case FCT(FunctionKind::kAnonSum, TYPE_DOUBLE):
     case FCT(FunctionKind::kAnonAvg, TYPE_DOUBLE):
       anon_double_->AddEntry(value.double_value());
@@ -4138,7 +4199,7 @@ bool BuiltinAggregateAccumulator::Accumulate(const Value& value,
   requested_bytes_ += additional_bytes_to_request;
 
   return true;
-}
+}  // NOLINT(readability/fn_size)
 
 absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResult(
     bool inputs_in_defined_order) {
@@ -4150,6 +4211,147 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResult(
            << context_->options().max_value_byte_size << " bytes";
   }
   return result;
+}
+
+template <typename T>
+absl::StatusOr<Value> ComputePercentileCont(
+    const std::vector<Value>& values_arg, T percentile, bool ignore_nulls) {
+  ZETASQL_ASSIGN_OR_RETURN(PercentileEvaluator<T> percentile_evalutor,
+                   PercentileEvaluator<T>::Create(percentile));
+
+  std::vector<T> normal_values;
+  normal_values.reserve(values_arg.size());
+  size_t num_nulls = 0;
+  for (const Value& value_arg : values_arg) {
+    if constexpr (std::is_same_v<T, double>) {
+      ZETASQL_RET_CHECK(value_arg.type()->IsDouble());
+    } else if constexpr (std::is_same_v<T, NumericValue>) {
+      ZETASQL_RET_CHECK(value_arg.type()->IsNumericType());
+    }
+    if (value_arg.is_null()) {
+      ++num_nulls;
+    } else {
+      normal_values.push_back(value_arg.Get<T>());
+    }
+  }
+
+  T result_value;
+  bool result_is_not_null =
+      percentile_evalutor.template ComputePercentileCont<false>(
+          normal_values.begin(), normal_values.end(),
+          (ignore_nulls ? 0 : num_nulls), &result_value);
+  return result_is_not_null ? Value::Make<T>(result_value)
+                            : Value::MakeNull<T>();
+}
+
+template <typename T, typename PercentileType, typename V = T,
+          typename ValueCreationFn = Value (*)(T)>
+Value ComputePercentileDisc(
+    const PercentileEvaluator<PercentileType>& percentile_evalutor,
+    const std::vector<Value>& values_arg, const Type* type,
+    V (Value::*extract_value_fn)() const /* e.g., &Value::double_value */,
+    const ValueCreationFn& value_creation_fn /* e.g., &Value::Double */,
+    bool ignore_nulls) {
+  std::vector<T> normal_values;
+  normal_values.reserve(values_arg.size());
+  size_t num_nulls = 0;
+  for (const Value& value_arg : values_arg) {
+    if (value_arg.is_null()) {
+      ++num_nulls;
+    } else {
+      normal_values.push_back((value_arg.*extract_value_fn)());
+    }
+  }
+
+  auto itr = percentile_evalutor.template ComputePercentileDisc<T, false>(
+      normal_values.begin(), normal_values.end(),
+      (ignore_nulls ? 0 : num_nulls));
+  return itr == normal_values.end() ? Value::Null(type)
+                                    : value_creation_fn(*itr);
+}
+
+template <typename PercentileType>
+absl::StatusOr<Value> ComputePercentileDisc(
+    const std::vector<Value>& values_arg, const Type* type,
+    PercentileType percentile, bool ignore_nulls) {
+  ZETASQL_ASSIGN_OR_RETURN(PercentileEvaluator<PercentileType> percentile_evalutor,
+                   PercentileEvaluator<PercentileType>::Create(percentile));
+  switch (type->kind()) {
+    case TYPE_INT64:
+      return ComputePercentileDisc<int64_t>(percentile_evalutor, values_arg,
+                                            type, &Value::int64_value,
+                                            &Value::Int64, ignore_nulls);
+    case TYPE_INT32:
+      return ComputePercentileDisc<int32_t>(percentile_evalutor, values_arg,
+                                            type, &Value::int32_value,
+                                            &Value::Int32, ignore_nulls);
+    case TYPE_UINT64:
+      return ComputePercentileDisc<uint64_t>(percentile_evalutor, values_arg,
+                                             type, &Value::uint64_value,
+                                             &Value::Uint64, ignore_nulls);
+    case TYPE_UINT32:
+      return ComputePercentileDisc<uint32_t>(percentile_evalutor, values_arg,
+                                             type, &Value::uint32_value,
+                                             &Value::Uint32, ignore_nulls);
+    case TYPE_DOUBLE:
+      return ComputePercentileDisc<double>(percentile_evalutor, values_arg,
+                                           type, &Value::double_value,
+                                           &Value::Double, ignore_nulls);
+    case TYPE_FLOAT:
+      return ComputePercentileDisc<float>(percentile_evalutor, values_arg, type,
+                                          &Value::float_value, &Value::Float,
+                                          ignore_nulls);
+    case TYPE_NUMERIC:
+      return ComputePercentileDisc<NumericValue>(
+          percentile_evalutor, values_arg, type, &Value::numeric_value,
+          &Value::Numeric, ignore_nulls);
+    case TYPE_BIGNUMERIC:
+      return ComputePercentileDisc<BigNumericValue>(
+          percentile_evalutor, values_arg, type, &Value::bignumeric_value,
+          &Value::BigNumeric, ignore_nulls);
+    case TYPE_BYTES:
+      return ComputePercentileDisc<absl::string_view, PercentileType,
+                                   const std::string&>(
+          percentile_evalutor, values_arg, type, &Value::bytes_value,
+          &Value::Bytes, ignore_nulls);
+    case TYPE_STRING:
+      return ComputePercentileDisc<absl::string_view, PercentileType,
+                                   const std::string&>(
+          percentile_evalutor, values_arg, type, &Value::string_value,
+          &Value::String, ignore_nulls);
+    case TYPE_BOOL:
+      return ComputePercentileDisc<bool>(percentile_evalutor, values_arg, type,
+                                         &Value::bool_value, &Value::Bool,
+                                         ignore_nulls);
+    case TYPE_DATE:
+      return ComputePercentileDisc<int32_t>(percentile_evalutor, values_arg,
+                                            type, &Value::date_value,
+                                            &Value::Date, ignore_nulls);
+    case TYPE_DATETIME:
+      return ComputePercentileDisc<int64_t>(
+          percentile_evalutor, values_arg, type,
+          &Value::ToPacked64DatetimeMicros, &Value::DatetimeFromPacked64Micros,
+          ignore_nulls);
+    case TYPE_TIME:
+      return ComputePercentileDisc<int64_t>(
+          percentile_evalutor, values_arg, type, &Value::ToPacked64TimeMicros,
+          &Value::TimeFromPacked64Micros, ignore_nulls);
+    case TYPE_TIMESTAMP:
+      return ComputePercentileDisc<int64_t>(
+          percentile_evalutor, values_arg, type, &Value::ToUnixMicros,
+          &Value::TimestampFromUnixMicros, ignore_nulls);
+    case TYPE_ENUM:
+      return ComputePercentileDisc<int32_t, PercentileType, int32_t,
+                                   std::function<Value(int32_t)>>(
+          percentile_evalutor, values_arg, type, &Value::enum_value,
+          [type](int32_t value) -> Value {
+            return Value::Enum(type->AsEnum(), value);
+          },
+          ignore_nulls);
+    default:
+      return ::zetasql_base::UnimplementedErrorBuilder()
+             << "Unsupported argument type for percentile_disc.";
+  }
 }
 
 absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
@@ -4449,6 +4651,18 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
     case FCT(FunctionKind::kBitOr, TYPE_UINT64):
     case FCT(FunctionKind::kBitXor, TYPE_UINT64):
       return count_ > 0 ? Value::Uint64(bit_uint64_) : Value::NullUint64();
+    case FCT(FunctionKind::kPercentileCont, TYPE_DOUBLE):
+      return ComputePercentileCont<>(percentile_population_,
+                                     percentile_.double_value(),
+                                     function_->ignores_null());
+    case FCT(FunctionKind::kPercentileCont, TYPE_NUMERIC):
+      return ComputePercentileCont<>(percentile_population_,
+                                     percentile_.numeric_value(),
+                                     function_->ignores_null());
+    case FCT(FunctionKind::kPercentileCont, TYPE_BIGNUMERIC):
+      return ComputePercentileCont<>(percentile_population_,
+                                     percentile_.bignumeric_value(),
+                                     function_->ignores_null());
     case FCT(FunctionKind::kAnonSum, TYPE_DOUBLE):
     case FCT(FunctionKind::kAnonAvg, TYPE_DOUBLE):
     case FCT(FunctionKind::kAnonVarPop, TYPE_ARRAY):
@@ -4484,8 +4698,10 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
 
 absl::StatusOr<std::unique_ptr<AggregateAccumulator>>
 BuiltinAggregateFunction::CreateAccumulator(absl::Span<const Value> args,
+                                            CollatorList collator_list,
                                             EvaluationContext* context) const {
-  return BuiltinAggregateAccumulator::Create(this, input_type(), args, context);
+  return BuiltinAggregateAccumulator::Create(this, input_type(), args,
+                                             std::move(collator_list), context);
 }
 
 namespace {
@@ -4742,7 +4958,10 @@ absl::StatusOr<Value> BinaryStatAccumulator::GetFinalResult(
 
 absl::StatusOr<std::unique_ptr<AggregateAccumulator>>
 BinaryStatFunction::CreateAccumulator(absl::Span<const Value> args,
+                                      CollatorList collator_list,
                                       EvaluationContext* context) const {
+  // <collator_list> should be empty for bivariate stats functions.
+  ZETASQL_RET_CHECK(collator_list.empty());
   return BinaryStatAccumulator::Create(this, input_type(), context);
 }
 
@@ -5825,6 +6044,7 @@ absl::StatusOr<Value> MakeProtoFunction::Eval(
       }
     }
   }
+
   proto_cord = absl::Cord(bytes_str);
   return Value::Proto(output_type()->AsProto(), proto_cord);
 }
@@ -5838,8 +6058,10 @@ struct FilterFieldsFunction::FieldPathTrieNode {
   absl::flat_hash_map<int, std::unique_ptr<FieldPathTrieNode>> children;
 };
 
-FilterFieldsFunction::FilterFieldsFunction(const Type* output_type)
-    : SimpleBuiltinScalarFunction(FunctionKind::kFilterFields, output_type) {}
+FilterFieldsFunction::FilterFieldsFunction(const Type* output_type,
+                                           bool reset_cleared_required_fields)
+    : SimpleBuiltinScalarFunction(FunctionKind::kFilterFields, output_type),
+      reset_cleared_required_fields_(reset_cleared_required_fields) {}
 
 FilterFieldsFunction::~FilterFieldsFunction() {}
 
@@ -5961,6 +6183,9 @@ absl::StatusOr<Value> FilterFieldsFunction::Eval(
       absl::WrapUnique(args[0].ToMessage(&factory));
   ZETASQL_RETURN_IF_ERROR(
       RecursivelyPrune(root_node_.get(), mutable_root_message.get()));
+  if (reset_cleared_required_fields_) {
+    InitializeRequiredFields(mutable_root_message.get());
+  }
   return Value::Proto(args[0].type()->AsProto(),
                       absl::Cord(mutable_root_message->SerializeAsString()));
 }
@@ -6176,12 +6401,20 @@ absl::StatusOr<Value> FormatDateDatetimeTimestampFunction::Eval(
     case TYPE_TIMESTAMP: {
       if (args.size() == 2) {
         ZETASQL_RETURN_IF_ERROR(functions::FormatTimestampToString(
-            args[0].string_value(), args[1].ToUnixMicros(),
-            context->GetDefaultTimeZone(),
-            {.expand_Q = true, .expand_J = true}, &result_string));
+            args[0].string_value(),
+            context->GetLanguageOptions().LanguageFeatureEnabled(
+                FEATURE_TIMESTAMP_NANOS)
+                ? args[1].ToTime()
+                : absl::FromUnixMicros(args[1].ToUnixMicros()),
+            context->GetDefaultTimeZone(), {.expand_Q = true, .expand_J = true},
+            &result_string));
       } else {
         ZETASQL_RETURN_IF_ERROR(functions::FormatTimestampToString(
-            args[0].string_value(), args[1].ToUnixMicros(),
+            args[0].string_value(),
+            context->GetLanguageOptions().LanguageFeatureEnabled(
+                FEATURE_TIMESTAMP_NANOS)
+                ? args[1].ToTime()
+                : absl::FromUnixMicros(args[1].ToUnixMicros()),
             args[2].string_value(), {.expand_Q = true, .expand_J = true},
             &result_string));
       }
@@ -6520,10 +6753,18 @@ absl::StatusOr<Value> StringConversionFunction::Eval(
     case TYPE_JSON: {
       ZETASQL_RET_CHECK_EQ(args.size(), 1);
       JSONValue json_storage;
+      const LanguageOptions& language_options = context->GetLanguageOptions();
       ZETASQL_ASSIGN_OR_RETURN(
           JSONValueConstRef json_value_const_ref,
-          GetJSONValueConstRef(args[0], context->GetLanguageOptions(),
-                               json_storage));
+          GetJSONValueConstRef(
+              args[0],
+              JSONParsingOptions{
+                  .legacy_mode = language_options.LanguageFeatureEnabled(
+                      FEATURE_JSON_LEGACY_PARSE),
+                  .strict_number_parsing =
+                      language_options.LanguageFeatureEnabled(
+                          FEATURE_JSON_STRICT_NUMBER_PARSING)},
+              json_storage));
       ZETASQL_ASSIGN_OR_RETURN(result_string,
                        functions::ConvertJsonToString(json_value_const_ref));
     } break;
@@ -7979,37 +8220,6 @@ absl::Status LagFunction::Eval(const TupleSchema& schema,
   return absl::OkStatus();
 }
 
-template <typename T>
-absl::StatusOr<Value> ComputePercentileCont(
-    const std::vector<Value>& values_arg, T percentile, bool ignore_nulls) {
-  ZETASQL_ASSIGN_OR_RETURN(PercentileEvaluator<T> percentile_evalutor,
-                   PercentileEvaluator<T>::Create(percentile));
-
-  std::vector<T> normal_values;
-  normal_values.reserve(values_arg.size());
-  size_t num_nulls = 0;
-  for (const Value& value_arg : values_arg) {
-    if constexpr (std::is_same_v<T, double>) {
-      ZETASQL_RET_CHECK(value_arg.type()->IsDouble());
-    } else if constexpr (std::is_same_v<T, NumericValue>) {
-      ZETASQL_RET_CHECK(value_arg.type()->IsNumericType());
-    }
-    if (value_arg.is_null()) {
-      ++num_nulls;
-    } else {
-      normal_values.push_back(value_arg.Get<T>());
-    }
-  }
-
-  T result_value;
-  bool result_is_not_null =
-      percentile_evalutor.template ComputePercentileCont<false>(
-          normal_values.begin(), normal_values.end(),
-          (ignore_nulls ? 0 : num_nulls), &result_value);
-  return result_is_not_null ? Value::Make<T>(result_value)
-                            : Value::MakeNull<T>();
-}
-
 absl::Status PercentileContFunction::Eval(
     const TupleSchema& schema, const absl::Span<const TupleData* const>& tuples,
     const absl::Span<const std::vector<Value>>& args,
@@ -8062,116 +8272,6 @@ absl::Status PercentileContFunction::Eval(
   }
   result->resize(values_arg.size(), output_value);
   return absl::OkStatus();
-}
-
-template <typename T, typename PercentileType, typename V = T,
-          typename ValueCreationFn = Value (*)(T)>
-Value ComputePercentileDisc(
-    const PercentileEvaluator<PercentileType>& percentile_evalutor,
-    const std::vector<Value>& values_arg, const Type* type,
-    V (Value::*extract_value_fn)() const /* e.g., &Value::double_value */,
-    const ValueCreationFn& value_creation_fn /* e.g., &Value::Double */,
-    bool ignore_nulls) {
-  std::vector<T> normal_values;
-  normal_values.reserve(values_arg.size());
-  size_t num_nulls = 0;
-  for (const Value& value_arg : values_arg) {
-    if (value_arg.is_null()) {
-      ++num_nulls;
-    } else {
-      normal_values.push_back((value_arg.*extract_value_fn)());
-    }
-  }
-
-  auto itr = percentile_evalutor.template ComputePercentileDisc<T, false>(
-      normal_values.begin(), normal_values.end(),
-      (ignore_nulls ? 0 : num_nulls));
-  return itr == normal_values.end() ?
-      Value::Null(type) : value_creation_fn(*itr);
-}
-
-template <typename PercentileType>
-absl::StatusOr<Value> ComputePercentileDisc(
-    const std::vector<Value>& values_arg, const Type* type,
-    PercentileType percentile, bool ignore_nulls) {
-  ZETASQL_ASSIGN_OR_RETURN(PercentileEvaluator<PercentileType> percentile_evalutor,
-                   PercentileEvaluator<PercentileType>::Create(percentile));
-  switch (type->kind()) {
-    case TYPE_INT64:
-      return ComputePercentileDisc<int64_t>(percentile_evalutor, values_arg,
-                                            type, &Value::int64_value,
-                                            &Value::Int64, ignore_nulls);
-    case TYPE_INT32:
-      return ComputePercentileDisc<int32_t>(percentile_evalutor, values_arg,
-                                            type, &Value::int32_value,
-                                            &Value::Int32, ignore_nulls);
-    case TYPE_UINT64:
-      return ComputePercentileDisc<uint64_t>(percentile_evalutor, values_arg,
-                                             type, &Value::uint64_value,
-                                             &Value::Uint64, ignore_nulls);
-    case TYPE_UINT32:
-      return ComputePercentileDisc<uint32_t>(percentile_evalutor, values_arg,
-                                             type, &Value::uint32_value,
-                                             &Value::Uint32, ignore_nulls);
-    case TYPE_DOUBLE:
-      return ComputePercentileDisc<double>(percentile_evalutor, values_arg,
-                                           type, &Value::double_value,
-                                           &Value::Double, ignore_nulls);
-    case TYPE_FLOAT:
-      return ComputePercentileDisc<float>(percentile_evalutor, values_arg, type,
-                                          &Value::float_value, &Value::Float,
-                                          ignore_nulls);
-    case TYPE_NUMERIC:
-      return ComputePercentileDisc<NumericValue>(
-          percentile_evalutor, values_arg, type, &Value::numeric_value,
-          &Value::Numeric, ignore_nulls);
-    case TYPE_BIGNUMERIC:
-      return ComputePercentileDisc<BigNumericValue>(
-          percentile_evalutor, values_arg, type, &Value::bignumeric_value,
-          &Value::BigNumeric, ignore_nulls);
-    case TYPE_BYTES:
-      return ComputePercentileDisc<absl::string_view, PercentileType,
-                                   const std::string&>(
-          percentile_evalutor, values_arg, type, &Value::bytes_value,
-          &Value::Bytes, ignore_nulls);
-    case TYPE_STRING:
-      return ComputePercentileDisc<absl::string_view, PercentileType,
-                                   const std::string&>(
-          percentile_evalutor, values_arg, type, &Value::string_value,
-          &Value::String, ignore_nulls);
-    case TYPE_BOOL:
-      return ComputePercentileDisc<bool>(percentile_evalutor, values_arg, type,
-                                         &Value::bool_value, &Value::Bool,
-                                         ignore_nulls);
-    case TYPE_DATE:
-      return ComputePercentileDisc<int32_t>(percentile_evalutor, values_arg,
-                                            type, &Value::date_value,
-                                            &Value::Date, ignore_nulls);
-    case TYPE_DATETIME:
-      return ComputePercentileDisc<int64_t>(
-          percentile_evalutor, values_arg, type,
-          &Value::ToPacked64DatetimeMicros, &Value::DatetimeFromPacked64Micros,
-          ignore_nulls);
-    case TYPE_TIME:
-      return ComputePercentileDisc<int64_t>(
-          percentile_evalutor, values_arg, type, &Value::ToPacked64TimeMicros,
-          &Value::TimeFromPacked64Micros, ignore_nulls);
-    case TYPE_TIMESTAMP:
-      return ComputePercentileDisc<int64_t>(
-          percentile_evalutor, values_arg, type, &Value::ToUnixMicros,
-          &Value::TimestampFromUnixMicros, ignore_nulls);
-    case TYPE_ENUM:
-      return ComputePercentileDisc<int32_t, PercentileType, int32_t,
-                                   std::function<Value(int32_t)>>(
-          percentile_evalutor, values_arg, type, &Value::enum_value,
-          [type](int32_t value) -> Value {
-            return Value::Enum(type->AsEnum(), value);
-          },
-          ignore_nulls);
-    default:
-      return ::zetasql_base::UnimplementedErrorBuilder()
-             << "Unsupported argument type for percentile_disc.";
-  }
 }
 
 absl::Status PercentileDiscFunction::Eval(
@@ -8235,9 +8335,15 @@ absl::StatusOr<Value> TypeFunction::Eval(absl::Span<const Value> args,
     return Value::Null(output_type());
   }
   JSONValue json_storage;
-  ZETASQL_ASSIGN_OR_RETURN(JSONValueConstRef json_value_const_ref,
-                   GetJSONValueConstRef(args[0], context->GetLanguageOptions(),
-                                        json_storage));
+  LanguageOptions language_options = context->GetLanguageOptions();
+  JSONParsingOptions json_parsing_options = JSONParsingOptions{
+      .legacy_mode =
+          language_options.LanguageFeatureEnabled(FEATURE_JSON_LEGACY_PARSE),
+      .strict_number_parsing = language_options.LanguageFeatureEnabled(
+          FEATURE_JSON_STRICT_NUMBER_PARSING)};
+  ZETASQL_ASSIGN_OR_RETURN(
+      JSONValueConstRef json_value_const_ref,
+      GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
   ZETASQL_ASSIGN_OR_RETURN(const std::string output,
                    functions::GetJsonType(json_value_const_ref));
   return Value::String(output);
@@ -8245,21 +8351,56 @@ absl::StatusOr<Value> TypeFunction::Eval(absl::Span<const Value> args,
 
 absl::StatusOr<Value> ConvertJsonFunction::Eval(
     absl::Span<const Value> args, EvaluationContext* context) const {
-  ZETASQL_RET_CHECK_EQ(args.size(), 1);
+  ZETASQL_RET_CHECK_GE(args.size(), 1);
   if (HasNulls(args)) {
     return Value::Null(output_type());
   }
   JSONValue json_storage;
-  ZETASQL_ASSIGN_OR_RETURN(JSONValueConstRef json_value_const_ref,
-                   GetJSONValueConstRef(args[0], context->GetLanguageOptions(),
-                                        json_storage));
+  LanguageOptions language_options = context->GetLanguageOptions();
+  JSONParsingOptions json_parsing_options = JSONParsingOptions{
+      .legacy_mode =
+          language_options.LanguageFeatureEnabled(FEATURE_JSON_LEGACY_PARSE),
+      .strict_number_parsing = language_options.LanguageFeatureEnabled(
+          FEATURE_JSON_STRICT_NUMBER_PARSING)};
   switch (kind()) {
     case FunctionKind::kInt64: {
+      ZETASQL_RET_CHECK_EQ(args.size(), 1);
+      ZETASQL_ASSIGN_OR_RETURN(
+          JSONValueConstRef json_value_const_ref,
+          GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
       ZETASQL_ASSIGN_OR_RETURN(const int64_t output,
                        functions::ConvertJsonToInt64(json_value_const_ref));
       return Value::Int64(output);
     }
+    case FunctionKind::kDouble: {
+      ZETASQL_RET_CHECK_EQ(args.size(), 2);
+      ZETASQL_RET_CHECK(args[1].type()->IsString());
+      std::string wide_number_mode_as_string = args[1].string_value();
+      functions::WideNumberMode wide_number_mode;
+      if (wide_number_mode_as_string == "exact") {
+        wide_number_mode = functions::WideNumberMode::kExact;
+      } else if (wide_number_mode_as_string == "round") {
+        wide_number_mode = functions::WideNumberMode::kRound;
+      } else {
+        return MakeEvalError() << "Invalid `wide_number_mode` specified: "
+                               << wide_number_mode_as_string;
+      }
+      json_parsing_options.strict_number_parsing =
+          (wide_number_mode == functions::WideNumberMode::kExact);
+      ZETASQL_ASSIGN_OR_RETURN(
+          JSONValueConstRef json_value_const_ref,
+          GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
+      ZETASQL_ASSIGN_OR_RETURN(
+          const double output,
+          functions::ConvertJsonToDouble(json_value_const_ref, wide_number_mode,
+                                         language_options.product_mode()));
+      return Value::Double(output);
+    }
     case FunctionKind::kBool: {
+      ZETASQL_RET_CHECK_EQ(args.size(), 1);
+      ZETASQL_ASSIGN_OR_RETURN(
+          JSONValueConstRef json_value_const_ref,
+          GetJSONValueConstRef(args[0], json_parsing_options, json_storage));
       ZETASQL_ASSIGN_OR_RETURN(const bool output,
                        functions::ConvertJsonToBool(json_value_const_ref));
       return Value::Bool(output);

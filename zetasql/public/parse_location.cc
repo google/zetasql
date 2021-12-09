@@ -30,7 +30,6 @@
 #include "unicode/umachine.h"
 #include "unicode/utf8.h"
 #include "zetasql/base/mathutil.h"
-#include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
 

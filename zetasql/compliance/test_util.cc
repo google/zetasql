@@ -20,6 +20,7 @@
 #include <utility>
 
 #include "zetasql/base/logging.h"
+#include "absl/container/btree_map.h"
 #include "absl/flags/commandlineflag.h"
 #include "absl/flags/reflection.h"
 #include "absl/strings/str_cat.h"
@@ -192,7 +193,7 @@ ReproCommand::ReproCommand() {
 }
 
 bool ReproCommand::RemoveFromMapIfPresent(
-    const std::string& key, std::map<std::string, std::string>* map) {
+    const std::string& key, absl::btree_map<std::string, std::string>* map) {
   auto it = map->find(key);
   if (it != map->end()) {
     map->erase(it);

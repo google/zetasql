@@ -14,8 +14,11 @@
 // limitations under the License.
 //
 
+#include <string>
+
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/compliance/functions_testlib_common.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
@@ -804,12 +807,14 @@ std::vector<FunctionTestCall> GetFunctionTestsConvertJson() {
       {"int64", {NullJson()}, NullInt64()},
       {"int64", {Json(JSONValue(int64_t{123}))}, Int64(123)},
       {"int64", {Json(JSONValue(int64_t{-123}))}, Int64(-123)},
+      {"int64", {Json(JSONValue(10.0))}, Int64(10)},
       {"int64",
        {Json(JSONValue(std::numeric_limits<int64_t>::min()))},
        Int64(std::numeric_limits<int64_t>::min())},
       {"int64",
        {Json(JSONValue(std::numeric_limits<int64_t>::max()))},
        Int64(std::numeric_limits<int64_t>::max())},
+      {"int64", {Json(JSONValue(1e100))}, NullInt64(), OUT_OF_RANGE},
       {"int64",
        {Json(JSONValue(uint64_t{std::numeric_limits<uint64_t>::max()}))},
        NullInt64(),
@@ -827,11 +832,7 @@ std::vector<FunctionTestCall> GetFunctionTestsConvertJson() {
        QueryParamsWithResult({Value::UnvalidatedJsonString("123")}, Int64(123))
            .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION,
                                 FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
-      {"int64",
-       QueryParamsWithResult({Value::UnvalidatedJsonString("2.0")}, NullInt64(),
-                             OUT_OF_RANGE)
-           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION,
-                                FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
+      {"int64", {Json(JSONValue(10.1))}, NullInt64(), OUT_OF_RANGE},
       // BOOL
       {"bool", {NullJson()}, NullBool()},
       {"bool", {Json(JSONValue(false))}, Value::Bool(false)},
@@ -841,6 +842,125 @@ std::vector<FunctionTestCall> GetFunctionTestsConvertJson() {
                              NullBool(), OUT_OF_RANGE)
            .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION,
                                 FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
+      // DOUBLE
+      // Null input
+      {"double", {NullJson()}, NullDouble()},
+      {"double",
+       QueryParamsWithResult({Json(JSONValue(1.0)), NullString()}, NullDouble())
+           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_NAMED_ARGUMENTS,
+                                FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
+      // Passing
+      {"double", {Json(JSONValue(1.0))}, Double(1.0)},
+      {"double", {Json(JSONValue(-1.0))}, Double(-1.0)},
+      {"double",
+       {Json(JSONValue(std::numeric_limits<double>::min()))},
+       std::numeric_limits<double>::min()},
+      {"double",
+       {Json(JSONValue(std::numeric_limits<double>::max()))},
+       std::numeric_limits<double>::max()},
+      {"double",
+       QueryParamsWithResult({Json(JSONValue(1.0)), "round"}, Double(1.0))
+           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_NAMED_ARGUMENTS,
+                                FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
+      {"double",
+       QueryParamsWithResult({Json(JSONValue(1.0)), "exact"}, Double(1.0))
+           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_NAMED_ARGUMENTS,
+                                FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
+      // Fails because value is case-sensitive and not in ["exact", "round"]
+      {"double",
+       QueryParamsWithResult({Json(JSONValue(1.0)), "EXACT"}, NullDouble(),
+                             OUT_OF_RANGE)
+           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_NAMED_ARGUMENTS,
+                                FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
+      // Fails in "exact" and "round" due to number overflow parsing of json
+      {"double",
+       QueryParamsWithResult(
+           {Value::UnvalidatedJsonString("-1.79769313486232e+309"), "exact"},
+           NullDouble(), OUT_OF_RANGE)
+           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION,
+                                FEATURE_NAMED_ARGUMENTS,
+                                FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
+      {"double",
+       QueryParamsWithResult(
+           {Value::UnvalidatedJsonString("-1.79769313486232e+309"), "round"},
+           NullDouble(), OUT_OF_RANGE)
+           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION,
+                                FEATURE_NAMED_ARGUMENTS,
+                                FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
+      {"double",
+       QueryParamsWithResult(
+           {Value::UnvalidatedJsonString("-1.79769313486232e+309")},
+           NullDouble(), OUT_OF_RANGE)
+           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION,
+                                FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
+      // Fails in "exact" but succeeds in "round"
+      {"double",
+       QueryParamsWithResult(
+           {Value::UnvalidatedJsonString("-0.0000002414214151379150123"),
+            "exact"},
+           NullDouble(), OUT_OF_RANGE)
+           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION,
+                                FEATURE_NAMED_ARGUMENTS,
+                                FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
+      {"double",
+       QueryParamsWithResult(
+           {Value::UnvalidatedJsonString("-0.0000002414214151379150123"),
+            "round"},
+           Double(-0.000000241421415137915))
+           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION,
+                                FEATURE_NAMED_ARGUMENTS,
+                                FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
+      {"double",
+       QueryParamsWithResult(
+           {Value::UnvalidatedJsonString("-0.0000002414214151379150123")},
+           Double(-0.000000241421415137915))
+           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION,
+                                FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
+
+      {"double",
+       QueryParamsWithResult(
+           {Json(JSONValue(std::numeric_limits<uint64_t>::max())), "exact"},
+           NullDouble(), OUT_OF_RANGE)
+           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_NAMED_ARGUMENTS,
+                                FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
+      {"double",
+       QueryParamsWithResult(
+           {Json(JSONValue(std::numeric_limits<uint64_t>::max())), "round"},
+           Double(1.8446744073709552e+19))
+           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_NAMED_ARGUMENTS,
+                                FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
+      {"double",
+       QueryParamsWithResult({Json(JSONValue(1.0)), NullString()}, NullDouble())
+           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_NAMED_ARGUMENTS,
+                                FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
+      {"double",
+       QueryParamsWithResult({Value::UnvalidatedJsonString(std::to_string(
+                                 std::numeric_limits<uint64_t>::max()))},
+                             Double(1.8446744073709552e+19))
+           .WrapWithFeatureSet({FEATURE_JSON_TYPE, FEATURE_JSON_NO_VALIDATION,
+                                FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
+      // Other types should return an error
+      {"double",
+       {Json(JSONValue(std::string{"TesT"}))},
+       NullDouble(),
+       OUT_OF_RANGE},
+      {"double",
+       {Json(JSONValue(std::string{"3"}))},
+       NullDouble(),
+       OUT_OF_RANGE},
+      {"double", {Json(JSONValue(false))}, NullDouble(), OUT_OF_RANGE},
+      {"double",
+       QueryParamsWithResult(
+           {Json(JSONValue::ParseJSONString(R"({"a": 1})").value())},
+           NullDouble(), OUT_OF_RANGE)
+           .WrapWithFeatureSet(
+               {FEATURE_JSON_TYPE, FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
+      {"double",
+       QueryParamsWithResult(
+           {Json(JSONValue::ParseJSONString(R"([10, 20])").value())},
+           NullDouble(), OUT_OF_RANGE)
+           .WrapWithFeatureSet(
+               {FEATURE_JSON_TYPE, FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS})},
       // STRING
       {"string", {NullJson()}, NullString()},
       {"string", {Json(JSONValue(std::string{""}))}, ""},
@@ -889,4 +1009,37 @@ std::vector<FunctionTestCall> GetFunctionTestsConvertJson() {
   return tests;
 }
 
+std::vector<FunctionTestCall> GetFunctionTestsConvertJsonIncompatibleTypes() {
+  std::vector<std::string> type_functions = {"int64", "double", "string",
+                                             "bool"};
+  std::map<std::string, ValueConstructor> null_lookup = {
+      {"int64", NullInt64()},
+      {"double", NullDouble()},
+      {"string", NullString()},
+      {"bool", NullBool()}};
+  std::map<std::string, ValueConstructor> input_type_value_lookup = {
+      {"object", Json(JSONValue::ParseJSONString(R"({"a": 2})").value())},
+      {"array", Json(JSONValue::ParseJSONString(R"([20, 30])").value())},
+      {"bool", Json(JSONValue(true))},
+      {"double",
+       {Json(JSONValue(
+           2.1))}},  // incompatible with int64_t due to its fractional part
+      {"int64", Json(JSONValue(int64_t{321}))},
+      {"string", Json(JSONValue(std::string{"abc321"}))}};
+
+  std::vector<FunctionTestCall> tests;
+  for (const std::string& type_function : type_functions) {
+    for (const auto& [input_type, input_value] : input_type_value_lookup) {
+      if (type_function != input_type &&
+          // double(int64_t) is compatible
+          !(type_function == "double" && input_type == "int64")) {
+        std::vector<ValueConstructor> input = {input_value};
+        tests.emplace_back(type_function, input,
+                           null_lookup.find(type_function)->second,
+                           OUT_OF_RANGE);
+      }
+    }
+  }
+  return tests;
+}
 }  // namespace zetasql

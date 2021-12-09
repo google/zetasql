@@ -44,15 +44,17 @@
 // with the arena you can do
 //    std::vector<...> v(foo, bar, arena);
 
-#include "zetasql/base/arena.h"
-
 #include <assert.h>
 #include <stddef.h>
-#include <new>
+
+#include <limits>
 #include <memory>
+#include <new>
 #include <type_traits>
+#include <utility>
 
 #include "absl/base/macros.h"
+#include "zetasql/base/arena.h"
 #include "zetasql/base/logging.h"
 
 namespace zetasql_base {
@@ -116,7 +118,7 @@ template <class T, class C> class ArenaAllocator {
     arena_->Free(p, n * sizeof(T));
   }
 
-  C* arena(void) const { return arena_; }
+  C* arena() const { return arena_; }
 
   template<class U> struct rebind {
     typedef ArenaAllocator<U, C> other;
@@ -261,13 +263,6 @@ class ArenaOnlyGladiator {
     return allocator->AllocAligned(size, BaseArena::kDefaultAlignment);
   }
 
-  template <class T>
-  ABSL_DEPRECATED("use zetasql_base::NewInArena from base/arena_allocator.h instead")
-  void* operator new[](const size_t size, const int ignored, T* allocator) {
-    assert(allocator);
-    return allocator->AllocAligned(size, BaseArena::kDefaultAlignment);
-  }
-
   void operator delete(void* /*memory*/, const size_t /*size*/) {}
 
   template <class T>
@@ -382,7 +377,7 @@ class ArrayGladiator : public Gladiator {
 // perform resource management. Such uses should be updated to use
 // DeleteInArena<T> for safety against undefined behavior.
 template <typename T, typename ArenaType, typename... Args,
-          typename std::enable_if<!std::is_array<T>::value>::type* = nullptr>
+          std::enable_if_t<!std::is_array<T>::value>* = nullptr>
 // NOLINTNEXTLINE - suppress ClangTidy raw pointer return.
 T* NewInArena(ArenaType* arena, Args&&... args) {
   static_assert(!std::is_base_of<Gladiator, T>::value,
@@ -393,22 +388,22 @@ T* NewInArena(ArenaType* arena, Args&&... args) {
 }
 
 template <typename T, typename ArenaType,
-          typename std::enable_if<std::is_array<T>::value &&
-                                  std::extent<T>::value == 0>::type* = nullptr>
+          std::enable_if_t<std::is_array<T>::value &&
+                           std::extent<T>::value == 0>* = nullptr>
 // NOLINTNEXTLINE - suppress ClangTidy raw pointer return.
-typename std::remove_extent<T>::type* NewInArena(ArenaType* arena, size_t n) {
+std::remove_extent_t<T>* NewInArena(ArenaType* arena, size_t n) {
   static_assert(!std::is_base_of<Gladiator, T>::value,
                 "Allocating an object with type inheriting from Gladiator is "
                 "not supported by NewInArena.");
-  using U = typename std::remove_extent<T>::type;
+  using U = std::remove_extent_t<T>;
   U* p = static_cast<U*>(arena->AllocAligned(n * sizeof(U), alignof(U)));
   for (size_t i = 0; i < n; ++i) ::new (static_cast<void*>(p + i)) U;
   return p;
 }
 
 template <typename T, typename... Args,
-          typename std::enable_if<std::is_array<T>::value &&
-                                  std::extent<T>::value != 0>::type* = nullptr>
+          std::enable_if_t<std::is_array<T>::value &&
+                           std::extent<T>::value != 0>* = nullptr>
 // NOLINTNEXTLINE - suppress ClangTidy raw pointer return.
 T* NewInArena(Args&&... args) = delete;
 

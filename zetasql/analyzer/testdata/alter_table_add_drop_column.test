@@ -316,3 +316,154 @@ ALTER TABLE KeyValue DROP COLUMN key, DROP COLUMN foo;
                                                   ^
 ==
 
+# Add column with default value
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE]
+[no_enable_literal_replacement]
+ALTER TABLE KeyValue ADD COLUMN foo STRING DEFAULT 'abc';
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AddColumnAction
+    +-is_if_not_exists=FALSE
+    +-column_definition=
+      +-ColumnDefinition
+        +-name="foo"
+        +-type=STRING
+        +-column=KeyValue.foo#1
+        +-default_value=
+          +-ColumnDefaultValue
+            +-expression=
+            | +-Literal(type=STRING, value="abc")
+            +-sql="'abc'"
+==
+
+# Add column with default value, column type is date, default value is string
+# (disallowed).
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE]
+[no_enable_literal_replacement]
+ALTER TABLE KeyValue ADD COLUMN foo DATE DEFAULT 'random string';
+--
+ERROR: Could not cast literal "random string" to type DATE [at 1:50]
+ALTER TABLE KeyValue ADD COLUMN foo DATE DEFAULT 'random string';
+                                                 ^
+==
+
+# Add column with default value expression that reference existing column
+# (disallowed).
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE]
+[no_enable_literal_replacement]
+ALTER TABLE KeyValue ADD COLUMN foo INT64 DEFAULT value + 100;
+--
+ERROR: Default value expressions cannot reference columns [at 1:51]
+ALTER TABLE KeyValue ADD COLUMN foo INT64 DEFAULT value + 100;
+                                                  ^
+==
+
+# Add column with default value expression that reference a new column
+# (disallowed).
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE]
+[no_enable_literal_replacement]
+ALTER TABLE KeyValue
+  ADD COLUMN foo INT64,
+  ADD COLUMN bar INT64 DEFAULT foo + 100;
+--
+ERROR: Default value expressions cannot reference columns [at 3:32]
+  ADD COLUMN bar INT64 DEFAULT foo + 100;
+                               ^
+==
+
+# Add column with default value expression that reference itself (disallowed)
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE]
+[no_enable_literal_replacement]
+ALTER TABLE KeyValue ADD COLUMN foo STRING DEFAULT foo;
+--
+ERROR: Default value expressions cannot reference columns [at 1:52]
+ALTER TABLE KeyValue ADD COLUMN foo STRING DEFAULT foo;
+                                                   ^
+==
+
+# Add column with default value expression that reference a existing column in
+# different case.
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE]
+[no_enable_literal_replacement]
+ALTER TABLE KeyValue ADD COLUMN foo STRING DEFAULT VALUE;
+--
+ERROR: Default value expressions cannot reference columns [at 1:52]
+ALTER TABLE KeyValue ADD COLUMN foo STRING DEFAULT VALUE;
+                                                   ^
+==
+
+# Add column with default value expression that reference a dropped column.
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE]
+[no_enable_literal_replacement]
+ALTER TABLE KeyValue DROP COLUMN key, ADD COLUMN foo STRING DEFAULT Key;
+--
+ERROR: Unrecognized name: Key [at 1:69]
+ALTER TABLE KeyValue DROP COLUMN key, ADD COLUMN foo STRING DEFAULT Key;
+                                                                    ^
+
+==
+
+# Add column with default value expression that reference a random identifier
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE]
+[no_enable_literal_replacement]
+ALTER TABLE KeyValue ADD COLUMN foo STRING DEFAULT random_identifier;
+--
+ERROR: Unrecognized name: random_identifier [at 1:52]
+ALTER TABLE KeyValue ADD COLUMN foo STRING DEFAULT random_identifier;
+                                                   ^
+==
+
+# Add column with default value, column type is date, default value is string
+# (disallowed).
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE]
+[no_enable_literal_replacement]
+ALTER TABLE KeyValue ADD COLUMN foo DATE DEFAULT 'random string';
+--
+ERROR: Could not cast literal "random string" to type DATE [at 1:50]
+ALTER TABLE KeyValue ADD COLUMN foo DATE DEFAULT 'random string';
+                                                 ^
+==
+
+# Add column with default value which has scalar subquery (disallowed).
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE]
+[no_enable_literal_replacement]
+ALTER TABLE KeyValue ADD COLUMN foo INT64 DEFAULT (select 1);
+--
+ERROR: A column default expression must not include a subquery [at 1:51]
+ALTER TABLE KeyValue ADD COLUMN foo INT64 DEFAULT (select 1);
+                                                  ^
+==
+
+# Add column with default value which contains lambda function.
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE,V_1_3_INLINE_LAMBDA_ARGUMENT,FUNCTION_ARGUMENT_NAMES_HIDE_LOCAL_NAMES]
+[no_enable_literal_replacement]
+ALTER TABLE KeyValue ADD COLUMN e ARRAY<STRING> DEFAULT ARRAY_FILTER(['a'], e -> e = 'a');
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AddColumnAction
+    +-is_if_not_exists=FALSE
+    +-column_definition=
+      +-ColumnDefinition
+        +-name="e"
+        +-type=ARRAY<STRING>
+        +-column=KeyValue.e#2
+        +-default_value=
+          +-ColumnDefaultValue
+            +-expression=
+            | +-FunctionCall(ZetaSQL:array_filter(ARRAY<STRING>, LAMBDA(STRING->BOOL)) -> ARRAY<STRING>)
+            |   +-FunctionArgument
+            |   | +-expr=
+            |   |   +-Literal(type=ARRAY<STRING>, value=["a"])
+            |   +-FunctionArgument
+            |     +-inline_lambda=
+            |       +-InlineLambda
+            |         +-argument_list=[$lambda_arg.e#1]
+            |         +-body=
+            |           +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+            |             +-ColumnRef(type=STRING, column=$lambda_arg.e#1)
+            |             +-Literal(type=STRING, value="a")
+            +-sql="ARRAY_FILTER(['a'], e -> e = 'a')"

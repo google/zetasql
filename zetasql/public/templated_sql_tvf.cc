@@ -235,6 +235,11 @@ absl::Status TemplatedSQLTVF::Resolve(
   tvf_signature->reset(new TemplatedSQLTVFSignature(
       input_arguments, return_tvf_relation, tvf_signature_options,
       resolved_templated_query.release(), GetArgumentNames()));
+  if (anonymization_info_ != nullptr) {
+    auto anonymization_info =
+        absl::make_unique<AnonymizationInfo>(*anonymization_info_);
+    tvf_signature->get()->SetAnonymizationInfo(std::move(anonymization_info));
+  }
   return absl::OkStatus();
 }
 

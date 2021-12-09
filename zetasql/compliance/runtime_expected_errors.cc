@@ -160,12 +160,6 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange, "Invalid input to PARSE_BIGNUMERIC"));
   error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "Invalid input to PARSE_JSON"));
-  // TO_JSON will return OUT_OF_RANGE error if the input type is
-  // numeric/bignumeric and FEATURE_JSON_STRICT_NUMBER_PARSING is enabled when
-  // there is precision loss.
-  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
-      absl::StatusCode::kOutOfRange,
-      "Failed to convert type (NUMERIC|BIGNUMERIC) to JSON"));
 
   // REPLACE_FIELDS() specific
   error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
@@ -371,15 +365,27 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
       "Argument 3 to (LAG|LEAD) must be a literal or query parameter"));
+  // TODO: Remove the following two once the bug is resolved.
   error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
       "ARRAY_IS_DISTINCT cannot be used on argument of type .* because the "
       "array's element type does not support grouping"));
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "ARRAY_INCLUDES(_ANY)? cannot be used on argument of type .* because the "
+      "array's element type does not support equality"));
+  // TODO: Remove after randomized compat test is happy.
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Argument 2 to ARRAY_INCLUDES must support equality"));
+
+  // TODO: Remove after the bug is fixed.
   // Due to the above expected errors, rqg could generate invalid expressions.
   // An invalid lambda body manifests as "No matching signature".
   error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
-      "No matching signature for function (ARRAY_FILTER|ARRAY_TRANSFORM) .*"));
+      "No matching signature for function "
+      "(ARRAY_FILTER|ARRAY_TRANSFORM|ARRAY_INCLUDES) .*"));
 
   // HLL sketch format errors
   //
@@ -428,6 +434,23 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
       "The second argument of COLLATE\\(\\) must be a string literal"));
+
+  // TODO PARSE_JSON sometimes is generated with invalid string
+  // inputs.
+  error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kInvalidArgument, "parse error at line"));
+
+  // JSON related errors
+  // TO_JSON will return OUT_OF_RANGE error if the input type is
+  // numeric/bignumeric and FEATURE_JSON_STRICT_NUMBER_PARSING is enabled when
+  // there is precision loss.
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Failed to convert type (NUMERIC|BIGNUMERIC) to JSON"));
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "The provided JSON input is not (a string|a boolean|an integer|a "
+      "number)"));
 
   return absl::make_unique<MatcherCollection<absl::Status>>(
       matcher_name, std::move(error_matchers));

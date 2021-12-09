@@ -124,13 +124,15 @@ absl::Status ParseIdentifier(absl::string_view str,
 // Similar for the above, but rejects only keywords which are always reserved.
 // This method exists only for existing callers which predated conditionally
 // reserved keywords.
-ABSL_DEPRECATED("Use overload which takes a LanguageOptions instead")
+#ifndef SWIG
+ABSL_DEPRECATED("Inline me!")
 inline absl::Status ParseIdentifier(absl::string_view str, std::string* out,
                                     std::string* error_string = nullptr,
                                     int* error_offset = nullptr) {
   return ParseIdentifier(str, LanguageOptions(), out, error_string,
                          error_offset);
 }
+#endif  // SWIG
 
 // Same as above, but allow reserved keywords to be identifiers. For example,
 // "SELECT" is valid as a generalized identifier but not as an identifier.
@@ -193,11 +195,13 @@ absl::Status ParseIdentifierPath(absl::string_view str,
 // This function exists for backward compatibility with existing callers that
 // predated conditionally reserved keywords. New callers should pass in a
 // LanguageOptions instead.
-ABSL_DEPRECATED("Use overload which takes a LanguageOptions instead")
+#ifndef SWIG
+ABSL_DEPRECATED("Inline me!")
 inline absl::Status ParseIdentifierPath(absl::string_view str,
                                         std::vector<std::string>* out) {
   return ParseIdentifierPath(str, LanguageOptions(), out);
 }
+#endif  // SWIG
 
 // Return true if the string is a ZetaSQL keyword.
 // Note: The set of strings for which this function returns true may increase

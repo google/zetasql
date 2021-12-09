@@ -48,12 +48,10 @@ namespace zetasql {
 class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
  public:
   MapFunctionVisitor(Catalog& catalog, TypeFactory& type_factory,
-                     const AnalyzerOptions& analyzer_options,
-                     absl::Span<const Rewriter* const> rewriters)
+                     const AnalyzerOptions& analyzer_options)
       : catalog_(catalog),
         type_factory_(type_factory),
-        analyzer_options_(analyzer_options),
-        rewriters_(rewriters) {}
+        analyzer_options_(analyzer_options) {}
 
   absl::Status VisitResolvedFunctionCall(
       const ResolvedFunctionCall* node) override {
@@ -107,11 +105,10 @@ class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
         node->signature().context_id() == FN_SAFE_PROTO_MAP_AT_KEY
             ? safe_map_at_sql
             : map_at_sql;
-    ZETASQL_ASSIGN_OR_RETURN(
-        auto rewritten_tree,
-        AnalyzeSubstitute(analyzer_options_, rewriters_, catalog_,
-                          type_factory_, expression,
-                          {{"m", map_arg.get()}, {"k", key_arg.get()}}));
+    ZETASQL_ASSIGN_OR_RETURN(auto rewritten_tree,
+                     AnalyzeSubstitute(
+                         analyzer_options_, catalog_, type_factory_, expression,
+                         {{"m", map_arg.get()}, {"k", key_arg.get()}}));
     PushNodeToStack(std::move(rewritten_tree));
     return absl::OkStatus();
   }
@@ -130,8 +127,7 @@ class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
 
     ZETASQL_ASSIGN_OR_RETURN(
         auto rewritten_tree,
-        AnalyzeSubstitute(analyzer_options_, rewriters_, catalog_,
-                          type_factory_, kTemplate,
+        AnalyzeSubstitute(analyzer_options_, catalog_, type_factory_, kTemplate,
                           {{"m", map_arg.get()}, {"k", key_arg.get()}}));
     PushNodeToStack(std::move(rewritten_tree));
     return absl::OkStatus();
@@ -206,10 +202,10 @@ class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
     }
     absl::StrAppend(&kv_sql, "]");
 
-    ZETASQL_ASSIGN_OR_RETURN(auto rewritten_tree,
-                     AnalyzeSubstitute(
-                         analyzer_options_, rewriters_, catalog_, type_factory_,
-                         absl::Substitute(kTemplate, kv_sql), variables));
+    ZETASQL_ASSIGN_OR_RETURN(
+        auto rewritten_tree,
+        AnalyzeSubstitute(analyzer_options_, catalog_, type_factory_,
+                          absl::Substitute(kTemplate, kv_sql), variables));
     // The result will be coming out as an array of structs that are coercible
     // to the target map entry type, so we have to add a coercion to make it
     // into the required proto type.
@@ -221,25 +217,20 @@ class MapFunctionVisitor : public ResolvedASTDeepCopyVisitor {
   Catalog& catalog_;
   TypeFactory& type_factory_;
   const AnalyzerOptions& analyzer_options_;
-  absl::Span<const Rewriter* const> rewriters_;
 };
 
 class MapFunctionRewriter : public Rewriter {
  public:
   bool ShouldRewrite(const AnalyzerOptions& analyzer_options,
                      const AnalyzerOutput& analyzer_output) const override {
-    return analyzer_output.analyzer_output_properties()
-               .has_proto_map_functions &&
-           analyzer_options.rewrite_enabled(
-               ResolvedASTRewrite::REWRITE_PROTO_MAP_FNS);
+    return analyzer_output.analyzer_output_properties().has_proto_map_functions;
   }
 
   absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
-      const AnalyzerOptions& options,
-      absl::Span<const Rewriter* const> rewriters, const ResolvedNode& input,
+      const AnalyzerOptions& options, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,
       AnalyzerOutputProperties& output_properties) const override {
-    MapFunctionVisitor visitor(catalog, type_factory, options, rewriters);
+    MapFunctionVisitor visitor(catalog, type_factory, options);
     ZETASQL_RETURN_IF_ERROR(input.Accept(&visitor));
     return visitor.ConsumeRootNode<ResolvedNode>();
   }

@@ -127,8 +127,7 @@ public final class TypeParameters implements Serializable {
 
   public TypeParametersProto serialize() {
     // Copy internal typeParametersProto to a new TypeParametersProto object.
-    TypeParametersProto.Builder builder =
-        TypeParametersProto.newBuilder().mergeFrom(typeParametersProto);
+    TypeParametersProto.Builder builder = typeParametersProto.toBuilder();
     for (TypeParameters typeParameters : childList) {
       builder.addChildList(typeParameters.serialize());
     }

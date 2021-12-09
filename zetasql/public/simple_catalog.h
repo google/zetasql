@@ -297,7 +297,7 @@ class SimpleCatalog : public EnumerableCatalog {
   //
   void SetDescriptorPool(const google::protobuf::DescriptorPool* pool)
       ABSL_LOCKS_EXCLUDED(mutex_);
-  ABSL_DEPRECATED("Use std::unique_ptr version")
+  ABSL_DEPRECATED("Inline me!")
   void SetOwnedDescriptorPool(const google::protobuf::DescriptorPool* pool)
       ABSL_LOCKS_EXCLUDED(mutex_);
   void SetOwnedDescriptorPool(
@@ -325,7 +325,7 @@ class SimpleCatalog : public EnumerableCatalog {
       const SimpleCatalogProto& proto,
       absl::Span<const google::protobuf::DescriptorPool* const> pools,
       const ExtendedTypeDeserializer* extended_type_deserializer = nullptr);
-  ABSL_DEPRECATED("Use Deserialize(proto, pools, extended_type_deserializer")
+  ABSL_DEPRECATED("Inline me!")
   static absl::Status Deserialize(
       const SimpleCatalogProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
@@ -640,7 +640,7 @@ class SimpleTable : public Table {
   // columns, and all proto type are treated as references into these pools.
   // The TypeFactory and the DescriptorPools must both outlive the result
   // SimpleTable.
-  ABSL_DEPRECATED("Use Deserialize(SimpleTableProto, TypeDeserializer) instead")
+  ABSL_DEPRECATED("Inline me!")
   static absl::Status Deserialize(
       const SimpleTableProto& proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,

@@ -479,7 +479,8 @@ absl::Status Type::TypeMismatchError(const ValueProto& value_proto) const {
   return absl::Status(
       absl::StatusCode::kInternal,
       absl::StrCat("Type mismatch: provided type ", DebugString(),
-                   " but proto <", value_proto.ShortDebugString(),
+                   " but proto <",
+                   value_proto.ShortDebugString(),
                    "> doesn't have field of that type and is not null"));
 }
 

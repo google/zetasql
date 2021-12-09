@@ -719,7 +719,7 @@ select MessageWithMapField.string_int32_map[KEY("foo")]
                                             ^
 ==
 
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS]
 [language_features=V_1_3_PROTO_MAPS]
 select MessageWithMapField.string_int32_map[SAFE_KEY("foo")]
 from MapFieldTable
@@ -838,7 +838,7 @@ QueryStmt
       +-TableScan(column_list=[MapFieldTable.MessageWithMapField#2], table=MapFieldTable, column_index_list=[1])
 ==
 
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS]
 [language_features=V_1_3_PROTO_MAPS]
 select MessageWithMapField.int64_uint64_map[KEY(table.key)]
 from MapFieldTable table
@@ -985,7 +985,7 @@ select MODIFY_MAP(MessageWithMapField.int32_int32_map, key + 1, key + 2)
        ^
 ==
 
-[no_enable_ast_rewrites]
+[enabled_ast_rewrites=NONE]
 [language_features=V_1_3_PROTO_MAPS]
 select MODIFY_MAP(MessageWithMapField.int32_int32_map, CAST(key + 1 AS INT32), CAST(key + 2 AS INT32))
 from MapFieldTable

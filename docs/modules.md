@@ -1,5 +1,4 @@
 
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
 
 # Modules
 
@@ -8,22 +7,23 @@
 Modules are a set of ZetaSQL DDL statements that do not have
 permanent side effects. Each module is self-contained:
 
-+ Each module has its own namespace. This namespace is empty until `CREATE`
-  statements in the module add objects to the module namespace.
-+ Module statements cannot have permanent side effects. They cannot:
-    + Create permanent objects.
-    + Insert data.
-    + Modify data.
-+ Modules allow public and private object definitions for proper encapsulation.
++   Each module has its own namespace. This namespace is empty until `CREATE`
+    statements in the module add objects to the module namespace.
++   Module statements cannot have permanent side effects. They cannot:
+    +   Create permanent objects.
+    +   Insert data.
+    +   Modify data.
++   Modules allow public and private object definitions for proper
+    encapsulation.
 
 The purpose of a module is to keep related business logic in one location.
 Inside the module, you can create user-defined functions and constants, and
 import other modules.
 
 ZetaSQL limits the duration and side effects of module objects to the
-invoking *session*. In the context of ZetaSQL modules, a session is
-a set of related statements and objects that form a [unit of
-work](https://en.wikipedia.org/w/index.php?title=Unit_of_work).
+invoking *session*. In the context of ZetaSQL modules, a session is a
+set of related statements and objects that form a
+[unit of work](https://en.wikipedia.org/w/index.php?title=Unit_of_work).
 
 ## Creating a module
 
@@ -33,10 +33,10 @@ appear at the end of the filename of the module file.
 
 Modules support the following statements:
 
-+ `MODULE`
-+ `IMPORT MODULE`
-+ `CREATE ( PUBLIC | PRIVATE ) [ ( TABLE | AGGREGATE ) ] FUNCTION`
-+ `CREATE ( PUBLIC | PRIVATE ) CONSTANT`
++   `MODULE`
++   `IMPORT MODULE` 
++   `CREATE ( PUBLIC | PRIVATE ) [ ( TABLE | AGGREGATE ) ] FUNCTION`
++   `CREATE ( PUBLIC | PRIVATE ) CONSTANT`
 
 Modules do not support statements that return results or have side effects.
 Modules only support defining an object once and do not support modifying an
@@ -44,8 +44,8 @@ object after it is defined.
 
 ### Declaring a module
 
-The first statement in a module must be a valid `MODULE` statement
-which defines the module name:
+The first statement in a module must be a valid `MODULE` statement which defines
+the module name:
 
 <pre>
 MODULE <span class="var">identifier_path</span> [ OPTIONS (...)];
@@ -56,8 +56,8 @@ Each module file must contain only one `MODULE` statement.
 By convention, an `IMPORT` statement for this module will generally include the
 `identifier_path` in the `IMPORT` statement. For clarity, the `identifier_path`
 should reflect the path to the module file that contains the `MODULE` statement.
- For example, if a module file is stored at
-`search_path/x/y/z.sqlm`, then the `MODULE` statement will be:
+ For example, if a module file is stored at `search_path/x/y/z.sqlm`,
+then the `MODULE` statement will be:
 
 ```sql
 MODULE x.y.z;
@@ -71,7 +71,7 @@ IMPORT MODULE x.y.z;
 
 The `IMPORT` statement should not include the `.sqlm` file extension.
 
-Note:  If you import module `x.y.z`, ZetaSQL looks for the module at
+Note: If you import module `x.y.z`, ZetaSQL looks for the module at
 `search_path/x/y/z.sqlm`. If the module is not found, ZetaSQL looks for
 the module at `search_path/x/y/z/z.sqlm` and you can import it with either
 `IMPORT MODULE x.y.z` or `IMPORT MODULE x.y.z.z`.
@@ -89,27 +89,31 @@ within the module (private). To specify these properties, use the `PUBLIC` or
 
 **Examples**
 
-The following example creates a public function, which the invoking session
-can execute.
+The following example creates a public function, which the invoking session can
+execute.
 
 ```sql
-CREATE PUBLIC FUNCTION foo(a INT64) AS (a + 1);
+CREATE PUBLIC FUNCTION Foo(a INT64)
+AS (
+  a + 1
+);
 ```
 
 The following example creates a private function, which only statements within
 the same module can execute.
 
 ```sql
-CREATE PRIVATE FUNCTION bar(b INT64) AS (b - 1);
+CREATE PRIVATE FUNCTION Bar(b INT64)
+AS (
+  b - 1
+);
 ```
 
-#### Creating user-defined functions and table functions
+#### Creating UDFs and TVFs
 
-Modules support creation of
-[user-defined functions][user-defined-functions],
-including
-[table-valued functions][table-valued-functions]
-with scalar and templated arguments.
+Modules support creation of UDFs ([user-defined
+functions][user-defined-functions]), including TVFs ([table-valued
+functions][table-valued-functions]) with scalar and templated arguments.
 
 The `TEMP` keyword is not allowed in `CREATE ( PUBLIC | PRIVATE ) FUNCTION`
 statements in modules. `TEMP` objects are not meaningful within a module since
@@ -122,59 +126,81 @@ passed in as a TVF argument of type `ANY TABLE`.
 
 **Examples**
 
-The following example creates a public user-defined function.
+The following example creates a public UDF.
 
 ```sql
-CREATE PUBLIC FUNCTION udf_sample(a INT64) AS (a+1);
+CREATE PUBLIC FUNCTION SampleUdf(a INT64)
+AS (
+  a + 1
+);
 ```
 
-The following example creates a public templated user-defined function with a
-scalar argument.
+The following example creates a public templated UDF with a scalar argument.
 
 ```sql
-CREATE PUBLIC FUNCTION udf_scalar(a ANY TYPE) AS (a+1);
+CREATE PUBLIC FUNCTION ScalarUdf(a ANY TYPE)
+AS (
+  a + 1
+);
 ```
 
-The following example creates a public table-valued function with a scalar
-argument.
+The following example creates a public TVF with a scalar argument using a public
+UDF defined in the same module.
 
 ```sql
-CREATE PUBLIC TABLE FUNCTION tvf_scalar(a INT64)
-AS (SELECT a, udf.udf_sample(a) b);
+CREATE PUBLIC TABLE FUNCTION ScalarTvf(a INT64)
+AS (
+  SELECT a, SampleUdf(a) AS b
+);
 ```
 
-The following example creates a public table-valued function with a table
-argument.
+The following example creates a public TVF with a table argument.
 
 ```sql
-CREATE PUBLIC TABLE FUNCTION tvf_sample2(x TABLE<a STRING, b INT64>)
-AS (SELECT a, SUM(b) AS sum_b FROM x GROUP BY a);
+CREATE PUBLIC TABLE FUNCTION ScalarTvf(SomeTable TABLE<a STRING, b INT64>)
+AS (
+  SELECT a, SUM(b) AS sum_b FROM SomeTable GROUP BY a
+);
 ```
 
-The following example creates a public templated table-valued function.
+The following example creates a public templated TVF.
 
 ```sql
-CREATE PUBLIC TABLE FUNCTION tvf_templated(a ANY TYPE, table1 ANY TABLE)
-AS (SELECT a, b.* FROM table1);
+CREATE PUBLIC TABLE FUNCTION TemplatedTvf(a ANY TYPE, SomeTable ANY TABLE)
+AS (
+  SELECT a, b.* FROM SomeTable
+);
 ```
 
 ### Referencing module objects from within the same module
 
 Statements in a module can reference other objects in the same module.
-Statements can reference objects whose `CREATE` statements appear before
-or after that referencing statement.
+Statements can reference objects whose `CREATE` statements appear before or
+after that referencing statement.
 
 **Example**
 
-The following example module declares the name of the module, and creates two
-public functions and one private function. The second function references the
-other two functions, including the function that appears after it in the module.
+The following example module declares the name of the module, and creates one
+public function and two private functions. The public function references the
+other two private functions.
 
 ```sql
 MODULE a.b.c;
-CREATE PUBLIC FUNCTION foo(x int64) AS (x);
-CREATE PUBLIC FUNCTION bar(y int64) AS (foo(y) + baz(y));
-CREATE PRIVATE FUNCTION baz(z int64) AS (z);
+
+CREATE PRIVATE FUNCTION Foo(x INT64)
+AS (
+  x
+);
+
+CREATE PRIVATE FUNCTION Bar(y INT64)
+AS (
+  y
+);
+
+CREATE PUBLIC FUNCTION Baz(a INT64, b INT64)
+AS (
+  Foo(a) + Bar(b)
+);
 ```
 
 Object references cannot be circular: if a function directly or indirectly
@@ -188,8 +214,7 @@ module.
 
 ### Importing a module into a session
 
-To import a module into a session, use the `IMPORT MODULE`
-statement.
+To import a module into a session, use the `IMPORT MODULE` statement.
 
 **Syntax**
 
@@ -203,9 +228,9 @@ containing public objects exported from the module.
 The `module_identifier_path` is a unique module name that corresponds to the
 path ID in the [module declaration](#declaring-a-module).
 
-The `alias` provides the namespace that the `IMPORT MODULE`
-statement creates. If `alias` is absent, then the namespace will be the
-last name in the `module_identifier_path`.
+The `alias` provides the namespace that the `IMPORT MODULE` statement creates.
+If `alias` is absent, then the namespace will be the last name in the
+`module_identifier_path`.
 
 **Examples**
 
@@ -216,11 +241,11 @@ The following example statement imports the module with the identifier path
 IMPORT MODULE x.y.z;
 ```
 
-The following example statement imports the same module with the alias `foo`
-into namespace `foo`.
+The following example statement imports the same module but with the alias
+`some_module` into namespace `some_module`.
 
 ```sql
-IMPORT MODULE x.y.z AS foo;
+IMPORT MODULE x.y.z AS some_module;
 ```
 
 ### Referencing module objects from a session
@@ -232,37 +257,39 @@ alias to reference the objects in the module.
 **Example**
 
 In the following example, the `IMPORT` statement imports the module with the
-identifier path `x.y.z` into namespace `z`, and then executes a public
-function `bar` from inside of that module.
+identifier path `x.y.z` into namespace `z`, and then executes a public function
+`Baz` from inside of that module.
 
 ```sql
 IMPORT MODULE x.y.z;
-SELECT z.bar(a, b);
+
+SELECT z.Baz(a, b);
 ```
 
 If the `IMPORT` statement includes an alias, then the statement creates the
-namespace with that alias. Use that alias as the identifier path prefix for
-the referenced object.
+namespace with that alias. Use that alias as the identifier path prefix for the
+referenced object.
 
 **Example**
 
-In the following example, the `IMPORT` statement assigns alias `foo` to the
-module with the identifier path `x.y.z`, and the `SELECT` statement executes a
-public function `bar` from inside of that module.
+In the following example, the `IMPORT` statement assigns alias `some_module` to
+the module with the identifier path `x.y.z`, and the `SELECT` statement executes
+a public function `Baz` from inside of that module.
 
 ```sql
-IMPORT MODULE x.y.z AS foo;
-SELECT foo.bar(a, b);
+IMPORT MODULE x.y.z AS some_module;
+
+SELECT some_module.Baz(a, b);
 ```
 
 ### Importing a module into another module
 
-To import a module into another module, use the same syntax as when [importing a
-module into a session](#importing-a-module-into-a-session).
+To import a module into another module, use the same syntax as when
+[importing a module into a session](#importing-a-module-into-a-session).
 
-+ Imports cannot be circular. For example, if `module1` imports `module2`,
-  then `module2` cannot directly or indirectly import `module1`.
-+ A module cannot import itself.
++   Imports cannot be circular. For example, if `module1` imports `module2`,
+    then `module2` cannot directly or indirectly import `module1`.
++   A module cannot import itself.
 
 ### Referencing module objects from another module
 
@@ -273,13 +300,17 @@ invoking session.
 **Example**
 
 In the following example, the `IMPORT` statement imports the module with the
-identifier path `x.y.z`, and then creates a function `foo` which
-references the public function `bar` from inside of the imported module.
+identifier path `x.y.z`, and then creates a function `Foo` which references the
+public function `Baz` from inside of the imported module.
 
 ```sql
 MODULE a.b.c;
 IMPORT MODULE x.y.z;
-CREATE PUBLIC FUNCTION foo(d int) AS (z.bar(d));
+
+CREATE PUBLIC FUNCTION Foo(d INT64, e INT64)
+AS (
+  z.Baz(d, e)
+);
 ```
 
 If the `IMPORT` statement includes an alias, you can reference objects from the
@@ -288,10 +319,19 @@ path.
 
 ```sql
 MODULE a.b.c;
-IMPORT MODULE x.y.z AS baz;
-CREATE PUBLIC FUNCTION foo(d int) AS (baz.bar(d));
+IMPORT MODULE x.y.z AS some_module;
+
+CREATE PUBLIC FUNCTION Foo(d INT64, e INT64)
+AS (
+  some_module.Baz(d, e)
+);
 ```
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [user-defined-functions]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md
+
 [table-valued-functions]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md#tvfs
+
+<!-- mdlint on -->
 

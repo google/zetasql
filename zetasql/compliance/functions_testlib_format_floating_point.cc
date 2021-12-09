@@ -112,6 +112,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatFloatingPoint() {
       {"format", {"%*.*f", 6, 2, 1.1}, "  1.10"},
       // negative precision means 'ignore, use default of 6'
       {"format", {"%*.*f", 10, -2, 1.1}, "  1.100000"},
+      {"format", {"%.*f", -2147483649, Double(5)}, "5.000000"},
       // negative width means 'left justify; use positive width'
       {"format", {"%*.*f", -10, -2, 1.1}, "1.100000  "},
       {"format", {"%'*.*f", 10, 2, 12345.6789}, " 12,345.68"},

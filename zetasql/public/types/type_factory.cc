@@ -377,11 +377,12 @@ absl::Status TypeFactory::MakeStructTypeFromVector(
 
 template <typename Descriptor>
 const auto* TypeFactory::MakeDescribedType(
-    const Descriptor* descriptor, std::vector<std::string> catalog_name_path) {
+    const Descriptor* descriptor,
+    absl::Span<const std::string> catalog_name_path) {
   absl::MutexLock lock(&store_->mutex_);
 
   const internal::CatalogName* cached_catalog =
-      FindOrCreateCatalogName(std::move(catalog_name_path));
+      FindOrCreateCatalogName(catalog_name_path);
 
   const auto*& cached_type = FindOrCreateCachedType(descriptor, cached_catalog);
   using DescribedType =
@@ -417,7 +418,7 @@ const auto*& TypeFactory::FindOrCreateCachedType<google::protobuf::EnumDescripto
 }
 
 const internal::CatalogName* TypeFactory::FindOrCreateCatalogName(
-    std::vector<std::string> catalog_name_path) {
+    absl::Span<const std::string> catalog_name_path) {
   if (catalog_name_path.empty()) return nullptr;
 
   auto [it, was_inserted] = cached_catalog_names_.try_emplace(
@@ -429,7 +430,7 @@ const internal::CatalogName* TypeFactory::FindOrCreateCatalogName(
   if (was_inserted) {
     catalog_name->path_string = &it->first;
     catalog_name->path.reserve(catalog_name_path.size());
-    absl::c_move(catalog_name_path, std::back_inserter(catalog_name->path));
+    absl::c_copy(catalog_name_path, std::back_inserter(catalog_name->path));
   }
 
   return catalog_name;
@@ -437,29 +438,29 @@ const internal::CatalogName* TypeFactory::FindOrCreateCatalogName(
 
 absl::Status TypeFactory::MakeProtoType(
     const google::protobuf::Descriptor* descriptor, const ProtoType** result,
-    std::vector<std::string> catalog_name_path) {
-  *result = MakeDescribedType(descriptor, std::move(catalog_name_path));
+    absl::Span<const std::string> catalog_name_path) {
+  *result = MakeDescribedType(descriptor, catalog_name_path);
   return absl::OkStatus();
 }
 
 absl::Status TypeFactory::MakeProtoType(
     const google::protobuf::Descriptor* descriptor, const Type** result,
-    std::vector<std::string> catalog_name_path) {
-  *result = MakeDescribedType(descriptor, std::move(catalog_name_path));
+    absl::Span<const std::string> catalog_name_path) {
+  *result = MakeDescribedType(descriptor, catalog_name_path);
   return absl::OkStatus();
 }
 
 absl::Status TypeFactory::MakeEnumType(
     const google::protobuf::EnumDescriptor* enum_descriptor, const EnumType** result,
-    std::vector<std::string> catalog_name_path) {
-  *result = MakeDescribedType(enum_descriptor, std::move(catalog_name_path));
+    absl::Span<const std::string> catalog_name_path) {
+  *result = MakeDescribedType(enum_descriptor, catalog_name_path);
   return absl::OkStatus();
 }
 
 absl::Status TypeFactory::MakeEnumType(
     const google::protobuf::EnumDescriptor* enum_descriptor, const Type** result,
-    std::vector<std::string> catalog_name_path) {
-  *result = MakeDescribedType(enum_descriptor, std::move(catalog_name_path));
+    absl::Span<const std::string> catalog_name_path) {
+  *result = MakeDescribedType(enum_descriptor, catalog_name_path);
   return absl::OkStatus();
 }
 
@@ -1155,7 +1156,7 @@ void TypeFactory::AddDependency(const Type* other_type) {
     // This detects trivial cycles between two TypeFactories.  It won't detect
     // longer cycles, so those won't give this error message, but the
     // destructor error will still fire because no destruction order is safe.
-    if (zetasql_base::ContainsKey(store_->factories_depending_on_this_, other_store)) {
+    if (store_->factories_depending_on_this_.contains(other_store)) {
       ZETASQL_LOG(DFATAL) << "Created cyclical dependency between TypeFactories, "
                      "which is not legal because there can be no safe "
                      "destruction order";

@@ -17,6 +17,7 @@
 #include "zetasql/tools/execute_query/execute_query_prompt.h"
 
 #include <limits>
+#include <string>
 
 #include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"

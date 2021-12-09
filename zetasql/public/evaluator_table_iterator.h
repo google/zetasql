@@ -20,7 +20,6 @@
 #define ZETASQL_PUBLIC_EVALUATOR_TABLE_ITERATOR_H_
 
 #include "zetasql/public/value.h"
-#include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {

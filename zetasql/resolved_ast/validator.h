@@ -88,6 +88,8 @@ class Validator {
       const ResolvedCreateMaterializedViewStmt* stmt);
   absl::Status ValidateResolvedCreateExternalTableStmt(
       const ResolvedCreateExternalTableStmt* stmt);
+  absl::Status ValidateResolvedCreatePrivilegeRestrictionStmt(
+      const ResolvedCreatePrivilegeRestrictionStmt* stmt);
   absl::Status ValidateResolvedCreateRowAccessPolicyStmt(
       const ResolvedCreateRowAccessPolicyStmt* stmt);
   absl::Status ValidateResolvedCreateConstantStmt(
@@ -130,6 +132,8 @@ class Validator {
       const ResolvedDropFunctionStmt* stmt);
   absl::Status ValidateResolvedDropTableFunctionStmt(
       const ResolvedDropTableFunctionStmt* stmt);
+  absl::Status ValidateResolvedDropPrivilegeRestrictionStmt(
+      const ResolvedDropPrivilegeRestrictionStmt* stmt);
   absl::Status ValidateResolvedDropRowAccessPolicyStmt(
       const ResolvedDropRowAccessPolicyStmt* stmt);
   absl::Status ValidateResolvedDropSnapshotTableStmt(
@@ -148,6 +152,8 @@ class Validator {
   absl::Status ValidateResolvedRowAccessPolicyAlterAction(
       const ResolvedAlterAction* action,
       const std::set<ResolvedColumn>& visible_columns);
+  absl::Status ValidateResolvedAlterPrivilegeRestrictionStmt(
+      const ResolvedAlterPrivilegeRestrictionStmt* stmt);
   absl::Status ValidateResolvedAlterRowAccessPolicyStmt(
       const ResolvedAlterRowAccessPolicyStmt* stmt);
   absl::Status ValidateResolvedAlterAllRowAccessPoliciesStmt(
@@ -347,6 +353,11 @@ class Validator {
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedSubqueryExpr* resolved_subquery_expr);
 
+  absl::Status ValidateResolvedLetExpr(
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      const ResolvedLetExpr* resolved_let_expr);
+
   // Verifies that all the internal references in <expr_list> are present
   // in the <visible_columns> scope.
   absl::Status ValidateResolvedExprList(
@@ -431,6 +442,9 @@ class Validator {
       const std::vector<std::unique_ptr<const ResolvedColumnDefinition>>&
           column_definitions,
       std::set<ResolvedColumn>* visible_columns);
+
+  absl::Status ValidateResolvedColumnDefaultValue(
+      const ResolvedColumnDefaultValue* default_value, const Type* column_type);
 
   absl::Status ValidatePercentArgument(const ResolvedExpr* expr);
 

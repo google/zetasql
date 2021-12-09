@@ -53,6 +53,12 @@ SELECT JSON_QUERY(JSON '{"a": [1, {"b.c": [10, 20]}]}', "$.a[1].\"b.c\"")
 --
 ARRAY<STRUCT<JSON>>[{[10,20]}]
 ==
+[name=json_query_no_validation]
+[required_features=JSON_TYPE,JSON_NO_VALIDATION]
+SELECT JSON_QUERY(JSON '{"a": [1, {"b.c": [10, 20]}]}', '$.a[1]."b.c"')
+--
+ARRAY<STRUCT<JSON>>[{[10,20]}]
+==
 [name=json_value]
 SELECT JSON_VALUE(JSON '{"a": [1, {"b.c": [10, 20]}]}', "$.a[1].\"b.c\"[0]")
 --
@@ -77,6 +83,12 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["1", "foo", NULL]}]
 [required_features=JSON_TYPE,JSON_ARRAY_FUNCTIONS]
 [name=json_query_array]
 SELECT JSON_QUERY_ARRAY(JSON '{"a.b": [1, {"c": "foo"}, null]}', "$.\"a.b\"")
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[1, {"c":"foo"}, null]}]
+==
+[required_features=JSON_TYPE,JSON_ARRAY_FUNCTIONS,JSON_NO_VALIDATION]
+[name=json_query_array_no_validation]
+SELECT JSON_QUERY_ARRAY(JSON '{"a.b": [1, {"c": "foo"}, null]}', '$."a.b"')
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[1, {"c":"foo"}, null]}]
 ==
@@ -216,3 +228,141 @@ ARRAY<STRUCT<JSON, JSON, JSON, JSON, JSON, JSON, JSON, JSON>>[
    123,
    456}
 ]
+==
+[name=json_bool]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT bool(JSON 'true');
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+[name=json_bool_string_input]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT bool(JSON '"true"');
+--
+ERROR: generic::out_of_range: The provided JSON input is not a boolean
+==
+[name=json_int64]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT int64(JSON '1');
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+[name=json_int64_double_with_fractional_part]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT int64(JSON '10.1');
+--
+ERROR: generic::out_of_range: The provided JSON number: 10.1 cannot be converted to an integer
+==
+[name=json_int64_double_without_fractional_part]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT int64(JSON '10.0');
+--
+ARRAY<STRUCT<INT64>>[{10}]
+==
+[name=json_int64_string_input]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT int64(JSON '"4"');
+--
+ERROR: generic::out_of_range: The provided JSON input is not an integer
+==
+[name=json_string]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT string(JSON '"test"');
+--
+ARRAY<STRUCT<STRING>>[{"test"}]
+==
+[name=json_string_string_num]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT string(JSON '"123"')
+--
+ARRAY<STRUCT<STRING>>[{"123"}]
+==
+[name=json_string_num_input]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT string(JSON '123')
+--
+ERROR: generic::out_of_range: The provided JSON input is not a string
+==
+[name=json_type_string]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT json_type(JSON '"test"');
+--
+ARRAY<STRUCT<STRING>>[{"string"}]
+==
+[name=json_type_invalid]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,JSON_NO_VALIDATION]
+SELECT json_type(JSON '{ "a": ["b", "c"] ')
+--
+ERROR: generic::invalid_argument: parse error at line 1, column 19: syntax error while parsing object - unexpected end of input; expected '}'
+==
+[name=json_double]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT double(JSON '1.0');
+--
+ARRAY<STRUCT<DOUBLE>>[{1}]
+==
+[name=json_double_exact]
+[required_features=JSON_TYPE,NAMED_ARGUMENTS,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT double(JSON '1.0', wide_number_mode=>'exact');
+--
+ARRAY<STRUCT<DOUBLE>>[{1}]
+==
+[name=json_double_2]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT double(JSON '1.1');
+--
+ARRAY<STRUCT<DOUBLE>>[{1.1}]
+==
+[name=json_negative_double]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT double(JSON '-1.0');
+--
+ARRAY<STRUCT<DOUBLE>>[{-1}]
+==
+[name=json_negative_double_2]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT double(JSON '-1.1');
+--
+ARRAY<STRUCT<DOUBLE>>[{-1.1}]
+==
+[name=json_double_round]
+[required_features=JSON_TYPE,NAMED_ARGUMENTS,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT double(JSON '-0.0000002414214151379150123', wide_number_mode=>'round');
+--
+ARRAY<STRUCT<DOUBLE>>[{-2.41421415137915e-07}]
+==
+[name=json_double_max_unsigned_64_exact]
+[required_features=JSON_TYPE,NAMED_ARGUMENTS,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT double(JSON '18446744073709551615', wide_number_mode=>'exact');
+--
+ERROR: generic::out_of_range: JSON number: 18446744073709551615 cannot be converted to DOUBLE without loss of precision
+==
+[name=json_double_max_unsigned_64_round]
+[required_features=JSON_TYPE,NAMED_ARGUMENTS,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT double(JSON '18446744073709551615', wide_number_mode=>'round');
+--
+ARRAY<STRUCT<DOUBLE>>[{1.8446744073709552e+19}]
+==
+[name=json_double_max_unsigned_64_implicit_round]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT double(JSON '18446744073709551615');
+--
+ARRAY<STRUCT<DOUBLE>>[{1.8446744073709552e+19}]
+==
+[name=json_double_invalid_wide_number_mode]
+[required_features=JSON_TYPE,NAMED_ARGUMENTS,JSON_VALUE_EXTRACTION_FUNCTIONS]
+SELECT double(JSON '18', wide_number_mode=>'roundish');
+--
+ERROR: generic::out_of_range: Invalid `wide_number_mode` specified: roundish
+==
+[name=json_safe_double_fail_resolve_to_null]
+[required_features=JSON_TYPE,NAMED_ARGUMENTS,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+SELECT SAFE.double(JSON '18446744073709551615', wide_number_mode=>'exact');
+--
+ARRAY<STRUCT<DOUBLE>>[{NULL}]
+==
+[name=json_safe_double]
+[required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+SELECT SAFE.double(JSON '-1.1');
+--
+ARRAY<STRUCT<DOUBLE>>[{-1.1}]

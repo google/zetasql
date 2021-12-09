@@ -34,7 +34,6 @@
 #include "absl/strings/str_cat.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
@@ -261,8 +260,7 @@ class ValidateVariableDeclarationsVisitor
           absl::StrCat(id->GetAsString(), " previously declared here"),
           variables_[id->GetAsIdString()]);
     }
-    if (zetasql_base::ContainsKey(parsed_script_->routine_arguments(),
-                         id->GetAsIdString())) {
+    if (parsed_script_->routine_arguments().contains(id->GetAsIdString())) {
       return MakeVariableDeclarationError(
           id, absl::StrCat("Variable '", id->GetAsString(),
                            "' previously declared as an argument"));

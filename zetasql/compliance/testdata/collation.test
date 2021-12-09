@@ -718,6 +718,126 @@ select count(distinct collate(col, 'binary')) from TestTable
 ARRAY<STRUCT<INT64>>[{6}]
 ==
 
+[name=string_agg_distinct_with_collation_ci]
+# It is indeterministic that which string within an equivalence group
+# (e.g.'abc' and 'ABc') will be picked.
+with string_agg_res as (
+  select string_agg(distinct collate(elem, 'und:ci')) output_string from
+  unnest(['abc', 'ABc', 'heLLo', 'hel\u06DDlo']) elem
+)
+
+select array_length(split(output_string, ',')) from string_agg_res
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+
+[name=string_agg_distinct_with_collation_binary]
+# It is indeterministic that which string within an equivalence group
+# (e.g.'abc' and 'ABc') will be picked.
+with string_agg_res as (
+  select string_agg(distinct collate(elem, 'binary')) output_string from
+  unnest(['abc', 'ABc', 'heLLo', 'hel\u06DDlo']) elem
+)
+
+select array_length(split(output_string, ',')) from string_agg_res
+--
+ARRAY<STRUCT<INT64>>[{4}]
+==
+
+[name=array_agg_distinct_with_collation_ci]
+with TestTable as (
+select 'abc' col union all
+select 'ABc' union all
+select 'heLLo' union all
+select 'hel\u06DDlo'
+)
+select array_length(array_agg(distinct collate(col, 'und:ci'))) from TestTable
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+
+[name=array_agg_distinct_with_collation_binary]
+with TestTable as (
+select 'abc' col union all
+select 'ABc' union all
+select 'heLLo' union all
+select 'hel\u06DDlo'
+)
+select array_length(array_agg(distinct collate(col, 'binary'))) from TestTable
+--
+ARRAY<STRUCT<INT64>>[{4}]
+==
+
+[name=min_max_with_column_collation_ci]
+with TestTable as (
+
+select 'B'col_ci union all
+select 'a' union all
+select 'aBc' union all
+select 'Hello'
+)
+select min(collate(col_ci,'und:ci')), max(collate(col_ci,'und:ci')) from TestTable
+--
+ARRAY<STRUCT<STRING, STRING>>[{"a", "Hello"}]
+==
+
+[name=min_max_with_column_collation_binary]
+with TestTable as (
+
+select 'B'col_ci union all
+select 'a' union all
+select 'aBc' union all
+select 'Hello'
+)
+select min(collate(col_ci,'binary')), max(collate(col_ci,'binary')) from TestTable
+--
+ARRAY<STRUCT<STRING, STRING>>[{"B", "aBc"}]
+==
+
+[name=min_max_group_by_with_column_collation_ci]
+with TestTable as (
+
+select 'B'col_ci, 'group1' string_group union all
+select 'a', 'group1' union all
+select 'aBc', 'group1' union all
+select 'Hello', 'group1' union all
+select 'efg', 'group2' union all
+select '\x00', 'group3' union all
+select '\u06DD', 'group4'
+)
+select string_group, min(collate(col_ci,'und:ci')), max(collate(col_ci,'und:ci')) from TestTable
+group by string_group
+--
+ARRAY<STRUCT<string_group STRING, STRING, STRING>>[
+  {"group1", "a", "Hello"},
+  {"group2", "efg", "efg"},
+  {"group3", "\x00", "\x00"},
+  {"group4", "۝", "۝"}
+]
+==
+
+[name=min_max_group_by_with_column_collation_binary]
+with TestTable as (
+
+select 'B'col_ci, 'group1' string_group union all
+select 'a', 'group1' union all
+select 'aBc', 'group1' union all
+select 'Hello', 'group1' union all
+select 'efg', 'group2' union all
+select '\x00', 'group3' union all
+select '\u06DD', 'group4'
+)
+select string_group, min(collate(col_ci,'binary')), max(collate(col_ci,'binary')) from TestTable
+group by string_group
+--
+ARRAY<STRUCT<string_group STRING, STRING, STRING>>[
+  {"group1", "B", "aBc"},
+  {"group2", "efg", "efg"},
+  {"group3", "\x00", "\x00"},
+  {"group4", "۝", "۝"}
+]
+==
+
 [name=collate_function_with_valid_second_argument]
 select
   collate('abc', 'und:ci'),

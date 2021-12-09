@@ -682,6 +682,11 @@ FROM UNNEST(['c', NULL, 'b', 'a']) AS x;
 
 ```
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [navigation-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#navigation_function_concepts
+
+<!-- mdlint on -->
 

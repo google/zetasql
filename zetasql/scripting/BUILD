@@ -68,7 +68,7 @@ cc_library(
         ":type_aliases",
         "//zetasql/base:map_util",
         "//zetasql/base:status",
-        "//zetasql/base:string_numbers",
+        "//zetasql/base:strings",
         "//zetasql/common:errors",
         "//zetasql/parser",
         "//zetasql/public:options_cc_proto",
@@ -261,6 +261,7 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
+        "@com_googlesource_code_re2//:re2",
     ],
 )
 

@@ -61,6 +61,7 @@
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/node_hash_set.h"
@@ -771,7 +772,7 @@ TEST_F(AnalyzerOptionsTest, ResolvedASTRewrites) {
   options_.enable_rewrite(REWRITE_FLATTEN);
   EXPECT_TRUE(options_.rewrite_enabled(REWRITE_FLATTEN));
 
-  absl::flat_hash_set<ResolvedASTRewrite> rewrites;
+  absl::btree_set<ResolvedASTRewrite> rewrites;
   rewrites.insert(REWRITE_INVALID_DO_NOT_USE);
   options_.set_enabled_rewrites(rewrites);
   EXPECT_FALSE(options_.rewrite_enabled(REWRITE_FLATTEN));
@@ -1030,7 +1031,7 @@ TEST_F(AnalyzerOptionsTest, ClassAndProtoSize) {
                      sizeof(AllowedHintsAndOptions) -
                      sizeof(Catalog::FindOptions) - sizeof(SystemVariablesMap) -
                      2 * sizeof(QueryParametersMap) - 1 * sizeof(std::string) -
-                     sizeof(absl::flat_hash_set<ResolvedASTRewrite>))
+                     sizeof(absl::btree_set<ResolvedASTRewrite>))
       << "The size of AnalyzerOptions class has changed, please also update "
       << "the proto and serialization code if you added/removed fields in it.";
   EXPECT_EQ(19, AnalyzerOptionsProto::descriptor()->field_count())
@@ -1106,7 +1107,8 @@ TEST_F(AnalyzerOptionsTest, AllowedHintsAndOptionsSerializeAndDeserialize) {
 }
 
 TEST(AllowedHintsAndOptionsTest, ClassAndProtoSize) {
-  EXPECT_EQ(8, sizeof(AllowedHintsAndOptions) - sizeof(std::set<std::string>) -
+  EXPECT_EQ(8, sizeof(AllowedHintsAndOptions) -
+                   sizeof(std::set<std::string>) -
                    2 * sizeof(absl::flat_hash_map<std::string, std::string>))
       << "The size of AllowedHintsAndOptions class has changed, please also "
       << "update the proto and serialization code if you added/removed fields "

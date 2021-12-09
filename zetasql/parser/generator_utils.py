@@ -156,3 +156,39 @@ class ScalarType(object):
       self.not_serialize_if_default = False
     else:
       self.not_serialize_if_default = not_serialize_if_default
+
+
+def JavaDoc(text, indent=0):
+  """Returns text for a JavaDoc comment from the given text.
+
+  Args:
+    text: comment text
+    indent: indent level
+
+  It will be indented by the specified number of spaces.
+  """
+  if not text:
+    return text
+  indent_text = ' ' * indent
+  content = CleanIndent(text, '%s * ' % indent_text)
+
+  # Prefix <p> to lines that start a new paragraph. The regex finds lines that
+  # follow an empty line.
+  add_paragraph_re = re.compile(r'\* \n( *\* )(\S)')
+  content = add_paragraph_re.sub(r'* \n\1<p> \2', content)
+
+  # Add the leading line (/**) and trailing line (*/)
+  return '%s/**\n%s\n%s */' % (indent_text, content, indent_text)
+
+
+def LowerCamelCase(value):
+  """Turns some_string or SOME_STRING into someString."""
+  split_value = value.lower().split('_')
+  result = [split_value[0]] + [part.capitalize() for part in split_value[1:]]
+  return ''.join(result)
+
+
+def UpperCamelCase(value):
+  """Turns some_string or SOME_STRING into SomeString."""
+  split_value = value.lower().split('_')
+  return ''.join([part.capitalize() for part in split_value])

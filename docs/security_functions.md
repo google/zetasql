@@ -31,3 +31,7 @@ SELECT SESSION_USER() as user;
 
 ```
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+<!-- mdlint on -->
+

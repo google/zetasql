@@ -455,6 +455,26 @@ ModuleStatement [0-28]
 MODULE foo.bar OPTIONS(a = 1)
 ==
 
+module foo.bar OPTIONS (a=1, b='b', c=3.0);
+--
+ModuleStatement [0-42]
+  PathExpression [7-14]
+    Identifier(foo) [7-10]
+    Identifier(bar) [11-14]
+  OptionsList [23-42]
+    OptionsEntry [24-27]
+      Identifier(a) [24-25]
+      IntLiteral(1) [26-27]
+    OptionsEntry [29-34]
+      Identifier(b) [29-30]
+      StringLiteral('b') [31-34]
+    OptionsEntry [36-41]
+      Identifier(c) [36-37]
+      FloatLiteral(3.0) [38-41]
+--
+MODULE foo.bar OPTIONS(a = 1, b = 'b', c = 3.0)
+==
+
 # Unreserved keywords as modules names is ok.
 module import
 --

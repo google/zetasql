@@ -17,11 +17,15 @@
 #ifndef ZETASQL_RESOLVED_AST_REWRITE_UTILS_H_
 #define ZETASQL_RESOLVED_AST_REWRITE_UTILS_H_
 
+#include <memory>
 #include <string>
 
 #include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
+#include "absl/memory/memory.h"
 #include "absl/status/statusor.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -83,9 +87,18 @@ class ColumnFactory {
   zetasql_base::SequenceNumber* sequence_;
 };
 
-// Returns a copy of 'expr' where all ResolvedColumnRef that are not below
-// a subquery are updated to be marked as correlated column refs.
-absl::StatusOr<std::unique_ptr<ResolvedExpr>> CorrelateColumnRefs(
+// Returns a copy of 'expr' where all references to columns that are not
+// internal to 'expr' as correlated. This is useful when moving a scalar
+// expression into a new subquery expression.
+template <class T>
+absl::StatusOr<std::unique_ptr<T>> CorrelateColumnRefs(const T& expr) {
+  ZETASQL_ASSIGN_OR_RETURN(auto correlated, CorrelateColumnRefsImpl(expr));
+  ZETASQL_RET_CHECK(correlated->template Is<T>());
+  return absl::WrapUnique(correlated.release()->template GetAs<T>());
+}
+
+// Type-erased implementation details of CorrelateColumnRefs template.
+absl::StatusOr<std::unique_ptr<ResolvedExpr>> CorrelateColumnRefsImpl(
     const ResolvedExpr& expr);
 
 // Fills column_refs with a copy of all ResolvedColumnRef nodes under 'node'
@@ -98,6 +111,38 @@ absl::Status CollectColumnRefs(
     std::vector<std::unique_ptr<const ResolvedColumnRef>>* column_refs,
     bool correlate = false);
 
+// A map to keep track of columns that are replaced during an application of
+// 'CopyResolvedAstAndRemapColumns'
+using ColumnReplacementMap =
+    absl::flat_hash_map</*column_in_input=*/ResolvedColumn,
+                        /*column_in_output=*/ResolvedColumn>;
+
+// Prforms a deep copy of 'input_tree' replacing all of the ResolvedColumns in
+// that tree either with ResolvedColumns as specified by 'column_map' or by new
+// columns allocated from 'column_factory' for any column not found in
+// 'column_map'.
+//
+// 'column_map' is both an input and output parameter. As an input parameter,
+//     it allows invoking code to specify explicit replacements for certain
+//     columns in 'input_tree'. As an output parameter, it returns to invoking
+//     code all the columns allocated from 'column_factory' during the copy.
+template <class T>
+absl::StatusOr<std::unique_ptr<T>> CopyResolvedASTAndRemapColumns(
+    const T& input_tree, ColumnFactory& column_factory,
+    ColumnReplacementMap& column_map) {
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedNode> ret,
+                   CopyResolvedASTAndRemapColumnsImpl(
+                       input_tree, column_factory, column_map));
+  ZETASQL_RET_CHECK(ret->Is<T>());
+  return absl::WrapUnique(ret.release()->GetAs<T>());
+}
+
+// Implementation of the above template.
+absl::StatusOr<std::unique_ptr<ResolvedNode>>
+CopyResolvedASTAndRemapColumnsImpl(const ResolvedNode& input_tree,
+                                   ColumnFactory& column_factory,
+                                   ColumnReplacementMap& column_map);
+
 // Contains helper functions that reduce boilerplate in rewriting rules logic
 // related to constructing new ResolvedFunctionCall instances.
 class FunctionCallBuilder {
@@ -105,7 +150,7 @@ class FunctionCallBuilder {
   FunctionCallBuilder(const AnalyzerOptions& analyzer_options, Catalog& catalog)
       : analyzer_options_(analyzer_options), catalog_(catalog) {}
 
-  // Consturct ResolvedFunctionCall for IF(<condition>, <then_case>,
+  // Construct ResolvedFunctionCall for IF(<condition>, <then_case>,
   // <else_case>)
   //
   // Requires: condition is a bool returning expression and then_case and
@@ -118,7 +163,7 @@ class FunctionCallBuilder {
       std::unique_ptr<const ResolvedExpr> then_case,
       std::unique_ptr<const ResolvedExpr> else_case);
 
-  // Consturct ResolvedFunctionCall for <arg> IS NULL
+  // Construct ResolvedFunctionCall for <arg> IS NULL
   //
   // The signature for the built-in function "$is_null" must be available in
   // <catalog> or an error status is returned.

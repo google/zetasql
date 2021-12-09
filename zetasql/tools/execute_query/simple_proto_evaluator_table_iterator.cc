@@ -16,6 +16,8 @@
 
 #include "zetasql/tools/execute_query/simple_proto_evaluator_table_iterator.h"
 
+#include <string>
+
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "absl/status/status.h"

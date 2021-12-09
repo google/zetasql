@@ -45,8 +45,7 @@ namespace zetasql {
 // If 'target_type' is non-null, coerces the expression to be of type
 // 'target_type'.
 absl::Status InternalAnalyzeExpression(
-    absl::string_view sql, const AnalyzerOptions& options,
-    absl::Span<const Rewriter* const> rewriters, Catalog* catalog,
+    absl::string_view sql, const AnalyzerOptions& options, Catalog* catalog,
     TypeFactory* type_factory, const Type* target_type,
     std::unique_ptr<const AnalyzerOutput>* output);
 
@@ -58,17 +57,15 @@ absl::Status InternalAnalyzeExpression(
 // <resolved_expr>, replacing the tree that was previously there.
 absl::Status ConvertExprToTargetType(
     const ASTExpression& ast_expression, absl::string_view sql,
-    const AnalyzerOptions& analyzer_options,
-    absl::Span<const Rewriter* const> rewriters, Catalog* catalog,
+    const AnalyzerOptions& analyzer_options, Catalog* catalog,
     TypeFactory* type_factory, const Type* target_type,
     std::unique_ptr<const ResolvedExpr>* resolved_expr);
 
 absl::Status InternalAnalyzeExpressionFromParserAST(
     const ASTExpression& ast_expression,
     std::unique_ptr<ParserOutput> parser_output, absl::string_view sql,
-    const AnalyzerOptions& options, absl::Span<const Rewriter* const> rewriters,
-    Catalog* catalog, TypeFactory* type_factory, const Type* target_type,
-    std::unique_ptr<const AnalyzerOutput>* output);
+    const AnalyzerOptions& options, Catalog* catalog, TypeFactory* type_factory,
+    const Type* target_type, std::unique_ptr<const AnalyzerOutput>* output);
 }  // namespace zetasql
 
 #endif  // ZETASQL_ANALYZER_ANALYZER_IMPL_H_

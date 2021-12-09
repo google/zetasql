@@ -42,6 +42,8 @@
 #include "zetasql/testing/type_util.h"
 #include "gmock/gmock.h"
 #include <cstdint>
+#include "absl/container/btree_map.h"
+#include "absl/container/btree_set.h"
 #include "absl/container/node_hash_set.h"
 #include "absl/flags/flag.h"
 #include "absl/functional/bind_front.h"
@@ -64,7 +66,6 @@
 #include "zetasql/base/source_location.h"
 #include "farmhash.h"
 #include "re2/re2.h"
-#include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -131,8 +132,11 @@ bool CompareStatementResult(const StatementResult& expected,
   }
   if (expected.result.ok()) {
     if (actual.result.ok()) {
-      if (InternalValue::Equals(expected.result.value(), actual.result.value(),
-                                float_margin, reason)) {
+      if (InternalValue::Equals(
+              expected.result.value(), actual.result.value(),
+              {.interval_compare_mode = IntervalCompareMode::kAllPartsEqual,
+               .float_margin = float_margin,
+               .reason = reason})) {
         return true;
       }
     } else {
@@ -232,9 +236,11 @@ MATCHER_P2(ReturnsStatusOrValue, expected, float_margin,
   } else if (expected.ok()) {
     if (absl::holds_alternative<Value>(expected.value()) &&
         absl::holds_alternative<Value>(arg.value())) {
-      passed = InternalValue::Equals(absl::get<Value>(expected.value()),
-                                     absl::get<Value>(arg.value()),
-                                     float_margin, &reason);
+      passed = InternalValue::Equals(
+          absl::get<Value>(expected.value()), absl::get<Value>(arg.value()),
+          {.interval_compare_mode = IntervalCompareMode::kAllPartsEqual,
+           .float_margin = float_margin,
+           .reason = &reason});
     } else if (absl::holds_alternative<ScriptResult>(expected.value()) &&
                absl::holds_alternative<ScriptResult>(arg.value())) {
       passed = CompareScriptResults(absl::get<ScriptResult>(expected.value()),
@@ -638,7 +644,7 @@ absl::StatusOr<ComplianceTestCaseResult> SQLTestBase::ExecuteTestCaseImpl(
   parameters_ = parameters;
   if (!stats_->IsFileBasedStatement()) {
     GenerateCodeBasedStatementName(sql, parameters);
-    std::set<std::string> labels = GetCodeBasedLabels();
+    absl::btree_set<std::string> labels = GetCodeBasedLabels();
     labels.insert(full_name_);
 
     effective_labels_ = labels;
@@ -808,7 +814,7 @@ void SQLTestBase::Stats::RecordCancelledStatement(const std::string& location,
 
 void SQLTestBase::Stats::RecordKnownErrorStatement(
     const std::string& location, const KnownErrorMode mode,
-    const std::set<std::string>& by_set) {
+    const absl::btree_set<std::string>& by_set) {
   num_known_errors_++;
 
   const std::string by =
@@ -891,8 +897,8 @@ void SQLTestBase::Stats::LogReport() const {
   LogBatches(to_be_upgraded_, "To Be Upgraded Statements", "\n");
 }
 
-std::set<std::string> SQLTestBase::GetCodeBasedLabels() {
-  std::set<std::string> label_set;
+absl::btree_set<std::string> SQLTestBase::GetCodeBasedLabels() {
+  absl::btree_set<std::string> label_set;
   for (const std::string& label : code_based_labels_) {
     label_set.insert(label);
   }
@@ -1254,8 +1260,8 @@ void SQLTestBase::StepExecuteStatementCheckResult() {
     // result part for each.
     // We run the test for each of the features_sets, generating the result and
     // collecting the list of feature set which produce the same output.
-    std::map<std::string /* driver output */,
-             std::vector<std::string> /* features_set_name_list */>
+    absl::btree_map<std::string /* driver output */,
+                    std::vector<std::string> /* features_set_name_list */>
         result_to_feature_map;
     // We need the result status to honor the known error filters.
     std::map<std::string /* driver output */,
@@ -1483,11 +1489,11 @@ void SQLTestBase::SplitLabels(const std::string& labels_all,
   StripWhitespaceVector(labels);
 }
 
-std::set<std::string> SQLTestBase::EffectiveLabels(
+absl::btree_set<std::string> SQLTestBase::EffectiveLabels(
     const std::string& filename, const std::string& name,
     const std::vector<std::string>& labels,
     const std::vector<std::string>& global_labels) const {
-  std::set<std::string> effective_labels;
+  absl::btree_set<std::string> effective_labels;
   effective_labels.insert(FileBasedTestName(filename, name));
   effective_labels.insert(labels.begin(), labels.end());
   effective_labels.insert(global_labels.begin(), global_labels.end());
@@ -1755,15 +1761,15 @@ absl::Status SQLTestBase::LoadKnownErrorFile(absl::string_view filename) {
 }
 
 KnownErrorMode SQLTestBase::IsKnownError(
-    const std::set<std::string>& effective_labels,
-    std::set<std::string>* by_set) const {
+    const absl::btree_set<std::string>& effective_labels,
+    absl::btree_set<std::string>* by_set) const {
   by_set->clear();
 
   KnownErrorMode mode = KnownErrorMode::NONE;
   KnownErrorMode individual_mode = KnownErrorMode::NONE;
 
   for (const std::string& label : effective_labels) {
-    if (zetasql_base::ContainsKey(known_error_labels_, label)) {
+    if (known_error_labels_.contains(label)) {
       individual_mode = zetasql_base::FindOrDie(label_info_map_, label).mode;
       mode = std::max(mode, individual_mode);
       by_set->insert(label);

@@ -254,7 +254,10 @@
 // }
 
 #include <assert.h>
+#include <stddef.h>
 #include <string.h>
+
+#include <string>  // so we can define astring
 #include <vector>
 #ifdef ADDRESS_SANITIZER
 #include <sanitizer/asan_interface.h>
@@ -307,7 +310,7 @@ class BaseArena {
   }
 
   // The alignment that ArenaAllocator uses except for 1-byte objects.
-  static const int kDefaultAlignment = 8;
+  static constexpr int kDefaultAlignment = 8;
 
  protected:
   bool SatisfyAlignment(const size_t alignment);
@@ -329,7 +332,8 @@ class BaseArena {
 
   // This doesn't actually free any memory except for the last piece allocated
   void ReturnMemory(void* memory, const size_t size) {
-    if (memory == last_alloc_ && size == freestart_ - last_alloc_) {
+    if (memory == last_alloc_ &&
+        size == static_cast<size_t>(freestart_ - last_alloc_)) {
       remaining_ += size;
       freestart_ = last_alloc_;
     }
@@ -369,7 +373,7 @@ class BaseArena {
   // STL vector isn't as efficient as it could be, so we use an array at first
   const bool first_block_externally_owned_;   // true if they pass in 1st block
   const bool page_aligned_;  // when true, all blocks need to be page aligned
-  int8_t blocks_alloced_;     // how many of the first_blocks_ have been alloced
+  int8_t blocks_alloced_;    // how many of the first_blocks_ have been alloced
   AllocatedBlock first_blocks_[16];   // the length of this array is arbitrary
 
   void FreeBlocks();         // Frees all except first block
@@ -415,13 +419,14 @@ class UnsafeArena : public BaseArena {
   void Free(void* memory, size_t size) {
     ReturnMemory(memory, size);
   }
-  virtual char* SlowAlloc(size_t size) {  // "slow" 'cause it's virtual
+  char* SlowAlloc(size_t size) override {  // "slow" 'cause it's virtual
     return Alloc(size);
   }
-  virtual void SlowFree(void* memory, size_t size) {  // "slow" 'cause it's virt
+  void SlowFree(void* memory,
+                size_t size) override {  // "slow" 'cause it's virt
     Free(memory, size);
   }
-  virtual char* SlowRealloc(char* memory, size_t old_size, size_t new_size) {
+  char* SlowRealloc(char* memory, size_t old_size, size_t new_size) override {
     return Realloc(memory, old_size, new_size);
   }
 
@@ -454,7 +459,7 @@ class UnsafeArena : public BaseArena {
   // You can realloc a previously-allocated string either bigger or smaller.
   // We can be more efficient if you realloc a string right after you allocate
   // it (eg allocate way-too-much space, fill it, realloc to just-big-enough)
-  char* Realloc(char* s, size_t oldsize, size_t newsize);
+  char* Realloc(char* original, size_t oldsize, size_t newsize);
   // If you know the new size is smaller (or equal), you don't need to know
   // oldsize.  We don't check that newsize is smaller, so you'd better be sure!
   char* Shrink(char* s, size_t newsize) {
@@ -560,7 +565,7 @@ class SafeArena : public BaseArena {
   // You can realloc a previously-allocated string either bigger or smaller.
   // We can be more efficient if you realloc a string right after you allocate
   // it (eg allocate way-too-much space, fill it, realloc to just-big-enough)
-  char* Realloc(char* s, size_t oldsize, size_t newsize)
+  char* Realloc(char* original, size_t oldsize, size_t newsize)
       ABSL_LOCKS_EXCLUDED(mutex_);
   // If you know the new size is smaller (or equal), you don't need to know
   // oldsize.  We don't check that newsize is smaller, so you'd better be sure!

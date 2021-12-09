@@ -114,7 +114,7 @@ message RepeatedHolderPB {
   repeated TestExtraPB repeated_field = 1;
 }
 
-// Next ID to use: 110
+// Next ID to use: 112
 message KitchenSinkPB {
   required int64 int64_key_1 = 1;
   required int64 int64_key_2 = 2;
@@ -174,7 +174,36 @@ message KitchenSinkPB {
     optional Nested nested_value = 3;
   }
 
+  message NestedWithRequiredNumericFields {
+    optional int64 nested_int64 = 1 [default = 88];
+    repeated int64 nested_repeated_int64 = 2;
+    repeated int32 nested_repeated_int32 = 3;
+    repeated int32 value = 4;
+    required int32 nested_required_int32_val = 5;
+  }
+
   optional NestedWithRequiredMessageFields nested_with_required_fields = 109;
+
+  // 2-level nested required fields
+  message NestedWithTwoLevelNestedRequiredFields {
+    required NestedWithRequiredNumericFields nested_required_with_required = 1;
+    optional int32 nested_int32_val = 2;
+    optional Nested nested_value = 3;
+  }
+
+  // 3-level nested required fields
+  message NestedWithThreeLevelNestedRequiredFields {
+    required NestedWithTwoLevelNestedRequiredFields
+        nested_required_with_two_level_required = 1;
+    optional int32 nested_int32_val = 2;
+    optional Nested nested_value = 3;
+  }
+
+  optional NestedWithTwoLevelNestedRequiredFields
+      nested_with_two_level_required = 110;
+
+  optional NestedWithThreeLevelNestedRequiredFields
+      nested_with_three_level_required = 111;
 
   repeated RepeatedHolderPB repeated_holder = 35;
 
@@ -337,6 +366,13 @@ message KitchenSinkPB {
   reserved 103;  // Used for testing unknown fields.
 
   extensions 1000 to 1008;
+}
+
+message ProtoWithIntervalField {
+  // This field cannot currently go in KitchenSinkPB because the lack of
+  // full resolver support for INTERVAL proto fields would break random query
+  // tests.
+  optional bytes interval_value = 1 [(zetasql.format) = INTERVAL];
 }
 
 message MessageWithMapField {

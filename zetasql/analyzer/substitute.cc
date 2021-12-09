@@ -24,7 +24,6 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/analyzer/analyzer_impl.h"
-#include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/catalog.h"
@@ -206,7 +205,6 @@ class VariableReplacementInserter : public ResolvedASTDeepCopyVisitor {
 class ExpressionSubstitutor {
  public:
   ExpressionSubstitutor(AnalyzerOptions options,
-                        absl::Span<const Rewriter* const> rewriters,
                         Catalog& catalog, TypeFactory& type_factory);
 
   absl::StatusOr<std::unique_ptr<ResolvedExpr>> Substitute(
@@ -220,7 +218,6 @@ class ExpressionSubstitutor {
   absl::Status SetupInvokeCatalog();
 
   AnalyzerOptions options_;
-  const absl::Span<const Rewriter* const> rewriters_;
   TypeFactory& type_factory_;
 
   // The following are used to setup a catalog for INVOKE function. INVOKE
@@ -235,11 +232,10 @@ class ExpressionSubstitutor {
   Catalog* catalog_;
 };
 
-ExpressionSubstitutor::ExpressionSubstitutor(
-    AnalyzerOptions options, absl::Span<const Rewriter* const> rewriters,
-    Catalog& catalog, TypeFactory& type_factory)
+ExpressionSubstitutor::ExpressionSubstitutor(AnalyzerOptions options,
+                                             Catalog& catalog,
+                                             TypeFactory& type_factory)
     : options_(std::move(options)),
-      rewriters_(rewriters),
       type_factory_(type_factory),
       catalog_(&catalog) {
   options_.set_parameter_mode(ParameterMode::PARAMETER_NAMED);
@@ -354,7 +350,7 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> ExpressionSubstitutor::Substitute(
                        absl::StrJoin(select_list, ", "), " ) )");
   }
   std::unique_ptr<const AnalyzerOutput> output;
-  ZETASQL_RETURN_IF_ERROR(InternalAnalyzeExpression(sql, options_, rewriters_, catalog_,
+  ZETASQL_RETURN_IF_ERROR(InternalAnalyzeExpression(sql, options_, catalog_,
                                             &type_factory_, nullptr, &output))
       << "while parsing substitution sql: " << sql;
   ZETASQL_VLOG(1) << "Initial ast: " << output->resolved_expr()->DebugString();
@@ -438,7 +434,7 @@ absl::Status VariableReplacementInserter::VisitResolvedParameter(
   std::unique_ptr<ResolvedExpr> replacement;
   auto it = projected_vars_.find(node->name());
   if (it == projected_vars_.end()) {
-    if (zetasql_base::ContainsKey(lambdas_, node->name())) {
+    if (lambdas_.contains(node->name())) {
       return ::zetasql_base::InvalidArgumentErrorBuilder()
              << "Lambda can only be used as first argument of INVOKE: "
              << node->name();
@@ -502,8 +498,8 @@ absl::Status ExpectAnalyzeSubstituteSuccess(
 }
 
 absl::StatusOr<std::unique_ptr<ResolvedExpr>> AnalyzeSubstitute(
-    AnalyzerOptions options, absl::Span<const Rewriter* const> rewriters,
-    Catalog& catalog, TypeFactory& type_factory, absl::string_view expression,
+    AnalyzerOptions options, Catalog& catalog, TypeFactory& type_factory,
+    absl::string_view expression,
     const absl::flat_hash_map<std::string, const ResolvedExpr*>& variables,
     const absl::flat_hash_map<std::string, const ResolvedInlineLambda*>&
         lambdas) {
@@ -516,8 +512,7 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> AnalyzeSubstitute(
   ZETASQL_RET_CHECK(options.arena()) << arenas_msg;
   ZETASQL_RET_CHECK(options.column_id_sequence_number()) << arenas_msg;
 
-  return ExpressionSubstitutor(std::move(options), rewriters, catalog,
-                               type_factory)
+  return ExpressionSubstitutor(std::move(options), catalog, type_factory)
       .Substitute(expression, variables, lambdas);
 }
 

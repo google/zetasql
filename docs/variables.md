@@ -1,4 +1,4 @@
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
+
 
 # Variables
 
@@ -32,5 +32,9 @@ UNSET @query_parameter;
 UNSET @@system_variable;
 ```
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [link-to-sql-identifiers]: https://github.com/google/zetasql/blob/master/docs/lexical.md#identifiers
+
+<!-- mdlint on -->
 

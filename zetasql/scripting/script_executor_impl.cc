@@ -52,12 +52,13 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/time.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/canonical_errors.h"
+#include "re2/re2.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
@@ -341,6 +342,7 @@ absl::StatusOr<ScriptException> ScriptExecutorImpl::SetupNewException(
 absl::Status ScriptExecutorImpl::EnterExceptionHandler(
     const ScriptException& exception) {
   ZETASQL_DCHECK(!options_.dry_run());
+  sql_feature_usage_.set_exception(sql_feature_usage_.exception() + 1);
   triggered_features_.insert(ScriptExecutorStateProto::EXCEPTION_CAUGHT);
   pending_exceptions_.push_back(exception);
   SetSystemVariablesForPendingException();
@@ -459,6 +461,7 @@ absl::Status ScriptExecutorImpl::ExecuteNextImpl() {
       ZETASQL_RETURN_IF_ERROR(MaybeDispatchException(ExecuteForInStatement()));
       break;
     case AST_CALL_STATEMENT:
+      sql_feature_usage_.set_call_stmt(sql_feature_usage_.call_stmt() + 1);
       triggered_features_.insert(ScriptExecutorStateProto::CALL_STATEMENT);
       ZETASQL_RETURN_IF_ERROR(MaybeDispatchException(
           ExecuteCallStatement()));
@@ -473,6 +476,8 @@ absl::Status ScriptExecutorImpl::ExecuteNextImpl() {
               curr_ast_node->GetAsOrDie<ASTSystemVariableAssignment>())));
       break;
     case AST_EXECUTE_IMMEDIATE_STATEMENT:
+      sql_feature_usage_.set_execute_immediate_stmt(
+          sql_feature_usage_.execute_immediate_stmt() + 1);
       triggered_features_.insert(
           ScriptExecutorStateProto::EXECUTE_IMMEDIATE_STATEMENT);
       ZETASQL_RETURN_IF_ERROR(MaybeDispatchException(
@@ -512,19 +517,44 @@ absl::StatusOr<bool> ScriptExecutorImpl::DefaultAssignSystemVariable(
   return false;
 }
 
+namespace {
+absl::StatusOr<absl::TimeZone> ParseTimezone(absl::string_view input) {
+  static constexpr LazyRE2 kUtcOffsetPattern = {R"(UTC([+-])(\d{1,2}))"};
+  absl::string_view utc_offset_sign;
+  absl::string_view utc_offset_number_str;
+  if (RE2::FullMatch(input, *kUtcOffsetPattern, &utc_offset_sign,
+                     &utc_offset_number_str)) {
+    int utc_offset_number;
+    if (absl::SimpleAtoi(utc_offset_number_str, &utc_offset_number) &&
+        utc_offset_number >= 0 && utc_offset_number < 24) {
+      if (utc_offset_sign == "-") {
+        return absl::FixedTimeZone(-3600 * utc_offset_number);
+      } else {
+        return absl::FixedTimeZone(3600 * utc_offset_number);
+      }
+    }
+    return zetasql_base::InvalidArgumentErrorBuilder()
+           << "Invalid UTC offset: " << input;
+  }
+  absl::TimeZone timezone;
+  if (absl::LoadTimeZone(input, &timezone)) {
+    return timezone;
+  }
+  return zetasql_base::InvalidArgumentErrorBuilder() << "Invalid timezone: " << input;
+}
+}  // namespace
+
 absl::Status ScriptExecutorImpl::SetTimezone(const Value& timezone_value,
                                              const ASTNode* location) {
-  absl::TimeZone new_timezone;
   if (timezone_value.is_null()) {
     return MakeScriptExceptionAt(location) << "Invalid timezone: NULL";
-  } else if (!absl::LoadTimeZone(timezone_value.string_value(),
-                                 &new_timezone)) {
-    return MakeScriptExceptionAt(location)
-           << "Invalid timezone: " << timezone_value.string_value();
   }
+  ZETASQL_ASSIGN_OR_RETURN(time_zone_, ParseTimezone(timezone_value.string_value()),
+                   MakeScriptExceptionAt(location)
+                       << absl::Status(_).message());
+
   // Save the timezone in both the analyzer options and in the system variable
   // map for when "@@time_zone" is evaluated directly.
-  time_zone_ = new_timezone;
   system_variables_[{kTimeZoneSystemVarName}] = timezone_value;
   return absl::OkStatus();
 }
@@ -1270,7 +1300,8 @@ absl::Status ScriptExecutorImpl::ExecuteCallStatement() {
                path_node->ToIdentifierPathString());
   }
   absl::StatusOr<std::unique_ptr<ProcedureDefinition>> status_or_definition =
-      evaluator_->LoadProcedure(*this, path_node->ToIdentifierVector());
+      evaluator_->LoadProcedure(*this, path_node->ToIdentifierVector(),
+                                call_statement->arguments().size());
   const absl::Status& status = status_or_definition.status();
   if (!status.ok()) {
     if (absl::IsNotFound(status)) {
@@ -1742,7 +1773,7 @@ absl::Status ScriptExecutorImpl::ValidateVariablesOnSetState(
     // <var_type> is either from resolving a local variable declaration or
     // from argument type.
     const Type* type_at_creation = nullptr;
-    if (zetasql_base::ContainsKey(variables_in_scope, var_name)) {
+    if (variables_in_scope.contains(var_name)) {
       const ASTScriptStatement* stmt =
           zetasql_base::EraseKeyReturnValuePtr(&variables_in_scope, var_name);
       if (stmt->node_kind() == AST_VARIABLE_DECLARATION) {
@@ -1763,7 +1794,7 @@ absl::Status ScriptExecutorImpl::ValidateVariablesOnSetState(
         ZETASQL_RET_CHECK(new_variable_value.type()->IsStruct());
         zetasql_base::EraseKeyReturnValuePtr(&variables_in_scope, var_name);
       }
-    } else if (zetasql_base::ContainsKey(arguments, var_name)) {
+    } else if (arguments.contains(var_name)) {
       type_at_creation = zetasql_base::EraseKeyReturnValuePtr(&arguments, var_name);
     } else if (!predefined_variable_names_.contains(var_name)) {
       ZETASQL_RET_CHECK_FAIL() << "ScriptExecutorImpl::SetState(): Variable "
@@ -1808,9 +1839,9 @@ absl::Status ScriptExecutorImpl::SetState(
   }
 
   system_variables_[{kTimeZoneSystemVarName}] = Value::String(state.timezone());
-  absl::TimeZone timezone;
-  if (absl::LoadTimeZone(state.timezone(), &timezone)) {
-    time_zone_ = timezone;
+  absl::StatusOr<absl::TimeZone> timezone = ParseTimezone(state.timezone());
+  if (timezone.ok()) {
+    time_zone_ = timezone.value();
   } else {
     // Unable to load timezone from state proto - fall back to default time
     // zone.  This can happen if we are restoring from an older version of
@@ -1823,6 +1854,9 @@ absl::Status ScriptExecutorImpl::SetState(
   }
   case_stmt_true_branch_index_ = state.case_stmt_true_branch_index();
   case_stmt_current_branch_index_ = state.case_stmt_current_branch_index();
+
+  // Reset sql feature usage to the proto states sql feature usage
+  sql_feature_usage_ = state.sql_feature_usage();
 
   std::vector<const google::protobuf::DescriptorPool*> pools;
   std::vector<StackFrameImpl> new_callstack;
@@ -1987,6 +2021,7 @@ absl::StatusOr<ScriptExecutorStateProto> ScriptExecutorImpl::GetState() const {
   for (const ScriptException& exception : pending_exceptions_) {
     *state_proto.add_pending_exceptions() = exception;
   }
+  state_proto.mutable_sql_feature_usage()->MergeFrom(sql_feature_usage_);
   for (ScriptExecutorStateProto::ScriptFeature triggered_feature :
        triggered_features_) {
     state_proto.add_triggered_features(triggered_feature);

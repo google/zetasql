@@ -1,5 +1,4 @@
 
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
 
 # Subqueries
 
@@ -169,7 +168,7 @@ SELECT "corba" IN (SELECT account FROM Players) as result;
 <a id="exists_subquery_concepts"></a>
 
 ```sql
-EXISTS ( subquery )
+EXISTS( subquery )
 ```
 
 **Description**
@@ -185,7 +184,7 @@ In this example, the `EXISTS` operator that checks to see if any rows are
 produced, using the [`Players`][example-tables] table:
 
 ```sql {highlight="range:EXISTS,)"}
-SELECT EXISTS(SELECT account FROM Players WHERE guild="yellow") as result;
+SELECT EXISTS(SELECT account FROM Players WHERE guild = 'yellow') AS result;
 
 +--------+
 | result |
@@ -256,9 +255,7 @@ are returned. The [`Guilds`][example-tables] and
 ```sql
 SELECT mascot
 FROM Guilds
-WHERE NOT EXISTS (SELECT account
-  FROM Players
-  WHERE Guilds.id = Players.guild)
+WHERE NOT EXISTS(SELECT account FROM Players WHERE Guilds.id = Players.guild)
 
 +----------+
 | mascot   |
@@ -392,15 +389,27 @@ SELECT * FROM (
   SELECT account, guild FROM NPCs)
 ```
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [query-plan]: https://en.wikipedia.org/wiki/Query_plan
+
 [about-subqueries]: #about_subqueries
+
 [evaluation-rules-subqueries]: #evaluation_rules_subqueries
+
 [example-tables]: #example_tables
+
 [correlated_subquery_concepts]: #correlated_subquery_concepts
+
 [subqueries-query-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md
 
 [in-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#in_operators
+
 [expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries.md
+
 [array-function]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#array
+
 [aggregate-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md
+
+<!-- mdlint on -->
 

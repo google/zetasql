@@ -61,7 +61,7 @@ regardless of whether the type of the value is `STRING` or `BYTES`.
 
 ```sql
 WITH example AS
-  (SELECT "абвгд" AS characters, b"абвгд" AS bytes)
+  (SELECT 'абвгд' AS characters, b'абвгд' AS bytes)
 
 SELECT
   characters,
@@ -95,7 +95,7 @@ Returns the length of the `STRING` in characters.
 
 ```sql
 WITH example AS
-  (SELECT "абвгд" AS characters)
+  (SELECT 'абвгд' AS characters)
 
 SELECT
   characters,
@@ -127,7 +127,7 @@ Synonym for [CHAR_LENGTH][string-link-to-char-length].
 
 ```sql
 WITH example AS
-  (SELECT "абвгд" AS characters)
+  (SELECT 'абвгд' AS characters)
 
 SELECT
   characters,
@@ -236,7 +236,6 @@ SELECT CODE_POINTS_TO_BYTES(ARRAY_AGG(
      (SELECT code, CODE_POINTS_TO_BYTES([code]) chr)
   ) ORDER BY OFFSET)) AS encoded_string
 FROM UNNEST(TO_CODE_POINTS(b'Test String!')) code WITH OFFSET;
-```
 
 +------------------+
 | encoded_string   |
@@ -355,7 +354,7 @@ values into a string.
 **Examples**
 
 ```sql
-SELECT CONCAT("T.P.", " ", "Bar") as author;
+SELECT CONCAT('T.P.', ' ', 'Bar') as author;
 
 +---------------------+
 | author              |
@@ -365,7 +364,7 @@ SELECT CONCAT("T.P.", " ", "Bar") as author;
 ```
 
 ```sql
-SELECT CONCAT("Summer", " ", 1923) as release_date;
+SELECT CONCAT('Summer', ' ', 1923) as release_date;
 
 +---------------------+
 | release_date        |
@@ -378,19 +377,19 @@ SELECT CONCAT("Summer", " ", 1923) as release_date;
 
 With Employees AS
   (SELECT
-    "John" AS first_name,
-    "Doe" AS last_name
+    'John' AS first_name,
+    'Doe' AS last_name
   UNION ALL
   SELECT
-    "Jane" AS first_name,
-    "Smith" AS last_name
+    'Jane' AS first_name,
+    'Smith' AS last_name
   UNION ALL
   SELECT
-    "Joe" AS first_name,
-    "Jackson" AS last_name)
+    'Joe' AS first_name,
+    'Jackson' AS last_name)
 
 SELECT
-  CONCAT(first_name, " ", last_name)
+  CONCAT(first_name, ' ', last_name)
   AS full_name
 FROM Employees;
 
@@ -422,14 +421,14 @@ value is a suffix of the first.
 
 ```sql
 WITH items AS
-  (SELECT "apple" as item
+  (SELECT 'apple' as item
   UNION ALL
-  SELECT "banana" as item
+  SELECT 'banana' as item
   UNION ALL
-  SELECT "orange" as item)
+  SELECT 'orange' as item)
 
 SELECT
-  ENDS_WITH(item, "e") as example
+  ENDS_WITH(item, 'e') as example
 FROM items;
 
 +---------+
@@ -476,17 +475,17 @@ FORMAT(format_string_expression, data_type_expression[, ...])
 </tr>
 <tr>
 <td>Simple integer</td>
-<td>FORMAT("%d", 10)</td>
+<td>FORMAT('%d', 10)</td>
 <td>10</td>
 </tr>
 <tr>
 <td>Integer with left blank padding</td>
-<td>FORMAT("|%10d|", 11)</td>
+<td>FORMAT('|%10d|', 11)</td>
 <td>|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;11|</td>
 </tr>
 <tr>
 <td>Integer with left zero padding</td>
-<td>FORMAT("+%010d+", 12)</td>
+<td>FORMAT('+%010d+', 12)</td>
 <td>+0000000012+</td>
 </tr>
 <tr>
@@ -496,25 +495,25 @@ FORMAT(format_string_expression, data_type_expression[, ...])
 </tr>
 <tr>
 <td>STRING</td>
-<td>FORMAT("-%s-", 'abcd efg')</td>
+<td>FORMAT('-%s-', 'abcd efg')</td>
 <td>-abcd efg-</td>
 </tr>
 <tr>
 <td>DOUBLE</td>
-<td>FORMAT("%f %E", 1.1, 2.2)</td>
+<td>FORMAT('%f %E', 1.1, 2.2)</td>
 <td>1.100000&nbsp;2.200000E+00</td>
 </tr>
 
 <tr>
 <td>DATE</td>
-<td>FORMAT("%t", date "2015-09-01")</td>
+<td>FORMAT('%t', date '2015-09-01')</td>
 <td>2015-09-01</td>
 </tr>
 
 <tr>
 <td>TIMESTAMP</td>
-<td>FORMAT("%t", timestamp "2015-09-01 12:34:56
-America/Los_Angeles")</td>
+<td>FORMAT('%t', timestamp '2015-09-01 12:34:56
+America/Los_Angeles')</td>
 <td>2015&#8209;09&#8209;01&nbsp;19:34:56+00</td>
 </tr>
 </table>
@@ -527,7 +526,7 @@ type-specific format functions, such as `FORMAT_DATE()` or `FORMAT_TIMESTAMP()`.
 For example:
 
 ```sql
-SELECT FORMAT("date: %s!", FORMAT_DATE("%B %d, %Y", date '2015-01-02'));
+SELECT FORMAT('date: %s!', FORMAT_DATE('%B %d, %Y', date '2015-01-02'));
 ```
 
 Returns
@@ -1276,10 +1275,10 @@ To work with an encoding using a different base64 alphabet, you might need to
 compose `FROM_BASE64` with the `REPLACE` function. For instance, the
 `base64url` url-safe and filename-safe encoding commonly used in web programming
 uses `-_=` as the last characters rather than `+/=`. To decode a
-`base64url`-encoded string, replace `+` and `/` with `-` and `_` respectively.
+`base64url`-encoded string, replace `-` and `_` with `+` and `/` respectively.
 
 ```sql
-SELECT FROM_BASE64(REPLACE(REPLACE("_-A=", "-", "+"), "_", "/")) AS binary;
+SELECT FROM_BASE64(REPLACE(REPLACE('_-A=', '-', '+'), '_', '/')) AS binary;
 
 +-----------+
 | binary    |
@@ -1355,10 +1354,10 @@ If `value` or `delimiters` is `NULL`, the function returns `NULL`.
 ```sql
 WITH example AS
 (
-  SELECT "Hello World-everyone!" AS value UNION ALL
-  SELECT "tHe dog BARKS loudly+friendly" AS value UNION ALL
-  SELECT "apples&oranges;&pears" AS value UNION ALL
-  SELECT "καθίσματα ταινιών" AS value
+  SELECT 'Hello World-everyone!' AS value UNION ALL
+  SELECT 'tHe dog BARKS loudly+friendly' AS value UNION ALL
+  SELECT 'apples&oranges;&pears' AS value UNION ALL
+  SELECT 'καθίσματα ταινιών' AS value
 )
 SELECT value, INITCAP(value) AS initcap_value FROM example
 
@@ -1373,10 +1372,10 @@ SELECT value, INITCAP(value) AS initcap_value FROM example
 
 WITH example AS
 (
-  SELECT "hello WORLD!" AS value, "" AS delimiters UNION ALL
-  SELECT "καθίσματα ταιντιώ@ν" AS value, "τ@" AS delimiters UNION ALL
-  SELECT "Apples1oranges2pears" AS value, "12" AS delimiters UNION ALL
-  SELECT "tHisEisEaESentence" AS value, "E" AS delimiters
+  SELECT 'hello WORLD!' AS value, '' AS delimiters UNION ALL
+  SELECT 'καθίσματα ταιντιώ@ν' AS value, 'τ@' AS delimiters UNION ALL
+  SELECT 'Apples1oranges2pears' AS value, '12' AS delimiters UNION ALL
+  SELECT 'tHisEisEaESentence' AS value, 'E' AS delimiters
 )
 SELECT value, delimiters, INITCAP(value, delimiters) AS initcap_value FROM example;
 
@@ -1548,7 +1547,7 @@ argument.
 ```sql
 
 WITH example AS
-  (SELECT "абвгд" AS characters)
+  (SELECT 'абвгд' AS characters)
 
 SELECT
   characters,
@@ -1583,7 +1582,7 @@ Both `original_value` and `pattern` must be the same data type.
 
 If `return_length` is less than or equal to the `original_value` length, this
 function returns the `original_value` value, truncated to the value of
-`return_length`. For example, `LPAD("hello world", 7);` returns `"hello w"`.
+`return_length`. For example, `LPAD('hello world', 7);` returns `'hello w'`.
 
 If `original_value`, `return_length`, or `pattern` is `NULL`, this function
 returns `NULL`.
@@ -1600,7 +1599,7 @@ This function returns an error if:
 **Examples**
 
 ```sql
-SELECT t, len, FORMAT("%T", LPAD(t, len)) AS LPAD FROM UNNEST([
+SELECT t, len, FORMAT('%T', LPAD(t, len)) AS LPAD FROM UNNEST([
   STRUCT('abc' AS t, 5 AS len),
   ('abc', 2),
   ('例子', 4)
@@ -1616,7 +1615,7 @@ SELECT t, len, FORMAT("%T", LPAD(t, len)) AS LPAD FROM UNNEST([
 ```
 
 ```sql
-SELECT t, len, pattern, FORMAT("%T", LPAD(t, len, pattern)) AS LPAD FROM UNNEST([
+SELECT t, len, pattern, FORMAT('%T', LPAD(t, len, pattern)) AS LPAD FROM UNNEST([
   STRUCT('abc' AS t, 8 AS len, 'def' AS pattern),
   ('abc', 5, '-'),
   ('例子', 5, '中文')
@@ -1632,7 +1631,7 @@ SELECT t, len, pattern, FORMAT("%T", LPAD(t, len, pattern)) AS LPAD FROM UNNEST(
 ```
 
 ```sql
-SELECT FORMAT("%T", t) AS t, len, FORMAT("%T", LPAD(t, len)) AS LPAD FROM UNNEST([
+SELECT FORMAT('%T', t) AS t, len, FORMAT('%T', LPAD(t, len)) AS LPAD FROM UNNEST([
   STRUCT(b'abc' AS t, 5 AS len),
   (b'abc', 2),
   (b'\xab\xcd\xef', 4)
@@ -1649,10 +1648,10 @@ SELECT FORMAT("%T", t) AS t, len, FORMAT("%T", LPAD(t, len)) AS LPAD FROM UNNEST
 
 ```sql
 SELECT
-  FORMAT("%T", t) AS t,
+  FORMAT('%T', t) AS t,
   len,
-  FORMAT("%T", pattern) AS pattern,
-  FORMAT("%T", LPAD(t, len, pattern)) AS LPAD
+  FORMAT('%T', pattern) AS pattern,
+  FORMAT('%T', LPAD(t, len, pattern)) AS LPAD
 FROM UNNEST([
   STRUCT(b'abc' AS t, 8 AS len, b'def' AS pattern),
   (b'abc', 5, b'-'),
@@ -1695,13 +1694,13 @@ greater than 127 left intact.
 
 WITH items AS
   (SELECT
-    "FOO" as item
+    'FOO' as item
   UNION ALL
   SELECT
-    "BAR" as item
+    'BAR' as item
   UNION ALL
   SELECT
-    "BAZ" as item)
+    'BAZ' as item)
 
 SELECT
   LOWER(item) AS example
@@ -1734,14 +1733,14 @@ Identical to [TRIM][string-link-to-trim], but only removes leading characters.
 
 ```sql
 WITH items AS
-  (SELECT "   apple   " as item
+  (SELECT '   apple   ' as item
   UNION ALL
-  SELECT "   banana   " as item
+  SELECT '   banana   ' as item
   UNION ALL
-  SELECT "   orange   " as item)
+  SELECT '   orange   ' as item)
 
 SELECT
-  CONCAT("#", LTRIM(item), "#") as example
+  CONCAT('#', LTRIM(item), '#') as example
 FROM items;
 
 +-------------+
@@ -1755,14 +1754,14 @@ FROM items;
 
 ```sql
 WITH items AS
-  (SELECT "***apple***" as item
+  (SELECT '***apple***' as item
   UNION ALL
-  SELECT "***banana***" as item
+  SELECT '***banana***' as item
   UNION ALL
-  SELECT "***orange***" as item)
+  SELECT '***orange***' as item)
 
 SELECT
-  LTRIM(item, "*") as example
+  LTRIM(item, '*') as example
 FROM items;
 
 +-----------+
@@ -1776,18 +1775,18 @@ FROM items;
 
 ```sql
 WITH items AS
-  (SELECT "xxxapplexxx" as item
+  (SELECT 'xxxapplexxx' as item
   UNION ALL
-  SELECT "yyybananayyy" as item
+  SELECT 'yyybananayyy' as item
   UNION ALL
-  SELECT "zzzorangezzz" as item
+  SELECT 'zzzorangezzz' as item
   UNION ALL
-  SELECT "xyzpearxyz" as item)
+  SELECT 'xyzpearxyz' as item)
 ```
 
 ```sql
 SELECT
-  LTRIM(item, "xyz") as example
+  LTRIM(item, 'xyz') as example
 FROM items;
 
 +-----------+
@@ -1975,10 +1974,10 @@ regular expression syntax.
 ```sql
 SELECT
   email,
-  REGEXP_CONTAINS(email, r"@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+") AS is_valid
+  REGEXP_CONTAINS(email, r'@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+') AS is_valid
 FROM
   (SELECT
-    ["foo@example.com", "bar@example.org", "www.example.net"]
+    ['foo@example.com', 'bar@example.org', 'www.example.net']
     AS addresses),
   UNNEST(addresses) AS email;
 
@@ -1995,13 +1994,13 @@ FROM
 -- and $.
 SELECT
   email,
-  REGEXP_CONTAINS(email, r"^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$")
+  REGEXP_CONTAINS(email, r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$')
     AS valid_email_address,
-  REGEXP_CONTAINS(email, r"^[\w.+-]+@foo\.com|[\w.+-]+@bar\.org$")
+  REGEXP_CONTAINS(email, r'^[\w.+-]+@foo\.com|[\w.+-]+@bar\.org$')
     AS without_parentheses
 FROM
   (SELECT
-    ["a@foo.com", "a@foo.computer", "b@bar.org", "!b@bar.org", "c@buz.net"]
+    ['a@foo.com', 'a@foo.computer', 'b@bar.org', '!b@bar.org', 'c@buz.net']
     AS addresses),
   UNNEST(addresses) AS email;
 
@@ -2048,14 +2047,14 @@ regular expression syntax.
 
 ```sql
 WITH email_addresses AS
-  (SELECT "foo@example.com" as email
+  (SELECT 'foo@example.com' as email
   UNION ALL
-  SELECT "bar@example.org" as email
+  SELECT 'bar@example.org' as email
   UNION ALL
-  SELECT "baz@example.net" as email)
+  SELECT 'baz@example.net' as email)
 
 SELECT
-  REGEXP_EXTRACT(email, r"^[a-zA-Z0-9_.+-]+")
+  REGEXP_EXTRACT(email, r'^[a-zA-Z0-9_.+-]+')
   AS user_name
 FROM email_addresses;
 
@@ -2070,14 +2069,14 @@ FROM email_addresses;
 
 ```sql
 WITH email_addresses AS
-  (SELECT "foo@example.com" as email
+  (SELECT 'foo@example.com' as email
   UNION ALL
-  SELECT "bar@example.org" as email
+  SELECT 'bar@example.org' as email
   UNION ALL
-  SELECT "baz@example.net" as email)
+  SELECT 'baz@example.net' as email)
 
 SELECT
-  REGEXP_EXTRACT(email, r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.([a-zA-Z0-9-.]+$)")
+  REGEXP_EXTRACT(email, r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.([a-zA-Z0-9-.]+$)')
   AS top_level_domain
 FROM email_addresses;
 
@@ -2117,10 +2116,10 @@ An `ARRAY` of either `STRING`s or `BYTES`
 
 ```sql
 WITH code_markdown AS
-  (SELECT "Try `function(x)` or `function(y)`" as code)
+  (SELECT 'Try `function(x)` or `function(y)`' as code)
 
 SELECT
-  REGEXP_EXTRACT_ALL(code, "`(.+?)`") AS example
+  REGEXP_EXTRACT_ALL(code, '`(.+?)`') AS example
 FROM code_markdown;
 
 +----------------------------+
@@ -2274,16 +2273,16 @@ regular expression syntax.
 
 ```sql
 WITH email_addresses AS
-  (SELECT "foo@example.com" as email
+  (SELECT 'foo@example.com' as email
   UNION ALL
-  SELECT "bar@example.org" as email
+  SELECT 'bar@example.org' as email
   UNION ALL
-  SELECT "notavalidemailaddress" as email)
+  SELECT 'notavalidemailaddress' as email)
 
 SELECT
   email,
   REGEXP_MATCH(email,
-               r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
+               r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+')
                AS valid_email_address
 FROM email_addresses;
 
@@ -2312,9 +2311,9 @@ argument to insert text matching the corresponding parenthesized group in the
 `regexp` pattern. Use \0 to refer to the entire matching text.
 
 To add a backslash in your regular expression, you must first escape it. For
-example, `SELECT REGEXP_REPLACE("abc", "b(.)", "X\\1");` returns `aXc`. You can
+example, `SELECT REGEXP_REPLACE('abc', 'b(.)', 'X\\1');` returns `aXc`. You can
 also use [raw strings][string-link-to-lexical-literals] to remove one layer of
-escaping, for example `SELECT REGEXP_REPLACE("abc", "b(.)", r"X\1");`.
+escaping, for example `SELECT REGEXP_REPLACE('abc', 'b(.)', r'X\1');`.
 
 The `REGEXP_REPLACE` function only replaces non-overlapping matches. For
 example, replacing `ana` within `banana` results in only one replacement, not
@@ -2335,12 +2334,12 @@ regular expression syntax.
 
 ```sql
 WITH markdown AS
-  (SELECT "# Heading" as heading
+  (SELECT '# Heading' as heading
   UNION ALL
-  SELECT "# Another heading" as heading)
+  SELECT '# Another heading' as heading)
 
 SELECT
-  REGEXP_REPLACE(heading, r"^# ([a-zA-Z0-9\s]+$)", "<h1>\\1</h1>")
+  REGEXP_REPLACE(heading, r'^# ([a-zA-Z0-9\s]+$)', '<h1>\\1</h1>')
   AS html
 FROM markdown;
 
@@ -2371,14 +2370,14 @@ If `from_value` is empty, no replacement is made.
 
 ```sql
 WITH desserts AS
-  (SELECT "apple pie" as dessert
+  (SELECT 'apple pie' as dessert
   UNION ALL
-  SELECT "blackberry pie" as dessert
+  SELECT 'blackberry pie' as dessert
   UNION ALL
-  SELECT "cherry pie" as dessert)
+  SELECT 'cherry pie' as dessert)
 
 SELECT
-  REPLACE (dessert, "pie", "cobbler") as example
+  REPLACE (dessert, 'pie', 'cobbler') as example
 FROM desserts;
 
 +--------------------+
@@ -2447,8 +2446,8 @@ Returns the reverse of the input `STRING` or `BYTES`.
 
 ```sql
 WITH example AS (
-  SELECT "foo" AS sample_string, b"bar" AS sample_bytes UNION ALL
-  SELECT "абвгд" AS sample_string, b"123" AS sample_bytes
+  SELECT 'foo' AS sample_string, b'bar' AS sample_bytes UNION ALL
+  SELECT 'абвгд' AS sample_string, b'123' AS sample_bytes
 )
 SELECT
   sample_string,
@@ -2552,7 +2551,7 @@ Both `original_value` and `pattern` must be the same data type.
 
 If `return_length` is less than or equal to the `original_value` length, this
 function returns the `original_value` value, truncated to the value of
-`return_length`. For example, `RPAD("hello world", 7);` returns `"hello w"`.
+`return_length`. For example, `RPAD('hello world', 7);` returns `'hello w'`.
 
 If `original_value`, `return_length`, or `pattern` is `NULL`, this function
 returns `NULL`.
@@ -2569,7 +2568,7 @@ This function returns an error if:
 **Examples**
 
 ```sql
-SELECT t, len, FORMAT("%T", RPAD(t, len)) AS RPAD FROM UNNEST([
+SELECT t, len, FORMAT('%T', RPAD(t, len)) AS RPAD FROM UNNEST([
   STRUCT('abc' AS t, 5 AS len),
   ('abc', 2),
   ('例子', 4)
@@ -2585,7 +2584,7 @@ SELECT t, len, FORMAT("%T", RPAD(t, len)) AS RPAD FROM UNNEST([
 ```
 
 ```sql
-SELECT t, len, pattern, FORMAT("%T", RPAD(t, len, pattern)) AS RPAD FROM UNNEST([
+SELECT t, len, pattern, FORMAT('%T', RPAD(t, len, pattern)) AS RPAD FROM UNNEST([
   STRUCT('abc' AS t, 8 AS len, 'def' AS pattern),
   ('abc', 5, '-'),
   ('例子', 5, '中文')
@@ -2601,7 +2600,7 @@ SELECT t, len, pattern, FORMAT("%T", RPAD(t, len, pattern)) AS RPAD FROM UNNEST(
 ```
 
 ```sql
-SELECT FORMAT("%T", t) AS t, len, FORMAT("%T", RPAD(t, len)) AS RPAD FROM UNNEST([
+SELECT FORMAT('%T', t) AS t, len, FORMAT('%T', RPAD(t, len)) AS RPAD FROM UNNEST([
   STRUCT(b'abc' AS t, 5 AS len),
   (b'abc', 2),
   (b'\xab\xcd\xef', 4)
@@ -2618,10 +2617,10 @@ SELECT FORMAT("%T", t) AS t, len, FORMAT("%T", RPAD(t, len)) AS RPAD FROM UNNEST
 
 ```sql
 SELECT
-  FORMAT("%T", t) AS t,
+  FORMAT('%T', t) AS t,
   len,
-  FORMAT("%T", pattern) AS pattern,
-  FORMAT("%T", RPAD(t, len, pattern)) AS RPAD
+  FORMAT('%T', pattern) AS pattern,
+  FORMAT('%T', RPAD(t, len, pattern)) AS RPAD
 FROM UNNEST([
   STRUCT(b'abc' AS t, 8 AS len, b'def' AS pattern),
   (b'abc', 5, b'-'),
@@ -2655,14 +2654,14 @@ Identical to [TRIM][string-link-to-trim], but only removes trailing characters.
 
 ```sql
 WITH items AS
-  (SELECT "***apple***" as item
+  (SELECT '***apple***' as item
   UNION ALL
-  SELECT "***banana***" as item
+  SELECT '***banana***' as item
   UNION ALL
-  SELECT "***orange***" as item)
+  SELECT '***orange***' as item)
 
 SELECT
-  RTRIM(item, "*") as example
+  RTRIM(item, '*') as example
 FROM items;
 
 +-----------+
@@ -2676,16 +2675,16 @@ FROM items;
 
 ```sql
 WITH items AS
-  (SELECT "applexxx" as item
+  (SELECT 'applexxx' as item
   UNION ALL
-  SELECT "bananayyy" as item
+  SELECT 'bananayyy' as item
   UNION ALL
-  SELECT "orangezzz" as item
+  SELECT 'orangezzz' as item
   UNION ALL
-  SELECT "pearxyz" as item)
+  SELECT 'pearxyz' as item)
 
 SELECT
-  RTRIM(item, "xyz") as example
+  RTRIM(item, 'xyz') as example
 FROM items;
 
 +---------+
@@ -2805,13 +2804,13 @@ Splitting an empty `STRING` returns an
 
 ```sql
 WITH letters AS
-  (SELECT "" as letter_group
+  (SELECT '' as letter_group
   UNION ALL
-  SELECT "a" as letter_group
+  SELECT 'a' as letter_group
   UNION ALL
-  SELECT "b c d" as letter_group)
+  SELECT 'b c d' as letter_group)
 
-SELECT SPLIT(letter_group, " ") as example
+SELECT SPLIT(letter_group, ' ') as example
 FROM letters;
 
 +----------------------+
@@ -2842,14 +2841,14 @@ prefix of the first.
 
 ```sql
 WITH items AS
-  (SELECT "foo" as item
+  (SELECT 'foo' as item
   UNION ALL
-  SELECT "bar" as item
+  SELECT 'bar' as item
   UNION ALL
-  SELECT "baz" as item)
+  SELECT 'baz' as item)
 
 SELECT
-  STARTS_WITH(item, "b") as example
+  STARTS_WITH(item, 'b') as example
 FROM items;
 
 +---------+
@@ -2881,19 +2880,19 @@ occurrence of `value2` inside `value1`. Returns `0` if `value2` is not found.
 ```sql
 WITH email_addresses AS
   (SELECT
-    "foo@example.com" AS email_address
+    'foo@example.com' AS email_address
   UNION ALL
   SELECT
-    "foobar@example.com" AS email_address
+    'foobar@example.com' AS email_address
   UNION ALL
   SELECT
-    "foobarbaz@example.com" AS email_address
+    'foobarbaz@example.com' AS email_address
   UNION ALL
   SELECT
-    "quxexample.com" AS email_address)
+    'quxexample.com' AS email_address)
 
 SELECT
-  STRPOS(email_address, "@") AS example
+  STRPOS(email_address, '@') AS example
 FROM email_addresses;
 
 +---------+
@@ -2938,11 +2937,11 @@ If `length` is less than 0, the function returns an error.
 
 ```sql
 WITH items AS
-  (SELECT "apple" as item
+  (SELECT 'apple' as item
   UNION ALL
-  SELECT "banana" as item
+  SELECT 'banana' as item
   UNION ALL
-  SELECT "orange" as item)
+  SELECT 'orange' as item)
 
 SELECT
   SUBSTR(item, 2) as example
@@ -2959,11 +2958,11 @@ FROM items;
 
 ```sql
 WITH items AS
-  (SELECT "apple" as item
+  (SELECT 'apple' as item
   UNION ALL
-  SELECT "banana" as item
+  SELECT 'banana' as item
   UNION ALL
-  SELECT "orange" as item)
+  SELECT 'orange' as item)
 
 SELECT
   SUBSTR(item, 2, 2) as example
@@ -2980,11 +2979,11 @@ FROM items;
 
 ```sql
 WITH items AS
-  (SELECT "apple" as item
+  (SELECT 'apple' as item
   UNION ALL
-  SELECT "banana" as item
+  SELECT 'banana' as item
   UNION ALL
-  SELECT "orange" as item)
+  SELECT 'orange' as item)
 
 SELECT
   SUBSTR(item, -2) as example
@@ -3070,10 +3069,10 @@ To work with an encoding using a different base64 alphabet, you might need to
 compose `TO_BASE64` with the `REPLACE` function. For instance, the
 `base64url` url-safe and filename-safe encoding commonly used in web programming
 uses `-_=` as the last characters rather than `+/=`. To encode a
-`base64url`-encoded string, replace `-` and `_` with `+` and `/` respectively.
+`base64url`-encoded string, replace `+` and `/` with `-` and `_` respectively.
 
 ```sql
-SELECT REPLACE(REPLACE(TO_BASE64(b"\377\340"), "+", "-"), "/", "_") as websafe_base64;
+SELECT REPLACE(REPLACE(TO_BASE64(b'\377\340'), '+', '-'), '/', '_') as websafe_base64;
 
 +----------------+
 | websafe_base64 |
@@ -3262,14 +3261,14 @@ leading or trailing characters or bytes contained in `value2`.
 
 ```sql
 WITH items AS
-  (SELECT "   apple   " as item
+  (SELECT '   apple   ' as item
   UNION ALL
-  SELECT "   banana   " as item
+  SELECT '   banana   ' as item
   UNION ALL
-  SELECT "   orange   " as item)
+  SELECT '   orange   ' as item)
 
 SELECT
-  CONCAT("#", TRIM(item), "#") as example
+  CONCAT('#', TRIM(item), '#') as example
 FROM items;
 
 +----------+
@@ -3283,14 +3282,14 @@ FROM items;
 
 ```sql
 WITH items AS
-  (SELECT "***apple***" as item
+  (SELECT '***apple***' as item
   UNION ALL
-  SELECT "***banana***" as item
+  SELECT '***banana***' as item
   UNION ALL
-  SELECT "***orange***" as item)
+  SELECT '***orange***' as item)
 
 SELECT
-  TRIM(item, "*") as example
+  TRIM(item, '*') as example
 FROM items;
 
 +---------+
@@ -3304,16 +3303,16 @@ FROM items;
 
 ```sql
 WITH items AS
-  (SELECT "xxxapplexxx" as item
+  (SELECT 'xxxapplexxx' as item
   UNION ALL
-  SELECT "yyybananayyy" as item
+  SELECT 'yyybananayyy' as item
   UNION ALL
-  SELECT "zzzorangezzz" as item
+  SELECT 'zzzorangezzz' as item
   UNION ALL
-  SELECT "xyzpearxyz" as item)
+  SELECT 'xyzpearxyz' as item)
 
 SELECT
-  TRIM(item, "xyz") as example
+  TRIM(item, 'xyz') as example
 FROM items;
 
 +---------+
@@ -3380,13 +3379,13 @@ greater than 127 left intact.
 ```sql
 WITH items AS
   (SELECT
-    "foo" as item
+    'foo' as item
   UNION ALL
   SELECT
-    "bar" as item
+    'bar' as item
   UNION ALL
   SELECT
-    "baz" as item)
+    'baz' as item)
 
 SELECT
   UPPER(item) AS example
@@ -3401,40 +3400,75 @@ FROM items;
 +---------+
 ```
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [string-link-to-code-points-wikipedia]: https://en.wikipedia.org/wiki/Code_point
+
 [string-link-to-unicode-character-definitions]: http://unicode.org/ucd/
+
 [string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
+
 [string-link-to-case-folding-wikipedia]: https://en.wikipedia.org/wiki/Letter_case#Case_folding
+
 [string-link-to-soundex-wikipedia]: https://en.wikipedia.org/wiki/Soundex
+
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
+
 [string-code-point]: https://en.wikipedia.org/wiki/Code_point
+
 [string-link-to-strpos]: #strpos
+
 [string-link-to-char-length]: #char_length
+
 [string-link-to-code-points]: #to_code_points
+
 [string-link-to-base64]: #to_base64
+
 [string-link-to-trim]: #trim
+
 [string-link-to-normalize]: #normalize
+
 [string-link-to-normalize-casefold]: #normalize_and_casefold
+
 [string-link-to-from-base64]: #from_base64
+
 [string-link-to-codepoints-to-string]: #code_points_to_string
+
 [string-link-to-codepoints-to-bytes]: #code_points_to_bytes
+
 [string-link-to-base32]: #to_base32
+
 [string-link-to-from-base32]: #from_base32
+
 [string-link-to-from-hex]: #from_hex
+
 [string-link-to-to-hex]: #to_hex
 
 [string-link-to-lexical-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#string_and_bytes_literals
+
 [format-specifiers]: #format_specifiers
+
 [format-specifier-list]: #format_specifier_list
+
 [flags]: #flags
+
 [width]: #width
+
 [precision]: #precision
+
 [g-and-g-behavior]: #g_and_g_behavior
+
 [p-and-p-behavior]: #p_and_p_behavior
+
 [t-and-t-behavior]: #t_and_t_behavior
+
 [error-format-specifiers]: #error_format_specifiers
+
 [null-format-specifiers]: #null_format_specifiers
+
 [rules-format-specifiers]: #rules_format_specifiers
 
 [string-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md
+
+<!-- mdlint on -->
 

@@ -234,7 +234,7 @@ class ControlFlowGraph {
   // which guarantees that, after ignoring back edges, each node appears after
   // all of its predecessors.
   //
-  // Note: Currently, this is equivelant to simply sorting nodes by the
+  // Note: Currently, this is equivalent to simply sorting nodes by the
   // positions of their AST nodes, with the exception that the node to advance
   // a for-loop comes after the body. This could change in the future as new
   // scripting features get added.

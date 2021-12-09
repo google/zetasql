@@ -1,4 +1,4 @@
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
+
 
 # Data export
 
@@ -14,4 +14,8 @@ AS query;
 
 The `EXPORT DATA` statement writes out a query result. You can use this
 statement to write a result to a file or stream the result into another system.
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+<!-- mdlint on -->
 

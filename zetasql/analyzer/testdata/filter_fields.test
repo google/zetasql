@@ -6,7 +6,7 @@ FROM TestTable
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: FILTER_FIELDS() is not supported [at 1:8]
+ERROR: Function not found: FILTER_FIELDS [at 1:8]
 SELECT FILTER_FIELDS(KitchenSink, +int64_key_1, +int64_key_2)
        ^
 --
@@ -25,8 +25,9 @@ QueryStmt
     |     +-expr=
     |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-filter_field_arg_list=
-    |       +-FilterFieldArg(include=TRUE, field_descriptor_path=int64_key_1)
-    |       +-FilterFieldArg(include=TRUE, field_descriptor_path=int64_key_2)
+    |     | +-FilterFieldArg(include=TRUE, field_descriptor_path=int64_key_1)
+    |     | +-FilterFieldArg(include=TRUE, field_descriptor_path=int64_key_2)
+    |     +-reset_cleared_required_fields=FALSE
     +-input_scan=
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
 ==
@@ -55,9 +56,10 @@ QueryStmt
     |     +-expr=
     |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-filter_field_arg_list=
-    |       +-FilterFieldArg(include=TRUE, field_descriptor_path=int64_key_1)
-    |       +-FilterFieldArg(include=TRUE, field_descriptor_path=int64_key_2)
-    |       +-FilterFieldArg(include=TRUE, field_descriptor_path=nested_value.[zetasql_test__.KitchenSinkPB.nested_extension_int64])
+    |     | +-FilterFieldArg(include=TRUE, field_descriptor_path=int64_key_1)
+    |     | +-FilterFieldArg(include=TRUE, field_descriptor_path=int64_key_2)
+    |     | +-FilterFieldArg(include=TRUE, field_descriptor_path=nested_value.[zetasql_test__.KitchenSinkPB.nested_extension_int64])
+    |     +-reset_cleared_required_fields=FALSE
     +-input_scan=
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
 ==
@@ -83,7 +85,8 @@ QueryStmt
     |     |   +-field_descriptor=nested_value
     |     |   +-default_value=NULL
     |     +-filter_field_arg_list=
-    |       +-FilterFieldArg(include=TRUE, field_descriptor_path=nested_int64)
+    |     | +-FilterFieldArg(include=TRUE, field_descriptor_path=nested_int64)
+    |     +-reset_cleared_required_fields=FALSE
     +-input_scan=
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
 ==
@@ -109,7 +112,8 @@ QueryStmt
     |     |   +-field_descriptor=nested_value
     |     |   +-default_value=NULL
     |     +-filter_field_arg_list=
-    |       +-FilterFieldArg(include=TRUE, field_descriptor_path=[zetasql_test__.KitchenSinkPB.nested_extension_int64])
+    |     | +-FilterFieldArg(include=TRUE, field_descriptor_path=[zetasql_test__.KitchenSinkPB.nested_extension_int64])
+    |     +-reset_cleared_required_fields=FALSE
     +-input_scan=
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
 ==
@@ -131,10 +135,11 @@ QueryStmt
     |     +-expr=
     |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-filter_field_arg_list=
-    |       +-FilterFieldArg(include=TRUE, field_descriptor_path=int64_key_1)
-    |       +-FilterFieldArg(include=TRUE, field_descriptor_path=int64_key_2)
-    |       +-FilterFieldArg(include=TRUE, field_descriptor_path=nested_value)
-    |       +-FilterFieldArg(include=FALSE, field_descriptor_path=nested_value.nested_int64)
+    |     | +-FilterFieldArg(include=TRUE, field_descriptor_path=int64_key_1)
+    |     | +-FilterFieldArg(include=TRUE, field_descriptor_path=int64_key_2)
+    |     | +-FilterFieldArg(include=TRUE, field_descriptor_path=nested_value)
+    |     | +-FilterFieldArg(include=FALSE, field_descriptor_path=nested_value.nested_int64)
+    |     +-reset_cleared_required_fields=FALSE
     +-input_scan=
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
 ==
@@ -156,9 +161,10 @@ QueryStmt
     |     +-expr=
     |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-filter_field_arg_list=
-    |       +-FilterFieldArg(include=FALSE, field_descriptor_path=int32_val)
-    |       +-FilterFieldArg(include=FALSE, field_descriptor_path=nested_value)
-    |       +-FilterFieldArg(include=TRUE, field_descriptor_path=nested_value.nested_int64)
+    |     | +-FilterFieldArg(include=FALSE, field_descriptor_path=int32_val)
+    |     | +-FilterFieldArg(include=FALSE, field_descriptor_path=nested_value)
+    |     | +-FilterFieldArg(include=TRUE, field_descriptor_path=nested_value.nested_int64)
+    |     +-reset_cleared_required_fields=FALSE
     +-input_scan=
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
 ==
@@ -180,9 +186,10 @@ QueryStmt
     |     +-expr=
     |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-filter_field_arg_list=
-    |       +-FilterFieldArg(include=TRUE, field_descriptor_path=int64_key_1)
-    |       +-FilterFieldArg(include=TRUE, field_descriptor_path=int64_key_2)
-    |       +-FilterFieldArg(include=TRUE, field_descriptor_path=nested_repeated_value.nested_repeated_int32)
+    |     | +-FilterFieldArg(include=TRUE, field_descriptor_path=int64_key_1)
+    |     | +-FilterFieldArg(include=TRUE, field_descriptor_path=int64_key_2)
+    |     | +-FilterFieldArg(include=TRUE, field_descriptor_path=nested_repeated_value.nested_repeated_int32)
+    |     +-reset_cleared_required_fields=FALSE
     +-input_scan=
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
 ==
@@ -285,7 +292,8 @@ QueryStmt
     |     +-expr=
     |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-filter_field_arg_list=
-    |       +-FilterFieldArg(include=FALSE, field_descriptor_path=nested_with_required_fields.nested_required_value.nested_int64)
+    |     | +-FilterFieldArg(include=FALSE, field_descriptor_path=nested_with_required_fields.nested_required_value.nested_int64)
+    |     +-reset_cleared_required_fields=FALSE
     +-input_scan=
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
 ==
@@ -307,8 +315,9 @@ QueryStmt
     |     +-expr=
     |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-filter_field_arg_list=
-    |       +-FilterFieldArg(include=FALSE, field_descriptor_path=nested_with_required_fields.nested_required_value)
-    |       +-FilterFieldArg(include=TRUE, field_descriptor_path=nested_with_required_fields.nested_required_value.nested_int64)
+    |     | +-FilterFieldArg(include=FALSE, field_descriptor_path=nested_with_required_fields.nested_required_value)
+    |     | +-FilterFieldArg(include=TRUE, field_descriptor_path=nested_with_required_fields.nested_required_value.nested_int64)
+    |     +-reset_cleared_required_fields=FALSE
     +-input_scan=
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
 ==
@@ -330,9 +339,90 @@ QueryStmt
     |     +-expr=
     |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-filter_field_arg_list=
-    |       +-FilterFieldArg(include=FALSE, field_descriptor_path=nested_with_required_fields)
+    |     | +-FilterFieldArg(include=FALSE, field_descriptor_path=nested_with_required_fields)
+    |     +-reset_cleared_required_fields=FALSE
     +-input_scan=
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
+==
+
+SELECT FILTER_FIELDS()
+FROM TestTable
+--
+ERROR: FILTER_FIELDS() should have arguments [at 1:8]
+SELECT FILTER_FIELDS()
+       ^
+==
+
+SELECT FILTER_FIELDS(KitchenSink)
+FROM TestTable
+--
+ERROR: FILTER_FIELDS() should have at least one field path [at 1:8]
+SELECT FILTER_FIELDS(KitchenSink)
+       ^
+==
+
+SELECT FILTER_FIELDS(KitchenSink, int32_val)
+FROM TestTable
+--
+ERROR: FILTER_FIELDS() expected each field path to start with "+" or "-" [at 1:35]
+SELECT FILTER_FIELDS(KitchenSink, int32_val)
+                                  ^
+==
+
+SELECT FILTER_FIELDS(KitchenSink, +int32_val())
+FROM TestTable
+--
+ERROR: FILTER_FIELDS() expected a field path after "+" or "-", but got FunctionCall [at 1:36]
+SELECT FILTER_FIELDS(KitchenSink, +int32_val())
+                                   ^
+==
+
+SELECT FILTER_FIELDS(KitchenSink, +nested_value[0].nested_int64)
+FROM TestTable
+--
+ERROR: Path expressions in FILTER_FIELDS() cannot index array fields [at 1:36]
+SELECT FILTER_FIELDS(KitchenSink, +nested_value[0].nested_int64)
+                                   ^
+==
+
+SELECT FILTER_FIELDS(KitchenSink, +)
+FROM TestTable
+--
+ERROR: Syntax error: Unexpected ")" [at 1:36]
+SELECT FILTER_FIELDS(KitchenSink, +)
+                                   ^
+==
+
+SELECT FILTER_FIELDS(KitchenSink, ++int32_val)
+FROM TestTable
+--
+ERROR: FILTER_FIELDS() expected a field path after "+" or "-", but got UnaryExpression(+) [at 1:36]
+SELECT FILTER_FIELDS(KitchenSink, ++int32_val)
+                                   ^
+==
+
+SELECT FILTER_FIELDS(KitchenSink, --makes_this_a_comment)
+FROM TestTable
+--
+ERROR: Syntax error: Unexpected keyword FROM [at 2:1]
+FROM TestTable
+^
+==
+
+SELECT FILTER_FIELDS(KitchenSink, +-int32_val)
+FROM TestTable
+--
+ERROR: FILTER_FIELDS() expected a field path after "+" or "-", but got UnaryExpression(-) [at 1:36]
+SELECT FILTER_FIELDS(KitchenSink, +-int32_val)
+                                   ^
+==
+
+SELECT FILTER_FIELDS(KitchenSink, -+int32_val)
+FROM TestTable
+--
+ERROR: FILTER_FIELDS() expected a field path after "+" or "-", but got UnaryExpression(+) [at 1:36]
+SELECT FILTER_FIELDS(KitchenSink, -+int32_val)
+                                   ^
 ==
 
 # Missing a requried field
@@ -344,6 +434,29 @@ SELECT FILTER_FIELDS(KitchenSink, +int32_val)
        ^
 ==
 
+# Setting a missing required field as default
+SELECT FILTER_FIELDS(KitchenSink, +int32_val, RESET_CLEARED_REQUIRED_FIELDS => True)
+FROM TestTable
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#4 AS `$col1` [PROTO<zetasql_test__.KitchenSinkPB>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#4]
+    +-expr_list=
+    | +-$col1#4 :=
+    |   +-FilterField
+    |     +-type=PROTO<zetasql_test__.KitchenSinkPB>
+    |     +-expr=
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     +-filter_field_arg_list=
+    |     | +-FilterFieldArg(include=TRUE, field_descriptor_path=int32_val)
+    |     +-reset_cleared_required_fields=TRUE
+    +-input_scan=
+      +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
+==
+
 # Missing a requried message field
 SELECT FILTER_FIELDS(KitchenSink, +int64_key_1, +int64_key_2, +nested_with_required_fields.nested_int32_val)
 FROM TestTable
@@ -351,6 +464,15 @@ FROM TestTable
 ERROR: Field zetasql_test__.KitchenSinkPB.NestedWithRequiredMessageFields.nested_required_value is required but will be cleared given the list of paths [at 1:8]
 SELECT FILTER_FIELDS(KitchenSink, +int64_key_1, +int64_key_2, +nested_with_re...
        ^
+==
+
+# Duplicate named options
+SELECT FILTER_FIELDS(KitchenSink, +int32_val, RESET_CLEARED_REQUIRED_FIELDS => True, RESET_CLEARED_REQUIRED_FIELDS => True)
+FROM TestTable
+--
+ERROR: Duplicated named option [at 1:86]
+...int32_val, RESET_CLEARED_REQUIRED_FIELDS => True, RESET_CLEARED_REQUIRED_F...
+                                                     ^
 ==
 
 # Testing IsConstantExpression(FILTER_FIELDS)

@@ -274,5 +274,9 @@ SELECT NULLIF(10, 0) as result
 +--------+
 ```
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+
+<!-- mdlint on -->
 

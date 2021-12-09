@@ -232,6 +232,10 @@ class Unparser : public ParseTreeVisitor {
 
   void visitASTAlterColumnTypeAction(const ASTAlterColumnTypeAction* node,
                                      void* data) override;
+  void visitASTAlterColumnSetDefaultAction(
+      const ASTAlterColumnSetDefaultAction* node, void* data) override;
+  void visitASTAlterColumnDropDefaultAction(
+      const ASTAlterColumnDropDefaultAction* node, void* data) override;
   void visitASTDropColumnAction(const ASTDropColumnAction* node,
                                 void* data) override;
   void visitASTRenameColumnAction(const ASTRenameColumnAction* node,
@@ -243,6 +247,8 @@ class Unparser : public ParseTreeVisitor {
       const ASTDropFunctionStatement* node, void* data) override;
   void visitASTDropTableFunctionStatement(
       const ASTDropTableFunctionStatement* node, void* data) override;
+  void visitASTDropPrivilegeRestrictionStatement(
+      const ASTDropPrivilegeRestrictionStatement* node, void* data) override;
   void visitASTDropRowAccessPolicyStatement(
       const ASTDropRowAccessPolicyStatement* node, void* data) override;
   void visitASTDropAllRowAccessPoliciesStatement(
@@ -529,8 +535,6 @@ class Unparser : public ParseTreeVisitor {
                                        void* data) override;
   void visitASTFilterFieldsArg(const ASTFilterFieldsArg* node,
                                void* data) override;
-  void visitASTFilterFieldsExpression(const ASTFilterFieldsExpression* node,
-                                      void* data) override;
   void visitASTSampleSize(const ASTSampleSize* node, void* data) override;
   void visitASTSampleSuffix(const ASTSampleSuffix* node, void* data) override;
   void visitASTWithWeight(const ASTWithWeight* node, void *data) override;
@@ -579,6 +583,10 @@ class Unparser : public ParseTreeVisitor {
   void visitASTGrantToClause(const ASTGrantToClause* node, void* data) override;
   void visitASTRestrictToClause(const ASTRestrictToClause* node,
                                 void* data) override;
+  void visitASTAddToRestricteeListClause(
+      const ASTAddToRestricteeListClause* node, void* data) override;
+  void visitASTRemoveFromRestricteeListClause(
+      const ASTRemoveFromRestricteeListClause* node, void* data) override;
   void visitASTFilterUsingClause(const ASTFilterUsingClause* node,
                                  void* data) override;
   void visitASTRevokeFromClause(const ASTRevokeFromClause* node,
@@ -594,6 +602,8 @@ class Unparser : public ParseTreeVisitor {
   void visitASTDescriptorColumnList(const ASTDescriptorColumnList* node,
                                     void* data) override;
   void visitASTDescriptor(const ASTDescriptor* node, void* data) override;
+  void visitASTAlterPrivilegeRestrictionStatement(
+      const ASTAlterPrivilegeRestrictionStatement* node, void* data) override;
   void visitASTAlterRowAccessPolicyStatement(
       const ASTAlterRowAccessPolicyStatement* node, void* data) override;
 

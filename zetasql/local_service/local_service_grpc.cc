@@ -128,6 +128,98 @@ grpc::Status ZetaSqlLocalServiceGrpcImpl::EvaluateStream(
   return grpc::Status();
 }
 
+grpc::Status ZetaSqlLocalServiceGrpcImpl::PrepareQuery(
+    grpc::ServerContext* context, const PrepareQueryRequest* req,
+    PrepareQueryResponse* resp) {
+  return ToGrpcStatus(service_.PrepareQuery(*req, resp));
+}
+
+grpc::Status ZetaSqlLocalServiceGrpcImpl::UnprepareQuery(
+    grpc::ServerContext* context, const UnprepareQueryRequest* req,
+    google::protobuf::Empty* unused) {
+  return ToGrpcStatus(service_.UnprepareQuery(req->prepared_query_id()));
+}
+
+grpc::Status ZetaSqlLocalServiceGrpcImpl::EvaluateQuery(
+    grpc::ServerContext* context, const EvaluateQueryRequest* req,
+    EvaluateQueryResponse* resp) {
+  return ToGrpcStatus(service_.EvaluateQuery(*req, resp));
+}
+
+grpc::Status ZetaSqlLocalServiceGrpcImpl::EvaluateQueryStream(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<EvaluateQueryBatchResponse,
+                             EvaluateQueryBatchRequest>* stream) {
+  EvaluateQueryBatchRequest reqb;
+  while (stream->Read(&reqb)) {
+    EvaluateQueryBatchResponse respb;
+    for (const auto& req : reqb.request()) {
+      EvaluateQueryResponse* resp = respb.add_response();
+      auto status = service_.EvaluateQuery(req, resp);
+      if (!status.ok()) {
+        return ToGrpcStatus(status);
+      }
+      if (respb.response_size() > 1 &&
+          respb.ByteSizeLong() > GRPC_DEFAULT_MAX_RECV_MESSAGE_LENGTH) {
+        // The response pushed us over the max message size. Remove it from the
+        // batch, send prior responses, then add it back.
+        auto* last = respb.mutable_response()->ReleaseLast();
+        stream->Write(respb, grpc::WriteOptions().set_corked());
+        respb.Clear();
+        respb.mutable_response()->AddAllocated(last);
+      }
+    }
+    stream->Write(respb);
+  }
+  return grpc::Status();
+}
+
+grpc::Status ZetaSqlLocalServiceGrpcImpl::PrepareModify(
+    grpc::ServerContext* context, const PrepareModifyRequest* req,
+    PrepareModifyResponse* resp) {
+  return ToGrpcStatus(service_.PrepareModify(*req, resp));
+}
+
+grpc::Status ZetaSqlLocalServiceGrpcImpl::UnprepareModify(
+    grpc::ServerContext* context, const UnprepareModifyRequest* req,
+    google::protobuf::Empty* unused) {
+  return ToGrpcStatus(service_.UnprepareModify(req->prepared_modify_id()));
+}
+
+grpc::Status ZetaSqlLocalServiceGrpcImpl::EvaluateModify(
+    grpc::ServerContext* context, const EvaluateModifyRequest* req,
+    EvaluateModifyResponse* resp) {
+  return ToGrpcStatus(service_.EvaluateModify(*req, resp));
+}
+
+grpc::Status ZetaSqlLocalServiceGrpcImpl::EvaluateModifyStream(
+    grpc::ServerContext* context,
+    grpc::ServerReaderWriter<EvaluateModifyBatchResponse,
+                             EvaluateModifyBatchRequest>* stream) {
+  EvaluateModifyBatchRequest reqb;
+  while (stream->Read(&reqb)) {
+    EvaluateModifyBatchResponse respb;
+    for (const auto& req : reqb.request()) {
+      EvaluateModifyResponse* resp = respb.add_response();
+      auto status = service_.EvaluateModify(req, resp);
+      if (!status.ok()) {
+        return ToGrpcStatus(status);
+      }
+      if (respb.response_size() > 1 &&
+          respb.ByteSizeLong() > GRPC_DEFAULT_MAX_RECV_MESSAGE_LENGTH) {
+        // The response pushed us over the max message size. Remove it from the
+        // batch, send prior responses, then add it back.
+        auto* last = respb.mutable_response()->ReleaseLast();
+        stream->Write(respb, grpc::WriteOptions().set_corked());
+        respb.Clear();
+        respb.mutable_response()->AddAllocated(last);
+      }
+    }
+    stream->Write(respb);
+  }
+  return grpc::Status();
+}
+
 grpc::Status ZetaSqlLocalServiceGrpcImpl::GetTableFromProto(
     grpc::ServerContext* context, const TableFromProtoRequest* req,
     SimpleTableProto* resp) {
@@ -195,6 +287,12 @@ grpc::Status ZetaSqlLocalServiceGrpcImpl::GetAnalyzerOptions(
     grpc::ServerContext* context, const AnalyzerOptionsRequest* req,
     AnalyzerOptionsProto* resp) {
   return ToGrpcStatus(service_.GetAnalyzerOptions(*req, resp));
+}
+
+grpc::Status ZetaSqlLocalServiceGrpcImpl::Parse(
+    grpc::ServerContext* context, const ParseRequest* req,
+    ParseResponse* resp) {
+  return ToGrpcStatus(service_.Parse(*req, resp));
 }
 
 }  // namespace local_service

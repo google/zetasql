@@ -2817,7 +2817,7 @@ WITH RECURSIVE t AS (
   SELECT t1.n + t2.n FROM t AS t1 CROSS JOIN t AS t2
 ) SELECT * FROM t;
 --
-ERROR: Multiple recursive references to table 't' is not allowed [at 3:46]
+ERROR: Multiple recursive references to table 't' are not allowed [at 3:46]
   SELECT t1.n + t2.n FROM t AS t1 CROSS JOIN t AS t2
                                              ^
 ==
@@ -2828,7 +2828,7 @@ WITH RECURSIVE t AS (
   SELECT n FROM t UNION ALL SELECT n FROM t)
 ) SELECT * FROM t;
 --
-ERROR: Multiple recursive references to table 't' is not allowed [at 3:43]
+ERROR: Multiple recursive references to table 't' are not allowed [at 3:43]
   SELECT n FROM t UNION ALL SELECT n FROM t)
                                           ^
 ==
@@ -4838,7 +4838,7 @@ SELECT * FROM t;
 --
 ALTERNATION GROUP: ALL
 --
-ERROR: Multiple recursive references to table 't' is not allowed [at 6:58]
+ERROR: Multiple recursive references to table 't' are not allowed [at 6:58]
   (SELECT n + 1 FROM (SELECT t_1.n FROM t t_1 CROSS JOIN t t_2)
                                                          ^
 --

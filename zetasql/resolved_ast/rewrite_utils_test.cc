@@ -16,6 +16,8 @@
 
 #include "zetasql/resolved_ast/rewrite_utils.h"
 
+#include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/types/type_factory.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -69,6 +71,38 @@ TEST(ColumnFactory, WithSequenceAhead) {
   // Should still get the right max_column_id.
   EXPECT_EQ(11, sequence.GetNext());
   EXPECT_EQ(factory.max_column_id(), 10);
+}
+
+TEST(RewriteUtilsTest, CopyAndReplaceColumns) {
+  zetasql_base::SequenceNumber sequence;
+  ColumnFactory factory(0, &sequence);
+  SimpleTable table("tab", {{"col", types::Int64Type()}});
+  std::unique_ptr<ResolvedScan> input = MakeResolvedTableScan(
+      {factory.MakeCol("t", "c", types::Int64Type())}, &table, nullptr);
+  EXPECT_EQ(input->column_list(0).column_id(), 1);
+
+  // Copy 'input' several times. The first time a new column is allocated but
+  // subsequent copies will use the column already populated in 'map'.
+  ColumnReplacementMap map;
+  for (int i = 0; i < 5; ++i) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<ResolvedScan> output,
+                         CopyResolvedASTAndRemapColumns(*input, factory, map));
+    EXPECT_EQ(output->column_list(0).column_id(), 2);
+    EXPECT_EQ(map.size(), 1);
+  }
+
+  // Repeat the experiment but feed the output of each iteration into the
+  // input of the next. In this case we should get a new column each iteration
+  // with a incremented column_id.
+  map = {};
+  for (int i = 1; i < 5; ++i) {
+    ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<ResolvedScan> output,
+                         CopyResolvedASTAndRemapColumns(*input, factory, map));
+    // 2 columns for setup and first loop plus 1 for each iteration of this loop
+    EXPECT_EQ(output->column_list(0).column_id(), i + 2);
+    EXPECT_EQ(map.size(), i);
+    input = std::move(output);
+  }
 }
 
 }  // namespace

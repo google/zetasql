@@ -76,8 +76,7 @@ absl::Status GetProtoFieldTypeAndDefault(
 // ProtoType::GetProtoFieldType (with <ignore_annotations> = false). For
 // required fields, returns an invalid default_value. For repeated fields,
 // returns an empty array for default_value.
-ABSL_DEPRECATED(
-    "Use the GetProtoFieldDefault function that takes options instead.")
+ABSL_DEPRECATED("Inline me!")
 inline absl::Status GetProtoFieldDefaultV2(const google::protobuf::FieldDescriptor* field,
                                            const Type* type,
                                            Value* default_value) {
@@ -91,8 +90,7 @@ inline absl::Status GetProtoFieldDefaultV2(const google::protobuf::FieldDescript
 // DEPRECATED: Callers should move to using GetProtoFieldDefaultV2. Note that
 // GetProtoFieldDefaultV2 does not respect the 'use_defaults' and
 // 'use_field_defaults' annotations for proto3 fields.
-ABSL_DEPRECATED(
-    "Use the GetProtoFieldDefault function that takes options instead.")
+ABSL_DEPRECATED("Inline me!")
 inline absl::Status GetProtoFieldDefault(const google::protobuf::FieldDescriptor* field,
                                          const Type* type,
                                          Value* default_value) {
@@ -101,8 +99,7 @@ inline absl::Status GetProtoFieldDefault(const google::protobuf::FieldDescriptor
 
 // DEPRECATED: Callers should move to GetProtoFieldDefaultV2.
 // <use_obsolete_timestamp> must be false.
-ABSL_DEPRECATED(
-    "Use the GetProtoFieldDefault function that takes options instead.")
+ABSL_DEPRECATED("Inline me!")
 inline absl::Status GetProtoFieldDefault(const google::protobuf::FieldDescriptor* field,
                                          const Type* type,
                                          bool use_obsolete_timestamp,
@@ -120,8 +117,7 @@ inline absl::Status GetProtoFieldDefault(const google::protobuf::FieldDescriptor
 // For repeated fields, returns an empty array for <default_value> where the
 // array element type is the raw field type (i.e., the type of the field with
 // format annotations ignored).
-ABSL_DEPRECATED(
-    "Use the GetProtoFieldDefault function that takes options instead.")
+ABSL_DEPRECATED("Inline me!")
 inline absl::Status GetProtoFieldDefaultRaw(
     const google::protobuf::FieldDescriptor* field, const Type* type,
     Value* default_value) {
@@ -139,8 +135,7 @@ inline absl::Status GetProtoFieldDefaultRaw(
 // For required fields, returns an invalid default_value.
 // For repeated fields, returns an empty array for default_value.
 //
-ABSL_DEPRECATED(
-    "Use the GetProtoFieldTypeAndDefault function that takes options instead.")
+ABSL_DEPRECATED("Inline me!")
 inline absl::Status GetProtoFieldTypeAndDefault(
     const google::protobuf::FieldDescriptor* field, TypeFactory* type_factory,
     const Type** type, Value* default_value = nullptr) {
@@ -150,8 +145,7 @@ inline absl::Status GetProtoFieldTypeAndDefault(
 
 // DEPRECATED: Callers should move to the form above. <use_obsolete_timestamp>
 // must be false.
-ABSL_DEPRECATED(
-    "Use the GetProtoFieldTypeAndDefault function that takes options instead.")
+ABSL_DEPRECATED("Inline me!")
 inline absl::Status GetProtoFieldTypeAndDefault(
     const google::protobuf::FieldDescriptor* field, TypeFactory* type_factory,
     bool use_obsolete_timestamp, const Type** type,
@@ -169,8 +163,7 @@ inline absl::Status GetProtoFieldTypeAndDefault(
 // in GetProtoFieldDefaultRaw) will be returned. For required fields, returns an
 // invalid <default_value>. For repeated fields, returns an empty array for
 // <default_value>.
-ABSL_DEPRECATED(
-    "Use the GetProtoFieldTypeAndDefault function that takes options instead.")
+ABSL_DEPRECATED("Inline me!")
 inline absl::Status GetProtoFieldTypeAndDefaultRaw(
     const google::protobuf::FieldDescriptor* field, TypeFactory* type_factory,
     const Type** type, Value* default_value = nullptr) {

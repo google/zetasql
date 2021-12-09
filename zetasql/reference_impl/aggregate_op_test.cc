@@ -473,7 +473,7 @@ static absl::StatusOr<Value> EvalAgg(const BuiltinAggregateFunction& agg,
                                      EvaluationContext* context,
                                      absl::Span<const Value> args = {}) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AggregateAccumulator> accumulator,
-                   agg.CreateAccumulator(args, context));
+                   agg.CreateAccumulator(args, /*collator_list=*/{}, context));
   bool stop_accumulation;
   absl::Status status;
   for (const Value& value : values) {

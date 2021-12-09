@@ -21,8 +21,11 @@
 
 namespace zetasql {
 
-// Gets a pointer to the array functions rewriter.
-const Rewriter* GetArrayFunctionsRewriter();
+// Gets a pointer to the array filter and array transform rewriter.
+const Rewriter* GetArrayFilterTransformRewriter();
+
+// Gets a pointer to the array includes rewriter.
+const Rewriter* GetArrayIncludesRewriter();
 
 }  // namespace zetasql
 

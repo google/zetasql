@@ -1615,6 +1615,12 @@ std::string AnonCountStarBadArgumentErrorPrefix(const FunctionSignature&,
   }
 }
 
+FunctionOptions DefaultAggregateFunctionOptions() {
+  return FunctionOptions(
+      /*window_ordering_support_in=*/FunctionOptions::ORDER_OPTIONAL,
+      /*window_framing_support_in=*/true);
+}
+
 bool CanStringConcatCoerceFrom(const zetasql::Type* arg_type) {
   return arg_type->IsBool() || arg_type->IsNumerical() ||
          arg_type->IsTimestamp() || arg_type->IsCivilDateOrTimeType() ||
@@ -1765,8 +1771,8 @@ static bool FunctionSignatureIsDisabled(
   const FunctionSignatureId id =
       static_cast<FunctionSignatureId>(signature.context_id());
   return (!options.include_function_ids.empty() &&
-          !zetasql_base::ContainsKey(options.include_function_ids, id)) ||
-         zetasql_base::ContainsKey(options.exclude_function_ids, id) ||
+          !options.include_function_ids.contains(id)) ||
+         options.exclude_function_ids.contains(id) ||
          signature.HasUnsupportedType(options.language_options);
 }
 
@@ -1782,8 +1788,8 @@ static bool FunctionSignatureIsDisabled(
   const FunctionSignatureId id =
       static_cast<FunctionSignatureId>(signature.context_id);
   if ((!options.include_function_ids.empty() &&
-       !zetasql_base::ContainsKey(options.include_function_ids, id)) ||
-      zetasql_base::ContainsKey(options.exclude_function_ids, id)) {
+       !options.include_function_ids.contains(id)) ||
+      options.exclude_function_ids.contains(id)) {
     return true;
   }
   if (signature.result_type.type != nullptr &&
@@ -1839,7 +1845,7 @@ void InsertCreatedFunction(NameToFunctionMap* functions,
     std::vector<FunctionSignature> new_signatures;
     for (int idx = 0; idx < function->signatures().size(); ++idx) {
       const FunctionSignature& signature = function->signatures()[idx];
-      if (!zetasql_base::ContainsKey(signatures_to_remove, idx)) {
+      if (!signatures_to_remove.contains(idx)) {
         new_signatures.push_back(signature);
       } else {
         ZETASQL_VLOG(4) << "FunctionSignature excluded: "
@@ -1887,13 +1893,7 @@ static void InsertFunctionImpl(NameToFunctionMap* functions,
     // <include_function_ids> list is present.
     return;
   }
-  if (mode == Function::AGGREGATE) {
-    // By default, all built-in aggregate functions can be used as analytic
-    // functions.
-    function_options.supports_over_clause = true;
-    function_options.window_ordering_support = FunctionOptions::ORDER_OPTIONAL;
-    function_options.supports_window_framing = true;
-  }
+
   InsertCheckedFunction(
       functions, std::make_unique<Function>(
                      std::move(name), Function::kZetaSQLFunctionGroupName,

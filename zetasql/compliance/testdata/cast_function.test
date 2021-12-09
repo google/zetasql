@@ -1,5 +1,5 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
-[load_proto_names=zetasql_test__.NullableDate,zetasql_test__.NullableInt,zetasql_test__.NullableEnum,zetasql_test__.PackedRepeatablePB]
+[load_proto_names=zetasql_test__.NullableDate,zetasql_test__.NullableInt,zetasql_test__.NullableEnum,zetasql_test__.PackedRepeatablePB,zetasql_test__.KitchenSinkPB]
 ==
 
 # TODO: port the tests from functions/convert_test.cc here once
@@ -952,6 +952,24 @@ FROM (SELECT CAST('' as timestamp format '') as d)
 ARRAY<STRUCT<BOOL, BOOL, STRING>>[{true, true, "01 00:00:00.000000"}]
 ==
 
+# Test daylight saving time is correctly handled when casting string to
+# timestamp with format.
+# For time zone 'America/Los_Angeles', on 2021-11-01, the hour offset is -07,
+# while on 2021-11-21, the hour offset is -08.
+[required_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
+[name=cast_string_to_timestamp_dst]
+SELECT
+  CAST('2021-11-01' as timestamp FORMAT 'YYYY-MM-DD' at time zone 'America/Los_Angeles'),
+  CAST('2021-11-21' as timestamp FORMAT 'YYYY-MM-DD' at time zone 'America/Los_Angeles');
+--
+ARRAY<STRUCT<TIMESTAMP, TIMESTAMP>>[
+  {
+    2021-11-01 07:00:00+00,
+    2021-11-21 08:00:00+00
+  }
+]
+==
+
 [required_features=V_1_3_FORMAT_IN_CAST]
 [name=cast_string_to_date_invalid_format]
 SELECT CAST('1234-05-06' as date FORMAT 'yyyy' || 'mi')
@@ -1186,3 +1204,78 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<NUMERIC>[100000000000000000000000000]}]
 select CAST(9999999999999999999999999999.999999999 as numeric(29, 1));
 --
 ERROR: generic::out_of_range: NUMERIC(29, 1) has precision 29 and scale 1 but got a value that is not in range of [-9999999999999999999999999999.9, 9999999999999999999999999999.9]
+==
+
+# When a singular numeric field appears more than once in an encoded proto, the
+# last occurrence should be accepted.
+[name=cast_bytes_as_proto_overwrites_singular_numeric_field]
+SELECT CAST(
+  CONCAT(
+    CAST(CAST("int64_key_1:11 int64_key_2:22" AS zetasql_test__.KitchenSinkPB) AS BYTES),
+    CAST(CAST("int64_key_1:1111 int64_key_2:2222" AS zetasql_test__.KitchenSinkPB) AS BYTES)
+  )
+AS zetasql_test__.KitchenSinkPB).int64_key_1;
+--
+ARRAY<STRUCT<int64_key_1 INT64>>[{1111}]
+==
+
+# When a singular embedded message field appears more than once in a serialized
+# proto, the multiple occurrences should be merged.
+[name=cast_bytes_as_proto_merges_singular_nested_proto_non_repeated_field]
+SELECT CAST(
+  CONCAT(
+    CAST(CAST("int64_key_1:11 int64_key_2:22 nested_value: {nested_int64: 123}" AS zetasql_test__.KitchenSinkPB) AS BYTES),
+    CAST(CAST("int64_key_1:1111 int64_key_2:2222 nested_value: {}" AS zetasql_test__.KitchenSinkPB) AS BYTES)
+  )
+AS zetasql_test__.KitchenSinkPB).nested_value.nested_int64;
+--
+ARRAY<STRUCT<nested_int64 INT64>>[{123}]
+==
+
+# When a singular embedded message field appears more than once in a serialized
+# proto, the multiple occurrences should be merged.
+[name=cast_bytes_as_proto_merges_singular_nested_proto_repeated_field]
+SELECT CAST(
+  CONCAT(
+    CAST(CAST("int64_key_1:11 int64_key_2:22 nested_value: {nested_repeated_int64: 100 nested_repeated_int64: 200}" AS zetasql_test__.KitchenSinkPB) AS BYTES),
+    CAST(CAST("int64_key_1:1111 int64_key_2:2222 nested_value: {nested_repeated_int64: 300 nested_repeated_int64: 400}" AS zetasql_test__.KitchenSinkPB) AS BYTES)
+  )
+AS zetasql_test__.KitchenSinkPB).nested_value.nested_repeated_int64;
+--
+ARRAY<STRUCT<nested_repeated_int64 ARRAY<>>>[
+  {ARRAY<INT64>[100, 200, 300, 400]}
+]
+==
+
+# When a singular group appears more than once in a serialized proto, the
+# multiple occurrences should be merged.
+[name=cast_bytes_as_proto_merges_singular_group_non_repeated_field]
+SELECT CAST(
+  CONCAT(
+    CAST(CAST("int64_key_1:11 int64_key_2:22 OptionalGroup: {int64_val: 123 string_val: 'a'}" AS zetasql_test__.KitchenSinkPB) AS BYTES),
+    CAST(CAST("int64_key_1:1111 int64_key_2:2222 OptionalGroup: {int64_val: 123123}" AS zetasql_test__.KitchenSinkPB) AS BYTES)
+  )
+AS zetasql_test__.KitchenSinkPB).OptionalGroup.string_val;
+--
+ARRAY<STRUCT<string_val STRING>>[{"a"}]
+==
+
+# When a singular group appears more than once in a serialized proto, the
+# multiple occurrences should be merged.
+[name=cast_bytes_as_proto_merges_singular_group_repeated_field]
+SELECT CAST(
+  CONCAT(
+    CAST(CAST("int64_key_1:11 int64_key_2:22 OptionalGroup: {int64_val: 123 OptionalGroupNested: {int64_val: 12} }" AS zetasql_test__.KitchenSinkPB) AS BYTES),
+    CAST(CAST("int64_key_1:1111 int64_key_2:2222 OptionalGroup: {int64_val: 123123 OptionalGroupNested: {int64_val: 1212} }" AS zetasql_test__.KitchenSinkPB) AS BYTES)
+  )
+AS zetasql_test__.KitchenSinkPB).OptionalGroup.OptionalGroupNested;
+--
+ARRAY<STRUCT<OptionalGroupNested ARRAY<>>>[
+  {
+    ARRAY<PROTO<zetasql_test__.KitchenSinkPB.OptionalGroup.OptionalGroupNested>>[
+      {int64_val: 12},
+      {int64_val: 1212}
+    ]
+  }
+]
+==

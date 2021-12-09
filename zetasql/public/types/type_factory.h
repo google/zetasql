@@ -235,12 +235,12 @@ class TypeFactory {
   // which normally indicate the proto should be interpreted as
   // a different type.  Use MakeUnwrappedTypeFromProto instead
   // to get the unwrapped type.
-  absl::Status MakeProtoType(const google::protobuf::Descriptor* descriptor,
-                             const ProtoType** result,
-                             std::vector<std::string> catalog_name_path = {});
-  absl::Status MakeProtoType(const google::protobuf::Descriptor* descriptor,
-                             const Type** result,
-                             std::vector<std::string> catalog_name_path = {});
+  absl::Status MakeProtoType(
+      const google::protobuf::Descriptor* descriptor, const ProtoType** result,
+      absl::Span<const std::string> catalog_name_path = {});
+  absl::Status MakeProtoType(
+      const google::protobuf::Descriptor* descriptor, const Type** result,
+      absl::Span<const std::string> catalog_name_path = {});
 
   // Stores the unique copy of an ExtendedType in the TypeFactory. If such
   // extended type already exists in the cache, frees `extended_type` and
@@ -286,12 +286,12 @@ class TypeFactory {
   // Make an enum type from a protocol buffer EnumDescriptor.
   // The <enum_descriptor> must outlive this TypeFactory.
   // The <catalog_name> if provided is prepended to type's FullName.
-  absl::Status MakeEnumType(const google::protobuf::EnumDescriptor* enum_descriptor,
-                            const EnumType** result,
-                            std::vector<std::string> catalog_name_path = {});
-  absl::Status MakeEnumType(const google::protobuf::EnumDescriptor* enum_descriptor,
-                            const Type** result,
-                            std::vector<std::string> catalog_name_path = {});
+  absl::Status MakeEnumType(
+      const google::protobuf::EnumDescriptor* enum_descriptor, const EnumType** result,
+      absl::Span<const std::string> catalog_name_path = {});
+  absl::Status MakeEnumType(
+      const google::protobuf::EnumDescriptor* enum_descriptor, const Type** result,
+      absl::Span<const std::string> catalog_name_path = {});
 
   // Get the Type for a proto field.
   // If <ignore_annotations> is false, this looks at format annotations on the
@@ -417,7 +417,7 @@ class TypeFactory {
   // Returns TypeProto or TypeEnum.
   template <typename Descriptor>
   const auto* MakeDescribedType(const Descriptor* descriptor,
-                                std::vector<std::string> catalog_name_path)
+                                absl::Span<const std::string> catalog_name_path)
       ABSL_LOCKS_EXCLUDED(store_->mutex_);
 
   template <typename Descriptor>
@@ -427,7 +427,7 @@ class TypeFactory {
 
   // Find or create cached catalog name.
   const internal::CatalogName* FindOrCreateCatalogName(
-      std::vector<std::string> catalog_name_path)
+      absl::Span<const std::string> catalog_name_path)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(store_->mutex_);
 
   // Get the Type for a proto field from its corresponding TypeKind. For

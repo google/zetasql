@@ -40,7 +40,7 @@ ColumnCycleDetector::~ColumnCycleDetector() { ZETASQL_DCHECK(visiting_stack_.emp
 absl::Status ColumnCycleDetector::VisitNewColumn(const IdString& column) {
   ZETASQL_RET_CHECK(zetasql_base::InsertIfNotPresent(&visiting_, column));
   ZETASQL_RET_CHECK(!current_column().has_value() ||
-            zetasql_base::ContainsKey(edges_[current_column().value()], column))
+            edges_[current_column().value()].contains(column))
       << "Current column " << current_column().value()
       << " is not present in edges";
   visiting_stack_.push_back(column);
@@ -71,7 +71,7 @@ absl::Status ColumnCycleDetector::AddDependencyOn(const IdString& column) {
   }
 
   // Are we introducing a cycle?
-  if (zetasql_base::ContainsKey(visiting_, column)) {
+  if (visiting_.contains(column)) {
     std::string message;
     if (visiting_.size() == 1) {
       // This is a self-recursive object, so return a custom error message.

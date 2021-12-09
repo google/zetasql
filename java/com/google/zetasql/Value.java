@@ -220,7 +220,7 @@ public class Value implements Serializable {
     return proto.getUint32Value();
   }
 
-  /** Returns Java long which equals to the uint32 value at binary level, if the type is uint64. */
+  /** Returns Java long which equals to the uint64 value at binary level, if the type is uint64. */
   public long getUint64Value() {
     Preconditions.checkState(getType().getKind() == TypeKind.TYPE_UINT64);
     Preconditions.checkState(!isNull);
@@ -1296,7 +1296,7 @@ public class Value implements Serializable {
    */
   public static Value createNullValue(Type type) {
     Preconditions.checkArgument(isSupportedTypeKind(type));
-    return new Value(type, ValueProto.newBuilder().build());
+    return new Value(type, ValueProto.getDefaultInstance());
   }
 
   /** Returns a null Value of the given simple type {@code kind}. */

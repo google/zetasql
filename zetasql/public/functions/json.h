@@ -258,13 +258,20 @@ absl::StatusOr<bool> ConvertJsonToBool(JSONValueConstRef input);
 // Converts 'input' into a String.
 absl::StatusOr<std::string> ConvertJsonToString(JSONValueConstRef input);
 
-// Converts 'input' into a Double, `wide_number_mode` defines what happens with
-// a number that cannot be round-tripped through double and accepts two
-// case-sensitive values:
-// - ‘exact’: function fails if result cannot be round-tripped through double.
-// - ‘round’: the numeric value stored in JSON will be rounded to DOUBLE.
+// Mode to determine how to handle numbers that cannot be round-tripped.
+enum class WideNumberMode {
+    kRound,
+    kExact
+};
+
+// Converts 'input' into a Double.
+// 'mode': defines what happens with a number that cannot be converted to double
+// without loss of precision:
+// - 'exact': function fails if result cannot be round-tripped through double.
+// - 'round': the numeric value stored in JSON will be rounded to DOUBLE.
 absl::StatusOr<double> ConvertJsonToDouble(JSONValueConstRef input,
-                                           absl::string_view wide_number_mode);
+                                           WideNumberMode mode,
+                                           ProductMode product_mode);
 
 // Returns the type of the outermost JSON value as a text string.
 absl::StatusOr<std::string> GetJsonType(JSONValueConstRef input);

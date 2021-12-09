@@ -1385,10 +1385,10 @@ TEST(StingsTest, GetReservedKeywords) {
   const absl::flat_hash_set<std::string>& keywords = GetReservedKeywords();
   EXPECT_GT(keywords.size(), 70);
   EXPECT_LT(keywords.size(), 120);
-  EXPECT_TRUE(zetasql_base::ContainsKey(keywords, "FROM"));
-  EXPECT_FALSE(zetasql_base::ContainsKey(keywords, "from"));
-  EXPECT_FALSE(zetasql_base::ContainsKey(keywords, "TABLE"));
-  EXPECT_FALSE(zetasql_base::ContainsKey(keywords, ""));
+  EXPECT_TRUE(keywords.contains("FROM"));
+  EXPECT_FALSE(keywords.contains("from"));
+  EXPECT_FALSE(keywords.contains("TABLE"));
+  EXPECT_FALSE(keywords.contains(""));
 
   // For compatibility reasons, GetReservedKeywords() considers conditionally
   // reserved keywords to not be reserved.

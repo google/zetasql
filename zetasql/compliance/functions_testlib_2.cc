@@ -38,6 +38,7 @@
 #include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"
 #include <cstdint>
+#include "absl/container/btree_map.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
@@ -2891,7 +2892,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsToProto3TimeOfDay() {
 }
 
 std::vector<FunctionTestCall> GetFunctionTestsBytesStringConversion() {
-  const std::map<std::string, std::vector<std::pair<Value, Value>>>
+  const absl::btree_map<std::string, std::vector<std::pair<Value, Value>>>
       format_bytes_string = {
           {"hex",
            {

@@ -1,7 +1,7 @@
 
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
 
-# Anonymization and Differential Privacy
+# Anonymization and Differential Privacy 
+<a id="anonymization_syntax"></a>
 
 <!-- BEGIN CONTENT -->
 
@@ -97,17 +97,17 @@ Unusually large `epsilon` values, such as `1e308`, cause query
 failure. Start large, and reduce the `epsilon` until the query succeeds, but not
 so much that it returns noisy results.
 
-ZetaSQL splits `epsilon` between the anonymization functions
-in the query. The anonymization process for removing small groups
-injects an extra anonymized aggregate into the plan that computes a noisy user
-count per group. If you have `n` anonymization aggregate functions in your
-query, then each aggregate function individually gets `epsilon/(n+1)` for its
-computation. If used with `kappa`, the effective `epsilon`
-per function per groups is further split by `kappa`. Additionally,
-if implicit clamping is used for an aggregate anonymization function, then half
-of the function's epsilon is applied towards computing implicit bounds,
-and half of the function's epsilon is applied towards the anonymized aggregation
-itself.
+ZetaSQL splits `epsilon` between the anonymization aggregates in the
+query. In addition to the explicit anonymization aggregate functions, the
+anonymization process will also inject an implicit anonymized aggregate into the
+plan for removing small groups that computes a noisy user count per group. If
+you have `n` explicit anonymization aggregate functions in your query, then each
+aggregate individually gets `epsilon/(n+1)` for its computation. If used with
+`kappa`, the effective `epsilon` per function per groups is further split by
+`kappa`. Additionally, if implicit clamping is used for an aggregate
+anonymization function, then half of the function's epsilon is applied towards
+computing implicit bounds, and half of the function's epsilon is applied towards
+the anonymized aggregation itself.
 
 ### delta 
 <a id="anon_delta"></a>
@@ -357,25 +357,40 @@ SELECT
   WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=1)
   item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
 FROM view_on_professors, view_on_students
-GROUP BY gender;
+GROUP BY item;
 ```
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [anon-expression]: #anon_expression
+
 [anon-resources]: #anon_resources
+
 [anon-query]: #anon_query
+
 [anon-k-threshold]: #anon_k_threshold
+
 [anon-epsilon]: #anon_epsilon
+
 [anon-kappa]: #anon_kappa
+
 [anon-delta]: #anon_delta
-[anon-from]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from-clause
+
+[anon-from]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
+
 [anon-select-list]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_list
+
 [anon-group-by]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#group_by_clause
+
 [wiki-diff-privacy]: https://en.wikipedia.org/wiki/Differential_privacy
 
 [anonymization-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate_anonymization_functions.md
+
 [anon-clamping]: https://github.com/google/zetasql/blob/master/docs/aggregate_anonymization_functions.md#anon_clamping
+
 [anon-exp-clamping]: https://github.com/google/zetasql/blob/master/docs/aggregate_anonymization_functions.md#anon_explicit_clamping
+
 [anon-imp-clamping]: https://github.com/google/zetasql/blob/master/docs/aggregate_anonymization_functions.md#anon_implicit_clamping
 
-<!-- END CONTENT -->
+<!-- mdlint on -->
 

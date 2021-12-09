@@ -34,10 +34,10 @@
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/value.h"
+#include "zetasql/base/case.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/statusor.h"
-#include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
@@ -134,6 +134,7 @@ void GetZetaSQLFunctions(TypeFactory* type_factory,
     GetAnonFunctions(type_factory, options, functions);
   }
   GetTypeOfFunction(type_factory, options, functions);
+  GetFilterFieldsFunction(type_factory, options, functions);
 }
 
 bool FunctionMayHaveUnintendedArgumentCoercion(const Function* function) {

@@ -23,7 +23,7 @@ import "zetasql/proto/function.proto";
 import "zetasql/scripting/script_exception.proto";
 import "zetasql/scripting/variable.proto";
 
-// Next id: 7
+// Next id: 8
 message ScriptExecutorStateProto {
   message ProcedureDefinition {
     // Procedure name.
@@ -97,6 +97,12 @@ message ScriptExecutorStateProto {
     EXECUTE_IMMEDIATE_STATEMENT = 3;
   }
 
+  message ScriptFeatureUsage {
+    optional int32 exception = 1;
+    optional int32 call_stmt = 2;
+    optional int32 execute_immediate_stmt = 3;
+  }
+
   // Script features triggered by current script so far. Every feature should
   // appear only once.
   repeated ScriptFeature triggered_features = 3;
@@ -109,4 +115,7 @@ message ScriptExecutorStateProto {
   optional int64 case_stmt_true_branch_index = 5;
   // Tracker index of current WHEN branch being executed.
   optional int64 case_stmt_current_branch_index = 6;
+
+  // Identifies script features are used in the script.
+  optional ScriptFeatureUsage sql_feature_usage = 7;
 }

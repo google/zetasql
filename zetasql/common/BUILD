@@ -120,6 +120,40 @@ cc_test(
 )
 
 cc_library(
+    name = "int_ops_util",
+    hdrs = ["int_ops_util.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+    ],
+)
+
+cc_test(
+    name = "int_ops_util_test",
+    size = "small",
+    srcs = ["int_ops_util_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":int_ops_util",
+        "//zetasql/base/testing:zetasql_gtest_main",
+    ],
+)
+
+cc_library(
     name = "string_util",
     hdrs = ["string_util.h"],
     copts = [
@@ -324,7 +358,60 @@ cc_library(
         ":float_margin",
         "//zetasql/public:type",
         "//zetasql/public:value",
+        "//zetasql/public/types",
         "@com_google_absl//absl/types:span",
+    ],
+)
+
+cc_library(
+    name = "initialize_required_fields",
+    srcs = ["initialize_required_fields.cc"],
+    hdrs = ["initialize_required_fields.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+proto_library(
+    name = "initialize_required_fields_test_proto",
+    testonly = 1,
+    srcs = ["initialize_required_fields_test.proto"],
+)
+
+cc_proto_library(
+    name = "initialize_required_fields_test_cc_proto",
+    testonly = 1,
+    deps = [":initialize_required_fields_test_proto"],
+)
+
+cc_test(
+    name = "initialize_required_fields_test",
+    size = "small",
+    srcs = ["initialize_required_fields_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":initialize_required_fields",
+        ":initialize_required_fields_test_cc_proto",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_protobuf//:cc_wkt_protos",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -474,7 +561,7 @@ cc_library(
     ],
     deps = [
         "//zetasql/base",
-        "//zetasql/base:string_numbers",
+        "//zetasql/base:strings",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@com_googlesource_code_re2//:re2",

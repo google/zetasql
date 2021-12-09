@@ -850,7 +850,7 @@ absl::Status SubTime(const TimeValue& time, DateTimestampPart part,
 
 // Returns the diff (signed integer) of the specified DateTimestampPart
 // between a given time pair, based on time1 - time2.
-// The result DateTimetampPart value of the input times is not rounded by
+// The result DateTimestampPart value of the input times is not rounded by
 // clock interval, but simply the difference of part values extracted from the
 // time.
 // Some examples:

@@ -1,4 +1,4 @@
-[default enable_ast_rewrites]
+[default enabled_ast_rewrites=DEFAULTS]
 
 [default language_features=V_1_3_INLINE_LAMBDA_ARGUMENT]
 SELECT ARRAY_TRANSFORM([1,2,3], e -> e>0);

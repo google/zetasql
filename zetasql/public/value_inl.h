@@ -200,42 +200,57 @@ inline Value::Value(const IntervalValue& interval)
     : metadata_(TypeKind::TYPE_INTERVAL),
       interval_ptr_(new internal::IntervalRef(interval)) {}
 
-inline Value Value::Struct(const StructType* type,
-                           absl::Span<const Value> values) {
-  std::vector<Value> value_copies(values.begin(), values.end());
-  return StructInternal(/*safe=*/true, type, std::move(value_copies));
+inline absl::StatusOr<Value> Value::MakeStruct(const StructType* type,
+                                               std::vector<Value>&& values) {
+  return MakeStructInternal(/*already_validated=*/false, type,
+                            std::vector<Value>(std::move(values)));
+}
+inline absl::StatusOr<Value> Value::MakeStruct(const StructType* type,
+                                               absl::Span<const Value> values) {
+  return MakeStructInternal(/*already_validated=*/false, type,
+                            std::vector<Value>(values.begin(), values.end()));
+}
+inline absl::StatusOr<Value> Value::MakeStruct(
+    const StructType* type, std::initializer_list<Value> values) {
+  // This variant is required to disambiguate vector&& and span
+  return MakeStructInternal(/*already_validated=*/false, type,
+                            std::vector<Value>(values.begin(), values.end()));
+}
+inline absl::StatusOr<Value> Value::MakeStructFromValidatedInputs(
+    const StructType* type, std::vector<Value>&& values) {
+  return MakeStructInternal(/*already_validated=*/true, type,
+                            std::move(values));
 }
 
-inline Value Value::SafeStruct(const StructType* type,
-                                 std::vector<Value>&& values) {
-  return StructInternal(/*safe=*/true, type, std::move(values));
+inline absl::StatusOr<Value> Value::MakeArray(const ArrayType* array_type,
+                                              absl::Span<const Value> values) {
+  return MakeArrayInternal(/*already_validated=*/false, array_type,
+                           kPreservesOrder,
+                           std::vector<Value>(values.begin(), values.end()));
 }
 
-inline Value Value::UnsafeStruct(const StructType* type,
-                                 std::vector<Value>&& values) {
-  return StructInternal(/*safe=*/false, type, std::move(values));
+inline absl::StatusOr<Value> Value::MakeArray(const ArrayType* array_type,
+                                              std::vector<Value>&& values) {
+  return MakeArrayInternal(/*already_validated=*/false, array_type,
+                           kPreservesOrder, std::move(values));
 }
 
-inline Value Value::Array(const ArrayType* array_type,
-                          absl::Span<const Value> values) {
-  return ArraySafe(array_type,
-                   std::vector<Value>(values.begin(), values.end()));
+inline absl::StatusOr<Value> Value::MakeArray(
+    const ArrayType* array_type, std::initializer_list<Value> values) {
+  return MakeArrayInternal(/*already_validated=*/false, array_type,
+                           kPreservesOrder,
+                           std::vector<Value>(values.begin(), values.end()));
 }
 
-inline Value Value::ArraySafe(const ArrayType* array_type,
-                              std::vector<Value>&& values) {
-  return ArrayInternal(/*safe=*/true, array_type, kPreservesOrder,
-                       std::move(values));
-}
-
-inline Value Value::UnsafeArray(const ArrayType* array_type,
-                                std::vector<Value>&& values) {
-  return ArrayInternal(/*safe=*/false, array_type, kPreservesOrder,
-                       std::move(values));
+inline absl::StatusOr<Value> Value::MakeArrayFromValidatedInputs(
+    const ArrayType* array_type, std::vector<Value>&& values) {
+  return MakeArrayInternal(/*already_validated=*/true, array_type,
+                           kPreservesOrder, std::move(values));
 }
 
 inline Value Value::EmptyArray(const ArrayType* array_type) {
-  return ArraySafe(array_type, std::vector<Value>());
+  // Should not be possible for this to fail.
+  return *MakeArrayFromValidatedInputs(array_type, std::vector<Value>{});
 }
 
 inline Value Value::Int32(int32_t v) { return Value(v); }
@@ -527,9 +542,8 @@ inline const Value& Value::element(int i) const {
 }
 
 inline bool Value::Equals(const Value& that) const {
-  return EqualsInternal(*this, that, false /* allow_bags */,
-                        nullptr /* deep_order_spec */, kExactFloatMargin,
-                        nullptr /* reason */);
+  return EqualsInternal(*this, that, /*allow_bags=*/false,
+                        /*deep_order_spec=*/nullptr, /*options=*/{});
 }
 
 template <typename H>

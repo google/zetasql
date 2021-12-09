@@ -53,7 +53,7 @@ enum FunctionSignatureId {
   // 2200-2299 Anonymization functions        (NextId: 2214)
   // 2300-2499 Numeric & more math functions  (NextId: 2316)
   // 2500-2599 Array and proto map functions  (NextId: 2510)
-  // 2600-2699 More misc functions.           (NextId: 2604)
+  // 2600-2699 More misc functions.           (NextId: 2605)
 
   // enum value                       // Related function name
   // ----------                       // ---------------------
@@ -867,6 +867,8 @@ enum FunctionSignatureId {
   FN_KMS_DECRYPT_STRING = 1922;  // kms.decrypt_string(string, bytes)
   FN_KMS_DECRYPT_BYTES = 1923;   // kms.decrypt_bytes(string, bytes)
 
+  // TODO: Remove all envelop encryption expressions after disable
+  // collapse encryption functions
   // aead.envelope_encrypt(string, bytes, string, string)
   FN_AEAD_ENVELOPE_ENCRYPT_STRING = 1924;
   // aead.envelope_encrypt(string, bytes, bytes, bytes)
@@ -899,6 +901,14 @@ enum FunctionSignatureId {
   FN_DETERMINISTIC_DECRYPT_STRING = 1936;
   // deterministic_decrypt_bytes(bytes, bytes, bytes)
   FN_DETERMINISTIC_DECRYPT_BYTES = 1937;
+  // deterministic_encrypt(struct, string, string)
+  FN_DETERMINISTIC_ENCRYPT_STRUCT_STRING = 1938;
+  // deterministic_encrypt(struct, bytes, bytes)
+  FN_DETERMINISTIC_ENCRYPT_STRUCT_BYTES = 1939;
+  // deterministic_decrypt_string(struct, bytes, string)
+  FN_DETERMINISTIC_DECRYPT_STRUCT_STRING = 1940;
+  // deterministic_decrypt_bytes(struct, bytes, bytes)
+  FN_DETERMINISTIC_DECRYPT_STRUCT_BYTES = 1941;
 
   // ST_ family of functions (Geography related - (broken link))
   // Constructors
@@ -1047,4 +1057,5 @@ enum FunctionSignatureId {
   FN_JSON_TO_BOOL = 2601;    // bool(json) -> bool
   FN_JSON_TO_STRING = 2602;  // string(json) -> string
   FN_JSON_TYPE = 2603;       // json_type(json) -> type
+  FN_JSON_TO_DOUBLE = 2604;  // double(json[, string]) -> double
 }

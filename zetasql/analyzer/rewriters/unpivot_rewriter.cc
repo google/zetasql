@@ -64,13 +64,11 @@ namespace {
 class UnpivotRewriterVisitor : public ResolvedASTDeepCopyVisitor {
  public:
   UnpivotRewriterVisitor(const AnalyzerOptions* analyzer_options,
-                         Catalog* catalog, TypeFactory* type_factory,
-                         absl::Span<const Rewriter* const> rewriters)
+                         Catalog* catalog, TypeFactory* type_factory)
       : analyzer_options_(*analyzer_options),
         catalog_(catalog),
         type_factory_(type_factory),
-        fn_builder_(*analyzer_options, *catalog),
-        rewriters_(rewriters) {}
+        fn_builder_(*analyzer_options, *catalog) {}
 
   UnpivotRewriterVisitor(const UnpivotRewriterVisitor&) = delete;
   UnpivotRewriterVisitor& operator=(const UnpivotRewriterVisitor&) = delete;
@@ -96,12 +94,25 @@ class UnpivotRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   Catalog* const catalog_;
   TypeFactory* type_factory_;
   FunctionCallBuilder fn_builder_;
-  absl::Span<const Rewriter* const> rewriters_;
   // id used to assign a sequence number to element_column of ArrayScan of
   // unpivot rewrite tree. This helps to identify the column in the case of
   // multiple unpivots in the query (while debugging).
   int unpivot_array_sequence_id_ = 0;
 };
+
+static void FilterNonProjectedColumns(
+    const std::vector<ResolvedColumn> projected,
+    std::vector<std::unique_ptr<const ResolvedComputedColumn>>& candidates) {
+  absl::flat_hash_set<ResolvedColumn> projected_set{projected.begin(),
+                                                    projected.end()};
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>> filtered;
+  for (auto& col : candidates) {
+    if (projected_set.contains(col->column())) {
+      filtered.emplace_back(std::move(col));
+    }
+  }
+  candidates.swap(filtered);
+}
 
 absl::Status UnpivotRewriterVisitor::VisitResolvedUnpivotScan(
     const ResolvedUnpivotScan* node) {
@@ -147,6 +158,7 @@ absl::Status UnpivotRewriterVisitor::VisitResolvedUnpivotScan(
   }
 
   if (node->include_nulls()) {
+    FilterNonProjectedColumns(node->column_list(), expr_list);
     PushNodeToStack(
         MakeResolvedProjectScan(node->column_list(), std::move(expr_list),
                                 std::move(struct_elements_array_scan)));
@@ -186,29 +198,33 @@ absl::Status UnpivotRewriterVisitor::VisitResolvedUnpivotScan(
     // function.
     or_function_args.push_back(std::move(is_not_function_expr));
   }
-  const Function* or_function;
-  ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"$or"}, &or_function,
-                                      analyzer_options_.find_options()));
-  std::unique_ptr<const ResolvedExpr> or_function_expr =
-      MakeResolvedFunctionCall(
-          types::BoolType(), or_function,
-          FunctionSignature(
-              FunctionArgumentType(types::BoolType(), /*num_occurrences=*/1),
-              {FunctionArgumentType(
-                  types::BoolType(), FunctionArgumentType::REPEATED,
-                  /*num_occurrences=*/
-                  static_cast<int>(node->value_column_list_size()))},
-              FN_OR),
-          std::move(or_function_args),
-          ResolvedFunctionCall::DEFAULT_ERROR_MODE);
+  std::unique_ptr<const ResolvedExpr> filter_expression;
+  if (or_function_args.size() == 1) {
+    filter_expression = std::move(or_function_args[0]);
+  } else {
+    const Function* or_function;
+    ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"$or"}, &or_function,
+                                        analyzer_options_.find_options()));
+    filter_expression = MakeResolvedFunctionCall(
+        types::BoolType(), or_function,
+        FunctionSignature(
+            FunctionArgumentType(types::BoolType(), /*num_occurrences=*/1),
+            {FunctionArgumentType(
+                types::BoolType(), FunctionArgumentType::REPEATED,
+                /*num_occurrences=*/
+                static_cast<int>(node->value_column_list_size()))},
+            FN_OR),
+        std::move(or_function_args), ResolvedFunctionCall::DEFAULT_ERROR_MODE);
+  }
 
   std::vector<ResolvedColumn> array_scan_output_columns =
       struct_elements_array_scan->column_list();
   std::unique_ptr<zetasql::ResolvedFilterScan> exclude_nulls_filter_scan =
       MakeResolvedFilterScan(array_scan_output_columns,
                              std::move(struct_elements_array_scan),
-                             std::move(or_function_expr));
+                             std::move(filter_expression));
 
+  FilterNonProjectedColumns(node->column_list(), expr_list);
   PushNodeToStack(
       MakeResolvedProjectScan(node->column_list(), std::move(expr_list),
                               std::move(exclude_nulls_filter_scan)));
@@ -302,17 +318,14 @@ class UnpivotRewriter : public Rewriter {
  public:
   bool ShouldRewrite(const AnalyzerOptions& analyzer_options,
                      const AnalyzerOutput& analyzer_output) const override {
-    return analyzer_options.rewrite_enabled(REWRITE_UNPIVOT) &&
-           analyzer_output.analyzer_output_properties().has_unpivot;
+    return analyzer_output.analyzer_output_properties().has_unpivot;
   }
 
   absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
-      const AnalyzerOptions& options,
-      absl::Span<const Rewriter* const> rewriters, const ResolvedNode& input,
+      const AnalyzerOptions& options, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,
       AnalyzerOutputProperties& output_properties) const override {
-    UnpivotRewriterVisitor visitor(&options, &catalog, &type_factory,
-                                   rewriters);
+    UnpivotRewriterVisitor visitor(&options, &catalog, &type_factory);
     ZETASQL_RETURN_IF_ERROR(input.Accept(&visitor));
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedNode> result,
                      visitor.ConsumeRootNode<ResolvedStatement>());

@@ -430,7 +430,7 @@ absl::Status AnalyticFunctionResolver::CheckWindowSupport(
                << no_grouping_type;
       }
     }
-    if (!function->IsAggregate()) {
+    if (!function->IsAggregate() || !function->SupportsDistinctModifier()) {
       return MakeSqlErrorAt(ast_function_call)
              << "DISTINCT is not allowed for analytic function "
              << function->Name();

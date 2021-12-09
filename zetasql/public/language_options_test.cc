@@ -73,12 +73,10 @@ TEST(LanguageOptions, GetLanguageFeaturesForVersion) {
   EXPECT_THAT(LanguageOptions::GetLanguageFeaturesForVersion(VERSION_1_0),
               IsEmpty());
 
-  EXPECT_TRUE(zetasql_base::ContainsKey(
-      LanguageOptions::GetLanguageFeaturesForVersion(VERSION_CURRENT),
-      FEATURE_V_1_1_ORDER_BY_COLLATE));
-  EXPECT_FALSE(zetasql_base::ContainsKey(
-      LanguageOptions::GetLanguageFeaturesForVersion(VERSION_CURRENT),
-      FEATURE_TABLESAMPLE));
+  EXPECT_TRUE(LanguageOptions::GetLanguageFeaturesForVersion(VERSION_CURRENT)
+                  .contains(FEATURE_V_1_1_ORDER_BY_COLLATE));
+  EXPECT_FALSE(LanguageOptions::GetLanguageFeaturesForVersion(VERSION_CURRENT)
+                   .contains(FEATURE_TABLESAMPLE));
 
   LanguageOptions::LanguageFeatureSet features_in_current =
       LanguageOptions::GetLanguageFeaturesForVersion(VERSION_CURRENT);
@@ -121,7 +119,7 @@ TEST(LanguageOptions, GetLanguageFeaturesForVersion) {
     // VERSION_CURRENT.
     for (const LanguageFeature feature :
          LanguageOptions::GetLanguageFeaturesForVersion(version)) {
-      EXPECT_TRUE(zetasql_base::ContainsKey(features_in_current, feature))
+      EXPECT_TRUE(features_in_current.contains(feature))
           << "Features for VERSION_CURRENT does not include feature " << feature
           << " from " << version_name;
     }

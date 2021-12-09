@@ -17,6 +17,8 @@
 // Implements ReplaceLiteralsByParameters method declared in analyzer.h.
 // Tested by parse_locations.test.
 
+#include "zetasql/public/literal_remover.h"
+
 #include <algorithm>
 #include <memory>
 #include <queue>
@@ -27,17 +29,16 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/language_options.h"
-#include "zetasql/public/literal_remover.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/base/case.h"
 #include "absl/container/node_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
-#include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
@@ -215,7 +216,7 @@ absl::Status ReplaceLiteralsByParameters(
         option->value()->GetParseLocationRangeOrNULL() != nullptr) {
       const ResolvedLiteral* option_literal =
           option->value()->GetAs<ResolvedLiteral>();
-      if (zetasql_base::ContainsKey(option_names_to_ignore, option->name())) {
+      if (option_names_to_ignore.contains(option->name())) {
         ignore_literals.insert(option_literal);
       }
     }
@@ -239,7 +240,7 @@ absl::Status ReplaceLiteralsByParameters(
     const ResolvedLiteral* literal = node->GetAs<ResolvedLiteral>();
     if (literal->GetParseLocationRangeOrNULL() != nullptr &&
         !literal->preserve_in_literal_remover() &&
-        !zetasql_base::ContainsKey(ignore_literals, literal)) {
+        !ignore_literals.contains(literal)) {
       literals.push_back(literal);
     }
   }

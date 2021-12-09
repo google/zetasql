@@ -63,7 +63,7 @@ absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     const absl::TimeZone default_timezone,
                                     bool parse_version2, int64_t* timestamp);
-ABSL_DEPRECATED("Use version without optional argument")
+ABSL_DEPRECATED("Inline me!")
 absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     const absl::TimeZone default_timezone,
@@ -77,7 +77,7 @@ absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     absl::string_view default_timezone_string,
                                     bool parse_version2, int64_t* timestamp);
-ABSL_DEPRECATED("Use version without optional argument")
+ABSL_DEPRECATED("Inline me!")
 absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     absl::string_view default_timezone_string,
@@ -89,7 +89,7 @@ absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     absl::string_view default_timezone_string,
                                     bool parse_version2, absl::Time* timestamp);
-ABSL_DEPRECATED("Use version without optional argument")
+ABSL_DEPRECATED("Inline me!")
 absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     absl::string_view default_timezone_string,
@@ -100,7 +100,7 @@ absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     const absl::TimeZone default_timezone,
                                     bool parse_version2, absl::Time* timestamp);
-ABSL_DEPRECATED("Use version without optional argument")
+ABSL_DEPRECATED("Inline me!")
 absl::Status ParseStringToTimestamp(absl::string_view format_string,
                                     absl::string_view timestamp_string,
                                     const absl::TimeZone default_timezone,
@@ -119,7 +119,7 @@ absl::Status ParseStringToTimestamp(absl::string_view format_string,
 absl::Status ParseStringToDate(absl::string_view format_string,
                                absl::string_view date_string,
                                bool parse_version2, int32_t* date);
-ABSL_DEPRECATED("Use version without optional argument")
+ABSL_DEPRECATED("Inline me!")
 absl::Status ParseStringToDate(absl::string_view format_string,
                                absl::string_view date_string, int32_t* date,
                                bool parse_version2 = false);
@@ -157,7 +157,7 @@ absl::Status ParseStringToDatetime(absl::string_view format_string,
                                    absl::string_view datetime_string,
                                    TimestampScale scale, bool parse_version2,
                                    DatetimeValue* datetime);
-ABSL_DEPRECATED("Use version without optional argument")
+ABSL_DEPRECATED("Inline me!")
 absl::Status ParseStringToDatetime(absl::string_view format_string,
                                    absl::string_view datetime_string,
                                    TimestampScale scale,

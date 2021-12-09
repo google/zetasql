@@ -1,14 +1,13 @@
 
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
 
 # Working with arrays
 
 In ZetaSQL, an array is an ordered list consisting of zero or more
 values of the same data type. You can construct arrays of simple data types,
 such as `INT64`, and complex data types, such as `STRUCT`s. The current
-exception to this is the [`ARRAY`][array-data-type] data type: arrays of arrays
-are not supported. Arrays can include
-`NULL` values.
+exception to this is the `ARRAY` data type because arrays of arrays
+are not supported. To learn more about the `ARRAY`
+data type, see [`Array type`][array-data-type].
 
 With ZetaSQL, you can construct array literals,
  build arrays from subqueries using the
@@ -170,9 +169,9 @@ Consider the following table, `sequences`:
 This table contains the column `some_numbers` of the `ARRAY` data type.
 To access elements from the arrays in this column, you must specify which type
 of indexing you want to use: either
-[`OFFSET`][offset-and-ordinal],
+[`OFFSET`][array-subscript-operator],
 for zero-based indexes, or
-[`ORDINAL`][offset-and-ordinal],
+[`ORDINAL`][array-subscript-operator],
 for one-based indexes.
 
 ```sql
@@ -417,19 +416,18 @@ ORDER BY offset;
 ```
 
 To flatten an entire column of `ARRAY`s while preserving the values
-of the other columns in each row, use a
-[`CROSS JOIN`][cross-join-query]
-to join the table containing the `ARRAY` column to the `UNNEST` output of that
-`ARRAY` column.
+of the other columns in each row, use a correlated
+[cross join][cross-join-query] to join the table containing the
+`ARRAY` column to the `UNNEST` output of that `ARRAY` column.
 
-This is a correlated cross join: the `UNNEST` operator references the column of
-`ARRAY`s from each row in the source table, which appears previously in the
-`FROM` clause. For each row `N` in the source table, `UNNEST` flattens the
-`ARRAY` from row `N` into a set of rows containing the `ARRAY` elements, and
-then the `CROSS JOIN` joins this new set of rows with the single row `N` from
-the source table.
+With a [correlated][correlated-join-query] join, the `UNNEST` operator
+references the `ARRAY` typed column from each row in the source table, which
+appears previously in the `FROM` clause. For each row `N` in the source table,
+`UNNEST` flattens the `ARRAY` from row `N` into a set of rows containing the
+`ARRAY` elements, and then the cross join joins this new set of rows with the
+single row `N` from the source table.
 
-**Example**
+**Examples**
 
 The following example uses [`UNNEST`][unnest-query]
 to return a row for each element in the array column. Because of the
@@ -937,34 +935,29 @@ alias `album` and the repeated field `song`. All values of `song` for each
 **Example**
 
 ```sql
-WITH table AS (
-  SELECT
-    'The Beatles' AS band_name,
-    NEW zetasql.examples.music.Album(
-      'Let It Be' AS album_name,
-      ['Across the Universe', 'Get Back', 'Dig It'] AS song
-    ) AS album
+WITH
+  Bands AS (
+    SELECT
+      'The Beatles' AS band_name,
+      NEW zetasql.examples.music.Album(
+        'Let It Be' AS album_name,
+        ['Across the Universe', 'Get Back', 'Dig It'] AS song) AS album
     UNION ALL
-  SELECT
-    'The Beatles' AS band_name,
-    NEW zetasql.examples.music.Album(
-      'Rubber Soul' AS album_name,
-      ['Drive My Car', 'The Word', 'Michelle'] AS song
-    ) AS album
-)
-SELECT *
-FROM table;
+    SELECT
+      'The Beatles' AS band_name,
+      NEW zetasql.examples.music.Album(
+        'Rubber Soul' AS album_name,
+        ['Drive My Car', 'The Word', 'Michelle'] AS song) AS album
+  )
+SELECT band_name, album.album_name, album.song
+FROM Bands;
 
-+-------------+------------------+---------------------+
-| band_name   | album.album_name | album.song          |
-+-------------+------------------+---------------------+
-| The Beatles | Let It Be        | Across the Universe |
-|             |                  | Get Back            |
-|             |                  | Dig It              |
-| The Beatles | Rubber Soul      | Drive My Car        |
-|             |                  | The Word            |
-|             |                  | Michelle            |
-+-------------+------------------+---------------------+
++-------------+------------------+-----------------------------------------+
+| band_name   | album_name       | song                                    |
++-------------+------------------+-----------------------------------------+
+| The Beatles | Let It Be        | [Across the Universe, Get Back, Dig It] |
+| The Beatles | Rubber Soul      | [Drive My Car, The Word, Michelle]      |
++-------------+------------------+-----------------------------------------+
 ```
 
 To query the individual values of a repeated field, reference the field name
@@ -1196,9 +1189,9 @@ the corresponding original row (`[5, 10]`) did not contain `2`.
 ## Scanning arrays
 
 To check if an array contains a specific value, use the [`IN`][in-operators]
-operator with [`UNNEST`][unnest-query]. To
-check if an array contains a value matching a condition, use the [`EXISTS`][expression-subqueries]
-function with `UNNEST`.
+operator with [`UNNEST`][unnest-query]. To check if an array contains a value
+matching a condition, use the [`EXISTS`][expression-subqueries] function with
+`UNNEST`.
 
 ### Scanning for specific values
 
@@ -1256,14 +1249,17 @@ The following example returns the `id` value for the rows where the array
 column contains values greater than 5.
 
 ```sql
-WITH sequences AS
-  (SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
-   UNION ALL SELECT 2 AS id, [2, 4, 8, 16, 32] AS some_numbers
-   UNION ALL SELECT 3 AS id, [5, 10] AS some_numbers)
-SELECT id AS matching_rows FROM sequences
-WHERE EXISTS (SELECT *
-              FROM UNNEST(some_numbers) AS x
-              WHERE x > 5);
+WITH
+  Sequences AS (
+    SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
+    UNION ALL
+    SELECT 2 AS id, [2, 4, 8, 16, 32] AS some_numbers
+    UNION ALL
+    SELECT 3 AS id, [5, 10] AS some_numbers
+  )
+SELECT id AS matching_rows
+FROM Sequences
+WHERE EXISTS(SELECT * FROM UNNEST(some_numbers) AS x WHERE x > 5);
 
 +---------------+
 | matching_rows |
@@ -1285,16 +1281,17 @@ The following example returns the rows where the array column contains a
 `STRUCT` whose field `b` has a value greater than 3.
 
 ```sql
-WITH sequences AS
-  (SELECT 1 AS id, [STRUCT(0 AS a, 1 AS b)] AS some_numbers
-   UNION ALL SELECT 2 AS id, [STRUCT(2 AS a, 4 AS b)] AS some_numbers
-   UNION ALL SELECT 3 AS id, [STRUCT(5 AS a, 3 AS b), STRUCT (7 AS a, 4 AS b)]
-     AS some_numbers)
+WITH
+  Sequences AS (
+    SELECT 1 AS id, [STRUCT(0 AS a, 1 AS b)] AS some_numbers
+    UNION ALL
+    SELECT 2 AS id, [STRUCT(2 AS a, 4 AS b)] AS some_numbers
+    UNION ALL
+    SELECT 3 AS id, [STRUCT(5 AS a, 3 AS b), STRUCT(7 AS a, 4 AS b)] AS some_numbers
+  )
 SELECT id AS matching_rows
-FROM sequences
-WHERE EXISTS (SELECT 1
-              FROM UNNEST(some_numbers)
-              WHERE b > 3);
+FROM Sequences
+WHERE EXISTS(SELECT 1 FROM UNNEST(some_numbers) WHERE b > 3);
 
 +---------------+
 | matching_rows |
@@ -1526,15 +1523,25 @@ You can zip arrays with `UNNEST` and `WITH OFFSET`. In this example, each
 value pair is stored as a `STRUCT` in an array.
 
 ```sql
-WITH combinations AS (
-  SELECT
-    ['a', 'b'] AS letters,
-    [1, 2, 3] AS numbers
-)
-SELECT ARRAY_AGG(
-  STRUCT(letter, numbers[OFFSET(letters_offset)] AS number)
-) AS pairs
-FROM combinations, UNNEST(letters) AS letter WITH OFFSET AS letters_offset;
+WITH
+  combinations AS (
+    SELECT
+      ['a', 'b'] AS letters,
+      [1, 2, 3] AS numbers
+  )
+SELECT
+  ARRAY(
+    SELECT AS STRUCT
+      letters[SAFE_OFFSET(index)] AS letter,
+      numbers[SAFE_OFFSET(index)] AS number
+    FROM combinations
+    CROSS JOIN
+      UNNEST(
+        GENERATE_ARRAY(
+          0,
+          LEAST(ARRAY_LENGTH(letters), ARRAY_LENGTH(numbers)) - 1)) AS index
+    ORDER BY index
+  );
 
 +------------------------------+
 | pairs                        |
@@ -1547,6 +1554,40 @@ FROM combinations, UNNEST(letters) AS letter WITH OFFSET AS letters_offset;
 You can use input arrays of different lengths as long as the first array
 is equal to or less than the length of the second array. The zipped array
 will be the length of the shortest input array.
+
+To get a zipped array that includes all the elements even when the input arrays
+are different lengths, change `LEAST` to `GREATEST`. Elements of either array
+that have no associated element in the other array will be paired with `NULL`.
+
+```sql
+WITH
+  combinations AS (
+    SELECT
+      ['a', 'b'] AS letters,
+      [1, 2, 3] AS numbers
+  )
+SELECT
+  ARRAY(
+    SELECT AS STRUCT
+      letters[SAFE_OFFSET(index)] AS letter,
+      numbers[SAFE_OFFSET(index)] AS number
+    FROM combinations
+    CROSS JOIN
+      UNNEST(
+        GENERATE_ARRAY(
+          0,
+          GREATEST(ARRAY_LENGTH(letters), ARRAY_LENGTH(numbers)) - 1)) AS index
+    ORDER BY index
+  );
+
++-------------------------------+
+| pairs                         |
++-------------------------------+
+| [{ letter: "a", number: 1 },  |
+|  { letter: "b", number: 2 },  |
+|  { letter: null, number: 3 }] |
++-------------------------------+
+```
 
 ## Building arrays of arrays
 
@@ -1633,27 +1674,31 @@ SELECT ARRAY(
 
 [array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#array_type
 
-[unnest-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest
+[unnest-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
 
 [cross-join-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#cross_join
 
-[in-operators]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#in_operators
+[comma-cross-join-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#comma_cross_join
 
-[expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#expression_subqueries
+[correlated-join-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#correlated_join
 
-[casting]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#casting
+[in-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md#in_operators
 
-[array-function]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#array_functions
+[expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries.md
 
-[array-agg-function]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#array_agg
+[casting]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#casting
 
-[generate-array-function]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#generate_array
+[array-function]: https://github.com/google/zetasql/blob/master/docs/array_functions.md
 
-[generate-date-array]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#generate_date_array
+[array-agg-function]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#array_agg
 
-[offset-and-ordinal]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#offset_and_ordinal
+[generate-array-function]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#generate_array
 
-[flatten-operator]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#flatten
+[generate-date-array]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#generate_date_array
+
+[array-subscript-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#array_subscript_operator
+
+[flatten-operator]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#flatten
 
 <!-- mdlint on -->
 

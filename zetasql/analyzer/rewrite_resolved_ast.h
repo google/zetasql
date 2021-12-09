@@ -17,7 +17,6 @@
 #ifndef ZETASQL_ANALYZER_REWRITE_RESOLVED_AST_H_
 #define ZETASQL_ANALYZER_REWRITE_RESOLVED_AST_H_
 
-#include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/catalog.h"
@@ -27,17 +26,17 @@
 #include "absl/types/span.h"
 
 namespace zetasql {
-// Similar to RewriteResolvedAst() overload in analyzer.h, except that it allows
-// the caller to supply an explicit list of rewriters, rather than being
-// constrained to a predefined set.
+// Similar to RewriteResolvedAst() in analyzer.h, except that it does
+// not register rewriters before executing. Instead, it assumes that all the
+// rewriters have already been registered. This is to prevent a dependency
+// cycle of the following form:
 //
-// TODO: Move this to analyzer.h once it's stable enough to no longer
-// require BUILD visibility restrictions.
-absl::Status RewriteResolvedAst(const AnalyzerOptions& analyzer_options,
-                                absl::Span<const Rewriter* const> rewriters,
-                                absl::string_view sql, Catalog* catalog,
-                                TypeFactory* type_factory,
-                                AnalyzerOutput& analyzer_output);
+// (some rewriter class) -> internal analyzer -> InternalRewriteResolvedAst ->
+// RegisterAllRewriters -> (some rewriter class)
+absl::Status InternalRewriteResolvedAst(const AnalyzerOptions& analyzer_options,
+                                        absl::string_view sql, Catalog* catalog,
+                                        TypeFactory* type_factory,
+                                        AnalyzerOutput& analyzer_output);
 }  // namespace zetasql
 
 #endif  // ZETASQL_ANALYZER_REWRITE_RESOLVED_AST_H_

@@ -43,6 +43,7 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/validator.h"
+#include "absl/base/attributes.h"
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
@@ -307,16 +308,22 @@ absl::Status AnalyzeExpression(absl::string_view sql,
                                const AnalyzerOptions& options, Catalog* catalog,
                                TypeFactory* type_factory,
                                std::unique_ptr<const AnalyzerOutput>* output) {
-  return InternalAnalyzeExpression(sql, options, AllRewriters(), catalog,
-                                   type_factory, nullptr, output);
+  // The internal analyzer cannot call RegisterBuiltinRewriters because it
+  // would create a dependency cycle.
+  RegisterBuiltinRewriters();
+  return InternalAnalyzeExpression(sql, options, catalog, type_factory, nullptr,
+                                   output);
 }
 
 absl::Status AnalyzeExpressionForAssignmentToType(
     absl::string_view sql, const AnalyzerOptions& options, Catalog* catalog,
     TypeFactory* type_factory, const Type* target_type,
     std::unique_ptr<const AnalyzerOutput>* output) {
-  return InternalAnalyzeExpression(sql, options, AllRewriters(), catalog,
-                                   type_factory, target_type, output);
+  // The internal analyzer cannot call RegisterBuiltinRewriters because it
+  // would create a dependency cycle.
+  RegisterBuiltinRewriters();
+  return InternalAnalyzeExpression(sql, options, catalog, type_factory,
+                                   target_type, output);
 }
 
 absl::Status AnalyzeExpressionFromParserAST(
@@ -334,9 +341,12 @@ absl::Status AnalyzeExpressionFromParserASTForAssignmentToType(
     const Type* target_type, std::unique_ptr<const AnalyzerOutput>* output) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
+  // The internal analyzer cannot call RegisterBuiltinRewriters because it
+  // would create a dependency cycle.
+  RegisterBuiltinRewriters();
   const absl::Status status = InternalAnalyzeExpressionFromParserAST(
-      ast_expression, /*parser_output=*/nullptr, sql, options,
-      AllRewriters(), catalog, type_factory, target_type, output);
+      ast_expression, /*parser_output=*/nullptr, sql, options, catalog,
+      type_factory, target_type, output);
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), sql, status);
 }
@@ -551,21 +561,30 @@ absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
     const std::unique_ptr<const AnalyzerOutput>& analyzer_output,
     const AnalyzerOptions& analyzer_options, Catalog* catalog,
     TypeFactory* type_factory) {
-  ZETASQL_RET_CHECK_NE(analyzer_output->resolved_statement(), nullptr);
+  ZETASQL_RET_CHECK_NE(analyzer_output.get(), nullptr);
+  return RewriteForAnonymization(*analyzer_output, analyzer_options, catalog,
+                                 type_factory);
+}
 
-  ColumnFactory column_factory(analyzer_output->max_column_id(),
-                               analyzer_output->id_string_pool().get(),
+absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
+    const AnalyzerOutput& analyzer_output,
+    const AnalyzerOptions& analyzer_options, Catalog* catalog,
+    TypeFactory* type_factory) {
+  ZETASQL_RET_CHECK_NE(analyzer_output.resolved_statement(), nullptr);
+
+  ColumnFactory column_factory(analyzer_output.max_column_id(),
+                               analyzer_output.id_string_pool().get(),
                                analyzer_options.column_id_sequence_number());
   ZETASQL_ASSIGN_OR_RETURN(
       RewriteForAnonymizationOutput anonymized_output,
-      RewriteForAnonymization(*analyzer_output->resolved_statement(), catalog,
+      RewriteForAnonymization(*analyzer_output.resolved_statement(), catalog,
                               type_factory, analyzer_options, column_factory));
   Validator validator(analyzer_options.language());
   ZETASQL_RET_CHECK(anonymized_output.node->Is<ResolvedStatement>());
   ZETASQL_RETURN_IF_ERROR(validator.ValidateResolvedStatement(
       anonymized_output.node->GetAs<ResolvedStatement>()));
   AnalyzerOutputProperties analyzer_output_properties_with_map(
-      analyzer_output->analyzer_output_properties());
+      analyzer_output.analyzer_output_properties());
   analyzer_output_properties_with_map
       .resolved_table_scan_to_anonymized_aggregate_scan_map =
       anonymized_output.table_scan_to_anon_aggr_scan_map;
@@ -575,13 +594,13 @@ absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
   // Arena from <analyzer_output>, and we also copy the deprecation warnings
   // and parameter info from the <analyzer_output>.
   return absl::make_unique<AnalyzerOutput>(
-      analyzer_output->id_string_pool(), analyzer_output->arena(),
+      analyzer_output.id_string_pool(), analyzer_output.arena(),
       absl::WrapUnique(
           anonymized_output.node.release()->GetAs<ResolvedStatement>()),
       analyzer_output_properties_with_map,
-      /*parser_output=*/nullptr, analyzer_output->deprecation_warnings(),
-      analyzer_output->undeclared_parameters(),
-      analyzer_output->undeclared_positional_parameters(),
+      /*parser_output=*/nullptr, analyzer_output.deprecation_warnings(),
+      analyzer_output.undeclared_parameters(),
+      analyzer_output.undeclared_positional_parameters(),
       column_factory.max_column_id());
 }
 
@@ -589,8 +608,11 @@ absl::Status RewriteResolvedAst(const AnalyzerOptions& analyzer_options,
                                 absl::string_view sql, Catalog* catalog,
                                 TypeFactory* type_factory,
                                 AnalyzerOutput& analyzer_output) {
-  return RewriteResolvedAst(analyzer_options, AllRewriters(), sql, catalog,
-                            type_factory, analyzer_output);
+  // InternalRewriteResolvedAst cannot call RegisterBuiltinRewriters because it
+  // would create a dependency cycle.
+  RegisterBuiltinRewriters();
+  return InternalRewriteResolvedAst(analyzer_options, sql, catalog,
+                                    type_factory, analyzer_output);
 }
 
 }  // namespace zetasql

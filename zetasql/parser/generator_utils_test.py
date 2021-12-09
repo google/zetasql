@@ -16,11 +16,21 @@
 
 """Tests for generator_utils."""
 from zetasql.parser.generator_utils import CleanIndent
+from zetasql.parser.generator_utils import JavaDoc
+from zetasql.parser.generator_utils import LowerCamelCase
 from zetasql.parser.generator_utils import Trim
+from zetasql.parser.generator_utils import UpperCamelCase
 from absl.testing import absltest
 
 
 class GeneratorUtilsTest(absltest.TestCase):
+
+  long_comment = """
+    First line of comment, often rather short.
+
+    Sometimes there is a much longer, rambling, multiline continuation which
+    has a lot more detail.
+      """
 
   def test_trim(self):
     untrimmed = '\n\n\nbrevity   \n\n\nis the soul \n\nof wit\n\n\n\n\n'
@@ -28,18 +38,28 @@ class GeneratorUtilsTest(absltest.TestCase):
     self.assertEqual(expected, Trim(untrimmed))
 
   def test_clean_indent(self):
-    comment = """
-    First line of comment, often rather short.
-
-    Sometimes there is a much longer, rambling, multiline continuation which
-    has a lot more detail.
-      """
     expected = """// First line of comment, often rather short.
 //\u0020
 // Sometimes there is a much longer, rambling, multiline continuation which
 // has a lot more detail."""
-    self.assertEqual(expected, CleanIndent(comment, prefix='// '))
+    self.assertEqual(expected, CleanIndent(self.long_comment, prefix='// '))
 
+  def test_javadoc(self):
+    expected = """  /**
+   * First line of comment, often rather short.
+   *\u0020
+   * <p> Sometimes there is a much longer, rambling, multiline continuation which
+   * has a lot more detail.
+   */"""
+    self.assertEqual(expected, JavaDoc(self.long_comment, 2))
+
+  def test_lower_camel_case(self):
+    self.assertEqual('larryCurlyMoe', LowerCamelCase('LARRY_CURLY_MOE'))
+    self.assertEqual('larryCurlyMoe', LowerCamelCase('larry_curly_moe'))
+
+  def test_upper_camel_case(self):
+    self.assertEqual('LarryCurlyMoe', UpperCamelCase('LARRY_CURLY_MOE'))
+    self.assertEqual('LarryCurlyMoe', UpperCamelCase('larry_curly_moe'))
 
 if __name__ == '__main__':
   absltest.main()

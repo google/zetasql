@@ -436,6 +436,10 @@ absl::Status CheckRangeBucketArguments(
 std::string AnonCountStarBadArgumentErrorPrefix(const FunctionSignature&,
                                                 int idx);
 
+// Construct FunctionOptions for aggregate functions with default settings for
+// an OVER clause.
+FunctionOptions DefaultAggregateFunctionOptions();
+
 // Returns true if an arithmetic operation has a floating point type as its
 // input.
 bool HasFloatingPointArgument(const FunctionSignature& matched_signature,
@@ -691,6 +695,9 @@ void GetTypeOfFunction(TypeFactory* type_factory,
                        const ZetaSQLBuiltinFunctionOptions& options,
                        NameToFunctionMap* functions);
 
+void GetFilterFieldsFunction(TypeFactory* type_factory,
+                             const ZetaSQLBuiltinFunctionOptions& options,
+                             NameToFunctionMap* functions);
 }  // namespace zetasql
 
 #endif  // ZETASQL_COMMON_BUILTIN_FUNCTION_INTERNAL_H_

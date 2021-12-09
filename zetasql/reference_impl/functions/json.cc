@@ -150,10 +150,11 @@ absl::StatusOr<Value> JsonExtractJson(
     }
   } else {
     absl::optional<JSONValueConstRef> output_json_or;
+    JSONValue input_json;
     if (json.is_validated_json()) {
       output_json_or = evaluator.Extract(json.json_value());
     } else {
-      ZETASQL_ASSIGN_OR_RETURN(JSONValue input_json,
+      ZETASQL_ASSIGN_OR_RETURN(input_json,
                        JSONValue::ParseJSONString(json.json_value_unparsed(),
                                                   parsing_options));
       output_json_or = evaluator.Extract(input_json.GetConstRef());
@@ -320,10 +321,11 @@ absl::StatusOr<Value> JsonExtractArrayJson(
     const functions::JsonPathEvaluator& evaluator, const Value& json,
     JSONParsingOptions parsing_options) {
   absl::optional<std::vector<JSONValueConstRef>> output;
+  JSONValue input_json;
   if (json.is_validated_json()) {
     output = evaluator.ExtractArray(json.json_value());
   } else {
-    ZETASQL_ASSIGN_OR_RETURN(JSONValue input_json,
+    ZETASQL_ASSIGN_OR_RETURN(input_json,
                      JSONValue::ParseJSONString(json.json_value_unparsed(),
                                                 parsing_options));
     output = evaluator.ExtractArray(input_json.GetConstRef());

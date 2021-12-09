@@ -1,7 +1,5 @@
 
 
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
-
 # User-defined functions
 
 ZetaSQL
@@ -478,7 +476,7 @@ FROM UNNEST(["ab-c", "d_e", "!"]) AS val;
 ```
 
 ### Supported external UDF types 
-<a id="supported-external-udf-data-types"></a>
+<a id="supported_external_udf_data_types"></a>
 
 ## TVFs {#tvfs}
 
@@ -525,7 +523,7 @@ column_declaration:
     as `js` for JavaScript. `string_literal` represents the code that defines
     the function body.
 
-### Specifying TVF arguments {#tvf-arguments}
+### Specifying TVF arguments {#tvf_arguments}
 
 When a TVF with parameters is called, arguments must be passed in for all
 parameters that do not have defaults. An argument can be of any supported
@@ -682,17 +680,33 @@ FROM
     TABLE MyCustomerTable)
 ```
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [table-valued function]: #tvfs
-[aggregate-udf-parameters]: #aggregate-udf-parameters
-[templated-parameters]: #templated-sql-udf-parameters
-[supported-external-udf-data-types]: #supported-external-udf-data-types
-[ext-udf-syntax]: #external-udf-structure
-[sql-udf-syntax]: #sql-udf-structure
-[tvf-syntax]: #tvf-structure
-[javascript-data-types]: #supported-javascript-udf-data-types
+
+[tvf-syntax]: #tvf_structure
+
+[templated-parameters]: #templated_sql_udf_parameters
+
+[supported-external-udf-data-types]: #supported_external_udf_data_types
+
+[ext-udf-syntax]: #external_udf_structure
+
+[sql-udf-syntax]: #sql_udf_structure
+
+[javascript-data-types]: #javascript_udf_data_types
+
 [data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
+
 [data-types-struct]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct_type
-[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value-tables
+
+[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value_tables
+
+[aggregate-udf-parameters]: #aggregate_udf_parameters
+
 [group-by-link]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#group_by_clause
+
 [aggregate-fns-link]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md
+
+<!-- mdlint on -->
 

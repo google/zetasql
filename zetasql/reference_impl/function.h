@@ -35,6 +35,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
+#include "zetasql/reference_impl/common.h"
 #include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/tuple.h"
@@ -208,6 +209,7 @@ enum class FunctionKind {
   kToJsonString,
   kParseJson,
   kInt64,
+  kDouble,
   kBool,
   kJsonType,
   // Proto functions
@@ -518,7 +520,8 @@ class BuiltinAggregateFunction : public AggregateFunctionBody {
   std::string debug_name() const override;
 
   absl::StatusOr<std::unique_ptr<AggregateAccumulator>> CreateAccumulator(
-      absl::Span<const Value> args, EvaluationContext* context) const override;
+      absl::Span<const Value> args, CollatorList collator_list,
+      EvaluationContext* context) const override;
 
  private:
   const FunctionKind kind_;
@@ -535,7 +538,8 @@ class BinaryStatFunction : public BuiltinAggregateFunction {
   BinaryStatFunction& operator=(const BinaryStatFunction&) = delete;
 
   absl::StatusOr<std::unique_ptr<AggregateAccumulator>> CreateAccumulator(
-      absl::Span<const Value> args, EvaluationContext* context) const override;
+      absl::Span<const Value> args, CollatorList collator_list,
+      EvaluationContext* context) const override;
 };
 
 class UserDefinedScalarFunction : public ScalarFunctionBody {
@@ -976,7 +980,8 @@ class MakeProtoFunction : public SimpleBuiltinScalarFunction {
 // the root object must be added before evaluation.
 class FilterFieldsFunction : public SimpleBuiltinScalarFunction {
  public:
-  explicit FilterFieldsFunction(const Type* output_type);
+  FilterFieldsFunction(const Type* output_type,
+                       bool reset_cleared_required_fields);
 
   ~FilterFieldsFunction() final;
 
@@ -1013,6 +1018,7 @@ class FilterFieldsFunction : public SimpleBuiltinScalarFunction {
       google::protobuf::Message* message) const;
 
   std::unique_ptr<FieldPathTrieNode> root_node_;
+  const bool reset_cleared_required_fields_;
 };
 
 // This class is used to evaluate the REPLACE_FIELDS() SQL function, given

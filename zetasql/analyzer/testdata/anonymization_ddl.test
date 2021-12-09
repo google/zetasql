@@ -1,5 +1,5 @@
 [default language_features=ANONYMIZATION,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION]
-[default enable_ast_rewrites]
+[default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 CREATE MODEL foo_model AS
 SELECT anon_count(*) AS anon_count
 FROM SimpleTypesWithAnonymizationUid;
@@ -185,6 +185,7 @@ CreateTableFunctionStmt
 # Create a TVF that takes a (templated and non-templated) table argument that
 # we want to do an anonymization query over.
 [no_java]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 CREATE TABLE FUNCTION foo_tvf(table_arg {{table<a int64>|ANY TABLE}}) AS
 SELECT anon_count(*) AS anon_count
 FROM table_arg;
@@ -193,6 +194,7 @@ ALTERNATION GROUP: table<a int64>
 --
 [PRE-REWRITE AST]
 CreateTableFunctionStmt
++-parse_location=22-29
 +-name_path=foo_tvf
 +-argument_name_list=[table_arg]
 +-signature=(TABLE<a INT64> table_arg) -> TABLE<anon_count INT64>
@@ -200,22 +202,33 @@ CreateTableFunctionStmt
 +-code="SELECT anon_count(*) AS anon_count\nFROM table_arg"
 +-query=
 | +-ProjectScan
+|   +-parse_location=59-108
 |   +-column_list=[$aggregate.anon_count#2]
 |   +-input_scan=
 |     +-AnonymizedAggregateScan
 |       +-column_list=[$aggregate.anon_count#2]
 |       +-input_scan=
-|       | +-RelationArgumentScan(name="table_arg")
+|       | +-RelationArgumentScan(parse_location=99-108, name="table_arg")
 |       +-aggregate_list=
-|         +-anon_count#2 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+|         +-anon_count#2 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)(parse_location=66-76)
 +-output_column_list=
   +-$aggregate.anon_count#2 AS anon_count [INT64]
+[REPLACED_LITERALS]
+CREATE TABLE FUNCTION foo_tvf(table_arg table<a int64>) AS
+SELECT anon_count(*) AS anon_count
+FROM table_arg;
 
-Rewrite ERROR: Unsupported scan type inside of SELECT WITH ANONYMIZATION from clause: ResolvedRelationArgumentScan
+Rewrite ERROR: Unsupported scan type inside of SELECT WITH ANONYMIZATION from clause: ResolvedRelationArgumentScan [at 3:6]
+FROM table_arg;
+     ^
 --
 ALTERNATION GROUP: ANY TABLE
 --
-CreateTableFunctionStmt(name_path=foo_tvf, argument_name_list=[table_arg], signature=(ANY TABLE table_arg) -> ANY TABLE, language="SQL", code="SELECT anon_count(*) AS anon_count\nFROM table_arg")
+CreateTableFunctionStmt(parse_location=22-29, name_path=foo_tvf, argument_name_list=[table_arg], signature=(ANY TABLE table_arg) -> ANY TABLE, language="SQL", code="SELECT anon_count(*) AS anon_count\nFROM table_arg")
+[REPLACED_LITERALS]
+CREATE TABLE FUNCTION foo_tvf(table_arg ANY TABLE) AS
+SELECT anon_count(*) AS anon_count
+FROM table_arg;
 ==
 
 # CREATE a TVF where we want to pass in the epsilon and k_threshold values
@@ -296,6 +309,7 @@ CreateTableFunctionStmt
 # Combination of the last 2 tests - pass in a TABLE argument and the epsilon
 # and k_threshold arguments as input to the TVF.
 [no_java]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 CREATE TABLE FUNCTION foo_tvf(table_arg {{table<a int64>|ANY TABLE}},
                               e DOUBLE, k INT64) AS
 SELECT WITH ANONYMIZATION OPTIONS(epsilon=(e), k_threshold=(k))
@@ -306,6 +320,7 @@ ALTERNATION GROUP: table<a int64>
 --
 [PRE-REWRITE AST]
 CreateTableFunctionStmt
++-parse_location=22-29
 +-name_path=foo_tvf
 +-argument_name_list=[table_arg, e, k]
 +-signature=(TABLE<a INT64> table_arg, DOUBLE e, INT64 k) -> TABLE<anon_count INT64>
@@ -313,25 +328,44 @@ CreateTableFunctionStmt
 +-code="SELECT WITH ANONYMIZATION OPTIONS(epsilon=(e), k_threshold=(k))\n    anon_count(*) AS anon_count\nFROM table_arg"
 +-query=
 | +-ProjectScan
+|   +-parse_location=108-218
 |   +-column_list=[$aggregate.anon_count#2]
 |   +-input_scan=
 |     +-AnonymizedAggregateScan
 |       +-column_list=[$aggregate.anon_count#2]
 |       +-input_scan=
-|       | +-RelationArgumentScan(name="table_arg")
+|       | +-RelationArgumentScan(parse_location=209-218, name="table_arg")
 |       +-aggregate_list=
-|       | +-anon_count#2 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+|       | +-anon_count#2 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)(parse_location=176-186)
 |       +-anonymization_option_list=
-|         +-epsilon := ArgumentRef(type=DOUBLE, name="e")
-|         +-k_threshold := ArgumentRef(type=INT64, name="k")
+|         +-epsilon=
+|         | +-parse_location=142-153
+|         | +-ArgumentRef(parse_location=151-152, type=DOUBLE, name="e")
+|         +-k_threshold=
+|           +-parse_location=155-170
+|           +-ArgumentRef(parse_location=168-169, type=INT64, name="k")
 +-output_column_list=
   +-$aggregate.anon_count#2 AS anon_count [INT64]
+[REPLACED_LITERALS]
+CREATE TABLE FUNCTION foo_tvf(table_arg table<a int64>,
+                              e DOUBLE, k INT64) AS
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=(e), k_threshold=(k))
+    anon_count(*) AS anon_count
+FROM table_arg
 
-Rewrite ERROR: Unsupported scan type inside of SELECT WITH ANONYMIZATION from clause: ResolvedRelationArgumentScan
+Rewrite ERROR: Unsupported scan type inside of SELECT WITH ANONYMIZATION from clause: ResolvedRelationArgumentScan [at 5:6]
+FROM table_arg
+     ^
 --
 ALTERNATION GROUP: ANY TABLE
 --
-CreateTableFunctionStmt(name_path=foo_tvf, argument_name_list=[table_arg, e, k], signature=(ANY TABLE table_arg, DOUBLE e, INT64 k) -> ANY TABLE, language="SQL", code="SELECT WITH ANONYMIZATION OPTIONS(epsilon=(e), k_threshold=(k))\n    anon_count(*) AS anon_count\nFROM table_arg")
+CreateTableFunctionStmt(parse_location=22-29, name_path=foo_tvf, argument_name_list=[table_arg, e, k], signature=(ANY TABLE table_arg, DOUBLE e, INT64 k) -> ANY TABLE, language="SQL", code="SELECT WITH ANONYMIZATION OPTIONS(epsilon=(e), k_threshold=(k))\n    anon_count(*) AS anon_count\nFROM table_arg")
+[REPLACED_LITERALS]
+CREATE TABLE FUNCTION foo_tvf(table_arg ANY TABLE,
+                              e DOUBLE, k INT64) AS
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=(e), k_threshold=(k))
+    anon_count(*) AS anon_count
+FROM table_arg
 ==
 
 # Similar to the previous, but with a join to another table that has
@@ -350,6 +384,7 @@ CreateTableFunctionStmt(name_path=foo_tvf, argument_name_list=[table_arg, e, k],
 # the 'table_arg' should reflect the 'table1' properties, and whatever userid
 # is defined for 'table1' should be usable here inside the TVF SQL body.
 [no_java]
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 CREATE TABLE FUNCTION foo_tvf(table_arg {{table<a int64>|ANY TABLE}},
                               e DOUBLE, k INT64) AS
 SELECT WITH ANONYMIZATION OPTIONS(epsilon=(e), k_threshold=(k))
@@ -360,6 +395,7 @@ ALTERNATION GROUP: table<a int64>
 --
 [PRE-REWRITE AST]
 CreateTableFunctionStmt
++-parse_location=22-29
 +-name_path=foo_tvf
 +-argument_name_list=[table_arg, e, k]
 +-signature=(TABLE<a INT64> table_arg, DOUBLE e, INT64 k) -> TABLE<anon_count INT64>
@@ -367,6 +403,7 @@ CreateTableFunctionStmt
 +-code="SELECT WITH ANONYMIZATION OPTIONS(epsilon=(e), k_threshold=(k))\n    anon_count(*) AS anon_count\nFROM table_arg JOIN SimpleTypesWithAnonymizationUid t ON (table_arg.a = t.uid)"
 +-query=
 | +-ProjectScan
+|   +-parse_location=108-282
 |   +-column_list=[$aggregate.anon_count#14]
 |   +-input_scan=
 |     +-AnonymizedAggregateScan
@@ -375,26 +412,44 @@ CreateTableFunctionStmt
 |       | +-JoinScan
 |       |   +-column_list=[table_arg.a#1, SimpleTypesWithAnonymizationUid.uid#12]
 |       |   +-left_scan=
-|       |   | +-RelationArgumentScan(column_list=[table_arg.a#1], name="table_arg")
+|       |   | +-RelationArgumentScan(parse_location=209-218, column_list=[table_arg.a#1], name="table_arg")
 |       |   +-right_scan=
-|       |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="t")
+|       |   | +-TableScan(parse_location=224-255, column_list=[SimpleTypesWithAnonymizationUid.uid#12], table=SimpleTypesWithAnonymizationUid, column_index_list=[10], alias="t")
 |       |   +-join_expr=
 |       |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-|       |       +-ColumnRef(type=INT64, column=table_arg.a#1)
-|       |       +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#12)
+|       |       +-ColumnRef(parse_location=262-273, type=INT64, column=table_arg.a#1)
+|       |       +-ColumnRef(parse_location=276-281, type=INT64, column=SimpleTypesWithAnonymizationUid.uid#12)
 |       +-aggregate_list=
-|       | +-anon_count#14 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+|       | +-anon_count#14 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)(parse_location=176-186)
 |       +-anonymization_option_list=
-|         +-epsilon := ArgumentRef(type=DOUBLE, name="e")
-|         +-k_threshold := ArgumentRef(type=INT64, name="k")
+|         +-epsilon=
+|         | +-parse_location=142-153
+|         | +-ArgumentRef(parse_location=151-152, type=DOUBLE, name="e")
+|         +-k_threshold=
+|           +-parse_location=155-170
+|           +-ArgumentRef(parse_location=168-169, type=INT64, name="k")
 +-output_column_list=
   +-$aggregate.anon_count#14 AS anon_count [INT64]
+[REPLACED_LITERALS]
+CREATE TABLE FUNCTION foo_tvf(table_arg table<a int64>,
+                              e DOUBLE, k INT64) AS
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=(e), k_threshold=(k))
+    anon_count(*) AS anon_count
+FROM table_arg JOIN SimpleTypesWithAnonymizationUid t ON (table_arg.a = t.uid)
 
-Rewrite ERROR: Unsupported scan type inside of SELECT WITH ANONYMIZATION from clause: ResolvedRelationArgumentScan
+Rewrite ERROR: Unsupported scan type inside of SELECT WITH ANONYMIZATION from clause: ResolvedRelationArgumentScan [at 5:6]
+FROM table_arg JOIN SimpleTypesWithAnonymizationUid t ON (table_arg.a = t.uid)
+     ^
 --
 ALTERNATION GROUP: ANY TABLE
 --
-CreateTableFunctionStmt(name_path=foo_tvf, argument_name_list=[table_arg, e, k], signature=(ANY TABLE table_arg, DOUBLE e, INT64 k) -> ANY TABLE, language="SQL", code="SELECT WITH ANONYMIZATION OPTIONS(epsilon=(e), k_threshold=(k))\n    anon_count(*) AS anon_count\nFROM table_arg JOIN SimpleTypesWithAnonymizationUid t ON (table_arg.a = t.uid)")
+CreateTableFunctionStmt(parse_location=22-29, name_path=foo_tvf, argument_name_list=[table_arg, e, k], signature=(ANY TABLE table_arg, DOUBLE e, INT64 k) -> ANY TABLE, language="SQL", code="SELECT WITH ANONYMIZATION OPTIONS(epsilon=(e), k_threshold=(k))\n    anon_count(*) AS anon_count\nFROM table_arg JOIN SimpleTypesWithAnonymizationUid t ON (table_arg.a = t.uid)")
+[REPLACED_LITERALS]
+CREATE TABLE FUNCTION foo_tvf(table_arg ANY TABLE,
+                              e DOUBLE, k INT64) AS
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=(e), k_threshold=(k))
+    anon_count(*) AS anon_count
+FROM table_arg JOIN SimpleTypesWithAnonymizationUid t ON (table_arg.a = t.uid)
 ==
 
 CREATE MATERIALIZED VIEW foo_materialized_view AS

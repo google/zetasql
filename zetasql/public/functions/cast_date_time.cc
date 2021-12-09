@@ -779,14 +779,12 @@ absl::Status ParseTimeWithFormatElements(
   bool afternoon = false;
   absl::Duration subseconds = absl::ZeroDuration();
 
-  bool positive_timezone_offset;
-  int timezone_offset_hour;
-  int timezone_offset_min;
-  // Initialize timezone related fields with <now_info> which contains offset
-  // information from <default_timezone>.
-  GetSignHourAndMinuteTimeZoneOffset(now_info, &positive_timezone_offset,
-                                     &timezone_offset_hour,
-                                     &timezone_offset_min);
+  // Indicates whether TZH or TZM appears in the format string.
+  bool timezone_specified_in_format = false;
+
+  bool positive_timezone_offset = true;
+  int timezone_offset_hour = 0;
+  int timezone_offset_min = 0;
 
   bool error_in_parsing = false;
   ZETASQL_ASSIGN_OR_RETURN(const std::vector<DigitCountRange> digit_count_ranges,
@@ -994,6 +992,7 @@ absl::Status ParseTimeWithFormatElements(
       //   - for input "-09", the sign and hour value of output time zone are
       //     "-09".
       case FormatElementType::kTZH: {
+        timezone_specified_in_format = true;
         parsed_length = ParseWithFormatElementOfTypeTZH(
             timestamp_str_to_parse, digit_count_range,
             &positive_timezone_offset, &timezone_offset_hour);
@@ -1002,6 +1001,7 @@ absl::Status ParseTimeWithFormatElements(
       // Parses for the minute value of the time zone offset. For example, for
       // input "13", the minute value of output time zone is 13.
       case FormatElementType::kTZM:
+        timezone_specified_in_format = true;
         parsed_length = ParseInt(timestamp_str_to_parse,
                                  /*min_width=*/digit_count_range.min,
                                  /*max_width=*/digit_count_range.max, /*min=*/0,
@@ -1075,11 +1075,14 @@ absl::Status ParseTimeWithFormatElements(
   }
 
   absl::TimeZone timezone;
-  ZETASQL_RETURN_IF_ERROR(MakeTimeZone(
-      absl::StrFormat("%c%02d%02d", positive_timezone_offset ? '+' : '-',
-                      timezone_offset_hour, timezone_offset_min),
-      &timezone));
-
+  if (timezone_specified_in_format) {
+    ZETASQL_RETURN_IF_ERROR(MakeTimeZone(
+        absl::StrFormat("%c%02d%02d", positive_timezone_offset ? '+' : '-',
+                        timezone_offset_hour, timezone_offset_min),
+        &timezone));
+  } else {
+    timezone = default_timezone;
+  }
   *timestamp = timezone.At(cs).pre + subseconds;
   if (!IsValidTime(*timestamp)) {
     return MakeEvalError() << "The parsing result is out of valid time range";

@@ -19,6 +19,9 @@ syntax = "proto2";
 
 package zetasql;
 
+option java_package = "com.google.zetasql.parser";
+option java_multiple_files = true;
+
 // Defines schema object kinds used by a parser rule to indicate the parsed
 // object kind for ALTER and DROP statements.  These enum values are also
 // used in the generic ASTDropStatement to identify what type of object is

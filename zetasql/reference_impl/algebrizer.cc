@@ -65,7 +65,6 @@
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
-#include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
@@ -855,6 +854,14 @@ Algebrizer::AlgebrizeAggregateFnWithAlgebrizedArguments(
           ? AggregateArg::kDistinct
           : AggregateArg::kAll;
 
+  if (!aggregate_function->collation_list().empty() &&
+      distinctness != AggregateArg::kDistinct && kind != FunctionKind::kMin &&
+      kind != FunctionKind::kMax) {
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
+           << "Collation is not supported for aggregate function " << name
+           << " without DISTINCT";
+  }
+
   return AggregateArg::Create(
       variable, std::move(function), std::move(arguments), distinctness,
       std::move(having_expr), having_kind, std::move(order_keys),
@@ -1198,6 +1205,21 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeSubqueryExpr(
   }
 }
 
+absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeLetExpr(
+    const ResolvedLetExpr* let_expr) {
+  std::vector<std::unique_ptr<ExprArg>> assignments;
+  for (int i = 0; i < let_expr->assignment_list_size(); ++i) {
+    const VariableId assigned_var = variable_gen_->GetNewVariableName(
+        let_expr->assignment_list(i)->column().name());
+    ZETASQL_ASSIGN_OR_RETURN(auto assigned_value,
+                     AlgebrizeExpression(let_expr->assignment_list(i)->expr()));
+    assignments.emplace_back(
+        absl::make_unique<ExprArg>(assigned_var, std::move(assigned_value)));
+  }
+  ZETASQL_ASSIGN_OR_RETURN(auto expr, AlgebrizeExpression(let_expr->expr()));
+  return LetExpr::Create(std::move(assignments), std::move(expr));
+}
+
 absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeInArray(
     std::unique_ptr<ValueExpr> in_value,
     std::unique_ptr<ValueExpr> array_value) {
@@ -1387,6 +1409,11 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeExpression(
           val_op, AlgebrizeSubqueryExpr(expr->GetAs<ResolvedSubqueryExpr>()));
       break;
     }
+    case RESOLVED_LET_EXPR: {
+      ZETASQL_ASSIGN_OR_RETURN(val_op,
+                       AlgebrizeLetExpr(expr->GetAs<ResolvedLetExpr>()));
+      break;
+    }
     case RESOLVED_SYSTEM_VARIABLE: {
       const ResolvedSystemVariable* system_variable =
           expr->GetAs<ResolvedSystemVariable>();
@@ -1472,7 +1499,8 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeExpression(
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> root_expr,
                        AlgebrizeExpression(filter_fields->expr()));
       arguments.push_back(std::move(root_expr));
-      auto function = absl::make_unique<FilterFieldsFunction>(expr->type());
+      auto function = absl::make_unique<FilterFieldsFunction>(
+          expr->type(), filter_fields->reset_cleared_required_fields());
       for (const auto& filter_field_arg :
            filter_fields->filter_field_arg_list()) {
         ZETASQL_RETURN_IF_ERROR(
@@ -3441,7 +3469,8 @@ Algebrizer::AlgebrizeAnalyticFunctionCall(
            << " is not an analytic function";
   }
 
-  if (analytic_function_call->function()->mode() == Function::AGGREGATE) {
+  if (analytic_function_call->function()->mode() == Function::AGGREGATE &&
+      analytic_function_call->function()->SupportsWindowFraming()) {
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<AggregateArg> aggregate_arg,
         AlgebrizeAggregateFn(variable, absl::optional<AnonymizationOptions>(),

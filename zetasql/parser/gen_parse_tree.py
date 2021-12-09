@@ -34,8 +34,11 @@ import jinja2
 
 from zetasql.parser import ast_enums_pb2
 from zetasql.parser.generator_utils import CleanIndent
+from zetasql.parser.generator_utils import JavaDoc
+from zetasql.parser.generator_utils import LowerCamelCase
 from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
+from zetasql.parser.generator_utils import UpperCamelCase
 
 ROOT_NODE_NAME = 'ASTNode'
 
@@ -69,29 +72,50 @@ def NormalCamel(name):
     return name.replace('AST', 'Ast')
 
 
+def GetNodeKindOneOfValue(name):
+  """Convert a camel-case c++ ClassName to corresponding oneof proto enum.
+
+  Used to construct case constants for deserializing AnyASTxxx message for
+  abstract classes into the correct final class.
+
+  Args:
+    name: name of the C++ class.
+
+  Returns:
+    String constant formatted as the enum used in case statement.
+
+  """
+  return 'k' + NormalCamel(name) + 'Node'
+
+
 def NameToNodeKind(name):
   """Convert camel-case C++ ASTClassName to AST_CLASS_NAME in ASTNodeKind."""
   return _make_enum_name_re.sub(r'\1_\2', NormalCamel(name)).upper()
 
 SCALAR_BOOL = ScalarType(
     'bool',
+    java_type='boolean',
     cpp_default='false')
 
 SCALAR_BOOL_DEFAULT_TRUE = ScalarType(
     'bool',
+    java_type='boolean',
     cpp_default='true')
 
 SCALAR_STRING = ScalarType(
     'std::string',
+    java_type='String',
     proto_type='string')
 
 SCALAR_ID_STRING = ScalarType(
     'IdString',
+    java_type='String',
     proto_type='string')
 
 SCALAR_INT = ScalarType(
     'int',
     proto_type='int64',
+    java_type='long',
     cpp_default='0')
 
 # enum in type.proto
@@ -225,7 +249,6 @@ SCALAR_LOAD_INSERTION_MODE = EnumScalarType(
 # Each node field in a subclass is added to the children_ vector in ASTNode,
 # then additionally added to a type-specific field in the subclass using one
 # of these methods:
-# NONE:     This field should not be FieldLoaded
 # REQUIRED: The next node in the vector, which must exist, is used for this
 #           field.
 # OPTIONAL: The next node in the vector, if it exists, is used for this field.
@@ -241,14 +264,13 @@ SCALAR_LOAD_INSERTION_MODE = EnumScalarType(
 #           when the next node is !IsExpression().
 # See Add* methods in ast_node.h for further details.
 class FieldLoaderMethod(enum.Enum):
-  NONE = 0
-  REQUIRED = 1
-  OPTIONAL = 2
-  REST_AS_REPEATED = 3
-  OPTIONAL_EXPRESSION = 4
-  OPTIONAL_TYPE = 5
-  REPEATING_WHILE_IS_NODE_KIND = 6
-  REPEATING_WHILE_IS_EXPRESSION = 7
+  REQUIRED = 0
+  OPTIONAL = 1
+  REST_AS_REPEATED = 2
+  OPTIONAL_EXPRESSION = 3
+  OPTIONAL_TYPE = 4
+  REPEATING_WHILE_IS_NODE_KIND = 5
+  REPEATING_WHILE_IS_EXPRESSION = 6
 
 
 # Specifies visibility of a Field.
@@ -279,6 +301,7 @@ def Field(name,
             2, which should not change.
     field_loader: FieldLoaderMethod enum specifies which FieldLoader method
            to use for this field. Ignored when Node has gen_init_fields=False.
+           Not applicable to scalar types.
     comment: Comment for this field's public getter/setter method. Text will be
              stripped and de-indented.
     private_comment: Comment for the field in the protected/private section.
@@ -312,23 +335,30 @@ def Field(name,
                                      'gen_setters_and_getters is false')
     getter_override = 'override '
   if isinstance(ctype, ScalarType):
+    assert field_loader == FieldLoaderMethod.OPTIONAL, ('field_loader should '
+                                                        'not be specified for '
+                                                        'scalar field %s' %
+                                                        name)
     member_type = ctype.ctype
     cpp_default = ctype.cpp_default
     is_node_ptr = False
     node_kind = None
     element_storage_type = None
     proto_type = ctype.proto_type
-    if proto_type == 'Enums.SchemaObjectKind':
-      proto_type = 'SchemaObjectKind'
     if ctype.is_enum:
       is_enum = True
       enum_value = proto_type.replace('.', '_')
       if proto_type == 'Enums.SchemaObjectKind':
         proto_type = 'SchemaObjectKind'
         enum_value = 'SchemaObjectKind'
+        java_type = 'SchemaObjectKind'
+      else:
+        java_type = ctype.proto_type
     else:
       is_enum = False
       enum_value = None
+      java_type = ctype.java_type
+    full_java_type = java_type
   else:
     is_enum = False
     enum_value = None
@@ -339,17 +369,25 @@ def Field(name,
       member_type = 'absl::Span<%s const>' % element_storage_type
       cpp_default = ''
       is_node_ptr = False
+      java_type = ctype
+      full_java_type = 'ImmutableList<%s>' % java_type
     else:
       member_type = 'const %s*' % ctype
       cpp_default = 'nullptr'
       is_node_ptr = True
+      java_type = ctype
+      full_java_type = java_type
   return {
       'ctype': ctype,
+      'java_type': java_type,
+      'full_java_type': full_java_type,
       'cpp_default': cpp_default,
       'member_name': member_name,  # member variable name
       'name': name,  # name without trailing underscore
       'comment': CleanIndent(comment, prefix='  // '),
       'private_comment': CleanIndent(private_comment, prefix='  // '),
+      'private_javadoc': JavaDoc(private_comment, indent=4),
+      'javadoc': JavaDoc(comment, indent=4),
       'member_type': member_type,
       'is_node_ptr': is_node_ptr,
       'field_loader': field_loader.name,
@@ -373,6 +411,10 @@ Ancestor = collections.namedtuple('Ancestor', [
     'container_type'
 ])
 
+# InitField holds the attributes of a field needed to add it in InitFields().
+InitField = collections.namedtuple('InitField', [
+    'field_loader', 'member_name', 'node_kind'])
+
 
 class TreeGenerator(object):
   """Generates code to define tree objects.
@@ -395,13 +437,14 @@ class TreeGenerator(object):
               comment=None,
               use_custom_debug_string=False,
               custom_debug_string_comment=None,
+              init_fields_order=None,
               gen_init_fields=None):
     """Add a node class to be generated.
 
     Args:
       name: class name for this node
       tag_id: unique sequential id for this node, which should not change.
-          Next tag_id: 322
+          Next tag_id: 324
       parent: class name of the parent node
       is_abstract: true if this node is an abstract class
       fields: list of fields in this class; created with Field function
@@ -417,13 +460,17 @@ class TreeGenerator(object):
           SingleNodeDebugString method.
       custom_debug_string_comment: Optional comment for SingleNodeDebugString
           method.
-      gen_init_fields: If unset, generate a private InitFields() method whenever
-          the class has at least one ASTNode field. If a non-default
-          InitFields() implementation is provided in extra_private_defs, specify
-          False to prevent generating the default method. Specify True to force
-          generation of InitFields() unconditionally, such as in final classes
-          without fields when InitFields() has not been generated in a
-          superclass.
+      init_fields_order: Optional override to the default ordering of field
+          initialization, which must match the grammar as defined in
+          bison_parser.y. The generated method by default initializes all node
+          fields, including inherited fields, in order of declaration, starting
+          with the final class. To use a different order, specify a list
+          of field names here. Inherited fields which are marked optional may
+          be omitted if they are not used in the final class.
+      gen_init_fields: May be set to False in final classes to suppress
+          generation of a default InitFields() method, in which case a custom
+          InitFields() must be provide in extra_private_defs. Not applicable
+          to non-final classes.
     """
     enum_defs = self._GenEnums(name)
     proto_type = '%sProto' % name
@@ -433,9 +480,17 @@ class TreeGenerator(object):
     if is_abstract:
       class_final = ''
       proto_field_type = 'Any%sProto' % name
+      assert gen_init_fields is None, ('gen_init_fields cannot be used for '
+                                       'non-final class {}').format(name)
     else:
       class_final = 'final '
       proto_field_type = proto_type
+      if gen_init_fields is None:
+        gen_init_fields = True
+      elif not gen_init_fields:
+        assert ('void InitFields() final {' in extra_private_defs), (
+            'class {} must provide InitFields() in extra_private_defs when '
+            'gen_init_fields=False').format(name)
     node_kind = NameToNodeKind(name)
 
     visibility_types = ['public:', 'protected:', 'private:']
@@ -445,13 +500,6 @@ class TreeGenerator(object):
            ), 'visibility specifiers should not be used in extra_protected_defs'
     assert (type not in extra_private_defs for type in visibility_types
            ), 'visibility specifiers should not be used in extra_private_defs'
-
-    if gen_init_fields is None:
-      gen_init_fields = False
-      for field in fields:
-        if (field['is_node_ptr'] or field['is_vector']
-           ) and field['field_loader'] != 'NONE':
-          gen_init_fields = True
 
     has_private_fields = False
     has_protected_fields = False
@@ -495,6 +543,9 @@ class TreeGenerator(object):
         'tag_id': tag_id,
         'member_name': NameToNodeKind(name).lower(),
         'subclasses': {},  # {tag_id : NodeDict}
+        'node_kind_oneof_value': GetNodeKindOneOfValue(name),
+        'init_fields_order': init_fields_order,
+        'javadoc': JavaDoc(comment, 2),
     }
 
     self.nodes.append(node_dict)
@@ -543,14 +594,26 @@ class TreeGenerator(object):
     """
     assert not self.root_child_nodes
 
-    def TraverseToRoot(node, ancestors):
+    def TraverseToRoot(node, ancestors, init_fields):
       """Recursively ascend node's parents to build list of parents' subclasses.
+
+      Also builds a list of all the node's fields which need to be included
+      in InitFields().
 
       End recursion when root node is reached.
       Args:
         node: Node to search up from.
         ancestors: a dict built via recursion of tag_id->Ancester.
+        init_fields: A list of InitFields.
       """
+      # The list of init_fields is built from the lowest class first, adding
+      # fields according to order of declaration, then doing the same at
+      # each level up.
+      for field in node['fields']:
+        if field['is_node_ptr'] or field['is_vector']:
+          init_field = InitField(field['field_loader'], field['member_name'],
+                                 field['node_kind'])
+          init_fields.append(init_field)
       parent_name = node['parent']
       if parent_name != ROOT_NODE_NAME:
         parent_node = self._GetNodeByName(parent_name)
@@ -558,7 +621,7 @@ class TreeGenerator(object):
                             parent_node['proto_field_type'],
                             node['member_name'], node['proto_field_type'])
         ancestors[ancestor.tag_id] = ancestor
-        TraverseToRoot(parent_node, ancestors)
+        TraverseToRoot(parent_node, ancestors, init_fields)
         parent_subclasses = parent_node['subclasses']
       else:
         parent_subclasses = self.root_child_nodes
@@ -575,8 +638,22 @@ class TreeGenerator(object):
           field_node = self._GetNodeByName(ctype)
           field['proto_type'] = field_node['proto_field_type']
       ancestors = {}  #  {tag_id : Ancestor}
-      TraverseToRoot(node, ancestors)
+      init_fields = []
+      TraverseToRoot(node, ancestors, init_fields)
       node['ancestors'] = ancestors
+      if node['init_fields_order']:
+        init_fields_order_members = [
+            field + '_' for field in node['init_fields_order']
+        ]
+        init_fields_dict = {field.member_name: field for field in init_fields}
+        assert set(init_fields_order_members).issubset(init_fields_dict), (
+            'in class {} init_fields_order {} contains invalid field names not '
+            'present in {}').format(node['name'], node['init_fields_order'],
+                                    list(init_fields_dict.keys()))
+        init_fields = []
+        for field_name in init_fields_order_members:
+          init_fields.append(init_fields_dict[field_name])
+      node['init_fields'] = init_fields
 
   def Generate(
       self,
@@ -597,7 +674,8 @@ class TreeGenerator(object):
       return sorted(items, key=operator.itemgetter('tag_id'))
 
     jinja_env.filters['sort_by_tag_id'] = SortByTagId
-
+    jinja_env.filters['lower_camel_case'] = LowerCamelCase
+    jinja_env.filters['upper_camel_case'] = UpperCamelCase
     self._ComputeHierarchy()
 
     context = {
@@ -671,8 +749,7 @@ def main(argv):
           Field(
               'parenthesized',
               SCALAR_BOOL,
-              tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED)
+              tag_id=2)
       ])
 
   gen.AddNode(
@@ -821,8 +898,7 @@ def main(argv):
           Field(
               'parenthesized',
               SCALAR_BOOL,
-              tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED)
+              tag_id=2)
       ])
 
   gen.AddNode(
@@ -838,8 +914,6 @@ def main(argv):
 
   bool IsLeaf() const override { return true; }
       """,
-      # Triggers check that there were no children.
-      gen_init_fields=True,
       fields=[
           Field(
               'image',
@@ -878,8 +952,6 @@ def main(argv):
     return id_string_.ToStringView();
   }
       """,
-      # Triggers check that there were no children.
-      gen_init_fields=True,
       fields=[
           Field(
               'id_string',
@@ -1448,7 +1520,7 @@ def main(argv):
       ],
       extra_public_defs="""
   // Represents a parse error when parsing join expressions.
-  // See comments in file join_proccessor.h for more details.
+  // See comments in file join_processor.h for more details.
   struct ParseError {
     // The node where the error occurs.
     const ASTNode* error_node;
@@ -2334,7 +2406,6 @@ def main(argv):
       tag_id=73,
       parent='ASTNode',
       use_custom_debug_string=True,
-      gen_init_fields=True,
       fields=[
           Field(
               'nulls_first',
@@ -2785,7 +2856,6 @@ def main(argv):
               SCALAR_ANY_SOME_ALL_OP,
               tag_id=2),
       ],
-      gen_init_fields=True,
       extra_public_defs="""
   std::string GetSQLForOperator() const;
       """)
@@ -2794,8 +2864,7 @@ def main(argv):
       name='ASTParameterExprBase',
       tag_id=93,
       parent='ASTExpression',
-      is_abstract=True,
-      gen_init_fields=True)
+      is_abstract=True)
 
   gen.AddNode(
       name='ASTStatementList',
@@ -2942,7 +3011,6 @@ def main(argv):
       name='ASTTransactionReadWriteMode',
       tag_id=102,
       parent='ASTTransactionMode',
-      gen_init_fields=True,
       fields=[
           Field(
               'mode',
@@ -2995,7 +3063,6 @@ def main(argv):
       name='ASTCommitStatement',
       tag_id=106,
       parent='ASTStatement',
-      gen_init_fields=True,
       comment="""
       Represents a COMMIT statement.
       """)
@@ -3004,7 +3071,6 @@ def main(argv):
       name='ASTRollbackStatement',
       tag_id=107,
       parent='ASTStatement',
-      gen_init_fields=True,
       comment="""
       Represents a ROLLBACK statement.
       """)
@@ -3024,13 +3090,13 @@ def main(argv):
       name='ASTRunBatchStatement',
       tag_id=109,
       parent='ASTStatement',
-      gen_init_fields=True)
+      )
 
   gen.AddNode(
       name='ASTAbortBatchStatement',
       tag_id=110,
       parent='ASTStatement',
-      gen_init_fields=True)
+      )
 
   gen.AddNode(
       name='ASTDdlStatement',
@@ -4167,15 +4233,18 @@ def main(argv):
               'path_expr',
               'ASTPathExpression',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
+              field_loader=FieldLoaderMethod.REQUIRED,
+              visibility=Visibility.PROTECTED),
           Field(
               'for_system_time',
               'ASTForSystemTime',
-              tag_id=3),
+              tag_id=3,
+              visibility=Visibility.PROTECTED),
           Field(
               'where_clause',
               'ASTWhereClause',
-              tag_id=4),
+              tag_id=4,
+              visibility=Visibility.PROTECTED),
       ])
 
   gen.AddNode(
@@ -4663,7 +4732,6 @@ def main(argv):
       name='ASTTemplatedParameterType',
       tag_id=187,
       parent='ASTNode',
-      gen_init_fields=True,
       fields=[
           Field(
               'kind',
@@ -4675,7 +4743,6 @@ def main(argv):
       name='ASTDefaultLiteral',
       tag_id=188,
       parent='ASTExpression',
-      gen_init_fields=True,
       comment="""
       This represents the value DEFAULT that shows up in DML statements.
       It will not show up as a general expression anywhere else.
@@ -4729,7 +4796,7 @@ def main(argv):
       tag_id=192,
       parent='ASTNode',
       comment="""
-      "This represents {THEN RETURN} clause."
+      This represents the {THEN RETURN} clause.
       (broken link)
       """,
       fields=[
@@ -4805,7 +4872,6 @@ def main(argv):
       name='ASTNotNullColumnAttribute',
       tag_id=195,
       parent='ASTColumnAttribute',
-      gen_init_fields=True,
       extra_public_defs="""
   std::string SingleNodeSqlString() const override;
       """)
@@ -4814,7 +4880,6 @@ def main(argv):
       name='ASTHiddenColumnAttribute',
       tag_id=196,
       parent='ASTColumnAttribute',
-      gen_init_fields=True,
       extra_public_defs="""
   std::string SingleNodeSqlString() const override;
       """)
@@ -4824,7 +4889,6 @@ def main(argv):
       tag_id=197,
       parent='ASTColumnAttribute',
       use_custom_debug_string=True,
-      gen_init_fields=True,
       fields=[
           Field(
               'enforced',
@@ -5466,23 +5530,6 @@ def main(argv):
       """)
 
   gen.AddNode(
-      name='ASTFilterFieldsExpression',
-      tag_id=226,
-      parent='ASTExpression',
-      fields=[
-          Field(
-              'expr',
-              'ASTExpression',
-              tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED),
-          Field(
-              'arguments',
-              'ASTFilterFieldsArg',
-              tag_id=3,
-              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
-      ])
-
-  gen.AddNode(
       name='ASTReplaceFieldsArg',
       tag_id=227,
       parent='ASTNode',
@@ -5681,7 +5728,6 @@ def main(argv):
       tag_id=237,
       parent='ASTAlterAction',
       use_custom_debug_string=True,
-      gen_init_fields=True,
       comment="""
       ALTER table action for "DROP PRIMARY KEY" clause
       """,
@@ -5920,6 +5966,51 @@ def main(argv):
       """)
 
   gen.AddNode(
+      name='ASTAlterColumnSetDefaultAction',
+      tag_id=322,
+      parent='ASTAlterAction',
+      use_custom_debug_string=True,
+      comment="""
+      ALTER table action for "ALTER COLUMN SET DEFAULT" clause
+      """,
+      fields=[
+          Field(
+              'column_name',
+              'ASTIdentifier',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'default_expression',
+              'ASTExpression',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field('is_if_exists', SCALAR_BOOL, tag_id=4),
+      ],
+      extra_public_defs="""
+  std::string GetSQLForAlterAction() const override;
+      """)
+
+  gen.AddNode(
+      name='ASTAlterColumnDropDefaultAction',
+      tag_id=323,
+      parent='ASTAlterAction',
+      use_custom_debug_string=True,
+      comment="""
+      ALTER table action for "ALTER COLUMN DROP DEFAULT" clause
+      """,
+      fields=[
+          Field(
+              'column_name',
+              'ASTIdentifier',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field('is_if_exists', SCALAR_BOOL, tag_id=3),
+      ],
+      extra_public_defs="""
+  std::string GetSQLForAlterAction() const override;
+      """)
+
+  gen.AddNode(
       name='ASTAlterColumnDropNotNullAction',
       tag_id=246,
       parent='ASTAlterAction',
@@ -5978,6 +6069,44 @@ def main(argv):
               'restrictee_list',
               'ASTGranteeList',
               tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ],
+      extra_public_defs="""
+  std::string GetSQLForAlterAction() const override;
+      """)
+
+  gen.AddNode(
+      name='ASTAddToRestricteeListClause',
+      tag_id=328,
+      parent='ASTAlterAction',
+      comment="""
+      ALTER PRIVILEGE RESTRICTION action for "ADD (<restrictee_list>)" clause
+      """,
+      fields=[
+          Field('is_if_not_exists', SCALAR_BOOL, tag_id=2),
+          Field(
+              'restrictee_list',
+              'ASTGranteeList',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ],
+      extra_public_defs="""
+  std::string GetSQLForAlterAction() const override;
+      """)
+
+  gen.AddNode(
+      name='ASTRemoveFromRestricteeListClause',
+      tag_id=329,
+      parent='ASTAlterAction',
+      comment="""
+      ALTER PRIVILEGE RESTRICTION action for "REMOVE (<restrictee_list>)" clause
+      """,
+      fields=[
+          Field('is_if_exists', SCALAR_BOOL, tag_id=2),
+          Field(
+              'restrictee_list',
+              'ASTGranteeList',
+              tag_id=3,
               field_loader=FieldLoaderMethod.REQUIRED),
       ],
       extra_public_defs="""
@@ -6100,7 +6229,6 @@ def main(argv):
       tag_id=254,
       parent='ASTNode',
       use_custom_debug_string=True,
-      gen_init_fields=True,
       fields=[
           Field(
               'update_action',
@@ -6396,23 +6524,15 @@ def main(argv):
       fields=[
           Field(
               'string_label',
-              'ASTLeaf',
+              'ASTStringLiteral',
               tag_id=2,
               gen_setters_and_getters=False),
           Field(
               'int_label',
-              'ASTLeaf',
+              'ASTIntLiteral',
               tag_id=3,
               gen_setters_and_getters=False),
       ],
-      gen_init_fields=False,
-      extra_private_defs="""
-  void InitFields() final {
-    FieldLoader fl(this);
-    fl.AddOptional(&string_label_, AST_STRING_LITERAL);
-    fl.AddOptional(&int_label_, AST_INT_LITERAL);
-  }
-      """,
       extra_public_defs="""
   const ASTLeaf* label() const {
     if (string_label_ != nullptr) {
@@ -6460,23 +6580,24 @@ def main(argv):
               tag_id=2,
               visibility=Visibility.PROTECTED),
           Field(
-              'attributes',
-              'ASTColumnAttributeList',
-              tag_id=3,
-              visibility=Visibility.PROTECTED),
-          Field(
               'generated_column_info',
               'ASTGeneratedColumnInfo',
-              tag_id=4,
+              tag_id=3,
               visibility=Visibility.PROTECTED),
           Field(
               'default_expression',
               'ASTExpression',
-              tag_id=5,
+              tag_id=4,
+              field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION,
               visibility=Visibility.PROTECTED),
           Field(
               'collate',
               'ASTCollate',
+              tag_id=5,
+              visibility=Visibility.PROTECTED),
+          Field(
+              'attributes',
+              'ASTColumnAttributeList',
               tag_id=6,
               visibility=Visibility.PROTECTED),
           Field(
@@ -6485,7 +6606,6 @@ def main(argv):
               tag_id=7,
               visibility=Visibility.PROTECTED),
       ],
-      gen_init_fields=False,
       extra_public_defs="""
   // Helper method that returns true if the attributes()->values() contains an
   // ASTColumnAttribute with the node->kind() equal to 'node_kind'.
@@ -6516,22 +6636,7 @@ def main(argv):
               'ASTPathExpression',
               tag_id=2,
               field_loader=FieldLoaderMethod.REQUIRED),
-      ],
-      gen_init_fields=False,
-      extra_private_defs="""
-  void InitFields() final {
-    // Non-default InitFields() is needed because most of these fields are
-    // defined in the parent class.
-    FieldLoader fl(this);
-    fl.AddRequired(&type_name_);
-    fl.AddOptional(&type_parameters_, AST_TYPE_PARAMETER_LIST);
-    fl.AddOptional(&generated_column_info_, AST_GENERATED_COLUMN_INFO);
-    fl.AddOptionalExpression(&default_expression_);
-    fl.AddOptional(&collate_, AST_COLLATE);
-    fl.AddOptional(&attributes_, AST_COLUMN_ATTRIBUTE_LIST);
-    fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
-  }
-      """)
+      ])
 
   gen.AddNode(
       name='ASTArrayColumnSchema',
@@ -6543,22 +6648,7 @@ def main(argv):
               'ASTColumnSchema',
               tag_id=2,
               field_loader=FieldLoaderMethod.REQUIRED),
-      ],
-      gen_init_fields=False,
-      extra_private_defs="""
-  void InitFields() final {
-    // Non-default InitFields() is needed because most of these fields are
-    // defined in the parent class.
-    FieldLoader fl(this);
-    fl.AddRequired(&element_schema_);
-    fl.AddOptional(&type_parameters_, AST_TYPE_PARAMETER_LIST);
-    fl.AddOptional(&generated_column_info_, AST_GENERATED_COLUMN_INFO);
-    fl.AddOptionalExpression(&default_expression_);
-    fl.AddOptional(&collate_, AST_COLLATE);
-    fl.AddOptional(&attributes_, AST_COLUMN_ATTRIBUTE_LIST);
-    fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
-  }
-      """)
+      ])
 
   gen.AddNode(
       name='ASTTableConstraint',
@@ -6866,7 +6956,6 @@ def main(argv):
       tag_id=284,
       parent='ASTScriptStatement',
       is_abstract=True,
-      gen_init_fields=True,
       comment="""
       Base class shared by break and continue statements.
       """,
@@ -6918,6 +7007,35 @@ def main(argv):
       ])
 
   gen.AddNode(
+      name='ASTDropPrivilegeRestrictionStatement',
+      tag_id=326,
+      parent='ASTDdlStatement',
+      fields=[
+          Field(
+              'is_if_exists',
+              SCALAR_BOOL,
+              tag_id=2),
+          Field(
+              'column_privilege_list',
+              'ASTPrivileges',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'object_type',
+              'ASTIdentifier',
+              tag_id=4,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'name_path',
+              'ASTPathExpression',
+              tag_id=5,
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ],
+      extra_public_defs="""const ASTPathExpression*
+          GetDdlTarget() const override { return name_path_; }
+      """)
+
+  gen.AddNode(
       name='ASTDropRowAccessPolicyStatement',
       tag_id=287,
       parent='ASTDdlStatement',
@@ -6959,19 +7077,25 @@ def main(argv):
       tag_id=324,
       parent='ASTCreateStatement',
       fields=[
-          Field('is_or_replace', SCALAR_BOOL, tag_id=2),
-          Field('is_if_not_exists', SCALAR_BOOL, tag_id=3),
           Field(
               'column_privilege_list',
               'ASTPrivileges',
-              tag_id=4,
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'object_type',
+              'ASTIdentifier',
+              tag_id=3,
               field_loader=FieldLoaderMethod.REQUIRED),
           Field(
               'name_path',
               'ASTPathExpression',
-              tag_id=5,
+              tag_id=4,
               field_loader=FieldLoaderMethod.REQUIRED),
-          Field('restrict_to', 'ASTRestrictToClause', tag_id=6),
+          Field(
+              'restrict_to',
+              'ASTRestrictToClause',
+              tag_id=5),
       ],
       extra_public_defs="""
   const ASTPathExpression* GetDdlTarget() const override { return name_path_; }
@@ -7054,8 +7178,7 @@ def main(argv):
   gen.AddNode(
       name='ASTReturnStatement',
       tag_id=290,
-      parent='ASTScriptStatement',
-      gen_init_fields=True)
+      parent='ASTScriptStatement')
 
   gen.AddNode(
       name='ASTSingleAssignment',
@@ -7151,12 +7274,12 @@ def main(argv):
       tag_id=295,
       parent='ASTCreateStatement',
       is_abstract=True,
-      gen_init_fields=False,
       fields=[
           Field(
               'name',
               'ASTPathExpression',
               tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
               visibility=Visibility.PROTECTED),
           Field(
               'table_element_list',
@@ -7187,7 +7310,6 @@ def main(argv):
       name='ASTCreateTableStatement',
       tag_id=296,
       parent='ASTCreateTableStmtBase',
-      gen_init_fields=False,
       fields=[
           Field(
               'clone_data_source',
@@ -7210,27 +7332,23 @@ def main(argv):
               'ASTQuery',
               tag_id=6),
       ],
-      extra_private_defs="""
-  void InitFields() final {
-    FieldLoader fl(this);
-    fl.AddRequired(&name_);
-    fl.AddOptional(&table_element_list_, AST_TABLE_ELEMENT_LIST);
-    fl.AddOptional(&like_table_name_, AST_PATH_EXPRESSION);
-    fl.AddOptional(&clone_data_source_, AST_CLONE_DATA_SOURCE);
-    fl.AddOptional(&copy_data_source_, AST_COPY_DATA_SOURCE);
-    fl.AddOptional(&collate_, AST_COLLATE);
-    fl.AddOptional(&partition_by_, AST_PARTITION_BY);
-    fl.AddOptional(&cluster_by_, AST_CLUSTER_BY);
-    fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
-    fl.AddOptional(&query_, AST_QUERY);
-  }
-      """)
+      init_fields_order=[
+          'name',
+          'table_element_list',
+          'like_table_name',
+          'clone_data_source',
+          'copy_data_source',
+          'collate',
+          'partition_by',
+          'cluster_by',
+          'options_list',
+          'query',
+      ])
 
   gen.AddNode(
       name='ASTCreateExternalTableStatement',
       tag_id=297,
       parent='ASTCreateTableStmtBase',
-      gen_init_fields=False,
       fields=[
           Field(
               'with_partition_columns_clause',
@@ -7241,31 +7359,27 @@ def main(argv):
               'ASTWithConnectionClause',
               tag_id=3),
       ],
-      extra_private_defs="""
-  void InitFields() final {
-    FieldLoader fl(this);
-    fl.AddRequired(&name_);
-    fl.AddOptional(&table_element_list_, AST_TABLE_ELEMENT_LIST);
-    fl.AddOptional(&like_table_name_, AST_PATH_EXPRESSION);
-    fl.AddOptional(&collate_, AST_COLLATE);
-    fl.AddOptional(&with_partition_columns_clause_,
-                   AST_WITH_PARTITION_COLUMNS_CLAUSE);
-    fl.AddOptional(&with_connection_clause_, AST_WITH_CONNECTION_CLAUSE);
-    fl.AddRequired(&options_list_);
-  }
-      """)
+      init_fields_order=[
+          'name',
+          'table_element_list',
+          'like_table_name',
+          'collate',
+          'with_partition_columns_clause',
+          'with_connection_clause',
+          'options_list',
+      ])
 
   gen.AddNode(
       name='ASTCreateViewStatementBase',
       tag_id=298,
       parent='ASTCreateStatement',
       is_abstract=True,
-      gen_init_fields=False,
       fields=[
           Field(
               'name',
               'ASTPathExpression',
               tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
               visibility=Visibility.PROTECTED),
           Field(
               'column_list',
@@ -7281,6 +7395,7 @@ def main(argv):
               'query',
               'ASTQuery',
               tag_id=5,
+              field_loader=FieldLoaderMethod.REQUIRED,
               visibility=Visibility.PROTECTED),
           Field(
               'sql_security',
@@ -7306,22 +7421,17 @@ def main(argv):
       name='ASTCreateViewStatement',
       tag_id=299,
       parent='ASTCreateViewStatementBase',
-      gen_init_fields=False,
-      extra_private_defs="""
-  void InitFields() final {
-    FieldLoader fl(this);
-    fl.AddRequired(&name_);
-    fl.AddOptional(&column_list_, AST_COLUMN_LIST);
-    fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
-    fl.AddRequired(&query_);
-  }
-      """)
+      init_fields_order=[
+          'name',
+          'column_list',
+          'options_list',
+          'query',
+      ])
 
   gen.AddNode(
       name='ASTCreateMaterializedViewStatement',
       tag_id=300,
       parent='ASTCreateViewStatementBase',
-      gen_init_fields=False,
       fields=[
           Field(
               'partition_by',
@@ -7332,24 +7442,20 @@ def main(argv):
               'ASTClusterBy',
               tag_id=3),
       ],
-      extra_private_defs="""
-  void InitFields() final {
-    FieldLoader fl(this);
-    fl.AddRequired(&name_);
-    fl.AddOptional(&column_list_, AST_COLUMN_LIST);
-    fl.AddOptional(&partition_by_, AST_PARTITION_BY);
-    fl.AddOptional(&cluster_by_, AST_CLUSTER_BY);
-    fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
-    fl.AddRequired(&query_);
-  }
-      """)
+      init_fields_order=[
+          'name',
+          'column_list',
+          'partition_by',
+          'cluster_by',
+          'options_list',
+          'query',
+      ])
 
   gen.AddNode(
       name='ASTLoopStatement',
       tag_id=301,
       parent='ASTScriptStatement',
       is_abstract=True,
-      gen_init_fields=False,
       comment="""
       Base class for all loop statements (loop/end loop, while, foreach, etc.).
       Every loop has a body.
@@ -7367,6 +7473,7 @@ def main(argv):
               'body',
               'ASTStatementList',
               tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
               visibility=Visibility.PROTECTED,
               comment="""
               Required field
@@ -7380,7 +7487,6 @@ def main(argv):
       name='ASTWhileStatement',
       tag_id=302,
       parent='ASTLoopStatement',
-      gen_init_fields=False,
       comment="""
       Represents either:
         - LOOP...END LOOP (if condition is nullptr).  This is semantically
@@ -7392,25 +7498,22 @@ def main(argv):
               'condition',
               'ASTExpression',
               tag_id=2,
+              field_loader=FieldLoaderMethod.OPTIONAL_EXPRESSION,
               comment="""
               The <condition> is optional.  A null <condition> indicates a
               LOOP...END LOOP construct.
               """),
       ],
-      extra_private_defs="""
-  void InitFields() final {
-    FieldLoader fl(this);
-    fl.AddOptional(&label_, AST_LABEL);
-    fl.AddOptionalExpression(&condition_);
-    fl.AddRequired(&body_);
-  }
-      """)
+      init_fields_order=[
+          'label',
+          'condition',
+          'body',
+      ])
 
   gen.AddNode(
       name='ASTRepeatStatement',
       tag_id=303,
       parent='ASTLoopStatement',
-      gen_init_fields=False,
       comment="""
       Represents the statement REPEAT...UNTIL...END REPEAT.
       This is conceptually also called do-while.
@@ -7420,24 +7523,21 @@ def main(argv):
               'until_clause',
               'ASTUntilClause',
               tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
               comment="""
               Required field.
               """),
       ],
-      extra_private_defs="""
-  void InitFields() final {
-    FieldLoader fl(this);
-    fl.AddOptional(&label_, AST_LABEL);
-    fl.AddRequired(&body_);
-    fl.AddRequired(&until_clause_);
-  }
-      """)
+      init_fields_order=[
+          'label',
+          'body',
+          'until_clause',
+      ])
 
   gen.AddNode(
       name='ASTForInStatement',
       tag_id=304,
       parent='ASTLoopStatement',
-      gen_init_fields=False,
       comment="""
       Represents the statement FOR...IN...DO...END FOR.
       This is conceptually also called for-each.
@@ -7446,28 +7546,26 @@ def main(argv):
           Field(
               'variable',
               'ASTIdentifier',
+              field_loader=FieldLoaderMethod.REQUIRED,
               tag_id=2),
           Field(
               'query',
               'ASTQuery',
+              field_loader=FieldLoaderMethod.REQUIRED,
               tag_id=3),
       ],
-      extra_private_defs="""
-  void InitFields() final {
-    FieldLoader fl(this);
-    fl.AddOptional(&label_, AST_LABEL);
-    fl.AddRequired(&variable_);
-    fl.AddRequired(&query_);
-    fl.AddRequired(&body_);
-  }
-      """)
+      init_fields_order=[
+          'label',
+          'variable',
+          'query',
+          'body',
+      ])
 
   gen.AddNode(
       name='ASTAlterStatementBase',
       tag_id=305,
       parent='ASTDdlStatement',
       is_abstract=True,
-      gen_init_fields=False,
       use_custom_debug_string=True,
       custom_debug_string_comment="""
       This adds the "if exists" modifier to the node name.
@@ -7480,11 +7578,13 @@ def main(argv):
               'path',
               'ASTPathExpression',
               tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
               visibility=Visibility.PROTECTED),
           Field(
               'action_list',
               'ASTAlterActionList',
               tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
               visibility=Visibility.PROTECTED),
           Field(
               'is_if_exists',
@@ -7499,112 +7599,77 @@ def main(argv):
   gen.AddNode(
       name='ASTAlterDatabaseStatement',
       tag_id=306,
-      parent='ASTAlterStatementBase',
-      gen_init_fields=False,
-      extra_private_defs="""
-  void InitFields() final {
-    FieldLoader fl(this);
-    fl.AddRequired(&path_);
-    fl.AddRequired(&action_list_);
-  }
-      """)
+      parent='ASTAlterStatementBase')
 
   gen.AddNode(
       name='ASTAlterSchemaStatement',
       tag_id=307,
-      parent='ASTAlterStatementBase',
-      gen_init_fields=False,
-      fields=[],
-      extra_private_defs="""
-  void InitFields() final {
-    FieldLoader fl(this);
-    fl.AddRequired(&path_);
-    fl.AddRequired(&action_list_);
-  }
-      """)
+      parent='ASTAlterStatementBase')
 
   gen.AddNode(
       name='ASTAlterTableStatement',
       tag_id=308,
-      parent='ASTAlterStatementBase',
-      gen_init_fields=False,
-      fields=[],
-      extra_private_defs="""
-  void InitFields() final {
-    FieldLoader fl(this);
-    fl.AddRequired(&path_);
-    fl.AddRequired(&action_list_);
-  }
-      """)
+      parent='ASTAlterStatementBase')
 
   gen.AddNode(
       name='ASTAlterViewStatement',
       tag_id=309,
-      parent='ASTAlterStatementBase',
-      gen_init_fields=False,
-      extra_private_defs="""
-  void InitFields() final {
-    FieldLoader fl(this);
-    fl.AddRequired(&path_);
-    fl.AddRequired(&action_list_);
-  }
-      """)
+      parent='ASTAlterStatementBase')
 
   gen.AddNode(
       name='ASTAlterMaterializedViewStatement',
       tag_id=310,
+      parent='ASTAlterStatementBase')
+
+  gen.AddNode(
+      name='ASTAlterPrivilegeRestrictionStatement',
+      tag_id=325,
       parent='ASTAlterStatementBase',
-      gen_init_fields=False,
-      extra_private_defs="""
-  void InitFields() final {
-    FieldLoader fl(this);
-    fl.AddRequired(&path_);
-    fl.AddRequired(&action_list_);
-  }
-      """)
+      fields=[
+          Field(
+              'column_privilege_list',
+              'ASTPrivileges',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+              comment="""
+              Required field.
+              """),
+          Field(
+              'object_type',
+              'ASTIdentifier',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED,
+              comment="""
+              Required field.
+              """),
+      ])
 
   gen.AddNode(
       name='ASTAlterRowAccessPolicyStatement',
       tag_id=311,
       parent='ASTAlterStatementBase',
-      gen_init_fields=False,
       fields=[
           Field(
               'name',
               'ASTIdentifier',
               tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
               comment="""
               Required field.
               """),
-      ],
-      extra_private_defs="""
-  void InitFields() final {
-    FieldLoader fl(this);
-    fl.AddRequired(&name_);
-    fl.AddRequired(&path_);
-    fl.AddRequired(&action_list_);
-  }
-      """)
+      ])
 
   gen.AddNode(
       name='ASTAlterEntityStatement',
       tag_id=312,
       parent='ASTAlterStatementBase',
-      gen_init_fields=False,
       fields=[
           Field(
               'type',
               'ASTIdentifier',
-              tag_id=2),
-      ],
-      extra_private_defs="""
-  void InitFields() final {
-    FieldLoader fl(this);
-    fl.AddRequired(&type_);
-    fl.AddRequired(&path_);
-    fl.AddRequired(&action_list_);
-  }
-      """)
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
 
   gen.AddNode(
       name='ASTCreateFunctionStmtBase',
@@ -7612,7 +7677,6 @@ def main(argv):
       parent='ASTCreateStatement',
       is_abstract=True,
       use_custom_debug_string=True,
-      gen_init_fields=False,
       comment="""
       This is the common superclass of CREATE FUNCTION and CREATE TABLE FUNCTION
       statements. It contains all fields shared between the two types of
@@ -7664,7 +7728,6 @@ def main(argv):
       tag_id=314,
       parent='ASTCreateFunctionStmtBase',
       use_custom_debug_string=True,
-      gen_init_fields=False,
       comment="""
    This may represent an "external language" function (e.g., implemented in a
    non-SQL programming language such as JavaScript), a "sql" function, or a
@@ -7679,6 +7742,7 @@ def main(argv):
           Field(
               'return_type',
               'ASTType',
+              field_loader=FieldLoaderMethod.OPTIONAL_TYPE,
               tag_id=2),
           Field(
               'sql_function_body',
@@ -7700,25 +7764,21 @@ def main(argv):
               'ASTWithConnectionClause',
               tag_id=6),
       ],
-      extra_private_defs="""
-  void InitFields() final {
-    FieldLoader fl(this);
-    fl.AddRequired(&function_declaration_);
-    fl.AddOptionalType(&return_type_);
-    fl.AddOptional(&language_, AST_IDENTIFIER);
-    fl.AddOptional(&with_connection_clause_, AST_WITH_CONNECTION_CLAUSE);
-    fl.AddOptional(&code_, AST_STRING_LITERAL);
-    fl.AddOptional(&sql_function_body_, AST_SQL_FUNCTION_BODY);
-    fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
-  }
-      """)
+      init_fields_order=[
+          'function_declaration',
+          'return_type',
+          'language',
+          'with_connection_clause',
+          'code',
+          'sql_function_body',
+          'options_list',
+      ])
 
   gen.AddNode(
       name='ASTCreateTableFunctionStatement',
       tag_id=315,
       parent='ASTCreateFunctionStmtBase',
       use_custom_debug_string=True,
-      gen_init_fields=False,
       comment="""
    This represents a table-valued function declaration statement in ZetaSQL,
    using the CREATE TABLE FUNCTION syntax. Note that some combinations of field
@@ -7736,56 +7796,31 @@ def main(argv):
               'ASTQuery',
               tag_id=3),
       ],
-      extra_private_defs="""
-  void InitFields() final {
-    FieldLoader fl(this);
-    fl.AddRequired(&function_declaration_);
-    fl.AddOptional(&return_tvf_schema_, AST_TVF_SCHEMA);
-    fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
-    fl.AddOptional(&language_, AST_IDENTIFIER);
-    fl.AddOptional(&code_, AST_STRING_LITERAL);
-    fl.AddOptional(&query_, AST_QUERY);
-  }
-      """)
+      init_fields_order=[
+          'function_declaration',
+          'return_tvf_schema',
+          'options_list',
+          'language',
+          'code',
+          'query',
+      ])
 
   gen.AddNode(
       name='ASTStructColumnSchema',
       tag_id=316,
       parent='ASTColumnSchema',
-      gen_init_fields=False,
       fields=[
           Field(
               'struct_fields',
               'ASTStructColumnField',
               tag_id=2,
               field_loader=FieldLoaderMethod.REPEATING_WHILE_IS_NODE_KIND),
-      ],
-      extra_private_defs="""
-  void InitFields() final {
-    FieldLoader fl(this);
-    fl.AddRepeatedWhileIsNodeKind(&struct_fields_, AST_STRUCT_COLUMN_FIELD);
-    fl.AddOptional(&type_parameters_, AST_TYPE_PARAMETER_LIST);
-    fl.AddOptional(&generated_column_info_, AST_GENERATED_COLUMN_INFO);
-    fl.AddOptionalExpression(&default_expression_);
-    fl.AddOptional(&collate_, AST_COLLATE);
-    fl.AddOptional(&attributes_, AST_COLUMN_ATTRIBUTE_LIST);
-    fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
-  }
-      """)
+      ])
 
   gen.AddNode(
       name='ASTInferredTypeColumnSchema',
       tag_id=317,
-      parent='ASTColumnSchema',
-      gen_init_fields=False,
-      extra_private_defs="""
-  void InitFields() final {
-    FieldLoader fl(this);
-    fl.AddRequired(&generated_column_info_);
-    fl.AddOptional(&attributes_, AST_COLUMN_ATTRIBUTE_LIST);
-    fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
-  }
-      """)
+      parent='ASTColumnSchema')
 
   gen.AddNode(
       name='ASTExecuteIntoClause',
@@ -7869,12 +7904,10 @@ def main(argv):
     Auxiliary statement used by some engines but not formally part of the
     ZetaSQL language.
       """,
-      gen_init_fields=False,
       fields=[
           Field(
               'insertion_mode',
               SCALAR_LOAD_INSERTION_MODE,
-              field_loader=FieldLoaderMethod.REQUIRED,
               tag_id=2),
           Field(
               'partition_by',
@@ -7887,6 +7920,7 @@ def main(argv):
           Field(
               'from_files',
               'ASTAuxLoadDataFromFilesOptionsList',
+              field_loader=FieldLoaderMethod.REQUIRED,
               tag_id=5),
           Field(
               'with_partition_columns_clause',
@@ -7897,21 +7931,17 @@ def main(argv):
               'ASTWithConnectionClause',
               tag_id=7),
       ],
-      extra_private_defs="""
-  void InitFields() final {
-    FieldLoader fl(this);
-    fl.AddRequired(&name_);
-    fl.AddOptional(&table_element_list_, AST_TABLE_ELEMENT_LIST);
-    fl.AddOptional(&collate_, AST_COLLATE);
-    fl.AddOptional(&partition_by_, AST_PARTITION_BY);
-    fl.AddOptional(&cluster_by_, AST_CLUSTER_BY);
-    fl.AddOptional(&options_list_, AST_OPTIONS_LIST);
-    fl.AddRequired(&from_files_);
-    fl.AddOptional(&with_partition_columns_clause_,
-                   AST_WITH_PARTITION_COLUMNS_CLAUSE);
-    fl.AddOptional(&with_connection_clause_, AST_WITH_CONNECTION_CLAUSE);
-  }
-      """)
+      init_fields_order=[
+          'name',
+          'table_element_list',
+          'collate',
+          'partition_by',
+          'cluster_by',
+          'options_list',
+          'from_files',
+          'with_partition_columns_clause',
+          'with_connection_clause',
+      ])
 
   gen.AddNode(
       name='ASTLabel',

@@ -24,13 +24,13 @@
 #include "zetasql/proto/options.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/base/case.h"
 #include "gtest/gtest_prod.h"
 #include "absl/base/attributes.h"
 #include "absl/base/macros.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
-#include "zetasql/base/case.h"
 #include "absl/strings/match.h"
 #include "zetasql/base/case.h"
 #include "zetasql/base/map_util.h"
@@ -42,8 +42,7 @@ namespace zetasql {
 // behavior differs by language version, flags, or other options.
 class LanguageOptions {
  public:
-  // Users may assume that this is set-like, but it may change to be unordered
-  // and unstable on insertion/erasure.
+  // Represetends a set of a language features.
   using LanguageFeatureSet = absl::flat_hash_set<LanguageFeature>;
 
   // Represents a set of keywords.
@@ -101,7 +100,7 @@ class LanguageOptions {
   // Returns whether or not <feature> is enabled.
   ABSL_MUST_USE_RESULT bool LanguageFeatureEnabled(
       LanguageFeature feature) const {
-    return zetasql_base::ContainsKey(enabled_language_features_, feature);
+    return enabled_language_features_.contains(feature);
   }
 
   // Set the ZetaSQL LanguageVersion.  This is equivalent to enabling the
@@ -188,7 +187,7 @@ class LanguageOptions {
   }
 
   bool GenericEntityTypeSupported(const std::string& type) const {
-    return zetasql_base::ContainsKey(supported_generic_entity_types_, type);
+    return supported_generic_entity_types_.contains(type);
   }
 
   bool operator==(const LanguageOptions& rhs) const {

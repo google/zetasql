@@ -1110,4 +1110,3 @@ language testlang as "return 's';"
 ERROR: Parameterized types are not supported in function arguments [at 1:38]
 create function fn( a int32, b string(10) ) returns string
                                      ^
-

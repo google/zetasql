@@ -170,8 +170,8 @@ absl::Status AllowedHintsAndOptions::Serialize(
       const std::string name_lower = absl::AsciiStrToLower(hint.first.second);
       const std::pair<std::string, std::string> unqualified_key =
           std::make_pair("", name_lower);
-      if (zetasql_base::ContainsKey(hints_lower, unqualified_key) &&
-          !zetasql_base::ContainsKey(serialized_unqualified_hints_lower, name_lower)) {
+      if (hints_lower.contains(unqualified_key) &&
+          !serialized_unqualified_hints_lower.contains(name_lower)) {
         const auto unqualified_hint = hints_lower.find(unqualified_key);
         if ((unqualified_hint->second == nullptr && hint.second == nullptr) ||
             (unqualified_hint->second != nullptr && hint.second != nullptr &&
@@ -188,8 +188,8 @@ absl::Status AllowedHintsAndOptions::Serialize(
   }
   for (const auto& hint : hints_lower) {
     if (hint.first.first.empty() &&
-        !zetasql_base::ContainsKey(serialized_unqualified_hints_lower,
-                          absl::AsciiStrToLower(hint.first.second))) {
+        !serialized_unqualified_hints_lower.contains(
+            absl::AsciiStrToLower(hint.first.second))) {
       auto* hint_proto = proto->add_hint();
       hint_proto->set_name(hint.first.second);
       hint_proto->set_allow_unqualified(true);
@@ -549,11 +549,17 @@ void AnalyzerOptions::SetDdlPseudoColumns(
     const std::vector<std::pair<std::string, const Type*>>&
         ddl_pseudo_columns) {
   ddl_pseudo_columns_ = ddl_pseudo_columns;
+  // We explicitly make the lambda capture a copy of ddl_pseudo_columns to be
+  // safe. If we capture by reference instead ("this" or "&"), then when a copy
+  // of AnalyzerOptions is made, the copied lambda would still point to
+  // references of the old AnalyzerOptions that may not exist anymore leading to
+  // memory errors.
   ddl_pseudo_columns_callback_ =
-      [this](const std::vector<std::string>& table_name,
-             const std::vector<const ResolvedOption*>& options,
-             std::vector<std::pair<std::string, const Type*>>* pseudo_columns) {
-        *pseudo_columns = ddl_pseudo_columns_;
+      [ddl_pseudo_columns](
+          const std::vector<std::string>& table_name,
+          const std::vector<const ResolvedOption*>& options,
+          std::vector<std::pair<std::string, const Type*>>* pseudo_columns) {
+        *pseudo_columns = ddl_pseudo_columns;
         return absl::OkStatus();
       };
 }
@@ -570,8 +576,8 @@ void AnalyzerOptions::enable_rewrite(ResolvedASTRewrite rewrite, bool enable) {
   }
 }
 
-absl::flat_hash_set<ResolvedASTRewrite> AnalyzerOptions::DefaultRewrites() {
-  absl::flat_hash_set<ResolvedASTRewrite> default_rewrites;
+absl::btree_set<ResolvedASTRewrite> AnalyzerOptions::DefaultRewrites() {
+  absl::btree_set<ResolvedASTRewrite> default_rewrites;
   const google::protobuf::EnumDescriptor* descriptor =
       google::protobuf::GetEnumDescriptor<ResolvedASTRewrite>();
   for (int i = 0; i < descriptor->value_count(); ++i) {

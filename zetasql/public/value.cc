@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <memory>
 #include <stack>
+#include <string>
 #include <utility>
 
 #include "zetasql/base/logging.h"
@@ -41,6 +42,7 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/types/value_equality_check_options.h"
 #include "zetasql/public/value_content.h"
 #include "absl/base/attributes.h"
 #include <cstdint>
@@ -79,9 +81,10 @@ using zetasql::types::Int32ArrayType;
 using zetasql::types::Int32Type;
 using zetasql::types::Int64ArrayType;
 using zetasql::types::Int64Type;
+using zetasql::types::JsonArrayType;
 using zetasql::types::NumericArrayType;
 using zetasql::types::NumericType;
-using zetasql::types::JsonArrayType;
+using zetasql::types::TimestampArrayType;
 using zetasql::types::StringArrayType;
 using zetasql::types::StringType;
 using zetasql::types::TimestampType;
@@ -228,40 +231,42 @@ static constexpr bool kDebugMode = false;
 static constexpr bool kDebugMode = true;
 #endif
 
-Value Value::ArrayInternal(bool safe, const ArrayType* array_type,
-                           OrderPreservationKind order_kind,
-                           std::vector<Value>&& values) {
-  Value result(array_type, /*is_null=*/false, order_kind);
-  result.list_ptr_ = new TypedList(array_type);
-  std::vector<Value>& value_list = result.list_ptr_->values();
-  value_list = std::move(values);
-  if (kDebugMode || safe) {
-    for (const Value& v : value_list) {
-      ZETASQL_CHECK(v.type()->Equals(array_type->element_type()))
+absl::StatusOr<Value> Value::MakeArrayInternal(bool already_validated,
+                                               const ArrayType* array_type,
+                                               OrderPreservationKind order_kind,
+                                               std::vector<Value> values) {
+  if (!already_validated || kDebugMode) {
+    for (const Value& v : values) {
+      ZETASQL_RET_CHECK(v.type()->Equals(array_type->element_type()))
           << "Array element " << v << " must be of type "
           << array_type->element_type()->DebugString();
     }
   }
+  Value result(array_type, /*is_null=*/false, order_kind);
+  result.list_ptr_ = new TypedList(array_type);
+  std::vector<Value>& value_list = result.list_ptr_->values();
+  value_list = std::move(values);
   return result;
 }
 
-Value Value::StructInternal(bool safe, const StructType* struct_type,
-                            std::vector<Value>&& values) {
-  Value result(struct_type, /*is_null=*/false, kPreservesOrder);
-  result.list_ptr_ = new TypedList(struct_type);
-  std::vector<Value>& value_list = result.list_ptr_->values();
-  value_list = std::move(values);
-  if (kDebugMode || safe) {
+absl::StatusOr<Value> Value::MakeStructInternal(bool already_validated,
+                                                const StructType* struct_type,
+                                                std::vector<Value> values) {
+  if (!already_validated || kDebugMode) {
     // Check that values are compatible with the type.
-    ZETASQL_CHECK_EQ(struct_type->num_fields(), value_list.size());
-    for (int i = 0; i < value_list.size(); ++i) {
+    ZETASQL_RET_CHECK_EQ(struct_type->num_fields(), values.size());
+    for (int i = 0; i < values.size(); ++i) {
       const Type* field_type = struct_type->field(i).type;
-      const Type* value_type = value_list[i].type();
-      ZETASQL_CHECK(field_type->Equals(value_type))
+      const Type* value_type = values[i].type();
+      ZETASQL_RET_CHECK(field_type->Equals(value_type))
           << "\nField type: " << field_type->DebugString()
           << "\nvs\nValue type: " << value_type->DebugString();
     }
   }
+  Value result(struct_type, /*is_null=*/false, kPreservesOrder);
+  result.list_ptr_ = new TypedList(struct_type);
+  std::vector<Value>& value_list = result.list_ptr_->values();
+  value_list = std::move(values);
   return result;
 }
 
@@ -515,7 +520,8 @@ void Value::DeepOrderKindSpec::FillSpec(const Value& v) {
 // allow_bags = true.
 bool Value::EqualsInternal(const Value& x, const Value& y, bool allow_bags,
                            DeepOrderKindSpec* deep_order_spec,
-                           FloatMargin float_margin, std::string* reason) {
+                           const ValueEqualityCheckOptions& options) {
+  std::string* reason = options.reason;
   if (!x.is_valid()) { return !y.is_valid(); }
   if (!y.is_valid()) { return false; }
 
@@ -551,12 +557,11 @@ bool Value::EqualsInternal(const Value& x, const Value& y, bool allow_bags,
       auto element_order_spec =
           allow_bags ? &deep_order_spec->children[0] : nullptr;
       if (allow_bags && deep_order_spec->ignores_order) {
-        return EqualElementMultiSet(x, y, element_order_spec, float_margin,
-                                    reason);
+        return EqualElementMultiSet(x, y, element_order_spec, options);
       }
       for (int i = 0; i < x.num_elements(); i++) {
         if (!EqualsInternal(x.element(i), y.element(i), allow_bags,
-                            element_order_spec, float_margin, reason)) {
+                            element_order_spec, options)) {
           return false;
         }
       }
@@ -581,13 +586,12 @@ bool Value::EqualsInternal(const Value& x, const Value& y, bool allow_bags,
         auto field_order_spec =
             allow_bags ? &deep_order_spec->children[i] : nullptr;
         if (!EqualsInternal(x.field(i), y.field(i), allow_bags,
-                            field_order_spec, float_margin, reason)) {
+                            field_order_spec, options)) {
           return false;
         }
       }
       return true;
     default: {
-      Type::ValueEqualityCheckOptions options(y.type(), float_margin, reason);
       return x.type()->ValueContentEquals(x.GetContent(), y.GetContent(),
                                           options);
     }
@@ -595,17 +599,15 @@ bool Value::EqualsInternal(const Value& x, const Value& y, bool allow_bags,
 }
 
 struct InternalComparer {
-  explicit InternalComparer(FloatMargin float_margin_arg,
+  explicit InternalComparer(const ValueEqualityCheckOptions& options,
                             Value::DeepOrderKindSpec* order_spec_arg)
-      : float_margin(float_margin_arg), order_spec(order_spec_arg) {}
+      : options(options), order_spec(order_spec_arg) {}
   size_t operator()(const zetasql::Value& x,
                     const zetasql::Value& y) const {
     return Value::EqualsInternal(x, y,
-                                 true,  // allow_bags
-                                 order_spec, float_margin,
-                                 nullptr);  // reason
+                                 /*allow_bags=*/true, order_spec, options);
   }
-  FloatMargin float_margin;
+  const ValueEqualityCheckOptions options;
   Value::DeepOrderKindSpec* order_spec;
 };
 
@@ -631,12 +633,13 @@ struct InternalHasher {
 // so we get O(|V|^2.5).
 bool Value::EqualElementMultiSet(const Value& x, const Value& y,
                                  DeepOrderKindSpec* deep_order_spec,
-                                 FloatMargin float_margin,
-                                 std::string* reason) {
+                                 const ValueEqualityCheckOptions& options) {
+  std::string* reason = options.reason;
   using ValueCountMap =
       absl::flat_hash_map<Value, int, InternalHasher, InternalComparer>;
-  InternalHasher hasher(float_margin);
-  InternalComparer comparer(float_margin, deep_order_spec);
+
+  InternalHasher hasher(options.float_margin);
+  InternalComparer comparer(options, deep_order_spec);
   ValueCountMap x_multiset(x.num_elements(), hasher, comparer);
   ValueCountMap y_multiset(x.num_elements(), hasher, comparer);
   ZETASQL_DCHECK_EQ(x.num_elements(), y.num_elements());
@@ -1642,8 +1645,9 @@ std::string Value::FormatInternal(int indent, bool force_type) const {
     google::protobuf::DynamicMessageFactory message_factory;
     std::unique_ptr<google::protobuf::Message> m(this->ToMessage(&message_factory));
     // Split and re-wrap the proto debug string to achieve proper indentation.
-    std::vector<std::string> field_strings =
-        absl::StrSplit(m->DebugString(), '\n', absl::SkipWhitespace());
+    std::vector<std::string> field_strings = absl::StrSplit(
+         m->DebugString(),
+        '\n', absl::SkipWhitespace());
     bool wraps = field_strings.size() > 1;
     // We don't need to sanitize the type string here since proto field names
     // cannot contain '$' characters.
@@ -1794,6 +1798,14 @@ Value UnvalidatedJsonStringArray(absl::Span<const std::string> values) {
     value_vector.push_back(Value::UnvalidatedJsonString(v));
   }
   return Value::Array(JsonArrayType(), value_vector);
+}
+
+Value TimestampArray(absl::Span<const absl::Time> values) {
+  std::vector<Value> value_vector;
+  for (const auto& v : values) {
+    value_vector.push_back(Value::Timestamp(v));
+  }
+  return Value::Array(TimestampArrayType(), value_vector);
 }
 
 }  // namespace values

@@ -5732,6 +5732,42 @@ ARRAY<STRUCT<bool_val BOOL, int64_val INT64, row_id INT64>>[
 
 ==
 
+# NULLS FIRST over arrays with NULL elements
+[name=order_by_nulls_first_array_with_null_elems]
+[required_features=V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY,V_1_3_ARRAY_ORDERING]
+SELECT elem.field
+FROM UNNEST([STRUCT([1] AS field),
+             STRUCT([NULL]),
+             STRUCT(CAST(NULL AS ARRAY<INT64>)),
+             STRUCT([2])]) AS elem
+ORDER BY elem.field NULLS FIRST;
+--
+ARRAY<STRUCT<field ARRAY<>>>[
+  {ARRAY<INT64>(NULL)},
+  {ARRAY<INT64>[NULL]},
+  {ARRAY<INT64>[1]},
+  {ARRAY<INT64>[2]}
+]
+==
+
+# NULLS LAST over arrays with NULL elements
+[name=order_by_nulls_last_array_with_null_elems]
+[required_features=V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY,V_1_3_ARRAY_ORDERING]
+SELECT elem.field
+FROM UNNEST([STRUCT([1] AS field),
+             STRUCT([NULL]),
+             STRUCT(CAST(NULL AS ARRAY<INT64>)),
+             STRUCT([2])]) AS elem
+ORDER BY elem.field NULLS LAST;
+--
+ARRAY<STRUCT<field ARRAY<>>>[
+  {ARRAY<INT64>[NULL]},
+  {ARRAY<INT64>[1]},
+  {ARRAY<INT64>[2]},
+  {ARRAY<INT64>(NULL)}
+]
+==
+
 [name=order_by_nulls_last_limit]
 [required_features=V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY]
 SELECT int64_val FROM AllTypesTable t

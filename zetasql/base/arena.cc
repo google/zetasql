@@ -26,16 +26,16 @@
 #include "zetasql/base/arena.h"
 
 #include <assert.h>
-#include <inttypes.h>  // another place uintptr_t might be
-#include <stdlib.h>
-#include <sys/types.h>  // one place uintptr_t might be
-#include <unistd.h>     // last place uintptr_t might be
+#include <stdarg.h>  // for vsnprintf
+#include <stddef.h>
+#include <stdint.h>
+#include <string.h>
 
-#include <algorithm>
+#include <iterator>
+#include <new>
 #include <vector>
 
 #include "absl/synchronization/mutex.h"
-#include "zetasql/base/arena_allocator.h"
 #include "zetasql/base/logging.h"
 
 namespace zetasql_base {
@@ -84,7 +84,7 @@ BaseArena::BaseArena(char* first, const size_t orig_block_size,
       page_aligned_(align_to_page),
       blocks_alloced_(1) {
   // Trivial check that aligned objects can actually be allocated.
-  ZETASQL_CHECK_GT(block_size_, kDefaultAlignment)
+  ZETASQL_CHECK_GT(block_size_, static_cast<size_t>(kDefaultAlignment))
       << "orig_block_size = " << orig_block_size;
   if (page_aligned_) {
     // kPageSize must be power of 2, so make sure of this.
@@ -224,14 +224,14 @@ static uint32_t LeastCommonMultiple(uint32_t a, uint32_t b) {
 //    affect overflow_blocks_).
 // -------------------------------------------------------------
 
-BaseArena::AllocatedBlock*  BaseArena::AllocNewBlock(const size_t block_size,
-                                                     const uint32_t alignment) {
+BaseArena::AllocatedBlock* BaseArena::AllocNewBlock(const size_t block_size,
+                                                    const uint32_t alignment) {
   AllocatedBlock *block;
   // Find the next block.
-  if (blocks_alloced_ < ABSL_ARRAYSIZE(first_blocks_)) {
+  if (blocks_alloced_ < static_cast<int64_t>(ABSL_ARRAYSIZE(first_blocks_))) {
     // Use one of the pre-allocated blocks
     block = &first_blocks_[blocks_alloced_++];
-  } else {                   // oops, out of space, move to the vector
+  } else {  // oops, out of space, move to the vector
     if (overflow_blocks_ == nullptr)
       overflow_blocks_ = new std::vector<AllocatedBlock>;
     // Adds another block to the vector.
@@ -248,9 +248,11 @@ BaseArena::AllocatedBlock*  BaseArena::AllocNewBlock(const size_t block_size,
   // Otherwise, must be a multiple of kDefaultAlignment, unless
   // requested alignment is 1, in which case we don't care at all.
   const uint32_t adjusted_alignment =
-      page_aligned_ ? LeastCommonMultiple(kPageSize, alignment)
-      : (alignment > 1 ? LeastCommonMultiple(alignment, kDefaultAlignment) : 1);
-  ZETASQL_CHECK_LE(adjusted_alignment, 1 << 20)
+      page_aligned_
+          ? LeastCommonMultiple(kPageSize, alignment)
+          : (alignment > 1 ? LeastCommonMultiple(alignment, kDefaultAlignment)
+                           : 1);
+  ZETASQL_CHECK_LE(adjusted_alignment, 1U << 20)
       << "Alignment on boundaries greater than 1MB not supported.";
 
   // If block_size > alignment we force block_size to be a multiple
@@ -297,7 +299,7 @@ BaseArena::AllocatedBlock*  BaseArena::AllocNewBlock(const size_t block_size,
 // ----------------------------------------------------------------------
 
 const BaseArena::AllocatedBlock *BaseArena::IndexToBlock(int index) const {
-  if (index < ABSL_ARRAYSIZE(first_blocks_)) {
+  if (index < static_cast<int64_t>(ABSL_ARRAYSIZE(first_blocks_))) {
     return &first_blocks_[index];
   }
   ZETASQL_CHECK(overflow_blocks_ != nullptr);
@@ -489,6 +491,5 @@ char* SafeArena::Realloc(char* original, size_t oldsize, size_t newsize) {
 // Avoid weak vtables by defining a dummy key method.
 void UnsafeArena::UnusedKeyMethod() {}
 void SafeArena::UnusedKeyMethod() {}
-void Gladiator::UnusedKeyMethod() {}
 
 }  // namespace zetasql_base

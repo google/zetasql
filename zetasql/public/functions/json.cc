@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "zetasql/common/errors.h"
+#include "zetasql/common/int_ops_util.h"
 #include "zetasql/public/functions/json_internal.h"
 #include "zetasql/public/json_value.h"
 #include "absl/memory/memory.h"
@@ -308,11 +309,22 @@ absl::StatusOr<std::string> MergeJSONPathsIntoSqlStandardMode(
 }
 
 absl::StatusOr<int64_t> ConvertJsonToInt64(JSONValueConstRef input) {
-  if (!input.IsInt64()) {
-    return MakeEvalError() << "The provided JSON input is not an integer";
+  if (input.IsInt64()) {
+    return input.GetInt64();
   }
 
-  return input.GetInt64();
+  // There must be no fractional part if provided double as input
+  if (input.IsDouble()) {
+    double input_as_double = input.GetDouble();
+    int64_t output;
+    if (LossLessConvertDoubleToInt64(input_as_double, &output)) {
+      return output;
+    }
+    return MakeEvalError() << "The provided JSON number: " << input_as_double
+                           << " cannot be converted to an integer";
+  }
+
+  return MakeEvalError() << "The provided JSON input is not an integer";
 }
 
 absl::StatusOr<bool> ConvertJsonToBool(JSONValueConstRef input) {
@@ -330,39 +342,39 @@ absl::StatusOr<std::string> ConvertJsonToString(JSONValueConstRef input) {
 }
 
 absl::StatusOr<double> ConvertJsonToDouble(JSONValueConstRef input,
-                                           absl::string_view wide_number_mode) {
-  if (wide_number_mode != "exact" && wide_number_mode != "round") {
-    return MakeEvalError() << "Invalid `wide_number_mode` specified: "
-                           << wide_number_mode;
-  }
+                                           WideNumberMode wide_number_mode,
+                                           ProductMode product_mode) {
   if (input.IsDouble()) {
     return input.GetDouble();
   }
 
   if (input.IsInt64()) {
     int64_t value = input.GetInt64();
-    if (wide_number_mode == "exact" &&
+    if (wide_number_mode == functions::WideNumberMode::kExact &&
         (value < kMinLosslessInt64ValueForJson ||
          value > kMaxLosslessInt64ValueForJson)) {
+      std::string function_name =
+          product_mode == PRODUCT_EXTERNAL ? "FLOAT64" : "DOUBLE";
       return MakeEvalError()
-             << "Input number: " << value
-             << " cannot round-trip through string representation.";
+             << "JSON number: " << value << " cannot be converted to "
+             << function_name << " without loss of precision";
     }
     return double{static_cast<double>(value)};
   }
   if (input.IsUInt64()) {
     uint64_t value = input.GetUInt64();
-    if (wide_number_mode == "exact" &&
+    if (wide_number_mode == functions::WideNumberMode::kExact &&
         value > static_cast<uint64_t>(kMaxLosslessInt64ValueForJson)) {
+      std::string function_name =
+          product_mode == PRODUCT_EXTERNAL ? "FLOAT64" : "DOUBLE";
       return MakeEvalError()
-             << "Input number: " << value
-             << " cannot round-trip through string representation.";
+             << "JSON number: " << value << " cannot be converted to "
+             << function_name << " without loss of precision";
     }
     return double{static_cast<double>(value)};
   }
 
-  return MakeEvalError() << "The provided JSON input is not double, int64_t, or "
-                            "uint64 and cannot be converted to double.";
+  return MakeEvalError() << "The provided JSON input is not a number";
 }
 
 absl::StatusOr<std::string> GetJsonType(JSONValueConstRef input) {
@@ -384,8 +396,8 @@ absl::StatusOr<std::string> GetJsonType(JSONValueConstRef input) {
   if (input.IsNull()) {
     return "null";
   }
-  return MakeEvalError() <<"The provided JSON input is not of type number,"
-      " string, boolean, or object.";
+  ZETASQL_RET_CHECK_FAIL()
+      << "Invalid JSON value that doesn't belong to any known JSON type";
 }
 
 }  // namespace functions

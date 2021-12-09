@@ -1,5 +1,4 @@
 
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
 
 # Statistical aggregate functions
 
@@ -42,9 +41,15 @@ The clauses are applied *in the following order*:
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Return Data Type**
 
@@ -86,9 +91,15 @@ The clauses are applied *in the following order*:
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Return Data Type**
 
@@ -130,9 +141,15 @@ The clauses are applied *in the following order*:
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Return Data Type**
 
@@ -176,9 +193,15 @@ The clauses are applied *in the following order*:
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Return Data Type**
 
@@ -220,9 +243,15 @@ The clauses are applied *in the following order*:
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Return Data Type**
 
@@ -280,9 +309,15 @@ The clauses are applied *in the following order*:
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Return Data Type**
 
@@ -324,9 +359,15 @@ The clauses are applied *in the following order*:
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Return Data Type**
 
@@ -346,8 +387,15 @@ VARIANCE(
 
 An alias of [VAR_SAMP][stat-agg-link-to-var-samp].
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [stat-agg-link-to-pearson-coefficient]: https://en.wikipedia.org/wiki/Pearson_product-moment_correlation_coefficient
+
 [stat-agg-link-to-covariance]: https://en.wikipedia.org/wiki/Covariance
+
 [stat-agg-link-to-stddev-samp]: #stddev_samp
+
 [stat-agg-link-to-var-samp]: #var_samp
+
+<!-- mdlint on -->
 

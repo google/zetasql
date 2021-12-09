@@ -1,5 +1,4 @@
 
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
 
 # Data manipulation language
 
@@ -11,12 +10,12 @@ ZetaSQL supports the following statements for manipulating data:
 + `MERGE`
 
 ## Example data 
-<a id="example-data"></a>
+<a id="example_data"></a>
 
 The sections in this topic use the following table schemas.
 
 ### Singers table 
-<a id="singers-table"></a>
+<a id="singers_table"></a>
 
 <table>
 <thead>
@@ -101,7 +100,7 @@ message Album {
 </pre>
 
 ### Concerts table 
-<a id="concerts-table"></a>
+<a id="concerts_table"></a>
 
 <table>
 <thead>
@@ -209,13 +208,32 @@ Use the `INSERT` statement when you want to add new rows to a table.
 
 <pre>
 INSERT [[OR] IGNORE | REPLACE | UPDATE] [INTO] target_name
- (column_1 [, ..., column_n ] )
- input <br>[ASSERT_ROWS_MODIFIED m]<br/>
+ (column[, ...])
+ input [ASSERT_ROWS_MODIFIED m] [ then_return_clause ]
+
 input ::=
- VALUES (column_1 [, ..., column_n ] )
-        [, ..., (column_k_1 [, ..., column_k_n ] ) ]
-| SELECT_QUERY<br/>
-expr ::= value_expression | DEFAULT
+   {
+        VALUES (column_values) [, ...]
+        | SELECT_QUERY
+   }
+
+column_values ::=
+    { value_expression | DEFAULT } [, ...]
+
+then_return_clause ::=
+    THEN RETURN
+    [ WITH ACTION [ AS alias ]  ]
+    { value_expression | expression [  [ AS ] alias ] } [, ...]
+
+value_expression ::=
+    [expression.]* [ except_clause ] [ replace_clause ]
+
+except_clause ::=
+    EXCEPT ( column_name [, ...] )
+
+replace_clause ::=
+    REPLACE ( expression [ AS ] column_name [, ...] )
+
 </pre>
 
 <a id="statement-rules"></a>
@@ -225,7 +243,7 @@ expr ::= value_expression | DEFAULT
 + Duplicate names are not allowed in the list of target columns.
 + Values must be added in the same order as the specified columns.
 + The number of values added must match the number of specified columns.
-+ Values must have a type that is [compatible](#compatible-types) with the
++ Values must have a type that is [compatible][compatible-types] with the
   target column.
 + All non-null columns must appear in the column list, and have a non-null value
   specified.
@@ -233,7 +251,7 @@ expr ::= value_expression | DEFAULT
 Statements that don't follow these rules will raise an error.
 
 The following statement inserts a new row to the
-[Singers example table](#singers-table):
+[Singers example table][singers-table]:
 
 ```
 INSERT INTO Singers
@@ -252,7 +270,7 @@ VALUES (6, "Zak", "Sterling", "1996-03-12", "active", "nationality:'U.S.A.'"),
 
 You can construct `INSERT` statements to insert the results of a query. For
 example, the following statement inserts a new concert for a singer into
-the [Concerts table](#concerts-table).
+the [Concerts table][concerts-table].
 
 ```
 INSERT INTO Concerts
@@ -262,7 +280,7 @@ SELECT c.VenueId, c.SingerId, DATE "2015-06-01", c.BeginTime, c.EndTime, c.Ticke
 ```
 
 ### Value type compatibility 
-<a id="compatible-types"></a>
+<a id="compatible_types"></a>
 
 Values added with an `INSERT` statement must be compatible with the target
 column's type. A value's type is considered compatible with the target column's
@@ -289,7 +307,7 @@ can insert the default value explicitly using the `DEFAULT` keyword.
 `NULL`.
 
 The following example inserts default values for all unspecified columns.
-For example, the [Singers table](#singers-table) has two columns that have
+For example, the [Singers table][singers-table] has two columns that have
 defined default values&mdash;the `SingerId` column, which is auto-incremented;
  and the `Status` column, which has a default value of `active`. For all other
 columns, the default value is `NULL`.
@@ -499,6 +517,90 @@ In this case, there is a collision when inserting a new row with a `SingerId` of
 `5`, because a row with that `SingerId` value already exists. This statement
 inserts one row, which matches the `ASSERT_ROWS_MODIFIED 1` statement.
 
+### INSERT and THEN RETURN 
+<a id="dml_then_return_clause"></a>
+
+Use the `THEN RETURN` clause to return the results of the `INSERT` operation and
+selected data from the newly inserted rows. This is especially useful for
+retrieving values of columns with default values, generated columns, and
+auto-generated keys, without issuing additional SELECT statements.
+
+`THEN RETURN` supports a returning clause to capture expressions based on newly
+inserted rows that includes these parts:
+
++   `WITH ACTION`: An optional clause that adds a `string` column called
+    `ACTION` to the result row set. Each value in this column represents the
+    type of action that was applied to the column during statement execution.
+    Values include `"INSERT"`, `"REPLACE"`, and `"UPDATE"`. The `ACTION` column
+    is appended as the last output column.
++   `*`: Returns all columns.
++   `expression.*`: Returns all columns from range variables, like a table or
+    proto field. The dot star expression cannot be applied on other expressions,
+    including field access.
++   `except_clause`: Specifies the columns to exclude from the result. All
+    matching column names are omitted from the output.
++   `replace_clause`: Specifies the columns to replace in the result. The column
+    that matches the identifier in a `replace_clause` is replaced by the
+    expression in that `replace_clause`. A `replace_clause` does not change the
+    names or order of columns. However, it can change the value and the value
+    type of a column.
++   `expression`: Represents a column name of the table specified by
+    `target_name` or an expression that uses any combination of such column
+    names. Column names are valid if they belong to columns of the table
+    being modified. Excluded expressions include aggregate and analytic
+    functions.
++   `alias`: A temporary name for an expression in the query.
+
+The following query inserts three rows into a table, and uses `THEN RETURN` to
+fetch these rows and compute a new column called `new_quantity`.
+
+```sql
+INSERT Inventory (product, quantity)
+VALUES
+    ('washer', 20),
+    ('dryer', 30),
+    ('oven', 5)
+THEN RETURN *, quantity * 10 AS new_quantity;
+
++---------+----------+--------------+
+| product | quantity | new_quantity |
++---------+----------+--------------+
+| washer  |       20 |          200 |
+| dryer   |       30 |          300 |
+| oven    |       10 |          100 |
++---------+----------+--------------+
+```
+
+The following query tries to insert two rows into a table, but ignores a
+duplicated row. It uses `THEN RETURN` to fetch the inserted row and
+`WITH ACTION` to show the modified row action type.
+
+```sql
+INSERT IGNORE Inventory (product, quantity) VALUES ('desk', 40), ('desk', 45)
+THEN RETURN WITH ACTION *;
+
++----------+----------+----------+
+| product  | quantity |  ACTION  |
++----------+----------+----------+
+| desk     |       40 |  INSERT  |
++----------+----------+----------+
+```
+
+The following query tries to insert or update a row into a table. It uses
+`THEN RETURN` to fetch the modified row and `WITH ACTION` to show the modified
+row action type.
+
+```sql
+INSERT OR UPDATE Inventory (product, quantity) VALUES ('oven', 100)
+THEN RETURN WITH ACTION product, quantity * 10 AS new_quantity;
+
++---------+--------------+----------+
+| product | new_quantity |  ACTION  |
++---------+--------------+----------+
+| oven    |         1000 |  UPDATE  |
++---------+--------------+----------+
+```
+
 ### INSERT examples
 
 Add a new row to the `Singers` table.
@@ -540,8 +642,19 @@ INSERT OR UPDATE INTO Singers
 VALUES (5, "Zak", "Sterling", "inactive");
 ```
 
-Existing row for Zak Sterling updated. His status is now `inactive`. All other
-values, such as `BirthDate`, remain unchanged.
+**RESULT:** The database updated the existing row `Zak Sterling`. His status is
+now `inactive`. All other values, such as `BirthDate`, remain unchanged.
+
+Add a new row to the `Singers` table and return the `DEFAULT` column value.
+
+```sql
+INSERT INTO Singers (SingerId, FirstName,
+LastName, BirthDate, Status, SingerInfo) VALUES (6, "Michael", "Leon",
+"1958-08-29", DEFAULT, "nationality:'U.S.A.'") THEN RETURN Status;
+```
+
+**RESULT:** The database adds a new row to the `Singer` table and returns the
+value `active` of its `Status` column.
 
 ## DELETE statement
 
@@ -549,11 +662,26 @@ Use the `DELETE` statement when you want to delete rows from a table.
 
 <pre>
 DELETE [FROM] target_name
-WHERE condition<br>[ASSERT_ROWS_MODIFIED n]
+WHERE condition [ASSERT_ROWS_MODIFIED n] [ then_return_clause ]
+
+then_return_clause ::=
+    THEN RETURN
+    [ WITH ACTION [ AS alias ]  ]
+    { value_expression | expression [  [ AS ] alias ] } [, ...]
+
+value_expression ::=
+    [expression.]* [ except_clause ] [ replace_clause ]
+
+except_clause ::=
+    EXCEPT ( column_name [, ...] )
+
+replace_clause ::=
+    REPLACE ( expression [ AS ] column_name [, ...] )
+
 </pre>
 
 **Note**: `DELETE` statements must comply with all
-[statement rules](#statement-rules).
+[statement rules][statement-rules].
 
 ### WHERE keyword
 
@@ -604,6 +732,28 @@ to the database. If the row count matches, ZetaSQL commits the
 changes. Otherwise, ZetaSQL returns an error and rolls back the
 statement.
 
+### DELETE and THEN RETURN
+
+With `THEN RETURN`, you can obtain data from rows that are being removed from a
+table. To learn more about the values you can use in this clause, see [INSERT
+and THEN RETURN][dml-then-return-clause]
+
+Example:
+
+The following query deletes all rows in a table that contains a product called
+`washer` and then returns the deleted rows.
+
+```sql
+DELETE Inventory (product, quantity) WHERE product = 'washer'
+THEN RETURN *;
+
++---------+----------+
+| product | quantity |
++---------+----------+
+| washer  |       20 |
++---------+----------+
+```
+
 ## UPDATE statement
 
 Use the `UPDATE` statement when you want to update existing rows within a table.
@@ -612,20 +762,37 @@ Use the `UPDATE` statement when you want to update existing rows within a table.
 UPDATE target_name
 SET set_clause
 [FROM from_clause]
-WHERE condition [ASSERT_ROWS_MODIFIED n]
+WHERE condition [ASSERT_ROWS_MODIFIED n] [ then_return_clause ]
 
 set_clause ::= update_item[, ...]
 
-update_item ::= path_expression = expression
-              | path_expression = DEFAULT
-              | (dml_stmt)
+update_item ::=
+    {
+        path_expression = expression
+        | path_expression = DEFAULT
+        | (dml_stmt)
+    }
 
-dml_stmt ::= insert_statement | update_statement | delete_statement
+then_return_clause ::=
+    THEN RETURN
+    [ WITH ACTION [ AS alias ]  ]
+    { value_expression | expression [  [ AS ] alias ] } [, ...]
+
+value_expression ::=
+    [expression.]* [ except_clause ] [ replace_clause ]
+
+except_clause ::=
+    EXCEPT ( column_name [, ...] )
+
+replace_clause ::=
+    REPLACE ( expression [ AS ] column_name [, ...] )
+
+dml_stmt ::= { insert_statement | update_statement | delete_statement }
 </pre>
 
 **Note**: `UPDATE` statements must comply with all
-[statement rules](#statement-rules) and use
-[compatible types](#compatible-types).
+[statement rules][statement-rules] and use
+[compatible types][compatible-types].
 
 ### FROM keyword
 
@@ -768,6 +935,28 @@ UPDATE Singers s
 SET s.SingerInfo = DEFAULT
 WHERE s.SingerId = 5
 ASSERT_ROWS_MODIFIED 1;
+```
+
+### UPDATE and THEN RETURN
+
+With `THEN RETURN`, you can obtain data from rows that are being updated in a
+table. To learn more about the values you can use in this clause, see [INSERT
+and THEN RETURN][dml-then-return-clause]
+
+Example:
+
+The following query updates all rows in a table that contains a product called
+`washer` and then returns the updated rows.
+
+```sql
+UPDATE Inventory (product, quantity) VALUES ('washer', 20)
+THEN RETURN *;
+
++---------+----------+
+| product | quantity |
++---------+----------+
+| washer  |       20 |
++---------+----------+
 ```
 
 ### Setting new values
@@ -942,7 +1131,7 @@ WHERE SingerId = 6;
 
 ZetaSQL allows you to update non-repeating or repeating fields within
 protocol buffers. To illustrate how to update a non-repeating field, consider
-the [Singers example table](#singers-table).  It contains a column, `Albums`, of
+the [Singers example table][singers-table].  It contains a column, `Albums`, of
 type `PROTO<Albums>`, and `Albums` contains a non-repeating field `tracks`. The
 following statement updates the value of `tracks`:
 
@@ -1050,7 +1239,7 @@ compound data type. You can also perform multiple updates to a compound data
 type within a single statement. For example:
 
 ```
-UPDATE UpdatedSingers s
+UPDATE Singers s
 SET
     (DELETE FROM s.SingerInfo.Residence r WHERE r.City = 'Seattle'),
     (UPDATE s.Albums.Song song SET song.songtitle = 'No, This Is Rubbish' WHERE song.songtitle = 'This Is Pretty Good'),
@@ -1076,7 +1265,7 @@ order:
 For example:
 
 ```
-UPDATE UpdatedSingers s
+UPDATE Singers s
 SET
     (DELETE FROM s.SingerInfo.Residence r WHERE r.City = 'Seattle'),
     (UPDATE s.SingerInfo.Residence r SET r.end_year = 2015 WHERE r.City = 'Eugene'),
@@ -1088,7 +1277,7 @@ The following statement is invalid, because the `UPDATE` statement
 happens after the `INSERT` statement.
 
 ```
-UPDATE UpdatedSingers s
+UPDATE Singers s
 SET
     (DELETE FROM s.SingerInfo.Residence r WHERE r.City = 'Seattle'),
     (INSERT s.Albums.Song VALUES ("songtitle: 'The Second Best Song'")),
@@ -1278,9 +1467,27 @@ Inventory
 +-------------------+----------+
 ```
 
-[from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from-clause
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
+
 [join-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#join_types
 
+[dml-then-return-clause]: #dml_then_return_clause
+
 [coercion]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#coercion
+
 [functions-and-operators]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md
+
+[statement-rules]: #statement_rules
+
+[example-data]: #example_data
+
+[singers-table]: #singers_table
+
+[concerts-table]: #concerts_table
+
+[compatible-types]: #compatible_types
+
+<!-- mdlint on -->
 

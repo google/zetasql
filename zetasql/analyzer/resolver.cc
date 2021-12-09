@@ -130,7 +130,7 @@ void Resolver::Reset(absl::string_view sql) {
   generated_column_cycle_detector_ = nullptr;
   analyzing_nonvolatile_stored_expression_columns_ = false;
   analyzing_check_constraint_expression_ = false;
-  column_default_expression_validator_.reset();
+  default_expr_access_error_name_scope_.reset();
   unique_deprecation_warnings_.clear();
   deprecation_warnings_.clear();
   function_argument_info_ = nullptr;
@@ -1158,38 +1158,49 @@ Resolver::ResolveParameterLiterals(
     }
     ZETASQL_RETURN_IF_ERROR(ResolveLiteralExpr(type_parameter, &resolved_literal_out));
     ZETASQL_RET_CHECK_EQ(resolved_literal_out->node_kind(), RESOLVED_LITERAL);
+    const Value& resolved_value =
+        resolved_literal_out->GetAs<ResolvedLiteral>()->value();
+
     switch (type_parameter->node_kind()) {
-      case AST_INT_LITERAL:
+      case AST_INT_LITERAL: {
+        if (resolved_value.type_kind() == TYPE_UINT64) {
+          // If someone uses a truly huge parameter, it will 'flip over'
+          // to being parsed as a uint64_t.
+          return MakeSqlErrorAt(type_parameter)
+                 << "Integer type parameters must fall in the domain of INT64. "
+                 << "Supplied value '" << resolved_value.uint64_value()
+                 << "' is outside that range. Specific types typically have "
+                 << "tighter bounds specific to that type.";
+        }
+        ZETASQL_RET_CHECK_EQ(resolved_value.type_kind(), TYPE_INT64);
         resolved_literals.push_back(TypeParameterValue(
-            SimpleValue::Int64(resolved_literal_out->GetAs<ResolvedLiteral>()
-                                   ->value()
-                                   .int64_value())));
-        break;
-      case AST_STRING_LITERAL: {
-        resolved_literals.push_back(TypeParameterValue(
-            SimpleValue::String(resolved_literal_out->GetAs<ResolvedLiteral>()
-                                    ->value()
-                                    .string_value())));
+            SimpleValue::Int64(resolved_value.int64_value())));
         break;
       }
-      case AST_FLOAT_LITERAL:
+      case AST_STRING_LITERAL: {
+        ZETASQL_RET_CHECK_EQ(resolved_value.type_kind(), TYPE_STRING);
         resolved_literals.push_back(TypeParameterValue(
-            SimpleValue::Double(resolved_literal_out->GetAs<ResolvedLiteral>()
-                                  ->value()
-                                  .double_value())));
+            SimpleValue::String(resolved_value.string_value())));
         break;
-      case AST_BOOLEAN_LITERAL:
+      }
+      case AST_FLOAT_LITERAL: {
+        ZETASQL_RET_CHECK_EQ(resolved_value.type_kind(), TYPE_DOUBLE);
         resolved_literals.push_back(TypeParameterValue(
-            SimpleValue::Bool(resolved_literal_out->GetAs<ResolvedLiteral>()
-                                  ->value()
-                                  .bool_value())));
+            SimpleValue::Double(resolved_value.double_value())));
         break;
-      case AST_BYTES_LITERAL:
+      }
+      case AST_BOOLEAN_LITERAL: {
+        ZETASQL_RET_CHECK_EQ(resolved_value.type_kind(), TYPE_BOOL);
+        resolved_literals.push_back(
+            TypeParameterValue(SimpleValue::Bool(resolved_value.bool_value())));
+        break;
+      }
+      case AST_BYTES_LITERAL: {
+        ZETASQL_RET_CHECK_EQ(resolved_value.type_kind(), TYPE_BYTES);
         resolved_literals.push_back(TypeParameterValue(
-            SimpleValue::Bytes(resolved_literal_out->GetAs<ResolvedLiteral>()
-                                   ->value()
-                                   .bytes_value())));
+            SimpleValue::Bytes(resolved_value.bytes_value())));
         break;
+      }
       default:
         // This code should be unreachable since the parser will only accept the
         // above AST nodes.

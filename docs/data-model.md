@@ -1,7 +1,5 @@
 
 
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
-
 # Data model
 
 The following sections provide an overview of the ZetaSQL data
@@ -163,7 +161,7 @@ or primary key index defines an indexed column that is subject to the uniqueness
 constraint.
 
 ## Pseudo-columns 
-<a id="pseudo-columns"></a>
+<a id="pseudo_columns"></a>
 
 ZetaSQL tables support pseudo-columns. Pseudo-columns contain data elements
 that you can query like regular columns, but are not considered real columns in
@@ -228,7 +226,7 @@ is a single value of a specific type. These types of tables are common when
 working with protocol buffers that may be stored in files instead of in the
 database. 
 
-<a id="value-table-example"></a>
+<a id="value_table_example"></a>
 For example, the following protocol buffer definition, `AlbumReview`, contains
 data about the reviews for an album.
 
@@ -430,9 +428,17 @@ This query does not work. The reason it fails is because the subquery, `SELECT
 a FROM AlbumReviewData a`, returns an `AlbumReviewData` value only, and this
 value does not have a field called `ROWNUM`.
 
-[value-table-example]: #value-table-example
-[pseudo-columns]: #pseudo-columns
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[value-table-example]: #value_table_example
+
+[pseudo-columns]: #pseudo_columns
+
 [data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
+
 [data-manipulation-language]: https://github.com/google/zetasql/blob/master/docs/data-manipulation-language.md
+
 [query-syntax-value-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#value_tables
+
+<!-- mdlint on -->
 

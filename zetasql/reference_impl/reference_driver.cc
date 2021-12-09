@@ -78,6 +78,12 @@ ABSL_FLAG(bool, force_reference_product_mode_external, false,
           "If true, ignore the provided product mode setting and force "
           "the reference to use PRODUCT_EXTERNAL.");
 
+// TODO: Remove when zetasql::FEATURE_ANONYMIZATION is no longer
+// marked as in_development.
+ABSL_FLAG(bool, reference_driver_enable_anonymization, false,
+          "If true, enable the ZetaSQL Anonymization feature. See "
+          "(broken link).");
+
 namespace zetasql {
 
 class ReferenceDriver::BuiltinFunctionCache {
@@ -128,6 +134,9 @@ ReferenceDriver::ReferenceDriver()
       statement_evaluation_timeout_(absl::Seconds(
           absl::GetFlag(FLAGS_reference_driver_query_eval_timeout_sec))) {
   language_options_.EnableMaximumLanguageFeatures();
+  if (absl::GetFlag(FLAGS_reference_driver_enable_anonymization)) {
+    language_options_.EnableLanguageFeature(zetasql::FEATURE_ANONYMIZATION);
+  }
   language_options_.SetSupportedStatementKinds(
       Algebrizer::GetSupportedStatementKinds());
   if (absl::GetFlag(FLAGS_force_reference_product_mode_external)) {
@@ -154,6 +163,9 @@ ReferenceDriver::ReferenceDriver(const LanguageOptions& options)
                  << ProductMode_Name(options.product_mode())
                  << " with PRODUCT_EXTERNAL.";
     language_options_.set_product_mode(ProductMode::PRODUCT_EXTERNAL);
+  }
+  if (absl::GetFlag(FLAGS_reference_driver_enable_anonymization)) {
+    language_options_.EnableLanguageFeature(zetasql::FEATURE_ANONYMIZATION);
   }
   // Optional evaluator features need to be enabled "manually" here since we do
   // not go through the public PreparedExpression/PreparedQuery interface, which
@@ -363,7 +375,7 @@ absl::StatusOr<bool> ApplyCreateDdl(
     part = absl::AsciiStrToLower(part);
   }
 
-  bool already_exists = zetasql_base::ContainsKey(map, name_lower);
+  bool already_exists = map.contains(name_lower);
   switch (create_stmt->create_mode()) {
     case ResolvedCreateTableStmtBase::CREATE_DEFAULT:
       if (already_exists) {
@@ -762,8 +774,8 @@ class ReferenceDriverStatementEvaluator : public StatementEvaluatorImpl {
                                 const ScriptSegment& segment) override;
 
   absl::StatusOr<std::unique_ptr<ProcedureDefinition>> LoadProcedure(
-      const ScriptExecutor& executor,
-      const absl::Span<const std::string>& path) override {
+      const ScriptExecutor& executor, const absl::Span<const std::string>& path,
+      const int64_t num_arguments) override {
     std::vector<std::string> name_lower;
     name_lower.reserve(path.size());
     for (const std::string& part : path) {

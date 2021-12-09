@@ -27,8 +27,8 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
-#include "absl/flags/flag.h"
 #include "zetasql/base/case.h"
+#include "absl/flags/flag.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -463,9 +463,9 @@ void Unparser::visitASTCreateFunctionStatement(
   }
   if (node->is_remote()) {
     print("REMOTE");
-    if (node->with_connection_clause() != nullptr) {
-      node->with_connection_clause()->Accept(this, data);
-    }
+  }
+  if (node->with_connection_clause() != nullptr) {
+    node->with_connection_clause()->Accept(this, data);
   }
   if (node->code() != nullptr) {
     print("AS");
@@ -850,6 +850,28 @@ void Unparser::visitASTRestrictToClause(const ASTRestrictToClause* node,
   print(")");
 }
 
+void Unparser::visitASTAddToRestricteeListClause(
+    const ASTAddToRestricteeListClause* node, void* data) {
+  print("ADD ");
+  if (node->is_if_not_exists()) {
+    print("IF NOT EXISTS ");
+  }
+  print("(");
+  node->restrictee_list()->Accept(this, data);
+  print(")");
+}
+
+void Unparser::visitASTRemoveFromRestricteeListClause(
+    const ASTRemoveFromRestricteeListClause* node, void* data) {
+  print("REMOVE ");
+  if (node->is_if_exists()) {
+    print("IF EXISTS ");
+  }
+  print("(");
+  node->restrictee_list()->Accept(this, data);
+  print(")");
+}
+
 void Unparser::visitASTFilterUsingClause(const ASTFilterUsingClause* node,
                                          void* data) {
   if (node->has_filter_keyword()) {
@@ -873,6 +895,7 @@ void Unparser::visitASTCreatePrivilegeRestrictionStatement(
   print("ON");
   node->column_privilege_list()->Accept(this, data);
   print("ON");
+  node->object_type()->Accept(this, data);
   node->name_path()->Accept(this, data);
   if (node->restrict_to() != nullptr) {
     node->restrict_to()->Accept(this, data);
@@ -1118,6 +1141,19 @@ void Unparser::visitASTDropTableFunctionStatement(
     print("IF EXISTS");
   }
   node->name()->Accept(this, data);
+}
+
+void Unparser::visitASTDropPrivilegeRestrictionStatement(
+    const ASTDropPrivilegeRestrictionStatement* node, void* data) {
+  print("DROP PRIVILEGE RESTRICTION");
+  if (node->is_if_exists()) {
+    print("IF EXISTS");
+  }
+  print("ON");
+  node->column_privilege_list()->Accept(this, data);
+  print("ON");
+  node->object_type()->Accept(this, data);
+  node->name_path()->Accept(this, data);
 }
 
 void Unparser::visitASTDropRowAccessPolicyStatement(
@@ -2782,18 +2818,6 @@ void Unparser::visitASTFilterFieldsArg(const ASTFilterFieldsArg* node,
   print(absl::StrCat(node->GetSQLForOperator(), path_expression));
 }
 
-void Unparser::visitASTFilterFieldsExpression(
-    const ASTFilterFieldsExpression* node, void* data) {
-  print("FILTER_FIELDS(");
-  node->expr()->Accept(this, data);
-  print(", ");
-  {
-    Formatter::Indenter indenter(&formatter_);
-    UnparseVectorWithSeparator(node->arguments(), data, ",");
-  }
-  print(")");
-}
-
 void Unparser::visitASTPivotExpression(const ASTPivotExpression* node,
                                        void* data) {
   node->expression()->Accept(this, data);
@@ -3117,6 +3141,27 @@ void Unparser::visitASTAlterColumnTypeAction(
   }
 }
 
+void Unparser::visitASTAlterColumnSetDefaultAction(
+    const ASTAlterColumnSetDefaultAction* node, void* data) {
+  print("ALTER COLUMN");
+  if (node->is_if_exists()) {
+    print("IF EXISTS");
+  }
+  node->column_name()->Accept(this, data);
+  print("SET DEFAULT");
+  node->default_expression()->Accept(this, data);
+}
+
+void Unparser::visitASTAlterColumnDropDefaultAction(
+    const ASTAlterColumnDropDefaultAction* node, void* data) {
+  print("ALTER COLUMN");
+  if (node->is_if_exists()) {
+    print("IF EXISTS");
+  }
+  node->column_name()->Accept(this, data);
+  print("DROP DEFAULT");
+}
+
 void Unparser::visitASTRevokeFromClause(const ASTRevokeFromClause* node,
                                         void* data) {
   print("REVOKE FROM ");
@@ -3145,6 +3190,20 @@ void Unparser::visitASTAlterActionList(const ASTAlterActionList* node,
                                        void* data) {
   Formatter::Indenter indenter(&formatter_);
   UnparseChildrenWithSeparator(node, data, ",");
+}
+
+void Unparser::visitASTAlterPrivilegeRestrictionStatement(
+    const ASTAlterPrivilegeRestrictionStatement* node, void* data) {
+  print("ALTER PRIVILEGE RESTRICTION");
+  if (node->is_if_exists()) {
+    print("IF EXISTS");
+  }
+  print("ON");
+  node->column_privilege_list()->Accept(this, data);
+  print("ON");
+  node->object_type()->Accept(this, data);
+  node->path()->Accept(this, data);
+  node->action_list()->Accept(this, data);
 }
 
 void Unparser::visitASTAlterRowAccessPolicyStatement(

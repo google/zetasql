@@ -457,3 +457,41 @@ ALTER TABLE foo ADD COLUMN column STRING COLLATE CONCAT('unicode', ':', 'ci');
 ERROR: Syntax error: Expected "@" or "@@" or string literal but got identifier "CONCAT" [at 1:50]
 ALTER TABLE foo ADD COLUMN column STRING COLLATE CONCAT('unicode', ':', 'ci');
                                                  ^
+==
+
+# ALTER TABLE add column with default static value
+ALTER TABLE foo ADD COLUMN bar STRING DEFAULT "default string";
+--
+AlterTableStatement [0-62]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-62]
+    AddColumnAction [16-62]
+      ColumnDefinition [27-62]
+        Identifier(bar) [27-30]
+        SimpleColumnSchema [31-62]
+          PathExpression [31-37]
+            Identifier(STRING) [31-37]
+          StringLiteral("default string") [46-62]
+--
+ALTER TABLE foo ADD COLUMN bar STRING DEFAULT "default string"
+==
+
+# ALTER TABLE add column with default function
+ALTER TABLE foo ADD COLUMN bar STRING DEFAULT SESSION_USER();
+--
+AlterTableStatement [0-60]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-60]
+    AddColumnAction [16-60]
+      ColumnDefinition [27-60]
+        Identifier(bar) [27-30]
+        SimpleColumnSchema [31-60]
+          PathExpression [31-37]
+            Identifier(STRING) [31-37]
+          FunctionCall [46-60]
+            PathExpression [46-58]
+              Identifier(SESSION_USER) [46-58]
+--
+ALTER TABLE foo ADD COLUMN bar STRING DEFAULT SESSION_USER()

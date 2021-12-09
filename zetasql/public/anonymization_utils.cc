@@ -19,9 +19,9 @@
 #include <cstdint>
 
 #include "zetasql/public/type.h"
+#include "zetasql/base/case.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "zetasql/base/case.h"
 #include "absl/strings/str_join.h"
 #include "algorithms/partition-selection.h"
 

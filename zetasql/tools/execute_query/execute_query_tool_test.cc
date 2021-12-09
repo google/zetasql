@@ -16,6 +16,8 @@
 
 #include "zetasql/tools/execute_query/execute_query_tool.h"
 
+#include <string>
+
 #include "zetasql/base/path.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/map_field.h"

@@ -49,12 +49,12 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/stl_util.h"
-#include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
@@ -293,7 +293,6 @@ absl::Status Validator::ValidateResolvedFilterField(
   VALIDATOR_RET_CHECK(expr_type->IsProto());
 
   const auto& filter_field_arg_list = filter_field->filter_field_arg_list();
-  VALIDATOR_RET_CHECK(!filter_field_arg_list.empty());
   FilterFieldsPathValidator validator(expr_type->AsProto()->descriptor());
   for (const auto& filter_field_arg : filter_field_arg_list) {
     VALIDATOR_RET_CHECK(!filter_field_arg->field_descriptor_path().empty());
@@ -301,6 +300,8 @@ absl::Status Validator::ValidateResolvedFilterField(
         validator.ValidateFieldPath(filter_field_arg->include(),
                                     filter_field_arg->field_descriptor_path()));
   }
+  VALIDATOR_RET_CHECK_OK(
+      validator.FinalValidation(filter_field->reset_cleared_required_fields()));
   return absl::OkStatus();
 }
 
@@ -441,9 +442,8 @@ absl::Status Validator::ValidateResolvedExpr(
           column_ref->is_correlated() ? visible_parameters : visible_columns);
     }
     case RESOLVED_ARGUMENT_REF:
-      VALIDATOR_RET_CHECK(
-          zetasql_base::ContainsKey(allowed_argument_kinds_,
-                           expr->GetAs<ResolvedArgumentRef>()->argument_kind()))
+      VALIDATOR_RET_CHECK(allowed_argument_kinds_.contains(
+          expr->GetAs<ResolvedArgumentRef>()->argument_kind()))
           << "ResolvedArgumentRef with unexpected kind:\n"
           << expr->DebugString();
       break;
@@ -512,6 +512,9 @@ absl::Status Validator::ValidateResolvedExpr(
     case RESOLVED_SUBQUERY_EXPR:
       return ValidateResolvedSubqueryExpr(visible_columns, visible_parameters,
                                           expr->GetAs<ResolvedSubqueryExpr>());
+    case RESOLVED_LET_EXPR:
+      return ValidateResolvedLetExpr(visible_columns, visible_parameters,
+                                     expr->GetAs<ResolvedLetExpr>());
     case RESOLVED_REPLACE_FIELD:
       return ValidateResolvedReplaceField(visible_columns, visible_parameters,
                                           expr->GetAs<ResolvedReplaceField>());
@@ -962,6 +965,21 @@ absl::Status Validator::ValidateResolvedSubqueryExpr(
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(resolved_subquery_expr->hint_list()));
 
   return absl::OkStatus();
+}
+
+absl::Status Validator::ValidateResolvedLetExpr(
+    const std::set<ResolvedColumn>& visible_columns,
+    const std::set<ResolvedColumn>& visible_parameters,
+    const ResolvedLetExpr* resolved_let_expr) {
+  std::set<ResolvedColumn> expr_visible_columns = visible_columns;
+  for (const auto& assignment : resolved_let_expr->assignment_list()) {
+    ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns, visible_parameters,
+                                         assignment->expr()));
+    ZETASQL_RETURN_IF_ERROR(
+        AddColumnFromComputedColumn(assignment.get(), &expr_visible_columns));
+  }
+  return ValidateResolvedExpr(expr_visible_columns, visible_parameters,
+                              resolved_let_expr->expr());
 }
 
 absl::Status Validator::ValidateResolvedComputedColumn(
@@ -2263,6 +2281,14 @@ absl::Status Validator::ValidateResolvedStatementInternal(
       status = ValidateResolvedCreateExternalTableStmt(
           statement->GetAs<ResolvedCreateExternalTableStmt>());
       break;
+    case RESOLVED_CREATE_PRIVILEGE_RESTRICTION_STMT:
+      status = ValidateResolvedCreatePrivilegeRestrictionStmt(
+          statement->GetAs<ResolvedCreatePrivilegeRestrictionStmt>());
+      break;
+    case RESOLVED_ALTER_PRIVILEGE_RESTRICTION_STMT:
+      status = ValidateResolvedAlterPrivilegeRestrictionStmt(
+          statement->GetAs<ResolvedAlterPrivilegeRestrictionStmt>());
+      break;
     case RESOLVED_CREATE_ROW_ACCESS_POLICY_STMT:
       status = ValidateResolvedCreateRowAccessPolicyStmt(
           statement->GetAs<ResolvedCreateRowAccessPolicyStmt>());
@@ -2357,6 +2383,10 @@ absl::Status Validator::ValidateResolvedStatementInternal(
     case RESOLVED_DROP_TABLE_FUNCTION_STMT:
       status = ValidateResolvedDropTableFunctionStmt(
           statement->GetAs<ResolvedDropTableFunctionStmt>());
+      break;
+    case RESOLVED_DROP_PRIVILEGE_RESTRICTION_STMT:
+      status = ValidateResolvedDropPrivilegeRestrictionStmt(
+          statement->GetAs<ResolvedDropPrivilegeRestrictionStmt>());
       break;
     case RESOLVED_DROP_ROW_ACCESS_POLICY_STMT:
       status = ValidateResolvedDropRowAccessPolicyStmt(
@@ -2671,15 +2701,8 @@ absl::Status Validator::ValidateColumnDefinitions(
     if (column_definition->default_value() != nullptr) {
       VALIDATOR_RET_CHECK(column_definition->generated_column_info() ==
                           nullptr);
-      const ResolvedColumnDefaultValue* default_value =
-          column_definition->default_value();
-      VALIDATOR_RET_CHECK(default_value->expression() != nullptr);
-      VALIDATOR_RET_CHECK(!default_value->sql().empty());
-      VALIDATOR_RET_CHECK(default_value->expression()->type()->Equals(
-          column_definition->type()));
-      ZETASQL_RETURN_IF_ERROR(ValidateResolvedExpr(
-          /*visible_columns=*/{}, /*visible_parameters=*/{},
-          default_value->expression()));
+      ZETASQL_RETURN_IF_ERROR(ValidateResolvedColumnDefaultValue(
+          column_definition->default_value(), column_definition->type()));
     }
   }
   return absl::OkStatus();
@@ -2992,6 +3015,16 @@ absl::Status Validator::ValidateResolvedCreateExternalTableStmt(
                                               &visible_columns);
 }
 
+absl::Status Validator::ValidateResolvedCreatePrivilegeRestrictionStmt(
+    const ResolvedCreatePrivilegeRestrictionStmt* stmt) {
+  PushErrorContext push(this, stmt);
+  VALIDATOR_RET_CHECK(!stmt->column_privilege_list().empty());
+  VALIDATOR_RET_CHECK(!stmt->name_path().empty());
+  VALIDATOR_RET_CHECK(absl::AsciiStrToLower(stmt->object_type()) == "table" ||
+                      absl::AsciiStrToLower(stmt->object_type()) == "view");
+  return absl::OkStatus();
+}
+
 absl::Status Validator::ValidateResolvedCreateRowAccessPolicyStmt(
     const ResolvedCreateRowAccessPolicyStmt* stmt) {
   PushErrorContext push(this, stmt);
@@ -3093,6 +3126,22 @@ absl::Status Validator::ValidateResolvedCreateFunctionStmt(
                                                          &parameter_nodes);
     VALIDATOR_RET_CHECK(parameter_nodes.empty());
   }
+
+  // Check that is_remote is true iff language is "REMOTE".
+  VALIDATOR_RET_CHECK_EQ(zetasql_base::CaseEqual(stmt->language(), "REMOTE"),
+                         stmt->is_remote())
+      << "is_remote is true iff language is \"REMOTE\"";
+
+  if (stmt->is_remote() &&
+      language_options_.LanguageFeatureEnabled(FEATURE_V_1_3_REMOTE_FUNCTION)) {
+    // For a remote function, its code should be empty.
+    VALIDATOR_RET_CHECK(stmt->code().empty());
+  }
+
+  if (stmt->connection() != nullptr) {
+    VALIDATOR_RET_CHECK(stmt->is_remote());
+  }
+
   ZETASQL_RETURN_IF_ERROR(ValidateHintList(stmt->option_list()));
   return absl::OkStatus();
 }
@@ -3394,6 +3443,16 @@ absl::Status Validator::ValidateResolvedDropSnapshotTableStmt(
 
 absl::Status Validator::ValidateResolvedDropMaterializedViewStmt(
     const ResolvedDropMaterializedViewStmt* stmt) {
+  PushErrorContext push(this, stmt);
+  return absl::OkStatus();
+}
+
+absl::Status Validator::ValidateResolvedDropPrivilegeRestrictionStmt(
+    const ResolvedDropPrivilegeRestrictionStmt* stmt) {
+  VALIDATOR_RET_CHECK(!stmt->column_privilege_list().empty());
+  VALIDATOR_RET_CHECK(absl::AsciiStrToLower(stmt->object_type()) == "table" ||
+                      absl::AsciiStrToLower(stmt->object_type()) == "view");
+  VALIDATOR_RET_CHECK(!stmt->name_path().empty());
   PushErrorContext push(this, stmt);
   return absl::OkStatus();
 }
@@ -4326,6 +4385,17 @@ absl::Status Validator::ValidateResolvedAlterTableSetOptionsStmt(
   return absl::OkStatus();
 }
 
+absl::Status Validator::ValidateResolvedAlterPrivilegeRestrictionStmt(
+    const ResolvedAlterPrivilegeRestrictionStmt* stmt) {
+  PushErrorContext push(this, stmt);
+  VALIDATOR_RET_CHECK(!stmt->column_privilege_list().empty());
+  VALIDATOR_RET_CHECK(absl::AsciiStrToLower(stmt->object_type()) == "table" ||
+                      absl::AsciiStrToLower(stmt->object_type()) == "view");
+  VALIDATOR_RET_CHECK(!stmt->name_path().empty());
+  ZETASQL_RETURN_IF_ERROR(ValidateResolvedAlterObjectStmt(stmt));
+  return absl::OkStatus();
+}
+
 absl::Status Validator::ValidateResolvedAlterRowAccessPolicyStmt(
     const ResolvedAlterRowAccessPolicyStmt* stmt) {
   PushErrorContext push(this, stmt);
@@ -4670,7 +4740,16 @@ absl::Status Validator::ValidateResolvedAlterAction(
       }
       VALIDATOR_RET_CHECK(column_definition->type() != nullptr);
       VALIDATOR_RET_CHECK(!column_definition->name().empty());
+      if (column_definition->default_value() != nullptr) {
+        VALIDATOR_RET_CHECK_EQ(column_definition->generated_column_info(),
+                               nullptr);
+        ZETASQL_RETURN_IF_ERROR(ValidateResolvedColumnDefaultValue(
+            column_definition->default_value(), column_definition->type()));
+      }
     } break;
+    case RESOLVED_ADD_TO_RESTRICTEE_LIST_ACTION:
+      // Nothing to do
+      break;
     case RESOLVED_DROP_COLUMN_ACTION:
       VALIDATOR_RET_CHECK(
           !action->GetAs<ResolvedDropColumnAction>()->name().empty());
@@ -4683,6 +4762,12 @@ absl::Status Validator::ValidateResolvedAlterAction(
     case RESOLVED_GRANT_TO_ACTION:
       VALIDATOR_RET_CHECK(
           action->GetAs<ResolvedGrantToAction>()->grantee_expr_list_size() > 0);
+      break;
+    case RESOLVED_RESTRICT_TO_ACTION:
+      // Nothing to do
+      break;
+    case RESOLVED_REMOVE_FROM_RESTRICTEE_LIST_ACTION:
+      // Nothing to do
       break;
     case RESOLVED_FILTER_USING_ACTION: {
       auto* filter_using = action->GetAs<ResolvedFilterUsingAction>();
@@ -4771,6 +4856,17 @@ absl::Status Validator::ValidateResolvedAlterAction(
              << " in ValidateResolvedAlterAction";
   }
   return absl::OkStatus();
+}
+
+absl::Status Validator::ValidateResolvedColumnDefaultValue(
+    const ResolvedColumnDefaultValue* default_value,
+    const zetasql::Type* column_type) {
+  VALIDATOR_RET_CHECK_NE(default_value->expression(), nullptr);
+  VALIDATOR_RET_CHECK(!default_value->sql().empty());
+  VALIDATOR_RET_CHECK(default_value->expression()->type()->Equals(column_type));
+  return ValidateResolvedExpr(
+      /*visible_columns=*/{}, /*visible_parameters=*/{},
+      default_value->expression());
 }
 
 absl::Status Validator::ValidateResolvedExecuteImmediateStmt(
@@ -4938,7 +5034,7 @@ absl::Status Validator::ValidateResolvedUnpivotScan(
   }
 
   for (auto& column : scan->column_list()) {
-    VALIDATOR_RET_CHECK(zetasql_base::ContainsKey(all_columns, column))
+    VALIDATOR_RET_CHECK(all_columns.contains(column))
         << "The output columns must be a subset of input columns and the newly "
            "generated unpivot columns.";
     output_columns.insert(column);
@@ -4955,7 +5051,7 @@ absl::Status Validator::ValidateResolvedUnpivotScan(
     input_columns_in_output.insert(input_column);
     const ResolvedColumn col = column->column();
     ZETASQL_RET_CHECK(col.column_id() > 0);
-    ZETASQL_RET_CHECK(zetasql_base::ContainsKey(input_source_columns, input_column))
+    ZETASQL_RET_CHECK(input_source_columns.contains(input_column))
         << "The expressions for the columns in the projected_input_column_list "
            "in unpivot output should be a reference to columns in the "
            "input_scan";
@@ -5000,7 +5096,7 @@ absl::Status Validator::ValidateResolvedUnpivotScan(
           zetasql_base::InsertIfNotPresent(&input_columns_seen, input_column_res))
           << "Duplicate input column " << input_column_res.DebugString()
           << " in ResolvedUnpivotScan's input_column_list";
-      ZETASQL_RET_CHECK(!zetasql_base::ContainsKey(input_columns_in_output, input_column_res))
+      ZETASQL_RET_CHECK(!input_columns_in_output.contains(input_column_res))
           << "Columns from the unpivot_arg_list (inside UNPIVOT IN clause) are "
              "not present in the unpivot output";
     }

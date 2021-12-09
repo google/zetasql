@@ -60,7 +60,7 @@ public abstract class ResolvedNode implements Serializable {
    */
   public Message serialize(
       @SuppressWarnings("unused") FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
-    return ResolvedNodeProto.newBuilder().build();
+    return ResolvedNodeProto.getDefaultInstance();
   }
 
   public abstract ResolvedNodeKind nodeKind();

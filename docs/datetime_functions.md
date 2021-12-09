@@ -313,7 +313,7 @@ DATETIME_DIFF(datetime_expression_a, datetime_expression_b, part)
 
 **Description**
 
-Returns the number of whole specified `part` intervals between two
+Returns the whole number of specified `part` intervals between two
 `DATETIME` objects (`datetime_expression_a` - `datetime_expression_b`).
 If the first `DATETIME` is earlier than the second one,
 the output is negative. Throws an error if the computation overflows the
@@ -698,27 +698,27 @@ SELECT PARSE_DATETIME("%c", "Thu Dec 25 07:30:00 2008")
 ```
 
 The format string fully supports most format elements, except for
-`%Q`, `%a`, `%A`,
-`%g`, `%G`, `%j`, `%P`, `%u`, `%U`, `%V`, `%w`, and `%W`.
+`%a`, `%A`, `%g`, `%G`, `%j`, `%P`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
 `PARSE_DATETIME` parses `string` according to the following rules:
 
 + **Unspecified fields.** Any unspecified field is initialized from
-`1970-01-01 00:00:00.0`. For example, if the year is unspecified then it
-defaults to `1970`.
-+ **Case insensitive names.** Names, such as `Monday` and `February`,
-are case insensitive.
+  `1970-01-01 00:00:00.0`. For example, if the year is unspecified then it
+  defaults to `1970`.
++ **Case insensitivity.** Names, such as `Monday` and `February`,
+  are case insensitive.
 + **Whitespace.** One or more consecutive white spaces in the format string
-matches zero or more consecutive white spaces in the
-`DATETIME` string. Leading and trailing
-white spaces in the `DATETIME` string are always
-allowed, even if they are not in the format string.
+  matches zero or more consecutive white spaces in the
+  `DATETIME` string. Leading and trailing
+  white spaces in the `DATETIME` string are always
+  allowed, even if they are not in the format string.
 + **Format precedence.** When two or more format elements have overlapping
-information, the last one generally overrides any earlier ones, with some
-exceptions. For example, both `%F` and `%Y` affect the year, so the earlier
-element overrides the later. See the descriptions
-of `%s`, `%C`, and `%y` in
-[Supported Format Elements For DATETIME][datetime-format-elements].
+  information, the last one generally overrides any earlier ones, with some
+  exceptions. For example, both `%F` and `%Y` affect the year, so the earlier
+  element overrides the later. See the descriptions
+  of `%s`, `%C`, and `%y` in
+  [Supported Format Elements For DATETIME][datetime-format-elements].
++ **Format divergence.** `%p` can be used with `am`, `AM`, `pm`, and `PM`.
 
 **Return Data Type**
 
@@ -740,7 +740,7 @@ SELECT PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '1998-10-18 13:45:55') AS datetime;
 ```
 
 ```sql
-SELECT PARSE_DATETIME('%m/%d/%Y %I:%M:%S %p', '8/30/2018 2:23:38 PM') AS datetime
+SELECT PARSE_DATETIME('%m/%d/%Y %I:%M:%S %p', '8/30/2018 2:23:38 pm') AS datetime
 
 +---------------------+
 | datetime            |
@@ -1018,11 +1018,19 @@ year.</td>
  </tr>
 </table>
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
 [ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
+
 [datetime-format]: #format_datetime
+
 [datetime-format-elements]: #supported_format_elements_for_datetime
+
 [datetime-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
 
 [datetime-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
+
+<!-- mdlint on -->
 

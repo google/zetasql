@@ -1,0 +1,72 @@
+# This file shows the results of running rewritten ResolvedAST tree through the
+# SQLBuilder. Ideally the SQL builder should operate both on the output of the
+# analyzer and on the output of the rewriter as well. Sometimes we need to do
+# specific work in the SQLBuilder component to handle shapes that the analyzer
+# does not produce but the rewriter does, such as ResolvedLetExpr. This file
+# includes tests that excercise such code and document its outputs.
+[default show_unparsed]
+[default no_show_resolved_ast]
+
+[language_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+[enabled_ast_rewrites=DEFAULTS,-LET_EXPR|DEFAULTS,+LET_EXPR]
+# The ResolvedLetExpr does not have user-facing SQL syntax. The rewrite rule
+# that removes ResolvedLetExpr replaces it with a scalar subquery. The
+# SQLBuilder does too. This test excercises both paths.
+SELECT FLATTEN(ARRAY_CONCAT([STRUCT(1 AS a)], [STRUCT(2 AS a)]).a);
+--
+[UNPARSED_SQL]
+SELECT
+  FLATTEN((ARRAY_CONCAT(ARRAY< STRUCT< a INT64 > >[STRUCT< a INT64 > (1)], ARRAY< STRUCT< a INT64 > >[STRUCT<
+      a INT64 > (2)])).a) AS a_1;
+
+[[ REWRITER ARTIFACTS FOR RULE GROUPS 'DEFAULTS,-LET_EXPR' ]]
+[UNPARSED_SQL]
+SELECT
+  (
+    SELECT
+      `IF`((a_2) IS NULL, CAST(NULL AS ARRAY< INT64 >), ARRAY(
+          SELECT
+            projectscan_6.a_5 AS a_5
+          FROM
+            (
+              SELECT
+                a_3 AS a_3,
+                a_4 AS a_4,
+                a_3.a AS a_5
+              FROM
+                UNNEST(a_2) AS a_3 WITH OFFSET AS a_4
+            ) AS projectscan_6
+          ORDER BY projectscan_6.a_4))
+    FROM
+      (
+        SELECT
+          ARRAY_CONCAT(ARRAY< STRUCT< a INT64 > >[STRUCT< a INT64 > (1)], ARRAY< STRUCT< a INT64 > >[STRUCT< a INT64 >
+            (2)]) AS a_2
+      )
+  ) AS a_1;
+
+[[ REWRITER ARTIFACTS FOR RULE GROUPS 'DEFAULTS,+LET_EXPR' ]]
+[UNPARSED_SQL]
+SELECT
+  (
+    SELECT
+      `IF`((projectscan_3.a_2) IS NULL, CAST(NULL AS ARRAY< INT64 >), ARRAY(
+          SELECT
+            projectscan_8.a_7 AS a_7
+          FROM
+            (
+              SELECT
+                a_5 AS a_5,
+                a_6 AS a_6,
+                a_5.a AS a_7
+              FROM
+                UNNEST(projectscan_3.a_2) AS a_5 WITH OFFSET AS a_6
+            ) AS projectscan_8
+          ORDER BY projectscan_8.a_6)) AS a_4
+    FROM
+      (
+        SELECT
+          ARRAY_CONCAT(ARRAY< STRUCT< a INT64 > >[STRUCT< a INT64 > (1)], ARRAY< STRUCT< a INT64 > >[STRUCT< a INT64 >
+            (2)]) AS a_2
+      ) AS projectscan_3
+  ) AS a_1;

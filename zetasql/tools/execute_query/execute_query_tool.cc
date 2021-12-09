@@ -159,7 +159,7 @@ static absl::StatusOr<const ProtoType*> GetProtoType(
 static absl::StatusOr<std::unique_ptr<const Table>> MakeTableFromTableSpec(
     absl::string_view table_spec, ExecuteQueryConfig& config) {
   std::vector<absl::string_view> table_spec_parts =
-      absl::StrSplit(table_spec, '=');
+           absl::StrSplit(table_spec, absl::MaxSplits('=', 1));
   if (table_spec_parts.size() != 2) {
     return zetasql_base::InvalidArgumentErrorBuilder()
            << "Invalid table specification: " << table_spec;

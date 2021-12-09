@@ -2271,6 +2271,7 @@ TEST(JsonConversionTest, ConvertJsonToInt64) {
       inputs_and_expected_outputs;
   inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{1}), 1);
   inputs_and_expected_outputs.emplace_back(JSONValue(int64_t{-1}), -1);
+  inputs_and_expected_outputs.emplace_back(JSONValue(10.0), 10);
   inputs_and_expected_outputs.emplace_back(
       JSONValue(std::numeric_limits<int64_t>::min()),
       std::numeric_limits<int64_t>::min());
@@ -2278,6 +2279,7 @@ TEST(JsonConversionTest, ConvertJsonToInt64) {
       JSONValue(std::numeric_limits<int64_t>::max()),
       std::numeric_limits<int64_t>::max());
   // Other types should return an error
+  inputs_and_expected_outputs.emplace_back(JSONValue(1e100), std::nullopt);
   inputs_and_expected_outputs.emplace_back(JSONValue(1.5), std::nullopt);
   inputs_and_expected_outputs.emplace_back(JSONValue(true), std::nullopt);
   inputs_and_expected_outputs.emplace_back(JSONValue(std::string{"10"}),
@@ -2288,8 +2290,6 @@ TEST(JsonConversionTest, ConvertJsonToInt64) {
       JSONValue::ParseJSONString(R"([10, 20])").value(), std::nullopt);
   inputs_and_expected_outputs.emplace_back(
       JSONValue::ParseJSONString("null").value(), std::nullopt);
-  inputs_and_expected_outputs.emplace_back(
-      double{std::numeric_limits<int64_t>::min()} - 1, std::nullopt);
   inputs_and_expected_outputs.emplace_back(
       JSONValue(std::numeric_limits<uint64_t>::max()), std::nullopt);
 
@@ -2402,15 +2402,16 @@ TEST(JsonConversionTest, ConvertJsonToDouble) {
   for (const auto& [input, expected_output] : inputs_and_expected_outputs) {
     SCOPED_TRACE(absl::Substitute("DOUBLE('$0', 'exact')",
                                   input.GetConstRef().ToString()));
-    absl::StatusOr<double> output =
-        ConvertJsonToDouble(input.GetConstRef(), "exact");
+    absl::StatusOr<double> output = ConvertJsonToDouble(
+        input.GetConstRef(), WideNumberMode::kExact, PRODUCT_INTERNAL);
     EXPECT_EQ(output.ok(), expected_output.has_value());
     if (output.ok() && expected_output.has_value()) {
       EXPECT_EQ(*output, *expected_output);
     }
     SCOPED_TRACE(absl::Substitute("DOUBLE('$0', 'round')",
                                   input.GetConstRef().ToString()));
-    output = ConvertJsonToDouble(input.GetConstRef(), "round");
+    output = ConvertJsonToDouble(input.GetConstRef(), WideNumberMode::kRound,
+                                 PRODUCT_INTERNAL);
     EXPECT_EQ(output.ok(), expected_output.has_value());
     if (output.ok() && expected_output.has_value()) {
       EXPECT_EQ(*output, *expected_output);
@@ -2432,16 +2433,39 @@ TEST(JsonConversionTest, ConvertJsonToDoubleFailInExactOnly) {
        inputs_and_expected_outputs) {
     SCOPED_TRACE(absl::Substitute("DOUBLE('$0', 'round')",
                                   input.GetConstRef().ToString()));
-    absl::StatusOr<double> output =
-        ConvertJsonToDouble(input.GetConstRef(), "round");
+    absl::StatusOr<double> output = ConvertJsonToDouble(
+        input.GetConstRef(), WideNumberMode::kRound, PRODUCT_INTERNAL);
 
     EXPECT_TRUE(output.ok());
     EXPECT_EQ(*output, expected_output);
     SCOPED_TRACE(absl::Substitute("DOUBLE('$0', 'exact')",
                                   input.GetConstRef().ToString()));
-    output = ConvertJsonToDouble(input.GetConstRef(), "exact");
+    output = ConvertJsonToDouble(input.GetConstRef(), WideNumberMode::kExact,
+                                 PRODUCT_INTERNAL);
     EXPECT_FALSE(output.ok());
   }
+}
+
+TEST(JsonConversionTest, ConvertJsonToDoubleErrorMessage) {
+  JSONValue input = JSONValue(uint64_t{18446744073709551615u});
+  // Internal mode uses DOUBLE in error message
+  SCOPED_TRACE(absl::Substitute("DOUBLE('$0', 'exact')",
+                                input.GetConstRef().ToString()));
+  absl::StatusOr<double> output = ConvertJsonToDouble(
+      input.GetConstRef(), WideNumberMode::kExact, PRODUCT_INTERNAL);
+  EXPECT_FALSE(output.ok());
+  EXPECT_EQ(output.status().message(),
+            "JSON number: 18446744073709551615 cannot be converted to DOUBLE "
+            "without loss of precision");
+  // External mode uses FLOAT64 in error message
+  SCOPED_TRACE(absl::Substitute("FLOAT64('$0', 'exact')",
+                                input.GetConstRef().ToString()));
+  output = ConvertJsonToDouble(input.GetConstRef(), WideNumberMode::kExact,
+                               PRODUCT_EXTERNAL);
+  EXPECT_FALSE(output.ok());
+  EXPECT_EQ(output.status().message(),
+            "JSON number: 18446744073709551615 cannot be converted to FLOAT64 "
+            "without loss of precision");
 }
 
 TEST(JsonConversionTest, GetJsonType) {

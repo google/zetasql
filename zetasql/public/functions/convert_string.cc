@@ -20,10 +20,10 @@
 
 #include "zetasql/common/string_util.h"
 #include "zetasql/public/functions/util.h"
+#include "zetasql/base/case.h"
 #include "zetasql/base/string_numbers.h"
 #include "absl/base/optimization.h"
 #include "absl/status/statusor.h"
-#include "zetasql/base/case.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"

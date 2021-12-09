@@ -17,7 +17,9 @@
 #include "zetasql/tools/execute_query/execute_query_prompt.h"
 
 #include <algorithm>
+#include <functional>
 #include <string>
+#include <utility>
 
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/tools/execute_query/execute_query.pb.h"

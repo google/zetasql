@@ -1,0 +1,34 @@
+[default language_features=V_1_3_COLUMN_DEFAULT_VALUE]
+
+# Alter column set default value is not implemented yet
+ALTER TABLE KeyValue ALTER COLUMN foo SET DEFAULT 'abc';
+--
+ERROR: ALTER TABLE ALTER COLUMN SET DEFAULT is not implemented [at 2:22]
+ALTER TABLE KeyValue ALTER COLUMN foo SET DEFAULT 'abc';
+                     ^
+==
+
+[language_features=]
+# Alter column set default value is not supported
+ALTER TABLE KeyValue ALTER COLUMN foo SET DEFAULT 'abc';
+--
+ERROR: Column default value is not supported [at 2:22]
+ALTER TABLE KeyValue ALTER COLUMN foo SET DEFAULT 'abc';
+                     ^
+==
+
+# Alter column drop default value is not implemented yet
+ALTER TABLE KeyValue ALTER COLUMN foo DROP DEFAULT;
+--
+ERROR: ALTER TABLE ALTER COLUMN DROP DEFAULT is not implemented [at 1:22]
+ALTER TABLE KeyValue ALTER COLUMN foo DROP DEFAULT;
+                     ^
+==
+
+[language_features=]
+# Alter column drop default value is not supported
+ALTER TABLE KeyValue ALTER COLUMN foo DROP DEFAULT;
+--
+ERROR: Column default value is not supported [at 2:22]
+ALTER TABLE KeyValue ALTER COLUMN foo DROP DEFAULT;
+                     ^

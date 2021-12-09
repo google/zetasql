@@ -88,6 +88,10 @@ class CollationAnnotation : public AnnotationSpec {
   // Resolves the collation for ORDER BY item.
   static absl::Status ResolveCollationForResolvedOrderByItem(
       ResolvedOrderByItem* resolved_order_by_item);
+
+  // Throws error if any function argument has collation annotation.
+  static absl::Status RejectsCollationOnFunctionArguments(
+      const ResolvedFunctionCallBase& function_call);
 };
 
 }  // namespace zetasql

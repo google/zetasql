@@ -84,7 +84,7 @@ cc_library(
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
-        "//zetasql/base:string_numbers",
+        "//zetasql/base:strings",
         "//zetasql/parser",
         "//zetasql/public:coercer",
         "//zetasql/public:function",
@@ -237,7 +237,7 @@ cc_library(
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
-        "//zetasql/base:string_numbers",
+        "//zetasql/base:strings",
         "//zetasql/base:varsetter",
         "//zetasql/common:errors",
         "//zetasql/common:status_payload_utils",
@@ -357,11 +357,15 @@ cc_library(
         ":anonymization_rewriter",
         "//zetasql/analyzer/rewriters:array_functions_rewriter",
         "//zetasql/analyzer/rewriters:flatten_rewriter",
+        "//zetasql/analyzer/rewriters:let_expr_rewriter",
         "//zetasql/analyzer/rewriters:map_function_rewriter",
         "//zetasql/analyzer/rewriters:pivot_rewriter",
+        "//zetasql/analyzer/rewriters:registration",
         "//zetasql/analyzer/rewriters:rewriter_interface",
+        "//zetasql/analyzer/rewriters:sql_function_inliner",
         "//zetasql/analyzer/rewriters:typeof_function_rewriter",
         "//zetasql/analyzer/rewriters:unpivot_rewriter",
+        "@com_google_absl//absl/base",
     ],
 )
 
@@ -413,13 +417,17 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
+        ":expr_matching_helpers",
         ":name_scope",
         ":resolver",
         "//zetasql/analyzer/rewriters:rewriter_interface",
         "//zetasql/base:ret_check",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
+        "//zetasql/common:errors",
+        "//zetasql/common:status_payload_utils",
         "//zetasql/parser",
+        "//zetasql/proto:internal_error_location_cc_proto",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:analyzer_output",
         "//zetasql/public:analyzer_output_properties",
@@ -429,6 +437,7 @@ cc_library(
         "//zetasql/public:function",
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
+        "//zetasql/public:parse_location",
         "//zetasql/public:strings",
         "//zetasql/public:type",
         "//zetasql/public:value",
@@ -572,6 +581,7 @@ cc_test(
         "//zetasql/resolved_ast:sql_builder",
         "//zetasql/testdata:sample_catalog",
         "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/container:node_hash_set",
@@ -621,7 +631,6 @@ cc_library(
     ],
     deps = [
         ":analyzer_impl",
-        "//zetasql/analyzer/rewriters:rewriter_interface",
         "//zetasql/base:logging",
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
@@ -720,6 +729,7 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
+        "//zetasql/analyzer/rewriters:registration",
         "//zetasql/analyzer/rewriters:rewriter_interface",
         "//zetasql/base",
         "//zetasql/base:logging",
@@ -759,11 +769,32 @@ cc_library(
     deps = [
         "//zetasql/base",
         "//zetasql/base:status",
+        "//zetasql/public:analyzer_options",
         "//zetasql/public:type",
         "//zetasql/public/types",
         "//zetasql/testdata:test_schema_cc_proto",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
         "@com_google_file_based_test_driver//file_based_test_driver:test_case_options",
+    ],
+)
+
+cc_test(
+    name = "analyzer_test_options_test",
+    srcs = ["analyzer_test_options_test.cc"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-return-type",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":analyzer_test_options",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
     ],
 )
 
@@ -839,6 +870,9 @@ cc_library(
         "@com_google_googletest//:gtest",
         "@com_google_protobuf//:protobuf",
     ],
+    # Otherwise tests in this .cc file may get dropped by the linker when statically linking tests
+    # which depend on this library, since these tests aren't referenced from main.
+    alwayslink = True,
 )
 
 [gen_analyzer_test(

@@ -36,8 +36,10 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/public/procedure.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/sql_function.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/templated_sql_function.h"
@@ -47,18 +49,18 @@
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/testdata/ambiguous_has.pb.h"
 #include "zetasql/testdata/sample_annotation.h"
 #include "zetasql/testdata/test_proto3.pb.h"
 #include "zetasql/base/testing/status_matchers.h"
-#include "zetasql/testdata/tvf_with_user_id.h"
 #include <cstdint>
 #include "absl/memory/memory.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
-#include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
@@ -289,6 +291,7 @@ void SampleCatalog::LoadCatalogImpl(const LanguageOptions& language_options) {
   LoadConstants();
   LoadWellKnownLambdaArgFunctions();
   LoadContrivedLambdaArgFunctions();
+  LoadSqlFunctions(language_options);
 }
 
 void SampleCatalog::LoadTypes() {
@@ -567,6 +570,99 @@ void SampleCatalog::LoadTables() {
   ZETASQL_CHECK_OK(collatedTable->AddColumn(struct_ci, /*is_owned=*/true));
   ZETASQL_CHECK_OK(collatedTable->AddColumn(array_ci, /*is_owned=*/true));
   AddOwnedTable(collatedTable);
+
+  auto complex_collated_table = new SimpleTable("ComplexCollatedTable");
+
+  const StructType* struct_with_bool_string_type;
+  // We let the first field have bool (rather than int32_t) type to avoid
+  // implicitly coercing ARRAY<STRUCT<a INT64, b STRING>> to
+  // ARRAY<STRUCT<a INT32, b STRING>> in the testing, which is currently not
+  // supported.
+  ZETASQL_CHECK_OK(types_->MakeStructType(
+      {{"a", types_->get_bool()}, {"b", types_->get_string()}},
+      &struct_with_bool_string_type));
+  const ArrayType* array_of_struct_type;
+  ZETASQL_CHECK_OK(types_->MakeArrayType(struct_with_bool_string_type,
+                                 &array_of_struct_type));
+  const StructType* struct_with_array_of_struct_type;
+  ZETASQL_CHECK_OK(types_->MakeStructType(
+      {{"a", types_->get_int32()}, {"b", array_of_struct_type}},
+      &struct_with_array_of_struct_type));
+
+  const StructType* struct_of_multiple_string_type;
+  ZETASQL_CHECK_OK(types_->MakeStructType(
+      {{"a", types_->get_string()}, {"b", types_->get_string()}},
+      &struct_of_multiple_string_type));
+
+  const AnnotationMap* annotation_map_struct_with_array_of_struct_ci;
+  {
+    std::unique_ptr<AnnotationMap> annotation_map =
+        AnnotationMap::Create(struct_with_array_of_struct_type);
+    annotation_map->AsStructMap()
+        ->mutable_field(1)
+        ->AsArrayMap()
+        ->mutable_element()
+        ->AsStructMap()
+        ->mutable_field(1)
+        ->SetAnnotation<CollationAnnotation>(SimpleValue::String("und:ci"));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(annotation_map_struct_with_array_of_struct_ci,
+                         types_->TakeOwnership(std::move(annotation_map)));
+  }
+
+  const AnnotationMap* annotation_map_struct_of_struct_ci;
+  {
+    std::unique_ptr<AnnotationMap> annotation_map =
+        AnnotationMap::Create(nested_struct_type_);
+    annotation_map->AsStructMap()
+        ->mutable_field(1)
+        ->AsStructMap()
+        ->mutable_field(1)
+        ->SetAnnotation<CollationAnnotation>(SimpleValue::String("und:ci"));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(annotation_map_struct_of_struct_ci,
+                         types_->TakeOwnership(std::move(annotation_map)));
+  }
+
+  const AnnotationMap* annotation_map_struct_with_string_ci_binary;
+  {
+    std::unique_ptr<AnnotationMap> annotation_map =
+        AnnotationMap::Create(struct_of_multiple_string_type);
+    annotation_map->AsStructMap()
+        ->mutable_field(0)
+        ->SetAnnotation<CollationAnnotation>(SimpleValue::String("und:ci"));
+    annotation_map->AsStructMap()
+        ->mutable_field(1)
+        ->SetAnnotation<CollationAnnotation>(SimpleValue::String("binary"));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(annotation_map_struct_with_string_ci_binary,
+                         types_->TakeOwnership(std::move(annotation_map)));
+  }
+
+  auto string_no_collation = new SimpleColumn(
+      complex_collated_table->Name(), "string_no_collation",
+      AnnotatedType(types_->get_string(), /*annotation_map=*/nullptr));
+
+  auto struct_with_array_of_struct_ci = new SimpleColumn(
+      complex_collated_table->Name(), "struct_with_array_of_struct_ci",
+      AnnotatedType(struct_with_array_of_struct_type,
+                    annotation_map_struct_with_array_of_struct_ci));
+
+  auto struct_of_struct_ci = new SimpleColumn(
+      complex_collated_table->Name(), "struct_of_struct_ci",
+      AnnotatedType(nested_struct_type_, annotation_map_struct_of_struct_ci));
+
+  auto struct_with_string_ci_binary = new SimpleColumn(
+      complex_collated_table->Name(), "struct_with_string_ci_binary",
+      AnnotatedType(struct_of_multiple_string_type,
+                    annotation_map_struct_with_string_ci_binary));
+
+  ZETASQL_CHECK_OK(complex_collated_table->AddColumn(string_no_collation,
+                                             /*is_owned=*/true));
+  ZETASQL_CHECK_OK(complex_collated_table->AddColumn(struct_with_array_of_struct_ci,
+                                             /*is_owned=*/true));
+  ZETASQL_CHECK_OK(complex_collated_table->AddColumn(struct_of_struct_ci,
+                                             /*is_owned=*/true));
+  ZETASQL_CHECK_OK(complex_collated_table->AddColumn(struct_with_string_ci_binary,
+                                             /*is_owned=*/true));
+  AddOwnedTable(complex_collated_table);
 
   auto generic_annotation_test_table = new SimpleTable("AnnotatedTable");
 
@@ -980,6 +1076,11 @@ void SampleCatalog::LoadProtoTables() {
 
   catalog_->AddOwnedTable(
       new SimpleTable("TestBcPBValueTable", proto_bcPB_));
+
+  catalog_->AddOwnedTable(new SimpleTable("TestBcPBValueProtoTable",
+                                          {{"value", proto_bcPB_},
+                                           {"Filename", types_->get_string()},
+                                           {"RowId", types_->get_int64()}}));
 
   // TestExtraValueTable also has pseudo-columns Filename and RowID.
   SimpleTable* extra_value_table;
@@ -1548,6 +1649,20 @@ void SampleCatalog::LoadFunctions() {
         FunctionSignatureOptions().set_uses_operation_collation(true)}},
       FunctionOptions(FunctionOptions::ORDER_UNSUPPORTED,
                       /*window_framing_support_in=*/true));
+  catalog_->AddOwnedFunction(function);
+
+  // Adds fn_reject_collation(STRING, ANY TYPE) -> INT64.
+  // Enables rejects_collation to test collation resolution.
+  function =
+      new Function("fn_reject_collation", "sample_functions", Function::SCALAR,
+                   {{types_->get_int64(),
+                     {types_->get_string(),
+                      {ARG_TYPE_ANY_1,
+                       FunctionArgumentTypeOptions()
+                           .set_argument_name("second_arg")
+                           .set_cardinality(FunctionArgumentType::OPTIONAL)}},
+                     /*context_id=*/-1,
+                     FunctionSignatureOptions().set_rejects_collation(true)}});
   catalog_->AddOwnedFunction(function);
 
   // Add the following test analytic functions. All functions have the same
@@ -2736,12 +2851,19 @@ const char kTypeString[] = "string";
 const char kTypeTime[] = "time";
 const char kTypeUInt32[] = "uint32";
 const char kTypeUInt64[] = "uint64";
+const char kTypeInterval[] = "interval";
 
 struct OutputColumn {
   std::string description;
   std::string name;
   const Type* type;
 };
+
+struct TVFArgument {
+  std::string description;
+  const Type* type;
+};
+
 }  // namespace
 
 static std::vector<OutputColumn> GetOutputColumnsForAllTypes(
@@ -2759,6 +2881,22 @@ static std::vector<OutputColumn> GetOutputColumnsForAllTypes(
           {kTypeUInt64, kColumnNameUInt64, types->get_uint64()}};
 }
 
+static std::vector<TVFArgument> GetTVFArgumentsForAllTypes(
+    TypeFactory* types) {
+  return {{kTypeBool, types->get_bool()},
+          {kTypeBytes, types->get_bytes()},
+          {kTypeDate, types->get_date()},
+          {kTypeDouble, types->get_double()},
+          {kTypeFloat, types->get_float()},
+          {kTypeInt32, types->get_int32()},
+          {kTypeInt64, types->get_int64()},
+          {kTypeString, types->get_string()},
+          {kTypeTime, types->get_time()},
+          {kTypeUInt32, types->get_uint32()},
+          {kTypeUInt64, types->get_uint64()},
+          {kTypeInterval, types->get_interval()}};
+}
+
 static TVFRelation GetOutputSchemaWithTwoTypes(
     const std::vector<OutputColumn>& output_columns_for_all_types) {
   TVFRelation::ColumnList columns;
@@ -2774,6 +2912,9 @@ void SampleCatalog::LoadTableValuedFunctions1() {
 
   const std::vector<OutputColumn> kOutputColumnsAllTypes =
       GetOutputColumnsForAllTypes(types_);
+
+  const std::vector<TVFArgument> kArgumentsAllTypes =
+      GetTVFArgumentsForAllTypes(types_);
 
   TVFRelation output_schema_two_types =
       GetOutputSchemaWithTwoTypes(kOutputColumnsAllTypes);
@@ -2823,7 +2964,7 @@ void SampleCatalog::LoadTableValuedFunctions1() {
       output_schema_all_types));
 
   // Add a TVF for each POD type that accepts exactly one argument of that type.
-  for (const auto& kv : kOutputColumnsAllTypes) {
+  for (const auto& kv : kArgumentsAllTypes) {
     catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
         {absl::StrCat("tvf_exactly_1_", kv.description, "_arg")},
         FunctionSignature(FunctionArgumentType::RelationWithSchema(
@@ -4566,15 +4707,16 @@ void SampleCatalog::LoadTableValuedFunctionsWithAnonymizationUid() {
   TVFRelation output_schema_all_types(columns);
 
   int context_id = 0;
-  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVFWithUid(
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_no_args_with_anonymization_uid"},
       FunctionSignature(FunctionArgumentType::RelationWithSchema(
                             output_schema_all_types,
                             /*extra_relation_input_columns_allowed=*/false),
                         FunctionArgumentTypeList(), context_id++),
-      output_schema_all_types, {"column_int64"}));
+      AnonymizationInfo::Create({"column_int64"}).value_or(nullptr),
+      output_schema_all_types));
 
-  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVFWithUid(
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_relation_arg_with_anonymization_uid"},
       FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
@@ -4582,9 +4724,10 @@ void SampleCatalog::LoadTableValuedFunctionsWithAnonymizationUid() {
               /*extra_relation_input_columns_allowed=*/false),
           FunctionArgumentTypeList({FunctionArgumentType(ARG_TYPE_RELATION)}),
           context_id++),
-      output_schema_all_types, {"column_int64"}));
+      AnonymizationInfo::Create({"column_int64"}).value_or(nullptr),
+      output_schema_all_types));
 
-  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVFWithUid(
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_templated_arg_with_anonymization_uid"},
       FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
@@ -4592,42 +4735,46 @@ void SampleCatalog::LoadTableValuedFunctionsWithAnonymizationUid() {
               /*extra_relation_input_columns_allowed=*/false),
           FunctionArgumentTypeList({FunctionArgumentType(ARG_TYPE_ARBITRARY)}),
           context_id++),
-      output_schema_all_types, {"column_int64"}));
+      AnonymizationInfo::Create({"column_int64"}).value_or(nullptr),
+      output_schema_all_types));
 
   TVFRelation output_schema_proto(
       {{"user_info", GetProtoType(zetasql_test__::TestExtraPB::descriptor())}});
 
-  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVFWithUid(
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_no_args_with_nested_anonymization_uid"},
       FunctionSignature(FunctionArgumentType::RelationWithSchema(
                             output_schema_proto,
                             /*extra_relation_input_columns_allowed=*/false),
                         FunctionArgumentTypeList(), context_id++),
-      output_schema_proto, {"user_info", "int32_val1"}));
+      AnonymizationInfo::Create({"user_info", "int32_val1"}).value_or(nullptr),
+      output_schema_proto));
 
   TVFRelation output_schema_proto_value_table = TVFRelation::ValueTable(
       GetProtoType(zetasql_test__::TestExtraPB::descriptor()));
 
-  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVFWithUid(
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_no_args_value_table_with_anonymization_uid"},
       FunctionSignature(FunctionArgumentType::RelationWithSchema(
                             output_schema_proto_value_table,
                             /*extra_relation_input_columns_allowed=*/false),
                         FunctionArgumentTypeList(), context_id++),
-      output_schema_proto_value_table, {"int32_val1"}));
+      AnonymizationInfo::Create({"int32_val1"}).value_or(nullptr),
+      output_schema_proto_value_table));
 
   TVFRelation output_schema_proto_value_table_with_nested_int =
       TVFRelation::ValueTable(
           GetProtoType(zetasql_test__::KitchenSinkPB::descriptor()));
 
-  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVFWithUid(
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_no_args_value_table_with_nested_anonymization_uid"},
       FunctionSignature(FunctionArgumentType::RelationWithSchema(
                             output_schema_proto_value_table_with_nested_int,
                             /*extra_relation_input_columns_allowed=*/false),
                         FunctionArgumentTypeList(), context_id++),
-      output_schema_proto_value_table_with_nested_int,
-      {"nested_value", "nested_int64"}));
+      AnonymizationInfo::Create({"nested_value", "nested_int64"})
+          .value_or(nullptr),
+      output_schema_proto_value_table_with_nested_int));
 }
 
 void SampleCatalog::AddProcedureWithArgumentType(std::string type_name,
@@ -5057,6 +5204,76 @@ void SampleCatalog::LoadContrivedLambdaArgFunctions() {
   ZETASQL_CHECK_EQ("(repeated INT64, LAMBDA(INT64-><T1>)) -> <T1>",
            function->GetSignature(0)->DebugString());
   catalog_->AddOwnedFunction(function.release());
+}
+
+// Add a SQL function to catalog starting from a full create_function
+// statement.
+void SampleCatalog::AddSqlDefinedFunctionFromCreate(
+    absl::string_view create_function, const LanguageOptions& language_options,
+    bool inline_sql_functions) {
+  // Ensure the language options used allow CREATE FUNCTION
+  LanguageOptions language = language_options;
+  language.AddSupportedStatementKind(RESOLVED_CREATE_FUNCTION_STMT);
+  language.EnableLanguageFeature(FEATURE_V_1_3_INLINE_LAMBDA_ARGUMENT);
+  language.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
+  AnalyzerOptions analyzer_options;
+  analyzer_options.set_language(language);
+  analyzer_options.set_enabled_rewrites(/*rewrites=*/{});
+  analyzer_options.enable_rewrite(REWRITE_INLINE_SQL_FUNCTIONS,
+                                  inline_sql_functions);
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  ZETASQL_CHECK_OK(AnalyzeStatement(create_function, analyzer_options, catalog_.get(),
+                            catalog_->type_factory(), &analyzer_output))
+      << create_function;
+  const ResolvedStatement* resolved = analyzer_output->resolved_statement();
+  ZETASQL_CHECK(resolved->Is<ResolvedCreateFunctionStmt>());
+  const ResolvedCreateFunctionStmt* resolved_create =
+      resolved->GetAs<ResolvedCreateFunctionStmt>();
+  std::unique_ptr<SQLFunction> function;
+  ZETASQL_CHECK_OK(SQLFunction::Create(
+      absl::StrJoin(resolved_create->name_path(), "."), FunctionEnums::SCALAR,
+      {resolved_create->signature()}, /*function_options=*/{},
+      resolved_create->function_expression(),
+      resolved_create->argument_name_list(), /*aggregate_expression_list=*/{},
+      /*parse_resume_location=*/{}, &function));
+  catalog_->AddOwnedFunction(function.release());
+  sql_function_artifacts_.emplace_back(std::move(analyzer_output));
+}
+
+void SampleCatalog::LoadSqlFunctions(const LanguageOptions& language_options) {
+  AddSqlDefinedFunctionFromCreate(
+      R"( CREATE FUNCTION NullaryPi() RETURNS FLOAT64 AS (3.141597); )",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"( CREATE FUNCTION NullaryWithSubquery()
+          AS (EXISTS (SELECT 1 FROM UNNEST([1,2,3]) AS e WHERE e = 2)); )",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"( CREATE FUNCTION NullaryWithCommonTableExpression()
+          AS (EXISTS (WITH t AS (SELECT [1,2,3] AS arr)
+                      SELECT 1 FROM t, t.arr as e WHERE e = 2)); )",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"( CREATE FUNCTION NullaryWithLambda()
+          AS (ARRAY_INCLUDES([1, 2, 3], e -> e = 2)); )",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"( CREATE FUNCTION NullaryWithSqlFunctionCallPreInlined()
+          AS (NullaryPi()); )",
+      language_options, /*inline_sql_functions=*/true);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"( CREATE FUNCTION NullaryWithSqlFunctionCallNotPreInlined()
+          AS (NullaryPi()); )",
+      language_options, /*inline_sql_functions=*/false);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"( CREATE FUNCTION UnaryIncrement(a INT64) AS ( a + 1 ); )",
+      language_options);
 }
 
 }  // namespace zetasql

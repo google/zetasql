@@ -637,14 +637,25 @@ FROM (
 | "&nbsp;&nbsp;&nbsp;&nbsp;www.Example.Co.UK&nbsp;&nbsp;&nbsp;&nbsp;"| non-standard URL with spaces, upper case letters, and without scheme          | "www.Example.Co.UK"| "Co.UK" | "Example.Co.UK"|
 | "mailto:?to=&subject=&body="                                       | URI rather than URL--unsupported                                              | "mailto"           | NULL    | NULL           |
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [net-link-to-ipv6-rfc]: http://www.ietf.org/rfc/rfc2373.txt
+
 [net-link-to-cidr-notation]: https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing
+
 [net-link-to-rfc-3986-appendix-a]: https://tools.ietf.org/html/rfc3986#appendix-A
+
 [net-link-to-public-suffix]: https://publicsuffix.org/list/
+
 [net-link-to-punycode]: https://en.wikipedia.org/wiki/Punycode
 
-[net-link-to-ip-from-string]: #netip-from-string
-[net-link-to-ip-to-string]: #netip-to-string
-[net-link-to-ipv4-from-int64]: #netipv4-from-int64
-[net-link-to-ipv4-to-int64]: #netipv4-to-int64
+[net-link-to-ip-from-string]: #netip_from_string
+
+[net-link-to-ip-to-string]: #netip_to_string
+
+[net-link-to-ipv4-from-int64]: #netipv4_from_int64
+
+[net-link-to-ipv4-to-int64]: #netipv4_to_int64
+
+<!-- mdlint on -->
 

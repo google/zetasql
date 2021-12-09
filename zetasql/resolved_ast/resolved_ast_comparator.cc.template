@@ -21,7 +21,6 @@
 #include "google/protobuf/descriptor.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/public/catalog.h"
-#include "zetasql/base/case.h"
 
 namespace zetasql {
 

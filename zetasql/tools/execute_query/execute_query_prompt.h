@@ -18,7 +18,9 @@
 #define ZETASQL_TOOLS_EXECUTE_QUERY_EXECUTE_QUERY_PROMPT_H_
 
 #include <deque>
+#include <functional>
 #include <string>
+#include <utility>
 
 #include "gtest/gtest_prod.h"
 #include "absl/status/statusor.h"

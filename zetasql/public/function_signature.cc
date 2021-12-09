@@ -43,7 +43,6 @@
 #include "absl/strings/substitute.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/map_util.h"
-#include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
@@ -119,6 +118,7 @@ absl::Status FunctionSignatureOptions::Deserialize(
   (*result)->set_is_aliased_signature(proto.is_aliased_signature());
   (*result)->set_propagates_collation(proto.propagates_collation());
   (*result)->set_uses_operation_collation(proto.uses_operation_collation());
+  (*result)->set_rejects_collation(proto.rejects_collation());
 
   return absl::OkStatus();
 }
@@ -141,6 +141,9 @@ void FunctionSignatureOptions::Serialize(
   }
   if (uses_operation_collation()) {
     proto->set_uses_operation_collation(true);
+  }
+  if (rejects_collation()) {
+    proto->set_rejects_collation(true);
   }
 }
 
@@ -1080,6 +1083,9 @@ std::string FunctionSignature::DebugString(const std::string& function_name,
         DeprecationWarningsToDebugString(AdditionalDeprecationWarnings());
     if (!deprecation_warnings_debug_string.empty()) {
       absl::StrAppend(&result, " ", deprecation_warnings_debug_string);
+    }
+    if (options_.rejects_collation()) {
+      absl::StrAppend(&result, " rejects_collation=TRUE");
     }
   }
   return result;

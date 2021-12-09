@@ -19,24 +19,23 @@
 
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/options.pb.h"
-#include "absl/container/flat_hash_set.h"
+#include "absl/container/btree_set.h"
 #include "absl/flags/declare.h"
 
 namespace zetasql {
 
-// Wrapper around absl::flat_hash_set<ResolvedASTRewrite> to represent the value
+// Wrapper around a set of ResolvedASTRewrite to represent the value
 // of the 'rewrites' flag. It is necessary to allow AbslParseFlag() and
 // AbslUnparseFlag() to go in the zetasql namespace instead of the absl
 // namespace.
-class RewriteHashSet : public absl::flat_hash_set<ResolvedASTRewrite> {
+class RewriteSet : public absl::btree_set<ResolvedASTRewrite> {
  public:
-  RewriteHashSet() {}
-  explicit RewriteHashSet(const absl::flat_hash_set<ResolvedASTRewrite>& set)
-      : absl::flat_hash_set<ResolvedASTRewrite>(set) {}
+  RewriteSet() {}
+  explicit RewriteSet(const absl::btree_set<ResolvedASTRewrite>& set)
+      : absl::btree_set<ResolvedASTRewrite>(set) {}
 };
-std::string AbslUnparseFlag(RewriteHashSet set);
-bool AbslParseFlag(absl::string_view text, RewriteHashSet* set,
-                   std::string* error);
+std::string AbslUnparseFlag(RewriteSet set);
+bool AbslParseFlag(absl::string_view text, RewriteSet* set, std::string* error);
 
 }  // namespace zetasql
 
@@ -49,6 +48,6 @@ bool AbslParseFlag(absl::string_view text, RewriteHashSet* set,
 //   all: Enable all rewrites
 //   REWRITE_FOO,REWRITE_BAR,...: Comma-delimited list of specific rewrites to
 //     enable.
-ABSL_DECLARE_FLAG(zetasql::RewriteHashSet, rewrites);
+ABSL_DECLARE_FLAG(zetasql::RewriteSet, rewrites);
 
 #endif  // ZETASQL_REFERENCE_IMPL_REWRITE_FLAGS_H_

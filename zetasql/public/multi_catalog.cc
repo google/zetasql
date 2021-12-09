@@ -26,7 +26,7 @@ class Procedure;
 class TableValuedFunction;
 
 absl::Status MultiCatalog::Create(
-    const std::string& name, const std::vector<Catalog*>& catalog_list,
+    absl::string_view name, const std::vector<Catalog*>& catalog_list,
     std::unique_ptr<MultiCatalog>* multi_catalog) {
   for (const Catalog* catalog : catalog_list) {
     ZETASQL_RET_CHECK_NE(nullptr, catalog)

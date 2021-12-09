@@ -17,6 +17,7 @@
 #include "zetasql/public/table_valued_function.h"
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <utility>
 
@@ -25,10 +26,10 @@
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/simple_table.pb.h"
+#include "zetasql/base/case.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "zetasql/base/case.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -409,6 +410,11 @@ absl::Status FixedOutputSchemaTVF::Resolve(
       concrete_signature.AdditionalDeprecationWarnings();
   tvf_signature->reset(
       new TVFSignature(actual_arguments, result_schema_, options));
+  if (anonymization_info_ != nullptr) {
+    auto anonymization_info =
+        absl::make_unique<AnonymizationInfo>(*anonymization_info_);
+    tvf_signature->get()->SetAnonymizationInfo(std::move(anonymization_info));
+  }
   return absl::OkStatus();
 }
 

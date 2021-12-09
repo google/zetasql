@@ -31,7 +31,6 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/types/optional.h"
-#include "zetasql/base/canonical_errors.h"
 
 namespace zetasql {
 
@@ -161,8 +160,8 @@ class StatementEvaluatorImpl : public StatementEvaluator {
       const TypeParameters& type_params, Value* value) override;
 
   absl::StatusOr<std::unique_ptr<ProcedureDefinition>> LoadProcedure(
-      const ScriptExecutor& executor,
-      const absl::Span<const std::string>& path) override;
+      const ScriptExecutor& executor, const absl::Span<const std::string>& path,
+      const int64_t num_arguments) override;
 
   TypeFactory* type_factory() { return type_factory_; }
   const AnalyzerOptions& initial_analyzer_options() const {

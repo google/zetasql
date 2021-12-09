@@ -1,5 +1,5 @@
 # Tests for the TYPEOF function.
-[default enable_ast_rewrites]
+[default enabled_ast_rewrites=DEFAULTS]
 
 SELECT TYPEOF(NULL);
 --

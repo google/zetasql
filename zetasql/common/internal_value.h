@@ -21,6 +21,7 @@
 
 #include "zetasql/common/float_margin.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/value_equality_check_options.h"
 #include "zetasql/public/value.h"
 #include "absl/types/span.h"
 
@@ -48,8 +49,10 @@ class InternalValue {
   static Value ArrayNotChecked(const ArrayType* array_type,
                                OrderPreservationKind order_kind,
                                std::vector<Value>&& values) {
-    return Value::ArrayInternal(/*safe=*/false, array_type, order_kind,
-                                std::move(values));
+    absl::StatusOr<Value> value = Value::MakeArrayInternal(
+        /*already_validated=*/true, array_type, order_kind, std::move(values));
+    ZETASQL_CHECK_OK(value);
+    return std::move(value).value();
   }
 
   // Same as ArrayNotChecked except we ZETASQL_CHECK the type of each element, even when
@@ -57,8 +60,10 @@ class InternalValue {
   static Value ArrayChecked(const ArrayType* array_type,
                             OrderPreservationKind order_kind,
                             std::vector<Value>&& values) {
-    return Value::ArrayInternal(/*safe=*/true, array_type, order_kind,
-                                std::move(values));
+    absl::StatusOr<Value> value = Value::MakeArrayInternal(
+        /*already_validated=*/false, array_type, order_kind, std::move(values));
+    ZETASQL_CHECK_OK(value);
+    return std::move(value).value();
   }
 
   // DEPRECATED: use ArrayNotChecked/ArrayChecked() instead. (For some reason,
@@ -68,23 +73,32 @@ class InternalValue {
                      absl::Span<const Value> values,
                      OrderPreservationKind order_kind) {
     std::vector<Value> value_copies(values.begin(), values.end());
-    return ArrayChecked(array_type, order_kind, std::move(value_copies));
+    absl::StatusOr<Value> value =
+        Value::MakeArrayInternal(/*already_validated=*/false, array_type,
+                                 order_kind, std::move(value_copies));
+    ZETASQL_CHECK_OK(value);
+    return std::move(value).value();
+  }
+
+  absl::StatusOr<Value> MakeArray(const ArrayType* array_type,
+                                  std::vector<Value> values,
+                                  OrderPreservationKind order_kind) {
+    return Value::MakeArrayInternal(/*already_validated=*/false, array_type,
+                                    order_kind, std::move(values));
   }
 
   // Checks equality of values. Arrays inside 'x' value with
   // order_kind()=kIgnoresOrder are compared as multisets to respective arrays
-  // in 'y' value. If 'reason' is not null, upon inequality it may be set to
-  // human-readable explanation of what parts of values differ or cleared.
+  // in 'y' value.
   static bool Equals(const Value& x, const Value& y,
-                     FloatMargin float_margin = kExactFloatMargin,
-                     std::string* reason = nullptr) {
-    if (reason) {
-      reason->clear();
+                     const ValueEqualityCheckOptions& options = {}) {
+    if (options.reason) {
+      options.reason->clear();
     }
     return Value::EqualsInternal(x, y,
                                  true,     // allow_bags
                                  nullptr,  // deep order spec
-                                 float_margin, reason);
+                                 options);
   }
 
   static OrderPreservationKind GetOrderKind(const Value& x) {

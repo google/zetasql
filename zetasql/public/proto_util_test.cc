@@ -30,6 +30,7 @@
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/testdata/test_schema.pb.h"
@@ -47,6 +48,7 @@ namespace zetasql {
 using ::testing::HasSubstr;
 
 using zetasql_test__::KitchenSinkPB;
+using zetasql_test__::ProtoWithIntervalField;
 
 using zetasql::testing::EqualsProto;
 
@@ -829,6 +831,17 @@ TEST_P(ReadProtoFieldsTest, SameFieldWithTwoFormats) {
 
   EXPECT_THAT(value_list[0], IsOkAndHolds(values::Int32(10)));
   EXPECT_THAT(value_list[1], IsOkAndHolds(values::Date(10)));
+}
+
+TEST(GetProtoFieldDefault, Interval) {
+  ProtoWithIntervalField proto;
+  ProtoFieldDefaultOptions options;
+  const google::protobuf::FieldDescriptor* interval_field =
+      proto.GetDescriptor()->FindFieldByName("interval_value");
+  Value default_value;
+  ZETASQL_ASSERT_OK(GetProtoFieldDefault(options, interval_field, types::IntervalType(),
+                                 &default_value));
+  ASSERT_EQ(default_value.interval_value().ToString(), "0-0 0 0:0:0");
 }
 
 INSTANTIATE_TEST_SUITE_P(ReadProtoFieldsTestInstantiation, ReadProtoFieldsTest,

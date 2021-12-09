@@ -38,22 +38,24 @@ namespace {
 constexpr ResolvedASTRewrite kReferenceImplOptionalRewrites[] = {
     REWRITE_FLATTEN,        REWRITE_PROTO_MAP_FNS,
     REWRITE_PIVOT,          REWRITE_ARRAY_FILTER_TRANSFORM,
-    REWRITE_ARRAY_INCLUDES, REWRITE_UNPIVOT};
+    REWRITE_ARRAY_INCLUDES, REWRITE_UNPIVOT,
+    REWRITE_LET_EXPR,
+};
 
-RewriteHashSet DefaultRewrites() {
-  return RewriteHashSet(AnalyzerOptions().enabled_rewrites());
+RewriteSet DefaultRewrites() {
+  return RewriteSet(AnalyzerOptions().enabled_rewrites());
 }
 
-RewriteHashSet MinimalRewrites() {
-  RewriteHashSet minimal_rewrites(DefaultRewrites());
+RewriteSet MinimalRewrites() {
+  RewriteSet minimal_rewrites(DefaultRewrites());
   for (ResolvedASTRewrite rewrite : zetasql::kReferenceImplOptionalRewrites) {
     minimal_rewrites.erase(rewrite);
   }
   return minimal_rewrites;
 }
 
-RewriteHashSet AllRewrites() {
-  RewriteHashSet all_rewrites;
+RewriteSet AllRewrites() {
+  RewriteSet all_rewrites;
   const google::protobuf::EnumDescriptor* descriptor =
       google::protobuf::GetEnumDescriptor<ResolvedASTRewrite>();
   for (int i = 0; i < descriptor->value_count(); ++i) {
@@ -67,7 +69,7 @@ RewriteHashSet AllRewrites() {
 }  // namespace
 
 // Returns a textual flag value corresponding to a rewrite set.
-std::string AbslUnparseFlag(RewriteHashSet set) {
+std::string AbslUnparseFlag(RewriteSet set) {
   if (set.empty()) {
     return "none";
   } else if (set == DefaultRewrites()) {
@@ -86,7 +88,7 @@ std::string AbslUnparseFlag(RewriteHashSet set) {
 // Parses a rewrite set from the command line flag value `text`.
 // Returns true and sets `*flag` on success; returns false and sets `*error`
 // on failure.
-bool AbslParseFlag(absl::string_view text, RewriteHashSet* set,
+bool AbslParseFlag(absl::string_view text, RewriteSet* set,
                    std::string* error) {
   if (text == "default") {
     *set = DefaultRewrites();
@@ -107,7 +109,7 @@ bool AbslParseFlag(absl::string_view text, RewriteHashSet* set,
 
   // Anything not one of the predefined values above is parsed as a
   // comma-delimited list of rewrite names.
-  RewriteHashSet explicit_rewrites;
+  RewriteSet explicit_rewrites;
   const google::protobuf::EnumDescriptor* descriptor =
       google::protobuf::GetEnumDescriptor<ResolvedASTRewrite>();
   std::vector<absl::string_view> rewrite_names = absl::StrSplit(text, ',');
@@ -130,7 +132,7 @@ bool AbslParseFlag(absl::string_view text, RewriteHashSet* set,
 }  // namespace zetasql
 
 ABSL_FLAG(
-    zetasql::RewriteHashSet, rewrites, zetasql::MinimalRewrites(),
+    zetasql::RewriteSet, rewrites, zetasql::MinimalRewrites(),
     "Which rewrites to enable. Possible values:\n"
     "  minimal: Enable only rewrites which are on by default and no native\n"
     "    implementation exists in the reference impl.\n"

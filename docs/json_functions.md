@@ -1812,7 +1812,13 @@ returns `NULL`.
 
 If the JSONPath is invalid, the function raises an error.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [json-encodings]: #json_encodings
+
 [JSONPath-format]: #JSONPath_format
+
 [json-path]: https://github.com/json-path/JSONPath#operators
+
+<!-- mdlint on -->
 

@@ -82,10 +82,6 @@ public final class ResolvedColumn implements Serializable {
     return debugString();
   }
 
-  public boolean isDefaultValue() {
-    return id == -1;
-  }
-
   /**
    * Format a list of ResolvedColumns. Uses an abbreviated outputformat if all columns have the same
    * tableName.
@@ -130,8 +126,12 @@ public final class ResolvedColumn implements Serializable {
     return sb.toString();
   }
 
-  @Override
+  public boolean isDefaultValue() {
+    return id == -1;
+  }
+
   /** To provide parity with resolved_column.h, equality is defined using columnId only. */
+  @Override
   public boolean equals(Object o) {
     if (this == o) {
       return true;
@@ -144,8 +144,8 @@ public final class ResolvedColumn implements Serializable {
     return false;
   }
 
-  @Override
   /** To provide parity with resolved_column.h, hashCode is defined using columnId only. */
+  @Override
   public int hashCode() {
     return Objects.hashCode(id);
   }

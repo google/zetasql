@@ -222,12 +222,12 @@ public final class FunctionArgumentType implements Serializable {
     return builder.toString();
   }
 
-  public FunctionArgumentTypeOptions getOptions() {
-    return options;
-  }
-
   public String debugString() {
     return debugString(false);
+  }
+
+  public FunctionArgumentTypeOptions getOptions() {
+    return options;
   }
 
   public TVFRelation getRelation() {

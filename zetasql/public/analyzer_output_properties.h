@@ -59,6 +59,12 @@ struct AnalyzerOutputProperties {
 
   // Returns whether the TYPEOF meta-function is used in the query.
   bool has_typeof_function = false;
+
+  // Returns true if the ResolvedLetExpr node type is in the plan.
+  bool has_let = false;
+
+  // Set true true if there is a call to a SQL function.
+  bool has_sql_function_call = false;
 };
 
 }  // namespace zetasql

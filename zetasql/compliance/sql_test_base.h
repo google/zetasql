@@ -83,6 +83,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/cleanup/cleanup.h"
+#include "absl/container/btree_set.h"
 #include "absl/container/node_hash_set.h"
 #include "absl/memory/memory.h"
 #include "absl/status/statusor.h"
@@ -409,7 +410,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
     // caused it to fail.
     void RecordKnownErrorStatement(const std::string& location,
                                    const KnownErrorMode mode,
-                                   const std::set<std::string>& by_set);
+                                   const absl::btree_set<std::string>& by_set);
 
     // Record the runtime duration of a executed statement.
     void RecordStatementExecutionTime(absl::Duration elapsed);
@@ -499,7 +500,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
 
   // Get the set of code-based labels. Make it protected so a subclass can
   // access it.
-  std::set<std::string> GetCodeBasedLabels();
+  absl::btree_set<std::string> GetCodeBasedLabels();
 
   // Helper function to implement ExecuteTestCase(), either when
   // executing a script, or when ExecuteStatement() isn't overridden.
@@ -849,7 +850,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
 
   // Return a set of effective labels, include <filename>:<statement_name>,
   // labels, and global_labels.
-  std::set<std::string> EffectiveLabels(
+  absl::btree_set<std::string> EffectiveLabels(
       const std::string& filename, const std::string& name,
       const std::vector<std::string>& labels,
       const std::vector<std::string>& global_labels) const;
@@ -863,7 +864,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
                   const std::string& prefix) const;
 
   // Current set of effective labels.
-  std::set<std::string> effective_labels_;
+  absl::btree_set<std::string> effective_labels_;
 
   // PrimaryKeyMode for the current statement.
   PrimaryKeyMode primary_key_mode_ = PrimaryKeyMode::DEFAULT;
@@ -902,8 +903,9 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // Check if any labels in effective_labels is a known error. Returns the
   // maximum mode, where 0 means not a known error and non-zero means
   // it is a known error. Returns the subset in by_set.
-  KnownErrorMode IsKnownError(const std::set<std::string>& effective_labels,
-                              std::set<std::string>* by_set) const;
+  KnownErrorMode IsKnownError(
+      const absl::btree_set<std::string>& effective_labels,
+      absl::btree_set<std::string>* by_set) const;
 
   // Wraps Stats::RecordKnownErrorStatement(). Ignores test result of a
   // known error statement. This is required so the golden tool will not pick up
@@ -924,7 +926,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   }
 
   // Set of labels in known_error files that affect current statement.
-  std::set<std::string> by_set_;
+  absl::btree_set<std::string> by_set_;
 
   // Validate a statement result to make sure the status is OK, the value is not
   // null, and is valid.

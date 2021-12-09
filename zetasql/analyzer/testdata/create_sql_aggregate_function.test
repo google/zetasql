@@ -927,3 +927,16 @@ create aggregate function myfunc()
 ERROR: To write SQL functions, omit the LANGUAGE clause and write the function body using 'AS (expression)' [at 3:12]
   language SQL
            ^
+==
+
+[language_features=CREATE_AGGREGATE_FUNCTION,V_1_1_ORDER_BY_IN_AGGREGATE]
+# Shows b/199542166
+CREATE TEMP AGGREGATE FUNCTION PackInOrder(foo STRING, delimiter STRING)
+RETURNS STRING
+AS (
+  ARRAY_TO_STRING(ARRAY_AGG(DISTINCT foo ORDER BY foo), delimiter)
+);
+--
+ERROR: An aggregate function that has both DISTINCT and ORDER BY arguments can only ORDER BY expressions that are arguments to the function [at 5:51]
+  ARRAY_TO_STRING(ARRAY_AGG(DISTINCT foo ORDER BY foo), delimiter)
+                                                  ^

@@ -1,5 +1,4 @@
 
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
 
 # Analytic function concepts
 
@@ -1010,30 +1009,57 @@ WINDOW item_window AS (
   ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)
 ```
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [named-window-rules]: #named_window_rules
+
 [over-clause-def]: #def_over_clause
+
 [window-specs-def]: #def_window_spec
+
 [window-frame-clause-def]: #def_window_frame
+
 [named-windows]: #ref_named_window
+
 [produce-table]: #produce_table
+
 [farm-table]: #farm_table
+
 [employees-table]: #employees_table
+
 [analytic-functions-link-to-numbering-functions]: #numbering_function_concepts
+
 [analytic-functions-link-to-navigation-functions]: #navigation_function_concepts
+
 [analytic-functions-compute-grand-total]: #compute_a_grand_total
+
 [analytic-functions-compute-subtotal]: #compute_a_subtotal
+
 [analytic-functions-compute-cumulative-sum]: #compute_a_cumulative_sum
+
 [analytic-functions-compute-moving-avg]: #compute_a_moving_average
+
 [analytic-functions-compute-item-range]: #compute_the_number_of_items_within_a_range
+
 [analytic-functions-get-popular-item]: #get_the_most_popular_item_in_each_category
+
 [analytic-functions-get-last-value-range]: #get_the_last_value_in_a_range
+
 [analytic-functions-compute-rank]: #compute_rank
+
 [analytic-functions-use-named-window]: #def_use_named_window
+
 [analytic-functions-link-to-window]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#window_clause
+
 [analytic-functions-link-to-qualify]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#qualify_clause
+
 [analytic-functions-link-to-hints]: https://github.com/google/zetasql/blob/master/docs/lexical.md#hints
 
 [navigation-functions-reference]: https://github.com/google/zetasql/blob/master/docs/navigation_functions.md
+
 [numbering-functions-reference]: https://github.com/google/zetasql/blob/master/docs/numbering_functions.md
+
 [aggregate-analytic-functions-reference]: https://github.com/google/zetasql/blob/master/docs/aggregate_analytic_functions.md
+
+<!-- mdlint on -->
 

@@ -472,7 +472,12 @@ ARRAY<STRUCT<id INT64, value INTERVAL>>[
 ==
 [required_features=INTERVAL_TYPE,ANALYTIC_FUNCTIONS]
 [name=analytic_running_sum]
-SELECT SUM(value) OVER(ORDER BY value ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM Intervals WHERE value < interval 1 year
+SELECT
+  SUM(value) OVER(
+    ORDER BY value ASC, id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+  )
+FROM Intervals
+WHERE value < INTERVAL 1 year
 --
 ARRAY<STRUCT<INTERVAL>>[
   {0-0 0 -0:0:1},
@@ -481,8 +486,8 @@ ARRAY<STRUCT<INTERVAL>>[
   {0-0 0 0:59:59.000002},
   {0-0 0 2:59:59.000001},
   {0-0 0 4:59:59.000001},
-  {0-0 30 4:59:59.000001},
-  {0-0 30 724:59:59.000001},
+  {0-1 0 4:59:59.000001},
+  {0-1 30 4:59:59.000001},
   {0-1 30 724:59:59.000001}
 ]
 ==
@@ -527,7 +532,9 @@ ARRAY<STRUCT<INTERVAL, INTERVAL>>[
 ==
 [required_features=INTERVAL_TYPE,ANALYTIC_FUNCTIONS]
 [name=analytic_partitionby]
-SELECT value, COUNT(*) OVER(PARTITION BY value) FROM Intervals ORDER BY value
+SELECT value, COUNT(*) OVER(PARTITION BY value)
+FROM Intervals
+ORDER BY value ASC, id ASC
 --
 ARRAY<STRUCT<value INTERVAL, INT64>>[
   {NULL, 1},
@@ -538,8 +545,204 @@ ARRAY<STRUCT<value INTERVAL, INT64>>[
   {0-0 0 1:59:59.999999, 1},
   {0-0 0 2:0:0, 1},
   {0-1 0 0:0:0, 3},
-  {0-0 0 720:0:0, 3},
   {0-0 30 0:0:0, 3},
+  {0-0 0 720:0:0, 3},
   {1-2 3 4:5:6.789, 1},
   {10000-0 0 0:0:0, 1}
+]
+==
+[required_features=INTERVAL_TYPE]
+[name=group_by_multiple_intervals]
+WITH t AS (
+  SELECT * FROM UNNEST(
+    [
+       STRUCT(1 AS n, INTERVAL 29 DAY + INTERVAL 24 HOUR AS i1,
+                      INTERVAL 31 DAY - INTERVAL 24 HOUR AS i2),
+       STRUCT(2 AS n, INTERVAL 28 DAY + INTERVAL 48 HOUR AS i1,
+                      INTERVAL 32 DAY - INTERVAL 48 HOUR AS i2)
+    ]))
+SELECT
+  CAST(i1 AS STRING) IN ('0-0 29 24:0:0', '0-0 28 48:0:0'),
+  CAST(i2 AS STRING) IN ('0-0 31 -24:0:0', '0-0 32 -48:0:0'),
+  ARRAY_AGG(CONCAT(CAST(i1 AS STRING), '/', CAST(i2 AS STRING)))
+FROM t
+GROUP BY i1, i2;
+--
+ARRAY<STRUCT<BOOL, BOOL, ARRAY<>>>[
+  {true,
+   true,
+   ARRAY<STRING>[
+     "0-0 29 24:0:0/0-0 31 -24:0:0",
+     "0-0 28 48:0:0/0-0 32 -48:0:0"
+   ]}
+]
+==
+
+[required_features=INTERVAL_TYPE]
+[name=group_by_multiple_intervals_and_non_interval]
+WITH t AS (
+  SELECT * FROM UNNEST(
+    [
+       STRUCT(1 AS x, 10 AS y, INTERVAL 29 DAY + INTERVAL 24 HOUR AS i1,
+                      INTERVAL 31 DAY - INTERVAL 24 HOUR AS i2),
+       STRUCT(2 AS x, 11 AS y, INTERVAL 28 DAY + INTERVAL 48 HOUR AS i1,
+                      INTERVAL 32 DAY - INTERVAL 48 HOUR AS i2),
+       STRUCT(1 AS x, 10 AS y, INTERVAL 29 DAY + INTERVAL 24 HOUR AS i1,
+                      INTERVAL 31 DAY - INTERVAL 24 HOUR AS i2),
+       STRUCT(1 AS x, 11 AS y, INTERVAL 28 DAY + INTERVAL 48 HOUR AS i1,
+                      INTERVAL 32 DAY - INTERVAL 48 HOUR AS i2)
+    ]))
+SELECT
+  CAST(i1 AS STRING) IN ('0-0 29 24:0:0', '0-0 28 48:0:0'),
+  x,
+  CAST(i2 AS STRING) IN ('0-0 31 -24:0:0', '0-0 32 -48:0:0'),
+  ARRAY_AGG(CONCAT(CAST(i1 AS STRING), '/', CAST(i2 AS STRING)))
+FROM t
+GROUP BY i1, x, i2;
+--
+ARRAY<STRUCT<BOOL, x INT64, BOOL, ARRAY<>>>[
+  {
+    true,
+    2,
+    true,
+    ARRAY<STRING>["0-0 28 48:0:0/0-0 32 -48:0:0"]
+  },
+  {true,
+   1,
+   true,
+   ARRAY<STRING>[
+     "0-0 28 48:0:0/0-0 32 -48:0:0",
+     "0-0 29 24:0:0/0-0 31 -24:0:0",
+     "0-0 29 24:0:0/0-0 31 -24:0:0"
+   ]}
+]
+==
+[required_features=INTERVAL_TYPE]
+[name=group_by_interval_nanosecond_precision]
+WITH t AS (
+  SELECT * FROM UNNEST(
+    [
+       STRUCT(1 AS n, INTERVAL '0.123456789' SECOND AS i),
+       STRUCT(2 AS n, INTERVAL '0.123456788' SECOND AS i),
+       STRUCT(3 AS n, INTERVAL '-0.123456789' SECOND AS i),
+       STRUCT(4 AS n, INTERVAL '-0.123456788' SECOND AS i),
+       STRUCT(5 AS n, INTERVAL '0.000000001' SECOND AS i),
+       STRUCT(6 AS n, INTERVAL 0 SECOND AS i),
+       STRUCT(7 AS n, INTERVAL '-0.000000001' SECOND AS i),
+       STRUCT(8 AS n, INTERVAL '-0' SECOND AS i),
+
+       STRUCT(9 AS n, INTERVAL 1 DAY + INTERVAL '0.000000001' SECOND AS i),
+       STRUCT(10 AS n, INTERVAL '86400.000000001' SECOND AS i)
+]))
+SELECT i, ARRAY_AGG(n), ARRAY_AGG(i)
+FROM t
+GROUP BY i;
+--
+ARRAY<STRUCT<i INTERVAL, ARRAY<>, ARRAY<>>>[
+  {
+    0-0 0 -0:0:0.123456789,
+    ARRAY<INT64>[3],
+    ARRAY<INTERVAL>[0-0 0 -0:0:0.123456789]
+  },
+  {
+    0-0 0 -0:0:0.123456788,
+    ARRAY<INT64>[4],
+    ARRAY<INTERVAL>[0-0 0 -0:0:0.123456788]
+  },
+  {
+    0-0 0 -0:0:0.000000001,
+    ARRAY<INT64>[7],
+    ARRAY<INTERVAL>[0-0 0 -0:0:0.000000001]
+  },
+  {
+    0-0 0 0:0:0,
+    ARRAY<INT64>[8, 6],
+    ARRAY<INTERVAL>[0-0 0 0:0:0, 0-0 0 0:0:0]
+  },
+  {
+    0-0 0 0:0:0.000000001,
+    ARRAY<INT64>[5],
+    ARRAY<INTERVAL>[0-0 0 0:0:0.000000001]
+  },
+  {
+    0-0 0 0:0:0.123456788,
+    ARRAY<INT64>[2],
+    ARRAY<INTERVAL>[0-0 0 0:0:0.123456788]
+  },
+  {
+    0-0 0 0:0:0.123456789,
+    ARRAY<INT64>[1],
+    ARRAY<INTERVAL>[0-0 0 0:0:0.123456789]
+  },
+  {0-0 1 0:0:0.000000001,
+   ARRAY<INT64>[9, 10],
+   ARRAY<INTERVAL>[
+     0-0 1 0:0:0.000000001,
+     0-0 0 24:0:0.000000001
+   ]}
+]
+==
+[required_features=INTERVAL_TYPE,ANALYTIC_FUNCTIONS]
+[name=count_distinct_analytic]
+SELECT
+  COUNT(DISTINCT value) OVER()
+FROM Intervals;
+--
+ARRAY<STRUCT<INT64>>[
+  {9},
+  {9},
+  {9},
+  {9},
+  {9},
+  {9},
+  {9},
+  {9},
+  {9},
+  {9},
+  {9},
+  {9}
+]
+==
+[required_features=INTERVAL_TYPE,ANALYTIC_FUNCTIONS]
+[name=sum_distinct_analytic]
+SELECT SUM(DISTINCT value) OVER() FROM Intervals
+WHERE value >= INTERVAL 29 DAY AND value <= Interval 31 DAY
+--
+ARRAY<STRUCT<INTERVAL>>[{0-1 0 0:0:0}, {0-1 0 0:0:0}, {0-1 0 0:0:0}]
+==
+[required_features=INTERVAL_TYPE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[name=array_agg_distinct]
+SELECT JUSTIFY_INTERVAL(i) as justified_i FROM UNNEST(
+  (SELECT ARRAY_AGG(DISTINCT value) AS a FROM Intervals)) AS i ORDER BY i;
+--
+ARRAY<STRUCT<justified_i INTERVAL>>[
+  {NULL},
+  {0-0 0 -0:0:1},
+  {0-0 0 0:0:0},
+  {0-0 0 0:0:0.000001},
+  {0-0 0 1:0:0.000001},
+  {0-0 0 1:59:59.999999},
+  {0-0 0 2:0:0},
+  {0-1 0 0:0:0},
+  {1-2 3 4:5:6.789},
+  {10000-0 0 0:0:0}
+]
+==
+[required_features=INTERVAL_TYPE]
+[name=between]
+SELECT value, value BETWEEN INTERVAL 30 DAY AND INTERVAL 40 DAY FROM Intervals;
+--
+ARRAY<STRUCT<value INTERVAL, BOOL>>[
+  {0-0 0 0:0:0, false},
+  {0-0 0 -0:0:1, false},
+  {0-0 30 0:0:0, true},
+  {10000-0 0 0:0:0, false},
+  {0-0 0 2:0:0, false},
+  {0-0 0 1:0:0.000001, false},
+  {NULL, NULL},
+  {0-0 0 0:0:0.000001, false},
+  {0-1 0 0:0:0, true},
+  {0-0 0 720:0:0, true},
+  {1-2 3 4:5:6.789, false},
+  {0-0 0 1:59:59.999999, false}
 ]

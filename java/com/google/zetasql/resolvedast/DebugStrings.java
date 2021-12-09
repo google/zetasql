@@ -303,32 +303,17 @@ class DebugStrings {
    * children.
    */
   static void collectDebugStringFields(ResolvedComputedColumn node, List<DebugStringField> fields) {
-      node.getExpr().collectDebugStringFieldsWithNameFormat(fields);
+    node.getExpr().collectDebugStringFieldsWithNameFormat(fields);
   }
 
-  static String getNameForDebugString(ResolvedComputedColumn node) {
-    return node.getExpr().getNameForDebugStringWithNameFormat(node.getColumn().shortDebugString());
-  }
-
-  /**
-   * ResolvedOutputColumn gets formatted as "column AS name [column.type]".
-   */
+  /** ResolvedOutputColumn gets formatted as "column AS name [column.type]". */
   @SuppressWarnings("unused")
   static void collectDebugStringFields(ResolvedOutputColumn node, List<DebugStringField> fields) {
     Preconditions.checkState(fields.isEmpty());
   }
 
-  static String getNameForDebugString(ResolvedOutputColumn node) {
-    return node.getColumn().debugString() + " AS "
-        + ZetaSQLStrings.toIdentifierLiteral(node.getName())
-        + " [" + node.getColumn().getType().debugString() + "]";
-  }
-
-  /**
-   * ResolvedConstant gets formatted as Constant(name(constant), type[, value]).
-   */
-  static void collectDebugStringFields(
-      ResolvedConstant node, List<DebugStringField> fields) {
+  /** ResolvedConstant gets formatted as Constant(name(constant), type[, value]). */
+  static void collectDebugStringFields(ResolvedConstant node, List<DebugStringField> fields) {
     Preconditions.checkArgument(fields.size() <= 1);
 
     // The base class, ResolvedExpr, has its implementation called first, so when we get here,
@@ -337,10 +322,6 @@ class DebugStrings {
     // output can pass.
     fields.add(0, new DebugStringField("", node.getConstant().getFullName()));
     fields.add(new DebugStringField("value", node.getConstant().getValue().debugString()));
-  }
-
-  static String getNameForDebugString(ResolvedConstant node) {
-    return "Constant";
   }
 
   /**
@@ -367,45 +348,33 @@ class DebugStrings {
     }
   }
 
-  static String getNameForDebugString(ResolvedFunctionCallBase node) {
-    return node.nodeKindString() + "("
-        + (node.getErrorMode() == ErrorMode.SAFE_ERROR_MODE ? "{SAFE_ERROR_MODE} " : "")
-        + (node.getFunction() != null ? node.getFunction().toString() : "<unknown>")
-        + node.getSignature().toString() + ")";
-  }
-
   /**
-   * ResolvedCast gets formatted as "Cast(from_type -> to_type)" with only from_expr printed as
-   * a child.
+   * ResolvedCast gets formatted as "Cast(from_type -> to_type)" with only from_expr printed as a
+   * child.
    */
   static void collectDebugStringFields(ResolvedCast node, List<DebugStringField> fields) {
     Preconditions.checkArgument(fields.size() <= 1);
 
-   fields.clear();
-   if (node.getExpr() != null) {
-     // Use empty name to avoid printing "arguments=" with extra indentation.
-     fields.add(new DebugStringField("", node.getExpr()));
-   }
-   if (node.getReturnNullOnError()) {
-     fields.add(new DebugStringField("return_null_on_error", "TRUE"));
-   }
-   if (node.getExtendedCast() != null) {
-     fields.add(new DebugStringField("extended_cast", node.getExtendedCast()));
-   }
-   if (node.getFormat() != null) {
-     fields.add(new DebugStringField("format", node.getFormat()));
-   }
-   if (node.getTimeZone() != null) {
+    fields.clear();
+    if (node.getExpr() != null) {
+      // Use empty name to avoid printing "arguments=" with extra indentation.
+      fields.add(new DebugStringField("", node.getExpr()));
+    }
+    if (node.getReturnNullOnError()) {
+      fields.add(new DebugStringField("return_null_on_error", "TRUE"));
+    }
+    if (node.getExtendedCast() != null) {
+      fields.add(new DebugStringField("extended_cast", node.getExtendedCast()));
+    }
+    if (node.getFormat() != null) {
+      fields.add(new DebugStringField("format", node.getFormat()));
+    }
+    if (node.getTimeZone() != null) {
       fields.add(new DebugStringField("time_zone", node.getTimeZone()));
-   }
-   if (node.getTypeParameters() != null && !node.getTypeParameters().isEmpty()) {
-     fields.add(new DebugStringField("type_parameters", node.getTypeParameters().debugString()));
-   }
-  }
-
-  static String getNameForDebugString(ResolvedCast node) {
-   return "Cast(" + node.getExpr().getType().debugString() + " -> "
-       + node.getType().debugString() + ")";
+    }
+    if (node.getTypeParameters() != null && !node.getTypeParameters().isEmpty()) {
+      fields.add(new DebugStringField("type_parameters", node.getTypeParameters().debugString()));
+    }
   }
 
   /**
@@ -417,6 +386,78 @@ class DebugStrings {
     Preconditions.checkArgument(fields.size() <= 1);
   }
 
+  /**
+   * ResolvedMakeProtoField gets formatted as "field[(format=TIMESTAMP_MILLIS)] := expr" with expr's
+   * children printed as its own children. The required proto format is shown in parentheses when
+   * present. expr is normally just a ResolvedColumnRef, but could be a cast expr.
+   */
+  static void collectDebugStringFields(ResolvedMakeProtoField node, List<DebugStringField> fields) {
+    node.getExpr().collectDebugStringFieldsWithNameFormat(fields);
+  }
+
+  /** ResolvedOption gets formatted as "[qualifier.]name := value" */
+  static void collectDebugStringFields(ResolvedOption node, List<DebugStringField> fields) {
+    node.getValue().collectDebugStringFieldsWithNameFormat(fields);
+  }
+
+  static void collectDebugStringFields(ResolvedWindowFrame node, List<DebugStringField> fields) {
+    fields.add(new DebugStringField("start_expr", node.getStartExpr()));
+    fields.add(new DebugStringField("end_expr", node.getEndExpr()));
+  }
+
+  static void collectDebugStringFields(
+      ResolvedWindowFrameExpr node, List<DebugStringField> fields) {
+    if (node.getExpression() != null) {
+      // Use empty name to avoid printing "expression=" with extra indentation.
+      fields.add(new DebugStringField("", node.getExpression()));
+    }
+  }
+
+  static void collectDebugStringFields(ResolvedSystemVariable node, List<DebugStringField> fields) {
+    fields.clear();
+    ArrayList<String> pathParts = new ArrayList<>();
+    for (String pathPart : node.getNamePath()) {
+      pathParts.add(ZetaSQLStrings.toIdentifierLiteral(pathPart));
+    }
+
+    fields.add(new DebugStringField("", String.join(".", pathParts)));
+    fields.add(new DebugStringField("type", node.getType().toString()));
+  }
+
+  static String getNameForDebugString(ResolvedComputedColumn node) {
+    return node.getExpr().getNameForDebugStringWithNameFormat(node.getColumn().shortDebugString());
+  }
+
+  static String getNameForDebugString(ResolvedOutputColumn node) {
+    return node.getColumn().debugString()
+        + " AS "
+        + ZetaSQLStrings.toIdentifierLiteral(node.getName())
+        + " ["
+        + node.getColumn().getType().debugString()
+        + "]";
+  }
+
+  static String getNameForDebugString(ResolvedConstant node) {
+    return "Constant";
+  }
+
+  static String getNameForDebugString(ResolvedFunctionCallBase node) {
+    return node.nodeKindString()
+        + "("
+        + (node.getErrorMode() == ErrorMode.SAFE_ERROR_MODE ? "{SAFE_ERROR_MODE} " : "")
+        + (node.getFunction() != null ? node.getFunction().toString() : "<unknown>")
+        + node.getSignature().toString()
+        + ")";
+  }
+
+  static String getNameForDebugString(ResolvedCast node) {
+    return "Cast("
+        + node.getExpr().getType().debugString()
+        + " -> "
+        + node.getType().debugString()
+        + ")";
+  }
+
   static String getNameForDebugString(ResolvedExtendedCastElement node) {
     return node.nodeKindString()
         + "("
@@ -426,15 +467,6 @@ class DebugStrings {
         + ", (function="
         + (node.getFunction() != null ? node.getFunction().toString() : "<unknown>")
         + ")";
-  }
-
-  /**
-   * ResolvedMakeProtoField gets formatted as "field[(format=TIMESTAMP_MILLIS)] := expr" with expr's
-   * children printed as its own children. The required proto format is shown in parentheses when
-   * present. expr is normally just a ResolvedColumnRef, but could be a cast expr.
-   */
-  static void collectDebugStringFields(ResolvedMakeProtoField node, List<DebugStringField> fields) {
-    node.getExpr().collectDebugStringFieldsWithNameFormat(fields);
   }
 
   static String getNameForDebugString(ResolvedMakeProtoField node) {
@@ -460,50 +492,26 @@ class DebugStrings {
     return node.getExpr().getNameForDebugStringWithNameFormat(name);
   }
 
-  /** ResolvedOption gets formatted as "[qualifier.]name := value" */
-  static void collectDebugStringFields(ResolvedOption node, List<DebugStringField> fields) {
-    node.getValue().collectDebugStringFieldsWithNameFormat(fields);
-  }
-
   static String getNameForDebugString(ResolvedOption node) {
-    String prefix = node.getQualifier().isEmpty() ? ""
-        : ZetaSQLStrings.toIdentifierLiteral(node.getQualifier()) + ".";
+    String prefix =
+        node.getQualifier().isEmpty()
+            ? ""
+            : ZetaSQLStrings.toIdentifierLiteral(node.getQualifier()) + ".";
 
-    return node.getValue().getNameForDebugStringWithNameFormat(
-        prefix + ZetaSQLStrings.toIdentifierLiteral(node.getName()));
-  }
-
-  static void collectDebugStringFields(ResolvedWindowFrame node, List<DebugStringField> fields) {
-    fields.add(new DebugStringField("start_expr", node.getStartExpr()));
-    fields.add(new DebugStringField("end_expr", node.getEndExpr()));
+    return node.getValue()
+        .getNameForDebugStringWithNameFormat(
+            prefix + ZetaSQLStrings.toIdentifierLiteral(node.getName()));
   }
 
   static String getNameForDebugString(ResolvedWindowFrame node) {
     return node.nodeKindString() + "(frame_unit=" + node.getFrameUnit().name() + ")";
   }
 
-  static void collectDebugStringFields(
-      ResolvedWindowFrameExpr node, List<DebugStringField> fields) {
-    if (node.getExpression() != null) {
-      // Use empty name to avoid printing "expression=" with extra indentation.
-      fields.add(new DebugStringField("", node.getExpression()));
-    }
-  }
-
   static String getNameForDebugString(ResolvedWindowFrameExpr node) {
     return node.nodeKindString()
-        + "(boundary_type=" + node.getBoundaryType().name().replace('_', ' ') + ")";
-  }
-
-  static void collectDebugStringFields(ResolvedSystemVariable node, List<DebugStringField> fields) {
-    fields.clear();
-    ArrayList<String> pathParts = new ArrayList<>();
-    for (String pathPart : node.getNamePath()) {
-      pathParts.add(ZetaSQLStrings.toIdentifierLiteral(pathPart));
-    }
-
-    fields.add(new DebugStringField("", String.join(".", pathParts)));
-    fields.add(new DebugStringField("type", node.getType().toString()));
+        + "(boundary_type="
+        + node.getBoundaryType().name().replace('_', ' ')
+        + ")";
   }
 
   static String getNameForDebugString(ResolvedSystemVariable node) {

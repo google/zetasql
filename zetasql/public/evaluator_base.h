@@ -747,6 +747,14 @@ class PreparedModifyBase {
       const ParameterValueList& parameters,
       const SystemVariableValuesMap& system_variables = {}) const;
 
+  // This is the same as Execute, but is a const method, and requires that
+  // Prepare has already been called. See the description of Execute for details
+  // about the arguments and return value.
+  absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
+  ExecuteAfterPrepare(
+      const ParameterValueMap& parameters,
+      const SystemVariableValuesMap& system_variables = {}) const;
+
   // Returns a human-readable representation of how this statement would
   // actually be executed. Do not try to interpret this string with code, as the
   // format can change at any time. Requires that Prepare has already been

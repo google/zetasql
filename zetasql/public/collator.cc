@@ -65,6 +65,10 @@ static absl::Status ValidateCollationName(
     CollatorMode& collator_mode_out,
     absl::optional<std::string>& icu_language_tag_out,
     absl::optional<bool>& case_insensitive_out) {
+  if (collation_name.empty()) {
+    return MakeCollationError(collation_name,
+                              "cannot contain empty language_tag");
+  }
   collator_mode_out = CollatorMode::kInvalidCollatorMode;
   icu_language_tag_out = absl::nullopt;
   case_insensitive_out = absl::nullopt;  // default is case-sensitive

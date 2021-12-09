@@ -120,13 +120,11 @@ class TypeofFunctionRewriter : public Rewriter {
  public:
   bool ShouldRewrite(const AnalyzerOptions& analyzer_options,
                      const AnalyzerOutput& analyzer_output) const override {
-    return analyzer_options.rewrite_enabled(REWRITE_TYPEOF_FUNCTION) &&
-           analyzer_output.analyzer_output_properties().has_typeof_function;
+    return analyzer_output.analyzer_output_properties().has_typeof_function;
   }
 
   absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
-      const AnalyzerOptions& options,
-      absl::Span<const Rewriter* const> rewriters, const ResolvedNode& input,
+      const AnalyzerOptions& options, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,
       AnalyzerOutputProperties& output_properties) const override {
     ZETASQL_RET_CHECK(options.id_string_pool() != nullptr);

@@ -32,6 +32,7 @@ cc_library(
         "//zetasql/base:ret_check",
         "//zetasql/common:errors",
         "//zetasql/parser:parse_tree",
+        "//zetasql/public:builtin_function_cc_proto",
         "//zetasql/public:function",
         "//zetasql/public:function_cc_proto",
         "//zetasql/public:type",

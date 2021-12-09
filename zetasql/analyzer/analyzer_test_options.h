@@ -25,6 +25,7 @@
 #include <string>
 #include <vector>
 
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/type.h"
 #include "file_based_test_driver/test_case_options.h"
 
@@ -75,6 +76,19 @@ class AnalyzerTestCase;
 //   language_features - comma-separated list of LanguageFeature enum names,
 //                       indicating enabled features, without the
 //                       FEATURE_ prefix.
+//   enabled_ast_rewrites
+//       - Specify a list of rewriters to run against this test statement. Each
+//         list should start with one of the following:
+//          * NONE: starts from an empty set of rewrites
+//          * ALL: starts from all known rewrites
+//          * DEFAULTS: starts from AnalyzerOptions::DefaultRewrites
+//         Following the initial set keyword, a comma separated list of rewriter
+//         names is accepted that can either be additions or subtractions from
+//         the initial set. The writer names are the names from the
+//         ResolvedASTRewrite enum without the REWRITE_ prefix. Addition cases
+//         are prefixed by + and subtraction cases are prefixed by -. If the
+//         final set of rewrites is empty, or if 'enabled_ast_rewrites' is not
+//         set, then no ResolvedAST rewrite is printed in the test file.
 //   in_scope_expression_column_name
 //       - with mode=expression, add an in_scope_expression column with this
 //         name in addition to the default set of named expression columns.
@@ -136,8 +150,9 @@ extern const char* const kErrorMessageMode;
 extern const char* const kDdlPseudoColumnMode;
 extern const char* const kPreserveColumnAliases;
 extern const char* const kSupportedGenericEntityTypes;
-extern const char* const kEnableASTRewrites;
+extern const char* const kEnabledASTRewrites;
 extern const char* const kCreateTableLikeNotScanned;
+extern const char* const kPrivilegeRestrictionTableNotScanned;
 
 void RegisterAnalyzerTestOptions(
     file_based_test_driver::TestCaseOptions* test_case_options);
@@ -153,6 +168,32 @@ std::vector<std::pair<std::string, const zetasql::Type*>> GetQueryParameters(
 // Returns a collection of positional parameters used in the analyzer tests.
 std::vector<const zetasql::Type*> GetPositionalQueryParameters(
     TypeFactory* type_factory);
+
+// Returns a collection of LanguageFeatures that must be enabled for the
+// provided 'test_case_options'.
+absl::StatusOr<LanguageOptions::LanguageFeatureSet> GetRequiredLanguageFeatures(
+    const file_based_test_driver::TestCaseOptions& test_case_options);
+
+// A map-like type where keys are a canonicalized version of the string that
+// apperas in the kEnabledASTRewewrites and ASTRewriteSet is the set of rewrites
+// implied by that string. We use a vector to preserve insertion order. A
+// linked_hash_map would be ideal, but the absl container libraries lack that
+// particular data structure.
+using AnalyzerTestRewriteGroups =
+    std::vector<std::pair<std::string, AnalyzerOptions::ASTRewriteSet>>;
+
+// Returns a list of rewrite rule sets to enable accoring to the provided
+// 'test_case_options'. The result of applying each set is printed in the test
+// file. If 'enabled_ast_rewrites' is not set or set to empty string, the
+// returned vector is empty. A 'NONE' group, or any sets of rules specified by
+// 'test_case_options' that are empty, is excluded from the returned groups.
+// Thus [enabled_ast_rewrites=NONE] is equivalent to not setting the option.
+// [enabled_ast_rewrites=NONE|ALL] is equivalent to [enabled_ast_rewrites=ALL].
+// The NONE group is most useful when modified as in "NONE,+ANONYMIZATION". All
+// errors are returned as StatusCode::kInternal because this this a testonly
+// function.
+absl::StatusOr<AnalyzerTestRewriteGroups> GetEnabledRewrites(
+    const file_based_test_driver::TestCaseOptions& test_case_options);
 
 }  // namespace zetasql
 

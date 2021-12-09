@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-#include "zetasql/parser/join_proccessor.h"
+#include "zetasql/parser/join_processor.h"
 
 #include <deque>
 

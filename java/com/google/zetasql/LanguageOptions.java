@@ -55,7 +55,7 @@ public class LanguageOptions implements Serializable {
   private static synchronized LanguageOptionsProto getDefaultFeatures() {
     if (defaultFeatures == null) {
       defaultFeatures =
-          Client.getStub().getLanguageOptions(LanguageOptionsRequest.newBuilder().build());
+          Client.getStub().getLanguageOptions(LanguageOptionsRequest.getDefaultInstance());
     }
     return defaultFeatures;
   }

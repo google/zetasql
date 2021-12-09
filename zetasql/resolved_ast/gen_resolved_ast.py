@@ -27,14 +27,19 @@ import operator
 import os.path
 import re
 import time
+
 from absl import app
 from absl import flags
 from absl import logging
 import jinja2
 import markupsafe
+
 from zetasql.parser.generator_utils import CleanIndent
+from zetasql.parser.generator_utils import JavaDoc
+from zetasql.parser.generator_utils import LowerCamelCase
 from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
+from zetasql.parser.generator_utils import UpperCamelCase
 from zetasql.resolved_ast import resolved_ast_enums_pb2
 
 FLAGS = flags.FLAGS
@@ -212,29 +217,6 @@ SCALAR_STORED_MODE = EnumScalarType('StoredMode', 'ResolvedGeneratedColumnInfo')
 SCALAR_DROP_MODE = EnumScalarType('DropMode', 'ResolvedDropStmt')
 SCALAR_INSERTION_MODE = EnumScalarType('InsertionMode',
                                        'ResolvedAuxLoadDataStmt')
-
-
-def _JavaDoc(text, indent=0):
-  """Returns text for a JavaDoc comment from the given text.
-
-  Args:
-    text: comment text
-    indent: indent level
-
-  It will be indented by the specified number of spaces.
-  """
-  if not text:
-    return text
-  indent_text = ' ' * indent
-  content = CleanIndent(text, '%s * ' % indent_text)
-
-  # Prefix <p> to lines that start a new paragraph. The regex finds lines that
-  # follow an empty line.
-  add_paragraph_re = re.compile(r'\* \n( *\* )(\S)')
-  content = add_paragraph_re.sub(r'* \n\1<p> \2', content)
-
-  # Add the leading line (/**) and trailing line (*/)
-  return '%s/**\n%s\n%s */' % (indent_text, content, indent_text)
 
 
 def Field(name,
@@ -438,7 +420,7 @@ def Field(name,
       'member_name': member_name,  # member variable name
       'name': name,  # name without trailing underscore
       'comment': CleanIndent(comment, prefix='  // '),
-      'javadoc': _JavaDoc(comment, indent=4),
+      'javadoc': JavaDoc(comment, indent=4),
       'member_accessor': member_accessor,
       'member_type': member_type,
       'proto_type': proto_type,
@@ -500,7 +482,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 189.
+          Next tag_id: 198
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -593,7 +575,7 @@ class TreeGenerator(object):
         'class_final': class_final,
         'override_or_final': override_or_final,
         'comment': CleanIndent(comment, prefix='// '),
-        'javadoc': _JavaDoc(comment, indent=2),
+        'javadoc': JavaDoc(comment, indent=2),
         'fields': fields,
         'inherited_fields': inherited_fields,
         'extra_enum_defs': extra_enum_defs,
@@ -831,22 +813,7 @@ class TreeGenerator(object):
 
     jinja_env.filters['sort_by_tag'] = SortByTagId
 
-    # {{string|upper_camel_case}} turns some_string or SOME_STRING into
-    # SomeString.
-    def UpperCamelCase(value):
-      split_value = value.lower().split('_')
-      return ''.join([part.capitalize() for part in split_value])
-
     jinja_env.filters['upper_camel_case'] = UpperCamelCase
-
-    # {{string|lower_camel_case}} turns some_string or SOME_STRING into
-    # someString.
-    def LowerCamelCase(value):
-      split_value = value.lower().split('_')
-      result = [split_value[0]]
-      for part in split_value[1:]:
-        result.append(part.capitalize())
-      return ''.join(result)
 
     jinja_env.filters['lower_camel_case'] = LowerCamelCase
 
@@ -1238,6 +1205,13 @@ def main(argv):
               comment="""
               The list of field paths to include or exclude. The path starts
               from the proto type of <expr>.
+                      """),
+          Field(
+              'reset_cleared_required_fields',
+              SCALAR_BOOL,
+              tag_id=4,
+              comment="""If true, will reset cleared required fields into a
+              default value.
                       """),
       ])
 
@@ -2060,6 +2034,33 @@ value.
               Note: Hints currently happen only for EXISTS, IN, or a LIKE
               expression subquery but not for ARRAY or SCALAR subquery.
                       """)
+      ])
+
+  gen.AddNode(
+      name='ResolvedLetExpr',
+      tag_id=197,
+      parent='ResolvedExpr',
+      emit_default_constructor=False,
+      comment="""
+      ResolvedLetExpr introduces one or more columns in <assignment_list> that
+      can then be referenced inside <expr>. Each assigned expression is
+      evaluated once, and each reference to that column in <expr> sees the same
+      value even if the assigned expression is volatile. Multiple assignment
+      expressions are independent and cannot reference other columns in the
+      <assignment_list>.
+
+      <assignment_list> One or more columns that are computed before evaluating
+                        <expr>, and which may be referenced by <expr>.
+      <expr> Computes the result of the ResolvedLetExpr. May reference columns
+             from <assignment_list>.
+              """,
+      fields=[
+          Field(
+              'assignment_list',
+              'ResolvedComputedColumn',
+              tag_id=2,
+              vector=True),
+          Field('expr', 'ResolvedExpr', tag_id=3),
       ])
 
   # Scans (anything that shows up in a from clause and produces rows).
@@ -5876,6 +5877,39 @@ right.
       ])
 
   gen.AddNode(
+      name='ResolvedCreatePrivilegeRestrictionStmt',
+      tag_id=191,
+      parent='ResolvedCreateStatement',
+      comment="""
+      This statement:
+          CREATE [OR REPLACE] PRIVILEGE RESTRICTION [IF NOT EXISTS]
+          ON <column_privilege_list> ON <name_path>
+          [RESTRICT TO (<restrictee_list>)]
+
+      <column_privilege_list> is the name of the column privileges on which
+                              to apply the restrictions.
+      <object_type> is a string identifier, which is currently either TABLE or
+                    VIEW, which tells the engine how to look up the name.
+      <restrictee_list> is a list of users and groups the privilege restrictions
+                        should apply to. Each restrictee is either a string
+                        literal or a parameter.
+              """,
+      fields=[
+          Field(
+              'column_privilege_list',
+              'ResolvedPrivilege',
+              tag_id=2,
+              vector=True),
+          Field('object_type', SCALAR_STRING, tag_id=3),
+          Field(
+              'restrictee_list',
+              'ResolvedExpr',
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=4,
+              vector=True),
+      ])
+
+  gen.AddNode(
       name='ResolvedCreateRowAccessPolicyStmt',
       tag_id=73,
       parent='ResolvedStatement',
@@ -5937,6 +5971,36 @@ right.
       ],
       extra_defs="""
   typedef ResolvedCreateStatement::CreateMode CreateMode;""")
+
+  gen.AddNode(
+      name='ResolvedDropPrivilegeRestrictionStmt',
+      tag_id=192,
+      parent='ResolvedStatement',
+      comment="""
+      This statement:
+          DROP PRIVILEGE RESTRICTION [IF EXISTS]
+          ON <column_privilege_list> ON <object_type> <name_path>
+
+      <column_privilege_list> is the name of the column privileges on which
+                              the restrictions have been applied.
+      <object_type> is a string identifier, which is currently either TABLE or
+                    VIEW, which tells the engine how to look up the name.
+      <name_path> is the name of the table the restrictions are scoped to.
+              """,
+      fields=[
+          Field('object_type', SCALAR_STRING, tag_id=2),
+          Field(
+              'is_if_exists',
+              SCALAR_BOOL,
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=3),
+          Field('name_path', SCALAR_STRING, tag_id=4, vector=True),
+          Field(
+              'column_privilege_list',
+              'ResolvedPrivilege',
+              tag_id=5,
+              vector=True),
+      ])
 
   gen.AddNode(
       name='ResolvedDropRowAccessPolicyStmt',
@@ -6014,6 +6078,79 @@ right.
       ])
 
   gen.AddNode(
+      name='ResolvedRestrictToAction',
+      tag_id=193,
+      parent='ResolvedAlterAction',
+      comment="""
+      This action for ALTER PRIVILEGE RESTRICTION statement:
+          RESTRICT TO <restrictee_list>
+
+      <restrictee_list> is a list of users and groups the privilege restrictions
+                        should apply to. Each restrictee is either a string
+                        literal or a parameter.
+             """,
+      fields=[
+          Field(
+              'restrictee_list',
+              'ResolvedExpr',
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=2,
+              vector=True),
+      ])
+
+  gen.AddNode(
+      name='ResolvedAddToRestricteeListAction',
+      tag_id=194,
+      parent='ResolvedAlterAction',
+      comment="""
+      This action for ALTER PRIVILEGE RESTRICTION statement:
+          ADD [IF NOT EXISTS] <restrictee_list>
+
+      <restrictee_list> is a list of users and groups the privilege restrictions
+                        should apply to. Each restrictee is either a string
+                        literal or a parameter.
+              """,
+      fields=[
+          Field(
+              'is_if_not_exists',
+              SCALAR_BOOL,
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=2),
+          Field(
+              'restrictee_list',
+              'ResolvedExpr',
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=3,
+              vector=True),
+      ])
+
+  gen.AddNode(
+      name='ResolvedRemoveFromRestricteeListAction',
+      tag_id=195,
+      parent='ResolvedAlterAction',
+      comment="""
+      This action for ALTER PRIVILEGE RESTRICTION statement:
+          REMOVE [IF EXISTS] <restrictee_list>
+
+      <restrictee_list> is a list of users and groups the privilege restrictions
+                        should apply to. Each restrictee is either a string
+                        literal or a parameter.
+              """,
+      fields=[
+          Field(
+              'is_if_exists',
+              SCALAR_BOOL,
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=2),
+          Field(
+              'restrictee_list',
+              'ResolvedExpr',
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=3,
+              vector=True),
+      ])
+
+  gen.AddNode(
       name='ResolvedFilterUsingAction',
       tag_id=136,
       parent='ResolvedAlterAction',
@@ -6077,6 +6214,30 @@ right.
               vector=True,
               ignorable=NOT_IGNORABLE,
               tag_id=2),
+      ])
+
+  gen.AddNode(
+      name='ResolvedAlterPrivilegeRestrictionStmt',
+      tag_id=196,
+      parent='ResolvedAlterObjectStmt',
+      comment="""
+      This statement:
+          ALTER PRIVILEGE RESTRICTION [IF EXISTS]
+          ON <column_privilege_list> ON <object_type> <name_path>
+          <alter_action_list>
+
+      <column_privilege_list> is the name of the column privileges on which
+                              the restrictions have been applied.
+      <object_type> is a string identifier, which is currently either TABLE or
+                    VIEW, which tells the engine how to look up the name.
+              """,
+      fields=[
+          Field(
+              'column_privilege_list',
+              'ResolvedPrivilege',
+              tag_id=2,
+              vector=True),
+          Field('object_type', SCALAR_STRING, tag_id=3),
       ])
 
   gen.AddNode(
@@ -6155,8 +6316,11 @@ right.
       comment="""
       This statement creates a user-defined function:
         CREATE [TEMP] FUNCTION [IF NOT EXISTS] <name_path> (<arg_list>)
-          [RETURNS <return_type>] [<determinism_level>] [LANGUAGE <language>]
-          [AS <code> | AS ( <function_expression> )] [OPTIONS (<option_list>)]
+          [RETURNS <return_type>] [SQL SECURITY <sql_security>]
+          [<determinism_level>]
+          [[LANGUAGE <language>] [AS <code> | AS ( <function_expression> )]
+           | REMOTE [WITH CONNECTION <connection>]]
+          [OPTIONS (<option_list>)]
 
         <name_path> is the identifier path of the function.
         <has_explicit_return_type> is true iff RETURNS clause is present.
@@ -6173,8 +6337,10 @@ right.
                are assumed to be aggregate input arguments that may vary for
                every row.
         <language> is the programming language used by the function. This field
-               is set to 'SQL' for SQL functions and otherwise to the language
-               name specified in the LANGUAGE clause.
+               is set to 'SQL' for SQL functions and 'REMOTE' for remote
+               functions and otherwise to the language name specified in the
+               LANGUAGE clause. This field is set to 'REMOTE' iff <is_remote> is
+               set to true.
         <code> is a string literal that contains the function definition.  Some
                engines may allow this argument to be omitted for certain types
                of external functions. This will always be set for SQL functions.
@@ -6191,11 +6357,16 @@ right.
         <determinism_level> is the declared determinism level of the function.
                Values are 'DETERMINISTIC', 'NOT DETERMINISTIC', 'IMMUTABLE',
                'STABLE', 'VOLATILE'.
+        <is_remote> is true if this is an remote function. It is true iff its
+               <language> is set to 'REMOTE'.
+        <connection> is the identifier path of the connection object. It can be
+               only set when <is_remote> is true.
 
       Note that <function_expression> and <code> are both marked as IGNORABLE
       because an engine could look at either one (but might not look at both).
-      An engine must look at one (and cannot ignore both) to be semantically
-      valid, but there is currently no way to enforce that.
+      An engine must look at one (and cannot ignore both, unless the function is
+      remote) to be semantically valid, but there is currently no way to enforce
+      that.
 
       For aggregate functions, <is_aggregate> will be true.
       Aggregate functions will only occur if LanguageOptions has
@@ -6306,7 +6477,19 @@ ResolvedArgumentRef(y)
               'determinism_level',
               SCALAR_DETERMINISM_LEVEL,
               tag_id=14,
-              ignorable=IGNORABLE_DEFAULT)
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'is_remote',
+              SCALAR_BOOL,
+              tag_id=15,
+              # This is ignorable because existing consumers get this
+              # information from language=REMOTE.
+              ignorable=IGNORABLE),
+          Field(
+              'connection',
+              'ResolvedConnection',
+              tag_id=16,
+              ignorable=IGNORABLE_DEFAULT),
       ],
       extra_defs="""
         // Converts the function's determinism level into a volatility.

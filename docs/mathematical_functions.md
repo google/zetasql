@@ -1790,5 +1790,9 @@ the two arguments to determine the quadrant. The return value is in the range
   </tbody>
 </table>
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
+
+<!-- mdlint on -->
 

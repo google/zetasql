@@ -29,6 +29,7 @@
 #include <vector>
 
 
+#include "zetasql/base/testing/status_matchers.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include <cstdint>  
@@ -46,6 +47,7 @@ using ::zetasql::JSONValueConstRef;
 using ::zetasql::JSONValueRef;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
+using ::zetasql_base::testing::StatusIs;
 
 constexpr char kJSONStr[] = R"(
   {
@@ -1007,6 +1009,42 @@ TEST(JSONValueTest, DeserializeFromProtoBytesError) {
   ASSERT_FALSE(result.status().ok());
   EXPECT_THAT(result.status().ToString(),
               testing::HasSubstr("syntax error while parsing UBJSON value"));
+}
+
+TEST(JSONValueTest, DeserializeFromProtoBytesMaxNestingLevel) {
+  // Nesting level: 3
+  JSONValue value =
+      JSONValue::ParseJSONString(R"({"foo": [{"bar": 10}, 20]})").value();
+
+  std::string encoded_bytes;
+  value.GetConstRef().SerializeAndAppendToProtoBytes(&encoded_bytes);
+
+  EXPECT_THAT(JSONValue::DeserializeFromProtoBytes(encoded_bytes,
+                                                   /*max_nesting_level=*/2)
+                  .status(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Max nesting of 2 has been exceeded while "
+                                 "parsing JSON document")));
+
+  EXPECT_THAT(JSONValue::DeserializeFromProtoBytes(encoded_bytes,
+                                                   /*max_nesting_level=*/0)
+                  .status(),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Max nesting of 0 has been exceeded while "
+                                 "parsing JSON document")));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue decoded_value,
+                       JSONValue::DeserializeFromProtoBytes(
+                           encoded_bytes, /*max_nesting_level=*/3));
+  EXPECT_TRUE(
+      decoded_value.GetConstRef().NormalizedEquals(value.GetConstRef()));
+
+  // Default value for 'max_nesting_level' is absl::nullopt which means no limit
+  // is enforced.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue decoded_value2,
+                       JSONValue::DeserializeFromProtoBytes(encoded_bytes));
+  EXPECT_TRUE(
+      decoded_value2.GetConstRef().NormalizedEquals(value.GetConstRef()));
 }
 
 TEST(JSONValueTest, NestingLevelExceedsMaxTest) {

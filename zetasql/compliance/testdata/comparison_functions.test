@@ -1046,3 +1046,70 @@ ARRAY<STRUCT<rowid INT64, BOOL, BOOL, BOOL, BOOL>>[
   {2, true, true, false, false},
   {3, false, false, true, true}
 ]
+==
+
+[required_features=V_1_3_IS_DISTINCT,INTERVAL_TYPE]
+[name=is_distinct_interval]
+WITH IntervalTable AS (
+  SELECT * FROM UNNEST([
+    STRUCT(INTERVAL '0-0 0 0:0:0' YEAR TO SECOND AS i1, INTERVAL '0-0 0 0:0:0' YEAR TO SECOND AS i2),
+    STRUCT(INTERVAL '0-0 0 0:0:0' YEAR TO SECOND AS i1, INTERVAL '1-0 0 0:0:0' YEAR TO SECOND AS i2),
+    STRUCT(INTERVAL '1-0 0 0:0:0' YEAR TO SECOND AS i1, INTERVAL '0-12 0 0:0:0' YEAR TO SECOND AS i2),
+    STRUCT(INTERVAL '1-0 0 0:0:0' YEAR TO SECOND AS i1, INTERVAL '0-12 0 0:0:0' YEAR TO SECOND AS i2),
+    STRUCT(INTERVAL '1-0 0 0:0:0' YEAR TO SECOND AS i1, INTERVAL '1-0 0 0:0:0.000001' YEAR TO SECOND AS i2),
+    STRUCT(INTERVAL '10000-0 0 1:0:0' YEAR TO SECOND AS i1, INTERVAL '10000-0 0 0:60:0' YEAR TO SECOND AS i2),
+    STRUCT(INTERVAL '-10000-0 0 1:0:0' YEAR TO SECOND AS i1, INTERVAL '-10000-0 0 0:60:0' YEAR TO SECOND AS i2)
+  ]) AS i)
+SELECT
+  i1,
+  i2,
+  i1 IS DISTINCT FROM i2,
+  i2 IS DISTINCT FROM i1,
+  i1 IS NOT DISTINCT FROM i2,
+  i2 IS NOT DISTINCT FROM i1
+FROM IntervalTable
+--
+ARRAY<STRUCT<i1 INTERVAL, i2 INTERVAL, BOOL, BOOL, BOOL, BOOL>>[
+  {1-0 0 0:0:0, 1-0 0 0:0:0, false, false, true, true},
+  {0-0 0 0:0:0, 0-0 0 0:0:0, false, false, true, true},
+  {1-0 0 0:0:0, 1-0 0 0:0:0.000001, true, true, false, false},
+  {0-0 0 0:0:0, 1-0 0 0:0:0, true, true, false, false},
+  {10000-0 0 1:0:0, 10000-0 0 1:0:0, false, false, true, true},
+  {1-0 0 0:0:0, 1-0 0 0:0:0, false, false, true, true},
+  {-10000-0 0 1:0:0, -10000-0 0 1:0:0, false, false, true, true}
+]
+==
+[required_features=V_1_3_IS_DISTINCT,INTERVAL_TYPE]
+[name=is_distinct_interval_nanoseconds]
+WITH IntervalTable AS (
+  SELECT * FROM UNNEST([
+    STRUCT(INTERVAL '0-0 0 0:0:0.123456789' YEAR TO SECOND AS i1, INTERVAL '0-0 0 0:0:0.123456788' YEAR TO SECOND AS i2),
+    STRUCT(INTERVAL '0-0 0 0:0:0' YEAR TO SECOND AS i1, INTERVAL '0-0 0 0:0:0.000000001' YEAR TO SECOND AS i2)
+  ]) AS i)
+SELECT
+  i1,
+  i2,
+  i1 IS DISTINCT FROM i2,
+  i2 IS DISTINCT FROM i1,
+  i1 IS NOT DISTINCT FROM i2,
+  i2 IS NOT DISTINCT FROM i1
+FROM IntervalTable
+--
+ARRAY<STRUCT<i1 INTERVAL, i2 INTERVAL, BOOL, BOOL, BOOL, BOOL>>[
+  {
+    0-0 0 0:0:0.123456789,
+    0-0 0 0:0:0.123456788,
+    true,
+    true,
+    false,
+    false
+  },
+  {
+    0-0 0 0:0:0,
+    0-0 0 0:0:0.000000001,
+    true,
+    true,
+    false,
+    false
+  }
+]

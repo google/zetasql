@@ -16,7 +16,7 @@ SELECT * FROM UNNEST([1,2]) AS Value PIVOT(COUNT(Value) FOR Key IN (0, 1));
 ==
 
 [language_features={{|V_1_3_PIVOT,V_1_3_IS_DISTINCT}}]
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(COUNT(Value) FOR Key IN (0 AS zero, 1 AS one));
 --
 ALTERNATION GROUP: <empty>
@@ -44,7 +44,7 @@ QueryStmt
         |   +-parse_location=29-41
         |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-ColumnRef(parse_location=46-49, type=INT64, column=KeyValue.Key#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=0)
         | +-Literal(type=INT64, value=1)
@@ -67,7 +67,7 @@ QueryStmt
         | +-ProjectScan
         |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pivot.$pivot_value#6, $pivot.$pivot_expr_arg#7]
         |   +-expr_list=
-        |   | +-$pivot_value#6 := ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   | +-$pivot_value#6 := ColumnRef(parse_location=46-49, type=INT64, column=KeyValue.Key#1)
         |   | +-$pivot_expr_arg#7 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         |   +-input_scan=
         |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
@@ -164,7 +164,7 @@ QueryStmt
         |   +-parse_location=54-66
         |   +-ColumnRef(type=STRING, column=$subquery1.Value#4)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=$subquery1.Key#3)
+        | +-ColumnRef(parse_location=71-74, type=INT64, column=$subquery1.Key#3)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=0)
         | +-Literal(type=INT64, value=1)
@@ -201,7 +201,7 @@ QueryStmt
         |   +-parse_location=34-53
         |   +-ColumnRef(type=BYTES, column=tvf_no_args.column_bytes#2)
         +-for_expr=
-        | +-ColumnRef(type=BOOL, column=tvf_no_args.column_bool#1)
+        | +-ColumnRef(parse_location=58-69, type=BOOL, column=tvf_no_args.column_bool#1)
         +-pivot_value_list=
           +-Literal(type=BOOL, value=true)
           +-Literal(type=BOOL, value=false)
@@ -253,7 +253,7 @@ QueryStmt
         |   |       |   +-parse_location=113-125
         |   |       |   +-ColumnRef(type=STRING, column=$subquery2.Value#4)
         |   |       +-for_expr=
-        |   |       | +-ColumnRef(type=INT64, column=$subquery2.Key#3)
+        |   |       | +-ColumnRef(parse_location=134-137, type=INT64, column=$subquery2.Key#3)
         |   |       +-pivot_value_list=
         |   |       | +-Literal(type=INT64, value=0)
         |   |       | +-Literal(type=INT64, value=1)
@@ -300,7 +300,7 @@ QueryStmt
             |   +-parse_location=39-49
             |   +-ColumnRef(type=INT64, column=KeyValue.Key#3)
             +-for_expr=
-            | +-ColumnRef(type=STRING, column=KeyValue.Value#4)
+            | +-ColumnRef(parse_location=54-59, type=STRING, column=KeyValue.Value#4)
             +-pivot_value_list=
             | +-Literal(type=STRING, value="Value_1")
             | +-Literal(type=STRING, value="Value_2")
@@ -351,7 +351,7 @@ QueryStmt
         |   |   +-parse_location=29-41
         |   |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
         |   +-for_expr=
-        |   | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   | +-ColumnRef(parse_location=46-49, type=INT64, column=KeyValue.Key#1)
         |   +-pivot_value_list=
         |   | +-Literal(type=INT64, value=0)
         |   | +-Literal(type=INT64, value=1)
@@ -420,7 +420,7 @@ SELECT * FROM KeyValue PIVOT(1 + SUM(Key) FOR Key IN (0, 1));
 ==
 
 # Zero-argument aggregate function in pivot expr
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(COUNT(*) FOR Key IN (0 AS zero, 1 AS one));
 --
 QueryStmt
@@ -441,7 +441,7 @@ QueryStmt
         +-pivot_expr_list=
         | +-AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)(parse_location=29-37)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-ColumnRef(parse_location=42-45, type=INT64, column=KeyValue.Key#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=0)
         | +-Literal(type=INT64, value=1)
@@ -465,7 +465,7 @@ QueryStmt
         | +-ProjectScan
         |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pivot.$pivot_value#7]
         |   +-expr_list=
-        |   | +-$pivot_value#7 := ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   | +-$pivot_value#7 := ColumnRef(parse_location=42-45, type=INT64, column=KeyValue.Key#1)
         |   +-input_scan=
         |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
         +-group_by_list=
@@ -520,7 +520,7 @@ QueryStmt
 ==
 
 # Two-argument aggregate function in pivot expr
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(CORR(Key, Key + 1) FOR Key IN (0 AS zero, 1 AS one));
 --
 QueryStmt
@@ -548,7 +548,7 @@ QueryStmt
         |       +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         |       +-Literal(type=INT64, value=1)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-ColumnRef(parse_location=52-55, type=INT64, column=KeyValue.Key#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=0)
         | +-Literal(type=INT64, value=1)
@@ -572,7 +572,7 @@ QueryStmt
         | +-ProjectScan
         |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pivot.$pivot_value#7, $pivot.$pivot_expr_arg#8, $pivot.$pivot_expr_arg#9]
         |   +-expr_list=
-        |   | +-$pivot_value#7 := ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   | +-$pivot_value#7 := ColumnRef(parse_location=52-55, type=INT64, column=KeyValue.Key#1)
         |   | +-$pivot_expr_arg#8 :=
         |   | | +-Cast(INT64 -> DOUBLE)
         |   | |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
@@ -739,7 +739,7 @@ QueryStmt
         |   +-parse_location=29-37
         |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-ColumnRef(parse_location=42-45, type=INT64, column=KeyValue.Key#1)
         +-pivot_value_list=
         | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
         | | +-Literal(type=INT64, value=1)
@@ -786,7 +786,7 @@ QueryStmt
         |   +-parse_location=32-43
         |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-ColumnRef(parse_location=48-54, type=INT64, column=KeyValue.Key#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=1)
         | +-Literal(type=INT64, value=2)
@@ -820,7 +820,7 @@ QueryStmt
         |   +-parse_location=29-46
         |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-ColumnRef(parse_location=51-63, type=INT64, column=KeyValue.Key#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=1)
         | +-Literal(type=INT64, value=2)
@@ -854,7 +854,7 @@ QueryStmt
         |   +-parse_location=32-43
         |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-ColumnRef(parse_location=48-54, type=INT64, column=KeyValue.Key#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=1)
         | +-Literal(type=INT64, value=2)
@@ -888,7 +888,7 @@ QueryStmt
         |   +-parse_location=29-46
         |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-ColumnRef(parse_location=51-63, type=INT64, column=KeyValue.Key#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=1)
         | +-Literal(type=INT64, value=2)
@@ -923,7 +923,7 @@ QueryStmt
         |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         |     +-Literal(type=INT64, value=1)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-ColumnRef(parse_location=46-49, type=INT64, column=KeyValue.Key#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=1)
         | +-Literal(type=INT64, value=2)
@@ -933,7 +933,7 @@ QueryStmt
 ==
 
 # Multiple pivot exprs, with and without aliases
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue
 PIVOT(
   SUM(Key + 1){{ AS sum_key_plus_1|}},
@@ -972,7 +972,7 @@ QueryStmt
         |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         |     +-Literal(type=INT64, value=1)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-ColumnRef(parse_location=103-106, type=INT64, column=KeyValue.Key#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=1)
         | +-Literal(type=INT64, value=2)
@@ -1000,7 +1000,7 @@ QueryStmt
         | +-ProjectScan
         |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pivot.$pivot_value#10, $pivot.$pivot_expr_arg#11, $pivot.$pivot_expr_arg#12]
         |   +-expr_list=
-        |   | +-$pivot_value#10 := ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   | +-$pivot_value#10 := ColumnRef(parse_location=103-106, type=INT64, column=KeyValue.Key#1)
         |   | +-$pivot_expr_arg#11 :=
         |   | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
         |   | |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
@@ -1158,7 +1158,7 @@ QueryStmt
         |     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         |     +-Literal(type=INT64, value=1)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-ColumnRef(parse_location=103-106, type=INT64, column=KeyValue.Key#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=1, preserve_in_literal_remover=TRUE)
         | +-Literal(type=INT64, value=2)
@@ -1186,7 +1186,7 @@ QueryStmt
         | +-ProjectScan
         |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pivot.$pivot_value#10, $pivot.$pivot_expr_arg#11, $pivot.$pivot_expr_arg#12]
         |   +-expr_list=
-        |   | +-$pivot_value#10 := ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   | +-$pivot_value#10 := ColumnRef(parse_location=103-106, type=INT64, column=KeyValue.Key#1)
         |   | +-$pivot_expr_arg#11 :=
         |   | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
         |   | |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
@@ -1366,7 +1366,7 @@ QueryStmt
         |   +-Cast(INT32 -> INT64)
         |     +-ColumnRef(type=INT32, column=t.x#1)
         +-for_expr=
-        | +-ColumnRef(type=INT32, column=t.x#1)
+        | +-ColumnRef(parse_location=72-73, type=INT32, column=t.x#1)
         +-pivot_value_list=
         | +-Literal(type=INT32, value=0, preserve_in_literal_remover=TRUE)
         | +-Literal(type=INT32, value=1, preserve_in_literal_remover=TRUE)
@@ -1404,7 +1404,7 @@ QueryStmt
         |   +-parse_location=53-65
         |   +-ColumnRef(type=INT64, column=t.x#1)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=t.x#1)
+        | +-ColumnRef(parse_location=72-73, type=INT64, column=t.x#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=0, preserve_in_literal_remover=TRUE)
         | +-Literal(type=INT64, value=1, preserve_in_literal_remover=TRUE)
@@ -1448,7 +1448,7 @@ QueryStmt
         |   +-parse_location=55-67
         |   +-ColumnRef(type=NUMERIC, column=t.x#1)
         +-for_expr=
-        | +-ColumnRef(type=NUMERIC, column=t.x#1)
+        | +-ColumnRef(parse_location=74-75, type=NUMERIC, column=t.x#1)
         +-pivot_value_list=
         | +-Literal(type=NUMERIC, value=0, preserve_in_literal_remover=TRUE)
         | +-Literal(type=NUMERIC, value=1, preserve_in_literal_remover=TRUE)
@@ -1486,7 +1486,7 @@ QueryStmt
         |   +-parse_location=58-70
         |   +-ColumnRef(type=BIGNUMERIC, column=t.x#1)
         +-for_expr=
-        | +-ColumnRef(type=BIGNUMERIC, column=t.x#1)
+        | +-ColumnRef(parse_location=77-78, type=BIGNUMERIC, column=t.x#1)
         +-pivot_value_list=
         | +-Literal(type=BIGNUMERIC, value=0, preserve_in_literal_remover=TRUE)
         | +-Literal(type=BIGNUMERIC, value=1, preserve_in_literal_remover=TRUE)
@@ -1556,7 +1556,7 @@ QueryStmt
         |   +-parse_location=48-60
         |   +-ColumnRef(type=INT64, column=t.x#1)
         +-for_expr=
-        | +-ColumnRef(type=STRING, column=t.y#2)
+        | +-ColumnRef(parse_location=67-68, type=STRING, column=t.y#2)
         +-pivot_value_list=
         | +-Literal(type=STRING, value="test", preserve_in_literal_remover=TRUE)
         | +-Literal(type=STRING, value="", preserve_in_literal_remover=TRUE)
@@ -1599,7 +1599,7 @@ QueryStmt
         |   +-parse_location=68-80
         |   +-ColumnRef(type=INT64, column=t.x#1)
         +-for_expr=
-        | +-ColumnRef(type=DATE, column=t.y#2)
+        | +-ColumnRef(parse_location=87-88, type=DATE, column=t.y#2)
         +-pivot_value_list=
         | +-Literal(type=DATE, value=2018-01-01, preserve_in_literal_remover=TRUE)
         | +-Literal(type=DATE, value=2019-01-01, preserve_in_literal_remover=TRUE)
@@ -1642,7 +1642,7 @@ QueryStmt
         |   +-parse_location=65-71
         |   +-ColumnRef(type=INT64, column=t.x#1)
         +-for_expr=
-        | +-ColumnRef(type=TIME, column=t.y#2)
+        | +-ColumnRef(parse_location=78-79, type=TIME, column=t.y#2)
         +-pivot_value_list=
         | +-Literal(type=TIME, value=02:34:56)
         | +-Literal(type=TIME, value=NULL, preserve_in_literal_remover=TRUE)
@@ -1689,7 +1689,7 @@ QueryStmt
         |   +-parse_location=73-79
         |   +-ColumnRef(type=INT64, column=t.x#1)
         +-for_expr=
-        | +-ColumnRef(type=TIMESTAMP, column=t.y#2)
+        | +-ColumnRef(parse_location=86-87, type=TIMESTAMP, column=t.y#2)
         +-pivot_value_list=
         | +-Literal(type=TIMESTAMP, value=2017-03-31 07:00:00+00)
         | +-Literal(type=TIMESTAMP, value=NULL, preserve_in_literal_remover=TRUE)
@@ -1722,7 +1722,7 @@ QueryStmt
         |   +-parse_location=72-78
         |   +-ColumnRef(type=INT64, column=t.x#1)
         +-for_expr=
-        | +-ColumnRef(type=DATETIME, column=t.y#2)
+        | +-ColumnRef(parse_location=85-86, type=DATETIME, column=t.y#2)
         +-pivot_value_list=
         | +-Literal(type=DATETIME, value=2017-03-31 00:00:00)
         | +-Literal(type=DATETIME, value=NULL, preserve_in_literal_remover=TRUE)
@@ -1781,7 +1781,7 @@ QueryStmt
         |   +-parse_location=51-57
         |   +-ColumnRef(type=INT64, column=t.x#1)
         +-for_expr=
-        | +-ColumnRef(type=ARRAY<INT64>, column=t.y#2)
+        | +-ColumnRef(parse_location=64-65, type=ARRAY<INT64>, column=t.y#2)
         +-pivot_value_list=
         | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
         | +-Literal(type=ARRAY<INT64>, value=NULL)
@@ -1836,7 +1836,7 @@ QueryStmt
         |   |   |   |   +-parse_location=77-83
         |   |   |   |   +-ColumnRef(type=INT64, column=kv.x#1)
         |   |   |   +-for_expr=
-        |   |   |   | +-ColumnRef(type=INT64, column=kv.y#2)
+        |   |   |   | +-ColumnRef(parse_location=88-89, type=INT64, column=kv.y#2)
         |   |   |   +-pivot_value_list=
         |   |   |   | +-Literal(type=INT64, value=1, preserve_in_literal_remover=TRUE)
         |   |   |   | +-Literal(type=INT64, value=2, preserve_in_literal_remover=TRUE)
@@ -1910,7 +1910,7 @@ QueryStmt
         |   |   |   |   +-parse_location=79-85
         |   |   |   |   +-ColumnRef(type=INT64, column=kv.x#1)
         |   |   |   +-for_expr=
-        |   |   |   | +-ColumnRef(type=INT64, column=kv.y#2)
+        |   |   |   | +-ColumnRef(parse_location=90-91, type=INT64, column=kv.y#2)
         |   |   |   +-pivot_value_list=
         |   |   |   | +-Literal(type=INT64, value=1)
         |   |   |   | +-Literal(type=INT64, value=2)
@@ -1984,7 +1984,7 @@ QueryStmt
         |   |   |   |   +-parse_location=79-85
         |   |   |   |   +-ColumnRef(type=INT64, column=kv.x#1)
         |   |   |   +-for_expr=
-        |   |   |   | +-ColumnRef(type=INT64, column=kv.y#2)
+        |   |   |   | +-ColumnRef(parse_location=90-91, type=INT64, column=kv.y#2)
         |   |   |   +-pivot_value_list=
         |   |   |   | +-Literal(type=INT64, value=1)
         |   |   |   | +-Literal(type=INT64, value=2)
@@ -2061,7 +2061,7 @@ QueryStmt
         |   |   |   |   +-parse_location=113-119
         |   |   |   |   +-ColumnRef(type=INT64, column=kv.x#1)
         |   |   |   +-for_expr=
-        |   |   |   | +-ColumnRef(type=INT64, column=kv.y#2)
+        |   |   |   | +-ColumnRef(parse_location=124-125, type=INT64, column=kv.y#2)
         |   |   |   +-pivot_value_list=
         |   |   |   | +-Literal(type=INT64, value=1)
         |   |   |   | +-Literal(type=INT64, value=2)
@@ -2148,7 +2148,7 @@ QueryStmt
         |   +-parse_location=39-51
         |   +-ColumnRef(type=BOOL, column=$subquery1.x#1)
         +-for_expr=
-        | +-ColumnRef(type=BOOL, column=$subquery1.x#1)
+        | +-ColumnRef(parse_location=56-57, type=BOOL, column=$subquery1.x#1)
         +-pivot_value_list=
         | +-Literal(type=BOOL, value=true, preserve_in_literal_remover=TRUE)
         | +-Literal(type=BOOL, value=false, preserve_in_literal_remover=TRUE)
@@ -2196,7 +2196,7 @@ QueryStmt
         |   +-parse_location=86-102
         |   +-ColumnRef(type=INT64, column=$subquery1.int64_key_1#2)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=$subquery1.int64_key_2#3)
+        | +-ColumnRef(parse_location=107-118, type=INT64, column=$subquery1.int64_key_2#3)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=0)
         | +-Literal(type=INT64, value=1)
@@ -2259,6 +2259,7 @@ QueryStmt
             |     +-field_idx=0
             +-for_expr=
             | +-GetStructField
+            |   +-parse_location=173-176
             |   +-type=STRING
             |   +-expr=
             |   | +-ColumnRef(type=STRUCT<x INT64, y STRING, BOOL, pi BIGNUMERIC>, column=t.s#2)
@@ -2330,7 +2331,7 @@ QueryStmt
             |     | +-ColumnRef(type=STRUCT<x INT64, y STRING, BOOL, pi BIGNUMERIC>, column=t.s#2)
             |     +-field_idx=0
             +-for_expr=
-            | +-ColumnRef(type=STRUCT<x INT64, y STRING, BOOL, pi BIGNUMERIC>, column=t.s#2)
+            | +-ColumnRef(parse_location=266-267, type=STRUCT<x INT64, y STRING, BOOL, pi BIGNUMERIC>, column=t.s#2)
             +-pivot_value_list=
             | +-MakeStruct
             | | +-type=STRUCT<x INT64, y STRING, BOOL, pi BIGNUMERIC>
@@ -2403,7 +2404,7 @@ QueryStmt
         |   +-parse_location=139-155
         |   +-ColumnRef(type=INT64, column=$subquery1.int64_key_1#2)
         +-for_expr=
-        | +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=$subquery1.test_enum#3)
+        | +-ColumnRef(parse_location=168-177, type=ENUM<zetasql_test__.TestEnum>, column=$subquery1.test_enum#3)
         +-pivot_value_list=
         | +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM0, preserve_in_literal_remover=TRUE)
         | +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1, preserve_in_literal_remover=TRUE)
@@ -2483,7 +2484,7 @@ QueryStmt
             |   +-parse_location=265-277
             |   +-ColumnRef(type=STRUCT<xy STRUCT<x INT64, y INT64>, ab STRUCT<a STRING, b BOOL>>, column=t.s#2)
             +-for_expr=
-            | +-ColumnRef(type=STRUCT<xy STRUCT<x INT64, y INT64>, ab STRUCT<a STRING, b BOOL>>, column=t.s#2)
+            | +-ColumnRef(parse_location=282-283, type=STRUCT<xy STRUCT<x INT64, y INT64>, ab STRUCT<a STRING, b BOOL>>, column=t.s#2)
             +-pivot_value_list=
             | +-Literal(type=STRUCT<xy STRUCT<x INT64, y INT64>, ab STRUCT<a STRING, b BOOL>>, value={xy:{x:1, y:2}, ab:{a:"test_a", b:false}}, preserve_in_literal_remover=TRUE)
             | +-MakeStruct
@@ -2606,6 +2607,7 @@ QueryStmt
         |                 |     +-ColumnRef(type=INT64, column=t2.d#6, is_correlated=TRUE)
         |                 +-for_expr=
         |                 | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |                 |   +-parse_location=211-216
         |                 |   +-ColumnRef(type=INT64, column=t1.a#7)
         |                 |   +-ColumnRef(type=INT64, column=t1.b#8)
         |                 +-pivot_value_list=
@@ -2720,6 +2722,7 @@ QueryStmt
         |                 |     +-ColumnRef(type=INT64, column=t2.d#6, is_correlated=TRUE)
         |                 +-for_expr=
         |                 | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |                 |   +-parse_location=235-240
         |                 |   +-ColumnRef(type=INT64, column=t1.a#7)
         |                 |   +-ColumnRef(type=INT64, column=t1.b#8)
         |                 +-pivot_value_list=
@@ -2841,6 +2844,7 @@ QueryStmt
         |                 |       +-ColumnRef(type=INT64, column=t2.b#6, is_correlated=TRUE)
         |                 +-for_expr=
         |                 | +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+        |                 |   +-parse_location=260-293
         |                 |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
         |                 |   | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
         |                 |   | | +-ColumnRef(type=INT64, column=t1.a#7)
@@ -2961,6 +2965,7 @@ QueryStmt
         |                 |     +-ColumnRef(type=INT64, column=t2.d#6, is_correlated=TRUE)
         |                 +-for_expr=
         |                 | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |                 |   +-parse_location=235-240
         |                 |   +-ColumnRef(type=INT64, column=t1.a#7)
         |                 |   +-ColumnRef(type=INT64, column=t1.b#8)
         |                 +-pivot_value_list=
@@ -2989,6 +2994,8 @@ SELECT (SELECT AS STRUCT * FROM t1
          PIVOT(SUM(t1.a)
          FOR a + {{c|t2.c}} IN (1 AS one, 2 AS two, 3 AS three, 4 AS four)))
 FROM t2;
+--
+ALTERNATION GROUP: c
 --
 QueryStmt
 +-output_column_list=
@@ -3056,6 +3063,91 @@ QueryStmt
         |                 |   +-ColumnRef(type=INT64, column=t1.a#7)
         |                 +-for_expr=
         |                 | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |                 |   +-parse_location=143-148
+        |                 |   +-ColumnRef(type=INT64, column=t1.a#7)
+        |                 |   +-ColumnRef(type=INT64, column=t2.c#5, is_correlated=TRUE)
+        |                 +-pivot_value_list=
+        |                 | +-Literal(type=INT64, value=1)
+        |                 | +-Literal(type=INT64, value=2)
+        |                 | +-Literal(type=INT64, value=3)
+        |                 | +-Literal(type=INT64, value=4)
+        |                 +-pivot_column_list=
+        |                   +-PivotColumn(column=$pivot.one#11, pivot_expr_index=0, pivot_value_index=0)
+        |                   +-PivotColumn(column=$pivot.two#12, pivot_expr_index=0, pivot_value_index=1)
+        |                   +-PivotColumn(column=$pivot.three#13, pivot_expr_index=0, pivot_value_index=2)
+        |                   +-PivotColumn(column=$pivot.four#14, pivot_expr_index=0, pivot_value_index=3)
+        +-input_scan=
+          +-WithRefScan(column_list=t2.[c#5, d#6], with_query_name="t2")
+--
+ALTERNATION GROUP: t2.c
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#16 AS `$col1` [STRUCT<b INT64, one INT64, two INT64, three INT64, four INT64>]
++-query=
+  +-WithScan
+    +-column_list=[$query.$col1#16]
+    +-with_entry_list=
+    | +-WithEntry
+    | | +-with_query_name="t1"
+    | | +-with_subquery=
+    | |   +-ProjectScan
+    | |     +-column_list=t1.[a#1, b#2]
+    | |     +-expr_list=
+    | |     | +-a#1 := Literal(type=INT64, value=1)
+    | |     | +-b#2 := Literal(type=INT64, value=2)
+    | |     +-input_scan=
+    | |       +-SingleRowScan
+    | +-WithEntry
+    |   +-with_query_name="t2"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-column_list=t2.[c#3, d#4]
+    |       +-expr_list=
+    |       | +-c#3 := Literal(type=INT64, value=3)
+    |       | +-d#4 := Literal(type=INT64, value=4)
+    |       +-input_scan=
+    |         +-SingleRowScan
+    +-query=
+      +-ProjectScan
+        +-column_list=[$query.$col1#16]
+        +-expr_list=
+        | +-$col1#16 :=
+        |   +-SubqueryExpr
+        |     +-type=STRUCT<b INT64, one INT64, two INT64, three INT64, four INT64>
+        |     +-subquery_type=SCALAR
+        |     +-parameter_list=
+        |     | +-ColumnRef(type=INT64, column=t2.c#5)
+        |     +-subquery=
+        |       +-ProjectScan
+        |         +-column_list=[$make_struct.$struct#15]
+        |         +-expr_list=
+        |         | +-$struct#15 :=
+        |         |   +-MakeStruct
+        |         |     +-type=STRUCT<b INT64, one INT64, two INT64, three INT64, four INT64>
+        |         |     +-field_list=
+        |         |       +-ColumnRef(type=INT64, column=$groupby.b#10)
+        |         |       +-ColumnRef(type=INT64, column=$pivot.one#11)
+        |         |       +-ColumnRef(type=INT64, column=$pivot.two#12)
+        |         |       +-ColumnRef(type=INT64, column=$pivot.three#13)
+        |         |       +-ColumnRef(type=INT64, column=$pivot.four#14)
+        |         +-input_scan=
+        |           +-ProjectScan
+        |             +-column_list=[$groupby.b#10, $pivot.one#11, $pivot.two#12, $pivot.three#13, $pivot.four#14]
+        |             +-input_scan=
+        |               +-PivotScan
+        |                 +-column_list=[$groupby.b#10, $pivot.one#11, $pivot.two#12, $pivot.three#13, $pivot.four#14]
+        |                 +-input_scan=
+        |                 | +-WithRefScan(column_list=t1.[a#7, b#8], with_query_name="t1")
+        |                 +-group_by_list=
+        |                 | +-b#10 := ColumnRef(type=INT64, column=t1.b#8)
+        |                 +-pivot_expr_list=
+        |                 | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |                 |   +-parse_location=120-129
+        |                 |   +-ColumnRef(type=INT64, column=t1.a#7)
+        |                 +-for_expr=
+        |                 | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |                 |   +-parse_location=143-151
         |                 |   +-ColumnRef(type=INT64, column=t1.a#7)
         |                 |   +-ColumnRef(type=INT64, column=t2.c#5, is_correlated=TRUE)
         |                 +-pivot_value_list=
@@ -3120,7 +3212,7 @@ QueryStmt
         |   +-parse_location=29-37
         |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-ColumnRef(parse_location=42-45, type=INT64, column=KeyValue.Key#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=0)
         | +-Literal(type=INT64, value=0)
@@ -3164,7 +3256,7 @@ QueryStmt
         |   +-parse_location=29-37
         |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         +-for_expr=
-        | +-Literal(type=INT64, value=0)
+        | +-Literal(parse_location=42-43, type=INT64, value=0)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=0)
         | +-Literal(type=INT64, value=1)
@@ -3215,7 +3307,7 @@ QueryStmt
             |   +-parse_location=84-90
             |   +-ColumnRef(type=INT64, column=t.x#6)
             +-for_expr=
-            | +-ColumnRef(type=INT64, column=t.y#7)
+            | +-ColumnRef(parse_location=95-96, type=INT64, column=t.y#7)
             +-pivot_value_list=
             | +-Literal(type=INT64, value=0)
             | +-Literal(type=INT64, value=1)
@@ -3271,7 +3363,7 @@ QueryStmt
             |   +-parse_location=126-138
             |   +-ColumnRef(type=INT64, column=t.x#6)
             +-for_expr=
-            | +-ColumnRef(type=INT64, column=t.y#7)
+            | +-ColumnRef(parse_location=143-144, type=INT64, column=t.y#7)
             +-pivot_value_list=
             | +-Literal(type=INT64, value=0)
             | +-Literal(type=INT64, value=1)
@@ -3327,7 +3419,7 @@ QueryStmt
             |   +-parse_location=90-102
             |   +-ColumnRef(type=INT64, column=t.x#6)
             +-for_expr=
-            | +-ColumnRef(type=INT64, column=t.y#7)
+            | +-ColumnRef(parse_location=142-143, type=INT64, column=t.y#7)
             +-pivot_value_list=
               +-Literal(type=INT64, value=0)
               +-Literal(type=INT64, value=1)
@@ -3377,7 +3469,7 @@ QueryStmt
             |   +-parse_location=71-82
             |   +-ColumnRef(type=INT64, column=t.y#7)
             +-for_expr=
-            | +-ColumnRef(type=INT64, column=t.z#8)
+            | +-ColumnRef(parse_location=87-88, type=INT64, column=t.z#8)
             +-pivot_value_list=
             | +-Literal(type=INT64, value=0)
             | +-Literal(type=INT64, value=1)
@@ -3387,7 +3479,7 @@ QueryStmt
 ==
 
 # Aggregate function not on allowlist, but supports null handling modifiers
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(ARRAY_AGG(Value {{|IGNORE NULLS|RESPECT NULLS}})
 FOR Key IN (0 AS zero, 1 AS one));
 --
@@ -3411,7 +3503,7 @@ QueryStmt
         |   +-parse_location=29-46
         |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-ColumnRef(parse_location=51-54, type=INT64, column=KeyValue.Key#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=0)
         | +-Literal(type=INT64, value=1)
@@ -3443,7 +3535,7 @@ QueryStmt
         |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
         |   +-null_handling_modifier=IGNORE_NULLS
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-ColumnRef(parse_location=63-66, type=INT64, column=KeyValue.Key#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=0)
         | +-Literal(type=INT64, value=1)
@@ -3466,7 +3558,7 @@ QueryStmt
         | +-ProjectScan
         |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pivot.$pivot_value#6, $pivot.$pivot_expr_arg#7]
         |   +-expr_list=
-        |   | +-$pivot_value#6 := ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   | +-$pivot_value#6 := ColumnRef(parse_location=63-66, type=INT64, column=KeyValue.Key#1)
         |   | +-$pivot_expr_arg#7 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         |   +-input_scan=
         |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
@@ -3551,7 +3643,7 @@ QueryStmt
         |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
         |   +-null_handling_modifier=RESPECT_NULLS
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-ColumnRef(parse_location=64-67, type=INT64, column=KeyValue.Key#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=0)
         | +-Literal(type=INT64, value=1)
@@ -3566,7 +3658,7 @@ SELECT * FROM KeyValue PIVOT(ARRAY_AGG(Value RESPECT NULLS)
 
 # Aggregate function not on allowlist and doesn't supports null handling
 # modifiers
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(
   APPROX_TOP_COUNT(Value, 1)FOR Key IN (0 AS zero, 1 AS one));
 --
@@ -3589,7 +3681,7 @@ QueryStmt
         |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
         |   +-Literal(type=INT64, value=1)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-ColumnRef(parse_location=62-65, type=INT64, column=KeyValue.Key#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=0)
         | +-Literal(type=INT64, value=1)
@@ -3604,7 +3696,7 @@ Rewrite ERROR: generic::unimplemented: Use of aggregate function APPROX_TOP_COUN
 
 # While ANY_VALUE() is a null-respecting function, it is special-cased in the
 # PIVOT rewriter to work.
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(ANY_VALUE(Value) FOR Key IN (0 AS zero, 1 AS one));
 --
 QueryStmt
@@ -3624,7 +3716,7 @@ QueryStmt
         |   +-parse_location=29-45
         |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-ColumnRef(parse_location=50-53, type=INT64, column=KeyValue.Key#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=0)
         | +-Literal(type=INT64, value=1)
@@ -3693,7 +3785,7 @@ QueryStmt
             | +-ProjectScan
             |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pivot.$pivot_value#6, $pivot.$pivot_expr_arg#7]
             |   +-expr_list=
-            |   | +-$pivot_value#6 := ColumnRef(type=INT64, column=KeyValue.Key#1)
+            |   | +-$pivot_value#6 := ColumnRef(parse_location=50-53, type=INT64, column=KeyValue.Key#1)
             |   | +-$pivot_expr_arg#7 := ColumnRef(type=STRING, column=KeyValue.Value#2)
             |   +-input_scan=
             |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
@@ -3764,7 +3856,7 @@ QueryStmt
 
 # ANY_VALUE() for array types has special rewriter implementation
 # to avoid arrays of arrays
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(
   ANY_VALUE([Value]) FOR Key IN (0 AS zero, 1 AS one));
 --
@@ -3786,7 +3878,7 @@ QueryStmt
         |   +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
         |     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-ColumnRef(parse_location=55-58, type=INT64, column=KeyValue.Key#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=0)
         | +-Literal(type=INT64, value=1)
@@ -3863,7 +3955,7 @@ QueryStmt
             | +-ProjectScan
             |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pivot.$pivot_value#6, $pivot.$pivot_expr_arg#7]
             |   +-expr_list=
-            |   | +-$pivot_value#6 := ColumnRef(type=INT64, column=KeyValue.Key#1)
+            |   | +-$pivot_value#6 := ColumnRef(parse_location=55-58, type=INT64, column=KeyValue.Key#1)
             |   | +-$pivot_expr_arg#7 :=
             |   |   +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
             |   |     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
@@ -3987,7 +4079,7 @@ QueryStmt
 ==
 
 # Make sure the rewritten version of ANY_VALUE() handles groupby columns
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM (SELECT Key, Value, Key + 1 AS kp1 FROM KeyValue)
 PIVOT(ANY_VALUE(Value) FOR Key IN (0 AS zero, 1 AS one));
 --
@@ -4021,7 +4113,7 @@ QueryStmt
         |   +-parse_location=70-86
         |   +-ColumnRef(type=STRING, column=$subquery1.Value#4)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=$subquery1.Key#3)
+        | +-ColumnRef(parse_location=91-94, type=INT64, column=$subquery1.Key#3)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=0)
         | +-Literal(type=INT64, value=1)
@@ -4091,7 +4183,7 @@ QueryStmt
             | +-ProjectScan
             |   +-column_list=[$subquery1.Key#3, $subquery1.Value#4, $subquery1.kp1#5, $pivot.$pivot_value#10, $pivot.$pivot_expr_arg#11]
             |   +-expr_list=
-            |   | +-$pivot_value#10 := ColumnRef(type=INT64, column=$subquery1.Key#3)
+            |   | +-$pivot_value#10 := ColumnRef(parse_location=91-94, type=INT64, column=$subquery1.Key#3)
             |   | +-$pivot_expr_arg#11 := ColumnRef(type=STRING, column=$subquery1.Value#4)
             |   +-input_scan=
             |     +-ProjectScan
@@ -4176,7 +4268,7 @@ QueryStmt
 # but this time, the language option to enable null-handling modifiers is not
 # enabled.
 [language_features=V_1_3_PIVOT,V_1_3_IS_DISTINCT]
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue PIVOT(ARRAY_AGG(Value) FOR Key IN (0 AS zero, 1 AS one));
 --
 [PRE-REWRITE AST]
@@ -4197,7 +4289,7 @@ QueryStmt
         |   +-parse_location=29-45
         |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-ColumnRef(parse_location=50-53, type=INT64, column=KeyValue.Key#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=0)
         | +-Literal(type=INT64, value=1)
@@ -4213,7 +4305,8 @@ SELECT * FROM KeyValue PIVOT(ARRAY_AGG(Value) FOR Key IN (0 AS zero, 1 AS one));
 # Rewriter still works when PIVOT is enabled without IS DISTINCT FROM feature
 # (which the pivot rewriter makes use of internally)
 [language_features=V_1_3_PIVOT]
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS]
+[no_run_unparser]
 SELECT * FROM KeyValue PIVOT(COUNT(Value) FOR Key IN (0 AS zero, 1 AS one));
 --
 QueryStmt
@@ -4233,13 +4326,14 @@ QueryStmt
         |   +-parse_location=29-41
         |   +-ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-ColumnRef(parse_location=46-49, type=INT64, column=KeyValue.Key#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=0)
         | +-Literal(type=INT64, value=1)
         +-pivot_column_list=
           +-PivotColumn(column=$pivot.zero#4, pivot_expr_index=0, pivot_value_index=0)
           +-PivotColumn(column=$pivot.one#5, pivot_expr_index=0, pivot_value_index=1)
+
 
 [REWRITTEN AST]
 QueryStmt
@@ -4256,7 +4350,7 @@ QueryStmt
         | +-ProjectScan
         |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pivot.$pivot_value#6, $pivot.$pivot_expr_arg#7]
         |   +-expr_list=
-        |   | +-$pivot_value#6 := ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   | +-$pivot_value#6 := ColumnRef(parse_location=46-49, type=INT64, column=KeyValue.Key#1)
         |   | +-$pivot_expr_arg#7 := ColumnRef(type=STRING, column=KeyValue.Value#2)
         |   +-input_scan=
         |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
@@ -4271,13 +4365,39 @@ QueryStmt
           |     | +-ColumnRef(type=STRING, column=$pivot.$pivot_expr_arg#7)
           |     +-subquery=
           |       +-ProjectScan
-          |         +-column_list=[$expr_subquery.$col1#11]
+          |         +-column_list=[$expr_subquery.$col1#14]
           |         +-expr_list=
-          |         | +-$col1#11 :=
+          |         | +-$col1#14 :=
           |         |   +-FunctionCall(ZetaSQL:if(BOOL, STRING, STRING) -> STRING)
-          |         |     +-FunctionCall(ZetaSQL:$is_not_distinct_from(INT64, INT64) -> BOOL)
-          |         |     | +-ColumnRef(type=INT64, column=$subquery1.pivot_column#9)
-          |         |     | +-ColumnRef(type=INT64, column=$subquery1.pivot_value#10)
+          |         |     +-SubqueryExpr
+          |         |     | +-type=BOOL
+          |         |     | +-subquery_type=EXISTS
+          |         |     | +-parameter_list=
+          |         |     | | +-ColumnRef(type=INT64, column=$subquery1.pivot_column#9)
+          |         |     | | +-ColumnRef(type=INT64, column=$subquery1.pivot_value#10)
+          |         |     | +-subquery=
+          |         |     |   +-SetOperationScan
+          |         |     |     +-column_list=[$intersect_all.pivot_column#13]
+          |         |     |     +-op_type=INTERSECT_ALL
+          |         |     |     +-input_item_list=
+          |         |     |       +-SetOperationItem
+          |         |     |       | +-scan=
+          |         |     |       | | +-ProjectScan
+          |         |     |       | |   +-column_list=[$intersect_all1.pivot_column#11]
+          |         |     |       | |   +-expr_list=
+          |         |     |       | |   | +-pivot_column#11 := ColumnRef(type=INT64, column=$subquery1.pivot_column#9, is_correlated=TRUE)
+          |         |     |       | |   +-input_scan=
+          |         |     |       | |     +-SingleRowScan
+          |         |     |       | +-output_column_list=[$intersect_all1.pivot_column#11]
+          |         |     |       +-SetOperationItem
+          |         |     |         +-scan=
+          |         |     |         | +-ProjectScan
+          |         |     |         |   +-column_list=[$intersect_all2.pivot_value#12]
+          |         |     |         |   +-expr_list=
+          |         |     |         |   | +-pivot_value#12 := ColumnRef(type=INT64, column=$subquery1.pivot_value#10, is_correlated=TRUE)
+          |         |     |         |   +-input_scan=
+          |         |     |         |     +-SingleRowScan
+          |         |     |         +-output_column_list=[$intersect_all2.pivot_value#12]
           |         |     +-ColumnRef(type=STRING, column=$subquery1.orig_arg#8)
           |         |     +-Literal(type=STRING, value=NULL)
           |         +-input_scan=
@@ -4299,22 +4419,48 @@ QueryStmt
                 | +-ColumnRef(type=STRING, column=$pivot.$pivot_expr_arg#7)
                 +-subquery=
                   +-ProjectScan
-                    +-column_list=[$expr_subquery.$col1#15]
+                    +-column_list=[$expr_subquery.$col1#21]
                     +-expr_list=
-                    | +-$col1#15 :=
+                    | +-$col1#21 :=
                     |   +-FunctionCall(ZetaSQL:if(BOOL, STRING, STRING) -> STRING)
-                    |     +-FunctionCall(ZetaSQL:$is_not_distinct_from(INT64, INT64) -> BOOL)
-                    |     | +-ColumnRef(type=INT64, column=$subquery1.pivot_column#13)
-                    |     | +-ColumnRef(type=INT64, column=$subquery1.pivot_value#14)
-                    |     +-ColumnRef(type=STRING, column=$subquery1.orig_arg#12)
+                    |     +-SubqueryExpr
+                    |     | +-type=BOOL
+                    |     | +-subquery_type=EXISTS
+                    |     | +-parameter_list=
+                    |     | | +-ColumnRef(type=INT64, column=$subquery1.pivot_column#16)
+                    |     | | +-ColumnRef(type=INT64, column=$subquery1.pivot_value#17)
+                    |     | +-subquery=
+                    |     |   +-SetOperationScan
+                    |     |     +-column_list=[$intersect_all.pivot_column#20]
+                    |     |     +-op_type=INTERSECT_ALL
+                    |     |     +-input_item_list=
+                    |     |       +-SetOperationItem
+                    |     |       | +-scan=
+                    |     |       | | +-ProjectScan
+                    |     |       | |   +-column_list=[$intersect_all1.pivot_column#18]
+                    |     |       | |   +-expr_list=
+                    |     |       | |   | +-pivot_column#18 := ColumnRef(type=INT64, column=$subquery1.pivot_column#16, is_correlated=TRUE)
+                    |     |       | |   +-input_scan=
+                    |     |       | |     +-SingleRowScan
+                    |     |       | +-output_column_list=[$intersect_all1.pivot_column#18]
+                    |     |       +-SetOperationItem
+                    |     |         +-scan=
+                    |     |         | +-ProjectScan
+                    |     |         |   +-column_list=[$intersect_all2.pivot_value#19]
+                    |     |         |   +-expr_list=
+                    |     |         |   | +-pivot_value#19 := ColumnRef(type=INT64, column=$subquery1.pivot_value#17, is_correlated=TRUE)
+                    |     |         |   +-input_scan=
+                    |     |         |     +-SingleRowScan
+                    |     |         +-output_column_list=[$intersect_all2.pivot_value#19]
+                    |     +-ColumnRef(type=STRING, column=$subquery1.orig_arg#15)
                     |     +-Literal(type=STRING, value=NULL)
                     +-input_scan=
                       +-ProjectScan
-                        +-column_list=$subquery1.[orig_arg#12, pivot_column#13, pivot_value#14]
+                        +-column_list=$subquery1.[orig_arg#15, pivot_column#16, pivot_value#17]
                         +-expr_list=
-                        | +-orig_arg#12 := ColumnRef(type=STRING, column=$pivot.$pivot_expr_arg#7, is_correlated=TRUE)
-                        | +-pivot_column#13 := ColumnRef(type=INT64, column=$pivot.$pivot_value#6, is_correlated=TRUE)
-                        | +-pivot_value#14 := Literal(type=INT64, value=1)
+                        | +-orig_arg#15 := ColumnRef(type=STRING, column=$pivot.$pivot_expr_arg#7, is_correlated=TRUE)
+                        | +-pivot_column#16 := ColumnRef(type=INT64, column=$pivot.$pivot_value#6, is_correlated=TRUE)
+                        | +-pivot_value#17 := Literal(type=INT64, value=1)
                         +-input_scan=
                           +-SingleRowScan
 ==
@@ -4353,7 +4499,7 @@ QueryStmt
         +-pivot_expr_list=
         | +-AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)(parse_location=86-101)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=PivotInput.a_1#3)
+        | +-ColumnRef(parse_location=106-109, type=INT64, column=PivotInput.a_1#3)
         +-pivot_value_list=
           +-Literal(type=INT64, value=0)
           +-Literal(type=INT64, value=1)
@@ -4382,7 +4528,7 @@ QueryStmt
         +-pivot_expr_list=
         | +-AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)(parse_location=98-113)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=PivotInput.a_1#3)
+        | +-ColumnRef(parse_location=118-121, type=INT64, column=PivotInput.a_1#3)
         +-pivot_value_list=
           +-Literal(type=INT64, value=0)
           +-Literal(type=INT64, value=1)
@@ -4454,7 +4600,7 @@ QueryStmt
         |   |   +-parse_location=31-50
         |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         |   +-for_expr=
-        |   | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   | +-ColumnRef(parse_location=55-58, type=INT64, column=KeyValue.Key#1)
         |   +-pivot_value_list=
         |   | +-Literal(type=INT64, value=0)
         |   | +-Literal(type=INT64, value=1)
@@ -4473,7 +4619,7 @@ QueryStmt
         |   |   +-parse_location=115-134
         |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#7)
         |   +-for_expr=
-        |   | +-ColumnRef(type=INT64, column=KeyValue.Key#7)
+        |   | +-ColumnRef(parse_location=139-142, type=INT64, column=KeyValue.Key#7)
         |   +-pivot_value_list=
         |   | +-Literal(type=INT64, value=0)
         |   | +-Literal(type=INT64, value=1)
@@ -4512,7 +4658,7 @@ QueryStmt
         |   |   +-parse_location=31-50
         |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#1)
         |   +-for_expr=
-        |   | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   | +-ColumnRef(parse_location=55-58, type=INT64, column=KeyValue.Key#1)
         |   +-pivot_value_list=
         |   | +-Literal(type=INT64, value=0)
         |   | +-Literal(type=INT64, value=1)
@@ -4531,7 +4677,7 @@ QueryStmt
         |   |   +-parse_location=115-134
         |   |   +-ColumnRef(type=INT64, column=KeyValue.Key#7)
         |   +-for_expr=
-        |   | +-ColumnRef(type=INT64, column=KeyValue.Key#7)
+        |   | +-ColumnRef(parse_location=139-142, type=INT64, column=KeyValue.Key#7)
         |   +-pivot_value_list=
         |   | +-Literal(type=INT64, value=0)
         |   | +-Literal(type=INT64, value=1)
@@ -4591,7 +4737,7 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         |   +-distinct=TRUE
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=$subquery1.y#2)
+        | +-ColumnRef(parse_location=157-158, type=INT64, column=$subquery1.y#2)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=100, preserve_in_literal_remover=TRUE)
         | +-Literal(type=INT64, value=101)
@@ -4659,7 +4805,7 @@ QueryStmt
         |       | +-ColumnRef(type=INT64, column=$subquery1.z#3)
         |       +-is_descending=TRUE
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=$subquery1.y#2)
+        | +-ColumnRef(parse_location=117-118, type=INT64, column=$subquery1.y#2)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=100, preserve_in_literal_remover=TRUE)
         | +-Literal(type=INT64, value=101)
@@ -4708,7 +4854,7 @@ QueryStmt
         |   +-limit=
         |     +-Literal(type=INT64, value=50)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=$subquery1.y#2)
+        | +-ColumnRef(parse_location=82-83, type=INT64, column=$subquery1.y#2)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=100, preserve_in_literal_remover=TRUE)
         | +-Literal(type=INT64, value=101)
@@ -4722,7 +4868,7 @@ QueryStmt
 ==
 
 # PIVOT expr with HAVING modifier in aggregate function call
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue
 PIVOT(MAX(Key HAVING MAX Value) AS m1, MAX(Key HAVING MAX CONCAT(Value, '_a')) AS m2
   FOR Key IN (0,1));
@@ -4762,7 +4908,7 @@ QueryStmt
         |           +-ColumnRef(type=STRING, column=KeyValue.Value#2)
         |           +-Literal(type=STRING, value="_a")
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-ColumnRef(parse_location=114-117, type=INT64, column=KeyValue.Key#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=0, preserve_in_literal_remover=TRUE)
         | +-Literal(type=INT64, value=1, preserve_in_literal_remover=TRUE)
@@ -4779,7 +4925,7 @@ PIVOT(MAX(Key HAVING MAX Value) AS m1, MAX(Key HAVING MAX CONCAT(Value, '_a')...
 
 # Regression test for b/191772920:
 # PIVOT expr with HAVING modifier in COUNT(*) aggregate expression
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS]
 SELECT * FROM KeyValue
 PIVOT(COUNT(* HAVING MAX Value) AS m1
   FOR Key IN (0,1));
@@ -4806,7 +4952,7 @@ QueryStmt
         |       +-having_expr=
         |         +-ColumnRef(type=STRING, column=KeyValue.Value#2)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+        | +-ColumnRef(parse_location=67-70, type=INT64, column=KeyValue.Key#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=0, preserve_in_literal_remover=TRUE)
         | +-Literal(type=INT64, value=1, preserve_in_literal_remover=TRUE)
@@ -4876,7 +5022,7 @@ QueryStmt
             |   +-parse_location=121-136
             |   +-ColumnRef(type=INT64, column=t.z#10)
             +-for_expr=
-            | +-ColumnRef(type=INT64, column=t.w#7)
+            | +-ColumnRef(parse_location=143-144, type=INT64, column=t.w#7)
             +-pivot_value_list=
             | +-Literal(type=INT64, value=0, preserve_in_literal_remover=TRUE)
             | +-Literal(type=INT64, value=1, preserve_in_literal_remover=TRUE)
@@ -4893,6 +5039,8 @@ QueryStmt
 SELECT * FROM
   (SELECT key AS k1, Key AS k2, Key AS k3, Value FROM KeyValue) kv
   PIVOT(COUNT(*) FOR {{k3|kv.k3}} IN (1, 2));
+--
+ALTERNATION GROUP: k3
 --
 QueryStmt
 +-output_column_list=
@@ -4924,7 +5072,47 @@ QueryStmt
         +-pivot_expr_list=
         | +-AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)(parse_location=89-97)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=kv.k3#5)
+        | +-ColumnRef(parse_location=102-104, type=INT64, column=kv.k3#5)
+        +-pivot_value_list=
+        | +-Literal(type=INT64, value=1, preserve_in_literal_remover=TRUE)
+        | +-Literal(type=INT64, value=2, preserve_in_literal_remover=TRUE)
+        +-pivot_column_list=
+          +-PivotColumn(column=$pivot._1#11, pivot_expr_index=0, pivot_value_index=0)
+          +-PivotColumn(column=$pivot._2#12, pivot_expr_index=0, pivot_value_index=1)
+--
+ALTERNATION GROUP: kv.k3
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.k1#8 AS k1 [INT64]
+| +-$groupby.k2#9 AS k2 [INT64]
+| +-$groupby.Value#10 AS Value [STRING]
+| +-$pivot._1#11 AS _1 [INT64]
+| +-$pivot._2#12 AS _2 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.k1#8, $groupby.k2#9, $groupby.Value#10, $pivot._1#11, $pivot._2#12]
+    +-input_scan=
+      +-PivotScan
+        +-column_list=[$groupby.k1#8, $groupby.k2#9, $groupby.Value#10, $pivot._1#11, $pivot._2#12]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=kv.[k1#3, k2#4, k3#5, Value#6]
+        |   +-expr_list=
+        |   | +-k1#3 := ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   | +-k2#4 := ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   | +-k3#5 := ColumnRef(type=INT64, column=KeyValue.Key#1)
+        |   | +-Value#6 := ColumnRef(type=STRING, column=KeyValue.Value#2)
+        |   +-input_scan=
+        |     +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-k1#8 := ColumnRef(type=INT64, column=kv.k1#3)
+        | +-k2#9 := ColumnRef(type=INT64, column=kv.k2#4)
+        | +-Value#10 := ColumnRef(type=STRING, column=kv.Value#6)
+        +-pivot_expr_list=
+        | +-AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)(parse_location=89-97)
+        +-for_expr=
+        | +-ColumnRef(parse_location=102-107, type=INT64, column=kv.k3#5)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=1, preserve_in_literal_remover=TRUE)
         | +-Literal(type=INT64, value=2, preserve_in_literal_remover=TRUE)
@@ -4934,7 +5122,7 @@ QueryStmt
 ==
 
 # Subquery in PIVOT expr (not supported by rewriter)
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS]
 SELECT * From KeyValue2
   PIVOT(
     SUM(1 + (SELECT SUM(Key) From KeyValue))
@@ -4976,7 +5164,7 @@ QueryStmt
         |                   +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
         |                     +-ColumnRef(type=INT64, column=KeyValue.Key#3)
         +-for_expr=
-        | +-ColumnRef(type=INT64, column=KeyValue2.Key#1)
+        | +-ColumnRef(parse_location=86-89, type=INT64, column=KeyValue2.Key#1)
         +-pivot_value_list=
         | +-Literal(type=INT64, value=0, preserve_in_literal_remover=TRUE)
         | +-Literal(type=INT64, value=1, preserve_in_literal_remover=TRUE)
@@ -5000,7 +5188,7 @@ QueryStmt
         | +-ProjectScan
         |   +-column_list=[KeyValue2.Key#1, KeyValue2.Value2#2, $pivot.$pivot_value#10, $pivot.$pivot_expr_arg#11]
         |   +-expr_list=
-        |   | +-$pivot_value#10 := ColumnRef(type=INT64, column=KeyValue2.Key#1)
+        |   | +-$pivot_value#10 := ColumnRef(parse_location=86-89, type=INT64, column=KeyValue2.Key#1)
         |   | +-$pivot_expr_arg#11 :=
         |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
         |   |     +-Literal(type=INT64, value=1)

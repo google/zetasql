@@ -275,7 +275,7 @@ ZetaSQL supports the following parameter coercions:
 
 <tr>
 <td>STRING parameter</td>
-<td><span> PROTO</span><br /></td>
+<td><span> DATE</span><br /><span> DATETIME</span><br /><span> TIME</span><br /><span> TIMESTAMP</span><br /><span> ENUM</span><br /><span> PROTO</span><br /></td>
 </tr>
 
 <tr>
@@ -780,11 +780,11 @@ when the input set of types includes types related to literals:
 
 [con-rules-link-to-time-zones]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time_zones
 
-[con-rules-link-to-conversion-functions]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#conversion_functions
+[con-rules-link-to-conversion-functions]: https://github.com/google/zetasql/blob/master/docs/conversion_functions.md
 
-[con-rules-link-to-cast]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#cast
+[con-rules-link-to-cast]: https://github.com/google/zetasql/blob/master/docs/conversion_functions.md#cast
 
-[con-rules-link-to-conversion-functions-other]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#other_conv_functions
+[con-rules-link-to-conversion-functions-other]: https://github.com/google/zetasql/blob/master/docs/conversion_functions.md#other_conv_functions
 
 <!-- mdlint on -->
 

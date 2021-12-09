@@ -198,7 +198,6 @@ SELECT
 +------------+------------+------------+
 | 2016-12-25 | 2016-12-25 | 2016-12-24 |
 +------------+------------+------------+
-
 ```
 
 ### DATE_ADD
@@ -287,8 +286,8 @@ DATE_DIFF(date_expression_a, date_expression_b, date_part)
 
 **Description**
 
-Returns the number of whole specified `date_part` intervals between two `DATE` objects
-(`date_expression_a` - `date_expression_b`).
+Returns the whole number of specified `date_part` intervals between two
+`DATE` objects (`date_expression_a` - `date_expression_b`).
 If the first `DATE` is earlier than the second one,
 the output is negative.
 
@@ -663,21 +662,20 @@ SELECT PARSE_DATE("%F", "2000-12-30")
 ```
 
 The format string fully supports most format elements except for
-`%Q`, `%a`, `%A`, `%g`,
-`%G`, `%j`, `%u`, `%U`, `%V`, `%w`, and `%W`.
+`%a`, `%A`, `%g`, `%G`, `%j`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
 When using `PARSE_DATE`, keep the following in mind:
 
-+ *Unspecified fields.* Any unspecified field is initialized from `1970-01-01`.
-+ *Case insensitive names.* Names, such as `Monday`, `February`, and so on, are
-case insensitive.
-+ *Whitespace.* One or more consecutive white spaces in the format string
-matches zero or more consecutive white spaces in the date string. In
-addition, leading and trailing white spaces in the date string are always
-allowed -- even if they are not in the format string.
-+ *Format precedence.* When two (or more) format elements have overlapping
-information (for example both `%F` and `%Y` affect the year), the last one
-generally overrides any earlier ones.
++ **Unspecified fields.** Any unspecified field is initialized from `1970-01-01`.
++ **Case insensitivity.** Names, such as `Monday`, `February`, and so on, are
+  case insensitive.
++ **Whitespace.** One or more consecutive white spaces in the format string
+  matches zero or more consecutive white spaces in the date string. In
+  addition, leading and trailing white spaces in the date string are always
+  allowed -- even if they are not in the format string.
++ **Format precedence.** When two (or more) format elements have overlapping
+  information (for example both `%F` and `%Y` affect the year), the last one
+  generally overrides any earlier ones.
 
 **Return Data Type**
 
@@ -898,11 +896,19 @@ space.</td>
  </tr>
 </table>
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
 [ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
+
 [date-format]: #format_date
+
 [date-format-elements]: #supported_format_elements_for_date
+
 [date-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
 
 [date-functions-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
+
+<!-- mdlint on -->
 

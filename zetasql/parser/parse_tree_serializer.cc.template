@@ -28,8 +28,48 @@ absl::Status ParseTreeSerializer::Serialize(const ASTNode* node,
   return absl::OkStatus();
 }
 
+absl::StatusOr<std::unique_ptr<ParserOutput>> ParseTreeSerializer::Deserialize(
+    const AnyASTStatementProto& proto, const ParserOptions& parser_options_in) {
+  ParserOptions parser_options = parser_options_in;
+  parser_options.CreateDefaultArenasIfNotSet();
+  std::unique_ptr<ASTNode> ast_node;
+  std::vector<std::unique_ptr<ASTNode>> allocated_ast_nodes;
+  ZETASQL_ASSIGN_OR_RETURN(zetasql::ASTStatement* statement,
+                   ParseTreeSerializer::Deserialize(
+                       proto, parser_options.id_string_pool().get(),
+                       parser_options.arena().get(), &allocated_ast_nodes));
+
+  ZETASQL_RET_CHECK(statement != nullptr);
+  for (int i = allocated_ast_nodes.size() - 1; i >= 0; --i) {
+    (allocated_ast_nodes)[i]->InitFields();
+    // Locate the target statement among the allocated_ast_nodes, move
+    // its unique_ptr into *output.
+    if ((allocated_ast_nodes)[i].get() == statement) {
+      ast_node = std::move((allocated_ast_nodes)[i]);
+    }
+  }
+  std::unique_ptr<ASTStatement> statement_ptr(
+      ast_node.release()->GetAsOrDie<ASTStatement>());
+
+  return absl::make_unique<ParserOutput>(
+      parser_options.id_string_pool(), parser_options.arena(),
+      std::move(allocated_ast_nodes), std::move(statement_ptr));
+}
+
+absl::Status ParseTreeSerializer::DeserializeAbstract(
+    ASTNode* node, const ASTNodeProto& proto, IdStringPool* id_string_pool,
+    zetasql_base::UnsafeArena* arena,
+    std::vector<std::unique_ptr<ASTNode>>* allocated_ast_nodes) {
+  ZETASQL_ASSIGN_OR_RETURN(ParseLocationRange parse_location_range,
+                   ParseLocationRange::Create(proto.parse_location_range()));
+  node->set_start_location(parse_location_range.start());
+  node->set_end_location(parse_location_range.end());
+  return absl::OkStatus();
+}
+
 
 # for node in nodes
+{{blank_line}}
 absl::Status ParseTreeSerializer::Serialize(const {{node.name}}* node,
                                             {{node.proto_type}}* proto) {
   {# The primary Serialize() first invokes Serialize() for the immediate #}
@@ -85,7 +125,109 @@ absl::Status ParseTreeSerializer::Serialize(const {{node.name}}* node,
   return absl::OkStatus();
 }
  # endif
-{{blank_line}}
+
+ # if node.is_abstract
+{# Deserialize() for abstract methods passes control to Deserialize() of the subclass #}
+{# of which it is an instance, which may final or abstract also. #}
+absl::StatusOr<{{node.name}}*> ParseTreeSerializer::Deserialize(
+    const {{node.proto_field_type}}& proto,
+          IdStringPool* id_string_pool,
+          zetasql_base::UnsafeArena* arena,
+    std::vector<std::unique_ptr<ASTNode>>* allocated_ast_nodes) {
+
+  switch (proto.node_case()) {
+  # for tag_id, subclass in node.subclasses|dictsort
+    case {{node.proto_field_type}}::{{subclass.node_kind_oneof_value}}: {
+      return Deserialize(
+          proto.{{subclass.member_name}}_node(),
+          id_string_pool, arena,
+          allocated_ast_nodes);
+    }
+  # endfor
+    case {{node.proto_field_type}}::NODE_NOT_SET:
+      break;
+  }
+  return absl::InvalidArgumentError("Empty proto!");
+}
+ # else
+absl::StatusOr<{{node.name}}*> ParseTreeSerializer::Deserialize(
+    const {{node.proto_type}}& proto,
+    IdStringPool* id_string_pool,
+    zetasql_base::UnsafeArena* arena,
+    std::vector<std::unique_ptr<ASTNode>>* allocated_ast_nodes) {
+  {{node.name}}* node = zetasql_base::NewInArena<{{node.name}}>(arena);
+  allocated_ast_nodes->push_back(std::unique_ptr<ASTNode>(node));
+  ZETASQL_RETURN_IF_ERROR(DeserializeAbstract(node,
+                                      proto.parent(),
+                                      id_string_pool,
+                                      arena,
+                                      allocated_ast_nodes));
+  ZETASQL_RETURN_IF_ERROR(DeserializeFields(node,
+                                    proto,
+                                    id_string_pool,
+                                    arena,
+                                    allocated_ast_nodes));
+  return node;
+}
+ # endif
+
+ # if node.is_abstract
+absl::Status ParseTreeSerializer::DeserializeAbstract(
+      {{node.name}}* node, const {{node.proto_type}}& proto,
+      IdStringPool* id_string_pool,
+      zetasql_base::UnsafeArena* arena,
+      std::vector<std::unique_ptr<ASTNode>>* allocated_ast_nodes) {
+  ZETASQL_RETURN_IF_ERROR(DeserializeAbstract(node,
+                                      proto.parent(),
+                                      id_string_pool,
+                                      arena,
+                                      allocated_ast_nodes));
+  return DeserializeFields(node,
+                           proto,
+                           id_string_pool,
+                           arena,
+                           allocated_ast_nodes);
+}
+ # endif
+
+absl::Status ParseTreeSerializer::DeserializeFields(
+      {{node.name}}* node, const {{node.proto_type}}& proto,
+      IdStringPool* id_string_pool,
+      zetasql_base::UnsafeArena* arena,
+      std::vector<std::unique_ptr<ASTNode>>* allocated_ast_nodes) {
+  # for field in node.fields
+
+   {# Only ASTOnOrUsingClauseList has a field of type ASTNode. #}
+   {# TODO: Decide how or if this should be supported. #}
+   # if field.ctype == 'ASTNode'
+  return absl::UnimplementedError("Fields of type ASTNode are not supported");
+   # elif field.is_node_ptr
+  if (proto.has_{{field.name}}()) {
+    node->AddChild(Deserialize(proto.{{field.name}}(),
+                   id_string_pool,
+                   arena,
+                   allocated_ast_nodes).value());
+  }
+   # elif field.is_vector
+  for (int i=0; i < proto.{{field.name}}_size(); i++) {
+    node->AddChild(Deserialize(proto.{{field.name}}(i),
+                               id_string_pool,
+                               arena,
+                               allocated_ast_nodes).value());
+  }
+   # elif field.is_enum and field.member_type == 'SchemaObjectKind'
+  node->{{field.member_name}} = static_cast<{{field.member_type}}>(proto.{{field.name}}());
+   # elif field.is_enum
+  node->{{field.member_name}} = static_cast<{{node.name}}::{{field.member_type}}>(proto.{{field.name}}());
+   # elif field.member_type is eq('IdString')
+  node->{{field.member_name}} = id_string_pool->Make(proto.{{field.name}}());
+   # else
+  {# This case includes bool, int, std::string, TypeKind. #}
+  node->{{field.member_name}} = proto.{{field.name}}();
+   # endif
+  # endfor
+  return absl::OkStatus();
+}
 # endfor
 
 }  // namespace zetasql

@@ -2523,6 +2523,18 @@ absl::Status Resolver::ResolveSelectDotStar(
       // nor aggregate functions, so it must be computed before any aggregation
       // that might be present (the dot-star columns are effectively
       // pre-GROUP BY columns).
+
+      // However, if this dot-star source expression is in DML returning clause,
+      // we do not support pre-GROUP BY columns with Project Scan. (b/207519939)
+      if (query_resolution_info->is_resolving_returning_clause()) {
+        // PROJECT scan for dot-star columns in DML THEN RETURN are not
+        // supported.
+        return MakeSqlErrorAt(ast_dotstar)
+               << "Dot-star is only allowed on range variables and columns in "
+                  "THEN RETURN. It cannot be applied on other expressions "
+                  "including field access.";
+      }
+
       query_resolution_info->select_list_columns_to_compute_before_aggregation()
           ->emplace_back(MakeResolvedComputedColumn(
               src_column, std::move(resolved_dotstar_expr)));
@@ -3796,7 +3808,7 @@ Resolver::ValidateRecursiveTermVisitor::VisitResolvedRecursiveRefScan(
   if (seen_recursive_reference_) {
     return MakeSqlErrorAt(info.path)
            << "Multiple recursive references to " << query_type << " '"
-           << info.path->ToIdentifierPathString() << "' is not allowed";
+           << info.path->ToIdentifierPathString() << "' are not allowed";
   }
   seen_recursive_reference_ = true;
 
@@ -4793,7 +4805,7 @@ absl::StatusOr<ResolvedColumn> Resolver::CreatePivotColumn(
   return ResolvedColumn(AllocateColumnId(),
                         kPivotId,
                         analyzer_options_.id_string_pool()->Make(column_name),
-                        resolved_pivot_expr->type());
+                        resolved_pivot_expr->annotated_type());
 }
 
 absl::Status Resolver::ResolvePivotExpressions(
@@ -4864,6 +4876,9 @@ absl::Status Resolver::ResolveForExprInPivotClause(
                           /*use_post_grouping_columns_in=*/false, "PIVOT",
                           &query_resolution_info);
   ZETASQL_RETURN_IF_ERROR(ResolveExpr(for_expr, &info, resolved_for_expr));
+  // TODO: figure out a way to remove the const_cast here.
+  const_cast<ResolvedExpr*>(resolved_for_expr->get())
+      ->SetParseLocationRange(for_expr->GetParseLocationRange());
 
   std::string no_grouping_type;
   if (!this->TypeSupportsGrouping(resolved_for_expr->get()->type(),
@@ -4999,7 +5014,7 @@ absl::Status Resolver::ResolvePivotClause(
       // Columns from the input table not referenced in either a pivot
       // expression or FOR expression are considered implicit group-by columns.
       ResolvedColumn output_col(AllocateColumnId(), kGroupById, named_col.name,
-                                col.type());
+                                col.annotated_type());
       output_column_list.push_back(output_col);
 
       group_by_list.push_back(

@@ -2,8 +2,11 @@
 #
 # Base case, with kappa set.  We inject a SampleScan to ensure that
 # each user only contributes to one group.
+# We can't run the unparser because the rewrite generates TABLESAMPLE and the
+# TABLESAMPLE feature is not turned on.
 [default language_features=ANONYMIZATION]
-[default enable_ast_rewrites]
+[default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[no_run_unparser]
 
 select with anonymization options(kappa = 1) anon_count(*)
 from SimpleTypesWithAnonymizationUid a
@@ -26,6 +29,7 @@ QueryStmt
         | +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
         +-anonymization_option_list=
           +-kappa := Literal(type=INT64, value=1)
+
 
 [REWRITTEN AST]
 QueryStmt
@@ -80,6 +84,9 @@ QueryStmt
 
 # Kappa set, in the presence of a join.  Kappa is 3, so we inject a
 # SampleScan to ensure that each user only contributes to 3 groups.
+# We can't run the unparser because the rewrite generates TABLESAMPLE and the
+# TABLESAMPLE feature is not turned on.
+[no_run_unparser]
 select with anonymization options(kappa = 3)
     anon_count(* CLAMPED BETWEEN 0 AND 100)
 from SimpleTypesWithAnonymizationUid a, SimpleTypes b
@@ -110,6 +117,7 @@ QueryStmt
         |     +-Literal(type=INT64, value=100)
         +-anonymization_option_list=
           +-kappa := Literal(type=INT64, value=3)
+
 
 [REWRITTEN AST]
 QueryStmt
@@ -170,6 +178,7 @@ QueryStmt
 ==
 
 # Invalid Kappa < 1
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization options(kappa = 0) anon_count(*)
 from SimpleTypesWithAnonymizationUid a
 --
@@ -179,22 +188,31 @@ QueryStmt
 | +-$aggregate.$agg1#13 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-97
     +-column_list=[$aggregate.$agg1#13]
     +-input_scan=
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#13]
         +-input_scan=
-        | +-TableScan(table=SimpleTypesWithAnonymizationUid, alias="a")
+        | +-TableScan(parse_location=64-95, table=SimpleTypesWithAnonymizationUid, alias="a")
         +-aggregate_list=
-        | +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+        | +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)(parse_location=45-55)
         +-anonymization_option_list=
-          +-kappa := Literal(type=INT64, value=0)
+          +-kappa=
+            +-parse_location=34-43
+            +-Literal(parse_location=42-43, type=INT64, value=0)
+[REPLACED_LITERALS]
+select with anonymization options(kappa = @_p0_INT64) anon_count(*)
+from SimpleTypesWithAnonymizationUid a
 
-Rewrite ERROR: Anonymization option kappa must be an INT64 literal between 1 and 2147483647
+Rewrite ERROR: Anonymization option kappa must be an INT64 literal between 1 and 2147483647 [at 1:35]
+select with anonymization options(kappa = 0) anon_count(*)
+                                  ^
 ==
 
 # The privacy libraries only support kappa as an 'int', not as INT64, so
 # kappa > max(int32) is not valid.
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization options(kappa = 2147483648) anon_count(*)
 from SimpleTypesWithAnonymizationUid a
 --
@@ -204,18 +222,26 @@ QueryStmt
 | +-$aggregate.$agg1#13 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-106
     +-column_list=[$aggregate.$agg1#13]
     +-input_scan=
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#13]
         +-input_scan=
-        | +-TableScan(table=SimpleTypesWithAnonymizationUid, alias="a")
+        | +-TableScan(parse_location=73-104, table=SimpleTypesWithAnonymizationUid, alias="a")
         +-aggregate_list=
-        | +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+        | +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)(parse_location=54-64)
         +-anonymization_option_list=
-          +-kappa := Literal(type=INT64, value=2147483648)
+          +-kappa=
+            +-parse_location=34-52
+            +-Literal(parse_location=42-52, type=INT64, value=2147483648)
+[REPLACED_LITERALS]
+select with anonymization options(kappa = @_p0_INT64) anon_count(*)
+from SimpleTypesWithAnonymizationUid a
 
-Rewrite ERROR: Anonymization option kappa must be an INT64 literal between 1 and 2147483647
+Rewrite ERROR: Anonymization option kappa must be an INT64 literal between 1 and 2147483647 [at 1:35]
+select with anonymization options(kappa = 2147483648) anon_count(*)
+                                  ^
 ==
 
 # Invalid Kappa type
@@ -228,6 +254,7 @@ select with anonymization options(kappa = 2.0) anon_count(*)
 ==
 
 # Invalid Kappa, non-literal
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization options(kappa = 1+2) anon_count(*)
 from SimpleTypesWithAnonymizationUid a
 --
@@ -237,24 +264,32 @@ QueryStmt
 | +-$aggregate.$agg1#13 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-99
     +-column_list=[$aggregate.$agg1#13]
     +-input_scan=
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#13]
         +-input_scan=
-        | +-TableScan(table=SimpleTypesWithAnonymizationUid, alias="a")
+        | +-TableScan(parse_location=66-97, table=SimpleTypesWithAnonymizationUid, alias="a")
         +-aggregate_list=
-        | +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+        | +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)(parse_location=47-57)
         +-anonymization_option_list=
-          +-kappa :=
+          +-kappa=
+            +-parse_location=34-45
             +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
-              +-Literal(type=INT64, value=1)
-              +-Literal(type=INT64, value=2)
+              +-Literal(parse_location=42-43, type=INT64, value=1)
+              +-Literal(parse_location=44-45, type=INT64, value=2)
+[REPLACED_LITERALS]
+select with anonymization options(kappa = @_p0_INT64+@_p1_INT64) anon_count(*)
+from SimpleTypesWithAnonymizationUid a
 
-Rewrite ERROR: Anonymization option kappa must be an INT64 literal between 1 and 2147483647
+Rewrite ERROR: Anonymization option kappa must be an INT64 literal between 1 and 2147483647 [at 1:35]
+select with anonymization options(kappa = 1+2) anon_count(*)
+                                  ^
 ==
 
 # Invalid Kappa, parameter
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
 select with anonymization options(kappa = @test_param_int64) anon_count(*)
 from SimpleTypesWithAnonymizationUid a
 --
@@ -264,18 +299,26 @@ QueryStmt
 | +-$aggregate.$agg1#13 AS `$col1` [INT64]
 +-query=
   +-ProjectScan
+    +-parse_location=0-113
     +-column_list=[$aggregate.$agg1#13]
     +-input_scan=
       +-AnonymizedAggregateScan
         +-column_list=[$aggregate.$agg1#13]
         +-input_scan=
-        | +-TableScan(table=SimpleTypesWithAnonymizationUid, alias="a")
+        | +-TableScan(parse_location=80-111, table=SimpleTypesWithAnonymizationUid, alias="a")
         +-aggregate_list=
-        | +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+        | +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)(parse_location=61-71)
         +-anonymization_option_list=
-          +-kappa := Parameter(type=INT64, name="test_param_int64")
+          +-kappa=
+            +-parse_location=34-59
+            +-Parameter(type=INT64, name="test_param_int64")
+[REPLACED_LITERALS]
+select with anonymization options(kappa = @test_param_int64) anon_count(*)
+from SimpleTypesWithAnonymizationUid a
 
-Rewrite ERROR: Anonymization option kappa must be an INT64 literal between 1 and 2147483647
+Rewrite ERROR: Anonymization option kappa must be an INT64 literal between 1 and 2147483647 [at 1:35]
+select with anonymization options(kappa = @test_param_int64) anon_count(*)
+                                  ^
 ==
 
 # Invalid Kappa, specified twice

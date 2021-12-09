@@ -266,9 +266,9 @@ absl::Status Resolver::ResolveInsertValuesRow(
           "has type $1",
           arg_t, target_t, column.name());
     };
-    ZETASQL_RETURN_IF_ERROR(ResolveDMLValue(value, insert_columns[i].type(), scope,
-                                    /*clause_name=*/"INSERT VALUES",
-                                    make_error_msg, &resolved_dml_value));
+    ZETASQL_RETURN_IF_ERROR(ResolveDMLValue(
+        value, insert_columns[i].annotated_type(), scope,
+        /*clause_name=*/"INSERT VALUES", make_error_msg, &resolved_dml_value));
     dml_values.push_back(std::move(resolved_dml_value));
   }
 
@@ -300,8 +300,8 @@ absl::Status Resolver::ResolveInsertValuesRow(
           arg_t, target_t, column.name());
     };
     ZETASQL_RETURN_IF_ERROR(ResolveDMLValue(ast_location, value_columns[i],
-                                    insert_columns[i].type(), make_error_msg,
-                                    &resolved_dml_value));
+                                    insert_columns[i].annotated_type(),
+                                    make_error_msg, &resolved_dml_value));
     dml_values.push_back(std::move(resolved_dml_value));
   }
   ZETASQL_RET_CHECK_EQ(dml_values.size(), insert_columns.size());
@@ -588,20 +588,20 @@ absl::Status Resolver::ResolveInsertStatementImpl(
 }
 
 absl::Status Resolver::ResolveDMLValue(
-    const ASTExpression* ast_value, const Type* target_type,
+    const ASTExpression* ast_value, AnnotatedType annotated_target_type,
     const NameScope* scope, const char* clause_name,
     CoercionErrorMessageFunction coercion_err_msg,
     std::unique_ptr<const ResolvedDMLValue>* output) {
   ZETASQL_RET_CHECK(ast_value != nullptr);
   std::unique_ptr<const ResolvedExpr> resolved_value;
   if (ast_value->node_kind() == AST_DEFAULT_LITERAL) {
-    resolved_value = MakeResolvedDMLDefault(target_type);
+    resolved_value = MakeResolvedDMLDefault(annotated_target_type.type);
   } else {
     ZETASQL_RETURN_IF_ERROR(
         ResolveScalarExpr(ast_value, scope, clause_name, &resolved_value));
-    ZETASQL_RETURN_IF_ERROR(CoerceExprToType(ast_value, target_type,
-                                     kImplicitAssignment, coercion_err_msg,
-                                     &resolved_value));
+    ZETASQL_RETURN_IF_ERROR(CoerceExprToType(
+        ast_value, annotated_target_type, kImplicitAssignment,
+        coercion_err_msg, &resolved_value));
   }
 
   *output = MakeResolvedDMLValue(std::move(resolved_value));
@@ -610,11 +610,12 @@ absl::Status Resolver::ResolveDMLValue(
 
 absl::Status Resolver::ResolveDMLValue(
     const ASTNode* ast_location, const ResolvedColumn& referenced_column,
-    const Type* target_type, CoercionErrorMessageFunction coercion_err_msg,
+    AnnotatedType annotated_target_type,
+    CoercionErrorMessageFunction coercion_err_msg,
     std::unique_ptr<const ResolvedDMLValue>* output) {
   std::unique_ptr<const ResolvedExpr> resolved_value =
       MakeColumnRef(referenced_column);
-  ZETASQL_RETURN_IF_ERROR(CoerceExprToType(ast_location, target_type,
+  ZETASQL_RETURN_IF_ERROR(CoerceExprToType(ast_location, annotated_target_type,
                                    kImplicitAssignment, coercion_err_msg,
                                    &resolved_value));
   *output = MakeResolvedDMLValue(std::move(resolved_value));
@@ -1307,17 +1308,17 @@ absl::Status Resolver::MergeWithUpdateItem(
     std::unique_ptr<const ResolvedDMLValue> set_value;
     const ASTExpression* ast_value =
         ast_input_update_item->set_value()->value();
-    const Type* target_type =
-        deepest_new_resolved_update_item->target()->type();
+    AnnotatedType annotated_target_type =
+        deepest_new_resolved_update_item->target()->annotated_type();
     auto make_error_msg = [target_path](absl::string_view target_t,
                                         absl::string_view arg_t) {
       return absl::Substitute(
           "Value of type $0 cannot be assigned to $2, which has type $1", arg_t,
           target_t, GeneralizedPathAsString(target_path));
     };
-    ZETASQL_RETURN_IF_ERROR(ResolveDMLValue(ast_value, target_type, update_scope,
-                                    /*clause_name=*/"UPDATE clause",
-                                    make_error_msg, &set_value));
+    ZETASQL_RETURN_IF_ERROR(ResolveDMLValue(
+        ast_value, annotated_target_type, update_scope,
+        /*clause_name=*/"UPDATE clause", make_error_msg, &set_value));
     deepest_new_resolved_update_item->set_set_value(std::move(set_value));
   }
 
@@ -1925,6 +1926,7 @@ absl::Status Resolver::ResolveReturningClause(
   ZETASQL_RET_CHECK_NE(select_list, nullptr);
 
   auto query_resolution_info = absl::make_unique<QueryResolutionInfo>(this);
+  query_resolution_info->set_is_resolving_returning_clause();
 
   ZETASQL_RETURN_IF_ERROR(ResolveSelectListExprsFirstPass(select_list, from_scan_scope,
                                                   /*has_from_clause=*/true,

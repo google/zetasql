@@ -241,7 +241,7 @@ cc_library(
         "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/base:stl_util",
-        "//zetasql/base:string_numbers",
+        "//zetasql/base:strings",
         "//zetasql/base:varsetter",
         "//zetasql/common:errors",
         "//zetasql/public:catalog",
@@ -292,6 +292,7 @@ cc_library(
         "//zetasql/base:ret_check",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
+        "//zetasql/base:strings",
         "//zetasql/public:analyzer",
         "//zetasql/public:builtin_function_cc_proto",
         "//zetasql/public:catalog",
@@ -593,8 +594,10 @@ cc_library(
     deps = [
         ":resolved_ast",
         "//zetasql/base",
+        "//zetasql/base:status",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:builtin_function_cc_proto",
+        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status:statusor",
     ],
 )
@@ -614,7 +617,9 @@ cc_test(
     ],
     deps = [
         ":rewrite_utils",
+        "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:simple_catalog",
         "//zetasql/public/types",
     ],
 )
@@ -638,6 +643,7 @@ cc_test(
         ":validator",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:simple_catalog",
         "//zetasql/public/types",
     ],
 )

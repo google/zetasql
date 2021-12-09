@@ -66,6 +66,11 @@ GetCollatorFromResolvedCollation(const ResolvedCollation& resolved_collation);
 absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>>
 GetCollatorFromResolvedCollationValue(const Value& collation_value);
 
+// TODO: Remove other local alias for
+// std::vector<std::unique_ptr<const ZetaSqlCollator>> in
+// tuple_comparators.h/.cc files.
+using CollatorList = std::vector<std::unique_ptr<const ZetaSqlCollator>>;
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_REFERENCE_IMPL_COMMON_H_

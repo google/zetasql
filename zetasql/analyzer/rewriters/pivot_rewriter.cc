@@ -28,6 +28,7 @@
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/analyzer_output_properties.h"
+#include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
@@ -65,18 +66,28 @@ class PivotRewriterVisitor : public ResolvedASTDeepCopyVisitor {
  public:
   explicit PivotRewriterVisitor(Catalog* catalog, TypeFactory* type_factory,
                                 ColumnFactory* column_factory,
-                                const AnalyzerOptions* analyzer_options,
-                                absl::Span<const Rewriter* const> rewriters)
+                                const AnalyzerOptions* analyzer_options)
       : analyzer_options_(*analyzer_options),
         catalog_(catalog),
         type_factory_(type_factory),
-        column_factory_(column_factory),
-        rewriters_(rewriters) {}
+        column_factory_(column_factory) {}
 
   PivotRewriterVisitor(const PivotRewriterVisitor&) = delete;
   PivotRewriterVisitor& operator=(const PivotRewriterVisitor&) = delete;
 
  private:
+  // Generates SQL to check if pivot column is not distinct from the pivot value
+  // working around engines that don't natively support the syntax.
+  //
+  // TODO: Remove this and always use IS NOT DISTINCT FROM.
+  std::string PivotColumnNotDistinctSql() {
+    if (analyzer_options_.language().LanguageFeatureEnabled(
+            FEATURE_V_1_3_IS_DISTINCT)) {
+      return "pivot_column IS NOT DISTINCT FROM pivot_value";
+    }
+    return "EXISTS(SELECT pivot_column INTERSECT ALL SELECT pivot_value)";
+  }
+
   absl::Status VisitResolvedPivotScan(const ResolvedPivotScan* node) override;
 
   // Returns an aggregate function call representing a single pivot expression
@@ -181,7 +192,6 @@ class PivotRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   Catalog* const catalog_;
   TypeFactory* type_factory_;
   ColumnFactory* const column_factory_;
-  absl::Span<const Rewriter* const> rewriters_;
 };
 
 absl::StatusOr<std::unique_ptr<ResolvedScan>>
@@ -192,6 +202,13 @@ PivotRewriterVisitor::AddExprColumnsToPivotInput(
                    ProcessNode(pivot_scan->input_scan()));
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> for_expr_copy,
                    ProcessNode(pivot_scan->for_expr()));
+  if (CollationAnnotation::ExistsIn(
+          pivot_scan->for_expr()->type_annotation_map())) {
+    // TODO: support collation on FOR expression.
+    return MakeUnimplementedErrorAtPoint(
+               pivot_scan->for_expr()->GetParseLocationOrNULL()->start())
+           << "Collation is not supported in a PIVOT clause yet";
+  }
 
   std::vector<ResolvedColumn> column_list(
       pivot_scan->input_scan()->column_list().begin(),
@@ -205,6 +222,12 @@ PivotRewriterVisitor::AddExprColumnsToPivotInput(
   for (const auto& pivot_expr : pivot_scan->pivot_expr_list()) {
     const ResolvedAggregateFunctionCall* call =
         pivot_expr->GetAs<ResolvedAggregateFunctionCall>();
+    if (call->collation_list_size() > 0) {
+      // TODO: support collation on aggregation functions
+      return MakeUnimplementedErrorAtPoint(
+                 call->GetParseLocationOrNULL()->start())
+             << "Collation is not supported in a PIVOT clause yet";
+    }
     ZETASQL_RETURN_IF_ERROR(VerifyAggregateFunctionIsSupported(call));
     pivot_expr_arg_columns.emplace_back();
 
@@ -356,7 +379,7 @@ PivotRewriterVisitor::AddPostAggregationLogicForAnyValue(
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<const ResolvedExpr> offset_zero_expr,
         AnalyzeSubstitute(
-            analyzer_options_, rewriters_, *catalog_, *type_factory_,
+            analyzer_options_, *catalog_, *type_factory_,
             "agg_result[OFFSET(0)]",
             {{"agg_result",
               MakeResolvedColumnRef(aggregate_column.type(), aggregate_column,
@@ -484,9 +507,8 @@ PivotRewriterVisitor::RewriteAnyValuePivotExpr(
 
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<const ResolvedExpr> array_agg_arg,
-        AnalyzeSubstitute(analyzer_options_, rewriters_, *catalog_,
-                          *type_factory_, "IF(arg IS NULL, NULL, STRUCT(arg))",
-                          {{"arg", arg}}),
+        AnalyzeSubstitute(analyzer_options_, *catalog_, *type_factory_,
+                          "IF(arg IS NULL, NULL, STRUCT(arg))", {{"arg", arg}}),
         _.With(ExpectAnalyzeSubstituteSuccess));
     array_agg_args.push_back(std::move(array_agg_arg));
   } else {
@@ -519,9 +541,8 @@ PivotRewriterVisitor::RewriteCountStarPivotExpr(
       pivot_column.type(), pivot_column, /*is_correlated=*/false);
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<ResolvedExpr> countif_arg,
-      AnalyzeSubstitute(analyzer_options_, rewriters_, *catalog_,
-                        *type_factory_,
-                        "pivot_column IS NOT DISTINCT FROM pivot_value",
+      AnalyzeSubstitute(analyzer_options_, *catalog_, *type_factory_,
+                        PivotColumnNotDistinctSql(),
                         {{"pivot_column", pivot_column_ref.get()},
                          {"pivot_value", pivot_value_expr.get()}}),
       _.With(ExpectAnalyzeSubstituteSuccess));
@@ -601,12 +622,12 @@ PivotRewriterVisitor::MakeAggregateExpr(
     }
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<ResolvedExpr> agg_fn_arg,
-        AnalyzeSubstitute(
-            analyzer_options_, rewriters_, *catalog_, *type_factory_,
-            "IF(pivot_column IS NOT DISTINCT FROM pivot_value, orig_arg, NULL)",
-            {{"pivot_column", pivot_column_ref.get()},
-             {"pivot_value", pivot_value_expr_copy.get()},
-             {"orig_arg", orig_arg.get()}}),
+        AnalyzeSubstitute(analyzer_options_, *catalog_, *type_factory_,
+                          absl::StrCat("IF(", PivotColumnNotDistinctSql(),
+                                       ", orig_arg, NULL)"),
+                          {{"pivot_column", pivot_column_ref.get()},
+                           {"pivot_value", pivot_value_expr_copy.get()},
+                           {"orig_arg", orig_arg.get()}}),
         _.With(ExpectAnalyzeSubstituteSuccess));
 
     agg_fn_args.push_back(std::move(agg_fn_arg));
@@ -644,36 +665,19 @@ class PivotRewriter : public Rewriter {
 
   bool ShouldRewrite(const AnalyzerOptions& analyzer_options,
                      const AnalyzerOutput& analyzer_output) const override {
-    return analyzer_output.analyzer_output_properties().has_pivot &&
-           analyzer_options.rewrite_enabled(REWRITE_PIVOT);
+    return analyzer_output.analyzer_output_properties().has_pivot;
   }
 
   absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
-      const AnalyzerOptions& options,
-      absl::Span<const Rewriter* const> rewriters, const ResolvedNode& input,
+      const AnalyzerOptions& options, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,
       AnalyzerOutputProperties& output_properties) const override {
     ZETASQL_RET_CHECK(options.column_id_sequence_number() != nullptr);
     ColumnFactory column_factory(0, options.id_string_pool().get(),
                                  options.column_id_sequence_number());
 
-    // Force-enable IS NOT DISTINCT FROM, since we make use of it in subqueries
-    // we pass to AnalyzeSubstitute(). It is assumed that any engine making use
-    // of the PIVOT rewriter has a valid $is_not_distinct_from implementation,
-    // even if the engine does not support the IS NOT DISTINCT FROM syntax at
-    // the end-user level.
-    std::unique_ptr<AnalyzerOptions> analyzer_options_with_distinct;
-    const AnalyzerOptions* analyzer_options_to_use = &options;
-    if (!options.language().LanguageFeatureEnabled(FEATURE_V_1_3_IS_DISTINCT)) {
-      analyzer_options_with_distinct =
-          absl::make_unique<AnalyzerOptions>(options);
-      analyzer_options_with_distinct->mutable_language()->EnableLanguageFeature(
-          FEATURE_V_1_3_IS_DISTINCT);
-      analyzer_options_to_use = analyzer_options_with_distinct.get();
-    }
-
     PivotRewriterVisitor visitor(&catalog, &type_factory, &column_factory,
-                                 analyzer_options_to_use, rewriters);
+                                 &options);
     ZETASQL_RETURN_IF_ERROR(input.Accept(&visitor));
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedNode> result,
                      visitor.ConsumeRootNode<ResolvedStatement>());

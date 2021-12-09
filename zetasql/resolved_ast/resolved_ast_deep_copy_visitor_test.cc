@@ -36,12 +36,15 @@
 #include "gtest/gtest.h"
 #include <cstdint>
 #include "absl/memory/memory.h"
-#include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
+using ::testing::AllOf;
+using ::testing::HasSubstr;
+using ::testing::Not;
+using ::testing::UnorderedElementsAre;
 using ::zetasql_base::testing::StatusIs;
 
 // This is a visitor that copies resolved ASTs and modifies the join type
@@ -486,6 +489,106 @@ TEST_F(ResolvedASTDeepCopyVisitorTest, TestCastFilterScan) {
   auto desired_ast = TestDeepCopyAST(input_sql_modified);
 
   ASSERT_EQ(ast->DebugString(), desired_ast->DebugString());
+}
+
+class ColumnRecordingResolvedASTDeepCopyVisitor
+    : public ResolvedASTDeepCopyVisitor {
+ public:
+  absl::StatusOr<ResolvedColumn> CopyResolvedColumn(
+      const ResolvedColumn& column) override {
+    columns_touched_.insert(column.DebugString());
+    return column;
+  }
+
+  std::set<std::string> columns_touched_;
+};
+
+TEST_F(ResolvedASTDeepCopyVisitorTest, TestVisitResolvedColumnSimple) {
+  constexpr absl::string_view input_sql =
+      "SELECT * FROM (SELECT 1 AS a, 4 AS b, 'abc' AS c) ";
+  std::unique_ptr<const AnalyzerOutput> analyzed;
+  ZETASQL_ASSERT_OK(AnalyzeStatement(input_sql, options_, &catalog_, &type_factory_,
+                             &analyzed));
+
+  // Sanity check to make sure the test input doesn't regress.
+  EXPECT_THAT(analyzed->resolved_statement()->DebugString(),
+              AllOf(HasSubstr("a#1"), HasSubstr("b#2"), HasSubstr("c#3"),
+                    Not(HasSubstr("#4"))));
+
+  ColumnRecordingResolvedASTDeepCopyVisitor visitor;
+  ZETASQL_EXPECT_OK(analyzed->resolved_statement()->Accept(&visitor));
+  EXPECT_THAT(visitor.columns_touched_,
+              UnorderedElementsAre("$subquery1.a#1", "$subquery1.b#2",
+                                   "$subquery1.c#3"));
+}
+
+TEST_F(ResolvedASTDeepCopyVisitorTest, TestVisitResolvedColumnCorrelated) {
+  constexpr absl::string_view input_sql =
+      "SELECT (SELECT AS STRUCT a + b, c) as st "
+      "FROM (SELECT 1 AS a, 4 AS b, 'abc' AS c) ";
+  std::unique_ptr<const AnalyzerOutput> analyzed;
+  ZETASQL_ASSERT_OK(AnalyzeStatement(input_sql, options_, &catalog_, &type_factory_,
+                             &analyzed));
+
+  // Sanity check to make sure the test input doesn't regress.
+  EXPECT_THAT(
+      analyzed->resolved_statement()->DebugString(),
+      AllOf(HasSubstr("a#1"), HasSubstr("b#2"), HasSubstr("c#3"),
+            HasSubstr("$col1#4"), HasSubstr("c#5"), HasSubstr("$struct#6"),
+            HasSubstr("st#7"), Not(HasSubstr("#8"))));
+
+  ColumnRecordingResolvedASTDeepCopyVisitor visitor;
+  ZETASQL_EXPECT_OK(analyzed->resolved_statement()->Accept(&visitor));
+  EXPECT_THAT(
+      visitor.columns_touched_,
+      UnorderedElementsAre("$subquery1.a#1", "$subquery1.b#2", "$subquery1.c#3",
+                           "$expr_subquery.$col1#4", "$expr_subquery.c#5",
+                           "$make_struct.$struct#6", "$query.st#7"));
+}
+
+TEST_F(ResolvedASTDeepCopyVisitorTest, TestVisitResolvedColumnAggregate) {
+  constexpr absl::string_view input_sql =
+      "SELECT DISTINCT SUM(a + b) "
+      "FROM (SELECT 1 AS a, 4 AS b, 'abc' AS c) "
+      "GROUP BY c";
+  std::unique_ptr<const AnalyzerOutput> analyzed;
+  ZETASQL_ASSERT_OK(AnalyzeStatement(input_sql, options_, &catalog_, &type_factory_,
+                             &analyzed));
+
+  // Sanity check to make sure the test input doesn't regress.
+  EXPECT_THAT(analyzed->resolved_statement()->DebugString(),
+              AllOf(HasSubstr("a#1"), HasSubstr("b#2"), HasSubstr("c#3"),
+                    HasSubstr("$agg1#4"), HasSubstr("c#5"),
+                    HasSubstr("$agg1#6"), Not(HasSubstr("#7"))));
+
+  ColumnRecordingResolvedASTDeepCopyVisitor visitor;
+  ZETASQL_EXPECT_OK(analyzed->resolved_statement()->Accept(&visitor));
+  EXPECT_THAT(visitor.columns_touched_,
+              UnorderedElementsAre("$subquery1.a#1", "$subquery1.b#2",
+                                   "$subquery1.c#3", "$aggregate.$agg1#4",
+                                   "$groupby.c#5", "$distinct.$agg1#6"));
+}
+
+TEST_F(ResolvedASTDeepCopyVisitorTest, TestVisitResolvedColumnReplace) {
+  constexpr absl::string_view input_sql =
+      "SELECT * REPLACE (b AS a) "
+      "FROM (SELECT 1 AS a, 4 AS b, 'abc' AS c) ";
+  AnalyzerOptions options = options_;
+  options.mutable_language()->EnableMaximumLanguageFeatures();
+  std::unique_ptr<const AnalyzerOutput> analyzed;
+  ZETASQL_ASSERT_OK(AnalyzeStatement(input_sql, options, &catalog_, &type_factory_,
+                             &analyzed));
+
+  // Sanity check to make sure the test input doesn't regress.
+  EXPECT_THAT(analyzed->resolved_statement()->DebugString(),
+              AllOf(HasSubstr("a#1"), HasSubstr("b#2"), HasSubstr("c#3"),
+                    Not(HasSubstr("#4"))));
+
+  ColumnRecordingResolvedASTDeepCopyVisitor visitor;
+  ZETASQL_EXPECT_OK(analyzed->resolved_statement()->Accept(&visitor));
+  EXPECT_THAT(visitor.columns_touched_,
+              UnorderedElementsAre("$subquery1.a#1", "$subquery1.b#2",
+                                   "$subquery1.c#3"));
 }
 
 }  // namespace zetasql

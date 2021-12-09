@@ -72,7 +72,7 @@ std::vector<FunctionTestCall> GetFunctionTestsFormatJson() {
       R"("string_val_6":"foo\\bar"})";
   const Value escape_chars_json_value =
       Json(JSONValue::ParseJSONString(kEscapeCharsJsonValueString).value());
-  const std::string escape_chars_json_str = kEscapeCharsJsonValueString;
+  const std::string& escape_chars_json_str = kEscapeCharsJsonValueString;
   const std::string escape_chars_json_str_multiline =
       R"({
   "int64_val'_1": 1,

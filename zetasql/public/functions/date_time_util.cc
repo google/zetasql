@@ -26,14 +26,15 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/utf_util.h"
 #include "zetasql/public/functions/arithmetics.h"
 #include "zetasql/public/functions/date_time_util_internal.h"
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/types/timestamp_util.h"
+#include "zetasql/base/case.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
-#include "zetasql/common/utf_util.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
@@ -169,10 +170,8 @@ static bool ParsePrefixToDateParts(absl::string_view str, int* idx, int* year,
                                    int* month, int* day) {
   // Minimum required length of a valid date is 8.
   if (!CheckRemainingLength(str, *idx, 8 /* remaining_length */) ||
-      !ParseDigits(str, 4, 4, idx, year) ||
-      !ParseCharacter(str, '-', idx) ||
-      !ParseDigits(str, 1, 2, idx, month) ||
-      !ParseCharacter(str, '-', idx) ||
+      !ParseDigits(str, 4, 4, idx, year) || !ParseCharacter(str, '-', idx) ||
+      !ParseDigits(str, 1, 2, idx, month) || !ParseCharacter(str, '-', idx) ||
       !ParseDigits(str, 1, 2, idx, day)) {
     return false;
   }
@@ -200,11 +199,9 @@ static bool ParsePrefixToTimeParts(absl::string_view str, TimestampScale scale,
   if (!CheckRemainingLength(str, *idx, 5 /* remaining_length */) ||
       !ParseDigits(str, 1, 2, idx, hour) ||
       !CheckRemainingLength(str, *idx, 4 /* remaining_length */) ||
-      !ParseCharacter(str, ':', idx) ||
-      !ParseDigits(str, 1, 2, idx, minute) ||
+      !ParseCharacter(str, ':', idx) || !ParseDigits(str, 1, 2, idx, minute) ||
       !CheckRemainingLength(str, *idx, 2 /* remaining_length */) ||
-      !ParseCharacter(str, ':', idx) ||
-      !ParseDigits(str, 1, 2, idx, second)) {
+      !ParseCharacter(str, ':', idx) || !ParseDigits(str, 1, 2, idx, second)) {
     return false;
   }
   if (*idx >= static_cast<int64_t>(str.length()))
@@ -284,8 +281,8 @@ static bool IsValidTimeZoneParts(const char timezone_sign, int timezone_hour,
   if (timezone_sign != '+' && timezone_sign != '-') {
     return false;
   }
-  if (timezone_hour > 14 || timezone_hour < 0 ||
-      timezone_minute > 59 || timezone_minute < 0) {
+  if (timezone_hour > 14 || timezone_hour < 0 || timezone_minute > 59 ||
+      timezone_minute < 0) {
     return false;
   }
   // Since the negative and positive ranges are the same, we don't need
@@ -298,9 +295,8 @@ static bool IsValidTimeOfDay(int hour, int minute, int second) {
   // Note that Google time scales do not include leap seconds, so <second>
   // ranges only from 0-59.  However, to support potential callers that
   // expect leap second support, we allow second == 60.
-  if (hour < 0 || hour > 23 ||
-      minute < 0 || minute > 59 ||
-      second < 0 || second > 60) {
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 ||
+      second > 60) {
     return false;
   }
   return true;
@@ -318,7 +314,8 @@ static std::string TimestampErrorString(int64_t timestamp, TimestampScale scale,
                                         absl::TimeZone timezone) {
   std::string out;
   if (!ConvertTimestampToStringWithoutTruncation(timestamp, scale, timezone,
-                                                 &out).ok()) {
+                                                 &out)
+           .ok()) {
     out = absl::StrCat("timestamp(", timestamp, ")");
   }
   return out;
@@ -488,10 +485,8 @@ static absl::Status ParseStringToTimestampParts(
 
   // Minimum required length is 8 for a valid timestamp.
   if (!CheckRemainingLength(str, idx, 8 /* remaining_length */) ||
-      !ParseDigits(str, 4, 5, &idx, year) ||
-      !ParseCharacter(str, '-', &idx) ||
-      !ParseDigits(str, 1, 2, &idx, month) ||
-      !ParseCharacter(str, '-', &idx) ||
+      !ParseDigits(str, 4, 5, &idx, year) || !ParseCharacter(str, '-', &idx) ||
+      !ParseDigits(str, 1, 2, &idx, month) || !ParseCharacter(str, '-', &idx) ||
       !ParseDigits(str, 1, 2, &idx, day)) {
     return MakeEvalError() << "Invalid timestamp: '" << str << "'";
   }
@@ -608,13 +603,12 @@ static absl::Status ConvertTimestampInterval(int64_t interval,
     return absl::OkStatus();
   }
 
-#define FCT(scale1, scale2)\
-  (scale1 * 10 + scale2)
+#define FCT(scale1, scale2) (scale1 * 10 + scale2)
 
   switch (FCT(interval_scale, output_scale)) {
-    case FCT(kSeconds,      kMilliseconds):
-    case FCT(kSeconds,      kMicroseconds):
-    case FCT(kSeconds,      kNanoseconds):
+    case FCT(kSeconds, kMilliseconds):
+    case FCT(kSeconds, kMicroseconds):
+    case FCT(kSeconds, kNanoseconds):
     case FCT(kMilliseconds, kMicroseconds):
     case FCT(kMilliseconds, kNanoseconds):
     case FCT(kMicroseconds, kNanoseconds):
@@ -624,9 +618,9 @@ static absl::Status ConvertTimestampInterval(int64_t interval,
         return absl::OkStatus();
       }
       break;
-    case FCT(kNanoseconds,  kMicroseconds):
-    case FCT(kNanoseconds,  kMilliseconds):
-    case FCT(kNanoseconds,  kSeconds):
+    case FCT(kNanoseconds, kMicroseconds):
+    case FCT(kNanoseconds, kMilliseconds):
+    case FCT(kNanoseconds, kSeconds):
     case FCT(kMicroseconds, kMilliseconds):
     case FCT(kMicroseconds, kSeconds):
     case FCT(kMilliseconds, kSeconds):
@@ -674,9 +668,9 @@ static absl::Status CheckValidAddTimestampPart(DateTimestampPart part,
     case MONTH:
     case WEEK:
       if (!is_legacy) {
-        return MakeEvalError() << "Unsupported DateTimestampPart "
-                               << DateTimestampPart_Name(part)
-                               << " for TIMESTAMP_ADD";
+        return MakeEvalError()
+               << "Unsupported DateTimestampPart "
+               << DateTimestampPart_Name(part) << " for TIMESTAMP_ADD";
       }
       ABSL_FALLTHROUGH_INTENDED;
     case DAY:
@@ -692,9 +686,9 @@ static absl::Status CheckValidAddTimestampPart(DateTimestampPart part,
     case DAYOFYEAR:
     case ISOYEAR:
     case ISOWEEK:
-      return MakeEvalError() << "Unsupported DateTimestampPart "
-                             << DateTimestampPart_Name(part)
-                             << " for TIMESTAMP_ADD";
+      return MakeEvalError()
+             << "Unsupported DateTimestampPart " << DateTimestampPart_Name(part)
+             << " for TIMESTAMP_ADD";
     default:
       break;
   }
@@ -926,9 +920,9 @@ static absl::Status AddTimestampInternal(absl::Time timestamp,
     int64_t new_interval;
     if (!Multiply<int64_t>(interval, 24, &new_interval, kNoError)) {
       *had_overflow = true;
-      return MakeEvalError() << "TIMESTAMP_ADD interval value  " << interval
-                             << " at " << DateTimestampPart_Name(part)
-                             << " precision causes overflow";
+      return MakeEvalError()
+             << "TIMESTAMP_ADD interval value  " << interval << " at "
+             << DateTimestampPart_Name(part) << " precision causes overflow";
     }
     interval = new_interval;
   }
@@ -963,9 +957,9 @@ static absl::Status AddTimestampInternal(int64_t timestamp,
     part = HOUR;
     int64_t new_interval;
     if (!Multiply<int64_t>(interval, 24, &new_interval, kNoError)) {
-      return MakeEvalError() << "TIMESTAMP_ADD interval value  " << interval
-                             << " at " << DateTimestampPart_Name(part)
-                             << " precision causes overflow";
+      return MakeEvalError()
+             << "TIMESTAMP_ADD interval value  " << interval << " at "
+             << DateTimestampPart_Name(part) << " precision causes overflow";
     }
     interval = new_interval;
   }
@@ -1024,8 +1018,8 @@ static absl::Status AddTimestampInternal(int64_t timestamp,
   }
   if (!Add<int64_t>(timestamp, new_interval, output, kNoError) ||
       !IsValidTimestamp(*output, scale)) {
-    return MakeAddTimestampOverflowError(
-        timestamp, part, interval, scale, timezone);
+    return MakeAddTimestampOverflowError(timestamp, part, interval, scale,
+                                         timezone);
   }
   return absl::OkStatus();
 }
@@ -1041,16 +1035,16 @@ static absl::Status AddTimestampNanos(int64_t nanos, absl::TimeZone timezone,
                                       int64_t* output) {
   if (part == NANOSECOND) {
     if (!Add<int64_t>(nanos, interval, output, kNoError)) {
-      return MakeEvalError() << "Adding " << interval
-                             << " NANOs to TIMESTAMP_NANOS value " << nanos
-                             << " causes overflow";
+      return MakeEvalError()
+             << "Adding " << interval << " NANOs to TIMESTAMP_NANOS value "
+             << nanos << " causes overflow";
     }
   } else {
     int64_t micros = nanos / powers_of_ten[3];
     int32_t nano_remains = nanos % powers_of_ten[3];
     int64_t micros_out;
-    ZETASQL_RETURN_IF_ERROR(AddTimestampInternal(micros, kMicroseconds, timezone,
-                                         part, interval, &micros_out));
+    ZETASQL_RETURN_IF_ERROR(AddTimestampInternal(micros, kMicroseconds, timezone, part,
+                                         interval, &micros_out));
     *output = micros_out * 1000l + nano_remains;
     // Given that the micros value is valid, the resulting nanoseconds
     // value must also be valid.  Check this invariant.
@@ -1255,8 +1249,8 @@ static absl::Status ExtractFromTimestampInternal(DateTimestampPart part,
       *output = static_cast<int32_t>(absl::ToInt64Nanoseconds(info.subsecond));
       break;
     default:
-      return MakeEvalError() << "Unexpected DateTimestampPart "
-                             << DateTimestampPart_Name(part);
+      return MakeEvalError()
+             << "Unexpected DateTimestampPart " << DateTimestampPart_Name(part);
   }
   return absl::OkStatus();
 }
@@ -1349,7 +1343,7 @@ static absl::Status TruncateDateImpl(int32_t date, DateTimestampPart part,
       break;
     }
     case DAY:
-      *output = date;    // nothing to truncate.
+      *output = date;  // nothing to truncate.
       break;
     default:
       return MakeEvalError() << "Unsupported DateTimestampPart "
@@ -1381,8 +1375,8 @@ absl::Status LastDayOfDate(int32_t date, DateTimestampPart part,
   // last_day result, so those cases are handled first.
   if (civil_day.year() == 9999) {
     if (part == YEAR || (part == MONTH && civil_day.month() == 12) ||
-        (part == QUARTER && civil_day.month() >= 10 && civil_day.month() <= 12))
-      {
+        (part == QUARTER && civil_day.month() >= 10 &&
+         civil_day.month() <= 12)) {
       *output = CivilDayToEpochDays(absl::CivilDay(9999, 12, 31));
       return absl::OkStatus();
     }
@@ -1415,9 +1409,10 @@ absl::Status LastDayOfDate(int32_t date, DateTimestampPart part,
       ZETASQL_ASSIGN_OR_RETURN(const absl::Weekday first_day_of_week,
                        GetFirstWeekDayOfWeek(part));
       *output = CivilDayToEpochDays(
-          PrevWeekdayOrToday(civil_day, first_day_of_week)) + 6;
+                    PrevWeekdayOrToday(civil_day, first_day_of_week)) +
+                6;
       break;
-      }
+    }
     default:
       return MakeEvalError() << "Unsupported DateTimestampPart "
                              << DateTimestampPart_Name(part);
@@ -1498,9 +1493,9 @@ static absl::Status TimestampTruncAtLeastMinute(absl::Time timestamp,
       absl::CivilDay week_truncated_day =
           PrevWeekdayOrToday(absl::CivilDay(info.cs), weekday);
       if (week_truncated_day.year() < 1) {
-        return MakeEvalError() << "Truncating "
-                               << TimestampErrorString(timestamp, timezone)
-                               << " to the nearest week causes overflow";
+        return MakeEvalError()
+               << "Truncating " << TimestampErrorString(timestamp, timezone)
+               << " to the nearest week causes overflow";
       }
       ZETASQL_RET_CHECK(TimestampFromParts(
           week_truncated_day.year(), week_truncated_day.month(),
@@ -1572,8 +1567,8 @@ static absl::Status TimestampTruncAtLeastMinute(absl::Time timestamp,
       ZETASQL_RET_CHECK_FAIL() << "Should not reach here for part="
                        << DateTimestampPart_Name(part);
     default:
-      return MakeEvalError() << "Unexpected DateTimestampPart "
-                             << DateTimestampPart_Name(part);
+      return MakeEvalError()
+             << "Unexpected DateTimestampPart " << DateTimestampPart_Name(part);
   }
 }
 
@@ -1616,14 +1611,14 @@ static absl::Status TimestampTruncImpl(int64_t timestamp, TimestampScale scale,
         if (timestamp < 0 && timestamp % powers_of_ten[3] != 0) {
           *output -= 1;
         }
-        *output *=  powers_of_ten[3];
+        *output *= powers_of_ten[3];
         return absl::OkStatus();
       }
       if (part == MILLISECOND) {
         *output = timestamp;  // nothing to truncate;
         return absl::OkStatus();
       }
-      if (part == MICROSECOND ||  part == NANOSECOND) {
+      if (part == MICROSECOND || part == NANOSECOND) {
         return MakeEvalError() << "Cannot truncate a TIMESTAMP_MILLIS value to "
                                << DateTimestampPart_Name(part);
       }
@@ -1636,7 +1631,7 @@ static absl::Status TimestampTruncImpl(int64_t timestamp, TimestampScale scale,
         if (timestamp < 0 && timestamp % powers_of_ten[6] != 0) {
           *output -= 1;
         }
-        *output *=  powers_of_ten[6];
+        *output *= powers_of_ten[6];
         return absl::OkStatus();
       }
       if (part == MILLISECOND) {
@@ -1644,7 +1639,7 @@ static absl::Status TimestampTruncImpl(int64_t timestamp, TimestampScale scale,
         if (timestamp < 0 && timestamp % powers_of_ten[3] != 0) {
           *output -= 1;
         }
-        *output *=  powers_of_ten[3];
+        *output *= powers_of_ten[3];
         return absl::OkStatus();
       }
       if (part == MICROSECOND) {
@@ -1666,7 +1661,7 @@ static absl::Status TimestampTruncImpl(int64_t timestamp, TimestampScale scale,
         if (timestamp < 0 && timestamp % powers_of_ten[9] != 0) {
           *output -= 1;
         }
-        *output *=  powers_of_ten[9];
+        *output *= powers_of_ten[9];
         return absl::OkStatus();
       }
       if (part == MILLISECOND) {
@@ -1698,8 +1693,9 @@ static absl::Status TimestampTruncImpl(int64_t timestamp, TimestampScale scale,
   // In this case we know we have a valid timestamp input to the function, so
   // the truncated timestamp must be valid as well.
   ZETASQL_RET_CHECK(FromTime(output_base_time, scale, output))
-      << "base_time: " << base_time << "\noutput_base_time: "
-      << output_base_time << ", scale: " << scale << ", output: " << *output;
+      << "base_time: " << base_time
+      << "\noutput_base_time: " << output_base_time << ", scale: " << scale
+      << ", output: " << *output;
   return absl::OkStatus();
 }
 
@@ -1707,13 +1703,13 @@ bool IsValidTimestamp(int64_t timestamp, TimestampScale scale) {
   switch (scale) {
     case kSeconds:
       return timestamp >= zetasql::types::kTimestampMin / 1000000 &&
-          timestamp <= zetasql::types::kTimestampMax / 1000000;
+             timestamp <= zetasql::types::kTimestampMax / 1000000;
     case kMilliseconds:
       return timestamp >= zetasql::types::kTimestampMin / 1000 &&
-          timestamp <= zetasql::types::kTimestampMax / 1000;
+             timestamp <= zetasql::types::kTimestampMax / 1000;
     case kMicroseconds:
       return timestamp >= zetasql::types::kTimestampMin &&
-          timestamp <= zetasql::types::kTimestampMax;
+             timestamp <= zetasql::types::kTimestampMax;
     case kNanoseconds:
       // There is no invalid range for int64_t timestamps with nanoseconds scale
       return true;
@@ -1794,9 +1790,8 @@ absl::Status ConvertTimestampToStringWithoutTruncation(int64_t timestamp,
                                                        TimestampScale scale,
                                                        absl::TimeZone timezone,
                                                        std::string* out) {
-  return ConvertTimestampToStringInternal(timestamp, scale, timezone,
-                                          false /* truncate_trailing_zeros */,
-                                          out);
+  return ConvertTimestampToStringInternal(
+      timestamp, scale, timezone, false /* truncate_trailing_zeros */, out);
 }
 
 absl::Status ConvertTimestampToStringWithoutTruncation(
@@ -1908,9 +1903,8 @@ absl::Status ConvertTimestampToStringWithTruncation(int64_t timestamp,
                                                     TimestampScale scale,
                                                     absl::TimeZone timezone,
                                                     std::string* out) {
-  return ConvertTimestampToStringInternal(timestamp, scale, timezone,
-                                          true /* truncate_trailing_zeros */,
-                                          out);
+  return ConvertTimestampToStringInternal(
+      timestamp, scale, timezone, true /* truncate_trailing_zeros */, out);
 }
 
 absl::Status ConvertTimestampToStringWithTruncation(
@@ -1953,8 +1947,8 @@ absl::Status ConvertDatetimeToString(DatetimeValue datetime,
                                                     : datetime.Nanoseconds());
   NarrowTimestampIfPossible(&fraction_second, &scale);
   auto format =
-      absl::ParsedFormat<'d', 'd', 'd', 'd', 'd', 'd', 'd'>::
-          NewAllowIgnored(DefaultDatetimeFormatStr(scale));
+      absl::ParsedFormat<'d', 'd', 'd', 'd', 'd', 'd', 'd'>::NewAllowIgnored(
+          DefaultDatetimeFormatStr(scale));
   ZETASQL_RET_CHECK(format != nullptr);
   *out = absl::StrFormat(*format, datetime.Year(), datetime.Month(),
                          datetime.Day(), datetime.Hour(), datetime.Minute(),
@@ -2094,9 +2088,9 @@ absl::Status FormatDatetimeToStringWithOptions(
       absl::UTCTimeZone().At(datetime.ConvertToCivilSecond()).pre;
   datetime_in_utc += absl::Nanoseconds(datetime.Nanoseconds());
 
-  ZETASQL_RETURN_IF_ERROR(FormatTimestampToString(
-      datetime_format_string, datetime_in_utc, absl::UTCTimeZone(),
-      format_options, out));
+  ZETASQL_RETURN_IF_ERROR(FormatTimestampToString(datetime_format_string,
+                                          datetime_in_utc, absl::UTCTimeZone(),
+                                          format_options, out));
   return absl::OkStatus();
 }
 
@@ -2104,10 +2098,8 @@ absl::Status FormatDatetimeToString(absl::string_view format_string,
                                     const DatetimeValue& datetime,
                                     std::string* out) {
   // By default, expand %Q but not %J.
-  return FormatDatetimeToStringWithOptions(format_string, datetime,
-                                           {.expand_Q = true,
-                                            .expand_J = false},
-                                           out);
+  return FormatDatetimeToStringWithOptions(
+      format_string, datetime, {.expand_Q = true, .expand_J = false}, out);
 }
 
 absl::Status FormatTimeToString(absl::string_view format_string,
@@ -2139,7 +2131,8 @@ absl::Status FormatTimestampToString(
       format_str, timestamp, timezone,
       {.truncate_tz = false,
        .expand_quarter = format_options.expand_Q,
-       .expand_iso_dayofyear = format_options.expand_J}, out);
+       .expand_iso_dayofyear = format_options.expand_J},
+      out);
 }
 
 absl::Status FormatTimestampToString(
@@ -2172,12 +2165,12 @@ absl::Status FormatTimestampToString(
 absl::Status FormatTimestampToString(absl::string_view format_str,
                                      int64_t timestamp, absl::TimeZone timezone,
                                      std::string* out) {
-  return FormatTimestampToStringInternal(format_str,
-                                         MakeTime(timestamp, kMicroseconds),
-                                         timezone,
-                                         {.truncate_tz = false,
-                                          .expand_quarter = true,
-                                          .expand_iso_dayofyear = false}, out);
+  return FormatTimestampToStringInternal(
+      format_str, MakeTime(timestamp, kMicroseconds), timezone,
+      {.truncate_tz = false,
+       .expand_quarter = true,
+       .expand_iso_dayofyear = false},
+      out);
 }
 
 absl::Status FormatTimestampToString(absl::string_view format_str,
@@ -2196,7 +2189,8 @@ absl::Status FormatTimestampToString(absl::string_view format_str,
   return FormatTimestampToStringInternal(format_str, timestamp, timezone,
                                          {.truncate_tz = false,
                                           .expand_quarter = true,
-                                          .expand_iso_dayofyear = false}, out);
+                                          .expand_iso_dayofyear = false},
+                                         out);
 }
 
 absl::Status FormatTimestampToString(absl::string_view format_string,
@@ -2208,7 +2202,8 @@ absl::Status FormatTimestampToString(absl::string_view format_string,
   return FormatTimestampToStringInternal(format_string, timestamp, timezone,
                                          {.truncate_tz = false,
                                           .expand_quarter = true,
-                                          .expand_iso_dayofyear = false}, out);
+                                          .expand_iso_dayofyear = false},
+                                         out);
 }
 
 absl::Status ConvertTimestampToString(absl::Time input, TimestampScale scale,
@@ -2318,8 +2313,8 @@ absl::Status ConvertStringToTimestamp(absl::string_view str,
                                       int64_t* timestamp) {
   absl::TimeZone timezone;
   ZETASQL_RETURN_IF_ERROR(MakeTimeZone(default_timezone_string, &timezone));
-  return ConvertStringToTimestamp(str, timezone, scale,
-                                  allow_tz_in_str, timestamp);
+  return ConvertStringToTimestamp(str, timezone, scale, allow_tz_in_str,
+                                  timestamp);
 }
 
 absl::Status ConvertStringToTimestamp(absl::string_view str,
@@ -2347,7 +2342,7 @@ absl::Status ConvertStringToTimestamp(absl::string_view str,
       !IsValidTimeOfDay(hour, minute, second)) {
     return MakeEvalError() << MakeInvalidTimestampStrErrorMsg(str, scale);
   }
-  if (string_includes_timezone &&  !allow_tz_in_str) {
+  if (string_includes_timezone && !allow_tz_in_str) {
     return MakeEvalError() << "Timezone is not allowed in \"" << str << "\"";
   }
   if (!string_includes_timezone) {
@@ -2591,12 +2586,12 @@ absl::Status ExtractFromDate(DateTimestampPart part, int32_t date,
     case MILLISECOND:
     case MICROSECOND:
     case NANOSECOND:
-      return MakeEvalError() << "Unsupported DateTimestampPart "
-                             << DateTimestampPart_Name(part)
-                             << " to extract from date";
+      return MakeEvalError()
+             << "Unsupported DateTimestampPart " << DateTimestampPart_Name(part)
+             << " to extract from date";
     default:
-      return MakeEvalError() << "Unexpected DateTimestampPart "
-                             << DateTimestampPart_Name(part);
+      return MakeEvalError()
+             << "Unexpected DateTimestampPart " << DateTimestampPart_Name(part);
   }
   return absl::OkStatus();
 }
@@ -2623,9 +2618,9 @@ absl::Status ExtractFromTime(DateTimestampPart part, const TimeValue& time,
     case WEEK_SATURDAY:
     case DATETIME:
     case TIME:
-      return MakeEvalError() << "Unsupported DateTimestampPart "
-                             << DateTimestampPart_Name(part)
-                             << " to extract from time";
+      return MakeEvalError()
+             << "Unsupported DateTimestampPart " << DateTimestampPart_Name(part)
+             << " to extract from time";
     case HOUR:
       *output = time.Hour();
       break;
@@ -2645,8 +2640,8 @@ absl::Status ExtractFromTime(DateTimestampPart part, const TimeValue& time,
       *output = time.Nanoseconds();
       break;
     default:
-      return MakeEvalError() << "Unexpected DateTimestampPart "
-                             << DateTimestampPart_Name(part);
+      return MakeEvalError()
+             << "Unexpected DateTimestampPart " << DateTimestampPart_Name(part);
   }
   return absl::OkStatus();
 }
@@ -2739,17 +2734,17 @@ absl::Status ExtractFromDatetime(DateTimestampPart part,
           absl::CivilDay(datetime.Year(), datetime.Month(), datetime.Day()));
       break;
     case DATETIME:
-      return MakeEvalError() << "Unsupported DateTimestampPart "
-                             << DateTimestampPart_Name(part)
-                             << " to extract from datetime";
+      return MakeEvalError()
+             << "Unsupported DateTimestampPart " << DateTimestampPart_Name(part)
+             << " to extract from datetime";
     case TIME:
       // Should never reach this.
       ZETASQL_RET_CHECK_FAIL()
           << "Use ExtractTimeFromDatetime() for extracting time from datetime";
       break;
     default:
-      return MakeEvalError() << "Unexpected DateTimestampPart "
-                             << DateTimestampPart_Name(part);
+      return MakeEvalError()
+             << "Unexpected DateTimestampPart " << DateTimestampPart_Name(part);
   }
   return absl::OkStatus();
 }
@@ -2929,7 +2924,7 @@ absl::Status ConvertProto3TimestampToTimestamp(
   auto result_or = zetasql_base::DecodeGoogleApiProto(input_timestamp);
   if (!result_or.ok()) {
     return MakeEvalError() << "Invalid Proto3 Timestamp input: "
-                           << input_timestamp.DebugString();
+                        << input_timestamp.DebugString();
   }
   *output = result_or.value();
   // DecodeGoogleApiProto enforces the same valid timestamp range as ZetaSQL.
@@ -3313,13 +3308,13 @@ absl::Status DiffDatetimes(const DatetimeValue& datetime1,
     case DATE:
     case DATETIME:
     case TIME:
-      return MakeEvalError() << "Unsupported DateTimestampPart "
-                             << DateTimestampPart_Name(part)
-                             << " for DATETIME_DIFF";
+      return MakeEvalError()
+             << "Unsupported DateTimestampPart " << DateTimestampPart_Name(part)
+             << " for DATETIME_DIFF";
     default:
-      return MakeEvalError() << "Unexpected DateTimestampPart "
-                             << DateTimestampPart_Name(part)
-                             << " for DATETIME_DIFF";
+      return MakeEvalError()
+             << "Unexpected DateTimestampPart " << DateTimestampPart_Name(part)
+             << " for DATETIME_DIFF";
   }
   return absl::OkStatus();
 }
@@ -3388,8 +3383,7 @@ static absl::Status AddDatetimeInternal(
 absl::Status AddDatetime(const DatetimeValue& datetime, DateTimestampPart part,
                          int64_t interval, DatetimeValue* output) {
   return AddDatetimeInternal(
-      datetime, part, interval, output,
-      [datetime, part, interval] {
+      datetime, part, interval, output, [datetime, part, interval] {
         return MakeAddDatetimeOverflowError(datetime, part, interval);
       });
 }
@@ -3463,11 +3457,11 @@ absl::Status AddTimestamp(int64_t timestamp, TimestampScale scale,
   if (!IsValidTimestamp(timestamp, scale)) {
     return MakeEvalError() << "Invalid timestamp: " << timestamp;
   }
-  ZETASQL_RETURN_IF_ERROR(AddTimestampInternal(timestamp, scale, timezone, part,
-                                       interval, output));
+  ZETASQL_RETURN_IF_ERROR(
+      AddTimestampInternal(timestamp, scale, timezone, part, interval, output));
   if (!IsValidTimestamp(*output, scale)) {
-    return MakeAddTimestampOverflowError(
-        timestamp, part, interval, scale, timezone);
+    return MakeAddTimestampOverflowError(timestamp, part, interval, scale,
+                                         timezone);
   }
   return absl::OkStatus();
 }
@@ -3507,7 +3501,7 @@ absl::Status AddTimestamp(absl::Time timestamp, absl::TimeZone timezone,
                           absl::Time* output) {
   if (interval.get_months() != 0) {
     return MakeEvalError() << "TIMESTAMP +/- INTERVAL is not supported for "
-                              "intervals with non-zero MONTH part.";
+                              "intervals with non-zero MONTH or YEAR part.";
   }
   if (interval.get_days() != 0) {
     ZETASQL_RETURN_IF_ERROR(AddTimestamp(timestamp, timezone, DAY, interval.get_days(),
@@ -3564,8 +3558,8 @@ absl::Status SubTimestamp(int64_t timestamp, TimestampScale scale,
   ZETASQL_RETURN_IF_ERROR(AddTimestampInternal(timestamp, scale, timezone, part,
                                        -interval, output));
   if (!IsValidTimestamp(*output, scale)) {
-    return MakeSubTimestampOverflowError(
-        timestamp, part, interval, scale, timezone);
+    return MakeSubTimestampOverflowError(timestamp, part, interval, scale,
+                                         timezone);
   }
   return absl::OkStatus();
 }
@@ -3782,13 +3776,13 @@ absl::Status DiffTimes(const TimeValue& time1, const TimeValue& time2,
     case WEEK:
     case DATETIME:
     case TIME:
-      return MakeEvalError() << "Unsupported DateTimestampPart "
-                             << DateTimestampPart_Name(part)
-                             << " for TIME_DIFF";
+      return MakeEvalError()
+             << "Unsupported DateTimestampPart " << DateTimestampPart_Name(part)
+             << " for TIME_DIFF";
     default:
-      return MakeEvalError() << "Unexpected DateTimestampPart "
-                             << DateTimestampPart_Name(part)
-                             << " for TIME_DIFF";
+      return MakeEvalError()
+             << "Unexpected DateTimestampPart " << DateTimestampPart_Name(part)
+             << " for TIME_DIFF";
   }
 }
 
@@ -3840,13 +3834,13 @@ absl::Status TruncateTime(const TimeValue& time, DateTimestampPart part,
     case WEEK:
     case DATETIME:
     case TIME:
-      return MakeEvalError() << "Unsupported DateTimestampPart "
-                             << DateTimestampPart_Name(part)
-                             << " for TIME_TRUNC";
+      return MakeEvalError()
+             << "Unsupported DateTimestampPart " << DateTimestampPart_Name(part)
+             << " for TIME_TRUNC";
     default:
-      return MakeEvalError() << "Unexpected DateTimestampPart "
-                             << DateTimestampPart_Name(part)
-                             << " for TIME_TRUNC";
+      return MakeEvalError()
+             << "Unexpected DateTimestampPart " << DateTimestampPart_Name(part)
+             << " for TIME_TRUNC";
   }
   return absl::OkStatus();
 }
@@ -3917,8 +3911,8 @@ absl::Status TimestampTrunc(absl::Time timestamp,
 absl::Status TruncateTimestamp(int64_t timestamp, TimestampScale scale,
                                absl::TimeZone timezone, DateTimestampPart part,
                                int64_t* output) {
-  return TimestampTruncImpl(timestamp, scale, LEGACY_TIMESTAMP_TYPE,
-                            timezone, part, output);
+  return TimestampTruncImpl(timestamp, scale, LEGACY_TIMESTAMP_TYPE, timezone,
+                            part, output);
 }
 
 absl::Status TruncateTimestamp(int64_t timestamp, TimestampScale scale,
@@ -3979,13 +3973,13 @@ absl::Status TruncateDatetime(const DatetimeValue& datetime,
     case DATE:
     case DATETIME:
     case TIME:
-      return MakeEvalError() << "Unsupported DateTimestampPart "
-                             << DateTimestampPart_Name(part)
-                             << " for TIME_TRUNC";
+      return MakeEvalError()
+             << "Unsupported DateTimestampPart " << DateTimestampPart_Name(part)
+             << " for TIME_TRUNC";
     default:
-      return MakeEvalError() << "Unexpected DateTimestampPart "
-                             << DateTimestampPart_Name(part)
-                             << " for TIME_TRUNC";
+      return MakeEvalError()
+             << "Unexpected DateTimestampPart " << DateTimestampPart_Name(part)
+             << " for TIME_TRUNC";
   }
 }
 
@@ -4034,8 +4028,8 @@ absl::Status TimestampDiff(absl::Time timestamp1, absl::Time timestamp2,
       return MakeEvalError() << "Unsupported DateTimestampPart "
                              << DateTimestampPart_Name(part);
     default:
-      return MakeEvalError() << "Unexpected DateTimestampPart "
-                             << DateTimestampPart_Name(part);
+      return MakeEvalError()
+             << "Unexpected DateTimestampPart " << DateTimestampPart_Name(part);
   }
   *output = absl::IDivDuration(duration, divide, &rem);
   // If we make sure the input timestamps are always valid, we can only do this
@@ -4069,10 +4063,14 @@ absl::StatusOr<IntervalValue> IntervalDiffTimestamps(absl::Time timestamp1,
 
 std::string TimestampScale_Name(TimestampScale scale) {
   switch (scale) {
-    case kSeconds:         return "TIMESTAMP_SECOND";
-    case kMilliseconds:    return "TIMESTAMP_MILLISECOND";
-    case kMicroseconds:    return "TIMESTAMP_MICROSECOND";
-    case kNanoseconds:     return "TIMESTAMP_NANOSECOND";
+    case kSeconds:
+      return "TIMESTAMP_SECOND";
+    case kMilliseconds:
+      return "TIMESTAMP_MILLISECOND";
+    case kMicroseconds:
+      return "TIMESTAMP_MICROSECOND";
+    case kNanoseconds:
+      return "TIMESTAMP_NANOSECOND";
   }
 }
 
@@ -4112,8 +4110,8 @@ absl::Status DecodeFormattedDate(int64_t input_formatted_date,
         const int year = input_formatted_date / (100 * 100);
         absl::CivilDay date;
         if (!MakeDate(year, month, day, &date)) {
-          return MakeEvalError() << "Invalid DATE_DECIMAL: "
-                                 << input_formatted_date;
+          return MakeEvalError()
+                 << "Invalid DATE_DECIMAL: " << input_formatted_date;
         }
         *output_date = CivilDayToEpochDays(date);
       }
@@ -4137,8 +4135,8 @@ absl::Status EncodeFormattedDate(int32_t input_date, FieldFormat::Format format,
 
     case FieldFormat::DATE_DECIMAL: {
       if (!IsValidDate(input_date)) {
-        return MakeEvalError() << "Invalid input date for encoding: "
-                               << input_date;
+        return MakeEvalError()
+               << "Invalid input date for encoding: " << input_date;
       }
       const absl::CivilDay date = EpochDaysToCivilDay(input_date);
       *output_formatted_date =
@@ -4177,9 +4175,9 @@ void NarrowTimestampScaleIfPossible(absl::Time time, TimestampScale* scale) {
   const TimestampScale narrowed_scale =
       (subsecond == 0)  // (subsecond % 1000000000 == 0)
           ? kSeconds
-          : (subsecond % 1000000 == 0)
-                ? kMilliseconds
-                : (subsecond % 1000 == 0) ? kMicroseconds : kNanoseconds;
+          : (subsecond % 1000000 == 0) ? kMilliseconds
+            : (subsecond % 1000 == 0)  ? kMicroseconds
+                                       : kNanoseconds;
   if (narrowed_scale < *scale) {
     // return narrowed scale;
     *scale = narrowed_scale;

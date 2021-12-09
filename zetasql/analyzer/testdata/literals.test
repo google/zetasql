@@ -2044,7 +2044,7 @@ QueryStmt
 [language_features=JSON_TYPE,JSON_STRICT_NUMBER_PARSING]
 SELECT JSON '0.142857142857142857142857142857142857'
 --
-ERROR: Invalid JSON literal: Input number: 0.142857142857142857142857142857142857 cannot round-trip through string representation. [at 1:8]
+ERROR: Invalid JSON literal: Input number: 0.142857142857142857142857142857142857 cannot round-trip through string representation [at 1:8]
 SELECT JSON '0.142857142857142857142857142857142857'
        ^
 ==

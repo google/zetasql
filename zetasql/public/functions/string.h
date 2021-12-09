@@ -253,23 +253,25 @@ bool UpperUtf8(absl::string_view str, std::string* out, absl::Status* error);
 // LOWER(STRING) -> STRING
 bool LowerUtf8(absl::string_view str, std::string* out, absl::Status* error);
 
+#ifndef SWIG
 class Utf8CaseFunction {
  public:
   // TODO: Migrate existing usage.
   // UPPER(STRING) -> STRING
-  ABSL_DEPRECATED("Utf8CaseFunction::Upper is deprecated, use UpperUtf8")
+  ABSL_DEPRECATED("Inline me!")
   bool Upper(absl::string_view str, std::string* out,
              absl::Status* error) const {
     return UpperUtf8(str, out, error);
   }
 
   // LOWER(STRING) -> STRING
-  ABSL_DEPRECATED("Utf8CaseFunction::Lower is deprecated, use LowerUtf8")
+  ABSL_DEPRECATED("Inline me!")
   bool Lower(absl::string_view str, std::string* out,
              absl::Status* error) const {
     return LowerUtf8(str, out, error);
   }
 };
+#endif  // SWIG
 
 // UPPER(BYTES) -> BYTES
 bool UpperBytes(absl::string_view str, std::string* out, absl::Status* error);

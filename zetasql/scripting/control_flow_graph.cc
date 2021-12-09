@@ -94,6 +94,7 @@ enum class ThrowSemantics {
 // kind is known, but the successor is not known yet.  The incomplete edge will
 // be converted to a complete edge, once the successor is known.
 struct IncompleteEdge {
+  IncompleteEdge() = default;
   IncompleteEdge(const IncompleteEdge& edge) = delete;
   IncompleteEdge(IncompleteEdge&& edge) = default;
   IncompleteEdge& operator=(const IncompleteEdge& edge) = delete;
@@ -154,7 +155,11 @@ struct NodeData {
 
   // Adds an end edge to this NodeData.
   void AddOpenEndEdge(ControlFlowNode* cfg_node, ControlFlowEdge::Kind kind) {
-    end_edges.emplace_front(IncompleteEdge{cfg_node, kind});
+    IncompleteEdge edge;
+    edge.predecessor = cfg_node;
+    edge.kind = kind;
+
+    end_edges.emplace_front(std::move(edge));
   }
 
   // Moves all end edges from <node_data> into here.

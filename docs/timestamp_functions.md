@@ -399,12 +399,14 @@ TIMESTAMP_DIFF(timestamp_expression_a, timestamp_expression_b, date_part)
 
 **Description**
 
-Returns the number of whole specified `date_part` intervals between two
-`TIMESTAMP` objects (`timestamp_expression_a` - `timestamp_expression_b`). If the first `TIMESTAMP` is earlier than the second one,
+Returns the whole number of specified `date_part` intervals between two
+`TIMESTAMP` objects (`timestamp_expression_a` - `timestamp_expression_b`).
+If the first `TIMESTAMP` is earlier than the second one,
 the output is negative. Throws an error if the computation overflows the
 result type, such as if the difference in
 nanoseconds
-between the two `TIMESTAMP` objects would overflow an `INT64` value.
+between the two `TIMESTAMP` objects would overflow an
+`INT64` value.
 
 `TIMESTAMP_DIFF` supports the following values for `date_part`:
 
@@ -675,26 +677,26 @@ SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008")
 
 The format string fully
 supports most format elements, except for
-`%Q`, `%a`, `%A`, `%g`,
-`%G`, `%j`, `%P`, `%u`, `%U`, `%V`, `%w`, and `%W`.
+`%a`, `%A`, `%g`, `%G`, `%j`, `%P`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
 When using `PARSE_TIMESTAMP`, keep the following in mind:
 
 + **Unspecified fields.** Any unspecified field is initialized from `1970-01-01
-00:00:00.0`. This initialization value uses the time zone specified by the
-function's time zone argument, if present. If not, the initialization value uses
-the default time zone, which is implementation defined.  For instance, if the year
-is unspecified then it defaults to `1970`, and so on.
-+ **Case insensitive names.** Names, such as `Monday`, `February`, and so on, are
-case insensitive.
+  00:00:00.0`. This initialization value uses the time zone specified by the
+  function's time zone argument, if present. If not, the initialization value
+  uses the default time zone, which is implementation defined.  For instance, if the year
+  is unspecified then it defaults to `1970`, and so on.
++ **Case insensitivity.** Names, such as `Monday`, `February`, and so on, are
+  case insensitive.
 + **Whitespace.** One or more consecutive white spaces in the format string
-matches zero or more consecutive white spaces in the timestamp string. In
-addition, leading and trailing white spaces in the timestamp string are always
-allowed, even if they are not in the format string.
+  matches zero or more consecutive white spaces in the timestamp string. In
+  addition, leading and trailing white spaces in the timestamp string are always
+  allowed, even if they are not in the format string.
 + **Format precedence.** When two (or more) format elements have overlapping
-information (for example both `%F` and `%Y` affect the year), the last one
-generally overrides any earlier ones, with some exceptions (see the descriptions
-of `%s`, `%C`, and `%y`).
+  information (for example both `%F` and `%Y` affect the year), the last one
+  generally overrides any earlier ones, with some exceptions (see the
+  descriptions of `%s`, `%C`, and `%y`).
++ **Format divergence.** `%p` can be used with `am`, `AM`, `pm`, and `PM`.
 
 **Return Data Type**
 
@@ -1276,14 +1278,27 @@ SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00 America/Los_Angeles") as milli
 SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00-08:00") as millis;
 ```
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
 [ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
+
 [timezone-by-name]: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
+
 [timestamp-format]: #format_timestamp
+
 [timestamp-format-elements]: #supported_format_elements_for_timestamp
+
 [timestamp-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
+
 [data-types-link-to-date_type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#date_type
+
 [data-types-link-to-timestamp_type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#timestamp_type
+
+[timestamp-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#timestamp_literals
+
+<!-- mdlint on -->
 

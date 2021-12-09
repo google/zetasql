@@ -164,8 +164,12 @@ MATCHER_P(EqualsValue, expected_value, "") {
   }
   const Value& value = result.value();
   std::string reason;
-  if (!InternalValue::Equals(expected_value, value, kExactFloatMargin,
-                             &reason)) {
+  if (!InternalValue::Equals(
+          expected_value, value,
+          ValueEqualityCheckOptions{
+              .interval_compare_mode = IntervalCompareMode::kAllPartsEqual,
+              .float_margin = kExactFloatMargin,
+              .reason = &reason})) {
     *result_listener << reason;
     return false;
   }
@@ -181,8 +185,10 @@ MATCHER_P(AlmostEqualsValue, expected_value, "") {
   }
   const Value& value = result.value();
   std::string reason;
-  if (!InternalValue::Equals(expected_value, value, kDefaultFloatMargin,
-                             &reason)) {
+  if (!InternalValue::Equals(
+          expected_value, value,
+          ValueEqualityCheckOptions{.float_margin = kDefaultFloatMargin,
+                                    .reason = &reason})) {
     *result_listener << reason;
     return false;
   }

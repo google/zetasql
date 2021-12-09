@@ -741,3 +741,93 @@ CREATE SNAPSHOT TABLE s1 CLONE KeyValue
 OPTIONS(expiration_timestamp = "2019-05-22 00:00:00+00", description = "mydataset.source_table snapshot",
   label = ARRAY< STRING >["experiments"]);
 ==
+
+[privilege_restriction_table_not_scanned]
+create privilege restriction on select (int_a, string_a) on table MultipleColumns restrict to ("obsessed@google.com", "mdb/datahub-eng");
+--
+[UNPARSED_SQL]
+CREATE PRIVILEGE RESTRICTION ON `select`(int_a, string_a) ON table MultipleColumns RESTRICT TO ("obsessed@google.com",
+"mdb/datahub-eng");
+==
+
+[privilege_restriction_table_not_scanned]
+create privilege restriction on select (int_a, string_a) on table MultipleColumns;
+--
+[UNPARSED_SQL]
+CREATE PRIVILEGE RESTRICTION ON `select`(int_a, string_a) ON table MultipleColumns;
+==
+
+[privilege_restriction_table_not_scanned]
+drop privilege restriction on select (int_a, string_a) on table MultipleColumns;
+--
+[UNPARSED_SQL]
+DROP PRIVILEGE RESTRICTION ON `select`(int_a, string_a) ON table MultipleColumns;
+==
+
+[privilege_restriction_table_not_scanned]
+drop privilege restriction if exists on select (int_a, string_a) on table MultipleColumns;
+--
+[UNPARSED_SQL]
+DROP PRIVILEGE RESTRICTION IF EXISTS ON `select`(int_a, string_a) ON table MultipleColumns;
+==
+
+[privilege_restriction_table_not_scanned]
+alter privilege restriction on select (int_a, string_a) on table MultipleColumns restrict to ("obsessed@google.com", "mdb/datahub-eng");
+--
+[UNPARSED_SQL]
+ALTER PRIVILEGE RESTRICTION ON `select`(int_a, string_a) ON table MultipleColumns RESTRICT TO ("obsessed@google.com",
+  "mdb/datahub-eng");
+==
+
+[privilege_restriction_table_not_scanned]
+alter privilege restriction on select (int_a, string_a) on table MultipleColumns restrict to ();
+--
+[UNPARSED_SQL]
+ALTER PRIVILEGE RESTRICTION ON `select`(int_a, string_a) ON table MultipleColumns RESTRICT TO ();
+==
+
+[privilege_restriction_table_not_scanned]
+alter privilege restriction on select (int_a, string_a) on table MultipleColumns add ("obsessed@google.com", "mdb/datahub-eng");
+--
+[UNPARSED_SQL]
+ALTER PRIVILEGE RESTRICTION ON `select`(int_a, string_a) ON table MultipleColumns ADD ("obsessed@google.com",
+  "mdb/datahub-eng");
+==
+
+[privilege_restriction_table_not_scanned]
+alter privilege restriction on select (int_a, string_a) on table MultipleColumns add if not exists ("obsessed@google.com", "mdb/datahub-eng");
+--
+[UNPARSED_SQL]
+ALTER PRIVILEGE RESTRICTION ON `select`(int_a, string_a) ON table MultipleColumns ADD IF NOT EXISTS ("obsessed@google.com",
+  "mdb/datahub-eng");
+==
+
+[privilege_restriction_table_not_scanned]
+alter privilege restriction on select (int_a, string_a) on table MultipleColumns add ();
+--
+[UNPARSED_SQL]
+ALTER PRIVILEGE RESTRICTION ON `select`(int_a, string_a) ON table MultipleColumns ADD ();
+==
+
+[privilege_restriction_table_not_scanned]
+alter privilege restriction on select (int_a, string_a) on table MultipleColumns remove ("obsessed@google.com", "mdb/datahub-eng");
+--
+[UNPARSED_SQL]
+ALTER PRIVILEGE RESTRICTION ON `select`(int_a, string_a) ON table MultipleColumns REMOVE ("obsessed@google.com",
+  "mdb/datahub-eng");
+==
+
+[privilege_restriction_table_not_scanned]
+alter privilege restriction on select (int_a, string_a) on table MultipleColumns remove if exists ("obsessed@google.com", "mdb/datahub-eng");
+--
+[UNPARSED_SQL]
+ALTER PRIVILEGE RESTRICTION ON `select`(int_a, string_a) ON table MultipleColumns REMOVE IF EXISTS ("obsessed@google.com",
+  "mdb/datahub-eng");
+==
+
+[privilege_restriction_table_not_scanned]
+alter privilege restriction on select (int_a, string_a) on table MultipleColumns remove ();
+--
+[UNPARSED_SQL]
+ALTER PRIVILEGE RESTRICTION ON `select`(int_a, string_a) ON table MultipleColumns REMOVE ();
+==

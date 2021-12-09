@@ -21,12 +21,16 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 
 #include "zetasql/local_service/local_service.pb.h"
+#include "zetasql/local_service/state.h"
 #include "zetasql/proto/options.pb.h"
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/evaluator.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/parse_resume_location.pb.h"
+#include "zetasql/public/simple_catalog.h"
 #include <cstdint>
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
@@ -34,12 +38,16 @@
 namespace zetasql {
 namespace local_service {
 
+class InternalPreparedExpressionState;
+class InternalPreparedModifyState;
+class InternalPreparedQueryState;
 class PreparedExpressionPool;
-class PreparedExpressionState;
-class RegisteredDescriptorPoolState;
-class RegisteredDescriptorPoolPool;
+class PreparedModifyPool;
+class PreparedQueryPool;
 class RegisteredCatalogPool;
 class RegisteredCatalogState;
+class RegisteredDescriptorPoolPool;
+class RegisteredDescriptorPoolState;
 
 // Implementation of ZetaSqlLocalService RPC service.
 class ZetaSqlLocalServiceImpl {
@@ -58,9 +66,21 @@ class ZetaSqlLocalServiceImpl {
   absl::Status Evaluate(const EvaluateRequest& request,
                         EvaluateResponse* response);
 
-  absl::Status EvaluateImpl(const EvaluateRequest& request,
-                            PreparedExpressionState* state,
-                            EvaluateResponse* response);
+  absl::Status PrepareQuery(const PrepareQueryRequest& request,
+                            PrepareQueryResponse* response);
+
+  absl::Status UnprepareQuery(int64_t id);
+
+  absl::Status EvaluateQuery(const EvaluateQueryRequest& request,
+                             EvaluateQueryResponse* response);
+
+  absl::Status PrepareModify(const PrepareModifyRequest& request,
+                             PrepareModifyResponse* response);
+
+  absl::Status UnprepareModify(int64_t id);
+
+  absl::Status EvaluateModify(const EvaluateModifyRequest& request,
+                              EvaluateModifyResponse* response);
 
   absl::Status GetTableFromProto(const TableFromProtoRequest& request,
                                  SimpleTableProto* response);
@@ -118,6 +138,8 @@ class ZetaSqlLocalServiceImpl {
   absl::Status GetAnalyzerOptions(const AnalyzerOptionsRequest& request,
                                   AnalyzerOptionsProto* response);
 
+  absl::Status Parse(const ParseRequest& request, ParseResponse* response);
+
  private:
   // Fetches the descriptor pools for the given descriptor_pool_list.
   // descriptor_pools is a view into pool_states_out, and is returned as a
@@ -144,17 +166,62 @@ class ZetaSqlLocalServiceImpl {
   template <typename RequestProto>
   absl::Status GetCatalogState(
       const RequestProto& request,
+      const google::protobuf::Map<std::string, TableContent>& tables_contents,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       std::shared_ptr<RegisteredCatalogState>& state);
 
   std::unique_ptr<RegisteredDescriptorPoolPool> registered_descriptor_pools_;
   std::unique_ptr<RegisteredCatalogPool> registered_catalogs_;
   std::unique_ptr<PreparedExpressionPool> prepared_expressions_;
+  std::unique_ptr<PreparedQueryPool> prepared_queries_;
+  std::unique_ptr<PreparedModifyPool> prepared_modifies_;
 
+  template <typename InternalStateT>
+  absl::Status CreateAndPrepare(
+      const std::string& sql, const AnalyzerOptionsProto& options,
+      std::shared_ptr<RegisteredCatalogState> catalog_state,
+      std::vector<const google::protobuf::DescriptorPool*> pools,
+      absl::flat_hash_set<int64_t> owned_descriptor_pool_ids,
+      std::optional<int64_t> owned_catalog_id,
+      std::shared_ptr<InternalStateT>& internal_state);
+
+  template <typename ResponseStateT, typename InternalStateT>
   absl::Status RegisterPrepared(
-      std::shared_ptr<PreparedExpressionState> state,
+      const bool should_register_prepared,
+      std::shared_ptr<InternalStateT> internal_state,
+      SharedStatePool<InternalStateT>& prepared_statements_pool,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
-      PreparedState* response);
+      ResponseStateT* response_state);
+
+  template <typename RequestT, typename ResponseT, typename InternalStateT>
+  absl::Status PrepareImpl(
+      const RequestT& request,
+      const ::google::protobuf::Map<std::string, TableContent>& tables_contents,
+      SharedStatePool<InternalStateT>& prepared_statements_pool,
+      ResponseT* response);
+
+  template <typename InternalStateT>
+  absl::Status UnprepareImpl(
+      SharedStatePool<InternalStateT>& prepared_statements_pool, int64_t id,
+      absl::string_view statement_type);
+
+  template <typename RequestT, typename ResponseT, typename InternalStateT>
+  absl::Status EvaluateImpl(
+      const RequestT& request,
+      const google::protobuf::Map<std::string, TableContent>& tables_contents,
+      absl::optional<int64_t>& prepared_statement_id_opt,
+      SharedStatePool<InternalStateT>& prepared_statements_pool,
+      absl::string_view statement_type, ResponseT* response);
+
+  template <typename RequestT, typename ResponseT, typename InternalStateT>
+  absl::Status EvaluatePrepared(const RequestT& request,
+                                ResponseT* internal_state,
+                                InternalStateT* response);
+
+  absl::Status EvaluatePreparedExpression(
+      const EvaluateRequest& request,
+      InternalPreparedExpressionState* internal_state,
+      EvaluateResponse* response);
 
   void CleanupDescriptorPools(
       absl::flat_hash_set<int64_t>* descriptor_pool_ids);
@@ -165,6 +232,8 @@ class ZetaSqlLocalServiceImpl {
   size_t NumRegisteredDescriptorPools() const;
   size_t NumRegisteredCatalogs() const;
   size_t NumSavedPreparedExpression() const;
+  size_t NumSavedPreparedQueries() const;
+  size_t NumSavedPreparedModifies() const;
 
   friend class ZetaSqlLocalServiceImplTest;
 };

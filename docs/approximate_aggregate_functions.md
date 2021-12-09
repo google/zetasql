@@ -41,9 +41,15 @@ Any data type **except**:
 `STRUCT`
 `PROTO`
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -104,9 +110,15 @@ The clauses are applied *in the following order*:
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -199,9 +211,15 @@ specifies the number of elements returned.
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -284,9 +302,15 @@ If the `weight` input is negative or `NaN`, this function returns an error.
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -355,7 +379,13 @@ UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
 +----------------------------+
 ```
 
-[hll-functions]: https://github.com/google/zetasql/blob/master/docs/hll_functions.md
-[kll-functions]: https://github.com/google/zetasql/blob/master/docs/kll_functions.md
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[hll-functions]: https://github.com/google/zetasql/blob/master/docs/hll_functions.md#hyperloglog_functions
+
+[kll-functions]: https://github.com/google/zetasql/blob/master/docs/kll_functions.md#kll16_quantile_functions
+
 [aggregate-functions-reference]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md
+
+<!-- mdlint on -->
 

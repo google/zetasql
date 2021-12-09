@@ -223,6 +223,7 @@ cc_library(
         "@com_googleapis_googleapis//:timeofday_cc_proto",
         # buildcleaner: keep
         "//zetasql/common:errors",
+        "//zetasql/common:initialize_required_fields",
         "//zetasql/common:internal_value",
         "//zetasql/public/functions:string_with_collation",
         "//zetasql/public/types",
@@ -233,6 +234,7 @@ cc_library(
         "//zetasql/public:collator_lite",
         "//zetasql/public:evaluator_table_iterator",
         "//zetasql/public:function",
+        "//zetasql/public:json_value",
         "//zetasql/public:language_options",
         "//zetasql/public:numeric_value",
         "//zetasql/public:options_cc_proto",
@@ -915,7 +917,7 @@ cc_library(
     deps = [
         "//zetasql/public:analyzer_options",
         "//zetasql/public:options_cc_proto",
-        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf",

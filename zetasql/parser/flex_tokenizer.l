@@ -594,6 +594,7 @@ read { return BisonParserImpl::token::KW_READ; }
 recursive { return BisonParserImpl::token::KW_RECURSIVE; }
 references { return BisonParserImpl::token::KW_REFERENCES; }
 remote { return BisonParserImpl::token::KW_REMOTE; }
+remove { return BisonParserImpl::token::KW_REMOVE; }
 rename { return BisonParserImpl::token::KW_RENAME; }
 repeat { return BisonParserImpl::token::KW_REPEAT; }
 repeatable { return BisonParserImpl::token::KW_REPEATABLE; }

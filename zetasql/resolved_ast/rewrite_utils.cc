@@ -31,27 +31,35 @@ namespace {
 // A visitor that changes ResolvedColumnRef nodes to be correlated.
 class CorrelateColumnRefVisitor : public ResolvedASTDeepCopyVisitor {
  private:
-  std::unique_ptr<ResolvedColumnRef> CorrelatedColumnRef(
-      const ResolvedColumnRef& ref) {
-    return MakeResolvedColumnRef(ref.type(), ref.column(), true);
+  // Logic that determines whether an individual ResolvedColumnRef should be
+  // marked as correlated in the output tree.
+  bool ShouldBeCorrelated(const ResolvedColumnRef& ref) {
+    if (in_subquery_or_lambda_ || local_columns_.contains(ref.column())) {
+      // Columns in 'local_columns_' and columns inside subqueries or lambda
+      // bodies are fully local to the expression. We shouldn't change the
+      // is_correlated state for local columns.
+      return ref.is_correlated();
+    }
+    return true;
   }
 
-  absl::Status VisitResolvedColumnRef(const ResolvedColumnRef* node) override {
-    if (in_subquery_or_lambda_) {
-      return ResolvedASTDeepCopyVisitor::VisitResolvedColumnRef(node);
-    }
-    PushNodeToStack(CorrelatedColumnRef(*node));
-    return absl::OkStatus();
+  std::unique_ptr<ResolvedColumnRef> CorrelateColumnRef(
+      const ResolvedColumnRef& ref) {
+    return MakeResolvedColumnRef(ref.type(), ref.column(),
+                                 ShouldBeCorrelated(ref));
   }
 
   template <class T>
   void CorrelateParameterList(T* node) {
     for (auto& column_ref : node->parameter_list()) {
-      if (!column_ref->is_correlated()) {
-        const_cast<ResolvedColumnRef*>(column_ref.get())
-            ->set_is_correlated(true);
-      }
+      const_cast<ResolvedColumnRef*>(column_ref.get())
+          ->set_is_correlated(ShouldBeCorrelated(*column_ref));
     }
+  }
+
+  absl::Status VisitResolvedColumnRef(const ResolvedColumnRef* node) override {
+    PushNodeToStack(CorrelateColumnRef(*node));
+    return absl::OkStatus();
   }
 
   absl::Status VisitResolvedSubqueryExpr(
@@ -97,13 +105,27 @@ class CorrelateColumnRefVisitor : public ResolvedASTDeepCopyVisitor {
     return absl::OkStatus();
   }
 
+  absl::Status VisitResolvedLetExpr(const ResolvedLetExpr* node) override {
+    // Exclude the assignment columns because they are internal.
+    for (int i = 0; i < node->assignment_list_size(); ++i) {
+      local_columns_.insert(node->assignment_list(i)->column());
+    }
+    return ResolvedASTDeepCopyVisitor::VisitResolvedLetExpr(node);
+  }
+
+  // Columns that are local to an expression -- that is they are defined,
+  // populated, and consumed fully within the expression -- should not be
+  // correlated by this code.
+  absl::flat_hash_set<ResolvedColumn> local_columns_;
+
   // Tracks if we're inside a subquery. We stop correlating when we're inside a
   // subquery as column references are either already correlated or don't need
   // to be.
   int in_subquery_or_lambda_ = 0;
 };
 
-// A visitor which collects the ResolvedColumnRef that are referenced.
+// A visitor which collects the ResolvedColumnRef that are referenced, but not
+// local to this expression.
 class ColumnRefCollector : public ResolvedASTVisitor {
  public:
   explicit ColumnRefCollector(
@@ -113,8 +135,10 @@ class ColumnRefCollector : public ResolvedASTVisitor {
 
  private:
   absl::Status VisitResolvedColumnRef(const ResolvedColumnRef* node) override {
-    column_refs_->push_back(MakeResolvedColumnRef(
-        node->type(), node->column(), correlate_ || node->is_correlated()));
+    if (!local_columns_.contains(node->column())) {
+      column_refs_->push_back(MakeResolvedColumnRef(
+          node->type(), node->column(), correlate_ || node->is_correlated()));
+    }
     return absl::OkStatus();
   }
 
@@ -140,6 +164,19 @@ class ColumnRefCollector : public ResolvedASTVisitor {
     // are either internal or already collected in parameter_list.
     return absl::OkStatus();
   }
+
+  absl::Status VisitResolvedLetExpr(const ResolvedLetExpr* node) override {
+    // Exclude the assignment columns because they are internal.
+    for (int i = 0; i < node->assignment_list_size(); ++i) {
+      local_columns_.insert(node->assignment_list(i)->column());
+    }
+    return ResolvedASTVisitor::VisitResolvedLetExpr(node);
+  }
+
+  // Columns that are local to an expression -- that is they are defined,
+  // populated, and consumed fully within the expression -- should not be
+  // collected by this code.
+  absl::flat_hash_set<ResolvedColumn> local_columns_;
 
   std::vector<std::unique_ptr<const ResolvedColumnRef>>* column_refs_;
   bool correlate_;
@@ -173,7 +210,7 @@ ResolvedColumn ColumnFactory::MakeCol(const std::string& table_name,
   }
 }
 
-absl::StatusOr<std::unique_ptr<ResolvedExpr>> CorrelateColumnRefs(
+absl::StatusOr<std::unique_ptr<ResolvedExpr>> CorrelateColumnRefsImpl(
     const ResolvedExpr& expr) {
   CorrelateColumnRefVisitor correlator;
   ZETASQL_RETURN_IF_ERROR(expr.Accept(&correlator));
@@ -186,6 +223,44 @@ absl::Status CollectColumnRefs(
     bool correlate) {
   ColumnRefCollector column_ref_collector(column_refs, correlate);
   return node.Accept(&column_ref_collector);
+}
+
+// A visitor that copies a ResolvedAST with columns ids allocated by a
+// different ColumnFactory and remaps the columns so that columns in the copy
+// are allocated by 'column_factory'.
+class ColumnRemappingResolvedASTDeepCopyVisitor
+    : public ResolvedASTDeepCopyVisitor {
+ public:
+  ColumnRemappingResolvedASTDeepCopyVisitor(ColumnReplacementMap& column_map,
+                                            ColumnFactory& column_factory)
+      : column_map_(column_map), column_factory_(column_factory) {}
+
+  absl::StatusOr<ResolvedColumn> CopyResolvedColumn(
+      const ResolvedColumn& column) override {
+    if (!column_map_.contains(column)) {
+      column_map_[column] = column_factory_.MakeCol(
+          column.table_name(), column.name(), column.type());
+    }
+    return column_map_[column];
+  }
+
+ private:
+  // Map from the column ID in the input ResolvedAST to the column allocated
+  // from column_factory_.
+  ColumnReplacementMap& column_map_;
+
+  // All ResolvedColumns in the copied ResolvedAST will have new column ids
+  // allocated by ColumnFactory.
+  ColumnFactory& column_factory_;
+};
+
+absl::StatusOr<std::unique_ptr<ResolvedNode>>
+CopyResolvedASTAndRemapColumnsImpl(const ResolvedNode& input_tree,
+                                   ColumnFactory& column_factory,
+                                   ColumnReplacementMap& column_map) {
+  ColumnRemappingResolvedASTDeepCopyVisitor visitor(column_map, column_factory);
+  ZETASQL_RETURN_IF_ERROR(input_tree.Accept(&visitor));
+  return visitor.ConsumeRootNode<ResolvedNode>();
 }
 
 absl::StatusOr<std::unique_ptr<ResolvedFunctionCall>> FunctionCallBuilder::If(

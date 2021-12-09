@@ -3867,7 +3867,6 @@ ERROR: Column default expression has type ARRAY<INT64> which cannot be assigned 
 ==
 
 # A STRUCT<INT64, DOUBLE> column with a STRUCT<INT64, INT64> default value
-# (disallowed).
 [language_features=V_1_3_COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a STRUCT<int64, double> default
@@ -4022,6 +4021,19 @@ create table t (a int32 default a+1);
                                 ^
 ==
 
+# Column default value: reference itself (disallowed)
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE]
+[no_enable_literal_replacement]
+CREATE TABLE T (
+  a INT64 DEFAULT b,
+  b INT64 DEFAULT 1,
+);
+--
+ERROR: Default value expressions cannot reference columns [at 2:19]
+  a INT64 DEFAULT b,
+                  ^
+==
+
 [language_features=V_1_3_COLUMN_DEFAULT_VALUE]
 [no_enable_literal_replacement]
 create table t (a int32 default c+1);
@@ -4098,6 +4110,16 @@ create table t (a INT64, b int64 default SUM(1.1) OVER ());
 --
 ERROR: Analytic functions cannot be used inside a column default expression [at 1:42]
 create table t (a INT64, b int64 default SUM(1.1) OVER ());
+                                         ^
+==
+
+# Column default value: aggregate function (disallowed).
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE]
+[no_enable_literal_replacement]
+create table t (a INT64, b int64 default AVG(1));
+--
+ERROR: Aggregate function AVG not allowed in a column default expression [at 1:42]
+create table t (a INT64, b int64 default AVG(1));
                                          ^
 ==
 
@@ -4270,6 +4292,92 @@ CreateTableStmt
         | +-Literal(type=INT32, value=1)
         +-sql="1"
 ==
+
+# CREATE TABLE DEFAULT with lambda
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[no_enable_literal_replacement]
+CREATE TABLE t (c ARRAY<STRING> DEFAULT ARRAY_FILTER(['a'], c -> c = 'a'));
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+  +-ColumnDefinition
+    +-name="c"
+    +-type=ARRAY<STRING>
+    +-column=t.c#2
+    +-default_value=
+      +-ColumnDefaultValue
+        +-expression=
+        | +-FunctionCall(ZetaSQL:array_filter(ARRAY<STRING>, LAMBDA(STRING->BOOL)) -> ARRAY<STRING>)
+        |   +-FunctionArgument
+        |   | +-expr=
+        |   |   +-Literal(type=ARRAY<STRING>, value=["a"])
+        |   +-FunctionArgument
+        |     +-inline_lambda=
+        |       +-InlineLambda
+        |         +-argument_list=[$lambda_arg.c#1]
+        |         +-body=
+        |           +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |             +-ColumnRef(type=STRING, column=$lambda_arg.c#1)
+        |             +-Literal(type=STRING, value="a")
+        +-sql="ARRAY_FILTER(['a'], c -> c = 'a')"
+==
+
+# CREATE TABLE DEFAULT with lambda and using previous column as argument.
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[no_enable_literal_replacement]
+CREATE TABLE t (a STRING, c ARRAY<STRING> DEFAULT ARRAY_FILTER(['a'], a -> a = 'a'));
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+  +-ColumnDefinition(name="a", type=STRING, column=t.a#1)
+  +-ColumnDefinition
+    +-name="c"
+    +-type=ARRAY<STRING>
+    +-column=t.c#3
+    +-default_value=
+      +-ColumnDefaultValue
+        +-expression=
+        | +-FunctionCall(ZetaSQL:array_filter(ARRAY<STRING>, LAMBDA(STRING->BOOL)) -> ARRAY<STRING>)
+        |   +-FunctionArgument
+        |   | +-expr=
+        |   |   +-Literal(type=ARRAY<STRING>, value=["a"])
+        |   +-FunctionArgument
+        |     +-inline_lambda=
+        |       +-InlineLambda
+        |         +-argument_list=[$lambda_arg.a#2]
+        |         +-body=
+        |           +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |             +-ColumnRef(type=STRING, column=$lambda_arg.a#2)
+        |             +-Literal(type=STRING, value="a")
+        +-sql="ARRAY_FILTER(['a'], a -> a = 'a')"
+==
+
+# CREATE TABLE DEFAULT with lambda and accessing previous column.
+[language_features=V_1_3_COLUMN_DEFAULT_VALUE,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[no_enable_literal_replacement]
+CREATE TABLE t (a STRING, c ARRAY<STRING> DEFAULT ARRAY_FILTER(['a'], c -> c = a));
+--
+ERROR: No matching signature for function ARRAY_FILTER for argument types: ARRAY<STRING>, LAMBDA. Supported signatures: ARRAY_FILTER(ARRAY, LAMBDA(ANY->BOOL)); ARRAY_FILTER(ARRAY, LAMBDA((ANY, INT64)->BOOL)) [at 1:51]
+CREATE TABLE t (a STRING, c ARRAY<STRING> DEFAULT ARRAY_FILTER(['a'], c -> c ...
+                                                  ^
+==
+
+# CREATE TABLE DEFAULT with lambda and accessing previous column.
+# This should be working instead of giving error.
+[language_features=V_1_2_GENERATED_COLUMNS,V_1_3_INLINE_LAMBDA_ARGUMENT]
+[no_enable_literal_replacement]
+CREATE TABLE T (
+  a AS (b),
+  b AS (ARRAY_FILTER([1, 2, 3], a -> a = 2)),
+)
+--
+ERROR: No matching signature for function ARRAY_FILTER for argument types: ARRAY<INT64>, LAMBDA. Supported signatures: ARRAY_FILTER(ARRAY, LAMBDA(ANY->BOOL)); ARRAY_FILTER(ARRAY, LAMBDA((ANY, INT64)->BOOL)) [at 3:9]
+  b AS (ARRAY_FILTER([1, 2, 3], a -> a = 2)),
+        ^
+==
+
 
 [language_features={{|V_1_3_COLLATION_SUPPORT}}]
 create table t (a int64, b string collate 'und:ci');

@@ -1,4 +1,4 @@
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
+
 
 # Utility statements
 
@@ -64,5 +64,9 @@ This statement uses the following variables:
 + `pattern`: Provides a pattern, such as a `STRING`, that object names should
   match.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [explain-statement]: #explain
+
+<!-- mdlint on -->
 

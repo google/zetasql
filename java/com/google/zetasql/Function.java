@@ -57,6 +57,7 @@ public class Function implements Serializable {
 
   /**
    * Construct a Function.
+   *
    * @param namePath Name (and namespaces) of the function.
    * @param group
    * @param mode Enum value, one of SCALAR, AGGREGATE, ANALYTIC.
@@ -64,8 +65,11 @@ public class Function implements Serializable {
    * @param options
    */
   public Function(
-      List<String> namePath, String group, Mode mode,
-      List<FunctionSignature> signatures, FunctionOptionsProto options) {
+      List<String> namePath,
+      String group,
+      Mode mode,
+      List<FunctionSignature> signatures,
+      FunctionOptionsProto options) {
     Preconditions.checkArgument(!namePath.isEmpty());
     this.namePath = ImmutableList.copyOf(namePath);
     this.group = Preconditions.checkNotNull(group);
@@ -73,6 +77,28 @@ public class Function implements Serializable {
     this.signatures = ImmutableList.copyOf(signatures);
     this.options = Preconditions.checkNotNull(options);
     checkWindowSupportOptions();
+  }
+
+  public Function(
+      List<String> namePath, String group, Mode mode, List<FunctionSignature> signatures) {
+    this(namePath, group, mode, signatures, FunctionOptionsProto.getDefaultInstance());
+  }
+
+  public Function(
+      String name,
+      String group,
+      Mode mode,
+      List<FunctionSignature> signatures,
+      FunctionOptionsProto options) {
+    this(Arrays.asList(name), group, mode, signatures, options);
+  }
+
+  public Function(String name, String group, Mode mode, List<FunctionSignature> signatures) {
+    this(Arrays.asList(name), group, mode, signatures);
+  }
+
+  public Function(String name, String group, Mode mode) {
+    this(name, group, mode, ImmutableList.<FunctionSignature>of());
   }
 
   public FunctionProto serialize(FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
@@ -105,28 +131,6 @@ public class Function implements Serializable {
     return new Function(
         proto.getNamePathList(), proto.getGroup(), proto.getMode(), signatures,
         proto.getOptions());
-  }
-
-  public Function(
-      List<String> namePath, String group, Mode mode,
-      List<FunctionSignature> signatures) {
-    this(namePath, group, mode, signatures, FunctionOptionsProto.getDefaultInstance());
-  }
-
-  public Function(
-      String name, String group, Mode mode,
-      List<FunctionSignature> signatures, FunctionOptionsProto options) {
-    this(Arrays.asList(name), group, mode, signatures, options);
-  }
-
-  public Function(
-      String name, String group, Mode mode,
-      List<FunctionSignature> signatures) {
-    this(Arrays.asList(name), group, mode, signatures);
-  }
-
-  public Function(String name, String group, Mode mode) {
-    this(name, group, mode, ImmutableList.<FunctionSignature>of());
   }
 
   public String getName() {

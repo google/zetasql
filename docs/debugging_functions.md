@@ -63,3 +63,7 @@ WHERE IF(x > 0, true, ERROR(FORMAT('Error: x must be positive but is %t', x)));'
 Error: x must be positive but is -1
 ```
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+<!-- mdlint on -->
+

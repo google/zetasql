@@ -1,5 +1,4 @@
 
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
 
 # Data types
 
@@ -26,16 +25,14 @@ properties in mind:
 <tbody>
 <tr>
 <td>Nullable</td>
-<td style="white-space:nowrap"><code>NULL</code> is a valid value.</td>
+<td><code>NULL</code> is a valid value.</td>
 <td>
-
-All data types.
-
+  All data types.
 </td>
 </tr>
 <tr>
 <td>Orderable</td>
-<td style="white-space:nowrap">Can be used in an <code>ORDER BY</code> clause.</td>
+<td>Can be used in an <code>ORDER BY</code> clause.</td>
 <td>All data types except for:
 <ul>
 <li>PROTO</li>
@@ -47,7 +44,7 @@ All data types.
 </tr>
 <tr>
 <td>Groupable</td>
-<td style="white-space:nowrap">Can generally appear in an expression following<br>
+<td>Can generally appear in an expression following<br>
   <code>GROUP BY</code>,
   <code>DISTINCT</code>, and <code>PARTITION BY</code>.<br>
   However, <code>PARTITION BY</code> expressions cannot include<br>
@@ -101,13 +98,11 @@ JSON comparisons are not supported.
 <br /><br />
 All types that support comparisons
 can be used in a <code>JOIN</code> condition. See
+<a href="https://github.com/google/zetasql/blob/master/docs/query-syntax.md#join_types">JOIN Types</a>
 
-<a href="https://github.com/google/zetasql/blob/master/docs/query-syntax.md#join_types">
+for an explanation of join conditions.</td>
+</tr>
 
-JOIN Types
-</a>
-
-for an explanation of join conditions.</td></tr>
 </tbody>
 </table>
 
@@ -129,8 +124,10 @@ for an explanation of join conditions.</td></tr>
 </table>
 
 An ARRAY is an ordered list of zero or more elements of non-ARRAY values.
+Elements in an array must share the same type.
+
 ARRAYs of ARRAYs are not allowed. Queries that would produce an ARRAY of
-ARRAYs will return an error. Instead a STRUCT must be inserted between the
+ARRAYs will return an error. Instead, a STRUCT must be inserted between the
 ARRAYs using the `SELECT AS STRUCT` construct.
 
 An empty ARRAY and a `NULL` ARRAY are two distinct values. ARRAYs can contain
@@ -194,6 +191,12 @@ the two ARRAYs because ARRAYs cannot hold other ARRAYs directly.</td>
 </tr>
 <tbody>
 </table>
+
+### Constructing an ARRAY 
+<a id="constructing_an_array"></a>
+
+You can construct an ARRAY using array literals or array functions. To learn
+how, see [Working with arrays][working-with-arrays].
 
 ## Boolean type
 
@@ -492,7 +495,8 @@ Integers are numeric values that do not have fractional components.
 </tbody>
 </table>
 
-### Decimal types
+### Decimal types 
+<a id="decimal_types"></a>
 
 Decimal type values are numeric values with fixed decimal precision and scale.
 Precision is the number of digits that the number contains. Scale is
@@ -579,6 +583,32 @@ output can be non-finite. In general functions do not introduce `NaN`s or
 `+/-inf`. However, specific functions like `IEEE_DIVIDE` can return non-finite
 values on finite input. All such cases are noted explicitly in
 [Mathematical functions][mathematical-functions].
+
+Floating point values are approximations.
+
++ The binary format used to represent floating point values can only represent
+  a subset of the numbers between the most positive number and most
+  negative number in the value range. This enables efficient handling of a
+  much larger range than would be possible otherwise.
+  Numbers that are not exactly representable are approximated by utilizing a
+  close value instead. For example, `0.1` cannot be represented as an integer
+  scaled by a power of `2`. When this value is displayed as a string, it is
+  rounded to a limited number of digits, and the value approximating `0.1`
+  might appear as `"0.1"`, hiding the fact that the value is not precise.
+  In other situations, the approximation can be visible.
++ Summation of floating point values might produce surprising results because
+  of [limited precision][floating-point-accuracy]. For example,
+  `(1e30 + 1e-20) - 1e30 = 0`, while `(1e30 - 1e30) + 1e-20 = 1e-20`. This is
+  because the floating point value does not have enough precision to
+  represent `(1e30 + 1e-20)`, and the result is rounded to `1e30`.
+  This example also shows that the result of the `SUM` aggregate function of
+  floating points values depends on the order in which the values are
+  accumulated. In general, this order is not deterministic and therefore the
+  result is not deterministic. Thus, the resulting `SUM` of
+  floating point values might not be deterministic and two executions of the
+  same query on the same tables might produce different results.
++ If the above points are concerning, use a
+  [decimal type][decimal-types] instead.
 
 ##### Mathematical function examples
 
@@ -740,6 +770,13 @@ fully-qualified ENUM type name.
 See [Using Protocol Buffers][protocol-buffers]
 for more information.
 
+### Constructing a PROTO 
+<a id="constructing_a_proto"></a>
+
+You can construct a PROTO with the `NEW` keyword or with the
+`SELECT AS typename` statement. To learn how, see
+[Using Protocol Buffers][protocol-buffers].
+
 ### Limited comparisons for PROTO
 
 No direct comparison of PROTO values is supported. There are a couple possible
@@ -859,7 +896,7 @@ STRUCT&lt;inner_array ARRAY&lt;INT64&gt;&gt;
 </table>
 
 ### Constructing a STRUCT 
-<a id="constructing-a-struct"></a>
+<a id="constructing_a_struct"></a>
 
 #### Tuple syntax
 
@@ -1209,19 +1246,41 @@ seconds are only observable through functions that measure real-world time. In
 these functions, it is possible for a timestamp second to be skipped or repeated
 when there is a leap second.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[floating-point-accuracy]: https://en.wikipedia.org/wiki/Floating-point_arithmetic#Accuracy_problems
+
 [protocol-buffers-dev-guide]: https://developers.google.com/protocol-buffers/docs/overview
+
 [tz-database]: http://www.iana.org/time-zones
+
 [tz-database-list]: http://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+
 [ogc-sfs]: http://www.opengeospatial.org/standards/sfs#downloads
+
 [WGS84-reference-ellipsoid]: https://en.wikipedia.org/wiki/World_Geodetic_System
+
+[decimal-types]: #decimal_types
+
 [timestamp-type]: #timestamp_type
+
 [date-type]: #date_type
+
 [datetime-type]: #datetime_type
+
 [time-type]: #time_type
+
 [interval-type]: #interval_type
+
 [protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md
-[lexical-literals]: https://github.com/google/zetasql/blob/master/docs/lexical#literals.md
+
+[lexical-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#literals
+
+[working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#constructing_arrays
 
 [geography-functions]: https://github.com/google/zetasql/blob/master/docs/geography_functions.md
+
 [mathematical-functions]: https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md
+
+<!-- mdlint on -->
 

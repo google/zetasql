@@ -258,6 +258,15 @@ absl::Status Resolver::ResolveStatement(
       }
       break;
 
+    case AST_CREATE_PRIVILEGE_RESTRICTION_STATEMENT:
+      if (language().SupportsStatementKind(
+              RESOLVED_CREATE_PRIVILEGE_RESTRICTION_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveCreatePrivilegeRestrictionStatement(
+            statement->GetAsOrDie<ASTCreatePrivilegeRestrictionStatement>(),
+            &stmt));
+      }
+      break;
+
     case AST_CREATE_ROW_ACCESS_POLICY_STATEMENT:
       if (language().SupportsStatementKind(
               RESOLVED_CREATE_ROW_ACCESS_POLICY_STMT)) {
@@ -438,6 +447,15 @@ absl::Status Resolver::ResolveStatement(
       }
       break;
 
+    case AST_DROP_PRIVILEGE_RESTRICTION_STATEMENT:
+      if (language().SupportsStatementKind(
+              RESOLVED_DROP_PRIVILEGE_RESTRICTION_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveDropPrivilegeRestrictionStatement(
+            statement->GetAsOrDie<ASTDropPrivilegeRestrictionStatement>(),
+            &stmt));
+      }
+      break;
+
     case AST_DROP_ROW_ACCESS_POLICY_STATEMENT:
       if (language().SupportsStatementKind(
               RESOLVED_DROP_ROW_ACCESS_POLICY_STMT)) {
@@ -533,6 +551,14 @@ absl::Status Resolver::ResolveStatement(
       if (language().SupportsStatementKind(RESOLVED_ALTER_DATABASE_STMT)) {
         ZETASQL_RETURN_IF_ERROR(ResolveAlterDatabaseStatement(
             statement->GetAsOrDie<ASTAlterDatabaseStatement>(), &stmt));
+      }
+      break;
+    case AST_ALTER_PRIVILEGE_RESTRICTION_STATEMENT:
+      if (language().SupportsStatementKind(
+              RESOLVED_ALTER_PRIVILEGE_RESTRICTION_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveAlterPrivilegeRestrictionStatement(
+            statement->GetAsOrDie<ASTAlterPrivilegeRestrictionStatement>(),
+            &stmt));
       }
       break;
     case AST_ALTER_ROW_ACCESS_POLICY_STATEMENT:
@@ -877,16 +903,13 @@ absl::Status Resolver::ResolveColumnDefaultExpression(
     const ASTExpression* ast_column_default, const NameList& column_name_list,
     const Type* opt_type,
     std::unique_ptr<ResolvedColumnDefaultValue>* default_value) {
-  static constexpr char kComputedColumn[] = "a column default expression";
-
-  const std::shared_ptr<const NameScope> target_scope =
-      std::make_shared<NameScope>(column_name_list);
-
-  ZETASQL_RET_CHECK_EQ(column_default_expression_validator_.has_value(), true);
+  static constexpr char kDefaultColumn[] = "a column default expression";
+  ZETASQL_RET_CHECK(default_expr_access_error_name_scope_.has_value());
+  ZETASQL_RET_CHECK_NE(default_expr_access_error_name_scope_.value(), nullptr);
   std::unique_ptr<const ResolvedExpr> resolved_expression;
-  ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_column_default,
-                                    /*name_scope=*/target_scope.get(),
-                                    kComputedColumn, &resolved_expression));
+  ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(
+      ast_column_default, default_expr_access_error_name_scope_.value(),
+      kDefaultColumn, &resolved_expression));
 
   if (opt_type == nullptr) {
     return MakeSqlErrorAt(ast_column_default)
@@ -960,24 +983,29 @@ absl::Status Resolver::ResolveColumnDefinitionList(
     }
   }
 
-  // Resolve all columns with default expressions.
-  for (const auto& column : columns_with_default_value) {
-    const IdString column_name = column->name()->GetAsIdString();
-    zetasql_base::VarSetter<absl::optional<std::function<bool(const IdString&)>>> setter_func(
-        &column_default_expression_validator_,
-        [&id_to_column_definition_map](const IdString& column_name) {
-          return zetasql_base::ContainsKey(id_to_column_definition_map, column_name);
-        });
-    ZETASQL_ASSIGN_OR_RETURN(
-        std::unique_ptr<const ResolvedColumnDefinition> column_definition,
-        ResolveColumnDefinitionNoCache(column, table_name_id_string,
-                                       &column_name_list));
-
-    ZETASQL_RET_CHECK(column_definition->default_value() != nullptr);
-    ZETASQL_RET_CHECK(
-        id_to_column_def_map.emplace(column_name, std::move(column_definition))
-            .second)
-        << column_name;
+  if (!columns_with_default_value.empty()) {
+    std::vector<IdString> column_names;
+    for (const auto& column : ast_column_definitions) {
+      column_names.push_back(column->name()->GetAsIdString());
+    }
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<NameScope> access_error_name_scope,
+                     CreateNameScopeWithAccessErrorForDefaultExpr(
+                         table_name_id_string, column_names));
+    zetasql_base::VarSetter<absl::optional<const NameScope*>> var_setter(
+        &default_expr_access_error_name_scope_, access_error_name_scope.get());
+    // Resolve all columns with default expressions.
+    for (const auto& column : columns_with_default_value) {
+      const IdString column_name = column->name()->GetAsIdString();
+      ZETASQL_ASSIGN_OR_RETURN(
+          std::unique_ptr<const ResolvedColumnDefinition> column_definition,
+          ResolveColumnDefinitionNoCache(column, table_name_id_string,
+                                         &column_name_list));
+      ZETASQL_RET_CHECK(column_definition->default_value() != nullptr);
+      ZETASQL_RET_CHECK(id_to_column_def_map
+                    .emplace(column_name, std::move(column_definition))
+                    .second)
+          << column_name;
+    }
   }
 
   // Resolve generated columns.
@@ -3341,7 +3369,13 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
   const ASTStringLiteral* code = ast_statement->code();
   const ASTSqlFunctionBody* sql_function_body =
       ast_statement->sql_function_body();
-  if (function_language == nullptr && sql_function_body == nullptr) {
+  const bool is_remote =
+      ast_statement->is_remote() ||
+      (function_language != nullptr &&
+       absl::AsciiStrToUpper(function_language->GetAsString()) == "REMOTE");
+
+  if (!is_remote && function_language == nullptr &&
+      sql_function_body == nullptr) {
     return MakeSqlErrorAt(ast_statement)
            << "Function must specify LANGUAGE or have a SQL body in "
               "parentheses";
@@ -3359,13 +3393,14 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
              << "Function cannot specify a LANGUAGE and include a SQL body";
     }
   }
-  const bool is_sql_function = (function_language == nullptr);
+  const bool is_sql_function = (sql_function_body != nullptr);
   if (!is_sql_function && !has_return_type) {
     return MakeSqlErrorAt(ast_statement)
            << "Non-SQL functions must specify a return type";
   }
   const std::string language_string =
-      (is_sql_function ? "SQL" : function_language->GetAsString());
+      is_remote ? "REMOTE"
+                : (is_sql_function ? "SQL" : function_language->GetAsString());
   if (zetasql_base::CaseEqual(language_string, "SQL") && !is_sql_function) {
     return MakeSqlErrorAt(ast_statement->language())
            << "To write SQL functions, omit the LANGUAGE clause "
@@ -3462,6 +3497,12 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
           sql_));
   signature_options.set_additional_deprecation_warnings(
       additional_deprecation_warnings);
+  if (language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT)) {
+    // User defined function should disallow collation on function arguments.
+    // This constraint is temporary and we should support it later through some
+    // kind of language extensions.
+    signature_options.set_rejects_collation();
+  }
 
   std::unique_ptr<FunctionSignature> signature;
   if (has_return_type) {
@@ -3523,12 +3564,75 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
            << CreateScopeErrorString(create_scope) << " modifier.";
   }
 
+  std::unique_ptr<const ResolvedConnection> resolved_connection;
+
+  const ASTWithConnectionClause* with_connection =
+      ast_statement->with_connection_clause();
+  // If REMOTE keyword is used in CREATE FUNCTION
+  if (ast_statement->is_remote()) {
+    if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_REMOTE_FUNCTION)) {
+      return MakeSqlErrorAt(ast_statement)
+             << "Creating remote functions is not supported";
+    }
+
+    if (function_language != nullptr) {
+      // TODO: Improve the error message. Currently the error points
+      // at language identifier. It would be better for the error to point at
+      // LANGUAGE, but its location is not available from function_language.
+      return MakeSqlErrorAt(function_language)
+             << "REMOTE function cannot specify a LANGUAGE";
+    }
+
+    if (with_connection != nullptr) {
+      ZETASQL_RETURN_IF_ERROR(ResolveConnection(
+          with_connection->connection_clause()->connection_path(),
+          &resolved_connection));
+    }
+  } else if (with_connection != nullptr) {
+    if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_REMOTE_FUNCTION)) {
+      return MakeSqlErrorAt(with_connection)
+             << "WITH CONNECTION clause is not supported";
+    }
+
+    if (function_language != nullptr &&
+        zetasql_base::CaseEqual(function_language->GetAsString(), "REMOTE")) {
+      return MakeSqlErrorAt(with_connection)
+             << "To create a remote function using a connection, use 'CREATE "
+                "FUNCTION ... REMOTE WITH CONNECTION <connection>', instead "
+                "of using LANGUAGE clause";
+    }
+
+    return MakeSqlErrorAt(with_connection)
+           << "WITH CONNECTION clause should be preceded by keyword REMOTE "
+              "and can't be used together with LANGUAGE clause";
+  }
+
+  // If REMOTE keyword is used or LANGUAGE is set to "REMOTE" and the feature is
+  // enabled.
+  if (is_remote &&
+      language().LanguageFeatureEnabled(FEATURE_V_1_3_REMOTE_FUNCTION)) {
+    // Following checks are skipped for the current consumers without the
+    // feature enabled but using LANGUAGE REMOTE. They may have their own
+    // checking logic and throw their own errors.
+    if (sql_function_body != nullptr || code != nullptr) {
+      return MakeSqlErrorAt(ast_statement)
+             << "REMOTE function cannot include AS clause";
+    }
+
+    if (sql_security !=
+        ResolvedCreateStatementEnums::SQL_SECURITY_UNSPECIFIED) {
+      return MakeSqlErrorAt(ast_statement)
+             << "REMOTE function cannot include SQL SECURITY clause";
+    }
+  }
+
   *output = MakeResolvedCreateFunctionStmt(
       function_name, create_scope, create_mode, has_explicit_return_type,
       return_type, arg_info->ArgumentNames(), *signature, is_aggregate,
       language_string, code_string, std::move(resolved_aggregate_exprs),
       std::move(resolved_expr), std::move(resolved_options), sql_security,
-      ConvertDeterminismLevel(ast_statement->determinism_level()));
+      ConvertDeterminismLevel(ast_statement->determinism_level()), is_remote,
+      std::move(resolved_connection));
   MaybeRecordParseLocation(ast_statement->function_declaration()->name(),
                            output->get());
   return absl::OkStatus();
@@ -4348,47 +4452,108 @@ absl::Status Resolver::ResolveTableAndPredicate(
   return absl::OkStatus();
 }
 
+absl::Status Resolver::AddGranteeToExpressionList(
+    const ASTExpression* grantee,
+    std::vector<std::unique_ptr<const ResolvedExpr>>* grantee_expr_list) {
+  ZETASQL_RET_CHECK(grantee->node_kind() == AST_PARAMETER_EXPR ||
+            grantee->node_kind() == AST_STRING_LITERAL ||
+            grantee->node_kind() == AST_SYSTEM_VARIABLE_EXPR)
+      << grantee->DebugString();
+  std::unique_ptr<const ResolvedExpr> grantee_expr;
+  const NameScope empty_name_scope;
+  // Since we are resolving an expression that is a literal or parameter,
+  // we use an empty NameScope() here for resolution
+  ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(grantee, &empty_name_scope,
+                                    /*clause_name=*/"GRANTEE LIST",
+                                    &grantee_expr));
+  if (!analyzer_options_.allow_undeclared_parameters() &&
+      !grantee_expr->type()->IsString()) {
+    // Since the parser only allows parameters and STRING literals, and
+    // the type is not STRING, then this must be a parameter expression.
+    return MakeSqlErrorAt(grantee)
+           << "Query parameters in the GRANTEE list must be STRING type";
+  }
+  grantee_expr_list->push_back(std::move(grantee_expr));
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::AddGranteeToList(
+    const ASTExpression* grantee, std::vector<std::string>* grantee_list) {
+  if (grantee->node_kind() == AST_PARAMETER_EXPR) {
+    return MakeSqlErrorAt(grantee)
+           << "The GRANTEE list only supports string literals, not parameters";
+  } else if (grantee->node_kind() == AST_SYSTEM_VARIABLE_EXPR) {
+    return MakeSqlErrorAt(grantee)
+           << "The GRANTEE list only supports string literals, not system "
+           << "variables";
+  } else {
+    ZETASQL_RET_CHECK(grantee->node_kind() == AST_STRING_LITERAL)
+        << grantee->DebugString();
+  }
+  grantee_list->push_back(
+      grantee->GetAsOrDie<ASTStringLiteral>()->string_value());
+  return absl::OkStatus();
+}
+
 absl::Status Resolver::ResolveGranteeList(
     const ASTGranteeList* ast_grantee_list,
     std::vector<std::string>* grantee_list,
     std::vector<std::unique_ptr<const ResolvedExpr>>* grantee_expr_list) {
   for (const ASTExpression* grantee : ast_grantee_list->grantee_list()) {
     if (language().LanguageFeatureEnabled(FEATURE_PARAMETERS_IN_GRANTEE_LIST)) {
-      ZETASQL_RET_CHECK(grantee->node_kind() == AST_PARAMETER_EXPR ||
-                grantee->node_kind() == AST_STRING_LITERAL ||
-                grantee->node_kind() == AST_SYSTEM_VARIABLE_EXPR)
-          << grantee->DebugString();
-      std::unique_ptr<const ResolvedExpr> grantee_expr;
-      const NameScope empty_name_scope;
-      // Since we are resolving an expression that is a literal or parameter,
-      // we use an empty NameScope() here for resolution
-      ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(grantee, &empty_name_scope,
-                                        /*clause_name=*/"GRANTEE LIST",
-                                        &grantee_expr));
-      if (!analyzer_options_.allow_undeclared_parameters() &&
-          !grantee_expr->type()->IsString()) {
-        // Since the parser only allows parameters and STRING literals, and
-        // the type is not STRING, then this must be a parameter expression.
-        return MakeSqlErrorAt(grantee)
-            << "Query parameters in the GRANTEE list must be STRING type";
-      }
-      grantee_expr_list->push_back(std::move(grantee_expr));
+      ZETASQL_RETURN_IF_ERROR(AddGranteeToExpressionList(grantee, grantee_expr_list));
     } else {
-      if (grantee->node_kind() == AST_PARAMETER_EXPR) {
-        return MakeSqlErrorAt(grantee)
-            << "The GRANTEE list only supports string literals, not parameters";
-      } else if (grantee->node_kind() == AST_SYSTEM_VARIABLE_EXPR) {
-        return MakeSqlErrorAt(grantee)
-            << "The GRANTEE list only supports string literals, not system "
-            << "variables";
-      } else {
-        ZETASQL_RET_CHECK(grantee->node_kind() == AST_STRING_LITERAL)
-            << grantee->DebugString();
-      }
-      grantee_list->push_back(
-          grantee->GetAsOrDie<ASTStringLiteral>()->string_value());
+      ZETASQL_RETURN_IF_ERROR(AddGranteeToList(grantee, grantee_list));
     }
   }
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveCreatePrivilegeRestrictionStatement(
+    const ASTCreatePrivilegeRestrictionStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  // The statement type is used for error messaging.
+  constexpr absl::string_view statement_type = "CREATE PRIVILEGE RESTRICTION";
+  ResolvedCreateStatement::CreateScope create_scope;
+  ResolvedCreateStatement::CreateMode create_mode;
+
+  ZETASQL_RETURN_IF_ERROR(ResolveCreateStatementOptions(ast_statement, statement_type,
+                                                &create_scope, &create_mode));
+
+  ZETASQL_RET_CHECK(ast_statement->is_default_scope());
+
+  // The parser ensures that no lifetime modifier is specified on
+  // CREATE PRIVILEGE RESTRICTION statements.
+  ZETASQL_RET_CHECK(!ast_statement->is_temp())
+      << absl::StrFormat("CREATE TEMP %s is not supported", statement_type);
+
+  // If the table is not found, an error is returned.
+  const Table* table;
+  ZETASQL_RETURN_IF_ERROR(FindTable(ast_statement->name_path(), &table));
+
+  std::vector<std::unique_ptr<const ResolvedExpr>> restrictee_expr_list;
+  if (ast_statement->restrict_to() != nullptr) {
+    // We reuse ResolveGranteeList because restrictee_list and grantee_list have
+    // the same underlying types and are resolved the same way.
+    if (ast_statement->restrict_to()->restrictee_list() != nullptr) {
+      for (const ASTExpression* grantee :
+           ast_statement->restrict_to()->restrictee_list()->grantee_list()) {
+        ZETASQL_RETURN_IF_ERROR(
+            AddGranteeToExpressionList(grantee, &restrictee_expr_list));
+      }
+    }
+  }
+
+  std::vector<std::unique_ptr<const ResolvedPrivilege>> column_privilege_list;
+  ZETASQL_RETURN_IF_ERROR(ResolvePrivileges(ast_statement->column_privilege_list(),
+                                    table, &column_privilege_list));
+
+  *output = MakeResolvedCreatePrivilegeRestrictionStmt(
+      ast_statement->name_path()->ToIdentifierVector(), create_scope,
+      create_mode, std::move(column_privilege_list),
+      ast_statement->object_type()->GetAsString(),
+      std::move(restrictee_expr_list));
+
   return absl::OkStatus();
 }
 
@@ -4479,6 +4644,93 @@ absl::Status Resolver::ResolveCreateRowAccessPolicyStatement(
       create_mode, policy_name, target_path->ToIdentifierVector(), grantee_list,
       std::move(grantee_expr_list), std::move(resolved_table_scan),
       std::move(resolved_predicate), predicate_str);
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveAlterPrivilegeRestrictionStatement(
+    const ASTAlterPrivilegeRestrictionStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  // If the table is not found, an error is returned.
+  ZETASQL_RET_CHECK(ast_statement->path() != nullptr);
+  const Table* table;
+  ZETASQL_RETURN_IF_ERROR(FindTable(ast_statement->path(), &table));
+
+  std::vector<std::unique_ptr<const ResolvedAlterAction>>
+      resolved_alter_actions;
+  const ASTAlterActionList* action_list = ast_statement->action_list();
+  for (const ASTAlterAction* const action : action_list->actions()) {
+    std::unique_ptr<const ResolvedAlterAction> alter_action;
+    switch (action->node_kind()) {
+      case AST_RESTRICT_TO_CLAUSE: {
+        auto* restrict_to = action->GetAs<ASTRestrictToClause>();
+
+        std::vector<std::unique_ptr<const ResolvedExpr>> restrictee_expr_list;
+        // We reuse ResolveGranteeList because restrictee_list and
+        // grantee_list have the same underlying types and are resolved the
+        // same way.
+        for (const ASTExpression* grantee :
+             restrict_to->restrictee_list()->grantee_list()) {
+          ZETASQL_RETURN_IF_ERROR(
+              AddGranteeToExpressionList(grantee, &restrictee_expr_list));
+        }
+
+        alter_action =
+            MakeResolvedRestrictToAction(std::move(restrictee_expr_list));
+        break;
+      }
+      case AST_ADD_TO_RESTRICTEE_LIST_CLAUSE: {
+        auto* add_restrictees = action->GetAs<ASTAddToRestricteeListClause>();
+        std::vector<std::unique_ptr<const ResolvedExpr>> restrictee_expr_list;
+        // We reuse ResolveGranteeList because restrictee_list and
+        // grantee_list have the same underlying types and are resolved the
+        // same way.
+        if (add_restrictees->restrictee_list() != nullptr) {
+          for (const ASTExpression* grantee :
+               add_restrictees->restrictee_list()->grantee_list()) {
+            ZETASQL_RETURN_IF_ERROR(
+                AddGranteeToExpressionList(grantee, &restrictee_expr_list));
+          }
+        }
+        alter_action = MakeResolvedAddToRestricteeListAction(
+            add_restrictees->is_if_not_exists(),
+            std::move(restrictee_expr_list));
+        break;
+      }
+      case AST_REMOVE_FROM_RESTRICTEE_LIST_CLAUSE: {
+        auto* remove_restrictees =
+            action->GetAs<ASTRemoveFromRestricteeListClause>();
+        std::vector<std::unique_ptr<const ResolvedExpr>> restrictee_expr_list;
+        // We reuse ResolveGranteeList because restrictee_list and
+        // grantee_list have the same underlying types and are resolved the
+        // same way.
+        for (const ASTExpression* grantee :
+             remove_restrictees->restrictee_list()->grantee_list()) {
+          ZETASQL_RETURN_IF_ERROR(
+              AddGranteeToExpressionList(grantee, &restrictee_expr_list));
+        }
+        alter_action = MakeResolvedRemoveFromRestricteeListAction(
+            remove_restrictees->is_if_exists(),
+            std::move(restrictee_expr_list));
+        break;
+      }
+      default:
+        return MakeSqlErrorAt(action)
+               << "ALTER PRIVILEGE RESTRICTION doesn't support "
+               << action->GetNodeKindString() << " action.";
+    }
+    resolved_alter_actions.push_back(std::move(alter_action));
+  }
+
+  std::vector<std::unique_ptr<const ResolvedPrivilege>> column_privilege_list;
+  ZETASQL_RETURN_IF_ERROR(ResolvePrivileges(ast_statement->column_privilege_list(),
+                                    table, &column_privilege_list));
+
+  *output = MakeResolvedAlterPrivilegeRestrictionStmt(
+      ast_statement->path()->ToIdentifierVector(),
+      std::move(resolved_alter_actions), ast_statement->is_if_exists(),
+      std::move(column_privilege_list),
+      ast_statement->object_type()->GetAsString());
+
   return absl::OkStatus();
 }
 
@@ -5145,6 +5397,25 @@ absl::Status Resolver::ResolveDropTableFunctionStatement(
   return absl::OkStatus();
 }
 
+absl::Status Resolver::ResolveDropPrivilegeRestrictionStatement(
+    const ASTDropPrivilegeRestrictionStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  // If the table is not found, an error is returned.
+  ZETASQL_RET_CHECK(ast_statement->name_path() != nullptr);
+  const Table* table;
+  ZETASQL_RETURN_IF_ERROR(FindTable(ast_statement->name_path(), &table));
+
+  std::vector<std::unique_ptr<const ResolvedPrivilege>> column_privilege_list;
+  ZETASQL_RETURN_IF_ERROR(ResolvePrivileges(ast_statement->column_privilege_list(),
+                                    table, &column_privilege_list));
+  *output = MakeResolvedDropPrivilegeRestrictionStmt(
+      ast_statement->object_type()->GetAsString(),
+      ast_statement->is_if_exists(),
+      ast_statement->name_path()->ToIdentifierVector(),
+      std::move(column_privilege_list));
+  return absl::OkStatus();
+}
+
 absl::Status Resolver::ResolveDropRowAccessPolicyStatement(
     const ASTDropRowAccessPolicyStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
@@ -5371,16 +5642,30 @@ absl::Status Resolver::ResolveModuleStatement(
 }
 
 absl::Status Resolver::ResolvePrivileges(
-    const ASTPrivileges* ast_privileges,
+    const ASTPrivileges* ast_privileges, const Table* table,
     std::vector<std::unique_ptr<const ResolvedPrivilege>>* privilege_list) {
   ZETASQL_RET_CHECK(privilege_list->empty());
   if (!ast_privileges->is_all_privileges()) {
     for (const ASTPrivilege* privilege : ast_privileges->privileges()) {
       std::vector<std::string> unit_list;
       if (privilege->column_list() != nullptr) {
-        for (const ASTIdentifier* column :
+        for (const ASTIdentifier* column_id :
              privilege->column_list()->identifiers()) {
-          unit_list.push_back(column->GetAsString());
+          if (table != nullptr) {
+            const Column* column =
+                table->FindColumnByName(column_id->GetAsString());
+            if (column == nullptr) {
+              return MakeSqlErrorAt(column_id)
+                     << "Column " << column_id->GetAsString()
+                     << " not found in table";
+            }
+            // Columns are case-insensitive in ZetaSQL, although if we know
+            // the case used in the table, we might as well use that case to
+            // make downstream use of proto field paths easier.
+            unit_list.push_back(column->Name());
+          } else {
+            unit_list.push_back(column_id->GetAsString());
+          }
         }
       }
       privilege_list->push_back(MakeResolvedPrivilege(
@@ -5394,8 +5679,8 @@ absl::Status Resolver::ResolveGrantStatement(
     const ASTGrantStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
   std::vector<std::unique_ptr<const ResolvedPrivilege>> privilege_list;
-  ZETASQL_RETURN_IF_ERROR(
-      ResolvePrivileges(ast_statement->privileges(), &privilege_list));
+  ZETASQL_RETURN_IF_ERROR(ResolvePrivileges(ast_statement->privileges(),
+                                    /*table=*/nullptr, &privilege_list));
 
   std::vector<std::string> grantee_list;
   std::vector<std::unique_ptr<const ResolvedExpr>> grantee_expr_list;
@@ -5416,8 +5701,8 @@ absl::Status Resolver::ResolveRevokeStatement(
     const ASTRevokeStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
   std::vector<std::unique_ptr<const ResolvedPrivilege>> privilege_list;
-  ZETASQL_RETURN_IF_ERROR(
-      ResolvePrivileges(ast_statement->privileges(), &privilege_list));
+  ZETASQL_RETURN_IF_ERROR(ResolvePrivileges(ast_statement->privileges(),
+                                    /*table=*/nullptr, &privilege_list));
 
   std::vector<std::string> grantee_list;
   std::vector<std::unique_ptr<const ResolvedExpr>> grantee_expr_list;
@@ -5654,6 +5939,29 @@ absl::Status Resolver::ResolveAuxLoadDataStatement(
       std::move(statement_base_properties.connection),
       std::move(from_files_options_list));
   return absl::OkStatus();
+}
+
+absl::StatusOr<std::unique_ptr<NameScope>>
+Resolver::CreateNameScopeWithAccessErrorForDefaultExpr(
+    IdString table_name_id_string, std::vector<IdString>& all_column_names) {
+  IdStringHashMapCase<NameTarget> error_name_targets;
+  for (const IdString column_name : all_column_names) {
+    // Create a placeholder column. As these columns generates error upon
+    // access, we are using placeholder values for column_id and type.
+    ResolvedColumn defined_column(/*column_id=*/1, table_name_id_string,
+                                  column_name, types::Int64Type());
+    NameTarget name_target(defined_column, /*is_explicit=*/true);
+    name_target.SetAccessError(
+        NameTarget::EXPLICIT_COLUMN,
+        "Default value expressions cannot reference columns");
+    ZETASQL_RET_CHECK(
+        zetasql_base::InsertIfNotPresent(&error_name_targets, column_name, name_target));
+  }
+  std::unique_ptr<NameScope> target_scope;
+  std::shared_ptr<NameScope> empty_scope = std::make_shared<NameScope>();
+  ZETASQL_RETURN_IF_ERROR(empty_scope->CopyNameScopeWithOverridingNameTargets(
+      error_name_targets, &target_scope));
+  return target_scope;
 }
 
 }  // namespace zetasql

@@ -800,10 +800,6 @@ absl::Span<const CppValueArg* const> LetOp::cpp_assign() const {
   return GetArgs<CppValueArg>(kCppAssign);
 }
 
-absl::Span<CppValueArg* const> LetOp::mutable_cpp_assign() {
-  return GetMutableArgs<CppValueArg>(kAssign);
-}
-
 const RelationalOp* LetOp::body() const {
   return GetArg(kBody)->node()->AsRelationalOp();
 }
@@ -4379,10 +4375,6 @@ ValueExpr* LoopOp::mutable_initial_assign_expr(int i) {
 
 int LoopOp::num_loop_assign() const {
   return GetArgs<ExprArg>(kLoopAssign).size();
-}
-
-VariableId LoopOp::loop_assign_variable(int i) const {
-  return GetArgs<ExprArg>(kLoopAssign).at(i)->variable();
 }
 
 const ValueExpr* LoopOp::loop_assign_expr(int i) const {

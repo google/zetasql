@@ -50,6 +50,7 @@
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/types/struct_type.h"
@@ -213,9 +214,20 @@ class Resolver {
   // <mode>. Two more overloads of this function take simple error message
   // template or no error message argument (in which case a generic template is
   // used).
+  ABSL_DEPRECATED(
+      "Use CoerceExprToType function with <annotated_target_type> argument.")
+  // TODO: Refactor and remove the deprecated function in a quick
+  // follow up.
   absl::Status CoerceExprToType(
       const ASTNode* ast_location, const Type* target_type, CoercionMode mode,
       CoercionErrorMessageFunction make_error,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr) const;
+
+  // Same as the previous method but <annotated_target_type> is used to contain
+  // both target type and its annotation information.
+  absl::Status CoerceExprToType(
+      const ASTNode* ast_location, AnnotatedType annotated_target_type,
+      CoercionMode mode, CoercionErrorMessageFunction make_error,
       std::unique_ptr<const ResolvedExpr>* resolved_expr) const;
 
   // Similar to the above function, but provides an error message template
@@ -224,15 +236,33 @@ class Resolver {
   // this is more concise than specifying a full function. The name of
   // <target_type> will replace '$0' and the name of the argument type will
   // replace $1.
+  ABSL_DEPRECATED(
+      "Use CoerceExprToType function with <annotated_target_type> argument.")
   absl::Status CoerceExprToType(
       const ASTNode* ast_location, const Type* target_type, CoercionMode mode,
       absl::string_view error_template,
       std::unique_ptr<const ResolvedExpr>* resolved_expr) const;
 
+  // Same as the previous method but <annotated_target_type> is used to contain
+  // both target type and its annotation information.
+  absl::Status CoerceExprToType(
+      const ASTNode* ast_location, AnnotatedType annotated_target_type,
+      CoercionMode mode, absl::string_view error_template,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr) const;
+
   // Similar to CoerceExprToType above but using a generic error message when
   // <resolved_expr> cannot be coerced to <target_type>.
+  ABSL_DEPRECATED(
+      "Use CoerceExprToType function with <annotated_target_type> argument.")
   absl::Status CoerceExprToType(
-      const ASTNode* ast_location, const Type* target_type, CoercionMode mode,
+      const ASTNode* ast_location, const Type* target_type,  CoercionMode mode,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr) const;
+
+  // Same as the previous method but <annotated_target_type> is used to contain
+  // both target type and its annotation information.
+  absl::Status CoerceExprToType(
+      const ASTNode* ast_location, AnnotatedType annotated_target_type,
+      CoercionMode mode,
       std::unique_ptr<const ResolvedExpr>* resolved_expr) const;
 
   // Similar to the above function, but coerces to BOOL type.
@@ -411,12 +441,11 @@ class Resolver {
   // True if we are analyzing check constraint expression.
   bool analyzing_check_constraint_expression_;
 
-  // If we are analyzing a column default expression, this will contain a
-  // function that checks the input `column_name` against the list of column
-  // names of the current table. The function returns true if the name is found
-  // in the list, and false otherwise.
-  absl::optional<std::function<bool(const IdString& column_name)>>
-      column_default_expression_validator_ = std::nullopt;
+  // When analyzing columns with a default value expression, set to the
+  // NameScope containing all column names of the table being analyzed. This is
+  // used to generate better error messages when the expression accesses a table
+  // column.
+  absl::optional<const NameScope*> default_expr_access_error_name_scope_;
 
   AnalyzerOutputProperties analyzer_output_properties_;
 
@@ -1087,6 +1116,10 @@ class Resolver {
       decltype(absl::MakeCleanup(std::function<void()>()));
   AutoUnsetArgumentInfo SetArgumentInfo(const FunctionArgumentInfo* arg_info);
 
+  absl::Status ResolveCreatePrivilegeRestrictionStatement(
+      const ASTCreatePrivilegeRestrictionStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
   absl::Status ResolveCreateRowAccessPolicyStatement(
       const ASTCreateRowAccessPolicyStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
@@ -1166,6 +1199,10 @@ class Resolver {
 
   absl::Status ResolveDropTableFunctionStatement(
       const ASTDropTableFunctionStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
+  absl::Status ResolveDropPrivilegeRestrictionStatement(
+      const ASTDropPrivilegeRestrictionStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
   absl::Status ResolveDropRowAccessPolicyStatement(
@@ -1264,6 +1301,10 @@ class Resolver {
       const ASTAlterRowAccessPolicyStatement* ast_statement,
       std::unique_ptr<const ResolvedTableScan>* resolved_table_scan,
       std::vector<std::unique_ptr<const ResolvedAlterAction>>* alter_actions);
+
+  absl::Status ResolveAlterPrivilegeRestrictionStatement(
+      const ASTAlterPrivilegeRestrictionStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
 
   absl::Status ResolveAlterRowAccessPolicyStatement(
       const ASTAlterRowAccessPolicyStatement* ast_statement,
@@ -1480,6 +1521,15 @@ class Resolver {
           transform_output_column_list,
       std::vector<std::unique_ptr<const ResolvedAnalyticFunctionGroup>>*
           transform_analytic_function_group_list);
+
+  // Helper function to add grantee to grantee expression list.
+  absl::Status AddGranteeToExpressionList(
+      const ASTExpression* grantee,
+      std::vector<std::unique_ptr<const ResolvedExpr>>* grantee_expr_list);
+
+  // Helper function to add grantee to deprecated grantee list.
+  absl::Status AddGranteeToList(const ASTExpression* grantee,
+                                std::vector<std::string>* grantee_list);
 
   // Resolves the grantee list, which only contains string literals and
   // parameters (given the parser rules).  The <ast_grantee_list> may be
@@ -1878,8 +1928,9 @@ class Resolver {
   // <generalized_path> contains accesses to fields of a proto nested within a
   // struct. In this case, when parsing the output vectors, the first part of
   // <generalized_path> corresponds to <struct_path> and the last part to
-  // <field_descriptors>.
+  // <field_descriptors>. <function_name> is for generating error messages.
   absl::Status FindFieldsFromPathExpression(
+      absl::string_view function_name,
       const ASTGeneralizedPathExpression* generalized_path,
       const Type* root_type,
       std::vector<std::pair<int, const StructType::StructField*>>* struct_path,
@@ -2860,11 +2911,6 @@ class Resolver {
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
-  absl::Status ResolveFilterFieldsExpression(
-      const ASTFilterFieldsExpression* ast_filter_fields,
-      ExprResolutionInfo* expr_resolution_info,
-      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
-
   absl::Status ResolveReplaceFieldsExpression(
       const ASTReplaceFieldsExpression* ast_replace_fields,
       ExprResolutionInfo* expr_resolution_info,
@@ -2929,6 +2975,12 @@ class Resolver {
 
   absl::Status ResolveFunctionCall(
       const ASTFunctionCall* ast_function,
+      ExprResolutionInfo* expr_resolution_info,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
+
+  absl::Status ResolveFilterFieldsFunctionCall(
+      const ASTFunctionCall* ast_function,
+      const std::vector<const ASTExpression*>& function_arguments,
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
@@ -3011,19 +3063,21 @@ class Resolver {
   // Resolves a cast from <resolved_argument> to <to_type>.  If the
   // argument is a NULL literal, then converts it to the target type and
   // updates <resolved_argument> with a NULL ResolvedLiteral of the target
-  // type.  Otherwise, wraps <resolved_argument> with a new ResolvedCast.
-  // <return_null_on_error> indicates whether the cast should return a NULL
-  // value of the <target_type> in case of failures.
+  // type.  Otherwise, wraps <resolved_argument> with a new ResolvedCast whose
+  // <type_annotation_map> is nullptr. <return_null_on_error> indicates
+  // whether the cast should return a NULL value of the <target_type> in case of
+  // failures.
   absl::Status ResolveCastWithResolvedArgument(
       const ASTNode* ast_location, const Type* to_type,
       bool return_null_on_error,
       std::unique_ptr<const ResolvedExpr>* resolved_argument);
 
-  // Same as the previous method, but includes <format>, <time_zone>, and
-  // <type_params>. If <format> is specified, it is used as the format string
-  // for the cast.
+  // Same as the previous method, but includes <format>, <time_zone> and
+  // <type_params>. <to_annotated_type> is used to contain both type and its
+  // annotation information. If <format> is specified, it is used as the format
+  // string for the cast.
   absl::Status ResolveCastWithResolvedArgument(
-      const ASTNode* ast_location, const Type* to_type,
+      const ASTNode* ast_location, AnnotatedType to_annotated_type,
       std::unique_ptr<const ResolvedExpr> format,
       std::unique_ptr<const ResolvedExpr> time_zone,
       const TypeParameters& type_params,
@@ -3268,13 +3322,13 @@ class Resolver {
       std::vector<std::unique_ptr<const ResolvedColumnRef>>* parameter_list);
 
   // Resolve an expression for a DML INSERT or UPDATE targeted at a column
-  // with <target_type>.  Adds a cast if necessary and possible.  If a cast
-  // is impossible, this call returns OK without adding a cast, and relies on
-  // the caller to check if the expression type Equals the column type.
-  // (The caller can give better error messages with more context.)
+  // with <annotated_target_type>.  Adds a cast if necessary and possible.  If a
+  // cast is impossible, this call returns OK without adding a cast, and relies
+  // on the caller to check if the expression type Equals the column type. (The
+  // caller can give better error messages with more context.)
   absl::Status ResolveDMLValue(const ASTExpression* ast_value,
-                               const Type* target_type, const NameScope* scope,
-                               const char* clause_name,
+                               AnnotatedType annotated_target_type,
+                               const NameScope* scope, const char* clause_name,
                                CoercionErrorMessageFunction coercion_err_msg,
                                std::unique_ptr<const ResolvedDMLValue>* output);
 
@@ -3283,7 +3337,7 @@ class Resolver {
   // is the resolved column from source.
   absl::Status ResolveDMLValue(const ASTNode* ast_location,
                                const ResolvedColumn& referenced_column,
-                               const Type* target_type,
+                               AnnotatedType annotated_target_type,
                                CoercionErrorMessageFunction coercion_err_msg,
                                std::unique_ptr<const ResolvedDMLValue>* output);
 
@@ -3391,8 +3445,11 @@ class Resolver {
       std::vector<UpdateTargetInfo>* input_update_target_infos,
       UpdateItemAndLocation* merged_update_item);
 
+  // Resolves privileges, validating that the privileges are non-empty, and, if
+  // the table is not nullptr, validates that any column privileges correspond
+  // to columns that exist in the table.
   absl::Status ResolvePrivileges(
-      const ASTPrivileges* ast_privileges,
+      const ASTPrivileges* ast_privileges, const Table* table,
       std::vector<std::unique_ptr<const ResolvedPrivilege>>* privilege_list);
 
   // Resolves a sample scan. Adds the name of the weight column to
@@ -4036,6 +4093,12 @@ class Resolver {
   absl::StatusOr<std::unique_ptr<ResolvedColumnAnnotations>>
   MakeResolvedColumnAnnotationsWithCollation(
       const AnnotationMap* type_annotation_map);
+
+  // Creates a name scope with all column names with access errors. When default
+  // value expression references a column in the name scope, it throws error.
+  absl::StatusOr<std::unique_ptr<NameScope>>
+  CreateNameScopeWithAccessErrorForDefaultExpr(
+      IdString table_name_id_string, std::vector<IdString>& all_column_names);
 
   friend class AnalyticFunctionResolver;
   friend class FunctionResolver;

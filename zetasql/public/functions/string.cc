@@ -36,6 +36,7 @@
 #include "zetasql/public/functions/normalize_mode.pb.h"
 #include "zetasql/public/functions/util.h"
 #include "zetasql/public/strings.h"
+#include "zetasql/base/case.h"
 #include "zetasql/base/string_numbers.h"
 #include "absl/base/casts.h"
 #include <cstdint>
@@ -44,7 +45,6 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
-#include "zetasql/base/case.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"

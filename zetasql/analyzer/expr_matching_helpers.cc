@@ -163,6 +163,21 @@ absl::StatusOr<bool> IsSameExpressionForGroupBy(const ResolvedExpr* expr1,
           return false;
         }
       }
+      if (func1->collation_list().size() != func2->collation_list().size()) {
+        return false;
+      }
+      // If the function arguments are considered the same for group by, we
+      // assume the <collation_list> in expressions should be the same. Returns
+      // an internal error if that's not the case.
+      for (int idx = 0; idx < func1->collation_list().size(); ++idx) {
+        ZETASQL_RET_CHECK(func1->collation_list(idx).Equals(func2->collation_list(idx)))
+            << "Different collation_list in expressions: "
+            << ResolvedCollation::ToString(func1->collation_list()) << " vs "
+            << ResolvedCollation::ToString(func2->collation_list());
+        if (!func1->collation_list(idx).Equals(func2->collation_list(idx))) {
+          return false;
+        }
+      }
       break;
     }
     default:

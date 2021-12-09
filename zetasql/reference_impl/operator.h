@@ -53,6 +53,7 @@
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
+#include "zetasql/reference_impl/common.h"
 #include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/tuple.h"
 #include "zetasql/reference_impl/tuple_comparator.h"
@@ -105,21 +106,8 @@ class AlgebraArg {
   AlgebraArg& operator=(const AlgebraArg&) = delete;
   virtual ~AlgebraArg();
 
-  // Downcasts the argument to CppValueArg or nullptr.
-  virtual const CppValueArg* AsCppValueArg() const { return nullptr; }
-
-  // Downcasts the argument to ExprArg or nullptr.
-  virtual const ExprArg* AsExprArg() const { return nullptr; }
-
-  // Downcasts the argument to RelationalArg or nullptr.
-  virtual const RelationalArg* AsRelationalArg() const { return nullptr; }
-
-  virtual const InlineLambdaArg* AsInlineLambdaArg() const { return nullptr; }
-
   // Argument kind is usually set from an enum defined in the subclass of
   // AlgebraNode. Its interpretation is operator-specific.
-  int kind() const { return kind_; }
-  bool is_kind(int kind) const { return kind_ == kind; }
   void set_kind(int kind) { kind_ = kind; }
 
   bool has_node() const { return node_ != nullptr; }
@@ -137,7 +125,6 @@ class AlgebraArg {
   RelationalOp* mutable_relational_op();
   // Convenience method, returns InlineLambdaExpr or nullptr.
   const InlineLambdaExpr* inline_lambda_expr() const;
-  InlineLambdaExpr* mutable_inline_lambda_expr();
 
   // Returns a string representation of the operator for debugging. If
   // 'verbose' is true, prints more information.
@@ -208,8 +195,6 @@ class CppValueArg : public AlgebraArg {
   CppValueArg(const CppValueArg&) = delete;
   CppValueArg& operator=(const CppValueArg&) = delete;
 
-  const CppValueArg* AsCppValueArg() const override { return this; }
-
   // Creates a C++ value to represent the variable passed to the constructor.
   virtual std::unique_ptr<CppValueBase> CreateValue(
       EvaluationContext* context) const = 0;
@@ -240,8 +225,6 @@ class ExprArg : public AlgebraArg {
 
   ~ExprArg() override {}
 
-  const ExprArg* AsExprArg() const override { return this; }
-
   const Type* type() const { return type_; }
 
  private:
@@ -258,8 +241,6 @@ class InlineLambdaArg : public AlgebraArg {
   explicit InlineLambdaArg(std::unique_ptr<InlineLambdaExpr> lambda);
 
   ~InlineLambdaArg() override {}
-
-  const InlineLambdaArg* AsInlineLambdaArg() const override { return this; }
 };
 
 // Operator argument class used by SortOp and AggregateOp for key arguments.
@@ -345,10 +326,6 @@ class WindowFrameBoundaryArg final : public AlgebraArg {
 
   BoundaryType boundary_type() const {
     return boundary_type_;
-  }
-
-  const ValueExpr* boundary_offset_expr() const {
-    return boundary_offset_expr_.get();
   }
 
   bool IsUnbounded() const {
@@ -538,9 +515,6 @@ class WindowFrameArg final : public AlgebraArg {
   WindowFrameArg& operator=(const WindowFrameArg&) = delete;
   ~WindowFrameArg() override {}
 
-  // Sets evaluation context on the boundary offset expressions.
-  void SetContext(EvaluationContext* context) const;
-
   std::string DebugInternal(const std::string& indent,
                             bool verbose) const override;
 
@@ -637,7 +611,6 @@ class RelationalArg final : public AlgebraArg {
   RelationalArg(const RelationalArg&) = delete;
   RelationalArg& operator=(const RelationalArg&) = delete;
 
-  const RelationalArg* AsRelationalArg() const override { return this; }
   ~RelationalArg() override;
 };
 
@@ -658,9 +631,6 @@ class RelationalArg final : public AlgebraArg {
 class AggregateArgAccumulator {
  public:
   virtual ~AggregateArgAccumulator() {}
-
-  // Resets the accumulation.
-  virtual absl::Status Reset() = 0;
 
   // Accumulates 'input_row'. On success, returns true and populates
   // 'stop_accumulation' with whether the caller may skip subsequent calls to
@@ -721,9 +691,6 @@ class AggregateArg final : public ExprArg {
   std::string DebugInternal(const std::string& indent,
                             bool verbose) const override;
 
-  // Sets evaluation context on input expressions.
-  void SetContext(EvaluationContext* context) const;
-
  private:
   AggregateArg(const VariableId& variable,
                std::unique_ptr<AggregateFunctionCallExpr> function,
@@ -763,8 +730,6 @@ class AggregateArg final : public ExprArg {
   HavingModifierKind having_modifier_kind() const {
     return having_modifier_kind_;
   }
-
-  ResolvedFunctionCallBase::ErrorMode error_mode() const { return error_mode_; }
 
   // The fields to be aggregated.
   int input_field_list_size() const { return num_input_fields(); }
@@ -1098,9 +1063,6 @@ class AlgebraNode {
   const AlgebraArg* GetArg(int kind) const;
   AlgebraArg* GetMutableArg(int kind);
 
-  // Returns an argument that produces the given 'variable'.
-  const AlgebraArg* FindArgByVariable(const VariableId& variable) const;
-
   // Returns a repeated argument of the given 'kind', downcast to T.
   template <typename T>
   absl::Span<const T* const> GetArgs(int kind) const {
@@ -1389,7 +1351,6 @@ class LetOp final : public RelationalOp {
   absl::Span<ExprArg* const> mutable_assign();
 
   absl::Span<const CppValueArg* const> cpp_assign() const;
-  absl::Span<CppValueArg* const> mutable_cpp_assign();
 
   const RelationalOp* body() const;
   RelationalOp* mutable_body();
@@ -1608,7 +1569,6 @@ class GroupRowsOp : public RelationalOp {
   explicit GroupRowsOp(std::vector<std::unique_ptr<ExprArg>> columns);
 
   absl::Span<const ExprArg* const> columns() const;
-  absl::Span<ExprArg* const> mutable_columns();
 };
 
 // Partitions the input by <partition_keys>, and evaluates a number of analytic
@@ -1987,7 +1947,6 @@ class LoopOp final : public RelationalOp {
   const ValueExpr* initial_assign_expr(int i) const;
 
   int num_loop_assign() const;
-  VariableId loop_assign_variable(int i) const;
   const ValueExpr* loop_assign_expr(int i) const;
 
   RelationalOp* mutable_body();
@@ -2768,19 +2727,16 @@ class FunctionBody {
     kAnalytic
   };
 
-  FunctionBody(Mode mode,
-               const Type* output_type)
-      : mode_(mode),
-        output_type_(output_type) {}
+  FunctionBody(Mode mode, const Type* output_type)
+      : output_type_(output_type) {}
 
   FunctionBody(const FunctionBody&) = delete;
   FunctionBody& operator=(const FunctionBody&) = delete;
   virtual ~FunctionBody() {}
   virtual std::string debug_name() const = 0;
-  Mode mode() const { return mode_; }
   const Type* output_type() const { return output_type_; }
+
  private:
-  Mode mode_;
   const Type* output_type_;  // Not owned.
 };
 
@@ -2860,10 +2816,11 @@ class AggregateFunctionBody : public FunctionBody {
   const int num_input_fields() const { return num_input_fields_; }
   const Type* input_type() const { return input_type_; }
 
-  // 'args' contains the constant arguments for the aggregation
-  // function (e.g., the delimeter for STRING_AGG).
+  // <args> contains the constant arguments for the aggregation
+  // function (e.g., the delimeter for STRING_AGG). <collator_list> indicates
+  // the collations used for aggregate function.
   virtual absl::StatusOr<std::unique_ptr<AggregateAccumulator>>
-  CreateAccumulator(absl::Span<const Value> args,
+  CreateAccumulator(absl::Span<const Value> args, CollatorList collator_list,
                     EvaluationContext* context) const = 0;
 
  private:
@@ -3170,8 +3127,6 @@ class InlineLambdaExpr : public AlgebraNode {
                    std::unique_ptr<ValueExpr> body);
 
   enum ArgKind { kArguments, kBody };
-
-  const ValueExpr* body() const;
 
   ValueExpr* mutable_body();
 };
@@ -3838,11 +3793,6 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
       absl::Span<const TupleData* const> tuples_for_row,
       const std::vector<Value>& original_elements, EvaluationContext* context,
       std::vector<UpdatedElement>* new_elements) const;
-
-  // Verifies that 'rows' does not contain any duplicate values of the primary
-  // key (if there is one).
-  absl::Status VerifyNoDuplicatePrimaryKeys(
-      const std::vector<std::vector<Value>>& rows) const;
 };
 
 // Represents a DML INSERT statement.

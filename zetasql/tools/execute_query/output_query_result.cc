@@ -16,7 +16,9 @@
 
 #include "zetasql/tools/execute_query/output_query_result.h"
 
+#include <algorithm>
 #include <cstdint>
+#include <string>
 
 #include "zetasql/public/strings.h"
 #include "zetasql/reference_impl/type_helpers.h"

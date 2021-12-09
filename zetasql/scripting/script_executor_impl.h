@@ -755,6 +755,9 @@ class ScriptExecutorImpl : public ScriptExecutor {
   // Features triggered by current script.
   zetasql_base::flat_set<ScriptExecutorStateProto::ScriptFeature> triggered_features_;
 
+  // Sql feature usage proto used for tracking script feature usage
+  ScriptExecutorStateProto::ScriptFeatureUsage sql_feature_usage_;
+
   // Type of @@error.stack_trace.
   // Lazily initialized in GetStackTraceSystemVariableType() to
   //   ARRAY<STRUCT<line INT64, column INT64, filename STRING, location STRING>>

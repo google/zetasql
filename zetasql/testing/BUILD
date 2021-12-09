@@ -68,13 +68,13 @@ cc_library(
     deps = [
         "//zetasql/base:map_util",
         "//zetasql/base:status",
+        "//zetasql/base:strings",
         "//zetasql/public:catalog",
         "//zetasql/public:function",
         "//zetasql/public:simple_catalog",
         "//zetasql/public:type",
         "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
     ],
 )
 

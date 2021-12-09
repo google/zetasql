@@ -32,9 +32,9 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/base/case.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "zetasql/base/case.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/ret_check.h"
@@ -390,6 +390,17 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
       }
       break;
 
+    case AST_CREATE_PRIVILEGE_RESTRICTION_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_CREATE_PRIVILEGE_RESTRICTION_STMT)) {
+        const ASTCreatePrivilegeRestrictionStatement* stmt =
+            statement->GetAsOrDie<ASTCreatePrivilegeRestrictionStatement>();
+        zetasql_base::InsertIfNotPresent(table_names_,
+                                stmt->name_path()->ToIdentifierVector());
+        return absl::OkStatus();
+      }
+      break;
+
     case AST_CREATE_ROW_ACCESS_POLICY_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_CREATE_ROW_ACCESS_POLICY_STMT)) {
@@ -604,6 +615,17 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
       }
       break;
 
+    case AST_DROP_PRIVILEGE_RESTRICTION_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_DROP_PRIVILEGE_RESTRICTION_STMT)) {
+        const ASTDropPrivilegeRestrictionStatement* stmt =
+            statement->GetAs<ASTDropPrivilegeRestrictionStatement>();
+        zetasql_base::InsertIfNotPresent(table_names_,
+                                stmt->name_path()->ToIdentifierVector());
+        return absl::OkStatus();
+      }
+      break;
+
     case AST_DROP_ROW_ACCESS_POLICY_STATEMENT:
     case AST_DROP_ALL_ROW_ACCESS_POLICIES_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
@@ -673,6 +695,16 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
         // Note that for a REVOKE statement, the table name is not inserted
         // into table_names_. Engines that need to know about a table
         // referenced by REVOKE statement should handle that themselves.
+        return absl::OkStatus();
+      }
+      break;
+    case AST_ALTER_PRIVILEGE_RESTRICTION_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_ALTER_PRIVILEGE_RESTRICTION_STMT)) {
+        const ASTAlterPrivilegeRestrictionStatement* stmt =
+            statement->GetAs<ASTAlterPrivilegeRestrictionStatement>();
+        zetasql_base::InsertIfNotPresent(table_names_,
+                                stmt->path()->ToIdentifierVector());
         return absl::OkStatus();
       }
       break;

@@ -171,8 +171,15 @@ This function returns 64 bytes.
 SELECT SHA512("Hello World") as sha512;
 ```
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [hash-link-to-farmhash-github]: https://github.com/google/farmhash
+
 [hash-link-to-md5-wikipedia]: https://en.wikipedia.org/wiki/MD5
+
 [hash-link-to-sha-1-wikipedia]: https://en.wikipedia.org/wiki/SHA-1
+
 [hash-link-to-sha-2-wikipedia]: https://en.wikipedia.org/wiki/SHA-2
+
+<!-- mdlint on -->
 

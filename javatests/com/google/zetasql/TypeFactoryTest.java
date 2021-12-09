@@ -435,8 +435,14 @@ public class TypeFactoryTest {
   }
 
   private static final class BadGeneratedProto extends GeneratedMessage {
+
     @Override
     public com.google.protobuf.Message.Builder newBuilderForType() {
+      return null;
+    }
+
+    @Override
+    protected com.google.protobuf.Message.Builder newBuilderForType(BuilderParent parent) {
       return null;
     }
 
@@ -452,11 +458,6 @@ public class TypeFactoryTest {
 
     @Override
     protected FieldAccessorTable internalGetFieldAccessorTable() {
-      return null;
-    }
-
-    @Override
-    protected com.google.protobuf.Message.Builder newBuilderForType(BuilderParent parent) {
       return null;
     }
   }

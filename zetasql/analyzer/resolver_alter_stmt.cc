@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/base/varsetter.h"
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/analyzer/resolver.h"
 #include "zetasql/parser/ast_node_kind.h"
@@ -331,6 +332,24 @@ absl::Status Resolver::ResolveAlterActions(
         }
         alter_actions->push_back(std::move(resolved_action));
       } break;
+      case AST_ALTER_COLUMN_SET_DEFAULT_ACTION: {
+        if (!language().LanguageFeatureEnabled(
+                FEATURE_V_1_3_COLUMN_DEFAULT_VALUE)) {
+          return MakeSqlErrorAt(action)
+                 << "Column default value is not supported";
+        }
+        return MakeSqlErrorAt(action)
+               << "ALTER TABLE ALTER COLUMN SET DEFAULT is not implemented";
+      } break;
+      case AST_ALTER_COLUMN_DROP_DEFAULT_ACTION: {
+        if (!language().LanguageFeatureEnabled(
+                FEATURE_V_1_3_COLUMN_DEFAULT_VALUE)) {
+          return MakeSqlErrorAt(action)
+                 << "Column default value is not supported";
+        }
+        return MakeSqlErrorAt(action)
+               << "ALTER TABLE ALTER COLUMN DROP DEFAULT is not implemented";
+      } break;
       case AST_SET_COLLATE_CLAUSE: {
         if (!language().LanguageFeatureEnabled(
                 FEATURE_V_1_3_COLLATION_SUPPORT) ||
@@ -485,12 +504,41 @@ absl::Status Resolver::ResolveAddColumnAction(
   }
 
   NameList column_name_list;
-  // We don't support fill expression, so can use cheaper method
-  // ResolveColumnDefinitionNoCache to resolve columns.
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<const ResolvedColumnDefinition> column_definition,
-      ResolveColumnDefinitionNoCache(column, table_name_id_string,
-                                     &column_name_list));
+  std::unique_ptr<const ResolvedColumnDefinition> column_definition;
+  if (column->schema()->default_expression() != nullptr) {
+    // Collect all active columns, include existing and new columns, minus
+    // dropped columns.
+    std::vector<IdString> all_column_names;
+    for (int i = 0; i < table->NumColumns(); ++i) {
+      const IdString column_name = MakeIdString(table->GetColumn(i)->Name());
+      if (columns_to_drop->find(column_name) == columns_to_drop->end()) {
+        all_column_names.push_back(column_name);
+      }
+    }
+    for (const IdString new_column_name : *new_columns) {
+      if (columns_to_drop->find(new_column_name) == columns_to_drop->end()) {
+        all_column_names.push_back(new_column_name);
+      }
+    }
+    // Add all column names to name scope with access error, so default value
+    // can't reference these columns.
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<NameScope> access_error_name_scope,
+                     CreateNameScopeWithAccessErrorForDefaultExpr(
+                         table_name_id_string, all_column_names));
+    // Set default_expr_access_error_name_scope_ activates all default value
+    // validation logic, which relies.
+    zetasql_base::VarSetter<absl::optional<const NameScope*>> var_setter(
+        &default_expr_access_error_name_scope_, access_error_name_scope.get());
+    // We can't move ResolveColumnDefinitionNoCache() out of the block, because
+    // default_expr_access_error_name_scope_ is only scoped in the block.
+    ZETASQL_ASSIGN_OR_RETURN(column_definition,
+                     ResolveColumnDefinitionNoCache(
+                         column, table_name_id_string, &column_name_list));
+  } else {
+    ZETASQL_ASSIGN_OR_RETURN(column_definition,
+                     ResolveColumnDefinitionNoCache(
+                         column, table_name_id_string, &column_name_list));
+  }
 
   *alter_action = MakeResolvedAddColumnAction(action->is_if_not_exists(),
                                               std::move(column_definition));

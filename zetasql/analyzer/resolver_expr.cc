@@ -81,6 +81,7 @@
 #include "zetasql/public/proto_util.h"
 #include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/sql_function.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/templated_sql_function.h"
 #include "zetasql/public/type.h"
@@ -112,6 +113,7 @@
 #include "absl/strings/strip.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/time.h"
+#include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "absl/types/variant.h"
 #include "zetasql/base/general_trie.h"
@@ -211,6 +213,10 @@ inline std::unique_ptr<ResolvedCast> MakeResolvedCast(
   }
 
   return result;
+}
+
+bool IsFilterFields(const Function* function) {
+  return zetasql_base::CaseEqual(function->SQLName(), "FILTER_FIELDS");
 }
 
 }  // namespace
@@ -837,7 +843,7 @@ absl::Status Resolver::ResolveExpr(
         return MakeSqlErrorAt(ast_expr)
                << "Analytic functions cannot be used inside generated columns";
       }
-      if (column_default_expression_validator_.has_value()) {
+      if (default_expr_access_error_name_scope_.has_value()) {
         return MakeSqlErrorAt(ast_expr)
                << "Analytic functions cannot be used inside a column default "
                << "expression";
@@ -856,10 +862,6 @@ absl::Status Resolver::ResolveExpr(
       return ResolveIntervalExpr(ast_expr->GetAsOrDie<ASTIntervalExpr>(),
                                  expr_resolution_info.get(), resolved_expr_out);
     }
-    case AST_FILTER_FIELDS_EXPRESSION:
-      return ResolveFilterFieldsExpression(
-          ast_expr->GetAsOrDie<ASTFilterFieldsExpression>(),
-          expr_resolution_info.get(), resolved_expr_out);
     case AST_REPLACE_FIELDS_EXPRESSION:
       return ResolveReplaceFieldsExpression(
           ast_expr->GetAsOrDie<ASTReplaceFieldsExpression>(),
@@ -1248,6 +1250,11 @@ absl::Status Resolver::MaybeResolvePathExpressionAsFunctionArgumentRef(
   return absl::OkStatus();
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolvePathExpressionAsExpression(
     const ASTPathExpression* path_expr,
     ExprResolutionInfo* expr_resolution_info,
@@ -1485,16 +1492,6 @@ absl::Status Resolver::ResolvePathExpressionAsExpression(
     ZETASQL_RETURN_IF_ERROR(
         generated_column_cycle_detector_->AddDependencyOn(first_name));
   }
-  if (column_default_expression_validator_.has_value()) {
-    // We are analyzing a column default value expression, and we detect a
-    // potential column dependency here. Check to see if `first_name` is
-    // an actual column name so we can return a proper error.
-    auto validator = column_default_expression_validator_.value();
-    if (validator(first_name)) {
-      return MakeSqlErrorAt(path_expr)
-             << "Default value expressions cannot reference columns";
-    }
-  }
   if (num_names_consumed == 0) {
     // No matching name could be found, so throw an error.
     if (generated_column_cycle_detector_ != nullptr) {
@@ -1530,6 +1527,11 @@ absl::Status Resolver::ResolvePathExpressionAsExpression(
   return absl::OkStatus();
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveParameterExpr(
     const ASTParameterExpr* param_expr,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -1550,7 +1552,7 @@ absl::Status Resolver::ResolveParameterExpr(
            << "Query parameters cannot be used inside CHECK"
            << " constraint expression";
   }
-  if (column_default_expression_validator_.has_value()) {
+  if (default_expr_access_error_name_scope_.has_value()) {
     return MakeSqlErrorAt(param_expr)
            << "Query parameters cannot be used inside a column default "
            << "expression";
@@ -1633,6 +1635,11 @@ absl::Status Resolver::ResolveParameterExpr(
   return absl::OkStatus();
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveDotIdentifier(
     const ASTDotIdentifier* dot_identifier,
     ExprResolutionInfo* expr_resolution_info,
@@ -2038,6 +2045,11 @@ absl::Status Resolver::ResolveExtensionFieldAccess(
   return absl::OkStatus();
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveDotGeneralizedField(
     const ASTDotGeneralizedField* dot_generalized_field,
     ExprResolutionInfo* expr_resolution_info,
@@ -2133,6 +2145,7 @@ static absl::Status GetLastSeenFieldTypeForReplaceFields(
 }
 
 absl::Status Resolver::FindFieldsFromPathExpression(
+    absl::string_view function_name,
     const ASTGeneralizedPathExpression* generalized_path, const Type* root_type,
     std::vector<std::pair<int, const StructType::StructField*>>* struct_path,
     std::vector<const google::protobuf::FieldDescriptor*>* field_descriptors) {
@@ -2179,7 +2192,8 @@ absl::Status Resolver::FindFieldsFromPathExpression(
           dot_generalized_ast->expr()
               ->GetAsOrNull<ASTGeneralizedPathExpression>();
       ZETASQL_RETURN_IF_ERROR(FindFieldsFromPathExpression(
-          generalized_path_expr, root_type, struct_path, field_descriptors));
+          function_name, generalized_path_expr, root_type, struct_path,
+          field_descriptors));
 
       // The extension should be extracted from the last seen field in the path,
       // which must be of proto type.
@@ -2209,7 +2223,8 @@ absl::Status Resolver::FindFieldsFromPathExpression(
           dot_identifier_ast->expr()
               ->GetAsOrNull<ASTGeneralizedPathExpression>();
       ZETASQL_RETURN_IF_ERROR(FindFieldsFromPathExpression(
-          generalized_path_expr, root_type, struct_path, field_descriptors));
+          function_name, generalized_path_expr, root_type, struct_path,
+          field_descriptors));
 
       // The field should be extracted from the last seen field in the path,
       // which must be of proto type.
@@ -2228,9 +2243,9 @@ absl::Status Resolver::FindFieldsFromPathExpression(
       break;
     }
     case AST_ARRAY_ELEMENT: {
-      return MakeSqlErrorAt(generalized_path)
-             << "Path expressions in REPLACE_FIELDS() cannot index array "
-                "fields";
+      return MakeSqlErrorAt(generalized_path) << absl::Substitute(
+                 "Path expressions in $0() cannot index array fields",
+                 function_name);
     }
     default: {
       ZETASQL_RET_CHECK_FAIL() << "Invalid generalized path expression input "
@@ -2420,6 +2435,11 @@ Catalog* Resolver::GetSystemVariablesCatalog() {
   return system_variables_catalog_.get();
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveSystemVariableExpression(
     const ASTSystemVariableExpr* ast_system_variable_expr,
     ExprResolutionInfo* expr_resolution_info,
@@ -2467,20 +2487,21 @@ absl::Status Resolver::ResolveSystemVariableExpression(
   return absl::OkStatus();
 }
 
-absl::Status Resolver::ResolveFilterFieldsExpression(
-    const ASTFilterFieldsExpression* ast_filter_fields,
+absl::Status Resolver::ResolveFilterFieldsFunctionCall(
+    const ASTFunctionCall* ast_function,
+    const std::vector<const ASTExpression*>& function_arguments,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
-  if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_FILTER_FIELDS)) {
-    return MakeSqlErrorAt(ast_filter_fields)
-           << "FILTER_FIELDS() is not supported";
+  if (function_arguments.empty()) {
+    return MakeSqlErrorAt(ast_function)
+           << "FILTER_FIELDS() should have arguments";
   }
-
   std::unique_ptr<const ResolvedExpr> proto_to_modify;
-  ZETASQL_RETURN_IF_ERROR(ResolveExpr(ast_filter_fields->expr(), expr_resolution_info,
-                              &proto_to_modify));
+  const ASTExpression* proto_ast = function_arguments.front();
+  ZETASQL_RETURN_IF_ERROR(
+      ResolveExpr(proto_ast, expr_resolution_info, &proto_to_modify));
   if (!proto_to_modify->type()->IsProto()) {
-    return MakeSqlErrorAt(ast_filter_fields->expr())
+    return MakeSqlErrorAt(proto_ast)
            << "FILTER_FIELDS() expected an input proto type for first "
               "argument, but found type "
            << proto_to_modify->type()->ShortTypeName(product_mode());
@@ -2490,31 +2511,88 @@ absl::Status Resolver::ResolveFilterFieldsExpression(
   std::vector<std::unique_ptr<const ResolvedFilterFieldArg>> filter_field_args;
 
   FilterFieldsPathValidator validator(field_type->AsProto()->descriptor());
-  for (const ASTFilterFieldsArg* filter_field_arg :
-       ast_filter_fields->arguments()) {
-    std::vector<const google::protobuf::FieldDescriptor*> field_descriptor_path;
-    ZETASQL_RETURN_IF_ERROR(FindFieldsFromPathExpression(
-        filter_field_arg->path_expression(), proto_to_modify->type(),
-        /*struct_path=*/nullptr, &field_descriptor_path));
-    if (absl::Status status = validator.ValidateFieldPath(
-            filter_field_arg->filter_type() == ASTFilterFieldsArg::INCLUDE,
-            field_descriptor_path);
-        !status.ok()) {
-      return MakeSqlErrorAt(filter_field_arg) << status.message();
+  absl::optional<bool> reset_cleared_required_fields;
+  constexpr absl::string_view kResetClearedRequiredFields =
+      "RESET_CLEARED_REQUIRED_FIELDS";
+  for (int i = 1; i < function_arguments.size(); ++i) {
+    const ASTExpression* argument = function_arguments[i];
+    if (argument->Is<ASTNamedArgument>()) {
+      const ASTNamedArgument* named_argument =
+          argument->GetAs<ASTNamedArgument>();
+      const absl::string_view name = named_argument->name()->GetAsStringView();
+      if (name != kResetClearedRequiredFields) {
+        return MakeSqlErrorAt(argument) << absl::Substitute(
+                   "Unsupported named argument in FILTER_FIELDS(): $0", name);
+      }
+      if (reset_cleared_required_fields.has_value()) {
+        return MakeSqlErrorAt(argument) << "Duplicated named option";
+      }
+      const ASTExpression* expr = named_argument->expr();
+      if (!expr->Is<ASTBooleanLiteral>()) {
+        return MakeSqlErrorAt(argument) << absl::Substitute(
+                   "FILTER_FIELDS()'s named argument only supports literal "
+                   "bool, but got $0",
+                   expr->DebugString());
+      }
+      reset_cleared_required_fields = expr->GetAs<ASTBooleanLiteral>()->value();
+      continue;
     }
+    if (!argument->Is<ASTUnaryExpression>() ||
+        (argument->GetAs<ASTUnaryExpression>()->op() !=
+             ASTUnaryExpression::PLUS &&
+         argument->GetAs<ASTUnaryExpression>()->op() !=
+             ASTUnaryExpression::MINUS)) {
+      return MakeSqlErrorAt(argument) << "FILTER_FIELDS() expected each field "
+                                         "path to start with \"+\" or \"-\"";
+    }
+    const ASTUnaryExpression* unary = argument->GetAs<ASTUnaryExpression>();
+    const bool include = unary->op() == ASTUnaryExpression::PLUS;
+    // Ignores error message from this function to give an appropriate error
+    // message with more context.
+    if (!ASTGeneralizedPathExpression::VerifyIsPureGeneralizedPathExpression(
+             unary->operand())
+             .ok()) {
+      return MakeSqlErrorAt(unary->operand())
+             << "FILTER_FIELDS() expected a field path after \"+\" or \"-\", "
+                "but got "
+             << unary->operand()->SingleNodeDebugString();
+    }
+    const ASTGeneralizedPathExpression* generalized_path_expression =
+        unary->operand()->GetAs<ASTGeneralizedPathExpression>();
+
+    std::vector<const google::protobuf::FieldDescriptor*> field_descriptor_path;
+
+    ZETASQL_RETURN_IF_ERROR(FindFieldsFromPathExpression(
+        "FILTER_FIELDS", generalized_path_expression, proto_to_modify->type(),
+        /*struct_path=*/nullptr, &field_descriptor_path));
+    if (absl::Status status =
+            validator.ValidateFieldPath(include, field_descriptor_path);
+        !status.ok()) {
+      return MakeSqlErrorAt(unary) << status.message();
+    }
+
     filter_field_args.push_back(MakeResolvedFilterFieldArg(
-        filter_field_arg->filter_type() == ASTFilterFieldsArg::INCLUDE,
+        include,
         field_descriptor_path));
   }
-  if (absl::Status status = validator.ValidateRequiredFields(); !status.ok()) {
-    return MakeSqlErrorAt(ast_filter_fields) << status.message();
+  // Validator also ensures that there is at least one field path.
+  if (absl::Status status = validator.FinalValidation(
+          reset_cleared_required_fields.value_or(false));
+      !status.ok()) {
+    return MakeSqlErrorAt(ast_function) << status.message();
   }
 
   *resolved_expr_out = MakeResolvedFilterField(
-      field_type, std::move(proto_to_modify), std::move(filter_field_args));
+      field_type, std::move(proto_to_modify), std::move(filter_field_args),
+      reset_cleared_required_fields.value_or(false));
   return absl::OkStatus();
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveReplaceFieldsExpression(
     const ASTReplaceFieldsExpression* ast_replace_fields,
     ExprResolutionInfo* expr_resolution_info,
@@ -2556,8 +2634,8 @@ absl::Status Resolver::ResolveReplaceFieldsExpression(
     std::vector<const google::protobuf::FieldDescriptor*> field_descriptor_path;
     std::vector<std::pair<int, const StructType::StructField*>> struct_path;
     ZETASQL_RETURN_IF_ERROR(FindFieldsFromPathExpression(
-        replace_arg->path_expression(), expr_to_modify->type(), &struct_path,
-        &field_descriptor_path));
+        "REPLACE_FIELDS", replace_arg->path_expression(),
+        expr_to_modify->type(), &struct_path, &field_descriptor_path));
     ZETASQL_RETURN_IF_ERROR(AddToFieldPathTrie(
         replace_arg->path_expression(), struct_path, field_descriptor_path,
         &oneof_path_to_full_path, &field_path_trie));
@@ -2613,6 +2691,11 @@ static absl::Status ReturnErrorOnLiteralNullArg(
   return absl::OkStatus();
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveUnaryExpr(
     const ASTUnaryExpression* unary_expr,
     ExprResolutionInfo* expr_resolution_info,
@@ -2718,6 +2801,11 @@ static const std::string& IsOperatorToFunctionName(const ASTExpression* expr) {
   return *kInvalidOperatorTypeStr;
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveBinaryExpr(
     const ASTBinaryExpression* binary_expr,
     ExprResolutionInfo* expr_resolution_info,
@@ -2761,6 +2849,11 @@ absl::Status Resolver::ResolveBinaryExpr(
   return absl::OkStatus();
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveBitwiseShiftExpr(
     const ASTBitwiseShiftExpression* bitwise_shift_expr,
     ExprResolutionInfo* expr_resolution_info,
@@ -2775,6 +2868,11 @@ absl::Status Resolver::ResolveBitwiseShiftExpr(
   return absl::OkStatus();
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveInExpr(
     const ASTInExpression* in_expr, ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -2969,6 +3067,11 @@ absl::Status Resolver::ResolveInSubquery(
   return absl::OkStatus();
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveLikeExpr(
     const ASTLikeExpression* like_expr,
     ExprResolutionInfo* expr_resolution_info,
@@ -3110,6 +3213,11 @@ absl::Status Resolver::ResolveLikeExprSubquery(
   return absl::OkStatus();
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveBetweenExpr(
     const ASTBetweenExpression* between_expr,
     ExprResolutionInfo* expr_resolution_info,
@@ -3132,6 +3240,11 @@ absl::Status Resolver::ResolveBetweenExpr(
   return absl::OkStatus();
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveAndExpr(
     const ASTAndExpr* and_expr, ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -3140,6 +3253,11 @@ absl::Status Resolver::ResolveAndExpr(
       expr_resolution_info, resolved_expr_out);
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveOrExpr(
     const ASTOrExpr* or_expr, ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -3158,6 +3276,11 @@ void Resolver::FetchCorrelatedSubqueryParameters(
   }
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveExprSubquery(
     const ASTExpressionSubquery* expr_subquery,
     ExprResolutionInfo* expr_resolution_info,
@@ -3170,7 +3293,7 @@ absl::Status Resolver::ResolveExprSubquery(
     return MakeSqlErrorAt(expr_subquery)
            << "CHECK constraint expression must not include a subquery";
   }
-  if (column_default_expression_validator_.has_value()) {
+  if (default_expr_access_error_name_scope_.has_value()) {
     return MakeSqlErrorAt(expr_subquery)
            << "A column default expression must not include a subquery";
   }
@@ -4125,6 +4248,11 @@ absl::Status Resolver::ResolveAggregateFunctionCallFirstPass(
       std::move(correlated_columns), resolved_expr_out);
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveFunctionCall(
     const ASTFunctionCall* ast_function,
     ExprResolutionInfo* expr_resolution_info,
@@ -4181,6 +4309,11 @@ absl::Status Resolver::ResolveFunctionCall(
   ZETASQL_RETURN_IF_ERROR(LookupFunctionFromCatalog(
       ast_function, function_name_path,
       FunctionNotFoundHandleMode::kReturnError, &function, &error_mode));
+  if (IsFilterFields(function)) {
+    return ResolveFilterFieldsFunctionCall(ast_function, function_arguments,
+                                           expr_resolution_info,
+                                           resolved_expr_out);
+  }
   if (function->IsAggregate()) {
     return ResolveAggregateFunctionCallFirstPass(
         ast_function, function, error_mode, function_arguments,
@@ -4226,6 +4359,11 @@ absl::Status Resolver::ResolveFunctionCall(
       /*with_group_rows_correlation_references=*/{}, resolved_expr_out);
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveAnalyticFunctionCall(
     const ASTAnalyticFunctionCall* analytic_function_call,
     ExprResolutionInfo* expr_resolution_info,
@@ -4459,6 +4597,11 @@ absl::Status Resolver::ResolveFormatClause(
   return absl::OkStatus();
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveExplicitCast(
     const ASTCastExpression* cast, ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
@@ -4626,25 +4769,28 @@ absl::Status Resolver::ResolveCastWithResolvedArgument(
     const ASTNode* ast_location, const Type* to_type, bool return_null_on_error,
     std::unique_ptr<const ResolvedExpr>* resolved_argument) {
   return ResolveCastWithResolvedArgument(
-      ast_location, to_type, /*format=*/nullptr, /*time_zone=*/nullptr,
-      TypeParameters(), return_null_on_error, resolved_argument);
+      ast_location, AnnotatedType(to_type, /*annotation_map=*/nullptr),
+      /*format=*/nullptr, /*time_zone=*/nullptr, TypeParameters(),
+      return_null_on_error, resolved_argument);
 }
 
 absl::Status Resolver::ResolveCastWithResolvedArgument(
-    const ASTNode* ast_location, const Type* to_type,
+    const ASTNode* ast_location, AnnotatedType to_annotated_type,
     std::unique_ptr<const ResolvedExpr> format,
     std::unique_ptr<const ResolvedExpr> time_zone,
     const TypeParameters& type_params, bool return_null_on_error,
     std::unique_ptr<const ResolvedExpr>* resolved_argument) {
+  const Type* to_type = to_annotated_type.type;
+  const AnnotationMap* to_type_annotation_map =
+      to_annotated_type.annotation_map;
 
   // We can return without creating a ResolvedCast if the original type and
-  // target type are the same.
+  // target type are the same, and original collation and target collation are
+  // equal.
   if (to_type->Equals((*resolved_argument)->type()) && type_params.IsEmpty() &&
-      // TODO: the condition below will be comparing the source collation
-      // and target collation after CAST(... AS STRING COLLATE '...') syntax is
-      // supported.
-      !CollationAnnotation::ExistsIn(
-          (*resolved_argument)->type_annotation_map())) {
+      AnnotationMap::HasEqualAnnotations(
+          (*resolved_argument)->type_annotation_map(), to_type_annotation_map,
+          CollationAnnotation::GetId())) {
     return absl::OkStatus();
   }
 
@@ -4659,10 +4805,19 @@ absl::Status Resolver::ResolveCastWithResolvedArgument(
   }
 
   // Add EXPLICIT cast.
-  *resolved_argument =
+  auto resolved_cast =
       MakeResolvedCast(to_type, std::move(*resolved_argument),
                        std::move(format), std::move(time_zone), type_params,
                        return_null_on_error, extended_conversion_evaluator);
+  if (language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT) &&
+      to_type_annotation_map != nullptr) {
+    // TODO: Add a field inside ResolvedCast to indicate collation
+    // of target type after introducing CAST(... AS STRING COLLATE '...')
+    // syntax.
+    resolved_cast->set_type_annotation_map(to_type_annotation_map);
+  }
+
+  *resolved_argument = std::move(resolved_cast);
   return absl::OkStatus();
 }
 
@@ -4679,6 +4834,12 @@ const char Resolver::kSubscriptWithOrdinal[] = "$subscript_with_ordinal";
 
 // TODO: Rename ResolveArrayElement to ResolveSubscriptElement.
 // Rename ASTArrayElement to ASTSubscriptElement in all references.
+//
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveArrayElement(
     const ASTArrayElement* array_element,
     ExprResolutionInfo* expr_resolution_info,
@@ -4923,6 +5084,11 @@ absl::Status Resolver::ResolveArrayElementAccess(
   return absl::OkStatus();
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveCaseNoValueExpression(
     const ASTCaseNoValueExpression* case_no_value,
     ExprResolutionInfo* expr_resolution_info,
@@ -4950,6 +5116,11 @@ absl::Status Resolver::ResolveCaseNoValueExpression(
       expr_resolution_info, resolved_expr_out);
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveCaseValueExpression(
     const ASTCaseValueExpression* case_value,
     ExprResolutionInfo* expr_resolution_info,
@@ -4977,6 +5148,11 @@ absl::Status Resolver::ResolveCaseValueExpression(
       expr_resolution_info, resolved_expr_out);
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveExtractExpression(
     const ASTExtractExpression* extract_expression,
     ExprResolutionInfo* expr_resolution_info,
@@ -5127,6 +5303,11 @@ absl::Status Resolver::ResolveExtractExpression(
       expr_resolution_info, resolved_expr_out);
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveNewConstructor(
     const ASTNewConstructor* ast_new_constructor,
     ExprResolutionInfo* expr_resolution_info,
@@ -5190,6 +5371,11 @@ absl::Status Resolver::ResolveNewConstructor(
   return absl::OkStatus();
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveArrayConstructor(
     const ASTArrayConstructor* ast_array_constructor,
     ExprResolutionInfo* expr_resolution_info,
@@ -5278,8 +5464,11 @@ absl::Status Resolver::ResolveArrayConstructor(
   // Add casts or convert literal values to array element type if necessary.
   bool is_array_literal = true;
   for (int i = 0; i < resolved_elements.size(); ++i) {
+    // We keep the original <type_annotation_map> when coercing array element.
     ZETASQL_RETURN_IF_ERROR(CoerceExprToType(
-        ast_array_constructor->element(i), array_type->element_type(),
+        ast_array_constructor->element(i),
+        AnnotatedType(array_type->element_type(),
+                      resolved_elements[i]->type_annotation_map()),
         kImplicitCoercion, "Array element type $1 does not coerce to $0",
         &resolved_elements[i]));
 
@@ -5403,6 +5592,11 @@ void Resolver::TryCollapsingExpressionsAsLiterals(
   }
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveStructConstructorWithParens(
     const ASTStructConstructorWithParens* ast_struct_constructor,
     ExprResolutionInfo* expr_resolution_info,
@@ -5414,6 +5608,11 @@ absl::Status Resolver::ResolveStructConstructorWithParens(
       {} /* ast_field_aliases */, expr_resolution_info, resolved_expr_out);
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveStructConstructorWithKeyword(
     const ASTStructConstructorWithKeyword* ast_struct_constructor,
     ExprResolutionInfo* expr_resolution_info,
@@ -5498,7 +5697,11 @@ absl::Status Resolver::ResolveStructConstructorImpl(
     if (struct_type != nullptr) {
       // If we have a target type, try to coerce the field value to that type.
       const Type* target_field_type = struct_type->field(i).type;
-      if (!resolved_expr->type()->Equals(target_field_type)) {
+      if (!resolved_expr->type()->Equals(target_field_type) ||
+          // TODO: The condition below will be comparing the input
+          // field collation and target collation after
+          // STRUCT<STRING COLLATE '...'> syntax is supported.
+          CollationAnnotation::ExistsIn(resolved_expr->type_annotation_map())) {
         SignatureMatchResult result;
         const InputArgumentType input_argument_type =
             GetInputArgumentTypeForExpr(resolved_expr.get());
@@ -6577,10 +6780,22 @@ absl::Status Resolver::ResolveFunctionCallImpl(
     }
   }
 
+  if (function->Is<SQLFunctionInterface>()) {
+    analyzer_output_properties_.has_sql_function_call = true;
+  }
+
   // A "flatten" function allows the child to flatten.
   FlattenState::Restorer restorer;
   ZETASQL_RET_CHECK_EQ(nullptr, expr_resolution_info->flatten_state.active_flatten());
   if (IsFlatten(function)) {
+    // We check early for too many arguments as otherwise we can ZETASQL_RET_CHECK for
+    // resolving arguments with flatten in progress which happens before arg
+    // count checking.
+    if (arguments.size() != 1) {
+      return MakeSqlErrorAt(ast_location)
+             << "Number of arguments does not match for function FLATTEN. "
+                "Supported signature: FLATTEN(ARRAY)";
+    }
     expr_resolution_info->flatten_state.set_can_flatten(true, &restorer);
   }
 
@@ -6622,11 +6837,27 @@ absl::Status Resolver::CoerceExprToBool(
 }
 
 absl::Status Resolver::CoerceExprToType(
-    const ASTNode* ast_location, const Type* target_type, CoercionMode mode,
-    CoercionErrorMessageFunction make_error,
+    const ASTNode* ast_location, AnnotatedType annotated_target_type,
+    CoercionMode mode, CoercionErrorMessageFunction make_error,
     std::unique_ptr<const ResolvedExpr>* resolved_expr) const {
+  const Type* target_type = annotated_target_type.type;
+  const AnnotationMap* target_type_annotation_map =
+      annotated_target_type.annotation_map;
   ZETASQL_RET_CHECK_NE(target_type, nullptr);
-  if (target_type->Equals(resolved_expr->get()->type())) {
+
+  const AnnotationMap* source_type_annotation_map =
+      resolved_expr->get()->type_annotation_map();
+  if (target_type_annotation_map != nullptr) {
+    ZETASQL_RET_CHECK(target_type_annotation_map->HasCompatibleStructure(target_type))
+        << "The type annotation map "
+        << target_type_annotation_map->DebugString()
+        << " is not compatible with the target type "
+        << target_type->DebugString();
+  }
+  if (target_type->Equals(resolved_expr->get()->type()) &&
+      AnnotationMap::HasEqualAnnotations(source_type_annotation_map,
+                                         target_type_annotation_map,
+                                         CollationAnnotation::GetId())) {
     return absl::OkStatus();
   }
   InputArgumentType expr_arg_type =
@@ -6660,26 +6891,55 @@ absl::Status Resolver::CoerceExprToType(
   // The coercion is legal, so implement it by adding a cast.  Note that
   // AddCastOrConvertLiteral() adds a cast node only when necessary.
   return function_resolver_->AddCastOrConvertLiteral(
-      ast_location, target_type, /*format=*/nullptr, /*time_zone=*/nullptr,
-      TypeParameters(), /*scan=*/nullptr, /*set_has_explicit_type=*/false,
+      ast_location, annotated_target_type, /*format=*/nullptr,
+      /*time_zone=*/nullptr, TypeParameters(), /*scan=*/nullptr,
+      /*set_has_explicit_type=*/false,
       /*return_null_on_error=*/false, resolved_expr);
+}
+
+absl::Status Resolver::CoerceExprToType(
+    const ASTNode* ast_location, const Type* target_type, CoercionMode mode,
+    CoercionErrorMessageFunction make_error,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr) const {
+  return CoerceExprToType(
+      ast_location, AnnotatedType(target_type, /*annotation_map=*/nullptr),
+      mode, make_error, resolved_expr);
 }
 
 absl::Status Resolver::CoerceExprToType(
     const ASTNode* ast_location, const Type* target_type, CoercionMode mode,
     absl::string_view error_template,
     std::unique_ptr<const ResolvedExpr>* resolved_expr) const {
+  return CoerceExprToType(
+      ast_location, AnnotatedType(target_type, /*annotation_map=*/nullptr),
+      mode, error_template, resolved_expr);
+}
+
+absl::Status Resolver::CoerceExprToType(
+    const ASTNode* ast_location, AnnotatedType annotated_target_type,
+    CoercionMode mode, absl::string_view error_template,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr) const {
   auto make_error_msg = [error_template](absl::string_view target_type_name,
                                          absl::string_view actual_type_name) {
     return absl::Substitute(error_template, target_type_name, actual_type_name);
   };
-  return CoerceExprToType(ast_location, target_type, mode, make_error_msg,
-                          resolved_expr);
+  return CoerceExprToType(ast_location, annotated_target_type, mode,
+                          make_error_msg, resolved_expr);
 }
+
 absl::Status Resolver::CoerceExprToType(
     const ASTNode* ast_location, const Type* target_type, CoercionMode mode,
     std::unique_ptr<const ResolvedExpr>* resolved_expr) const {
-  return CoerceExprToType(ast_location, target_type, mode,
+  return CoerceExprToType(
+      ast_location, AnnotatedType(target_type, /*annotation_map=*/nullptr),
+      mode, resolved_expr);
+}
+
+absl::Status Resolver::CoerceExprToType(
+    const ASTNode* ast_location, AnnotatedType annotated_target_type,
+    CoercionMode mode,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr) const {
+  return CoerceExprToType(ast_location, annotated_target_type, mode,
                           "Expected type $0; found $1", resolved_expr);
 }
 
@@ -6708,6 +6968,11 @@ absl::StatusOr<functions::DateTimestampPart> Resolver::ResolveDateTimestampPart(
       resolved_date_part->GetAs<ResolvedLiteral>()->value().enum_value());
 }
 
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveIntervalExpr(
     const ASTIntervalExpr* interval_expr,
     ExprResolutionInfo* expr_resolution_info,

@@ -43,9 +43,10 @@ class FilterFieldsPathValidator {
       bool include,
       const std::vector<const google::protobuf::FieldDescriptor*>& field_path);
 
-  // Validates that required fields are not cleared given a list of field paths.
-  // Should be called after finishing calling on ValidateFieldPath.
-  absl::Status ValidateRequiredFields() const;
+  // The final validation of a filter fields function. Should be called after
+  // finishing calling on ValidateFieldPath.
+  absl::Status FinalValidation(
+      bool reset_cleared_required_fields = false) const;
 
  private:
   // Represent a field/subfield inside a proto. A path from the root node to

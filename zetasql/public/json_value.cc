@@ -415,11 +415,11 @@ StatusOr<JSONValue> JSONValue::ParseJSONString(
 }
 
 StatusOr<JSONValue> JSONValue::DeserializeFromProtoBytes(
-    absl::string_view str) {
+    absl::string_view str, absl::optional<int> max_nesting_level) {
   JSONValue json;
   JSONValueStandardParser parser(json.impl_->value,
                                  /*strict_number_parsing=*/false,
-                                 /*max_nesting=*/absl::nullopt);
+                                 max_nesting_level);
   JSON::sax_parse(str, &parser, JSON::input_format_t::ubjson);
   ZETASQL_RETURN_IF_ERROR(parser.status());
   return json;
@@ -740,7 +740,7 @@ absl::Status internal::CheckNumberRoundtrip(absl::string_view lhs, double val) {
   }
   return zetasql_base::InvalidArgumentErrorBuilder()
          << "Input number: " << lhs
-         << " cannot round-trip through string representation.";
+         << " cannot round-trip through string representation";
 }
 
 }  // namespace zetasql

@@ -232,7 +232,7 @@ FROM (
 ```
 
 ### About the HLL++ algorithm 
-<a id="about-hll-alg"></a>
+<a id="about_hll_alg"></a>
 
 The [HLL++ algorithm][hll-link-to-research-whitepaper]
 improves on the [HLL][hll-link-to-hyperloglog-wikipedia]
@@ -242,7 +242,7 @@ representation to reduce memory requirements for small cardinality estimates,
 and empirical bias correction for small cardinality estimates.
 
 ### About sketches 
-<a id="sketches-hll"></a>
+<a id="sketches_hll"></a>
 
 A sketch is a summary of a large data stream. You can extract statistics
 from a sketch to estimate particular statistics of the original data, or
@@ -262,13 +262,23 @@ non-additive functions like `COUNT(DISTINCT)`.
 [spark]: https://spark.apache.org
 [dataflow]: https://cloud.google.com/dataflow
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [cardinality]: https://en.wikipedia.org/wiki/Cardinality
+
 [hll-link-to-hyperloglog-wikipedia]: https://en.wikipedia.org/wiki/HyperLogLog
+
 [hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
+
 [hll-link-to-approx-count-distinct]: #approx_count_distinct
-[hll-sketches]: #sketches-hll
-[hll-algorithm]: #about-hll-alg
+
+[hll-sketches]: #sketches_hll
+
+[hll-algorithm]: #about_hll_alg
 
 [approx-functions-reference]: https://github.com/google/zetasql/blob/master/docs/approximate_aggregate_functions.md
+
 [aggregate-functions-reference]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md
+
+<!-- mdlint on -->
 

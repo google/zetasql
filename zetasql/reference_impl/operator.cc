@@ -64,10 +64,6 @@ const InlineLambdaExpr* AlgebraArg::inline_lambda_expr() const {
   return node() ? node()->AsInlineLambdaExpr() : nullptr;
 }
 
-InlineLambdaExpr* AlgebraArg::mutable_inline_lambda_expr() {
-  return node() ? mutable_node()->AsMutableInlineLambdaExpr() : nullptr;
-}
-
 std::string AlgebraArg::DebugString(bool verbose) const {
   return this->DebugInternal("\n", verbose);
 }
@@ -207,16 +203,6 @@ AlgebraArg* AlgebraNode::GetMutableArg(int kind) {
   } else {
     return nullptr;
   }
-}
-
-const AlgebraArg* AlgebraNode::FindArgByVariable(
-    const VariableId& variable) const {
-  for (auto ch : args_) {
-    if (ch->variable() == variable) {
-      return ch;
-    }
-  }
-  return nullptr;
 }
 
 std::string AlgebraNode::DebugString(bool verbose) const {

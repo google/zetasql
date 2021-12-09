@@ -66,6 +66,7 @@
 #include "zetasql/public/templated_sql_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type_parameters.h"
@@ -910,7 +911,7 @@ absl::Status ExtractStructFieldLocations(
 }
 
 absl::Status FunctionResolver::AddCastOrConvertLiteral(
-    const ASTNode* ast_location, const Type* target_type,
+    const ASTNode* ast_location, AnnotatedType annotated_target_type,
     std::unique_ptr<const ResolvedExpr> format,
     std::unique_ptr<const ResolvedExpr> time_zone,
     const TypeParameters& type_params, const ResolvedScan* scan,
@@ -918,8 +919,15 @@ absl::Status FunctionResolver::AddCastOrConvertLiteral(
     std::unique_ptr<const ResolvedExpr>* argument) const {
   ZETASQL_RET_CHECK_NE(ast_location, nullptr);
 
+  const Type* target_type = annotated_target_type.type;
+  const AnnotationMap* target_type_annotation_map =
+      annotated_target_type.annotation_map;
+
   // If this conversion is a no-op we can return early.
-  if (target_type->Equals(argument->get()->type()) && !set_has_explicit_type) {
+  if (target_type->Equals(argument->get()->type()) && !set_has_explicit_type &&
+      AnnotationMap::HasEqualAnnotations(argument->get()->type_annotation_map(),
+                                         target_type_annotation_map,
+                                         CollationAnnotation::GetId())) {
     // These fields should only be used for explicit casts when
     // set_has_explicit_type is true.
     ZETASQL_RET_CHECK(type_params.IsEmpty());
@@ -928,7 +936,7 @@ absl::Status FunctionResolver::AddCastOrConvertLiteral(
     return absl::OkStatus();
   }
 
-  // We add the casts field-by-field for struct expressions.  We will collapse
+  // We add the casts field-by-field for struct expressions. We will collapse
   // a ResolvedMakeStruct to a struct literal if all the fields are literals
   // and <set_has_explicit_type> is true. If the MakeStruct is the result of a
   // path expression rather than an explicit struct constructor with fields, use
@@ -936,6 +944,8 @@ absl::Status FunctionResolver::AddCastOrConvertLiteral(
   if (target_type->IsStruct() &&
       argument->get()->node_kind() == RESOLVED_MAKE_STRUCT &&
       ast_location->node_kind() != AST_PATH_EXPRESSION) {
+    ZETASQL_RET_CHECK(target_type_annotation_map == nullptr ||
+              target_type_annotation_map->HasCompatibleStructure(target_type));
     // Remove constness so that we can add casts on the field expressions inside
     // the struct.
     ResolvedMakeStruct* struct_expr = const_cast<ResolvedMakeStruct*>(
@@ -953,18 +963,33 @@ absl::Status FunctionResolver::AddCastOrConvertLiteral(
     std::vector<std::unique_ptr<const ResolvedExpr>> field_exprs =
         struct_expr->release_field_list();
     for (int i = 0; i < to_struct_type->num_fields(); ++i) {
-      if (to_struct_type->field(i).type->Equals(field_exprs[i]->type())) {
+      const AnnotationMap* field_type_annotation_map =
+          target_type_annotation_map == nullptr
+              ? nullptr
+              : target_type_annotation_map->AsStructMap()->field(i);
+      if (to_struct_type->field(i).type->Equals(field_exprs[i]->type()) &&
+          AnnotationMap::HasEqualAnnotations(
+              field_exprs[i]->type_annotation_map(), field_type_annotation_map,
+              CollationAnnotation::GetId())) {
         if (field_exprs[i]->node_kind() == RESOLVED_LITERAL &&
             set_has_explicit_type &&
             !field_exprs[i]->GetAs<ResolvedLiteral>()->has_explicit_type()) {
           // This field has the same Type, but is a literal that needs to
           // have it set as has_explicit_type so we must replace the
           // expression.
+          const AnnotationMap* original_type_annotation_map =
+              field_exprs[i]->type_annotation_map();
           field_exprs[i] = resolver_->MakeResolvedLiteral(
               field_arg_locations[i],
               field_exprs[i]->GetAs<ResolvedLiteral>()->value().type(),
               field_exprs[i]->GetAs<ResolvedLiteral>()->value(),
               /*has_explicit_type=*/true);
+          // TODO: Currently we set <type_annotation_map> on the
+          // output of MakeResolvedLiteral function. Consider passing
+          // <annotated_type> to the MakeResolvedLiteral and set the
+          // <type_annotation_map> inside.
+          const_cast<ResolvedExpr*>(field_exprs[i].get())
+              ->set_type_annotation_map(original_type_annotation_map);
         }
       }
 
@@ -974,7 +999,9 @@ absl::Status FunctionResolver::AddCastOrConvertLiteral(
       // We pass nullptr for 'format' and 'time_zone' here because there is
       // currently no way to define format strings for individual struct fields.
       const absl::Status cast_status = AddCastOrConvertLiteral(
-          field_arg_locations[i], to_struct_type->field(i).type,
+          field_arg_locations[i],
+          AnnotatedType(to_struct_type->field(i).type,
+                        field_type_annotation_map),
           /*format=*/nullptr, /*time_zone=*/nullptr, child_params, scan,
           set_has_explicit_type, return_null_on_error, &field_exprs[i]);
       if (!cast_status.ok()) {
@@ -1064,8 +1091,21 @@ absl::Status FunctionResolver::AddCastOrConvertLiteral(
   }
 
   return resolver_->ResolveCastWithResolvedArgument(
-      ast_location, target_type, std::move(format), std::move(time_zone),
-      type_params, return_null_on_error, argument);
+      ast_location, annotated_target_type, std::move(format),
+      std::move(time_zone), type_params, return_null_on_error, argument);
+}
+
+absl::Status FunctionResolver::AddCastOrConvertLiteral(
+    const ASTNode* ast_location, const Type* target_type,
+    std::unique_ptr<const ResolvedExpr> format,
+    std::unique_ptr<const ResolvedExpr> time_zone,
+    const TypeParameters& type_params, const ResolvedScan* scan,
+    bool set_has_explicit_type, bool return_null_on_error,
+    std::unique_ptr<const ResolvedExpr>* argument) const {
+  return AddCastOrConvertLiteral(
+      ast_location, AnnotatedType(target_type, /*annotation_map=*/nullptr),
+      std::move(format), std::move(time_zone), type_params, scan,
+      set_has_explicit_type, return_null_on_error, std::move(argument));
 }
 
 namespace {
@@ -1504,9 +1544,14 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
 
     const Type* target_type = concrete_argument.type();
     if (!(arguments[idx])->type()->Equals(target_type)) {
+      // We keep the original <type_annotation_map> when coercing function
+      // arguments. These <type_annotation_map> of arguments will be processed
+      // to detemine the <type_annotation_map> of function call in a later
+      // stage.
       ZETASQL_RETURN_IF_ERROR(resolver_->CoerceExprToType(
-          arg_locations[idx], target_type, Resolver::kExplicitCoercion,
-          &arguments[idx]));
+          arg_locations[idx],
+          AnnotatedType(target_type, arguments[idx]->type_annotation_map()),
+          Resolver::kExplicitCoercion, &arguments[idx]));
       // Update the argument type with the casted one, so that the
       // PostResolutionArgumentConstraintsCallback and the
       // ComputeResultTypeCallback can get the exact types passed to function.
@@ -1870,7 +1915,6 @@ absl::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
     }
   }
 
-  // Return the final TemplatedSQLUDFCall with the resolved expression.
   function_call_info_out->reset(new TemplatedSQLFunctionCall(
       std::move(resolved_sql_body),
       query_resolution_info.release_aggregate_columns_to_compute()));

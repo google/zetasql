@@ -1,0 +1,423 @@
+# This file tests the rewrite rule that inlines SQL functions
+[default enabled_ast_rewrites=ALL,-LET_EXPR]
+[default language_features=V_1_2_SAFE_FUNCTION_CALL,V_1_3_INLINE_LAMBDA_ARGUMENT]
+
+################################################################################
+## Non Error Nullary
+################################################################################
+SELECT NullaryPi();
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := FunctionCall(Lazy_resolution_function:NullaryPi() -> DOUBLE)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=DOUBLE, value=3.141597)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT NullaryWithSubquery();
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := FunctionCall(Lazy_resolution_function:NullaryWithSubquery() -> BOOL)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=EXISTS
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#2]
+    |         +-expr_list=
+    |         | +-$col1#2 := Literal(type=INT64, value=1)
+    |         +-input_scan=
+    |           +-FilterScan
+    |             +-column_list=[$array.e#3]
+    |             +-input_scan=
+    |             | +-ArrayScan
+    |             |   +-column_list=[$array.e#3]
+    |             |   +-array_expr=
+    |             |   | +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |             |   +-element_column=$array.e#3
+    |             +-filter_expr=
+    |               +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |                 +-ColumnRef(type=INT64, column=$array.e#3)
+    |                 +-Literal(type=INT64, value=2)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT NullaryWithCommonTableExpression();
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := FunctionCall(Lazy_resolution_function:NullaryWithCommonTableExpression() -> BOOL)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=EXISTS
+    |     +-subquery=
+    |       +-WithScan
+    |         +-column_list=[$expr_subquery.$col1#3]
+    |         +-with_entry_list=
+    |         | +-WithEntry
+    |         |   +-with_query_name="t"
+    |         |   +-with_subquery=
+    |         |     +-ProjectScan
+    |         |       +-column_list=[t.arr#2]
+    |         |       +-expr_list=
+    |         |       | +-arr#2 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |         |       +-input_scan=
+    |         |         +-SingleRowScan
+    |         +-query=
+    |           +-ProjectScan
+    |             +-column_list=[$expr_subquery.$col1#3]
+    |             +-expr_list=
+    |             | +-$col1#3 := Literal(type=INT64, value=1)
+    |             +-input_scan=
+    |               +-FilterScan
+    |                 +-column_list=[t.arr#4, $array.e#5]
+    |                 +-input_scan=
+    |                 | +-ArrayScan
+    |                 |   +-column_list=[t.arr#4, $array.e#5]
+    |                 |   +-input_scan=
+    |                 |   | +-WithRefScan(column_list=[t.arr#4], with_query_name="t")
+    |                 |   +-array_expr=
+    |                 |   | +-ColumnRef(type=ARRAY<INT64>, column=t.arr#4)
+    |                 |   +-element_column=$array.e#5
+    |                 +-filter_expr=
+    |                   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |                     +-ColumnRef(type=INT64, column=$array.e#5)
+    |                     +-Literal(type=INT64, value=2)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# This query shows an issue. The array includes rewriter does not trigger
+# because the AnalyzerOutputProperties does not know there is a lambda, there
+# wasn't one in the initial query.
+SELECT NullaryWithLambda();
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := FunctionCall(Lazy_resolution_function:NullaryWithLambda() -> BOOL)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:array_includes(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> BOOL)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |     +-FunctionArgument
+    |       +-inline_lambda=
+    |         +-InlineLambda
+    |           +-argument_list=[$lambda_arg.e#2]
+    |           +-body=
+    |             +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |               +-ColumnRef(type=INT64, column=$lambda_arg.e#2)
+    |               +-Literal(type=INT64, value=2)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# This query will rewrite the lambda inside and outside the function.
+SELECT NullaryWithLambda(), ARRAY_INCLUDES([1.0, 2, 3], e -> e = NullaryPi());
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [BOOL]
+| +-$query.$col2#3 AS `$col2` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#2, $col2#3]
+    +-expr_list=
+    | +-$col1#2 := FunctionCall(Lazy_resolution_function:NullaryWithLambda() -> BOOL)
+    | +-$col2#3 :=
+    |   +-FunctionCall(ZetaSQL:array_includes(ARRAY<DOUBLE>, LAMBDA(DOUBLE->BOOL)) -> BOOL)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=ARRAY<DOUBLE>, value=[1, 2, 3])
+    |     +-FunctionArgument
+    |       +-inline_lambda=
+    |         +-InlineLambda
+    |           +-argument_list=[$lambda_arg.e#1]
+    |           +-body=
+    |             +-FunctionCall(ZetaSQL:$equal(DOUBLE, DOUBLE) -> BOOL)
+    |               +-ColumnRef(type=DOUBLE, column=$lambda_arg.e#1)
+    |               +-FunctionCall(Lazy_resolution_function:NullaryPi() -> DOUBLE)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [BOOL]
+| +-$query.$col2#3 AS `$col2` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#2, $col2#3]
+    +-expr_list=
+    | +-$col1#2 :=
+    | | +-SubqueryExpr
+    | |   +-type=BOOL
+    | |   +-subquery_type=SCALAR
+    | |   +-subquery=
+    | |     +-ProjectScan
+    | |       +-column_list=[$expr_subquery.$col1#8]
+    | |       +-expr_list=
+    | |       | +-$col1#8 :=
+    | |       |   +-FunctionCall(ZetaSQL:if(BOOL, BOOL, BOOL) -> BOOL)
+    | |       |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
+    | |       |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#5)
+    | |       |     +-Literal(type=BOOL, value=NULL)
+    | |       |     +-SubqueryExpr
+    | |       |       +-type=BOOL
+    | |       |       +-subquery_type=EXISTS
+    | |       |       +-parameter_list=
+    | |       |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#5)
+    | |       |       +-subquery=
+    | |       |         +-ProjectScan
+    | |       |           +-column_list=[$expr_subquery.$col1#7]
+    | |       |           +-expr_list=
+    | |       |           | +-$col1#7 := Literal(type=INT64, value=1)
+    | |       |           +-input_scan=
+    | |       |             +-FilterScan
+    | |       |               +-column_list=[$array.element#6]
+    | |       |               +-input_scan=
+    | |       |               | +-ArrayScan
+    | |       |               |   +-column_list=[$array.element#6]
+    | |       |               |   +-array_expr=
+    | |       |               |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#5, is_correlated=TRUE)
+    | |       |               |   +-element_column=$array.element#6
+    | |       |               +-filter_expr=
+    | |       |                 +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    | |       |                   +-ColumnRef(type=INT64, column=$array.element#6)
+    | |       |                   +-Literal(type=INT64, value=2)
+    | |       +-input_scan=
+    | |         +-ProjectScan
+    | |           +-column_list=[$subquery1.array_input#5]
+    | |           +-expr_list=
+    | |           | +-array_input#5 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    | |           +-input_scan=
+    | |             +-SingleRowScan
+    | +-$col2#3 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#12]
+    |         +-expr_list=
+    |         | +-$col1#12 :=
+    |         |   +-FunctionCall(ZetaSQL:if(BOOL, BOOL, BOOL) -> BOOL)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<DOUBLE>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<DOUBLE>, column=$subquery1.array_input#9)
+    |         |     +-Literal(type=BOOL, value=NULL)
+    |         |     +-SubqueryExpr
+    |         |       +-type=BOOL
+    |         |       +-subquery_type=EXISTS
+    |         |       +-parameter_list=
+    |         |       | +-ColumnRef(type=ARRAY<DOUBLE>, column=$subquery1.array_input#9)
+    |         |       +-subquery=
+    |         |         +-ProjectScan
+    |         |           +-column_list=[$expr_subquery.$col1#11]
+    |         |           +-expr_list=
+    |         |           | +-$col1#11 := Literal(type=INT64, value=1)
+    |         |           +-input_scan=
+    |         |             +-FilterScan
+    |         |               +-column_list=[$array.element#10]
+    |         |               +-input_scan=
+    |         |               | +-ArrayScan
+    |         |               |   +-column_list=[$array.element#10]
+    |         |               |   +-array_expr=
+    |         |               |   | +-ColumnRef(type=ARRAY<DOUBLE>, column=$subquery1.array_input#9, is_correlated=TRUE)
+    |         |               |   +-element_column=$array.element#10
+    |         |               +-filter_expr=
+    |         |                 +-FunctionCall(ZetaSQL:$equal(DOUBLE, DOUBLE) -> BOOL)
+    |         |                   +-ColumnRef(type=DOUBLE, column=$array.element#10)
+    |         |                   +-Literal(type=DOUBLE, value=3.141597)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$subquery1.array_input#9]
+    |             +-expr_list=
+    |             | +-array_input#9 := Literal(type=ARRAY<DOUBLE>, value=[1, 2, 3])
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT NullaryWithSqlFunctionCall{{|NOT}}PreInlined();
+
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := FunctionCall(Lazy_resolution_function:NullaryWithSqlFunctionCallPreInlined() -> DOUBLE)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=DOUBLE, value=3.141597)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: NOT
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := FunctionCall(Lazy_resolution_function:NullaryWithSqlFunctionCallNotPreInlined() -> DOUBLE)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := FunctionCall(Lazy_resolution_function:NullaryPi() -> DOUBLE)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+################################################################################
+## Error Cases
+################################################################################
+
+SELECT NullaryPi()@{hint=1};
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(Lazy_resolution_function:NullaryPi() -> DOUBLE)
+    |     +-hint_list=
+    |       +-hint := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+
+Rewrite ERROR: generic::unimplemented: Hinted calls to SQL defined function 'NullaryPi' are not supported.
+==
+
+SELECT SAFE.NullaryPi();
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := FunctionCall({SAFE_ERROR_MODE} Lazy_resolution_function:NullaryPi() -> DOUBLE)
+    +-input_scan=
+      +-SingleRowScan
+
+Rewrite ERROR: generic::unimplemented: SAFE. calls to SQL defined functions such as 'NullaryPi' are not implemented.
+==
+
+SELECT UnaryIncrement(1);
+
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(Lazy_resolution_function:UnaryIncrement(INT64 a) -> INT64)
+    |     +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+
+Rewrite ERROR: generic::unimplemented: Calls to SQL defined functions with arguments are not implemented.

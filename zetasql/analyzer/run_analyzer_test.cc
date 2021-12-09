@@ -358,20 +358,9 @@ class AnalyzerTestRunner {
 
     // Parse the language features first because other checks below may depend
     // on the features that are enabled for the test case.
-    if (!test_case_options_.GetString(kLanguageFeatures).empty()) {
-      // TODO: We may want to support 'ALL' or '*' at some point to
-      // easily allow enabling all optional features.
-      const std::vector<std::string> feature_list =
-          absl::StrSplit(test_case_options_.GetString(kLanguageFeatures), ',');
-      for (const std::string& feature_name : feature_list) {
-        const std::string full_feature_name =
-            absl::StrCat("FEATURE_", feature_name);
-        LanguageFeature feature;
-        ASSERT_TRUE(LanguageFeature_Parse(full_feature_name, &feature))
-            << full_feature_name;
-        options.mutable_language()->EnableLanguageFeature(feature);
-      }
-    }
+    ZETASQL_ASSERT_OK_AND_ASSIGN(LanguageOptions::LanguageFeatureSet features,
+                         GetRequiredLanguageFeatures(test_case_options_));
+    options.mutable_language()->SetEnabledLanguageFeatures(features);
 
     if (test_case_options_.GetString(kSupportedStatementKinds).empty()) {
       // In general, analyzer tests support all statement kinds.
@@ -1081,8 +1070,7 @@ class AnalyzerTestRunner {
 
       if (!test_case_options_.GetBool(kAllowInternalError)) {
         EXPECT_NE(status.code(), absl::StatusCode::kInternal)
-            << "Query cannot return internal error without "
-               "["
+            << "Query cannot return internal error without ["
             << kAllowInternalError << "] option: " << status;
       }
 
@@ -1170,54 +1158,101 @@ class AnalyzerTestRunner {
       absl::StripAsciiWhitespace(&test_result_string);
     }
 
-    if (status.ok() && test_case_options_.GetBool(kEnableASTRewrites) &&
+    ZETASQL_ASSERT_OK_AND_ASSIGN(AnalyzerTestRewriteGroups rewrite_groups,
+                         GetEnabledRewrites(test_case_options_));
+    if (!rewrite_groups.empty() &&
         // We do not print the rewritten AST if the original query failed
         // analysis.
-        output != nullptr) {
-      // Copy the analyzer output so it can be rewritten. Normally we wouldn't
-      // care about keeping the original output and would just move it in.
-      absl::StatusOr<std::unique_ptr<AnalyzerOutput>> rewrite_output_or =
-          CopyAnalyzerOutput(*output);
-      if (!rewrite_output_or.ok()) {
-        absl::StrAppend(&test_result_string, "\nAST copy failed: ",
-                        FormatError(rewrite_output_or.status()));
-      } else {
-        std::unique_ptr<AnalyzerOutput> rewrite_output =
-            std::move(*rewrite_output_or);
-        AnalyzerOptions rewrite_options(options);
-        rewrite_options.set_enabled_rewrites(
-            AnalyzerOptions::DefaultRewrites());
-        // TODO: Remove this once it's enabled by default.
-        rewrite_options.enable_rewrite(REWRITE_ANONYMIZATION);
-        absl::Status rewrite_status = RewriteResolvedAst(
-            rewrite_options, test_case, catalog, type_factory, *rewrite_output);
-        if (rewrite_status.ok()) {
-          if (rewrite_output->resolved_statement() != nullptr) {
-            if (rewrite_output->resolved_statement()->DebugString() !=
-                output->resolved_statement()->DebugString()) {
-              absl::StrAppend(
-                  &test_result_string, "\n\n[REWRITTEN AST]\n",
-                  rewrite_output->resolved_statement()->DebugString());
-            }
-          } else {
-            ASSERT_NE(rewrite_output->resolved_expr(), nullptr);
-            if (rewrite_output->resolved_expr()->DebugString() !=
-                output->resolved_expr()->DebugString()) {
-              absl::StrAppend(&test_result_string, "\n\n[REWRITTEN AST]\n",
-                              rewrite_output->resolved_expr()->DebugString());
-            }
-          }
-          OutputAnonymizationTableScanGroups(
-              rewrite_output->analyzer_output_properties()
-                  .resolved_table_scan_to_anonymized_aggregate_scan_map,
-              &test_result_string);
-        } else {
-          test_result_string = "[PRE-REWRITE AST]\n" + test_result_string;
-          absl::StrAppend(&test_result_string,
-                          "\n\nRewrite ERROR: ", FormatError(rewrite_status));
+        status.ok() && output != nullptr) {
+      struct RewriteGroupOutcome {
+        absl::Status status;
+        std::string ast_debug;
+        std::string anon_table_scan_groups;
+        std::string unparsed;
+        std::vector<std::string> rewrite_group_keys;
+        std::string key() {
+          return std::string(status.ok() ? ast_debug : status.message());
         }
-
-        absl::StripAsciiWhitespace(&test_result_string);
+      };
+      std::vector<RewriteGroupOutcome> rewrite_group_results;
+      absl::flat_hash_map<std::string, int64_t> rewrite_group_result_map;
+      for (auto& [key, rewrites] : rewrite_groups) {
+        RewriteGroupOutcome outcome;
+        // Copy the analyzer output so it can be rewritten. Normally we wouldn't
+        // care about keeping the original output and would just move it in.
+        ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<AnalyzerOutput> rewrite_output,
+                             CopyAnalyzerOutput(*output));
+        AnalyzerOptions rewrite_options(options);
+        rewrite_options.set_enabled_rewrites(rewrites);
+        outcome.status = RewriteResolvedAst(rewrite_options, test_case, catalog,
+                                            type_factory, *rewrite_output);
+        if (outcome.status.ok() &&
+            rewrite_output->resolved_statement() != nullptr) {
+          outcome.ast_debug =
+              rewrite_output->resolved_statement()->DebugString();
+          if (outcome.ast_debug ==
+              output->resolved_statement()->DebugString()) {
+            continue;
+          }
+          if (test_case_options_.GetBool(kRunUnparser)) {
+            TestUnparsing(test_case, options, /*is_statement=*/true,
+                          rewrite_output.get(), &outcome.unparsed);
+          }
+        } else if (outcome.status.ok()) {
+          ASSERT_NE(rewrite_output->resolved_expr(), nullptr);
+          outcome.ast_debug = rewrite_output->resolved_expr()->DebugString();
+          if (outcome.ast_debug == output->resolved_expr()->DebugString()) {
+            continue;
+          }
+          if (test_case_options_.GetBool(kRunUnparser)) {
+            TestUnparsing(test_case, options, /*is_statement=*/false,
+                          rewrite_output.get(), &outcome.unparsed);
+          }
+        }
+        OutputAnonymizationTableScanGroups(
+            rewrite_output->analyzer_output_properties()
+                .resolved_table_scan_to_anonymized_aggregate_scan_map,
+            &outcome.anon_table_scan_groups);
+        std::string outcome_key = outcome.key();
+        size_t outcome_index = 0;
+        if (rewrite_group_result_map.contains(outcome_key)) {
+          outcome_index = rewrite_group_result_map[outcome_key];
+        } else {
+          rewrite_group_results.push_back(outcome);
+          outcome_index = rewrite_group_results.size() - 1;
+          rewrite_group_result_map[outcome_key] = outcome_index;
+        }
+        rewrite_group_results[outcome_index].rewrite_group_keys.push_back(key);
+      }
+      if (!rewrite_group_results.empty()) {
+        if (rewrite_group_results.size() == 1 &&
+            !rewrite_group_results[0].status.ok()) {
+          test_result_string =
+              absl::StrCat("[PRE-REWRITE AST]\n", test_result_string);
+        }
+        for (auto& outcome : rewrite_group_results) {
+          std::string groups = absl::StrJoin(outcome.rewrite_group_keys, "|");
+          std::string groups_header = absl::StrCat(
+              "\n\n[[ REWRITER ARTIFACTS FOR RULE GROUPS '", groups, "' ]]\n");
+          if (rewrite_group_results.size() == 1) {
+            // TODO: Remove this exception and update relevant goldens.
+            groups_header = "\n\n";
+          }
+          if (!outcome.status.ok()) {
+            absl::StrAppend(&test_result_string, groups_header,
+                            "Rewrite ERROR: ", FormatError(outcome.status));
+          } else {
+            absl::StrAppend(&test_result_string, groups_header);
+            if (test_case_options_.GetBool(kShowResolvedAST) &&
+                !outcome.ast_debug.empty()) {
+              absl::StrAppend(&test_result_string, "[REWRITTEN AST]\n",
+                              outcome.ast_debug);
+            }
+            absl::StrAppend(&test_result_string, outcome.anon_table_scan_groups,
+                            outcome.unparsed);
+            absl::StripAsciiWhitespace(&test_result_string);
+          }
+        }
       }
     }
 
@@ -1361,7 +1396,8 @@ class AnalyzerTestRunner {
 
     // For create table statement with like, the like table is extracted but
     // not scanned.
-    if (test_case_options_.GetBool(kCreateTableLikeNotScanned)) {
+    if (test_case_options_.GetBool(kCreateTableLikeNotScanned) ||
+        test_case_options_.GetBool(kPrivilegeRestrictionTableNotScanned)) {
       EXPECT_EQ(extracted_table_names_lower.size() - 1,
                 actual_tables_scanned.size());
       return;
@@ -1852,6 +1888,7 @@ class AnalyzerTestRunner {
       case RESOLVED_ALTER_ALL_ROW_ACCESS_POLICIES_STMT:
       case RESOLVED_ALTER_DATABASE_STMT:
       case RESOLVED_ALTER_MATERIALIZED_VIEW_STMT:
+      case RESOLVED_ALTER_PRIVILEGE_RESTRICTION_STMT:
       case RESOLVED_ALTER_ROW_ACCESS_POLICY_STMT:
       case RESOLVED_ALTER_SCHEMA_STMT:
       case RESOLVED_ALTER_TABLE_SET_OPTIONS_STMT:
@@ -1869,6 +1906,7 @@ class AnalyzerTestRunner {
       case RESOLVED_CREATE_MATERIALIZED_VIEW_STMT:
       case RESOLVED_CREATE_MODEL_STMT:
       case RESOLVED_CREATE_PROCEDURE_STMT:
+      case RESOLVED_CREATE_PRIVILEGE_RESTRICTION_STMT:
       case RESOLVED_CREATE_ROW_ACCESS_POLICY_STMT:
       case RESOLVED_CREATE_SCHEMA_STMT:
       case RESOLVED_CREATE_SNAPSHOT_TABLE_STMT:
@@ -1879,6 +1917,7 @@ class AnalyzerTestRunner {
       case RESOLVED_DESCRIBE_STMT:
       case RESOLVED_DROP_FUNCTION_STMT:
       case RESOLVED_DROP_TABLE_FUNCTION_STMT:
+      case RESOLVED_DROP_PRIVILEGE_RESTRICTION_STMT:
       case RESOLVED_DROP_ROW_ACCESS_POLICY_STMT:
       case RESOLVED_DROP_SEARCH_INDEX_STMT:
       case RESOLVED_DROP_STMT:
@@ -2319,8 +2358,7 @@ class AnalyzerTestRunner {
     options.mutable_language()->EnableLanguageFeature(
         FEATURE_V_1_1_WITH_ON_SUBQUERY);
 
-    SQLBuilder::SQLBuilderOptions builder_options(
-        options.language().product_mode());
+    SQLBuilder::SQLBuilderOptions builder_options(options.language());
     builder_options.undeclared_parameters =
         analyzer_output->undeclared_parameters();
     builder_options.undeclared_positional_parameters =

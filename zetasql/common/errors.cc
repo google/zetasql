@@ -22,7 +22,6 @@
 #include "zetasql/public/error_location.pb.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
-#include "zetasql/base/canonical_errors.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 

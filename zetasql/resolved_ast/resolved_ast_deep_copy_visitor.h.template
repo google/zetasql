@@ -38,8 +38,8 @@ namespace zetasql {
 // This is the base class for deep-copy rewriter classes.
 //
 // It provides the utility functions to handle the data flow and the
-// implementations for copying individual node types. This can be subclassed to
-// create a copy of the AST with modifications.
+// implementations for copying individual node types as well as ResolvedColumn.
+// This can be subclassed to create a copy of the AST with modifications.
 //
 // This class uses a stack which always contains exactly one or zero elements.
 // The stack is used as a holding place for a recursive-like bottom up copying
@@ -215,17 +215,43 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
   // Returns a pointer to the node at the top of the stack. Does not transfer
   // ownership nor modify the stack.
   // The stack must be non-empty for this to be valid.
+  // The top object on the stack must be an instance of 'ResolvedNodeType'
   template <typename ResolvedNodeType>
   ResolvedNodeType* GetUnownedTopOfStack() const {
     ZETASQL_DCHECK(!stack_.empty());
+    if (stack_.empty() || stack_.top() == nullptr) {
+      return nullptr;
+    }
+    if (!stack_.top()->Is<ResolvedNodeType>()) {
+      // When call requires the wrong type of node, try to fail tests helpfully.
+      // In production, return nullptr and hope the caller can do better than
+      // crash.
+      ZETASQL_LOG(DFATAL) << "Top of stack is not expected type.";
+      return nullptr;
+    }
     return static_cast<ResolvedNodeType*>(stack_.top().get());
   }
 
   // Returns a unique pointer to the top of the stack, and removes it from
   // the top of the stack.
+  // The top object on the stack must be an instance of 'ResolvedNodeType'
   template <typename ResolvedNodeType>
   std::unique_ptr<ResolvedNodeType> ConsumeTopOfStack() {
     ZETASQL_DCHECK(!stack_.empty());
+    if (stack_.empty()) {
+      return std::unique_ptr<ResolvedNodeType>();
+    }
+    if (stack_.top() == nullptr) {
+      stack_.pop();
+      return std::unique_ptr<ResolvedNodeType>();
+    }
+    if (!stack_.top()->Is<ResolvedNodeType>()) {
+      // When call requires the wrong type of node, try to fail tests helpfully.
+      // In production, return nullptr and hope the caller can do better than
+      // crash.
+      ZETASQL_LOG(DFATAL) << "Top of stack is not expected type.";
+      return std::unique_ptr<ResolvedNodeType>();
+    }
     std::unique_ptr<ResolvedNodeType> node(
         static_cast<ResolvedNodeType*>(stack_.top().release()));
     stack_.pop();
@@ -258,6 +284,14 @@ class ResolvedASTDeepCopyVisitor : public ResolvedASTVisitor {
       output_node_list.push_back(std::move(*processed_node));
     }
     return output_node_list;
+  }
+
+  // Copy a ResolvedColumn. The default behavior makes a trivial copy via the
+  // copy constructor. Overrides may be necessary when a visitor needs to
+  // remap columns.
+  virtual absl::StatusOr<ResolvedColumn> CopyResolvedColumn(
+      const ResolvedColumn& column) {
+    return column;
   }
 
   // The following CopyVisitResolvedX functions create a deep copy of node

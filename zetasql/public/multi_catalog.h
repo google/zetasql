@@ -25,6 +25,7 @@
 #include "zetasql/public/constant.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/type.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status.h"
 
@@ -60,7 +61,7 @@ class MultiCatalog : public Catalog {
   // Create a MultiCatalog from an ordered list of Catalogs.  Does not own
   // the catalogs in the list.  Catalogs in the list must be non-NULL or
   // an error is returned.
-  static absl::Status Create(const std::string& name,
+  static absl::Status Create(absl::string_view name,
                              const std::vector<Catalog*>& catalog_list,
                              std::unique_ptr<MultiCatalog>* multi_catalog);
 
@@ -125,7 +126,7 @@ class MultiCatalog : public Catalog {
  protected:
   // This constructor isn't public to restrict users to use the static Create()
   // method to generate new instances (which validates the input).
-  MultiCatalog(const std::string& name,
+  MultiCatalog(absl::string_view name,
                const std::vector<Catalog*>& catalog_list)
       : name_(name), catalog_list_(catalog_list) {}
 

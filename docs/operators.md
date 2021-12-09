@@ -34,7 +34,7 @@ statement.
   <tbody>
     <tr>
       <td>1</td>
-      <td>.</td>
+      <td>Field access operator</td>
       <td><span> JSON</span><br><span> PROTO</span><br><span> STRUCT</span><br></td>
       <td>Field access operator</td>
       <td>Binary</td>
@@ -44,12 +44,8 @@ statement.
       <td>Array subscript operator</td>
       <td>ARRAY</td>
       <td>Array position. Must be used with OFFSET or ORDINAL&mdash;see
-      
+      <a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md">Array Functions</a>
 
-<a href="https://github.com/google/zetasql/blob/master/docs/array_functions.md#array_functions">
-
-Array Functions
-</a>
 .</td>
       <td>Binary</td>
     </tr>
@@ -167,12 +163,7 @@ Array Functions
       <td>9 (Comparison Operators)</td>
       <td>=</td>
       <td>Any comparable type. See
-      
-
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
-
-Data Types
-</a>
+      <a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a>
 
       for a complete list.</td>
       <td>Equal</td>
@@ -182,12 +173,7 @@ Data Types
       <td>&nbsp;</td>
       <td>&lt;</td>
       <td>Any comparable type. See
-      
-
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
-
-Data Types
-</a>
+      <a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a>
 
       for a complete list.</td>
       <td>Less than</td>
@@ -197,12 +183,7 @@ Data Types
       <td>&nbsp;</td>
       <td>&gt;</td>
       <td>Any comparable type. See
-      
-
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
-
-Data Types
-</a>
+      <a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a>
 
       for a complete list.</td>
       <td>Greater than</td>
@@ -212,12 +193,7 @@ Data Types
       <td>&nbsp;</td>
       <td>&lt;=</td>
       <td>Any comparable type. See
-      
-
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
-
-Data Types
-</a>
+      <a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a>
 
       for a complete list.</td>
       <td>Less than or equal to</td>
@@ -227,12 +203,7 @@ Data Types
       <td>&nbsp;</td>
       <td>&gt;=</td>
       <td>Any comparable type. See
-      
-
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
-
-Data Types
-</a>
+      <a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a>
 
       for a complete list.</td>
       <td>Greater than or equal to</td>
@@ -242,12 +213,7 @@ Data Types
       <td>&nbsp;</td>
       <td>!=, &lt;&gt;</td>
       <td>Any comparable type. See
-      
-
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
-
-Data Types
-</a>
+      <a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a>
 
       for a complete list.</td>
       <td>Not equal</td>
@@ -264,12 +230,7 @@ Data Types
       <td>&nbsp;</td>
       <td>[NOT] BETWEEN</td>
       <td>Any comparable types. See
-      
-
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
-
-Data Types
-</a>
+      <a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a>
 
       for a complete list.</td>
       <td>Value is [not] within the range specified</td>
@@ -279,12 +240,7 @@ Data Types
       <td>&nbsp;</td>
       <td>[NOT] IN</td>
       <td>Any comparable types. See
-      
-
-<a href="https://github.com/google/zetasql/blob/master/docs/data-types.md#data_types">
-
-Data Types
-</a>
+      <a href="https://github.com/google/zetasql/blob/master/docs/data-types.md">Data Types</a>
 
       for a complete list.</td>
       <td>Value is [not] in the set of values specified</td>
@@ -363,7 +319,8 @@ ambiguity. For example:
 
 `(x < y) IS FALSE`
 
-### Field access operator
+### Field access operator 
+<a id="field_access_operator"></a>
 
 ```
 expression.fieldname[. ...]
@@ -389,26 +346,101 @@ used to access nested fields. For example, `expression.fieldname1.fieldname2`.
 + For `JSON`: `JSON`. If a field is not found in a JSON value, a SQL `NULL` is
   returned.
 
-### Array subscript operator
+**Example**
+
+In the following example, the expression is `t.customer` and the
+field access operations are `.address` and `.country`. An operation is an
+application of an operator (`.`) to specific operands (in this case,
+`address` and `country`, or more specifically, `t.customer` and `address`,
+for the first operation, and `t.customer.address` and `country` for the
+second operation).
+
+```sql
+WITH orders AS (
+  SELECT STRUCT(STRUCT('Yonge Street' AS street, 'Canada' AS country) AS address) AS customer
+)
+SELECT t.customer.address.country FROM orders AS t;
+
++---------+
+| country |
++---------+
+| Canada  |
++---------+
+```
+
+### Array subscript operator 
+<a id="array_subscript_operator"></a>
 
 ```
-array_expression [position_keyword (array_element_id)]
+array_expression[array_subscript_specifier]
+
+array_subscript_specifier:
+  position_keyword(index)
+
+position_keyword:
+  { OFFSET | SAFE_OFFSET | ORDINAL | SAFE_ORDINAL }
 ```
+
+Note: The brackets (`[]`) around `array_subscript_specifier` are part of the
+syntax; they do not represent an optional part.
 
 **Description**
 
-Get a value in an array at a specific location.
-Supported by some array functions.
+Gets a value from an array at a specific location.
 
 **Input types**
 
-+ `position_keyword`: `OFFSET` or `ORDINAL`.
-  To learn more, see [OFFSET and ORDINAL][operators-link-to-array-offset]
-+ `array_element_id`: An integer that represents an index in the array.
++ `array_expression`: The input array.
++ `position_keyword`: Where the index for the array should start and how
+  out-of-range indexes are handled. Your choices are:
+  + `OFFSET`: The index starts at zero.
+    Produces an error if the index is out of range.
+  + `SAFE_OFFSET`: The index starts at
+    zero. Returns `NULL` if the index is out of range.
+  + `ORDINAL`: The index starts at one.
+    Produces an error if the index is out of range.
+  + `SAFE_ORDINAL`: The index starts at
+    one. Returns `NULL` if the index is out of range.
++ `index`: An integer that represents a specific position in the array.
 
 **Return type**
 
-Type `T` stored at the index in an array.
+`T` where `array_expression` is `ARRAY<T>`.
+
+**Examples**
+
+In this example, the array subscript operator is used to return values at
+specific locations in `item_array`. This example also shows what happens when
+you reference an index (`6`) in an array that is out of range. If the
+`SAFE` prefix is included, `NULL` is returned, otherwise an error is produced.
+
+```sql
+WITH Items AS (SELECT ["coffee", "tea", "milk"] AS item_array)
+SELECT
+  item_array,
+  item_array[OFFSET(1)] AS item_offset,
+  item_array[ORDINAL(1)] AS item_ordinal,
+  item_array[SAFE_OFFSET(6)] AS item_safe_offset,
+FROM Items
+
++----------------------------------+--------------+--------------+------------------+
+| item_array                       | item_offset  | item_ordinal | item_safe_offset |
++----------------------------------+--------------+--------------+------------------+
+| [coffee, tea, milk]              | tea          | coffee       | NULL             |
++----------------------------------+--------------+--------------+------------------+
+```
+
+In the following example, when you reference an index in an array that is out of
+range and the `SAFE` prefix is not included, an error is produced.
+
+```sql
+WITH Items AS (SELECT ["coffee", "tea", "milk"] AS item_array)
+SELECT
+  item_array[OFFSET(6)] AS item_offset
+FROM Items
+
+-- Error. OFFSET(6) is out of range.
+```
 
 ### JSON subscript operator
 
@@ -420,19 +452,15 @@ json_expression[array_element_id]
 json_expression[field_name]
 ```
 
+Note: The brackets (`[]`) around `array_element_id` and `field_name` are part
+of the syntax; they do not represent an optional part.
+
 **Description**
 
 Gets a value of an array element or field in a JSON expression. Can be
-used to access nested data. For example:
+used to access nested data.
 
-```sql
-(JSON '["apple", "orange", "pear"]')[1] -- Returns JSON 'orange'
-(JSON '{"apple": "10", "pear": "5"}')['pear'] -- Returns JSON '5'
-(JSON '[ {"fruit": "apple"}, {"fruit": "pear"}]')[0]['fruit'] -- Returns JSON 'apple'
-(JSON '[ {"fruit": "apple"}, {"fruit": "pear"}]')[1]['fruit'] -- Returns JSON 'pear'
-```
-
-**Input data types**
+**Input types**
 
 + `JSON expression`: The `JSON` expression that contains an array element or
   field to return.
@@ -444,9 +472,33 @@ used to access nested data. For example:
   JSON. If the field name is not found, or the JSON expression is not a
   JSON object, a SQL `NULL` is returned.
 
-**Result data type**
+**Return type**
 
 `JSON`
+
+**Example**
+
+In the following example, `$.class.students[0][name]` contains a
+JSON subscript operation. `$.class.students` represents the JSON expression,
+`[0]` represents the array element ID, and `[name]` represents the name of a
+field in the JSON.
+
+```sql
+SELECT JSON_EXTRACT(json_text, '$.class.students[0][name]') AS first_student
+FROM UNNEST([
+  '{"class" : {"students" : [{"name" : "Jane"}]}}',
+  '{"class" : {"students" : []}}',
+  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
+  ]) AS json_text;
+
++-----------------+
+| first_student   |
++-----------------+
+| "Jane"          |
+| NULL            |
+| "John"          |
++-----------------+
+```
 
 ### Arithmetic operators
 
@@ -624,7 +676,6 @@ SELECT DATE "2020-09-22" + 1 AS day_later, DATE "2020-09-22" - 7 AS week_ago
 date_expression - date_expression
 timestamp_expression - timestamp_expression
 datetime_expression - datetime_expression
-
 ```
 
 **Description**
@@ -797,7 +848,7 @@ This operator throws an error if Y is negative.</td>
 
 ZetaSQL supports the `AND`, `OR`, and  `NOT` logical operators.
 Logical operators allow only BOOL or `NULL` input
-and use [three-valued logic](https://en.wikipedia.org/wiki/Three-valued_logic)
+and use [three-valued logic][three-valued-logic]
 to produce a result. The result can be `TRUE`, `FALSE`, or `NULL`:
 
 | x       | y       | x AND y | x OR y |
@@ -1172,7 +1223,7 @@ WITH Words AS (
   SELECT 'Secure' UNION ALL
   SELECT 'Clarity' UNION ALL
   SELECT 'Peace' UNION ALL
-  SELECT 'Intend' UNION ALL
+  SELECT 'Intend'
  )
 SELECT * FROM Words;
 
@@ -1182,6 +1233,7 @@ SELECT * FROM Words;
 | Intend   |
 | Secure   |
 | Clarity  |
+| Peace    |
 | Intend   |
 +----------+
 ```
@@ -1346,15 +1398,27 @@ The concatenation operator combines multiple values into one.
 </tbody>
 </table>
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[three-valued-logic]: https://en.wikipedia.org/wiki/Three-valued_logic
+
 [semantic-rules-in]: #semantic_rules_in
-[operators-link-to-filtering-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering-arrays
+
+[operators-link-to-filtering-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering_arrays
+
 [operators-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
+
 [operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
+
 [operators-link-to-unnest]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
-[operators-subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#about-subqueries
+
+[operators-subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#about_subqueries
+
 [operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct_type
 
 [operators-link-to-math-functions]: https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md
+
 [link-to-coercion]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#coercion
-[operators-link-to-array-offset]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#offset-and-ordinal
+
+<!-- mdlint on -->
 

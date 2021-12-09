@@ -153,8 +153,10 @@ TEST(GenerateArrayTest, ComplianceTests) {
       ZETASQL_EXPECT_OK(status);
       if (status.ok()) {
         std::string reason;
-        EXPECT_TRUE(InternalValue::Equals(expected_result, result,
-                                          kDefaultFloatMargin, &reason))
+        EXPECT_TRUE(InternalValue::Equals(
+            expected_result, result,
+            ValueEqualityCheckOptions{.float_margin = kDefaultFloatMargin,
+                                      .reason = &reason}))
             << "Expected: " << expected_result << "\nActual:   " << result
             << "\nReason: " << reason;
       }

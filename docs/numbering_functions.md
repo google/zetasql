@@ -97,6 +97,11 @@ non-deterministic.
 
 INT64
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [numbering-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#numbering_function_concepts
+
+<!-- mdlint on -->
 

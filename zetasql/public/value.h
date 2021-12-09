@@ -36,11 +36,13 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/extended_type.h"
+#include "zetasql/public/types/value_equality_check_options.h"
 #include "zetasql/public/types/value_representations.h"
 #include "zetasql/public/value.pb.h"
 #include "zetasql/public/value_content.h"
 #include "absl/base/attributes.h"
 #include <cstdint>
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
@@ -299,6 +301,13 @@ class Value {
   Value SqlLessThan(const Value& that) const;
 
   // Returns the hash code of a value.
+  //
+  // Result is not guaranteed stable across different runs of a program. It is
+  // not cryptographically secure. It should not be used for distributed
+  // coordination, security or storage which requires a stable computation.
+  //
+  // For more background see https://abseil.io/docs/cpp/guides/hash.
+  //
   size_t HashCode() const;
 
   template <typename H>
@@ -365,6 +374,7 @@ class Value {
   static Value Bytes(const absl::Cord& v);
   // str may contain '\0' in the middle, without getting truncated.
   template <size_t N> static Value Bytes(const char (&str)[N]);
+  // Create a date value. 'v' is the number of days since unix epoch 1970-1-1
   static Value Date(int32_t v);
   // Creates a timestamp value from absl::Time at nanoseconds precision.
   static Value Timestamp(absl::Time t);
@@ -503,39 +513,129 @@ class Value {
   static Value Proto(const ProtoType* type, absl::Cord value);
 
   // Creates a struct of the specified 'type' and given 'values'. The size of
-  // the 'values' vector must agree with the number of fields in 'type', and the
-  // types of those values must match the corresponding struct fields.
-  static Value Struct(const StructType* type,
-                      absl::Span<const Value> values);
+  // 'values' must agree with the number of fields in 'type', and the
+  // types of those values must match the corresponding struct fields, otherwise
+  // returns an error. 'type' must outlive the returned object.
+  static absl::StatusOr<Value> MakeStruct(const StructType* type,
+                                          absl::Span<const Value> values);
+
 #ifndef SWIG
+  static absl::StatusOr<Value> MakeStruct(const StructType* type,
+                                          std::vector<Value>&& values);
+
+  // This overload is required to disambiguate vector&& and absl::Span.
+  static absl::StatusOr<Value> MakeStruct(const StructType* type,
+                                          std::initializer_list<Value> values);
+
   // Creates a struct of the specified 'type' and given 'values'. The size of
   // the 'values' vector must agree with the number of fields in 'type', and the
   // types of those values must match the corresponding struct fields.
-  static Value SafeStruct(const StructType* type,
-                          std::vector<Value>&& values);
+  // This precondition is tested only during debug mode, and will result in
+  // undefined behavior at a later time if it is violated.
+  // This is an optimization, but it is dangerous and should only be used
+  // when a demonstrated performance concern requires it. 'type' must outlive
+  // the returned object.
+  static absl::StatusOr<Value> MakeStructFromValidatedInputs(
+      const StructType* type, std::vector<Value>&& values);
+
+  // Creates a struct of the specified 'type' and given 'values'. The size of
+  // the 'values' vector must agree with the number of fields in 'type', and the
+  // types of those values must match the corresponding struct fields, otherwise
+  // this will crash with a ZETASQL_CHECK failure.
+  ABSL_DEPRECATED("Inline me!")
+  static Value Struct(const StructType* type, absl::Span<const Value> values) {
+    absl::StatusOr<Value> value = MakeStruct(type, values);
+    ZETASQL_CHECK_OK(value);
+    return std::move(value).value();
+  }
+
+  // Creates a struct of the specified 'type' and given 'values'. The size of
+  // the 'values' vector must agree with the number of fields in 'type', and the
+  // types of those values must match the corresponding struct fields, otherwise
+  // this will crash with a ZETASQL_CHECK failure.
+  ABSL_DEPRECATED("Inline me!")
+  static Value SafeStruct(const StructType* type, std::vector<Value>&& values) {
+    absl::StatusOr<Value> value = MakeStruct(type, std::move(values));
+    ZETASQL_CHECK_OK(value);
+    return std::move(value).value();
+  }
+
   // Creates a struct of the specified 'type' by moving 'values'. The size of
   // the 'values' vector must agree with the number of fields in 'type', and the
   // types of those values must match the corresponding struct fields. However,
   // this is only ZETASQL_CHECK'd in debug mode.
+  ABSL_DEPRECATED("Inline me!")
   static Value UnsafeStruct(const StructType* type,
-                            std::vector<Value>&& values);
+                            std::vector<Value>&& values) {
+    absl::StatusOr<Value> value =
+        MakeStructFromValidatedInputs(type, std::move(values));
+    ZETASQL_CHECK_OK(value);
+    return std::move(value).value();
+  }
 #endif
   // Creates an empty array of the given 'array_type'.
   static Value EmptyArray(const ArrayType* array_type);
+
+  // Creates an array of the given 'array_type' initialized with 'values'.
+  // The type of each value must be the same as array_type->element_type(),
+  // otherwise returns an error. 'array_type' must outlive the returned object.
+  static absl::StatusOr<Value> MakeArray(const ArrayType* array_type,
+                                         absl::Span<const Value> values);
+
+#ifndef SWIG
+  static absl::StatusOr<Value> MakeArray(const ArrayType* array_type,
+                                         std::vector<Value>&& values);
+
+  // This overload is required to disambiguate vector&& and absl::Span.
+  static absl::StatusOr<Value> MakeArray(const ArrayType* array_type,
+                                         std::initializer_list<Value> values);
+
+  // Creates an array of the specified 'array_type' and given 'values'.
+  // The type of each value must be the same as array_type->element_type().
+  // This precondition is tested only during debug mode, and will result in
+  // undefined behavior at a later time if it is violated.
+  // This is an optimization, but it is dangerous and should only be used
+  // when a demonstrated performance concern requires it.
+  // 'array_type' must outlive the returned object.
+  static absl::StatusOr<Value> MakeArrayFromValidatedInputs(
+      const ArrayType* array_type, std::vector<Value>&& values);
+
   // Creates an array of the given 'array_type' initialized with 'values'.
   // The type of each value must be the same as array_type->element_type().
+  // otherwise this will crash with a ZETASQL_CHECK failure.
+  // 'array_type' must outlive the returned object.
+  ABSL_DEPRECATED("Inline me!")
   static Value Array(const ArrayType* array_type,
-                     absl::Span<const Value> values);
-#ifndef SWIG
-  // Creates an array of the given 'array_type' with the given 'values'.
+                     absl::Span<const Value> values) {
+    absl::StatusOr<Value> value = MakeArray(array_type, values);
+    ZETASQL_CHECK_OK(value);
+    return std::move(value).value();
+  }
+
+  // Creates an array of the given 'array_type' initialized with 'values'.
   // The type of each value must be the same as array_type->element_type().
+  // otherwise this will crash with a ZETASQL_CHECK failure.
+  // 'array_type' must outlive the returned object.
+  ABSL_DEPRECATED("Inline me!")
   static Value ArraySafe(const ArrayType* array_type,
-                         std::vector<Value>&& values);
-  // Creates an array of the given 'array_type' initialized by moving 'values'.
-  // The type of each value must be the same as array_type->element_type(), but
-  // this is only ZETASQL_CHECK'd in debug mode.
+                         std::vector<Value>&& values) {
+    absl::StatusOr<Value> value = MakeArray(array_type, std::move(values));
+    ZETASQL_CHECK_OK(value);
+    return std::move(value).value();
+  }
+
+  // Creates an array of the given 'array_type' initialized with 'values'.
+  // The type of each value must be the same as array_type->element_type(),
+  // however, this is only ZETASQL_CHECK'd in debug mode.
+  // 'array_type' must outlive the returned object.
+  ABSL_DEPRECATED("Inline me!")
   static Value UnsafeArray(const ArrayType* array_type,
-                           std::vector<Value>&& values);
+                           std::vector<Value>&& values) {
+    absl::StatusOr<Value> value =
+        MakeArrayFromValidatedInputs(array_type, std::move(values));
+    ZETASQL_CHECK_OK(value);
+    return std::move(value).value();
+  }
 #endif
   // Creates a null of the given 'type'.
   static Value Null(const Type* type);
@@ -677,38 +777,30 @@ class Value {
   // Uses multiset equality for arrays if allow_bags=true and
   // 'deep_order_spec.order_kind'=kIgnoresOrder. In the case that
   // 'deep_order_spec' is null, it will be computed for 'this' and 'x'.
-  // In case of inequality and 'reason' != nullptr, a detailed explanation may
-  // be appended to 'reason'. Uses float_margin as the maximum allowed absolute
-  // error when comparing floating point numbers (float and double).
   static bool EqualsInternal(const Value& x, const Value& y, bool allow_bags,
                              DeepOrderKindSpec* deep_order_spec,
-                             FloatMargin float_margin, std::string* reason);
+                             const ValueEqualityCheckOptions& options);
 
-// Creates an array of the given 'array_type' initialized by moving from
-// 'values'.  The type of each value must be the same as
-// array_type->element_type(). If 'safe' is true or we are in debug mode, this
-// is ZETASQL_CHECK'd.
-#ifndef SWIG
-  static Value ArrayInternal(bool safe, const ArrayType* array_type,
-                             OrderPreservationKind order_kind,
-                             std::vector<Value>&& values);
-#endif
+  // Creates an array of the given 'array_type' initialized by moving from
+  // 'values'.  The type of each value must be the same as
+  // array_type->element_type(). This property is validated if
+  // 'already_validated' is false or we are in debug mode.
+  static absl::StatusOr<Value> MakeArrayInternal(
+      bool already_validated, const ArrayType* array_type,
+      OrderPreservationKind order_kind, std::vector<Value> values);
 
-// Creates a struct of the given 'struct_type' initialized by moving from
-// 'values'. Each value must have the proper type. If 'safe' is true or we are
-// in debug mode, this is ZETASQL_CHECK'd.
-#ifndef SWIG
-  static Value StructInternal(bool safe, const StructType* struct_type,
-                              std::vector<Value>&& values);
-#endif
+  // Creates a struct of the given 'struct_type' initialized by moving from
+  // 'values'. Each value must have the proper type. This property is validated
+  // if 'already_validated' is false or we are in debug mode.
+  static absl::StatusOr<Value> MakeStructInternal(bool already_validated,
+                                                  const StructType* struct_type,
+                                                  std::vector<Value> values);
 
-  // Compares arrays as multisets ignoring the order of the elements. Upon
-  // inequality, 'reason' may be set to detailed explanation if 'reason' !=
-  // nullptr. Called from EqualsInternal().
+  // Compares arrays as multisets ignoring the order of the elements.
+  // Called from EqualsInternal().
   static bool EqualElementMultiSet(const Value& x, const Value& y,
                                    DeepOrderKindSpec* deep_order_spec,
-                                   FloatMargin float_margin,
-                                   std::string* reason);
+                                   const ValueEqualityCheckOptions& options);
 
   // Returns a pretty-printed (e.g. wrapped) string for the value
   // indented a number of spaces according to the 'indent' parameter.
@@ -975,13 +1067,13 @@ Value StringArray(absl::Span<const std::string> values);
 Value StringArray(absl::Span<const absl::Cord* const> values);
 Value BytesArray(absl::Span<const std::string> values);
 // Does not take ownership of Cord* values.
-
 Value BytesArray(absl::Span<const absl::Cord* const> values);
 Value NumericArray(absl::Span<const NumericValue> values);
 Value BigNumericArray(absl::Span<const BigNumericValue> values);
 Value JsonArray(absl::Span<const JSONValue> values);
 // 'values' are JSON values (e.g. '{"a": 10}') and not literal strings values.
 Value UnvalidatedJsonStringArray(absl::Span<const std::string> values);
+Value TimestampArray(absl::Span<const absl::Time> values);
 
 }  // namespace values
 }  // namespace zetasql

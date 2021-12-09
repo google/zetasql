@@ -26,11 +26,11 @@
 #include "zetasql/parser/location.hh"
 #include "zetasql/parser/bison_parser.h"
 #include "zetasql/parser/parse_tree.h"
-#include "zetasql/parser/join_proccessor.h"
+#include "zetasql/parser/join_processor.h"
 #include "zetasql/parser/statement_properties.h"
 #include "zetasql/public/strings.h"
-#include "absl/memory/memory.h"
 #include "zetasql/base/case.h"
+#include "absl/memory/memory.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_format.h"
@@ -461,7 +461,7 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 //   1: WITH ANONYMIZATION
 //   1: ANALYZE
 //   6: QUALIFY
-%expect 26
+%expect 25
 
 %union {
   bool boolean;
@@ -956,6 +956,7 @@ using zetasql::ASTDropStatement;
 %token KW_READ "READ"
 %token KW_REFERENCES "REFERENCES"
 %token KW_REMOTE "REMOTE"
+%token KW_REMOVE "REMOVE"
 %token KW_RENAME "RENAME"
 %token KW_REPEAT "REPEAT"
 %token KW_REPEATABLE "REPEATABLE"
@@ -1098,10 +1099,6 @@ using zetasql::ASTDropStatement;
 %type <expression> extract_expression
 %type <expression> extract_expression_base
 %type <node> field_schema
-%type <node> filter_fields_arg
-%type <expression> filter_fields_expression
-%type <expression> filter_fields_path_expression
-%type <expression> filter_fields_prefix
 %type <node> filter_using_clause
 %type <expression> floating_point_literal
 %type <node> foreign_key_column_attribute
@@ -1126,6 +1123,7 @@ using zetasql::ASTDropStatement;
 %type <expression> maybe_dashed_generalized_path_expression
 %type <node> grant_statement
 %type <node> grantee_list
+%type <node> grantee_list_with_parens_prefix
 %type <node> group_by_clause_prefix
 %type <node> grouping_item
 %type <node> hint
@@ -1328,6 +1326,7 @@ using zetasql::ASTDropStatement;
 %type <node> path_expression_or_string
 %type <expression> possibly_cast_int_literal_or_parameter
 %type <node> possibly_empty_column_list
+%type <node> possibly_empty_grantee_list
 %type <node> primary_key_or_table_constraint_spec
 %type <node> primary_key_spec
 %type <node> privilege
@@ -1359,6 +1358,8 @@ using zetasql::ASTDropStatement;
 %type <node> revoke_statement
 %type <node> rollback_statement
 %type <node> rollup_list
+%type <node> privilege_restriction_alter_action
+%type <node> privilege_restriction_alter_action_list
 %type <node> row_access_policy_alter_action
 %type <node> row_access_policy_alter_action_list
 %type <node> run_batch_statement
@@ -1778,6 +1779,18 @@ alter_action:
         node->set_is_if_exists($3);
         $$ = node;
       }
+    | "ALTER" "COLUMN" opt_if_exists identifier "SET" "DEFAULT" expression
+      {
+        auto* node = MAKE_NODE(ASTAlterColumnSetDefaultAction, @$,{$4, $7});
+        node->set_is_if_exists($3);
+        $$ = node;
+      }
+    | "ALTER" "COLUMN" opt_if_exists identifier "DROP" "DEFAULT"
+      {
+        auto* node = MAKE_NODE(ASTAlterColumnDropDefaultAction, @$, {$4});
+        node->set_is_if_exists($3);
+        $$ = node;
+      }
     | "ALTER" "COLUMN" opt_if_exists identifier "DROP" "NOT" "NULL"
       {
         auto* node = MAKE_NODE(ASTAlterColumnDropNotNullAction, @$, {$4});
@@ -1805,6 +1818,42 @@ alter_action_list:
       }
     ;
 
+// This is split up from the other ALTER actions since the alter actions for
+// PRIVILEGE RESTRICTION are only used by PRIVILEGE RESTRICTION at the moment.
+privilege_restriction_alter_action:
+    restrict_to_clause
+    | "ADD" opt_if_not_exists possibly_empty_grantee_list
+      {
+        auto* node = MAKE_NODE(ASTAddToRestricteeListClause, @$, {$3});
+        node->set_is_if_not_exists($2);
+        $$ = node;
+      }
+    | "REMOVE" opt_if_exists possibly_empty_grantee_list
+      {
+        auto* node = MAKE_NODE(
+            ASTRemoveFromRestricteeListClause, @$, {$3}
+        );
+        node->set_is_if_exists($2);
+        $$ = node;
+      }
+    ;
+
+// This is split up from the other ALTER actions since the alter actions for
+// PRIVILEGE RESTRICTION are only used by PRIVILEGE RESTRICTION at the moment.
+privilege_restriction_alter_action_list:
+    privilege_restriction_alter_action
+      {
+        $$ = MAKE_NODE(ASTAlterActionList, @$, {$1});
+      }
+    | privilege_restriction_alter_action_list ","
+    privilege_restriction_alter_action
+      {
+        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+      }
+    ;
+
+// This is split up from the other ALTER actions since the alter actions for
+// ROW ACCESS POLICY are only used by ROW ACCESS POLICY at the moment.
 row_access_policy_alter_action:
     grant_to_clause
     | "FILTER" "USING" "(" expression ")"
@@ -1926,6 +1975,15 @@ alter_statement:
         auto* node = MAKE_NODE(ASTAlterEntityStatement, @$, {$2, $4, $5});
         node->set_is_if_exists($3);
         $$ = node;
+      }
+    | "ALTER" "PRIVILEGE" "RESTRICTION" opt_if_exists
+      "ON" column_privilege_list "ON" identifier path_expression
+      privilege_restriction_alter_action_list
+      {
+        auto* alter_privilege_restriction = MAKE_NODE(
+            ASTAlterPrivilegeRestrictionStatement, @$, {$6, $8, $9, $10});
+        alter_privilege_restriction->set_is_if_exists($4);
+        $$ = alter_privilege_restriction;
       }
     | "ALTER" "ROW" "ACCESS" "POLICY" opt_if_exists identifier "ON"
       path_expression row_access_policy_alter_action_list
@@ -2409,7 +2467,7 @@ remote_with_connection_clause:
         if (parser->language_options() != nullptr &&
             !parser->language_options()->LanguageFeatureEnabled(
                 zetasql::FEATURE_V_1_3_REMOTE_FUNCTION)) {
-          YYERROR_AND_ABORT_AT(@1, "REMOTE is not supported");
+          YYERROR_AND_ABORT_AT(@1, "Keyword REMOTE is not supported");
         }
 
         $$.language = nullptr;
@@ -2423,12 +2481,19 @@ remote_with_connection_clause:
       }
     | with_connection_clause
       {
-        // This case is to generate more informative error message. Otherwise
-        // the error message for WITH CONNECTION without leading REMOTE will be
-        // something like "Expected end of input but got keyword WITH".
-        YYERROR_AND_ABORT_AT(
-            @1,
-            "WITH CONNECTION is only allowed after REMOTE in CREATE FUNCTION");
+        $$.language = nullptr;
+        $$.is_remote = false;
+        if ($1 == nullptr) {
+          $$.with_connection_clause = nullptr;
+        } else {
+          if (parser->language_options() != nullptr &&
+              !parser->language_options()->LanguageFeatureEnabled(
+                  zetasql::FEATURE_V_1_3_REMOTE_FUNCTION)) {
+            YYERROR_AND_ABORT_AT(@1, "WITH CONNECTION clause is not supported");
+          }
+          $$.with_connection_clause =
+              $1->GetAsOrDie<zetasql::ASTWithConnectionClause>();
+        }
       }
     ;
 
@@ -2527,10 +2592,10 @@ sql_function_body:
 // actions, so that it's unambiguous where the restrictee list ends and the next
 // action begins.
 restrict_to_clause:
-    "RESTRICT" "TO" "(" grantee_list ")"
+    "RESTRICT" "TO" possibly_empty_grantee_list
       {
         zetasql::ASTRestrictToClause* node =
-            MAKE_NODE(ASTRestrictToClause, @$, {$4});
+            MAKE_NODE(ASTRestrictToClause, @$, {$3});
         $$ = node;
       }
     ;
@@ -2599,11 +2664,12 @@ filter_using_clause:
 
 create_privilege_restriction_statement:
     "CREATE" opt_or_replace "PRIVILEGE" "RESTRICTION" opt_if_not_exists
-    "ON" column_privilege_list "ON" path_expression opt_restrict_to_clause
+    "ON" column_privilege_list "ON" identifier path_expression
+    opt_restrict_to_clause
       {
         zetasql::ASTCreatePrivilegeRestrictionStatement* node =
             MAKE_NODE(ASTCreatePrivilegeRestrictionStatement, @$,
-                      {$7, $9, $10});
+                      {$7, $9, $10, $11});
         node->set_is_or_replace($2);
         node->set_is_if_not_exists($5);
         $$ = node;
@@ -3850,6 +3916,28 @@ grantee_list:
     | grantee_list "," string_literal_or_parameter
       {
         $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
+      }
+    ;
+
+grantee_list_with_parens_prefix:
+    "(" string_literal_or_parameter
+      {
+        $$ = MAKE_NODE(ASTGranteeList, @$, {$2});
+      }
+    | grantee_list_with_parens_prefix "," string_literal_or_parameter
+      {
+        $$ = WithExtraChildren($1, {$3});
+      }
+    ;
+
+possibly_empty_grantee_list:
+    grantee_list_with_parens_prefix ")"
+      {
+        $$ = parser->WithEndLocation($1, @$);
+      }
+    | "(" ")"
+      {
+        $$ = MAKE_NODE(ASTGranteeList, @$, {});
       }
     ;
 
@@ -5771,7 +5859,6 @@ expression:
     | cast_expression
     | extract_expression
     | replace_fields_expression
-    | filter_fields_expression
     | function_call_expression_with_clauses
     | interval_expression
     | identifier
@@ -6986,49 +7073,6 @@ replace_fields_expression:
       }
     ;
 
-filter_fields_path_expression:
-    generalized_extension_path { $$ = $1; }
-    | generalized_path_expression { $$ = $1; }
-    ;
-
-
-filter_fields_arg:
-    "+" filter_fields_path_expression
-      {
-        auto* expression =
-            MAKE_NODE(ASTFilterFieldsArg, @$, {$2});
-        expression->set_filter_type(
-          zetasql::ASTFilterFieldsArg::FilterType::INCLUDE);
-        $$ = expression;
-      }
-    | "-" filter_fields_path_expression
-      {
-        auto* expression =
-            MAKE_NODE(ASTFilterFieldsArg, @$, {$2});
-        expression->set_filter_type(
-          zetasql::ASTFilterFieldsArg::FilterType::EXCLUDE);
-        $$ = expression;
-      }
-    ;
-
-filter_fields_prefix:
-    "FILTER_FIELDS" "(" expression "," filter_fields_arg
-      {
-        $$ = MAKE_NODE(ASTFilterFieldsExpression, @$, {$3, $5});
-      }
-    | filter_fields_prefix "," filter_fields_arg
-      {
-        $$ = WithExtraChildren($1, {$3});
-      }
-    ;
-
-filter_fields_expression:
-    filter_fields_prefix ")"
-      {
-        $$ = parser->WithEndLocation($1, @$);
-      }
-    ;
-
 function_name_from_keyword:
     "IF"
       {
@@ -7963,6 +8007,7 @@ keyword_as_identifier:
     | "READ"
     | "REFERENCES"
     | "REMOTE"
+    | "REMOVE"
     | "RENAME"
     | "REPEAT"
     | "REPEATABLE"
@@ -8814,7 +8859,15 @@ opt_drop_mode:
     ;
 
 drop_statement:
-    "DROP" "ROW" "ACCESS" "POLICY" opt_if_exists identifier
+    "DROP" "PRIVILEGE" "RESTRICTION" opt_if_exists
+    "ON" column_privilege_list "ON" identifier path_expression
+      {
+        auto* node = MAKE_NODE(ASTDropPrivilegeRestrictionStatement, @$,
+                               {$6, $8, $9});
+        node->set_is_if_exists($4);
+        $$ = node;
+      }
+    | "DROP" "ROW" "ACCESS" "POLICY" opt_if_exists identifier
     on_path_expression
       {
         zetasql::ASTPathExpression* path_expression =
@@ -9436,6 +9489,10 @@ next_statement_kind_without_hint:
     | describe_keyword
       { $$ = zetasql::ASTDescribeStatement::kConcreteNodeKind; }
     | "SHOW" { $$ = zetasql::ASTShowStatement::kConcreteNodeKind; }
+    | "DROP" "PRIVILEGE"
+      {
+        $$ = zetasql::ASTDropPrivilegeRestrictionStatement::kConcreteNodeKind;
+      }
     | "DROP" "ALL" "ROW" opt_access "POLICIES"
       {
         $$ = zetasql::ASTDropAllRowAccessPoliciesStatement::kConcreteNodeKind;
@@ -9498,6 +9555,10 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTAlterSchemaStatement::kConcreteNodeKind; }
     | "ALTER" "TABLE"
       { $$ = zetasql::ASTAlterTableStatement::kConcreteNodeKind; }
+    | "ALTER" "PRIVILEGE"
+      {
+        $$ = zetasql::ASTAlterPrivilegeRestrictionStatement::kConcreteNodeKind;
+      }
     | "ALTER" "ROW"
       { $$ = zetasql::ASTAlterRowAccessPolicyStatement::kConcreteNodeKind; }
     | "ALTER" "ALL" "ROW" "ACCESS" "POLICIES"

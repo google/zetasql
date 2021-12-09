@@ -297,6 +297,7 @@ class FunctionSerializationTests : public ::testing::Test {
     EXPECT_EQ(options1.propagates_collation(), options2.propagates_collation());
     EXPECT_EQ(options1.uses_operation_collation(),
               options2.uses_operation_collation());
+    EXPECT_EQ(options1.rejects_collation(), options2.rejects_collation());
   }
 
   static void ExpectEqualsIgnoringCallbacks(
@@ -519,6 +520,7 @@ TEST_F(FunctionSerializationTests, CollationOptionsTest) {
   FunctionSignatureOptions options;
   options.set_propagates_collation(false);
   options.set_uses_operation_collation(true);
+  options.set_rejects_collation(true);
 
   FunctionSignatureOptionsProto proto;
   options.Serialize(&proto);

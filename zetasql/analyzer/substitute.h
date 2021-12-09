@@ -20,7 +20,6 @@
 #include <memory>
 #include <string>
 
-#include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/types/type_factory.h"
@@ -91,8 +90,8 @@ namespace zetasql {
 // Note that actually producing this AST by hand would take possibly more than
 // a hundred lines of code.
 absl::StatusOr<std::unique_ptr<ResolvedExpr>> AnalyzeSubstitute(
-    AnalyzerOptions options, absl::Span<const Rewriter* const> rewriters,
-    Catalog& catalog, TypeFactory& type_factory, absl::string_view expression,
+    AnalyzerOptions options, Catalog& catalog, TypeFactory& type_factory,
+    absl::string_view expression,
     const absl::flat_hash_map<std::string, const ResolvedExpr*>& variables,
     const absl::flat_hash_map<std::string, const ResolvedInlineLambda*>&
         lambdas = {});

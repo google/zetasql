@@ -589,6 +589,11 @@ FROM AlbumList;
 +-------------+
 ```
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying_protocol_buffers
+
 [has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#checking_if_a_field_has_a_value
+
+<!-- mdlint on -->
 

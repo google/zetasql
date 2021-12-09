@@ -26,6 +26,7 @@
 #include "zetasql/base/logging.h"
 #include <cstdint>
 #include "absl/base/macros.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/ascii.h"
 #include "absl/types/variant.h"
@@ -252,14 +253,15 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"recursive", KW_RECURSIVE, kReserved},
     {"references", KW_REFERENCES},
     {"remote", KW_REMOTE},
+    {"remove", KW_REMOVE},
     {"rename", KW_RENAME},
     {"repeat", KW_REPEAT},
     {"repeatable", KW_REPEATABLE},
     {"replace", KW_REPLACE},
     {"replace_fields", KW_REPLACE_FIELDS},
     {"respect", KW_RESPECT, kReserved},
-    {"restriction", KW_RESTRICTION},
     {"restrict", KW_RESTRICT},
+    {"restriction", KW_RESTRICTION},
     {"return", KW_RETURN},
     {"returns", KW_RETURNS},
     {"revoke", KW_REVOKE},
@@ -409,11 +411,11 @@ const KeywordInfo* GetKeywordInfo(absl::string_view keyword) {
   return trie.Get(keyword);
 }
 
-static std::unique_ptr<const std::unordered_map<int, const KeywordInfo*>>
+static std::unique_ptr<const absl::flat_hash_map<int, const KeywordInfo*>>
 CreateTokenToKeywordInfoMap() {
   const auto& all_keywords = GetAllKeywords();
   auto keyword_info_map =
-      absl::make_unique<std::unordered_map<int, const KeywordInfo*>>();
+      absl::make_unique<absl::flat_hash_map<int, const KeywordInfo*>>();
   for (const KeywordInfo& keyword_info : all_keywords) {
     if (keyword_info.CanBeReserved()) {
       zetasql_base::InsertOrDie(keyword_info_map.get(),

@@ -123,7 +123,8 @@ absl::StatusOr<const Type*> TypeDeserializer::Deserialize(
           type_proto.enum_type().catalog_name_path();
       ZETASQL_RETURN_IF_ERROR(type_factory_->MakeEnumType(
           enum_descr, &enum_type,
-          {catalog_name_path.begin(), catalog_name_path.end()}));
+          std::vector<std::string>{catalog_name_path.begin(),
+                                   catalog_name_path.end()}));
       return enum_type;
     }
 
@@ -155,7 +156,8 @@ absl::StatusOr<const Type*> TypeDeserializer::Deserialize(
           type_proto.proto_type().catalog_name_path();
       ZETASQL_RETURN_IF_ERROR(type_factory_->MakeProtoType(
           proto_descr, &proto_type,
-          {catalog_name_path.begin(), catalog_name_path.end()}));
+          std::vector<std::string>{catalog_name_path.begin(),
+                                   catalog_name_path.end()}));
       return proto_type;
     }
 

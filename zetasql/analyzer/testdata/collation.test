@@ -147,6 +147,33 @@ QueryStmt
       +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
 ==
 
+# Collation on first argument is rejected.
+select fn_reject_collation(string_ci, 'abc')
+from CollatedTable
+--
+ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 1:8]
+select fn_reject_collation(string_ci, 'abc')
+       ^
+==
+
+# Collation on the named argument is rejected.
+select fn_reject_collation('abc', second_arg => array_with_string_ci)
+from CollatedTable
+--
+ERROR: Collation is not allowed on argument second_arg (["und:ci"]) [at 1:8]
+select fn_reject_collation('abc', second_arg => array_with_string_ci)
+       ^
+==
+
+# Collation on the named argument is rejected.
+select fn_reject_collation('abc', second_arg => struct_with_string_ci)
+from CollatedTable
+--
+ERROR: Collation is not allowed on argument second_arg (<_,"und:ci">) [at 1:8]
+select fn_reject_collation('abc', second_arg => struct_with_string_ci)
+       ^
+==
+
 with test as (select * from CollatedTable)
 select string_ci || 'abc', string_binary
 from test
@@ -317,6 +344,9 @@ QueryStmt
       +-TableScan(column_list=[CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>], table=CollatedTable, column_index_list=[2])
 ==
 
+[no_run_unparser]
+# TODO: enable the unparser once STRUCT<STRING COLLATE '...'> syntax
+# is supported.
 # TODO: for ResolvedMakeStruct:
 # * handle UNPIVOT query with rewriter calling MakeResolvedMakeStruct
 
@@ -442,6 +472,9 @@ QueryStmt
           +-TableScan(column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
 ==
 
+[no_run_unparser]
+# TODO: enable the unparser once STRUCT<STRING COLLATE '...'> syntax
+# is supported.
 # Test ResolvedMakeStruct in value table
 select as struct 1, 'abc', (string_ci, (string_ci, string_binary))
 from CollatedTable
@@ -482,6 +515,68 @@ QueryStmt
         |           +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
         +-input_scan=
           +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
+==
+
+# Test make struct with keyword constructor. There should be implicit casts when
+# input fields have collations.
+# TODO: Support collated type inside struct constructor,
+# i.e. STRUCT<STRING COLLATE '...'>.
+select
+  struct<a INT32, b STRING>(1, 'a'),
+  struct<a INT32, b STRING>(1, collate('a', 'und:ci')),
+  struct<a INT32, b ARRAY<STRING>>(1, [collate('a', 'und:ci')]),
+  struct<a INT32, b STRUCT<x INT32, y STRING>>(1, (2, collate('a', 'und:ci'))),
+from CollatedTable
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [STRUCT<a INT32, b STRING>]
+| +-$query.$col2#6 AS `$col2` [STRUCT<a INT32, b STRING>]
+| +-$query.$col3#7 AS `$col3` [STRUCT<a INT32, b ARRAY<STRING>>]
+| +-$query.$col4#8 AS `$col4` [STRUCT<a INT32, b STRUCT<x INT32, y STRING>>]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#5, $col2#6, $col3#7, $col4#8]
+    +-expr_list=
+    | +-$col1#5 := Literal(type=STRUCT<a INT32, b STRING>, value={a:1, b:"a"}, has_explicit_type=TRUE)
+    | +-$col2#6 :=
+    | | +-MakeStruct
+    | |   +-type=STRUCT<a INT32, b STRING>
+    | |   +-field_list=
+    | |     +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
+    | |     +-Cast(STRING -> STRING)
+    | |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    | |         +-type_annotation_map={Collation:"und:ci"}
+    | |         +-Literal(type=STRING, value="a")
+    | |         +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    | +-$col3#7 :=
+    | | +-MakeStruct
+    | |   +-type=STRUCT<a INT32, b ARRAY<STRING>>
+    | |   +-field_list=
+    | |     +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
+    | |     +-Cast(ARRAY<STRING> -> ARRAY<STRING>)
+    | |       +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
+    | |         +-type_annotation_map=[{Collation:"und:ci"}]
+    | |         +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    | |           +-type_annotation_map={Collation:"und:ci"}
+    | |           +-Literal(type=STRING, value="a")
+    | |           +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    | +-$col4#8 :=
+    |   +-MakeStruct
+    |     +-type=STRUCT<a INT32, b STRUCT<x INT32, y STRING>>
+    |     +-field_list=
+    |       +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
+    |       +-MakeStruct
+    |         +-type=STRUCT<x INT32, y STRING>
+    |         +-field_list=
+    |           +-Literal(type=INT32, value=2, has_explicit_type=TRUE)
+    |           +-Cast(STRING -> STRING)
+    |             +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |               +-type_annotation_map={Collation:"und:ci"}
+    |               +-Literal(type=STRING, value="a")
+    |               +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    +-input_scan=
+      +-TableScan(table=CollatedTable)
 ==
 
 # Default collation propagation through function call
@@ -1944,6 +2039,37 @@ QueryStmt
         +-collation_list=[und:ci,und:ci]
 ==
 
+# Group by collated function
+[no_enable_literal_replacement]
+SELECT REPLACE(string_ci, 'a', 'b'), count(*)
+FROM CollatedTable GROUP BY REPLACE(string_ci, 'a', 'b')
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.$groupbycol1#6{Collation:"und:ci"} AS `$col1` [STRING]
+| +-$aggregate.$agg1#5 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.$groupbycol1#6{Collation:"und:ci"}, $aggregate.$agg1#5]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.$groupbycol1#6{Collation:"und:ci"}, $aggregate.$agg1#5]
+        +-input_scan=
+        | +-TableScan(column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
+        +-group_by_list=
+        | +-$groupbycol1#6 :=
+        |   +-FunctionCall(ZetaSQL:replace(STRING, STRING, STRING) -> STRING)
+        |     +-type_annotation_map={Collation:"und:ci"}
+        |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+        |     +-Literal(type=STRING, value="a")
+        |     +-Literal(type=STRING, value="b")
+        |     +-collation_list=[und:ci]
+        +-collation_list=[und:ci]
+        +-aggregate_list=
+          +-$agg1#5 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+
+==
+
 # Test full join with using clause. It returns a value column made from the
 # expression COALESCE(lhs_value, rhs_value). Collation should be propagated
 # through the value column.
@@ -2130,6 +2256,9 @@ QueryStmt
                     +-collation_list=[und:ci]
 ==
 
+[no_run_unparser]
+# TODO: enable the unparser once STRUCT<STRING COLLATE '...'> syntax
+# is supported.
 # Test join with 'using' on a value table field, collation should be propagated
 with t1 as (select as struct collate('abc', 'und:ci') col_a, 1 col_b),
      t2 as (select as struct collate('abc', 'und:ci') col_a, 1 col_c)
@@ -2598,9 +2727,239 @@ QueryStmt
 --
 ALTERNATION GROUP: outer
 --
-ERROR: Syntax error: Expected end of input but got keyword OUTER [at 4:9]
+ERROR: Syntax error: Expected end of input but got keyword OUTER [at 7:9]
 from t1 outer join t2 using (col_a)
         ^
+==
+
+[enabled_ast_rewrites=DEFAULTS]
+[language_features=V_1_3_PIVOT,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+# PIVOT FOR expression with collation is not supported
+select * FROM (select string_ci, string_binary from CollatedTable)
+PIVOT(string_agg(distinct string_ci) FOR string_binary IN ('Value_1' AS v1, 'Value_2' AS v2));
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$pivot.v1#8{Collation:"und:ci"} AS v1 [STRING]
+| +-$pivot.v2#9{Collation:"und:ci"} AS v2 [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$pivot.[v1#8, v2#9]
+    +-input_scan=
+      +-PivotScan
+        +-column_list=$pivot.[v1#8, v2#9]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=$subquery1.[string_ci#5, string_binary#6]
+        |   +-expr_list=
+        |   | +-string_ci#5 := ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+        |   | +-string_binary#6 := ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
+        |   +-input_scan=
+        |     +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
+        +-pivot_expr_list=
+        | +-AggregateFunctionCall(ZetaSQL:string_agg(STRING) -> STRING)
+        |   +-parse_location=128-158
+        |   +-type_annotation_map={Collation:"und:ci"}
+        |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.string_ci#5{Collation:"und:ci"})
+        |   +-collation_list=[und:ci]
+        |   +-distinct=TRUE
+        +-for_expr=
+        | +-ColumnRef(parse_location=163-176, type=STRING, type_annotation_map={Collation:"binary"}, column=$subquery1.string_binary#6{Collation:"binary"})
+        +-pivot_value_list=
+        | +-Literal(type=STRING, value="Value_1")
+        | +-Literal(type=STRING, value="Value_2")
+        +-pivot_column_list=
+          +-PivotColumn(column=$pivot.v1#8{Collation:"und:ci"}, pivot_expr_index=0, pivot_value_index=0)
+          +-PivotColumn(column=$pivot.v2#9{Collation:"und:ci"}, pivot_expr_index=0, pivot_value_index=1)
+
+Rewrite ERROR: generic::unimplemented: Collation is not supported in a PIVOT clause yet [at 3:42]
+PIVOT(string_agg(distinct string_ci) FOR string_binary IN ('Value_1' AS v1, '...
+                                         ^
+==
+
+[enabled_ast_rewrites=DEFAULTS]
+[language_features=V_1_3_PIVOT,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT]
+# PIVOT aggregation with collation is not supported
+select * FROM (select string_ci, string_binary, 'abc' value from CollatedTable)
+PIVOT(string_agg(distinct string_ci) FOR value IN ('Value_1' AS v1, 'Value_2' AS v2));
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.string_binary#9{Collation:"binary"} AS string_binary [STRING]
+| +-$pivot.v1#10{Collation:"und:ci"} AS v1 [STRING]
+| +-$pivot.v2#11{Collation:"und:ci"} AS v2 [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.string_binary#9{Collation:"binary"}, $pivot.v1#10{Collation:"und:ci"}, $pivot.v2#11{Collation:"und:ci"}]
+    +-input_scan=
+      +-PivotScan
+        +-column_list=[$groupby.string_binary#9{Collation:"binary"}, $pivot.v1#10{Collation:"und:ci"}, $pivot.v2#11{Collation:"und:ci"}]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=$subquery1.[string_ci#5, string_binary#6, value#7]
+        |   +-expr_list=
+        |   | +-string_ci#5 := ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+        |   | +-string_binary#6 := ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
+        |   | +-value#7 := Literal(type=STRING, value="abc")
+        |   +-input_scan=
+        |     +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-string_binary#9 := ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=$subquery1.string_binary#6{Collation:"binary"})
+        +-pivot_expr_list=
+        | +-AggregateFunctionCall(ZetaSQL:string_agg(STRING) -> STRING)
+        |   +-parse_location=138-168
+        |   +-type_annotation_map={Collation:"und:ci"}
+        |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.string_ci#5{Collation:"und:ci"})
+        |   +-collation_list=[und:ci]
+        |   +-distinct=TRUE
+        +-for_expr=
+        | +-ColumnRef(parse_location=173-178, type=STRING, column=$subquery1.value#7)
+        +-pivot_value_list=
+        | +-Literal(type=STRING, value="Value_1")
+        | +-Literal(type=STRING, value="Value_2")
+        +-pivot_column_list=
+          +-PivotColumn(column=$pivot.v1#10{Collation:"und:ci"}, pivot_expr_index=0, pivot_value_index=0)
+          +-PivotColumn(column=$pivot.v2#11{Collation:"und:ci"}, pivot_expr_index=0, pivot_value_index=1)
+
+Rewrite ERROR: generic::unimplemented: Collation is not supported in a PIVOT clause yet [at 3:7]
+PIVOT(string_agg(distinct string_ci) FOR value IN ('Value_1' AS v1, 'Value_2'...
+      ^
+==
+
+# PIVOT that is not affected by collation works fine
+# We can't run the unparser because the rewrite generates TABLESAMPLE and the
+# TABLESAMPLE feature is not turned on.
+[no_run_unparser]
+[enabled_ast_rewrites=DEFAULTS]
+[language_features=V_1_3_PIVOT,V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_IS_DISTINCT]
+select * FROM (select string_ci, string_binary, 'abc' value from CollatedTable)
+PIVOT(string_agg(string_ci) FOR value IN ('Value_1' AS v1, 'Value_2' AS v2));
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.string_binary#9{Collation:"binary"} AS string_binary [STRING]
+| +-$pivot.v1#10{Collation:"und:ci"} AS v1 [STRING]
+| +-$pivot.v2#11{Collation:"und:ci"} AS v2 [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.string_binary#9{Collation:"binary"}, $pivot.v1#10{Collation:"und:ci"}, $pivot.v2#11{Collation:"und:ci"}]
+    +-input_scan=
+      +-PivotScan
+        +-column_list=[$groupby.string_binary#9{Collation:"binary"}, $pivot.v1#10{Collation:"und:ci"}, $pivot.v2#11{Collation:"und:ci"}]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=$subquery1.[string_ci#5, string_binary#6, value#7]
+        |   +-expr_list=
+        |   | +-string_ci#5 := ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+        |   | +-string_binary#6 := ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
+        |   | +-value#7 := Literal(type=STRING, value="abc")
+        |   +-input_scan=
+        |     +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-string_binary#9 := ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=$subquery1.string_binary#6{Collation:"binary"})
+        +-pivot_expr_list=
+        | +-AggregateFunctionCall(ZetaSQL:string_agg(STRING) -> STRING)
+        |   +-parse_location=86-107
+        |   +-type_annotation_map={Collation:"und:ci"}
+        |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.string_ci#5{Collation:"und:ci"})
+        +-for_expr=
+        | +-ColumnRef(parse_location=112-117, type=STRING, column=$subquery1.value#7)
+        +-pivot_value_list=
+        | +-Literal(type=STRING, value="Value_1")
+        | +-Literal(type=STRING, value="Value_2")
+        +-pivot_column_list=
+          +-PivotColumn(column=$pivot.v1#10{Collation:"und:ci"}, pivot_expr_index=0, pivot_value_index=0)
+          +-PivotColumn(column=$pivot.v2#11{Collation:"und:ci"}, pivot_expr_index=0, pivot_value_index=1)
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.string_binary#9{Collation:"binary"} AS string_binary [STRING]
+| +-$pivot.v1#10{Collation:"und:ci"} AS v1 [STRING]
+| +-$pivot.v2#11{Collation:"und:ci"} AS v2 [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.string_binary#9{Collation:"binary"}, $pivot.v1#10{Collation:"und:ci"}, $pivot.v2#11{Collation:"und:ci"}]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.string_binary#9{Collation:"binary"}, $pivot.v1#10{Collation:"und:ci"}, $pivot.v2#11{Collation:"und:ci"}]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[$subquery1.string_ci#5{Collation:"und:ci"}, $subquery1.string_binary#6{Collation:"binary"}, $subquery1.value#7, $pivot.$pivot_value#12, $pivot.$pivot_expr_arg#13]
+        |   +-expr_list=
+        |   | +-$pivot_value#12 := ColumnRef(parse_location=112-117, type=STRING, column=$subquery1.value#7)
+        |   | +-$pivot_expr_arg#13 := ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$subquery1.string_ci#5{Collation:"und:ci"})
+        |   +-input_scan=
+        |     +-ProjectScan
+        |       +-column_list=$subquery1.[string_ci#5, string_binary#6, value#7]
+        |       +-expr_list=
+        |       | +-string_ci#5 := ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+        |       | +-string_binary#6 := ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
+        |       | +-value#7 := Literal(type=STRING, value="abc")
+        |       +-input_scan=
+        |         +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
+        +-group_by_list=
+        | +-string_binary#9 := ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=$subquery1.string_binary#6{Collation:"binary"})
+        +-aggregate_list=
+          +-v1#10 :=
+          | +-AggregateFunctionCall(ZetaSQL:string_agg(STRING) -> STRING)
+          |   +-SubqueryExpr
+          |     +-type=STRING
+          |     +-subquery_type=SCALAR
+          |     +-parameter_list=
+          |     | +-ColumnRef(type=STRING, column=$pivot.$pivot_value#12)
+          |     | +-ColumnRef(type=STRING, column=$pivot.$pivot_expr_arg#13)
+          |     +-subquery=
+          |       +-ProjectScan
+          |         +-column_list=[$expr_subquery.$col1#17]
+          |         +-expr_list=
+          |         | +-$col1#17 :=
+          |         |   +-FunctionCall(ZetaSQL:if(BOOL, STRING, STRING) -> STRING)
+          |         |     +-FunctionCall(ZetaSQL:$is_not_distinct_from(STRING, STRING) -> BOOL)
+          |         |     | +-ColumnRef(type=STRING, column=$subquery1.pivot_column#15)
+          |         |     | +-ColumnRef(type=STRING, column=$subquery1.pivot_value#16)
+          |         |     +-ColumnRef(type=STRING, column=$subquery1.orig_arg#14)
+          |         |     +-Literal(type=STRING, value=NULL)
+          |         +-input_scan=
+          |           +-ProjectScan
+          |             +-column_list=$subquery1.[orig_arg#14, pivot_column#15, pivot_value#16]
+          |             +-expr_list=
+          |             | +-orig_arg#14 := ColumnRef(type=STRING, column=$pivot.$pivot_expr_arg#13, is_correlated=TRUE)
+          |             | +-pivot_column#15 := ColumnRef(type=STRING, column=$pivot.$pivot_value#12, is_correlated=TRUE)
+          |             | +-pivot_value#16 := Literal(type=STRING, value="Value_1")
+          |             +-input_scan=
+          |               +-SingleRowScan
+          +-v2#11 :=
+            +-AggregateFunctionCall(ZetaSQL:string_agg(STRING) -> STRING)
+              +-SubqueryExpr
+                +-type=STRING
+                +-subquery_type=SCALAR
+                +-parameter_list=
+                | +-ColumnRef(type=STRING, column=$pivot.$pivot_value#12)
+                | +-ColumnRef(type=STRING, column=$pivot.$pivot_expr_arg#13)
+                +-subquery=
+                  +-ProjectScan
+                    +-column_list=[$expr_subquery.$col1#21]
+                    +-expr_list=
+                    | +-$col1#21 :=
+                    |   +-FunctionCall(ZetaSQL:if(BOOL, STRING, STRING) -> STRING)
+                    |     +-FunctionCall(ZetaSQL:$is_not_distinct_from(STRING, STRING) -> BOOL)
+                    |     | +-ColumnRef(type=STRING, column=$subquery1.pivot_column#19)
+                    |     | +-ColumnRef(type=STRING, column=$subquery1.pivot_value#20)
+                    |     +-ColumnRef(type=STRING, column=$subquery1.orig_arg#18)
+                    |     +-Literal(type=STRING, value=NULL)
+                    +-input_scan=
+                      +-ProjectScan
+                        +-column_list=$subquery1.[orig_arg#18, pivot_column#19, pivot_value#20]
+                        +-expr_list=
+                        | +-orig_arg#18 := ColumnRef(type=STRING, column=$pivot.$pivot_expr_arg#13, is_correlated=TRUE)
+                        | +-pivot_column#19 := ColumnRef(type=STRING, column=$pivot.$pivot_value#12, is_correlated=TRUE)
+                        | +-pivot_value#20 := Literal(type=STRING, value="Value_2")
+                        +-input_scan=
+                          +-SingleRowScan
 ==
 
 create table t (a int64) default collate 'und:ci';
@@ -2688,6 +3047,9 @@ CreateTableAsSelectStmt
       +-SingleRowScan
 ==
 
+[no_run_unparser]
+# TODO: enable the unparser once STRUCT<STRING COLLATE '...'> syntax
+# is supported.
 # CTAS should propagate collation from query to column_definition_list.
 create table t
 as select 1 a,
@@ -2770,6 +3132,9 @@ CreateTableAsSelectStmt
       +-SingleRowScan
 ==
 
+[no_run_unparser]
+# TODO: enable the unparser once STRUCT<STRING COLLATE '...'> syntax
+# is supported.
 # For CTAS, user specified column_definition_list should override the collation
 # from the query.
 create table t(x INT64,
@@ -3173,3 +3538,406 @@ ALTER TABLE t SET DEFAULT COLLATE @test_param_string;
 ERROR: COLLATE must be followed by a string literal [at 1:35]
 ALTER TABLE t SET DEFAULT COLLATE @test_param_string;
                                   ^
+==
+
+INSERT CollatedTable (string_binary)
+VALUES(collate('b', 'binary')),
+      (collate('a', 'und:ci')),
+      ('c')
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=[CollatedTable.string_binary#2{Collation:"binary"}], table=CollatedTable, column_index_list=[1])
++-insert_column_list=[CollatedTable.string_binary#2{Collation:"binary"}]
++-row_list=
+  +-InsertRow
+  | +-value_list=
+  |   +-DMLValue
+  |     +-value=
+  |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  |         +-type_annotation_map={Collation:"binary"}
+  |         +-Literal(type=STRING, value="b")
+  |         +-Literal(type=STRING, value="binary", preserve_in_literal_remover=TRUE)
+  +-InsertRow
+  | +-value_list=
+  |   +-DMLValue
+  |     +-value=
+  |       +-Cast(STRING -> STRING)
+  |         +-type_annotation_map={Collation:"binary"}
+  |         +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  |           +-type_annotation_map={Collation:"und:ci"}
+  |           +-Literal(type=STRING, value="a")
+  |           +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+  +-InsertRow
+    +-value_list=
+      +-DMLValue
+        +-value=
+          +-Cast(STRING -> STRING)
+            +-type_annotation_map={Collation:"binary"}
+            +-Literal(type=STRING, value="c")
+==
+
+INSERT CollatedTable (struct_with_string_ci)
+VALUES((1, collate('a', 'und:ci'))),
+      ((2, collate('b', 'binary'))),
+      ((3, 'c'))
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=[CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>], table=CollatedTable, column_index_list=[2])
++-insert_column_list=[CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>]
++-row_list=
+  +-InsertRow
+  | +-value_list=
+  |   +-DMLValue
+  |     +-value=
+  |       +-MakeStruct
+  |         +-type=STRUCT<a INT32, b STRING>
+  |         +-type_annotation_map=<_,{Collation:"und:ci"}>
+  |         +-field_list=
+  |           +-Literal(type=INT32, value=1)
+  |           +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  |             +-type_annotation_map={Collation:"und:ci"}
+  |             +-Literal(type=STRING, value="a")
+  |             +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+  +-InsertRow
+  | +-value_list=
+  |   +-DMLValue
+  |     +-value=
+  |       +-MakeStruct
+  |         +-type=STRUCT<a INT32, b STRING>
+  |         +-type_annotation_map=<_,{Collation:"und:ci"}>
+  |         +-field_list=
+  |           +-Literal(type=INT32, value=2)
+  |           +-Cast(STRING -> STRING)
+  |             +-type_annotation_map={Collation:"und:ci"}
+  |             +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  |               +-type_annotation_map={Collation:"binary"}
+  |               +-Literal(type=STRING, value="b")
+  |               +-Literal(type=STRING, value="binary", preserve_in_literal_remover=TRUE)
+  +-InsertRow
+    +-value_list=
+      +-DMLValue
+        +-value=
+          +-Cast(STRUCT<a INT32, b STRING> -> STRUCT<a INT32, b STRING>)
+            +-type_annotation_map=<_,{Collation:"und:ci"}>
+            +-Literal(type=STRUCT<a INT32, b STRING>, value={a:3, b:"c"})
+==
+
+INSERT ComplexCollatedTable (struct_with_string_ci_binary)
+VALUES((collate('a', 'binary'), collate('b', 'und:ci'))),
+      (('c', collate('d', 'und:ci')))
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=[ComplexCollatedTable.struct_with_string_ci_binary#4<{Collation:"und:ci"},{Collation:"binary"}>], table=ComplexCollatedTable, column_index_list=[3])
++-insert_column_list=[ComplexCollatedTable.struct_with_string_ci_binary#4<{Collation:"und:ci"},{Collation:"binary"}>]
++-row_list=
+  +-InsertRow
+  | +-value_list=
+  |   +-DMLValue
+  |     +-value=
+  |       +-MakeStruct
+  |         +-type=STRUCT<a STRING, b STRING>
+  |         +-type_annotation_map=<{Collation:"und:ci"},{Collation:"binary"}>
+  |         +-field_list=
+  |           +-Cast(STRING -> STRING)
+  |           | +-type_annotation_map={Collation:"und:ci"}
+  |           | +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  |           |   +-type_annotation_map={Collation:"binary"}
+  |           |   +-Literal(type=STRING, value="a")
+  |           |   +-Literal(type=STRING, value="binary", preserve_in_literal_remover=TRUE)
+  |           +-Cast(STRING -> STRING)
+  |             +-type_annotation_map={Collation:"binary"}
+  |             +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  |               +-type_annotation_map={Collation:"und:ci"}
+  |               +-Literal(type=STRING, value="b")
+  |               +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+  +-InsertRow
+    +-value_list=
+      +-DMLValue
+        +-value=
+          +-MakeStruct
+            +-type=STRUCT<a STRING, b STRING>
+            +-type_annotation_map=<{Collation:"und:ci"},{Collation:"binary"}>
+            +-field_list=
+              +-Cast(STRING -> STRING)
+              | +-type_annotation_map={Collation:"und:ci"}
+              | +-Literal(type=STRING, value="c")
+              +-Cast(STRING -> STRING)
+                +-type_annotation_map={Collation:"binary"}
+                +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+                  +-type_annotation_map={Collation:"und:ci"}
+                  +-Literal(type=STRING, value="d")
+                  +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+==
+
+INSERT ComplexCollatedTable (struct_of_struct_ci)
+VALUES((1, (1, 'a'))),
+      ((2, (2, collate('b', 'binary'))))
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=[ComplexCollatedTable.struct_of_struct_ci#3<_,<_,{Collation:"und:ci"}>>], table=ComplexCollatedTable, column_index_list=[2])
++-insert_column_list=[ComplexCollatedTable.struct_of_struct_ci#3<_,<_,{Collation:"und:ci"}>>]
++-row_list=
+  +-InsertRow
+  | +-value_list=
+  |   +-DMLValue
+  |     +-value=
+  |       +-Cast(STRUCT<c INT32, d STRUCT<a INT32, b STRING>> -> STRUCT<c INT32, d STRUCT<a INT32, b STRING>>)
+  |         +-type_annotation_map=<_,<_,{Collation:"und:ci"}>>
+  |         +-Literal(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, value={c:1, d:{a:1, b:"a"}})
+  +-InsertRow
+    +-value_list=
+      +-DMLValue
+        +-value=
+          +-MakeStruct
+            +-type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>
+            +-type_annotation_map=<_,<_,{Collation:"und:ci"}>>
+            +-field_list=
+              +-Literal(type=INT32, value=2)
+              +-MakeStruct
+                +-type=STRUCT<a INT32, b STRING>
+                +-type_annotation_map=<_,{Collation:"und:ci"}>
+                +-field_list=
+                  +-Literal(type=INT32, value=2)
+                  +-Cast(STRING -> STRING)
+                    +-type_annotation_map={Collation:"und:ci"}
+                    +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+                      +-type_annotation_map={Collation:"binary"}
+                      +-Literal(type=STRING, value="b")
+                      +-Literal(type=STRING, value="binary", preserve_in_literal_remover=TRUE)
+==
+
+INSERT CollatedTable (array_with_string_ci)
+VALUES([collate('a', 'und:ci')]),
+      ([collate('b', 'binary')]),
+      (['c'])
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=[CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}]], table=CollatedTable, column_index_list=[3])
++-insert_column_list=[CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}]]
++-row_list=
+  +-InsertRow
+  | +-value_list=
+  |   +-DMLValue
+  |     +-value=
+  |       +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
+  |         +-type_annotation_map=[{Collation:"und:ci"}]
+  |         +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  |           +-type_annotation_map={Collation:"und:ci"}
+  |           +-Literal(type=STRING, value="a")
+  |           +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+  +-InsertRow
+  | +-value_list=
+  |   +-DMLValue
+  |     +-value=
+  |       +-Cast(ARRAY<STRING> -> ARRAY<STRING>)
+  |         +-type_annotation_map=[{Collation:"und:ci"}]
+  |         +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
+  |           +-type_annotation_map=[{Collation:"binary"}]
+  |           +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  |             +-type_annotation_map={Collation:"binary"}
+  |             +-Literal(type=STRING, value="b")
+  |             +-Literal(type=STRING, value="binary", preserve_in_literal_remover=TRUE)
+  +-InsertRow
+    +-value_list=
+      +-DMLValue
+        +-value=
+          +-Cast(ARRAY<STRING> -> ARRAY<STRING>)
+            +-type_annotation_map=[{Collation:"und:ci"}]
+            +-Literal(type=ARRAY<STRING>, value=["c"])
+==
+
+INSERT ComplexCollatedTable (struct_with_array_of_struct_ci)
+VALUES((1, [STRUCT(true as a, collate('a', 'binary') as b)])),
+      ((2, [STRUCT(false as a, 'b' as b)]))
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=[ComplexCollatedTable.struct_with_array_of_struct_ci#2<_,[<_,{Collation:"und:ci"}>]>], table=ComplexCollatedTable, column_index_list=[1])
++-insert_column_list=[ComplexCollatedTable.struct_with_array_of_struct_ci#2<_,[<_,{Collation:"und:ci"}>]>]
++-row_list=
+  +-InsertRow
+  | +-value_list=
+  |   +-DMLValue
+  |     +-value=
+  |       +-MakeStruct
+  |         +-type=STRUCT<a INT32, b ARRAY<STRUCT<a BOOL, b STRING>>>
+  |         +-type_annotation_map=<_,[<_,{Collation:"und:ci"}>]>
+  |         +-field_list=
+  |           +-Literal(type=INT32, value=1)
+  |           +-Cast(ARRAY<STRUCT<a BOOL, b STRING>> -> ARRAY<STRUCT<a BOOL, b STRING>>)
+  |             +-type_annotation_map=[<_,{Collation:"und:ci"}>]
+  |             +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a BOOL, b STRING>) -> ARRAY<STRUCT<a BOOL, b STRING>>)
+  |               +-type_annotation_map=[<_,{Collation:"binary"}>]
+  |               +-MakeStruct
+  |                 +-type=STRUCT<a BOOL, b STRING>
+  |                 +-type_annotation_map=<_,{Collation:"binary"}>
+  |                 +-field_list=
+  |                   +-Literal(type=BOOL, value=true)
+  |                   +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  |                     +-type_annotation_map={Collation:"binary"}
+  |                     +-Literal(type=STRING, value="a")
+  |                     +-Literal(type=STRING, value="binary", preserve_in_literal_remover=TRUE)
+  +-InsertRow
+    +-value_list=
+      +-DMLValue
+        +-value=
+          +-Cast(STRUCT<a INT32, b ARRAY<STRUCT<a BOOL, b STRING>>> -> STRUCT<a INT32, b ARRAY<STRUCT<a BOOL, b STRING>>>)
+            +-type_annotation_map=<_,[<_,{Collation:"und:ci"}>]>
+            +-Literal(type=STRUCT<a INT32, b ARRAY<STRUCT<a BOOL, b STRING>>>, value={a:2, b:[{a:false, b:"b"}]})
+==
+
+UPDATE CollatedTable
+SET string_ci = COLLATE('a', 'binary'),
+    string_binary = 'b',
+    struct_with_string_ci = (1, collate('c', 'binary')),
+    array_with_string_ci = [collate('e', 'binary')]
+WHERE string_ci = 'f'
+--
+UpdateStmt
++-table_scan=
+| +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2, struct_with_string_ci#3, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 1, 2, 3])
++-column_access_list=READ_WRITE,WRITE,WRITE,WRITE
++-where_expr=
+| +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+|   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+|   +-Literal(type=STRING, value="f")
+|   +-collation_list=[und:ci]
++-update_item_list=
+  +-UpdateItem
+  | +-target=
+  | | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+  | +-set_value=
+  |   +-DMLValue
+  |     +-value=
+  |       +-Cast(STRING -> STRING)
+  |         +-type_annotation_map={Collation:"und:ci"}
+  |         +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  |           +-type_annotation_map={Collation:"binary"}
+  |           +-Literal(type=STRING, value="a")
+  |           +-Literal(type=STRING, value="binary", preserve_in_literal_remover=TRUE)
+  +-UpdateItem
+  | +-target=
+  | | +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
+  | +-set_value=
+  |   +-DMLValue
+  |     +-value=
+  |       +-Cast(STRING -> STRING)
+  |         +-type_annotation_map={Collation:"binary"}
+  |         +-Literal(type=STRING, value="b")
+  +-UpdateItem
+  | +-target=
+  | | +-ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>)
+  | +-set_value=
+  |   +-DMLValue
+  |     +-value=
+  |       +-MakeStruct
+  |         +-type=STRUCT<a INT32, b STRING>
+  |         +-type_annotation_map=<_,{Collation:"und:ci"}>
+  |         +-field_list=
+  |           +-Literal(type=INT32, value=1)
+  |           +-Cast(STRING -> STRING)
+  |             +-type_annotation_map={Collation:"und:ci"}
+  |             +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+  |               +-type_annotation_map={Collation:"binary"}
+  |               +-Literal(type=STRING, value="c")
+  |               +-Literal(type=STRING, value="binary", preserve_in_literal_remover=TRUE)
+  +-UpdateItem
+    +-target=
+    | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
+    +-set_value=
+      +-DMLValue
+        +-value=
+          +-Cast(ARRAY<STRING> -> ARRAY<STRING>)
+            +-type_annotation_map=[{Collation:"und:ci"}]
+            +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
+              +-type_annotation_map=[{Collation:"binary"}]
+              +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+                +-type_annotation_map={Collation:"binary"}
+                +-Literal(type=STRING, value="e")
+                +-Literal(type=STRING, value="binary", preserve_in_literal_remover=TRUE)
+==
+
+UPDATE ComplexCollatedTable
+SET string_no_collation = COLLATE('a', 'binary')
+WHERE string_no_collation = 'f'
+--
+UpdateStmt
++-table_scan=
+| +-TableScan(column_list=[ComplexCollatedTable.string_no_collation#1], table=ComplexCollatedTable, column_index_list=[0])
++-column_access_list=READ_WRITE
++-where_expr=
+| +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+|   +-ColumnRef(type=STRING, column=ComplexCollatedTable.string_no_collation#1)
+|   +-Literal(type=STRING, value="f")
++-update_item_list=
+  +-UpdateItem
+    +-target=
+    | +-ColumnRef(type=STRING, column=ComplexCollatedTable.string_no_collation#1)
+    +-set_value=
+      +-DMLValue
+        +-value=
+          +-Cast(STRING -> STRING)
+            +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+              +-type_annotation_map={Collation:"binary"}
+              +-Literal(type=STRING, value="a")
+              +-Literal(type=STRING, value="binary", preserve_in_literal_remover=TRUE)
+==
+
+CREATE {{TEMP|}} FUNCTION f(x STRING) AS (x);
+--
+ALTERNATION GROUP: TEMP
+--
+CreateFunctionStmt
++-name_path=f
++-create_scope=CREATE_TEMP
++-return_type=STRING
++-argument_name_list=[x]
++-signature=(STRING x) -> STRING rejects_collation=TRUE
++-language="SQL"
++-code="x"
++-function_expression=
+  +-ArgumentRef(type=STRING, name="x")
+--
+ALTERNATION GROUP: <empty>
+--
+CreateFunctionStmt
++-name_path=f
++-return_type=STRING
++-argument_name_list=[x]
++-signature=(STRING x) -> STRING rejects_collation=TRUE
++-language="SQL"
++-code="x"
++-function_expression=
+  +-ArgumentRef(type=STRING, name="x")
+==
+
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+SELECT FLATTEN([STRUCT(COLLATE('a', 'und:ci') as x, 1 as y)].x);
+--
+ERROR: Collation is not allowed on input array to FLATTEN ([<"und:ci",_>]) [at 1:8]
+SELECT FLATTEN([STRUCT(COLLATE('a', 'und:ci') as x, 1 as y)].x);
+       ^
+==
+
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+# The path expression is effectively a single array.
+SELECT FLATTEN([COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci')]);
+--
+ERROR: Collation is not allowed on input array to FLATTEN (["und:ci"]) [at 2:8]
+SELECT FLATTEN([COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci')]);
+       ^
+==
+
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+# The path expression is effectively a single array.
+SELECT FLATTEN(STRUCT([COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci')] as x, 1 as y).x);
+--
+ERROR: Collation is not allowed on input array to FLATTEN (["und:ci"]) [at 2:8]
+SELECT FLATTEN(STRUCT([COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci')] as x, ...
+       ^
+

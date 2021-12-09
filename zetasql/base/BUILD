@@ -32,8 +32,6 @@ package_group(
 cc_library(
     name = "base",
     hdrs = [
-        "arena.h",
-        "arena_allocator.h",
         "atomic_sequence_num.h",
         "logging.h",
         "varsetter.h",
@@ -47,11 +45,9 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
-        ":arena",
         ":logging",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/base:log_severity",
-        "@com_google_absl//absl/synchronization",
     ],
 )
 
@@ -93,7 +89,6 @@ cc_library(
     srcs = ["arena.cc"],
     hdrs = [
         "arena.h",
-        "arena_allocator.h",
     ],
     copts = [
         "-Wno-char-subscripts",
@@ -107,6 +102,27 @@ cc_library(
         ":logging",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/synchronization",
+    ],
+)
+
+cc_library(
+    name = "arena_allocator",
+    srcs = ["arena_allocator.cc"],
+    hdrs = [
+        "arena_allocator.h",
+    ],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":arena",
+        ":logging",
+        "@com_google_absl//absl/base:core_headers",
     ],
 )
 
@@ -124,6 +140,7 @@ cc_test(
     ],
     deps = [
         ":arena",
+        ":arena_allocator",
         ":logging",
         "//zetasql/base/testing:zetasql_gtest_main",
         "@com_google_absl//absl/container:node_hash_set",
@@ -818,6 +835,22 @@ cc_library(
         ":logging",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
+    name = "strings",
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        ":case",
+        ":string_numbers",
     ],
 )
 

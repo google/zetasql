@@ -1,5 +1,4 @@
 
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
 
 # Aggregate functions
 
@@ -64,9 +63,15 @@ The clauses are applied *in the following order*:
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -154,9 +159,15 @@ The clauses are applied *in the following order*:
     result.
     The limit `n` must be a constant INT64.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -298,9 +309,15 @@ The clauses are applied *in the following order*:
     array is not counted.
     The limit `n` must be a constant INT64.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -401,9 +418,15 @@ The clauses are applied *in the following order*:
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -492,9 +515,15 @@ The clauses are applied *in the following order*:
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -542,9 +571,15 @@ The clauses are applied *in the following order*:
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -592,9 +627,15 @@ The clauses are applied *in the following order*:
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -635,11 +676,13 @@ SELECT BIT_XOR(DISTINCT x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
 ### COUNT
 
 1.
-```
+
+```sql
 COUNT(*)  [OVER (...)]
 ```
 
 2.
+
 ```sql
 COUNT(
   [DISTINCT]
@@ -673,9 +716,15 @@ The clauses are applied *in the following order*:
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Return Data Types**
 
@@ -834,9 +883,15 @@ The clauses are applied *in the following order*:
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Return Data Types**
 
@@ -904,9 +959,15 @@ The clauses are applied *in the following order*:
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Return Data Types**
 
@@ -952,9 +1013,15 @@ The clauses are applied *in the following order*:
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Return Data Types**
 
@@ -1001,9 +1068,15 @@ The clauses are applied *in the following order*:
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Return Data Types**
 
@@ -1067,9 +1140,15 @@ The clauses are applied *in the following order*:
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Return Data Types**
 
@@ -1120,6 +1199,8 @@ STRING_AGG(
 
 Returns a value (either STRING or
 BYTES) obtained by concatenating non-null values.
+Returns `NULL` if there are zero input rows or `expression` evaluates to
+`NULL` for all rows.
 
 If a `delimiter` is specified, concatenated values are separated by that
 delimiter; otherwise, a comma is used as a delimiter.
@@ -1160,9 +1241,15 @@ The clauses are applied *in the following order*:
     as 1. A NULL string is not counted.
     The limit `n` must be a constant INT64.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Return Data Types**
 
@@ -1287,9 +1374,15 @@ The clauses are applied *in the following order*:
     function aggregates by a maximum or minimum value. See
     [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [max_min_clause]: #max_min_clause
+
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+
 [floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+
+<!-- mdlint on -->
 
 **Return Data Types**
 
@@ -1471,5 +1564,9 @@ this result:
 +---------+
 ```
 
-[agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data-type-properties
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
+
+<!-- mdlint on -->
 

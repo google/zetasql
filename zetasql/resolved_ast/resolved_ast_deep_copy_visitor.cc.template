@@ -66,6 +66,21 @@ ResolvedASTDeepCopyVisitor::CopyVisit{{node.name}}(
       std::vector<std::unique_ptr<{{field.ctype}}>> {{field.name}},
       ProcessNodeList(node->{{field.name}}()));
 
+  # elif field.member_type == "ResolvedColumn":
+{# If we found a non-pointer field type that supports custom copying. #}
+  ZETASQL_ASSIGN_OR_RETURN(
+      {{field.member_type}} {{field.name}},
+      Copy{{field.member_type}}(node->{{field.name}}()));
+
+  # elif field.element_arg_type == "ResolvedColumn":
+{# If we found a non-pointer field type that supports custom copying. #}
+  {{field.member_type}} {{field.name}};
+  for (int i = 0; i < node->{{field.name}}().size(); ++i) {
+    ZETASQL_ASSIGN_OR_RETURN({{field.element_arg_type}} elem,
+                     Copy{{field.element_arg_type}}(node->{{field.name}}()[i]));
+    {{field.name}}.push_back(elem);
+  }
+
   # endif
  # endfor
 
@@ -80,6 +95,12 @@ ResolvedASTDeepCopyVisitor::CopyVisit{{node.name}}(
  # for field in (node.inherited_fields + node.fields) | is_constructor_arg
    # if field.is_move_only
     std::move({{field.name}}){%if not loop.last%},{%endif%}
+
+   # elif field.member_type == "ResolvedColumn":
+    {{field.name}}{%if not loop.last%},{%endif%}
+
+   # elif field.element_arg_type == "ResolvedColumn":
+    {{field.name}}{%if not loop.last%},{%endif%}
 
    # else
     node->{{field.name}}(){%if not loop.last%},{%endif%}

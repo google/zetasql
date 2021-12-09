@@ -939,7 +939,7 @@ class FixedInt final {
     UnsignedWord old_val = rep_.number_[kNumWords - 1];
     rep_ += x;
     UnsignedWord new_val = rep_.number_[kNumWords - 1];
-    return ((~old_val & new_val) >> (sizeof(Word) * 8 - 1)) != 0;
+    return static_cast<Word>(~old_val & new_val) < 0;
   }
   bool AddOverflow(Word x) { return AddOverflow(FixedInt(x)); }
   bool AddOverflow(const FixedInt& rh) {
@@ -947,7 +947,7 @@ class FixedInt final {
     UnsignedWord y = rh.rep_.number_[kNumWords - 1];
     rep_ += rh.rep_;
     UnsignedWord new_val = rep_.number_[kNumWords - 1];
-    return ((~(old_val ^ y) & (new_val ^ y)) >> (sizeof(Word) * 8 - 1)) != 0;
+    return static_cast<Word>((old_val ^ new_val) & (new_val ^ y)) < 0;
   }
 
   FixedInt& operator+=(UnsignedWord x) {
@@ -964,7 +964,7 @@ class FixedInt final {
     UnsignedWord old_val = rep_.number_[kNumWords - 1];
     rep_ -= x;
     UnsignedWord new_val = rep_.number_[kNumWords - 1];
-    return ((~new_val & old_val) >> (sizeof(Word) * 8 - 1)) != 0;
+    return static_cast<Word>(~new_val & old_val) < 0;
   }
   bool SubtractOverflow(Word x) { return SubtractOverflow(FixedInt(x)); }
   bool SubtractOverflow(const FixedInt& rh) {
@@ -972,7 +972,7 @@ class FixedInt final {
     UnsignedWord y = rh.rep_.number_[kNumWords - 1];
     rep_ -= rh.rep_;
     UnsignedWord new_val = rep_.number_[kNumWords - 1];
-    return ((~(new_val ^ y) & (old_val ^ y)) >> (sizeof(Word) * 8 - 1)) != 0;
+    return static_cast<Word>((new_val ^ old_val) & (old_val ^ y)) < 0;
   }
 
   FixedInt& operator-=(UnsignedWord x) {

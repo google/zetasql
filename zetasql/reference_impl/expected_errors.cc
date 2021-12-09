@@ -110,6 +110,16 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
       "MILLISECOND|MICROSECOND|NANOSECOND|DATE|WEEK|DATETIME|TIME"
       "ISOWEEK|ISOYEAR).*"));
 
+  // TODO: RQG should not generate DISTINCT with
+  // PERCENTILE_CONT/DISC.
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Aggregate function PERCENTILE_(CONT|DISC) does not support "
+      "DISTINCT in arguments"));
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "DISTINCT is not allowed for analytic function percentile_(cont|disc)"));
+
   return absl::make_unique<MatcherCollection<absl::Status>>(
       matcher_name, std::move(error_matchers));
 }

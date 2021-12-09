@@ -1,7 +1,5 @@
 
 
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
-
 # Protocol buffers
 
 Protocol buffers are a flexible, efficient mechanism for serializing structured
@@ -75,11 +73,11 @@ NEW TypeName(expr1 AS (path.to.extension), ...)
      )
      FROM (SELECT 'Bach: The Goldberg Variations' AS album, 30 AS count);
 
-    +----------------------------------------------------------------------------------------+
-    | $col1                                                                                  |
-    +----------------------------------------------------------------------------------------+
-    | {album_name: 'Bach: The Goldberg Variations' [zetasql.examples.music.downloads]: 30} |
-    +----------------------------------------------------------------------------------------+
+    +------------------------------------------------------------------------+
+    | $col1                                                                  |
+    +------------------------------------------------------------------------+
+    | {album_name: 'Bach: The Goldberg Variations' [...music.downloads]: 30} |
+    +------------------------------------------------------------------------+
     ```
 +   If `path.to.extension` points to a nested protocol buffer extension, `expr1`
     provides an instance or a text format string of that protocol buffer.
@@ -98,7 +96,7 @@ NEW TypeName(expr1 AS (path.to.extension), ...)
     | $col1                                                       |
     +-------------------------------------------------------------+
     | album_name: "Bach: The Goldberg Variations"                 |
-    | [zetasql.examples.music.AlbumExtension.album_extension] { |
+    | [...music.AlbumExtension.album_extension] {                 |
     |   release_date: -5114                                       |
     | }                                                           |
     +-------------------------------------------------------------+
@@ -372,16 +370,18 @@ returns the name of every customer who has placed an order for the product
 
 ```
 SELECT
-  c.name
+  C.name
 FROM
-  Customers AS c
+  Customers AS C
 WHERE
-  EXISTS(SELECT
-           *
-         FROM
-           c.Orders.line_item AS item
-         WHERE
-           item.product_name = "Foo");
+  EXISTS(
+    SELECT
+      *
+    FROM
+      C.Orders.line_item AS item
+    WHERE
+      item.product_name = 'Foo'
+  );
 ```
 
 ### Nullness and nested fields
@@ -628,16 +628,18 @@ the underlying repeated field. The underlying repeated field has `key` and
 
 ```
 SELECT
-  c.Orders.order_number
+  C.Orders.order_number
 FROM
-  Customers c
+  Customers AS C
 WHERE
-  EXISTS(SELECT
-           *
-         FROM
-           c.Orders.Labels label
-         WHERE
-           label.key = "color" AND label.value = "red");
+  EXISTS(
+    SELECT
+      *
+    FROM
+      C.Orders.Labels label
+    WHERE
+      label.key = 'color' AND label.value = 'red'
+  );
 ```
 
 ## Extensions
@@ -765,13 +767,13 @@ FROM
   Test;
 ```
 
-### Correlated `CROSS JOIN` and repeated extensions
+### Unnesting repeated fields and extensions 
+<a id="unnest_repeated_fields"></a>
 
-Correlated `CROSS JOIN` is used to "flatten" repeated fields. That is, the
-values of the protocol buffer are duplicated once per entry in the repeated
-field. In practice, this means that the repeated field is `UNNEST`ed. For
-standard repeated fields, this unnesting happens implicitly. For repeated
-extensions the `UNNEST` must be specified explicitly.
+You can use a [correlated join][correlated-join] to [unnest][unnest-operator]
+standard repeated fields or repeated extension fields and return a table with
+one row for each instance of the field. A standard repeated field does not
+require an explicit `UNNEST`, but a repeated extension field does.
 
 Consider the following protocol buffer:
 
@@ -793,8 +795,9 @@ message Extension {
 }
 ```
 
-The following query which uses the standard repeated field, `repeated_value` in
-a correlated `CROSS JOIN` runs without an explicit `UNNEST`.
+The following query uses a standard repeated field,
+`repeated_value`, in a correlated comma `CROSS JOIN` and runs without an
+explicit `UNNEST`.
 
 ```
 WITH t AS
@@ -816,8 +819,9 @@ FROM
   t.proto_field.repeated_value value;
 ```
 
-This query, which uses the repeated extension field, `repeated_extension_value`
-in the correlated `CROSS JOIN` requires an explicit `UNNEST`.
+The following query uses a repeated extension field,
+`repeated_extension_value`, in a correlated comma `CROSS JOIN` and requires an
+explicit `UNNEST`.
 
 ```
 WITH t AS
@@ -839,16 +843,31 @@ FROM
   UNNEST(t.proto_field.(some.package.Extension.repeated_extension_value)) value;
 ```
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 [protocol-buffer-compatibility]: https://developers.google.com/protocol-buffers/docs/proto3#backwards-compatibility
+
 [protocol-buffers-dev-guide]: https://developers.google.com/protocol-buffers
+
 [nested-extensions]: https://developers.google.com/protocol-buffers/docs/proto#nested-extensions
 
 [new-keyword]: #using_new
+
 [explicit-alias]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#explicit_alias_syntax
+
 [implicit-alias]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#implicit_aliases
+
+[correlated-join]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#correlated_join
+
+[unnest-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
+
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
+
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md
 
 [link_to_safe_cast]: https://github.com/google/zetasql/blob/master/docs/conversion_functions.md#safe_casting
+
 [proto-extract]: https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions.md#proto_extract
+
+<!-- mdlint on -->
 

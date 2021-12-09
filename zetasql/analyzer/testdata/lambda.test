@@ -1098,7 +1098,7 @@ QueryStmt
 # Make sure undeclared query parameters resolve correctly inside the lambda
 # body.
 [allow_undeclared_parameters]
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS]
 SELECT ARRAY_TRANSFORM([1,2,3], (e, i) -> CAST(i*@factor + e AS STRING));
 --
 QueryStmt
@@ -1196,7 +1196,7 @@ QueryStmt
 # Similar to the previous, but choosing a parameter name that potentially
 # conflicts with a parameter of the substitution template.
 [allow_undeclared_parameters]
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS]
 SELECT ARRAY_TRANSFORM([1,2,3], (e, i) -> CAST(i*@array_input + e AS STRING));
 --
 QueryStmt
@@ -1295,7 +1295,7 @@ QueryStmt
 # body.
 [allow_undeclared_parameters]
 [parameter_mode=positional]
-[enable_ast_rewrites]
+[enabled_ast_rewrites=DEFAULTS]
 SELECT ARRAY_TRANSFORM([1,2,3], (e, i) -> CAST(i*? + e AS STRING));
 --
 QueryStmt

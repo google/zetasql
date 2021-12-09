@@ -179,6 +179,24 @@ absl::StatusOr<bool> IsConstantExpression(const ResolvedExpr* expr) {
       return true;
     }
 
+    case RESOLVED_LET_EXPR: {
+      const auto* let_expr = expr->GetAs<ResolvedLetExpr>();
+      ZETASQL_ASSIGN_OR_RETURN(bool expr_is_constant_expr,
+                       IsConstantExpression(let_expr->expr()));
+      if (!expr_is_constant_expr) {
+        return false;
+      }
+      for (int i = 0; i < let_expr->assignment_list_size(); ++i) {
+        ZETASQL_ASSIGN_OR_RETURN(
+            bool assignment_is_constant_expr,
+            IsConstantExpression(let_expr->assignment_list(i)->expr()));
+        if (!assignment_is_constant_expr) {
+          return false;
+        }
+      }
+      return true;
+    }
+
     default:
       // Update the static_assert above if adding or removing cases in
       // this switch.

@@ -295,6 +295,9 @@ absl::Status GetProtoFieldDefault(const ProtoFieldDefaultOptions& options,
       *default_value = Value::Json(JSONValue());
       break;
     }
+    case TYPE_INTERVAL:
+      *default_value = Value::Interval(IntervalValue());
+      break;
     default:
       return ::zetasql_base::InvalidArgumentErrorBuilder()
              << "No default value for " << field->DebugString();

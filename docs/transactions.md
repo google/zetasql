@@ -1,4 +1,4 @@
-<!-- This file is auto-generated. DO NOT EDIT.                               -->
+
 
 # Transactions
 
@@ -58,4 +58,8 @@ ROLLBACK [TRANSACTION];
 Rolls back a transaction.
 
 [begin-transaction]: #begin
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+<!-- mdlint on -->
 

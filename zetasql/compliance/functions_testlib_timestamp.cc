@@ -37,12 +37,12 @@
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"
+#include "zetasql/base/case.h"
 #include "gtest/gtest.h"
 #include <cstdint>
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "zetasql/base/case.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
@@ -7121,14 +7121,14 @@ static std::vector<CastStringToTimestampTest> GetCastStringToTimestampTests() {
        "1969-12-01 00:00:00.234567-01:00", "1969-12-01 00:00:00.2345678-01:00"},
       {"HH24MISS", "062411", "-01:00", ts_1970_1_1_utc,
        "1969-12-01 06:24:11-01:00"},
-      {"TZH", "+01", "-01:59", ts_1970_1_1_utc, "1969-12-01 00:00:00+01:59"},
-      {"TZM", "13", "-01:59", ts_1970_1_1_utc, "1969-12-01 00:00:00-01:13"},
+      {"TZH", "+01", "-01:59", ts_1970_1_1_utc, "1969-12-01 00:00:00+01:00"},
+      {"TZM", "13", "-01:59", ts_1970_1_1_utc, "1969-12-01 00:00:00+00:13"},
       // The offset of "Pacific/Honolulu" time zone is always -10:00 and not
-      // affected by Dalight Saving Time.
+      // affected by Daylight Saving Time.
       {"TZH", "+02", "Pacific/Honolulu", ts_1970_1_1_utc,
        "1969-12-01 00:00:00+02:00"},
-      {"TZM", "13", "Pacific/Honolulu", ts_1970_1_1_utc,
-       "1969-12-01 00:00:00-10:13"},
+      {"", "", "Pacific/Honolulu", ts_1970_1_1_utc,
+       "1969-12-01 00:00:00-10:00"},
       // Boundary cases with non-UTC <default_time_zone>.
       {"YYYY-MM-DD HH24:MI:SS.FF6", "0000-12-31 16:08:00.000000", "-07:52",
        ts_1970_1_1_utc, "0001-01-01 00:00:00.000000 UTC"},
@@ -8500,19 +8500,31 @@ std::vector<FunctionTestCall> GetFunctionTestsConvertDatetimeToTimestamp() {
     {{DatetimeMicros(9999, 12, 31, 23, 59, 59, 999999)},  // default timezone
      FunctionEvalError(), TimestampType()},
 
-    // TODO: Passing Datetime parameter with nano precision when engine
-    // doesn't have FEATURE_TIMESTAMP_NANOS enabled - is undefined behavior.
-    // (Reference implementation still produces nanos)
-    {{DatetimeNanos(9999, 12, 31, 23, 59, 59, 999999999), "UTC"},
-     TimestampFromStr("9999-12-31 23:59:59.999999999", kNanoseconds)},
-    {{DatetimeNanos(9999, 12, 31, 23, 59, 59, 999999999), "+08:00"},
-     TimestampFromStr("9999-12-31 15:59:59.999999999", kNanoseconds)},
-    {{DatetimeNanos(9999, 12, 31, 23, 59, 59, 999999999), "-08:00"},
-     FunctionEvalError(), TimestampType()},
-    {{DatetimeNanos(9999, 12, 31, 23, 59, 59, 999999999),
-      "America/Los_Angeles"}, FunctionEvalError(), TimestampType()},
-    {{DatetimeNanos(9999, 12, 31, 23, 59, 59, 999999999)},  // default timezone
-     FunctionEvalError(), TimestampType()},
+      // While passing Datetime parameter with nano precision, Reference
+      // implementation produces nanos. Add FEATURE_TIMESTAMP_NANOS to the
+      // feature set for nano tests.
+      {{DatetimeNanos(9999, 12, 31, 23, 59, 59, 999999912), "UTC"},
+       TimestampFromStr("9999-12-31 23:59:59.999999912", kNanoseconds),
+       /*output_type=*/nullptr,
+       {FEATURE_TIMESTAMP_NANOS}},
+      {{DatetimeNanos(9999, 12, 31, 23, 59, 59, 999999913), "+08:00"},
+       TimestampFromStr("9999-12-31 15:59:59.999999913", kNanoseconds),
+       /*output_type=*/nullptr,
+       {FEATURE_TIMESTAMP_NANOS}},
+      {{DatetimeNanos(9999, 12, 31, 23, 59, 59, 999999914), "-08:00"},
+       FunctionEvalError(),
+       TimestampType(),
+       {FEATURE_TIMESTAMP_NANOS}},
+      {{DatetimeNanos(9999, 12, 31, 23, 59, 59, 999999915),
+        "America/Los_Angeles"},
+       FunctionEvalError(),
+       TimestampType(),
+       {FEATURE_TIMESTAMP_NANOS}},
+      {{DatetimeNanos(9999, 12, 31, 23, 59, 59,
+                      999999916)},  // default timezone
+       FunctionEvalError(),
+       TimestampType(),
+       {FEATURE_TIMESTAMP_NANOS}},
 
     // Daylight savings transition, effectively using the timezone offset
     // before the transition period.
@@ -8574,23 +8586,33 @@ std::vector<FunctionTestCall> GetFunctionTestsConvertTimestampToTime() {
     {{TimestampFromStr("9999-12-31 23:59:59.999999 UTC")},  // default timezone
      TimeMicros(15, 59, 59, 999999)},
 
-    // If the input timestamp comes with nanos, which mean nano support must
-    // have been enabled, then the output time should also come with nanos.
-    {{TimestampFromStr("9999-12-31 23:59:59.999999999 UTC", kNanoseconds),
-      "UTC"},
-     TimeNanos(23, 59, 59, 999999999)},
-    {{TimestampFromStr("9999-12-31 23:59:59.999999999 UTC", kNanoseconds),
-      "+08:00"},
-     TimeNanos(7, 59, 59, 999999999)},
-    {{TimestampFromStr("9999-12-31 23:59:59.999999999 UTC", kNanoseconds),
-      "-08:00"},
-     TimeNanos(15, 59, 59, 999999999)},
-    {{TimestampFromStr("9999-12-31 23:59:59.999999999 UTC", kNanoseconds),
-      "America/Los_Angeles"},
-     TimeNanos(15, 59, 59, 999999999)},
-    // default timezone
-    {{TimestampFromStr("9999-12-31 23:59:59.999999999 UTC", kNanoseconds)},
-     TimeNanos(15, 59, 59, 999999999)},
+      // If the input timestamp comes with nanos, which mean nano support must
+      // have been enabled, then the output time should also come with nanos.
+      {{TimestampFromStr("9999-12-31 23:59:59.999999996 UTC", kNanoseconds),
+        "UTC"},
+       TimeNanos(23, 59, 59, 999999996),
+       /*output_type=*/nullptr,
+       {FEATURE_TIMESTAMP_NANOS}},
+      {{TimestampFromStr("9999-12-31 23:59:59.999999997 UTC", kNanoseconds),
+        "+08:00"},
+       TimeNanos(7, 59, 59, 999999997),
+       /*output_type=*/nullptr,
+       {FEATURE_TIMESTAMP_NANOS}},
+      {{TimestampFromStr("9999-12-31 23:59:59.999999998 UTC", kNanoseconds),
+        "-08:00"},
+       TimeNanos(15, 59, 59, 999999998),
+       /*output_type=*/nullptr,
+       {FEATURE_TIMESTAMP_NANOS}},
+      {{TimestampFromStr("9999-12-31 23:59:59.999999910 UTC", kNanoseconds),
+        "America/Los_Angeles"},
+       TimeNanos(15, 59, 59, 999999910),
+       /*output_type=*/nullptr,
+       {FEATURE_TIMESTAMP_NANOS}},
+      // default timezone
+      {{TimestampFromStr("9999-12-31 23:59:59.999999911 UTC", kNanoseconds)},
+       TimeNanos(15, 59, 59, 999999911),
+       /*output_type=*/nullptr,
+       {FEATURE_TIMESTAMP_NANOS}},
   };
   return PrepareCivilTimeTestCaseAsFunctionTestCall(
       convert_timestamp_to_time_test_cases, "time");
@@ -8638,23 +8660,34 @@ std::vector<FunctionTestCall> GetFunctionTestsConvertTimestampToDatetime() {
     {{TimestampFromStr("9999-12-31 23:59:59.999999 UTC")},  // default timezone
      DatetimeMicros(9999, 12, 31, 15, 59, 59, 999999)},
 
-    // If the input timestamp comes with nanos, which mean nano support must
-    // have been enabled, then the output datetime should also come with nanos.
-    {{TimestampFromStr("9999-12-31 23:59:59.999999999 UTC", kNanoseconds),
-      "UTC"},
-     DatetimeNanos(9999, 12, 31, 23, 59, 59, 999999999)},
-    {{TimestampFromStr("9999-12-31 23:59:59.999999999 UTC", kNanoseconds),
-      "+08:00"},
-     FunctionEvalError(), DatetimeType()},
-    {{TimestampFromStr("9999-12-31 23:59:59.999999999 UTC", kNanoseconds),
-      "-08:00"},
-     DatetimeNanos(9999, 12, 31, 15, 59, 59, 999999999)},
-    {{TimestampFromStr("9999-12-31 23:59:59.999999999 UTC", kNanoseconds),
-      "America/Los_Angeles"},
-     DatetimeNanos(9999, 12, 31, 15, 59, 59, 999999999)},
-    // default timezone
-    {{TimestampFromStr("9999-12-31 23:59:59.999999999 UTC", kNanoseconds)},
-     DatetimeNanos(9999, 12, 31, 15, 59, 59, 999999999)},
+      // If the input timestamp comes with nanos, which mean nano support must
+      // have been enabled, then the output datetime should also come with
+      // nanos.
+      {{TimestampFromStr("9999-12-31 23:59:59.999999991 UTC", kNanoseconds),
+        "UTC"},
+       DatetimeNanos(9999, 12, 31, 23, 59, 59, 999999991),
+       /*output_type=*/nullptr,
+       {FEATURE_TIMESTAMP_NANOS}},
+      {{TimestampFromStr("9999-12-31 23:59:59.999999992 UTC", kNanoseconds),
+        "+08:00"},
+       FunctionEvalError(),
+       DatetimeType(),
+       {FEATURE_TIMESTAMP_NANOS}},
+      {{TimestampFromStr("9999-12-31 23:59:59.999999993 UTC", kNanoseconds),
+        "-08:00"},
+       DatetimeNanos(9999, 12, 31, 15, 59, 59, 999999993),
+       /*output_type=*/nullptr,
+       {FEATURE_TIMESTAMP_NANOS}},
+      {{TimestampFromStr("9999-12-31 23:59:59.999999994 UTC", kNanoseconds),
+        "America/Los_Angeles"},
+       DatetimeNanos(9999, 12, 31, 15, 59, 59, 999999994),
+       /*output_type=*/nullptr,
+       {FEATURE_TIMESTAMP_NANOS}},
+      // default timezone
+      {{TimestampFromStr("9999-12-31 23:59:59.999999995 UTC", kNanoseconds)},
+       DatetimeNanos(9999, 12, 31, 15, 59, 59, 999999995),
+       /*output_type=*/nullptr,
+       {FEATURE_TIMESTAMP_NANOS}},
   };
   return PrepareCivilTimeTestCaseAsFunctionTestCall(
       convert_timestamp_to_datetime_test_cases, "datetime");
