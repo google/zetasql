@@ -2568,7 +2568,7 @@ std::pair<std::string, std::string> GetOpTypePair(
     case ResolvedSetOperationScan::EXCEPT_ALL:
       return std::make_pair("EXCEPT", "ALL");
     case ResolvedSetOperationScan::EXCEPT_DISTINCT:
-      return std::make_pair("EXCEPT", "ALL");
+      return std::make_pair("EXCEPT", "DISTINCT");
   }
 }
 
