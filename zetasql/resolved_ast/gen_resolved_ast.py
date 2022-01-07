@@ -4701,7 +4701,7 @@ right.
               """,
       fields=[
           Field('partition_by', 'ResolvedWindowPartitioning', tag_id=2),
-          Field('order_by', 'ResolvedWindowOrdering', tag_id=3),
+          Field('order_by', 'ResolvedWindowOrdering', tag_id=3, ignorable=IGNORABLE),
           Field(
               'analytic_function_list',
               'ResolvedComputedColumn',
