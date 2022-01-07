@@ -1481,7 +1481,7 @@ def main(argv):
 
       <window_frame> can be NULL.
               """,
-      fields=[Field('window_frame', 'ResolvedWindowFrame', tag_id=2)])
+      fields=[Field('window_frame', 'ResolvedWindowFrame', tag_id=2, ignorable=IGNORABLE)])
 
   gen.AddNode(
       name='ResolvedExtendedCastElement',
