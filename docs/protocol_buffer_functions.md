@@ -5,7 +5,8 @@
 ZetaSQL supports the following protocol buffer functions.
 
 ### PROTO_DEFAULT_IF_NULL
-```
+
+```sql
 PROTO_DEFAULT_IF_NULL(proto_field_expression)
 ```
 
@@ -42,7 +43,7 @@ SELECT PROTO_DEFAULT_IF_NULL(book.country) as origin FROM library_books;
 
 `Book` is a type that contains a field called `country`.
 
-```
+```proto
 message Book {
   optional string country = 4 [default = 'Unknown'];
 }
@@ -70,9 +71,216 @@ default value for `country`.
 +-----------------+
 ```
 
+### FILTER_FIELDS
+
+```sql
+FILTER_FIELDS(proto_expression, proto_field_list)
+
+proto_field_list:
+  {+|-}proto_field_path[, ...]
+```
+
+**Description**
+
+Takes a protocol buffer and a list of its fields to include or exclude.
+Returns a version of that protocol buffer with unwanted fields removed.
+Returns `NULL` if the protocol buffer is `NULL`.
+
+Input values:
+
++ `proto_expression`: The protocol buffer to filter.
++ `proto_field_list`: The fields to exclude or include in the resulting
+  protocol buffer.
++ `+`: Include a protocol buffer field and its children in the results.
++ `-`: Exclude a protocol buffer field and its children in the results.
++ `proto_field_path`: The protocol buffer field to include or exclude.
+  If the field represents an [extension][querying-proto-extensions], you can use
+  syntax for that extension in the path.
+
+Protocol buffer field expression behavior:
+
++ The first field in `proto_field_list` determines the default
+  inclusion/exclusion. By default, when you include the first field, all other
+  fields are excluded. Or by default, when you exclude the first field, all
+  other fields are included.
++ A required field in the protocol buffer cannot be excluded explicitly or
+  implicitly.
++ If a field is included, its child fields and descendants are implicitly
+  included in the results.
++ If a field is excluded, its child fields and descendants are
+  implicitly excluded in the results.
++ A child field must be listed after its parent field in the argument list,
+  but does not need to come right after the parent field.
+
+Caveats:
+
++ If you attempt to exclude/include a field that already has been
+  implicitly excluded/included, an error is produced.
++ If you attempt to explicitly include/exclude a field that has already
+  implicitly been included/excluded, an error is produced.
+
+**Return type**
+
+Type of `proto_expression`
+
+**Examples**
+
+The examples in this section reference a protocol buffer called `Award` and
+a table called `MusicAwards`.
+
+```proto
+message Award {
+  required int32 year = 1;
+  optional int32 month = 2;
+  repeated Type type = 3;
+
+  message Type {
+    optional string award_name = 1;
+    optional string category = 2;
+  }
+}
+```
+
+```sql
+WITH
+  MusicAwards AS (
+    SELECT
+      CAST(
+        '''
+        year: 2001
+        month: 9
+        type { award_name: 'Best Artist' category: 'Artist' }
+        type { award_name: 'Best Album' category: 'Album' }
+        '''
+        AS zetasql.examples.music.Award) AS award_col
+    UNION ALL
+    SELECT
+      CAST(
+        '''
+        year: 2001
+        month: 12
+        type { award_name: 'Best Song' category: 'Song' }
+        '''
+        AS zetasql.examples.music.Award) AS award_col
+  )
+SELECT *
+FROM MusicAwards
+
++---------------------------------------------------------+
+| award_col                                               |
++---------------------------------------------------------+
+| {                                                       |
+|   year: 2001                                            |
+|   month: 9                                              |
+|   type { award_name: "Best Artist" category: "Artist" } |
+|   type { award_name: "Best Album" category: "Album" }   |
+| }                                                       |
+| {                                                       |
+|   year: 2001                                            |
+|   month: 12                                             |
+|   type { award_name: "Best Song" category: "Song" }     |
+| }                                                       |
++---------------------------------------------------------+
+```
+
+The following example returns protocol buffers that only include the `year`
+field.
+
+```sql
+SELECT FILTER_FIELDS(award_col, +year) AS filtered_fields
+FROM MusicAwards
+
++-----------------+
+| filtered_fields |
++-----------------+
+| {year: 2001}    |
+| {year: 2001}    |
++-----------------+
+```
+
+The following example returns protocol buffers that include all but the `type`
+field.
+
+```sql
+SELECT FILTER_FIELDS(award_col, -type) AS filtered_fields
+FROM MusicAwards
+
++------------------------+
+| filtered_fields        |
++------------------------+
+| {year: 2001 month: 9}  |
+| {year: 2001 month: 12} |
++------------------------+
+```
+
+The following example returns protocol buffers that only include the `year` and
+`type.award_name` fields.
+
+```sql
+SELECT FILTER_FIELDS(award_col, +year, +type.award_name) AS filtered_fields
+FROM MusicAwards
+
++--------------------------------------+
+| filtered_fields                      |
++--------------------------------------+
+| {                                    |
+|   year: 2001                         |
+|   type { award_name: "Best Artist" } |
+|   type { award_name: "Best Album" }  |
+| }                                    |
+| {                                    |
+|   year: 2001                         |
+|   type { award_name: "Best Song" }   |
+| }                                    |
++--------------------------------------+
+```
+
+The following example returns the `year` and `type` fields, but excludes the
+`award_name` field in the `type` field.
+
+```sql
+SELECT FILTER_FIELDS(award_col, +year, +type, -type.award_name) AS filtered_fields
+FROM MusicAwards
+
++---------------------------------+
+| filtered_fields                 |
++---------------------------------+
+| {                               |
+|   year: 2001                    |
+|   type { award_name: "Artist" } |
+|   type { award_name: "Album" }  |
+| }                               |
+| {                               |
+|   year: 2001                    |
+|   type { award_name: "Song" }   |
+| }                               |
++---------------------------------+
+```
+
+The following example produces an error because `year` is a required field
+and cannot be excluded explicitly or implicitly from the results.
+
+```sql
+SELECT FILTER_FIELDS(award_col, -year) AS filtered_fields
+FROM MusicAwards
+
+-- Error
+```
+
+The following example produces an error because when `year` was included,
+`month` was implicitly excluded. You cannot explicitly exclude a field that
+has already been implicitly excluded.
+
+```sql
+SELECT FILTER_FIELDS(award_col, +year, -month) AS filtered_fields
+FROM MusicAwards
+
+-- Error
+```
+
 ### FROM_PROTO
 
-```
+```sql
 FROM_PROTO(expression)
 ```
 
@@ -594,6 +802,10 @@ FROM AlbumList;
 [querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying_protocol_buffers
 
 [has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#checking_if_a_field_has_a_value
+
+[querying-proto-extensions]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#extensions
+
+[field-access-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#field-access-operator
 
 <!-- mdlint on -->
 

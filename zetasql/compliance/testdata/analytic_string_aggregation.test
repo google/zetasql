@@ -300,7 +300,13 @@ SELECT
     OVER(ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND 1 FOLLOWING),
   STRING_AGG(elem)
     OVER(ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
-FROM UNNEST(ARRAY<STRING>['aσ', 'bcπ', 'd⨝', '', 'xyz']) elem;
+FROM (
+  SELECT 'aσ' elem UNION ALL
+  SELECT 'bcπ' UNION ALL
+  SELECT 'd⨝' UNION ALL
+  SELECT '' UNION ALL
+  SELECT 'xyz'
+);
 --
 ARRAY<STRUCT<elem STRING, STRING, STRING, STRING, STRING>>[
   {"", NULL, "", ",aσ", ",aσ,bcπ,d⨝,xyz"},
@@ -331,7 +337,13 @@ SELECT
     OVER(ORDER BY elem DESC ROWS BETWEEN 2 PRECEDING AND 1 FOLLOWING),
   STRING_AGG(elem, ";")
     OVER(ORDER BY elem DESC ROWS BETWEEN 2 PRECEDING AND UNBOUNDED FOLLOWING)
-FROM UNNEST(ARRAY<STRING>['aσ', 'bcπ', 'd⨝', '', 'xyz']) elem;
+FROM (
+  SELECT 'aσ' elem UNION ALL
+  SELECT 'bcπ' UNION ALL
+  SELECT 'd⨝' UNION ALL
+  SELECT '' UNION ALL
+  SELECT 'xyz'
+);
 --
 ARRAY<STRUCT<elem STRING, STRING, STRING, STRING, STRING, STRING>>[
   {"xyz", NULL, NULL, "xyz", "xyz;d⨝", "xyz;d⨝;bcπ;aσ;"},
@@ -360,7 +372,13 @@ SELECT
     OVER(ORDER BY elem ASC ROWS BETWEEN CURRENT ROW AND 1 FOLLOWING),
   STRING_AGG(elem, "")
     OVER(ORDER BY elem ASC ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)
-FROM UNNEST(ARRAY<STRING>['aσ', 'bcπ', 'd⨝', '', 'xyz']) elem;
+FROM (
+  SELECT 'aσ' elem UNION ALL
+  SELECT 'bcπ' UNION ALL
+  SELECT 'd⨝' UNION ALL
+  SELECT '' UNION ALL
+  SELECT 'xyz'
+);
 --
 ARRAY<STRUCT<elem STRING, STRING, STRING, STRING>>[
   {"", "", "aσ", "aσbcπd⨝xyz"},
@@ -381,7 +399,13 @@ SELECT
     OVER(ORDER BY elem ROWS BETWEEN 1 FOLLOWING AND 2 FOLLOWING),
   STRING_AGG(elem, "; ")
     OVER(ORDER BY elem ROWS BETWEEN 2 FOLLOWING AND UNBOUNDED FOLLOWING)
-FROM UNNEST(ARRAY<STRING>['aσ', 'bcπ', 'd⨝', '', 'xyz']) elem;
+FROM (
+  SELECT 'aσ' elem UNION ALL
+  SELECT 'bcπ' UNION ALL
+  SELECT 'd⨝' UNION ALL
+  SELECT '' UNION ALL
+  SELECT 'xyz'
+);
 --
 ARRAY<STRUCT<elem STRING, STRING, STRING, STRING, STRING>>[
   {"", NULL, "bcπ", "aσ; bcπ", "bcπ; d⨝; xyz"},
@@ -407,7 +431,14 @@ SELECT
   STRING_AGG(elem)
     OVER(PARTITION BY LENGTH(elem)
          ORDER BY elem ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
-FROM UNNEST(ARRAY<BYTES>[b'A', b'BC', b'D', b'', b'E', b'xyz']) elem;
+FROM (
+  SELECT b'A' elem UNION ALL
+  SELECT b'BC' UNION ALL
+  SELECT b'D' UNION ALL
+  SELECT b'' UNION ALL
+  SELECT b'E' UNION ALL
+  SELECT b'xyz'
+);
 --
 ARRAY<STRUCT<elem BYTES, BYTES, BYTES, BYTES, BYTES, BYTES>>[
   {b"", b"", NULL, b"", b"", b""},
@@ -431,7 +462,14 @@ SELECT
     OVER(ORDER BY elem ASC ROWS BETWEEN 2 PRECEDING AND 1 FOLLOWING),
   STRING_AGG(elem, b";")
     OVER(ORDER BY elem ASC ROWS BETWEEN 2 PRECEDING AND UNBOUNDED FOLLOWING)
-FROM UNNEST(ARRAY<BYTES>[b'A', b'BC', b'D', b'', b'E', b'xyz']) elem;
+FROM (
+  SELECT b'A' elem UNION ALL
+  SELECT b'BC' UNION ALL
+  SELECT b'D' UNION ALL
+  SELECT b'' UNION ALL
+  SELECT b'E' UNION ALL
+  SELECT b'xyz'
+);
 --
 ARRAY<STRUCT<elem BYTES, BYTES, BYTES, BYTES, BYTES, BYTES>>[
   {b"", NULL, NULL, b"", b";A", b";A;BC;D;E;xyz"},
@@ -454,7 +492,14 @@ SELECT
   STRING_AGG(elem, b"")
     OVER(PARTITION BY LENGTH(elem)
          ORDER BY elem DESC ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)
-FROM UNNEST(ARRAY<BYTES>[b'A', b'BC', b'D', b'', b'E', b'xyz']) elem;
+FROM (
+  SELECT b'A' elem UNION ALL
+  SELECT b'BC' UNION ALL
+  SELECT b'D' UNION ALL
+  SELECT b'' UNION ALL
+  SELECT b'E' UNION ALL
+  SELECT b'xyz'
+);
 --
 ARRAY<STRUCT<elem BYTES, BYTES, BYTES, BYTES>>[
   {b"", b"", b"", b""},
@@ -476,7 +521,14 @@ SELECT
     OVER(ORDER BY elem ROWS BETWEEN 1 FOLLOWING AND 2 FOLLOWING),
   STRING_AGG(elem, b"; ")
     OVER(ORDER BY elem ROWS BETWEEN 2 FOLLOWING AND UNBOUNDED FOLLOWING)
-FROM UNNEST(ARRAY<BYTES>[b'A', b'BC', b'D', b'', b'E', b'xyz']) elem;
+FROM (
+  SELECT b'A' elem UNION ALL
+  SELECT b'BC' UNION ALL
+  SELECT b'D' UNION ALL
+  SELECT b'' UNION ALL
+  SELECT b'E' UNION ALL
+  SELECT b'xyz'
+);
 --
 ARRAY<STRUCT<elem BYTES, BYTES, BYTES, BYTES, BYTES>>[
   {b"", NULL, b"BC", b"A; BC", b"BC; D; E; xyz"},
@@ -498,13 +550,15 @@ SELECT
     OVER(ORDER BY elem ROWS BETWEEN 1 FOLLOWING AND 2 FOLLOWING),
   STRING_AGG(elem, "; ")
     OVER(ORDER BY elem ROWS BETWEEN 2 FOLLOWING AND UNBOUNDED FOLLOWING)
-FROM UNNEST(ARRAY<STRING>['ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzσ',
-                          'bABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzcπ',
-                          'd⨝ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
-                          '',
-                          'xyzABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
-                          'xyzABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
-                          '甲乙丙丁戊己庚辛壬癸一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾']) elem;
+FROM (
+  SELECT 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzσ' elem UNION ALL
+  SELECT 'bABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzcπ' UNION ALL
+  SELECT 'd⨝ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz' UNION ALL
+  SELECT '' UNION ALL
+  SELECT 'xyzABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz' UNION ALL
+  SELECT 'xyzABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789' UNION ALL
+  SELECT '甲乙丙丁戊己庚辛壬癸一二三四五六七八九十壹贰叁肆伍陆柒捌玖拾'
+);
 --
 ARRAY<STRUCT<elem STRING, STRING, STRING, STRING, STRING>>[
   {

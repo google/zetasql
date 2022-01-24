@@ -150,9 +150,9 @@ TEST(SqlFormatterTest, InvalidMultipleStatements) {
       StatusIs(
           _,
           HasSubstr(
-              "Syntax error: Unexpected \".\" [at 1:10]\n"
+              "foo is not a supported object type [at 1:7]\n"
               " drop foo.bar;  define table t1 (a=1,b=\"a\",c=1.4,d=true) ;\n"
-              "         ^\n"
+              "      ^\n"
               "Syntax error: Expected end of input but got keyword HAVING [at "
               "2:42]\n"
               " select sum(f1) as a from T having a > 5 having a > 5;select 1\n"

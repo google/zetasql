@@ -67,6 +67,10 @@ struct FunctionArgumentTypeProxy {
       SignatureArgumentKind kind,
       FunctionArgumentType::ArgumentCardinality cardinality)
       : kind(kind), cardinality(cardinality) {}
+  FunctionArgumentTypeProxy(
+      SignatureArgumentKind kind, const Type* type,
+      FunctionArgumentType::ArgumentCardinality cardinality)
+      : kind(kind), cardinality(cardinality) {}
   // NOLINTNEXTLINE: runtime/explicit
   FunctionArgumentTypeProxy(SignatureArgumentKind kind) : kind(kind) {}
 
@@ -77,8 +81,8 @@ struct FunctionArgumentTypeProxy {
   FunctionArgumentTypeProxy(const Type* type)  // NOLINT: runtime/explicit
       : type(type) {}
 
-  SignatureArgumentKind kind = ARG_TYPE_FIXED;
   const Type* type = nullptr;
+  SignatureArgumentKind kind = ARG_TYPE_FIXED;
   FunctionArgumentType::ArgumentCardinality cardinality =
       FunctionEnums::REQUIRED;
 
@@ -399,7 +403,12 @@ absl::Status CheckArgumentsSupportComparison(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
-absl::Status CheckMinMaxGreatestLeastArguments(
+absl::Status CheckMinMaxArguments(
+    const std::string& function_name,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options);
+
+absl::Status CheckGreatestLeastArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);

@@ -2,11 +2,10 @@
 
 # Data types
 
-ZetaSQL supports simple data types such as integers, as well as more
-complex types such as ARRAY,
-PROTO, and STRUCT. This page provides an overview of each data type,
-including allowed values. For information on
-data type literals and constructors, see
+This page provides an overview of all ZetaSQL
+data types, including information about their value
+domains. For
+information on data type literals and constructors, see
 [Lexical Structure and Syntax][lexical-literals].
 
 ## Data type properties
@@ -14,97 +13,144 @@ data type literals and constructors, see
 When storing and querying data, it is helpful to keep the following data type
 properties in mind:
 
-<table>
-<thead>
-<tr>
-<th>Property</th>
-<th>Description</th>
-<th>Applies To</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Nullable</td>
-<td><code>NULL</code> is a valid value.</td>
-<td>
-  All data types.
-</td>
-</tr>
-<tr>
-<td>Orderable</td>
-<td>Can be used in an <code>ORDER BY</code> clause.</td>
-<td>All data types except for:
-<ul>
-<li>PROTO</li>
-<li>ARRAY</li>
-<li>STRUCT</li>
-<li>JSON</li>
-</ul>
-</td>
-</tr>
-<tr>
-<td>Groupable</td>
-<td>Can generally appear in an expression following<br>
-  <code>GROUP BY</code>,
-  <code>DISTINCT</code>, and <code>PARTITION BY</code>.<br>
-  However, <code>PARTITION BY</code> expressions cannot include<br>
-  <a href="#floating_point_types">floating point types</a>.<br>
-</td>
-<td>All data types except for:<ul>
- <li>PROTO</li>
- <li>JSON</li>
-</ul>
-An ARRAY type is groupable if its element type is
-groupable. Two arrays are in the same group if and only if one of the following
-statements is true:
+### Nullable data types
 
-<ol>
-  <li>The two arrays are both null.</li>
-  <li>The two arrays have the same number of elements and all corresponding
-    elements are in the same groups.</li>
-</ol>
+For nullable data types, `NULL` is a valid value. Currently, all existing
+data types are nullable.
 
-<br>A STRUCT type is groupable if its field types are groupable. Two structs
+### Orderable data types
+
+Expressions of orderable data types can be used in an `ORDER BY` clause.
+Applies to all data types except for:
+
++ `PROTO`
++ `STRUCT`
++ `JSON`
+
+#### Ordering NULLs 
+<a id="orderable_nulls"></a>
+
+In the context of the `ORDER BY` clause, `NULL`s are the minimum
+possible value; that is, `NULL`s appear first in `ASC` sorts and last in
+`DESC` sorts.
+
+`NULL` values can be specified as the first or last values for a column
+irrespective of `ASC` or `DESC` by using the `NULLS FIRST` or `NULLS LAST`
+modifiers respectively.
+
+To learn more about using `ASC`, `DESC`, `NULLS FIRST` and `NULLS LAST`, see
+the [`ORDER BY` clause][order-by-clause].
+
+#### Ordering floating points 
+<a id="orderable_floating_points"></a>
+
+Floating point values are sorted in this order, from least to greatest:
+
+  1. `NULL`
+  2. `NaN` &mdash; All `NaN` values are considered equal when sorting.
+  3. `-inf`
+  4. Negative numbers
+  5. 0 or -0 &mdash; All zero values are considered equal when sorting.
+  6. Positive numbers
+  7. `+inf`
+
+#### Ordering arrays 
+<a id="orderable_arrays"></a>
+
+`ARRAY<T>` is orderable if its type, `T`, is orderable. Empty arrays are
+sorted before non-empty arrays. Non-empty arrays are sorted
+lexicographically by element. An array that is a strict prefix of another array
+orders less than the longer array.
+
+Lexicographical ordering for arrays first compares the elements of each array
+from the first element to the last. If an element orders before a corresponding
+element in another array, then the arrays are ordered accordingly. Subsequent
+array elements are ignored.
+
+For example:
+
+```sql
+WITH
+  t AS (
+    SELECT [1, 2] a UNION ALL
+    SELECT [1, NULL] a UNION ALL
+    SELECT [0, 1] UNION ALL
+    SELECT [0, 1, 4] UNION ALL
+    SELECT [0, 1, 5] UNION ALL
+    SELECT [3] UNION ALL
+    SELECT [] UNION ALL
+    SELECT CAST(NULL AS ARRAY<INT64>)
+  )
+SELECT a FROM t ORDER BY a
+
++-----------+
+| a         |
++-----------+
+| NULL      |
+| []        |
+| [0, 1]    |
+| [0, 1, 4] |
+| [0, 1, 5] |
+| [1, NULL] |
+| [1, 2]    |
+| [3]       |
++-----------+
+```
+
+### Groupable data types
+
+Groupable data types can generally appear in an expression following `GROUP BY`,
+`DISTINCT`, and `PARTITION BY`. However, `PARTITION BY` expressions cannot
+include [floating point types][floating-point-types]. All data types are
+supported except for:
+
++ `PROTO`
++ `JSON`
+
+An ARRAY type is groupable if its element type is groupable. Two arrays are in
+the same group if and only if one of the following statements is true:
+
++ The two arrays are both `NULL`.
++ The two arrays have the same number of elements and all corresponding
+  elements are in the same groups.
+
+A STRUCT type is groupable if its field types are groupable. Two structs
 are in the same group if and only if one of the following statements is true:
 
-<ol>
-  <li>The two structs are both null.</li>
-  <li>All corresponding field values between the structs are in the same groups.</li>
-</ol>
++ The two structs are both `NULL`.
++ All corresponding field values between the structs are in the same groups.
 
-</td>
-</tr>
-<tr>
-<td>Comparable</td>
-<td>Values of the same type can be compared to each other.</td>
-<td>All data types, with the following exceptions:
+Special floating point values are grouped in the following way, including
+both grouping done by a `GROUP BY` clause and grouping done by the
+`DISTINCT` keyword:
 
-<br/><br/>
-Equality comparisons for ARRAY data types are supported as long as the element
-types are the same, and the element types are comparable. Less than and greater
-than comparisons are not supported.
+  * `NULL`
+  * `NaN` &mdash; All `NaN` values are considered equal when grouping.
+  * `-inf`
+  * 0 or -0 &mdash; All zero values are considered equal when grouping.
+  * `+inf`
 
-<br/><br/>
-Equality comparisons for STRUCTs are supported field by field, in field order.
-Field names are ignored. Less than and greater than comparisons are not
-supported.
+### Comparable data types
 
-<br/><br/>
-Protocol Buffer comparisons are not supported.
+Values of the same comparable data type can be compared to each other.
+All data types are supported except for:
 
-<br/><br/>
-JSON comparisons are not supported.
++ `PROTO`
++ `JSON`
 
-<br /><br />
-All types that support comparisons
-can be used in a <code>JOIN</code> condition. See
-<a href="https://github.com/google/zetasql/blob/master/docs/query-syntax.md#join_types">JOIN Types</a>
+Notes:
 
-for an explanation of join conditions.</td>
-</tr>
++ Equality comparisons for `ARRAY` data types are supported as long as the
+  element types are the same, and the element types are comparable. Less than
+  and greater than comparisons are not supported.
++ Equality comparisons for `STRUCT`s are supported field by field, in
+  field order. Field names are ignored. Less than and greater than comparisons
+  are not supported.
++ All types that support comparisons can be used in a `JOIN` condition.
+ See [JOIN Types][join-types] for an explanation of join conditions.
 
-</tbody>
-</table>
+The maximum size of a  column value is 10MiB, which applies to
+scalar and array types.
 
 ## Array type
 
@@ -715,24 +761,9 @@ input.
 </tbody>
 </table>
 
-Floating point values are sorted in this order, from least to greatest:
-
-  1. `NULL`
-  2. `NaN` &mdash; All `NaN` values are considered equal when sorting.
-  3. `-inf`
-  4. Negative numbers
-  5. 0 or -0 &mdash; All zero values are considered equal when sorting.
-  6. Positive numbers
-  7. `+inf`
-
-Special floating point values are grouped this way, including both grouping
-done by a `GROUP BY` clause and grouping done by the `DISTINCT` keyword:
-
-  * `NULL`
-  * `NaN` &mdash; All `NaN` values are considered equal when grouping.
-  * `-inf`
-  * 0 or -0 &mdash; All zero values are considered equal when grouping.
-  * `+inf`
+For more information on how these values are ordered and grouped so they
+can be compared,
+see [Ordering floating point values][orderable-floating-points].
 
 ## Protocol buffer type
 
@@ -782,14 +813,12 @@ You can construct a PROTO with the `NEW` keyword or with the
 No direct comparison of PROTO values is supported. There are a couple possible
 workarounds:
 
-  * The most accurate way to compare PROTOs is to do a pair-wise comparison
-    between the fields of the PROTOs. This can also be used to `GROUP BY` or
-    `ORDER BY` PROTO fields.
-  * For simple equality comparisons, you can cast a PROTO to BYTES and compare
-    the results.
-  * To get a simple approximation for inequality comparisons, you can cast PROTO
-    to STRING. Note that this will do lexicographical ordering for numeric
-    fields.
++ The most accurate way to compare PROTOs is to do a pair-wise comparison
+  between the fields of the PROTOs. This can also be used to `GROUP BY` or
+  `ORDER BY` PROTO fields.
++ To get a simple approximation for inequality comparisons, you can cast PROTO
+  to STRING. Note that this will do lexicographical ordering for numeric
+  fields.
 
 ## String type
 
@@ -1272,15 +1301,27 @@ when there is a leap second.
 
 [interval-type]: #interval_type
 
+[floating-point-types]: #floating_point_types
+
+[orderable-floating-points]: #orderable_floating_points
+
+[orderable-nulls]: #orderable_nulls
+
 [protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md
 
 [lexical-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#literals
 
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#constructing_arrays
 
+[join-types]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#join_types
+
+[order-by-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#order_by_clause
+
 [geography-functions]: https://github.com/google/zetasql/blob/master/docs/geography_functions.md
 
 [mathematical-functions]: https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md
+
+[st-equals]: https://github.com/google/zetasql/blob/master/docs/geography_functions.md#st_equals
 
 <!-- mdlint on -->
 

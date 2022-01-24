@@ -267,6 +267,27 @@ public class SimpleTableTest {
   }
 
   @Test
+  public void testFullName() {
+    SimpleTable table1 = new SimpleTable("t1", createColumns("t1"));
+    assertThat(table1.getName()).isEqualTo("t1");
+    assertThat(table1.getFullName()).isEqualTo("t1");
+    table1.setFullName("s1.t1");
+    assertThat(table1.getName()).isEqualTo("t1");
+    assertThat(table1.getFullName()).isEqualTo("s1.t1");
+    table1.setFullName("");
+    assertThat(table1.getName()).isEqualTo("t1");
+    assertThat(table1.getFullName()).isEqualTo("t1");
+    table1.setFullName("s1.t1");
+    table1.setFullName("t1");
+    assertThat(table1.getName()).isEqualTo("t1");
+    assertThat(table1.getFullName()).isEqualTo("t1");
+    table1.setFullName("s1.t1");
+    table1.setFullName(null);
+    assertThat(table1.getName()).isEqualTo("t1");
+    assertThat(table1.getFullName()).isEqualTo("t1");
+  }
+
+  @Test
   public void testFindColumnByName() {
     SimpleTable table1 = new SimpleTable("t1", createColumns("t1"));
     SimpleType type = TypeFactory.createSimpleType(TypeKind.TYPE_BOOL);
@@ -309,6 +330,18 @@ public class SimpleTableTest {
     assertThat(table2.getPrimaryKey().get()).isEqualTo(table1.getPrimaryKey().get());
     assertThat(table1.getId() == table2.getId()).isTrue();
     assertThat(descriptor.getFileDescriptorSetCount()).isEqualTo(1);
+
+    table1.setFullName("s1.t1");
+    table2 =
+        SimpleTable.deserialize(
+            table1.serialize(descriptor), descriptor.getDescriptorPools(), factory);
+    assertThat(table2.getFullName()).isEqualTo(table1.getFullName());
+
+    SimpleTableProto proto1 = table1.serialize(descriptor);
+    table2 =
+        SimpleTable.deserialize(
+            proto1.toBuilder().clearFullName().build(), descriptor.getDescriptorPools(), factory);
+    assertThat(table2.getFullName()).isEqualTo(table1.getName());
 
     SimpleTableProto.Builder builder = SimpleTableProto.newBuilder();
     TextFormat.merge(

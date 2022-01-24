@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <limits>
+#include <string>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/base/testing/status_matchers.h"
@@ -250,8 +251,7 @@ TEST_P(StringTemplateTest, Testlib) {
     } else {
       auto upper_function = [](absl::string_view str, std::string* out,
                                absl::Status* error) {
-        Utf8CaseFunction function;
-        return function.Upper(str, out, error);
+        return UpperUtf8(str, out, error);
       };
       TestStringFunction<std::string>(upper_function, param.params,
                                       args[0].string_value());
@@ -263,8 +263,7 @@ TEST_P(StringTemplateTest, Testlib) {
     } else {
       auto lower_function = [](absl::string_view str, std::string* out,
                                absl::Status* error) {
-        Utf8CaseFunction function;
-        return function.Lower(str, out, error);
+        return LowerUtf8(str, out, error);
       };
       TestStringFunction<std::string>(lower_function, param.params,
                                       args[0].string_value());

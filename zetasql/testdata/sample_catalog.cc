@@ -37,6 +37,7 @@
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/procedure.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/sql_function.h"
@@ -5206,6 +5207,34 @@ void SampleCatalog::LoadContrivedLambdaArgFunctions() {
   catalog_->AddOwnedFunction(function.release());
 }
 
+void SampleCatalog::AddSqlDefinedFunction(
+    absl::string_view name, FunctionSignature signature,
+    const std::vector<std::string>& argument_names,
+    absl::string_view function_body_sql,
+    const LanguageOptions& language_options) {
+  AnalyzerOptions analyzer_options;
+  analyzer_options.set_language(language_options);
+  ZETASQL_CHECK_EQ(argument_names.size(), signature.arguments().size());
+  for (int i = 0; i < argument_names.size(); ++i) {
+    ZETASQL_CHECK_NE(signature.argument(i).type(), nullptr);
+    ZETASQL_CHECK_OK(analyzer_options.AddExpressionColumn(
+        argument_names[i], signature.argument(i).type()));
+  }
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  ZETASQL_CHECK_OK(AnalyzeExpressionForAssignmentToType(
+      function_body_sql, analyzer_options, catalog_.get(),
+      catalog_->type_factory(), signature.result_type().type(),
+      &analyzer_output));
+  std::unique_ptr<SQLFunction> function;
+  ZETASQL_CHECK_OK(SQLFunction::Create(
+      std::string(name), FunctionEnums::SCALAR, {signature},
+      /*function_options=*/{}, analyzer_output->resolved_expr(), argument_names,
+      /*aggregate_expression_list=*/{}, /*parse_resume_location=*/{},
+      &function));
+  catalog_->AddOwnedFunction(function.release());
+  sql_function_artifacts_.emplace_back(std::move(analyzer_output));
+}
+
 // Add a SQL function to catalog starting from a full create_function
 // statement.
 void SampleCatalog::AddSqlDefinedFunctionFromCreate(
@@ -5216,6 +5245,7 @@ void SampleCatalog::AddSqlDefinedFunctionFromCreate(
   language.AddSupportedStatementKind(RESOLVED_CREATE_FUNCTION_STMT);
   language.EnableLanguageFeature(FEATURE_V_1_3_INLINE_LAMBDA_ARGUMENT);
   language.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
+  language.EnableLanguageFeature(FEATURE_TEMPLATE_FUNCTIONS);
   AnalyzerOptions analyzer_options;
   analyzer_options.set_language(language);
   analyzer_options.set_enabled_rewrites(/*rewrites=*/{});
@@ -5229,14 +5259,22 @@ void SampleCatalog::AddSqlDefinedFunctionFromCreate(
   ZETASQL_CHECK(resolved->Is<ResolvedCreateFunctionStmt>());
   const ResolvedCreateFunctionStmt* resolved_create =
       resolved->GetAs<ResolvedCreateFunctionStmt>();
-  std::unique_ptr<SQLFunction> function;
-  ZETASQL_CHECK_OK(SQLFunction::Create(
-      absl::StrJoin(resolved_create->name_path(), "."), FunctionEnums::SCALAR,
-      {resolved_create->signature()}, /*function_options=*/{},
-      resolved_create->function_expression(),
-      resolved_create->argument_name_list(), /*aggregate_expression_list=*/{},
-      /*parse_resume_location=*/{}, &function));
-  catalog_->AddOwnedFunction(function.release());
+  if (resolved_create->function_expression() != nullptr) {
+    std::unique_ptr<SQLFunction> function;
+    ZETASQL_CHECK_OK(SQLFunction::Create(
+        absl::StrJoin(resolved_create->name_path(), "."), FunctionEnums::SCALAR,
+        {resolved_create->signature()}, /*function_options=*/{},
+        resolved_create->function_expression(),
+        resolved_create->argument_name_list(), /*aggregate_expression_list=*/{},
+        /*parse_resume_location=*/{}, &function));
+    catalog_->AddOwnedFunction(function.release());
+  } else {
+    auto template_function = absl::make_unique<TemplatedSQLFunction>(
+        resolved_create->name_path(), resolved_create->signature(),
+        resolved_create->argument_name_list(),
+        ParseResumeLocation::FromStringView(resolved_create->code()));
+    catalog_->AddOwnedFunction(template_function.release());
+  }
   sql_function_artifacts_.emplace_back(std::move(analyzer_output));
 }
 
@@ -5274,6 +5312,78 @@ void SampleCatalog::LoadSqlFunctions(const LanguageOptions& language_options) {
   AddSqlDefinedFunctionFromCreate(
       R"( CREATE FUNCTION UnaryIncrement(a INT64) AS ( a + 1 ); )",
       language_options);
+
+  // Creating the function using AnalyzeExpressionForAssignmentToType results in
+  // a function body expression with ResolvedExpressionColumn where arguments
+  // are referenced instead of a ResolvedArgumentRef. That appears to be done
+  // in several catalogs, so we want to test that case too.
+  const Type* int64_type = types_->get_int64();
+  FunctionSignature int_int = {int64_type,
+                               {int64_type},
+                               /*context_id=*/static_cast<int64_t>(0)};
+  AddSqlDefinedFunction("UnaryIncrementRefArg", int_int, {"a"}, "a + 1",
+                        language_options);
+
+  // Function from sql/modules/math_utils/math_utils.sqlm
+  // References each of its arguments more than once.
+  AddSqlDefinedFunctionFromCreate(
+      R"( CREATE FUNCTION FloorDiv(n INT64, d INT64) RETURNS INT64
+          AS ( DIV(n, d) - IF(n < 0 AND MOD(n, d) != 0, 1, 0) ); )",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"( CREATE FUNCTION IgnoresArg(a INT64) AS (1); )", language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"( CREATE FUNCTION ReferencesArgsInsideSubquery(a INT64, b INT64)
+          AS ((SELECT a + b)); )",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"( CREATE FUNCTION ReferencesArgInsideCte(a INT64)
+          AS ((WITH t AS (SELECT a AS c) SELECT c FROM t)); )",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"( CREATE FUNCTION ReferencesArgOutsideCte(a INT64)
+          AS ((WITH t AS (SELECT 1 AS c) SELECT c + a FROM t)); )",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"(  CREATE FUNCTION ReferencesArgInsideLambda(a INT64)
+           AS (ARRAY_TRANSFORM([1, 2, 3], e->e = a)); )",
+      language_options);
+
+  // This function is logically equivalent to ARRAY_REVERSE
+  AddSqlDefinedFunctionFromCreate(
+      R"(  CREATE FUNCTION REVERSE_ARRAY(input_arr ANY TYPE)
+           AS (IF (input_arr IS NULL,
+                   NULL,
+                   ARRAY(SELECT e
+                         FROM UNNEST(input_arr) AS e WITH OFFSET
+                         ORDER BY OFFSET desc))); )",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"( CREATE FUNCTION TimesTwo(arg ANY TYPE) AS (arg + arg); )",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"( CREATE FUNCTION SUM_DOUBLE_ARRAY(input_arr ANY TYPE)
+          AS ((SELECT SUM(e)
+               FROM UNNEST(ARRAY_TRANSFORM(input_arr, e->TimesTwo(e))) e));)",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"( CREATE FUNCTION CallsPi0() AS (NullaryPi());)", language_options,
+      /*inline_sql_functions=*/false);
+
+  for (int i = 0; i < 25; ++i) {
+    AddSqlDefinedFunctionFromCreate(
+        absl::StrCat("CREATE FUNCTION CallsPi", i + 1, "() AS (CallsPi", i,
+                     "());"),
+        language_options, /*inline_sql_functions=*/false);
+  }
 }
 
 }  // namespace zetasql

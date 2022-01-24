@@ -594,6 +594,25 @@ struct UidColumnState {
     column.Clear();
     alias.clear();
     value_table_uid = nullptr;
+    subquery_expr_level = 0;
+  }
+
+  bool SetColumn(const zetasql::ResolvedColumn& col) {
+    if (subquery_expr_level > 0) {
+      return false;
+    }
+    column = col;
+    return true;
+  }
+
+  bool SetColumn(const zetasql::ResolvedColumn& col,
+                 const std::string& new_alias) {
+    if (subquery_expr_level > 0) {
+      return false;
+    }
+    SetColumn(col);
+    alias = new_alias;
+    return true;
   }
 
   // Returns an alias qualified (if specified) user visible name for the $uid
@@ -620,7 +639,7 @@ struct UidColumnState {
   std::vector<std::unique_ptr<const ResolvedComputedColumn>>
   SubstituteUidComputedColumn(
       std::vector<std::unique_ptr<const ResolvedComputedColumn>> expr_list) {
-    if (value_table_uid == nullptr) return expr_list;
+    if (subquery_expr_level > 0 || value_table_uid == nullptr) return expr_list;
     for (auto& col : expr_list) {
       if (IsSameFieldPath(col->expr(), value_table_uid->expr(),
                           FieldPathMatchingOption::kExpression)) {
@@ -644,6 +663,9 @@ struct UidColumnState {
   // than 'userid' or 'Table.userid'. It has no impact on the actual rewriting
   // logic.
   std::string alias;
+
+  // In the subquery expression, the `current_uid_` should not be updated.
+  int subquery_expr_level = 0;
 
  private:
   const ResolvedComputedColumn* value_table_uid = nullptr;
@@ -813,6 +835,12 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
       return absl::OkStatus();
     }
 
+    if (current_uid_.subquery_expr_level > 0) {
+      return MakeSqlErrorAtNode(*node)
+             << "Reading the table " << copy->table()->Name()
+             << " containing user data in expression subqueries is not allowed";
+    }
+
     // There exists an authoritative $uid column in the underlying table.
     //
     // For value tables, the Column itself doesn't exist in the table,
@@ -839,24 +867,26 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
         int j = copy->column_index_list(i);
         if (table_col == copy->table()->GetColumn(j)) {
           // If the original query selects the $uid column, reuse it.
-          current_uid_.column = copy->column_list(i);
+          current_uid_.SetColumn(copy->column_list(i));
           ZETASQL_RETURN_IF_ERROR(ValidateUidColumnSupportsGrouping(*node));
           return absl::OkStatus();
         }
       }
 
-      current_uid_.column = allocator_->MakeCol(
-          copy->table()->Name(), table_col->Name(), table_col->GetType());
-      copy->add_column_list(current_uid_.column);
+      if (current_uid_.SetColumn(allocator_->MakeCol(copy->table()->Name(),
+                                                     table_col->Name(),
+                                                     table_col->GetType()))) {
+        copy->add_column_list(current_uid_.column);
 
-      int table_col_id = -1;
-      for (int i = 0; i < copy->table()->NumColumns(); ++i) {
-        if (table_col == copy->table()->GetColumn(i)) {
-          table_col_id = i;
+        int table_col_id = -1;
+        for (int i = 0; i < copy->table()->NumColumns(); ++i) {
+          if (table_col == copy->table()->GetColumn(i)) {
+            table_col_id = i;
+          }
         }
+        ZETASQL_RET_CHECK_NE(table_col_id, -1);
+        copy->add_column_index_list(table_col_id);
       }
-      ZETASQL_RET_CHECK_NE(table_col_id, -1);
-      copy->add_column_index_list(table_col_id);
     } else {
       // The userid column is identified by the column name.  This case
       // happens when the table is a value table, and the userid column is
@@ -1015,8 +1045,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
               .name;
       if (result_column_name == userid_column_name) {
         // Already projected, we're done.
-        current_uid_.column = copy->column_list(i);
-        current_uid_.alias = copy->alias();
+        current_uid_.SetColumn(copy->column_list(i), copy->alias());
         return absl::OkStatus();
       }
     }
@@ -1073,8 +1102,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     copy->mutable_column_index_list()->insert(
         copy->column_index_list().begin() + userid_column_insertion_index,
         tvf_userid_column_index);
-    current_uid_.column = uid_column;
-    current_uid_.alias = copy->alias();
+    current_uid_.SetColumn(uid_column, copy->alias());
 
     return absl::OkStatus();
   }
@@ -1121,8 +1149,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
         if (entry.rewritten_entry->with_subquery()
                 ->column_list(i)
                 .column_id() == entry.rewritten_uid->column.column_id()) {
-          current_uid_.column = copy->column_list(i);
-          current_uid_.alias.clear();
+          current_uid_.SetColumn(copy->column_list(i), "");
           return absl::OkStatus();
         }
       }
@@ -1263,14 +1290,16 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
         // input that contains it.
         for (const ResolvedColumn& col : copy->column_list()) {
           if (col == left_uid || col == right_uid) {
-            current_uid_.column = col;
+            current_uid_.SetColumn(col);
             return absl::OkStatus();
           }
         }
         // We are not currently projecting either the Left or Right $uid
         // column.
-        current_uid_.column = left_uid.IsInitialized() ? left_uid : right_uid;
-        copy->add_column_list(current_uid_.column);
+        if (current_uid_.SetColumn(left_uid.IsInitialized() ? left_uid
+                                                            : right_uid)) {
+          copy->add_column_list(current_uid_.column);
+        }
         return absl::OkStatus();
 
       case ResolvedJoinScan::LEFT:
@@ -1283,12 +1312,13 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
         }
         for (const ResolvedColumn& col : copy->column_list()) {
           if (col == left_uid) {
-            current_uid_.column = col;
+            current_uid_.SetColumn(col);
             return absl::OkStatus();
           }
         }
-        current_uid_.column = left_uid;
-        copy->add_column_list(current_uid_.column);
+        if (current_uid_.SetColumn(left_uid)) {
+          copy->add_column_list(current_uid_.column);
+        }
         return absl::OkStatus();
 
       case ResolvedJoinScan::RIGHT:
@@ -1301,12 +1331,13 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
         }
         for (const ResolvedColumn& col : copy->column_list()) {
           if (col == right_uid) {
-            current_uid_.column = col;
+            current_uid_.SetColumn(col);
             return absl::OkStatus();
           }
         }
-        current_uid_.column = right_uid;
-        copy->add_column_list(current_uid_.column);
+        if (current_uid_.SetColumn(right_uid)) {
+          copy->add_column_list(current_uid_.column);
+        }
         return absl::OkStatus();
 
       case ResolvedJoinScan::FULL:
@@ -1342,8 +1373,9 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
             "$join", "$uid", coalesced_uid_function->type());
         auto coalesced_uid_column = MakeResolvedComputedColumn(
             uid_column, std::move(coalesced_uid_function));
-        current_uid_.column = coalesced_uid_column->column();
-        wrapped_column_list.emplace_back(current_uid_.column);
+        if (current_uid_.SetColumn(coalesced_uid_column->column())) {
+          wrapped_column_list.emplace_back(current_uid_.column);
+        }
 
         PushNodeToStack(MakeResolvedProjectScan(
             wrapped_column_list,
@@ -1395,12 +1427,13 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     if (group_by_uid_col.IsInitialized()) {
       // Point current_uid_column_ to the updated group by column, and verify
       // that the original query projected it.
-      current_uid_.column = group_by_uid_col;
-      for (const ResolvedColumn& col : copy->column_list()) {
-        if (col == current_uid_.column) {
-          // Explicitly projecting a column removes the alias.
-          current_uid_.alias = "";
-          return absl::OkStatus();
+      if (current_uid_.SetColumn(group_by_uid_col)) {
+        for (const ResolvedColumn& col : copy->column_list()) {
+          if (col == current_uid_.column) {
+            // Explicitly projecting a column removes the alias.
+            current_uid_.alias = "";
+            return absl::OkStatus();
+          }
         }
       }
     }
@@ -1414,7 +1447,8 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     ZETASQL_RETURN_IF_ERROR(
         MaybeAttachParseLocation(CopyVisitResolvedProjectScan(node), *node));
 
-    if (!current_uid_.column.IsInitialized()) {
+    if (!current_uid_.column.IsInitialized() ||
+        current_uid_.subquery_expr_level > 0) {
       return absl::OkStatus();
     }
     auto* copy = GetUnownedTopOfStack<ResolvedProjectScan>();
@@ -1447,10 +1481,22 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     // TableScan, the `current_uid_` will be set, but cannot be accessed outside
     // the subquery, which is not correct. In our design, the TableScan in the
     // subquery expression should not update the `current_uid_`.
-    UidColumnState current_uid_before_subquery = current_uid_;
+    current_uid_.subquery_expr_level++;
     ZETASQL_RETURN_IF_ERROR(
         ResolvedASTDeepCopyVisitor::CopyVisitResolvedSubqueryExpr(node));
-    current_uid_ = current_uid_before_subquery;
+    current_uid_.subquery_expr_level--;
+    return absl::OkStatus();
+  }
+
+  absl::Status VisitResolvedAnonymizedAggregateScan(
+      const ResolvedAnonymizedAggregateScan* node) override {
+    if (current_uid_.subquery_expr_level > 0) {
+      return MakeSqlErrorAtNode(*node)
+             << "Nested anonymization query is not implemented yet";
+    }
+    ZETASQL_RETURN_IF_ERROR(
+        ResolvedASTDeepCopyVisitor::CopyVisitResolvedAnonymizedAggregateScan(
+            node));
     return absl::OkStatus();
   }
 
@@ -1469,7 +1515,9 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
         return absl::OkStatus();                                          \
       }                                                                   \
     }                                                                     \
-    scan->add_column_list(current_uid_.column);                           \
+    if (current_uid_.subquery_expr_level == 0) {                          \
+      scan->add_column_list(current_uid_.column);                         \
+    }                                                                     \
     return absl::OkStatus();                                              \
   }
   PROJECT_UID(ResolvedArrayScan);
@@ -1889,11 +1937,6 @@ absl::StatusOr<std::unique_ptr<const ResolvedNode>> RewriteInternal(
 
 class AnonymizationRewriter : public Rewriter {
  public:
-  bool ShouldRewrite(const AnalyzerOptions& analyzer_options,
-                     const AnalyzerOutput& analyzer_output) const override {
-    return analyzer_output.analyzer_output_properties().has_anonymization;
-  }
-
   absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
       const AnalyzerOptions& options, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,
@@ -1907,7 +1950,6 @@ class AnonymizationRewriter : public Rewriter {
             input, options, column_factory, catalog, type_factory,
             output_properties
                 .resolved_table_scan_to_anonymized_aggregate_scan_map));
-    output_properties.has_anonymization = false;
     return node;
   }
 

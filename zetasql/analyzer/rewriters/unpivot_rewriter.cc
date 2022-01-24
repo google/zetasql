@@ -316,11 +316,6 @@ UnpivotRewriterVisitor::CreateArrayScanWithStructElements(
 
 class UnpivotRewriter : public Rewriter {
  public:
-  bool ShouldRewrite(const AnalyzerOptions& analyzer_options,
-                     const AnalyzerOutput& analyzer_output) const override {
-    return analyzer_output.analyzer_output_properties().has_unpivot;
-  }
-
   absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
       const AnalyzerOptions& options, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,

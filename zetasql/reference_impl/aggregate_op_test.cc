@@ -1039,7 +1039,9 @@ TEST(CreateIteratorTest, AggregateOrderBy) {
               ElementsAre(k, d, e, f, g, h, i, j, l));
   ZETASQL_ASSERT_OK(aggregate_op->SetSchemasForEvaluation(EmptyParamsSchemas()));
 
-  EvaluationContext context((EvaluationOptions()));
+  // Use stable sort for reference output.
+  EvaluationContext context(
+      (EvaluationOptions{.always_use_stable_sort = true}));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<TupleIterator> iter,
                        aggregate_op->CreateIterator(

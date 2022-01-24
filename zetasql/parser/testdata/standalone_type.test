@@ -359,6 +359,202 @@ numeric(MAX(), 10)
            ^
 ==
 
+string collate 'ABC'
+--
+SimpleType [0-20]
+  PathExpression [0-6]
+    Identifier(string) [0-6]
+  Collate [7-20]
+    StringLiteral('ABC') [15-20]
+--
+string COLLATE 'ABC'
+==
+
+string(100) collate 'ABC'
+--
+SimpleType [0-25]
+  PathExpression [0-6]
+    Identifier(string) [0-6]
+  TypeParameterList [6-10]
+    IntLiteral(100) [7-10]
+  Collate [12-25]
+    StringLiteral('ABC') [20-25]
+--
+string(100) COLLATE 'ABC'
+==
+
+struct<a string collate 'ABC'>
+--
+StructType [0-30]
+  StructField [7-29]
+    Identifier(a) [7-8]
+    SimpleType [9-29]
+      PathExpression [9-15]
+        Identifier(string) [9-15]
+      Collate [16-29]
+        StringLiteral('ABC') [24-29]
+--
+STRUCT< a string COLLATE 'ABC' >
+==
+
+struct<a string> collate 'ABC'
+--
+StructType [0-30]
+  StructField [7-15]
+    Identifier(a) [7-8]
+    SimpleType [9-15]
+      PathExpression [9-15]
+        Identifier(string) [9-15]
+  Collate [17-30]
+    StringLiteral('ABC') [25-30]
+--
+STRUCT< a string > COLLATE 'ABC'
+==
+
+struct<a string(100) collate 'ABC'>
+--
+StructType [0-35]
+  StructField [7-34]
+    Identifier(a) [7-8]
+    SimpleType [9-34]
+      PathExpression [9-15]
+        Identifier(string) [9-15]
+      TypeParameterList [15-19]
+        IntLiteral(100) [16-19]
+      Collate [21-34]
+        StringLiteral('ABC') [29-34]
+--
+STRUCT< a string(100) COLLATE 'ABC' >
+==
+
+array<string collate 'ABC'>
+--
+ArrayType [0-27]
+  SimpleType [6-26]
+    PathExpression [6-12]
+      Identifier(string) [6-12]
+    Collate [13-26]
+      StringLiteral('ABC') [21-26]
+--
+ARRAY< string COLLATE 'ABC' >
+==
+
+array<string> collate 'ABC'
+--
+ArrayType [0-27]
+  SimpleType [6-12]
+    PathExpression [6-12]
+      Identifier(string) [6-12]
+  Collate [14-27]
+    StringLiteral('ABC') [22-27]
+--
+ARRAY< string > COLLATE 'ABC'
+==
+
+array<string(100) collate 'ABC'>
+--
+ArrayType [0-32]
+  SimpleType [6-31]
+    PathExpression [6-12]
+      Identifier(string) [6-12]
+    TypeParameterList [12-16]
+      IntLiteral(100) [13-16]
+    Collate [18-31]
+      StringLiteral('ABC') [26-31]
+--
+ARRAY< string(100) COLLATE 'ABC' >
+==
+
+array<string(100) collate 'ABC'>(200)
+--
+ArrayType [0-37]
+  SimpleType [6-31]
+    PathExpression [6-12]
+      Identifier(string) [6-12]
+    TypeParameterList [12-16]
+      IntLiteral(100) [13-16]
+    Collate [18-31]
+      StringLiteral('ABC') [26-31]
+  TypeParameterList [32-36]
+    IntLiteral(200) [33-36]
+--
+ARRAY< string(100) COLLATE 'ABC' > (200)
+
+==
+
+struct<a array<string(100) collate 'ABC'>, b struct<string(50) collate 'CDE'>>
+--
+StructType [0-78]
+  StructField [7-41]
+    Identifier(a) [7-8]
+    ArrayType [9-41]
+      SimpleType [15-40]
+        PathExpression [15-21]
+          Identifier(string) [15-21]
+        TypeParameterList [21-25]
+          IntLiteral(100) [22-25]
+        Collate [27-40]
+          StringLiteral('ABC') [35-40]
+  StructField [43-77]
+    Identifier(b) [43-44]
+    StructType [45-77]
+      StructField [52-76]
+        SimpleType [52-76]
+          PathExpression [52-58]
+            Identifier(string) [52-58]
+          TypeParameterList [58-61]
+            IntLiteral(50) [59-61]
+          Collate [63-76]
+            StringLiteral('CDE') [71-76]
+--
+STRUCT< a ARRAY< string(100) COLLATE 'ABC' >, b STRUCT< string(50) COLLATE 'CDE' > >
+==
+
+# Use parameter as collate clause.
+string collate @collation_name
+--
+SimpleType [0-30]
+  PathExpression [0-6]
+    Identifier(string) [0-6]
+  Collate [7-30]
+    ParameterExpr [15-30]
+      Identifier(collation_name) [16-30]
+--
+string COLLATE @collation_name
+==
+
+struct<a string collate 'ABC', b string(100) collate @collation_name>
+--
+StructType [0-69]
+  StructField [7-29]
+    Identifier(a) [7-8]
+    SimpleType [9-29]
+      PathExpression [9-15]
+        Identifier(string) [9-15]
+      Collate [16-29]
+        StringLiteral('ABC') [24-29]
+  StructField [31-68]
+    Identifier(b) [31-32]
+    SimpleType [33-68]
+      PathExpression [33-39]
+        Identifier(string) [33-39]
+      TypeParameterList [39-43]
+        IntLiteral(100) [40-43]
+      Collate [45-68]
+        ParameterExpr [53-68]
+          Identifier(collation_name) [54-68]
+--
+STRUCT< a string COLLATE 'ABC', b string(100) COLLATE @collation_name >
+==
+
+# Collate clause cannot be an expression.
+string collate concat('abc', 'def')
+--
+ERROR: Syntax error: Expected "@" or "@@" or string literal but got identifier "concat" [at 1:16]
+string collate concat('abc', 'def')
+               ^
+==
+
 # Empty string as input.
 [strip_trailing_newline]
 --

@@ -888,6 +888,10 @@ std::string ASTUnaryExpression::GetSQLForOperator() const {
       return "-";
     case PLUS:
       return "+";
+    case IS_UNKNOWN:
+      return "IS UNKNOWN";
+    case IS_NOT_UNKNOWN:
+      return "IS NOT UNKNOWN";
   }
 }
 

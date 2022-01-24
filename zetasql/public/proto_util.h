@@ -69,64 +69,6 @@ absl::Status GetProtoFieldTypeAndDefault(
     const google::protobuf::FieldDescriptor* field, TypeFactory* type_factory,
     const Type** type, Value* default_value = nullptr);
 
-// Get the default value for a proto field. All zetasql annotations will be
-// respected for proto2 fields. The 'use_defaults' and 'use_field_defaults'
-// annotations will be ignored for proto3 fields. The <type> must be the same
-// type as would be computed for <field> using GetProtoFieldTypeAndDefault or
-// ProtoType::GetProtoFieldType (with <ignore_annotations> = false). For
-// required fields, returns an invalid default_value. For repeated fields,
-// returns an empty array for default_value.
-ABSL_DEPRECATED("Inline me!")
-inline absl::Status GetProtoFieldDefaultV2(const google::protobuf::FieldDescriptor* field,
-                                           const Type* type,
-                                           Value* default_value) {
-  ProtoFieldDefaultOptions options;
-  options.ignore_use_default_annotations =
-      field->containing_type()->file()->syntax() ==
-      google::protobuf::FileDescriptor::SYNTAX_PROTO3;
-  return GetProtoFieldDefault(options, field, type, default_value);
-}
-
-// DEPRECATED: Callers should move to using GetProtoFieldDefaultV2. Note that
-// GetProtoFieldDefaultV2 does not respect the 'use_defaults' and
-// 'use_field_defaults' annotations for proto3 fields.
-ABSL_DEPRECATED("Inline me!")
-inline absl::Status GetProtoFieldDefault(const google::protobuf::FieldDescriptor* field,
-                                         const Type* type,
-                                         Value* default_value) {
-  return GetProtoFieldDefault({}, field, type, default_value);
-}
-
-// DEPRECATED: Callers should move to GetProtoFieldDefaultV2.
-// <use_obsolete_timestamp> must be false.
-ABSL_DEPRECATED("Inline me!")
-inline absl::Status GetProtoFieldDefault(const google::protobuf::FieldDescriptor* field,
-                                         const Type* type,
-                                         bool use_obsolete_timestamp,
-                                         Value* default_value) {
-  ZETASQL_RET_CHECK(!use_obsolete_timestamp);
-  return GetProtoFieldDefault({}, field, type, default_value);
-}
-
-// Get the default value for a proto field, ignoring zetasql format
-// annotations as well as the zetasql.use_defaults and
-// zetasql.use_field_defaults annotations. The <type> must be the same type as
-// would be computed for <field> using ProtoType::GetProtoFieldType (with
-// <ignore_annotations> = true). If <type> is non-primitive, returns a NULL
-// <default_value>. For required fields, returns an invalid <default_value>.
-// For repeated fields, returns an empty array for <default_value> where the
-// array element type is the raw field type (i.e., the type of the field with
-// format annotations ignored).
-ABSL_DEPRECATED("Inline me!")
-inline absl::Status GetProtoFieldDefaultRaw(
-    const google::protobuf::FieldDescriptor* field, const Type* type,
-    Value* default_value) {
-  ProtoFieldDefaultOptions options;
-  options.ignore_use_default_annotations = true;
-  options.ignore_format_annotations = true;
-  return GetProtoFieldDefault(options, field, type, default_value);
-}
-
 // Get the Type and default value for a proto field in one step.
 // The returned <type> will be allocated from <type_factory>,
 // and will match the type returned by ProtoType::GetProtoFieldType.
@@ -152,25 +94,6 @@ inline absl::Status GetProtoFieldTypeAndDefault(
     Value* default_value = nullptr) {
   ZETASQL_RET_CHECK(!use_obsolete_timestamp);
   return GetProtoFieldTypeAndDefault({}, field, type_factory, type,
-                                     default_value);
-}
-
-// Get the Type and default value, without considering format annotations or any
-// automatic conversions, for a proto field. The returned <type> will be
-// allocated from <type_factory>, and will match the type returned by
-// ProtoType::GetProtoFieldType (with <ignore_annotations> = true). If
-// <default_value> is non-NULL, the computed field default (as described above
-// in GetProtoFieldDefaultRaw) will be returned. For required fields, returns an
-// invalid <default_value>. For repeated fields, returns an empty array for
-// <default_value>.
-ABSL_DEPRECATED("Inline me!")
-inline absl::Status GetProtoFieldTypeAndDefaultRaw(
-    const google::protobuf::FieldDescriptor* field, TypeFactory* type_factory,
-    const Type** type, Value* default_value = nullptr) {
-  ProtoFieldDefaultOptions options;
-  options.ignore_use_default_annotations = true;
-  options.ignore_format_annotations = true;
-  return GetProtoFieldTypeAndDefault(options, field, type_factory, type,
                                      default_value);
 }
 

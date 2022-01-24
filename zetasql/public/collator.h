@@ -127,9 +127,9 @@ inline absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>> MakeSqlCollator(
 }
 
 // This lightweight version of MakeFromCollationName() supports only the
-// "unicode:cs" collation, unless the full collator implementation has been
-// linked in and statically registered, in which case it behaves the same way
-// as CreateFromCollationName() above.
+// "binary" collation (but see below), unless the full collator implementation
+// has been linked in and statically registered, in which case it behaves the
+// same way as CreateFromCollationName() above.
 //
 // ZetaSQL end users should not have any reason to call this function over
 // CreateFromCollationName(); it is mostly an implementation detail of the
@@ -137,6 +137,9 @@ inline absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>> MakeSqlCollator(
 // the full ICU-based implementation based on whether the latter has been
 // registered with zetasql::internal::RegisterIcuCollatorImpl().
 //
+// Note on Supported Collations
+// This support 'binary', 'unicode' and/or 'unicode:cs' depending on
+// the value of 'mode'.
 absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>> MakeSqlCollatorLite(
     absl::string_view collation_name, CollatorLegacyUnicodeMode mode);
 

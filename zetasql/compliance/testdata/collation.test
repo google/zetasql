@@ -1052,3 +1052,81 @@ ARRAY<STRUCT<
   {5, "Case Sensitive", 12, "case sensitive"},
   {5, "Case Sensitive", 3, "Case sensitive"}
 ]
+==
+
+[name=in_subquery_with_collation_ci]
+with TestTable as (
+select 'ab' col union all
+select 'hel\u06DDlo'
+)
+select
+  'a' in (select collate(col, 'und:ci') from TestTable),
+  'Ab' in (select collate(col, 'und:ci') from TestTable),
+  'hello' in (select collate(col, 'und:ci') from TestTable),
+  collate('a', 'und:ci') in (select col from TestTable),
+  collate('Ab', 'und:ci') in (select col from TestTable),
+  collate('hello', 'und:ci') in (select col from TestTable),
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {false, true, true, false, true, true}
+]
+==
+
+[name=in_subquery_with_collation_binary]
+with TestTable as (
+select 'ab' col union all
+select 'hello'
+)
+select
+  'ab' in (select collate(col, 'binary') from TestTable),
+  'AB' in (select collate(col, 'binary') from TestTable),
+  'hello' in (select collate(col, 'binary') from TestTable),
+  'HeLLO' in (select collate(col, 'binary') from TestTable),
+  collate('ab', 'binary') in (select col from TestTable),
+  collate('AB', 'binary') in (select col from TestTable)
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
+  {true, false, true, false, true, false}
+]
+==
+
+[name=in_subquery_with_conflicting_collation]
+with TestTable as (
+select 'ab' col union all
+select 'hel\u06DDlo'
+)
+select
+  collate('a', 'binary') in (select collate(col, 'und:ci') from TestTable)
+--
+ERROR: generic::invalid_argument: Collation for IN operator is different on input expr ("binary") and subquery column ("und:ci") [at 6:30]
+  collate('a', 'binary') in (select collate(col, 'und:ci') from TestTable)
+                             ^
+==
+
+[name=in_unnest_with_collation_ci]
+select
+  'a' in unnest([collate('A', 'und:ci'), collate('b', 'und:ci')]),
+  'c' in unnest([collate('A', 'und:ci'), collate('b', 'und:ci')]),
+  collate('a', 'und:ci') in unnest(['A', 'b']),
+  collate('c', 'und:ci') in unnest(['A', 'b'])
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{true, false, true, false}]
+==
+
+[name=in_unnest_with_collation_binary]
+select
+  'a' in unnest([collate('A', 'binary'), collate('b', 'binary')]),
+  'a' in unnest([collate('a', 'binary'), collate('b', 'binary')]),
+  collate('a', 'binary') in unnest(['A', 'b']),
+  collate('a', 'binary') in unnest(['a', 'b'])
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{false, true, false, true}]
+==
+
+[name=in_unnest_with_conflicting_collation]
+select
+  collate('a', 'und:ci') in unnest([collate('A', 'binary'), collate('b', 'binary')])
+--
+ERROR: generic::invalid_argument: Collation for IN UNNEST is different on argument 1 ("und:ci") and argument 2 ("binary") [at 2:3]
+  collate('a', 'und:ci') in unnest([collate('A', 'binary'), collate('b', 'bin...
+  ^

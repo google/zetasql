@@ -300,7 +300,7 @@ the output is negative.
    `FRIDAY`, and `SATURDAY`.
 +  `ISOWEEK`: Uses [ISO 8601 week][ISO-8601-week]
    boundaries. ISO weeks begin on Monday.
-+  `MONTH`
++  `MONTH`, except when the first two arguments are `TIMESTAMP` objects.
 +  `QUARTER`
 +  `YEAR`
 +  `ISOYEAR`: Uses the [ISO 8601][ISO-8601]

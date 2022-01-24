@@ -999,6 +999,11 @@ absl::Status Resolver::ResolveType(
     const ASTType* type,
     const absl::optional<absl::string_view> type_parameter_context,
     const Type** resolved_type, TypeParameters* resolved_type_params) {
+  if (type->collate() != nullptr) {
+    return MakeSqlErrorAt(type->collate())
+           << "Type with collation name is not supported";
+  }
+
   switch (type->node_kind()) {
     case AST_SIMPLE_TYPE: {
       return ResolveSimpleType(type->GetAsOrDie<ASTSimpleType>(),
@@ -1235,6 +1240,58 @@ absl::Status Resolver::MaybeResolveCollationForFunctionCallBase(
           ResolvedCollation::MakeResolvedCollation(*annotation_map));
       function_call->add_collation_list(std::move(resolved_collation));
     }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::MaybeResolveCollationForSubqueryExpr(
+    const ASTNode* error_location, ResolvedSubqueryExpr* subquery_expr) {
+  ZETASQL_RET_CHECK_NE(subquery_expr, nullptr);
+  if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT) ||
+      subquery_expr->subquery_type() != ResolvedSubqueryExpr::IN) {
+    return absl::OkStatus();
+  }
+  const ResolvedScan* subquery_scan = subquery_expr->subquery();
+  ZETASQL_RET_CHECK_NE(subquery_scan, nullptr);
+  ZETASQL_RET_CHECK_EQ(subquery_scan->column_list_size(), 1);
+  ZETASQL_RET_CHECK_NE(subquery_expr->in_expr(), nullptr);
+  const AnnotationMap* subquery_annotation_map =
+      subquery_scan->column_list(0).type_annotation_map();
+  const AnnotationMap* in_expr_annotation_map =
+      subquery_expr->in_expr()->type_annotation_map();
+  const AnnotationMap* result_annotation_map;
+
+  if (subquery_annotation_map == nullptr) {
+    result_annotation_map = in_expr_annotation_map;
+  } else if (in_expr_annotation_map == nullptr) {
+    result_annotation_map = subquery_annotation_map;
+  } else {
+    if (!subquery_annotation_map->HasEqualAnnotations(
+            *in_expr_annotation_map, CollationAnnotation::GetId())) {
+      // TODO: Add function to zetasql::Type class to output
+      // collation within type like ARRAY<STRING COLLATE 'und:ci'>.
+      ::zetasql_base::StatusBuilder error =
+          MakeSqlError() << absl::Substitute(
+              "Collation for IN operator is different on input expr ($0) and "
+              "subquery column ($1)",
+              in_expr_annotation_map->DebugString(CollationAnnotation::GetId()),
+              subquery_annotation_map->DebugString(
+                  CollationAnnotation::GetId()));
+      if (error_location != nullptr) {
+        error.Attach(GetErrorLocationPoint(error_location,
+                                           /*include_leftmost_child=*/true)
+                         .ToInternalErrorLocation());
+      }
+      return error;
+    }
+    result_annotation_map = in_expr_annotation_map;
+  }
+
+  if (result_annotation_map != nullptr) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        ResolvedCollation resolved_collation,
+        ResolvedCollation::MakeResolvedCollation(*result_annotation_map));
+    subquery_expr->set_in_collation(resolved_collation);
   }
   return absl::OkStatus();
 }

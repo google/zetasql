@@ -117,6 +117,12 @@ class SampleCatalog {
 
   void AddOwnedTable(SimpleTable* table);
 
+  // Add a SQLFunction to catalog_ with a SQL expression as the function body.
+  void AddSqlDefinedFunction(absl::string_view name,
+                             FunctionSignature signature,
+                             const std::vector<std::string>& argument_names,
+                             absl::string_view function_body_sql,
+                             const LanguageOptions& language_options);
   // Add a SQL function to catalog starting from a full create_function
   // statement.
   void AddSqlDefinedFunctionFromCreate(absl::string_view create_function,

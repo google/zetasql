@@ -1313,7 +1313,6 @@ TEST_F(ValueTest, InvalidStructConstruction) {
 
   // Deprecated API
   EXPECT_DEATH(Value::Struct(struct_type, {}), "(1 vs. 0)");
-  EXPECT_DEATH(Value::SafeStruct(struct_type, {}), "(1 vs. 0)");
 #ifndef NDEBUG
   EXPECT_DEATH(Value::UnsafeStruct(struct_type, {}), "(1 vs. 0)");
 #endif
@@ -1334,8 +1333,6 @@ TEST_F(ValueTest, InvalidStructConstruction) {
 
   // Deprecated API
   EXPECT_DEATH(Value::Struct(struct_type, {Value::String("abc")}),
-               "Field type: INT64");
-  EXPECT_DEATH(Value::SafeStruct(struct_type, {Value::String("abc")}),
                "Field type: INT64");
 #ifndef NDEBUG
   EXPECT_DEATH(Value::UnsafeStruct(struct_type, {Value::String("abc")}),

@@ -20,7 +20,6 @@ package com.google.zetasql;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.protobuf.ByteString;
 import com.google.zetasql.ZetaSQLOptions.ErrorMessageMode;
 import com.google.zetasql.ZetaSQLOptions.ParameterMode;
 import com.google.zetasql.ZetaSQLOptions.ParseLocationRecordType;
@@ -407,11 +406,11 @@ public class AnalyzerOptions implements Serializable {
 
   private void writeObject(java.io.ObjectOutputStream out) throws IOException {
     out.defaultWriteObject();
-    builder.build().toByteString().writeTo(out);
+    builder.build().writeTo(out);
   }
 
   private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
     in.defaultReadObject();
-    this.builder = AnalyzerOptionsProto.newBuilder().mergeFrom(ByteString.readFrom(in));
+    this.builder = AnalyzerOptionsProto.newBuilder().mergeFrom(in);
   }
 }

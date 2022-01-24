@@ -63,6 +63,7 @@
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "zetasql/resolved_ast/rewrite_utils.h"
 #include "zetasql/base/case.h"
 #include "absl/cleanup/cleanup.h"
 #include "absl/memory/memory.h"
@@ -1193,6 +1194,9 @@ absl::Status SQLBuilder::VisitResolvedSubqueryExpr(
       break;
     }
   }
+
+  // Mark field accessed. <in_collation> doesn't have its own SQL clause.
+  node->in_collation();
 
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
                    ProcessNode(node->subquery()));
@@ -2438,6 +2442,20 @@ absl::Status SQLBuilder::SetPathForColumnsInScan(const ResolvedScan* scan,
     SetPathForColumn(column, absl::StrCat(table_name, ".",
                                           ToIdentifierLiteral(column.name())));
   }
+  return absl::OkStatus();
+}
+
+absl::Status SQLBuilder::SetPathForColumnsInReturningExpr(
+    const ResolvedExpr* expr) {
+  std::vector<std::unique_ptr<const ResolvedColumnRef>> refs;
+  ZETASQL_RETURN_IF_ERROR(CollectColumnRefs(*expr, &refs));
+  for (std::unique_ptr<const ResolvedColumnRef>& ref : refs) {
+    // Setup table alias for DML target table columns in returning clause.
+    SetPathForColumn(ref->column(),
+                     absl::StrCat(returning_table_alias_, ".",
+                                  ToIdentifierLiteral(ref->column().name())));
+  }
+
   return absl::OkStatus();
 }
 
@@ -4499,6 +4517,7 @@ absl::Status SQLBuilder::VisitResolvedDeleteStmt(
       }
     }
     target_sql = absl::StrCat(TableToIdentifierLiteral(table), " AS ", alias);
+    returning_table_alias_ = alias;
   } else {
     ZETASQL_RET_CHECK(!nested_dml_targets_.empty());
     target_sql = nested_dml_targets_.back().first;
@@ -4562,16 +4581,22 @@ absl::Status SQLBuilder::VisitResolvedReturningClause(
                             expr->expr());
   }
 
+  ZETASQL_DCHECK_NE(returning_table_alias_, "");
   for (int i = 0; i < output_size; i++) {
     const ResolvedOutputColumn* col = node->output_column_list(i);
     if (col_to_expr_map.contains(col->column().column_id())) {
       const ResolvedExpr* expr =
           zetasql_base::FindOrDie(col_to_expr_map, col->column().column_id());
+      // Update the identifier for target table columns in expressions.
+      ZETASQL_RETURN_IF_ERROR(SetPathForColumnsInReturningExpr(expr));
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
                        ProcessNode(expr));
-      absl::StrAppend(&sql, " ", result->GetSQL(), " AS");
+      absl::StrAppend(&sql, " ", result->GetSQL(), " AS ",
+                      ToIdentifierLiteral(col->name()));
+    } else {
+      absl::StrAppend(&sql, " ", returning_table_alias_, ".",
+                      ToIdentifierLiteral(col->name()));
     }
-    absl::StrAppend(&sql, " ", ToIdentifierLiteral(col->name()));
 
     if (i != output_size - 1) {
       absl::StrAppend(&sql, ",");
@@ -4889,6 +4914,7 @@ absl::Status SQLBuilder::VisitResolvedUpdateStmt(
         &target_sql,
         TableToIdentifierLiteral(node->table_scan()->table()),
         " AS ", alias);
+    returning_table_alias_ = alias;
   } else {
     ZETASQL_RET_CHECK(!nested_dml_targets_.empty());
     target_sql = nested_dml_targets_.back().first;
@@ -4983,6 +5009,7 @@ absl::Status SQLBuilder::VisitResolvedInsertStmt(
   if (node->table_scan() != nullptr) {
     target_sql =
         TableToIdentifierLiteral(node->table_scan()->table());
+    returning_table_alias_ = target_sql;
   } else {
     ZETASQL_RET_CHECK(!nested_dml_targets_.empty());
     target_sql = nested_dml_targets_.back().first;
@@ -5397,6 +5424,23 @@ absl::StatusOr<std::string> SQLBuilder::GetAlterActionSQL(
             "ALTER COLUMN ", action->is_if_exists() ? "IF EXISTS " : "",
             action->column(), " DROP NOT NULL"));
       } break;
+      case RESOLVED_ALTER_COLUMN_SET_DEFAULT_ACTION: {
+        auto* action =
+            alter_action->GetAs<ResolvedAlterColumnSetDefaultAction>();
+        // Mark the field accessed to avoid test failures, even when it is not
+        // used in building SQL.
+        action->default_value()->expression()->MarkFieldsAccessed();
+        alter_action_sql.push_back(absl::StrCat(
+            "ALTER COLUMN ", action->is_if_exists() ? "IF EXISTS " : "",
+            action->column(), " SET DEFAULT ", action->default_value()->sql()));
+      } break;
+      case RESOLVED_ALTER_COLUMN_DROP_DEFAULT_ACTION: {
+        auto* action =
+            alter_action->GetAs<ResolvedAlterColumnDropDefaultAction>();
+        alter_action_sql.push_back(absl::StrCat(
+            "ALTER COLUMN ", action->is_if_exists() ? "IF EXISTS " : "",
+            action->column(), " DROP DEFAULT"));
+      } break;
       case RESOLVED_SET_COLLATE_CLAUSE: {
         auto* action = alter_action->GetAs<ResolvedSetCollateClause>();
         std::string action_sql = "SET DEFAULT COLLATE ";
@@ -5513,11 +5557,16 @@ absl::Status SQLBuilder::VisitResolvedPrivilege(const ResolvedPrivilege* node) {
   absl::StrAppend(&sql, ToIdentifierLiteral(node->action_type()));
 
   if (!node->unit_list().empty()) {
-    const auto& formatter = [](std::string* out, const std::string& in) {
-      absl::StrAppend(out, ToIdentifierLiteral(in));
-    };
-    absl::StrAppend(&sql, "(",
-                    absl::StrJoin(node->unit_list(), ", ", formatter), ")");
+    std::vector<std::string> unit_string_list;
+    for (const std::unique_ptr<const ResolvedObjectUnit>& unit :
+         node->unit_list()) {
+      std::vector<std::string> formatted_identifiers;
+      for (const std::string& name : unit->name_path()) {
+        formatted_identifiers.push_back(ToIdentifierLiteral(name));
+      }
+      unit_string_list.push_back(absl::StrJoin(formatted_identifiers, "."));
+    }
+    absl::StrAppend(&sql, "(", absl::StrJoin(unit_string_list, ", "), ")");
   }
 
   PushQueryFragment(node, sql);

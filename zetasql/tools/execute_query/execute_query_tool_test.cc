@@ -42,9 +42,12 @@ namespace {
 
 using zetasql_test__::EmptyMessage;
 using zetasql_test__::KitchenSinkPB;
+using testing::HasSubstr;
 using testing::IsEmpty;
+using testing::Not;
 using testing::NotNull;
 using zetasql_base::testing::StatusIs;
+
 using ToolMode = ExecuteQueryConfig::ToolMode;
 using SqlMode = ExecuteQueryConfig::SqlMode;
 
@@ -112,6 +115,24 @@ TEST(MakeWriterFromFlagsTest, Unknown) {
               StatusIs(absl::StatusCode::kInvalidArgument,
                        "Unknown output mode foobar"));
   EXPECT_THAT(output.str(), IsEmpty());
+}
+
+TEST(SetEvaluatorOptionsFromFlagsTest, Options) {
+  absl::FlagSaver fs;
+  EvaluatorOptions default_options;
+
+  ExecuteQueryConfig config;
+  ZETASQL_EXPECT_OK(SetEvaluatorOptionsFromFlags(config));
+  EXPECT_EQ(config.evaluator_options().max_value_byte_size,
+            default_options.max_value_byte_size);
+  EXPECT_EQ(config.evaluator_options().max_intermediate_byte_size,
+            default_options.max_intermediate_byte_size);
+
+  absl::SetFlag(&FLAGS_evaluator_max_value_byte_size, 5);
+  absl::SetFlag(&FLAGS_evaluator_max_intermediate_byte_size, 6);
+  ZETASQL_EXPECT_OK(SetEvaluatorOptionsFromFlags(config));
+  EXPECT_EQ(config.evaluator_options().max_value_byte_size, 5);
+  EXPECT_EQ(config.evaluator_options().max_intermediate_byte_size, 6);
 }
 
 void RunWriter(const absl::string_view mode, std::ostream& output) {
@@ -444,6 +465,53 @@ TEST(ExecuteQuery, ExecuteError) {
   std::ostringstream output;
   EXPECT_THAT(ExecuteQuery("select a", config, output),
               StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(ExecuteQuery, RespectEvaluatorOptions) {
+  ExecuteQueryConfig config;
+  config.set_tool_mode(ToolMode::kExecute);
+  config.mutable_catalog().AddZetaSQLFunctions(
+      config.analyzer_options().language());
+
+  {
+    std::ostringstream output;
+    ZETASQL_EXPECT_OK(ExecuteQuery("select CURRENT_DATE()", config, output));
+    EXPECT_THAT(output.str(), Not(HasSubstr("1066")));
+  }
+  {
+    absl::Time fake_time = absl::FromCivil(
+        absl::CivilSecond(1066, 10, 14, 1, 1, 1), absl::UTCTimeZone());
+    std::ostringstream output;
+
+    zetasql_base::SimulatedClock fake_clock(fake_time);
+    config.mutable_evaluator_options().clock = &fake_clock;
+    ZETASQL_EXPECT_OK(ExecuteQuery("select CURRENT_DATE()", config, output));
+    EXPECT_THAT(output.str(), HasSubstr("1066"));
+  }
+}
+
+TEST(ExecuteQuery, RespectEvaluatorOptionsExpressions) {
+  ExecuteQueryConfig config;
+  config.set_tool_mode(ToolMode::kExecute);
+  config.set_sql_mode(SqlMode::kExpression);
+  config.mutable_catalog().AddZetaSQLFunctions(
+      config.analyzer_options().language());
+
+  {
+    std::ostringstream output;
+    ZETASQL_EXPECT_OK(ExecuteQuery("CURRENT_DATE()", config, output));
+    EXPECT_THAT(output.str(), Not(HasSubstr("1066")));
+  }
+  {
+    absl::Time fake_time = absl::FromCivil(
+        absl::CivilSecond(1066, 10, 14, 1, 1, 1), absl::UTCTimeZone());
+    std::ostringstream output;
+
+    zetasql_base::SimulatedClock fake_clock(fake_time);
+    config.mutable_evaluator_options().clock = &fake_clock;
+    ZETASQL_EXPECT_OK(ExecuteQuery("CURRENT_DATE()", config, output));
+    EXPECT_THAT(output.str(), HasSubstr("1066"));
+  }
 }
 
 TEST(ExecuteQuery, ExamineResolvedASTCallback) {

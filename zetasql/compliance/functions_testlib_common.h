@@ -156,18 +156,16 @@ enum ComparisonResult {
   NULL_VALUE,  // output should be NULL
   EQUAL,       // left == right
   LESS,        // left < right
-  UNORDERED,   // Values are not ordered. This can happen when comparing
-               // with floating point NaN or comparing two structs that
-               // are not equal.  For floating point comparisons all ops
-               // must return false except "!=" which returns true.  For
-               // struct comparisons "=" returns false and "!= returns
-               // true, while other comparisons are unsupported.
-  UNEQUAL,     // Values are definitively not equal, but they are not
-               // ordered.  This is similar to UNORDERED, but different
-               // in that non-equality comparisons return NULL, rather
-               // than TRUE or FALSE.  This happens for ARRAY comparisons,
-               // where arrays are different length, but where there is
-               // a NULL array element as part of the comparison.
+  // Values are not equal. Comparison operators return FALSE. Ordering
+  // semantics report LESS.
+  // There is an unfortunate exception: GREATEST/LEAST let NaN saturate for
+  // floating points.
+  UNORDERED_BUT_ARRAY_ORDERS_LESS,
+
+  // Values are definitely not equal. Comparison operators return NULL. Ordering
+  // semantics report LESS.
+  // e.g. [NULL] vs [1, NULL], lengths are different so they're unequal.
+  ARRAY_UNEQUAL_ORDERS_LESS,
 };
 
 struct ComparisonTest {
@@ -176,7 +174,7 @@ struct ComparisonTest {
       : left(left_in.get()), right(right_in.get()), result(result_in) {}
   // Returns NaN of the correct type when result == UNORDERED.
   Value GetNaN() const {
-    ZETASQL_CHECK_EQ(result, UNORDERED);
+    ZETASQL_CHECK_EQ(result, UNORDERED_BUT_ARRAY_ORDERS_LESS);
     if (left.type_kind() == TYPE_DOUBLE) {
       return Value::Double(double_nan);
     }

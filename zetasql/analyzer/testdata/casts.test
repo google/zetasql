@@ -349,6 +349,22 @@ QueryStmt
       +-TableScan(column_list=[SimpleTypes.string#5], table=SimpleTypes, column_index_list=[4])
 ==
 
+# Test format with type parameters
+select {{safe_cast|cast}}('a' as STRING collate 'und:ci');
+--
+ALTERNATION GROUP: safe_cast
+--
+ERROR: Type with collation name is not supported [at 1:32]
+select safe_cast('a' as STRING collate 'und:ci');
+                               ^
+--
+ALTERNATION GROUP: cast
+--
+ERROR: Type with collation name is not supported [at 1:27]
+select cast('a' as STRING collate 'und:ci');
+                          ^
+==
+
 # Test format with AT TIME ZONE
 [language_features=V_1_3_FORMAT_IN_CAST]
 select cast(`string` as timestamp format 'yyyy' at time zone 'UTC') from SimpleTypes;

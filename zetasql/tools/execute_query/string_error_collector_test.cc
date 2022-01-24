@@ -16,6 +16,8 @@
 
 #include "zetasql/tools/execute_query/string_error_collector.h"
 
+#include <string>
+
 #include "gtest/gtest.h"
 
 namespace zetasql {

@@ -287,6 +287,7 @@ cc_library(
         ":resolved_ast",
         ":resolved_ast_enums_cc_proto",
         ":resolved_node_kind_cc_proto",
+        ":rewrite_utils",
         "//zetasql/base",
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",

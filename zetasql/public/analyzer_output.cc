@@ -16,6 +16,8 @@
 
 #include "zetasql/public/analyzer_output.h"
 
+#include <utility>
+
 namespace zetasql {
 
 AnalyzerOutput::AnalyzerOutput(

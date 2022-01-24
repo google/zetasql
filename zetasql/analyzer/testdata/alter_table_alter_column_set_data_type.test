@@ -5,7 +5,7 @@ ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE NUMERIC;
 AlterTableStmt
 +-name_path=KeyValue
 +-alter_action_list=
-  +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="Key", updated_type=NUMERIC)
+  +-AlterColumnSetDataTypeAction(column="Key", updated_type=NUMERIC)
 
 ==
 
@@ -15,7 +15,7 @@ ALTER TABLE KeyValue ALTER COLUMN kEY SET DATA TYPE NUMERIC;
 AlterTableStmt
 +-name_path=KeyValue
 +-alter_action_list=
-  +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="kEY", updated_type=NUMERIC)
+  +-AlterColumnSetDataTypeAction(column="kEY", updated_type=NUMERIC)
 ==
 
 # INT64 -> NUMERIC(P,S)
@@ -25,7 +25,6 @@ AlterTableStmt
 +-name_path=KeyValue
 +-alter_action_list=
   +-AlterColumnSetDataTypeAction
-    +-is_if_exists=FALSE
     +-column="Key"
     +-updated_type=NUMERIC
     +-updated_type_parameters=(precision=5,scale=1)
@@ -41,9 +40,8 @@ ALTER TABLE KeyValue ALTER COLUMN Key SET DATA TYPE NUMERIC,
 AlterTableStmt
 +-name_path=KeyValue
 +-alter_action_list=
-  +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="Key", updated_type=NUMERIC)
+  +-AlterColumnSetDataTypeAction(column="Key", updated_type=NUMERIC)
   +-AlterColumnSetDataTypeAction
-    +-is_if_exists=FALSE
     +-column="Value"
     +-updated_type=STRING
     +-updated_type_parameters=(max_length=42)
@@ -59,7 +57,7 @@ ALTER TABLE TestStructValueTable
 AlterTableStmt
 +-name_path=TestStructValueTable
 +-alter_action_list=
-  +-AlterColumnSetDataTypeAction(is_if_exists=FALSE, column="Value", updated_type=STRUCT<a NUMERIC, b STRING>)
+  +-AlterColumnSetDataTypeAction(column="Value", updated_type=STRUCT<a NUMERIC, b STRING>)
 ==
 
 # STRUCT<INT32,STRING> -> STRUCT<NUMERIC,STRING(42)>
@@ -70,7 +68,6 @@ AlterTableStmt
 +-name_path=TestStructValueTable
 +-alter_action_list=
   +-AlterColumnSetDataTypeAction
-    +-is_if_exists=FALSE
     +-column="Value"
     +-updated_type=STRUCT<a NUMERIC, b STRING>
     +-updated_type_parameters=[null,(max_length=42)]
@@ -89,7 +86,6 @@ AlterTableStmt
 +-name_path=TestStructValueTable
 +-alter_action_list=
   +-AlterColumnSetDataTypeAction
-    +-is_if_exists=FALSE
     +-column="Value"
     +-updated_type=STRUCT<a NUMERIC, b STRING>
     +-updated_type_parameters=[(precision=5,scale=1),null]
@@ -107,7 +103,6 @@ AlterTableStmt
 +-name_path=TestStructValueTable
 +-alter_action_list=
   +-AlterColumnSetDataTypeAction
-    +-is_if_exists=FALSE
     +-column="Value"
     +-updated_type=STRUCT<a NUMERIC, b STRING>
     +-updated_type_parameters=[(precision=5,scale=1),(max_length=42)]
@@ -126,7 +121,6 @@ AlterTableStmt
 +-name_path=ComplexTypes
 +-alter_action_list=
   +-AlterColumnSetDataTypeAction
-    +-is_if_exists=FALSE
     +-column="TestStruct"
     +-updated_type=STRUCT<c INT32, d STRUCT<a NUMERIC, b STRING>>
     +-updated_type_parameters=[null,[null,(max_length=42)]]
@@ -165,7 +159,6 @@ AlterTableStmt
 +-name_path=KeyValue
 +-alter_action_list=
   +-AlterColumnSetDataTypeAction
-    +-is_if_exists=FALSE
     +-column="Value"
     +-updated_type=STRING
     +-updated_type_parameters=(max_length=42)
@@ -291,7 +284,6 @@ AlterTableStmt
 +-name_path=KeyValue
 +-alter_action_list=
   +-AlterColumnSetDataTypeAction
-    +-is_if_exists=FALSE
     +-column="Value"
     +-updated_type=STRING
     +-updated_annotations=
@@ -308,7 +300,6 @@ AlterTableStmt
 +-name_path=TestStructValueTable
 +-alter_action_list=
   +-AlterColumnSetDataTypeAction
-    +-is_if_exists=FALSE
     +-column="Value"
     +-updated_type=STRUCT<a NUMERIC, b STRING>
     +-updated_annotations=

@@ -560,7 +560,7 @@ SELECT
 
 select 1 IS NOT NOT NULL
 --
-ERROR: Syntax error: Expected keyword FALSE or keyword NULL or keyword TRUE but got keyword NOT [at 1:17]
+ERROR: Syntax error: Expected keyword FALSE or keyword NULL or keyword TRUE or keyword UNKNOWN but got keyword NOT [at 1:17]
 select 1 IS NOT NOT NULL
                 ^
 ==

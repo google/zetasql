@@ -415,8 +415,8 @@ void AddStringByteEnumDateTimestampTestCases(
 // A helper function to add test cases for type IntervalValue to the result test
 // set <all_tests>. If <is_to_json> is true, adds TO_JSON test cases. Otherwise
 // adds TO_JSON_STRING test cases.
-void AddInternvalValueTestCases(bool is_to_json,
-                                std::vector<FunctionTestCall>& all_tests) {
+void AddIntervalValueTestCases(bool is_to_json,
+                               std::vector<FunctionTestCall>& all_tests) {
   using interval_testing::Days;
   using interval_testing::Hours;
   using interval_testing::Micros;
@@ -933,7 +933,7 @@ std::vector<FunctionTestCall> GetFunctionTestsToJsonString(
 
   AddCivilAndNanoTestCases(/*is_to_json=*/false, include_nano_timestamp,
                            all_tests);
-  AddInternvalValueTestCases(/*is_to_json=*/false, all_tests);
+  AddIntervalValueTestCases(/*is_to_json=*/false, all_tests);
   AddJsonTestCases(/*is_to_json=*/false, all_tests);
   return all_tests;
 }
@@ -1426,7 +1426,7 @@ std::vector<FunctionTestCall> GetFunctionTestsToJson(
 
   AddCivilAndNanoTestCases(/*is_to_json=*/true, include_nano_timestamp,
                            all_tests);
-  AddInternvalValueTestCases(/*is_to_json=*/true, all_tests);
+  AddIntervalValueTestCases(/*is_to_json=*/true, all_tests);
   AddJsonTestCases(/*is_to_json=*/true, all_tests);
 
   return all_tests;

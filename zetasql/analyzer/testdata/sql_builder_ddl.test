@@ -751,6 +751,13 @@ CREATE PRIVILEGE RESTRICTION ON `select`(int_a, string_a) ON table MultipleColum
 ==
 
 [privilege_restriction_table_not_scanned]
+create privilege restriction on select (doubly_nested_struct.e, doubly_nested_struct.f.c) on table DoublyNestedStructTable;
+--
+[UNPARSED_SQL]
+CREATE PRIVILEGE RESTRICTION ON `select`(doubly_nested_struct.e, doubly_nested_struct.f.c) ON table DoublyNestedStructTable;
+==
+
+[privilege_restriction_table_not_scanned]
 create privilege restriction on select (int_a, string_a) on table MultipleColumns;
 --
 [UNPARSED_SQL]
@@ -769,6 +776,13 @@ drop privilege restriction if exists on select (int_a, string_a) on table Multip
 --
 [UNPARSED_SQL]
 DROP PRIVILEGE RESTRICTION IF EXISTS ON `select`(int_a, string_a) ON table MultipleColumns;
+==
+
+[privilege_restriction_table_not_scanned]
+drop privilege restriction on select (doubly_nested_struct.e, doubly_nested_struct.f.c) on table DoublyNestedStructTable;
+--
+[UNPARSED_SQL]
+DROP PRIVILEGE RESTRICTION ON `select`(doubly_nested_struct.e, doubly_nested_struct.f.c) ON table DoublyNestedStructTable;
 ==
 
 [privilege_restriction_table_not_scanned]
@@ -830,4 +844,19 @@ alter privilege restriction on select (int_a, string_a) on table MultipleColumns
 --
 [UNPARSED_SQL]
 ALTER PRIVILEGE RESTRICTION ON `select`(int_a, string_a) ON table MultipleColumns REMOVE ();
+==
+
+[privilege_restriction_table_not_scanned]
+alter privilege restriction on select (int_a, string_a) on table MultipleColumns remove ();
+--
+[UNPARSED_SQL]
+ALTER PRIVILEGE RESTRICTION ON `select`(int_a, string_a) ON table MultipleColumns REMOVE ();
+==
+
+[privilege_restriction_table_not_scanned]
+alter privilege restriction on select (doubly_nested_struct.e, doubly_nested_struct.f.c) on table DoublyNestedStructTable restrict to ("obsessed@google.com", "mdb/datahub-eng");
+--
+[UNPARSED_SQL]
+ALTER PRIVILEGE RESTRICTION ON `select`(doubly_nested_struct.e, doubly_nested_struct.f.c) ON table DoublyNestedStructTable RESTRICT TO ("obsessed@google.com",
+  "mdb/datahub-eng");
 ==

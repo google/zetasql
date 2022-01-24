@@ -353,28 +353,18 @@ TEST_F(ProtoValueConversionTest, RoundTrip) {
   };
 
   const std::vector<std::string> nullable_element_test_expressions = {
-      "[CAST(NULL AS INT64)]",
-      "[CAST(NULL AS INT32)]",
-      "[CAST(NULL AS UINT64)]",
-      "[CAST(NULL AS UINT32)]",
-      "[CAST(NULL AS BOOL)]",
-      "[CAST(NULL AS FLOAT)]",
-      "[CAST(NULL AS DOUBLE)]",
-      "[CAST(NULL AS STRING)]",
-      "[CAST(NULL AS BYTES)]",
-      "[CAST(NULL AS DATE)]",
-      "[CAST(NULL AS TIMESTAMP)]",
-      "[CAST(NULL AS zetasql.TypeKind)]",
+      "[CAST(NULL AS INT64)]", "[CAST(NULL AS INT32)]",
+      "[CAST(NULL AS UINT64)]", "[CAST(NULL AS UINT32)]",
+      "[CAST(NULL AS BOOL)]", "[CAST(NULL AS FLOAT)]", "[CAST(NULL AS DOUBLE)]",
+      "[CAST(NULL AS STRING)]", "[CAST(NULL AS BYTES)]", "[CAST(NULL AS DATE)]",
+      "[CAST(NULL AS TIMESTAMP)]", "[CAST(NULL AS zetasql.TypeKind)]",
       "[CAST(NULL AS STRUCT<INT64>)]",
       // ARRAYs containing ARRAYs would go here, but those aren't allowed
       // in ZetaSQL.  Instead, we do ARRAY<STRUCT<ARRAY>>.
       "[CAST(NULL AS STRUCT<ARRAY<INT64>>)]",
-      "[CAST(NULL AS zetasql.ProtoTypeProto)]",
-      "[CAST(NULL AS NUMERIC)]",
-      "[CAST(NULL AS BIGNUMERIC)]",
-      "[CAST(NULL AS GEOGRAPHY)]",
-      "[CAST(NULL AS JSON)]"
-  };
+      "[CAST(NULL AS zetasql.ProtoTypeProto)]", "[CAST(NULL AS NUMERIC)]",
+      "[CAST(NULL AS BIGNUMERIC)]", "[CAST(NULL AS GEOGRAPHY)]",
+      "[CAST(NULL AS JSON)]"};
 
   for (bool array_wrappers : {true, false}) {
     for (bool element_wrappers : {true, false}) {

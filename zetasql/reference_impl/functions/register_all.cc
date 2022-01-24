@@ -18,12 +18,14 @@
 
 #include "zetasql/reference_impl/functions/hash.h"
 #include "zetasql/reference_impl/functions/json.h"
+#include "zetasql/reference_impl/functions/string_with_collation.h"
 
 namespace zetasql {
 
 void RegisterAllOptionalBuiltinFunctions() {
   RegisterBuiltinJsonFunctions();
   RegisterBuiltinHashFunctions();
+  RegisterBuiltinStringWithCollationFunctions();
 }
 
 }  // namespace zetasql

@@ -16,6 +16,7 @@
 
 #include <math.h>
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <limits>
@@ -32,11 +33,13 @@
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"
+#include "gtest/gtest.h"
 #include <cstdint>
 #include "absl/container/btree_map.h"
 #include "absl/strings/cord.h"
@@ -114,129 +117,147 @@ std::vector<QueryParamsWithResult> GetFunctionTestsNot() {
 // We know these arrays are NOT EQUAL since they have different lengths.  But
 // LESS comparison returns NULL because the comparison between the first
 // element in the two arrays results in NULL.
+//
+// TODO: We need to add nested arrays cases as well, but after we
+//     hammer down the exact details and semantics of all corner cases.
 static std::vector<ComparisonTest> GetArrayComparisonTests() {
   const Value null_array = Value::Null(DoubleArrayType());
   const Value empty_array = Value::EmptyArray(DoubleArrayType());
 
-  const Value array0 = values::Array(DoubleArrayType(), {Value::NullDouble()});
-  const Value array1 = values::DoubleArray({0});
-  const Value array2 = values::DoubleArray({1});
-  const Value array3 = values::Array(DoubleArrayType(),
-                                     {Value::Double(1), Value::NullDouble()});
-  const Value array4 = values::DoubleArray({1, 0});
-  const Value array5 = values::DoubleArray({1, 1});
-  const Value array6 = values::DoubleArray({2});
+  const Value singleton_null =
+      values::Array(DoubleArrayType(), {Value::NullDouble()});
+  const Value singleton_zero = values::DoubleArray({0});
+  const Value singleton_one = values::DoubleArray({1});
+  const Value one_null =
+      values::Array(DoubleArrayType(), {Value::Double(1), Value::NullDouble()});
+  const Value one_zero = values::DoubleArray({1, 0});
+  const Value one_one = values::DoubleArray({1, 1});
+  const Value singleton_two = values::DoubleArray({2});
 
-  const Value array7 = values::Array(DoubleArrayType(),
-                                     {Value::Double(1), Value::NullDouble(),
-                                      Value::Double(0)});
-  const Value array8 = values::Array(DoubleArrayType(),
-                                     {Value::Double(1), Value::NullDouble(),
-                                      Value::Double(1)});
-  const Value array9 = values::DoubleArray({1, 1, 1});
+  const Value one_null_zero =
+      values::Array(DoubleArrayType(),
+                    {Value::Double(1), Value::NullDouble(), Value::Double(0)});
+  const Value one_null_one =
+      values::Array(DoubleArrayType(),
+                    {Value::Double(1), Value::NullDouble(), Value::Double(1)});
+  const Value one_one_one = values::DoubleArray({1, 1, 1});
 
-  const Value array_nan1 = values::DoubleArray({double_nan});
-  const Value array_nan2 = values::DoubleArray({0, double_nan});
-  const Value array_nan3 = values::DoubleArray({1, double_nan});
-  const Value array_nan4 = values::DoubleArray({1, double_nan, 0});
-  const Value array_nan5 = values::DoubleArray({1, double_nan, 1});
+  const Value singleton_nan = values::DoubleArray({double_nan});
+  const Value zero_nan = values::DoubleArray({0, double_nan});
+  const Value one_nan = values::DoubleArray({1, double_nan});
+  const Value one_nan_zero = values::DoubleArray({1, double_nan, 0});
+  const Value one_nan_one = values::DoubleArray({1, double_nan, 1});
+
+  const Value singleton_pos_inf = values::DoubleArray({double_pos_inf});
+  const Value singleton_neg_inf = values::DoubleArray({double_neg_inf});
 
   std::vector<ComparisonTest> v = {
-    // same null array, compare as NULL for both equality and non-equality.
-    {null_array, null_array, NULL_VALUE},
+      // same null array, compare as NULL for both equality and non-equality.
+      {null_array, null_array, NULL_VALUE},
 
-    // same non-null array
-    {empty_array, empty_array, EQUAL},
-    {array1, array1, EQUAL},
-    {array4, array4, EQUAL},
+      // same non-null array
+      {empty_array, empty_array, EQUAL},
+      {singleton_zero, singleton_zero, EQUAL},
+      {one_zero, one_zero, EQUAL},
 
-    // same array with null elements
-    {array0, array0, NULL_VALUE},
-    {array3, array3, NULL_VALUE},
+      // same array with null elements
+      {singleton_null, singleton_null, NULL_VALUE},
+      {one_null, one_null, NULL_VALUE},
 
-    // null array and non-null array
-    {null_array, empty_array, NULL_VALUE},
-    {null_array, array0, NULL_VALUE},
-    {null_array, array1, NULL_VALUE},
-    {null_array, array3, NULL_VALUE},
+      // null array and non-null array
+      {null_array, empty_array, NULL_VALUE},
+      {null_array, singleton_null, NULL_VALUE},
+      {null_array, singleton_nan, NULL_VALUE},
+      {null_array, singleton_neg_inf, NULL_VALUE},
+      {null_array, singleton_zero, NULL_VALUE},
+      {null_array, one_null, NULL_VALUE},
 
-    // empty array an non-empty array
-    {empty_array, array0, LESS},
-    {empty_array, array1, LESS},
-    {empty_array, array2, LESS},
-    {empty_array, array3, LESS},
-    {empty_array, array4, LESS},
-    {empty_array, array5, LESS},
-    {empty_array, array6, LESS},
+      // empty array an non-empty array
+      {empty_array, singleton_null, LESS},
+      {empty_array, singleton_nan, LESS},
+      {empty_array, singleton_neg_inf, LESS},
+      {empty_array, singleton_zero, LESS},
+      {empty_array, singleton_one, LESS},
+      {empty_array, one_null, LESS},
+      {empty_array, one_zero, LESS},
+      {empty_array, one_one, LESS},
+      {empty_array, singleton_two, LESS},
 
-    // An array with the first NULL element compares as NULL with all
-    // other arrays with at least one element.
-    {array0, array1, NULL_VALUE},
-    {array0, array2, NULL_VALUE},
-    {array0, array3, UNEQUAL},  // We do know these are not equal because
-    {array0, array4, UNEQUAL},  // array lengths are not equal, but for
-    {array0, array5, UNEQUAL},  // LESS/GREATER the result is NULL.
-    {array0, array6, NULL_VALUE},
+      // An array with the first NULL element compares as NULL with all
+      // other arrays with at least one element.
+      {singleton_null, singleton_neg_inf, NULL_VALUE},
+      {singleton_null, singleton_zero, NULL_VALUE},
+      {singleton_null, singleton_one, NULL_VALUE},
+      // We do know these are not equal because array lengths are not equal, but
+      // for LESS/GREATER the result is NULL.
+      {singleton_null, zero_nan, ARRAY_UNEQUAL_ORDERS_LESS},
+      {singleton_null, one_null, ARRAY_UNEQUAL_ORDERS_LESS},
+      {singleton_null, one_nan, ARRAY_UNEQUAL_ORDERS_LESS},
+      {singleton_null, one_zero, ARRAY_UNEQUAL_ORDERS_LESS},
+      {singleton_null, one_one, ARRAY_UNEQUAL_ORDERS_LESS},
+      {singleton_null, one_nan_zero, ARRAY_UNEQUAL_ORDERS_LESS},
 
-    {array1, array2, LESS},
-    {array1, array3, LESS},
-    {array1, array4, LESS},
-    {array1, array5, LESS},
-    {array1, array6, LESS},
+      {singleton_zero, singleton_one, LESS},
+      {singleton_zero, one_null, LESS},
+      {singleton_zero, one_zero, LESS},
+      {singleton_zero, one_one, LESS},
+      {singleton_zero, singleton_two, LESS},
 
-    {array2, array3, LESS},
-    {array2, array4, LESS},
-    {array2, array5, LESS},
-    {array2, array6, LESS},
+      {singleton_one, one_null, LESS},
+      {singleton_one, one_zero, LESS},
+      {singleton_one, one_one, LESS},
+      {singleton_one, singleton_two, LESS},
 
-    {array3, array4, NULL_VALUE},
-    {array3, array5, NULL_VALUE},
-    {array3, array6, LESS},
-    {array3, array7, UNEQUAL},
-    {array3, array8, UNEQUAL},
-    {array3, array9, UNEQUAL},
+      {one_null, one_zero, NULL_VALUE},
+      {one_null, one_one, NULL_VALUE},
+      {one_null, singleton_two, LESS},
+      {one_null, one_null_zero, ARRAY_UNEQUAL_ORDERS_LESS},
+      {one_null, one_null_one, ARRAY_UNEQUAL_ORDERS_LESS},
+      {one_null, one_one_one, ARRAY_UNEQUAL_ORDERS_LESS},
 
-    {array4, array5, LESS},
-    {array4, array6, LESS},
+      {one_zero, one_one, LESS},
+      {one_zero, singleton_two, LESS},
 
-    {array5, array6, LESS},
+      {one_one, singleton_two, LESS},
 
-    {array7, array8, UNEQUAL},
-    {array7, array9, UNEQUAL},
+      {one_null_zero, one_null_one, ARRAY_UNEQUAL_ORDERS_LESS},
+      {one_null_zero, one_one_one, ARRAY_UNEQUAL_ORDERS_LESS},
 
-    {array8, array9, NULL_VALUE},
+      {one_null_one, one_one_one, NULL_VALUE},
 
-    // Comparing NaN to a NULL returns NULL, comparing NaN to non-NULL
-    // returns FALSE (including comparing NaN to NaN).
-    {array_nan1, array0, NULL_VALUE},
-    {array_nan1, array3, UNORDERED},
-    {array_nan1, array6, UNORDERED},
-    {array_nan1, array_nan1, UNORDERED},
-    {array_nan1, array_nan2, UNORDERED},
-    {array_nan1, array_nan3, UNORDERED},
-    {array_nan1, array_nan4, UNORDERED},
-    {array_nan1, array_nan5, UNORDERED},
+      // Comparing NaN to a NULL returns NULL, comparing NaN to non-NULL
+      // returns FALSE (including comparing NaN to NaN).
+      {singleton_nan, singleton_null, NULL_VALUE},
+      {singleton_nan, one_null, UNORDERED_BUT_ARRAY_ORDERS_LESS},
+      {singleton_nan, singleton_two, UNORDERED_BUT_ARRAY_ORDERS_LESS},
+      {singleton_nan, singleton_nan, UNORDERED_BUT_ARRAY_ORDERS_LESS},
+      {singleton_nan, zero_nan, UNORDERED_BUT_ARRAY_ORDERS_LESS},
+      {singleton_nan, one_nan, UNORDERED_BUT_ARRAY_ORDERS_LESS},
+      {singleton_nan, one_nan_zero, UNORDERED_BUT_ARRAY_ORDERS_LESS},
+      {singleton_nan, one_nan_one, UNORDERED_BUT_ARRAY_ORDERS_LESS},
+      {singleton_nan, singleton_pos_inf, UNORDERED_BUT_ARRAY_ORDERS_LESS},
+      {singleton_nan, singleton_neg_inf, UNORDERED_BUT_ARRAY_ORDERS_LESS},
 
-    {array_nan2, array0, UNEQUAL},
-    {array_nan2, array3, LESS},
-    {array_nan2, array6, LESS},
-    {array_nan2, array_nan2, UNORDERED},
-    {array_nan2, array_nan3, LESS},
-    {array_nan2, array_nan4, LESS},
-    {array_nan2, array_nan5, LESS},
+      {zero_nan, one_null, LESS},
+      {zero_nan, singleton_two, LESS},
+      {zero_nan, zero_nan, UNORDERED_BUT_ARRAY_ORDERS_LESS},
+      {zero_nan, one_nan, LESS},
+      {zero_nan, one_nan_zero, LESS},
+      {zero_nan, one_nan_one, LESS},
 
-    {array_nan3, array0, UNEQUAL},
-    {array_nan3, array3, NULL_VALUE},
-    {array_nan3, array6, LESS},
-    {array_nan3, array_nan3, UNORDERED},
-    {array_nan3, array_nan4, UNORDERED},
-    {array_nan3, array_nan5, UNORDERED},
+      {one_nan, one_null, NULL_VALUE},
+      {one_nan, singleton_two, LESS},
+      {one_nan, one_nan, UNORDERED_BUT_ARRAY_ORDERS_LESS},
+      {one_nan, one_nan_zero, UNORDERED_BUT_ARRAY_ORDERS_LESS},
+      {one_nan, one_nan_one, UNORDERED_BUT_ARRAY_ORDERS_LESS},
 
-    {array_nan4, array0, UNEQUAL},
-    {array_nan4, array3, UNEQUAL},
-    {array_nan4, array6, LESS},
-    {array_nan4, array_nan4, UNORDERED},
-    {array_nan4, array_nan5, UNORDERED},
+      {one_null, one_nan_zero, ARRAY_UNEQUAL_ORDERS_LESS},
+      {one_nan_zero, singleton_two, LESS},
+      {one_nan_zero, one_nan_zero, UNORDERED_BUT_ARRAY_ORDERS_LESS},
+      {one_nan_zero, one_nan_one, UNORDERED_BUT_ARRAY_ORDERS_LESS},
+
+      {singleton_pos_inf, null_array, NULL_VALUE},
+      {singleton_pos_inf, singleton_null, NULL_VALUE},
   };
 
   return v;
@@ -294,58 +315,63 @@ static std::vector<ComparisonTest> GetStructComparisonTests() {
   ZETASQL_DCHECK_EQ("(\"x\", NULL)",            nested_struct_null4.GetSQLLiteral());
 
   std::vector<ComparisonTest> v = {
-    // same non-null struct
-    {struct0, struct0, EQUAL},                 // (foo, 0) vs. (foo, 0)
-    {struct1, struct1, EQUAL},                 // (bar, 1) vs. (bar, 1)
+      // same non-null struct
+      {struct0, struct0, EQUAL},  // (foo, 0) vs. (foo, 0)
+      {struct1, struct1, EQUAL},  // (bar, 1) vs. (bar, 1)
 
-    // different non-null struct
-    {struct0, struct1, UNORDERED},             // (foo, 0) vs. (bar, 1)
+      // different non-null struct
+      {struct0, struct1,
+       UNORDERED_BUT_ARRAY_ORDERS_LESS},  // (foo, 0) vs. (bar, 1)
 
-    // null struct and non-null struct
-    {null_struct, struct1, NULL_VALUE},        // NULL vs. (bar, 1)
+      // null struct and non-null struct
+      {null_struct, struct1, NULL_VALUE},  // NULL vs. (bar, 1)
 
-    // non-null struct vs. struct with a null field
-    {struct0, struct_with_null2, UNORDERED},   // (foo, 0) vs. (NULL, 1)
-    {struct1, struct_with_null2, NULL_VALUE},  // (bar, 1) vs. (NULL, 1)
-    {struct0, struct_with_null3, UNORDERED},   // (foo, 0) vs. (bar, NULL)
-    {struct1, struct_with_null3, NULL_VALUE},  // (bar, 1) vs. (bar, NULL)
-    {struct0, struct_with_null4, NULL_VALUE},  // (foo, 0) vs. (NULL, NULL)
-    {struct1, struct_with_null4, NULL_VALUE},  // (bar, 1) vs. (NULL, NULL)
+      // non-null struct vs. struct with a null field
+      {struct0, struct_with_null2,
+       UNORDERED_BUT_ARRAY_ORDERS_LESS},         // (foo, 0) vs. (NULL, 1)
+      {struct1, struct_with_null2, NULL_VALUE},  // (bar, 1) vs. (NULL, 1)
+      {struct0, struct_with_null3,
+       UNORDERED_BUT_ARRAY_ORDERS_LESS},         // (foo, 0) vs. (bar, NULL)
+      {struct1, struct_with_null3, NULL_VALUE},  // (bar, 1) vs. (bar, NULL)
+      {struct0, struct_with_null4, NULL_VALUE},  // (foo, 0) vs. (NULL, NULL)
+      {struct1, struct_with_null4, NULL_VALUE},  // (bar, 1) vs. (NULL, NULL)
 
-    // null struct vs. struct with null field
-    {null_struct, struct_with_null2, NULL_VALUE},  // NULL vs. (NULL, 1)
-    {null_struct, struct_with_null3, NULL_VALUE},  // NULL vs. (bar, NULL)
-    {null_struct, struct_with_null4, NULL_VALUE},  // NULL vs. (NULL, NULL)
+      // null struct vs. struct with null field
+      {null_struct, struct_with_null2, NULL_VALUE},  // NULL vs. (NULL, 1)
+      {null_struct, struct_with_null3, NULL_VALUE},  // NULL vs. (bar, NULL)
+      {null_struct, struct_with_null4, NULL_VALUE},  // NULL vs. (NULL, NULL)
 
-    // null struct vs. same null struct
-    {null_struct, null_struct, NULL_VALUE},        // NULL vs. NULL
+      // null struct vs. same null struct
+      {null_struct, null_struct, NULL_VALUE},  // NULL vs. NULL
 
-    // Nested structs
-    {nested_struct1, nested_struct1, EQUAL},   // (x, (bar, 1)) v. (x, (bar, 1))
-    {nested_struct1, nested_struct1b, EQUAL},  // (x, (bar, 1)) v. (x, (bar, 1))
+      // Nested structs
+      {nested_struct1, nested_struct1,
+       EQUAL},  // (x, (bar, 1)) v. (x, (bar, 1))
+      {nested_struct1, nested_struct1b,
+       EQUAL},  // (x, (bar, 1)) v. (x, (bar, 1))
 
-    // (x, (bar, 1)) vs. NULL
-    {nested_struct1, null_nested_struct, NULL_VALUE},
+      // (x, (bar, 1)) vs. NULL
+      {nested_struct1, null_nested_struct, NULL_VALUE},
 
-    // (x, (bar, 1)) vs. struct with null
-    {nested_struct1, nested_struct_null1, NULL_VALUE},  // (NULL, (bar, 1))
-    {nested_struct1, nested_struct_null2, NULL_VALUE},  // (x, (NULL, 1))
-    {nested_struct1, nested_struct_null3, NULL_VALUE},  // (x, (bar, NULL))
-    {nested_struct1, nested_struct_null4, NULL_VALUE},  // (x, NULL)
+      // (x, (bar, 1)) vs. struct with null
+      {nested_struct1, nested_struct_null1, NULL_VALUE},  // (NULL, (bar, 1))
+      {nested_struct1, nested_struct_null2, NULL_VALUE},  // (x, (NULL, 1))
+      {nested_struct1, nested_struct_null3, NULL_VALUE},  // (x, (bar, NULL))
+      {nested_struct1, nested_struct_null4, NULL_VALUE},  // (x, NULL)
 
-    // struct with null vs. same struct with null
-    {null_nested_struct, null_nested_struct, NULL_VALUE},
-    {nested_struct_null1, nested_struct_null1, NULL_VALUE},
-    {nested_struct_null2, nested_struct_null2, NULL_VALUE},
-    {nested_struct_null3, nested_struct_null3, NULL_VALUE},
-    {nested_struct_null4, nested_struct_null4, NULL_VALUE},
+      // struct with null vs. same struct with null
+      {null_nested_struct, null_nested_struct, NULL_VALUE},
+      {nested_struct_null1, nested_struct_null1, NULL_VALUE},
+      {nested_struct_null2, nested_struct_null2, NULL_VALUE},
+      {nested_struct_null3, nested_struct_null3, NULL_VALUE},
+      {nested_struct_null4, nested_struct_null4, NULL_VALUE},
 
-    // struct with null vs. different struct with null
-    {null_nested_struct, nested_struct_null1, NULL_VALUE},
-    {nested_struct_null1, nested_struct_null2, NULL_VALUE},
-    {nested_struct_null2, nested_struct_null3, NULL_VALUE},
-    {nested_struct_null3, nested_struct_null4, NULL_VALUE},
-    {nested_struct_null4, null_nested_struct, NULL_VALUE},
+      // struct with null vs. different struct with null
+      {null_nested_struct, nested_struct_null1, NULL_VALUE},
+      {nested_struct_null1, nested_struct_null2, NULL_VALUE},
+      {nested_struct_null2, nested_struct_null3, NULL_VALUE},
+      {nested_struct_null3, nested_struct_null4, NULL_VALUE},
+      {nested_struct_null4, null_nested_struct, NULL_VALUE},
   };
   return v;
 }
@@ -374,13 +400,10 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {double_neg_inf, 0.0, LESS},
       {double_neg_inf, double_pos_inf, LESS},
       {double_pos_inf, double_pos_inf, EQUAL},
-      {0.0, double_nan, UNORDERED},
-      {double_nan, 0.0, UNORDERED},
-      {double_pos_inf, double_nan, UNORDERED},
-      {double_neg_inf, double_nan, UNORDERED},
-      {double_nan, double_pos_inf, UNORDERED},
-      {double_nan, double_neg_inf, UNORDERED},
-      {double_nan, double_nan, UNORDERED},
+      {double_nan, 0.0, UNORDERED_BUT_ARRAY_ORDERS_LESS},
+      {double_nan, double_pos_inf, UNORDERED_BUT_ARRAY_ORDERS_LESS},
+      {double_nan, double_neg_inf, UNORDERED_BUT_ARRAY_ORDERS_LESS},
+      {double_nan, double_nan, UNORDERED_BUT_ARRAY_ORDERS_LESS},
       {double_nan, NullDouble(), NULL_VALUE},
       {NullDouble(), double_nan, NULL_VALUE},
       {double_neg_inf, NullDouble(), NULL_VALUE},
@@ -400,13 +423,10 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {float_neg_inf, 0.0f, LESS},
       {float_neg_inf, float_pos_inf, LESS},
       {float_pos_inf, float_pos_inf, EQUAL},
-      {0.0f, float_nan, UNORDERED},
-      {float_nan, 0.0f, UNORDERED},
-      {float_pos_inf, float_nan, UNORDERED},
-      {float_neg_inf, float_nan, UNORDERED},
-      {float_nan, float_pos_inf, UNORDERED},
-      {float_nan, float_neg_inf, UNORDERED},
-      {float_nan, float_nan, UNORDERED},
+      {float_nan, 0.0f, UNORDERED_BUT_ARRAY_ORDERS_LESS},
+      {float_nan, float_pos_inf, UNORDERED_BUT_ARRAY_ORDERS_LESS},
+      {float_nan, float_neg_inf, UNORDERED_BUT_ARRAY_ORDERS_LESS},
+      {float_nan, float_nan, UNORDERED_BUT_ARRAY_ORDERS_LESS},
       {float_nan, NullFloat(), NULL_VALUE},
       {NullFloat(), float_nan, NULL_VALUE},
       {float_neg_inf, NullDouble(), NULL_VALUE},
@@ -492,7 +512,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {doublemin, NumericValue::MinValue(), LESS},
       {double_neg_inf, NumericValue::MinValue(), LESS},
       {NumericValue::MaxValue(), double_pos_inf, LESS},
-      {NumericValue::MaxValue(), double_nan, UNORDERED},
+      {double_nan, NumericValue::MaxValue(), UNORDERED_BUT_ARRAY_ORDERS_LESS},
       {Double(1.0), Numeric(1), EQUAL},
       {Double(0.0), Numeric(0), EQUAL},
       {Double(-0.0), Numeric(0), EQUAL},
@@ -541,7 +561,8 @@ static std::vector<ComparisonTest> GetComparisonTests(
       {double_neg_inf, BigNumeric(BigNumericValue::MinValue()), LESS},
       {BigNumeric(BigNumericValue::MaxValue()), double_pos_inf, LESS},
       {BigNumeric(BigNumericValue::MaxValue()), float_pos_inf, LESS},
-      {BigNumeric(BigNumericValue::MaxValue()), double_nan, UNORDERED},
+      {double_nan, BigNumeric(BigNumericValue::MaxValue()),
+       UNORDERED_BUT_ARRAY_ORDERS_LESS},
       {Double(1.0), BigNumeric(1), EQUAL},
       {Double(0.0), BigNumeric(0), EQUAL},
       {Double(-0.0), BigNumeric(0), EQUAL},
@@ -716,7 +737,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
 //
 // 1) If there is any TIME/DATETIME typed value in the input, then
 //    FEATURE_V_1_2_CIVIL_TIME is added to the feature set.
-// 2) If <array_language_feature> is present then it is added.
+// 2) array_language_features: flags to be added if any inputs are ARRAYs
 // 3) If the <input> includes the NUMERIC type, then FEATURE_NUMERIC_TYPE
 //    is added.
 //
@@ -724,7 +745,7 @@ static std::vector<ComparisonTest> GetComparisonTests(
 // directly from  <input>/<out>.
 static void AddTestWithPossiblyWrappedResultWithRequiredFeatures(
     const std::vector<ValueConstructor>& input, const Value& out,
-    const absl::optional<LanguageFeature>& array_language_feature,
+    const std::vector<LanguageFeature>& array_language_features,
     std::vector<QueryParamsWithResult>* result) {
   bool has_any_civil_time = false;
   bool has_any_numeric = false;
@@ -779,8 +800,10 @@ static void AddTestWithPossiblyWrappedResultWithRequiredFeatures(
   if (has_any_numeric) {
     feature_set.insert(FEATURE_NUMERIC_TYPE);
   }
-  if (has_any_array && array_language_feature) {
-    feature_set.insert(*array_language_feature);
+  if (has_any_array) {
+    for (const LanguageFeature flag : array_language_features) {
+      feature_set.insert(flag);
+    }
   }
   if (has_any_bignumeric) {
     feature_set.insert(FEATURE_BIGNUMERIC_TYPE);
@@ -831,17 +854,17 @@ std::vector<QueryParamsWithResult> GetFunctionTestsEqual(
         out = True();
         break;
       case LESS:
-      case UNEQUAL:
-      case UNORDERED:
+      case ARRAY_UNEQUAL_ORDERS_LESS:
+      case UNORDERED_BUT_ARRAY_ORDERS_LESS:
         out = False();
         break;
     }
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.left, test.right}, out,
-        /*array_language_feature=*/FEATURE_V_1_1_ARRAY_EQUALITY, &result);
+        /*array_language_features=*/{FEATURE_V_1_1_ARRAY_EQUALITY}, &result);
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.right, test.left}, out,
-        /*array_language_feature=*/FEATURE_V_1_1_ARRAY_EQUALITY, &result);
+        /*array_language_features=*/{FEATURE_V_1_1_ARRAY_EQUALITY}, &result);
   }
   return result;
 }
@@ -858,8 +881,8 @@ std::vector<QueryParamsWithResult> GetFunctionTestsNotEqual(
         out = NullBool();
         break;
       case LESS:
-      case UNEQUAL:
-      case UNORDERED:
+      case ARRAY_UNEQUAL_ORDERS_LESS:
+      case UNORDERED_BUT_ARRAY_ORDERS_LESS:
         out = True();
         break;
       case EQUAL:
@@ -868,10 +891,10 @@ std::vector<QueryParamsWithResult> GetFunctionTestsNotEqual(
     }
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.left, test.right}, out,
-        /*array_language_feature=*/FEATURE_V_1_1_ARRAY_EQUALITY, &result);
+        /*array_language_features=*/{FEATURE_V_1_1_ARRAY_EQUALITY}, &result);
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.right, test.left}, out,
-        /*array_language_feature=*/FEATURE_V_1_1_ARRAY_EQUALITY, &result);
+        /*array_language_features=*/{FEATURE_V_1_1_ARRAY_EQUALITY}, &result);
   }
   return result;
 }
@@ -889,19 +912,19 @@ std::vector<QueryParamsWithResult> GetFunctionTestsGreater(
         break;
       case LESS:
       case EQUAL:
-      case UNORDERED:
+      case UNORDERED_BUT_ARRAY_ORDERS_LESS:
         out = False();
         break;
-      case UNEQUAL:
+      case ARRAY_UNEQUAL_ORDERS_LESS:
         out = NullBool();
         break;
     }
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.left, test.right}, out,
-        /*array_language_feature=*/FEATURE_V_1_3_ARRAY_ORDERING, &result);
+        /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.right, test.left}, (test.result == LESS) ? True() : out,
-        /*array_language_feature=*/FEATURE_V_1_3_ARRAY_ORDERING, &result);
+        /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
   }
   return result;
 }
@@ -921,19 +944,19 @@ std::vector<QueryParamsWithResult> GetFunctionTestsGreaterOrEqual(
         out = True();
         break;
       case LESS:
-      case UNORDERED:
+      case UNORDERED_BUT_ARRAY_ORDERS_LESS:
         out = False();
         break;
-      case UNEQUAL:
+      case ARRAY_UNEQUAL_ORDERS_LESS:
         out = NullBool();
         break;
     }
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.left, test.right}, out,
-        /*array_language_feature=*/FEATURE_V_1_3_ARRAY_ORDERING, &result);
+        /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.right, test.left}, (test.result == LESS) ? True() : out,
-        /*array_language_feature=*/FEATURE_V_1_3_ARRAY_ORDERING, &result);
+        /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
   }
   return result;
 }
@@ -953,19 +976,19 @@ std::vector<QueryParamsWithResult> GetFunctionTestsLess(
         out = True();
         break;
       case EQUAL:
-      case UNORDERED:
+      case UNORDERED_BUT_ARRAY_ORDERS_LESS:
         out = False();
         break;
-      case UNEQUAL:
+      case ARRAY_UNEQUAL_ORDERS_LESS:
         out = NullBool();
         break;
     }
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.left, test.right}, out,
-        /*array_language_feature=*/FEATURE_V_1_3_ARRAY_ORDERING, &result);
+        /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.right, test.left}, (test.result == LESS) ? False() : out,
-        /*array_language_feature=*/FEATURE_V_1_3_ARRAY_ORDERING, &result);
+        /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
   }
   return result;
 }
@@ -985,19 +1008,19 @@ std::vector<QueryParamsWithResult> GetFunctionTestsLessOrEqual(
       case LESS:
         out = True();
         break;
-      case UNORDERED:
+      case UNORDERED_BUT_ARRAY_ORDERS_LESS:
         out = False();
         break;
-      case UNEQUAL:
+      case ARRAY_UNEQUAL_ORDERS_LESS:
         out = NullBool();
         break;
     }
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.left, test.right}, out,
-        /*array_language_feature=*/FEATURE_V_1_3_ARRAY_ORDERING, &result);
+        /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.right, test.left}, (test.result == LESS) ? False() : out,
-        /*array_language_feature=*/FEATURE_V_1_3_ARRAY_ORDERING, &result);
+        /*array_language_features=*/{FEATURE_V_1_3_ARRAY_ORDERING}, &result);
   }
   return result;
 }
@@ -1315,12 +1338,32 @@ std::vector<QueryParamsWithResult> GetFunctionTestsIsNull() {
   return v;
 }
 
+const Value* findArrayWithFirstNull(const Value* arr1, const Value* arr2) {
+  ZETASQL_CHECK_EQ(arr1->type(), arr2->type());
+  ZETASQL_CHECK_EQ(TYPE_ARRAY, arr1->type()->kind());
+  ZETASQL_CHECK_GT(arr1->num_elements(), 0);
+  ZETASQL_CHECK_GT(arr2->num_elements(), 0);
+
+  for (int i = 0; i < std::min(arr1->num_elements(), arr2->num_elements());
+       i++) {
+    if (arr1->element(i).is_null()) {
+      return arr1;
+    }
+    if (arr2->element(i).is_null()) {
+      return arr2;
+    }
+  }
+
+  ZETASQL_CHECK(false) << "Expected at least 1 null value in the input arrays";
+  return nullptr;
+}
+
 std::vector<QueryParamsWithResult> GetFunctionTestsGreatest(
     bool include_nano_timestamp) {
   std::vector<QueryParamsWithResult> result;
   for (const ComparisonTest& test : GetComparisonTests(
            /*include_struct_comparisons=*/false,
-           /*include_array_comparisons=*/false, include_nano_timestamp)) {
+           /*include_array_comparisons=*/true, include_nano_timestamp)) {
     // TODO: This should be 'Equivalent()', not 'Equals()'.  Need
     // to add tests that illustrate the difference.
     if (!test.left.type()->Equals(test.right.type())) {
@@ -1329,27 +1372,55 @@ std::vector<QueryParamsWithResult> GetFunctionTestsGreatest(
     Value out;
     switch (test.result) {
       case NULL_VALUE:
-        out = Value::Null(test.left.type()); break;
+        if (test.left.is_null() || test.right.is_null()) {
+          out = Value::Null(test.left.type());
+        } else {
+          // (null vs 1) compares as NULL, but [null] vs [1] orders LESS
+          // Since it's NULL_VALUE and neither is the null value, we know
+          // it's a case of values raised to singleton arrays
+          const Value* arr_with_first_null =
+              findArrayWithFirstNull(&test.left, &test.right);
+          out = (&test.left == arr_with_first_null ? test.right : test.left);
+        }
+        break;
       case LESS:
       case EQUAL:
         out = test.right; break;
-      case UNORDERED:  // NaN
-        out = test.GetNaN(); break;
-      case UNEQUAL:
-        // The UNEQUAL test result type is currently only used for ARRAY
-        // comparisons, but GREATEST/LEAST do not support ARRAYS so this
-        // is an unexpected condition.
-        ZETASQL_CHECK_NE(test.result, UNEQUAL)
-            << "Unexpected comparison test result type:" << test.result;
+      case UNORDERED_BUT_ARRAY_ORDERS_LESS:
+        if (!test.left.type()->IsArray()) {
+          out = test.GetNaN();
+        } else {
+          out = test.right;
+        }
+        break;
+      case ARRAY_UNEQUAL_ORDERS_LESS:
+        out = test.right;
+        break;
     }
     // Binary
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.left, test.right}, out,
-        /*array_language_feature=*/absl::optional<LanguageFeature>(), &result);
+        /*array_language_features=*/
+        {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
+        &result);
+    // Reverse binary
+    AddTestWithPossiblyWrappedResultWithRequiredFeatures(
+        {test.right, test.left}, out,
+        /*array_language_features=*/
+        {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
+        &result);
     // Ternary
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.right, test.left, test.right}, out,
-        /*array_language_feature=*/absl::optional<LanguageFeature>(), &result);
+        /*array_language_features=*/
+        {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
+        &result);
+    // Reverse ternary
+    AddTestWithPossiblyWrappedResultWithRequiredFeatures(
+        {test.left, test.right, test.left}, out,
+        /*array_language_features=*/
+        {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
+        &result);
   }
   return result;
 }
@@ -1359,7 +1430,7 @@ std::vector<QueryParamsWithResult> GetFunctionTestsLeast(
   std::vector<QueryParamsWithResult> result;
   for (const ComparisonTest& test : GetComparisonTests(
            /*include_struct_comparisons=*/false,
-           /*include_array_comparisons=*/false, include_nano_timestamp)) {
+           /*include_array_comparisons=*/true, include_nano_timestamp)) {
     // TODO: This should be 'Equivalent()', not 'Equals()'.  Need
     // to add tests that illustrate the difference.
     if (!test.left.type()->Equals(test.right.type())) {
@@ -1368,27 +1439,54 @@ std::vector<QueryParamsWithResult> GetFunctionTestsLeast(
     Value out;
     switch (test.result) {
       case NULL_VALUE:
-        out = Value::Null(test.left.type()); break;
+        if (test.left.is_null() || test.right.is_null()) {
+          out = Value::Null(test.left.type());
+        } else {
+          // (null vs 1) compares as NULL, but [null] vs [1] orders LESS
+          // Since it's NULL_VALUE and neither is the null value, we know
+          // it's a case of values raised to singleton arrays
+          const Value* arr_with_first_null =
+              findArrayWithFirstNull(&test.left, &test.right);
+          out = (&test.left == arr_with_first_null ? test.left : test.right);
+        }
+        break;
       case LESS:
       case EQUAL:
         out = test.left; break;
-      case UNORDERED:  // NaN
-        out = test.GetNaN(); break;
-      case UNEQUAL:
-        // The UNEQUAL test result type is currently only used for ARRAY
-        // comparisons, but GREATEST/LEAST do not support ARRAYS so this
-        // is an unexpected condition.
-        ZETASQL_CHECK_NE(test.result, UNEQUAL)
-            << "Unexpected comparison test result type:" << test.result;
+      case UNORDERED_BUT_ARRAY_ORDERS_LESS:
+        if (!test.left.type()->IsArray()) {
+          out = test.GetNaN();
+        } else {
+          out = test.left;
+        }
+        break;
+      case ARRAY_UNEQUAL_ORDERS_LESS:
+        out = test.left;
+        break;
     }
-    // Binary
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.left, test.right}, out,
-        /*array_language_feature=*/absl::optional<LanguageFeature>(), &result);
+        /*array_language_features=*/
+        {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
+        &result);
+    // Reverse binary
+    AddTestWithPossiblyWrappedResultWithRequiredFeatures(
+        {test.right, test.left}, out,
+        /*array_language_features=*/
+        {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
+        &result);
     // Ternary
     AddTestWithPossiblyWrappedResultWithRequiredFeatures(
         {test.right, test.left, test.right}, out,
-        /*array_language_feature=*/absl::optional<LanguageFeature>(), &result);
+        /*array_language_features=*/
+        {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
+        &result);
+    // Reverse ternary
+    AddTestWithPossiblyWrappedResultWithRequiredFeatures(
+        {test.left, test.right, test.left}, out,
+        /*array_language_features=*/
+        {FEATURE_V_1_3_ARRAY_ORDERING, FEATURE_V_1_3_ARRAY_GREATEST_LEAST},
+        &result);
   }
   return result;
 }

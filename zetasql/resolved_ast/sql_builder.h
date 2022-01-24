@@ -556,6 +556,9 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status SetPathForColumnsInScan(const ResolvedScan* scan,
                                        const std::string& alias);
 
+  // Helper functions to set up ResolvedColumn path in returning clause.
+  absl::Status SetPathForColumnsInReturningExpr(const ResolvedExpr* expr);
+
   // Helper function to ensure:
   // - Columns in <output_column_list> matches 1:1 in order with
   //   <query_expression> select-list.
@@ -679,6 +682,8 @@ class SQLBuilder : public ResolvedASTVisitor {
   // needs to be explicitly aliased.
   absl::flat_hash_map<std::string, std::string> tables_with_implicit_alias_;
 
+  // Stores the target table alias for DML Returning statements.
+  std::string returning_table_alias_;
   // Expected position of the next unparsed positional query parameter. Used for
   // validation only.
   int expected_next_parameter_position_ = 1;

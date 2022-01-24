@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_ANALYZER_OUTPUT_H_
 #define ZETASQL_PUBLIC_ANALYZER_OUTPUT_H_
 
+#include <memory>
 #include <vector>
 
 #include "zetasql/base/arena.h"

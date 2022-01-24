@@ -140,6 +140,9 @@ class RunParserTest : public ::testing::Test {
   const std::string kAllowScriptLabel = "allow_script_label";
   // Allows remote function
   const std::string kAllowRemoteFunction = "allow_remote_function";
+  // Allows generic DDL ALTER statements without a <path_expression>
+  const std::string kAllowMissingPathInGenericDdlAlter =
+      "allow_missing_path_in_generic_ddl_alter";
 
   RunParserTest() {
     test_case_options_.RegisterString(kModeOption, "statement");
@@ -164,7 +167,7 @@ class RunParserTest : public ::testing::Test {
     test_case_options_.RegisterBool(kAllowCaseStmt, true);
     test_case_options_.RegisterBool(kAllowScriptLabel, true);
     test_case_options_.RegisterBool(kAllowRemoteFunction, true);
-
+    test_case_options_.RegisterBool(kAllowMissingPathInGenericDdlAlter, false);
 
     // Force a blank line at the start of every test case.
     absl::SetFlag(&FLAGS_file_based_test_driver_insert_leading_blank_lines, 1);
@@ -296,7 +299,7 @@ class RunParserTest : public ::testing::Test {
         ParseWithMode(test_case, mode, &root, &parser_output);
     bool next_statement_is_ctas;
     const ASTNodeKind guessed_statement_kind =
-        ParseStatementKind(test_case, *GetParserOptions().language_options(),
+        ParseStatementKind(test_case, GetParserOptions().language_options(),
                            &next_statement_is_ctas);
 
     // Ensure that fetching all properties does not fail.
@@ -335,10 +338,9 @@ class RunParserTest : public ::testing::Test {
               << ", byte_position: " << location.byte_position();
 
       bool next_statement_is_ctas;
-      const ASTNodeKind guessed_statement_kind =
-          ParseNextStatementKind(location,
-                                 *GetParserOptions().language_options(),
-                                 &next_statement_is_ctas);
+      const ASTNodeKind guessed_statement_kind = ParseNextStatementKind(
+          location, GetParserOptions().language_options(),
+          &next_statement_is_ctas);
 
       // Ensure that fetching all properties does not fail.
       parser::ASTStatementProperties ast_statement_properties;
@@ -655,6 +657,10 @@ class RunParserTest : public ::testing::Test {
     }
     if (test_case_options_.GetBool(kAllowRemoteFunction)) {
       language_options_->EnableLanguageFeature(FEATURE_V_1_3_REMOTE_FUNCTION);
+    }
+    if (test_case_options_.GetBool(kAllowMissingPathInGenericDdlAlter)) {
+      language_options_->EnableLanguageFeature(
+          FEATURE_ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL);
     }
     std::string entity_types_config =
         test_case_options_.GetString(kSupportedGenericEntityTypes);

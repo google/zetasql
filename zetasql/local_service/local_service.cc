@@ -1500,7 +1500,11 @@ absl::Status ZetaSqlLocalServiceImpl::GetAnalyzerOptions(
 absl::Status ZetaSqlLocalServiceImpl::Parse(const ParseRequest& request,
     ParseResponse* response) {
   const std::string& sql = request.sql_statement();
-  auto language_options = absl::make_unique<LanguageOptions>();
+  auto language_options =
+      request.has_options()
+          ? absl::make_unique<LanguageOptions>(request.options())
+          : absl::make_unique<LanguageOptions>();
+
   ParserOptions parser_options =
       ParserOptions(/*id_string_pool=*/nullptr,
                     /*arena=*/nullptr, language_options.get());

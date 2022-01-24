@@ -1304,7 +1304,7 @@ void GetAggregateFunctions(TypeFactory* type_factory,
         FN_MIN,
         FunctionSignatureOptions().set_uses_operation_collation()}},
       DefaultAggregateFunctionOptions().set_pre_resolution_argument_constraint(
-          absl::bind_front(&CheckMinMaxGreatestLeastArguments, "MIN")));
+          absl::bind_front(&CheckMinMaxArguments, "MIN")));
 
   InsertFunction(
       functions, options, "max", AGGREGATE,
@@ -1313,7 +1313,7 @@ void GetAggregateFunctions(TypeFactory* type_factory,
         FN_MAX,
         FunctionSignatureOptions().set_uses_operation_collation()}},
       DefaultAggregateFunctionOptions().set_pre_resolution_argument_constraint(
-          absl::bind_front(&CheckMinMaxGreatestLeastArguments, "MAX")));
+          absl::bind_front(&CheckMinMaxArguments, "MAX")));
 
   FunctionArgumentTypeOptions non_null_non_agg;
   non_null_non_agg.set_is_not_aggregate();
@@ -1923,7 +1923,7 @@ void GetBooleanFunctions(TypeFactory* type_factory,
       {{bool_type,
         {string_type, string_type},
         FN_STRING_LIKE,
-        FunctionSignatureOptions().set_uses_operation_collation()},
+        FunctionSignatureOptions().set_rejects_collation()},
        {bool_type, {byte_type, byte_type}, FN_BYTE_LIKE}},
       FunctionOptions()
           .set_supports_safe_error_mode(false)
@@ -1939,7 +1939,7 @@ void GetBooleanFunctions(TypeFactory* type_factory,
         {{bool_type,
           {string_type, {string_type, REPEATED}},
           FN_STRING_LIKE_ANY,
-          FunctionSignatureOptions().set_uses_operation_collation()},
+          FunctionSignatureOptions().set_rejects_collation()},
          {bool_type, {byte_type, {byte_type, REPEATED}}, FN_BYTE_LIKE_ANY}},
         FunctionOptions()
             .set_supports_safe_error_mode(false)
@@ -1956,7 +1956,7 @@ void GetBooleanFunctions(TypeFactory* type_factory,
         {{bool_type,
           {string_type, {string_type, REPEATED}},
           FN_STRING_LIKE_ALL,
-          FunctionSignatureOptions().set_uses_operation_collation()},
+          FunctionSignatureOptions().set_rejects_collation()},
          {bool_type, {byte_type, {byte_type, REPEATED}}, FN_BYTE_LIKE_ALL}},
         FunctionOptions()
             .set_supports_safe_error_mode(false)
@@ -1972,11 +1972,9 @@ void GetBooleanFunctions(TypeFactory* type_factory,
     InsertFunction(
         functions, options, "$like_any_array", SCALAR,
         {{bool_type,
-          {string_type,
-           {array_string_type, FunctionArgumentTypeOptions()
-                                   .set_uses_array_element_for_collation()}},
+          {string_type, array_string_type},
           FN_STRING_ARRAY_LIKE_ANY,
-          FunctionSignatureOptions().set_uses_operation_collation()},
+          FunctionSignatureOptions().set_rejects_collation()},
          {bool_type, {byte_type, array_byte_type}, FN_BYTE_ARRAY_LIKE_ANY}},
         FunctionOptions()
             .set_supports_safe_error_mode(false)
@@ -1994,11 +1992,9 @@ void GetBooleanFunctions(TypeFactory* type_factory,
     InsertFunction(
         functions, options, "$like_all_array", SCALAR,
         {{bool_type,
-          {string_type,
-           {array_string_type, FunctionArgumentTypeOptions()
-                                   .set_uses_array_element_for_collation()}},
+          {string_type, array_string_type},
           FN_STRING_ARRAY_LIKE_ALL,
-          FunctionSignatureOptions().set_uses_operation_collation()},
+          FunctionSignatureOptions().set_rejects_collation()},
          {bool_type, {byte_type, array_byte_type}, FN_BYTE_ARRAY_LIKE_ALL}},
         FunctionOptions()
             .set_supports_safe_error_mode(false)

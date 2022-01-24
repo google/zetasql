@@ -443,8 +443,12 @@ class Validator {
           column_definitions,
       std::set<ResolvedColumn>* visible_columns);
 
+  // When <skip_check_type_match> is true, skip checking default value type
+  // can be coerced to column type. This is used when validating ALTER COLUMN IF
+  // EXIST column SET DEFAULT.
   absl::Status ValidateResolvedColumnDefaultValue(
-      const ResolvedColumnDefaultValue* default_value, const Type* column_type);
+      const ResolvedColumnDefaultValue* default_value, const Type* column_type,
+      bool skip_check_type_match = false);
 
   absl::Status ValidatePercentArgument(const ResolvedExpr* expr);
 

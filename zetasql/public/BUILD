@@ -1079,6 +1079,21 @@ java_proto_library(
 )
 
 proto_library(
+    name = "collation_proto",
+    srcs = ["collation.proto"],
+)
+
+cc_proto_library(
+    name = "collation_cc_proto",
+    deps = [":collation_proto"],
+)
+
+java_proto_library(
+    name = "collation_java_proto",
+    deps = [":collation_proto"],
+)
+
+proto_library(
     name = "error_location_proto",
     srcs = ["error_location.proto"],
 )
@@ -2029,7 +2044,6 @@ cc_library(
         "//zetasql/base:case",
         "//zetasql/base:map_util",
         "//zetasql/base:status",
-        "//zetasql/base:strings",
         "//zetasql/parser:keywords",
         "//zetasql/proto:options_cc_proto",
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
@@ -2105,7 +2119,9 @@ cc_library(
         "-Wnonnull-compare",
     ],
     deps = [
+        ":options_cc_proto",
         "//zetasql/resolved_ast",
+        "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/container:flat_hash_map",
     ],
 )
@@ -2264,7 +2280,6 @@ cc_library(
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:span",

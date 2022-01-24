@@ -37,6 +37,7 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
 #include "re2/re2.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -154,8 +155,9 @@ static std::string ShortenBytesLiteralForError(absl::string_view literal) {
 // BisonParser::Parse(). It is required that 'bison_error_message' is the actual
 // error message produced by the bison parser for the given inputs.
 static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
-    ParseLocationPoint error_location, absl::string_view bison_error_message,
-    BisonParserMode mode, absl::string_view input, int start_offset) {
+    const LanguageOptions& language_options, ParseLocationPoint error_location,
+    absl::string_view bison_error_message, BisonParserMode mode,
+    absl::string_view input, int start_offset) {
   // Bison error messages are always of the form "syntax error, unexpected X,
   // expecting Y", where Y may be of the form "A" or "A or B" or "A or B or C".
   // It will use $end to indicate "end of input". We don't want to have the text
@@ -225,7 +227,7 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
   // with errors at offset 0.
   auto tokenizer = absl::make_unique<ZetaSqlFlexTokenizer>(
       BisonParserMode::kTokenizer, error_location.filename(), input,
-      start_offset);
+      start_offset, language_options);
   ParseLocationRange token_location;
   int token = -1;
   while (token != 0) {
@@ -328,13 +330,13 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
 absl::Status BisonParser::Parse(
     BisonParserMode mode, absl::string_view filename, absl::string_view input,
     int start_byte_offset, IdStringPool* id_string_pool, zetasql_base::UnsafeArena* arena,
-    const LanguageOptions* language_options, std::unique_ptr<ASTNode>* output,
+    const LanguageOptions& language_options, std::unique_ptr<ASTNode>* output,
     std::vector<std::unique_ptr<ASTNode>>* other_allocated_ast_nodes,
     ASTStatementProperties* ast_statement_properties,
     int* statement_end_byte_offset) {
   id_string_pool_ = id_string_pool;
   arena_ = arena;
-  language_options_ = language_options;
+  language_options_ = &language_options;
   allocated_ast_nodes_ =
       absl::make_unique<std::vector<std::unique_ptr<ASTNode>>>();
   auto clean_up_allocated_ast_nodes =
@@ -394,7 +396,7 @@ absl::Status BisonParser::Parse(
       // location be moved past any whitespace onto the next token.
       ZetaSqlFlexTokenizer skip_whitespace_tokenizer(
           BisonParserMode::kTokenizer, filename_.ToStringView(), input_,
-          error_location.GetByteOffset(), language_options_);
+          error_location.GetByteOffset(), this->language_options());
       ParseLocationRange next_token_location;
       int token;
       ZETASQL_RETURN_IF_ERROR(
@@ -409,9 +411,10 @@ absl::Status BisonParser::Parse(
         error_message.empty()) {
       // This was a Bison-generated syntax error. Generate a message that is to
       // our own liking.
-      ZETASQL_ASSIGN_OR_RETURN(error_message, GenerateImprovedBisonSyntaxError(
-                                          error_location, error_message, mode,
-                                          input_, start_byte_offset));
+      ZETASQL_ASSIGN_OR_RETURN(error_message,
+                       GenerateImprovedBisonSyntaxError(
+                           language_options, error_location, error_message,
+                           mode, input_, start_byte_offset));
     }
     return MakeSqlErrorAtPoint(error_location) << error_message;
   }
@@ -423,6 +426,17 @@ absl::Status BisonParser::Parse(
   }
   ZETASQL_RET_CHECK_FAIL() << "Parser returned undefined return code "
                    << parse_status_code;
+}
+
+absl::string_view BisonParser::GetFirstTokenOfNode(
+    zetasql_bison_parser::location& bison_location) const {
+  absl::string_view text = GetInputText(bison_location);
+  for (int i = 0; i < text.size(); i++) {
+    if (absl::ascii_isblank(text[i])) {
+      return text.substr(0, i);
+    }
+  }
+  return text;
 }
 
 }  // namespace parser

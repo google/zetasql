@@ -938,7 +938,7 @@ nondeterministic, not random. Returns `NULL` when the input produces no
 rows. Returns `NULL` when `expression` is `NULL` for all rows in the group.
 
 `ANY_VALUE` behaves as if `RESPECT NULLS` is specified;
-Rows for which `expression` is `NULL` are considered and may be selected.
+rows for which `expression` is `NULL` are considered and may be selected.
 
 **Supported Argument Types**
 
@@ -3801,558 +3801,6 @@ UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
 
 <!-- mdlint on -->
 
-## Anonymization aggregate functions
-
-Anonymization aggregate functions can transform user data into anonymous
-information. This is done in such a way that it is not reasonably likely that
-anyone with access to the data can identify or re-identify an individual user
-from the anonymized data. Anonymization aggregate functions can only be used
-with [anonymization-enabled queries][anon-syntax].
-
-### ANON_AVG
-
-```sql
-ANON_AVG(expression [CLAMPED BETWEEN lower AND upper])
-```
-
-**Description**
-
-Returns the average of non-`NULL`, non-`NaN` values in the expression.
-This function first computes the average per anonymization ID, and then computes
-the final result by averaging these averages.
-
-You can [clamp the input values explicitly][anon-clamp], otherwise
-input values are clamped implicitly. Clamping is done to the
-per-anonymization ID averages.
-
-`expression` can be any numeric input type, such as
-INT64.
-
-**Return type**
-
-`DOUBLE`
-
-**Examples**
-
-The following anonymized query gets the average number of each item requested
-per professor. Smaller aggregations may not be included. This query references
-a view called [`view_on_professors`][anon-example-views].
-
-```sql
--- With noise
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=1)
-  item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
-FROM view_on_professors
-GROUP BY item;
-
--- These results will change each time you run the query.
--- Smaller aggregations may be removed.
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| pencil   | 38.5038356810269 |
-| pen      | 13.4725028762032 |
-+----------+------------------+
-```
-
-```sql
--- Without noise (this un-noised version is for demonstration only)
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=1)
-  item, ANON_AVG(quantity) average_quantity
-FROM view_on_professors
-GROUP BY item;
-
--- These results will not change when you run the query.
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| scissors | 8                |
-| pencil   | 40               |
-| pen      | 18.5             |
-+----------+------------------+
-```
-
-Note: You can learn more about when and when not to use
-noise [here][anon-noise].
-
-### ANON_COUNT
-
-+ [Signature 1](#anon_count_signature1)
-+ [Signature 2](#anon_count_signature2)
-
-#### Signature 1 
-<a id="anon_count_signature1"></a>
-
-```sql
-ANON_COUNT(*)
-```
-
-**Description**
-
-Returns the number of rows in the [anonymization-enabled][anon-from-clause]
-`FROM` clause. The final result is an aggregation across anonymization IDs.
-[Input values are clamped implicitly][anon-clamp]. Clamping is performed per
-anonymization ID.
-
-**Return type**
-
-`INT64`
-
-**Examples**
-
-The following anonymized query counts the number of requests for each item.
-This query references a view called [`view_on_professors`][anon-example-views].
-
-```sql
--- With noise
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=1)
-  item, ANON_COUNT(*) times_requested
-FROM view_on_professors
-GROUP BY item;
-
--- These results will change each time you run the query.
--- Smaller aggregations may be removed.
-+----------+-----------------+
-| item     | times_requested |
-+----------+-----------------+
-| pencil   | 5               |
-| pen      | 2               |
-+----------+-----------------+
-```
-
-```sql
---Without noise (this un-noised version is for demonstration only)
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=1)
-  item, ANON_COUNT(*) times_requested
-FROM view_on_professors
-GROUP BY item;
-
--- These results will not change when you run the query.
-+----------+-----------------+
-| item     | times_requested |
-+----------+-----------------+
-| scissors | 1               |
-| pencil   | 4               |
-| pen      | 3               |
-+----------+-----------------+
-```
-
-Note: You can learn more about when and when not to use
-noise [here][anon-noise].
-
-#### Signature 2 
-<a id="anon_count_signature2"></a>
-
-```sql
-ANON_COUNT(expression [CLAMPED BETWEEN lower AND upper])
-```
-
-**Description**
-
-Returns the number of non-`NULL` expression values. The final result is an
-aggregation across anonymization IDs.
-
-You can [clamp the input values explicitly][anon-clamp], otherwise
-input values are clamped implicitly. Clamping is performed per anonymization ID.
-
-**Return type**
-
-`INT64`
-
-**Examples**
-
-The following anonymized query counts the number of requests made for each
-type of item. This query references a view called
-[`view_on_professors`][anon-example-views].
-
-```sql
--- With noise
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=1)
-  item, ANON_COUNT(item CLAMPED BETWEEN 0 AND 100) times_requested
-FROM view_on_professors
-GROUP BY item;
-
--- These results will change each time you run the query.
--- Smaller aggregations may be removed.
-+----------+-----------------+
-| item     | times_requested |
-+----------+-----------------+
-| pencil   | 5               |
-| pen      | 2               |
-+----------+-----------------+
-```
-
-```sql
---Without noise (this un-noised version is for demonstration only)
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=1)
-  item, ANON_COUNT(item CLAMPED BETWEEN 0 AND 100) times_requested
-FROM view_on_professors
-GROUP BY item;
-
--- These results will not change when you run the query.
-+----------+-----------------+
-| item     | times_requested |
-+----------+-----------------+
-| scissors | 1               |
-| pencil   | 4               |
-| pen      | 3               |
-+----------+-----------------+
-```
-
-Note: You can learn more about when and when not to use
-noise [here][anon-noise].
-
-### ANON_PERCENTILE_CONT
-
-```sql
-ANON_PERCENTILE_CONT(expression, percentile [CLAMPED BETWEEN lower AND upper])
-```
-
-**Description**
-
-Takes an expression and computes a percentile for it. The final result is an
-aggregation across anonymization IDs. The percentile must be a literal in the
-range [0, 1]. You can [clamp the input values][anon-clamp] explicitly,
-otherwise input values are clamped implicitly. Clamping is performed per
-anonymization ID.
-
-Caveats:
-
-+ `NUMERIC` arguments are not allowed. If you need them, cast them to
-  `DOUBLE` first.
-+ `BIGNUMERIC` arguments are not allowed. If you need them, cast them to
-  `DOUBLE` first.
-+ `NULL`s are always ignored. If all inputs are ignored, this function returns
-  `NULL`.
-
-**Return type**
-
-`DOUBLE`
-
-**Examples**
-
-The following anonymized query gets the percentile of items requested. Smaller
-aggregations may not be included. This query references a view called
-[`view_on_professors`][anon-example-views].
-
-```sql
--- With noise
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=1)
-  item, ANON_PERCENTILE_CONT(quantity, 0.5 CLAMPED BETWEEN 0 AND 100) percentile_requested
-FROM view_on_professors
-GROUP BY item;
-
--- These results will change each time you run the query.
--- Smaller aggregations may be removed.
-+----------+----------------------+
-| item     | percentile_requested |
-+----------+----------------------+
-| pencil   | 72.00011444091797    |
-| scissors | 8.000175476074219    |
-| pen      | 23.001075744628906   |
-+----------+----------------------+
-```
-
-### ANON_STDDEV_POP
-
-```sql
-ANON_STDDEV_POP(expression [CLAMPED BETWEEN lower AND upper])
-```
-
-**Description**
-
-Takes an expression and computes the population (biased) standard deviation of
-the values in the expression. The final result is an aggregation across
-anonymization IDs between `0` and `+Inf`. You can
-[clamp the input values][anon-clamp] explicitly, otherwise input values are
-clamped implicitly. Clamping is performed per individual user values.
-
-Caveats:
-
-+ `NUMERIC` arguments are not allowed. If you need them, cast them to
-  `DOUBLE` first.
-+ `BIGNUMERIC` arguments are not allowed. If you need them, cast them to
-  `DOUBLE` first.
-+ `NULL`s are always ignored. If all inputs are ignored, this function returns
-  `NULL`.
-
-**Return type**
-
-`DOUBLE`
-
-**Examples**
-
-The following anonymized query gets the population (biased) standard deviation
-of items requested. Smaller aggregations may not be included. This query
-references a view called [`view_on_professors`][anon-example-views].
-
-```sql
--- With noise
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=1)
-  item, ANON_STDDEV_POP(quantity CLAMPED BETWEEN 0 AND 100) pop_standard_deviation
-FROM view_on_professors
-GROUP BY item;
-
--- These results will change each time you run the query.
--- Smaller aggregations may be removed.
-+----------+------------------------+
-| item     | pop_standard_deviation |
-+----------+------------------------+
-| pencil   | 25.350871122442054     |
-| scissors | 50                     |
-| pen      | 2                      |
-+----------+------------------------+
-```
-
-### ANON_SUM
-
-```sql
-ANON_SUM(expression [CLAMPED BETWEEN lower AND upper])
-```
-
-**Description**
-
-Returns the sum of non-`NULL`, non-`NaN` values in the expression. The final
-result is an aggregation across anonymization IDs. You can optionally
-[clamp the input values][anon-clamp]. Clamping is performed per
-anonymization ID.
-
-The expression can be any numeric input type, such as
-`INT64`.
-
-**Return type**
-
-Matches the type in the expression.
-
-**Examples**
-
-The following anonymized query gets the sum of items requested. Smaller
-aggregations may not be included. This query references a view called
-[`view_on_professors`][anon-example-views].
-
-```sql
--- With noise
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=1)
-  item, ANON_SUM(quantity CLAMPED BETWEEN 0 AND 100) quantity
-FROM view_on_professors
-GROUP BY item;
-
--- These results will change each time you run the query.
--- Smaller aggregations may be removed.
-+----------+-----------+
-| item     | quantity  |
-+----------+-----------+
-| pencil   | 143       |
-| pen      | 59        |
-+----------+-----------+
-```
-
-```sql
--- Without noise (this un-noised version is for demonstration only)
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=1)
-  item, ANON_SUM(quantity) quantity
-FROM view_on_professors
-GROUP BY item;
-
--- These results will not change when you run the query.
-+----------+----------+
-| item     | quantity |
-+----------+----------+
-| scissors | 8        |
-| pencil   | 144      |
-| pen      | 58       |
-+----------+----------+
-```
-
-Note: You can learn more about when and when not to use
-noise [here][anon-noise].
-
-### ANON_VAR_POP
-
-```sql
-ANON_VAR_POP(expression [CLAMPED BETWEEN lower AND upper])
-```
-
-**Description**
-
-Takes an expression and computes the population (biased) variance of the values
-in the expression. The final result is an aggregation across
-anonymization IDs between `0` and `+Inf`. You can
-[clamp the input values][anon-clamp] explicitly, otherwise input values are
-clamped implicitly. Clamping is performed per individual user values.
-
-Caveats:
-
-+ `NUMERIC` arguments are not allowed. If you need them, cast them to
-  `DOUBLE` first.
-+ `BIGNUMERIC` arguments are not allowed. If you need them, cast them to
-  `DOUBLE` first.
-+ `NULL`s are always ignored. If all inputs are ignored, this function returns
-  `NULL`.
-
-**Return type**
-
-`DOUBLE`
-
-**Examples**
-
-The following anonymized query gets the population (biased) variance
-of items requested. Smaller aggregations may not be included. This query
-references a view called [`view_on_professors`][anon-example-views].
-
-```sql
--- With noise
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=1)
-  item, ANON_VAR_POP(quantity CLAMPED BETWEEN 0 AND 100) pop_variance
-FROM view_on_professors
-GROUP BY item;
-
--- These results will change each time you run the query.
--- Smaller aggregations may be removed.
-+----------+-----------------+
-| item     | pop_variance    |
-+----------+-----------------+
-| pencil   | 642             |
-| pen      | 2.6666666666665 |
-| scissors | 2500            |
-+----------+-----------------+
-```
-
-### CLAMPED BETWEEN clause 
-<a id="anon_clamping"></a>
-
-```sql
-CLAMPED BETWEEN lower_bound AND upper_bound
-```
-
-Clamping of aggregations is done to avoid the re-identifiability
-of outliers. The `CLAMPED BETWEEN` clause [explicitly clamps][anon-exp-clamp]
-each aggregate contribution per anonymization ID within the specified range.
-This clause is optional. If you do not include it in an anonymization aggregate
-function, [clamping is implicit][anon-imp-clamp].
-
-**Examples**
-
-The following anonymized query clamps each aggregate contribution per
-anonymization ID and within a specified range (`0` and `100`). As long as all
-or most values fall within this range, your results will be accurate. This query
-references a view called [`view_on_professors`][anon-example-views].
-
-```sql
---Without noise (this un-noised version is for demonstration only)
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=1)
-  item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
-FROM view_on_professors
-GROUP BY item;
-
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| scissors | 8                |
-| pencil   | 40               |
-| pen      | 18.5             |
-+----------+------------------+
-```
-
-Notice what happens when most or all values fall outside of the clamped range.
-To get accurate results, ensure that the difference between the upper and lower
-bound is as small as possible while most inputs are between the upper and lower
-bound.
-
-```sql {.bad}
---Without noise (this un-noised version is for demonstration only)
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=1)
-  item, ANON_AVG(quantity CLAMPED BETWEEN 50 AND 100) average_quantity
-FROM view_on_professors
-GROUP BY item;
-
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| scissors | 54               |
-| pencil   | 58               |
-| pen      | 51               |
-+----------+------------------+
-```
-
-Note: You can learn more about when and when not to use
-noise [here][anon-noise].
-
-### Explicit clamping 
-<a id="anon_explicit_clamping"></a>
-
-In an anonymization aggregate function, the [`CLAMPED BETWEEN`][anon-clamp]
-clause explicitly clamps the total contribution from each anonymization ID to
-within a specified range.
-
-Explicit bounds are uniformly applied to all aggregations.  So even if some
-aggregations have a wide range of values, and others have a narrow range of
-values, the same bounds are applied to all of them.  On the other hand, when
-[implicit bounds][anon-imp-clamp] are inferred from the data, the bounds applied
-to each aggregation can be different.
-
-Explicit bounds should be chosen to reflect public information.
-For example, bounding ages between 0 and 100 reflects public information
-because in general, the age of most people falls within this range.
-
-Important: The results of the query reveal the explicit bounds. Do not use
-explicit bounds based on the user data; explicit bounds should be based on
-public information.
-
-### Implicit clamping 
-<a id="anon_implicit_clamping"></a>
-
-In an anonymization aggregate function, the [`CLAMPED BETWEEN`][anon-clamp]
-clause is optional. If you do not include this clause, clamping is implicit,
-which means bounds are derived from the data itself in a differentially
-private way. The process is somewhat random, so aggregations with identical
-ranges can have different bounds.
-
-Implicit bounds are determined per aggregation. So if some
-aggregations have a wide range of values, and others have a narrow range of
-values, implicit bounding can identify different bounds for different
-aggregations as appropriate. This may be an advantage or a disadvantage
-depending on your use case: different bounds for different aggregations
-can result in lower error, but this also means that different
-aggregations have different levels of uncertainty, which may not be
-directly comparable. [Explicit bounds][anon-exp-clamp], on the other hand,
-apply uniformly to all aggregations and should be derived from public
-information.
-
-When clamping is implicit, part of the total epsilon is spent picking bounds.
-This leaves less epsilon for aggregations, so these aggregations are noisier.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[anon-clamp]: #anon_clamping
-
-[anon-exp-clamp]: #anon_explicit_clamping
-
-[anon-imp-clamp]: #anon_implicit_clamping
-
-[anon-syntax]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md
-
-[anon-example-views]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_example_views
-
-[anon-from-clause]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_from
-
-[anon-noise]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#eliminate_noise
-
-<!-- mdlint on -->
-
 ## HyperLogLog++ functions
 
 The [HyperLogLog++ algorithm (HLL++)][hll-algorithm] estimates
@@ -4367,6 +3815,10 @@ like `COUNT(DISTINCT)`, but also introduces statistical uncertainty.
 This makes HLL++ functions appropriate for large data streams for
 which linear memory usage is impractical, as well as for data that is
 already approximate.
+
+Note: While `APPROX_COUNT_DISTINCT` is also returning approximate count results,
+the functions from this section allow for partial aggregations and
+re-aggregations.
 
 ZetaSQL supports the following HLL++ functions:
 
@@ -4643,12 +4095,15 @@ to work with sketches and do not need customized precision, consider
 using [approximate aggregate functions with system-defined precision][approx-functions-reference].
 
 KLL16 functions are approximate aggregate functions.
-Approximate aggregation typically requires less
-memory than [exact aggregation functions][aggregate-functions-reference]
-like `APPROX_QUANTILES`, but also introduces statistical uncertainty.
+Approximate aggregation requires significantly less memory than an exact
+quantiles computation, but also introduces statistical uncertainty.
 This makes approximate aggregation appropriate for large data streams for
 which linear memory usage is impractical, as well as for data that is
 already approximate.
+
+Note: While `APPROX_QUANTILES` is also returning approximate quantile results,
+the functions from this section allow for partial aggregations and
+re-aggregations.
 
 ZetaSQL supports the following KLL16 functions:
 
@@ -5477,6 +4932,10 @@ description of how numbering functions work, see the
 
 ### RANK
 
+```sql
+RANK()
+```
+
 **Description**
 
 Returns the ordinal (1-based) rank of each row within the ordered partition.
@@ -5484,11 +4943,49 @@ All peer rows receive the same rank value. The next row or set of peer rows
 receives a rank value which increments by the number of peers with the previous
 rank value, instead of `DENSE_RANK`, which always increments by 1.
 
-**Supported Argument Types**
+**Return Type**
 
-INT64
+`INT64`
+
+**Example**
+
+```sql
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 2:59:01', 'F30-34')
+SELECT name,
+  finish_time,
+  division,
+  RANK() OVER (PARTITION BY division ORDER BY finish_time ASC) AS finish_rank
+FROM finishers;
+
++-----------------+------------------------+----------+-------------+
+| name            | finish_time            | division | finish_rank |
++-----------------+------------------------+----------+-------------+
+| Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 1           |
+| Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 2           |
+| Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 2           |
+| Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 4           |
+| Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 1           |
+| Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 2           |
+| Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 3           |
+| Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 4           |
++-----------------+------------------------+----------+-------------+
+```
 
 ### DENSE_RANK
+
+```sql
+DENSE_RANK()
+```
 
 **Description**
 
@@ -5496,23 +4993,99 @@ Returns the ordinal (1-based) rank of each row within the window partition.
 All peer rows receive the same rank value, and the subsequent rank value is
 incremented by one.
 
-**Supported Argument Types**
+**Return Type**
 
-INT64
+`INT64`
+
+**Example**
+
+```sql
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 2:59:01', 'F30-34')
+SELECT name,
+  finish_time,
+  division,
+  DENSE_RANK() OVER (PARTITION BY division ORDER BY finish_time ASC) AS finish_rank
+FROM finishers;
+
++-----------------+------------------------+----------+-------------+
+| name            | finish_time            | division | finish_rank |
++-----------------+------------------------+----------+-------------+
+| Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 1           |
+| Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 2           |
+| Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 2           |
+| Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 3           |
+| Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 1           |
+| Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 2           |
+| Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 3           |
+| Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 4           |
++-----------------+------------------------+----------+-------------+
+```
 
 ### PERCENT_RANK
+
+```sql
+PERCENT_RANK()
+```
 
 **Description**
 
 Return the percentile rank of a row defined as (RK-1)/(NR-1), where RK is
-the <code>RANK</code> of the row and NR is the number of rows in the partition.
+the `RANK` of the row and NR is the number of rows in the partition.
 Returns 0 if NR=1.
 
-**Supported Argument Types**
+**Return Type**
 
-DOUBLE
+`DOUBLE`
+
+**Example**
+
+```sql
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 2:59:01', 'F30-34')
+SELECT name,
+  finish_time,
+  division,
+  PERCENT_RANK() OVER (PARTITION BY division ORDER BY finish_time ASC) AS finish_rank
+FROM finishers;
+
++-----------------+------------------------+----------+---------------------+
+| name            | finish_time            | division | finish_rank         |
++-----------------+------------------------+----------+---------------------+
+| Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 0                   |
+| Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 0.33333333333333331 |
+| Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 0.33333333333333331 |
+| Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 1                   |
+| Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 0                   |
+| Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 0.33333333333333331 |
+| Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 0.66666666666666663 |
+| Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 1                   |
++-----------------+------------------------+----------+---------------------+
+```
 
 ### CUME_DIST
+
+```sql
+CUME_DIST()
+```
 
 **Description**
 
@@ -5520,42 +5093,148 @@ Return the relative rank of a row defined as NP/NR. NP is defined to be the
 number of rows that either precede or are peers with the current row. NR is the
 number of rows in the partition.
 
-**Supported Argument Types**
+**Return Type**
 
-DOUBLE
+`DOUBLE`
+
+**Example**
+
+```sql
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 2:59:01', 'F30-34')
+SELECT name,
+  finish_time,
+  division,
+  CUME_DIST() OVER (PARTITION BY division ORDER BY finish_time ASC) AS finish_rank
+FROM finishers;
+
++-----------------+------------------------+----------+-------------+
+| name            | finish_time            | division | finish_rank |
++-----------------+------------------------+----------+-------------+
+| Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 0.25        |
+| Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 0.75        |
+| Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 0.75        |
+| Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 1           |
+| Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 0.25        |
+| Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 0.5         |
+| Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 0.75        |
+| Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 1           |
++-----------------+------------------------+----------+-------------+
+```
 
 ### NTILE
 
-```
+```sql
 NTILE(constant_integer_expression)
 ```
 
 **Description**
 
-This function divides the rows into <code>constant_integer_expression</code>
+This function divides the rows into `constant_integer_expression`
 buckets based on row ordering and returns the 1-based bucket number that is
 assigned to each row. The number of rows in the buckets can differ by at most 1.
 The remainder values (the remainder of number of rows divided by buckets) are
 distributed one for each bucket, starting with bucket 1. If
-<code>constant_integer_expression</code> evaluates to NULL, 0 or negative, an
+`constant_integer_expression` evaluates to NULL, 0 or negative, an
 error is provided.
 
-**Supported Argument Types**
+**Return Type**
 
-INT64
+`INT64`
+
+**Example**
+
+```sql
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 2:59:01', 'F30-34')
+SELECT name,
+  finish_time,
+  division,
+  NTILE(3) OVER (PARTITION BY division ORDER BY finish_time ASC) AS finish_rank
+FROM finishers;
+
++-----------------+------------------------+----------+-------------+
+| name            | finish_time            | division | finish_rank |
++-----------------+------------------------+----------+-------------+
+| Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 1           |
+| Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 1           |
+| Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 2           |
+| Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 3           |
+| Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 1           |
+| Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 1           |
+| Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 2           |
+| Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 3           |
++-----------------+------------------------+----------+-------------+
+```
 
 ### ROW_NUMBER
 
+```sql
+ROW_NUMBER()
+```
+
 **Description**
 
-Does not require the <code>ORDER BY</code> clause. Returns the sequential
+Does not require the `ORDER BY` clause. Returns the sequential
 row ordinal (1-based) of each row for each ordered partition. If the
-<code>ORDER BY</code> clause is unspecified then the result is
+`ORDER BY` clause is unspecified then the result is
 non-deterministic.
 
-**Supported Argument Types**
+**Return Type**
 
-INT64
+`INT64`
+
+**Example**
+
+```sql
+WITH finishers AS
+ (SELECT 'Sophia Liu' as name,
+  TIMESTAMP '2016-10-18 2:51:45' as finish_time,
+  'F30-34' as division
+  UNION ALL SELECT 'Lisa Stelzner', TIMESTAMP '2016-10-18 2:54:11', 'F35-39'
+  UNION ALL SELECT 'Nikki Leith', TIMESTAMP '2016-10-18 2:59:01', 'F30-34'
+  UNION ALL SELECT 'Lauren Matthews', TIMESTAMP '2016-10-18 3:01:17', 'F35-39'
+  UNION ALL SELECT 'Desiree Berry', TIMESTAMP '2016-10-18 3:05:42', 'F35-39'
+  UNION ALL SELECT 'Suzy Slane', TIMESTAMP '2016-10-18 3:06:24', 'F35-39'
+  UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36', 'F30-34'
+  UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 2:59:01', 'F30-34')
+SELECT name,
+  finish_time,
+  division,
+  ROW_NUMBER() OVER (PARTITION BY division ORDER BY finish_time ASC) AS finish_rank
+FROM finishers;
+
++-----------------+------------------------+----------+-------------+
+| name            | finish_time            | division | finish_rank |
++-----------------+------------------------+----------+-------------+
+| Sophia Liu      | 2016-10-18 09:51:45+00 | F30-34   | 1           |
+| Meghan Lederer  | 2016-10-18 09:59:01+00 | F30-34   | 2           |
+| Nikki Leith     | 2016-10-18 09:59:01+00 | F30-34   | 3           |
+| Jen Edwards     | 2016-10-18 10:06:36+00 | F30-34   | 4           |
+| Lisa Stelzner   | 2016-10-18 09:54:11+00 | F35-39   | 1           |
+| Lauren Matthews | 2016-10-18 10:01:17+00 | F35-39   | 2           |
+| Desiree Berry   | 2016-10-18 10:05:42+00 | F35-39   | 3           |
+| Suzy Slane      | 2016-10-18 10:06:24+00 | F35-39   | 4           |
++-----------------+------------------------+----------+-------------+
+```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -6492,6 +6171,47 @@ parameter can represent an expression for these data types:
   </tr>
 </table>
 
+**Example**
+
+The example in this section references a protocol buffer called `Award`.
+
+```proto
+message Award {
+  required int32 year = 1;
+  optional int32 month = 2;
+  repeated Type type = 3;
+
+  message Type {
+    optional string award_name = 1;
+    optional string category = 2;
+  }
+}
+```
+
+```sql
+SELECT
+  CAST(
+    '''
+    year: 2001
+    month: 9
+    type { award_name: 'Best Artist' category: 'Artist' }
+    type { award_name: 'Best Album' category: 'Album' }
+    '''
+    AS zetasql.examples.music.Award)
+  AS award_col
+
++---------------------------------------------------------+
+| award_col                                               |
++---------------------------------------------------------+
+| {                                                       |
+|   year: 2001                                            |
+|   month: 9                                              |
+|   type { award_name: "Best Artist" category: "Artist" } |
+|   type { award_name: "Best Album" category: "Album" }   |
+| }                                                       |
++---------------------------------------------------------+
+```
+
 ### CAST AS STRING 
 <a id="cast_as_string"></a>
 
@@ -6938,6 +6658,8 @@ information.
 You can learn more about these conversion functions elsewhere in the
 documentation:
 
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
 Conversion function                    | From               | To
 -------                                | --------           | -------
 [ARRAY_TO_STRING][ARRAY_STRING]        | ARRAY              | STRING
@@ -6945,12 +6667,15 @@ Conversion function                    | From               | To
 [BIT_CAST_TO_INT64][BIT_I64]           | UINT64             | INT64
 [BIT_CAST_TO_UINT32][BIT_U32]          | INT32              | UINT32
 [BIT_CAST_TO_UINT64][BIT_U64]          | INT64              | UINT64
+[BOOL][JSON_TO_BOOL]                   | JSON               | BOOL
 [DATE][T_DATE]                         | Various data types | DATE
 [DATETIME][T_DATETIME]                 | Various data types | DATETIME
+[FLOAT64][JSON_TO_DOUBLE]              | JSON               | DOUBLE
 [FROM_BASE32][F_B32]                   | STRING             | BYTEs
 [FROM_BASE64][F_B64]                   | STRING             | BYTES
 [FROM_HEX][F_HEX]                      | STRING             | BYTES
 [FROM_PROTO][F_PROTO]                  | PROTO value        | Most data types
+[INT64][JSON_TO_INT64]                 | JSON               | INT64
 [PARSE_DATE][P_DATE]                   | STRING             | DATE
 [PARSE_DATETIME][P_DATETIME]           | STRING             | DATETIME
 [PARSE_JSON][P_JSON]                   | STRING             | JSON
@@ -6958,6 +6683,7 @@ Conversion function                    | From               | To
 [PARSE_TIMESTAMP][P_TIMESTAMP]         | STRING             | TIMESTAMP
 [SAFE_CONVERT_BYTES_TO_STRING][SC_BTS] | BYTES              | STRING
 [STRING][STRING_TIMESTAMP]             | TIMESTAMP          | STRING
+[STRING][JSON_TO_STRING]               | JSON               | STRING
 [TIME][T_TIME]                         | Various data types | TIME
 [TIMESTAMP][T_TIMESTAMP]               | Various data types | TIMESTAMP
 [TO_BASE32][T_B32]                     | BYTES              | STRING
@@ -6966,6 +6692,8 @@ Conversion function                    | From               | To
 [TO_JSON][T_JSON]                      | All data types     | JSON
 [TO_JSON_STRING][T_JSON_STRING]        | All data types     | STRING
 [TO_PROTO][T_PROTO]                    | Most data types    | PROTO value
+
+<!-- mdlint on -->
 
 ## Format clause for CAST 
 <a id="formatting_syntax"></a>
@@ -15539,10 +15267,57 @@ the functions in the previous table.
     </tr>
     
     
+    
+    <tr>
+      <td><a href="#string_for_json"><code>STRING</code></a></td>
+      <td>
+        Extracts a string from JSON.
+      </td>
+      <td><code>STRING</code></td>
+    </tr>
+    
+    
+    <tr>
+      <td><a href="#bool_for_json"><code>BOOL</code></a></td>
+      <td>
+        Extracts a boolean from JSON.
+      </td>
+      <td><code>BOOL</code></td>
+    </tr>
+    
+    
+    <tr>
+      <td><a href="#int64_for_json"><code>INT64</code></a></td>
+      <td>
+        Extracts a 64-bit integer from JSON.
+      </td>
+      <td><code>INT64</code></td>
+    </tr>
+    
+    
+    <tr>
+      <td><a href="#double_for_json"><code>DOUBLE</code></a></td>
+      <td>
+        Extracts a 64-bit floating-point number from JSON.
+      </td>
+      <td><code>DOUBLE</code></td>
+    </tr>
+    
+    
+    <tr>
+      <td><a href="#json_type"><code>JSON_TYPE</code></a></td>
+      <td>
+        Returns the type of the outermost JSON value as a string.
+      </td>
+      <td><code>STRING</code></td>
+    </tr>
+    
   </tbody>
 </table>
 
 ### JSON_EXTRACT
+
+Note: This function is deprecated. Consider using [JSON_QUERY][json-query].
 
 ```sql
 JSON_EXTRACT(json_string_expr, json_path)
@@ -15853,6 +15628,8 @@ FROM UNNEST([
 ```
 
 ### JSON_EXTRACT_SCALAR
+
+Note: This function is deprecated. Consider using [JSON_VALUE][json-value].
 
 ```sql
 JSON_EXTRACT_SCALAR(json_string_expr[, json_path])
@@ -16717,6 +16494,340 @@ FROM CoordinatesTable AS t;
 +----+-------------+--------------------+
 ```
 
+ 
+### STRING 
+<a id="string_for_json"></a>
+
+```sql
+STRING(json_expr)
+```
+
+**Description**
+
+Takes a JSON expression, extracts a JSON string, and returns that value as a SQL
+`STRING`. If the expression is SQL `NULL`, the function returns SQL
+`NULL`. If the extracted JSON value is not a string, an error is produced.
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"name": "sky", "color" : "blue"}'
+    ```
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+```sql
+SELECT STRING(JSON '"purple"') AS color;
+
++--------+
+| color  |
++--------+
+| purple |
++--------+
+```
+
+```sql
+SELECT STRING(JSON_QUERY(JSON '{"name": "sky", "color": "blue"}', "$.color")) AS color;
+
++-------+
+| color |
++-------+
+| blue  |
++-------+
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if the JSON is not of type string.
+SELECT STRING(JSON '123') AS result; -- Throws an error
+SELECT STRING(JSON 'null') AS result; -- Throws an error
+SELECT SAFE.STRING(JSON '123') AS result; -- Returns a SQL NULL
+```
+
+### BOOL 
+<a id="bool_for_json"></a>
+
+```sql
+BOOL(json_expr)
+```
+
+**Description**
+
+Takes a JSON expression, extracts a JSON boolean, and returns that value as a SQL
+`BOOL`. If the expression is SQL `NULL`, the function returns SQL
+`NULL`. If the extracted JSON value is not a boolean, an error is produced.
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"name": "sky", "color" : "blue"}'
+    ```
+
+**Return type**
+
+`BOOL`
+
+**Examples**
+
+```sql
+SELECT BOOL(JSON 'true') AS vacancy;
+
++---------+
+| vacancy |
++---------+
+| true    |
++---------+
+```
+
+```sql
+SELECT BOOL(JSON_QUERY(JSON '{"hotel class": "5-star", "vacancy": true}', "$.vacancy")) AS vacancy;
+
++---------+
+| vacancy |
++---------+
+| true    |
++---------+
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if JSON is not of type bool.
+SELECT BOOL(JSON '123') AS result; -- Throws an error
+SELECT BOOL(JSON 'null') AS result; -- Throw an error
+SELECT SAFE.BOOL(JSON '123') AS result; -- Returns a SQL NULL
+```
+
+### INT64 
+<a id="int64_for_json"></a>
+
+```sql
+INT64(json_expr)
+```
+
+**Description**
+
+Takes a JSON expression, extracts a JSON number and returns that value as a SQL
+`INT64`. If the expression is SQL `NULL`, the function returns SQL
+`NULL`. If the extracted JSON number has a fractional part or is outside of the
+INT64 domain, an error is produced.
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"name": "sky", "color" : "blue"}'
+    ```
+
+**Return type**
+
+`INT64`
+
+**Examples**
+
+```sql
+SELECT INT64(JSON '2005') AS flight_number;
+
++---------------+
+| flight_number |
++---------------+
+| 2005          |
++---------------+
+```
+
+```sql
+SELECT INT64(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight_number")) AS flight_number;
+
++---------------+
+| flight_number |
++---------------+
+| 2005          |
++---------------+
+```
+
+```sql
+SELECT INT64(JSON '10.0') AS score;
+
++-------+
+| score |
++-------+
+| 10    |
++-------+
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if JSON is not a number or cannot be converted to a 64-bit integer.
+SELECT INT64(JSON '10.1') AS result;  -- Throws an error
+SELECT INT64(JSON '"strawberry"') AS result; -- Throws an error
+SELECT INT64(JSON 'null') AS result; -- Throws an error
+SELECT SAFE.INT64(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
+
+```
+
+### DOUBLE 
+<a id="double_for_json"></a>
+
+```sql
+DOUBLE(json_expr[, wide_number_mode=>{ 'exact' | 'round'])
+```
+
+**Description**
+
+Takes a JSON expression, extracts a JSON number and returns that value as a SQL
+`DOUBLE`. If the expression is SQL `NULL`, the
+function returns SQL `NULL`. If the extracted JSON value is not a number, an
+error is produced.
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"name": "sky", "color" : "blue"}'
+    ```
+
+This function supports an optional mandatory-named argument called
+`wide_number_mode` which defines what happens with a number that cannot be
+represented as a DOUBLE without loss of precision.
+
+This argument accepts one of the two case-sensitive values:
+
++   ‘exact’: The function fails if the result cannot be represented as a
+    `DOUBLE` without loss of precision.
++   ‘round’: The numeric value stored in JSON will be rounded to
+    `DOUBLE`. If such rounding is not possible, the
+    function fails. This is the default value if the argument is not specified.
+
+**Return type**
+
+`DOUBLE`
+
+**Examples**
+
+```sql
+SELECT DOUBLE(JSON '9.8') AS velocity;
+
++----------+
+| velocity |
++----------+
+| 9.8      |
++----------+
+```
+
+```sql
+SELECT DOUBLE(JSON_QUERY(JSON '{"vo2_max": 39.1, "age": 18}', "$.vo2_max")) AS vo2_max;
+
++---------+
+| vo2_max |
++---------+
+| 39.1    |
++---------+
+```
+
+```sql
+SELECT DOUBLE(JSON '18446744073709551615', wide_number_mode=>'round') as result;
+
++------------------------+
+| result                 |
++------------------------+
+| 1.8446744073709552e+19 |
++------------------------+
+```
+
+```sql
+SELECT DOUBLE(JSON '18446744073709551615') as result;
+
++------------------------+
+| result                 |
++------------------------+
+| 1.8446744073709552e+19 |
++------------------------+
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if JSON is not of type DOUBLE.
+SELECT DOUBLE(JSON '"strawberry"') AS result;
+SELECT DOUBLE(JSON 'null') AS result;
+
+-- An error is thrown because `wide_number_mode` is case-sensitive and not "exact" or "round".
+SELECT DOUBLE(JSON '123.4', wide_number_mode=>'EXACT') as result;
+SELECT DOUBLE(JSON '123.4', wide_number_mode=>'exac') as result;
+
+-- An error is thrown because the number cannot be converted to DOUBLE without loss of precision
+SELECT DOUBLE(JSON '18446744073709551615', wide_number_mode=>'exact') as result;
+
+-- Returns a SQL NULL
+SELECT SAFE.DOUBLE(JSON '"strawberry"') AS result;
+```
+
+### JSON_TYPE 
+<a id="json_type"></a>
+
+```sql
+JSON_TYPE(json_expr)
+```
+
+**Description**
+
+Takes a JSON expression and returns the type of the outermost JSON value as a
+SQL `STRING`. The names of these JSON types can be returned:
+
++ `object`
++ `array`
++ `string`
++ `number`
++ `boolean`
++ `null`
+
+If the expression is SQL `NULL`, the function returns SQL `NULL`. If the
+extracted JSON value is not a valid JSON type, an error is produced.
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"name": "sky", "color" : "blue"}'
+    ```
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+```sql
+SELECT json_val, JSON_TYPE(json_val) AS type
+FROM
+  UNNEST(
+    [
+      JSON '"apple"',
+      JSON '10',
+      JSON '3.14',
+      JSON 'null',
+      JSON '{"city": "New York", "State": "NY"}',
+      JSON '["apple", "banana"]',
+      JSON 'false'
+    ]
+  ) AS json_val;
+
++----------------------------------+---------+
+| json_val                         | type    |
++----------------------------------+---------+
+| "apple"                          | string  |
+| 10                               | number  |
+| 3.14                             | number  |
+| null                             | null    |
+| {"State":"NY","city":"New York"} | object  |
+| ["apple","banana"]               | array   |
+| false                            | boolean |
++----------------------------------+---------+
+```
+
 ### JSON encodings 
 <a id="json_encodings"></a>
 
@@ -17056,6 +17167,21 @@ or `TO_JSON` function.
     
     
     <tr>
+      <td>JSON</td>
+      <td>
+        <p>data of the input JSON</p>
+      </td>
+      <td>
+        SQL input: <code>JSON '{"item": "pen", "price": 10}'</code><br />
+        JSON output: <code>{"item":"pen", "price":10}</code><br />
+        <hr />
+        SQL input:<code>[1, 2, 3]</code><br />
+        JSON output:<code>[1, 2, 3]</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
       <td>ARRAY</td>
       <td>
         <p>array</p>
@@ -17065,10 +17191,10 @@ or `TO_JSON` function.
       </td>
       <td>
         SQL input: <code>["red", "blue", "green"]</code><br />
-        JSON output: <code>["red", "blue", "green"]</code><br />
+        JSON output: <code>["red","blue","green"]</code><br />
         <hr />
         SQL input:<code>[1, 2, 3]</code><br />
-        JSON output:<code>[1, 2, 3]</code><br />
+        JSON output:<code>[1,2,3]</code><br />
       </td>
     </tr>
     
@@ -17186,6 +17312,14 @@ returns `NULL`.
 If the JSONPath is invalid, the function raises an error.
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[json-query]: #json_query
+
+[json-value]: #json_value
+
+[json-query-array]: #json_query_array
+
+[json-value-array]: #json_value_array
 
 [json-encodings]: #json_encodings
 
@@ -17629,133 +17763,29 @@ SELECT
 ### FLATTEN
 
 ```sql
-FLATTEN(flatten_path)
-
-flatten_path:
-{
-  array_expression
-  | flatten_path.field
-  | flatten_path.array_field
-  | flatten_path.array_field[{offset_clause | safe_offset_clause}]
-}
+FLATTEN(array_elements_field_access_expression)
 ```
 
 **Description**
 
-Nested data can be flattened into a single, flat array with the `FLATTEN`
-operator. The `FLATTEN` operator accepts a unique type of path called the
-_flatten path_. The flatten path lets you traverse through the levels of a
-nested array from left to right. For example,
-`FLATTEN(column.array_field.target)` will return an array of all
-`targets` inside `column`. The flatten path can include:
+Takes a nested array and flattens a specific part of it into a single, flat
+array with the
+[array elements field access operator][array-el-field-operator].
+Returns `NULL` if the input value is `NULL`.
+If `NULL` array elements are
+encountered, they are added to the resulting array.
 
-+ `array_expression`: Expression that evaluates to a single, flat array.
-+ `flatten_path.field`: A concatenation of `element.field` for all elements of
-  `FLATTEN(flatten_path)`. `field` represents a non-array field.
-+ `flatten_path.array_field`: A concatenation of elements of
-  `element.array_field` for all elements of `FLATTEN(flatten_path)`.
-  `array_field` represents an array field.
-+ `[{offset_clause | safe_offset_clause}]`: If the optional
-  [`OFFSET`][array-subscript-operator] or
-  [`SAFE_OFFSET`][array-subscript-operator] is present,
-  for each array_field value, `FLATTEN` includes only the array element at
-  the selected offset, rather than all elements.
-
-`FLATTEN` can return `NULL` if following the flatten path encounters a
-`NULL` before it encounters an array. Once a non-null array is encountered,
-`FLATTEN` can never return `NULL` and will always return an array.
-
-`NULL`s in arrays are added to the resulting array.
-
-Tip: Nested data is common in protocol buffers that have data within repeated
-messages.
-
-Tip: The `FLATTEN` operator is implicit inside the `UNNEST` operator and
-`UNNEST(flatten_path)` is equivalent to `UNNEST(FLATTEN(flatten_path))`.
-
-You can learn more about flattening nested data into arrays and
-the flatten path in
+There are several ways to flatten nested data into arrays. To learn more, see
 [Flattening nested data into an array][flatten-tree-to-array].
 
 **Return type**
 
-ARRAY
+`ARRAY`
 
 **Examples**
 
-In this `STRUCT` example, `(5,6)` and `(7,8)` are flattened
-into `[5,6,7,8]`.
-
-```sql
-SELECT FLATTEN([
-  STRUCT( [STRUCT(5 AS y), STRUCT(6)] AS x ),
-  STRUCT( [STRUCT(7 AS y), STRUCT(8)] AS x )
-  ].x.y) AS my_array
-
-+--------------+
-| my_array     |
-+--------------+
-| [5, 6, 7, 8] |
-+--------------+
-```
-
-In this PROTO example, `(5)`, `(6,7)` and `(8)` are
-flattened into `[5,6,7,8]`.
-
-```proto
-message MyProto {
-  message InnerProto {
-    repeated int64 x = 1;
-  }
-  repeated InnerProto y = 2;
-}
-```
-
-```sql
-SELECT FLATTEN(
-  CAST(
-     'y { x: 5 }
-      y { x: 6 x: 7 }
-      y { x: 8 }'
-  AS MyProto).y.x AS my_array
-)
-
-+--------------+
-| my_array     |
-+--------------+
-| [5, 6, 7, 8] |
-+--------------+
-```
-
-In this PROTO example, `(5,6)` and `(7,8)` are
-flattened into `[(5,6), (7,8)]`.
-
-```proto
-message MyProto {
-  Message Inner {
-    int64 x = 1;
-    int64 y = 2;
-  }
-  repeated Inner z = 1;
-}
-```
-
-```sql
-SELECT FLATTEN(
-  CAST(
-     'z { x: 5  y: 6 }
-      z { x: 7  y: 8 }'
-  AS MyProto).z AS my_array
-
-+------------------+
-| my_array         |
-+------------------+
-| [(5, 6), (7, 8)] |
-+------------------+
-```
-
-In this example, all of the arrays for `v.sales.quantity` are concatenated in
-a flattened array.
+In the following example, all of the arrays for `v.sales.quantity` are
+concatenated in a flattened array.
 
 ```sql
 WITH t AS (
@@ -17775,7 +17805,7 @@ FROM t;
 +--------------------------+
 ```
 
-In this example, `OFFSET` gets the second value in each array and
+In the following example, `OFFSET` gets the second value in each array and
 concatenates them.
 
 ```sql
@@ -17796,74 +17826,29 @@ FROM t;
 +---------------+
 ```
 
-If you use `OFFSET` with `FLATTEN` and a value is missing from an array,
-an error is returned.
+In the following example, all values for `v.price` are returned in a
+flattened array.
 
 ```sql
 WITH t AS (
   SELECT
   [
-    STRUCT([STRUCT([1,2,3] AS quantity), STRUCT([4,5,6] AS quantity)] AS sales),
-    STRUCT([STRUCT([7,8,9] AS quantity), STRUCT([10] AS quantity)] AS sales)
+    STRUCT(1 AS price, 2 AS quantity),
+    STRUCT(10 AS price, 20 AS quantity)
   ] AS v
 )
-SELECT FLATTEN(v.sales.quantity[OFFSET(1)]) AS second_values
+SELECT FLATTEN(v.price) AS all_prices
 FROM t;
 
--- ERROR: Array index is out of bounds.
++------------+
+| all_prices |
++------------+
+| [1, 10]    |
++------------+
 ```
 
-In this example, `SAFE_OFFSET` gets the third value in each array and
-concatenates them. If a value is missing, a `NULL` is returned for the value.
-
-```sql
-WITH t AS (
-  SELECT
-  [
-    STRUCT([STRUCT([1,2,3] AS quantity), STRUCT([4,5,6] AS quantity)] AS sales),
-    STRUCT([STRUCT([7] AS quantity), STRUCT([10,11,12] AS quantity)] AS sales)
-  ] AS v
-)
-SELECT FLATTEN(v.sales.quantity[SAFE_OFFSET(1)]) AS third_values
-FROM t;
-
-+------------------+
-| third_values     |
-+------------------+
-| [3, 6, NULL, 12] |
-+------------------+
-```
-
-The resulting array may contain `NULL` `ARRAY` elements, but only if
-evaluating the flatten path along some array elements returns `NULL`.
-For example:
-
-```sql
-SELECT FLATTEN([
-  STRUCT( [STRUCT(5 AS y), STRUCT(6)] AS x ),
-  STRUCT( [STRUCT(7 AS y), NULL] AS x )
-  ].x.y) AS my_array
-
-+-----------------+
-| my_array        |
-+-----------------+
-| [5, 6, 7, NULL] |
-+-----------------+
-```
-
-```sql
-SELECT FLATTEN([
-  STRUCT( STRUCT(5 AS y) AS x),
-  STRUCT( NULL AS x ),
-  STRUCT( STRUCT(6 AS y) )
-  ].x.y) AS my_array
-
-+--------------+
-| my_array     |
-+--------------+
-| [5, NULL, 6] |
-+--------------+
-```
+For more examples, including how to use protocol buffers with `FLATTEN`, see the
+[array elements field access operator][array-el-field-operator].
 
 ### GENERATE_ARRAY
 
@@ -18368,6 +18353,8 @@ FROM example;
 
 [flatten-tree-to-array]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_nested_data_into_arrays
 
+[array-el-field-operator]: #array_el_field_operator
+
 [array-link-to-operators]: #operators
 
 [lambda-definition]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas
@@ -18674,7 +18661,7 @@ the output is negative.
    `FRIDAY`, and `SATURDAY`.
 +  `ISOWEEK`: Uses [ISO 8601 week][ISO-8601-week]
    boundaries. ISO weeks begin on Monday.
-+  `MONTH`
++  `MONTH`, except when the first two arguments are `TIMESTAMP` objects.
 +  `QUARTER`
 +  `YEAR`
 +  `ISOYEAR`: Uses the [ISO 8601][ISO-8601]
@@ -19624,7 +19611,7 @@ between the two `DATETIME` objects would overflow an
   `FRIDAY`, and `SATURDAY`.
 + `ISOWEEK`: Uses [ISO 8601 week][ISO-8601-week]
   boundaries. ISO weeks begin on Monday.
-+ `MONTH`
++ `MONTH`, except when the first two arguments are `TIMESTAMP` objects.
 + `QUARTER`
 + `YEAR`
 + `ISOYEAR`: Uses the [ISO 8601][ISO-8601]
@@ -22320,7 +22307,8 @@ SELECT JUSTIFY_INTERVAL(INTERVAL '29 49:00:00' DAY TO SECOND) AS i
 ZetaSQL supports the following protocol buffer functions.
 
 ### PROTO_DEFAULT_IF_NULL
-```
+
+```sql
 PROTO_DEFAULT_IF_NULL(proto_field_expression)
 ```
 
@@ -22357,7 +22345,7 @@ SELECT PROTO_DEFAULT_IF_NULL(book.country) as origin FROM library_books;
 
 `Book` is a type that contains a field called `country`.
 
-```
+```proto
 message Book {
   optional string country = 4 [default = 'Unknown'];
 }
@@ -22385,9 +22373,216 @@ default value for `country`.
 +-----------------+
 ```
 
+### FILTER_FIELDS
+
+```sql
+FILTER_FIELDS(proto_expression, proto_field_list)
+
+proto_field_list:
+  {+|-}proto_field_path[, ...]
+```
+
+**Description**
+
+Takes a protocol buffer and a list of its fields to include or exclude.
+Returns a version of that protocol buffer with unwanted fields removed.
+Returns `NULL` if the protocol buffer is `NULL`.
+
+Input values:
+
++ `proto_expression`: The protocol buffer to filter.
++ `proto_field_list`: The fields to exclude or include in the resulting
+  protocol buffer.
++ `+`: Include a protocol buffer field and its children in the results.
++ `-`: Exclude a protocol buffer field and its children in the results.
++ `proto_field_path`: The protocol buffer field to include or exclude.
+  If the field represents an [extension][querying-proto-extensions], you can use
+  syntax for that extension in the path.
+
+Protocol buffer field expression behavior:
+
++ The first field in `proto_field_list` determines the default
+  inclusion/exclusion. By default, when you include the first field, all other
+  fields are excluded. Or by default, when you exclude the first field, all
+  other fields are included.
++ A required field in the protocol buffer cannot be excluded explicitly or
+  implicitly.
++ If a field is included, its child fields and descendants are implicitly
+  included in the results.
++ If a field is excluded, its child fields and descendants are
+  implicitly excluded in the results.
++ A child field must be listed after its parent field in the argument list,
+  but does not need to come right after the parent field.
+
+Caveats:
+
++ If you attempt to exclude/include a field that already has been
+  implicitly excluded/included, an error is produced.
++ If you attempt to explicitly include/exclude a field that has already
+  implicitly been included/excluded, an error is produced.
+
+**Return type**
+
+Type of `proto_expression`
+
+**Examples**
+
+The examples in this section reference a protocol buffer called `Award` and
+a table called `MusicAwards`.
+
+```proto
+message Award {
+  required int32 year = 1;
+  optional int32 month = 2;
+  repeated Type type = 3;
+
+  message Type {
+    optional string award_name = 1;
+    optional string category = 2;
+  }
+}
+```
+
+```sql
+WITH
+  MusicAwards AS (
+    SELECT
+      CAST(
+        '''
+        year: 2001
+        month: 9
+        type { award_name: 'Best Artist' category: 'Artist' }
+        type { award_name: 'Best Album' category: 'Album' }
+        '''
+        AS zetasql.examples.music.Award) AS award_col
+    UNION ALL
+    SELECT
+      CAST(
+        '''
+        year: 2001
+        month: 12
+        type { award_name: 'Best Song' category: 'Song' }
+        '''
+        AS zetasql.examples.music.Award) AS award_col
+  )
+SELECT *
+FROM MusicAwards
+
++---------------------------------------------------------+
+| award_col                                               |
++---------------------------------------------------------+
+| {                                                       |
+|   year: 2001                                            |
+|   month: 9                                              |
+|   type { award_name: "Best Artist" category: "Artist" } |
+|   type { award_name: "Best Album" category: "Album" }   |
+| }                                                       |
+| {                                                       |
+|   year: 2001                                            |
+|   month: 12                                             |
+|   type { award_name: "Best Song" category: "Song" }     |
+| }                                                       |
++---------------------------------------------------------+
+```
+
+The following example returns protocol buffers that only include the `year`
+field.
+
+```sql
+SELECT FILTER_FIELDS(award_col, +year) AS filtered_fields
+FROM MusicAwards
+
++-----------------+
+| filtered_fields |
++-----------------+
+| {year: 2001}    |
+| {year: 2001}    |
++-----------------+
+```
+
+The following example returns protocol buffers that include all but the `type`
+field.
+
+```sql
+SELECT FILTER_FIELDS(award_col, -type) AS filtered_fields
+FROM MusicAwards
+
++------------------------+
+| filtered_fields        |
++------------------------+
+| {year: 2001 month: 9}  |
+| {year: 2001 month: 12} |
++------------------------+
+```
+
+The following example returns protocol buffers that only include the `year` and
+`type.award_name` fields.
+
+```sql
+SELECT FILTER_FIELDS(award_col, +year, +type.award_name) AS filtered_fields
+FROM MusicAwards
+
++--------------------------------------+
+| filtered_fields                      |
++--------------------------------------+
+| {                                    |
+|   year: 2001                         |
+|   type { award_name: "Best Artist" } |
+|   type { award_name: "Best Album" }  |
+| }                                    |
+| {                                    |
+|   year: 2001                         |
+|   type { award_name: "Best Song" }   |
+| }                                    |
++--------------------------------------+
+```
+
+The following example returns the `year` and `type` fields, but excludes the
+`award_name` field in the `type` field.
+
+```sql
+SELECT FILTER_FIELDS(award_col, +year, +type, -type.award_name) AS filtered_fields
+FROM MusicAwards
+
++---------------------------------+
+| filtered_fields                 |
++---------------------------------+
+| {                               |
+|   year: 2001                    |
+|   type { award_name: "Artist" } |
+|   type { award_name: "Album" }  |
+| }                               |
+| {                               |
+|   year: 2001                    |
+|   type { award_name: "Song" }   |
+| }                               |
++---------------------------------+
+```
+
+The following example produces an error because `year` is a required field
+and cannot be excluded explicitly or implicitly from the results.
+
+```sql
+SELECT FILTER_FIELDS(award_col, -year) AS filtered_fields
+FROM MusicAwards
+
+-- Error
+```
+
+The following example produces an error because when `year` was included,
+`month` was implicitly excluded. You cannot explicitly exclude a field that
+has already been implicitly excluded.
+
+```sql
+SELECT FILTER_FIELDS(award_col, +year, -month) AS filtered_fields
+FROM MusicAwards
+
+-- Error
+```
+
 ### FROM_PROTO
 
-```
+```sql
 FROM_PROTO(expression)
 ```
 
@@ -22909,6 +23104,10 @@ FROM AlbumList;
 [querying-protocol-buffers]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#querying_protocol_buffers
 
 [has-value]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#checking_if_a_field_has_a_value
+
+[querying-proto-extensions]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#extensions
+
+[field-access-operator]: #field-access-operator
 
 <!-- mdlint on -->
 
@@ -23645,6 +23844,15 @@ statement.
       <td>Field access operator</td>
       <td>Binary</td>
     </tr>
+    
+    <tr>
+      <td>&nbsp;</td>
+      <td>Array elements field access operator</td>
+      <td>ARRAY</td>
+      <td>Field access operator for elements in an array</td>
+      <td>Binary</td>
+    </tr>
+    
     <tr>
       <td>&nbsp;</td>
       <td>Array subscript operator</td>
@@ -24084,18 +24292,25 @@ used to access nested data.
 
 **Example**
 
-In the following example, `$.class.students[0][name]` contains a
-JSON subscript operation. `$.class.students` represents the JSON expression,
-`[0]` represents the array element ID, and `[name]` represents the name of a
-field in the JSON.
+In the following example:
+
++ `json_value` is a JSON expression.
++ `.class` is a JSON field access.
++ `.students` is a JSON field access.
++ `[0]` is a JSON subscript expression with an element offset that
+  accesses the zeroth element of an array in the JSON value.
++ `['name']` is a JSON subscript expression with a field name that
+  accesses a field.
 
 ```sql
-SELECT JSON_EXTRACT(json_text, '$.class.students[0][name]') AS first_student
-FROM UNNEST([
-  '{"class" : {"students" : [{"name" : "Jane"}]}}',
-  '{"class" : {"students" : []}}',
-  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
+SELECT json_value.class.students[0]['name'] AS first_student
+FROM
+  UNNEST(
+    [
+      JSON '{"class" : {"students" : [{"name" : "Jane"}]}}',
+      JSON '{"class" : {"students" : []}}',
+      JSON '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'])
+    AS json_value;
 
 +-----------------+
 | first_student   |
@@ -24104,6 +24319,343 @@ FROM UNNEST([
 | NULL            |
 | "John"          |
 +-----------------+
+```
+
+### Array elements field access operator 
+<a id="array_el_field_operator"></a>
+
+```
+array_expression.field_or_element[. ...]
+
+field_or_element:
+  { fieldname | array_element }
+
+array_element:
+  array_fieldname[array_subscript_specifier]
+```
+
+Note: The brackets (`[]`) around `array_subscript_specifier` are part of the
+syntax; they do not represent an optional part.
+
+**Description**
+
+The array elements field access operation lets you traverse through the
+levels of a nested data type inside an array.
+
+**Input types**
+
++ `array_expression`: An expression that evaluates to an `ARRAY` value.
++ `field_or_element[. ...]`: The field to access. This can also be a position
+  in an `ARRAY`-typed field.
++ `fieldname`: The name of the field to access.
+
+  For example, this query returns all values for the `items` field inside of the
+  `my_array` array expression:
+
+  ```sql
+  WITH T AS ( SELECT [STRUCT(['foo', 'bar'] AS items)] AS my_array )
+  SELECT FLATTEN(my_array.items)
+  FROM T
+  ```
++ `array_element`: If the field to access is an `ARRAY` field (`array_field`),
+  you can additionally access a specific position in the field
+  with the [array subscript operator][array-subscript-operator]
+  (`[array_subscript_specifier]`). This operation returns only elements at a
+  selected position, rather than all elements, in the array field.
+
+  For example, this query only returns values at position 0 in the `items`
+  array field:
+
+  ```sql
+  WITH T AS ( SELECT [STRUCT(['foo', 'bar'] AS items)] AS my_array )
+  SELECT FLATTEN(my_array.items[OFFSET(0)])
+  FROM T
+  ```
+
+**Details**
+
+The array elements field access operation is not a typical expression
+that returns a typed value; it represents a concept outside the type system
+and can only be interpreted by the following operations:
+
++  [`FLATTEN` operation][flatten-operation]: Returns an array. For example:
+
+   ```sql
+   FLATTEN(x.y.z)
+   ```
++  [`UNNEST` operation][operators-link-to-unnest]: Returns a table.
+   `array_expression` must be a path expression.
+   Implicitly implements the `FLATTEN` operator.
+   For example, these do the same thing:
+
+   ```sql
+   UNNEST(x.y.z)
+   ```
+
+   ```sql
+   UNNEST(FLATTEN(x.y.z))
+   ```
++  [`FROM` operation][operators-link-to-from-clause]: Returns a table.
+   `array_expression` must be a path expression.
+   Implicitly implements the `UNNEST` operator and the `FLATTEN` operator.
+   For example, these do the same thing:
+
+   ```sql
+   SELECT * FROM T, T.x.y.z;
+   ```
+
+   ```sql
+   SELECT * FROM T, UNNEST(x.y.z);
+   ```
+
+   ```sql
+   SELECT * FROM T, UNNEST(FLATTEN(x.y.z));
+   ```
+
+If `NULL` array elements are encountered, they are added to the resulting array.
+
+**Common shapes of this operation**
+
+This operation can take several shapes. The right-most value in
+the operation determines what type of array is returned. Here are some example
+shapes and a description of what they return:
+
+The following shapes extract the final non-array field from each element of
+an array expression and return an array of those non-array field values.
+
++ `array_expression.non_array_field_1`
++ `array_expression.non_array_field_1.array_field.non_array_field_2`
+
+The following shapes extract the final array field from each element of the
+array expression and concatenate the array fields together.
+An empty array or a `NULL` array contributes no elements to the resulting array.
+
++ `array_expression.non_array_field_1.array_field_1`
++ `array_expression.non_array_field_1.array_field_1.non_array_field_2.array_field_2`
++ `array_expression.non_array_field_1.non_array_field_2.array_field_1`
+
+The following shapes extract the final array field from each element of the
+array expression at a specific position. Then they return an array of those
+extracted elements. An empty array or a `NULL` array contributes no elements
+to the resulting array.
+
++ `array_expression.non_array_field_1.array_field_1[OFFSET(1)]`
++ `array_expression.non_array_field_1.array_field_1[SAFE_OFFSET(1)]`
++ `array_expression.non_array_field_1.non_array_field_2.array_field_1[ORDINAL(2)]`
++ `array_expression.non_array_field_1.non_array_field_2.array_field_1[SAFE_ORDINAL(2)]`
+
+**Return Value**
+
++ `FLATTEN` of an array element access operation returns an `ARRAY`.
++ `UNNEST` of an array element access operation, whether explicit or implicit,
+   returns a table.
+
+**Examples**
+
+The next examples in this section reference a table called `T`, that contains
+a nested struct in an array called `my_array`:
+
+```sql
+WITH
+  T AS (
+    SELECT
+      [
+        STRUCT(
+          [
+            STRUCT([25.0, 75.0] AS prices),
+            STRUCT([30.0] AS prices)
+          ] AS sales
+        )
+      ] AS my_array
+  )
+SELECT * FROM T;
+
++----------------------------------------------+
+| my_array                                     |
++----------------------------------------------+
+| [{[{[25, 75] prices}, {[30] prices}] sales}] |
++----------------------------------------------+
+```
+
+This is what the array elements field access operator looks like in the
+`FLATTEN` operator:
+
+```sql
+SELECT FLATTEN(my_array.sales.prices) AS all_prices FROM T;
+
++--------------+
+| all_prices   |
++--------------+
+| [25, 75, 30] |
++--------------+
+```
+
+This is how you use the array subscript operator to only return values at a
+specific index in the `prices` array:
+
+```sql
+SELECT FLATTEN(my_array.sales.prices[OFFSET(0)]) AS first_prices FROM T;
+
++--------------+
+| first_prices |
++--------------+
+| [25, 30]     |
++--------------+
+```
+
+This is an example of an explicit `UNNEST` operation that includes the
+array elements field access operator:
+
+```sql
+SELECT all_prices FROM T, UNNEST(my_array.sales.prices) AS all_prices
+
++------------+
+| all_prices |
++------------+
+| 25         |
+| 75         |
+| 30         |
++------------+
+```
+
+This is an example of an implicit `UNNEST` operation that includes the
+array elements field access operator:
+
+```sql
+SELECT all_prices FROM T, T.my_array.sales.prices AS all_prices
+
++------------+
+| all_prices |
++------------+
+| 25         |
+| 75         |
+| 30         |
++------------+
+```
+
+This query produces an error because one of the `prices` arrays does not have
+an element at index `1` and `OFFSET` is used:
+
+```sql
+SELECT FLATTEN(my_array.sales.prices[OFFSET(1)]) AS second_prices FROM T;
+
+-- Error
+```
+
+This query is like the previous query, but `SAFE_OFFSET` is used. This
+produces a `NULL` value instead of an error.
+
+```sql
+SELECT FLATTEN(my_array.sales.prices[SAFE_OFFSET(1)]) AS second_prices FROM T;
+
++---------------+
+| second_prices |
++---------------+
+| [75, NULL]    |
++---------------+
+```
+
+In this next example, an empty array and a `NULL` field value have been added to
+the query. These contribute no elements to the result.
+
+```sql
+WITH
+  T AS (
+    SELECT
+      [
+        STRUCT(
+          [
+            STRUCT([25.0, 75.0] AS prices),
+            STRUCT([30.0] AS prices),
+            STRUCT(ARRAY<DOUBLE>[] AS prices),
+            STRUCT(NULL AS prices)
+          ] AS sales
+        )
+      ] AS my_array
+  )
+SELECT FLATTEN(my_array.sales.prices) AS first_prices FROM T;
+
++--------------+
+| first_prices |
++--------------+
+| [25, 75, 30] |
++--------------+
+```
+
+The next examples in this section reference a protocol buffer called
+`Album` that looks like this:
+
+```proto
+message Album {
+  optional string album_name = 1;
+  repeated string song = 2;
+  oneof group_name {
+    string solo = 3;
+    string duet = 4;
+    string band = 5;
+  }
+}
+```
+
+Nested data is common in protocol buffers that have data within repeated
+messages. The following example extracts a flattened array of songs from a
+table called `AlbumList` that contains a column called `Album` of type `PROTO`.
+
+```sql
+WITH
+  AlbumList AS (
+    SELECT
+      [
+        NEW Album(
+          'OneWay' AS album_name,
+          ['North', 'South'] AS song,
+          'Crossroads' AS band),
+        NEW Album(
+          'After Hours' AS album_name,
+          ['Snow', 'Ice', 'Water'] AS song,
+          'Sunbirds' AS band)]
+        AS albums_array
+  )
+SELECT FLATTEN(albums_array.song) AS songs FROM AlbumList
+
++------------------------------+
+| songs                        |
++------------------------------+
+| [North,South,Snow,Ice,Water] |
++------------------------------+
+```
+
+The following example extracts a flattened array of album names from a
+table called `AlbumList` that contains a proto-typed column called `Album`.
+
+```sql
+WITH
+  AlbumList AS (
+    SELECT
+      [
+        (
+          SELECT
+            NEW Album(
+              'OneWay' AS album_name,
+              ['North', 'South'] AS song,
+              'Crossroads' AS band) AS album_col
+        ),
+        (
+          SELECT
+            NEW Album(
+              'After Hours' AS album_name,
+              ['Snow', 'Ice', 'Water'] AS song,
+              'Sunbirds' AS band) AS album_col
+        )]
+        AS albums_array
+  )
+SELECT names FROM AlbumList, UNNEST(albums_array.album_name) AS names
+
++----------------------+
+| names                |
++----------------------+
+| [OneWay,After Hours] |
++----------------------+
 ```
 
 ### Arithmetic operators
@@ -24764,6 +25316,11 @@ When using the `NOT IN` operator, the following semantics apply in this order:
 + Returns `NULL` if `value_set` contains a `NULL`.
 + Returns `TRUE`.
 
+This operator generally supports [collation][link-collation-concepts],
+however, `x [NOT] IN UNNEST` is not supported.
+
+[link-collation-concepts]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md
+
 The semantics of:
 
 ```
@@ -24886,6 +25443,7 @@ SELECT * FROM Words WHERE value NOT IN ('Intend');
 +----------+
 | Secure   |
 | Clarity  |
+| Peace    |
 +----------+
 ```
 
@@ -24973,6 +25531,82 @@ otherwise.</td>
 </tbody>
 </table>
 
+### IS DISTINCT FROM operator 
+<a id="is_distinct"></a>
+
+```sql
+expression_1 IS [NOT] DISTINCT FROM expression_2
+```
+
+**Description**
+
+`IS DISTINCT FROM` returns `TRUE` if the input values are considered to be
+distinct from each other by the [`DISTINCT`][operators-distinct] and
+[`GROUP BY`][operators-group-by] clauses. Otherwise, returns `FALSE`.
+
+`a IS DISTINCT FROM b` being `TRUE` is equivalent to:
+
++ `SELECT COUNT(DISTINCT x) FROM UNNEST([a,b]) x` returning `2`.
++ `SELECT * FROM UNNEST([a,b]) x GROUP BY x` returning 2 rows.
+
+`a IS DISTINCT FROM b` is equivalent to `NOT (a = b)`, except for the
+following cases:
+
++ This operator never returns `NULL` so `NULL` values are considered to be
+  distinct from non-`NULL` values, not other `NULL` values.
++ `NaN` values are considered to be distinct from non-`NaN` values, but not
+  other `NaN` values.
+
+**Input types**
+
++ `expression_1`: The first value to compare. This can be a groupable data type,
+  `NULL` or `NaN`.
++ `expression_2`: The second value to compare. This can be a groupable
+  data type, `NULL` or `NaN`.
++ `NOT`: If present, the output `BOOL` value is inverted.
+
+**Return type**
+
+`BOOL`
+
+**Examples**
+
+These return `TRUE`:
+
+```sql
+SELECT 1 IS DISTINCT FROM 2
+```
+
+```sql
+SELECT 1 IS DISTINCT FROM NULL
+```
+
+```sql
+SELECT 1 IS NOT DISTINCT FROM 1
+```
+
+```sql
+SELECT NULL IS NOT DISTINCT FROM NULL
+```
+
+These return `FALSE`:
+
+```sql
+SELECT NULL IS DISTINCT FROM NULL
+```
+
+```sql
+SELECT 1 IS DISTINCT FROM 1
+```
+
+```sql
+SELECT 1 IS NOT DISTINCT FROM 2
+```
+
+```sql
+SELECT 1 IS NOT DISTINCT FROM NULL
+```
+
 ### Concatenation operator
 
 The concatenation operator combines multiple values into one.
@@ -25010,13 +25644,21 @@ The concatenation operator combines multiple values into one.
 
 [semantic-rules-in]: #semantic_rules_in
 
+[array-subscript-operator]: #array_subscript_operator
+
 [operators-link-to-filtering-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering_arrays
 
 [operators-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
 
+[operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct_type
+
 [operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
 
 [operators-link-to-unnest]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
+
+[operators-distinct]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_distinct
+
+[operators-group-by]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#group_by_clause
 
 [operators-subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#about_subqueries
 
@@ -25025,6 +25667,10 @@ The concatenation operator combines multiple values into one.
 [operators-link-to-math-functions]: #mathematical_functions
 
 [link-to-coercion]: #coercion
+
+[operators-link-to-array-safeoffset]: #safe-offset-and-safe-ordinal
+
+[flatten-operation]: #flatten
 
 <!-- mdlint on -->
 

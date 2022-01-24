@@ -1423,3 +1423,29 @@ ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[
   {13, NULL, inf},
   {14, inf, inf}
 ]
+==
+
+[name=analytic_min_max_arr_with_nan_offset_current_and_3_following]
+[labels=analytic_max_with_moving_window]
+[required_features=ANALYTIC_FUNCTIONS,V_1_3_ARRAY_ORDERING]
+select row_id, val,
+     min(val) over (order by row_id ROWS BETWEEN CURRENT ROW AND 3 FOLLOWING),
+     max(val) over (order by row_id ROWS BETWEEN CURRENT ROW AND 3 FOLLOWING)
+FROM (
+  SELECT 1 row_id, ARRAY<FLOAT64>[] val UNION ALL
+  SELECT 4, ARRAY<FLOAT64>[CAST("-Inf" AS FLOAT64)] UNION ALL
+  SELECT 2, ARRAY<FLOAT64>[NULL] UNION ALL
+  SELECT 3, ARRAY<FLOAT64>[CAST("NaN" AS FLOAT64)] UNION ALL
+  SELECT 5, ARRAY<FLOAT64>[CAST("+Inf" AS FLOAT64)] UNION ALL
+  SELECT 6 row_id, ARRAY<FLOAT64>[] val
+)
+order by row_id
+--
+ARRAY<STRUCT<row_id INT64, val ARRAY<>, ARRAY<>, ARRAY<>>>[
+  {1, ARRAY<DOUBLE>[], ARRAY<DOUBLE>[], ARRAY<DOUBLE>[-inf]},
+  {2, ARRAY<DOUBLE>[NULL], ARRAY<DOUBLE>[NULL], ARRAY<DOUBLE>[inf]},
+  {3, ARRAY<DOUBLE>[nan], ARRAY<DOUBLE>[], ARRAY<DOUBLE>[inf]},
+  {4, ARRAY<DOUBLE>[-inf], ARRAY<DOUBLE>[], ARRAY<DOUBLE>[inf]},
+  {5, ARRAY<DOUBLE>[inf], ARRAY<DOUBLE>[], ARRAY<DOUBLE>[inf]},
+  {6, ARRAY<DOUBLE>[], ARRAY<DOUBLE>[], ARRAY<DOUBLE>[]}
+]

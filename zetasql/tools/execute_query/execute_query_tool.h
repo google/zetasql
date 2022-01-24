@@ -25,6 +25,7 @@
 
 #include "google/protobuf/descriptor_database.h"
 #include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/evaluator.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/resolved_ast/resolved_node.h"
@@ -78,6 +79,11 @@ class ExecuteQueryConfig {
   const AnalyzerOptions& analyzer_options() const { return analyzer_options_; }
   AnalyzerOptions& mutable_analyzer_options() { return analyzer_options_; }
 
+  const EvaluatorOptions& evaluator_options() const {
+    return evaluator_options_;
+  }
+  EvaluatorOptions& mutable_evaluator_options() { return evaluator_options_; }
+
   // Defaults matches SimpleCatalog("").
   SimpleCatalog& mutable_catalog() { return catalog_; }
   const SimpleCatalog& catalog() const { return catalog_; }
@@ -114,6 +120,7 @@ class ExecuteQueryConfig {
   SqlMode sql_mode_ = SqlMode::kQuery;
   AnalyzerOptions analyzer_options_;
   SimpleCatalog catalog_;
+  EvaluatorOptions evaluator_options_;
   const google::protobuf::DescriptorPool* descriptor_pool_ = nullptr;
   std::unique_ptr<const google::protobuf::DescriptorPool> owned_descriptor_pool_;
   std::unique_ptr<google::protobuf::DescriptorDatabase> descriptor_db_;
@@ -141,6 +148,8 @@ absl::Status AddTablesFromFlags(ExecuteQueryConfig& config);
 absl::StatusOr<std::unique_ptr<ExecuteQueryWriter>> MakeWriterFromFlags(
     const ExecuteQueryConfig& config, std::ostream& output);
 
+absl::Status SetEvaluatorOptionsFromFlags(ExecuteQueryConfig& config);
+
 // Execute the query according to `config`. `config` is logically const, but due
 // to ZetaSQL calling conventions related to Catalog objects, must be
 // non-const.
@@ -155,5 +164,7 @@ ABSL_DECLARE_FLAG(std::string, sql_mode);
 ABSL_DECLARE_FLAG(std::string, table_spec);
 ABSL_DECLARE_FLAG(std::string, descriptor_pool);
 ABSL_DECLARE_FLAG(std::string, output_mode);
+ABSL_DECLARE_FLAG(int64_t, evaluator_max_value_byte_size);
+ABSL_DECLARE_FLAG(int64_t, evaluator_max_intermediate_byte_size);
 
 #endif  // ZETASQL_TOOLS_EXECUTE_QUERY_EXECUTE_QUERY_TOOL_H_

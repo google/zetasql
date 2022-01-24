@@ -16,6 +16,8 @@
 
 #include "zetasql/public/language_options.h"
 
+#include <string>
+
 #include "google/protobuf/descriptor.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/options.pb.h"

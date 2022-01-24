@@ -40,6 +40,7 @@
 #include "zetasql/base/case.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
@@ -1399,46 +1400,27 @@ absl::Status CheckArgumentsSupportComparison(
       comparison_name, arguments, language_options);
 }
 
-absl::Status CheckMinMaxGreatestLeastArguments(
+absl::Status CheckMinMaxArguments(
+    const std::string& function_name,
+    const std::vector<InputArgumentType>& arguments,
+    const LanguageOptions& language_options) {
+  return PreResolutionCheckArgumentsSupportComparison(function_name, arguments,
+                                                      language_options);
+}
+
+// Similar to MIN/MAX, but some engines can't yet handle GREATEST/LEAST,
+// so we need to check the flag.
+absl::Status CheckGreatestLeastArguments(
     const std::string& function_name,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
   ZETASQL_RETURN_IF_ERROR(PreResolutionCheckArgumentsSupportComparison(
       function_name, arguments, language_options));
-  // If we got here then the arguments are (pairwise) comparable.  But the
-  // MIN/MAX/GREATEST/LEAST functions do not support ARRAYs because they have
-  // weird behavior if the arrays contain elements that are NULLs or NaNs.
-  // This is because these functions are defined in terms of >/< operators,
-  // and >/< operators do not provide a total order when arrays contain
-  // elements that are NULLs/NaNs.
-  //
-  // For example, the following pair of arrays are clearly not equal, but both
-  // the > and < comparisons return NULL for this pair:
-  //
-  // [1, NULL, 2]
-  // [1, NULL, 3]
-  //
-  // >/< comparisons also return NULL for:
-  //
-  // [1, NULL, 3]
-  // [1, 2, 3]
-  //
-  // Similarly, both > and < comparisons return FALSE for this pair:
-  //
-  // [1, NaN, 2]
-  // [1, NaN, 3]
-  //
-  // As well as for this pair:
-  //
-  // [1, NaN, 3]
-  // [1, 2, 3]
-  //
-  for (int idx = 0; idx < arguments.size(); ++idx) {
-    if (arguments[idx].type()->IsArray()) {
-      return MakeSqlError()
-             << function_name << " is not defined for arguments of type "
-             << arguments[idx].DebugString();
-    }
+  if (!arguments.empty() && arguments.front().type()->IsArray() &&
+      !language_options.LanguageFeatureEnabled(
+          LanguageFeature::FEATURE_V_1_3_ARRAY_GREATEST_LEAST)) {
+    return MakeSqlError() << function_name << "() on arrays require the "
+                          << "V_1_3_ARRAY_GREATEST_LEAST flag.";
   }
   return absl::OkStatus();
 }

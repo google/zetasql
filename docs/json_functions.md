@@ -166,10 +166,57 @@ the functions in the previous table.
     </tr>
     
     
+    
+    <tr>
+      <td><a href="#string_for_json"><code>STRING</code></a></td>
+      <td>
+        Extracts a string from JSON.
+      </td>
+      <td><code>STRING</code></td>
+    </tr>
+    
+    
+    <tr>
+      <td><a href="#bool_for_json"><code>BOOL</code></a></td>
+      <td>
+        Extracts a boolean from JSON.
+      </td>
+      <td><code>BOOL</code></td>
+    </tr>
+    
+    
+    <tr>
+      <td><a href="#int64_for_json"><code>INT64</code></a></td>
+      <td>
+        Extracts a 64-bit integer from JSON.
+      </td>
+      <td><code>INT64</code></td>
+    </tr>
+    
+    
+    <tr>
+      <td><a href="#double_for_json"><code>DOUBLE</code></a></td>
+      <td>
+        Extracts a 64-bit floating-point number from JSON.
+      </td>
+      <td><code>DOUBLE</code></td>
+    </tr>
+    
+    
+    <tr>
+      <td><a href="#json_type"><code>JSON_TYPE</code></a></td>
+      <td>
+        Returns the type of the outermost JSON value as a string.
+      </td>
+      <td><code>STRING</code></td>
+    </tr>
+    
   </tbody>
 </table>
 
 ### JSON_EXTRACT
+
+Note: This function is deprecated. Consider using [JSON_QUERY][json-query].
 
 ```sql
 JSON_EXTRACT(json_string_expr, json_path)
@@ -480,6 +527,8 @@ FROM UNNEST([
 ```
 
 ### JSON_EXTRACT_SCALAR
+
+Note: This function is deprecated. Consider using [JSON_VALUE][json-value].
 
 ```sql
 JSON_EXTRACT_SCALAR(json_string_expr[, json_path])
@@ -1344,6 +1393,340 @@ FROM CoordinatesTable AS t;
 +----+-------------+--------------------+
 ```
 
+ 
+### STRING 
+<a id="string_for_json"></a>
+
+```sql
+STRING(json_expr)
+```
+
+**Description**
+
+Takes a JSON expression, extracts a JSON string, and returns that value as a SQL
+`STRING`. If the expression is SQL `NULL`, the function returns SQL
+`NULL`. If the extracted JSON value is not a string, an error is produced.
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"name": "sky", "color" : "blue"}'
+    ```
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+```sql
+SELECT STRING(JSON '"purple"') AS color;
+
++--------+
+| color  |
++--------+
+| purple |
++--------+
+```
+
+```sql
+SELECT STRING(JSON_QUERY(JSON '{"name": "sky", "color": "blue"}', "$.color")) AS color;
+
++-------+
+| color |
++-------+
+| blue  |
++-------+
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if the JSON is not of type string.
+SELECT STRING(JSON '123') AS result; -- Throws an error
+SELECT STRING(JSON 'null') AS result; -- Throws an error
+SELECT SAFE.STRING(JSON '123') AS result; -- Returns a SQL NULL
+```
+
+### BOOL 
+<a id="bool_for_json"></a>
+
+```sql
+BOOL(json_expr)
+```
+
+**Description**
+
+Takes a JSON expression, extracts a JSON boolean, and returns that value as a SQL
+`BOOL`. If the expression is SQL `NULL`, the function returns SQL
+`NULL`. If the extracted JSON value is not a boolean, an error is produced.
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"name": "sky", "color" : "blue"}'
+    ```
+
+**Return type**
+
+`BOOL`
+
+**Examples**
+
+```sql
+SELECT BOOL(JSON 'true') AS vacancy;
+
++---------+
+| vacancy |
++---------+
+| true    |
++---------+
+```
+
+```sql
+SELECT BOOL(JSON_QUERY(JSON '{"hotel class": "5-star", "vacancy": true}', "$.vacancy")) AS vacancy;
+
++---------+
+| vacancy |
++---------+
+| true    |
++---------+
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if JSON is not of type bool.
+SELECT BOOL(JSON '123') AS result; -- Throws an error
+SELECT BOOL(JSON 'null') AS result; -- Throw an error
+SELECT SAFE.BOOL(JSON '123') AS result; -- Returns a SQL NULL
+```
+
+### INT64 
+<a id="int64_for_json"></a>
+
+```sql
+INT64(json_expr)
+```
+
+**Description**
+
+Takes a JSON expression, extracts a JSON number and returns that value as a SQL
+`INT64`. If the expression is SQL `NULL`, the function returns SQL
+`NULL`. If the extracted JSON number has a fractional part or is outside of the
+INT64 domain, an error is produced.
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"name": "sky", "color" : "blue"}'
+    ```
+
+**Return type**
+
+`INT64`
+
+**Examples**
+
+```sql
+SELECT INT64(JSON '2005') AS flight_number;
+
++---------------+
+| flight_number |
++---------------+
+| 2005          |
++---------------+
+```
+
+```sql
+SELECT INT64(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight_number")) AS flight_number;
+
++---------------+
+| flight_number |
++---------------+
+| 2005          |
++---------------+
+```
+
+```sql
+SELECT INT64(JSON '10.0') AS score;
+
++-------+
+| score |
++-------+
+| 10    |
++-------+
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if JSON is not a number or cannot be converted to a 64-bit integer.
+SELECT INT64(JSON '10.1') AS result;  -- Throws an error
+SELECT INT64(JSON '"strawberry"') AS result; -- Throws an error
+SELECT INT64(JSON 'null') AS result; -- Throws an error
+SELECT SAFE.INT64(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
+
+```
+
+### DOUBLE 
+<a id="double_for_json"></a>
+
+```sql
+DOUBLE(json_expr[, wide_number_mode=>{ 'exact' | 'round'])
+```
+
+**Description**
+
+Takes a JSON expression, extracts a JSON number and returns that value as a SQL
+`DOUBLE`. If the expression is SQL `NULL`, the
+function returns SQL `NULL`. If the extracted JSON value is not a number, an
+error is produced.
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"name": "sky", "color" : "blue"}'
+    ```
+
+This function supports an optional mandatory-named argument called
+`wide_number_mode` which defines what happens with a number that cannot be
+represented as a DOUBLE without loss of precision.
+
+This argument accepts one of the two case-sensitive values:
+
++   ‘exact’: The function fails if the result cannot be represented as a
+    `DOUBLE` without loss of precision.
++   ‘round’: The numeric value stored in JSON will be rounded to
+    `DOUBLE`. If such rounding is not possible, the
+    function fails. This is the default value if the argument is not specified.
+
+**Return type**
+
+`DOUBLE`
+
+**Examples**
+
+```sql
+SELECT DOUBLE(JSON '9.8') AS velocity;
+
++----------+
+| velocity |
++----------+
+| 9.8      |
++----------+
+```
+
+```sql
+SELECT DOUBLE(JSON_QUERY(JSON '{"vo2_max": 39.1, "age": 18}', "$.vo2_max")) AS vo2_max;
+
++---------+
+| vo2_max |
++---------+
+| 39.1    |
++---------+
+```
+
+```sql
+SELECT DOUBLE(JSON '18446744073709551615', wide_number_mode=>'round') as result;
+
++------------------------+
+| result                 |
++------------------------+
+| 1.8446744073709552e+19 |
++------------------------+
+```
+
+```sql
+SELECT DOUBLE(JSON '18446744073709551615') as result;
+
++------------------------+
+| result                 |
++------------------------+
+| 1.8446744073709552e+19 |
++------------------------+
+```
+
+The following examples show how invalid requests are handled:
+
+```sql
+-- An error is thrown if JSON is not of type DOUBLE.
+SELECT DOUBLE(JSON '"strawberry"') AS result;
+SELECT DOUBLE(JSON 'null') AS result;
+
+-- An error is thrown because `wide_number_mode` is case-sensitive and not "exact" or "round".
+SELECT DOUBLE(JSON '123.4', wide_number_mode=>'EXACT') as result;
+SELECT DOUBLE(JSON '123.4', wide_number_mode=>'exac') as result;
+
+-- An error is thrown because the number cannot be converted to DOUBLE without loss of precision
+SELECT DOUBLE(JSON '18446744073709551615', wide_number_mode=>'exact') as result;
+
+-- Returns a SQL NULL
+SELECT SAFE.DOUBLE(JSON '"strawberry"') AS result;
+```
+
+### JSON_TYPE 
+<a id="json_type"></a>
+
+```sql
+JSON_TYPE(json_expr)
+```
+
+**Description**
+
+Takes a JSON expression and returns the type of the outermost JSON value as a
+SQL `STRING`. The names of these JSON types can be returned:
+
++ `object`
++ `array`
++ `string`
++ `number`
++ `boolean`
++ `null`
+
+If the expression is SQL `NULL`, the function returns SQL `NULL`. If the
+extracted JSON value is not a valid JSON type, an error is produced.
+
++   `json_expr`: JSON. For example:
+
+    ```
+    JSON '{"name": "sky", "color" : "blue"}'
+    ```
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+```sql
+SELECT json_val, JSON_TYPE(json_val) AS type
+FROM
+  UNNEST(
+    [
+      JSON '"apple"',
+      JSON '10',
+      JSON '3.14',
+      JSON 'null',
+      JSON '{"city": "New York", "State": "NY"}',
+      JSON '["apple", "banana"]',
+      JSON 'false'
+    ]
+  ) AS json_val;
+
++----------------------------------+---------+
+| json_val                         | type    |
++----------------------------------+---------+
+| "apple"                          | string  |
+| 10                               | number  |
+| 3.14                             | number  |
+| null                             | null    |
+| {"State":"NY","city":"New York"} | object  |
+| ["apple","banana"]               | array   |
+| false                            | boolean |
++----------------------------------+---------+
+```
+
 ### JSON encodings 
 <a id="json_encodings"></a>
 
@@ -1683,6 +2066,21 @@ or `TO_JSON` function.
     
     
     <tr>
+      <td>JSON</td>
+      <td>
+        <p>data of the input JSON</p>
+      </td>
+      <td>
+        SQL input: <code>JSON '{"item": "pen", "price": 10}'</code><br />
+        JSON output: <code>{"item":"pen", "price":10}</code><br />
+        <hr />
+        SQL input:<code>[1, 2, 3]</code><br />
+        JSON output:<code>[1, 2, 3]</code><br />
+      </td>
+    </tr>
+    
+    
+    <tr>
       <td>ARRAY</td>
       <td>
         <p>array</p>
@@ -1692,10 +2090,10 @@ or `TO_JSON` function.
       </td>
       <td>
         SQL input: <code>["red", "blue", "green"]</code><br />
-        JSON output: <code>["red", "blue", "green"]</code><br />
+        JSON output: <code>["red","blue","green"]</code><br />
         <hr />
         SQL input:<code>[1, 2, 3]</code><br />
-        JSON output:<code>[1, 2, 3]</code><br />
+        JSON output:<code>[1,2,3]</code><br />
       </td>
     </tr>
     
@@ -1813,6 +2211,14 @@ returns `NULL`.
 If the JSONPath is invalid, the function raises an error.
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[json-query]: #json_query
+
+[json-value]: #json_value
+
+[json-query-array]: #json_query_array
+
+[json-value-array]: #json_value_array
 
 [json-encodings]: #json_encodings
 

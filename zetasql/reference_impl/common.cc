@@ -119,7 +119,7 @@ absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>>
 GetCollatorFromResolvedCollation(const ResolvedCollation& resolved_collation) {
   ZETASQL_ASSIGN_OR_RETURN(std::string collation_name,
                    GetCollationNameFromResolvedCollation(resolved_collation));
-  return MakeSqlCollator(collation_name);
+  return MakeSqlCollatorLite(collation_name);
 }
 
 absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>>

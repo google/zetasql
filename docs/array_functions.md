@@ -434,133 +434,29 @@ SELECT
 ### FLATTEN
 
 ```sql
-FLATTEN(flatten_path)
-
-flatten_path:
-{
-  array_expression
-  | flatten_path.field
-  | flatten_path.array_field
-  | flatten_path.array_field[{offset_clause | safe_offset_clause}]
-}
+FLATTEN(array_elements_field_access_expression)
 ```
 
 **Description**
 
-Nested data can be flattened into a single, flat array with the `FLATTEN`
-operator. The `FLATTEN` operator accepts a unique type of path called the
-_flatten path_. The flatten path lets you traverse through the levels of a
-nested array from left to right. For example,
-`FLATTEN(column.array_field.target)` will return an array of all
-`targets` inside `column`. The flatten path can include:
+Takes a nested array and flattens a specific part of it into a single, flat
+array with the
+[array elements field access operator][array-el-field-operator].
+Returns `NULL` if the input value is `NULL`.
+If `NULL` array elements are
+encountered, they are added to the resulting array.
 
-+ `array_expression`: Expression that evaluates to a single, flat array.
-+ `flatten_path.field`: A concatenation of `element.field` for all elements of
-  `FLATTEN(flatten_path)`. `field` represents a non-array field.
-+ `flatten_path.array_field`: A concatenation of elements of
-  `element.array_field` for all elements of `FLATTEN(flatten_path)`.
-  `array_field` represents an array field.
-+ `[{offset_clause | safe_offset_clause}]`: If the optional
-  [`OFFSET`][array-subscript-operator] or
-  [`SAFE_OFFSET`][array-subscript-operator] is present,
-  for each array_field value, `FLATTEN` includes only the array element at
-  the selected offset, rather than all elements.
-
-`FLATTEN` can return `NULL` if following the flatten path encounters a
-`NULL` before it encounters an array. Once a non-null array is encountered,
-`FLATTEN` can never return `NULL` and will always return an array.
-
-`NULL`s in arrays are added to the resulting array.
-
-Tip: Nested data is common in protocol buffers that have data within repeated
-messages.
-
-Tip: The `FLATTEN` operator is implicit inside the `UNNEST` operator and
-`UNNEST(flatten_path)` is equivalent to `UNNEST(FLATTEN(flatten_path))`.
-
-You can learn more about flattening nested data into arrays and
-the flatten path in
+There are several ways to flatten nested data into arrays. To learn more, see
 [Flattening nested data into an array][flatten-tree-to-array].
 
 **Return type**
 
-ARRAY
+`ARRAY`
 
 **Examples**
 
-In this `STRUCT` example, `(5,6)` and `(7,8)` are flattened
-into `[5,6,7,8]`.
-
-```sql
-SELECT FLATTEN([
-  STRUCT( [STRUCT(5 AS y), STRUCT(6)] AS x ),
-  STRUCT( [STRUCT(7 AS y), STRUCT(8)] AS x )
-  ].x.y) AS my_array
-
-+--------------+
-| my_array     |
-+--------------+
-| [5, 6, 7, 8] |
-+--------------+
-```
-
-In this PROTO example, `(5)`, `(6,7)` and `(8)` are
-flattened into `[5,6,7,8]`.
-
-```proto
-message MyProto {
-  message InnerProto {
-    repeated int64 x = 1;
-  }
-  repeated InnerProto y = 2;
-}
-```
-
-```sql
-SELECT FLATTEN(
-  CAST(
-     'y { x: 5 }
-      y { x: 6 x: 7 }
-      y { x: 8 }'
-  AS MyProto).y.x AS my_array
-)
-
-+--------------+
-| my_array     |
-+--------------+
-| [5, 6, 7, 8] |
-+--------------+
-```
-
-In this PROTO example, `(5,6)` and `(7,8)` are
-flattened into `[(5,6), (7,8)]`.
-
-```proto
-message MyProto {
-  Message Inner {
-    int64 x = 1;
-    int64 y = 2;
-  }
-  repeated Inner z = 1;
-}
-```
-
-```sql
-SELECT FLATTEN(
-  CAST(
-     'z { x: 5  y: 6 }
-      z { x: 7  y: 8 }'
-  AS MyProto).z AS my_array
-
-+------------------+
-| my_array         |
-+------------------+
-| [(5, 6), (7, 8)] |
-+------------------+
-```
-
-In this example, all of the arrays for `v.sales.quantity` are concatenated in
-a flattened array.
+In the following example, all of the arrays for `v.sales.quantity` are
+concatenated in a flattened array.
 
 ```sql
 WITH t AS (
@@ -580,7 +476,7 @@ FROM t;
 +--------------------------+
 ```
 
-In this example, `OFFSET` gets the second value in each array and
+In the following example, `OFFSET` gets the second value in each array and
 concatenates them.
 
 ```sql
@@ -601,74 +497,29 @@ FROM t;
 +---------------+
 ```
 
-If you use `OFFSET` with `FLATTEN` and a value is missing from an array,
-an error is returned.
+In the following example, all values for `v.price` are returned in a
+flattened array.
 
 ```sql
 WITH t AS (
   SELECT
   [
-    STRUCT([STRUCT([1,2,3] AS quantity), STRUCT([4,5,6] AS quantity)] AS sales),
-    STRUCT([STRUCT([7,8,9] AS quantity), STRUCT([10] AS quantity)] AS sales)
+    STRUCT(1 AS price, 2 AS quantity),
+    STRUCT(10 AS price, 20 AS quantity)
   ] AS v
 )
-SELECT FLATTEN(v.sales.quantity[OFFSET(1)]) AS second_values
+SELECT FLATTEN(v.price) AS all_prices
 FROM t;
 
--- ERROR: Array index is out of bounds.
++------------+
+| all_prices |
++------------+
+| [1, 10]    |
++------------+
 ```
 
-In this example, `SAFE_OFFSET` gets the third value in each array and
-concatenates them. If a value is missing, a `NULL` is returned for the value.
-
-```sql
-WITH t AS (
-  SELECT
-  [
-    STRUCT([STRUCT([1,2,3] AS quantity), STRUCT([4,5,6] AS quantity)] AS sales),
-    STRUCT([STRUCT([7] AS quantity), STRUCT([10,11,12] AS quantity)] AS sales)
-  ] AS v
-)
-SELECT FLATTEN(v.sales.quantity[SAFE_OFFSET(1)]) AS third_values
-FROM t;
-
-+------------------+
-| third_values     |
-+------------------+
-| [3, 6, NULL, 12] |
-+------------------+
-```
-
-The resulting array may contain `NULL` `ARRAY` elements, but only if
-evaluating the flatten path along some array elements returns `NULL`.
-For example:
-
-```sql
-SELECT FLATTEN([
-  STRUCT( [STRUCT(5 AS y), STRUCT(6)] AS x ),
-  STRUCT( [STRUCT(7 AS y), NULL] AS x )
-  ].x.y) AS my_array
-
-+-----------------+
-| my_array        |
-+-----------------+
-| [5, 6, 7, NULL] |
-+-----------------+
-```
-
-```sql
-SELECT FLATTEN([
-  STRUCT( STRUCT(5 AS y) AS x),
-  STRUCT( NULL AS x ),
-  STRUCT( STRUCT(6 AS y) )
-  ].x.y) AS my_array
-
-+--------------+
-| my_array     |
-+--------------+
-| [5, NULL, 6] |
-+--------------+
-```
+For more examples, including how to use protocol buffers with `FLATTEN`, see the
+[array elements field access operator][array-el-field-operator].
 
 ### GENERATE_ARRAY
 
@@ -1172,6 +1023,8 @@ FROM example;
 [array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#array_type
 
 [flatten-tree-to-array]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_nested_data_into_arrays
+
+[array-el-field-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#array_el_field_operator
 
 [array-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md
 

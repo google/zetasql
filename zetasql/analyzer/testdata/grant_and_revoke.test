@@ -7,7 +7,7 @@ grant select on KeyValue to "mdbuser/user";
 --
 GrantStmt
 +-privilege_list=
-| +-Privilege(action_type="select", unit_list=)
+| +-Privilege(action_type="select")
 +-object_type=""
 +-name_path=KeyValue
 +-grantee_list=[`mdbuser/user`]
@@ -27,8 +27,8 @@ ALTERNATION GROUP: PARAMETERS_IN_GRANTEE_LIST
 --
 RevokeStmt
 +-privilege_list=
-| +-Privilege(action_type="select", unit_list=)
-| +-Privilege(action_type="insert", unit_list=)
+| +-Privilege(action_type="select")
+| +-Privilege(action_type="insert")
 +-object_type=""
 +-name_path=KeyValue
 +-grantee_expr_list=
@@ -53,8 +53,8 @@ ALTERNATION GROUP: PARAMETERS_IN_GRANTEE_LIST
 --
 RevokeStmt
 +-privilege_list=
-| +-Privilege(action_type="select", unit_list=)
-| +-Privilege(action_type="insert", unit_list=)
+| +-Privilege(action_type="select")
+| +-Privilege(action_type="insert")
 +-object_type=""
 +-name_path=KeyValue
 +-grantee_expr_list=
@@ -67,8 +67,15 @@ revoke select(col1, col2),insert(col2) on table KeyValue from "user@google.com";
 --
 RevokeStmt
 +-privilege_list=
-| +-Privilege(action_type="select", unit_list=col1.col2)
-| +-Privilege(action_type="insert", unit_list=col2)
+| +-Privilege
+| | +-action_type="select"
+| | +-unit_list=
+| |   +-ObjectUnit(name_path=col1)
+| |   +-ObjectUnit(name_path=col2)
+| +-Privilege
+|   +-action_type="insert"
+|   +-unit_list=
+|     +-ObjectUnit(name_path=col2)
 +-object_type="table"
 +-name_path=KeyValue
 +-grantee_list=[`user@google.com`]
@@ -90,3 +97,18 @@ ALTERNATION GROUP: PARAMETERS_IN_GRANTEE_LIST
 ERROR: Query parameters in the GRANTEE list must be STRING type [at 2:6]
 from @test_param_int64;
      ^
+==
+
+grant select (doubly_nested_struct.e, doubly_nested_struct.f.c) on DoublyNestedStructTable to "mdbuser/user";
+--
+ERROR: Privileges on nested fields are not supported in GRANT [at 1:15]
+grant select (doubly_nested_struct.e, doubly_nested_struct.f.c) on DoublyNest...
+              ^
+==
+
+revoke select (doubly_nested_struct.e, doubly_nested_struct.f.c) on DoublyNestedStructTable from "mdbuser/user";
+--
+ERROR: Privileges on nested fields are not supported in REVOKE [at 1:16]
+revoke select (doubly_nested_struct.e, doubly_nested_struct.f.c) on DoublyNes...
+               ^
+==

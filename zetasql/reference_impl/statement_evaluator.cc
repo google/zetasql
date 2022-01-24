@@ -229,7 +229,8 @@ absl::Status StatementEvaluatorImpl::StatementEvaluation::Analyze(
     Catalog* catalog) {
   ZETASQL_RETURN_IF_ERROR(AnalyzeStatement(sql, analyzer_options, catalog,
                                    type_factory(), &analyzer_output_));
-  if (analyzer_output_->analyzer_output_properties().has_anonymization) {
+  if (analyzer_output_->analyzer_output_properties().IsRelevant(
+          REWRITE_ANONYMIZATION)) {
     ZETASQL_ASSIGN_OR_RETURN(analyzer_output_,
                      RewriteForAnonymization(analyzer_output_, analyzer_options,
                                              catalog, type_factory()));

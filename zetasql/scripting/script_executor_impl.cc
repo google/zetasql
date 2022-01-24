@@ -827,11 +827,48 @@ absl::Status ScriptExecutorImpl::ExecuteAssignmentFromStruct() {
   return absl::OkStatus();
 }
 
+namespace {
+absl::Status ThrowErrorIfASTTypeHasCollation(const ASTType* type) {
+  if (type == nullptr) {
+    return absl::OkStatus();
+  }
+
+  if (type->collate() != nullptr) {
+    return MakeScriptExceptionAt(type->collate())
+           << "Type with collation name is not supported";
+  }
+
+  switch (type->node_kind()) {
+    case AST_SIMPLE_TYPE:
+      return absl::OkStatus();
+    case AST_ARRAY_TYPE: {
+      return ThrowErrorIfASTTypeHasCollation(
+          type->GetAsOrDie<ASTArrayType>()->element_type());
+    }
+    case AST_STRUCT_TYPE: {
+      for (auto struct_field :
+           type->GetAsOrDie<ASTStructType>()->struct_fields()) {
+        ZETASQL_RETURN_IF_ERROR(ThrowErrorIfASTTypeHasCollation(struct_field->type()));
+      }
+      return absl::OkStatus();
+    }
+    default:
+      // This will never happen since <type> cannot be of other node kinds.
+      ZETASQL_RET_CHECK_FAIL() << type->DebugString();
+      break;
+  }
+  return absl::OkStatus();
+}
+}  // namespace
+
 absl::Status ScriptExecutorImpl::ExecuteVariableDeclaration() {
   auto declaration = callstack_.back()
                          .current_node()
                          ->ast_node()
                          ->GetAs<ASTVariableDeclaration>();
+
+  ZETASQL_RETURN_IF_ERROR(ThrowErrorIfASTTypeHasCollation(declaration->type()));
+
   TypeWithParameters type_with_params;
   if (declaration->type() != nullptr) {
     auto segment = ScriptSegment::FromASTNode(CurrentScript()->script_text(),

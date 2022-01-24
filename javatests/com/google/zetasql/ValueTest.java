@@ -1144,6 +1144,221 @@ public class ValueTest {
   }
 
   @Test
+  public void testIntervalValueAsMicros() {
+    final int maxYears = 10000;
+    final int maxMonths = 12 * maxYears;
+    final int maxDays = 366 * maxYears;
+    final long maxMicros = maxDays * 24L * 3600 * 1000000;
+    final int minMonths = -maxMonths;
+    final int minDays = -maxDays;
+    final long minMicros = -maxMicros;
+
+    assertThat(
+            IntervalValue.builder()
+                .setMonths(maxMonths)
+                .setDays(maxDays)
+                .setMicros(maxMicros)
+                .setNanoFractions((short) 0)
+                .build()
+                .asMicros())
+        .isEqualTo(943488000000000000L);
+
+    assertThat(
+            IntervalValue.builder()
+                .setMonths(minMonths)
+                .setDays(minDays)
+                .setMicros(minMicros)
+                .setNanoFractions((short) 0)
+                .build()
+                .asMicros())
+        .isEqualTo(-943488000000000000L);
+
+    long[] microsTestCases = {
+      minMicros,
+      maxMicros,
+      minMicros + 1,
+      maxMicros - 1,
+      0,
+      1,
+      -1000,
+      1000000,
+      -123456789
+    };
+
+    for (long microsTestCase : microsTestCases) {
+      assertThat(
+              IntervalValue.builder()
+                  .setMonths(0)
+                  .setDays(0)
+                  .setMicros(microsTestCase)
+                  .setNanoFractions((short) 0)
+                  .build()
+                  .asMicros())
+          .isEqualTo(microsTestCase);
+    }
+  }
+
+  @Test
+  public void testIntervalValueCompare() throws Exception {
+    assertThat(
+            IntervalValue.builder()
+                .setMonths(2)
+                .setDays(3)
+                .setMicros(4)
+                .setNanoFractions((short) 5)
+                .build()
+                .compareTo(
+                    IntervalValue.builder()
+                        .setMonths(2)
+                        .setDays(3)
+                        .setMicros(4)
+                        .setNanoFractions((short) 5)
+                        .build()))
+        .isEqualTo(0);
+
+    assertThat(
+            IntervalValue.builder()
+                .setMonths(2)
+                .setDays(3)
+                .setMicros(4)
+                .setNanoFractions((short) 5)
+                .build()
+                .compareTo(
+                    IntervalValue.builder()
+                        .setMonths(2)
+                        .setDays(3)
+                        .setMicros(4)
+                        .setNanoFractions((short) 6)
+                        .build()))
+        .isEqualTo(-1);
+    assertThat(
+            IntervalValue.builder()
+                .setMonths(2)
+                .setDays(3)
+                .setMicros(4)
+                .setNanoFractions((short) 6)
+                .build()
+                .compareTo(
+                    IntervalValue.builder()
+                        .setMonths(2)
+                        .setDays(3)
+                        .setMicros(4)
+                        .setNanoFractions((short) 5)
+                        .build()))
+        .isEqualTo(1);
+
+    assertThat(
+            IntervalValue.builder()
+                .setMonths(2)
+                .setDays(3)
+                .setMicros(3)
+                .setNanoFractions((short) 5)
+                .build()
+                .compareTo(
+                    IntervalValue.builder()
+                        .setMonths(2)
+                        .setDays(3)
+                        .setMicros(4)
+                        .setNanoFractions((short) 5)
+                        .build()))
+        .isEqualTo(-1);
+    assertThat(
+            IntervalValue.builder()
+                .setMonths(2)
+                .setDays(3)
+                .setMicros(4)
+                .setNanoFractions((short) 5)
+                .build()
+                .compareTo(
+                    IntervalValue.builder()
+                        .setMonths(2)
+                        .setDays(3)
+                        .setMicros(3)
+                        .setNanoFractions((short) 5)
+                        .build()))
+        .isEqualTo(1);
+
+    assertThat(
+            IntervalValue.builder()
+                .setMonths(2)
+                .setDays(2)
+                .setMicros(4)
+                .setNanoFractions((short) 5)
+                .build()
+                .compareTo(
+                    IntervalValue.builder()
+                        .setMonths(2)
+                        .setDays(3)
+                        .setMicros(4)
+                        .setNanoFractions((short) 5)
+                        .build()))
+        .isEqualTo(-1);
+    assertThat(
+            IntervalValue.builder()
+                .setMonths(2)
+                .setDays(3)
+                .setMicros(4)
+                .setNanoFractions((short) 5)
+                .build()
+                .compareTo(
+                    IntervalValue.builder()
+                        .setMonths(2)
+                        .setDays(2)
+                        .setMicros(4)
+                        .setNanoFractions((short) 5)
+                        .build()))
+        .isEqualTo(1);
+
+    assertThat(
+            IntervalValue.builder()
+                .setMonths(1)
+                .setDays(3)
+                .setMicros(4)
+                .setNanoFractions((short) 5)
+                .build()
+                .compareTo(
+                    IntervalValue.builder()
+                        .setMonths(2)
+                        .setDays(3)
+                        .setMicros(4)
+                        .setNanoFractions((short) 5)
+                        .build()))
+        .isEqualTo(-1);
+    assertThat(
+            IntervalValue.builder()
+                .setMonths(2)
+                .setDays(3)
+                .setMicros(4)
+                .setNanoFractions((short) 5)
+                .build()
+                .compareTo(
+                    IntervalValue.builder()
+                        .setMonths(1)
+                        .setDays(3)
+                        .setMicros(4)
+                        .setNanoFractions((short) 5)
+                        .build()))
+        .isEqualTo(1);
+
+    // 604800000000 micros = 7 days  vs 1 day
+    assertThat(
+            IntervalValue.builder()
+                .setMonths(0)
+                .setDays(0)
+                .setMicros(604800000000L)
+                .setNanoFractions((short) 5)
+                .build()
+                .compareTo(
+                    IntervalValue.builder()
+                        .setMonths(0)
+                        .setDays(1)
+                        .setMicros(4)
+                        .setNanoFractions((short) 5)
+                        .build()))
+        .isEqualTo(1);
+  }
+
+  @Test
   public void testStringValue() {
     Value hello = Value.createStringValue("hello");
     Value world = Value.createStringValue("world");

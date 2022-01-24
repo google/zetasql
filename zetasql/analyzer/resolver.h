@@ -755,10 +755,13 @@ class Resolver {
   // - <ast_column_default>: a pointer to the ASTExpression object holding the
   //   default expression.
   // - <opt_type>: The type of this expression provided from the syntax.
+  // - <skip_type_match_check>: when true, skip checking default value type
+  //   can be coerced to column type. Mainly used in ALTER COLUMN SET DEFAULT
+  //   when the column doesn't exist.
   // - <default_value>: The resolved default value.
   absl::Status ResolveColumnDefaultExpression(
-      const ASTExpression* ast_column_default, const NameList& column_name_list,
-      const Type* opt_type,
+      const ASTExpression* ast_column_default, const Type* opt_type,
+      bool skip_type_match_check,
       std::unique_ptr<ResolvedColumnDefaultValue>* default_value);
 
   // Resolve the column definition list from a CREATE TABLE statement.
@@ -1332,16 +1335,15 @@ class Resolver {
   // <table> can be NULL. If the table does not exist in the catalog, we try
   // to resolve the ALTER statement anyway.
   absl::Status ResolveDropColumnAction(
-      IdString table_name_id_string, const Table* table,
-      const ASTDropColumnAction* action, IdStringSetCase* new_columns,
-      IdStringSetCase* columns_to_drop,
+      const Table* table, const ASTDropColumnAction* action,
+      IdStringSetCase* new_columns, IdStringSetCase* columns_to_drop,
       std::unique_ptr<const ResolvedAlterAction>* alter_action);
 
   // <table> can be NULL. If the table does not exist in the catalog, we try
   // to resolve the ALTER statement anyway.
   absl::Status ResolveRenameColumnAction(
-      IdString table_name_id_string, const Table* table,
-      const ASTRenameColumnAction* action, IdStringSetCase* columns_to_rename,
+      const Table* table, const ASTRenameColumnAction* action,
+      IdStringSetCase* columns_to_rename,
       IdStringHashMapCase<IdString>* columns_rename_map,
       std::unique_ptr<const ResolvedAlterAction>* alter_action);
 
@@ -1355,19 +1357,29 @@ class Resolver {
   // <table> can be NULL. If the table does not exist in the catalog, we try
   // to resolve the ALTER statement anyway.
   absl::Status ResolveAlterColumnOptionsAction(
-      IdString table_name_id_string, const Table* table,
-      const ASTAlterColumnOptionsAction* action,
+      const Table* table, const ASTAlterColumnOptionsAction* action,
       std::unique_ptr<const ResolvedAlterAction>* alter_action);
 
   // <table> can be NULL. If the table does not exist in the catalog, we try
   // to resolve the ALTER statement anyway.
   absl::Status ResolveAlterColumnDropNotNullAction(
+      const Table* table, const ASTAlterColumnDropNotNullAction* action,
+      std::unique_ptr<const ResolvedAlterAction>* alter_action);
+
+  // <table> can be NULL. If the table does not exist in the catalog, we try
+  // to resolve the ALTER statement anyway.
+  absl::Status ResolveAlterColumnSetDefaultAction(
       IdString table_name_id_string, const Table* table,
-      const ASTAlterColumnDropNotNullAction* action,
+      const ASTAlterColumnSetDefaultAction* action,
+      std::unique_ptr<const ResolvedAlterAction>* alter_action);
+
+  // <table> can be NULL. If the table does not exist in the catalog, we try
+  // to resolve the ALTER statement anyway.
+  absl::Status ResolveAlterColumnDropDefaultAction(
+      const Table* table, const ASTAlterColumnDropDefaultAction* action,
       std::unique_ptr<const ResolvedAlterAction>* alter_action);
 
   absl::Status ResolveSetCollateClause(
-      IdString table_name_id_string,
       const ASTSetCollateClause* action,
       std::unique_ptr<const ResolvedAlterAction>* alter_action);
 
@@ -3445,11 +3457,15 @@ class Resolver {
       std::vector<UpdateTargetInfo>* input_update_target_infos,
       UpdateItemAndLocation* merged_update_item);
 
-  // Resolves privileges, validating that the privileges are non-empty, and, if
-  // the table is not nullptr, validates that any column privileges correspond
-  // to columns that exist in the table.
+  // Resolves privileges, validating that the privileges are non-empty. If
+  // name_scope is not nullptr, validates that any referenced paths exist in the
+  // name scope (e.g. validate that column- and field-level privileges
+  // correspond to columns and fields that exist in the name scope of a table).
+  // If enable_nested_field_privileges is false, returns an error if any of the
+  // given privileges are on nested fields.
   absl::Status ResolvePrivileges(
-      const ASTPrivileges* ast_privileges, const Table* table,
+      const ASTPrivileges* ast_privileges, const NameScope* name_scope,
+      bool enable_nested_field_privileges, absl::string_view statement_type,
       std::vector<std::unique_ptr<const ResolvedPrivilege>>* privilege_list);
 
   // Resolves a sample scan. Adds the name of the weight column to
@@ -3763,6 +3779,14 @@ class Resolver {
   // <error_location> is used for error messages.
   absl::Status MaybeResolveCollationForFunctionCallBase(
       const ASTNode* error_location, ResolvedFunctionCallBase* function_call);
+
+  // Resolves operation collation for a subquery expression. Operation collation
+  // is calculated only when the subquery type is IN; otherwise, this call
+  // returns OK.
+  // The collation will be stored in <subquery_expr>.in_collation.
+  // <error_location> is used for error messages.
+  absl::Status MaybeResolveCollationForSubqueryExpr(
+      const ASTNode* error_location, ResolvedSubqueryExpr* subquery_expr);
 
   void FetchCorrelatedSubqueryParameters(
       const CorrelatedColumnsSet& correlated_columns_set,

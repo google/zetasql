@@ -88,10 +88,10 @@ FixedInt<64, n * 2> GetScaledCovarianceNumerator(
 }
 
 template <int n, int m>
-double GetCovariance(const FixedInt<64, n>& sum_x, const FixedInt<64, n>& sum_y,
-                     const FixedInt<64, n * 2 - 1>& sum_product,
-                     const FixedUint<64, m>& scaling_factor_square,
-                     uint64_t count, uint64_t count_offset) {
+double Covariance(const FixedInt<64, n>& sum_x, const FixedInt<64, n>& sum_y,
+                  const FixedInt<64, n * 2 - 1>& sum_product,
+                  const FixedUint<64, m>& scaling_factor_square, uint64_t count,
+                  uint64_t count_offset) {
   FixedInt<64, n* 2> numerator =
       GetScaledCovarianceNumerator(sum_x, sum_y, sum_product, count);
   FixedUint<64, m + 2> denominator(scaling_factor_square);
@@ -1884,38 +1884,23 @@ void NumericValue::VarianceAggregator::Subtract(NumericValue value) {
   sum_square_ -= FixedInt<64, 5>(ExtendAndMultiply(v, v));
 }
 
-absl::optional<double> NumericValue::VarianceAggregator::GetPopulationVariance(
-    uint64_t count) const {
-  if (count > 0) {
-    return GetCovariance(sum_, sum_, sum_square_, NumericScalingFactorSquared(),
-                         count, 0);
+absl::optional<double> NumericValue::VarianceAggregator::GetVariance(
+    uint64_t count, bool is_sampling) const {
+  uint64_t count_offset = is_sampling;
+  if (count > count_offset) {
+    return Covariance(sum_, sum_, sum_square_, NumericScalingFactorSquared(),
+                      count, count_offset);
   }
   return absl::nullopt;
 }
 
-absl::optional<double> NumericValue::VarianceAggregator::GetSamplingVariance(
-    uint64_t count) const {
-  if (count > 1) {
-    return GetCovariance(sum_, sum_, sum_square_, NumericScalingFactorSquared(),
-                         count, 1);
-  }
-  return absl::nullopt;
-}
-
-absl::optional<double> NumericValue::VarianceAggregator::GetPopulationStdDev(
-    uint64_t count) const {
-  if (count > 0) {
-    return std::sqrt(GetCovariance(sum_, sum_, sum_square_,
-                                   NumericScalingFactorSquared(), count, 0));
-  }
-  return absl::nullopt;
-}
-
-absl::optional<double> NumericValue::VarianceAggregator::GetSamplingStdDev(
-    uint64_t count) const {
-  if (count > 1) {
-    return std::sqrt(GetCovariance(sum_, sum_, sum_square_,
-                                   NumericScalingFactorSquared(), count, 1));
+absl::optional<double> NumericValue::VarianceAggregator::GetStdDev(
+    uint64_t count, bool is_sampling) const {
+  uint64_t count_offset = is_sampling;
+  if (count > count_offset) {
+    return std::sqrt(Covariance(sum_, sum_, sum_square_,
+                                NumericScalingFactorSquared(), count,
+                                count_offset));
   }
   return absl::nullopt;
 }
@@ -1959,22 +1944,12 @@ void NumericValue::CovarianceAggregator::Subtract(NumericValue x,
   sum_product_ -= FixedInt<64, 5>(ExtendAndMultiply(x_num, y_num));
 }
 
-absl::optional<double>
-NumericValue::CovarianceAggregator::GetPopulationCovariance(
-    uint64_t count) const {
-  if (count > 0) {
-    return GetCovariance(sum_x_, sum_y_, sum_product_,
-                         NumericScalingFactorSquared(), count, 0);
-  }
-  return absl::nullopt;
-}
-
-absl::optional<double>
-NumericValue::CovarianceAggregator::GetSamplingCovariance(
-    uint64_t count) const {
-  if (count > 1) {
-    return GetCovariance(sum_x_, sum_y_, sum_product_,
-                         NumericScalingFactorSquared(), count, 1);
+absl::optional<double> NumericValue::CovarianceAggregator::GetCovariance(
+    uint64_t count, bool is_sampling) const {
+  uint64_t count_offset = is_sampling;
+  if (count > count_offset) {
+    return Covariance(sum_x_, sum_y_, sum_product_,
+                      NumericScalingFactorSquared(), count, count_offset);
   }
   return absl::nullopt;
 }
@@ -2577,39 +2552,23 @@ void BigNumericValue::VarianceAggregator::Subtract(BigNumericValue value) {
   sum_square_ -= FixedInt<64, 9>(ExtendAndMultiply(v, v));
 }
 
-absl::optional<double>
-BigNumericValue::VarianceAggregator::GetPopulationVariance(
-    uint64_t count) const {
-  if (count > 0) {
-    return GetCovariance(sum_, sum_, sum_square_,
-                         BigNumericScalingFactorSquared(), count, 0);
+absl::optional<double> BigNumericValue::VarianceAggregator::GetVariance(
+    uint64_t count, bool is_sampling) const {
+  uint64_t count_offset = is_sampling;
+  if (count > count_offset) {
+    return Covariance(sum_, sum_, sum_square_, BigNumericScalingFactorSquared(),
+                      count, count_offset);
   }
   return absl::nullopt;
 }
 
-absl::optional<double> BigNumericValue::VarianceAggregator::GetSamplingVariance(
-    uint64_t count) const {
-  if (count > 1) {
-    return GetCovariance(sum_, sum_, sum_square_,
-                         BigNumericScalingFactorSquared(), count, 1);
-  }
-  return absl::nullopt;
-}
-
-absl::optional<double> BigNumericValue::VarianceAggregator::GetPopulationStdDev(
-    uint64_t count) const {
-  if (count > 0) {
-    return std::sqrt(GetCovariance(sum_, sum_, sum_square_,
-                                   BigNumericScalingFactorSquared(), count, 0));
-  }
-  return absl::nullopt;
-}
-
-absl::optional<double> BigNumericValue::VarianceAggregator::GetSamplingStdDev(
-    uint64_t count) const {
-  if (count > 1) {
-    return std::sqrt(GetCovariance(sum_, sum_, sum_square_,
-                                   BigNumericScalingFactorSquared(), count, 1));
+absl::optional<double> BigNumericValue::VarianceAggregator::GetStdDev(
+    uint64_t count, bool is_sampling) const {
+  uint64_t count_offset = is_sampling;
+  if (count > count_offset) {
+    return std::sqrt(Covariance(sum_, sum_, sum_square_,
+                                BigNumericScalingFactorSquared(), count,
+                                count_offset));
   }
   return absl::nullopt;
 }
@@ -2650,22 +2609,12 @@ void BigNumericValue::CovarianceAggregator::Subtract(BigNumericValue x,
   sum_product_ -= FixedInt<64, 9>(ExtendAndMultiply(x.value_, y.value_));
 }
 
-absl::optional<double>
-BigNumericValue::CovarianceAggregator::GetPopulationCovariance(
-    uint64_t count) const {
-  if (count > 0) {
-    return GetCovariance(sum_x_, sum_y_, sum_product_,
-                         BigNumericScalingFactorSquared(), count, 0);
-  }
-  return absl::nullopt;
-}
-
-absl::optional<double>
-BigNumericValue::CovarianceAggregator::GetSamplingCovariance(
-    uint64_t count) const {
-  if (count > 1) {
-    return GetCovariance(sum_x_, sum_y_, sum_product_,
-                         BigNumericScalingFactorSquared(), count, 1);
+absl::optional<double> BigNumericValue::CovarianceAggregator::GetCovariance(
+    uint64_t count, bool is_sampling) const {
+  uint64_t count_offset = is_sampling;
+  if (count > count_offset) {
+    return Covariance(sum_x_, sum_y_, sum_product_,
+                      BigNumericScalingFactorSquared(), count, count_offset);
   }
   return absl::nullopt;
 }

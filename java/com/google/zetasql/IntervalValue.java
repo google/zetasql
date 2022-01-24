@@ -30,7 +30,7 @@ import java.nio.ByteOrder;
 @AutoValue
 @Immutable
 @SuppressWarnings("GoodTime")
-public abstract class IntervalValue {
+public abstract class IntervalValue implements Comparable<IntervalValue> {
 
   private static final int MONTHS_MASK = 0x7FFFE000;
   private static final int NANO_FRACTIONS_MASK = 0x3FF;
@@ -48,6 +48,19 @@ public abstract class IntervalValue {
   private static final int MIN_DAYS = -MAX_DAYS;
   private static final long MIN_MICROS = -MAX_MICROS;
   private static final int MIN_NANO_FRACTIONS = 0;
+
+  private static final long DAYS_IN_MONTH = 30;
+  private static final long HOURS_IN_DAY = 24;
+  private static final long MINUTE_IN_HOUR = 60L;
+  private static final long SECONDS_IN_MINUTE = 60L;
+  private static final long MILLIS_IN_SECOND = 1000L;
+  private static final long MICROS_IN_MILLI = 1000L;
+
+  private static final long MICROS_IN_SECOND = MILLIS_IN_SECOND * MICROS_IN_MILLI;
+  private static final long MICROS_IN_MINUTE  = SECONDS_IN_MINUTE * MICROS_IN_SECOND;
+  private static final long MICROS_IN_HOUR = MINUTE_IN_HOUR * MICROS_IN_MINUTE;
+  private static final long MICROS_IN_DAY = HOURS_IN_DAY * MICROS_IN_HOUR;
+  private static final long MICROS_IN_MONTH = DAYS_IN_MONTH * MICROS_IN_DAY;
 
   public abstract int months();
 
@@ -150,6 +163,21 @@ public abstract class IntervalValue {
 
   public static void validateNanoFractions(int nanoFractions) {
     validateField(nanoFractions, MIN_NANO_FRACTIONS, MAX_NANO_FRACTIONS, "nanoFractions");
+  }
+
+  // micros can be bigger (up to 3 times) than the maximum number of micros
+  // allowed in interval.
+  public long asMicros() {
+    return months() * MICROS_IN_MONTH + days() * MICROS_IN_DAY + micros();
+  }
+
+  @Override
+  public int compareTo(IntervalValue other) {
+    int microsComp = Long.compare(asMicros(), other.asMicros());
+    if (microsComp != 0) {
+      return microsComp;
+    }
+    return Short.compare(nanoFractions(), other.nanoFractions());
   }
 
   private static <T extends Comparable<T>> void validateField(

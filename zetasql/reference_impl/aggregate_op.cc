@@ -290,7 +290,7 @@ class OrderByAccumulator : public IntermediateAggregateAccumulator {
     ZETASQL_ASSIGN_OR_RETURN(
         auto tuple_comparator,
         TupleComparator::Create(keys_, slots_for_keys_, params_, context_));
-    inputs_.Sort(*tuple_comparator, /*use_stable_sort=*/false);
+    inputs_.Sort(*tuple_comparator, context_->options().always_use_stable_sort);
 
     const bool inputs_in_defined_order = tuple_comparator->IsUniquelyOrdered(
         inputs_.GetTuplePtrs(), slots_for_values_);
@@ -626,8 +626,8 @@ class HavingExtremalValueAccumulator : public IntermediateAggregateAccumulator {
                                                types::BoolType());
       Value equals_result;
       if (!equals_function.Eval(
-              {extremal_having_value_, new_extremal_having_value}, context_,
-              &equals_result, status)) {
+              params_, {extremal_having_value_, new_extremal_having_value},
+              context_, &equals_result, status)) {
         return false;
       }
       reset = !(equals_result == Bool(true));
@@ -645,8 +645,8 @@ class HavingExtremalValueAccumulator : public IntermediateAggregateAccumulator {
     const ComparisonFunction equals_function(FunctionKind::kEqual,
                                              types::BoolType());
     Value equals_result;
-    if (!equals_function.Eval({extremal_having_value_, having_value}, context_,
-                              &equals_result, status)) {
+    if (!equals_function.Eval(params_, {extremal_having_value_, having_value},
+                              context_, &equals_result, status)) {
       return false;
     }
     const bool accumulate = (equals_result == Bool(true));
@@ -1581,7 +1581,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<TupleComparator> tuple_comparator,
       TupleComparator::Create(keys(), slots_for_keys, params, context));
-  tuples->Sort(*tuple_comparator, /*use_stable_sort=*/false);
+  tuples->Sort(*tuple_comparator, context->options().always_use_stable_sort);
 
   auto input_schema =
       absl::make_unique<TupleSchema>(input_iter->Schema().variables());

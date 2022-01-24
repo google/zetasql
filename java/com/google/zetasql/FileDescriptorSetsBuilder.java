@@ -19,7 +19,6 @@ package com.google.zetasql;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
 import com.google.protobuf.Descriptors.FileDescriptor;
@@ -208,13 +207,13 @@ public class FileDescriptorSetsBuilder implements Serializable {
 
     private void writeObject(java.io.ObjectOutputStream out) throws IOException {
       out.defaultWriteObject();
-      fileDescriptorSet.build().toByteString().writeTo(out);
+      fileDescriptorSet.build().writeTo(out);
     }
 
     private void readObject(java.io.ObjectInputStream in)
         throws IOException, ClassNotFoundException {
       in.defaultReadObject();
-      this.fileDescriptorSet = FileDescriptorSet.newBuilder().mergeFrom(ByteString.readFrom(in));
+      this.fileDescriptorSet = FileDescriptorSet.newBuilder().mergeFrom(in);
     }
 
     /** Merge another FileDescriptorSetBuilder into this one, and return the difference. */

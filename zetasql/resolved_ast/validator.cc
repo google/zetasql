@@ -891,6 +891,20 @@ absl::Status Validator::ValidateResolvedSubqueryExpr(
                                          resolved_subquery_expr->in_expr()));
   }
 
+  if (!resolved_subquery_expr->in_collation().Empty()) {
+    VALIDATOR_RET_CHECK_EQ(type, ResolvedSubqueryExpr::IN)
+        << "<in_collation> should only be populated for Subquery expressions "
+           "of IN type. Subquery expression type is "
+        << ResolvedSubqueryExprEnums::SubqueryType_Name(type);
+    VALIDATOR_RET_CHECK_NE(resolved_subquery_expr->in_expr(), nullptr);
+    // We only check that <in_collation> is compatible with the type of
+    // <in_expr> here given the type of subquery column should match that of
+    // <in_expr> (which is checked afterwards).
+    VALIDATOR_RET_CHECK(
+        resolved_subquery_expr->in_collation().HasCompatibleStructure(
+            resolved_subquery_expr->in_expr()->type()));
+  }
+
   std::set<ResolvedColumn> subquery_parameters;
   for (const std::unique_ptr<const ResolvedColumnRef>& column_ref :
        resolved_subquery_expr->parameter_list()) {
@@ -4843,6 +4857,23 @@ absl::Status Validator::ValidateResolvedAlterAction(
                                ->column()
                                .empty());
       break;
+    case RESOLVED_ALTER_COLUMN_SET_DEFAULT_ACTION: {
+      const auto* set_default =
+          action->GetAs<ResolvedAlterColumnSetDefaultAction>();
+      VALIDATOR_RET_CHECK(!set_default->column().empty());
+      const ResolvedColumnDefaultValue* default_value =
+          set_default->default_value();
+      VALIDATOR_RET_CHECK(default_value != nullptr);
+      ZETASQL_RETURN_IF_ERROR(
+          ValidateResolvedColumnDefaultValue(default_value,
+                                             /*column_type=*/nullptr,
+                                             /*skip_check_type_match=*/true));
+    } break;
+    case RESOLVED_ALTER_COLUMN_DROP_DEFAULT_ACTION:
+      VALIDATOR_RET_CHECK(!action->GetAs<ResolvedAlterColumnDropDefaultAction>()
+                               ->column()
+                               .empty());
+      break;
     case RESOLVED_SET_COLLATE_CLAUSE:
       VALIDATOR_RET_CHECK(
           action->GetAs<ResolvedSetCollateClause>()->collation_name() !=
@@ -4860,10 +4891,13 @@ absl::Status Validator::ValidateResolvedAlterAction(
 
 absl::Status Validator::ValidateResolvedColumnDefaultValue(
     const ResolvedColumnDefaultValue* default_value,
-    const zetasql::Type* column_type) {
+    const zetasql::Type* column_type, bool skip_check_type_match) {
   VALIDATOR_RET_CHECK_NE(default_value->expression(), nullptr);
   VALIDATOR_RET_CHECK(!default_value->sql().empty());
-  VALIDATOR_RET_CHECK(default_value->expression()->type()->Equals(column_type));
+  if (!skip_check_type_match) {
+    VALIDATOR_RET_CHECK(
+        default_value->expression()->type()->Equals(column_type));
+  }
   return ValidateResolvedExpr(
       /*visible_columns=*/{}, /*visible_parameters=*/{},
       default_value->expression());

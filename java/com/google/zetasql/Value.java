@@ -505,9 +505,7 @@ public class Value implements Serializable {
       case TYPE_DATE:
         return other.getDateValue() == getDateValue();
       case TYPE_TIMESTAMP:
-        return Timestamps.comparator()
-                .compare(other.proto.getTimestampValue(), proto.getTimestampValue())
-            == 0;
+        return Timestamps.compare(other.proto.getTimestampValue(), proto.getTimestampValue()) == 0;
       case TYPE_TIME:
         return other.getTimeValue() == getTimeValue();
       case TYPE_DATETIME:
@@ -699,15 +697,15 @@ public class Value implements Serializable {
         }
       case TYPE_ARRAY:
         {
-          String result = "";
           if (isNull()) {
             return verbose
                 ? String.format(
                     "Array<%s>(NULL)", getType().asArray().getElementType().debugString(false))
                 : "NULL";
           }
+          StringBuilder result = new StringBuilder();
           for (Value v : getElementList()) {
-            result = result.concat(result.isEmpty() ? "" : ", ").concat(v.debugString(verbose));
+            result.append(result.length() == 0 ? "" : ", ").append(v.debugString(verbose));
           }
           return String.format("%s%s]", verbose ? "Array[" : "[", result);
         }

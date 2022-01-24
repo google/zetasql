@@ -998,10 +998,14 @@ ARRAY<STRUCT<row_id INT64,
 [name=analytic_percentile_cont_partition]
 SELECT x, y, z, PERCENTILE_CONT(z, 0.5) OVER (PARTITION BY x_id, y_id)
 FROM (
-  SELECT t1.row_id x_id, t1.value x, t2.row_id y_id, t2.value y
-  FROM TestTable t1, TestTable t2
+  SELECT t1.row_id x_id, t1.value x, t2.row_id y_id, t2.value y,
+  t1.value z FROM TestTable t1, TestTable t2
   WHERE t1.row_id <= 5 AND t2.row_id <= 5
-) t3, UNNEST([t3.x, t3.y]) z
+  UNION ALL
+  SELECT t1.row_id x_id, t1.value x, t2.row_id y_id, t2.value y,
+  t2.value z FROM TestTable t1, TestTable t2
+  WHERE t1.row_id <= 5 AND t2.row_id <= 5
+)
 --
 ARRAY<STRUCT<x DOUBLE, y DOUBLE, z DOUBLE, DOUBLE>>[
   {NULL, NULL, NULL, NULL},

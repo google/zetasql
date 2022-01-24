@@ -900,8 +900,8 @@ absl::Status Resolver::ResolveGeneratedColumnInfo(
 }
 
 absl::Status Resolver::ResolveColumnDefaultExpression(
-    const ASTExpression* ast_column_default, const NameList& column_name_list,
-    const Type* opt_type,
+    const ASTExpression* ast_column_default, const Type* opt_type,
+    bool skip_type_match_check,
     std::unique_ptr<ResolvedColumnDefaultValue>* default_value) {
   static constexpr char kDefaultColumn[] = "a column default expression";
   ZETASQL_RET_CHECK(default_expr_access_error_name_scope_.has_value());
@@ -911,16 +911,18 @@ absl::Status Resolver::ResolveColumnDefaultExpression(
       ast_column_default, default_expr_access_error_name_scope_.value(),
       kDefaultColumn, &resolved_expression));
 
-  if (opt_type == nullptr) {
-    return MakeSqlErrorAt(ast_column_default)
-           << "A column with default expression must have an explicit type.";
+  if (!skip_type_match_check) {
+    if (opt_type == nullptr) {
+      return MakeSqlErrorAt(ast_column_default)
+             << "A column with default expression must have an explicit type.";
+    }
+    ZETASQL_RETURN_IF_ERROR(
+        CoerceExprToType(ast_column_default, opt_type, kImplicitAssignment,
+                         "Column default expression has type $1 "
+                         "which cannot be assigned to column type $0",
+                         &resolved_expression));
   }
 
-  ZETASQL_RETURN_IF_ERROR(CoerceExprToType(ast_column_default, opt_type,
-                                   kImplicitAssignment,
-                                   "Column default expression has type $1 "
-                                   "which cannot be assigned to column type $0",
-                                   &resolved_expression));
   // Extract default value SQL string from AST.
   const ParseLocationRange& ast_default_expression_range =
       ast_column_default->GetParseLocationRange();
@@ -1315,8 +1317,8 @@ absl::Status Resolver::ResolveColumnSchema(
              << "Column DEFAULT value is not supported";
     }
     ZETASQL_RETURN_IF_ERROR(ResolveColumnDefaultExpression(
-        schema->default_expression(), column_name_list, *resolved_type,
-        default_value));
+        schema->default_expression(), *resolved_type,
+        /*skip_type_match_check=*/false, default_value));
   }
 
   const bool not_null =
@@ -4512,6 +4514,8 @@ absl::Status Resolver::ResolveGranteeList(
 absl::Status Resolver::ResolveCreatePrivilegeRestrictionStatement(
     const ASTCreatePrivilegeRestrictionStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
+  ZETASQL_RET_CHECK(ast_statement->name_path() != nullptr);
+
   // The statement type is used for error messaging.
   constexpr absl::string_view statement_type = "CREATE PRIVILEGE RESTRICTION";
   ResolvedCreateStatement::CreateScope create_scope;
@@ -4527,10 +4531,6 @@ absl::Status Resolver::ResolveCreatePrivilegeRestrictionStatement(
   ZETASQL_RET_CHECK(!ast_statement->is_temp())
       << absl::StrFormat("CREATE TEMP %s is not supported", statement_type);
 
-  // If the table is not found, an error is returned.
-  const Table* table;
-  ZETASQL_RETURN_IF_ERROR(FindTable(ast_statement->name_path(), &table));
-
   std::vector<std::unique_ptr<const ResolvedExpr>> restrictee_expr_list;
   if (ast_statement->restrict_to() != nullptr) {
     // We reuse ResolveGranteeList because restrictee_list and grantee_list have
@@ -4544,9 +4544,31 @@ absl::Status Resolver::ResolveCreatePrivilegeRestrictionStatement(
     }
   }
 
+  for (const ASTPrivilege* privilege :
+       ast_statement->privileges()->privileges()) {
+    if (privilege->paths() == nullptr ||
+        privilege->paths()->path_expression_list().empty()) {
+      return MakeSqlErrorAt(privilege) << "Expected privilege to contain paths";
+    }
+  }
+
+  const ASTPathExpression* table_path = ast_statement->name_path();
+  const IdString alias = GetAliasForExpression(table_path);
+  std::unique_ptr<const ResolvedTableScan> resolved_table_scan;
+  std::shared_ptr<const NameList> name_list;
+  ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
+      table_path, alias, /*has_explicit_alias=*/false,
+      /*alias_location=*/table_path, /*hints=*/nullptr,
+      /*for_system_time=*/nullptr, empty_name_scope_.get(),
+      &resolved_table_scan, &name_list));
+  const std::shared_ptr<const NameScope> name_scope =
+      std::make_shared<NameScope>(/*previous_scope=*/nullptr, name_list);
+
   std::vector<std::unique_ptr<const ResolvedPrivilege>> column_privilege_list;
-  ZETASQL_RETURN_IF_ERROR(ResolvePrivileges(ast_statement->column_privilege_list(),
-                                    table, &column_privilege_list));
+  ZETASQL_RETURN_IF_ERROR(ResolvePrivileges(ast_statement->privileges(),
+                                    name_scope.get(),
+                                    /*enable_nested_field_privileges=*/true,
+                                    statement_type, &column_privilege_list));
 
   *output = MakeResolvedCreatePrivilegeRestrictionStmt(
       ast_statement->name_path()->ToIdentifierVector(), create_scope,
@@ -4650,10 +4672,13 @@ absl::Status Resolver::ResolveCreateRowAccessPolicyStatement(
 absl::Status Resolver::ResolveAlterPrivilegeRestrictionStatement(
     const ASTAlterPrivilegeRestrictionStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
-  // If the table is not found, an error is returned.
+  // If the table is not found, an error is returned. path() should never be
+  // null here because the PRIVILEGE branch of the alter_action rule requires
+  // a nonempty path.
   ZETASQL_RET_CHECK(ast_statement->path() != nullptr);
-  const Table* table;
-  ZETASQL_RETURN_IF_ERROR(FindTable(ast_statement->path(), &table));
+
+  // The statement type is used for error messaging.
+  constexpr absl::string_view statement_type = "ALTER PRIVILEGE RESTRICTION";
 
   std::vector<std::unique_ptr<const ResolvedAlterAction>>
       resolved_alter_actions;
@@ -4721,9 +4746,31 @@ absl::Status Resolver::ResolveAlterPrivilegeRestrictionStatement(
     resolved_alter_actions.push_back(std::move(alter_action));
   }
 
+  for (const ASTPrivilege* privilege :
+       ast_statement->privileges()->privileges()) {
+    if (privilege->paths() == nullptr ||
+        privilege->paths()->path_expression_list().empty()) {
+      return MakeSqlErrorAt(privilege) << "Expected privilege to contain paths";
+    }
+  }
+
+  const ASTPathExpression* table_path = ast_statement->path();
+  const IdString alias = GetAliasForExpression(table_path);
+  std::unique_ptr<const ResolvedTableScan> resolved_table_scan;
+  std::shared_ptr<const NameList> name_list;
+  ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
+      table_path, alias, /*has_explicit_alias=*/false,
+      /*alias_location=*/table_path, /*hints=*/nullptr,
+      /*for_system_time=*/nullptr, empty_name_scope_.get(),
+      &resolved_table_scan, &name_list));
+  const std::shared_ptr<const NameScope> name_scope =
+      std::make_shared<NameScope>(/*previous_scope=*/nullptr, name_list);
+
   std::vector<std::unique_ptr<const ResolvedPrivilege>> column_privilege_list;
-  ZETASQL_RETURN_IF_ERROR(ResolvePrivileges(ast_statement->column_privilege_list(),
-                                    table, &column_privilege_list));
+  ZETASQL_RETURN_IF_ERROR(ResolvePrivileges(ast_statement->privileges(),
+                                    name_scope.get(),
+                                    /*enable_nested_field_privileges=*/true,
+                                    statement_type, &column_privilege_list));
 
   *output = MakeResolvedAlterPrivilegeRestrictionStmt(
       ast_statement->path()->ToIdentifierVector(),
@@ -4737,6 +4784,8 @@ absl::Status Resolver::ResolveAlterPrivilegeRestrictionStatement(
 absl::Status Resolver::ResolveAlterRowAccessPolicyStatement(
     const ASTAlterRowAccessPolicyStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
+  // path() should never be null here because the single ROW branch of the
+  // alter_action rule requires a nonempty path.
   ZETASQL_RET_CHECK(ast_statement->path() != nullptr);
 
   std::unique_ptr<const ResolvedTableScan> resolved_table_scan;
@@ -5400,14 +5449,37 @@ absl::Status Resolver::ResolveDropTableFunctionStatement(
 absl::Status Resolver::ResolveDropPrivilegeRestrictionStatement(
     const ASTDropPrivilegeRestrictionStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
-  // If the table is not found, an error is returned.
   ZETASQL_RET_CHECK(ast_statement->name_path() != nullptr);
-  const Table* table;
-  ZETASQL_RETURN_IF_ERROR(FindTable(ast_statement->name_path(), &table));
+
+  // The statement type is used for error messaging.
+  constexpr absl::string_view statement_type = "DROP PRIVILEGE RESTRICTION";
+
+  for (const ASTPrivilege* privilege :
+       ast_statement->privileges()->privileges()) {
+    if (privilege->paths() == nullptr ||
+        privilege->paths()->path_expression_list().empty()) {
+      return MakeSqlErrorAt(privilege) << "Expected privilege to contain paths";
+    }
+  }
+
+  const ASTPathExpression* table_path = ast_statement->name_path();
+  const IdString alias = GetAliasForExpression(table_path);
+  std::unique_ptr<const ResolvedTableScan> resolved_table_scan;
+  std::shared_ptr<const NameList> name_list;
+  ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
+      table_path, alias, /*has_explicit_alias=*/false,
+      /*alias_location=*/table_path, /*hints=*/nullptr,
+      /*for_system_time=*/nullptr, empty_name_scope_.get(),
+      &resolved_table_scan, &name_list));
+  const std::shared_ptr<const NameScope> name_scope =
+      std::make_shared<NameScope>(/*previous_scope=*/nullptr, name_list);
 
   std::vector<std::unique_ptr<const ResolvedPrivilege>> column_privilege_list;
-  ZETASQL_RETURN_IF_ERROR(ResolvePrivileges(ast_statement->column_privilege_list(),
-                                    table, &column_privilege_list));
+  ZETASQL_RETURN_IF_ERROR(ResolvePrivileges(ast_statement->privileges(),
+                                    name_scope.get(),
+                                    /*enable_nested_field_privileges=*/true,
+                                    statement_type, &column_privilege_list));
+
   *output = MakeResolvedDropPrivilegeRestrictionStmt(
       ast_statement->object_type()->GetAsString(),
       ast_statement->is_if_exists(),
@@ -5488,6 +5560,10 @@ absl::Status Resolver::ResolveAlterViewStatement(
   ZETASQL_RETURN_IF_ERROR(ResolveAlterActions(ast_statement, "VIEW", output,
                                       &has_only_set_options_action,
                                       &alter_actions));
+
+  // path() should never be null here because the drop_statement grammar rule
+  // requires a nonempty path.
+  ZETASQL_RET_CHECK(ast_statement->path() != nullptr);
   *output = MakeResolvedAlterViewStmt(
       ast_statement->path()->ToIdentifierVector(), std::move(alter_actions),
       ast_statement->is_if_exists());
@@ -5503,6 +5579,10 @@ absl::Status Resolver::ResolveAlterMaterializedViewStatement(
   ZETASQL_RETURN_IF_ERROR(ResolveAlterActions(ast_statement, "MATERIALIZED VIEW",
                                       output, &has_only_set_options_action,
                                       &alter_actions));
+
+  // path() should never be null here because the ALTER MATERIALIZED VIEW
+  // grammar rule requires a nonempty path.
+  ZETASQL_RET_CHECK(ast_statement->path() != nullptr);
   *output = MakeResolvedAlterMaterializedViewStmt(
       ast_statement->path()->ToIdentifierVector(), std::move(alter_actions),
       ast_statement->is_if_exists());
@@ -5642,34 +5722,37 @@ absl::Status Resolver::ResolveModuleStatement(
 }
 
 absl::Status Resolver::ResolvePrivileges(
-    const ASTPrivileges* ast_privileges, const Table* table,
+    const ASTPrivileges* ast_privileges, const NameScope* name_scope,
+    bool enable_nested_field_privileges, absl::string_view statement_type,
     std::vector<std::unique_ptr<const ResolvedPrivilege>>* privilege_list) {
   ZETASQL_RET_CHECK(privilege_list->empty());
   if (!ast_privileges->is_all_privileges()) {
     for (const ASTPrivilege* privilege : ast_privileges->privileges()) {
-      std::vector<std::string> unit_list;
-      if (privilege->column_list() != nullptr) {
-        for (const ASTIdentifier* column_id :
-             privilege->column_list()->identifiers()) {
-          if (table != nullptr) {
-            const Column* column =
-                table->FindColumnByName(column_id->GetAsString());
-            if (column == nullptr) {
-              return MakeSqlErrorAt(column_id)
-                     << "Column " << column_id->GetAsString()
-                     << " not found in table";
-            }
-            // Columns are case-insensitive in ZetaSQL, although if we know
-            // the case used in the table, we might as well use that case to
-            // make downstream use of proto field paths easier.
-            unit_list.push_back(column->Name());
-          } else {
-            unit_list.push_back(column_id->GetAsString());
+      std::vector<std::unique_ptr<ResolvedObjectUnit>> unit_list;
+      if (privilege->paths() != nullptr) {
+        for (const ASTPathExpression* path :
+             privilege->paths()->path_expression_list()) {
+          if (name_scope != nullptr) {
+            // The path is resolved to validate that it exists.
+            std::unique_ptr<const ResolvedExpr> resolved_path_expression;
+            ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(path, name_scope,
+                                              /*clause_name=*/"UNIT LIST",
+                                              &resolved_path_expression));
           }
+
+          if (!enable_nested_field_privileges && path->num_names() > 1) {
+            return MakeSqlErrorAt(path)
+                   << "Privileges on nested fields are not supported in "
+                   << statement_type;
+          }
+
+          unit_list.push_back(
+              MakeResolvedObjectUnit(path->ToIdentifierVector()));
         }
       }
+
       privilege_list->push_back(MakeResolvedPrivilege(
-          privilege->privilege_action()->GetAsString(), unit_list));
+          privilege->privilege_action()->GetAsString(), std::move(unit_list)));
     }
   }
   return absl::OkStatus();
@@ -5678,9 +5761,13 @@ absl::Status Resolver::ResolvePrivileges(
 absl::Status Resolver::ResolveGrantStatement(
     const ASTGrantStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
+  // The statement type is used for error messaging.
+  constexpr absl::string_view statement_type = "GRANT";
   std::vector<std::unique_ptr<const ResolvedPrivilege>> privilege_list;
   ZETASQL_RETURN_IF_ERROR(ResolvePrivileges(ast_statement->privileges(),
-                                    /*table=*/nullptr, &privilege_list));
+                                    /*name_scope=*/nullptr,
+                                    /*enable_nested_field_privileges=*/false,
+                                    statement_type, &privilege_list));
 
   std::vector<std::string> grantee_list;
   std::vector<std::unique_ptr<const ResolvedExpr>> grantee_expr_list;
@@ -5700,9 +5787,13 @@ absl::Status Resolver::ResolveGrantStatement(
 absl::Status Resolver::ResolveRevokeStatement(
     const ASTRevokeStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
+  // The statement type is used for error messaging.
+  constexpr absl::string_view statement_type = "REVOKE";
   std::vector<std::unique_ptr<const ResolvedPrivilege>> privilege_list;
   ZETASQL_RETURN_IF_ERROR(ResolvePrivileges(ast_statement->privileges(),
-                                    /*table=*/nullptr, &privilege_list));
+                                    /*name_scope=*/nullptr,
+                                    /*enable_nested_field_privileges=*/false,
+                                    statement_type, &privilege_list));
 
   std::vector<std::string> grantee_list;
   std::vector<std::unique_ptr<const ResolvedExpr>> grantee_expr_list;

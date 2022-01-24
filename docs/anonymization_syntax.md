@@ -217,7 +217,7 @@ GROUP BY column_a;
 The reason for the performance difference is that an additional
 finer-granularity level of grouping is performed for anonymized queries,
 since per-user aggregation must also be performed. The performance profiles
-of the these queries should be similar:
+of these queries should be similar:
 
 ```sql
 SELECT
@@ -272,17 +272,20 @@ OPTIONS(anonymization_userid_column='id')
 AS (SELECT * FROM students);
 ```
 
-### Eliminate noise
+### Remove noise 
+<a id="eliminate_noise"></a>
 
 Removing noise removes privacy protection. Only remove noise for
 testing queries on non-private data.
 
 The following anonymized query gets the average number of items requested
-per professor. Because `epsilon` is high, noise is eliminated from the results.
+per professor. For details on how the averages were computed, see
+[ANON_AVG][anon-avg]. Because `epsilon` is high, noise is removed from the
+results.
 
 ```sql
 SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=1)
+  WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=2)
   item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
 FROM view_on_professors
 GROUP BY item;
@@ -329,12 +332,13 @@ query that looks like this:
 
 ```sql
 SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=1)
+  WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=2)
   item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
 FROM view_on_professors
 GROUP BY item;
 
 -- Anonymization ID 123 was not included in the pencil group.
+-- Noise was removed from this query for demonstration purposes only.
 +----------+------------------+
 | item     | average_quantity |
 +----------+------------------+
@@ -354,7 +358,7 @@ the anonymization ID column or an error is returned.
 
 ```sql {.bad}
 SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=1)
+  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=2)
   item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
 FROM view_on_professors, view_on_students
 GROUP BY item;
@@ -391,6 +395,8 @@ GROUP BY item;
 [anon-exp-clamping]: https://github.com/google/zetasql/blob/master/docs/aggregate_anonymization_functions.md#anon_explicit_clamping
 
 [anon-imp-clamping]: https://github.com/google/zetasql/blob/master/docs/aggregate_anonymization_functions.md#anon_implicit_clamping
+
+[anon-avg]: https://github.com/google/zetasql/blob/master/docs/aggregate_anonymization_functions.md#anon_avg
 
 <!-- mdlint on -->
 

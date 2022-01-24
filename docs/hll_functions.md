@@ -15,6 +15,10 @@ This makes HLL++ functions appropriate for large data streams for
 which linear memory usage is impractical, as well as for data that is
 already approximate.
 
+Note: While `APPROX_COUNT_DISTINCT` is also returning approximate count results,
+the functions from this section allow for partial aggregations and
+re-aggregations.
+
 ZetaSQL supports the following HLL++ functions:
 
 ### HLL_COUNT.INIT

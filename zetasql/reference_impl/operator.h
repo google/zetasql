@@ -125,6 +125,7 @@ class AlgebraArg {
   RelationalOp* mutable_relational_op();
   // Convenience method, returns InlineLambdaExpr or nullptr.
   const InlineLambdaExpr* inline_lambda_expr() const;
+  InlineLambdaExpr* mutable_inline_lambda_expr();
 
   // Returns a string representation of the operator for debugging. If
   // 'verbose' is true, prints more information.
@@ -2751,11 +2752,22 @@ class ScalarFunctionBody : public FunctionBody {
   ScalarFunctionBody& operator=(const ScalarFunctionBody&) = delete;
   ~ScalarFunctionBody() override {}
 
-  // Evaluates the function using 'args'. On success, populates 'result' and
-  // returns true. On failure, populates 'status' and returns false. We avoid
-  // returning absl::StatusOr<Value> for performance reasons.
-  virtual bool Eval(absl::Span<const Value> args, EvaluationContext* context,
-                    Value* result, absl::Status* status) const = 0;
+  // Evaluates the function using 'args' to represent the arguments.
+  // 'params' indicates additional TupleData parameters passed to the
+  // corresponding ScalarFunctionCallExpr. It is used by functions which accept
+  // lambda arguments to allow the lambda body access to externally-defined
+  // values, such as query parameters.
+  //
+  // On success, populates 'result' and returns true. On failure, populates
+  // 'status' and returns false. We avoid returning absl::StatusOr<Value> for
+  // performance reasons.
+  virtual bool Eval(absl::Span<const TupleData* const> params,
+                    absl::Span<const Value> args, EvaluationContext* context,
+                    Value* result, absl::Status* status) const {
+    *status =
+        absl::InternalError("ScalarFunctionBody::Eval() needs an override");
+    return false;
+  }
 };
 
 // Accumulator interface for aggregating a bunch of values.
@@ -2832,9 +2844,20 @@ class AggregateFunctionBody : public FunctionBody {
 // Evaluates a scalar function of the given 'function' and 'arguments'.
 class ScalarFunctionCallExpr final : public ValueExpr {
  public:
+  // Creates a ScalarFunctionCallExpr using any combination of values and
+  // lambdas as arguments. Each element in 'arguments' must be either a
+  // ValueExpr or InlineLambdaExpr.
   static absl::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>> Create(
       std::unique_ptr<const ScalarFunctionBody> function,
-      std::vector<std::unique_ptr<ValueExpr>> exprs,
+      std::vector<std::unique_ptr<AlgebraArg>> arguments,
+      ResolvedFunctionCallBase::ErrorMode error_mode =
+          ResolvedFunctionCallBase::DEFAULT_ERROR_MODE);
+
+  // Convenience overload to create a ScalarFunctionCallExpr using only value
+  // arguments (no lambdas).
+  static absl::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>> Create(
+      std::unique_ptr<const ScalarFunctionBody> function,
+      std::vector<std::unique_ptr<ValueExpr>> arguments,
       ResolvedFunctionCallBase::ErrorMode error_mode =
           ResolvedFunctionCallBase::DEFAULT_ERROR_MODE);
 
@@ -2851,8 +2874,16 @@ class ScalarFunctionCallExpr final : public ValueExpr {
  private:
   enum ArgKind { kArgument };
 
+  // Creates a generic ScalarFunctionCallExpr, where arguments can be any
+  // combination of values or lambdas.
   ScalarFunctionCallExpr(std::unique_ptr<const ScalarFunctionBody> function,
-                         std::vector<std::unique_ptr<ValueExpr>> exprs,
+                         std::vector<std::unique_ptr<AlgebraArg>> arguments,
+                         ResolvedFunctionCallBase::ErrorMode error_mode);
+
+  // Convenience constructor for when the function contains only value arguments
+  // (no lambdas).
+  ScalarFunctionCallExpr(std::unique_ptr<const ScalarFunctionBody> function,
+                         std::vector<std::unique_ptr<ValueExpr>> argument_exprs,
                          ResolvedFunctionCallBase::ErrorMode error_mode);
 
   ScalarFunctionCallExpr(const ScalarFunctionCallExpr&) = delete;
@@ -3105,9 +3136,8 @@ class InlineLambdaExpr : public AlgebraNode {
 
   InlineLambdaExpr* AsMutableInlineLambdaExpr() override { return this; }
 
-  const Type* output_type() const override {
-    ZETASQL_LOG(FATAL) << "Relational operators have no type";
-  }
+  // Returns the return type of the lambda.
+  const Type* output_type() const override;
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas);
@@ -3129,68 +3159,6 @@ class InlineLambdaExpr : public AlgebraNode {
   enum ArgKind { kArguments, kBody };
 
   ValueExpr* mutable_body();
-};
-
-// Class for array functions with one input array and one lambda. For example,
-// ARRAY_FILTER and ARRAY_TRANSFORM.
-// These function loops through the array elements and evaluates the lambda for
-// each element and offset and take different actions according to the function
-// spec. Specific actions taken can be specified as subclasses of
-// LambdaResultHandler.
-class ArrayFunctionWithLambdaExpr : public ValueExpr {
- public:
-  ArrayFunctionWithLambdaExpr(const ArrayFunctionWithLambdaExpr&) = delete;
-  ArrayFunctionWithLambdaExpr& operator=(const ArrayFunctionWithLambdaExpr&) =
-      delete;
-
-  ~ArrayFunctionWithLambdaExpr() override {}
-
-  absl::Status SetSchemasForEvaluation(
-      absl::Span<const TupleSchema* const> params_schemas) override;
-
-  bool Eval(absl::Span<const TupleData* const> params,
-            EvaluationContext* context, VirtualTupleSlot* result,
-            absl::Status* status) const override;
-
-  std::string DebugInternal(const std::string& indent,
-                            bool verbose) const override;
-
-  class LambdaResultHandler {
-   public:
-    virtual ~LambdaResultHandler() {}
-
-    // Called when a lambda body is successfully evaluated on one element of the
-    // array being handled by `ArrayFunctionWithLambdaExpr`.
-    // If `short_circuit` is set to true, the loop will NOT continue.
-    // Implementations can assume `short_circuit` starts as false.
-    virtual absl::Status OnLambdaEvaluation(const Value& element,
-                                            const Value& lambda_body,
-                                            bool& short_circuit) = 0;
-
-    virtual Value GetReturnValue(const Type* output_type) = 0;
-  };
-
-  using LambdaResultHandlerCreator =
-      std::function<std::unique_ptr<LambdaResultHandler>()>;
-
-  static absl::StatusOr<std::unique_ptr<ArrayFunctionWithLambdaExpr>> Create(
-      absl::string_view func_name,
-      std::vector<std::unique_ptr<AlgebraArg>> args, const Type* output_type);
-
- protected:
-  ArrayFunctionWithLambdaExpr(
-      absl::string_view func_name, std::unique_ptr<AlgebraArg> input_array,
-      std::unique_ptr<AlgebraArg> lambda, const Type* output_type,
-      LambdaResultHandlerCreator lambda_handler_creator);
-
- private:
-  enum ArgKind { kInputArray, kLambda };
-
-  ValueExpr* mutable_input_array();
-  InlineLambdaExpr* mutable_lambda();
-
-  std::string func_name_;
-  LambdaResultHandlerCreator lambda_handler_creator_;
 };
 
 // Maps all ResolvedScan descendants of a node (except those that are also

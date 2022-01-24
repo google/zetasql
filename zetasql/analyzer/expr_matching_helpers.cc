@@ -180,6 +180,15 @@ absl::StatusOr<bool> IsSameExpressionForGroupBy(const ResolvedExpr* expr1,
       }
       break;
     }
+    case RESOLVED_GET_JSON_FIELD: {
+      const auto* json_field1 = expr1->GetAs<ResolvedGetJsonField>();
+      const auto* json_field2 = expr2->GetAs<ResolvedGetJsonField>();
+      ZETASQL_ASSIGN_OR_RETURN(
+          bool is_same_expr,
+          IsSameExpressionForGroupBy(json_field1->expr(), json_field2->expr()));
+      return is_same_expr &&
+             json_field1->field_name() == json_field2->field_name();
+    }
     default:
       // Without explicit support for this type of expression, pessimistically
       // say that they are not equal.

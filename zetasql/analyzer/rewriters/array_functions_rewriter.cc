@@ -288,12 +288,6 @@ class RewriteArrayIncludesVisitor : public ResolvedASTDeepCopyVisitor {
 
 class ArrayFilterTransformRewriter : public Rewriter {
  public:
-  bool ShouldRewrite(const AnalyzerOptions& analyzer_options,
-                     const AnalyzerOutput& analyzer_output) const override {
-    return analyzer_output.analyzer_output_properties()
-        .has_array_filter_or_transform;
-  }
-
   absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
       const AnalyzerOptions& options, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,
@@ -303,7 +297,6 @@ class ArrayFilterTransformRewriter : public Rewriter {
     RewriteArrayFilterTransformVisitor rewriter(options, &catalog,
                                                 &type_factory);
     ZETASQL_RETURN_IF_ERROR(input.Accept(&rewriter));
-    output_properties.has_array_filter_or_transform = false;
     return rewriter.ConsumeRootNode<ResolvedNode>();
   }
 
@@ -312,11 +305,6 @@ class ArrayFilterTransformRewriter : public Rewriter {
 
 class ArrayIncludesRewriter : public Rewriter {
  public:
-  bool ShouldRewrite(const AnalyzerOptions& analyzer_options,
-                     const AnalyzerOutput& analyzer_output) const override {
-    return analyzer_output.analyzer_output_properties().has_array_includes;
-  }
-
   absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
       const AnalyzerOptions& options, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,
@@ -325,7 +313,6 @@ class ArrayIncludesRewriter : public Rewriter {
     ZETASQL_RET_CHECK(options.column_id_sequence_number() != nullptr);
     RewriteArrayIncludesVisitor rewriter(options, &catalog, &type_factory);
     ZETASQL_RETURN_IF_ERROR(input.Accept(&rewriter));
-    output_properties.has_array_includes = false;
     return rewriter.ConsumeRootNode<ResolvedNode>();
   }
 

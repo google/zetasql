@@ -61,7 +61,8 @@ class JsonFunction : public SimpleBuiltinScalarFunction {
     ZETASQL_DCHECK(output_type->Equals(types::JsonType()) ||
            output_type->Equals(types::StringType()));
   }
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -72,7 +73,8 @@ class JsonArrayFunction : public SimpleBuiltinScalarFunction {
     ZETASQL_DCHECK(output_type->Equals(types::JsonArrayType()) ||
            output_type->Equals(types::StringArrayType()));
   }
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -81,7 +83,8 @@ class JsonSubscriptFunction : public SimpleBuiltinScalarFunction {
   explicit JsonSubscriptFunction()
       : SimpleBuiltinScalarFunction(FunctionKind::kSubscript,
                                     types::JsonType()) {}
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -89,7 +92,8 @@ class ToJsonFunction : public SimpleBuiltinScalarFunction {
  public:
   ToJsonFunction()
       : SimpleBuiltinScalarFunction(FunctionKind::kToJson, types::JsonType()) {}
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -98,7 +102,8 @@ class ToJsonStringFunction : public SimpleBuiltinScalarFunction {
   ToJsonStringFunction()
       : SimpleBuiltinScalarFunction(FunctionKind::kToJsonString,
                                     types::StringType()) {}
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -107,7 +112,8 @@ class ParseJsonFunction : public SimpleBuiltinScalarFunction {
   ParseJsonFunction()
       : SimpleBuiltinScalarFunction(FunctionKind::kParseJson,
                                     types::JsonType()) {}
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -167,7 +173,8 @@ absl::StatusOr<Value> JsonExtractJson(
 }
 
 absl::StatusOr<Value> JsonSubscriptFunction::Eval(
-    absl::Span<const Value> args, EvaluationContext* context) const {
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
   ZETASQL_RET_CHECK_EQ(args.size(), 2);
   if (HasNulls(args)) {
     return Value::Null(output_type());
@@ -207,8 +214,9 @@ absl::StatusOr<Value> JsonSubscriptFunction::Eval(
              : Value::Null(output_type());
 }
 
-absl::StatusOr<Value> JsonFunction::Eval(absl::Span<const Value> args,
-                                         EvaluationContext* context) const {
+absl::StatusOr<Value> JsonFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
   if (kind() == FunctionKind::kJsonValue ||
       kind() == FunctionKind::kJsonExtractScalar) {
     ZETASQL_RET_CHECK_LE(args.size(), 2);
@@ -346,7 +354,8 @@ absl::StatusOr<Value> JsonExtractArrayJson(
 }
 
 absl::StatusOr<Value> JsonArrayFunction::Eval(
-    absl::Span<const Value> args, EvaluationContext* context) const {
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
   ZETASQL_RET_CHECK_GE(args.size(), 1);
   ZETASQL_RET_CHECK_LE(args.size(), 2);
   if (HasNulls(args)) {
@@ -383,8 +392,9 @@ absl::StatusOr<Value> JsonArrayFunction::Eval(
   }
 }
 
-absl::StatusOr<Value> ToJsonFunction::Eval(absl::Span<const Value> args,
-                                           EvaluationContext* context) const {
+absl::StatusOr<Value> ToJsonFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
   ZETASQL_RET_CHECK_EQ(args.size(), 2);
   if (args[1].is_null()) {
     return Value::Null(output_type());
@@ -398,7 +408,8 @@ absl::StatusOr<Value> ToJsonFunction::Eval(absl::Span<const Value> args,
 }
 
 absl::StatusOr<Value> ToJsonStringFunction::Eval(
-    absl::Span<const Value> args, EvaluationContext* context) const {
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
   if (args.size() == 2 && args[1].is_null()) {
     return Value::Null(output_type());
   }
@@ -420,7 +431,8 @@ absl::StatusOr<Value> ToJsonStringFunction::Eval(
 }
 
 absl::StatusOr<Value> ParseJsonFunction::Eval(
-    absl::Span<const Value> args, EvaluationContext* context) const {
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
   ZETASQL_RET_CHECK_EQ(args.size(), 2);
   if (args[0].is_null() || args[1].is_null()) {
     return Value::NullJson();

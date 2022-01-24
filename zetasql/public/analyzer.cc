@@ -19,6 +19,7 @@
 #include <iostream>
 #include <memory>
 #include <thread>
+#include <string>
 #include <type_traits>
 #include <utility>
 

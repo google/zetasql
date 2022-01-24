@@ -21,6 +21,7 @@ cc_library(
     srcs = [
         "annotation.cc",
         "array_type.cc",
+        "collation.cc",
         "enum_type.cc",
         "extended_type.cc",
         "internal_utils.cc",
@@ -37,6 +38,7 @@ cc_library(
     hdrs = [
         "annotation.h",
         "array_type.h",
+        "collation.h",
         "enum_type.h",
         "extended_type.h",
         "proto_type.h",
@@ -66,7 +68,6 @@ cc_library(
         "//zetasql/base:refcount",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
-        "//zetasql/base:strings",
         "//zetasql/base:time_proto_util",
         "//zetasql/common:errors",
         "//zetasql/common:float_margin",
@@ -74,6 +75,7 @@ cc_library(
         "//zetasql/common:string_util",
         "//zetasql/public:annotation_cc_proto",
         "//zetasql/public:civil_time",
+        "//zetasql/public:collation_cc_proto",
         "//zetasql/public:interval_value",
         "//zetasql/public:language_options",
         "//zetasql/public:numeric_value",

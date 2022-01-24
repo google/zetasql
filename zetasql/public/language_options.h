@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "zetasql/proto/options.pb.h"
 #include "zetasql/public/options.pb.h"

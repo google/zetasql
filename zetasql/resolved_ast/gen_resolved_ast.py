@@ -482,7 +482,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 198
+          Next tag_id: 202
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -2022,6 +2022,17 @@ value.
               Field is only populated for subqueries of type IN or LIKE
               ANY|SOME|ALL.
                       """),
+          Field(
+              'in_collation',
+              SCALAR_RESOLVED_COLLATION,
+              tag_id=7,
+              ignorable=IGNORABLE_DEFAULT,
+              is_constructor_arg=False,
+              comment="""
+              Field is only populated for subqueries of type IN to specify the
+              operation collation to use to compare <in_expr> with the rows from
+              <subquery>.
+                      """),
           Field('subquery', 'ResolvedScan', tag_id=5),
           Field(
               'hint_list',
@@ -2864,7 +2875,7 @@ right.
       parent='ResolvedArgument',
       comment="""
       <expression> is the default value expression of the column. The type of
-      the expression will always match the type of the column.
+      the expression must be coercible to the column type.
         - <default_value> cannot contain any references to another column.
         - <default_value> cannot include a subquery, aggregation, or window
           function.
@@ -4084,8 +4095,9 @@ right.
         <option_list>
       which is used to export a model to a specific location.
       <connection> is the connection that the model is written to.
-      <option_list> identifies user specified options to use when exporting the model.
-              """,
+      <option_list> identifies user specified options to use when exporting the
+        model.
+           """,
       fields=[
           Field('model_name_path', SCALAR_STRING, vector=True, tag_id=2),
           Field(
@@ -5420,6 +5432,19 @@ right.
       ])
 
   gen.AddNode(
+      name='ResolvedObjectUnit',
+      tag_id=200,
+      parent='ResolvedArgument',
+      comment="""
+      A reference to a unit of an object (e.g. a column or field of a table).
+
+      <name_path> is a vector giving the identifier path of the object unit.
+              """,
+      fields=[
+          Field('name_path', SCALAR_STRING, tag_id=2, vector=True),
+      ])
+
+  gen.AddNode(
       name='ResolvedPrivilege',
       tag_id=67,
       parent='ResolvedArgument',
@@ -5429,12 +5454,13 @@ right.
       <action_type> is the type of privilege action, e.g. SELECT, INSERT, UPDATE
       or DELETE.
       <unit_list> is an optional list of units of the object (e.g. columns of a
-      table) the privilege is restricted to. Privilege on the whole object
-      should be granted/revoked if the list is empty.
+      table, fields in a value table) that the privilege is scoped to. The
+      privilege is on the whole object if the list is empty.
               """,
       fields=[
           Field('action_type', SCALAR_STRING, tag_id=2),
-          Field('unit_list', SCALAR_STRING, tag_id=3, vector=True)
+          Field(
+              'unit_list', 'ResolvedObjectUnit', tag_id=3, vector=True)
       ])
 
   gen.AddNode(
@@ -5461,15 +5487,26 @@ right.
               """,
       fields=[
           Field(
-              'privilege_list', 'ResolvedPrivilege', tag_id=2, vector=True),
+              'privilege_list',
+              'ResolvedPrivilege',
+              tag_id=2,
+              vector=True),
           Field('object_type', SCALAR_STRING, tag_id=3),
           Field('name_path', SCALAR_STRING, tag_id=4, vector=True),
-          Field('grantee_list', SCALAR_STRING, ignorable=IGNORABLE_DEFAULT,
-                tag_id=5, vector=True,
-                to_string_method='ToStringCommaSeparated',
-                java_to_string_method='toStringCommaSeparated'),
-          Field('grantee_expr_list', 'ResolvedExpr',
-                ignorable=IGNORABLE_DEFAULT, tag_id=6, vector=True)
+          Field(
+              'grantee_list',
+              SCALAR_STRING,
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=5,
+              vector=True,
+              to_string_method='ToStringCommaSeparated',
+              java_to_string_method='toStringCommaSeparated'),
+          Field(
+              'grantee_expr_list',
+              'ResolvedExpr',
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=6,
+              vector=True)
       ])
 
   gen.AddNode(
@@ -5501,12 +5538,20 @@ right.
       Common super class for statements:
         ALTER <object> [IF EXISTS] <name_path> <alter_action_list>
 
-      <name_path> is a vector giving the identifier path in the table <name>.
+      <name_path> is a vector giving the identifier path in the table <name>. It
+                  is optional if
+                  FEATURE_ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL is enabled.
       <alter_action_list> is a vector of actions to be done to the object.
       <is_if_exists> silently ignores the "name_path does not exist" error.
               """,
       fields=[
-          Field('name_path', SCALAR_STRING, tag_id=2, vector=True),
+          Field(
+              'name_path',
+              SCALAR_STRING,
+              tag_id=2,
+              vector=True,
+              ignorable=IGNORABLE_DEFAULT,
+              is_optional_constructor_arg=True),
           Field(
               'alter_action_list',
               'ResolvedAlterAction',
@@ -5582,6 +5627,28 @@ right.
       fields=[])
 
   gen.AddNode(
+      name='ResolvedAlterColumnAction',
+      tag_id=201,
+      parent='ResolvedAlterAction',
+      is_abstract=True,
+      comment="""
+      A super class for all ALTER COLUMN actions in the ALTER TABLE statement:
+        ALTER TABLE <table_name> ALTER COLUMN [IF EXISTS] <column>
+
+      <is_if_exists> silently ignores the "column does not exist" error.
+      <column> is the name of the column.
+      """,
+      fields=[
+          Field(
+              'is_if_exists',
+              SCALAR_BOOL,
+              tag_id=2,
+              ignorable=IGNORABLE_DEFAULT,
+          ),
+          Field('column', SCALAR_STRING, tag_id=3)
+      ])
+
+  gen.AddNode(
       name='ResolvedSetOptionsAction',
       tag_id=117,
       parent='ResolvedAlterAction',
@@ -5647,54 +5714,34 @@ right.
   gen.AddNode(
       name='ResolvedAlterColumnOptionsAction',
       tag_id=169,
-      parent='ResolvedAlterAction',
+      parent='ResolvedAlterColumnAction',
       comment="""
       This ALTER action:
         ALTER COLUMN [IF EXISTS] <column> SET OPTIONS <options_list>
 
-      <is_if_exists> silently ignore the "<column> not found" error.
-      <column> the name of the column.
       <options_list> has engine-specific directives that specify how to
                      alter the metadata for a column.
               """,
       fields=[
-          Field(
-              'is_if_exists',
-              SCALAR_BOOL,
-              tag_id=5,
-              ignorable=IGNORABLE_DEFAULT,
-          ),
-          Field('column', SCALAR_STRING, tag_id=3),
-          Field('option_list', 'ResolvedOption', tag_id=4, vector=True),
+          Field('option_list', 'ResolvedOption', tag_id=2, vector=True),
       ])
 
   gen.AddNode(
       name='ResolvedAlterColumnDropNotNullAction',
       tag_id=178,
-      parent='ResolvedAlterAction',
+      parent='ResolvedAlterColumnAction',
       comment="""
       This ALTER action:
         ALTER COLUMN [IF EXISTS] <column> DROP NOT NULL
 
       Removes the NOT NULL constraint from the given column.
-
-      <is_if_exists> silently ignore the "<column> not found" error.
-      <column> is the name of the column.
               """,
-      fields=[
-          Field(
-              'is_if_exists',
-              SCALAR_BOOL,
-              tag_id=3,
-              ignorable=IGNORABLE_DEFAULT,
-          ),
-          Field('column', SCALAR_STRING, tag_id=2),
-      ])
+      fields=[])
 
   gen.AddNode(
       name='ResolvedAlterColumnSetDataTypeAction',
       tag_id=181,
-      parent='ResolvedAlterAction',
+      parent='ResolvedAlterColumnAction',
       comment="""
               ALTER COLUMN <column> SET DATA TYPE action for ALTER TABLE
               statement. It supports updating the data type of the column as
@@ -5702,20 +5749,6 @@ right.
               the column (and on struct fields and array elements).
               """,
       fields=[
-          Field(
-              'is_if_exists',
-              SCALAR_BOOL,
-              tag_id=2,
-              comment="""
-              Indicates whether the IF EXISTS clause was included in the
-              ALTER COLUMN expression.
-              """),
-          Field(
-              'column',
-              SCALAR_STRING,
-              tag_id=3,
-              comment='The name of the column whose data type is changing.'
-          ),
           Field(
               'updated_type',
               SCALAR_TYPE,
@@ -5743,6 +5776,39 @@ right.
               allowed.
               """),
       ])
+
+  gen.AddNode(
+      name='ResolvedAlterColumnSetDefaultAction',
+      tag_id=198,
+      parent='ResolvedAlterColumnAction',
+      comment="""
+      Alter column set default action:
+        ALTER COLUMN [IF EXISTS] <column> SET DEFAULT <default_value>
+
+      <default_value> sets the new default value expression. It only impacts
+      future inserted rows, and has no impact on existing rows with the current
+      default value. This is a metadata only operation.
+
+      Resolver validates that <default_value> expression can be coerced to the
+      column type when <column> exists. If <column> is not found and
+      <is_if_exists> is true, Resolver skips type match check.
+              """,
+      fields=[
+          Field(
+              'default_value', 'ResolvedColumnDefaultValue', tag_id=4),
+      ])
+
+  gen.AddNode(
+      name='ResolvedAlterColumnDropDefaultAction',
+      tag_id=199,
+      parent='ResolvedAlterColumnAction',
+      comment="""
+      This ALTER action:
+        ALTER COLUMN [IF EXISTS] <column> DROP DEFAULT
+
+      Removes the DEFAULT constraint from the given column.
+              """,
+      fields=[])
 
   gen.AddNode(
       name='ResolvedDropColumnAction',
@@ -5883,7 +5949,7 @@ right.
       comment="""
       This statement:
           CREATE [OR REPLACE] PRIVILEGE RESTRICTION [IF NOT EXISTS]
-          ON <column_privilege_list> ON <name_path>
+          ON <column_privilege_list> ON <object_type> <name_path>
           [RESTRICT TO (<restrictee_list>)]
 
       <column_privilege_list> is the name of the column privileges on which
@@ -5950,24 +6016,41 @@ right.
               tag_id=2,
               ignorable=IGNORABLE_DEFAULT),
           Field(
-              'name', SCALAR_STRING, ignorable=IGNORABLE_DEFAULT, tag_id=3),
+              'name',
+              SCALAR_STRING,
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=3),
           Field(
               'target_name_path', SCALAR_STRING, tag_id=4, vector=True),
-          Field('grantee_list', SCALAR_STRING, ignorable=IGNORABLE_DEFAULT,
-                tag_id=5, vector=True,
-                to_string_method='ToStringCommaSeparated',
-                java_to_string_method='toStringCommaSeparated'),
-          Field('grantee_expr_list', 'ResolvedExpr',
-                ignorable=IGNORABLE_DEFAULT, tag_id=9, vector=True),
+          Field(
+              'grantee_list',
+              SCALAR_STRING,
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=5,
+              vector=True,
+              to_string_method='ToStringCommaSeparated',
+              java_to_string_method='toStringCommaSeparated'),
+          Field(
+              'grantee_expr_list',
+              'ResolvedExpr',
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=9,
+              vector=True),
           Field(
               'table_scan',
               'ResolvedTableScan',
               tag_id=6,
               ignorable=IGNORABLE),
           Field(
-              'predicate', 'ResolvedExpr', tag_id=7, ignorable=IGNORABLE),
+              'predicate',
+              'ResolvedExpr',
+              tag_id=7,
+              ignorable=IGNORABLE),
           Field(
-              'predicate_str', SCALAR_STRING, tag_id=8, ignorable=IGNORABLE)
+              'predicate_str',
+              SCALAR_STRING,
+              tag_id=8,
+              ignorable=IGNORABLE)
       ],
       extra_defs="""
   typedef ResolvedCreateStatement::CreateMode CreateMode;""")

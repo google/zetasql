@@ -19,6 +19,7 @@
 #include <ctype.h>
 
 #include <set>
+#include <string>
 #include <utility>
 
 #include "zetasql/parser/ast_node_kind.h"
@@ -893,7 +894,7 @@ void Unparser::visitASTCreatePrivilegeRestrictionStatement(
     print("IF NOT EXISTS");
   }
   print("ON");
-  node->column_privilege_list()->Accept(this, data);
+  node->privileges()->Accept(this, data);
   print("ON");
   node->object_type()->Accept(this, data);
   node->name_path()->Accept(this, data);
@@ -1150,7 +1151,7 @@ void Unparser::visitASTDropPrivilegeRestrictionStatement(
     print("IF EXISTS");
   }
   print("ON");
-  node->column_privilege_list()->Accept(this, data);
+  node->privileges()->Accept(this, data);
   print("ON");
   node->object_type()->Accept(this, data);
   node->name_path()->Accept(this, data);
@@ -1890,11 +1891,21 @@ void Unparser::visitASTAndExpr(const ASTAndExpr* node, void* data) {
   PrintCloseParenIfNeeded(node);
 }
 
+static bool IsPostfix(ASTUnaryExpression::Op op) {
+  return op == ASTUnaryExpression::IS_UNKNOWN ||
+         op == ASTUnaryExpression::IS_NOT_UNKNOWN;
+}
+
 void Unparser::visitASTUnaryExpression(const ASTUnaryExpression* node,
                                        void* data) {
   PrintOpenParenIfNeeded(node);
-  formatter_.AddUnary(node->GetSQLForOperator());
-  node->operand()->Accept(this, data);
+  if (IsPostfix(node->op())) {
+    node->operand()->Accept(this, data);
+    formatter_.AddUnary(node->GetSQLForOperator());
+  } else {
+    formatter_.AddUnary(node->GetSQLForOperator());
+    node->operand()->Accept(this, data);
+  }
   PrintCloseParenIfNeeded(node);
 }
 
@@ -2224,6 +2235,10 @@ void Unparser::visitASTArrayType(const ASTArrayType* node, void* data) {
   if (node->type_parameters() != nullptr) {
     node->type_parameters()->Accept(this, data);
   }
+
+  if (node->collate() != nullptr) {
+    node->collate()->Accept(this, data);
+  }
 }
 
 void Unparser::visitASTStructType(const ASTStructType* node, void* data) {
@@ -2232,6 +2247,10 @@ void Unparser::visitASTStructType(const ASTStructType* node, void* data) {
   print(">");
   if (node->type_parameters() != nullptr) {
     node->type_parameters()->Accept(this, data);
+  }
+
+  if (node->collate() != nullptr) {
+    node->collate()->Accept(this, data);
   }
 }
 
@@ -2741,8 +2760,10 @@ void Unparser::visitASTPrimaryKey(const ASTPrimaryKey* node, void* data) {
 
 void Unparser::visitASTPrivilege(const ASTPrivilege* node, void* data) {
   node->privilege_action()->Accept(this, data);
-  if (node->column_list() != nullptr) {
-    node->column_list()->Accept(this, data);
+  if (node->paths() != nullptr) {
+    print("(");
+    node->paths()->Accept(this, data);
+    print(")");
   }
 }
 
@@ -2942,7 +2963,11 @@ void Unparser::VisitAlterStatementBase(const ASTAlterStatementBase* node,
   if (node->is_if_exists()) {
     print("IF EXISTS");
   }
-  node->path()->Accept(this, data);
+  // Path may not exist if FEATURE_ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL
+  // was set during parse time.
+  if (node->path()) {
+    node->path()->Accept(this, data);
+  }
   node->action_list()->Accept(this, data);
 }
 
@@ -3199,7 +3224,7 @@ void Unparser::visitASTAlterPrivilegeRestrictionStatement(
     print("IF EXISTS");
   }
   print("ON");
-  node->column_privilege_list()->Accept(this, data);
+  node->privileges()->Accept(this, data);
   print("ON");
   node->object_type()->Accept(this, data);
   node->path()->Accept(this, data);

@@ -17,8 +17,13 @@
 #ifndef ZETASQL_PUBLIC_ANALYZER_OPTIONS_H_
 #define ZETASQL_PUBLIC_ANALYZER_OPTIONS_H_
 
+#include <functional>
+#include <map>
+#include <memory>
 #include <set>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/parser/parser.h"

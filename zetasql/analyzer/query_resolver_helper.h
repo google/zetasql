@@ -410,6 +410,11 @@ class QueryResolutionInfo {
            group_by_info_.has_aggregation;
   }
 
+  // Returns whether or not the query includes a GROUP BY ROLLUP.
+  bool HasGroupByRollup() const {
+    return !group_by_info_.rollup_column_list.empty();
+  }
+
   // Returns whether or not the query includes analytic functions.
   bool HasAnalytic() const;
 

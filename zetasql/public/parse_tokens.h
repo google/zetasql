@@ -160,6 +160,8 @@ struct ParseTokenOptions {
 
   // Return the comments in the ParseToken vector or silently drop them.
   bool include_comments = false;
+
+  LanguageOptions language_options;
 };
 
 // Gets a vector of ParseTokens starting from <resume_location>, and updates

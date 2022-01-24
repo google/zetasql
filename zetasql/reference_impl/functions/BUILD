@@ -40,6 +40,7 @@ cc_library(
     deps = [
         ":hash",
         ":json",
+        ":string_with_collation",
         ":uuid",
     ],
 )
@@ -85,6 +86,27 @@ cc_library(
         "//zetasql/public/functions:json_format",
         "//zetasql/public/functions:to_json",
         "//zetasql/public/types",
+        "//zetasql/reference_impl:evaluation",
+        "@com_google_absl//absl/status:statusor",
+    ],
+)
+
+cc_library(
+    name = "string_with_collation",
+    srcs = ["string_with_collation.cc"],
+    hdrs = ["string_with_collation.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        "//zetasql/public:collator",
+        "//zetasql/public:value",
+        "//zetasql/public/functions:string_with_collation",
         "//zetasql/reference_impl:evaluation",
         "@com_google_absl//absl/status:statusor",
     ],

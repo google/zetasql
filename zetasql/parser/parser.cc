@@ -17,6 +17,7 @@
 #include "zetasql/parser/parser.h"
 
 #include <memory>
+#include <utility>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
@@ -42,16 +43,39 @@ namespace zetasql {
 using parser::BisonParserMode;
 using parser::BisonParser;
 
+LanguageOptions LegacyDefaultParserLanguageOptions() {
+  LanguageOptions options;
+  options.EnableLanguageFeature(FEATURE_V_1_3_WITH_GROUP_ROWS);
+  options.EnableLanguageFeature(FEATURE_V_1_3_CASE_STMT);
+  options.EnableLanguageFeature(FEATURE_V_1_3_REPEAT);
+  options.EnableLanguageFeature(FEATURE_V_1_3_FOR_IN);
+  options.EnableLanguageFeature(FEATURE_V_1_3_REMOTE_FUNCTION);
+
+  return options;
+}
+
+// TODO: Simplify this to 'LanguageOptions()'
 ParserOptions::ParserOptions()
-    : arena_(std::make_shared<zetasql_base::UnsafeArena>(/*block_size=*/4096)),
-      id_string_pool_(std::make_shared<IdStringPool>(arena_)) {}
+    : ParserOptions(LegacyDefaultParserLanguageOptions()) {}
 
 ParserOptions::ParserOptions(std::shared_ptr<IdStringPool> id_string_pool,
                              std::shared_ptr<zetasql_base::UnsafeArena> arena,
                              const LanguageOptions* language_options)
+    : arena_(std::move(arena)), id_string_pool_(std::move(id_string_pool)) {
+  set_language_options(language_options);
+}
+
+ParserOptions::ParserOptions(LanguageOptions language_options)
+    : arena_(std::make_shared<zetasql_base::UnsafeArena>(/*block_size=*/4096)),
+      id_string_pool_(std::make_shared<IdStringPool>(arena_)),
+      language_options_(std::move(language_options)) {}
+
+ParserOptions::ParserOptions(std::shared_ptr<IdStringPool> id_string_pool,
+                             std::shared_ptr<zetasql_base::UnsafeArena> arena,
+                             LanguageOptions language_options)
     : arena_(std::move(arena)),
       id_string_pool_(std::move(id_string_pool)),
-      language_options_(language_options) {}
+      language_options_(std::move(language_options)) {}
 
 ParserOptions::~ParserOptions() {}
 
@@ -310,7 +334,7 @@ ASTNodeKind ParseNextStatementKind(const ParseResumeLocation& resume_location,
   parser
       .Parse(BisonParserMode::kNextStatementKind, resume_location.filename(),
              resume_location.input(), resume_location.byte_position(),
-             &id_string_pool, &arena, &language_options, /*output=*/nullptr,
+             &id_string_pool, &arena, language_options, /*output=*/nullptr,
              &other_allocated_ast_nodes, &ast_statement_properties,
              /*statement_end_byte_offset=*/nullptr)
       .IgnoreError();

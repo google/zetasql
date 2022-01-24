@@ -52,6 +52,8 @@ public final class SimpleTable implements Table {
 
   private final long tableId;
   private final String name;
+  // Uses name as fullName if empty. Never null.
+  private String fullName = "";
   private boolean isValueTable = false;
   private List<SimpleColumn> columns = new ArrayList<>();
   private Map<String, SimpleColumn> columnsMap = new HashMap<>();
@@ -111,6 +113,9 @@ public final class SimpleTable implements Table {
   public SimpleTableProto serialize(FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
     SimpleTableProto.Builder builder = SimpleTableProto.newBuilder();
     builder.setName(name);
+    if (!fullName.isEmpty()) {
+      builder.setFullName(fullName);
+    }
     builder.setIsValueTable(isValueTable);
     builder.setSerializationId(tableId);
     if (allowAnonymousColumnName) {
@@ -155,6 +160,9 @@ public final class SimpleTable implements Table {
       table = new SimpleTable(proto.getName(), proto.getSerializationId());
     } else {
       table = new SimpleTable(proto.getName());
+    }
+    if (proto.hasFullName() && !proto.getFullName().equals(proto.getName())) {
+      table.setFullName(proto.getFullName());
     }
     table.setAllowAnonymousColumnName(proto.getAllowAnonymousColumnName());
     table.setAllowDuplicateColumnNames(proto.getAllowDuplicateColumnNames());
@@ -225,7 +233,7 @@ public final class SimpleTable implements Table {
 
   @Override
   public String getFullName() {
-    return name;
+    return fullName.isEmpty() ? name : fullName;
   }
 
   @Override
@@ -260,6 +268,14 @@ public final class SimpleTable implements Table {
   @Override
   public boolean isValueTable() {
     return isValueTable;
+  }
+
+  public void setFullName(String value) {
+    if (value == null || value.equals(name)) {
+      fullName = "";
+    } else {
+      fullName = value;
+    }
   }
 
   public void setIsValueTable(boolean value) {

@@ -242,28 +242,6 @@ class RegExp {
   bool InitializeWithOptions(absl::string_view pattern,
                              const RE2::Options& options, absl::Status* error);
 
-  // REGEXP_EXTRACT_ALL
-  // This ZetaSQL function returns an array of strings or bytes.
-  // An implementation should first call ExtractAllReset and then repeatedly
-  // call ExtractAllNext() to get every next element of the array until it
-  // returns false. 'error' should be examined to distinguish error condition
-  // from no more matches condition.
-  //
-  // absl::string_view input;
-  // absl::string_view output;
-  // ...
-  // ExtractAllReset(input);
-  // while (ExtractAllNext(&output, &error)) {
-  //  ZETASQL_LOG(INFO) << output;
-  // }
-  // ZETASQL_RETURN_IF_ERROR(error);
-  //
-  // Note that on success, error will _not_ be explicitly set to OK, but rather
-  // left unchanged.
-  ABSL_DEPRECATED("use CreateExtractAllIterator")
-  void ExtractAllReset(absl::string_view str);
-  ABSL_DEPRECATED("use ExtractAllIterator::Next")
-  bool ExtractAllNext(absl::string_view* out, absl::Status* error);
 
  private:
   friend absl::StatusOr<std::unique_ptr<const RegExp>> MakeRegExpWithOptions(
@@ -282,8 +260,6 @@ class RegExp {
 
   // The compiled RE2 object. It is NULL if this has not been initialized yet.
   std::unique_ptr<const RE2> re_;
-
-  absl::optional<ExtractAllIterator> iter_;
 };
 
 // The following two functions parse a regular expression assuming

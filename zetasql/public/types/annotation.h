@@ -87,6 +87,17 @@ class AnnotationMap {
     return SetAnnotation(T::GetId(), value);
   }
 
+  // Clears annotation value for the given AnnotationSpec ID if it exists.
+  void UnsetAnnotation(int id) { annotations_.erase(id); }
+
+  // Clears annotation value for the given AnnotationSpec ID if it exists.
+  template <class T>
+  void UnsetAnnotation() {
+    static_assert(std::is_base_of<AnnotationSpec, T>::value,
+                  "Must be a subclass of AnnotationSpec");
+    return UnsetAnnotation(T::GetId());
+  }
+
   // Returns annotation value for given AnnotationSpec ID. Returns nullptr if
   // the ID is not in the map.
   const SimpleValue* GetAnnotation(int id) const {

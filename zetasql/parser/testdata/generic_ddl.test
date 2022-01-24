@@ -286,3 +286,128 @@ ALTERNATION GROUP: SUPPORTED_ENTITY
 ERROR: SUPPORTED_ENTITY is not a supported object type [at 1:8]
 CREATE SUPPORTED_ENTITY myProject.myReservation
        ^
+==
+
+# Variant of the above test that features a missing path_expression.
+[supported_generic_entity_types=]
+
+CREATE {{RESERVATION|reSERVAtion|SUPPORTED_ENTITY}}
+--
+ALTERNATION GROUP: RESERVATION
+--
+ERROR: RESERVATION is not a supported object type [at 1:8]
+CREATE RESERVATION
+       ^
+--
+ALTERNATION GROUP: reSERVAtion
+--
+ERROR: reSERVAtion is not a supported object type [at 1:8]
+CREATE reSERVAtion
+       ^
+--
+ALTERNATION GROUP: SUPPORTED_ENTITY
+--
+ERROR: SUPPORTED_ENTITY is not a supported object type [at 1:8]
+CREATE SUPPORTED_ENTITY
+       ^
+==
+
+# Unless the allow_missing_path_in_generic_ddl_alter flag is set generic ALTER
+# statements must generate a parser error when missing a path expression.
+[supported_generic_entity_types=PROJECT,ORGANIZATION]
+
+ALTER {{PROJECT|ORGANIZATION}} SET OPTIONS (a=b)
+--
+ALTERNATION GROUP: PROJECT
+--
+ERROR: Syntax error: Unexpected keyword SET [at 1:15]
+ALTER PROJECT SET OPTIONS (a=b)
+              ^
+--
+ALTERNATION GROUP: ORGANIZATION
+--
+ERROR: Syntax error: Unexpected keyword SET [at 1:20]
+ALTER ORGANIZATION SET OPTIONS (a=b)
+                   ^
+==
+
+# When allow_missing_path_in_generic_ddl_alter flag is set generic ALTER
+# statements should parse even without a path expression.
+[supported_generic_entity_types=PROJECT,ORGANIZATION]
+[allow_missing_path_in_generic_ddl_alter]
+
+ALTER {{PROJECT|ORGANIZATION}} SET OPTIONS (a=b)
+--
+ALTERNATION GROUP: PROJECT
+--
+AlterEntityStatement [0-31]
+  Identifier(PROJECT) [6-13]
+  AlterActionList [14-31]
+    SetOptionsOperation [14-31]
+      OptionsList [26-31]
+        OptionsEntry [27-30]
+          Identifier(a) [27-28]
+          PathExpression [29-30]
+            Identifier(b) [29-30]
+--
+ALTER PROJECT SET OPTIONS(a = b)
+--
+ALTERNATION GROUP: ORGANIZATION
+--
+AlterEntityStatement [0-36]
+  Identifier(ORGANIZATION) [6-18]
+  AlterActionList [19-36]
+    SetOptionsOperation [19-36]
+      OptionsList [31-36]
+        OptionsEntry [32-35]
+          Identifier(a) [32-33]
+          PathExpression [34-35]
+            Identifier(b) [34-35]
+--
+ALTER ORGANIZATION SET OPTIONS(a = b)
+
+==
+
+# We also need to verify that non-reserved word alter_actions parse correctly.
+[supported_generic_entity_types=PROJECT,ORGANIZATION]
+[allow_missing_path_in_generic_ddl_alter]
+
+ALTER {{PROJECT|ORGANIZATION}} DROP CONSTRAINT foo
+--
+ALTERNATION GROUP: PROJECT
+--
+AlterEntityStatement [0-33]
+  Identifier(PROJECT) [6-13]
+  AlterActionList [14-33]
+    DropConstraintAction [14-33]
+      Identifier(foo) [30-33]
+--
+ALTER PROJECT DROP CONSTRAINT foo
+--
+ALTERNATION GROUP: ORGANIZATION
+--
+AlterEntityStatement [0-38]
+  Identifier(ORGANIZATION) [6-18]
+  AlterActionList [19-38]
+    DropConstraintAction [19-38]
+      Identifier(foo) [35-38]
+--
+ALTER ORGANIZATION DROP CONSTRAINT foo
+
+==
+
+# Ambiguity testing; ADD is the name of the project.
+[supported_generic_entity_types=PROJECT]
+[allow_missing_path_in_generic_ddl_alter]
+
+ALTER PROJECT ADD DROP CONSTRAINT foo
+--
+AlterEntityStatement [0-37]
+  Identifier(PROJECT) [6-13]
+  PathExpression [14-17]
+    Identifier(ADD) [14-17]
+  AlterActionList [18-37]
+    DropConstraintAction [18-37]
+      Identifier(foo) [34-37]
+--
+ALTER PROJECT ADD DROP CONSTRAINT foo

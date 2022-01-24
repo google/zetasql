@@ -16,6 +16,8 @@
 
 #include "zetasql/tools/execute_query/string_error_collector.h"
 
+#include <string>
+
 #include "zetasql/base/logging.h"
 #include "absl/strings/substitute.h"
 

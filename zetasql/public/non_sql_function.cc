@@ -16,6 +16,8 @@
 
 #include "zetasql/public/non_sql_function.h"
 
+#include <string>
+
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/base/ret_check.h"

@@ -1809,7 +1809,7 @@ absl::Status ParseStringToTimestamp(absl::string_view format_string,
   absl::TimeZone timezone;
   ZETASQL_RETURN_IF_ERROR(MakeTimeZone(default_timezone_string, &timezone));
   return ParseStringToTimestamp(format_string, timestamp_string, timezone,
-                                timestamp, parse_version2);
+                                parse_version2, timestamp);
 }
 
 // deprecated
@@ -1850,7 +1850,7 @@ absl::Status ParseStringToTimestamp(absl::string_view format_string,
   absl::TimeZone timezone;
   ZETASQL_RETURN_IF_ERROR(MakeTimeZone(default_timezone_string, &timezone));
   return ParseStringToTimestamp(format_string, timestamp_string, timezone,
-                                timestamp, parse_version2);
+                                parse_version2, timestamp);
 }
 
 // deprecated

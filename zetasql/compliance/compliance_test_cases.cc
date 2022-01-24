@@ -938,14 +938,14 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestStringConcatOperator, 1) {
                     "@p0 || @p1");
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestGreatestFunctions, 1) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestGreatestFunctions, 3) {
   SetNamePrefix("Greatest");
   RunFunctionTestsPrefix(Shard(GetFunctionTestsGreatest(
                              DriverSupportsFeature(FEATURE_TIMESTAMP_NANOS))),
                          "Greatest");
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestLeastFunctions, 1) {
+SHARDED_TEST_F(ComplianceCodebasedTests, TestLeastFunctions, 3) {
   SetNamePrefix("Least");
   RunFunctionTestsPrefix(Shard(GetFunctionTestsLeast(
                              DriverSupportsFeature(FEATURE_TIMESTAMP_NANOS))),

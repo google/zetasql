@@ -63,7 +63,8 @@ static void TestIdentifier(const std::string& orig) {
   std::string unquoted;
   std::string error_string;
   int error_offset;
-  ZETASQL_EXPECT_OK(ParseIdentifier(quoted, &unquoted, &error_string, &error_offset))
+  ZETASQL_EXPECT_OK(ParseIdentifier(quoted, LanguageOptions(), &unquoted, &error_string,
+                            &error_offset))
       << orig << "\nERROR: " << error_string << " (at offset " << error_offset
       << ")";
   EXPECT_EQ(orig, unquoted) << "quoted: " << quoted;
@@ -695,19 +696,22 @@ static void TestInvalidIdentifier(
   std::string error_string;
   int error_offset = 0;
   // Test with all combinations of NULL/non-NULL error_string and error_offset.
-  EXPECT_THAT(ParseIdentifier(str, &out, nullptr, nullptr),
+  EXPECT_THAT(ParseIdentifier(str, LanguageOptions(), &out, nullptr, nullptr),
               StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr(expected_error_substr)))
       << str;
-  EXPECT_THAT(ParseIdentifier(str, &out, nullptr, &error_offset),
-              StatusIs(absl::StatusCode::kInvalidArgument,
-                       HasSubstr(expected_error_substr)))
+  EXPECT_THAT(
+      ParseIdentifier(str, LanguageOptions(), &out, nullptr, &error_offset),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr(expected_error_substr)))
       << str;
-  EXPECT_THAT(ParseIdentifier(str, &out, &error_string, nullptr),
-              StatusIs(absl::StatusCode::kInvalidArgument,
-                       HasSubstr(expected_error_substr)))
+  EXPECT_THAT(
+      ParseIdentifier(str, LanguageOptions(), &out, &error_string, nullptr),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr(expected_error_substr)))
       << str;
-  EXPECT_THAT(ParseIdentifier(str, &out, &error_string, &error_offset),
+  EXPECT_THAT(ParseIdentifier(str, LanguageOptions(), &out, &error_string,
+                              &error_offset),
               StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr(expected_error_substr)))
       << str;
@@ -826,16 +830,20 @@ static void ExpectParsedIdentifier(const std::string& expected,
   std::string parsed;
   std::string error_string;
   int error_offset;
-  ZETASQL_EXPECT_OK(ParseIdentifier(quoted, &parsed, nullptr, nullptr))
+  ZETASQL_EXPECT_OK(
+      ParseIdentifier(quoted, LanguageOptions(), &parsed, nullptr, nullptr))
       << quoted;
   EXPECT_EQ(expected, parsed);
-  ZETASQL_EXPECT_OK(ParseIdentifier(quoted, &parsed, &error_string, nullptr))
+  ZETASQL_EXPECT_OK(ParseIdentifier(quoted, LanguageOptions(), &parsed, &error_string,
+                            nullptr))
       << quoted << "\nERROR: " << error_string;
   EXPECT_EQ(expected, parsed);
-  ZETASQL_EXPECT_OK(ParseIdentifier(quoted, &parsed, nullptr, &error_offset))
+  ZETASQL_EXPECT_OK(ParseIdentifier(quoted, LanguageOptions(), &parsed, nullptr,
+                            &error_offset))
       << quoted << "\nERROR OFFSET: " << error_offset;
   EXPECT_EQ(expected, parsed);
-  ZETASQL_EXPECT_OK(ParseIdentifier(quoted, &parsed, &error_string, &error_offset))
+  ZETASQL_EXPECT_OK(ParseIdentifier(quoted, LanguageOptions(), &parsed, &error_string,
+                            &error_offset))
       << quoted << "\nERROR: " << error_string;
   EXPECT_EQ(expected, parsed);
 }
@@ -1411,7 +1419,8 @@ TEST(StringsTest, ConditionallyReservedKeywordsMiscIdentifierFunctions) {
 
   // ParseIdentifier()
   std::string out;
-  ZETASQL_EXPECT_OK(ParseIdentifier("QUALIFY", &out));
+  ZETASQL_EXPECT_OK(
+      ParseIdentifier("QUALIFY", LanguageOptions(), &out, nullptr, nullptr));
   EXPECT_THAT(ParseIdentifier("QUALIFY", qualify_reserved, &out),
               StatusIs(absl::StatusCode::kInvalidArgument));
 
@@ -1429,7 +1438,7 @@ TEST(StringsTest, ConditionallyReservedKeywordsMiscIdentifierFunctions) {
 
   // ParseIdentifierPath()
   std::vector<std::string> path;
-  ZETASQL_EXPECT_OK(ParseIdentifierPath("QUALIFY.QUALIFY", &path));
+  ZETASQL_EXPECT_OK(ParseIdentifierPath("QUALIFY.QUALIFY", LanguageOptions(), &path));
   EXPECT_THAT(path,
               ::testing::Eq(std::vector<std::string>{"QUALIFY", "QUALIFY"}));
 

@@ -18,6 +18,7 @@
 // from resolver.h.
 #include <stddef.h>
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <unordered_set>

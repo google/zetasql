@@ -16,6 +16,8 @@
 
 #include "zetasql/public/language_options.h"
 
+#include <string>
+
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
@@ -42,6 +44,7 @@ LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
       // Add new features here.
       features.insert(FEATURE_V_1_3_PROTO_DEFAULT_IF_NULL);
       features.insert(FEATURE_V_1_3_EXTRACT_FROM_PROTO);
+      features.insert(FEATURE_V_1_3_ARRAY_GREATEST_LEAST);
       features.insert(FEATURE_V_1_3_ARRAY_ORDERING);
       features.insert(FEATURE_V_1_3_OMIT_INSERT_COLUMN_LIST);
       features.insert(FEATURE_V_1_3_IGNORE_PROTO3_USE_DEFAULTS);

@@ -965,19 +965,41 @@ RelationalOp* ExistsExpr::mutable_input() {
 absl::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>>
 ScalarFunctionCallExpr::Create(
     std::unique_ptr<const ScalarFunctionBody> function,
-    std::vector<std::unique_ptr<ValueExpr>> exprs,
+    std::vector<std::unique_ptr<ValueExpr>> arguments,
     ResolvedFunctionCallBase::ErrorMode error_mode) {
   ZETASQL_RET_CHECK(function != nullptr);
   return absl::WrapUnique(new ScalarFunctionCallExpr(
-      std::move(function), std::move(exprs), error_mode));
+      std::move(function), std::move(arguments), error_mode));
+}
+
+absl::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>>
+ScalarFunctionCallExpr::Create(
+    std::unique_ptr<const ScalarFunctionBody> function,
+    std::vector<std::unique_ptr<AlgebraArg>> arguments,
+    ResolvedFunctionCallBase::ErrorMode error_mode) {
+  ZETASQL_RET_CHECK(function != nullptr);
+  for (const auto& arg : arguments) {
+    ZETASQL_RET_CHECK(arg->has_node() && (arg->value_expr() != nullptr ||
+                                  arg->inline_lambda_expr() != nullptr))
+        << "Unexpected type of AlgebraArg for function argument: "
+        << arg->DebugString();
+  }
+  return absl::WrapUnique(new ScalarFunctionCallExpr(
+      std::move(function), std::move(arguments), error_mode));
 }
 
 absl::Status ScalarFunctionCallExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
-  absl::Span<AlgebraArg* const> args = GetMutableArgs();
+  absl::Span<AlgebraArg* const> args = GetMutableArgs<AlgebraArg>(kArgument);
   for (AlgebraArg* arg : args) {
-    ZETASQL_RETURN_IF_ERROR(
-        arg->mutable_value_expr()->SetSchemasForEvaluation(params_schemas));
+    if (arg->value_expr() != nullptr) {
+      ZETASQL_RETURN_IF_ERROR(
+          arg->mutable_value_expr()->SetSchemasForEvaluation(params_schemas));
+    } else if (arg->inline_lambda_expr() != nullptr) {
+      ZETASQL_RETURN_IF_ERROR(
+          arg->mutable_inline_lambda_expr()->SetSchemasForEvaluation(
+              params_schemas));
+    }
   }
   return absl::OkStatus();
 }
@@ -986,17 +1008,23 @@ bool ScalarFunctionCallExpr::Eval(absl::Span<const TupleData* const> params,
                                   EvaluationContext* context,
                                   VirtualTupleSlot* result,
                                   absl::Status* status) const {
-  const auto& args = GetArgs();
-  std::vector<Value> call_args(args.size());
+  // Evaluate value arguments. Skip over lambda arguments, which are stored
+  // inside <function_>, rather than passed through the argument list.
+  const auto& args = GetArgs<AlgebraArg>(kArgument);
+  std::vector<Value> call_args;
+  call_args.reserve(args.size());
   for (int i = 0; i < args.size(); i++) {
-    std::shared_ptr<TupleSlot::SharedProtoState> arg_shared_state;
-    VirtualTupleSlot arg_result(&call_args[i], &arg_shared_state);
-    if (!args[i]->value_expr()->Eval(params, context, &arg_result, status)) {
-      return false;
+    if (args[i]->value_expr() != nullptr) {
+      std::shared_ptr<TupleSlot::SharedProtoState> arg_shared_state;
+      VirtualTupleSlot arg_result(&call_args.emplace_back(), &arg_shared_state);
+      if (!args[i]->value_expr()->Eval(params, context, &arg_result, status)) {
+        return false;
+      }
     }
   }
 
-  if (!function_->Eval(call_args, context, result->mutable_value(), status)) {
+  if (!function_->Eval(params, call_args, context, result->mutable_value(),
+                       status)) {
     if (ShouldSuppressError(*status, error_mode_)) {
       *status = absl::OkStatus();
       result->SetValue(Value::Null(output_type()));
@@ -1010,10 +1038,10 @@ bool ScalarFunctionCallExpr::Eval(absl::Span<const TupleData* const> params,
 
 std::string ScalarFunctionCallExpr::DebugInternal(const std::string& indent,
                                                   bool verbose) const {
+  std::string indent_child = indent + kIndentSpace;
   std::vector<std::string> sarg;
-  for (auto arg : GetArgs()) {
-    std::string indent_child = indent + kIndentSpace;
-    sarg.push_back(arg->value_expr()->DebugInternal(indent_child, verbose));
+  for (auto arg : GetArgs<AlgebraArg>(kArgument)) {
+    sarg.push_back(arg->DebugInternal(indent_child, verbose));
   }
   return absl::StrCat(function()->debug_name(), "(", absl::StrJoin(sarg, ", "),
                       ")");
@@ -1021,17 +1049,27 @@ std::string ScalarFunctionCallExpr::DebugInternal(const std::string& indent,
 
 ScalarFunctionCallExpr::ScalarFunctionCallExpr(
     std::unique_ptr<const ScalarFunctionBody> function,
-    std::vector<std::unique_ptr<ValueExpr>> exprs,
+    std::vector<std::unique_ptr<ValueExpr>> argument_exprs,
     ResolvedFunctionCallBase::ErrorMode error_mode)
     : ValueExpr(function->output_type()),
       function_(std::move(function)),
       error_mode_(error_mode) {
-  std::vector<std::unique_ptr<ExprArg>> args;
-  args.reserve(exprs.size());
-  for (auto& e : exprs) {
+  std::vector<std::unique_ptr<AlgebraArg>> args;
+  args.reserve(argument_exprs.size());
+  for (auto& e : argument_exprs) {
     args.push_back(absl::make_unique<ExprArg>(std::move(e)));
   }
-  SetArgs<ExprArg>(kArgument, std::move(args));
+  SetArgs<AlgebraArg>(kArgument, std::move(args));
+}
+
+ScalarFunctionCallExpr::ScalarFunctionCallExpr(
+    std::unique_ptr<const ScalarFunctionBody> function,
+    std::vector<std::unique_ptr<AlgebraArg>> arguments,
+    ResolvedFunctionCallBase::ErrorMode error_mode)
+    : ValueExpr(function->output_type()),
+      function_(std::move(function)),
+      error_mode_(error_mode) {
+  SetArgs<AlgebraArg>(kArgument, std::move(arguments));
 }
 
 // -------------------------------------------------------
@@ -1365,6 +1403,10 @@ std::unique_ptr<InlineLambdaExpr> InlineLambdaExpr::Create(
   return absl::WrapUnique(new InlineLambdaExpr(arguments, std::move(body)));
 }
 
+const Type* InlineLambdaExpr::output_type() const {
+  return GetArg(kBody)->node()->AsValueExpr()->output_type();
+}
+
 absl::Status InlineLambdaExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   // Create a new schema containing lambda arguments.
@@ -1427,231 +1469,6 @@ std::string InlineLambdaExpr::DebugInternal(const std::string& indent,
                           },
                           {kN, k1}, indent, verbose),
                       ")");
-}
-
-ArrayFunctionWithLambdaExpr::ArrayFunctionWithLambdaExpr(
-    absl::string_view func_name, std::unique_ptr<AlgebraArg> input_array,
-    std::unique_ptr<AlgebraArg> lambda, const Type* output_type,
-    LambdaResultHandlerCreator lambda_handler_creator)
-    : ValueExpr(output_type),
-      func_name_(func_name),
-      lambda_handler_creator_(std::move(lambda_handler_creator)) {
-  SetArg(kInputArray, std::move(input_array));
-  SetArg(kLambda, std::move(lambda));
-}
-
-absl::Status ArrayFunctionWithLambdaExpr::SetSchemasForEvaluation(
-    absl::Span<const TupleSchema* const> params_schemas) {
-  ZETASQL_RETURN_IF_ERROR(
-      mutable_input_array()->SetSchemasForEvaluation(params_schemas));
-  return mutable_lambda()->SetSchemasForEvaluation(params_schemas);
-}
-
-bool ArrayFunctionWithLambdaExpr::Eval(
-    absl::Span<const TupleData* const> params, EvaluationContext* context,
-    VirtualTupleSlot* result, absl::Status* status) const {
-  // Evaluate the input array expr.
-  Value input_array;
-  std::shared_ptr<TupleSlot::SharedProtoState> shared_state;
-  VirtualTupleSlot input_array_result(&input_array, &shared_state);
-  if (!GetArg(kInputArray)
-           ->value_expr()
-           ->Eval(params, context, &input_array_result, status)) {
-    return false;
-  }
-
-  // If input is NULL, return NULL value.
-  if (input_array.is_null()) {
-    result->SetValue(Value::Null(output_type()));
-    return true;
-  }
-
-  Value lambda_body_value;
-  std::shared_ptr<TupleSlot::SharedProtoState> shared_proto_state;
-  VirtualTupleSlot lambda_body_slot(&lambda_body_value, &shared_proto_state);
-
-  const InlineLambdaExpr* lambda = GetArg(kLambda)->inline_lambda_expr();
-  auto num_lambda_args = lambda->num_args();
-  if (num_lambda_args < 1 || num_lambda_args > 2) {
-    *status = zetasql_base::InternalErrorBuilder()
-              << "Number of lambda arguments is out of range. Args: "
-              << num_lambda_args << " lambda: " << lambda->DebugString();
-    return false;
-  }
-  // Handler need to be created per evaluation of the array function call.
-  // That's why we need a callback that creates a handler instead of a handler.
-  std::unique_ptr<LambdaResultHandler> handler = lambda_handler_creator_();
-  std::vector<Value> lambda_arg_values(num_lambda_args);
-  for (int i = 0; i < input_array.num_elements(); i++) {
-    const Value& element_value = input_array.element(i);
-    lambda_arg_values[0] = element_value;
-    // The second argument of simple array functions is optional offset.
-    if (num_lambda_args > 1) {
-      lambda_arg_values[1] = Value::Int64(i);
-    }
-
-    if (!lambda->Eval(params, context, &lambda_body_slot, status,
-                      lambda_arg_values)) {
-      return false;
-    }
-
-    if (!lambda_body_value.is_valid()) {
-      *status =
-          zetasql_base::InternalErrorBuilder()
-          << "Lambda body evaluation succeeded but value is invalid. Lambda: "
-          << lambda->DebugString();
-      return false;
-    }
-
-    bool short_circuit = false;
-    *status = handler->OnLambdaEvaluation(element_value, lambda_body_value,
-                                          short_circuit);
-    if (!status->ok()) return false;
-    // The handler asks us to stop.
-    if (short_circuit) {
-      break;
-    }
-  }
-
-  result->SetValue(handler->GetReturnValue(output_type()));
-  return true;
-}
-
-ValueExpr* ArrayFunctionWithLambdaExpr::mutable_input_array() {
-  return GetMutableArg(kInputArray)->mutable_node()->AsMutableValueExpr();
-}
-
-InlineLambdaExpr* ArrayFunctionWithLambdaExpr::mutable_lambda() {
-  return GetMutableArg(kLambda)->mutable_node()->AsMutableInlineLambdaExpr();
-}
-
-std::string ArrayFunctionWithLambdaExpr::DebugInternal(
-    const std::string& indent, bool verbose) const {
-  return absl::StrCat(func_name_, "(",
-                      ArgDebugString(
-                          {
-                              "input_array",
-                              "lambda",
-                          },
-                          {k1, k1}, indent, verbose),
-                      ")");
-}
-
-// Lambda evaluation handler for ARRAY_FILTER function.
-class ArrayFilterLambdaEvaluationHandler
-    : public ArrayFunctionWithLambdaExpr::LambdaResultHandler {
- public:
-  ~ArrayFilterLambdaEvaluationHandler() override{};
-
-  // If the lambda value is TRUE, puts the element input output.
-  // If the lambda value is FALSE or NULL, skips the element.
-  absl::Status OnLambdaEvaluation(const Value& element,
-                                  const Value& lambda_body,
-                                  bool& short_circuit) override;
-
-  Value GetReturnValue(const Type* output_type) override;
-
- private:
-  std::vector<Value> filtered_elements_;
-};
-
-absl::Status ArrayFilterLambdaEvaluationHandler::OnLambdaEvaluation(
-    const Value& element, const Value& lambda_body, bool& short_circuit) {
-  if (!lambda_body.is_null() && lambda_body.bool_value()) {
-    filtered_elements_.push_back(element);
-  }
-  return absl::OkStatus();
-}
-
-Value ArrayFilterLambdaEvaluationHandler::GetReturnValue(
-    const Type* output_type) {
-  return Value::Array(output_type->AsArray(), filtered_elements_);
-}
-
-// Lambda evaluation handler for ARRAY_TRANSFORM function.
-class ArrayTransformLambdaEvaluationHandler
-    : public ArrayFunctionWithLambdaExpr::LambdaResultHandler {
- public:
-  ~ArrayTransformLambdaEvaluationHandler() override{};
-
-  // Puts the lambda body value into the result array.
-  absl::Status OnLambdaEvaluation(const Value& element,
-                                  const Value& lambda_body,
-                                  bool& short_circuit) override;
-
-  Value GetReturnValue(const Type* output_type) override;
-
- private:
-  std::vector<Value> transformed_elements_;
-};
-
-absl::Status ArrayTransformLambdaEvaluationHandler::OnLambdaEvaluation(
-    const Value& element, const Value& lambda_body, bool& short_circuit) {
-  transformed_elements_.push_back(lambda_body);
-  return absl::OkStatus();
-}
-
-Value ArrayTransformLambdaEvaluationHandler::GetReturnValue(
-    const Type* output_type) {
-  return Value::Array(output_type->AsArray(), transformed_elements_);
-}
-
-// Lambda evaluation handler for FN_ARRAY_INCLUDES_LAMBDA.
-class ArrayIncludesLambdaEvaluationHandler
-    : public ArrayFunctionWithLambdaExpr::LambdaResultHandler {
- public:
-  ~ArrayIncludesLambdaEvaluationHandler() override{};
-
-  absl::Status OnLambdaEvaluation(const Value& element,
-                                  const Value& lambda_body,
-                                  bool& short_circuit) override;
-
-  Value GetReturnValue(const Type* output_type) override;
-
- private:
-  bool found_ = false;
-};
-
-absl::Status ArrayIncludesLambdaEvaluationHandler::OnLambdaEvaluation(
-    const Value& element, const Value& lambda_body, bool& short_circuit) {
-  ZETASQL_RET_CHECK(lambda_body.type()->IsBool()) << lambda_body.DebugString();
-  if (lambda_body.is_null() || !lambda_body.bool_value()) {
-    return absl::OkStatus();
-  }
-  found_ = true;
-  short_circuit = true;
-  return absl::OkStatus();
-}
-
-Value ArrayIncludesLambdaEvaluationHandler::GetReturnValue(
-    const Type* output_type) {
-  return Value::Bool(found_);
-}
-
-absl::StatusOr<std::unique_ptr<ArrayFunctionWithLambdaExpr>>
-ArrayFunctionWithLambdaExpr::Create(
-    absl::string_view func_name, std::vector<std::unique_ptr<AlgebraArg>> args,
-    const Type* output_type) {
-  if (func_name == "array_filter") {
-    return absl::WrapUnique(new ArrayFunctionWithLambdaExpr(
-        func_name, std::move(args[0]), std::move(args[1]), output_type, []() {
-          return absl::make_unique<ArrayFilterLambdaEvaluationHandler>();
-        }));
-  } else if (func_name == "array_transform") {
-    return absl::WrapUnique(new ArrayFunctionWithLambdaExpr(
-        func_name, std::move(args[0]), std::move(args[1]), output_type, []() {
-          return absl::make_unique<ArrayTransformLambdaEvaluationHandler>();
-        }));
-  } else if (func_name == "array_includes") {
-    return absl::WrapUnique(new ArrayFunctionWithLambdaExpr(
-        func_name, std::move(args[0]), std::move(args[1]), output_type, []() {
-          return absl::make_unique<ArrayIncludesLambdaEvaluationHandler>();
-        }));
-  }
-
-  return absl::Status(
-      absl::StatusCode::kInvalidArgument,
-      absl::StrCat("Unsupported built-in function: ", func_name));
 }
 
 // -------------------------------------------------------

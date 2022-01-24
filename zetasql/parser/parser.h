@@ -20,6 +20,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "zetasql/base/arena.h"
@@ -41,15 +42,25 @@ class ASTType;
 class IdStringPool;
 class ParseResumeLocation;
 
+// Previously, the LanguageOptions were not required in parser options.
+// This matches the behavior of the parser when it was not provided language
+// options, which mostly matches a default constructed LanguageOptions object.
+LanguageOptions LegacyDefaultParserLanguageOptions();
+
 // ParserOptions contains options that affect parser behavior.
 class ParserOptions {
  public:
   ParserOptions();
+  explicit ParserOptions(LanguageOptions language_options);
+
+  // Deprecated
   ParserOptions(std::shared_ptr<IdStringPool> id_string_pool,
                 std::shared_ptr<zetasql_base::UnsafeArena> arena,
-                // Caller maintains ownership, and must ensure language_options
-                // lifetime exceeds parser_options.
                 const LanguageOptions* language_options = nullptr);
+
+  ParserOptions(std::shared_ptr<IdStringPool> id_string_pool,
+                std::shared_ptr<zetasql_base::UnsafeArena> arena,
+                LanguageOptions language_options);
   ~ParserOptions();
 
   // Sets an IdStringPool for storing strings used in parsing. If it is not set,
@@ -83,9 +94,24 @@ class ParserOptions {
   }
 
   void set_language_options(const LanguageOptions* language_options) {
-    language_options_ = language_options;
+    if (language_options == nullptr) {
+      language_options_ = LegacyDefaultParserLanguageOptions();
+    } else {
+      language_options_ = language_options;
+    }
   }
-  const LanguageOptions* language_options() const { return language_options_; }
+
+  void set_language_options(LanguageOptions language_options) {
+    language_options_ = std::move(language_options);
+  }
+
+  const LanguageOptions& language_options() const {
+    if (absl::holds_alternative<LanguageOptions>(language_options_)) {
+      return absl::get<LanguageOptions>(language_options_);
+    } else {
+      return *absl::get<const LanguageOptions*>(language_options_);
+    }
+  }
 
  private:
   // Allocate all AST nodes in this arena.
@@ -96,8 +122,7 @@ class ParserOptions {
   // The pool will also be referenced in ParserOutput to keep it alive.
   std::shared_ptr<IdStringPool> id_string_pool_;
 
-  // LanguageOptions to control parser's behavior.
-  const LanguageOptions* language_options_ = nullptr;
+  absl::variant<LanguageOptions, const LanguageOptions*> language_options_;
 };
 
 // Output of a parse operation. The output parse tree can be accessed via

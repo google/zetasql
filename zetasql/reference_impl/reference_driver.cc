@@ -479,7 +479,8 @@ ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
   std::unique_ptr<const AnalyzerOutput> analyzed;
   ZETASQL_RETURN_IF_ERROR(AnalyzeStatement(sql, analyzer_options, catalog.get(),
                                    type_factory, &analyzed));
-  if (analyzed->analyzer_output_properties().has_anonymization) {
+  if (analyzed->analyzer_output_properties().IsRelevant(
+          REWRITE_ANONYMIZATION)) {
     ZETASQL_ASSIGN_OR_RETURN(analyzed,
                      RewriteForAnonymization(analyzed, analyzer_options,
                                              catalog.get(), type_factory));

@@ -1898,6 +1898,12 @@ absl::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
 
 ValueContent Value::GetContent() const {
   ZETASQL_DCHECK(has_content());
+  // If type is less than 64bit, the padding bytes of the union uninitialized.
+  // The first byte must be initialized in any case.
+  // Suppress msan check for the potentially uninitialized bytes.
+  ABSL_ANNOTATE_MEMORY_IS_INITIALIZED(
+      reinterpret_cast<const char*>(&int64_value_) + 1,
+      sizeof(int64_value_) - 1);
   return ValueContent(int64_value_, metadata_.can_store_value_extended_content()
                                         ? metadata_.value_extended_content()
                                         : 0);

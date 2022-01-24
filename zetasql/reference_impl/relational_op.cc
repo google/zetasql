@@ -2652,8 +2652,8 @@ class UncorrelatedHashedRightInput : public RightInputForJoin {
                                                    types::BoolType());
           Value equals_result;
           if (!equals_function.Eval(
-                  {key->slot(i).value(), other_key.slot(i).value()}, context_,
-                  &equals_result, &status)) {
+                  params_, {key->slot(i).value(), other_key.slot(i).value()},
+                  context_, &equals_result, &status)) {
             return status;
           }
           if (equals_result != values::Bool(true)) {

@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_NUMERIC_VALUE_TEST_UTILS_H_
 #define ZETASQL_PUBLIC_NUMERIC_VALUE_TEST_UTILS_H_
 
+#include <algorithm>
 #include <cstdint>
 
 #include "zetasql/public/numeric_value.h"

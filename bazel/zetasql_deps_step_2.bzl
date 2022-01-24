@@ -59,6 +59,16 @@ def zetasql_deps_step_2(
     if evaluator_deps:
         analyzer_deps = True
 
+    if not native.existing_rule("platforms"):
+        http_archive(
+            name = "platforms",
+            sha256 = "079945598e4b6cc075846f7fd6a9d0857c33a7afc0de868c2ccb96405225135d",
+            urls = [
+                "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.4/platforms-0.0.4.tar.gz",
+                "https://github.com/bazelbuild/platforms/releases/download/0.0.4/platforms-0.0.4.tar.gz",
+            ],
+        )
+
     if analyzer_deps:
         # Followup from zetasql_deps_step_1.bzl
         _load_deps_from_step_1()
@@ -136,15 +146,15 @@ cc_proto_library(
             #
             http_archive(
                 name = "com_google_absl",
-                # Commit from 2021-08-06
-                url = "https://github.com/abseil/abseil-cpp/archive/bf31a10b65d945665cecfb9d8807702ae4a7fde1.tar.gz",
-                sha256 = "3179b97f202d7e6b81ccf1d835693463498d0523bfcfaf3089a6226f19d97a7f",
-                strip_prefix = "abseil-cpp-bf31a10b65d945665cecfb9d8807702ae4a7fde1",
+                # Commit from 2022-01-19
+                url = "https://github.com/abseil/abseil-cpp/archive/fbbb5865a562c9a9167d71c1cf56b82025a8f065.tar.gz",
+                sha256 = "18aadf5b16743399d37e3d2880c181f57ef0d0cef8ed6086f53fd254c8cff6c2",
+                strip_prefix = "abseil-cpp-fbbb5865a562c9a9167d71c1cf56b82025a8f065",
             )
 
     if analyzer_deps:
         # Abseil (Python)
-        if not native.existing_rule("com_google_absl_py"):
+        if not native.existing_rule("io_abseil_py"):
             # How to update:
             # Abseil generally just does daily (or even subdaily) releases. None are
             # special, so just periodically update as necessary.
@@ -164,12 +174,12 @@ cc_proto_library(
             # update strip_prefix with COMMITHEX
             http_archive(
                 name = "io_abseil_py",
-                # Non-release commit from April 18, 2018
+                # Non-release commit from Nov 17, 2021
                 urls = [
-                    "https://github.com/abseil/abseil-py/archive/bd4d245ac1e36439cb44e7ac46cd1b3e48d8edfa.tar.gz",
+                    "https://github.com/abseil/abseil-py/archive/a1c1af693b9f15bd0f67fe383cb05e7cc955556b.tar.gz",
                 ],
-                sha256 = "62a536b13840dc7e3adec333c1ea4c483628ce39a9fdd41e7b3e027f961eb371",
-                strip_prefix = "abseil-py-bd4d245ac1e36439cb44e7ac46cd1b3e48d8edfa",
+                sha256 = "f233de3482bd724a68c4998e03761536ca99dc8b1fc5941fe04f5cf9a39feb54",
+                strip_prefix = "abseil-py-a1c1af693b9f15bd0f67fe383cb05e7cc955556b",
             )
 
     if tools_deps:
@@ -206,20 +216,20 @@ cc_proto_library(
         if not native.existing_rule("com_google_differential_privacy"):
             http_archive(
                 name = "com_google_differential_privacy",
-                # Release from 2021-04-21
-                url = "https://github.com/google/differential-privacy/archive/refs/tags/v1.0.0.tar.gz",
-                sha256 = "2ff780cdbffd8e3e84425c2ed38a0a48d0307f4df655dfd7b0d7f5143078d8c8",
-                strip_prefix = "differential-privacy-1.0.0",
+                # Release from 2021-11-28
+                url = "https://github.com/google/differential-privacy/archive/refs/tags/v1.1.1.tar.gz",
+                sha256 = "e7aba3d2209cfa57381d8d8953bb78a7eb5e64a0c7f5ff5ef70b3a31a1efdb75",
+                strip_prefix = "differential-privacy-1.1.1",
             )
 
         # Differential Privacy - cc
         if not native.existing_rule("com_google_cc_differential_privacy"):
             http_archive(
                 name = "com_google_cc_differential_privacy",
-                # Release from 2021-04-21
-                url = "https://github.com/google/differential-privacy/archive/refs/tags/v1.0.0.tar.gz",
-                sha256 = "2ff780cdbffd8e3e84425c2ed38a0a48d0307f4df655dfd7b0d7f5143078d8c8",
-                strip_prefix = "differential-privacy-1.0.0/cc",
+                # Release from 2021-11-28
+                url = "https://github.com/google/differential-privacy/archive/refs/tags/v1.1.1.tar.gz",
+                sha256 = "e7aba3d2209cfa57381d8d8953bb78a7eb5e64a0c7f5ff5ef70b3a31a1efdb75",
+                strip_prefix = "differential-privacy-1.1.1/cc",
             )
 
         # Boringssl
@@ -776,10 +786,10 @@ java_library(
             #
             http_archive(
                 name = "com_google_googletest",
-                # Commit from 2020-02-21
-                url = "https://github.com/google/googletest/archive//6f5fd0d7199b9a19faa9f499ecc266e6ae0329e7.tar.gz",
-                sha256 = "51e6c4b4449aab8f31e69d0ff89565f49a1f3628a42e24f214e8b02b3526e3bc",
-                strip_prefix = "googletest-6f5fd0d7199b9a19faa9f499ecc266e6ae0329e7",
+                # Commit from 2022-01-12
+                url = "https://github.com/google/googletest/archive//2d07f12b607c528b21795ab672cff3afaf64f7a1.tar.gz",
+                sha256 = "219132fd586a870ebde5df6007d7f81dbd4b4a411466569301b3a0f55a207b37",
+                strip_prefix = "googletest-2d07f12b607c528b21795ab672cff3afaf64f7a1",
             )
 
     if testing_deps:
@@ -787,21 +797,22 @@ java_library(
         if not native.existing_rule("com_github_google_benchmark"):
             http_archive(
                 name = "com_github_google_benchmark",
-                url = "https://github.com/google/benchmark/archive/v1.5.1.tar.gz",
-                sha256 = "23082937d1663a53b90cb5b61df4bcc312f6dee7018da78ba00dd6bd669dfef2",
-                strip_prefix = "benchmark-1.5.1",
+                url = "https://github.com/google/benchmark/archive/v1.6.1.tar.gz",
+                sha256 = "6132883bc8c9b0df5375b16ab520fac1a85dc9e4cf5be59480448ece74b278d4",
+                strip_prefix = "benchmark-1.6.1",
             )
 
     if analyzer_deps:
         # RE2 Regex Framework, mostly used in unit tests.
         if not native.existing_rule("com_googlesource_code_re2"):
+            # 2022-01-19
             http_archive(
                 name = "com_googlesource_code_re2",
                 urls = [
-                    "https://github.com/google/re2/archive/d1394506654e0a19a92f3d8921e26f7c3f4de969.tar.gz",
+                    "https://github.com/google/re2/archive/e8cb5ecb8ee1066611aa937a42fa10514edf30fb.tar.gz",
                 ],
-                sha256 = "ac855fb93dfa6878f88bc1c399b9a2743fdfcb3dc24b94ea9a568a1c990b1212",
-                strip_prefix = "re2-d1394506654e0a19a92f3d8921e26f7c3f4de969",
+                sha256 = "c5f46950cdf33175f0668f454d9b6b4fe1b5a71ffd9283213e77fb04461af099",
+                strip_prefix = "re2-e8cb5ecb8ee1066611aa937a42fa10514edf30fb",
             )
 
         # Jinja2.

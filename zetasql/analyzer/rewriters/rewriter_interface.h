@@ -42,13 +42,6 @@ class Rewriter {
  public:
   virtual ~Rewriter() {}
 
-  // Returns whether this rewriter should be activated. Typically this requires
-  // both the presence of the rewriter's enum in 'analyzer_options', and also
-  // the presence of relevant AST nodes detected in the original
-  // 'analyzer_output'.
-  virtual bool ShouldRewrite(const AnalyzerOptions& analyzer_options,
-                             const AnalyzerOutput& analyzer_output) const = 0;
-
   // Rewrites 'input' according to the rules of this rewriter. Returns the
   // rewritten AST, and potentially other output properties, in the return
   // value.

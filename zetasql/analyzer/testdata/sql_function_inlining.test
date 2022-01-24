@@ -165,18 +165,48 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(ZetaSQL:array_includes(ARRAY<INT64>, LAMBDA(INT64->BOOL)) -> BOOL)
-    |     +-FunctionArgument
-    |     | +-expr=
-    |     |   +-Literal(type=ARRAY<INT64>, value=[1, 2, 3])
-    |     +-FunctionArgument
-    |       +-inline_lambda=
-    |         +-InlineLambda
-    |           +-argument_list=[$lambda_arg.e#2]
-    |           +-body=
-    |             +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
-    |               +-ColumnRef(type=INT64, column=$lambda_arg.e#2)
-    |               +-Literal(type=INT64, value=2)
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#6]
+    |         +-expr_list=
+    |         | +-$col1#6 :=
+    |         |   +-FunctionCall(ZetaSQL:if(BOOL, BOOL, BOOL) -> BOOL)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#3)
+    |         |     +-Literal(type=BOOL, value=NULL)
+    |         |     +-SubqueryExpr
+    |         |       +-type=BOOL
+    |         |       +-subquery_type=EXISTS
+    |         |       +-parameter_list=
+    |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#3)
+    |         |       +-subquery=
+    |         |         +-ProjectScan
+    |         |           +-column_list=[$expr_subquery.$col1#5]
+    |         |           +-expr_list=
+    |         |           | +-$col1#5 := Literal(type=INT64, value=1)
+    |         |           +-input_scan=
+    |         |             +-FilterScan
+    |         |               +-column_list=[$array.element#4]
+    |         |               +-input_scan=
+    |         |               | +-ArrayScan
+    |         |               |   +-column_list=[$array.element#4]
+    |         |               |   +-array_expr=
+    |         |               |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#3, is_correlated=TRUE)
+    |         |               |   +-element_column=$array.element#4
+    |         |               +-filter_expr=
+    |         |                 +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |                   +-ColumnRef(type=INT64, column=$array.element#4)
+    |         |                   +-Literal(type=INT64, value=2)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$subquery1.array_input#3]
+    |             +-expr_list=
+    |             | +-array_input#3 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |             +-input_scan=
+    |               +-SingleRowScan
     +-input_scan=
       +-SingleRowScan
 ==
@@ -357,9 +387,652 @@ QueryStmt
   +-ProjectScan
     +-column_list=[$query.$col1#1]
     +-expr_list=
-    | +-$col1#1 := FunctionCall(Lazy_resolution_function:NullaryPi() -> DOUBLE)
+    | +-$col1#1 := Literal(type=DOUBLE, value=3.141597)
     +-input_scan=
       +-SingleRowScan
+==
+
+################################################################################
+## Functions with arguments
+################################################################################
+
+SELECT UnaryIncrement{{|RefArg}}(1);
+
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(Lazy_resolution_function:UnaryIncrement(INT64 a) -> INT64)
+    |     +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-LetExpr
+    |     +-type=INT64
+    |     +-assignment_list=
+    |     | +-a#2 := Literal(type=INT64, value=1)
+    |     +-expr=
+    |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |         +-ColumnRef(type=INT64, column=$inlined_UnaryIncrement.a#2)
+    |         +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: RefArg
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(Lazy_resolution_function:UnaryIncrementRefArg(INT64) -> INT64)
+    |     +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-LetExpr
+    |     +-type=INT64
+    |     +-assignment_list=
+    |     | +-a#2 := Literal(type=INT64, value=1)
+    |     +-expr=
+    |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |         +-ColumnRef(type=INT64, column=$inlined_UnaryIncrementRefArg.a#2)
+    |         +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# This case is useful because the argument is a column rather than a literal.
+SELECT UnaryIncrement(a) FROM (SELECT 1 a);
+
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-FunctionCall(Lazy_resolution_function:UnaryIncrement(INT64 a) -> INT64)
+    |     +-ColumnRef(type=INT64, column=$subquery1.a#1)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$subquery1.a#1]
+        +-expr_list=
+        | +-a#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-LetExpr
+    |     +-type=INT64
+    |     +-assignment_list=
+    |     | +-a#3 := ColumnRef(type=INT64, column=$subquery1.a#1)
+    |     +-expr=
+    |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |         +-ColumnRef(type=INT64, column=$inlined_UnaryIncrement.a#3)
+    |         +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$subquery1.a#1]
+        +-expr_list=
+        | +-a#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+SELECT IgnoresArg(3);
+
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(Lazy_resolution_function:IgnoresArg(INT64 a) -> INT64)
+    |     +-Literal(type=INT64, value=3)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-LetExpr
+    |     +-type=INT64
+    |     +-assignment_list=
+    |     | +-a#2 := Literal(type=INT64, value=3)
+    |     +-expr=
+    |       +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT FloorDiv(1, 2);
+
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(Lazy_resolution_function:FloorDiv(INT64 n, INT64 d) -> INT64)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=INT64, value=2)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-LetExpr
+    |     +-type=INT64
+    |     +-assignment_list=
+    |     | +-n#2 := Literal(type=INT64, value=1)
+    |     | +-d#3 := Literal(type=INT64, value=2)
+    |     +-expr=
+    |       +-FunctionCall(ZetaSQL:$subtract(INT64, INT64) -> INT64)
+    |         +-FunctionCall(ZetaSQL:div(INT64, INT64) -> INT64)
+    |         | +-ColumnRef(type=INT64, column=$inlined_FloorDiv.n#2)
+    |         | +-ColumnRef(type=INT64, column=$inlined_FloorDiv.d#3)
+    |         +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+    |           +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+    |           | +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    |           | | +-ColumnRef(type=INT64, column=$inlined_FloorDiv.n#2)
+    |           | | +-Literal(type=INT64, value=0)
+    |           | +-FunctionCall(ZetaSQL:$not_equal(INT64, INT64) -> BOOL)
+    |           |   +-FunctionCall(ZetaSQL:mod(INT64, INT64) -> INT64)
+    |           |   | +-ColumnRef(type=INT64, column=$inlined_FloorDiv.n#2)
+    |           |   | +-ColumnRef(type=INT64, column=$inlined_FloorDiv.d#3)
+    |           |   +-Literal(type=INT64, value=0)
+    |           +-Literal(type=INT64, value=1)
+    |           +-Literal(type=INT64, value=0)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT FloorDiv(values[OFFSET(FloorDiv(CAST(Ceil(RAND() * 11) AS INT64), 2))],
+                values[OFFSET(FloorDiv(CAST(Ceil(RAND() * 11) AS INT64), 2))])
+FROM (SELECT [1, 1, 2, 3, 0] AS values);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-FunctionCall(Lazy_resolution_function:FloorDiv(INT64 n, INT64 d) -> INT64)
+    |     +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<INT64>, INT64) -> INT64)
+    |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.values#1)
+    |     | +-FunctionCall(Lazy_resolution_function:FloorDiv(INT64 n, INT64 d) -> INT64)
+    |     |   +-Cast(DOUBLE -> INT64)
+    |     |   | +-FunctionCall(ZetaSQL:ceil(DOUBLE) -> DOUBLE)
+    |     |   |   +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    |     |   |     +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
+    |     |   |     +-Literal(type=DOUBLE, value=11)
+    |     |   +-Literal(type=INT64, value=2)
+    |     +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<INT64>, INT64) -> INT64)
+    |       +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.values#1)
+    |       +-FunctionCall(Lazy_resolution_function:FloorDiv(INT64 n, INT64 d) -> INT64)
+    |         +-Cast(DOUBLE -> INT64)
+    |         | +-FunctionCall(ZetaSQL:ceil(DOUBLE) -> DOUBLE)
+    |         |   +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    |         |     +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
+    |         |     +-Literal(type=DOUBLE, value=11)
+    |         +-Literal(type=INT64, value=2)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$subquery1.values#1]
+        +-expr_list=
+        | +-values#1 := Literal(type=ARRAY<INT64>, value=[1, 1, 2, 3, 0])
+        +-input_scan=
+          +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-LetExpr
+    |     +-type=INT64
+    |     +-assignment_list=
+    |     | +-n#5 :=
+    |     | | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<INT64>, INT64) -> INT64)
+    |     | |   +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.values#1)
+    |     | |   +-LetExpr
+    |     | |     +-type=INT64
+    |     | |     +-assignment_list=
+    |     | |     | +-n#3 :=
+    |     | |     | | +-Cast(DOUBLE -> INT64)
+    |     | |     | |   +-FunctionCall(ZetaSQL:ceil(DOUBLE) -> DOUBLE)
+    |     | |     | |     +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    |     | |     | |       +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
+    |     | |     | |       +-Literal(type=DOUBLE, value=11)
+    |     | |     | +-d#4 := Literal(type=INT64, value=2)
+    |     | |     +-expr=
+    |     | |       +-FunctionCall(ZetaSQL:$subtract(INT64, INT64) -> INT64)
+    |     | |         +-FunctionCall(ZetaSQL:div(INT64, INT64) -> INT64)
+    |     | |         | +-ColumnRef(type=INT64, column=$inlined_FloorDiv.n#3)
+    |     | |         | +-ColumnRef(type=INT64, column=$inlined_FloorDiv.d#4)
+    |     | |         +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+    |     | |           +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+    |     | |           | +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    |     | |           | | +-ColumnRef(type=INT64, column=$inlined_FloorDiv.n#3)
+    |     | |           | | +-Literal(type=INT64, value=0)
+    |     | |           | +-FunctionCall(ZetaSQL:$not_equal(INT64, INT64) -> BOOL)
+    |     | |           |   +-FunctionCall(ZetaSQL:mod(INT64, INT64) -> INT64)
+    |     | |           |   | +-ColumnRef(type=INT64, column=$inlined_FloorDiv.n#3)
+    |     | |           |   | +-ColumnRef(type=INT64, column=$inlined_FloorDiv.d#4)
+    |     | |           |   +-Literal(type=INT64, value=0)
+    |     | |           +-Literal(type=INT64, value=1)
+    |     | |           +-Literal(type=INT64, value=0)
+    |     | +-d#8 :=
+    |     |   +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<INT64>, INT64) -> INT64)
+    |     |     +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.values#1)
+    |     |     +-LetExpr
+    |     |       +-type=INT64
+    |     |       +-assignment_list=
+    |     |       | +-n#6 :=
+    |     |       | | +-Cast(DOUBLE -> INT64)
+    |     |       | |   +-FunctionCall(ZetaSQL:ceil(DOUBLE) -> DOUBLE)
+    |     |       | |     +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    |     |       | |       +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
+    |     |       | |       +-Literal(type=DOUBLE, value=11)
+    |     |       | +-d#7 := Literal(type=INT64, value=2)
+    |     |       +-expr=
+    |     |         +-FunctionCall(ZetaSQL:$subtract(INT64, INT64) -> INT64)
+    |     |           +-FunctionCall(ZetaSQL:div(INT64, INT64) -> INT64)
+    |     |           | +-ColumnRef(type=INT64, column=$inlined_FloorDiv.n#6)
+    |     |           | +-ColumnRef(type=INT64, column=$inlined_FloorDiv.d#7)
+    |     |           +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+    |     |             +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+    |     |             | +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    |     |             | | +-ColumnRef(type=INT64, column=$inlined_FloorDiv.n#6)
+    |     |             | | +-Literal(type=INT64, value=0)
+    |     |             | +-FunctionCall(ZetaSQL:$not_equal(INT64, INT64) -> BOOL)
+    |     |             |   +-FunctionCall(ZetaSQL:mod(INT64, INT64) -> INT64)
+    |     |             |   | +-ColumnRef(type=INT64, column=$inlined_FloorDiv.n#6)
+    |     |             |   | +-ColumnRef(type=INT64, column=$inlined_FloorDiv.d#7)
+    |     |             |   +-Literal(type=INT64, value=0)
+    |     |             +-Literal(type=INT64, value=1)
+    |     |             +-Literal(type=INT64, value=0)
+    |     +-expr=
+    |       +-FunctionCall(ZetaSQL:$subtract(INT64, INT64) -> INT64)
+    |         +-FunctionCall(ZetaSQL:div(INT64, INT64) -> INT64)
+    |         | +-ColumnRef(type=INT64, column=$inlined_FloorDiv.n#5)
+    |         | +-ColumnRef(type=INT64, column=$inlined_FloorDiv.d#8)
+    |         +-FunctionCall(ZetaSQL:if(BOOL, INT64, INT64) -> INT64)
+    |           +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+    |           | +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
+    |           | | +-ColumnRef(type=INT64, column=$inlined_FloorDiv.n#5)
+    |           | | +-Literal(type=INT64, value=0)
+    |           | +-FunctionCall(ZetaSQL:$not_equal(INT64, INT64) -> BOOL)
+    |           |   +-FunctionCall(ZetaSQL:mod(INT64, INT64) -> INT64)
+    |           |   | +-ColumnRef(type=INT64, column=$inlined_FloorDiv.n#5)
+    |           |   | +-ColumnRef(type=INT64, column=$inlined_FloorDiv.d#8)
+    |           |   +-Literal(type=INT64, value=0)
+    |           +-Literal(type=INT64, value=1)
+    |           +-Literal(type=INT64, value=0)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$subquery1.values#1]
+        +-expr_list=
+        | +-values#1 := Literal(type=ARRAY<INT64>, value=[1, 1, 2, 3, 0])
+        +-input_scan=
+          +-SingleRowScan
+==
+
+# In this case the argument column becomes a parameter to the subquery inside
+# the function body
+SELECT ReferencesArgsInsideSubquery(1, 2);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(Lazy_resolution_function:ReferencesArgsInsideSubquery(INT64 a, INT64 b) -> INT64)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=INT64, value=2)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-LetExpr
+    |     +-type=INT64
+    |     +-assignment_list=
+    |     | +-a#3 := Literal(type=INT64, value=1)
+    |     | +-b#4 := Literal(type=INT64, value=2)
+    |     +-expr=
+    |       +-SubqueryExpr
+    |         +-type=INT64
+    |         +-subquery_type=SCALAR
+    |         +-parameter_list=
+    |         | +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideSubquery.a#3)
+    |         | +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideSubquery.b#4)
+    |         +-subquery=
+    |           +-ProjectScan
+    |             +-column_list=[$expr_subquery.$col1#2]
+    |             +-expr_list=
+    |             | +-$col1#2 :=
+    |             |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |             |     +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideSubquery.a#3, is_correlated=TRUE)
+    |             |     +-ColumnRef(type=INT64, column=$inlined_ReferencesArgsInsideSubquery.b#4, is_correlated=TRUE)
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT ReferencesArgOutsideCte(1);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(Lazy_resolution_function:ReferencesArgOutsideCte(INT64 a) -> INT64)
+    |     +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-LetExpr
+    |     +-type=INT64
+    |     +-assignment_list=
+    |     | +-a#5 := Literal(type=INT64, value=1)
+    |     +-expr=
+    |       +-SubqueryExpr
+    |         +-type=INT64
+    |         +-subquery_type=SCALAR
+    |         +-parameter_list=
+    |         | +-ColumnRef(type=INT64, column=$inlined_ReferencesArgOutsideCte.a#5)
+    |         +-subquery=
+    |           +-WithScan
+    |             +-column_list=[$expr_subquery.$col1#3]
+    |             +-with_entry_list=
+    |             | +-WithEntry
+    |             |   +-with_query_name="t"
+    |             |   +-with_subquery=
+    |             |     +-ProjectScan
+    |             |       +-column_list=[t.c#2]
+    |             |       +-expr_list=
+    |             |       | +-c#2 := Literal(type=INT64, value=1)
+    |             |       +-input_scan=
+    |             |         +-SingleRowScan
+    |             +-query=
+    |               +-ProjectScan
+    |                 +-column_list=[$expr_subquery.$col1#3]
+    |                 +-expr_list=
+    |                 | +-$col1#3 :=
+    |                 |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |                 |     +-ColumnRef(type=INT64, column=t.c#4)
+    |                 |     +-ColumnRef(type=INT64, column=$inlined_ReferencesArgOutsideCte.a#5, is_correlated=TRUE)
+    |                 +-input_scan=
+    |                   +-WithRefScan(column_list=[t.c#4], with_query_name="t")
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT ReferencesArgInsideLambda{{(1)|(a) FROM (SELECT 1 AS a)}};
+--
+ALTERNATION GROUP: (1)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<BOOL>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(Lazy_resolution_function:ReferencesArgInsideLambda(INT64 a) -> ARRAY<BOOL>)
+    |     +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<BOOL>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-LetExpr
+    |     +-type=ARRAY<BOOL>
+    |     +-assignment_list=
+    |     | +-a#3 := Literal(type=INT64, value=1)
+    |     +-expr=
+    |       +-SubqueryExpr
+    |         +-type=ARRAY<BOOL>
+    |         +-subquery_type=SCALAR
+    |         +-parameter_list=
+    |         | +-ColumnRef(type=INT64, column=$inlined_ReferencesArgInsideLambda.a#3)
+    |         +-subquery=
+    |           +-ProjectScan
+    |             +-column_list=[$expr_subquery.$col1#8]
+    |             +-expr_list=
+    |             | +-$col1#8 :=
+    |             |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<BOOL>, ARRAY<BOOL>) -> ARRAY<BOOL>)
+    |             |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
+    |             |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#4)
+    |             |     +-Literal(type=ARRAY<BOOL>, value=NULL)
+    |             |     +-SubqueryExpr
+    |             |       +-type=ARRAY<BOOL>
+    |             |       +-subquery_type=ARRAY
+    |             |       +-parameter_list=
+    |             |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#4)
+    |             |       | +-ColumnRef(type=INT64, column=$inlined_ReferencesArgInsideLambda.a#3, is_correlated=TRUE)
+    |             |       +-subquery=
+    |             |         +-OrderByScan
+    |             |           +-column_list=[$expr_subquery.$col1#7]
+    |             |           +-is_ordered=TRUE
+    |             |           +-input_scan=
+    |             |           | +-ProjectScan
+    |             |           |   +-column_list=[$array.element#5, $array_offset.off#6, $expr_subquery.$col1#7]
+    |             |           |   +-expr_list=
+    |             |           |   | +-$col1#7 :=
+    |             |           |   |   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |             |           |   |     +-ColumnRef(type=INT64, column=$array.element#5)
+    |             |           |   |     +-ColumnRef(type=INT64, column=$inlined_ReferencesArgInsideLambda.a#3, is_correlated=TRUE)
+    |             |           |   +-input_scan=
+    |             |           |     +-ArrayScan
+    |             |           |       +-column_list=[$array.element#5, $array_offset.off#6]
+    |             |           |       +-array_expr=
+    |             |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#4, is_correlated=TRUE)
+    |             |           |       +-element_column=$array.element#5
+    |             |           |       +-array_offset_column=
+    |             |           |         +-ColumnHolder(column=$array_offset.off#6)
+    |             |           +-order_by_item_list=
+    |             |             +-OrderByItem
+    |             |               +-column_ref=
+    |             |                 +-ColumnRef(type=INT64, column=$array_offset.off#6)
+    |             +-input_scan=
+    |               +-ProjectScan
+    |                 +-column_list=[$subquery1.array_input#4]
+    |                 +-expr_list=
+    |                 | +-array_input#4 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |                 +-input_scan=
+    |                   +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: (a) FROM (SELECT 1 AS a)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [ARRAY<BOOL>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-FunctionCall(Lazy_resolution_function:ReferencesArgInsideLambda(INT64 a) -> ARRAY<BOOL>)
+    |     +-ColumnRef(type=INT64, column=$subquery1.a#1)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$subquery1.a#1]
+        +-expr_list=
+        | +-a#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [ARRAY<BOOL>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-LetExpr
+    |     +-type=ARRAY<BOOL>
+    |     +-assignment_list=
+    |     | +-a#4 := ColumnRef(type=INT64, column=$subquery1.a#1)
+    |     +-expr=
+    |       +-SubqueryExpr
+    |         +-type=ARRAY<BOOL>
+    |         +-subquery_type=SCALAR
+    |         +-parameter_list=
+    |         | +-ColumnRef(type=INT64, column=$inlined_ReferencesArgInsideLambda.a#4)
+    |         +-subquery=
+    |           +-ProjectScan
+    |             +-column_list=[$expr_subquery.$col1#9]
+    |             +-expr_list=
+    |             | +-$col1#9 :=
+    |             |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<BOOL>, ARRAY<BOOL>) -> ARRAY<BOOL>)
+    |             |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
+    |             |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#5)
+    |             |     +-Literal(type=ARRAY<BOOL>, value=NULL)
+    |             |     +-SubqueryExpr
+    |             |       +-type=ARRAY<BOOL>
+    |             |       +-subquery_type=ARRAY
+    |             |       +-parameter_list=
+    |             |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#5)
+    |             |       | +-ColumnRef(type=INT64, column=$inlined_ReferencesArgInsideLambda.a#4, is_correlated=TRUE)
+    |             |       +-subquery=
+    |             |         +-OrderByScan
+    |             |           +-column_list=[$expr_subquery.$col1#8]
+    |             |           +-is_ordered=TRUE
+    |             |           +-input_scan=
+    |             |           | +-ProjectScan
+    |             |           |   +-column_list=[$array.element#6, $array_offset.off#7, $expr_subquery.$col1#8]
+    |             |           |   +-expr_list=
+    |             |           |   | +-$col1#8 :=
+    |             |           |   |   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |             |           |   |     +-ColumnRef(type=INT64, column=$array.element#6)
+    |             |           |   |     +-ColumnRef(type=INT64, column=$inlined_ReferencesArgInsideLambda.a#4, is_correlated=TRUE)
+    |             |           |   +-input_scan=
+    |             |           |     +-ArrayScan
+    |             |           |       +-column_list=[$array.element#6, $array_offset.off#7]
+    |             |           |       +-array_expr=
+    |             |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#5, is_correlated=TRUE)
+    |             |           |       +-element_column=$array.element#6
+    |             |           |       +-array_offset_column=
+    |             |           |         +-ColumnHolder(column=$array_offset.off#7)
+    |             |           +-order_by_item_list=
+    |             |             +-OrderByItem
+    |             |               +-column_ref=
+    |             |                 +-ColumnRef(type=INT64, column=$array_offset.off#7)
+    |             +-input_scan=
+    |               +-ProjectScan
+    |                 +-column_list=[$subquery1.array_input#5]
+    |                 +-expr_list=
+    |                 | +-array_input#5 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+    |                 +-input_scan=
+    |                   +-SingleRowScan
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$subquery1.a#1]
+        +-expr_list=
+        | +-a#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
 ==
 
 ################################################################################
@@ -401,10 +1074,10 @@ QueryStmt
       +-SingleRowScan
 
 Rewrite ERROR: generic::unimplemented: SAFE. calls to SQL defined functions such as 'NullaryPi' are not implemented.
+
 ==
 
-SELECT UnaryIncrement(1);
-
+SELECT ReferencesArgInsideCte(1);
 --
 [PRE-REWRITE AST]
 QueryStmt
@@ -415,9 +1088,27 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(Lazy_resolution_function:UnaryIncrement(INT64 a) -> INT64)
+    |   +-FunctionCall(Lazy_resolution_function:ReferencesArgInsideCte(INT64 a) -> INT64)
     |     +-Literal(type=INT64, value=1)
     +-input_scan=
       +-SingleRowScan
 
-Rewrite ERROR: generic::unimplemented: Calls to SQL defined functions with arguments are not implemented.
+Rewrite ERROR: generic::unimplemented: SQL defined functions that reference arguments in an embedded WITH clause are not implemented.
+
+==
+
+SELECT CallsPi25();
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := FunctionCall(Lazy_resolution_function:CallsPi25() -> DOUBLE)
+    +-input_scan=
+      +-SingleRowScan
+
+Rewrite ERROR: generic::resource_exhausted: Query exceeded configured maximum number of rewriter iterations (25) without converging.

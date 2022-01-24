@@ -56,8 +56,8 @@ import java.util.logging.Logger;
  * requests involving this SimpleCatalog will only pass the registered ID instead of the fully
  * serialized form. A registered SimpleCatalog can and should be unregistered when it is no longer
  * used. The unregister() method is called in finalize(), but users shouldn't rely on that because
- * the JVM doesn't know of the memory resource taken by the registered catalog on the local
- * server, and may start the garbage collector later than necessary.
+ * the JVM doesn't know of the memory resource taken by the registered catalog on the local server,
+ * and may start the garbage collector later than necessary.
  */
 public class SimpleCatalog extends Catalog {
   private static final Logger logger = Logger.getLogger(SimpleCatalog.class.getName());
@@ -101,9 +101,23 @@ public class SimpleCatalog extends Catalog {
    *     try-with-resources structure.
    */
   public AutoUnregister register() {
+    return register(ImmutableMap.of());
+  }
+
+  /**
+   * Register this catalog to local server, so that it can be reused without passing through RPC
+   * every time.
+   *
+   * @param tablesContents The contents of the tables owned by this catalog. The key is the name of
+   *     table, while the value is content for that table.
+   * @return An AutoCloseable object that can be used to unregister the catalog in
+   *     try-with-resources structure.
+   */
+  public AutoUnregister register(Map<String, TableContent> tablesContents) {
     Preconditions.checkState(!registered);
     try {
-      RegisterResponse resp = Client.getStub().registerCatalog(createRegisterRequest());
+      RegisterResponse resp =
+          Client.getStub().registerCatalog(createRegisterRequest(tablesContents));
       processRegisterResponse(resp);
     } catch (StatusRuntimeException e) {
       throw new SqlException(e);
@@ -113,10 +127,16 @@ public class SimpleCatalog extends Catalog {
   }
 
   protected RegisterCatalogRequest createRegisterRequest() {
+    return createRegisterRequest(ImmutableMap.of());
+  }
+
+  protected RegisterCatalogRequest createRegisterRequest(Map<String, TableContent> tablesContents) {
     Preconditions.checkState(!registered);
+    Preconditions.checkNotNull(tablesContents);
     registeredFileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();
     RegisterCatalogRequest.Builder builder = RegisterCatalogRequest.newBuilder();
     builder.setSimpleCatalog(serialize(registeredFileDescriptorSetsBuilder));
+    tablesContents.forEach((t, c) -> builder.putTableContent(t, c.serialize()));
     registeredFileDescriptorSetsBuilder.build();
     builder.setDescriptorPoolList(
         DescriptorPoolSerializer.createDescriptorPoolList(registeredFileDescriptorSetsBuilder));

@@ -21,6 +21,8 @@
 // names. For an example of how to use this tool with a custom proto db, see
 // :execute_query_test. Note that not all protos are in the global proto db.
 
+#include <fcntl.h>
+
 #include <memory>
 #include <string>
 #include <vector>

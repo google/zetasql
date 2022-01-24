@@ -47,7 +47,7 @@ nondeterministic, not random. Returns `NULL` when the input produces no
 rows. Returns `NULL` when `expression` is `NULL` for all rows in the group.
 
 `ANY_VALUE` behaves as if `RESPECT NULLS` is specified;
-Rows for which `expression` is `NULL` are considered and may be selected.
+rows for which `expression` is `NULL` are considered and may be selected.
 
 **Supported Argument Types**
 

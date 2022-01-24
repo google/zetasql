@@ -307,6 +307,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"type", KW_TYPE},
     {"unbounded", KW_UNBOUNDED, kReserved},
     {"union", KW_UNION, kReserved},
+    {"unknown", KW_UNKNOWN},
     {"unnest", KW_UNNEST, kReserved},
     {"unique", KW_UNIQUE},
     {"until", KW_UNTIL},

@@ -549,17 +549,6 @@ class Value {
     return std::move(value).value();
   }
 
-  // Creates a struct of the specified 'type' and given 'values'. The size of
-  // the 'values' vector must agree with the number of fields in 'type', and the
-  // types of those values must match the corresponding struct fields, otherwise
-  // this will crash with a ZETASQL_CHECK failure.
-  ABSL_DEPRECATED("Inline me!")
-  static Value SafeStruct(const StructType* type, std::vector<Value>&& values) {
-    absl::StatusOr<Value> value = MakeStruct(type, std::move(values));
-    ZETASQL_CHECK_OK(value);
-    return std::move(value).value();
-  }
-
   // Creates a struct of the specified 'type' by moving 'values'. The size of
   // the 'values' vector must agree with the number of fields in 'type', and the
   // types of those values must match the corresponding struct fields. However,
@@ -1019,7 +1008,6 @@ Value Enum(const EnumType* enum_type, int32_t value);
 Value Enum(const EnumType* enum_type, absl::string_view name);
 Value Struct(const StructType* type, absl::Span<const Value> values);
 #ifndef SWIG
-Value SafeStruct(const StructType* type, std::vector<Value>&& values);
 Value UnsafeStruct(const StructType* type, std::vector<Value>&& values);
 #endif
 Value Proto(const ProtoType* proto_type, absl::Cord value);

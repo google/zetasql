@@ -16,6 +16,8 @@
 
 #include "zetasql/public/multi_catalog.h"
 
+#include <string>
+
 #include "zetasql/base/logging.h"
 #include "absl/status/status.h"
 #include "zetasql/base/ret_check.h"

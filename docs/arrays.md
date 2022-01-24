@@ -271,51 +271,18 @@ FROM sequences;
 ## Flattening nested data into an array 
 <a id="flattening_nested_data_into_arrays"></a>
 
-If you have a value with a nested data type, possibly containing multiple levels
-of arrays, you can return a single, flat array containing all elements in the
-nested data type. These types of data can be flattened:
-
-+ STRUCT
-+ ARRAY
-+ PROTO (Protobuf message types)
-
-To flatten a value with a nested data type, you can use the
-[`FLATTEN`][flatten-operator] operator. The `FLATTEN` operator accepts a unique
-type of path called the _flatten path_. The flatten path lets you traverse
-through the levels of a nested array from left to right. For example,
-`FLATTEN(column.array_field.target)` will return an array of all
-`targets` inside `column`.
-
-Outside `FLATTEN`, paths cannot continue after the first array-typed
-field because array values themselves do not have fields. The `FLATTEN` operator
-maps the field access operation onto elements of the arrays.
-
-Here are some conceptual examples that illustrate the types of arguments you can
-pass into the `FLATTEN` operator and what they produce.
-
-```sql
--- Returns an array.
-FLATTEN(array_expression)
-
--- Returns a concatenation of element.field for all elements of
--- FLATTEN(flatten_path).
-FLATTEN(flatten_path.field)
-
--- Returns a concatenation of elements of element.array_field
--- for all elements of FLATTEN(flatten_path).
-FLATTEN(flatten_path.array_field)
-
--- Returns a concatenation of element.array_field[OFFSET(1)] for all elements
--- of FLATTEN(flatten_path).
-FLATTEN(flatten_path.array_field[OFFSET(1)])
-```
+If you have an array with nested data, you can return a single, flat
+array containing all elements in a specific part of the nested data.
+To do this, you can use the [`FLATTEN`][flatten-operator] operator with an
+array and the [array element field access operator][array-el-field-operator].
 
 **Examples**
 
-The examples in this section reference this nested data as an input:
+The examples in this section references nested data in an array called
+`items` in a table called `ItemsTable`:
 
 ```sql
-v := [
+WITH ItemsTable AS (SELECT [
   STRUCT('red' AS color,
          2 AS inventory,
          [STRUCT('a' AS agent, [100.0, 50.0] AS prices),
@@ -324,37 +291,76 @@ v := [
          NULL AS inventory,
          [STRUCT('a' AS agent, [75.0] AS prices),
           STRUCT('b' AS agent, [200.0] AS prices)] AS sales),
-  STRUCT('orange' AS color, 10 AS inventory, NULL AS sales)
-]
+  STRUCT('orange' AS color,
+         10 AS inventory,
+         NULL AS sales)
+] AS items)
+SELECT * FROM ItemsTable
 ```
 
-The flatten path `v.color` describes the array `["red", "green", "orange"]`
-while the flatten path `v.inventory` describes the array
-`[2, NULL, 10]`.
-
-If the field accessed on the array element itself has an `ARRAY` type, then
-the elements of that array are spliced into the resulting array replacing the
-element from which they were extracted. An empty array or a `NULL` array
-contribute no elements to the resulting array.
-
-The flatten path `v.sales.prices` describes the array
-`[100.0, 50.0, 25.0, 75.0, 200.0]`.
-
-The subscript operator (`[]`) is allowed in a flatten path to access
-array elements. If the operator occurs after a field access on an `ARRAY`,
-then it applies locally to each array element. If the supplied element offset
-or ordinal value is outside the bounds of the array within any element, an out
-of bounds error is generated.
-
-The flatten path `v.sales.prices[SAFE_OFFSET(1)]` describes the
-array `[50.0, NULL, NULL, NULL]`
-.
-
-The following query is a complete self-contained example combining the above
-examples into a runnable query.
+You can flatten nested data in an array called `items` with the
+`FLATTEN` operator. Here are some examples:
 
 ```sql
-WITH t AS (SELECT [
+SELECT FLATTEN(items.color) AS colors
+FROM ItemsTable
+
++----------------------+
+| colors               |
++----------------------+
+| [red, green, orange] |
++----------------------+
+```
+
+```sql
+SELECT FLATTEN(items.inventory) AS inventory
+FROM ItemsTable
+
++---------------+
+| inventory     |
++---------------+
+| [2, NULL, 10] |
++---------------+
+```
+
+```sql
+SELECT FLATTEN(items.sales.prices) AS all_prices
+FROM ItemsTable
+
++------------------------+
+| all_prices             |
++------------------------+
+| [100, 50, 25, 75, 200] |
++------------------------+
+```
+
+```sql
+SELECT FLATTEN(items.sales.prices[SAFE_OFFSET(1)]) AS second_prices
+FROM ItemsTable
+
++------------------------+
+| second_prices          |
++------------------------+
+| [50, NULL, NULL, NULL] |
++------------------------+
+```
+
+## Flattening nested data into a table 
+<a id="flattening_nested_data_into_table"></a>
+
+If you have an array with nested data, you can get a specific part of the nested
+data in the array and return it as a single, flat table with one row for each
+element. To do this, you can use the [`UNNEST`][unnest-query] operator
+explicitly or implicitly in the [`FROM clause`][from-clause] with the
+[array element field access operator][array-el-field-operator].
+
+**Examples**
+
+The examples in this section references nested data in an array called `items`
+in a table called `ItemsTable`:
+
+```sql
+WITH ItemsTable AS (SELECT [
   STRUCT('red' AS color,
          2 AS inventory,
          [STRUCT('a' AS agent, [100.0, 50.0] AS prices),
@@ -363,23 +369,108 @@ WITH t AS (SELECT [
          NULL AS inventory,
          [STRUCT('a' AS agent, [75.0] AS prices),
           STRUCT('b' AS agent, [200.0] AS prices)] AS sales),
-  STRUCT('orange' AS color, 10 AS inventory, NULL AS sales)
-] AS v)
-SELECT
-    FLATTEN(v.color) AS colors,
-    FLATTEN(v.inventory) AS inventory,
-    FLATTEN(v.sales.prices) AS all_prices,
-    FLATTEN(v.sales.prices[SAFE_OFFSET(1)]) AS second_prices
-FROM t;
-
-+----------------------+---------------+------------------------+------------------------+
-| colors               | inventory     | all_prices             | second_prices          |
-+----------------------+---------------+------------------------+------------------------+
-| [red, green, orange] | [2, NULL, 10] | [100, 50, 25, 75, 200] | [50, NULL, NULL, NULL] |
-+----------------------+---------------+------------------------+------------------------+
+  STRUCT('orange' AS color,
+         10 AS inventory,
+         NULL AS sales)
+] AS items)
+SELECT * FROM ItemsTable
 ```
 
-## Convert elements in an array to rows in a table 
+You can flatten nested data in an array called `items` with the
+`UNNEST` operator or directly in the `FROM` clause. Here are some examples:
+
+```sql
+-- In UNNEST (FLATTEN used explicitly):
+SELECT colors
+FROM ItemsTable, UNNEST(FLATTEN(items.color)) AS colors;
+
+-- In UNNEST (FLATTEN used implicitly):
+SELECT colors
+FROM ItemsTable, UNNEST(items.color) AS colors;
+
+-- In the FROM clause (UNNEST used implicitly):
+SELECT colors
+FROM ItemsTable, ItemsTable.items.color AS colors;
+
++--------+
+| colors |
++--------+
+| red    |
+| green  |
+| orange |
++--------+
+```
+
+```sql
+-- In UNNEST (FLATTEN used explicitly):
+SELECT inventory
+FROM ItemsTable, UNNEST(FLATTEN(items.inventory)) AS inventory;
+
+-- In UNNEST (FLATTEN used implicitly):
+SELECT inventory
+FROM ItemsTable, UNNEST(items.inventory) AS inventory;
+
+-- In the FROM clause (UNNEST used implicitly):
+SELECT inventory
+FROM ItemsTable, ItemsTable.items.inventory AS inventory;
+
++-----------+
+| inventory |
++-----------+
+| 2         |
+| NULL      |
+| 10        |
++-----------+
+```
+
+```sql
+-- In UNNEST (FLATTEN used explicitly):
+SELECT all_prices
+FROM ItemsTable, UNNEST(FLATTEN(items.sales.prices)) AS all_prices;
+
+-- In UNNEST (FLATTEN used implicitly):
+SELECT all_prices
+FROM ItemsTable, UNNEST(items.sales.prices) AS all_prices;
+
+-- In the FROM clause (UNNEST used implicitly):
+SELECT all_prices
+FROM ItemsTable, ItemsTable.items.sales.prices AS all_prices;
+
++------------+
+| all_prices |
++------------+
+| 100        |
+| 50         |
+| 25         |
+| 75         |
+| 200        |
++------------+
+```
+
+```sql
+-- In UNNEST (FLATTEN used explicitly):
+SELECT second_prices
+FROM ItemsTable, UNNEST(FLATTEN(items.sales.prices[SAFE_OFFSET(1)])) AS second_prices;
+
+-- In UNNEST (FLATTEN used implicitly):
+SELECT second_prices
+FROM ItemsTable, UNNEST(items.sales.prices[SAFE_OFFSET(1)]) AS second_prices;
+
+-- In the FROM clause (UNNEST used implicitly):
+SELECT second_prices
+FROM ItemsTable, ItemsTable.items.sales.prices[SAFE_OFFSET(1)] AS second_prices;
+
++---------------+
+| second_prices |
++---------------+
+| 50            |
+| NULL          |
+| NULL          |
+| NULL          |
++---------------+
+```
+
+## Converting elements in an array to rows in a table 
 <a id="flattening_arrays"></a>
 
 To convert an `ARRAY` into a set of rows, also known as "flattening," use the
@@ -1674,6 +1765,8 @@ SELECT ARRAY(
 
 [array-data-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#array_type
 
+[from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
+
 [unnest-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
 
 [cross-join-query]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#cross_join
@@ -1699,6 +1792,8 @@ SELECT ARRAY(
 [array-subscript-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#array_subscript_operator
 
 [flatten-operator]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#flatten
+
+[array-el-field-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#array_el_field_operator
 
 <!-- mdlint on -->
 

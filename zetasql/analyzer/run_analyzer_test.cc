@@ -465,11 +465,10 @@ class AnalyzerTestRunner {
            {"pseudo_column_KitchenSink", proto_type}});
     } else if (ddl_pseudo_column_mode == "callback") {
       options.SetDdlPseudoColumnsCallback(
-          [&type_factory, proto_type](
-              const std::vector<std::string>& table_name,
-              const std::vector<const ResolvedOption*>& options,
-              std::vector<std::pair<std::string, const Type*>>*
-                  pseudo_columns) {
+          [&type_factory](const std::vector<std::string>& table_name,
+                          const std::vector<const ResolvedOption*>& options,
+                          std::vector<std::pair<std::string, const Type*>>*
+                              pseudo_columns) {
             // Pseudo-column for a particular table name.
             if (absl::StrJoin(table_name, ".") ==
                 "table_with_extra_pseudo_column") {

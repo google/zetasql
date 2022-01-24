@@ -335,11 +335,6 @@ FlattenRewriterVisitor::FlattenToScan(
 
 class FlattenRewriter : public Rewriter {
  public:
-  bool ShouldRewrite(const AnalyzerOptions& analyzer_options,
-                     const AnalyzerOutput& analyzer_output) const override {
-    return analyzer_output.analyzer_output_properties().has_flatten;
-  }
-
   absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
       const AnalyzerOptions& options, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,
@@ -351,8 +346,6 @@ class FlattenRewriter : public Rewriter {
     ZETASQL_RETURN_IF_ERROR(input.Accept(&rewriter));
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedNode> result,
                      rewriter.ConsumeRootNode<ResolvedNode>());
-    output_properties.has_flatten = false;
-    output_properties.has_let = true;
     return result;
   }
 

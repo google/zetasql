@@ -286,6 +286,7 @@ CLIENT_SRCS = [
     "Connection.java",
     "Constant.java",
     "DescriptorPoolSerializer.java",
+    "EvaluatorTableModifyResponse.java",
     "Function.java",
     "FunctionArgumentType.java",
     "FunctionSignature.java",
@@ -293,9 +294,12 @@ CLIENT_SRCS = [
     "LanguageOptions.java",
     "Model.java",
     "NotFoundException.java",
+    "Parameter.java",
     "ParseLocationRange.java",
     "ParseResumeLocation.java",
     "PreparedExpression.java",
+    "PreparedModify.java",
+    "PreparedQuery.java",
     "Procedure.java",
     "ResolvedFunctionCallInfo.java",
     "SimpleCatalog.java",
@@ -305,6 +309,7 @@ CLIENT_SRCS = [
     "SimpleTable.java",
     "SqlException.java",
     "SqlFormatter.java",
+    "TableContent.java",
     "TVFSignature.java",
     "Table.java",
     "TableValuedFunction.java",
@@ -338,6 +343,7 @@ java_library(
         "@com_google_api_grpc_proto_google_common_protos//jar",
         "@com_google_auto_value",
         "@com_google_code_findbugs_jsr305//jar",
+        "@com_google_errorprone_error_prone_annotations//jar",
         "@com_google_guava_guava//jar",
         "@com_google_protobuf//:protobuf_java",
         "@io_grpc_grpc_core//jar",
@@ -364,6 +370,18 @@ java_library(
         "//zetasql/resolved_ast:resolved_ast_java_proto",  # buildcleaner: keep
         "@com_google_guava_guava//jar",
         "@com_google_protobuf//:protobuf_java",
+        "@io_grpc_grpc_core//jar",
+    ],
+)
+
+java_library(
+    name = "parser",
+    srcs = ["Parser.java"],
+    deps = [
+        ":client",
+        "//java/com/google/zetasql/parser",
+        "//zetasql/local_service:local_service_java_proto",
+        "@com_google_guava_guava//jar",
         "@io_grpc_grpc_core//jar",
     ],
 )

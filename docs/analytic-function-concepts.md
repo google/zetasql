@@ -541,7 +541,7 @@ Some examples reference a table called `Produce`:
 ```zetasql
 WITH Produce AS
  (SELECT 'kale' as item, 23 as purchases, 'vegetable' as category
-  UNION ALL SELECT 'orange', 2, 'fruit'
+  UNION ALL SELECT 'banana', 2, 'fruit'
   UNION ALL SELECT 'cabbage', 9, 'vegetable'
   UNION ALL SELECT 'apple', 8, 'fruit'
   UNION ALL SELECT 'leek', 2, 'vegetable'
@@ -552,7 +552,7 @@ SELECT * FROM Produce
 | item      | category   | purchases  |
 +-------------------------------------+
 | kale      | vegetable  | 23         |
-| orange    | fruit      | 2          |
+| banana    | fruit      | 2          |
 | cabbage   | vegetable  | 9          |
 | apple     | fruit      | 8          |
 | leek      | vegetable  | 2          |
@@ -617,12 +617,12 @@ SELECT * FROM Farm
 This computes a grand total for all items in the
 [`Produce`][produce-table] table.
 
-+  (**==orange==**, **apple**, **leek**, **cabbage**, **lettuce**, **kale**) = 54 total purchases
-+  (**orange**, **==apple==**, **leek**, **cabbage**, **lettuce**, **kale**) = 54 total purchases
-+  (**orange**, **apple**, **==leek==**, **cabbage**, **lettuce**, **kale**) = 54 total purchases
-+  (**orange**, **apple**, **leek**, **==cabbage==**, **lettuce**, **kale**) = 54 total purchases
-+  (**orange**, **apple**, **leek**, **cabbage**, **==lettuce==**, **kale**) = 54 total purchases
-+  (**orange**, **apple**, **leek**, **cabbage**, **lettuce**, **==kale==**) = 54 total purchases
++  (**==banana==**, **apple**, **leek**, **cabbage**, **lettuce**, **kale**) = 54 total purchases
++  (**banana**, **==apple==**, **leek**, **cabbage**, **lettuce**, **kale**) = 54 total purchases
++  (**banana**, **apple**, **==leek==**, **cabbage**, **lettuce**, **kale**) = 54 total purchases
++  (**banana**, **apple**, **leek**, **==cabbage==**, **lettuce**, **kale**) = 54 total purchases
++  (**banana**, **apple**, **leek**, **cabbage**, **==lettuce==**, **kale**) = 54 total purchases
++  (**banana**, **apple**, **leek**, **cabbage**, **lettuce**, **==kale==**) = 54 total purchases
 
 ```zetasql
 SELECT item, purchases, category, SUM(purchases)
@@ -632,7 +632,7 @@ FROM Produce
 +-------------------------------------------------------+
 | item      | purchases  | category   | total_purchases |
 +-------------------------------------------------------+
-| orange    | 2          | fruit      | 54              |
+| banana    | 2          | fruit      | 54              |
 | leek      | 2          | vegetable  | 54              |
 | apple     | 8          | fruit      | 54              |
 | cabbage   | 9          | vegetable  | 54              |
@@ -647,8 +647,8 @@ This computes a subtotal for each category in the
 [`Produce`][produce-table] table.
 
 +  fruit
-   +  (**==orange==**, **apple**) = 10 total purchases
-   +  (**orange**, **==apple==**) = 10 total purchases
+   +  (**==banana==**, **apple**) = 10 total purchases
+   +  (**banana**, **==apple==**) = 10 total purchases
 +  vegetable
    +  (**==leek==**, **cabbage**, **lettuce**, **kale**) = 44 total purchases
    +  (**leek**, **==cabbage==**, **lettuce**, **kale**) = 44 total purchases
@@ -667,7 +667,7 @@ FROM Produce
 +-------------------------------------------------------+
 | item      | purchases  | category   | total_purchases |
 +-------------------------------------------------------+
-| orange    | 2          | fruit      | 10              |
+| banana    | 2          | fruit      | 10              |
 | apple     | 8          | fruit      | 10              |
 | leek      | 2          | vegetable  | 44              |
 | cabbage   | 9          | vegetable  | 44              |
@@ -683,8 +683,8 @@ This computes a cumulative sum for each category in the
 order defined using the `ORDER BY` clause.
 
 +  fruit
-   +  (**==orange==**, apple) = 2 total purchases
-   +  (**orange**, **==apple==**) = 10 total purchases
+   +  (**==banana==**, apple) = 2 total purchases
+   +  (**banana**, **==apple==**) = 10 total purchases
 +  vegetable
    +  (**==leek==**, cabbage, lettuce, kale) = 2 total purchases
    +  (**leek**, **==cabbage==**, lettuce, kale) = 11 total purchases
@@ -703,7 +703,7 @@ FROM Produce
 +-------------------------------------------------------+
 | item      | purchases  | category   | total_purchases |
 +-------------------------------------------------------+
-| orange    | 2          | fruit      | 2               |
+| banana    | 2          | fruit      | 2               |
 | apple     | 8          | fruit      | 10              |
 | leek      | 2          | vegetable  | 2               |
 | cabbage   | 9          | vegetable  | 11              |
@@ -729,12 +729,12 @@ In this example, all items in the [`Produce`][produce-table] table are included
 in the partition. Only preceding rows are analyzed. The analysis starts two
 rows prior to the current row in the partition.
 
-+  (==orange==, leek, apple, cabbage, lettuce, kale) = NULL
-+  (orange, ==leek==, apple, cabbage, lettuce, kale) = NULL
-+  (**orange**, leek, ==apple==, cabbage, lettuce, kale) = 2
-+  (**orange**, **leek**, apple, ==cabbage==, lettuce, kale) = 4
-+  (**orange**, **leek**, **apple**, cabbage, ==lettuce==, kale) = 12
-+  (**orange**, **leek**, **apple**, **cabbage**, lettuce, ==kale==) = 21
++  (==banana==, leek, apple, cabbage, lettuce, kale) = NULL
++  (banana, ==leek==, apple, cabbage, lettuce, kale) = NULL
++  (**banana**, leek, ==apple==, cabbage, lettuce, kale) = 2
++  (**banana**, **leek**, apple, ==cabbage==, lettuce, kale) = 4
++  (**banana**, **leek**, **apple**, cabbage, ==lettuce==, kale) = 12
++  (**banana**, **leek**, **apple**, **cabbage**, lettuce, ==kale==) = 21
 
 ```zetasql
 SELECT item, purchases, category, SUM(purchases)
@@ -747,7 +747,7 @@ FROM Produce;
 +-------------------------------------------------------+
 | item      | purchases  | category   | total_purchases |
 +-------------------------------------------------------+
-| orange    | 2          | fruit      | NULL            |
+| banana    | 2          | fruit      | NULL            |
 | leek      | 2          | vegetable  | NULL            |
 | apple     | 8          | fruit      | 2               |
 | cabbage   | 9          | vegetable  | 4               |
@@ -762,12 +762,12 @@ This computes a moving average in the [`Produce`][produce-table] table.
 The lower boundary is 1 row before the
 current row. The upper boundary is 1 row after the current row.
 
-+  (**==orange==**, **leek**, apple, cabbage, lettuce, kale) = 2 average purchases
-+  (**orange**, **==leek==**, **apple**, cabbage, lettuce, kale) = 4 average purchases
-+  (orange, **leek**, **==apple==**, **cabbage**, lettuce, kale) = 6.3333 average purchases
-+  (orange, leek, **apple**, **==cabbage==**, **lettuce**, kale) = 9 average purchases
-+  (orange, leek, apple, **cabbage**, **==lettuce==**, **kale**) = 14 average purchases
-+  (orange, leek, apple, cabbage, **lettuce**, **==kale==**) = 16.5 average purchases
++  (**==banana==**, **leek**, apple, cabbage, lettuce, kale) = 2 average purchases
++  (**banana**, **==leek==**, **apple**, cabbage, lettuce, kale) = 4 average purchases
++  (banana, **leek**, **==apple==**, **cabbage**, lettuce, kale) = 6.3333 average purchases
++  (banana, leek, **apple**, **==cabbage==**, **lettuce**, kale) = 9 average purchases
++  (banana, leek, apple, **cabbage**, **==lettuce==**, **kale**) = 14 average purchases
++  (banana, leek, apple, cabbage, **lettuce**, **==kale==**) = 16.5 average purchases
 
 ```zetasql
 SELECT item, purchases, category, AVG(purchases)
@@ -780,7 +780,7 @@ FROM Produce
 +-------------------------------------------------------+
 | item      | purchases  | category   | avg_purchases   |
 +-------------------------------------------------------+
-| orange    | 2          | fruit      | 2               |
+| banana    | 2          | fruit      | 2               |
 | leek      | 2          | vegetable  | 4               |
 | apple     | 8          | fruit      | 6.33333         |
 | cabbage   | 9          | vegetable  | 9               |
@@ -828,8 +828,8 @@ in a window are partitioned and ordered in each partition. The
 [`Produce`][produce-table] table is referenced.
 
 +  fruit
-   +  (**==orange==**, **apple**) = apple is most popular
-   +  (**orange**, **==apple==**) = apple is most popular
+   +  (**==banana==**, **apple**) = apple is most popular
+   +  (**banana**, **==apple==**) = apple is most popular
 +  vegetable
    +  (**==leek==**, **cabbage**, **lettuce**, **kale**) = kale is most popular
    +  (**leek**, **==cabbage==**, **lettuce**, **kale**) = kale is most popular
@@ -848,7 +848,7 @@ FROM Produce
 +----------------------------------------------------+
 | item      | purchases  | category   | most_popular |
 +----------------------------------------------------+
-| orange    | 2          | fruit      | apple        |
+| banana    | 2          | fruit      | apple        |
 | apple     | 8          | fruit      | apple        |
 | leek      | 2          | vegetable  | kale         |
 | cabbage   | 9          | vegetable  | kale         |
@@ -866,8 +866,8 @@ Instead of getting the most popular item in a specific category, it gets the
 most popular item in a specific range in that category.
 
 +  fruit
-   +  (**==orange==**, **apple**) = apple is most popular
-   +  (**orange**, **==apple==**) = apple is most popular
+   +  (**==banana==**, **apple**) = apple is most popular
+   +  (**banana**, **==apple==**) = apple is most popular
 +  vegetable
    +  (**==leek==**, **cabbage**, lettuce, kale) = cabbage is most popular
    +  (**leek**, **==cabbage==**, **lettuce**, kale) = lettuce is most popular
@@ -886,7 +886,7 @@ FROM Produce
 +----------------------------------------------------+
 | item      | purchases  | category   | most_popular |
 +----------------------------------------------------+
-| orange    | 2          | fruit      | apple        |
+| banana    | 2          | fruit      | apple        |
 | apple     | 8          | fruit      | apple        |
 | leek      | 2          | vegetable  | cabbage      |
 | cabbage   | 9          | vegetable  | lettuce      |
@@ -962,7 +962,7 @@ WINDOW item_window AS (
 +-------------------------------------------------------+
 | item      | purchases  | category   | most_popular    |
 +-------------------------------------------------------+
-| orange    | 2          | fruit      | apple           |
+| banana    | 2          | fruit      | apple           |
 | apple     | 8          | fruit      | apple           |
 | leek      | 2          | vegetable  | lettuce         |
 | cabbage   | 9          | vegetable  | kale            |

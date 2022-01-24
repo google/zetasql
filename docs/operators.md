@@ -39,6 +39,15 @@ statement.
       <td>Field access operator</td>
       <td>Binary</td>
     </tr>
+    
+    <tr>
+      <td>&nbsp;</td>
+      <td>Array elements field access operator</td>
+      <td>ARRAY</td>
+      <td>Field access operator for elements in an array</td>
+      <td>Binary</td>
+    </tr>
+    
     <tr>
       <td>&nbsp;</td>
       <td>Array subscript operator</td>
@@ -478,18 +487,25 @@ used to access nested data.
 
 **Example**
 
-In the following example, `$.class.students[0][name]` contains a
-JSON subscript operation. `$.class.students` represents the JSON expression,
-`[0]` represents the array element ID, and `[name]` represents the name of a
-field in the JSON.
+In the following example:
+
++ `json_value` is a JSON expression.
++ `.class` is a JSON field access.
++ `.students` is a JSON field access.
++ `[0]` is a JSON subscript expression with an element offset that
+  accesses the zeroth element of an array in the JSON value.
++ `['name']` is a JSON subscript expression with a field name that
+  accesses a field.
 
 ```sql
-SELECT JSON_EXTRACT(json_text, '$.class.students[0][name]') AS first_student
-FROM UNNEST([
-  '{"class" : {"students" : [{"name" : "Jane"}]}}',
-  '{"class" : {"students" : []}}',
-  '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'
-  ]) AS json_text;
+SELECT json_value.class.students[0]['name'] AS first_student
+FROM
+  UNNEST(
+    [
+      JSON '{"class" : {"students" : [{"name" : "Jane"}]}}',
+      JSON '{"class" : {"students" : []}}',
+      JSON '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'])
+    AS json_value;
 
 +-----------------+
 | first_student   |
@@ -498,6 +514,343 @@ FROM UNNEST([
 | NULL            |
 | "John"          |
 +-----------------+
+```
+
+### Array elements field access operator 
+<a id="array_el_field_operator"></a>
+
+```
+array_expression.field_or_element[. ...]
+
+field_or_element:
+  { fieldname | array_element }
+
+array_element:
+  array_fieldname[array_subscript_specifier]
+```
+
+Note: The brackets (`[]`) around `array_subscript_specifier` are part of the
+syntax; they do not represent an optional part.
+
+**Description**
+
+The array elements field access operation lets you traverse through the
+levels of a nested data type inside an array.
+
+**Input types**
+
++ `array_expression`: An expression that evaluates to an `ARRAY` value.
++ `field_or_element[. ...]`: The field to access. This can also be a position
+  in an `ARRAY`-typed field.
++ `fieldname`: The name of the field to access.
+
+  For example, this query returns all values for the `items` field inside of the
+  `my_array` array expression:
+
+  ```sql
+  WITH T AS ( SELECT [STRUCT(['foo', 'bar'] AS items)] AS my_array )
+  SELECT FLATTEN(my_array.items)
+  FROM T
+  ```
++ `array_element`: If the field to access is an `ARRAY` field (`array_field`),
+  you can additionally access a specific position in the field
+  with the [array subscript operator][array-subscript-operator]
+  (`[array_subscript_specifier]`). This operation returns only elements at a
+  selected position, rather than all elements, in the array field.
+
+  For example, this query only returns values at position 0 in the `items`
+  array field:
+
+  ```sql
+  WITH T AS ( SELECT [STRUCT(['foo', 'bar'] AS items)] AS my_array )
+  SELECT FLATTEN(my_array.items[OFFSET(0)])
+  FROM T
+  ```
+
+**Details**
+
+The array elements field access operation is not a typical expression
+that returns a typed value; it represents a concept outside the type system
+and can only be interpreted by the following operations:
+
++  [`FLATTEN` operation][flatten-operation]: Returns an array. For example:
+
+   ```sql
+   FLATTEN(x.y.z)
+   ```
++  [`UNNEST` operation][operators-link-to-unnest]: Returns a table.
+   `array_expression` must be a path expression.
+   Implicitly implements the `FLATTEN` operator.
+   For example, these do the same thing:
+
+   ```sql
+   UNNEST(x.y.z)
+   ```
+
+   ```sql
+   UNNEST(FLATTEN(x.y.z))
+   ```
++  [`FROM` operation][operators-link-to-from-clause]: Returns a table.
+   `array_expression` must be a path expression.
+   Implicitly implements the `UNNEST` operator and the `FLATTEN` operator.
+   For example, these do the same thing:
+
+   ```sql
+   SELECT * FROM T, T.x.y.z;
+   ```
+
+   ```sql
+   SELECT * FROM T, UNNEST(x.y.z);
+   ```
+
+   ```sql
+   SELECT * FROM T, UNNEST(FLATTEN(x.y.z));
+   ```
+
+If `NULL` array elements are encountered, they are added to the resulting array.
+
+**Common shapes of this operation**
+
+This operation can take several shapes. The right-most value in
+the operation determines what type of array is returned. Here are some example
+shapes and a description of what they return:
+
+The following shapes extract the final non-array field from each element of
+an array expression and return an array of those non-array field values.
+
++ `array_expression.non_array_field_1`
++ `array_expression.non_array_field_1.array_field.non_array_field_2`
+
+The following shapes extract the final array field from each element of the
+array expression and concatenate the array fields together.
+An empty array or a `NULL` array contributes no elements to the resulting array.
+
++ `array_expression.non_array_field_1.array_field_1`
++ `array_expression.non_array_field_1.array_field_1.non_array_field_2.array_field_2`
++ `array_expression.non_array_field_1.non_array_field_2.array_field_1`
+
+The following shapes extract the final array field from each element of the
+array expression at a specific position. Then they return an array of those
+extracted elements. An empty array or a `NULL` array contributes no elements
+to the resulting array.
+
++ `array_expression.non_array_field_1.array_field_1[OFFSET(1)]`
++ `array_expression.non_array_field_1.array_field_1[SAFE_OFFSET(1)]`
++ `array_expression.non_array_field_1.non_array_field_2.array_field_1[ORDINAL(2)]`
++ `array_expression.non_array_field_1.non_array_field_2.array_field_1[SAFE_ORDINAL(2)]`
+
+**Return Value**
+
++ `FLATTEN` of an array element access operation returns an `ARRAY`.
++ `UNNEST` of an array element access operation, whether explicit or implicit,
+   returns a table.
+
+**Examples**
+
+The next examples in this section reference a table called `T`, that contains
+a nested struct in an array called `my_array`:
+
+```sql
+WITH
+  T AS (
+    SELECT
+      [
+        STRUCT(
+          [
+            STRUCT([25.0, 75.0] AS prices),
+            STRUCT([30.0] AS prices)
+          ] AS sales
+        )
+      ] AS my_array
+  )
+SELECT * FROM T;
+
++----------------------------------------------+
+| my_array                                     |
++----------------------------------------------+
+| [{[{[25, 75] prices}, {[30] prices}] sales}] |
++----------------------------------------------+
+```
+
+This is what the array elements field access operator looks like in the
+`FLATTEN` operator:
+
+```sql
+SELECT FLATTEN(my_array.sales.prices) AS all_prices FROM T;
+
++--------------+
+| all_prices   |
++--------------+
+| [25, 75, 30] |
++--------------+
+```
+
+This is how you use the array subscript operator to only return values at a
+specific index in the `prices` array:
+
+```sql
+SELECT FLATTEN(my_array.sales.prices[OFFSET(0)]) AS first_prices FROM T;
+
++--------------+
+| first_prices |
++--------------+
+| [25, 30]     |
++--------------+
+```
+
+This is an example of an explicit `UNNEST` operation that includes the
+array elements field access operator:
+
+```sql
+SELECT all_prices FROM T, UNNEST(my_array.sales.prices) AS all_prices
+
++------------+
+| all_prices |
++------------+
+| 25         |
+| 75         |
+| 30         |
++------------+
+```
+
+This is an example of an implicit `UNNEST` operation that includes the
+array elements field access operator:
+
+```sql
+SELECT all_prices FROM T, T.my_array.sales.prices AS all_prices
+
++------------+
+| all_prices |
++------------+
+| 25         |
+| 75         |
+| 30         |
++------------+
+```
+
+This query produces an error because one of the `prices` arrays does not have
+an element at index `1` and `OFFSET` is used:
+
+```sql
+SELECT FLATTEN(my_array.sales.prices[OFFSET(1)]) AS second_prices FROM T;
+
+-- Error
+```
+
+This query is like the previous query, but `SAFE_OFFSET` is used. This
+produces a `NULL` value instead of an error.
+
+```sql
+SELECT FLATTEN(my_array.sales.prices[SAFE_OFFSET(1)]) AS second_prices FROM T;
+
++---------------+
+| second_prices |
++---------------+
+| [75, NULL]    |
++---------------+
+```
+
+In this next example, an empty array and a `NULL` field value have been added to
+the query. These contribute no elements to the result.
+
+```sql
+WITH
+  T AS (
+    SELECT
+      [
+        STRUCT(
+          [
+            STRUCT([25.0, 75.0] AS prices),
+            STRUCT([30.0] AS prices),
+            STRUCT(ARRAY<DOUBLE>[] AS prices),
+            STRUCT(NULL AS prices)
+          ] AS sales
+        )
+      ] AS my_array
+  )
+SELECT FLATTEN(my_array.sales.prices) AS first_prices FROM T;
+
++--------------+
+| first_prices |
++--------------+
+| [25, 75, 30] |
++--------------+
+```
+
+The next examples in this section reference a protocol buffer called
+`Album` that looks like this:
+
+```proto
+message Album {
+  optional string album_name = 1;
+  repeated string song = 2;
+  oneof group_name {
+    string solo = 3;
+    string duet = 4;
+    string band = 5;
+  }
+}
+```
+
+Nested data is common in protocol buffers that have data within repeated
+messages. The following example extracts a flattened array of songs from a
+table called `AlbumList` that contains a column called `Album` of type `PROTO`.
+
+```sql
+WITH
+  AlbumList AS (
+    SELECT
+      [
+        NEW Album(
+          'OneWay' AS album_name,
+          ['North', 'South'] AS song,
+          'Crossroads' AS band),
+        NEW Album(
+          'After Hours' AS album_name,
+          ['Snow', 'Ice', 'Water'] AS song,
+          'Sunbirds' AS band)]
+        AS albums_array
+  )
+SELECT FLATTEN(albums_array.song) AS songs FROM AlbumList
+
++------------------------------+
+| songs                        |
++------------------------------+
+| [North,South,Snow,Ice,Water] |
++------------------------------+
+```
+
+The following example extracts a flattened array of album names from a
+table called `AlbumList` that contains a proto-typed column called `Album`.
+
+```sql
+WITH
+  AlbumList AS (
+    SELECT
+      [
+        (
+          SELECT
+            NEW Album(
+              'OneWay' AS album_name,
+              ['North', 'South'] AS song,
+              'Crossroads' AS band) AS album_col
+        ),
+        (
+          SELECT
+            NEW Album(
+              'After Hours' AS album_name,
+              ['Snow', 'Ice', 'Water'] AS song,
+              'Sunbirds' AS band) AS album_col
+        )]
+        AS albums_array
+  )
+SELECT names FROM AlbumList, UNNEST(albums_array.album_name) AS names
+
++----------------------+
+| names                |
++----------------------+
+| [OneWay,After Hours] |
++----------------------+
 ```
 
 ### Arithmetic operators
@@ -1158,6 +1511,11 @@ When using the `NOT IN` operator, the following semantics apply in this order:
 + Returns `NULL` if `value_set` contains a `NULL`.
 + Returns `TRUE`.
 
+This operator generally supports [collation][link-collation-concepts],
+however, `x [NOT] IN UNNEST` is not supported.
+
+[link-collation-concepts]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md
+
 The semantics of:
 
 ```
@@ -1280,6 +1638,7 @@ SELECT * FROM Words WHERE value NOT IN ('Intend');
 +----------+
 | Secure   |
 | Clarity  |
+| Peace    |
 +----------+
 ```
 
@@ -1367,6 +1726,82 @@ otherwise.</td>
 </tbody>
 </table>
 
+### IS DISTINCT FROM operator 
+<a id="is_distinct"></a>
+
+```sql
+expression_1 IS [NOT] DISTINCT FROM expression_2
+```
+
+**Description**
+
+`IS DISTINCT FROM` returns `TRUE` if the input values are considered to be
+distinct from each other by the [`DISTINCT`][operators-distinct] and
+[`GROUP BY`][operators-group-by] clauses. Otherwise, returns `FALSE`.
+
+`a IS DISTINCT FROM b` being `TRUE` is equivalent to:
+
++ `SELECT COUNT(DISTINCT x) FROM UNNEST([a,b]) x` returning `2`.
++ `SELECT * FROM UNNEST([a,b]) x GROUP BY x` returning 2 rows.
+
+`a IS DISTINCT FROM b` is equivalent to `NOT (a = b)`, except for the
+following cases:
+
++ This operator never returns `NULL` so `NULL` values are considered to be
+  distinct from non-`NULL` values, not other `NULL` values.
++ `NaN` values are considered to be distinct from non-`NaN` values, but not
+  other `NaN` values.
+
+**Input types**
+
++ `expression_1`: The first value to compare. This can be a groupable data type,
+  `NULL` or `NaN`.
++ `expression_2`: The second value to compare. This can be a groupable
+  data type, `NULL` or `NaN`.
++ `NOT`: If present, the output `BOOL` value is inverted.
+
+**Return type**
+
+`BOOL`
+
+**Examples**
+
+These return `TRUE`:
+
+```sql
+SELECT 1 IS DISTINCT FROM 2
+```
+
+```sql
+SELECT 1 IS DISTINCT FROM NULL
+```
+
+```sql
+SELECT 1 IS NOT DISTINCT FROM 1
+```
+
+```sql
+SELECT NULL IS NOT DISTINCT FROM NULL
+```
+
+These return `FALSE`:
+
+```sql
+SELECT NULL IS DISTINCT FROM NULL
+```
+
+```sql
+SELECT 1 IS DISTINCT FROM 1
+```
+
+```sql
+SELECT 1 IS NOT DISTINCT FROM 2
+```
+
+```sql
+SELECT 1 IS NOT DISTINCT FROM NULL
+```
+
 ### Concatenation operator
 
 The concatenation operator combines multiple values into one.
@@ -1404,13 +1839,21 @@ The concatenation operator combines multiple values into one.
 
 [semantic-rules-in]: #semantic_rules_in
 
+[array-subscript-operator]: #array_subscript_operator
+
 [operators-link-to-filtering-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#filtering_arrays
 
 [operators-link-to-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
 
+[operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct_type
+
 [operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
 
 [operators-link-to-unnest]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
+
+[operators-distinct]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_distinct
+
+[operators-group-by]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#group_by_clause
 
 [operators-subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#about_subqueries
 
@@ -1419,6 +1862,10 @@ The concatenation operator combines multiple values into one.
 [operators-link-to-math-functions]: https://github.com/google/zetasql/blob/master/docs/mathematical_functions.md
 
 [link-to-coercion]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#coercion
+
+[operators-link-to-array-safeoffset]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#safe-offset-and-safe-ordinal
+
+[flatten-operation]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#flatten
 
 <!-- mdlint on -->
 

@@ -140,10 +140,12 @@ message ASTSetOperationEnums {
 message ASTUnaryExpressionEnums {
   enum Op {
     NOT_SET = 0;
-    NOT = 1;          // "NOT"
-    BITWISE_NOT = 2;  // "-"
-    MINUS = 3;        // Unary "-"
-    PLUS = 4;         // Unary "+"
+    NOT = 1;             // "NOT"
+    BITWISE_NOT = 2;     // "-"
+    MINUS = 3;           // Unary "-"
+    PLUS = 4;            // Unary "+"
+    IS_UNKNOWN = 5;      // "IS UNKNOWN"
+    IS_NOT_UNKNOWN = 6;  // "IS NOT UNKNOWN"
   }
 }
 message ASTWindowFrameEnums {

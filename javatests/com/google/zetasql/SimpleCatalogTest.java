@@ -22,6 +22,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.testing.SerializableTester;
 import com.google.common.truth.extensions.proto.ProtoTruth;
@@ -476,9 +477,7 @@ public class SimpleCatalogTest {
         new ForwardInputSchemaToOutputSchemaTVF(
             ImmutableList.of("test_tvf_name"),
             new FunctionSignature(TABLE_TYPE, ImmutableList.of(TABLE_TYPE), -1),
-            TableValuedFunctionOptionsProto.newBuilder()
-                .setUsesUpperCaseSqlName(false)
-                .build());
+            TableValuedFunctionOptionsProto.newBuilder().setUsesUpperCaseSqlName(false).build());
     List<FunctionArgumentType> arguments = new ArrayList<>();
     FunctionArgumentType typeInt64 =
         new FunctionArgumentType(TypeFactory.createSimpleType(TypeKind.TYPE_INT64));
@@ -712,6 +711,35 @@ public class SimpleCatalogTest {
       fail();
     } catch (IllegalStateException expected) {
     }
+  }
+
+  @Test
+  public void testRegisterAndUnregisterWithTableContents() {
+    SimpleType type = TypeFactory.createSimpleType(TypeKind.TYPE_BOOL);
+
+    SimpleTable table1 = new SimpleTable("t1");
+    table1.addSimpleColumn("c1", type);
+
+    SimpleTable table2 = new SimpleTable("t2");
+    table2.addSimpleColumn("c1", type);
+
+    SimpleCatalog catalog = new SimpleCatalog("catalog1");
+    catalog.addSimpleTable(table1);
+    catalog.addSimpleTable(table2);
+
+    ImmutableMap<String, TableContent> tablesContents =
+        ImmutableMap.of(
+            "t1",
+            TableContent.create(
+                ImmutableList.of(
+                    ImmutableList.of(Value.createBoolValue(true)),
+                    ImmutableList.of(Value.createBoolValue(false)))));
+
+    // Register catalog with tables contents
+    catalog.register(tablesContents);
+
+    // Unregister catalog.
+    catalog.unregister();
   }
 
   @Test

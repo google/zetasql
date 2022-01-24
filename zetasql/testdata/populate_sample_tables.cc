@@ -29,7 +29,6 @@ namespace zetasql {
 
 using zetasql_test__::KitchenSinkPB;
 
-using zetasql::test_values::Array;
 using zetasql::test_values::Struct;
 
 using zetasql::values::Int32;

@@ -1072,6 +1072,194 @@ FROM TableAllTypes WHERE NOT IS_NAN(float_val) AND NOT IS_INF(float_val)
 --
 ARRAY<STRUCT<FLOAT, FLOAT>>[{-0.5, 0.75}]
 ==
+[name=aggregation_min_max_array_null_vs_nan]
+[required_features=V_1_3_ARRAY_ORDERING]
+SELECT MIN(a), MAX(a)
+FROM (
+  (
+    SELECT ARRAY<FLOAT64>[NULL] AS a
+  )
+  UNION ALL
+  (
+    SELECT ARRAY<FLOAT64>[CAST("NaN" AS FLOAT64)] AS a
+  )
+)
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[{ARRAY<DOUBLE>[NULL], ARRAY<DOUBLE>[nan]}]
+==
+
+[name=aggregation_min_max_array_empty_vs_null]
+[required_features=V_1_3_ARRAY_ORDERING]
+SELECT MIN(a), MAX(a)
+FROM (
+  (
+    SELECT ARRAY<INT64>[] AS a
+  )
+  UNION ALL
+  (
+    SELECT ARRAY<INT64>[NULL] AS a
+  )
+)
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[{ARRAY<INT64>[], ARRAY<INT64>[NULL]}]
+==
+
+[name=aggregation_min_max_array_empty_vs_nan]
+[required_features=V_1_3_ARRAY_ORDERING]
+SELECT MIN(a), MAX(a)
+FROM (
+  (
+    SELECT ARRAY<FLOAT64>[] AS a
+  )
+  UNION ALL
+  (
+    SELECT ARRAY<FLOAT64>[CAST("NaN" AS FLOAT64)] AS a
+  )
+)
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[{ARRAY<DOUBLE>[], ARRAY<DOUBLE>[nan]}]
+==
+
+[name=aggregation_min_max_array_null_nan_appended]
+[required_features=V_1_3_ARRAY_ORDERING]
+SELECT MIN(a), MAX(a)
+FROM (
+  (
+    SELECT ARRAY<FLOAT64>[1] AS a
+  )
+  UNION ALL
+  (
+    SELECT ARRAY<FLOAT64>[1, NULL] AS a
+  )
+    UNION ALL
+  (
+    SELECT ARRAY<FLOAT64>[1, CAST("NaN" AS FLOAT64)] AS a
+  )
+)
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
+  {
+    ARRAY<DOUBLE>[1],
+    ARRAY<DOUBLE>[1, nan]
+  }
+]
+==
+
+[name=aggregation_min_max_array_null_in_the_middle]
+[required_features=V_1_3_ARRAY_ORDERING]
+SELECT MIN(a), MAX(a)
+FROM (
+  (
+    SELECT ARRAY<INT64>[1, NULL, 3] AS a
+  )
+  UNION ALL
+  (
+    SELECT ARRAY<INT64>[1, NULL, 2] AS a
+  )
+)
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
+  {
+    ARRAY<INT64>[1, NULL, 2],
+    ARRAY<INT64>[1, NULL, 3]
+  }
+]
+==
+
+[name=aggregation_min_max_array_nan_in_the_middle]
+[required_features=V_1_3_ARRAY_ORDERING]
+SELECT MIN(a), MAX(a)
+FROM (
+  (
+    SELECT ARRAY<FLOAT64>[1, CAST("NaN" AS FLOAT64), 3] AS a
+  )
+  UNION ALL
+  (
+    SELECT ARRAY<FLOAT64>[1, CAST("NaN" AS FLOAT64), 2] AS a
+  )
+)
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
+  {
+    ARRAY<DOUBLE>[1, nan, 2],
+    ARRAY<DOUBLE>[1, nan, 3]
+  }
+]
+==
+
+[name=aggregation_min_max_array_null_nan_in_the_middle]
+[required_features=V_1_3_ARRAY_ORDERING]
+SELECT MIN(a), MAX(a)
+FROM (
+  (
+    SELECT ARRAY<FLOAT64>[1, NULL, 3] AS a
+  )
+  UNION ALL
+  (
+    SELECT ARRAY<FLOAT64>[1, NULL, 2] AS a
+  )
+  UNION ALL
+  (
+    SELECT ARRAY<FLOAT64>[1, CAST("NaN" AS FLOAT64), 2] AS a
+  )
+)
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
+  {
+    ARRAY<DOUBLE>[1, NULL, 2],
+    ARRAY<DOUBLE>[1, nan, 2]
+  }
+]
+==
+
+[name=aggregation_min_max_array_null_nan_vs_positive_inf]
+[required_features=V_1_3_ARRAY_ORDERING]
+SELECT MIN(a), MAX(a)
+FROM (
+  (
+    SELECT ARRAY<FLOAT64>[1, CAST("+Inf" AS FLOAT64)] AS a
+  )
+  UNION ALL
+  (
+    SELECT ARRAY<FLOAT64>[1, NULL, 2] AS a
+  )
+  UNION ALL
+  (
+    SELECT ARRAY<FLOAT64>[1, CAST("NaN" AS FLOAT64), 2] AS a
+  )
+)
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
+  {
+    ARRAY<DOUBLE>[1, NULL, 2],
+    ARRAY<DOUBLE>[1, inf]
+  }
+]
+==
+[name=aggregation_min_max_array_null_nan_vs_negative_inf]
+[required_features=V_1_3_ARRAY_ORDERING]
+SELECT MIN(a), MAX(a)
+FROM (
+  (
+    SELECT ARRAY<FLOAT64>[1, CAST("-Inf" AS FLOAT64)] AS a
+  )
+  UNION ALL
+  (
+    SELECT ARRAY<FLOAT64>[1, NULL, 2] AS a
+  )
+  UNION ALL
+  (
+    SELECT ARRAY<FLOAT64>[1, CAST("NaN" AS FLOAT64), 2] AS a
+  )
+)
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
+  {
+    ARRAY<DOUBLE>[1, NULL, 2],
+    ARRAY<DOUBLE>[1, -inf]
+  }
+]
+==
 # ----------------------------------------------------------------------------
 # ARRAY_AGG
 # ----------------------------------------------------------------------------

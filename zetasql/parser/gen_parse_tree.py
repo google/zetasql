@@ -1583,6 +1583,8 @@ def main(argv):
   bool IsType() const override { return true; }
 
   virtual const ASTTypeParameterList* type_parameters() const = 0;
+
+  virtual const ASTCollate* collate() const = 0;
       """,
       )
 
@@ -1606,6 +1608,11 @@ def main(argv):
               tag_id=3,
               getter_is_override=True,
               field_loader=FieldLoaderMethod.OPTIONAL),
+          Field(
+              'collate',
+              'ASTCollate',
+              tag_id=4,
+              field_loader=FieldLoaderMethod.OPTIONAL),
       ])
 
   gen.AddNode(
@@ -1622,6 +1629,12 @@ def main(argv):
               'type_parameters',
               'ASTTypeParameterList',
               tag_id=3,
+              getter_is_override=True,
+              field_loader=FieldLoaderMethod.OPTIONAL),
+          Field(
+              'collate',
+              'ASTCollate',
+              tag_id=4,
               getter_is_override=True,
               field_loader=FieldLoaderMethod.OPTIONAL),
       ])
@@ -1659,6 +1672,12 @@ def main(argv):
               'type_parameters',
               'ASTTypeParameterList',
               tag_id=3,
+              getter_is_override=True,
+              field_loader=FieldLoaderMethod.OPTIONAL),
+          Field(
+              'collate',
+              'ASTCollate',
+              tag_id=4,
               getter_is_override=True,
               field_loader=FieldLoaderMethod.OPTIONAL),
       ])
@@ -5400,10 +5419,7 @@ def main(argv):
               'ASTIdentifier',
               tag_id=2,
               field_loader=FieldLoaderMethod.REQUIRED),
-          Field(
-              'column_list',
-              'ASTColumnList',
-              tag_id=3),
+          Field('paths', 'ASTPathExpressionList', tag_id=3),
       ])
 
   gen.AddNode(
@@ -7011,12 +7027,9 @@ def main(argv):
       tag_id=326,
       parent='ASTDdlStatement',
       fields=[
+          Field('is_if_exists', SCALAR_BOOL, tag_id=2),
           Field(
-              'is_if_exists',
-              SCALAR_BOOL,
-              tag_id=2),
-          Field(
-              'column_privilege_list',
+              'privileges',
               'ASTPrivileges',
               tag_id=3,
               field_loader=FieldLoaderMethod.REQUIRED),
@@ -7078,7 +7091,7 @@ def main(argv):
       parent='ASTCreateStatement',
       fields=[
           Field(
-              'column_privilege_list',
+              'privileges',
               'ASTPrivileges',
               tag_id=2,
               field_loader=FieldLoaderMethod.REQUIRED),
@@ -7092,10 +7105,7 @@ def main(argv):
               'ASTPathExpression',
               tag_id=4,
               field_loader=FieldLoaderMethod.REQUIRED),
-          Field(
-              'restrict_to',
-              'ASTRestrictToClause',
-              tag_id=5),
+          Field('restrict_to', 'ASTRestrictToClause', tag_id=5),
       ],
       extra_public_defs="""
   const ASTPathExpression* GetDdlTarget() const override { return name_path_; }
@@ -7578,7 +7588,7 @@ def main(argv):
               'path',
               'ASTPathExpression',
               tag_id=2,
-              field_loader=FieldLoaderMethod.REQUIRED,
+              field_loader=FieldLoaderMethod.OPTIONAL,
               visibility=Visibility.PROTECTED),
           Field(
               'action_list',
@@ -7627,7 +7637,7 @@ def main(argv):
       parent='ASTAlterStatementBase',
       fields=[
           Field(
-              'column_privilege_list',
+              'privileges',
               'ASTPrivileges',
               tag_id=2,
               field_loader=FieldLoaderMethod.REQUIRED,

@@ -64,6 +64,10 @@ const InlineLambdaExpr* AlgebraArg::inline_lambda_expr() const {
   return node() ? node()->AsInlineLambdaExpr() : nullptr;
 }
 
+InlineLambdaExpr* AlgebraArg::mutable_inline_lambda_expr() {
+  return node() ? mutable_node()->AsMutableInlineLambdaExpr() : nullptr;
+}
+
 std::string AlgebraArg::DebugString(bool verbose) const {
   return this->DebugInternal("\n", verbose);
 }
@@ -142,17 +146,14 @@ InlineLambdaArg::InlineLambdaArg(std::unique_ptr<InlineLambdaExpr> lambda)
 AlgebraNode::~AlgebraNode() { zetasql_base::STLDeleteElements(&args_); }
 
 const ValueExpr* AlgebraNode::AsValueExpr() const {
-  ZETASQL_LOG(FATAL);
   return nullptr;
 }
 
 ValueExpr* AlgebraNode::AsMutableValueExpr() {
-  ZETASQL_LOG(FATAL);
   return nullptr;
 }
 
 const RelationalOp* AlgebraNode::AsRelationalOp() const {
-  ZETASQL_LOG(FATAL);
   return nullptr;
 }
 

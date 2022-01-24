@@ -28,12 +28,14 @@ class GenerateUuidFunction : public SimpleBuiltinScalarFunction {
   GenerateUuidFunction()
       : SimpleBuiltinScalarFunction(FunctionKind::kGenerateUuid,
                                     types::StringType()) {}
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 absl::StatusOr<Value> GenerateUuidFunction::Eval(
-    absl::Span<const Value> args, EvaluationContext* context) const {
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
   ZETASQL_RET_CHECK(args.empty());
   return Value::String(
       functions::GenerateUuid(*(context->GetRandomNumberGenerator())));

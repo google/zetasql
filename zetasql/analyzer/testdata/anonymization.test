@@ -8266,3 +8266,14 @@ QueryStmt
 {
   TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, double#9, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 8, 10])
 }
+==
+
+[language_features=ANONYMIZATION,NUMERIC_TYPE,GROUP_BY_ROLLUP]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+SELECT WITH ANONYMIZATION int64, double, ANON_SUM(int32)
+    FROM SimpleTypesWithAnonymizationUid
+    GROUP BY ROLLUP(int64, double);
+--
+ERROR: GROUP BY ROLLUP is not supported in anonymization queries [at 3:14]
+    GROUP BY ROLLUP(int64, double);
+             ^

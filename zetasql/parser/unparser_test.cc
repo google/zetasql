@@ -17,6 +17,7 @@
 #include "zetasql/parser/unparser.h"
 
 #include <memory>
+#include <string>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/parser/parser.h"

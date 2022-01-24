@@ -185,16 +185,9 @@ class AnalyticFunctionResolver {
   // analytic function.
   bool HasAnalytic() const;
 
-  // Returns true if <resolved_column> is one of the columns created by this
-  // resolver to store an analytic function result.
-  bool IsAnalyticColumn(const ResolvedColumn& resolved_column) const;
-
   bool HasWindowColumnsToCompute() {
     return !window_columns_to_compute_.empty();
   }
-
-  // Returns the Coercer from <resolver_>.
-  const Coercer& coercer() const;
 
   // Returns <analytic_function_groups_> as a const reference.
   const std::vector<std::unique_ptr<AnalyticFunctionGroupInfo>>&

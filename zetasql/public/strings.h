@@ -121,19 +121,6 @@ absl::Status ParseIdentifier(absl::string_view str,
                              std::string* error_string = nullptr,
                              int* error_offset = nullptr);
 
-// Similar for the above, but rejects only keywords which are always reserved.
-// This method exists only for existing callers which predated conditionally
-// reserved keywords.
-#ifndef SWIG
-ABSL_DEPRECATED("Inline me!")
-inline absl::Status ParseIdentifier(absl::string_view str, std::string* out,
-                                    std::string* error_string = nullptr,
-                                    int* error_offset = nullptr) {
-  return ParseIdentifier(str, LanguageOptions(), out, error_string,
-                         error_offset);
-}
-#endif  // SWIG
-
 // Same as above, but allow reserved keywords to be identifiers. For example,
 // "SELECT" is valid as a generalized identifier but not as an identifier.
 // "`SELECT`" is valid for either.

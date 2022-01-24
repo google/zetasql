@@ -2781,7 +2781,8 @@ TEST_F(CreateIteratorTest, SortOpIgnoresOrderSameKey) {
                      /*is_stable_sort=*/false));
   ZETASQL_ASSERT_OK(sort_op->SetSchemasForEvaluation(EmptyParamsSchemas()));
 
-  EvaluationContext context((EvaluationOptions()));
+  EvaluationContext context(
+      (EvaluationOptions{.always_use_stable_sort = true}));
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<TupleIterator> iter,
       sort_op->CreateIterator(EmptyParams(), /*num_extra_slots=*/0, &context));
@@ -2841,7 +2842,7 @@ TEST_F(CreateIteratorTest, SortOpPartialOrder) {
       SortOp::Create(std::move(keys), std::move(values),
                      /*limit=*/nullptr, /*offset=*/nullptr, std::move(input),
                      /*is_order_preserving=*/true,
-                     /*is_stable_sort=*/false));
+                     /*is_stable_sort=*/true));
   ZETASQL_ASSERT_OK(sort_op->SetSchemasForEvaluation(EmptyParamsSchemas()));
 
   EXPECT_EQ(
@@ -2881,14 +2882,14 @@ TEST_F(CreateIteratorTest, SortOpPartialOrder) {
       iter, sort_op->CreateIterator(EmptyParams(), /*num_extra_slots=*/0,
                                     &scramble_context));
   EXPECT_EQ(iter->DebugString(), "SortTupleIterator(TestTupleIterator)");
-  EXPECT_FALSE(iter->PreservesOrder());
+  EXPECT_TRUE(iter->PreservesOrder());
   ZETASQL_ASSERT_OK_AND_ASSIGN(data, ReadFromTupleIterator(iter.get()));
   EXPECT_TRUE(scramble_context.IsDeterministicOutput());
   ASSERT_EQ(data.size(), 4);
   // Now that scrambling is enabled, SortTupleIterator should scramble the order
   // of tuples with the same key.
-  EXPECT_EQ(Tuple(&iter->Schema(), &data[0]).DebugString(), "<k:3,v:31>");
-  EXPECT_EQ(Tuple(&iter->Schema(), &data[1]).DebugString(), "<k:3,v:30>");
+  EXPECT_EQ(Tuple(&iter->Schema(), &data[0]).DebugString(), "<k:3,v:30>");
+  EXPECT_EQ(Tuple(&iter->Schema(), &data[1]).DebugString(), "<k:3,v:31>");
   EXPECT_EQ(Tuple(&iter->Schema(), &data[2]).DebugString(), "<k:2,v:20>");
   EXPECT_EQ(Tuple(&iter->Schema(), &data[3]).DebugString(), "<k:1,v:10>");
   EXPECT_EQ(data[0].num_slots(), 2);
@@ -2923,7 +2924,7 @@ TEST_F(CreateIteratorTest, SortOpPartialOrderMultiNULLs) {
       SortOp::Create(std::move(keys), std::move(values),
                      /*limit=*/nullptr, /*offset=*/nullptr, std::move(input),
                      /*is_order_preserving=*/true,
-                     /*is_stable_sort=*/false));
+                     /*is_stable_sort=*/true));
   ZETASQL_ASSERT_OK(sort_op->SetSchemasForEvaluation(EmptyParamsSchemas()));
 
   EvaluationContext context((EvaluationOptions()));
@@ -2952,15 +2953,15 @@ TEST_F(CreateIteratorTest, SortOpPartialOrderMultiNULLs) {
       iter, sort_op->CreateIterator(EmptyParams(), /*num_extra_slots=*/0,
                                     &scramble_context));
   EXPECT_EQ(iter->DebugString(), "SortTupleIterator(TestTupleIterator)");
-  EXPECT_FALSE(iter->PreservesOrder());
+  EXPECT_TRUE(iter->PreservesOrder());
   ZETASQL_ASSERT_OK_AND_ASSIGN(data, ReadFromTupleIterator(iter.get()));
   EXPECT_TRUE(scramble_context.IsDeterministicOutput());
   ASSERT_EQ(data.size(), 3);
   // Now that scrambling is enabled, SortTupleIterator should scramble the order
   // of tuples with the same key.
   EXPECT_EQ(Tuple(&iter->Schema(), &data[0]).DebugString(), "<k:3,v:30>");
-  EXPECT_EQ(Tuple(&iter->Schema(), &data[1]).DebugString(), "<k:NULL,v:20>");
-  EXPECT_EQ(Tuple(&iter->Schema(), &data[2]).DebugString(), "<k:NULL,v:10>");
+  EXPECT_EQ(Tuple(&iter->Schema(), &data[1]).DebugString(), "<k:NULL,v:10>");
+  EXPECT_EQ(Tuple(&iter->Schema(), &data[2]).DebugString(), "<k:NULL,v:20>");
   EXPECT_EQ(data[0].num_slots(), 2);
   EXPECT_EQ(data[1].num_slots(), 2);
   EXPECT_EQ(data[2].num_slots(), 2);

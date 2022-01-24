@@ -286,9 +286,7 @@ public class Function implements Serializable {
       ImmutableList<String> namePath = ImmutableList.copyOf(proto.getNamePathList());
       FunctionSignature signature = FunctionSignature.deserialize(proto.getSignature(0), pools);
       ImmutableList.Builder<String> builder = new ImmutableList.Builder<String>();
-      for (String name : proto.getTemplatedSqlFunctionArgumentNameList()) {
-        builder.add(name);
-      }
+      builder.addAll(proto.getTemplatedSqlFunctionArgumentNameList());
       return new TemplatedSQLFunction(
           namePath, signature, builder.build(),
           new ParseResumeLocation(proto.getParseResumeLocation()));

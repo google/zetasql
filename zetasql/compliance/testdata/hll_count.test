@@ -67,6 +67,18 @@ FROM (
 ARRAY<STRUCT<BYTES>>[{NULL}]
 ==
 
+[name=hll_count_init_contains_null]
+SELECT HLL_COUNT.EXTRACT(y)
+FROM (
+  SELECT HLL_COUNT.INIT(x) AS y
+  FROM (
+    SELECT 111 AS x
+    UNION ALL SELECT 222 AS x
+    UNION ALL SELECT NULL AS x))
+--
+ARRAY<STRUCT<INT64>>[{2}]
+==
+
 # ------------------------------------------------------------------------------
 # HLL_COUNT.MERGE
 # ------------------------------------------------------------------------------

@@ -48,6 +48,7 @@ message SimpleTableProto {
   // contain private data. If not set, this table is assumed to not be usable
   // in an anonymization context, and not contain private data.
   optional SimpleAnonymizationInfoProto anonymization_info = 8;
+  optional string full_name = 10;
 }
 
 message SimpleColumnProto {

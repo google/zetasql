@@ -172,6 +172,8 @@ enum class FunctionKind {
   // in the .cc file, and b/32308061 for an example of how this can cause test
   // failures.
   kArrayConcat,
+  kArrayFilter,
+  kArrayTransform,
   kArrayLength,
   kArrayToString,
   kArrayReverse,
@@ -185,8 +187,6 @@ enum class FunctionKind {
   kGenerateDateArray,
   kGenerateTimestampArray,
   kRangeBucket,
-  // FN_ARRAY_INCLUDES_LAMBDA is handled by
-  // `ArrayIncludesLambdaEvaluationHandler`.
   kArrayIncludes,
   kArrayIncludesAny,
 
@@ -420,10 +420,22 @@ class BuiltinScalarFunction : public ScalarFunctionBody {
 
   // Validates the input types according to the language options, and returns a
   // ScalarFunctionCallExpr upon success.
+  //
+  // Each element in 'arguments' is expected to be either a ValueExpr or
+  // InlineLambdaExpr.
   static absl::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>> CreateCall(
       FunctionKind kind, const LanguageOptions& language_options,
       const Type* output_type,
-      const std::vector<std::unique_ptr<ValueExpr>> arguments,
+      std::vector<std::unique_ptr<AlgebraArg>> arguments,
+      ResolvedFunctionCallBase::ErrorMode error_mode =
+          ResolvedFunctionCallBase::DEFAULT_ERROR_MODE);
+
+  // Similar to the above, but for functions which do not accept any lambda
+  // arguments.
+  static absl::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>> CreateCall(
+      FunctionKind kind, const LanguageOptions& language_options,
+      const Type* output_type,
+      std::vector<std::unique_ptr<ValueExpr>> arguments,
       ResolvedFunctionCallBase::ErrorMode error_mode =
           ResolvedFunctionCallBase::DEFAULT_ERROR_MODE);
 
@@ -437,18 +449,19 @@ class BuiltinScalarFunction : public ScalarFunctionBody {
   // If 'arguments' is not empty, validates the types of the inputs. Currently
   // it checks whether the inputs support equality comparison where
   // applicable, and whether civil time types are enabled in the language option
-  // if there is any in the input types.
+  // if there is any in the input types. Also, rejects arguments which are not
+  // either a ValueExpr or InlineLambdaExpr.
   static absl::StatusOr<std::unique_ptr<BuiltinScalarFunction>> CreateValidated(
       FunctionKind kind, const LanguageOptions& language_options,
       const Type* output_type,
-      const std::vector<std::unique_ptr<ValueExpr>>& arguments);
+      const std::vector<std::unique_ptr<AlgebraArg>>& arguments);
 
  private:
   // Like CreateValidated(), but returns a raw pointer with ownership.
   static absl::StatusOr<BuiltinScalarFunction*> CreateValidatedRaw(
       FunctionKind kind, const LanguageOptions& language_options,
       const Type* output_type,
-      const std::vector<std::unique_ptr<ValueExpr>>& arguments);
+      const std::vector<std::unique_ptr<AlgebraArg>>& arguments);
 
   // Makes it easier to write test cases known to have valid input parameters.
   static std::unique_ptr<BuiltinScalarFunction> CreateUnvalidated(
@@ -457,25 +470,25 @@ class BuiltinScalarFunction : public ScalarFunctionBody {
   // Creates a like function.
   static absl::StatusOr<std::unique_ptr<BuiltinScalarFunction>>
   CreateLikeFunction(FunctionKind kind, const Type* output_type,
-                     const std::vector<std::unique_ptr<ValueExpr>>& arguments);
+                     const std::vector<std::unique_ptr<AlgebraArg>>& arguments);
 
   // Creates a like any function.
   static absl::StatusOr<std::unique_ptr<BuiltinScalarFunction>>
   CreateLikeAnyFunction(
       FunctionKind kind, const Type* output_type,
-      const std::vector<std::unique_ptr<ValueExpr>>& arguments);
+      const std::vector<std::unique_ptr<AlgebraArg>>& arguments);
 
   // Creates a like all function.
   static absl::StatusOr<std::unique_ptr<BuiltinScalarFunction>>
   CreateLikeAllFunction(
       FunctionKind kind, const Type* output_type,
-      const std::vector<std::unique_ptr<ValueExpr>>& arguments);
+      const std::vector<std::unique_ptr<AlgebraArg>>& arguments);
 
   // Creates a regexp function.
   static absl::StatusOr<std::unique_ptr<BuiltinScalarFunction>>
   CreateRegexpFunction(
       FunctionKind kind, const Type* output_type,
-      const std::vector<std::unique_ptr<ValueExpr>>& arguments);
+      const std::vector<std::unique_ptr<AlgebraArg>>& arguments);
 
   FunctionKind kind_;
 };
@@ -487,12 +500,15 @@ class SimpleBuiltinScalarFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
 
-  virtual absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  using BuiltinScalarFunction::Eval;
+  virtual absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                                     absl::Span<const Value> args,
                                      EvaluationContext* context) const = 0;
 
-  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+  bool Eval(absl::Span<const TupleData* const> params,
+            absl::Span<const Value> args, EvaluationContext* context,
             Value* result, absl::Status* status) const override {
-    auto status_or_value = Eval(args, context);
+    auto status_or_value = Eval(params, args, context);
     if (!status_or_value.ok()) {
       *status = status_or_value.status();
       return false;
@@ -551,7 +567,8 @@ class UserDefinedScalarFunction : public ScalarFunctionBody {
         evaluator_(evaluator),
         function_name_(function_name) {}
   std::string debug_name() const override;
-  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+  bool Eval(absl::Span<const TupleData* const> params,
+            absl::Span<const Value> args, EvaluationContext* context,
             Value* result, absl::Status* status) const override;
 
  private:
@@ -606,7 +623,8 @@ class BuiltinFunctionRegistry {
 class ArithmeticFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
-  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+  bool Eval(absl::Span<const TupleData* const> params,
+            absl::Span<const Value> args, EvaluationContext* context,
             Value* result, absl::Status* status) const override;
 
  private:
@@ -619,42 +637,124 @@ class ArithmeticFunction : public BuiltinScalarFunction {
 class ComparisonFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
-  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+  bool Eval(absl::Span<const TupleData* const> params,
+            absl::Span<const Value> args, EvaluationContext* context,
             Value* result, absl::Status* status) const override;
 };
 
 class LogicalFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
-  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+  bool Eval(absl::Span<const TupleData* const> params,
+            absl::Span<const Value> args, EvaluationContext* context,
             Value* result, absl::Status* status) const override;
 };
 
 class ExistsFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
-  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+  bool Eval(absl::Span<const TupleData* const> params,
+            absl::Span<const Value> args, EvaluationContext* context,
             Value* result, absl::Status* status) const override;
 };
 
 class ArrayLengthFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
-  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+  bool Eval(absl::Span<const TupleData* const> params,
+            absl::Span<const Value> args, EvaluationContext* context,
             Value* result, absl::Status* status) const override;
+};
+
+// Contains all information necessary to evaluate a lambda, given a list of
+// arguments.
+class LambdaEvaluationContext {
+ public:
+  LambdaEvaluationContext(absl::Span<const TupleData* const> params,
+                          EvaluationContext* context)
+      : params_(params), context_(context) {}
+
+ public:
+  absl::StatusOr<Value> EvaluateLambda(InlineLambdaExpr* lambda,
+                                       absl::Span<const Value> args);
+
+  EvaluationContext* evaluation_context() const { return context_; }
+
+ private:
+  // Params to be passed to lambda. Used when a lambda needs to fetch a value
+  // outside of its argument list, for example, a query parameter.
+  absl::Span<const TupleData* const> params_;
+  EvaluationContext* context_;
+  std::shared_ptr<TupleSlot::SharedProtoState> shared_proto_state_;
+};
+
+// Base class for functions that consume at least one lambda as an argument.
+class FunctionWithLambdaBase : public BuiltinScalarFunction {
+ public:
+  FunctionWithLambdaBase(FunctionKind kind, const Type* output_type,
+                         std::vector<InlineLambdaExpr*> lambdas)
+      : BuiltinScalarFunction(kind, output_type),
+        lambdas_(std::move(lambdas)) {}
+
+  bool Eval(absl::Span<const TupleData* const> params,
+            absl::Span<const Value> args, EvaluationContext* context,
+            Value* result, absl::Status* status) const override;
+
+ protected:
+  absl::Span<InlineLambdaExpr* const> lambdas() const { return lambdas_; }
+
+  virtual absl::StatusOr<Value> EvalInternal(
+      absl::Span<const Value> args, LambdaEvaluationContext& context) const = 0;
+
+ private:
+  // The lambda argument to this function. Owned by the enclosing
+  // ScalarFunctionCallExpr object.
+  const std::vector<InlineLambdaExpr*> lambdas_;
+};
+
+class ArrayFilterFunction : public FunctionWithLambdaBase {
+ public:
+  using FunctionWithLambdaBase::FunctionWithLambdaBase;
+
+ protected:
+  absl::StatusOr<Value> EvalInternal(
+      absl::Span<const Value> args,
+      LambdaEvaluationContext& context) const override;
+};
+
+class ArrayTransformFunction : public FunctionWithLambdaBase {
+ public:
+  using FunctionWithLambdaBase::FunctionWithLambdaBase;
+
+ protected:
+  absl::StatusOr<Value> EvalInternal(
+      absl::Span<const Value> args,
+      LambdaEvaluationContext& context) const override;
+};
+
+class ArrayIncludesFunctionWithLambda : public FunctionWithLambdaBase {
+ public:
+  using FunctionWithLambdaBase::FunctionWithLambdaBase;
+
+ protected:
+  absl::StatusOr<Value> EvalInternal(
+      absl::Span<const Value> args,
+      LambdaEvaluationContext& context) const override;
 };
 
 class ArrayConcatFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
-  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+  bool Eval(absl::Span<const TupleData* const> params,
+            absl::Span<const Value> args, EvaluationContext* context,
             Value* result, absl::Status* status) const override;
 };
 
 class ArrayToStringFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -662,14 +762,16 @@ class ArrayReverseFunction : public SimpleBuiltinScalarFunction {
  public:
   explicit ArrayReverseFunction(const Type* output_type)
       : SimpleBuiltinScalarFunction(FunctionKind::kArrayReverse, output_type) {}
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class ArrayIsDistinctFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -681,7 +783,8 @@ class ArrayIncludesFunction : public SimpleBuiltinScalarFunction {
       : SimpleBuiltinScalarFunction(FunctionKind::kArrayIncludes,
                                     types::BoolType()) {}
 
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -692,14 +795,16 @@ class ArrayIncludesAnyFunction : public SimpleBuiltinScalarFunction {
       : SimpleBuiltinScalarFunction(FunctionKind::kArrayIncludesAny,
                                     types::BoolType()) {}
 
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class IsFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
-  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+  bool Eval(absl::Span<const TupleData* const> params,
+            absl::Span<const Value> args, EvaluationContext* context,
             Value* result, absl::Status* status) const override;
 };
 
@@ -715,7 +820,8 @@ class CastFunction : public SimpleBuiltinScalarFunction {
   CastFunction(FunctionKind kind, const Type* output_type)
       : SimpleBuiltinScalarFunction(kind, output_type) {}
 
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 
  private:
@@ -726,7 +832,8 @@ class CastFunction : public SimpleBuiltinScalarFunction {
 class BitCastFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
-  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+  bool Eval(absl::Span<const TupleData* const> params,
+            absl::Span<const Value> args, EvaluationContext* context,
             Value* result, absl::Status* status) const override;
 };
 
@@ -736,7 +843,8 @@ class LikeFunction : public SimpleBuiltinScalarFunction {
                std::unique_ptr<RE2> regexp)
       : SimpleBuiltinScalarFunction(kind, output_type),
         regexp_(std::move(regexp)) {}
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 
   LikeFunction(const LikeFunction&) = delete;
@@ -754,7 +862,8 @@ class LikeAnyFunction : public SimpleBuiltinScalarFunction {
       : SimpleBuiltinScalarFunction(kind, output_type),
         regexp_(std::move(regexp)) {}
 
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 
   LikeAnyFunction(const LikeAnyFunction&) = delete;
@@ -771,7 +880,8 @@ class LikeAllFunction : public SimpleBuiltinScalarFunction {
       : SimpleBuiltinScalarFunction(kind, output_type),
         regexp_(std::move(regexp)) {}
 
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 
   LikeAllFunction(const LikeAllFunction&) = delete;
@@ -784,7 +894,8 @@ class LikeAllFunction : public SimpleBuiltinScalarFunction {
 class BitwiseFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
-  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+  bool Eval(absl::Span<const TupleData* const> params,
+            absl::Span<const Value> args, EvaluationContext* context,
             Value* result, absl::Status* status) const override;
 };
 
@@ -792,7 +903,8 @@ class BitCountFunction : public BuiltinScalarFunction {
  public:
   BitCountFunction()
       : BuiltinScalarFunction(FunctionKind::kBitCount, types::Int64Type()) {}
-  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+  bool Eval(absl::Span<const TupleData* const> params,
+            absl::Span<const Value> args, EvaluationContext* context,
             Value* result, absl::Status* status) const override;
 };
 
@@ -809,7 +921,8 @@ class ArrayElementFunction : public BuiltinScalarFunction {
         safe_(safe) {
     ZETASQL_CHECK(base_ == 0 || base_ == 1) << base_;
   }
-  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+  bool Eval(absl::Span<const TupleData* const> params,
+            absl::Span<const Value> args, EvaluationContext* context,
             Value* result, absl::Status* status) const override;
 
  protected:
@@ -825,7 +938,8 @@ class LeastFunction : public BuiltinScalarFunction {
  public:
   explicit LeastFunction(const Type* output_type)
       : BuiltinScalarFunction(FunctionKind::kLeast, output_type) {}
-  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+  bool Eval(absl::Span<const TupleData* const> params,
+            absl::Span<const Value> args, EvaluationContext* context,
             Value* result, absl::Status* status) const override;
 };
 
@@ -834,7 +948,8 @@ class GreatestFunction : public BuiltinScalarFunction {
   explicit GreatestFunction(const Type* output_type)
       : BuiltinScalarFunction(FunctionKind::kGreatest,
                               output_type) {}
-  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+  bool Eval(absl::Span<const TupleData* const> params,
+            absl::Span<const Value> args, EvaluationContext* context,
             Value* result, absl::Status* status) const override;
 };
 
@@ -843,14 +958,16 @@ class ToCodePointsFunction : public SimpleBuiltinScalarFunction {
   ToCodePointsFunction()
       : SimpleBuiltinScalarFunction(FunctionKind::kToCodePoints,
                                     types::Int64ArrayType()) {}
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class CodePointsToFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -858,7 +975,8 @@ class FormatFunction : public SimpleBuiltinScalarFunction {
  public:
   explicit FormatFunction(const Type* output_type)
       : SimpleBuiltinScalarFunction(FunctionKind::kFormat, output_type) {}
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -867,7 +985,8 @@ class GenerateArrayFunction : public SimpleBuiltinScalarFunction {
   explicit GenerateArrayFunction(const Type* output_type)
       : SimpleBuiltinScalarFunction(FunctionKind::kGenerateArray, output_type) {
   }
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -876,42 +995,48 @@ class RangeBucketFunction : public SimpleBuiltinScalarFunction {
   RangeBucketFunction()
       : SimpleBuiltinScalarFunction(FunctionKind::kRangeBucket,
                                     types::Int64Type()) {}
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class MathFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
-  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+  bool Eval(absl::Span<const TupleData* const> params,
+            absl::Span<const Value> args, EvaluationContext* context,
             Value* result, absl::Status* status) const override;
 };
 
 class NetFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
-  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+  bool Eval(absl::Span<const TupleData* const> params,
+            absl::Span<const Value> args, EvaluationContext* context,
             Value* result, absl::Status* status) const override;
 };
 
 class StringFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
-  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+  bool Eval(absl::Span<const TupleData* const> params,
+            absl::Span<const Value> args, EvaluationContext* context,
             Value* result, absl::Status* status) const override;
 };
 
 class NumericFunction : public BuiltinScalarFunction {
  public:
   using BuiltinScalarFunction::BuiltinScalarFunction;
-  bool Eval(absl::Span<const Value> args, EvaluationContext* context,
+  bool Eval(absl::Span<const TupleData* const> params,
+            absl::Span<const Value> args, EvaluationContext* context,
             Value* result, absl::Status* status) const override;
 };
 
 class CaseConverterFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -926,7 +1051,8 @@ class RegexpFunction : public SimpleBuiltinScalarFunction {
   RegexpFunction(const RegexpFunction&) = delete;
   RegexpFunction& operator=(const RegexpFunction&) = delete;
 
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 
  private:
@@ -937,21 +1063,17 @@ class RegexpFunction : public SimpleBuiltinScalarFunction {
 class SplitFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
-class SplitWithCollationFunction : public SimpleBuiltinScalarFunction {
- public:
-  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
-                             EvaluationContext* context) const override;
-};
 
 class ConcatFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -968,7 +1090,8 @@ class MakeProtoFunction : public SimpleBuiltinScalarFunction {
                     const std::vector<FieldAndFormat>& fields)
       : SimpleBuiltinScalarFunction(FunctionKind::kMakeProto, output_type),
         fields_(fields) {}
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 
  private:
@@ -991,7 +1114,8 @@ class FilterFieldsFunction : public SimpleBuiltinScalarFunction {
       bool include,
       const std::vector<const google::protobuf::FieldDescriptor*>& field_path);
 
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 
  private:
@@ -1061,7 +1185,8 @@ class ReplaceFieldsFunction : public SimpleBuiltinScalarFunction {
       : SimpleBuiltinScalarFunction(FunctionKind::kReplaceFields, output_type),
         field_paths_(field_paths) {}
 
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 
  private:
@@ -1071,133 +1196,152 @@ class ReplaceFieldsFunction : public SimpleBuiltinScalarFunction {
 class NullaryFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class DateTimeUnaryFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class FormatDateDatetimeTimestampFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class FormatTimeFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class TimestampFromIntFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class IntFromTimestampFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class StringConversionFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class FromProtoFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(const absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             const absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class ToProtoFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(const absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             const absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class EnumValueDescriptorProtoFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(const absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             const absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class ParseDateFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class ParseDatetimeFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class ParseTimeFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class ParseTimestampFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class DateTimeDiffFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class DateTimeTruncFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class LastDayFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class ExtractFromFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class TimestampConversionFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -1205,49 +1349,48 @@ class CivilTimeConstructionAndConversionFunction
     : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class ExtractDateFromFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class ExtractTimeFromFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class ExtractDatetimeFromFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class IntervalFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
-                             EvaluationContext* context) const override;
-};
-
-class CollationKeyFunction : public SimpleBuiltinScalarFunction {
- public:
-  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
 class CollateFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -1255,7 +1398,8 @@ class RandFunction : public SimpleBuiltinScalarFunction {
  public:
   RandFunction()
       : SimpleBuiltinScalarFunction(FunctionKind::kRand, types::DoubleType()) {}
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -1263,7 +1407,8 @@ class ErrorFunction : public SimpleBuiltinScalarFunction {
  public:
   explicit ErrorFunction(const Type* output_type)
       : SimpleBuiltinScalarFunction(FunctionKind::kError, output_type) {}
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -1616,7 +1761,8 @@ class ConvertJsonFunction : public SimpleBuiltinScalarFunction {
  public:
   ConvertJsonFunction(FunctionKind kind, const Type* output_type)
       : SimpleBuiltinScalarFunction(kind, output_type) {}
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -1624,7 +1770,8 @@ class TypeFunction : public SimpleBuiltinScalarFunction {
  public:
   TypeFunction(FunctionKind kind, const Type* output_type)
       : SimpleBuiltinScalarFunction(kind, output_type) {}
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 

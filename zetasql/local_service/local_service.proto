@@ -745,6 +745,7 @@ message ParseRequest {
   oneof target {
     string sql_statement = 1;
   }
+  optional LanguageOptionsProto options = 2;
 }
 
 message ParseResponse {

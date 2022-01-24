@@ -881,6 +881,134 @@ SELECT
   CAST(x AS string(10))
 ==
 
+select cast(x as string collate 'und:ci');
+--
+QueryStatement [0-41]
+  Query [0-41]
+    Select [0-41]
+      SelectList [7-41]
+        SelectColumn [7-41]
+          CastExpression [7-41]
+            PathExpression [12-13]
+              Identifier(x) [12-13]
+            SimpleType [17-40]
+              PathExpression [17-23]
+                Identifier(string) [17-23]
+              Collate [24-40]
+                StringLiteral('und:ci') [32-40]
+--
+SELECT
+  CAST(x AS string COLLATE 'und:ci')
+==
+
+select cast(x as double collate 'und:ci');
+--
+QueryStatement [0-41]
+  Query [0-41]
+    Select [0-41]
+      SelectList [7-41]
+        SelectColumn [7-41]
+          CastExpression [7-41]
+            PathExpression [12-13]
+              Identifier(x) [12-13]
+            SimpleType [17-40]
+              PathExpression [17-23]
+                Identifier(double) [17-23]
+              Collate [24-40]
+                StringLiteral('und:ci') [32-40]
+--
+SELECT
+  CAST(x AS double COLLATE 'und:ci')
+==
+
+select cast(x as struct<x string collate 'und:ci'>);
+--
+QueryStatement [0-51]
+  Query [0-51]
+    Select [0-51]
+      SelectList [7-51]
+        SelectColumn [7-51]
+          CastExpression [7-51]
+            PathExpression [12-13]
+              Identifier(x) [12-13]
+            StructType [17-50]
+              StructField [24-49]
+                Identifier(x) [24-25]
+                SimpleType [26-49]
+                  PathExpression [26-32]
+                    Identifier(string) [26-32]
+                  Collate [33-49]
+                    StringLiteral('und:ci') [41-49]
+--
+SELECT
+  CAST(x AS STRUCT< x string COLLATE 'und:ci' >)
+==
+
+select cast(x as struct<x string> collate 'und:ci');
+--
+QueryStatement [0-51]
+  Query [0-51]
+    Select [0-51]
+      SelectList [7-51]
+        SelectColumn [7-51]
+          CastExpression [7-51]
+            PathExpression [12-13]
+              Identifier(x) [12-13]
+            StructType [17-50]
+              StructField [24-32]
+                Identifier(x) [24-25]
+                SimpleType [26-32]
+                  PathExpression [26-32]
+                    Identifier(string) [26-32]
+              Collate [34-50]
+                StringLiteral('und:ci') [42-50]
+--
+SELECT
+  CAST(x AS STRUCT< x string > COLLATE 'und:ci')
+==
+
+select cast(x as array<string collate 'und:ci'>);
+--
+QueryStatement [0-48]
+  Query [0-48]
+    Select [0-48]
+      SelectList [7-48]
+        SelectColumn [7-48]
+          CastExpression [7-48]
+            PathExpression [12-13]
+              Identifier(x) [12-13]
+            ArrayType [17-47]
+              SimpleType [23-46]
+                PathExpression [23-29]
+                  Identifier(string) [23-29]
+                Collate [30-46]
+                  StringLiteral('und:ci') [38-46]
+--
+SELECT
+  CAST(x AS ARRAY< string COLLATE 'und:ci' >)
+==
+
+select cast(x as array<string> collate 'und:ci');
+--
+QueryStatement [0-48]
+  Query [0-48]
+    Select [0-48]
+      SelectList [7-48]
+        SelectColumn [7-48]
+          CastExpression [7-48]
+            PathExpression [12-13]
+              Identifier(x) [12-13]
+            ArrayType [17-47]
+              SimpleType [23-29]
+                PathExpression [23-29]
+                  Identifier(string) [23-29]
+              Collate [31-47]
+                StringLiteral('und:ci') [39-47]
+--
+SELECT
+  CAST(x AS ARRAY< string > COLLATE 'und:ci')
+==
+
 select {{cast|safe_cast}}(`date` as date) from A;
 --
 ALTERNATION GROUP: cast
@@ -1944,14 +2072,14 @@ select TRUE IS NULL FALSE
 
 select x from T where x IS y
 --
-ERROR: Syntax error: Expected keyword FALSE or keyword NULL or keyword TRUE but got identifier "y" [at 1:28]
+ERROR: Syntax error: Expected keyword FALSE or keyword NULL or keyword TRUE or keyword UNKNOWN but got identifier "y" [at 1:28]
 select x from T where x IS y
                            ^
 ==
 
 select x IS NOT 5
 --
-ERROR: Syntax error: Expected keyword FALSE or keyword NULL or keyword TRUE but got integer literal "5" [at 1:17]
+ERROR: Syntax error: Expected keyword FALSE or keyword NULL or keyword TRUE or keyword UNKNOWN but got integer literal "5" [at 1:17]
 select x IS NOT 5
                 ^
 ==

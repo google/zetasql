@@ -414,6 +414,41 @@ struct<struct<array<numeric(4, 1)>, array<string(10)>, int32, bignumeric(MAX, 2)
 STRUCT<STRUCT<ARRAY<NUMERIC(4, 1)>, ARRAY<STRING(10)>, INT32, BIGNUMERIC(MAX, 2), INT64>>
 ==
 
+string collate 'und:ci'
+--
+ERROR: Type with collation name is not supported [at 1:8]
+string collate 'und:ci'
+       ^
+==
+
+struct<string collate 'und:ci'>
+--
+ERROR: Type with collation name is not supported [at 1:15]
+struct<string collate 'und:ci'>
+              ^
+==
+
+struct<string> collate 'und:ci'
+--
+ERROR: Type with collation name is not supported [at 1:16]
+struct<string> collate 'und:ci'
+               ^
+==
+
+array<string collate 'und:ci'>
+--
+ERROR: Type with collation name is not supported [at 1:14]
+array<string collate 'und:ci'>
+             ^
+==
+
+array<string> collate 'und:ci'
+--
+ERROR: Type with collation name is not supported [at 1:15]
+array<string> collate 'und:ci'
+              ^
+==
+
 [language_features={{V_1_2_CIVIL_TIME|}}]
 time
 --

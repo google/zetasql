@@ -27,7 +27,8 @@ namespace {
 class HashFunction : public SimpleBuiltinScalarFunction {
  public:
   explicit HashFunction(FunctionKind kind);
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 
  private:
@@ -39,7 +40,8 @@ class FarmFingerprintFunction : public SimpleBuiltinScalarFunction {
   FarmFingerprintFunction()
       : SimpleBuiltinScalarFunction(FunctionKind::kFarmFingerprint,
                                     types::Int64Type()) {}
-  absl::StatusOr<Value> Eval(absl::Span<const Value> args,
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
 
@@ -64,8 +66,9 @@ HashFunction::HashFunction(FunctionKind kind)
             }
           }())) {}
 
-absl::StatusOr<Value> HashFunction::Eval(absl::Span<const Value> args,
-                                         EvaluationContext* context) const {
+absl::StatusOr<Value> HashFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
   ZETASQL_RET_CHECK_EQ(1, args.size());
   if (args[0].is_null()) {
     return Value::Null(output_type());
@@ -79,7 +82,8 @@ absl::StatusOr<Value> HashFunction::Eval(absl::Span<const Value> args,
 }
 
 absl::StatusOr<Value> FarmFingerprintFunction::Eval(
-    absl::Span<const Value> args, EvaluationContext* context) const {
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
   ZETASQL_RET_CHECK_EQ(1, args.size());
   if (args[0].is_null()) {
     return Value::Null(output_type());

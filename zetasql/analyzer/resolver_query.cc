@@ -492,7 +492,7 @@ absl::Status Resolver::AddAnonymizedAggregateScan(
       query_resolution_info->release_aggregate_columns_to_compute(),
       /*k_threshold_expr=*/nullptr, std::move(resolved_anonymization_options));
 
-  analyzer_output_properties_.has_anonymization = true;
+  analyzer_output_properties_.MarkRelevant(REWRITE_ANONYMIZATION);
 
   *current_scan = std::move(anonymized_scan);
   return absl::OkStatus();
@@ -592,6 +592,11 @@ absl::Status Resolver::AddRemainingScansForSelect(
   if (query_resolution_info->HasGroupByOrAggregation()) {
     if (select->anonymization_options() != nullptr ||
         query_resolution_info->has_anonymized_aggregation()) {
+      if (query_resolution_info->HasGroupByRollup()) {
+        ZETASQL_RET_CHECK_EQ(select->group_by()->grouping_items().size(), 1);
+        return MakeSqlErrorAt(select->group_by()->grouping_items(0)->rollup())
+               << "GROUP BY ROLLUP is not supported in anonymization queries";
+      }
       ZETASQL_RETURN_IF_ERROR(AddAnonymizedAggregateScan(select, query_resolution_info,
                                                  current_scan));
     } else {
@@ -5060,7 +5065,7 @@ absl::Status Resolver::ResolvePivotClause(
       output_column_list, std::move(input_scan), std::move(group_by_list),
       std::move(pivot_expr_columns), std::move(resolved_for_expr),
       std::move(resolved_in_exprs), std::move(output_column_detail_list));
-  analyzer_output_properties_.has_pivot = true;
+  analyzer_output_properties_.MarkRelevant(REWRITE_PIVOT);
 
   return absl::OkStatus();
 }
@@ -5361,7 +5366,7 @@ absl::Status Resolver::ResolveUnpivotClause(
       std::move(unpivot_value_columns), std::move(unpivot_label_column),
       std::move(resolved_label_list), std::move(resolved_in_items),
       std::move(projected_input_column_list), include_nulls);
-  analyzer_output_properties_.has_unpivot = true;
+  analyzer_output_properties_.MarkRelevant(REWRITE_UNPIVOT);
   return absl::OkStatus();
 }
 
@@ -5681,7 +5686,7 @@ absl::Status Resolver::ResolveTablesampleClause(
   }
 
   std::vector<std::unique_ptr<const ResolvedExpr>> partition_by_list;
-  const NameScope name_scope(*current_name_list->get());
+  const NameScope name_scope(**current_name_list);
   QueryResolutionInfo query_info(this);
   if (sample_clause->sample_size()->partition_by() != nullptr) {
     if (!language().LanguageFeatureEnabled(

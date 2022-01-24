@@ -107,6 +107,7 @@ static const std::string* const kUnaryMinusFnName =
     new std::string("$unary_minus");
 static const std::string* const kUnaryPlusFnName =
     new std::string("$unary_plus");
+static const std::string* const kIsNullFnName = new std::string("$is_null");
 
 const std::string& FunctionResolver::UnaryOperatorToFunctionName(
     ASTUnaryExpression::Op op) {
@@ -124,6 +125,14 @@ const std::string& FunctionResolver::UnaryOperatorToFunctionName(
       return *kBitwiseNotFnName;
     case ASTUnaryExpression::NOT_SET:
       return *kInvalidUnaryOperatorFnName;
+    case ASTUnaryExpression::IS_UNKNOWN:
+    case ASTUnaryExpression::IS_NOT_UNKNOWN:
+      // As a side note, IS [NOT] UNKNOWN reuses the existing "is_null" function
+      // name since they share the exact same engine implementation. "is_null"
+      // is currently implemented as a binary operator which can recognize if a
+      // preceding keyword NOT is presented. But unary operator does not support
+      // that so two unary operators are created to be mapped to the same name.
+      return *kIsNullFnName;
   }
 }
 

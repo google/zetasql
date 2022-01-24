@@ -256,7 +256,12 @@ class Type {
   // NOT IN, USING and CASE.
   // Note that this means the ZetaSQL type supports equality, but there are
   // LanguageOptions that may restrict this for particular engines.
-  virtual bool SupportsEquality() const { return !IsGeography() && !IsJson(); }
+  virtual bool SupportsEquality() const {
+    if (IsGeography() || IsJson()) {
+      return false;
+    }
+    return true;
+  }
 
   // Returns true if type supports equality with respect to the
   // 'language_options'. E.g. array type supports equality if the

@@ -827,9 +827,6 @@ inline Value Enum(const EnumType* enum_type, absl::string_view name) {
 inline Value Struct(const StructType* type, absl::Span<const Value> values) {
   return Value::Struct(type, values);
 }
-inline Value SafeStruct(const StructType* type, std::vector<Value>&& values) {
-  return Value::SafeStruct(type, std::move(values));
-}
 inline Value UnsafeStruct(const StructType* type, std::vector<Value>&& values) {
   return Value::UnsafeStruct(type, std::move(values));
 }

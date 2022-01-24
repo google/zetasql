@@ -62,9 +62,11 @@ class BisonParser {
   BisonParser(zetasql_base::UnsafeArena* arena,
               std::unique_ptr<std::vector<std::unique_ptr<ASTNode>>>
                   allocated_ast_nodes,
-              zetasql::IdStringPool* id_string_pool, absl::string_view input)
+              zetasql::IdStringPool* id_string_pool, absl::string_view input,
+              const LanguageOptions& language_options)
       : id_string_pool_(id_string_pool),
         arena_(arena),
+        language_options_(&language_options),
         allocated_ast_nodes_(std::move(allocated_ast_nodes)),
         input_(input) {}
 
@@ -101,7 +103,7 @@ class BisonParser {
   absl::Status Parse(
       BisonParserMode mode, absl::string_view filename, absl::string_view input,
       int start_byte_offset, IdStringPool* id_string_pool, zetasql_base::UnsafeArena* arena,
-      const LanguageOptions* language_options,
+      const LanguageOptions& language_options,
       std::unique_ptr<zetasql::ASTNode>* output,
       std::vector<std::unique_ptr<ASTNode>>* other_allocated_ast_nodes,
       ASTStatementProperties* ast_statement_properties,
@@ -234,7 +236,7 @@ class BisonParser {
   IdString filename() const { return filename_; }
   IdStringPool* id_string_pool() const { return id_string_pool_; }
 
-  const LanguageOptions* language_options() { return language_options_; }
+  const LanguageOptions& language_options() { return *language_options_; }
 
   // Returns the next 1-based parameter position.
   int GetNextPositionalParameterPosition() {
@@ -258,6 +260,9 @@ class BisonParser {
     return left.end.column != right.begin.column;
   }
 
+  absl::string_view GetFirstTokenOfNode(
+      zetasql_bison_parser::location& bison_location) const;
+
  private:
   // Identifiers and literal values are allocated from this arena. Not owned.
   // Only valid during Parse().
@@ -267,7 +272,8 @@ class BisonParser {
   // during Parse().
   zetasql_base::UnsafeArena* arena_;
 
-  // LanguageOptions to control parser's behavior.
+  // LanguageOptions to control parser's behavior. Not owned. Only valid
+  // during Parse().
   const LanguageOptions* language_options_ = nullptr;
 
   // ASTNodes that are allocated by the parser are added to this vector during

@@ -251,7 +251,7 @@ absl::Status GetParseTokens(const ParseTokenOptions& options,
 
   auto tokenizer = absl::make_unique<parser::ZetaSqlFlexTokenizer>(
       mode, resume_location->filename(), resume_location->input(),
-      resume_location->byte_position());
+      resume_location->byte_position(), options.language_options);
 
   absl::Status status;
   ParseLocationRange location;

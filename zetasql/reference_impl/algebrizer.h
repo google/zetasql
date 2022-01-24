@@ -250,14 +250,16 @@ class Algebrizer {
       const ResolvedLetExpr* let_expr);
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeInArray(
       std::unique_ptr<ValueExpr> in_value,
-      std::unique_ptr<ValueExpr> array_value);
+      std::unique_ptr<ValueExpr> array_value,
+      const ResolvedCollation& collation);
 
   // Algebrizes IN, LIKE ANY, or LIKE ALL when the rhs is a subquery.
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeInLikeAnyLikeAllRelation(
       std::unique_ptr<ValueExpr> lhs,
       ResolvedSubqueryExpr::SubqueryType subquery_type,
       const VariableId& haystack_var,
-      std::unique_ptr<RelationalOp> haystack_rel);
+      std::unique_ptr<RelationalOp> haystack_rel,
+      const ResolvedCollation& collation);
 
   // Wrapper around AlgebrizeExpression() for use on standalone expressions.
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeStandaloneExpression(

@@ -150,6 +150,10 @@ ResolvedASTDeepCopyVisitor::CopyVisit{{node.name}}(
   // Copy the collation field explicitly because it is not a constructor arg.
   copy.get()->set_collation_list(node->collation_list());
 
+  # elif field.name == "in_collation"
+  // Copy the in_collation field explicitly because it is not a constructor arg.
+  copy.get()->set_in_collation(node->in_collation());
+
   # elif field.name == "preserve_in_literal_remover"
   // Copy the preserve_in_literal_remover field explicitly because it is not a
   // constructor arg.

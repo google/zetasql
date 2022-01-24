@@ -57,32 +57,6 @@ STATIC_IDSTRING(kAnalyticId, "$analytic");
 STATIC_IDSTRING(kPartitionById, "$partitionby");
 STATIC_IDSTRING(kOrderById, "$orderby");
 
-// Helper method to compare the starting and ending boundaries of the
-// same OFFSET type. Returns an error pointing at <ast_start_frame_expr>
-// if the ending boundary precedes the starting boundary.
-template<class value_type>
-static absl::Status CompareWindowBoundaryValues(
-    const ASTWindowFrameExpr* ast_start_frame_expr,
-    value_type start_boundary_offset, value_type end_boudary_offset) {
-  if (ast_start_frame_expr->boundary_type() ==
-          ASTWindowFrameExpr::OFFSET_PRECEDING) {
-    if (start_boundary_offset < end_boudary_offset) {
-      return MakeSqlErrorAt(ast_start_frame_expr)
-             << "The starting framing expression value cannot be smaller than "
-                "the ending framing expression value for PRECEDING";
-    }
-  } else {
-    ZETASQL_DCHECK_EQ(ast_start_frame_expr->boundary_type(),
-              ASTWindowFrameExpr::OFFSET_FOLLOWING);
-    if (start_boundary_offset > end_boudary_offset) {
-      return MakeSqlErrorAt(ast_start_frame_expr)
-             << "The starting framing expression value cannot be larger than "
-                "the ending framing expression value for FOLLOWING";
-    }
-  }
-  return absl::OkStatus();
-}
-
 struct AnalyticFunctionResolver::AnalyticFunctionInfo {
   AnalyticFunctionInfo(
       const ASTAnalyticFunctionCall* ast_analytic_function_call_in,
@@ -887,11 +861,6 @@ bool AnalyticFunctionResolver::HasAnalytic() const {
   return !analytic_function_groups_.empty();
 }
 
-bool AnalyticFunctionResolver::IsAnalyticColumn(
-    const ResolvedColumn& resolved_column) const {
-  return zetasql_base::ContainsKey(column_to_analytic_function_map_, resolved_column);
-}
-
 absl::Status AnalyticFunctionResolver::CreateAnalyticScan(
     QueryResolutionInfo* query_resolution_info,
     std::unique_ptr<const ResolvedScan>* scan) {
@@ -1235,11 +1204,6 @@ absl::Status AnalyticFunctionResolver::CheckForConflictsWithReferencedWindow(
               "cannot have an inline ORDER BY";
   }
   return absl::OkStatus();
-}
-
-const Coercer& AnalyticFunctionResolver::coercer() const {
-  ZETASQL_DCHECK(resolver_ != nullptr);
-  return resolver_->coercer_;
 }
 
 const std::vector<

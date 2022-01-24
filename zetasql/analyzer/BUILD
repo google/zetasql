@@ -731,6 +731,7 @@ cc_library(
     deps = [
         "//zetasql/analyzer/rewriters:registration",
         "//zetasql/analyzer/rewriters:rewriter_interface",
+        "//zetasql/analyzer/rewriters:rewriter_relevance_checker",
         "//zetasql/base",
         "//zetasql/base:logging",
         "//zetasql/base:ret_check",
@@ -745,6 +746,7 @@ cc_library(
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
         "//zetasql/resolved_ast:validator",
+        "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",

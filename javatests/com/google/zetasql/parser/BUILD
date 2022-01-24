@@ -28,8 +28,12 @@ java_library(
     resources =
         glob(["protos/*.textproto"]),
     deps = [
+        "//java/com/google/zetasql:client",
+        "//java/com/google/zetasql:parser",
         "//java/com/google/zetasql/parser",
-        "//zetasql/parser:ast_java_proto",
+        "//zetasql/parser:ast_enums_java_proto",
+        "//zetasql/parser:ast_java_proto",  # buildcleaner: keep
+        "//zetasql/public:options_java_proto",
         "@com_google_guava_guava//jar",
         "@com_google_protobuf//:protobuf_java",
         "@com_google_truth_truth//jar",
@@ -39,5 +43,6 @@ java_library(
 
 junit_test_suites(
     name = "gen_tests",
+    runtime_deps = ["//java/com/google/zetasql:jni_channel"],
     deps = [":tests"],
 )

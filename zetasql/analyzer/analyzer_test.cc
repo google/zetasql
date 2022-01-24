@@ -1422,8 +1422,9 @@ static void ExpectStatementHasAnonymization(
       sql, options, catalog.catalog(), &type_factory, &output);
   if (expect_analyzer_success) {
     ZETASQL_EXPECT_OK(status);
-    EXPECT_EQ(output->analyzer_output_properties().has_anonymization,
-              expect_anonymization);
+    EXPECT_EQ(
+        output->analyzer_output_properties().IsRelevant(REWRITE_ANONYMIZATION),
+        expect_anonymization);
   } else {
     // Note that if the analyzer failed, then there is no AnalyzerOutput.
     EXPECT_FALSE(status.ok());
@@ -1468,8 +1469,9 @@ static void ExpectExpressionHasAnonymization(const std::string& sql,
   absl::Status status = AnalyzeExpression(
       sql, options, catalog.catalog(), &type_factory, &output);
   ZETASQL_ASSERT_OK(status);
-  EXPECT_EQ(output->analyzer_output_properties().has_anonymization,
-            expect_anonymization);
+  EXPECT_EQ(
+      output->analyzer_output_properties().IsRelevant(REWRITE_ANONYMIZATION),
+      expect_anonymization);
 }
 
 TEST(AnalyzerTest, TestExpressionHasAnonymization) {
@@ -1656,10 +1658,8 @@ TEST(SQLBuilderTest, WithScanWithJoinScan) {
   const std::string col_name = "C";
 
   TypeFactory type_factory;
-  std::unique_ptr<SimpleTable> table1 =
-      absl::make_unique<SimpleTable>(table_name1);
-  std::unique_ptr<SimpleTable> table2 =
-      absl::make_unique<SimpleTable>(table_name2);
+  auto table1 = absl::make_unique<SimpleTable>(table_name1);
+  auto table2 = absl::make_unique<SimpleTable>(table_name2);
 
   // With entry list.
   const ResolvedColumn scan_column(
@@ -1717,8 +1717,7 @@ TEST(SQLBuilderTest, WithScanWithArrayScan) {
   const std::string col_name = "C";
 
   TypeFactory type_factory;
-  std::unique_ptr<SimpleTable> table =
-      absl::make_unique<SimpleTable>(table_name);
+  auto table = absl::make_unique<SimpleTable>(table_name);
 
   // With entry list.
   const ResolvedColumn scan_column(

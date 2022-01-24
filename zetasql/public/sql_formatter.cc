@@ -51,9 +51,11 @@ absl::Status FormatSql(absl::string_view sql, std::string* formatted_sql) {
   absl::Status return_status = absl::OkStatus();
   while (!at_end_of_input) {
     std::unique_ptr<ParserOutput> parser_output;
-
-    const absl::Status status = ParseNextStatement(
-        &location, ParserOptions(), &parser_output, &at_end_of_input);
+    LanguageOptions language_options;
+    language_options.EnableMaximumLanguageFeaturesForDevelopment();
+    const absl::Status status =
+        ParseNextStatement(&location, ParserOptions(language_options),
+                           &parser_output, &at_end_of_input);
 
     if (status.ok()) {
       formatted_statement.push_back(Unparse(parser_output->statement()));
@@ -72,6 +74,7 @@ absl::Status FormatSql(absl::string_view sql, std::string* formatted_sql) {
       // just emit the original string in between.
       std::vector<ParseToken> parse_tokens;
       ParseTokenOptions options;
+      options.language_options = language_options;
       options.stop_at_end_of_statement = true;
       const int statement_start = location.byte_position();
       const absl::Status token_status =

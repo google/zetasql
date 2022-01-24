@@ -238,12 +238,12 @@ TEST_P(NaryFunctionTemplateTest, NaryFunctionTest) {
 
     const Type* first_argument_type;
     bool mismatched_types_other_than_int64_or_uint64 = false;
-    std::vector<std::unique_ptr<ValueExpr>> arguments;
+    std::vector<std::unique_ptr<AlgebraArg>> arguments;
     for (int i = 0; i < t.params.num_params(); ++i) {
       ZETASQL_ASSERT_OK_AND_ASSIGN(auto arg, ConstExpr::Create(t.params.param(i)));
-      arguments.push_back(std::move(arg));
+      arguments.push_back(absl::make_unique<ExprArg>(std::move(arg)));
 
-      const Type* arg_type = arguments.back()->output_type();
+      const Type* arg_type = arguments.back()->value_expr()->output_type();
       if (i == 0) {
         first_argument_type = arg_type;
       } else if (!first_argument_type->Equals(arg_type)) {

@@ -58,11 +58,11 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
  public:
   // Constructs a simple wrapper around a flex generated tokenizer. 'mode'
   // controls the first token that is returned to the bison parser, which
-  // determines the starting production used by the parser.  The 'filename' and
-  // 'input' must outlive this object.
+  // determines the starting production used by the parser.
+  // 'filename', 'input', and 'language_options' must outlive this object.
   ZetaSqlFlexTokenizer(BisonParserMode mode, absl::string_view filename,
                          absl::string_view input, int start_offset,
-                         const LanguageOptions* language_options = nullptr)
+                         const LanguageOptions& language_options)
       : filename_(filename),
         start_offset_(start_offset),
         input_size_(static_cast<int64_t>(input.size())),
@@ -190,10 +190,7 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
 
   // LanguageOptions passed in from parser, used to decide if reservable
   // keywords are reserved or not.
-  //
-  // Can be nullptr, in which case, all reservable keywords are considered
-  // nonreserved to match behavior from before reservable keywords existed.
-  const LanguageOptions* language_options_ = nullptr;
+  const LanguageOptions& language_options_;
 };
 
 }  // namespace parser

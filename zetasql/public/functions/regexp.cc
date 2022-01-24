@@ -207,17 +207,6 @@ RegExp::ExtractAllIterator RegExp::CreateExtractAllIterator(
   return ExtractAllIterator{re_.get(), str};
 }
 
-void RegExp::ExtractAllReset(absl::string_view str) {
-  iter_ = CreateExtractAllIterator(str);
-}
-
-bool RegExp::ExtractAllNext(absl::string_view* out, absl::Status* error) {
-  if (!iter_.has_value()) {
-    return internal::UpdateError(error, "Internal Error");
-  }
-  return iter_->Next(out, error);
-}
-
 bool RegExp::Instr(const InstrParams& options, absl::Status* error) const {
   ZETASQL_DCHECK(re_ != nullptr);
   ZETASQL_DCHECK(error != nullptr);

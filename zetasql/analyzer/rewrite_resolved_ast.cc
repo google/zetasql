@@ -24,6 +24,7 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/analyzer/rewriters/registration.h"
 #include "zetasql/analyzer/rewriters/rewriter_interface.h"
+#include "zetasql/analyzer/rewriters/rewriter_relevance_checker.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
@@ -35,6 +36,7 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/validator.h"
+#include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -46,7 +48,6 @@
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
-
 
 namespace {
 
@@ -158,18 +159,62 @@ absl::Status InternalRewriteResolvedAstNoConvertErrorLocation(
   std::unique_ptr<const ResolvedNode> last_rewrite_result;
   const ResolvedNode* rewrite_input = NodeFromAnalyzerOutput(analyzer_output);
 
-  const RewriteRegistry& rewrite_registry = RewriteRegistry::global_instance();
-  for (ResolvedASTRewrite ast_rewrite : rewrite_registry.registration_order()) {
-    if (!analyzer_options.enabled_rewrites().contains(ast_rewrite)) {
-      continue;
-    }
-    const Rewriter* rewriter =
-        RewriteRegistry::global_instance().Get(ast_rewrite);
-    ZETASQL_RET_CHECK(rewriter != nullptr)
-        << "Requested rewriter was not present in the registry: "
-        << ResolvedASTRewrite_Name(ast_rewrite);
+  // TODO: Make this a const reference and remove the modification when
+  //     we support multiple rewrite passes. (broken link)
+  const absl::btree_set<ResolvedASTRewrite>& resolver_detected_rewrites =
+      output_mutator.mutable_output_properties().relevant_rewrites();
+  if (ZETASQL_DEBUG_MODE) {
+    // This check is trying to catch any cases where the resolver is updated to
+    // identify an applicable rewrite but FindApplicableRewrites is not. The
+    // resolver's output is used on the first rewrite pass, but
+    // FindAppliableRewites is used on subsequent passes. If the logic diverges
+    // between those componants, we could miss rewrites.
+    ZETASQL_ASSIGN_OR_RETURN(
+        absl::btree_set<ResolvedASTRewrite> checker_detected_rewrites,
+        FindRelevantRewriters(rewrite_input));
+    ZETASQL_RET_CHECK(
+        absl::c_equal(resolver_detected_rewrites, checker_detected_rewrites))
+        << "\nResolved: " << absl::StrJoin(resolver_detected_rewrites, ", ")
+        << "\nChecker: " << absl::StrJoin(checker_detected_rewrites, ", ");
+  }
+  if (resolver_detected_rewrites.empty()) {
+    return absl::OkStatus();
+  }
 
-    if (rewriter->ShouldRewrite(analyzer_options, analyzer_output)) {
+  // This will be updated each iteration with the set of rewriters to apply
+  // during this iteration.
+  absl::btree_set<ResolvedASTRewrite> rewrites_to_apply;
+  absl::c_set_intersection(
+      analyzer_options.enabled_rewrites(), resolver_detected_rewrites,
+      std::inserter(rewrites_to_apply, rewrites_to_apply.end()));
+
+  const RewriteRegistry& rewrite_registry = RewriteRegistry::global_instance();
+  int64_t iterations = 0;
+  // The default value is not meant to be restrictive, and should be increased
+  // when enough features are rewrite driven that valid queries approach this
+  // number of rewriter iterations.
+  // TODO: Make this an AnalyzerOption before removing
+  //     in_development from inlining rules.
+  static const int64_t kMaxIterations = 25;
+  do {
+    if (++iterations > kMaxIterations) {
+      // The maximum number of iterations is controlled by a flag that engines
+      // can set
+      return absl::ResourceExhaustedError(absl::StrCat(
+          "Query exceeded configured maximum number of rewriter iterations (",
+          kMaxIterations, ") without converging."));
+    }
+    for (ResolvedASTRewrite ast_rewrite :
+         rewrite_registry.registration_order()) {
+      if (!rewrites_to_apply.contains(ast_rewrite)) {
+        continue;
+      }
+      const Rewriter* rewriter =
+          RewriteRegistry::global_instance().Get(ast_rewrite);
+      ZETASQL_RET_CHECK(rewriter != nullptr)
+          << "Requested rewriter was not present in the registry: "
+          << ResolvedASTRewrite_Name(ast_rewrite);
+
       ZETASQL_VLOG(2) << "Running rewriter " << rewriter->Name();
       ZETASQL_ASSIGN_OR_RETURN(
           last_rewrite_result,
@@ -177,11 +222,28 @@ absl::Status InternalRewriteResolvedAstNoConvertErrorLocation(
                             *type_factory,
                             output_mutator.mutable_output_properties()));
       rewrite_input = last_rewrite_result.get();
+      // For the time being, any rewriter that we call Rewrite on is making
+      // meaningful changes to the ResolvedAST tree, so we unconditionally
+      // record that it activates. When rewriters are cheaper on no-op, that
+      // will likely change such that a Rewriter might choose not to change
+      // anything when Rewrite is called. In that case, we need to let Rewrite
+      // signal that it made no meaning ful change.
+      // TODO: Add a way for Rewrite to signal that it made no
+      //     meaningful change.
       rewrite_activated = true;
-    } else {
-      ZETASQL_VLOG(3) << "Skipped rewriter " << rewriter->Name();
     }
-  }
+    rewrites_to_apply.clear();
+    ZETASQL_ASSIGN_OR_RETURN(
+        absl::btree_set<ResolvedASTRewrite> checker_detected_rewrites,
+        FindRelevantRewriters(rewrite_input));
+    absl::c_set_intersection(
+        analyzer_options.enabled_rewrites(), checker_detected_rewrites,
+        std::inserter(rewrites_to_apply, rewrites_to_apply.end()));
+    // The checker currently cannot distinguish the output of the anonymization
+    // rewriter from its input.
+    // TODO: Improve the checker to avoid false positives.
+    rewrites_to_apply.erase(REWRITE_ANONYMIZATION);
+  } while (!rewrites_to_apply.empty());
 
   if (rewrite_activated) {
     ZETASQL_RETURN_IF_ERROR(output_mutator.Update(

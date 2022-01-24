@@ -1256,6 +1256,25 @@ ARRAY<STRUCT<INT32, int64_val INT64>>[
   {13, 23}
 ]
 ==
+[name=aggregation_distinct_min_max_array_null_nan]
+[required_features=V_1_3_ARRAY_ORDERING,V_1_2_GROUP_BY_ARRAY]
+SELECT MIN(DISTINCT x), MAX(DISTINCT x)
+FROM (
+  (SELECT ARRAY<FLOAT64>[1] x)
+  UNION ALL
+  (SELECT ARRAY<FLOAT64>[-1] x)
+  UNION ALL
+  (SELECT ARRAY<FLOAT64>[NULL] x)
+  UNION ALL
+  (SELECT ARRAY<FLOAT64>[NULL] x)
+  UNION ALL
+  (SELECT ARRAY<FLOAT64>[CAST("NaN" AS FLOAT64)] x)
+  UNION ALL
+  (SELECT ARRAY<FLOAT64>[CAST("NaN" AS FLOAT64)] x)
+)
+--
+ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[{ARRAY<DOUBLE>[NULL], ARRAY<DOUBLE>[1]}]
+==
 # ----------------------------------------------------------------------------
 # AVG
 # ----------------------------------------------------------------------------

@@ -6351,22 +6351,38 @@ QueryStmt
           +-vt#2 := ColumnRef(type=STRUCT<a INT32, b STRING>, column=TestStructValueTable.value#1)
 ==
 
-# MIN is not supported for ARRAYs, even if array ordering is enabled.
+# MIN is supported for ARRAYs only if array ordering is enabled.
 [language_features={{|V_1_3_ARRAY_ORDERING}}]
 SELECT MIN(x) FROM (SELECT [1] x);
+--
+ALTERNATION GROUP: <empty>
 --
 ERROR: MIN is not defined for arguments of type ARRAY<INT64> [at 1:8]
 SELECT MIN(x) FROM (SELECT [1] x);
        ^
-==
-
-# MAX is not supported for ARRAYs, even if array ordering is enabled.
-[language_features={{|V_1_3_ARRAY_ORDERING}}]
-SELECT MAX(x) FROM (SELECT [1] x);
 --
-ERROR: MAX is not defined for arguments of type ARRAY<INT64> [at 1:8]
-SELECT MAX(x) FROM (SELECT [1] x);
-       ^
+ALTERNATION GROUP: V_1_3_ARRAY_ORDERING
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#2 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#2]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#2]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[$subquery1.x#1]
+        |   +-expr_list=
+        |   | +-x#1 := Literal(type=ARRAY<INT64>, value=[1])
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-aggregate_list=
+          +-$agg1#2 :=
+            +-AggregateFunctionCall(ZetaSQL:min(ARRAY<INT64>) -> ARRAY<INT64>)
+              +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.x#1)
 ==
 
 [language_features=V_1_1_HAVING_IN_AGGREGATE{{|,V_1_3_ARRAY_ORDERING}}]
@@ -6610,3 +6626,57 @@ QueryStmt
           | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
           |   +-Literal(type=INT64, value=1)
           +-a#4 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+
+==
+
+# Aggregates on JSON value
+[language_features=JSON_TYPE]
+SELECT Count(*), JSON_VALUE(json_col.c)
+FROM JsonTable
+GROUP BY JSON_VALUE(json_col.c)
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#2 AS `$col1` [INT64]
+| +-$groupby.$groupbycol1#3 AS `$col2` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#2, $groupby.$groupbycol1#3]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.$groupbycol1#3, $aggregate.$agg1#2]
+        +-input_scan=
+        | +-TableScan(column_list=[JSONTable.json_col#1], table=JSONTable, column_index_list=[0])
+        +-group_by_list=
+        | +-$groupbycol1#3 :=
+        |   +-FunctionCall(ZetaSQL:json_value(JSON, optional(1) STRING) -> STRING)
+        |     +-GetJsonField
+        |     | +-type=JSON
+        |     | +-expr=
+        |     | | +-ColumnRef(type=JSON, column=JSONTable.json_col#1)
+        |     | +-field_name="c"
+        |     +-Literal(type=STRING, value="$")
+        +-aggregate_list=
+          +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+==
+
+# Aggregates on JSON values that are not equal
+[language_features=JSON_TYPE]
+SELECT Count(*), JSON_VALUE(json_col.c)
+FROM JsonTable
+GROUP BY JSON_VALUE(json_col.d)
+--
+ERROR: SELECT list expression references json_col.c which is neither grouped nor aggregated [at 1:29]
+SELECT Count(*), JSON_VALUE(json_col.c)
+                            ^
+==
+
+# Aggregates on JSON values that are not equal cases
+[language_features=JSON_TYPE]
+SELECT Count(*), JSON_VALUE(json_col.c)
+FROM JsonTable
+GROUP BY JSON_VALUE(json_col.C)
+--
+ERROR: SELECT list expression references json_col.c which is neither grouped nor aggregated [at 1:29]
+SELECT Count(*), JSON_VALUE(json_col.c)
+                            ^

@@ -213,10 +213,9 @@ select
   (select string_ci from CollatedTable),
   ARRAY(select string_ci from CollatedTable order by string_ci),
   EXISTS (select string_ci from CollatedTable),
-
-  # Expects no collation propagated from in/like any/like all because the return
-  # type is bool.
   'abc' in (select string_ci from CollatedTable),
+
+  # Expects no collation propagated from like any/like all.
   'abc' like any (select string_ci from CollatedTable),
   'abc' like all (select string_ci from CollatedTable),
 --
@@ -273,6 +272,7 @@ QueryStmt
     | |   +-subquery_type=IN
     | |   +-in_expr=
     | |   | +-Literal(type=STRING, value="abc")
+    | |   +-in_collation=und:ci
     | |   +-subquery=
     | |     +-ProjectScan
     | |       +-column_list=[CollatedTable.string_ci#13{Collation:"und:ci"}]
@@ -302,6 +302,70 @@ QueryStmt
     |           +-TableScan(column_list=[CollatedTable.string_ci#21{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
     +-input_scan=
       +-SingleRowScan
+==
+
+select collate('abc', 'und:ci') in (select string_ci from CollatedTable)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=IN
+    |     +-in_expr=
+    |     | +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |     |   +-type_annotation_map={Collation:"und:ci"}
+    |     |   +-Literal(type=STRING, value="abc")
+    |     |   +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |     +-in_collation=und:ci
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}]
+    |         +-input_scan=
+    |           +-TableScan(column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
+    +-input_scan=
+      +-SingleRowScan
+==
+
+select collate('abc', 'und:ci') in (select string_no_collation from ComplexCollatedTable)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=IN
+    |     +-in_expr=
+    |     | +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |     |   +-type_annotation_map={Collation:"und:ci"}
+    |     |   +-Literal(type=STRING, value="abc")
+    |     |   +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |     +-in_collation=und:ci
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[ComplexCollatedTable.string_no_collation#1]
+    |         +-input_scan=
+    |           +-TableScan(column_list=[ComplexCollatedTable.string_no_collation#1], table=ComplexCollatedTable, column_index_list=[0])
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Collation mismatch between input expr and subquery column is rejected.
+select collate('abc', 'binary') in (select string_ci from CollatedTable)
+--
+ERROR: Collation for IN operator is different on input expr ("binary") and subquery column ("und:ci") [at 1:37]
+select collate('abc', 'binary') in (select string_ci from CollatedTable)
+                                    ^
 ==
 
 # Test ResolvedGetStructField
@@ -816,10 +880,6 @@ select
   # T -> ARRAY<T> cases
   # $make_array
   [string_ci, 'a', 'b']                     fn_make_array,
-  json_extract_array(string_ci)             fn_json_extract_array,
-  json_extract_string_array(string_ci)      fn_json_extract_string_array,
-  json_query_array(string_ci)               fn_json_query_array,
-  json_value_array(string_ci)               fn_json_value_array,
   split(string_ci)                          fn_split,
 
   # No propagation
@@ -837,16 +897,12 @@ QueryStmt
 | +-$query.fn_safe_array_at_ordinal#8{Collation:"und:ci"} AS fn_safe_array_at_ordinal [STRING]
 | +-$query.fn_array_to_string#9{Collation:"und:ci"} AS fn_array_to_string [STRING]
 | +-$query.fn_make_array#10[{Collation:"und:ci"}] AS fn_make_array [ARRAY<STRING>]
-| +-$query.fn_json_extract_array#11[{Collation:"und:ci"}] AS fn_json_extract_array [ARRAY<STRING>]
-| +-$query.fn_json_extract_string_array#12[{Collation:"und:ci"}] AS fn_json_extract_string_array [ARRAY<STRING>]
-| +-$query.fn_json_query_array#13[{Collation:"und:ci"}] AS fn_json_query_array [ARRAY<STRING>]
-| +-$query.fn_json_value_array#14[{Collation:"und:ci"}] AS fn_json_value_array [ARRAY<STRING>]
-| +-$query.fn_split#15[{Collation:"und:ci"}] AS fn_split [ARRAY<STRING>]
-| +-$query.fn_to_json_string#16 AS fn_to_json_string [STRING]
-| +-$query.fn_format#17{Collation:"binary"} AS fn_format [STRING]
+| +-$query.fn_split#11[{Collation:"und:ci"}] AS fn_split [ARRAY<STRING>]
+| +-$query.fn_to_json_string#12 AS fn_to_json_string [STRING]
+| +-$query.fn_format#13{Collation:"binary"} AS fn_format [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=$query.[fn_array_at_offset#5, fn_safe_array_at_offset#6, fn_array_at_ordinal#7, fn_safe_array_at_ordinal#8, fn_array_to_string#9, fn_make_array#10, fn_json_extract_array#11, fn_json_extract_string_array#12, fn_json_query_array#13, fn_json_value_array#14, fn_split#15, fn_to_json_string#16, fn_format#17]
+    +-column_list=$query.[fn_array_at_offset#5, fn_safe_array_at_offset#6, fn_array_at_ordinal#7, fn_safe_array_at_ordinal#8, fn_array_to_string#9, fn_make_array#10, fn_split#11, fn_to_json_string#12, fn_format#13]
     +-expr_list=
     | +-fn_array_at_offset#5 :=
     | | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
@@ -879,35 +935,15 @@ QueryStmt
     | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
     | |   +-Literal(type=STRING, value="a")
     | |   +-Literal(type=STRING, value="b")
-    | +-fn_json_extract_array#11 :=
-    | | +-FunctionCall(ZetaSQL:json_extract_array(STRING, optional(1) STRING) -> ARRAY<STRING>)
-    | |   +-type_annotation_map=[{Collation:"und:ci"}]
-    | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
-    | |   +-Literal(type=STRING, value="$")
-    | +-fn_json_extract_string_array#12 :=
-    | | +-FunctionCall(ZetaSQL:json_extract_string_array(STRING, optional(1) STRING) -> ARRAY<STRING>)
-    | |   +-type_annotation_map=[{Collation:"und:ci"}]
-    | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
-    | |   +-Literal(type=STRING, value="$")
-    | +-fn_json_query_array#13 :=
-    | | +-FunctionCall(ZetaSQL:json_query_array(STRING, optional(1) STRING) -> ARRAY<STRING>)
-    | |   +-type_annotation_map=[{Collation:"und:ci"}]
-    | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
-    | |   +-Literal(type=STRING, value="$")
-    | +-fn_json_value_array#14 :=
-    | | +-FunctionCall(ZetaSQL:json_value_array(STRING, optional(1) STRING) -> ARRAY<STRING>)
-    | |   +-type_annotation_map=[{Collation:"und:ci"}]
-    | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
-    | |   +-Literal(type=STRING, value="$")
-    | +-fn_split#15 :=
+    | +-fn_split#11 :=
     | | +-FunctionCall(ZetaSQL:split(STRING, optional(0) STRING) -> ARRAY<STRING>)
     | |   +-type_annotation_map=[{Collation:"und:ci"}]
     | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
     | |   +-collation_list=[und:ci]
-    | +-fn_to_json_string#16 :=
+    | +-fn_to_json_string#12 :=
     | | +-FunctionCall(ZetaSQL:to_json_string(ARRAY<STRING>, optional(0) BOOL) -> STRING)
     | |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
-    | +-fn_format#17 :=
+    | +-fn_format#13 :=
     |   +-FunctionCall(ZetaSQL:format(STRING, repeated(1) ARRAY<STRING>, repeated(1) STRUCT<a INT32, b STRING>) -> STRING)
     |     +-type_annotation_map={Collation:"binary"}
     |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=CollatedTable.string_binary#2{Collation:"binary"})
@@ -915,6 +951,231 @@ QueryStmt
     |     +-ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}>)
     +-input_scan=
       +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2, struct_with_string_ci#3, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 1, 2, 3])
+==
+
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+# Collation is disallowed on the function arguments
+select
+  json_extract_array(string_ci),
+from CollatedTable
+--
+ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 3:3]
+  json_extract_array(string_ci),
+  ^
+==
+
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+# Collation is disallowed on the function arguments
+select
+  json_extract(string_ci),
+from CollatedTable
+--
+ERROR: Number of arguments does not match for function JSON_EXTRACT. Supported signature: JSON_EXTRACT(STRING, STRING) [at 3:3]
+  json_extract(string_ci),
+  ^
+==
+
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+# Collation is disallowed on the function arguments
+select
+  json_extract_string_array(string_ci),
+from CollatedTable
+--
+ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 3:3]
+  json_extract_string_array(string_ci),
+  ^
+==
+
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+# Collation is disallowed on the function arguments
+select
+  json_extract_scalar(string_ci),
+from CollatedTable
+--
+ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 3:3]
+  json_extract_scalar(string_ci),
+  ^
+==
+
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+# Collation is disallowed on the function arguments
+select
+  json_query_array(string_ci),
+from CollatedTable
+--
+ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 3:3]
+  json_query_array(string_ci),
+  ^
+==
+
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+# Collation is disallowed on the function arguments
+select
+  json_query(string_ci),
+from CollatedTable
+--
+ERROR: Number of arguments does not match for function JSON_QUERY. Supported signature: JSON_QUERY(STRING, STRING) [at 3:3]
+  json_query(string_ci),
+  ^
+==
+
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+# Collation is disallowed on the function arguments
+select
+  json_value(string_ci),
+from CollatedTable
+--
+ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 3:3]
+  json_value(string_ci),
+  ^
+==
+
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,JSON_ARRAY_FUNCTIONS]
+# Collation is disallowed on the function arguments
+select
+  json_value_array(string_ci),
+from CollatedTable
+--
+ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 3:3]
+  json_value_array(string_ci),
+  ^
+==
+
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+# Collation is disallowed on the function arguments
+select
+  string_ci LIKE 'abc',
+from CollatedTable
+--
+ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 3:3]
+  string_ci LIKE 'abc',
+  ^
+==
+
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+# Collation is disallowed on the function arguments
+select
+  string_ci LIKE ALL ('abc', 'def'),
+from CollatedTable
+--
+ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 3:3]
+  string_ci LIKE ALL ('abc', 'def'),
+  ^
+==
+
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+# Collation is disallowed on the function arguments
+select
+  string_ci LIKE ALL unnest(array_with_string_ci),
+from CollatedTable
+--
+ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 3:3]
+  string_ci LIKE ALL unnest(array_with_string_ci),
+  ^
+==
+
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+# Collation is disallowed on the function arguments
+select
+  string_ci LIKE ANY ('abc', 'def'),
+from CollatedTable
+--
+ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 3:3]
+  string_ci LIKE ANY ('abc', 'def'),
+  ^
+==
+
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
+# Collation is disallowed on the function arguments
+select
+  string_ci LIKE ANY unnest(array_with_string_ci),
+from CollatedTable
+--
+ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 3:3]
+  string_ci LIKE ANY unnest(array_with_string_ci),
+  ^
+==
+
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+# Collation is disallowed on the function arguments
+select
+  translate(string_ci, "a", "b")
+from CollatedTable
+--
+ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 3:3]
+  translate(string_ci, "a", "b")
+  ^
+==
+
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_ADDITIONAL_STRING_FUNCTIONS]
+# Collation is disallowed on the function arguments
+select
+  initcap(string_ci, "abc")
+from CollatedTable
+--
+ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 3:3]
+  initcap(string_ci, "abc")
+  ^
+==
+
+# Collation is disallowed on the function arguments
+select
+  regexp_match(string_ci, "abc")
+from CollatedTable
+--
+ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 2:3]
+  regexp_match(string_ci, "abc")
+  ^
+==
+
+# Collation is disallowed on the function arguments
+select
+  regexp_contains(string_ci, "abc")
+from CollatedTable
+--
+ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 2:3]
+  regexp_contains(string_ci, "abc")
+  ^
+==
+
+# Collation is disallowed on the function arguments
+select
+  regexp_extract(string_ci, "abc")
+from CollatedTable
+--
+ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 2:3]
+  regexp_extract(string_ci, "abc")
+  ^
+==
+
+# Collation is disallowed on the function arguments
+select
+  regexp_instr(string_ci, "abc")
+from CollatedTable
+--
+ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 2:3]
+  regexp_instr(string_ci, "abc")
+  ^
+==
+
+# Collation is disallowed on the function arguments
+select
+  regexp_replace(string_ci, "abc", 'def')
+from CollatedTable
+--
+ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 2:3]
+  regexp_replace(string_ci, "abc", 'def')
+  ^
+==
+
+# Collation is disallowed on the function arguments
+select
+  regexp_extract_all(string_ci, "abc")
+from CollatedTable
+--
+ERROR: Collation is not allowed on argument 1 ("und:ci"). Use COLLATE(arg, '') to remove collation [at 2:3]
+  regexp_extract_all(string_ci, "abc")
+  ^
 ==
 
 # Propagate collation through ResolvedArrayScan on an array column
@@ -1125,16 +1386,6 @@ select
   string_ci < 'abc',
   -- $less_or_equal
   string_ci <= 'abc',
-  -- $like
-  string_ci LIKE 'abc',
-  -- $like_all
-  string_ci LIKE ALL ('abc', 'def'),
-  -- $like_all_array
-  string_ci LIKE ALL unnest(array_with_string_ci),
-  -- $like_any
-  string_ci LIKE ANY ('abc', 'def'),
-  -- $like_any_array
-  string_ci LIKE ANY unnest(array_with_string_ci),
   -- $not_equal
   string_ci != 'abc',
   ends_with(string_ci, 'abc'),
@@ -1161,21 +1412,16 @@ QueryStmt
 | +-$query.$col10#14 AS `$col10` [BOOL]
 | +-$query.$col11#15 AS `$col11` [BOOL]
 | +-$query.$col12#16 AS `$col12` [BOOL]
-| +-$query.$col13#17 AS `$col13` [BOOL]
-| +-$query.$col14#18 AS `$col14` [BOOL]
-| +-$query.$col15#19 AS `$col15` [BOOL]
-| +-$query.$col16#20 AS `$col16` [BOOL]
-| +-$query.$col17#21 AS `$col17` [BOOL]
-| +-$query.$col18#22{Collation:"und:ci"} AS `$col18` [STRING]
+| +-$query.$col13#17{Collation:"und:ci"} AS `$col13` [STRING]
+| +-$query.$col14#18 AS `$col14` [INT64]
+| +-$query.$col15#19{Collation:"und:ci"} AS `$col15` [STRING]
+| +-$query.$col16#20{Collation:"und:ci"} AS `$col16` [STRING]
+| +-$query.$col17#21[{Collation:"und:ci"}] AS `$col17` [ARRAY<STRING>]
+| +-$query.$col18#22 AS `$col18` [BOOL]
 | +-$query.$col19#23 AS `$col19` [INT64]
-| +-$query.$col20#24{Collation:"und:ci"} AS `$col20` [STRING]
-| +-$query.$col21#25{Collation:"und:ci"} AS `$col21` [STRING]
-| +-$query.$col22#26[{Collation:"und:ci"}] AS `$col22` [ARRAY<STRING>]
-| +-$query.$col23#27 AS `$col23` [BOOL]
-| +-$query.$col24#28 AS `$col24` [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=$query.[$col1#5, $col2#6, $col3#7, $col4#8, $col5#9, $col6#10, $col7#11, $col8#12, $col9#13, $col10#14, $col11#15, $col12#16, $col13#17, $col14#18, $col15#19, $col16#20, $col17#21, $col18#22, $col19#23, $col20#24, $col21#25, $col22#26, $col23#27, $col24#28]
+    +-column_list=$query.[$col1#5, $col2#6, $col3#7, $col4#8, $col5#9, $col6#10, $col7#11, $col8#12, $col9#13, $col10#14, $col11#15, $col12#16, $col13#17, $col14#18, $col15#19, $col16#20, $col17#21, $col18#22, $col19#23]
     +-expr_list=
     | +-$col1#5 :=
     | | +-FunctionCall(ZetaSQL:$between(STRING, STRING, STRING) -> BOOL)
@@ -1231,77 +1477,50 @@ QueryStmt
     | |   +-Literal(type=STRING, value="abc")
     | |   +-collation_list=[und:ci]
     | +-$col11#15 :=
-    | | +-FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
-    | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
-    | |   +-Literal(type=STRING, value="abc")
-    | |   +-collation_list=[und:ci]
-    | +-$col12#16 :=
-    | | +-FunctionCall(ZetaSQL:$like_all(STRING, repeated(2) STRING) -> BOOL)
-    | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
-    | |   +-Literal(type=STRING, value="abc")
-    | |   +-Literal(type=STRING, value="def")
-    | |   +-collation_list=[und:ci]
-    | +-$col13#17 :=
-    | | +-FunctionCall(ZetaSQL:$like_all_array(STRING, ARRAY<STRING>) -> BOOL)
-    | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
-    | |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
-    | |   +-collation_list=[und:ci]
-    | +-$col14#18 :=
-    | | +-FunctionCall(ZetaSQL:$like_any(STRING, repeated(2) STRING) -> BOOL)
-    | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
-    | |   +-Literal(type=STRING, value="abc")
-    | |   +-Literal(type=STRING, value="def")
-    | |   +-collation_list=[und:ci]
-    | +-$col15#19 :=
-    | | +-FunctionCall(ZetaSQL:$like_any_array(STRING, ARRAY<STRING>) -> BOOL)
-    | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
-    | |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=[{Collation:"und:ci"}], column=CollatedTable.array_with_string_ci#4[{Collation:"und:ci"}])
-    | |   +-collation_list=[und:ci]
-    | +-$col16#20 :=
     | | +-FunctionCall(ZetaSQL:$not_equal(STRING, STRING) -> BOOL)
     | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
     | |   +-Literal(type=STRING, value="abc")
     | |   +-collation_list=[und:ci]
-    | +-$col17#21 :=
+    | +-$col12#16 :=
     | | +-FunctionCall(ZetaSQL:ends_with(STRING, STRING) -> BOOL)
     | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
     | |   +-Literal(type=STRING, value="abc")
     | |   +-collation_list=[und:ci]
-    | +-$col18#22 :=
+    | +-$col13#17 :=
     | | +-FunctionCall(ZetaSQL:greatest(repeated(2) STRING) -> STRING)
     | |   +-type_annotation_map={Collation:"und:ci"}
     | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
     | |   +-Literal(type=STRING, value="abc")
     | |   +-collation_list=[und:ci]
-    | +-$col19#23 :=
+    | +-$col14#18 :=
     | | +-FunctionCall(ZetaSQL:instr(STRING, STRING, optional(0) INT64, optional(0) INT64) -> INT64)
     | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
     | |   +-Literal(type=STRING, value="abc")
     | |   +-collation_list=[und:ci]
-    | +-$col20#24 :=
+    | +-$col15#19 :=
     | | +-FunctionCall(ZetaSQL:least(repeated(2) STRING) -> STRING)
     | |   +-type_annotation_map={Collation:"und:ci"}
     | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
     | |   +-Literal(type=STRING, value="abc")
     | |   +-collation_list=[und:ci]
-    | +-$col21#25 :=
+    | +-$col16#20 :=
     | | +-FunctionCall(ZetaSQL:replace(STRING, STRING, STRING) -> STRING)
     | |   +-type_annotation_map={Collation:"und:ci"}
     | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
     | |   +-Literal(type=STRING, value="abc")
     | |   +-Literal(type=STRING, value="def")
     | |   +-collation_list=[und:ci]
-    | +-$col22#26 :=
+    | +-$col17#21 :=
     | | +-FunctionCall(ZetaSQL:split(STRING, optional(0) STRING) -> ARRAY<STRING>)
     | |   +-type_annotation_map=[{Collation:"und:ci"}]
     | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
     | |   +-collation_list=[und:ci]
-    | +-$col23#27 :=
+    | +-$col18#22 :=
     | | +-FunctionCall(ZetaSQL:starts_with(STRING, STRING) -> BOOL)
     | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
     | |   +-Literal(type=STRING, value="abc")
     | |   +-collation_list=[und:ci]
-    | +-$col24#28 :=
+    | +-$col19#23 :=
     |   +-FunctionCall(ZetaSQL:strpos(STRING, STRING) -> INT64)
     |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
     |     +-Literal(type=STRING, value="abc")
@@ -3940,4 +4159,38 @@ SELECT FLATTEN(STRUCT([COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci')] as x, 1 a
 ERROR: Collation is not allowed on input array to FLATTEN (["und:ci"]) [at 2:8]
 SELECT FLATTEN(STRUCT([COLLATE('a', 'und:ci'), COLLATE('b', 'und:ci')] as x, ...
        ^
+==
 
+SELECT CAST('a' AS STRING COLLATE 'und:ci')
+--
+ERROR: Type with collation name is not supported [at 1:27]
+SELECT CAST('a' AS STRING COLLATE 'und:ci')
+                          ^
+==
+
+SELECT CAST(['a'] AS ARRAY<STRING COLLATE 'und:ci'>)
+--
+ERROR: Type with collation name is not supported [at 1:35]
+SELECT CAST(['a'] AS ARRAY<STRING COLLATE 'und:ci'>)
+                                  ^
+==
+
+SELECT CAST(['a'] AS ARRAY<STRING> COLLATE 'und:ci')
+--
+ERROR: Type with collation name is not supported [at 1:36]
+SELECT CAST(['a'] AS ARRAY<STRING> COLLATE 'und:ci')
+                                   ^
+==
+
+SELECT CAST(('a', 1) AS STRUCT<STRING COLLATE 'und:ci', INT32>)
+--
+ERROR: Type with collation name is not supported [at 1:39]
+SELECT CAST(('a', 1) AS STRUCT<STRING COLLATE 'und:ci', INT32>)
+                                      ^
+==
+
+SELECT CAST(('a', 1) AS STRUCT<STRING, INT32> COLLATE 'und:ci')
+--
+ERROR: Type with collation name is not supported [at 1:47]
+SELECT CAST(('a', 1) AS STRUCT<STRING, INT32> COLLATE 'und:ci')
+                                              ^

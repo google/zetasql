@@ -21,8 +21,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
+#include <ostream>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
@@ -357,15 +360,27 @@ class NumericValue final {
     // sliding windows. If the value has not been added to the input, or if it
     // has already been removed, then the result of this method is undefined.
     void Subtract(NumericValue value);
+    // Returns the variance, or absl::nullopt if count is too low.
+    absl::optional<double> GetVariance(uint64_t count, bool is_sampling) const;
     // Returns the population variance, or absl::nullopt if count is 0.
-    absl::optional<double> GetPopulationVariance(uint64_t count) const;
+    absl::optional<double> GetPopulationVariance(uint64_t count) const {
+      return GetVariance(count, /*is_sampling=*/false);
+    }
     // Returns the sampling variance, or absl::nullopt if count < 2.
-    absl::optional<double> GetSamplingVariance(uint64_t count) const;
+    absl::optional<double> GetSamplingVariance(uint64_t count) const {
+      return GetVariance(count, /*is_sampling=*/true);
+    }
+    // Returns the standard deviation, or absl::nullopt if count is too low.
+    absl::optional<double> GetStdDev(uint64_t count, bool is_sampling) const;
     // Returns the population standard deviation, or absl::nullopt if count is
     // 0.
-    absl::optional<double> GetPopulationStdDev(uint64_t count) const;
+    absl::optional<double> GetPopulationStdDev(uint64_t count) const {
+      return GetStdDev(count, /*is_sampling=*/false);
+    }
     // Returns the sampling standard deviation, or absl::nullopt if count < 2.
-    absl::optional<double> GetSamplingStdDev(uint64_t count) const;
+    absl::optional<double> GetSamplingStdDev(uint64_t count) const {
+      return GetStdDev(count, /*is_sampling=*/true);
+    }
     // Merges the state with other VarianceAggregator instance's state.
     void MergeWith(const VarianceAggregator& other);
     // Serialization and deserialization methods that are intended to be
@@ -405,12 +420,19 @@ class NumericValue final {
     // sliding windows. If the pair has not been added to the input, or if it
     // has already been removed, then the result of this method is undefined.
     void Subtract(NumericValue x, NumericValue y);
+    // Returns the covariance, or absl::nullopt if count is too low.
+    absl::optional<double> GetCovariance(uint64_t count,
+                                         bool is_sampling) const;
     // Returns the population covariance of non-null pairs from input, or
     // absl::nullopt if count is 0.
-    absl::optional<double> GetPopulationCovariance(uint64_t count) const;
+    absl::optional<double> GetPopulationCovariance(uint64_t count) const {
+      return GetCovariance(count, /*is_sampling=*/false);
+    }
     // Returns the sample covariance of non-null pairs from input, or
     // absl::nullopt if count < 2.
-    absl::optional<double> GetSamplingCovariance(uint64_t count) const;
+    absl::optional<double> GetSamplingCovariance(uint64_t count) const {
+      return GetCovariance(count, /*is_sampling=*/true);
+    }
     // Merges the state with other CovarianceAggregator instance's state.
     void MergeWith(const CovarianceAggregator& other);
     // Serialization and deserialization methods that are intended to be
@@ -765,15 +787,27 @@ class BigNumericValue final {
     // sliding windows. If the value has not been added to the input, or if it
     // has already been removed, then the result of this method is undefined.
     void Subtract(BigNumericValue value);
+    // Returns the variance, or absl::nullopt if count is too low.
+    absl::optional<double> GetVariance(uint64_t count, bool is_sampling) const;
     // Returns the population variance, or absl::nullopt if count is 0.
-    absl::optional<double> GetPopulationVariance(uint64_t count) const;
+    absl::optional<double> GetPopulationVariance(uint64_t count) const {
+      return GetVariance(count, /*is_sampling=*/false);
+    }
     // Returns the sampling variance, or absl::nullopt if count < 2.
-    absl::optional<double> GetSamplingVariance(uint64_t count) const;
+    absl::optional<double> GetSamplingVariance(uint64_t count) const {
+      return GetVariance(count, /*is_sampling=*/true);
+    }
+    // Returns the standard deviation, or absl::nullopt if count is too low.
+    absl::optional<double> GetStdDev(uint64_t count, bool is_sampling) const;
     // Returns the population standard deviation, or absl::nullopt if count is
     // 0.
-    absl::optional<double> GetPopulationStdDev(uint64_t count) const;
+    absl::optional<double> GetPopulationStdDev(uint64_t count) const {
+      return GetStdDev(count, /*is_sampling=*/false);
+    }
     // Returns the sampling standard deviation, or absl::nullopt if count < 2.
-    absl::optional<double> GetSamplingStdDev(uint64_t count) const;
+    absl::optional<double> GetSamplingStdDev(uint64_t count) const {
+      return GetStdDev(count, /*is_sampling=*/true);
+    }
     // Merges the state with other VarianceAggregator instance's state.
     void MergeWith(const VarianceAggregator& other);
     // Serialization and deserialization methods that are intended to be
@@ -813,12 +847,19 @@ class BigNumericValue final {
     // sliding windows. If the pair has not been added to the input, or if it
     // has already been removed, then the result of this method is undefined.
     void Subtract(BigNumericValue x, BigNumericValue y);
+    // Returns the covariance, or absl::nullopt if count is too low.
+    absl::optional<double> GetCovariance(uint64_t count,
+                                         bool is_sampling) const;
     // Returns the population covariance of non-null pairs from input, or
     // absl::nullopt if count is 0.
-    absl::optional<double> GetPopulationCovariance(uint64_t count) const;
+    absl::optional<double> GetPopulationCovariance(uint64_t count) const {
+      return GetCovariance(count, /*is_sampling=*/false);
+    }
     // Returns the sample covariance of non-null pairs from input, or
     // absl::nullopt if count < 2.
-    absl::optional<double> GetSamplingCovariance(uint64_t count) const;
+    absl::optional<double> GetSamplingCovariance(uint64_t count) const {
+      return GetCovariance(count, /*is_sampling=*/true);
+    }
     // Merges the state with other CovarianceAggregator instance's state.
     void MergeWith(const CovarianceAggregator& other);
     // Serialization and deserialization methods that are intended to be

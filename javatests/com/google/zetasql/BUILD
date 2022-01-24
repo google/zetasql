@@ -31,6 +31,7 @@ java_library(
         "//java/com/google/zetasql:client",
         "//java/com/google/zetasql:types",
         "//java/com/google/zetasql/resolvedast",
+        "//zetasql/local_service:local_service_java_proto",
         "//zetasql/proto:function_java_proto",
         "//zetasql/proto:options_java_proto",
         "//zetasql/proto:simple_catalog_java_proto",

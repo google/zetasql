@@ -337,13 +337,11 @@ TypeKind SimpleType::GetTypeKindIfSimple(
   }
   if (language_features != nullptr) {
     if (type_info->type_feature.has_value() &&
-        !zetasql_base::ContainsKey(*language_features,
-                          type_info->type_feature.value())) {
+        !language_features->contains(type_info->type_feature.value())) {
       return TYPE_UNKNOWN;
     }
     if (type_info->alias_feature.has_value() &&
-        !zetasql_base::ContainsKey(*language_features,
-                          type_info->alias_feature.value())) {
+        !language_features->contains(type_info->alias_feature.value())) {
       return TYPE_UNKNOWN;
     }
   }

@@ -16,6 +16,10 @@
 
 #include "zetasql/public/analyzer_options.h"
 
+#include <algorithm>
+#include <string>
+#include <utility>
+
 #include "zetasql/base/case.h"
 
 namespace zetasql {

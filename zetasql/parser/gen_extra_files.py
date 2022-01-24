@@ -23,8 +23,6 @@ parse_tree_decls.h
 parse_tree_accept_methods.inc
 """
 
-
-
 import re
 import sys
 import textwrap

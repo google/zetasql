@@ -21,6 +21,29 @@ package(
 )
 
 cc_library(
+    name = "rewriter_relevance_checker",
+    srcs = ["rewriter_relevance_checker.cc"],
+    hdrs = ["rewriter_relevance_checker.h"],
+    copts = [
+        "-Wno-char-subscripts",
+        "-Wno-sign-compare",
+        "-Wno-switch",
+        "-Wno-unused-but-set-parameter",
+        "-Wno-unused-function",
+        "-Wnonnull-compare",
+    ],
+    deps = [
+        "//zetasql/public:builtin_function_cc_proto",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public:sql_function",
+        "//zetasql/public:templated_sql_function",
+        "//zetasql/resolved_ast",
+        "@com_google_absl//absl/container:btree",
+        "@com_google_absl//absl/status:statusor",
+    ],
+)
+
+cc_library(
     name = "flatten_rewriter",
     srcs = ["flatten_rewriter.cc"],
     hdrs = ["flatten_rewriter.h"],
@@ -96,6 +119,7 @@ cc_library(
         ":rewriter_interface",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
+        "//zetasql/base:varsetter",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:analyzer_output",
         "//zetasql/public:analyzer_output_properties",
@@ -103,9 +127,11 @@ cc_library(
         "//zetasql/public:function",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:sql_function",
+        "//zetasql/public:templated_sql_function",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
         "//zetasql/resolved_ast:rewrite_utils",
+        "@com_google_absl//absl/cleanup",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/types:optional",

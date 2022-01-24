@@ -232,6 +232,7 @@ cc_library(
         "//zetasql/public:function_cc_proto",
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
+        "//zetasql/public:parse_resume_location",
         "//zetasql/public:simple_catalog",
         "//zetasql/public:sql_function",
         "//zetasql/public:strings",

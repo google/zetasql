@@ -27,7 +27,7 @@ This section covers how to construct protocol buffers using ZetaSQL.
 
 You can create a protocol buffer using the keyword `NEW`:
 
-```
+```sql
 NEW TypeName(field_1 [AS alias], ...field_n [AS alias])
 ```
 
@@ -42,7 +42,7 @@ When using the `NEW` keyword to create a new protocol buffer:
 
 Example:
 
-```
+```sql
 SELECT
   key,
   name,
@@ -53,19 +53,18 @@ FROM
 
 To create a protocol buffer with an extension, use this syntax:
 
-```
+```sql
 NEW TypeName(expr1 AS (path.to.extension), ...)
 ```
 
 +   For `path.to.extension`, provide the path to the extension. Place the
     extension path inside parentheses.
 +   `expr1` provides the value to set for the extension. `expr1` must be of the
-    same type as the extension or
-    [coercible to that type][conversion-rules].
+    same type as the extension or [coercible to that type][conversion-rules].
 
     Example:
 
-    ```
+    ```sql
     SELECT
      NEW zetasql.examples.music.Album (
        album AS album_name,
@@ -84,7 +83,7 @@ NEW TypeName(expr1 AS (path.to.extension), ...)
 
     Example:
 
-    ```
+    ```sql
     SELECT
      NEW zetasql.examples.music.Album(
        'Bach: The Goldberg Variations' AS album_name,
@@ -92,6 +91,7 @@ NEW TypeName(expr1 AS (path.to.extension), ...)
         DATE(1956,1,1) AS release_date
        )
      AS (zetasql.examples.music.AlbumExtension.album_extension));
+
     +-------------------------------------------------------------+
     | $col1                                                       |
     +-------------------------------------------------------------+
@@ -131,7 +131,7 @@ equality is not supported on protocol buffer types.
 
 The following is an example of a `SELECT AS typename` query.
 
-```
+```sql 
 SELECT AS tests.TestProtocolBuffer mytable.key int64_val, mytable.name string_val
 FROM mytable;
 
@@ -147,13 +147,13 @@ buffer extensions. To do so, use the [NEW][new-keyword] keyword instead. For
 example,  to create a protocol buffer with an extension, change a query like
 this:
 
-```
+```sql
 SELECT AS ProtoType field1, field2, ...
 ```
 
 to a query like this:
 
-```
+```sql
 SELECT AS VALUE NEW ProtoType(field1, field2, field3 AS (path.to.extension), ...)
 ```
 
@@ -161,9 +161,9 @@ SELECT AS VALUE NEW ProtoType(field1, field2, field3 AS (path.to.extension), ...
 
 You can cast `PROTO` to or from `BYTES` or `STRING`.
 
-```
+```sql
 SELECT CAST('first_name: "Jane", last_name: "Doe", customer_no: 1234'
-  as example.CustomerInfo);
+  AS example.CustomerInfo);
 ```
 
 Casting to or from `BYTES` produces or parses proto2 wire format bytes. If
@@ -289,7 +289,7 @@ returned.
 The following example shows how you can use the `use_defaults` annotation for an
 optional protocol buffer field.
 
-```
+```proto
 import "zetasql/public/proto/type_annotation.proto";
 
 message SimpleMessage {
@@ -315,7 +315,7 @@ The `zetasql.use_field_defaults` annotation is just like
 unset fields within a given protocol buffer message. If both are present, the
 field-level annotation takes precedence.
 
-```
+```proto
 import "zetasql/public/proto/type_annotation.proto";
 
 message AnotherSimpleMessage {
@@ -341,7 +341,7 @@ example, which has a field `country`. You can construct a query to determine if
 a Customer protocol buffer message has a value for the country field by using
 the virtual field `has_country`:
 
-```
+```proto
 message ShippingAddress {
   optional string name = 1;
   optional string address = 2;
@@ -349,7 +349,7 @@ message ShippingAddress {
 }
 ```
 
-```
+```sql
 SELECT
   c.Orders.shipping_address.has_country
 FROM
@@ -368,7 +368,7 @@ any value exists with some desired property. For example, the following query
 returns the name of every customer who has placed an order for the product
 "Foo".
 
-```
+```sql
 SELECT
   C.name
 FROM
@@ -393,7 +393,7 @@ regardless of their `use_default_value` settings.
 
 Consider this example proto:
 
-```
+```proto
 syntax = "proto2";
 
 import "zetasql/public/proto/type_annotation.proto";
@@ -412,7 +412,7 @@ message OuterMessage {
 Running the following query returns a `5` for `value` because it is
 explicitly defined.
 
-```
+```sql
 SELECT
   proto_field.nested.value
 FROM
@@ -423,7 +423,7 @@ FROM
 If `value` is not explicitly defined but `nested` is, you get a `0` because
 the annotation on the protocol buffer definition says to use default values.
 
-```
+```sql
 SELECT
   proto_field.nested.value
 FROM
@@ -436,7 +436,7 @@ though the annotation says to use default values for the `value` field. This is
 because the containing message is `NULL`. This behavior applies to both
 repeated and non-repeated fields within a nested message.
 
-```
+```sql
 SELECT
   proto_field.nested.value
 FROM
@@ -459,7 +459,7 @@ certain fields should be interpreted as `DATE` or `TIMESTAMP` values when read
 using SQL. For instance, a protocol message definition could contain the
 following line:
 
-```
+```proto
 optional int32 date = 2 [( zetasql.format ) = DATE];
 ```
 
@@ -471,7 +471,7 @@ annotation.
 This result is the equivalent of having an `INT32` column and querying it as
 follows:
 
-```
+```sql
 SELECT
   DATE_FROM_UNIX_DATE(date)...
 ```
@@ -492,7 +492,7 @@ contains a column `Orders` of type `PROTO`. The proto stored in `Orders`
 contains fields such as the items ordered and the shipping address. The `.proto`
 file that defines this protocol buffer might look like this:
 
-```
+```proto
 import "zetasql/public/proto/type_annotation.proto";
 
 message Orders {
@@ -552,7 +552,7 @@ a top-level or nested field of the message.
 Using our example protocol buffer message, the following query returns all
 protocol buffer values from the `Orders` column:
 
-```
+```sql
 SELECT
   c.Orders
 FROM
@@ -562,7 +562,7 @@ FROM
 This query returns the top-level field `order_number` from all protocol buffer
 messages in the `Orders` column:
 
-```
+```sql
 SELECT
   c.Orders.order_number
 FROM
@@ -576,7 +576,7 @@ Notice that the `Order` protocol buffer contains another protocol buffer
 message, `Address`, in the `shipping_address` field. You can create a query that
 returns all orders that have a shipping address in the United States:
 
-```
+```sql
 SELECT
   c.Orders.order_number,
   c.Orders.shipping_address
@@ -595,7 +595,7 @@ protocol buffer message contains a repeated field, `line_item`.
 The following query returns a collection of `ARRAY`s containing the line items,
 each holding all the line items for one order:
 
-```
+```sql
 SELECT
   c.Orders.line_item
 FROM
@@ -610,7 +610,7 @@ For more information, see
 As with any other `ARRAY` value, you can return the number of repeated fields in
 a protocol buffer using the `ARRAY_LENGTH` function.
 
-```
+```sql
 SELECT
   c.Orders.order_number,
   ARRAY_LENGTH(c.Orders.line_item)
@@ -626,7 +626,7 @@ so you can query maps by querying
 the underlying repeated field. The underlying repeated field has `key` and
 `value` fields that can be queried.
 
-```
+```sql
 SELECT
   C.Orders.order_number
 FROM
@@ -659,7 +659,7 @@ following syntax:
 
 For example, consider this proto definition:
 
-```
+```proto
 package some.package;
 
 message Foo {
@@ -732,7 +732,7 @@ FROM
 are also supported. These are protocol buffer extensions that are declared
 within the scope of some other protocol message. For example:
 
-```
+```proto
 package some.package;
 
 message Baz {
@@ -777,7 +777,7 @@ require an explicit `UNNEST`, but a repeated extension field does.
 
 Consider the following protocol buffer:
 
-```
+```proto
 syntax = "proto2";
 
 package some.package;
@@ -799,7 +799,7 @@ The following query uses a standard repeated field,
 `repeated_value`, in a correlated comma `CROSS JOIN` and runs without an
 explicit `UNNEST`.
 
-```
+```sql
 WITH t AS
   (SELECT
      CAST("""
@@ -823,7 +823,7 @@ The following query uses a repeated extension field,
 `repeated_extension_value`, in a correlated comma `CROSS JOIN` and requires an
 explicit `UNNEST`.
 
-```
+```sql
 WITH t AS
   (SELECT
      CAST("""
@@ -863,7 +863,7 @@ FROM
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
 
-[working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md
+[working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#working_with_arrays
 
 [link_to_safe_cast]: https://github.com/google/zetasql/blob/master/docs/conversion_functions.md#safe_casting
 

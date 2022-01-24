@@ -663,11 +663,6 @@ class PivotRewriter : public Rewriter {
  public:
   std::string Name() const override { return "PivotRewriter"; }
 
-  bool ShouldRewrite(const AnalyzerOptions& analyzer_options,
-                     const AnalyzerOutput& analyzer_output) const override {
-    return analyzer_output.analyzer_output_properties().has_pivot;
-  }
-
   absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
       const AnalyzerOptions& options, const ResolvedNode& input,
       Catalog& catalog, TypeFactory& type_factory,
@@ -681,7 +676,6 @@ class PivotRewriter : public Rewriter {
     ZETASQL_RETURN_IF_ERROR(input.Accept(&visitor));
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedNode> result,
                      visitor.ConsumeRootNode<ResolvedStatement>());
-    output_properties.has_pivot = false;
     return result;
   }
 };

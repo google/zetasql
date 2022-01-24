@@ -2211,7 +2211,8 @@ QueryStmt
       +-SingleRowScan
 
 [UNPARSED_SQL]
-SELECT 1 IS NOT DISTINCT FROM 2 AS a_1;
+SELECT
+  1 IS NOT DISTINCT FROM 2 AS a_1;
 --
 ALTERNATION GROUP: <empty>
 --
@@ -2230,7 +2231,8 @@ QueryStmt
       +-SingleRowScan
 
 [UNPARSED_SQL]
-SELECT 1 IS DISTINCT FROM 2 AS a_1;
+SELECT
+  1 IS DISTINCT FROM 2 AS a_1;
 ==
 
 # IS DISTINCT FROM - mismatched types
@@ -2453,4 +2455,5 @@ QueryStmt
       +-SingleRowScan
 
 [UNPARSED_SQL]
-SELECT (1 IS DISTINCT FROM 2) IS TRUE AS a_1;
+SELECT
+  (1 IS DISTINCT FROM 2) IS TRUE AS a_1;

@@ -38,11 +38,11 @@ void RegisterBuiltinRewriters() {
   absl::call_once(once_flag, [] {
     RewriteRegistry& r = RewriteRegistry::global_instance();
 
-    // Rewriters are run in the order that they are registered. When adding a
-    // new rewriter, if there are any sequence dependencies with other rewriters
-    // then registration order matters. Include a comment to identify the
-    // dependency.
-    // TODO: Update this comment when we add multiple rewite passes.
+    // Rewriters are run in the order that they are registered. After all
+    // rewriters have run, the resulting ResolvedAST is checked to see if more
+    // rewrites are applicable. If there are, the rewriters are run again in the
+    // order they are registered. The rewriters are applied until there is no
+    // applicable rewrite.
 
     // Functioning inlining runs first so that other rewriters can apply to
     // the function bodies that are inserted by this rule.

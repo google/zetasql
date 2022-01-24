@@ -553,6 +553,10 @@ TEST_F(ResolverTest, ResolveTypeInvalidTypeNameTests) {
   EXPECT_THAT(
       resolver_->ResolveTypeName("timestamp(0)", &type),
       StatusIs(_, HasSubstr("TIMESTAMP does not support type parameters")));
+
+  EXPECT_THAT(
+      resolver_->ResolveTypeName("string collate 'abc'", &type),
+      StatusIs(_, HasSubstr("Type with collation name is not supported")));
 }
 
 TEST_F(ResolverTest, TestErrorCatalogNameTests) {
@@ -1052,7 +1056,8 @@ TEST_F(ResolverTest, TestHasAnonymization) {
   ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
   ZETASQL_EXPECT_OK(resolver_->ResolveStatement(sql, parser_output->statement(),
                                         &resolved_statement));
-  EXPECT_FALSE(resolver_->analyzer_output_properties().has_anonymization);
+  EXPECT_FALSE(resolver_->analyzer_output_properties().IsRelevant(
+      REWRITE_ANONYMIZATION));
 
   // Test a statement with anonymization
   sql = "SELECT WITH ANONYMIZATION key FROM KeyValue GROUP BY key";
@@ -1060,14 +1065,16 @@ TEST_F(ResolverTest, TestHasAnonymization) {
   ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
   ZETASQL_EXPECT_OK(resolver_->ResolveStatement(sql, parser_output->statement(),
                                         &resolved_statement));
-  EXPECT_TRUE(resolver_->analyzer_output_properties().has_anonymization);
+  EXPECT_TRUE(resolver_->analyzer_output_properties().IsRelevant(
+      REWRITE_ANONYMIZATION));
 
   sql = "SELECT ANON_COUNT(*) FROM KeyValue";
   ResetResolver(sample_catalog_->catalog());
   ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
   ZETASQL_EXPECT_OK(resolver_->ResolveStatement(sql, parser_output->statement(),
                                         &resolved_statement));
-  EXPECT_TRUE(resolver_->analyzer_output_properties().has_anonymization);
+  EXPECT_TRUE(resolver_->analyzer_output_properties().IsRelevant(
+      REWRITE_ANONYMIZATION));
 
   // Test a statement with anonymization in a table subquery
   sql = "SELECT * FROM (SELECT ANON_COUNT(*) FROM KeyValue)";
@@ -1075,7 +1082,8 @@ TEST_F(ResolverTest, TestHasAnonymization) {
   ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
   ZETASQL_EXPECT_OK(resolver_->ResolveStatement(sql, parser_output->statement(),
                                         &resolved_statement));
-  EXPECT_TRUE(resolver_->analyzer_output_properties().has_anonymization);
+  EXPECT_TRUE(resolver_->analyzer_output_properties().IsRelevant(
+      REWRITE_ANONYMIZATION));
 
   // Test a statement with anonymization in an expression subquery
   sql = "SELECT (SELECT ANON_COUNT(*) FROM KeyValue) FROM KeyValue";
@@ -1083,7 +1091,8 @@ TEST_F(ResolverTest, TestHasAnonymization) {
   ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
   ZETASQL_EXPECT_OK(resolver_->ResolveStatement(sql, parser_output->statement(),
                                         &resolved_statement));
-  EXPECT_TRUE(resolver_->analyzer_output_properties().has_anonymization);
+  EXPECT_TRUE(resolver_->analyzer_output_properties().IsRelevant(
+      REWRITE_ANONYMIZATION));
 
   // Test a statement with anonymization in an expression subquery
   sql = "SELECT * FROM KeyValue "
@@ -1092,7 +1101,8 @@ TEST_F(ResolverTest, TestHasAnonymization) {
   ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
   ZETASQL_EXPECT_OK(resolver_->ResolveStatement(sql, parser_output->statement(),
                                         &resolved_statement));
-  EXPECT_TRUE(resolver_->analyzer_output_properties().has_anonymization);
+  EXPECT_TRUE(resolver_->analyzer_output_properties().IsRelevant(
+      REWRITE_ANONYMIZATION));
 
   // Test a statement with anonymization, but resolution fails
   sql = "SELECT ANON_COUNT(*) FROM KeyValue "
@@ -1102,14 +1112,16 @@ TEST_F(ResolverTest, TestHasAnonymization) {
   ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
   EXPECT_FALSE(resolver_->ResolveStatement(sql, parser_output->statement(),
                                            &resolved_statement).ok());
-  EXPECT_TRUE(resolver_->analyzer_output_properties().has_anonymization);
+  EXPECT_TRUE(resolver_->analyzer_output_properties().IsRelevant(
+      REWRITE_ANONYMIZATION));
 
   // Test an expression without anonymization
   sql = "CONCAT('a', 'b')";
   ResetResolver(sample_catalog_->catalog());
   ZETASQL_ASSERT_OK(ParseExpression(sql, ParserOptions(), &parser_output));
   ZETASQL_EXPECT_OK(ResolveExpr(parser_output->expression(), &resolved_expr));
-  EXPECT_FALSE(resolver_->analyzer_output_properties().has_anonymization);
+  EXPECT_FALSE(resolver_->analyzer_output_properties().IsRelevant(
+      REWRITE_ANONYMIZATION));
 
   // Test an expression with anonymization
   sql = "ANON_COUNT(*)";
@@ -1117,7 +1129,8 @@ TEST_F(ResolverTest, TestHasAnonymization) {
   ZETASQL_ASSERT_OK(ParseExpression(sql, ParserOptions(), &parser_output));
   ZETASQL_EXPECT_OK(ResolveExpr(parser_output->expression(), &resolved_expr,
                         /*aggregation_allowed=*/true));
-  EXPECT_TRUE(resolver_->analyzer_output_properties().has_anonymization);
+  EXPECT_TRUE(resolver_->analyzer_output_properties().IsRelevant(
+      REWRITE_ANONYMIZATION));
 
   // Test an expression with anonymization in a subquery expression
   sql = "5 IN (SELECT ANON_COUNT(*) FROM KeyValue)";
@@ -1125,7 +1138,8 @@ TEST_F(ResolverTest, TestHasAnonymization) {
   ZETASQL_ASSERT_OK(ParseExpression(sql, ParserOptions(), &parser_output));
   ZETASQL_EXPECT_OK(ResolveExpr(parser_output->expression(), &resolved_expr,
                         /*aggregation_allowed=*/true));
-  EXPECT_TRUE(resolver_->analyzer_output_properties().has_anonymization);
+  EXPECT_TRUE(resolver_->analyzer_output_properties().IsRelevant(
+      REWRITE_ANONYMIZATION));
 }
 
 TEST_F(ResolverTest, FlattenInCatalogButFeatureOff) {
@@ -1147,7 +1161,8 @@ TEST_F(ResolverTest, TestHasFlatten) {
   ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
   ZETASQL_EXPECT_OK(resolver_->ResolveStatement(sql, parser_output->statement(),
                                         &resolved_statement));
-  EXPECT_FALSE(resolver_->analyzer_output_properties().has_flatten);
+  EXPECT_FALSE(
+      resolver_->analyzer_output_properties().IsRelevant(REWRITE_FLATTEN));
 
   // Test a statement with flattening
   sql = "select value FROM ArrayTypes t, unnest(t.ProtoArray.int32_val1) value";
@@ -1155,14 +1170,16 @@ TEST_F(ResolverTest, TestHasFlatten) {
   ZETASQL_ASSERT_OK(ParseStatement(sql, ParserOptions(), &parser_output));
   ZETASQL_EXPECT_OK(resolver_->ResolveStatement(sql, parser_output->statement(),
                                         &resolved_statement));
-  EXPECT_TRUE(resolver_->analyzer_output_properties().has_flatten);
+  EXPECT_TRUE(
+      resolver_->analyzer_output_properties().IsRelevant(REWRITE_FLATTEN));
 
   // Test an expression without flattening
   sql = "CONCAT('a', 'b')";
   ResetResolver(sample_catalog_->catalog());
   ZETASQL_ASSERT_OK(ParseExpression(sql, ParserOptions(), &parser_output));
   ZETASQL_EXPECT_OK(ResolveExpr(parser_output->expression(), &resolved_expr));
-  EXPECT_FALSE(resolver_->analyzer_output_properties().has_flatten);
+  EXPECT_FALSE(
+      resolver_->analyzer_output_properties().IsRelevant(REWRITE_FLATTEN));
 
   // Test an expression with flattening
   sql = "FLATTEN(CAST('' AS zetasql_test__.RecursivePB)."
@@ -1171,7 +1188,8 @@ TEST_F(ResolverTest, TestHasFlatten) {
   ZETASQL_ASSERT_OK(ParseExpression(sql, ParserOptions(), &parser_output));
   ZETASQL_EXPECT_OK(ResolveExpr(parser_output->expression(), &resolved_expr,
                         /*aggregation_allowed=*/true));
-  EXPECT_TRUE(resolver_->analyzer_output_properties().has_flatten);
+  EXPECT_TRUE(
+      resolver_->analyzer_output_properties().IsRelevant(REWRITE_FLATTEN));
 }
 
 TEST_F(ResolverTest, TestIntervalLiteral) {

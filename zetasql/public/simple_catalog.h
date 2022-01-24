@@ -514,7 +514,9 @@ class SimpleTable : public Table {
   SimpleTable& operator=(const SimpleTable&) = delete;
 
   std::string Name() const override { return name_; }
-  std::string FullName() const override { return name_; }
+  std::string FullName() const override {
+    return full_name_.empty() ? name_ : full_name_;
+  }
 
   int NumColumns() const override { return columns_.size(); }
   const Column* GetColumn(int i) const override {
@@ -564,6 +566,16 @@ class SimpleTable : public Table {
 
   // Set primary key with give column ordinal indexes.
   absl::Status SetPrimaryKey(std::vector<int> primary_key);
+
+  // Set the full name. If empty, name will be used as the full name.
+  absl::Status set_full_name(absl::string_view full_name) {
+    if (full_name != name_) {
+      full_name_ = full_name;
+    } else {
+      full_name_ = "";
+    }
+    return absl::OkStatus();
+  }
 
   int64_t GetSerializationId() const override { return id_; }
 
@@ -667,6 +679,7 @@ class SimpleTable : public Table {
   absl::Status InsertColumnToColumnMap(const Column* column);
 
   const std::string name_;
+  std::string full_name_;
   bool is_value_table_ = false;
   std::vector<const Column*> columns_;
   std::optional<std::vector<int>> primary_key_;

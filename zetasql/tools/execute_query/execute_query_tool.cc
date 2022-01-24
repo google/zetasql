@@ -87,6 +87,20 @@ ABSL_FLAG(std::string, sql_mode, "query",
           "\nquery"
           "\nexpression");
 
+ABSL_FLAG(
+    int64_t, evaluator_max_value_byte_size, -1 /* sentinel for unset*/,
+    R"(Limit on the maximum number of in-memory bytes used by an individual Value
+  that is constructed during evaluation. This bound applies to all Value
+  types, including variable-sized types like STRING, BYTES, ARRAY, and
+  STRUCT. Exceeding this limit results in an error. See the implementation of
+  Value::physical_byte_size for more details.)");
+
+ABSL_FLAG(
+    int64_t, evaluator_max_intermediate_byte_size, -1 /* sentinel for unset*/,
+    R"(The limit on the maximum number of in-memory bytes that can be used for
+  storing accumulated rows (e.g., during an ORDER BY query). Exceeding this
+  limit results in an error.)");
+
 namespace zetasql {
 
 namespace {
@@ -258,6 +272,18 @@ absl::StatusOr<std::unique_ptr<ExecuteQueryWriter>> MakeWriterFromFlags(
       });
 }
 
+absl::Status SetEvaluatorOptionsFromFlags(ExecuteQueryConfig& config) {
+  if (int64_t val = absl::GetFlag(FLAGS_evaluator_max_value_byte_size);
+      val != -1) {
+    config.mutable_evaluator_options().max_value_byte_size = val;
+  }
+  if (int64_t val = absl::GetFlag(FLAGS_evaluator_max_intermediate_byte_size);
+      val != -1) {
+    config.mutable_evaluator_options().max_intermediate_byte_size = val;
+  }
+  return absl::OkStatus();
+}
+
 ExecuteQueryConfig::ExecuteQueryConfig() : catalog_("") {}
 
 void ExecuteQueryConfig::SetDescriptorPool(const google::protobuf::DescriptorPool* pool) {
@@ -344,7 +370,7 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
     ZETASQL_RET_CHECK_EQ(resolved_node->node_kind(), RESOLVED_QUERY_STMT);
 
     PreparedQuery query{resolved_node->GetAs<ResolvedQueryStmt>(),
-                        EvaluatorOptions()};
+                        config.evaluator_options()};
 
     ZETASQL_RETURN_IF_ERROR(
         query.Prepare(config.analyzer_options(), &config.mutable_catalog()));
@@ -370,7 +396,7 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
     ZETASQL_RET_CHECK(resolved_node->IsExpression());
 
     PreparedExpression expression{resolved_node->GetAs<ResolvedExpr>(),
-                                  EvaluatorOptions()};
+                                  config.evaluator_options()};
 
     ZETASQL_RETURN_IF_ERROR(expression.Prepare(config.analyzer_options(),
                                        &config.mutable_catalog()));

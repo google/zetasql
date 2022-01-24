@@ -61,14 +61,7 @@ bool ZetaSqlFlexTokenizer::IsDotGeneralizedIdentifierPrefixToken(
 }
 
 bool ZetaSqlFlexTokenizer::IsReservedKeyword(absl::string_view text) const {
-  if (language_options_ != nullptr) {
-    return language_options_->IsReservedKeyword(text);
-  }
-
-  // For backward compatibility reasons, assume conditionally reserved keywords
-  // are nonreserved when no LanguageOptions is specified.
-  const KeywordInfo* keyword_info = GetKeywordInfo(text);
-  return keyword_info != nullptr && keyword_info->IsAlwaysReserved();
+  return language_options_.IsReservedKeyword(text);
 }
 
 int ZetaSqlFlexTokenizer::GetIdentifierLength(absl::string_view text) {

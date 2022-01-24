@@ -329,17 +329,19 @@ void GetStringFunctions(TypeFactory* type_factory,
           FN_INSTR_BYTES}});
     InsertSimpleFunction(functions, options, "soundex", SCALAR,
                          {{string_type, {string_type}, FN_SOUNDEX_STRING}});
-    InsertSimpleFunction(functions, options, "translate", SCALAR,
-                         {{string_type,
-                           {string_type, string_type, string_type},
-                           FN_TRANSLATE_STRING},
-                          {bytes_type,
-                           {bytes_type, bytes_type, bytes_type},
-                           FN_TRANSLATE_BYTES}});
-    InsertSimpleFunction(functions, options, "initcap", SCALAR,
-                         {{string_type,
-                           {string_type, {string_type, OPTIONAL}},
-                           FN_INITCAP_STRING}});
+    InsertFunction(functions, options, "translate", SCALAR,
+                   {{string_type,
+                     {string_type, string_type, string_type},
+                     FN_TRANSLATE_STRING,
+                     FunctionSignatureOptions().set_rejects_collation()},
+                    {bytes_type,
+                     {bytes_type, bytes_type, bytes_type},
+                     FN_TRANSLATE_BYTES}});
+    InsertFunction(functions, options, "initcap", SCALAR,
+                   {{string_type,
+                     {string_type, {string_type, OPTIONAL}},
+                     FN_INITCAP_STRING,
+                     FunctionSignatureOptions().set_rejects_collation()}});
   }
 
   if (options.language_options.LanguageFeatureEnabled(
@@ -379,14 +381,19 @@ void GetRegexFunctions(TypeFactory* type_factory,
 
   const Function::Mode SCALAR = Function::SCALAR;
 
-  InsertSimpleFunction(
-      functions, options, "regexp_match", SCALAR,
-      {{bool_type, {string_type, string_type}, FN_REGEXP_MATCH_STRING},
-       {bool_type, {bytes_type, bytes_type}, FN_REGEXP_MATCH_BYTES}},
-      FunctionOptions().set_allow_external_usage(false));
-  InsertSimpleFunction(
+  InsertFunction(functions, options, "regexp_match", SCALAR,
+                 {{bool_type,
+                   {string_type, string_type},
+                   FN_REGEXP_MATCH_STRING,
+                   FunctionSignatureOptions().set_rejects_collation()},
+                  {bool_type, {bytes_type, bytes_type}, FN_REGEXP_MATCH_BYTES}},
+                 FunctionOptions().set_allow_external_usage(false));
+  InsertFunction(
       functions, options, "regexp_contains", SCALAR,
-      {{bool_type, {string_type, string_type}, FN_REGEXP_CONTAINS_STRING},
+      {{bool_type,
+        {string_type, string_type},
+        FN_REGEXP_CONTAINS_STRING,
+        FunctionSignatureOptions().set_rejects_collation()},
        {bool_type, {bytes_type, bytes_type}, FN_REGEXP_CONTAINS_BYTES}});
 
   FunctionArgumentTypeList regexp_extract_string_args = {string_type,
@@ -405,43 +412,47 @@ void GetRegexFunctions(TypeFactory* type_factory,
   }
   InsertFunction(
       functions, options, "regexp_extract", SCALAR,
-      {{string_type, regexp_extract_string_args, FN_REGEXP_EXTRACT_STRING},
+      {{string_type, regexp_extract_string_args, FN_REGEXP_EXTRACT_STRING,
+        FunctionSignatureOptions().set_rejects_collation()},
        {bytes_type, regexp_extract_bytes_args, FN_REGEXP_EXTRACT_BYTES}},
       regexp_extract_options);
 
-  InsertSimpleFunction(functions, options, "regexp_instr", SCALAR,
-                       {{int64_type,
-                         {string_type,
-                          string_type,
-                          {int64_type, OPTIONAL},
-                          {int64_type, OPTIONAL},
-                          {int64_type, OPTIONAL}},
-                         FN_REGEXP_INSTR_STRING},
-                        {int64_type,
-                         {bytes_type,
-                          bytes_type,
-                          {int64_type, OPTIONAL},
-                          {int64_type, OPTIONAL},
-                          {int64_type, OPTIONAL}},
-                         FN_REGEXP_INSTR_BYTES}});
+  InsertFunction(functions, options, "regexp_instr", SCALAR,
+                 {{int64_type,
+                   {string_type,
+                    string_type,
+                    {int64_type, OPTIONAL},
+                    {int64_type, OPTIONAL},
+                    {int64_type, OPTIONAL}},
+                   FN_REGEXP_INSTR_STRING,
+                   FunctionSignatureOptions().set_rejects_collation()},
+                  {int64_type,
+                   {bytes_type,
+                    bytes_type,
+                    {int64_type, OPTIONAL},
+                    {int64_type, OPTIONAL},
+                    {int64_type, OPTIONAL}},
+                   FN_REGEXP_INSTR_BYTES}});
 
-  InsertSimpleFunction(functions, options, "regexp_replace", SCALAR,
-                       {{string_type,
-                         {string_type, string_type, string_type},
-                         FN_REGEXP_REPLACE_STRING},
-                        {bytes_type,
-                         {bytes_type, bytes_type, bytes_type},
-                         FN_REGEXP_REPLACE_BYTES}});
+  InsertFunction(functions, options, "regexp_replace", SCALAR,
+                 {{string_type,
+                   {string_type, string_type, string_type},
+                   FN_REGEXP_REPLACE_STRING,
+                   FunctionSignatureOptions().set_rejects_collation()},
+                  {bytes_type,
+                   {bytes_type, bytes_type, bytes_type},
+                   FN_REGEXP_REPLACE_BYTES}});
   const ArrayType* string_array_type = types::StringArrayType();
   const ArrayType* bytes_array_type = types::BytesArrayType();
 
-  InsertSimpleFunction(functions, options, "regexp_extract_all", SCALAR,
-                       {{string_array_type,
-                         {string_type, string_type},
-                         FN_REGEXP_EXTRACT_ALL_STRING},
-                        {bytes_array_type,
-                         {bytes_type, bytes_type},
-                         FN_REGEXP_EXTRACT_ALL_BYTES}});
+  InsertFunction(functions, options, "regexp_extract_all", SCALAR,
+                 {{string_array_type,
+                   {string_type, string_type},
+                   FN_REGEXP_EXTRACT_ALL_STRING,
+                   FunctionSignatureOptions().set_rejects_collation()},
+                  {bytes_array_type,
+                   {bytes_type, bytes_type},
+                   FN_REGEXP_EXTRACT_ALL_BYTES}});
 }
 
 void GetProto3ConversionFunctions(
@@ -1277,36 +1288,46 @@ void GetJSONFunctions(TypeFactory* type_factory,
                        .set_default(Value::String("$")));
 
   std::vector<FunctionSignatureOnHeap> json_extract_signatures = {
-      {string_type, {string_type, string_type}, FN_JSON_EXTRACT}};
+      {string_type,
+       {string_type, string_type},
+       FN_JSON_EXTRACT,
+       FunctionSignatureOptions().set_rejects_collation()}};
   std::vector<FunctionSignatureOnHeap> json_query_signatures = {
-      {string_type, {string_type, string_type}, FN_JSON_QUERY}};
+      {string_type,
+       {string_type, string_type},
+       FN_JSON_QUERY,
+       FunctionSignatureOptions().set_rejects_collation()}};
   std::vector<FunctionSignatureOnHeap> json_extract_scalar_signatures = {
       {string_type,
        {string_type, default_json_path_argument},
-       FN_JSON_EXTRACT_SCALAR}};
+       FN_JSON_EXTRACT_SCALAR,
+       FunctionSignatureOptions().set_rejects_collation()}};
   std::vector<FunctionSignatureOnHeap> json_value_signatures = {
-      {string_type, {string_type, default_json_path_argument}, FN_JSON_VALUE}};
+      {string_type,
+       {string_type, default_json_path_argument},
+       FN_JSON_VALUE,
+       FunctionSignatureOptions().set_rejects_collation()}};
 
   std::vector<FunctionSignatureOnHeap> json_extract_array_signatures = {
-      {{array_string_type,
-        FunctionArgumentTypeOptions().set_uses_array_element_for_collation()},
+      {array_string_type,
        {string_type, default_json_path_argument},
-       FN_JSON_EXTRACT_ARRAY}};
+       FN_JSON_EXTRACT_ARRAY,
+       FunctionSignatureOptions().set_rejects_collation()}};
   std::vector<FunctionSignatureOnHeap> json_extract_string_array_signatures = {
-      {{array_string_type,
-        FunctionArgumentTypeOptions().set_uses_array_element_for_collation()},
+      {array_string_type,
        {string_type, default_json_path_argument},
-       FN_JSON_EXTRACT_STRING_ARRAY}};
+       FN_JSON_EXTRACT_STRING_ARRAY,
+       FunctionSignatureOptions().set_rejects_collation()}};
   std::vector<FunctionSignatureOnHeap> json_query_array_signatures = {
-      {{array_string_type,
-        FunctionArgumentTypeOptions().set_uses_array_element_for_collation()},
+      {array_string_type,
        {string_type, default_json_path_argument},
-       FN_JSON_QUERY_ARRAY}};
+       FN_JSON_QUERY_ARRAY,
+       FunctionSignatureOptions().set_rejects_collation()}};
   std::vector<FunctionSignatureOnHeap> json_value_array_signatures = {
-      {{array_string_type,
-        FunctionArgumentTypeOptions().set_uses_array_element_for_collation()},
+      {array_string_type,
        {string_type, default_json_path_argument},
-       FN_JSON_VALUE_ARRAY}};
+       FN_JSON_VALUE_ARRAY,
+       FunctionSignatureOptions().set_rejects_collation()}};
 
   if (options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
     json_extract_signatures.push_back(
@@ -1574,16 +1595,15 @@ void GetNumericFunctions(TypeFactory* type_factory,
         FN_GREATEST,
         FunctionSignatureOptions().set_uses_operation_collation()}},
       FunctionOptions().set_pre_resolution_argument_constraint(
-          absl::bind_front(&CheckMinMaxGreatestLeastArguments, "GREATEST")));
+          absl::bind_front(&CheckGreatestLeastArguments, "GREATEST")));
 
-  InsertFunction(
-      functions, options, "least", SCALAR,
-      {{ARG_TYPE_ANY_1,
-        {{ARG_TYPE_ANY_1, REPEATED}},
-        FN_LEAST,
-        FunctionSignatureOptions().set_uses_operation_collation()}},
-      FunctionOptions().set_pre_resolution_argument_constraint(
-          absl::bind_front(&CheckMinMaxGreatestLeastArguments, "LEAST")));
+  InsertFunction(functions, options, "least", SCALAR,
+                 {{ARG_TYPE_ANY_1,
+                   {{ARG_TYPE_ANY_1, REPEATED}},
+                   FN_LEAST,
+                   FunctionSignatureOptions().set_uses_operation_collation()}},
+                 FunctionOptions().set_pre_resolution_argument_constraint(
+                     absl::bind_front(&CheckGreatestLeastArguments, "LEAST")));
 
   InsertFunction(functions, options, "mod", SCALAR,
                  {{int64_type, {int64_type, int64_type}, FN_MOD_INT64},

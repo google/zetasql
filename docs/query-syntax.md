@@ -580,7 +580,7 @@ return multiple columns:
 
 `UNNEST` destroys the order of elements in the input
 `ARRAY`. Use the optional `WITH OFFSET` clause to
-return a second column with the array element indexes (see following).
+return a second column with the array element indexes.
 
 For several ways to use `UNNEST`, including construction, flattening, and
 filtering, see [`Working with arrays`][working-with-arrays].
@@ -704,12 +704,71 @@ field from an `ARRAY`.
 
 ### UNNEST and FLATTEN
 
-The `UNNEST` operator accepts a [_flatten path_][flattening-trees-into-arrays]
-as its argument for `array_expression`. When the argument is a flatten path, the
-`UNNEST` operator produces one row for each element in the array that results
-from applying the [`FLATTEN` operator][flatten-operator] to the flatten path.
-To learn more about the relationship between these operators and flattening,
-see [Flattening tree-structured data into arrays][flattening-trees-into-arrays].
+The `UNNEST` operator can accept an array with nested data and flatten a
+specific part of the data into a table with one row for each element. To do
+this, use the [array elements field access operator][array-el-field-operator]
+as the argument for `array_path` in the `UNNEST` operation.
+
+When you use the array elements field access operator with `UNNEST`, the
+[`FLATTEN` operator][flatten-operator] is used implicitly.
+
+These are equivalent:
+
+```sql
+-- In UNNEST (FLATTEN used explicitly):
+SELECT * FROM T, UNNEST(FLATTEN(T.x.y.z));
+
+-- In UNNEST (FLATTEN used implicitly):
+SELECT * FROM T, UNNEST(T.x.y.z);
+
+-- In the FROM clause (UNNEST used implicitly):
+SELECT * FROM T, T.x.y.z;
+```
+
+You can use `UNNEST` with the array elements field access operator implicitly
+in the `FROM` clause, but only if the
+[array subscript operator][array-subscript-operator] is not included.
+
+This works:
+
+```sql
+SELECT * FROM T, UNNEST(T.x.y.z[SAFE_OFFSET(1)]);
+```
+
+This produces an error:
+
+```sql
+SELECT * FROM T, T.x.y.z[SAFE_OFFSET(1)];
+```
+
+When you use the array elements field access operator with explicit `UNNEST`,
+you can optionally prepend it with a table name.
+
+These work:
+
+```sql
+SELECT * FROM T, UNNEST(x.y.z);
+```
+
+```sql
+SELECT * FROM T, UNNEST(T.x.y.z);
+```
+
+With implicit `UNNEST`, the table name is also optional.
+
+These work:
+
+```sql
+SELECT * FROM T, T.x.y.z;
+```
+
+```sql
+SELECT * FROM T, x.y.z;
+```
+
+To learn more about the ways you can use `UNNEST` explicitly and implicitly
+to flatten nested data into a table, see
+[Flattening nested data into a table][flattening-trees-into-table].
 
 ### UNNEST and NULLs
 
@@ -1030,7 +1089,7 @@ amounts of data and you don't need precise answers.
    not change. `repeat_argument` represents a sampling seed
    and must be a positive value of type `INT64`.
 +  `WITH WEIGHT`: Optional. Retrieves [scaling weight][scaling-weight]. If
-   specified, the `TableSample` operator outputs one extra column of type
+   specified, the `TABLESAMPLE` operator outputs one extra column of type
    `DOUBLE` that is greater than or equal 1.0 to represent the actual scaling
    weight. If an alias is not provided, the default name _weight_ is used.
    +  In Bernoulli sampling, the weight is `1 / provided sampling probability`.
@@ -1671,8 +1730,8 @@ This query performs an `INNER JOIN` on the
 [`Roster`][roster-table] and [`TeamMascot`][teammascot-table] table.
 
 This statement returns the rows from `Roster` and `TeamMascot` where
-`Roster.SchooldID` is the same as `TeamMascot.SchooldID`.  The results include
-a single `SchooldID` column.
+`Roster.SchoolID` is the same as `TeamMascot.SchoolID`. The results include a
+single `SchoolID` column.
 
 ```sql
 SELECT * FROM Roster INNER JOIN TeamMascot USING (SchoolID);
@@ -1869,15 +1928,15 @@ FROM
 
 **Caveats**
 
-+ In a correlated `LEFT JOIN`, when the input table on the right side is empty
-  for some row from the left side, it is as if no rows from the right side
-  satisfied the join condition in a regular `LEFT JOIN`. When there are no
-  joining rows, a row with `NULL` values for all columns on the right side is
-  generated to join with the row from the left side.
-+ In a correlated `CROSS JOIN`, when the when the input table on the right side
-  is empty for some row from the left side, it is as if no rows from the right
-  side satisfied the join condition in a regular correlated `INNER JOIN`.
-  This means that the row is dropped from the results.
++   In a correlated `LEFT JOIN`, when the input table on the right side is empty
+    for some row from the left side, it is as if no rows from the right side
+    satisfied the join condition in a regular `LEFT JOIN`. When there are no
+    joining rows, a row with `NULL` values for all columns on the right side is
+    generated to join with the row from the left side.
++   In a correlated `CROSS JOIN`, when the input table on the right side is
+    empty for some row from the left side, it is as if no rows from the right
+    side satisfied the join condition in a regular correlated `INNER JOIN`. This
+    means that the row is dropped from the results.
 
 **Examples**
 
@@ -2291,6 +2350,7 @@ HAVING SUM(PointsScored) > 15;
 ORDER BY expression
   [COLLATE collation_specification]
   [{ ASC | DESC }]
+  [{ NULLS FIRST | NULLS LAST }]
   [, ...]
 
 collation_specification:
@@ -2302,7 +2362,7 @@ the result set. If an ORDER BY clause is not present, the order of the results
 of a query is not defined. Column aliases from a `FROM` clause or `SELECT` list
 are allowed. If a query contains aliases in the `SELECT` clause, those aliases
 override names in the corresponding `FROM` clause. The data type of
-`expression` must be [orderable][data-type-properties].
+`expression` must be [orderable][orderable-data-types].
 
 **Optional Clauses**
 
@@ -2317,8 +2377,16 @@ override names in the corresponding `FROM` clause. The data type of
   `COLLATE` clause. The collation specification can be a `STRING` literal or
    a query parameter. To learn more see
    [collation specification details][collation-spec].
++  `NULLS FIRST | NULLS LAST`:
+    +  `NULLS FIRST`: Sort null values before non-null values.
+    +  `NULLS LAST`. Sort null values after non-null values.
 +  `ASC | DESC`: Sort the results in ascending or descending
-    order of `expression` values. `ASC` is the default value. 
+    order of `expression` values. `ASC` is the
+    default value. If null ordering is not specified
+    with `NULLS FIRST` or `NULLS LAST`:
+    +  `NULLS FIRST` is applied by default if the sort order is ascending.
+    +  `NULLS LAST` is applied by default if the sort order is descending.
+    
 
 **Examples**
 
@@ -2327,13 +2395,32 @@ Use the default sort order (ascending).
 ```sql
 SELECT x, y
 FROM (SELECT 1 AS x, true AS y UNION ALL
-      SELECT 9, true)
+      SELECT 9, true UNION ALL
+      SELECT NULL, false)
 ORDER BY x;
++------+-------+
+| x    | y     |
++------+-------+
+| NULL | false |
+| 1    | true  |
+| 9    | true  |
++------+-------+
+```
+
+Use the default sort order (ascending), but return null values last.
+
+```sql
+SELECT x, y
+FROM (SELECT 1 AS x, true AS y UNION ALL
+      SELECT 9, true UNION ALL
+      SELECT NULL, false)
+ORDER BY x NULLS LAST;
 +------+-------+
 | x    | y     |
 +------+-------+
 | 1    | true  |
 | 9    | true  |
+| NULL | false |
 +------+-------+
 ```
 
@@ -2342,11 +2429,30 @@ Use descending sort order.
 ```sql
 SELECT x, y
 FROM (SELECT 1 AS x, true AS y UNION ALL
-      SELECT 9, true)
+      SELECT 9, true UNION ALL
+      SELECT NULL, false)
 ORDER BY x DESC;
 +------+-------+
 | x    | y     |
 +------+-------+
+| 9    | true  |
+| 1    | true  |
+| NULL | false |
++------+-------+
+```
+
+Use descending sort order, but return null values first.
+
+```sql
+SELECT x, y
+FROM (SELECT 1 AS x, true AS y UNION ALL
+      SELECT 9, true UNION ALL
+      SELECT NULL, false)
+ORDER BY x DESC NULLS FIRST;
++------+-------+
+| x    | y     |
++------+-------+
+| NULL | false |
 | 9    | true  |
 | 1    | true  |
 +------+-------+
@@ -2361,16 +2467,9 @@ FROM PlayerStats
 ORDER BY SchoolID, LastName;
 ```
 
-The following rules apply when ordering values:
-
-+  NULLs: In the context of the `ORDER BY` clause, NULLs are the minimum
-   possible value; that is, NULLs appear first in `ASC` sorts and last in `DESC`
-   sorts.
-+  Floating point data types: see
-   [Floating Point Semantics][floating-point-semantics]
-   on ordering and grouping.
-
-When used in conjunction with [set operators][set-operators], the `ORDER BY` clause applies to the result set of the entire query; it does not
+When used in conjunction with
+[set operators][set-operators],
+the `ORDER BY` clause applies to the result set of the entire query; it does not
 apply only to the closest `SELECT` statement. For this reason, it can be helpful
 (though it is not required) to use parentheses to show the scope of the `ORDER
 BY`.
@@ -4017,13 +4116,11 @@ Results:
 
 [flattening-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_arrays
 
-[flattening-trees-into-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_nested_data_into_arrays
-
-[working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md
+[working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#working_with_arrays
 
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
 
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[orderable-data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md#orderable_data_types
 
 [subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries.md
 
@@ -4037,7 +4134,13 @@ Results:
 
 [expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries.md
 
+[array-subscript-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#array_subscript_operator
+
+[flattening-trees-into-table]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_nested_data_into_table
+
 [flatten-operator]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#flatten
+
+[array-el-field-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#array_el_field_operator
 
 [collation-spec]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_spec_details
 

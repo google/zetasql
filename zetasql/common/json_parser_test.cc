@@ -480,7 +480,7 @@ TEST(JSONParserTest, ParseArrayTrailingComma) {
       "  true,\n"
       "  false\n"
       "]";
-  parser.reset(new JSONToJSON(str));
+  parser = std::make_unique<JSONToJSON>(str);
   ASSERT_TRUE(parser->Parse());
   EXPECT_EQ(exp, parser->output());
 }
@@ -495,7 +495,7 @@ TEST(JSONParserTest, ParseArrayRepeatedComma) {
       "  null,\n"
       "  false\n"
       "]";
-  parser.reset(new JSONToJSON(str));
+  parser = std::make_unique<JSONToJSON>(str);
   ASSERT_TRUE(parser->Parse());
   EXPECT_EQ(exp, parser->output());
 }
@@ -510,7 +510,7 @@ TEST(JSONParserTest, ParseArrayLeadingCommas) {
       "  null,\n"
       "  null\n"
       "]";
-  parser.reset(new JSONToJSON(str));
+  parser = std::make_unique<JSONToJSON>(str);
   ASSERT_TRUE(parser->Parse());
   EXPECT_EQ(exp, parser->output());
 }

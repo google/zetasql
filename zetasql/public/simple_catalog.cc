@@ -1385,6 +1385,9 @@ absl::Status SimpleTable::Serialize(
   if (allow_duplicate_column_names_) {
     proto->set_allow_duplicate_column_names(true);
   }
+  if (!full_name_.empty()) {
+    proto->set_full_name(full_name_);
+  }
   return absl::OkStatus();
 }
 
@@ -1402,6 +1405,9 @@ absl::StatusOr<std::unique_ptr<SimpleTable>> SimpleTable::Deserialize(
     const SimpleTableProto& proto, const TypeDeserializer& type_deserializer) {
   std::unique_ptr<SimpleTable> table(
       new SimpleTable(proto.name(), proto.serialization_id()));
+  if (!proto.full_name().empty() && proto.full_name() != table->Name()) {
+    ZETASQL_RETURN_IF_ERROR(table->set_full_name(proto.full_name()));
+  }
   table->set_is_value_table(proto.is_value_table());
   ZETASQL_RETURN_IF_ERROR(table->set_allow_anonymous_column_name(
       proto.allow_anonymous_column_name()));

@@ -650,6 +650,7 @@ truncate { return BisonParserImpl::token::KW_TRUNCATE; }
 type { return BisonParserImpl::token::KW_TYPE; }
 unbounded { return BisonParserImpl::token::KW_UNBOUNDED; }
 union { return BisonParserImpl::token::KW_UNION; }
+unknown { return BisonParserImpl::token::KW_UNKNOWN; }
 unnest { return BisonParserImpl::token::KW_UNNEST; }
 unique { return BisonParserImpl::token::KW_UNIQUE; }
 until { return BisonParserImpl::token::KW_UNTIL; }

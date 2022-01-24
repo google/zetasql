@@ -16,6 +16,7 @@
 
 #include "zetasql/reference_impl/algebrizer.h"
 
+#include <algorithm>
 #include <functional>
 #include <memory>
 #include <stack>
@@ -185,6 +186,11 @@ absl::StatusOr<std::unique_ptr<InlineLambdaExpr>> Algebrizer::AlgebrizeLambda(
 absl::StatusOr<std::unique_ptr<ValueExpr>>
 Algebrizer::AlgebrizeFunctionCallWithLambda(
     const ResolvedFunctionCall* function_call) {
+  if (!function_call->function()->IsZetaSQLBuiltin()) {
+    return absl::UnimplementedError(
+        "User-defined functions with lambda arguments are not supported");
+  }
+
   std::vector<std::unique_ptr<AlgebraArg>> args;
   for (const auto& arg : function_call->generic_argument_list()) {
     if (arg->expr() != nullptr) {
@@ -200,22 +206,24 @@ Algebrizer::AlgebrizeFunctionCallWithLambda(
     }
   }
 
-  return ArrayFunctionWithLambdaExpr::Create(
-      function_call->function()->FullName(/*include_group=*/false),
-      std::move(args), function_call->type());
+  ZETASQL_ASSIGN_OR_RETURN(FunctionKind kind,
+                   BuiltinFunctionCatalog::GetKindByName(
+                       function_call->function()->FullName(false)));
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> function_call_expr,
+                   BuiltinScalarFunction::CreateCall(
+                       kind, language_options_, function_call->type(),
+                       std::move(args), function_call->error_mode()));
+  return function_call_expr;
 }
 
 // Returns if `function_call` has any lambda argument.
 static bool HasLambdaArgument(const ResolvedFunctionCall* function_call) {
-  if (function_call->generic_argument_list().empty()) {
-    return false;
-  }
-  for (const auto& arg : function_call->generic_argument_list()) {
-    if (arg->inline_lambda() != nullptr) {
-      return true;
-    }
-  }
-  return false;
+  return std::any_of(
+      function_call->generic_argument_list().begin(),
+      function_call->generic_argument_list().end(),
+      [](const std::unique_ptr<const ResolvedFunctionArgument>& arg) {
+        return arg->inline_lambda() != nullptr;
+      });
 }
 
 namespace {
@@ -278,10 +286,11 @@ absl::Status GetCollatedFunctionNameAndArguments(
                      ConstExpr::Create(Value::String(collation_name)));
     collated_arguments->insert(collated_arguments->cbegin(),
                                std::move(collation_name_expr));
-  } else if (function_name == "$case_with_value") {
-    // For function $case_with_value, we do not make changes to its arguments or
-    // function name here. The arguments will be transformed as arguments of
-    // $equal function inside AlgebrizeCaseWithValue function.
+  } else if (function_name == "$case_with_value" ||
+             function_name == "$in_array") {
+    // For function $case_with_value and $in_array we do not make changes to its
+    // arguments or function name here. The arguments may be transformed at a
+    // later stage.
     *collated_function_name = function_name;
     *collated_arguments = std::move(arguments);
   } else {
@@ -385,7 +394,12 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeFunctionCall(
                                           std::move(arguments)));
     return new_array_expr;
   } else if (name == "$in_array") {
-    return AlgebrizeInArray(std::move(arguments[0]), std::move(arguments[1]));
+    const std::vector<ResolvedCollation>& collation_list =
+        function_call->collation_list();
+    ZETASQL_RET_CHECK_LE(collation_list.size(), 1);
+    return AlgebrizeInArray(
+        std::move(arguments[0]), std::move(arguments[1]),
+        collation_list.empty() ? ResolvedCollation() : collation_list[0]);
   } else {
     absl::StatusOr<FunctionKind> status_or_kind =
         BuiltinFunctionCatalog::GetKindByName(name);
@@ -1196,7 +1210,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeSubqueryExpr(
                        AlgebrizeExpression(subquery_expr->in_expr()));
       return AlgebrizeInLikeAnyLikeAllRelation(
           std::move(in_value), subquery_expr->subquery_type(), haystack_var,
-          std::move(relation));
+          std::move(relation), subquery_expr->in_collation());
     }
     default:
       return ::zetasql_base::InternalErrorBuilder()
@@ -1221,8 +1235,8 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeLetExpr(
 }
 
 absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeInArray(
-    std::unique_ptr<ValueExpr> in_value,
-    std::unique_ptr<ValueExpr> array_value) {
+    std::unique_ptr<ValueExpr> in_value, std::unique_ptr<ValueExpr> array_value,
+    const ResolvedCollation& collation) {
   const VariableId haystack_var =
       variable_gen_->GetNewVariableName("_in_element");
   ZETASQL_ASSIGN_OR_RETURN(
@@ -1232,7 +1246,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeInArray(
                           std::move(array_value)));
   return AlgebrizeInLikeAnyLikeAllRelation(
       std::move(in_value), ResolvedSubqueryExpr::IN, haystack_var,
-      std::move(haystack_rel));
+      std::move(haystack_rel), collation);
 }
 
 // Algebrizes (lhs [IN|LIKE ANY|LIKE ALL] haystack_rel) as follows:
@@ -1244,8 +1258,8 @@ absl::StatusOr<std::unique_ptr<ValueExpr>>
 Algebrizer::AlgebrizeInLikeAnyLikeAllRelation(
     std::unique_ptr<ValueExpr> lhs,
     ResolvedSubqueryExpr::SubqueryType subquery_type,
-    const VariableId& haystack_var,
-    std::unique_ptr<RelationalOp> haystack_rel) {
+    const VariableId& haystack_var, std::unique_ptr<RelationalOp> haystack_rel,
+    const ResolvedCollation& collation) {
   FunctionKind compare_fn;
   FunctionKind aggregate_fn;
   switch (subquery_type) {
@@ -1277,6 +1291,16 @@ Algebrizer::AlgebrizeInLikeAnyLikeAllRelation(
   std::vector<std::unique_ptr<ValueExpr>> equal_args;
   equal_args.push_back(std::move(deref_needle_var));
   equal_args.push_back(std::move(deref_haystack_var));
+  if (!collation.Empty()) {
+    ZETASQL_RET_CHECK(compare_fn == FunctionKind::kEqual);
+    std::string collated_fn_name;
+    std::vector<std::unique_ptr<ValueExpr>> collated_equal_args;
+    ZETASQL_RETURN_IF_ERROR(GetCollatedFunctionNameAndArguments(
+        "$equal", std::move(equal_args), {collation}, language_options_,
+        &collated_fn_name, &collated_equal_args));
+    ZETASQL_RET_CHECK_EQ(collated_fn_name, "$equal");
+    equal_args = std::move(collated_equal_args);
+  }
 
   ZETASQL_ASSIGN_OR_RETURN(
       auto equality_comparison,

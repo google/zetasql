@@ -663,9 +663,8 @@ inline int zetasql_bison_parserlex(
 
 #define CHECK_LABEL_SUPPORT(node, location) \
     if (node != nullptr \
-        && (parser->language_options() == nullptr \
-            || !parser->language_options()->LanguageFeatureEnabled( \
-                    zetasql::FEATURE_V_1_3_SCRIPT_LABEL))) { \
+        && (!parser->language_options().LanguageFeatureEnabled( \
+                zetasql::FEATURE_V_1_3_SCRIPT_LABEL))) { \
       YYERROR_AND_ABORT_AT(location, "Script labels are not supported"); \
     }
 
@@ -996,6 +995,7 @@ using zetasql::ASTDropStatement;
 %token KW_TRUNCATE "TRUNCATE"
 %token KW_TYPE "TYPE"
 %token KW_UNIQUE "UNIQUE"
+%token KW_UNKNOWN "UNKNOWN"
 %token KW_UNPIVOT "UNPIVOT"
 %token KW_UNTIL "UNTIL"
 %token KW_UPDATE "UPDATE"
@@ -1166,6 +1166,9 @@ using zetasql::ASTDropStatement;
 %type <node> identifier_list
 %type <node> path_expression_list
 %type <node> path_expression_list_with_opt_parens
+%type <node> path_expression_list_prefix
+%type <node> path_expression_list_with_parens
+%type <node> opt_path_expression_list_with_parens
 %type <node> set_statement
 %type <node> index_order_by
 %type <node> index_all_columns
@@ -1333,8 +1336,6 @@ using zetasql::ASTDropStatement;
 %type <node> privilege_list
 %type <node> privilege_name
 %type <node> privileges
-%type <node> column_privilege
-%type <node> column_privilege_list
 %type <query> query
 %type <node> query_maybe_expression
 %type <node> query_primary
@@ -1976,8 +1977,22 @@ alter_statement:
         node->set_is_if_exists($3);
         $$ = node;
       }
+    | "ALTER" generic_entity_type opt_if_exists alter_action_list
+      {
+        if (parser->language_options().LanguageFeatureEnabled(
+               zetasql::FEATURE_ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL)) {
+          auto* node = MAKE_NODE(ASTAlterEntityStatement, @$, {$2, nullptr, $4});
+          node->set_is_if_exists($3);
+          $$ = node;
+        } else {
+          // alter_action_list always starts with a keyword
+          YYERROR_AND_ABORT_AT(
+              @4, absl::StrCat("Syntax error: Unexpected keyword ",
+                               parser->GetFirstTokenOfNode(@4)));
+        }
+      }
     | "ALTER" "PRIVILEGE" "RESTRICTION" opt_if_exists
-      "ON" column_privilege_list "ON" identifier path_expression
+      "ON" privilege_list "ON" identifier path_expression
       privilege_restriction_alter_action_list
       {
         auto* alter_privilege_restriction = MAKE_NODE(
@@ -2464,8 +2479,7 @@ opt_language:
 remote_with_connection_clause:
     "REMOTE" opt_with_connection_clause
       {
-        if (parser->language_options() != nullptr &&
-            !parser->language_options()->LanguageFeatureEnabled(
+        if (!parser->language_options().LanguageFeatureEnabled(
                 zetasql::FEATURE_V_1_3_REMOTE_FUNCTION)) {
           YYERROR_AND_ABORT_AT(@1, "Keyword REMOTE is not supported");
         }
@@ -2486,8 +2500,7 @@ remote_with_connection_clause:
         if ($1 == nullptr) {
           $$.with_connection_clause = nullptr;
         } else {
-          if (parser->language_options() != nullptr &&
-              !parser->language_options()->LanguageFeatureEnabled(
+          if (!parser->language_options().LanguageFeatureEnabled(
                   zetasql::FEATURE_V_1_3_REMOTE_FUNCTION)) {
             YYERROR_AND_ABORT_AT(@1, "WITH CONNECTION clause is not supported");
           }
@@ -2664,7 +2677,7 @@ filter_using_clause:
 
 create_privilege_restriction_statement:
     "CREATE" opt_or_replace "PRIVILEGE" "RESTRICTION" opt_if_not_exists
-    "ON" column_privilege_list "ON" identifier path_expression
+    "ON" privilege_list "ON" identifier path_expression
     opt_restrict_to_clause
       {
         zetasql::ASTCreatePrivilegeRestrictionStatement* node =
@@ -2907,9 +2920,8 @@ generic_entity_type:
     IDENTIFIER
       {
         std::string entity_type(parser->GetInputText(@1));
-        if (parser->language_options() != nullptr &&
-          !parser->language_options()
-                 ->GenericEntityTypeSupported(entity_type)) {
+        if (!parser->language_options().
+                 GenericEntityTypeSupported(entity_type)) {
           YYERROR_AND_ABORT_AT(@1, absl::StrCat(
                                entity_type, " is not a supported object type"));
         }
@@ -3194,8 +3206,7 @@ invalid_generated_column:
 default_column_info:
   "DEFAULT" expression
     {
-      if (parser->language_options() != nullptr &&
-          parser->language_options()->LanguageFeatureEnabled(
+      if (parser->language_options().LanguageFeatureEnabled(
              zetasql::FEATURE_V_1_3_COLUMN_DEFAULT_VALUE)) {
         $$ = $2;
       } else {
@@ -3725,26 +3736,8 @@ privilege_list:
       }
     ;
 
-column_privilege_list:
-    column_privilege
-      {
-        $$ = MAKE_NODE(ASTPrivileges, @$, {$1});
-      }
-    | column_privilege_list "," column_privilege
-      {
-        $$ = parser->WithEndLocation(WithExtraChildren($1, {$3}), @$);
-      }
-    ;
-
 privilege:
-    privilege_name opt_column_list
-      {
-        $$ = MAKE_NODE(ASTPrivilege, @$, {$1, $2});
-      }
-    ;
-
-column_privilege:
-    privilege_name column_list
+    privilege_name opt_path_expression_list_with_parens
       {
         $$ = MAKE_NODE(ASTPrivilege, @$, {$1, $2});
       }
@@ -4668,6 +4661,29 @@ path_expression_list_with_opt_parens:
    $$ = MAKE_NODE(ASTPathExpressionList, @$, {$1});
  };
 
+path_expression_list_prefix:
+    "(" path_expression
+      {
+        $$ = MAKE_NODE(ASTPathExpressionList, @$, {$2});
+      }
+    | path_expression_list_prefix "," path_expression
+      {
+        $$ = WithExtraChildren($1, {$3});
+      }
+    ;
+
+path_expression_list_with_parens:
+    path_expression_list_prefix ")"
+      {
+        $$ = parser->WithEndLocation($1, @$);
+      }
+    ;
+
+opt_path_expression_list_with_parens:
+    path_expression_list_with_parens
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
 unpivot_in_item:
   path_expression_list_with_opt_parens opt_as_string_or_integer {
     $$ = MAKE_NODE(ASTUnpivotInItem, @$, {$1, $2});
@@ -5116,8 +5132,7 @@ on_or_using_clause_list:
       }
     | on_or_using_clause_list on_or_using_clause
       {
-        if (parser->language_options() != nullptr &&
-            parser->language_options()->LanguageFeatureEnabled(
+        if (parser->language_options().LanguageFeatureEnabled(
                zetasql::FEATURE_V_1_3_ALLOW_CONSECUTIVE_ON)) {
           $$ = parser->WithEndLocation(WithExtraChildren($1, {$2}), @$);
         } else {
@@ -5408,8 +5423,7 @@ opt_qualify_clause:
 qualify_clause_reserved:
     KW_QUALIFY_RESERVED expression
       {
-       if (parser->language_options() == nullptr ||
-            !parser->language_options()->LanguageFeatureEnabled(
+       if (!parser->language_options().LanguageFeatureEnabled(
                 zetasql::FEATURE_V_1_3_QUALIFY)) {
           YYERROR_AND_ABORT_AT(@1, "QUALIFY is not supported");
         }
@@ -5424,8 +5438,7 @@ opt_qualify_clause_reserved:
 qualify_clause_nonreserved:
     KW_QUALIFY_NONRESERVED expression
       {
-       if (parser->language_options() == nullptr ||
-            !parser->language_options()->LanguageFeatureEnabled(
+       if (!parser->language_options().LanguageFeatureEnabled(
                 zetasql::FEATURE_V_1_3_QUALIFY)) {
           YYERROR_AND_ABORT_AT(@1, "QUALIFY is not supported");
         }
@@ -5736,8 +5749,7 @@ import_type:
 any_some_all:
     "ANY"
       {
-       if (parser->language_options() == nullptr ||
-            !parser->language_options()->LanguageFeatureEnabled(
+       if (!parser->language_options().LanguageFeatureEnabled(
                 zetasql::FEATURE_V_1_3_LIKE_ANY_SOME_ALL)) {
           YYERROR_AND_ABORT_AT(@1, "LIKE ANY is not supported");
         }
@@ -5748,8 +5760,7 @@ any_some_all:
       }
     | "SOME"
       {
-       if (parser->language_options() == nullptr ||
-            !parser->language_options()->LanguageFeatureEnabled(
+       if (!parser->language_options().LanguageFeatureEnabled(
                 zetasql::FEATURE_V_1_3_LIKE_ANY_SOME_ALL)) {
           YYERROR_AND_ABORT_AT(@1, "LIKE SOME is not supported");
         }
@@ -5760,8 +5771,7 @@ any_some_all:
       }
     | "ALL"
       {
-       if (parser->language_options() == nullptr ||
-            !parser->language_options()->LanguageFeatureEnabled(
+       if (!parser->language_options().LanguageFeatureEnabled(
                 zetasql::FEATURE_V_1_3_LIKE_ANY_SOME_ALL)) {
           YYERROR_AND_ABORT_AT(@1, "LIKE ALL is not supported");
         }
@@ -6008,8 +6018,7 @@ expression:
         }
     | expression distinct_operator expression %prec "DISTINCT"
         {
-          if (parser->language_options() == nullptr
-              || !parser->language_options()->LanguageFeatureEnabled(
+          if (!parser->language_options().LanguageFeatureEnabled(
               zetasql::FEATURE_V_1_3_IS_DISTINCT)) {
             YYERROR_AND_ABORT_AT(
                 @2,
@@ -6097,6 +6106,27 @@ expression:
               MAKE_NODE(ASTBetweenExpression, @2, @5, {$1, $3, $5});
           between_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           $$ = between_expression;
+        }
+    | expression is_operator KW_UNKNOWN %prec "IS"
+        {
+          // The Bison parser allows comparison expressions in the LHS, even
+          // though these operators are at the same precedence level and are not
+          // associative. Explicitly forbid this.
+          if (!$1->IsAllowedInComparison()) {
+            YYERROR_AND_ABORT_AT(@2,
+                                 "Syntax error: Expression to the left of IS "
+                                 "must be parenthesized");
+          }
+          auto* unary_expression = MAKE_NODE(ASTUnaryExpression, @$, {$1});
+          if ($2 == NotKeywordPresence::kPresent) {
+            unary_expression->set_op(
+              zetasql::ASTUnaryExpression::IS_NOT_UNKNOWN);
+          }
+          else {
+            unary_expression->set_op(
+              zetasql::ASTUnaryExpression::IS_UNKNOWN);
+          }
+          $$ = unary_expression;
         }
     | expression is_operator null_literal %prec "IS"
         {
@@ -6413,8 +6443,7 @@ maybe_dashed_path_expression:
     path_expression { $$ = $1; }
     | dashed_path_expression
       {
-        if (parser->language_options() != nullptr &&
-            parser->language_options()->LanguageFeatureEnabled(
+        if (parser->language_options().LanguageFeatureEnabled(
                zetasql::FEATURE_V_1_3_ALLOW_DASHES_IN_TABLE_NAME)) {
           $$ = $1;
         } else {
@@ -6432,8 +6461,7 @@ maybe_slashed_or_dashed_path_expression:
     maybe_dashed_path_expression { $$ = $1; }
     | slashed_path_expression
       {
-        if (parser->language_options() != nullptr &&
-            parser->language_options()->LanguageFeatureEnabled(
+        if (parser->language_options().LanguageFeatureEnabled(
                zetasql::FEATURE_V_1_3_ALLOW_SLASH_PATHS)) {
           $$ = $1;
         } else {
@@ -6844,9 +6872,9 @@ opt_type_parameters:
     | /* Nothing */ { $$ = nullptr; }
     ;
 
-type: raw_type opt_type_parameters
+type: raw_type opt_type_parameters opt_collate_clause
     {
-      $$ = parser->WithEndLocation(WithExtraChildren($1, {$2}), @$);
+      $$ = parser->WithEndLocation(WithExtraChildren($1, {$2, $3}), @$);
     };
 
 templated_parameter_kind:
@@ -7429,8 +7457,7 @@ function_call_expression_with_clauses:
           current_expression->AddChild($2);
         }
         if ($3 != nullptr) {
-          if (parser->language_options() != nullptr &&
-              !parser->language_options()->LanguageFeatureEnabled(
+          if (!parser->language_options().LanguageFeatureEnabled(
                   zetasql::FEATURE_V_1_3_WITH_GROUP_ROWS)) {
             YYERROR_AND_ABORT_AT(@3, "WITH GROUP_ROWS is not supported");
           }
@@ -8047,6 +8074,7 @@ keyword_as_identifier:
     | "TRUNCATE"
     | "TYPE"
     | "UNIQUE"
+    | "UNKNOWN"
     | "UNPIVOT"
     | "UNTIL"
     | "UPDATE"
@@ -8590,8 +8618,7 @@ maybe_dashed_generalized_path_expression:
   // which don't actually allow extensions or array element access anyway.
   | dashed_path_expression
     {
-      if (parser->language_options() != nullptr &&
-          parser->language_options()->LanguageFeatureEnabled(
+      if (parser->language_options().LanguageFeatureEnabled(
              zetasql::FEATURE_V_1_3_ALLOW_DASHES_IN_TABLE_NAME)) {
         $$ = $1;
       } else {
@@ -8860,7 +8887,7 @@ opt_drop_mode:
 
 drop_statement:
     "DROP" "PRIVILEGE" "RESTRICTION" opt_if_exists
-    "ON" column_privilege_list "ON" identifier path_expression
+    "ON" privilege_list "ON" identifier path_expression
       {
         auto* node = MAKE_NODE(ASTDropPrivilegeRestrictionStatement, @$,
                                {$6, $8, $9});
@@ -9177,8 +9204,7 @@ opt_expression:
 case_statement:
     "CASE" opt_expression when_then_clauses opt_else "END" "CASE"
       {
-        if (parser->language_options() != nullptr &&
-           !parser->language_options()->LanguageFeatureEnabled(
+        if (!parser->language_options().LanguageFeatureEnabled(
                 zetasql::FEATURE_V_1_3_CASE_STMT)) {
           YYERROR_AND_ABORT_AT(@1, "Statement CASE...WHEN is not supported");
         }
@@ -9302,8 +9328,7 @@ until_clause:
 unlabeled_repeat_statement:
     "REPEAT" statement_list until_clause "END" "REPEAT"
     {
-     if (parser->language_options() != nullptr &&
-         !parser->language_options()->LanguageFeatureEnabled(
+     if (!parser->language_options().LanguageFeatureEnabled(
               zetasql::FEATURE_V_1_3_REPEAT)) {
         YYERROR_AND_ABORT_AT(@1, "REPEAT is not supported");
       }
@@ -9327,8 +9352,7 @@ repeat_statement:
 unlabeled_for_in_statement:
     "FOR" identifier "IN" "(" query ")" "DO" statement_list "END" "FOR"
     {
-     if (parser->language_options() != nullptr &&
-         !parser->language_options()->LanguageFeatureEnabled(
+     if (!parser->language_options().LanguageFeatureEnabled(
               zetasql::FEATURE_V_1_3_FOR_IN)) {
         YYERROR_AND_ABORT_AT(@1, "FOR...IN is not supported");
       }

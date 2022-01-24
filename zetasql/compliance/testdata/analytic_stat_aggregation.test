@@ -988,7 +988,14 @@ select a,
        STDDEV_POP(a)  OVER (),
        STDDEV_SAMP(a) OVER (),
        STDDEV(a)      OVER ()
-FROM unnest([1, 2, 3, 4, 3, 1, 0]) as a
+FROM (
+  select 1 a union all
+  select 2 union all
+  select 3 union all
+  select 4 union all
+  select 3 union all
+  select 1 union all
+  select 0)
 --
 ARRAY<STRUCT<a INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
   {2,
@@ -1053,7 +1060,14 @@ select a,
        STDDEV_POP(a)  OVER (ROWS  BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING),
        STDDEV_SAMP(a) OVER (RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING),
        STDDEV(a)      OVER (ROWS  BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
-FROM unnest([1, 2, 3, 4, 3, 1, 0]) as a
+FROM (
+  select 1 a union all
+  select 2 union all
+  select 3 union all
+  select 4 union all
+  select 3 union all
+  select 1 union all
+  select 0)
 --
 ARRAY<STRUCT<a INT64, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
   {2,
@@ -1121,7 +1135,14 @@ select a,
        STDDEV_POP(a)  OVER (),
        STDDEV_SAMP(a) OVER (),
        STDDEV(a)      OVER ()
-FROM unnest([1, 2, 3, 4, 3, 1, 0]) as a
+FROM (
+  select 1 a union all
+  select 2 union all
+  select 3 union all
+  select 4 union all
+  select 3 union all
+  select 1 union all
+  select 0)
 --
 ARRAY<STRUCT<a INT64, var DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE, DOUBLE>>[
   {4,
@@ -1519,7 +1540,13 @@ ARRAY<STRUCT<row_id INT64,
 [labels=analytic_stat_single_column]
 select a,
        var_pop(a) OVER order_window as var_pop_a
-FROM unnest([1, 2, 3, 4, 3, 1]) as a
+FROM (
+  select 1 a union all
+  select 2 union all
+  select 3 union all
+  select 4 union all
+  select 3 union all
+  select 1)
 WINDOW order_window AS (ORDER BY a ASC
                         ROWS BETWEEN UNBOUNDED PRECEDING
                                  AND CURRENT ROW)
@@ -2319,7 +2346,14 @@ ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[
 select a,
        COVAR_POP(a, a)     OVER (),
        COVAR_SAMP(a, a)    OVER ()
-FROM unnest([1, 2, 3, 4, 3, 1, 0]) as a
+FROM (
+  select 1 a union all
+  select 2 union all
+  select 3 union all
+  select 4 union all
+  select 3 union all
+  select 1 union all
+  select 0)
 --
 ARRAY<STRUCT<a INT64, DOUBLE, DOUBLE>>[
   {2, 1.7142857142857142, 2},
@@ -2338,7 +2372,14 @@ ARRAY<STRUCT<a INT64, DOUBLE, DOUBLE>>[
 select a,
        COVAR_POP(a, a)     OVER (RANGE BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING),
        COVAR_SAMP(a, a)    OVER (ROWS  BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
-FROM unnest([1, 2, 3, 4, 3, 1, 0]) as a
+FROM (
+  select 1 a union all
+  select 2 union all
+  select 3 union all
+  select 4 union all
+  select 3 union all
+  select 1 union all
+  select 0)
 --
 ARRAY<STRUCT<a INT64, DOUBLE, DOUBLE>>[
   {2, 1.7142857142857142, 2},
@@ -2360,7 +2401,14 @@ select a,
            as var,
        COVAR_POP(a, a)     OVER (),
        COVAR_SAMP(a, a)    OVER ()
-FROM unnest([1, 2, 3, 4, 3, 1, 0]) as a
+FROM (
+  select 1 a union all
+  select 2 union all
+  select 3 union all
+  select 4 union all
+  select 3 union all
+  select 1 union all
+  select 0)
 --
 ARRAY<STRUCT<a INT64, var DOUBLE, DOUBLE, DOUBLE>>[
   {4, 1.7142857142857144, 1.7142857142857142, 2},
@@ -2679,7 +2727,13 @@ ARRAY<STRUCT<part_id INT64,
 [labels=analytic_stat_double_column]
 select a,
        covar_pop(a, a) OVER order_window as var_pop_a
-FROM unnest([1, 2, 3, 4, 3, 1]) as a
+FROM (
+  select 1 a union all
+  select 2 union all
+  select 3 union all
+  select 4 union all
+  select 3 union all
+  select 1)
 WINDOW order_window AS (ORDER BY a ASC
                         ROWS BETWEEN UNBOUNDED PRECEDING
                                  AND CURRENT ROW)
@@ -3477,7 +3531,15 @@ ARRAY<STRUCT<row_id INT64, val DOUBLE, DOUBLE>>[
 [labels=analytic_stat_double_column]
 SELECT a,
        CORR(a, - 942.24663687266877) OVER ()
-FROM UNNEST([1, 2, 3, 4, 5, 6, 7, 8]) a
+FROM (
+  select 1 a union all
+  select 2 union all
+  select 3 union all
+  select 4 union all
+  select 5 union all
+  select 6 union all
+  select 7 union all
+  select 8)
 order by a
 --
 ARRAY<STRUCT<a INT64, DOUBLE>>[
@@ -3496,7 +3558,15 @@ ARRAY<STRUCT<a INT64, DOUBLE>>[
 [labels=analytic_stat_double_column]
 SELECT a,
        CORR(-749.83751175908083, - 943.04501418685186) OVER ()
-FROM UNNEST([1, 2, 3, 4, 5, 6, 7, 8]) a
+FROM (
+  select 1 a union all
+  select 2 union all
+  select 3 union all
+  select 4 union all
+  select 5 union all
+  select 6 union all
+  select 7 union all
+  select 8)
 order by a
 --
 ARRAY<STRUCT<a INT64, DOUBLE>>[
@@ -3515,7 +3585,15 @@ ARRAY<STRUCT<a INT64, DOUBLE>>[
 [labels=analytic_stat_double_column]
 SELECT a,
        CORR(99.203917203408537, -235.84828348474082) OVER ()
-FROM UNNEST([1, 2, 3, 4, 5, 6, 7, 8]) a
+FROM (
+  select 1 a union all
+  select 2 union all
+  select 3 union all
+  select 4 union all
+  select 5 union all
+  select 6 union all
+  select 7 union all
+  select 8)
 order by a
 --
 ARRAY<STRUCT<a INT64, DOUBLE>>[
@@ -3535,14 +3613,15 @@ ARRAY<STRUCT<a INT64, DOUBLE>>[
 [labels=analytic_stat_double_column]
 SELECT a,
        CORR(a, NUMERIC '-942.246636872') OVER ()
-FROM UNNEST([NUMERIC '1',
-             NUMERIC '2',
-             NUMERIC '3',
-             NUMERIC '4',
-             NUMERIC '5',
-             NUMERIC '6',
-             NUMERIC '7',
-             NUMERIC '8']) a
+FROM (
+  select NUMERIC '1' a union all
+  select NUMERIC '2' union all
+  select NUMERIC '3' union all
+  select NUMERIC '4' union all
+  select NUMERIC '5' union all
+  select NUMERIC '6' union all
+  select NUMERIC '7' union all
+  select NUMERIC '8')
 order by a
 --
 ARRAY<STRUCT<a NUMERIC, DOUBLE>>[

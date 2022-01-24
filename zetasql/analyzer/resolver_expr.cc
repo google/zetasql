@@ -1648,10 +1648,9 @@ absl::Status Resolver::ResolveDotIdentifier(
   ZETASQL_RETURN_IF_ERROR(ResolveExpr(dot_identifier->expr(), expr_resolution_info,
                               &resolved_expr));
 
-  return ResolveFieldAccess(std::move(resolved_expr), dot_identifier,
-                            dot_identifier->name(),
-                            &expr_resolution_info->flatten_state,
-                            resolved_expr_out);
+  return ResolveFieldAccess(
+      std::move(resolved_expr), dot_identifier, dot_identifier->name(),
+      &expr_resolution_info->flatten_state, resolved_expr_out);
 }
 
 absl::Status Resolver::MaybeResolveProtoFieldAccess(
@@ -1882,8 +1881,8 @@ absl::Status Resolver::ResolveJsonFieldAccess(
 
 absl::Status Resolver::ResolveFieldAccess(
     std::unique_ptr<const ResolvedExpr> resolved_lhs,
-    const ASTNode* ast_path_expression,
-    const ASTIdentifier* identifier, FlattenState* flatten_state,
+    const ASTNode* ast_path_expression, const ASTIdentifier* identifier,
+    FlattenState* flatten_state,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   const Type* lhs_type = resolved_lhs->type();
   std::unique_ptr<ResolvedFlatten> resolved_flatten;
@@ -1898,7 +1897,7 @@ absl::Status Resolver::ResolveFieldAccess(
     } else {
       resolved_flatten =
           MakeResolvedFlatten(/*type=*/nullptr, std::move(resolved_lhs), {});
-      analyzer_output_properties_.has_flatten = true;
+      analyzer_output_properties_.MarkRelevant(REWRITE_FLATTEN);
       ZETASQL_RET_CHECK_EQ(nullptr, flatten_state->active_flatten());
       flatten_state->set_active_flatten(resolved_flatten.get());
     }
@@ -1958,7 +1957,7 @@ absl::Status Resolver::ResolveExtensionFieldAccess(
     } else {
       resolved_flatten =
           MakeResolvedFlatten(/*type=*/nullptr, std::move(resolved_lhs), {});
-      analyzer_output_properties_.has_flatten = true;
+      analyzer_output_properties_.MarkRelevant(REWRITE_FLATTEN);
       ZETASQL_RET_CHECK_EQ(nullptr, flatten_state->active_flatten());
       flatten_state->set_active_flatten(resolved_flatten.get());
     }
@@ -2571,9 +2570,8 @@ absl::Status Resolver::ResolveFilterFieldsFunctionCall(
       return MakeSqlErrorAt(unary) << status.message();
     }
 
-    filter_field_args.push_back(MakeResolvedFilterFieldArg(
-        include,
-        field_descriptor_path));
+    filter_field_args.push_back(
+        MakeResolvedFilterFieldArg(include, field_descriptor_path));
   }
   // Validator also ensures that there is at least one field path.
   if (absl::Status status = validator.FinalValidation(
@@ -2767,11 +2765,48 @@ absl::Status Resolver::ResolveUnaryExpr(
              << (*resolved_expr_out)->type()->ShortTypeName(product_mode());
     }
     return absl::OkStatus();
+  } else if (unary_expr->op() == ASTUnaryExpression::IS_UNKNOWN ||
+             unary_expr->op() == ASTUnaryExpression::IS_NOT_UNKNOWN) {
+    // IS [NOT] UNKNOWN reuses the "is_null" function, and skips the null
+    // literal validation. IS NOT UNKNOWN also handles NOT in subsequent step.
+    std::unique_ptr<const ResolvedExpr> resolved_operand;
+    ZETASQL_RETURN_IF_ERROR(ResolveExpr(unary_expr->operand(), expr_resolution_info,
+                                &resolved_operand));
+
+    absl::string_view coerce_msg =
+        unary_expr->op() == ASTUnaryExpression::IS_UNKNOWN
+            ? "Operand of IS UNKNOWN must be coercible to $0, but has type $1"
+            : "Operand of IS NOT UNKNOWN must be coercible to $0, but has type "
+              "$1";
+
+    ZETASQL_RETURN_IF_ERROR(
+        CoerceExprToType(unary_expr->operand(), type_factory_->get_bool(),
+                         kImplicitCoercion, coerce_msg, &resolved_operand));
+
+    std::vector<std::unique_ptr<const ResolvedExpr>> resolved_arguments;
+    resolved_arguments.push_back(std::move(resolved_operand));
+
+    // Explicitly casting or converting resolved literal to target type.
+    // It prevents ResolveFunctionCallWithResolvedArguments from undoing
+    // the coercion to boolean.
+    ZETASQL_RETURN_IF_ERROR(
+        UpdateLiteralsToExplicit({unary_expr->operand()}, &resolved_arguments));
+    ZETASQL_RETURN_IF_ERROR(ResolveFunctionCallWithResolvedArguments(
+        unary_expr, {unary_expr->operand()}, "$is_null",
+        std::move(resolved_arguments), /*named_arguments=*/{},
+        expr_resolution_info, resolved_expr_out));
+
+    if (unary_expr->op() == ASTUnaryExpression::IS_NOT_UNKNOWN) {
+      return MakeNotExpr(unary_expr, std::move(*resolved_expr_out),
+                         expr_resolution_info, resolved_expr_out);
+    }
+    return absl::OkStatus();
   }
 
   ZETASQL_RETURN_IF_ERROR(ResolveFunctionCallByNameWithoutAggregatePropertyCheck(
       unary_expr, function_name, {unary_expr->operand()},
       *kEmptyArgumentOptionMap, expr_resolution_info, resolved_expr_out));
+
   ZETASQL_RETURN_IF_ERROR(ReturnErrorOnLiteralNullArg(unary_expr->GetSQLForOperator(),
                                               {unary_expr->operand()},
                                               resolved_expr_out->get()));
@@ -3063,6 +3098,8 @@ absl::Status Resolver::ResolveInSubquery(
   MaybeRecordParseLocation(in_subquery_expr->query(), resolved_expr.get());
   ZETASQL_RETURN_IF_ERROR(
       ResolveHintsForNode(in_subquery_expr->hint(), resolved_expr.get()));
+  ZETASQL_RETURN_IF_ERROR(MaybeResolveCollationForSubqueryExpr(
+      /*error_location=*/in_subquery_expr->query(), resolved_expr.get()));
   *resolved_expr_out = std::move(resolved_expr);
   return absl::OkStatus();
 }
@@ -3989,7 +4026,7 @@ absl::Status Resolver::GetFunctionNameAndArguments(
         // also need to record that anonymization is present here since
         // the expression might include an anonymized aggregate function
         // call but no related resolved scan is created for it.
-        analyzer_output_properties_.has_anonymization = true;
+        analyzer_output_properties_.MarkRelevant(REWRITE_ANONYMIZATION);
         break;
 
       // Special case handling for DATE_ADD, DATE_SUB, DATE_TRUNC, and
@@ -5050,7 +5087,7 @@ absl::Status Resolver::ResolveArrayElementAccess(
   const bool is_map_at =
       *function_name == kProtoMapAtKey || *function_name == kSafeProtoMapAtKey;
   if (is_map_at) {
-    analyzer_output_properties_.has_proto_map_functions = true;
+    analyzer_output_properties_.MarkRelevant(REWRITE_PROTO_MAP_FNS);
   }
 
   // Coerce to INT64 if necessary.
@@ -5826,8 +5863,8 @@ absl::Status Resolver::ResolveStructConstructorImpl(
         ast_location, struct_type, Value::Struct(struct_type, literal_values),
         struct_has_explicit_type || all_fields_have_explicit_type);
   } else {
-    auto node = MakeResolvedMakeStruct(
-        struct_type, std::move(resolved_field_expressions));
+    auto node = MakeResolvedMakeStruct(struct_type,
+                                       std::move(resolved_field_expressions));
     if (ast_struct_type != nullptr) {
       MaybeRecordParseLocation(ast_struct_type, node.get());
     }
@@ -6545,19 +6582,20 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
         case FN_ARRAY_FILTER_WITH_INDEX:
         case FN_ARRAY_TRANSFORM:
         case FN_ARRAY_TRANSFORM_WITH_INDEX:
-          analyzer_output_properties_.has_array_filter_or_transform = true;
+          analyzer_output_properties_.MarkRelevant(
+              REWRITE_ARRAY_FILTER_TRANSFORM);
           break;
         case FN_ARRAY_INCLUDES:
         case FN_ARRAY_INCLUDES_LAMBDA:
         case FN_ARRAY_INCLUDES_ANY:
-          analyzer_output_properties_.has_array_includes = true;
+          analyzer_output_properties_.MarkRelevant(REWRITE_ARRAY_INCLUDES);
           break;
         case FN_CONTAINS_KEY:
         case FN_MODIFY_MAP:
-          analyzer_output_properties_.has_proto_map_functions = true;
+          analyzer_output_properties_.MarkRelevant(REWRITE_PROTO_MAP_FNS);
           break;
         case FN_TYPEOF:
-          analyzer_output_properties_.has_typeof_function = true;
+          analyzer_output_properties_.MarkRelevant(REWRITE_TYPEOF_FUNCTION);
           break;
         default:
           break;
@@ -6780,8 +6818,10 @@ absl::Status Resolver::ResolveFunctionCallImpl(
     }
   }
 
-  if (function->Is<SQLFunctionInterface>()) {
-    analyzer_output_properties_.has_sql_function_call = true;
+  if ((function->Is<SQLFunctionInterface>() ||
+       function->Is<TemplatedSQLFunction>()) &&
+      !function->IsAggregate()) {
+    analyzer_output_properties_.MarkRelevant(REWRITE_INLINE_SQL_FUNCTIONS);
   }
 
   // A "flatten" function allows the child to flatten.
@@ -6844,7 +6884,8 @@ absl::Status Resolver::CoerceExprToType(
   const AnnotationMap* target_type_annotation_map =
       annotated_target_type.annotation_map;
   ZETASQL_RET_CHECK_NE(target_type, nullptr);
-
+  ZETASQL_RET_CHECK_NE(resolved_expr, nullptr);
+  ZETASQL_RET_CHECK_NE(resolved_expr->get(), nullptr);
   const AnnotationMap* source_type_annotation_map =
       resolved_expr->get()->type_annotation_map();
   if (target_type_annotation_map != nullptr) {

@@ -348,16 +348,27 @@ ARRAY<STRUCT<approx_uniques INT64>>[{9}]
 ==
 [required_features=INTERVAL_TYPE]
 [name=approx_quantiles]
-SELECT APPROX_QUANTILES(value, 3) FROM Intervals
+SELECT
+  -- JUSTIFY_INTERVAL() makes the test robust against different engines making
+  -- different decisions about the relative order of 1 MONTH and 30 DAYS, which
+  -- can affect the result.
+  ARRAY_LENGTH(quantiles) AS length, -- Make sure array is exactly 4 elements
+  JUSTIFY_INTERVAL(quantiles[ORDINAL(1)]) AS first_quantile,
+  JUSTIFY_INTERVAL(quantiles[ORDINAL(2)]) AS second_quantile,
+  JUSTIFY_INTERVAL(quantiles[ORDINAL(3)]) AS third_quantile,
+  JUSTIFY_INTERVAL(quantiles[ORDINAL(4)]) AS fourth_quantile
+FROM (
+  SELECT APPROX_QUANTILES(value, 3) AS quantiles
+  FROM Intervals
+)
 --
-ARRAY<STRUCT<ARRAY<>>>[
-  {ARRAY<INTERVAL>[
-     0-0 0 -0:0:1,
-     0-0 0 1:0:0.000001,
-     0-0 0 720:0:0,
-     10000-0 0 0:0:0
-   ]}
-]
+ARRAY<STRUCT<
+        length INT64,
+        first_quantile INTERVAL,
+        second_quantile INTERVAL,
+        third_quantile INTERVAL,
+        fourth_quantile INTERVAL
+      >>[{4, 0-0 0 -0:0:1, 0-0 0 1:0:0.000001, 0-1 0 0:0:0, 10000-0 0 0:0:0}]
 ==
 [required_features=INTERVAL_TYPE]
 [name=approx_top_count]
@@ -493,7 +504,7 @@ ARRAY<STRUCT<INTERVAL>>[
 ==
 [required_features=INTERVAL_TYPE,ANALYTIC_FUNCTIONS]
 [name=analytic_moving_avg]
-SELECT AVG(value) OVER(ORDER BY value ASC ROWS BETWEEN 3 PRECEDING AND CURRENT ROW) FROM Intervals
+SELECT AVG(value) OVER(ORDER BY value, id ASC ROWS BETWEEN 3 PRECEDING AND CURRENT ROW) FROM Intervals
 --
 ARRAY<STRUCT<INTERVAL>>[
   {NULL},
@@ -513,7 +524,7 @@ ARRAY<STRUCT<INTERVAL>>[
 [required_features=INTERVAL_TYPE,ANALYTIC_FUNCTIONS]
 [name=analytic_min_max]
 SELECT MIN(value) OVER(w), MAX(value) OVER w FROM Intervals
-WINDOW w AS (ORDER BY value ASC ROWS BETWEEN CURRENT ROW AND 3 FOLLOWING)
+WINDOW w AS (ORDER BY value ASC, id ASC ROWS BETWEEN CURRENT ROW AND 3 FOLLOWING)
 --
 ARRAY<STRUCT<INTERVAL, INTERVAL>>[
   {0-0 0 -0:0:1, 0-0 0 0:0:0.000001},

@@ -18,6 +18,7 @@
 
 #include <stdlib.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -25,6 +26,7 @@
 #include <initializer_list>
 #include <limits>
 #include <new>
+#include <string>
 #include <utility>
 #include <vector>
 

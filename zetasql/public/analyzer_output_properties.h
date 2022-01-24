@@ -17,54 +17,56 @@
 #ifndef ZETASQL_PUBLIC_ANALYZER_OUTPUT_PROPERTIES_H_
 #define ZETASQL_PUBLIC_ANALYZER_OUTPUT_PROPERTIES_H_
 
+#include "zetasql/public/options.pb.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
 
 namespace zetasql {
 
-struct AnalyzerOutputProperties {
-  // True if a ResolvedFlatten AST node was generated in the analyzer output.
-  bool has_flatten = false;
+class AnalyzerOutputProperties {
+ public:
+  // TODO: Remove when external references drop to zero.
+  ABSL_DEPRECATED(
+      "Client code should consider this struct internal. "
+      "It doesn't mean what you think it means.")
+  bool has_flatten = false;  // NOLINT
 
-  // True if a ResolvedFunctionCall node for ARRAY_FILTER or ARRAY_TRANSFORM
-  // was generated in the analyzer output.
-  bool has_array_filter_or_transform = false;
-
-  // True if a ResolvedFunctionCall node for ARRAY_INCLUDES or
-  // ARRAY_INCLUDES_ANY was generated in the analyzer output.
-  bool has_array_includes = false;
-
-  // Indicates if anonymization was found during analysis.  When resolving
-  // queries, anonymization is found if an AnonymizedAggregateScan is
-  // created.  When resolving expressions, anonymization is found if an
-  // AnonymizedAggregateScan is created (for a subquery expression) or an
-  // anonymized aggregate function call is present.
-  bool has_anonymization = false;
-
-  // True if a ResolvedPivotScan AST node was generated in the analyzer output.
-  bool has_pivot = false;
-
-  // True if a ResolvedUnpivotScan AST node was generated in the analyzer
-  // output.
-  bool has_unpivot = false;
-
+  // TODO: Remove when external references drop to zero.
+  ABSL_DEPRECATED(
+      "Client code should consider this struct internal. "
+      "It doesn't mean what you think it means.")
+  bool has_anonymization = false;  // NOLINT
   // A map from ResolvedTableScan to ResolvedAnonymizedAggregateScan.
+  // TODO: Encapsulate this appropriately.
   absl::flat_hash_map<const ResolvedTableScan*,
                       const ResolvedAnonymizedAggregateScan*>
-      resolved_table_scan_to_anonymized_aggregate_scan_map;
+      resolved_table_scan_to_anonymized_aggregate_scan_map;  // NOLINT
 
-  // Returns whether any proto map functions that may be rewritten by
-  // MapFunctionRewriter are used in the expression.
-  bool has_proto_map_functions = false;
+  // Marks the given `rewrite` as being applicable to the resolved AST.
+  void MarkRelevant(ResolvedASTRewrite rewrite) {
+    relevant_rewrites_.insert(rewrite);
+    if (rewrite == REWRITE_FLATTEN) {
+      has_flatten = true;
+    }
+    if (rewrite == REWRITE_ANONYMIZATION) {
+      has_anonymization = true;
+    }
+  }
 
-  // Returns whether the TYPEOF meta-function is used in the query.
-  bool has_typeof_function = false;
+  // Returns true if the rewrite was marked relevant by the resolver.
+  bool IsRelevant(ResolvedASTRewrite rewrite) const {
+    return relevant_rewrites_.contains(rewrite);
+  }
 
-  // Returns true if the ResolvedLetExpr node type is in the plan.
-  bool has_let = false;
+  // Returns the set of rewrites marked as relevant by the resolver. The
+  // rewriter may identify more rewrites during rewriting.
+  const absl::btree_set<ResolvedASTRewrite>& relevant_rewrites() {
+    return relevant_rewrites_;
+  }
 
-  // Set true true if there is a call to a SQL function.
-  bool has_sql_function_call = false;
+ private:
+  absl::btree_set<ResolvedASTRewrite> relevant_rewrites_;
 };
 
 }  // namespace zetasql
