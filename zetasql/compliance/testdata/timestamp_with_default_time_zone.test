@@ -244,3 +244,96 @@ ARRAY<STRUCT<TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP>>[
     2000-01-01 00:00:00+00
   }
 ]
+==
+
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE]
+[name=timestamp_bucket]
+select
+  timestamp_bucket(ts, INTERVAL '0.0005' SECOND),
+  timestamp_bucket(ts, INTERVAL '0.1' SECOND),
+  timestamp_bucket(ts, INTERVAL 15 SECOND),
+  timestamp_bucket(ts, INTERVAL 20 MINUTE),
+  timestamp_bucket(ts, INTERVAL 3 HOUR),
+  timestamp_bucket(ts, INTERVAL 7 DAY)
+from (select timestamp '2020-02-15 14:57:39.646565' ts)
+--
+ARRAY<STRUCT<TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP>>[
+  {
+    2020-02-15 14:57:39.646500+00,
+    2020-02-15 14:57:39.600+00,
+    2020-02-15 14:57:30+00,
+    2020-02-15 14:40:00+00,
+    2020-02-15 12:00:00+00,
+    2020-02-09 00:00:00+00
+  }
+]
+==
+
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE]
+[name=timestamp_bucket_custom_origin]
+select
+  timestamp_bucket(ts, INTERVAL '0.0005' SECOND, origin),
+  timestamp_bucket(ts, INTERVAL '0.1' SECOND, origin),
+  timestamp_bucket(ts, INTERVAL 15 SECOND, origin),
+  timestamp_bucket(ts, INTERVAL 20 MINUTE, origin),
+  timestamp_bucket(ts, INTERVAL 3 HOUR, origin),
+  timestamp_bucket(ts, INTERVAL 7 DAY, origin)
+from (select timestamp '2020-02-15 14:57:39.646565' ts,
+             timestamp '2150-12-11 07:00:00' origin)
+--
+ARRAY<STRUCT<TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP>>[
+  {
+    2020-02-15 14:57:39.646500+00,
+    2020-02-15 14:57:39.600+00,
+    2020-02-15 14:57:30+00,
+    2020-02-15 14:40:00+00,
+    2020-02-15 13:00:00+00,
+    2020-02-14 07:00:00+00
+  }
+]
+==
+
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,TIMESTAMP_NANOS]
+[name=timestamp_bucket_nanos]
+select
+  timestamp_bucket('2020-02-15 14:57:39.123456789',
+                   INTERVAL '0.000000005' SECOND),
+  timestamp_bucket('2020-02-15 14:57:39', INTERVAL 7 DAY,
+                   '2100-01-12 07:31:55.123456789')
+--
+ARRAY<STRUCT<TIMESTAMP, TIMESTAMP>>[
+  {
+    2020-02-15 14:57:39.123456785+00,
+    2020-02-11 07:31:55.123456789+00
+  }
+]
+==
+
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[name=timestamp_in_datetime_bucket]
+select
+  datetime_bucket(ts, INTERVAL 7 DAY),
+  datetime_bucket(ts, INTERVAL 7 DAY, timestamp '2150-12-11 07:00:00')
+from (select timestamp '2020-02-15 14:57:39.646565' ts)
+--
+ARRAY<STRUCT<TIMESTAMP, TIMESTAMP>>[
+  {
+    2020-02-09 00:00:00+00,
+    2020-02-14 07:00:00+00
+  }
+]
+==
+
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[name=timestamp_in_date_bucket]
+select
+  date_bucket(ts, INTERVAL 7 DAY),
+  date_bucket(ts, INTERVAL 7 DAY, timestamp '2150-12-11 07:00:00')
+from (select timestamp '2020-02-15 14:57:39.646565' ts)
+--
+ARRAY<STRUCT<TIMESTAMP, TIMESTAMP>>[
+  {
+    2020-02-09 00:00:00+00,
+    2020-02-14 07:00:00+00
+  }
+]

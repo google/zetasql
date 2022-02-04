@@ -153,6 +153,7 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampAdd();
 std::vector<FunctionTestCall> GetFunctionTestsTimestampSub();
 std::vector<FunctionTestCall> GetFunctionTestsTimestampAddSub();
 std::vector<FunctionTestCall> GetFunctionTestsTimestampTrunc();
+std::vector<FunctionTestCall> GetFunctionTestsTimestampBucket();
 std::vector<FunctionTestCall> GetFunctionTestsExtractFrom();
 std::vector<FunctionTestCall> GetFunctionTestsFormatDateTimestamp();
 std::vector<FunctionTestCall> GetFunctionTestsFormatDatetime();
@@ -198,6 +199,9 @@ std::vector<QueryParamsWithResult> GetFunctionTestsToProto3TimeOfDay();
 std::vector<FunctionTestCall> GetFunctionTestsMath();
 std::vector<FunctionTestCall> GetFunctionTestsRounding();
 std::vector<FunctionTestCall> GetFunctionTestsTrigonometric();
+std::vector<FunctionTestCall> GetFunctionTestsCsc();
+std::vector<FunctionTestCall> GetFunctionTestsSec();
+std::vector<FunctionTestCall> GetFunctionTestsCot();
 
 std::vector<FunctionTestCall> GetFunctionTestsAscii();
 std::vector<FunctionTestCall> GetFunctionTestsUnicode();

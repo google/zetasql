@@ -21,8 +21,13 @@
 
 namespace zetasql {
 
-// Gets a pointer to the sql function inliner.
+// Gets a pointer to the sql function inliner. This inliner handles scalar sql
+// functions and scalar sql function templates.
 const Rewriter* GetSqlFunctionInliner();
+
+// Gets a pointer to the sql table function inliner. This inliner handles table
+// sql functions and table sql function templates.
+const Rewriter* GetSqlTvfInliner();
 
 }  // namespace zetasql
 

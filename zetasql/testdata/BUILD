@@ -235,6 +235,7 @@ cc_library(
         "//zetasql/public:parse_resume_location",
         "//zetasql/public:simple_catalog",
         "//zetasql/public:sql_function",
+        "//zetasql/public:sql_tvf",
         "//zetasql/public:strings",
         "//zetasql/public:templated_sql_function",
         "//zetasql/public:templated_sql_tvf",

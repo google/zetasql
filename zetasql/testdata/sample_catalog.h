@@ -96,8 +96,17 @@ class SampleCatalog {
   void LoadConnectionTableValuedFunctions();
   void LoadDescriptorTableValuedFunctions();
   void LoadTableValuedFunctionsWithDeprecationWarnings();
+
+  // Add a SQL table function to catalog starting from a full create table
+  // function statement.
+  void AddSqlDefinedTableFunctionFromCreate(
+      absl::string_view create_table_function,
+      const LanguageOptions& language_options);
+  void LoadNonTemplatedSqlTableValuedFunctions(
+      const LanguageOptions& language_options);
   void LoadTemplatedSQLTableValuedFunctions();
   void LoadTableValuedFunctionsWithAnonymizationUid();
+
   void AddProcedureWithArgumentType(std::string type_name,
                                     const Type* arg_type);
   void LoadProcedures();
@@ -166,12 +175,21 @@ class SampleCatalog {
   const ProtoType* proto_field_formats_proto_;
   const ProtoType* proto_MessageWithMapField_;
 
+  // STRUCT<a INT32, b STRING>
   const StructType* struct_type_;
+  // STRUCT<c INT32, d STRUCT<a INT32, b STRING>>
   const StructType* nested_struct_type_;
+  // STRUCT<e INT32, f STRUCT<c INT32, d STRUCT<a INT32, b STRING>>>
   const StructType* doubly_nested_struct_type_;
+  // STRUCT<x INT64, y STRUCT<a INT32, b STRING>,
+  //        z ARRAY<STRUCT<a INT32, b STRING>>>
   const StructType* struct_with_array_field_type_;
+  // STRUCT<x INT64>
   const StructType* struct_with_one_field_type_;
+  // STRUCT<kitchen_sink KitchenSinkPB, s STRUCT<kitchen_sink KitchenSinkPB>>
   const StructType* struct_with_kitchen_sink_type_;
+  // STRUCT<a INT64, b ARRAY<STRUCT<kitchen_sink KitchenSinkPB>>>
+  const StructType* struct_of_array_of_struct_with_kitchen_sink_type_;
 
   const SimpleTable* key_value_table_;
 

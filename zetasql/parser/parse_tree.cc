@@ -107,6 +107,10 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_BITWISE_SHIFT_EXPRESSION] = "BitwiseShiftExpression";
   map[AST_BEGIN_END_BLOCK] = "BeginEndBlock";
   map[AST_BOOLEAN_LITERAL] = "BooleanLiteral";
+  map[AST_BRACED_CONSTRUCTOR] = "BracedConstructor";
+  map[AST_BRACED_CONSTRUCTOR_FIELD] = "BracedConstructorField";
+  map[AST_BRACED_CONSTRUCTOR_FIELD_VALUE] = "BracedConstructorFieldValue";
+  map[AST_BRACED_NEW_CONSTRUCTOR] = "BracedNewConstructor";
   map[AST_BREAK_STATEMENT] = "Break";
   map[AST_BYTES_LITERAL] = "BytesLiteral";
   map[AST_CALL_STATEMENT] = "CallStatement";

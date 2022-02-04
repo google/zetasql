@@ -7,7 +7,7 @@ values of the same data type. You can construct arrays of simple data types,
 such as `INT64`, and complex data types, such as `STRUCT`s. The current
 exception to this is the `ARRAY` data type because arrays of arrays
 are not supported. To learn more about the `ARRAY`
-data type, see [`Array type`][array-data-type].
+data type, see [Array type][array-data-type].
 
 With ZetaSQL, you can construct array literals,
  build arrays from subqueries using the
@@ -351,8 +351,8 @@ FROM ItemsTable
 If you have an array with nested data, you can get a specific part of the nested
 data in the array and return it as a single, flat table with one row for each
 element. To do this, you can use the [`UNNEST`][unnest-query] operator
-explicitly or implicitly in the [`FROM clause`][from-clause] with the
-[array element field access operator][array-el-field-operator].
+explicitly or implicitly in the [`FROM` clause][from-clause] with the [array
+element field access operator][array-el-field-operator].
 
 **Examples**
 

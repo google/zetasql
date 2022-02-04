@@ -34,10 +34,10 @@ java_library(
         "//zetasql/parser:ast_enums_java_proto",
         "//zetasql/parser:ast_java_proto",  # buildcleaner: keep
         "//zetasql/public:options_java_proto",
-        "@com_google_guava_guava//jar",
         "@com_google_protobuf//:protobuf_java",
-        "@com_google_truth_truth//jar",
-        "@junit_junit//jar",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
     ],
 )
 

@@ -233,3 +233,142 @@ ARRAY<STRUCT<TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP>>[
     1999-12-31 10:15:00+00
   }
 ]
+==
+
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE]
+[name=timestamp_bucket]
+select
+  timestamp_bucket(ts, INTERVAL '0.0005' SECOND),
+  timestamp_bucket(ts, INTERVAL '0.1' SECOND),
+  timestamp_bucket(ts, INTERVAL 15 SECOND),
+  timestamp_bucket(ts, INTERVAL 20 MINUTE),
+  timestamp_bucket(ts, INTERVAL 3 HOUR),
+  timestamp_bucket(ts, INTERVAL 7 DAY)
+from (select timestamp '2020-02-15 14:57:39.646565' ts)
+--
+ARRAY<STRUCT<TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP>>[
+  {
+    2020-02-15 01:12:39.646500+00,
+    2020-02-15 01:12:39.600+00,
+    2020-02-15 01:12:30+00,
+    2020-02-15 00:55:00+00,
+    2020-02-14 23:15:00+00,
+    2020-02-08 11:15:00+00
+  }
+]
+==
+
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE]
+[name=timestamp_bucket_custom_origin]
+select
+  timestamp_bucket(ts, INTERVAL '0.0005' SECOND, origin),
+  timestamp_bucket(ts, INTERVAL '0.1' SECOND, origin),
+  timestamp_bucket(ts, INTERVAL 15 SECOND, origin),
+  timestamp_bucket(ts, INTERVAL 20 MINUTE, origin),
+  timestamp_bucket(ts, INTERVAL 3 HOUR, origin),
+  timestamp_bucket(ts, INTERVAL 7 DAY, origin)
+from (select timestamp '2020-02-15 14:57:39.646565' ts,
+             timestamp '2150-12-11 07:00:00' origin)
+--
+ARRAY<STRUCT<TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP>>[
+  {
+    2020-02-15 01:12:39.646500+00,
+    2020-02-15 01:12:39.600+00,
+    2020-02-15 01:12:30+00,
+    2020-02-15 00:55:00+00,
+    2020-02-14 23:15:00+00,
+    2020-02-13 17:15:00+00
+  }
+]
+==
+
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[name=timestamp_in_datetime_bucket]
+select
+  datetime_bucket(ts, INTERVAL 7 DAY),
+  datetime_bucket(ts, INTERVAL 7 DAY, timestamp '2150-12-11 07:00:00')
+from (select timestamp '2020-02-15 14:57:39.646565' ts)
+--
+ARRAY<STRUCT<TIMESTAMP, TIMESTAMP>>[
+  {
+    2020-02-08 11:15:00+00,
+    2020-02-13 17:15:00+00
+  }
+]
+==
+
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+[name=timestamp_in_date_bucket]
+select
+  date_bucket(ts, INTERVAL 7 DAY),
+  date_bucket(ts, INTERVAL 7 DAY, timestamp '2150-12-11 07:00:00')
+from (select timestamp '2020-02-15 14:57:39.646565' ts)
+--
+ARRAY<STRUCT<TIMESTAMP, TIMESTAMP>>[
+  {
+    2020-02-08 11:15:00+00,
+    2020-02-13 17:15:00+00
+  }
+]
+==
+
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE,TIMESTAMP_NANOS]
+[name=timestamp_bucket_nanos]
+select
+  timestamp_bucket('2020-02-15 14:57:39.123456789',
+                   INTERVAL '0.000000005' SECOND),
+  timestamp_bucket('2020-02-15 14:57:39', INTERVAL 7 DAY,
+                   '2100-01-12 07:31:55.123456789')
+--
+ARRAY<STRUCT<TIMESTAMP, TIMESTAMP>>[
+  {
+    2020-02-15 01:12:39.123456785+00,
+    2020-02-10 17:46:55.123456789+00
+  }
+]
+==
+
+# All calculations on TIMESTAMP happen independent of any time zone or DST
+# changes, since the calculation happen on the absolute instant of time using
+# fixed width bucket. The only artifact of the time zone existence is the
+# default origin, which is defined as 1950-01-01 in the default time zone.
+# Therefore, it's huseful to think about the operations as if they were
+# happening in UTC time zone.
+[required_features=TIME_BUCKET_FUNCTIONS,INTERVAL_TYPE]
+[name=timestamp_bucket_interesting_dates]
+select
+  # DST change (+13:45 -> +12:45) happens at 2021-04-04 03:45:00, so hour
+  # 02:45:00-03:45:00 is repeated.
+  # 2021-04-04 03:55:00 Pacific/Chatham == 2021-04-03 15:10:00 UTC
+  # 2021-04-04 00:00:00 Pacific/Chatham == 2021-04-03 10:15:00 UTC
+  # Result is 2021-04-04 03:00:00 Pacific/Chatham
+  timestamp_bucket('2021-04-04 03:55:00', INTERVAL 2 HOUR, '2021-03-14 00:00:00'),
+  # 2021-04-05 10:00:00 Pacific/Chatham == 2021-04-04 21:15:00 UTC
+  # 2021-04-04 00:00:00 Pacific/Chatham == 2021-04-03 10:15:00 UTC
+  # Result is 2021-04-04 23:00:00 Pacific/Chatham
+  timestamp_bucket('2021-04-05 10:00:00', INTERVAL 1 DAY, '2021-03-14 00:00:00'),
+  # DST change (+12:45 -> +13:45) happens at 2021-09-26 02:45:00, so hour
+  # 02:45:00-03:45:00 is skipped.
+  # 2021-09-26 03:55:00 Pacific/Chatham == 2021-09-25 14:10:00 UTC
+  # 2021-09-26 00:00:00 Pacific/Chatham == 2021-09-25 11:15:00 UTC
+  # Result is 2021-09-26 02:00:00 Pacific/Chatham
+  timestamp_bucket('2021-09-26 03:55:00', INTERVAL 2 HOUR, '2021-09-26 00:00:00'),
+  # 2021-09-27 10:00:00 Pacific/Chatham == 2021-09-26 20:15:00 UTC
+  # 2021-09-26 00:00:00 Pacific/Chatham == 2021-09-25 11:15:00 UTC
+  # Result is 2021-09-27 01:00:00 Pacific/Chatham
+  timestamp_bucket('2021-09-27 10:00:00', INTERVAL 1 DAY, '2021-09-26 00:00:00'),
+  # Origin on a leap day should work as usual.
+  timestamp_bucket('2020-03-10 10:00:00', INTERVAL 1 DAY, '2020-02-29 00:00:00'),
+  # Input on a leap day should work as usual.
+  timestamp_bucket('2020-02-29 11:30:00', INTERVAL 1 DAY, '2020-01-01 00:00:00')
+--
+ARRAY<STRUCT<TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP>>[
+  {
+    2021-04-03 14:15:00+00,
+    2021-04-04 10:15:00+00,
+    2021-09-25 13:15:00+00,
+    2021-09-26 11:15:00+00,
+    2020-03-09 10:15:00+00,
+    2020-02-28 10:15:00+00
+  }
+]

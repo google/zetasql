@@ -19,9 +19,11 @@
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/sql_function.h"
+#include "zetasql/public/sql_tvf.h"
 #include "zetasql/public/templated_sql_function.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
+#include "absl/status/status.h"
 
 namespace zetasql {
 
@@ -110,6 +112,13 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
         break;
       default:
         break;
+    }
+    return DefaultVisit(node);
+  }
+
+  absl::Status VisitResolvedTVFScan(const ResolvedTVFScan* node) override {
+    if (node->tvf()->Is<SQLTableValuedFunction>()) {
+      applicable_rewrites_->insert(ResolvedASTRewrite::REWRITE_INLINE_SQL_TVFS);
     }
     return DefaultVisit(node);
   }

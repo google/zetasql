@@ -62,6 +62,12 @@ class SampleAnnotation : public AnnotationSpec {
       AnnotationMap* result_annotation_map) override {
     return absl::OkStatus();
   }
+
+  absl::Status CheckAndPropagateForSetOperationScan(
+      const ResolvedSetOperationScan& set_operation_scan,
+      const std::vector<AnnotationMap*>& result_annotation_maps) override {
+    return absl::OkStatus();
+  }
 };
 
 }  // namespace zetasql

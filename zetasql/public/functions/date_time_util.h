@@ -994,6 +994,38 @@ inline bool IntervalUnaryMinus(IntervalValue in, IntervalValue* out,
   return true;
 }
 
+// Assigns <input> timestamp to a specific bucket using the specified
+// <bucket_width> INTERVAL and returns the bucket start timestamp.
+//
+// This function only supports nanoseconds/milliseconds and days encoded parts.
+// (Months part is not supported). Days part is equivalent to 24 hours.
+//
+// <origin> controls the alignment of the buckets. It can be less than, equal to
+// or greater than <input>.
+//
+// <timezone> is only used for string formatting in error messages.
+//
+// For example: TIMESTAMP_BUCKET(
+//                  TIMESTAMP "2022-01-19 13:38:30 UTC",
+//                  INTERVAL 3 HOUR,
+//                  TIMESTAMP "1950-01-01 00:00:00 UTC")
+//                  --> "2022-01-19 12:00:00 UTC"
+//
+// In the above example:
+// - <bucket_width> INTERVAL 3 HOUR indicates that the function divides
+// - timestamp values into 3-hour buckets
+// - <origin> "1950-01-01 00:00:00" indicates that starting from this timestamp
+//   we divide the range of all timestamp values (forwards and backwards) into
+//   <bucket_width> subranges.
+// - <input> "2022-01-19 13:38:30" gets assgigned to bucket
+//   ["2022-01-19 12:00:00", "2022-01-19 15:00:00") and the start of the bucket
+//   ("2022-01-19 12:00:00") is returned.
+//
+absl::Status TimestampBucket(absl::Time input,
+                             zetasql::IntervalValue bucket_width,
+                             absl::Time origin, absl::TimeZone timezone,
+                             absl::Time* output);
+
 // The namespace 'internal_functions' includes the internal implementation
 // details and is not part of the public api.
 namespace internal_functions {

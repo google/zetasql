@@ -51,6 +51,7 @@
 #include "zetasql/public/templated_sql_function.h"
 #include "zetasql/public/templated_sql_tvf.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
@@ -66,6 +67,7 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/sql_builder.h"
 #include "zetasql/resolved_ast/validator.h"
+#include "zetasql/testdata/sample_annotation.h"
 #include "zetasql/testdata/sample_catalog.h"
 #include "zetasql/testdata/sample_system_variables.h"
 #include "zetasql/testdata/special_catalog.h"
@@ -353,6 +355,18 @@ class AnalyzerTestRunner {
 
     TypeFactory type_factory;
     AnalyzerOptions options;
+
+    if (test_case_options_.GetBool(kEnableSampleAnnotation)) {
+      engine_specific_annotation_specs_.push_back(
+          std::make_unique<SampleAnnotation>());
+
+      std::vector<AnnotationSpec*> annotation_specs;
+      annotation_specs.push_back(
+          engine_specific_annotation_specs_.back().get());
+
+      options.set_annotation_specs(annotation_specs);
+    }
+
     // Turn off AST rewrites. We'll run them later so we can show both ASTs.
     options.set_enabled_rewrites({});
 
@@ -2483,6 +2497,8 @@ class AnalyzerTestRunner {
   file_based_test_driver::TestCaseOptions test_case_options_;
   zetasql_base::SequenceNumber custom_id_sequence_;
   TestDumperCallback test_dumper_callback_ = nullptr;
+  std::vector<std::unique_ptr<AnnotationSpec>>
+      engine_specific_annotation_specs_;
 };
 
 bool RunAllTests(TestDumperCallback callback) {

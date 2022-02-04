@@ -360,6 +360,7 @@ class ResolvedFunctionCallBase;
 class ResolvedGetStructField;
 class ResolvedMakeStruct;
 class ResolvedSubqueryExpr;
+class ResolvedSetOperationScan;
 
 // Interface to define a possible annotation, with resolution and propagation
 // logic.
@@ -410,6 +411,12 @@ class AnnotationSpec {
   virtual absl::Status CheckAndPropagateForSubqueryExpr(
       const ResolvedSubqueryExpr& subquery_expr,
       AnnotationMap* result_annotation_map) = 0;
+
+  // Propagates annotations from the output columns of set operation items to
+  // <result_annotation_maps>.
+  virtual absl::Status CheckAndPropagateForSetOperationScan(
+      const ResolvedSetOperationScan& set_operation_scan,
+      const std::vector<AnnotationMap*>& result_annotation_maps) = 0;
 
   // TODO: add more functions to handle different resolved nodes.
 };

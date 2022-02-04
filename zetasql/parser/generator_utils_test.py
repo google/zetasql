@@ -18,6 +18,7 @@
 from zetasql.parser.generator_utils import CleanIndent
 from zetasql.parser.generator_utils import JavaDoc
 from zetasql.parser.generator_utils import LowerCamelCase
+from zetasql.parser.generator_utils import NameToNodeKindName
 from zetasql.parser.generator_utils import Trim
 from zetasql.parser.generator_utils import UpperCamelCase
 from absl.testing import absltest
@@ -60,6 +61,10 @@ class GeneratorUtilsTest(absltest.TestCase):
   def test_upper_camel_case(self):
     self.assertEqual('LarryCurlyMoe', UpperCamelCase('LARRY_CURLY_MOE'))
     self.assertEqual('LarryCurlyMoe', UpperCamelCase('larry_curly_moe'))
+
+  def test_name_to_node_kind_name(self):
+    self.assertEqual('Foo', NameToNodeKindName('ASTFoo', 'AST'))
+    self.assertEqual('Bar', NameToNodeKindName('Bar', 'AST'))
 
 if __name__ == '__main__':
   absltest.main()

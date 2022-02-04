@@ -68,6 +68,12 @@ class CollationAnnotation : public AnnotationSpec {
       const ResolvedSubqueryExpr& subquery_expr,
       AnnotationMap* result_annotation_map) override;
 
+  // Propagates annotations from the output columns of set operation items to
+  // <result_annotation_maps>.
+  absl::Status CheckAndPropagateForSetOperationScan(
+      const ResolvedSetOperationScan& set_operation_scan,
+      const std::vector<AnnotationMap*>& result_annotation_maps) override;
+
   // Returns false when <map> is nullptr or CollationAnnotation is not
   // present in <map> or any of its nested AnnotationMaps.
   static bool ExistsIn(const AnnotationMap* map) {

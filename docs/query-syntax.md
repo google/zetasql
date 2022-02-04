@@ -583,7 +583,7 @@ return multiple columns:
 return a second column with the array element indexes.
 
 For several ways to use `UNNEST`, including construction, flattening, and
-filtering, see [`Working with arrays`][working-with-arrays].
+filtering, see [Working with arrays][working-with-arrays].
 
 ### UNNEST and STRUCTs
 For an input `ARRAY` of `STRUCT`s, `UNNEST`
@@ -2888,7 +2888,7 @@ two things:
 + [Changes the visibility][cte-visibility] of CTEs in the `WITH` clause. If this
   keyword is not present, a CTE is only visible to CTEs defined after it in the
   `WITH` clause. If this keyword is present, a CTE is visible to all CTEs in the
-  `WITH` clause where it was created.
+  `WITH` clause where it was defined.
 
 ### Non-recursive CTEs 
 <a id="simple_cte"></a>
@@ -2968,12 +2968,12 @@ recursive [subquery][subquery-concepts] and a name associated with the CTE.
 + A recursive CTE references itself.
 + A recursive CTE can be referenced in the query expression that contains the
   `WITH` clause, but [rules apply][cte-rules].
-+ When a recursive CTE is present in a WITH clause, the
++ When a recursive CTE is defined in a `WITH` clause, the
   [`RECURSIVE`][recursive-keyword] keyword must be present.
 
 A recursive CTE is defined by a _recursive union operation_. The
 recursive union operation defines how input is recursively processed
-to produce the final table result. The recursive union operation has the
+to produce the final CTE result. The recursive union operation has the
 following parts:
 
 + `base_term`: Runs the first iteration of the
@@ -2981,14 +2981,14 @@ following parts:
   [base term rules][base-term-rules].
 + `union_operator`: The `UNION` operator returns the rows that are from
   the union of the base term and recursive term. With `UNION ALL`,
-  each row produced in iteration `N` becomes part of the final query output and
+  each row produced in iteration `N` becomes part of the final CTE result and
   input for iteration `N+1`. With
-  `UNION DISTINCT`, only distinct rows become part of the final query output,
+  `UNION DISTINCT`, only distinct rows become part of the final CTE result,
   and only new distinct rows move into iteration `N+1`. Iteration
   stops when an iteration produces no rows to move into the next iteration.
 + `recursive_term`: Runs the remaining iterations.
-  It must include a self-reference to the recursive CTE. All recursive
-  references must be in this term. This term
+  It must include one self-reference (recursive reference) to the recursive CTE.
+  Only this term can include a self-reference. This term
   must follow the [recursive term rules][recursive-cte-rules].
 
 A recursive CTE looks like this:
@@ -3001,8 +3001,8 @@ SELECT n FROM T1
 +---+
 | n |
 +---+
-| 1 |
 | 2 |
+| 1 |
 | 3 |
 +---+
 ```
@@ -3033,7 +3033,7 @@ WITH RECURSIVE
   T1 AS (
     (SELECT 1 AS n) UNION ALL
     (SELECT n + 2 FROM T1 WHERE n < 4))
-SELECT * FROM T1
+SELECT * FROM T1 ORDER BY n
 
 +---+
 | n |
@@ -3054,7 +3054,7 @@ WITH RECURSIVE
   T1 AS ((SELECT * FROM T0) UNION ALL (SELECT n + 1 FROM T1 WHERE n < 4)),
   T2 AS ((SELECT 1 AS n) UNION ALL (SELECT n + 1 FROM T2 WHERE n < 4)),
   T3 AS (SELECT * FROM T1 INNER JOIN T2 USING (n))
-SELECT * FROM T3
+SELECT * FROM T3 ORDER BY n
 
 +---+
 | n |
@@ -3073,7 +3073,7 @@ aggregating on the table being defined:
 WITH RECURSIVE
   T0 AS (SELECT * FROM UNNEST ([60, 20, 30])),
   T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n + (SELECT COUNT(*) FROM T0) FROM T1 WHERE n < 4))
-SELECT * FROM T1
+SELECT * FROM T1 ORDER BY n
 
 +---+
 | n |
@@ -3089,7 +3089,7 @@ SELECT * FROM T1
 WITH RECURSIVE
   T0 AS (SELECT 1 AS n),
   T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n + 1 FROM T1 INNER JOIN T0 USING (n)))
-SELECT * FROM T1;
+SELECT * FROM T1 ORDER BY n
 
 +---+
 | n |
@@ -3105,7 +3105,7 @@ SELECT * FROM T1;
 WITH RECURSIVE
   T0 AS (SELECT 2 AS p),
   T1 AS ((SELECT 1 AS n) UNION ALL (SELECT T1.n + T0.p FROM T1 CROSS JOIN T0 WHERE T1.n < 4))
-SELECT * FROM T1 CROSS JOIN T0;
+SELECT * FROM T1 CROSS JOIN T0 ORDER BY n
 
 +---+---+
 | n | p |
@@ -3124,7 +3124,7 @@ produced by iteration `5` is a duplicate, so the query terminates.
 ```sql
 WITH RECURSIVE
   T1 AS ( (SELECT 0 AS n) UNION DISTINCT (SELECT MOD(n + 1, 5) FROM T1) )
-SELECT * FROM T1;
+SELECT * FROM T1 ORDER BY n
 
 +---+
 | n |
@@ -3149,9 +3149,8 @@ WITH RECURSIVE
 SELECT * FROM T1
 ```
 
-The following recursive CTE is disallowed because the
-self-reference to `T1` is in the base term. Self references are only allowed in
-the recursive term.
+The following recursive CTE is disallowed because the self-reference to `T1`
+is in the base term. The self reference is only allowed in the recursive term.
 
 ```sql {.bad}
 WITH RECURSIVE
@@ -3198,19 +3197,8 @@ WITH RECURSIVE
 SELECT * FROM T1;
 ```
 
-The following recursive CTE is disallowed due to multiple
-self-references.
-
-```sql {.bad}
-WITH RECURSIVE
-  T1 AS (
-    (SELECT 1 AS n) UNION ALL
-    (SELECT n + 1 FROM T1 CROSS JOIN T1))
-SELECT * FROM T1;
-```
-
-The following recursive CTE is disallowed due to illegal
-aggregation.
+The following recursive CTE is disallowed because you cannot use aggregation
+with a self-reference.
 
 ```sql {.bad}
 WITH RECURSIVE
@@ -3220,8 +3208,8 @@ WITH RECURSIVE
 SELECT * FROM T1;
 ```
 
-The following recursive CTE is disallowed due to an illegal
-analytic function `OVER` clause.
+The following recursive CTE is disallowed because you cannot use the
+analytic function `OVER` clause with a self-reference.
 
 ```sql {.bad}
 WITH RECURSIVE
@@ -3231,8 +3219,8 @@ WITH RECURSIVE
 SELECT n FROM T1;
 ```
 
-The following recursive CTE is disallowed due to an illegal
-`LIMIT` clause.
+The following recursive CTE is disallowed because you cannot use a
+`LIMIT` clause with a self-reference.
 
 ```sql {.bad}
 WITH RECURSIVE
@@ -3240,21 +3228,12 @@ WITH RECURSIVE
 SELECT * FROM T1;
 ```
 
-The following recursive CTE is disallowed due to an illegal
-`ORDER BY` clause.
+The following recursive CTEs are disallowed because you cannot use an
+`ORDER BY` clause with a self-reference.
 
 ```sql {.bad}
 WITH RECURSIVE
   T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n + 1 FROM T1 ORDER BY n))
-SELECT * FROM T1;
-```
-
-The following recursive CTE is disallowed due to an illegal
-`ORDER BY` clause.
-
-```sql {.bad}
-WITH RECURSIVE
-  T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n + 1 FROM T1) ORDER BY n)
 SELECT * FROM T1;
 ```
 

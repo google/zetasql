@@ -593,6 +593,10 @@ void GetDatetimeDiffTruncLastFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions);
 
+void GetDatetimeBucketFunctions(TypeFactory* type_factory,
+                                const ZetaSQLBuiltinFunctionOptions& options,
+                                NameToFunctionMap* functions);
+
 void GetDatetimeFormatFunctions(TypeFactory* type_factory,
                                 const ZetaSQLBuiltinFunctionOptions& options,
                                 NameToFunctionMap* functions);

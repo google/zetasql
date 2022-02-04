@@ -69,34 +69,6 @@ absl::Status GetProtoFieldTypeAndDefault(
     const google::protobuf::FieldDescriptor* field, TypeFactory* type_factory,
     const Type** type, Value* default_value = nullptr);
 
-// Get the Type and default value for a proto field in one step.
-// The returned <type> will be allocated from <type_factory>,
-// and will match the type returned by ProtoType::GetProtoFieldType.
-// If <default_value> is non-NULL, the computed field default (as described
-// above in GetProtoFieldDefault) will be returned.
-// For required fields, returns an invalid default_value.
-// For repeated fields, returns an empty array for default_value.
-//
-ABSL_DEPRECATED("Inline me!")
-inline absl::Status GetProtoFieldTypeAndDefault(
-    const google::protobuf::FieldDescriptor* field, TypeFactory* type_factory,
-    const Type** type, Value* default_value = nullptr) {
-  return GetProtoFieldTypeAndDefault({}, field, type_factory, type,
-                                     default_value);
-}
-
-// DEPRECATED: Callers should move to the form above. <use_obsolete_timestamp>
-// must be false.
-ABSL_DEPRECATED("Inline me!")
-inline absl::Status GetProtoFieldTypeAndDefault(
-    const google::protobuf::FieldDescriptor* field, TypeFactory* type_factory,
-    bool use_obsolete_timestamp, const Type** type,
-    Value* default_value = nullptr) {
-  ZETASQL_RET_CHECK(!use_obsolete_timestamp);
-  return GetProtoFieldTypeAndDefault({}, field, type_factory, type,
-                                     default_value);
-}
-
 // Represents a proto field access. If 'get_has_bit' is false, 'type' and
 // 'default_value' must be populated by GetProtoFieldTypeAndDefault().
 struct ProtoFieldInfo {

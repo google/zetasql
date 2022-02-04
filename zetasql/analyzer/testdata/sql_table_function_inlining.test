@@ -1,0 +1,362 @@
+[default enabled_ast_rewrites=ALL]
+[default language_features=TABLE_VALUED_FUNCTIONS]
+[default no_java]
+
+SELECT {{*|a|b}} FROM NullarySelect();
+--
+ALTERNATION GROUP: *
+--
+QueryStmt
++-output_column_list=
+| +-NullarySelect.a#1 AS a [INT64]
+| +-NullarySelect.b#2 AS b [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=NullarySelect.[a#1, b#2]
+    +-input_scan=
+      +-TVFScan(column_list=NullarySelect.[a#1, b#2], tvf=NullarySelect(() -> TABLE<a INT64, b INT64>), signature=() -> TABLE<a INT64, b INT64>, column_index_list=[0, 1])
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-NullarySelect.a#1 AS a [INT64]
+| +-NullarySelect.b#2 AS b [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=NullarySelect.[a#1, b#2]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=NullarySelect.[a#1, b#2]
+        +-expr_list=
+        | +-a#1 := Literal(type=INT64, value=1)
+        | +-b#2 := Literal(type=INT64, value=2)
+        +-input_scan=
+          +-SingleRowScan
+--
+ALTERNATION GROUP: a
+--
+QueryStmt
++-output_column_list=
+| +-NullarySelect.a#1 AS a [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[NullarySelect.a#1]
+    +-input_scan=
+      +-TVFScan(column_list=[NullarySelect.a#1], tvf=NullarySelect(() -> TABLE<a INT64, b INT64>), signature=() -> TABLE<a INT64, b INT64>, column_index_list=[0])
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-NullarySelect.a#1 AS a [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[NullarySelect.a#1]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[NullarySelect.a#1, $query.b#3]
+        +-expr_list=
+        | +-a#1 := Literal(type=INT64, value=1)
+        | +-b#3 := Literal(type=INT64, value=2)
+        +-input_scan=
+          +-SingleRowScan
+--
+ALTERNATION GROUP: b
+--
+QueryStmt
++-output_column_list=
+| +-NullarySelect.b#2 AS b [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[NullarySelect.b#2]
+    +-input_scan=
+      +-TVFScan(column_list=[NullarySelect.b#2], tvf=NullarySelect(() -> TABLE<a INT64, b INT64>), signature=() -> TABLE<a INT64, b INT64>, column_index_list=[1])
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-NullarySelect.b#2 AS b [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[NullarySelect.b#2]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$query.a#3, NullarySelect.b#2]
+        +-expr_list=
+        | +-a#3 := Literal(type=INT64, value=1)
+        | +-b#2 := Literal(type=INT64, value=2)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+SELECT * FROM NullarySelectUnion();
+--
+QueryStmt
++-output_column_list=
+| +-NullarySelectUnion.a#1 AS a [INT64]
+| +-NullarySelectUnion.b#2 AS b [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=NullarySelectUnion.[a#1, b#2]
+    +-input_scan=
+      +-TVFScan(column_list=NullarySelectUnion.[a#1, b#2], tvf=NullarySelectUnion(() -> TABLE<a INT64, b INT64>), signature=() -> TABLE<a INT64, b INT64>, column_index_list=[0, 1])
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-NullarySelectUnion.a#1 AS a [INT64]
+| +-NullarySelectUnion.b#2 AS b [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=NullarySelectUnion.[a#1, b#2]
+    +-input_scan=
+      +-SetOperationScan
+        +-column_list=NullarySelectUnion.[a#1, b#2]
+        +-op_type=UNION_ALL
+        +-input_item_list=
+          +-SetOperationItem
+          | +-scan=
+          | | +-ProjectScan
+          | |   +-column_list=$union_all1.[a#3, b#4]
+          | |   +-expr_list=
+          | |   | +-a#3 := Literal(type=INT64, value=1)
+          | |   | +-b#4 := Literal(type=INT64, value=2)
+          | |   +-input_scan=
+          | |     +-SingleRowScan
+          | +-output_column_list=$union_all1.[a#3, b#4]
+          +-SetOperationItem
+            +-scan=
+            | +-ProjectScan
+            |   +-column_list=$union_all2.[$col1#5, $col2#6]
+            |   +-expr_list=
+            |   | +-$col1#5 := Literal(type=INT64, value=1)
+            |   | +-$col2#6 := Literal(type=INT64, value=4)
+            |   +-input_scan=
+            |     +-SingleRowScan
+            +-output_column_list=$union_all2.[$col1#5, $col2#6]
+==
+
+SELECT * FROM NullarySelectCTE();
+--
+QueryStmt
++-output_column_list=
+| +-NullarySelectCTE.a#1 AS a [INT64]
+| +-NullarySelectCTE.b#2 AS b [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=NullarySelectCTE.[a#1, b#2]
+    +-input_scan=
+      +-TVFScan(column_list=NullarySelectCTE.[a#1, b#2], tvf=NullarySelectCTE(() -> TABLE<a INT64, b INT64>), signature=() -> TABLE<a INT64, b INT64>, column_index_list=[0, 1])
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-NullarySelectCTE.a#1 AS a [INT64]
+| +-NullarySelectCTE.b#2 AS b [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=NullarySelectCTE.[a#1, b#2]
+    +-input_scan=
+      +-WithScan
+        +-column_list=NullarySelectCTE.[a#1, b#2]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="t"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=t.[a#3, b#4]
+        |       +-expr_list=
+        |       | +-a#3 := Literal(type=INT64, value=1)
+        |       | +-b#4 := Literal(type=INT64, value=2)
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=NullarySelectCTE.[a#1, b#2]
+            +-input_scan=
+              +-WithRefScan(column_list=NullarySelectCTE.[a#1, b#2], with_query_name="t")
+==
+
+SELECT * FROM NullarySelectFromTvf();
+--
+QueryStmt
++-output_column_list=
+| +-NullarySelectFromTvf.a#1 AS a [INT64]
+| +-NullarySelectFromTvf.b#2 AS b [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=NullarySelectFromTvf.[a#1, b#2]
+    +-input_scan=
+      +-TVFScan(column_list=NullarySelectFromTvf.[a#1, b#2], tvf=NullarySelectFromTvf(() -> TABLE<a INT64, b INT64>), signature=() -> TABLE<a INT64, b INT64>, column_index_list=[0, 1])
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-NullarySelectFromTvf.a#1 AS a [INT64]
+| +-NullarySelectFromTvf.b#2 AS b [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=NullarySelectFromTvf.[a#1, b#2]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=NullarySelectFromTvf.[a#1, b#2]
+        +-input_scan=
+          +-ProjectScan
+            +-column_list=NullarySelectFromTvf.[a#1, b#2]
+            +-expr_list=
+            | +-a#1 := Literal(type=INT64, value=1)
+            | +-b#2 := Literal(type=INT64, value=2)
+            +-input_scan=
+              +-SingleRowScan
+==
+
+SELECT * FROM NullarySelectCallingScalarUDF();
+--
+QueryStmt
++-output_column_list=
+| +-NullarySelectCallingScalarUDF.pi#1 AS pi [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[NullarySelectCallingScalarUDF.pi#1]
+    +-input_scan=
+      +-TVFScan(column_list=[NullarySelectCallingScalarUDF.pi#1], tvf=NullarySelectCallingScalarUDF(() -> TABLE<pi DOUBLE>), signature=() -> TABLE<pi DOUBLE>, column_index_list=[0])
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-NullarySelectCallingScalarUDF.pi#1 AS pi [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[NullarySelectCallingScalarUDF.pi#1]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[NullarySelectCallingScalarUDF.pi#1]
+        +-expr_list=
+        | +-pi#1 := Literal(type=DOUBLE, value=3.141597)
+        +-input_scan=
+          +-SingleRowScan
+==
+
+SELECT * FROM NullarySelectCallingLambdaArgFunction();
+--
+QueryStmt
++-output_column_list=
+| +-NullarySelectCallingLambdaArgFunction.arr#1 AS arr [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[NullarySelectCallingLambdaArgFunction.arr#1]
+    +-input_scan=
+      +-TVFScan(column_list=[NullarySelectCallingLambdaArgFunction.arr#1], tvf=NullarySelectCallingLambdaArgFunction(() -> TABLE<arr ARRAY<INT64>>), signature=() -> TABLE<arr ARRAY<INT64>>, column_index_list=[0])
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-NullarySelectCallingLambdaArgFunction.arr#1 AS arr [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[NullarySelectCallingLambdaArgFunction.arr#1]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[NullarySelectCallingLambdaArgFunction.arr#1]
+        +-expr_list=
+        | +-arr#1 :=
+        |   +-SubqueryExpr
+        |     +-type=ARRAY<INT64>
+        |     +-subquery_type=SCALAR
+        |     +-subquery=
+        |       +-ProjectScan
+        |         +-column_list=[$expr_subquery.$col1#2]
+        |         +-expr_list=
+        |         | +-$col1#2 :=
+        |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
+        |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
+        |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#3)
+        |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
+        |         |     +-SubqueryExpr
+        |         |       +-type=ARRAY<INT64>
+        |         |       +-subquery_type=ARRAY
+        |         |       +-parameter_list=
+        |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#3)
+        |         |       +-subquery=
+        |         |         +-OrderByScan
+        |         |           +-column_list=[$array.element#4]
+        |         |           +-is_ordered=TRUE
+        |         |           +-input_scan=
+        |         |           | +-FilterScan
+        |         |           |   +-column_list=[$array.element#4, $array_offset.off#5]
+        |         |           |   +-input_scan=
+        |         |           |   | +-ArrayScan
+        |         |           |   |   +-column_list=[$array.element#4, $array_offset.off#5]
+        |         |           |   |   +-array_expr=
+        |         |           |   |   | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_input#3, is_correlated=TRUE)
+        |         |           |   |   +-element_column=$array.element#4
+        |         |           |   |   +-array_offset_column=
+        |         |           |   |     +-ColumnHolder(column=$array_offset.off#5)
+        |         |           |   +-filter_expr=
+        |         |           |     +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+        |         |           |       +-ColumnRef(type=INT64, column=$array.element#4)
+        |         |           |       +-Literal(type=INT64, value=1)
+        |         |           +-order_by_item_list=
+        |         |             +-OrderByItem
+        |         |               +-column_ref=
+        |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#5)
+        |         +-input_scan=
+        |           +-ProjectScan
+        |             +-column_list=[$subquery1.array_input#3]
+        |             +-expr_list=
+        |             | +-array_input#3 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
+        |             +-input_scan=
+        |               +-SingleRowScan
+        +-input_scan=
+          +-SingleRowScan
+==
+
+SELECT * FROM UnaryScalarArg(1);
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-UnaryScalarArg.arg0#1 AS arg0 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryScalarArg.arg0#1]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[UnaryScalarArg.arg0#1]
+        +-tvf=UnaryScalarArg((INT64 arg0) -> TABLE<arg0 INT64>)
+        +-signature=(literal INT64) -> TABLE<arg0 INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=INT64, value=1)
+        +-column_index_list=[0]
+
+Rewrite ERROR: generic::unimplemented: Inlining TVFs with arguments is not yet supported.
+==
+
+SELECT * FROM UnaryTableArg((SELECT 1 AS a));
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-UnaryTableArg.a#2 AS a [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryTableArg.a#2]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[UnaryTableArg.a#2]
+        +-tvf=UnaryTableArg((TABLE<a INT64> arg0) -> TABLE<a INT64>)
+        +-signature=(TABLE<a INT64>) -> TABLE<a INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[$subquery1.a#1]
+        |   |   +-expr_list=
+        |   |   | +-a#1 := Literal(type=INT64, value=1)
+        |   |   +-input_scan=
+        |   |     +-SingleRowScan
+        |   +-argument_column_list=[$subquery1.a#1]
+        +-column_index_list=[0]
+
+Rewrite ERROR: generic::unimplemented: Inlining TVFs with arguments is not yet supported.

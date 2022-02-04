@@ -78,6 +78,7 @@ const char* const kEnabledASTRewrites = "enabled_ast_rewrites";
 const char* const kCreateTableLikeNotScanned = "create_table_like_not_scanned";
 const char* const kPrivilegeRestrictionTableNotScanned =
     "privilege_restriction_table_not_scanned";
+const char* const kEnableSampleAnnotation = "enable_sample_annotation";
 
 void RegisterAnalyzerTestOptions(
     file_based_test_driver::TestCaseOptions* test_case_options) {
@@ -96,6 +97,7 @@ void RegisterAnalyzerTestOptions(
   test_case_options->RegisterString(kParseLocationRecordType, "");
   test_case_options->RegisterBool(kCreateNewColumnForEachProjectedOutput,
                                   false);
+  test_case_options->RegisterBool(kEnableSampleAnnotation, false);
   test_case_options->RegisterBool(kParseMultiple, false);
   test_case_options->RegisterString(kDefaultTimezone, "");
   test_case_options->RegisterBool(kRunUnparser, true);

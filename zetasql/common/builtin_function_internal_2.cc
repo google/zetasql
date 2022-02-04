@@ -739,6 +739,56 @@ void GetDatetimeDiffTruncLastFunctions(
   }
 }
 
+void GetDatetimeBucketFunctions(TypeFactory* type_factory,
+                                const ZetaSQLBuiltinFunctionOptions& options,
+                                NameToFunctionMap* functions) {
+  if (!options.language_options.LanguageFeatureEnabled(
+          FEATURE_TIME_BUCKET_FUNCTIONS) ||
+      !options.language_options.LanguageFeatureEnabled(FEATURE_INTERVAL_TYPE)) {
+    return;
+  }
+  const Type* timestamp_type = type_factory->get_timestamp();
+  const Type* interval_type = type_factory->get_interval();
+
+  const Function::Mode SCALAR = Function::SCALAR;
+  const FunctionArgumentType::ArgumentCardinality OPTIONAL =
+      FunctionArgumentType::OPTIONAL;
+
+  FunctionSignatureOptions extended_datetime_signatures =
+      FunctionSignatureOptions()
+          .add_required_language_feature(
+              FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)
+          .set_is_aliased_signature(true)
+          .set_constraints(&NoLiteralOrParameterString<0, 2>);
+
+  InsertFunction(
+      functions, options, "date_bucket", SCALAR,
+      {
+          {timestamp_type,
+           {timestamp_type, interval_type, {timestamp_type, OPTIONAL}},
+           FN_TIMESTAMP_BUCKET,
+           extended_datetime_signatures},
+      });
+
+  InsertFunction(
+      functions, options, "datetime_bucket", SCALAR,
+      {
+          {timestamp_type,
+           {timestamp_type, interval_type, {timestamp_type, OPTIONAL}},
+           FN_TIMESTAMP_BUCKET,
+           extended_datetime_signatures},
+      },
+      FunctionOptions().add_required_language_feature(
+          FEATURE_V_1_2_CIVIL_TIME));
+  InsertFunction(
+      functions, options, "timestamp_bucket", SCALAR,
+      {
+          {timestamp_type,
+           {timestamp_type, interval_type, {timestamp_type, OPTIONAL}},
+           FN_TIMESTAMP_BUCKET},
+      });
+}
+
 void GetDatetimeFormatFunctions(TypeFactory* type_factory,
                                 const ZetaSQLBuiltinFunctionOptions& options,
                                 NameToFunctionMap* functions) {
@@ -821,6 +871,7 @@ void GetDatetimeFunctions(TypeFactory* type_factory,
   GetDatetimeFormatFunctions(type_factory, options, functions);
   GetDatetimeAddSubFunctions(type_factory, options, functions);
   GetDatetimeDiffTruncLastFunctions(type_factory, options, functions);
+  GetDatetimeBucketFunctions(type_factory, options, functions);
 
   GetTimeAndDatetimeConstructionAndConversionFunctions(type_factory, options,
                                                        functions);

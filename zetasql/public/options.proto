@@ -357,6 +357,7 @@ enum LanguageFeature {
       [(language_feature_options).in_development = true];
 
   // INTERVAL data type. (broken link)
+  // TODO: remove in_development and consider enabling it.
   FEATURE_INTERVAL_TYPE = 49 [(language_feature_options).in_development = true];
 
   // If enabled, JSON parsing fails for JSON documents containing number values
@@ -474,6 +475,11 @@ enum LanguageFeature {
 
   FEATURE_ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL = 70;
 
+  // Enables TIMESTAMP_BUCKET, DATE_BUCKET and DATETIME_BUCKET functions.
+  // See (broken link) for details.
+  FEATURE_TIME_BUCKET_FUNCTIONS = 71
+      [(language_feature_options).in_development = true];
+
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
   //    New features should be added for the *next* version number.
@@ -584,7 +590,7 @@ enum LanguageFeature {
 
   // -> Add more versioned features here.
   // -> Always update AnalyzerOptions::GetLanguageFeaturesForVersion
-  //    in ../common/language_options.cc.
+  //    in language_options.cc.
 
   // Enables support for the PROTO_DEFAULT_IF_NULL() function, see
   // (broken link)
@@ -820,6 +826,10 @@ enum LanguageFeature {
   // If Array ordering is enabled, this flag enables arrays for GREATEST/LEAST.
   FEATURE_V_1_3_ARRAY_GREATEST_LEAST = 13044;
 
+  // Enables braced constructors for protocol buffers.
+  // See (broken link)
+  FEATURE_V_1_3_BRACED_PROTO_CONSTRUCTORS = 13045;
+
   // EXPERIMENTAL FEATURES
   // These are features supported in the code that are not currently part of
   // officially supported ZetaSQL as of any version.
@@ -917,6 +927,22 @@ enum ResolvedASTRewrite {
   //   kUnimplemented error.
   //   TODO Fix this case when releasing TVF rewrites.
   REWRITE_INLINE_SQL_FUNCTIONS = 10 [
+    (rewrite_options).default_enabled = false,
+    (rewrite_options).in_development = true
+  ];
+
+  // Inline SQL TVFs (Table Valued Functions).
+  // Experimental, functionality may change before generally available.
+  // Functions that are added to the Catalog that are subtypes of
+  // SQLFunctionBase will be inlined. That removes the ResolvedFunctionCall and
+  // replaces it with an expression that evaluates the function body.
+  // Currently, not all shapes of functions and function calls are supported:
+  // * Argument references inside WITH subqueries will result in an
+  //   kUnimplemented error.
+  //   TODO Fix this case before removing in_development
+  // * Correlated subqueries cannot be used as arguments to TABLE parameters.
+  //   TODO Fix this case before removing in_development
+  REWRITE_INLINE_SQL_TVFS = 11 [
     (rewrite_options).default_enabled = false,
     (rewrite_options).in_development = true
   ];

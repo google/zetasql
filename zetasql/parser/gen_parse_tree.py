@@ -36,6 +36,7 @@ from zetasql.parser import ast_enums_pb2
 from zetasql.parser.generator_utils import CleanIndent
 from zetasql.parser.generator_utils import JavaDoc
 from zetasql.parser.generator_utils import LowerCamelCase
+from zetasql.parser.generator_utils import NameToNodeKindName
 from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 from zetasql.parser.generator_utils import UpperCamelCase
@@ -444,7 +445,7 @@ class TreeGenerator(object):
     Args:
       name: class name for this node
       tag_id: unique sequential id for this node, which should not change.
-          Next tag_id: 324
+          Next tag_id: 334
       parent: class name of the parent node
       is_abstract: true if this node is an abstract class
       fields: list of fields in this class; created with Field function
@@ -542,6 +543,7 @@ class TreeGenerator(object):
         'parent_proto_type': '%sProto' % parent,
         'tag_id': tag_id,
         'member_name': NameToNodeKind(name).lower(),
+        'node_kind_name': NameToNodeKindName(name, 'AST'),
         'subclasses': {},  # {tag_id : NodeDict}
         'node_kind_oneof_value': GetNodeKindOneOfValue(name),
         'init_fields_order': init_fields_order,
@@ -3840,24 +3842,18 @@ def main(argv):
       name='ASTNewConstructorArg',
       tag_id=146,
       parent='ASTNode',
+      comment="""
+ At most one of 'optional_identifier' and 'optional_path_expression' are
+ set.
+       """,
       fields=[
           Field(
               'expression',
               'ASTExpression',
               tag_id=2,
               field_loader=FieldLoaderMethod.REQUIRED),
-          Field(
-              'optional_identifier',
-              'ASTIdentifier',
-              tag_id=3,
-              comment="""
-         At most one of 'optional_identifier' and 'optional_path_expression' are
-         set.
-               """),
-          Field(
-              'optional_path_expression',
-              'ASTPathExpression',
-              tag_id=4),
+          Field('optional_identifier', 'ASTIdentifier', tag_id=3),
+          Field('optional_path_expression', 'ASTPathExpression', tag_id=4),
       ])
 
   gen.AddNode(
@@ -3880,6 +3876,67 @@ def main(argv):
       extra_public_defs="""
   const ASTNewConstructorArg* argument(int i) const { return arguments_[i]; }
       """)
+
+  gen.AddNode(
+      name='ASTBracedConstructorFieldValue',
+      tag_id=330,
+      parent='ASTExpression',
+      fields=[
+          Field(
+              'expression',
+              'ASTExpression',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTBracedConstructorField',
+      tag_id=331,
+      parent='ASTNode',
+      comment="""Exactly one of 'identifier' and 'parenthesized_path' is
+                 set.""",
+      fields=[
+          Field(
+              'identifier',
+              'ASTIdentifier',
+              tag_id=2,
+          ),
+          Field('parenthesized_path', 'ASTPathExpression', tag_id=3),
+          Field(
+              'value',
+              'ASTBracedConstructorFieldValue',
+              tag_id=4,
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTBracedConstructor',
+      tag_id=332,
+      parent='ASTExpression',
+      fields=[
+          Field(
+              'fields',
+              'ASTBracedConstructorField',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REST_AS_REPEATED),
+      ])
+
+  gen.AddNode(
+      name='ASTBracedNewConstructor',
+      tag_id=333,
+      parent='ASTExpression',
+      fields=[
+          Field(
+              'type_name',
+              'ASTSimpleType',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'braced_constructor',
+              'ASTBracedConstructor',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
 
   gen.AddNode(
       name='ASTOptionsList',

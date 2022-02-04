@@ -679,7 +679,7 @@ public final class ResolvedNodes {
     }
   {{ blank_line }}
   {{ blank_line }}
-    protected void collectDebugStringFields(List<DebugStringField> fields) {
+    public void collectDebugStringFields(List<DebugStringField> fields) {
       super.collectDebugStringFields(fields);
   # if node.use_custom_debug_string
       DebugStrings.collectDebugStringFields(this, fields);
@@ -707,7 +707,7 @@ public final class ResolvedNodes {
     }
 
   # if node.use_custom_debug_string
-    protected String getNameForDebugString() {
+    public String getNameForDebugString() {
       return DebugStrings.getNameForDebugString(this);
     }
   # endif

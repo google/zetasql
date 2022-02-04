@@ -1100,7 +1100,6 @@ cc_test(
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/random:mock_distributions",
         "@com_google_absl//absl/random:mocking_bit_gen",
-        "@com_google_absl//absl/strings",
     ],
 )
 

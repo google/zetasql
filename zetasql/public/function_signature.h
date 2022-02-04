@@ -311,37 +311,13 @@ class FunctionArgumentTypeOptions {
  private:
   ArgumentCardinality cardinality_ = FunctionEnums::REQUIRED;
 
-  // If true, this argument must be constant.
-  // Currently, this means the argument must be a literal or parameter.
-  // This is checked after overload resolution, so a function cannot be
-  // overloaded on constant vs non-constant arguments.
-  bool must_be_constant_ = false;
-
-  // If true, this argument cannot be NULL.
-  // An error will be returned if this overload is chosen and the argument
-  // is a literal NULL.
-  bool must_be_non_null_ = false;
-
-  // If true, this argument is a NOT AGGREGATE argument to an aggregate
-  // function.  This means that the argument must have a constant value over
-  // all rows passed to the same aggregate function call.
-  // Currently, this is enforced the same as must_be_constant_.
-  // This is ignored for non-aggregate functions.
-  bool is_not_aggregate_ = false;
-
-  // If true, this argument must have a type with SupportsEquality().
-  // This is checked after choosing a concrete signature.
-  bool must_support_equality_ = false;
-
-  // If true, this argument must have a type with SupportsOrdering().
-  // This is checked after choosing a concrete signature.
-  bool must_support_ordering_ = false;
-
-  // If true, this argument must have a type with SupportsGrouping().
-  bool must_support_grouping_ = false;
-
-  bool has_min_value_ = false;
-  bool has_max_value_ = false;
+  // Function argument always has value NOT_SET.
+  // Procedure argument is in one of the 3 modes:
+  // IN: argument is used only for input to the procedure. It is also the
+  //     default mode for procedure argument if no mode is specified.
+  // OUT: argument is used as output of the procedure.
+  // INOUT: argument is used both for input to and output from the procedure.
+  ProcedureArgumentMode procedure_argument_mode_ = FunctionEnums::NOT_SET;
 
   // These are min or max values (inclusive) for this argument.
   // If the argument has a literal value that is outside this range, the
@@ -357,19 +333,6 @@ class FunctionArgumentTypeOptions {
   // the output table of table-valued functions too.
   std::shared_ptr<const TVFRelation> relation_input_schema_;
 
-  // If true, the provided input relation may contain extra column names besides
-  // those required in 'relation_input_schema_'. Otherwise, ZetaSQL rejects
-  // the query if the provided relation contains such extra columns.
-  bool extra_relation_input_columns_allowed_ = true;
-
-  // Function argument always has value NOT_SET.
-  // Procedure argument is in one of the 3 modes:
-  // IN: argument is used only for input to the procedure. It is also the
-  //     default mode for procedure argument if no mode is specified.
-  // OUT: argument is used as output of the procedure.
-  // INOUT: argument is used both for input to and output from the procedure.
-  ProcedureArgumentMode procedure_argument_mode_ = FunctionEnums::NOT_SET;
-
   // Callback to support custom argument coercion in addition to standard
   // coercion rules.
   std::function<bool(const zetasql::Type*)> allow_coercion_from_;
@@ -380,11 +343,6 @@ class FunctionArgumentTypeOptions {
   // statement's function signature. In other cases, engines may assign this in
   // custom ways as needed.
   std::string argument_name_;
-
-  // If true, and the 'argument_name_' field is non-empty, the function call
-  // must refer to the argument by name only. The resolver will return an error
-  // if the function call attempts to refer to the argument positionally.
-  bool argument_name_is_mandatory_ = false;
 
   // Optional parse location range for argument name. It is populated by
   // resolver only when analyzing UDFs and TVFs. <record_parse_locations>
@@ -421,6 +379,48 @@ class FunctionArgumentTypeOptions {
   // The option should only be turned on when the type of the
   // FunctionArgumentType is array.
   bool uses_array_element_for_collation_ = false;
+
+  // If true, this argument must be constant.
+  // Currently, this means the argument must be a literal or parameter.
+  // This is checked after overload resolution, so a function cannot be
+  // overloaded on constant vs non-constant arguments.
+  bool must_be_constant_ = false;
+
+  // If true, this argument cannot be NULL.
+  // An error will be returned if this overload is chosen and the argument
+  // is a literal NULL.
+  bool must_be_non_null_ = false;
+
+  // If true, this argument is a NOT AGGREGATE argument to an aggregate
+  // function.  This means that the argument must have a constant value over
+  // all rows passed to the same aggregate function call.
+  // Currently, this is enforced the same as must_be_constant_.
+  // This is ignored for non-aggregate functions.
+  bool is_not_aggregate_ = false;
+
+  // If true, this argument must have a type with SupportsEquality().
+  // This is checked after choosing a concrete signature.
+  bool must_support_equality_ = false;
+
+  // If true, this argument must have a type with SupportsOrdering().
+  // This is checked after choosing a concrete signature.
+  bool must_support_ordering_ = false;
+
+  // If true, this argument must have a type with SupportsGrouping().
+  bool must_support_grouping_ = false;
+
+  bool has_min_value_ = false;
+  bool has_max_value_ = false;
+
+  // If true, the provided input relation may contain extra column names besides
+  // those required in 'relation_input_schema_'. Otherwise, ZetaSQL rejects
+  // the query if the provided relation contains such extra columns.
+  bool extra_relation_input_columns_allowed_ = true;
+
+  // If true, and the 'argument_name_' field is non-empty, the function call
+  // must refer to the argument by name only. The resolver will return an error
+  // if the function call attempts to refer to the argument positionally.
+  bool argument_name_is_mandatory_ = false;
 
   // Copyable
 };
@@ -853,15 +853,17 @@ class FunctionSignatureOptions {
   // argument is floating point.
   FunctionSignatureArgumentConstraintsCallback constraints_;
 
-  bool is_deprecated_ = false;
   // Stores any deprecation warnings associated with the body of a SQL function.
   std::vector<FreestandingDeprecationWarning> additional_deprecation_warnings_;
 
-  bool is_internal_ = false;
 
   // A set of LanguageFeatures that need to be enabled for the signature to be
   // loaded in GetZetaSQLFunctions.
   std::set<LanguageFeature> required_language_features_;
+
+  bool is_deprecated_ = false;
+
+  bool is_internal_ = false;
 
   // When true, the signature uses the same signature (context) id as another
   // signature with different function name, and this signature's function name

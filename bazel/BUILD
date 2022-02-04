@@ -30,6 +30,12 @@ package(
 exports_files([
     "bison.bzl",
     "flex.bzl",
+    "maven_install.json",
+    "zetasql_deps_step_1.bzl",
+    "zetasql_deps_step_2.bzl",
+    "zetasql_deps_step_3.bzl",
+    "zetasql_deps_step_4.bzl",
+    "zetasql_java_deps.bzl",
 ])
 
 ar_wrapper(

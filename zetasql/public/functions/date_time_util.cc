@@ -4184,6 +4184,62 @@ void NarrowTimestampScaleIfPossible(absl::Time time, TimestampScale* scale) {
   }
 }
 
+absl::Status TimestampBucket(absl::Time input,
+                             zetasql::IntervalValue bucket_width,
+                             absl::Time origin, absl::TimeZone timezone,
+                             absl::Time* output) {
+  if (bucket_width.get_months() != 0) {
+    return MakeEvalError() << "TIMESTAMP_BUCKET doesn't support bucket width "
+                              "INTERVAL with non-zero MONTH part";
+  }
+  if (bucket_width.get_days() > 0 && (bucket_width.get_micros() > 0 ||
+                                      bucket_width.get_nano_fractions() > 0)) {
+    return MakeEvalError() << "TIMESTAMP_BUCKET doesn't support bucket width "
+                              "INTERVAL with mixed DAY and MICROSECOND parts";
+  }
+  if (bucket_width.get_days() == 0 && bucket_width.get_micros() == 0 &&
+      bucket_width.get_nano_fractions() == 0) {
+    return MakeEvalError() << "TIMESTAMP_BUCKET doesn't support zero "
+                              "bucket width INTERVAL";
+  }
+  // Nano fractions can't be negative, so only checking days and micros here.
+  if (bucket_width.get_days() < 0 || bucket_width.get_micros() < 0) {
+    return MakeEvalError() << "TIMESTAMP_BUCKET doesn't support negative "
+                              "bucket width INTERVAL";
+  }
+
+  absl::Duration bucket_size;
+  if (bucket_width.get_days() > 0) {
+    // Only 23 bits are used by days in IntervalValue type, so it's safe to
+    // multiple by 24 without the risk of overflowing int64_t.
+    bucket_size =
+        absl::Hours(bucket_width.get_days() * static_cast<int64_t>(24));
+  } else {
+    bucket_size = absl::Microseconds(bucket_width.get_micros());
+    if (bucket_width.get_nano_fractions() > 0) {
+      // Note that we can't construct Duration directly from nanoseconds, since
+      // it would overflow int64_t.
+      bucket_size += absl::Nanoseconds(bucket_width.get_nano_fractions());
+    }
+  }
+
+  absl::Duration rem = (input - origin) % bucket_size;
+  absl::Time result = input - rem;
+  if (rem < absl::ZeroDuration()) {
+    // Negative remainder indicates that input < origin. When input precedes
+    // origin we need shift the result backwards by one bucket.
+    result -= bucket_size;
+  }
+
+  if (!IsValidTime(result)) {
+    return MakeEvalError() << "Bucket for "
+                           << TimestampErrorString(input, timezone)
+                           << " is outside of timestamp range";
+  }
+  *output = result;
+  return absl::OkStatus();
+}
+
 namespace internal_functions {
 
 // Expand "%Z" in <format_string> to the ZetaSQL-defined format:

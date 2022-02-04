@@ -29,9 +29,6 @@
 namespace zetasql {
 namespace {
 
-using testing::NotNull;
-using testing::WhenDynamicCastTo;
-
 // A base rewriter that does nothing, but serves as the base class for our dummy
 // rewriters below.
 class Base : public Rewriter {

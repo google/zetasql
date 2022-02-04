@@ -36,10 +36,11 @@ java_library(
         "ASTNodes.java",
     ],
     deps = [
+        "//java/com/google/zetasql:debug_printable_node",
         "//zetasql/parser:ast_enums_java_proto",
         "//zetasql/parser:ast_java_proto",
         "//zetasql/public:type_proto_java_proto",
-        "@com_google_guava_guava//jar",
-        "@javax_annotation_javax_annotation_api",
+        "@maven//:com_google_guava_guava",
+        "@maven//:javax_annotation_javax_annotation_api",
     ],
 )

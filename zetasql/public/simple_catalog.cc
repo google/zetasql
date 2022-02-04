@@ -1016,8 +1016,14 @@ absl::Status SimpleCatalog::SerializeImpl(
 
   for (const auto& entry : table_valued_functions) {
     const TableValuedFunction* const table_valued_function = entry.second;
-    ZETASQL_RETURN_IF_ERROR(table_valued_function->Serialize(file_descriptor_set_map,
-                                                     proto->add_custom_tvf()));
+    TableValuedFunctionProto tvf_proto;
+    ZETASQL_RETURN_IF_ERROR(
+        table_valued_function->Serialize(file_descriptor_set_map, &tvf_proto));
+    if (tvf_proto.type() == FunctionEnums::INVALID) {
+      // TODO: Support serialization of SQLTableValuedFunction
+      continue;
+    }
+    *proto->add_custom_tvf() = tvf_proto;
   }
 
   for (const auto& entry : procedures) {

@@ -41,6 +41,7 @@
 #include "zetasql/public/procedure.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/sql_function.h"
+#include "zetasql/public/sql_tvf.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/templated_sql_function.h"
@@ -293,6 +294,7 @@ void SampleCatalog::LoadCatalogImpl(const LanguageOptions& language_options) {
   LoadWellKnownLambdaArgFunctions();
   LoadContrivedLambdaArgFunctions();
   LoadSqlFunctions(language_options);
+  LoadNonTemplatedSqlTableValuedFunctions(language_options);
 }
 
 void SampleCatalog::LoadTypes() {
@@ -369,6 +371,13 @@ void SampleCatalog::LoadTypes() {
   ZETASQL_CHECK_OK(types_->MakeStructType({{"kitchen_sink", proto_KitchenSinkPB_},
                                    {"s", struct_with_just_kitchen_sink_type}},
                                   &struct_with_kitchen_sink_type_));
+  const ArrayType* array_of_struct_with_kitchen_sink_type;
+  ZETASQL_CHECK_OK(types_->MakeArrayType(struct_with_just_kitchen_sink_type,
+                                 &array_of_struct_with_kitchen_sink_type));
+  ZETASQL_CHECK_OK(types_->MakeStructType(
+      {{"a", types_->get_int64()},
+       {"b", array_of_struct_with_kitchen_sink_type}},
+      &struct_of_array_of_struct_with_kitchen_sink_type_));
 
   // Add a named struct type for testing name collisions.
   const StructType* name_conflict_type;
@@ -595,6 +604,19 @@ void SampleCatalog::LoadTables() {
       {{"a", types_->get_string()}, {"b", types_->get_string()}},
       &struct_of_multiple_string_type));
 
+  const AnnotationMap* annotation_map_array_of_struct_ci;
+  {
+    std::unique_ptr<AnnotationMap> annotation_map =
+        AnnotationMap::Create(array_of_struct_type);
+    annotation_map->AsArrayMap()
+        ->mutable_element()
+        ->AsStructMap()
+        ->mutable_field(1)
+        ->SetAnnotation<CollationAnnotation>(SimpleValue::String("und:ci"));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(annotation_map_array_of_struct_ci,
+                         types_->TakeOwnership(std::move(annotation_map)));
+  }
+
   const AnnotationMap* annotation_map_struct_with_array_of_struct_ci;
   {
     std::unique_ptr<AnnotationMap> annotation_map =
@@ -641,6 +663,10 @@ void SampleCatalog::LoadTables() {
       complex_collated_table->Name(), "string_no_collation",
       AnnotatedType(types_->get_string(), /*annotation_map=*/nullptr));
 
+  auto array_of_struct_ci = new SimpleColumn(
+      complex_collated_table->Name(), "array_of_struct_ci",
+      AnnotatedType(array_of_struct_type, annotation_map_array_of_struct_ci));
+
   auto struct_with_array_of_struct_ci = new SimpleColumn(
       complex_collated_table->Name(), "struct_with_array_of_struct_ci",
       AnnotatedType(struct_with_array_of_struct_type,
@@ -656,6 +682,8 @@ void SampleCatalog::LoadTables() {
                     annotation_map_struct_with_string_ci_binary));
 
   ZETASQL_CHECK_OK(complex_collated_table->AddColumn(string_no_collation,
+                                             /*is_owned=*/true));
+  ZETASQL_CHECK_OK(complex_collated_table->AddColumn(array_of_struct_ci,
                                              /*is_owned=*/true));
   ZETASQL_CHECK_OK(complex_collated_table->AddColumn(struct_with_array_of_struct_ci,
                                              /*is_owned=*/true));
@@ -1053,9 +1081,11 @@ void SampleCatalog::LoadProtoTables() {
        {"ArrayOfStruct", struct_array_type_},
        {"StructOfArrayOfStruct", struct_with_array_field_type_}}));
 
-  AddOwnedTable(new SimpleTable("StructWithKitchenSinkTable",
-                                {{"kitchen_sink", proto_KitchenSinkPB_},
-                                 {"s", struct_with_kitchen_sink_type_}}));
+  AddOwnedTable(new SimpleTable(
+      "StructWithKitchenSinkTable",
+      {{"kitchen_sink", proto_KitchenSinkPB_},
+       {"s", struct_with_kitchen_sink_type_},
+       {"t", struct_of_array_of_struct_with_kitchen_sink_type_}}));
 
   AddOwnedTable(
       new SimpleTable("DoublyNestedStructTable",
@@ -4277,6 +4307,77 @@ void SampleCatalog::LoadTableValuedFunctionsWithDeprecationWarnings() {
                    .set_cardinality(FunctionArgumentType::OPTIONAL))},
           context_id++),
       output_schema_two_types));
+}
+
+// Add a SQL table function to catalog starting from a full create table
+// function statement.
+void SampleCatalog::AddSqlDefinedTableFunctionFromCreate(
+    absl::string_view create_table_function,
+    const LanguageOptions& language_options) {
+  // Ensure the language options used allow CREATE FUNCTION
+  LanguageOptions language = language_options;
+  language.AddSupportedStatementKind(RESOLVED_CREATE_TABLE_FUNCTION_STMT);
+  language.EnableLanguageFeature(FEATURE_CREATE_TABLE_FUNCTION);
+  language.EnableLanguageFeature(FEATURE_TABLE_VALUED_FUNCTIONS);
+  language.EnableLanguageFeature(FEATURE_V_1_1_WITH_ON_SUBQUERY);
+  language.EnableLanguageFeature(FEATURE_V_1_3_INLINE_LAMBDA_ARGUMENT);
+  AnalyzerOptions analyzer_options;
+  analyzer_options.set_language(language);
+  std::unique_ptr<const AnalyzerOutput> analyzer_output;
+  ZETASQL_CHECK_OK(AnalyzeStatement(create_table_function, analyzer_options,
+                            catalog_.get(), catalog_->type_factory(),
+                            &analyzer_output))
+      << "[" << create_table_function << "]";
+  const ResolvedStatement* resolved = analyzer_output->resolved_statement();
+  ZETASQL_CHECK(resolved->Is<ResolvedCreateTableFunctionStmt>());
+  const auto* resolved_create =
+      resolved->GetAs<ResolvedCreateTableFunctionStmt>();
+  if (resolved_create->query() != nullptr) {
+    std::unique_ptr<SQLTableValuedFunction> function;
+    ZETASQL_CHECK_OK(SQLTableValuedFunction::Create(resolved_create, &function));
+    catalog_->AddOwnedTableValuedFunction(std::move(function));
+  } else {
+    ZETASQL_LOG(FATAL) << "Template functions not suppororted here yet.";
+  }
+  sql_function_artifacts_.emplace_back(std::move(analyzer_output));
+}
+
+void SampleCatalog::LoadNonTemplatedSqlTableValuedFunctions(
+    const LanguageOptions& language_options) {
+  AddSqlDefinedTableFunctionFromCreate(
+      R"(CREATE TABLE FUNCTION NullarySelect()
+         AS SELECT 1 AS a, 2 AS b;)",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"(CREATE TABLE FUNCTION NullarySelectUnion()
+         AS SELECT 1 AS a, 2 AS b
+            UNION ALL
+            SELECT 1, 4;)",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"(CREATE TABLE FUNCTION NullarySelectCTE()
+         AS WITH t AS (SELECT 1 AS a, 2 AS b) SELECT * FROM t;)",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"(CREATE TABLE FUNCTION NullarySelectFromTvf()
+         AS SELECT * FROM NullarySelect();)",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"(CREATE TABLE FUNCTION NullarySelectCallingScalarUDF()
+         AS SELECT NullaryPi() AS pi;)",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"(CREATE TABLE FUNCTION NullarySelectCallingLambdaArgFunction()
+         AS SELECT ARRAY_FILTER([1, 2, 3], e -> e > 1) as arr;)",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"(CREATE TABLE FUNCTION UnaryScalarArg(arg0 INT64)
+         AS SELECT arg0;)",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"(CREATE TABLE FUNCTION UnaryTableArg(arg0 TABLE<a INT64>)
+         AS SELECT * FROM arg0;)",
+      language_options);
 }
 
 void SampleCatalog::LoadTemplatedSQLTableValuedFunctions() {

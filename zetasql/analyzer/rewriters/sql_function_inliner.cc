@@ -30,6 +30,8 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/sql_function.h"
+#include "zetasql/public/sql_tvf.h"
+#include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/templated_sql_function.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -332,10 +334,103 @@ class SqlFunctionInliner : public Rewriter {
   std::string Name() const override { return "SqlFunctionInliner"; }
 };
 
+// A visitor that replaces calls to SQL TDFs with the resolved function body.
+class SqlTableFunctionInlineVistor : public ResolvedASTDeepCopyVisitor {
+ public:
+  explicit SqlTableFunctionInlineVistor(ColumnFactory* column_factory)
+      : column_factory_(column_factory) {}
+
+ private:
+  absl::StatusOr<bool> IsCallInlinable(const ResolvedTVFScan* scan) {
+    if (scan->hint_list_size() > 0) {
+      // Function inlining leaves no place to hang function call hints. It's not
+      // clear that inlining a function call with hints is even the right thing
+      // to do.
+      return false;
+    }
+    const TableValuedFunction* function = scan->tvf();
+    ZETASQL_RET_CHECK_NE(function, nullptr)
+        << "Expected ResolvedTableFunctionScan to have non-null function";
+    return function->Is<SQLTableValuedFunction>();
+  }
+
+  absl::Status VisitResolvedTVFScan(const ResolvedTVFScan* tvf_scan) override {
+    ZETASQL_ASSIGN_OR_RETURN(bool inlinable, IsCallInlinable(tvf_scan));
+    if (inlinable) {
+      return InlineTVF(tvf_scan);
+    }
+    return CopyVisitResolvedTVFScan(tvf_scan);
+  }
+
+  // This function replaces a ResolvedTVFScan that invokes a SQL table function
+  // with a query that computes the function result directly. The
+  // transformation looks a bit like this:
+  //
+  // SELECT ... FROM MyTvf() AS t;
+  // ~~>
+  // (SELECT ... FROM (tvf_query) AS t
+  absl::Status InlineTVF(const ResolvedTVFScan* scan) {
+    ZETASQL_RET_CHECK_NE(scan, nullptr);
+    ZETASQL_RET_CHECK_NE(column_factory_, nullptr);
+    const SQLTableValuedFunction* sql_tvf =
+        scan->tvf()->GetAs<SQLTableValuedFunction>();
+    ZETASQL_RET_CHECK_NE(sql_tvf, nullptr);
+    const ResolvedScan* query = sql_tvf->query();
+    ZETASQL_RET_CHECK_NE(query, nullptr);
+
+    // The input function body is potentially owned by a catalog or some other
+    // component. Copy the body so that its column ids are compatible with the
+    // invoking query and the scan is locally owned.
+    ColumnReplacementMap column_map;
+    for (int i = 0; i < scan->column_list_size(); ++i) {
+      column_map.insert({query->column_list()[scan->column_index_list()[i]],
+                         scan->column_list()[i]});
+    }
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<ResolvedScan> body_scan,
+        CopyResolvedASTAndRemapColumns(*query, *column_factory_, column_map));
+
+    // Nullary functions get special treatment because we don't have to do any
+    // special argument processing.
+    if (scan->argument_list_size() == 0) {
+      PushNodeToStack(std::move(body_scan));
+      return absl::OkStatus();
+    }
+
+    return absl::UnimplementedError(
+        "Inlining TVFs with arguments is not yet supported.");
+  }
+
+ private:
+  ColumnFactory* column_factory_;
+};
+
+class SqlTvfInliner : public Rewriter {
+ public:
+  absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
+      const AnalyzerOptions& options, const ResolvedNode& input,
+      Catalog& catalog, TypeFactory& type_factory,
+      AnalyzerOutputProperties& output_properties) const override {
+    ZETASQL_RET_CHECK(options.column_id_sequence_number() != nullptr);
+    ColumnFactory column_factory(0, options.id_string_pool().get(),
+                                 options.column_id_sequence_number());
+    SqlTableFunctionInlineVistor rewriter(&column_factory);
+    ZETASQL_RETURN_IF_ERROR(input.Accept(&rewriter));
+    return rewriter.ConsumeRootNode<ResolvedNode>();
+  }
+
+  std::string Name() const override { return "SqlTvfInliner"; }
+};
+
 }  // namespace
 
 const Rewriter* GetSqlFunctionInliner() {
   static const auto* const kRewriter = new SqlFunctionInliner;
+  return kRewriter;
+}
+
+const Rewriter* GetSqlTvfInliner() {
+  static const auto* const kRewriter = new SqlTvfInliner;
   return kRewriter;
 }
 

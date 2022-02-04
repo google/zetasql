@@ -1206,6 +1206,13 @@ using zetasql::ASTDropStatement;
 %type <node> new_constructor_arg
 %type <expression> new_constructor_prefix
 %type <expression> new_constructor_prefix_no_arg
+%type <expression> braced_constructor_field_value
+%type <node> braced_constructor_field
+%type <node> braced_constructor_extension
+%type <expression> braced_constructor_start
+%type <expression> braced_constructor_prefix
+%type <expression> braced_constructor
+%type <expression> braced_new_constructor
 %type <node> next_statement
 %type <node> next_script_statement
 %type <expression> null_literal
@@ -5865,6 +5872,8 @@ expression:
     | system_variable_expression
     | array_constructor
     | new_constructor
+    | braced_constructor
+    | braced_new_constructor
     | case_expression
     | cast_expression
     | extract_expression
@@ -6963,6 +6972,93 @@ new_constructor:
     | new_constructor_prefix_no_arg ")"
       {
         $$ = parser->WithEndLocation($1, @2);
+      }
+    ;
+
+braced_constructor_field_value:
+    ":" expression
+      {
+        $$ = MAKE_NODE(ASTBracedConstructorFieldValue, @$, {$2});
+      }
+    | braced_constructor
+      {
+        $$ = MAKE_NODE(ASTBracedConstructorFieldValue, @$, {$1});
+      }
+    ;
+
+braced_constructor_extension:
+    "(" path_expression ")" braced_constructor_field_value
+      {
+        $$ = MAKE_NODE(ASTBracedConstructorField, @$, {$2, $4});
+      }
+    ;
+
+braced_constructor_field:
+    identifier braced_constructor_field_value
+      {
+        $$ = MAKE_NODE(ASTBracedConstructorField, @$, {$1, $2});
+      }
+    ;
+
+braced_constructor_start:
+    "{"
+    {
+        if (!parser->language_options().LanguageFeatureEnabled(
+                zetasql::FEATURE_V_1_3_BRACED_PROTO_CONSTRUCTORS)) {
+          YYERROR_AND_ABORT_AT(@1, "Braced constructors are not supported");
+        }
+        $$ = MAKE_NODE(ASTBracedConstructor, @$);
+    }
+    ;
+
+braced_constructor_prefix:
+    braced_constructor_start braced_constructor_field
+      {
+        $$ = WithExtraChildren($1, {$2});
+      }
+    | braced_constructor_start braced_constructor_extension
+      {
+        $$ = WithExtraChildren($1, {$2});
+      }
+    | braced_constructor_prefix "," braced_constructor_field
+      {
+        $$ = WithExtraChildren($1, {$3});
+      }
+    | braced_constructor_prefix braced_constructor_field
+      {
+        $$ = WithExtraChildren($1, {$2});
+      }
+    // If we do not require a comma before a path_expression for extensions
+    // then it leads to a shift-reduce conflict. An example is:
+    //
+    // foo: column_name
+    // (bar): 3
+    //
+    // (bar) can be interpreted as part of the previous expression as a
+    // function 'column_name(bar)' or independently as a path expression.
+    //
+    // Fixing this is not possible without arbitrary lookahead.
+    | braced_constructor_prefix "," braced_constructor_extension
+      {
+        $$ = WithExtraChildren($1, {$3});
+      }
+    ;
+
+braced_constructor:
+    braced_constructor_start "}"
+      {
+        $$ = parser->WithEndLocation($1, @2);
+      }
+    | braced_constructor_prefix "}"
+      {
+        $$ = parser->WithEndLocation($1, @2);
+      }
+    ;
+
+braced_new_constructor:
+    "NEW" type_name braced_constructor
+      {
+        $$ = MAKE_NODE(ASTBracedNewConstructor, @$, {$2, $3});
       }
     ;
 

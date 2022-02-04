@@ -15,6 +15,8 @@
 //
 
 #include "zetasql/public/annotation/collation.h"
+
+#include <utility>
 #include <variant>
 
 #include "zetasql/common/errors.h"
@@ -226,6 +228,54 @@ absl::Status CollationAnnotation::CheckAndPropagateForSubqueryExpr(
   return CopyAnnotationRecursively(
       GetId(), subquery_scan->column_list(0).type_annotation_map(),
       result_annotation_map);
+}
+
+absl::Status CollationAnnotation::CheckAndPropagateForSetOperationScan(
+    const ResolvedSetOperationScan& set_operation_scan,
+    const std::vector<AnnotationMap*>& result_annotation_maps) {
+  int column_list_size = set_operation_scan.column_list_size();
+  ZETASQL_RET_CHECK_EQ(column_list_size, result_annotation_maps.size());
+  bool all_empty_collations = true;
+  for (const auto& item : set_operation_scan.input_item_list()) {
+    ZETASQL_RET_CHECK_EQ(item->output_column_list_size(), column_list_size);
+    for (int i = 0; i < column_list_size; i++) {
+      const AnnotationMap* candidate_annotation_map =
+          item->output_column_list(i).type_annotation_map();
+      if (result_annotation_maps[i] == nullptr ||
+          !SupportsCollation(set_operation_scan.column_list(i).type()) ||
+          !CollationAnnotation::ExistsIn(candidate_annotation_map)) {
+        continue;
+      }
+      if (result_annotation_maps[i]->Empty()) {
+        ZETASQL_RETURN_IF_ERROR(CopyAnnotationRecursively(
+            GetId(), candidate_annotation_map, result_annotation_maps[i]));
+        all_empty_collations = false;
+      } else {
+        if (!candidate_annotation_map->HasEqualAnnotations(
+                *result_annotation_maps[i], GetId())) {
+          return MakeSqlError() << absl::Substitute(
+                     "Collation mismatch is found for output column $0 of set "
+                     "operation: $1 vs $2",
+                     i + 1, candidate_annotation_map->DebugString(GetId()),
+                     result_annotation_maps[i]->DebugString(GetId()));
+        }
+      }
+    }
+  }
+
+  if (!all_empty_collations &&
+      (set_operation_scan.op_type() ==
+           ResolvedSetOperationScan::UNION_DISTINCT ||
+       set_operation_scan.op_type() ==
+           ResolvedSetOperationScan::INTERSECT_DISTINCT ||
+       set_operation_scan.op_type() ==
+           ResolvedSetOperationScan::EXCEPT_DISTINCT)) {
+    // TODO: Support collated input columns for set operations with
+    // DISTINCT.
+    return MakeSqlError()
+           << "Collation is not supported in set operations with DISTINCT";
+  }
+  return absl::OkStatus();
 }
 
 absl::StatusOr<const AnnotationMap*>

@@ -48,108 +48,6 @@ using OutputArgumentMap =
 
 class ScriptExecutorImpl;
 
-// Implements the rules of control flow for ZetaSQL scripting.
-// ControlFlowProcessor understands the semantics of all the control-flow
-// statements (IF, WHILE, RETURN, etc.), but does not actually store information
-// about the progress of a script.  This allows ControlFlowProcessor to be
-// completely stateless, with all statement management relegated to the callback
-// (ScriptExecutorImpl).
-class ControlFlowProcessor {
- public:
-  explicit ControlFlowProcessor(ScriptExecutorImpl* callback,
-                                bool dry_run)
-      : callback_(callback), dry_run_(dry_run) {}
-
-  // Assumes that the current statement has just completed (except for
-  // control-flow changes).  Advances control to the next statement that will
-  // run.  If the current statement is a control-flow statement (BREAK,
-  // CONTINUE, RETURN), control is transferred to the appropriate target, except
-  // in dry-run mode, where these statements are considered nops.
-  //
-  // <status> indicates whether non-control-flow-related operations associated
-  // with the current statement succeeded, along with context if it failed:
-  //   - If <status> is OK, control is transferred to the next statement
-  //     normally, and the returned status is OK.
-  //   - If <status> has a ScriptException payload and a matching handler
-  //     exists, control is transferred to the handler, and the returned status
-  //     is OK.
-  //   - If <status> does NOT contain a ScriptException payload, or the
-  //     exception is unhandled, the current statement is not modified and the
-  //     returned status is <status>.
-  absl::Status AdvancePastCurrentStatement(const absl::Status& status);
-
-  // Assumes that a condition has just finished evaluating for an IF or WHILE
-  // statement.  Advances control to the next statement that will run, given
-  // the condition result.
-  //
-  // If <condition_value> has a failed status, control will transfer to an
-  // exception handler instead, if one exists.  See
-  // AdvancePastCurrentStatement() for a detailed discussion on how statues are
-  // handled.
-  absl::Status AdvancePastCurrentCondition(
-      const absl::StatusOr<bool>& condition_value);
-
-  // If <status> indicates a handleable exception, transfers control to the
-  // handler.  Otherwise, leaves the current location unmodified.
-  absl::Status MaybeDispatchException(const absl::Status& status);
-
-  // Rethrows a given ScriptException, without modifying the exception to
-  // represent the current stack trace.
-  //
-  // Returns OK if the rethrown exception is handled, after transferring control
-  // to the handler.  Returns an error status with <exception> as its payload
-  // if unhandled.
-  absl::Status RethrowException(const ScriptException& exception);
-
-  // Assumes that the current statement is an ASTBeginEndBlock.  Enters the
-  // block and transfers control to the first statement in the block.
-  absl::Status EnterBlock();
-
- private:
-  // Advances to the next node in the graph along the path identified by
-  // <edge_kind>, which cannot be kException.
-  absl::Status AdvanceInternal(ControlFlowEdge::Kind edge_kind);
-
-  // Returns the control-flow node representing the current location in the
-  // current stack frame, or nullptr if none exists.
-  const ControlFlowNode* GetCurrentControlFlowNode() const;
-
-  // If an exception is thrown at the current location, returns true if the
-  // exception would be handled (including handlers up the call stack),
-  // false otherwise.
-  absl::StatusOr<bool> CheckIfExceptionHandled() const;
-
-  // Advances to the next statement, given a pending exception.  This function
-  // should be called only when the exception is handled (that is,
-  // CheckIfExceptionHandled() previously returned true).
-  absl::Status DispatchException(const ScriptException& exception);
-
-  // Executes the side effects in a control-flow edge.  This includes destroying
-  // out-of-scope variables and entering/exiting exception handlers.
-  //
-  // <exception> represents the current pending exception, and should be set
-  // only for edges of kind kException.
-  absl::Status ExecuteSideEffects(
-      const ControlFlowEdge& edge,
-      const absl::optional<ScriptException>& exception);
-
-  // Updates the current position of the script, given the execution of a given
-  // control-flow edge.  Returns true if exiting a procedure, indicating that
-  // we need to follow up by advancing past the CALL statement.  Returns false
-  // if control remains within the current stack frame and control-flow
-  // processing is complete.
-  absl::StatusOr<bool> UpdateCurrentLocation(const ControlFlowEdge& edge);
-
- private:
-  ScriptExecutorImpl* callback() { return callback_; }
-  const ScriptExecutorImpl* callback() const { return callback_; }
-
-  const StackFrame& GetLeafFrame() const;
-
-  ScriptExecutorImpl* const callback_;
-  bool dry_run_;
-};
-
 // Implementation of ScriptExecutor to execute a ZetaSQL script.
 //
 // At the moment, only SQL statements are supported.  This class will be
@@ -384,12 +282,6 @@ class ScriptExecutorImpl : public ScriptExecutor {
   // to execute, depending on whether it reached the last row.
   absl::Status ExecuteForInStatement();
 
-  // Assumes that <current_statement_> is an ASTBeginEndBlock.  Sets up
-  // a new scope for variables in the block, and transfers control to the
-  // first statement in the block (or the statement following the block,
-  // if the block is empty).
-  absl::Status BeginBlockExecution();
-
   // Executes current_statement_, which must be a ASTVariableDeclaration.
   absl::Status ExecuteVariableDeclaration();
 
@@ -535,10 +427,6 @@ class ScriptExecutorImpl : public ScriptExecutor {
 
   VariableSizesMap* MutableCurrentVariableSizes() {
     return callstack_.back().mutable_variable_sizes();
-  }
-
-  const VariableTypeParametersMap& CurrentVariableTypeParameters() {
-    return callstack_.back().variable_type_params();
   }
 
   VariableTypeParametersMap* MutableCurrentVariableTypeParameters() {

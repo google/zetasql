@@ -48,6 +48,7 @@ void RegisterBuiltinRewriters() {
     // the function bodies that are inserted by this rule.
     r.Register(ResolvedASTRewrite::REWRITE_INLINE_SQL_FUNCTIONS,
                GetSqlFunctionInliner());
+    r.Register(ResolvedASTRewrite::REWRITE_INLINE_SQL_TVFS, GetSqlTvfInliner());
 
     r.Register(ResolvedASTRewrite::REWRITE_FLATTEN, GetFlattenRewriter());
     r.Register(ResolvedASTRewrite::REWRITE_ANONYMIZATION,

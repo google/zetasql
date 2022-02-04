@@ -851,7 +851,7 @@ static absl::StatusOr<Value> ReadSingularProtoField(
   ZETASQL_RET_CHECK_EQ(field_info.type->IsArray(),
                field_info.descriptor->is_repeated());
   if (field_info.type->IsArray()) {
-    return Value::ArraySafe(
+    return Value::MakeArray(
         field_info.type->AsArray(),
         std::vector<Value>(std::make_move_iterator(elements.begin()),
                            std::make_move_iterator(elements.end())));
@@ -1012,7 +1012,7 @@ absl::Status ReadProtoFields(
         }
 
         if (success) {
-          new_value = Value::ArraySafe(info->type->AsArray(),
+          new_value = Value::MakeArray(info->type->AsArray(),
                                        std::move(element_values));
         }
       } else if (values.empty()) {

@@ -47,6 +47,7 @@ java_library(
     ],
     deps = [
         "//java/com/google/zetasql:client",
+        "//java/com/google/zetasql:debug_printable_node",
         "//java/com/google/zetasql:types",
         "//zetasql/proto:function_java_proto",
         "//zetasql/public:annotation_java_proto",
@@ -57,8 +58,8 @@ java_library(
         "//zetasql/resolved_ast:resolved_ast_java_proto",
         "//zetasql/resolved_ast:resolved_node_kind_java_proto",
         "//zetasql/resolved_ast:serialization_java_proto",
-        "@com_google_code_findbugs_jsr305//jar",
-        "@com_google_guava_guava//jar",
         "@com_google_protobuf//:protobuf_java",
+        "@maven//:com_google_code_findbugs_jsr305",
+        "@maven//:com_google_guava_guava",
     ],
 )

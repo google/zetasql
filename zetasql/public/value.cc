@@ -1861,7 +1861,7 @@ absl::StatusOr<Value> Value::Deserialize(const ValueProto& value_proto,
         ZETASQL_RETURN_IF_ERROR(status_or_value.status());
         elements.push_back(status_or_value.value());
       }
-      return ArraySafe(type->AsArray(), std::move(elements));
+      return MakeArray(type->AsArray(), std::move(elements));
     }
     case TYPE_STRUCT: {
       if (!value_proto.has_struct_value()) {

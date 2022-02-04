@@ -206,6 +206,44 @@ QueryStmt
           +-WithRefScan(column_list=test.[string_ci#5, string_binary#6, struct_with_string_ci#7, array_with_string_ci#8], with_query_name="test")
 ==
 
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE]
+with recursive
+  t as (select 1 as ind, COLLATE('a', 'und:ci') as string_ci union {{all|distinct}}
+  (select ind + 1 as ind, 'a' as string_ci from t where ind < 3))
+select ind, string_ci from t1
+--
+ALTERNATION GROUP: all
+--
+ERROR: Collation is not supported in recursive queries [at 2:9]
+  t as (select 1 as ind, COLLATE('a', 'und:ci') as string_ci union all
+        ^
+--
+ALTERNATION GROUP: distinct
+--
+ERROR: Collation is not supported in recursive queries [at 2:9]
+  t as (select 1 as ind, COLLATE('a', 'und:ci') as string_ci union distinct
+        ^
+==
+
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE]
+with recursive
+  t as (select 1 as ind, 'a' as string_ci union {{all|distinct}}
+  (select ind + 1 as ind, COLLATE('a', 'und:ci') as string_ci from t where ind < 3))
+select ind, string_ci from t1
+--
+ALTERNATION GROUP: all
+--
+ERROR: Collation is not supported in recursive queries [at 2:9]
+  t as (select 1 as ind, 'a' as string_ci union all
+        ^
+--
+ALTERNATION GROUP: distinct
+--
+ERROR: Collation is not supported in recursive queries [at 2:9]
+  t as (select 1 as ind, 'a' as string_ci union distinct
+        ^
+==
+
 [language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_LIKE_ANY_SOME_ALL]
 
 # Test propagation of collation through subquery
@@ -336,12 +374,12 @@ select collate('abc', 'und:ci') in (select string_no_collation from ComplexColla
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#5 AS `$col1` [BOOL]
+| +-$query.$col1#6 AS `$col1` [BOOL]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#5]
+    +-column_list=[$query.$col1#6]
     +-expr_list=
-    | +-$col1#5 :=
+    | +-$col1#6 :=
     |   +-SubqueryExpr
     |     +-type=BOOL
     |     +-subquery_type=IN
@@ -1706,6 +1744,7 @@ select string_ci != string_binary
 
 # Tests that other annotation doesn't affect the propagation and resolution of
 # collation.
+[enable_sample_annotation]
 select
   concat(string, string),
   string = 'abc',
@@ -3192,13 +3231,249 @@ CreateTableStmt
 
 ==
 
+# Collation is not supported in set operations with DISTINCT.
 select string_ci, string_binary from CollatedTable
-{{union distinct|except distinct|intersect distinct}}
+{{union|except|intersect }} distinct
 select 'abc', 'xyz'
 --
-ERROR: Collation is not supported in set operations [at 1:1]
+ERROR: Collation is not supported in set operations with DISTINCT [at 1:1]
 select string_ci, string_binary from CollatedTable
 ^
+==
+
+select string_ci, string_binary from CollatedTable
+{{union|except|intersect}} all
+select 'abc', 'xyz'
+--
+ALTERNATION GROUP: union
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.string_ci#7{Collation:"und:ci"} AS string_ci [STRING]
+| +-$union_all.string_binary#8{Collation:"binary"} AS string_binary [STRING]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[string_ci#7, string_binary#8]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=CollatedTable.[string_ci#1, string_binary#2]
+      | |   +-input_scan=
+      | |     +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
+      | +-output_column_list=CollatedTable.[string_ci#1, string_binary#2]
+      +-SetOperationItem
+        +-scan=
+        | +-ProjectScan
+        |   +-column_list=$union_all2.[$col1#5, $col2#6]
+        |   +-expr_list=
+        |   | +-$col1#5 := Literal(type=STRING, value="abc")
+        |   | +-$col2#6 := Literal(type=STRING, value="xyz")
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-output_column_list=$union_all2.[$col1#5, $col2#6]
+--
+ALTERNATION GROUP: except
+--
+QueryStmt
++-output_column_list=
+| +-$except_all.string_ci#7{Collation:"und:ci"} AS string_ci [STRING]
+| +-$except_all.string_binary#8{Collation:"binary"} AS string_binary [STRING]
++-query=
+  +-SetOperationScan
+    +-column_list=$except_all.[string_ci#7, string_binary#8]
+    +-op_type=EXCEPT_ALL
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=CollatedTable.[string_ci#1, string_binary#2]
+      | |   +-input_scan=
+      | |     +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
+      | +-output_column_list=CollatedTable.[string_ci#1, string_binary#2]
+      +-SetOperationItem
+        +-scan=
+        | +-ProjectScan
+        |   +-column_list=$except_all2.[$col1#5, $col2#6]
+        |   +-expr_list=
+        |   | +-$col1#5 := Literal(type=STRING, value="abc")
+        |   | +-$col2#6 := Literal(type=STRING, value="xyz")
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-output_column_list=$except_all2.[$col1#5, $col2#6]
+--
+ALTERNATION GROUP: intersect
+--
+QueryStmt
++-output_column_list=
+| +-$intersect_all.string_ci#7{Collation:"und:ci"} AS string_ci [STRING]
+| +-$intersect_all.string_binary#8{Collation:"binary"} AS string_binary [STRING]
++-query=
+  +-SetOperationScan
+    +-column_list=$intersect_all.[string_ci#7, string_binary#8]
+    +-op_type=INTERSECT_ALL
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=CollatedTable.[string_ci#1, string_binary#2]
+      | |   +-input_scan=
+      | |     +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
+      | +-output_column_list=CollatedTable.[string_ci#1, string_binary#2]
+      +-SetOperationItem
+        +-scan=
+        | +-ProjectScan
+        |   +-column_list=$intersect_all2.[$col1#5, $col2#6]
+        |   +-expr_list=
+        |   | +-$col1#5 := Literal(type=STRING, value="abc")
+        |   | +-$col2#6 := Literal(type=STRING, value="xyz")
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-output_column_list=$intersect_all2.[$col1#5, $col2#6]
+==
+
+select string_ci, string_binary from CollatedTable
+union all
+select 'abc', COLLATE('abc', 'und:ci')
+--
+ERROR: Collation mismatch is found for output column 2 of set operation: "und:ci" vs "binary" [at 1:1]
+select string_ci, string_binary from CollatedTable
+^
+==
+
+select string_binary, [STRUCT(true as a, collate('a', 'binary') as b)] from CollatedTable
+union all
+select 'abc', array_of_struct_ci from ComplexCollatedTable
+--
+ERROR: Collation mismatch is found for output column 2 of set operation: [<_,"und:ci">] vs [<,"binary">] [at 1:1]
+select string_binary, [STRUCT(true as a, collate('a', 'binary') as b)] from C...
+^
+==
+
+select string_ci, 'abc' from CollatedTable
+union all
+select 'abc', string_binary from CollatedTable
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.string_ci#11{Collation:"und:ci"} AS string_ci [STRING]
+| +-$union_all.$col2#12{Collation:"binary"} AS `$col2` [STRING]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[string_ci#11, $col2#12]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}, $union_all1.$col2#5]
+      | |   +-expr_list=
+      | |   | +-$col2#5 := Literal(type=STRING, value="abc")
+      | |   +-input_scan=
+      | |     +-TableScan(column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
+      | +-output_column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}, $union_all1.$col2#5]
+      +-SetOperationItem
+        +-scan=
+        | +-ProjectScan
+        |   +-column_list=[$union_all2.$col1#10, CollatedTable.string_binary#7{Collation:"binary"}]
+        |   +-expr_list=
+        |   | +-$col1#10 := Literal(type=STRING, value="abc")
+        |   +-input_scan=
+        |     +-TableScan(column_list=[CollatedTable.string_binary#7{Collation:"binary"}], table=CollatedTable, column_index_list=[1])
+        +-output_column_list=[$union_all2.$col1#10, CollatedTable.string_binary#7{Collation:"binary"}]
+==
+
+select string_binary, [STRUCT(true as a, collate('a', 'und:ci') as b)] from CollatedTable
+union all
+select 'abc', array_of_struct_ci from ComplexCollatedTable
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.string_binary#12{Collation:"binary"} AS string_binary [STRING]
+| +-$union_all.$col2#13[<_,{Collation:"und:ci"}>] AS `$col2` [ARRAY<STRUCT<a BOOL, b STRING>>]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[string_binary#12, $col2#13]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=[CollatedTable.string_binary#2{Collation:"binary"}, $union_all1.$col2#5[<_,{Collation:"und:ci"}>]]
+      | |   +-expr_list=
+      | |   | +-$col2#5 :=
+      | |   |   +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a BOOL, b STRING>) -> ARRAY<STRUCT<a BOOL, b STRING>>)
+      | |   |     +-type_annotation_map=[<_,{Collation:"und:ci"}>]
+      | |   |     +-MakeStruct
+      | |   |       +-type=STRUCT<a BOOL, b STRING>
+      | |   |       +-type_annotation_map=<_,{Collation:"und:ci"}>
+      | |   |       +-field_list=
+      | |   |         +-Literal(type=BOOL, value=true)
+      | |   |         +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+      | |   |           +-type_annotation_map={Collation:"und:ci"}
+      | |   |           +-Literal(type=STRING, value="a")
+      | |   |           +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+      | |   +-input_scan=
+      | |     +-TableScan(column_list=[CollatedTable.string_binary#2{Collation:"binary"}], table=CollatedTable, column_index_list=[1])
+      | +-output_column_list=[CollatedTable.string_binary#2{Collation:"binary"}, $union_all1.$col2#5[<_,{Collation:"und:ci"}>]]
+      +-SetOperationItem
+        +-scan=
+        | +-ProjectScan
+        |   +-column_list=[$union_all2.$col1#11, ComplexCollatedTable.array_of_struct_ci#7[<_,{Collation:"und:ci"}>]]
+        |   +-expr_list=
+        |   | +-$col1#11 := Literal(type=STRING, value="abc")
+        |   +-input_scan=
+        |     +-TableScan(column_list=[ComplexCollatedTable.array_of_struct_ci#7[<_,{Collation:"und:ci"}>]], table=ComplexCollatedTable, column_index_list=[1])
+        +-output_column_list=[$union_all2.$col1#11, ComplexCollatedTable.array_of_struct_ci#7[<_,{Collation:"und:ci"}>]]
+==
+
+select string_ci, 'abc' from CollatedTable
+union all
+select 'abc', string_binary from CollatedTable
+union all
+select COLLATE('def', 'und:ci'), string_binary from CollatedTable
+--
+QueryStmt
++-output_column_list=
+| +-$union_all.string_ci#16{Collation:"und:ci"} AS string_ci [STRING]
+| +-$union_all.$col2#17{Collation:"binary"} AS `$col2` [STRING]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_all.[string_ci#16, $col2#17]
+    +-op_type=UNION_ALL
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}, $union_all1.$col2#5]
+      | |   +-expr_list=
+      | |   | +-$col2#5 := Literal(type=STRING, value="abc")
+      | |   +-input_scan=
+      | |     +-TableScan(column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
+      | +-output_column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}, $union_all1.$col2#5]
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=[$union_all2.$col1#10, CollatedTable.string_binary#7{Collation:"binary"}]
+      | |   +-expr_list=
+      | |   | +-$col1#10 := Literal(type=STRING, value="abc")
+      | |   +-input_scan=
+      | |     +-TableScan(column_list=[CollatedTable.string_binary#7{Collation:"binary"}], table=CollatedTable, column_index_list=[1])
+      | +-output_column_list=[$union_all2.$col1#10, CollatedTable.string_binary#7{Collation:"binary"}]
+      +-SetOperationItem
+        +-scan=
+        | +-ProjectScan
+        |   +-column_list=[$union_all3.$col1#15{Collation:"und:ci"}, CollatedTable.string_binary#12{Collation:"binary"}]
+        |   +-expr_list=
+        |   | +-$col1#15 :=
+        |   |   +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+        |   |     +-type_annotation_map={Collation:"und:ci"}
+        |   |     +-Literal(type=STRING, value="def")
+        |   |     +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+        |   +-input_scan=
+        |     +-TableScan(column_list=[CollatedTable.string_binary#12{Collation:"binary"}], table=CollatedTable, column_index_list=[1])
+        +-output_column_list=[$union_all3.$col1#15{Collation:"und:ci"}, CollatedTable.string_binary#12{Collation:"binary"}]
 ==
 
 create table t (a int64 collate 'und:ci');
@@ -3447,6 +3722,56 @@ CreateViewStmt
 |   +-input_scan=
 |     +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2, struct_with_string_ci#3, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 1, 2, 3])
 +-sql="select * from CollatedTable"
+==
+
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE]
+# CREATE RECURSIVE VIEW with collation in output columns is not supported.
+create {{materialized|}} recursive view t
+AS (
+  select 1 as ind, COLLATE('a', 'und:ci') as string_ci union {{all|distinct}}
+  (select ind + 1 as ind, 'a' as string_ci from t where ind < 3)
+)
+--
+ALTERNATION GROUPS:
+    materialized,all
+    all
+--
+ERROR: Collation is not supported in recursive queries [at 4:3]
+  select 1 as ind, COLLATE('a', 'und:ci') as string_ci union all
+  ^
+--
+ALTERNATION GROUPS:
+    materialized,distinct
+    distinct
+--
+ERROR: Collation is not supported in recursive queries [at 4:3]
+  select 1 as ind, COLLATE('a', 'und:ci') as string_ci union distinct
+  ^
+==
+
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_WITH_RECURSIVE]
+# CREATE RECURSIVE VIEW with collation in output columns is not supported.
+create {{materialized|}} recursive view t
+AS (
+  select 1 as ind, 'a' as string_ci union {{all|distinct}}
+  (select ind + 1 as ind, COLLATE('a', 'und:ci') as string_ci from t where ind < 3)
+)
+--
+ALTERNATION GROUPS:
+    materialized,all
+    all
+--
+ERROR: Collation is not supported in recursive queries [at 4:3]
+  select 1 as ind, 'a' as string_ci union all
+  ^
+--
+ALTERNATION GROUPS:
+    materialized,distinct
+    distinct
+--
+ERROR: Collation is not supported in recursive queries [at 4:3]
+  select 1 as ind, 'a' as string_ci union distinct
+  ^
 ==
 
 create table t (a int64, b string(50) collate 'und:ci');
@@ -3849,8 +4174,8 @@ VALUES((collate('a', 'binary'), collate('b', 'und:ci'))),
 --
 InsertStmt
 +-table_scan=
-| +-TableScan(column_list=[ComplexCollatedTable.struct_with_string_ci_binary#4<{Collation:"und:ci"},{Collation:"binary"}>], table=ComplexCollatedTable, column_index_list=[3])
-+-insert_column_list=[ComplexCollatedTable.struct_with_string_ci_binary#4<{Collation:"und:ci"},{Collation:"binary"}>]
+| +-TableScan(column_list=[ComplexCollatedTable.struct_with_string_ci_binary#5<{Collation:"und:ci"},{Collation:"binary"}>], table=ComplexCollatedTable, column_index_list=[4])
++-insert_column_list=[ComplexCollatedTable.struct_with_string_ci_binary#5<{Collation:"und:ci"},{Collation:"binary"}>]
 +-row_list=
   +-InsertRow
   | +-value_list=
@@ -3897,8 +4222,8 @@ VALUES((1, (1, 'a'))),
 --
 InsertStmt
 +-table_scan=
-| +-TableScan(column_list=[ComplexCollatedTable.struct_of_struct_ci#3<_,<_,{Collation:"und:ci"}>>], table=ComplexCollatedTable, column_index_list=[2])
-+-insert_column_list=[ComplexCollatedTable.struct_of_struct_ci#3<_,<_,{Collation:"und:ci"}>>]
+| +-TableScan(column_list=[ComplexCollatedTable.struct_of_struct_ci#4<_,<_,{Collation:"und:ci"}>>], table=ComplexCollatedTable, column_index_list=[3])
++-insert_column_list=[ComplexCollatedTable.struct_of_struct_ci#4<_,<_,{Collation:"und:ci"}>>]
 +-row_list=
   +-InsertRow
   | +-value_list=
@@ -3976,8 +4301,8 @@ VALUES((1, [STRUCT(true as a, collate('a', 'binary') as b)])),
 --
 InsertStmt
 +-table_scan=
-| +-TableScan(column_list=[ComplexCollatedTable.struct_with_array_of_struct_ci#2<_,[<_,{Collation:"und:ci"}>]>], table=ComplexCollatedTable, column_index_list=[1])
-+-insert_column_list=[ComplexCollatedTable.struct_with_array_of_struct_ci#2<_,[<_,{Collation:"und:ci"}>]>]
+| +-TableScan(column_list=[ComplexCollatedTable.struct_with_array_of_struct_ci#3<_,[<_,{Collation:"und:ci"}>]>], table=ComplexCollatedTable, column_index_list=[2])
++-insert_column_list=[ComplexCollatedTable.struct_with_array_of_struct_ci#3<_,[<_,{Collation:"und:ci"}>]>]
 +-row_list=
   +-InsertRow
   | +-value_list=

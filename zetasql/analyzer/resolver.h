@@ -589,8 +589,14 @@ class Resolver {
   // ResolvedLiterals without a cached image.
   int next_float_literal_image_id_ = 1;
 
-  // A list of AnnotationSpec to be used to propagate annotations.
-  std::vector<std::unique_ptr<AnnotationSpec>> annotation_specs_;
+  // A list of AnnotationSpec owned by ZetaSQL.
+  std::vector<std::unique_ptr<AnnotationSpec>> owned_annotation_specs_;
+
+  // A complete list of AnnotationSpec to be used to propagate annotations.
+  // Contains ZetaSQL annotations and engine specific annotations.
+  // All AnnotationSpecs in <owned_annotation_specs_> are included in
+  // <annotation_specs_>.
+  std::vector<AnnotationSpec*> annotation_specs_;  // Not owned.
 
   // Holds active name lists that are available for GROUP_ROWS() function
   // invoked from inside WITH GROUP_ROWS(...). Contains an entry for each nested
@@ -613,8 +619,10 @@ class Resolver {
     return function_resolver_.get();
   }
 
-  // Creates AnnotationSpec based on language feature and analyzer options.
-  void InitializeAnnotationSpecs();
+  // Creates AnnotationSpec based on enabled language features and a list of
+  // passed in annotations.
+  void InitializeAnnotationSpecs(
+      const std::vector<AnnotationSpec*>& annotation_specs);
 
   // Checks and propagates annotations through <resolved_node>. If there is SQL
   // error thrown, the error will be attached to the location of <error_node>.
@@ -1887,13 +1895,22 @@ class Resolver {
     ResolvedBuildProtoArg(
         const ASTNode* ast_location_in,
         std::unique_ptr<const ResolvedExpr> expr_in,
-        std::unique_ptr<AliasOrASTPathExpression> alias_or_ast_path_expr_in)
+        std::unique_ptr<AliasOrASTPathExpression> alias_or_ast_path_expr_in,
+        const google::protobuf::FieldDescriptor* field_descriptor_in = nullptr,
+        const Type* proto_field_type_in = nullptr)
         : ast_location(ast_location_in),
           expr(std::move(expr_in)),
-          alias_or_ast_path_expr(std::move(alias_or_ast_path_expr_in)) {}
+          alias_or_ast_path_expr(std::move(alias_or_ast_path_expr_in)),
+          field_descriptor(field_descriptor_in),
+          proto_field_type(proto_field_type_in) {}
     const ASTNode* ast_location;
     std::unique_ptr<const ResolvedExpr> expr;
     std::unique_ptr<const AliasOrASTPathExpression> alias_or_ast_path_expr;
+
+    // The following two fields can be set if available so that they don't have
+    // to be computed again.
+    const google::protobuf::FieldDescriptor* field_descriptor;
+    const Type* proto_field_type;
   };
 
   // Create a ResolvedMakeProto from a type and a vector of arguments.
@@ -1908,6 +1925,20 @@ class Resolver {
                                  const std::string& query_description,
                                  std::vector<ResolvedBuildProtoArg>* arguments,
                                  std::unique_ptr<const ResolvedExpr>* output);
+
+  // Returns the proto field descriptor corresponding to an
+  // AliasOrASTPathExpression.
+  absl::StatusOr<const google::protobuf::FieldDescriptor*> FindFieldDescriptor(
+      const google::protobuf::Descriptor* descriptor,
+      const AliasOrASTPathExpression& alias_or_ast_path_expr,
+      const ASTNode* ast_location, int field_index,
+      const std::string& argument_description);
+
+  // Returns the ZetaSQL type corresponding to a FieldDescriptor.
+  // Validates that the type is supported for the language.
+  absl::StatusOr<const Type*> FindProtoFieldType(
+      const google::protobuf::FieldDescriptor* field_descriptor,
+      const ASTNode* ast_location);
 
   // Returns the FieldDescriptor corresponding to <ast_path_expr>. First tries
   // to look up with respect to <descriptor>, and failing that extracts a type
@@ -2711,10 +2742,10 @@ class Resolver {
   // If the expression contains aggregate or analytic functions then this method
   // returns an error message, possibly including <clause_name>.
   absl::Status ResolveScalarExpr(
-      const ASTExpression* ast_expr,
-      const NameScope* name_scope,
+      const ASTExpression* ast_expr, const NameScope* name_scope,
       const char* clause_name,
-      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out,
+      const Type* inferred_type = nullptr);
 
   // This is the recursive method that resolves expressions.
   // For scalar-only expressions, ResolveScalarExpr can be used instead.
@@ -2733,10 +2764,25 @@ class Resolver {
   // expressions will be resolved correctly, but the output fields (like
   // has_aggregation) in ExprResolutionInfo will be updated based on all
   // expressions resolved so far.
+  //
+  // The caller can optionally pass in the inferred_type of the expression. This
+  // affects expressions that don't specify their own type. The affected
+  // expressions:
+  //
+  // * Braced constructors
+  // * Array constructors with proto elements ([...] but not ARRAY<T>[...])
+  // * Struct constructors with proto field(s) (STRUCT(...) but not STRUCT<S,
+  //   T>(...))
+  //
+  // The caller should treat inferred_type as a hint becausee it won't affect
+  // expressions that have their own type e.g. ARRAY<T>. The caller should still
+  // verify that the expression matches their expected type, adding casts if
+  // needed.
   absl::Status ResolveExpr(
       const ASTExpression* ast_expr,
       ExprResolutionInfo* parent_expr_resolution_info,
-      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out,
+      const Type* inferred_type = nullptr);
 
   // Validates <json_literal> and returns the JSONValue.
   absl::StatusOr<std::unique_ptr<const ResolvedLiteral>> ResolveJsonLiteral(
@@ -3193,19 +3239,39 @@ class Resolver {
       ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
+  absl::Status ResolveBracedConstructorFieldValue(
+      const ASTBracedConstructorFieldValue* ast_braced_constructor_field_value,
+      const Type* inferred_type, ExprResolutionInfo* expr_resolution_info,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
+
+  absl::StatusOr<ResolvedBuildProtoArg> ResolveBracedConstructorField(
+      const ASTBracedConstructorField* ast_braced_constructor_field,
+      const google::protobuf::Descriptor* parent_descriptor, int field_index,
+      ExprResolutionInfo* expr_resolution_info);
+
+  absl::Status ResolveBracedConstructor(
+      const ASTBracedConstructor* ast_braced_constructor,
+      const Type* inferred_type, ExprResolutionInfo* expr_resolution_info,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
+
+  absl::Status ResolveBracedNewConstructor(
+      const ASTBracedNewConstructor* ast_braced_new_constructor,
+      ExprResolutionInfo* expr_resolution_info,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
+
   absl::Status ResolveArrayConstructor(
       const ASTArrayConstructor* ast_array_constructor,
-      ExprResolutionInfo* expr_resolution_info,
+      const Type* inferred_type, ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
   absl::Status ResolveStructConstructorWithParens(
       const ASTStructConstructorWithParens* ast_struct_constructor,
-      ExprResolutionInfo* expr_resolution_info,
+      const Type* inferred_type, ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
   absl::Status ResolveStructConstructorWithKeyword(
       const ASTStructConstructorWithKeyword* ast_struct_constructor,
-      ExprResolutionInfo* expr_resolution_info,
+      const Type* inferred_type, ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
   // When resolving a STRUCT constructor expression, we generally try
@@ -3234,7 +3300,7 @@ class Resolver {
       const ASTNode* ast_location, const ASTStructType* ast_struct_type,
       absl::Span<const ASTExpression* const> ast_field_expressions,
       absl::Span<const ASTAlias* const> ast_field_aliases,
-      ExprResolutionInfo* expr_resolution_info,
+      const Type* inferred_type, ExprResolutionInfo* expr_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
   // If <date_part> is not null, sets it to the resolved date part.

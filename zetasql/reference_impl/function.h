@@ -279,11 +279,13 @@ enum class FunctionKind {
   kDateSub,
   kDateDiff,
   kDateTrunc,
+  kDateBucket,
   kLastDay,
   kDatetimeAdd,
   kDatetimeSub,
   kDatetimeDiff,
   kDatetimeTrunc,
+  kDateTimeBucket,
   kTimeAdd,
   kTimeSub,
   kTimeDiff,
@@ -292,6 +294,7 @@ enum class FunctionKind {
   kTimestampSub,
   kTimestampDiff,
   kTimestampTrunc,
+  kTimestampBucket,
   kCurrentDate,
   kCurrentDatetime,
   kCurrentTime,
@@ -675,7 +678,7 @@ class LambdaEvaluationContext {
       : params_(params), context_(context) {}
 
  public:
-  absl::StatusOr<Value> EvaluateLambda(InlineLambdaExpr* lambda,
+  absl::StatusOr<Value> EvaluateLambda(const InlineLambdaExpr* lambda,
                                        absl::Span<const Value> args);
 
   EvaluationContext* evaluation_context() const { return context_; }
@@ -688,58 +691,46 @@ class LambdaEvaluationContext {
   std::shared_ptr<TupleSlot::SharedProtoState> shared_proto_state_;
 };
 
-// Base class for functions that consume at least one lambda as an argument.
-class FunctionWithLambdaBase : public BuiltinScalarFunction {
+class ArrayFilterFunction : public SimpleBuiltinScalarFunction {
  public:
-  FunctionWithLambdaBase(FunctionKind kind, const Type* output_type,
-                         std::vector<InlineLambdaExpr*> lambdas)
-      : BuiltinScalarFunction(kind, output_type),
-        lambdas_(std::move(lambdas)) {}
+  ArrayFilterFunction(FunctionKind kind, const Type* output_type,
+                      const InlineLambdaExpr* lambda)
+      : SimpleBuiltinScalarFunction(kind, output_type), lambda_(lambda) {}
 
-  bool Eval(absl::Span<const TupleData* const> params,
-            absl::Span<const Value> args, EvaluationContext* context,
-            Value* result, absl::Status* status) const override;
-
- protected:
-  absl::Span<InlineLambdaExpr* const> lambdas() const { return lambdas_; }
-
-  virtual absl::StatusOr<Value> EvalInternal(
-      absl::Span<const Value> args, LambdaEvaluationContext& context) const = 0;
+  absl::StatusOr<Value> Eval(
+      absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+      EvaluationContext* evaluation_context) const override;
 
  private:
-  // The lambda argument to this function. Owned by the enclosing
-  // ScalarFunctionCallExpr object.
-  const std::vector<InlineLambdaExpr*> lambdas_;
+  const InlineLambdaExpr* lambda_;
 };
 
-class ArrayFilterFunction : public FunctionWithLambdaBase {
+class ArrayTransformFunction : public SimpleBuiltinScalarFunction {
  public:
-  using FunctionWithLambdaBase::FunctionWithLambdaBase;
+  ArrayTransformFunction(FunctionKind kind, const Type* output_type,
+                         const InlineLambdaExpr* lambda)
+      : SimpleBuiltinScalarFunction(kind, output_type), lambda_(lambda) {}
 
- protected:
-  absl::StatusOr<Value> EvalInternal(
-      absl::Span<const Value> args,
-      LambdaEvaluationContext& context) const override;
+  absl::StatusOr<Value> Eval(
+      absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+      EvaluationContext* evaluation_context) const override;
+
+ private:
+  const InlineLambdaExpr* lambda_;
 };
 
-class ArrayTransformFunction : public FunctionWithLambdaBase {
+class ArrayIncludesFunctionWithLambda : public SimpleBuiltinScalarFunction {
  public:
-  using FunctionWithLambdaBase::FunctionWithLambdaBase;
+  ArrayIncludesFunctionWithLambda(FunctionKind kind, const Type* output_type,
+                                  const InlineLambdaExpr* lambda)
+      : SimpleBuiltinScalarFunction(kind, output_type), lambda_(lambda) {}
 
- protected:
-  absl::StatusOr<Value> EvalInternal(
-      absl::Span<const Value> args,
-      LambdaEvaluationContext& context) const override;
-};
+  absl::StatusOr<Value> Eval(
+      absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+      EvaluationContext* evaluation_context) const override;
 
-class ArrayIncludesFunctionWithLambda : public FunctionWithLambdaBase {
- public:
-  using FunctionWithLambdaBase::FunctionWithLambdaBase;
-
- protected:
-  absl::StatusOr<Value> EvalInternal(
-      absl::Span<const Value> args,
-      LambdaEvaluationContext& context) const override;
+ private:
+  const InlineLambdaExpr* lambda_;
 };
 
 class ArrayConcatFunction : public BuiltinScalarFunction {
@@ -1379,6 +1370,14 @@ class ExtractDatetimeFromFunction : public SimpleBuiltinScalarFunction {
 };
 
 class IntervalFunction : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class DateTimeBucketFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,

@@ -598,8 +598,9 @@ absl::Status Resolver::ResolveDMLValue(
   if (ast_value->node_kind() == AST_DEFAULT_LITERAL) {
     resolved_value = MakeResolvedDMLDefault(annotated_target_type.type);
   } else {
-    ZETASQL_RETURN_IF_ERROR(
-        ResolveScalarExpr(ast_value, scope, clause_name, &resolved_value));
+    ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_value, scope, clause_name,
+                                      &resolved_value,
+                                      annotated_target_type.type));
     ZETASQL_RETURN_IF_ERROR(CoerceExprToType(
         ast_value, annotated_target_type, kImplicitAssignment,
         coercion_err_msg, &resolved_value));

@@ -87,6 +87,12 @@ class SQLTableValuedFunction : public TableValuedFunction {
     return create_tvf_statement_;
   }
 
+  const std::vector<std::string>& GetArgumentNames() const {
+    return create_tvf_statement_->argument_name_list();
+  }
+
+  const ResolvedScan* query() const { return create_tvf_statement_->query(); }
+
  private:
   // Constructor for valid table functions.
   explicit SQLTableValuedFunction(

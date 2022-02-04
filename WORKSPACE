@@ -32,7 +32,37 @@ workspace(name = "com_google_zetasql")
 # each step may change over time (and additional steps may be added in the
 # future).
 
-# such that 'my_repo_deps'
+# Skip to step_1 if you don't require java support. If you _only_ need
+# java support, you still must include all steps.
+
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "rules_jvm_external",
+    sha256 = "f36441aa876c4f6427bfb2d1f2d723b48e9d930b62662bf723ddfb8fc80f0140",
+    strip_prefix = "rules_jvm_external-4.1",
+    urls = ["https://github.com/bazelbuild/rules_jvm_external/archive/4.1.zip"],
+)
+load("@rules_jvm_external//:repositories.bzl", "rules_jvm_external_deps")
+
+rules_jvm_external_deps()
+
+load("@rules_jvm_external//:setup.bzl", "rules_jvm_external_setup")
+
+rules_jvm_external_setup()
+
+load("@com_google_zetasql//bazel:zetasql_java_deps.bzl", "zetasql_java_deps")
+zetasql_java_deps()
+
+load("@maven//:defs.bzl", "pinned_maven_install")
+pinned_maven_install()
+
+# Creates an alias of the form @com_foo_bar//jar for each
+# @maven//:com_foo_bar
+load("@maven//:compat.bzl", "compat_repositories")
+compat_repositories()
+
+# If java support is not required, copy starting from here
 load("@com_google_zetasql//bazel:zetasql_deps_step_1.bzl", "zetasql_deps_step_1")
 
 zetasql_deps_step_1()

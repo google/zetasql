@@ -20,10 +20,12 @@ package com.google.zetasql.parser;
 
 import com.google.common.collect.ImmutableList;
 import com.google.zetasql.ZetaSQLType.TypeKind;
+import java.util.List;
 import javax.annotation.Generated;
 
 /** ASTNodes is an outer class to contain all generated AST Node classes. */
 @Generated("//java/com/google/zetasql/parser:gen_java")
+@SuppressWarnings("LineLength")
 public class ASTNodes {
 # for node in nodes|sort_by_tag_id
 {{blank_line}}
@@ -109,7 +111,7 @@ public class ASTNodes {
 {{ blank_line }}
     @Override
     public final String nodeKindString() {
-      return "{{node.node_kind}}";
+      return "{{node.node_kind_name}}";
     }
   # endif
 
@@ -123,6 +125,30 @@ public class ASTNodes {
       return {{field.name|lower_camel_case}};
     }
   # endfor
+{{blank_line}}
+{# collectDebugStringFields #}
+    public void collectDebugStringFields(List<DebugStringField> debugStringfields) {
+      super.collectDebugStringFields(debugStringfields);
+  # for field in node.fields
+   # if field.is_node_ptr
+      if ({{field.name|lower_camel_case}} != null) {
+        debugStringfields.add(
+          new DebugStringField("{{field.name}}",
+            {{field.name|lower_camel_case}}));
+      }
+   # elif field.is_vector
+      if (!{{field.name|lower_camel_case}}.isEmpty()) {
+        debugStringfields.add(
+          new DebugStringField("{{field.name}}",
+            {{field.name|lower_camel_case}}));
+      }
+   # else
+      debugStringfields.add(
+        new DebugStringField("{{field.name}}",
+          {{field.name|lower_camel_case}}));
+   # endif
+  # endfor
+    }
   }
 # endfor
 {{blank_line}}

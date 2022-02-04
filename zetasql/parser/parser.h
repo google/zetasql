@@ -42,11 +42,6 @@ class ASTType;
 class IdStringPool;
 class ParseResumeLocation;
 
-// Previously, the LanguageOptions were not required in parser options.
-// This matches the behavior of the parser when it was not provided language
-// options, which mostly matches a default constructed LanguageOptions object.
-LanguageOptions LegacyDefaultParserLanguageOptions();
-
 // ParserOptions contains options that affect parser behavior.
 class ParserOptions {
  public:
@@ -95,7 +90,7 @@ class ParserOptions {
 
   void set_language_options(const LanguageOptions* language_options) {
     if (language_options == nullptr) {
-      language_options_ = LegacyDefaultParserLanguageOptions();
+      language_options_ = LanguageOptions();
     } else {
       language_options_ = language_options;
     }

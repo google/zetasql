@@ -179,7 +179,30 @@ void TestBinaryFunction(const QueryParamsWithResult& param,
   return CompareResult(param, status, out);
 }
 
+typedef testing::TestWithParam<FunctionTestCall> CscTemplateTest;
+TEST_P(CscTemplateTest, Testlib) {
+  const FunctionTestCall& param = GetParam();
+  return TestUnaryFunction(param.params, &Csc<double>);
+}
 
+INSTANTIATE_TEST_SUITE_P(Csc, CscTemplateTest,
+                         testing::ValuesIn(GetFunctionTestsCsc()));
+
+typedef testing::TestWithParam<FunctionTestCall> SecTemplateTest;
+TEST_P(SecTemplateTest, Testlib) {
+  const FunctionTestCall& param = GetParam();
+  return TestUnaryFunction(param.params, &Sec<double>);
+}
+INSTANTIATE_TEST_SUITE_P(Sec, SecTemplateTest,
+                         testing::ValuesIn(GetFunctionTestsSec()));
+
+typedef testing::TestWithParam<FunctionTestCall> CotTemplateTest;
+TEST_P(CotTemplateTest, Testlib) {
+  const FunctionTestCall& param = GetParam();
+  return TestUnaryFunction(param.params, &Cot<double>);
+}
+INSTANTIATE_TEST_SUITE_P(Cot, CotTemplateTest,
+                         testing::ValuesIn(GetFunctionTestsCot()));
 typedef testing::TestWithParam<FunctionTestCall> MathTemplateTest;
 TEST_P(MathTemplateTest, Testlib) {
   const FunctionTestCall& param = GetParam();

@@ -9587,8 +9587,12 @@ GREATEST(X1,...,XN)
 
 **Description**
 
-Returns the largest value among X1,...,XN according to the &lt; comparison.
-If any parts of X1,...,XN are `NULL`, the return value is `NULL`.
+Returns the greatest value among `X1,...,XN`. If any argument is `NULL`, returns
+`NULL`. Otherwise, in the case of floating-point arguments, if any argument is
+`NaN`, returns `NaN`. In all other cases, returns the value among `X1,...,XN`
+that has the greatest value according to the ordering used by the `ORDER BY`
+clause. The arguments `X1, ..., XN` must be coercible to a common supertype, and
+the supertype must support ordering.
 
 <table>
   <thead>
@@ -9617,8 +9621,12 @@ LEAST(X1,...,XN)
 
 **Description**
 
-Returns the smallest value among X1,...,XN according to the &gt; comparison.
-If any parts of X1,...,XN are `NULL`, the return value is `NULL`.
+Returns the least value among `X1,...,XN`. If any argument is `NULL`, returns
+`NULL`. Otherwise, in the case of floating-point arguments, if any argument is
+`NaN`, returns `NaN`. In all other cases, returns the value among `X1,...,XN`
+that has the least value according to the ordering used by the `ORDER BY`
+clause. The arguments `X1, ..., XN` must be coercible to a common supertype, and
+the supertype must support ordering.
 
 <table>
   <thead>

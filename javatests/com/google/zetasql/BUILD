@@ -50,13 +50,13 @@ java_library(
         "//zetasql/resolved_ast:resolved_node_kind_java_proto",  # buildcleaner: keep
         "//zetasql/testdata:bad_test_schema_java_proto",
         "//zetasql/testdata:test_schema_java_proto",
-        "@com_google_guava_guava//jar",
-        "@com_google_guava_testlib//jar",
         "@com_google_protobuf//:protobuf_java",
-        "@com_google_truth_proto_extension//jar",
-        "@com_google_truth_truth//jar",
-        "@joda_time//jar",
-        "@junit_junit//jar",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_guava_guava_testlib",
+        "@maven//:com_google_truth_extensions_truth_proto_extension",
+        "@maven//:com_google_truth_truth",
+        "@maven//:joda_time_joda_time",
+        "@maven//:junit_junit",
     ],
 )
 
@@ -69,9 +69,9 @@ java_library(
     deps = [
         "//java/com/google/zetasql:types",
         "//zetasql/public:type_proto_java_proto",
-        "@com_google_guava_testlib//jar",
         "@com_google_protobuf//:protobuf_java",
-        "@com_google_truth_truth//jar",
+        "@maven//:com_google_guava_guava_testlib",
+        "@maven//:com_google_truth_truth",
     ],
 )
 

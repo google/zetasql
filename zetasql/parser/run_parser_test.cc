@@ -143,6 +143,8 @@ class RunParserTest : public ::testing::Test {
   // Allows generic DDL ALTER statements without a <path_expression>
   const std::string kAllowMissingPathInGenericDdlAlter =
       "allow_missing_path_in_generic_ddl_alter";
+  // Allows braced constructors.
+  const std::string kAllowBracedConstructors = "allow_braced_constructors";
 
   RunParserTest() {
     test_case_options_.RegisterString(kModeOption, "statement");
@@ -168,6 +170,7 @@ class RunParserTest : public ::testing::Test {
     test_case_options_.RegisterBool(kAllowScriptLabel, true);
     test_case_options_.RegisterBool(kAllowRemoteFunction, true);
     test_case_options_.RegisterBool(kAllowMissingPathInGenericDdlAlter, false);
+    test_case_options_.RegisterBool(kAllowBracedConstructors, true);
 
     // Force a blank line at the start of every test case.
     absl::SetFlag(&FLAGS_file_based_test_driver_insert_leading_blank_lines, 1);
@@ -661,6 +664,10 @@ class RunParserTest : public ::testing::Test {
     if (test_case_options_.GetBool(kAllowMissingPathInGenericDdlAlter)) {
       language_options_->EnableLanguageFeature(
           FEATURE_ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL);
+    }
+    if (test_case_options_.GetBool(kAllowBracedConstructors)) {
+      language_options_->EnableLanguageFeature(
+          FEATURE_V_1_3_BRACED_PROTO_CONSTRUCTORS);
     }
     std::string entity_types_config =
         test_case_options_.GetString(kSupportedGenericEntityTypes);

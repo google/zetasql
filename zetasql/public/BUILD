@@ -1094,6 +1094,25 @@ java_proto_library(
 )
 
 proto_library(
+    name = "type_modifiers_proto",
+    srcs = ["type_modifiers.proto"],
+    deps = [
+        ":collation_proto",
+        ":type_parameters_proto",
+    ],
+)
+
+cc_proto_library(
+    name = "type_modifiers_cc_proto",
+    deps = [":type_modifiers_proto"],
+)
+
+java_proto_library(
+    name = "type_modifiers_java_proto",
+    deps = [":type_modifiers_proto"],
+)
+
+proto_library(
     name = "error_location_proto",
     srcs = ["error_location.proto"],
 )
@@ -2102,6 +2121,7 @@ cc_library(
         "//zetasql/base",
         "//zetasql/base:strings",
         "//zetasql/parser",
+        "//zetasql/public/types",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:btree",
     ],

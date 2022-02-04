@@ -33,6 +33,7 @@ cc_library(
         "type.cc",
         "type_deserializer.cc",
         "type_factory.cc",
+        "type_modifiers.cc",
         "type_parameters.cc",
     ],
     hdrs = [
@@ -48,6 +49,7 @@ cc_library(
         "type.h",
         "type_deserializer.h",
         "type_factory.h",
+        "type_modifiers.h",
         "type_parameters.h",
         "value_equality_check_options.h",
     ],
@@ -84,6 +86,7 @@ cc_library(
         "//zetasql/public:strings",
         "//zetasql/public:type_annotation_cc_proto",
         "//zetasql/public:type_cc_proto",
+        "//zetasql/public:type_modifiers_cc_proto",
         "//zetasql/public:type_parameters_cc_proto",
         "//zetasql/public:value_cc_proto",
         "//zetasql/public:value_content",

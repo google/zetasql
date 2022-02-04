@@ -1877,7 +1877,7 @@ class ProtoEvalTest : public ::testing::Test {
     ZETASQL_RET_CHECK(field_descr != nullptr);
     const Type* field_type;
     Value default_value;
-    ZETASQL_RET_CHECK_OK(GetProtoFieldTypeAndDefault(field_descr, type_factory_,
+    ZETASQL_RET_CHECK_OK(GetProtoFieldTypeAndDefault({}, field_descr, type_factory_,
                                              &field_type, &default_value));
 
     ProtoFieldAccessInfo access_info;
@@ -3074,14 +3074,14 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprsMultipleFieldsMultipleRows) {
     ProtoFieldAccessInfo access_info1;
     ProtoFieldInfo* info1 = &access_info1.field_info;
     info1->descriptor = p1.GetDescriptor()->FindFieldByName("int64_key_1");
-    ZETASQL_ASSERT_OK(GetProtoFieldTypeAndDefault(info1->descriptor, type_factory_,
+    ZETASQL_ASSERT_OK(GetProtoFieldTypeAndDefault({}, info1->descriptor, type_factory_,
                                           &info1->type, &info1->default_value));
     info1->format = ProtoType::GetFormatAnnotation(info1->descriptor);
 
     ProtoFieldAccessInfo access_info2;
     ProtoFieldInfo* info2 = &access_info2.field_info;
     info2->descriptor = p2.GetDescriptor()->FindFieldByName("nested_value");
-    ZETASQL_ASSERT_OK(GetProtoFieldTypeAndDefault(info2->descriptor, type_factory_,
+    ZETASQL_ASSERT_OK(GetProtoFieldTypeAndDefault({}, info2->descriptor, type_factory_,
                                           &info2->type, &info2->default_value));
     info2->format = ProtoType::GetFormatAnnotation(info2->descriptor);
 

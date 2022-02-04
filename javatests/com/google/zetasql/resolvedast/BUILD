@@ -39,9 +39,9 @@ java_library(
         "//zetasql/public:value_java_proto",
         "//zetasql/resolved_ast:resolved_ast_enums_java_proto",
         "//zetasql/resolved_ast:serialization_java_proto",
-        "@com_google_guava_guava//jar",
-        "@com_google_truth_truth//jar",
-        "@junit_junit//jar",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_truth_truth",
+        "@maven//:junit_junit",
     ],
 )
 

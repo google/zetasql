@@ -84,6 +84,7 @@ LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
       features.insert(FEATURE_V_1_3_TYPEOF_FUNCTION);
       features.insert(FEATURE_V_1_3_SCRIPT_LABEL);
       features.insert(FEATURE_V_1_3_REMOTE_FUNCTION);
+      features.insert(FEATURE_V_1_3_BRACED_PROTO_CONSTRUCTORS);
       ABSL_FALLTHROUGH_INTENDED;
     // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are
     // supposed to be stable and frozen, except possibly for bug fixes.

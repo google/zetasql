@@ -17,10 +17,17 @@
 
 package com.google.zetasql.parser;
 
+import com.google.zetasql.DebugPrintableNode;
+
 /** ASTNode is the common base class of all generated node classes. */
-public abstract class ASTNode {
+public abstract class ASTNode implements DebugPrintableNode {
 
   ASTNode(ASTNodeProto proto) {}
 
-  public abstract String nodeKindString();
+  @Override
+  public String toString() {
+    StringBuilder sb = new StringBuilder();
+    debugStringImpl("", "", sb);
+    return sb.toString();
+  }
 }

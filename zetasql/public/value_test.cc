@@ -1445,8 +1445,6 @@ TEST_F(ValueTest, InvalidArrayConstruction) {
   // Deprecated API
   EXPECT_DEATH(Value::Array(array_type, {Value::String("abc")}),
                "must be of type INT64");
-  EXPECT_DEATH(Value::ArraySafe(array_type, {Value::String("abc")}),
-               "must be of type INT64");
 #ifndef NDEBUG
   EXPECT_DEATH(Value::UnsafeArray(array_type, {Value::String("abc")}),
                "must be of type INT64");

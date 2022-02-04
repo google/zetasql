@@ -182,7 +182,7 @@ SELECT
 
 select new abc
 --
-ERROR: Syntax error: Expected "(" but got end of statement [at 1:15]
+ERROR: Syntax error: Expected "(" or "{" but got end of statement [at 1:15]
 select new abc
               ^
 ==

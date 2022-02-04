@@ -30,6 +30,7 @@
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/annotation.h"
 #include "zetasql/base/case.h"
 #include "absl/base/attributes.h"
 #include "absl/container/btree_set.h"
@@ -527,6 +528,14 @@ class AnalyzerOptions {
     return target_column_types_;
   }
 
+  void set_annotation_specs(std::vector<AnnotationSpec*> annotation_specs) {
+    annotation_specs_ = annotation_specs;
+  }
+
+  const std::vector<AnnotationSpec*>& get_annotation_specs() const {
+    return annotation_specs_;
+  }
+
  private:
   // ======================================================================
   // NOTE: Please update options.proto and AnalyzerOptions.java accordingly
@@ -660,6 +669,10 @@ class AnalyzerOptions {
   // rewrites are applied consistent, and thus prevent instability in the
   // analyzer test column ids.
   absl::btree_set<ResolvedASTRewrite> enabled_rewrites_ = DefaultRewrites();
+
+  // The annotations specs that are passed in and should be handled by
+  // the annotation framework.
+  std::vector<AnnotationSpec*> annotation_specs_;  // Not owned.
 
   // Copyable
 };

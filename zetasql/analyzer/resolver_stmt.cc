@@ -880,7 +880,7 @@ absl::Status Resolver::ResolveGeneratedColumnInfo(
       std::make_shared<NameScope>(column_name_list);
   ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_generated_column->expression(),
                                     target_scope.get(), kComputedColumn,
-                                    &resolved_expression));
+                                    &resolved_expression, opt_type));
 
   // If the type is provided, compare the declared type with the type of the
   // expression.
@@ -909,7 +909,7 @@ absl::Status Resolver::ResolveColumnDefaultExpression(
   std::unique_ptr<const ResolvedExpr> resolved_expression;
   ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(
       ast_column_default, default_expr_access_error_name_scope_.value(),
-      kDefaultColumn, &resolved_expression));
+      kDefaultColumn, &resolved_expression, opt_type));
 
   if (!skip_type_match_check) {
     if (opt_type == nullptr) {
@@ -3439,7 +3439,7 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
             language().LanguageFeatureEnabled(FEATURE_CREATE_AGGREGATE_FUNCTION)
                 ? "SQL function body for non-AGGREGATE function"
                 : "SQL function body",
-            &resolved_expr));
+            &resolved_expr, return_type));
       } else {
         // We use a QueryResolutionInfo to capture aggregate expressions
         // inside the function body.
@@ -3453,9 +3453,8 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
             "SQL function body",
             &query_info);
 
-        ZETASQL_RETURN_IF_ERROR(
-            ResolveExpr(sql_function_body->expression(),
-                        &expr_info, &resolved_expr));
+        ZETASQL_RETURN_IF_ERROR(ResolveExpr(sql_function_body->expression(), &expr_info,
+                                    &resolved_expr, return_type));
 
         ZETASQL_RET_CHECK(!expr_info.has_analytic);
         ZETASQL_RETURN_IF_ERROR(
@@ -5965,7 +5964,7 @@ absl::Status Resolver::ResolveSystemVariableAssignment(
   std::unique_ptr<const ResolvedExpr> resolved_expr;
   ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_statement->expression(),
                                     empty_name_scope_.get(), "SET statement",
-                                    &resolved_expr));
+                                    &resolved_expr, target->type()));
 
   ZETASQL_RETURN_IF_ERROR(CoerceExprToType(ast_statement->expression(), target->type(),
                                    kImplicitAssignment, &resolved_expr));

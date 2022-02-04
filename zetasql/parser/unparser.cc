@@ -1686,6 +1686,52 @@ void Unparser::visitASTNewConstructor(const ASTNewConstructor* node,
   print(")");
 }
 
+void Unparser::visitASTBracedConstructorFieldValue(
+    const ASTBracedConstructorFieldValue* node, void* data) {
+  if (node->expression()) {
+    node->expression()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTBracedConstructorField(
+    const ASTBracedConstructorField* node, void* data) {
+  if (node->identifier()) {
+    node->identifier()->Accept(this, data);
+  }
+  if (node->parenthesized_path()) {
+    print("(");
+    node->parenthesized_path()->Accept(this, data);
+    print(")");
+  }
+  print(": ");
+  node->value()->Accept(this, data);
+}
+
+void Unparser::visitASTBracedConstructor(const ASTBracedConstructor* node,
+                                         void* data) {
+  print("{");
+  bool first = true;
+  for (auto* field : node->fields()) {
+    if (first) {
+      field->Accept(this, data);
+      first = false;
+      continue;
+    }
+    if (field->parenthesized_path()) {
+      print(",");
+    }
+    field->Accept(this, data);
+  }
+  print("}");
+}
+
+void Unparser::visitASTBracedNewConstructor(const ASTBracedNewConstructor* node,
+                                            void* data) {
+  print("NEW");
+  node->type_name()->Accept(this, data);
+  node->braced_constructor()->Accept(this, data);
+}
+
 void Unparser::visitASTInferredTypeColumnSchema(
     const ASTInferredTypeColumnSchema* node, void* data) {
   UnparseColumnSchema(node, data);

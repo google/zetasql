@@ -107,16 +107,10 @@ class ReferenceDriver : public TestDriver {
   // This can be called between ExecuteQuery calls to change options.
   void SetLanguageOptions(const LanguageOptions& options);
 
-  // Implements TestDriver::ExecuteStatement(), which documents that this method
-  // is not supposed be called because IsReferenceImplementation() returns true.
+  // Implements TestDriver::ExecuteStatement()
   absl::StatusOr<Value> ExecuteStatement(
       const std::string& sql, const std::map<std::string, Value>& parameters,
-      TypeFactory* type_factory) override {
-    ZETASQL_RET_CHECK_FAIL()
-        << "ExecuteStatement() is not supported for the reference "
-        << "implementation; call  "
-        << "ReferenceDriver::ExecuteStatementForReferenceDriver() instead";
-  }
+      TypeFactory* type_factory) override;
 
   // Implements TestDriver::ExecuteScript(), which documents that this method
   // is not supposed be called because IsReferenceImplementation() returns true.
@@ -180,6 +174,10 @@ class ReferenceDriver : public TestDriver {
 
   absl::TimeZone default_time_zone() { return default_time_zone_; }
 
+  absl::StatusOr<std::vector<Value>> RepeatExecuteStatement(
+      const std::string& sql, const std::map<std::string, Value>& parameters,
+      TypeFactory* type_factory, uint64_t times) override;
+
  private:
   struct TableInfo {
     std::string table_name;
@@ -205,7 +203,13 @@ class ReferenceDriver : public TestDriver {
       const SystemVariableValuesMap& system_variables,
       const ExecuteStatementOptions& options, TypeFactory* type_factory,
       bool* is_deterministic_output, bool* uses_unsupported_type,
-      TestDatabase* database, std::string* created_table_name);
+      TestDatabase* database, std::string* created_table_name,
+      const AnalyzerOutput* analyzer_out);
+
+  absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> AnalyzeStatement(
+      const std::string& sql, TypeFactory* type_factory,
+      const std::map<std::string, Value>& parameters, Catalog* catalog,
+      const AnalyzerOptions& analyzer_options);
 
   friend class ReferenceDriverStatementEvaluator;
   std::unique_ptr<TypeFactory> type_factory_;

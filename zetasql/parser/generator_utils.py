@@ -192,3 +192,17 @@ def UpperCamelCase(value):
   """Turns some_string or SOME_STRING into SomeString."""
   split_value = value.lower().split('_')
   return ''.join([part.capitalize() for part in split_value])
+
+
+def NameToNodeKindName(name, prefix):
+  """Returns the name of a node kind, suitable for a tree dump.
+
+  This is simply the name, minus the "Resolved" or "AST" prefix (if present).
+  Args:
+    name: name of node class (in Java/C++).
+    prefix: prefix to remove.
+  """
+  if name.startswith(prefix):
+    return name[len(prefix):]
+  else:
+    return name

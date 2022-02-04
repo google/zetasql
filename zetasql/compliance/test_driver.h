@@ -49,6 +49,7 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -334,11 +335,20 @@ class TestDriver {
   //
   // There are helpers that may be useful for producing DML output statement
   // types in type_helpers.h.
-  //
-  // This method must not be called if IsReferenceImplementation() returns true.
   virtual absl::StatusOr<Value> ExecuteStatement(
       const std::string& sql, const std::map<std::string, Value>& parameters,
       TypeFactory* type_factory) = 0;
+
+  virtual absl::StatusOr<std::vector<Value>> RepeatExecuteStatement(
+      const std::string& sql, const std::map<std::string, Value>& parameters,
+      TypeFactory* type_factory, uint64_t times) {
+    std::vector<Value> result(times);
+    for (int i = 0; i < times; ++i) {
+      ZETASQL_ASSIGN_OR_RETURN(result[i],
+                       ExecuteStatement(sql, parameters, type_factory));
+    }
+    return result;
+  }
 
   // Similar to ExecuteStatement(), but executes 'sql' as a script, rather than
   // an individual statement.

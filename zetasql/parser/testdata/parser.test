@@ -2173,57 +2173,57 @@ SELECT ( foo ] ], foo
 --
 ALTERNATION GROUP: {,),)
 --
-ERROR: Syntax error: Unexpected "{" [at 1:8]
+ERROR: Syntax error: Expected ":" or "{" but got ")" [at 1:14]
 SELECT { foo ) ), foo
-       ^
+             ^
 --
 ALTERNATION GROUP: {,),}
 --
-ERROR: Syntax error: Unexpected "{" [at 1:8]
+ERROR: Syntax error: Expected ":" or "{" but got ")" [at 1:14]
 SELECT { foo ) }, foo
-       ^
+             ^
 --
 ALTERNATION GROUP: {,),]
 --
-ERROR: Syntax error: Unexpected "{" [at 1:8]
+ERROR: Syntax error: Expected ":" or "{" but got ")" [at 1:14]
 SELECT { foo ) ], foo
-       ^
+             ^
 --
 ALTERNATION GROUP: {,},)
 --
-ERROR: Syntax error: Unexpected "{" [at 1:8]
+ERROR: Syntax error: Expected ":" or "{" but got "}" [at 1:14]
 SELECT { foo } ), foo
-       ^
+             ^
 --
 ALTERNATION GROUP: {,},}
 --
-ERROR: Syntax error: Unexpected "{" [at 1:8]
+ERROR: Syntax error: Expected ":" or "{" but got "}" [at 1:14]
 SELECT { foo } }, foo
-       ^
+             ^
 --
 ALTERNATION GROUP: {,},]
 --
-ERROR: Syntax error: Unexpected "{" [at 1:8]
+ERROR: Syntax error: Expected ":" or "{" but got "}" [at 1:14]
 SELECT { foo } ], foo
-       ^
+             ^
 --
 ALTERNATION GROUP: {,],)
 --
-ERROR: Syntax error: Unexpected "{" [at 1:8]
+ERROR: Syntax error: Expected ":" or "{" but got "]" [at 1:14]
 SELECT { foo ] ), foo
-       ^
+             ^
 --
 ALTERNATION GROUP: {,],}
 --
-ERROR: Syntax error: Unexpected "{" [at 1:8]
+ERROR: Syntax error: Expected ":" or "{" but got "]" [at 1:14]
 SELECT { foo ] }, foo
-       ^
+             ^
 --
 ALTERNATION GROUP: {,],]
 --
-ERROR: Syntax error: Unexpected "{" [at 1:8]
+ERROR: Syntax error: Expected ":" or "{" but got "]" [at 1:14]
 SELECT { foo ] ], foo
-       ^
+             ^
 --
 ALTERNATION GROUP: [,),)
 --
@@ -2358,21 +2358,21 @@ SELECT ( x BETWEEN y], foo
 --
 ALTERNATION GROUP: {,)
 --
-ERROR: Syntax error: Unexpected "{" [at 1:8]
+ERROR: Syntax error: Expected ":" or "{" but got keyword BETWEEN [at 1:12]
 SELECT { x BETWEEN y), foo
-       ^
+           ^
 --
 ALTERNATION GROUP: {,}
 --
-ERROR: Syntax error: Unexpected "{" [at 1:8]
+ERROR: Syntax error: Expected ":" or "{" but got keyword BETWEEN [at 1:12]
 SELECT { x BETWEEN y}, foo
-       ^
+           ^
 --
 ALTERNATION GROUP: {,]
 --
-ERROR: Syntax error: Unexpected "{" [at 1:8]
+ERROR: Syntax error: Expected ":" or "{" but got keyword BETWEEN [at 1:12]
 SELECT { x BETWEEN y], foo
-       ^
+           ^
 --
 ALTERNATION GROUP: [,)
 --

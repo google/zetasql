@@ -18,9 +18,9 @@
 package com.google.zetasql.resolvedast;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 import com.google.zetasql.AnyResolvedNodeProto;
+import com.google.zetasql.DebugPrintableNode;
 import com.google.zetasql.FileDescriptorSetsBuilder;
 import com.google.zetasql.ZetaSQLResolvedNodeKind.ResolvedNodeKind;
 import com.google.zetasql.ResolvedNodeProto;
@@ -39,7 +39,7 @@ import java.util.List;
  *
  * <p> In this hierarchy, classes are either abstract or leaves.
  */
-public abstract class ResolvedNode implements Serializable {
+public abstract class ResolvedNode implements Serializable, DebugPrintableNode {
   ResolvedNode(ResolvedNodeProto proto, DeserializationHelper helper) {
     // Nothing to deserialize for now.
   }
@@ -133,123 +133,10 @@ public abstract class ResolvedNode implements Serializable {
     return debugString();
   }
 
-  /** Class used to collect all fields that should be printed in debugString. */
-  static class DebugStringField {
-
-    // If name is non-empty, "<name>=" will be printed in front of the values.
-    private final String name;
-
-    // One of the two fields below will be filled in.
-    // If nodes is non-empty, all nodes are non-NULL.
-    private final String value; // Print this value directly.
-    private final ImmutableList<? extends ResolvedNode> nodes; // Print debugString for these nodes.
-
-    DebugStringField(String name, String value) {
-      this.name = Preconditions.checkNotNull(name);
-      this.value = Preconditions.checkNotNull(value);
-      this.nodes = ImmutableList.of();
-    }
-
-    DebugStringField(String name, ImmutableList<? extends ResolvedNode> nodes) {
-      this.name = Preconditions.checkNotNull(name);
-      this.value = null;
-      this.nodes = Preconditions.checkNotNull(nodes);
-    }
-
-    DebugStringField(String name, ResolvedNode node) {
-      this.name = Preconditions.checkNotNull(name);
-      this.value = null;
-      this.nodes = ImmutableList.of(node);
-    }
-  }
-
   public final String debugString() {
     StringBuilder sb = new StringBuilder();
     debugStringImpl("", "", sb);
     return sb.toString();
-  }
-
-  /**
-   * Print the tree recursively. The implementation is nearly identical to the C++ implementation in
-   * ResolvedNode::DebugStringImpl. The outputs need to be identical so the implementations should
-   * be kept similar to make changes to the output easier.
-   *
-   * @param prefix1 is the indentation to attach to child nodes.
-   * @param prefix2 is the indentation to attach to the root of this tree.
-   * @param sb is the output StringBuilder
-   */
-  private void debugStringImpl(String prefix1, String prefix2, StringBuilder sb) {
-    List<DebugStringField> fields = new ArrayList<>();
-    collectDebugStringFields(fields);
-
-    // Use multiline DebugString format if any of the fields are ResolvedNodes.
-    boolean multiline = false;
-    for (DebugStringField field : fields) {
-      if (!field.nodes.isEmpty()) {
-        multiline = true;
-        break;
-      }
-    }
-
-    sb.append(prefix2).append(getNameForDebugString());
-    if (fields.isEmpty()) {
-      sb.append("\n");
-    } else if (multiline) {
-      sb.append("\n");
-      for (DebugStringField field : fields) {
-        boolean printFieldName = !field.name.isEmpty();
-        boolean printOneLine = field.nodes.isEmpty();
-
-        if (printFieldName) {
-          sb.append(prefix1).append("+-").append(field.name).append("=");
-          if (printOneLine) {
-            sb.append(field.value);
-          }
-          sb.append("\n");
-        } else if (printOneLine) {
-          sb.append(prefix1).append("+-").append(field.value).append("\n");
-        }
-
-        if (!printOneLine) {
-          for (ResolvedNode node : field.nodes) {
-            Preconditions.checkState(node != null);
-            String fieldNameIndent =
-                printFieldName ? (field != fields.get(fields.size() - 1) ? "| " : "  ") : "";
-            String fieldValueIndent = node != field.nodes.get(field.nodes.size() - 1) ? "| " : "  ";
-            node.debugStringImpl(
-                prefix1 + fieldNameIndent + fieldValueIndent, prefix1 + fieldNameIndent + "+-", sb);
-          }
-        }
-      }
-    } else {
-      sb.append("(");
-      for (DebugStringField field : fields) {
-        if (field != fields.get(0)) {
-          sb.append(", ");
-        }
-        if (field.name.isEmpty()) {
-          sb.append(field.value);
-        } else {
-          sb.append(field.name).append("=").append(field.value);
-        }
-      }
-      sb.append(")\n");
-    }
-  }
-
-  /**
-   * Add all fields that should be printed in debugString to {@code fields}. Implementations should
-   * recursively call same method in the superclass.
-   */
-  @SuppressWarnings("unused")
-  protected void collectDebugStringFields(List<DebugStringField> fields) {}
-
-  /**
-   * Get the name string displayed for this node in the debugString. Normally it's just
-   * nodeKindString(), but it can be customized.
-   */
-  protected String getNameForDebugString() {
-    return nodeKindString();
   }
 
   /**
@@ -261,7 +148,7 @@ public abstract class ResolvedNode implements Serializable {
     List<DebugStringField> fields = new ArrayList<>();
     collectDebugStringFields(fields);
     for (DebugStringField field : fields) {
-      if (!field.nodes.isEmpty()) {
+      if (field.hasNodes()) {
         return true;
       }
     }

@@ -109,7 +109,7 @@ Resolver::Resolver(Catalog* catalog, TypeFactory* type_factory,
       id_string_pool_(analyzer_options_.id_string_pool().get()) {
   function_resolver_ =
       absl::make_unique<FunctionResolver>(catalog, type_factory, this);
-  InitializeAnnotationSpecs();
+  InitializeAnnotationSpecs(analyzer_options_.get_annotation_specs());
   ZETASQL_DCHECK(analyzer_options_.AllArenasAreInitialized());
 }
 
@@ -1563,23 +1563,29 @@ absl::StatusOr<bool> Resolver::SupportsEquality(const Type* type1,
          supertype->SupportsEquality(analyzer_options_.language());
 }
 
-void Resolver::InitializeAnnotationSpecs() {
+void Resolver::InitializeAnnotationSpecs(
+    const std::vector<AnnotationSpec*>& annotation_specs) {
   if (!language().LanguageFeatureEnabled(FEATURE_V_1_3_ANNOTATION_FRAMEWORK)) {
     return;
   }
   if (language().LanguageFeatureEnabled(FEATURE_V_1_3_COLLATION_SUPPORT)) {
-    annotation_specs_.push_back(std::make_unique<CollationAnnotation>());
+    owned_annotation_specs_.push_back(std::make_unique<CollationAnnotation>());
   }
-  // TODO: add analyzer option to add engine specific
-  // AnnotationSpec.
-  // TODO: add SampleAnnotation to the Resolver via AnalyzerOptions
-  // when available
-  annotation_specs_.push_back(std::make_unique<SampleAnnotation>());
+
+  // Copy ZetaSQL annotation specs to combined_annotation_specs_
+  for (const auto& annotation_spec : owned_annotation_specs_) {
+    annotation_specs_.push_back(annotation_spec.get());
+  }
+
+  // Copy Engine Specific annotation specs to combined_annotation_specs_
+  for (const auto& annotation_spec : annotation_specs) {
+    annotation_specs_.push_back(annotation_spec);
+  }
 }
 
 static absl::Status CheckAndPropagateAnnotationsImpl(
     const ResolvedNode* resolved_node,
-    std::vector<std::unique_ptr<AnnotationSpec>>* annotation_specs,
+    const std::vector<AnnotationSpec*>* annotation_specs,
     AnnotationMap* annotation_map) {
   for (auto& annotation_spec : *annotation_specs) {
     switch (resolved_node->node_kind()) {
@@ -1658,15 +1664,63 @@ absl::Status Resolver::CheckAndPropagateAnnotations(
       expr->set_type_annotation_map(type_factory_owned_map);
     }
   } else if (resolved_node->Is<ResolvedSetOperationScan>()) {
-    // Disable collation propagation through SetOp.
-    // TODO: Implement collation propagation logic for SetOp.
+    auto* set_operation_scan = resolved_node->GetAs<ResolvedSetOperationScan>();
+    // Owns the pointers.
+    std::vector<std::unique_ptr<AnnotationMap>> annotation_maps;
+    std::vector<AnnotationMap*> annotation_map_ptrs;
+    for (const auto column : set_operation_scan->column_list()) {
+      if (column.type()->IsProto() || column.type()->IsExtendedType()) {
+        annotation_maps.push_back(nullptr);
+        annotation_map_ptrs.push_back(nullptr);
+      } else {
+        annotation_maps.push_back(AnnotationMap::Create(column.type()));
+        annotation_map_ptrs.push_back(annotation_maps.back().get());
+      }
+    }
+
+    // Check and propagate the annotations for set operations for every
+    // AnnotationSpec supported by the resolver.
+    for (auto& annotation_spec : annotation_specs_) {
+      absl::Status status =
+          annotation_spec->CheckAndPropagateForSetOperationScan(
+              *set_operation_scan, annotation_map_ptrs);
+      if (!status.ok() && error_node != nullptr) {
+        return MakeSqlErrorAt(error_node) << status.message();
+      }
+    }
+
+    std::vector<ResolvedColumn> annotated_column_list;
+    annotated_column_list.reserve(set_operation_scan->column_list_size());
+    for (int i = 0; i < set_operation_scan->column_list_size(); i++) {
+      const ResolvedColumn& original_column =
+          set_operation_scan->column_list(i);
+      if (annotation_maps[i] == nullptr || annotation_maps[i]->Empty()) {
+        annotated_column_list.push_back(original_column);
+        continue;
+      }
+
+      ZETASQL_ASSIGN_OR_RETURN(
+          const AnnotationMap* column_annotation_map,
+          type_factory_->TakeOwnership(std::move(annotation_maps[i])));
+
+      annotated_column_list.push_back(ResolvedColumn(
+          original_column.column_id(), original_column.table_name_id(),
+          original_column.name_id(),
+          AnnotatedType(original_column.type(), column_annotation_map)));
+    }
+    set_operation_scan->set_column_list(std::move(annotated_column_list));
+  } else if (resolved_node->Is<ResolvedRecursiveScan>()) {
+    // Disable collation propagation through ResolvedRecursiveScan.
+    // TODO: Implement collation propagation logic for
+    // ResolvedRecursiveScan.
+    auto* scan = resolved_node->GetAs<ResolvedRecursiveScan>();
     for (const auto& item :
-         resolved_node->GetAs<ResolvedSetOperationScan>()->input_item_list()) {
+         {scan->non_recursive_term(), scan->recursive_term()}) {
       for (const auto& output_column : item->output_column_list()) {
         if (CollationAnnotation::ExistsIn(
                 output_column.type_annotation_map())) {
           return MakeSqlErrorAt(error_node)
-                 << "Collation is not supported in set operations";
+                 << "Collation is not supported in recursive queries";
         }
       }
     }

@@ -43,20 +43,7 @@ namespace zetasql {
 using parser::BisonParserMode;
 using parser::BisonParser;
 
-LanguageOptions LegacyDefaultParserLanguageOptions() {
-  LanguageOptions options;
-  options.EnableLanguageFeature(FEATURE_V_1_3_WITH_GROUP_ROWS);
-  options.EnableLanguageFeature(FEATURE_V_1_3_CASE_STMT);
-  options.EnableLanguageFeature(FEATURE_V_1_3_REPEAT);
-  options.EnableLanguageFeature(FEATURE_V_1_3_FOR_IN);
-  options.EnableLanguageFeature(FEATURE_V_1_3_REMOTE_FUNCTION);
-
-  return options;
-}
-
-// TODO: Simplify this to 'LanguageOptions()'
-ParserOptions::ParserOptions()
-    : ParserOptions(LegacyDefaultParserLanguageOptions()) {}
+ParserOptions::ParserOptions() : ParserOptions(LanguageOptions{}) {}
 
 ParserOptions::ParserOptions(std::shared_ptr<IdStringPool> id_string_pool,
                              std::shared_ptr<zetasql_base::UnsafeArena> arena,

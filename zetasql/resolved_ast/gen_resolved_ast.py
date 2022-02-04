@@ -37,6 +37,7 @@ import markupsafe
 from zetasql.parser.generator_utils import CleanIndent
 from zetasql.parser.generator_utils import JavaDoc
 from zetasql.parser.generator_utils import LowerCamelCase
+from zetasql.parser.generator_utils import NameToNodeKindName
 from zetasql.parser.generator_utils import ScalarType
 from zetasql.parser.generator_utils import Trim
 from zetasql.parser.generator_utils import UpperCamelCase
@@ -512,18 +513,6 @@ class TreeGenerator(object):
       """Convert a camel-case c++ ClassName into CLASS_NAME."""
       return make_enum_name_re.sub(r'\1_\2', name).upper()
 
-    def NameToNodeKindName(name):
-      """Returns the name of a node kind, suitable for a tree dump.
-
-      This is simply the name, minus the "Resolved" prefix (if present).
-      Args:
-        name: name of node class (in C++).
-      """
-      if name.startswith(NODE_NAME_PREFIX):
-        return name[len(NODE_NAME_PREFIX):]
-      else:
-        return name
-
     # Add position-related field members.
     for (pos, field) in enumerate(fields):
       field.update({'bitmap': '(1<<%d)' % pos})
@@ -564,7 +553,7 @@ class TreeGenerator(object):
         'proto_field_type': proto_field_type,
         'enum_name': NameToEnumName(name),
         'member_name': NameToEnumName(name).lower(),
-        'node_kind_name': NameToNodeKindName(name),
+        'node_kind_name': NameToNodeKindName(name, NODE_NAME_PREFIX),
         'tag_id': tag_id,
         'parent': parent,
         'parent_proto_container_type': 'Any%sProto' % parent,

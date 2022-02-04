@@ -415,7 +415,7 @@ absl::StatusOr<Value> ReferenceDriver::ExecuteStatementForReferenceDriver(
   return ExecuteStatementForReferenceDriverInternal(
       sql, analyzer_options, parameters, /*script_variables=*/{},
       /*system_variables=*/{}, options, type_factory, is_deterministic_output,
-      uses_unsupported_type, database, created_table_name);
+      uses_unsupported_type, database, created_table_name, nullptr);
 }
 
 namespace {
@@ -456,6 +456,33 @@ absl::Status SetAnnotationMapFromResolvedColumnAnnotations(
 
 }  // namespace
 
+absl::StatusOr<Value> ReferenceDriver::ExecuteStatement(
+    const std::string& sql, const std::map<std::string, Value>& parameters,
+    TypeFactory* type_factory) {
+  bool is_deterministic_output, uses_unsupported_type;  // unused
+  ReferenceDriver::ExecuteStatementOptions options{.primary_key_mode =
+                                                       PrimaryKeyMode::DEFAULT};
+  return ExecuteStatementForReferenceDriver(
+      sql, parameters, options, type_factory, &is_deterministic_output,
+      &uses_unsupported_type, nullptr, nullptr);
+}
+absl::StatusOr<std::unique_ptr<const AnalyzerOutput>>
+ReferenceDriver::AnalyzeStatement(
+    const std::string& sql, TypeFactory* type_factory,
+    const std::map<std::string, Value>& parameters, Catalog* catalog,
+    const AnalyzerOptions& analyzer_options) {
+  std::unique_ptr<const AnalyzerOutput> analyzed;
+  ZETASQL_RETURN_IF_ERROR(zetasql::AnalyzeStatement(sql, analyzer_options, catalog,
+                                              type_factory, &analyzed));
+  if (analyzed->analyzer_output_properties().IsRelevant(
+          REWRITE_ANONYMIZATION)) {
+    ZETASQL_ASSIGN_OR_RETURN(
+        analyzed, RewriteForAnonymization(analyzed, analyzer_options, catalog,
+                                          type_factory));
+  }
+  return analyzed;
+}
+
 absl::StatusOr<Value>
 ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
     const std::string& sql, const AnalyzerOptions& analyzer_options,
@@ -464,7 +491,8 @@ ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
     const SystemVariableValuesMap& system_variables,
     const ExecuteStatementOptions& options, TypeFactory* type_factory,
     bool* is_deterministic_output, bool* uses_unsupported_type,
-    TestDatabase* database, std::string* created_table_name) {
+    TestDatabase* database, std::string* created_table_name,
+    const AnalyzerOutput* analyzer_out) {
   ZETASQL_CHECK(is_deterministic_output != nullptr);
   ZETASQL_CHECK(uses_unsupported_type != nullptr);
   *uses_unsupported_type = false;
@@ -476,14 +504,13 @@ ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
       AugmentCatalogForScriptVariables(catalog_.get(), type_factory,
                                        script_variables, &internal_catalog));
 
-  std::unique_ptr<const AnalyzerOutput> analyzed;
-  ZETASQL_RETURN_IF_ERROR(AnalyzeStatement(sql, analyzer_options, catalog.get(),
-                                   type_factory, &analyzed));
-  if (analyzed->analyzer_output_properties().IsRelevant(
-          REWRITE_ANONYMIZATION)) {
-    ZETASQL_ASSIGN_OR_RETURN(analyzed,
-                     RewriteForAnonymization(analyzed, analyzer_options,
-                                             catalog.get(), type_factory));
+  const AnalyzerOutput* analyzed = analyzer_out;
+  std::unique_ptr<const AnalyzerOutput> fresh_analyzer_out;
+  if (!analyzed) {
+    ZETASQL_ASSIGN_OR_RETURN(fresh_analyzer_out,
+                     AnalyzeStatement(sql, type_factory, parameters,
+                                      catalog.get(), analyzer_options));
+    analyzed = fresh_analyzer_out.get();
   }
 
   if (analyzed->resolved_statement()->node_kind() ==
@@ -748,6 +775,31 @@ ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
   return output;
 }
 
+absl::StatusOr<std::vector<Value>> ReferenceDriver::RepeatExecuteStatement(
+    const std::string& sql, const std::map<std::string, Value>& parameters,
+    TypeFactory* type_factory, uint64_t times) {
+  bool uses_unsupported_type, is_deterministic_output;  // unused
+  ZETASQL_ASSIGN_OR_RETURN(auto analyzer_options,
+                   GetAnalyzerOptions(parameters, &uses_unsupported_type));
+
+  ZETASQL_ASSIGN_OR_RETURN(auto analyzed,
+                   AnalyzeStatement(sql, type_factory, parameters, catalog(),
+                                    analyzer_options));
+  ReferenceDriver::ExecuteStatementOptions options{.primary_key_mode =
+                                                       PrimaryKeyMode::DEFAULT};
+  std::vector<Value> result(times);
+  for (int i = 0; i < times; ++i) {
+    ZETASQL_ASSIGN_OR_RETURN(result[i],
+                     ExecuteStatementForReferenceDriverInternal(
+                         sql, analyzer_options, parameters,
+                         /*script_variables=*/{},
+                         /*system_variables=*/{}, options, type_factory,
+                         &is_deterministic_output, &uses_unsupported_type,
+                         nullptr, nullptr, analyzed.get()));
+  }
+  return result;
+}
+
 // StatementEvaluator implementation for compliance tests with the reference
 // driver. We use the reference driver to evaluate statements and the default
 // StatementEvaluator for everything else.
@@ -835,7 +887,8 @@ absl::Status ReferenceDriverStatementEvaluator::ExecuteStatement(
       executor.GetCurrentVariables(), executor.GetKnownSystemVariables(),
       options_, type_factory_, &is_deterministic_output_unused,
       &stmt_uses_unsupported_type,
-      /*database=*/nullptr, /*created_table_name=*/nullptr);
+      /*database=*/nullptr, /*created_table_name=*/nullptr,
+      /*analyzer_out=*/nullptr);
   if (!result.result.status().ok()) {
     result.result = MaybeUpdateErrorFromPayload(
         orig_error_message_mode, segment.script(),

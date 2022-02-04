@@ -229,19 +229,11 @@ absl::Status Resolver::ResolveBuildProto(
     std::unique_ptr<const ResolvedExpr>* output) {
   const google::protobuf::Descriptor* descriptor = proto_type->descriptor();
 
-  // Map of case-insensitive name to proto field.  nullptr if ambiguous.
-  IdStringHashMapCase<const google::protobuf::FieldDescriptor*> fields_by_name;
-
   // Required fields we haven't found so far.
   absl::flat_hash_set<const google::protobuf::FieldDescriptor*> missing_required_fields;
 
   for (int i = 0; i < descriptor->field_count(); ++i) {
     const google::protobuf::FieldDescriptor* field = descriptor->field(i);
-    const IdString field_name = MakeIdString(field->name());
-    if (!zetasql_base::InsertIfNotPresent(&fields_by_name, field_name, field)) {
-      fields_by_name[field_name] = nullptr;
-    }
-
     if (field->is_required()) {
       missing_required_fields.insert(field);
     }
@@ -257,41 +249,26 @@ absl::Status Resolver::ResolveBuildProto(
     const AliasOrASTPathExpression& alias_or_ast_path_expr =
         *argument.alias_or_ast_path_expr;
     IdString field_alias;  // Empty if we are using a path expression.
-    const google::protobuf::FieldDescriptor* field = nullptr;
-    switch (alias_or_ast_path_expr.kind()) {
-      case AliasOrASTPathExpression::ALIAS: {
-        field_alias = alias_or_ast_path_expr.alias();
-        ZETASQL_RET_CHECK(!field_alias.empty());
-        ZETASQL_RET_CHECK(!IsInternalAlias(field_alias));
-
-        field = zetasql_base::FindPtrOrNull(fields_by_name, field_alias);
-
-        if (field == nullptr) {
-          return MakeSqlErrorAt(argument.ast_location)
-                 << argument_description << " " << (i + 1) << " has name "
-                 << ToIdentifierLiteral(field_alias)
-                 << " which is not a field in proto "
-                 << descriptor->full_name();
-        }
-        if (field->is_required()) {
-          // Note that required fields may be listed twice, so this erase can
-          // be a no-op.  This condition will eventually trigger a duplicate
-          // column error below.
-          missing_required_fields.erase(field);
-        }
-        break;
-      }
-      case AliasOrASTPathExpression::AST_PATH_EXPRESSION: {
-        const ASTPathExpression* ast_path_expr =
-            alias_or_ast_path_expr.ast_path_expr();
-        ZETASQL_ASSIGN_OR_RETURN(
-            field, FindExtensionFieldDescriptor(ast_path_expr, descriptor));
-        // Don't check whether 'field' is required, because extensions cannot be
-        // required.
-        break;
-      }
+    const google::protobuf::FieldDescriptor* field = argument.field_descriptor;
+    const Type* proto_field_type = argument.proto_field_type;
+    if (field == nullptr || proto_field_type == nullptr) {
+      ZETASQL_ASSIGN_OR_RETURN(
+          field,
+          FindFieldDescriptor(descriptor, alias_or_ast_path_expr,
+                              argument.ast_location, i, argument_description));
+      ZETASQL_ASSIGN_OR_RETURN(proto_field_type,
+                       FindProtoFieldType(field, argument.ast_location));
     }
 
+    if (alias_or_ast_path_expr.kind() == AliasOrASTPathExpression::ALIAS) {
+      field_alias = alias_or_ast_path_expr.alias();
+      if (field->is_required()) {
+        // Note that required fields may be listed twice, so this erase can
+        // be a no-op.  This condition will eventually trigger a duplicate
+        // column error below.
+        missing_required_fields.erase(field);
+      }
+    }
     auto insert_result = added_tag_number_to_field_map.insert(
         std::make_pair(field->number(), field));
     if (!insert_result.second) {
@@ -326,19 +303,6 @@ absl::Status Resolver::ResolveBuildProto(
     }
 
     std::unique_ptr<const ResolvedExpr> expr = std::move(argument.expr);
-
-    Value default_value;
-    const Type* proto_field_type;
-    RETURN_SQL_ERROR_AT_IF_ERROR(
-        argument.ast_location,
-        GetProtoFieldTypeAndDefault(
-            ProtoFieldDefaultOptions::FromFieldAndLanguage(field, language()),
-            field, type_factory_, &proto_field_type, &default_value));
-    if (!proto_field_type->IsSupportedType(language())) {
-      return MakeSqlErrorAt(argument.ast_location)
-             << "Proto field " << field->full_name() << " has unsupported type "
-             << proto_field_type->TypeName(language().product_mode());
-    }
 
     // Add coercion if necessary.
     // TODO: Remove input_scan arg and convert to CoerceExprToType
@@ -387,6 +351,63 @@ absl::Status Resolver::ResolveBuildProto(
   MaybeRecordParseLocation(ast_type_location, resolved_make_proto.get());
   *output = std::move(resolved_make_proto);
   return absl::OkStatus();
+}
+
+absl::StatusOr<const google::protobuf::FieldDescriptor*> Resolver::FindFieldDescriptor(
+    const google::protobuf::Descriptor* descriptor,
+    const AliasOrASTPathExpression& alias_or_ast_path_expr,
+    const ASTNode* ast_location, int field_index,
+    const std::string& argument_description) {
+  const google::protobuf::FieldDescriptor* field_descriptor = nullptr;
+  switch (alias_or_ast_path_expr.kind()) {
+    case AliasOrASTPathExpression::ALIAS: {
+      IdString field_alias = alias_or_ast_path_expr.alias();
+      ZETASQL_RET_CHECK(!field_alias.empty());
+      ZETASQL_RET_CHECK(!IsInternalAlias(field_alias));
+
+      field_descriptor = descriptor->FindFieldByLowercaseName(
+          absl::AsciiStrToLower(field_alias.ToStringView()));
+      break;
+    }
+    case AliasOrASTPathExpression::AST_PATH_EXPRESSION: {
+      const ASTPathExpression* ast_path_expr =
+          alias_or_ast_path_expr.ast_path_expr();
+      ZETASQL_ASSIGN_OR_RETURN(field_descriptor,
+                       FindExtensionFieldDescriptor(ast_path_expr, descriptor));
+      break;
+    }
+  }
+  if (field_descriptor == nullptr) {
+    return MakeSqlErrorAt(ast_location)
+           << argument_description << " " << (field_index + 1) << " has name "
+           << ToIdentifierLiteral(alias_or_ast_path_expr.alias())
+           << " which is not a field in proto " << descriptor->full_name();
+  }
+
+  return field_descriptor;
+}
+
+absl::StatusOr<const Type*> Resolver::FindProtoFieldType(
+    const google::protobuf::FieldDescriptor* field_descriptor,
+    const ASTNode* ast_location) {
+  // Although the default value is unused, we need to pass it otherwise
+  // default validation does not take place. Ideally this should be refactored
+  // so that the validation is done separately.
+  Value unused_default_value;
+  const Type* type = nullptr;
+  RETURN_SQL_ERROR_AT_IF_ERROR(
+      ast_location,
+      GetProtoFieldTypeAndDefault(
+          ProtoFieldDefaultOptions::FromFieldAndLanguage(field_descriptor,
+                                                         language()),
+          field_descriptor, type_factory_, &type, &unused_default_value));
+  if (!type->IsSupportedType(language())) {
+    return MakeSqlErrorAt(ast_location)
+           << "Proto field " << field_descriptor->full_name()
+           << " has unsupported type "
+           << type->TypeName(language().product_mode());
+  }
+  return type;
 }
 
 // The extension name can be written in any of these forms.
@@ -653,9 +674,11 @@ absl::Status Resolver::MakeResolvedDateOrTimeLiteral(
 absl::Status Resolver::ResolveScalarExpr(
     const ASTExpression* ast_expr, const NameScope* name_scope,
     const char* clause_name,
-    std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
+    std::unique_ptr<const ResolvedExpr>* resolved_expr_out,
+    const Type* inferred_type) {
   ExprResolutionInfo expr_resolution_info(name_scope, clause_name);
-  return ResolveExpr(ast_expr, &expr_resolution_info, resolved_expr_out);
+  return ResolveExpr(ast_expr, &expr_resolution_info, resolved_expr_out,
+                     inferred_type);
 }
 
 absl::StatusOr<std::unique_ptr<const ResolvedLiteral>>
@@ -687,7 +710,8 @@ Resolver::ResolveJsonLiteral(const ASTJSONLiteral* json_literal) {
 absl::Status Resolver::ResolveExpr(
     const ASTExpression* ast_expr,
     ExprResolutionInfo* parent_expr_resolution_info,
-    std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
+    std::unique_ptr<const ResolvedExpr>* resolved_expr_out,
+    const Type* inferred_type) {
   ZETASQL_DCHECK(parent_expr_resolution_info != nullptr);
 
   // Use a separate ExprAggregationInfo for the child because we don't
@@ -820,20 +844,30 @@ absl::Status Resolver::ResolveExpr(
                                    expr_resolution_info.get(),
                                    resolved_expr_out);
 
+    case AST_BRACED_NEW_CONSTRUCTOR:
+      return ResolveBracedNewConstructor(
+          ast_expr->GetAsOrDie<ASTBracedNewConstructor>(),
+          expr_resolution_info.get(), resolved_expr_out);
+
+    case AST_BRACED_CONSTRUCTOR:
+      return ResolveBracedConstructor(
+          ast_expr->GetAsOrDie<ASTBracedConstructor>(), inferred_type,
+          expr_resolution_info.get(), resolved_expr_out);
+
     case AST_ARRAY_CONSTRUCTOR:
       return ResolveArrayConstructor(
-          ast_expr->GetAsOrDie<ASTArrayConstructor>(),
+          ast_expr->GetAsOrDie<ASTArrayConstructor>(), inferred_type,
           expr_resolution_info.get(), resolved_expr_out);
 
     case AST_STRUCT_CONSTRUCTOR_WITH_PARENS:
       return ResolveStructConstructorWithParens(
-          ast_expr->GetAsOrDie<ASTStructConstructorWithParens>(),
+          ast_expr->GetAsOrDie<ASTStructConstructorWithParens>(), inferred_type,
           expr_resolution_info.get(), resolved_expr_out);
 
     case AST_STRUCT_CONSTRUCTOR_WITH_KEYWORD:
       return ResolveStructConstructorWithKeyword(
           ast_expr->GetAsOrDie<ASTStructConstructorWithKeyword>(),
-          expr_resolution_info.get(), resolved_expr_out);
+          inferred_type, expr_resolution_info.get(), resolved_expr_out);
 
     case AST_ANALYTIC_FUNCTION_CALL:
       if (!language().LanguageFeatureEnabled(FEATURE_ANALYTIC_FUNCTIONS)) {
@@ -2623,12 +2657,7 @@ absl::Status Resolver::ResolveReplaceFieldsExpression(
   absl::flat_hash_map<std::string, std::string> oneof_path_to_full_path;
   for (const ASTReplaceFieldsArg* replace_arg :
        ast_replace_fields->arguments()) {
-    // Resolve the new value and get the field desciptors for the field to be
-    // modified.
-    std::unique_ptr<const ResolvedExpr> replaced_field_expr;
-    ZETASQL_RETURN_IF_ERROR(ResolveExpr(replace_arg->expression(), expr_resolution_info,
-                                &replaced_field_expr));
-
+    // Get the field desciptors for the field to be modified.
     std::vector<const google::protobuf::FieldDescriptor*> field_descriptor_path;
     std::vector<std::pair<int, const StructType::StructField*>> struct_path;
     ZETASQL_RETURN_IF_ERROR(FindFieldsFromPathExpression(
@@ -2647,6 +2676,11 @@ absl::Status Resolver::ResolveReplaceFieldsExpression(
       ZETASQL_RETURN_IF_ERROR(type_factory_->GetProtoFieldType(
           field_descriptor_path.back(), &field_type));
     }
+    // Resolve the new value passing down the inferred type.
+    std::unique_ptr<const ResolvedExpr> replaced_field_expr;
+    ZETASQL_RETURN_IF_ERROR(ResolveExpr(replace_arg->expression(), expr_resolution_info,
+                                &replaced_field_expr, field_type));
+
     ZETASQL_RETURN_IF_ERROR(CoerceExprToType(
         replace_arg->expression(), field_type, kImplicitAssignment,
         "Cannot replace field of type $0 with value of type $1",
@@ -4647,8 +4681,8 @@ absl::Status Resolver::ResolveExplicitCast(
   std::unique_ptr<const ResolvedExpr> resolved_argument;
   ZETASQL_RETURN_IF_ERROR(ResolveType(cast->type(), /*type_parameter_context=*/{},
                               &resolved_cast_type, &resolved_type_params));
-  ZETASQL_RETURN_IF_ERROR(
-      ResolveExpr(cast->expr(), expr_resolution_info, &resolved_argument));
+  ZETASQL_RETURN_IF_ERROR(ResolveExpr(cast->expr(), expr_resolution_info,
+                              &resolved_argument, resolved_cast_type));
   const bool return_null_on_error = cast->is_safe_cast();
 
   std::unique_ptr<const ResolvedExpr> resolved_format;
@@ -5368,10 +5402,6 @@ absl::Status Resolver::ResolveNewConstructor(
   for (int i = 0; i < ast_new_constructor->arguments().size(); ++i) {
     const ASTNewConstructorArg* ast_arg = ast_new_constructor->argument(i);
 
-    std::unique_ptr<const ResolvedExpr> expr;
-    ZETASQL_RETURN_IF_ERROR(
-        ResolveExpr(ast_arg->expression(), expr_resolution_info, &expr));
-
     std::unique_ptr<AliasOrASTPathExpression> alias_or_ast_path_expr;
     if (ast_arg->optional_identifier() != nullptr) {
       alias_or_ast_path_expr = absl::make_unique<AliasOrASTPathExpression>(
@@ -5397,8 +5427,20 @@ absl::Status Resolver::ResolveNewConstructor(
       }
     }
 
+    ZETASQL_ASSIGN_OR_RETURN(
+        const google::protobuf::FieldDescriptor* field_descriptor,
+        FindFieldDescriptor(resolved_type->AsProto()->descriptor(),
+                            *alias_or_ast_path_expr, ast_arg, i, "Argument"));
+    ZETASQL_ASSIGN_OR_RETURN(const Type* type,
+                     FindProtoFieldType(field_descriptor, ast_arg));
+
+    std::unique_ptr<const ResolvedExpr> expr;
+    ZETASQL_RETURN_IF_ERROR(
+        ResolveExpr(ast_arg->expression(), expr_resolution_info, &expr, type));
+
     arguments.emplace_back(ast_arg->expression(), std::move(expr),
-                           std::move(alias_or_ast_path_expr));
+                           std::move(alias_or_ast_path_expr), field_descriptor,
+                           type);
   }
 
   ZETASQL_RETURN_IF_ERROR(ResolveBuildProto(
@@ -5408,16 +5450,152 @@ absl::Status Resolver::ResolveNewConstructor(
   return absl::OkStatus();
 }
 
+absl::Status Resolver::ResolveBracedConstructorFieldValue(
+    const ASTBracedConstructorFieldValue* ast_braced_constructor_field_value,
+    const Type* inferred_type, ExprResolutionInfo* expr_resolution_info,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
+
+  ZETASQL_RETURN_IF_ERROR(ResolveExpr(ast_braced_constructor_field_value->expression(),
+                              expr_resolution_info, resolved_expr_out,
+                              inferred_type));
+  return absl::OkStatus();
+}
+
+absl::StatusOr<Resolver::ResolvedBuildProtoArg>
+Resolver::ResolveBracedConstructorField(
+    const ASTBracedConstructorField* ast_braced_constructor_field,
+    const google::protobuf::Descriptor* parent_descriptor, int field_index,
+    ExprResolutionInfo* expr_resolution_info) {
+
+  const ASTNode* location = nullptr;
+  std::unique_ptr<AliasOrASTPathExpression> alias_or_ast_path_expr;
+  if (ast_braced_constructor_field->identifier() != nullptr) {
+    alias_or_ast_path_expr = absl::make_unique<AliasOrASTPathExpression>(
+        ast_braced_constructor_field->identifier()->GetAsIdString());
+    location = ast_braced_constructor_field->identifier();
+  } else if (ast_braced_constructor_field->parenthesized_path() != nullptr) {
+    if (!language().LanguageFeatureEnabled(
+            FEATURE_V_1_2_PROTO_EXTENSIONS_WITH_NEW)) {
+      return MakeSqlErrorAt(ast_braced_constructor_field->parenthesized_path())
+             << "NEW constructor does not support proto extensions";
+    }
+    alias_or_ast_path_expr = absl::make_unique<AliasOrASTPathExpression>(
+        ast_braced_constructor_field->parenthesized_path());
+    location = ast_braced_constructor_field->parenthesized_path();
+  } else {
+    ZETASQL_RET_CHECK_FAIL() << "Cannot construct proto because field "
+                     << (field_index + 1)
+                     << " does not specify field name/extension path. "
+                     << "This should be a parser error.";
+  }
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      const google::protobuf::FieldDescriptor* field_descriptor,
+      FindFieldDescriptor(parent_descriptor, *alias_or_ast_path_expr, location,
+                          field_index, "Field"));
+  ZETASQL_ASSIGN_OR_RETURN(const Type* type,
+                   FindProtoFieldType(field_descriptor, location));
+
+  std::unique_ptr<const ResolvedExpr> expr;
+  ZETASQL_RETURN_IF_ERROR(
+      ResolveBracedConstructorFieldValue(ast_braced_constructor_field->value(),
+                                         type, expr_resolution_info, &expr));
+
+  return ResolvedBuildProtoArg(location, std::move(expr),
+                               std::move(alias_or_ast_path_expr),
+                               field_descriptor, type);
+}
+
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
+absl::Status Resolver::ResolveBracedConstructor(
+    const ASTBracedConstructor* ast_braced_constructor,
+    const Type* inferred_type, ExprResolutionInfo* expr_resolution_info,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
+
+  if (inferred_type == nullptr) {
+    return MakeSqlErrorAt(ast_braced_constructor)
+           << "Unable to infer a type for braced constructor";
+  }
+
+  if (!inferred_type->IsProto()) {
+    return MakeSqlErrorAt(ast_braced_constructor)
+           << "Braced constructors are not allowed for type "
+           << inferred_type->ShortTypeName(product_mode());
+  }
+
+  std::vector<ResolvedBuildProtoArg> arguments;
+  for (int i = 0; i < ast_braced_constructor->fields().size(); ++i) {
+    const ASTBracedConstructorField* ast_field =
+        ast_braced_constructor->fields(i);
+
+    ZETASQL_ASSIGN_OR_RETURN(ResolvedBuildProtoArg arg,
+                     ResolveBracedConstructorField(
+                         ast_field, inferred_type->AsProto()->descriptor(), i,
+                         expr_resolution_info));
+    arguments.emplace_back(std::move(arg));
+  }
+
+  ZETASQL_RETURN_IF_ERROR(
+      ResolveBuildProto(ast_braced_constructor, inferred_type->AsProto(),
+                        /*input_scan=*/nullptr, "Argument", "Constructor",
+                        &arguments, resolved_expr_out));
+  return absl::OkStatus();
+}
+
+// TODO: The noinline attribute is to prevent the stack usage
+// being added to its caller "Resolver::ResolveExpr" which is a recursive
+// function. Now the attribute has to be added for all callees. Hopefully
+// the fix allows replacing these with one attribute on ResolveExpr.
+ABSL_ATTRIBUTE_NOINLINE
+absl::Status Resolver::ResolveBracedNewConstructor(
+    const ASTBracedNewConstructor* ast_braced_new_constructor,
+    ExprResolutionInfo* expr_resolution_info,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
+
+  const Type* resolved_type;
+  ZETASQL_RET_CHECK(ast_braced_new_constructor->type_name()->type_parameters() ==
+            nullptr)
+      << "The parser does not support type parameters in new constructor "
+         "syntax";
+  ZETASQL_RETURN_IF_ERROR(ResolveSimpleType(ast_braced_new_constructor->type_name(),
+                                    "new braced constructor", &resolved_type,
+                                    /*resolved_type_params=*/nullptr));
+
+  if (!resolved_type->IsProto()) {
+    return MakeSqlErrorAt(ast_braced_new_constructor->type_name())
+           << "Braced NEW constructors are not allowed for type "
+           << resolved_type->ShortTypeName(product_mode());
+  }
+
+  ZETASQL_RETURN_IF_ERROR(ResolveExpr(ast_braced_new_constructor->braced_constructor(),
+                              expr_resolution_info, resolved_expr_out,
+                              resolved_type));
+  return absl::OkStatus();
+}
+
 // TODO: The noinline attribute is to prevent the stack usage
 // being added to its caller "Resolver::ResolveExpr" which is a recursive
 // function. Now the attribute has to be added for all callees. Hopefully
 // the fix allows replacing these with one attribute on ResolveExpr.
 ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveArrayConstructor(
-    const ASTArrayConstructor* ast_array_constructor,
+    const ASTArrayConstructor* ast_array_constructor, const Type* inferred_type,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
 
+  // We find the inferred type for elements of the array looking at the
+  // following in order:
+  //
+  // 1. The explicit type on the ARRAY.
+  // 2. The inferred type for the expression passed down to us.
+  //
+  // We use this inferred type only for passing down inferred types for
+  // elements of the struct down the expression tree.
+  const Type* inferred_element_type = nullptr;
   const ArrayType* array_type = nullptr;
   // Indicates whether the array constructor has an explicit element type.
   bool has_explicit_type = false;
@@ -5426,6 +5604,11 @@ absl::Status Resolver::ResolveArrayConstructor(
                                      "literal value construction", &array_type,
                                      /*resolved_type_params=*/nullptr));
     has_explicit_type = true;
+    inferred_element_type = array_type->element_type();
+  }
+  if (inferred_element_type == nullptr && inferred_type != nullptr &&
+      inferred_type->IsArray()) {
+    inferred_element_type = inferred_type->AsArray()->element_type();
   }
 
   // Resolve all the element expressions and collect the set of element types.
@@ -5434,7 +5617,8 @@ absl::Status Resolver::ResolveArrayConstructor(
   resolved_elements.reserve(ast_array_constructor->elements().size());
   for (const ASTExpression* element : ast_array_constructor->elements()) {
     std::unique_ptr<const ResolvedExpr> resolved_expr;
-    ZETASQL_RETURN_IF_ERROR(ResolveExpr(element, expr_resolution_info, &resolved_expr));
+    ZETASQL_RETURN_IF_ERROR(ResolveExpr(element, expr_resolution_info, &resolved_expr,
+                                inferred_element_type));
 
     if (resolved_expr->type()->IsArray()) {
       return MakeSqlErrorAt(element)
@@ -5636,13 +5820,14 @@ void Resolver::TryCollapsingExpressionsAsLiterals(
 ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveStructConstructorWithParens(
     const ASTStructConstructorWithParens* ast_struct_constructor,
-    ExprResolutionInfo* expr_resolution_info,
+    const Type* inferred_type, ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
 
   return ResolveStructConstructorImpl(
       ast_struct_constructor,
       /*ast_struct_type=*/nullptr, ast_struct_constructor->field_expressions(),
-      {} /* ast_field_aliases */, expr_resolution_info, resolved_expr_out);
+      {} /* ast_field_aliases */, inferred_type, expr_resolution_info,
+      resolved_expr_out);
 }
 
 // TODO: The noinline attribute is to prevent the stack usage
@@ -5652,7 +5837,7 @@ absl::Status Resolver::ResolveStructConstructorWithParens(
 ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveStructConstructorWithKeyword(
     const ASTStructConstructorWithKeyword* ast_struct_constructor,
-    ExprResolutionInfo* expr_resolution_info,
+    const Type* inferred_type, ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
 
   std::vector<const ASTExpression*> ast_field_expressions;
@@ -5662,17 +5847,17 @@ absl::Status Resolver::ResolveStructConstructorWithKeyword(
     ast_field_aliases.push_back(arg->alias());
   }
 
-  return ResolveStructConstructorImpl(ast_struct_constructor,
-                                      ast_struct_constructor->struct_type(),
-                                      ast_field_expressions, ast_field_aliases,
-                                      expr_resolution_info, resolved_expr_out);
+  return ResolveStructConstructorImpl(
+      ast_struct_constructor, ast_struct_constructor->struct_type(),
+      ast_field_expressions, ast_field_aliases, inferred_type,
+      expr_resolution_info, resolved_expr_out);
 }
 
 absl::Status Resolver::ResolveStructConstructorImpl(
     const ASTNode* ast_location, const ASTStructType* ast_struct_type,
     const absl::Span<const ASTExpression* const> ast_field_expressions,
     const absl::Span<const ASTAlias* const> ast_field_aliases,
-    ExprResolutionInfo* expr_resolution_info,
+    const Type* inferred_type, ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   if (!ast_field_aliases.empty()) {
     ZETASQL_RET_CHECK_EQ(ast_field_expressions.size(), ast_field_aliases.size());
@@ -5687,6 +5872,13 @@ absl::Status Resolver::ResolveStructConstructorImpl(
                           &struct_type, /*resolved_type_params=*/nullptr));
   }
 
+  // We find the inferred type for the struct following in order:
+  // 1. The explicit type on the STRUCT.
+  // 2. The inferred type for the struct constructor expression passed down to
+  //    us.
+  // We use this inferred type only for passing down inferred types for
+  // elements of the struct down the expression tree.
+  const StructType* inferred_struct_type = nullptr;
   bool struct_has_explicit_type = false;
 
   if (struct_type != nullptr) {
@@ -5698,6 +5890,12 @@ absl::Status Resolver::ResolveStructConstructorImpl(
     }
     // The struct has an explicit type, for example STRUCT<int32_t, int64_t>(1, 2).
     struct_has_explicit_type = true;
+    inferred_struct_type = struct_type;
+  }
+
+  if (inferred_struct_type == nullptr && inferred_type != nullptr &&
+      inferred_type->IsStruct()) {
+    inferred_struct_type = inferred_type->AsStruct();
   }
 
   // Resolve all the field expressions.
@@ -5728,8 +5926,12 @@ absl::Status Resolver::ResolveStructConstructorImpl(
   for (int i = 0; i < ast_field_expressions.size(); ++i) {
     const ASTExpression* ast_expression = ast_field_expressions[i];
     std::unique_ptr<const ResolvedExpr> resolved_expr;
-    ZETASQL_RETURN_IF_ERROR(
-        ResolveExpr(ast_expression, expr_resolution_info, &resolved_expr));
+    const Type* inferred_field_type = nullptr;
+    if (inferred_struct_type && i < inferred_struct_type->num_fields()) {
+      inferred_field_type = inferred_struct_type->field(i).type;
+    }
+    ZETASQL_RETURN_IF_ERROR(ResolveExpr(ast_expression, expr_resolution_info,
+                                &resolved_expr, inferred_field_type));
 
     if (struct_type != nullptr) {
       // If we have a target type, try to coerce the field value to that type.

@@ -66,6 +66,7 @@
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/proto_util.h"
 #include "zetasql/public/signature_match_result.h"
+#include "zetasql/public/sql_tvf.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
@@ -3638,10 +3639,10 @@ absl::Status Resolver::SetOperationResolver::Resolve(
     set_op_scan->set_hint_list(std::move(hint_list));
   }
 
-  *output = std::move(set_op_scan);
   ZETASQL_ASSIGN_OR_RETURN(*output_name_list,
                    BuildFinalNameList(*resolved_inputs.front().name_list,
-                                      final_column_list));
+                                      set_op_scan->column_list()));
+  *output = std::move(set_op_scan);
   return absl::OkStatus();
 }
 
@@ -4070,6 +4071,8 @@ absl::Status Resolver::SetOperationResolver::ResolveRecursive(
         resolver_->ResolveHintAndAppend(set_operation_->hint(), &hint_list));
     recursive_scan->set_hint_list(std::move(hint_list));
   }
+  ZETASQL_RETURN_IF_ERROR(resolver_->CheckAndPropagateAnnotations(
+      set_operation_, recursive_scan.get()));
   *output = std::move(recursive_scan);
   *output_name_list = final_name_list;
   return absl::OkStatus();
@@ -6771,6 +6774,11 @@ absl::Status Resolver::ResolveTVF(
       tvf_signature->result_schema().columns().size());
   // Fill column_index_list with 0, 1, 2, ..., column_list.size()-1.
   std::iota(column_index_list.begin(), column_index_list.end(), 0);
+
+  if (tvf_catalog_entry->Is<SQLTableValuedFunction>()) {
+    analyzer_output_properties_.MarkRelevant(
+        ResolvedASTRewrite::REWRITE_INLINE_SQL_TVFS);
+  }
 
   auto tvf_scan = MakeResolvedTVFScan(
       column_list, tvf_catalog_entry, tvf_signature,
