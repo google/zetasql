@@ -1027,7 +1027,7 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
 }
 
 TEST_F(AnalyzerOptionsTest, ClassAndProtoSize) {
-  EXPECT_EQ(232, sizeof(AnalyzerOptions) - sizeof(LanguageOptions) -
+  EXPECT_EQ(240, sizeof(AnalyzerOptions) - sizeof(LanguageOptions) -
                      sizeof(AllowedHintsAndOptions) -
                      sizeof(Catalog::FindOptions) - sizeof(SystemVariablesMap) -
                      2 * sizeof(QueryParametersMap) - 1 * sizeof(std::string) -
@@ -1035,7 +1035,7 @@ TEST_F(AnalyzerOptionsTest, ClassAndProtoSize) {
                      sizeof(absl::btree_set<ResolvedASTRewrite>))
       << "The size of AnalyzerOptions class has changed, please also update "
       << "the proto and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(19, AnalyzerOptionsProto::descriptor()->field_count())
+  EXPECT_EQ(20, AnalyzerOptionsProto::descriptor()->field_count())
       << "The number of fields in AnalyzerOptionsProto has changed, please "
       << "also update the serialization code accordingly.";
 }

@@ -71,7 +71,6 @@
 #include "zetasql/base/status_macros.h"
 
 using zetasql::types::BoolType;
-using zetasql::types::Int64Type;
 
 namespace zetasql {
 

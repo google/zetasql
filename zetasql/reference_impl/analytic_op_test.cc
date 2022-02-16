@@ -58,25 +58,10 @@
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
-using absl::nullopt;
-
-using google::protobuf::internal::WireFormatLite;
-
 using testing::_;
-using testing::AnyOf;
-using testing::ContainsRegex;
 using testing::ElementsAre;
-using testing::ElementsAreArray;
-using testing::Eq;
 using testing::HasSubstr;
-using testing::IsEmpty;
-using testing::IsNull;
-using testing::Matcher;
-using testing::Not;
-using testing::Pointee;
-using testing::PrintToString;
 using testing::TestWithParam;
-using testing::UnorderedElementsAreArray;
 using testing::ValuesIn;
 
 namespace zetasql {

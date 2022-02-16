@@ -911,7 +911,7 @@ static absl::Status ProtoToStructValue(const google::protobuf::Message& proto,
                                       use_wire_format_annotations, &values[i]));
   }
 
-  *value_out = Value::Struct(struct_type, values);
+  ZETASQL_ASSIGN_OR_RETURN(*value_out, Value::MakeStruct(struct_type, values));
   return absl::OkStatus();
 }
 

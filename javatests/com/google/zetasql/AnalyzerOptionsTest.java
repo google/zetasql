@@ -119,6 +119,21 @@ public class AnalyzerOptionsTest {
   }
 
   @Test
+  public void testPreserveUnnecessaryCast() {
+    FileDescriptorSetsBuilder builder = new FileDescriptorSetsBuilder();
+    AnalyzerOptions options = new AnalyzerOptions();
+    assertThat(options.getPreserveUnnecessaryCast()).isFalse();
+    AnalyzerOptionsProto proto = options.serialize(builder);
+    assertThat(proto.getPreserveUnnecessaryCast()).isFalse();
+    checkDeserialize(proto, builder.getDescriptorPools());
+    options.setPreserveUnnecessaryCast(true);
+    assertThat(options.getPreserveUnnecessaryCast()).isTrue();
+    proto = options.serialize(builder);
+    assertThat(proto.getPreserveUnnecessaryCast()).isTrue();
+    checkDeserialize(proto, builder.getDescriptorPools());
+  }
+
+  @Test
   public void testSetLanguageOptions() {
     AnalyzerOptions options = new AnalyzerOptions();
     LanguageOptions languageOptions = LanguageOptionsTest.maximumFeatures();
@@ -341,7 +356,7 @@ public class AnalyzerOptionsTest {
             "The number of fields of AnalyzerOptionsProto has changed, please also update the "
                 + "serialization code accordingly.")
         .that(AnalyzerOptionsProto.getDescriptor().getFields())
-        .hasSize(19);
+        .hasSize(20);
     assertWithMessage(
             "The number of fields in AnalyzerOptions class has changed, please also update the "
                 + "proto and serialization code accordingly.")

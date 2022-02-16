@@ -52,13 +52,11 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
-#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/time.h"
 #include "zetasql/base/map_util.h"
-#include "re2/re2.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
@@ -517,44 +515,19 @@ absl::StatusOr<bool> ScriptExecutorImpl::DefaultAssignSystemVariable(
   return false;
 }
 
-namespace {
-absl::StatusOr<absl::TimeZone> ParseTimezone(absl::string_view input) {
-  static constexpr LazyRE2 kUtcOffsetPattern = {R"(UTC([+-])(\d{1,2}))"};
-  absl::string_view utc_offset_sign;
-  absl::string_view utc_offset_number_str;
-  if (RE2::FullMatch(input, *kUtcOffsetPattern, &utc_offset_sign,
-                     &utc_offset_number_str)) {
-    int utc_offset_number;
-    if (absl::SimpleAtoi(utc_offset_number_str, &utc_offset_number) &&
-        utc_offset_number >= 0 && utc_offset_number < 24) {
-      if (utc_offset_sign == "-") {
-        return absl::FixedTimeZone(-3600 * utc_offset_number);
-      } else {
-        return absl::FixedTimeZone(3600 * utc_offset_number);
-      }
-    }
-    return zetasql_base::InvalidArgumentErrorBuilder()
-           << "Invalid UTC offset: " << input;
-  }
-  absl::TimeZone timezone;
-  if (absl::LoadTimeZone(input, &timezone)) {
-    return timezone;
-  }
-  return zetasql_base::InvalidArgumentErrorBuilder() << "Invalid timezone: " << input;
-}
-}  // namespace
-
 absl::Status ScriptExecutorImpl::SetTimezone(const Value& timezone_value,
                                              const ASTNode* location) {
+  absl::TimeZone new_timezone;
   if (timezone_value.is_null()) {
     return MakeScriptExceptionAt(location) << "Invalid timezone: NULL";
+  } else if (!absl::LoadTimeZone(timezone_value.string_value(),
+                                 &new_timezone)) {
+    return MakeScriptExceptionAt(location)
+           << "Invalid timezone: " << timezone_value.string_value();
   }
-  ZETASQL_ASSIGN_OR_RETURN(time_zone_, ParseTimezone(timezone_value.string_value()),
-                   MakeScriptExceptionAt(location)
-                       << absl::Status(_).message());
-
   // Save the timezone in both the analyzer options and in the system variable
   // map for when "@@time_zone" is evaluated directly.
+  time_zone_ = new_timezone;
   system_variables_[{kTimeZoneSystemVarName}] = timezone_value;
   return absl::OkStatus();
 }
@@ -1876,9 +1849,9 @@ absl::Status ScriptExecutorImpl::SetState(
   }
 
   system_variables_[{kTimeZoneSystemVarName}] = Value::String(state.timezone());
-  absl::StatusOr<absl::TimeZone> timezone = ParseTimezone(state.timezone());
-  if (timezone.ok()) {
-    time_zone_ = timezone.value();
+  absl::TimeZone timezone;
+  if (absl::LoadTimeZone(state.timezone(), &timezone)) {
+    time_zone_ = timezone;
   } else {
     // Unable to load timezone from state proto - fall back to default time
     // zone.  This can happen if we are restoring from an older version of

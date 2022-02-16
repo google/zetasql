@@ -20,15 +20,6 @@ exports_files(["LICENSE"])
 cc_test(
     name = "zetasql_bazel_example_test",
     srcs = ["zetasql_bazel_example_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",

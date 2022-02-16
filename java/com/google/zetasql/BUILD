@@ -135,6 +135,7 @@ java_library(
     srcs = CHANNEL_PROVIDER_SRCS,
     tags = ["maven_coordinates=com.google.zetasql:zetasql-client:${project.version}"],
     deps = [
+        "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
     ],
 )
@@ -233,6 +234,7 @@ java_library(
         ":channel_provider",
         "//zetasql/local_service:local_service_jni",
         "@com_google_auto_service",
+        "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_netty_netty_common",
@@ -346,6 +348,7 @@ java_library(
         "@maven//:com_google_code_findbugs_jsr305",
         "@maven//:com_google_errorprone_error_prone_annotations",
         "@maven//:com_google_guava_guava",
+        "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:javax_annotation_javax_annotation_api",
@@ -374,6 +377,7 @@ java_library(
         "//zetasql/local_service:local_service_java_proto",
         "//zetasql/public/functions:datetime_java_proto",
         "//zetasql/resolved_ast:resolved_ast_java_proto",  # buildcleaner: keep
+        "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
     ],
 )
@@ -386,6 +390,7 @@ java_library(
         "//java/com/google/zetasql/parser",
         "//zetasql/local_service:local_service_java_proto",
         "@maven//:com_google_guava_guava",
+        "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
     ],
 )
@@ -421,6 +426,7 @@ jarjar_library(
         "@maven//:io_grpc_grpc_protobuf",
         "@maven//:io_grpc_grpc_protobuf_lite",
         "@maven//:io_grpc_grpc_stub",
+        "@maven//:io_grpc_grpc_api",
         "@com_google_code_gson_gson//jar",
         "@maven//:io_opencensus_opencensus_api",
         "@maven//:io_opencensus_opencensus_contrib_grpc_metrics",
@@ -475,6 +481,7 @@ pom_file(
         "@maven//:io_grpc_grpc_netty",
         "@maven//:io_grpc_grpc_protobuf",
         "@maven//:io_grpc_grpc_protobuf_lite",
+        "@maven//:io_grpc_grpc_api",
         "@maven//:io_opencensus_opencensus_api",
         "@maven//:io_opencensus_opencensus_contrib_grpc_metrics",
     ],

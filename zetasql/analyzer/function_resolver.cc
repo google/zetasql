@@ -1851,13 +1851,11 @@ absl::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
   // Create a separate new parser and parse the function's SQL expression from
   // the <parse_resume_location_>. Use the same ID string pool as the
   // original parser.
-  ParserOptions parser_options(analyzer_options.id_string_pool(),
-                               analyzer_options.arena());
   std::unique_ptr<ParserOutput> parser_output;
   ZETASQL_RETURN_IF_ERROR(ForwardNestedResolutionAnalysisError(
       function,
-      ParseExpression(function.GetParseResumeLocation(), parser_options,
-                      &parser_output),
+      ParseExpression(function.GetParseResumeLocation(),
+                      analyzer_options.GetParserOptions(), &parser_output),
       analyzer_options.error_message_mode()));
   Catalog* catalog = catalog_;
   if (function.resolution_catalog() != nullptr) {

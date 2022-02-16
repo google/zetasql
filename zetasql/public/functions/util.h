@@ -43,10 +43,6 @@ struct ArithmeticType<int64_t> {
   static constexpr char kName[] = "int64";
 };
 template <>
-struct ArithmeticType<uint32_t> {
-  static constexpr char kName[] = "uint32";
-};
-template <>
 struct ArithmeticType<uint64_t> {
   static constexpr char kName[] = "uint64";
 };

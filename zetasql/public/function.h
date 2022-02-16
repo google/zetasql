@@ -34,6 +34,7 @@
 #include "zetasql/public/value.h"
 #include "absl/base/attributes.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"
@@ -286,11 +287,11 @@ struct FunctionOptions {
     is_deprecated = value;
     return *this;
   }
-  FunctionOptions& set_alias_name(const std::string& name) {
+  FunctionOptions& set_alias_name(absl::string_view name) {
     alias_name = name;
     return *this;
   }
-  FunctionOptions& set_sql_name(const std::string& name) {
+  FunctionOptions& set_sql_name(absl::string_view name) {
     sql_name = name;
     return *this;
   }

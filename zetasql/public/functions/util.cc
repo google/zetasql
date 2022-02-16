@@ -28,7 +28,6 @@ namespace internal {
 
 constexpr char ArithmeticType<int32_t>::kName[];
 constexpr char ArithmeticType<int64_t>::kName[];
-constexpr char ArithmeticType<uint32_t>::kName[];
 constexpr char ArithmeticType<uint64_t>::kName[];
 constexpr char ArithmeticType<float>::kName[];
 constexpr char ArithmeticType<double>::kName[];

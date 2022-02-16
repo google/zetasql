@@ -53,14 +53,6 @@ cc_library(
         "type_parameters.h",
         "value_equality_check_options.h",
     ],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":timestamp_util",
         ":value_representations",
@@ -125,14 +117,6 @@ cc_library(
     hdrs = [
         "value_representations.h",
     ],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/base:logging",
         "//zetasql/base:refcount",
@@ -152,14 +136,6 @@ cc_library(
     ],
     hdrs = [
         "timestamp_util.h",
-    ],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
     ],
     deps = [
         "@com_google_absl//absl/time",

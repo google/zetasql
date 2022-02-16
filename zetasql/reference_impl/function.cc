@@ -614,6 +614,9 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kAtan, "atan", "Atan");
     RegisterFunction(FunctionKind::kAtanh, "atanh", "Atanh");
     RegisterFunction(FunctionKind::kAtan2, "atan2", "Atan2");
+    RegisterFunction(FunctionKind::kCsc, "csc", "Csc");
+    RegisterFunction(FunctionKind::kSec, "sec", "Sec");
+    RegisterFunction(FunctionKind::kCot, "cot", "Cot");
     RegisterFunction(FunctionKind::kCorr, "corr", "Corr");
     RegisterFunction(FunctionKind::kCovarPop, "covar_pop", "Covar_pop");
     RegisterFunction(FunctionKind::kCovarSamp, "covar_samp", "Covar_samp");
@@ -1406,7 +1409,7 @@ static constexpr uint64_t FCT_TYPE_ARITY(FunctionKind function_kind,
 }
 
 absl::StatusOr<FunctionKind> BuiltinFunctionCatalog::GetKindByName(
-    const absl::string_view& name) {
+    const absl::string_view name) {
   const FunctionKind* kind = zetasql_base::FindOrNull(
       GetFunctionMap().function_kind_by_name(), std::string(name));
   if (kind == nullptr) {
@@ -1658,6 +1661,9 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kAtan:
     case FunctionKind::kAtanh:
     case FunctionKind::kAtan2:
+    case FunctionKind::kCsc:
+    case FunctionKind::kSec:
+    case FunctionKind::kCot:
       return new MathFunction(kind, output_type);
     case FunctionKind::kConcat:
       return new ConcatFunction(kind, output_type);
@@ -5506,6 +5512,14 @@ bool MathFunction::Eval(absl::Span<const TupleData* const> params,
     case FCT(FunctionKind::kAtan2, TYPE_DOUBLE):
       return InvokeBinary<double>(&functions::Atan2<double>, args, result,
                                   status);
+    case FCT(FunctionKind::kCsc, TYPE_DOUBLE):
+      return InvokeUnary<double>(&functions::Csc<double>, args, result, status);
+
+    case FCT(FunctionKind::kSec, TYPE_DOUBLE):
+      return InvokeUnary<double>(&functions::Sec<double>, args, result, status);
+
+    case FCT(FunctionKind::kCot, TYPE_DOUBLE):
+      return InvokeUnary<double>(&functions::Cot<double>, args, result, status);
 
     case FCT(FunctionKind::kRound, TYPE_DOUBLE):
       if (args.size() == 1) {
@@ -7939,9 +7953,9 @@ static bool CurrentTupleHasPeerWithDifferentRespectedValues(
     absl::Span<const TupleData* const> tuples, absl::Span<const Value> values,
     const AnalyticWindow& analytic_window, const TupleComparator& comparator,
     bool ignore_nulls) {
-  const auto has_different_value =
-      [&tuples, &values, current_tuple_id, excluded_tuple_id, ignore_nulls](
-          int peer_tuple_id) {
+  const auto has_different_value = [&values, current_tuple_id,
+                                    excluded_tuple_id,
+                                    ignore_nulls](int peer_tuple_id) {
     return excluded_tuple_id != peer_tuple_id &&
            !values[peer_tuple_id].Equals(values[current_tuple_id]) &&
            (!ignore_nulls || !values[peer_tuple_id].is_null());
@@ -8158,7 +8172,7 @@ static bool LeadLagOutputIsNonDeterministic(
   // at 'alternative_tuple_id' instead of 'current_tuple_id'.
   const auto changing_current_position_changes_output =
       [current_tuple_id, offset, &tuples, &arg_values, &default_value,
-       &comparator, &current_output, &partition](int alternative_tuple_id) {
+       &current_output](int alternative_tuple_id) {
         // Switch the current tuple and the tuple at 'alternative_tuple_id',
         // and then check if the output remains the same.
 

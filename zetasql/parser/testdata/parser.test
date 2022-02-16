@@ -482,6 +482,34 @@ FROM
   bar
 ==
 
+select d3a_count.extract(d3a_count.merge(foo)) from bar;
+--
+QueryStatement [0-55]
+  Query [0-55]
+    Select [0-55]
+      SelectList [7-46]
+        SelectColumn [7-46]
+          FunctionCall [7-46]
+            PathExpression [7-24]
+              Identifier(d3a_count) [7-16]
+              Identifier(`extract`) [17-24]
+            FunctionCall [25-45]
+              PathExpression [25-40]
+                Identifier(d3a_count) [25-34]
+                Identifier(`merge`) [35-40]
+              PathExpression [41-44]
+                Identifier(foo) [41-44]
+      FromClause [47-55]
+        TablePathExpression [52-55]
+          PathExpression [52-55]
+            Identifier(bar) [52-55]
+--
+SELECT
+  d3a_count.`extract`(d3a_count.`merge`(foo))
+FROM
+  bar
+==
+
 select a AND b from T;
 --
 QueryStatement [0-21]

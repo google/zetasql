@@ -4781,3 +4781,214 @@ select {{safe_}}cast(cast(NULL as zetasql_test__.KitchenSinkPB) as
 ERROR: Invalid cast from zetasql_test__.KitchenSinkPB to zetasql_test__.NullableInt [at 1:18]
 select safe_cast(cast(NULL as zetasql_test__.KitchenSinkPB) as
                  ^
+==
+
+# Preserve the casts even when the source and target types are the same.
+[language_features=NUMERIC_TYPE,BIGNUMERIC_TYPE,JSON_TYPE]
+[{{preserve_unnecessary_cast|no_preserve_unnecessary_cast}}]
+select
+  cast(`int32` as int32),
+  cast(`int64` as int64),
+  cast(`uint32` as uint32),
+  cast(`uint64` as uint64),
+  cast(`string` as STRING),
+  cast(`bytes` as bytes),
+  cast(`bool` as bool),
+  cast(`float` as float),
+  cast(`double` as double),
+  cast(`date` as date),
+  cast(`timestamp` as timestamp),
+  cast(`numeric` as numeric),
+  cast(`bignumeric` as bignumeric),
+  cast(`json` as json)
+from SimpleTypes;
+--
+ALTERNATION GROUP: preserve_unnecessary_cast
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [INT32]
+| +-$query.$col2#20 AS `$col2` [INT64]
+| +-$query.$col3#21 AS `$col3` [UINT32]
+| +-$query.$col4#22 AS `$col4` [UINT64]
+| +-$query.$col5#23 AS `$col5` [STRING]
+| +-$query.$col6#24 AS `$col6` [BYTES]
+| +-$query.$col7#25 AS `$col7` [BOOL]
+| +-$query.$col8#26 AS `$col8` [FLOAT]
+| +-$query.$col9#27 AS `$col9` [DOUBLE]
+| +-$query.$col10#28 AS `$col10` [DATE]
+| +-$query.$col11#29 AS `$col11` [TIMESTAMP]
+| +-$query.$col12#30 AS `$col12` [NUMERIC]
+| +-$query.$col13#31 AS `$col13` [BIGNUMERIC]
+| +-$query.$col14#32 AS `$col14` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#19, $col2#20, $col3#21, $col4#22, $col5#23, $col6#24, $col7#25, $col8#26, $col9#27, $col10#28, $col11#29, $col12#30, $col13#31, $col14#32]
+    +-expr_list=
+    | +-$col1#19 :=
+    | | +-Cast(INT32 -> INT32)
+    | |   +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
+    | +-$col2#20 :=
+    | | +-Cast(INT64 -> INT64)
+    | |   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+    | +-$col3#21 :=
+    | | +-Cast(UINT32 -> UINT32)
+    | |   +-ColumnRef(type=UINT32, column=SimpleTypes.uint32#3)
+    | +-$col4#22 :=
+    | | +-Cast(UINT64 -> UINT64)
+    | |   +-ColumnRef(type=UINT64, column=SimpleTypes.uint64#4)
+    | +-$col5#23 :=
+    | | +-Cast(STRING -> STRING)
+    | |   +-ColumnRef(type=STRING, column=SimpleTypes.string#5)
+    | +-$col6#24 :=
+    | | +-Cast(BYTES -> BYTES)
+    | |   +-ColumnRef(type=BYTES, column=SimpleTypes.bytes#6)
+    | +-$col7#25 :=
+    | | +-Cast(BOOL -> BOOL)
+    | |   +-ColumnRef(type=BOOL, column=SimpleTypes.bool#7)
+    | +-$col8#26 :=
+    | | +-Cast(FLOAT -> FLOAT)
+    | |   +-ColumnRef(type=FLOAT, column=SimpleTypes.float#8)
+    | +-$col9#27 :=
+    | | +-Cast(DOUBLE -> DOUBLE)
+    | |   +-ColumnRef(type=DOUBLE, column=SimpleTypes.double#9)
+    | +-$col10#28 :=
+    | | +-Cast(DATE -> DATE)
+    | |   +-ColumnRef(type=DATE, column=SimpleTypes.date#10)
+    | +-$col11#29 :=
+    | | +-Cast(TIMESTAMP -> TIMESTAMP)
+    | |   +-ColumnRef(type=TIMESTAMP, column=SimpleTypes.timestamp#15)
+    | +-$col12#30 :=
+    | | +-Cast(NUMERIC -> NUMERIC)
+    | |   +-ColumnRef(type=NUMERIC, column=SimpleTypes.numeric#16)
+    | +-$col13#31 :=
+    | | +-Cast(BIGNUMERIC -> BIGNUMERIC)
+    | |   +-ColumnRef(type=BIGNUMERIC, column=SimpleTypes.bignumeric#17)
+    | +-$col14#32 :=
+    |   +-Cast(JSON -> JSON)
+    |     +-ColumnRef(type=JSON, column=SimpleTypes.json#18)
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp#15, numeric#16, bignumeric#17, json#18], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17])
+--
+ALTERNATION GROUP: no_preserve_unnecessary_cast
+--
+QueryStmt
++-output_column_list=
+| +-SimpleTypes.int32#1 AS `$col1` [INT32]
+| +-SimpleTypes.int64#2 AS `$col2` [INT64]
+| +-SimpleTypes.uint32#3 AS `$col3` [UINT32]
+| +-SimpleTypes.uint64#4 AS `$col4` [UINT64]
+| +-SimpleTypes.string#5 AS `$col5` [STRING]
+| +-SimpleTypes.bytes#6 AS `$col6` [BYTES]
+| +-SimpleTypes.bool#7 AS `$col7` [BOOL]
+| +-SimpleTypes.float#8 AS `$col8` [FLOAT]
+| +-SimpleTypes.double#9 AS `$col9` [DOUBLE]
+| +-SimpleTypes.date#10 AS `$col10` [DATE]
+| +-SimpleTypes.timestamp#15 AS `$col11` [TIMESTAMP]
+| +-SimpleTypes.numeric#16 AS `$col12` [NUMERIC]
+| +-SimpleTypes.bignumeric#17 AS `$col13` [BIGNUMERIC]
+| +-SimpleTypes.json#18 AS `$col14` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp#15, numeric#16, bignumeric#17, json#18]
+    +-input_scan=
+      +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp#15, numeric#16, bignumeric#17, json#18], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17])
+==
+
+# Preserve the casts even when the source and target types are the same.
+[language_features=NUMERIC_TYPE,BIGNUMERIC_TYPE,JSON_TYPE]
+[{{preserve_unnecessary_cast|no_preserve_unnecessary_cast}}]
+select
+  cast(77 as int64),
+  cast('string' as STRING),
+  cast(b'bytes' as bytes),
+  cast(true as bool),
+  cast(3.14 as double),
+  cast(DATE '2021-12-01' as date),
+  cast(TIMESTAMP '2021-12-01 09:00:00' as timestamp),
+  cast(NUMERIC '1.23456e05' as numeric),
+  cast(BIGNUMERIC '-0.54321' as bignumeric),
+  cast(JSON '{"id": 10, "type": "fruit"}' as json)
+--
+ALTERNATION GROUP: preserve_unnecessary_cast
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
+| +-$query.$col2#2 AS `$col2` [STRING]
+| +-$query.$col3#3 AS `$col3` [BYTES]
+| +-$query.$col4#4 AS `$col4` [BOOL]
+| +-$query.$col5#5 AS `$col5` [DOUBLE]
+| +-$query.$col6#6 AS `$col6` [DATE]
+| +-$query.$col7#7 AS `$col7` [TIMESTAMP]
+| +-$query.$col8#8 AS `$col8` [NUMERIC]
+| +-$query.$col9#9 AS `$col9` [BIGNUMERIC]
+| +-$query.$col10#10 AS `$col10` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2, $col3#3, $col4#4, $col5#5, $col6#6, $col7#7, $col8#8, $col9#9, $col10#10]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-Cast(INT64 -> INT64)
+    | |   +-Literal(type=INT64, value=77, has_explicit_type=TRUE)
+    | +-$col2#2 :=
+    | | +-Cast(STRING -> STRING)
+    | |   +-Literal(type=STRING, value="string", has_explicit_type=TRUE)
+    | +-$col3#3 :=
+    | | +-Cast(BYTES -> BYTES)
+    | |   +-Literal(type=BYTES, value=b"bytes", has_explicit_type=TRUE)
+    | +-$col4#4 :=
+    | | +-Cast(BOOL -> BOOL)
+    | |   +-Literal(type=BOOL, value=true, has_explicit_type=TRUE)
+    | +-$col5#5 :=
+    | | +-Cast(DOUBLE -> DOUBLE)
+    | |   +-Literal(type=DOUBLE, value=3.14, has_explicit_type=TRUE)
+    | +-$col6#6 :=
+    | | +-Cast(DATE -> DATE)
+    | |   +-Literal(type=DATE, value=2021-12-01, has_explicit_type=TRUE)
+    | +-$col7#7 :=
+    | | +-Cast(TIMESTAMP -> TIMESTAMP)
+    | |   +-Literal(type=TIMESTAMP, value=2021-12-01 17:00:00+00, has_explicit_type=TRUE)
+    | +-$col8#8 :=
+    | | +-Cast(NUMERIC -> NUMERIC)
+    | |   +-Literal(type=NUMERIC, value=123456, has_explicit_type=TRUE)
+    | +-$col9#9 :=
+    | | +-Cast(BIGNUMERIC -> BIGNUMERIC)
+    | |   +-Literal(type=BIGNUMERIC, value=-0.54321, has_explicit_type=TRUE)
+    | +-$col10#10 :=
+    |   +-Cast(JSON -> JSON)
+    |     +-Literal(type=JSON, value={"id":10,"type":"fruit"}, has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: no_preserve_unnecessary_cast
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
+| +-$query.$col2#2 AS `$col2` [STRING]
+| +-$query.$col3#3 AS `$col3` [BYTES]
+| +-$query.$col4#4 AS `$col4` [BOOL]
+| +-$query.$col5#5 AS `$col5` [DOUBLE]
+| +-$query.$col6#6 AS `$col6` [DATE]
+| +-$query.$col7#7 AS `$col7` [TIMESTAMP]
+| +-$query.$col8#8 AS `$col8` [NUMERIC]
+| +-$query.$col9#9 AS `$col9` [BIGNUMERIC]
+| +-$query.$col10#10 AS `$col10` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2, $col3#3, $col4#4, $col5#5, $col6#6, $col7#7, $col8#8, $col9#9, $col10#10]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INT64, value=77, has_explicit_type=TRUE)
+    | +-$col2#2 := Literal(type=STRING, value="string", has_explicit_type=TRUE)
+    | +-$col3#3 := Literal(type=BYTES, value=b"bytes", has_explicit_type=TRUE)
+    | +-$col4#4 := Literal(type=BOOL, value=true, has_explicit_type=TRUE)
+    | +-$col5#5 := Literal(type=DOUBLE, value=3.14, has_explicit_type=TRUE)
+    | +-$col6#6 := Literal(type=DATE, value=2021-12-01, has_explicit_type=TRUE)
+    | +-$col7#7 := Literal(type=TIMESTAMP, value=2021-12-01 17:00:00+00, has_explicit_type=TRUE)
+    | +-$col8#8 := Literal(type=NUMERIC, value=123456, has_explicit_type=TRUE)
+    | +-$col9#9 := Literal(type=BIGNUMERIC, value=-0.54321, has_explicit_type=TRUE)
+    | +-$col10#10 := Literal(type=JSON, value={"id":10,"type":"fruit"}, has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
+

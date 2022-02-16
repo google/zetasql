@@ -116,6 +116,7 @@ void GetZetaSQLFunctions(TypeFactory* type_factory,
   GetJSONFunctions(type_factory, options, functions);
   GetMathFunctions(type_factory, options, functions);
   GetHllCountFunctions(type_factory, options, functions);
+  GetD3ACountFunctions(type_factory, options, functions);
   GetKllQuantilesFunctions(type_factory, options, functions);
   GetProto3ConversionFunctions(type_factory, options, functions);
   if (options.language_options.LanguageFeatureEnabled(

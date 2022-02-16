@@ -46,7 +46,7 @@ void SignatureMatchResult::UpdateFromResult(
   non_literals_distance_ += other_result.non_literals_distance_;
   literals_coerced_ += other_result.literals_coerced_;
   literals_distance_ += other_result.literals_distance_;
-  tvf_bad_call_error_message_ = other_result.tvf_bad_call_error_message();
+  mismatch_message_ = other_result.mismatch_message();
   tvf_bad_argument_index_ = other_result.tvf_bad_argument_index();
   tvf_arg_col_nums_to_coerce_type_ =
       other_result.tvf_arg_col_nums_to_coerce_type();
@@ -59,9 +59,8 @@ std::string SignatureMatchResult::DebugString() const {
                    ", non-literals distance: ", non_literals_distance_,
                    ", literals coerced: ", literals_coerced_,
                    ", literals distance: ", literals_distance_);
-  if (!tvf_bad_call_error_message_.empty()) {
-    absl::StrAppend(&result, ", tvf bad call error message: \"",
-                    tvf_bad_call_error_message_, "\"");
+  if (!mismatch_message_.empty()) {
+    absl::StrAppend(&result, ", mismatch message: \"", mismatch_message_, "\"");
   }
   if (!tvf_arg_col_nums_to_coerce_type_.empty()) {
     std::vector<std::string> entries;

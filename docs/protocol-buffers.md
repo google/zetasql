@@ -22,16 +22,211 @@ how they work in languages other than SQL, see the
 
 This section covers how to construct protocol buffers using ZetaSQL.
 
-### Using NEW 
-<a id="using_new"></a>
+### NEW ProtocolBuffer {...} {: #using_new_map_constructor }
 
-You can create a protocol buffer using the keyword `NEW`:
+You can create a protocol buffer using the map constructor `NEW` syntax:
+
+<section class="tabs">
+
+#### Format {.new-tab}
 
 ```sql
-NEW TypeName(field_1 [AS alias], ...field_n [AS alias])
+NEW protocol_buffer {
+  field_name: literal_or_expression
+  field_name { ... }
+  repeated_field_name: [literal_or_expression, ... ]
+  map_field_name: [{key: literal_or_expression value: literal_or_expression}, ...],
+  (extension_name): literal_or_expression
+}
 ```
 
-When using the `NEW` keyword to create a new protocol buffer:
+Where:
+
++ `protocol_buffer`: The full Protocol Buffer name including the package name.
++ `field_name`: The name of a field.
++ `literal_or_expression`: The field value.
++  `map_field_name`: The name of a map-typed field. The value is a list of
+   key/value pair entries for the map.
++  `extension_name`: The name of the proto extension, including the package
+   name.
+
+#### Example {.new-tab}
+
+```sql
+NEW Universe {
+  name: "Sol"
+  closest_planets: ["Mercury", "Venus", "Earth" ]
+  star {
+    radius_miles: 432,690
+    age: 4,603,000,000
+  }
+  constellations [{
+    name: "Libra"
+    index: 0
+  }, {
+    name: "Scorpio"
+    index: 1
+  }]
+  planet_distances: [{
+    key: "Mercury"
+    distance: 46,507,000
+  }, {
+    key: "Venus"
+    distance: 107,480,000
+  }]
+  (UniverseExtraInfo.extension) {
+    ...
+  }
+  all_planets: (SELECT planets FROM SolTable)
+}
+```
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+</section>
+
+> NOTE: The syntax is very similar to the Protocol Buffer Text Format
+>  syntax.
+> The differences are:
+>
+> +   Values can be arbitrary SQL expressions instead of having to be literals.
+> +   Repeated fields are written as `x_array: [1, 2, 3]` instead of `x_array:`
+>     appearing multiple times.
+> +   Extensions use parentheses instead of square brackets.
+
+<!-- mdlint on -->
+
+When using this syntax:
+
++   The field values must be expressions that are implicitly coercible or
+    literal-coercible to the type of the corresponding protocol buffer field.
++   Commas between fields are optional.
++   Extension names must have parentheses around the path and must have a comma
+    preceding the extension field (unless it is the first field).
++   A colon is required between field name and values unless the value is a map
+    constructor.
++   The `NEW ProtocolBuffer` prefix is optional if the protocol buffer type can
+    be inferred from the context.
++   The type of submessages inside the map constructor can be inferred.
+
+**Examples**
+
+Simple:
+
+```sql
+SELECT
+  key,
+  name,
+  NEW zetasql.examples.music.Chart { rank: 1 chart_name: "2" }
+```
+
+Nested messages and arrays:
+
+```sql
+SELECT
+  NEW zetasql.examples.music.Album {
+    album_name: "Bach: The Goldberg Variations"
+    singer {
+      nationality: "German"
+      residence: [{ city: "Eisenach" }, { city: "Leipzig" }]
+    }
+    song: ["Aria", "Clav"]
+  }
+```
+
+With an extension field (note a comma is required before the extension field):
+
+```sql
+SELECT
+  NEW zetasql.examples.music.Album {
+    album_name: "Bach: The Goldberg Variations",
+    (zetasql.examples.music.downloads): 30
+  }
+```
+
+Non-literal expressions as values:
+
+```sql
+SELECT NEW zetasql.examples.music.Chart {
+  rank: (SELECT COUNT(*) FROM table_name WHERE foo="bar")
+  chart_name: CONCAT("best", "hits")
+}
+```
+
+Examples of the type protocol buffer being inferred from context:
+
++   From `ARRAY` constructor:
+
+    ```sql
+    SELECT ARRAY<zetasql.examples.music.Chart>[
+        { rank: 1 chart_name: "2" },
+        { rank: 2 chart_name: "3" }]
+    ```
++   From `STRUCT` constructor:
+
+    ```sql
+    SELECT STRUCT<STRING,zetasql.examples.music.Chart,INT64>
+      ("foo", { rank: 1 chart_name: "2" }, 7)
+    ```
++   From column names through `SET`:
+
+    +   Simple column:
+
+    ```sql
+    UPDATE table_name SET ProtoColumn = { rank: 1 chart_name: "2" }
+    ```
+
+    +   Array column:
+
+    ```sql
+    UPDATE table_name SET ProtoArrayColumn =
+      [{ rank: 1 chart_name: "2" }, { rank: 2 chart_name: "3" }]
+    ```
+
+    +   Struct column:
+
+    ```sql
+    UPDATE table_name SET ProtoStructColumn =
+      ("foo", { rank: 1 chart_name: "2" }, 7)
+    ```
++   From generated column names in `CREATE`:
+
+    ```sql
+    CREATE TABLE T (
+      IntColumn INT32,
+      ProtoColumn zetasql.examples.music.Chart AS ({ rank: 1 chart_name: "2" })
+    )
+    ```
++   From column names in default values in `CREATE`:
+
+    ```sql
+    CREATE TABLE T (
+      IntColumn INT32,
+      ProtoColumn zetasql.examples.music.Chart DEFAULT ({ rank: 1 chart_name: "2" })
+    )
+    ```
++   From return types in SQL function body:
+
+    ```sql
+    CREATE FUNCTION myfunc (  ) RETURNS zetasql.examples.music.Chart AS ({ rank: 1 chart_name: "2" })
+    ```
++   From system variable type:
+
+    ```sql
+    SET @@proto_system_variable = { rank: 1 chart_name: "2" }
+    ```
+
+### NEW ProtocolBuffer (...) 
+<a id="using_new"></a>
+
+You can create a protocol buffer using the keyword `NEW` with a parenthesized
+list of arguments, using aliases to specify field names:
+
+```sql
+NEW ProtocolBuffer(field_1 [AS alias], ...field_n [AS alias])
+```
+
+When using this syntax:
 
 + All field expressions must have an [explicit alias][explicit-alias] or end with an identifier.
   For example, the expression `a.b.c` has the [implicit alias][implicit-alias] `c`.
@@ -54,7 +249,7 @@ FROM
 To create a protocol buffer with an extension, use this syntax:
 
 ```sql
-NEW TypeName(expr1 AS (path.to.extension), ...)
+NEW ProtocolBuffer(expr1 AS (path.to.extension), ...)
 ```
 
 +   For `path.to.extension`, provide the path to the extension. Place the
@@ -102,7 +297,7 @@ NEW TypeName(expr1 AS (path.to.extension), ...)
     +-------------------------------------------------------------+
     ```
 
-### SELECT AS typename
+### SELECT AS ProtocolBuffer
 
 ```
 SELECT AS catalog.ProtocolBufferName
@@ -111,9 +306,9 @@ SELECT AS catalog.ProtocolBufferName
 FROM ...
 ```
 
-A `SELECT AS typename` statement produces a value table where the row type is a
-specific named type. Currently, protocol buffers are the only supported type
-that can be used with this syntax.
+A `SELECT AS ProtocolBuffer` statement produces a value table where the row type
+is a specific named type. Currently, protocol buffers are the only supported
+type that can be used with this syntax.
 
 The `SELECT` list may produce multiple columns.  Each produced column must have
 an alias (explicitly or implicitly) that matches a unique protocol buffer field
@@ -129,7 +324,7 @@ can be applied on the input columns to the value construction, including in
 cases where `DISTINCT` would not be allowed after value construction because
 equality is not supported on protocol buffer types.
 
-The following is an example of a `SELECT AS typename` query.
+The following is an example of a `SELECT AS ProtocolBuffer` query.
 
 ```sql 
 SELECT AS tests.TestProtocolBuffer mytable.key int64_val, mytable.name string_val
@@ -269,9 +464,9 @@ is unset.
 For example, suppose that `proto_msg` of type `PROTO` has a field named
 `leaf_field`. A reference to `proto_msg.leaf_field` returns:
 
-* `NULL` if `proto_msg` is `NULL`.
-* A default value if `proto_msg` is not `NULL` but `leaf_field` is not set.
-* The value of `leaf_field` if `proto_msg` is not `NULL` and `leaf_field`
++ `NULL` if `proto_msg` is `NULL`.
++ A default value if `proto_msg` is not `NULL` but `leaf_field` is not set.
++ The value of `leaf_field` if `proto_msg` is not `NULL` and `leaf_field`
   is set.
 
 ### zetasql.use_defaults
@@ -866,6 +1061,8 @@ FROM
 [working-with-arrays]: https://github.com/google/zetasql/blob/master/docs/arrays.md#working_with_arrays
 
 [link_to_safe_cast]: https://github.com/google/zetasql/blob/master/docs/conversion_functions.md#safe_casting
+
+[link_to_expression_subquery]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#expression_subquery_concepts
 
 [proto-extract]: https://github.com/google/zetasql/blob/master/docs/protocol_buffer_functions.md#proto_extract
 

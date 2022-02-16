@@ -21,6 +21,7 @@
 
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/container/flat_hash_map.h"
@@ -29,7 +30,7 @@
 
 namespace zetasql {
 
-struct ParseResumeLocation;
+class ParseResumeLocation;
 
 // Parses the <sql> statement and returns OK if the statement is valid
 // ZetaSQL syntax.  Otherwise returns the parser error, formatted according
@@ -60,10 +61,9 @@ absl::Status IsValidNextStatementSyntax(
 //
 // If <input> cannot be any known statement type, returns RESOLVED_LITERAL
 // (a non-statement) as a sentinel.
-//
-// TODO: Add LanguageOptions to this, which controls some
-// parser behaviors.
-ResolvedNodeKind GetStatementKind(const std::string& input);
+ResolvedNodeKind GetStatementKind(
+    absl::string_view sql,
+    const LanguageOptions& language_options = LanguageOptions());
 
 // Converts ASTNodeKind to ResolvedNodeKind.
 ResolvedNodeKind GetStatementKind(ASTNodeKind node_kind);

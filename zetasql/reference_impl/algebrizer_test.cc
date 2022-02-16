@@ -55,8 +55,6 @@
 namespace zetasql {
 
 using testing::HasSubstr;
-using testing::MatchesRegex;
-using testing::TestWithParam;
 using testing::ValuesIn;
 using zetasql_base::testing::StatusIs;
 

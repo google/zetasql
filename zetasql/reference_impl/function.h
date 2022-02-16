@@ -162,6 +162,9 @@ enum class FunctionKind {
   kAtan,
   kAtanh,
   kAtan2,
+  kCsc,
+  kSec,
+  kCot,
   // Least and greatest functions
   kLeast,
   kGreatest,
@@ -393,8 +396,7 @@ class BuiltinFunctionCatalog {
   BuiltinFunctionCatalog(const BuiltinFunctionCatalog&) = delete;
   BuiltinFunctionCatalog& operator=(const BuiltinFunctionCatalog&) = delete;
 
-  static absl::StatusOr<FunctionKind> GetKindByName(
-      const absl::string_view& name);
+  static absl::StatusOr<FunctionKind> GetKindByName(absl::string_view name);
 
   static std::string GetDebugNameByKind(FunctionKind kind);
 

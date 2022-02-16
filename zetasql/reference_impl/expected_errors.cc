@@ -45,6 +45,12 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
   error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
       "Unsupported built-in function: kms.*"));
+  // TODO: remove this after finishing the reference
+  // implementation.
+  // The d3a_count functions are under development.
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Unsupported built-in function: d3a_count.*"));
   error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
       "Unsupported built-in function: aead\\.envelope.*"));
@@ -119,6 +125,11 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
   error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
       "DISTINCT is not allowed for analytic function percentile_(cont|disc)"));
+
+  // RQG can generate various casts / proto accesses that will create floating
+  // point errors.
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "Floating point error in function.*"));
 
   return absl::make_unique<MatcherCollection<absl::Status>>(
       matcher_name, std::move(error_matchers));

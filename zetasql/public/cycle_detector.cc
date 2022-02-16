@@ -19,6 +19,7 @@
 #include "zetasql/base/logging.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status_builder.h"
@@ -26,7 +27,7 @@
 namespace zetasql {
 
 absl::Status CycleDetector::ObjectInfo::DetectCycle(
-    const std::string& object_type) const {
+    absl::string_view object_type) const {
   if (!cycle_detected_) {
     return absl::OkStatus();
   }
@@ -72,7 +73,7 @@ void CycleDetector::PopObject(const ObjectInfo* expected_object_info) {
   ZETASQL_DCHECK_EQ(objects_.size(), object_deque_.size());
 }
 
-CycleDetector::ObjectInfo::ObjectInfo(const std::string& name,
+CycleDetector::ObjectInfo::ObjectInfo(absl::string_view name,
                                       const void* object,
                                       CycleDetector* cycle_detector)
     : name_(name), object_(object) {

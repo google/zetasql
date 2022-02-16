@@ -8998,59 +8998,81 @@ std::vector<FunctionTestCall> GetFunctionTestsCastFormatDateTimestamp() {
 // Helper function for constructing simple TIMESTAMP_BUCKET tests.
 // UTC timezone is used both for interpreting the strings
 // <timestamp_string>, <origin_string> and <expected_result> as timestamps.
-FunctionTestCall TimestampBucketTest(const std::string& timestamp_string,
-                                     const std::string& interval_string,
-                                     const std::string& origin_string,
-                                     const std::string& expected_result) {
+FunctionTestCall TimestampBucketTest(
+    const std::string& timestamp_string, const std::string& interval_string,
+    const std::string& origin_string, const std::string& expected_result,
+    zetasql::functions::TimestampScale scale = kMicroseconds) {
   absl::TimeZone timezone = absl::UTCTimeZone();
 
   absl::Time timestamp;
-  ZETASQL_CHECK_OK(ConvertStringToTimestamp(timestamp_string, timezone, kNanoseconds,
+  ZETASQL_CHECK_OK(ConvertStringToTimestamp(timestamp_string, timezone, scale,
                                     /*allow_tz_in_str=*/true, &timestamp))
       << timestamp_string;
 
   IntervalValue interval = *IntervalValue ::ParseFromString(interval_string);
   absl::Time origin;
-  ZETASQL_CHECK_OK(ConvertStringToTimestamp(origin_string, timezone, kNanoseconds,
+  ZETASQL_CHECK_OK(ConvertStringToTimestamp(origin_string, timezone, scale,
                                     /*allow_tz_in_str=*/true, &origin))
       << origin_string;
 
   absl::Time expected_timestamp;
-  ZETASQL_CHECK_OK(ConvertStringToTimestamp(expected_result, timezone, kNanoseconds,
+  ZETASQL_CHECK_OK(ConvertStringToTimestamp(expected_result, timezone, scale,
                                     /*allow_tz_in_str=*/true,
                                     &expected_timestamp))
       << expected_result;
 
-  return {"timestamp_bucket",
-          {Timestamp(timestamp), Value::Interval(interval), Timestamp(origin)},
-          {Timestamp(expected_timestamp)}};
+  FunctionTestCall call{
+      "timestamp_bucket",
+      {Timestamp(timestamp), Value::Interval(interval), Timestamp(origin)},
+      {Timestamp(expected_timestamp)}};
+
+  QueryParamsWithResult::FeatureSet feature_set;
+  if (scale == kNanoseconds) {
+    feature_set = {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE,
+                   FEATURE_TIMESTAMP_NANOS};
+  } else {
+    feature_set = {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE};
+  }
+  call.params = call.params.WrapWithFeatureSet(feature_set);
+  return call;
 }
 
 // Helper function for constructing TIMESTAMP_BUCKET tests for error cases.
 // UTC timezone is for interpreting the strings <timestamp_string> and
 // <origin_string>.
-FunctionTestCall TimestampBucketErrorTest(const std::string& timestamp_string,
-                                          const std::string& interval_string,
-                                          const std::string& origin_string,
-                                          const std::string& expected_error) {
+FunctionTestCall TimestampBucketErrorTest(
+    const std::string& timestamp_string, const std::string& interval_string,
+    const std::string& origin_string, const std::string& expected_error,
+    zetasql::functions::TimestampScale scale = kMicroseconds) {
   absl::TimeZone timezone = absl::UTCTimeZone();
 
   absl::Time timestamp;
-  ZETASQL_CHECK_OK(ConvertStringToTimestamp(timestamp_string, timezone, kNanoseconds,
+  ZETASQL_CHECK_OK(ConvertStringToTimestamp(timestamp_string, timezone, scale,
                                     /*allow_tz_in_str=*/true, &timestamp))
       << timestamp_string;
 
   IntervalValue interval = *IntervalValue::ParseFromString(interval_string);
 
   absl::Time origin;
-  ZETASQL_CHECK_OK(ConvertStringToTimestamp(origin_string, timezone, kNanoseconds,
+  ZETASQL_CHECK_OK(ConvertStringToTimestamp(origin_string, timezone, scale,
                                     /*allow_tz_in_str=*/true, &origin))
       << origin_string;
 
-  return {"timestamp_bucket",
-          {Timestamp(timestamp), Value::Interval(interval), Timestamp(origin)},
-          NullTimestamp(),
-          absl::OutOfRangeError(expected_error)};
+  FunctionTestCall call{
+      "timestamp_bucket",
+      {Timestamp(timestamp), Value::Interval(interval), Timestamp(origin)},
+      NullTimestamp(),
+      absl::OutOfRangeError(expected_error)};
+
+  QueryParamsWithResult::FeatureSet feature_set;
+  if (scale == kNanoseconds) {
+    feature_set = {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE,
+                   FEATURE_TIMESTAMP_NANOS};
+  } else {
+    feature_set = {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE};
+  }
+  call.params = call.params.WrapWithFeatureSet(feature_set);
+  return call;
 }
 
 std::vector<FunctionTestCall> GetFunctionTestsTimestampBucket() {
@@ -9059,7 +9081,7 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampBucket() {
       TimestampBucketTest("2020-03-15 14:57:39.646565731",
                           "0:0:0.000000200",  // INTERVAL 200 NANOSECOND
                           "1950-01-01 00:00:00",
-                          "2020-03-15 14:57:39.646565600"),
+                          "2020-03-15 14:57:39.646565600", kNanoseconds),
       TimestampBucketTest("2020-03-15 14:57:39.646565",
                           "0:0:0.000500",  // INTERVAL 500 MICROSECOND
                           "1950-01-01 00:00:00", "2020-03-15 14:57:39.646500"),
@@ -9082,11 +9104,11 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampBucket() {
       TimestampBucketTest("2020-03-15 14:57:39.646565731",
                           "0:0:0.000000200",  // INTERVAL 200 NANOSECOND
                           "1950-01-01 00:00:00.000000100",
-                          "2020-03-15 14:57:39.646565700"),
+                          "2020-03-15 14:57:39.646565700", kNanoseconds),
       TimestampBucketTest("2020-03-15 14:57:39.646565731",
                           "0:0:0.000000200",  // INTERVAL 200 NANOSECOND
                           "1950-01-01 00:00:00.000000200",
-                          "2020-03-15 14:57:39.646565600"),
+                          "2020-03-15 14:57:39.646565600", kNanoseconds),
       TimestampBucketTest("2020-03-15 14:57:39.646565",
                           "0:0:0.000500",  // INTERVAL 500 MICROSECOND
                           "1950-01-01 00:00:00.000100",
@@ -9121,8 +9143,12 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampBucket() {
                           "1950-01-01 03:00:00", "2020-03-15 12:00:00"),
       TimestampBucketTest("2020-03-15 14:57:39",
                           "0-0 7",  // INTERVAL 7 DAY
+                          "1950-01-02 13:55:27.13456",
+                          "2020-03-09 13:55:27.13456"),
+      TimestampBucketTest("2020-03-15 14:57:39",
+                          "0-0 7",  // INTERVAL 7 DAY
                           "1950-01-02 13:55:27.13456789",
-                          "2020-03-09 13:55:27.13456789"),
+                          "2020-03-09 13:55:27.13456789", kNanoseconds),
       TimestampBucketTest("2020-03-15 14:57:39",
                           "0-0 7",  // INTERVAL 7 DAY
                           "1950-01-08 00:00:00", "2020-03-15 00:00:00"),
@@ -9150,7 +9176,8 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampBucket() {
       TimestampBucketTest("1949-12-31 23:59:59.999999", "0-0 1",
                           "1950-01-01 00:00:00", "1949-12-31 00:00:00"),
       TimestampBucketTest("1949-12-31 23:59:59.999999999", "0-0 1",
-                          "1950-01-01 00:00:00", "1949-12-31 00:00:00"),
+                          "1950-01-01 00:00:00", "1949-12-31 00:00:00",
+                          kNanoseconds),
       TimestampBucketTest("1949-12-31 00:00:00", "0-0 1", "1950-01-01 00:00:00",
                           "1949-12-31 00:00:00"),
       TimestampBucketTest("1949-12-31 13:27:34", "0-0 1", "1950-01-01 00:00:00",
@@ -9159,18 +9186,21 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampBucket() {
       TimestampBucketTest("1950-01-01 00:00:00.000001", "0-0 1",
                           "1950-01-01 00:00:00", "1950-01-01 00:00:00"),
       TimestampBucketTest("1950-01-01 00:00:00.000000001", "0-0 1",
-                          "1950-01-01 00:00:00", "1950-01-01 00:00:00"),
+                          "1950-01-01 00:00:00", "1950-01-01 00:00:00",
+                          kNanoseconds),
       TimestampBucketTest("1950-01-01 23:59:59.999999", "0-0 1",
                           "1950-01-01 00:00:00", "1950-01-01 00:00:00"),
       TimestampBucketTest("1950-01-01 23:59:59.999999999", "0-0 1",
-                          "1950-01-01 00:00:00", "1950-01-01 00:00:00"),
+                          "1950-01-01 00:00:00", "1950-01-01 00:00:00",
+                          kNanoseconds),
       TimestampBucketTest("1950-01-01 13:27:34", "0-0 1", "1950-01-01 00:00:00",
                           "1950-01-01 00:00:00"),
       // input is in the bucket right after origin
       TimestampBucketTest("1950-01-02 23:59:59.999999", "0-0 1",
                           "1950-01-01 00:00:00", "1950-01-02 00:00:00"),
       TimestampBucketTest("1950-01-02 23:59:59.999999999", "0-0 1",
-                          "1950-01-01 00:00:00", "1950-01-02 00:00:00"),
+                          "1950-01-01 00:00:00", "1950-01-02 00:00:00",
+                          kNanoseconds),
       TimestampBucketTest("1950-01-02 00:00:00", "0-0 1", "1950-01-01 00:00:00",
                           "1950-01-02 00:00:00"),
       TimestampBucketTest("1950-01-02 13:27:34", "0-0 1", "1950-01-01 00:00:00",
@@ -9192,7 +9222,7 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampBucket() {
                           "2020-03-15 11:59:59.999999"),
       TimestampBucketTest("2020-03-15 14:57:39", "3:00:00",
                           "9999-12-31 23:59:59.999999999",
-                          "2020-03-15 11:59:59.999999999"),
+                          "2020-03-15 11:59:59.999999999", kNanoseconds),
       TimestampBucketTest("2020-03-15 14:57:39" /* Sunday */, "0-0 7",
                           "0001-01-01 00:00:00", /* Monday */
                           "2020-03-09 00:00:00" /* Monday */),
@@ -9201,7 +9231,8 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampBucket() {
                           "2020-03-13 23:59:59.999999" /* Friday */),
       TimestampBucketTest("2020-03-15 14:57:39" /* Sunday */, "0-0 7",
                           "9999-12-31 23:59:59.999999999", /* Friday */
-                          "2020-03-13 23:59:59.999999999" /* Friday */),
+                          "2020-03-13 23:59:59.999999999" /* Friday */,
+                          kNanoseconds),
       // MONTH part is not supported
       TimestampBucketErrorTest("2020-03-15 14:57:39", "0-1 0",
                                "1950-01-01 00:00:00",
@@ -9231,14 +9262,19 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampBucket() {
                                "1950-01-01 00:00:00",
                                "TIMESTAMP_BUCKET doesn't support bucket width "
                                "INTERVAL with mixed DAY and MICROSECOND parts"),
-      TimestampBucketErrorTest("2020-03-15 14:57:39", "0-0 1 0:0:0.00000100",
+      TimestampBucketErrorTest("2020-03-15 14:57:39", "0-0 1 0:0:0.000001",
                                "1950-01-01 00:00:00",
                                "TIMESTAMP_BUCKET doesn't support bucket width "
                                "INTERVAL with mixed DAY and MICROSECOND parts"),
+      TimestampBucketErrorTest("2020-03-15 14:57:39", "0-0 1 0:0:0.000000001",
+                               "1950-01-01 00:00:00",
+                               "TIMESTAMP_BUCKET doesn't support bucket width "
+                               "INTERVAL with mixed DAY and MICROSECOND parts",
+                               kNanoseconds),
       // Mixing MICROSECONDs and NANOSECONDs.
       TimestampBucketTest("2020-03-15 14:57:39.646565731", "0:0:0.000002500",
                           "1950-01-01 00:00:00",
-                          "2020-03-15 14:57:39.646565000"),
+                          "2020-03-15 14:57:39.646565000", kNanoseconds),
       // Bucket is outside of TIMESTAMP range. Output needs to be at 0000-12-31
       TimestampBucketErrorTest("0001-01-01", "0-0 2", "0001-01-02",
                                "Bucket for 0001-01-01 00:00:00+00 "
@@ -9263,55 +9299,57 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampBucket() {
                                "is outside of timestamp range"),
       // Close to max number of NANOSECONDs
       TimestampBucketTest("2020-03-15 14:57:39", "87839999:59:59.999999999",
-                          "1950-01-01 00:00:00", "1950-01-01 00:00:00"),
+                          "1950-01-01 00:00:00", "1950-01-01 00:00:00",
+                          kNanoseconds),
       // Very large bucket width (1000 * 366 * 24 hours) and NANOSECOND
       // precision
       TimestampBucketTest("5220-03-15 14:57:39.123456789",
                           "8784000:00:00.000000005", "1950-01-01 00:00:00",
-                          "4956-03-22 00:00:00.000000015"),
+                          "4956-03-22 00:00:00.000000015", kNanoseconds),
       TimestampBucketTest("2220-03-15 14:57:39.123456789",
                           "8784000:00:00.000000005", "5000-01-01 00:00:00",
-                          "1993-10-11 23:59:59.999999985"),
+                          "1993-10-11 23:59:59.999999985", kNanoseconds),
       // Buckets with NANOSECOND width to test for overflows
       TimestampBucketTest("2200-03-15 14:57:39.123456789",
                           "0:0:0.000000001",  // INTERVAL 1 NANOSECOND
                           "1900-01-01 00:00:00",
-                          "2200-03-15 14:57:39.123456789"),
+                          "2200-03-15 14:57:39.123456789", kNanoseconds),
       TimestampBucketTest("2000-03-15 14:57:39.123456789",
                           "0:0:0.000000001",  // INTERVAL 1 NANOSECOND
-                          "2301-01-01", "2000-03-15 14:57:39.123456789"),
+                          "2301-01-01", "2000-03-15 14:57:39.123456789",
+                          kNanoseconds),
       TimestampBucketTest("9999-12-31 23:59:59.123456789",
                           "0:0:0.000000001",  // INTERVAL 1 NANOSECOND
                           "0001-01-01 00:00:00",
-                          "9999-12-31 23:59:59.123456789"),
+                          "9999-12-31 23:59:59.123456789", kNanoseconds),
       TimestampBucketTest("0001-01-01 00:00:00.123456789",
                           "0:0:0.000000001",  // INTERVAL 1 NANOSECOND
                           "9999-12-31 23:59:59",
-                          "0001-01-01 00:00:00.123456789"),
+                          "0001-01-01 00:00:00.123456789", kNanoseconds),
       TimestampBucketTest("2020-03-15 14:57:39.123456734",
                           "0:0:0.000000005",  // INTERVAL 5 NANOSECOND
                           "1950-01-01 00:00:00",
-                          "2020-03-15 14:57:39.123456730"),
+                          "2020-03-15 14:57:39.123456730", kNanoseconds),
       TimestampBucketTest("2020-03-15 14:57:39.123456734",
                           "0:0:0.000000005",  // INTERVAL 5 NANOSECOND
                           "2050-01-01 00:00:00",
-                          "2020-03-15 14:57:39.123456730"),
+                          "2020-03-15 14:57:39.123456730", kNanoseconds),
       TimestampBucketTest("2020-03-15 14:57:39.123456741",
                           "0:0:0.000000025",  // INTERVAL 25 NANOSECOND
                           "1950-01-01 00:00:00",
-                          "2020-03-15 14:57:39.123456725"),
+                          "2020-03-15 14:57:39.123456725", kNanoseconds),
       TimestampBucketTest("2020-03-15 14:57:39.123456741",
                           "0:0:0.000000025",  // INTERVAL 25 NANOSECOND
                           "2050-01-01 00:00:00",
-                          "2020-03-15 14:57:39.123456725"),
+                          "2020-03-15 14:57:39.123456725", kNanoseconds),
       TimestampBucketTest("2020-03-15 14:57:39.123456741",
                           "0:0:0.000000025",  // INTERVAL 25 NANOSECOND
                           "1950-01-01 00:00:00.000000002",
-                          "2020-03-15 14:57:39.123456727"),
+                          "2020-03-15 14:57:39.123456727", kNanoseconds),
       TimestampBucketTest("2020-03-15 14:57:39.123456741",
                           "0:0:0.000000025",  // INTERVAL 25 NANOSECOND
                           "2050-01-01 00:00:00.000000002",
-                          "2020-03-15 14:57:39.123456727"),
+                          "2020-03-15 14:57:39.123456727", kNanoseconds),
   };
   return v;
 }

@@ -221,17 +221,6 @@ static std::vector<QueryParamsWithResult> WrapFeatureJSON(
   return wrapped_tests;
 }
 
-static std::vector<FunctionTestCall> WrapFeatureTimeBucketFunctions(
-    const std::vector<FunctionTestCall>& tests) {
-  std::vector<FunctionTestCall> wrapped_tests;
-  for (auto call : tests) {
-    call.params = call.params.WrapWithFeatureSet(
-        {FEATURE_TIME_BUCKET_FUNCTIONS, FEATURE_INTERVAL_TYPE});
-    wrapped_tests.emplace_back(call);
-  }
-  return wrapped_tests;
-}
-
 // Owned by
 // CodebasedTestsEnvironment::{SetUp,TearDown}(). 'code_based_reference_driver'
 // is NULL if and only if either 'code_based_test_driver' is NULL, or
@@ -2066,9 +2055,8 @@ SHARDED_TEST_F(ComplianceCodebasedTests,
   RunFunctionCalls(Shard(GetFunctionTestsConvertTimestampToDatetime()));
 }
 
-SHARDED_TEST_F(ComplianceCodebasedTests, TestTimestampTimebucketFunctions, 1) {
-  RunFunctionCalls(
-      Shard(WrapFeatureTimeBucketFunctions(GetFunctionTestsTimestampBucket())));
+SHARDED_TEST_F(ComplianceCodebasedTests, TestTimestampBucketFunctions, 1) {
+  RunFunctionCalls(Shard(GetFunctionTestsTimestampBucket()));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestOctetLengthFunctions, 1) {

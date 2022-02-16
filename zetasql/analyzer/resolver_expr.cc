@@ -4857,8 +4857,9 @@ absl::Status Resolver::ResolveCastWithResolvedArgument(
 
   // We can return without creating a ResolvedCast if the original type and
   // target type are the same, and original collation and target collation are
-  // equal.
-  if (to_type->Equals((*resolved_argument)->type()) && type_params.IsEmpty() &&
+  // equal, unless explicitly requested.
+  if (!analyzer_options_.preserve_unnecessary_cast() &&
+      to_type->Equals((*resolved_argument)->type()) && type_params.IsEmpty() &&
       AnnotationMap::HasEqualAnnotations(
           (*resolved_argument)->type_annotation_map(), to_type_annotation_map,
           CollationAnnotation::GetId())) {
@@ -4928,9 +4929,8 @@ absl::Status Resolver::ResolveArrayElement(
   // a flatten, we have to apply the array access to the Get*Field.
   std::unique_ptr<ResolvedFlatten> resolved_flatten;
   if (resolved_lhs->Is<ResolvedFlatten>() &&
-      expr_resolution_info->flatten_state.active_flatten() != nullptr) {
-    ZETASQL_RET_CHECK_EQ(resolved_lhs,
-                 expr_resolution_info->flatten_state.active_flatten());
+      expr_resolution_info->flatten_state.active_flatten() != nullptr &&
+      resolved_lhs == expr_resolution_info->flatten_state.active_flatten()) {
     resolved_flatten.reset(const_cast<ResolvedFlatten*>(
         args.back().release()->GetAs<ResolvedFlatten>()));
     auto get_field_list = resolved_flatten->release_get_field_list();
@@ -6338,6 +6338,10 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
 
   std::shared_ptr<ResolvedFunctionCallInfo> function_call_info = nullptr;
   if (function->Is<TemplatedSQLFunction>()) {
+    // We do not support lambdas in UDF yet.
+    ZETASQL_RET_CHECK((*resolved_function_call)->generic_argument_list().empty())
+        << "Should not have generic arguments";
+
     // TODO: The core of this block is in common with code
     // in function_resolver.cc for handling templated scalar functions.
     // Refactor the common code into common helper functions.
@@ -6345,11 +6349,11 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
     const TemplatedSQLFunction* sql_function =
         function->GetAs<TemplatedSQLFunction>();
     std::vector<InputArgumentType> input_arguments;
-    const absl::Span<const ASTExpression* const> ast_nodes =
-        ast_function_call->arguments();
-    GetInputArgumentTypesForGenericArgumentList(
-        {ast_nodes.begin(), ast_nodes.end()},
-        (*resolved_function_call)->argument_list(), &input_arguments);
+    input_arguments.reserve(arg_list.size());
+    for (const std::unique_ptr<const ResolvedExpr>& arg :
+         (*resolved_function_call)->argument_list()) {
+      input_arguments.push_back(GetInputArgumentTypeForExpr(arg.get()));
+    }
 
     // Call the TemplatedSQLFunction::Resolve() method to get the output type.
     // Use a new empty cycle detector, or the cycle detector from this

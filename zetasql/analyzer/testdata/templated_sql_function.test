@@ -738,6 +738,47 @@ a b c d e
 Syntax error: Expected end of input but got identifier "b" [at 1:3]
 a b c d e
   ^
+
+==
+
+# Test that we propagate language options correctly, this should
+# be a parser error without V_1_3_LIKE_ANY_SOME_ALL
+select udf_templated_like_any('y');
+--
+ERROR: Invalid function udf_templated_like_any [at 1:8]
+select udf_templated_like_any('y');
+       ^
+Analysis of function Templated_SQL_Function:udf_templated_like_any failed [at 1:8]
+x like any ('z')
+       ^
+LIKE ANY is not supported [at 1:8]
+x like any ('z')
+       ^
+==
+
+[language_features=V_1_3_LIKE_ANY_SOME_ALL]
+
+select udf_templated_like_any('y');
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(Templated_SQL_Function:udf_templated_like_any(STRING) -> BOOL)
+    |     +-Literal(type=STRING, value="y")
+    +-input_scan=
+      +-SingleRowScan
+
+With Templated SQL function call:
+  Templated_SQL_Function:udf_templated_like_any(STRING) -> BOOL
+containing resolved templated expression:
+FunctionCall(ZetaSQL:$like_any(STRING, repeated(1) STRING) -> BOOL)
++-ArgumentRef(type=STRING, name="x")
++-Literal(type=STRING, value="z")
 ==
 
 # Analysis error.

@@ -22,14 +22,6 @@ cc_library(
     name = "status_payload_utils",
     srcs = ["status_payload_utils.cc"],
     hdrs = ["status_payload_utils.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/base:status",
         "@com_google_absl//absl/memory",
@@ -42,15 +34,6 @@ cc_library(
 cc_test(
     name = "status_payload_utils_test",
     srcs = ["status_payload_utils_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":status_payload_utils",
         "//zetasql/base:status",
@@ -64,14 +47,6 @@ cc_library(
     name = "errors",
     srcs = ["errors.cc"],
     hdrs = ["errors.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":status_payload_utils",
         "//zetasql/base",
@@ -96,15 +71,6 @@ cc_test(
     name = "errors_test",
     size = "small",
     srcs = ["errors_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":errors",
         ":status_payload_utils",
@@ -122,14 +88,6 @@ cc_test(
 cc_library(
     name = "int_ops_util",
     hdrs = ["int_ops_util.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
     ],
 )
@@ -138,15 +96,6 @@ cc_test(
     name = "int_ops_util_test",
     size = "small",
     srcs = ["int_ops_util_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":int_ops_util",
         "//zetasql/base/testing:zetasql_gtest_main",
@@ -156,14 +105,6 @@ cc_test(
 cc_library(
     name = "string_util",
     hdrs = ["string_util.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/base:string_numbers",
         "@com_google_absl//absl/strings",
@@ -174,14 +115,6 @@ cc_library(
     name = "utf_util",
     srcs = ["utf_util.cc"],
     hdrs = ["utf_util.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/base",
         "//zetasql/base:ret_check",
@@ -196,15 +129,6 @@ cc_test(
     name = "utf_util_test",
     size = "small",
     srcs = ["utf_util_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":utf_util",
         "//zetasql/base/testing:status_matchers",
@@ -218,14 +142,6 @@ cc_library(
     name = "proto_helper",
     srcs = ["proto_helper.cc"],
     hdrs = ["proto_helper.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":errors",
         "//zetasql/base",
@@ -243,15 +159,6 @@ cc_test(
     name = "proto_helper_test",
     size = "small",
     srcs = ["proto_helper_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     data = [
         "//zetasql/testdata:test_files",
         "//zetasql/testdata:test_schema_proto",
@@ -274,14 +181,6 @@ cc_library(
     hdrs = [
         "float_margin.h",
     ],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":string_util",
         "//zetasql/base",
@@ -297,14 +196,6 @@ cc_library(
         "multiprecision_int.h",
         "multiprecision_int_impl.h",
     ],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/base",
         "//zetasql/base:bits",
@@ -318,15 +209,6 @@ cc_library(
 cc_test(
     name = "multiprecision_int_test",
     srcs = ["multiprecision_int_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":multiprecision_int",
         "//zetasql/base:mathutil",
@@ -346,14 +228,6 @@ cc_library(
     hdrs = [
         "internal_value.h",
     ],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":float_margin",
         "//zetasql/public:type",
@@ -367,14 +241,6 @@ cc_library(
     name = "initialize_required_fields",
     srcs = ["initialize_required_fields.cc"],
     hdrs = ["initialize_required_fields.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "@com_google_protobuf//:protobuf",
     ],
@@ -396,15 +262,6 @@ cc_test(
     name = "initialize_required_fields_test",
     size = "small",
     srcs = ["initialize_required_fields_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":initialize_required_fields",
         ":initialize_required_fields_test_cc_proto",
@@ -423,14 +280,6 @@ cc_library(
         "builtin_function_internal_3.cc",
     ],
     hdrs = ["builtin_function_internal.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":errors",
         "//zetasql/base",
@@ -460,10 +309,10 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_googleapis//google/type:date_cc_proto",
+        "@com_google_googleapis//google/type:timeofday_cc_proto",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
-        "@com_googleapis_googleapis//:date_cc_proto",
-        "@com_googleapis_googleapis//:timeofday_cc_proto",
     ],
 )
 
@@ -471,14 +320,6 @@ cc_library(
     name = "simple_evaluator_table_iterator",
     srcs = ["simple_evaluator_table_iterator.cc"],
     hdrs = ["simple_evaluator_table_iterator.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/base",
         "//zetasql/base:clock",
@@ -499,15 +340,6 @@ cc_library(
 cc_test(
     name = "simple_evaluator_table_iterator_test",
     srcs = ["simple_evaluator_table_iterator_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":simple_evaluator_table_iterator",
         "//zetasql/base:clock",
@@ -525,14 +357,6 @@ cc_library(
     name = "evaluator_test_table",
     testonly = 1,
     hdrs = ["evaluator_test_table.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":simple_evaluator_table_iterator",
         "//zetasql/base",
@@ -552,14 +376,6 @@ cc_library(
     name = "json_parser",
     srcs = ["json_parser.cc"],
     hdrs = ["json_parser.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/base",
         "//zetasql/base:strings",
@@ -573,15 +389,6 @@ cc_library(
 cc_test(
     name = "json_parser_test",
     srcs = ["json_parser_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":json_parser",
         "//zetasql/base",
@@ -597,14 +404,6 @@ cc_library(
     name = "json_util",
     srcs = ["json_util.cc"],
     hdrs = ["json_util.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
@@ -614,15 +413,6 @@ cc_library(
 cc_test(
     name = "json_util_test",
     srcs = ["json_util_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":json_util",
         "//zetasql/base/testing:zetasql_gtest_main",
@@ -634,14 +424,6 @@ cc_library(
     name = "evaluator_registration_utils",
     srcs = ["evaluator_registration_utils.cc"],
     hdrs = ["evaluator_registration_utils.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/base:status",
         "//zetasql/public:collator",
@@ -657,14 +439,6 @@ cc_library(
     ],
     hdrs = [
         "proto_from_iterator.h",
-    ],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
     ],
     deps = [
         "//zetasql/base:ret_check",
@@ -687,15 +461,6 @@ cc_test(
     name = "proto_from_iterator_test",
     size = "small",
     srcs = ["proto_from_iterator_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":proto_from_iterator",
         "//zetasql/base:status",
@@ -718,14 +483,6 @@ cc_library(
     name = "aggregate_null_handling",
     srcs = ["aggregate_null_handling.cc"],
     hdrs = ["aggregate_null_handling.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/base:case",
         "//zetasql/base:map_util",
@@ -737,15 +494,6 @@ cc_library(
 cc_test(
     name = "aggregate_null_handling_test",
     srcs = ["aggregate_null_handling_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":aggregate_null_handling",
         "//zetasql/base/testing:status_matchers",

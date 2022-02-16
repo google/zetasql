@@ -907,7 +907,7 @@ class Value {
    private:
     // We use different field layouts depending on system bitness.
     template <const int byteness>
-    struct ContentLayout;
+    class ContentLayout;
 
     typedef ContentLayout<sizeof(Type*)> Content;
 

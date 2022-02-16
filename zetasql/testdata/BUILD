@@ -155,14 +155,6 @@ cc_library(
     name = "sample_annotation",
     srcs = ["sample_annotation.cc"],
     hdrs = ["sample_annotation.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/common:errors",
         "//zetasql/public:type",
@@ -178,14 +170,6 @@ cc_library(
     testonly = 1,
     srcs = ["sample_system_variables.cc"],
     hdrs = ["sample_system_variables.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":test_schema_cc_proto",
         "//zetasql/base:status",
@@ -200,14 +184,6 @@ cc_library(
     testonly = 1,
     srcs = ["sample_catalog.cc"],
     hdrs = ["sample_catalog.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":ambiguous_has_cc_proto",
         ":sample_annotation",
@@ -261,14 +237,6 @@ cc_library(
     testonly = 1,
     srcs = ["error_catalog.cc"],
     hdrs = ["error_catalog.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/base:ret_check",
         "//zetasql/base:source_location",
@@ -284,14 +252,6 @@ cc_library(
     testonly = 1,
     srcs = ["special_catalog.cc"],
     hdrs = ["special_catalog.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":test_schema_cc_proto",
         "//zetasql/base:map_util",
@@ -309,14 +269,6 @@ cc_library(
     testonly = 1,
     srcs = ["populate_sample_tables.cc"],
     hdrs = ["populate_sample_tables.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":sample_catalog",
         ":test_schema_cc_proto",

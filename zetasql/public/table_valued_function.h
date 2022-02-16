@@ -44,6 +44,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 
@@ -338,7 +339,7 @@ class TableValuedFunction {
 // Represents a column for some TVF input argument types (e.g. TVFRelation and
 // TVFModelArgument).
 struct TVFSchemaColumn {
-  TVFSchemaColumn(const std::string& name_in, const Type* type_in,
+  TVFSchemaColumn(absl::string_view name_in, const Type* type_in,
                   bool is_pseudo_column_in = false)
       : name(name_in), type(type_in), is_pseudo_column(is_pseudo_column_in) {}
 

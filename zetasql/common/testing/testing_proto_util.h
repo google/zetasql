@@ -75,7 +75,7 @@ CreateProtoSourceTree() {
   source_tree->MapPath(
       "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_protobuf"));
   source_tree->MapPath(
-      "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_googleapis_googleapis"));
+      "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_googleapis"));
   source_tree->MapPath(
       "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_zetasql"));
   return source_tree;

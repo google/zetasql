@@ -18,8 +18,7 @@
 Rules for adding './configure && make' style dependencies.
 """
 
-load("@rules_foreign_cc//tools/build_defs:configure.bzl", "configure_make")
-load(":ar_wrapper.bzl", "ar_wrapper")
+load("@rules_foreign_cc//foreign_cc:configure.bzl", "configure_make")
 
 licenses(["notice"])  # Apache v2.0
 
@@ -38,24 +37,16 @@ exports_files([
     "zetasql_java_deps.bzl",
 ])
 
-ar_wrapper(
-    name = "ar_wrapper",
-    visibility = ["//visibility:public"],
-)
-
 configure_make(
     name = "m4",
-    binaries = [
+    env = select({
+        "@platforms//os:macos": {"AR": ""},
+        "//conditions:default": {},
+    }),
+    lib_source = "@m4//:all",
+    out_binaries = [
         "m4",
     ],
-    configure_env_vars = {
-        "AR": "ar_wrapper",
-    },
-    configure_options = [
-        "--disable-nls",
-    ],
-    lib_source = "@m4//:all",
-    tools_deps = [":ar_wrapper"],
 )
 
 filegroup(
@@ -66,19 +57,21 @@ filegroup(
 
 configure_make(
     name = "bison",
-    binaries = [
+    build_data = [":m4_bin"],
+    # Without specifying m4 directly, cc_rules_foreign may fallback
+    # on the system m4, which might be too old.
+    env = select({
+        "@platforms//os:macos": {
+            "AR": "",
+            "M4": "$(execpath :m4_bin)",
+        },
+        "//conditions:default": {"M4": "$(execpath :m4_bin)"},
+    }),
+    lib_source = "@bison//:all",
+    out_binaries = [
         "bison",
         "yacc",
     ],
-    configure_env_vars = {
-        "M4": "$$EXT_BUILD_DEPS$$/m4/bin/m4",
-        "CC_FOR_BUILD": "$$CC$$",
-        "AR": "ar_wrapper",
-    },
-    lib_source = "@bison//:all",
-    static_libraries = ["liby.a"],
-    tools_deps = [":ar_wrapper"],
-    deps = [":m4"],
 )
 
 filegroup(
@@ -89,19 +82,20 @@ filegroup(
 
 configure_make(
     name = "flex",
-    binaries = [
+    build_data = [":m4_bin"],
+    # Flex requires m4 when it _executes_, unlike bison, which only
+    # requires it when it is built - this requires some additional handling.
+    env = select({
+        "@platforms//os:macos": {
+            "AR": "",
+            "M4": "$(execpath :m4_bin)",
+        },
+        "//conditions:default": {"M4": "$(execpath :m4_bin)"},
+    }),
+    lib_source = "@flex//:all",
+    out_binaries = [
         "flex",
     ],
-    # This seems to be necessary (using tools_dep and weird path) because unlike
-    # bison, flex needs to invoke m4 during build (whereas bison needs it only
-    # during `configure`).
-    configure_env_vars = {
-        "M4": "$$EXT_BUILD_DEPS$$/m4/bin/m4",
-        "AR": "ar_wrapper",
-    },
-    lib_source = "@flex//:all",
-    tools_deps = [":ar_wrapper"],
-    deps = [":m4"],
 )
 
 filegroup(

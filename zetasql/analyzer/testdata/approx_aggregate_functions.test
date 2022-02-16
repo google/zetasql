@@ -1351,6 +1351,408 @@ QueryStmt
               +-Parameter(type=BYTES, name="test_param_bytes")
 ==
 
+select d3a_count.merge(@test_param_bytes) from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:d3a_count.merge(BYTES) -> INT64)
+              +-Parameter(type=BYTES, name="test_param_bytes")
+==
+
+select d3a_count.extract(@test_param_bytes) from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-FunctionCall(ZetaSQL:d3a_count.extract(BYTES) -> INT64)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    +-input_scan=
+      +-TableScan(table=SimpleTypes)
+==
+
+select d3a_count.to_hll(@test_param_bytes) from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#19 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#19]
+    +-expr_list=
+    | +-$col1#19 :=
+    |   +-FunctionCall(ZetaSQL:d3a_count.to_hll(BYTES) -> BYTES)
+    |     +-Parameter(type=BYTES, name="test_param_bytes")
+    +-input_scan=
+      +-TableScan(table=SimpleTypes)
+==
+
+select d3a_count.init(@test_param_int64, @test_param_int64 * 2, 10) from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:d3a_count.init(INT64, INT64, optional(1) INT64) -> BYTES)
+              +-Parameter(type=INT64, name="test_param_int64")
+              +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -> INT64)
+              | +-Parameter(type=INT64, name="test_param_int64")
+              | +-Literal(type=INT64, value=2)
+              +-Literal(type=INT64, value=10)
+==
+
+select d3a_count.init(@test_param_int64, @test_param_int64, 24) from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:d3a_count.init(INT64, INT64, optional(1) INT64) -> BYTES)
+              +-Parameter(type=INT64, name="test_param_int64")
+              +-Parameter(type=INT64, name="test_param_int64")
+              +-Literal(type=INT64, value=24)
+==
+
+select d3a_count.init(@test_param_int64, @test_param_int64, @test_param_int64) from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:d3a_count.init(INT64, INT64, optional(1) INT64) -> BYTES)
+              +-Parameter(type=INT64, name="test_param_int64")
+              +-Parameter(type=INT64, name="test_param_int64")
+              +-Parameter(type=INT64, name="test_param_int64")
+==
+
+select d3a_count.init(TRUE, @test_param_int64, @test_param_int64) from SimpleTypes
+--
+ERROR: No matching signature for aggregate function D3A_COUNT.INIT for argument types: BOOL, INT64, INT64. Supported signatures: D3A_COUNT.INIT(INT64, INT64, [INT64]); D3A_COUNT.INIT(UINT64, INT64, [INT64]); D3A_COUNT.INIT(STRING, INT64, [INT64]); D3A_COUNT.INIT(BYTES, INT64, [INT64]) [at 1:8]
+select d3a_count.init(TRUE, @test_param_int64, @test_param_int64) from Simple...
+       ^
+==
+
+select d3a_count.init(NULL, @test_param_int64, @test_param_int64) from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:d3a_count.init(INT64, INT64, optional(1) INT64) -> BYTES)
+              +-Literal(type=INT64, value=NULL)
+              +-Parameter(type=INT64, name="test_param_int64")
+              +-Parameter(type=INT64, name="test_param_int64")
+==
+
+select d3a_count.init("ABC", @test_param_int64, @test_param_int64) from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:d3a_count.init(STRING, INT64, optional(1) INT64) -> BYTES)
+              +-Literal(type=STRING, value="ABC")
+              +-Parameter(type=INT64, name="test_param_int64")
+              +-Parameter(type=INT64, name="test_param_int64")
+==
+
+select d3a_count.init(@test_param_int64, 123, @test_param_int64) from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:d3a_count.init(INT64, INT64, optional(1) INT64) -> BYTES)
+              +-Parameter(type=INT64, name="test_param_int64")
+              +-Literal(type=INT64, value=123)
+              +-Parameter(type=INT64, name="test_param_int64")
+==
+
+select d3a_count.init(@test_param_int64, "ABC", @test_param_int64) from SimpleTypes
+--
+ERROR: No matching signature for aggregate function D3A_COUNT.INIT for argument types: INT64, STRING, INT64. Supported signatures: D3A_COUNT.INIT(INT64, INT64, [INT64]); D3A_COUNT.INIT(UINT64, INT64, [INT64]); D3A_COUNT.INIT(STRING, INT64, [INT64]); D3A_COUNT.INIT(BYTES, INT64, [INT64]) [at 1:8]
+select d3a_count.init(@test_param_int64, "ABC", @test_param_int64) from Simpl...
+       ^
+==
+
+select d3a_count.init(@test_param_int64, @test_param_int64, key) from KeyValue
+--
+ERROR: Argument 3 to D3A_COUNT.INIT must be a literal or query parameter [at 1:61]
+select d3a_count.init(@test_param_int64, @test_param_int64, key) from KeyValue
+                                                            ^
+==
+
+select d3a_count.init(@test_param_int64, @test_param_int64, null) from SimpleTypes
+--
+ERROR: Argument 3 to D3A_COUNT.INIT must be non-NULL [at 1:61]
+...init(@test_param_int64, @test_param_int64, null) from SimpleTypes
+                                              ^
+==
+
+select d3a_count.init(@test_param_int64, null) from SimpleTypes
+--
+ERROR: Argument 2 to D3A_COUNT.INIT must be non-NULL [at 1:42]
+select d3a_count.init(@test_param_int64, null) from SimpleTypes
+                                         ^
+==
+
+select d3a_count.init(@test_param_int64, @test_param_int64, 9) from SimpleTypes
+--
+ERROR: Argument 3 to D3A_COUNT.INIT must be between 10 and 24 [at 1:61]
+select d3a_count.init(@test_param_int64, @test_param_int64, 9) from SimpleTypes
+                                                            ^
+==
+
+# Value range checking should happen even if we start from an int32
+# and have to widen to int64.
+select d3a_count.init(@test_param_int64, @test_param_int64, cast(12 as int32)),
+       d3a_count.init(@test_param_int64, @test_param_int64, cast(9 as int32))
+from SimpleTypes
+--
+ERROR: Argument 3 to D3A_COUNT.INIT must be between 10 and 24 [at 2:61]
+       d3a_count.init(@test_param_int64, @test_param_int64, cast(9 as int32))
+                                                            ^
+==
+
+select d3a_count.init(@test_param_int64, @test_param_int64, 25) from SimpleTypes
+--
+ERROR: Argument 3 to D3A_COUNT.INIT must be between 10 and 24 [at 1:61]
+select d3a_count.init(@test_param_int64, @test_param_int64, 25) from SimpleTypes
+                                                            ^
+==
+
+select d3a_count.init(@test_param_int64, @test_param_int64) from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:d3a_count.init(INT64, INT64, optional(0) INT64) -> BYTES)
+              +-Parameter(type=INT64, name="test_param_int64")
+              +-Parameter(type=INT64, name="test_param_int64")
+==
+
+# INT32 widens to INT64
+select d3a_count.init(@test_param_int32, @test_param_int32) from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:d3a_count.init(INT64, INT64, optional(0) INT64) -> BYTES)
+              +-Cast(INT32 -> INT64)
+              | +-Parameter(type=INT32, name="test_param_int32")
+              +-Cast(INT32 -> INT64)
+                +-Parameter(type=INT32, name="test_param_int32")
+==
+
+# The second argument must be of type INT64, UINT64 is not acceptable because it
+# may overflow when casting to INT64.
+select d3a_count.init(@test_param_uint64, @test_param_uint64) from SimpleTypes
+--
+ERROR: No matching signature for aggregate function D3A_COUNT.INIT for argument types: UINT64, UINT64. Supported signatures: D3A_COUNT.INIT(INT64, INT64, [INT64]); D3A_COUNT.INIT(UINT64, INT64, [INT64]); D3A_COUNT.INIT(STRING, INT64, [INT64]); D3A_COUNT.INIT(BYTES, INT64, [INT64]) [at 1:8]
+select d3a_count.init(@test_param_uint64, @test_param_uint64) from SimpleTypes
+       ^
+==
+
+select d3a_count.init(@test_param_uint64, @test_param_int64) from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:d3a_count.init(UINT64, INT64, optional(0) INT64) -> BYTES)
+              +-Parameter(type=UINT64, name="test_param_uint64")
+              +-Parameter(type=INT64, name="test_param_int64")
+==
+
+# For the first argument, UINT32 widens to UINT64.
+# The second argument can be UINT32 because it won't overflow when casting to
+# INT64.
+select d3a_count.init(@test_param_uint32, @test_param_uint32) from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:d3a_count.init(UINT64, INT64, optional(0) INT64) -> BYTES)
+              +-Cast(UINT32 -> UINT64)
+              | +-Parameter(type=UINT32, name="test_param_uint32")
+              +-Cast(UINT32 -> INT64)
+                +-Parameter(type=UINT32, name="test_param_uint32")
+==
+
+select d3a_count.init(@test_param_string, @test_param_int64) from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:d3a_count.init(STRING, INT64, optional(0) INT64) -> BYTES)
+              +-Parameter(type=STRING, name="test_param_string")
+              +-Parameter(type=INT64, name="test_param_int64")
+==
+
+select d3a_count.init(@test_param_bytes, @test_param_int64) from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:d3a_count.init(BYTES, INT64, optional(0) INT64) -> BYTES)
+              +-Parameter(type=BYTES, name="test_param_bytes")
+              +-Parameter(type=INT64, name="test_param_int64")
+==
+
+select d3a_count.init(@test_param_proto, @test_param_int64) from SimpleTypes
+--
+ERROR: No matching signature for aggregate function D3A_COUNT.INIT for argument types: zetasql_test__.KitchenSinkPB, INT64. Supported signatures: D3A_COUNT.INIT(INT64, INT64, [INT64]); D3A_COUNT.INIT(UINT64, INT64, [INT64]); D3A_COUNT.INIT(STRING, INT64, [INT64]); D3A_COUNT.INIT(BYTES, INT64, [INT64]) [at 1:8]
+select d3a_count.init(@test_param_proto, @test_param_int64) from SimpleTypes
+       ^
+==
+
+select d3a_count.merge_partial(@test_param_bytes) from SimpleTypes
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#19 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#19]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#19]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypes)
+        +-aggregate_list=
+          +-$agg1#19 :=
+            +-AggregateFunctionCall(ZetaSQL:d3a_count.merge_partial(BYTES) -> BYTES)
+              +-Parameter(type=BYTES, name="test_param_bytes")
+==
+
 select kll_quantiles.init_int64(@test_param_int64) from SimpleTypes
 --
 QueryStmt

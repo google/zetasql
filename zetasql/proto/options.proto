@@ -66,7 +66,7 @@ message AllowedHintsAndOptionsProto {
 }
 
 // Serialized form of AnalyzerOptions.
-// next id: 24
+// next id: 25
 message AnalyzerOptionsProto {
   message QueryParameterProto {
     optional string name = 1;
@@ -104,4 +104,5 @@ message AnalyzerOptionsProto {
   repeated TypeProto target_column_types = 19;
   repeated ResolvedASTRewrite enabled_rewrites = 21;
   optional ParseLocationRecordType parse_location_record_type = 23;
+  optional bool preserve_unnecessary_cast = 24;
 }

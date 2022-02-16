@@ -142,24 +142,12 @@ class Validator {
       const ResolvedDropSearchIndexStmt* stmt);
   absl::Status ValidateResolvedGrantStmt(const ResolvedGrantStmt* stmt);
   absl::Status ValidateResolvedRevokeStmt(const ResolvedRevokeStmt* stmt);
-  absl::Status ValidateResolvedGrantToAction(const ResolvedGrantToAction* stmt);
-  absl::Status ValidateResolvedFilterUsingAction(
-      const ResolvedFilterUsingAction* stmt);
-  absl::Status ValidateResolvedRevokeFromAction(
-      const ResolvedRevokeFromAction* stmt);
-  absl::Status ValidateResolvedRenameToAction(
-      const ResolvedRenameToAction* stmt);
-  absl::Status ValidateResolvedRowAccessPolicyAlterAction(
-      const ResolvedAlterAction* action,
-      const std::set<ResolvedColumn>& visible_columns);
   absl::Status ValidateResolvedAlterPrivilegeRestrictionStmt(
       const ResolvedAlterPrivilegeRestrictionStmt* stmt);
   absl::Status ValidateResolvedAlterRowAccessPolicyStmt(
       const ResolvedAlterRowAccessPolicyStmt* stmt);
   absl::Status ValidateResolvedAlterAllRowAccessPoliciesStmt(
       const ResolvedAlterAllRowAccessPoliciesStmt* stmt);
-  absl::Status ValidateResolvedAlterSchemaStmt(
-      const ResolvedAlterSchemaStmt* stmt);
   absl::Status ValidateResolvedAlterTableSetOptionsStmt(
       const ResolvedAlterTableSetOptionsStmt* stmt);
   absl::Status ValidateResolvedRenameStmt(const ResolvedRenameStmt* stmt);
@@ -482,8 +470,6 @@ class Validator {
   absl::Status AddColumnList(
       const ResolvedColumnList& column_list,
       absl::flat_hash_set<ResolvedColumn>* visible_columns);
-  absl::Status AddColumn(const ResolvedColumn& column,
-                         absl::flat_hash_set<ResolvedColumn>* visible_columns);
   absl::Status AddColumnFromComputedColumn(
       const ResolvedComputedColumn* computed_column,
       std::set<ResolvedColumn>* visible_columns);
@@ -558,10 +544,6 @@ class Validator {
       absl::flat_hash_set<std::string>* constraint_names);
 
   absl::Status ValidateAddForeignKeyAction(
-      const ResolvedAddConstraintAction* action,
-      absl::flat_hash_set<std::string>* constraint_names);
-
-  absl::Status ValidateAddPrimaryKeyAction(
       const ResolvedAddConstraintAction* action,
       absl::flat_hash_set<std::string>* constraint_names);
 

@@ -24,14 +24,6 @@ cc_library(
     name = "control_flow_graph",
     srcs = ["control_flow_graph.cc"],
     hdrs = ["control_flow_graph.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":script_segment",
         "//zetasql/base:map_util",
@@ -53,14 +45,6 @@ cc_library(
     hdrs = [
         "break_continue_context.h",
         "parsed_script.h",
-    ],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
     ],
     deps = [
         ":control_flow_graph",
@@ -86,15 +70,6 @@ cc_library(
 cc_test(
     name = "parsed_script_test",
     srcs = ["parsed_script_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":parsed_script",
         "//zetasql/base/testing:status_matchers",
@@ -110,14 +85,6 @@ cc_library(
     name = "script_segment",
     srcs = ["script_segment.cc"],
     hdrs = ["script_segment.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/parser",
         "//zetasql/public:parse_location",
@@ -130,14 +97,6 @@ cc_library(
     name = "parse_helpers",
     srcs = ["parse_helpers.cc"],
     hdrs = ["parse_helpers.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":parsed_script",
         "//zetasql/base:status",
@@ -152,14 +111,6 @@ cc_library(
     name = "error_helpers",
     srcs = ["error_helpers.cc"],
     hdrs = ["error_helpers.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":script_exception_cc_proto",
         ":script_segment",
@@ -176,14 +127,6 @@ cc_library(
 cc_library(
     name = "stack_frame",
     hdrs = ["stack_frame.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":parsed_script",
         "//zetasql/parser",
@@ -193,14 +136,6 @@ cc_library(
 cc_library(
     name = "type_aliases",
     hdrs = ["type_aliases.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/public:id_string",
         "//zetasql/public:value",
@@ -218,14 +153,6 @@ cc_library(
     ],
     hdrs = [
         "script_executor.h",
-    ],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
     ],
     deps = [
         ":control_flow_graph",
@@ -261,22 +188,12 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
-        "@com_googlesource_code_re2//:re2",
     ],
 )
 
 cc_test(
     name = "error_helpers_test",
     srcs = ["error_helpers_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":error_helpers",
         ":script_segment",

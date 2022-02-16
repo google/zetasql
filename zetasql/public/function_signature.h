@@ -36,6 +36,7 @@
 #include "absl/base/attributes.h"
 #include <cstdint>
 #include "absl/memory/memory.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status.h"
@@ -176,7 +177,7 @@ class FunctionArgumentTypeOptions {
     extra_relation_input_columns_allowed_ = v;
     return *this;
   }
-  FunctionArgumentTypeOptions& set_argument_name(const std::string& name) {
+  FunctionArgumentTypeOptions& set_argument_name(absl::string_view name) {
     argument_name_ = name;
     return *this;
   }

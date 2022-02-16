@@ -43,9 +43,9 @@
 namespace zetasql {
 
 class AnalyticFunctionResolver;
-class ExprResolutionInfo;
 class Resolver;
 class SelectColumnStateList;
+struct ExprResolutionInfo;
 
 struct OrderByItemInfo {
   OrderByItemInfo(const ASTNode* ast_location_in, int64_t index,

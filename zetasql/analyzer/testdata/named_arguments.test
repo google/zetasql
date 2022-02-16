@@ -879,7 +879,7 @@ ERROR: Named argument extra_arg not found in signature for call to function tvf_
 select * from tvf_named_required_any_relation_arg(
     any_relation_arg => 42)
 --
-ERROR: Table-valued function tvf_named_required_any_relation_arg argument 0 must be a relation (i.e. table subquery) [at 2:25]
+ERROR: Table-valued function tvf_named_required_any_relation_arg argument 1 ('any_relation_arg') must be a relation (i.e. table subquery) [at 2:25]
     any_relation_arg => 42)
                         ^
 ==
@@ -1628,3 +1628,87 @@ QueryStmt
         |         |             +-Literal(type=STRING, value="")
         |         +-Literal(type=ARRAY<STRING>, value=[""])
         +-column_index_list=[0, 1]
+==
+
+# Regression test for b/214174087. A templated UDA has a NOT AGGREGATE argument
+# with a default value.
+SELECT uda_templated_two_not_aggregate_args(col) AS result
+FROM UNNEST(['a', 'b', 'c', 'f']) AS col;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.result#2 AS result [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.result#2]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.result#2]
+        +-input_scan=
+        | +-ArrayScan
+        |   +-column_list=[$array.col#1]
+        |   +-array_expr=
+        |   | +-Literal(type=ARRAY<STRING>, value=["a", "b", "c", "f"])
+        |   +-element_column=$array.col#1
+        +-aggregate_list=
+          +-result#2 :=
+            +-AggregateFunctionCall(Templated_SQL_Function:uda_templated_two_not_aggregate_args(STRING, optional(1) INT64 delta, optional(1) BOOL allow_nulls) -> STRING)
+              +-ColumnRef(type=STRING, column=$array.col#1)
+              +-Literal(type=INT64, value=0)
+              +-Literal(type=BOOL, value=false)
+==
+
+# Regression test for b/214174087. A templated UDA has a NOT AGGREGATE argument
+# with a default value.
+SELECT uda_templated_two_not_aggregate_args(col, allow_nulls => TRUE) AS result
+FROM UNNEST(['a', 'b', 'c', 'f']) AS col;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.result#2 AS result [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.result#2]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.result#2]
+        +-input_scan=
+        | +-ArrayScan
+        |   +-column_list=[$array.col#1]
+        |   +-array_expr=
+        |   | +-Literal(type=ARRAY<STRING>, value=["a", "b", "c", "f"])
+        |   +-element_column=$array.col#1
+        +-aggregate_list=
+          +-result#2 :=
+            +-AggregateFunctionCall(Templated_SQL_Function:uda_templated_two_not_aggregate_args(STRING, optional(1) INT64 delta, optional(1) BOOL allow_nulls) -> STRING)
+              +-ColumnRef(type=STRING, column=$array.col#1)
+              +-Literal(type=INT64, value=0)
+              +-Literal(type=BOOL, value=true)
+==
+
+# Regression test for b/214174087. A templated UDA has a NOT AGGREGATE argument
+# with a default value.
+SELECT uda_templated_two_not_aggregate_args(col, 1) AS result
+FROM UNNEST(['a', 'b', 'c', 'f']) AS col;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.result#2 AS result [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.result#2]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.result#2]
+        +-input_scan=
+        | +-ArrayScan
+        |   +-column_list=[$array.col#1]
+        |   +-array_expr=
+        |   | +-Literal(type=ARRAY<STRING>, value=["a", "b", "c", "f"])
+        |   +-element_column=$array.col#1
+        +-aggregate_list=
+          +-result#2 :=
+            +-AggregateFunctionCall(Templated_SQL_Function:uda_templated_two_not_aggregate_args(STRING, optional(1) INT64 delta, optional(1) BOOL allow_nulls) -> STRING)
+              +-ColumnRef(type=STRING, column=$array.col#1)
+              +-Literal(type=INT64, value=1)
+              +-Literal(type=BOOL, value=false)

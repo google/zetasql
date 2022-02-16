@@ -1812,6 +1812,12 @@ void GetTrigonometricFunctions(TypeFactory* type_factory,
   InsertSimpleFunction(
       functions, options, "atan2", SCALAR,
       {{double_type, {double_type, double_type}, FN_ATAN2_DOUBLE}});
+  InsertSimpleFunction(functions, options, "csc", SCALAR,
+                       {{double_type, {double_type}, FN_CSC_DOUBLE}});
+  InsertSimpleFunction(functions, options, "sec", SCALAR,
+                       {{double_type, {double_type}, FN_SEC_DOUBLE}});
+  InsertSimpleFunction(functions, options, "cot", SCALAR,
+                       {{double_type, {double_type}, FN_COT_DOUBLE}});
 }
 
 void GetMathFunctions(TypeFactory* type_factory,
@@ -1952,6 +1958,95 @@ void GetHllCountFunctions(TypeFactory* type_factory,
   InsertSimpleNamespaceFunction(
       functions, options, "hll_count", "merge_partial", AGGREGATE,
       {{bytes_type, {bytes_type}, FN_HLL_COUNT_MERGE_PARTIAL}},
+      DefaultAggregateFunctionOptions());
+}
+
+void GetD3ACountFunctions(TypeFactory* type_factory,
+                          const ZetaSQLBuiltinFunctionOptions& options,
+                          NameToFunctionMap* functions) {
+  const Type* bytes_type = type_factory->get_bytes();
+  const Type* int64_type = type_factory->get_int64();
+  const Type* uint64_type = type_factory->get_uint64();
+  const Type* string_type = type_factory->get_string();
+  const Type* numeric_type = type_factory->get_numeric();
+  const Type* bignumeric_type = type_factory->get_bignumeric();
+
+  const Function::Mode AGGREGATE = Function::AGGREGATE;
+  const Function::Mode SCALAR = Function::SCALAR;
+  const FunctionArgumentType::ArgumentCardinality OPTIONAL =
+      FunctionArgumentType::OPTIONAL;
+
+  FunctionSignatureOptions has_numeric_type_argument;
+  has_numeric_type_argument.set_constraints(&HasNumericTypeArgument);
+
+  FunctionSignatureOptions has_bignumeric_type_argument;
+  has_bignumeric_type_argument.set_constraints(&HasBigNumericTypeArgument);
+
+  // The second argument `weight` is required to avoid misusage as HLL_COUNT and
+  // ensure that the user is using it in the cases they need deletions.
+  // We don't set `is_not_aggregate` as true because each call can have a
+  // different value depending on input row or smth similar.
+  FunctionArgumentTypeOptions d3a_weight_arg;
+  d3a_weight_arg.set_must_be_non_null();
+
+  // The third argument must be an integer literal between 10 and 24,
+  // and cannot be NULL.
+  FunctionArgumentTypeOptions d3a_precision_arg;
+  d3a_precision_arg.set_is_not_aggregate();
+  d3a_precision_arg.set_must_be_non_null();
+  d3a_precision_arg.set_cardinality(OPTIONAL);
+  d3a_precision_arg.set_min_value(10);
+  d3a_precision_arg.set_max_value(24);
+
+  InsertSimpleNamespaceFunction(
+      functions, options, "d3a_count", "merge", AGGREGATE,
+      {{int64_type, {bytes_type}, FN_D3A_COUNT_MERGE}},
+      DefaultAggregateFunctionOptions());
+  InsertSimpleNamespaceFunction(
+      functions, options, "d3a_count", "merge_partial", AGGREGATE,
+      {{bytes_type, {bytes_type}, FN_D3A_COUNT_MERGE_PARTIAL}},
+      DefaultAggregateFunctionOptions());
+  InsertSimpleNamespaceFunction(
+      functions, options, "d3a_count", "extract", SCALAR,
+      {{int64_type, {bytes_type}, FN_D3A_COUNT_EXTRACT}});
+  InsertSimpleNamespaceFunction(
+      functions, options, "d3a_count", "to_hll", SCALAR,
+      {{bytes_type, {bytes_type}, FN_D3A_COUNT_TO_HLL}});
+  InsertNamespaceFunction(
+      functions, options, "d3a_count", "init", AGGREGATE,
+      {{bytes_type,
+        {int64_type,
+         {int64_type, d3a_weight_arg},
+         {int64_type, d3a_precision_arg}},
+        FN_D3A_COUNT_INIT_INT64},
+       {bytes_type,
+        {uint64_type,
+         {int64_type, d3a_weight_arg},
+         {int64_type, d3a_precision_arg}},
+        FN_D3A_COUNT_INIT_UINT64},
+       {bytes_type,
+        {numeric_type,
+         {int64_type, d3a_weight_arg},
+         {int64_type, d3a_precision_arg}},
+        FN_D3A_COUNT_INIT_NUMERIC,
+        has_numeric_type_argument},
+       {bytes_type,
+        {bignumeric_type,
+         {int64_type, d3a_weight_arg},
+         {int64_type, d3a_precision_arg}},
+        FN_D3A_COUNT_INIT_BIGNUMERIC,
+        has_bignumeric_type_argument},
+       {bytes_type,
+        {string_type,
+         {int64_type, d3a_weight_arg},
+         {int64_type, d3a_precision_arg}},
+        FN_D3A_COUNT_INIT_STRING,
+        FunctionSignatureOptions().set_uses_operation_collation()},
+       {bytes_type,
+        {bytes_type,
+         {int64_type, d3a_weight_arg},
+         {int64_type, d3a_precision_arg}},
+        FN_D3A_COUNT_INIT_BYTES}},
       DefaultAggregateFunctionOptions());
 }
 

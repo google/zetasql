@@ -26,12 +26,31 @@ load("@com_google_zetasql//bazel:zetasql_bazel_version.bzl", "zetasql_bazel_vers
 def zetasql_deps_step_1(add_bazel_version = True):
     if add_bazel_version:
         zetasql_bazel_version()
+    http_archive(
+        name = "platforms",
+        sha256 = "079945598e4b6cc075846f7fd6a9d0857c33a7afc0de868c2ccb96405225135d",
+        urls = [
+            "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.4/platforms-0.0.4.tar.gz",
+            "https://github.com/bazelbuild/platforms/releases/download/0.0.4/platforms-0.0.4.tar.gz",
+        ],
+    )
+
+    if not native.existing_rule("bazel_skylib"):
+        http_archive(
+            name = "bazel_skylib",
+            sha256 = "97e70364e9249702246c0e9444bccdc4b847bed1eb03c5a3ece4f83dfe6abc44",
+            urls = [
+                "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.0.2/bazel-skylib-1.0.2.tar.gz",
+                "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.2/bazel-skylib-1.0.2.tar.gz",
+            ],
+        )
+
     if not native.existing_rule("rules_foreign_cc"):
         http_archive(
             name = "rules_foreign_cc",
-            strip_prefix = "rules_foreign_cc-ed3db61a55c13da311d875460938c42ee8bbc2a5",
+            strip_prefix = "rules_foreign_cc-e24d9cecfe4cadc496fe0c128ef5f8399a4e24a5",
             urls = [
-                "https://github.com/bazelbuild/rules_foreign_cc/archive/ed3db61a55c13da311d875460938c42ee8bbc2a5.tar.gz",
+                "https://github.com/bazelbuild/rules_foreign_cc/archive/e24d9cecfe4cadc496fe0c128ef5f8399a4e24a5.tar.gz",
             ],
-            sha256 = "219bc7280bbb9305938d76067c816954ad2cc0629063412e8b765e9bc6972304",
+            sha256 = "648bedf0e61a0e4492e6db929f710d8d1ba25a62d03882c3980af022e42c7f2f",
         )

@@ -48,8 +48,10 @@ absl::Status IsValidNextStatementSyntax(ParseResumeLocation* resume_location,
                                      resume_location->input(), parse_status);
 }
 
-ResolvedNodeKind GetStatementKind(const std::string& input) {
-  return GetNextStatementKind(ParseResumeLocation::FromStringView(input));
+ResolvedNodeKind GetStatementKind(absl::string_view sql,
+                                  const LanguageOptions& language_options) {
+  return GetNextStatementKind(ParseResumeLocation::FromStringView(sql),
+                              language_options);
 }
 
 ResolvedNodeKind GetStatementKind(ASTNodeKind node_kind) {

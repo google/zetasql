@@ -143,11 +143,10 @@ std::string TableValuedFunction::GetTVFSignatureErrorMessage(
     const std::vector<InputArgumentType>& input_arg_types, int signature_idx,
     const SignatureMatchResult& signature_match_result,
     const LanguageOptions& language_options) const {
-  if (!signature_match_result.tvf_bad_call_error_message().empty()) {
+  if (!signature_match_result.mismatch_message().empty()) {
     // TODO: Update this error message when we support more than one
     // TVF signature.
-    return absl::StrCat(signature_match_result.tvf_bad_call_error_message(),
-                        " of ",
+    return absl::StrCat(signature_match_result.mismatch_message(), " of ",
                         GetSupportedSignaturesUserFacingText(language_options));
   } else {
     return absl::StrCat(

@@ -7097,6 +7097,14 @@ absl::StatusOr<ResolvedTVFArg> Resolver::ResolveTVFArg(
     if (function_argument &&
         (function_argument->IsRelation() || function_argument->IsModel() ||
          function_argument->IsConnection())) {
+      auto gen_arg_id = [function_argument](int arg_num) {
+        std::string arg_id = absl::StrCat(arg_num + 1);
+        if (function_argument->has_argument_name()) {
+          absl::StrAppend(&arg_id, " ('", function_argument->argument_name(),
+                          "')");
+        }
+        return arg_id;
+      };
       if (function_argument->IsRelation()) {
         // Resolve the TVF argument as a relation. The argument should be
         // written in the TVF call as a table subquery. We parsed all
@@ -7106,10 +7114,10 @@ absl::StatusOr<ResolvedTVFArg> Resolver::ResolveTVFArg(
         if (ast_expr->node_kind() != AST_EXPRESSION_SUBQUERY ||
             ast_expr->GetAsOrDie<ASTExpressionSubquery>()->modifier() !=
                 ASTExpressionSubquery::NONE) {
-          std::string error =
-              absl::StrCat("Table-valued function ",
-                           tvf_catalog_entry->FullName(), " argument ", arg_num,
-                           " must be a relation (i.e. table subquery)");
+          std::string error = absl::StrCat(
+              "Table-valued function ", tvf_catalog_entry->FullName(),
+              " argument ", gen_arg_id(arg_num),
+              " must be a relation (i.e. table subquery)");
           if (ast_expr->node_kind() == AST_PATH_EXPRESSION) {
             const std::string table_name =
                 ast_expr->GetAsOrDie<ASTPathExpression>()
@@ -7141,13 +7149,13 @@ absl::StatusOr<ResolvedTVFArg> Resolver::ResolveTVFArg(
         // This argument has to be a connection. Return an error.
         return MakeSqlErrorAt(ast_expr)
                << "Table-valued function " << tvf_catalog_entry->FullName()
-               << " argument " << arg_num
+               << " argument " << gen_arg_id(arg_num)
                << " must be a connection specified with the CONNECTION keyword";
       } else {
         // This argument has to be a model. Return an error.
         return MakeSqlErrorAt(ast_expr)
                << "Table-valued function " << tvf_catalog_entry->FullName()
-               << " argument " << arg_num
+               << " argument " << gen_arg_id(arg_num)
                << " must be a model specified with the MODEL keyword";
       }
     } else {

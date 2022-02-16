@@ -178,8 +178,7 @@ If there are zero input rows, this function returns `NULL`.
 **Examples**
 
 ```sql
-SELECT ARRAY_AGG(x) AS array_agg
-FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
+SELECT ARRAY_AGG(x) AS array_agg FROM UNNEST([2, 1,-2, 3, -2, 1, 2]) AS x;
 
 +-------------------------+
 | array_agg               |
@@ -233,14 +232,42 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 ```
 
 ```sql
-SELECT ARRAY_AGG(DISTINCT x IGNORE NULLS ORDER BY x LIMIT 2) AS array_agg
-FROM UNNEST([NULL, 1, -2, 3, -2, 1, NULL]) AS x;
+WITH vals AS
+  (
+    SELECT 1 x UNION ALL
+    SELECT -2 x UNION ALL
+    SELECT 3 x UNION ALL
+    SELECT -2 x UNION ALL
+    SELECT 1 x UNION ALL
+  )
+SELECT ARRAY_AGG(DISTINCT x ORDER BY x) as array_agg
+FROM vals;
 
-+-----------+
-| array_agg |
-+-----------+
-| [-2, 1]   |
-+-----------+
++------------+
+| array_agg  |
++------------+
+| [-2, 1, 3] |
++------------+
+```
+
+```sql
+WITH vals AS
+  (
+    SELECT 1 x, 'a' y UNION ALL
+    SELECT 1 x, 'b' y UNION ALL
+    SELECT 2 x, 'a' y UNION ALL
+    SELECT 2 x, 'c' y
+  )
+SELECT x, ARRAY_AGG(y) as array_agg
+FROM vals
+GROUP BY x;
+
++---------------+
+| x | array_agg |
++---------------+
+| 1 | [a, b]    |
+| 2 | [a, c]    |
++---------------+
 ```
 
 ```sql

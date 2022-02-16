@@ -39,7 +39,6 @@
 
 namespace zetasql {
 
-using testing::_;
 using testing::HasSubstr;
 using testing::IsNull;
 using testing::NotNull;

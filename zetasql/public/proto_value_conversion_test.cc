@@ -64,10 +64,8 @@ namespace zetasql {
 
 using zetasql::testing::EqualsProto;
 using ::google::protobuf::DescriptorPool;
-using ::google::protobuf::FieldDescriptor;
 using ::google::protobuf::FieldDescriptorProto;
 using ::google::protobuf::FileDescriptor;
-using ::google::protobuf::FileDescriptorProto;
 using ::google::protobuf::Message;
 
 using ::testing::HasSubstr;

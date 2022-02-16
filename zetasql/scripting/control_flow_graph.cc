@@ -1255,6 +1255,9 @@ bool CompareControlFlowNodesByScriptLocation(const ControlFlowNode* node1,
                                              const ControlFlowNode* node2) {
   // A nullptr AST node means the sentinal end node; this should always come
   // last.
+  if (node1->ast_node() == nullptr && node2->ast_node() == nullptr) {
+    return false;
+  }
   if (node1->ast_node() != nullptr && node2->ast_node() == nullptr) {
     return true;
   }

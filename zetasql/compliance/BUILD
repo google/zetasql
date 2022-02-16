@@ -16,21 +16,15 @@
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 
-package(default_visibility = ["//zetasql/base:zetasql_implementation"])
+package(
+    default_visibility = ["//zetasql/base:zetasql_implementation"],
+)
 
 cc_library(
     name = "sql_test_base",
     testonly = 1,
     srcs = ["sql_test_base.cc"],
     hdrs = ["sql_test_base.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":known_error_cc_proto",
         ":legal_runtime_errors",
@@ -85,22 +79,14 @@ cc_library(
 cc_library(
     name = "compliance_test_base",
     testonly = 1,
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     data = glob(["testdata/*.test"]) + [
         "//zetasql/testdata:test_schema_proto",
         "//zetasql/testdata:test_proto3_proto",
         "@com_google_protobuf//:timestamp_proto",
         "@com_google_protobuf//:wrappers_proto",
-        "@com_googleapis_googleapis//:latlng_proto",
-        "@com_googleapis_googleapis//:date_proto",
-        "@com_googleapis_googleapis//:timeofday_proto",
+        "@com_google_googleapis//google/type:latlng_proto",
+        "@com_google_googleapis//google/type:date_proto",
+        "@com_google_googleapis//google/type:timeofday_proto",
     ],
     deps = [
         ":sql_test_base",
@@ -112,14 +98,6 @@ cc_library(
     testonly = 1,
     srcs = ["test_driver.cc"],
     hdrs = ["test_driver.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":test_driver_cc_proto",
         "//zetasql/base",
@@ -148,15 +126,6 @@ cc_test(
     name = "test_driver_test",
     size = "small",
     srcs = ["test_driver_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":test_driver",
         "//zetasql/base/testing:zetasql_gtest_main",
@@ -191,14 +160,6 @@ cc_library(
     testonly = 1,
     srcs = ["test_util.cc"],
     hdrs = ["test_util.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/base",
         "//zetasql/base:map_util",
@@ -218,14 +179,6 @@ cc_library(
     testonly = 1,
     srcs = ["parameters_test_util.cc"],
     hdrs = ["parameters_test_util.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":test_driver",
         "//zetasql/base:ret_check",
@@ -244,14 +197,6 @@ cc_library(
     testonly = 1,
     srcs = ["compliance_test_cases.cc"],
     hdrs = ["compliance_test_cases.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         # Required runtime dependency
         # buildcleaner: keep
@@ -297,14 +242,6 @@ cc_library(
     testonly = 1,
     srcs = ["matchers.cc"],
     hdrs = ["matchers.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/base:map_util",
         "//zetasql/base:status",
@@ -321,15 +258,6 @@ cc_test(
     name = "matchers_test",
     size = "small",
     srcs = ["matchers_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":matchers",
         "//zetasql/base",
@@ -345,14 +273,6 @@ cc_library(
     testonly = 1,
     srcs = ["runtime_expected_errors.cc"],
     hdrs = ["runtime_expected_errors.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":matchers",
         "//zetasql/base:status",
@@ -397,15 +317,7 @@ cc_library(
         "functions_testlib.h",
         "functions_testlib_common.h",
     ],
-    copts = [
-        "$(STACK_FRAME_UNLIMITED)",
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
+    copts = ["$(STACK_FRAME_UNLIMITED)"],
     deps = [
         "//zetasql/base",
         "//zetasql/base:map_util",
@@ -441,12 +353,12 @@ cc_library(
         "@com_google_absl//absl/strings:cord",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
+        "@com_google_googleapis//google/type:date_cc_proto",
+        "@com_google_googleapis//google/type:latlng_cc_proto",
+        "@com_google_googleapis//google/type:timeofday_cc_proto",
         "@com_google_googletest//:gtest",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
-        "@com_googleapis_googleapis//:date_cc_proto",
-        "@com_googleapis_googleapis//:latlng_cc_proto",
-        "@com_googleapis_googleapis//:timeofday_cc_proto",
         "@com_googlesource_code_re2//:re2",
     ],
 )
@@ -466,14 +378,6 @@ cc_library(
     testonly = 1,
     srcs = ["legal_runtime_errors.cc"],
     hdrs = ["legal_runtime_errors.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":matchers",
         "//zetasql/base:status",

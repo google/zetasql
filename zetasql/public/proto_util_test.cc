@@ -233,13 +233,14 @@ TEST_P(ReadProtoFieldsTest, EnumOutOfRange) {
   {
     using google::protobuf::internal::WireFormatLite;
     std::string bytes_str;
+    {
     google::protobuf::io::StringOutputStream cord_stream(&bytes_str);
 
     google::protobuf::io::CodedOutputStream out(&cord_stream);
     out.WriteVarint32(WireFormatLite::MakeTag(36 /* tag for test_enum */,
                                               WireFormatLite::WIRETYPE_VARINT));
     out.WriteVarint32(1000);
-    bytes = absl::Cord(bytes_str);
+    } bytes = absl::Cord(bytes_str);
   }
 
   const google::protobuf::FieldDescriptor* field_descriptor =

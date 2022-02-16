@@ -28,7 +28,7 @@ workspace(name = "com_google_zetasql")
 # load-then-statement, which is forbidden).  So, we take the tactic of providing
 # a serialized sequence of numbered steps that must be invoked in series to
 # load all dependencies.  Copy the following code exactly into your WORKSPACE
-# to fully download all dependencies. The exactly nature of what happens at
+# to fully download all dependencies. The exact nature of what happens at
 # each step may change over time (and additional steps may be added in the
 # future).
 
@@ -43,6 +43,15 @@ http_archive(
     strip_prefix = "rules_jvm_external-4.1",
     urls = ["https://github.com/bazelbuild/rules_jvm_external/archive/4.1.zip"],
 )
+
+# gRPC Java
+http_archive(
+    name = "io_grpc_grpc_java",
+    url = "https://github.com/grpc/grpc-java/archive/v1.43.2.tar.gz",
+    strip_prefix = "grpc-java-1.43.2",
+    sha256 = "6c39c5feecda4f1ccafe88d8928d9a0f2a686d9a9a9c03888a2e5ac92f7ee34a",
+)
+
 load("@rules_jvm_external//:repositories.bzl", "rules_jvm_external_deps")
 
 rules_jvm_external_deps()
@@ -75,6 +84,11 @@ load("@com_google_zetasql//bazel:zetasql_deps_step_3.bzl", "zetasql_deps_step_3"
 
 zetasql_deps_step_3()
 
+# Required only for java builds
+load("@io_grpc_grpc_java//:repositories.bzl", "grpc_java_repositories")
+grpc_java_repositories()
+
 load("@com_google_zetasql//bazel:zetasql_deps_step_4.bzl", "zetasql_deps_step_4")
 
 zetasql_deps_step_4()
+

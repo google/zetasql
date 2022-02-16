@@ -1,5 +1,84 @@
 [load_proto_files=zetasql/testdata/test_schema.proto]
 [load_proto_names=zetasql_test__.NullableDate,zetasql_test__.NullableInt,zetasql_test__.NullableEnum,zetasql_test__.PackedRepeatablePB,zetasql_test__.KitchenSinkPB]
+[prepare_database]
+CREATE TABLE TableAllTypes AS
+SELECT CAST(1 AS int64) as row_id,
+       CAST(true AS bool) as bool_val,
+       CAST(-1 AS int32) as int32_val,
+       CAST(-2 AS int64) as int64_val,
+       CAST(1 AS uint32) as uint32_val,
+       CAST(2 AS uint64) as uint64_val,
+       CAST(0.1 AS float) as float_val,
+       CAST(0.5 AS double) as double_val,
+       CAST("1" AS string) as str_val,
+       CAST("1" AS BYTES) as bytes_val,
+       CAST('2014-01-01' AS DATE) as date_val,
+       TIMESTAMP '2014-01-01 00:00:01 UTC' as timestamp_val,
+       cast(null as `zetasql_test__.TestEnum`) as enum_val,
+       cast(struct(2, 4) as struct<a int64, b int64>) as struct_val,
+       NEW zetasql_test__.KitchenSinkPB(5 AS int64_key_1,
+                                        7 AS int64_key_2) as proto_val UNION ALL
+SELECT 2, false, CAST(1 AS int32), CAST(2 AS int64), CAST(0 AS uint32),
+       CAST(200 AS uint64), CAST(-0.1 AS float), CAST(-0.2 AS double),
+       "A", CAST("124" AS BYTES), CAST('2015-07-01' AS DATE),
+       TIMESTAMP '2015-04-01 00:00:01 UTC',
+       1, struct(4, 5),
+       NEW zetasql_test__.KitchenSinkPB(8 AS int64_key_1,
+                                        9 AS int64_key_2)
+--
+ARRAY<STRUCT<
+        row_id INT64,
+        bool_val BOOL,
+        int32_val INT32,
+        int64_val INT64,
+        uint32_val UINT32,
+        uint64_val UINT64,
+        float_val FLOAT,
+        double_val DOUBLE,
+        str_val STRING,
+        bytes_val BYTES,
+        date_val DATE,
+        timestamp_val TIMESTAMP,
+        enum_val ENUM<zetasql_test__.TestEnum>,
+        struct_val STRUCT<a INT64, b INT64>,
+        proto_val PROTO<zetasql_test__.KitchenSinkPB>
+      >>
+[{1,
+  true,
+  -1,
+  -2,
+  1,
+  2,
+  0.1,
+  0.5,
+  "1",
+  b"1",
+  2014-01-01,
+  2014-01-01 00:00:01+00,
+  NULL,
+  {2, 4},
+  {
+    int64_key_1: 5
+    int64_key_2: 7
+  }},
+ {2,
+  false,
+  1,
+  2,
+  0,
+  200,
+  -0.1,
+  -0.2,
+  "A",
+  b"124",
+  2015-07-01,
+  2015-04-01 00:00:01+00,
+  TESTENUM1,
+  {4, 5},
+  {
+    int64_key_1: 8
+    int64_key_2: 9
+  }}]
 ==
 
 # TODO: port the tests from functions/convert_test.cc here once
@@ -1278,4 +1357,59 @@ ARRAY<STRUCT<OptionalGroupNested ARRAY<>>>[
     ]
   }
 ]
+==
+
+[name=cast_string_as_bool]
+select CAST("abc" as BOOL);
+--
+ERROR: generic::invalid_argument: Could not cast literal "abc" to type BOOL [at 1:13]
+select CAST("abc" as BOOL);
+            ^
+==
+
+[name=cast_string_as_bool_1]
+select CAST("true" as BOOL);
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+[name=cast_string_as_bool_2]
+select CAST(string_val as BOOL)
+FROM (SELECT "abc" as string_val);
+--
+ERROR: generic::out_of_range: Bad bool value: abc
+==
+
+[name=cast_string_as_bool_3]
+select CAST(string_val as BOOL)
+FROM (SELECT "true" as string_val);
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+[name=cast_string_as_bool_4]
+select CAST(string_val as BOOL)
+FROM unnest(["true", "abc"]) as string_val;
+--
+ERROR: generic::out_of_range: Bad bool value: abc
+==
+
+[name=cast_string_as_bool_5]
+select CAST('abc' as BOOL);
+--
+ERROR: generic::invalid_argument: Could not cast literal "abc" to type BOOL [at 1:13]
+select CAST('abc' as BOOL);
+            ^
+==
+
+[name=cast_string_as_bool_6]
+select CAST('true' as BOOL);
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+[name=cast_string_as_bool_7]
+select CAST(str_val as BOOL) FROM TableAllTypes;
+--
+ERROR: generic::out_of_range: Bad bool value: A
 ==

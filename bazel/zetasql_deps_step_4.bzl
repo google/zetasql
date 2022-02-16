@@ -17,7 +17,6 @@
 """ Step 4 to load ZetaSQL dependencies. """
 
 # This must be loaded _after_ com_github_grpc_grpc, so we move it to this file
-load("@io_grpc_grpc_java//:repositories.bzl", "grpc_java_repositories")
 
 # Needed by (at least) com_github_grpc_grpc
 load("@build_bazel_rules_apple//apple:repositories.bzl", "apple_rules_dependencies")
@@ -28,4 +27,3 @@ load("@build_bazel_apple_support//lib:repositories.bzl", "apple_support_dependen
 def zetasql_deps_step_4():
     apple_rules_dependencies()
     apple_support_dependencies()
-    grpc_java_repositories()

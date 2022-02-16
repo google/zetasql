@@ -203,7 +203,7 @@ select sun(key) from KeyValue
 
 select cont(key) from KeyValue
 --
-ERROR: Function not found: cont; Did you mean count? [at 1:8]
+ERROR: Function not found: cont; Did you mean cot? [at 1:8]
 select cont(key) from KeyValue
        ^
 ==

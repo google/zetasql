@@ -59,7 +59,7 @@ This syntax consists of the following components:
     non-aggregate parameter can appear anywhere in the
     [function definition][aggregate-udf-parameters].
 
-### Aggregate UDF parameters
+#### Aggregate UDF parameters
 
 An aggregate UDF can include aggregate or non-aggregate parameters. Like other
 [aggregate functions][aggregate-fns-link], aggregate UDFs normally aggregate
@@ -71,7 +71,7 @@ parameters. Inside the UDF definition, aggregate parameters can only appear as
 parameters to aggregate function calls. Non-aggregate parameters can appear
 anywhere in the UDF definition.
 
-### Templated SQL UDF parameters
+#### Templated SQL UDF parameters
 
 A templated parameter can match more than one argument type at function call
 time. If a function signature includes a templated parameter, ZetaSQL
@@ -179,13 +179,15 @@ FROM (
 +------------+-----------+
 ```
 
-## External UDFs
+## JavaScript UDFs 
+<a id="javascript_udfs"></a>
 
-An external UDF lets you specify external code libraries for the UDF.
+A JavaScript UDF is a SQL UDF that lets you specify a JavaScript expression.
 
-### External UDF structure
+### JavaScript UDF structure 
+<a id="javascript_structure"></a>
 
-Create external UDFs using the following syntax.
+Create a JavaScript UDF using the following syntax.
 
 ```sql
 CREATE
@@ -193,7 +195,7 @@ CREATE
   function_name ( [ function_parameter [, ...] ] )
   RETURNS data_type
   [ determinism_specifier ]
-  LANGUAGE language_name AS string_literal
+  LANGUAGE js AS string_literal
 
 function_parameter:
   parameter_name data_type
@@ -211,12 +213,11 @@ This syntax consists of the following components:
 +   `function_parameter`: A parameter for the function. A parameter includes a
     name and a data type. The value of `data_type` is a ZetaSQL
     [data type][data-types].
-+   `determinism_specifier`: Determines if the results of the function can be
-    cached or not. Your choices are:
++   `determinism_specifier`: Identifies the determinism property of the
+    function, which impacts query semantics and planning. Your choices are:
     +   `IMMUTABLE` or `DETERMINISTIC`: The function always returns the same
-        result when passed the same arguments. The query result is potentially
-        cacheable. For example, if the function `add_one(i)` always returns `i +
-        1`, the function is deterministic.
+        result when passed the same arguments. For example, if the function
+        `add_one(i)` always returns `i + 1`, the function is deterministic.
     +   `NOT DETERMINISTIC`: The function does not always return the same result
         when passed the same arguments. The `VOLATILE` and `STABLE` keywords are
         subcategories of `NOT DETERMINISTIC`.
@@ -225,21 +226,212 @@ This syntax consists of the following components:
         statement. For example if `add_random(i)` returns `i + rand()`, the
         function is volatile, because every call to the function can return a
         different result.
-    +   `STABLE`: Within one run of a query statement, the function will
+    +   `STABLE`: Within one execution of a query statement, the function will
         consistently return the same result for the same argument values.
-        However, the result could change across two runs. For example, a
-        function that returns the current session user is stable, because the
-        value would not change within the same run.
-+   `RETURNS data_type`: Specifies the data type that the function returns. See
-    [Supported UDF data types][supported-external-udf-data-types] for more
-    information about allowed values for `data_type`.
-+   `LANGUAGE ... AS`: Specify the language and code to use. `language_name`
-    represents the name of the language, such as `js` for JavaScript.
-    `string_literal` represents the code that defines the function body.
+        However, the result could change for different executions of the
+        same query. For example if you invoke the function `CURRENT_TIMESTAMP`
+        within a single query, it will return the same result, but it will
+        return different results in different query executions.
++   `RETURNS data_type`: Specifies the data type that the function returns.
++   `LANGUAGE ... AS`: Specify the language and code to use. `js`
+    represents the name of the language. `string_literal` represents the code
+    that defines the function body.
 
-### External UDF examples
+<a id="quoting_rules"></a>
+You must enclose JavaScript in quotes. There are a few options:
 
-The following example creates a persistent UDF.
++ `"..."`: For simple, one line code snippets that don't contain quotes or
+  escaping, you can use a standard quoted string.
++ `"""..."""`: If the snippet contains quotes or multiple lines, use
+  triple-quoted blocks.
++ `R"""..."""`: If the snippet contains escaping, prefix a triple-quoted
+  block with an `R` to indicate that this is a raw string that should ignore
+  escaping rules. If you are not sure which quoting style to use, this one
+  will provide the most consistent results.
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
+
+<!-- mdlint on -->
+
+### SQL type encodings in JavaScript
+
+ZetaSQL represents types in the following manner:
+
+<table>
+  <tr>
+  <th>SQL Data Type</th>
+  <th>JavaScript Data Type</th>
+  <th>Notes</th>
+  </tr>
+
+  
+  <tr>
+    <td>ARRAY</td>
+    <td>Array</td>
+    <td></td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>BOOL</td>
+    <td>Boolean</td>
+    <td></td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>BYTES</td>
+    <td>String</td>
+    <td>Base64-encoded String.</td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>DOUBLE</td>
+    <td>Number</td>
+    <td></td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>FLOAT</td>
+    <td>Number</td>
+    <td></td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>
+      NUMERIC
+    </td>
+    <td>
+      Number or String
+    </td>
+    <td>
+      If a NUMERIC value can be represented exactly as an
+      <a href="https://en.wikipedia.org/wiki/Floating-point_arithmetic#IEEE_754:_floating_point_in_modern_computers">IEEE 754 floating-point</a>
+      value and has no fractional part, it is encoded as a Number. These values
+      are in the range [-2<sup>53</sup>, 2<sup>53</sup>]. Otherwise, it is
+      encoded as a String.
+    </td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>
+      BIGNUMERIC
+    </td>
+    <td>
+      Number or String
+    </td>
+    <td>
+      Same as NUMERIC.
+    </td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>INT32</td>
+    <td>Number</td>
+    <td></td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>UINT32</td>
+    <td>Number</td>
+    <td></td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>INT64</td>
+    <td>
+      
+      See notes
+      
+    </td>
+    <td>
+      
+      See the documentation for your database engine.
+      
+    </td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>
+      UINT64
+    </td>
+    <td>
+      
+      See notes
+      
+    </td>
+    <td>
+      Same as INT64.
+    </td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>STRING</td>
+    <td>String</td>
+    <td></td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>STRUCT</td>
+    <td>Object</td>
+    <td>
+      
+      See the documentation for your database engine.
+      
+    </td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>TIMESTAMP</td>
+    <td>Date object</td>
+    <td>
+      
+      See the documentation for your database engine.
+      
+    </td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>DATE</td>
+    <td>Date object</td>
+    <td></td>
+  </tr>
+  
+
+</table>
+
+### JavaScript UDF examples 
+<a id="javascript_examples"></a>
+
+The following example creates a persistent JavaScript UDF.
 
 ```sql
 CREATE FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
@@ -265,7 +457,7 @@ FROM numbers;
 +-----+-----+--------------+
 ```
 
-The following example creates a temporary UDF.
+The following example creates a temporary JavaScript UDF.
 
 ```sql
 CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
@@ -291,7 +483,7 @@ FROM numbers;
 +-----+-----+--------------+
 ```
 
-You can create multiple UDFs before a query. For example:
+You can create multiple JavaScript UDFs before a query. For example:
 
 ```sql
 CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
@@ -326,7 +518,8 @@ FROM numbers;
 +-----+-----+--------------+--------+--------+
 ```
 
-You can pass the result of a UDF as input to another UDF. For example:
+You can pass the result of a JavaScript UDF as input to another UDF.
+For example:
 
 ```sql
 CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
@@ -359,62 +552,7 @@ FROM numbers;
 +-----+-----+--------------+
 ```
 
-The following example sums the values of all
-fields named "foo" in the given JSON string.
-
-```sql
-CREATE TEMP FUNCTION SumFieldsNamedFoo(json_row STRING)
-  RETURNS FLOAT64
-  LANGUAGE js AS """
-function SumFoo(obj) {
-  var sum = 0;
-  for (var field in obj) {
-    if (obj.hasOwnProperty(field) && obj[field] != null) {
-      if (typeof obj[field] == "object") {
-        sum += SumFoo(obj[field]);
-      } else if (field == "foo") {
-        sum += obj[field];
-      }
-    }
-  }
-  return sum;
-}
-var row = JSON.parse(json_row);
-return SumFoo(row);
-""";
-
-WITH Input AS (
-  SELECT STRUCT(1 AS foo, 2 AS bar, STRUCT('foo' AS x, 3.14 AS foo) AS baz) AS s, 10 AS foo UNION ALL
-  SELECT NULL, 4 AS foo UNION ALL
-  SELECT STRUCT(NULL, 2 AS bar, STRUCT('fizz' AS x, 1.59 AS foo) AS baz) AS s, NULL AS foo
-)
-SELECT
-  TO_JSON_STRING(t) AS json_row,
-  SumFieldsNamedFoo(TO_JSON_STRING(t)) AS foo_sum
-FROM Input AS t;
-+---------------------------------------------------------------------+---------+
-| json_row                                                            | foo_sum |
-+---------------------------------------------------------------------+---------+
-| {"s":{"foo":1,"bar":2,"baz":{"x":"foo","foo":3.14}},"foo":10}       | 14.14   |
-| {"s":null,"foo":4}                                                  | 4       |
-| {"s":{"foo":null,"bar":2,"baz":{"x":"fizz","foo":1.59}},"foo":null} | 1.59    |
-+---------------------------------------------------------------------+---------+
-```
-
-### Quoting rules
-
-You must enclose external code in quotes. There are a few options:
-
-+ `"..."`: For simple, one line code snippets that don't contain quotes or
-  escaping, you can use a standard quoted string.
-+ `"""..."""`: If the snippet contains quotes or multiple lines, use
-  triple-quoted blocks.
-+ `R"""..."""`: If the snippet contains escaping, prefix a triple-quoted
-  block with an `R` to indicate that this is a raw string that should ignore
-  escaping rules. If you are not sure which quoting style to use, this one
-  will provide the most consistent results.
-
-**Examples**
+The following provides an example of a simple, single statement JavaScript UDF:
 
 ```sql
 CREATE TEMP FUNCTION PlusOne(x DOUBLE)
@@ -433,6 +571,10 @@ FROM UNNEST([1, 2, 3]) AS val;
 +-----------+-----------+
 ```
 
+The following example illustrates a more complex, multi-statement
+JavaScript UDF.  Note that a triple-quoted multi-line string is used in this
+example for readability.
+
 ```sql
 CREATE TEMP FUNCTION CustomGreeting(a STRING)
 RETURNS STRING
@@ -446,6 +588,7 @@ LANGUAGE js AS """
   """;
 SELECT CustomGreeting(names) as everyone
 FROM UNNEST(["Hannah", "Max", "Jakob"]) AS names;
+
 +-----------------------+
 | everyone              |
 +-----------------------+
@@ -454,6 +597,9 @@ FROM UNNEST(["Hannah", "Max", "Jakob"]) AS names;
 | Good Morning, Jakob!  |
 +-----------------------+
 ```
+
+The following example demonstrates how to utilize JavaScript escaping within the
+triple-quoted multi-line string.
 
 ```sql
 CREATE TEMP FUNCTION PlusOne(x STRING)
@@ -475,8 +621,316 @@ FROM UNNEST(["ab-c", "d_e", "!"]) AS val;
 +---------+
 ```
 
-### Supported external UDF types 
-<a id="supported_external_udf_data_types"></a>
+The following example sums the values of all
+fields named `foo` in the given JSON string.
+
+```sql
+CREATE TEMP FUNCTION SumFieldsNamedFoo(json_row STRING)
+RETURNS FLOAT64
+LANGUAGE js
+AS '''
+function SumFoo(obj) {
+  var sum = 0;
+  for (var field in obj) {
+    if (obj.hasOwnProperty(field) && obj[field] != null) {
+      if (typeof obj[field] == "object") {
+        sum += SumFoo(obj[field]);
+      } else if (field == "foo") {
+        sum += obj[field];
+      }
+    }
+  }
+  return sum;
+}
+var row = JSON.parse(json_row);
+return SumFoo(row);
+''';
+
+WITH
+  Input AS (
+    SELECT
+      STRUCT(1 AS foo, 2 AS bar, STRUCT('foo' AS x, 3.14 AS foo) AS baz) AS s,
+      10 AS foo
+    UNION ALL
+    SELECT NULL, 4 AS foo
+    UNION ALL
+    SELECT
+      STRUCT(NULL, 2 AS bar, STRUCT('fizz' AS x, 1.59 AS foo) AS baz) AS s,
+      NULL AS foo
+  )
+SELECT
+  TO_JSON_STRING(t) AS json_row,
+  SumFieldsNamedFoo(TO_JSON_STRING(t)) AS foo_sum
+FROM Input AS t;
+
++---------------------------------------------------------------------+---------+
+| json_row                                                            | foo_sum |
++---------------------------------------------------------------------+---------+
+| {"s":{"foo":1,"bar":2,"baz":{"x":"foo","foo":3.14}},"foo":10}       | 14.14   |
+| {"s":null,"foo":4}                                                  | 4       |
+| {"s":{"foo":null,"bar":2,"baz":{"x":"fizz","foo":1.59}},"foo":null} | 1.59    |
++---------------------------------------------------------------------+---------+
+```
+
+## LUA UDFs 
+<a id="lua_udfs"></a>
+
+A LUA UDF is a SQL UDF that lets you specify a LUA expression.
+
+### LUA UDF structure 
+<a id="lua_structure"></a>
+
+Create a LUA UDF using the following syntax.
+
+```sql
+CREATE
+  [ { TEMPORARY | TEMP } ] FUNCTION
+  function_name ( [ function_parameter [, ...] ] )
+  RETURNS data_type
+  [ determinism_specifier ]
+  LANGUAGE lua AS string_literal
+
+function_parameter:
+  parameter_name data_type
+
+determinism_specifier:
+  { IMMUTABLE | DETERMINISTIC | NOT DETERMINISTIC | VOLATILE | STABLE }
+```
+
+This syntax consists of the following components:
+
++   `CREATE ... FUNCTION`: Creates a new function. A function can contain zero
+    or more `function_parameter`s.
++   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
+    exists for the lifetime of the session.
++   `function_parameter`: A parameter for the function. A parameter includes a
+    name and a data type. The value of `data_type` is a ZetaSQL
+    [data type][data-types].
++   `determinism_specifier`: Identifies the determinism property of the
+    function, which impacts query semantics and planning. Your choices are:
+    +   `IMMUTABLE` or `DETERMINISTIC`: The function always returns the same
+        result when passed the same arguments. For example, if the function
+        `add_one(i)` always returns `i + 1`, the function is deterministic.
+    +   `NOT DETERMINISTIC`: The function does not always return the same result
+        when passed the same arguments. The `VOLATILE` and `STABLE` keywords are
+        subcategories of `NOT DETERMINISTIC`.
+    +   `VOLATILE`: The function does not always return the same result when
+        passed the same arguments, even within the same run of a query
+        statement. For example if `add_random(i)` returns `i + rand()`, the
+        function is volatile, because every call to the function can return a
+        different result.
+    +   `STABLE`: Within one execution of a query statement, the function will
+        consistently return the same result for the same argument values.
+        However, the result could change for different executions of the
+        same query. For example if you invoke the function `CURRENT_TIMESTAMP`
+        within a single query, it will return the same result, but it will
+        return different results in different query executions.
++   `RETURNS data_type`: Specifies the data type that the function returns.
++   `LANGUAGE ... AS`: Specify the language and code to use. `lua`
+    represents the name of the language. `string_literal` represents the code
+    that defines the function body.
+
+<a id="quoting_rules"></a>
+You must enclose LUA in quotes. There are a few options:
+
++ `"..."`: For simple, one line code snippets that don't contain quotes or
+  escaping, you can use a standard quoted string.
++ `"""..."""`: If the snippet contains quotes or multiple lines, use
+  triple-quoted blocks.
++ `R"""..."""`: If the snippet contains escaping, prefix a triple-quoted
+  block with an `R` to indicate that this is a raw string that should ignore
+  escaping rules. If you are not sure which quoting style to use, this one
+  will provide the most consistent results.
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
+
+<!-- mdlint on -->
+
+### LUA UDF examples 
+<a id="lua_examples"></a>
+
+The following example creates a persistent LUA UDF.
+
+```sql
+CREATE FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
+RETURNS DOUBLE
+LANGUAGE lua AS """
+  return x*y;
+""";
+WITH numbers AS
+  (SELECT 1 AS x, 5 as y
+  UNION ALL
+  SELECT 2 AS x, 10 as y
+  UNION ALL
+  SELECT 3 as x, 15 as y)
+SELECT x, y, MultiplyInputs(x, y) as product
+FROM numbers;
+
++-----+-----+--------------+
+| x   | y   | product      |
++-----+-----+--------------+
+| 1   | 5   | 5            |
+| 2   | 10  | 20           |
+| 3   | 15  | 45           |
++-----+-----+--------------+
+```
+
+The following example creates a temporary LUA UDF.
+
+```sql
+CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
+RETURNS DOUBLE
+LANGUAGE lua AS """
+  return x*y;
+""";
+WITH numbers AS
+  (SELECT 1 AS x, 5 as y
+  UNION ALL
+  SELECT 2 AS x, 10 as y
+  UNION ALL
+  SELECT 3 as x, 15 as y)
+SELECT x, y, MultiplyInputs(x, y) as product
+FROM numbers;
+
++-----+-----+--------------+
+| x   | y   | product      |
++-----+-----+--------------+
+| 1   | 5   | 5            |
+| 2   | 10  | 20           |
+| 3   | 15  | 45           |
++-----+-----+--------------+
+```
+
+You can create multiple LUA UDFs before a query. For example:
+
+```sql
+CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
+RETURNS DOUBLE
+LANGUAGE lua AS """
+  return x*y;
+""";
+CREATE TEMP FUNCTION DivideByTwo(x DOUBLE)
+RETURNS DOUBLE
+LANGUAGE lua AS """
+  return x / 2;
+""";
+WITH numbers AS
+  (SELECT 1 AS x, 5 as y
+  UNION ALL
+  SELECT 2 AS x, 10 as y
+  UNION ALL
+  SELECT 3 as x, 15 as y)
+SELECT x,
+  y,
+  MultiplyInputs(x, y) as product,
+  DivideByTwo(x) as half_x,
+  DivideByTwo(y) as half_y
+FROM numbers;
+
++-----+-----+--------------+--------+--------+
+| x   | y   | product      | half_x | half_y |
++-----+-----+--------------+--------+--------+
+| 1   | 5   | 5            | 0.5    | 2.5    |
+| 2   | 10  | 20           | 1      | 5      |
+| 3   | 15  | 45           | 1.5    | 7.5    |
++-----+-----+--------------+--------+--------+
+```
+
+You can pass the result of a LUA UDF as input to another UDF.
+For example:
+
+```sql
+CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
+RETURNS DOUBLE
+LANGUAGE lua AS """
+  return x*y;
+""";
+CREATE TEMP FUNCTION DivideByTwo(x DOUBLE)
+RETURNS DOUBLE
+LANGUAGE lua AS """
+  return x/2;
+""";
+WITH numbers AS
+  (SELECT 1 AS x, 5 as y
+  UNION ALL
+  SELECT 2 AS x, 10 as y
+  UNION ALL
+  SELECT 3 as x, 15 as y)
+SELECT x,
+  y,
+  MultiplyInputs(DivideByTwo(x), DivideByTwo(y)) as half_product
+FROM numbers;
+
++-----+-----+--------------+
+| x   | y   | half_product |
++-----+-----+--------------+
+| 1   | 5   | 1.25         |
+| 2   | 10  | 5            |
+| 3   | 15  | 11.25        |
++-----+-----+--------------+
+```
+
+The following provides an example of a simple, single statement LUA UDF:
+
+```sql
+CREATE TEMP FUNCTION PlusOne(x DOUBLE)
+RETURNS DOUBLE
+LANGUAGE lua
+AS "return x+1;";
+SELECT val, PlusOne(val) AS result
+FROM UNNEST([1, 2, 3]) AS val;
+
++-----------+-----------+
+| val       | result    |
++-----------+-----------+
+| 1         | 2         |
+| 2         | 3         |
+| 3         | 4         |
++-----------+-----------+
+```
+
+The following example illustrates a more complex, multi-statement
+LUA UDF.  Note that a triple-quoted multi-line string is used in this
+example for readability.
+
+```sql
+CREATE TEMP FUNCTION CustomGreeting(i INT32)
+RETURNS STRING
+LANGUAGE lua AS """
+  if i < 12 then
+    return 'Good Morning!'
+  else
+    return 'Good Evening!'
+  end
+  """;
+SELECT CustomGreeting(13) AS message;
+
++---------------+
+| message       |
++---------------+
+| Good Evening! |
++---------------+
+```
+
+The following example demonstrates how to utilize LUA escaping within the
+triple-quoted multi-line string.
+
+```sql
+CREATE TEMP FUNCTION Alphabet()
+RETURNS STRING
+LANGUAGE lua AS R"""
+  return 'A\tB\tC'
+  """;
+SELECT Alphabet() AS result;
+
++---------+
+| result  |
++---------+
+| A  B  C |
++---------+
+```
 
 ## TVFs {#tvfs}
 
@@ -687,8 +1141,6 @@ FROM
 [tvf-syntax]: #tvf_structure
 
 [templated-parameters]: #templated_sql_udf_parameters
-
-[supported-external-udf-data-types]: #supported_external_udf_data_types
 
 [ext-udf-syntax]: #external_udf_structure
 

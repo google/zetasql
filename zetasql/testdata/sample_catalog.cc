@@ -2704,6 +2704,15 @@ void SampleCatalog::LoadTemplatedSQLUDFs() {
       /*argument_names=*/{"x", "x"},
       ParseResumeLocation::FromString("concat(x, 'abc')")));
 
+  catalog_->AddOwnedFunction(new TemplatedSQLFunction(
+      {"udf_templated_like_any"},
+      FunctionSignature(result_type,
+                        {FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                              FunctionArgumentType::REQUIRED)},
+                        context_id++),
+      /*argument_names=*/{"x"},
+      ParseResumeLocation::FromString("x like any ('z')")));
+
   // Add a templated SQL function that triggers a deprecation warning.
   FunctionSignature deprecation_warning_signature(result_type, /*arguments=*/{},
                                                   /*context_id=*/-1);
@@ -2852,6 +2861,33 @@ void SampleCatalog::LoadTemplatedSQLUDFs() {
       FunctionSignature(result_type, {int64_aggregate_arg_type}, context_id++),
       /*argument_names=*/{"x"},
       ParseResumeLocation::FromString("sum(x order by x)"),
+      Function::AGGREGATE));
+
+  // Add a SQL UDA with a valid templated SQL body with two NOT AGGREGATE
+  // arguments having default values.
+  FunctionArgumentType int64_default_not_aggregate_arg_type(
+      types::Int64Type(),
+      FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
+          .set_is_not_aggregate()
+          .set_default(values::Int64(0))
+          .set_argument_name("delta"));
+  FunctionArgumentType bool_default_not_aggregate_arg_type(
+      types::BoolType(),
+      FunctionArgumentTypeOptions(FunctionArgumentType::OPTIONAL)
+          .set_is_not_aggregate()
+          .set_default(values::Bool(false))
+          .set_argument_name("allow_nulls"));
+  catalog_->AddOwnedFunction(new TemplatedSQLFunction(
+      {"uda_templated_two_not_aggregate_args"},
+      FunctionSignature(result_type,
+                        {result_type, int64_default_not_aggregate_arg_type,
+                         bool_default_not_aggregate_arg_type},
+                        context_id++),
+      /*argument_names=*/{"cval", "delta", "allow_nulls"},
+      ParseResumeLocation::FromString(R"(
+        IF(COUNT(1) = COUNT(DISTINCT cval) + delta OR
+           (allow_nulls AND COUNTIF(cval IS NOT NULL) = COUNT(DISTINCT cval)),
+           NULL, "NOT NULL"))"),
       Function::AGGREGATE));
 }
 

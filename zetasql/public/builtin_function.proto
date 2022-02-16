@@ -43,7 +43,7 @@ enum FunctionSignatureId {
   // 1100-1199 Control flow functions         (NextId: 1104)
   // 1200-1299 Time functions                 (Fully used)
   // 1300-1399 Math functions                 (Fully used)
-  // 1400-1499 Aggregate functions            (NextId: 1491)
+  // 1400-1499 Aggregate functions I          (Fully used)
   // 1500-1599 Analytic functions             (NextId: 1513)
   // 1600-1699 Misc functions                 (Fully used)
   // 1700-1799 Net functions                  (NextId: 1716)
@@ -51,9 +51,10 @@ enum FunctionSignatureId {
   // 1900-1999 Hashing/encryption functions   (NextId: 1938)
   // 2000-2199 Geography functions            (NextId: 2086)
   // 2200-2299 Anonymization functions        (NextId: 2214)
-  // 2300-2499 Numeric & more math functions  (NextId: 2316)
+  // 2300-2499 Numeric & more math functions  (NextId: 2319)
   // 2500-2599 Array and proto map functions  (NextId: 2510)
   // 2600-2699 More misc functions.           (NextId: 2605)
+  // 2700-2799 Aggregate functions II         (NextId: 2701)
 
   // enum value                       // Related function name
   // ----------                       // ---------------------
@@ -543,6 +544,9 @@ enum FunctionSignatureId {
   FN_ATAN_DOUBLE = 1338;   // atan
   FN_ATANH_DOUBLE = 1339;  // atanh
   FN_ATAN2_DOUBLE = 1340;  // atan2
+  FN_CSC_DOUBLE = 2316;    // csc
+  FN_SEC_DOUBLE = 2317;    // sec
+  FN_COT_DOUBLE = 2318;    // cot
 
   // Aggregate functions.
   // TODO: Add missing type signatures.
@@ -604,6 +608,21 @@ enum FunctionSignatureId {
   FN_HLL_COUNT_INIT_STRING = 1448;      // hll_count.init(string)
   FN_HLL_COUNT_INIT_BYTES = 1449;       // hll_count.init(bytes)
   FN_HLL_COUNT_MERGE_PARTIAL = 1450;    // hll_count.merge_partial(bytes)
+
+  // Approximate deletion-supporting count distinct functions that expose the
+  // intermediate sketch. Comparing with HLL, D3A supports deletion but it uses
+  // considerably more memory and is slower.
+  // These are all found in the "d3a_count.*" namespace.
+  FN_D3A_COUNT_MERGE = 1491;            // d3a_count.merge(bytes)
+  FN_D3A_COUNT_EXTRACT = 1492;          // d3a_count.extract(bytes), scalar
+  FN_D3A_COUNT_INIT_INT64 = 1493;       // d3a_count.init(int64, int64)
+  FN_D3A_COUNT_INIT_UINT64 = 1494;      // d3a_count.init(uint64, int64)
+  FN_D3A_COUNT_INIT_NUMERIC = 1495;     // d3a_count.init(numeric, int64)
+  FN_D3A_COUNT_INIT_BIGNUMERIC = 1496;  // d3a_count.init(bignumeric, int64)
+  FN_D3A_COUNT_INIT_STRING = 1497;      // d3a_count.init(string, int64)
+  FN_D3A_COUNT_INIT_BYTES = 1498;       // d3a_count.init(bytes, int64)
+  FN_D3A_COUNT_MERGE_PARTIAL = 1499;    // d3a_count.merge_partial(bytes)
+  FN_D3A_COUNT_TO_HLL = 2700;           // d3a_count.to_hll(bytes), scalar
 
   // Statistical aggregate functions.
   FN_CORR = 1435;                    // corr

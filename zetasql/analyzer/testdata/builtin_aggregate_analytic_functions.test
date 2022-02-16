@@ -893,6 +893,121 @@ QueryStmt
                         +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
 ==
 
+select d3a_count.init(key) over ()
+from keyvalue;
+--
+ERROR: No matching signature for aggregate function D3A_COUNT.INIT for argument types: INT64. Supported signatures: D3A_COUNT.INIT(INT64, INT64, [INT64]); D3A_COUNT.INIT(UINT64, INT64, [INT64]); D3A_COUNT.INIT(STRING, INT64, [INT64]); D3A_COUNT.INIT(BYTES, INT64, [INT64]) [at 1:8]
+select d3a_count.init(key) over ()
+       ^
+==
+
+select d3a_count.init(key, key / 10) over ()
+from keyvalue;
+--
+ERROR: No matching signature for aggregate function D3A_COUNT.INIT for argument types: INT64, DOUBLE. Supported signatures: D3A_COUNT.INIT(INT64, INT64, [INT64]); D3A_COUNT.INIT(UINT64, INT64, [INT64]); D3A_COUNT.INIT(STRING, INT64, [INT64]); D3A_COUNT.INIT(BYTES, INT64, [INT64]) [at 1:8]
+select d3a_count.init(key, key / 10) over ()
+       ^
+==
+
+select d3a_count.init(key, CAST(key / 10 AS INT64)) over ()
+from keyvalue;
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#4 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#4]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[KeyValue.Key#1, $analytic.$analytic1#4]
+        +-input_scan=
+        | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-analytic_function_list=
+              +-$analytic1#4 :=
+                +-AnalyticFunctionCall(ZetaSQL:d3a_count.init(INT64, INT64, optional(0) INT64) -> BYTES)
+                  +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                  +-Cast(DOUBLE -> INT64)
+                    +-FunctionCall(ZetaSQL:$divide(DOUBLE, DOUBLE) -> DOUBLE)
+                      +-Cast(INT64 -> DOUBLE)
+                      | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+                      +-Literal(type=DOUBLE, value=10)
+                  +-window_frame=
+                    +-WindowFrame(frame_unit=ROWS)
+                      +-start_expr=
+                      | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                      +-end_expr=
+                        +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+==
+
+select d3a_count.merge(bytes) over ()
+from (select cast(NULL as bytes) as bytes);
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#3]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[$subquery1.bytes#1, $analytic.$analytic1#3]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[$subquery1.bytes#1]
+        |   +-expr_list=
+        |   | +-bytes#1 := Literal(type=BYTES, value=NULL, has_explicit_type=TRUE)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-analytic_function_list=
+              +-$analytic1#3 :=
+                +-AnalyticFunctionCall(ZetaSQL:d3a_count.merge(BYTES) -> INT64)
+                  +-ColumnRef(type=BYTES, column=$subquery1.bytes#1)
+                  +-window_frame=
+                    +-WindowFrame(frame_unit=ROWS)
+                      +-start_expr=
+                      | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                      +-end_expr=
+                        +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+==
+
+select d3a_count.merge_partial(bytes) over ()
+from (select cast(NULL as bytes) as bytes);
+--
+QueryStmt
++-output_column_list=
+| +-$analytic.$analytic1#3 AS `$col1` [BYTES]
++-query=
+  +-ProjectScan
+    +-column_list=[$analytic.$analytic1#3]
+    +-input_scan=
+      +-AnalyticScan
+        +-column_list=[$subquery1.bytes#1, $analytic.$analytic1#3]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[$subquery1.bytes#1]
+        |   +-expr_list=
+        |   | +-bytes#1 := Literal(type=BYTES, value=NULL, has_explicit_type=TRUE)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-function_group_list=
+          +-AnalyticFunctionGroup
+            +-analytic_function_list=
+              +-$analytic1#3 :=
+                +-AnalyticFunctionCall(ZetaSQL:d3a_count.merge_partial(BYTES) -> BYTES)
+                  +-ColumnRef(type=BYTES, column=$subquery1.bytes#1)
+                  +-window_frame=
+                    +-WindowFrame(frame_unit=ROWS)
+                      +-start_expr=
+                      | +-WindowFrameExpr(boundary_type=UNBOUNDED PRECEDING)
+                      +-end_expr=
+                        +-WindowFrameExpr(boundary_type=UNBOUNDED FOLLOWING)
+==
+
 select kll_quantiles.init_int64(key) over ()
 from keyvalue;
 --

@@ -23,14 +23,6 @@ cc_library(
     name = "zetasql_gtest_main",
     testonly = 1,
     srcs = ["zetasql_gtest_main.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/flags:parse",
@@ -43,15 +35,6 @@ cc_test(
     testonly = 1,
     srcs = ["zetasql_gtest_main_test.cc"],
     args = ["--test_flag_value=good"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":zetasql_gtest_main",
         "@com_google_absl//absl/flags:flag",
@@ -64,14 +47,6 @@ cc_library(
     testonly = 1,
     srcs = ["status_matchers.cc"],
     hdrs = ["status_matchers.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/base:source_location",
         "//zetasql/base:status",
@@ -86,15 +61,6 @@ cc_test(
     name = "status_matchers_test",
     size = "small",
     srcs = ["status_matchers_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":status_matchers",
         "//zetasql/base:status",
@@ -109,14 +75,6 @@ cc_library(
     name = "proto_matchers",
     testonly = 1,
     hdrs = ["proto_matchers.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":proto_matchers_oss",
     ],
@@ -126,14 +84,6 @@ cc_library(
     name = "proto_matchers_oss",
     testonly = 1,
     hdrs = ["proto_matchers_oss.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/base:logging",
         "@com_google_absl//absl/strings",
@@ -146,15 +96,6 @@ cc_test(
     name = "proto_matchers_oss_test",
     size = "small",
     srcs = ["proto_matchers_oss_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":proto_matchers_oss",
         "//zetasql/base:test_payload_cc_proto",

@@ -20,14 +20,6 @@ package(default_visibility = ["//zetasql/base:zetasql_implementation"])
 cc_library(
     name = "public_suffix",
     hdrs = ["public_suffix.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":public_suffix_oss",
     ],
@@ -36,14 +28,6 @@ cc_library(
 cc_library(
     name = "idn",
     hdrs = ["idn.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":idn_oss",
     ],
@@ -52,14 +36,6 @@ cc_library(
 cc_library(
     name = "ipaddress",
     hdrs = ["ipaddress.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":ipaddress_oss",
     ],
@@ -94,14 +70,6 @@ cc_library(
         "public_suffix_oss.cc",
     ],
     hdrs = ["public_suffix_oss.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/base:logging",
         "@com_google_absl//absl/container:flat_hash_map",
@@ -132,15 +100,6 @@ cc_test(
         "public_suffix_oss_test.cc",
         "public_suffix_test_psl.h",
     ],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":idn_oss",
         ":public_suffix_oss",
@@ -156,14 +115,6 @@ cc_library(
         "idn_oss.cc",
     ],
     hdrs = ["idn_oss.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/base:logging",
         "@com_google_absl//absl/strings",
@@ -176,15 +127,6 @@ cc_test(
     name = "idn_oss_test",
     srcs = [
         "idn_oss_test.cc",
-    ],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
     ],
     deps = [
         ":idn_oss",
@@ -199,14 +141,6 @@ cc_library(
         "ipaddress_oss.cc",
     ],
     hdrs = ["ipaddress_oss.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/base:endian",
         "//zetasql/base:logging",
@@ -224,15 +158,6 @@ cc_test(
     name = "ipaddress_oss_test",
     srcs = [
         "ipaddress_oss_test.cc",
-    ],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
     ],
     deps = [
         ":ipaddress_oss",

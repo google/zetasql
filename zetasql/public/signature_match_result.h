@@ -21,6 +21,8 @@
 #include <string>
 #include <utility>
 
+#include "absl/strings/string_view.h"
+
 namespace zetasql {
 
 class Type;
@@ -77,11 +79,10 @@ class SignatureMatchResult {
     literals_distance_ += distance;
   }
 
-  std::string tvf_bad_call_error_message() const {
-    return tvf_bad_call_error_message_;
-  }
-  void set_tvf_bad_call_error_message(const std::string& message) {
-    tvf_bad_call_error_message_ = message;
+  // The message about why the siganture doesn't match the function call.
+  std::string mismatch_message() const { return mismatch_message_; }
+  void set_mismatch_message(absl::string_view message) {
+    mismatch_message_ = message;
   }
 
   int tvf_bad_argument_index() const { return tvf_bad_argument_index_; }
@@ -125,12 +126,7 @@ class SignatureMatchResult {
   int literals_coerced_;       // Number of literal coercions.
   int literals_distance_;      // How far non-literals were coerced.
 
-  // The following fields are only relevant for table-valued functions where the
-  // function signature contains relation argument(s) with required schema.
-  //
-  // If the TVF call was invalid, this field stores an error message to return
-  // to the user.
-  std::string tvf_bad_call_error_message_;
+  std::string mismatch_message_;
 
   // If the TVF call was invalid because of a particular argument, this
   // zero-based index is updated to indicate which argument was invalid.

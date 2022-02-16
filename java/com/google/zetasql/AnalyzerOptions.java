@@ -340,6 +340,14 @@ public class AnalyzerOptions implements Serializable {
     return builder.getPreserveColumnAliases();
   }
 
+  public void setPreserveUnnecessaryCast(boolean preserveUnnecessaryCast) {
+    builder.setPreserveUnnecessaryCast(preserveUnnecessaryCast);
+  }
+
+  public boolean getPreserveUnnecessaryCast() {
+    return builder.getPreserveUnnecessaryCast();
+  }
+
   static AnalyzerOptions deserialize(
       AnalyzerOptionsProto proto, List<? extends DescriptorPool> pools, TypeFactory factory) {
     AnalyzerOptions options = new AnalyzerOptions();
@@ -359,6 +367,7 @@ public class AnalyzerOptions implements Serializable {
     setAllowUndeclaredParameters(proto.getAllowUndeclaredParameters());
     setParameterMode(proto.getParameterMode());
     setPreserveColumnAliases(proto.getPreserveColumnAliases());
+    setPreserveUnnecessaryCast(proto.getPreserveUnnecessaryCast());
 
     if (proto.hasInScopeExpressionColumn()) {
       setInScopeExpressionColumn(

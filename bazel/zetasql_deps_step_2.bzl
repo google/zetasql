@@ -19,7 +19,7 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 # Followup from zetasql_deps_step_1.bzl
-load("@rules_foreign_cc//:workspace_definitions.bzl", "rules_foreign_cc_dependencies")
+load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
 
 def _load_deps_from_step_1():
     rules_foreign_cc_dependencies()
@@ -57,20 +57,11 @@ def zetasql_deps_step_2(
     if evaluator_deps:
         analyzer_deps = True
 
-    if not native.existing_rule("platforms"):
-        http_archive(
-            name = "platforms",
-            sha256 = "079945598e4b6cc075846f7fd6a9d0857c33a7afc0de868c2ccb96405225135d",
-            urls = [
-                "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.4/platforms-0.0.4.tar.gz",
-                "https://github.com/bazelbuild/platforms/releases/download/0.0.4/platforms-0.0.4.tar.gz",
-            ],
-        )
+    _load_deps_from_step_1()
 
     if analyzer_deps:
         # Followup from zetasql_deps_step_1.bzl
-        _load_deps_from_step_1()
-        if not native.existing_rule("com_googleapis_googleapis"):
+        if not native.existing_rule("com_google_googleapis"):
             # Very rarely updated, but just in case, here's how:
             #    COMMIT=<paste commit hex>
             #    PREFIX=googleapis-
@@ -83,42 +74,10 @@ def zetasql_deps_step_2(
             #    echo sha256 = \"$SHA256\",
             #    echo strip_prefix = \"${PREFIX}${COMMIT}\",
             http_archive(
-                name = "com_googleapis_googleapis",
-                url = "https://github.com/googleapis/googleapis/archive/common-protos-1_3_1.tar.gz",
-                sha256 = "9584b7ac21de5b31832faf827f898671cdcb034bd557a36ea3e7fc07e6571dcb",
-                strip_prefix = "googleapis-common-protos-1_3_1",
-                build_file_content = """
-proto_library(
-    name = "date_proto",
-    visibility = ["//visibility:public"],
-    srcs = ["google/type/date.proto"])
-
-cc_proto_library(
-    name = "date_cc_proto",
-    visibility = ["//visibility:public"],
-    deps = [":date_proto"])
-
-proto_library(
-    name = "latlng_proto",
-    visibility = ["//visibility:public"],
-    srcs = ["google/type/latlng.proto"])
-
-cc_proto_library(
-    name = "latlng_cc_proto",
-    visibility = ["//visibility:public"],
-    deps = [":latlng_proto"])
-
-proto_library(
-    name = "timeofday_proto",
-    visibility = ["//visibility:public"],
-    srcs = ["google/type/timeofday.proto"])
-
-cc_proto_library(
-    name = "timeofday_cc_proto",
-    visibility = ["//visibility:public"],
-    deps = [":timeofday_proto"])
-
-    """,
+                name = "com_google_googleapis",
+                url = "https://github.com/googleapis/googleapis/archive/2f9af297c84c55c8b871ba4495e01ade42476c92.tar.gz",
+                sha256 = "5bb6b0253ccf64b53d6c7249625a7e3f6c3bc6402abd52d3778bfa48258703a0",
+                strip_prefix = "googleapis-2f9af297c84c55c8b871ba4495e01ade42476c92",
             )
 
         # Abseil
@@ -150,7 +109,30 @@ cc_proto_library(
                 strip_prefix = "abseil-cpp-fbbb5865a562c9a9167d71c1cf56b82025a8f065",
             )
 
-    if analyzer_deps:
+        # required by many python libraries
+        if not native.existing_rule("six_archive"):
+            http_archive(
+                name = "six_archive",
+                url = "https://pypi.python.org/packages/source/s/six/six-1.10.0.tar.gz",
+                sha256 = "105f8d68616f8248e24bf0e9372ef04d3cc10104f1980f54d57b2ce73a5ad56a",
+                strip_prefix = "six-1.10.0",
+                build_file_content = """licenses(["notice"])
+
+exports_files(["LICENSE"])
+
+py_library(
+    name = "six",
+    srcs_version = "PY2AND3",
+    visibility = ["//visibility:public"],
+    srcs = glob(["six.py"]),
+)""",
+            )
+
+        native.bind(
+            name = "six",
+            actual = "@six_archive//:six",
+        )
+
         # Abseil (Python)
         if not native.existing_rule("io_abseil_py"):
             # How to update:
@@ -204,10 +186,10 @@ cc_proto_library(
             #
             http_archive(
                 name = "com_google_riegeli",
-                # Commit from 2021-06-01
-                url = "https://github.com/google/riegeli/archive/baf6376f694d401932cf1b9d34e79a0fae50e7c4.tar.gz",
-                sha256 = "15b6da71683520b8c2eadf11eb8180eed567568740562c88ead69a560b8cd219",
-                strip_prefix = "riegeli-baf6376f694d401932cf1b9d34e79a0fae50e7c4",
+                # Commit from 2022-02-16
+                url = "https://github.com/google/riegeli/archive/934428f44a6d120cb6c065315c788aa3a1be6b66.tar.gz",
+                sha256 = "a54dafa634db87723db106bc44ef365b1b442d8862aafbeb5f1d2e922049e587",
+                strip_prefix = "riegeli-934428f44a6d120cb6c065315c788aa3a1be6b66",
             )
     if evaluator_deps:
         # Differential Privacy
@@ -252,29 +234,13 @@ cc_proto_library(
                 strip_prefix = "farmhash-816a4ae622e964763ca0862d9dbd19324a1eaf45",
             )
     if analyzer_deps:
-        # required by protobuf_python
-        if not native.existing_rule("six_archive"):
-            http_archive(
-                name = "six_archive",
-                build_file = "@com_google_protobuf//:six.BUILD",
-                # Release 1.10.0
-                url = "https://pypi.python.org/packages/source/s/six/six-1.10.0.tar.gz",
-                sha256 = "105f8d68616f8248e24bf0e9372ef04d3cc10104f1980f54d57b2ce73a5ad56a",
-            )
-
-        native.bind(
-            name = "six",
-            actual = "@six_archive//:six",
-        )
-
         # Protobuf
         if not native.existing_rule("com_google_protobuf"):
             http_archive(
                 name = "com_google_protobuf",
-                urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.6.1.3.tar.gz"],
-                sha256 = "73fdad358857e120fd0fa19e071a96e15c0f23bb25f85d3f7009abfd4f264a2a",
-                strip_prefix = "protobuf-3.6.1.3",
-                patches = ["@com_google_zetasql//bazel:protobuf-v3.6.1.3.patch"],
+                urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.19.3.tar.gz"],
+                sha256 = "390191a0d7884b3e52bb812c440ad1497b9d484241f37bb8e2ccc8c2b72d6c36",
+                strip_prefix = "protobuf-3.19.3",
             )
 
     # Required by gRPC
@@ -309,9 +275,9 @@ cc_proto_library(
         if not native.existing_rule("com_github_grpc_grpc"):
             http_archive(
                 name = "com_github_grpc_grpc",
-                urls = ["https://github.com/grpc/grpc/archive/v1.24.2.tar.gz"],
-                sha256 = "fd040f5238ff1e32b468d9d38e50f0d7f8da0828019948c9001e9a03093e1d8f",
-                strip_prefix = "grpc-1.24.2",
+                urls = ["https://github.com/grpc/grpc/archive/v1.43.2.tar.gz"],
+                sha256 = "b74ce7d26fe187970d1d8e2c06a5d3391122f7bc1fdce569aff5e435fb8fe780",
+                strip_prefix = "grpc-1.43.2",
             )
 
     if analyzer_deps:

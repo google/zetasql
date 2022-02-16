@@ -153,8 +153,8 @@ extern const char* const kSupportedGenericEntityTypes;
 extern const char* const kEnabledASTRewrites;
 extern const char* const kCreateTableLikeNotScanned;
 extern const char* const kPrivilegeRestrictionTableNotScanned;
+extern const char* const kPreserveUnnecessaryCast;
 extern const char* const kEnableSampleAnnotation;
-
 void RegisterAnalyzerTestOptions(
     file_based_test_driver::TestCaseOptions* test_case_options);
 

@@ -60,7 +60,6 @@
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
-using zetasql::types::EmptyStructType;
 using zetasql::values::Bool;
 using zetasql::values::Int64;
 

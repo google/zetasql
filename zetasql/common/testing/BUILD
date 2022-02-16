@@ -22,14 +22,6 @@ cc_library(
     name = "proto_matchers",
     testonly = 1,
     hdrs = ["proto_matchers.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = ["//zetasql/base/testing:proto_matchers"],
 )
 
@@ -37,14 +29,6 @@ cc_library(
     name = "testing_proto_util",
     testonly = 1,
     hdrs = ["testing_proto_util.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/base:path",
         "@com_google_absl//absl/flags:flag",
@@ -71,14 +55,6 @@ cc_library(
     testonly = 1,
     srcs = [],
     hdrs = ["status_payload_matchers.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":status_payload_matchers_oss",
     ],
@@ -89,14 +65,6 @@ cc_library(
     testonly = 1,
     srcs = [],
     hdrs = ["status_payload_matchers_oss.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/base/testing:status_matchers",
         "//zetasql/common:status_payload_utils",
@@ -111,15 +79,6 @@ cc_test(
     name = "status_payload_matchers_oss_test",
     size = "small",
     srcs = ["status_payload_matchers_oss_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":status_payload_matchers_oss",
         ":status_payload_matchers_test_cc_proto",

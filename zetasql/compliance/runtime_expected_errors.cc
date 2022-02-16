@@ -209,6 +209,8 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange, "Invalid NUMERIC value"));
   error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange, "Invalid BIGNUMERIC value"));
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "Invalid INTERVAL value"));
 
   // Regex/Like Errors
   //
@@ -281,6 +283,23 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "the (DATE|DATETIME|TIME) type"));
   error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange, "Timezone is not allowed in (.+)"));
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "TIMESTAMP_BUCKET doesn't support bucket width INTERVAL with non-zero "
+      "MONTH part"));
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "TIMESTAMP_BUCKET doesn't support bucket width INTERVAL with mixed DAY "
+      "and MICROSECOND parts"));
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "TIMESTAMP_BUCKET doesn't support zero bucket width INTERVAL"));
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "TIMESTAMP_BUCKET doesn't support negative bucket width INTERVAL"));
+  error_matchers.emplace_back(absl::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "Bucket for .* is outside of timestamp range"));
 
   // Interval Errors
   //

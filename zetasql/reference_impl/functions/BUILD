@@ -29,14 +29,6 @@ cc_library(
     name = "register_all",
     srcs = ["register_all.cc"],
     hdrs = ["register_all.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":hash",
         ":json",
@@ -49,14 +41,6 @@ cc_library(
     name = "hash",
     srcs = ["hash.cc"],
     hdrs = ["hash.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/public:value",
         "//zetasql/public/functions:hash",
@@ -69,14 +53,6 @@ cc_library(
     name = "json",
     srcs = ["json.cc"],
     hdrs = ["json.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/base:ret_check",
         "//zetasql/common:errors",
@@ -95,14 +71,6 @@ cc_library(
     name = "string_with_collation",
     srcs = ["string_with_collation.cc"],
     hdrs = ["string_with_collation.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/public:collator",
         "//zetasql/public:value",
@@ -116,14 +84,6 @@ cc_library(
     name = "uuid",
     srcs = ["uuid.cc"],
     hdrs = ["uuid.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/public:value",
         "//zetasql/public/functions:uuid",

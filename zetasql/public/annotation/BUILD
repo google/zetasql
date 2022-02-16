@@ -20,14 +20,6 @@ cc_library(
     name = "collation",
     srcs = ["collation.cc"],
     hdrs = ["collation.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/base:ret_check",
         "//zetasql/common:errors",

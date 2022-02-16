@@ -1101,16 +1101,6 @@ absl::Status Validator::AddColumnList(
   return absl::OkStatus();
 }
 
-absl::Status Validator::AddColumn(
-    const ResolvedColumn& column,
-    absl::flat_hash_set<ResolvedColumn>* visible_columns) {
-  VALIDATOR_RET_CHECK_NE(visible_columns, nullptr);
-  VALIDATOR_RET_CHECK(column_ids_seen_.contains(column.column_id()))
-      << "Undefined column " << column.DebugString();
-  visible_columns->insert(column);
-  return absl::OkStatus();
-}
-
 absl::Status Validator::AddColumnFromComputedColumn(
     const ResolvedComputedColumn* computed_column,
     std::set<ResolvedColumn>* visible_columns) {

@@ -28,10 +28,7 @@
 #include "absl/strings/str_cat.h"
 
 using testing::ElementsAre;
-using testing::ElementsAreArray;
 using testing::HasSubstr;
-using testing::IsEmpty;
-using testing::UnorderedElementsAreArray;
 
 using zetasql_base::testing::IsOkAndHolds;
 using zetasql_base::testing::StatusIs;

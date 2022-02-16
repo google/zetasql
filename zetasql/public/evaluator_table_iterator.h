@@ -24,7 +24,7 @@
 
 namespace zetasql {
 
-struct ColumnFilter;
+class ColumnFilter;
 
 // Iterator interface for a user-supplied table in a PreparedQuery.
 //

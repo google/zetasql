@@ -822,6 +822,7 @@ OVER<br />
 PARTITION<br />
 PRECEDING<br />
 PROTO<br />
+QUALIFY<br />
 RANGE<br />
 </td>
 <td>

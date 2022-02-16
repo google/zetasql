@@ -19,30 +19,32 @@
 load("@rules_jvm_external//:defs.bzl", "maven_install")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:java.bzl", "java_import_external")
+load("@io_grpc_grpc_java//:repositories.bzl", "IO_GRPC_GRPC_JAVA_ARTIFACTS")
 
 ZETASQL_MAVEN_ARTIFACTS = [
     "com.google.api.grpc:proto-google-common-protos:1.12.0",
     "com.google.code.findbugs:jsr305:3.0.2",
-    "com.google.code.gson:gson:jar:2.7",
-    "com.google.errorprone:error_prone_annotations:2.3.2",
-    "com.google.guava:guava:29.0-jre",
-    "com.google.guava:guava-testlib:29.0-jre",
-    "io.grpc:grpc-context:1.18.0",
-    "io.grpc:grpc-core:1.18.0",
-    "io.grpc:grpc-netty:1.18.0",
-    "io.grpc:grpc-protobuf-lite:1.18.0",
-    "io.grpc:grpc-protobuf:1.18.0",
-    "io.grpc:grpc-stub:1.18.0",
+    "com.google.errorprone:error_prone_annotations:2.11.0",
+    "com.google.guava:guava:31.0.1-jre",
+    "com.google.guava:guava-testlib:31.0.1-jre",
+    "io.grpc:grpc-context:1.43.2",
+    "io.grpc:grpc-core:1.43.2",
+    "io.grpc:grpc-api:1.43.2",
+    "io.grpc:grpc-netty:1.43.2",
+    "io.grpc:grpc-protobuf-lite:1.43.2",
+    "io.grpc:grpc-protobuf:1.43.2",
+    "io.grpc:grpc-stub:1.43.2",
     "io.netty:netty-common:4.1.34.Final",
     "io.netty:netty-transport:4.1.34.Final",
     "io.opencensus:opencensus-api:0.21.0",
     "io.opencensus:opencensus-contrib-grpc-metrics:0.21.0",
     "javax.annotation:javax.annotation-api:1.2",
-    "joda-time:joda-time:2.3",
+    "joda-time:joda-time:2.10.13",
     "com.google.code.gson:gson:jar:2.8.9",
-    "com.google.truth:truth:0.44",
-    "com.google.truth.extensions:truth-proto-extension:0.44",
-    "junit:junit:4.13",
+    "com.google.protobuf:protobuf-java:3.19.3",
+    "com.google.truth:truth:1.1.3",
+    "com.google.truth.extensions:truth-proto-extension:1.1.3",
+    "junit:junit:4.13.2",
 ]
 
 def zetasql_java_deps(name = ""):
@@ -53,7 +55,7 @@ def zetasql_java_deps(name = ""):
     """
     maven_install(
         name = "maven",
-        artifacts = ZETASQL_MAVEN_ARTIFACTS,
+        artifacts = ZETASQL_MAVEN_ARTIFACTS + IO_GRPC_GRPC_JAVA_ARTIFACTS,
         # For updating instructions, see:
         # https://github.com/bazelbuild/rules_jvm_external#updating-maven_installjson
         repositories = [
@@ -69,16 +71,6 @@ def zetasql_java_deps(name = ""):
         name = "gson",
         actual = "@com_google_code_gson_gson//jar",
     )
-
-    # gRPC Java
-    if not native.existing_rule("io_grpc_grpc_java"):
-        http_archive(
-            name = "io_grpc_grpc_java",
-            # Release 1.22.1
-            url = "https://github.com/grpc/grpc-java/archive/v1.22.1.tar.gz",
-            strip_prefix = "grpc-java-1.22.1",
-            sha256 = "6e63bd6f5a82de0b84c802390adb8661013bad9ebf910ad7e1f3f72b5f798832",
-        )
 
     # Auto common
     if not native.existing_rule("com_google_auto_common"):

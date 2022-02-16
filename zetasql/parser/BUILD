@@ -178,14 +178,6 @@ cc_library(
         "unparser.h",
         "visit_result.h",
     ],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     tags = ["nofixdeps"],  # generated and real files are interdependent
     deps = [
         ":ast_enums_cc_proto",
@@ -255,14 +247,8 @@ cc_library(
     # fail in fastbuild with default 64KB stack sizes, or to start failing
     # when the parser is extended further.
     copts = [
-        "-Wno-char-subscripts",
         "-Wno-implicit-fallthrough",
         "-O2",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
     ],
     tags = ["nofixdeps"],  # generated and real files are interdependent
     deps = [
@@ -296,14 +282,6 @@ cc_library(
 cc_library(
     name = "flex_istream",
     hdrs = ["flex_istream.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         "//zetasql/base:logging",
         "@com_google_absl//absl/strings",
@@ -313,15 +291,6 @@ cc_library(
 cc_test(
     name = "flex_istream_test",
     srcs = ["flex_istream_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":flex_istream",
         "//zetasql/base/testing:status_matchers",
@@ -340,14 +309,6 @@ cc_library(
         "parse_tree_serializer.h",
         "parser.h",
         "statement_properties.h",
-    ],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
     ],
     deps = [
         ":parse_tree",
@@ -377,14 +338,6 @@ cc_library(
         "parse_tree_generated.h",
         "parse_tree_visitor.h",
         "visit_result.h",
-    ],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
     ],
     tags = ["nofixdeps"],  # generated and real files are interdependent
     deps = [
@@ -422,15 +375,6 @@ cc_test(
     name = "parse_tree_test",
     size = "small",
     srcs = ["parse_tree_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":parse_tree",
         ":parser",
@@ -454,15 +398,6 @@ cc_test(
     name = "parse_tree_errors_test",
     size = "small",
     srcs = ["parse_tree_errors_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":parse_tree",
         ":parser",
@@ -481,14 +416,6 @@ cc_library(
     name = "run_parser_test_lib",
     testonly = 1,
     srcs = ["run_parser_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":parser",
         "//zetasql/base:edit_distance",
@@ -527,15 +454,6 @@ cc_test(
     name = "unparser_test",
     size = "small",
     srcs = ["unparser_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":parser",
         "//zetasql/base/testing:status_matchers",
@@ -550,14 +468,6 @@ cc_library(
     ],
     hdrs = [
         "keywords.h",
-    ],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
     ],
     deps = [
         ":bison_keyword_token_codes_inc",
@@ -575,14 +485,6 @@ cc_library(
 
 cc_library(
     name = "bison_keyword_token_codes_inc",
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     textual_hdrs = ["bison_keyword_token_codes.inc"],
 )
 
@@ -596,15 +498,6 @@ genrule(
 cc_test(
     name = "keywords_test",
     srcs = ["keywords_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     data = [
         "bison_parser.y",
         "flex_tokenizer.l",

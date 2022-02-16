@@ -43,11 +43,11 @@ namespace zetasql {
 
 absl::StatusOr<std::unique_ptr<SimpleTable>> MakeTableFromCsvFile(
     absl::string_view table_name, absl::string_view path) {
-  riegeli::CsvReader csv_reader(riegeli::FdReader(path, O_RDONLY));
+  riegeli::CsvReader csv_reader{riegeli::FdReader(path)};
 
   std::vector<std::string> record;
   if (!csv_reader.ReadRecord(record)) {
-    if (!csv_reader.healthy()) return csv_reader.status();
+    if (!csv_reader.ok()) return csv_reader.status();
     return zetasql_base::UnknownErrorBuilder()
            << "CSV file " << path << " does not contain a header row";
   }

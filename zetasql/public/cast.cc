@@ -1110,7 +1110,8 @@ absl::StatusOr<Value> CastContext::CastValue(
     }
     case FCT(TYPE_STRING, TYPE_INTERVAL): {
       ZETASQL_ASSIGN_OR_RETURN(IntervalValue interval,
-                       IntervalValue::Parse(v.string_value()));
+                       IntervalValue::Parse(v.string_value()),
+                       _.SetPrepend() << "Invalid INTERVAL value: ");
       return Value::Interval(interval);
     }
 

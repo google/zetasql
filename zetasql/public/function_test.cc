@@ -52,7 +52,6 @@ namespace zetasql {
 using ::zetasql::testing::EqualsProto;
 using ::testing::IsNull;
 using ::testing::NotNull;
-using ::testing::Optional;
 
 class TestSQLFunction : public SQLFunctionInterface {
  public:

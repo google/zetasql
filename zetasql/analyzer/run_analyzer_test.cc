@@ -612,6 +612,9 @@ class AnalyzerTestRunner {
       options.mutable_language()->SetSupportedGenericEntityTypes(entity_types);
     }
 
+    options.set_preserve_unnecessary_cast(
+        test_case_options_.GetBool(kPreserveUnnecessaryCast));
+
     SetupSampleSystemVariables(&type_factory, &options);
     auto catalog_holder = CreateCatalog(options, &type_factory);
 

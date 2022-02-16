@@ -113,14 +113,6 @@ cc_library(
         "resolved_node.h",
         "resolved_node_kind.h",
     ],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     visibility = ["//visibility:public"],
     deps = [
         ":resolved_ast_cc_proto",
@@ -164,14 +156,6 @@ cc_library(
     hdrs = [
         "make_node_vector.h",
     ],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     visibility = ["//visibility:public"],
     deps = [
         ":resolved_ast",
@@ -195,14 +179,6 @@ cc_library(
     name = "comparator",
     srcs = ["resolved_ast_comparator.cc"],
     hdrs = ["resolved_ast_comparator.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     visibility = ["//visibility:public"],
     deps = [
         ":resolved_ast",
@@ -220,14 +196,6 @@ cc_library(
     name = "validator",
     srcs = ["validator.cc"],
     hdrs = ["validator.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     visibility = ["//visibility:public"],
     deps = [
         ":resolved_ast",
@@ -274,14 +242,6 @@ cc_library(
         "query_expression.h",
         "sql_builder.h",
     ],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     visibility = ["//visibility:public"],
     deps = [
         ":resolved_ast",
@@ -322,15 +282,6 @@ cc_test(
     name = "resolved_ast_test",
     size = "small",
     srcs = ["resolved_ast_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":make_node_vector",
         ":resolved_ast",
@@ -358,15 +309,6 @@ cc_test(
     name = "resolved_node_test",
     size = "small",
     srcs = ["resolved_node_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":resolved_ast",
         "//zetasql/base/testing:status_matchers",
@@ -379,15 +321,6 @@ cc_test(
     name = "make_node_vector_test",
     size = "small",
     srcs = ["make_node_vector_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":make_node_vector",
         ":resolved_ast",
@@ -400,15 +333,6 @@ cc_test(
     name = "resolved_ast_deep_copy_visitor_test",
     size = "small",
     srcs = ["resolved_ast_deep_copy_visitor_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":make_node_vector",
         ":resolved_ast",
@@ -434,15 +358,6 @@ cc_test(
     name = "resolved_ast_helper_test",
     size = "small",
     srcs = ["resolved_ast_helper_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":make_node_vector",
         ":resolved_ast",
@@ -464,15 +379,6 @@ cc_test(
     name = "resolved_column_test",
     size = "small",
     srcs = ["resolved_column_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":resolved_ast",
         "//zetasql/base:status",
@@ -490,15 +396,6 @@ cc_test(
     name = "resolved_collation_test",
     size = "small",
     srcs = ["resolved_collation_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":resolved_ast",
         "//zetasql/base/testing:status_matchers",
@@ -584,14 +481,6 @@ cc_library(
     name = "rewrite_utils",
     srcs = ["rewrite_utils.cc"],
     hdrs = ["rewrite_utils.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":resolved_ast",
         "//zetasql/base",
@@ -607,15 +496,6 @@ cc_test(
     name = "rewrite_utils_test",
     size = "small",
     srcs = ["rewrite_utils_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":rewrite_utils",
         "//zetasql/base/testing:status_matchers",
@@ -628,15 +508,6 @@ cc_test(
 cc_test(
     name = "validator_test",
     srcs = ["validator_test.cc"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-return-type",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":make_node_vector",
         ":resolved_ast",
@@ -653,14 +524,6 @@ cc_library(
     name = "test_utils",
     srcs = ["test_utils.cc"],
     hdrs = ["test_utils.h"],
-    copts = [
-        "-Wno-char-subscripts",
-        "-Wno-sign-compare",
-        "-Wno-switch",
-        "-Wno-unused-but-set-parameter",
-        "-Wno-unused-function",
-        "-Wnonnull-compare",
-    ],
     deps = [
         ":make_node_vector",
         ":resolved_ast",

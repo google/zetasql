@@ -63,7 +63,7 @@ class CycleDetector {
     // if the ObjectInfo introduces a cycle by calling cycle_detected().
     // Does not take ownership of <object> or <cycle_detector>, and
     // <cycle_detector> must outlive this ObjectInfo.
-    ObjectInfo(const std::string& name, const void* object,
+    ObjectInfo(absl::string_view name, const void* object,
                CycleDetector* cycle_detector);
     ObjectInfo(const ObjectInfo&) = delete;
     ObjectInfo& operator=(const ObjectInfo&) = delete;
@@ -72,7 +72,7 @@ class CycleDetector {
     // Returns an error if the creation of this object introduced a cycle,
     // otherwise returns OK.  The <object_type> is used in the construction
     // of the returned error message, if applicable.
-    absl::Status DetectCycle(const std::string& object_type) const;
+    absl::Status DetectCycle(absl::string_view object_type) const;
 
     std::string name() const { return name_; }
     const void* object() const { return object_; }

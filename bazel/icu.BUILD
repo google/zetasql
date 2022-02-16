@@ -18,7 +18,7 @@
 Rules for adding './configure && make' style dependencies.
 """
 
-load("@rules_foreign_cc//tools/build_defs:configure.bzl", "configure_make")
+load("@rules_foreign_cc//foreign_cc:configure.bzl", "configure_make")
 
 licenses(["notice"])  # Apache v2.0
 
@@ -35,12 +35,17 @@ filegroup(
 configure_make(
     name = "icu",
     configure_command = "source/configure",
-    configure_env_vars = {
-        "CXXFLAGS": "-fPIC",  # For JNI
-        "CFLAGS": "-fPIC",  # For JNI
-        "LIBS": "$$LDFLAGS$$",
-        "AR": "ar_wrapper",
-    },
+    env = select({
+        "@platforms//os:macos": {
+            "AR": "",
+            "CXXFLAGS": "-fPIC",  # For JNI
+            "CFLAGS": "-fPIC",  # For JNI
+        },
+        "//conditions:default": {
+            "CXXFLAGS": "-fPIC",  # For JNI
+            "CFLAGS": "-fPIC",  # For JNI
+        },
+    }),
     configure_options = [
         "--enable-option-checking",
         "--enable-static",
@@ -54,13 +59,12 @@ configure_make(
         "--with-data-packaging=static",
     ],
     lib_source = "@icu//:all",
-    static_libraries = [
+    out_static_libs = [
         "libicui18n.a",
         "libicuio.a",
         "libicuuc.a",
         "libicudata.a",
     ],
-    tools_deps = ["@com_google_zetasql//bazel:ar_wrapper"],
 )
 
 cc_library(

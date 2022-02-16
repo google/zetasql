@@ -80,6 +80,12 @@ template <typename T>
 inline bool Sec(T in, T* out, absl::Status* error);
 template <typename T>
 inline bool Cot(T in, T* out, absl::Status* error);
+template <typename T>
+inline bool Csch(T in, T* out, absl::Status* error);
+template <typename T>
+inline bool Sech(T in, T* out, absl::Status* error);
+template <typename T>
+inline bool Coth(T in, T* out, absl::Status* error);
 
 namespace internal {
 
@@ -422,6 +428,23 @@ template <typename T>
 bool Cot(T in, T* out, absl::Status* error) {
   *out = 1.0 / std::tan(in);
   return internal::CheckFloatingPointError("COT", in, *out, error);
+}
+template <typename T>
+bool Csch(T in, T* out, absl::Status* error) {
+  *out = 1.0 / std::sinh(in);
+  return internal::CheckFloatingPointError("CSCH", in, *out, error);
+}
+
+template <typename T>
+bool Sech(T in, T* out, absl::Status* error) {
+  *out = 1.0 / std::cosh(in);
+  return internal::CheckFloatingPointError("SECH", in, *out, error);
+}
+
+template <typename T>
+bool Coth(T in, T* out, absl::Status* error) {
+  *out = 1.0 / std::tanh(in);
+  return internal::CheckFloatingPointError("COTH", in, *out, error);
 }
 
 // Declare specializations defined in math.cc.

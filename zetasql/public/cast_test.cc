@@ -43,7 +43,6 @@
 
 namespace zetasql {
 
-using zetasql_base::testing::IsOk;
 using zetasql_base::testing::IsOkAndHolds;
 
 static TypeFactory* type_factory = new TypeFactory();

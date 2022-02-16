@@ -31,6 +31,7 @@
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/parse_resume_location.pb.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/simple_table.pb.h"
 #include <cstdint>
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"

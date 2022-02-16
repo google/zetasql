@@ -65,34 +65,18 @@
 #include "zetasql/base/status_macros.h"
 
 using zetasql::types::BigNumericArrayType;
-using zetasql::types::BigNumericType;
 using zetasql::types::BoolArrayType;
-using zetasql::types::BoolType;
 using zetasql::types::BytesArrayType;
-using zetasql::types::BytesType;
-using zetasql::types::DatetimeType;
-using zetasql::types::DateType;
 using zetasql::types::DoubleArrayType;
-using zetasql::types::DoubleType;
 using zetasql::types::FloatArrayType;
-using zetasql::types::FloatType;
-using zetasql::types::GeographyType;
 using zetasql::types::Int32ArrayType;
-using zetasql::types::Int32Type;
 using zetasql::types::Int64ArrayType;
-using zetasql::types::Int64Type;
 using zetasql::types::JsonArrayType;
 using zetasql::types::NumericArrayType;
-using zetasql::types::NumericType;
 using zetasql::types::TimestampArrayType;
 using zetasql::types::StringArrayType;
-using zetasql::types::StringType;
-using zetasql::types::TimestampType;
-using zetasql::types::TimeType;
 using zetasql::types::Uint32ArrayType;
-using zetasql::types::Uint32Type;
 using zetasql::types::Uint64ArrayType;
-using zetasql::types::Uint64Type;
 
 using absl::Substitute;
 

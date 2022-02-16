@@ -1061,10 +1061,6 @@ std::vector<FunctionTestCall> GetFunctionTestsToJson(
            values::Json(JSONValue(std::string{"9007199254740993"})))
            .WrapWithFeatureSet({FEATURE_NAMED_ARGUMENTS, FEATURE_JSON_TYPE})},
       {"to_json",
-       {Int64(9007199254740993)},
-       values::Json(JSONValue(9007199254740993))},
-
-      {"to_json",
        QueryParamsWithResult(
            {Int64(int64max), true},
            values::Json(JSONValue(std::string{"9223372036854775807"})))

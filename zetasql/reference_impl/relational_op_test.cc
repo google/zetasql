@@ -65,25 +65,16 @@
 
 using absl::nullopt;
 
-using google::protobuf::internal::WireFormatLite;
-
 using testing::_;
-using testing::AnyOf;
 using testing::ContainsRegex;
 using testing::ElementsAre;
-using testing::ElementsAreArray;
 using testing::Eq;
 using testing::HasSubstr;
 using testing::IsEmpty;
 using testing::IsNull;
-using testing::Matcher;
-using testing::Not;
 using testing::Pointee;
 using testing::PrintToString;
 using testing::SizeIs;
-using testing::TestWithParam;
-using testing::UnorderedElementsAreArray;
-using testing::ValuesIn;
 
 extern absl::Flag<int64_t>
     FLAGS_zetasql_simple_iterator_call_time_now_rows_period;

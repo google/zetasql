@@ -2592,15 +2592,6 @@ order:
 + `ORDER BY`
 + `LIMIT`
 
-**Limitations**
-
-The `QUALIFY` clause has an implementation limitation in that it must be used in
-conjunction with at least one of these clauses:
-
-+ `WHERE`
-+ `GROUP BY`
-+ `HAVING`
-
 **Examples**
 
 The following query returns the most popular vegetables in the
@@ -3147,6 +3138,8 @@ recursive term.
 WITH RECURSIVE
   T1 AS (SELECT * FROM T1)
 SELECT * FROM T1
+
+-- Error
 ```
 
 The following recursive CTE is disallowed because the self-reference to `T1`
@@ -3156,6 +3149,8 @@ is in the base term. The self reference is only allowed in the recursive term.
 WITH RECURSIVE
   T1 AS ((SELECT * FROM T1) UNION ALL (SELECT 1))
 SELECT * FROM T1
+
+-- Error
 ```
 
 The following recursive CTE is disallowed because there are multiple
@@ -3165,6 +3160,8 @@ self-references in the recursive term when there must only be one.
 WITH RECURSIVE
   T1 AS ((SELECT 1 AS n) UNION ALL ((SELECT * FROM T1) UNION ALL (SELECT * FROM T1)))
 SELECT * FROM T1
+
+-- Error
 ```
 
 The following recursive CTE is disallowed because the self-reference is
@@ -3174,6 +3171,8 @@ inside an [expression subquery][expression-subquery-concepts]
 WITH RECURSIVE
   T1 AS ((SELECT 1 AS n) UNION ALL (SELECT (SELECT n FROM T1)))
 SELECT * FROM T1
+
+-- Error
 ```
 
 The following recursive CTE is disallowed because there is a
@@ -3185,6 +3184,8 @@ WITH RECURSIVE
     (SELECT 1 AS n) UNION ALL
     (SELECT * FROM MY_TVF(T1)))
 SELECT * FROM T1;
+
+-- Error
 ```
 
 The following recursive CTE is disallowed because there is a
@@ -3195,6 +3196,8 @@ WITH RECURSIVE
   T0 AS (SELECT 1 AS n),
   T1 AS ((SELECT 1 AS n) UNION ALL (SELECT * FROM T1 FULL OUTER JOIN T0 USING (n)))
 SELECT * FROM T1;
+
+-- Error
 ```
 
 The following recursive CTE is disallowed because you cannot use aggregation
@@ -3206,6 +3209,8 @@ WITH RECURSIVE
     (SELECT 1 AS n) UNION ALL
     (SELECT COUNT(*) FROM T1))
 SELECT * FROM T1;
+
+-- Error
 ```
 
 The following recursive CTE is disallowed because you cannot use the
@@ -3213,10 +3218,12 @@ analytic function `OVER` clause with a self-reference.
 
 ```sql {.bad}
 WITH RECURSIVE
-  T1(n) AS (
-    VALUES (1.0) UNION ALL
+  T1 AS (
+    (SELECT 1.0 AS n) UNION ALL
     SELECT 1 + AVG(n) OVER(ROWS between 2 PRECEDING and 0 FOLLOWING) FROM T1 WHERE n < 10)
 SELECT n FROM T1;
+
+-- Error
 ```
 
 The following recursive CTE is disallowed because you cannot use a
@@ -3226,6 +3233,8 @@ The following recursive CTE is disallowed because you cannot use a
 WITH RECURSIVE
   T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n FROM T1 LIMIT 3))
 SELECT * FROM T1;
+
+-- Error
 ```
 
 The following recursive CTEs are disallowed because you cannot use an
@@ -3235,6 +3244,8 @@ The following recursive CTEs are disallowed because you cannot use an
 WITH RECURSIVE
   T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n + 1 FROM T1 ORDER BY n))
 SELECT * FROM T1;
+
+-- Error
 ```
 
 The following recursive CTE is disallowed because table `T1` can't be
@@ -3244,6 +3255,8 @@ recursively referenced from inside an inner `WITH` clause
 WITH RECURSIVE
   T1 AS ((SELECT 1 AS n) UNION ALL (WITH t AS (SELECT n FROM T1) SELECT * FROM t))
 SELECT * FROM T1
+
+-- Error
 ```
 
 ### CTE rules and constraints 

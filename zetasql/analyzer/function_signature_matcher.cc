@@ -1024,7 +1024,7 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
                                provided_col_name, provided_col_idx)) {
         // There was a duplicate column name in the input relation. This is
         // invalid.
-        signature_match_result->set_tvf_bad_call_error_message(absl::StrCat(
+        signature_match_result->set_mismatch_message(absl::StrCat(
             "Table-valued function does not allow duplicate input ",
             "columns named \"", provided_col_name, "\" for argument ",
             arg_idx + 1));
@@ -1038,7 +1038,7 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
                !provided_schema.is_value_table()) {
       // There was a column name in the input relation not specified in the
       // required output schema, and the signature does not allow this.
-      signature_match_result->set_tvf_bad_call_error_message(
+      signature_match_result->set_mismatch_message(
           absl::StrCat("Function does not allow extra input column named \"",
                        provided_col_name, "\" for argument ", arg_idx + 1));
       signature_match_result->set_tvf_bad_argument_index(arg_idx);
@@ -1065,7 +1065,7 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
         // The required value table was not found in the provided input
         // relation. Generate a descriptive error message.
         ZETASQL_RET_CHECK_EQ(1, required_schema.num_columns());
-        signature_match_result->set_tvf_bad_call_error_message(
+        signature_match_result->set_mismatch_message(
             absl::StrCat("Expected value table of type ",
                          required_schema.column(0).type->ShortTypeName(
                              language_.product_mode()),
@@ -1080,7 +1080,7 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
       if (lookup == nullptr) {
         // The required column name was not found in the provided input
         // relation. Generate a descriptive error message.
-        signature_match_result->set_tvf_bad_call_error_message(absl::StrCat(
+        signature_match_result->set_mismatch_message(absl::StrCat(
             "Required column \"", required_col_name,
             "\" not found in table passed as argument ", arg_idx + 1));
         signature_match_result->set_tvf_bad_argument_index(arg_idx);
@@ -1105,7 +1105,7 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
     } else {
       // The provided column type is invalid. Mark the argument index and
       // column name to return a descriptive error later.
-      signature_match_result->set_tvf_bad_call_error_message(absl::StrCat(
+      signature_match_result->set_mismatch_message(absl::StrCat(
           "Invalid type ",
           provided_col_type->ShortTypeName(language_.product_mode()),
           (required_schema.is_value_table()

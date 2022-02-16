@@ -32,9 +32,9 @@
 namespace zetasql {
 
 class Coercer;
-class ExprResolutionInfo;
 class QueryResolutionInfo;
 class Resolver;
+struct ExprResolutionInfo;
 
 // AnalyticFunctionResolver is a query-scoped stateful resolver that resolves
 // OVER clauses and creates an AnalyticScan during ZetaSQL analysis.

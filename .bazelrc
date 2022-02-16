@@ -20,3 +20,10 @@
 # widely accepted by compilers. This may lead to strange behavior or compiler
 # errors in earlier compilers.
 build --cxxopt="-std=c++1z"
+# By default, we don't suppress any warnings, to get clang-specific warning
+# suppression you can invoke with --config=clang
+build:clang --cxxopt=-Wno-deprecated-declarations
+build:clang --cxxopt=-Wno-range-loop-analysis
+build:clang --cxxopt=-Wno-inconsistent-missing-override
+build:clang --cxxopt=-Wno-char-subscripts
+build:clang --cxxopt=-Wno-enum-compare-switch

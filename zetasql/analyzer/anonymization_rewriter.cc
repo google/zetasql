@@ -101,7 +101,7 @@ struct WithEntryRewriteState;
 //   d. For each aggregate or group by column in the anon node, the column set
 //      in the per-user scan's column list is the appropriate intermediate
 //      column looked up in the column map
-// 4. If kappa is specified, a partioned-by-$uid ResolvedSampleScan is
+// 4. If kappa is specified, a partitioned-by-$uid ResolvedSampleScan is
 //    inserted to limit the number of groups that a user can contribute to.
 //    While kappa is optional, for most queries with a GROUP BY clause in the
 //    ResolvedAnonymizedAggregationScan it MUST be specified for the resulting
@@ -460,63 +460,6 @@ class OuterAggregateListRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   Resolver* resolver_;
 };
 
-// A helper for JoinExprIncludesUid, returns true if at least one argument of
-// the function call is a column ref referring to left_uid, and the same for
-// right_uid.
-bool FunctionReferencesUid(const ResolvedFunctionCall* call,
-                           const ResolvedColumn& left_uid,
-                           const ResolvedColumn& right_uid) {
-  bool left_referenced = false;
-  bool right_referenced = false;
-  for (const std::unique_ptr<const ResolvedExpr>& argument :
-       call->argument_list()) {
-    if (argument->node_kind() != RESOLVED_COLUMN_REF) continue;
-    const ResolvedColumnRef* ref = argument->GetAs<ResolvedColumnRef>();
-    left_referenced |= (ref->column() == left_uid);
-    right_referenced |= (ref->column() == right_uid);
-  }
-  return left_referenced && right_referenced;
-}
-
-// A helper function for checking if a join expression between two tables
-// containing user data meets our requirements for joining on the $uid column in
-// each table.
-//
-// Returns true IFF join_expr contains a top level AND function, or an AND
-// function nested inside another AND function (arbitrarily deep), that contains
-// an EQUAL function that satisfies FunctionReferencesUid.
-//
-// This excludes a number of logically equivalent join expressions
-// (e.g. !(left != right)), but that's fine, we want queries to be intentional.
-bool JoinExprIncludesUid(const ResolvedExpr* join_expr,
-                         const ResolvedColumn& left_uid,
-                         const ResolvedColumn& right_uid) {
-  if (join_expr->node_kind() != RESOLVED_FUNCTION_CALL) {
-    return false;
-  }
-  const ResolvedFunctionCall* call = join_expr->GetAs<ResolvedFunctionCall>();
-  const Function* function = call->function();
-  if (!function->IsScalar() || !function->IsZetaSQLBuiltin()) {
-    return false;
-  }
-  switch (call->signature().context_id()) {
-    case FN_AND:
-      for (const std::unique_ptr<const ResolvedExpr>& argument :
-           call->argument_list()) {
-        if (JoinExprIncludesUid(argument.get(), left_uid, right_uid)) {
-          return true;
-        }
-      }
-      break;
-    case FN_EQUAL:
-      if (FunctionReferencesUid(call, left_uid, right_uid)) {
-        return true;
-      }
-      break;
-  }
-  return false;
-}
-
 // This class is used by VisitResolvedTVFScan to validate that none of the TVF
 // argument trees contain nodes that are not supported yet as TVF arguments.
 //
@@ -587,7 +530,7 @@ struct UidColumnState {
                           std::string value_table_alias) {
     column = projected_userid_column->column();
     alias = std::move(value_table_alias);
-    value_table_uid = projected_userid_column;
+    value_table_uid = projected_userid_column->expr();
   }
 
   void Clear() {
@@ -624,7 +567,7 @@ struct UidColumnState {
       return absl::StrCat(alias_prefix, column.name());
     } else if (value_table_uid != nullptr) {
       return absl::StrCat(alias_prefix,
-                          FieldPathExpressionToString(value_table_uid->expr()));
+                          FieldPathExpressionToString(value_table_uid));
     } else {
       return "";
     }
@@ -641,14 +584,40 @@ struct UidColumnState {
       std::vector<std::unique_ptr<const ResolvedComputedColumn>> expr_list) {
     if (subquery_expr_level > 0 || value_table_uid == nullptr) return expr_list;
     for (auto& col : expr_list) {
-      if (IsSameFieldPath(col->expr(), value_table_uid->expr(),
-                          FieldPathMatchingOption::kExpression)) {
+      if (MatchesPathExpression(*col->expr())) {
         col = MakeResolvedComputedColumn(col->column(), MakeColRef(column));
         column = col->column();
       }
     }
 
     return expr_list;
+  }
+
+  // Add the $uid column to the argument scan node column list if it isn't
+  // already included.
+  void ProjectIfMissing(ResolvedScan& node) {
+    if (subquery_expr_level > 0) {
+      return;
+    }
+    for (const ResolvedColumn& col : node.column_list()) {
+      if (col == column) {
+        return;
+      }
+    }
+    node.add_column_list(column);
+  }
+
+  // Returns true IFF the argument expression points to the same (optionally
+  // nested) value as this.
+  bool MatchesPathExpression(const ResolvedExpr& other) const {
+    if (value_table_uid == nullptr) {
+      if (other.node_kind() == RESOLVED_COLUMN_REF) {
+        return other.GetAs<ResolvedColumnRef>()->column() == column;
+      }
+      return false;
+    }
+    return IsSameFieldPath(&other, value_table_uid,
+                           FieldPathMatchingOption::kExpression);
   }
 
   // A column declared as the $uid column in a table or TVF schema definition.
@@ -668,7 +637,7 @@ struct UidColumnState {
   int subquery_expr_level = 0;
 
  private:
-  const ResolvedComputedColumn* value_table_uid = nullptr;
+  const ResolvedExpr* value_table_uid = nullptr;
 };
 
 // Tracks the lazily-rewritten state of a ResolvedWithEntry. The original AST
@@ -686,6 +655,61 @@ struct WithEntryRewriteState {
   // AND it reads from a table, TVF, or another WITH entry that reads user data.
   std::optional<UidColumnState> rewritten_uid;
 };
+
+// A helper for JoinExprIncludesUid, returns true if at least one argument of
+// the function call is a column ref referring to left_uid, and the same for
+// right_uid.
+bool FunctionReferencesUid(const ResolvedFunctionCall* call,
+                           const UidColumnState& left_uid,
+                           const UidColumnState& right_uid) {
+  bool left_referenced = false;
+  bool right_referenced = false;
+  for (const std::unique_ptr<const ResolvedExpr>& argument :
+       call->argument_list()) {
+    left_referenced |= left_uid.MatchesPathExpression(*argument);
+    right_referenced |= right_uid.MatchesPathExpression(*argument);
+  }
+  return left_referenced && right_referenced;
+}
+
+// A helper function for checking if a join expression between two tables
+// containing user data meets our requirements for joining on the $uid column in
+// each table.
+//
+// Returns true IFF join_expr contains a top level AND function, or an AND
+// function nested inside another AND function (arbitrarily deep), that contains
+// an EQUAL function that satisfies FunctionReferencesUid.
+//
+// This excludes a number of logically equivalent join expressions
+// (e.g. !(left != right)), but that's fine, we want queries to be intentional.
+bool JoinExprIncludesUid(const ResolvedExpr* join_expr,
+                         const UidColumnState& left_uid,
+                         const UidColumnState& right_uid) {
+  if (join_expr->node_kind() != RESOLVED_FUNCTION_CALL) {
+    return false;
+  }
+  const ResolvedFunctionCall* call = join_expr->GetAs<ResolvedFunctionCall>();
+  const Function* function = call->function();
+  if (!function->IsScalar() || !function->IsZetaSQLBuiltin()) {
+    return false;
+  }
+  switch (call->signature().context_id()) {
+    case FN_AND:
+      for (const std::unique_ptr<const ResolvedExpr>& argument :
+           call->argument_list()) {
+        if (JoinExprIncludesUid(argument.get(), left_uid, right_uid)) {
+          return true;
+        }
+      }
+      break;
+    case FN_EQUAL:
+      if (FunctionReferencesUid(call, left_uid, right_uid)) {
+        return true;
+      }
+      break;
+  }
+  return false;
+}
 
 // Rewrites the rest of the per-user scan, propagating the AnonymizationInfo()
 // userid (aka $uid column) from the base private table scan to the top node
@@ -1260,7 +1284,8 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
                                       left_visitor.current_uid_,
                                       right_visitor.current_uid_));
       }
-      if (!JoinExprIncludesUid(copy->join_expr(), left_uid, right_uid)) {
+      if (!JoinExprIncludesUid(copy->join_expr(), left_visitor.current_uid_,
+                               right_visitor.current_uid_)) {
         return MakeSqlErrorAtNode(*copy->join_expr()) << absl::StrCat(
                    "Joins between tables containing private data must also "
                    "explicitly join on the user id column in each table",
@@ -1286,20 +1311,11 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     switch (node->join_type()) {
       case ResolvedJoinScan::INNER:
         // If both join inputs have a $uid column then project the $uid from
-        // either of them.  Otherwise project the $uid column from the join
-        // input that contains it.
-        for (const ResolvedColumn& col : copy->column_list()) {
-          if (col == left_uid || col == right_uid) {
-            current_uid_.SetColumn(col);
-            return absl::OkStatus();
-          }
-        }
-        // We are not currently projecting either the Left or Right $uid
-        // column.
-        if (current_uid_.SetColumn(left_uid.IsInitialized() ? left_uid
-                                                            : right_uid)) {
-          copy->add_column_list(current_uid_.column);
-        }
+        // the left.  Otherwise project the $uid column from the join input
+        // that contains it.
+        current_uid_ = (left_uid.IsInitialized() ? left_visitor.current_uid_
+                                                 : right_visitor.current_uid_);
+        current_uid_.ProjectIfMissing(*copy);
         return absl::OkStatus();
 
       case ResolvedJoinScan::LEFT:
@@ -1310,15 +1326,8 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
                  << "The left table in a LEFT OUTER join must contain user "
                     "data";
         }
-        for (const ResolvedColumn& col : copy->column_list()) {
-          if (col == left_uid) {
-            current_uid_.SetColumn(col);
-            return absl::OkStatus();
-          }
-        }
-        if (current_uid_.SetColumn(left_uid)) {
-          copy->add_column_list(current_uid_.column);
-        }
+        current_uid_ = left_visitor.current_uid_;
+        current_uid_.ProjectIfMissing(*copy);
         return absl::OkStatus();
 
       case ResolvedJoinScan::RIGHT:
@@ -1329,15 +1338,8 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
                  << "The right table in a RIGHT OUTER join must contain user "
                     "data";
         }
-        for (const ResolvedColumn& col : copy->column_list()) {
-          if (col == right_uid) {
-            current_uid_.SetColumn(col);
-            return absl::OkStatus();
-          }
-        }
-        if (current_uid_.SetColumn(right_uid)) {
-          copy->add_column_list(current_uid_.column);
-        }
+        current_uid_ = right_visitor.current_uid_;
+        current_uid_.ProjectIfMissing(*copy);
         return absl::OkStatus();
 
       case ResolvedJoinScan::FULL:
@@ -1510,14 +1512,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
       return absl::OkStatus();                                            \
     }                                                                     \
     auto* scan = GetUnownedTopOfStack<resolved_scan>();                   \
-    for (const ResolvedColumn& col : scan->column_list()) {               \
-      if (col.column_id() == current_uid_.column.column_id()) {           \
-        return absl::OkStatus();                                          \
-      }                                                                   \
-    }                                                                     \
-    if (current_uid_.subquery_expr_level == 0) {                          \
-      scan->add_column_list(current_uid_.column);                         \
-    }                                                                     \
+    current_uid_.ProjectIfMissing(*scan);                                 \
     return absl::OkStatus();                                              \
   }
   PROJECT_UID(ResolvedArrayScan);

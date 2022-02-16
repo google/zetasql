@@ -1792,8 +1792,7 @@ KnownErrorMode SQLTestBase::IsKnownError(
 
   // In --report_all_errors mode, ignore entries unless they are
   // CRASHES_DO_NOT_RUN mode.
-  if ((  //
-          absl::GetFlag(FLAGS_report_all_errors)) &&
+  if (absl::GetFlag(FLAGS_report_all_errors) &&
       mode != KnownErrorMode::CRASHES_DO_NOT_RUN) {
     mode = KnownErrorMode::NONE;
     by_set->clear();
@@ -1816,7 +1815,7 @@ void SQLTestBase::RecordKnownErrorStatement(KnownErrorMode mode) {
     //
     // Note that this only applies to the reference engine, which is tested
     // against the golden. Other engines are tested against the reference
-    // engine, and 'ignore_test_output' is alway set to true for other engines.
+    // engine, and 'ignore_test_output' is always set to true for other engines.
     // See the 'else' branch in StepExecuteStatementCheckResult().
     test_result_->set_ignore_test_output(true);
   }

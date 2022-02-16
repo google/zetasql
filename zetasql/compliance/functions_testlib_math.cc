@@ -2705,7 +2705,7 @@ std::vector<FunctionTestCall> GetFunctionTestsTrigonometric() {
       {"asin", {double_neg_inf}, double_nan},
       {"asin", {double_nan}, double_nan},
 
-      // cosh is defined as (exp(x)-exp(-x)) / 2
+      // sinh is defined as (exp(x)-exp(-x)) / 2
       {"sinh", {NullDouble()}, NullDouble()},
       {"sinh", {0.0}, 0.0},
       {"sinh", {1.0e-10}, 1.0e-10, kApproximate},
@@ -2818,11 +2818,35 @@ std::vector<FunctionTestCall> GetFunctionTestsTrigonometric() {
       {"atan2", {double_neg_inf, double_neg_inf}, -M_PI_2 - M_PI_4},
       {"atan2", {double_nan, 0.0}, double_nan},
       {"atan2", {0.0, double_nan}, double_nan},
-  };
-}
 
-std::vector<FunctionTestCall> GetFunctionTestsCot() {
-  return {
+      // CSC(x) = 1 / SIN(x)
+      // Exceptional cases
+      {"csc", {NullDouble()}, NullDouble()},
+      {"csc", {double_pos_inf}, double_nan},
+      {"csc", {double_neg_inf}, double_nan},
+      {"csc", {double_nan}, double_nan},
+
+      // Special values
+      {"csc", {0.0}, NullDouble(), OUT_OF_RANGE},
+      {"csc", {M_PI_2}, 1.0},
+      {"csc", {-M_PI_2}, -1.0},
+      // sin(x) is asymptotically close to x near x=0
+      // csc(x) is asymptotically close to 1/x near x=0
+      {"csc", {1.0e-10}, 1.0e+10, kApproximate},
+      {"csc", {-1.0e-10}, -1.0e+10, kApproximate},
+
+      // SEC(x) = 1 / COS(x)
+      // Exceptional cases
+      {"sec", {NullDouble()}, NullDouble()},
+      {"sec", {double_pos_inf}, double_nan},
+      {"sec", {double_neg_inf}, double_nan},
+      {"sec", {double_nan}, double_nan},
+
+      // Special values
+      {"sec", {0.0}, 1.0, kApproximate},
+      {"sec", {M_PI}, -1.0, kApproximate},
+      {"sec", {-M_PI}, -1.0, kApproximate},
+
       // cot(x) = 1 / tan(x)
       // Exceptional cases
       {"cot", {NullDouble()}, NullDouble()},
@@ -2841,40 +2865,66 @@ std::vector<FunctionTestCall> GetFunctionTestsCot() {
   };
 }
 
-std::vector<FunctionTestCall> GetFunctionTestsSec() {
+std::vector<FunctionTestCall> GetFunctionTestsCoth() {
   return {
-      // SEC(x) = 1 / COS(x)
-      // Exceptional cases
-      {"sec", {NullDouble()}, NullDouble()},
-      {"sec", {double_pos_inf}, double_nan},
-      {"sec", {double_neg_inf}, double_nan},
-      {"sec", {double_nan}, double_nan},
+      // tanh is defined as (exp(x)-exp(-x)) / (exp(x)+exp(-x))
+      // coth(x) = 1 / tanh(x)
+      {"coth", {NullDouble()}, NullDouble()},
+      {"coth", {double_pos_inf}, 1.0},
+      {"coth", {double_neg_inf}, -1.0},
+      {"coth", {double_nan}, double_nan},
+      {"coth", {0.0}, NullDouble(), OUT_OF_RANGE},
 
-      // Special values
-      {"sec", {0.0}, 1.0, kApproximate},
-      {"sec", {M_PI}, -1.0, kApproximate},
-      {"sec", {-M_PI}, -1.0, kApproximate},
+      {"coth", {1.0}, (M_E + 1 / M_E) / (M_E - 1 / M_E), kApproximate},
+      {"coth", {-1.0}, -(M_E + 1 / M_E) / (M_E - 1 / M_E), kApproximate},
+
+      // tanh(x) is asymptotically close to x near 0.
+      // so coth(x) is asymptotically close to 1/x near 0.
+      {"coth", {1.0e-10}, 1.0e10, kApproximate},
+      {"coth", {-1.0e-10}, -1.0e10, kApproximate},
   };
 }
 
-std::vector<FunctionTestCall> GetFunctionTestsCsc() {
+std::vector<FunctionTestCall> GetFunctionTestsCsch() {
   return {
-      // CSC(x) = 1 / SIN(x)
+      // sinh(x) = (exp(x)-exp(-x)) / 2
+      // csch(x) = 1 / sinh(x)
       // Exceptional cases
-      {"csc", {NullDouble()}, NullDouble()},
-      {"csc", {double_pos_inf}, double_nan},
-      {"csc", {double_neg_inf}, double_nan},
-      {"csc", {double_nan}, double_nan},
+      {"csch", {0.0}, NullDouble(), OUT_OF_RANGE},
+      {"csch", {double_pos_inf}, 0.0},
+      {"csch", {double_neg_inf}, 0.0},
+      {"csch", {double_nan}, double_nan},
+      {"csch", {NullDouble()}, NullDouble()},
 
-      // Special values
-      {"csc", {0.0}, NullDouble(), OUT_OF_RANGE},
-      {"csc", {M_PI_2}, 1.0},
-      {"csc", {-M_PI_2}, -1.0},
-      // sin(x) is asymptotically close to x near x=0
-      // csc(x) is asymptotically close to 1/x near x=0
-      {"csc", {1.0e-10}, 1.0e+10, kApproximate},
-      {"csc", {-1.0e-10}, -1.0e+10, kApproximate},
+      {"csch", {1.0e-10}, 1.0e10, kApproximate},
+      {"csch", {-1.0e-10}, -1.0e10, kApproximate},
+
+      {"csch", {1.0}, 2 / (M_E - 1 / M_E)},
+      {"csch", {-1.0}, 2 / (-M_E + 1 / M_E)},
+
+      {"csch", {710.0}, 0.0, kApproximate},
+      {"csch", {711.0}, 0.0, kApproximate},
+      {"csch", {-710.0}, 0.0, kApproximate},
+      {"csch", {-711.0}, 0.0, kApproximate},
   };
 }
 
+std::vector<FunctionTestCall> GetFunctionTestsSech() {
+  return {
+      // cosh(x) = (exp(x)+exp(-x)) / 2
+      // sech(x) = 1 / cosh(x)
+      // Exceptional cases
+      {"sech", {NullDouble()}, NullDouble()},
+      {"sech", {double_pos_inf}, 0.0},
+      {"sech", {double_neg_inf}, 0.0},
+      {"sech", {double_nan}, double_nan},
+
+      {"sech", {0.0}, 1.0},
+      {"sech", {1.0e-10}, 1.0},
+      {"sech", {1.0}, 2 / (M_E + 1 / M_E)},
+      {"sech", {-1.0}, 2 / (M_E + 1 / M_E)},
+      {"sech", {710.0}, 0.0, kApproximate},
+      {"sech", {711.0}, 0.0, kApproximate},
+  };
+}
 }  // namespace zetasql

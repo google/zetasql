@@ -601,7 +601,7 @@ select * from tvf_one_relation_arg_with_fixed_output(model OneDoubleModel)
 SELECT * FROM tvf_one_relation_one_model_arg_with_fixed_output(
     table keyvalue, (select key, value from keyvalue))
 --
-ERROR: Table-valued function tvf_one_relation_one_model_arg_with_fixed_output argument 1 must be a model specified with the MODEL keyword [at 2:21]
+ERROR: Table-valued function tvf_one_relation_one_model_arg_with_fixed_output argument 2 must be a model specified with the MODEL keyword [at 2:21]
     table keyvalue, (select key, value from keyvalue))
                     ^
 ==

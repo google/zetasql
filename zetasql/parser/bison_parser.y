@@ -4004,7 +4004,7 @@ query_set_operation_type:
       {
         $$ = zetasql::ASTSetOperation::UNION;
       }
-    | "EXCEPT in set operation"
+    | KW_EXCEPT_IN_SET_OP
       {
         $$ = zetasql::ASTSetOperation::EXCEPT;
       }

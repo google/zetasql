@@ -1,6 +1,7 @@
 
 
-# Anonymization aggregate functions
+# Anonymization aggregate functions 
+<a id="aggregate_anonymization_functions"></a>
 
 Anonymization aggregate functions can transform user data into anonymous
 information. This is done in such a way that it is not reasonably likely that

@@ -199,10 +199,9 @@ std::vector<QueryParamsWithResult> GetFunctionTestsToProto3TimeOfDay();
 std::vector<FunctionTestCall> GetFunctionTestsMath();
 std::vector<FunctionTestCall> GetFunctionTestsRounding();
 std::vector<FunctionTestCall> GetFunctionTestsTrigonometric();
-std::vector<FunctionTestCall> GetFunctionTestsCsc();
-std::vector<FunctionTestCall> GetFunctionTestsSec();
-std::vector<FunctionTestCall> GetFunctionTestsCot();
-
+std::vector<FunctionTestCall> GetFunctionTestsCsch();
+std::vector<FunctionTestCall> GetFunctionTestsSech();
+std::vector<FunctionTestCall> GetFunctionTestsCoth();
 std::vector<FunctionTestCall> GetFunctionTestsAscii();
 std::vector<FunctionTestCall> GetFunctionTestsUnicode();
 std::vector<FunctionTestCall> GetFunctionTestsChr();
