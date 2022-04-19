@@ -524,6 +524,7 @@ class BytesTranslator {
  private:
   std::bitset<256> skipped_bytes_;
   char mapping_[256];
+  bool initialized_ = false;
 };
 
 // TRANSLATE(STRING, STRING, STRING) -> STRING

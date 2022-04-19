@@ -16,12 +16,16 @@
 
 #include "zetasql/resolved_ast/rewrite_utils.h"
 
+#include <memory>
 #include <string>
 #include <utility>
 
+#include "zetasql/base/logging.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/builtin_function.pb.h"
+#include "zetasql/public/function.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
 
@@ -45,8 +49,11 @@ class CorrelateColumnRefVisitor : public ResolvedASTDeepCopyVisitor {
 
   std::unique_ptr<ResolvedColumnRef> CorrelateColumnRef(
       const ResolvedColumnRef& ref) {
-    return MakeResolvedColumnRef(ref.type(), ref.column(),
-                                 ShouldBeCorrelated(ref));
+    std::unique_ptr<ResolvedColumnRef> resolved_column_ref =
+        MakeResolvedColumnRef(ref.type(), ref.column(),
+                              ShouldBeCorrelated(ref));
+    resolved_column_ref->set_type_annotation_map(ref.type_annotation_map());
+    return resolved_column_ref;
   }
 
   template <class T>
@@ -136,8 +143,11 @@ class ColumnRefCollector : public ResolvedASTVisitor {
  private:
   absl::Status VisitResolvedColumnRef(const ResolvedColumnRef* node) override {
     if (!local_columns_.contains(node->column())) {
-      column_refs_->push_back(MakeResolvedColumnRef(
-          node->type(), node->column(), correlate_ || node->is_correlated()));
+      std::unique_ptr<ResolvedColumnRef> resolved_column_ref =
+          MakeResolvedColumnRef(node->type(), node->column(),
+                                correlate_ || node->is_correlated());
+      resolved_column_ref->set_type_annotation_map(node->type_annotation_map());
+      column_refs_->push_back(std::move(resolved_column_ref));
     }
     return absl::OkStatus();
   }
@@ -277,6 +287,7 @@ absl::StatusOr<std::unique_ptr<ResolvedFunctionCall>> FunctionCallBuilder::If(
   ZETASQL_RET_CHECK_OK(
       catalog_.FindFunction({"if"}, &if_fn, analyzer_options_.find_options()));
   ZETASQL_RET_CHECK_NE(if_fn, nullptr);
+  ZETASQL_RET_CHECK(if_fn->IsZetaSQLBuiltin());
   FunctionArgumentType condition_arg(condition->type(), 1);
   FunctionArgumentType arg(then_case->type(), 1);
   FunctionSignature if_signature(arg, {condition_arg, arg, arg}, FN_IF);
@@ -298,6 +309,7 @@ FunctionCallBuilder::IsNull(std::unique_ptr<const ResolvedExpr> arg) {
   ZETASQL_RET_CHECK_OK(catalog_.FindFunction({"$is_null"}, &is_null_fn,
                                      analyzer_options_.find_options()));
   ZETASQL_RET_CHECK_NE(is_null_fn, nullptr);
+  ZETASQL_RET_CHECK(is_null_fn->IsZetaSQLBuiltin());
   FunctionSignature is_null_signature(
       FunctionArgumentType(types::BoolType(), 1),
       {FunctionArgumentType(arg->type(), 1)}, FN_IS_NULL);
@@ -308,4 +320,41 @@ FunctionCallBuilder::IsNull(std::unique_ptr<const ResolvedExpr> arg) {
                                   ResolvedFunctionCall::DEFAULT_ERROR_MODE);
 }
 
+absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
+FunctionCallBuilder::IfError(std::unique_ptr<const ResolvedExpr> try_expr,
+                             std::unique_ptr<const ResolvedExpr> handle_expr) {
+  ZETASQL_RET_CHECK_NE(try_expr.get(), nullptr);
+  ZETASQL_RET_CHECK_NE(handle_expr.get(), nullptr);
+  ZETASQL_RET_CHECK(try_expr->type()->Equals(handle_expr->type()))
+      << "Expected try_expr->type().Equals(handle_expr->type()) to be true, "
+      << "but it was false. try_expr->type(): "
+      << try_expr->type()->DebugString()
+      << ", handle_expr->type(): " << handle_expr->type()->DebugString();
+
+  const Function* iferror_fn;
+  ZETASQL_RET_CHECK_OK(catalog_.FindFunction({"iferror"}, &iferror_fn,
+                                     analyzer_options_.find_options()));
+  ZETASQL_RET_CHECK_NE(iferror_fn, nullptr);
+  ZETASQL_RET_CHECK(iferror_fn->IsZetaSQLBuiltin());
+
+  FunctionArgumentType arg_type(try_expr->type(), 1);
+
+  return ResolvedFunctionCallBuilder()
+      .set_type(arg_type.type())
+      .set_function(iferror_fn)
+      .set_signature({arg_type, {arg_type, arg_type}, FN_IFERROR})
+      .add_argument_list(std::move(try_expr))
+      .add_argument_list(std::move(handle_expr))
+      .set_function_call_info(std::make_shared<ResolvedFunctionCallInfo>())
+      .Build();
+}
+
+bool IsBuiltInFunctionIdEq(const ResolvedFunctionCall* const function_call,
+                           FunctionSignatureId function_signature_id) {
+  ZETASQL_DCHECK(function_call->function() != nullptr)
+      << "Expected function_call->function() to not be null";
+  return function_call->function() != nullptr &&
+         function_call->signature().context_id() == function_signature_id &&
+         function_call->function()->IsZetaSQLBuiltin();
+}
 }  // namespace zetasql

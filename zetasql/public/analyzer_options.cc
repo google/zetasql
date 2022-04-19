@@ -298,6 +298,11 @@ absl::Status AnalyzerOptions::Deserialize(
                           << proto.default_timezone();
   }
 
+  if (proto.has_default_anon_function_report_format()) {
+    result->set_default_anon_function_report_format(
+        proto.default_anon_function_report_format());
+  }
+
   std::vector<const Type*> expected_types;
   for (const TypeProto& type_proto : proto.target_column_types()) {
     const Type* type;
@@ -386,6 +391,8 @@ absl::Status AnalyzerOptions::Serialize(FileDescriptorSetMap* map,
   }
 
   proto->set_default_timezone(default_timezone_.name());
+  proto->set_default_anon_function_report_format(
+      default_anon_function_report_format_);
   proto->set_statement_context(statement_context_);
   proto->set_error_message_mode(error_message_mode_);
   proto->set_create_new_column_for_each_projected_output(
@@ -604,7 +611,7 @@ const AnalyzerOptions& GetOptionsWithArenas(
   if (options->AllArenasAreInitialized()) {
     return *options;
   }
-  *copy = absl::make_unique<AnalyzerOptions>(*options);
+  *copy = std::make_unique<AnalyzerOptions>(*options);
   (*copy)->CreateDefaultArenasIfNotSet();
   return **copy;
 }

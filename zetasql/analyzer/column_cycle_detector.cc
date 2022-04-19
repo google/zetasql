@@ -94,9 +94,9 @@ absl::Status ColumnCycleDetector::AddDependencyOn(const IdString& column) {
   return absl::OkStatus();
 }
 
-absl::optional<IdString> ColumnCycleDetector::current_column() const {
+std::optional<IdString> ColumnCycleDetector::current_column() const {
   if (visiting_stack_.empty()) {
-    return absl::optional<IdString>();
+    return std::optional<IdString>();
   } else {
     return visiting_stack_.back();
   }

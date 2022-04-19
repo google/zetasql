@@ -56,9 +56,9 @@ void FilterParameters(
     absl::variant<ParameterValueList, ParameterValueMap> parameters,
     const ParsedScript* parsed_script, const ParseLocationRange& range,
     absl::variant<ParameterValueList, ParameterValueMap>* filtered_parameters) {
-  if (absl::holds_alternative<ParameterValueList>(parameters)) {
+  if (std::holds_alternative<ParameterValueList>(parameters)) {
     const ParameterValueList& current_params =
-        absl::get<ParameterValueList>(parameters);
+        std::get<ParameterValueList>(parameters);
     std::pair<int64_t, int64_t> pos_params =
         parsed_script->GetPositionalParameters(range);
     int64_t start = pos_params.first;
@@ -70,7 +70,7 @@ void FilterParameters(
     *filtered_parameters = filtered;
   } else {
     const ParameterValueMap& current_params =
-        absl::get<ParameterValueMap>(parameters);
+        std::get<ParameterValueMap>(parameters);
     ParsedScript::StringSet named_params =
         parsed_script->GetNamedParameters(range);
     ParameterValueMap filtered;
@@ -424,15 +424,15 @@ absl::Status StatementEvaluatorImpl::ExpressionEvaluation::EvaluateImpl(
       &analyzer_output_));
   PreparedExpression prepared_expr(resolved_expr(), evaluator_options);
   ZETASQL_RETURN_IF_ERROR(prepared_expr.Prepare(analyzer_options, nullptr));
-  if (absl::holds_alternative<ParameterValueList>(parameters)) {
+  if (std::holds_alternative<ParameterValueList>(parameters)) {
     ZETASQL_ASSIGN_OR_RETURN(
         result_, prepared_expr.ExecuteWithPositionalParams(
-                     /*columns=*/{}, absl::get<ParameterValueList>(parameters),
+                     /*columns=*/{}, std::get<ParameterValueList>(parameters),
                      system_variables));
   } else {
     ZETASQL_ASSIGN_OR_RETURN(
         result_, prepared_expr.Execute(
-                     /*columns=*/{}, absl::get<ParameterValueMap>(parameters),
+                     /*columns=*/{}, std::get<ParameterValueMap>(parameters),
                      system_variables));
   }
   return absl::OkStatus();
@@ -454,14 +454,14 @@ absl::Status StatementEvaluatorImpl::StatementEvaluation::EvaluateImpl(
         std::make_unique<PreparedQuery>(query_stmt, evaluator_options);
     ZETASQL_RETURN_IF_ERROR(prepared_query_->Prepare(analyzer_options, nullptr));
     std::unique_ptr<EvaluatorTableIterator> result_iterator;
-    if (absl::holds_alternative<ParameterValueMap>(parameters)) {
-      const auto& named_params = absl::get<ParameterValueMap>(parameters);
+    if (std::holds_alternative<ParameterValueMap>(parameters)) {
+      const auto& named_params = std::get<ParameterValueMap>(parameters);
       ZETASQL_ASSIGN_OR_RETURN(result_iterator, prepared_query_->Execute(
                                             named_params, system_variables));
       ZETASQL_ASSIGN_OR_RETURN(table_iterator_, prepared_query_->Execute(
                                             named_params, system_variables));
     } else {
-      const auto& positional_params = absl::get<ParameterValueList>(parameters);
+      const auto& positional_params = std::get<ParameterValueList>(parameters);
       ZETASQL_ASSIGN_OR_RETURN(result_iterator,
                        prepared_query_->ExecuteWithPositionalParams(
                            positional_params, system_variables));
@@ -477,12 +477,12 @@ absl::Status StatementEvaluatorImpl::StatementEvaluation::EvaluateImpl(
     PreparedModify prepared_modify(resolved_statement(), evaluator_options);
     ZETASQL_RETURN_IF_ERROR(prepared_modify.Prepare(analyzer_options, nullptr));
     std::unique_ptr<EvaluatorTableModifyIterator> result_iterator;
-    if (absl::holds_alternative<ParameterValueMap>(parameters)) {
-      const auto& named_params = absl::get<ParameterValueMap>(parameters);
+    if (std::holds_alternative<ParameterValueMap>(parameters)) {
+      const auto& named_params = std::get<ParameterValueMap>(parameters);
       ZETASQL_ASSIGN_OR_RETURN(result_iterator,
                        prepared_modify.Execute(named_params, system_variables));
     } else {
-      const auto& positional_params = absl::get<ParameterValueList>(parameters);
+      const auto& positional_params = std::get<ParameterValueList>(parameters);
       ZETASQL_ASSIGN_OR_RETURN(result_iterator,
                        prepared_modify.ExecuteWithPositionalParams(
                            positional_params, system_variables));
@@ -774,11 +774,12 @@ absl::StatusOr<TypeWithParameters> StatementEvaluatorImpl::ResolveTypeName(
   analyzer_options.CreateDefaultArenasIfNotSet();
 
   const Type* type;
-  TypeParameters type_params;
+  TypeModifiers type_modifiers;
   absl::Status status = WrapIfHandleable(
       AnalyzeType(std::string(segment.GetSegmentText()), analyzer_options,
-                  catalog_, type_factory_, &type, &type_params));
-  TypeWithParameters type_with_params = {type, type_params};
+                  catalog_, type_factory_, &type, &type_modifiers));
+  TypeWithParameters type_with_params = {type,
+                                         type_modifiers.type_parameters()};
   absl::StatusOr<const Type*> status_or_result =
       MakeStatusOrType(segment, status, type_with_params.type);
   if (callback_ != nullptr) {

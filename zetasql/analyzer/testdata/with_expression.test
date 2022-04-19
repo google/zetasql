@@ -1,0 +1,57 @@
+[default language_features=EXPERIMENTAL_WITH_EXPRESSION]
+select WITH(a AS 2, b AS 3 * 4, a + b)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-LetExpr
+    |     +-type=INT64
+    |     +-assignment_list=
+    |     | +-a#1 := Literal(type=INT64, value=2)
+    |     | +-b#2 :=
+    |     |   +-FunctionCall(ZetaSQL:$multiply(INT64, INT64) -> INT64)
+    |     |     +-Literal(type=INT64, value=3)
+    |     |     +-Literal(type=INT64, value=4)
+    |     +-expr=
+    |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |         +-ColumnRef(type=INT64, column=$with_expr.a#1)
+    |         +-ColumnRef(type=INT64, column=$with_expr.b#2)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Names introduced in WITH should take precedence over names from the
+# environment.
+select WITH(value AS 2, key + value) from KeyValue
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#4 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#4]
+    +-expr_list=
+    | +-$col1#4 :=
+    |   +-LetExpr
+    |     +-type=INT64
+    |     +-assignment_list=
+    |     | +-value#3 := Literal(type=INT64, value=2)
+    |     +-expr=
+    |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    |         +-ColumnRef(type=INT64, column=$with_expr.value#3)
+    +-input_scan=
+      +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+==
+
+[language_features=]
+select WITH(a AS 2, b AS 3 * 4, a + b)
+--
+ERROR: WITH expressions are not enabled. [at 1:8]
+select WITH(a AS 2, b AS 3 * 4, a + b)
+       ^

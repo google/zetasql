@@ -58,16 +58,15 @@
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
-using testing::_;
-using testing::ElementsAre;
-using testing::HasSubstr;
-using testing::TestWithParam;
-using testing::ValuesIn;
+using ::testing::_;
+using ::testing::ElementsAre;
+using ::testing::HasSubstr;
+using ::testing::TestWithParam;
+using ::testing::ValuesIn;
+using ::zetasql_base::testing::StatusIs;
 
 namespace zetasql {
 namespace {
-
-using zetasql_base::testing::StatusIs;
 
 static const auto DEFAULT_ERROR_MODE =
     ResolvedFunctionCallBase::DEFAULT_ERROR_MODE;
@@ -2724,7 +2723,7 @@ TEST_P(AnalyticWindowTest, AnalyticWindowTest) {
         auto deref,
         DerefExpr::Create(var, type_factory.MakeSimpleType(
                                    window_frame_param.offset_value_type)));
-    order_key = absl::make_unique<KeyArg>(
+    order_key = std::make_unique<KeyArg>(
         var, std::move(deref),
         (test_case.order_asc ? KeyArg::kAscending : KeyArg::kDescending));
     ZETASQL_ASSERT_OK(window_frame->GetWindows(
@@ -2922,13 +2921,13 @@ TEST_P(AnalyticWindowInfinityOffsetTest, AnalyticWindowTest) {
       auto deref_var,
       DerefExpr::Create(var, type_factory.MakeSimpleType(type_kind)));
   auto asc_key =
-      absl::make_unique<KeyArg>(var, std::move(deref_var), KeyArg::kAscending);
+      std::make_unique<KeyArg>(var, std::move(deref_var), KeyArg::kAscending);
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto deref_var_again,
       DerefExpr::Create(var, type_factory.MakeSimpleType(type_kind)));
 
-  auto desc_key = absl::make_unique<KeyArg>(var, std::move(deref_var_again),
-                                            KeyArg::kDescending);
+  auto desc_key = std::make_unique<KeyArg>(var, std::move(deref_var_again),
+                                           KeyArg::kDescending);
 
   const TupleSchema params_schema({offset_var});
   const TupleData params_data =
@@ -3080,13 +3079,13 @@ TEST_P(AnalyticWindowInfinityOffsetTest, PosInfMinusPosInfError) {
       auto deref_var,
       DerefExpr::Create(var, type_factory.MakeSimpleType(type_kind)));
   auto asc_key =
-      absl::make_unique<KeyArg>(var, std::move(deref_var), KeyArg::kAscending);
+      std::make_unique<KeyArg>(var, std::move(deref_var), KeyArg::kAscending);
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto deref_var_again,
       DerefExpr::Create(var, type_factory.MakeSimpleType(type_kind)));
 
-  auto desc_key = absl::make_unique<KeyArg>(var, std::move(deref_var_again),
-                                            KeyArg::kDescending);
+  auto desc_key = std::make_unique<KeyArg>(var, std::move(deref_var_again),
+                                           KeyArg::kDescending);
 
   const TupleSchema params_schema({offset_var});
   const TupleData params_data =
@@ -3252,7 +3251,7 @@ TEST_P(AnalyticOpTest, AnalyticOpTest) {
                             {Int64(1), Int64(2), Int64(1)},
                             {Int64(1), Int64(2), Int64(2)},
                             {Int64(1), Int64(3), Int64(1)}});
-  auto input_op = absl::make_unique<TestRelationalOp>(
+  auto input_op = std::make_unique<TestRelationalOp>(
       input_variables, input_tuples, /*preserves_order=*/true);
   TypeFactory type_factory;
 
@@ -3264,7 +3263,7 @@ TEST_P(AnalyticOpTest, AnalyticOpTest) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto agg1,
       AggregateArg::Create(count_dist,
-                           absl::make_unique<BuiltinAggregateFunction>(
+                           std::make_unique<BuiltinAggregateFunction>(
                                FunctionKind::kCount, Int64Type(),
                                /*num_input_fields=*/1, Int64Type()),
                            std::move(args1), AggregateArg::kDistinct));
@@ -3287,7 +3286,7 @@ TEST_P(AnalyticOpTest, AnalyticOpTest) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto agg2,
       AggregateArg::Create(sum,
-                           absl::make_unique<BuiltinAggregateFunction>(
+                           std::make_unique<BuiltinAggregateFunction>(
                                FunctionKind::kSum, Int64Type(),
                                /*num_input_fields=*/1, Int64Type()),
                            std::move(args2)));
@@ -3306,7 +3305,7 @@ TEST_P(AnalyticOpTest, AnalyticOpTest) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto analytic3,
       NonAggregateAnalyticArg::Create(
-          rank, nullptr /* window_frame */, absl::make_unique<RankFunction>(),
+          rank, nullptr /* window_frame */, std::make_unique<RankFunction>(),
           {} /* non_const_arguments */, {} /* const_arguments */,
           DEFAULT_ERROR_MODE));
 
@@ -3327,7 +3326,7 @@ TEST_P(AnalyticOpTest, AnalyticOpTest) {
       auto analytic4,
       NonAggregateAnalyticArg::Create(
           lead, nullptr /* window_frame */,
-          absl::make_unique<LeadFunction>(Int64Type()), std::move(args4),
+          std::make_unique<LeadFunction>(Int64Type()), std::move(args4),
           std::move(args4_2), DEFAULT_ERROR_MODE));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_c5, DerefExpr::Create(c, Int64Type()));
@@ -3349,7 +3348,7 @@ TEST_P(AnalyticOpTest, AnalyticOpTest) {
           AnalyticWindowTest::CreateWindowFrameFromParam(
               AnalyticWindowTest::CreateOffsetFollowingOffsetFollowing(
                   WindowFrameArg::kRange, 1, 2, TYPE_INT64)),
-          absl::make_unique<NthValueFunction>(
+          std::make_unique<NthValueFunction>(
               Int64Type(), ResolvedAnalyticFunctionCall::DEFAULT_NULL_HANDLING),
           std::move(args5), std::move(args5_2), DEFAULT_ERROR_MODE));
 
@@ -3358,11 +3357,11 @@ TEST_P(AnalyticOpTest, AnalyticOpTest) {
 
   std::vector<std::unique_ptr<KeyArg>> partition_keys;
   partition_keys.emplace_back(
-      absl::make_unique<KeyArg>(a, std::move(deref_a), KeyArg::kNotApplicable));
+      std::make_unique<KeyArg>(a, std::move(deref_a), KeyArg::kNotApplicable));
 
   std::vector<std::unique_ptr<KeyArg>> order_keys;
   order_keys.emplace_back(
-      absl::make_unique<KeyArg>(b, std::move(deref_b), KeyArg::kAscending));
+      std::make_unique<KeyArg>(b, std::move(deref_b), KeyArg::kAscending));
 
   std::vector<std::unique_ptr<AnalyticArg>> analytic_args;
   analytic_args.push_back(std::move(analytic1));

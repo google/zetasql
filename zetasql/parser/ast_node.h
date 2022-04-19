@@ -90,7 +90,7 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
   // This must be called after adding all children, to initialize the fields
   // based on the added children. This should be overridden in each subclass to
   // initialize the fields by using FieldLoader.
-  virtual void InitFields() = 0;
+  virtual absl::Status InitFields() = 0;
 
   // Access to child nodes with generic types.
   int num_children() const {
@@ -318,18 +318,14 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
     FieldLoader(const FieldLoader&) = delete;
     FieldLoader& operator=(const FieldLoader&) = delete;
 
-    ~FieldLoader() {
-      ZETASQL_CHECK_EQ(index_, end_)
-          << "Did not consume last " << (end_ - index_) << " children. "
-          << "Next child is a "
-          << node_->child(index_)->GetNodeKindString();
-    }
+    ~FieldLoader() { ZETASQL_DCHECK(was_finalized_); }
 
     // Gets the next child element into *v. Crashes if not available.
     template <typename T>
-    void AddRequired(const T** v) {
-      ZETASQL_CHECK_LT(index_, end_);
+    absl::Status AddRequired(const T** v) {
+      ZETASQL_RET_CHECK_LT(index_, end_);
       *v = static_cast<const T*>(node_->child(index_++));
+      return absl::OkStatus();
     }
 
     // Gets the next child element into *v, if it's node_kind is
@@ -406,10 +402,32 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
       }  // else, it remains an empty Span.
     }
 
+    absl::Status Finalize() {
+      was_finalized_ = true;
+      if (index_ != end_) {
+        std::string child_str;
+        if (index_ > 0) {
+          child_str = "\nChildren are:";
+          for (int i = 0; i < end_; ++i) {
+            absl::StrAppend(&child_str, i, ":\n",
+                            node_->child(i)->DebugString(), "\n");
+          }
+        }
+        ZETASQL_RET_CHECK_EQ(index_, end_)
+            << "While constructing a " << node_->GetNodeKindString()
+            << " AstNode, FieldLoader "
+            << "Did not consume last " << (end_ - index_) << " children. "
+            << "Next child is a " << node_->child(index_)->GetNodeKindString()
+            << child_str;
+      }
+      return absl::OkStatus();
+    }
+
    private:
     ASTNode* const node_;
     int index_;
     int end_;
+    bool was_finalized_ = false;
   };
 
  private:
@@ -419,7 +437,7 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
   class Dumper {
    public:
     Dumper(const ASTNode* node, absl::string_view separator, int max_depth,
-           absl::optional<absl::string_view> sql, std::string* out)
+           std::optional<absl::string_view> sql, std::string* out)
         : node_(node),
           separator_(separator),
           max_depth_(max_depth),
@@ -436,7 +454,7 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
     const absl::string_view separator_;
     const int max_depth_;
     int current_depth_;
-    absl::optional<absl::string_view> sql_;
+    std::optional<absl::string_view> sql_;
     std::string* out_;
   };
 

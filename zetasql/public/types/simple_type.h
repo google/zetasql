@@ -37,6 +37,7 @@ namespace zetasql {
 
 class Value;
 class TypeFactory;
+class TypeModifiers;
 class TypeParameterValue;
 class TypeParameters;
 class ValueContent;
@@ -54,10 +55,10 @@ class SimpleType : public Type {
 
   std::string TypeName(ProductMode mode) const override;
 
-  // Same as above, but the type parameter values are appended within
-  // parenthesis to the SQL name for this SimpleType.
-  absl::StatusOr<std::string> TypeNameWithParameters(
-      const TypeParameters& type_params, ProductMode mode) const override;
+  // Same as above, but the type modifier values are appended to the SQL name
+  // for this SimpleType.
+  absl::StatusOr<std::string> TypeNameWithModifiers(
+      const TypeModifiers& type_modifiers, ProductMode mode) const override;
 
   bool IsSupportedType(const LanguageOptions& language_options) const override;
 

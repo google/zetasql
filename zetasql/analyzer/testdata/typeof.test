@@ -196,6 +196,20 @@ QueryStmt
 
 SELECT TYPEOF(1)@{in64_hint=1};
 --
-ERROR: The TYPEOF() operator does not allow hints. [at 1:17]
-SELECT TYPEOF(1)@{in64_hint=1};
-                ^
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:typeof(INT64) -> STRING)
+    |     +-Literal(type=INT64, value=1)
+    |     +-hint_list=
+    |       +-in64_hint := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+
+Rewrite ERROR: generic::unimplemented: The TYPEOF() operator does not support hints.

@@ -1627,6 +1627,15 @@ void Unparser::visitASTClampedBetweenModifier(
   UnparseChildrenWithSeparator(node, data, 0, node->num_children(), "AND");
 }
 
+void Unparser::visitASTWithReportModifier(const ASTWithReportModifier* node,
+                                          void* data) {
+  println();
+  print("WITH REPORT");
+  if (node->options_list() != nullptr) {
+    node->options_list()->Accept(this, data);
+  }
+}
+
 void Unparser::UnparseASTTableDataSource(const ASTTableDataSource* node,
                                          void* data) {
   node->path_expr()->Accept(this, data);
@@ -2162,6 +2171,9 @@ void Unparser::visitASTFunctionCall(const ASTFunctionCall* node, void* data) {
     if (node->clamped_between_modifier() != nullptr) {
       node->clamped_between_modifier()->Accept(this, data);
     }
+    if (node->with_report_modifier() != nullptr) {
+      node->with_report_modifier()->Accept(this, data);
+    }
     if (node->order_by() != nullptr) {
       node->order_by()->Accept(this, data);
     }
@@ -2535,6 +2547,9 @@ void Unparser::visitASTDeleteStatement(const ASTDeleteStatement* node,
   print("DELETE");
   // GetTargetPathForNested() is strictly more general than "ForNonNested()".
   node->GetTargetPathForNested()->Accept(this, data);
+  if (node->hint() != nullptr) {
+    node->hint()->Accept(this, data);
+  }
   if (node->alias() != nullptr) {
     node->alias()->Accept(this, data);
   }
@@ -2598,6 +2613,10 @@ void Unparser::visitASTInsertStatement(const ASTInsertStatement* node,
   // GetTargetPathForNested() is strictly more general than "ForNonNested()".
   node->GetTargetPathForNested()->Accept(this, data);
 
+  if (node->hint() != nullptr) {
+    node->hint()->Accept(this, data);
+  }
+
   if (node->column_list() != nullptr) {
     node->column_list()->Accept(this, data);
   }
@@ -2654,6 +2673,9 @@ void Unparser::visitASTUpdateStatement(const ASTUpdateStatement* node,
   print("UPDATE");
   // GetTargetPathForNested() is strictly more general than "ForNonNested()".
   node->GetTargetPathForNested()->Accept(this, data);
+  if (node->hint() != nullptr) {
+    node->hint()->Accept(this, data);
+  }
   if (node->alias() != nullptr) {
     node->alias()->Accept(this, data);
   }
@@ -3020,6 +3042,12 @@ void Unparser::VisitAlterStatementBase(const ASTAlterStatementBase* node,
 void Unparser::visitASTAlterMaterializedViewStatement(
     const ASTAlterMaterializedViewStatement* node, void* data) {
   print("ALTER MATERIALIZED VIEW");
+  VisitAlterStatementBase(node, data);
+}
+
+void Unparser::visitASTAlterModelStatement(const ASTAlterModelStatement* node,
+                                           void* data) {
+  print("ALTER MODEL");
   VisitAlterStatementBase(node, data);
 }
 
@@ -3759,6 +3787,56 @@ void Unparser::visitASTRaiseStatement(const ASTRaiseStatement* node,
     print("USING MESSAGE =");
     node->message()->Accept(this, data);
   }
+}
+
+void Unparser::visitASTAlterSubEntityAction(const ASTAlterSubEntityAction* node,
+                                            void* data) {
+  print("ALTER ");
+  node->type()->Accept(this, data);
+  if (node->is_if_exists()) {
+    print("IF EXISTS");
+  }
+  node->name()->Accept(this, data);
+  node->action()->Accept(this, data);
+}
+
+void Unparser::visitASTAddSubEntityAction(const ASTAddSubEntityAction* node,
+                                          void* data) {
+  print("ADD ");
+  node->type()->Accept(this, data);
+  if (node->is_if_not_exists()) {
+    print("IF NOT EXISTS");
+  }
+  node->name()->Accept(this, data);
+  if (node->options_list() != nullptr) {
+    print("OPTIONS");
+    node->options_list()->Accept(this, data);
+  }
+}
+
+void Unparser::visitASTDropSubEntityAction(const ASTDropSubEntityAction* node,
+                                           void* data) {
+  print("DROP ");
+  node->type()->Accept(this, data);
+  if (node->is_if_exists()) {
+    print("IF EXISTS");
+  }
+  node->name()->Accept(this, data);
+}
+
+void Unparser::visitASTWithExpression(const ASTWithExpression* node,
+                                      void* data) {
+  print("WITH(");
+  for (const auto& var : node->variables()->columns()) {
+    // We accept the identifier here rather than alias to prevent "AS" from
+    // being incorrectly printed before the alias.
+    var->alias()->identifier()->Accept(this, data);
+    print("AS");
+    var->expression()->Accept(this, data);
+    print(", ");
+  }
+  node->expression()->Accept(this, data);
+  print(")");
 }
 
 }  // namespace parser

@@ -673,7 +673,7 @@ static int64_t NumberOfDaysInISOYear(int64_t iso_year) {
 // Handles ISO year (+ optional day of year).
 static absl::Status ComputeDateFromISOYearAndDayOfYear(
     const ParseElementInfo& iso_year_element,
-    const absl::optional<ParseElementInfo>& dayofyear_element,
+    const std::optional<ParseElementInfo>& dayofyear_element,
     absl::CivilDay* civil_day) {
   int iso_year = -1;
   ZETASQL_RETURN_IF_ERROR(ParseISOYear(iso_year_element, &iso_year));
@@ -710,7 +710,7 @@ static absl::Status ComputeDateFromISOYearAndDayOfYear(
 static absl::Status ComputeDateFromISOYearWeekAndWeekday(
     const ParseElementInfo& iso_year_element,
     const ParseElementInfo& week_element,
-    const absl::optional<ParseElementInfo>& weekday_element,
+    const std::optional<ParseElementInfo>& weekday_element,
     absl::CivilDay* civil_day) {
   int iso_year = -1;
   ZETASQL_RETURN_IF_ERROR(ParseISOYear(iso_year_element, &iso_year));
@@ -741,7 +741,7 @@ static absl::Status ComputeDateFromISOYearWeekAndWeekday(
 // unspecified then returns the first day of the year. Returns an error if the
 // day number is not valid for the given year.
 static absl::Status ComputeDateFromYearAndDayOfYear(
-    int64_t year, const absl::optional<ParseElementInfo>& dayofyear_element,
+    int64_t year, const std::optional<ParseElementInfo>& dayofyear_element,
     absl::CivilDay* civil_day) {
   *civil_day = absl::CivilDay(year, 1, 1);
 
@@ -768,7 +768,7 @@ static absl::Status ComputeDateFromYearAndDayOfYear(
 // week.
 static absl::Status ComputeDateFromYearWeekAndWeekday(
     int64_t year, const ParseElementInfo& week_element,
-    const absl::optional<ParseElementInfo> weekday_element,
+    const std::optional<ParseElementInfo> weekday_element,
     absl::CivilDay* civil_day) {
   int week = -1;
   absl::Weekday week_start_day = absl::Weekday::sunday;
@@ -803,10 +803,10 @@ static absl::Status ComputeDateFromYearWeekAndWeekday(
 
 static absl::Status ComputeYearMonthDayFromISOParts(
     int64_t* year, int* month, int* mday, DateParseContext* date_parse_context) {
-  absl::optional<ParseElementInfo> iso_year_info;
-  absl::optional<ParseElementInfo> iso_week_info;
-  absl::optional<ParseElementInfo> weekday_info;
-  absl::optional<ParseElementInfo> iso_dayofyear_info;
+  std::optional<ParseElementInfo> iso_year_info;
+  std::optional<ParseElementInfo> iso_week_info;
+  std::optional<ParseElementInfo> weekday_info;
+  std::optional<ParseElementInfo> iso_dayofyear_info;
 
   for (const auto& element : date_parse_context->elements) {
     switch (element.fmt) {
@@ -872,9 +872,9 @@ static absl::Status ComputeYearMonthDayFromISOParts(
 static absl::Status ComputeYearMonthDayFromNonISOParts(
     int64_t* year, int* month, int* mday, DateParseContext* date_parse_context) {
   // Compute the non-ISO year/month/day from the canonicalized DateParseContext.
-  absl::optional<ParseElementInfo> week_info;
-  absl::optional<ParseElementInfo> weekday_info;
-  absl::optional<ParseElementInfo> dayofyear_info;
+  std::optional<ParseElementInfo> week_info;
+  std::optional<ParseElementInfo> weekday_info;
+  std::optional<ParseElementInfo> dayofyear_info;
 
   for (const auto& element : date_parse_context->elements) {
     switch (element.fmt) {
@@ -1870,13 +1870,6 @@ absl::Status ParseStringToDate(absl::string_view format_string,
   return ParseDate(format_string, date_string, parse_version2, date);
 }
 
-// deprecated
-absl::Status ParseStringToDate(absl::string_view format_string,
-                               absl::string_view date_string, int32_t* date,
-                               bool parse_version2) {
-  return ParseStringToDate(format_string, date_string, parse_version2, date);
-}
-
 absl::Status ParseStringToTime(absl::string_view format_string,
                                absl::string_view time_string,
                                TimestampScale scale,
@@ -1901,16 +1894,6 @@ absl::Status ParseStringToDatetime(absl::string_view format_string,
   ZETASQL_RETURN_IF_ERROR(ParseTime(format_string, datetime_string, absl::UTCTimeZone(),
                             scale, parse_version2, &base_time));
   return ConvertTimestampToDatetime(base_time, absl::UTCTimeZone(), datetime);
-}
-
-// deprecated
-absl::Status ParseStringToDatetime(absl::string_view format_string,
-                                   absl::string_view datetime_string,
-                                   TimestampScale scale,
-                                   DatetimeValue* datetime,
-                                   bool parse_version2) {
-  return ParseStringToDatetime(format_string, datetime_string, scale,
-                               parse_version2, datetime);
 }
 
 }  // namespace functions

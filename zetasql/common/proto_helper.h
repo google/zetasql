@@ -80,7 +80,7 @@ class SimpleErrorCollector
 // out-of-memory condition (this is also checked via ThreadHasEnoughStack()).
 absl::Status PopulateFileDescriptorSet(
     const google::protobuf::FileDescriptor* file_descr,
-    absl::optional<int64_t> file_descriptor_set_max_size_bytes,
+    std::optional<int64_t> file_descriptor_set_max_size_bytes,
     google::protobuf::FileDescriptorSet* file_descriptor_set,
     std::set<const google::protobuf::FileDescriptor*>* file_descriptors);
 

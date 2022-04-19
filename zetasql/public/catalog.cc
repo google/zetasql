@@ -16,6 +16,9 @@
 
 #include "zetasql/public/catalog.h"
 
+#include <string>
+#include <utility>
+
 #include "google/protobuf/io/tokenizer.h"
 #include "zetasql/public/strings.h"
 #include "absl/status/statusor.h"

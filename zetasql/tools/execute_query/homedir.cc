@@ -20,6 +20,7 @@
 
 #include <cstdlib>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include <pwd.h>
@@ -29,7 +30,7 @@
 
 namespace zetasql {
 
-absl::optional<std::string> GetHomedir() {
+std::optional<std::string> GetHomedir() {
   if (const char* home = ::getenv("HOME"); home != nullptr) {
     return home;
   }
@@ -38,7 +39,7 @@ absl::optional<std::string> GetHomedir() {
     return pwd->pw_dir;
   }
 
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 }  // namespace zetasql

@@ -18,6 +18,7 @@
 #define ZETASQL_PUBLIC_COLLATOR_H_
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 

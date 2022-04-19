@@ -40,7 +40,7 @@ enum FunctionSignatureId {
   //
   // 0002-0999 Non-standard function calls    (NextId: 302)
   // 1000-1099 String functions               (NextId: 1083)
-  // 1100-1199 Control flow functions         (NextId: 1104)
+  // 1100-1199 Control flow functions         (NextId: 1107)
   // 1200-1299 Time functions                 (Fully used)
   // 1300-1399 Math functions                 (Fully used)
   // 1400-1499 Aggregate functions I          (Fully used)
@@ -50,9 +50,9 @@ enum FunctionSignatureId {
   // 1800-1899 More time functions            (NextId: 1862)
   // 1900-1999 Hashing/encryption functions   (NextId: 1938)
   // 2000-2199 Geography functions            (NextId: 2086)
-  // 2200-2299 Anonymization functions        (NextId: 2214)
-  // 2300-2499 Numeric & more math functions  (NextId: 2319)
-  // 2500-2599 Array and proto map functions  (NextId: 2510)
+  // 2200-2299 Anonymization functions        (NextId: 2226)
+  // 2300-2499 Numeric & more math functions  (NextId: 2322)
+  // 2500-2599 Array and proto map functions  (NextId: 2516)
   // 2600-2699 More misc functions.           (NextId: 2605)
   // 2700-2799 Aggregate functions II         (NextId: 2701)
 
@@ -314,9 +314,12 @@ enum FunctionSignatureId {
   // Control flow functions
   FN_IF = 1100;  // if
   // Coalesce is used to express the output join column in FULL JOIN.
-  FN_COALESCE = 1101;  // coalesce
-  FN_IFNULL = 1102;    // ifnull
-  FN_NULLIF = 1103;    // nullif
+  FN_COALESCE = 1101;     // coalesce
+  FN_IFNULL = 1102;       // ifnull
+  FN_NULLIF = 1103;       // nullif
+  FN_IFERROR = 1104;      // iferror
+  FN_NULLIFERROR = 1105;  // nulliferror
+  FN_ISERROR = 1106;      // iserror
 
   // Time functions
   FN_CURRENT_DATE = 1200;       // current_date
@@ -547,6 +550,9 @@ enum FunctionSignatureId {
   FN_CSC_DOUBLE = 2316;    // csc
   FN_SEC_DOUBLE = 2317;    // sec
   FN_COT_DOUBLE = 2318;    // cot
+  FN_CSCH_DOUBLE = 2319;   // csch
+  FN_SECH_DOUBLE = 2320;   // sech
+  FN_COTH_DOUBLE = 2321;   // coth
 
   // Aggregate functions.
   // TODO: Add missing type signatures.
@@ -1042,6 +1048,19 @@ enum FunctionSignatureId {
   FN_ANON_PERCENTILE_CONT_DOUBLE = 2212;
   // This is an internal function signature, and is not in the language.
   FN_ANON_PERCENTILE_CONT_DOUBLE_ARRAY = 2213;
+  FN_ANON_SUM_WITH_REPORT_JSON_INT64 = 2214;
+  FN_ANON_SUM_WITH_REPORT_JSON_DOUBLE = 2215;
+  FN_ANON_SUM_WITH_REPORT_JSON_UINT64 = 2216;
+  FN_ANON_SUM_WITH_REPORT_PROTO_INT64 = 2217;
+  FN_ANON_SUM_WITH_REPORT_PROTO_DOUBLE = 2218;
+  FN_ANON_SUM_WITH_REPORT_PROTO_UINT64 = 2219;
+  FN_ANON_QUANTILES_DOUBLE = 2220;
+  // This is an internal function signature, and is not in the language.
+  FN_ANON_QUANTILES_DOUBLE_ARRAY = 2221;
+  FN_ANON_COUNT_WITH_REPORT_JSON = 2222;
+  FN_ANON_COUNT_WITH_REPORT_PROTO = 2223;
+  FN_ANON_COUNT_STAR_WITH_REPORT_JSON = 2224;
+  FN_ANON_COUNT_STAR_WITH_REPORT_PROTO = 2225;
 
   // Array and proto map functions.
   FN_FLATTEN = 2500;  // flatten(array path) -> array
@@ -1071,7 +1090,9 @@ enum FunctionSignatureId {
   FN_CONTAINS_KEY = 2508;           // contains_key(map, key) -> bool
   FN_ARRAY_INCLUDES = 2511;         // ARRAY_INCLUDES(array, element) -> bool
   FN_ARRAY_INCLUDES_LAMBDA = 2512;  // ARRAY_INCLUDES(array, lambda) -> bool
-  FN_ARRAY_INCLUDES_ANY = 2513;     // ARRAY_INCLUDES(array, element) -> bool
+  FN_ARRAY_INCLUDES_ANY = 2513;     // ARRAY_INCLUDES_ANY(array, array) -> bool
+  FN_ARRAY_INCLUDES_ALL = 2514;     // ARRAY_INCLUDES_ALL(array, array) -> bool
+  FN_ARRAY_FIRST = 2515;            // ARRAY_FIRST(array<T>) -> T
 
   // More misc functions
   FN_JSON_TO_INT64 = 2600;   // int64(json) -> int64

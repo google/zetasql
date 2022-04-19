@@ -2,7 +2,13 @@
 
 # Timestamp functions
 
-ZetaSQL supports the following `TIMESTAMP` functions.
+ZetaSQL supports several `TIMESTAMP` functions.
+
+IMPORTANT: Before working with these functions, you need to understand
+the difference between the formats in which timestamps are stored and displayed,
+and how time zones are used for the conversion between these formats.
+To learn more, see
+[How time zones work with timestamp functions][timestamp-link-to-timezone-definitions].
 
 NOTE: These functions return a runtime error if overflow occurs; result
 values are bounded by the defined [date][data-types-link-to-date_type]
@@ -64,14 +70,14 @@ SELECT current_timestamp() AS now, t.current_timestamp FROM t;
 ### EXTRACT
 
 ```sql
-EXTRACT(part FROM timestamp_expression [AT TIME ZONE timezone])
+EXTRACT(part FROM timestamp_expression [AT TIME ZONE time_zone])
 ```
 
 **Description**
 
 Returns a value that corresponds to the specified `part` from
 a supplied `timestamp_expression`. This function supports an optional
-`timezone` parameter. See
+`time_zone` parameter. See
 [Time zone definitions][timestamp-link-to-timezone-definitions] for information
 on how to specify a time zone.
 
@@ -196,7 +202,7 @@ FROM table;
 ### STRING
 
 ```sql
-STRING(timestamp_expression[, timezone])
+STRING(timestamp_expression[, time_zone])
 ```
 
 **Description**
@@ -225,22 +231,22 @@ SELECT STRING(TIMESTAMP "2008-12-25 15:30:00+00", "UTC") AS string;
 ### TIMESTAMP
 
 ```sql
-TIMESTAMP(string_expression[, timezone])
-TIMESTAMP(date_expression[, timezone])
-TIMESTAMP(datetime_expression[, timezone])
+TIMESTAMP(string_expression[, time_zone])
+TIMESTAMP(date_expression[, time_zone])
+TIMESTAMP(datetime_expression[, time_zone])
 ```
 
 **Description**
 
-+  `string_expression[, timezone]`: Converts a STRING expression to a TIMESTAMP
++  `string_expression[, time_zone]`: Converts a STRING expression to a TIMESTAMP
    data type. `string_expression` must include a
    timestamp literal.
-   If `string_expression` includes a timezone in the timestamp literal, do not
-   include an explicit `timezone`
+   If `string_expression` includes a time_zone in the timestamp literal, do not
+   include an explicit `time_zone`
    argument.
-+  `date_expression[, timezone]`: Converts a DATE object to a TIMESTAMP
++  `date_expression[, time_zone]`: Converts a DATE object to a TIMESTAMP
    data type.
-+  `datetime_expression[, timezone]`: Converts a
++  `datetime_expression[, time_zone]`: Converts a
    DATETIME object to a TIMESTAMP data type.
 
 This function supports an optional
@@ -468,7 +474,7 @@ SELECT TIMESTAMP_DIFF("2001-02-01 01:00:00", "2001-02-01 00:00:01", HOUR)
 ### TIMESTAMP_TRUNC
 
 ```sql
-TIMESTAMP_TRUNC(timestamp_expression, date_part[, timezone])
+TIMESTAMP_TRUNC(timestamp_expression, date_part[, time_zone])
 ```
 
 **Description**
@@ -503,7 +509,7 @@ Truncates a timestamp to the granularity of `date_part`.
     first week whose Thursday belongs to the corresponding Gregorian calendar
     year.
 
-`TIMESTAMP_TRUNC` function supports an optional `timezone` parameter. This
+`TIMESTAMP_TRUNC` function supports an optional `time_zone` parameter. This
 parameter applies to the following `date_parts`:
 
 + `MINUTE`
@@ -597,7 +603,7 @@ SELECT
 ### FORMAT_TIMESTAMP
 
 ```sql
-FORMAT_TIMESTAMP(format_string, timestamp[, timezone])
+FORMAT_TIMESTAMP(format_string, timestamp[, time_zone])
 ```
 
 **Description**
@@ -647,7 +653,7 @@ SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2008-12-25 15:30:00+00")
 ### PARSE_TIMESTAMP
 
 ```sql
-PARSE_TIMESTAMP(format_string, timestamp_string[, timezone])
+PARSE_TIMESTAMP(format_string, timestamp_string[, time_zone])
 ```
 
 **Description**
@@ -675,8 +681,7 @@ SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")
 SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008")
 ```
 
-The format string fully
-supports most format elements, except for
+The format string fully supports most format elements, except for
 `%a`, `%A`, `%g`, `%G`, `%j`, `%P`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
 When using `PARSE_TIMESTAMP`, keep the following in mind:
@@ -979,304 +984,33 @@ SELECT TIMESTAMP_FROM_UNIX_MICROS(1230219000000000) AS timestamp_value;
 +------------------------+
 ```
 
-### Supported format elements for TIMESTAMP
-
-Unless otherwise noted, TIMESTAMP functions that use format strings support the
-following elements:
-
-<table>
- <tr>
-    <td class="tab0">Format element</td>
-    <td class="tab0">Description</td>
-    <td class="tab0">Example</td>
- </tr>
- <tr>
-    <td>%A</td>
-    <td>The full weekday name.</td>
-    <td>Wednesday</td>
- </tr>
- <tr>
-    <td>%a</td>
-    <td>The abbreviated weekday name.</td>
-    <td>Wed</td>
- </tr>
- <tr>
-    <td>%B</td>
-    <td>The full month name.</td>
-    <td>January</td>
- </tr>
- <tr>
-    <td>%b or %h</td>
-    <td>The abbreviated month name.</td>
-    <td>Jan</td>
- </tr>
- <tr>
-    <td>%C</td>
-    <td>The century (a year divided by 100 and truncated to an integer) as a
-    decimal
-number (00-99).</td>
-    <td>20</td>
- </tr>
- <tr>
-    <td>%c</td>
-    <td>The date and time representation in the format %a %b %e %T %Y.</td>
-    <td>Wed Jan 20 16:47:00 2021</td>
- </tr>
- <tr>
-    <td>%D</td>
-    <td>The date in the format %m/%d/%y.</td>
-    <td>01/20/21</td>
- </tr>
- <tr>
-    <td>%d</td>
-    <td>The day of the month as a decimal number (01-31).</td>
-    <td>20</td>
- </tr>
- <tr>
-    <td>%e</td>
-    <td>The day of month as a decimal number (1-31); single digits are preceded
-    by a
-space.</td>
-    <td>20</td>
- </tr>
- <tr>
-    <td>%F</td>
-    <td>The date in the format %Y-%m-%d.</td>
-    <td>2021-01-20</td>
- </tr>
- <tr>
-    <td>%G</td>
-    <td>The
-    <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a> year
-    with century as a decimal number. Each ISO year begins
-    on the Monday before the first Thursday of the Gregorian calendar year.
-    Note that %G and %Y may produce different results near Gregorian year
-    boundaries, where the Gregorian year and ISO year can diverge.</td>
-    <td>2021</td>
- </tr>
- <tr>
-    <td>%g</td>
-    <td>The
-    <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a> year
-    without century as a decimal number (00-99). Each ISO
-    year begins on the Monday before the first Thursday of the Gregorian
-    calendar year. Note that %g and %y may produce different results near
-    Gregorian year boundaries, where the Gregorian year and ISO year can
-    diverge.</td>
-    <td>21</td>
- </tr>
- <tr>
-    <td>%H</td>
-    <td>The hour (24-hour clock) as a decimal number (00-23).</td>
-    <td>16</td>
- </tr>
- <tr>
-    <td>%I</td>
-    <td>The hour (12-hour clock) as a decimal number (01-12).</td>
-    <td>04</td>
- </tr>
- <tr>
-    <td>%j</td>
-    <td>The day of the year as a decimal number (001-366).</td>
-    <td>020</td>
- </tr>
- <tr>
-    <td>%k</td>
-    <td>The hour (24-hour clock) as a decimal number (0-23); single digits are
-    preceded
-by a space.</td>
-    <td>16</td>
- </tr>
- <tr>
-    <td>%l</td>
-    <td>The hour (12-hour clock) as a decimal number (1-12); single digits are
-    preceded
-by a space.</td>
-    <td>11</td>
- </tr>
- <tr>
-    <td>%M</td>
-    <td>The minute as a decimal number (00-59).</td>
-    <td>47</td>
- </tr>
- <tr>
-    <td>%m</td>
-    <td>The month as a decimal number (01-12).</td>
-    <td>01</td>
- </tr>
- <tr>
-    <td>%n</td>
-    <td>A newline character.</td>
-    <td></td>
- </tr>
- <tr>
-    <td>%P</td>
-    <td>Either am or pm.</td>
-    <td>am</td>
- </tr>
- <tr>
-    <td>%p</td>
-    <td>Either AM or PM.</td>
-    <td>AM</td>
- </tr>
- <tr>
-    <td>%Q</td>
-    <td>The quarter as a decimal number (1-4).</td>
-    <td>1</td>
- </tr>
- <tr>
-    <td>%R</td>
-    <td>The time in the format %H:%M.</td>
-    <td>16:47</td>
- </tr>
- <tr>
-    <td>%r</td>
-    <td>The 12-hour clock time using AM/PM notation.</td>
-    <td>04:47:00 PM</td>
- </tr>
- <tr>
-    <td>%S</td>
-    <td>The second as a decimal number (00-60).</td>
-    <td>00</td>
- </tr>
- <tr>
-    <td>%s</td>
-    <td>The number of seconds since 1970-01-01 00:00:00 UTC. Always overrides all
-    other format elements, independent of where %s appears in the string.
-    If multiple %s elements appear, then the last one takes precedence.</td>
-    <td>1611179220</td>
-</tr>
- <tr>
-    <td>%T</td>
-    <td>The time in the format %H:%M:%S.</td>
-    <td>16:47:00</td>
- </tr>
- <tr>
-    <td>%t</td>
-    <td>A tab character.</td>
-    <td></td>
- </tr>
- <tr>
-    <td>%U</td>
-    <td>The week number of the year (Sunday as the first day of the week) as a
-    decimal number (00-53).</td>
-    <td>03</td>
- </tr>
- <tr>
-    <td>%u</td>
-    <td>The weekday (Monday as the first day of the week) as a decimal number
-    (1-7).</td>
-    <td>3</td>
-</tr>
- <tr>
-    <td>%V</td>
-   <td>The <a href="https://en.wikipedia.org/wiki/ISO_week_date">ISO 8601</a>
-    week number of the year (Monday as the first
-    day of the week) as a decimal number (01-53).  If the week containing
-    January 1 has four or more days in the new year, then it is week 1;
-    otherwise it is week 53 of the previous year, and the next week is
-    week 1.</td>
-    <td>03</td>
- </tr>
- <tr>
-    <td>%W</td>
-    <td>The week number of the year (Monday as the first day of the week) as a
-    decimal number (00-53).</td>
-    <td>03</td>
- </tr>
- <tr>
-    <td>%w</td>
-    <td>The weekday (Sunday as the first day of the week) as a decimal number
-    (0-6).</td>
-    <td>3</td>
- </tr>
- <tr>
-    <td>%X</td>
-    <td>The time representation in HH:MM:SS format.</td>
-    <td>16:47:00</td>
- </tr>
- <tr>
-    <td>%x</td>
-    <td>The date representation in MM/DD/YY format.</td>
-    <td>01/20/21</td>
- </tr>
- <tr>
-    <td>%Y</td>
-    <td>The year with century as a decimal number.</td>
-    <td>2021</td>
- </tr>
- <tr>
-    <td>%y</td>
-    <td>The year without century as a decimal number (00-99), with an optional
-    leading zero. Can be mixed with %C. If %C is not specified, years 00-68 are
-    2000s, while years 69-99 are 1900s.</td>
-    <td>21</td>
- </tr>
- <tr>
-    <td>%Z</td>
-    <td>The time zone name.</td>
-    <td>UTC-5</td>
- </tr>
- <tr>
-    <td>%z</td>
-    <td>The offset from the Prime Meridian in the format +HHMM or -HHMM as
-    appropriate,
-with positive values representing locations east of Greenwich.</td>
-    <td>-0500</td>
- </tr>
- <tr>
-    <td>%%</td>
-    <td>A single % character.</td>
-    <td>%</td>
- </tr>
- <tr>
-    <td>%Ez</td>
-    <td>RFC 3339-compatible numeric time zone (+HH:MM or -HH:MM).</td>
-    <td>-05:00</td>
- </tr>
- <tr>
-    <td>%E&lt;number&gt;S</td>
-    <td>Seconds with &lt;number&gt; digits of fractional precision.</td>
-    <td>00.000 for %E3S</td>
- </tr>
- <tr>
-    <td>%E*S</td>
-    <td>Seconds with full fractional precision (a literal '*').</td>
-    <td>00.123456</td>
- </tr>
- <tr>
-    <td>%E4Y</td>
-    <td>Four-character years (0001 ... 9999). Note that %Y
-    produces as many characters as it takes to fully render the
-year.</td>
-    <td>2021</td>
- </tr>
-</table>
-
-### Time zone definitions 
+### How time zones work with timestamp functions 
 <a id="timezone_definitions"></a>
+
+A timestamp represents an absolute point in time, independent of any time zone.
+However, when a timestamp value is displayed, it is usually converted to a
+human-readable format consisting of a civil date and time (YYYY-MM-DD HH:MM:SS)
+and a time zone. Note that _this is not the internal representation of the
+timestamp_; it is only a human-understandable way to describe the point in time
+that the timestamp represents.
+
+Some timestamp functions have a time zone argument. A time zone is needed to
+convert between civil time (YYYY-MM-DD HH:MM:SS) and absolute time (timestamps).
+A function like `PARSE_TIMESTAMP` takes an input string that represents a
+civil time and returns a timestamp that represents an absolute time. A
+time zone is needed for this conversion. A function like `EXTRACT` takes an
+input timestamp (absolute time) and converts it to civil time in order to
+extract a part of that civil time. This conversion requires a time zone.
+If no time zone is specified, the default time zone, which is implementation defined,
+is used.
 
 Certain date and timestamp functions allow you to override the default time zone
 and specify a different one. You can specify a time zone by either supplying
 the [time zone name][timezone-by-name] (for example, `America/Los_Angeles`)
 or time zone offset from UTC (for example, -08).
 
-If you choose to use a time zone offset, use this format:
-
-```sql
-(+|-)H[H][:M[M]]
-```
-
-The following timestamps are equivalent because the time zone offset
-for `America/Los_Angeles` is `-08` for the specified date and time.
-
-```sql
-SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00 America/Los_Angeles") as millis;
-```
-
-```sql
-SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00-08:00") as millis;
-```
+To learn more about how time zones work with timestamps, see
+[Time zones][data-types-timezones].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -1290,13 +1024,15 @@ SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00-08:00") as millis;
 
 [timestamp-format]: #format_timestamp
 
-[timestamp-format-elements]: #supported_format_elements_for_timestamp
+[timestamp-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
 
 [timestamp-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
 
 [data-types-link-to-date_type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#date_type
 
 [data-types-link-to-timestamp_type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#timestamp_type
+
+[data-types-timezones]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time_zones
 
 [timestamp-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#timestamp_literals
 

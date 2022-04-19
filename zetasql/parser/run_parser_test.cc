@@ -118,6 +118,10 @@ class RunParserTest : public ::testing::Test {
   // separated and whitespaces are preserved as part of the type string.
   const std::string kSupportedGenericEntityTypes =
       "supported_generic_entity_types";
+  // Allows a list of generic sub entity types. Multiple entity types are comma
+  // separated and whitespaces are preserved as part of the type string.
+  const std::string kSupportedGenericSubEntityTypes =
+      "supported_generic_sub_entity_types";
   const std::string kAllowIsDistinctFrom = "allow_is_distinct_from";
   // Allows QUALIFY clause
   const std::string kAllowQualify = "allow_qualify";
@@ -162,6 +166,7 @@ class RunParserTest : public ::testing::Test {
     test_case_options_.RegisterBool(kQualifyReserved, true);
     test_case_options_.RegisterBool(kAllowRepeat, true);
     test_case_options_.RegisterString(kSupportedGenericEntityTypes, "");
+    test_case_options_.RegisterString(kSupportedGenericSubEntityTypes, "");
     test_case_options_.RegisterBool(kAllowColumnDefaultValue, true);
     test_case_options_.RegisterBool(kAllowForIn, true);
     test_case_options_.RegisterBool(kAllowLikeAnySomeAll, true);
@@ -615,7 +620,7 @@ class RunParserTest : public ::testing::Test {
 
   ParserOptions GetParserOptions() {
     // Reset the LanguageOptions.
-    language_options_ = absl::make_unique<LanguageOptions>();
+    language_options_ = std::make_unique<LanguageOptions>();
     if (test_case_options_.GetBool(kAllowDashedTableNames)) {
       language_options_->EnableLanguageFeature(
           FEATURE_V_1_3_ALLOW_DASHES_IN_TABLE_NAME);
@@ -674,6 +679,12 @@ class RunParserTest : public ::testing::Test {
     std::vector<std::string> entity_types =
         absl::StrSplit(entity_types_config, ',');
     language_options_->SetSupportedGenericEntityTypes(entity_types);
+
+    std::string sub_entity_types_config =
+        test_case_options_.GetString(kSupportedGenericSubEntityTypes);
+    std::vector<std::string> sub_entity_types =
+        absl::StrSplit(sub_entity_types_config, ',');
+    language_options_->SetSupportedGenericSubEntityTypes(sub_entity_types);
 
     return ParserOptions(/*id_string_pool=*/nullptr, /*arena=*/nullptr,
                          language_options_.get());
@@ -912,35 +923,22 @@ class RunParserTest : public ::testing::Test {
                              const std::string& mode, const ASTNode** root,
                              std::unique_ptr<ParserOutput>* parser_output) {
     ParserOptions parser_options = GetParserOptions();
-    absl::Status status;
+    *root = nullptr;
     if (mode == "statement") {
-      status = ParseStatement(test_case, parser_options, parser_output);
-      if (status.ok()) {
-        *root = (*parser_output)->statement();
-      }
+      ZETASQL_RETURN_IF_ERROR(ParseStatement(test_case, parser_options, parser_output));
     } else if (mode == "script") {
-      status = ParseScript(test_case, parser_options,
-                           ERROR_MESSAGE_WITH_PAYLOAD, parser_output);
-      if (status.ok()) {
-        *root = (*parser_output)->script();
-      }
+      ZETASQL_RETURN_IF_ERROR(ParseScript(test_case, parser_options,
+                                  ERROR_MESSAGE_WITH_PAYLOAD, parser_output));
     } else if (mode == "expression") {
-      status = ParseExpression(test_case, GetParserOptions(), parser_output);
-      if (status.ok()) {
-        *root = (*parser_output)->expression();
-      }
+      ZETASQL_RETURN_IF_ERROR(
+          ParseExpression(test_case, GetParserOptions(), parser_output));
     } else if (mode == "type") {
-      status = ParseType(test_case, GetParserOptions(), parser_output);
-      if (status.ok()) {
-        *root = (*parser_output)->type();
-      }
+      ZETASQL_RETURN_IF_ERROR(ParseType(test_case, GetParserOptions(), parser_output));
     } else {
-      status = ::zetasql_base::UnknownErrorBuilder() << "Invalid parse mode: " << mode;
+      return ::zetasql_base::UnknownErrorBuilder() << "Invalid parse mode: " << mode;
     }
-    if (!status.ok()) {
-      *root = nullptr;
-    }
-    return status;
+    *root = (*parser_output)->node();
+    return absl::OkStatus();
   }
 
   file_based_test_driver::TestCaseOptions test_case_options_;

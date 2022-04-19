@@ -600,6 +600,7 @@ repeat { return BisonParserImpl::token::KW_REPEAT; }
 repeatable { return BisonParserImpl::token::KW_REPEATABLE; }
 replace { return BisonParserImpl::token::KW_REPLACE; }
 replace_fields { return BisonParserImpl::token::KW_REPLACE_FIELDS; }
+report { return BisonParserImpl::token::KW_REPORT; }
 respect { return BisonParserImpl::token::KW_RESPECT; }
 restrict { return BisonParserImpl::token::KW_RESTRICT; }
 restriction { return BisonParserImpl::token::KW_RESTRICTION; }
@@ -666,6 +667,9 @@ when { return BisonParserImpl::token::KW_WHEN; }
 where { return BisonParserImpl::token::KW_WHERE; }
 while { return BisonParserImpl::token::KW_WHILE; }
 window { return BisonParserImpl::token::KW_WINDOW; }
+with/{opt_whitespace}"(" {
+  return BisonParserImpl::token::KW_WITH_STARTING_WITH_EXPRESSION;
+}
 with { return BisonParserImpl::token::KW_WITH; }
 within { return BisonParserImpl::token::KW_WITHIN; }
 write { return BisonParserImpl::token::KW_WRITE; }

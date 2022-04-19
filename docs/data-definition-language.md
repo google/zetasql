@@ -689,9 +689,20 @@ Documentation is pending for this feature.
 
 Documentation is pending for this feature.
 
+## CREATE AGGREGATE FUNCTION
+
+A user-defined aggregate function (UDA), enables you to create an
+aggregate function using another SQL expression or another programming language.
+These functions accept arguments and perform actions, returning the
+result of those actions as a value. To create a UDA,
+see [UDAs][udfs].
+
 ## CREATE FUNCTION
 
-Documentation is pending for this feature.
+A user-defined function (UDF), enables you to create a scalar function using
+another SQL expression or another programming language.
+These functions accept arguments and perform actions, returning the
+result of those actions as a value. To create a UDF, see [UDFs][udfs].
 
 ## CREATE PROCEDURE
 
@@ -703,7 +714,9 @@ Documentation is pending for this feature.
 
 ## CREATE TABLE FUNCTION
 
-Documentation is pending for this feature.
+A table function, also known as a table value function (TVF), is a function that
+returns a table.  A TVF is called in the `FROM` clause like a table subquery.
+To create a TVF, see [TVFs][tvfs].
 
 ## DEFINE TABLE
 
@@ -869,6 +882,10 @@ CREATE TABLE books (title STRING, name STRING, PRIMARY KEY (title, name));
 [defining-constraints]: #defining_table_constraints
 
 [defining-foreign-reference]: #defining_foreign_references
+
+[tvfs]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md#tvfs
+
+[udfs]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md
 
 <!-- mdlint on -->
 

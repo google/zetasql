@@ -7,7 +7,7 @@ ZetaSQL supports the following `DATETIME` functions.
 ### CURRENT_DATETIME
 
 ```sql
-CURRENT_DATETIME([timezone])
+CURRENT_DATETIME([time_zone])
 ```
 
 **Description**
@@ -15,8 +15,8 @@ CURRENT_DATETIME([timezone])
 Returns the current time as a `DATETIME` object. Parentheses are optional when
 called with no arguments.
 
-This function supports an optional `timezone` parameter.
-See [Timezone definitions][datetime-link-to-timezone-definitions] for
+This function supports an optional `time_zone` parameter.
+See [Time zone definitions][datetime-link-to-timezone-definitions] for
 information on how to specify a time zone.
 
 **Return Data Type**
@@ -58,17 +58,20 @@ SELECT current_datetime() as now, t.current_datetime FROM t;
 ```sql
 1. DATETIME(year, month, day, hour, minute, second)
 2. DATETIME(date_expression[, time_expression])
-3. DATETIME(timestamp_expression [, timezone])
+3. DATETIME(timestamp_expression [, time_zone])
 ```
 
 **Description**
 
-1. Constructs a `DATETIME` object using INT64 values
+1. Constructs a `DATETIME` object using `INT64` values
    representing the year, month, day, hour, minute, and second.
-2. Constructs a `DATETIME` object using a DATE object and an optional TIME object.
-3. Constructs a `DATETIME` object using a TIMESTAMP object. It supports an
-   optional parameter to [specify a timezone][datetime-link-to-timezone-definitions]. If no
-   timezone is specified, the default timezone, which is implementation defined, is used.
+2. Constructs a `DATETIME` object using a DATE object and an optional `TIME`
+   object.
+3. Constructs a `DATETIME` object using a `TIMESTAMP` object. It supports an
+   optional parameter to
+   [specify a time zone][datetime-link-to-timezone-definitions].
+   If no time zone is specified, the default time zone, which is implementation defined,
+   is used.
 
 **Return Data Type**
 
@@ -764,260 +767,6 @@ SELECT PARSE_DATETIME('%A, %B %e, %Y','Wednesday, December 19, 2018')
 +---------------------+
 ```
 
-### Supported format elements for DATETIME
-
-Unless otherwise noted, `DATETIME` functions that use format strings support the
-following elements:
-
-<table>
- <tr>
-    <td class="tab0">Format element</td>
-    <td class="tab0">Description</td>
-    <td class="tab0">Example</td>
- </tr>
- <tr>
-    <td>%A</td>
-    <td>The full weekday name.</td>
-    <td>Wednesday</td>
- </tr>
- <tr>
-    <td>%a</td>
-    <td>The abbreviated weekday name.</td>
-    <td>Wed</td>
- </tr>
- <tr>
-    <td>%B</td>
-    <td>The full month name.</td>
-    <td>January</td>
- </tr>
- <tr>
-    <td>%b or %h</td>
-    <td>The abbreviated month name.</td>
-    <td>Jan</td>
- </tr>
- <tr>
-    <td>%C</td>
-    <td>The century (a year divided by 100 and truncated to an integer) as a
-    decimal number (00-99).</td>
-    <td>20</td>
- </tr>
- <tr>
-    <td>%c</td>
-    <td>The date and time representation.</td>
-    <td>Wed Jan 20 21:47:00 2021</td>
- </tr>
- <tr>
-    <td>%D</td>
-    <td>The date in the format %m/%d/%y.</td>
-    <td>01/20/21</td>
- </tr>
- <tr>
-    <td>%d</td>
-    <td>The day of the month as a decimal number (01-31).</td>
-    <td>20</td>
- </tr>
- <tr>
-    <td>%e</td>
-    <td>The day of month as a decimal number (1-31); single digits are preceded
-    by a
-space.</td>
-    <td>20</td>
- </tr>
- <tr>
-    <td>%F</td>
-    <td>The date in the format %Y-%m-%d.</td>
-    <td>2021-01-20</td>
- </tr>
- <tr>
-    <td>%G</td>
-    <td>The <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a> year
-    with century as a decimal number. Each ISO year begins
-    on the Monday before the first Thursday of the Gregorian calendar year.
-    Note that %G and %Y may produce different results near Gregorian year
-    boundaries, where the Gregorian year and ISO year can diverge.</td>
-    <td>2021</td>
- </tr>
- <tr>
-    <td>%g</td>
-    <td>The <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a> year
-    without century as a decimal number (00-99). Each ISO
-    year begins on the Monday before the first Thursday of the Gregorian
-    calendar year. Note that %g and %y may produce different results near
-    Gregorian year boundaries, where the Gregorian year and ISO year can
-    diverge.</td>
-    <td>21</td>
- </tr>
- <tr>
-    <td>%H</td>
-    <td>The hour (24-hour clock) as a decimal number (00-23).</td>
-    <td>21</td>
- </tr>
- <tr>
-    <td>%I</td>
-    <td>The hour (12-hour clock) as a decimal number (01-12).</td>
-    <td>09</td>
- </tr>
- <tr>
-    <td>%j</td>
-    <td>The day of the year as a decimal number (001-366).</td>
-    <td>020</td>
- </tr>
- <tr>
-    <td>%k</td>
-    <td>The hour (24-hour clock) as a decimal number (0-23); single digits are
-    preceded
-by a space.</td>
-    <td>21</td>
- </tr>
- <tr>
-    <td>%l</td>
-    <td>The hour (12-hour clock) as a decimal number (1-12); single digits are
-    preceded
-by a space.</td>
-    <td>9</td>
- </tr>
- <tr>
-    <td>%M</td>
-    <td>The minute as a decimal number (00-59).</td>
-    <td47></td>
- </tr>
- <tr>
-    <td>%m</td>
-    <td>The month as a decimal number (01-12).</td>
-    <td>01</td>
- </tr>
- <tr>
-    <td>%n</td>
-    <td>A newline character.</td>
-    <td></td>
- </tr>
- <tr>
-    <td>%P</td>
-    <td>Either am or pm.</td>
-    <td>pm</td>
- </tr>
- <tr>
-    <td>%p</td>
-    <td>Either AM or PM.</td>
-    <td>PM</td>
- </tr>
- <tr>
-    <td>%Q</td>
-    <td>The quarter as a decimal number (1-4).</td>
-    <td>1</td>
- </tr>
- <tr>
-    <td>%R</td>
-    <td>The time in the format %H:%M.</td>
-    <td>21:47</td>
- </tr>
- <tr>
-    <td>%r</td>
-    <td>The 12-hour clock time using AM/PM notation.</td>
-    <td>09:47:00 PM</td>
- </tr>
- <tr>
-    <td>%S</td>
-    <td>The second as a decimal number (00-60).</td>
-    <td>00</td>
- </tr>
- <tr>
-    <td>%s</td>
-    <td>The number of seconds since 1970-01-01 00:00:00. Always overrides all
-    other format elements, independent of where %s appears in the string.
-    If multiple %s elements appear, then the last one takes precedence.</td>
-    <td>1611179220</td>
-</tr>
- <tr>
-    <td>%T</td>
-    <td>The time in the format %H:%M:%S.</td>
-    <td>21:47:00</td>
- </tr>
- <tr>
-    <td>%t</td>
-    <td>A tab character.</td>
-    <td></td>
- </tr>
- <tr>
-    <td>%U</td>
-    <td>The week number of the year (Sunday as the first day of the week) as a
-    decimal number (00-53).</td>
-    <td>03</td>
- </tr>
- <tr>
-    <td>%u</td>
-    <td>The weekday (Monday as the first day of the week) as a decimal number
-    (1-7).</td>
-    <td>3</td>
-</tr>
- <tr>
-    <td>%V</td>
-    <td>The <a href="https://en.wikipedia.org/wiki/ISO_week_date">ISO 8601</a>
-    week number of the year (Monday as the first
-    day of the week) as a decimal number (01-53).  If the week containing
-    January 1 has four or more days in the new year, then it is week 1;
-    otherwise it is week 53 of the previous year, and the next week is
-    week 1.</td>
-    <td>03</td>
- </tr>
- <tr>
-    <td>%W</td>
-    <td>The week number of the year (Monday as the first day of the week) as a
-    decimal number (00-53).</td>
-    <td>03</td>
- </tr>
- <tr>
-    <td>%w</td>
-    <td>The weekday (Sunday as the first day of the week) as a decimal number
-    (0-6).</td>
-    <td>3</td>
- </tr>
- <tr>
-    <td>%X</td>
-    <td>The time representation in HH:MM:SS format.</td>
-    <td>21:47:00</td>
- </tr>
- <tr>
-    <td>%x</td>
-    <td>The date representation in MM/DD/YY format.</td>
-    <td>01/20/21</td>
- </tr>
- <tr>
-    <td>%Y</td>
-    <td>The year with century as a decimal number.</td>
-    <td>2021</td>
- </tr>
- <tr>
-    <td>%y</td>
-    <td>The year without century as a decimal number (00-99), with an optional
-    leading zero. Can be mixed with %C. If %C is not specified, years 00-68 are
-    2000s, while years 69-99 are 1900s.</td>
-    <td>21</td>
- </tr>
- <tr>
-    <td>%%</td>
-    <td>A single % character.</td>
-    <td>%</td>
- </tr>
- <tr>
-    <td>%E&lt;number&gt;S</td>
-    <td>Seconds with &lt;number&gt; digits of fractional precision.</td>
-    <td>00.000 for %E3S</td>
- </tr>
- <tr>
-    <td>%E*S</td>
-    <td>Seconds with full fractional precision (a literal '*').</td>
-    <td>00.123456</td>
- </tr>
- <tr>
-    <td>%E4Y</td>
-    <td>Four-character years (0001 ... 9999). Note that %Y
-    produces as many characters as it takes to fully render the
-year.</td>
-    <td>2021</td>
- </tr>
-</table>
-
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
@@ -1026,7 +775,7 @@ year.</td>
 
 [datetime-format]: #format_datetime
 
-[datetime-format-elements]: #supported_format_elements_for_datetime
+[datetime-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
 
 [datetime-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
 

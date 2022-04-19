@@ -17,6 +17,7 @@
 #include "zetasql/common/status_payload_utils.h"
 
 #include "zetasql/common/testing/proto_matchers.h"
+#include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -27,7 +28,9 @@ namespace internal {
 namespace {
 
 using ::zetasql::testing::EqualsProto;
+using ::testing::AllOf;
 using ::testing::HasSubstr;
+using ::zetasql_base::testing::StatusIs;
 
 std::string StatusPayloadTypeUrl() {
   return GetTypeUrl<zetasql_test__::TestStatusPayload>();
@@ -230,6 +233,47 @@ TEST(StatusPayloadUtils, ToString) {
   EXPECT_THAT(cancelled_with_payload_str, HasSubstr("my payload"));
   EXPECT_THAT(cancelled_with_payload_str, HasSubstr("15"));
   EXPECT_THAT(cancelled_with_payload_str, HasSubstr(".TestStatusPayload2"));
+}
+
+TEST(StatusPayloadUtils, MergingOkIntoOkIsNoOp) {
+  absl::Status ok_status1 = absl::OkStatus();
+  absl::Status ok_status2 = absl::OkStatus();
+
+  UpdateStatus(&ok_status1, ok_status2);
+  ZETASQL_EXPECT_OK(ok_status1);
+  ZETASQL_EXPECT_OK(ok_status2);
+  EXPECT_NE(&ok_status1, &ok_status2);  // ownership is preserved
+}
+
+TEST(StatusPayloadUtils, MergingOkIntoErrorIsNoOp) {
+  absl::Status ok_status = absl::OkStatus();
+  absl::Status error(absl::StatusCode::kInternal, "Message 1");
+  UpdateStatus(&error, ok_status);
+  EXPECT_THAT(error,
+              StatusIs(absl::StatusCode::kInternal, HasSubstr("Message 1")));
+}
+
+TEST(StatusPayloadUtils, MergingErrorIntoOkCopiesTheErrorIntoTheOkStatus) {
+  absl::Status ok_status = absl::OkStatus();
+  absl::Status error(absl::StatusCode::kInternal, "Message 1");
+  UpdateStatus(&ok_status, error);
+  EXPECT_THAT(ok_status,
+              StatusIs(absl::StatusCode::kInternal, HasSubstr("Message 1")));
+}
+
+TEST(StatusPayloadUtils, MergingErrorIntoErrorAppendsTheMessageOnly) {
+  // (&err1, err2) -> err1 + err2.message()
+  absl::Status error1(absl::StatusCode::kInternal, "Message 1");
+  absl::Status error2(absl::StatusCode::kInternal, "Message 2");
+
+  UpdateStatus(&error1, error2);
+
+  EXPECT_THAT(error1,
+              StatusIs(absl::StatusCode::kInternal,
+                       AllOf(HasSubstr("Message 1"), HasSubstr("Message 2"))));
+  EXPECT_THAT(error2, StatusIs(absl::StatusCode::kInternal,
+                               AllOf(Not(HasSubstr("Message 1")),
+                                     HasSubstr("Message 2"))));
 }
 
 }  // namespace internal

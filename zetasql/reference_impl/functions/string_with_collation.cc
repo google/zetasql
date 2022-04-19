@@ -17,6 +17,7 @@
 #include "zetasql/reference_impl/functions/string_with_collation.h"
 
 #include <cstdint>
+#include <string>
 
 #include "zetasql/public/collator.h"
 #include "zetasql/public/functions/string_with_collation.h"

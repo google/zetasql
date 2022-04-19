@@ -17,6 +17,7 @@
 #include "zetasql/reference_impl/tuple.h"
 
 #include <cstdint>
+#include <utility>
 
 #include "google/protobuf/descriptor.h"
 #include "zetasql/base/testing/status_matchers.h"
@@ -31,13 +32,12 @@
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
 
+using ::testing::ElementsAre;
+using ::testing::HasSubstr;
+using ::zetasql_base::testing::StatusIs;
+
 namespace zetasql {
 namespace {
-
-using testing::ElementsAre;
-using testing::HasSubstr;
-
-using zetasql_base::testing::StatusIs;
 
 TEST(TupleSchemaTest, BasicTests) {
   const VariableId foo("foo");
@@ -50,7 +50,7 @@ TEST(TupleSchemaTest, BasicTests) {
   EXPECT_EQ(schema.variable(0), foo);
   EXPECT_EQ(schema.variable(1), bar);
 
-  absl::optional<int> i = schema.FindIndexForVariable(foo);
+  std::optional<int> i = schema.FindIndexForVariable(foo);
   ASSERT_TRUE(i.has_value());
   EXPECT_EQ(i.value(), 0);
 
@@ -90,7 +90,7 @@ TEST(TupleSlotTest, GetPhysicalByteSize) {
   int64_t last_byte_size = shared_state_slot.GetPhysicalByteSize();
   std::shared_ptr<TupleSlot::SharedProtoState> shared_state =
       *shared_state_slot.mutable_shared_proto_state();
-  auto value_list = absl::make_unique<ProtoFieldValueList>();
+  auto value_list = std::make_unique<ProtoFieldValueList>();
   value_list->push_back(zetasql_base::InternalErrorBuilder() << "foo");
   value_list->push_back(Int64(10));
   value_list->push_back(Int64(20));
@@ -280,7 +280,7 @@ TEST(TupleDataDeque, PushAndPopTest) {
     TupleData data = CreateTupleDataFromValues({Int64(num_tuples)});
 
     absl::Status status;
-    if (!deque.PushBack(absl::make_unique<TupleData>(data), &status)) {
+    if (!deque.PushBack(std::make_unique<TupleData>(data), &status)) {
       ASSERT_THAT(status, StatusIs(absl::StatusCode::kResourceExhausted));
       EXPECT_EQ(remaining_bytes, accountant.remaining_bytes());
       break;
@@ -327,9 +327,9 @@ TEST(TupleDataDeque, DestructorTest) {
     TupleDataDeque deque(&accountant);
     TupleData data = CreateTupleDataFromValues({Int64(10)});
     absl::Status status;
-    ASSERT_TRUE(deque.PushBack(absl::make_unique<TupleData>(data), &status));
-    ASSERT_TRUE(deque.PushBack(absl::make_unique<TupleData>(data), &status));
-    ASSERT_TRUE(deque.PushBack(absl::make_unique<TupleData>(data), &status));
+    ASSERT_TRUE(deque.PushBack(std::make_unique<TupleData>(data), &status));
+    ASSERT_TRUE(deque.PushBack(std::make_unique<TupleData>(data), &status));
+    ASSERT_TRUE(deque.PushBack(std::make_unique<TupleData>(data), &status));
     EXPECT_LT(accountant.remaining_bytes(), 1000);
   }
   EXPECT_EQ(accountant.remaining_bytes(), 1000);
@@ -345,7 +345,7 @@ TEST(TupleDataDeque, SetSlotTest) {
     TupleData data(/*num_slots=*/2);
     data.mutable_slot(0)->SetValue(Int64(i));
     absl::Status status;
-    ASSERT_TRUE(deque.PushBack(absl::make_unique<TupleData>(data), &status));
+    ASSERT_TRUE(deque.PushBack(std::make_unique<TupleData>(data), &status));
   }
 
   int64_t original_remaining_bytes = accountant.remaining_bytes();
@@ -444,7 +444,7 @@ TEST(TupleDataOrderedQueue, InsertAndPopTest) {
 
       // The queue should reverse the order of the tuples.
       absl::Status status;
-      if (!q.Insert(absl::make_unique<TupleData>(data), &status)) {
+      if (!q.Insert(std::make_unique<TupleData>(data), &status)) {
         ASSERT_THAT(status, StatusIs(absl::StatusCode::kResourceExhausted));
         EXPECT_EQ(remaining_bytes, accountant.remaining_bytes());
         break;
@@ -500,9 +500,9 @@ TEST(TupleDataOrderedQueue, DestructorTest) {
     TupleDataOrderedQueue q(*comparator, &accountant);
     TupleData data = CreateTupleDataFromValues({Int64(10)});
     absl::Status status;
-    ASSERT_TRUE(q.Insert(absl::make_unique<TupleData>(data), &status));
-    ASSERT_TRUE(q.Insert(absl::make_unique<TupleData>(data), &status));
-    ASSERT_TRUE(q.Insert(absl::make_unique<TupleData>(data), &status));
+    ASSERT_TRUE(q.Insert(std::make_unique<TupleData>(data), &status));
+    ASSERT_TRUE(q.Insert(std::make_unique<TupleData>(data), &status));
+    ASSERT_TRUE(q.Insert(std::make_unique<TupleData>(data), &status));
     EXPECT_LT(accountant.remaining_bytes(), 1000);
   }
   EXPECT_EQ(accountant.remaining_bytes(), 1000);
@@ -606,10 +606,10 @@ TEST(MemoryReservation, Move) {
 TEST(MemoryReservation, AccountantDestroyedAfterMove) {
   absl::Status status;
   auto accountant =
-      absl::make_unique<MemoryAccountant>(/*total_num_bytes=*/1000);
-  auto res1 = absl::make_unique<MemoryReservation>(accountant.get());
+      std::make_unique<MemoryAccountant>(/*total_num_bytes=*/1000);
+  auto res1 = std::make_unique<MemoryReservation>(accountant.get());
   ASSERT_TRUE(res1->Increase(400, &status));
-  auto res2 = absl::make_unique<MemoryReservation>(std::move(*res1));
+  auto res2 = std::make_unique<MemoryReservation>(std::move(*res1));
 
   // Make sure that 'res1' being destroyed after the accountant is ok, since it
   // has been moved to 'res2'.
@@ -754,12 +754,11 @@ TEST(ReorderingTupleIterator, BasicTest) {
                               << "Some evaluation error";
       }
 
-      std::unique_ptr<TupleIterator> iter =
-          absl::make_unique<TestTupleIterator>(
-              std::vector<VariableId>{VariableId("foo")}, data,
-              /*preserves_order=*/true, expected_end_status);
+      std::unique_ptr<TupleIterator> iter = std::make_unique<TestTupleIterator>(
+          std::vector<VariableId>{VariableId("foo")}, data,
+          /*preserves_order=*/true, expected_end_status);
 
-      iter = absl::make_unique<ReorderingTupleIterator>(std::move(iter));
+      iter = std::make_unique<ReorderingTupleIterator>(std::move(iter));
       EXPECT_EQ(iter->DebugString(),
                 "ReorderingTupleIterator(TestTupleIterator)");
 
@@ -788,11 +787,11 @@ TEST(ReorderingTupleIterator, DisableReordering) {
   for (int i = 0; i < 3; ++i) {
     values.push_back(CreateTupleDataFromValues({Int64(i)}));
   }
-  std::unique_ptr<TupleIterator> iter = absl::make_unique<TestTupleIterator>(
+  std::unique_ptr<TupleIterator> iter = std::make_unique<TestTupleIterator>(
       std::vector<VariableId>{VariableId("foo")}, values,
       /*preserves_order=*/true, absl::OkStatus());
 
-  iter = absl::make_unique<ReorderingTupleIterator>(std::move(iter));
+  iter = std::make_unique<ReorderingTupleIterator>(std::move(iter));
   EXPECT_FALSE(iter->PreservesOrder());
   ZETASQL_ASSERT_OK(iter->DisableReordering());
   EXPECT_TRUE(iter->PreservesOrder());
@@ -813,11 +812,11 @@ TEST(ReorderingTupleIterator, DisableReorderingFailsAfterNext) {
   for (int i = 0; i < 3; ++i) {
     values.push_back(CreateTupleDataFromValues({Int64(i)}));
   }
-  std::unique_ptr<TupleIterator> iter = absl::make_unique<TestTupleIterator>(
+  std::unique_ptr<TupleIterator> iter = std::make_unique<TestTupleIterator>(
       std::vector<VariableId>{VariableId("foo")}, values,
       /*preserves_order=*/true, absl::OkStatus());
 
-  iter = absl::make_unique<ReorderingTupleIterator>(std::move(iter));
+  iter = std::make_unique<ReorderingTupleIterator>(std::move(iter));
   EXPECT_FALSE(iter->PreservesOrder());
   const TupleData* data = iter->Next();
   ASSERT_TRUE(data != nullptr);
@@ -854,7 +853,7 @@ TEST(PassThroughTupleIterator, IteratorFails) {
   PassThroughTupleIterator::IteratorFactory iterator_factory = [&schema]() {
     absl::Status iterator_failure = zetasql_base::InternalErrorBuilder()
                                     << "Iterator failure";
-    auto iter = absl::make_unique<TestTupleIterator>(
+    auto iter = std::make_unique<TestTupleIterator>(
         schema.variables(), std::vector<TupleData>(),
         /*preserves_order=*/true, iterator_failure);
     return absl::StatusOr<std::unique_ptr<TupleIterator>>(std::move(iter));
@@ -882,7 +881,7 @@ TEST(PassThroughTupleIterator, Success) {
       CreateTupleDataFromValues({Int64(2), Int64(20)})};
   PassThroughTupleIterator::IteratorFactory iterator_factory = [&schema,
                                                                 &values]() {
-    auto iter = absl::make_unique<TestTupleIterator>(
+    auto iter = std::make_unique<TestTupleIterator>(
         schema.variables(), values,
         /*preserves_order=*/true, /*end_status=*/absl::OkStatus());
     return absl::StatusOr<std::unique_ptr<TupleIterator>>(std::move(iter));

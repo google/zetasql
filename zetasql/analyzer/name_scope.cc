@@ -95,7 +95,7 @@ void ValidFieldInfoMap::InsertNamePath(
   std::unique_ptr<ValidNamePathList>& valid_name_path_list =
       column_to_valid_name_paths_map_[column];
   if (valid_name_path_list == nullptr) {
-    valid_name_path_list = absl::make_unique<ValidNamePathList>();
+    valid_name_path_list = std::make_unique<ValidNamePathList>();
   }
   valid_name_path_list->push_back(valid_name_path);
 }
@@ -737,7 +737,7 @@ absl::Status NameScope::CopyNameScopeWithOverridingNames(
   //
   // Note that some of the names in 'namelist_with_overriding_names' can
   // themselves be ambiguous.
-  *scope_with_new_names = absl::make_unique<NameScope>(
+  *scope_with_new_names = std::make_unique<NameScope>(
       previous_scope_, namelist_with_overriding_names);
   (*scope_with_new_names)->InsertNameTargetsIfNotPresent(names());
 

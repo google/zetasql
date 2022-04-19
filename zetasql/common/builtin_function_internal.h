@@ -161,6 +161,28 @@ std::string SupportedSignaturesForAnonCountStarFunction(
     const std::string& unused_function_name,
     const LanguageOptions& language_options, const Function& function);
 
+std::string SupportedSignaturesForAnonCountStarWithReportFunction(
+    const std::string& report_format, const LanguageOptions& language_options,
+    const Function& function);
+
+std::string AnonSumWithReportJsonFunctionSQL(
+    const std::vector<std::string>& inputs);
+
+std::string AnonSumWithReportProtoFunctionSQL(
+    const std::vector<std::string>& inputs);
+
+std::string AnonCountWithReportJsonFunctionSQL(
+    const std::vector<std::string>& inputs);
+
+std::string AnonCountWithReportProtoFunctionSQL(
+    const std::vector<std::string>& inputs);
+
+std::string AnonCountStarWithReportJsonFunctionSQL(
+    const std::vector<std::string>& inputs);
+
+std::string AnonCountStarWithReportProtoFunctionSQL(
+    const std::vector<std::string>& inputs);
+
 std::string BetweenFunctionSQL(const std::vector<std::string>& inputs);
 
 std::string InListFunctionSQL(const std::vector<std::string>& inputs);

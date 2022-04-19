@@ -127,6 +127,8 @@ class NumericValue final {
   // if the given value cannot be converted to a NUMERIC (e.g. NaN).
   static absl::StatusOr<NumericValue> FromDouble(double value);
 
+  static constexpr NumericValue Pi();
+
   // Arithmetic operators. These operators can return OUT_OF_RANGE error on
   // overflow. Additionally the division returns OUT_OF_RANGE if the divisor is
   // zero.
@@ -134,6 +136,12 @@ class NumericValue final {
   absl::StatusOr<NumericValue> Subtract(NumericValue rh) const;
   absl::StatusOr<NumericValue> Multiply(NumericValue rh) const;
   absl::StatusOr<NumericValue> Divide(NumericValue rh) const;
+
+  // Takes in a multiplier as a FixedInt<64, 2>, and an amount `scale_bits`, and
+  // returns the NumericValue representing (*this * multiplier) / pow(2,
+  // scale_bits), or OUT_OF_RANGE on overflow
+  absl::StatusOr<NumericValue> MultiplyAndDivideByPowerOfTwo(
+      const FixedInt<64, 2>& multiplier, uint scale_bits) const;
 
   // An integer division operation. Similar to general division followed by
   // truncating the result to the whole integer. May return OUT_OF_RANGE if an
@@ -175,12 +183,15 @@ class NumericValue final {
   // Return square root of this numeric value.
   // Returns OUT_OF_RANGE error on negative value.
   absl::StatusOr<NumericValue> Sqrt() const;
+  // Return cube root of this NumericValue.
+  absl::StatusOr<NumericValue> Cbrt() const;
 
   // Rounds this NUMERIC value to the given number of decimal digits after the
   // decimal point. 'digits' can be negative to cause rounding of the digits to
   // the left of the decimal point. Halfway cases are rounded away from zero.
   // Returns OUT_OF_RANGE if the rounding causes numerical overflow.
-  absl::StatusOr<NumericValue> Round(int64_t digits) const;
+  absl::StatusOr<NumericValue> Round(int64_t digits,
+                                     bool round_half_even = false) const;
   // Similar to the method above, but rounds towards zero, i.e. truncates the
   // number. Because this method truncates instead of rounding away from zero it
   // never causes an error.
@@ -360,25 +371,25 @@ class NumericValue final {
     // sliding windows. If the value has not been added to the input, or if it
     // has already been removed, then the result of this method is undefined.
     void Subtract(NumericValue value);
-    // Returns the variance, or absl::nullopt if count is too low.
-    absl::optional<double> GetVariance(uint64_t count, bool is_sampling) const;
-    // Returns the population variance, or absl::nullopt if count is 0.
-    absl::optional<double> GetPopulationVariance(uint64_t count) const {
+    // Returns the variance, or std::nullopt if count is too low.
+    std::optional<double> GetVariance(uint64_t count, bool is_sampling) const;
+    // Returns the population variance, or std::nullopt if count is 0.
+    std::optional<double> GetPopulationVariance(uint64_t count) const {
       return GetVariance(count, /*is_sampling=*/false);
     }
-    // Returns the sampling variance, or absl::nullopt if count < 2.
-    absl::optional<double> GetSamplingVariance(uint64_t count) const {
+    // Returns the sampling variance, or std::nullopt if count < 2.
+    std::optional<double> GetSamplingVariance(uint64_t count) const {
       return GetVariance(count, /*is_sampling=*/true);
     }
-    // Returns the standard deviation, or absl::nullopt if count is too low.
-    absl::optional<double> GetStdDev(uint64_t count, bool is_sampling) const;
-    // Returns the population standard deviation, or absl::nullopt if count is
+    // Returns the standard deviation, or std::nullopt if count is too low.
+    std::optional<double> GetStdDev(uint64_t count, bool is_sampling) const;
+    // Returns the population standard deviation, or std::nullopt if count is
     // 0.
-    absl::optional<double> GetPopulationStdDev(uint64_t count) const {
+    std::optional<double> GetPopulationStdDev(uint64_t count) const {
       return GetStdDev(count, /*is_sampling=*/false);
     }
-    // Returns the sampling standard deviation, or absl::nullopt if count < 2.
-    absl::optional<double> GetSamplingStdDev(uint64_t count) const {
+    // Returns the sampling standard deviation, or std::nullopt if count < 2.
+    std::optional<double> GetSamplingStdDev(uint64_t count) const {
       return GetStdDev(count, /*is_sampling=*/true);
     }
     // Merges the state with other VarianceAggregator instance's state.
@@ -420,17 +431,16 @@ class NumericValue final {
     // sliding windows. If the pair has not been added to the input, or if it
     // has already been removed, then the result of this method is undefined.
     void Subtract(NumericValue x, NumericValue y);
-    // Returns the covariance, or absl::nullopt if count is too low.
-    absl::optional<double> GetCovariance(uint64_t count,
-                                         bool is_sampling) const;
+    // Returns the covariance, or std::nullopt if count is too low.
+    std::optional<double> GetCovariance(uint64_t count, bool is_sampling) const;
     // Returns the population covariance of non-null pairs from input, or
-    // absl::nullopt if count is 0.
-    absl::optional<double> GetPopulationCovariance(uint64_t count) const {
+    // std::nullopt if count is 0.
+    std::optional<double> GetPopulationCovariance(uint64_t count) const {
       return GetCovariance(count, /*is_sampling=*/false);
     }
     // Returns the sample covariance of non-null pairs from input, or
-    // absl::nullopt if count < 2.
-    absl::optional<double> GetSamplingCovariance(uint64_t count) const {
+    // std::nullopt if count < 2.
+    std::optional<double> GetSamplingCovariance(uint64_t count) const {
       return GetCovariance(count, /*is_sampling=*/true);
     }
     // Merges the state with other CovarianceAggregator instance's state.
@@ -474,7 +484,7 @@ class NumericValue final {
     // has already been removed, then the result of this method is undefined.
     void Subtract(NumericValue x, NumericValue y);
     // Returns the correlation coefficient for non-null pairs from input.
-    absl::optional<double> GetCorrelation(uint64_t count) const;
+    std::optional<double> GetCorrelation(uint64_t count) const;
     // Merges the state with other CorrelationAggregator instance's state.
     void MergeWith(const CorrelationAggregator& other);
     // Serialization and deserialization methods that are intended to be
@@ -613,6 +623,8 @@ class BigNumericValue final {
   // error if the given value cannot be converted to a BIGNUMERIC (e.g. NaN).
   static absl::StatusOr<BigNumericValue> FromDouble(double value);
 
+  static constexpr BigNumericValue Pi();
+
   // Arithmetic operators. These operators can return OUT_OF_RANGE error on
   // overflow. Additionally the division returns OUT_OF_RANGE if the divisor is
   // zero.
@@ -620,6 +632,12 @@ class BigNumericValue final {
   absl::StatusOr<BigNumericValue> Subtract(const BigNumericValue& rh) const;
   absl::StatusOr<BigNumericValue> Multiply(const BigNumericValue& rh) const;
   absl::StatusOr<BigNumericValue> Divide(const BigNumericValue& rh) const;
+
+  // Takes in a multiplier as a BigNumericValue, and an amount `scale_bits`, and
+  // returns the BigNumericValue representing (*this * multiplier) /
+  // pow(2, scale_bits), or OUT_OF_RANGE on overflow
+  absl::StatusOr<BigNumericValue> MultiplyAndDivideByPowerOfTwo(
+      const FixedInt<64, 4>& multiplier, uint scale_bits) const;
 
   // An integer division operation. Similar to general division followed by
   // truncating the result to the whole integer. May return OUT_OF_RANGE if an
@@ -662,13 +680,17 @@ class BigNumericValue final {
   // Return square root of this BigNumericValue.
   // Returns OUT_OF_RANGE error on negative value.
   absl::StatusOr<BigNumericValue> Sqrt() const;
+  // Return cube root of this BigNumericValue.
+  absl::StatusOr<BigNumericValue> Cbrt() const;
 
   // Rounds this BigNumericValue to the given number of decimal digits after the
   // decimal point. 'digits' can be negative to cause rounding of the digits to
   // the left of the decimal point. Rounds the number to the nearest and ties
-  // away from zero. Returns OUT_OF_RANGE if the rounding causes numerical
-  // overflow.
-  absl::StatusOr<BigNumericValue> Round(int64_t digits) const;
+  // away from zero by default. Rounds the number to the nearest and ties
+  // to the nearest even if round_half_even enabled. Returns OUT_OF_RANGE if
+  // the rounding causes numerical overflow.
+  absl::StatusOr<BigNumericValue> Round(int64_t digits,
+                                        bool round_half_even = false) const;
 
   // Similar to the method above, but rounds towards zero, i.e. truncates the
   // number. Because this method truncates instead of rounding away from zero it
@@ -727,7 +749,7 @@ class BigNumericValue final {
   // length with max size of 32 bytes. SerializeAndAppendToProtoBytes is
   // typically more efficient due to fewer memory allocations.
   void SerializeAndAppendToProtoBytes(std::string* bytes) const;
-  std::string SerializeAsProtoBytes() const  {
+  std::string SerializeAsProtoBytes() const {
     std::string bytes;
     SerializeAndAppendToProtoBytes(&bytes);
     return bytes;
@@ -787,25 +809,25 @@ class BigNumericValue final {
     // sliding windows. If the value has not been added to the input, or if it
     // has already been removed, then the result of this method is undefined.
     void Subtract(BigNumericValue value);
-    // Returns the variance, or absl::nullopt if count is too low.
-    absl::optional<double> GetVariance(uint64_t count, bool is_sampling) const;
-    // Returns the population variance, or absl::nullopt if count is 0.
-    absl::optional<double> GetPopulationVariance(uint64_t count) const {
+    // Returns the variance, or std::nullopt if count is too low.
+    std::optional<double> GetVariance(uint64_t count, bool is_sampling) const;
+    // Returns the population variance, or std::nullopt if count is 0.
+    std::optional<double> GetPopulationVariance(uint64_t count) const {
       return GetVariance(count, /*is_sampling=*/false);
     }
-    // Returns the sampling variance, or absl::nullopt if count < 2.
-    absl::optional<double> GetSamplingVariance(uint64_t count) const {
+    // Returns the sampling variance, or std::nullopt if count < 2.
+    std::optional<double> GetSamplingVariance(uint64_t count) const {
       return GetVariance(count, /*is_sampling=*/true);
     }
-    // Returns the standard deviation, or absl::nullopt if count is too low.
-    absl::optional<double> GetStdDev(uint64_t count, bool is_sampling) const;
-    // Returns the population standard deviation, or absl::nullopt if count is
+    // Returns the standard deviation, or std::nullopt if count is too low.
+    std::optional<double> GetStdDev(uint64_t count, bool is_sampling) const;
+    // Returns the population standard deviation, or std::nullopt if count is
     // 0.
-    absl::optional<double> GetPopulationStdDev(uint64_t count) const {
+    std::optional<double> GetPopulationStdDev(uint64_t count) const {
       return GetStdDev(count, /*is_sampling=*/false);
     }
-    // Returns the sampling standard deviation, or absl::nullopt if count < 2.
-    absl::optional<double> GetSamplingStdDev(uint64_t count) const {
+    // Returns the sampling standard deviation, or std::nullopt if count < 2.
+    std::optional<double> GetSamplingStdDev(uint64_t count) const {
       return GetStdDev(count, /*is_sampling=*/true);
     }
     // Merges the state with other VarianceAggregator instance's state.
@@ -847,17 +869,16 @@ class BigNumericValue final {
     // sliding windows. If the pair has not been added to the input, or if it
     // has already been removed, then the result of this method is undefined.
     void Subtract(BigNumericValue x, BigNumericValue y);
-    // Returns the covariance, or absl::nullopt if count is too low.
-    absl::optional<double> GetCovariance(uint64_t count,
-                                         bool is_sampling) const;
+    // Returns the covariance, or std::nullopt if count is too low.
+    std::optional<double> GetCovariance(uint64_t count, bool is_sampling) const;
     // Returns the population covariance of non-null pairs from input, or
-    // absl::nullopt if count is 0.
-    absl::optional<double> GetPopulationCovariance(uint64_t count) const {
+    // std::nullopt if count is 0.
+    std::optional<double> GetPopulationCovariance(uint64_t count) const {
       return GetCovariance(count, /*is_sampling=*/false);
     }
     // Returns the sample covariance of non-null pairs from input, or
-    // absl::nullopt if count < 2.
-    absl::optional<double> GetSamplingCovariance(uint64_t count) const {
+    // std::nullopt if count < 2.
+    std::optional<double> GetSamplingCovariance(uint64_t count) const {
       return GetCovariance(count, /*is_sampling=*/true);
     }
     // Merges the state with other CovarianceAggregator instance's state.
@@ -901,7 +922,7 @@ class BigNumericValue final {
     // has already been removed, then the result of this method is undefined.
     void Subtract(BigNumericValue x, BigNumericValue y);
     // Returns the correlation coefficient for non-null pairs from input.
-    absl::optional<double> GetCorrelation(uint64_t count) const;
+    std::optional<double> GetCorrelation(uint64_t count) const;
     // Merges the state with other CorrelationAggregator instance's state.
     void MergeWith(const CorrelationAggregator& other);
     // Serialization and deserialization methods that are intended to be
@@ -1042,6 +1063,10 @@ inline constexpr NumericValue NumericValue::MaxValue() {
 
 inline constexpr NumericValue NumericValue::MinValue() {
   return NumericValue(internal::kNumericMin);
+}
+
+inline constexpr NumericValue NumericValue::Pi() {
+  return NumericValue(static_cast<__int128>(3141592654ULL));
 }
 
 inline absl::StatusOr<NumericValue> NumericValue::FromPackedInt(
@@ -1280,6 +1305,12 @@ inline constexpr BigNumericValue BigNumericValue::MaxValue() {
 
 inline constexpr BigNumericValue BigNumericValue::MinValue() {
   return BigNumericValue(FixedInt<64, 4>::min());
+}
+
+inline constexpr BigNumericValue BigNumericValue::Pi() {
+  constexpr uint64_t hi = 0xEC58DFA74641AF52ULL;
+  constexpr uint64_t lo = 0xAD0D16E77D576623ULL;
+  return BigNumericValue({lo, hi, 0ULL, 0ULL});
 }
 
 inline constexpr BigNumericValue BigNumericValue::FromPackedLittleEndianArray(

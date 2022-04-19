@@ -110,7 +110,8 @@ class ReferenceDriver::BuiltinFunctionCache {
     for (const auto& entry : *builtin_function_map) {
       functions.push_back(entry.second.get());
     }
-    catalog->ClearFunctions();
+    catalog->RemoveFunctions(
+        [](const Function* fn) { return fn->IsZetaSQLBuiltin(); });
     catalog->AddZetaSQLFunctions(functions);
   }
   void DumpStats() {
@@ -129,7 +130,7 @@ class ReferenceDriver::BuiltinFunctionCache {
 
 ReferenceDriver::ReferenceDriver()
     : type_factory_(new TypeFactory),
-      function_cache_(absl::make_unique<BuiltinFunctionCache>()),
+      function_cache_(std::make_unique<BuiltinFunctionCache>()),
       default_time_zone_(GetDefaultDefaultTimeZone()),
       statement_evaluation_timeout_(absl::Seconds(
           absl::GetFlag(FLAGS_reference_driver_query_eval_timeout_sec))) {
@@ -153,7 +154,7 @@ ReferenceDriver::ReferenceDriver()
 ReferenceDriver::ReferenceDriver(const LanguageOptions& options)
     : type_factory_(new TypeFactory),
       language_options_(options),
-      function_cache_(absl::make_unique<BuiltinFunctionCache>()),
+      function_cache_(std::make_unique<BuiltinFunctionCache>()),
       default_time_zone_(GetDefaultDefaultTimeZone()),
       statement_evaluation_timeout_(absl::Seconds(
           absl::GetFlag(FLAGS_reference_driver_query_eval_timeout_sec))) {
@@ -264,16 +265,16 @@ void ReferenceDriver::AddTable(const std::string& table_name,
 
 absl::Status ReferenceDriver::CreateDatabase(const TestDatabase& test_db) {
   catalog_ =
-      absl::make_unique<SimpleCatalog>("root_catalog", type_factory_.get());
+      std::make_unique<SimpleCatalog>("root_catalog", type_factory_.get());
   tables_.clear();
   // Prepare proto importer.
   if (test_db.runs_as_test) {
     proto_source_tree_ = CreateProtoSourceTree();
   } else {
-    proto_source_tree_ = absl::make_unique<ProtoSourceTree>("");
+    proto_source_tree_ = std::make_unique<ProtoSourceTree>("");
   }
-  proto_error_collector_ = absl::make_unique<ProtoErrorCollector>(&errors_);
-  importer_ = absl::make_unique<google::protobuf::compiler::Importer>(
+  proto_error_collector_ = std::make_unique<ProtoErrorCollector>(&errors_);
+  importer_ = std::make_unique<google::protobuf::compiler::Importer>(
       proto_source_tree_.get(), proto_error_collector_.get());
   // Load protos and enums.
   ZETASQL_RETURN_IF_ERROR(LoadProtoEnumTypes(test_db.proto_files, test_db.proto_names,
@@ -341,7 +342,7 @@ absl::StatusOr<std::unique_ptr<Catalog>> AugmentCatalogForScriptVariables(
     const VariableMap& script_variables,
     std::unique_ptr<SimpleCatalog>* internal_catalog) {
   auto variables_catalog =
-      absl::make_unique<SimpleCatalog>("script_variables", type_factory);
+      std::make_unique<SimpleCatalog>("script_variables", type_factory);
   for (const std::pair<const IdString, Value>& variable : script_variables) {
     std::unique_ptr<SimpleConstant> constant;
     ZETASQL_RETURN_IF_ERROR(SimpleConstant::Create({variable.first.ToString()},
@@ -523,7 +524,7 @@ ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
     ZETASQL_ASSIGN_OR_RETURN(
         bool created,
         ApplyCreateDdl(create_procedure_stmt, procedures_,
-                       absl::make_unique<ProcedureDefinition>(
+                       std::make_unique<ProcedureDefinition>(
                            name, create_procedure_stmt->signature(),
                            create_procedure_stmt->argument_name_list(),
                            create_procedure_stmt->procedure_body()),
@@ -840,7 +841,7 @@ class ReferenceDriverStatementEvaluator : public StatementEvaluatorImpl {
       return zetasql_base::NotFoundErrorBuilder()
              << "Procedure " << absl::StrJoin(path, ".") << " not found";
     }
-    return absl::make_unique<ProcedureDefinition>(*it->second);
+    return std::make_unique<ProcedureDefinition>(*it->second);
   }
 
   // TODO: Currently, this is only set to true if a statement uses an

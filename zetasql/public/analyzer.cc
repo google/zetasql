@@ -236,7 +236,7 @@ static absl::Status AnalyzeStatementHelper(
     owned_parser_output = std::move(*statement_parser_output);
   }
 
-  auto original_output = absl::make_unique<AnalyzerOutput>(
+  auto original_output = std::make_unique<AnalyzerOutput>(
       options.id_string_pool(), options.arena(), std::move(resolved_statement),
       resolver.analyzer_output_properties(), std::move(owned_parser_output),
       ConvertInternalErrorLocationsAndAdjustErrorStrings(
@@ -356,7 +356,7 @@ static absl::Status AnalyzeTypeImpl(const std::string& type_name,
                                     const AnalyzerOptions& options,
                                     Catalog* catalog, TypeFactory* type_factory,
                                     const Type** output_type,
-                                    TypeParameters* output_type_params) {
+                                    TypeModifiers* output_type_modifiers) {
   *output_type = nullptr;
 
   ZETASQL_RETURN_IF_ERROR(ValidateAnalyzerOptions(options));
@@ -364,7 +364,7 @@ static absl::Status AnalyzeTypeImpl(const std::string& type_name,
 
   Resolver resolver(catalog, type_factory, &options);
   ZETASQL_RETURN_IF_ERROR(
-      resolver.ResolveTypeName(type_name, output_type, output_type_params));
+      resolver.ResolveTypeName(type_name, output_type, output_type_modifiers));
 
   ZETASQL_VLOG(3) << "Resolved type: " << (*output_type)->DebugString();
   return absl::OkStatus();
@@ -373,20 +373,20 @@ static absl::Status AnalyzeTypeImpl(const std::string& type_name,
 absl::Status AnalyzeType(const std::string& type_name,
                          const AnalyzerOptions& options_in, Catalog* catalog,
                          TypeFactory* type_factory, const Type** output_type) {
-  TypeParameters type_params = TypeParameters();
+  TypeModifiers type_modifiers;
   return AnalyzeType(type_name, options_in, catalog, type_factory, output_type,
-                     &type_params);
+                     &type_modifiers);
 }
 
 absl::Status AnalyzeType(const std::string& type_name,
                          const AnalyzerOptions& options_in, Catalog* catalog,
                          TypeFactory* type_factory, const Type** output_type,
-                         TypeParameters* output_type_params) {
+                         TypeModifiers* output_type_modifiers) {
   std::unique_ptr<AnalyzerOptions> copy;
   const AnalyzerOptions& options = GetOptionsWithArenas(&options_in, &copy);
   const absl::Status status =
       AnalyzeTypeImpl(type_name, options, catalog, type_factory, output_type,
-                      output_type_params);
+                      output_type_modifiers);
   return ConvertInternalErrorLocationAndAdjustErrorString(
       options.error_message_mode(), type_name, status);
 }
@@ -594,7 +594,7 @@ absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> RewriteForAnonymization(
   // rewritten AST.  The new AnalyzerOutput uses the (shared) IdStringPool and
   // Arena from <analyzer_output>, and we also copy the deprecation warnings
   // and parameter info from the <analyzer_output>.
-  return absl::make_unique<AnalyzerOutput>(
+  return std::make_unique<AnalyzerOutput>(
       analyzer_output.id_string_pool(), analyzer_output.arena(),
       absl::WrapUnique(
           anonymized_output.node.release()->GetAs<ResolvedStatement>()),

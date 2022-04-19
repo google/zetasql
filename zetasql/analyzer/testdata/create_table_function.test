@@ -2800,6 +2800,73 @@ CreateTableFunctionStmt
   +-$aggregate.count_star#5 AS count_star [INT64]
 ==
 
+# Function has a single table argument that is scanned twice
+create temporary table function maketable(t table<x int64, y string>)
+  returns table<x int64, y string> as
+    select x, y from t
+    union all
+    select x, y from t
+--
+CreateTableFunctionStmt
++-name_path=maketable
++-create_scope=CREATE_TEMP
++-argument_name_list=[t]
++-signature=(TABLE<x INT64, y STRING> t) -> TABLE<x INT64, y STRING>
++-has_explicit_return_schema=TRUE
++-language="SQL"
++-code="select x, y from t\n    union all\n    select x, y from t"
++-query=
+| +-SetOperationScan
+|   +-column_list=$union_all.[x#5, y#6]
+|   +-op_type=UNION_ALL
+|   +-input_item_list=
+|     +-SetOperationItem
+|     | +-scan=
+|     | | +-ProjectScan
+|     | |   +-column_list=t.[x#1, y#2]
+|     | |   +-input_scan=
+|     | |     +-RelationArgumentScan(column_list=t.[x#1, y#2], name="t")
+|     | +-output_column_list=t.[x#1, y#2]
+|     +-SetOperationItem
+|       +-scan=
+|       | +-ProjectScan
+|       |   +-column_list=t.[x#3, y#4]
+|       |   +-input_scan=
+|       |     +-RelationArgumentScan(column_list=t.[x#3, y#4], name="t")
+|       +-output_column_list=t.[x#3, y#4]
++-output_column_list=
+  +-$union_all.x#5 AS x [INT64]
+  +-$union_all.y#6 AS y [STRING]
+==
+
+# Function has a single table argument that is scanned twice as self-join
+create temporary table function maketable(t table<x int64, y string>)
+  returns table<x int64, y string> as
+    select t1.x, t2.y from t AS t1 CROSS JOIN t AS t2
+--
+CreateTableFunctionStmt
++-name_path=maketable
++-create_scope=CREATE_TEMP
++-argument_name_list=[t]
++-signature=(TABLE<x INT64, y STRING> t) -> TABLE<x INT64, y STRING>
++-has_explicit_return_schema=TRUE
++-language="SQL"
++-code="select t1.x, t2.y from t AS t1 CROSS JOIN t AS t2"
++-query=
+| +-ProjectScan
+|   +-column_list=t.[x#1, y#4]
+|   +-input_scan=
+|     +-JoinScan
+|       +-column_list=t.[x#1, y#4]
+|       +-left_scan=
+|       | +-RelationArgumentScan(column_list=[t.x#1], name="t")
+|       +-right_scan=
+|         +-RelationArgumentScan(column_list=[t.y#4], name="t")
++-output_column_list=
+  +-t.x#1 AS x [INT64]
+  +-t.y#4 AS y [STRING]
+==
+
 ################################################################################
 #
 # Negative test cases

@@ -75,7 +75,7 @@ constexpr absl::string_view kWideJsonString = R"(
 // 'json_constructor': function used for constructing json values.
 const std::vector<FunctionTestCall> GetJsonTestsCommon(
     bool sql_standard_mode, bool scalar_test_cases,
-    const std::function<Value(absl::optional<absl::string_view>)>&
+    const std::function<Value(std::optional<absl::string_view>)>&
         json_constructor) {
   std::string query_fn_name;
   std::string value_fn_name;
@@ -450,7 +450,7 @@ const std::vector<FunctionTestCall> GetStringJsonTests(bool sql_standard_mode,
 
   std::vector<FunctionTestCall> tests =
       GetJsonTestsCommon(sql_standard_mode, scalar_test_cases,
-                         [](absl::optional<absl::string_view> input) {
+                         [](std::optional<absl::string_view> input) {
                            if (input.has_value()) return String(input.value());
                            return NullString();
                          });
@@ -519,7 +519,7 @@ const std::vector<FunctionTestCall> GetNativeJsonTests(bool sql_standard_mode,
 
   std::vector<FunctionTestCall> tests = GetJsonTestsCommon(
       sql_standard_mode, scalar_test_cases,
-      [](absl::optional<absl::string_view> input) {
+      [](std::optional<absl::string_view> input) {
         if (input.has_value())
           return Json(JSONValue::ParseJSONString(input.value()).value());
         return NullJson();

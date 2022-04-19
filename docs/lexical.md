@@ -3,83 +3,203 @@
 # Lexical structure and syntax
 
 A ZetaSQL statement comprises a series of tokens. Tokens include
-*identifiers*, *quoted identifiers*, *literals*, *keywords*, *operators*, and
-*special characters*. You can separate tokens with whitespace (for example, space, backspace,
-tab, newline) or comments.
+identifiers, quoted identifiers, literals, keywords, operators, and
+special characters. You can separate tokens with comments or whitespace such
+as spaces, backspaces, tabs, or newlines.
 
 ## Identifiers 
 <a id="identifiers"></a>
 
-Identifiers are names that are associated with columns, tables, and other
-database objects. They can be unquoted or quoted.
+Identifiers are names that are associated with columns, tables,
+path expressions, and more. They can be [unquoted][unquoted-identifiers] or
+[quoted][quoted-identifiers] and some are [case-sensitive][case-sensitivity].
 
-+  Identifiers can be used in path expressions that return a
-   `STRUCT`
-   or `PROTO`.
-+  Some identifiers are case-sensitive and some are not.
-   For details, see [Case Sensitivity][case-sensitivity].
-+  Unquoted identifiers must begin with a letter or an underscore character.
-   Subsequent characters can be letters, numbers, or underscores.
-+  Quoted identifiers must be enclosed by backtick (`) characters.
-   +  Quoted identifiers can contain any character, such as spaces or symbols.
-   +  Quoted identifiers cannot be empty.
-   +  Quoted identifiers have the same escape sequences as
-      [string literals][string-literals].
-   +  A [reserved keyword](#reserved_keywords) must be a quoted identifier
-      if it is a standalone keyword or the first component of a path expression.
-      It may be unquoted as the second or later component of a
-      path expression.
-+  Table name identifiers have additional syntax to support dashes (-)
-   when referenced in `FROM` and `TABLE` clauses.
+### Unquoted identifiers 
+<a id="unquoted_identifiers"></a>
 
-**Examples**
++ Must begin with a letter or an underscore (_) character.
++ Subsequent characters can be letters, numbers, underscores (_), and dashes,
+  but additional rules apply for dashes (see the next rule).
++ Single dashes can be used with most unquoted identifiers, but not at the
+  beginning or end.
 
-These are valid identifiers:
+  When you use dashes in an unquoted identifier, you essentially combine an
+  unquoted identifier with one or more unquoted identifiers and numbers.
+  When using dashes, you must generally follow this structure:
 
+  ```none
+  unquoted_identifier[-{ unquoted_identifier | number }][...]
+  ```
+
+  For example: `foo-bar`, `foo-22`, `foo-22-bar`
+
+  Dashes cannot be used in fieldnames.
+
+### Quoted identifiers 
+<a id="quoted_identifiers"></a>
+
++ Must be enclosed by backtick (`) characters.
++ Can contain any characters, including spaces and symbols.
++ Cannot be empty.
++ Have the same escape sequences as [string literals][string-literals].
++ If an identifier is the same as a [reserved keyword](#reserved_keywords), the
+  identifier must be quoted. For example, the identifier `FROM` must be quoted.
+  Additional rules apply for [path expressions][path-expressions].
+
+### Identifier examples
+
+Path expression examples:
+
+```sql
+-- Valid. _5abc and dataField are valid identifiers.
+_5abc.dataField
+
+-- Valid. `5abc` and dataField are valid identifiers.
+`5abc`.dataField
+
+-- Invalid. 5abc is an invalid identifier because it is unquoted and starts
+-- with a number rather than a letter or underscore.
+5abc.dataField
+
+-- Valid. abc5 and dataField are valid identifiers.
+abc5.dataField
+
+-- Invalid. abc5! is an invalid identifier because it is unquoted and contains
+-- a character that is not a letter, number, or underscore.
+abc5!.dataField
+
+-- Valid. `GROUP` and dataField are valid identifiers.
+`GROUP`.dataField
+
+-- Invalid. GROUP is an invalid identifier because it is unquoted and is a
+-- stand-alone reserved keyword.
+GROUP.dataField
+
+-- Valid. abc5 and GROUP are valid identifiers.
+abc5.GROUP
 ```
-Customers5
-`5Customers`
-dataField
-_dataField1
-ADGROUP
-`tableName~`
-`GROUP`
-```
 
-These path expressions contain valid identifiers:
+Function examples:
 
-```
-foo.`GROUP`
-foo.GROUP
+```sql
+-- Valid. dataField is a valid identifier in a function called foo().
 foo().dataField
+```
+
+Array access operation examples:
+
+```sql
+-- Valid. dataField is a valid identifier in an array called items.
+items[OFFSET(3)].dataField
+```
+
+Named query parameter examples:
+
+```sql
+-- Valid. param and dataField are valid identifiers.
+@param.dataField
+```
+
+Protocol buffer examples:
+
+```sql
+-- Valid. dataField is a valid identifier in a protocol buffer called foo.
 (foo).dataField
-list[OFFSET(3)].dataField
-list[ORDINAL(3)].dataField
-@parameter.dataField
 ```
 
-These are invalid identifiers:
-
-```
-5Customers
-_dataField!
-GROUP
-```
-
-`5Customers` begins with a number, not a letter or underscore. `_dataField!`
-contains the special character "!" which is not a letter, number, or underscore.
-`GROUP` is a reserved keyword, and therefore cannot be used as an identifier
-without being enclosed by backtick characters.
-
-You do not need to enclose table names that include dashes
-with backticks. These are equivalent:
+Table name examples:
 
 ```sql
-SELECT * FROM data-customers-287.mydatabase.mytable
+-- Valid table name.
+mytable287
 ```
 
 ```sql
-SELECT * FROM `data-customers-287`.mydatabase.mytable
+-- Invalid table name. The table name starts with a number and is
+-- unquoted.
+287mytable
+```
+
+```sql
+-- Invalid table name. The table name is unquoted and is not a valid
+-- dashed identifier, as the part after the dash is neither a number nor
+-- an identifier starting with a letter or an underscore.
+mytable-287a
+```
+
+## Path expressions
+
+A path expression describes how to navigate to an object in a graph of objects
+and generally follows this structure:
+
+```none
+path:
+  [path_expression][. ...]
+
+path_expression:
+  [first_part]/subsequent_part[ { / | : | - } subsequent_part ][...]
+
+first_part:
+  { unquoted_identifier | quoted_identifier }
+
+subsequent_part:
+  { unquoted_identifier | quoted_identifier | number }
+```
+
++ `path`: A graph of one or more objects.
++ `path_expression`: An object in a graph of objects.
++ `first_part`: A path expression can start with a quoted or
+  unquoted identifier. If the path expressions starts with a
+  [reserved keyword](#reserved_keywords), it must be a quoted identifier.
++ `subsequent_part`: Subsequent parts of a path expression can include
+  non-identifiers, such as reserved keywords. If a subsequent part of a
+  path expressions starts with a [reserved keyword](#reserved_keywords), it
+  may be quoted or unquoted.
+
+Examples:
+
+```none
+foo.bar
+foo.bar/25
+foo/bar:25
+foo/bar/25-31
+/foo/bar
+/25/foo/bar
+```
+
+## Table names
+
+A table name represents the name of a table.
+
+Table names can be quoted identifiers or unquoted identifiers. If unquoted:
+
++ Unquoted identifiers support [dashes][unquoted-identifiers] when referenced
+  in a `FROM` or `TABLE` clause. 
+
+Table names can be path expressions.
+
+Examples:
+
+```none
+my-table
+mytable
+`287mytable`
+```
+
+## Column names
+
+A column name represents the name of a column in a table.
+
++ Column names can be quoted identifiers or unquoted identifiers.
++ If unquoted, identifiers support dashed identifiers when referenced in a
+  `FROM` or `TABLE` clause.
+
+Examples:
+
+```none
+columnA
+column-a
+`287column`
 ```
 
 ## Literals 
@@ -614,7 +734,9 @@ INTERVAL '1 5:30' DAY TO MINUTE
 ### Enum literals 
 <a id="enum_literals"></a>
 
-There is no syntax for enum literals, but integer or string literals will coerce to enum type when necessary, or can be explicitly CAST to a specific enum type name. See "Literal Coercion" in [Expressions, Functions, and Operators][functions-reference].
+There is no syntax for enum literals, but integer or string literals will coerce
+to enum type when necessary, or can be explicitly CAST to a specific
+enum type name. For more information, see [Literal coercion][coercion].
 
 ### JSON literals 
 <a id="json_literals"></a>
@@ -904,6 +1026,9 @@ preceded by the `@` character. Named query
 parameters cannot be used alongside [positional query
 parameters][positional-query-parameters].
 
+A named query parameter can start with an identifier or a reserved keyword.
+An identifier can be unquoted or quoted.
+
 **Example:**
 
 This example returns all rows where `LastName` is equal to the value of the
@@ -1063,6 +1188,10 @@ WHERE book = "Ulysses";
 
 [tz-database-time-zones]: http://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 
+[quoted-identifiers]: #quoted_identifiers
+
+[unquoted-identifiers]: #unquoted_identifiers
+
 [lexical-identifiers]: #identifiers
 
 [lexical-literals]: #literals
@@ -1072,6 +1201,8 @@ WHERE book = "Ulysses";
 [time-zone]: #timezone
 
 [string-literals]: #string_and_bytes_literals
+
+[path-expressions]: #path_expressions
 
 [named-query-parameters]: #named_query_parameters
 
@@ -1083,7 +1214,7 @@ WHERE book = "Ulysses";
 
 [constructing-a-struct]: https://github.com/google/zetasql/blob/master/docs/data-types.md#constructing_a_struct
 
-[functions-reference]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md
+[coercion]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#coercion
 
 <!-- mdlint on -->
 

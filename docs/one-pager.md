@@ -2,92 +2,4856 @@
 
 # ZetaSQL Documentation (One-Page)
 
-<!-- Product Overview -->
+---
+## HOW TO WORK WITH
 
-<!-- Quickstarts -->
+## Working with arrays
 
-<!-- Concepts -->
+In ZetaSQL, an array is an ordered list consisting of zero or more
+values of the same data type. You can construct arrays of simple data types,
+such as `INT64`, and complex data types, such as `STRUCT`s. The current
+exception to this is the `ARRAY` data type because arrays of arrays
+are not supported. To learn more about the `ARRAY`
+data type, see [Array type][array-data-type].
+
+With ZetaSQL, you can construct array literals,
+ build arrays from subqueries using the
+[`ARRAY`][array-function] function,
+ and aggregate values into an array using the
+[`ARRAY_AGG`][array-agg-function]
+function.
+
+You can combine arrays using functions like
+`ARRAY_CONCAT()`, and convert arrays to strings using `ARRAY_TO_STRING()`.
+
+### Constructing arrays
+
+#### Using array literals
+
+You can build an array literal in ZetaSQL using brackets (`[` and
+`]`). Each element in an array is separated by a comma.
+
+```sql
+SELECT [1, 2, 3] as numbers;
+
+SELECT ["apple", "pear", "orange"] as fruit;
+
+SELECT [true, false, true] as booleans;
+```
+
+You can also create arrays from any expressions that have compatible types. For
+example:
+
+```sql
+SELECT [a, b, c]
+FROM
+  (SELECT 5 AS a,
+          37 AS b,
+          406 AS c);
+
+SELECT [a, b, c]
+FROM
+  (SELECT CAST(5 AS INT64) AS a,
+          CAST(37 AS DOUBLE) AS b,
+          406 AS c);
+```
+
+Notice that the second example contains three expressions: one that returns an
+`INT64`, one that returns a `DOUBLE`, and one that
+declares a literal. This expression works because all three expressions share
+`DOUBLE` as a supertype.
+
+To declare a specific data type for an array, use angle
+brackets (`<` and `>`). For example:
+
+```sql
+SELECT ARRAY<DOUBLE>[1, 2, 3] as floats;
+```
+
+Arrays of most data types, such as `INT64` or `STRING`, don't require
+that you declare them first.
+
+```sql
+SELECT [1, 2, 3] as numbers;
+```
+
+You can write an empty array of a specific type using `ARRAY<type>[]`. You can
+also write an untyped empty array using `[]`, in which case ZetaSQL
+attempts to infer the array type from the surrounding context. If
+ZetaSQL cannot infer a type, the default type `ARRAY<INT64>` is used.
+
+#### Using generated values
+
+You can also construct an `ARRAY` with generated values.
+
+##### Generating arrays of integers
+
+[`GENERATE_ARRAY`][generate-array-function]
+generates an array of values from a starting and ending value and a step value.
+For example, the following query generates an array that contains all of the odd
+integers from 11 to 33, inclusive:
+
+```sql
+SELECT GENERATE_ARRAY(11, 33, 2) AS odds;
+
++--------------------------------------------------+
+| odds                                             |
++--------------------------------------------------+
+| [11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33] |
++--------------------------------------------------+
+```
+
+You can also generate an array of values in descending order by giving a
+negative step value:
+
+```sql
+SELECT GENERATE_ARRAY(21, 14, -1) AS countdown;
+
++----------------------------------+
+| countdown                        |
++----------------------------------+
+| [21, 20, 19, 18, 17, 16, 15, 14] |
++----------------------------------+
+```
+
+##### Generating arrays of dates
+
+[`GENERATE_DATE_ARRAY`][generate-date-array]
+generates an array of `DATE`s from a starting and ending `DATE` and a step
+`INTERVAL`.
+
+You can generate a set of `DATE` values using `GENERATE_DATE_ARRAY`. For
+example, this query returns the current `DATE` and the following
+`DATE`s at 1 `WEEK` intervals up to and including a later `DATE`:
+
+```sql
+SELECT
+  GENERATE_DATE_ARRAY('2017-11-21', '2017-12-31', INTERVAL 1 WEEK)
+    AS date_array;
+
++--------------------------------------------------------------------------+
+| date_array                                                               |
++--------------------------------------------------------------------------+
+| [2017-11-21, 2017-11-28, 2017-12-05, 2017-12-12, 2017-12-19, 2017-12-26] |
++--------------------------------------------------------------------------+
+```
+
+### Casting arrays
+
+You can use [`CAST`][casting]
+to cast arrays from one element type to another. The element types of the input
+`ARRAY` must be castable to the element types of the target `ARRAY`. For
+example, casting from type `ARRAY<INT32>` to `ARRAY<INT64>` or `ARRAY<STRING>`
+is valid; casting from type `ARRAY<INT32>` to `ARRAY<BYTES>` is not valid.
+
+**Example**
+
+```sql
+SELECT CAST(int_array AS ARRAY<DOUBLE>) AS double_array
+FROM (SELECT ARRAY<INT32>[1, 2, 3] AS int_array);
+
++--------------+
+| double_array |
++--------------+
+| [1, 2, 3]    |
++--------------+
+```
+
+### Accessing array elements
+
+Consider the following table, `sequences`:
+
+```sql
++---------------------+
+| some_numbers        |
++---------------------+
+| [0, 1, 1, 2, 3, 5]  |
+| [2, 4, 8, 16, 32]   |
+| [5, 10]             |
++---------------------+
+```
+
+This table contains the column `some_numbers` of the `ARRAY` data type.
+To access elements from the arrays in this column, you must specify which type
+of indexing you want to use: either
+[`OFFSET`][array-subscript-operator],
+for zero-based indexes, or
+[`ORDINAL`][array-subscript-operator],
+for one-based indexes.
+
+```sql
+WITH sequences AS
+  (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
+   UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
+   UNION ALL SELECT [5, 10] AS some_numbers)
+SELECT some_numbers,
+       some_numbers[OFFSET(1)] AS offset_1,
+       some_numbers[ORDINAL(1)] AS ordinal_1
+FROM sequences;
+
++--------------------+----------+-----------+
+| some_numbers       | offset_1 | ordinal_1 |
++--------------------+----------+-----------+
+| [0, 1, 1, 2, 3, 5] | 1        | 0         |
+| [2, 4, 8, 16, 32]  | 4        | 2         |
+| [5, 10]            | 10       | 5         |
++--------------------+----------+-----------+
+```
+
+You can use this DML statement to insert the example data:
+
+```sql
+INSERT sequences
+  (some_numbers, id)
+VALUES
+  ([0, 1, 1, 2, 3, 5], 1),
+  ([2, 4, 8, 16, 32], 2),
+  ([5, 10], 3);
+```
+
+This query shows how to use `OFFSET()` and `ORDINAL()`:
+
+```sql
+SELECT some_numbers,
+       some_numbers[OFFSET(1)] AS offset_1,
+       some_numbers[ORDINAL(1)] AS ordinal_1
+FROM sequences;
+
++---------------+----------+-----------+
+| some_numbers  | offset_1 | ordinal_1 |
++---------------+----------+-----------+
+| [0,1,1,2,3,5] |        1 |         0 |
++---------------+----------+-----------+
+| [2,4,8,16,32] |        4 |         2 |
++---------------+----------+-----------+
+| [5,10]        |       10 |         5 |
++---------------+----------+-----------+
+```
+
+Note: `OFFSET()` and `ORDINAL()` will raise errors if the index is out of
+range. To avoid this, you can use `SAFE_OFFSET()` or `SAFE_ORDINAL()` to return
+`NULL` instead of raising an error.
+
+### Finding lengths
+
+The `ARRAY_LENGTH()` function returns the length of an array.
+
+```sql
+WITH sequences AS
+  (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
+   UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
+   UNION ALL SELECT [5, 10] AS some_numbers)
+SELECT some_numbers,
+       ARRAY_LENGTH(some_numbers) AS len
+FROM sequences;
+
++--------------------+--------+
+| some_numbers       | len    |
++--------------------+--------+
+| [0, 1, 1, 2, 3, 5] | 6      |
+| [2, 4, 8, 16, 32]  | 5      |
+| [5, 10]            | 2      |
++--------------------+--------+
+```
+
+Here's an example query, assuming the same definition of the `sequences` table
+as above, with the same sample rows:
+
+```sql
+SELECT some_numbers,
+       ARRAY_LENGTH(some_numbers) AS len
+FROM sequences;
+
++---------------+------+
+| some_numbers  | len  |
++---------------+------+
+| [0,1,1,2,3,5] |    6 |
++---------------+------+
+| [2,4,8,16,32] |    5 |
++---------------+------+
+| [5,10]        |    2 |
++---------------+------+
+```
+
+### Flattening nested data into an array 
+<a id="flattening_nested_data_into_arrays"></a>
+
+If you have an array with nested data, you can return a single, flat
+array containing all elements in a specific part of the nested data.
+To do this, you can use the [`FLATTEN`][flatten-operator] operator with an
+array and the [array element field access operator][array-el-field-operator].
+
+**Examples**
+
+The examples in this section references nested data in an array called
+`items` in a table called `ItemsTable`:
+
+```sql
+WITH ItemsTable AS (SELECT [
+  STRUCT('red' AS color,
+         2 AS inventory,
+         [STRUCT('a' AS agent, [100.0, 50.0] AS prices),
+          STRUCT('c' AS agent, [25.0] AS prices)] AS sales),
+  STRUCT('green' AS color,
+         NULL AS inventory,
+         [STRUCT('a' AS agent, [75.0] AS prices),
+          STRUCT('b' AS agent, [200.0] AS prices)] AS sales),
+  STRUCT('orange' AS color,
+         10 AS inventory,
+         NULL AS sales)
+] AS items)
+SELECT * FROM ItemsTable
+```
+
+You can flatten nested data in an array called `items` with the
+`FLATTEN` operator. Here are some examples:
+
+```sql
+SELECT FLATTEN(items.color) AS colors
+FROM ItemsTable
+
++----------------------+
+| colors               |
++----------------------+
+| [red, green, orange] |
++----------------------+
+```
+
+```sql
+SELECT FLATTEN(items.inventory) AS inventory
+FROM ItemsTable
+
++---------------+
+| inventory     |
++---------------+
+| [2, NULL, 10] |
++---------------+
+```
+
+```sql
+SELECT FLATTEN(items.sales.prices) AS all_prices
+FROM ItemsTable
+
++------------------------+
+| all_prices             |
++------------------------+
+| [100, 50, 25, 75, 200] |
++------------------------+
+```
+
+```sql
+SELECT FLATTEN(items.sales.prices[SAFE_OFFSET(1)]) AS second_prices
+FROM ItemsTable
+
++------------------------+
+| second_prices          |
++------------------------+
+| [50, NULL, NULL, NULL] |
++------------------------+
+```
+
+### Flattening nested data into a table 
+<a id="flattening_nested_data_into_table"></a>
+
+If you have an array with nested data, you can get a specific part of the nested
+data in the array and return it as a single, flat table with one row for each
+element. To do this, you can use the [`UNNEST`][unnest-query] operator
+explicitly or implicitly in the [`FROM` clause][from-clause] with the [array
+element field access operator][array-el-field-operator].
+
+**Examples**
+
+The examples in this section references nested data in an array called `items`
+in a table called `ItemsTable`:
+
+```sql
+WITH ItemsTable AS (SELECT [
+  STRUCT('red' AS color,
+         2 AS inventory,
+         [STRUCT('a' AS agent, [100.0, 50.0] AS prices),
+          STRUCT('c' AS agent, [25.0] AS prices)] AS sales),
+  STRUCT('green' AS color,
+         NULL AS inventory,
+         [STRUCT('a' AS agent, [75.0] AS prices),
+          STRUCT('b' AS agent, [200.0] AS prices)] AS sales),
+  STRUCT('orange' AS color,
+         10 AS inventory,
+         NULL AS sales)
+] AS items)
+SELECT * FROM ItemsTable
+```
+
+You can flatten nested data in an array called `items` with the
+`UNNEST` operator or directly in the `FROM` clause. Here are some examples:
+
+```sql
+-- In UNNEST (FLATTEN used explicitly):
+SELECT colors
+FROM ItemsTable, UNNEST(FLATTEN(items.color)) AS colors;
+
+-- In UNNEST (FLATTEN used implicitly):
+SELECT colors
+FROM ItemsTable, UNNEST(items.color) AS colors;
+
+-- In the FROM clause (UNNEST used implicitly):
+SELECT colors
+FROM ItemsTable, ItemsTable.items.color AS colors;
+
++--------+
+| colors |
++--------+
+| red    |
+| green  |
+| orange |
++--------+
+```
+
+```sql
+-- In UNNEST (FLATTEN used explicitly):
+SELECT inventory
+FROM ItemsTable, UNNEST(FLATTEN(items.inventory)) AS inventory;
+
+-- In UNNEST (FLATTEN used implicitly):
+SELECT inventory
+FROM ItemsTable, UNNEST(items.inventory) AS inventory;
+
+-- In the FROM clause (UNNEST used implicitly):
+SELECT inventory
+FROM ItemsTable, ItemsTable.items.inventory AS inventory;
+
++-----------+
+| inventory |
++-----------+
+| 2         |
+| NULL      |
+| 10        |
++-----------+
+```
+
+```sql
+-- In UNNEST (FLATTEN used explicitly):
+SELECT all_prices
+FROM ItemsTable, UNNEST(FLATTEN(items.sales.prices)) AS all_prices;
+
+-- In UNNEST (FLATTEN used implicitly):
+SELECT all_prices
+FROM ItemsTable, UNNEST(items.sales.prices) AS all_prices;
+
+-- In the FROM clause (UNNEST used implicitly):
+SELECT all_prices
+FROM ItemsTable, ItemsTable.items.sales.prices AS all_prices;
+
++------------+
+| all_prices |
++------------+
+| 100        |
+| 50         |
+| 25         |
+| 75         |
+| 200        |
++------------+
+```
+
+```sql
+-- In UNNEST (FLATTEN used explicitly):
+SELECT second_prices
+FROM ItemsTable, UNNEST(FLATTEN(items.sales.prices[SAFE_OFFSET(1)])) AS second_prices;
+
+-- In UNNEST (FLATTEN used implicitly):
+SELECT second_prices
+FROM ItemsTable, UNNEST(items.sales.prices[SAFE_OFFSET(1)]) AS second_prices;
+
+-- In the FROM clause (UNNEST used implicitly):
+SELECT second_prices
+FROM ItemsTable, ItemsTable.items.sales.prices[SAFE_OFFSET(1)] AS second_prices;
+
++---------------+
+| second_prices |
++---------------+
+| 50            |
+| NULL          |
+| NULL          |
+| NULL          |
++---------------+
+```
+
+### Converting elements in an array to rows in a table 
+<a id="flattening_arrays"></a>
+
+To convert an `ARRAY` into a set of rows, also known as "flattening," use the
+[`UNNEST`][unnest-query]
+operator. `UNNEST` takes an `ARRAY` and returns a table with a single row for
+each element in the `ARRAY`.
+
+Because `UNNEST` destroys the order of the `ARRAY` elements, you may
+wish to restore order to the table. To do so, use the optional `WITH OFFSET`
+clause to return an additional column with the offset for each array element,
+then use the `ORDER BY` clause to order the rows by their offset.
+
+**Example**
+
+```sql
+SELECT *
+FROM UNNEST(['foo', 'bar', 'baz', 'qux', 'corge', 'garply', 'waldo', 'fred'])
+  AS element
+WITH OFFSET AS offset
+ORDER BY offset;
+
++----------+--------+
+| element  | offset |
++----------+--------+
+| foo      | 0      |
+| bar      | 1      |
+| baz      | 2      |
+| qux      | 3      |
+| corge    | 4      |
+| garply   | 5      |
+| waldo    | 6      |
+| fred     | 7      |
++----------+--------+
+```
+
+To flatten an entire column of `ARRAY`s while preserving the values
+of the other columns in each row, use a correlated
+[cross join][cross-join-query] to join the table containing the
+`ARRAY` column to the `UNNEST` output of that `ARRAY` column.
+
+With a [correlated][correlated-join-query] join, the `UNNEST` operator
+references the `ARRAY` typed column from each row in the source table, which
+appears previously in the `FROM` clause. For each row `N` in the source table,
+`UNNEST` flattens the `ARRAY` from row `N` into a set of rows containing the
+`ARRAY` elements, and then the cross join joins this new set of rows with the
+single row `N` from the source table.
+
+**Examples**
+
+The following example uses [`UNNEST`][unnest-query]
+to return a row for each element in the array column. Because of the
+`CROSS JOIN`, the `id` column contains the `id` values for the row in
+`sequences` that contains each number.
+
+```sql
+WITH sequences AS
+  (SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
+   UNION ALL SELECT 2 AS id, [2, 4, 8, 16, 32] AS some_numbers
+   UNION ALL SELECT 3 AS id, [5, 10] AS some_numbers)
+SELECT id, flattened_numbers
+FROM sequences
+CROSS JOIN UNNEST(sequences.some_numbers) AS flattened_numbers;
+
++------+-------------------+
+| id   | flattened_numbers |
++------+-------------------+
+|    1 |                 0 |
+|    1 |                 1 |
+|    1 |                 1 |
+|    1 |                 2 |
+|    1 |                 3 |
+|    1 |                 5 |
+|    2 |                 2 |
+|    2 |                 4 |
+|    2 |                 8 |
+|    2 |                16 |
+|    2 |                32 |
+|    3 |                 5 |
+|    3 |                10 |
++------+-------------------+
+```
+
+Note that for correlated cross joins the `UNNEST` operator is optional and the
+`CROSS JOIN` can be expressed as a comma-join. Using this shorthand notation,
+the above example becomes:
+
+```sql
+WITH sequences AS
+  (SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
+   UNION ALL SELECT 2 AS id, [2, 4, 8, 16, 32] AS some_numbers
+   UNION ALL SELECT 3 AS id, [5, 10] AS some_numbers)
+SELECT id, flattened_numbers
+FROM sequences, sequences.some_numbers AS flattened_numbers;
+
++------+-------------------+
+| id   | flattened_numbers |
++------+-------------------+
+|    1 |                 0 |
+|    1 |                 1 |
+|    1 |                 1 |
+|    1 |                 2 |
+|    1 |                 3 |
+|    1 |                 5 |
+|    2 |                 2 |
+|    2 |                 4 |
+|    2 |                 8 |
+|    2 |                16 |
+|    2 |                32 |
+|    3 |                 5 |
+|    3 |                10 |
++------+-------------------+
+```
+
+### Querying nested and repeated fields
+
+If a table contains an `ARRAY` of `STRUCT`s or `PROTO`s, you can
+[flatten the `ARRAY`][flattening-arrays] to query the fields of the `STRUCT` or
+`PROTO`.
+You can also flatten `ARRAY` type fields of `STRUCT` values and repeated fields
+of `PROTO` values. ZetaSQL treats repeated `PROTO` fields as
+`ARRAY`s.
+
+#### Querying STRUCT elements in an ARRAY 
+<a id="query_structs_in_an_array"></a>
+
+The following example uses `UNNEST` with `CROSS JOIN` to flatten an `ARRAY` of
+`STRUCT`s.
+
+```sql
+WITH races AS (
+  SELECT "800M" AS race,
+    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as laps),
+     STRUCT("Makhloufi" as name, [24.5, 25.4, 26.6, 26.1] as laps),
+     STRUCT("Murphy" as name, [23.9, 26.0, 27.0, 26.0] as laps),
+     STRUCT("Bosse" as name, [23.6, 26.2, 26.5, 27.1] as laps),
+     STRUCT("Rotich" as name, [24.7, 25.6, 26.9, 26.4] as laps),
+     STRUCT("Lewandowski" as name, [25.0, 25.7, 26.3, 27.2] as laps),
+     STRUCT("Kipketer" as name, [23.2, 26.1, 27.3, 29.4] as laps),
+     STRUCT("Berian" as name, [23.7, 26.1, 27.0, 29.3] as laps)]
+       AS participants)
+SELECT
+  race,
+  participant
+FROM races r
+CROSS JOIN UNNEST(r.participants) as participant;
+
++------+---------------------------------------+
+| race | participant                           |
++------+---------------------------------------+
+| 800M | {Rudisha, [23.4, 26.3, 26.4, 26.1]}   |
+| 800M | {Makhloufi, [24.5, 25.4, 26.6, 26.1]} |
+| 800M | {Murphy, [23.9, 26, 27, 26]}          |
+| 800M | {Bosse, [23.6, 26.2, 26.5, 27.1]}     |
+| 800M | {Rotich, [24.7, 25.6, 26.9, 26.4]}    |
+| 800M | {Lewandowski, [25, 25.7, 26.3, 27.2]} |
+| 800M | {Kipketer, [23.2, 26.1, 27.3, 29.4]}  |
+| 800M | {Berian, [23.7, 26.1, 27, 29.3]}      |
++------+---------------------------------------+
+```
+
+```sql
+SELECT race,
+       participant.name,
+       participant.laps
+FROM
+  (SELECT "800M" AS race,
+    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] AS laps),
+     STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS laps),
+     STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS laps),
+     STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS laps),
+     STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS laps),
+     STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS laps),
+     STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS laps),
+     STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] as laps)]
+     AS participants
+  ) AS r
+CROSS JOIN UNNEST(r.participants) AS participant;
+
++------+-------------+-----------------------+
+| race | name        | laps                  |
++------+-------------+-----------------------+
+| 800M | Rudisha     | [23.4,26.3,26.4,26.1] |
++------+-------------+-----------------------+
+| 800M | Makhloufi   | [24.5,25.4,26.6,26.1] |
++------+-------------+-----------------------+
+| 800M | Murphy      | [23.9,26,27,26]       |
++------+-------------+-----------------------+
+| 800M | Bosse       | [23.6,26.2,26.5,27.1] |
++------+-------------+-----------------------+
+| 800M | Rotich      | [24.7,25.6,26.9,26.4] |
++------+-------------+-----------------------+
+| 800M | Lewandowski | [25,25.7,26.3,27.2]   |
++------+-------------+-----------------------+
+| 800M | Kipketer    | [23.2,26.1,27.3,29.4] |
++------+-------------+-----------------------+
+| 800M | Berian      | [23.7,26.1,27,29.3]   |
++------+-------------+-----------------------+
+```
+
+You can find specific information from repeated fields. For example, the
+following query returns the fastest racer in an 800M race.
+
+<p class="note">This example does not involve flattening an array, but does
+represent a common way to get information from a repeated field.</p>
+
+**Example**
+
+```sql
+WITH races AS (
+  SELECT "800M" AS race,
+    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as laps),
+     STRUCT("Makhloufi" as name, [24.5, 25.4, 26.6, 26.1] as laps),
+     STRUCT("Murphy" as name, [23.9, 26.0, 27.0, 26.0] as laps),
+     STRUCT("Bosse" as name, [23.6, 26.2, 26.5, 27.1] as laps),
+     STRUCT("Rotich" as name, [24.7, 25.6, 26.9, 26.4] as laps),
+     STRUCT("Lewandowski" as name, [25.0, 25.7, 26.3, 27.2] as laps),
+     STRUCT("Kipketer" as name, [23.2, 26.1, 27.3, 29.4] as laps),
+     STRUCT("Berian" as name, [23.7, 26.1, 27.0, 29.3] as laps)]
+       AS participants)
+SELECT
+  race,
+  (SELECT name
+   FROM UNNEST(participants)
+   ORDER BY (
+     SELECT SUM(duration)
+     FROM UNNEST(laps) AS duration) ASC
+   LIMIT 1) AS fastest_racer
+FROM races;
+
++------+---------------+
+| race | fastest_racer |
++------+---------------+
+| 800M | Rudisha       |
++------+---------------+
+```
+
+```sql
+SELECT race,
+       (SELECT name
+        FROM UNNEST(participants)
+        ORDER BY (
+          SELECT SUM(duration)
+          FROM UNNEST(laps) AS duration) ASC
+          LIMIT 1) AS fastest_racer
+FROM
+  (SELECT "800M" AS race,
+    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] AS laps),
+     STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS laps),
+     STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS laps),
+     STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS laps),
+     STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS laps),
+     STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS laps),
+     STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS laps),
+     STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] as laps)]
+     AS participants
+  ) AS r;
+
++------+---------------+
+| race | fastest_racer |
++------+---------------+
+| 800M | Rudisha       |
++------+---------------+
+```
+
+#### Querying PROTO elements in an array
+
+To query the fields of `PROTO` elements in an `ARRAY`, use `UNNEST` and
+`CROSS JOIN`.
+
+**Example**
+
+The following query shows the contents of a table where one row contains an
+`ARRAY` of `PROTO`s. All of the `PROTO` field values in the `ARRAY` appear in a
+single row.
+
+```sql
+WITH table AS (
+  SELECT
+    'Let It Be' AS album_name,
+    ARRAY[
+         NEW zetasql.examples.music.Chart(1 AS rank, 'US 100' AS chart_name),
+         NEW zetasql.examples.music.Chart(1 AS rank, 'UK 40' AS chart_name),
+         NEW zetasql.examples.music.Chart(2 AS rank, 'Oricon' AS chart_name)]
+     AS charts
+  UNION ALL
+  SELECT
+    'Rubber Soul' AS album_name,
+    ARRAY[
+         NEW zetasql.examples.music.Chart(1 AS rank, 'US 100' AS chart_name),
+         NEW zetasql.examples.music.Chart(1 AS rank, 'UK 40' AS chart_name),
+         NEW zetasql.examples.music.Chart(24 AS rank, 'Oricon' AS chart_name)]
+     AS charts
+)
+SELECT *
+FROM table;
+
++-------------+---------------------------------+
+| album_name  | charts                          |
++-------------+---------------------------------+
+| Let It Be   | [chart_name: "US 100", rank: 1, |
+|             | chart_name: "UK 40", rank: 1,   |
+|             | chart_name: "Oricon" rank: 2]   |
++-------------+---------------------------------+
+| Rubber Soul | [chart_name: "US 100", rank: 1, |
+|             | chart_name: "UK 40", rank: 1,   |
+|             | chart_name: "Oricon" rank: 24]  |
++-------------+---------------------------------+
+```
+
+To return the value of the individual fields of the `PROTO`s inside an `ARRAY`,
+use `UNNEST` to flatten the `ARRAY`, then use a `CROSS JOIN` to apply the
+`UNNEST` operator to each row of the `ARRAY` column. The `CROSS JOIN` also
+joins the duplicated values of other columns to the result of `UNNEST`, so you
+can query these columns together with the fields of the `PROTO`s in the `ARRAY`.
+
+**Example**
+
+The following example uses `UNNEST` to flatten the `ARRAY` `charts`. The `CROSS
+JOIN` applies the `UNNEST` operator to every row in the `charts` column and
+joins the duplicated value of `table.album_name` to the `chart` table. This
+allows the query to include the `table.album_name` column in the `SELECT` list
+together with the `PROTO` fields `chart.chart_name` and `chart.rank`.
+
+```sql
+WITH table AS (
+  SELECT
+    'Let It Be' AS album_name,
+    ARRAY[
+         NEW zetasql.examples.music.Chart(1 AS rank, 'US 100' AS chart_name),
+         NEW zetasql.examples.music.Chart(1 AS rank, 'UK 40' AS chart_name),
+         NEW zetasql.examples.music.Chart(2 AS rank, 'Oricon' AS chart_name)]
+     AS charts
+  UNION ALL
+  SELECT
+    'Rubber Soul' AS album_name,
+    ARRAY[
+         NEW zetasql.examples.music.Chart(1 AS rank, 'US 100' AS chart_name),
+         NEW zetasql.examples.music.Chart(1 AS rank, 'UK 40' AS chart_name),
+         NEW zetasql.examples.music.Chart(24 AS rank, 'Oricon' AS chart_name)]
+     AS charts
+)
+SELECT table.album_name, chart.chart_name, chart.rank
+FROM table
+CROSS JOIN UNNEST(charts) AS chart;
+
++-------------+------------+------+
+| album_name  | chart_name | rank |
++-------------+------------+------+
+| Let It Be   | US 100     |    1 |
+| Let It Be   | UK 40      |    1 |
+| Let It Be   | Oricon     |    2 |
+| Rubber Soul | US 100     |    1 |
+| Rubber Soul | UK 40      |    1 |
+| Rubber Soul | Oricon     |   24 |
++-------------+------------+------+
+```
+
+#### Querying ARRAY-type fields in a STRUCT
+
+You can also get information from nested repeated fields. For example, the
+following statement returns the runner who had the fastest lap in an 800M race.
+
+```sql
+WITH races AS (
+ SELECT "800M" AS race,
+   [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as laps),
+    STRUCT("Makhloufi" as name, [24.5, 25.4, 26.6, 26.1] as laps),
+    STRUCT("Murphy" as name, [23.9, 26.0, 27.0, 26.0] as laps),
+    STRUCT("Bosse" as name, [23.6, 26.2, 26.5, 27.1] as laps),
+    STRUCT("Rotich" as name, [24.7, 25.6, 26.9, 26.4] as laps),
+    STRUCT("Lewandowski" as name, [25.0, 25.7, 26.3, 27.2] as laps),
+    STRUCT("Kipketer" as name, [23.2, 26.1, 27.3, 29.4] as laps),
+    STRUCT("Berian" as name, [23.7, 26.1, 27.0, 29.3] as laps)]
+    AS participants)
+SELECT
+race,
+(SELECT name
+ FROM UNNEST(participants),
+   UNNEST(laps) AS duration
+ ORDER BY duration ASC LIMIT 1) AS runner_with_fastest_lap
+FROM races;
+
++------+-------------------------+
+| race | runner_with_fastest_lap |
++------+-------------------------+
+| 800M | Kipketer                |
++------+-------------------------+
+```
+
+```sql
+SELECT race,
+       (SELECT name
+        FROM UNNEST(participants),
+          UNNEST(laps) AS duration
+        ORDER BY duration ASC LIMIT 1) AS runner_with_fastest_lap
+FROM
+  (SELECT "800M" AS race,
+    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] AS laps),
+     STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS laps),
+     STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS laps),
+     STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS laps),
+     STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS laps),
+     STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS laps),
+     STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS laps),
+     STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] as laps)]
+     AS participants
+  ) AS r;
+
++------+-------------------------+
+| race | runner_with_fastest_lap |
++------+-------------------------+
+| 800M | Kipketer                |
++------+-------------------------+
+```
+
+Notice that the preceding query uses the comma operator (`,`) to perform an
+implicit `CROSS JOIN`. It is equivalent to the following example, which uses
+an explicit `CROSS JOIN`.
+
+```sql
+WITH races AS (
+ SELECT "800M" AS race,
+   [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as laps),
+    STRUCT("Makhloufi" as name, [24.5, 25.4, 26.6, 26.1] as laps),
+    STRUCT("Murphy" as name, [23.9, 26.0, 27.0, 26.0] as laps),
+    STRUCT("Bosse" as name, [23.6, 26.2, 26.5, 27.1] as laps),
+    STRUCT("Rotich" as name, [24.7, 25.6, 26.9, 26.4] as laps),
+    STRUCT("Lewandowski" as name, [25.0, 25.7, 26.3, 27.2] as laps),
+    STRUCT("Kipketer" as name, [23.2, 26.1, 27.3, 29.4] as laps),
+    STRUCT("Berian" as name, [23.7, 26.1, 27.0, 29.3] as laps)]
+    AS participants)
+SELECT
+race,
+(SELECT name
+ FROM UNNEST(participants)
+ CROSS JOIN UNNEST(laps) AS duration
+ ORDER BY duration ASC LIMIT 1) AS runner_with_fastest_lap
+FROM races;
+
++------+-------------------------+
+| race | runner_with_fastest_lap |
++------+-------------------------+
+| 800M | Kipketer                |
++------+-------------------------+
+```
+
+```sql
+SELECT race,
+       (SELECT name
+        FROM UNNEST(participants)
+        CROSS JOIN UNNEST(laps) AS duration
+        ORDER BY duration ASC LIMIT 1) AS runner_with_fastest_lap
+FROM
+  (SELECT "800M" AS race,
+    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] AS laps),
+     STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS laps),
+     STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS laps),
+     STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS laps),
+     STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS laps),
+     STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS laps),
+     STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS laps),
+     STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] as laps)]
+     AS participants
+  ) AS r;
+
++------+-------------------------+
+| race | runner_with_fastest_lap |
++------+-------------------------+
+| 800M | Kipketer                |
++------+-------------------------+
+```
+
+Flattening arrays with a `CROSS JOIN` excludes rows that have empty
+or NULL arrays. If you want to include these rows, use a `LEFT JOIN`.
+
+```sql
+WITH races AS (
+ SELECT "800M" AS race,
+   [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as laps),
+    STRUCT("Makhloufi" as name, [24.5, 25.4, 26.6, 26.1] as laps),
+    STRUCT("Murphy" as name, [23.9, 26.0, 27.0, 26.0] as laps),
+    STRUCT("Bosse" as name, [23.6, 26.2, 26.5, 27.1] as laps),
+    STRUCT("Rotich" as name, [24.7, 25.6, 26.9, 26.4] as laps),
+    STRUCT("Lewandowski" as name, [25.0, 25.7, 26.3, 27.2] as laps),
+    STRUCT("Kipketer" as name, [23.2, 26.1, 27.3, 29.4] as laps),
+    STRUCT("Berian" as name, [23.7, 26.1, 27.0, 29.3] as laps),
+    STRUCT("Nathan" as name, ARRAY<DOUBLE>[] as laps),
+    STRUCT("David" as name, NULL as laps)]
+    AS participants)
+SELECT
+  name, sum(duration) AS finish_time
+FROM races, races.participants LEFT JOIN participants.laps duration
+GROUP BY name;
+
++-------------+--------------------+
+| name        | finish_time        |
++-------------+--------------------+
+| Murphy      | 102.9              |
+| Rudisha     | 102.19999999999999 |
+| David       | NULL               |
+| Rotich      | 103.6              |
+| Makhloufi   | 102.6              |
+| Berian      | 106.1              |
+| Bosse       | 103.4              |
+| Kipketer    | 106                |
+| Nathan      | NULL               |
+| Lewandowski | 104.2              |
++-------------+--------------------+
+```
+
+```sql
+SELECT
+  name, sum(duration) as duration
+FROM
+  (SELECT "800M" AS race,
+    [STRUCT("Rudisha" AS name, [23.4, 26.3, 26.4, 26.1] AS laps),
+     STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS laps),
+     STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS laps),
+     STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS laps),
+     STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS laps),
+     STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS laps),
+     STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS laps),
+     STRUCT("Nathan" as name, ARRAY<DOUBLE>[] as laps),
+     STRUCT("David" as name, NULL as laps)]
+     AS participants) AS races,
+  races.participants LEFT JOIN participants.laps duration
+GROUP BY name;
+
++-------------+--------------------+
+| name        | duration           |
++-------------+--------------------+
+| Murphy      | 102.9              |
+| Rudisha     | 102.19999999999999 |
+| David       | NULL               |
+| Rotich      | 103.6              |
+| Makhloufi   | 102.6              |
+| Bosse       | 103.4              |
+| Kipketer    | 106                |
+| Nathan      | NULL               |
+| Lewandowski | 104.2              |
++-------------+--------------------+
+```
+
+#### Querying repeated fields
+
+ZetaSQL represents repeated fields of `PROTO`s as `ARRAY`s. You
+can query these `ARRAY`s using `UNNEST` and `CROSS JOIN`.
+
+The following example queries a table containing a column of `PROTO`s with the
+alias `album` and the repeated field `song`. All values of `song` for each
+`album` appear on the same row.
+
+**Example**
+
+```sql
+WITH
+  Bands AS (
+    SELECT
+      'The Beatles' AS band_name,
+      NEW zetasql.examples.music.Album(
+        'Let It Be' AS album_name,
+        ['Across the Universe', 'Get Back', 'Dig It'] AS song) AS album
+    UNION ALL
+    SELECT
+      'The Beatles' AS band_name,
+      NEW zetasql.examples.music.Album(
+        'Rubber Soul' AS album_name,
+        ['Drive My Car', 'The Word', 'Michelle'] AS song) AS album
+  )
+SELECT band_name, album.album_name, album.song
+FROM Bands;
+
++-------------+------------------+-----------------------------------------+
+| band_name   | album_name       | song                                    |
++-------------+------------------+-----------------------------------------+
+| The Beatles | Let It Be        | [Across the Universe, Get Back, Dig It] |
+| The Beatles | Rubber Soul      | [Drive My Car, The Word, Michelle]      |
++-------------+------------------+-----------------------------------------+
+```
+
+To query the individual values of a repeated field, reference the field name
+using dot notation to return an `ARRAY`, and
+[flatten the `ARRAY` using `UNNEST`][flattening-arrays]. Use `CROSS JOIN` to
+apply the `UNNEST` operator to each row and join the flattened `ARRAY` to the
+duplicated value of any non-repeated fields or columns in that row.
+
+**Example**
+
+The following example queries the table from the previous example and returns
+the values of the repeated field as an `ARRAY`. The `UNNEST` operator flattens
+the `ARRAY` that represents the repeated field `song`. `CROSS JOIN` applies the
+`UNNEST` operator to each row and joins the output of `UNNEST` to the duplicated
+value of the column `band_name` and the non-repeated field `album_name` within
+that row.
+
+```sql
+WITH table AS (
+  SELECT
+    'The Beatles' AS band_name,
+    NEW zetasql.examples.music.Album(
+      'Let It Be' AS album_name,
+      ['Across the Universe', 'Get Back', 'Dig It'] AS song
+    ) AS album
+    UNION ALL
+  SELECT
+    'The Beatles' AS band_name,
+    NEW zetasql.examples.music.Album(
+      'Rubber Soul' AS album_name,
+      ['Drive My Car', 'The Word', 'Michelle'] AS song
+    ) AS album
+)
+SELECT band_name, album.album_name, song_name
+FROM table
+CROSS JOIN UNNEST(album.song) AS song_name;
+
++-------------+-------------+---------------------+
+| band_name   | album_name  | song_name           |
++-------------+-------------+---------------------+
+| The Beatles | Let It Be   | Across the Universe |
+| The Beatles | Let It Be   | Get Back            |
+| The Beatles | Let It Be   | Dig It              |
+| The Beatles | Rubber Soul | Drive My Car        |
+| The Beatles | Rubber Soul | The Word            |
+| The Beatles | Rubber Soul | Michelle            |
++-------------+-------------+---------------------+
+
+```
+
+### Creating arrays from subqueries
+
+A common task when working with arrays is turning a subquery result into an
+array. In ZetaSQL, you can accomplish this using the
+[`ARRAY()`][array-function] function.
+
+For example, consider the following operation on the `sequences` table:
+
+```sql
+WITH sequences AS
+  (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
+  UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
+  UNION ALL SELECT [5, 10] AS some_numbers)
+SELECT some_numbers,
+  ARRAY(SELECT x * 2
+        FROM UNNEST(some_numbers) AS x) AS doubled
+FROM sequences;
+
++--------------------+---------------------+
+| some_numbers       | doubled             |
++--------------------+---------------------+
+| [0, 1, 1, 2, 3, 5] | [0, 2, 2, 4, 6, 10] |
+| [2, 4, 8, 16, 32]  | [4, 8, 16, 32, 64]  |
+| [5, 10]            | [10, 20]            |
++--------------------+---------------------+
+```
+
+```sql
+SELECT some_numbers,
+  ARRAY(SELECT x * 2
+        FROM UNNEST(some_numbers) AS x) AS doubled
+FROM sequences;
+
++---------------+----------------+
+| some_numbers  | doubled        |
++---------------+----------------+
+| [0,1,1,2,3,5] | [0,2,2,4,6,10] |
++---------------+----------------+
+| [2,4,8,16,32] | [4,8,16,32,64] |
++---------------+----------------+
+| [5,10]        | [10,20]        |
++---------------+----------------+
+```
+
+This example starts with a table named sequences. This table contains a column,
+`some_numbers`, of type `ARRAY<INT64>`.
+
+The query itself contains a subquery. This subquery selects each row in the
+`some_numbers` column and uses
+[`UNNEST`][unnest-query] to return the
+array as a set of rows. Next, it multiplies each value by two, and then
+recombines the rows back into an array using the `ARRAY()` operator.
+
+### Filtering arrays
+The following example uses a `WHERE` clause in the `ARRAY()` operator's subquery
+to filter the returned rows.
+
+<p class='note'><b>Note:</b> In the following examples, the resulting rows are
+not ordered.</p>
+
+```sql
+WITH sequences AS
+  (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
+   UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
+   UNION ALL SELECT [5, 10] AS some_numbers)
+SELECT
+  ARRAY(SELECT x * 2
+        FROM UNNEST(some_numbers) AS x
+        WHERE x < 5) AS doubled_less_than_five
+FROM sequences;
+
++------------------------+
+| doubled_less_than_five |
++------------------------+
+| [0, 2, 2, 4, 6]        |
+| [4, 8]                 |
+| []                     |
++------------------------+
+```
+
+```sql
+SELECT
+  ARRAY(SELECT x * 2
+        FROM UNNEST(some_numbers) AS x
+        WHERE x < 5) AS doubled_less_than_five
+FROM sequences;
+
++------------------------+
+| doubled_less_than_five |
++------------------------+
+| [0,2,2,4,6]            |
++------------------------+
+| [4,8]                  |
++------------------------+
+| []                     |
++------------------------+
+```
+
+Notice that the third row contains an empty array, because the elements in the
+corresponding original row (`[5, 10]`) did not meet the filter requirement of
+`x < 5`.
+
+You can also filter arrays by using `SELECT DISTINCT` to return only
+unique elements within an array.
+
+```sql
+WITH sequences AS
+  (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers)
+SELECT ARRAY(SELECT DISTINCT x
+             FROM UNNEST(some_numbers) AS x) AS unique_numbers
+FROM sequences;
+
++-----------------+
+| unique_numbers  |
++-----------------+
+| [0, 1, 2, 3, 5] |
++-----------------+
+```
+
+```sql
+SELECT ARRAY(SELECT DISTINCT x
+             FROM UNNEST(some_numbers) AS x) AS unique_numbers
+FROM sequences
+WHERE id = 1;
+
++----------------+
+| unique_numbers |
++----------------+
+| [0,1,2,3,5]    |
++----------------+
+```
+
+You can also filter rows of arrays by using the
+[`IN`][in-operators] keyword. This
+keyword filters rows containing arrays by determining if a specific
+value matches an element in the array.
+
+```sql
+WITH sequences AS
+  (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
+   UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
+   UNION ALL SELECT [5, 10] AS some_numbers)
+SELECT
+   ARRAY(SELECT x
+         FROM UNNEST(some_numbers) AS x
+         WHERE 2 IN UNNEST(some_numbers)) AS contains_two
+FROM sequences;
+
++--------------------+
+| contains_two       |
++--------------------+
+| [0, 1, 1, 2, 3, 5] |
+| [2, 4, 8, 16, 32]  |
+| []                 |
++--------------------+
+```
+
+```sql
+SELECT
+   ARRAY(SELECT x
+         FROM UNNEST(some_numbers) AS x
+         WHERE 2 IN UNNEST(some_numbers)) AS contains_two
+FROM sequences;
+
++---------------+
+| contains_two  |
++---------------+
+| [0,1,1,2,3,5] |
++---------------+
+| [2,4,8,16,32] |
++---------------+
+| []            |
++---------------+
+```
+
+Notice again that the third row contains an empty array, because the array in
+the corresponding original row (`[5, 10]`) did not contain `2`.
+
+### Scanning arrays
+
+To check if an array contains a specific value, use the [`IN`][in-operators]
+operator with [`UNNEST`][unnest-query]. To check if an array contains a value
+matching a condition, use the [`EXISTS`][exists-operator] operator with
+`UNNEST`.
+
+#### Scanning for specific values
+
+To scan an array for a specific value, use the `IN` operator with `UNNEST`.
+
+**Example**
+
+The following example returns `true` if the array contains the number 2.
+
+```sql
+SELECT 2 IN UNNEST([0, 1, 1, 2, 3, 5]) AS contains_value;
+
++----------------+
+| contains_value |
++----------------+
+| true           |
++----------------+
+```
+
+To return the rows of a table where the array column contains a specific value,
+filter the results of `IN UNNEST` using the `WHERE` clause.
+
+**Example**
+
+The following example returns the `id` value for the rows where the array
+column contains the value 2.
+
+```sql
+WITH sequences AS
+  (SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
+   UNION ALL SELECT 2 AS id, [2, 4, 8, 16, 32] AS some_numbers
+   UNION ALL SELECT 3 AS id, [5, 10] AS some_numbers)
+SELECT id AS matching_rows
+FROM sequences
+WHERE 2 IN UNNEST(sequences.some_numbers)
+ORDER BY matching_rows;
+
++---------------+
+| matching_rows |
++---------------+
+| 1             |
+| 2             |
++---------------+
+```
+
+#### Scanning for values that satisfy a condition
+
+To scan an array for values that match a condition, use `UNNEST` to return a
+table of the elements in the array, use `WHERE` to filter the resulting table in
+a subquery, and use `EXISTS` to check if the filtered table contains any rows.
+
+**Example**
+
+The following example returns the `id` value for the rows where the array
+column contains values greater than 5.
+
+```sql
+WITH
+  Sequences AS (
+    SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
+    UNION ALL
+    SELECT 2 AS id, [2, 4, 8, 16, 32] AS some_numbers
+    UNION ALL
+    SELECT 3 AS id, [5, 10] AS some_numbers
+  )
+SELECT id AS matching_rows
+FROM Sequences
+WHERE EXISTS(SELECT * FROM UNNEST(some_numbers) AS x WHERE x > 5);
+
++---------------+
+| matching_rows |
++---------------+
+| 2             |
+| 3             |
++---------------+
+```
+
+##### Scanning for STRUCT field values that satisfy a condition
+
+To search an array of `STRUCT`s for a field whose value matches a condition, use
+`UNNEST` to return a table with a column for each `STRUCT` field, then filter
+non-matching rows from the table using `WHERE EXISTS`.
+
+**Example**
+
+The following example returns the rows where the array column contains a
+`STRUCT` whose field `b` has a value greater than 3.
+
+```sql
+WITH
+  Sequences AS (
+    SELECT 1 AS id, [STRUCT(0 AS a, 1 AS b)] AS some_numbers
+    UNION ALL
+    SELECT 2 AS id, [STRUCT(2 AS a, 4 AS b)] AS some_numbers
+    UNION ALL
+    SELECT 3 AS id, [STRUCT(5 AS a, 3 AS b), STRUCT(7 AS a, 4 AS b)] AS some_numbers
+  )
+SELECT id AS matching_rows
+FROM Sequences
+WHERE EXISTS(SELECT 1 FROM UNNEST(some_numbers) WHERE b > 3);
+
++---------------+
+| matching_rows |
++---------------+
+| 2             |
+| 3             |
++---------------+
+```
+
+### Arrays and aggregation
+
+With ZetaSQL, you can aggregate values into an array using
+`ARRAY_AGG()`.
+
+```sql
+WITH fruits AS
+  (SELECT "apple" AS fruit
+   UNION ALL SELECT "pear" AS fruit
+   UNION ALL SELECT "banana" AS fruit)
+SELECT ARRAY_AGG(fruit) AS fruit_basket
+FROM fruits;
+
++-----------------------+
+| fruit_basket          |
++-----------------------+
+| [apple, pear, banana] |
++-----------------------+
+```
+
+Consider the following table, `fruits`:
+
+```sql
+CREATE TABLE fruits (
+  fruit STRING(MAX),
+  id INT64 NOT NULL
+) PRIMARY KEY(id);
+
+```
+Assume the table is populated with the following data:
+
+```sql
++----+--------------+
+| id | fruit        |
++----+--------------+
+| 1  | "apple"      |
+| 2  | "pear"       |
+| 3  | "banana"     |
++----+--------------+
+```
+
+You can use this DML statement to insert the example data:
+
+```sql
+INSERT fruits
+  (fruit, id)
+VALUES
+  ("apple", 1),
+  ("pear", 2),
+  ("banana", 3);
+```
+
+This query shows how to use `ARRAY_AGG()`:
+
+```sql
+SELECT ARRAY_AGG(fruit) AS fruit_basket
+FROM fruits;
+
++---------------------+
+| fruit_basket        |
++---------------------+
+| [apple,pear,banana] |
++---------------------+
+```
+
+The array returned by `ARRAY_AGG()` is in an arbitrary order, since the order in
+which the function concatenates values is not guaranteed. To order the array
+elements, use `ORDER BY`. For example:
+
+```sql
+WITH fruits AS
+  (SELECT "apple" AS fruit
+   UNION ALL SELECT "pear" AS fruit
+   UNION ALL SELECT "banana" AS fruit)
+SELECT ARRAY_AGG(fruit ORDER BY fruit) AS fruit_basket
+FROM fruits;
+
++-----------------------+
+| fruit_basket          |
++-----------------------+
+| [apple, banana, pear] |
++-----------------------+
+```
+
+You can also apply aggregate functions such as `SUM()` to the elements in an
+array. For example, the following query returns the sum of array elements for
+each row of the `sequences` table.
+
+```sql
+WITH sequences AS
+  (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
+   UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
+   UNION ALL SELECT [5, 10] AS some_numbers)
+SELECT some_numbers,
+  (SELECT SUM(x)
+   FROM UNNEST(s.some_numbers) x) AS sums
+FROM sequences s;
+
++--------------------+------+
+| some_numbers       | sums |
++--------------------+------+
+| [0, 1, 1, 2, 3, 5] | 12   |
+| [2, 4, 8, 16, 32]  | 62   |
+| [5, 10]            | 15   |
++--------------------+------+
+```
+
+```sql
+SELECT some_numbers,
+  (SELECT SUM(x)
+   FROM UNNEST(s.some_numbers) x) AS sums
+FROM sequences s;
+
++---------------+------+
+| some_numbers  | sums |
++---------------+------+
+| [0,1,1,2,3,5] |   12 |
++---------------+------+
+| [2,4,8,16,32] |   62 |
++---------------+------+
+| [5,10]        |   15 |
++---------------+------+
+```
+
+ZetaSQL also supports an aggregate function, `ARRAY_CONCAT_AGG()`,
+which concatenates the elements of an array column across rows.
+
+```sql
+WITH aggregate_example AS
+  (SELECT [1,2] AS numbers
+   UNION ALL SELECT [3,4] AS numbers
+   UNION ALL SELECT [5, 6] AS numbers)
+SELECT ARRAY_CONCAT_AGG(numbers) AS count_to_six_agg
+FROM aggregate_example;
+
++--------------------------------------------------+
+| count_to_six_agg                                 |
++--------------------------------------------------+
+| [1, 2, 3, 4, 5, 6]                               |
++--------------------------------------------------+
+```
+
+**Note:** The array returned by `ARRAY_CONCAT_AGG()` is
+non-deterministic, since the order in which the function concatenates values is
+not guaranteed.
+
+### Converting arrays to strings
+
+The `ARRAY_TO_STRING()` function allows you to convert an `ARRAY<STRING>` to a
+single `STRING` value or an `ARRAY<BYTES>` to a single `BYTES` value where the
+resulting value is the ordered concatenation of the array elements.
+
+The second argument is the separator that the function will insert between
+inputs to produce the output; this second argument must be of the same
+type as the elements of the first argument.
+
+Example:
+
+```sql
+WITH greetings AS
+  (SELECT ["Hello", "World"] AS greeting)
+SELECT ARRAY_TO_STRING(greeting, " ") AS greetings
+FROM greetings;
+
++-------------+
+| greetings   |
++-------------+
+| Hello World |
++-------------+
+```
+
+The optional third argument takes the place of `NULL` values in the input
+array.
+
++ If you omit this argument, then the function ignores `NULL` array
+elements.
+
++ If you provide an empty string, the function inserts a
+separator for `NULL` array elements.
+
+Example:
+
+```sql
+SELECT
+  ARRAY_TO_STRING(arr, ".", "N") AS non_empty_string,
+  ARRAY_TO_STRING(arr, ".", "") AS empty_string,
+  ARRAY_TO_STRING(arr, ".") AS omitted
+FROM (SELECT ["a", NULL, "b", NULL, "c", NULL] AS arr);
+
++------------------+--------------+---------+
+| non_empty_string | empty_string | omitted |
++------------------+--------------+---------+
+| a.N.b.N.c.N      | a..b..c.     | a.b.c   |
++------------------+--------------+---------+
+```
+
+### Combining arrays
+
+In some cases, you might want to combine multiple arrays into a single array.
+You can accomplish this using the `ARRAY_CONCAT()` function.
+
+```sql
+SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six;
+
++--------------------------------------------------+
+| count_to_six                                     |
++--------------------------------------------------+
+| [1, 2, 3, 4, 5, 6]                               |
++--------------------------------------------------+
+```
+
+### Zipping arrays
+
+Given two arrays of equal size, you can merge them into a single array
+consisting of pairs of elements from input arrays, taken from their
+corresponding positions. This operation is sometimes called
+[zipping][convolution].
+
+You can zip arrays with `UNNEST` and `WITH OFFSET`. In this example, each
+value pair is stored as a `STRUCT` in an array.
+
+```sql
+WITH
+  combinations AS (
+    SELECT
+      ['a', 'b'] AS letters,
+      [1, 2, 3] AS numbers
+  )
+SELECT
+  ARRAY(
+    SELECT AS STRUCT
+      letters[SAFE_OFFSET(index)] AS letter,
+      numbers[SAFE_OFFSET(index)] AS number
+    FROM combinations
+    CROSS JOIN
+      UNNEST(
+        GENERATE_ARRAY(
+          0,
+          LEAST(ARRAY_LENGTH(letters), ARRAY_LENGTH(numbers)) - 1)) AS index
+    ORDER BY index
+  );
+
++------------------------------+
+| pairs                        |
++------------------------------+
+| [{ letter: "a", number: 1 }, |
+|  { letter: "b", number: 2 }] |
++------------------------------+
+```
+
+You can use input arrays of different lengths as long as the first array
+is equal to or less than the length of the second array. The zipped array
+will be the length of the shortest input array.
+
+To get a zipped array that includes all the elements even when the input arrays
+are different lengths, change `LEAST` to `GREATEST`. Elements of either array
+that have no associated element in the other array will be paired with `NULL`.
+
+```sql
+WITH
+  combinations AS (
+    SELECT
+      ['a', 'b'] AS letters,
+      [1, 2, 3] AS numbers
+  )
+SELECT
+  ARRAY(
+    SELECT AS STRUCT
+      letters[SAFE_OFFSET(index)] AS letter,
+      numbers[SAFE_OFFSET(index)] AS number
+    FROM combinations
+    CROSS JOIN
+      UNNEST(
+        GENERATE_ARRAY(
+          0,
+          GREATEST(ARRAY_LENGTH(letters), ARRAY_LENGTH(numbers)) - 1)) AS index
+    ORDER BY index
+  );
+
++-------------------------------+
+| pairs                         |
++-------------------------------+
+| [{ letter: "a", number: 1 },  |
+|  { letter: "b", number: 2 },  |
+|  { letter: null, number: 3 }] |
++-------------------------------+
+```
+
+### Building arrays of arrays
+
+ZetaSQL does not support building
+[arrays of arrays][array-data-type]
+directly. Instead, you must create an array of structs, with each struct
+containing a field of type `ARRAY`. To illustrate this, consider the following
+`points` table:
+
+```sql
++----------+
+| point    |
++----------+
+| [1, 5]   |
+| [2, 8]   |
+| [3, 7]   |
+| [4, 1]   |
+| [5, 7]   |
++----------+
+```
+
+Now, let's say you wanted to create an array consisting of each `point` in the
+`points` table. To accomplish this, wrap the array returned from each row in a
+`STRUCT`, as shown below.
+
+```sql
+WITH points AS
+  (SELECT [1, 5] as point
+   UNION ALL SELECT [2, 8] as point
+   UNION ALL SELECT [3, 7] as point
+   UNION ALL SELECT [4, 1] as point
+   UNION ALL SELECT [5, 7] as point)
+SELECT ARRAY(
+  SELECT STRUCT(point)
+  FROM points)
+  AS coordinates;
+
++-------------------+
+| coordinates       |
++-------------------+
+| [{point: [1,5]},  |
+|  {point: [2,8]},  |
+|  {point: [5,7]},  |
+|  {point: [3,7]},  |
+|  {point: [4,1]}]  |
++--------------------+
+```
+
+You can use this DML statement to insert the example data:
+
+```sql
+INSERT points
+  (point, id)
+VALUES
+  ([1, 5], 1),
+  ([2, 8], 2),
+  ([3, 7], 3),
+  ([4, 1], 4),
+  ([5, 7], 5);
+```
+
+```sql
+SELECT ARRAY(
+  SELECT STRUCT(point)
+  FROM points)
+  AS coordinates;
+
++--------------+
+| coordinates  |
++--------------+
+| point: [1,5] |
+| point: [2,8] |
+| point: [3,7] |
+| point: [4,1] |
+| point: [5,7] |
++--------------+
+```
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[convolution]: https://en.wikipedia.org/wiki/Convolution_(computer_science)
+
+[flattening-arrays]: #flattening_arrays
+
+[array-data-type]: #array_type
+
+[from-clause]: #from_clause
+
+[unnest-query]: #unnest_operator
+
+[cross-join-query]: #cross_join
+
+[comma-cross-join-query]: #comma_cross_join
+
+[correlated-join-query]: #correlated_join
+
+[in-operators]: #in_operators
+
+[exists-operator]: #exists_operator
+
+[casting]: #casting
+
+[array-function]: #array_functions
+
+[array-agg-function]: #array_agg
+
+[generate-array-function]: #generate_array
+
+[generate-date-array]: #generate_date_array
+
+[array-subscript-operator]: #array_subscript_operator
+
+[flatten-operator]: #flatten
+
+[array-el-field-operator]: #array_el_field_operator
+
+<!-- mdlint on -->
+
+## Protocol buffers
+
+Protocol buffers are a flexible, efficient mechanism for serializing structured
+data. They are easy to create, small in size, and efficient to send over RPCs.
+
+As efficient and as popular as protocol buffers are, however, when it comes to
+data storage they do have one drawback: they do not map well to SQL syntax. For
+example, SQL syntax expects that a given field can support a `NULL` or default
+value. Protocol buffers, on the other hand, do not support `NULL`s very well,
+and there isn't a standard way to determine whether a missing field should get a
+`NULL` or a default value.
+
+If you're going to query protocol buffers, you need to understand how they are
+represented, what features they support, and what data they can contain. If
+you're unfamiliar with protocol buffers in general, or would like a refresher on
+how they work in languages other than SQL, see the
+[Protocol Buffers Developer Guide][protocol-buffers-dev-guide].
+
+### Constructing protocol buffers
+
+This section covers how to construct protocol buffers using ZetaSQL.
+
+#### NEW ProtocolBuffer {...} {: #using_new_map_constructor }
+
+You can create a protocol buffer using the map constructor `NEW` syntax:
+
+<section class="tabs">
+
+##### Format {.new-tab}
+
+```sql
+NEW protocol_buffer {
+  field_name: literal_or_expression
+  field_name { ... }
+  repeated_field_name: [literal_or_expression, ... ]
+  map_field_name: [{key: literal_or_expression value: literal_or_expression}, ...],
+  (extension_name): literal_or_expression
+}
+```
+
+Where:
+
++ `protocol_buffer`: The full Protocol Buffer name including the package name.
++ `field_name`: The name of a field.
++ `literal_or_expression`: The field value.
++  `map_field_name`: The name of a map-typed field. The value is a list of
+   key/value pair entries for the map.
++  `extension_name`: The name of the proto extension, including the package
+   name.
+
+##### Example {.new-tab}
+
+```sql
+NEW Universe {
+  name: "Sol"
+  closest_planets: ["Mercury", "Venus", "Earth" ]
+  star {
+    radius_miles: 432,690
+    age: 4,603,000,000
+  }
+  constellations [{
+    name: "Libra"
+    index: 0
+  }, {
+    name: "Scorpio"
+    index: 1
+  }]
+  planet_distances: [{
+    key: "Mercury"
+    distance: 46,507,000
+  }, {
+    key: "Venus"
+    distance: 107,480,000
+  }]
+  (UniverseExtraInfo.extension) {
+    ...
+  }
+  all_planets: (SELECT planets FROM SolTable)
+}
+```
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+</section>
+
+> NOTE: The syntax is very similar to the Protocol Buffer Text Format
+>  syntax.
+> The differences are:
+>
+> +   Values can be arbitrary SQL expressions instead of having to be literals.
+> +   Repeated fields are written as `x_array: [1, 2, 3]` instead of `x_array:`
+>     appearing multiple times.
+> +   Extensions use parentheses instead of square brackets.
+
+<!-- mdlint on -->
+
+When using this syntax:
+
++   The field values must be expressions that are implicitly coercible or
+    literal-coercible to the type of the corresponding protocol buffer field.
++   Commas between fields are optional.
++   Extension names must have parentheses around the path and must have a comma
+    preceding the extension field (unless it is the first field).
++   A colon is required between field name and values unless the value is a map
+    constructor.
++   The `NEW ProtocolBuffer` prefix is optional if the protocol buffer type can
+    be inferred from the context.
++   The type of submessages inside the map constructor can be inferred.
+
+**Examples**
+
+Simple:
+
+```sql
+SELECT
+  key,
+  name,
+  NEW zetasql.examples.music.Chart { rank: 1 chart_name: "2" }
+```
+
+Nested messages and arrays:
+
+```sql
+SELECT
+  NEW zetasql.examples.music.Album {
+    album_name: "New Moon"
+    singer {
+      nationality: "Canadian"
+      residence: [{ city: "Victoria" }, { city: "Toronto" }]
+    }
+    song: ["Sandstorm","Wait"]
+  }
+```
+
+With an extension field (note a comma is required before the extension field):
+
+```sql
+SELECT
+  NEW zetasql.examples.music.Album {
+    album_name: "New Moon",
+    (zetasql.examples.music.downloads): 30
+  }
+```
+
+Non-literal expressions as values:
+
+```sql
+SELECT NEW zetasql.examples.music.Chart {
+  rank: (SELECT COUNT(*) FROM table_name WHERE foo="bar")
+  chart_name: CONCAT("best", "hits")
+}
+```
+
+Examples of the type protocol buffer being inferred from context:
+
++   From `ARRAY` constructor:
+
+    ```sql
+    SELECT ARRAY<zetasql.examples.music.Chart>[
+        { rank: 1 chart_name: "2" },
+        { rank: 2 chart_name: "3" }]
+    ```
++   From `STRUCT` constructor:
+
+    ```sql
+    SELECT STRUCT<STRING,zetasql.examples.music.Chart,INT64>
+      ("foo", { rank: 1 chart_name: "2" }, 7)
+    ```
++   From column names through `SET`:
+
+    +   Simple column:
+
+    ```sql
+    UPDATE table_name SET ProtoColumn = { rank: 1 chart_name: "2" }
+    ```
+
+    +   Array column:
+
+    ```sql
+    UPDATE table_name SET ProtoArrayColumn =
+      [{ rank: 1 chart_name: "2" }, { rank: 2 chart_name: "3" }]
+    ```
+
+    +   Struct column:
+
+    ```sql
+    UPDATE table_name SET ProtoStructColumn =
+      ("foo", { rank: 1 chart_name: "2" }, 7)
+    ```
++   From generated column names in `CREATE`:
+
+    ```sql
+    CREATE TABLE T (
+      IntColumn INT32,
+      ProtoColumn zetasql.examples.music.Chart AS ({ rank: 1 chart_name: "2" })
+    )
+    ```
++   From column names in default values in `CREATE`:
+
+    ```sql
+    CREATE TABLE T (
+      IntColumn INT32,
+      ProtoColumn zetasql.examples.music.Chart DEFAULT ({ rank: 1 chart_name: "2" })
+    )
+    ```
++   From return types in SQL function body:
+
+    ```sql
+    CREATE FUNCTION myfunc (  ) RETURNS zetasql.examples.music.Chart AS ({ rank: 1 chart_name: "2" })
+    ```
++   From system variable type:
+
+    ```sql
+    SET @@proto_system_variable = { rank: 1 chart_name: "2" }
+    ```
+
+#### NEW ProtocolBuffer (...) 
+<a id="using_new"></a>
+
+You can create a protocol buffer using the keyword `NEW` with a parenthesized
+list of arguments, using aliases to specify field names:
+
+```sql
+NEW ProtocolBuffer(field_1 [AS alias], ...field_n [AS alias])
+```
+
+When using this syntax:
+
++ All field expressions must have an [explicit alias][explicit-alias] or end with an identifier.
+  For example, the expression `a.b.c` has the [implicit alias][implicit-alias] `c`.
++ `NEW` matches fields by alias to the field names of the protocol buffer.
+  Aliases must be unique.
++ The expressions must be implicitly coercible or literal-coercible to the type
+  of the corresponding protocol buffer field.
+
+Example:
+
+```sql
+SELECT
+  key,
+  name,
+  NEW zetasql.examples.music.Chart(key AS rank, name AS chart_name)
+FROM
+  (SELECT 1 as key, "2" as name);
+```
+
+To create a protocol buffer with an extension, use this syntax:
+
+```sql
+NEW ProtocolBuffer(expr1 AS (path.to.extension), ...)
+```
+
++   For `path.to.extension`, provide the path to the extension. Place the
+    extension path inside parentheses.
++   `expr1` provides the value to set for the extension. `expr1` must be of the
+    same type as the extension or [coercible to that type][conversion-rules].
+
+    Example:
+
+    ```sql
+    SELECT
+     NEW zetasql.examples.music.Album (
+       album AS album_name,
+       count AS (zetasql.examples.music.downloads)
+     )
+     FROM (SELECT 'New Moon' AS album, 30 AS count);
+
+    +---------------------------------------------------+
+    | $col1                                             |
+    +---------------------------------------------------+
+    | {album_name: 'New Moon' [...music.downloads]: 30} |
+    +---------------------------------------------------+
+    ```
++   If `path.to.extension` points to a nested protocol buffer extension, `expr1`
+    provides an instance or a text format string of that protocol buffer.
+
+    Example:
+
+    ```sql
+    SELECT
+     NEW zetasql.examples.music.Album(
+       'New Moon' AS album_name,
+       NEW zetasql.examples.music.AlbumExtension(
+        DATE(1956,1,1) AS release_date
+       )
+     AS (zetasql.examples.music.AlbumExtension.album_extension));
+
+    +---------------------------------------------+
+    | $col1                                       |
+    +---------------------------------------------+
+    | album_name: "New Moon"                      |
+    | [...music.AlbumExtension.album_extension] { |
+    |   release_date: -5114                       |
+    | }                                           |
+    +---------------------------------------------+
+    ```
+
+#### SELECT AS ProtocolBuffer
+
+```
+SELECT AS catalog.ProtocolBufferName
+  expr1 [[AS] protocol_buffer_field1]
+  [, ...]
+FROM ...
+```
+
+A `SELECT AS ProtocolBuffer` statement produces a value table where the row type
+is a specific named type. Currently, protocol buffers are the only supported
+type that can be used with this syntax.
+
+The `SELECT` list may produce multiple columns.  Each produced column must have
+an alias (explicitly or implicitly) that matches a unique protocol buffer field
+name; to construct the protocol buffer, the query matches each expression with a
+protocol buffer field by name. If no explicit alias is given, the expression
+must have an implicit alias according to the rules in
+[Implicit Aliases][implicit-alias].
+
+When used with `SELECT DISTINCT`, or `GROUP BY` or `ORDER BY` using column
+ordinals, these operators are applied first, on the columns in the `SELECT`
+list, and then the value construction happens last.  This means that `DISTINCT`
+can be applied on the input columns to the value construction, including in
+cases where `DISTINCT` would not be allowed after value construction because
+equality is not supported on protocol buffer types.
+
+The following is an example of a `SELECT AS ProtocolBuffer` query.
+
+```sql 
+SELECT AS tests.TestProtocolBuffer mytable.key int64_val, mytable.name string_val
+FROM mytable;
+
+```
+
+The query returns the output as a `tests.TestProtocolBuffer` protocol
+buffer. `mytable.key int64_val` means that values from the `key` column are
+stored in the `int64_val` field in the protocol buffer. Similarly, values from
+the `mytable.name` column are stored in the `string_val` protocol buffer field.
+
+ `SELECT AS` does not support setting protocol
+buffer extensions. To do so, use the [NEW][new-keyword] keyword instead. For
+example,  to create a protocol buffer with an extension, change a query like
+this:
+
+```sql
+SELECT AS ProtoType field1, field2, ...
+```
+
+to a query like this:
+
+```sql
+SELECT AS VALUE NEW ProtoType(field1, field2, field3 AS (path.to.extension), ...)
+```
+
+### Casting protocol buffers
+
+You can cast `PROTO` to or from `BYTES` or `STRING`.
+
+```sql
+SELECT CAST('first_name: "Alana", last_name: "Yah", customer_no: 1234'
+  AS example.CustomerInfo);
+```
+
+Casting to or from `BYTES` produces or parses proto2 wire format bytes. If
+there is a failure during the serialization or deserialization process, an error
+is raised. This can happen, for example, if no value is specified for a
+required field.
+
+Casting to or from `STRING` produces or parses the proto2 text format. When
+casting from `STRING`, unknown field names aren't parseable. This means you need
+to be cautious, because round-tripping from `PROTO` to `STRING` back to `PROTO`
+could result in loss of data.
+
+`STRING` literals used where a `PROTO` value is expected will be implicitly cast
+to `PROTO`. If the literal value cannot be parsed using the expected `PROTO`
+type, an error will be raised. To return `NULL`
+instead, use [`SAFE_CAST`][link_to_safe_cast].
+
+### Type mapping 
+<a id="type_mapping"></a>
+
+Protocol buffers are represented using the `PROTO` data type.  A column can
+contain `PROTO` values the same way it can contain `INT32` or `STRING` values.
+
+A protocol buffer contains zero or more fields inside it. Each field inside a
+protocol buffer has its own type. All data types except `STRUCT` can be
+contained inside a `PROTO`. Repeated fields in a protocol buffer are represented
+as `ARRAY`s. The following table gives examples of the mapping between various
+protocol buffer field types and the resulting ZetaSQL types.
+
+<table>
+<thead>
+<tr>
+<th>Protocol Buffer Field Type</th>
+<th style="white-space:nowrap">ZetaSQL Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>optional MessageType msg = 1;</code></td>
+<td><code>PROTO&lt;MessageType&gt;</code></td>
+</tr>
+<tr>
+<td><code>required int64 int = 1;</code></td>
+<td><code>INT64</code></td>
+</tr>
+<tr>
+<td>
+<code>optional int64 int = 1;</code><br>
+When reading, if this field isn't set, the default value (0) is returned. By
+default, protocol buffer fields do not return <code>NULL</code>.
+</td>
+<td><code>INT64</code></td>
+</tr>
+<tr>
+<td>
+<code>optional int64 int = 1 [( zetasql.use_defaults ) = false];</code><br>
+When reading, if this field isn't set, a <code>NULL</code> value is returned.
+This example uses an annotation, which is described in
+<a href="#default_values_and_nulls">Defaults and <code>NULL</code>s</a>.
+</td>
+<td><code>INT64</code></td>
+</tr>
+
+<tr>
+<td>
+<code>optional int32 date = 1 [( zetasql.format ) = DATE];</code>
+
+</td>
+<td><code>DATE</code></td>
+</tr>
+<tr>
+<td>
+<code>optional int64 time = 1 [( zetasql.format ) = TIMESTAMP_MICROS];</code>
+
+</td>
+<td><code>TIMESTAMP</code></td>
+</tr>
+
+<tr>
+<td><code>repeated int64 repeat = 1;</code></td>
+<td><code>ARRAY&lt;INT64&gt;</code></td>
+</tr>
+</tbody>
+</table>
+
+#### Default values and `NULL`s  {#default_values_and_nulls}
+
+Protocol buffer messages themselves do not have a default value &mdash; only the
+fields contained inside a protocol buffer have defaults. When a full protocol
+buffer value is returned in the result of a query, it is returned as a blob and
+all fields are preserved as they were stored, including unset fields. This means
+that you can run a query that returns a protocol buffer, and then extract fields
+or check field presence in your client code with normal protocol buffer default
+behavior.
+
+By default, `NULL` values are never returned when accessing non-repeated leaf
+fields contained in a `PROTO` from within a SQL statement, unless a containing
+value is also `NULL`.  If the field value is not explicitly set, the default
+value for the field is returned.  A change to the default value for a protocol
+buffer field affects all future reads of that field for records where the value
+is unset.
+
+For example, suppose that `proto_msg` of type `PROTO` has a field named
+`leaf_field`. A reference to `proto_msg.leaf_field` returns:
+
++ `NULL` if `proto_msg` is `NULL`.
++ A default value if `proto_msg` is not `NULL` but `leaf_field` is not set.
++ The value of `leaf_field` if `proto_msg` is not `NULL` and `leaf_field`
+  is set.
+
+#### zetasql.use_defaults
+
+You can change this default behavior using a special annotation on your protocol
+message definition, `zetasql.use_defaults`, which you set on an individual
+field to cause `NULL` values to be returned whenever a field value is not
+explicitly set.
+
+This annotation takes a boolean value.  The default is `true`, which means to
+use the protocol buffer field defaults.  The annotation normally is written with
+the value `false`, meaning that defaults should be ignored and `NULL`s should be
+returned.
+
+The following example shows how you can use the `use_defaults` annotation for an
+optional protocol buffer field.
+
+```proto
+import "zetasql/public/proto/type_annotation.proto";
+
+message SimpleMessage {
+  // String field, where ZetaSQL interprets missing values as NULLs.
+  optional string str = 2 [( zetasql.use_defaults ) = false];
+}
+```
+
+In the case where protocol buffers have empty repeated fields, an empty `ARRAY`
+is returned rather than a `NULL`-valued `ARRAY`. This behavior cannot be
+changed.
+
+After a value has been read out of a protocol buffer field, that value is
+treated like any other value of that type. For non-`PROTO` values, such as
+`INT64`, this means that after you get the value, you will not be able to tell
+if the value for that field was set explicitly, or if it was read as a default
+value.
+
+#### zetasql.use_field_defaults
+
+The `zetasql.use_field_defaults` annotation is just like
+`zetasql.use_defaults`, but you set it on a message and it applies to all
+unset fields within a given protocol buffer message. If both are present, the
+field-level annotation takes precedence.
+
+```proto
+import "zetasql/public/proto/type_annotation.proto";
+
+message AnotherSimpleMessage {
+  // Interpret missing value as NULLs for all fields in this message.
+  option ( zetasql.use_field_defaults ) = false;
+
+  optional int64 nullable_int = 1;
+  optional string nullable_string = 2;
+}
+```
+
+#### Checking if a non-repeated field has a value 
+<a id="checking_if_a_field_has_a_value"></a>
+
+You can detect whether `optional` fields are set using a virtual field, `has_X`,
+where `X` is the name of the field being checked. The type of the `has_X` field
+is `BOOL`. The `has_` field is available for any non-repeated field of a `PROTO`
+value. This field equals true if the value `X` is explicitly set in the message.
+
+This field is useful for determining if a protocol buffer field has an explicit
+value, or if reads will return a default value. Consider the protocol buffer
+example, which has a field `country`. You can construct a query to determine if
+a Customer protocol buffer message has a value for the country field by using
+the virtual field `has_country`:
+
+```proto
+message ShippingAddress {
+  optional string name = 1;
+  optional string address = 2;
+  optional string country = 3;
+}
+```
+
+```sql
+SELECT
+  c.Orders.shipping_address.has_country
+FROM
+  Customer c;
+```
+
+If `has_country` returns `TRUE`, it indicates that the value for the `country`
+field has been explicitly set. If it returns `FALSE` or `NULL`, it means the
+value is not explicitly set.
+
+#### Checking for a repeated value 
+<a id="checking_for_a_repeated_value"></a>
+
+You can use an `EXISTS` subquery to scan inside a repeated field and check if
+any value exists with some desired property. For example, the following query
+returns the name of every customer who has placed an order for the product
+"Foo".
+
+```sql
+SELECT
+  C.name
+FROM
+  Customers AS C
+WHERE
+  EXISTS(
+    SELECT
+      *
+    FROM
+      C.Orders.line_item AS item
+    WHERE
+      item.product_name = 'Foo'
+  );
+```
+
+#### Nullness and nested fields
+
+A `PROTO` value may contain fields which are themselves `PROTO`s. When this
+happens it is possible for the nested `PROTO` itself to be `NULL`. In such a
+case, the fields contained within that nested field are also `NULL`
+regardless of their `use_default_value` settings.
+
+Consider this example proto:
+
+```proto
+syntax = "proto2";
+
+import "zetasql/public/proto/type_annotation.proto";
+
+package some.package;
+
+message NestedMessage {
+  optional int64 value = 1 [( zetasql.use_defaults ) = true];
+}
+
+message OuterMessage {
+  optional NestedMessage nested = 1;
+}
+```
+
+Running the following query returns a `5` for `value` because it is
+explicitly defined.
+
+```sql
+SELECT
+  proto_field.nested.value
+FROM
+  (SELECT
+     CAST("nested { value: 5 }" as some.package.OuterMessage) as proto_field);
+```
+
+If `value` is not explicitly defined but `nested` is, you get a `0` because
+the annotation on the protocol buffer definition says to use default values.
+
+```sql
+SELECT
+  proto_field.nested.value
+FROM
+  (SELECT
+     CAST("nested { }" as some.package.OuterMessage) as proto_field);
+```
+
+However, if `nested` is not explicitly defined, you get a `NULL` even
+though the annotation says to use default values for the `value` field. This is
+because the containing message is `NULL`. This behavior applies to both
+repeated and non-repeated fields within a nested message.
+
+```sql
+SELECT
+  proto_field.nested.value
+FROM
+  (SELECT
+     CAST("" as some.package.OuterMessage) as proto_field);
+```
+
+#### Annotations to extend the type system 
+<a id="proto_annotations"></a>
+
+The ZetaSQL type system contains more types than the protocol buffer
+type system.
+<a href="https://developers.google.com/protocol-buffers/docs/proto?csw=1#options">
+Proto annotations</a> are used to store non-protocol-buffer types inside
+serialized protos and read them back as the correct type.
+
+While protocol buffers themselves do not support `DATE` or `TIMESTAMP` types,
+you can use annotations on your protocol message definition to indicate that
+certain fields should be interpreted as `DATE` or `TIMESTAMP` values when read
+using SQL. For instance, a protocol message definition could contain the
+following line:
+
+```proto
+optional int32 date = 2 [( zetasql.format ) = DATE];
+```
+
+The `zetasql.format` annotation indicates that this field, which stores an
+`int32` in the protocol buffer, should be interpreted as a `DATE`. Queries over
+the `date` field return a `DATE` type instead of an `INT32` because of the
+annotation.
+
+This result is the equivalent of having an `INT32` column and querying it as
+follows:
+
+```sql
+SELECT
+  DATE_FROM_UNIX_DATE(date)...
+```
+
+### Querying protocol buffers 
+<a id="querying_protocol_buffers"></a>
+
+You use the dot operator to access the fields contained within a protocol
+buffer. This can not be used to get values of ambiguous fields.
+If you need to reference an ambiguous field,
+see [`EXTRACT`][proto-extract].
+
+#### Example protocol buffer message 
+<a id="example_protocol_buffer_message"></a>
+
+To illustrate how to query protocol buffers, consider a table, `Customers`, that
+contains a column `Orders` of type `PROTO`. The proto stored in `Orders`
+contains fields such as the items ordered and the shipping address. The `.proto`
+file that defines this protocol buffer might look like this:
+
+```proto
+import "zetasql/public/proto/type_annotation.proto";
+
+message Orders {
+  optional string order_number = 1;
+  optional int64 date = 2 [( zetasql.format ) = DATE];
+
+  message Address {
+    optional string street = 1;
+    optional string city = 2;
+    optional string state = 3;
+    optional string country = 4 [( zetasql.use_defaults ) = true,
+                                  default = "United States"];
+  }
+
+  optional Address shipping_address = 3;
+
+  message Item {
+    optional string product_name = 1;
+    optional int32 quantity = 2;
+  }
+
+  repeated Item line_item = 4;
+
+  map<string, string> labels = 5;
+}
+```
+
+An instance of this message might be:
+
+```
+{
+  order_number: 1234567
+  date: 16242
+  shipping_address: {
+      street: "1234 Main St"
+      city: "AnyCity"
+      state: "AnyState"
+      country: "United States"
+  }
+  line_item: {
+      product_name: "Foo"
+      quantity: 10
+  }
+  line_item: {
+      product_name: "Bar"
+      quantity: 5
+  }
+}
+```
+
+#### Querying top-level fields 
+<a id="querying_top-level_fields"></a>
+
+You can write a query to return an entire protocol buffer message, or to return
+a top-level or nested field of the message.
+
+Using our example protocol buffer message, the following query returns all
+protocol buffer values from the `Orders` column:
+
+```sql
+SELECT
+  c.Orders
+FROM
+  Customers c;
+```
+
+This query returns the top-level field `order_number` from all protocol buffer
+messages in the `Orders` column:
+
+```sql
+SELECT
+  c.Orders.order_number
+FROM
+  Customers c;
+```
+
+#### Querying nested paths 
+<a id="querying_nested_paths"></a>
+
+Notice that the `Order` protocol buffer contains another protocol buffer
+message, `Address`, in the `shipping_address` field. You can create a query that
+returns all orders that have a shipping address in the United States:
+
+```sql
+SELECT
+  c.Orders.order_number,
+  c.Orders.shipping_address
+FROM
+  Customers c
+WHERE
+  c.Orders.shipping_address.country = "United States";
+```
+
+#### Returning repeated fields
+
+Often, a protocol buffer message contains one or more repeated fields which are
+returned as `ARRAY` values when referenced in SQL statements. For example, our
+protocol buffer message contains a repeated field, `line_item`.
+
+The following query returns a collection of `ARRAY`s containing the line items,
+each holding all the line items for one order:
+
+```sql
+SELECT
+  c.Orders.line_item
+FROM
+  Customers c;
+```
+
+For more information, see
+[Working with Arrays][working-with-arrays].
+
+#### Returning the number of elements in an array
+
+As with any other `ARRAY` value, you can return the number of repeated fields in
+a protocol buffer using the `ARRAY_LENGTH` function.
+
+```sql
+SELECT
+  c.Orders.order_number,
+  ARRAY_LENGTH(c.Orders.line_item)
+FROM
+  Customers c;
+```
+
+#### Querying map fields
+
+Maps are not a supported type in ZetaSQL. However, maps are
+[implemented in proto3 as repeated fields][protocol-buffer-compatibility],
+so you can query maps by querying
+the underlying repeated field. The underlying repeated field has `key` and
+`value` fields that can be queried.
+
+```sql
+SELECT
+  C.Orders.order_number
+FROM
+  Customers AS C
+WHERE
+  EXISTS(
+    SELECT
+      *
+    FROM
+      C.Orders.Labels label
+    WHERE
+      label.key = 'color' AND label.value = 'red'
+  );
+```
+
+### Extensions
+
+[extensions][protocol-extensions]
+can be queried from `PROTO` values.
+
+#### Top-level extensions 
+<a id="extensions"></a>
+
+If your `PROTO` value contains extensions, you can query those fields using the
+following syntax:
+
+```
+<identifier_of_proto_value>.(<package_of_extension>.<path_expression_to_extension_field>)
+```
+
+For example, consider this proto definition:
+
+```proto
+package some.package;
+
+message Foo {
+  optional int32 x = 1;
+  extensions 100 to 130;
+}
+
+message Point {
+  optional int32 x = 1;
+  optional int32 y = 2;
+}
+
+extend Foo {
+  optional int32 bar = 126;
+  optional Point point = 127;
+}
+```
+
+The following sections use this proto definition in a Table, `Test`, which
+contains a field, `foo_field` of type `Foo`.
+
+A query that returns the value of the `bar` extension field would resemble the
+following:
+
+```sql
+SELECT
+  foo_field.(some.package.bar)
+FROM
+  Test;
+```
+
+These types of extensions are often referred to as *top-level extensions*.
+
+If you want your statement to return a specific value from a top-level
+extension, you would modify it as follows:
+
+```sql
+SELECT
+  foo_field.(some.package.point).y
+FROM
+  Test;
+```
+
+You can refine your statement to look for a specific value of a top-level
+extension as well.
+
+```sql
+SELECT
+  foo_field.(some.package.bar)
+FROM
+  Test
+WHERE
+  foo_field.(some.package.bar) = 5;
+```
+
+Note that you can also put back quotes around the components in the extension
+path name in case they need to be escaped to avoid collisions with reserved
+keywords. For example:
+
+```sql
+SELECT
+  foo_field.(`some.package`.`bar`).value = 5
+FROM
+  Test;
+```
+
+#### Nested extensions
+
+[Nested extensions][nested-extensions]
+are also supported. These are protocol buffer extensions that are declared
+within the scope of some other protocol message. For example:
+
+```proto
+package some.package;
+
+message Baz {
+  extend Foo {
+    optional Baz foo_ext = 127;
+  }
+  optional int32 a = 1;
+  optional int32 b = 2;
+  ...
+}
+```
+
+To construct queries for nested extensions, you use the same parenthetical
+syntax as described in the previous section. To reference a nested extension,
+in addition to specifying the package name, you must also specify the name of
+the message where the extension is declared. For example:
+
+```sql
+SELECT
+  foo_field.(some.package.Baz.foo_ext)
+FROM
+  Test;
+```
+
+You can reference a specific field in a nested extension using the same syntax
+described in the previous section. For example:
+
+```sql
+SELECT
+  foo_field.(some.package.Baz.foo_ext).a
+FROM
+  Test;
+```
+
+#### Unnesting repeated fields and extensions 
+<a id="unnest_repeated_fields"></a>
+
+You can use a [correlated join][correlated-join] to [unnest][unnest-operator]
+standard repeated fields or repeated extension fields and return a table with
+one row for each instance of the field. A standard repeated field does not
+require an explicit `UNNEST`, but a repeated extension field does.
+
+Consider the following protocol buffer:
+
+```proto
+syntax = "proto2";
+
+package some.package;
+
+message Example {
+  optional int64 record_key = 1;
+  repeated int64 repeated_value = 2;
+  extensions 3 to 3;
+}
+
+message Extension {
+  extend Example {
+    repeated int64 repeated_extension_value = 3;
+  }
+}
+```
+
+The following query uses a standard repeated field,
+`repeated_value`, in a correlated comma `CROSS JOIN` and runs without an
+explicit `UNNEST`.
+
+```sql
+WITH t AS
+  (SELECT
+     CAST("""
+       record_key: 1
+       repeated_value: 1
+       repeated_value: 2
+       repeated_value: 3
+       [some.package.Extension.repeated_extension_value]: 4
+       [some.package.Extension.repeated_extension_value]: 5
+       [some.package.Extension.repeated_extension_value]: 6"""
+     as some.package.Example) as proto_field)
+SELECT
+  t.proto_field.record_key,
+  value
+FROM
+  t,
+  t.proto_field.repeated_value value;
+```
+
+The following query uses a repeated extension field,
+`repeated_extension_value`, in a correlated comma `CROSS JOIN` and requires an
+explicit `UNNEST`.
+
+```sql
+WITH t AS
+  (SELECT
+     CAST("""
+       record_key: 1
+       repeated_value: 1
+       repeated_value: 2
+       repeated_value: 3
+       [some.package.Extension.repeated_extension_value]: 4
+       [some.package.Extension.repeated_extension_value]: 5
+       [some.package.Extension.repeated_extension_value]: 6"""
+     as some.package.Example) as proto_field)
+SELECT
+  t.proto_field.record_key,
+  value
+FROM
+  t,
+  UNNEST(t.proto_field.(some.package.Extension.repeated_extension_value)) value;
+```
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[protocol-buffer-compatibility]: https://developers.google.com/protocol-buffers/docs/proto3#backwards-compatibility
+
+[protocol-buffers-dev-guide]: https://developers.google.com/protocol-buffers
+
+[nested-extensions]: https://developers.google.com/protocol-buffers/docs/proto#nested-extensions
+
+[new-keyword]: #using_new
+
+[explicit-alias]: #explicit_alias_syntax
+
+[implicit-alias]: #implicit_aliases
+
+[correlated-join]: #correlated_join
+
+[unnest-operator]: #unnest_operator
+
+[conversion-rules]: #conversion_rules
+
+[working-with-arrays]: #working_with_arrays
+
+[link_to_safe_cast]: #safe_casting
+
+[link_to_expression_subquery]: #expression_subquery_concepts
+
+[proto-extract]: #proto_extract
+
+<!-- mdlint on -->
+
+---
+## GENERAL REFERENCE
+
+## Data types
+
+This page provides an overview of all ZetaSQL
+data types, including information about their value
+domains. For
+information on data type literals and constructors, see
+[Lexical Structure and Syntax][lexical-literals].
+
+### Data type properties
+
+When storing and querying data, it is helpful to keep the following data type
+properties in mind:
+
+#### Nullable data types
+
+For nullable data types, `NULL` is a valid value. Currently, all existing
+data types are nullable.
+
+#### Orderable data types
+
+Expressions of orderable data types can be used in an `ORDER BY` clause.
+Applies to all data types except for:
+
++ `PROTO`
++ `STRUCT`
++ `JSON`
+
+##### Ordering NULLs 
+<a id="orderable_nulls"></a>
+
+In the context of the `ORDER BY` clause, `NULL`s are the minimum
+possible value; that is, `NULL`s appear first in `ASC` sorts and last in
+`DESC` sorts.
+
+`NULL` values can be specified as the first or last values for a column
+irrespective of `ASC` or `DESC` by using the `NULLS FIRST` or `NULLS LAST`
+modifiers respectively.
+
+To learn more about using `ASC`, `DESC`, `NULLS FIRST` and `NULLS LAST`, see
+the [`ORDER BY` clause][order-by-clause].
+
+##### Ordering floating points 
+<a id="orderable_floating_points"></a>
+
+Floating point values are sorted in this order, from least to greatest:
+
+  1. `NULL`
+  2. `NaN` &mdash; All `NaN` values are considered equal when sorting.
+  3. `-inf`
+  4. Negative numbers
+  5. 0 or -0 &mdash; All zero values are considered equal when sorting.
+  6. Positive numbers
+  7. `+inf`
+
+##### Ordering arrays 
+<a id="orderable_arrays"></a>
+
+`ARRAY<T>` is orderable if its type, `T`, is orderable. Empty arrays are
+sorted before non-empty arrays. Non-empty arrays are sorted
+lexicographically by element. An array that is a strict prefix of another array
+orders less than the longer array.
+
+Lexicographical ordering for arrays first compares the elements of each array
+from the first element to the last. If an element orders before a corresponding
+element in another array, then the arrays are ordered accordingly. Subsequent
+array elements are ignored.
+
+For example:
+
+```sql
+WITH
+  t AS (
+    SELECT [1, 2] a UNION ALL
+    SELECT [1, NULL] a UNION ALL
+    SELECT [0, 1] UNION ALL
+    SELECT [0, 1, 4] UNION ALL
+    SELECT [0, 1, 5] UNION ALL
+    SELECT [3] UNION ALL
+    SELECT [] UNION ALL
+    SELECT CAST(NULL AS ARRAY<INT64>)
+  )
+SELECT a FROM t ORDER BY a
+
++-----------+
+| a         |
++-----------+
+| NULL      |
+| []        |
+| [0, 1]    |
+| [0, 1, 4] |
+| [0, 1, 5] |
+| [1, NULL] |
+| [1, 2]    |
+| [3]       |
++-----------+
+```
+
+#### Groupable data types
+
+Groupable data types can generally appear in an expression following `GROUP BY`,
+`DISTINCT`, and `PARTITION BY`. However, `PARTITION BY` expressions cannot
+include [floating point types][floating-point-types]. All data types are
+supported except for:
+
++ `PROTO`
++ `JSON`
+
+An ARRAY type is groupable if its element type is groupable. Two arrays are in
+the same group if and only if one of the following statements is true:
+
++ The two arrays are both `NULL`.
++ The two arrays have the same number of elements and all corresponding
+  elements are in the same groups.
+
+A STRUCT type is groupable if its field types are groupable. Two structs
+are in the same group if and only if one of the following statements is true:
+
++ The two structs are both `NULL`.
++ All corresponding field values between the structs are in the same groups.
+
+Special floating point values are grouped in the following way, including
+both grouping done by a `GROUP BY` clause and grouping done by the
+`DISTINCT` keyword:
+
+  * `NULL`
+  * `NaN` &mdash; All `NaN` values are considered equal when grouping.
+  * `-inf`
+  * 0 or -0 &mdash; All zero values are considered equal when grouping.
+  * `+inf`
+
+#### Comparable data types
+
+Values of the same comparable data type can be compared to each other.
+All data types are supported except for:
+
++ `PROTO`
++ `JSON`
+
+Notes:
+
++ Equality comparisons for `ARRAY` data types are supported as long as the
+  element types are the same, and the element types are comparable. Less than
+  and greater than comparisons are not supported.
++ Equality comparisons for `STRUCT`s are supported field by field, in
+  field order. Field names are ignored. Less than and greater than comparisons
+  are not supported.
++ All types that support comparisons can be used in a `JOIN` condition.
+ See [JOIN Types][join-types] for an explanation of join conditions.
+
+The maximum size of a  column value is 10MiB, which applies to
+scalar and array types.
+
+### Array type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ARRAY</code></td>
+<td>Ordered list of zero or more elements of any non-ARRAY type.</td>
+</tr>
+</tbody>
+</table>
+
+An ARRAY is an ordered list of zero or more elements of non-ARRAY values.
+Elements in an array must share the same type.
+
+ARRAYs of ARRAYs are not allowed. Queries that would produce an ARRAY of
+ARRAYs will return an error. Instead, a STRUCT must be inserted between the
+ARRAYs using the `SELECT AS STRUCT` construct.
+
+An empty ARRAY and a `NULL` ARRAY are two distinct values. ARRAYs can contain
+`NULL` elements.
+
+#### Declaring an ARRAY type
+
+```
+ARRAY<T>
+```
+
+ARRAY types are declared using the angle brackets (`<` and `>`). The type
+of the elements of an ARRAY can be arbitrarily complex with the exception that
+an ARRAY cannot directly contain another ARRAY.
+
+**Examples**
+
+<table>
+<thead>
+<tr>
+<th>Type Declaration</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>
+ARRAY&lt;INT64&gt;
+</code>
+</td>
+<td>Simple ARRAY of 64-bit integers.</td>
+</tr>
+<tr>
+<td style="white-space:nowrap">
+<code>
+ARRAY&lt;STRUCT&lt;INT64, INT64&gt;&gt;
+</code>
+</td>
+<td>An ARRAY of STRUCTs, each of which contains two 64-bit integers.</td>
+</tr>
+<tr>
+<td style="white-space:nowrap">
+<code>
+ARRAY&lt;ARRAY&lt;INT64&gt;&gt;
+</code><br/>
+(not supported)
+</td>
+<td>This is an <strong>invalid</strong> type declaration which is included here
+just in case you came looking for how to create a multi-level ARRAY. ARRAYs
+cannot contain ARRAYs directly. Instead see the next example.</td>
+</tr>
+<tr>
+<td style="white-space:nowrap">
+<code>
+ARRAY&lt;STRUCT&lt;ARRAY&lt;INT64&gt;&gt;&gt;
+</code>
+</td>
+<td>An ARRAY of ARRAYS of 64-bit integers. Notice that there is a STRUCT between
+the two ARRAYs because ARRAYs cannot hold other ARRAYs directly.</td>
+</tr>
+<tbody>
+</table>
+
+#### Constructing an ARRAY 
+<a id="constructing_an_array"></a>
+
+You can construct an ARRAY using array literals or array functions. To learn
+how, see [Working with arrays][working-with-arrays].
+
+### Boolean type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BOOL</code></td>
+<td>Boolean values are represented by the keywords <code>TRUE</code> and
+<code>FALSE</code> (case insensitive).</td>
+</tr>
+</tbody>
+</table>
+
+Boolean values are sorted in this order, from least to greatest:
+
+  1. `NULL`
+  1. `FALSE`
+  1. `TRUE`
+
+### Bytes type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BYTES</code></td>
+<td>Variable-length binary data.</td>
+</tr>
+</tbody>
+</table>
+
+STRING and BYTES are separate types that cannot be used interchangeably. Most
+functions on STRING are also defined on BYTES. The BYTES version operates on raw
+bytes rather than Unicode characters. Casts between STRING and BYTES enforce
+that the bytes are encoded using UTF-8.
+
+### Date type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Range</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DATE</code></td>
+<td>0001-01-01 to 9999-12-31.</td>
+</tr>
+</tbody>
+</table>
+
+The DATE type represents a logical calendar date, independent of time zone. A
+DATE value does not represent a specific 24-hour time period. Rather, a given
+DATE value represents a different 24-hour period when interpreted in different
+time zones, and may represent a shorter or longer day during Daylight Savings
+Time transitions.
+To represent an absolute point in time,
+use a [timestamp][timestamp-type].
+
+##### Canonical format
+
+```
+'YYYY-[M]M-[D]D'
+```
+
++ `YYYY`: Four-digit year
++ `[M]M`: One or two digit month
++ `[D]D`: One or two digit day
+
+### Datetime type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Range</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DATETIME</code></td>
+<td>
+    
+        0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999999<br/>
+        <hr/>
+        0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999<br/>
+    
+</td>
+</tr>
+</tbody>
+</table>
+
+A DATETIME object represents a date and time, as they might be displayed
+on a calendar or clock, independent of time zone.
+It includes the year, month, day, hour, minute, second,
+and subsecond.
+The range of subsecond precision is determined by the SQL engine.
+To represent an absolute point in time,
+use a [timestamp][timestamp-type].
+
+##### Canonical format
+
+```
+YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.F]]
+```
+
+<ul>
+    <li><code>YYYY</code>: Four-digit year</li>
+    <li><code>[M]M</code>: One or two digit month</li>
+    <li><code>[D]D</code>: One or two digit day</li>
+    <li><code>( |T)</code>: A space or a `T` separator</li>
+    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
+    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
+    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
+    <li>
+      <code>[.F]</code>: Up to nine fractional
+      digits (nanosecond precision)
+    </li>
+</ul>
+
+### Enum type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ENUM</code></td>
+<td>Named type that maps STRING constants to INT32 constants.</td>
+</tr>
+</tbody>
+</table>
+
+An ENUM is a named type that enumerates a list of possible values, each of which
+has:
+
++ An integer value. Integers are used for comparison and ordering ENUM values.
+There is no requirement that these integers start at zero or that they be
+contiguous.
++ A string value. Strings are case sensitive.
++ Optional alias values. One or more additional string values that act as
+aliases.
+
+Enum values are referenced using their integer value or their string value.
+You reference an ENUM type, such as when using CAST, by using its fully
+qualified name.
+
+You cannot create new ENUM types using ZetaSQL.
+
+### Interval type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Range</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>INTERVAL</code></td>
+<td>
+-10000-0 -3660000 -87840000:0:0 to 10000-0 3660000 87840000:0:0
+</td>
+</tr>
+</tbody>
+</table>
+
+An INTERVAL object represents duration or amount of time.
+Interval is composed of three independent parts:
+<ul>
+  <li>`[sign]Y-M`: Years and Months</li>
+  <li>`[sign]D`: Days</li>
+  <li>
+    `[sign]H:M:S.F`: Hours, Minutes, Seconds and
+    Subseconds. The
+    range of subsecond precision is determined by the SQL engine.
+  </li>
+</ul>
+
+##### Canonical format
+
+```
+[sign]Y-M [sign]D [sign]H:M:S[.F]
+```
+
+<ul>
+    <li><code>Y</code>: Year</li>
+    <li><code>M</code>: Month</li>
+    <li><code>D</code>: Day</li>
+    <li><code>H</code>: Hour</li>
+    <li><code>M</code>: Minute</li>
+    <li><code>S</code>: Second</li>
+    <li>
+      <code>[.F]</code>: Up to nine fractional
+      digits (nanosecond precision)
+    </li>
+</ul>
+
+### JSON type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>JSON</code></td>
+<td>Represents JSON, a lightweight data-interchange format.</td>
+</tr>
+</tbody>
+</table>
+
+Expect these canonicalization behaviors when creating a value of `JSON` type:
+
++  Booleans, strings, and nulls are preserved exactly.
++  Whitespace characters are not preserved.
++  A JSON value can store integers in the range of
+   -9,223,372,036,854,775,808 (minimal signed 64-bit integer) to
+   18,446,744,073,709,551,615 (maximal unsigned 64-bit integer) and
+   floating point numbers within a domain of
+   `DOUBLE`.
++  The order of elements in an array is preserved exactly.
++  The order of the members of an object is not guaranteed or preserved.
++  If an object has duplicate keys, the first key that is found is preserved.
++  The format of the original string representation of a JSON number may not be
+   preserved.
+
+### Numeric types
+
+Numeric types include the following types:
+
+* `INT32`
+* `UINT32`
+* `INT64`
+* `UINT64`
+* `NUMERIC` with alias `DECIMAL`
+* `BIGNUMERIC` with alias `BIGDECIMAL`
+* `FLOAT`
+* `DOUBLE`
+
+#### Integer types
+
+Integers are numeric values that do not have fractional components.
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Range</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td><code>INT32</code></td>
+<td>-2,147,483,648 to 2,147,483,647</td>
+</tr>
+
+<tr>
+<td><code>UINT32</code></td>
+<td>0 to 4,294,967,295</td>
+</tr>
+
+<tr>
+<td><code>INT64</code>
+</td>
+<td>-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807</td>
+</tr>
+
+<tr>
+<td><code>UINT64</code></td>
+<td>0 to 18,446,744,073,709,551,615</td>
+</tr>
+
+</tbody>
+</table>
+
+#### Decimal types 
+<a id="decimal_types"></a>
+
+Decimal type values are numeric values with fixed decimal precision and scale.
+Precision is the number of digits that the number contains. Scale is
+how many of these digits appear after the decimal point.
+
+This type can represent decimal fractions exactly, and is suitable for financial
+calculations.
+
+<table>
+<thead>
+<tr>
+  <th>Name</th>
+  <th>Precision, Scale, and Range</th>
+</tr>
+</thead>
+<tbody>
+
+<tr id="numeric_type">
+  <td id="numeric-type" style="vertical-align:middle"><code>NUMERIC</code>
+    <br><code>DECIMAL</code></td>
+  <td style="vertical-align:middle">
+    Precision: 38<br>
+    Scale: 9<br>
+    Min: -9.9999999999999999999999999999999999999E+28<br>
+    Max: 9.9999999999999999999999999999999999999E+28
+  </td>
+</tr>
+
+<tr id="bignumeric_type">
+  <td id="bignumeric-type" style="vertical-align:middle"><code>BIGNUMERIC</code>
+    <br><code>BIGDECIMAL</code></td>
+  <td style="vertical-align:middle">
+    Precision: 76.76 (the 77th digit is partial)<br>
+    Scale: 38<br>
+    Min: <small>-5.7896044618658097711785492504343953926634992332820282019728792003956564819968E+38</small><br>
+    Max: <small>5.7896044618658097711785492504343953926634992332820282019728792003956564819967E+38</small>
+  </td>
+</tr>
+
+</tbody>
+</table>
+
+`DECIMAL` is an alias for `NUMERIC`.
+`BIGDECIMAL` is an alias for `BIGNUMERIC`.
+
+#### Floating point types 
+<a id="floating_point_types"></a>
+
+Floating point values are approximate numeric values with fractional components.
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+<td><code>FLOAT</code></td>
+<td>Single precision (approximate) numeric values.</td>
+</tr>
+
+<tr>
+<td><code>DOUBLE</code></td>
+<td>Double precision (approximate) numeric values.</td>
+</tr>
+</tbody>
+</table>
+
+##### Floating point semantics
+
+When working with floating point numbers, there are special non-numeric values
+that need to be considered: `NaN` and `+/-inf`
+
+Arithmetic operators provide standard IEEE-754 behavior for all finite input
+values that produce finite output and for all operations for which at least one
+input is non-finite.
+
+Function calls and operators return an overflow error if the input is finite
+but the output would be non-finite. If the input contains non-finite values, the
+output can be non-finite. In general functions do not introduce `NaN`s or
+`+/-inf`. However, specific functions like `IEEE_DIVIDE` can return non-finite
+values on finite input. All such cases are noted explicitly in
+[Mathematical functions][mathematical-functions].
+
+Floating point values are approximations.
+
++ The binary format used to represent floating point values can only represent
+  a subset of the numbers between the most positive number and most
+  negative number in the value range. This enables efficient handling of a
+  much larger range than would be possible otherwise.
+  Numbers that are not exactly representable are approximated by utilizing a
+  close value instead. For example, `0.1` cannot be represented as an integer
+  scaled by a power of `2`. When this value is displayed as a string, it is
+  rounded to a limited number of digits, and the value approximating `0.1`
+  might appear as `"0.1"`, hiding the fact that the value is not precise.
+  In other situations, the approximation can be visible.
++ Summation of floating point values might produce surprising results because
+  of [limited precision][floating-point-accuracy]. For example,
+  `(1e30 + 1e-20) - 1e30 = 0`, while `(1e30 - 1e30) + 1e-20 = 1e-20`. This is
+  because the floating point value does not have enough precision to
+  represent `(1e30 + 1e-20)`, and the result is rounded to `1e30`.
+  This example also shows that the result of the `SUM` aggregate function of
+  floating points values depends on the order in which the values are
+  accumulated. In general, this order is not deterministic and therefore the
+  result is not deterministic. Thus, the resulting `SUM` of
+  floating point values might not be deterministic and two executions of the
+  same query on the same tables might produce different results.
++ If the above points are concerning, use a
+  [decimal type][decimal-types] instead.
+
+##### Mathematical function examples
+
+<table>
+<thead>
+<tr>
+<th>Left Term</th>
+<th>Operator</th>
+<th>Right Term</th>
+<th>Returns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Any value</td>
+<td><code>+</code></td>
+<td><code>NaN</code></td>
+<td><code>NaN</code></td>
+</tr>
+<tr>
+<td>1.0</td>
+<td><code>+</code></td>
+<td><code>+inf</code></td>
+<td><code>+inf</code></td>
+</tr>
+<tr>
+<td>1.0</td>
+<td><code>+</code></td>
+<td><code>-inf</code></td>
+<td><code>-inf</code></td>
+</tr>
+<tr>
+<td><code>-inf</code></td>
+<td><code>+</code></td>
+<td><code>+inf</code></td>
+<td><code>NaN</code></td>
+</tr>
+<tr>
+<td>Maximum <code>DOUBLE</code> value</td>
+<td><code>+</code></td>
+<td>Maximum <code>DOUBLE</code> value</td>
+<td>Overflow error</td>
+</tr>
+<tr>
+<td>Minimum <code>DOUBLE</code> value</td>
+<td><code>/</code></td>
+<td>2.0</td>
+<td>0.0</td>
+</tr>
+<tr>
+<td>1.0</td>
+<td><code>/</code></td>
+<td><code>0.0</code></td>
+<td>"Divide by zero" error</td>
+</tr>
+</tbody>
+</table>
+
+Comparison operators provide standard IEEE-754 behavior for floating point
+input.
+
+##### Comparison operator examples
+
+<table>
+<thead>
+<tr>
+<th>Left Term</th>
+<th>Operator</th>
+<th>Right Term</th>
+<th>Returns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NaN</code></td>
+<td><code>=</code></td>
+<td>Any value</td>
+<td><code>FALSE</code></td>
+</tr>
+<tr>
+<td><code>NaN</code></td>
+<td><code>&lt;</code></td>
+<td>Any value</td>
+<td><code>FALSE</code></td>
+</tr>
+<tr>
+<td>Any value</td>
+<td><code>&lt;</code></td>
+<td><code>NaN</code></td>
+<td><code>FALSE</code></td>
+</tr>
+<tr>
+<td>-0.0</td>
+<td><code>=</code></td>
+<td>0.0</td>
+<td><code>TRUE</code></td>
+</tr>
+<tr>
+<td>-0.0</td>
+<td><code>&lt;</code></td>
+<td>0.0</td>
+<td><code>FALSE</code></td>
+</tr>
+</tbody>
+</table>
+
+For more information on how these values are ordered and grouped so they
+can be compared,
+see [Ordering floating point values][orderable-floating-points].
+
+### Protocol buffer type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PROTO</code></td>
+<td>An instance of protocol buffer.</td>
+</tr>
+</tbody>
+</table>
+
+Protocol buffers provide structured data types with a defined serialization
+format and cross-language support libraries. Protocol buffer message types can
+contain optional, required or repeated fields, including nested messages. See
+the
+[Protocol Buffers Developer Guide][protocol-buffers-dev-guide] for more detail.
+
+Protocol buffer message types behave similarly to STRUCT types, and support
+similar operations like reading field values by name. Protocol buffer types are
+always named types, and can be referred to by their fully-qualified protocol
+buffer name (i.e. `package.ProtoName`). Protocol buffers support some additional
+behavior beyond STRUCTs, like default field values, and checking for the
+presence of optional fields.
+
+Protocol buffer ENUM types are also available and can be referenced using the
+fully-qualified ENUM type name.
+
+See [Using Protocol Buffers][protocol-buffers]
+for more information.
+
+#### Constructing a PROTO 
+<a id="constructing_a_proto"></a>
+
+You can construct a PROTO with the `NEW` keyword or with the
+`SELECT AS typename` statement. To learn how, see
+[Using Protocol Buffers][protocol-buffers].
+
+#### Limited comparisons for PROTO
+
+No direct comparison of PROTO values is supported. There are a couple possible
+workarounds:
+
++ The most accurate way to compare PROTOs is to do a pair-wise comparison
+  between the fields of the PROTOs. This can also be used to `GROUP BY` or
+  `ORDER BY` PROTO fields.
++ To get a simple approximation for inequality comparisons, you can cast PROTO
+  to STRING. Note that this will do lexicographical ordering for numeric
+  fields.
+
+### String type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>STRING</code></td>
+<td>Variable-length character (Unicode) data.</td>
+</tr>
+</tbody>
+</table>
+
+Input STRING values must be UTF-8 encoded and output STRING values will be UTF-8
+encoded. Alternate encodings like CESU-8 and Modified UTF-8 are not treated as
+valid UTF-8.
+
+All functions and operators that act on STRING values operate on Unicode
+characters rather than bytes. For example, functions like `SUBSTR` and `LENGTH`
+applied to STRING input count the number of characters, not bytes.
+
+Each Unicode character has a numeric value called a code point assigned to it.
+Lower code points are assigned to lower characters. When characters are
+compared, the code points determine which characters are less than or greater
+than other characters.
+
+Most functions on STRING are also defined on BYTES. The BYTES version operates
+on raw bytes rather than Unicode characters. STRING and BYTES are separate types
+that cannot be used interchangeably. There is no implicit casting in either
+direction. Explicit casting between STRING and BYTES does UTF-8 encoding and
+decoding. Casting BYTES to STRING returns an error if the bytes are not
+valid UTF-8.
+
+### Struct type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>STRUCT</code></td>
+<td>Container of ordered fields each with a type (required) and field name
+(optional).</td>
+</tr>
+</tbody>
+</table>
+
+#### Declaring a STRUCT type
+
+```
+STRUCT<T>
+```
+
+STRUCT types are declared using the angle brackets (`<` and `>`). The type of
+the elements of a STRUCT can be arbitrarily complex.
+
+**Examples**
+
+<table>
+<thead>
+<tr>
+<th>Type Declaration</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>
+STRUCT&lt;INT64&gt;
+</code>
+</td>
+<td>Simple STRUCT with a single unnamed 64-bit integer field.</td>
+</tr>
+<tr>
+<td style="white-space:nowrap">
+<code>
+STRUCT&lt;x STRUCT&lt;y INT64, z INT64&gt;&gt;
+</code>
+</td>
+<td>A STRUCT with a nested STRUCT named <code>x</code> inside it. The STRUCT
+<code>x</code> has two fields, <code>y</code> and <code>z</code>, both of which
+are 64-bit integers.</td>
+</tr>
+<tr>
+<td style="white-space:nowrap">
+<code>
+STRUCT&lt;inner_array ARRAY&lt;INT64&gt;&gt;
+</code>
+</td>
+<td>A STRUCT containing an ARRAY named <code>inner_array</code> that holds
+64-bit integer elements.</td>
+</tr>
+<tbody>
+</table>
+
+#### Constructing a STRUCT 
+<a id="constructing_a_struct"></a>
+
+##### Tuple syntax
+
+```
+(expr1, expr2 [, ... ])
+```
+
+The output type is an anonymous STRUCT type with anonymous fields with types
+matching the types of the input expressions. There must be at least two
+expressions specified. Otherwise this syntax is indistinguishable from an
+expression wrapped with parentheses.
+
+**Examples**
+
+<table>
+<thead>
+<tr>
+<th>Syntax</th>
+<th>Output Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="white-space:nowrap"><code>(x, x+y)</code></td>
+<td style="white-space:nowrap"><code>STRUCT&lt;?,?&gt;</code></td>
+<td>If column names are used (unquoted strings), the STRUCT field data type is
+derived from the column data type. <code>x</code> and <code>y</code> are
+columns, so the data types of the STRUCT fields are derived from the column
+types and the output type of the addition operator.</td>
+</tr>
+</tbody>
+</table>
+
+This syntax can also be used with STRUCT comparison for comparison expressions
+using multi-part keys, e.g. in a `WHERE` clause:
+
+```
+WHERE (Key1,Key2) IN ( (12,34), (56,78) )
+```
+
+##### Typeless struct syntax
+
+```
+STRUCT( expr1 [AS field_name] [, ... ])
+```
+
+Duplicate field names are allowed. Fields without names are considered anonymous
+fields and cannot be referenced by name. STRUCT values can be `NULL`, or can
+have `NULL` field values.
+
+**Examples**
+
+<table>
+<thead>
+<tr>
+<th>Syntax</th>
+<th>Output Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>STRUCT(1,2,3)</code></td>
+<td><code>STRUCT&lt;int64,int64,int64&gt;</code></td>
+</tr>
+<tr>
+<td><code>STRUCT()</code></td>
+<td><code>STRUCT&lt;&gt;</code></td>
+</tr>
+<tr>
+<td><code>STRUCT('abc')</code></td>
+<td><code>STRUCT&lt;string&gt;</code></td>
+</tr>
+<tr>
+<td><code>STRUCT(1, t.str_col)</code></td>
+<td><code>STRUCT&lt;int64, str_col string&gt;</code></td>
+</tr>
+<tr>
+<td><code>STRUCT(1 AS a, 'abc' AS b)</code></td>
+<td><code>STRUCT&lt;a int64, b string&gt;</code></td>
+</tr>
+<tr>
+<td><code>STRUCT(str_col AS abc)</code></td>
+<td><code>STRUCT&lt;abc string&gt;</code></td>
+</tr>
+</tbody>
+</table>
+
+##### Typed struct syntax
+
+```
+STRUCT<[field_name] field_type, ...>( expr1 [, ... ])
+```
+
+Typed syntax allows constructing STRUCTs with an explicit STRUCT data type. The
+output type is exactly the `field_type` provided. The input expression is
+coerced to `field_type` if the two types are not the same, and an error is
+produced if the types are not compatible. `AS alias` is not allowed on the input
+expressions. The number of expressions must match the number of fields in the
+type, and the expression types must be coercible or literal-coercible to the
+field types.
+
+**Examples**
+
+<table>
+<thead>
+<tr>
+<th>Syntax</th>
+<th>Output Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>STRUCT&lt;int64&gt;(5)</code></td>
+<td><code>STRUCT&lt;int64&gt;</code></td>
+</tr>
+
+<tr>
+<td><code>STRUCT&lt;date&gt;("2011-05-05")</code></td>
+<td><code>STRUCT&lt;date&gt;</code></td>
+</tr>
+
+<tr>
+<td><code>STRUCT&lt;x int64, y string&gt;(1, t.str_col)</code></td>
+<td><code>STRUCT&lt;x int64, y string&gt;</code></td>
+</tr>
+<tr>
+<td><code>STRUCT&lt;int64&gt;(int_col)</code></td>
+<td><code>STRUCT&lt;int64&gt;</code></td>
+</tr>
+<tr>
+<td><code>STRUCT&lt;x int64&gt;(5 AS x)</code></td>
+<td>Error - Typed syntax does not allow <code>AS</code></td>
+</tr>
+</tbody>
+</table>
+
+#### Limited comparisons for STRUCT
+
+STRUCTs can be directly compared using equality operators:
+
+  * Equal (`=`)
+  * Not Equal (`!=` or `<>`)
+  * [`NOT`] `IN`
+
+Notice, though, that these direct equality comparisons compare the fields of
+the STRUCT pairwise in ordinal order ignoring any field names. If instead you
+want to compare identically named fields of a STRUCT, you can compare the
+individual fields directly.
+
+### Time type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Range</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TIME</code></td>
+
+    <td>
+        00:00:00 to 23:59:59.999999999<br/>
+        <hr/>
+        00:00:00 to 23:59:59.999999<br/>
+    </td>
+
+</tr>
+</tbody>
+</table>
+
+A TIME object represents a time, as might be displayed on a watch,
+independent of a specific date and timezone.
+The range of
+subsecond precision is determined by the
+SQL engine. To represent
+an absolute point in time, use a [timestamp][timestamp-type].
+
+##### Canonical format
+
+```
+[H]H:[M]M:[S]S[.DDDDDD|.F]
+```
+
+<ul>
+    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
+    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
+    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
+    <li>
+      <code>[.F]</code>: Up to nine fractional
+      digits (nanosecond precision)
+    </li>
+</ul>
+
+### Timestamp type
+
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Range</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TIMESTAMP</code></td>
+
+    <td>
+      0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999999 UTC<br/>
+      <hr/>
+      0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999 UTC<br/>
+    </td>
+
+</tr>
+</tbody>
+</table>
+
+A TIMESTAMP object represents an absolute point in time,
+independent of any time zone or convention such as Daylight Savings Time
+with
+microsecond or nanosecond
+precision.
+The range of subsecond precision is determined by the SQL engine.
+
++  To represent a date as it might appear on a calendar,
+   use a [DATE][date-type] object.
++  To represent a time, as it might appear on a clock,
+   use a [TIME][time-type] object.
++  To represent a date and time, as they might appear on a calendar and clock,
+   use a [DATETIME][datetime-type] object.
+
+<div>
+
+</div>
+
+##### Canonical format
+
+```
+YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.F]][time zone]
+```
+
+<ul>
+    <li><code>YYYY</code>: Four-digit year</li>
+    <li><code>[M]M</code>: One or two digit month</li>
+    <li><code>[D]D</code>: One or two digit day</li>
+    <li><code>( |T)</code>: A space or a `T` separator</li>
+    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
+    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
+    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
+    <li>
+      <code>[.F]</code>: Up to nine fractional
+      digits (nanosecond precision)
+    </li>
+    <li><code>[time zone]</code>: String representing the time zone.
+                                  When a time zone is not explicitly specified, the
+                                  default time zone, which is implementation defined, is used.
+                                  See the <a href="#time_zones">time zones</a> section for details.
+   </li>
+</ul>
+
+#### Time zones 
+<a id="time_zones"></a>
+
+Time zones are used when parsing timestamps or formatting timestamps
+for display. The timestamp value itself does not store a specific time zone,
+nor does it change when you apply a time zone offset.
+
+Time zones are represented by strings in one of these canonical formats:
+
++ Offset from Coordinated Universal Time (UTC), or the letter `Z` for UTC
++ Time zone name from the [tz database][tz-database]{: class=external target=_blank }
+
+The following timestamps are identical because the time zone offset
+for `America/Los_Angeles` is `-08` for the specified date and time.
+
+```sql
+SELECT UNIX_MILLIS(TIMESTAMP '2008-12-25 15:30:00 America/Los_Angeles') AS millis;
+```
+
+```sql
+SELECT UNIX_MILLIS(TIMESTAMP '2008-12-25 15:30:00-08:00') AS millis;
+```
+
+##### Offset from Coordinated Universal Time (UTC)
+
+```
+(+|-)H[H][:M[M]]
+Z
+```
+
+**Examples**
+
+```
+-08:00
+-8:15
++3:00
++07:30
+-7
+Z
+```
+
+When using this format, no space is allowed between the time zone and the rest
+of the timestamp.
+
+```
+2014-09-27 12:30:00.45-8:00
+2014-09-27T12:30:00.45Z
+```
+
+##### Time zone name
+
+```
+continent/[region/]city
+```
+
+Time zone names are from the [tz database][tz-database]{: class=external target=_blank }.
+For a less comprehensive but simpler reference, see the
+[List of tz database time zones][tz-database-list]{: class=external target=_blank }
+on Wikipedia.
+
+**Examples**
+
+```
+America/Los_Angeles
+America/Argentina/Buenos_Aires
+```
+
+When using a time zone name, a space is required between the name and the rest
+of the timestamp:
+
+```
+2014-09-27 12:30:00.45 America/Los_Angeles
+```
+
+Note that not all time zone names are interchangeable even if they do happen to
+report the same time during a given part of the year. For example,
+`America/Los_Angeles` reports the same time as `UTC-7:00` during Daylight
+Savings Time, but reports the same time as `UTC-8:00` outside of Daylight
+Savings Time.
+
+If a time zone is not specified, the default time zone value is used.
+
+##### Leap seconds
+
+A timestamp is simply an offset from 1970-01-01 00:00:00 UTC, assuming there are
+exactly 60 seconds per minute. Leap seconds are not represented as part of a
+stored timestamp.
+
+If the input contains values that use ":60" in the seconds field to represent a
+leap second, that leap second is not preserved when converting to a timestamp
+value. Instead that value is interpreted as a timestamp with ":00" in the
+seconds field of the following minute.
+
+Leap seconds do not affect timestamp computations. All timestamp computations
+are done using Unix-style timestamps, which do not reflect leap seconds. Leap
+seconds are only observable through functions that measure real-world time. In
+these functions, it is possible for a timestamp second to be skipped or repeated
+when there is a leap second.
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[floating-point-accuracy]: https://en.wikipedia.org/wiki/Floating-point_arithmetic#Accuracy_problems
+
+[protocol-buffers-dev-guide]: https://developers.google.com/protocol-buffers/docs/overview
+
+[tz-database]: http://www.iana.org/time-zones
+
+[tz-database-list]: http://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+
+[ogc-sfs]: http://www.opengeospatial.org/standards/sfs#downloads
+
+[WGS84-reference-ellipsoid]: https://en.wikipedia.org/wiki/World_Geodetic_System
+
+[decimal-types]: #decimal_types
+
+[timestamp-type]: #timestamp_type
+
+[date-type]: #date_type
+
+[datetime-type]: #datetime_type
+
+[time-type]: #time_type
+
+[interval-type]: #interval_type
+
+[floating-point-types]: #floating_point_types
+
+[orderable-floating-points]: #orderable_floating_points
+
+[orderable-nulls]: #orderable_nulls
+
+[protocol-buffers]: #protocol-buffers
+
+[lexical-literals]: #literals
+
+[working-with-arrays]: #constructing_arrays
+
+[join-types]: #join_types
+
+[order-by-clause]: #order_by_clause
+
+[geography-functions]: #geography_functions
+
+[mathematical-functions]: #mathematical_functions
+
+[st-equals]: #st_equals
+
+<!-- mdlint on -->
+
+## Data model
+
+The following sections provide an overview of the ZetaSQL data
+model.
+
+### Standard SQL tables
+
+ZetaSQL data is stored in tables. Each table consists of an ordered
+list of columns and a number of rows. Each column has a name used to identify it
+through SQL statements, and is assigned a specific data type.
+
+For example, the following table, **Singers**, is a standard SQL table.
+
+<table>
+<thead>
+<tr>
+<th>Column Name</th>
+<th>Data Type</th>
+<th>Default Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SingerId</td>
+<td><code>INT64</code></td>
+<td><code>&lt;auto-increment&gt;</code></td>
+</tr>
+<tr>
+<td>FirstName</td>
+<td><code>STRING</code></td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td>LastName</td>
+<td><code>STRING</code></td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td>BirthDate</td>
+<td><code>DATE</code></td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td>Status</td>
+<td><code>STRING</code></td>
+<td><code>"active"</code></td>
+</tr>
+<tr>
+<td>SingerInfo</td>
+<td><code>PROTO&lt;SingerMetadata&gt;</code></td>
+<td>&nbsp;</td>
+</tr>
+<tr>
+<td>Albums</td>
+<td><code>PROTO&lt;Album&gt;</code></td>
+<td>&nbsp;</td>
+</tr>
+</tbody>
+</table>
+
+The proto, `SingerMetadata`, has the following definition:
+
+```
+message SingerMetadata {
+  optional string    nationality = 1;
+  repeated Residence residence   = 2;
+
+  message Residence {
+    required int64  start_year   = 1;
+    optional int64  end_year     = 2;
+    optional string city         = 3;
+    optional string country      = 4 [default = "USA"];
+  }
+}
+```
+
+A `SELECT *` statement on this table would return rows similar to the following:
+
+<table>
+<thead>
+<tr>
+<th>SingerId</th>
+<th>FirstName</th>
+<th>LastName</th>
+<th>BirthDate</th>
+<th>Status</th>
+<th>SingerInfo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Marc</td>
+<td>Richards</td>
+<td>1970-09-03</td>
+<td>active</td>
+<td>{nationality: "England"}</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Catalina</td>
+<td>Smith</td>
+<td>1990-08-17</td>
+<td>inactive</td>
+<td>{nationality: "U.S.A."}</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Lea</td>
+<td>Martin</td>
+<td>1991-11-09</td>
+<td>active</td>
+<td>{nationality: "Australia"}</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Xanathe</td>
+<td>Riou</td>
+<td>1995-05-23</td>
+<td>inactive</td>
+<td>{nationality: U.S.A."}</td>
+</tr>
+</tbody>
+</table>
+
+While tables do not have a type, some operations will construct an implicit
+`STRUCT` type out of a SQL row, using the column names and types for field
+definitions.
+
+For more information on the data types ZetaSQL supports, see
+[Data Types][data-types].
+
+### Constraints
+
+Constraints require that any writes to one or more columns, such as inserts or
+updates, conform to certain rules.
+[Data manipulation language (DML)][data-manipulation-language]
+statements enforce constraints. ZetaSQL  supports the
+following constraints:
+
+* **Primary key constraint.** A primary key consists of one or more columns, and
+  specifies that the value of each row of these combined columns must be unique
+  within that table. A table can contain at most one primary key constraint.
+
+  Some [data manipulation language (DML)][data-manipulation-language]
+  keywords may require the existence of a primary key.
+  ZetaSQL also implicitly builds an index on the primary key. The
+  default order of this index is ascending. The primary key can contain `NULL`
+  values.
+* **Unique constraint.** Specifies that one or more columns must contain only
+  unique values. Unlike a primary key, more than one unique constraint can exist
+  on a table.
+
+### Indexes
+
+An index allows the database engine to query a column or set of columns more
+quickly. You can specify that sort order is ascending or descending. A unique
+or primary key index defines an indexed column that is subject to the uniqueness
+constraint.
+
+### Pseudo-columns 
+<a id="pseudo_columns"></a>
+
+ZetaSQL tables support pseudo-columns. Pseudo-columns contain data elements
+that you can query like regular columns, but are not considered real columns in
+the table. Pseudo-column values may not be physically stored with each row, but
+the query engine will materialize a value for the column using some appropriate
+mechanism.
+
+For example, an engine might support a pseudo-column called `ROWNUM`, which
+returns a number indicating the order in which a row was returned. You can then
+construct a query like this:
+
+```
+SELECT ROWNUM, SingerId, FirstName, LastName FROM Singers
+WHERE Status = "active"
+```
+
+Here's an example of rows returned by this query:
+
+<table>
+<thead>
+<tr>
+<th>ROWNUM</th>
+<th>SingerId</th>
+<th>FirstName</th>
+<th>LastName</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>1</td>
+<td>Marc</td>
+<td>Richards</td>
+</tr>
+<tr>
+<td>2</td>
+<td>3</td>
+<td>Lea</td>
+<td>Martin</td>
+</tr>
+</tbody>
+</table>
+
+In this case,the schema for the **Singers** table does not define a column,
+`ROWNUM`. Instead, the engine materializes the data only when requested.
+
+To return a value of a pseudo-column, you must specify it in your query.
+Pseudo-columns do not show up in `SELECT *` statements. For example:
+
+```
+SELECT * FROM singers
+```
+
+This query will return all named columns in the table, but won't include
+pseudo-columns such as `ROWNUM`.
+
+### Value tables
+
+In addition to standard SQL tables, ZetaSQL supports _value tables_.
+In a value table, rather than having rows made up of a list of columns, each row
+is a single value of a specific type. These types of tables are common when
+working with protocol buffers that may be stored in files instead of in the
+database. 
+
+<a id="value_table_example"></a>
+For example, the following protocol buffer definition, `AlbumReview`, contains
+data about the reviews for an album.
+
+```
+message AlbumReview {
+  optional string albumtitle = 1;
+  optional string reviewer = 2;
+  optional string review = 3;
+}
+```
+
+A list of `AlbumReview` protocol buffers is stored in a file, `AlbumReviewData`.
+
+```
+{albumtitle: "Songs on a Broken Banjo", reviewer: "Dan Starling", review: "Off key"}
+{albumtitle: "Six and Seven", reviewer: "Alice Wayfarer", review: "Hurt my ears!"}
+{albumtitle: "Go! Go! Go!", reviewer: "Eustace Millson", review: "My kids loved it!"}
+```
+
+The following query returns a stream of rows, with each row a value of type
+AlbumReview.
+
+```
+SELECT a FROM AlbumReviewsData a
+```
+
+To get specific data, such as all album titles in
+the table, you have two options. You can specify `albumtitle` as a protocol
+buffer field:
+
+```
+SELECT a.albumtitle FROM AlbumReviewsData a
+```
+
+You can also access the top-level fields inside the value (if there
+are any) like columns in a regular SQL table:
+
+```
+SELECT albumtitle FROM AlbumReviewsData
+```
+
+Value tables are not limited for use with compound data types.
+A value table can consist of any supported ZetaSQL data type, although value
+tables consisting of scalar types occur less frequently than structs or
+protocol buffers.
+
+#### Returning query results as value tables
+
+You can use ZetaSQL to return query results as a value table. This is useful
+when you want to create a compound value, such as a protocol buffer, from a
+query result and store it as a table that acts like a value table.
+To return a query result as a
+value table, use the `SELECT AS` statement. See
+[Query Syntax][query-syntax-value-tables]
+for more information and examples.
+
+##### Example: Copying protocol buffers using value tables
+
+In some cases you might not want to work with the data within a protocol buffer,
+but with the protocol buffer itself. 
+
+Using `SELECT AS VALUE` can help you keep your ZetaSQL statements as simple
+as possible. To illustrate this, consider the [AlbumReview][value-table-example]
+example specified earlier. To create a new table from this data, you could
+write:
+
+```
+CREATE TABLE Reviews AS
+SELECT albumreviews FROM AlbumReviewData albumreviews;
+```
+
+This statement creates a standard SQL table that has a single column,
+`albumreviews`, which has a protocol buffer value of type
+`AlbumReviewData`. To retrieve all album titles from this table, you'd need to
+write a query similar to:
+
+```
+SELECT r.albumreviews.albumtitle
+FROM Reviews r;
+```
+
+Now, consider the same initial `CREATE TABLE` statement, this time modified to
+use `SELECT AS VALUE`:
+
+```
+CREATE TABLE Reviews AS
+SELECT AS VALUE albumreviews FROM AlbumReview albumreviews;
+```
+
+This statement creates a value table, instead of a standard SQL table. As a
+result, you can query any protocol buffer field as if it was a column. Now, if
+you want to retrieve all album titles from this table, you can write a much
+simpler query:
+
+```
+SELECT albumtitle
+FROM Reviews;
+```
+
+#### Set operations on value tables
+
+Normally, a `SET` operation like `UNION ALL` expects all tables to be either
+standard SQL tables or value tables. However, ZetaSQL allows you to combine
+standard SQL tables with value tables&mdash;provided that the standard SQL table
+consists of a single column with a type that matches the value table's type. The
+result of these operations is always a value table.
+
+For example, consider the following definition for a table,
+**SingersAndAlbums**.
+
+<table>
+<thead>
+<tr>
+<th>Column Name</th>
+<th>Data Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SingerId</td>
+<td><code>INT64</code></td>
+</tr>
+<tr>
+<td>AlbumId</td>
+<td><code>INT64</code></td>
+</tr>
+<tr>
+<td>AlbumReview</td>
+<td><code>PROTO&lt;AlbumReview&gt;</code></td>
+</tr>
+</tbody>
+</table>
+
+Next, we have a file, `AlbumReviewData` that contains a list of `AlbumReview`
+protocol buffers.
+
+```
+{albumtitle: "Songs on a Broken Banjo", reviewer: "Dan Starling", review: "Off key"}
+{albumtitle: "Six and Seven", reviewer: "Alice Wayfarer", review: "Hurt my ears!"}
+{albumtitle: "Go! Go! Go!", reviewer: "Eustace Millson", review: "My kids loved it!"}
+```
+
+The following query combines the `AlbumReview` data from the
+**SingersAndAlbums** with the data stored in the `AlbumReviewData` file and
+stores it in a new value table, **AllAlbumReviews**.
+
+```
+SELECT AS VALUE sa.AlbumReview FROM SingersAndAlbums sa
+UNION ALL
+SELECT a FROM AlbumReviewData a
+```
+
+#### Pseudo-columns and value tables
+
+The [Pseudo-columns][pseudo-columns] section  describes how pseudo-columns
+work with standard SQL tables. In most cases, pseudo-columns work the same with
+value tables. For example, consider this query:
+
+```
+SELECT a.ROWNUM, a.albumtitle AS title FROM AlbumReviewData a
+```
+
+The following table demonstrates the result of this query:
+
+<table>
+<thead>
+<tr>
+<th>ROWNUM</th>
+<th>title</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>"Songs on a Broken Banjo"</td>
+</tr>
+<tr>
+<td>2</td>
+<td>"Six and Seven"</td>
+</tr>
+<tr>
+<td>3</td>
+<td>"Go! Go! Go!"</td>
+</tr>
+</tbody>
+</table>
+
+This example works because `a` is an alias of the table `AlbumReviewData`, and
+this table has a `ROWNUM` pseudo-column. As a result, `AlbumReviewData a` represents the scanned rows,
+not the value.
+
+However, if you tried to construct the query like this:
+
+```
+SELECT a.ROWNUM, a.albumtitle AS title FROM (SELECT a FROM AlbumReviewData a)
+```
+
+This query does not work. The reason it fails is because the subquery, `SELECT
+a FROM AlbumReviewData a`, returns an `AlbumReviewData` value only, and this
+value does not have a field called `ROWNUM`.
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[value-table-example]: #value_table_example
+
+[pseudo-columns]: #pseudo_columns
+
+[data-types]: #data-types
+
+[data-manipulation-language]: #data-manipulation-language
+
+[query-syntax-value-tables]: #value_tables
+
+<!-- mdlint on -->
 
 ## Lexical structure and syntax
 
 A ZetaSQL statement comprises a series of tokens. Tokens include
-*identifiers*, *quoted identifiers*, *literals*, *keywords*, *operators*, and
-*special characters*. You can separate tokens with whitespace (for example, space, backspace,
-tab, newline) or comments.
+identifiers, quoted identifiers, literals, keywords, operators, and
+special characters. You can separate tokens with comments or whitespace such
+as spaces, backspaces, tabs, or newlines.
 
 ### Identifiers 
 <a id="identifiers"></a>
 
-Identifiers are names that are associated with columns, tables, and other
-database objects. They can be unquoted or quoted.
+Identifiers are names that are associated with columns, tables,
+path expressions, and more. They can be [unquoted][unquoted-identifiers] or
+[quoted][quoted-identifiers] and some are [case-sensitive][case-sensitivity].
 
-+  Identifiers can be used in path expressions that return a
-   `STRUCT`
-   or `PROTO`.
-+  Some identifiers are case-sensitive and some are not.
-   For details, see [Case Sensitivity][case-sensitivity].
-+  Unquoted identifiers must begin with a letter or an underscore character.
-   Subsequent characters can be letters, numbers, or underscores.
-+  Quoted identifiers must be enclosed by backtick (`) characters.
-   +  Quoted identifiers can contain any character, such as spaces or symbols.
-   +  Quoted identifiers cannot be empty.
-   +  Quoted identifiers have the same escape sequences as
-      [string literals][string-literals].
-   +  A [reserved keyword](#reserved_keywords) must be a quoted identifier
-      if it is a standalone keyword or the first component of a path expression.
-      It may be unquoted as the second or later component of a
-      path expression.
-+  Table name identifiers have additional syntax to support dashes (-)
-   when referenced in `FROM` and `TABLE` clauses.
+#### Unquoted identifiers 
+<a id="unquoted_identifiers"></a>
 
-**Examples**
++ Must begin with a letter or an underscore (_) character.
++ Subsequent characters can be letters, numbers, underscores (_), and dashes,
+  but additional rules apply for dashes (see the next rule).
++ Single dashes can be used with most unquoted identifiers, but not at the
+  beginning or end.
 
-These are valid identifiers:
+  When you use dashes in an unquoted identifier, you essentially combine an
+  unquoted identifier with one or more unquoted identifiers and numbers.
+  When using dashes, you must generally follow this structure:
 
+  ```none
+  unquoted_identifier[-{ unquoted_identifier | number }][...]
+  ```
+
+  For example: `foo-bar`, `foo-22`, `foo-22-bar`
+
+  Dashes cannot be used in fieldnames.
+
+#### Quoted identifiers 
+<a id="quoted_identifiers"></a>
+
++ Must be enclosed by backtick (`) characters.
++ Can contain any characters, including spaces and symbols.
++ Cannot be empty.
++ Have the same escape sequences as [string literals][string-literals].
++ If an identifier is the same as a [reserved keyword](#reserved_keywords), the
+  identifier must be quoted. For example, the identifier `FROM` must be quoted.
+  Additional rules apply for [path expressions][path-expressions].
+
+#### Identifier examples
+
+Path expression examples:
+
+```sql
+-- Valid. _5abc and dataField are valid identifiers.
+_5abc.dataField
+
+-- Valid. `5abc` and dataField are valid identifiers.
+`5abc`.dataField
+
+-- Invalid. 5abc is an invalid identifier because it is unquoted and starts
+-- with a number rather than a letter or underscore.
+5abc.dataField
+
+-- Valid. abc5 and dataField are valid identifiers.
+abc5.dataField
+
+-- Invalid. abc5! is an invalid identifier because it is unquoted and contains
+-- a character that is not a letter, number, or underscore.
+abc5!.dataField
+
+-- Valid. `GROUP` and dataField are valid identifiers.
+`GROUP`.dataField
+
+-- Invalid. GROUP is an invalid identifier because it is unquoted and is a
+-- stand-alone reserved keyword.
+GROUP.dataField
+
+-- Valid. abc5 and GROUP are valid identifiers.
+abc5.GROUP
 ```
-Customers5
-`5Customers`
-dataField
-_dataField1
-ADGROUP
-`tableName~`
-`GROUP`
-```
 
-These path expressions contain valid identifiers:
+Function examples:
 
-```
-foo.`GROUP`
-foo.GROUP
+```sql
+-- Valid. dataField is a valid identifier in a function called foo().
 foo().dataField
+```
+
+Array access operation examples:
+
+```sql
+-- Valid. dataField is a valid identifier in an array called items.
+items[OFFSET(3)].dataField
+```
+
+Named query parameter examples:
+
+```sql
+-- Valid. param and dataField are valid identifiers.
+@param.dataField
+```
+
+Protocol buffer examples:
+
+```sql
+-- Valid. dataField is a valid identifier in a protocol buffer called foo.
 (foo).dataField
-list[OFFSET(3)].dataField
-list[ORDINAL(3)].dataField
-@parameter.dataField
 ```
 
-These are invalid identifiers:
-
-```
-5Customers
-_dataField!
-GROUP
-```
-
-`5Customers` begins with a number, not a letter or underscore. `_dataField!`
-contains the special character "!" which is not a letter, number, or underscore.
-`GROUP` is a reserved keyword, and therefore cannot be used as an identifier
-without being enclosed by backtick characters.
-
-You do not need to enclose table names that include dashes
-with backticks. These are equivalent:
+Table name examples:
 
 ```sql
-SELECT * FROM data-customers-287.mydatabase.mytable
+-- Valid table name.
+mytable287
 ```
 
 ```sql
-SELECT * FROM `data-customers-287`.mydatabase.mytable
+-- Invalid table name. The table name starts with a number and is
+-- unquoted.
+287mytable
+```
+
+```sql
+-- Invalid table name. The table name is unquoted and is not a valid
+-- dashed identifier, as the part after the dash is neither a number nor
+-- an identifier starting with a letter or an underscore.
+mytable-287a
+```
+
+### Path expressions
+
+A path expression describes how to navigate to an object in a graph of objects
+and generally follows this structure:
+
+```none
+path:
+  [path_expression][. ...]
+
+path_expression:
+  [first_part]/subsequent_part[ { / | : | - } subsequent_part ][...]
+
+first_part:
+  { unquoted_identifier | quoted_identifier }
+
+subsequent_part:
+  { unquoted_identifier | quoted_identifier | number }
+```
+
++ `path`: A graph of one or more objects.
++ `path_expression`: An object in a graph of objects.
++ `first_part`: A path expression can start with a quoted or
+  unquoted identifier. If the path expressions starts with a
+  [reserved keyword](#reserved_keywords), it must be a quoted identifier.
++ `subsequent_part`: Subsequent parts of a path expression can include
+  non-identifiers, such as reserved keywords. If a subsequent part of a
+  path expressions starts with a [reserved keyword](#reserved_keywords), it
+  may be quoted or unquoted.
+
+Examples:
+
+```none
+foo.bar
+foo.bar/25
+foo/bar:25
+foo/bar/25-31
+/foo/bar
+/25/foo/bar
+```
+
+### Table names
+
+A table name represents the name of a table.
+
+Table names can be quoted identifiers or unquoted identifiers. If unquoted:
+
++ Unquoted identifiers support [dashes][unquoted-identifiers] when referenced
+  in a `FROM` or `TABLE` clause. 
+
+Table names can be path expressions.
+
+Examples:
+
+```none
+my-table
+mytable
+`287mytable`
+```
+
+### Column names
+
+A column name represents the name of a column in a table.
+
++ Column names can be quoted identifiers or unquoted identifiers.
++ If unquoted, identifiers support dashed identifiers when referenced in a
+  `FROM` or `TABLE` clause.
+
+Examples:
+
+```none
+columnA
+column-a
+`287column`
 ```
 
 ### Literals 
@@ -622,7 +5386,9 @@ INTERVAL '1 5:30' DAY TO MINUTE
 #### Enum literals 
 <a id="enum_literals"></a>
 
-There is no syntax for enum literals, but integer or string literals will coerce to enum type when necessary, or can be explicitly CAST to a specific enum type name. See "Literal Coercion" in [Expressions, Functions, and Operators][functions-reference].
+There is no syntax for enum literals, but integer or string literals will coerce
+to enum type when necessary, or can be explicitly CAST to a specific
+enum type name. For more information, see [Literal coercion][coercion].
 
 #### JSON literals 
 <a id="json_literals"></a>
@@ -912,6 +5678,9 @@ preceded by the `@` character. Named query
 parameters cannot be used alongside [positional query
 parameters][positional-query-parameters].
 
+A named query parameter can start with an identifier or a reserved keyword.
+An identifier can be unquoted or quoted.
+
 **Example:**
 
 This example returns all rows where `LastName` is equal to the value of the
@@ -1071,6 +5840,10 @@ WHERE book = "Ulysses";
 
 [tz-database-time-zones]: http://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 
+[quoted-identifiers]: #quoted_identifiers
+
+[unquoted-identifiers]: #unquoted_identifiers
+
 [lexical-identifiers]: #identifiers
 
 [lexical-literals]: #literals
@@ -1080,6 +5853,8 @@ WHERE book = "Ulysses";
 [time-zone]: #timezone
 
 [string-literals]: #string_and_bytes_literals
+
+[path-expressions]: #path_expressions
 
 [named-query-parameters]: #named_query_parameters
 
@@ -1091,7 +5866,7 @@ WHERE book = "Ulysses";
 
 [constructing-a-struct]: #constructing_a_struct
 
-[functions-reference]: #functions-reference
+[coercion]: #coercion
 
 <!-- mdlint on -->
 
@@ -1880,6 +6655,1469 @@ when the input set of types includes types related to literals:
 [con-rules-link-to-cast]: #cast
 
 [con-rules-link-to-conversion-functions-other]: #other_conv_functions
+
+<!-- mdlint on -->
+
+## Working with collation
+
+### About collation 
+<a id="collate_about"></a>
+
+Collation determines how strings are sorted and compared in an
+[`ORDER BY` operation][order-by-clause]. If you would like to use custom
+collation in the operation, you can include the
+[`COLLATE` clause][collate-clause] with a
+[collation specification][collate-spec-details].
+
+### Where you can assign a collation specification 
+<a id="collate_define"></a>
+
+In the `ORDER BY` clause, you can specify a collation specification for a
+collation-supported column. This overrides any
+collation specifications set previously.
+
+For example:
+
+```sql
+SELECT Place
+FROM Locations
+ORDER BY Place COLLATE "und:ci"
+```
+
+#### Query statements 
+<a id="collate_query"></a>
+
+| Type             | Support                            | Notes                |
+| ---------------- | ---------------------------------- | -------------------- |
+| Sorting          | [`ORDER BY` clause][order-by-clause] |                      |
+
+### Collation specification details 
+<a id="collate_spec_details"></a>
+
+A collation specification determines how strings are sorted and compared in
+[collation-supported operations][collate-operations]. You can define a
+collation specification for [collation-supported types][collate-define].
+
+There are two types of collation that you can specify:
+
++ [Binary collation specification][binary-collation]
++ [Unicode collation specification][unicode-collation]
+
+When a collation specification is not assigned or is empty,
+the ordering behavior is identical to `'binary'` collation,
+which you can learn about in the
+[binary collation specification][binary-collation]
+
+#### Binary collation specification 
+<a id="binary_collation"></a>
+
+```sql
+collation_specification:
+  'language_tag'
+```
+
+A binary collation specification indicates that the operation should
+return data in [Unicode code point order][unicode-code-point]. The
+collation specification can be a `STRING` literal or a query parameter.
+
+The language tag determines how strings are generally sorted and compared.
+The allowed value for the `language_tag` is `binary`.
+
+This is what the `binary` language tag looks like when used with the `ORDER BY`
+clause:
+
+```sql
+SELECT Place
+FROM Locations
+ORDER BY Place COLLATE 'binary'
+```
+
+#### Unicode collation specification 
+<a id="unicode_collation"></a>
+
+```sql
+collation_specification:
+  'language_tag[:collation_attribute]'
+```
+
+A unicode collation specification indicates that the operation should use the
+[Unicode Collation Algorithm][tr10-collation-algorithm] to sort and compare
+strings. The collation specification can be a `STRING` literal or a
+query parameter.
+
+##### The language tag
+
+The language tag determines how strings are generally sorted and compared.
+Allowed values for `language_tag` are:
+
++ A standard locale string: This name is usually two or three letters
+  that represent the language, optionally followed by an underscore or dash and
+  two letters that represent the region &mdash; for example, `en_US`. These
+  names are defined by the
+  [Common Locale Data Repository (CLDR)][unicode-locale-identifier].
++ `und`: A locale string representing the _undetermined_ locale. `und` is a
+  special language tag defined in the
+  [IANA language subtag registry][iana-language-subtag-registry] and used to
+  indicate an undetermined locale. This is also known as the _root_ locale and
+  can be considered the _default_ Unicode collation. It defines a reasonable,
+  locale agnostic collation. It differs significantly from
+  `binary`.
++ `unicode`: Identical to `binary`. It is recommended to migrate `unicode`
+  to `binary`.
+
+This is what the `und` language tag looks like when used with the `ORDER BY`
+clause:
+
+```sql
+SELECT Place
+FROM Locations
+ORDER BY Place COLLATE 'und'
+```
+
+Additionally, you can append a language tag with an extension. To learn more,
+see [extensions][collate-extensions] for the language tag.
+
+##### The collation attribute
+
+In addition to the language tag, the unicode collation specification can have
+an optional `collation_attribute`, which enables additional rules for sorting
+and comparing strings. Allowed values are:
+
++ `ci`: Collation is case-insensitive.
++ `cs`: Collation is case-sensitive. By default, `collation_attribute` is
+  implicitly `cs`.
+
+If you are using the `unicode` language tag with a collation attribute, these
+caveats apply:
+
++ `unicode:cs` is identical to `unicode`.
++ `unicode:ci` is identical to `und:ci`. It is recommended to migrate
+  `unicode:ci` to `binary`.
+
+This is what the `ci` collation attribute looks like when used with the
+`und` language tag in the `ORDER BY` clause:
+
+```sql
+SELECT Place
+FROM Locations
+ORDER BY Place COLLATE 'und:ci'
+```
+
+##### Extensions 
+<a id="collation_extensions"></a>
+
+The [Unicode Collation Algorithm][tr10-collation-algorithm] standard
+includes some useful locale extensions. In ZetaSQL, a `language_tag`
+may be extended by appending `-u-[extension]` to it and replacing `[extension]`
+with your desired [Unicode local extension][tr35-collation-settings].
+
+This is what the `kn-true` extension looks like when used with the
+`en-us` language tag in the `ORDER BY` clause:
+
+For example:
+
+```sql
+SELECT *
+FROM UNNEST([
+  'a12b',
+  'a1b'
+]) AS ids
+ORDER BY ids COLLATE 'en-us-u-kn-true'
+
++-------+
+| ids   |
++-------+
+| a1b   |
+| a12b  |
++-------+
+```
+
+```sql
+SELECT *
+FROM UNNEST([
+  'a12b',
+  'a1b'
+]) AS ids
+ORDER BY ids COLLATE 'en-us-u-kn-false'
+
++-------+
+| ids   |
++-------+
+| a12b  |
+| a1b   |
++-------+
+```
+
+Here are some commonly used extensions:
+
+<table>
+  <thead>
+    <tr>
+      <th>Extension</th>
+      <th>Name</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ks-level2</td>
+      <td>Case-Insensitive</td>
+      <td>"a1" &lt; "A2"</td>
+    </tr>
+    <tr>
+      <td>ks-level1</td>
+      <td>Accent and Case-Insensitive</td>
+      <td>"ä1" &lt; "a2" &lt; "A3"</td>
+    </tr>
+    <tr>
+      <td>ks-level1-kc-true</td>
+      <td>Accent Insensitive</td>
+      <td>"ä1" &lt; "a2"</td>
+    </tr>
+    <tr>
+      <td>kn-true</td>
+      <td>Numeric Ordering</td>
+      <td>"a1b" &lt; "a12b"</td>
+    </tr>
+  </tbody>
+</table>
+
+For a complete list and in depth technical details, consult
+[Unicode Locale Data Markup Language Part 5: Collation]
+[tr35-collation-settings].
+
+##### Caveats
+
++ Differing strings can be considered equal.
+  For instance, `ẞ` (LATIN CAPITAL LETTER SHARP S) is considered equal to `'SS'`
+  on primary level thus `'ẞ1' < 'SS2'`. This is similar to how case
+  insensitivity works.
++ There are a wide range of unicode code points (punctuation, symbols, etc),
+  that are treated as if they are not there. So strings with
+  and without them are sorted identically. For example, the format control
+  code point U+2060 is ignored when the following strings are sorted:
+
+  
+  ```sql
+  SELECT *
+  FROM UNNEST([
+    'oran\u2060ge1',
+    '\u2060orange2',
+    'orange3'
+  ]) AS fruit
+  ORDER BY fruit COLLATE 'und'
+
+  +---------+
+  | fruit   |
+  +---------+
+  | orange1 |
+  | orange2 |
+  | orange3 |
+  +---------+
+  ```
+  
++ Ordering _may_ change. The Unicode specification of the `und` collation can
+  change occasionally, which can affect sorting
+  order. If you need a stable sort order that is
+  guaranteed to never change, use `unicode` collation.
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[unicode-code-point]: https://en.wikipedia.org/wiki/List_of_Unicode_characters
+
+[iana-language-subtag-registry]: https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry
+
+[unicode-locale-identifier]: https://www.unicode.org/reports/tr35/#Unicode_locale_identifier
+
+[tr35-collation-settings]: http://www.unicode.org/reports/tr35/tr35-collation.html#Setting_Options
+
+[tr10-collation-algorithm]: http://www.unicode.org/reports/tr10/
+
+[collate-operations]: #collate_operations
+
+[collate-define]: #collate_define
+
+[collate-propagate]: #collate_propagate
+
+[collate-spec-details]: #collate_spec_details
+
+[collate-funcs]: #collate_funcs
+
+[collate-query]: #collate_query
+
+[collate-dts]: #collate_data_types
+
+[collate-ddl]: #collate_ddl
+
+[unicode-collation]: #unicode_collation
+
+[binary-collation]: #binary_collation
+
+[functions-propagation]: #functions_propagation
+
+[operators-propagation]: #operators_propagation
+
+[expressions-propagation]: #expressions_propagation
+
+[collate-extensions]: #collation_extensions
+
+[order-by-clause]: #order_by_clause
+
+[collate-clause]: #collate_clause
+
+[create-schema]: #create_schema_statement
+[create-table]: #create_table_statement
+[alter-schema]: #alter_schema_collate_statement
+[alter-table]: #alter_table_collate_statement
+[alter-column]: #alter_table_add_column_statement
+
+<!-- mdlint on -->
+
+## Anonymization and Differential Privacy 
+<a id="anonymization_syntax"></a>
+
+<!-- BEGIN CONTENT -->
+
+Anonymization is the process of transforming user data into anonymous
+information. This is done in such a way that it is not reasonably likely that
+anyone with access to the data can identify or re-identify an individual user
+from the anonymized data.
+
+The anonymization definition supported by ZetaSQL is
+[differential privacy][wiki-diff-privacy]. The goal of differential privacy
+is mitigating disclosure risk: the risk that an attacker can extract sensitive
+information of individuals from a dataset. Differential privacy balances
+this need to safeguard privacy against the need for statistical accuracy.
+As privacy increases, statistical utility decreases, and vice versa.
+
+With ZetaSQL, you can anonymize the results of a query with
+differentially private aggregations. When the query is executed, it:
+
+1.  Computes per-user aggregations for each group if groups are specified with
+    a `GROUP BY` clause. If `kappa` is specified, limits the
+    number of groups each user can contribute to.
+1.  [Clamps][anon-clamping] each per-user aggregate contribution to be within
+    the clamping bounds. If the clamping bounds are not specified they are
+    implicitly calculated in a differentially private way.
+1.  Aggregates the clamped per-user aggregate contributions for each group.
+1.  Adds noise to the final aggregate value for each group. The scale of
+    random noise is a function of all of the clamped bounds and privacy
+    parameters.
+1.  Computes a noisy user count for each group and eliminates groups with
+    few users. A noisy user count helps eliminate a non-deterministic set
+    of groups.
+
+The final result is a dataset where each group has noisy aggregate results
+and small groups have been eliminated.
+
+### Anonymization clause syntax 
+<a id="anon_query_syntax"></a>
+
+<pre>
+WITH ANONYMIZATION OPTIONS( privacy_parameters )
+
+privacy_parameters:
+  epsilon = expression,
+  { delta = expression | k_threshold = expression },
+  [ kappa = expression ]
+</pre>
+
+**Description**
+
+This clause indicates that you want to anonymize the results of a query with
+differentially private aggregations. If you want to use this clause, add it to
+the `SELECT` list with one or more
+[anonymization aggregate functions][anonymization-functions].
+
+Optionally, you can include privacy parameters to control how the results are
+anonymized.
+
++  [`epsilon`][anon-epsilon]: Controls the amount of noise added to the results.
+   A higher epsilon means less noise. `1e20` is usually large enough to add no
+   noise. `expression` must be constant and return a
+   `DOUBLE`.
++  [`delta`][anon-delta]: The probability the any row in the result fails to
+   be epsilon-differentially private. `expression` must return a
+   `DOUBLE`.
++  [`k_threshold`][anon-k-threshold]: The number of users that must contribute
+   to a group in order for the group to be exposed in the results.
+   `expression` must return an `INT64`.
++  [`kappa`][anon-kappa]: A positive integer identifying the limit on the
+   number of groups that a user is allowed to contribute to. This number is
+   also used to scale the noise for each group. `expression` must return an
+   `INT64`.
+
+Note: `delta` and `k_threshold` are mutually exclusive; `delta` is preferred
+over `k_threshold`.
+
+### Privacy parameters
+
+Privacy parameters control how the results of a query are anonymized.
+Appropriate values for these settings can depend on many things such
+as the characteristics of your data, the exposure level, and the
+privacy level.
+
+#### epsilon 
+<a id="anon_epsilon"></a>
+
+Noise is added primarily based on the specified `epsilon`.
+The higher the epsilon the less noise is added. More noise corresponding to
+smaller epsilons equals more privacy protection.
+
+Noise can usually be eliminated by setting `epsilon` to `1e20`, which can be
+useful during initial data exploration and experimentation with anonymization.
+Unusually large `epsilon` values, such as `1e308`, cause query
+failure. Start large, and reduce the `epsilon` until the query succeeds, but not
+so much that it returns noisy results.
+
+ZetaSQL splits `epsilon` between the anonymization aggregates in the
+query. In addition to the explicit anonymization aggregate functions, the
+anonymization process will also inject an implicit anonymized aggregate into the
+plan for removing small groups that computes a noisy user count per group. If
+you have `n` explicit anonymization aggregate functions in your query, then each
+aggregate individually gets `epsilon/(n+1)` for its computation. If used with
+`kappa`, the effective `epsilon` per function per groups is further split by
+`kappa`. Additionally, if implicit clamping is used for an aggregate
+anonymization function, then half of the function's epsilon is applied towards
+computing implicit bounds, and half of the function's epsilon is applied towards
+the anonymized aggregation itself.
+
+#### delta 
+<a id="anon_delta"></a>
+
+`delta` represents the probability that any row fails to be
+`epsilon`-differentially private in the result of an anonymized query. If you
+have to choose between `delta` and `k_threshold`, use `delta`.
+
+When supporting `delta`, the specification of `epsilon/delta` must be evaluated
+to determine `k_threshold`, and the specification of `epsilon/k_threshold` must
+be evaluated to determine `delta`. This allows a user to specify either
+(`epsilon`,`delta`) or (`epsilon`, `k_threshold`) in their anonymization query.
+
+While doing testing or initial data exploration, it is often useful to set
+`delta` to a value where all groups, including small groups, are
+preserved. This removes privacy protection and should only be done when it is
+not necessary to protect query results, such as when working with non-private
+test data. `delta` roughly corresponds to the probability of keeping a small
+group.  In order to avoid losing small groups, set `delta` very close to 1,
+for example `0.99999`.
+
+#### k_threshold 
+<a id="anon_k_threshold"></a>
+
+Important: `k_threshold` is discouraged. If possible, use `delta` instead.
+
+Tip: We recommend that engines implementing this specification do not allow
+users to specify `k_threshold`.
+
+`k_threshold` computes a noisy user count for each group and eliminates groups
+with few users from the output. Use this parameter to define how many unique
+users must be included in the group for the value to be included in the output.
+
+#### kappa 
+<a id="anon_kappa"></a>
+
+`kappa` is a positive integer that, if specified, scales the noise and
+limits the number of groups that each user can contribute to. If `kappa` is
+unspecified, then there is no limit to the number of groups that each user
+can contribute to.
+
+If `kappa` is unset, the language cannot guarantee that the results will be
+differentially private. We recommend kappa to be set. Without `kappa` the
+results may still be differentially private if certain preconditions are met.
+For example, if you know that the anonymization ID column in a table or view is
+unique in the `FROM` clause, the user cannot contribute to more than one group
+and therefore the results will be the same regardless of whether `kappa` is set.
+
+Tip: We recommend that engines require kappa to be set.
+
+### Rules for producing a valid query
+
+The following rules must be met for the anonymized query to be valid.
+
+####  Anonymization-enabled table expressions 
+<a id="anon_expression"></a>
+
+An anonymization-enabled table expression is a table expression that
+produces a column that has been identified as an anonymization ID. If a query
+contains an anonymization clause, it must also contain at least one
+anonymization-enabled table expression in the `FROM` clause.
+
+#### FROM clause rules 
+<a id="anon_from"></a>
+
+The `FROM` clause must have at least one `from_item` that represents an
+[anonymization-enabled table expression][anon-expression]. Not all
+table expressions in the `FROM` clause need to be
+anonymization-enabled table expressions.
+
+If a `FROM` subquery contains an anonymization-enabled table expression,
+the subquery must produce an anonymization ID column in its output or
+an error is returned.
+
+If the `FROM` clause contains multiple anonymization-enabled table expressions,
+then all joins between those relations must include the anonymization ID column
+name in the join predicate or an error is returned. Cross joins are disallowed
+between two anonymization-enabled table expressions, since they are not joined
+on the anonymization ID column.
+
+#### Aggregate function rules 
+<a id="anon_aggregate_functions"></a>
+
+An anonymization query cannot contain non-anonymized aggregate functions.
+Only [anonymization aggregate functions][anonymization-functions] can be used.
+
+### Performance implications of anonymization
+
+Performance of similar anonymized and non-anonymized queries
+cannot be expected to be equivalent. For example, the performance profiles
+of the following two queries are not the same:
+
+```sql
+SELECT
+  WITH ANONYMIZATION OPTIONS(epsilon=1, delta=1e-10, kappa=1)
+  column_a, ANON_COUNT(column_b)
+FROM table_a
+GROUP BY column_a;
+```
+
+```sql
+SELECT column_a, COUNT(column_b)
+FROM table_a
+GROUP BY column_a;
+```
+
+The reason for the performance difference is that an additional
+finer-granularity level of grouping is performed for anonymized queries,
+since per-user aggregation must also be performed. The performance profiles
+of these queries should be similar:
+
+```sql
+SELECT
+  WITH ANONYMIZATION OPTIONS(epsilon=1, delta=1e-10, kappa=1)
+  column_a, ANON_COUNT(column_b)
+FROM table_a
+GROUP BY column_a;
+```
+
+```sql
+SELECT column_a, id, COUNT(column_b)
+FROM table_a
+GROUP BY column_a, id;
+```
+
+This implies that if the data being anonymized has a high number of
+distinct values for the anonymization ID column, anonymized query performance
+can suffer.
+
+### Examples
+
+#### Tables and views for examples 
+<a id="anon_example_views"></a>
+
+The examples in this section reference these table and views:
+
+```sql
+CREATE OR REPLACE TABLE professors AS (
+  SELECT 101 id, "pencil" item, 24 quantity UNION ALL
+  SELECT 123, "pen", 16 UNION ALL
+  SELECT 123, "pencil", 10 UNION ALL
+  SELECT 123, "pencil", 38 UNION ALL
+  SELECT 101, "pen", 19 UNION ALL
+  SELECT 101, "pen", 23 UNION ALL
+  SELECT 130, "scissors", 8 UNION ALL
+  SELECT 150, "pencil", 72);
+
+CREATE OR REPLACE VIEW view_on_professors
+OPTIONS(anonymization_userid_column='id')
+AS (SELECT * FROM professors);
+```
+
+```sql
+CREATE OR REPLACE TABLE students AS (
+  SELECT 1 id, "pencil" item, 5 quantity UNION ALL
+  SELECT 1, "pen", 2 UNION ALL
+  SELECT 2, "pen", 1 UNION ALL
+  SELECT 3, "pen", 4);
+
+CREATE OR REPLACE VIEW view_on_students
+OPTIONS(anonymization_userid_column='id')
+AS (SELECT * FROM students);
+```
+
+#### Remove noise 
+<a id="eliminate_noise"></a>
+
+Removing noise removes privacy protection. Only remove noise for
+testing queries on non-private data.
+
+The following anonymized query gets the average number of items requested
+per professor. For details on how the averages were computed, see
+[ANON_AVG][anon-avg]. Because `epsilon` is high, noise is removed from the
+results.
+
+```sql
+SELECT
+  WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=2)
+  item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
+FROM view_on_professors
+GROUP BY item;
+
++----------+------------------+
+| item     | average_quantity |
++----------+------------------+
+| pencil   | 40               |
+| pen      | 18.5             |
+| scissors | 8                |
++----------+------------------+
+```
+
+#### Add noise
+
+In this example, noise has been added to the anonymized query.
+Smaller groups may not be included. Smaller epsilons and more noise will
+provide greater privacy protection.
+
+```sql
+SELECT
+  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=1)
+  item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
+FROM view_on_professors
+GROUP BY item;
+
+-- These results will change each time you run the query.
+-- The scissors group was removed this time, but may not be
+-- removed the next time.
++----------+------------------+
+| item     | average_quantity |
++----------+------------------+
+| pencil   | 38.5038356810269 |
+| pen      | 13.4725028762032 |
++----------+------------------+
+```
+
+#### Limit the groups in which an anonymization ID can exist
+
+An anonymization ID can exist within multiple groups. For example, in the
+`professors` table, the anonymization ID `123` exists in the `pencil` and `pen`
+group. If you only want `123` to be used in the first group found, you can use a
+query that looks like this:
+
+```sql
+SELECT
+  WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=2)
+  item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
+FROM view_on_professors
+GROUP BY item;
+
+-- Anonymization ID 123 was not included in the pencil group.
+-- Noise was removed from this query for demonstration purposes only.
++----------+------------------+
+| item     | average_quantity |
++----------+------------------+
+| pencil   | 72               |
+| pen      | 18.5             |
+| scissors | 8                |
++----------+------------------+
+```
+
+#### Invalid query with two anonymization ID columns
+
+The following query is invalid because `view_on_students` contains an
+anonymization ID column and so does `view_on_professors`.
+When the `FROM` clause contains multiple
+anonymization-enabled table expressions, then those tables must be joined on
+the anonymization ID column or an error is returned.
+
+```sql {.bad}
+SELECT
+  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=2)
+  item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
+FROM view_on_professors, view_on_students
+GROUP BY item;
+```
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[anon-expression]: #anon_expression
+
+[anon-resources]: #anon_resources
+
+[anon-query]: #anon_query
+
+[anon-k-threshold]: #anon_k_threshold
+
+[anon-epsilon]: #anon_epsilon
+
+[anon-kappa]: #anon_kappa
+
+[anon-delta]: #anon_delta
+
+[anon-from]: #from_clause
+
+[anon-select-list]: #select_list
+
+[anon-group-by]: #group_by_clause
+
+[wiki-diff-privacy]: https://en.wikipedia.org/wiki/Differential_privacy
+
+[anonymization-functions]: #aggregate_anonymization_functions
+
+[anon-clamping]: #anon_clamping
+
+[anon-exp-clamping]: #anon_explicit_clamping
+
+[anon-imp-clamping]: #anon_implicit_clamping
+
+[anon-avg]: #anon_avg
+
+<!-- mdlint on -->
+
+## Format elements
+
+### Format elements for date and time parts 
+<a id="format_elements_date_time"></a>
+
+Many ZetaSQL parsing and formatting functions rely on a format string
+to describe the format of parsed or formatted values. A format string represents
+the textual form of date and time and contains separate format elements that are
+applied left-to-right.
+
+These functions use format strings:
+
++ [`FORMAT_DATE`][format-date]
++ [`FORMAT_DATETIME`][format-datetime]
++ [`FORMAT_TIME`][format-time]
++ [`FORMAT_TIMESTAMP`][format-timestamp]
++ [`PARSE_DATE`][parse-date]
++ [`PARSE_DATETIME`][parse-datetime]
++ [`PARSE_TIME`][parse-time]
++ [`PARSE_TIMESTAMP`][parse-timestamp]
+
+Format strings generally support the following elements:
+
+<table>
+  <thead>
+    <tr>
+      <th>Format element</th>
+      <th>Type</th>
+      <th>Description</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+
+    <tr>
+      <td><code>%A</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>The full weekday name.</td>
+      <td>Wednesday</td>
+    </tr>
+
+    <tr>
+      <td><code>%a</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>The abbreviated weekday name.</td>
+      <td>Wed</td>
+    </tr>
+
+    <tr>
+      <td><code>%B</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>The full month name.</td>
+      <td>January</td>
+    </tr>
+
+    <tr>
+      <td><code>%b</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>The abbreviated month name.</td>
+      <td>Jan</td>
+    </tr>
+
+    <tr>
+      <td><code>%C</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>
+        The century (a year divided by 100 and truncated to an integer) as a
+        decimal number (00-99).
+      </td>
+      <td>20</td>
+    </tr>
+
+    <tr>
+      <td><code>%c</code></td>
+      <td>
+
+<span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>The date and time representation.</td>
+      <td>Wed Jan 20 21:47:00 2021</td>
+    </tr>
+
+    <tr>
+      <td><code>%D</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>The date in the format %m/%d/%y.</td>
+      <td>01/20/21</td>
+    </tr>
+
+    <tr>
+      <td><code>%d</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>The day of the month as a decimal number (01-31).</td>
+      <td>20</td>
+    </tr>
+
+    <tr>
+      <td><code>%e</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>
+        The day of month as a decimal number (1-31); single digits are preceded
+        by a space.
+      </td>
+      <td>20</td>
+    </tr>
+
+    <tr>
+      <td><code>%F</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>The date in the format %Y-%m-%d.</td>
+      <td>2021-01-20</td>
+    </tr>
+
+    <tr>
+      <td><code>%G</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>
+        The <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a>
+        year with century as a decimal number. Each ISO year begins
+        on the Monday before the first Thursday of the Gregorian calendar year.
+        Note that %G and %Y may produce different results near Gregorian year
+        boundaries, where the Gregorian year and ISO year can diverge.</td>
+      <td>2021</td>
+    </tr>
+
+    <tr>
+      <td><code>%g</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>
+        The <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a>
+        year without century as a decimal number (00-99). Each ISO
+        year begins on the Monday before the first Thursday of the Gregorian
+        calendar year. Note that %g and %y may produce different results near
+        Gregorian year boundaries, where the Gregorian year and ISO year can
+        diverge.
+      </td>
+      <td>21</td>
+    </tr>
+
+    <tr>
+      <td><code>%H</code></td>
+      <td>
+
+<span> TIME</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>The hour (24-hour clock) as a decimal number (00-23).</td>
+      <td>21</td>
+    </tr>
+
+    <tr>
+      <td><code>%h</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>The abbreviated month name.</td>
+      <td>Jan</td>
+    </tr>
+
+    <tr>
+      <td><code>%I</code></td>
+      <td>
+
+<span> TIME</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>The hour (12-hour clock) as a decimal number (01-12).</td>
+      <td>09</td>
+    </tr>
+
+    <tr>
+      <td><code>%j</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>The day of the year as a decimal number (001-366).</td>
+      <td>020</td>
+    </tr>
+
+    <tr>
+      <td><code>%k</code></td>
+      <td>
+
+<span> TIME</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>
+        The hour (24-hour clock) as a decimal number (0-23); single digits are
+        preceded by a space.</td>
+      <td>21</td>
+    </tr>
+
+    <tr>
+      <td><code>%l</code></td>
+      <td>
+
+<span> TIME</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>
+        The hour (12-hour clock) as a decimal number (1-12); single digits are
+        preceded by a space.</td>
+      <td>9</td>
+    </tr>
+
+    <tr>
+      <td><code>%M</code></td>
+      <td>
+
+<span> TIME</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>The minute as a decimal number (00-59).</td>
+      <td>47</td>
+    </tr>
+
+    <tr>
+      <td><code>%m</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>The month as a decimal number (01-12).</td>
+      <td>01</td>
+    </tr>
+
+    <tr>
+      <td><code>%n</code></td>
+      <td>All</td>
+      <td>A newline character.</td>
+      <td></td>
+    </tr>
+
+    <tr>
+      <td><code>%P</code></td>
+      <td>
+
+<span> TIME</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>Either am or pm.</td>
+      <td>pm</td>
+    </tr>
+
+    <tr>
+      <td><code>%p</code></td>
+      <td>
+
+<span> TIME</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>Either AM or PM.</td>
+      <td>PM</td>
+    </tr>
+
+    <tr>
+      <td><code>%Q</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>The quarter as a decimal number (1-4).</td>
+      <td>1</td>
+    </tr>
+
+    <tr>
+      <td><code>%R</code></td>
+      <td>
+
+<span> TIME</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>The time in the format %H:%M.</td>
+      <td>21:47</td>
+    </tr>
+
+    <tr>
+      <td><code>%S</code></td>
+      <td>
+
+<span> TIME</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>The second as a decimal number (00-60).</td>
+      <td>00</td>
+    </tr>
+
+    <tr>
+      <td><code>%s</code></td>
+      <td>
+
+<span> TIME</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>
+        The number of seconds since 1970-01-01 00:00:00. Always overrides all
+        other format elements, independent of where %s appears in the string.
+        If multiple %s elements appear, then the last one takes precedence.
+      </td>
+      <td>1611179220</td>
+    </tr>
+
+    <tr>
+      <td><code>%T</code></td>
+      <td>
+
+<span> TIME</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>The time in the format %H:%M:%S.</td>
+      <td>21:47:00</td>
+    </tr>
+
+    <tr>
+      <td><code>%t</code></td>
+      <td>All</td>
+      <td>A tab character.</td>
+      <td></td>
+    </tr>
+
+    <tr>
+      <td><code>%U</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>
+        The week number of the year (Sunday as the first day of the week) as a
+        decimal number (00-53).
+      </td>
+      <td>03</td>
+    </tr>
+
+    <tr>
+      <td><code>%u</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>
+        The weekday (Monday as the first day of the week) as a decimal number
+        (1-7).
+      </td>
+      <td>3</td>
+    </tr>
+
+    <tr>
+      <td><code>%V</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>
+        The <a href="https://en.wikipedia.org/wiki/ISO_week_date">ISO 8601</a>
+        week number of the year (Monday as the first
+        day of the week) as a decimal number (01-53).  If the week containing
+        January 1 has four or more days in the new year, then it is week 1;
+        otherwise it is week 53 of the previous year, and the next week is
+        week 1.
+      </td>
+      <td>03</td>
+    </tr>
+
+    <tr>
+      <td><code>%W</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>
+        The week number of the year (Monday as the first day of the week) as a
+        decimal number (00-53).
+      </td>
+      <td>03</td>
+    </tr>
+
+    <tr>
+      <td><code>%w</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>
+        The weekday (Sunday as the first day of the week) as a decimal number
+        (0-6).
+      </td>
+      <td>3</td>
+    </tr>
+
+    <tr>
+      <td><code>%X</code></td>
+      <td>
+
+<span> TIME</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>The time representation in HH:MM:SS format.</td>
+      <td>21:47:00</td>
+    </tr>
+
+    <tr>
+      <td><code>%x</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>The date representation in MM/DD/YY format.</td>
+      <td>01/20/21</td>
+    </tr>
+
+    <tr>
+      <td><code>%Y</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>The year with century as a decimal number.</td>
+      <td>2021</td>
+    </tr>
+
+    <tr>
+      <td><code>%y</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>
+        The year without century as a decimal number (00-99), with an optional
+        leading zero. Can be mixed with %C. If %C is not specified, years 00-68 are
+        2000s, while years 69-99 are 1900s.
+      </td>
+      <td>21</td>
+    </tr>
+
+    <tr>
+      <td><code>%Z</code></td>
+      <td>
+
+<span> TIMESTAMP</span><br />
+</td>
+      <td>The time zone name.</td>
+      <td>UTC-5</td>
+    </tr>
+
+    <tr>
+      <td><code>%z</code></td>
+      <td>
+
+<span> TIMESTAMP</span><br />
+</td>
+      <td>
+        The offset from the Prime Meridian in the format +HHMM or -HHMM as
+        appropriate, with positive values representing locations east of
+        Greenwich.
+      </td>
+      <td>-0500</td>
+    </tr>
+
+    <tr>
+      <td><code>%%</code></td>
+      <td>All</td>
+      <td>A single % character.</td>
+      <td>%</td>
+    </tr>
+
+    <tr>
+      <td><code>%Ez</code></td>
+      <td>
+
+<span> TIMESTAMP</span><br />
+</td>
+      <td>RFC 3339-compatible numeric time zone (+HH:MM or -HH:MM).</td>
+      <td>-05:00</td>
+    </tr>
+
+    <tr>
+      <td><code>%E&lt;number&gt;S</code></td>
+      <td>
+
+<span> TIME</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>Seconds with &lt;number&gt; digits of fractional precision.</td>
+      <td>00.000 for %E3S</td>
+    </tr>
+
+    <tr>
+      <td><code>%E*S</code></td>
+      <td>
+
+<span> TIME</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>Seconds with full fractional precision (a literal '*').</td>
+      <td>00.123456</td>
+    </tr>
+
+    <tr>
+      <td><code>%E4Y</code></td>
+      <td>
+
+<span> DATE</span><br /><span> DATETIME</span><br /><span> TIMESTAMP</span><br />
+</td>
+      <td>
+        Four-character years (0001 ... 9999). Note that %Y produces as many
+        characters as it takes to fully render the year.
+      </td>
+      <td>2021</td>
+    </tr>
+
+  </tbody>
+</table>
+
+Examples:
+
+```sql
+SELECT FORMAT_DATE("%b-%d-%Y", DATE "2008-12-25") AS formatted;
+
++-------------+
+| formatted   |
++-------------+
+| Dec-25-2008 |
++-------------+
+```
+
+```sql
+SELECT
+  FORMAT_DATETIME("%c", DATETIME "2008-12-25 15:30:00")
+  AS formatted;
+
++--------------------------+
+| formatted                |
++--------------------------+
+| Thu Dec 25 15:30:00 2008 |
++--------------------------+
+```
+
+```sql
+SELECT FORMAT_TIME("%R", TIME "15:30:00") as formatted_time;
+
++----------------+
+| formatted_time |
++----------------+
+| 15:30          |
++----------------+
+```
+
+```sql
+SELECT FORMAT_TIMESTAMP("%b %Y %Ez", TIMESTAMP "2008-12-25 15:30:00+00")
+  AS formatted;
+
++-----------------+
+| formatted       |
++-----------------+
+| Dec 2008 +00:00 |
++-----------------+
+```
+
+```sql
+SELECT PARSE_DATE("%Y%m%d", "20081225") AS parsed;
+
++------------+
+| parsed     |
++------------+
+| 2008-12-25 |
++------------+
+```
+
+```sql
+SELECT PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '1998-10-18 13:45:55') AS datetime;
+
++---------------------+
+| datetime            |
++---------------------+
+| 1998-10-18 13:45:55 |
++---------------------+
+```
+
+```sql
+SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time
+
++-------------+
+| parsed_time |
++-------------+
+| 14:23:38    |
++-------------+
+```
+
+```sql
+SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
+
+-- Display of results may differ, depending upon the environment and
+-- time zone where this query was executed.
++---------------------------------------------+
+| parsed                                      |
++---------------------------------------------+
+| 2008-12-25 07:30:00.000 America/Los_Angeles |
++---------------------------------------------+
+```
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[format-date]: #format_date
+
+[parse-date]: #parse_date
+
+[format-time]: #format_time
+
+[parse-time]: #parse_time
+
+[format-datetime]: #format_datetime
+
+[parse-datetime]: #parse_datetime
+
+[format-timestamp]: #format_timestamp
+
+[parse-timestamp]: #parse_timestamp
+
+<!-- mdlint on -->
+
+---
+## EXPRESSIONS
+
+## Function calls
+
+When you call a function, specific rules may apply. You can also add the
+`SAFE.` prefix, which prevents functions from generating some types of errors.
+To learn more, see the next sections.
+
+### Function call rules
+
+The following rules apply to all functions unless explicitly indicated otherwise
+in the function description:
+
++ Integer types coerce to INT64.
++ For functions that accept numeric types, if one operand is a floating point
+  operand and the other operand is another numeric type, both operands are
+  converted to DOUBLE before the function is
+  evaluated.
++ If an operand is `NULL`, the result is `NULL`, with the exception of the
+  IS operator.
++ For functions that are time zone sensitive (as indicated in the function
+  description), the default time zone, which is implementation defined, is used if a time
+  zone is not specified.
+
+### Lambdas 
+<a id="lambdas"></a>
+
+**Syntax:**
+
+```sql
+(arg[, ...]) -> body_expression
+```
+
+```sql
+arg -> body_expression
+```
+
+**Description**
+
+For some functions, ZetaSQL supports lambdas as builtin function
+arguments. A lambda takes a list of arguments and an expression as the lambda
+body.
+
++   `arg`:
+    +   Name of the lambda argument is defined by the user.
+    +   No type is specified for the lambda argument. The type is inferred from
+        the context.
++   `body_expression`:
+    +   The lambda body can be any valid scalar expression.
+
+### SAFE. prefix
+
+**Syntax:**
+
+```
+SAFE.function_name()
+```
+
+**Description**
+
+If you begin a function with the `SAFE.` prefix, it will return `NULL` instead
+of an error. The `SAFE.` prefix only prevents errors from the prefixed function
+itself: it does not prevent errors that occur while evaluating argument
+expressions. The `SAFE.` prefix only prevents errors that occur because of the
+value of the function inputs, such as "value out of range" errors; other
+errors, such as internal or system errors, may still occur. If the function
+does not return an error, `SAFE.` has no effect on the output.
+
+[Operators][link-to-operators], such as `+` and `=`, do not support the `SAFE.`
+prefix. To prevent errors from a division
+operation, use [SAFE_DIVIDE][link-to-SAFE_DIVIDE]. Some operators,
+such as `IN`, `ARRAY`, and `UNNEST`, resemble functions, but do not support the
+`SAFE.` prefix. The `CAST` and `EXTRACT` functions also do not support the
+`SAFE.` prefix. To prevent errors from casting, use
+[SAFE_CAST][link-to-SAFE_CAST].
+
+**Example**
+
+In the following example, the first use of the `SUBSTR` function would normally
+return an error, because the function does not support length arguments with
+negative values. However, the `SAFE.` prefix causes the function to return
+`NULL` instead. The second use of the `SUBSTR` function provides the expected
+output: the `SAFE.` prefix has no effect.
+
+```sql
+SELECT SAFE.SUBSTR('foo', 0, -2) AS safe_output UNION ALL
+SELECT SAFE.SUBSTR('bar', 0, 2) AS safe_output;
+
++-------------+
+| safe_output |
++-------------+
+| NULL        |
+| ba          |
++-------------+
+```
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[link-to-operators]: #operators
+
+[link-to-SAFE_DIVIDE]: #safe_divide
+
+[link-to-SAFE_CAST]: #safe_casting
 
 <!-- mdlint on -->
 
@@ -3337,6 +9575,40 @@ types are compared when they have fields that are `NULL` valued.
 </tbody>
 </table>
 
+#### EXISTS operator 
+<a id="exists_operator"></a>
+
+```sql
+EXISTS ( subquery )
+```
+
+**Description**
+
+Returns `TRUE` if the subquery produces one or more rows. Returns `FALSE` if
+the subquery produces zero rows. Never returns `NULL`. To learn more about
+how you can use a subquery with `EXISTS`,
+see [`EXISTS` subqueries][exists-subqueries].
+
+**Examples**
+
+In this example, the `EXISTS` operator returns `FALSE` because there are no
+rows in `Words` where the direction is `south`:
+
+```sql
+WITH Words AS (
+  SELECT 'Intend' as value, 'east' as direction UNION ALL
+  SELECT 'Secure', 'north' UNION ALL
+  SELECT 'Clarity', 'west'
+ )
+SELECT EXISTS ( SELECT value FROM Words WHERE direction = 'south' ) as result;
+
++--------+
+| result |
++--------+
+| FALSE  |
++--------+
+```
+
 #### IN operator 
 <a id="in_operators"></a>
 
@@ -3740,6 +10012,8 @@ The concatenation operator combines multiple values into one.
 
 [operators-subqueries]: #about_subqueries
 
+[exists-subqueries]: #exists_subquery_concepts
+
 [operators-link-to-struct-type]: #struct_type
 
 [operators-link-to-math-functions]: #mathematical_functions
@@ -3768,7 +10042,7 @@ CASE expr
   WHEN expr_to_match THEN result
   [ ... ]
   [ ELSE else_result ]
-END
+  END
 ```
 
 **Description**
@@ -3791,18 +10065,21 @@ done on coerced values. There may be multiple `result` types. `result` and
 **Example**
 
 ```sql
-WITH Numbers AS
- (SELECT 90 as A, 2 as B UNION ALL
+WITH Numbers AS (
+  SELECT 90 as A, 2 as B UNION ALL
   SELECT 50, 8 UNION ALL
   SELECT 60, 6 UNION ALL
-  SELECT 50, 10)
-SELECT A, B,
+  SELECT 50, 10
+)
+SELECT
+  A,
+  B,
   CASE A
     WHEN 90 THEN 'red'
     WHEN 50 THEN 'blue'
     ELSE 'green'
-  END
-  AS result
+    END
+    AS result
 FROM Numbers
 
 +------------------+
@@ -3822,7 +10099,7 @@ CASE
   WHEN condition THEN result
   [ ... ]
   [ ELSE else_result ]
-END
+  END
 ```
 
 **Description**
@@ -3843,17 +10120,20 @@ common [supertype][cond-exp-supertype].
 **Example**
 
 ```sql
-WITH Numbers AS
- (SELECT 90 as A, 2 as B UNION ALL
+WITH Numbers AS (
+  SELECT 90 as A, 2 as B UNION ALL
   SELECT 50, 6 UNION ALL
-  SELECT 20, 10)
-SELECT A, B,
+  SELECT 20, 10
+)
+SELECT
+  A,
+  B,
   CASE
     WHEN A > 60 THEN 'red'
     WHEN A > 30 THEN 'blue'
     ELSE 'green'
-  END
-  AS result
+    END
+    AS result
 FROM Numbers
 
 +------------------+
@@ -3927,13 +10207,15 @@ must be coercible to a common [supertype][cond-exp-supertype].
 **Example**
 
 ```sql
-WITH Numbers AS
- (SELECT 10 as A, 20 as B UNION ALL
+WITH Numbers AS (
+  SELECT 10 as A, 20 as B UNION ALL
   SELECT 50, 30 UNION ALL
-  SELECT 60, 60)
+  SELECT 60, 60
+)
 SELECT
-  A, B,
-  IF( A<B, 'true', 'false') as result
+  A,
+  B,
+  IF(A < B, 'true', 'false') AS result
 FROM Numbers
 
 +------------------+
@@ -4032,1525 +10314,1483 @@ SELECT NULLIF(10, 0) as result
 
 <!-- mdlint on -->
 
-## Expression subqueries
+## Analytic function concepts
 
-There are four types of expression subqueries, i.e. subqueries that are used as
-expressions.  Expression subqueries return `NULL` or a single value, as opposed to
-a column or table, and must be surrounded by parentheses. For a fuller
-discussion of subqueries, see
-[Subqueries][exp-sub-link-to-subqueries].
+An analytic function, also known as a window function, computes values
+over a group of rows and returns a
+single result for _each_ row. This is different from an aggregate function,
+which returns a single result for _a group_ of rows.
 
-<table>
-<thead>
-<tr>
-<th>Type of Subquery</th>
-<th>Result Data Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Scalar</td>
-<td>Any type T</td>
-<td>A subquery in parentheses inside an expression (e.g. in the
-<code>SELECT</code> list or <code>WHERE</code> clause) is interpreted as a
-scalar subquery. The <code>SELECT</code> list in a scalar subquery must have
-exactly one field. If the subquery returns exactly one row, that single value is
-the scalar subquery result. If the subquery returns zero rows, the scalar
-subquery value is <code>NULL</code>. If the subquery returns more than one row, the query
-fails with a runtime error. When the subquery is written with <code>SELECT AS
-STRUCT</code>  or <code>SELECT AS ProtoName</code>, it can include multiple
-columns, and the returned value is the constructed STRUCT or PROTO. Selecting
-multiple columns without using <code>SELECT AS</code> is an error.</td>
-</tr>
-<tr>
-<td>ARRAY</td>
-<td>ARRAY</td>
-<td>Can use <code>SELECT AS STRUCT</code> or <code>SELECT AS ProtoName</code> to
-build arrays of structs or PROTOs, and conversely, selecting multiple columns
-without using <code>SELECT AS</code> is an error. Returns an empty ARRAY if the
-subquery returns zero rows. Never returns a <code>NULL</code> ARRAY.</td>
-</tr>
+An analytic function includes an `OVER` clause, which defines a window of rows
+around the row being evaluated.  For each row, the analytic function result
+is computed using the selected window of rows as input, possibly
+doing aggregation.
 
-<tr>
-<td>IN</td>
-<td>BOOL</td>
-<td>Occurs in an expression following the IN operator. The subquery must produce
-a single column whose type is equality-compatible with the expression on the
-left side of the IN operator. Returns FALSE if the subquery returns zero rows.
-<code>x IN ()</code> is equivalent to <code>x IN (value, value, ...)</code>
-See the <code>IN</code> operator in
-<a href="#comparison_operators">Comparison Operators</a>
+With analytic functions you can compute moving averages, rank items, calculate
+cumulative sums, and perform other analyses.
 
-for full semantics.</td>
-</tr>
+The following functions can be used as analytic functions:
+[navigation functions][navigation-functions-reference],
+[numbering functions][numbering-functions-reference], and
+[aggregate analytic functions][aggregate-analytic-functions-reference]
 
-<tr>
-<td>EXISTS</td>
-<td>BOOL</td>
-<td>Returns TRUE if the subquery produced one or more rows. Returns FALSE if the
-subquery produces zero rows. Never returns <code>NULL</code>. Unlike all other expression
-subqueries, there are no rules about the column list. Any number of columns may
-be selected and it will not affect the query result.</td>
+### Analytic function syntax 
+<a id="syntax"></a>
 
-</tr>
-</tbody>
-</table>
+<pre>
+analytic_function_name ( [ argument_list ] ) OVER over_clause
+
+<a href="#def_over_clause">over_clause</a>:
+  { named_window | ( [ window_specification ] ) }
+
+<a href="#def_window_spec">window_specification</a>:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
+<a href="#def_window_frame">window_frame_clause</a>:
+  { rows_range } { <a href="#def_window_frame">frame_start</a> | <a href="#def_window_frame">frame_between</a> }
+
+<a href="#def_window_frame">rows_range</a>:
+  { ROWS | RANGE }
+</pre>
+
+**Notation rules**
+
++ Square brackets "[ ]" indicate optional clauses.
++ Parentheses "( )" indicate literal parentheses.
++ The vertical bar "|" indicates a logical OR.
++ Curly braces "{ }" enclose a set of options.
++ A comma followed by an ellipsis within square brackets "[, ... ]" indicates that
+  the preceding item can repeat in a comma-separated list.
+
+**Description**
+
+An analytic function computes results over a group of rows. You can use the
+following syntax to build an analytic function:
+
++  `analytic_function_name`: The function that performs an analytic operation.
+   For example, the numbering function `RANK()` could be used here.
++  `argument_list`: Arguments that are specific to the analytic function.
+   Some functions have them, some do not.
++  `OVER`: Keyword required in the analytic function syntax preceding
+   the [`OVER` clause][over-clause-def].
++  [`over_clause`][over-clause-def]: References a window that defines a group
+   of rows in a table upon which to use an analytic function.
++  [`window_specification`][window-specs-def]: Defines the specifications for
+   the window.
++  [`window_frame_clause`][window-frame-clause-def]: Defines the window frame
+   for the window.
++  [`rows_range`][window-frame-clause-def]: Defines the physical rows or a
+   logical range for a window frame.
+
+**Notes**
+
+An analytic function can appear as a scalar expression operand in
+two places in the query:
+
+   +  The `SELECT` list. If the analytic function appears in the `SELECT` list,
+      its argument list and `OVER` clause can't refer to aliases introduced
+      in the same SELECT list.
+   +  The `ORDER BY` clause. If the analytic function appears in the `ORDER BY`
+      clause of the query, its argument list can refer to `SELECT`
+      list aliases.
+
+An analytic function can't refer to another analytic function in its
+argument list or its `OVER` clause, even indirectly through an alias.
+
+An analytic function is evaluated after aggregation. For example, the
+`GROUP BY` clause and non-analytic aggregate functions are evaluated first.
+Because aggregate functions are evaluated before analytic functions,
+aggregate functions can be used as input operands to analytic functions.
+
+**Returns**
+
+A single result for each row in the input.
+
+#### Defining the `OVER` clause 
+<a id="def_over_clause"></a>
+
+```zetasql
+analytic_function_name ( [ argument_list ] ) OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+```
+
+**Description**
+
+The `OVER` clause references a window that defines a group of rows in a table
+upon which to use an analytic function. You can provide a
+[`named_window`][named-windows] that is
+[defined in your query][analytic-functions-link-to-window], or you can
+define the [specifications for a new window][window-specs-def].
+
+**Notes**
+
+If neither a named window nor window specification is provided, all
+input rows are included in the window for every row.
+
+**Examples using the `OVER` clause**
+
+These queries use window specifications:
+
++  [Compute a grand total][analytic-functions-compute-grand-total]
++  [Compute a subtotal][analytic-functions-compute-subtotal]
++  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
++  [Compute a moving average][analytic-functions-compute-moving-avg]
++  [Compute the number of items within a range][analytic-functions-compute-item-range]
++  [Get the most popular item in each category][analytic-functions-get-popular-item]
++  [Get the last value in a range][analytic-functions-get-last-value-range]
++  [Compute rank][analytic-functions-compute-rank]
+
+These queries use a named window:
+
++  [Get the last value in a range][analytic-functions-get-last-value-range]
++  [Use a named window in a window frame clause][analytic-functions-use-named-window]
+
+#### Defining the window specification 
+<a id="def_window_spec"></a>
+
+```zetasql
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC } ] [, ...] ]
+  [ window_frame_clause ]
+```
+
+**Description**
+
+Defines the specifications for the window.
+
++  [`named_window`][named-windows]: The name of an existing window that was
+   defined with a [`WINDOW` clause][analytic-functions-link-to-window].
+
+Important: If you use a named window, special rules apply to
+`PARTITION BY`, `ORDER BY`, and `window_frame_clause`. See
+[Rules for using a named window in the window specification]
+[named-window-rules].
+
++  `PARTITION BY`: Breaks up the input rows into separate partitions, over
+   which the analytic function is independently evaluated.
+   +  Multiple partition expressions are allowed in the `PARTITION BY` clause.
+   +  An expression can't contain floating point types, non-groupable types,
+      constants, or analytic functions.
+   +  If this optional clause is not used, all rows in the input table
+      comprise a single partition.
++  `ORDER BY`: Defines how rows are ordered within a partition.
+   This clause is optional in most situations, but is required in some
+   cases for [navigation functions][navigation-functions-reference].
++  [`window_frame_clause`][window-frame-clause-def]: For aggregate analytic
+   functions, defines the window frame within the current partition.
+   The window frame determines what to include in the window.
+   If this clause is used, `ORDER BY` is required except for fully
+   unbounded windows.
+
+**Notes**
+
+If neither the `ORDER BY` clause nor window frame clause are present,
+the window frame includes all rows in that partition.
+
+For aggregate analytic functions, if the `ORDER BY` clause is present but
+the window frame clause is not, the following window frame clause is
+used by default:
+
+```zetasql
+RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+```
+
+For example, the following queries are equivalent:
+
+```zetasql
+SELECT book, LAST_VALUE(item)
+  OVER (ORDER BY year)
+FROM Library
+```
+
+```zetasql
+SELECT book, LAST_VALUE(item)
+  OVER (
+    ORDER BY year
+    RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+FROM Library
+```
+
+[Hints][analytic-functions-link-to-hints] are supported on the `PARTITION BY`
+clause and the `ORDER BY` clause.
+
+<a id="named_window_rules"></a>
+**Rules for using a named window in the window specification**
+
+If you use a named window in your window specifications, these rules apply:
+
++  The specifications in the named window can be extended
+   with new specifications that you define in the window specification clause.
++  You can't have redundant definitions. If you have an `ORDER BY` clause
+   in the named window and the window specification clause, an
+   error is thrown.
++  The order of clauses matters. `PARTITION BY` must come first,
+   followed by `ORDER BY` and `window_frame_clause`. If you add a named window,
+   its window specifications are processed first.
+
+   ```zetasql
+   --this works:
+   SELECT item, purchases, LAST_VALUE(item)
+     OVER (item_window ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING) AS most_popular
+   FROM Produce
+   WINDOW item_window AS (ORDER BY purchases)
+
+   --this does not work:
+   SELECT item, purchases, LAST_VALUE(item)
+     OVER (item_window ORDER BY purchases) AS most_popular
+   FROM Produce
+   WINDOW item_window AS (ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)
+   ```
++  A named window and `PARTITION BY` can't appear together in the
+   window specification. If you need `PARTITION BY`, add it to the named window.
++  You can't refer to a named window in an `ORDER BY` clause, an outer query,
+   or any subquery.
+
+**Examples using the window specification**
+
+These queries define partitions in an analytic function:
+
++  [Compute a subtotal][analytic-functions-compute-subtotal]
++  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
++  [Get the most popular item in each category][analytic-functions-get-popular-item]
++  [Get the last value in a range][analytic-functions-get-last-value-range]
++  [Compute rank][analytic-functions-compute-rank]
++  [Use a named window in a window frame clause][analytic-functions-use-named-window]
+
+These queries include a named window in a window specification:
+
++  [Get the last value in a range][analytic-functions-get-last-value-range]
++  [Use a named window in a window frame clause][analytic-functions-use-named-window]
+
+These queries define how rows are ordered in a partition:
+
++  [Compute a subtotal][analytic-functions-compute-subtotal]
++  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
++  [Compute a moving average][analytic-functions-compute-moving-avg]
++  [Compute the number of items within a range][analytic-functions-compute-item-range]
++  [Get the most popular item in each category][analytic-functions-get-popular-item]
++  [Get the last value in a range][analytic-functions-get-last-value-range]
++  [Compute rank][analytic-functions-compute-rank]
++  [Use a named window in a window frame clause][analytic-functions-use-named-window]
+
+#### Defining the window frame clause 
+<a id="def_window_frame"></a>
+
+```zetasql
+window_frame_clause:
+  { rows_range } { frame_start | frame_between }
+
+rows_range:
+  { ROWS | RANGE }
+
+frame_between:
+  {
+    BETWEEN  unbounded_preceding AND frame_end_a
+    | BETWEEN numeric_preceding AND frame_end_a
+    | BETWEEN current_row AND frame_end_b
+    | BETWEEN numeric_following AND frame_end_c
+  }
+
+frame_start:
+  { unbounded_preceding | numeric_preceding | [ current_row ] }
+
+frame_end_a:
+  { numeric_preceding | current_row | numeric_following | unbounded_following }
+
+frame_end_b:
+  { current_row | numeric_following | unbounded_following }
+
+frame_end_c:
+  { numeric_following | unbounded_following }
+
+unbounded_preceding:
+  UNBOUNDED PRECEDING
+
+numeric_preceding:
+  numeric_expression PRECEDING
+
+unbounded_following:
+  UNBOUNDED FOLLOWING
+
+numeric_following:
+  numeric_expression FOLLOWING
+
+current_row:
+  CURRENT ROW
+```
+
+The window frame clause defines the window frame around the current row within
+a partition, over which the analytic function is evaluated.
+Only aggregate analytic functions can use a window frame clause.
+
++  `rows_range`: A clause that defines a window frame with physical rows
+   or a logical range.
+   +  `ROWS`: Computes the window frame based on physical offsets from the
+      current row. For example, you could include two rows before and after
+      the current row.
+   +  `RANGE`: Computes the window frame based on a logical range of rows
+      around the current row, based on the current row’s `ORDER BY` key value.
+      The provided range value is added or subtracted to the current row's
+      key value to define a starting or ending range boundary for the
+      window frame. In a range-based window frame, there must be exactly one
+      expression in the `ORDER BY` clause, and the expression must have a
+      numeric type.
+
+  Tip: If you want to use a range with a date, use `ORDER BY` with the
+  `UNIX_DATE()` function. If you want to use a range with a timestamp,
+  use the `UNIX_SECONDS()`, `UNIX_MILLIS()`, or `UNIX_MICROS()` function.
++  `frame_between`: Creates a window frame with a lower and upper boundary.
+    The first boundary represents the lower boundary. The second boundary
+    represents the upper boundary. Only certain boundary combinations can be
+    used, as show in the preceding syntax.
+    +  Define the beginning of the window frame with `unbounded_preceding`,
+       `numeric_preceding`, `numeric_following`, or `current_row`.
+       +  `unbounded_preceding`: The window frame starts at the beginning of the
+          partition.
+       +  `numeric_preceding` or `numeric_following`: The start of the window
+          frame is relative to the
+          current row.
+       +  `current_row`: The window frame starts at the current row.
+    +  Define the end of the window frame with `numeric_preceding`,
+       `numeric_following`, `current_row`, or `unbounded_following`.
+        + `numeric_preceding` or `numeric_following`: The end of the window
+          frame is relative to the current row.
+        + `current_row`: The window frame ends at the current row.
+        + `unbounded_following`: The window frame ends at the end of the
+          partition.
++  `frame_start`: Creates a window frame with a lower boundary.
+    The window frame ends at the current row.
+    +  `unbounded_preceding`: The window frame starts at the beginning of the
+        partition.
+    +  `numeric_preceding`: The start of the window frame is relative to the
+       current row.
+    +  `current_row`: The window frame starts at the current row.
++  `numeric_expression`: An expression that represents a numeric type.
+   The numeric expression must be a constant, non-negative integer
+   or parameter.
+
+**Notes**
+
+If a boundary extends beyond the beginning or end of a partition,
+the window frame will only include rows from within that partition.
+
+You can't use a window frame clause with
+[navigation functions][analytic-functions-link-to-navigation-functions] and
+[numbering functions][analytic-functions-link-to-numbering-functions],
+such as  `RANK()`.
+
+**Examples using the window frame clause**
+
+These queries compute values with `ROWS`:
+
++  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
++  [Compute a moving average][analytic-functions-compute-moving-avg]
++  [Get the most popular item in each category][analytic-functions-get-popular-item]
++  [Get the last value in a range][analytic-functions-get-last-value-range]
++  [Use a named window in a window frame clause][analytic-functions-use-named-window]
+
+These queries compute values with `RANGE`:
+
++  [Compute the number of items within a range][analytic-functions-compute-item-range]
+
+These queries compute values with a partially or fully unbound window:
+
++  [Compute a grand total][analytic-functions-compute-grand-total]
++  [Compute a subtotal][analytic-functions-compute-subtotal]
++  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
++  [Get the most popular item in each category][analytic-functions-get-popular-item]
++  [Compute rank][analytic-functions-compute-rank]
+
+These queries compute values with numeric boundaries:
+
++  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
++  [Compute a moving average][analytic-functions-compute-moving-avg]
++  [Compute the number of items within a range][analytic-functions-compute-item-range]
++  [Get the last value in a range][analytic-functions-get-last-value-range]
++  [Use a named window in a window frame clause][analytic-functions-use-named-window]
+
+These queries compute values with the current row as a boundary:
+
++  [Compute a grand total][analytic-functions-compute-grand-total]
++  [Compute a subtotal][analytic-functions-compute-subtotal]
++  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
+
+#### Referencing a named window 
+<a id="ref_named_window"></a>
+
+```zetasql
+SELECT query_expr,
+  analytic_function_name ( [ argument_list ] ) OVER over_clause
+FROM from_item
+WINDOW named_window_expression [, ...]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ ASC | DESC [, ...] ]
+  [ window_frame_clause ]
+
+named_window_expression:
+  named_window AS { named_window | ( [ window_specification ] ) }
+```
+
+A named window represents a group of rows in a table upon which to use an
+analytic function. A named window is defined in the
+[`WINDOW` clause][analytic-functions-link-to-window], and referenced in
+an analytic function's [`OVER` clause][over-clause-def].
+In an `OVER` clause, a named window can appear either by itself or embedded
+within a [window specification][window-specs-def].
 
 **Examples**
 
-The following examples of expression subqueries assume that `t.int_array` has
-type `ARRAY<INT64>`.
++  [Get the last value in a range][analytic-functions-get-last-value-range]
++  [Use a named window in a window frame clause][analytic-functions-use-named-window]
 
-<table>
-<thead>
-<tr>
-<th>Type</th>
-<th>Subquery</th>
-<th>Result Data Type</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td rowspan="8" style="vertical-align:top">Scalar</td>
-<td><code>(SELECT COUNT(*) FROM t.int_array)</code></td>
-<td>INT64</td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td><code>(SELECT DISTINCT i FROM t.int_array i)</code></td>
-<td>INT64, possibly runtime error</td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td><code>(SELECT i FROM t.int_array i WHERE i=5)</code></td>
-<td>INT64, possibly runtime error</td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td><code>(SELECT ARRAY_AGG(i) FROM t.int_array i)</code></td>
-<td>ARRAY</td>
-<td>Uses the ARRAY_AGG aggregation function to return an ARRAY.</td>
-</tr>
-<tr>
-<td><code>(SELECT 'xxx' a)</code></td>
-<td>STRING</td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td><code>(SELECT 'xxx' a, 123 b)</code></td>
-<td>Error</td>
-<td>Returns an error because there is more than one column</td>
-</tr>
-<tr>
-<td><code>(SELECT AS STRUCT 'xxx' a, 123 b)</code></td>
-<td>STRUCT</td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td><code>(SELECT AS STRUCT 'xxx' a)</code></td>
-<td>STRUCT</td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td rowspan="7" style="vertical-align:top">ARRAY</td>
-<td><code>ARRAY(SELECT COUNT(*) FROM t.int_array)</code></td>
-<td>ARRAY of size 1</td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td><code>ARRAY(SELECT x FROM t)</code></td>
-<td>ARRAY</td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td><code>ARRAY(SELECT 5 a, COUNT(*) b FROM t.int_array)</code></td>
-<td>Error</td>
-<td>Returns an error because there is more than one column</td>
-</tr>
-<tr>
-<td><code>ARRAY(SELECT AS STRUCT 5 a, COUNT(*) b FROM t.int_array)</code></td>
-<td>ARRAY</td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td><code>ARRAY(SELECT AS STRUCT i FROM t.int_array i)</code></td>
-<td>ARRAY</td>
-<td>Makes an ARRAY of one-field STRUCTs</td>
-</tr>
-<tr>
-<td><code>ARRAY(SELECT AS STRUCT 1 x, 2, 3 x)</code></td>
-<td>ARRAY</td>
-<td>Returns an ARRAY of STRUCTs with anonymous or duplicate fields.</td>
-</tr>
-<tr>
-<td><code>ARRAY(SELECT  AS TypeName SUM(x) a, SUM(y) b, SUM(z) c from t)</code></td>
-<td>array&lt;TypeName></td>
-<td>Selecting into a named type. Assume TypeName is a STRUCT type with fields
-a,b,c.</td>
-</tr>
-<tr>
-<td style="vertical-align:top">STRUCT</td>
-<td><code>(SELECT AS STRUCT 1 x, 2, 3 x)</code></td>
-<td>STRUCT</td>
-<td>Constructs a STRUCT with anonymous or duplicate fields.</td>
-</tr>
-<tr>
-<td rowspan="2" style="vertical-align:top">EXISTS</td>
-<td><code>EXISTS(SELECT x,y,z FROM table WHERE y=z)</code></td>
-<td>BOOL</td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td><code>NOT EXISTS(SELECT x,y,z FROM table WHERE y=z)</code></td>
-<td>BOOL</td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td rowspan="2" style="vertical-align:top">IN</td>
-<td><code>x IN (SELECT y FROM table WHERE z)</code></td>
-<td>BOOL</td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td><code>x NOT IN (SELECT y FROM table WHERE z)</code></td>
-<td>BOOL</td>
-<td>&nbsp;</td>
-</tr>
-</tbody>
-</table>
+### Navigation function concepts
+
+[Navigation functions][navigation-functions-reference] generally compute some
+`value_expression` over a different row in the window frame from the
+current row. The `OVER` clause syntax varies across navigation functions.
+
+Requirements for the `OVER` clause:
+
++   `PARTITION BY`: Optional.
++   `ORDER BY`:
+    1.  Disallowed for `PERCENTILE_CONT` and `PERCENTILE_DISC`.
+    1.   Required for `FIRST_VALUE`, `LAST_VALUE`, `NTH_VALUE`, `LEAD`
+    and `LAG`.
++   `window_frame_clause`:
+    1.  Disallowed for  `PERCENTILE_CONT`, `PERCENTILE_DISC`, `LEAD` and `LAG`.
+    1.  Optional for `FIRST_VALUE`, `LAST_VALUE`, and `NTH_VALUE`.
+
+For all navigation functions, the result data type is the same type as
+`value_expression`.
+
+### Numbering function concepts
+
+[Numbering functions][numbering-functions-reference] assign integer values to
+each row based on their position within the specified window.
+
+Example of `RANK()`, `DENSE_RANK()`, and `ROW_NUMBER()`:
+
+```zetasql
+WITH Numbers AS
+ (SELECT 1 as x
+  UNION ALL SELECT 2
+  UNION ALL SELECT 2
+  UNION ALL SELECT 5
+  UNION ALL SELECT 8
+  UNION ALL SELECT 10
+  UNION ALL SELECT 10
+)
+SELECT x,
+  RANK() OVER (ORDER BY x ASC) AS rank,
+  DENSE_RANK() OVER (ORDER BY x ASC) AS dense_rank,
+  ROW_NUMBER() OVER (ORDER BY x) AS row_num
+FROM Numbers
+
++---------------------------------------------------+
+| x          | rank       | dense_rank | row_num    |
++---------------------------------------------------+
+| 1          | 1          | 1          | 1          |
+| 2          | 2          | 2          | 2          |
+| 2          | 2          | 2          | 3          |
+| 5          | 4          | 3          | 4          |
+| 8          | 5          | 4          | 5          |
+| 10         | 6          | 5          | 6          |
+| 10         | 6          | 5          | 7          |
++---------------------------------------------------+
+```
+
++  `RANK()`: For x=5, `rank` is 4, since `RANK()` increments by the number
+   of peers in the previous window ordering group.
++  `DENSE_RANK()`: For x=5, `dense_rank` is 3, since `DENSE_RANK()` always
+   increments by 1, never skipping a value.
++  `ROW_NUMBER()`: For x=5, `row_num` is 4.
+
+### Aggregate analytic function concepts
+
+An aggregate function is a function that performs a calculation on a
+set of values. Most aggregate functions can be used in an
+analytic function. These aggregate functions are called
+[aggregate analytic functions][aggregate-analytic-functions-reference].
+
+With aggregate analytic functions, the `OVER` clause is appended to the
+aggregate function call; the function call syntax remains otherwise unchanged.
+Like their aggregate function counterparts, these analytic functions perform
+aggregations, but specifically over the relevant window frame for each row.
+The result data types of these analytic functions are the same as their
+aggregate function counterparts.
+
+### Filtering results with the QUALIFY clause 
+<a id="filter_analytic_results"></a>
+
+The `QUALIFY` clause can be used to filter the results of an analytic function.
+For more information and examples, see the
+[`QUALIFY` clause][analytic-functions-link-to-qualify].
+
+### Analytic function examples
+
+In these examples, the ==highlighted item== is the current row. The **bolded
+items** are the rows that are included in the analysis.
+
+#### Common tables used in examples
+
+The following tables are used in the subsequent aggregate analytic
+query examples: [`Produce`][produce-table], [`Employees`][employees-table],
+and [`Farm`][farm-table].
+
+##### Produce table
+
+Some examples reference a table called `Produce`:
+
+```zetasql
+WITH Produce AS
+ (SELECT 'kale' as item, 23 as purchases, 'vegetable' as category
+  UNION ALL SELECT 'banana', 2, 'fruit'
+  UNION ALL SELECT 'cabbage', 9, 'vegetable'
+  UNION ALL SELECT 'apple', 8, 'fruit'
+  UNION ALL SELECT 'leek', 2, 'vegetable'
+  UNION ALL SELECT 'lettuce', 10, 'vegetable')
+SELECT * FROM Produce
+
++-------------------------------------+
+| item      | category   | purchases  |
++-------------------------------------+
+| kale      | vegetable  | 23         |
+| banana    | fruit      | 2          |
+| cabbage   | vegetable  | 9          |
+| apple     | fruit      | 8          |
+| leek      | vegetable  | 2          |
+| lettuce   | vegetable  | 10         |
++-------------------------------------+
+```
+
+##### Employees table
+
+Some examples reference a table called `Employees`:
+
+```zetasql
+WITH Employees AS
+ (SELECT 'Isabella' as name, 2 as department, DATE(1997, 09, 28) as start_date
+  UNION ALL SELECT 'Anthony', 1, DATE(1995, 11, 29)
+  UNION ALL SELECT 'Daniel', 2, DATE(2004, 06, 24)
+  UNION ALL SELECT 'Andrew', 1, DATE(1999, 01, 23)
+  UNION ALL SELECT 'Jacob', 1, DATE(1990, 07, 11)
+  UNION ALL SELECT 'Jose', 2, DATE(2013, 03, 17))
+SELECT * FROM Employees
+
++-------------------------------------+
+| name      | department | start_date |
++-------------------------------------+
+| Isabella  | 2          | 1997-09-28 |
+| Anthony   | 1          | 1995-11-29 |
+| Daniel    | 2          | 2004-06-24 |
+| Andrew    | 1          | 1999-01-23 |
+| Jacob     | 1          | 1990-07-11 |
+| Jose      | 2          | 2013-03-17 |
++-------------------------------------+
+```
+
+##### Farm table
+
+Some examples reference a table called `Farm`:
+
+```zetasql
+WITH Farm AS
+ (SELECT 'cat' as animal, 23 as population, 'mammal' as category
+  UNION ALL SELECT 'duck', 3, 'bird'
+  UNION ALL SELECT 'dog', 2, 'mammal'
+  UNION ALL SELECT 'goose', 1, 'bird'
+  UNION ALL SELECT 'ox', 2, 'mammal'
+  UNION ALL SELECT 'goat', 2, 'mammal')
+SELECT * FROM Farm
+
++-------------------------------------+
+| animal    | category   | population |
++-------------------------------------+
+| cat       | mammal     | 23         |
+| duck      | bird       | 3          |
+| dog       | mammal     | 2          |
+| goose     | bird       | 1          |
+| ox        | mammal     | 2          |
+| goat      | mammal     | 2          |
++-------------------------------------+
+```
+
+#### Compute a grand total
+
+This computes a grand total for all items in the
+[`Produce`][produce-table] table.
+
++  (**==banana==**, **apple**, **leek**, **cabbage**, **lettuce**, **kale**) = 54 total purchases
++  (**banana**, **==apple==**, **leek**, **cabbage**, **lettuce**, **kale**) = 54 total purchases
++  (**banana**, **apple**, **==leek==**, **cabbage**, **lettuce**, **kale**) = 54 total purchases
++  (**banana**, **apple**, **leek**, **==cabbage==**, **lettuce**, **kale**) = 54 total purchases
++  (**banana**, **apple**, **leek**, **cabbage**, **==lettuce==**, **kale**) = 54 total purchases
++  (**banana**, **apple**, **leek**, **cabbage**, **lettuce**, **==kale==**) = 54 total purchases
+
+```zetasql
+SELECT item, purchases, category, SUM(purchases)
+  OVER () AS total_purchases
+FROM Produce
+
++-------------------------------------------------------+
+| item      | purchases  | category   | total_purchases |
++-------------------------------------------------------+
+| banana    | 2          | fruit      | 54              |
+| leek      | 2          | vegetable  | 54              |
+| apple     | 8          | fruit      | 54              |
+| cabbage   | 9          | vegetable  | 54              |
+| lettuce   | 10         | vegetable  | 54              |
+| kale      | 23         | vegetable  | 54              |
++-------------------------------------------------------+
+```
+
+#### Compute a subtotal
+
+This computes a subtotal for each category in the
+[`Produce`][produce-table] table.
+
++  fruit
+   +  (**==banana==**, **apple**) = 10 total purchases
+   +  (**banana**, **==apple==**) = 10 total purchases
++  vegetable
+   +  (**==leek==**, **cabbage**, **lettuce**, **kale**) = 44 total purchases
+   +  (**leek**, **==cabbage==**, **lettuce**, **kale**) = 44 total purchases
+   +  (**leek**, **cabbage**, **==lettuce==**, **kale**) = 44 total purchases
+   +  (**leek**, **cabbage**, **lettuce**, **==kale==**) = 44 total purchases
+
+```zetasql
+SELECT item, purchases, category, SUM(purchases)
+  OVER (
+    PARTITION BY category
+    ORDER BY purchases
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+  ) AS total_purchases
+FROM Produce
+
++-------------------------------------------------------+
+| item      | purchases  | category   | total_purchases |
++-------------------------------------------------------+
+| banana    | 2          | fruit      | 10              |
+| apple     | 8          | fruit      | 10              |
+| leek      | 2          | vegetable  | 44              |
+| cabbage   | 9          | vegetable  | 44              |
+| lettuce   | 10         | vegetable  | 44              |
+| kale      | 23         | vegetable  | 44              |
++-------------------------------------------------------+
+```
+
+#### Compute a cumulative sum
+
+This computes a cumulative sum for each category in the
+[`Produce`][produce-table] table. The sum is computed with respect to the
+order defined using the `ORDER BY` clause.
+
++  fruit
+   +  (**==banana==**, apple) = 2 total purchases
+   +  (**banana**, **==apple==**) = 10 total purchases
++  vegetable
+   +  (**==leek==**, cabbage, lettuce, kale) = 2 total purchases
+   +  (**leek**, **==cabbage==**, lettuce, kale) = 11 total purchases
+   +  (**leek**, **cabbage**, **==lettuce==**, kale) = 21 total purchases
+   +  (**leek**, **cabbage**, **lettuce**, **==kale==**) = 44 total purchases
+
+```zetasql
+SELECT item, purchases, category, SUM(purchases)
+  OVER (
+    PARTITION BY category
+    ORDER BY purchases
+    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+  ) AS total_purchases
+FROM Produce
+
++-------------------------------------------------------+
+| item      | purchases  | category   | total_purchases |
++-------------------------------------------------------+
+| banana    | 2          | fruit      | 2               |
+| apple     | 8          | fruit      | 10              |
+| leek      | 2          | vegetable  | 2               |
+| cabbage   | 9          | vegetable  | 11              |
+| lettuce   | 10         | vegetable  | 21              |
+| kale      | 23         | vegetable  | 44              |
++-------------------------------------------------------+
+```
+
+This does the same thing as the preceding example. You don't have to add
+`CURRENT ROW` as a boundary unless you would like to for readability.
+
+```sql
+SELECT item, purchases, category, SUM(purchases)
+  OVER (
+    PARTITION BY category
+    ORDER BY purchases
+    ROWS UNBOUNDED PRECEDING
+  ) AS total_purchases
+FROM Produce
+```
+
+In this example, all items in the [`Produce`][produce-table] table are included
+in the partition. Only preceding rows are analyzed. The analysis starts two
+rows prior to the current row in the partition.
+
++  (==banana==, leek, apple, cabbage, lettuce, kale) = NULL
++  (banana, ==leek==, apple, cabbage, lettuce, kale) = NULL
++  (**banana**, leek, ==apple==, cabbage, lettuce, kale) = 2
++  (**banana**, **leek**, apple, ==cabbage==, lettuce, kale) = 4
++  (**banana**, **leek**, **apple**, cabbage, ==lettuce==, kale) = 12
++  (**banana**, **leek**, **apple**, **cabbage**, lettuce, ==kale==) = 21
+
+```zetasql
+SELECT item, purchases, category, SUM(purchases)
+  OVER (
+    ORDER BY purchases
+    ROWS BETWEEN UNBOUNDED PRECEDING AND 2 PRECEDING
+  ) AS total_purchases
+FROM Produce;
+
++-------------------------------------------------------+
+| item      | purchases  | category   | total_purchases |
++-------------------------------------------------------+
+| banana    | 2          | fruit      | NULL            |
+| leek      | 2          | vegetable  | NULL            |
+| apple     | 8          | fruit      | 2               |
+| cabbage   | 9          | vegetable  | 4               |
+| lettuce   | 10         | vegetable  | 12              |
+| kale      | 23         | vegetable  | 21              |
++-------------------------------------------------------+
+```
+
+#### Compute a moving average
+
+This computes a moving average in the [`Produce`][produce-table] table.
+The lower boundary is 1 row before the
+current row. The upper boundary is 1 row after the current row.
+
++  (**==banana==**, **leek**, apple, cabbage, lettuce, kale) = 2 average purchases
++  (**banana**, **==leek==**, **apple**, cabbage, lettuce, kale) = 4 average purchases
++  (banana, **leek**, **==apple==**, **cabbage**, lettuce, kale) = 6.3333 average purchases
++  (banana, leek, **apple**, **==cabbage==**, **lettuce**, kale) = 9 average purchases
++  (banana, leek, apple, **cabbage**, **==lettuce==**, **kale**) = 14 average purchases
++  (banana, leek, apple, cabbage, **lettuce**, **==kale==**) = 16.5 average purchases
+
+```zetasql
+SELECT item, purchases, category, AVG(purchases)
+  OVER (
+    ORDER BY purchases
+    ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+  ) AS avg_purchases
+FROM Produce
+
++-------------------------------------------------------+
+| item      | purchases  | category   | avg_purchases   |
++-------------------------------------------------------+
+| banana    | 2          | fruit      | 2               |
+| leek      | 2          | vegetable  | 4               |
+| apple     | 8          | fruit      | 6.33333         |
+| cabbage   | 9          | vegetable  | 9               |
+| lettuce   | 10         | vegetable  | 14              |
+| kale      | 23         | vegetable  | 16.5            |
++-------------------------------------------------------+
+```
+
+#### Compute the number of items within a range
+
+This example gets the number of animals that have a similar population
+count in the [`Farm`][farm-table] table.
+
++  (**==goose==**, **dog**, **ox**, **goat**, duck, cat) = 4 animals between population range 0-2.
++  (**goose**, **==dog==**, **ox**, **goat**, **duck**, cat) = 5 animals between population range 1-3.
++  (**goose**, **dog**, **==ox==**, **goat**, **duck**, cat) = 5 animals between population range 1-3.
++  (**goose**, **dog**, **ox**, **==goat==**, **duck**, cat) = 5 animals between population range 1-3.
++  (goose, **dog**, **ox**, **goat**, **==duck==**, cat) = 4 animals between population range 2-4.
++  (goose, dog, ox, goat, duck, **==cat==**) = 1 animal between population range 22-24.
+
+```zetasql
+SELECT animal, population, category, COUNT(*)
+  OVER (
+    ORDER BY population
+    RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING
+  ) AS similar_population
+FROM Farm;
+
++----------------------------------------------------------+
+| animal    | population | category   | similar_population |
++----------------------------------------------------------+
+| goose     | 1          | bird       | 4                  |
+| dog       | 2          | mammal     | 5                  |
+| ox        | 2          | mammal     | 5                  |
+| goat      | 2          | mammal     | 5                  |
+| duck      | 3          | bird       | 4                  |
+| cat       | 23         | mammal     | 1                  |
++----------------------------------------------------------+
+```
+
+#### Get the most popular item in each category
+
+This example gets the most popular item in each category. It defines how rows
+in a window are partitioned and ordered in each partition. The
+[`Produce`][produce-table] table is referenced.
+
++  fruit
+   +  (**==banana==**, **apple**) = apple is most popular
+   +  (**banana**, **==apple==**) = apple is most popular
++  vegetable
+   +  (**==leek==**, **cabbage**, **lettuce**, **kale**) = kale is most popular
+   +  (**leek**, **==cabbage==**, **lettuce**, **kale**) = kale is most popular
+   +  (**leek**, **cabbage**, **==lettuce==**, **kale**) = kale is most popular
+   +  (**leek**, **cabbage**, **lettuce**, **==kale==**) = kale is most popular
+
+```zetasql
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (
+    PARTITION BY category
+    ORDER BY purchases
+    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+  ) AS most_popular
+FROM Produce
+
++----------------------------------------------------+
+| item      | purchases  | category   | most_popular |
++----------------------------------------------------+
+| banana    | 2          | fruit      | apple        |
+| apple     | 8          | fruit      | apple        |
+| leek      | 2          | vegetable  | kale         |
+| cabbage   | 9          | vegetable  | kale         |
+| lettuce   | 10         | vegetable  | kale         |
+| kale      | 23         | vegetable  | kale         |
++----------------------------------------------------+
+```
+
+#### Get the last value in a range
+
+This example gets the most popular item in a specific window frame, using
+the [`Produce`][produce-table] table. The window frame analyzes up to three
+rows at a time. Take a close look at the `most_popular` column for vegetables.
+Instead of getting the most popular item in a specific category, it gets the
+most popular item in a specific range in that category.
+
++  fruit
+   +  (**==banana==**, **apple**) = apple is most popular
+   +  (**banana**, **==apple==**) = apple is most popular
++  vegetable
+   +  (**==leek==**, **cabbage**, lettuce, kale) = cabbage is most popular
+   +  (**leek**, **==cabbage==**, **lettuce**, kale) = lettuce is most popular
+   +  (leek, **cabbage**, **==lettuce==**, **kale**) = kale is most popular
+   +  (leek, cabbage, **lettuce**, **==kale==**) = kale is most popular
+
+```zetasql
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (
+    PARTITION BY category
+    ORDER BY purchases
+    ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+  ) AS most_popular
+FROM Produce
+
++----------------------------------------------------+
+| item      | purchases  | category   | most_popular |
++----------------------------------------------------+
+| banana    | 2          | fruit      | apple        |
+| apple     | 8          | fruit      | apple        |
+| leek      | 2          | vegetable  | cabbage      |
+| cabbage   | 9          | vegetable  | lettuce      |
+| lettuce   | 10         | vegetable  | kale         |
+| kale      | 23         | vegetable  | kale         |
++----------------------------------------------------+
+```
+
+This example returns the same results as the preceding example, but it includes
+a named window called `item_window`. Some of the window specifications are
+defined directly in the `OVER` clause and some are defined in the named window.
+
+```zetasql
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (
+    item_window
+    ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+  ) AS most_popular
+FROM Produce
+WINDOW item_window AS (
+  PARTITION BY category
+  ORDER BY purchases)
+```
+
+#### Compute rank
+
+This example calculates the rank of each employee within their department,
+based on their start date. The window specification is defined directly
+in the `OVER` clause. The [`Employees`][employees-table] table is referenced.
+
++  department 1
+   +  (**==Jacob==**, **Anthony**, **Andrew**) = Assign rank 1 to Jacob
+   +  (**Jacob**, **==Anthony==**, **Andrew**) = Assign rank 2 to Anthony
+   +  (**Jacob**, **Anthony**, **==Andrew==**) = Assign rank 3 to Andrew
++  department 2
+   +  (**==Isabella==**, **Daniel**, **Jose**) = Assign rank 1 to Isabella
+   +  (**Isabella**, **==Daniel==**, **Jose**) = Assign rank 2 to Daniel
+   +  (**Isabella**, **Daniel**, **==Jose==**) = Assign rank 3 to Jose
+
+```zetasql
+SELECT name, department, start_date,
+  RANK() OVER (PARTITION BY department ORDER BY start_date) AS rank
+FROM Employees;
+
++--------------------------------------------+
+| name      | department | start_date | rank |
++--------------------------------------------+
+| Jacob     | 1          | 1990-07-11 | 1    |
+| Anthony   | 1          | 1995-11-29 | 2    |
+| Andrew    | 1          | 1999-01-23 | 3    |
+| Isabella  | 2          | 1997-09-28 | 1    |
+| Daniel    | 2          | 2004-06-24 | 2    |
+| Jose      | 2          | 2013-03-17 | 3    |
++--------------------------------------------+
+```
+
+#### Use a named window in a window frame clause 
+<a id="def_use_named_window"></a>
+
+You can define some of your logic in a named window and some of it in a
+window frame clause. This logic is combined. Here is an example, using the
+[`Produce`][produce-table] table.
+
+```zetasql
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (item_window) AS most_popular
+FROM Produce
+WINDOW item_window AS (
+  PARTITION BY category
+  ORDER BY purchases
+  ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)
+
++-------------------------------------------------------+
+| item      | purchases  | category   | most_popular    |
++-------------------------------------------------------+
+| banana    | 2          | fruit      | apple           |
+| apple     | 8          | fruit      | apple           |
+| leek      | 2          | vegetable  | lettuce         |
+| cabbage   | 9          | vegetable  | kale            |
+| lettuce   | 10         | vegetable  | kale            |
+| kale      | 23         | vegetable  | kale            |
++-------------------------------------------------------+
+```
+
+You can also get the previous results with these examples:
+
+```zetasql
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (item_window) AS most_popular
+FROM Produce
+WINDOW
+  a AS (PARTITION BY category),
+  b AS (a ORDER BY purchases),
+  c AS (b ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING),
+  item_window AS (c)
+```
+
+```zetasql
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (item_window ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING) AS most_popular
+FROM Produce
+WINDOW
+  a AS (PARTITION BY category),
+  b AS (a ORDER BY purchases),
+  item_window AS (b)
+```
+
+The following example produces an error because a window frame clause has been
+defined twice:
+
+```zetasql {.bad}
+SELECT item, purchases, category, LAST_VALUE(item)
+  OVER (
+    item_window
+    ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+    ) AS most_popular
+FROM Produce
+WINDOW item_window AS (
+  ORDER BY purchases
+  ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)
+```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[exp-sub-link-to-subqueries]: #subqueries
+[named-window-rules]: #named_window_rules
+
+[over-clause-def]: #def_over_clause
+
+[window-specs-def]: #def_window_spec
+
+[window-frame-clause-def]: #def_window_frame
+
+[named-windows]: #ref_named_window
+
+[produce-table]: #produce_table
+
+[farm-table]: #farm_table
+
+[employees-table]: #employees_table
+
+[analytic-functions-link-to-numbering-functions]: #numbering_function_concepts
+
+[analytic-functions-link-to-navigation-functions]: #navigation_function_concepts
+
+[analytic-functions-compute-grand-total]: #compute_a_grand_total
+
+[analytic-functions-compute-subtotal]: #compute_a_subtotal
+
+[analytic-functions-compute-cumulative-sum]: #compute_a_cumulative_sum
+
+[analytic-functions-compute-moving-avg]: #compute_a_moving_average
+
+[analytic-functions-compute-item-range]: #compute_the_number_of_items_within_a_range
+
+[analytic-functions-get-popular-item]: #get_the_most_popular_item_in_each_category
+
+[analytic-functions-get-last-value-range]: #get_the_last_value_in_a_range
+
+[analytic-functions-compute-rank]: #compute_rank
+
+[analytic-functions-use-named-window]: #def_use_named_window
+
+[analytic-functions-link-to-window]: #window_clause
+
+[analytic-functions-link-to-qualify]: #qualify_clause
+
+[analytic-functions-link-to-hints]: #hints
+
+[navigation-functions-reference]: #navigation_functions
+
+[numbering-functions-reference]: #numbering_functions
+
+[aggregate-analytic-functions-reference]: #aggregate_analytic_functions
 
 <!-- mdlint on -->
 
-## Data types
+## Subqueries
 
-This page provides an overview of all ZetaSQL
-data types, including information about their value
-domains. For
-information on data type literals and constructors, see
-[Lexical Structure and Syntax][lexical-literals].
+### About subqueries
 
-### Data type properties
+A subquery is a [query][subqueries-query-syntax] that appears inside another
+query statement. Subqueries are also referred to as sub-`SELECT`s or
+nested `SELECT`s. The full `SELECT` syntax is valid in subqueries.
 
-When storing and querying data, it is helpful to keep the following data type
-properties in mind:
+### Expression subqueries 
+<a id="expression_subquery_concepts"></a>
 
-#### Nullable data types
+Expression subqueries are used in
+a query wherever expressions are valid. They return a single value, as opposed
+to a column or table. Expression subqueries can be
+[correlated][correlated_subquery_concepts].
 
-For nullable data types, `NULL` is a valid value. Currently, all existing
-data types are nullable.
+#### Scalar subqueries 
+<a id="scalar_subquery_concepts"></a>
 
-#### Orderable data types
+```sql
+( subquery )
+```
 
-Expressions of orderable data types can be used in an `ORDER BY` clause.
-Applies to all data types except for:
+**Description**
 
-+ `PROTO`
-+ `STRUCT`
-+ `JSON`
+A subquery inside an expression is interpreted as a scalar subquery.
+Scalar subqueries are often used in the `SELECT` list or `WHERE` clause.
 
-##### Ordering NULLs 
-<a id="orderable_nulls"></a>
+A scalar subquery must select a single column. Trying to select multiple
+columns will result in an analysis error. A `SELECT` list with a single
+expression is the simplest way to select a single column. The result type
+of the scalar subquery is the type of that expression.
 
-In the context of the `ORDER BY` clause, `NULL`s are the minimum
-possible value; that is, `NULL`s appear first in `ASC` sorts and last in
-`DESC` sorts.
+Another possibility is to use `SELECT AS STRUCT` to define a subquery that
+selects a single `STRUCT` type value whose fields are defined by one or more
+expressions. `SELECT AS ProtocolBufferName`
+can also be used to define a subquery that selects a single `PROTO` value
+of the specified type where one or more expressions define its
+fields.
 
-`NULL` values can be specified as the first or last values for a column
-irrespective of `ASC` or `DESC` by using the `NULLS FIRST` or `NULLS LAST`
-modifiers respectively.
+If the subquery returns exactly one row, that single value is the
+scalar subquery result. If the subquery returns zero rows, the result is `NULL`.
+If the subquery returns more than one row, the query fails with a runtime error.
 
-To learn more about using `ASC`, `DESC`, `NULLS FIRST` and `NULLS LAST`, see
-the [`ORDER BY` clause][order-by-clause].
+**Examples**
 
-##### Ordering floating points 
-<a id="orderable_floating_points"></a>
+In this example, a correlated scalar subquery returns the mascots for
+a list of players, using the [`Players`][example-tables]
+and [`Guilds`][example-tables] tables:
 
-Floating point values are sorted in this order, from least to greatest:
+```sql
+SELECT account, (SELECT mascot FROM Guilds WHERE Players.guild = id) AS player_mascot
+FROM Players;
 
-  1. `NULL`
-  2. `NaN` &mdash; All `NaN` values are considered equal when sorting.
-  3. `-inf`
-  4. Negative numbers
-  5. 0 or -0 &mdash; All zero values are considered equal when sorting.
-  6. Positive numbers
-  7. `+inf`
++---------------------------+
+| account   | player_mascot |
++---------------------------+
+| gorbie    | cardinal      |
+| junelyn   | finch         |
+| corba     | parrot        |
++---------------------------+
+```
 
-##### Ordering arrays 
-<a id="orderable_arrays"></a>
+In this example, an aggregate scalar subquery calculates `avg_level`,
+the average level of a user account in the [`Players`][example-tables] table.
 
-`ARRAY<T>` is orderable if its type, `T`, is orderable. Empty arrays are
-sorted before non-empty arrays. Non-empty arrays are sorted
-lexicographically by element. An array that is a strict prefix of another array
-orders less than the longer array.
+```sql {highlight="lines:1:24-1:55"}
+SELECT account, level, (SELECT AVG(level) FROM Players) AS avg_level
+FROM Players;
 
-Lexicographical ordering for arrays first compares the elements of each array
-from the first element to the last. If an element orders before a corresponding
-element in another array, then the arrays are ordered accordingly. Subsequent
-array elements are ignored.
++---------------------------------------+
+| account   | level      | avg_level    |
++---------------------------------------+
+| gorbie    | 29         | 24.66        |
+| junelyn   | 2          | 24.66        |
+| corba     | 43         | 24.66        |
++---------------------------------------+
+```
 
-For example:
+#### ARRAY subqueries 
+<a id="array_subquery_concepts"></a>
+
+```sql
+ARRAY ( subquery )
+```
+
+**Description**
+
+An ARRAY subquery is a special case of expression subquery, in that it returns
+an ARRAY. If the subquery returns zero
+rows, returns an empty ARRAY.
+Never returns a `NULL` ARRAY.
+
+The `SELECT` list in an ARRAY subquery must have exactly one column of
+any type, which defines the element type of the array returned by the
+array subquery. If not, an error is returned. When the subquery is written with
+`SELECT AS STRUCT` or `SELECT AS ProtocolBufferName`,
+the `SELECT` list can include multiple columns, and the value returned by
+the array subquery is an ARRAY of the constructed
+STRUCTs or PROTOs.
+Selecting multiple columns without using `SELECT AS` is an error.
+
+ARRAY subqueries can use `SELECT AS STRUCT` to build
+arrays of structs. 
+ARRAY subqueries can use `SELECT AS ProtocolBufferName` to build arrays
+of PROTOs.
+
+See [Array functions][array-function] for full semantics.
+
+**Examples**
+
+In this example, an ARRAY subquery returns an array of
+accounts assigned to the red guild in the [`NPCs`][example-tables] table:
+
+```sql {highlight="range:ARRAY,)"}
+SELECT ARRAY(SELECT account FROM NPCs WHERE guild = 'red') as red
+FROM NPCs LIMIT 1;
+
++-----------------+
+| red             |
++-----------------+
+| [niles,jujul]   |
++-----------------+
+```
+
+#### IN subqueries 
+<a id="in_subquery_concepts"></a>
+
+```sql
+value [ NOT ] IN ( subquery )
+```
+
+**Description**
+
+Returns TRUE if `value` is in the set of rows returned by the subquery.
+Returns FALSE if the subquery returns zero rows.
+
+The subquery's SELECT list must have a single column of any type and
+its type must be comparable to the type for `value`. If not, an error is
+returned. For full semantics, including `NULL` handling, see the
+[`IN` operator][in-operator].
+
+If you need to use an `IN` subquery with an array, these are equivalent:
+
+```sql
+value [ NOT ] IN ( subquery )
+value [ NOT ] IN UNNEST( ARRAY( subquery ) )
+```
+
+**Examples**
+
+In this example, the `IN` operator that checks to see if an account called
+`corba` exists within the [`Players`][example-tables] table:
+
+```sql {highlight="lines:1:8-1:47"}
+SELECT "corba" IN (SELECT account FROM Players) as result;
+
++--------+
+| result |
++--------+
+| TRUE   |
++--------+
+```
+
+#### EXISTS subqueries 
+<a id="exists_subquery_concepts"></a>
+
+```sql
+EXISTS( subquery )
+```
+
+**Description**
+
+Returns TRUE if the subquery produces one or more rows. Returns FALSE if the
+subquery produces zero rows. Never returns `NULL`. Unlike all other
+expression subqueries, there are no rules about the column list.
+Any number of columns may be selected and it will not affect the query result.
+
+**Examples**
+
+In this example, the `EXISTS` operator that checks to see if any rows are
+produced, using the [`Players`][example-tables] table:
+
+```sql {highlight="range:EXISTS,)"}
+SELECT EXISTS(SELECT account FROM Players WHERE guild = 'yellow') AS result;
+
++--------+
+| result |
++--------+
+| FALSE  |
++--------+
+```
+
+### Table subqueries 
+<a id="table_subquery_concepts"></a>
+
+```sql
+FROM ( subquery ) [ [ AS ] alias ]
+```
+
+**Description**
+
+With table subqueries, the outer query treats the result of the subquery as a
+table. You can only use these in the `FROM` clause.
+
+**Examples**
+
+In this example, a subquery returns a table of accounts from the
+[`Players`][example-tables] table:
+
+```sql {highlight="range:(,)"}
+SELECT results.account
+FROM (SELECT * FROM Players) AS results;
+
++-----------+
+| account   |
++-----------+
+| gorbie    |
+| junelyn   |
+| corba     |
++-----------+
+```
+
+In this example, a list of [`NPCs`][example-tables] assigned to the red guild
+are returned.
+
+```sql
+SELECT account FROM (
+  WITH red_guild AS (SELECT * FROM NPCs WHERE guild='red')
+  SELECT * FROM red_guild);
+
++-----------+
+| account   |
++-----------+
+| niles     |
+| jujul     |
++-----------+
+```
+
+### Correlated subqueries 
+<a id="correlated_subquery_concepts"></a>
+
+A correlated subquery is a subquery that references a column from outside that
+subquery. Correlation prevents reusing of the subquery result. You can learn
+more about this [here][evaluation-rules-subqueries].
+
+**Examples**
+
+In this example, a list of mascots that don't have any players assigned to them
+are returned. The [`Guilds`][example-tables] and
+[`Players`][example-tables] tables are referenced.
+
+```sql
+SELECT mascot
+FROM Guilds
+WHERE NOT EXISTS(SELECT account FROM Players WHERE Guilds.id = Players.guild)
+
++----------+
+| mascot   |
++----------+
+| sparrow  |
++----------+
+```
+
+In this example, a correlated scalar subquery returns the mascots for
+a list of players, using the [`Players`][example-tables]
+and [`Guilds`][example-tables] tables:
+
+```sql
+SELECT account, (SELECT mascot FROM Guilds WHERE Players.guild = id) AS player_mascot
+FROM Players;
+
++---------------------------+
+| account   | player_mascot |
++---------------------------+
+| gorbie    | cardinal      |
+| junelyn   | finch         |
+| corba     | parrot        |
++---------------------------+
+```
+
+### Volatile subqueries
+
+A volatile subquery is a subquery that does not always produce the same result
+over the same inputs. For example, if a subquery includes a function
+that returns a random number, the subquery is volatile because the result
+is not always the same.
+
+**Examples**
+
+In this example, a random number of accounts is returned from the
+[`Players`][example-tables] table.
+
+```sql
+SELECT results.account
+FROM (SELECT * FROM Players WHERE RAND() < 0.5) AS results;
+
+-- The results are not always the same when you execute
+-- the preceding query, but will look similar to this:
++---------+
+| account |
++---------+
+| gorbie  |
+| junelyn |
++---------+
+```
+
+### Evaluation rules for subqueries 
+<a id="evaluation_rules_subqueries"></a>
+
+Some subqueries are evaluated once, others more often.
+
+*  A non-correlated, volatile subquery may be re-evaluated once per
+   row, depending on your [query plan][query-plan].
+*  A non-correlated, non-volatile subquery can be evaluated once and reused,
+   but may be evaluated as many times as once per row depending on your
+   query plan and execution engine.
+*  A correlated subquery must be logically re-evaluated for every distinct set
+   of parameter values. Depending on your query plan, a correlated
+   subquery may be re-evaluated once per row, even if multiple
+   rows have the same parameter values.
+*  A subquery assigned to a temporary table by `WITH` is evaluated "as-if" once.
+   A query plan may only re-evaluate the subquery if re-evaluating
+   it is guaranteed to produce the same table each time.
+
+### Common tables used in examples 
+<a id="example_tables"></a>
+
+Some examples reference a table called `Players`:
+
+```sql
++-----------------------------+
+| account   | level   | guild |
++-----------------------------+
+| gorbie    | 29      | red   |
+| junelyn   | 2       | blue  |
+| corba     | 43      | green |
++-----------------------------+
+```
+
+Some examples reference a table called `NPCs`:
+
+```sql
++-------------------+
+| account   | guild |
++-------------------+
+| niles     | red   |
+| jujul     | red   |
+| effren    | blue  |
++-------------------+
+```
+
+Some examples reference a table called `Guilds`:
+
+```sql
++-------------------+
+| mascot   | id     |
++-------------------+
+| cardinal | red    |
+| parrot   | green  |
+| finch    | blue   |
+| sparrow  | yellow |
++-------------------+
+```
+
+You can use this `WITH` clause to emulate temporary table names for
+`Players` and `NPCs`
+in subqueries that support the `WITH` clause.:
 
 ```sql
 WITH
-  t AS (
-    SELECT [1, 2] a UNION ALL
-    SELECT [1, NULL] a UNION ALL
-    SELECT [0, 1] UNION ALL
-    SELECT [0, 1, 4] UNION ALL
-    SELECT [0, 1, 5] UNION ALL
-    SELECT [3] UNION ALL
-    SELECT [] UNION ALL
-    SELECT CAST(NULL AS ARRAY<INT64>)
-  )
-SELECT a FROM t ORDER BY a
-
-+-----------+
-| a         |
-+-----------+
-| NULL      |
-| []        |
-| [0, 1]    |
-| [0, 1, 4] |
-| [0, 1, 5] |
-| [1, NULL] |
-| [1, 2]    |
-| [3]       |
-+-----------+
+  Players AS (
+    SELECT 'gorbie' AS account, 29 AS level, 'red' AS guild UNION ALL
+    SELECT 'junelyn', 2 , 'blue' UNION ALL
+    SELECT 'corba', 43, 'green'),
+  NPCs AS (
+    SELECT 'niles' AS account, 'red' AS guild UNION ALL
+    SELECT 'jujul', 'red' UNION ALL
+    SELECT 'effren', 'blue'),
+  Guilds AS (
+    SELECT 'cardinal' AS mascot , 'red' AS id UNION ALL
+    SELECT 'parrot', 'green' UNION ALL
+    SELECT 'finch', 'blue' UNION ALL
+    SELECT 'sparrow', 'yellow')
+SELECT * FROM (
+  SELECT account, guild FROM Players UNION ALL
+  SELECT account, guild FROM NPCs)
 ```
-
-#### Groupable data types
-
-Groupable data types can generally appear in an expression following `GROUP BY`,
-`DISTINCT`, and `PARTITION BY`. However, `PARTITION BY` expressions cannot
-include [floating point types][floating-point-types]. All data types are
-supported except for:
-
-+ `PROTO`
-+ `JSON`
-
-An ARRAY type is groupable if its element type is groupable. Two arrays are in
-the same group if and only if one of the following statements is true:
-
-+ The two arrays are both `NULL`.
-+ The two arrays have the same number of elements and all corresponding
-  elements are in the same groups.
-
-A STRUCT type is groupable if its field types are groupable. Two structs
-are in the same group if and only if one of the following statements is true:
-
-+ The two structs are both `NULL`.
-+ All corresponding field values between the structs are in the same groups.
-
-Special floating point values are grouped in the following way, including
-both grouping done by a `GROUP BY` clause and grouping done by the
-`DISTINCT` keyword:
-
-  * `NULL`
-  * `NaN` &mdash; All `NaN` values are considered equal when grouping.
-  * `-inf`
-  * 0 or -0 &mdash; All zero values are considered equal when grouping.
-  * `+inf`
-
-#### Comparable data types
-
-Values of the same comparable data type can be compared to each other.
-All data types are supported except for:
-
-+ `PROTO`
-+ `JSON`
-
-Notes:
-
-+ Equality comparisons for `ARRAY` data types are supported as long as the
-  element types are the same, and the element types are comparable. Less than
-  and greater than comparisons are not supported.
-+ Equality comparisons for `STRUCT`s are supported field by field, in
-  field order. Field names are ignored. Less than and greater than comparisons
-  are not supported.
-+ All types that support comparisons can be used in a `JOIN` condition.
- See [JOIN Types][join-types] for an explanation of join conditions.
-
-The maximum size of a  column value is 10MiB, which applies to
-scalar and array types.
-
-### Array type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>ARRAY</code></td>
-<td>Ordered list of zero or more elements of any non-ARRAY type.</td>
-</tr>
-</tbody>
-</table>
-
-An ARRAY is an ordered list of zero or more elements of non-ARRAY values.
-Elements in an array must share the same type.
-
-ARRAYs of ARRAYs are not allowed. Queries that would produce an ARRAY of
-ARRAYs will return an error. Instead, a STRUCT must be inserted between the
-ARRAYs using the `SELECT AS STRUCT` construct.
-
-An empty ARRAY and a `NULL` ARRAY are two distinct values. ARRAYs can contain
-`NULL` elements.
-
-#### Declaring an ARRAY type
-
-```
-ARRAY<T>
-```
-
-ARRAY types are declared using the angle brackets (`<` and `>`). The type
-of the elements of an ARRAY can be arbitrarily complex with the exception that
-an ARRAY cannot directly contain another ARRAY.
-
-**Examples**
-
-<table>
-<thead>
-<tr>
-<th>Type Declaration</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>
-ARRAY&lt;INT64&gt;
-</code>
-</td>
-<td>Simple ARRAY of 64-bit integers.</td>
-</tr>
-<tr>
-<td style="white-space:nowrap">
-<code>
-ARRAY&lt;STRUCT&lt;INT64, INT64&gt;&gt;
-</code>
-</td>
-<td>An ARRAY of STRUCTs, each of which contains two 64-bit integers.</td>
-</tr>
-<tr>
-<td style="white-space:nowrap">
-<code>
-ARRAY&lt;ARRAY&lt;INT64&gt;&gt;
-</code><br/>
-(not supported)
-</td>
-<td>This is an <strong>invalid</strong> type declaration which is included here
-just in case you came looking for how to create a multi-level ARRAY. ARRAYs
-cannot contain ARRAYs directly. Instead see the next example.</td>
-</tr>
-<tr>
-<td style="white-space:nowrap">
-<code>
-ARRAY&lt;STRUCT&lt;ARRAY&lt;INT64&gt;&gt;&gt;
-</code>
-</td>
-<td>An ARRAY of ARRAYS of 64-bit integers. Notice that there is a STRUCT between
-the two ARRAYs because ARRAYs cannot hold other ARRAYs directly.</td>
-</tr>
-<tbody>
-</table>
-
-#### Constructing an ARRAY 
-<a id="constructing_an_array"></a>
-
-You can construct an ARRAY using array literals or array functions. To learn
-how, see [Working with arrays][working-with-arrays].
-
-### Boolean type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>BOOL</code></td>
-<td>Boolean values are represented by the keywords <code>TRUE</code> and
-<code>FALSE</code> (case insensitive).</td>
-</tr>
-</tbody>
-</table>
-
-Boolean values are sorted in this order, from least to greatest:
-
-  1. `NULL`
-  1. `FALSE`
-  1. `TRUE`
-
-### Bytes type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>BYTES</code></td>
-<td>Variable-length binary data.</td>
-</tr>
-</tbody>
-</table>
-
-STRING and BYTES are separate types that cannot be used interchangeably. Most
-functions on STRING are also defined on BYTES. The BYTES version operates on raw
-bytes rather than Unicode characters. Casts between STRING and BYTES enforce
-that the bytes are encoded using UTF-8.
-
-### Date type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Range</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>DATE</code></td>
-<td>0001-01-01 to 9999-12-31.</td>
-</tr>
-</tbody>
-</table>
-
-The DATE type represents a logical calendar date, independent of time zone. A
-DATE value does not represent a specific 24-hour time period. Rather, a given
-DATE value represents a different 24-hour period when interpreted in different
-time zones, and may represent a shorter or longer day during Daylight Savings
-Time transitions.
-To represent an absolute point in time,
-use a [timestamp][timestamp-type].
-
-##### Canonical format
-
-```
-'YYYY-[M]M-[D]D'
-```
-
-+ `YYYY`: Four-digit year
-+ `[M]M`: One or two digit month
-+ `[D]D`: One or two digit day
-
-### Datetime type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Range</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>DATETIME</code></td>
-<td>
-    
-        0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999999<br/>
-        <hr/>
-        0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999<br/>
-    
-</td>
-</tr>
-</tbody>
-</table>
-
-A DATETIME object represents a date and time, as they might be displayed
-on a calendar or clock, independent of time zone.
-It includes the year, month, day, hour, minute, second,
-and subsecond.
-The range of subsecond precision is determined by the SQL engine.
-To represent an absolute point in time,
-use a [timestamp][timestamp-type].
-
-##### Canonical format
-
-```
-YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.F]]
-```
-
-<ul>
-    <li><code>YYYY</code>: Four-digit year</li>
-    <li><code>[M]M</code>: One or two digit month</li>
-    <li><code>[D]D</code>: One or two digit day</li>
-    <li><code>( |T)</code>: A space or a `T` separator</li>
-    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
-    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
-    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
-    <li>
-      <code>[.F]</code>: Up to nine fractional
-      digits (nanosecond precision)
-    </li>
-</ul>
-
-### Enum type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>ENUM</code></td>
-<td>Named type that maps STRING constants to INT32 constants.</td>
-</tr>
-</tbody>
-</table>
-
-An ENUM is a named type that enumerates a list of possible values, each of which
-has:
-
-+ An integer value. Integers are used for comparison and ordering ENUM values.
-There is no requirement that these integers start at zero or that they be
-contiguous.
-+ A string value. Strings are case sensitive.
-+ Optional alias values. One or more additional string values that act as
-aliases.
-
-Enum values are referenced using their integer value or their string value.
-You reference an ENUM type, such as when using CAST, by using its fully
-qualified name.
-
-You cannot create new ENUM types using ZetaSQL.
-
-### Interval type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Range</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>INTERVAL</code></td>
-<td>
--10000-0 -3660000 -87840000:0:0 to 10000-0 3660000 87840000:0:0
-</td>
-</tr>
-</tbody>
-</table>
-
-An INTERVAL object represents duration or amount of time.
-Interval is composed of three independent parts:
-<ul>
-  <li>`[sign]Y-M`: Years and Months</li>
-  <li>`[sign]D`: Days</li>
-  <li>
-    `[sign]H:M:S.F`: Hours, Minutes, Seconds and
-    Subseconds. The
-    range of subsecond precision is determined by the SQL engine.
-  </li>
-</ul>
-
-##### Canonical format
-
-```
-[sign]Y-M [sign]D [sign]H:M:S[.F]
-```
-
-<ul>
-    <li><code>Y</code>: Year</li>
-    <li><code>M</code>: Month</li>
-    <li><code>D</code>: Day</li>
-    <li><code>H</code>: Hour</li>
-    <li><code>M</code>: Minute</li>
-    <li><code>S</code>: Second</li>
-    <li>
-      <code>[.F]</code>: Up to nine fractional
-      digits (nanosecond precision)
-    </li>
-</ul>
-
-### JSON type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>JSON</code></td>
-<td>Represents JSON, a lightweight data-interchange format.</td>
-</tr>
-</tbody>
-</table>
-
-Expect these canonicalization behaviors when creating a value of `JSON` type:
-
-+  Booleans, strings, and nulls are preserved exactly.
-+  Whitespace characters are not preserved.
-+  A JSON value can store integers in the range of
-   -9,223,372,036,854,775,808 (minimal signed 64-bit integer) to
-   18,446,744,073,709,551,615 (maximal unsigned 64-bit integer) and
-   floating point numbers within a domain of
-   `DOUBLE`.
-+  The order of elements in an array is preserved exactly.
-+  The order of the members of an object is not guaranteed or preserved.
-+  If an object has duplicate keys, the first key that is found is preserved.
-+  The format of the original string representation of a JSON number may not be
-   preserved.
-
-### Numeric types
-
-Numeric types include the following types:
-
-* `INT32`
-* `UINT32`
-* `INT64`
-* `UINT64`
-* `NUMERIC` with alias `DECIMAL`
-* `BIGNUMERIC` with alias `BIGDECIMAL`
-* `FLOAT`
-* `DOUBLE`
-
-#### Integer types
-
-Integers are numeric values that do not have fractional components.
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Range</th>
-</tr>
-</thead>
-<tbody>
-
-<tr>
-<td><code>INT32</code></td>
-<td>-2,147,483,648 to 2,147,483,647</td>
-</tr>
-
-<tr>
-<td><code>UINT32</code></td>
-<td>0 to 4,294,967,295</td>
-</tr>
-
-<tr>
-<td><code>INT64</code>
-</td>
-<td>-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807</td>
-</tr>
-
-<tr>
-<td><code>UINT64</code></td>
-<td>0 to 18,446,744,073,709,551,615</td>
-</tr>
-
-</tbody>
-</table>
-
-#### Decimal types 
-<a id="decimal_types"></a>
-
-Decimal type values are numeric values with fixed decimal precision and scale.
-Precision is the number of digits that the number contains. Scale is
-how many of these digits appear after the decimal point.
-
-This type can represent decimal fractions exactly, and is suitable for financial
-calculations.
-
-<table>
-<thead>
-<tr>
-  <th>Name</th>
-  <th>Precision, Scale, and Range</th>
-</tr>
-</thead>
-<tbody>
-
-<tr id="numeric_type">
-  <td id="numeric-type" style="vertical-align:middle"><code>NUMERIC</code>
-    <br><code>DECIMAL</code></td>
-  <td style="vertical-align:middle">
-    Precision: 38<br>
-    Scale: 9<br>
-    Min: -9.9999999999999999999999999999999999999E+28<br>
-    Max: 9.9999999999999999999999999999999999999E+28
-  </td>
-</tr>
-
-<tr id="bignumeric_type">
-  <td id="bignumeric-type" style="vertical-align:middle"><code>BIGNUMERIC</code>
-    <br><code>BIGDECIMAL</code></td>
-  <td style="vertical-align:middle">
-    Precision: 76.76 (the 77th digit is partial)<br>
-    Scale: 38<br>
-    Min: <small>-5.7896044618658097711785492504343953926634992332820282019728792003956564819968E+38</small><br>
-    Max: <small>5.7896044618658097711785492504343953926634992332820282019728792003956564819967E+38</small>
-  </td>
-</tr>
-
-</tbody>
-</table>
-
-`DECIMAL` is an alias for `NUMERIC`.
-`BIGDECIMAL` is an alias for `BIGNUMERIC`.
-
-#### Floating point types 
-<a id="floating_point_types"></a>
-
-Floating point values are approximate numeric values with fractional components.
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-
-<tr>
-<td><code>FLOAT</code></td>
-<td>Single precision (approximate) numeric values.</td>
-</tr>
-
-<tr>
-<td><code>DOUBLE</code></td>
-<td>Double precision (approximate) numeric values.</td>
-</tr>
-</tbody>
-</table>
-
-##### Floating point semantics
-
-When working with floating point numbers, there are special non-numeric values
-that need to be considered: `NaN` and `+/-inf`
-
-Arithmetic operators provide standard IEEE-754 behavior for all finite input
-values that produce finite output and for all operations for which at least one
-input is non-finite.
-
-Function calls and operators return an overflow error if the input is finite
-but the output would be non-finite. If the input contains non-finite values, the
-output can be non-finite. In general functions do not introduce `NaN`s or
-`+/-inf`. However, specific functions like `IEEE_DIVIDE` can return non-finite
-values on finite input. All such cases are noted explicitly in
-[Mathematical functions][mathematical-functions].
-
-Floating point values are approximations.
-
-+ The binary format used to represent floating point values can only represent
-  a subset of the numbers between the most positive number and most
-  negative number in the value range. This enables efficient handling of a
-  much larger range than would be possible otherwise.
-  Numbers that are not exactly representable are approximated by utilizing a
-  close value instead. For example, `0.1` cannot be represented as an integer
-  scaled by a power of `2`. When this value is displayed as a string, it is
-  rounded to a limited number of digits, and the value approximating `0.1`
-  might appear as `"0.1"`, hiding the fact that the value is not precise.
-  In other situations, the approximation can be visible.
-+ Summation of floating point values might produce surprising results because
-  of [limited precision][floating-point-accuracy]. For example,
-  `(1e30 + 1e-20) - 1e30 = 0`, while `(1e30 - 1e30) + 1e-20 = 1e-20`. This is
-  because the floating point value does not have enough precision to
-  represent `(1e30 + 1e-20)`, and the result is rounded to `1e30`.
-  This example also shows that the result of the `SUM` aggregate function of
-  floating points values depends on the order in which the values are
-  accumulated. In general, this order is not deterministic and therefore the
-  result is not deterministic. Thus, the resulting `SUM` of
-  floating point values might not be deterministic and two executions of the
-  same query on the same tables might produce different results.
-+ If the above points are concerning, use a
-  [decimal type][decimal-types] instead.
-
-##### Mathematical function examples
-
-<table>
-<thead>
-<tr>
-<th>Left Term</th>
-<th>Operator</th>
-<th>Right Term</th>
-<th>Returns</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Any value</td>
-<td><code>+</code></td>
-<td><code>NaN</code></td>
-<td><code>NaN</code></td>
-</tr>
-<tr>
-<td>1.0</td>
-<td><code>+</code></td>
-<td><code>+inf</code></td>
-<td><code>+inf</code></td>
-</tr>
-<tr>
-<td>1.0</td>
-<td><code>+</code></td>
-<td><code>-inf</code></td>
-<td><code>-inf</code></td>
-</tr>
-<tr>
-<td><code>-inf</code></td>
-<td><code>+</code></td>
-<td><code>+inf</code></td>
-<td><code>NaN</code></td>
-</tr>
-<tr>
-<td>Maximum <code>DOUBLE</code> value</td>
-<td><code>+</code></td>
-<td>Maximum <code>DOUBLE</code> value</td>
-<td>Overflow error</td>
-</tr>
-<tr>
-<td>Minimum <code>DOUBLE</code> value</td>
-<td><code>/</code></td>
-<td>2.0</td>
-<td>0.0</td>
-</tr>
-<tr>
-<td>1.0</td>
-<td><code>/</code></td>
-<td><code>0.0</code></td>
-<td>"Divide by zero" error</td>
-</tr>
-</tbody>
-</table>
-
-Comparison operators provide standard IEEE-754 behavior for floating point
-input.
-
-##### Comparison operator examples
-
-<table>
-<thead>
-<tr>
-<th>Left Term</th>
-<th>Operator</th>
-<th>Right Term</th>
-<th>Returns</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>NaN</code></td>
-<td><code>=</code></td>
-<td>Any value</td>
-<td><code>FALSE</code></td>
-</tr>
-<tr>
-<td><code>NaN</code></td>
-<td><code>&lt;</code></td>
-<td>Any value</td>
-<td><code>FALSE</code></td>
-</tr>
-<tr>
-<td>Any value</td>
-<td><code>&lt;</code></td>
-<td><code>NaN</code></td>
-<td><code>FALSE</code></td>
-</tr>
-<tr>
-<td>-0.0</td>
-<td><code>=</code></td>
-<td>0.0</td>
-<td><code>TRUE</code></td>
-</tr>
-<tr>
-<td>-0.0</td>
-<td><code>&lt;</code></td>
-<td>0.0</td>
-<td><code>FALSE</code></td>
-</tr>
-</tbody>
-</table>
-
-For more information on how these values are ordered and grouped so they
-can be compared,
-see [Ordering floating point values][orderable-floating-points].
-
-### Protocol buffer type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>PROTO</code></td>
-<td>An instance of protocol buffer.</td>
-</tr>
-</tbody>
-</table>
-
-Protocol buffers provide structured data types with a defined serialization
-format and cross-language support libraries. Protocol buffer message types can
-contain optional, required or repeated fields, including nested messages. See
-the
-[Protocol Buffers Developer Guide][protocol-buffers-dev-guide] for more detail.
-
-Protocol buffer message types behave similarly to STRUCT types, and support
-similar operations like reading field values by name. Protocol buffer types are
-always named types, and can be referred to by their fully-qualified protocol
-buffer name (i.e. `package.ProtoName`). Protocol buffers support some additional
-behavior beyond STRUCTs, like default field values, and checking for the
-presence of optional fields.
-
-Protocol buffer ENUM types are also available and can be referenced using the
-fully-qualified ENUM type name.
-
-See [Using Protocol Buffers][protocol-buffers]
-for more information.
-
-#### Constructing a PROTO 
-<a id="constructing_a_proto"></a>
-
-You can construct a PROTO with the `NEW` keyword or with the
-`SELECT AS typename` statement. To learn how, see
-[Using Protocol Buffers][protocol-buffers].
-
-#### Limited comparisons for PROTO
-
-No direct comparison of PROTO values is supported. There are a couple possible
-workarounds:
-
-+ The most accurate way to compare PROTOs is to do a pair-wise comparison
-  between the fields of the PROTOs. This can also be used to `GROUP BY` or
-  `ORDER BY` PROTO fields.
-+ To get a simple approximation for inequality comparisons, you can cast PROTO
-  to STRING. Note that this will do lexicographical ordering for numeric
-  fields.
-
-### String type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>STRING</code></td>
-<td>Variable-length character (Unicode) data.</td>
-</tr>
-</tbody>
-</table>
-
-Input STRING values must be UTF-8 encoded and output STRING values will be UTF-8
-encoded. Alternate encodings like CESU-8 and Modified UTF-8 are not treated as
-valid UTF-8.
-
-All functions and operators that act on STRING values operate on Unicode
-characters rather than bytes. For example, functions like `SUBSTR` and `LENGTH`
-applied to STRING input count the number of characters, not bytes.
-
-Each Unicode character has a numeric value called a code point assigned to it.
-Lower code points are assigned to lower characters. When characters are
-compared, the code points determine which characters are less than or greater
-than other characters.
-
-Most functions on STRING are also defined on BYTES. The BYTES version operates
-on raw bytes rather than Unicode characters. STRING and BYTES are separate types
-that cannot be used interchangeably. There is no implicit casting in either
-direction. Explicit casting between STRING and BYTES does UTF-8 encoding and
-decoding. Casting BYTES to STRING returns an error if the bytes are not
-valid UTF-8.
-
-### Struct type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>STRUCT</code></td>
-<td>Container of ordered fields each with a type (required) and field name
-(optional).</td>
-</tr>
-</tbody>
-</table>
-
-#### Declaring a STRUCT type
-
-```
-STRUCT<T>
-```
-
-STRUCT types are declared using the angle brackets (`<` and `>`). The type of
-the elements of a STRUCT can be arbitrarily complex.
-
-**Examples**
-
-<table>
-<thead>
-<tr>
-<th>Type Declaration</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>
-STRUCT&lt;INT64&gt;
-</code>
-</td>
-<td>Simple STRUCT with a single unnamed 64-bit integer field.</td>
-</tr>
-<tr>
-<td style="white-space:nowrap">
-<code>
-STRUCT&lt;x STRUCT&lt;y INT64, z INT64&gt;&gt;
-</code>
-</td>
-<td>A STRUCT with a nested STRUCT named <code>x</code> inside it. The STRUCT
-<code>x</code> has two fields, <code>y</code> and <code>z</code>, both of which
-are 64-bit integers.</td>
-</tr>
-<tr>
-<td style="white-space:nowrap">
-<code>
-STRUCT&lt;inner_array ARRAY&lt;INT64&gt;&gt;
-</code>
-</td>
-<td>A STRUCT containing an ARRAY named <code>inner_array</code> that holds
-64-bit integer elements.</td>
-</tr>
-<tbody>
-</table>
-
-#### Constructing a STRUCT 
-<a id="constructing_a_struct"></a>
-
-##### Tuple syntax
-
-```
-(expr1, expr2 [, ... ])
-```
-
-The output type is an anonymous STRUCT type with anonymous fields with types
-matching the types of the input expressions. There must be at least two
-expressions specified. Otherwise this syntax is indistinguishable from an
-expression wrapped with parentheses.
-
-**Examples**
-
-<table>
-<thead>
-<tr>
-<th>Syntax</th>
-<th>Output Type</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td style="white-space:nowrap"><code>(x, x+y)</code></td>
-<td style="white-space:nowrap"><code>STRUCT&lt;?,?&gt;</code></td>
-<td>If column names are used (unquoted strings), the STRUCT field data type is
-derived from the column data type. <code>x</code> and <code>y</code> are
-columns, so the data types of the STRUCT fields are derived from the column
-types and the output type of the addition operator.</td>
-</tr>
-</tbody>
-</table>
-
-This syntax can also be used with STRUCT comparison for comparison expressions
-using multi-part keys, e.g. in a `WHERE` clause:
-
-```
-WHERE (Key1,Key2) IN ( (12,34), (56,78) )
-```
-
-##### Typeless struct syntax
-
-```
-STRUCT( expr1 [AS field_name] [, ... ])
-```
-
-Duplicate field names are allowed. Fields without names are considered anonymous
-fields and cannot be referenced by name. STRUCT values can be `NULL`, or can
-have `NULL` field values.
-
-**Examples**
-
-<table>
-<thead>
-<tr>
-<th>Syntax</th>
-<th>Output Type</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>STRUCT(1,2,3)</code></td>
-<td><code>STRUCT&lt;int64,int64,int64&gt;</code></td>
-</tr>
-<tr>
-<td><code>STRUCT()</code></td>
-<td><code>STRUCT&lt;&gt;</code></td>
-</tr>
-<tr>
-<td><code>STRUCT('abc')</code></td>
-<td><code>STRUCT&lt;string&gt;</code></td>
-</tr>
-<tr>
-<td><code>STRUCT(1, t.str_col)</code></td>
-<td><code>STRUCT&lt;int64, str_col string&gt;</code></td>
-</tr>
-<tr>
-<td><code>STRUCT(1 AS a, 'abc' AS b)</code></td>
-<td><code>STRUCT&lt;a int64, b string&gt;</code></td>
-</tr>
-<tr>
-<td><code>STRUCT(str_col AS abc)</code></td>
-<td><code>STRUCT&lt;abc string&gt;</code></td>
-</tr>
-</tbody>
-</table>
-
-##### Typed struct syntax
-
-```
-STRUCT<[field_name] field_type, ...>( expr1 [, ... ])
-```
-
-Typed syntax allows constructing STRUCTs with an explicit STRUCT data type. The
-output type is exactly the `field_type` provided. The input expression is
-coerced to `field_type` if the two types are not the same, and an error is
-produced if the types are not compatible. `AS alias` is not allowed on the input
-expressions. The number of expressions must match the number of fields in the
-type, and the expression types must be coercible or literal-coercible to the
-field types.
-
-**Examples**
-
-<table>
-<thead>
-<tr>
-<th>Syntax</th>
-<th>Output Type</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>STRUCT&lt;int64&gt;(5)</code></td>
-<td><code>STRUCT&lt;int64&gt;</code></td>
-</tr>
-
-<tr>
-<td><code>STRUCT&lt;date&gt;("2011-05-05")</code></td>
-<td><code>STRUCT&lt;date&gt;</code></td>
-</tr>
-
-<tr>
-<td><code>STRUCT&lt;x int64, y string&gt;(1, t.str_col)</code></td>
-<td><code>STRUCT&lt;x int64, y string&gt;</code></td>
-</tr>
-<tr>
-<td><code>STRUCT&lt;int64&gt;(int_col)</code></td>
-<td><code>STRUCT&lt;int64&gt;</code></td>
-</tr>
-<tr>
-<td><code>STRUCT&lt;x int64&gt;(5 AS x)</code></td>
-<td>Error - Typed syntax does not allow <code>AS</code></td>
-</tr>
-</tbody>
-</table>
-
-#### Limited comparisons for STRUCT
-
-STRUCTs can be directly compared using equality operators:
-
-  * Equal (`=`)
-  * Not Equal (`!=` or `<>`)
-  * [`NOT`] `IN`
-
-Notice, though, that these direct equality comparisons compare the fields of
-the STRUCT pairwise in ordinal order ignoring any field names. If instead you
-want to compare identically named fields of a STRUCT, you can compare the
-individual fields directly.
-
-### Time type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Range</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>TIME</code></td>
-
-    <td>
-        00:00:00 to 23:59:59.999999999<br/>
-        <hr/>
-        00:00:00 to 23:59:59.999999<br/>
-    </td>
-
-</tr>
-</tbody>
-</table>
-
-A TIME object represents a time, as might be displayed on a watch,
-independent of a specific date and timezone.
-The range of
-subsecond precision is determined by the
-SQL engine. To represent
-an absolute point in time, use a [timestamp][timestamp-type].
-
-##### Canonical format
-
-```
-[H]H:[M]M:[S]S[.DDDDDD|.F]
-```
-
-<ul>
-    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
-    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
-    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
-    <li>
-      <code>[.F]</code>: Up to nine fractional
-      digits (nanosecond precision)
-    </li>
-</ul>
-
-### Timestamp type
-
-<table>
-<thead>
-<tr>
-<th>Name</th>
-<th>Range</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>TIMESTAMP</code></td>
-
-    <td>
-      0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999999 UTC<br/>
-      <hr/>
-      0001-01-01 00:00:00 to 9999-12-31 23:59:59.999999 UTC<br/>
-    </td>
-
-</tr>
-</tbody>
-</table>
-
-A TIMESTAMP object represents an absolute point in time,
-independent of any time zone or convention such as Daylight Savings Time
-with
-microsecond or nanosecond
-precision.
-The range of subsecond precision is determined by the SQL engine.
-
-+  To represent a date as it might appear on a calendar,
-   use a [DATE][date-type] object.
-+  To represent a time, as it might appear on a clock,
-   use a [TIME][time-type] object.
-+  To represent a date and time, as they might appear on a calendar and clock,
-   use a [DATETIME][datetime-type] object.
-
-<div>
-
-</div>
-
-##### Canonical format
-
-```
-YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.F]][time zone]
-```
-
-<ul>
-    <li><code>YYYY</code>: Four-digit year</li>
-    <li><code>[M]M</code>: One or two digit month</li>
-    <li><code>[D]D</code>: One or two digit day</li>
-    <li><code>( |T)</code>: A space or a `T` separator</li>
-    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
-    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
-    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
-    <li>
-      <code>[.F]</code>: Up to nine fractional
-      digits (nanosecond precision)
-    </li>
-    <li><code>[time zone]</code>: String representing the time zone.
-                                  When a time zone is not explicitly specified, the
-                                  default time zone, which is implementation defined, is used.
-                                  See the <a href="#time_zones">time zones</a> section for details.
-   </li>
-</ul>
-
-#### Time zones
-
-Time zones are used when parsing timestamps or formatting timestamps
-for display. The timestamp value itself does not store a specific time zone,
-nor does it change when you apply a time zone offset.
-
-Time zones are represented by strings in one of these two canonical formats:
-
-+ Offset from Coordinated Universal Time (UTC), or the letter `Z` for UTC
-+ Time zone name from the [tz database][tz-database]{: class=external target=_blank }
-
-##### Offset from Coordinated Universal Time (UTC)
-
-```
-(+|-)H[H][:M[M]]
-Z
-```
-
-**Examples**
-
-```
--08:00
--8:15
-+3:00
-+07:30
--7
-Z
-```
-
-When using this format, no space is allowed between the time zone and the rest
-of the timestamp.
-
-```
-2014-09-27 12:30:00.45-8:00
-2014-09-27T12:30:00.45Z
-```
-
-##### Time zone name
-
-```
-continent/[region/]city
-```
-
-Time zone names are from the [tz database][tz-database]{: class=external target=_blank }.
-For a less comprehensive but simpler reference, see the
-[List of tz database time zones][tz-database-list]{: class=external target=_blank }
-on Wikipedia.
-
-**Examples**
-
-```
-America/Los_Angeles
-America/Argentina/Buenos_Aires
-```
-
-When using a time zone name, a space is required between the name and the rest
-of the timestamp:
-
-```
-2014-09-27 12:30:00.45 America/Los_Angeles
-```
-
-Note that not all time zone names are interchangeable even if they do happen to
-report the same time during a given part of the year. For example,
-`America/Los_Angeles` reports the same time as `UTC-7:00` during Daylight
-Savings Time, but reports the same time as `UTC-8:00` outside of Daylight
-Savings Time.
-
-If a time zone is not specified, the default time zone value is used.
-
-##### Leap seconds
-
-A timestamp is simply an offset from 1970-01-01 00:00:00 UTC, assuming there are
-exactly 60 seconds per minute. Leap seconds are not represented as part of a
-stored timestamp.
-
-If the input contains values that use ":60" in the seconds field to represent a
-leap second, that leap second is not preserved when converting to a timestamp
-value. Instead that value is interpreted as a timestamp with ":00" in the
-seconds field of the following minute.
-
-Leap seconds do not affect timestamp computations. All timestamp computations
-are done using Unix-style timestamps, which do not reflect leap seconds. Leap
-seconds are only observable through functions that measure real-world time. In
-these functions, it is possible for a timestamp second to be skipped or repeated
-when there is a leap second.
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[floating-point-accuracy]: https://en.wikipedia.org/wiki/Floating-point_arithmetic#Accuracy_problems
+[query-plan]: https://en.wikipedia.org/wiki/Query_plan
 
-[protocol-buffers-dev-guide]: https://developers.google.com/protocol-buffers/docs/overview
+[about-subqueries]: #about_subqueries
 
-[tz-database]: http://www.iana.org/time-zones
+[evaluation-rules-subqueries]: #evaluation_rules_subqueries
 
-[tz-database-list]: http://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+[example-tables]: #example_tables
 
-[ogc-sfs]: http://www.opengeospatial.org/standards/sfs#downloads
+[correlated_subquery_concepts]: #correlated_subquery_concepts
 
-[WGS84-reference-ellipsoid]: https://en.wikipedia.org/wiki/World_Geodetic_System
+[subqueries-query-syntax]: #query-syntax
 
-[decimal-types]: #decimal_types
+[in-operator]: #in_operators
 
-[timestamp-type]: #timestamp_type
+[array-function]: #array
 
-[date-type]: #date_type
-
-[datetime-type]: #datetime_type
-
-[time-type]: #time_type
-
-[interval-type]: #interval_type
-
-[floating-point-types]: #floating_point_types
-
-[orderable-floating-points]: #orderable_floating_points
-
-[orderable-nulls]: #orderable_nulls
-
-[protocol-buffers]: #protocol-buffers
-
-[lexical-literals]: #literals
-
-[working-with-arrays]: #constructing_arrays
-
-[join-types]: #join_types
-
-[order-by-clause]: #order_by_clause
-
-[geography-functions]: #geography_functions
-
-[mathematical-functions]: #mathematical_functions
-
-[st-equals]: #st_equals
+[aggregate-functions]: #aggregate_functions
 
 <!-- mdlint on -->
+
+---
 
 ## Query syntax
 
@@ -5571,9 +11811,11 @@ ZetaSQL.
     [ <a href="#limit_and_offset_clause">LIMIT</a> <span class="var">count</span> [ OFFSET <span class="var">skip_rows</span> ] ]
 
 <span class="var">select</span>:
-    <a href="#select_list">SELECT</a> [ AS { <span class="var"><a href="#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ] [{ ALL | DISTINCT }]
-        { [ <span class="var">expression</span>. ]* [ <a href="#select_except">EXCEPT</a> ( <span class="var">column_name</span> [, ...] ) ]<br>            [ <a href="#select_replace">REPLACE</a> ( <span class="var">expression</span> [ AS ] <span class="var">column_name</span> [, ...] ) ]<br>        | <span class="var">expression</span> [ [ AS ] <span class="var">alias</span> ] } [, ...]
+    <a href="#select_list">SELECT</a>
         [ <a href="#anon_clause">WITH ANONYMIZATION</a> OPTIONS( privacy_parameters ) ]
+        [ { ALL | DISTINCT } ]
+        [ AS { <span class="var"><a href="#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ]
+        <a href="#select_list"><span class="var">select_list</span></a>
     [ <a href="#from_clause">FROM</a> <a href="#from_clause"><span class="var">from_clause</span></a>[, ...] ]
     [ <a href="#where_clause">WHERE</a> <span class="var">bool_expression</span> ]
     [ <a href="#group_by_clause">GROUP</a> BY { <span class="var">expression</span> [, ...] | ROLLUP ( <span class="var">expression</span> [, ...] ) } ]
@@ -5687,11 +11929,26 @@ WITH TeamMascot AS
 SELECT * FROM TeamMascot
 ```
 
-### SELECT list
+### SELECT statement 
+<a id="select_list"></a>
 
 <pre>
-SELECT [ AS { <span class="var">typename</span> | STRUCT | VALUE } ] [{ ALL | DISTINCT }]
-    { [ <span class="var">expression</span>. ]* [ EXCEPT ( <span class="var">column_name</span> [, ...] ) ]<br>        [ REPLACE ( <span class="var">expression</span> [ AS ] <span class="var">column_name</span> [, ...] ) ]<br>    | <span class="var">expression</span> [ [ AS ] <span class="var">alias</span> ] } [, ...]
+SELECT
+    [ <a href="#anon_clause">WITH ANONYMIZATION</a> OPTIONS( privacy_parameters ) ]
+    [ { ALL | DISTINCT } ]
+    [ AS { <span class="var"><a href="#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ]
+   <span class="var">select_list</span>
+
+<span class="var">select_list</span>:
+    { <span class="var">select_all</span> | <span class="var">select_expression</span> } [, ...]
+
+<span class="var">select_all</span>:
+    [ <span class="var">expression</span>. ]*
+    [ EXCEPT ( <span class="var">column_name</span> [, ...] ) ]
+    [ REPLACE ( <span class="var">expression</span> [ AS ] <span class="var">column_name</span> [, ...] ) ]
+
+<span class="var">select_expression</span>:
+    <span class="var">expression</span> [ [ AS ] <span class="var">alias</span> ]
 </pre>
 
 The `SELECT` list defines the columns that the query will return. Expressions in
@@ -6115,6 +12372,9 @@ for the duration of the query, unless you qualify the table name, for example:
     }
     [ <span class="var">as_alias</span> ]
     [ WITH OFFSET [ <span class="var">as_alias</span> ] ]
+
+<span class="var">as_alias</span>:
+    [AS] <span class="var">alias</span>
 </pre>
 
 The `UNNEST` operator takes an `ARRAY` and returns a
@@ -6324,20 +12584,30 @@ to flatten nested data into a table, see
 
 #### UNNEST and NULLs
 
-`UNNEST` treats NULLs as follows:
+`UNNEST` treats `NULL`s as follows:
 
-+  NULL and empty arrays produces zero rows.</li>
-+  An array containing NULLs produces rows containing NULL values.
++  `NULL` and empty arrays produce zero rows.
++  An array containing `NULL`s produces rows containing `NULL` values.
 
-The optional `WITH OFFSET` clause returns a separate
-column containing the "offset" value (i.e. counting starts at zero) for each row
-produced by the `UNNEST` operation. This column has an optional
-`alias`; the default alias is offset.
+#### UNNEST and WITH OFFSET
+
+The optional `WITH OFFSET` clause returns a separate column containing the
+_offset_ value, in which counting starts at zero for each row produced by the
+`UNNEST` operation. This column has an optional alias; If the optional alias
+is not used, the default column name is `offset`.
 
 Example:
 
 ```sql
-SELECT * FROM UNNEST ( ) WITH OFFSET AS num;
+SELECT * FROM UNNEST ([10,20,30]) as numbers WITH OFFSET;
+
++---------+--------+
+| numbers | offset |
++---------+--------+
+| 10      | 0      |
+| 20      | 1      |
+| 30      | 2      |
++---------+--------+
 ```
 
 ### UNPIVOT operator 
@@ -9676,8 +15946,6 @@ Results:
 
 [in-operator]: #in_operators
 
-[expression-subqueries]: #expression_subqueries
-
 [array-subscript-operator]: #array_subscript_operator
 
 [flattening-trees-into-table]: #flattening_nested_data_into_table
@@ -9690,6766 +15958,8 @@ Results:
 
 <!-- mdlint on -->
 
-## Subqueries
-
-### About subqueries
-
-A subquery is a [query][subqueries-query-syntax] that appears inside another
-query statement. Subqueries are also referred to as sub-`SELECT`s or
-nested `SELECT`s. The full `SELECT` syntax is valid in subqueries.
-
-### Expression subqueries 
-<a id="expression_subquery_concepts"></a>
-
-[Expression subqueries][expression-subqueries] are used in
-a query wherever expressions are valid. They return a single value, as opposed
-to a column or table. Expression subqueries can be
-[correlated][correlated_subquery_concepts].
-
-#### Scalar subqueries 
-<a id="scalar_subquery_concepts"></a>
-
-```sql
-( subquery )
-```
-
-**Description**
-
-A subquery inside an expression is interpreted as a scalar subquery.
-Scalar subqueries are often used in the `SELECT` list or `WHERE` clause.
-
-A scalar subquery must select a single column. Trying to select multiple
-columns will result in an analysis error. A `SELECT` list with a single
-expression is the simplest way to select a single column. The result type
-of the scalar subquery is the type of that expression.
-
-Another possibility is to use `SELECT AS STRUCT` to define a subquery that
-selects a single `STRUCT` type value whose fields are defined by one or more
-expressions. `SELECT AS ProtocolBufferName`
-can also be used to define a subquery that selects a single `PROTO` value
-of the specified type where one or more expressions define its
-fields.
-
-If the subquery returns exactly one row, that single value is the
-scalar subquery result. If the subquery returns zero rows, the result is `NULL`.
-If the subquery returns more than one row, the query fails with a runtime error.
-
-**Examples**
-
-In this example, a correlated scalar subquery returns the mascots for
-a list of players, using the [`Players`][example-tables]
-and [`Guilds`][example-tables] tables:
-
-```sql
-SELECT account, (SELECT mascot FROM Guilds WHERE Players.guild = id) AS player_mascot
-FROM Players;
-
-+---------------------------+
-| account   | player_mascot |
-+---------------------------+
-| gorbie    | cardinal      |
-| junelyn   | finch         |
-| corba     | parrot        |
-+---------------------------+
-```
-
-In this example, an aggregate scalar subquery calculates `avg_level`,
-the average level of a user account in the [`Players`][example-tables] table.
-
-```sql {highlight="lines:1:24-1:55"}
-SELECT account, level, (SELECT AVG(level) FROM Players) AS avg_level
-FROM Players;
-
-+---------------------------------------+
-| account   | level      | avg_level    |
-+---------------------------------------+
-| gorbie    | 29         | 24.66        |
-| junelyn   | 2          | 24.66        |
-| corba     | 43         | 24.66        |
-+---------------------------------------+
-```
-
-#### ARRAY subqueries 
-<a id="array_subquery_concepts"></a>
-
-```sql
-ARRAY ( subquery )
-```
-
-**Description**
-
-An ARRAY subquery is a special case of expression subquery, in that it returns
-an ARRAY. If the subquery returns zero
-rows, returns an empty ARRAY.
-Never returns a `NULL` ARRAY.
-
-The `SELECT` list in an ARRAY subquery must have exactly one column of
-any type, which defines the element type of the array returned by the
-array subquery. If not, an error is returned. When the subquery is written with
-`SELECT AS STRUCT` or `SELECT AS ProtocolBufferName`,
-the `SELECT` list can include multiple columns, and the value returned by
-the array subquery is an ARRAY of the constructed
-STRUCTs or PROTOs.
-Selecting multiple columns without using `SELECT AS` is an error.
-
-ARRAY subqueries can use `SELECT AS STRUCT` to build
-arrays of structs. 
-ARRAY subqueries can use `SELECT AS ProtocolBufferName` to build arrays
-of PROTOs.
-
-See [Array functions][array-function] for full semantics.
-
-**Examples**
-
-In this example, an ARRAY subquery returns an array of
-accounts assigned to the red guild in the [`NPCs`][example-tables] table:
-
-```sql {highlight="range:ARRAY,)"}
-SELECT ARRAY(SELECT account FROM NPCs WHERE guild = 'red') as red
-FROM NPCs LIMIT 1;
-
-+-----------------+
-| red             |
-+-----------------+
-| [niles,jujul]   |
-+-----------------+
-```
-
-#### IN subqueries 
-<a id="in_subquery_concepts"></a>
-
-```sql
-value [ NOT ] IN ( subquery )
-```
-
-**Description**
-
-Returns TRUE if `value` is in the set of rows returned by the subquery.
-Returns FALSE if the subquery returns zero rows.
-
-The subquery's SELECT list must have a single column of any type and
-its type must be comparable to the type for `value`. If not, an error is
-returned. For full semantics, including `NULL` handling, see the
-[`IN` operator][in-operator].
-
-If you need to use an `IN` subquery with an array, these are equivalent:
-
-```sql
-value [ NOT ] IN ( subquery )
-value [ NOT ] IN UNNEST( ARRAY( subquery ) )
-```
-
-**Examples**
-
-In this example, the `IN` operator that checks to see if an account called
-`corba` exists within the [`Players`][example-tables] table:
-
-```sql {highlight="lines:1:8-1:47"}
-SELECT "corba" IN (SELECT account FROM Players) as result;
-
-+--------+
-| result |
-+--------+
-| TRUE   |
-+--------+
-```
-
-#### EXISTS subqueries 
-<a id="exists_subquery_concepts"></a>
-
-```sql
-EXISTS( subquery )
-```
-
-**Description**
-
-Returns TRUE if the subquery produces one or more rows. Returns FALSE if the
-subquery produces zero rows. Never returns `NULL`. Unlike all other
-expression subqueries, there are no rules about the column list.
-Any number of columns may be selected and it will not affect the query result.
-
-**Examples**
-
-In this example, the `EXISTS` operator that checks to see if any rows are
-produced, using the [`Players`][example-tables] table:
-
-```sql {highlight="range:EXISTS,)"}
-SELECT EXISTS(SELECT account FROM Players WHERE guild = 'yellow') AS result;
-
-+--------+
-| result |
-+--------+
-| FALSE  |
-+--------+
-```
-
-### Table subqueries 
-<a id="table_subquery_concepts"></a>
-
-```sql
-FROM ( subquery ) [ [ AS ] alias ]
-```
-
-**Description**
-
-With table subqueries, the outer query treats the result of the subquery as a
-table. You can only use these in the `FROM` clause.
-
-**Examples**
-
-In this example, a subquery returns a table of accounts from the
-[`Players`][example-tables] table:
-
-```sql {highlight="range:(,)"}
-SELECT results.account
-FROM (SELECT * FROM Players) AS results;
-
-+-----------+
-| account   |
-+-----------+
-| gorbie    |
-| junelyn   |
-| corba     |
-+-----------+
-```
-
-In this example, a list of [`NPCs`][example-tables] assigned to the red guild
-are returned.
-
-```sql
-SELECT account FROM (
-  WITH red_guild AS (SELECT * FROM NPCs WHERE guild='red')
-  SELECT * FROM red_guild);
-
-+-----------+
-| account   |
-+-----------+
-| niles     |
-| jujul     |
-+-----------+
-```
-
-### Correlated subqueries 
-<a id="correlated_subquery_concepts"></a>
-
-A correlated subquery is a subquery that references a column from outside that
-subquery. Correlation prevents reusing of the subquery result. You can learn
-more about this [here][evaluation-rules-subqueries].
-
-**Examples**
-
-In this example, a list of mascots that don't have any players assigned to them
-are returned. The [`Guilds`][example-tables] and
-[`Players`][example-tables] tables are referenced.
-
-```sql
-SELECT mascot
-FROM Guilds
-WHERE NOT EXISTS(SELECT account FROM Players WHERE Guilds.id = Players.guild)
-
-+----------+
-| mascot   |
-+----------+
-| sparrow  |
-+----------+
-```
-
-In this example, a correlated scalar subquery returns the mascots for
-a list of players, using the [`Players`][example-tables]
-and [`Guilds`][example-tables] tables:
-
-```sql
-SELECT account, (SELECT mascot FROM Guilds WHERE Players.guild = id) AS player_mascot
-FROM Players;
-
-+---------------------------+
-| account   | player_mascot |
-+---------------------------+
-| gorbie    | cardinal      |
-| junelyn   | finch         |
-| corba     | parrot        |
-+---------------------------+
-```
-
-### Volatile subqueries
-
-A volatile subquery is a subquery that does not always produce the same result
-over the same inputs. For example, if a subquery includes a function
-that returns a random number, the subquery is volatile because the result
-is not always the same.
-
-**Examples**
-
-In this example, a random number of accounts is returned from the
-[`Players`][example-tables] table.
-
-```sql
-SELECT results.account
-FROM (SELECT * FROM Players WHERE RAND() < 0.5) AS results;
-
--- The results are not always the same when you execute
--- the preceding query, but will look similar to this:
-+---------+
-| account |
-+---------+
-| gorbie  |
-| junelyn |
-+---------+
-```
-
-### Evaluation rules for subqueries 
-<a id="evaluation_rules_subqueries"></a>
-
-Some subqueries are evaluated once, others more often.
-
-*  A non-correlated, volatile subquery may be re-evaluated once per
-   row, depending on your [query plan][query-plan].
-*  A non-correlated, non-volatile subquery can be evaluated once and reused,
-   but may be evaluated as many times as once per row depending on your
-   query plan and execution engine.
-*  A correlated subquery must be logically re-evaluated for every distinct set
-   of parameter values. Depending on your query plan, a correlated
-   subquery may be re-evaluated once per row, even if multiple
-   rows have the same parameter values.
-*  A subquery assigned to a temporary table by `WITH` is evaluated "as-if" once.
-   A query plan may only re-evaluate the subquery if re-evaluating
-   it is guaranteed to produce the same table each time.
-
-### Common tables used in examples 
-<a id="example_tables"></a>
-
-Some examples reference a table called `Players`:
-
-```sql
-+-----------------------------+
-| account   | level   | guild |
-+-----------------------------+
-| gorbie    | 29      | red   |
-| junelyn   | 2       | blue  |
-| corba     | 43      | green |
-+-----------------------------+
-```
-
-Some examples reference a table called `NPCs`:
-
-```sql
-+-------------------+
-| account   | guild |
-+-------------------+
-| niles     | red   |
-| jujul     | red   |
-| effren    | blue  |
-+-------------------+
-```
-
-Some examples reference a table called `Guilds`:
-
-```sql
-+-------------------+
-| mascot   | id     |
-+-------------------+
-| cardinal | red    |
-| parrot   | green  |
-| finch    | blue   |
-| sparrow  | yellow |
-+-------------------+
-```
-
-You can use this `WITH` clause to emulate temporary table names for
-`Players` and `NPCs`
-in subqueries that support the `WITH` clause.:
-
-```sql
-WITH
-  Players AS (
-    SELECT 'gorbie' AS account, 29 AS level, 'red' AS guild UNION ALL
-    SELECT 'junelyn', 2 , 'blue' UNION ALL
-    SELECT 'corba', 43, 'green'),
-  NPCs AS (
-    SELECT 'niles' AS account, 'red' AS guild UNION ALL
-    SELECT 'jujul', 'red' UNION ALL
-    SELECT 'effren', 'blue'),
-  Guilds AS (
-    SELECT 'cardinal' AS mascot , 'red' AS id UNION ALL
-    SELECT 'parrot', 'green' UNION ALL
-    SELECT 'finch', 'blue' UNION ALL
-    SELECT 'sparrow', 'yellow')
-SELECT * FROM (
-  SELECT account, guild FROM Players UNION ALL
-  SELECT account, guild FROM NPCs)
-```
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[query-plan]: https://en.wikipedia.org/wiki/Query_plan
-
-[about-subqueries]: #about_subqueries
-
-[evaluation-rules-subqueries]: #evaluation_rules_subqueries
-
-[example-tables]: #example_tables
-
-[correlated_subquery_concepts]: #correlated_subquery_concepts
-
-[subqueries-query-syntax]: #query-syntax
-
-[in-operator]: #in_operators
-
-[expression-subqueries]: #expression_subqueries
-
-[array-function]: #array
-
-[aggregate-functions]: #aggregate_functions
-
-<!-- mdlint on -->
-
-## Anonymization and Differential Privacy 
-<a id="anonymization_syntax"></a>
-
-<!-- BEGIN CONTENT -->
-
-Anonymization is the process of transforming user data into anonymous
-information. This is done in such a way that it is not reasonably likely that
-anyone with access to the data can identify or re-identify an individual user
-from the anonymized data.
-
-The anonymization definition supported by ZetaSQL is
-[differential privacy][wiki-diff-privacy]. The goal of differential privacy
-is mitigating disclosure risk: the risk that an attacker can extract sensitive
-information of individuals from a dataset. Differential privacy balances
-this need to safeguard privacy against the need for statistical accuracy.
-As privacy increases, statistical utility decreases, and vice versa.
-
-With ZetaSQL, you can anonymize the results of a query with
-differentially private aggregations. When the query is executed, it:
-
-1.  Computes per-user aggregations for each group if groups are specified with
-    a `GROUP BY` clause. If `kappa` is specified, limits the
-    number of groups each user can contribute to.
-1.  [Clamps][anon-clamping] each per-user aggregate contribution to be within
-    the clamping bounds. If the clamping bounds are not specified they are
-    implicitly calculated in a differentially private way.
-1.  Aggregates the clamped per-user aggregate contributions for each group.
-1.  Adds noise to the final aggregate value for each group. The scale of
-    random noise is a function of all of the clamped bounds and privacy
-    parameters.
-1.  Computes a noisy user count for each group and eliminates groups with
-    few users. A noisy user count helps eliminate a non-deterministic set
-    of groups.
-
-The final result is a dataset where each group has noisy aggregate results
-and small groups have been eliminated.
-
-### Anonymization clause syntax 
-<a id="anon_query_syntax"></a>
-
-<pre>
-WITH ANONYMIZATION OPTIONS( privacy_parameters )
-
-privacy_parameters:
-  epsilon = expression,
-  { delta = expression | k_threshold = expression },
-  [ kappa = expression ]
-</pre>
-
-**Description**
-
-This clause indicates that you want to anonymize the results of a query with
-differentially private aggregations. If you want to use this clause, add it to
-the `SELECT` list with one or more
-[anonymization aggregate functions][anonymization-functions].
-
-Optionally, you can include privacy parameters to control how the results are
-anonymized.
-
-+  [`epsilon`][anon-epsilon]: Controls the amount of noise added to the results.
-   A higher epsilon means less noise. `1e20` is usually large enough to add no
-   noise. `expression` must be constant and return a
-   `DOUBLE`.
-+  [`delta`][anon-delta]: The probability the any row in the result fails to
-   be epsilon-differentially private. `expression` must return a
-   `DOUBLE`.
-+  [`k_threshold`][anon-k-threshold]: The number of users that must contribute
-   to a group in order for the group to be exposed in the results.
-   `expression` must return an `INT64`.
-+  [`kappa`][anon-kappa]: A positive integer identifying the limit on the
-   number of groups that a user is allowed to contribute to. This number is
-   also used to scale the noise for each group. `expression` must return an
-   `INT64`.
-
-Note: `delta` and `k_threshold` are mutually exclusive; `delta` is preferred
-over `k_threshold`.
-
-### Privacy parameters
-
-Privacy parameters control how the results of a query are anonymized.
-Appropriate values for these settings can depend on many things such
-as the characteristics of your data, the exposure level, and the
-privacy level.
-
-#### epsilon 
-<a id="anon_epsilon"></a>
-
-Noise is added primarily based on the specified `epsilon`.
-The higher the epsilon the less noise is added. More noise corresponding to
-smaller epsilons equals more privacy protection.
-
-Noise can usually be eliminated by setting `epsilon` to `1e20`, which can be
-useful during initial data exploration and experimentation with anonymization.
-Unusually large `epsilon` values, such as `1e308`, cause query
-failure. Start large, and reduce the `epsilon` until the query succeeds, but not
-so much that it returns noisy results.
-
-ZetaSQL splits `epsilon` between the anonymization aggregates in the
-query. In addition to the explicit anonymization aggregate functions, the
-anonymization process will also inject an implicit anonymized aggregate into the
-plan for removing small groups that computes a noisy user count per group. If
-you have `n` explicit anonymization aggregate functions in your query, then each
-aggregate individually gets `epsilon/(n+1)` for its computation. If used with
-`kappa`, the effective `epsilon` per function per groups is further split by
-`kappa`. Additionally, if implicit clamping is used for an aggregate
-anonymization function, then half of the function's epsilon is applied towards
-computing implicit bounds, and half of the function's epsilon is applied towards
-the anonymized aggregation itself.
-
-#### delta 
-<a id="anon_delta"></a>
-
-`delta` represents the probability that any row fails to be
-`epsilon`-differentially private in the result of an anonymized query. If you
-have to choose between `delta` and `k_threshold`, use `delta`.
-
-When supporting `delta`, the specification of `epsilon/delta` must be evaluated
-to determine `k_threshold`, and the specification of `epsilon/k_threshold` must
-be evaluated to determine `delta`. This allows a user to specify either
-(`epsilon`,`delta`) or (`epsilon`, `k_threshold`) in their anonymization query.
-
-While doing testing or initial data exploration, it is often useful to set
-`delta` to a value where all groups, including small groups, are
-preserved. This removes privacy protection and should only be done when it is
-not necessary to protect query results, such as when working with non-private
-test data. `delta` roughly corresponds to the probability of keeping a small
-group.  In order to avoid losing small groups, set `delta` very close to 1,
-for example `0.99999`.
-
-#### k_threshold 
-<a id="anon_k_threshold"></a>
-
-Important: `k_threshold` is discouraged. If possible, use `delta` instead.
-
-Tip: We recommend that engines implementing this specification do not allow
-users to specify `k_threshold`.
-
-`k_threshold` computes a noisy user count for each group and eliminates groups
-with few users from the output. Use this parameter to define how many unique
-users must be included in the group for the value to be included in the output.
-
-#### kappa 
-<a id="anon_kappa"></a>
-
-`kappa` is a positive integer that, if specified, scales the noise and
-limits the number of groups that each user can contribute to. If `kappa` is
-unspecified, then there is no limit to the number of groups that each user
-can contribute to.
-
-If `kappa` is unset, the language cannot guarantee that the results will be
-differentially private. We recommend kappa to be set. Without `kappa` the
-results may still be differentially private if certain preconditions are met.
-For example, if you know that the anonymization ID column in a table or view is
-unique in the `FROM` clause, the user cannot contribute to more than one group
-and therefore the results will be the same regardless of whether `kappa` is set.
-
-Tip: We recommend that engines require kappa to be set.
-
-### Rules for producing a valid query
-
-The following rules must be met for the anonymized query to be valid.
-
-####  Anonymization-enabled table expressions 
-<a id="anon_expression"></a>
-
-An anonymization-enabled table expression is a table expression that
-produces a column that has been identified as an anonymization ID. If a query
-contains an anonymization clause, it must also contain at least one
-anonymization-enabled table expression in the `FROM` clause.
-
-#### FROM clause rules 
-<a id="anon_from"></a>
-
-The `FROM` clause must have at least one `from_item` that represents an
-[anonymization-enabled table expression][anon-expression]. Not all
-table expressions in the `FROM` clause need to be
-anonymization-enabled table expressions.
-
-If a `FROM` subquery contains an anonymization-enabled table expression,
-the subquery must produce an anonymization ID column in its output or
-an error is returned.
-
-If the `FROM` clause contains multiple anonymization-enabled table expressions,
-then all joins between those relations must include the anonymization ID column
-name in the join predicate or an error is returned. Cross joins are disallowed
-between two anonymization-enabled table expressions, since they are not joined
-on the anonymization ID column.
-
-#### Aggregate function rules 
-<a id="anon_aggregate_functions"></a>
-
-An anonymization query cannot contain non-anonymized aggregate functions.
-Only [anonymization aggregate functions][anonymization-functions] can be used.
-
-### Performance implications of anonymization
-
-Performance of similar anonymized and non-anonymized queries
-cannot be expected to be equivalent. For example, the performance profiles
-of the following two queries are not the same:
-
-```sql
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=1, delta=1e-10, kappa=1)
-  column_a, ANON_COUNT(column_b)
-FROM table_a
-GROUP BY column_a;
-```
-
-```sql
-SELECT column_a, COUNT(column_b)
-FROM table_a
-GROUP BY column_a;
-```
-
-The reason for the performance difference is that an additional
-finer-granularity level of grouping is performed for anonymized queries,
-since per-user aggregation must also be performed. The performance profiles
-of these queries should be similar:
-
-```sql
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=1, delta=1e-10, kappa=1)
-  column_a, ANON_COUNT(column_b)
-FROM table_a
-GROUP BY column_a;
-```
-
-```sql
-SELECT column_a, id, COUNT(column_b)
-FROM table_a
-GROUP BY column_a, id;
-```
-
-This implies that if the data being anonymized has a high number of
-distinct values for the anonymization ID column, anonymized query performance
-can suffer.
-
-### Examples
-
-#### Tables and views for examples 
-<a id="anon_example_views"></a>
-
-The examples in this section reference these table and views:
-
-```sql
-CREATE OR REPLACE TABLE professors AS (
-  SELECT 101 id, "pencil" item, 24 quantity UNION ALL
-  SELECT 123, "pen", 16 UNION ALL
-  SELECT 123, "pencil", 10 UNION ALL
-  SELECT 123, "pencil", 38 UNION ALL
-  SELECT 101, "pen", 19 UNION ALL
-  SELECT 101, "pen", 23 UNION ALL
-  SELECT 130, "scissors", 8 UNION ALL
-  SELECT 150, "pencil", 72);
-
-CREATE OR REPLACE VIEW view_on_professors
-OPTIONS(anonymization_userid_column='id')
-AS (SELECT * FROM professors);
-```
-
-```sql
-CREATE OR REPLACE TABLE students AS (
-  SELECT 1 id, "pencil" item, 5 quantity UNION ALL
-  SELECT 1, "pen", 2 UNION ALL
-  SELECT 2, "pen", 1 UNION ALL
-  SELECT 3, "pen", 4);
-
-CREATE OR REPLACE VIEW view_on_students
-OPTIONS(anonymization_userid_column='id')
-AS (SELECT * FROM students);
-```
-
-#### Remove noise 
-<a id="eliminate_noise"></a>
-
-Removing noise removes privacy protection. Only remove noise for
-testing queries on non-private data.
-
-The following anonymized query gets the average number of items requested
-per professor. For details on how the averages were computed, see
-[ANON_AVG][anon-avg]. Because `epsilon` is high, noise is removed from the
-results.
-
-```sql
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=2)
-  item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
-FROM view_on_professors
-GROUP BY item;
-
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| pencil   | 40               |
-| pen      | 18.5             |
-| scissors | 8                |
-+----------+------------------+
-```
-
-#### Add noise
-
-In this example, noise has been added to the anonymized query.
-Smaller groups may not be included. Smaller epsilons and more noise will
-provide greater privacy protection.
-
-```sql
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=1)
-  item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
-FROM view_on_professors
-GROUP BY item;
-
--- These results will change each time you run the query.
--- The scissors group was removed this time, but may not be
--- removed the next time.
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| pencil   | 38.5038356810269 |
-| pen      | 13.4725028762032 |
-+----------+------------------+
-```
-
-#### Limit the groups in which an anonymization ID can exist
-
-An anonymization ID can exist within multiple groups. For example, in the
-`professors` table, the anonymization ID `123` exists in the `pencil` and `pen`
-group. If you only want `123` to be used in the first group found, you can use a
-query that looks like this:
-
-```sql
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=2)
-  item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
-FROM view_on_professors
-GROUP BY item;
-
--- Anonymization ID 123 was not included in the pencil group.
--- Noise was removed from this query for demonstration purposes only.
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| pencil   | 72               |
-| pen      | 18.5             |
-| scissors | 8                |
-+----------+------------------+
-```
-
-#### Invalid query with two anonymization ID columns
-
-The following query is invalid because `view_on_students` contains an
-anonymization ID column and so does `view_on_professors`.
-When the `FROM` clause contains multiple
-anonymization-enabled table expressions, then those tables must be joined on
-the anonymization ID column or an error is returned.
-
-```sql {.bad}
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=2)
-  item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
-FROM view_on_professors, view_on_students
-GROUP BY item;
-```
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[anon-expression]: #anon_expression
-
-[anon-resources]: #anon_resources
-
-[anon-query]: #anon_query
-
-[anon-k-threshold]: #anon_k_threshold
-
-[anon-epsilon]: #anon_epsilon
-
-[anon-kappa]: #anon_kappa
-
-[anon-delta]: #anon_delta
-
-[anon-from]: #from_clause
-
-[anon-select-list]: #select_list
-
-[anon-group-by]: #group_by_clause
-
-[wiki-diff-privacy]: https://en.wikipedia.org/wiki/Differential_privacy
-
-[anonymization-functions]: #aggregate_anonymization_functions
-
-[anon-clamping]: #anon_clamping
-
-[anon-exp-clamping]: #anon_explicit_clamping
-
-[anon-imp-clamping]: #anon_implicit_clamping
-
-[anon-avg]: #anon_avg
-
-<!-- mdlint on -->
-
-## Analytic function concepts
-
-An analytic function computes values over a group of rows and returns a
-single result for _each_ row. This is different from an aggregate function,
-which returns a single result for _a group_ of rows.
-
-An analytic function includes an `OVER` clause, which defines a window of rows
-around the row being evaluated.  For each row, the analytic function result
-is computed using the selected window of rows as input, possibly
-doing aggregation.
-
-With analytic functions you can compute moving averages, rank items, calculate
-cumulative sums, and perform other analyses.
-
-The following functions can be used as analytic functions:
-[navigation functions][navigation-functions-reference],
-[numbering functions][numbering-functions-reference], and
-[aggregate analytic functions][aggregate-analytic-functions-reference]
-
-### Analytic function syntax 
-<a id="syntax"></a>
-
-<pre>
-analytic_function_name ( [ argument_list ] ) OVER over_clause
-
-<a href="#def_over_clause">over_clause</a>:
-  { named_window | ( [ window_specification ] ) }
-
-<a href="#def_window_spec">window_specification</a>:
-  [ named_window ]
-  [ PARTITION BY partition_expression [, ...] ]
-  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
-  [ window_frame_clause ]
-
-<a href="#def_window_frame">window_frame_clause</a>:
-  { rows_range } { <a href="#def_window_frame">frame_start</a> | <a href="#def_window_frame">frame_between</a> }
-
-<a href="#def_window_frame">rows_range</a>:
-  { ROWS | RANGE }
-</pre>
-
-**Notation rules**
-
-+ Square brackets "[ ]" indicate optional clauses.
-+ Parentheses "( )" indicate literal parentheses.
-+ The vertical bar "|" indicates a logical OR.
-+ Curly braces "{ }" enclose a set of options.
-+ A comma followed by an ellipsis within square brackets "[, ... ]" indicates that
-  the preceding item can repeat in a comma-separated list.
-
-**Description**
-
-An analytic function computes results over a group of rows. You can use the
-following syntax to build an analytic function:
-
-+  `analytic_function_name`: The function that performs an analytic operation.
-   For example, the numbering function `RANK()` could be used here.
-+  `argument_list`: Arguments that are specific to the analytic function.
-   Some functions have them, some do not.
-+  `OVER`: Keyword required in the analytic function syntax preceding
-   the [`OVER` clause][over-clause-def].
-+  [`over_clause`][over-clause-def]: References a window that defines a group
-   of rows in a table upon which to use an analytic function.
-+  [`window_specification`][window-specs-def]: Defines the specifications for
-   the window.
-+  [`window_frame_clause`][window-frame-clause-def]: Defines the window frame
-   for the window.
-+  [`rows_range`][window-frame-clause-def]: Defines the physical rows or a
-   logical range for a window frame.
-
-**Notes**
-
-An analytic function can appear as a scalar expression operand in
-two places in the query:
-
-   +  The `SELECT` list. If the analytic function appears in the `SELECT` list,
-      its argument list and `OVER` clause can't refer to aliases introduced
-      in the same SELECT list.
-   +  The `ORDER BY` clause. If the analytic function appears in the `ORDER BY`
-      clause of the query, its argument list can refer to `SELECT`
-      list aliases.
-
-An analytic function can't refer to another analytic function in its
-argument list or its `OVER` clause, even indirectly through an alias.
-
-An analytic function is evaluated after aggregation. For example, the
-`GROUP BY` clause and non-analytic aggregate functions are evaluated first.
-Because aggregate functions are evaluated before analytic functions,
-aggregate functions can be used as input operands to analytic functions.
-
-**Returns**
-
-A single result for each row in the input.
-
-#### Defining the `OVER` clause 
-<a id="def_over_clause"></a>
-
-```zetasql
-analytic_function_name ( [ argument_list ] ) OVER over_clause
-
-over_clause:
-  { named_window | ( [ window_specification ] ) }
-```
-
-**Description**
-
-The `OVER` clause references a window that defines a group of rows in a table
-upon which to use an analytic function. You can provide a
-[`named_window`][named-windows] that is
-[defined in your query][analytic-functions-link-to-window], or you can
-define the [specifications for a new window][window-specs-def].
-
-**Notes**
-
-If neither a named window nor window specification is provided, all
-input rows are included in the window for every row.
-
-**Examples using the `OVER` clause**
-
-These queries use window specifications:
-
-+  [Compute a grand total][analytic-functions-compute-grand-total]
-+  [Compute a subtotal][analytic-functions-compute-subtotal]
-+  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
-+  [Compute a moving average][analytic-functions-compute-moving-avg]
-+  [Compute the number of items within a range][analytic-functions-compute-item-range]
-+  [Get the most popular item in each category][analytic-functions-get-popular-item]
-+  [Get the last value in a range][analytic-functions-get-last-value-range]
-+  [Compute rank][analytic-functions-compute-rank]
-
-These queries use a named window:
-
-+  [Get the last value in a range][analytic-functions-get-last-value-range]
-+  [Use a named window in a window frame clause][analytic-functions-use-named-window]
-
-#### Defining the window specification 
-<a id="def_window_spec"></a>
-
-```zetasql
-window_specification:
-  [ named_window ]
-  [ PARTITION BY partition_expression [, ...] ]
-  [ ORDER BY expression [ { ASC | DESC } ] [, ...] ]
-  [ window_frame_clause ]
-```
-
-**Description**
-
-Defines the specifications for the window.
-
-+  [`named_window`][named-windows]: The name of an existing window that was
-   defined with a [`WINDOW` clause][analytic-functions-link-to-window].
-
-Important: If you use a named window, special rules apply to
-`PARTITION BY`, `ORDER BY`, and `window_frame_clause`. See
-them [here][named-window-rules].
-
-+  `PARTITION BY`: Breaks up the input rows into separate partitions, over
-   which the analytic function is independently evaluated.
-   +  Multiple partition expressions are allowed in the `PARTITION BY` clause.
-   +  An expression can't contain floating point types, non-groupable types,
-      constants, or analytic functions.
-   +  If this optional clause is not used, all rows in the input table
-      comprise a single partition.
-+  `ORDER BY`: Defines how rows are ordered within a partition.
-   This clause is optional in most situations, but is required in some
-   cases for [navigation functions][navigation-functions-reference].
-+  [`window_frame_clause`][window-frame-clause-def]: For aggregate analytic
-   functions, defines the window frame within the current partition.
-   The window frame determines what to include in the window.
-   If this clause is used, `ORDER BY` is required except for fully
-   unbounded windows.
-
-**Notes**
-
-If neither the `ORDER BY` clause nor window frame clause are present,
-the window frame includes all rows in that partition.
-
-For aggregate analytic functions, if the `ORDER BY` clause is present but
-the window frame clause is not, the following window frame clause is
-used by default:
-
-```zetasql
-RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-```
-
-For example, the following queries are equivalent:
-
-```zetasql
-SELECT book, LAST_VALUE(item)
-  OVER (ORDER BY year)
-FROM Library
-```
-
-```zetasql
-SELECT book, LAST_VALUE(item)
-  OVER (
-    ORDER BY year
-    RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
-FROM Library
-```
-
-[Hints][analytic-functions-link-to-hints] are supported on the `PARTITION BY`
-clause and the `ORDER BY` clause.
-
-<a id="named_window_rules"></a>
-**Rules for using a named window in the window specification**
-
-If you use a named window in your window specifications, these rules apply:
-
-+  The specifications in the named window can be extended
-   with new specifications that you define in the window specification clause.
-+  You can't have redundant definitions. If you have an `ORDER BY` clause
-   in the named window and the window specification clause, an
-   error is thrown.
-+  The order of clauses matters. `PARTITION BY` must come first,
-   followed by `ORDER BY` and `window_frame_clause`. If you add a named window,
-   its window specifications are processed first.
-
-   ```zetasql
-   --this works:
-   SELECT item, purchases, LAST_VALUE(item)
-     OVER (item_window ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING) AS most_popular
-   FROM Produce
-   WINDOW item_window AS (ORDER BY purchases)
-
-   --this does not work:
-   SELECT item, purchases, LAST_VALUE(item)
-     OVER (item_window ORDER BY purchases) AS most_popular
-   FROM Produce
-   WINDOW item_window AS (ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)
-   ```
-+  A named window and `PARTITION BY` can't appear together in the
-   window specification. If you need `PARTITION BY`, add it to the named window.
-+  You can't refer to a named window in an `ORDER BY` clause, an outer query,
-   or any subquery.
-
-**Examples using the window specification**
-
-These queries define partitions in an analytic function:
-
-+  [Compute a subtotal][analytic-functions-compute-subtotal]
-+  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
-+  [Get the most popular item in each category][analytic-functions-get-popular-item]
-+  [Get the last value in a range][analytic-functions-get-last-value-range]
-+  [Compute rank][analytic-functions-compute-rank]
-+  [Use a named window in a window frame clause][analytic-functions-use-named-window]
-
-These queries include a named window in a window specification:
-
-+  [Get the last value in a range][analytic-functions-get-last-value-range]
-+  [Use a named window in a window frame clause][analytic-functions-use-named-window]
-
-These queries define how rows are ordered in a partition:
-
-+  [Compute a subtotal][analytic-functions-compute-subtotal]
-+  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
-+  [Compute a moving average][analytic-functions-compute-moving-avg]
-+  [Compute the number of items within a range][analytic-functions-compute-item-range]
-+  [Get the most popular item in each category][analytic-functions-get-popular-item]
-+  [Get the last value in a range][analytic-functions-get-last-value-range]
-+  [Compute rank][analytic-functions-compute-rank]
-+  [Use a named window in a window frame clause][analytic-functions-use-named-window]
-
-#### Defining the window frame clause 
-<a id="def_window_frame"></a>
-
-```zetasql
-window_frame_clause:
-  { rows_range } { frame_start | frame_between }
-
-rows_range:
-  { ROWS | RANGE }
-
-frame_between:
-  {
-    BETWEEN  unbounded_preceding AND frame_end_a
-    | BETWEEN numeric_preceding AND frame_end_a
-    | BETWEEN current_row AND frame_end_b
-    | BETWEEN numeric_following AND frame_end_c
-  }
-
-frame_start:
-  { unbounded_preceding | numeric_preceding | [ current_row ] }
-
-frame_end_a:
-  { numeric_preceding | current_row | numeric_following | unbounded_following }
-
-frame_end_b:
-  { current_row | numeric_following | unbounded_following }
-
-frame_end_c:
-  { numeric_following | unbounded_following }
-
-unbounded_preceding:
-  UNBOUNDED PRECEDING
-
-numeric_preceding:
-  numeric_expression PRECEDING
-
-unbounded_following:
-  UNBOUNDED FOLLOWING
-
-numeric_following:
-  numeric_expression FOLLOWING
-
-current_row:
-  CURRENT ROW
-```
-
-The window frame clause defines the window frame around the current row within
-a partition, over which the analytic function is evaluated.
-Only aggregate analytic functions can use a window frame clause.
-
-+  `rows_range`: A clause that defines a window frame with physical rows
-   or a logical range.
-   +  `ROWS`: Computes the window frame based on physical offsets from the
-      current row. For example, you could include two rows before and after
-      the current row.
-   +  `RANGE`: Computes the window frame based on a logical range of rows
-      around the current row, based on the current row’s `ORDER BY` key value.
-      The provided range value is added or subtracted to the current row's
-      key value to define a starting or ending range boundary for the
-      window frame. In a range-based window frame, there must be exactly one
-      expression in the `ORDER BY` clause, and the expression must have a
-      numeric type.
-
-  Tip: If you want to use a range with a date, use `ORDER BY` with the
-  `UNIX_DATE()` function. If you want to use a range with a timestamp,
-  use the `UNIX_SECONDS()`, `UNIX_MILLIS()`, or `UNIX_MICROS()` function.
-+  `frame_between`: Creates a window frame with a lower and upper boundary.
-    The first boundary represents the lower boundary. The second boundary
-    represents the upper boundary. Only certain boundary combinations can be
-    used, as show in the preceding syntax.
-    +  Define the beginning of the window frame with `unbounded_preceding`,
-       `numeric_preceding`, `numeric_following`, or `current_row`.
-       +  `unbounded_preceding`: The window frame starts at the beginning of the
-          partition.
-       +  `numeric_preceding` or `numeric_following`: The start of the window
-          frame is relative to the
-          current row.
-       +  `current_row`: The window frame starts at the current row.
-    +  Define the end of the window frame with `numeric_preceding`,
-       `numeric_following`, `current_row`, or `unbounded_following`.
-        + `numeric_preceding` or `numeric_following`: The end of the window
-          frame is relative to the current row.
-        + `current_row`: The window frame ends at the current row.
-        + `unbounded_following`: The window frame ends at the end of the
-          partition.
-+  `frame_start`: Creates a window frame with a lower boundary.
-    The window frame ends at the current row.
-    +  `unbounded_preceding`: The window frame starts at the beginning of the
-        partition.
-    +  `numeric_preceding`: The start of the window frame is relative to the
-       current row.
-    +  `current_row`: The window frame starts at the current row.
-+  `numeric_expression`: An expression that represents a numeric type.
-   The numeric expression must be a constant, non-negative integer
-   or parameter.
-
-**Notes**
-
-If a boundary extends beyond the beginning or end of a partition,
-the window frame will only include rows from within that partition.
-
-You can't use a window frame clause with
-[navigation functions][analytic-functions-link-to-navigation-functions] and
-[numbering functions][analytic-functions-link-to-numbering-functions],
-such as  `RANK()`.
-
-**Examples using the window frame clause**
-
-These queries compute values with `ROWS`:
-
-+  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
-+  [Compute a moving average][analytic-functions-compute-moving-avg]
-+  [Get the most popular item in each category][analytic-functions-get-popular-item]
-+  [Get the last value in a range][analytic-functions-get-last-value-range]
-+  [Use a named window in a window frame clause][analytic-functions-use-named-window]
-
-These queries compute values with `RANGE`:
-
-+  [Compute the number of items within a range][analytic-functions-compute-item-range]
-
-These queries compute values with a partially or fully unbound window:
-
-+  [Compute a grand total][analytic-functions-compute-grand-total]
-+  [Compute a subtotal][analytic-functions-compute-subtotal]
-+  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
-+  [Get the most popular item in each category][analytic-functions-get-popular-item]
-+  [Compute rank][analytic-functions-compute-rank]
-
-These queries compute values with numeric boundaries:
-
-+  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
-+  [Compute a moving average][analytic-functions-compute-moving-avg]
-+  [Compute the number of items within a range][analytic-functions-compute-item-range]
-+  [Get the last value in a range][analytic-functions-get-last-value-range]
-+  [Use a named window in a window frame clause][analytic-functions-use-named-window]
-
-These queries compute values with the current row as a boundary:
-
-+  [Compute a grand total][analytic-functions-compute-grand-total]
-+  [Compute a subtotal][analytic-functions-compute-subtotal]
-+  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
-
-#### Referencing a named window 
-<a id="ref_named_window"></a>
-
-```zetasql
-SELECT query_expr,
-  analytic_function_name ( [ argument_list ] ) OVER over_clause
-FROM from_item
-WINDOW named_window_expression [, ...]
-
-over_clause:
-  { named_window | ( [ window_specification ] ) }
-
-window_specification:
-  [ named_window ]
-  [ PARTITION BY partition_expression [, ...] ]
-  [ ORDER BY expression [ ASC | DESC [, ...] ]
-  [ window_frame_clause ]
-
-named_window_expression:
-  named_window AS { named_window | ( [ window_specification ] ) }
-```
-
-A named window represents a group of rows in a table upon which to use an
-analytic function. A named window is defined in the
-[`WINDOW` clause][analytic-functions-link-to-window], and referenced in
-an analytic function's [`OVER` clause][over-clause-def].
-In an `OVER` clause, a named window can appear either by itself or embedded
-within a [window specification][window-specs-def].
-
-**Examples**
-
-+  [Get the last value in a range][analytic-functions-get-last-value-range]
-+  [Use a named window in a window frame clause][analytic-functions-use-named-window]
-
-### Navigation function concepts
-
-[Navigation functions][navigation-functions-reference] generally compute some
-`value_expression` over a different row in the window frame from the
-current row. The `OVER` clause syntax varies across navigation functions.
-
-Requirements for the `OVER` clause:
-
-+   `PARTITION BY`: Optional.
-+   `ORDER BY`:
-    1.  Disallowed for `PERCENTILE_CONT` and `PERCENTILE_DISC`.
-    1.   Required for `FIRST_VALUE`, `LAST_VALUE`, `NTH_VALUE`, `LEAD`
-    and `LAG`.
-+   `window_frame_clause`:
-    1.  Disallowed for  `PERCENTILE_CONT`, `PERCENTILE_DISC`, `LEAD` and `LAG`.
-    1.  Optional for `FIRST_VALUE`, `LAST_VALUE`, and `NTH_VALUE`.
-
-For all navigation functions, the result data type is the same type as
-`value_expression`.
-
-### Numbering function concepts
-
-[Numbering functions][numbering-functions-reference] assign integer values to
-each row based on their position within the specified window.
-
-Example of `RANK()`, `DENSE_RANK()`, and `ROW_NUMBER()`:
-
-```zetasql
-WITH Numbers AS
- (SELECT 1 as x
-  UNION ALL SELECT 2
-  UNION ALL SELECT 2
-  UNION ALL SELECT 5
-  UNION ALL SELECT 8
-  UNION ALL SELECT 10
-  UNION ALL SELECT 10
-)
-SELECT x,
-  RANK() OVER (ORDER BY x ASC) AS rank,
-  DENSE_RANK() OVER (ORDER BY x ASC) AS dense_rank,
-  ROW_NUMBER() OVER (ORDER BY x) AS row_num
-FROM Numbers
-
-+---------------------------------------------------+
-| x          | rank       | dense_rank | row_num    |
-+---------------------------------------------------+
-| 1          | 1          | 1          | 1          |
-| 2          | 2          | 2          | 2          |
-| 2          | 2          | 2          | 3          |
-| 5          | 4          | 3          | 4          |
-| 8          | 5          | 4          | 5          |
-| 10         | 6          | 5          | 6          |
-| 10         | 6          | 5          | 7          |
-+---------------------------------------------------+
-```
-
-+  `RANK()`: For x=5, `rank` is 4, since `RANK()` increments by the number
-   of peers in the previous window ordering group.
-+  `DENSE_RANK()`: For x=5, `dense_rank` is 3, since `DENSE_RANK()` always
-   increments by 1, never skipping a value.
-+  `ROW_NUMBER()`: For x=5, `row_num` is 4.
-
-### Aggregate analytic function concepts
-
-An aggregate function is a function that performs a calculation on a
-set of values. Most aggregate functions can be used in an
-analytic function. These aggregate functions are called
-[aggregate analytic functions][aggregate-analytic-functions-reference].
-
-With aggregate analytic functions, the `OVER` clause is appended to the
-aggregate function call; the function call syntax remains otherwise unchanged.
-Like their aggregate function counterparts, these analytic functions perform
-aggregations, but specifically over the relevant window frame for each row.
-The result data types of these analytic functions are the same as their
-aggregate function counterparts.
-
-### Filtering results with the QUALIFY clause 
-<a id="filter_analytic_results"></a>
-
-The `QUALIFY` clause can be used to filter the results of an analytic function.
-For more information and examples, see the
-[`QUALIFY` clause][analytic-functions-link-to-qualify].
-
-### Analytic function examples
-
-In these examples, the ==highlighted item== is the current row. The **bolded
-items** are the rows that are included in the analysis.
-
-#### Common tables used in examples
-
-The following tables are used in the subsequent aggregate analytic
-query examples: [`Produce`][produce-table], [`Employees`][employees-table],
-and [`Farm`][farm-table].
-
-##### Produce table
-
-Some examples reference a table called `Produce`:
-
-```zetasql
-WITH Produce AS
- (SELECT 'kale' as item, 23 as purchases, 'vegetable' as category
-  UNION ALL SELECT 'banana', 2, 'fruit'
-  UNION ALL SELECT 'cabbage', 9, 'vegetable'
-  UNION ALL SELECT 'apple', 8, 'fruit'
-  UNION ALL SELECT 'leek', 2, 'vegetable'
-  UNION ALL SELECT 'lettuce', 10, 'vegetable')
-SELECT * FROM Produce
-
-+-------------------------------------+
-| item      | category   | purchases  |
-+-------------------------------------+
-| kale      | vegetable  | 23         |
-| banana    | fruit      | 2          |
-| cabbage   | vegetable  | 9          |
-| apple     | fruit      | 8          |
-| leek      | vegetable  | 2          |
-| lettuce   | vegetable  | 10         |
-+-------------------------------------+
-```
-
-##### Employees table
-
-Some examples reference a table called `Employees`:
-
-```zetasql
-WITH Employees AS
- (SELECT 'Isabella' as name, 2 as department, DATE(1997, 09, 28) as start_date
-  UNION ALL SELECT 'Anthony', 1, DATE(1995, 11, 29)
-  UNION ALL SELECT 'Daniel', 2, DATE(2004, 06, 24)
-  UNION ALL SELECT 'Andrew', 1, DATE(1999, 01, 23)
-  UNION ALL SELECT 'Jacob', 1, DATE(1990, 07, 11)
-  UNION ALL SELECT 'Jose', 2, DATE(2013, 03, 17))
-SELECT * FROM Employees
-
-+-------------------------------------+
-| name      | department | start_date |
-+-------------------------------------+
-| Isabella  | 2          | 1997-09-28 |
-| Anthony   | 1          | 1995-11-29 |
-| Daniel    | 2          | 2004-06-24 |
-| Andrew    | 1          | 1999-01-23 |
-| Jacob     | 1          | 1990-07-11 |
-| Jose      | 2          | 2013-03-17 |
-+-------------------------------------+
-```
-
-##### Farm table
-
-Some examples reference a table called `Farm`:
-
-```zetasql
-WITH Farm AS
- (SELECT 'cat' as animal, 23 as population, 'mammal' as category
-  UNION ALL SELECT 'duck', 3, 'bird'
-  UNION ALL SELECT 'dog', 2, 'mammal'
-  UNION ALL SELECT 'goose', 1, 'bird'
-  UNION ALL SELECT 'ox', 2, 'mammal'
-  UNION ALL SELECT 'goat', 2, 'mammal')
-SELECT * FROM Farm
-
-+-------------------------------------+
-| animal    | category   | population |
-+-------------------------------------+
-| cat       | mammal     | 23         |
-| duck      | bird       | 3          |
-| dog       | mammal     | 2          |
-| goose     | bird       | 1          |
-| ox        | mammal     | 2          |
-| goat      | mammal     | 2          |
-+-------------------------------------+
-```
-
-#### Compute a grand total
-
-This computes a grand total for all items in the
-[`Produce`][produce-table] table.
-
-+  (**==banana==**, **apple**, **leek**, **cabbage**, **lettuce**, **kale**) = 54 total purchases
-+  (**banana**, **==apple==**, **leek**, **cabbage**, **lettuce**, **kale**) = 54 total purchases
-+  (**banana**, **apple**, **==leek==**, **cabbage**, **lettuce**, **kale**) = 54 total purchases
-+  (**banana**, **apple**, **leek**, **==cabbage==**, **lettuce**, **kale**) = 54 total purchases
-+  (**banana**, **apple**, **leek**, **cabbage**, **==lettuce==**, **kale**) = 54 total purchases
-+  (**banana**, **apple**, **leek**, **cabbage**, **lettuce**, **==kale==**) = 54 total purchases
-
-```zetasql
-SELECT item, purchases, category, SUM(purchases)
-  OVER () AS total_purchases
-FROM Produce
-
-+-------------------------------------------------------+
-| item      | purchases  | category   | total_purchases |
-+-------------------------------------------------------+
-| banana    | 2          | fruit      | 54              |
-| leek      | 2          | vegetable  | 54              |
-| apple     | 8          | fruit      | 54              |
-| cabbage   | 9          | vegetable  | 54              |
-| lettuce   | 10         | vegetable  | 54              |
-| kale      | 23         | vegetable  | 54              |
-+-------------------------------------------------------+
-```
-
-#### Compute a subtotal
-
-This computes a subtotal for each category in the
-[`Produce`][produce-table] table.
-
-+  fruit
-   +  (**==banana==**, **apple**) = 10 total purchases
-   +  (**banana**, **==apple==**) = 10 total purchases
-+  vegetable
-   +  (**==leek==**, **cabbage**, **lettuce**, **kale**) = 44 total purchases
-   +  (**leek**, **==cabbage==**, **lettuce**, **kale**) = 44 total purchases
-   +  (**leek**, **cabbage**, **==lettuce==**, **kale**) = 44 total purchases
-   +  (**leek**, **cabbage**, **lettuce**, **==kale==**) = 44 total purchases
-
-```zetasql
-SELECT item, purchases, category, SUM(purchases)
-  OVER (
-    PARTITION BY category
-    ORDER BY purchases
-    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-  ) AS total_purchases
-FROM Produce
-
-+-------------------------------------------------------+
-| item      | purchases  | category   | total_purchases |
-+-------------------------------------------------------+
-| banana    | 2          | fruit      | 10              |
-| apple     | 8          | fruit      | 10              |
-| leek      | 2          | vegetable  | 44              |
-| cabbage   | 9          | vegetable  | 44              |
-| lettuce   | 10         | vegetable  | 44              |
-| kale      | 23         | vegetable  | 44              |
-+-------------------------------------------------------+
-```
-
-#### Compute a cumulative sum
-
-This computes a cumulative sum for each category in the
-[`Produce`][produce-table] table. The sum is computed with respect to the
-order defined using the `ORDER BY` clause.
-
-+  fruit
-   +  (**==banana==**, apple) = 2 total purchases
-   +  (**banana**, **==apple==**) = 10 total purchases
-+  vegetable
-   +  (**==leek==**, cabbage, lettuce, kale) = 2 total purchases
-   +  (**leek**, **==cabbage==**, lettuce, kale) = 11 total purchases
-   +  (**leek**, **cabbage**, **==lettuce==**, kale) = 21 total purchases
-   +  (**leek**, **cabbage**, **lettuce**, **==kale==**) = 44 total purchases
-
-```zetasql
-SELECT item, purchases, category, SUM(purchases)
-  OVER (
-    PARTITION BY category
-    ORDER BY purchases
-    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-  ) AS total_purchases
-FROM Produce
-
-+-------------------------------------------------------+
-| item      | purchases  | category   | total_purchases |
-+-------------------------------------------------------+
-| banana    | 2          | fruit      | 2               |
-| apple     | 8          | fruit      | 10              |
-| leek      | 2          | vegetable  | 2               |
-| cabbage   | 9          | vegetable  | 11              |
-| lettuce   | 10         | vegetable  | 21              |
-| kale      | 23         | vegetable  | 44              |
-+-------------------------------------------------------+
-```
-
-This does the same thing as the preceding example. You don't have to add
-`CURRENT ROW` as a boundary unless you would like to for readability.
-
-```sql
-SELECT item, purchases, category, SUM(purchases)
-  OVER (
-    PARTITION BY category
-    ORDER BY purchases
-    ROWS UNBOUNDED PRECEDING
-  ) AS total_purchases
-FROM Produce
-```
-
-In this example, all items in the [`Produce`][produce-table] table are included
-in the partition. Only preceding rows are analyzed. The analysis starts two
-rows prior to the current row in the partition.
-
-+  (==banana==, leek, apple, cabbage, lettuce, kale) = NULL
-+  (banana, ==leek==, apple, cabbage, lettuce, kale) = NULL
-+  (**banana**, leek, ==apple==, cabbage, lettuce, kale) = 2
-+  (**banana**, **leek**, apple, ==cabbage==, lettuce, kale) = 4
-+  (**banana**, **leek**, **apple**, cabbage, ==lettuce==, kale) = 12
-+  (**banana**, **leek**, **apple**, **cabbage**, lettuce, ==kale==) = 21
-
-```zetasql
-SELECT item, purchases, category, SUM(purchases)
-  OVER (
-    ORDER BY purchases
-    ROWS BETWEEN UNBOUNDED PRECEDING AND 2 PRECEDING
-  ) AS total_purchases
-FROM Produce;
-
-+-------------------------------------------------------+
-| item      | purchases  | category   | total_purchases |
-+-------------------------------------------------------+
-| banana    | 2          | fruit      | NULL            |
-| leek      | 2          | vegetable  | NULL            |
-| apple     | 8          | fruit      | 2               |
-| cabbage   | 9          | vegetable  | 4               |
-| lettuce   | 10         | vegetable  | 12              |
-| kale      | 23         | vegetable  | 21              |
-+-------------------------------------------------------+
-```
-
-#### Compute a moving average
-
-This computes a moving average in the [`Produce`][produce-table] table.
-The lower boundary is 1 row before the
-current row. The upper boundary is 1 row after the current row.
-
-+  (**==banana==**, **leek**, apple, cabbage, lettuce, kale) = 2 average purchases
-+  (**banana**, **==leek==**, **apple**, cabbage, lettuce, kale) = 4 average purchases
-+  (banana, **leek**, **==apple==**, **cabbage**, lettuce, kale) = 6.3333 average purchases
-+  (banana, leek, **apple**, **==cabbage==**, **lettuce**, kale) = 9 average purchases
-+  (banana, leek, apple, **cabbage**, **==lettuce==**, **kale**) = 14 average purchases
-+  (banana, leek, apple, cabbage, **lettuce**, **==kale==**) = 16.5 average purchases
-
-```zetasql
-SELECT item, purchases, category, AVG(purchases)
-  OVER (
-    ORDER BY purchases
-    ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
-  ) AS avg_purchases
-FROM Produce
-
-+-------------------------------------------------------+
-| item      | purchases  | category   | avg_purchases   |
-+-------------------------------------------------------+
-| banana    | 2          | fruit      | 2               |
-| leek      | 2          | vegetable  | 4               |
-| apple     | 8          | fruit      | 6.33333         |
-| cabbage   | 9          | vegetable  | 9               |
-| lettuce   | 10         | vegetable  | 14              |
-| kale      | 23         | vegetable  | 16.5            |
-+-------------------------------------------------------+
-```
-
-#### Compute the number of items within a range
-
-This example gets the number of animals that have a similar population
-count in the [`Farm`][farm-table] table.
-
-+  (**==goose==**, **dog**, **ox**, **goat**, duck, cat) = 4 animals between population range 0-2.
-+  (**goose**, **==dog==**, **ox**, **goat**, **duck**, cat) = 5 animals between population range 1-3.
-+  (**goose**, **dog**, **==ox==**, **goat**, **duck**, cat) = 5 animals between population range 1-3.
-+  (**goose**, **dog**, **ox**, **==goat==**, **duck**, cat) = 5 animals between population range 1-3.
-+  (goose, **dog**, **ox**, **goat**, **==duck==**, cat) = 4 animals between population range 2-4.
-+  (goose, dog, ox, goat, duck, **==cat==**) = 1 animal between population range 22-24.
-
-```zetasql
-SELECT animal, population, category, COUNT(*)
-  OVER (
-    ORDER BY population
-    RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING
-  ) AS similar_population
-FROM Farm;
-
-+----------------------------------------------------------+
-| animal    | population | category   | similar_population |
-+----------------------------------------------------------+
-| goose     | 1          | bird       | 4                  |
-| dog       | 2          | mammal     | 5                  |
-| ox        | 2          | mammal     | 5                  |
-| goat      | 2          | mammal     | 5                  |
-| duck      | 3          | bird       | 4                  |
-| cat       | 23         | mammal     | 1                  |
-+----------------------------------------------------------+
-```
-
-#### Get the most popular item in each category
-
-This example gets the most popular item in each category. It defines how rows
-in a window are partitioned and ordered in each partition. The
-[`Produce`][produce-table] table is referenced.
-
-+  fruit
-   +  (**==banana==**, **apple**) = apple is most popular
-   +  (**banana**, **==apple==**) = apple is most popular
-+  vegetable
-   +  (**==leek==**, **cabbage**, **lettuce**, **kale**) = kale is most popular
-   +  (**leek**, **==cabbage==**, **lettuce**, **kale**) = kale is most popular
-   +  (**leek**, **cabbage**, **==lettuce==**, **kale**) = kale is most popular
-   +  (**leek**, **cabbage**, **lettuce**, **==kale==**) = kale is most popular
-
-```zetasql
-SELECT item, purchases, category, LAST_VALUE(item)
-  OVER (
-    PARTITION BY category
-    ORDER BY purchases
-    ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-  ) AS most_popular
-FROM Produce
-
-+----------------------------------------------------+
-| item      | purchases  | category   | most_popular |
-+----------------------------------------------------+
-| banana    | 2          | fruit      | apple        |
-| apple     | 8          | fruit      | apple        |
-| leek      | 2          | vegetable  | kale         |
-| cabbage   | 9          | vegetable  | kale         |
-| lettuce   | 10         | vegetable  | kale         |
-| kale      | 23         | vegetable  | kale         |
-+----------------------------------------------------+
-```
-
-#### Get the last value in a range
-
-This example gets the most popular item in a specific window frame, using
-the [`Produce`][produce-table] table. The window frame analyzes up to three
-rows at a time. Take a close look at the `most_popular` column for vegetables.
-Instead of getting the most popular item in a specific category, it gets the
-most popular item in a specific range in that category.
-
-+  fruit
-   +  (**==banana==**, **apple**) = apple is most popular
-   +  (**banana**, **==apple==**) = apple is most popular
-+  vegetable
-   +  (**==leek==**, **cabbage**, lettuce, kale) = cabbage is most popular
-   +  (**leek**, **==cabbage==**, **lettuce**, kale) = lettuce is most popular
-   +  (leek, **cabbage**, **==lettuce==**, **kale**) = kale is most popular
-   +  (leek, cabbage, **lettuce**, **==kale==**) = kale is most popular
-
-```zetasql
-SELECT item, purchases, category, LAST_VALUE(item)
-  OVER (
-    PARTITION BY category
-    ORDER BY purchases
-    ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
-  ) AS most_popular
-FROM Produce
-
-+----------------------------------------------------+
-| item      | purchases  | category   | most_popular |
-+----------------------------------------------------+
-| banana    | 2          | fruit      | apple        |
-| apple     | 8          | fruit      | apple        |
-| leek      | 2          | vegetable  | cabbage      |
-| cabbage   | 9          | vegetable  | lettuce      |
-| lettuce   | 10         | vegetable  | kale         |
-| kale      | 23         | vegetable  | kale         |
-+----------------------------------------------------+
-```
-
-This example returns the same results as the preceding example, but it includes
-a named window called `item_window`. Some of the window specifications are
-defined directly in the `OVER` clause and some are defined in the named window.
-
-```zetasql
-SELECT item, purchases, category, LAST_VALUE(item)
-  OVER (
-    item_window
-    ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
-  ) AS most_popular
-FROM Produce
-WINDOW item_window AS (
-  PARTITION BY category
-  ORDER BY purchases)
-```
-
-#### Compute rank
-
-This example calculates the rank of each employee within their department,
-based on their start date. The window specification is defined directly
-in the `OVER` clause. The [`Employees`][employees-table] table is referenced.
-
-+  department 1
-   +  (**==Jacob==**, **Anthony**, **Andrew**) = Assign rank 1 to Jacob
-   +  (**Jacob**, **==Anthony==**, **Andrew**) = Assign rank 2 to Anthony
-   +  (**Jacob**, **Anthony**, **==Andrew==**) = Assign rank 3 to Andrew
-+  department 2
-   +  (**==Isabella==**, **Daniel**, **Jose**) = Assign rank 1 to Isabella
-   +  (**Isabella**, **==Daniel==**, **Jose**) = Assign rank 2 to Daniel
-   +  (**Isabella**, **Daniel**, **==Jose==**) = Assign rank 3 to Jose
-
-```zetasql
-SELECT name, department, start_date,
-  RANK() OVER (PARTITION BY department ORDER BY start_date) AS rank
-FROM Employees;
-
-+--------------------------------------------+
-| name      | department | start_date | rank |
-+--------------------------------------------+
-| Jacob     | 1          | 1990-07-11 | 1    |
-| Anthony   | 1          | 1995-11-29 | 2    |
-| Andrew    | 1          | 1999-01-23 | 3    |
-| Isabella  | 2          | 1997-09-28 | 1    |
-| Daniel    | 2          | 2004-06-24 | 2    |
-| Jose      | 2          | 2013-03-17 | 3    |
-+--------------------------------------------+
-```
-
-#### Use a named window in a window frame clause 
-<a id="def_use_named_window"></a>
-
-You can define some of your logic in a named window and some of it in a
-window frame clause. This logic is combined. Here is an example, using the
-[`Produce`][produce-table] table.
-
-```zetasql
-SELECT item, purchases, category, LAST_VALUE(item)
-  OVER (item_window) AS most_popular
-FROM Produce
-WINDOW item_window AS (
-  PARTITION BY category
-  ORDER BY purchases
-  ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)
-
-+-------------------------------------------------------+
-| item      | purchases  | category   | most_popular    |
-+-------------------------------------------------------+
-| banana    | 2          | fruit      | apple           |
-| apple     | 8          | fruit      | apple           |
-| leek      | 2          | vegetable  | lettuce         |
-| cabbage   | 9          | vegetable  | kale            |
-| lettuce   | 10         | vegetable  | kale            |
-| kale      | 23         | vegetable  | kale            |
-+-------------------------------------------------------+
-```
-
-You can also get the previous results with these examples:
-
-```zetasql
-SELECT item, purchases, category, LAST_VALUE(item)
-  OVER (item_window) AS most_popular
-FROM Produce
-WINDOW
-  a AS (PARTITION BY category),
-  b AS (a ORDER BY purchases),
-  c AS (b ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING),
-  item_window AS (c)
-```
-
-```zetasql
-SELECT item, purchases, category, LAST_VALUE(item)
-  OVER (item_window ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING) AS most_popular
-FROM Produce
-WINDOW
-  a AS (PARTITION BY category),
-  b AS (a ORDER BY purchases),
-  item_window AS (b)
-```
-
-The following example produces an error because a window frame clause has been
-defined twice:
-
-```zetasql {.bad}
-SELECT item, purchases, category, LAST_VALUE(item)
-  OVER (
-    item_window
-    ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
-    ) AS most_popular
-FROM Produce
-WINDOW item_window AS (
-  ORDER BY purchases
-  ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)
-```
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[named-window-rules]: #named_window_rules
-
-[over-clause-def]: #def_over_clause
-
-[window-specs-def]: #def_window_spec
-
-[window-frame-clause-def]: #def_window_frame
-
-[named-windows]: #ref_named_window
-
-[produce-table]: #produce_table
-
-[farm-table]: #farm_table
-
-[employees-table]: #employees_table
-
-[analytic-functions-link-to-numbering-functions]: #numbering_function_concepts
-
-[analytic-functions-link-to-navigation-functions]: #navigation_function_concepts
-
-[analytic-functions-compute-grand-total]: #compute_a_grand_total
-
-[analytic-functions-compute-subtotal]: #compute_a_subtotal
-
-[analytic-functions-compute-cumulative-sum]: #compute_a_cumulative_sum
-
-[analytic-functions-compute-moving-avg]: #compute_a_moving_average
-
-[analytic-functions-compute-item-range]: #compute_the_number_of_items_within_a_range
-
-[analytic-functions-get-popular-item]: #get_the_most_popular_item_in_each_category
-
-[analytic-functions-get-last-value-range]: #get_the_last_value_in_a_range
-
-[analytic-functions-compute-rank]: #compute_rank
-
-[analytic-functions-use-named-window]: #def_use_named_window
-
-[analytic-functions-link-to-window]: #window_clause
-
-[analytic-functions-link-to-qualify]: #qualify_clause
-
-[analytic-functions-link-to-hints]: #hints
-
-[navigation-functions-reference]: #navigation_functions
-
-[numbering-functions-reference]: #numbering_functions
-
-[aggregate-analytic-functions-reference]: #aggregate_analytic_functions
-
-<!-- mdlint on -->
-
-## Protocol buffers
-
-Protocol buffers are a flexible, efficient mechanism for serializing structured
-data. They are easy to create, small in size, and efficient to send over RPCs.
-
-As efficient and as popular as protocol buffers are, however, when it comes to
-data storage they do have one drawback: they do not map well to SQL syntax. For
-example, SQL syntax expects that a given field can support a `NULL` or default
-value. Protocol buffers, on the other hand, do not support `NULL`s very well,
-and there isn't a standard way to determine whether a missing field should get a
-`NULL` or a default value.
-
-If you're going to query protocol buffers, you need to understand how they are
-represented, what features they support, and what data they can contain. If
-you're unfamiliar with protocol buffers in general, or would like a refresher on
-how they work in languages other than SQL, see the
-[Protocol Buffers Developer Guide][protocol-buffers-dev-guide].
-
-### Constructing protocol buffers
-
-This section covers how to construct protocol buffers using ZetaSQL.
-
-#### NEW ProtocolBuffer {...} {: #using_new_map_constructor }
-
-You can create a protocol buffer using the map constructor `NEW` syntax:
-
-<section class="tabs">
-
-##### Format {.new-tab}
-
-```sql
-NEW protocol_buffer {
-  field_name: literal_or_expression
-  field_name { ... }
-  repeated_field_name: [literal_or_expression, ... ]
-  map_field_name: [{key: literal_or_expression value: literal_or_expression}, ...],
-  (extension_name): literal_or_expression
-}
-```
-
-Where:
-
-+ `protocol_buffer`: The full Protocol Buffer name including the package name.
-+ `field_name`: The name of a field.
-+ `literal_or_expression`: The field value.
-+  `map_field_name`: The name of a map-typed field. The value is a list of
-   key/value pair entries for the map.
-+  `extension_name`: The name of the proto extension, including the package
-   name.
-
-##### Example {.new-tab}
-
-```sql
-NEW Universe {
-  name: "Sol"
-  closest_planets: ["Mercury", "Venus", "Earth" ]
-  star {
-    radius_miles: 432,690
-    age: 4,603,000,000
-  }
-  constellations [{
-    name: "Libra"
-    index: 0
-  }, {
-    name: "Scorpio"
-    index: 1
-  }]
-  planet_distances: [{
-    key: "Mercury"
-    distance: 46,507,000
-  }, {
-    key: "Venus"
-    distance: 107,480,000
-  }]
-  (UniverseExtraInfo.extension) {
-    ...
-  }
-  all_planets: (SELECT planets FROM SolTable)
-}
-```
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-</section>
-
-> NOTE: The syntax is very similar to the Protocol Buffer Text Format
->  syntax.
-> The differences are:
->
-> +   Values can be arbitrary SQL expressions instead of having to be literals.
-> +   Repeated fields are written as `x_array: [1, 2, 3]` instead of `x_array:`
->     appearing multiple times.
-> +   Extensions use parentheses instead of square brackets.
-
-<!-- mdlint on -->
-
-When using this syntax:
-
-+   The field values must be expressions that are implicitly coercible or
-    literal-coercible to the type of the corresponding protocol buffer field.
-+   Commas between fields are optional.
-+   Extension names must have parentheses around the path and must have a comma
-    preceding the extension field (unless it is the first field).
-+   A colon is required between field name and values unless the value is a map
-    constructor.
-+   The `NEW ProtocolBuffer` prefix is optional if the protocol buffer type can
-    be inferred from the context.
-+   The type of submessages inside the map constructor can be inferred.
-
-**Examples**
-
-Simple:
-
-```sql
-SELECT
-  key,
-  name,
-  NEW zetasql.examples.music.Chart { rank: 1 chart_name: "2" }
-```
-
-Nested messages and arrays:
-
-```sql
-SELECT
-  NEW zetasql.examples.music.Album {
-    album_name: "Bach: The Goldberg Variations"
-    singer {
-      nationality: "German"
-      residence: [{ city: "Eisenach" }, { city: "Leipzig" }]
-    }
-    song: ["Aria", "Clav"]
-  }
-```
-
-With an extension field (note a comma is required before the extension field):
-
-```sql
-SELECT
-  NEW zetasql.examples.music.Album {
-    album_name: "Bach: The Goldberg Variations",
-    (zetasql.examples.music.downloads): 30
-  }
-```
-
-Non-literal expressions as values:
-
-```sql
-SELECT NEW zetasql.examples.music.Chart {
-  rank: (SELECT COUNT(*) FROM table_name WHERE foo="bar")
-  chart_name: CONCAT("best", "hits")
-}
-```
-
-Examples of the type protocol buffer being inferred from context:
-
-+   From `ARRAY` constructor:
-
-    ```sql
-    SELECT ARRAY<zetasql.examples.music.Chart>[
-        { rank: 1 chart_name: "2" },
-        { rank: 2 chart_name: "3" }]
-    ```
-+   From `STRUCT` constructor:
-
-    ```sql
-    SELECT STRUCT<STRING,zetasql.examples.music.Chart,INT64>
-      ("foo", { rank: 1 chart_name: "2" }, 7)
-    ```
-+   From column names through `SET`:
-
-    +   Simple column:
-
-    ```sql
-    UPDATE table_name SET ProtoColumn = { rank: 1 chart_name: "2" }
-    ```
-
-    +   Array column:
-
-    ```sql
-    UPDATE table_name SET ProtoArrayColumn =
-      [{ rank: 1 chart_name: "2" }, { rank: 2 chart_name: "3" }]
-    ```
-
-    +   Struct column:
-
-    ```sql
-    UPDATE table_name SET ProtoStructColumn =
-      ("foo", { rank: 1 chart_name: "2" }, 7)
-    ```
-+   From generated column names in `CREATE`:
-
-    ```sql
-    CREATE TABLE T (
-      IntColumn INT32,
-      ProtoColumn zetasql.examples.music.Chart AS ({ rank: 1 chart_name: "2" })
-    )
-    ```
-+   From column names in default values in `CREATE`:
-
-    ```sql
-    CREATE TABLE T (
-      IntColumn INT32,
-      ProtoColumn zetasql.examples.music.Chart DEFAULT ({ rank: 1 chart_name: "2" })
-    )
-    ```
-+   From return types in SQL function body:
-
-    ```sql
-    CREATE FUNCTION myfunc (  ) RETURNS zetasql.examples.music.Chart AS ({ rank: 1 chart_name: "2" })
-    ```
-+   From system variable type:
-
-    ```sql
-    SET @@proto_system_variable = { rank: 1 chart_name: "2" }
-    ```
-
-#### NEW ProtocolBuffer (...) 
-<a id="using_new"></a>
-
-You can create a protocol buffer using the keyword `NEW` with a parenthesized
-list of arguments, using aliases to specify field names:
-
-```sql
-NEW ProtocolBuffer(field_1 [AS alias], ...field_n [AS alias])
-```
-
-When using this syntax:
-
-+ All field expressions must have an [explicit alias][explicit-alias] or end with an identifier.
-  For example, the expression `a.b.c` has the [implicit alias][implicit-alias] `c`.
-+ `NEW` matches fields by alias to the field names of the protocol buffer.
-  Aliases must be unique.
-+ The expressions must be implicitly coercible or literal-coercible to the type
-  of the corresponding protocol buffer field.
-
-Example:
-
-```sql
-SELECT
-  key,
-  name,
-  NEW zetasql.examples.music.Chart(key AS rank, name AS chart_name)
-FROM
-  (SELECT 1 as key, "2" as name);
-```
-
-To create a protocol buffer with an extension, use this syntax:
-
-```sql
-NEW ProtocolBuffer(expr1 AS (path.to.extension), ...)
-```
-
-+   For `path.to.extension`, provide the path to the extension. Place the
-    extension path inside parentheses.
-+   `expr1` provides the value to set for the extension. `expr1` must be of the
-    same type as the extension or [coercible to that type][conversion-rules].
-
-    Example:
-
-    ```sql
-    SELECT
-     NEW zetasql.examples.music.Album (
-       album AS album_name,
-       count AS (zetasql.examples.music.downloads)
-     )
-     FROM (SELECT 'Bach: The Goldberg Variations' AS album, 30 AS count);
-
-    +------------------------------------------------------------------------+
-    | $col1                                                                  |
-    +------------------------------------------------------------------------+
-    | {album_name: 'Bach: The Goldberg Variations' [...music.downloads]: 30} |
-    +------------------------------------------------------------------------+
-    ```
-+   If `path.to.extension` points to a nested protocol buffer extension, `expr1`
-    provides an instance or a text format string of that protocol buffer.
-
-    Example:
-
-    ```sql
-    SELECT
-     NEW zetasql.examples.music.Album(
-       'Bach: The Goldberg Variations' AS album_name,
-       NEW zetasql.examples.music.AlbumExtension(
-        DATE(1956,1,1) AS release_date
-       )
-     AS (zetasql.examples.music.AlbumExtension.album_extension));
-
-    +-------------------------------------------------------------+
-    | $col1                                                       |
-    +-------------------------------------------------------------+
-    | album_name: "Bach: The Goldberg Variations"                 |
-    | [...music.AlbumExtension.album_extension] {                 |
-    |   release_date: -5114                                       |
-    | }                                                           |
-    +-------------------------------------------------------------+
-    ```
-
-#### SELECT AS ProtocolBuffer
-
-```
-SELECT AS catalog.ProtocolBufferName
-  expr1 [[AS] protocol_buffer_field1]
-  [, ...]
-FROM ...
-```
-
-A `SELECT AS ProtocolBuffer` statement produces a value table where the row type
-is a specific named type. Currently, protocol buffers are the only supported
-type that can be used with this syntax.
-
-The `SELECT` list may produce multiple columns.  Each produced column must have
-an alias (explicitly or implicitly) that matches a unique protocol buffer field
-name; to construct the protocol buffer, the query matches each expression with a
-protocol buffer field by name. If no explicit alias is given, the expression
-must have an implicit alias according to the rules in
-[Implicit Aliases][implicit-alias].
-
-When used with `SELECT DISTINCT`, or `GROUP BY` or `ORDER BY` using column
-ordinals, these operators are applied first, on the columns in the `SELECT`
-list, and then the value construction happens last.  This means that `DISTINCT`
-can be applied on the input columns to the value construction, including in
-cases where `DISTINCT` would not be allowed after value construction because
-equality is not supported on protocol buffer types.
-
-The following is an example of a `SELECT AS ProtocolBuffer` query.
-
-```sql 
-SELECT AS tests.TestProtocolBuffer mytable.key int64_val, mytable.name string_val
-FROM mytable;
-
-```
-
-The query returns the output as a `tests.TestProtocolBuffer` protocol
-buffer. `mytable.key int64_val` means that values from the `key` column are
-stored in the `int64_val` field in the protocol buffer. Similarly, values from
-the `mytable.name` column are stored in the `string_val` protocol buffer field.
-
- `SELECT AS` does not support setting protocol
-buffer extensions. To do so, use the [NEW][new-keyword] keyword instead. For
-example,  to create a protocol buffer with an extension, change a query like
-this:
-
-```sql
-SELECT AS ProtoType field1, field2, ...
-```
-
-to a query like this:
-
-```sql
-SELECT AS VALUE NEW ProtoType(field1, field2, field3 AS (path.to.extension), ...)
-```
-
-### Casting protocol buffers
-
-You can cast `PROTO` to or from `BYTES` or `STRING`.
-
-```sql
-SELECT CAST('first_name: "Jane", last_name: "Doe", customer_no: 1234'
-  AS example.CustomerInfo);
-```
-
-Casting to or from `BYTES` produces or parses proto2 wire format bytes. If
-there is a failure during the serialization or deserialization process, an error
-is raised. This can happen, for example, if no value is specified for a
-required field.
-
-Casting to or from `STRING` produces or parses the proto2 text format. When
-casting from `STRING`, unknown field names aren't parseable. This means you need
-to be cautious, because round-tripping from `PROTO` to `STRING` back to `PROTO`
-could result in loss of data.
-
-`STRING` literals used where a `PROTO` value is expected will be implicitly cast
-to `PROTO`. If the literal value cannot be parsed using the expected `PROTO`
-type, an error will be raised. To return `NULL`
-instead, use [`SAFE_CAST`][link_to_safe_cast].
-
-### Type mapping 
-<a id="type_mapping"></a>
-
-Protocol buffers are represented using the `PROTO` data type.  A column can
-contain `PROTO` values the same way it can contain `INT32` or `STRING` values.
-
-A protocol buffer contains zero or more fields inside it. Each field inside a
-protocol buffer has its own type. All data types except `STRUCT` can be
-contained inside a `PROTO`. Repeated fields in a protocol buffer are represented
-as `ARRAY`s. The following table gives examples of the mapping between various
-protocol buffer field types and the resulting ZetaSQL types.
-
-<table>
-<thead>
-<tr>
-<th>Protocol Buffer Field Type</th>
-<th style="white-space:nowrap">ZetaSQL Type</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>optional MessageType msg = 1;</code></td>
-<td><code>PROTO&lt;MessageType&gt;</code></td>
-</tr>
-<tr>
-<td><code>required int64 int = 1;</code></td>
-<td><code>INT64</code></td>
-</tr>
-<tr>
-<td>
-<code>optional int64 int = 1;</code><br>
-When reading, if this field isn't set, the default value (0) is returned. By
-default, protocol buffer fields do not return <code>NULL</code>.
-</td>
-<td><code>INT64</code></td>
-</tr>
-<tr>
-<td>
-<code>optional int64 int = 1 [( zetasql.use_defaults ) = false];</code><br>
-When reading, if this field isn't set, a <code>NULL</code> value is returned.
-This example uses an annotation, which is described in
-<a href="#default_values_and_nulls">Defaults and <code>NULL</code>s</a>.
-</td>
-<td><code>INT64</code></td>
-</tr>
-
-<tr>
-<td>
-<code>optional int32 date = 1 [( zetasql.format ) = DATE];</code>
-
-</td>
-<td><code>DATE</code></td>
-</tr>
-<tr>
-<td>
-<code>optional int64 time = 1 [( zetasql.format ) = TIMESTAMP_MICROS];</code>
-
-</td>
-<td><code>TIMESTAMP</code></td>
-</tr>
-
-<tr>
-<td><code>repeated int64 repeat = 1;</code></td>
-<td><code>ARRAY&lt;INT64&gt;</code></td>
-</tr>
-</tbody>
-</table>
-
-#### Default values and `NULL`s  {#default_values_and_nulls}
-
-Protocol buffer messages themselves do not have a default value &mdash; only the
-fields contained inside a protocol buffer have defaults. When a full protocol
-buffer value is returned in the result of a query, it is returned as a blob and
-all fields are preserved as they were stored, including unset fields. This means
-that you can run a query that returns a protocol buffer, and then extract fields
-or check field presence in your client code with normal protocol buffer default
-behavior.
-
-By default, `NULL` values are never returned when accessing non-repeated leaf
-fields contained in a `PROTO` from within a SQL statement, unless a containing
-value is also `NULL`.  If the field value is not explicitly set, the default
-value for the field is returned.  A change to the default value for a protocol
-buffer field affects all future reads of that field for records where the value
-is unset.
-
-For example, suppose that `proto_msg` of type `PROTO` has a field named
-`leaf_field`. A reference to `proto_msg.leaf_field` returns:
-
-+ `NULL` if `proto_msg` is `NULL`.
-+ A default value if `proto_msg` is not `NULL` but `leaf_field` is not set.
-+ The value of `leaf_field` if `proto_msg` is not `NULL` and `leaf_field`
-  is set.
-
-#### zetasql.use_defaults
-
-You can change this default behavior using a special annotation on your protocol
-message definition, `zetasql.use_defaults`, which you set on an individual
-field to cause `NULL` values to be returned whenever a field value is not
-explicitly set.
-
-This annotation takes a boolean value.  The default is `true`, which means to
-use the protocol buffer field defaults.  The annotation normally is written with
-the value `false`, meaning that defaults should be ignored and `NULL`s should be
-returned.
-
-The following example shows how you can use the `use_defaults` annotation for an
-optional protocol buffer field.
-
-```proto
-import "zetasql/public/proto/type_annotation.proto";
-
-message SimpleMessage {
-  // String field, where ZetaSQL interprets missing values as NULLs.
-  optional string str = 2 [( zetasql.use_defaults ) = false];
-}
-```
-
-In the case where protocol buffers have empty repeated fields, an empty `ARRAY`
-is returned rather than a `NULL`-valued `ARRAY`. This behavior cannot be
-changed.
-
-After a value has been read out of a protocol buffer field, that value is
-treated like any other value of that type. For non-`PROTO` values, such as
-`INT64`, this means that after you get the value, you will not be able to tell
-if the value for that field was set explicitly, or if it was read as a default
-value.
-
-#### zetasql.use_field_defaults
-
-The `zetasql.use_field_defaults` annotation is just like
-`zetasql.use_defaults`, but you set it on a message and it applies to all
-unset fields within a given protocol buffer message. If both are present, the
-field-level annotation takes precedence.
-
-```proto
-import "zetasql/public/proto/type_annotation.proto";
-
-message AnotherSimpleMessage {
-  // Interpret missing value as NULLs for all fields in this message.
-  option ( zetasql.use_field_defaults ) = false;
-
-  optional int64 nullable_int = 1;
-  optional string nullable_string = 2;
-}
-```
-
-#### Checking if a non-repeated field has a value 
-<a id="checking_if_a_field_has_a_value"></a>
-
-You can detect whether `optional` fields are set using a virtual field, `has_X`,
-where `X` is the name of the field being checked. The type of the `has_X` field
-is `BOOL`. The `has_` field is available for any non-repeated field of a `PROTO`
-value. This field equals true if the value `X` is explicitly set in the message.
-
-This field is useful for determining if a protocol buffer field has an explicit
-value, or if reads will return a default value. Consider the protocol buffer
-example, which has a field `country`. You can construct a query to determine if
-a Customer protocol buffer message has a value for the country field by using
-the virtual field `has_country`:
-
-```proto
-message ShippingAddress {
-  optional string name = 1;
-  optional string address = 2;
-  optional string country = 3;
-}
-```
-
-```sql
-SELECT
-  c.Orders.shipping_address.has_country
-FROM
-  Customer c;
-```
-
-If `has_country` returns `TRUE`, it indicates that the value for the `country`
-field has been explicitly set. If it returns `FALSE` or `NULL`, it means the
-value is not explicitly set.
-
-#### Checking for a repeated value 
-<a id="checking_for_a_repeated_value"></a>
-
-You can use an `EXISTS` subquery to scan inside a repeated field and check if
-any value exists with some desired property. For example, the following query
-returns the name of every customer who has placed an order for the product
-"Foo".
-
-```sql
-SELECT
-  C.name
-FROM
-  Customers AS C
-WHERE
-  EXISTS(
-    SELECT
-      *
-    FROM
-      C.Orders.line_item AS item
-    WHERE
-      item.product_name = 'Foo'
-  );
-```
-
-#### Nullness and nested fields
-
-A `PROTO` value may contain fields which are themselves `PROTO`s. When this
-happens it is possible for the nested `PROTO` itself to be `NULL`. In such a
-case, the fields contained within that nested field are also `NULL`
-regardless of their `use_default_value` settings.
-
-Consider this example proto:
-
-```proto
-syntax = "proto2";
-
-import "zetasql/public/proto/type_annotation.proto";
-
-package some.package;
-
-message NestedMessage {
-  optional int64 value = 1 [( zetasql.use_defaults ) = true];
-}
-
-message OuterMessage {
-  optional NestedMessage nested = 1;
-}
-```
-
-Running the following query returns a `5` for `value` because it is
-explicitly defined.
-
-```sql
-SELECT
-  proto_field.nested.value
-FROM
-  (SELECT
-     CAST("nested { value: 5 }" as some.package.OuterMessage) as proto_field);
-```
-
-If `value` is not explicitly defined but `nested` is, you get a `0` because
-the annotation on the protocol buffer definition says to use default values.
-
-```sql
-SELECT
-  proto_field.nested.value
-FROM
-  (SELECT
-     CAST("nested { }" as some.package.OuterMessage) as proto_field);
-```
-
-However, if `nested` is not explicitly defined, you get a `NULL` even
-though the annotation says to use default values for the `value` field. This is
-because the containing message is `NULL`. This behavior applies to both
-repeated and non-repeated fields within a nested message.
-
-```sql
-SELECT
-  proto_field.nested.value
-FROM
-  (SELECT
-     CAST("" as some.package.OuterMessage) as proto_field);
-```
-
-#### Annotations to extend the type system 
-<a id="proto_annotations"></a>
-
-The ZetaSQL type system contains more types than the protocol buffer
-type system.
-<a href="https://developers.google.com/protocol-buffers/docs/proto?csw=1#options">
-Proto annotations</a> are used to store non-protocol-buffer types inside
-serialized protos and read them back as the correct type.
-
-While protocol buffers themselves do not support `DATE` or `TIMESTAMP` types,
-you can use annotations on your protocol message definition to indicate that
-certain fields should be interpreted as `DATE` or `TIMESTAMP` values when read
-using SQL. For instance, a protocol message definition could contain the
-following line:
-
-```proto
-optional int32 date = 2 [( zetasql.format ) = DATE];
-```
-
-The `zetasql.format` annotation indicates that this field, which stores an
-`int32` in the protocol buffer, should be interpreted as a `DATE`. Queries over
-the `date` field return a `DATE` type instead of an `INT32` because of the
-annotation.
-
-This result is the equivalent of having an `INT32` column and querying it as
-follows:
-
-```sql
-SELECT
-  DATE_FROM_UNIX_DATE(date)...
-```
-
-### Querying protocol buffers 
-<a id="querying_protocol_buffers"></a>
-
-You use the dot operator to access the fields contained within a protocol
-buffer. This can not be used to get values of ambiguous fields.
-If you need to reference an ambiguous field,
-see [`EXTRACT`][proto-extract].
-
-#### Example protocol buffer message 
-<a id="example_protocol_buffer_message"></a>
-
-To illustrate how to query protocol buffers, consider a table, `Customers`, that
-contains a column `Orders` of type `PROTO`. The proto stored in `Orders`
-contains fields such as the items ordered and the shipping address. The `.proto`
-file that defines this protocol buffer might look like this:
-
-```proto
-import "zetasql/public/proto/type_annotation.proto";
-
-message Orders {
-  optional string order_number = 1;
-  optional int64 date = 2 [( zetasql.format ) = DATE];
-
-  message Address {
-    optional string street = 1;
-    optional string city = 2;
-    optional string state = 3;
-    optional string country = 4 [( zetasql.use_defaults ) = true,
-                                  default = "United States"];
-  }
-
-  optional Address shipping_address = 3;
-
-  message Item {
-    optional string product_name = 1;
-    optional int32 quantity = 2;
-  }
-
-  repeated Item line_item = 4;
-
-  map<string, string> labels = 5;
-}
-```
-
-An instance of this message might be:
-
-```
-{
-  order_number: 1234567
-  date: 16242
-  shipping_address: {
-      street: "1234 Main St"
-      city: "AnyCity"
-      state: "AnyState"
-      country: "United States"
-  }
-  line_item: {
-      product_name: "Foo"
-      quantity: 10
-  }
-  line_item: {
-      product_name: "Bar"
-      quantity: 5
-  }
-}
-```
-
-#### Querying top-level fields 
-<a id="querying_top-level_fields"></a>
-
-You can write a query to return an entire protocol buffer message, or to return
-a top-level or nested field of the message.
-
-Using our example protocol buffer message, the following query returns all
-protocol buffer values from the `Orders` column:
-
-```sql
-SELECT
-  c.Orders
-FROM
-  Customers c;
-```
-
-This query returns the top-level field `order_number` from all protocol buffer
-messages in the `Orders` column:
-
-```sql
-SELECT
-  c.Orders.order_number
-FROM
-  Customers c;
-```
-
-#### Querying nested paths 
-<a id="querying_nested_paths"></a>
-
-Notice that the `Order` protocol buffer contains another protocol buffer
-message, `Address`, in the `shipping_address` field. You can create a query that
-returns all orders that have a shipping address in the United States:
-
-```sql
-SELECT
-  c.Orders.order_number,
-  c.Orders.shipping_address
-FROM
-  Customers c
-WHERE
-  c.Orders.shipping_address.country = "United States";
-```
-
-#### Returning repeated fields
-
-Often, a protocol buffer message contains one or more repeated fields which are
-returned as `ARRAY` values when referenced in SQL statements. For example, our
-protocol buffer message contains a repeated field, `line_item`.
-
-The following query returns a collection of `ARRAY`s containing the line items,
-each holding all the line items for one order:
-
-```sql
-SELECT
-  c.Orders.line_item
-FROM
-  Customers c;
-```
-
-For more information, see
-[Working with Arrays][working-with-arrays].
-
-#### Returning the number of elements in an array
-
-As with any other `ARRAY` value, you can return the number of repeated fields in
-a protocol buffer using the `ARRAY_LENGTH` function.
-
-```sql
-SELECT
-  c.Orders.order_number,
-  ARRAY_LENGTH(c.Orders.line_item)
-FROM
-  Customers c;
-```
-
-#### Querying map fields
-
-Maps are not a supported type in ZetaSQL. However, maps are
-[implemented in proto3 as repeated fields][protocol-buffer-compatibility],
-so you can query maps by querying
-the underlying repeated field. The underlying repeated field has `key` and
-`value` fields that can be queried.
-
-```sql
-SELECT
-  C.Orders.order_number
-FROM
-  Customers AS C
-WHERE
-  EXISTS(
-    SELECT
-      *
-    FROM
-      C.Orders.Labels label
-    WHERE
-      label.key = 'color' AND label.value = 'red'
-  );
-```
-
-### Extensions
-
-[extensions][protocol-extensions]
-can be queried from `PROTO` values.
-
-#### Top-level extensions 
-<a id="extensions"></a>
-
-If your `PROTO` value contains extensions, you can query those fields using the
-following syntax:
-
-```
-<identifier_of_proto_value>.(<package_of_extension>.<path_expression_to_extension_field>)
-```
-
-For example, consider this proto definition:
-
-```proto
-package some.package;
-
-message Foo {
-  optional int32 x = 1;
-  extensions 100 to 130;
-}
-
-message Point {
-  optional int32 x = 1;
-  optional int32 y = 2;
-}
-
-extend Foo {
-  optional int32 bar = 126;
-  optional Point point = 127;
-}
-```
-
-The following sections use this proto definition in a Table, `Test`, which
-contains a field, `foo_field` of type `Foo`.
-
-A query that returns the value of the `bar` extension field would resemble the
-following:
-
-```sql
-SELECT
-  foo_field.(some.package.bar)
-FROM
-  Test;
-```
-
-These types of extensions are often referred to as *top-level extensions*.
-
-If you want your statement to return a specific value from a top-level
-extension, you would modify it as follows:
-
-```sql
-SELECT
-  foo_field.(some.package.point).y
-FROM
-  Test;
-```
-
-You can refine your statement to look for a specific value of a top-level
-extension as well.
-
-```sql
-SELECT
-  foo_field.(some.package.bar)
-FROM
-  Test
-WHERE
-  foo_field.(some.package.bar) = 5;
-```
-
-Note that you can also put back quotes around the components in the extension
-path name in case they need to be escaped to avoid collisions with reserved
-keywords. For example:
-
-```sql
-SELECT
-  foo_field.(`some.package`.`bar`).value = 5
-FROM
-  Test;
-```
-
-#### Nested extensions
-
-[Nested extensions][nested-extensions]
-are also supported. These are protocol buffer extensions that are declared
-within the scope of some other protocol message. For example:
-
-```proto
-package some.package;
-
-message Baz {
-  extend Foo {
-    optional Baz foo_ext = 127;
-  }
-  optional int32 a = 1;
-  optional int32 b = 2;
-  ...
-}
-```
-
-To construct queries for nested extensions, you use the same parenthetical
-syntax as described in the previous section. To reference a nested extension,
-in addition to specifying the package name, you must also specify the name of
-the message where the extension is declared. For example:
-
-```sql
-SELECT
-  foo_field.(some.package.Baz.foo_ext)
-FROM
-  Test;
-```
-
-You can reference a specific field in a nested extension using the same syntax
-described in the previous section. For example:
-
-```sql
-SELECT
-  foo_field.(some.package.Baz.foo_ext).a
-FROM
-  Test;
-```
-
-#### Unnesting repeated fields and extensions 
-<a id="unnest_repeated_fields"></a>
-
-You can use a [correlated join][correlated-join] to [unnest][unnest-operator]
-standard repeated fields or repeated extension fields and return a table with
-one row for each instance of the field. A standard repeated field does not
-require an explicit `UNNEST`, but a repeated extension field does.
-
-Consider the following protocol buffer:
-
-```proto
-syntax = "proto2";
-
-package some.package;
-
-message Example {
-  optional int64 record_key = 1;
-  repeated int64 repeated_value = 2;
-  extensions 3 to 3;
-}
-
-message Extension {
-  extend Example {
-    repeated int64 repeated_extension_value = 3;
-  }
-}
-```
-
-The following query uses a standard repeated field,
-`repeated_value`, in a correlated comma `CROSS JOIN` and runs without an
-explicit `UNNEST`.
-
-```sql
-WITH t AS
-  (SELECT
-     CAST("""
-       record_key: 1
-       repeated_value: 1
-       repeated_value: 2
-       repeated_value: 3
-       [some.package.Extension.repeated_extension_value]: 4
-       [some.package.Extension.repeated_extension_value]: 5
-       [some.package.Extension.repeated_extension_value]: 6"""
-     as some.package.Example) as proto_field)
-SELECT
-  t.proto_field.record_key,
-  value
-FROM
-  t,
-  t.proto_field.repeated_value value;
-```
-
-The following query uses a repeated extension field,
-`repeated_extension_value`, in a correlated comma `CROSS JOIN` and requires an
-explicit `UNNEST`.
-
-```sql
-WITH t AS
-  (SELECT
-     CAST("""
-       record_key: 1
-       repeated_value: 1
-       repeated_value: 2
-       repeated_value: 3
-       [some.package.Extension.repeated_extension_value]: 4
-       [some.package.Extension.repeated_extension_value]: 5
-       [some.package.Extension.repeated_extension_value]: 6"""
-     as some.package.Example) as proto_field)
-SELECT
-  t.proto_field.record_key,
-  value
-FROM
-  t,
-  UNNEST(t.proto_field.(some.package.Extension.repeated_extension_value)) value;
-```
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[protocol-buffer-compatibility]: https://developers.google.com/protocol-buffers/docs/proto3#backwards-compatibility
-
-[protocol-buffers-dev-guide]: https://developers.google.com/protocol-buffers
-
-[nested-extensions]: https://developers.google.com/protocol-buffers/docs/proto#nested-extensions
-
-[new-keyword]: #using_new
-
-[explicit-alias]: #explicit_alias_syntax
-
-[implicit-alias]: #implicit_aliases
-
-[correlated-join]: #correlated_join
-
-[unnest-operator]: #unnest_operator
-
-[conversion-rules]: #conversion_rules
-
-[working-with-arrays]: #working_with_arrays
-
-[link_to_safe_cast]: #safe_casting
-
-[link_to_expression_subquery]: #expression_subquery_concepts
-
-[proto-extract]: #proto_extract
-
-<!-- mdlint on -->
-
-## Working with arrays
-
-In ZetaSQL, an array is an ordered list consisting of zero or more
-values of the same data type. You can construct arrays of simple data types,
-such as `INT64`, and complex data types, such as `STRUCT`s. The current
-exception to this is the `ARRAY` data type because arrays of arrays
-are not supported. To learn more about the `ARRAY`
-data type, see [Array type][array-data-type].
-
-With ZetaSQL, you can construct array literals,
- build arrays from subqueries using the
-[`ARRAY`][array-function] function,
- and aggregate values into an array using the
-[`ARRAY_AGG`][array-agg-function]
-function.
-
-You can combine arrays using functions like
-`ARRAY_CONCAT()`, and convert arrays to strings using `ARRAY_TO_STRING()`.
-
-### Constructing arrays
-
-#### Using array literals
-
-You can build an array literal in ZetaSQL using brackets (`[` and
-`]`). Each element in an array is separated by a comma.
-
-```sql
-SELECT [1, 2, 3] as numbers;
-
-SELECT ["apple", "pear", "orange"] as fruit;
-
-SELECT [true, false, true] as booleans;
-```
-
-You can also create arrays from any expressions that have compatible types. For
-example:
-
-```sql
-SELECT [a, b, c]
-FROM
-  (SELECT 5 AS a,
-          37 AS b,
-          406 AS c);
-
-SELECT [a, b, c]
-FROM
-  (SELECT CAST(5 AS INT64) AS a,
-          CAST(37 AS DOUBLE) AS b,
-          406 AS c);
-```
-
-Notice that the second example contains three expressions: one that returns an
-`INT64`, one that returns a `DOUBLE`, and one that
-declares a literal. This expression works because all three expressions share
-`DOUBLE` as a supertype.
-
-To declare a specific data type for an array, use angle
-brackets (`<` and `>`). For example:
-
-```sql
-SELECT ARRAY<DOUBLE>[1, 2, 3] as floats;
-```
-
-Arrays of most data types, such as `INT64` or `STRING`, don't require
-that you declare them first.
-
-```sql
-SELECT [1, 2, 3] as numbers;
-```
-
-You can write an empty array of a specific type using `ARRAY<type>[]`. You can
-also write an untyped empty array using `[]`, in which case ZetaSQL
-attempts to infer the array type from the surrounding context. If
-ZetaSQL cannot infer a type, the default type `ARRAY<INT64>` is used.
-
-#### Using generated values
-
-You can also construct an `ARRAY` with generated values.
-
-##### Generating arrays of integers
-
-[`GENERATE_ARRAY`][generate-array-function]
-generates an array of values from a starting and ending value and a step value.
-For example, the following query generates an array that contains all of the odd
-integers from 11 to 33, inclusive:
-
-```sql
-SELECT GENERATE_ARRAY(11, 33, 2) AS odds;
-
-+--------------------------------------------------+
-| odds                                             |
-+--------------------------------------------------+
-| [11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33] |
-+--------------------------------------------------+
-```
-
-You can also generate an array of values in descending order by giving a
-negative step value:
-
-```sql
-SELECT GENERATE_ARRAY(21, 14, -1) AS countdown;
-
-+----------------------------------+
-| countdown                        |
-+----------------------------------+
-| [21, 20, 19, 18, 17, 16, 15, 14] |
-+----------------------------------+
-```
-
-##### Generating arrays of dates
-
-[`GENERATE_DATE_ARRAY`][generate-date-array]
-generates an array of `DATE`s from a starting and ending `DATE` and a step
-`INTERVAL`.
-
-You can generate a set of `DATE` values using `GENERATE_DATE_ARRAY`. For
-example, this query returns the current `DATE` and the following
-`DATE`s at 1 `WEEK` intervals up to and including a later `DATE`:
-
-```sql
-SELECT
-  GENERATE_DATE_ARRAY('2017-11-21', '2017-12-31', INTERVAL 1 WEEK)
-    AS date_array;
-
-+--------------------------------------------------------------------------+
-| date_array                                                               |
-+--------------------------------------------------------------------------+
-| [2017-11-21, 2017-11-28, 2017-12-05, 2017-12-12, 2017-12-19, 2017-12-26] |
-+--------------------------------------------------------------------------+
-```
-
-### Casting arrays
-
-You can use [`CAST`][casting]
-to cast arrays from one element type to another. The element types of the input
-`ARRAY` must be castable to the element types of the target `ARRAY`. For
-example, casting from type `ARRAY<INT32>` to `ARRAY<INT64>` or `ARRAY<STRING>`
-is valid; casting from type `ARRAY<INT32>` to `ARRAY<BYTES>` is not valid.
-
-**Example**
-
-```sql
-SELECT CAST(int_array AS ARRAY<DOUBLE>) AS double_array
-FROM (SELECT ARRAY<INT32>[1, 2, 3] AS int_array);
-
-+--------------+
-| double_array |
-+--------------+
-| [1, 2, 3]    |
-+--------------+
-```
-
-### Accessing array elements
-
-Consider the following table, `sequences`:
-
-```sql
-+---------------------+
-| some_numbers        |
-+---------------------+
-| [0, 1, 1, 2, 3, 5]  |
-| [2, 4, 8, 16, 32]   |
-| [5, 10]             |
-+---------------------+
-```
-
-This table contains the column `some_numbers` of the `ARRAY` data type.
-To access elements from the arrays in this column, you must specify which type
-of indexing you want to use: either
-[`OFFSET`][array-subscript-operator],
-for zero-based indexes, or
-[`ORDINAL`][array-subscript-operator],
-for one-based indexes.
-
-```sql
-WITH sequences AS
-  (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
-   UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
-   UNION ALL SELECT [5, 10] AS some_numbers)
-SELECT some_numbers,
-       some_numbers[OFFSET(1)] AS offset_1,
-       some_numbers[ORDINAL(1)] AS ordinal_1
-FROM sequences;
-
-+--------------------+----------+-----------+
-| some_numbers       | offset_1 | ordinal_1 |
-+--------------------+----------+-----------+
-| [0, 1, 1, 2, 3, 5] | 1        | 0         |
-| [2, 4, 8, 16, 32]  | 4        | 2         |
-| [5, 10]            | 10       | 5         |
-+--------------------+----------+-----------+
-```
-
-You can use this DML statement to insert the example data:
-
-```sql
-INSERT sequences
-  (some_numbers, id)
-VALUES
-  ([0, 1, 1, 2, 3, 5], 1),
-  ([2, 4, 8, 16, 32], 2),
-  ([5, 10], 3);
-```
-
-This query shows how to use `OFFSET()` and `ORDINAL()`:
-
-```sql
-SELECT some_numbers,
-       some_numbers[OFFSET(1)] AS offset_1,
-       some_numbers[ORDINAL(1)] AS ordinal_1
-FROM sequences;
-
-+---------------+----------+-----------+
-| some_numbers  | offset_1 | ordinal_1 |
-+---------------+----------+-----------+
-| [0,1,1,2,3,5] |        1 |         0 |
-+---------------+----------+-----------+
-| [2,4,8,16,32] |        4 |         2 |
-+---------------+----------+-----------+
-| [5,10]        |       10 |         5 |
-+---------------+----------+-----------+
-```
-
-Note: `OFFSET()` and `ORDINAL()` will raise errors if the index is out of
-range. To avoid this, you can use `SAFE_OFFSET()` or `SAFE_ORDINAL()` to return
-`NULL` instead of raising an error.
-
-### Finding lengths
-
-The `ARRAY_LENGTH()` function returns the length of an array.
-
-```sql
-WITH sequences AS
-  (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
-   UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
-   UNION ALL SELECT [5, 10] AS some_numbers)
-SELECT some_numbers,
-       ARRAY_LENGTH(some_numbers) AS len
-FROM sequences;
-
-+--------------------+--------+
-| some_numbers       | len    |
-+--------------------+--------+
-| [0, 1, 1, 2, 3, 5] | 6      |
-| [2, 4, 8, 16, 32]  | 5      |
-| [5, 10]            | 2      |
-+--------------------+--------+
-```
-
-Here's an example query, assuming the same definition of the `sequences` table
-as above, with the same sample rows:
-
-```sql
-SELECT some_numbers,
-       ARRAY_LENGTH(some_numbers) AS len
-FROM sequences;
-
-+---------------+------+
-| some_numbers  | len  |
-+---------------+------+
-| [0,1,1,2,3,5] |    6 |
-+---------------+------+
-| [2,4,8,16,32] |    5 |
-+---------------+------+
-| [5,10]        |    2 |
-+---------------+------+
-```
-
-### Flattening nested data into an array 
-<a id="flattening_nested_data_into_arrays"></a>
-
-If you have an array with nested data, you can return a single, flat
-array containing all elements in a specific part of the nested data.
-To do this, you can use the [`FLATTEN`][flatten-operator] operator with an
-array and the [array element field access operator][array-el-field-operator].
-
-**Examples**
-
-The examples in this section references nested data in an array called
-`items` in a table called `ItemsTable`:
-
-```sql
-WITH ItemsTable AS (SELECT [
-  STRUCT('red' AS color,
-         2 AS inventory,
-         [STRUCT('a' AS agent, [100.0, 50.0] AS prices),
-          STRUCT('c' AS agent, [25.0] AS prices)] AS sales),
-  STRUCT('green' AS color,
-         NULL AS inventory,
-         [STRUCT('a' AS agent, [75.0] AS prices),
-          STRUCT('b' AS agent, [200.0] AS prices)] AS sales),
-  STRUCT('orange' AS color,
-         10 AS inventory,
-         NULL AS sales)
-] AS items)
-SELECT * FROM ItemsTable
-```
-
-You can flatten nested data in an array called `items` with the
-`FLATTEN` operator. Here are some examples:
-
-```sql
-SELECT FLATTEN(items.color) AS colors
-FROM ItemsTable
-
-+----------------------+
-| colors               |
-+----------------------+
-| [red, green, orange] |
-+----------------------+
-```
-
-```sql
-SELECT FLATTEN(items.inventory) AS inventory
-FROM ItemsTable
-
-+---------------+
-| inventory     |
-+---------------+
-| [2, NULL, 10] |
-+---------------+
-```
-
-```sql
-SELECT FLATTEN(items.sales.prices) AS all_prices
-FROM ItemsTable
-
-+------------------------+
-| all_prices             |
-+------------------------+
-| [100, 50, 25, 75, 200] |
-+------------------------+
-```
-
-```sql
-SELECT FLATTEN(items.sales.prices[SAFE_OFFSET(1)]) AS second_prices
-FROM ItemsTable
-
-+------------------------+
-| second_prices          |
-+------------------------+
-| [50, NULL, NULL, NULL] |
-+------------------------+
-```
-
-### Flattening nested data into a table 
-<a id="flattening_nested_data_into_table"></a>
-
-If you have an array with nested data, you can get a specific part of the nested
-data in the array and return it as a single, flat table with one row for each
-element. To do this, you can use the [`UNNEST`][unnest-query] operator
-explicitly or implicitly in the [`FROM` clause][from-clause] with the [array
-element field access operator][array-el-field-operator].
-
-**Examples**
-
-The examples in this section references nested data in an array called `items`
-in a table called `ItemsTable`:
-
-```sql
-WITH ItemsTable AS (SELECT [
-  STRUCT('red' AS color,
-         2 AS inventory,
-         [STRUCT('a' AS agent, [100.0, 50.0] AS prices),
-          STRUCT('c' AS agent, [25.0] AS prices)] AS sales),
-  STRUCT('green' AS color,
-         NULL AS inventory,
-         [STRUCT('a' AS agent, [75.0] AS prices),
-          STRUCT('b' AS agent, [200.0] AS prices)] AS sales),
-  STRUCT('orange' AS color,
-         10 AS inventory,
-         NULL AS sales)
-] AS items)
-SELECT * FROM ItemsTable
-```
-
-You can flatten nested data in an array called `items` with the
-`UNNEST` operator or directly in the `FROM` clause. Here are some examples:
-
-```sql
--- In UNNEST (FLATTEN used explicitly):
-SELECT colors
-FROM ItemsTable, UNNEST(FLATTEN(items.color)) AS colors;
-
--- In UNNEST (FLATTEN used implicitly):
-SELECT colors
-FROM ItemsTable, UNNEST(items.color) AS colors;
-
--- In the FROM clause (UNNEST used implicitly):
-SELECT colors
-FROM ItemsTable, ItemsTable.items.color AS colors;
-
-+--------+
-| colors |
-+--------+
-| red    |
-| green  |
-| orange |
-+--------+
-```
-
-```sql
--- In UNNEST (FLATTEN used explicitly):
-SELECT inventory
-FROM ItemsTable, UNNEST(FLATTEN(items.inventory)) AS inventory;
-
--- In UNNEST (FLATTEN used implicitly):
-SELECT inventory
-FROM ItemsTable, UNNEST(items.inventory) AS inventory;
-
--- In the FROM clause (UNNEST used implicitly):
-SELECT inventory
-FROM ItemsTable, ItemsTable.items.inventory AS inventory;
-
-+-----------+
-| inventory |
-+-----------+
-| 2         |
-| NULL      |
-| 10        |
-+-----------+
-```
-
-```sql
--- In UNNEST (FLATTEN used explicitly):
-SELECT all_prices
-FROM ItemsTable, UNNEST(FLATTEN(items.sales.prices)) AS all_prices;
-
--- In UNNEST (FLATTEN used implicitly):
-SELECT all_prices
-FROM ItemsTable, UNNEST(items.sales.prices) AS all_prices;
-
--- In the FROM clause (UNNEST used implicitly):
-SELECT all_prices
-FROM ItemsTable, ItemsTable.items.sales.prices AS all_prices;
-
-+------------+
-| all_prices |
-+------------+
-| 100        |
-| 50         |
-| 25         |
-| 75         |
-| 200        |
-+------------+
-```
-
-```sql
--- In UNNEST (FLATTEN used explicitly):
-SELECT second_prices
-FROM ItemsTable, UNNEST(FLATTEN(items.sales.prices[SAFE_OFFSET(1)])) AS second_prices;
-
--- In UNNEST (FLATTEN used implicitly):
-SELECT second_prices
-FROM ItemsTable, UNNEST(items.sales.prices[SAFE_OFFSET(1)]) AS second_prices;
-
--- In the FROM clause (UNNEST used implicitly):
-SELECT second_prices
-FROM ItemsTable, ItemsTable.items.sales.prices[SAFE_OFFSET(1)] AS second_prices;
-
-+---------------+
-| second_prices |
-+---------------+
-| 50            |
-| NULL          |
-| NULL          |
-| NULL          |
-+---------------+
-```
-
-### Converting elements in an array to rows in a table 
-<a id="flattening_arrays"></a>
-
-To convert an `ARRAY` into a set of rows, also known as "flattening," use the
-[`UNNEST`][unnest-query]
-operator. `UNNEST` takes an `ARRAY` and returns a table with a single row for
-each element in the `ARRAY`.
-
-Because `UNNEST` destroys the order of the `ARRAY` elements, you may
-wish to restore order to the table. To do so, use the optional `WITH OFFSET`
-clause to return an additional column with the offset for each array element,
-then use the `ORDER BY` clause to order the rows by their offset.
-
-**Example**
-
-```sql
-SELECT *
-FROM UNNEST(['foo', 'bar', 'baz', 'qux', 'corge', 'garply', 'waldo', 'fred'])
-  AS element
-WITH OFFSET AS offset
-ORDER BY offset;
-
-+----------+--------+
-| element  | offset |
-+----------+--------+
-| foo      | 0      |
-| bar      | 1      |
-| baz      | 2      |
-| qux      | 3      |
-| corge    | 4      |
-| garply   | 5      |
-| waldo    | 6      |
-| fred     | 7      |
-+----------+--------+
-```
-
-To flatten an entire column of `ARRAY`s while preserving the values
-of the other columns in each row, use a correlated
-[cross join][cross-join-query] to join the table containing the
-`ARRAY` column to the `UNNEST` output of that `ARRAY` column.
-
-With a [correlated][correlated-join-query] join, the `UNNEST` operator
-references the `ARRAY` typed column from each row in the source table, which
-appears previously in the `FROM` clause. For each row `N` in the source table,
-`UNNEST` flattens the `ARRAY` from row `N` into a set of rows containing the
-`ARRAY` elements, and then the cross join joins this new set of rows with the
-single row `N` from the source table.
-
-**Examples**
-
-The following example uses [`UNNEST`][unnest-query]
-to return a row for each element in the array column. Because of the
-`CROSS JOIN`, the `id` column contains the `id` values for the row in
-`sequences` that contains each number.
-
-```sql
-WITH sequences AS
-  (SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
-   UNION ALL SELECT 2 AS id, [2, 4, 8, 16, 32] AS some_numbers
-   UNION ALL SELECT 3 AS id, [5, 10] AS some_numbers)
-SELECT id, flattened_numbers
-FROM sequences
-CROSS JOIN UNNEST(sequences.some_numbers) AS flattened_numbers;
-
-+------+-------------------+
-| id   | flattened_numbers |
-+------+-------------------+
-|    1 |                 0 |
-|    1 |                 1 |
-|    1 |                 1 |
-|    1 |                 2 |
-|    1 |                 3 |
-|    1 |                 5 |
-|    2 |                 2 |
-|    2 |                 4 |
-|    2 |                 8 |
-|    2 |                16 |
-|    2 |                32 |
-|    3 |                 5 |
-|    3 |                10 |
-+------+-------------------+
-```
-
-Note that for correlated cross joins the `UNNEST` operator is optional and the
-`CROSS JOIN` can be expressed as a comma-join. Using this shorthand notation,
-the above example becomes:
-
-```sql
-WITH sequences AS
-  (SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
-   UNION ALL SELECT 2 AS id, [2, 4, 8, 16, 32] AS some_numbers
-   UNION ALL SELECT 3 AS id, [5, 10] AS some_numbers)
-SELECT id, flattened_numbers
-FROM sequences, sequences.some_numbers AS flattened_numbers;
-
-+------+-------------------+
-| id   | flattened_numbers |
-+------+-------------------+
-|    1 |                 0 |
-|    1 |                 1 |
-|    1 |                 1 |
-|    1 |                 2 |
-|    1 |                 3 |
-|    1 |                 5 |
-|    2 |                 2 |
-|    2 |                 4 |
-|    2 |                 8 |
-|    2 |                16 |
-|    2 |                32 |
-|    3 |                 5 |
-|    3 |                10 |
-+------+-------------------+
-```
-
-### Querying nested and repeated fields
-
-If a table contains an `ARRAY` of `STRUCT`s or `PROTO`s, you can
-[flatten the `ARRAY`][flattening-arrays] to query the fields of the `STRUCT` or
-`PROTO`.
-You can also flatten `ARRAY` type fields of `STRUCT` values and repeated fields
-of `PROTO` values. ZetaSQL treats repeated `PROTO` fields as
-`ARRAY`s.
-
-#### Querying STRUCT elements in an ARRAY 
-<a id="query_structs_in_an_array"></a>
-
-The following example uses `UNNEST` with `CROSS JOIN` to flatten an `ARRAY` of
-`STRUCT`s.
-
-```sql
-WITH races AS (
-  SELECT "800M" AS race,
-    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as splits),
-     STRUCT("Makhloufi" as name, [24.5, 25.4, 26.6, 26.1] as splits),
-     STRUCT("Murphy" as name, [23.9, 26.0, 27.0, 26.0] as splits),
-     STRUCT("Bosse" as name, [23.6, 26.2, 26.5, 27.1] as splits),
-     STRUCT("Rotich" as name, [24.7, 25.6, 26.9, 26.4] as splits),
-     STRUCT("Lewandowski" as name, [25.0, 25.7, 26.3, 27.2] as splits),
-     STRUCT("Kipketer" as name, [23.2, 26.1, 27.3, 29.4] as splits),
-     STRUCT("Berian" as name, [23.7, 26.1, 27.0, 29.3] as splits)]
-       AS participants)
-SELECT
-  race,
-  participant
-FROM races r
-CROSS JOIN UNNEST(r.participants) as participant;
-
-+------+---------------------------------------+
-| race | participant                           |
-+------+---------------------------------------+
-| 800M | {Rudisha, [23.4, 26.3, 26.4, 26.1]}   |
-| 800M | {Makhloufi, [24.5, 25.4, 26.6, 26.1]} |
-| 800M | {Murphy, [23.9, 26, 27, 26]}          |
-| 800M | {Bosse, [23.6, 26.2, 26.5, 27.1]}     |
-| 800M | {Rotich, [24.7, 25.6, 26.9, 26.4]}    |
-| 800M | {Lewandowski, [25, 25.7, 26.3, 27.2]} |
-| 800M | {Kipketer, [23.2, 26.1, 27.3, 29.4]}  |
-| 800M | {Berian, [23.7, 26.1, 27, 29.3]}      |
-+------+---------------------------------------+
-```
-
-```sql
-SELECT race,
-       participant.name,
-       participant.splits
-FROM
-  (SELECT "800M" AS race,
-    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] AS splits),
-     STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS splits),
-     STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS splits),
-     STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS splits),
-     STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS splits),
-     STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS splits),
-     STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS splits),
-     STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] as splits)]
-     AS participants
-  ) AS r
-CROSS JOIN UNNEST(r.participants) AS participant;
-
-+------+-------------+-----------------------+
-| race | name        | splits                |
-+------+-------------+-----------------------+
-| 800M | Rudisha     | [23.4,26.3,26.4,26.1] |
-+------+-------------+-----------------------+
-| 800M | Makhloufi   | [24.5,25.4,26.6,26.1] |
-+------+-------------+-----------------------+
-| 800M | Murphy      | [23.9,26,27,26]       |
-+------+-------------+-----------------------+
-| 800M | Bosse       | [23.6,26.2,26.5,27.1] |
-+------+-------------+-----------------------+
-| 800M | Rotich      | [24.7,25.6,26.9,26.4] |
-+------+-------------+-----------------------+
-| 800M | Lewandowski | [25,25.7,26.3,27.2]   |
-+------+-------------+-----------------------+
-| 800M | Kipketer    | [23.2,26.1,27.3,29.4] |
-+------+-------------+-----------------------+
-| 800M | Berian      | [23.7,26.1,27,29.3]   |
-+------+-------------+-----------------------+
-```
-
-You can find specific information from repeated fields. For example, the
-following query returns the fastest racer in an 800M race.
-
-<p class="note">This example does not involve flattening an array, but does
-represent a common way to get information from a repeated field.</p>
-
-**Example**
-
-```sql
-WITH races AS (
-  SELECT "800M" AS race,
-    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as splits),
-     STRUCT("Makhloufi" as name, [24.5, 25.4, 26.6, 26.1] as splits),
-     STRUCT("Murphy" as name, [23.9, 26.0, 27.0, 26.0] as splits),
-     STRUCT("Bosse" as name, [23.6, 26.2, 26.5, 27.1] as splits),
-     STRUCT("Rotich" as name, [24.7, 25.6, 26.9, 26.4] as splits),
-     STRUCT("Lewandowski" as name, [25.0, 25.7, 26.3, 27.2] as splits),
-     STRUCT("Kipketer" as name, [23.2, 26.1, 27.3, 29.4] as splits),
-     STRUCT("Berian" as name, [23.7, 26.1, 27.0, 29.3] as splits)]
-       AS participants)
-SELECT
-  race,
-  (SELECT name
-   FROM UNNEST(participants)
-   ORDER BY (
-     SELECT SUM(duration)
-     FROM UNNEST(splits) AS duration) ASC
-   LIMIT 1) AS fastest_racer
-FROM races;
-
-+------+---------------+
-| race | fastest_racer |
-+------+---------------+
-| 800M | Rudisha       |
-+------+---------------+
-```
-
-```sql
-SELECT race,
-       (SELECT name
-        FROM UNNEST(participants)
-        ORDER BY (
-          SELECT SUM(duration)
-          FROM UNNEST(splits) AS duration) ASC
-          LIMIT 1) AS fastest_racer
-FROM
-  (SELECT "800M" AS race,
-    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] AS splits),
-     STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS splits),
-     STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS splits),
-     STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS splits),
-     STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS splits),
-     STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS splits),
-     STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS splits),
-     STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] as splits)]
-     AS participants
-  ) AS r;
-
-+------+---------------+
-| race | fastest_racer |
-+------+---------------+
-| 800M | Rudisha       |
-+------+---------------+
-```
-
-#### Querying PROTO elements in an array
-
-To query the fields of `PROTO` elements in an `ARRAY`, use `UNNEST` and
-`CROSS JOIN`.
-
-**Example**
-
-The following query shows the contents of a table where one row contains an
-`ARRAY` of `PROTO`s. All of the `PROTO` field values in the `ARRAY` appear in a
-single row.
-
-```sql
-WITH table AS (
-  SELECT
-    'Let It Be' AS album_name,
-    ARRAY[
-         NEW zetasql.examples.music.Chart(1 AS rank, 'US 100' AS chart_name),
-         NEW zetasql.examples.music.Chart(1 AS rank, 'UK 40' AS chart_name),
-         NEW zetasql.examples.music.Chart(2 AS rank, 'Oricon' AS chart_name)]
-     AS charts
-  UNION ALL
-  SELECT
-    'Rubber Soul' AS album_name,
-    ARRAY[
-         NEW zetasql.examples.music.Chart(1 AS rank, 'US 100' AS chart_name),
-         NEW zetasql.examples.music.Chart(1 AS rank, 'UK 40' AS chart_name),
-         NEW zetasql.examples.music.Chart(24 AS rank, 'Oricon' AS chart_name)]
-     AS charts
-)
-SELECT *
-FROM table;
-
-+-------------+---------------------------------+
-| album_name  | charts                          |
-+-------------+---------------------------------+
-| Let It Be   | [chart_name: "US 100", rank: 1, |
-|             | chart_name: "UK 40", rank: 1,   |
-|             | chart_name: "Oricon" rank: 2]   |
-+-------------+---------------------------------+
-| Rubber Soul | [chart_name: "US 100", rank: 1, |
-|             | chart_name: "UK 40", rank: 1,   |
-|             | chart_name: "Oricon" rank: 24]  |
-+-------------+---------------------------------+
-```
-
-To return the value of the individual fields of the `PROTO`s inside an `ARRAY`,
-use `UNNEST` to flatten the `ARRAY`, then use a `CROSS JOIN` to apply the
-`UNNEST` operator to each row of the `ARRAY` column. The `CROSS JOIN` also
-joins the duplicated values of other columns to the result of `UNNEST`, so you
-can query these columns together with the fields of the `PROTO`s in the `ARRAY`.
-
-**Example**
-
-The following example uses `UNNEST` to flatten the `ARRAY` `charts`. The `CROSS
-JOIN` applies the `UNNEST` operator to every row in the `charts` column and
-joins the duplicated value of `table.album_name` to the `chart` table. This
-allows the query to include the `table.album_name` column in the `SELECT` list
-together with the `PROTO` fields `chart.chart_name` and `chart.rank`.
-
-```sql
-WITH table AS (
-  SELECT
-    'Let It Be' AS album_name,
-    ARRAY[
-         NEW zetasql.examples.music.Chart(1 AS rank, 'US 100' AS chart_name),
-         NEW zetasql.examples.music.Chart(1 AS rank, 'UK 40' AS chart_name),
-         NEW zetasql.examples.music.Chart(2 AS rank, 'Oricon' AS chart_name)]
-     AS charts
-  UNION ALL
-  SELECT
-    'Rubber Soul' AS album_name,
-    ARRAY[
-         NEW zetasql.examples.music.Chart(1 AS rank, 'US 100' AS chart_name),
-         NEW zetasql.examples.music.Chart(1 AS rank, 'UK 40' AS chart_name),
-         NEW zetasql.examples.music.Chart(24 AS rank, 'Oricon' AS chart_name)]
-     AS charts
-)
-SELECT table.album_name, chart.chart_name, chart.rank
-FROM table
-CROSS JOIN UNNEST(charts) AS chart;
-
-+-------------+------------+------+
-| album_name  | chart_name | rank |
-+-------------+------------+------+
-| Let It Be   | US 100     |    1 |
-| Let It Be   | UK 40      |    1 |
-| Let It Be   | Oricon     |    2 |
-| Rubber Soul | US 100     |    1 |
-| Rubber Soul | UK 40      |    1 |
-| Rubber Soul | Oricon     |   24 |
-+-------------+------------+------+
-```
-
-#### Querying ARRAY-type fields in a STRUCT
-
-You can also get information from nested repeated fields. For example, the
-following statement returns the runner who had the fastest lap in an 800M race.
-
-```sql
-WITH races AS (
- SELECT "800M" AS race,
-   [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as splits),
-    STRUCT("Makhloufi" as name, [24.5, 25.4, 26.6, 26.1] as splits),
-    STRUCT("Murphy" as name, [23.9, 26.0, 27.0, 26.0] as splits),
-    STRUCT("Bosse" as name, [23.6, 26.2, 26.5, 27.1] as splits),
-    STRUCT("Rotich" as name, [24.7, 25.6, 26.9, 26.4] as splits),
-    STRUCT("Lewandowski" as name, [25.0, 25.7, 26.3, 27.2] as splits),
-    STRUCT("Kipketer" as name, [23.2, 26.1, 27.3, 29.4] as splits),
-    STRUCT("Berian" as name, [23.7, 26.1, 27.0, 29.3] as splits)]
-    AS participants)
-SELECT
-race,
-(SELECT name
- FROM UNNEST(participants),
-   UNNEST(splits) AS duration
- ORDER BY duration ASC LIMIT 1) AS runner_with_fastest_lap
-FROM races;
-
-+------+-------------------------+
-| race | runner_with_fastest_lap |
-+------+-------------------------+
-| 800M | Kipketer                |
-+------+-------------------------+
-```
-
-```sql
-SELECT race,
-       (SELECT name
-        FROM UNNEST(participants),
-          UNNEST(splits) AS duration
-        ORDER BY duration ASC LIMIT 1) AS runner_with_fastest_lap
-FROM
-  (SELECT "800M" AS race,
-    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] AS splits),
-     STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS splits),
-     STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS splits),
-     STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS splits),
-     STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS splits),
-     STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS splits),
-     STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS splits),
-     STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] as splits)]
-     AS participants
-  ) AS r;
-
-+------+-------------------------+
-| race | runner_with_fastest_lap |
-+------+-------------------------+
-| 800M | Kipketer                |
-+------+-------------------------+
-```
-
-Notice that the preceding query uses the comma operator (`,`) to perform an
-implicit `CROSS JOIN`. It is equivalent to the following example, which uses
-an explicit `CROSS JOIN`.
-
-```sql
-WITH races AS (
- SELECT "800M" AS race,
-   [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as splits),
-    STRUCT("Makhloufi" as name, [24.5, 25.4, 26.6, 26.1] as splits),
-    STRUCT("Murphy" as name, [23.9, 26.0, 27.0, 26.0] as splits),
-    STRUCT("Bosse" as name, [23.6, 26.2, 26.5, 27.1] as splits),
-    STRUCT("Rotich" as name, [24.7, 25.6, 26.9, 26.4] as splits),
-    STRUCT("Lewandowski" as name, [25.0, 25.7, 26.3, 27.2] as splits),
-    STRUCT("Kipketer" as name, [23.2, 26.1, 27.3, 29.4] as splits),
-    STRUCT("Berian" as name, [23.7, 26.1, 27.0, 29.3] as splits)]
-    AS participants)
-SELECT
-race,
-(SELECT name
- FROM UNNEST(participants)
- CROSS JOIN UNNEST(splits) AS duration
- ORDER BY duration ASC LIMIT 1) AS runner_with_fastest_lap
-FROM races;
-
-+------+-------------------------+
-| race | runner_with_fastest_lap |
-+------+-------------------------+
-| 800M | Kipketer                |
-+------+-------------------------+
-```
-
-```sql
-SELECT race,
-       (SELECT name
-        FROM UNNEST(participants)
-        CROSS JOIN UNNEST(splits) AS duration
-        ORDER BY duration ASC LIMIT 1) AS runner_with_fastest_lap
-FROM
-  (SELECT "800M" AS race,
-    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] AS splits),
-     STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS splits),
-     STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS splits),
-     STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS splits),
-     STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS splits),
-     STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS splits),
-     STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS splits),
-     STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] as splits)]
-     AS participants
-  ) AS r;
-
-+------+-------------------------+
-| race | runner_with_fastest_lap |
-+------+-------------------------+
-| 800M | Kipketer                |
-+------+-------------------------+
-```
-
-Flattening arrays with a `CROSS JOIN` excludes rows that have empty
-or NULL arrays. If you want to include these rows, use a `LEFT JOIN`.
-
-```sql
-WITH races AS (
- SELECT "800M" AS race,
-   [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as splits),
-    STRUCT("Makhloufi" as name, [24.5, 25.4, 26.6, 26.1] as splits),
-    STRUCT("Murphy" as name, [23.9, 26.0, 27.0, 26.0] as splits),
-    STRUCT("Bosse" as name, [23.6, 26.2, 26.5, 27.1] as splits),
-    STRUCT("Rotich" as name, [24.7, 25.6, 26.9, 26.4] as splits),
-    STRUCT("Lewandowski" as name, [25.0, 25.7, 26.3, 27.2] as splits),
-    STRUCT("Kipketer" as name, [23.2, 26.1, 27.3, 29.4] as splits),
-    STRUCT("Berian" as name, [23.7, 26.1, 27.0, 29.3] as splits),
-    STRUCT("Nathan" as name, ARRAY<DOUBLE>[] as splits),
-    STRUCT("David" as name, NULL as splits)]
-    AS participants)
-SELECT
-  name, sum(duration) AS finish_time
-FROM races, races.participants LEFT JOIN participants.splits duration
-GROUP BY name;
-
-+-------------+--------------------+
-| name        | finish_time        |
-+-------------+--------------------+
-| Murphy      | 102.9              |
-| Rudisha     | 102.19999999999999 |
-| David       | NULL               |
-| Rotich      | 103.6              |
-| Makhloufi   | 102.6              |
-| Berian      | 106.1              |
-| Bosse       | 103.4              |
-| Kipketer    | 106                |
-| Nathan      | NULL               |
-| Lewandowski | 104.2              |
-+-------------+--------------------+
-```
-
-```sql
-SELECT
-  name, sum(duration) as duration
-FROM
-  (SELECT "800M" AS race,
-    [STRUCT("Rudisha" AS name, [23.4, 26.3, 26.4, 26.1] AS splits),
-     STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS splits),
-     STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS splits),
-     STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS splits),
-     STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS splits),
-     STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS splits),
-     STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS splits),
-     STRUCT("Nathan" as name, ARRAY<DOUBLE>[] as splits),
-     STRUCT("David" as name, NULL as splits)]
-     AS participants) AS races,
-  races.participants LEFT JOIN participants.splits duration
-GROUP BY name;
-
-+-------------+--------------------+
-| name        | duration           |
-+-------------+--------------------+
-| Murphy      | 102.9              |
-| Rudisha     | 102.19999999999999 |
-| David       | NULL               |
-| Rotich      | 103.6              |
-| Makhloufi   | 102.6              |
-| Bosse       | 103.4              |
-| Kipketer    | 106                |
-| Nathan      | NULL               |
-| Lewandowski | 104.2              |
-+-------------+--------------------+
-```
-
-#### Querying repeated fields
-
-ZetaSQL represents repeated fields of `PROTO`s as `ARRAY`s. You
-can query these `ARRAY`s using `UNNEST` and `CROSS JOIN`.
-
-The following example queries a table containing a column of `PROTO`s with the
-alias `album` and the repeated field `song`. All values of `song` for each
-`album` appear on the same row.
-
-**Example**
-
-```sql
-WITH
-  Bands AS (
-    SELECT
-      'The Beatles' AS band_name,
-      NEW zetasql.examples.music.Album(
-        'Let It Be' AS album_name,
-        ['Across the Universe', 'Get Back', 'Dig It'] AS song) AS album
-    UNION ALL
-    SELECT
-      'The Beatles' AS band_name,
-      NEW zetasql.examples.music.Album(
-        'Rubber Soul' AS album_name,
-        ['Drive My Car', 'The Word', 'Michelle'] AS song) AS album
-  )
-SELECT band_name, album.album_name, album.song
-FROM Bands;
-
-+-------------+------------------+-----------------------------------------+
-| band_name   | album_name       | song                                    |
-+-------------+------------------+-----------------------------------------+
-| The Beatles | Let It Be        | [Across the Universe, Get Back, Dig It] |
-| The Beatles | Rubber Soul      | [Drive My Car, The Word, Michelle]      |
-+-------------+------------------+-----------------------------------------+
-```
-
-To query the individual values of a repeated field, reference the field name
-using dot notation to return an `ARRAY`, and
-[flatten the `ARRAY` using `UNNEST`][flattening-arrays]. Use `CROSS JOIN` to
-apply the `UNNEST` operator to each row and join the flattened `ARRAY` to the
-duplicated value of any non-repeated fields or columns in that row.
-
-**Example**
-
-The following example queries the table from the previous example and returns
-the values of the repeated field as an `ARRAY`. The `UNNEST` operator flattens
-the `ARRAY` that represents the repeated field `song`. `CROSS JOIN` applies the
-`UNNEST` operator to each row and joins the output of `UNNEST` to the duplicated
-value of the column `band_name` and the non-repeated field `album_name` within
-that row.
-
-```sql
-WITH table AS (
-  SELECT
-    'The Beatles' AS band_name,
-    NEW zetasql.examples.music.Album(
-      'Let It Be' AS album_name,
-      ['Across the Universe', 'Get Back', 'Dig It'] AS song
-    ) AS album
-    UNION ALL
-  SELECT
-    'The Beatles' AS band_name,
-    NEW zetasql.examples.music.Album(
-      'Rubber Soul' AS album_name,
-      ['Drive My Car', 'The Word', 'Michelle'] AS song
-    ) AS album
-)
-SELECT band_name, album.album_name, song_name
-FROM table
-CROSS JOIN UNNEST(album.song) AS song_name;
-
-+-------------+-------------+---------------------+
-| band_name   | album_name  | song_name           |
-+-------------+-------------+---------------------+
-| The Beatles | Let It Be   | Across the Universe |
-| The Beatles | Let It Be   | Get Back            |
-| The Beatles | Let It Be   | Dig It              |
-| The Beatles | Rubber Soul | Drive My Car        |
-| The Beatles | Rubber Soul | The Word            |
-| The Beatles | Rubber Soul | Michelle            |
-+-------------+-------------+---------------------+
-
-```
-
-### Creating arrays from subqueries
-
-A common task when working with arrays is turning a subquery result into an
-array. In ZetaSQL, you can accomplish this using the
-[`ARRAY()`][array-function] function.
-
-For example, consider the following operation on the `sequences` table:
-
-```sql
-WITH sequences AS
-  (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
-  UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
-  UNION ALL SELECT [5, 10] AS some_numbers)
-SELECT some_numbers,
-  ARRAY(SELECT x * 2
-        FROM UNNEST(some_numbers) AS x) AS doubled
-FROM sequences;
-
-+--------------------+---------------------+
-| some_numbers       | doubled             |
-+--------------------+---------------------+
-| [0, 1, 1, 2, 3, 5] | [0, 2, 2, 4, 6, 10] |
-| [2, 4, 8, 16, 32]  | [4, 8, 16, 32, 64]  |
-| [5, 10]            | [10, 20]            |
-+--------------------+---------------------+
-```
-
-```sql
-SELECT some_numbers,
-  ARRAY(SELECT x * 2
-        FROM UNNEST(some_numbers) AS x) AS doubled
-FROM sequences;
-
-+---------------+----------------+
-| some_numbers  | doubled        |
-+---------------+----------------+
-| [0,1,1,2,3,5] | [0,2,2,4,6,10] |
-+---------------+----------------+
-| [2,4,8,16,32] | [4,8,16,32,64] |
-+---------------+----------------+
-| [5,10]        | [10,20]        |
-+---------------+----------------+
-```
-
-This example starts with a table named sequences. This table contains a column,
-`some_numbers`, of type `ARRAY<INT64>`.
-
-The query itself contains a subquery. This subquery selects each row in the
-`some_numbers` column and uses
-[`UNNEST`][unnest-query] to return the
-array as a set of rows. Next, it multiplies each value by two, and then
-recombines the rows back into an array using the `ARRAY()` operator.
-
-### Filtering arrays
-The following example uses a `WHERE` clause in the `ARRAY()` operator's subquery
-to filter the returned rows.
-
-<p class='note'><b>Note:</b> In the following examples, the resulting rows are
-not ordered.</p>
-
-```sql
-WITH sequences AS
-  (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
-   UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
-   UNION ALL SELECT [5, 10] AS some_numbers)
-SELECT
-  ARRAY(SELECT x * 2
-        FROM UNNEST(some_numbers) AS x
-        WHERE x < 5) AS doubled_less_than_five
-FROM sequences;
-
-+------------------------+
-| doubled_less_than_five |
-+------------------------+
-| [0, 2, 2, 4, 6]        |
-| [4, 8]                 |
-| []                     |
-+------------------------+
-```
-
-```sql
-SELECT
-  ARRAY(SELECT x * 2
-        FROM UNNEST(some_numbers) AS x
-        WHERE x < 5) AS doubled_less_than_five
-FROM sequences;
-
-+------------------------+
-| doubled_less_than_five |
-+------------------------+
-| [0,2,2,4,6]            |
-+------------------------+
-| [4,8]                  |
-+------------------------+
-| []                     |
-+------------------------+
-```
-
-Notice that the third row contains an empty array, because the elements in the
-corresponding original row (`[5, 10]`) did not meet the filter requirement of
-`x < 5`.
-
-You can also filter arrays by using `SELECT DISTINCT` to return only
-unique elements within an array.
-
-```sql
-WITH sequences AS
-  (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers)
-SELECT ARRAY(SELECT DISTINCT x
-             FROM UNNEST(some_numbers) AS x) AS unique_numbers
-FROM sequences;
-
-+-----------------+
-| unique_numbers  |
-+-----------------+
-| [0, 1, 2, 3, 5] |
-+-----------------+
-```
-
-```sql
-SELECT ARRAY(SELECT DISTINCT x
-             FROM UNNEST(some_numbers) AS x) AS unique_numbers
-FROM sequences
-WHERE id = 1;
-
-+----------------+
-| unique_numbers |
-+----------------+
-| [0,1,2,3,5]    |
-+----------------+
-```
-
-You can also filter rows of arrays by using the
-[`IN`][in-operators] keyword. This
-keyword filters rows containing arrays by determining if a specific
-value matches an element in the array.
-
-```sql
-WITH sequences AS
-  (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
-   UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
-   UNION ALL SELECT [5, 10] AS some_numbers)
-SELECT
-   ARRAY(SELECT x
-         FROM UNNEST(some_numbers) AS x
-         WHERE 2 IN UNNEST(some_numbers)) AS contains_two
-FROM sequences;
-
-+--------------------+
-| contains_two       |
-+--------------------+
-| [0, 1, 1, 2, 3, 5] |
-| [2, 4, 8, 16, 32]  |
-| []                 |
-+--------------------+
-```
-
-```sql
-SELECT
-   ARRAY(SELECT x
-         FROM UNNEST(some_numbers) AS x
-         WHERE 2 IN UNNEST(some_numbers)) AS contains_two
-FROM sequences;
-
-+---------------+
-| contains_two  |
-+---------------+
-| [0,1,1,2,3,5] |
-+---------------+
-| [2,4,8,16,32] |
-+---------------+
-| []            |
-+---------------+
-```
-
-Notice again that the third row contains an empty array, because the array in
-the corresponding original row (`[5, 10]`) did not contain `2`.
-
-### Scanning arrays
-
-To check if an array contains a specific value, use the [`IN`][in-operators]
-operator with [`UNNEST`][unnest-query]. To check if an array contains a value
-matching a condition, use the [`EXISTS`][expression-subqueries] function with
-`UNNEST`.
-
-#### Scanning for specific values
-
-To scan an array for a specific value, use the `IN` operator with `UNNEST`.
-
-**Example**
-
-The following example returns `true` if the array contains the number 2.
-
-```sql
-SELECT 2 IN UNNEST([0, 1, 1, 2, 3, 5]) AS contains_value;
-
-+----------------+
-| contains_value |
-+----------------+
-| true           |
-+----------------+
-```
-
-To return the rows of a table where the array column contains a specific value,
-filter the results of `IN UNNEST` using the `WHERE` clause.
-
-**Example**
-
-The following example returns the `id` value for the rows where the array
-column contains the value 2.
-
-```sql
-WITH sequences AS
-  (SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
-   UNION ALL SELECT 2 AS id, [2, 4, 8, 16, 32] AS some_numbers
-   UNION ALL SELECT 3 AS id, [5, 10] AS some_numbers)
-SELECT id AS matching_rows
-FROM sequences
-WHERE 2 IN UNNEST(sequences.some_numbers)
-ORDER BY matching_rows;
-
-+---------------+
-| matching_rows |
-+---------------+
-| 1             |
-| 2             |
-+---------------+
-```
-
-#### Scanning for values that satisfy a condition
-
-To scan an array for values that match a condition, use `UNNEST` to return a
-table of the elements in the array, use `WHERE` to filter the resulting table in
-a subquery, and use `EXISTS` to check if the filtered table contains any rows.
-
-**Example**
-
-The following example returns the `id` value for the rows where the array
-column contains values greater than 5.
-
-```sql
-WITH
-  Sequences AS (
-    SELECT 1 AS id, [0, 1, 1, 2, 3, 5] AS some_numbers
-    UNION ALL
-    SELECT 2 AS id, [2, 4, 8, 16, 32] AS some_numbers
-    UNION ALL
-    SELECT 3 AS id, [5, 10] AS some_numbers
-  )
-SELECT id AS matching_rows
-FROM Sequences
-WHERE EXISTS(SELECT * FROM UNNEST(some_numbers) AS x WHERE x > 5);
-
-+---------------+
-| matching_rows |
-+---------------+
-| 2             |
-| 3             |
-+---------------+
-```
-
-##### Scanning for STRUCT field values that satisfy a condition
-
-To search an array of `STRUCT`s for a field whose value matches a condition, use
-`UNNEST` to return a table with a column for each `STRUCT` field, then filter
-non-matching rows from the table using `WHERE EXISTS`.
-
-**Example**
-
-The following example returns the rows where the array column contains a
-`STRUCT` whose field `b` has a value greater than 3.
-
-```sql
-WITH
-  Sequences AS (
-    SELECT 1 AS id, [STRUCT(0 AS a, 1 AS b)] AS some_numbers
-    UNION ALL
-    SELECT 2 AS id, [STRUCT(2 AS a, 4 AS b)] AS some_numbers
-    UNION ALL
-    SELECT 3 AS id, [STRUCT(5 AS a, 3 AS b), STRUCT(7 AS a, 4 AS b)] AS some_numbers
-  )
-SELECT id AS matching_rows
-FROM Sequences
-WHERE EXISTS(SELECT 1 FROM UNNEST(some_numbers) WHERE b > 3);
-
-+---------------+
-| matching_rows |
-+---------------+
-| 2             |
-| 3             |
-+---------------+
-```
-
-### Arrays and aggregation
-
-With ZetaSQL, you can aggregate values into an array using
-`ARRAY_AGG()`.
-
-```sql
-WITH fruits AS
-  (SELECT "apple" AS fruit
-   UNION ALL SELECT "pear" AS fruit
-   UNION ALL SELECT "banana" AS fruit)
-SELECT ARRAY_AGG(fruit) AS fruit_basket
-FROM fruits;
-
-+-----------------------+
-| fruit_basket          |
-+-----------------------+
-| [apple, pear, banana] |
-+-----------------------+
-```
-
-Consider the following table, `fruits`:
-
-```sql
-CREATE TABLE fruits (
-  fruit STRING(MAX),
-  id INT64 NOT NULL
-) PRIMARY KEY(id);
-
-```
-Assume the table is populated with the following data:
-
-```sql
-+----+--------------+
-| id | fruit        |
-+----+--------------+
-| 1  | "apple"      |
-| 2  | "pear"       |
-| 3  | "banana"     |
-+----+--------------+
-```
-
-You can use this DML statement to insert the example data:
-
-```sql
-INSERT fruits
-  (fruit, id)
-VALUES
-  ("apple", 1),
-  ("pear", 2),
-  ("banana", 3);
-```
-
-This query shows how to use `ARRAY_AGG()`:
-
-```sql
-SELECT ARRAY_AGG(fruit) AS fruit_basket
-FROM fruits;
-
-+---------------------+
-| fruit_basket        |
-+---------------------+
-| [apple,pear,banana] |
-+---------------------+
-```
-
-The array returned by `ARRAY_AGG()` is in an arbitrary order, since the order in
-which the function concatenates values is not guaranteed. To order the array
-elements, use `ORDER BY`. For example:
-
-```sql
-WITH fruits AS
-  (SELECT "apple" AS fruit
-   UNION ALL SELECT "pear" AS fruit
-   UNION ALL SELECT "banana" AS fruit)
-SELECT ARRAY_AGG(fruit ORDER BY fruit) AS fruit_basket
-FROM fruits;
-
-+-----------------------+
-| fruit_basket          |
-+-----------------------+
-| [apple, banana, pear] |
-+-----------------------+
-```
-
-You can also apply aggregate functions such as `SUM()` to the elements in an
-array. For example, the following query returns the sum of array elements for
-each row of the `sequences` table.
-
-```sql
-WITH sequences AS
-  (SELECT [0, 1, 1, 2, 3, 5] AS some_numbers
-   UNION ALL SELECT [2, 4, 8, 16, 32] AS some_numbers
-   UNION ALL SELECT [5, 10] AS some_numbers)
-SELECT some_numbers,
-  (SELECT SUM(x)
-   FROM UNNEST(s.some_numbers) x) AS sums
-FROM sequences s;
-
-+--------------------+------+
-| some_numbers       | sums |
-+--------------------+------+
-| [0, 1, 1, 2, 3, 5] | 12   |
-| [2, 4, 8, 16, 32]  | 62   |
-| [5, 10]            | 15   |
-+--------------------+------+
-```
-
-```sql
-SELECT some_numbers,
-  (SELECT SUM(x)
-   FROM UNNEST(s.some_numbers) x) AS sums
-FROM sequences s;
-
-+---------------+------+
-| some_numbers  | sums |
-+---------------+------+
-| [0,1,1,2,3,5] |   12 |
-+---------------+------+
-| [2,4,8,16,32] |   62 |
-+---------------+------+
-| [5,10]        |   15 |
-+---------------+------+
-```
-
-ZetaSQL also supports an aggregate function, `ARRAY_CONCAT_AGG()`,
-which concatenates the elements of an array column across rows.
-
-```sql
-WITH aggregate_example AS
-  (SELECT [1,2] AS numbers
-   UNION ALL SELECT [3,4] AS numbers
-   UNION ALL SELECT [5, 6] AS numbers)
-SELECT ARRAY_CONCAT_AGG(numbers) AS count_to_six_agg
-FROM aggregate_example;
-
-+--------------------------------------------------+
-| count_to_six_agg                                 |
-+--------------------------------------------------+
-| [1, 2, 3, 4, 5, 6]                               |
-+--------------------------------------------------+
-```
-
-**Note:** The array returned by `ARRAY_CONCAT_AGG()` is
-non-deterministic, since the order in which the function concatenates values is
-not guaranteed.
-
-### Converting arrays to strings
-
-The `ARRAY_TO_STRING()` function allows you to convert an `ARRAY<STRING>` to a
-single `STRING` value or an `ARRAY<BYTES>` to a single `BYTES` value where the
-resulting value is the ordered concatenation of the array elements.
-
-The second argument is the separator that the function will insert between
-inputs to produce the output; this second argument must be of the same
-type as the elements of the first argument.
-
-Example:
-
-```sql
-WITH greetings AS
-  (SELECT ["Hello", "World"] AS greeting)
-SELECT ARRAY_TO_STRING(greeting, " ") AS greetings
-FROM greetings;
-
-+-------------+
-| greetings   |
-+-------------+
-| Hello World |
-+-------------+
-```
-
-The optional third argument takes the place of `NULL` values in the input
-array.
-
-+ If you omit this argument, then the function ignores `NULL` array
-elements.
-
-+ If you provide an empty string, the function inserts a
-separator for `NULL` array elements.
-
-Example:
-
-```sql
-SELECT
-  ARRAY_TO_STRING(arr, ".", "N") AS non_empty_string,
-  ARRAY_TO_STRING(arr, ".", "") AS empty_string,
-  ARRAY_TO_STRING(arr, ".") AS omitted
-FROM (SELECT ["a", NULL, "b", NULL, "c", NULL] AS arr);
-
-+------------------+--------------+---------+
-| non_empty_string | empty_string | omitted |
-+------------------+--------------+---------+
-| a.N.b.N.c.N      | a..b..c.     | a.b.c   |
-+------------------+--------------+---------+
-```
-
-### Combining arrays
-
-In some cases, you might want to combine multiple arrays into a single array.
-You can accomplish this using the `ARRAY_CONCAT()` function.
-
-```sql
-SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six;
-
-+--------------------------------------------------+
-| count_to_six                                     |
-+--------------------------------------------------+
-| [1, 2, 3, 4, 5, 6]                               |
-+--------------------------------------------------+
-```
-
-### Zipping arrays
-
-Given two arrays of equal size, you can merge them into a single array
-consisting of pairs of elements from input arrays, taken from their
-corresponding positions. This operation is sometimes called
-[zipping][convolution].
-
-You can zip arrays with `UNNEST` and `WITH OFFSET`. In this example, each
-value pair is stored as a `STRUCT` in an array.
-
-```sql
-WITH
-  combinations AS (
-    SELECT
-      ['a', 'b'] AS letters,
-      [1, 2, 3] AS numbers
-  )
-SELECT
-  ARRAY(
-    SELECT AS STRUCT
-      letters[SAFE_OFFSET(index)] AS letter,
-      numbers[SAFE_OFFSET(index)] AS number
-    FROM combinations
-    CROSS JOIN
-      UNNEST(
-        GENERATE_ARRAY(
-          0,
-          LEAST(ARRAY_LENGTH(letters), ARRAY_LENGTH(numbers)) - 1)) AS index
-    ORDER BY index
-  );
-
-+------------------------------+
-| pairs                        |
-+------------------------------+
-| [{ letter: "a", number: 1 }, |
-|  { letter: "b", number: 2 }] |
-+------------------------------+
-```
-
-You can use input arrays of different lengths as long as the first array
-is equal to or less than the length of the second array. The zipped array
-will be the length of the shortest input array.
-
-To get a zipped array that includes all the elements even when the input arrays
-are different lengths, change `LEAST` to `GREATEST`. Elements of either array
-that have no associated element in the other array will be paired with `NULL`.
-
-```sql
-WITH
-  combinations AS (
-    SELECT
-      ['a', 'b'] AS letters,
-      [1, 2, 3] AS numbers
-  )
-SELECT
-  ARRAY(
-    SELECT AS STRUCT
-      letters[SAFE_OFFSET(index)] AS letter,
-      numbers[SAFE_OFFSET(index)] AS number
-    FROM combinations
-    CROSS JOIN
-      UNNEST(
-        GENERATE_ARRAY(
-          0,
-          GREATEST(ARRAY_LENGTH(letters), ARRAY_LENGTH(numbers)) - 1)) AS index
-    ORDER BY index
-  );
-
-+-------------------------------+
-| pairs                         |
-+-------------------------------+
-| [{ letter: "a", number: 1 },  |
-|  { letter: "b", number: 2 },  |
-|  { letter: null, number: 3 }] |
-+-------------------------------+
-```
-
-### Building arrays of arrays
-
-ZetaSQL does not support building
-[arrays of arrays][array-data-type]
-directly. Instead, you must create an array of structs, with each struct
-containing a field of type `ARRAY`. To illustrate this, consider the following
-`points` table:
-
-```sql
-+----------+
-| point    |
-+----------+
-| [1, 5]   |
-| [2, 8]   |
-| [3, 7]   |
-| [4, 1]   |
-| [5, 7]   |
-+----------+
-```
-
-Now, let's say you wanted to create an array consisting of each `point` in the
-`points` table. To accomplish this, wrap the array returned from each row in a
-`STRUCT`, as shown below.
-
-```sql
-WITH points AS
-  (SELECT [1, 5] as point
-   UNION ALL SELECT [2, 8] as point
-   UNION ALL SELECT [3, 7] as point
-   UNION ALL SELECT [4, 1] as point
-   UNION ALL SELECT [5, 7] as point)
-SELECT ARRAY(
-  SELECT STRUCT(point)
-  FROM points)
-  AS coordinates;
-
-+-------------------+
-| coordinates       |
-+-------------------+
-| [{point: [1,5]},  |
-|  {point: [2,8]},  |
-|  {point: [5,7]},  |
-|  {point: [3,7]},  |
-|  {point: [4,1]}]  |
-+--------------------+
-```
-
-You can use this DML statement to insert the example data:
-
-```sql
-INSERT points
-  (point, id)
-VALUES
-  ([1, 5], 1),
-  ([2, 8], 2),
-  ([3, 7], 3),
-  ([4, 1], 4),
-  ([5, 7], 5);
-```
-
-```sql
-SELECT ARRAY(
-  SELECT STRUCT(point)
-  FROM points)
-  AS coordinates;
-
-+--------------+
-| coordinates  |
-+--------------+
-| point: [1,5] |
-| point: [2,8] |
-| point: [3,7] |
-| point: [4,1] |
-| point: [5,7] |
-+--------------+
-```
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[convolution]: https://en.wikipedia.org/wiki/Convolution_(computer_science)
-
-[flattening-arrays]: #flattening_arrays
-
-[array-data-type]: #array_type
-
-[from-clause]: #from_clause
-
-[unnest-query]: #unnest_operator
-
-[cross-join-query]: #cross_join
-
-[comma-cross-join-query]: #comma_cross_join
-
-[correlated-join-query]: #correlated_join
-
-[in-operators]: #in_operators
-
-[expression-subqueries]: #expression_subqueries
-
-[casting]: #casting
-
-[array-function]: #array_functions
-
-[array-agg-function]: #array_agg
-
-[generate-array-function]: #generate_array
-
-[generate-date-array]: #generate_date_array
-
-[array-subscript-operator]: #array_subscript_operator
-
-[flatten-operator]: #flatten
-
-[array-el-field-operator]: #array_el_field_operator
-
-<!-- mdlint on -->
-
-## Data model
-
-The following sections provide an overview of the ZetaSQL data
-model.
-
-### Standard SQL tables
-
-ZetaSQL data is stored in tables. Each table consists of an ordered
-list of columns and a number of rows. Each column has a name used to identify it
-through SQL statements, and is assigned a specific data type.
-
-For example, the following table, **Singers**, is a standard SQL table.
-
-<table>
-<thead>
-<tr>
-<th>Column Name</th>
-<th>Data Type</th>
-<th>Default Value</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>SingerId</td>
-<td><code>INT64</code></td>
-<td><code>&lt;auto-increment&gt;</code></td>
-</tr>
-<tr>
-<td>FirstName</td>
-<td><code>STRING</code></td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td>LastName</td>
-<td><code>STRING</code></td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td>BirthDate</td>
-<td><code>DATE</code></td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td>Status</td>
-<td><code>STRING</code></td>
-<td><code>"active"</code></td>
-</tr>
-<tr>
-<td>SingerInfo</td>
-<td><code>PROTO&lt;SingerMetadata&gt;</code></td>
-<td>&nbsp;</td>
-</tr>
-<tr>
-<td>Albums</td>
-<td><code>PROTO&lt;Album&gt;</code></td>
-<td>&nbsp;</td>
-</tr>
-</tbody>
-</table>
-
-The proto, `SingerMetadata`, has the following definition:
-
-```
-message SingerMetadata {
-  optional string    nationality = 1;
-  repeated Residence residence   = 2;
-
-  message Residence {
-    required int64  start_year   = 1;
-    optional int64  end_year     = 2;
-    optional string city         = 3;
-    optional string country      = 4 [default = "USA"];
-  }
-}
-```
-
-A `SELECT *` statement on this table would return rows similar to the following:
-
-<table>
-<thead>
-<tr>
-<th>SingerId</th>
-<th>FirstName</th>
-<th>LastName</th>
-<th>BirthDate</th>
-<th>Status</th>
-<th>SingerInfo</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>Marc</td>
-<td>Richards</td>
-<td>1970-09-03</td>
-<td>active</td>
-<td>{nationality: "England"}</td>
-</tr>
-<tr>
-<td>2</td>
-<td>Catalina</td>
-<td>Smith</td>
-<td>1990-08-17</td>
-<td>inactive</td>
-<td>{nationality: "U.S.A."}</td>
-</tr>
-<tr>
-<td>3</td>
-<td>Lea</td>
-<td>Martin</td>
-<td>1991-11-09</td>
-<td>active</td>
-<td>{nationality: "Australia"}</td>
-</tr>
-<tr>
-<td>4</td>
-<td>Xanathe</td>
-<td>Riou</td>
-<td>1995-05-23</td>
-<td>inactive</td>
-<td>{nationality: U.S.A."}</td>
-</tr>
-</tbody>
-</table>
-
-While tables do not have a type, some operations will construct an implicit
-`STRUCT` type out of a SQL row, using the column names and types for field
-definitions.
-
-For more information on the data types ZetaSQL supports, see
-[Data Types][data-types].
-
-### Constraints
-
-Constraints require that any writes to one or more columns, such as inserts or
-updates, conform to certain rules.
-[Data manipulation language (DML)][data-manipulation-language]
-statements enforce constraints. ZetaSQL  supports the
-following constraints:
-
-* **Primary key constraint.** A primary key consists of one or more columns, and
-  specifies that the value of each row of these combined columns must be unique
-  within that table. A table can contain at most one primary key constraint.
-
-  Some [data manipulation language (DML)][data-manipulation-language]
-  keywords may require the existence of a primary key.
-  ZetaSQL also implicitly builds an index on the primary key. The
-  default order of this index is ascending. The primary key can contain `NULL`
-  values.
-* **Unique constraint.** Specifies that one or more columns must contain only
-  unique values. Unlike a primary key, more than one unique constraint can exist
-  on a table.
-
-### Indexes
-
-An index allows the database engine to query a column or set of columns more
-quickly. You can specify that sort order is ascending or descending. A unique
-or primary key index defines an indexed column that is subject to the uniqueness
-constraint.
-
-### Pseudo-columns 
-<a id="pseudo_columns"></a>
-
-ZetaSQL tables support pseudo-columns. Pseudo-columns contain data elements
-that you can query like regular columns, but are not considered real columns in
-the table. Pseudo-column values may not be physically stored with each row, but
-the query engine will materialize a value for the column using some appropriate
-mechanism.
-
-For example, an engine might support a pseudo-column called `ROWNUM`, which
-returns a number indicating the order in which a row was returned. You can then
-construct a query like this:
-
-```
-SELECT ROWNUM, SingerId, FirstName, LastName FROM Singers
-WHERE Status = "active"
-```
-
-Here's an example of rows returned by this query:
-
-<table>
-<thead>
-<tr>
-<th>ROWNUM</th>
-<th>SingerId</th>
-<th>FirstName</th>
-<th>LastName</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>1</td>
-<td>Marc</td>
-<td>Richards</td>
-</tr>
-<tr>
-<td>2</td>
-<td>3</td>
-<td>Lea</td>
-<td>Martin</td>
-</tr>
-</tbody>
-</table>
-
-In this case,the schema for the **Singers** table does not define a column,
-`ROWNUM`. Instead, the engine materializes the data only when requested.
-
-To return a value of a pseudo-column, you must specify it in your query.
-Pseudo-columns do not show up in `SELECT *` statements. For example:
-
-```
-SELECT * FROM singers
-```
-
-This query will return all named columns in the table, but won't include
-pseudo-columns such as `ROWNUM`.
-
-### Value tables
-
-In addition to standard SQL tables, ZetaSQL supports _value tables_.
-In a value table, rather than having rows made up of a list of columns, each row
-is a single value of a specific type. These types of tables are common when
-working with protocol buffers that may be stored in files instead of in the
-database. 
-
-<a id="value_table_example"></a>
-For example, the following protocol buffer definition, `AlbumReview`, contains
-data about the reviews for an album.
-
-```
-message AlbumReview {
-  optional string albumtitle = 1;
-  optional string reviewer = 2;
-  optional string review = 3;
-}
-```
-
-A list of `AlbumReview` protocol buffers is stored in a file, `AlbumReviewData`.
-
-```
-{albumtitle: "Songs on a Broken Banjo", reviewer: "Dan Starling", review: "Off key"}
-{albumtitle: "Six and Seven", reviewer: "Alice Wayfarer", review: "Hurt my ears!"}
-{albumtitle: "Go! Go! Go!", reviewer: "Eustace Millson", review: "My kids loved it!"}
-```
-
-The following query returns a stream of rows, with each row a value of type
-AlbumReview.
-
-```
-SELECT a FROM AlbumReviewsData a
-```
-
-To get specific data, such as all album titles in
-the table, you have two options. You can specify `albumtitle` as a protocol
-buffer field:
-
-```
-SELECT a.albumtitle FROM AlbumReviewsData a
-```
-
-You can also access the top-level fields inside the value (if there
-are any) like columns in a regular SQL table:
-
-```
-SELECT albumtitle FROM AlbumReviewsData
-```
-
-Value tables are not limited for use with compound data types.
-A value table can consist of any supported ZetaSQL data type, although value
-tables consisting of scalar types occur less frequently than structs or
-protocol buffers.
-
-#### Returning query results as value tables
-
-You can use ZetaSQL to return query results as a value table. This is useful
-when you want to create a compound value, such as a protocol buffer, from a
-query result and store it as a table that acts like a value table.
-To return a query result as a
-value table, use the `SELECT AS` statement. See
-[Query Syntax][query-syntax-value-tables]
-for more information and examples.
-
-##### Example: Copying protocol buffers using value tables
-
-In some cases you might not want to work with the data within a protocol buffer,
-but with the protocol buffer itself. 
-
-Using `SELECT AS VALUE` can help you keep your ZetaSQL statements as simple
-as possible. To illustrate this, consider the [AlbumReview][value-table-example]
-example specified earlier. To create a new table from this data, you could
-write:
-
-```
-CREATE TABLE Reviews AS
-SELECT albumreviews FROM AlbumReviewData albumreviews;
-```
-
-This statement creates a standard SQL table that has a single column,
-`albumreviews`, which has a protocol buffer value of type
-`AlbumReviewData`. To retrieve all album titles from this table, you'd need to
-write a query similar to:
-
-```
-SELECT r.albumreviews.albumtitle
-FROM Reviews r;
-```
-
-Now, consider the same initial `CREATE TABLE` statement, this time modified to
-use `SELECT AS VALUE`:
-
-```
-CREATE TABLE Reviews AS
-SELECT AS VALUE albumreviews FROM AlbumReview albumreviews;
-```
-
-This statement creates a value table, instead of a standard SQL table. As a
-result, you can query any protocol buffer field as if it was a column. Now, if
-you want to retrieve all album titles from this table, you can write a much
-simpler query:
-
-```
-SELECT albumtitle
-FROM Reviews;
-```
-
-#### Set operations on value tables
-
-Normally, a `SET` operation like `UNION ALL` expects all tables to be either
-standard SQL tables or value tables. However, ZetaSQL allows you to combine
-standard SQL tables with value tables&mdash;provided that the standard SQL table
-consists of a single column with a type that matches the value table's type. The
-result of these operations is always a value table.
-
-For example, consider the following definition for a table,
-**SingersAndAlbums**.
-
-<table>
-<thead>
-<tr>
-<th>Column Name</th>
-<th>Data Type</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>SingerId</td>
-<td><code>INT64</code></td>
-</tr>
-<tr>
-<td>AlbumId</td>
-<td><code>INT64</code></td>
-</tr>
-<tr>
-<td>AlbumReview</td>
-<td><code>PROTO&lt;AlbumReview&gt;</code></td>
-</tr>
-</tbody>
-</table>
-
-Next, we have a file, `AlbumReviewData` that contains a list of `AlbumReview`
-protocol buffers.
-
-```
-{albumtitle: "Songs on a Broken Banjo", reviewer: "Dan Starling", review: "Off key"}
-{albumtitle: "Six and Seven", reviewer: "Alice Wayfarer", review: "Hurt my ears!"}
-{albumtitle: "Go! Go! Go!", reviewer: "Eustace Millson", review: "My kids loved it!"}
-```
-
-The following query combines the `AlbumReview` data from the
-**SingersAndAlbums** with the data stored in the `AlbumReviewData` file and
-stores it in a new value table, **AllAlbumReviews**.
-
-```
-SELECT AS VALUE sa.AlbumReview FROM SingersAndAlbums sa
-UNION ALL
-SELECT a FROM AlbumReviewData a
-```
-
-#### Pseudo-columns and value tables
-
-The [Pseudo-columns][pseudo-columns] section  describes how pseudo-columns
-work with standard SQL tables. In most cases, pseudo-columns work the same with
-value tables. For example, consider this query:
-
-```
-SELECT a.ROWNUM, a.albumtitle AS title FROM AlbumReviewData a
-```
-
-The following table demonstrates the result of this query:
-
-<table>
-<thead>
-<tr>
-<th>ROWNUM</th>
-<th>title</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>1</td>
-<td>"Songs on a Broken Banjo"</td>
-</tr>
-<tr>
-<td>2</td>
-<td>"Six and Seven"</td>
-</tr>
-<tr>
-<td>3</td>
-<td>"Go! Go! Go!"</td>
-</tr>
-</tbody>
-</table>
-
-This example works because `a` is an alias of the table `AlbumReviewData`, and
-this table has a `ROWNUM` pseudo-column. As a result, `AlbumReviewData a` represents the scanned rows,
-not the value.
-
-However, if you tried to construct the query like this:
-
-```
-SELECT a.ROWNUM, a.albumtitle AS title FROM (SELECT a FROM AlbumReviewData a)
-```
-
-This query does not work. The reason it fails is because the subquery, `SELECT
-a FROM AlbumReviewData a`, returns an `AlbumReviewData` value only, and this
-value does not have a field called `ROWNUM`.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[value-table-example]: #value_table_example
-
-[pseudo-columns]: #pseudo_columns
-
-[data-types]: #data-types
-
-[data-manipulation-language]: #data-manipulation-language
-
-[query-syntax-value-tables]: #value_tables
-
-<!-- mdlint on -->
-
-## User-defined functions
-
-ZetaSQL
-supports user-defined functions (UDFs). A UDF enables you to create a function
-using another SQL expression or another programming
-language, such as JavaScript or Lua. These functions accept columns of input
-and perform actions, returning the result of those actions as a value.
-
-###  General UDF and TVF  syntax
-
-User-defined functions and table-valued
-functions in ZetaSQL use the
-following general syntax:
-
-+  [SQL UDF syntax][sql-udf-syntax]
-+  [External UDF syntax][ext-udf-syntax]
-+  [TVF syntax][tvf-syntax]
-
-### SQL UDFs
-
-An SQL UDF lets you specify a SQL expression for the UDF.
-
-#### SQL UDF structure
-
-Create SQL UDFs using the following syntax:
-
-```sql
-CREATE
-  [ { TEMPORARY | TEMP } ] [ AGGREGATE ] FUNCTION
-  function_name ( [ function_parameter [ NOT AGGREGATE ] [, ...] ] )
-  [ RETURNS data_type ]
-  AS ( sql_expression )
-
-function_parameter:
-  parameter_name { data_type | ANY TYPE }
-```
-
-This syntax consists of the following components:
-
-+   `CREATE ... FUNCTION`: Creates a new function.
-     A function can contain zero or more
-    `function_parameter`s.
-+   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
-     exists for the lifetime of the session.
-+   `AGGREGATE`: Indicates that this is an [aggregate function][aggregate-udf-parameters].
-+   `function_parameter`: A parameter for the function. A parameter
-    includes a name and a data type. The value of `data_type`
-    is a ZetaSQL [data type][data-types] or may also be `ANY TYPE`.
-+   `RETURNS data_type`: Specifies the data type
-    that the function returns. The
-    `RETURNS` clause is optional and ZetaSQL infers the result type
-    of the function from the SQL function body.
-+   `AS (sql_expression)`: Specifies the SQL code that defines the
-    function.
-+   `NOT AGGREGATE`: Specifies that a parameter is not
-    aggregate. Can only appear after `CREATE AGGREGATE FUNCTION`. A
-    non-aggregate parameter can appear anywhere in the
-    [function definition][aggregate-udf-parameters].
-
-##### Aggregate UDF parameters
-
-An aggregate UDF can include aggregate or non-aggregate parameters. Like other
-[aggregate functions][aggregate-fns-link], aggregate UDFs normally aggregate
-parameters across all rows in a [group][group-by-link]. However, you can specify
-a parameter as non-aggregate with the `NOT AGGREGATE` keyword. A non-aggregate
-parameter is a scalar parameter with a constant value for all rows in a group;
-for example, literals or grouping expressions are valid non-aggregate
-parameters. Inside the UDF definition, aggregate parameters can only appear as
-parameters to aggregate function calls. Non-aggregate parameters can appear
-anywhere in the UDF definition.
-
-##### Templated SQL UDF parameters
-
-A templated parameter can match more than one argument type at function call
-time. If a function signature includes a templated parameter, ZetaSQL
-allows function calls to pass one of several argument types to the function.
-
-SQL user-defined function signatures can contain the following templated
-parameter value:
-
-+ `ANY TYPE`. The function will accept an argument of any type for this
-  parameter. If more than one parameter includes `ANY TYPE`,
-  a relationship is not enforced between these parameters
-  when the function is defined. However, if the type of argument passed into the
-  function at call time is incompatible with the function definition, this will
-  result in an error.
-
-#### SQL UDF examples
-
-The following example shows a UDF that employs a SQL function.
-
-```sql
-CREATE TEMP FUNCTION AddFourAndDivide(x INT64, y INT64)
-RETURNS DOUBLE
-AS ((x + 4) / y);
-WITH numbers AS
-  (SELECT 1 as val UNION ALL
-   SELECT 3 as val UNION ALL
-   SELECT 4 as val UNION ALL
-   SELECT 5 as val)
-SELECT val, AddFourAndDivide(val, 2) AS result
-FROM numbers;
-
-+-----+--------+
-| val | result |
-+-----+--------+
-| 1   | 2.5    |
-| 3   | 3.5    |
-| 4   | 4      |
-| 5   | 4.5    |
-+-----+--------+
-```
-
-The following example shows an aggregate UDF that uses a non-aggregate
-parameter. Inside the function definition, the aggregate `SUM` method takes the
-aggregate parameter `dividend`, while the non-aggregate division operator
-( `/` ) takes the non-aggregate parameter `divisor`.
-
-```sql
-CREATE TEMP AGGREGATE FUNCTION ScaledSum(dividend DOUBLE, divisor DOUBLE NOT AGGREGATE)
-RETURNS DOUBLE
-AS (SUM(dividend) / divisor);
-SELECT ScaledSum(col1, 2) AS scaled_sum
-FROM (SELECT 1 AS col1 UNION ALL
-      SELECT 3 AS col1 UNION ALL
-      SELECT 5 AS col1);
-
-+------------+
-| scaled_sum |
-+------------+
-| 4.5        |
-+------------+
-```
-
-The following example shows a SQL UDF that uses a
-[templated parameter][templated-parameters]. The resulting function
-accepts arguments of various types.
-
-```sql
-CREATE TEMP FUNCTION AddFourAndDivideAny(x ANY TYPE, y ANY TYPE)
-AS (
-  (x + 4) / y
-);
-
-SELECT AddFourAndDivideAny(3, 4) AS integer_output,
-       AddFourAndDivideAny(1.59, 3.14) AS floating_point_output;
-
-+----------------+-----------------------+
-| integer_output | floating_point_output |
-+----------------+-----------------------+
-| 1.75           | 1.7802547770700636    |
-+----------------+-----------------------+
-```
-
-The following example shows a SQL UDF that uses a
-[templated parameter][templated-parameters] to return the last
-element of an array of any type.
-
-```sql
-CREATE TEMP FUNCTION LastArrayElement(arr ANY TYPE)
-AS (
-  arr[ORDINAL(ARRAY_LENGTH(arr))]
-);
-SELECT
-  names[OFFSET(0)] AS first_name,
-  LastArrayElement(names) AS last_name
-FROM (
-  SELECT ['Fred', 'McFeely', 'Rogers'] AS names UNION ALL
-  SELECT ['Marie', 'Skłodowska', 'Curie']
-);
-
-+------------+-----------+
-| first_name | last_name |
-+------------+-----------+
-| Fred       | Rogers    |
-| Marie      | Curie     |
-+------------+-----------+
-```
-
-### JavaScript UDFs 
-<a id="javascript_udfs"></a>
-
-A JavaScript UDF is a SQL UDF that lets you specify a JavaScript expression.
-
-#### JavaScript UDF structure 
-<a id="javascript_structure"></a>
-
-Create a JavaScript UDF using the following syntax.
-
-```sql
-CREATE
-  [ { TEMPORARY | TEMP } ] FUNCTION
-  function_name ( [ function_parameter [, ...] ] )
-  RETURNS data_type
-  [ determinism_specifier ]
-  LANGUAGE js AS string_literal
-
-function_parameter:
-  parameter_name data_type
-
-determinism_specifier:
-  { IMMUTABLE | DETERMINISTIC | NOT DETERMINISTIC | VOLATILE | STABLE }
-```
-
-This syntax consists of the following components:
-
-+   `CREATE ... FUNCTION`: Creates a new function. A function can contain zero
-    or more `function_parameter`s.
-+   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
-    exists for the lifetime of the session.
-+   `function_parameter`: A parameter for the function. A parameter includes a
-    name and a data type. The value of `data_type` is a ZetaSQL
-    [data type][data-types].
-+   `determinism_specifier`: Identifies the determinism property of the
-    function, which impacts query semantics and planning. Your choices are:
-    +   `IMMUTABLE` or `DETERMINISTIC`: The function always returns the same
-        result when passed the same arguments. For example, if the function
-        `add_one(i)` always returns `i + 1`, the function is deterministic.
-    +   `NOT DETERMINISTIC`: The function does not always return the same result
-        when passed the same arguments. The `VOLATILE` and `STABLE` keywords are
-        subcategories of `NOT DETERMINISTIC`.
-    +   `VOLATILE`: The function does not always return the same result when
-        passed the same arguments, even within the same run of a query
-        statement. For example if `add_random(i)` returns `i + rand()`, the
-        function is volatile, because every call to the function can return a
-        different result.
-    +   `STABLE`: Within one execution of a query statement, the function will
-        consistently return the same result for the same argument values.
-        However, the result could change for different executions of the
-        same query. For example if you invoke the function `CURRENT_TIMESTAMP`
-        within a single query, it will return the same result, but it will
-        return different results in different query executions.
-+   `RETURNS data_type`: Specifies the data type that the function returns.
-+   `LANGUAGE ... AS`: Specify the language and code to use. `js`
-    represents the name of the language. `string_literal` represents the code
-    that defines the function body.
-
-<a id="quoting_rules"></a>
-You must enclose JavaScript in quotes. There are a few options:
-
-+ `"..."`: For simple, one line code snippets that don't contain quotes or
-  escaping, you can use a standard quoted string.
-+ `"""..."""`: If the snippet contains quotes or multiple lines, use
-  triple-quoted blocks.
-+ `R"""..."""`: If the snippet contains escaping, prefix a triple-quoted
-  block with an `R` to indicate that this is a raw string that should ignore
-  escaping rules. If you are not sure which quoting style to use, this one
-  will provide the most consistent results.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[data-types]: #data-types
-
-<!-- mdlint on -->
-
-#### SQL type encodings in JavaScript
-
-ZetaSQL represents types in the following manner:
-
-<table>
-  <tr>
-  <th>SQL Data Type</th>
-  <th>JavaScript Data Type</th>
-  <th>Notes</th>
-  </tr>
-
-  
-  <tr>
-    <td>ARRAY</td>
-    <td>Array</td>
-    <td></td>
-  </tr>
-  
-
-  
-  <tr>
-    <td>BOOL</td>
-    <td>Boolean</td>
-    <td></td>
-  </tr>
-  
-
-  
-  <tr>
-    <td>BYTES</td>
-    <td>String</td>
-    <td>Base64-encoded String.</td>
-  </tr>
-  
-
-  
-  <tr>
-    <td>DOUBLE</td>
-    <td>Number</td>
-    <td></td>
-  </tr>
-  
-
-  
-  <tr>
-    <td>FLOAT</td>
-    <td>Number</td>
-    <td></td>
-  </tr>
-  
-
-  
-  <tr>
-    <td>
-      NUMERIC
-    </td>
-    <td>
-      Number or String
-    </td>
-    <td>
-      If a NUMERIC value can be represented exactly as an
-      <a href="https://en.wikipedia.org/wiki/Floating-point_arithmetic#IEEE_754:_floating_point_in_modern_computers">IEEE 754 floating-point</a>
-      value and has no fractional part, it is encoded as a Number. These values
-      are in the range [-2<sup>53</sup>, 2<sup>53</sup>]. Otherwise, it is
-      encoded as a String.
-    </td>
-  </tr>
-  
-
-  
-  <tr>
-    <td>
-      BIGNUMERIC
-    </td>
-    <td>
-      Number or String
-    </td>
-    <td>
-      Same as NUMERIC.
-    </td>
-  </tr>
-  
-
-  
-  <tr>
-    <td>INT32</td>
-    <td>Number</td>
-    <td></td>
-  </tr>
-  
-
-  
-  <tr>
-    <td>UINT32</td>
-    <td>Number</td>
-    <td></td>
-  </tr>
-  
-
-  
-  <tr>
-    <td>INT64</td>
-    <td>
-      
-      See notes
-      
-    </td>
-    <td>
-      
-      See the documentation for your database engine.
-      
-    </td>
-  </tr>
-  
-
-  
-  <tr>
-    <td>
-      UINT64
-    </td>
-    <td>
-      
-      See notes
-      
-    </td>
-    <td>
-      Same as INT64.
-    </td>
-  </tr>
-  
-
-  
-  <tr>
-    <td>STRING</td>
-    <td>String</td>
-    <td></td>
-  </tr>
-  
-
-  
-  <tr>
-    <td>STRUCT</td>
-    <td>Object</td>
-    <td>
-      
-      See the documentation for your database engine.
-      
-    </td>
-  </tr>
-  
-
-  
-  <tr>
-    <td>TIMESTAMP</td>
-    <td>Date object</td>
-    <td>
-      
-      See the documentation for your database engine.
-      
-    </td>
-  </tr>
-  
-
-  
-  <tr>
-    <td>DATE</td>
-    <td>Date object</td>
-    <td></td>
-  </tr>
-  
-
-</table>
-
-#### JavaScript UDF examples 
-<a id="javascript_examples"></a>
-
-The following example creates a persistent JavaScript UDF.
-
-```sql
-CREATE FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
-RETURNS DOUBLE
-LANGUAGE js AS """
-  return x*y;
-""";
-WITH numbers AS
-  (SELECT 1 AS x, 5 as y
-  UNION ALL
-  SELECT 2 AS x, 10 as y
-  UNION ALL
-  SELECT 3 as x, 15 as y)
-SELECT x, y, MultiplyInputs(x, y) as product
-FROM numbers;
-
-+-----+-----+--------------+
-| x   | y   | product      |
-+-----+-----+--------------+
-| 1   | 5   | 5            |
-| 2   | 10  | 20           |
-| 3   | 15  | 45           |
-+-----+-----+--------------+
-```
-
-The following example creates a temporary JavaScript UDF.
-
-```sql
-CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
-RETURNS DOUBLE
-LANGUAGE js AS """
-  return x*y;
-""";
-WITH numbers AS
-  (SELECT 1 AS x, 5 as y
-  UNION ALL
-  SELECT 2 AS x, 10 as y
-  UNION ALL
-  SELECT 3 as x, 15 as y)
-SELECT x, y, MultiplyInputs(x, y) as product
-FROM numbers;
-
-+-----+-----+--------------+
-| x   | y   | product      |
-+-----+-----+--------------+
-| 1   | 5   | 5            |
-| 2   | 10  | 20           |
-| 3   | 15  | 45           |
-+-----+-----+--------------+
-```
-
-You can create multiple JavaScript UDFs before a query. For example:
-
-```sql
-CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
-RETURNS DOUBLE
-LANGUAGE js AS """
-  return x*y;
-""";
-CREATE TEMP FUNCTION DivideByTwo(x DOUBLE)
-RETURNS DOUBLE
-LANGUAGE js AS """
-  return x / 2;
-""";
-WITH numbers AS
-  (SELECT 1 AS x, 5 as y
-  UNION ALL
-  SELECT 2 AS x, 10 as y
-  UNION ALL
-  SELECT 3 as x, 15 as y)
-SELECT x,
-  y,
-  MultiplyInputs(x, y) as product,
-  DivideByTwo(x) as half_x,
-  DivideByTwo(y) as half_y
-FROM numbers;
-
-+-----+-----+--------------+--------+--------+
-| x   | y   | product      | half_x | half_y |
-+-----+-----+--------------+--------+--------+
-| 1   | 5   | 5            | 0.5    | 2.5    |
-| 2   | 10  | 20           | 1      | 5      |
-| 3   | 15  | 45           | 1.5    | 7.5    |
-+-----+-----+--------------+--------+--------+
-```
-
-You can pass the result of a JavaScript UDF as input to another UDF.
-For example:
-
-```sql
-CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
-RETURNS DOUBLE
-LANGUAGE js AS """
-  return x*y;
-""";
-CREATE TEMP FUNCTION DivideByTwo(x DOUBLE)
-RETURNS DOUBLE
-LANGUAGE js AS """
-  return x/2;
-""";
-WITH numbers AS
-  (SELECT 1 AS x, 5 as y
-  UNION ALL
-  SELECT 2 AS x, 10 as y
-  UNION ALL
-  SELECT 3 as x, 15 as y)
-SELECT x,
-  y,
-  MultiplyInputs(DivideByTwo(x), DivideByTwo(y)) as half_product
-FROM numbers;
-
-+-----+-----+--------------+
-| x   | y   | half_product |
-+-----+-----+--------------+
-| 1   | 5   | 1.25         |
-| 2   | 10  | 5            |
-| 3   | 15  | 11.25        |
-+-----+-----+--------------+
-```
-
-The following provides an example of a simple, single statement JavaScript UDF:
-
-```sql
-CREATE TEMP FUNCTION PlusOne(x DOUBLE)
-RETURNS DOUBLE
-LANGUAGE js
-AS "return x+1;";
-SELECT val, PlusOne(val) AS result
-FROM UNNEST([1, 2, 3]) AS val;
-
-+-----------+-----------+
-| val       | result    |
-+-----------+-----------+
-| 1         | 2         |
-| 2         | 3         |
-| 3         | 4         |
-+-----------+-----------+
-```
-
-The following example illustrates a more complex, multi-statement
-JavaScript UDF.  Note that a triple-quoted multi-line string is used in this
-example for readability.
-
-```sql
-CREATE TEMP FUNCTION CustomGreeting(a STRING)
-RETURNS STRING
-LANGUAGE js AS """
-  var d = new Date();
-  if (d.getHours() < 12) {
-    return 'Good Morning, ' + a + '!';
-  } else {
-    return 'Good Evening, ' + a + '!';
-  }
-  """;
-SELECT CustomGreeting(names) as everyone
-FROM UNNEST(["Hannah", "Max", "Jakob"]) AS names;
-
-+-----------------------+
-| everyone              |
-+-----------------------+
-| Good Morning, Hannah! |
-| Good Morning, Max!    |
-| Good Morning, Jakob!  |
-+-----------------------+
-```
-
-The following example demonstrates how to utilize JavaScript escaping within the
-triple-quoted multi-line string.
-
-```sql
-CREATE TEMP FUNCTION PlusOne(x STRING)
-RETURNS STRING
-LANGUAGE js AS R"""
-var re = /[a-z]/g;
-return x.match(re);
-""";
-
-SELECT val, PlusOne(val) AS result
-FROM UNNEST(["ab-c", "d_e", "!"]) AS val;
-
-+---------+
-| result  |
-+---------+
-| [a,b,c] |
-| [d,e]   |
-| NULL    |
-+---------+
-```
-
-The following example sums the values of all
-fields named `foo` in the given JSON string.
-
-```sql
-CREATE TEMP FUNCTION SumFieldsNamedFoo(json_row STRING)
-RETURNS FLOAT64
-LANGUAGE js
-AS '''
-function SumFoo(obj) {
-  var sum = 0;
-  for (var field in obj) {
-    if (obj.hasOwnProperty(field) && obj[field] != null) {
-      if (typeof obj[field] == "object") {
-        sum += SumFoo(obj[field]);
-      } else if (field == "foo") {
-        sum += obj[field];
-      }
-    }
-  }
-  return sum;
-}
-var row = JSON.parse(json_row);
-return SumFoo(row);
-''';
-
-WITH
-  Input AS (
-    SELECT
-      STRUCT(1 AS foo, 2 AS bar, STRUCT('foo' AS x, 3.14 AS foo) AS baz) AS s,
-      10 AS foo
-    UNION ALL
-    SELECT NULL, 4 AS foo
-    UNION ALL
-    SELECT
-      STRUCT(NULL, 2 AS bar, STRUCT('fizz' AS x, 1.59 AS foo) AS baz) AS s,
-      NULL AS foo
-  )
-SELECT
-  TO_JSON_STRING(t) AS json_row,
-  SumFieldsNamedFoo(TO_JSON_STRING(t)) AS foo_sum
-FROM Input AS t;
-
-+---------------------------------------------------------------------+---------+
-| json_row                                                            | foo_sum |
-+---------------------------------------------------------------------+---------+
-| {"s":{"foo":1,"bar":2,"baz":{"x":"foo","foo":3.14}},"foo":10}       | 14.14   |
-| {"s":null,"foo":4}                                                  | 4       |
-| {"s":{"foo":null,"bar":2,"baz":{"x":"fizz","foo":1.59}},"foo":null} | 1.59    |
-+---------------------------------------------------------------------+---------+
-```
-
-### LUA UDFs 
-<a id="lua_udfs"></a>
-
-A LUA UDF is a SQL UDF that lets you specify a LUA expression.
-
-#### LUA UDF structure 
-<a id="lua_structure"></a>
-
-Create a LUA UDF using the following syntax.
-
-```sql
-CREATE
-  [ { TEMPORARY | TEMP } ] FUNCTION
-  function_name ( [ function_parameter [, ...] ] )
-  RETURNS data_type
-  [ determinism_specifier ]
-  LANGUAGE lua AS string_literal
-
-function_parameter:
-  parameter_name data_type
-
-determinism_specifier:
-  { IMMUTABLE | DETERMINISTIC | NOT DETERMINISTIC | VOLATILE | STABLE }
-```
-
-This syntax consists of the following components:
-
-+   `CREATE ... FUNCTION`: Creates a new function. A function can contain zero
-    or more `function_parameter`s.
-+   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
-    exists for the lifetime of the session.
-+   `function_parameter`: A parameter for the function. A parameter includes a
-    name and a data type. The value of `data_type` is a ZetaSQL
-    [data type][data-types].
-+   `determinism_specifier`: Identifies the determinism property of the
-    function, which impacts query semantics and planning. Your choices are:
-    +   `IMMUTABLE` or `DETERMINISTIC`: The function always returns the same
-        result when passed the same arguments. For example, if the function
-        `add_one(i)` always returns `i + 1`, the function is deterministic.
-    +   `NOT DETERMINISTIC`: The function does not always return the same result
-        when passed the same arguments. The `VOLATILE` and `STABLE` keywords are
-        subcategories of `NOT DETERMINISTIC`.
-    +   `VOLATILE`: The function does not always return the same result when
-        passed the same arguments, even within the same run of a query
-        statement. For example if `add_random(i)` returns `i + rand()`, the
-        function is volatile, because every call to the function can return a
-        different result.
-    +   `STABLE`: Within one execution of a query statement, the function will
-        consistently return the same result for the same argument values.
-        However, the result could change for different executions of the
-        same query. For example if you invoke the function `CURRENT_TIMESTAMP`
-        within a single query, it will return the same result, but it will
-        return different results in different query executions.
-+   `RETURNS data_type`: Specifies the data type that the function returns.
-+   `LANGUAGE ... AS`: Specify the language and code to use. `lua`
-    represents the name of the language. `string_literal` represents the code
-    that defines the function body.
-
-<a id="quoting_rules"></a>
-You must enclose LUA in quotes. There are a few options:
-
-+ `"..."`: For simple, one line code snippets that don't contain quotes or
-  escaping, you can use a standard quoted string.
-+ `"""..."""`: If the snippet contains quotes or multiple lines, use
-  triple-quoted blocks.
-+ `R"""..."""`: If the snippet contains escaping, prefix a triple-quoted
-  block with an `R` to indicate that this is a raw string that should ignore
-  escaping rules. If you are not sure which quoting style to use, this one
-  will provide the most consistent results.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[data-types]: #data-types
-
-<!-- mdlint on -->
-
-#### LUA UDF examples 
-<a id="lua_examples"></a>
-
-The following example creates a persistent LUA UDF.
-
-```sql
-CREATE FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
-RETURNS DOUBLE
-LANGUAGE lua AS """
-  return x*y;
-""";
-WITH numbers AS
-  (SELECT 1 AS x, 5 as y
-  UNION ALL
-  SELECT 2 AS x, 10 as y
-  UNION ALL
-  SELECT 3 as x, 15 as y)
-SELECT x, y, MultiplyInputs(x, y) as product
-FROM numbers;
-
-+-----+-----+--------------+
-| x   | y   | product      |
-+-----+-----+--------------+
-| 1   | 5   | 5            |
-| 2   | 10  | 20           |
-| 3   | 15  | 45           |
-+-----+-----+--------------+
-```
-
-The following example creates a temporary LUA UDF.
-
-```sql
-CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
-RETURNS DOUBLE
-LANGUAGE lua AS """
-  return x*y;
-""";
-WITH numbers AS
-  (SELECT 1 AS x, 5 as y
-  UNION ALL
-  SELECT 2 AS x, 10 as y
-  UNION ALL
-  SELECT 3 as x, 15 as y)
-SELECT x, y, MultiplyInputs(x, y) as product
-FROM numbers;
-
-+-----+-----+--------------+
-| x   | y   | product      |
-+-----+-----+--------------+
-| 1   | 5   | 5            |
-| 2   | 10  | 20           |
-| 3   | 15  | 45           |
-+-----+-----+--------------+
-```
-
-You can create multiple LUA UDFs before a query. For example:
-
-```sql
-CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
-RETURNS DOUBLE
-LANGUAGE lua AS """
-  return x*y;
-""";
-CREATE TEMP FUNCTION DivideByTwo(x DOUBLE)
-RETURNS DOUBLE
-LANGUAGE lua AS """
-  return x / 2;
-""";
-WITH numbers AS
-  (SELECT 1 AS x, 5 as y
-  UNION ALL
-  SELECT 2 AS x, 10 as y
-  UNION ALL
-  SELECT 3 as x, 15 as y)
-SELECT x,
-  y,
-  MultiplyInputs(x, y) as product,
-  DivideByTwo(x) as half_x,
-  DivideByTwo(y) as half_y
-FROM numbers;
-
-+-----+-----+--------------+--------+--------+
-| x   | y   | product      | half_x | half_y |
-+-----+-----+--------------+--------+--------+
-| 1   | 5   | 5            | 0.5    | 2.5    |
-| 2   | 10  | 20           | 1      | 5      |
-| 3   | 15  | 45           | 1.5    | 7.5    |
-+-----+-----+--------------+--------+--------+
-```
-
-You can pass the result of a LUA UDF as input to another UDF.
-For example:
-
-```sql
-CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
-RETURNS DOUBLE
-LANGUAGE lua AS """
-  return x*y;
-""";
-CREATE TEMP FUNCTION DivideByTwo(x DOUBLE)
-RETURNS DOUBLE
-LANGUAGE lua AS """
-  return x/2;
-""";
-WITH numbers AS
-  (SELECT 1 AS x, 5 as y
-  UNION ALL
-  SELECT 2 AS x, 10 as y
-  UNION ALL
-  SELECT 3 as x, 15 as y)
-SELECT x,
-  y,
-  MultiplyInputs(DivideByTwo(x), DivideByTwo(y)) as half_product
-FROM numbers;
-
-+-----+-----+--------------+
-| x   | y   | half_product |
-+-----+-----+--------------+
-| 1   | 5   | 1.25         |
-| 2   | 10  | 5            |
-| 3   | 15  | 11.25        |
-+-----+-----+--------------+
-```
-
-The following provides an example of a simple, single statement LUA UDF:
-
-```sql
-CREATE TEMP FUNCTION PlusOne(x DOUBLE)
-RETURNS DOUBLE
-LANGUAGE lua
-AS "return x+1;";
-SELECT val, PlusOne(val) AS result
-FROM UNNEST([1, 2, 3]) AS val;
-
-+-----------+-----------+
-| val       | result    |
-+-----------+-----------+
-| 1         | 2         |
-| 2         | 3         |
-| 3         | 4         |
-+-----------+-----------+
-```
-
-The following example illustrates a more complex, multi-statement
-LUA UDF.  Note that a triple-quoted multi-line string is used in this
-example for readability.
-
-```sql
-CREATE TEMP FUNCTION CustomGreeting(i INT32)
-RETURNS STRING
-LANGUAGE lua AS """
-  if i < 12 then
-    return 'Good Morning!'
-  else
-    return 'Good Evening!'
-  end
-  """;
-SELECT CustomGreeting(13) AS message;
-
-+---------------+
-| message       |
-+---------------+
-| Good Evening! |
-+---------------+
-```
-
-The following example demonstrates how to utilize LUA escaping within the
-triple-quoted multi-line string.
-
-```sql
-CREATE TEMP FUNCTION Alphabet()
-RETURNS STRING
-LANGUAGE lua AS R"""
-  return 'A\tB\tC'
-  """;
-SELECT Alphabet() AS result;
-
-+---------+
-| result  |
-+---------+
-| A  B  C |
-+---------+
-```
-
-### TVFs {#tvfs}
-
-A *table-valued function* (TVF) is a function that returns an entire output
-table instead of a single scalar value, and appears in the FROM clause like a
-table subquery.
-
-#### TVF structure
-
-You create a TVF using the following structure.
-
-```sql
-CREATE
-  { TEMPORARY | TEMP } TABLE FUNCTION
-  function_name ( [ function_parameter  [, ...] ] )
-  [ RETURNS TABLE < column_declaration [, ...] > ]
-  [ { AS query | LANGUAGE language_name AS string_literal } ]
-
-function_parameter:
-  parameter_name { data_type | ANY TABLE }
-
-column_declaration:
-  column_name data_type
-```
-
-+   `CREATE ... TABLE FUNCTION`: Creates a new
-    [table-valued function][table-valued function] function.
-    A function can contain zero or more
-    `function_parameter`s.
-+   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
-     exists for the lifetime of the session.
-+   `function_parameter`: A parameter for the function. A parameter
-    includes a name and a data type. The value of `data_type`
-    is a ZetaSQL [data type][data-types].
-    The value of `data_type` may also be `ANY TABLE`.
-+   `RETURNS TABLE`: Specifies the schema of the table that a table-valued
-    function returns as a comma-separated list of `column_name` and `TYPE`
-    pairs. If `RETURNS TABLE` is absent, ZetaSQL infers the
-    output schema from the `AS query` statement in the function body.
-+   `AS query`: If you want to create a SQL TVF, specifies the SQL query to run.
-+   `LANGUAGE ... AS`: If you want to create an external TVF, specifies the
-    language and code to use.
-    `language_name` represents the name of the language, such
-    as `js` for JavaScript. `string_literal` represents the code that defines
-    the function body.
-
-#### Specifying TVF arguments {#tvf_arguments}
-
-When a TVF with parameters is called, arguments must be passed in for all
-parameters that do not have defaults. An argument can be of any supported
-ZetaSQL type or table, but must be coercible to the related
-function parameter's type.
-
-Specify a table argument the same way you specify the fields of a
-[STRUCT][data-types-struct].
-
-```sql
-parameter_name TABLE<column_name data_type [, ...]>
-```
-
-The table argument can specify a [value table][datamodel-value-tables],
-in which each row
-is a single column of a specific type. To specify a value table as an argument,
-include only the `data_type`, leaving out the `column_name`:
-
-```sql
-parameter_name TABLE<data_type>
-```
-
-In many cases, the `data_type` of the single column in the value table is a
-protocol buffer; for example:
-
-```sql
-CREATE TEMP TABLE FUNCTION AggregatedMovieLogs(
-  TicketPurchases TABLE<analysis_conduit.codelab.MovieTicketPurchase>)
-```
-
-The function body can refer directly to fields within the proto.
-
-You have the option to specify the input table using the templated type `ANY
-TABLE` in place of `TABLE<column_name data_type [, ...]>`. This option enables
-you to create a polymorphic TVF that accepts any table as input.
-
-**Example**
-
-The following example implements a pair of TVFs that define parameterized views
-of a range of rows from the Customer table. The first returns all rows for a
-range of CustomerIds; the second calls the first function and applies an
-additional filter based on CustomerType.
-
-```sql
-CREATE TEMP TABLE FUNCTION CustomerRange(MinID INT64, MaxID INT64)
-  AS
-    SELECT *
-    FROM Customer
-    WHERE CustomerId >= MinId AND CustomerId <= MaxId;
-
-CREATE TEMP TABLE FUNCTION CustomerRangeWithCustomerType(
-    MinId INT64,
-    MaxId INT64,
-    customer_type ads.boulder.schema.CustomerType)
-  AS
-    SELECT * FROM CustomerRange(MinId, MaxId)
-    WHERE type = customer_type;
-```
-
-##### Templated SQL TVF parameters
-
-SQL table-valued function signatures can contain the following [templated
-parameter][templated-parameters] values for `param_type`:
-
-+ `ANY TYPE`. The function will accept an input of any type for this argument.
-  If more than one parameter has the type `ANY TYPE`, ZetaSQL does
-  not enforce any relationship between these arguments at the time of function
-  creation. However, passing the function arguments of types that are
-  incompatible with the function definition will result in an error at call
-  time.
-+ `ANY TABLE`. The function will accept an
-  argument of any relation type for this argument. However, passing the function
-  arguments of types that are incompatible with the function definition will
-  result in an error at call time.
-
-**Examples**
-
-The following function returns all rows from the input table if the first
-argument is greater than the second argument; otherwise it returns no rows.
-
-```sql
-CREATE TEMP TABLE FUNCTION MyFunction(
-     first ANY TYPE,
-     second ANY TYPE,
-     third ANY TABLE)
-   AS
-     SELECT *
-     FROM third
-     WHERE first > second;
-```
-
-The following function accepts two integers and a table with any set of columns
-and returns rows from the table where the predicate evaluates to true. The input
-table `selected_customers` must contain a column named `creation_time`, and
-`creation_time` must be a numeric type, or the function will return an error.
-
-```sql
-CREATE TEMP TABLE FUNCTION CustomerCreationTimeRange(
-    min_creation_time INT64,
-    max_creation_time INT64,
-    selected_customers ANY TABLE)
-  AS
-    SELECT *
-    FROM selected_customers
-    WHERE creation_time >= min_creation_time
-    AND creation_time <= max_creation_time;
-```
-
-#### Calling TVFs
-
-To call a TVF, use the function call in place of the table name in a `FROM`
-clause.
-
-There are two ways to pass a table as an argument to a TVF. You can use a
-subquery for the table argument, or you can use the name of a table, preceded by
-the keyword `TABLE`.
-
-**Examples**
-
-The following query calls the `CustomerRangeWithCustomerType` function to
-return a table with rows for customers with a CustomerId between 100
-and 200.
-
-```sql
-SELECT CustomerId, Info
-FROM CustomerRangeWithCustomerType(100, 200, 'CUSTOMER_TYPE_ADVERTISER');
-```
-
-The following query calls the `CustomerCreationTimeRange` function defined
-previously, passing the result of a subquery as the table argument.
-
-```sql
-SELECT *
-FROM
-  CustomerCreationTimeRange(
-    1577836800,  -- 2020-01-01 00:00:00 UTC
-    1609459199,  -- 2020-12-31 23:59:59 UTC
-    (
-      SELECT customer_id, customer_name, creation_time
-      FROM MyCustomerTable
-      WHERE customer_name LIKE '%Hernández'
-    ))
-```
-
-The following query calls `CustomerCreationTimeRange`, passing the table
-`MyCustomerTable` as an argument.
-
-```sql
-SELECT *
-FROM
-  CustomerCreationTimeRange(
-    1577836800,  -- 2020-01-01 00:00:00 UTC
-    1609459199,  -- 2020-12-31 23:59:59 UTC
-    TABLE MyCustomerTable)
-```
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[table-valued function]: #tvfs
-
-[tvf-syntax]: #tvf_structure
-
-[templated-parameters]: #templated_sql_udf_parameters
-
-[ext-udf-syntax]: #external_udf_structure
-
-[sql-udf-syntax]: #sql_udf_structure
-
-[javascript-data-types]: #javascript_udf_data_types
-
-[data-types]: #data-types
-
-[data-types-struct]: #struct_type
-
-[datamodel-value-tables]: #value_tables
-
-[aggregate-udf-parameters]: #aggregate_udf_parameters
-
-[group-by-link]: #group_by_clause
-
-[aggregate-fns-link]: #aggregate_functions
-
-<!-- mdlint on -->
-
-## Working with collation
-
-### About collation 
-<a id="collate_about"></a>
-
-Collation determines how strings are sorted and compared in an
-[`ORDER BY` operation][order-by-clause]. If you would like to use custom
-collation in the operation, you can include the
-[`COLLATE` clause][collate-clause] with a
-[collation specification][collate-spec-details].
-
-### Where you can assign a collation specification 
-<a id="collate_define"></a>
-
-In the `ORDER BY` clause, you can specify a collation specification for a
-collation-supported column. This overrides any
-collation specifications set previously.
-
-For example:
-
-```sql
-SELECT Place
-FROM Locations
-ORDER BY Place COLLATE "und:ci"
-```
-
-#### Query statements 
-<a id="collate_query"></a>
-
-| Type             | Support                            | Notes                |
-| ---------------- | ---------------------------------- | -------------------- |
-| Sorting          | [`ORDER BY` clause][order-by-clause] |                      |
-
-### Collation specification details 
-<a id="collate_spec_details"></a>
-
-A collation specification determines how strings are sorted and compared in
-[collation-supported operations][collate-operations]. You can define a
-collation specification for [collation-supported types][collate-define].
-
-There are two types of collation that you can specify:
-
-+ [Binary collation specification][binary-collation]
-+ [Unicode collation specification][unicode-collation]
-
-When a collation specification is not assigned or is empty,
-the ordering behavior is identical to `'binary'` collation,
-which you can learn about in the
-[binary collation specification][binary-collation]
-
-#### Binary collation specification 
-<a id="binary_collation"></a>
-
-```sql
-collation_specification:
-  'language_tag'
-```
-
-A binary collation specification indicates that the operation should
-return data in [Unicode code point order][unicode-code-point]. The
-collation specification can be a `STRING` literal or a query parameter.
-
-The language tag determines how strings are generally sorted and compared.
-The allowed value for the `language_tag` is `binary`.
-
-This is what the `binary` language tag looks like when used with the `ORDER BY`
-clause:
-
-```sql
-SELECT Place
-FROM Locations
-ORDER BY Place COLLATE 'binary'
-```
-
-#### Unicode collation specification 
-<a id="unicode_collation"></a>
-
-```sql
-collation_specification:
-  'language_tag[:collation_attribute]'
-```
-
-A unicode collation specification indicates that the operation should use the
-[Unicode Collation Algorithm][tr10-collation-algorithm] to sort and compare
-strings. The collation specification can be a `STRING` literal or a
-query parameter.
-
-##### The language tag
-
-The language tag determines how strings are generally sorted and compared.
-Allowed values for `language_tag` are:
-
-+ A standard locale string: This name is usually two or three letters
-  that represent the language, optionally followed by an underscore or dash and
-  two letters that represent the region &mdash; for example, `en_US`. These
-  names are defined by the
-  [Common Locale Data Repository (CLDR)][unicode-locale-identifier].
-+ `und`: A locale string representing the _undetermined_ locale. `und` is a
-  special language tag defined in the
-  [IANA language subtag registry][iana-language-subtag-registry] and used to
-  indicate an undetermined locale. This is also known as the _root_ locale and
-  can be considered the _default_ Unicode collation. It defines a reasonable,
-  locale agnostic collation. It differs significantly from
-  `binary`.
-+ `unicode`: Identical to `binary`. It is recommended to migrate `unicode`
-  to `binary`.
-
-This is what the `und` language tag looks like when used with the `ORDER BY`
-clause:
-
-```sql
-SELECT Place
-FROM Locations
-ORDER BY Place COLLATE 'und'
-```
-
-Additionally, you can append a language tag with an extension. To learn more,
-see [extensions][collate-extensions] for the language tag.
-
-##### The collation attribute
-
-In addition to the language tag, the unicode collation specification can have
-an optional `collation_attribute`, which enables additional rules for sorting
-and comparing strings. Allowed values are:
-
-+ `ci`: Collation is case-insensitive.
-+ `cs`: Collation is case-sensitive. By default, `collation_attribute` is
-  implicitly `cs`.
-
-If you are using the `unicode` language tag with a collation attribute, these
-caveats apply:
-
-+ `unicode:cs` is identical to `unicode`.
-+ `unicode:ci` is identical to `und:ci`. It is recommended to migrate
-  `unicode:ci` to `binary`.
-
-This is what the `ci` collation attribute looks like when used with the
-`und` language tag in the `ORDER BY` clause:
-
-```sql
-SELECT Place
-FROM Locations
-ORDER BY Place COLLATE 'und:ci'
-```
-
-##### Extensions 
-<a id="collation_extensions"></a>
-
-The [Unicode Collation Algorithm][tr10-collation-algorithm] standard
-includes some useful locale extensions. In ZetaSQL, a `language_tag`
-may be extended by appending `-u-[extension]` to it and replacing `[extension]`
-with your desired [Unicode local extension][tr35-collation-settings].
-
-This is what the `kn-true` extension looks like when used with the
-`en-us` language tag in the `ORDER BY` clause:
-
-For example:
-
-```sql
-SELECT *
-FROM UNNEST([
-  'a12b',
-  'a1b'
-]) AS ids
-ORDER BY ids COLLATE 'en-us-u-kn-true'
-
-+-------+
-| ids   |
-+-------+
-| a1b   |
-| a12b  |
-+-------+
-```
-
-```sql
-SELECT *
-FROM UNNEST([
-  'a12b',
-  'a1b'
-]) AS ids
-ORDER BY ids COLLATE 'en-us-u-kn-false'
-
-+-------+
-| ids   |
-+-------+
-| a12b  |
-| a1b   |
-+-------+
-```
-
-Here are some commonly used extensions:
-
-<table>
-  <thead>
-    <tr>
-      <th>Extension</th>
-      <th>Name</th>
-      <th>Example</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>ks-level2</td>
-      <td>Case-Insensitive</td>
-      <td>"a1" &lt; "A2"</td>
-    </tr>
-    <tr>
-      <td>ks-level1</td>
-      <td>Accent and Case-Insensitive</td>
-      <td>"ä1" &lt; "a2" &lt; "A3"</td>
-    </tr>
-    <tr>
-      <td>ks-level1-kc-true</td>
-      <td>Accent Insensitive</td>
-      <td>"ä1" &lt; "a2"</td>
-    </tr>
-    <tr>
-      <td>kn-true</td>
-      <td>Numeric Ordering</td>
-      <td>"a1b" &lt; "a12b"</td>
-    </tr>
-  </tbody>
-</table>
-
-For a complete list and in depth technical details, consult
-[Unicode Locale Data Markup Language Part 5: Collation]
-[tr35-collation-settings].
-
-##### Caveats
-
-+ Differing strings can be considered equal.
-  For instance, `ẞ` (LATIN CAPITAL LETTER SHARP S) is considered equal to `'SS'`
-  on primary level thus `'ẞ1' < 'SS2'`. This is similar to how case
-  insensitivity works.
-+ There are a wide range of unicode code points (punctuation, symbols, etc),
-  that are treated as if they are not there. So strings with
-  and without them are sorted identically. For example, the format control
-  code point U+2060 is ignored when the following strings are sorted:
-
-  
-  ```sql
-  SELECT *
-  FROM UNNEST([
-    'oran\u2060ge1',
-    '\u2060orange2',
-    'orange3'
-  ]) AS fruit
-  ORDER BY fruit COLLATE 'und'
-
-  +---------+
-  | fruit   |
-  +---------+
-  | orange1 |
-  | orange2 |
-  | orange3 |
-  +---------+
-  ```
-  
-+ Ordering _may_ change. The Unicode specification of the `und` collation can
-  change occasionally, which can affect sorting
-  order. If you need a stable sort order that is
-  guaranteed to never change, use `unicode` collation.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[unicode-code-point]: https://en.wikipedia.org/wiki/List_of_Unicode_characters
-
-[iana-language-subtag-registry]: https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry
-
-[unicode-locale-identifier]: https://www.unicode.org/reports/tr35/#Unicode_locale_identifier
-
-[tr35-collation-settings]: http://www.unicode.org/reports/tr35/tr35-collation.html#Setting_Options
-
-[tr10-collation-algorithm]: http://www.unicode.org/reports/tr10/
-
-[collate-operations]: #collate_operations
-
-[collate-define]: #collate_define
-
-[collate-propagate]: #collate_propagate
-
-[collate-spec-details]: #collate_spec_details
-
-[collate-funcs]: #collate_funcs
-
-[collate-query]: #collate_query
-
-[collate-dts]: #collate_data_types
-
-[collate-ddl]: #collate_ddl
-
-[unicode-collation]: #unicode_collation
-
-[binary-collation]: #binary_collation
-
-[functions-propagation]: #functions_propagation
-
-[operators-propagation]: #operators_propagation
-
-[expressions-propagation]: #expressions_propagation
-
-[collate-extensions]: #collation_extensions
-
-[order-by-clause]: #order_by_clause
-
-[collate-clause]: #collate_clause
-
-[create-schema]: #create_schema_statement
-[create-table]: #create_table_statement
-[alter-schema]: #alter_schema_collate_statement
-[alter-table]: #alter_table_collate_statement
-[alter-column]: #alter_table_add_column_statement
-
-<!-- mdlint on -->
-
-<!-- Functions -->
-## Function Reference
-
-## Function call rules
-
-The following rules apply to all functions unless explicitly indicated otherwise
-in the function description:
-
-+ Integer types coerce to INT64.
-+ For functions that accept numeric types, if one operand is a floating point
-  operand and the other operand is another numeric type, both operands are
-  converted to DOUBLE before the function is
-  evaluated.
-+ If an operand is `NULL`, the result is `NULL`, with the exception of the
-  IS operator.
-+ For functions that are time zone sensitive (as indicated in the function
-  description), the default time zone, which is implementation defined, is used if a time
-  zone is not specified.
-
-### Lambdas 
-<a id="lambdas"></a>
-
-**Syntax:**
-
-```sql
-(arg[, ...]) -> body_expression
-```
-
-```sql
-arg -> body_expression
-```
-
-**Description**
-
-For some functions, ZetaSQL supports lambdas as builtin function
-arguments. A lambda takes a list of arguments and an expression as the lambda
-body.
-
-+   `arg`:
-    +   Name of the lambda argument is defined by the user.
-    +   No type is specified for the lambda argument. The type is inferred from
-        the context.
-+   `body_expression`:
-    +   The lambda body can be any valid scalar expression.
-
-### SAFE. prefix
-
-**Syntax:**
-
-```
-SAFE.function_name()
-```
-
-**Description**
-
-If you begin a function with the `SAFE.` prefix, it will return `NULL` instead
-of an error. The `SAFE.` prefix only prevents errors from the prefixed function
-itself: it does not prevent errors that occur while evaluating argument
-expressions. The `SAFE.` prefix only prevents errors that occur because of the
-value of the function inputs, such as "value out of range" errors; other
-errors, such as internal or system errors, may still occur. If the function
-does not return an error, `SAFE.` has no effect on the output.
-
-[Operators][link-to-operators], such as `+` and `=`, do not support the `SAFE.`
-prefix. To prevent errors from a division
-operation, use [SAFE_DIVIDE][link-to-SAFE_DIVIDE]. Some operators,
-such as `IN`, `ARRAY`, and `UNNEST`, resemble functions, but do not support the
-`SAFE.` prefix. The `CAST` and `EXTRACT` functions also do not support the
-`SAFE.` prefix. To prevent errors from casting, use
-[SAFE_CAST][link-to-SAFE_CAST].
-
-**Example**
-
-In the following example, the first use of the `SUBSTR` function would normally
-return an error, because the function does not support length arguments with
-negative values. However, the `SAFE.` prefix causes the function to return
-`NULL` instead. The second use of the `SUBSTR` function provides the expected
-output: the `SAFE.` prefix has no effect.
-
-```sql
-SELECT SAFE.SUBSTR('foo', 0, -2) AS safe_output UNION ALL
-SELECT SAFE.SUBSTR('bar', 0, 2) AS safe_output;
-
-+-------------+
-| safe_output |
-+-------------+
-| NULL        |
-| ba          |
-+-------------+
-```
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[link-to-operators]: #operators
-
-[link-to-SAFE_DIVIDE]: #safe_divide
-
-[link-to-SAFE_CAST]: #safe_casting
-
-<!-- mdlint on -->
+---
+## FUNCTIONS
 
 ## Conversion functions
 
@@ -17576,12 +17086,12 @@ current time zone is used.
       must conform to the supported timestamp literal formats, or else a runtime
       error occurs. The <code>string_expression</code> may itself contain a
       time zone.
-      <br />
+      <br /><br />
       If there is a time zone in the <code>string_expression</code>, that
       time zone is used for conversion, otherwise the default time zone,
       which is implementation defined, is used. If the string has fewer than six digits,
       then it is implicitly widened.
-      <br />
+      <br /><br />
       An error is produced if the <code>string_expression</code> is invalid,
       has more than six subsecond digits (i.e. precision greater than
       microseconds), or represents a time outside of the supported timestamp
@@ -17605,8 +17115,17 @@ current time zone is used.
     <td>TIMESTAMP</td>
     <td>
       Casting from a datetime to a timestamp interprets
-      <code>datetime_expression</code> as of midnight (start of the day) in the
-      default time zone, which is implementation defined.
+      <code>datetime_expression</code> in the default time zone,
+      which is implementation defined.
+      <br /><br />
+      Most valid datetime values have exactly one corresponding timestamp
+      in each time zone. However, there are certain combinations of valid
+      datetime values and time zones that have zero or two corresponding
+      timestamp values. This happens in a time zone when clocks are set forward
+      or set back, such as for Daylight Savings Time.
+      When there are two valid timestamps, the earlier one is used.
+      When there is no valid timestamp, the length of the gap in time
+      (typically one hour) is added to the datetime.
     </td>
   </tr>
   
@@ -19926,6 +19445,14 @@ will output the same result.
 [T_TIMESTAMP]: #timestamp
 
 [T_TIME]: #time
+
+[JSON_TO_BOOL]: #bool_for_json
+
+[JSON_TO_STRING]: #string_for_json
+
+[JSON_TO_INT64]: #int64_for_json
+
+[JSON_TO_DOUBLE]: #double_for_json
 
 <!-- mdlint on -->
 
@@ -23645,7 +23172,8 @@ The following sections describe the numbering functions that ZetaSQL
 supports. Numbering functions are a subset of analytic functions. For an
 explanation of how analytic functions work, see
 [Analytic Function Concepts][analytic-function-concepts]. For a
-description of how numbering functions work, see the
+description of how numbering functions work and an example comparing `RANK`,
+`DENSE_RANK`, and `ROW_NUMBER`, see the
 [Numbering Function Concepts][numbering-function-concepts].
 
 `OVER` clause requirements:
@@ -24920,6 +24448,16 @@ an error. Division by -1 may overflow.
       <td>5</td>
     </tr>
     <tr>
+      <td>12</td>
+      <td>-7</td>
+      <td>-1</td>
+    </tr>
+    <tr>
+      <td>20</td>
+      <td>3</td>
+      <td>6</td>
+    </tr>
+    <tr>
       <td>0</td>
       <td>20</td>
       <td>0</td>
@@ -25951,6 +25489,8 @@ the two arguments to determine the quadrant. The return value is in the range
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [data-type-properties]: #data_type_properties
+
+[conversion-rules]: #conversion_rules
 
 <!-- mdlint on -->
 
@@ -28701,8 +28241,8 @@ NORMALIZE_AND_CASEFOLD(value[, normalization_mode])
 
 **Description**
 
-Takes a string value and returns it as a normalized string with
-normalization.
+Takes a string value and returns it as a normalized string. If you do not
+provide a normalization mode, `NFC` is used.
 
 [Normalization][string-link-to-normalization-wikipedia] is used to ensure that
 two strings are equivalent. Normalization is often used in situations in which
@@ -28971,9 +28511,8 @@ one capturing group. `source_value` and `regexp` must be the same type, either
 `STRING` or `BYTES`.
 
 If `position` is specified, the search starts at this position in
-`source_value`, otherwise it starts at the beginning of `source_value`. If
-`position` is negative, the function searches backwards from the end of
-`source_value`, with -1 indicating the last character. `position` cannot be 0.
+`source_value`, otherwise it starts at the beginning of `source_value`.
+`position` cannot be 0 or negative.
 
 If `occurrence` is specified, the search returns the position of a specific
 instance of `regexp` in `source_value`, otherwise it returns the index of
@@ -29740,21 +29279,20 @@ SUBSTR(value, position[, length])
 
 **Description**
 
-Returns a substring of the supplied `STRING` or `BYTES` value. The
-`position` argument is an integer specifying the starting position of the
-substring, with position = 1 indicating the first character or byte. The
-`length` argument is the maximum number of characters for `STRING` arguments,
-or bytes for `BYTES` arguments.
+Returns a substring of the supplied `STRING` or `BYTES` value.
 
-If `position` is negative, the function counts from the end of `value`,
-with -1 indicating the last character.
+The `position` argument is an integer specifying the starting position of the
+substring, with position = 1 indicating the first character or byte. If
+`position` is negative, the function counts from the end of `value`, with -1
+indicating the last character. If `position` is zero or less than
+`-LENGTH(value)`, the substring starts from position = 1.
 
-If `position` is a position off the left end of the
-`STRING` (`position` = 0 or `position` &lt; `-LENGTH(value)`), the function
-starts from position = 1. If `length` exceeds the length of `value`, the
-function returns fewer than `length` characters.
-
-If `length` is less than 0, the function returns an error.
+The `length` argument specifies the maximum number of characters to return if
+`value` is a `STRING`, or number of bytes to return if `value` is a `BYTES`. If
+`length` is less than 0, the function produces an error. The returned substring
+may be shorter than `length`, for example, when `length` exceeds the length of
+`value`, or when the starting position of the substring plus `length` is greater
+than the length of `value`.
 
 **Return type**
 
@@ -29822,6 +29360,69 @@ FROM items;
 | le      |
 | na      |
 | ge      |
++---------+
+```
+
+```sql
+WITH items AS
+  (SELECT 'apple' as item
+  UNION ALL
+  SELECT 'banana' as item
+  UNION ALL
+  SELECT 'orange' as item)
+
+SELECT
+  SUBSTR(item, 1, 123) as example
+FROM items;
+
++---------+
+| example |
++---------+
+| apple   |
+| banana  |
+| orange  |
++---------+
+```
+
+```sql
+WITH items AS
+  (SELECT 'apple' as item
+  UNION ALL
+  SELECT 'banana' as item
+  UNION ALL
+  SELECT 'orange' as item)
+
+SELECT
+  SUBSTR(item, 123) as example
+FROM items;
+
++---------+
+| example |
++---------+
+|         |
+|         |
+|         |
++---------+
+```
+
+```sql
+WITH items AS
+  (SELECT 'apple' as item
+  UNION ALL
+  SELECT 'banana' as item
+  UNION ALL
+  SELECT 'orange' as item)
+
+SELECT
+  SUBSTR(item, 123, 5) as example
+FROM items;
+
++---------+
+| example |
++---------+
+|         |
+|         |
+|         |
 +---------+
 ```
 
@@ -30067,24 +29668,31 @@ FROM example;
 #### TRIM
 
 ```sql
-TRIM(value1[, value2])
+TRIM(value_to_trim[, set_of_characters_to_remove])
 ```
 
 **Description**
 
-Removes all leading and trailing characters that match `value2`. If
-`value2` is not specified, all leading and trailing whitespace characters (as
-defined by the Unicode standard) are removed. If the first argument is of type
-`BYTES`, the second argument is required.
+Takes a `STRING` or `BYTES` value to trim.
 
-If `value2` contains more than one character or byte, the function removes all
-leading or trailing characters or bytes contained in `value2`.
+If the value to trim is a `STRING`, removes from this value all leading and
+trailing Unicode code points in `set_of_characters_to_remove`.
+The set of code points is optional. If it is not specified, all
+whitespace characters are removed from the beginning and end of the
+value to trim.
+
+If the value to trim is `BYTES`, removes from this value all leading and
+trailing bytes in `set_of_characters_to_remove`. The set of bytes is required.
 
 **Return type**
 
-`STRING` or `BYTES`
++ `STRING` if `value_to_trim` is a `STRING` value.
++ `BYTES` if `value_to_trim` is a `BYTES` value.
 
 **Examples**
+
+In the following example, all leading and trailing whitespace characters are
+removed from `item` because `set_of_characters_to_remove` is not specified.
 
 ```sql
 WITH items AS
@@ -30107,6 +29715,9 @@ FROM items;
 +----------+
 ```
 
+In the following example, all leading and trailing `*` characters are removed
+from `item`.
+
 ```sql
 WITH items AS
   (SELECT '***apple***' as item
@@ -30127,6 +29738,9 @@ FROM items;
 | orange  |
 +---------+
 ```
+
+In the following example, all leading and trailing `x`, `y`, and `z` characters
+are removed from `item`.
 
 ```sql
 WITH items AS
@@ -30150,6 +29764,47 @@ FROM items;
 | orange  |
 | pear    |
 +---------+
+```
+
+In the following example, examine how `TRIM` interprets characters as
+Unicode code-points. If your trailing character set contains a combining
+diacritic mark over a particular letter, `TRIM` might strip the
+same diacritic mark from a different letter.
+
+```sql
+SELECT
+  TRIM('abaW̊', 'Y̊') AS a,
+  TRIM('W̊aba', 'Y̊') AS b,
+  TRIM('abaŪ̊', 'Y̊') AS c,
+  TRIM('Ū̊aba', 'Y̊') AS d;
+
++---------------------------+
+| a    | b    | c    | d    |
++---------------------------+
+| abaW | W̊aba | abaŪ | Ūaba |
++---------------------------+
+```
+
+In the following example, all leading and trailing `b'n'`, `b'a'`, `b'\xab'`
+bytes are removed from `item`.
+
+```sql
+WITH items AS
+(
+  SELECT b'apple' as item UNION ALL
+  SELECT b'banana' as item UNION ALL
+  SELECT b'\xab\xcd\xef\xaa\xbb' as item
+)
+SELECT item, TRIM(item, b'na\xab') AS examples
+FROM items;
+
++----------------------+------------------+
+| item                 | example          |
++----------------------+------------------+
+| apple                | pple             |
+| banana               | b                |
+| \xab\xcd\xef\xaa\xbb | \xcd\xef\xaa\xbb |
++----------------------+------------------+
 ```
 
 #### UNICODE
@@ -32697,27 +32352,27 @@ SELECT
 
 #### ARRAY_INCLUDES
 
-+   [Signature 1](#array_includes_signature1): `ARRAY_INCLUDES(array_expression,
-    target_element)`
-+   [Signature 2](#array_includes_signature2): `ARRAY_INCLUDES(array_expression,
++   [Signature 1](#array_includes_signature1): `ARRAY_INCLUDES(array_to_search,
+    search_value)`
++   [Signature 2](#array_includes_signature2): `ARRAY_INCLUDES(array_to_search,
     lambda_expression)`
 
 ##### Signature 1 
 <a id="array_includes_signature1"></a>
 
 ```sql
-ARRAY_INCLUDES(array_expression, target_element)
+ARRAY_INCLUDES(array_to_search, search_value)
 ```
 
 **Description**
 
 Takes an array and returns `TRUE` if there is an element in the array that is
-equal to the target element.
+equal to the search_value.
 
-+   `array_expression`: The array to search.
-+   `target_element`: The target element to search for in the array.
++   `array_to_search`: The array to search.
++   `search_value`: The element to search for in the array.
 
-Returns `NULL` if `array_expression` or `target_element` is `NULL`.
+Returns `NULL` if `array_to_search` or `search_value` is `NULL`.
 
 **Return type**
 
@@ -32744,7 +32399,7 @@ SELECT
 <a id="array_includes_signature2"></a>
 
 ```sql
-ARRAY_INCLUDES(array_expression, lambda_expression)
+ARRAY_INCLUDES(array_to_search, lambda_expression)
 
 lambda_expression: element_alias->boolean_expression
 ```
@@ -32754,13 +32409,13 @@ lambda_expression: element_alias->boolean_expression
 Takes an array and returns `TRUE` if the lambda expression evaluates to `TRUE`
 for any element in the array.
 
-+   `array_expression`: The array to search.
-+   `lambda_expression`: Each element in `array_expression` is evaluated against
++   `array_to_search`: The array to search.
++   `lambda_expression`: Each element in `array_to_search` is evaluated against
     the [lambda expression][lambda-definition].
 +   `element_alias`: An alias that represents an array element.
 +   `boolean_expression`: The predicate used to evaluate the array elements.
 
-Returns `NULL` if `array_expression` is `NULL`.
+Returns `NULL` if `array_to_search` is `NULL`.
 
 **Return type**
 
@@ -32787,19 +32442,18 @@ SELECT
 #### ARRAY_INCLUDES_ANY
 
 ```sql
-ARRAY_INCLUDES_ANY(source_array_expression, target_array_expression)
+ARRAY_INCLUDES_ANY(array_to_search, search_values)
 ```
 
 **Description**
 
-Takes a source and target array. Returns `TRUE` if any elements in the target
-array are in the source array, otherwise returns `FALSE`.
+Takes an array to search and an array of search values. Returns `TRUE` if any
+search values are in the array to search, otherwise returns `FALSE`.
 
-+   `source_array_expression`: The array to search.
-+   `target_array_expression`: The target array that contains the elements to
-    search for in the source array.
++   `array_to_search`: The array to search.
++   `search_values`: The array that contains the elements to search for.
 
-Returns `NULL` if `source_array_expression` or `target_array_expression` is
+Returns `NULL` if `array_to_search` or `search_values` is
 `NULL`.
 
 **Return type**
@@ -32816,6 +32470,45 @@ an array.
 SELECT
   ARRAY_INCLUDES_ANY([1,2,3], [3,4,5]) AS a1,
   ARRAY_INCLUDES_ANY([1,2,3], [4,5,6]) AS a2;
+
++------+-------+
+| a1   | a2    |
++------+-------+
+| true | false |
++------+-------+
+```
+
+#### ARRAY_INCLUDES_ALL
+
+```sql
+ARRAY_INCLUDES_ALL(array_to_search, search_values)
+```
+
+**Description**
+
+Takes an array to search and an array of search values. Returns `TRUE` if all
+search values are in the array to search, otherwise returns `FALSE`.
+
++   `array_to_search`: The array to search.
++   `search_values`: The array that contains the elements to search for.
+
+Returns `NULL` if `array_to_search` or `search_values` is
+`NULL`.
+
+**Return type**
+
+BOOL
+
+**Example**
+
+In the following example, the query first checks to see if `3`, `4`, and `5`
+exists in an array. Then the query checks to see if `4`, `5`, and `6` exists in
+an array.
+
+```sql
+SELECT
+  ARRAY_INCLUDES_ALL([1,2,3,4,5], [3,4,5]) AS a1,
+  ARRAY_INCLUDES_ALL([1,2,3,4,5], [4,5,6]) AS a2;
 
 +------+-------+
 | a1   | a2    |
@@ -32850,12 +32543,12 @@ SELECT ARRAY_TO_STRING(list, ', ', 'NULL'), ARRAY_LENGTH(list) AS size
 FROM items
 ORDER BY size DESC;
 
-+---------------------------------+------+
-| list                            | size |
-+---------------------------------+------+
-| [coffee, NULL, milk]            | 3    |
-| [cake, pie]                     | 2    |
-+---------------------------------+------+
++--------------------+------+
+| list               | size |
++--------------------+------+
+| coffee, NULL, milk | 3    |
+| cake, pie          | 2    |
++--------------------+------+
 ```
 
 #### ARRAY_TO_STRING
@@ -32881,9 +32574,9 @@ and its preceding delimiter.
 
 ```sql
 WITH items AS
-  (SELECT ["coffee", "tea", "milk" ] as list
+  (SELECT ['coffee', 'tea', 'milk' ] as list
   UNION ALL
-  SELECT ["cake", "pie", NULL] as list)
+  SELECT ['cake', 'pie', NULL] as list)
 
 SELECT ARRAY_TO_STRING(list, '--') AS text
 FROM items;
@@ -32898,9 +32591,9 @@ FROM items;
 
 ```sql
 WITH items AS
-  (SELECT ["coffee", "tea", "milk" ] as list
+  (SELECT ['coffee', 'tea', 'milk' ] as list
   UNION ALL
-  SELECT ["cake", "pie", NULL] as list)
+  SELECT ['cake', 'pie', NULL] as list)
 
 SELECT ARRAY_TO_STRING(list, '--', 'MISSING') AS text
 FROM items;
@@ -32928,6 +32621,7 @@ lambda_expression:
 **Description**
 
 Takes an array, transforms the elements, and returns the results in a new array.
+The output array always has the same length as the input array.
 
 +   `array_expression`: The array to transform.
 +   `lambda_expression`: Each element in `array_expression` is evaluated against
@@ -33571,14 +33265,15 @@ CURRENT_DATE([time_zone])
 
 **Description**
 
-Returns the current date as of the specified or default timezone. Parentheses
+Returns the current date as of the specified or default time zone. Parentheses
 are optional when called with no
 arguments.
 
  This function supports an optional
-`time_zone` parameter. This parameter is a string representing the timezone to
-use. If no timezone is specified, the default timezone, which is implementation defined,
-is used. See [Timezone definitions][date-functions-link-to-timezone-definitions]
+`time_zone` parameter. This parameter is a string representing the time zone to
+use. If no time zone is specified, the default time zone,
+which is implementation defined, is used. See
+[Time zone definitions][date-functions-link-to-timezone-definitions]
 for information on how to specify a time zone.
 
 If the `time_zone` parameter evaluates to `NULL`, this function returns `NULL`.
@@ -33727,7 +33422,7 @@ SELECT
 
 ```sql
 1. DATE(year, month, day)
-2. DATE(timestamp_expression[, timezone])
+2. DATE(timestamp_expression[, time_zone])
 3. DATE(datetime_expression)
 ```
 
@@ -33736,8 +33431,8 @@ SELECT
 1. Constructs a DATE from INT64 values representing
    the year, month, and day.
 2. Extracts the DATE from a TIMESTAMP expression. It supports an
-   optional parameter to [specify a timezone][date-functions-link-to-timezone-definitions]. If no
-   timezone is specified, the default timezone, which is implementation defined, is used.
+   optional parameter to [specify a time zone][date-functions-link-to-timezone-definitions]. If no
+   time zone is specified, the default time zone, which is implementation defined, is used.
 3. Extracts the DATE from a DATETIME expression.
 
 **Return Data Type**
@@ -34292,169 +33987,6 @@ SELECT UNIX_DATE(DATE "2008-12-25") AS days_from_epoch;
 +-----------------+
 ```
 
-#### Supported format elements for DATE
-
-Unless otherwise noted, DATE functions that use format strings support the
-following elements:
-
-<table>
- <tr>
-    <td class="tab0">Format element</td>
-    <td class="tab0">Description</td>
-    <td class="tab0">Example</td>
- </tr>
- <tr>
-    <td>%A</td>
-    <td>The full weekday name.</td>
-    <td>Wednesday</td>
- </tr>
- <tr>
-    <td>%a</td>
-    <td>The abbreviated weekday name.</td>
-    <td>Wed</td>
- </tr>
- <tr>
-    <td>%B</td>
-    <td>The full month name.</td>
-    <td>January</td>
- </tr>
- <tr>
-    <td>%b or %h</td>
-    <td>The abbreviated month name.</td>
-    <td>Jan</td>
- </tr>
- <tr>
-    <td>%C</td>
-    <td>The century (a year divided by 100 and truncated to an integer) as a
-    decimal
-number (00-99).</td>
-    <td>20</td>
- </tr>
- <tr>
-    <td>%D</td>
-    <td>The date in the format %m/%d/%y.</td>
-    <td>01/20/21</td>
- </tr>
- <tr>
-    <td>%d</td>
-    <td>The day of the month as a decimal number (01-31).</td>
-    <td>20</td>
- </tr>
- <tr>
-    <td>%e</td>
-    <td>The day of month as a decimal number (1-31); single digits are preceded
-    by a
-space.</td>
-    <td>20</td>
- </tr>
- <tr>
-    <td>%F</td>
-    <td>The date in the format %Y-%m-%d.</td>
-    <td>2021-01-20</td>
- </tr>
- <tr>
-    <td>%G</td>
-    <td>The <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a>
-    year with century as a decimal number. Each ISO year begins
-    on the Monday before the first Thursday of the Gregorian calendar year.
-    Note that %G and %Y may produce different results near Gregorian year
-    boundaries, where the Gregorian year and ISO year can diverge.</td>
-    <td>2021</td>
- </tr>
- <tr>
-    <td>%g</td>
-    <td>The <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a>
-    year without century as a decimal number (00-99). Each ISO
-    year begins on the Monday before the first Thursday of the Gregorian
-    calendar year. Note that %g and %y may produce different results near
-    Gregorian year boundaries, where the Gregorian year and ISO year can
-    diverge.</td>
-    <td>21</td>
- </tr>
- <tr>
-    <td>%j</td>
-    <td>The day of the year as a decimal number (001-366).</td>
-    <td>020</td>
- </tr>
- <tr>
-    <td>%m</td>
-    <td>The month as a decimal number (01-12).</td>
-    <td>01</td>
- </tr>
- <tr>
-    <td>%n</td>
-    <td>A newline character.</td>
-    <td></td>
- </tr>
- <tr>
-    <td>%Q</td>
-    <td>The quarter as a decimal number (1-4).</td>
-    <td>1</td>
- </tr>
- <tr>
-    <td>%t</td>
-    <td>A tab character.</td>
-    <td></td>
- </tr>
- <tr>
-    <td>%U</td>
-    <td>The week number of the year (Sunday as the first day of the week) as a
-    decimal number (00-53).</td>
-    <td>03</td>
- </tr>
- <tr>
-    <td>%u</td>
-    <td>The weekday (Monday as the first day of the week) as a decimal number
-    (1-7).</td>
-   <td>3</td>
-</tr>
- <tr>
-    <td>%V</td>
-    <td>The <a href="https://en.wikipedia.org/wiki/ISO_week_date">ISO 8601</a>
-    week number of the year (Monday as the first
-    day of the week) as a decimal number (01-53).  If the week containing
-    January 1 has four or more days in the new year, then it is week 1;
-    otherwise it is week 53 of the previous year, and the next week is
-    week 1.</td>
-    <td>03</td>
- </tr>
- <tr>
-    <td>%W</td>
-    <td>The week number of the year (Monday as the first day of the week) as a
-    decimal number (00-53).</td>
-    <td>03</td>
- </tr>
- <tr>
-    <td>%w</td>
-    <td>The weekday (Sunday as the first day of the week) as a decimal number
-    (0-6).</td>
-    <td>3</td>
- </tr>
- <tr>
-    <td>%x</td>
-    <td>The date representation in MM/DD/YY format.</td>
-    <td>01/20/21</td>
- </tr>
- <tr>
-    <td>%Y</td>
-    <td>The year with century as a decimal number.</td>
-    <td>2021</td>
- </tr>
- <tr>
-    <td>%y</td>
-    <td>The year without century as a decimal number (00-99), with an optional
-    leading zero. Can be mixed with %C. If %C is not specified, years 00-68 are
-    2000s, while years 69-99 are 1900s.</td>
-    <td>21</td>
- </tr>
- <tr>
-    <td>%E4Y</td>
-    <td>Four-character years (0001 ... 9999). Note that %Y produces as many
-    characters as it takes to fully render the year.</td>
-    <td>2021</td>
- </tr>
-</table>
-
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
@@ -34463,7 +33995,7 @@ space.</td>
 
 [date-format]: #format_date
 
-[date-format-elements]: #supported_format_elements_for_date
+[date-format-elements]: #format_elements_date_time
 
 [date-functions-link-to-range-variables]: #range_variables
 
@@ -34478,7 +34010,7 @@ ZetaSQL supports the following `DATETIME` functions.
 #### CURRENT_DATETIME
 
 ```sql
-CURRENT_DATETIME([timezone])
+CURRENT_DATETIME([time_zone])
 ```
 
 **Description**
@@ -34486,8 +34018,8 @@ CURRENT_DATETIME([timezone])
 Returns the current time as a `DATETIME` object. Parentheses are optional when
 called with no arguments.
 
-This function supports an optional `timezone` parameter.
-See [Timezone definitions][datetime-link-to-timezone-definitions] for
+This function supports an optional `time_zone` parameter.
+See [Time zone definitions][datetime-link-to-timezone-definitions] for
 information on how to specify a time zone.
 
 **Return Data Type**
@@ -34529,17 +34061,20 @@ SELECT current_datetime() as now, t.current_datetime FROM t;
 ```sql
 1. DATETIME(year, month, day, hour, minute, second)
 2. DATETIME(date_expression[, time_expression])
-3. DATETIME(timestamp_expression [, timezone])
+3. DATETIME(timestamp_expression [, time_zone])
 ```
 
 **Description**
 
-1. Constructs a `DATETIME` object using INT64 values
+1. Constructs a `DATETIME` object using `INT64` values
    representing the year, month, day, hour, minute, and second.
-2. Constructs a `DATETIME` object using a DATE object and an optional TIME object.
-3. Constructs a `DATETIME` object using a TIMESTAMP object. It supports an
-   optional parameter to [specify a timezone][datetime-link-to-timezone-definitions]. If no
-   timezone is specified, the default timezone, which is implementation defined, is used.
+2. Constructs a `DATETIME` object using a DATE object and an optional `TIME`
+   object.
+3. Constructs a `DATETIME` object using a `TIMESTAMP` object. It supports an
+   optional parameter to
+   [specify a time zone][datetime-link-to-timezone-definitions].
+   If no time zone is specified, the default time zone, which is implementation defined,
+   is used.
 
 **Return Data Type**
 
@@ -35235,260 +34770,6 @@ SELECT PARSE_DATETIME('%A, %B %e, %Y','Wednesday, December 19, 2018')
 +---------------------+
 ```
 
-#### Supported format elements for DATETIME
-
-Unless otherwise noted, `DATETIME` functions that use format strings support the
-following elements:
-
-<table>
- <tr>
-    <td class="tab0">Format element</td>
-    <td class="tab0">Description</td>
-    <td class="tab0">Example</td>
- </tr>
- <tr>
-    <td>%A</td>
-    <td>The full weekday name.</td>
-    <td>Wednesday</td>
- </tr>
- <tr>
-    <td>%a</td>
-    <td>The abbreviated weekday name.</td>
-    <td>Wed</td>
- </tr>
- <tr>
-    <td>%B</td>
-    <td>The full month name.</td>
-    <td>January</td>
- </tr>
- <tr>
-    <td>%b or %h</td>
-    <td>The abbreviated month name.</td>
-    <td>Jan</td>
- </tr>
- <tr>
-    <td>%C</td>
-    <td>The century (a year divided by 100 and truncated to an integer) as a
-    decimal number (00-99).</td>
-    <td>20</td>
- </tr>
- <tr>
-    <td>%c</td>
-    <td>The date and time representation.</td>
-    <td>Wed Jan 20 21:47:00 2021</td>
- </tr>
- <tr>
-    <td>%D</td>
-    <td>The date in the format %m/%d/%y.</td>
-    <td>01/20/21</td>
- </tr>
- <tr>
-    <td>%d</td>
-    <td>The day of the month as a decimal number (01-31).</td>
-    <td>20</td>
- </tr>
- <tr>
-    <td>%e</td>
-    <td>The day of month as a decimal number (1-31); single digits are preceded
-    by a
-space.</td>
-    <td>20</td>
- </tr>
- <tr>
-    <td>%F</td>
-    <td>The date in the format %Y-%m-%d.</td>
-    <td>2021-01-20</td>
- </tr>
- <tr>
-    <td>%G</td>
-    <td>The <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a> year
-    with century as a decimal number. Each ISO year begins
-    on the Monday before the first Thursday of the Gregorian calendar year.
-    Note that %G and %Y may produce different results near Gregorian year
-    boundaries, where the Gregorian year and ISO year can diverge.</td>
-    <td>2021</td>
- </tr>
- <tr>
-    <td>%g</td>
-    <td>The <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a> year
-    without century as a decimal number (00-99). Each ISO
-    year begins on the Monday before the first Thursday of the Gregorian
-    calendar year. Note that %g and %y may produce different results near
-    Gregorian year boundaries, where the Gregorian year and ISO year can
-    diverge.</td>
-    <td>21</td>
- </tr>
- <tr>
-    <td>%H</td>
-    <td>The hour (24-hour clock) as a decimal number (00-23).</td>
-    <td>21</td>
- </tr>
- <tr>
-    <td>%I</td>
-    <td>The hour (12-hour clock) as a decimal number (01-12).</td>
-    <td>09</td>
- </tr>
- <tr>
-    <td>%j</td>
-    <td>The day of the year as a decimal number (001-366).</td>
-    <td>020</td>
- </tr>
- <tr>
-    <td>%k</td>
-    <td>The hour (24-hour clock) as a decimal number (0-23); single digits are
-    preceded
-by a space.</td>
-    <td>21</td>
- </tr>
- <tr>
-    <td>%l</td>
-    <td>The hour (12-hour clock) as a decimal number (1-12); single digits are
-    preceded
-by a space.</td>
-    <td>9</td>
- </tr>
- <tr>
-    <td>%M</td>
-    <td>The minute as a decimal number (00-59).</td>
-    <td47></td>
- </tr>
- <tr>
-    <td>%m</td>
-    <td>The month as a decimal number (01-12).</td>
-    <td>01</td>
- </tr>
- <tr>
-    <td>%n</td>
-    <td>A newline character.</td>
-    <td></td>
- </tr>
- <tr>
-    <td>%P</td>
-    <td>Either am or pm.</td>
-    <td>pm</td>
- </tr>
- <tr>
-    <td>%p</td>
-    <td>Either AM or PM.</td>
-    <td>PM</td>
- </tr>
- <tr>
-    <td>%Q</td>
-    <td>The quarter as a decimal number (1-4).</td>
-    <td>1</td>
- </tr>
- <tr>
-    <td>%R</td>
-    <td>The time in the format %H:%M.</td>
-    <td>21:47</td>
- </tr>
- <tr>
-    <td>%r</td>
-    <td>The 12-hour clock time using AM/PM notation.</td>
-    <td>09:47:00 PM</td>
- </tr>
- <tr>
-    <td>%S</td>
-    <td>The second as a decimal number (00-60).</td>
-    <td>00</td>
- </tr>
- <tr>
-    <td>%s</td>
-    <td>The number of seconds since 1970-01-01 00:00:00. Always overrides all
-    other format elements, independent of where %s appears in the string.
-    If multiple %s elements appear, then the last one takes precedence.</td>
-    <td>1611179220</td>
-</tr>
- <tr>
-    <td>%T</td>
-    <td>The time in the format %H:%M:%S.</td>
-    <td>21:47:00</td>
- </tr>
- <tr>
-    <td>%t</td>
-    <td>A tab character.</td>
-    <td></td>
- </tr>
- <tr>
-    <td>%U</td>
-    <td>The week number of the year (Sunday as the first day of the week) as a
-    decimal number (00-53).</td>
-    <td>03</td>
- </tr>
- <tr>
-    <td>%u</td>
-    <td>The weekday (Monday as the first day of the week) as a decimal number
-    (1-7).</td>
-    <td>3</td>
-</tr>
- <tr>
-    <td>%V</td>
-    <td>The <a href="https://en.wikipedia.org/wiki/ISO_week_date">ISO 8601</a>
-    week number of the year (Monday as the first
-    day of the week) as a decimal number (01-53).  If the week containing
-    January 1 has four or more days in the new year, then it is week 1;
-    otherwise it is week 53 of the previous year, and the next week is
-    week 1.</td>
-    <td>03</td>
- </tr>
- <tr>
-    <td>%W</td>
-    <td>The week number of the year (Monday as the first day of the week) as a
-    decimal number (00-53).</td>
-    <td>03</td>
- </tr>
- <tr>
-    <td>%w</td>
-    <td>The weekday (Sunday as the first day of the week) as a decimal number
-    (0-6).</td>
-    <td>3</td>
- </tr>
- <tr>
-    <td>%X</td>
-    <td>The time representation in HH:MM:SS format.</td>
-    <td>21:47:00</td>
- </tr>
- <tr>
-    <td>%x</td>
-    <td>The date representation in MM/DD/YY format.</td>
-    <td>01/20/21</td>
- </tr>
- <tr>
-    <td>%Y</td>
-    <td>The year with century as a decimal number.</td>
-    <td>2021</td>
- </tr>
- <tr>
-    <td>%y</td>
-    <td>The year without century as a decimal number (00-99), with an optional
-    leading zero. Can be mixed with %C. If %C is not specified, years 00-68 are
-    2000s, while years 69-99 are 1900s.</td>
-    <td>21</td>
- </tr>
- <tr>
-    <td>%%</td>
-    <td>A single % character.</td>
-    <td>%</td>
- </tr>
- <tr>
-    <td>%E&lt;number&gt;S</td>
-    <td>Seconds with &lt;number&gt; digits of fractional precision.</td>
-    <td>00.000 for %E3S</td>
- </tr>
- <tr>
-    <td>%E*S</td>
-    <td>Seconds with full fractional precision (a literal '*').</td>
-    <td>00.123456</td>
- </tr>
- <tr>
-    <td>%E4Y</td>
-    <td>Four-character years (0001 ... 9999). Note that %Y
-    produces as many characters as it takes to fully render the
-year.</td>
-    <td>2021</td>
- </tr>
-</table>
-
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
@@ -35497,7 +34778,7 @@ year.</td>
 
 [datetime-format]: #format_datetime
 
-[datetime-format-elements]: #supported_format_elements_for_datetime
+[datetime-format-elements]: #format_elements_date_time
 
 [datetime-functions-link-to-range-variables]: #range_variables
 
@@ -35535,7 +34816,7 @@ SELECT
   CASE
     WHEN value = 'foo' THEN 'Value is foo.'
     WHEN value = 'bar' THEN 'Value is bar.'
-    ELSE ERROR(concat('Found unexpected value: ', value))
+    ELSE ERROR(CONCAT('Found unexpected value: ', value))
   END AS new_value
 FROM (
   SELECT 'foo' AS value UNION ALL
@@ -35579,7 +34860,7 @@ ZetaSQL supports the following `TIME` functions.
 #### CURRENT_TIME
 
 ```sql
-CURRENT_TIME([timezone])
+CURRENT_TIME([time_zone])
 ```
 
 **Description**
@@ -35587,8 +34868,8 @@ CURRENT_TIME([timezone])
 Returns the current time as a `TIME` object. Parentheses are optional when
 called with no arguments.
 
-This function supports an optional `timezone` parameter.
-See [Timezone definitions][time-link-to-timezone-definitions] for information
+This function supports an optional `time_zone` parameter.
+See [Time zone definitions][time-link-to-timezone-definitions] for information
 on how to specify a time zone.
 
 **Return Data Type**
@@ -35629,7 +34910,7 @@ SELECT current_time() as now, t.current_time FROM t;
 
 ```sql
 1. TIME(hour, minute, second)
-2. TIME(timestamp, [timezone])
+2. TIME(timestamp, [time_zone])
 3. TIME(datetime)
 ```
 
@@ -35639,10 +34920,11 @@ SELECT current_time() as now, t.current_time FROM t;
    values representing the hour, minute, and second.
 2. Constructs a `TIME` object using a `TIMESTAMP` object. It supports an
    optional
-   parameter to [specify a timezone][time-link-to-timezone-definitions]. If no
-   timezone is specified, the default timezone, which is implementation defined, is used.
+   parameter to [specify a time zone][time-link-to-timezone-definitions]. If no
+   time zone is specified, the default time zone, which is implementation defined, is
+   used.
 3. Constructs a `TIME` object using a
-  `DATETIME` object.
+   `DATETIME` object.
 
 **Return Data Type**
 
@@ -35981,113 +35263,11 @@ SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time
 +-------------+
 ```
 
-#### Supported format elements for TIME
-
-Unless otherwise noted, `TIME` functions that use format strings support the
-following elements:
-
-<table>
- <tr>
-    <td class="tab0">Format element</td>
-    <td class="tab0">Description</td>
-    <td class="tab0">Example</td>
- </tr>
- <tr>
-    <td>%H</td>
-    <td>The hour (24-hour clock) as a decimal number (00-23).</td>
-    <td>21</td>
- </tr>
- <tr>
-    <td>%I</td>
-    <td>The hour (12-hour clock) as a decimal number (01-12).</td>
-    <td>09</td>
- </tr>
- <tr>
-    <td>%k</td>
-    <td>The hour (24-hour clock) as a decimal number (0-23); single digits are
-    preceded
-by a space.</td>
-    <td>21</td>
- </tr>
- <tr>
-    <td>%l</td>
-    <td>The hour (12-hour clock) as a decimal number (1-12); single digits are
-    preceded
-by a space.</td>
-    <td>9</td>
- </tr>
- <tr>
-    <td>%M</td>
-    <td>The minute as a decimal number (00-59).</td>
-    <td>47</td>
- </tr>
- <tr>
-    <td>%n</td>
-    <td>A newline character.</td>
-    <td></td>
- </tr>
- <tr>
-    <td>%P</td>
-    <td>Either am or pm.</td>
-    <td>pm</td>
- </tr>
- <tr>
-    <td>%p</td>
-    <td>Either AM or PM.</td>
-    <td>PM</td>
- </tr>
- <tr>
-    <td>%R</td>
-    <td>The time in the format %H:%M.</td>
-    <td>21:47</td>
- </tr>
- <tr>
-    <td>%r</td>
-    <td>The 12-hour clock time using AM/PM notation.</td>
-    <td>09:47:00 PM</td>
- </tr>
- <tr>
-    <td>%S</td>
-    <td>The second as a decimal number (00-60).</td>
-    <td>00</td>
- </tr>
- <tr>
-    <td>%T</td>
-    <td>The time in the format %H:%M:%S.</td>
-    <td>21:47:00</td>
- </tr>
- <tr>
-    <td>%t</td>
-    <td>A tab character.</td>
-    <td></td>
- </tr>
- <tr>
-    <td>%X</td>
-    <td>The time representation in HH:MM:SS format.</td>
-    <td>21:47:00</td>
- </tr>
- <tr>
-    <td>%%</td>
-    <td>A single % character.</td>
-    <td>%</td>
- </tr>
- <tr>
-    <td>%E&lt;number&gt;S</td>
-    <td>Seconds with &lt;number&gt; digits of fractional precision.</td>
-    <td>00.000 for %E3S</td>
- </tr>
- <tr>
-    <td>%E*S</td>
-    <td>Seconds with full fractional precision (a literal '*').</td>
-    <td>00.123456</td>
- </tr>
-</table>
-
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [time-format]: #format_time
 
-[time-format-elements]: #supported_format_elements_for_time
+[time-format-elements]: #format_elements_date_time
 
 [time-functions-link-to-range-variables]: #range_variables
 
@@ -36099,7 +35279,13 @@ by a space.</td>
 
 ## Timestamp functions
 
-ZetaSQL supports the following `TIMESTAMP` functions.
+ZetaSQL supports several `TIMESTAMP` functions.
+
+IMPORTANT: Before working with these functions, you need to understand
+the difference between the formats in which timestamps are stored and displayed,
+and how time zones are used for the conversion between these formats.
+To learn more, see
+[How time zones work with timestamp functions][timestamp-link-to-timezone-definitions].
 
 NOTE: These functions return a runtime error if overflow occurs; result
 values are bounded by the defined [date][data-types-link-to-date_type]
@@ -36161,14 +35347,14 @@ SELECT current_timestamp() AS now, t.current_timestamp FROM t;
 #### EXTRACT
 
 ```sql
-EXTRACT(part FROM timestamp_expression [AT TIME ZONE timezone])
+EXTRACT(part FROM timestamp_expression [AT TIME ZONE time_zone])
 ```
 
 **Description**
 
 Returns a value that corresponds to the specified `part` from
 a supplied `timestamp_expression`. This function supports an optional
-`timezone` parameter. See
+`time_zone` parameter. See
 [Time zone definitions][timestamp-link-to-timezone-definitions] for information
 on how to specify a time zone.
 
@@ -36293,7 +35479,7 @@ FROM table;
 #### STRING
 
 ```sql
-STRING(timestamp_expression[, timezone])
+STRING(timestamp_expression[, time_zone])
 ```
 
 **Description**
@@ -36322,22 +35508,22 @@ SELECT STRING(TIMESTAMP "2008-12-25 15:30:00+00", "UTC") AS string;
 #### TIMESTAMP
 
 ```sql
-TIMESTAMP(string_expression[, timezone])
-TIMESTAMP(date_expression[, timezone])
-TIMESTAMP(datetime_expression[, timezone])
+TIMESTAMP(string_expression[, time_zone])
+TIMESTAMP(date_expression[, time_zone])
+TIMESTAMP(datetime_expression[, time_zone])
 ```
 
 **Description**
 
-+  `string_expression[, timezone]`: Converts a STRING expression to a TIMESTAMP
++  `string_expression[, time_zone]`: Converts a STRING expression to a TIMESTAMP
    data type. `string_expression` must include a
    timestamp literal.
-   If `string_expression` includes a timezone in the timestamp literal, do not
-   include an explicit `timezone`
+   If `string_expression` includes a time_zone in the timestamp literal, do not
+   include an explicit `time_zone`
    argument.
-+  `date_expression[, timezone]`: Converts a DATE object to a TIMESTAMP
++  `date_expression[, time_zone]`: Converts a DATE object to a TIMESTAMP
    data type.
-+  `datetime_expression[, timezone]`: Converts a
++  `datetime_expression[, time_zone]`: Converts a
    DATETIME object to a TIMESTAMP data type.
 
 This function supports an optional
@@ -36565,7 +35751,7 @@ SELECT TIMESTAMP_DIFF("2001-02-01 01:00:00", "2001-02-01 00:00:01", HOUR)
 #### TIMESTAMP_TRUNC
 
 ```sql
-TIMESTAMP_TRUNC(timestamp_expression, date_part[, timezone])
+TIMESTAMP_TRUNC(timestamp_expression, date_part[, time_zone])
 ```
 
 **Description**
@@ -36600,7 +35786,7 @@ Truncates a timestamp to the granularity of `date_part`.
     first week whose Thursday belongs to the corresponding Gregorian calendar
     year.
 
-`TIMESTAMP_TRUNC` function supports an optional `timezone` parameter. This
+`TIMESTAMP_TRUNC` function supports an optional `time_zone` parameter. This
 parameter applies to the following `date_parts`:
 
 + `MINUTE`
@@ -36694,7 +35880,7 @@ SELECT
 #### FORMAT_TIMESTAMP
 
 ```sql
-FORMAT_TIMESTAMP(format_string, timestamp[, timezone])
+FORMAT_TIMESTAMP(format_string, timestamp[, time_zone])
 ```
 
 **Description**
@@ -36744,7 +35930,7 @@ SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2008-12-25 15:30:00+00")
 #### PARSE_TIMESTAMP
 
 ```sql
-PARSE_TIMESTAMP(format_string, timestamp_string[, timezone])
+PARSE_TIMESTAMP(format_string, timestamp_string[, time_zone])
 ```
 
 **Description**
@@ -36772,8 +35958,7 @@ SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")
 SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008")
 ```
 
-The format string fully
-supports most format elements, except for
+The format string fully supports most format elements, except for
 `%a`, `%A`, `%g`, `%G`, `%j`, `%P`, `%u`, `%U`, `%V`, `%w`, and `%W`.
 
 When using `PARSE_TIMESTAMP`, keep the following in mind:
@@ -37076,304 +36261,33 @@ SELECT TIMESTAMP_FROM_UNIX_MICROS(1230219000000000) AS timestamp_value;
 +------------------------+
 ```
 
-#### Supported format elements for TIMESTAMP
-
-Unless otherwise noted, TIMESTAMP functions that use format strings support the
-following elements:
-
-<table>
- <tr>
-    <td class="tab0">Format element</td>
-    <td class="tab0">Description</td>
-    <td class="tab0">Example</td>
- </tr>
- <tr>
-    <td>%A</td>
-    <td>The full weekday name.</td>
-    <td>Wednesday</td>
- </tr>
- <tr>
-    <td>%a</td>
-    <td>The abbreviated weekday name.</td>
-    <td>Wed</td>
- </tr>
- <tr>
-    <td>%B</td>
-    <td>The full month name.</td>
-    <td>January</td>
- </tr>
- <tr>
-    <td>%b or %h</td>
-    <td>The abbreviated month name.</td>
-    <td>Jan</td>
- </tr>
- <tr>
-    <td>%C</td>
-    <td>The century (a year divided by 100 and truncated to an integer) as a
-    decimal
-number (00-99).</td>
-    <td>20</td>
- </tr>
- <tr>
-    <td>%c</td>
-    <td>The date and time representation in the format %a %b %e %T %Y.</td>
-    <td>Wed Jan 20 16:47:00 2021</td>
- </tr>
- <tr>
-    <td>%D</td>
-    <td>The date in the format %m/%d/%y.</td>
-    <td>01/20/21</td>
- </tr>
- <tr>
-    <td>%d</td>
-    <td>The day of the month as a decimal number (01-31).</td>
-    <td>20</td>
- </tr>
- <tr>
-    <td>%e</td>
-    <td>The day of month as a decimal number (1-31); single digits are preceded
-    by a
-space.</td>
-    <td>20</td>
- </tr>
- <tr>
-    <td>%F</td>
-    <td>The date in the format %Y-%m-%d.</td>
-    <td>2021-01-20</td>
- </tr>
- <tr>
-    <td>%G</td>
-    <td>The
-    <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a> year
-    with century as a decimal number. Each ISO year begins
-    on the Monday before the first Thursday of the Gregorian calendar year.
-    Note that %G and %Y may produce different results near Gregorian year
-    boundaries, where the Gregorian year and ISO year can diverge.</td>
-    <td>2021</td>
- </tr>
- <tr>
-    <td>%g</td>
-    <td>The
-    <a href="https://en.wikipedia.org/wiki/ISO_8601">ISO 8601</a> year
-    without century as a decimal number (00-99). Each ISO
-    year begins on the Monday before the first Thursday of the Gregorian
-    calendar year. Note that %g and %y may produce different results near
-    Gregorian year boundaries, where the Gregorian year and ISO year can
-    diverge.</td>
-    <td>21</td>
- </tr>
- <tr>
-    <td>%H</td>
-    <td>The hour (24-hour clock) as a decimal number (00-23).</td>
-    <td>16</td>
- </tr>
- <tr>
-    <td>%I</td>
-    <td>The hour (12-hour clock) as a decimal number (01-12).</td>
-    <td>04</td>
- </tr>
- <tr>
-    <td>%j</td>
-    <td>The day of the year as a decimal number (001-366).</td>
-    <td>020</td>
- </tr>
- <tr>
-    <td>%k</td>
-    <td>The hour (24-hour clock) as a decimal number (0-23); single digits are
-    preceded
-by a space.</td>
-    <td>16</td>
- </tr>
- <tr>
-    <td>%l</td>
-    <td>The hour (12-hour clock) as a decimal number (1-12); single digits are
-    preceded
-by a space.</td>
-    <td>11</td>
- </tr>
- <tr>
-    <td>%M</td>
-    <td>The minute as a decimal number (00-59).</td>
-    <td>47</td>
- </tr>
- <tr>
-    <td>%m</td>
-    <td>The month as a decimal number (01-12).</td>
-    <td>01</td>
- </tr>
- <tr>
-    <td>%n</td>
-    <td>A newline character.</td>
-    <td></td>
- </tr>
- <tr>
-    <td>%P</td>
-    <td>Either am or pm.</td>
-    <td>am</td>
- </tr>
- <tr>
-    <td>%p</td>
-    <td>Either AM or PM.</td>
-    <td>AM</td>
- </tr>
- <tr>
-    <td>%Q</td>
-    <td>The quarter as a decimal number (1-4).</td>
-    <td>1</td>
- </tr>
- <tr>
-    <td>%R</td>
-    <td>The time in the format %H:%M.</td>
-    <td>16:47</td>
- </tr>
- <tr>
-    <td>%r</td>
-    <td>The 12-hour clock time using AM/PM notation.</td>
-    <td>04:47:00 PM</td>
- </tr>
- <tr>
-    <td>%S</td>
-    <td>The second as a decimal number (00-60).</td>
-    <td>00</td>
- </tr>
- <tr>
-    <td>%s</td>
-    <td>The number of seconds since 1970-01-01 00:00:00 UTC. Always overrides all
-    other format elements, independent of where %s appears in the string.
-    If multiple %s elements appear, then the last one takes precedence.</td>
-    <td>1611179220</td>
-</tr>
- <tr>
-    <td>%T</td>
-    <td>The time in the format %H:%M:%S.</td>
-    <td>16:47:00</td>
- </tr>
- <tr>
-    <td>%t</td>
-    <td>A tab character.</td>
-    <td></td>
- </tr>
- <tr>
-    <td>%U</td>
-    <td>The week number of the year (Sunday as the first day of the week) as a
-    decimal number (00-53).</td>
-    <td>03</td>
- </tr>
- <tr>
-    <td>%u</td>
-    <td>The weekday (Monday as the first day of the week) as a decimal number
-    (1-7).</td>
-    <td>3</td>
-</tr>
- <tr>
-    <td>%V</td>
-   <td>The <a href="https://en.wikipedia.org/wiki/ISO_week_date">ISO 8601</a>
-    week number of the year (Monday as the first
-    day of the week) as a decimal number (01-53).  If the week containing
-    January 1 has four or more days in the new year, then it is week 1;
-    otherwise it is week 53 of the previous year, and the next week is
-    week 1.</td>
-    <td>03</td>
- </tr>
- <tr>
-    <td>%W</td>
-    <td>The week number of the year (Monday as the first day of the week) as a
-    decimal number (00-53).</td>
-    <td>03</td>
- </tr>
- <tr>
-    <td>%w</td>
-    <td>The weekday (Sunday as the first day of the week) as a decimal number
-    (0-6).</td>
-    <td>3</td>
- </tr>
- <tr>
-    <td>%X</td>
-    <td>The time representation in HH:MM:SS format.</td>
-    <td>16:47:00</td>
- </tr>
- <tr>
-    <td>%x</td>
-    <td>The date representation in MM/DD/YY format.</td>
-    <td>01/20/21</td>
- </tr>
- <tr>
-    <td>%Y</td>
-    <td>The year with century as a decimal number.</td>
-    <td>2021</td>
- </tr>
- <tr>
-    <td>%y</td>
-    <td>The year without century as a decimal number (00-99), with an optional
-    leading zero. Can be mixed with %C. If %C is not specified, years 00-68 are
-    2000s, while years 69-99 are 1900s.</td>
-    <td>21</td>
- </tr>
- <tr>
-    <td>%Z</td>
-    <td>The time zone name.</td>
-    <td>UTC-5</td>
- </tr>
- <tr>
-    <td>%z</td>
-    <td>The offset from the Prime Meridian in the format +HHMM or -HHMM as
-    appropriate,
-with positive values representing locations east of Greenwich.</td>
-    <td>-0500</td>
- </tr>
- <tr>
-    <td>%%</td>
-    <td>A single % character.</td>
-    <td>%</td>
- </tr>
- <tr>
-    <td>%Ez</td>
-    <td>RFC 3339-compatible numeric time zone (+HH:MM or -HH:MM).</td>
-    <td>-05:00</td>
- </tr>
- <tr>
-    <td>%E&lt;number&gt;S</td>
-    <td>Seconds with &lt;number&gt; digits of fractional precision.</td>
-    <td>00.000 for %E3S</td>
- </tr>
- <tr>
-    <td>%E*S</td>
-    <td>Seconds with full fractional precision (a literal '*').</td>
-    <td>00.123456</td>
- </tr>
- <tr>
-    <td>%E4Y</td>
-    <td>Four-character years (0001 ... 9999). Note that %Y
-    produces as many characters as it takes to fully render the
-year.</td>
-    <td>2021</td>
- </tr>
-</table>
-
-#### Time zone definitions 
+#### How time zones work with timestamp functions 
 <a id="timezone_definitions"></a>
+
+A timestamp represents an absolute point in time, independent of any time zone.
+However, when a timestamp value is displayed, it is usually converted to a
+human-readable format consisting of a civil date and time (YYYY-MM-DD HH:MM:SS)
+and a time zone. Note that _this is not the internal representation of the
+timestamp_; it is only a human-understandable way to describe the point in time
+that the timestamp represents.
+
+Some timestamp functions have a time zone argument. A time zone is needed to
+convert between civil time (YYYY-MM-DD HH:MM:SS) and absolute time (timestamps).
+A function like `PARSE_TIMESTAMP` takes an input string that represents a
+civil time and returns a timestamp that represents an absolute time. A
+time zone is needed for this conversion. A function like `EXTRACT` takes an
+input timestamp (absolute time) and converts it to civil time in order to
+extract a part of that civil time. This conversion requires a time zone.
+If no time zone is specified, the default time zone, which is implementation defined,
+is used.
 
 Certain date and timestamp functions allow you to override the default time zone
 and specify a different one. You can specify a time zone by either supplying
 the [time zone name][timezone-by-name] (for example, `America/Los_Angeles`)
 or time zone offset from UTC (for example, -08).
 
-If you choose to use a time zone offset, use this format:
-
-```sql
-(+|-)H[H][:M[M]]
-```
-
-The following timestamps are equivalent because the time zone offset
-for `America/Los_Angeles` is `-08` for the specified date and time.
-
-```sql
-SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00 America/Los_Angeles") as millis;
-```
-
-```sql
-SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00-08:00") as millis;
-```
+To learn more about how time zones work with timestamps, see
+[Time zones][data-types-timezones].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -37387,13 +36301,15 @@ SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00-08:00") as millis;
 
 [timestamp-format]: #format_timestamp
 
-[timestamp-format-elements]: #supported_format_elements_for_timestamp
+[timestamp-format-elements]: #format_elements_date_time
 
 [timestamp-functions-link-to-range-variables]: #range_variables
 
 [data-types-link-to-date_type]: #date_type
 
 [data-types-link-to-timestamp_type]: #timestamp_type
+
+[data-types-timezones]: #time_zones
 
 [timestamp-literals]: #timestamp_literals
 
@@ -38106,9 +37022,9 @@ message Chart {
 WITH AlbumList AS (
   SELECT
     NEW Album(
-      'Beyonce' AS solo,
-      'Lemonade' AS album_name,
-      ['Sandcastles','Hold Up'] AS song) AS album_col,
+      'Alana Yah' AS solo,
+      'New Moon' AS album_name,
+      ['Sandstorm','Wait'] AS song) AS album_col,
     NEW Chart(
       'Billboard' AS chart_name,
       '2016-04-23' AS date,
@@ -38116,9 +37032,9 @@ WITH AlbumList AS (
     UNION ALL
   SELECT
     NEW Album(
-      'The Beetles' AS band,
-      'Rubber Soul' AS album_name,
-      ['The Word', 'Wait', 'Nowhere Man'] AS song) AS album_col,
+      'The Roadlands' AS band,
+      'Grit' AS album_name,
+      ['The Way', 'Awake', 'Lost Things'] AS song) AS album_col,
     NEW Chart(
       'Billboard' AS chart_name,
       1 as rank) AS chart_col
@@ -38136,8 +37052,8 @@ FROM AlbumList
 +------------------+
 | name_of_album    |
 +------------------+
-| Lemonade         |
-| Rubber Soul      |
+| New Moon         |
+| Grit             |
 +------------------+
 ```
 
@@ -38902,7 +37818,8 @@ FROM (
 
 <!-- mdlint on -->
 
-<!-- Statements -->
+---
+## STATEMENTS
 
 ## Data definition language
 
@@ -39593,9 +38510,20 @@ Documentation is pending for this feature.
 
 Documentation is pending for this feature.
 
+### CREATE AGGREGATE FUNCTION
+
+A user-defined aggregate function (UDA), enables you to create an
+aggregate function using another SQL expression or another programming language.
+These functions accept arguments and perform actions, returning the
+result of those actions as a value. To create a UDA,
+see [UDAs][udfs].
+
 ### CREATE FUNCTION
 
-Documentation is pending for this feature.
+A user-defined function (UDF), enables you to create a scalar function using
+another SQL expression or another programming language.
+These functions accept arguments and perform actions, returning the
+result of those actions as a value. To create a UDF, see [UDFs][udfs].
 
 ### CREATE PROCEDURE
 
@@ -39607,7 +38535,9 @@ Documentation is pending for this feature.
 
 ### CREATE TABLE FUNCTION
 
-Documentation is pending for this feature.
+A table function, also known as a table value function (TVF), is a function that
+returns a table.  A TVF is called in the `FROM` clause like a table subquery.
+To create a TVF, see [TVFs][tvfs].
 
 ### DEFINE TABLE
 
@@ -39773,6 +38703,10 @@ CREATE TABLE books (title STRING, name STRING, PRIMARY KEY (title, name));
 [defining-constraints]: #defining_table_constraints
 
 [defining-foreign-reference]: #defining_foreign_references
+
+[tvfs]: #tvfs
+
+[udfs]: #user-defined-functions
 
 <!-- mdlint on -->
 
@@ -41251,7 +40185,7 @@ Inventory
 
 [coercion]: #coercion
 
-[functions-and-operators]: #functions-reference
+[functions-and-operators]: #functions-and-operators
 
 [statement-rules]: #statement_rules
 
@@ -41315,6 +40249,1240 @@ Assertion failed: Column X must contain the value 7919
 ```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+<!-- mdlint on -->
+
+## User-defined functions
+
+ZetaSQL
+supports user-defined functions (UDFs). A UDF enables you to create a function
+using another SQL expression or another programming
+language, such as JavaScript or Lua. These functions accept columns of input
+and perform actions, returning the result of those actions as a value.
+
+### Scalar SQL UDFs 
+<a id="sql_udfs"></a>
+
+A scalar SQL UDF is a user-defined function that returns a single value.
+
+#### Scalar SQL UDF structure 
+<a id="sql_udf_structure"></a>
+
+Create a scalar SQL UDF using the following syntax:
+
+```sql
+CREATE
+  [ { TEMPORARY | TEMP } ] FUNCTION
+  function_name ( [ function_parameter [, ...] ] )
+  [ RETURNS data_type ]
+  AS ( sql_expression )
+
+function_parameter:
+  parameter_name { data_type | ANY TYPE }
+```
+
+This syntax consists of the following components:
+
++   `CREATE ... FUNCTION`: Creates a new function. A function can have zero
+    or more function parameters.
++   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
+     exists for the lifetime of the session.
++   `function_parameter`: A parameter for the function.
+
+    + `parameter_name`: The name of the parameter.
+
+    + `data_type`: A ZetaSQL [data type][data-types].
+
+    + `ANY TYPE`: The function will accept an argument of any type for this
+      function parameter. If more than one parameter includes `ANY TYPE`,
+      a relationship is not enforced between these parameters when the function
+      is defined. However, if the type of argument passed into the function at
+      call time is incompatible with the function definition, this will
+      result in an error.
+
+      `ANY TYPE` is a [_templated function parameter_][templated-parameters].
++   `RETURNS data_type`: Optional clause that specifies the data type
+    that the function returns. ZetaSQL infers the result type
+    of the function from the SQL function body when the `RETURN` clause is
+    omitted.
++   `AS (sql_expression)`: Specifies the SQL code that defines the
+    function.
+
+#### Scalar SQL UDF examples 
+<a id="sql_udf_structure"></a>
+
+The following example shows a UDF that employs a SQL function.
+
+```sql
+CREATE TEMP FUNCTION AddFourAndDivide(x INT64, y INT64)
+RETURNS DOUBLE
+AS (
+  (x + 4) / y
+);
+
+WITH
+  numbers AS (
+    SELECT 1 AS val UNION ALL
+    SELECT 3 AS val UNION ALL
+    SELECT 4 AS val UNION ALL
+    SELECT 5 AS val
+  )
+SELECT val, AddFourAndDivide(val, 2) AS result
+FROM numbers;
+
++-----+--------+
+| val | result |
++-----+--------+
+| 1   | 2.5    |
+| 3   | 3.5    |
+| 4   | 4      |
+| 5   | 4.5    |
++-----+--------+
+```
+
+The following example shows a scalar SQL UDF that uses the
+templated function parameter, `ANY TYPE`. The resulting function accepts
+arguments of various types.
+
+```sql
+CREATE TEMP FUNCTION AddFourAndDivideAny(x ANY TYPE, y ANY TYPE)
+AS (
+  (x + 4) / y
+);
+
+SELECT
+  AddFourAndDivideAny(3, 4) AS integer_output,
+  AddFourAndDivideAny(1.59, 3.14) AS floating_point_output;
+
++----------------+-----------------------+
+| integer_output | floating_point_output |
++----------------+-----------------------+
+| 1.75           | 1.7802547770700636    |
++----------------+-----------------------+
+```
+
+The following example shows a scalar SQL UDF that uses the
+templated function parameter, `ANY TYPE`, to return the last element of an
+array of any type.
+
+```sql
+CREATE TEMP FUNCTION LastArrayElement(arr ANY TYPE)
+AS (
+  arr[ORDINAL(ARRAY_LENGTH(arr))]
+);
+
+SELECT
+  names[OFFSET(0)] AS first_name,
+  LastArrayElement(names) AS last_name
+FROM
+  (
+    SELECT ['Fred', 'McFeely', 'Rogers'] AS names UNION ALL
+    SELECT ['Marie', 'Skłodowska', 'Curie']
+  );
+
++------------+-----------+
+| first_name | last_name |
++------------+-----------+
+| Fred       | Rogers    |
+| Marie      | Curie     |
++------------+-----------+
+```
+
+### Aggregate SQL UDFs
+
+An aggregate UDF is a user-defined function that performs a calculation on
+multiple values and returns the result of that calculation as a single value.
+
+#### Aggregate SQL UDF structure
+
+Create an aggregate SQL UDF using the following syntax:
+
+```sql
+CREATE
+  [ { TEMPORARY | TEMP } ] [ AGGREGATE ] FUNCTION
+  function_name ( [ function_parameter [, ...] ] )
+  [ RETURNS data_type ]
+  AS ( sql_expression )
+
+function_parameter:
+  parameter_name data_type [ NOT AGGREGATE ]
+```
+
+This syntax consists of the following components:
+
++   `CREATE ... FUNCTION`: Creates a new function. A function can have zero
+    or more function parameters.
++   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
+    exists for the lifetime of the session.
++   `function_parameter`: A parameter for the function.
+
+    + `parameter_name`: The name of the function parameter.
+
+    + `data_type`: A ZetaSQL [data type][data-types].
+
+    + `NOT AGGREGATE`: Specifies that a function parameter is not an
+      aggregate. A non-aggregate function parameter can appear anywhere in the
+      function definition. You can learn more about
+      [function parameters for aggregate UDFS][aggregate-udf-parameters]
+      in the next section.
++   `RETURNS data_type`: Optional clause that specifies the data type
+    that the function returns. ZetaSQL infers the result type
+    of the function from the SQL function body when the `RETURN` clause is
+    omitted.
++   `AS (sql_expression)`: Specifies the SQL code that defines the
+    function.
+
+#### Aggregate UDF function parameters 
+<a id="aggregate_udf_parameters"></a>
+
+An aggregate UDF can include aggregate or non-aggregate function parameters.
+Like other [aggregate functions][aggregate-fns-link], aggregate UDFs normally
+aggregate function parameters across all rows in a [group][group-by-link].
+However, you can specify a function parameter as non-aggregate with the
+`NOT AGGREGATE` keyword. A non-aggregate function parameter is a
+scalar function parameter with a constant value for all rows in a group;
+for example, literals or grouping expressions are valid non-aggregate
+function parameters. Inside the UDF definition, aggregate function parameters
+can only appear as function parameters to aggregate function calls.
+Non-aggregate function parameters can appear anywhere in the UDF definition.
+
+#### Aggregate SQL UDF examples
+
+The following example shows an aggregate UDF that uses a non-aggregate
+function parameter. Inside the function definition, the aggregate `SUM` method
+takes the aggregate function parameter `dividend`, while the non-aggregate
+division operator ( `/` ) takes the non-aggregate function parameter `divisor`.
+
+```sql
+CREATE TEMP AGGREGATE FUNCTION ScaledSum(
+  dividend DOUBLE,
+  divisor DOUBLE NOT AGGREGATE)
+RETURNS DOUBLE
+AS (
+  SUM(dividend) / divisor
+);
+
+SELECT ScaledSum(col1, 2) AS scaled_sum
+FROM (
+  SELECT 1 AS col1 UNION ALL
+  SELECT 3 AS col1 UNION ALL
+  SELECT 5 AS col1
+);
+
++------------+
+| scaled_sum |
++------------+
+| 4.5        |
++------------+
+```
+
+### JavaScript UDFs 
+<a id="javascript_udfs"></a>
+
+A JavaScript UDF is a SQL user-defined function that executes
+JavaScript code and returns the result as a single value.
+
+#### JavaScript UDF structure 
+<a id="javascript_structure"></a>
+
+Create a JavaScript UDF using the following syntax.
+
+```sql
+CREATE
+  [ { TEMPORARY | TEMP } ] FUNCTION
+  function_name ( [ function_parameter [, ...] ] )
+  RETURNS data_type
+  [ determinism_specifier ]
+  LANGUAGE js AS string_literal
+
+function_parameter:
+  parameter_name data_type
+
+determinism_specifier:
+  { IMMUTABLE | DETERMINISTIC | NOT DETERMINISTIC | VOLATILE | STABLE }
+```
+
+This syntax consists of the following components:
+
++   `CREATE ... FUNCTION`: Creates a new function. A function can contain zero
+    or more function parameters.
++   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
+    exists for the lifetime of the session.
++   `function_parameter`: A parameter for the function. A parameter includes a
+    name and a data type. The value of `data_type` is a ZetaSQL
+    [data type][data-types].
++   `determinism_specifier`: Identifies the determinism property of the
+    function, which impacts query semantics and planning. Your choices are:
+
+    +   `IMMUTABLE` or `DETERMINISTIC`: The function always returns the same
+        result when passed the same arguments. For example, if the function
+        `add_one(i)` always returns `i + 1`, the function is deterministic.
+
+    +   `NOT DETERMINISTIC`: The function does not always return the same result
+        when passed the same arguments. The `VOLATILE` and `STABLE` keywords are
+        subcategories of `NOT DETERMINISTIC`.
+
+    +   `VOLATILE`: The function does not always return the same result when
+        passed the same arguments, even within the same run of a query
+        statement. For example if `add_random(i)` returns `i + rand()`, the
+        function is volatile, because every call to the function can return a
+        different result.
+
+    +   `STABLE`: Within one execution of a query statement, the function will
+        consistently return the same result for the same argument values.
+        However, the result could change for different executions of the
+        same query. For example if you invoke the function `CURRENT_TIMESTAMP`
+        within a single query, it will return the same result, but it will
+        return different results in different query executions.
++   `RETURNS data_type`: Specifies the data type that the function returns.
++   `LANGUAGE ... AS`: Specify the language and code to use. `js`
+    represents the name of the language. `string_literal` represents the code
+    that defines the function body.
+
+<a id="quoting_rules"></a>
+You must enclose JavaScript in quotes. There are a few options:
+
++ `"..."`: For simple, one line code snippets that don't contain quotes or
+  escaping, you can use a standard quoted string.
++ `"""..."""`: If the snippet contains quotes or multiple lines, use
+  triple-quoted blocks.
++ `R"""..."""`: If the snippet contains escaping, prefix a triple-quoted
+  block with an `R` to indicate that this is a raw string that should ignore
+  escaping rules. If you are not sure which quoting style to use, this one
+  will provide the most consistent results.
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[data-types]: #data-types
+
+<!-- mdlint on -->
+
+#### SQL type encodings in JavaScript
+
+ZetaSQL represents types in the following manner:
+
+<table>
+  <tr>
+  <th>SQL Data Type</th>
+  <th>JavaScript Data Type</th>
+  <th>Notes</th>
+  </tr>
+
+  
+  <tr>
+    <td>ARRAY</td>
+    <td>Array</td>
+    <td></td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>BOOL</td>
+    <td>Boolean</td>
+    <td></td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>BYTES</td>
+    <td>String</td>
+    <td>Base64-encoded String.</td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>DOUBLE</td>
+    <td>Number</td>
+    <td></td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>FLOAT</td>
+    <td>Number</td>
+    <td></td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>
+      NUMERIC
+    </td>
+    <td>
+      Number or String
+    </td>
+    <td>
+      If a NUMERIC value can be represented exactly as an
+      <a href="https://en.wikipedia.org/wiki/Floating-point_arithmetic#IEEE_754:_floating_point_in_modern_computers">IEEE 754 floating-point</a>
+      value and has no fractional part, it is encoded as a Number. These values
+      are in the range [-2<sup>53</sup>, 2<sup>53</sup>]. Otherwise, it is
+      encoded as a String.
+    </td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>
+      BIGNUMERIC
+    </td>
+    <td>
+      Number or String
+    </td>
+    <td>
+      Same as NUMERIC.
+    </td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>INT32</td>
+    <td>Number</td>
+    <td></td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>UINT32</td>
+    <td>Number</td>
+    <td></td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>INT64</td>
+    <td>
+      
+      See notes
+      
+    </td>
+    <td>
+      
+      See the documentation for your database engine.
+      
+    </td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>
+      UINT64
+    </td>
+    <td>
+      
+      See notes
+      
+    </td>
+    <td>
+      Same as INT64.
+    </td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>STRING</td>
+    <td>String</td>
+    <td></td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>STRUCT</td>
+    <td>Object</td>
+    <td>
+      
+      See the documentation for your database engine.
+      
+    </td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>TIMESTAMP</td>
+    <td>Date object</td>
+    <td>
+      
+      See the documentation for your database engine.
+      
+    </td>
+  </tr>
+  
+
+  
+  <tr>
+    <td>DATE</td>
+    <td>Date object</td>
+    <td></td>
+  </tr>
+  
+
+</table>
+
+#### JavaScript UDF examples 
+<a id="javascript_examples"></a>
+
+The following example creates a persistent JavaScript UDF.
+
+```sql
+CREATE FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
+RETURNS DOUBLE
+LANGUAGE js AS """
+  return x*y;
+""";
+WITH numbers AS
+  (SELECT 1 AS x, 5 as y
+  UNION ALL
+  SELECT 2 AS x, 10 as y
+  UNION ALL
+  SELECT 3 as x, 15 as y)
+SELECT x, y, MultiplyInputs(x, y) as product
+FROM numbers;
+
++-----+-----+--------------+
+| x   | y   | product      |
++-----+-----+--------------+
+| 1   | 5   | 5            |
+| 2   | 10  | 20           |
+| 3   | 15  | 45           |
++-----+-----+--------------+
+```
+
+The following example creates a temporary JavaScript UDF.
+
+```sql
+CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
+RETURNS DOUBLE
+LANGUAGE js AS """
+  return x*y;
+""";
+WITH numbers AS
+  (SELECT 1 AS x, 5 as y
+  UNION ALL
+  SELECT 2 AS x, 10 as y
+  UNION ALL
+  SELECT 3 as x, 15 as y)
+SELECT x, y, MultiplyInputs(x, y) as product
+FROM numbers;
+
++-----+-----+--------------+
+| x   | y   | product      |
++-----+-----+--------------+
+| 1   | 5   | 5            |
+| 2   | 10  | 20           |
+| 3   | 15  | 45           |
++-----+-----+--------------+
+```
+
+You can create multiple JavaScript UDFs before a query. For example:
+
+```sql
+CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
+RETURNS DOUBLE
+LANGUAGE js AS """
+  return x*y;
+""";
+CREATE TEMP FUNCTION DivideByTwo(x DOUBLE)
+RETURNS DOUBLE
+LANGUAGE js AS """
+  return x / 2;
+""";
+WITH numbers AS
+  (SELECT 1 AS x, 5 as y
+  UNION ALL
+  SELECT 2 AS x, 10 as y
+  UNION ALL
+  SELECT 3 as x, 15 as y)
+SELECT x,
+  y,
+  MultiplyInputs(x, y) as product,
+  DivideByTwo(x) as half_x,
+  DivideByTwo(y) as half_y
+FROM numbers;
+
++-----+-----+--------------+--------+--------+
+| x   | y   | product      | half_x | half_y |
++-----+-----+--------------+--------+--------+
+| 1   | 5   | 5            | 0.5    | 2.5    |
+| 2   | 10  | 20           | 1      | 5      |
+| 3   | 15  | 45           | 1.5    | 7.5    |
++-----+-----+--------------+--------+--------+
+```
+
+You can pass the result of a JavaScript UDF as input to another UDF.
+For example:
+
+```sql
+CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
+RETURNS DOUBLE
+LANGUAGE js AS """
+  return x*y;
+""";
+CREATE TEMP FUNCTION DivideByTwo(x DOUBLE)
+RETURNS DOUBLE
+LANGUAGE js AS """
+  return x/2;
+""";
+WITH numbers AS
+  (SELECT 1 AS x, 5 as y
+  UNION ALL
+  SELECT 2 AS x, 10 as y
+  UNION ALL
+  SELECT 3 as x, 15 as y)
+SELECT x,
+  y,
+  MultiplyInputs(DivideByTwo(x), DivideByTwo(y)) as half_product
+FROM numbers;
+
++-----+-----+--------------+
+| x   | y   | half_product |
++-----+-----+--------------+
+| 1   | 5   | 1.25         |
+| 2   | 10  | 5            |
+| 3   | 15  | 11.25        |
++-----+-----+--------------+
+```
+
+The following provides an example of a simple, single statement JavaScript UDF:
+
+```sql
+CREATE TEMP FUNCTION PlusOne(x DOUBLE)
+RETURNS DOUBLE
+LANGUAGE js
+AS "return x+1;";
+SELECT val, PlusOne(val) AS result
+FROM UNNEST([1, 2, 3]) AS val;
+
++-----------+-----------+
+| val       | result    |
++-----------+-----------+
+| 1         | 2         |
+| 2         | 3         |
+| 3         | 4         |
++-----------+-----------+
+```
+
+The following example illustrates a more complex, multi-statement
+JavaScript UDF.  Note that a triple-quoted multi-line string is used in this
+example for readability.
+
+```sql
+CREATE TEMP FUNCTION CustomGreeting(a STRING)
+RETURNS STRING
+LANGUAGE js
+AS """
+  var d = new Date();
+  if (d.getHours() < 12) {
+    return 'Good Morning, ' + a + '!';
+  } else {
+    return 'Good Evening, ' + a + '!';
+  }
+  """;
+SELECT CustomGreeting(names) as everyone
+FROM UNNEST(["Hannah", "Max", "Jakob"]) AS names;
+
++-----------------------+
+| everyone              |
++-----------------------+
+| Good Morning, Hannah! |
+| Good Morning, Max!    |
+| Good Morning, Jakob!  |
++-----------------------+
+```
+
+The following example demonstrates how to utilize JavaScript escaping within the
+triple-quoted multi-line string.
+
+```sql
+CREATE TEMP FUNCTION PlusOne(x STRING)
+RETURNS STRING
+LANGUAGE js
+AS R"""
+var re = /[a-z]/g;
+return x.match(re);
+""";
+
+SELECT val, PlusOne(val) AS result
+FROM UNNEST(['ab-c', 'd_e', '!']) AS val;
+
++---------+
+| result  |
++---------+
+| [a,b,c] |
+| [d,e]   |
+| NULL    |
++---------+
+```
+
+The following example sums the values of all
+fields named `foo` in the given JSON string.
+
+```sql
+CREATE TEMP FUNCTION SumFieldsNamedFoo(json_row STRING)
+RETURNS FLOAT64
+LANGUAGE js
+AS """
+function SumFoo(obj) {
+  var sum = 0;
+  for (var field in obj) {
+    if (obj.hasOwnProperty(field) && obj[field] != null) {
+      if (typeof obj[field] == "object") {
+        sum += SumFoo(obj[field]);
+      } else if (field == "foo") {
+        sum += obj[field];
+      }
+    }
+  }
+  return sum;
+}
+var row = JSON.parse(json_row);
+return SumFoo(row);
+""";
+
+WITH
+  Input AS (
+    SELECT
+      STRUCT(1 AS foo, 2 AS bar, STRUCT('foo' AS x, 3.14 AS foo) AS baz) AS s,
+      10 AS foo
+    UNION ALL
+    SELECT NULL, 4 AS foo
+    UNION ALL
+    SELECT
+      STRUCT(NULL, 2 AS bar, STRUCT('fizz' AS x, 1.59 AS foo) AS baz) AS s,
+      NULL AS foo
+  )
+SELECT
+  TO_JSON_STRING(t) AS json_row,
+  SumFieldsNamedFoo(TO_JSON_STRING(t)) AS foo_sum
+FROM Input AS t;
+
++---------------------------------------------------------------------+---------+
+| json_row                                                            | foo_sum |
++---------------------------------------------------------------------+---------+
+| {"s":{"foo":1,"bar":2,"baz":{"x":"foo","foo":3.14}},"foo":10}       | 14.14   |
+| {"s":null,"foo":4}                                                  | 4       |
+| {"s":{"foo":null,"bar":2,"baz":{"x":"fizz","foo":1.59}},"foo":null} | 1.59    |
++---------------------------------------------------------------------+---------+
+```
+
+### LUA UDFs 
+<a id="lua_udfs"></a>
+
+A LUA UDF is a SQL user-defined function that executes
+LUA code and returns the result as a single value.
+
+#### LUA UDF structure 
+<a id="lua_structure"></a>
+
+Create a LUA UDF using the following syntax.
+
+```sql
+CREATE
+  [ { TEMPORARY | TEMP } ] FUNCTION
+  function_name ( [ function_parameter [, ...] ] )
+  RETURNS data_type
+  [ determinism_specifier ]
+  LANGUAGE lua AS string_literal
+
+function_parameter:
+  parameter_name data_type
+
+determinism_specifier:
+  { IMMUTABLE | DETERMINISTIC | NOT DETERMINISTIC | VOLATILE | STABLE }
+```
+
+This syntax consists of the following components:
+
++   `CREATE ... FUNCTION`: Creates a new function. A function can contain zero
+    or more function parameters.
++   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
+    exists for the lifetime of the session.
++   `function_parameter`: A parameter for the function. A parameter includes a
+    name and a data type. The value of `data_type` is a ZetaSQL
+    [data type][data-types].
++   `determinism_specifier`: Identifies the determinism property of the
+    function, which impacts query semantics and planning. Your choices are:
+
+    +   `IMMUTABLE` or `DETERMINISTIC`: The function always returns the same
+        result when passed the same arguments. For example, if the function
+        `add_one(i)` always returns `i + 1`, the function is deterministic.
+
+    +   `NOT DETERMINISTIC`: The function does not always return the same result
+        when passed the same arguments. The `VOLATILE` and `STABLE` keywords are
+        subcategories of `NOT DETERMINISTIC`.
+
+    +   `VOLATILE`: The function does not always return the same result when
+        passed the same arguments, even within the same run of a query
+        statement. For example if `add_random(i)` returns `i + rand()`, the
+        function is volatile, because every call to the function can return a
+        different result.
+
+    +   `STABLE`: Within one execution of a query statement, the function will
+        consistently return the same result for the same argument values.
+        However, the result could change for different executions of the
+        same query. For example if you invoke the function `CURRENT_TIMESTAMP`
+        within a single query, it will return the same result, but it will
+        return different results in different query executions.
++   `RETURNS data_type`: Specifies the data type that the function returns.
++   `LANGUAGE ... AS`: Specify the language and code to use. `lua`
+    represents the name of the language. `string_literal` represents the code
+    that defines the function body.
+
+<a id="quoting_rules"></a>
+You must enclose LUA in quotes. There are a few options:
+
++ `"..."`: For simple, one line code snippets that don't contain quotes or
+  escaping, you can use a standard quoted string.
++ `"""..."""`: If the snippet contains quotes or multiple lines, use
+  triple-quoted blocks.
++ `R"""..."""`: If the snippet contains escaping, prefix a triple-quoted
+  block with an `R` to indicate that this is a raw string that should ignore
+  escaping rules. If you are not sure which quoting style to use, this one
+  will provide the most consistent results.
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[data-types]: #data-types
+
+<!-- mdlint on -->
+
+#### LUA UDF examples 
+<a id="lua_examples"></a>
+
+The following example creates a persistent LUA UDF.
+
+```sql
+CREATE FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
+RETURNS DOUBLE
+LANGUAGE lua AS """
+  return x*y;
+""";
+WITH numbers AS
+  (SELECT 1 AS x, 5 as y
+  UNION ALL
+  SELECT 2 AS x, 10 as y
+  UNION ALL
+  SELECT 3 as x, 15 as y)
+SELECT x, y, MultiplyInputs(x, y) as product
+FROM numbers;
+
++-----+-----+--------------+
+| x   | y   | product      |
++-----+-----+--------------+
+| 1   | 5   | 5            |
+| 2   | 10  | 20           |
+| 3   | 15  | 45           |
++-----+-----+--------------+
+```
+
+The following example creates a temporary LUA UDF.
+
+```sql
+CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
+RETURNS DOUBLE
+LANGUAGE lua AS """
+  return x*y;
+""";
+WITH numbers AS
+  (SELECT 1 AS x, 5 as y
+  UNION ALL
+  SELECT 2 AS x, 10 as y
+  UNION ALL
+  SELECT 3 as x, 15 as y)
+SELECT x, y, MultiplyInputs(x, y) as product
+FROM numbers;
+
++-----+-----+--------------+
+| x   | y   | product      |
++-----+-----+--------------+
+| 1   | 5   | 5            |
+| 2   | 10  | 20           |
+| 3   | 15  | 45           |
++-----+-----+--------------+
+```
+
+You can create multiple LUA UDFs before a query. For example:
+
+```sql
+CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
+RETURNS DOUBLE
+LANGUAGE lua AS """
+  return x*y;
+""";
+CREATE TEMP FUNCTION DivideByTwo(x DOUBLE)
+RETURNS DOUBLE
+LANGUAGE lua AS """
+  return x / 2;
+""";
+WITH numbers AS
+  (SELECT 1 AS x, 5 as y
+  UNION ALL
+  SELECT 2 AS x, 10 as y
+  UNION ALL
+  SELECT 3 as x, 15 as y)
+SELECT x,
+  y,
+  MultiplyInputs(x, y) as product,
+  DivideByTwo(x) as half_x,
+  DivideByTwo(y) as half_y
+FROM numbers;
+
++-----+-----+--------------+--------+--------+
+| x   | y   | product      | half_x | half_y |
++-----+-----+--------------+--------+--------+
+| 1   | 5   | 5            | 0.5    | 2.5    |
+| 2   | 10  | 20           | 1      | 5      |
+| 3   | 15  | 45           | 1.5    | 7.5    |
++-----+-----+--------------+--------+--------+
+```
+
+You can pass the result of a LUA UDF as input to another UDF.
+For example:
+
+```sql
+CREATE TEMP FUNCTION MultiplyInputs(x DOUBLE, y DOUBLE)
+RETURNS DOUBLE
+LANGUAGE lua AS """
+  return x*y;
+""";
+CREATE TEMP FUNCTION DivideByTwo(x DOUBLE)
+RETURNS DOUBLE
+LANGUAGE lua AS """
+  return x/2;
+""";
+WITH numbers AS
+  (SELECT 1 AS x, 5 as y
+  UNION ALL
+  SELECT 2 AS x, 10 as y
+  UNION ALL
+  SELECT 3 as x, 15 as y)
+SELECT x,
+  y,
+  MultiplyInputs(DivideByTwo(x), DivideByTwo(y)) as half_product
+FROM numbers;
+
++-----+-----+--------------+
+| x   | y   | half_product |
++-----+-----+--------------+
+| 1   | 5   | 1.25         |
+| 2   | 10  | 5            |
+| 3   | 15  | 11.25        |
++-----+-----+--------------+
+```
+
+The following provides an example of a simple, single statement LUA UDF:
+
+```sql
+CREATE TEMP FUNCTION PlusOne(x DOUBLE)
+RETURNS DOUBLE
+LANGUAGE lua
+AS "return x+1;";
+
+SELECT val, PlusOne(val) AS result
+FROM UNNEST([1, 2, 3]) AS val;
+
++-----------+-----------+
+| val       | result    |
++-----------+-----------+
+| 1         | 2         |
+| 2         | 3         |
+| 3         | 4         |
++-----------+-----------+
+```
+
+The following example illustrates a more complex, multi-statement
+LUA UDF.  Note that a triple-quoted multi-line string is used in this
+example for readability.
+
+```sql
+CREATE TEMP FUNCTION CustomGreeting(i INT32)
+RETURNS STRING
+LANGUAGE lua
+AS """
+  if i < 12 then
+    return 'Good Morning!'
+  else
+    return 'Good Evening!'
+  end
+  """;
+
+SELECT CustomGreeting(13) AS message;
+
++---------------+
+| message       |
++---------------+
+| Good Evening! |
++---------------+
+```
+
+The following example demonstrates how to utilize LUA escaping within the
+triple-quoted multi-line string.
+
+```sql
+CREATE TEMP FUNCTION Alphabet()
+RETURNS STRING
+LANGUAGE lua
+AS R"""
+  return 'A\tB\tC'
+  """;
+
+SELECT Alphabet() AS result;
+
++---------+
+| result  |
++---------+
+| A  B  C |
++---------+
+```
+
+### TVFs {#tvfs}
+
+A TVF is a table-valued function that returns an entire output table instead of
+a single scalar value, and appears in the `FROM` clause like a table subquery.
+
+#### TVF structure
+
+You create a TVF using the following structure.
+
+```sql
+CREATE
+  { TEMPORARY | TEMP } TABLE FUNCTION
+  function_name ( [ function_parameter  [, ...] ] )
+  [ RETURNS TABLE < column_declaration [, ...] > ]
+  [ { AS query | LANGUAGE language_name AS string_literal } ]
+
+function_parameter:
+  parameter_name { data_type | ANY TYPE | ANY TABLE }
+
+column_declaration:
+  column_name data_type
+```
+
++   `CREATE ... TABLE FUNCTION`: Creates a new
+    [table-valued function][table-valued function] function.
+    A function can have zero or more function parameters.
++   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
+     exists for the lifetime of the session.
++   `function_parameter`: A parameter for the function.
+
+    + `parameter_name`: The name of the parameter.
+
+    + `data_type`: A ZetaSQL [data type][data-types].
+
+    + `ANY TYPE`: The function will accept an argument of any type for this
+      function parameter. If more than one parameter includes `ANY TYPE`,
+      a relationship is not enforced between these parameters when the function
+      is defined. However, if the type of argument passed into the function at
+      call time is incompatible with the function definition, this will
+      result in an error.
+
+      `ANY TYPE` is a [_templated function parameter_][templated-parameters].
+
+    
+    + `ANY TABLE`. The function will accept an argument of any relation type for
+      this argument. However, passing the function arguments of types that are
+      incompatible with the function definition will result in an error at
+      call time.
+
+      `ANY TABLE` is a [_templated function parameter_][templated-parameters].
+    
++   `RETURNS TABLE`: Specifies the schema of the table that a table-valued
+    function returns as a comma-separated list of `column_name` and `TYPE`
+    pairs. If `RETURNS TABLE` is absent, ZetaSQL infers the
+    output schema from the `AS query` statement in the function body.
++   `AS query`: If you want to create a SQL TVF, specifies the SQL query to run.
++   `LANGUAGE ... AS`: If you want to create an external TVF, specifies the
+    language and code to use.
+    `language_name` represents the name of the language, such
+    as `js` for JavaScript. `string_literal` represents the code that defines
+    the function body.
+
+#### Specifying TVF arguments {#tvf_arguments}
+
+When a TVF with function parameters is called, arguments must be passed in for
+all function parameters that do not have defaults. An argument can be of any
+supported ZetaSQL type or table, but must be coercible to the related
+function parameter's type.
+
+Specify a table argument the same way you specify the fields of a
+[STRUCT][data-types-struct].
+
+```sql
+parameter_name TABLE<column_name data_type [, ...]>
+```
+
+The table argument can specify a [value table][datamodel-value-tables],
+in which each row
+is a single column of a specific type. To specify a value table as an argument,
+include only the `data_type`, leaving out the `column_name`:
+
+```sql
+parameter_name TABLE<data_type>
+```
+
+In many cases, the `data_type` of the single column in the value table is a
+protocol buffer; for example:
+
+```sql
+CREATE TEMP TABLE FUNCTION AggregatedMovieLogs(
+  TicketPurchases TABLE<analysis_conduit.codelab.MovieTicketPurchase>)
+```
+
+The function body can refer directly to fields within the proto.
+
+You have the option to specify the input table using the templated type `ANY
+TABLE` in place of `TABLE<column_name data_type [, ...]>`. This option enables
+you to create a polymorphic TVF that accepts any table as input.
+
+**Example**
+
+The following example implements a pair of TVFs that define parameterized views
+of a range of rows from the Customer table. The first returns all rows for a
+range of `CustomerIds`; the second calls the first function and applies an
+additional filter based on `CustomerType`.
+
+```sql
+CREATE TEMP TABLE FUNCTION CustomerRange(MinID INT64, MaxID INT64)
+AS (
+  SELECT *
+  FROM Customer
+  WHERE CustomerId >= MinId AND CustomerId <= MaxId
+);
+
+CREATE TEMP TABLE FUNCTION CustomerRangeWithCustomerType(
+  MinId INT64,
+  MaxId INT64,
+  customer_type ads.boulder.schema.CustomerType)
+AS (
+  SELECT *
+  FROM CustomerRange(MinId, MaxId)
+  WHERE type = customer_type
+);
+```
+
+The following function returns all rows from the input table if the first
+argument is greater than the second argument; otherwise it returns no rows.
+
+```sql
+CREATE TEMP TABLE FUNCTION MyFunction(
+     first ANY TYPE,
+     second ANY TYPE,
+     third ANY TABLE)
+   AS
+     SELECT *
+     FROM third
+     WHERE first > second;
+```
+
+The following function accepts two integers and a table with any set of columns
+and returns rows from the table where the predicate evaluates to true. The input
+table `selected_customers` must contain a column named `creation_time`, and
+`creation_time` must be a numeric type, or the function will return an error.
+
+```sql
+CREATE TEMP TABLE FUNCTION CustomerCreationTimeRange(
+    min_creation_time INT64,
+    max_creation_time INT64,
+    selected_customers ANY TABLE)
+  AS
+    SELECT *
+    FROM selected_customers
+    WHERE creation_time >= min_creation_time
+    AND creation_time <= max_creation_time;
+```
+
+#### Calling TVFs
+
+To call a TVF, use the function call in place of the table name in a `FROM`
+clause.
+
+There are two ways to pass a table as an argument to a TVF. You can use a
+subquery for the table argument, or you can use the name of a table, preceded by
+the keyword `TABLE`.
+
+**Examples**
+
+The following query calls the `CustomerRangeWithCustomerType` function to
+return a table with rows for customers with a CustomerId between 100
+and 200.
+
+```sql
+SELECT CustomerId, Info
+FROM CustomerRangeWithCustomerType(100, 200, 'CUSTOMER_TYPE_ADVERTISER');
+```
+
+The following query calls the `CustomerCreationTimeRange` function defined
+previously, passing the result of a subquery as the table argument.
+
+```sql
+SELECT *
+FROM
+  CustomerCreationTimeRange(
+    1577836800,  -- 2020-01-01 00:00:00 UTC
+    1609459199,  -- 2020-12-31 23:59:59 UTC
+    (
+      SELECT customer_id, customer_name, creation_time
+      FROM MyCustomerTable
+      WHERE customer_name LIKE '%Hernández'
+    ))
+```
+
+The following query calls `CustomerCreationTimeRange`, passing the table
+`MyCustomerTable` as an argument.
+
+```sql
+SELECT *
+FROM
+  CustomerCreationTimeRange(
+    1577836800,  -- 2020-01-01 00:00:00 UTC
+    1609459199,  -- 2020-12-31 23:59:59 UTC
+    TABLE MyCustomerTable)
+```
+
+### Templated function parameters
+
+A templated function parameter can match more than one argument type at
+function call time. If a function signature includes a
+templated function parameter, ZetaSQL allows function calls
+to pass to the function any argument type as long as the function body is
+valid for that argument type.
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[table-valued function]: #tvfs
+
+[tvf-syntax]: #tvf_structure
+
+[templated-parameters]: #templated_function_parameters
+
+[ext-udf-syntax]: #external_udf_structure
+
+[sql-udf-syntax]: #sql_udf_structure
+
+[javascript-data-types]: #javascript_udf_data_types
+
+[data-types]: #data-types
+
+[data-types-struct]: #struct_type
+
+[datamodel-value-tables]: #value_tables
+
+[aggregate-udf-parameters]: #aggregate_udf_parameters
+
+[group-by-link]: #group_by_clause
+
+[aggregate-fns-link]: #aggregate_functions
 
 <!-- mdlint on -->
 

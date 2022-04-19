@@ -71,7 +71,7 @@ absl::Status JsonPathEvaluator::Extract(absl::string_view json,
   return absl::OkStatus();
 }
 
-absl::optional<JSONValueConstRef> JsonPathEvaluator::Extract(
+std::optional<JSONValueConstRef> JsonPathEvaluator::Extract(
     JSONValueConstRef input) const {
   bool first_token = true;
   for (path_iterator_->Rewind(); !path_iterator_->End(); ++(*path_iterator_)) {
@@ -88,22 +88,22 @@ absl::optional<JSONValueConstRef> JsonPathEvaluator::Extract(
     }
 
     if (input.IsObject()) {
-      absl::optional<JSONValueConstRef> optional_member =
+      std::optional<JSONValueConstRef> optional_member =
           input.GetMemberIfExists(token);
       if (!optional_member.has_value()) {
-        return absl::nullopt;
+        return std::nullopt;
       }
       input = optional_member.value();
     } else if (input.IsArray()) {
       int64_t index;
       if (!absl::SimpleAtoi(token, &index) || index < 0 ||
           index >= input.GetArraySize()) {
-        return absl::nullopt;
+        return std::nullopt;
       }
       input = input.GetArrayElement(index);
     } else {
       // The path is not present in the JSON object.
-      return absl::nullopt;
+      return std::nullopt;
     }
   }
 
@@ -125,12 +125,12 @@ absl::Status JsonPathEvaluator::ExtractScalar(absl::string_view json,
   return absl::OkStatus();
 }
 
-absl::optional<std::string> JsonPathEvaluator::ExtractScalar(
+std::optional<std::string> JsonPathEvaluator::ExtractScalar(
     JSONValueConstRef input) const {
-  absl::optional<JSONValueConstRef> optional_json = Extract(input);
+  std::optional<JSONValueConstRef> optional_json = Extract(input);
   if (!optional_json.has_value() || optional_json->IsNull() ||
       optional_json->IsObject() || optional_json->IsArray()) {
-    return absl::nullopt;
+    return std::nullopt;
   }
 
   if (optional_json->IsString()) {
@@ -158,18 +158,18 @@ absl::Status JsonPathEvaluator::ExtractArray(absl::string_view json,
   return absl::OkStatus();
 }
 
-absl::optional<std::vector<JSONValueConstRef>> JsonPathEvaluator::ExtractArray(
+std::optional<std::vector<JSONValueConstRef>> JsonPathEvaluator::ExtractArray(
     JSONValueConstRef input) const {
-  absl::optional<JSONValueConstRef> json = Extract(input);
+  std::optional<JSONValueConstRef> json = Extract(input);
   if (!json.has_value() || json->IsNull() || !json->IsArray()) {
-    return absl::nullopt;
+    return std::nullopt;
   }
 
   return json->GetArrayElements();
 }
 
 absl::Status JsonPathEvaluator::ExtractStringArray(
-    absl::string_view json, std::vector<absl::optional<std::string>>* value,
+    absl::string_view json, std::vector<std::optional<std::string>>* value,
     bool* is_null) const {
   json_internal::JSONPathStringArrayExtractor array_parser(
       json, path_iterator_.get());
@@ -183,23 +183,23 @@ absl::Status JsonPathEvaluator::ExtractStringArray(
   return absl::OkStatus();
 }
 
-absl::optional<std::vector<absl::optional<std::string>>>
+std::optional<std::vector<std::optional<std::string>>>
 JsonPathEvaluator::ExtractStringArray(JSONValueConstRef input) const {
-  absl::optional<std::vector<JSONValueConstRef>> json_array =
+  std::optional<std::vector<JSONValueConstRef>> json_array =
       ExtractArray(input);
   if (!json_array.has_value()) {
-    return absl::nullopt;
+    return std::nullopt;
   }
 
-  std::vector<absl::optional<std::string>> results;
+  std::vector<std::optional<std::string>> results;
   results.reserve(json_array->size());
   for (JSONValueConstRef element : *json_array) {
     if (element.IsArray() || element.IsObject()) {
-      return absl::nullopt;
+      return std::nullopt;
     }
 
     if (element.IsNull()) {
-      results.push_back(absl::nullopt);
+      results.push_back(std::nullopt);
     } else if (element.IsString()) {
       // ToString() adds extra quotes and escapes special characters,
       // which we don't want.

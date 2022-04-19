@@ -142,7 +142,7 @@ absl::Status InternalAnalyzeExpressionFromParserAST(
   // Make sure we're starting from a clean state for CheckFieldsAccessed.
   resolved_expr->ClearFieldsAccessed();
 
-  auto original_output = absl::make_unique<AnalyzerOutput>(
+  auto original_output = std::make_unique<AnalyzerOutput>(
       options.id_string_pool(), options.arena(), std::move(resolved_expr),
       resolver.analyzer_output_properties(), std::move(parser_output),
       ConvertInternalErrorLocationsAndAdjustErrorStrings(

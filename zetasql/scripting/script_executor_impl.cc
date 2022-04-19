@@ -89,14 +89,14 @@ ParsedScript::QueryParameters GetQueryParameters(
   if (!params.has_value()) {
     return absl::nullopt;
   }
-  if (absl::holds_alternative<ParameterValueMap>(*params)) {
+  if (std::holds_alternative<ParameterValueMap>(*params)) {
     ParsedScript::StringSet parameter_names;
-    for (const auto& p : absl::get<ParameterValueMap>(*params)) {
+    for (const auto& p : std::get<ParameterValueMap>(*params)) {
       parameter_names.insert(p.first);
     }
     return parameter_names;
   } else {
-    return static_cast<int64_t>(absl::get<ParameterValueList>(*params).size());
+    return static_cast<int64_t>(std::get<ParameterValueList>(*params).size());
   }
 }
 }  // namespace
@@ -145,7 +145,7 @@ ScriptExecutorImpl::ScriptExecutorImpl(
       parsed_script->control_flow_graph().start_node();
   callstack_.emplace_back(StackFrameImpl(std::move(parsed_script), start_node));
   if (type_factory_ == nullptr) {
-    type_factory_holder_ = absl::make_unique<TypeFactory>();
+    type_factory_holder_ = std::make_unique<TypeFactory>();
     type_factory_ = type_factory_holder_.get();
   }
   SetSystemVariablesForPendingException();
@@ -1339,7 +1339,7 @@ absl::Status ScriptExecutorImpl::ExecuteCallStatement() {
     return AdvancePastCurrentStatement(
         absl::OkStatus());
   }
-  auto id_string_pool = absl::make_unique<IdStringPool>();
+  auto id_string_pool = std::make_unique<IdStringPool>();
   VariableMap variables;
   VariableSizesMap variable_sizes;
   ZETASQL_RETURN_IF_ERROR(CheckAndEvaluateProcedureArguments(
@@ -1435,17 +1435,17 @@ absl::Status ScriptExecutorImpl::UpdateAnalyzerOptionParameters(
   if (GetCurrentParameterValues().has_value()) {
     options->clear_query_parameters();
     options->clear_positional_query_parameters();
-    if (absl::holds_alternative<ParameterValueList>(
+    if (std::holds_alternative<ParameterValueList>(
             *GetCurrentParameterValues())) {
       options->set_parameter_mode(PARAMETER_POSITIONAL);
       for (const auto& value :
-           absl::get<ParameterValueList>(*GetCurrentParameterValues())) {
+           std::get<ParameterValueList>(*GetCurrentParameterValues())) {
         ZETASQL_RETURN_IF_ERROR(options->AddPositionalQueryParameter(value.type()));
       }
     } else {
       options->set_parameter_mode(PARAMETER_NAMED);
       for (const auto& [name, value] :
-           absl::get<ParameterValueMap>(*GetCurrentParameterValues())) {
+           std::get<ParameterValueMap>(*GetCurrentParameterValues())) {
         ZETASQL_RETURN_IF_ERROR(options->AddQueryParameter(name, value.type()));
       }
     }
@@ -1479,7 +1479,7 @@ ScriptExecutorImpl::EvaluateDynamicParams(
     ZETASQL_ASSIGN_OR_RETURN(Value param_value, evaluator_->EvaluateScalarExpression(
                                             *this, param_statement_segment,
                                             /*target_type=*/nullptr));
-    if (absl::holds_alternative<ParameterValueMap>(*stack_params)) {
+    if (std::holds_alternative<ParameterValueMap>(*stack_params)) {
       if (using_arg->alias() == nullptr) {
         return MakeScriptExceptionAt(curr_ast_node)
                << "EXECUTE IMMEDIATE USING parameters must be all positional "
@@ -1494,7 +1494,7 @@ ScriptExecutorImpl::EvaluateDynamicParams(
           absl::AsciiStrToLower(using_arg->alias()->GetAsString());
       // Params must be all unique (map::insert will return true in its second
       // tuple position if the insert was a new element)
-      if (!absl::get<ParameterValueMap>(*stack_params)
+      if (!std::get<ParameterValueMap>(*stack_params)
                .insert({param_name, param_value})
                .second) {
         return MakeScriptExceptionAt(using_arg->alias())
@@ -1515,7 +1515,7 @@ ScriptExecutorImpl::EvaluateDynamicParams(
       ZETASQL_RETURN_IF_ERROR(OnVariablesValueChangedWithSizeCheck(
           /*notify_evaluator=*/true, callstack_.back(),
           using_arg->expression(), {var}, variable_sizes_map));
-      absl::get<ParameterValueList>(*stack_params).push_back(param_value);
+      std::get<ParameterValueList>(*stack_params).push_back(param_value);
     }
   }
 
@@ -1655,7 +1655,7 @@ absl::Status ScriptExecutorImpl::ExecuteDynamicStatement() {
            << "EXECUTE IMMEDIATE sql string cannot be NULL";
   }
 
-  auto id_string_pool = absl::make_unique<IdStringPool>();
+  auto id_string_pool = std::make_unique<IdStringPool>();
   VariableSizesMap variable_sizes;
 
   ZETASQL_ASSIGN_OR_RETURN(
@@ -1687,7 +1687,7 @@ absl::Status ScriptExecutorImpl::ExecuteDynamicStatement() {
   // copy.
   std::string sql_string = sql_value.string_value();
   auto procedure_definition =
-      absl::make_unique<ProcedureDefinition>(signature, sql_string);
+      std::make_unique<ProcedureDefinition>(signature, sql_string);
   absl::StatusOr<std::unique_ptr<ParsedScript>> parsed_script_or_error =
       ParsedScript::Create(
           procedure_definition->body(), GetParserOptions(),
@@ -1873,7 +1873,7 @@ absl::Status ScriptExecutorImpl::SetState(
   for (const StackFrameProto& stack_frame_state : state.callstack()) {
     ZETASQL_RET_CHECK_LT(new_callstack.size(), options_.maximum_stack_depth())
         << "Out of stack space while restoring callstack";
-    auto id_string_pool = absl::make_unique<IdStringPool>();
+    auto id_string_pool = std::make_unique<IdStringPool>();
 
     VariableMap new_variables;
     VariableTypeParametersMap new_variable_type_params;
@@ -1977,7 +1977,7 @@ absl::Status ScriptExecutorImpl::SetState(
           ResetIteratorSizes(next_node, for_loop_stack));
     }
 
-    absl::optional<absl::variant<ParameterValueList, ParameterValueMap>>
+    std::optional<absl::variant<ParameterValueList, ParameterValueMap>>
         new_parameters;
     ZETASQL_RETURN_IF_ERROR(DeserializeParametersProto(
         stack_frame_state.parameters(), &new_parameters, &descriptor_pool_,
@@ -2397,7 +2397,7 @@ absl::Status ScriptExecutorImpl::DispatchException(
 
 absl::Status ScriptExecutorImpl::ExecuteSideEffects(
     const ControlFlowEdge& edge,
-    const absl::optional<ScriptException>& exception) {
+    const std::optional<ScriptException>& exception) {
   ControlFlowEdge::SideEffects side_effects = edge.ComputeSideEffects();
   if (!side_effects.destroyed_variables.empty()) {
     ZETASQL_RETURN_IF_ERROR(

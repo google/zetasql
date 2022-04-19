@@ -16,6 +16,7 @@
 
 #include "zetasql/testdata/sample_system_variables.h"
 
+#include <string>
 #include <vector>
 
 #include "zetasql/public/analyzer.h"

@@ -993,7 +993,7 @@ absl::Status Resolver::ResolveColumnDefinitionList(
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<NameScope> access_error_name_scope,
                      CreateNameScopeWithAccessErrorForDefaultExpr(
                          table_name_id_string, column_names));
-    zetasql_base::VarSetter<absl::optional<const NameScope*>> var_setter(
+    zetasql_base::VarSetter<std::optional<const NameScope*>> var_setter(
         &default_expr_access_error_name_scope_, access_error_name_scope.get());
     // Resolve all columns with default expressions.
     for (const auto& column : columns_with_default_value) {
@@ -3351,7 +3351,7 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
   }
 
   std::vector<std::string> function_name;
-  auto arg_info = absl::make_unique<FunctionArgumentInfo>();
+  auto arg_info = std::make_unique<FunctionArgumentInfo>();
   ZETASQL_RETURN_IF_ERROR(ResolveFunctionDeclaration(
       ast_statement->function_declaration(),
       is_aggregate ? ResolveFunctionDeclarationType::AGGREGATE_FUNCTION
@@ -3507,13 +3507,13 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
 
   std::unique_ptr<FunctionSignature> signature;
   if (has_return_type) {
-    signature = absl::make_unique<FunctionSignature>(
+    signature = std::make_unique<FunctionSignature>(
         return_type, arg_info->SignatureArguments(), /*context_id=*/0,
         signature_options);
   } else {
     const FunctionArgumentType any_type(ARG_TYPE_ARBITRARY,
                                         /*num_occurrences=*/1);
-    signature = absl::make_unique<FunctionSignature>(
+    signature = std::make_unique<FunctionSignature>(
         any_type, arg_info->SignatureArguments(), /*context_id=*/0,
         signature_options);
   }
@@ -3653,7 +3653,7 @@ absl::Status Resolver::ResolveCreateTableFunctionStatement(
       ast_statement, "CREATE TABLE FUNCTION", &create_scope, &create_mode));
 
   std::vector<std::string> function_name;
-  auto arg_info = absl::make_unique<FunctionArgumentInfo>();
+  auto arg_info = std::make_unique<FunctionArgumentInfo>();
   ZETASQL_RETURN_IF_ERROR(
       ResolveFunctionDeclaration(ast_statement->function_declaration(),
                                  ResolveFunctionDeclarationType::TABLE_FUNCTION,
@@ -4132,12 +4132,12 @@ absl::Status Resolver::ResolveCreateProcedureStatement(
 
   const std::vector<std::string> procedure_name =
       ast_statement->name()->ToIdentifierVector();
-  auto arg_info = absl::make_unique<FunctionArgumentInfo>();
+  auto arg_info = std::make_unique<FunctionArgumentInfo>();
   ZETASQL_RETURN_IF_ERROR(ResolveFunctionParameters(
       ast_statement->parameters(), ResolveFunctionDeclarationType::PROCEDURE,
       arg_info.get()));
 
-  auto signature = absl::make_unique<FunctionSignature>(
+  auto signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType(ARG_TYPE_VOID), arg_info->SignatureArguments(),
       /*context_id=*/0);
 
@@ -4318,7 +4318,7 @@ absl::Status Resolver::ResolveFunctionParameters(
           name,
           FunctionArgumentType(ARG_TYPE_RELATION, argument_type_options)));
     } else {
-      absl::optional<Value> default_value;
+      std::optional<Value> default_value;
       bool default_value_has_explicit_type = false;
       if (function_param->default_value() != nullptr) {
         if (!language().LanguageFeatureEnabled(

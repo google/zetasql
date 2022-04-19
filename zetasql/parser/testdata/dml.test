@@ -4073,14 +4073,6 @@ VALUES
   (null)
 ==
 
-# Hints are not allowed on the to-be deleted table.
-@{a=b} delete from t1 @{a=b}
---
-ERROR: Syntax error: Unexpected "@" [at 1:23]
-@{a=b} delete from t1 @{a=b}
-                      ^
-==
-
 [no_test_get_parse_tokens]
 [{{no_|}}allow_dashed_table_names]
 insert into project-987654321.a.b values (1)

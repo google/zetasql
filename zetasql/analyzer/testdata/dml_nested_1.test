@@ -2055,3 +2055,35 @@ UpdateStmt
               +-DMLValue
                 +-value=
                   +-Literal(type=INT64, value=0)
+==
+
+# No hints allowed in nested DELETE
+UPDATE TestTable SET
+  (DELETE KitchenSink.repeated_int64_val @{hint=value}
+   WHERE repeated_int64_val = 1)
+WHERE true
+--
+ERROR: Nested DELETE statement does not support hints [at 2:42]
+  (DELETE KitchenSink.repeated_int64_val @{hint=value}
+                                         ^
+==
+
+# No hints allowed in nested UPDATE.
+UPDATE TestTable SET
+  (UPDATE KitchenSink.repeated_int64_val @{hint=value}
+   SET repeated_int64_val = 1 WHERE repeated_int64_val > 5)
+WHERE true
+--
+ERROR: Nested UPDATE statement does not support hints [at 2:42]
+  (UPDATE KitchenSink.repeated_int64_val @{hint=value}
+                                         ^
+==
+
+# No hints allowed in nested INSERT.
+UPDATE TestTable SET
+  (INSERT KitchenSink.repeated_int64_val @{hint=value} VALUES (1))
+WHERE true
+--
+ERROR: Nested INSERT statement does not support hints [at 2:42]
+  (INSERT KitchenSink.repeated_int64_val @{hint=value} VALUES (1))
+                                         ^

@@ -54,7 +54,7 @@ absl::Status ResolvedNode::ChildrenAccept(ResolvedASTVisitor* visitor) const {
 void ResolvedNode::SetParseLocationRange(
     const ParseLocationRange& parse_location_range) {
   parse_location_range_ =
-      absl::make_unique<ParseLocationRange>(parse_location_range);
+      std::make_unique<ParseLocationRange>(parse_location_range);
 }
 
 void ResolvedNode::ClearParseLocationRange() { parse_location_range_.reset(); }
@@ -408,7 +408,7 @@ std::string ResolvedFunctionCallBase::GetNameForDebugString() const {
       node_kind_string(), "(",
       error_mode_ == SAFE_ERROR_MODE ? "{SAFE_ERROR_MODE} " : "",
       function_ != nullptr ? function_->DebugString() : "<unknown>",
-      signature_.DebugString(), ")");
+      signature_->DebugString(), ")");
 }
 
 // ResolvedCast gets formatted as

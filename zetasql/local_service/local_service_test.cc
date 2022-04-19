@@ -51,7 +51,6 @@
 
 namespace zetasql {
 
-using google::protobuf::Int64Value;
 using ::zetasql::testing::EqualsProto;
 using ::testing::IsEmpty;
 using ::testing::Not;
@@ -63,11 +62,11 @@ class ZetaSqlLocalServiceImplTest : public ::testing::Test {
  protected:
   void SetUp() override {
     source_tree_ = CreateProtoSourceTree();
-    proto_importer_ = absl::make_unique<google::protobuf::compiler::Importer>(
+    proto_importer_ = std::make_unique<google::protobuf::compiler::Importer>(
         source_tree_.get(), nullptr);
     ASSERT_NE(nullptr, proto_importer_->Import(
                            "zetasql/testdata/test_schema.proto"));
-    pool_ = absl::make_unique<google::protobuf::DescriptorPool>(proto_importer_->pool());
+    pool_ = std::make_unique<google::protobuf::DescriptorPool>(proto_importer_->pool());
     // We expect 1, the builtin descriptor pool.
     EXPECT_EQ(1, service_.NumRegisteredDescriptorPools());
     EXPECT_EQ(0, service_.NumRegisteredCatalogs());

@@ -656,11 +656,9 @@ SELECT
       GROUP BY f3)
 FROM T GROUP BY f1;
 --
-
-ERROR: Syntax error: Expected GROUP_ROWS but got "(" [at 3:6]
-     (
-     ^
-
+ERROR: Saw WITH directly after a function call, which is not allowed. Did you forget to put a comma before the WITH, or did you mean "WITH GROUP_ROWS"? [at 2:10]
+  AVG(x) WITH
+         ^
 ==
 
 # GROUP_ROWS(): missing () next to FROM GROUP_ROWS

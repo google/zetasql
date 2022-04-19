@@ -80,7 +80,7 @@ class EvaluatorTestTable : public SimpleTable {
       }
     }
 
-    return absl::make_unique<SimpleEvaluatorTableIterator>(
+    return std::make_unique<SimpleEvaluatorTableIterator>(
         columns, column_values, num_rows(), end_status_,
         scan_column_filter_idxs, cancel_cb_, set_deadline_cb_, clock_);
   }

@@ -578,7 +578,7 @@ class ScriptExecutorImpl : public ScriptExecutor {
   // only for edges of kind kException.
   absl::Status ExecuteSideEffects(
       const ControlFlowEdge& edge,
-      const absl::optional<ScriptException>& exception);
+      const std::optional<ScriptException>& exception);
 
   // Updates the current position of the script, given the execution of a given
   // control-flow edge.  Returns true if exiting a procedure, indicating that

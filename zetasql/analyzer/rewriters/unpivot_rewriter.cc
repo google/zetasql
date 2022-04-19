@@ -183,6 +183,7 @@ absl::Status UnpivotRewriterVisitor::VisitResolvedUnpivotScan(
     const Function* is_not_function;
     ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"$not"}, &is_not_function,
                                         analyzer_options_.find_options()));
+    ZETASQL_RET_CHECK(is_not_function->IsZetaSQLBuiltin());
     std::vector<std::unique_ptr<ResolvedExpr>> is_not_args;
     is_not_args.push_back(std::move(is_null_function_expr));
     std::unique_ptr<ResolvedExpr> is_not_function_expr =
@@ -205,6 +206,7 @@ absl::Status UnpivotRewriterVisitor::VisitResolvedUnpivotScan(
     const Function* or_function;
     ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"$or"}, &or_function,
                                         analyzer_options_.find_options()));
+    ZETASQL_RET_CHECK(or_function->IsZetaSQLBuiltin());
     filter_expression = MakeResolvedFunctionCall(
         types::BoolType(), or_function,
         FunctionSignature(
@@ -279,6 +281,7 @@ UnpivotRewriterVisitor::CreateArrayScanWithStructElements(
                                       analyzer_options_.find_options()))
       << "UNPIVOT is not supported since the engine does not support "
          "make_array function";
+  ZETASQL_RET_CHECK(make_array_function->IsZetaSQLBuiltin());
   ZETASQL_RET_CHECK_NE(make_array_function, nullptr);
   FunctionArgumentType function_arg(
       *struct_type, FunctionArgumentType::REPEATED,

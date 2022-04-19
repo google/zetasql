@@ -514,6 +514,7 @@ public class SimpleCatalogTest {
             + "    }\n"
             + "    is_pseudo_column: false\n"
             + "    is_writable_column: true\n"
+            + "    can_update_unwritable_to_default: false\n"
             + "  }\n"
             + "}\n"
             + "named_type {\n"

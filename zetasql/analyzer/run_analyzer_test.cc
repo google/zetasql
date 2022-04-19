@@ -16,6 +16,7 @@
 
 #include "zetasql/analyzer/run_analyzer_test.h"
 
+#include <algorithm>
 #include <functional>
 #include <map>
 #include <memory>
@@ -101,6 +102,28 @@
 ABSL_FLAG(std::string, test_file, "", "location of test data file.");
 
 namespace zetasql {
+
+// TODO: Remove this or make it a SQLBuilder option.
+// SQLBuilder that will output a qualified path for tables in nested catalogs.
+// This depends on the table's FullName being that path, which is not generally
+// required to be true by the zetasql::Table contract, but is true for the
+// test tables we provide in this test (and is also true for clients that need
+// perform this kind of override). This override is the only way that a
+// resolved statement that involves tables that can only be found in a nested
+// catalog can be outputted into a correct SQL string (meaning one that can be
+// re-resolved correctly into the same or equivalent resolved statement).
+class SQLBuilderWithNestedCatalogSupport : public SQLBuilder {
+ public:
+  explicit SQLBuilderWithNestedCatalogSupport(
+      const SQLBuilderOptions& options = SQLBuilderOptions())
+      : SQLBuilder(options) {}
+
+  std::string TableToIdentifierLiteral(const Table* table) override {
+    std::string full_name = table->FullName();
+    std::vector<std::string> split = absl::StrSplit(full_name, '.');
+    return IdentifierPathToString(split, true);
+  }
+};
 
 // Make the unittest fail with message <str>, and also return <str> so it
 // can be used in the file-based output to make it easy to find.
@@ -220,7 +243,7 @@ absl::StatusOr<std::unique_ptr<AnalyzerOutput>> CopyAnalyzerOutput(
   ResolvedASTDeepCopyVisitor visitor;
   if (output.resolved_statement() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(output.resolved_statement()->Accept(&visitor));
-    return absl::make_unique<AnalyzerOutput>(
+    return std::make_unique<AnalyzerOutput>(
         output.id_string_pool(), output.arena(),
         *visitor.ConsumeRootNode<ResolvedStatement>(),
         output.analyzer_output_properties(),
@@ -229,7 +252,7 @@ absl::StatusOr<std::unique_ptr<AnalyzerOutput>> CopyAnalyzerOutput(
         output.undeclared_positional_parameters(), output.max_column_id());
   } else if (output.resolved_expr() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(output.resolved_expr()->Accept(&visitor));
-    return absl::make_unique<AnalyzerOutput>(
+    return std::make_unique<AnalyzerOutput>(
         output.id_string_pool(), output.arena(),
         *visitor.ConsumeRootNode<ResolvedExpr>(),
         output.analyzer_output_properties(),
@@ -312,7 +335,7 @@ class AnalyzerTestRunner {
               const AnalyzerOptions& analyzer_options,
               TypeFactory* type_factory) {
       if (catalog_name == "SampleCatalog") {
-        sample_catalog_ = absl::make_unique<SampleCatalog>(
+        sample_catalog_ = std::make_unique<SampleCatalog>(
             analyzer_options.language(), type_factory);
         catalog_ = sample_catalog_->catalog();
       } else if (catalog_name == "SpecialCatalog") {
@@ -335,7 +358,7 @@ class AnalyzerTestRunner {
       const AnalyzerOptions& analyzer_options,
       TypeFactory* type_factory) {
     const std::string catalog_name = test_case_options_.GetString(kUseCatalog);
-    auto holder = absl::make_unique<CatalogHolder>(
+    auto holder = std::make_unique<CatalogHolder>(
         catalog_name, analyzer_options, type_factory);
     return holder;
   }
@@ -611,6 +634,14 @@ class AnalyzerTestRunner {
           absl::StrSplit(entity_types_config, ',');
       options.mutable_language()->SetSupportedGenericEntityTypes(entity_types);
     }
+    std::string sub_entity_types_config =
+        test_case_options_.GetString(kSupportedGenericSubEntityTypes);
+    if (!sub_entity_types_config.empty()) {
+      std::vector<std::string> sub_entity_types =
+          absl::StrSplit(sub_entity_types_config, ',');
+      options.mutable_language()->SetSupportedGenericSubEntityTypes(
+          sub_entity_types);
+    }
 
     options.set_preserve_unnecessary_cast(
         test_case_options_.GetBool(kPreserveUnnecessaryCast));
@@ -787,21 +818,21 @@ class AnalyzerTestRunner {
                      TypeFactory* type_factory,
                      file_based_test_driver::RunTestCaseResult* test_result) {
     const Type* type;
-    TypeParameters type_params;
-    const absl::Status status = AnalyzeType(test_case, options, catalog,
-                                            type_factory, &type, &type_params);
-
+    TypeModifiers type_modifiers;
+    const absl::Status status = AnalyzeType(
+        test_case, options, catalog, type_factory, &type, &type_modifiers);
     if (status.ok()) {
       test_result->AddTestOutput(
-          type->TypeNameWithParameters(type_params, PRODUCT_INTERNAL).value());
+          type->TypeNameWithModifiers(type_modifiers, PRODUCT_INTERNAL)
+              .value());
 
       // Test that the type's TypeName can be reparsed as the same type.
       const Type* reparsed_type;
-      TypeParameters reparsed_type_params;
+      TypeModifiers reparsed_type_modifiers;
       const absl::Status reparse_status = AnalyzeType(
-          type->TypeNameWithParameters(type_params, PRODUCT_INTERNAL).value(),
+          type->TypeNameWithModifiers(type_modifiers, PRODUCT_INTERNAL).value(),
           options, catalog, type_factory, &reparsed_type,
-          &reparsed_type_params);
+          &reparsed_type_modifiers);
       if (!reparse_status.ok()) {
         test_result->AddTestOutput(
             AddFailure(absl::StrCat("FAILED reparsing type->DebugString: ",
@@ -810,10 +841,10 @@ class AnalyzerTestRunner {
         test_result->AddTestOutput(AddFailure(absl::StrCat(
             "FAILED: got different type on reparsing DebugString: ",
             reparsed_type->DebugString())));
-      } else if (!type_params.Equals(reparsed_type_params)) {
+      } else if (!type_modifiers.Equals(reparsed_type_modifiers)) {
         test_result->AddTestOutput(AddFailure(absl::StrCat(
-            "FAILED: got different type parameters on reparsing DebugString: ",
-            reparsed_type_params.DebugString())));
+            "FAILED: got different type modifiers on reparsing DebugString: ",
+            reparsed_type_modifiers.DebugString())));
       }
     } else {
       test_result->AddTestOutput(absl::StrCat("ERROR: ", FormatError(status)));
@@ -2404,7 +2435,7 @@ class AnalyzerTestRunner {
         << "ResolvedAST passed to SQLBuilder should be either a "
         "ResolvedStatement or a ResolvedExpr";
 
-    SQLBuilder builder(builder_options);
+    SQLBuilderWithNestedCatalogSupport builder(builder_options);
     absl::Status visitor_status = builder.Process(*ast);
 
     if (!visitor_status.ok()) {
@@ -2412,9 +2443,10 @@ class AnalyzerTestRunner {
         EXPECT_EQ(visitor_status.code(), absl::StatusCode::kInternal)
             << "Query cannot return internal error without "
                "["
-            << kAllowInternalError << "] option: " << visitor_status;
+            << kAllowInternalError << "] option: " << visitor_status
+            << "; input_ast: " << ast->DebugString();
       } else {
-        ZETASQL_EXPECT_OK(visitor_status);
+        ZETASQL_EXPECT_OK(visitor_status) << "; input_ast: " << ast->DebugString();
       }
 
       *result_string =
@@ -2436,9 +2468,10 @@ class AnalyzerTestRunner {
                                 &unparsed_output);
     bool unparsed_tree_matches_original_tree = false;
     // Re-analyzing the query should never fail.
-    ZETASQL_ASSERT_OK(re_analyze_status)
-        << "Original SQL:\n" << test_case
-        << "\nSQLBuilder SQL:\n" << builder.sql();
+    ZETASQL_ASSERT_OK(re_analyze_status) << "Original SQL:\n"
+                                 << test_case << "\nSQLBuilder SQL:\n"
+                                 << builder.sql() << "\nAST to unparse:\n"
+                                 << ast->DebugString();
 
     unparsed_tree_matches_original_tree = is_statement
         ? CompareStatement(analyzer_output->resolved_statement(),

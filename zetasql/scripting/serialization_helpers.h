@@ -50,14 +50,14 @@ absl::Status SerializeProcedureDefinitionProto(
 
 // Serialize <parameters> into <parameters_proto>
 absl::Status SerializeParametersProto(
-    const absl::optional<absl::variant<ParameterValueList, ParameterValueMap>>&
+    const std::optional<absl::variant<ParameterValueList, ParameterValueMap>>&
         parameters,
     ParametersProto* parameters_proto);
 
 // Deserializes from <parameters_proto> into <parameters>.
 absl::Status DeserializeParametersProto(
     const ParametersProto& parameters_proto,
-    absl::optional<absl::variant<ParameterValueList, ParameterValueMap>>*
+    std::optional<absl::variant<ParameterValueList, ParameterValueMap>>*
         parameters,
     google::protobuf::DescriptorPool* descriptor_pool, IdStringPool* id_string_pool,
     TypeFactory* type_factory);

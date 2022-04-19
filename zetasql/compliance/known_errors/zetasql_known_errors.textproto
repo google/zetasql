@@ -38,6 +38,8 @@ known_errors {
   label: ".*hll.*"
   label: ".*kll.*"
   label: ".*approx.*"
+  label: "anonymization_test:anonymization_verify_non_randomness_of_anon_quantiles_explicit_bounds"
+  label: "anonymization_test:anonymization_verify_non_randomness_of_anon_quantiles_explicit_bounds_2"
 }
 known_errors {
   reason: "Security functions not yet open source (b/174485292)"
@@ -141,4 +143,11 @@ known_errors {
   label: "code:parse_timestamp.*%A.*"
   label: "code:parse_timestamp.*%w.*"
   label: "code:parse_timestamp.*%u.*"
+}
+
+known_errors {
+  mode: ALLOW_UNIMPLEMENTED
+  reason: "Unsupported query shape: A struct value cannot be returned as a column value."
+  label: "regression_test:b/228574862_1"
+  label: "regression_test:b/228574862_2"
 }

@@ -114,7 +114,7 @@ absl::Status ParseStatement(absl::string_view statement_string,
   ZETASQL_RET_CHECK(ast_node != nullptr);
   std::unique_ptr<ASTStatement> statement(
       ast_node.release()->GetAsOrDie<ASTStatement>());
-  *output = absl::make_unique<ParserOutput>(
+  *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(statement));
   return absl::OkStatus();
@@ -145,7 +145,7 @@ absl::Status ParseScript(absl::string_view script_string,
   }
   ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationAndAdjustErrorString(
       error_message_mode, script_string, status));
-  *output = absl::make_unique<ParserOutput>(
+  *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(script));
   return absl::OkStatus();
@@ -192,7 +192,7 @@ absl::Status ParseNextStatementInternal(ParseResumeLocation* resume_location,
       ast_node.release()->GetAsOrDie<ASTStatement>());
   resume_location->set_byte_position(next_statement_byte_offset);
 
-  *output = absl::make_unique<ParserOutput>(
+  *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(statement));
   return absl::OkStatus();
@@ -238,7 +238,7 @@ absl::Status ParseType(absl::string_view type_string,
   ZETASQL_RET_CHECK(ast_node->IsType());
   std::unique_ptr<ASTType> type(ast_node.release()->GetAsOrDie<ASTType>());
 
-  *output = absl::make_unique<ParserOutput>(
+  *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(type));
   return absl::OkStatus();
@@ -266,10 +266,9 @@ absl::Status ParseExpression(absl::string_view expression_string,
   ZETASQL_RET_CHECK(ast_node->IsExpression());
   std::unique_ptr<ASTExpression> expression(
       ast_node.release()->GetAsOrDie<ASTExpression>());
-  *output = absl::make_unique<ParserOutput>(
+  *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
-      std::move(other_allocated_ast_nodes),
-      std::move(expression));
+      std::move(other_allocated_ast_nodes), std::move(expression));
   return absl::OkStatus();
 }
 
@@ -294,10 +293,9 @@ absl::Status ParseExpression(const ParseResumeLocation& resume_location,
   ZETASQL_RET_CHECK(ast_node != nullptr);
   std::unique_ptr<ASTExpression> expression(
       ast_node.release()->GetAsOrDie<ASTExpression>());
-  *output = absl::make_unique<ParserOutput>(
+  *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
-      std::move(other_allocated_ast_nodes),
-      std::move(expression));
+      std::move(other_allocated_ast_nodes), std::move(expression));
   return absl::OkStatus();
 }
 

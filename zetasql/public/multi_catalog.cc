@@ -176,12 +176,4 @@ std::string MultiCatalog::SuggestConstant(
   return "";
 }
 
-std::vector<std::string> MultiCatalog::CatalogNames() const {
-  std::vector<std::string> names;
-  for (const Catalog* catalog : catalog_list_) {
-    names.push_back(catalog->FullName());
-  }
-  return names;
-}
-
 }  // namespace zetasql

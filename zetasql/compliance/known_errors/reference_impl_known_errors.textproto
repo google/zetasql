@@ -30,3 +30,8 @@ known_errors {
   mode: ALLOW_ERROR
   label: "hll_count_test:safe_hll_count_extract_invalid_sketch"
 }
+
+known_errors {
+  mode: ALLOW_ERROR
+  reason: "We did not yet implement error propagation. See b/219066383"
+}

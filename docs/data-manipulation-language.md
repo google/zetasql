@@ -1477,7 +1477,7 @@ Inventory
 
 [coercion]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#coercion
 
-[functions-and-operators]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md
+[functions-and-operators]: https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md
 
 [statement-rules]: #statement_rules
 

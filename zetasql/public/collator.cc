@@ -17,6 +17,8 @@
 #include "zetasql/public/collator.h"
 
 #include <cstdint>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -63,15 +65,15 @@ static absl::Status ValidateCollationName(
     absl::string_view collation_name,
     CollatorLegacyUnicodeMode legacy_unicode_mode,
     CollatorMode& collator_mode_out,
-    absl::optional<std::string>& icu_language_tag_out,
-    absl::optional<bool>& case_insensitive_out) {
+    std::optional<std::string>& icu_language_tag_out,
+    std::optional<bool>& case_insensitive_out) {
   if (collation_name.empty()) {
     return MakeCollationError(collation_name,
                               "cannot contain empty language_tag");
   }
   collator_mode_out = CollatorMode::kInvalidCollatorMode;
-  icu_language_tag_out = absl::nullopt;
-  case_insensitive_out = absl::nullopt;  // default is case-sensitive
+  icu_language_tag_out = std::nullopt;
+  case_insensitive_out = std::nullopt;  // default is case-sensitive
 
   const std::vector<absl::string_view> parts =
       absl::StrSplit(collation_name, ':');
@@ -91,8 +93,8 @@ static absl::Status ValidateCollationName(
     }
     collator_mode_out = CollatorMode::kBinary;
     // Binary has no tag, and no concept of case sensitivity.
-    icu_language_tag_out = absl::nullopt;
-    case_insensitive_out = absl::nullopt;
+    icu_language_tag_out = std::nullopt;
+    case_insensitive_out = std::nullopt;
     return absl::OkStatus();
   }
 
@@ -142,8 +144,8 @@ static absl::Status ValidateCollationName(
   if (is_legacy_unicode_tag && !case_insensitive) {
     // Regular binary comparison
     collator_mode_out = CollatorMode::kBinary;
-    icu_language_tag_out = absl::nullopt;
-    case_insensitive_out = absl::nullopt;
+    icu_language_tag_out = std::nullopt;
+    case_insensitive_out = std::nullopt;
     return absl::OkStatus();
   } else /* !is_legacy_unicode_tag */ {
     // Normal icu case.
@@ -271,8 +273,8 @@ absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>> MakeSqlCollator(
     absl::string_view collation_name,
     CollatorLegacyUnicodeMode legacy_unicode_mode) {
   CollatorMode collator_mode = CollatorMode::kInvalidCollatorMode;
-  absl::optional<std::string> icu_language_tag;
-  absl::optional<bool> case_insensitive;
+  std::optional<std::string> icu_language_tag;
+  std::optional<bool> case_insensitive;
 
   ZETASQL_RETURN_IF_ERROR(ValidateCollationName(collation_name, legacy_unicode_mode,
                                         collator_mode, icu_language_tag,
@@ -283,7 +285,7 @@ absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>> MakeSqlCollator(
   if (collator_mode == CollatorMode::kBinary
       ) {
     // Don't need icu for this case.
-    return absl::make_unique<const ZetaSqlCollatorIcu>(
+    return std::make_unique<const ZetaSqlCollatorIcu>(
         collator_mode, /*icu_collator=*/nullptr);
   }
 
@@ -313,8 +315,8 @@ absl::StatusOr<std::unique_ptr<const ZetaSqlCollator>> MakeSqlCollator(
     // We do nothing here as comparisons are case-sensitive by default in
     // icu::RuleBasedCollator.
   }
-  return absl::make_unique<const ZetaSqlCollatorIcu>(collator_mode,
-                                                       std::move(icu_collator));
+  return std::make_unique<const ZetaSqlCollatorIcu>(collator_mode,
+                                                      std::move(icu_collator));
 }
 
 }  // namespace zetasql

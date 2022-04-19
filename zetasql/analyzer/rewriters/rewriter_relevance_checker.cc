@@ -89,7 +89,11 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
       case FN_ARRAY_INCLUDES:
       case FN_ARRAY_INCLUDES_LAMBDA:
       case FN_ARRAY_INCLUDES_ANY:
+      case FN_ARRAY_INCLUDES_ALL:
         applicable_rewrites_->insert(REWRITE_ARRAY_INCLUDES);
+        break;
+      case FN_ARRAY_FIRST:
+        applicable_rewrites_->insert(REWRITE_ARRAY_FIRST_LAST);
         break;
       case FN_TYPEOF:
         applicable_rewrites_->insert(REWRITE_TYPEOF_FUNCTION);
@@ -109,6 +113,9 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
       case FN_ANON_PERCENTILE_CONT_DOUBLE:
       case FN_ANON_PERCENTILE_CONT_DOUBLE_ARRAY:
         applicable_rewrites_->insert(REWRITE_ANONYMIZATION);
+        break;
+      case FN_NULLIFERROR:
+        applicable_rewrites_->insert(REWRITE_NULLIFERROR_FUNCTION);
         break;
       default:
         break;

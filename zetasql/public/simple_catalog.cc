@@ -17,6 +17,7 @@
 #include "zetasql/public/simple_catalog.h"
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
 #include <vector>
@@ -710,8 +711,7 @@ void SimpleCatalog::AddZetaSQLFunctions(
         catalog = sub_entry->second.get();
         ZETASQL_CHECK(catalog != nullptr) << "internal state corrupt: " << space;
       } else {
-        auto new_catalog =
-            absl::make_unique<SimpleCatalog>(space, type_factory);
+        auto new_catalog = std::make_unique<SimpleCatalog>(space, type_factory);
         AddCatalogLocked(space, new_catalog.get());
         catalog = new_catalog.get();
         ZETASQL_CHECK(
@@ -742,8 +742,7 @@ void SimpleCatalog::AddZetaSQLFunctions(
         catalog = sub_entry->second.get();
         ZETASQL_CHECK(catalog != nullptr) << "internal state corrupt: " << space;
       } else {
-        auto new_catalog =
-            absl::make_unique<SimpleCatalog>(space, type_factory);
+        auto new_catalog = std::make_unique<SimpleCatalog>(space, type_factory);
         AddCatalogLocked(space, new_catalog.get());
         catalog = new_catalog.get();
         ZETASQL_CHECK(
@@ -754,17 +753,78 @@ void SimpleCatalog::AddZetaSQLFunctions(
     catalog->AddOwnedFunction(path.back(), std::move(function_pair.second));
   }
 }
-
-void SimpleCatalog::ClearFunctions() {
-  absl::MutexLock l(&mutex_);
-  functions_.clear();
-  owned_functions_.clear();
-  for (const auto& pair : owned_zetasql_subcatalogs_) {
-    catalogs_.erase(pair.first);
+int SimpleCatalog::RemoveFunctionsLocked(
+    std::function<bool(const Function*)> predicate,
+    std::vector<std::unique_ptr<const Function>>& removed) {
+  int num_removed = 0;
+  for (const auto& [_, sub_catalog] : owned_zetasql_subcatalogs_) {
+    num_removed += sub_catalog->RemoveFunctions(predicate, removed);
   }
-  owned_zetasql_subcatalogs_.clear();
+  for (auto& [_, sub_catalog] : catalogs_) {
+    if (sub_catalog->Is<SimpleCatalog>()) {
+      num_removed += sub_catalog->GetAs<SimpleCatalog>()->RemoveFunctions(
+          predicate, removed);
+    }
+  }
+  num_removed += absl::erase_if(
+      functions_,
+      [predicate](std::pair<const std::string, const Function*> pair) {
+        return predicate(pair.second);
+      });
+  for (auto it = owned_functions_.begin(); it < owned_functions_.end(); ++it) {
+    if (predicate(it->get())) {
+      removed.emplace_back(std::move(*it));
+      owned_functions_.erase(it);
+    }
+  }
+  return num_removed;
 }
 
+int SimpleCatalog::RemoveFunctions(
+    std::function<bool(const Function*)> predicate) {
+  absl::MutexLock l(&mutex_);
+  std::vector<std::unique_ptr<const Function>> removed;
+  return RemoveFunctionsLocked(predicate, removed);
+}
+
+int SimpleCatalog::RemoveTableValuedFunctionsLocked(
+    std::function<bool(const TableValuedFunction*)> predicate,
+    std::vector<std::unique_ptr<const TableValuedFunction>>& removed) {
+  int num_removed = 0;
+  for (const auto& [_, sub_catalog] : owned_zetasql_subcatalogs_) {
+    num_removed += sub_catalog->RemoveTableValuedFunctions(predicate, removed);
+  }
+  for (auto& [_, sub_catalog] : catalogs_) {
+    if (sub_catalog->Is<SimpleCatalog>()) {
+      num_removed +=
+          sub_catalog->GetAs<SimpleCatalog>()->RemoveTableValuedFunctions(
+              predicate, removed);
+    }
+  }
+  num_removed += absl::erase_if(
+      table_valued_functions_,
+      [predicate](
+          std::pair<const std::string, const TableValuedFunction*> pair) {
+        return predicate(pair.second);
+      });
+  for (auto it = owned_table_valued_functions_.begin();
+       it < owned_table_valued_functions_.end(); ++it) {
+    if (predicate(it->get())) {
+      removed.emplace_back(std::move(*it));
+      owned_table_valued_functions_.erase(it);
+    }
+  }
+  return num_removed;
+}
+
+int SimpleCatalog::RemoveTableValuedFunctions(
+    std::function<bool(const TableValuedFunction*)> predicate) {
+  absl::MutexLock l(&mutex_);
+  std::vector<std::unique_ptr<const TableValuedFunction>> removed;
+  return RemoveTableValuedFunctionsLocked(predicate, removed);
+}
+
+// DEPRECATED
 void SimpleCatalog::ClearTableValuedFunctions() {
   absl::MutexLock l(&mutex_);
   table_valued_functions_.clear();
@@ -779,7 +839,7 @@ TypeFactory* SimpleCatalog::type_factory() {
   absl::MutexLock l(&mutex_);
   if (type_factory_ == nullptr) {
     ZETASQL_DCHECK(owned_type_factory_ == nullptr);
-    owned_type_factory_ = absl::make_unique<TypeFactory>();
+    owned_type_factory_ = std::make_unique<TypeFactory>();
     type_factory_ = owned_type_factory_.get();
   }
   return type_factory_;
@@ -1212,7 +1272,7 @@ SimpleTable::SimpleTable(absl::string_view name,
                          const int64_t serialization_id)
     : name_(name), id_(serialization_id) {
   for (const NameAndAnnotatedType& name_and_annotated_type : columns) {
-    auto column = absl::make_unique<SimpleColumn>(
+    auto column = std::make_unique<SimpleColumn>(
         name_, name_and_annotated_type.first, name_and_annotated_type.second);
     ZETASQL_CHECK_OK(AddColumn(column.release(), /*is_owned=*/true));
   }
@@ -1448,20 +1508,19 @@ absl::StatusOr<std::unique_ptr<SimpleTable>> SimpleTable::Deserialize(
 
 SimpleColumn::SimpleColumn(const std::string& table_name,
                            const std::string& name, const Type* type,
-                           bool is_pseudo_column, bool is_writable_column)
+                           const SimpleColumn::Attributes& attributes)
     : SimpleColumn(table_name, name,
                    AnnotatedType(type, /*annotation_map=*/nullptr),
-                   is_pseudo_column, is_writable_column) {}
+                   attributes) {}
 
 SimpleColumn::SimpleColumn(const std::string& table_name,
                            const std::string& name,
-                           AnnotatedType annotated_type, bool is_pseudo_column,
-                           bool is_writable_column)
+                           AnnotatedType annotated_type,
+                           const SimpleColumn::Attributes& attributes)
     : name_(name),
       full_name_(absl::StrCat(table_name, ".", name)),
-      is_pseudo_column_(is_pseudo_column),
-      is_writable_column_(is_writable_column),
-      annotated_type_(annotated_type) {}
+      annotated_type_(annotated_type),
+      attributes_(attributes) {}
 
 SimpleColumn::~SimpleColumn() {
 }
@@ -1481,6 +1540,9 @@ absl::Status SimpleColumn::Serialize(
   if (!IsWritableColumn()) {
     proto->set_is_writable_column(false);
   }
+  if (CanUpdateUnwritableToDefault()) {
+    proto->set_can_update_unwritable_to_default(true);
+  }
   return absl::OkStatus();
 }
 
@@ -1494,9 +1556,12 @@ absl::StatusOr<std::unique_ptr<SimpleColumn>> SimpleColumn::Deserialize(
     ZETASQL_RETURN_IF_ERROR(type_deserializer.type_factory()->DeserializeAnnotationMap(
         proto.annotation_map(), &annotation_map));
   }
-  return absl::make_unique<SimpleColumn>(
+  return std::make_unique<SimpleColumn>(
       table_name, proto.name(), AnnotatedType(type, annotation_map),
-      proto.is_pseudo_column(), proto.is_writable_column());
+      SimpleColumn::Attributes{.is_pseudo_column = proto.is_pseudo_column(),
+                               .is_writable_column = proto.is_writable_column(),
+                               .can_update_unwritable_to_default =
+                                   proto.can_update_unwritable_to_default()});
 }
 
 // static

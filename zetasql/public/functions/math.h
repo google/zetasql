@@ -87,6 +87,14 @@ inline bool Sech(T in, T* out, absl::Status* error);
 template <typename T>
 inline bool Coth(T in, T* out, absl::Status* error);
 
+template <typename T>
+inline bool Pi(T* out, absl::Status* error);
+
+template <typename T>
+inline bool Radians(T in, T* out, absl::Status* error);
+template <typename T>
+inline bool Degrees(T in, T* out, absl::Status* error);
+
 namespace internal {
 
 inline bool SetFloatingPointError(absl::string_view description,
@@ -277,6 +285,7 @@ template <typename T>
 inline bool IeeeDivide(T in1, T in2, T* out, absl::Status* error) {
   static_assert(std::is_floating_point<T>::value,
                 "T must be floating point type");
+  static_assert(std::numeric_limits<T>::is_iec559, "T must do IEEE754 divide");
   *out = in1 / in2;
   return true;
 }
@@ -419,16 +428,19 @@ bool Csc(T in, T* out, absl::Status* error) {
   *out = 1.0 / std::sin(in);
   return internal::CheckFloatingPointError("CSC", in, *out, error);
 }
+
 template <typename T>
 bool Sec(T in, T* out, absl::Status* error) {
   *out = 1.0 / std::cos(in);
   return internal::CheckFloatingPointError("SEC", in, *out, error);
 }
+
 template <typename T>
 bool Cot(T in, T* out, absl::Status* error) {
   *out = 1.0 / std::tan(in);
   return internal::CheckFloatingPointError("COT", in, *out, error);
 }
+
 template <typename T>
 bool Csch(T in, T* out, absl::Status* error) {
   *out = 1.0 / std::sinh(in);
@@ -438,7 +450,8 @@ bool Csch(T in, T* out, absl::Status* error) {
 template <typename T>
 bool Sech(T in, T* out, absl::Status* error) {
   *out = 1.0 / std::cosh(in);
-  return internal::CheckFloatingPointError("SECH", in, *out, error);
+  // sech() does not introduce Inf or NaN - no error checking required.
+  return true;
 }
 
 template <typename T>
@@ -458,6 +471,13 @@ template <>
 bool TruncDecimal(double in, int64_t digits, double* out, absl::Status* error);
 template <>
 bool TruncDecimal(float in, int64_t digits, float* out, absl::Status* error);
+
+template <>
+bool Pi(double* out, absl::Status* error);
+template <>
+bool Radians(double in, double* out, absl::Status* error);
+template <>
+bool Degrees(double in, double* out, absl::Status* error);
 
 template <>
 bool Round(NumericValue in, NumericValue *out, absl::Status* error);
@@ -487,6 +507,13 @@ bool DecimalLogarithm(NumericValue in, NumericValue* out, absl::Status* error);
 template <>
 bool Logarithm(NumericValue in1, NumericValue in2, NumericValue* out,
                absl::Status* error);
+
+template <>
+bool Pi(NumericValue* out, absl::Status* error);
+template <>
+bool Radians(NumericValue in, NumericValue* out, absl::Status* error);
+template <>
+bool Degrees(NumericValue in, NumericValue* out, absl::Status* error);
 
 template <>
 bool Ceil(BigNumericValue in, BigNumericValue* out, absl::Status* error);
@@ -520,6 +547,13 @@ bool DecimalLogarithm(BigNumericValue in, BigNumericValue* out,
 template <>
 bool Logarithm(BigNumericValue in1, BigNumericValue in2, BigNumericValue* out,
                absl::Status* error);
+
+template <>
+bool Pi(BigNumericValue* out, absl::Status* error);
+template <>
+bool Radians(BigNumericValue in, BigNumericValue* out, absl::Status* error);
+template <>
+bool Degrees(BigNumericValue in, BigNumericValue* out, absl::Status* error);
 
 }  // namespace functions
 }  // namespace zetasql

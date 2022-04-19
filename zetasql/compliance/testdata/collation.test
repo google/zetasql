@@ -1130,3 +1130,110 @@ select
 ERROR: generic::invalid_argument: Collation for IN UNNEST is different on argument 1 ("und:ci") and argument 2 ("binary") [at 2:3]
   collate('a', 'und:ci') in unnest([collate('A', 'binary'), collate('b', 'bin...
   ^
+==
+
+[name=union_distinct_with_collation_ci_binary]
+# Summary ("{}" indicates values of case insensitive columns):
+#   First item:
+#     R1: ({'abc'}, 'def') appears twice
+#     R2: ({'ab'}, 'DEF') appears once
+#     R3: ({'abc'}, 'xyz') appears twice
+#   Second item:
+#     R1: ({'abc'}, 'def') appears once
+#     R2: ({'ab'}, 'DEF') appears once
+#     R4: ({'abc'}, 'DEF') appears once
+#     R5: ({'ab'}, 'DEf') appears once
+select lower(col_ci), col_binary from (
+  (select collate('abc', 'und:ci') col_ci, collate('def', 'binary') col_binary union all
+   select collate('ab', 'und:ci'), collate('DEf', 'binary') union all
+   select collate('ABC', 'und:ci'), collate('xyz', 'binary') union all
+   select collate('aBc', 'und:ci'), collate('xyz', 'binary') union all
+   select collate('ABC', 'und:ci'), collate('def', 'binary'))
+   union distinct
+  (select collate('AbC', 'und:ci'), collate('def', 'binary') union all
+   select collate('aBc', 'und:ci'), collate('DEF', 'binary') union all
+   select collate('aB', 'und:ci'), collate('DEF', 'binary') union all
+   select collate('Ab', 'und:ci'), collate('DEf', 'binary'))
+)
+--
+ARRAY<STRUCT<STRING, col_binary STRING>>[
+  {"ab", "DEf"},
+  {"abc", "def"},
+  {"ab", "DEF"},
+  {"abc", "DEF"},
+  {"abc", "xyz"}
+]
+==
+
+[name=intersect_distinct_with_collation_ci_binary]
+# Summary ("{}" indicates values of case insensitive columns):
+#   First item:
+#     R1: ({'abc'}, 'def') appears twice
+#     R2: ({'ab'}, 'DEF') appears once
+#     R3: ({'abcd'}, 'xyz') appears once
+#     R4: ({'abcd'}, 'XyZ') appears twice
+#   Second item:
+#     R1: ({'abc'}, 'def') appears once
+#     R2: ({'ab'}, 'DEF') appears once
+#     R3: ({'abcd'}, 'xyz') appears three times
+#     R5: ({'ab'}, 'DEf') appears once
+select lower(col_ci), col_binary from (
+  (select collate('abc', 'und:ci') col_ci, collate('def', 'binary') col_binary union all
+   select collate('ab', 'und:ci'), collate('DEf', 'binary') union all
+   select collate('abcd', 'und:ci'), collate('xyz', 'binary') union all
+   select collate('abCD', 'und:ci'), collate('XyZ', 'binary') union all
+   select collate('ABCD', 'und:ci'), collate('XyZ', 'binary') union all
+   select collate('ABC', 'und:ci'), collate('def', 'binary'))
+   intersect distinct
+  (select collate('AbC', 'und:ci'), collate('def', 'binary') union all
+   select collate('aB', 'und:ci'), collate('DEF', 'binary') union all
+   select collate('ABcd', 'und:ci'), collate('xyz', 'binary') union all
+   select collate('abCD', 'und:ci'), collate('xyz', 'binary') union all
+   select collate('abCd', 'und:ci'), collate('xyz', 'binary') union all
+   select collate('Ab', 'und:ci'), collate('DEf', 'binary'))
+)
+--
+ARRAY<STRUCT<STRING, col_binary STRING>>[
+  {"abc", "def"},
+  {"ab", "DEf"},
+  {"abcd", "xyz"}
+]
+==
+
+[name=except_distinct_with_collation_ci_binary]
+# Summary ("{}" indicates values of case insensitive columns):
+#   First item:
+#     R1: ({'abc'}, 'def') appears twice
+#     R2: ({'ab'}, 'DEF') appears once
+#     R3: ({'abcd'}, 'xyz') appears once
+#     R4: ({'abcd'}, 'XyZ') appears twice
+#   Second item:
+#     R1: ({'abc'}, 'def') appears once
+#     R2: ({'ab'}, 'DEF') appears once
+#     R3: ({'abcd'}, 'xyz') appears three times
+#     R5: ({'ab'}, 'DEf') appears once
+select lower(col_ci), col_binary from (
+  (select collate('abc', 'und:ci') col_ci, collate('def', 'binary') col_binary union all
+   select collate('ab', 'und:ci'), collate('DEf', 'binary') union all
+   select collate('abcd', 'und:ci'), collate('xyz', 'binary') union all
+   select collate('abCD', 'und:ci'), collate('XyZ', 'binary') union all
+   select collate('ABCD', 'und:ci'), collate('XyZ', 'binary') union all
+   select collate('ABC', 'und:ci'), collate('def', 'binary'))
+   except distinct
+  (select collate('AbC', 'und:ci'), collate('def', 'binary') union all
+   select collate('aB', 'und:ci'), collate('DEF', 'binary') union all
+   select collate('ABcd', 'und:ci'), collate('xyz', 'binary') union all
+   select collate('abCD', 'und:ci'), collate('xyz', 'binary') union all
+   select collate('abCd', 'und:ci'), collate('xyz', 'binary') union all
+   select collate('Ab', 'und:ci'), collate('DEf', 'binary'))
+)
+--
+ARRAY<STRUCT<STRING, col_binary STRING>>[{"abcd", "XyZ"}]
+==
+
+# TODO: Add more ARRAY built-in functions
+[name=array_first_collation_ci_string]
+SELECT 'HellO' = ARRAY_FIRST([collate("hello", "und:ci"), collate("zetasql", "und:ci")])
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==

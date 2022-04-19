@@ -17,6 +17,7 @@
 #include "zetasql/tools/execute_query/execute_query_loop.h"
 
 #include <iosfwd>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -45,16 +46,16 @@ using ::zetasql_base::testing::StatusIs;
 namespace {
 class StaticResultPrompt : public ExecuteQueryPrompt {
  public:
-  void set_read_result(absl::StatusOr<absl::optional<std::string>> r) {
+  void set_read_result(absl::StatusOr<std::optional<std::string>> r) {
     read_result_ = std::move(r);
   }
 
-  absl::StatusOr<absl::optional<std::string>> Read() override {
+  absl::StatusOr<std::optional<std::string>> Read() override {
     return read_result_;
   }
 
  private:
-  absl::StatusOr<absl::optional<std::string>> read_result_;
+  absl::StatusOr<std::optional<std::string>> read_result_;
 };
 }  // namespace
 
@@ -90,7 +91,7 @@ TEST(ExecuteQueryLoopTest, ReadError) {
 TEST(ExecuteQueryLoopTest, NoInput) {
   StaticResultPrompt prompt;
 
-  prompt.set_read_result(absl::nullopt);
+  prompt.set_read_result(std::nullopt);
 
   ExecuteQueryConfig config;
   std::ostringstream output;

@@ -480,6 +480,17 @@ enum LanguageFeature {
   FEATURE_TIME_BUCKET_FUNCTIONS = 71
       [(language_feature_options).in_development = true];
 
+  // Enables the new trigonometric math functions CSC, SEC, COT, CSCH, SECH,
+  // and COTH
+  FEATURE_INVERSE_TRIG_FUNCTIONS = 72
+      [(language_feature_options).in_development = true];
+
+  // RANGE data type. (broken link)
+  FEATURE_RANGE_TYPE = 73 [(language_feature_options).in_development = true];
+
+  FEATURE_DEGREES_RADIANS_PI = 74
+      [(language_feature_options).in_development = true];
+
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
   //    New features should be added for the *next* version number.
@@ -849,6 +860,9 @@ enum LanguageFeature {
   FEATURE_EXPERIMENTAL_MODULES = 999002
       [(language_feature_options).in_development = true];
 
+  FEATURE_EXPERIMENTAL_WITH_EXPRESSION = 999003
+      [(language_feature_options).in_development = true];
+
   // These are not real features. They are just for unit testing the handling of
   // various LanguageFeatureOptions.
   FEATURE_TEST_IDEALLY_ENABLED_BUT_IN_DEVELOPMENT = 999991
@@ -920,9 +934,7 @@ enum ResolvedASTRewrite {
   // Functions that are added to the Catalog that are subtypes of
   // SQLFunctionBase will be inlined. That removes the ResolvedFunctionCall and
   // replaces it with an expression that evaluates the function body.
-  // Currently, not all shapes of functions and function calls are supported:
-  // * SAFE. mode function calls will result in an kUnimplemented error.
-  //   TODO Fix this case when an IFERROR equivalent is supported.
+  // Currently, not all shapes of functions are supported:
   // * Argument references inside WITH subqueries will result in an
   //   kUnimplemented error.
   //   TODO Fix this case when releasing TVF rewrites.
@@ -946,6 +958,14 @@ enum ResolvedASTRewrite {
     (rewrite_options).default_enabled = false,
     (rewrite_options).in_development = true
   ];
+
+  // Rewrite NULLIFERROR(expr) into IFERROR(expr, NULL)
+  // See (broken link)
+  REWRITE_NULLIFERROR_FUNCTION = 12 [(rewrite_options).default_enabled = true];
+
+  // Rewrite scalar array functions ARRAY_FIRST and ARRAY_LAST into subqueries.
+  // See (broken link)
+  REWRITE_ARRAY_FIRST_LAST = 13 [(rewrite_options).default_enabled = true];
 }
 
 // This can be used to select strict name resolution mode.

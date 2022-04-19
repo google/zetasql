@@ -533,3 +533,19 @@ DELETE TestTable WITH OFFSET AS offset WHERE true
 ERROR: Non-nested DELETE statement does not support WITH OFFSET [at 1:18]
 DELETE TestTable WITH OFFSET AS offset WHERE true
                  ^
+==
+
+DELETE KeyValue@{force_index=index_name} WHERE key = 1;
+--
+DeleteStmt
++-table_scan=
+| +-TableScan
+|   +-column_list=[KeyValue.Key#1]
+|   +-hint_list=
+|   | +-force_index := Literal(type=STRING, value="index_name")
+|   +-table=KeyValue
+|   +-column_index_list=[0]
++-where_expr=
+  +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    +-Literal(type=INT64, value=1)

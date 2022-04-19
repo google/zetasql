@@ -31,6 +31,7 @@ public final class SimpleColumn implements Column, Serializable {
   private Type type;
   private boolean isPseudoColumn;
   private boolean isWritableColumn;
+  private final boolean canUpdateToDefault;
 
   /**
    * @param tableName name of the table this column belongs to.
@@ -41,16 +42,29 @@ public final class SimpleColumn implements Column, Serializable {
       @Nullable String name,
       Type type,
       boolean isPseudoColumn,
-      boolean isWritableColumn) {
+      boolean isWritableColumn,
+      boolean canUpdateToDefault) {
     this.name = name == null ? "" : name;
     this.fullName = String.format("%s.%s", tableName, name);
     this.type = type;
     this.isPseudoColumn = isPseudoColumn;
     this.isWritableColumn = isWritableColumn;
+    this.canUpdateToDefault = canUpdateToDefault;
+  }
+
+  public SimpleColumn(
+      String tableName, String name, Type type, boolean isPseudoColumn, boolean isWritableColumn) {
+    this(tableName, name, type, isPseudoColumn, isWritableColumn, /* canUpdateToDefault = */ false);
   }
 
   public SimpleColumn(String tableName, String name, Type type) {
-    this(tableName, name, type, /* isPseudoColumn = */ false, /* isWritableColumn = */ true);
+    this(
+        tableName,
+        name,
+        type,
+        /* isPseudoColumn = */ false,
+        /* isWritableColumn = */ true,
+        /* canUpdateToDefault = */ false);
   }
 
   /**
@@ -65,6 +79,7 @@ public final class SimpleColumn implements Column, Serializable {
     builder.setType(typeProtoBuilder.build());
     builder.setIsPseudoColumn(isPseudoColumn);
     builder.setIsWritableColumn(isWritableColumn);
+    builder.setCanUpdateUnwritableToDefault(canUpdateToDefault);
     return builder.build();
   }
 
@@ -88,7 +103,12 @@ public final class SimpleColumn implements Column, Serializable {
       TypeFactory factory) {
     Type type = factory.deserialize(proto.getType(), pools);
     return new SimpleColumn(
-        tableName, proto.getName(), type, proto.getIsPseudoColumn(), proto.getIsWritableColumn());
+        tableName,
+        proto.getName(),
+        type,
+        proto.getIsPseudoColumn(),
+        proto.getIsWritableColumn(),
+        proto.getCanUpdateUnwritableToDefault());
   }
 
   @Override
@@ -114,5 +134,10 @@ public final class SimpleColumn implements Column, Serializable {
   @Override
   public boolean isWritableColumn() {
     return isWritableColumn;
+  }
+
+  @Override
+  public boolean canUpdateToDefault() {
+    return canUpdateToDefault;
   }
 }

@@ -73,14 +73,14 @@ class ProtoHelperTest : public ::testing::Test {
     };
     source_tree_ = CreateProtoSourceTree();
 
-    proto_importer_ = absl::make_unique<google::protobuf::compiler::Importer>(
+    proto_importer_ = std::make_unique<google::protobuf::compiler::Importer>(
         source_tree_.get(), &error_collector_);
     for (const std::string& test_file : test_files) {
       ASSERT_THAT(proto_importer_->Import(test_file), testing::NotNull())
           << "Error importing " << test_file << ": "
           << error_collector_.GetError();
     }
-    pool_ = absl::make_unique<google::protobuf::DescriptorPool>(proto_importer_->pool());
+    pool_ = std::make_unique<google::protobuf::DescriptorPool>(proto_importer_->pool());
   }
 
   absl::Status GetFileDescriptorSetContainingFile(
@@ -89,7 +89,7 @@ class ProtoHelperTest : public ::testing::Test {
     file_descriptor_set->Clear();
     const google::protobuf::FileDescriptor* file = pool_->FindFileByName(filename);
     std::set<const google::protobuf::FileDescriptor*> file_descriptors;
-    return PopulateFileDescriptorSet(file, absl::optional<int64_t>(),
+    return PopulateFileDescriptorSet(file, std::optional<int64_t>(),
                                      file_descriptor_set, &file_descriptors);
   }
 
@@ -104,7 +104,7 @@ TEST_F(ProtoHelperTest, PopulateFileDescriptorSet) {
       "zetasql/public/proto/type_annotation.proto");
   google::protobuf::FileDescriptorSet file_descriptor_set;
   std::set<const google::protobuf::FileDescriptor*> file_descriptors;
-  ZETASQL_ASSERT_OK(PopulateFileDescriptorSet(file, absl::optional<int64_t>(),
+  ZETASQL_ASSERT_OK(PopulateFileDescriptorSet(file, std::optional<int64_t>(),
                                       &file_descriptor_set, &file_descriptors));
   ASSERT_EQ(2, file_descriptor_set.file_size());
   EXPECT_THAT(file_descriptor_set.file(0).name(),
@@ -116,7 +116,7 @@ TEST_F(ProtoHelperTest, PopulateFileDescriptorSet) {
   file = pool_->FindFileByName("zetasql/testdata/test_schema.proto");
   file_descriptor_set.Clear();
   file_descriptors.clear();
-  ZETASQL_ASSERT_OK(PopulateFileDescriptorSet(file, absl::optional<int64_t>(),
+  ZETASQL_ASSERT_OK(PopulateFileDescriptorSet(file, std::optional<int64_t>(),
                                       &file_descriptor_set, &file_descriptors));
 
   std::vector<testing::Matcher<const std::string&>> expected_proto_matchers = {

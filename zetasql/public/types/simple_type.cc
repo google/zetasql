@@ -44,6 +44,7 @@
 #include "zetasql/public/types/internal_utils.h"
 #include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_modifiers.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/types/value_representations.h"
 #include "zetasql/public/value.pb.h"
@@ -95,7 +96,7 @@ struct TypeNameInfo {
   bool internal_product_mode_only = false;
   // If present, then the feature controls whether the type name is enabled.
   // If absent, then the type name does not require any language feature.
-  absl::optional<LanguageFeature> alias_feature;
+  std::optional<LanguageFeature> alias_feature;
 };
 
 const std::map<absl::string_view, TypeNameInfo>& SimpleTypeNameInfoMap() {
@@ -135,7 +136,7 @@ struct TypeKindInfo {
   bool internal_product_mode_only = false;
   // If present, then the feature controls whether the type kind is enabled.
   // If absent, then the type kind does not require any language feature.
-  absl::optional<LanguageFeature> type_feature;
+  std::optional<LanguageFeature> type_feature;
 };
 
 const std::map<TypeKind, TypeKindInfo>& SimpleTypeKindInfoMap() {
@@ -166,8 +167,8 @@ const std::map<TypeKind, TypeKindInfo>& SimpleTypeKindInfoMap() {
 struct TypeInfo {
   TypeKind type_kind;
   bool internal_product_mode_only = false;
-  absl::optional<LanguageFeature> type_feature;
-  absl::optional<LanguageFeature> alias_feature;
+  std::optional<LanguageFeature> type_feature;
+  std::optional<LanguageFeature> alias_feature;
 };
 
 // A map joining SimpleTypeNameInfoMap and SimpleTypeKindInfoMap.
@@ -292,34 +293,47 @@ std::string SimpleType::TypeName(ProductMode mode) const {
   return TypeKindToString(kind(), mode);
 }
 
-absl::StatusOr<std::string> SimpleType::TypeNameWithParameters(
-    const TypeParameters& type_params, ProductMode mode) const {
-  if (type_params.IsStructOrArrayParameters() ||
-      type_params.IsExtendedTypeParameters()) {
-    return MakeSqlError()
-           << "Input type parameter does not correspond to SimpleType";
-  }
-  std::string type_param_name = "";
-  if (type_params.IsNumericTypeParameters()) {
-    if (type_params.numeric_type_parameters().has_is_max_precision()) {
-      type_param_name = "(MAX, ";
-    } else {
-      type_param_name = absl::Substitute(
-          "($0, ", type_params.numeric_type_parameters().precision());
+absl::StatusOr<std::string> SimpleType::TypeNameWithModifiers(
+    const TypeModifiers& type_modifiers, ProductMode mode) const {
+  std::string result_type_name = TypeName(mode);
+  const TypeParameters& type_params = type_modifiers.type_parameters();
+  // Prepares string for type parameters to append to type name.
+  if (!type_params.IsEmpty()) {
+    ZETASQL_RET_CHECK(!type_params.IsStructOrArrayParameters() &&
+              !type_params.IsExtendedTypeParameters())
+        << "Input type parameter does not correspond to SimpleType";
+
+    std::string type_param_name = "";
+    if (type_params.IsNumericTypeParameters()) {
+      if (type_params.numeric_type_parameters().has_is_max_precision()) {
+        type_param_name = "(MAX, ";
+      } else {
+        type_param_name = absl::Substitute(
+            "($0, ", type_params.numeric_type_parameters().precision());
+      }
+      absl::StrAppend(
+          &type_param_name,
+          absl::Substitute("$0)",
+                           type_params.numeric_type_parameters().scale()));
     }
-    absl::StrAppend(
-        &type_param_name,
-        absl::Substitute("$0)", type_params.numeric_type_parameters().scale()));
-  }
-  if (type_params.IsStringTypeParameters()) {
-    if (type_params.string_type_parameters().has_is_max_length()) {
-      type_param_name = "(MAX)";
-    } else {
-      type_param_name = absl::Substitute(
-          "($0)", type_params.string_type_parameters().max_length());
+    if (type_params.IsStringTypeParameters()) {
+      if (type_params.string_type_parameters().has_is_max_length()) {
+        type_param_name = "(MAX)";
+      } else {
+        type_param_name = absl::Substitute(
+            "($0)", type_params.string_type_parameters().max_length());
+      }
     }
+
+    absl::StrAppend(&result_type_name, type_param_name);
   }
-  return absl::StrCat(TypeName(mode), type_param_name);
+
+  // Prepares string for collation to append to type name.
+  const Collation& collation = type_modifiers.collation();
+  // TODO: Implement logic to print type name with collation.
+  ZETASQL_RET_CHECK(collation.Empty());
+
+  return result_type_name;
 }
 
 TypeKind SimpleType::GetTypeKindIfSimple(

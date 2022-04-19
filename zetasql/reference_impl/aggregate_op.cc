@@ -121,8 +121,7 @@ absl::Status AggregateArg::SetSchemasForEvaluation(
     ZETASQL_RETURN_IF_ERROR(
         mutable_parameter(i)->SetSchemasForEvaluation(params_schemas));
   }
-  group_schema_ =
-      absl::make_unique<const TupleSchema>(group_schema.variables());
+  group_schema_ = std::make_unique<const TupleSchema>(group_schema.variables());
   return absl::OkStatus();
 }
 
@@ -279,7 +278,7 @@ class OrderByAccumulator : public IntermediateAggregateAccumulator {
                   bool* stop_accumulation, absl::Status* status) override {
     *stop_accumulation = false;
 
-    auto input = absl::make_unique<TupleData>(input_row);
+    auto input = std::make_unique<TupleData>(input_row);
     input->AddSlots(1);
     input->mutable_slot(input->num_slots() - 1)->SetValue(value);
     return inputs_.PushBack(std::move(input), status);
@@ -352,7 +351,7 @@ class TopNAccumulator : public IntermediateAggregateAccumulator {
                   bool* stop_accumulation, absl::Status* status) override {
     *stop_accumulation = false;
 
-    auto input = absl::make_unique<TupleData>(input_row);
+    auto input = std::make_unique<TupleData>(input_row);
     input->AddSlots(1);
     input->mutable_slot(input->num_slots() - 1)->SetValue(value);
 
@@ -759,7 +758,7 @@ class WithGroupRowsAccumulator : public IntermediateAggregateAccumulator {
                   bool* stop_accumulation, absl::Status* status) override {
     *stop_accumulation = false;
 
-    auto input = absl::make_unique<TupleData>(input_row);
+    auto input = std::make_unique<TupleData>(input_row);
     return inputs_.PushBack(std::move(input), status);
   }
 
@@ -901,7 +900,7 @@ static absl::Status PopulateSlotsForKeysAndValues(
   // First populate 'slots_for_keys'.
   slots_for_keys->reserve(order_by_keys.size());
   for (const KeyArg* order_by_key : order_by_keys) {
-    const absl::optional<int> slot_idx =
+    const std::optional<int> slot_idx =
         schema.FindIndexForVariable(order_by_key->variable());
     ZETASQL_RET_CHECK(slot_idx.has_value()).EmitStackTrace()
         << order_by_key->DebugString()
@@ -964,7 +963,7 @@ AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
   // IntermediateAggregateAccumulator interface so that we can stack other
   // intermediate accumulators on top of it.
   std::unique_ptr<IntermediateAggregateAccumulator> accumulator =
-      absl::make_unique<AggregateAccumulatorAdaptor>(
+      std::make_unique<AggregateAccumulatorAdaptor>(
           aggregate_function()->output_type(), error_mode_,
           std::move(underlying_accumulator));
 
@@ -998,14 +997,14 @@ AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
       ZETASQL_ASSIGN_OR_RETURN(auto tuple_comparator,
                        TupleComparator::Create(order_by_keys(), slots_for_keys,
                                                params, context));
-      accumulator = absl::make_unique<TopNAccumulator>(
+      accumulator = std::make_unique<TopNAccumulator>(
           limit_val.int64_value(), std::move(tuple_comparator),
           std::move(accumulator), context);
       consumed_order_by = true;
       context->set_used_top_n_accumulator(true);
     } else {
-      accumulator = absl::make_unique<LimitAccumulator>(limit_val.int64_value(),
-                                                        std::move(accumulator));
+      accumulator = std::make_unique<LimitAccumulator>(limit_val.int64_value(),
+                                                       std::move(accumulator));
     }
   }
 
@@ -1017,7 +1016,7 @@ AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
         PopulateSlotsForKeysAndValues(*agg_fn_input_schema, order_by_keys(),
                                       &slots_for_keys, &slots_for_values));
 
-    accumulator = absl::make_unique<OrderByAccumulator>(
+    accumulator = std::make_unique<OrderByAccumulator>(
         order_by_keys(), slots_for_keys, slots_for_values, params,
         std::move(accumulator), context);
   }
@@ -1027,7 +1026,7 @@ AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
     ZETASQL_ASSIGN_OR_RETURN(CollatorList collator_list,
                      MakeCollatorList(collation_list()));
     ZETASQL_RET_CHECK_LE(collator_list.size(), 1);
-    accumulator = absl::make_unique<DistinctAccumulator>(
+    accumulator = std::make_unique<DistinctAccumulator>(
         std::move(accumulator), context,
         collator_list.empty() ? nullptr : std::move(collator_list[0]));
   }
@@ -1035,7 +1034,7 @@ AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
   // Support for aggregation functions that ignore NULLs.
   if (ignores_null()) {
     const bool use_compound_values = (num_input_fields() > 1);
-    accumulator = absl::make_unique<IgnoresNullAccumulator>(
+    accumulator = std::make_unique<IgnoresNullAccumulator>(
         use_compound_values, std::move(accumulator));
   }
 
@@ -1043,13 +1042,13 @@ AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
   if (having_modifier_kind() != AggregateArg::kHavingNone) {
     ZETASQL_RET_CHECK(having_expr() != nullptr);
     const bool use_max = (having_modifier_kind() == AggregateArg::kHavingMax);
-    accumulator = absl::make_unique<HavingExtremalValueAccumulator>(
+    accumulator = std::make_unique<HavingExtremalValueAccumulator>(
         params, having_expr(), use_max, std::move(accumulator), context);
   }
 
   // Filter support
   if (filter() != nullptr) {
-    accumulator = absl::make_unique<FilteredArgAccumulator>(
+    accumulator = std::make_unique<FilteredArgAccumulator>(
         params, std::move(accumulator), filter(), context);
   }
 
@@ -1064,7 +1063,7 @@ AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
     // Create accumulator that knows the subquery and how to accumulate the
     // aggregate function in the end. At iteration if would interact with
     // GroupRowsOp.
-    accumulator = absl::make_unique<WithGroupRowsAccumulator>(
+    accumulator = std::make_unique<WithGroupRowsAccumulator>(
         params, group_rows_subquery_.get(), std::move(input_fields), type,
         std::move(accumulator), context);
     type = EmptyStructType();
@@ -1072,7 +1071,7 @@ AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
   }
 
   // Adapt 'accumulator' to the AggregateArgAccumulator interface.
-  return absl::make_unique<IntermediateAggregateAccumulatorAdaptor>(
+  return std::make_unique<IntermediateAggregateAccumulatorAdaptor>(
       params, input_fields, type, std::move(accumulator), context);
 }
 
@@ -1431,11 +1430,11 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
     // Determine the key to 'group_to_accumulator_map'.
     const std::vector<const TupleData*> params_and_input_tuple =
         ConcatSpans(params, {next_input});
-    auto key_data = absl::make_unique<TupleData>(keys().size());
+    auto key_data = std::make_unique<TupleData>(keys().size());
     // If collator is present for <key_data[i]>, <collated_key_data[i]> is
     // collation_key for value of <key_data[i]>. Otherwise,
     // <collated_key_data[i]> is the same as <key_data[i]>.
-    auto collated_key_data = absl::make_unique<TupleData>(keys().size());
+    auto collated_key_data = std::make_unique<TupleData>(keys().size());
 
     for (int i = 0; i < keys().size(); ++i) {
       TupleSlot* slot = key_data->mutable_slot(i);
@@ -1511,7 +1510,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
   }
 
   // Build the tuples that the iterator should return.
-  auto tuples = absl::make_unique<TupleDataDeque>(context->memory_accountant());
+  auto tuples = std::make_unique<TupleDataDeque>(context->memory_accountant());
   for (auto& entry : group_map) {
     // Destruction of the 'group_value' will clear all memory used by its
     // members.
@@ -1545,7 +1544,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
       // We are doing full aggregation over empty input, so we must compute
       // trivial values for the aggregators.
       auto tuple =
-          absl::make_unique<TupleData>(aggregators().size() + num_extra_slots);
+          std::make_unique<TupleData>(aggregators().size() + num_extra_slots);
       for (int i = 0; i < aggregators().size(); ++i) {
         const AggregateArg* aggregator = aggregators()[i];
         ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AggregateArgAccumulator> accumulator,
@@ -1584,11 +1583,11 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AggregateOp::CreateIterator(
   tuples->Sort(*tuple_comparator, context->options().always_use_stable_sort);
 
   auto input_schema =
-      absl::make_unique<TupleSchema>(input_iter->Schema().variables());
+      std::make_unique<TupleSchema>(input_iter->Schema().variables());
   std::unique_ptr<TupleIterator> iter =
-      absl::make_unique<AggregateTupleIterator>(params, std::move(tuples),
-                                                std::move(input_iter),
-                                                CreateOutputSchema(), context);
+      std::make_unique<AggregateTupleIterator>(params, std::move(tuples),
+                                               std::move(input_iter),
+                                               CreateOutputSchema(), context);
   return MaybeReorder(std::move(iter), context);
 }
 
@@ -1602,7 +1601,7 @@ std::unique_ptr<TupleSchema> AggregateOp::CreateOutputSchema() const {
     vars.push_back(aggregator->variable());
   }
 
-  return absl::make_unique<TupleSchema>(vars);
+  return std::make_unique<TupleSchema>(vars);
 }
 
 std::string AggregateOp::IteratorDebugString() const {
@@ -1622,7 +1621,7 @@ AggregateOp::AggregateOp(std::vector<std::unique_ptr<KeyArg>> keys,
                          std::unique_ptr<RelationalOp> input) {
   SetArgs<KeyArg>(kKey, std::move(keys));
   SetArgs<AggregateArg>(kAggregator, std::move(aggregators));
-  SetArg(kInput, absl::make_unique<RelationalArg>(std::move(input)));
+  SetArg(kInput, std::make_unique<RelationalArg>(std::move(input)));
 }
 
 absl::Span<const KeyArg* const> AggregateOp::keys() const {
@@ -1669,7 +1668,7 @@ std::unique_ptr<TupleSchema> GroupRowsOp::CreateOutputSchema() const {
   for (const ExprArg* column : columns()) {
     vars.push_back(column->variable());
   }
-  return absl::make_unique<TupleSchema>(vars);
+  return std::make_unique<TupleSchema>(vars);
 }
 
 absl::Status GroupRowsOp::SetSchemasForEvaluation(
@@ -1762,9 +1761,9 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> GroupRowsOp::CreateIterator(
   absl::flat_hash_map<TupleDataPtr, std::unique_ptr<GroupValue>> group_map;
 
   std::unique_ptr<TupleIterator> iter =
-      absl::make_unique<TupleDataDequeIterator>(*context->active_group_rows(),
-                                                num_extra_slots,
-                                                CreateOutputSchema(), context);
+      std::make_unique<TupleDataDequeIterator>(*context->active_group_rows(),
+                                               num_extra_slots,
+                                               CreateOutputSchema(), context);
   return MaybeReorder(std::move(iter), context);
 }
 

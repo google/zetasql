@@ -259,8 +259,8 @@ ExpressionSubstitutor::ExpressionSubstitutor(AnalyzerOptions options,
 absl::Status ExpressionSubstitutor::SetupInvokeCatalog() {
   ZETASQL_RETURN_IF_ERROR(MultiCatalog::Create(catalog_->FullName(), {catalog_},
                                        &catalog_with_invoke_));
-  invoke_function_ = absl::make_unique<Function>("invoke", "", Function::SCALAR,
-                                                 FunctionOptions());
+  invoke_function_ = std::make_unique<Function>("invoke", "", Function::SCALAR,
+                                                FunctionOptions());
   invoke_function_->AddSignature(FunctionSignature(
       /*result_type=*/{SignatureArgumentKind::ARG_TYPE_ANY_1},
       /*arguments=*/
@@ -269,7 +269,7 @@ absl::Status ExpressionSubstitutor::SetupInvokeCatalog() {
         FunctionArgumentType::REPEATED}},
       /*context_id=*/-1));
 
-  invoke_catalog_ = absl::make_unique<SimpleCatalog>("invoke_catalog");
+  invoke_catalog_ = std::make_unique<SimpleCatalog>("invoke_catalog");
   invoke_catalog_->AddFunction(invoke_function_.get());
   catalog_with_invoke_->AppendCatalog(invoke_catalog_.get());
   // Point the catalog in use to the new catalog.

@@ -19,6 +19,7 @@
 
 // Utilities to abstract zetasql_base::Status payload interactions.
 
+#include "zetasql/base/logging.h"
 #include "google/protobuf/message.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/cord.h"
@@ -50,7 +51,7 @@ bool HasPayloadWithType(const absl::Status& status) {
 // the status does not contain a payload of the given type, but will not crash.
 template <class T>
 T GetPayload(const absl::Status& status) {
-  absl::optional<absl::Cord> payload = status.GetPayload(GetTypeUrl<T>());
+  std::optional<absl::Cord> payload = status.GetPayload(GetTypeUrl<T>());
   if (!payload.has_value()) {
     return T();
   }
@@ -81,6 +82,40 @@ std::string PayloadToString(const absl::Status& status);
 // Creates a human readable string from the status, including its payload.
 // Exact form is not defined.
 std::string StatusToString(const absl::Status& status);
+
+inline absl::Status AppendMessage(const absl::Status& status,
+                                  absl::string_view msg) {
+  absl::string_view merged_msg_view = msg;
+  std::string merged_msg;
+  if (!status.message().empty()) {
+    absl::StrAppend(&merged_msg, status.message(), "; ", msg);
+    merged_msg_view = merged_msg;
+  }
+
+  absl::Status merged_status(status.code(), merged_msg_view);
+  return merged_status;
+}
+
+// Update the current status with a new status. To ensure no error is ignored,
+// requires that if neither status is OK, then both should share the same code.
+// 1. If the new status is OK: NOOP
+// 2. Otherwise:
+//    a. If the current status is OK, the new one takes over.
+//    b. Both statuses are not OK. The message of the new status is appended to
+//       the current one.
+inline void UpdateStatus(absl::Status* status, const absl::Status& new_status) {
+  ZETASQL_DCHECK_NE(status, nullptr);
+  if (new_status.ok()) {
+    return;
+  }
+  if (status->ok()) {
+    *status = new_status;
+    return;
+  }
+
+  ZETASQL_DCHECK_EQ(status->code(), new_status.code());
+  *status = AppendMessage(*status, new_status.message());
+}
 
 }  // namespace internal
 }  // namespace zetasql

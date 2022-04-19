@@ -179,30 +179,6 @@ void TestBinaryFunction(const QueryParamsWithResult& param,
   return CompareResult(param, status, out);
 }
 
-typedef testing::TestWithParam<FunctionTestCall> CschTemplateTest;
-TEST_P(CschTemplateTest, Testlib) {
-  const FunctionTestCall& param = GetParam();
-  return TestUnaryFunction(param.params, &Csch<double>);
-}
-INSTANTIATE_TEST_SUITE_P(Csch, CschTemplateTest,
-                         testing::ValuesIn(GetFunctionTestsCsch()));
-
-typedef testing::TestWithParam<FunctionTestCall> SechTemplateTest;
-TEST_P(SechTemplateTest, Testlib) {
-  const FunctionTestCall& param = GetParam();
-  return TestUnaryFunction(param.params, &Sech<double>);
-}
-INSTANTIATE_TEST_SUITE_P(Sech, SechTemplateTest,
-                         testing::ValuesIn(GetFunctionTestsSech()));
-
-typedef testing::TestWithParam<FunctionTestCall> CothTemplateTest;
-TEST_P(CothTemplateTest, Testlib) {
-  const FunctionTestCall& param = GetParam();
-  return TestUnaryFunction(param.params, &Coth<double>);
-}
-INSTANTIATE_TEST_SUITE_P(Coth, CothTemplateTest,
-                         testing::ValuesIn(GetFunctionTestsCoth()));
-
 typedef testing::TestWithParam<FunctionTestCall> MathTemplateTest;
 TEST_P(MathTemplateTest, Testlib) {
   const FunctionTestCall& param = GetParam();
@@ -359,6 +335,28 @@ TEST_P(MathTemplateTest, Testlib) {
       default:
         FAIL() << "unrecognized type for " << function;
     }
+  } else if (function == "radians") {
+    switch (param.params.param(0).type_kind()) {
+      case TYPE_DOUBLE:
+        return TestUnaryFunction(param.params, &Radians<double>);
+      case TYPE_NUMERIC:
+        return TestUnaryFunction(param.params, &Radians<NumericValue>);
+      case TYPE_BIGNUMERIC:
+        return TestUnaryFunction(param.params, &Radians<BigNumericValue>);
+      default:
+        FAIL() << "unrecognized type for " << function;
+    }
+  } else if (function == "degrees") {
+    switch (param.params.param(0).type_kind()) {
+      case TYPE_DOUBLE:
+        return TestUnaryFunction(param.params, &Degrees<double>);
+      case TYPE_NUMERIC:
+        return TestUnaryFunction(param.params, &Degrees<NumericValue>);
+      case TYPE_BIGNUMERIC:
+        return TestUnaryFunction(param.params, &Degrees<BigNumericValue>);
+      default:
+        FAIL() << "unrecognized type for " << function;
+    }
   } else if (function == "cos") {
     return TestUnaryFunction(param.params, &Cos<double>);
   } else if (function == "acos") {
@@ -391,6 +389,12 @@ TEST_P(MathTemplateTest, Testlib) {
     return TestUnaryFunction(param.params, &Sec<double>);
   } else if (function == "cot") {
     return TestUnaryFunction(param.params, &Cot<double>);
+  } else if (function == "csch") {
+    return TestUnaryFunction(param.params, &Csch<double>);
+  } else if (function == "sech") {
+    return TestUnaryFunction(param.params, &Sech<double>);
+  } else if (function == "coth") {
+    return TestUnaryFunction(param.params, &Coth<double>);
   } else if (function == "round") {
     switch (param.params.param(0).type_kind()) {
       case TYPE_FLOAT:
@@ -486,6 +490,11 @@ INSTANTIATE_TEST_SUITE_P(Math, MathTemplateTest,
                          testing::ValuesIn(GetFunctionTestsMath()));
 INSTANTIATE_TEST_SUITE_P(Trigonometry, MathTemplateTest,
                          testing::ValuesIn(GetFunctionTestsTrigonometric()));
+INSTANTIATE_TEST_SUITE_P(
+    InverseTrig, MathTemplateTest,
+    testing::ValuesIn(GetFunctionTestsInverseTrigonometric()));
+INSTANTIATE_TEST_SUITE_P(DegreesRadiansPi, MathTemplateTest,
+                         testing::ValuesIn(GetFunctionTestsDegreesRadiansPi()));
 INSTANTIATE_TEST_SUITE_P(Rounding, MathTemplateTest,
                          testing::ValuesIn(GetFunctionTestsRounding()));
 

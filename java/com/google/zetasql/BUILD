@@ -50,6 +50,7 @@ java_library(
     srcs = TYPES_SRCS,
     tags = ["maven_coordinates=com.google.zetasql:zetasql-types:${project.version}"],
     deps = [
+        "//zetasql/proto:anon_output_with_report_java_proto",
         "//zetasql/proto:function_java_proto",
         "//zetasql/public:options_java_proto",
         "//zetasql/public:type_parameters_java_proto",

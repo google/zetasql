@@ -156,7 +156,7 @@ public class SimpleColumnTest {
   @Test
   public void testAnonymousColumn() throws ParseException {
     SimpleType type = TypeFactory.createSimpleType(TypeKind.TYPE_BOOL);
-    new SimpleColumn("t1", "", type);
+    SimpleColumn unused = new SimpleColumn("t1", "", type);
 
     SimpleColumnProto.Builder builder = SimpleColumnProto.newBuilder();
     TextFormat.merge("type { type_kind: TYPE_INT32 }", builder);
@@ -180,11 +180,11 @@ public class SimpleColumnTest {
             "The number of fields of SimpleColumnProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(SimpleColumnProto.getDescriptor().getFields())
-        .hasSize(5);
+        .hasSize(6);
     assertWithMessage(
             "The number of fields in SimpleColumn class has changed, "
                 + "please also update the proto and serialization code accordingly.")
         .that(TestUtil.getNonStaticFieldCount(SimpleColumn.class))
-        .isEqualTo(5);
+        .isEqualTo(6);
   }
 }

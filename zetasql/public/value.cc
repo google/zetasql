@@ -516,7 +516,7 @@ bool Value::EqualsInternal(const Value& x, const Value& y, bool allow_bags,
 
   std::unique_ptr<DeepOrderKindSpec> owned_deep_order_spec;
   if (allow_bags && deep_order_spec == nullptr) {
-    owned_deep_order_spec = absl::make_unique<DeepOrderKindSpec>();
+    owned_deep_order_spec = std::make_unique<DeepOrderKindSpec>();
     deep_order_spec = owned_deep_order_spec.get();
 
     deep_order_spec->FillSpec(x);
@@ -867,7 +867,9 @@ struct ValueHasherIgnoringFloat {
         return h;
       }
       case TYPE_PROTO: {
-        if (HasFloatingPointFields(v.type()->AsProto()->descriptor())) {
+        absl::flat_hash_set<const google::protobuf::Descriptor*> visited;
+        if (HasFloatingPointFields(v.type()->AsProto()->descriptor(),
+                                   visited)) {
           return H::combine(std::move(h),
                             kMessageWithFloatingPointFieldApproximateHashCode);
         }
@@ -879,14 +881,17 @@ struct ValueHasherIgnoringFloat {
   }
 
  private:
-  static bool HasFloatingPointFields(const google::protobuf::Descriptor* d) {
+  static bool HasFloatingPointFields(
+      const google::protobuf::Descriptor* d,
+      absl::flat_hash_set<const google::protobuf::Descriptor*>& visited) {
     for (int i = 0; i < d->field_count(); ++i) {
       const google::protobuf::FieldDescriptor* f = d->field(i);
       if (f->type() == google::protobuf::FieldDescriptor::TYPE_FLOAT ||
           f->type() == google::protobuf::FieldDescriptor::TYPE_DOUBLE) {
         return true;
       } else if (f->type() == google::protobuf::FieldDescriptor::TYPE_MESSAGE &&
-                 HasFloatingPointFields(f->message_type())) {
+                 visited.insert(f->message_type()).second &&
+                 HasFloatingPointFields(f->message_type(), visited)) {
         return true;
       }
     }

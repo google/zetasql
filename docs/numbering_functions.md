@@ -6,7 +6,8 @@ The following sections describe the numbering functions that ZetaSQL
 supports. Numbering functions are a subset of analytic functions. For an
 explanation of how analytic functions work, see
 [Analytic Function Concepts][analytic-function-concepts]. For a
-description of how numbering functions work, see the
+description of how numbering functions work and an example comparing `RANK`,
+`DENSE_RANK`, and `ROW_NUMBER`, see the
 [Numbering Function Concepts][numbering-function-concepts].
 
 `OVER` clause requirements:

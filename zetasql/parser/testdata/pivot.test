@@ -424,7 +424,85 @@ FROM
   t PIVOT(SUM(a) FOR b IN (0, 1)) AS t_pivot
 ==
 
-# PIVOT on tvf result
+# PIVOT on tvf result with zero args
+SELECT * FROM MyTVF() PIVOT(SUM(a) FOR b IN (0, 1));
+--
+QueryStatement [0-51]
+  Query [0-51]
+    Select [0-51]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-51]
+        TVF [14-51]
+          PathExpression [14-19]
+            Identifier(MyTVF) [14-19]
+          PivotClause [22-51]
+            PivotExpressionList [28-34]
+              PivotExpression [28-34]
+                FunctionCall [28-34]
+                  PathExpression [28-31]
+                    Identifier(SUM) [28-31]
+                  PathExpression [32-33]
+                    Identifier(a) [32-33]
+            PathExpression [39-40]
+              Identifier(b) [39-40]
+            PivotValueList [45-49]
+              PivotValue [45-46]
+                IntLiteral(0) [45-46]
+              PivotValue [48-49]
+                IntLiteral(1) [48-49]
+--
+SELECT
+  *
+FROM
+  MyTVF() PIVOT(SUM(a) FOR b IN (0, 1))
+==
+
+# PIVOT on tvf result with zero args and sample clause
+SELECT * FROM MyTVF() PIVOT(SUM(a) FOR b IN (0, 1))  
+  TABLESAMPLE RESERVOIR (100 ROWS) REPEATABLE(10);
+--
+QueryStatement [0-103]
+  Query [0-103]
+    Select [0-103]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-103]
+        TVF [14-103]
+          PathExpression [14-19]
+            Identifier(MyTVF) [14-19]
+          PivotClause [22-51]
+            PivotExpressionList [28-34]
+              PivotExpression [28-34]
+                FunctionCall [28-34]
+                  PathExpression [28-31]
+                    Identifier(SUM) [28-31]
+                  PathExpression [32-33]
+                    Identifier(a) [32-33]
+            PathExpression [39-40]
+              Identifier(b) [39-40]
+            PivotValueList [45-49]
+              PivotValue [45-46]
+                IntLiteral(0) [45-46]
+              PivotValue [48-49]
+                IntLiteral(1) [48-49]
+          SampleClause [56-103]
+            Identifier(RESERVOIR) [68-77]
+            SampleSize [79-87]
+              IntLiteral(100) [79-82]
+            SampleSuffix [89-103]
+              RepeatableClause [89-103]
+                IntLiteral(10) [100-102]
+--
+SELECT
+  *
+FROM
+  MyTVF() PIVOT(SUM(a) FOR b IN (0, 1)) TABLESAMPLE RESERVOIR(100 ROWS) REPEATABLE (10)
+==
+
+# PIVOT on tvf result with one arg
 SELECT * FROM MyTVF(t) PIVOT(SUM(a) FOR b IN (0, 1));
 --
 QueryStatement [0-52]
@@ -460,6 +538,55 @@ SELECT
   *
 FROM
   MyTVF(t) PIVOT(SUM(a) FOR b IN (0, 1))
+==
+
+# PIVOT on tvf result with tablesample
+SELECT * FROM MyTVF(t)
+  PIVOT(SUM(a) FOR b IN (0, 1)) 
+  TABLESAMPLE RESERVOIR (100 ROWS) REPEATABLE(10);
+--
+
+QueryStatement [0-105]
+  Query [0-105]
+    Select [0-105]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          Star(*) [7-8]
+      FromClause [9-105]
+        TVF [14-105]
+          PathExpression [14-19]
+            Identifier(MyTVF) [14-19]
+          TVFArgument [20-21]
+            PathExpression [20-21]
+              Identifier(t) [20-21]
+          PivotClause [25-54]
+            PivotExpressionList [31-37]
+              PivotExpression [31-37]
+                FunctionCall [31-37]
+                  PathExpression [31-34]
+                    Identifier(SUM) [31-34]
+                  PathExpression [35-36]
+                    Identifier(a) [35-36]
+            PathExpression [42-43]
+              Identifier(b) [42-43]
+            PivotValueList [48-52]
+              PivotValue [48-49]
+                IntLiteral(0) [48-49]
+              PivotValue [51-52]
+                IntLiteral(1) [51-52]
+          SampleClause [58-105]
+            Identifier(RESERVOIR) [70-79]
+            SampleSize [81-89]
+              IntLiteral(100) [81-84]
+            SampleSuffix [91-105]
+              RepeatableClause [91-105]
+                IntLiteral(10) [102-104]
+--
+
+SELECT
+  *
+FROM
+  MyTVF(t) PIVOT(SUM(a) FOR b IN (0, 1)) TABLESAMPLE RESERVOIR(100 ROWS) REPEATABLE (10)
 ==
 
 # PIVOT on tvf argument

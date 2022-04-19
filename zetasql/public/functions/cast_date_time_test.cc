@@ -17,6 +17,8 @@
 #include "zetasql/public/functions/cast_date_time.h"
 
 #include <cstdint>
+#include <functional>
+#include <string>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/compliance/functions_testlib.h"
@@ -1483,7 +1485,7 @@ TEST(DateTimeUtilTest, FormatStringTooLongForFormatting) {
       absl::GetFlag(FLAGS_zetasql_cast_format_string_max_width)));
   absl::SetFlag(&FLAGS_zetasql_cast_format_string_max_width, 4);
   absl::Time ts = absl::UnixEpoch();
-  int64_t ts_micro = absl::ToUnixMicros(ts);;
+  int64_t ts_micro = absl::ToUnixMicros(ts);
   int32_t date;
   TimeValue time;
   DatetimeValue datetime;

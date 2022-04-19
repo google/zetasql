@@ -1198,3 +1198,117 @@ ARRAY<STRUCT<BOOL>>[{true}, {true}, {true}]
  FROM TestTableWithUid2 LIMIT 1);
 --
 ARRAY<STRUCT<BOOL>>[{true}, {true}, {true}]
+==
+
+# ANON_QUANTILES with null epsilon
+[name=anonymization_basic_anon_quantiles_with_null_epsilon]
+[labels=anonymization]
+[parameters=1 as lower,3 as upper]
+SELECT WITH ANONYMIZATION OPTIONS()
+  ANON_QUANTILES(double_val, 5 CLAMPED BETWEEN @lower AND @upper),
+  ANON_QUANTILES(int64_val, 5 CLAMPED BETWEEN @lower AND @upper)
+FROM TestTableWithUid2;
+--
+ERROR: generic::invalid_argument: Anonymization option EPSILON must be set and non-NULL
+==
+
+# ANON_QUANTILES with null delta
+[name=anonymization_basic_anon_quantiles_with_null_delta]
+[labels=anonymization]
+[parameters=1 as lower,3 as upper]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20)
+  ANON_QUANTILES(double_val, 5 CLAMPED BETWEEN @lower AND @upper),
+  ANON_QUANTILES(int64_val, 5 CLAMPED BETWEEN @lower AND @upper)
+FROM TestTableWithUid2;
+--
+ERROR: generic::invalid_argument: Anonymization option DELTA or K_THRESHOLD must be set
+==
+
+# ANON_QUANTILES with implicit bounds, which is not supported, since the DP
+# libraries do not yet support them (see b/205277450).
+#
+# NOTE: To have a more robust floating point comparison, instead of:
+#       F(x) -> expect y, we do |F(x) - y| < 0.01 -> expect True.
+[name=anonymization_basic_anon_quantiles_implicit_bounds]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+  ABS(ANON_QUANTILES(double_val, 5)[OFFSET(2)] - 1.5) < 0.01,
+  ABS(ANON_QUANTILES(int64_val, 5)[OFFSET(3)] - 2) < 0.01
+FROM TestTableWithUid2;
+--
+ERROR: generic::invalid_argument: No matching signature for aggregate function ANON_QUANTILES for argument types: DOUBLE, INT64. Supported signatures: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE) [at 2:7]
+  ABS(ANON_QUANTILES(double_val, 5)[OFFSET(2)] - 1.5) < 0.01,
+      ^
+==
+
+# ANON_QUANTILES with explicit bounds. The number of rows per user is less than
+# 5 in TestTableWithUid2, so the result won't be random.
+#
+# NOTE: To have a more robust floating point comparison, instead of:
+#       F(x) -> expect y, we do |F(x) - y| < 0.01 -> expect True.
+[name=anonymization_basic_anon_quantiles_explicit_bounds]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+  ABS(ANON_QUANTILES(double_val,
+                     5 CLAMPED BETWEEN 1 AND 3)[OFFSET(2)] - 1.5) < 0.01,
+  ABS(ANON_QUANTILES(int64_val,
+                     5 CLAMPED BETWEEN 1 AND 3)[OFFSET(3)] - 2) < 0.01,
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<BOOL, BOOL>>[{true, true}]
+==
+
+# ANON_QUANTILES with explicit bounds, testing that the number of quantile
+# boundaries returned is one greater than the number of quantiles requested.
+#
+# NOTE: To have a more robust floating point comparison, instead of:
+#       F(x) -> expect y, we do |F(x) - y| < 0.01 -> expect True.
+[name=anonymization_basic_anon_quantiles_explicit_bounds_result_length]
+[labels=anonymization]
+SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+  ARRAY_LENGTH(ANON_QUANTILES(double_val,
+                     5 CLAMPED BETWEEN 1 AND 3)),
+  ARRAY_LENGTH(ANON_QUANTILES(int64_val,
+                     5 CLAMPED BETWEEN 1 AND 3)),
+FROM TestTableWithUid2;
+--
+ARRAY<STRUCT<INT64, INT64>>[{6, 6}]
+==
+
+# With less than 5 rows per user and verify that the anonymized quantiles are
+# equal to the quantiles of all the rows. Without noise, it'll behave more like
+# APPROX_QUANTILES to find a value in the input set.
+#
+# NOTE: To have a more robust floating point comparison, instead of:
+#       F(x) -> expect y, we do |F(x) - y| < 0.01 -> expect True.
+[required_features=ANALYTIC_FUNCTIONS,ANONYMIZATION]
+[name=anonymization_verify_non_randomness_of_anon_quantiles_explicit_bounds]
+[labels=anonymization]
+(SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+   ABS(ANON_QUANTILES(double_val, 10 CLAMPED BETWEEN -2 AND 10)[OFFSET(1)] + 1.5) < 0.01
+ FROM TestTableWithUid2)
+  UNION ALL
+(SELECT ABS(APPROX_QUANTILES(double_val, 10)[OFFSET(1)] + 1.5) < 0.01
+ FROM TestTableWithUid2 LIMIT 1);
+--
+ARRAY<STRUCT<BOOL>>[{true}, {true}]
+==
+
+# Another case with a different quantile (0.1) with less than 5 rows per user
+# and verify that the anonymized percentile is equal to the percentile of all
+# the rows. Without noise it'll behave more like APPROX_QUANTILES to find a
+# value in the input set.
+#
+# NOTE: To have a more robust floating point comparison, instead of:
+#       F(x) -> expect y, we do |F(x) - y| < 0.01 -> expect True.
+[required_features=ANALYTIC_FUNCTIONS,ANONYMIZATION]
+[name=anonymization_verify_non_randomness_of_anon_quantiles_explicit_bounds_2]
+[labels=anonymization]
+(SELECT WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=1.0)
+   ABS(ANON_QUANTILES(double_val, 10 CLAMPED BETWEEN -2 AND 10)[OFFSET(7)] - 2.5) < 0.01
+ FROM TestTableWithUid2)
+  UNION ALL
+(SELECT ABS(APPROX_QUANTILES(double_val, 10)[OFFSET(7)] - 2.5) < 0.01
+ FROM TestTableWithUid2 LIMIT 1);
+--
+ARRAY<STRUCT<BOOL>>[{true}, {true}]

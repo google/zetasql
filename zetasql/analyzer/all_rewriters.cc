@@ -23,6 +23,7 @@
 #include "zetasql/analyzer/rewriters/flatten_rewriter.h"
 #include "zetasql/analyzer/rewriters/let_expr_rewriter.h"
 #include "zetasql/analyzer/rewriters/map_function_rewriter.h"
+#include "zetasql/analyzer/rewriters/nulliferror_function_rewriter.h"
 #include "zetasql/analyzer/rewriters/pivot_rewriter.h"
 #include "zetasql/analyzer/rewriters/registration.h"
 #include "zetasql/analyzer/rewriters/rewriter_interface.h"
@@ -63,6 +64,10 @@ void RegisterBuiltinRewriters() {
                GetArrayIncludesRewriter());
     r.Register(ResolvedASTRewrite::REWRITE_TYPEOF_FUNCTION,
                GetTypeofFunctionRewriter());
+    r.Register(ResolvedASTRewrite::REWRITE_NULLIFERROR_FUNCTION,
+               GetNullIfErrorFunctionRewriter());
+    r.Register(ResolvedASTRewrite::REWRITE_ARRAY_FIRST_LAST,
+               GetArrayFirstLastRewriter());
 
     // This rewriter should typically be the last in the rewrite sequence
     // because it cleans up after several other rewriters add ResolvedLetExprs.

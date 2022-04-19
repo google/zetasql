@@ -59,7 +59,7 @@ absl::Status FilterFieldsPathValidator::ValidateFieldPath(
     // Root node has the reverse inclusive/exclusive status with first inserted
     // field path.
     root_node_ =
-        absl::make_unique<FieldPathTrieNode>(root_node_descriptor_, !include);
+        std::make_unique<FieldPathTrieNode>(root_node_descriptor_, !include);
   }
 
   FieldPathTrieNode* node = root_node_.get();
@@ -86,7 +86,7 @@ absl::Status FilterFieldsPathValidator::ValidateFieldPath(
                              PrintFieldPath(include, field_path),
                              include ? "included" : "excluded"));
       }
-      child_node = absl::make_unique<FieldPathTrieNode>(
+      child_node = std::make_unique<FieldPathTrieNode>(
           field_descriptor->message_type(), node->include);
       ZETASQL_VLOG(4) << "Created child node: "
               << absl::Substitute(

@@ -25,6 +25,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_modifiers.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "absl/base/attributes.h"
 #include "absl/hash/hash.h"
@@ -81,13 +82,17 @@ class EnumType : public Type {
   // is just the descriptor full_name (without back-ticks).  The back-ticks
   // are not necessary for TypeName() to be reparseable, so should be removed.
   std::string TypeName(ProductMode mode_unused) const override;
-  // EnumType does not support type parameters, which is why TypeName(mode) is
-  // used.
-  absl::StatusOr<std::string> TypeNameWithParameters(
-      const TypeParameters& type_params, ProductMode mode) const override {
-    ZETASQL_DCHECK(type_params.IsEmpty());
+  // EnumType does not support type parameters or collation, which is why
+  // TypeName(mode) is used.
+  absl::StatusOr<std::string> TypeNameWithModifiers(
+      const TypeModifiers& type_modifiers, ProductMode mode) const override {
+    const TypeParameters& type_params = type_modifiers.type_parameters();
+    const Collation& collation = type_modifiers.collation();
+    ZETASQL_RET_CHECK(type_params.IsEmpty());
+    ZETASQL_RET_CHECK(collation.Empty());
     return TypeName(mode);
   }
+
   std::string ShortTypeName(
       ProductMode mode_unused = ProductMode::PRODUCT_INTERNAL) const override;
   std::string TypeName() const;  // Enum-specific version does not need mode.

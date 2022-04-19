@@ -22,6 +22,7 @@
 #include <optional>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "zetasql/public/evaluator_table_iterator.h"
@@ -398,12 +399,19 @@ class Catalog {
     return dynamic_cast<const CatalogSubclass*>(this) != nullptr;
   }
 
-  // Returns this Catalog as CatalogSubclass*. Must only be used when it is
-  // known that the object *is* this subclass, which can be checked using Is()
-  // before calling GetAs().
+  // Returns this Catalog as const CatalogSubclass*. Must only be used when it
+  // is known that the object *is* this subclass, which can be checked using
+  // Is() before calling GetAs().
   template <class CatalogSubclass>
   const CatalogSubclass* GetAs() const {
     return static_cast<const CatalogSubclass*>(this);
+  }
+  // Returns this Catalog as CatalogSubclass*. Must only be used when it
+  // is known that the object *is* this subclass, which can be checked using
+  // Is() before calling GetAs().
+  template <class CatalogSubclass>
+  CatalogSubclass* GetAs() {
+    return static_cast<CatalogSubclass*>(this);
   }
 
  protected:
@@ -854,8 +862,16 @@ class Column {
   virtual bool IsPseudoColumn() const { return false; }
 
   // Returns true if the column is writable. Non-writable columns cannot have
-  // their value specified in either INSERT or UPDATE dml statements.
+  // their value specified in either INSERT or UPDATE DML statements, but
+  // see CanUpdateUnwritableToDefault() below for an exception.
   virtual bool IsWritableColumn() const { return true; }
+
+  // Returns true if an unwritable column can be SET to DEFAULT in an UPDATE DML
+  // statement.  For example, some engines support this for STORED VOLATILE
+  // columns, where UPDATE to DEFAULT denotes that the column expression must
+  // be re-evaluated.
+  // See: (broken link).
+  virtual bool CanUpdateUnwritableToDefault() const { return false; }
 
   // Returns whether or not this Column is a specific column interface or
   // implementation.

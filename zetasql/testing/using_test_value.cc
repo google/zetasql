@@ -51,20 +51,24 @@ using zetasql::types::TimeType;
 using zetasql::types::Uint32Type;
 using zetasql::types::Uint64Type;
 
-using zetasql::types::BoolArrayType;
-using zetasql::types::BytesArrayType;
-using zetasql::types::DoubleArrayType;
-using zetasql::types::DateArrayType;
-using zetasql::types::FloatArrayType;
-using zetasql::types::Int32ArrayType;
-using zetasql::types::Int64ArrayType;
-using zetasql::types::StringArrayType;
-using zetasql::types::TimestampArrayType;
-using zetasql::types::Uint32ArrayType;
-using zetasql::types::Uint64ArrayType;
-using zetasql::types::NumericArrayType;  // NOLINT
 using zetasql::types::BigNumericArrayType;  // NOLINT
-using zetasql::types::JsonArrayType;  // NOLINT
+using zetasql::types::BoolArrayType;        // NOLINT
+using zetasql::types::BytesArrayType;       // NOLINT
+using zetasql::types::DateArrayType;        // NOLINT
+using zetasql::types::DatetimeArrayType;    // NOLINT
+using zetasql::types::DoubleArrayType;      // NOLINT
+using zetasql::types::FloatArrayType;       // NOLINT
+using zetasql::types::GeographyArrayType;   // NOLINT
+using zetasql::types::Int32ArrayType;       // NOLINT
+using zetasql::types::Int64ArrayType;       // NOLINT
+using zetasql::types::IntervalArrayType;    // NOLINT
+using zetasql::types::JsonArrayType;        // NOLINT
+using zetasql::types::NumericArrayType;     // NOLINT
+using zetasql::types::StringArrayType;      // NOLINT
+using zetasql::types::TimeArrayType;        // NOLINT
+using zetasql::types::TimestampArrayType;   // NOLINT
+using zetasql::types::Uint32ArrayType;      // NOLINT
+using zetasql::types::Uint64ArrayType;      // NOLINT
 
 using zetasql::values::Bool;
 using zetasql::values::Bytes;

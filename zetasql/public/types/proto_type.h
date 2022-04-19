@@ -29,6 +29,7 @@
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_modifiers.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
@@ -88,11 +89,14 @@ class ProtoType : public Type {
   // is just the descriptor full_name (without back-ticks).  The back-ticks
   // are not necessary for TypeName() to be reparseable, so should be removed.
   std::string TypeName(ProductMode mode_unused) const override;
-  // ProtoType does not support type parameters, which is why TypeName(mode) is
-  // used.
-  absl::StatusOr<std::string> TypeNameWithParameters(
-      const TypeParameters& type_params, ProductMode mode) const override {
-    ZETASQL_DCHECK(type_params.IsEmpty());
+  // ProtoType does not support type parameters or collation, which is why
+  // TypeName(mode) is used.
+  absl::StatusOr<std::string> TypeNameWithModifiers(
+      const TypeModifiers& type_modifiers, ProductMode mode) const override {
+    const TypeParameters& type_params = type_modifiers.type_parameters();
+    const Collation& collation = type_modifiers.collation();
+    ZETASQL_RET_CHECK(type_params.IsEmpty());
+    ZETASQL_RET_CHECK(collation.Empty());
     return TypeName(mode);
   }
   std::string ShortTypeName(

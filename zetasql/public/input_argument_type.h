@@ -18,6 +18,7 @@
 #define ZETASQL_PUBLIC_INPUT_ARGUMENT_TYPE_H_
 
 #include <stddef.h>
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -211,7 +212,6 @@ class InputArgumentType {
   // The comparison between non-null literal InputArgumentTypes does not
   // consider their Values so they are considered equal here.
   bool operator==(const InputArgumentType& type) const;
-  bool operator!=(const InputArgumentType& type) const;
 
  private:
   enum Category {
@@ -233,7 +233,7 @@ class InputArgumentType {
 
   Category category_ = kUntypedNull;
   const Type* type_ = nullptr;
-  absl::optional<Value> literal_value_;  // only set for kTypedLiteral.
+  std::optional<Value> literal_value_;  // only set for kTypedLiteral.
 
   // True if this InputArgumentType was constructed from a default function
   // argument value.

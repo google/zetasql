@@ -65,7 +65,7 @@ class TupleSchema {
 
   const std::vector<VariableId>& variables() const { return variables_; }
 
-  absl::optional<int> FindIndexForVariable(const VariableId& variable) const;
+  std::optional<int> FindIndexForVariable(const VariableId& variable) const;
 
   std::string DebugString() const;
 
@@ -256,7 +256,7 @@ class TupleSlot {
   // call to GetFieldExpr::Eval() looks up the ProtoFieldValueMap entry (it
   // has all the information to construct the key) and uses the
   // ProtoFieldValueMap stored in that entry to determine the value of field2.
-  using SharedProtoState = absl::optional<ProtoFieldValueMap>;
+  using SharedProtoState = std::optional<ProtoFieldValueMap>;
 
   // For performance reasons, we only store SharedProtoState for PROTOs and
   // STRUCTs (which may contain protos).
@@ -1084,7 +1084,7 @@ class ReorderingTupleIterator : public TupleIterator {
  private:
   std::unique_ptr<TupleIterator> iter_;
   // If 'iter_' is done, contains its final status.
-  absl::optional<absl::Status> done_status_;
+  std::optional<absl::Status> done_status_;
   std::vector<TupleData> current_batch_;
   int num_read_from_current_batch_ = 0;
   bool called_next_ = false;  // True if Next() was called at least once.

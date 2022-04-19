@@ -17,7 +17,6 @@
 
 package com.google.zetasql;
 
-import com.google.common.collect.ImmutableList;
 import java.io.Serializable;
 
 /** An ML Model in a ZetaSQL query. */
@@ -31,22 +30,6 @@ public interface Model extends Serializable {
    * a valid SQL path expression.
    */
   public String getFullName();
-
-  public int getInputColumnCount();
-
-  public Column getInputColumn(int i);
-
-  public ImmutableList<? extends Column> getInputColumnList();
-
-  public Column findInputColumnByName(String name);
-
-  public int getOutputColumnCount();
-
-  public Column getOutputColumn(int i);
-
-  public ImmutableList<? extends Column> getOutputColumnList();
-
-  public Column findOutputColumnByName(String name);
 
   public long getId();
 }

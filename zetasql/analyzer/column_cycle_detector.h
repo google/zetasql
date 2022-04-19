@@ -93,7 +93,7 @@ class ColumnCycleDetector {
  private:
   // Tracks the current column of the depth-first search. This contains the last
   // column passed to VisitNewColumn() or empty (if never called).
-  absl::optional<IdString> current_column() const;
+  std::optional<IdString> current_column() const;
 
   // ASTNode that defines the column definition. It's used for creating error
   // with context during the AddDependencyOn() call.

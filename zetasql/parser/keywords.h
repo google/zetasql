@@ -33,8 +33,8 @@ namespace parser {
 class KeywordInfo {
  public:
   KeywordInfo(absl::string_view keyword,
-              absl::optional<int> reserved_bison_token,
-              absl::optional<int> nonreserved_bison_token)
+              std::optional<int> reserved_bison_token,
+              std::optional<int> nonreserved_bison_token)
       : keyword_(absl::AsciiStrToUpper(keyword)),
         reserved_bison_token_(reserved_bison_token),
         nonreserved_bison_token_(nonreserved_bison_token) {
@@ -76,11 +76,11 @@ class KeywordInfo {
 
   // The Bison parser token code when this keyword is reserved, or
   // absl::nullopt if this keyword is never reserved.
-  absl::optional<int> reserved_bison_token_;
+  std::optional<int> reserved_bison_token_;
 
   // The Bison parser token code when this keyword is nonreserved, or
   // absl::nullopt if this keyword is always reserved.
-  absl::optional<int> nonreserved_bison_token_;
+  std::optional<int> nonreserved_bison_token_;
 };
 
 // Returns the KeywordInfo for keyword 'keyword' (case insensitively), or

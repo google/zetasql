@@ -111,8 +111,8 @@ namespace {
 // Returns a generic::internal error if <*byte_offset> is out of bounds with
 // respect to <current_line>
 absl::Status AdvanceOneChar(absl::string_view current_line,
-                            absl::optional<int> stop_byte_offset,
-                            absl::optional<int> stop_column, int* column,
+                            std::optional<int> stop_byte_offset,
+                            std::optional<int> stop_column, int* column,
                             int* byte_offset) {
   ZETASQL_RET_CHECK_GE(*byte_offset, 0) << "Negative byte offset";
   ZETASQL_RET_CHECK_LT(*byte_offset, current_line.length())
@@ -165,7 +165,7 @@ absl::StatusOr<int> ColumnNumberFromLineLocalByteOffset(
   while (byte_offset < desired_byte_offset) {
     ZETASQL_RETURN_IF_ERROR(AdvanceOneChar(
         current_line, /*stop_byte_offset=*/desired_byte_offset,
-        /*stop_column=*/absl::optional<int>(), &column, &byte_offset));
+        /*stop_column=*/std::optional<int>(), &column, &byte_offset));
   }
 
   return column;
@@ -223,7 +223,7 @@ absl::StatusOr<int> ParseLocationTranslator::GetByteOffsetFromLineAndColumn(
   int curr_column = 1;
   while (curr_column < column) {
     ZETASQL_RETURN_IF_ERROR(AdvanceOneChar(current_line,
-                                   /*stop_byte_offset=*/absl::optional<int>(),
+                                   /*stop_byte_offset=*/std::optional<int>(),
                                    /*stop_column=*/column, &curr_column,
                                    &byte_offset));
   }

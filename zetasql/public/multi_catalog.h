@@ -114,10 +114,6 @@ class MultiCatalog : public Catalog {
   std::string SuggestConstant(
       const absl::Span<const std::string>& mistyped_path) override;
 
-  // Returns a list of catalog names corresponding to the catalogs in this
-  // multi-catalog.
-  std::vector<std::string> CatalogNames() const;
-
   // Getter for returning the list of Catalogs in this MultiCatalog.
   const std::vector<Catalog*>& catalogs() const {
     return catalog_list_;

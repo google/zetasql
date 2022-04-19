@@ -1069,7 +1069,7 @@ TYPED_TEST(FixedIntGoldenDataTest, Multiply) {
 
 template <typename T, typename V, typename RhsType>
 void TestDivModOps(V x, V y, T expected_quotient, T expected_remainder,
-                   absl::optional<T> expected_rounded_quotient) {
+                   std::optional<T> expected_rounded_quotient) {
   T lhs(x);
   const RhsType rhs(y);
   T& quotient = (lhs /= rhs);
@@ -1106,9 +1106,9 @@ void TestDivMod(V x, V y, T expected_quotient, RhsType expected_remainder) {
 }
 
 template <typename T, typename V>
-void TestDivModWithVariousRhsTypes(
-    V x, V y, T expected_quotient, V expected_remainder,
-    absl::optional<T> expected_rounded_quotient) {
+void TestDivModWithVariousRhsTypes(V x, V y, T expected_quotient,
+                                   V expected_remainder,
+                                   std::optional<T> expected_rounded_quotient) {
   TestDivModOps<T, V, T>(x, y, expected_quotient, T(expected_remainder),
                          expected_rounded_quotient);
   TestDivMod<T, V, T>(x, y, expected_quotient, T(expected_remainder));

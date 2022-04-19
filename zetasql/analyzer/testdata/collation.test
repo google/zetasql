@@ -3231,14 +3231,96 @@ CreateTableStmt
 
 ==
 
-# Collation is not supported in set operations with DISTINCT.
 select string_ci, string_binary from CollatedTable
-{{union|except|intersect }} distinct
+{{union|except|intersect}} distinct
 select 'abc', 'xyz'
 --
-ERROR: Collation is not supported in set operations with DISTINCT [at 1:1]
-select string_ci, string_binary from CollatedTable
-^
+ALTERNATION GROUP: union
+--
+QueryStmt
++-output_column_list=
+| +-$union_distinct.string_ci#7{Collation:"und:ci"} AS string_ci [STRING]
+| +-$union_distinct.string_binary#8{Collation:"binary"} AS string_binary [STRING]
++-query=
+  +-SetOperationScan
+    +-column_list=$union_distinct.[string_ci#7, string_binary#8]
+    +-op_type=UNION_DISTINCT
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=CollatedTable.[string_ci#1, string_binary#2]
+      | |   +-input_scan=
+      | |     +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
+      | +-output_column_list=CollatedTable.[string_ci#1, string_binary#2]
+      +-SetOperationItem
+        +-scan=
+        | +-ProjectScan
+        |   +-column_list=$union_distinct2.[$col1#5, $col2#6]
+        |   +-expr_list=
+        |   | +-$col1#5 := Literal(type=STRING, value="abc")
+        |   | +-$col2#6 := Literal(type=STRING, value="xyz")
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-output_column_list=$union_distinct2.[$col1#5, $col2#6]
+--
+ALTERNATION GROUP: except
+--
+QueryStmt
++-output_column_list=
+| +-$except_distinct.string_ci#7{Collation:"und:ci"} AS string_ci [STRING]
+| +-$except_distinct.string_binary#8{Collation:"binary"} AS string_binary [STRING]
++-query=
+  +-SetOperationScan
+    +-column_list=$except_distinct.[string_ci#7, string_binary#8]
+    +-op_type=EXCEPT_DISTINCT
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=CollatedTable.[string_ci#1, string_binary#2]
+      | |   +-input_scan=
+      | |     +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
+      | +-output_column_list=CollatedTable.[string_ci#1, string_binary#2]
+      +-SetOperationItem
+        +-scan=
+        | +-ProjectScan
+        |   +-column_list=$except_distinct2.[$col1#5, $col2#6]
+        |   +-expr_list=
+        |   | +-$col1#5 := Literal(type=STRING, value="abc")
+        |   | +-$col2#6 := Literal(type=STRING, value="xyz")
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-output_column_list=$except_distinct2.[$col1#5, $col2#6]
+--
+ALTERNATION GROUP: intersect
+--
+QueryStmt
++-output_column_list=
+| +-$intersect_distinct.string_ci#7{Collation:"und:ci"} AS string_ci [STRING]
+| +-$intersect_distinct.string_binary#8{Collation:"binary"} AS string_binary [STRING]
++-query=
+  +-SetOperationScan
+    +-column_list=$intersect_distinct.[string_ci#7, string_binary#8]
+    +-op_type=INTERSECT_DISTINCT
+    +-input_item_list=
+      +-SetOperationItem
+      | +-scan=
+      | | +-ProjectScan
+      | |   +-column_list=CollatedTable.[string_ci#1, string_binary#2]
+      | |   +-input_scan=
+      | |     +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2], table=CollatedTable, column_index_list=[0, 1])
+      | +-output_column_list=CollatedTable.[string_ci#1, string_binary#2]
+      +-SetOperationItem
+        +-scan=
+        | +-ProjectScan
+        |   +-column_list=$intersect_distinct2.[$col1#5, $col2#6]
+        |   +-expr_list=
+        |   | +-$col1#5 := Literal(type=STRING, value="abc")
+        |   | +-$col2#6 := Literal(type=STRING, value="xyz")
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-output_column_list=$intersect_distinct2.[$col1#5, $col2#6]
 ==
 
 select string_ci, string_binary from CollatedTable
@@ -3333,12 +3415,25 @@ QueryStmt
         +-output_column_list=$intersect_all2.[$col1#5, $col2#6]
 ==
 
-select string_ci, string_binary from CollatedTable
-union all
+select string_ci, string_binary from CollatedTable {{union|except|intersect}} all
 select 'abc', COLLATE('abc', 'und:ci')
 --
+ALTERNATION GROUP: union
+--
 ERROR: Collation mismatch is found for output column 2 of set operation: "und:ci" vs "binary" [at 1:1]
-select string_ci, string_binary from CollatedTable
+select string_ci, string_binary from CollatedTable union all
+^
+--
+ALTERNATION GROUP: except
+--
+ERROR: Collation mismatch is found for output column 2 of set operation: "und:ci" vs "binary" [at 1:1]
+select string_ci, string_binary from CollatedTable except all
+^
+--
+ALTERNATION GROUP: intersect
+--
+ERROR: Collation mismatch is found for output column 2 of set operation: "und:ci" vs "binary" [at 1:1]
+select string_ci, string_binary from CollatedTable intersect all
 ^
 ==
 
@@ -4519,3 +4614,332 @@ SELECT CAST(('a', 1) AS STRUCT<STRING, INT32> COLLATE 'und:ci')
 ERROR: Type with collation name is not supported [at 1:47]
 SELECT CAST(('a', 1) AS STRUCT<STRING, INT32> COLLATE 'und:ci')
                                               ^
+==
+
+# The collated column exist in the ResolvedFlatten node. The corresponding
+# ResolvedColumnRef nodes still have the right annotations after rewriting.
+[enabled_ast_rewrites=DEFAULTS]
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+SELECT FLATTEN(ARRAY(
+  SELECT y
+  FROM CollatedTable as x, TestStructValueTable as y
+  WHERE x.string_ci = "abcd"
+).a)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#6 AS `$col1` [ARRAY<INT32>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#6]
+    +-expr_list=
+    | +-$col1#6 :=
+    |   +-Flatten
+    |     +-type=ARRAY<INT32>
+    |     +-expr=
+    |     | +-SubqueryExpr
+    |     |   +-type=ARRAY<STRUCT<a INT32, b STRING>>
+    |     |   +-subquery_type=ARRAY
+    |     |   +-subquery=
+    |     |     +-ProjectScan
+    |     |       +-column_list=[TestStructValueTable.value#5]
+    |     |       +-input_scan=
+    |     |         +-FilterScan
+    |     |           +-column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}, TestStructValueTable.value#5]
+    |     |           +-input_scan=
+    |     |           | +-JoinScan
+    |     |           |   +-column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}, TestStructValueTable.value#5]
+    |     |           |   +-left_scan=
+    |     |           |   | +-TableScan(column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0], alias="x")
+    |     |           |   +-right_scan=
+    |     |           |     +-TableScan(column_list=[TestStructValueTable.value#5], table=TestStructValueTable, column_index_list=[0], alias="y")
+    |     |           +-filter_expr=
+    |     |             +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    |     |               +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+    |     |               +-Literal(type=STRING, value="abcd")
+    |     |               +-collation_list=[und:ci]
+    |     +-get_field_list=
+    |       +-GetStructField
+    |         +-type=INT32
+    |         +-expr=
+    |         | +-FlattenedArg(type=STRUCT<a INT32, b STRING>)
+    |         +-field_idx=0
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#6 AS `$col1` [ARRAY<INT32>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#6]
+    +-expr_list=
+    | +-$col1#6 :=
+    |   +-SubqueryExpr
+    |     +-type=ARRAY<INT32>
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$let_expr.injected#11]
+    |         +-expr_list=
+    |         | +-injected#11 :=
+    |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT32>, ARRAY<INT32>) -> ARRAY<INT32>)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRUCT<a INT32, b STRING>>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<STRUCT<a INT32, b STRING>>, column=$flatten_input.injected#7)
+    |         |     +-Literal(type=ARRAY<INT32>, value=NULL)
+    |         |     +-SubqueryExpr
+    |         |       +-type=ARRAY<INT32>
+    |         |       +-subquery_type=ARRAY
+    |         |       +-parameter_list=
+    |         |       | +-ColumnRef(type=ARRAY<STRUCT<a INT32, b STRING>>, column=$flatten_input.injected#7)
+    |         |       +-subquery=
+    |         |         +-OrderByScan
+    |         |           +-column_list=[$flatten.injected#10]
+    |         |           +-is_ordered=TRUE
+    |         |           +-input_scan=
+    |         |           | +-ProjectScan
+    |         |           |   +-column_list=[$flatten.injected#8, $offset.injected#9, $flatten.injected#10]
+    |         |           |   +-expr_list=
+    |         |           |   | +-injected#10 :=
+    |         |           |   |   +-GetStructField
+    |         |           |   |     +-type=INT32
+    |         |           |   |     +-expr=
+    |         |           |   |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$flatten.injected#8)
+    |         |           |   |     +-field_idx=0
+    |         |           |   +-input_scan=
+    |         |           |     +-ArrayScan
+    |         |           |       +-column_list=[$flatten.injected#8, $offset.injected#9]
+    |         |           |       +-array_expr=
+    |         |           |       | +-ColumnRef(type=ARRAY<STRUCT<a INT32, b STRING>>, column=$flatten_input.injected#7, is_correlated=TRUE)
+    |         |           |       +-element_column=$flatten.injected#8
+    |         |           |       +-array_offset_column=
+    |         |           |         +-ColumnHolder(column=$offset.injected#9)
+    |         |           +-order_by_item_list=
+    |         |             +-OrderByItem
+    |         |               +-column_ref=
+    |         |                 +-ColumnRef(type=INT64, column=$offset.injected#9)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$flatten_input.injected#7]
+    |             +-expr_list=
+    |             | +-injected#7 :=
+    |             |   +-SubqueryExpr
+    |             |     +-type=ARRAY<STRUCT<a INT32, b STRING>>
+    |             |     +-subquery_type=ARRAY
+    |             |     +-subquery=
+    |             |       +-ProjectScan
+    |             |         +-column_list=[TestStructValueTable.value#5]
+    |             |         +-input_scan=
+    |             |           +-FilterScan
+    |             |             +-column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}, TestStructValueTable.value#5]
+    |             |             +-input_scan=
+    |             |             | +-JoinScan
+    |             |             |   +-column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}, TestStructValueTable.value#5]
+    |             |             |   +-left_scan=
+    |             |             |   | +-TableScan(column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0], alias="x")
+    |             |             |   +-right_scan=
+    |             |             |     +-TableScan(column_list=[TestStructValueTable.value#5], table=TestStructValueTable, column_index_list=[0], alias="y")
+    |             |             +-filter_expr=
+    |             |               +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    |             |                 +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+    |             |                 +-Literal(type=STRING, value="abcd")
+    |             |                 +-collation_list=[und:ci]
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# The collated column is correlated inside Flatten function.
+[enabled_ast_rewrites=DEFAULTS]
+[language_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
+SELECT FLATTEN(ARRAY(
+  SELECT y
+  FROM TestStructValueTable y
+  WHERE x.string_ci = "abcd"
+).a)
+FROM CollatedTable as x
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#6 AS `$col1` [ARRAY<INT32>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#6]
+    +-expr_list=
+    | +-$col1#6 :=
+    |   +-Flatten
+    |     +-type=ARRAY<INT32>
+    |     +-expr=
+    |     | +-SubqueryExpr
+    |     |   +-type=ARRAY<STRUCT<a INT32, b STRING>>
+    |     |   +-subquery_type=ARRAY
+    |     |   +-parameter_list=
+    |     |   | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+    |     |   +-subquery=
+    |     |     +-ProjectScan
+    |     |       +-column_list=[TestStructValueTable.value#5]
+    |     |       +-input_scan=
+    |     |         +-FilterScan
+    |     |           +-column_list=[TestStructValueTable.value#5]
+    |     |           +-input_scan=
+    |     |           | +-TableScan(column_list=[TestStructValueTable.value#5], table=TestStructValueTable, column_index_list=[0], alias="y")
+    |     |           +-filter_expr=
+    |     |             +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    |     |               +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"}, is_correlated=TRUE)
+    |     |               +-Literal(type=STRING, value="abcd")
+    |     |               +-collation_list=[und:ci]
+    |     +-get_field_list=
+    |       +-GetStructField
+    |         +-type=INT32
+    |         +-expr=
+    |         | +-FlattenedArg(type=STRUCT<a INT32, b STRING>)
+    |         +-field_idx=0
+    +-input_scan=
+      +-TableScan(column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0], alias="x")
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#6 AS `$col1` [ARRAY<INT32>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#6]
+    +-expr_list=
+    | +-$col1#6 :=
+    |   +-SubqueryExpr
+    |     +-type=ARRAY<INT32>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$let_expr.injected#11]
+    |         +-expr_list=
+    |         | +-injected#11 :=
+    |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT32>, ARRAY<INT32>) -> ARRAY<INT32>)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRUCT<a INT32, b STRING>>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<STRUCT<a INT32, b STRING>>, column=$flatten_input.injected#7)
+    |         |     +-Literal(type=ARRAY<INT32>, value=NULL)
+    |         |     +-SubqueryExpr
+    |         |       +-type=ARRAY<INT32>
+    |         |       +-subquery_type=ARRAY
+    |         |       +-parameter_list=
+    |         |       | +-ColumnRef(type=ARRAY<STRUCT<a INT32, b STRING>>, column=$flatten_input.injected#7)
+    |         |       +-subquery=
+    |         |         +-OrderByScan
+    |         |           +-column_list=[$flatten.injected#10]
+    |         |           +-is_ordered=TRUE
+    |         |           +-input_scan=
+    |         |           | +-ProjectScan
+    |         |           |   +-column_list=[$flatten.injected#8, $offset.injected#9, $flatten.injected#10]
+    |         |           |   +-expr_list=
+    |         |           |   | +-injected#10 :=
+    |         |           |   |   +-GetStructField
+    |         |           |   |     +-type=INT32
+    |         |           |   |     +-expr=
+    |         |           |   |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$flatten.injected#8)
+    |         |           |   |     +-field_idx=0
+    |         |           |   +-input_scan=
+    |         |           |     +-ArrayScan
+    |         |           |       +-column_list=[$flatten.injected#8, $offset.injected#9]
+    |         |           |       +-array_expr=
+    |         |           |       | +-ColumnRef(type=ARRAY<STRUCT<a INT32, b STRING>>, column=$flatten_input.injected#7, is_correlated=TRUE)
+    |         |           |       +-element_column=$flatten.injected#8
+    |         |           |       +-array_offset_column=
+    |         |           |         +-ColumnHolder(column=$offset.injected#9)
+    |         |           +-order_by_item_list=
+    |         |             +-OrderByItem
+    |         |               +-column_ref=
+    |         |                 +-ColumnRef(type=INT64, column=$offset.injected#9)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$flatten_input.injected#7]
+    |             +-expr_list=
+    |             | +-injected#7 :=
+    |             |   +-SubqueryExpr
+    |             |     +-type=ARRAY<STRUCT<a INT32, b STRING>>
+    |             |     +-subquery_type=ARRAY
+    |             |     +-parameter_list=
+    |             |     | +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"}, is_correlated=TRUE)
+    |             |     +-subquery=
+    |             |       +-ProjectScan
+    |             |         +-column_list=[TestStructValueTable.value#5]
+    |             |         +-input_scan=
+    |             |           +-FilterScan
+    |             |             +-column_list=[TestStructValueTable.value#5]
+    |             |             +-input_scan=
+    |             |             | +-TableScan(column_list=[TestStructValueTable.value#5], table=TestStructValueTable, column_index_list=[0], alias="y")
+    |             |             +-filter_expr=
+    |             |               +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    |             |                 +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"}, is_correlated=TRUE)
+    |             |                 +-Literal(type=STRING, value="abcd")
+    |             |                 +-collation_list=[und:ci]
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-TableScan(column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0], alias="x")
+==
+
+# The collated column is part of the arguments of NULLIFERROR(), which gets
+# rewriteen into another function, IFERROR().
+[enabled_ast_rewrites=DEFAULTS]
+SELECT NULLIFERROR(string_ci) FROM CollatedTable
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5{Collation:"und:ci"} AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5{Collation:"und:ci"}]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-FunctionCall(ZetaSQL:nulliferror(STRING) -> STRING)
+    |     +-type_annotation_map={Collation:"und:ci"}
+    |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+    +-input_scan=
+      +-TableScan(column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5{Collation:"und:ci"} AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5{Collation:"und:ci"}]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-FunctionCall(ZetaSQL:iferror(STRING, STRING) -> STRING)
+    |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+    |     +-Literal(type=STRING, value=NULL, has_explicit_type=TRUE)
+    +-input_scan=
+      +-TableScan(column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
+==
+
+# TODO: Add more ARRAY built-in functions
+SELECT ARRAY_FIRST([collate("hello", "und:ci"), collate("zetasql", "und:ci")])
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1{Collation:"und:ci"} AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1{Collation:"und:ci"}]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:array_first(ARRAY<STRING>) -> STRING)
+    |     +-type_annotation_map={Collation:"und:ci"}
+    |     +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
+    |       +-type_annotation_map=[{Collation:"und:ci"}]
+    |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |       | +-type_annotation_map={Collation:"und:ci"}
+    |       | +-Literal(type=STRING, value="hello")
+    |       | +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |       +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |         +-type_annotation_map={Collation:"und:ci"}
+    |         +-Literal(type=STRING, value="zetasql")
+    |         +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    +-input_scan=
+      +-SingleRowScan
+==

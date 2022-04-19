@@ -564,7 +564,6 @@ cc_library(
     deps = [
         ":arithmetics",
         ":util",
-        "//zetasql/base",
         "//zetasql/base:status",
         "//zetasql/public:numeric_value",
         "@com_google_absl//absl/base:core_headers",

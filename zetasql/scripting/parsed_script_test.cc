@@ -68,14 +68,14 @@ class TestInput {
   const std::string& error() const { return error_; }
 
   bool has_named_parameters() const {
-    return absl::holds_alternative<ParsedScript::StringSet>(parameters_);
+    return std::holds_alternative<ParsedScript::StringSet>(parameters_);
   }
 
   const ParsedScript::StringSet& named_parameters() const {
-    return absl::get<ParsedScript::StringSet>(parameters_);
+    return std::get<ParsedScript::StringSet>(parameters_);
   }
   const std::pair<int64_t, int64_t>& positional_parameters() const {
-    return absl::get<std::pair<int64_t, int64_t>>(parameters_);
+    return std::get<std::pair<int64_t, int64_t>>(parameters_);
   }
 
   const zetasql_base::SourceLocation& location() const { return location_; }
@@ -241,10 +241,10 @@ class ScriptValidationTest
 TEST_P(ScriptValidationTest, ValidateScripts) {
   absl::variant<TestCase, TestInput> param = GetParam();
 
-  if (absl::holds_alternative<TestCase>(param)) {
-    CheckTestCase(absl::get<TestCase>(param));
+  if (std::holds_alternative<TestCase>(param)) {
+    CheckTestCase(std::get<TestCase>(param));
   } else {
-    CheckTestInput(absl::get<TestInput>(param));
+    CheckTestInput(std::get<TestInput>(param));
   }
 }
 

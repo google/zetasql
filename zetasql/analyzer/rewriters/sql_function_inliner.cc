@@ -35,10 +35,12 @@
 #include "zetasql/public/templated_sql_function.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/rewrite_utils.h"
 #include "absl/cleanup/cleanup.h"
+#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/types/optional.h"
@@ -49,9 +51,10 @@
 namespace zetasql {
 namespace {
 
+using ArgRefBuilder =
+    std::function<absl::StatusOr<std::unique_ptr<const ResolvedExpr>>(bool)>;
 using ArgNameToColumnMap =
-    absl::flat_hash_map</*argument_name=*/absl::string_view,
-                        std::unique_ptr<const ResolvedColumnRef>>;
+    absl::flat_hash_map</*argument_name=*/absl::string_view, ArgRefBuilder>;
 
 // Helps copying a SQL function body.
 //
@@ -63,12 +66,12 @@ using ArgNameToColumnMap =
 // parameter lists.
 class ResolvedArgumentRefReplacer : public ResolvedASTDeepCopyVisitor {
  public:
-  static absl::StatusOr<std::unique_ptr<ResolvedExpr>> ReplaceArgs(
-      std::unique_ptr<const ResolvedExpr> fn_body,
-      ArgNameToColumnMap& arg_map) {
+  template <class T>
+  static absl::StatusOr<std::unique_ptr<T>> ReplaceArgs(
+      std::unique_ptr<T> fn_body, ArgNameToColumnMap& arg_map) {
     ResolvedArgumentRefReplacer arg_replacer(arg_map);
     ZETASQL_RETURN_IF_ERROR(fn_body->Accept(&arg_replacer));
-    return arg_replacer.ConsumeRootNode<ResolvedExpr>();
+    return arg_replacer.ConsumeRootNode<T>();
   }
 
   explicit ResolvedArgumentRefReplacer(ArgNameToColumnMap& arg_map)
@@ -89,21 +92,22 @@ class ResolvedArgumentRefReplacer : public ResolvedASTDeepCopyVisitor {
   }
 
   absl::Status ReferenceArgumentColumn(absl::string_view arg_name) {
-    const std::unique_ptr<const ResolvedColumnRef>* column =
-        zetasql_base::FindOrNull(arg_map_, arg_name);
+    ArgRefBuilder* ref_builder = zetasql_base::FindOrNull(arg_map_, arg_name);
+    ZETASQL_RET_CHECK_NE(ref_builder, nullptr);
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> arg_ref,
+                     (*ref_builder)(IsCopyingSubqueryInFunctionBody()));
     if (is_in_with_entry_) {
       return absl::UnimplementedError(
-          "SQL defined functions that reference arguments in an embedded WITH "
-          "clause are not implemented.");
+          "SQL defined functions that contain argument references inside "
+          "embedded WITH clauses are not implemented.");
     }
-    ZETASQL_RET_CHECK_NE(column, nullptr);
-    const ResolvedColumnRef* arg_ref = column->get();
-    ZETASQL_RET_CHECK_NE(arg_ref, nullptr);
-    if (IsCopyingSubqueryInFunctionBody()) {
-      args_referenced_in_subquery_.value().insert(arg_ref->column());
+    if (arg_ref->Is<ResolvedColumnRef>() && IsCopyingSubqueryInFunctionBody()) {
+      const ResolvedColumnRef* column_ref = arg_ref->GetAs<ResolvedColumnRef>();
+      ZETASQL_RET_CHECK_NE(column_ref, nullptr);
+      args_referenced_in_subquery_.value().insert(column_ref->column());
     }
-    PushNodeToStack(MakeResolvedColumnRef(arg_ref->type(), arg_ref->column(),
-                                          IsCopyingSubqueryInFunctionBody()));
+    PushNodeToStack(
+        absl::WrapUnique(const_cast<ResolvedExpr*>(arg_ref.release())));
     return absl::OkStatus();
   }
 
@@ -119,7 +123,7 @@ class ResolvedArgumentRefReplacer : public ResolvedASTDeepCopyVisitor {
   template <typename T>
   absl::Status CopySubqueryOrLambdaWithNewArgument(
       const T* node, std::function<absl::Status()> copy_visit) {
-    absl::optional<ArgColumnSet> arg_columns_referenced = ArgColumnSet{};
+    std::optional<ArgColumnSet> arg_columns_referenced = ArgColumnSet{};
     {
       // This cleanup implements a scoped swap. Its like zetasql_base::VarSetter but also
       // swaps the temporary object state back into the local variable so it may
@@ -174,7 +178,7 @@ class ResolvedArgumentRefReplacer : public ResolvedASTDeepCopyVisitor {
   // referenced in the current subquery being copied so that parameter lists
   // can be properly constructed.
   using ArgColumnSet = absl::flat_hash_set<ResolvedColumn>;
-  absl::optional<ArgColumnSet> args_referenced_in_subquery_;
+  std::optional<ArgColumnSet> args_referenced_in_subquery_;
 
   // Track if copying is under a WITH entry (which must be a with on subquery).
   // Argument references in WITH scan are not supported.
@@ -223,20 +227,16 @@ static absl::StatusOr<bool> IsCallInlinableAndCollectInfo(
         absl::StrCat("Hinted calls to SQL defined function '", function->Name(),
                      "' are not supported."));
   }
-  if (call->error_mode() == ResolvedFunctionCall::SAFE_ERROR_MODE) {
-    // TODO: Implement support for ResolvedIfError or equivalent.
-    return absl::UnimplementedError(
-        absl::StrCat("SAFE. calls to SQL defined functions such as '",
-                     function->Name(), "' are not implemented."));
-  }
   return true;
 }
 
 // A visitor that replaces calls to SQL UDFs with the resolved function body.
 class SqlFunctionInlineVistor : public ResolvedASTDeepCopyVisitor {
  public:
-  explicit SqlFunctionInlineVistor(ColumnFactory* column_factory)
-      : column_factory_(column_factory) {}
+  SqlFunctionInlineVistor(const AnalyzerOptions& analyzer_options,
+                          Catalog& catalog, ColumnFactory* column_factory)
+      : column_factory_(column_factory),
+        fn_builder_(analyzer_options, catalog) {}
 
  private:
   absl::Status VisitResolvedFunctionCall(
@@ -261,10 +261,11 @@ class SqlFunctionInlineVistor : public ResolvedASTDeepCopyVisitor {
   //
   // MySqlFunction(arg0=>Expr0, arg1=>Expr1)
   // ~~>
-  // LET (
-  //   arg0 := Expr0,
-  //   arg1 := Expr1
-  // ) IN FunctionBodyExpr
+  // WITH (
+  //   arg0 AS Expr0,
+  //   arg1 AS Expr1,
+  //   FunctionBodyExpr
+  // )
   absl::Status InlineSqlFunction(const ResolvedFunctionCall* call,
                                  absl::Span<const std::string> argument_names,
                                  const ResolvedExpr* fn_expression) {
@@ -279,6 +280,15 @@ class SqlFunctionInlineVistor : public ResolvedASTDeepCopyVisitor {
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> body_expr,
                      CopyResolvedASTAndRemapColumns(
                          *fn_expression, *column_factory_, column_map));
+
+    if (call->error_mode() == ResolvedFunctionCall::SAFE_ERROR_MODE) {
+      Value null_value = Value::Null(body_expr->type());
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> iferror_call,
+                       fn_builder_.IfError(std::move(body_expr),
+                                           MakeResolvedLiteral(null_value)));
+      body_expr =
+          absl::WrapUnique(const_cast<ResolvedExpr*>(iferror_call.release()));
+    }
 
     // Nullary functions get special treatment because we don't have to do any
     // special argument processing.
@@ -296,9 +306,10 @@ class SqlFunctionInlineVistor : public ResolvedASTDeepCopyVisitor {
       ResolvedColumn arg_column = column_factory_->MakeCol(
           absl::StrCat("$inlined_", call->function()->Name()),
           argument_names[i], arg_expr->type());
-      args[argument_names[i]] =
-          MakeResolvedColumnRef(arg_expr->type(), arg_column,
-                                /*is_correlated=*/false);
+      args[argument_names[i]] = [type = arg_expr->type(),
+                                 arg_column](bool is_correlated) {
+        return MakeResolvedColumnRef(type, arg_column, is_correlated);
+      };
       arg_exprs.push_back(
           MakeResolvedComputedColumn(arg_column, std::move(arg_expr)));
     }
@@ -314,6 +325,7 @@ class SqlFunctionInlineVistor : public ResolvedASTDeepCopyVisitor {
   }
 
   ColumnFactory* column_factory_;
+  FunctionCallBuilder fn_builder_;
 };
 
 class SqlFunctionInliner : public Rewriter {
@@ -326,7 +338,7 @@ class SqlFunctionInliner : public Rewriter {
     ColumnFactory column_factory(0, options.id_string_pool().get(),
                                  options.column_id_sequence_number());
 
-    SqlFunctionInlineVistor rewriter(&column_factory);
+    SqlFunctionInlineVistor rewriter(options, catalog, &column_factory);
     ZETASQL_RETURN_IF_ERROR(input.Accept(&rewriter));
     return rewriter.ConsumeRootNode<ResolvedNode>();
   }
@@ -397,8 +409,98 @@ class SqlTableFunctionInlineVistor : public ResolvedASTDeepCopyVisitor {
       return absl::OkStatus();
     }
 
-    return absl::UnimplementedError(
-        "Inlining TVFs with arguments is not yet supported.");
+    const std::vector<std::string>& argument_names =
+        sql_tvf->GetArgumentNames();
+    ZETASQL_RET_CHECK_EQ(argument_names.size(), scan->argument_list_size());
+
+    // The inlined TVF will become a subquery that contains one CTE query per
+    // table argument and one CTE query that computes all scalar arguments with
+    // as-if-once semantics.
+    std::vector<std::unique_ptr<const ResolvedWithEntry>> with_entry_list;
+
+    // Copy the argument expressions with some extra bookkeeping to build
+    // required information for copying the function body expression.
+    std::vector<std::unique_ptr<const ResolvedComputedColumn>> scalar_arg_exprs;
+    std::vector<ResolvedColumn> arg_columns;
+    ArgNameToColumnMap args = ArgNameToColumnMap{};
+    std::string cte_name =
+        absl::StrCat("$inlined_", scan->tvf()->Name(), "_scalar_args");
+    for (int i = 0; i < scan->argument_list_size(); ++i) {
+      if (scan->argument_list(i)->scan() != nullptr) {
+        return absl::UnimplementedError(
+            "Inlining TVFs with table arguments is not yet supported.");
+      }
+      const ResolvedExpr* argument = scan->argument_list(i)->expr();
+      std::string arg_name = argument_names[i];
+      if (argument == nullptr) {
+        return absl::UnimplementedError(
+            absl::StrCat("TVF argument #", i + 1, " ('", arg_name,
+                         "') is not an argument kind supported by inlining."));
+      }
+      ZETASQL_RET_CHECK_NE(argument, nullptr);
+      std::vector<std::unique_ptr<const ResolvedColumnRef>> free_vars;
+      ZETASQL_RETURN_IF_ERROR(CollectColumnRefs(*argument, &free_vars));
+      if (!free_vars.empty()) {
+        return absl::UnimplementedError(absl::StrCat(
+            "Inlining TVF calls with correlated arguments is not supported. ",
+            "Arg #", i + 1, " ('", arg_name, "') references column '",
+            free_vars[0]->column().name(), "'."));
+      }
+      ZETASQL_RETURN_IF_ERROR(argument->Accept(this));
+      auto arg_expr = ConsumeTopOfStack<ResolvedExpr>();
+      args[argument_names[i]] = [scan, &arg_columns,
+                                 projected_col_index = arg_columns.size(),
+                                 cte_name, this](bool is_correlated)
+          -> absl::StatusOr<std::unique_ptr<const ResolvedExpr>> {
+        ZETASQL_RET_CHECK_LT(projected_col_index, arg_columns.size());
+        std::string scan_name = absl::StrCat("$inlined_", scan->tvf()->Name());
+        auto with_ref =
+            ResolvedWithRefScanBuilder().set_with_query_name(cte_name);
+        ResolvedProjectScanBuilder project;
+        ResolvedSubqueryExprBuilder subquery;
+        for (int i = 0; i < arg_columns.size(); ++i) {
+          ResolvedColumn col = column_factory_->MakeCol(
+              scan_name, arg_columns[i].name(), arg_columns[i].type());
+          with_ref.add_column_list(col);
+          if (i == projected_col_index) {
+            project.add_column_list(col);
+            subquery.set_type(col.type());
+          }
+        }
+
+        return std::move(subquery)
+            .set_subquery_type(ResolvedSubqueryExpr::SCALAR)
+            .set_in_expr(nullptr)
+            .set_subquery(
+                std::move(project).set_input_scan(std::move(with_ref)))
+            .Build();
+      };
+      ResolvedColumn arg_column = column_factory_->MakeCol(
+          absl::StrCat("$inlined_", scan->tvf()->Name()), arg_name,
+          arg_expr->type());
+      scalar_arg_exprs.push_back(
+          MakeResolvedComputedColumn(arg_column, std::move(arg_expr)));
+      arg_columns.push_back(arg_column);
+    }
+    if (!scalar_arg_exprs.empty()) {
+      with_entry_list.emplace_back(MakeResolvedWithEntry(
+          cte_name,
+          MakeResolvedProjectScan(arg_columns, std::move(scalar_arg_exprs),
+                                  MakeResolvedSingleRowScan())));
+    }
+
+    // Rewrite the function body so so that it references the columns in
+    // scalar_arg_exprs rather than having ResolvedArgumnetRefs
+    ZETASQL_ASSIGN_OR_RETURN(body_scan, ResolvedArgumentRefReplacer::ReplaceArgs(
+                                    std::move(body_scan), args));
+
+    ZETASQL_RET_CHECK(!with_entry_list.empty());
+    // This variable prevents use-after move ambiguity in the following stmt.
+    const std::vector<ResolvedColumn>& columns = body_scan->column_list();
+    PushNodeToStack(MakeResolvedWithScan(columns, std::move(with_entry_list),
+                                         std::move(body_scan),
+                                         /*recursive=*/false));
+    return absl::OkStatus();
   }
 
  private:

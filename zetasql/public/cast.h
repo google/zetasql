@@ -17,6 +17,9 @@
 #ifndef ZETASQL_PUBLIC_CAST_H_
 #define ZETASQL_PUBLIC_CAST_H_
 
+#include <string>
+#include <utility>
+
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/type.h"
@@ -128,13 +131,12 @@ absl::StatusOr<Value> CastValue(const Value& from_value,
 
 // Same as the previous method, but includes <format>, which is the format
 // string used in the cast.
-absl::StatusOr<Value> CastValue(
-    const Value& from_value,
-    absl::TimeZone default_timezone,
-    const LanguageOptions& language_options,
-    const Type* to_type,
-    const absl::optional<std::string>& format,
-    Catalog* catalog = nullptr);
+absl::StatusOr<Value> CastValue(const Value& from_value,
+                                absl::TimeZone default_timezone,
+                                const LanguageOptions& language_options,
+                                const Type* to_type,
+                                const std::optional<std::string>& format,
+                                Catalog* catalog = nullptr);
 
 // DEPRECATED name for CastValue()
 inline absl::StatusOr<Value> CastStatusOrValue(
@@ -155,10 +157,10 @@ namespace internal {  //   For internal use only
 // be provided in extended_conversion.
 absl::StatusOr<Value> CastValueWithoutTypeValidation(
     const Value& from_value, absl::TimeZone default_timezone,
-    absl::optional<absl::Time> current_timestamp,
+    std::optional<absl::Time> current_timestamp,
     const LanguageOptions& language_options, const Type* to_type,
-    const absl::optional<std::string>& format,
-    const absl::optional<std::string>& time_zone,
+    const std::optional<std::string>& format,
+    const std::optional<std::string>& time_zone,
     const ExtendedCompositeCastEvaluator* extended_conversion_evaluator);
 
 // Returns a hash map with TypeKindPair as key, and CastFunctionProperty as
@@ -246,10 +248,11 @@ class ConversionEvaluator {
 // Conversion describes a cast or coercion provided to the ZetaSQL resolver by
 // a Catalog. Conversion can be either stored in a Catalog or a Catalog can
 // dynamically construct it based on a mapping between two specific types.
+// TODO: support type parameters in Conversion evaluator.
 class Conversion {
  public:
   // Creates a Conversion. Returns an error if provided arguments are invalid:
-  // e.g. any of arguments is NULL or <from_type> is equal to <to_type>.
+  // e.g. any of arguments is NULL.
   static absl::StatusOr<Conversion> Create(
       const Type* from_type, const Type* to_type, const Function* function,
       const CastFunctionProperty& property);

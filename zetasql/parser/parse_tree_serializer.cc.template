@@ -41,7 +41,7 @@ absl::StatusOr<std::unique_ptr<ParserOutput>> ParseTreeSerializer::Deserialize(
 
   ZETASQL_RET_CHECK(statement != nullptr);
   for (int i = allocated_ast_nodes.size() - 1; i >= 0; --i) {
-    (allocated_ast_nodes)[i]->InitFields();
+    ZETASQL_RETURN_IF_ERROR((allocated_ast_nodes)[i]->InitFields());
     // Locate the target statement among the allocated_ast_nodes, move
     // its unique_ptr into *output.
     if ((allocated_ast_nodes)[i].get() == statement) {
@@ -51,7 +51,7 @@ absl::StatusOr<std::unique_ptr<ParserOutput>> ParseTreeSerializer::Deserialize(
   std::unique_ptr<ASTStatement> statement_ptr(
       ast_node.release()->GetAsOrDie<ASTStatement>());
 
-  return absl::make_unique<ParserOutput>(
+  return std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(allocated_ast_nodes), std::move(statement_ptr));
 }

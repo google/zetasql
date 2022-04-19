@@ -520,7 +520,7 @@ TEST_F(ProtoValueConversionTest, WideSchemaTest) {
   file_descriptor_proto.set_name("wide_schema");
   SimpleErrorCollector error_collector;
 
-  auto pool = absl::make_unique<google::protobuf::DescriptorPool>(
+  auto pool = std::make_unique<google::protobuf::DescriptorPool>(
       /*underlay=*/google::protobuf::DescriptorPool::generated_pool());
 
   const FileDescriptor* result =

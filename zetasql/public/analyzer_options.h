@@ -426,6 +426,13 @@ class AnalyzerOptions {
   }
   const absl::TimeZone default_time_zone() const { return default_timezone_; }
 
+  void set_default_anon_function_report_format(absl::string_view format) {
+    default_anon_function_report_format_ = format;
+  }
+  absl::string_view default_anon_function_report_format() const {
+    return default_anon_function_report_format_;
+  }
+
   void set_statement_context(StatementContext context) {
     statement_context_ = context;
   }
@@ -608,6 +615,10 @@ class AnalyzerOptions {
   // The <default_timezone_> may also be used when coercing string literals
   // to timestamp literals during analysis.  Defaults to America/Los_Angeles.
   absl::TimeZone default_timezone_;
+
+  // Some anonymized functions take an optional report format option, and
+  // allow a default report format to be used if the option is not provided.
+  std::string default_anon_function_report_format_;
 
   // This identifies the ZetaSQL resolution context - whether we are in
   // a normal statement context or whether we are resolving statements

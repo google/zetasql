@@ -1942,7 +1942,7 @@ public class ValueTest {
     assertThat(int32Value.toMessage()).isEqualTo(m);
     assertThat(int32Value2.toMessage()).isEqualTo(m);
     assertThat(int32Value3.toMessage().toString()).isEqualTo(m.toString());
-    assertThat(empty.toMessage()).isEqualTo(TypeProto.newBuilder().getDefaultInstanceForType());
+    assertThat(empty.toMessage()).isEqualTo(TypeProto.getDefaultInstance());
 
     try {
       int32Value.toInt64();

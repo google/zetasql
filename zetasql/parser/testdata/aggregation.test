@@ -1357,3 +1357,825 @@ ALTERNATION GROUP: limit 1 offset 2
 ERROR: Syntax error: Expected ")" but got keyword CLAMPED [at 1:35]
 select array_agg(limit 1 offset 2 clamped between 1 and 2 having min y) as a ...
                                   ^
+==
+
+# WITH REPORT basic
+select anon_count(expr WITH REPORT) as a from T;
+--
+QueryStatement [0-47] [select anon_count...s a from T]
+  Query [0-47] [select anon_count...s a from T]
+    Select [0-47] [select anon_count...s a from T]
+      SelectList [7-40] [anon_count...REPORT) as a]
+        SelectColumn [7-40] [anon_count...REPORT) as a]
+          FunctionCall [7-35] [anon_count(expr WITH REPORT)]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            PathExpression [18-22] [expr]
+              Identifier(expr) [18-22] [expr]
+            WithReportModifier [23-34] [WITH REPORT]
+          Alias [36-40] [as a]
+            Identifier(a) [39-40] [a]
+      FromClause [41-47] [from T]
+        TablePathExpression [46-47] [T]
+          PathExpression [46-47] [T]
+            Identifier(T) [46-47] [T]
+--
+SELECT
+  anon_count(expr
+    WITH REPORT) AS a
+FROM
+  T
+==
+
+# WITH REPORT with/without FORMAT with leading identifier or star argument and
+# optionally multiple arguments.
+select anon_count({{*|expr}} {{|clamped between 1 and 2}}
+with report{{|(format = json)|(format = proto)}} {{|order by 5}}) as a from T;
+--
+ALTERNATION GROUP: *,,,
+--
+QueryStatement [0-46] [select anon_count...s a from T]
+  Query [0-46] [select anon_count...s a from T]
+    Select [0-46] [select anon_count...s a from T]
+      SelectList [7-39] [anon_count...report ) as a]
+        SelectColumn [7-39] [anon_count...report ) as a]
+          FunctionCall [7-34] [anon_count(*  with report )]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            Star(*) [18-19] [*]
+            WithReportModifier [21-32] [with report]
+          Alias [35-39] [as a]
+            Identifier(a) [38-39] [a]
+      FromClause [40-46] [from T]
+        TablePathExpression [45-46] [T]
+          PathExpression [45-46] [T]
+            Identifier(T) [45-46] [T]
+--
+SELECT
+  anon_count(*
+    WITH REPORT) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: *,,,order by 5
+--
+QueryStatement [0-56] [select anon_count...s a from T]
+  Query [0-56] [select anon_count...s a from T]
+    Select [0-56] [select anon_count...s a from T]
+      SelectList [7-49] [anon_count...by 5) as a]
+        SelectColumn [7-49] [anon_count...by 5) as a]
+          FunctionCall [7-44] [anon_count...order by 5)]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            Star(*) [18-19] [*]
+            WithReportModifier [21-32] [with report]
+            OrderBy [33-43] [order by 5]
+              OrderingExpression(ASC) [42-43] [5]
+                IntLiteral(5) [42-43] [5]
+          Alias [45-49] [as a]
+            Identifier(a) [48-49] [a]
+      FromClause [50-56] [from T]
+        TablePathExpression [55-56] [T]
+          PathExpression [55-56] [T]
+            Identifier(T) [55-56] [T]
+--
+SELECT
+  anon_count(*
+    WITH REPORT
+    ORDER BY 5) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: *,,(format = json),
+--
+QueryStatement [0-61] [select anon_count...s a from T]
+  Query [0-61] [select anon_count...s a from T]
+    Select [0-61] [select anon_count...s a from T]
+      SelectList [7-54] [anon_count...json) ) as a]
+        SelectColumn [7-54] [anon_count...json) ) as a]
+          FunctionCall [7-49] [anon_count...= json) )]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            Star(*) [18-19] [*]
+            WithReportModifier [21-47] [with report(format = json)]
+              OptionsList [32-47] [(format = json)]
+                OptionsEntry [33-46] [format = json]
+                  Identifier(format) [33-39] [format]
+                  PathExpression [42-46] [json]
+                    Identifier(json) [42-46] [json]
+          Alias [50-54] [as a]
+            Identifier(a) [53-54] [a]
+      FromClause [55-61] [from T]
+        TablePathExpression [60-61] [T]
+          PathExpression [60-61] [T]
+            Identifier(T) [60-61] [T]
+--
+SELECT
+  anon_count(*
+    WITH REPORT(format = json)) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: *,,(format = json),order by 5
+--
+QueryStatement [0-71] [select anon_count...s a from T]
+  Query [0-71] [select anon_count...s a from T]
+    Select [0-71] [select anon_count...s a from T]
+      SelectList [7-64] [anon_count...by 5) as a]
+        SelectColumn [7-64] [anon_count...by 5) as a]
+          FunctionCall [7-59] [anon_count...order by 5)]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            Star(*) [18-19] [*]
+            WithReportModifier [21-47] [with report(format = json)]
+              OptionsList [32-47] [(format = json)]
+                OptionsEntry [33-46] [format = json]
+                  Identifier(format) [33-39] [format]
+                  PathExpression [42-46] [json]
+                    Identifier(json) [42-46] [json]
+            OrderBy [48-58] [order by 5]
+              OrderingExpression(ASC) [57-58] [5]
+                IntLiteral(5) [57-58] [5]
+          Alias [60-64] [as a]
+            Identifier(a) [63-64] [a]
+      FromClause [65-71] [from T]
+        TablePathExpression [70-71] [T]
+          PathExpression [70-71] [T]
+            Identifier(T) [70-71] [T]
+--
+SELECT
+  anon_count(*
+    WITH REPORT(format = json)
+    ORDER BY 5) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: *,,(format = proto),
+--
+QueryStatement [0-62] [select anon_count...s a from T]
+  Query [0-62] [select anon_count...s a from T]
+    Select [0-62] [select anon_count...s a from T]
+      SelectList [7-55] [anon_count...proto) ) as a]
+        SelectColumn [7-55] [anon_count...proto) ) as a]
+          FunctionCall [7-50] [anon_count...= proto) )]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            Star(*) [18-19] [*]
+            WithReportModifier [21-48] [with report(format = proto)]
+              OptionsList [32-48] [(format = proto)]
+                OptionsEntry [33-47] [format = proto]
+                  Identifier(format) [33-39] [format]
+                  PathExpression [42-47] [proto]
+                    Identifier(`PROTO`) [42-47] [proto]
+          Alias [51-55] [as a]
+            Identifier(a) [54-55] [a]
+      FromClause [56-62] [from T]
+        TablePathExpression [61-62] [T]
+          PathExpression [61-62] [T]
+            Identifier(T) [61-62] [T]
+--
+SELECT
+  anon_count(*
+    WITH REPORT(format = `PROTO`)) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: *,,(format = proto),order by 5
+--
+QueryStatement [0-72] [select anon_count...s a from T]
+  Query [0-72] [select anon_count...s a from T]
+    Select [0-72] [select anon_count...s a from T]
+      SelectList [7-65] [anon_count...by 5) as a]
+        SelectColumn [7-65] [anon_count...by 5) as a]
+          FunctionCall [7-60] [anon_count...order by 5)]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            Star(*) [18-19] [*]
+            WithReportModifier [21-48] [with report(format = proto)]
+              OptionsList [32-48] [(format = proto)]
+                OptionsEntry [33-47] [format = proto]
+                  Identifier(format) [33-39] [format]
+                  PathExpression [42-47] [proto]
+                    Identifier(`PROTO`) [42-47] [proto]
+            OrderBy [49-59] [order by 5]
+              OrderingExpression(ASC) [58-59] [5]
+                IntLiteral(5) [58-59] [5]
+          Alias [61-65] [as a]
+            Identifier(a) [64-65] [a]
+      FromClause [66-72] [from T]
+        TablePathExpression [71-72] [T]
+          PathExpression [71-72] [T]
+            Identifier(T) [71-72] [T]
+--
+SELECT
+  anon_count(*
+    WITH REPORT(format = `PROTO`)
+    ORDER BY 5) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: *,clamped between 1 and 2,,
+--
+QueryStatement [0-69] [select anon_count...s a from T]
+  Query [0-69] [select anon_count...s a from T]
+    Select [0-69] [select anon_count...s a from T]
+      SelectList [7-62] [anon_count...report ) as a]
+        SelectColumn [7-62] [anon_count...report ) as a]
+          FunctionCall [7-57] [anon_count...with report )]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            Star(*) [18-19] [*]
+            ClampedBetweenModifier [20-43] [clamped between 1 and 2]
+              IntLiteral(1) [36-37] [1]
+              IntLiteral(2) [42-43] [2]
+            WithReportModifier [44-55] [with report]
+          Alias [58-62] [as a]
+            Identifier(a) [61-62] [a]
+      FromClause [63-69] [from T]
+        TablePathExpression [68-69] [T]
+          PathExpression [68-69] [T]
+            Identifier(T) [68-69] [T]
+--
+SELECT
+  anon_count(*
+    CLAMPED BETWEEN 1 AND 2
+    WITH REPORT) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: *,clamped between 1 and 2,,order by 5
+--
+QueryStatement [0-79] [select anon_count...s a from T]
+  Query [0-79] [select anon_count...s a from T]
+    Select [0-79] [select anon_count...s a from T]
+      SelectList [7-72] [anon_count...by 5) as a]
+        SelectColumn [7-72] [anon_count...by 5) as a]
+          FunctionCall [7-67] [anon_count...order by 5)]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            Star(*) [18-19] [*]
+            ClampedBetweenModifier [20-43] [clamped between 1 and 2]
+              IntLiteral(1) [36-37] [1]
+              IntLiteral(2) [42-43] [2]
+            WithReportModifier [44-55] [with report]
+            OrderBy [56-66] [order by 5]
+              OrderingExpression(ASC) [65-66] [5]
+                IntLiteral(5) [65-66] [5]
+          Alias [68-72] [as a]
+            Identifier(a) [71-72] [a]
+      FromClause [73-79] [from T]
+        TablePathExpression [78-79] [T]
+          PathExpression [78-79] [T]
+            Identifier(T) [78-79] [T]
+--
+SELECT
+  anon_count(*
+    CLAMPED BETWEEN 1 AND 2
+    WITH REPORT
+    ORDER BY 5) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: *,clamped between 1 and 2,(format = json),
+--
+QueryStatement [0-84] [select anon_count...s a from T]
+  Query [0-84] [select anon_count...s a from T]
+    Select [0-84] [select anon_count...s a from T]
+      SelectList [7-77] [anon_count...json) ) as a]
+        SelectColumn [7-77] [anon_count...json) ) as a]
+          FunctionCall [7-72] [anon_count...= json) )]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            Star(*) [18-19] [*]
+            ClampedBetweenModifier [20-43] [clamped between 1 and 2]
+              IntLiteral(1) [36-37] [1]
+              IntLiteral(2) [42-43] [2]
+            WithReportModifier [44-70] [with report(format = json)]
+              OptionsList [55-70] [(format = json)]
+                OptionsEntry [56-69] [format = json]
+                  Identifier(format) [56-62] [format]
+                  PathExpression [65-69] [json]
+                    Identifier(json) [65-69] [json]
+          Alias [73-77] [as a]
+            Identifier(a) [76-77] [a]
+      FromClause [78-84] [from T]
+        TablePathExpression [83-84] [T]
+          PathExpression [83-84] [T]
+            Identifier(T) [83-84] [T]
+--
+SELECT
+  anon_count(*
+    CLAMPED BETWEEN 1 AND 2
+    WITH REPORT(format = json)) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: *,clamped between 1 and 2,(format = json),order by 5
+--
+QueryStatement [0-94] [select anon_count...s a from T]
+  Query [0-94] [select anon_count...s a from T]
+    Select [0-94] [select anon_count...s a from T]
+      SelectList [7-87] [anon_count...by 5) as a]
+        SelectColumn [7-87] [anon_count...by 5) as a]
+          FunctionCall [7-82] [anon_count...order by 5)]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            Star(*) [18-19] [*]
+            ClampedBetweenModifier [20-43] [clamped between 1 and 2]
+              IntLiteral(1) [36-37] [1]
+              IntLiteral(2) [42-43] [2]
+            WithReportModifier [44-70] [with report(format = json)]
+              OptionsList [55-70] [(format = json)]
+                OptionsEntry [56-69] [format = json]
+                  Identifier(format) [56-62] [format]
+                  PathExpression [65-69] [json]
+                    Identifier(json) [65-69] [json]
+            OrderBy [71-81] [order by 5]
+              OrderingExpression(ASC) [80-81] [5]
+                IntLiteral(5) [80-81] [5]
+          Alias [83-87] [as a]
+            Identifier(a) [86-87] [a]
+      FromClause [88-94] [from T]
+        TablePathExpression [93-94] [T]
+          PathExpression [93-94] [T]
+            Identifier(T) [93-94] [T]
+--
+SELECT
+  anon_count(*
+    CLAMPED BETWEEN 1 AND 2
+    WITH REPORT(format = json)
+    ORDER BY 5) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: *,clamped between 1 and 2,(format = proto),
+--
+QueryStatement [0-85] [select anon_count...s a from T]
+  Query [0-85] [select anon_count...s a from T]
+    Select [0-85] [select anon_count...s a from T]
+      SelectList [7-78] [anon_count...proto) ) as a]
+        SelectColumn [7-78] [anon_count...proto) ) as a]
+          FunctionCall [7-73] [anon_count...= proto) )]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            Star(*) [18-19] [*]
+            ClampedBetweenModifier [20-43] [clamped between 1 and 2]
+              IntLiteral(1) [36-37] [1]
+              IntLiteral(2) [42-43] [2]
+            WithReportModifier [44-71] [with report(format = proto)]
+              OptionsList [55-71] [(format = proto)]
+                OptionsEntry [56-70] [format = proto]
+                  Identifier(format) [56-62] [format]
+                  PathExpression [65-70] [proto]
+                    Identifier(`PROTO`) [65-70] [proto]
+          Alias [74-78] [as a]
+            Identifier(a) [77-78] [a]
+      FromClause [79-85] [from T]
+        TablePathExpression [84-85] [T]
+          PathExpression [84-85] [T]
+            Identifier(T) [84-85] [T]
+--
+SELECT
+  anon_count(*
+    CLAMPED BETWEEN 1 AND 2
+    WITH REPORT(format = `PROTO`)) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: *,clamped between 1 and 2,(format = proto),order by 5
+--
+QueryStatement [0-95] [select anon_count...s a from T]
+  Query [0-95] [select anon_count...s a from T]
+    Select [0-95] [select anon_count...s a from T]
+      SelectList [7-88] [anon_count...by 5) as a]
+        SelectColumn [7-88] [anon_count...by 5) as a]
+          FunctionCall [7-83] [anon_count...order by 5)]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            Star(*) [18-19] [*]
+            ClampedBetweenModifier [20-43] [clamped between 1 and 2]
+              IntLiteral(1) [36-37] [1]
+              IntLiteral(2) [42-43] [2]
+            WithReportModifier [44-71] [with report(format = proto)]
+              OptionsList [55-71] [(format = proto)]
+                OptionsEntry [56-70] [format = proto]
+                  Identifier(format) [56-62] [format]
+                  PathExpression [65-70] [proto]
+                    Identifier(`PROTO`) [65-70] [proto]
+            OrderBy [72-82] [order by 5]
+              OrderingExpression(ASC) [81-82] [5]
+                IntLiteral(5) [81-82] [5]
+          Alias [84-88] [as a]
+            Identifier(a) [87-88] [a]
+      FromClause [89-95] [from T]
+        TablePathExpression [94-95] [T]
+          PathExpression [94-95] [T]
+            Identifier(T) [94-95] [T]
+--
+SELECT
+  anon_count(*
+    CLAMPED BETWEEN 1 AND 2
+    WITH REPORT(format = `PROTO`)
+    ORDER BY 5) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: expr,,,
+--
+QueryStatement [0-49] [select anon_count...s a from T]
+  Query [0-49] [select anon_count...s a from T]
+    Select [0-49] [select anon_count...s a from T]
+      SelectList [7-42] [anon_count...report ) as a]
+        SelectColumn [7-42] [anon_count...report ) as a]
+          FunctionCall [7-37] [anon_count(expr  with report )]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            PathExpression [18-22] [expr]
+              Identifier(expr) [18-22] [expr]
+            WithReportModifier [24-35] [with report]
+          Alias [38-42] [as a]
+            Identifier(a) [41-42] [a]
+      FromClause [43-49] [from T]
+        TablePathExpression [48-49] [T]
+          PathExpression [48-49] [T]
+            Identifier(T) [48-49] [T]
+--
+SELECT
+  anon_count(expr
+    WITH REPORT) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: expr,,,order by 5
+--
+QueryStatement [0-59] [select anon_count...s a from T]
+  Query [0-59] [select anon_count...s a from T]
+    Select [0-59] [select anon_count...s a from T]
+      SelectList [7-52] [anon_count...by 5) as a]
+        SelectColumn [7-52] [anon_count...by 5) as a]
+          FunctionCall [7-47] [anon_count...order by 5)]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            PathExpression [18-22] [expr]
+              Identifier(expr) [18-22] [expr]
+            WithReportModifier [24-35] [with report]
+            OrderBy [36-46] [order by 5]
+              OrderingExpression(ASC) [45-46] [5]
+                IntLiteral(5) [45-46] [5]
+          Alias [48-52] [as a]
+            Identifier(a) [51-52] [a]
+      FromClause [53-59] [from T]
+        TablePathExpression [58-59] [T]
+          PathExpression [58-59] [T]
+            Identifier(T) [58-59] [T]
+--
+SELECT
+  anon_count(expr
+    WITH REPORT
+    ORDER BY 5) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: expr,,(format = json),
+--
+QueryStatement [0-64] [select anon_count...s a from T]
+  Query [0-64] [select anon_count...s a from T]
+    Select [0-64] [select anon_count...s a from T]
+      SelectList [7-57] [anon_count...json) ) as a]
+        SelectColumn [7-57] [anon_count...json) ) as a]
+          FunctionCall [7-52] [anon_count...= json) )]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            PathExpression [18-22] [expr]
+              Identifier(expr) [18-22] [expr]
+            WithReportModifier [24-50] [with report(format = json)]
+              OptionsList [35-50] [(format = json)]
+                OptionsEntry [36-49] [format = json]
+                  Identifier(format) [36-42] [format]
+                  PathExpression [45-49] [json]
+                    Identifier(json) [45-49] [json]
+          Alias [53-57] [as a]
+            Identifier(a) [56-57] [a]
+      FromClause [58-64] [from T]
+        TablePathExpression [63-64] [T]
+          PathExpression [63-64] [T]
+            Identifier(T) [63-64] [T]
+--
+SELECT
+  anon_count(expr
+    WITH REPORT(format = json)) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: expr,,(format = json),order by 5
+--
+QueryStatement [0-74] [select anon_count...s a from T]
+  Query [0-74] [select anon_count...s a from T]
+    Select [0-74] [select anon_count...s a from T]
+      SelectList [7-67] [anon_count...by 5) as a]
+        SelectColumn [7-67] [anon_count...by 5) as a]
+          FunctionCall [7-62] [anon_count...order by 5)]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            PathExpression [18-22] [expr]
+              Identifier(expr) [18-22] [expr]
+            WithReportModifier [24-50] [with report(format = json)]
+              OptionsList [35-50] [(format = json)]
+                OptionsEntry [36-49] [format = json]
+                  Identifier(format) [36-42] [format]
+                  PathExpression [45-49] [json]
+                    Identifier(json) [45-49] [json]
+            OrderBy [51-61] [order by 5]
+              OrderingExpression(ASC) [60-61] [5]
+                IntLiteral(5) [60-61] [5]
+          Alias [63-67] [as a]
+            Identifier(a) [66-67] [a]
+      FromClause [68-74] [from T]
+        TablePathExpression [73-74] [T]
+          PathExpression [73-74] [T]
+            Identifier(T) [73-74] [T]
+--
+SELECT
+  anon_count(expr
+    WITH REPORT(format = json)
+    ORDER BY 5) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: expr,,(format = proto),
+--
+QueryStatement [0-65] [select anon_count...s a from T]
+  Query [0-65] [select anon_count...s a from T]
+    Select [0-65] [select anon_count...s a from T]
+      SelectList [7-58] [anon_count...proto) ) as a]
+        SelectColumn [7-58] [anon_count...proto) ) as a]
+          FunctionCall [7-53] [anon_count...= proto) )]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            PathExpression [18-22] [expr]
+              Identifier(expr) [18-22] [expr]
+            WithReportModifier [24-51] [with report(format = proto)]
+              OptionsList [35-51] [(format = proto)]
+                OptionsEntry [36-50] [format = proto]
+                  Identifier(format) [36-42] [format]
+                  PathExpression [45-50] [proto]
+                    Identifier(`PROTO`) [45-50] [proto]
+          Alias [54-58] [as a]
+            Identifier(a) [57-58] [a]
+      FromClause [59-65] [from T]
+        TablePathExpression [64-65] [T]
+          PathExpression [64-65] [T]
+            Identifier(T) [64-65] [T]
+--
+SELECT
+  anon_count(expr
+    WITH REPORT(format = `PROTO`)) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: expr,,(format = proto),order by 5
+--
+QueryStatement [0-75] [select anon_count...s a from T]
+  Query [0-75] [select anon_count...s a from T]
+    Select [0-75] [select anon_count...s a from T]
+      SelectList [7-68] [anon_count...by 5) as a]
+        SelectColumn [7-68] [anon_count...by 5) as a]
+          FunctionCall [7-63] [anon_count...order by 5)]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            PathExpression [18-22] [expr]
+              Identifier(expr) [18-22] [expr]
+            WithReportModifier [24-51] [with report(format = proto)]
+              OptionsList [35-51] [(format = proto)]
+                OptionsEntry [36-50] [format = proto]
+                  Identifier(format) [36-42] [format]
+                  PathExpression [45-50] [proto]
+                    Identifier(`PROTO`) [45-50] [proto]
+            OrderBy [52-62] [order by 5]
+              OrderingExpression(ASC) [61-62] [5]
+                IntLiteral(5) [61-62] [5]
+          Alias [64-68] [as a]
+            Identifier(a) [67-68] [a]
+      FromClause [69-75] [from T]
+        TablePathExpression [74-75] [T]
+          PathExpression [74-75] [T]
+            Identifier(T) [74-75] [T]
+--
+SELECT
+  anon_count(expr
+    WITH REPORT(format = `PROTO`)
+    ORDER BY 5) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: expr,clamped between 1 and 2,,
+--
+QueryStatement [0-72] [select anon_count...s a from T]
+  Query [0-72] [select anon_count...s a from T]
+    Select [0-72] [select anon_count...s a from T]
+      SelectList [7-65] [anon_count...report ) as a]
+        SelectColumn [7-65] [anon_count...report ) as a]
+          FunctionCall [7-60] [anon_count...with report )]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            PathExpression [18-22] [expr]
+              Identifier(expr) [18-22] [expr]
+            ClampedBetweenModifier [23-46] [clamped between 1 and 2]
+              IntLiteral(1) [39-40] [1]
+              IntLiteral(2) [45-46] [2]
+            WithReportModifier [47-58] [with report]
+          Alias [61-65] [as a]
+            Identifier(a) [64-65] [a]
+      FromClause [66-72] [from T]
+        TablePathExpression [71-72] [T]
+          PathExpression [71-72] [T]
+            Identifier(T) [71-72] [T]
+--
+SELECT
+  anon_count(expr
+    CLAMPED BETWEEN 1 AND 2
+    WITH REPORT) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: expr,clamped between 1 and 2,,order by 5
+--
+QueryStatement [0-82] [select anon_count...s a from T]
+  Query [0-82] [select anon_count...s a from T]
+    Select [0-82] [select anon_count...s a from T]
+      SelectList [7-75] [anon_count...by 5) as a]
+        SelectColumn [7-75] [anon_count...by 5) as a]
+          FunctionCall [7-70] [anon_count...order by 5)]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            PathExpression [18-22] [expr]
+              Identifier(expr) [18-22] [expr]
+            ClampedBetweenModifier [23-46] [clamped between 1 and 2]
+              IntLiteral(1) [39-40] [1]
+              IntLiteral(2) [45-46] [2]
+            WithReportModifier [47-58] [with report]
+            OrderBy [59-69] [order by 5]
+              OrderingExpression(ASC) [68-69] [5]
+                IntLiteral(5) [68-69] [5]
+          Alias [71-75] [as a]
+            Identifier(a) [74-75] [a]
+      FromClause [76-82] [from T]
+        TablePathExpression [81-82] [T]
+          PathExpression [81-82] [T]
+            Identifier(T) [81-82] [T]
+--
+SELECT
+  anon_count(expr
+    CLAMPED BETWEEN 1 AND 2
+    WITH REPORT
+    ORDER BY 5) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: expr,clamped between 1 and 2,(format = json),
+--
+QueryStatement [0-87] [select anon_count...s a from T]
+  Query [0-87] [select anon_count...s a from T]
+    Select [0-87] [select anon_count...s a from T]
+      SelectList [7-80] [anon_count...json) ) as a]
+        SelectColumn [7-80] [anon_count...json) ) as a]
+          FunctionCall [7-75] [anon_count...= json) )]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            PathExpression [18-22] [expr]
+              Identifier(expr) [18-22] [expr]
+            ClampedBetweenModifier [23-46] [clamped between 1 and 2]
+              IntLiteral(1) [39-40] [1]
+              IntLiteral(2) [45-46] [2]
+            WithReportModifier [47-73] [with report(format = json)]
+              OptionsList [58-73] [(format = json)]
+                OptionsEntry [59-72] [format = json]
+                  Identifier(format) [59-65] [format]
+                  PathExpression [68-72] [json]
+                    Identifier(json) [68-72] [json]
+          Alias [76-80] [as a]
+            Identifier(a) [79-80] [a]
+      FromClause [81-87] [from T]
+        TablePathExpression [86-87] [T]
+          PathExpression [86-87] [T]
+            Identifier(T) [86-87] [T]
+--
+SELECT
+  anon_count(expr
+    CLAMPED BETWEEN 1 AND 2
+    WITH REPORT(format = json)) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: expr,clamped between 1 and 2,(format = json),order by 5
+--
+QueryStatement [0-97] [select anon_count...s a from T]
+  Query [0-97] [select anon_count...s a from T]
+    Select [0-97] [select anon_count...s a from T]
+      SelectList [7-90] [anon_count...by 5) as a]
+        SelectColumn [7-90] [anon_count...by 5) as a]
+          FunctionCall [7-85] [anon_count...order by 5)]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            PathExpression [18-22] [expr]
+              Identifier(expr) [18-22] [expr]
+            ClampedBetweenModifier [23-46] [clamped between 1 and 2]
+              IntLiteral(1) [39-40] [1]
+              IntLiteral(2) [45-46] [2]
+            WithReportModifier [47-73] [with report(format = json)]
+              OptionsList [58-73] [(format = json)]
+                OptionsEntry [59-72] [format = json]
+                  Identifier(format) [59-65] [format]
+                  PathExpression [68-72] [json]
+                    Identifier(json) [68-72] [json]
+            OrderBy [74-84] [order by 5]
+              OrderingExpression(ASC) [83-84] [5]
+                IntLiteral(5) [83-84] [5]
+          Alias [86-90] [as a]
+            Identifier(a) [89-90] [a]
+      FromClause [91-97] [from T]
+        TablePathExpression [96-97] [T]
+          PathExpression [96-97] [T]
+            Identifier(T) [96-97] [T]
+--
+SELECT
+  anon_count(expr
+    CLAMPED BETWEEN 1 AND 2
+    WITH REPORT(format = json)
+    ORDER BY 5) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: expr,clamped between 1 and 2,(format = proto),
+--
+QueryStatement [0-88] [select anon_count...s a from T]
+  Query [0-88] [select anon_count...s a from T]
+    Select [0-88] [select anon_count...s a from T]
+      SelectList [7-81] [anon_count...proto) ) as a]
+        SelectColumn [7-81] [anon_count...proto) ) as a]
+          FunctionCall [7-76] [anon_count...= proto) )]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            PathExpression [18-22] [expr]
+              Identifier(expr) [18-22] [expr]
+            ClampedBetweenModifier [23-46] [clamped between 1 and 2]
+              IntLiteral(1) [39-40] [1]
+              IntLiteral(2) [45-46] [2]
+            WithReportModifier [47-74] [with report(format = proto)]
+              OptionsList [58-74] [(format = proto)]
+                OptionsEntry [59-73] [format = proto]
+                  Identifier(format) [59-65] [format]
+                  PathExpression [68-73] [proto]
+                    Identifier(`PROTO`) [68-73] [proto]
+          Alias [77-81] [as a]
+            Identifier(a) [80-81] [a]
+      FromClause [82-88] [from T]
+        TablePathExpression [87-88] [T]
+          PathExpression [87-88] [T]
+            Identifier(T) [87-88] [T]
+--
+SELECT
+  anon_count(expr
+    CLAMPED BETWEEN 1 AND 2
+    WITH REPORT(format = `PROTO`)) AS a
+FROM
+  T
+--
+ALTERNATION GROUP: expr,clamped between 1 and 2,(format = proto),order by 5
+--
+QueryStatement [0-98] [select anon_count...s a from T]
+  Query [0-98] [select anon_count...s a from T]
+    Select [0-98] [select anon_count...s a from T]
+      SelectList [7-91] [anon_count...by 5) as a]
+        SelectColumn [7-91] [anon_count...by 5) as a]
+          FunctionCall [7-86] [anon_count...order by 5)]
+            PathExpression [7-17] [anon_count]
+              Identifier(anon_count) [7-17] [anon_count]
+            PathExpression [18-22] [expr]
+              Identifier(expr) [18-22] [expr]
+            ClampedBetweenModifier [23-46] [clamped between 1 and 2]
+              IntLiteral(1) [39-40] [1]
+              IntLiteral(2) [45-46] [2]
+            WithReportModifier [47-74] [with report(format = proto)]
+              OptionsList [58-74] [(format = proto)]
+                OptionsEntry [59-73] [format = proto]
+                  Identifier(format) [59-65] [format]
+                  PathExpression [68-73] [proto]
+                    Identifier(`PROTO`) [68-73] [proto]
+            OrderBy [75-85] [order by 5]
+              OrderingExpression(ASC) [84-85] [5]
+                IntLiteral(5) [84-85] [5]
+          Alias [87-91] [as a]
+            Identifier(a) [90-91] [a]
+      FromClause [92-98] [from T]
+        TablePathExpression [97-98] [T]
+          PathExpression [97-98] [T]
+            Identifier(T) [97-98] [T]
+--
+SELECT
+  anon_count(expr
+    CLAMPED BETWEEN 1 AND 2
+    WITH REPORT(format = `PROTO`)
+    ORDER BY 5) AS a
+FROM
+  T

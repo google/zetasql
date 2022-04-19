@@ -101,7 +101,7 @@ absl::Status WindowFrameBoundaryArg::SetSchemasForEvaluation(
   params_schemas_.reserve(params_schemas_.size());
   for (const TupleSchema* schema : params_schemas) {
     params_schemas_.push_back(
-        absl::make_unique<const TupleSchema>(schema->variables()));
+        std::make_unique<const TupleSchema>(schema->variables()));
   }
 
   return absl::OkStatus();
@@ -402,7 +402,7 @@ static absl::Status GetSlotsForKeysAndValues(
     std::vector<int>* slots_for_keys, std::vector<int>* slots_for_values) {
   slots_for_keys->reserve(keys.size());
   for (const KeyArg* key : keys) {
-    absl::optional<int> slot = schema.FindIndexForVariable(key->variable());
+    std::optional<int> slot = schema.FindIndexForVariable(key->variable());
     ZETASQL_RET_CHECK(slot.has_value()) << "Cannot find variable " << key->variable()
                                 << " in TupleSchema " << schema.DebugString();
     slots_for_keys->push_back(slot.value());
@@ -1895,7 +1895,7 @@ absl::Status AggregateAnalyticArg::SetSchemasForEvaluation(
   ZETASQL_RETURN_IF_ERROR(
       aggregator_->SetSchemasForEvaluation(partition_schema, params_schemas));
   partition_schema_ =
-      absl::make_unique<const TupleSchema>(partition_schema.variables());
+      std::make_unique<const TupleSchema>(partition_schema.variables());
   return absl::OkStatus();
 }
 
@@ -1974,7 +1974,7 @@ absl::Status NonAggregateAnalyticArg::SetSchemasForEvaluation(
         arg->mutable_value_expr()->SetSchemasForEvaluation(params_schemas));
   }
   partition_schema_ =
-      absl::make_unique<const TupleSchema>(partition_schema.variables());
+      std::make_unique<const TupleSchema>(partition_schema.variables());
   return absl::OkStatus();
 }
 
@@ -2199,7 +2199,7 @@ class AnalyticTupleIterator : public TupleIterator {
         return nullptr;
       }
       first_tuple_in_current_partition =
-          absl::make_unique<TupleData>(*input_data);
+          std::make_unique<TupleData>(*input_data);
     } else {
       first_tuple_in_current_partition =
           std::move(first_tuple_in_next_partition_);
@@ -2231,13 +2231,13 @@ class AnalyticTupleIterator : public TupleIterator {
         // We are done loading the current partition. 'input_data' belongs in
         // the next partition.
         first_tuple_in_next_partition_ =
-            absl::make_unique<TupleData>(*input_data);
+            std::make_unique<TupleData>(*input_data);
         break;
       }
       // 'input_data' belongs in the current partition (which we are still
       // loading).
       if (!remaining_current_partition_.PushBack(
-              absl::make_unique<TupleData>(*input_data), &status_)) {
+              std::make_unique<TupleData>(*input_data), &status_)) {
         return nullptr;
       }
     }
@@ -2315,7 +2315,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AnalyticOp::CreateIterator(
   std::vector<int> slots_for_partition_keys;
   slots_for_partition_keys.reserve(partition_keys().size());
   for (const KeyArg* partition_key : partition_keys()) {
-    absl::optional<int> slot =
+    std::optional<int> slot =
         iter->Schema().FindIndexForVariable(partition_key->variable());
     ZETASQL_RET_CHECK(slot.has_value())
         << "Could not find variable " << partition_key->variable()
@@ -2328,7 +2328,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> AnalyticOp::CreateIterator(
       TupleComparator::Create(partition_keys(), slots_for_partition_keys,
                               params, context));
 
-  iter = absl::make_unique<AnalyticTupleIterator>(
+  iter = std::make_unique<AnalyticTupleIterator>(
       params, partition_keys(), order_keys(), analytic_args(), std::move(iter),
       std::move(partition_comparator), CreateOutputSchema(), context);
   if (is_order_preserving()) {
@@ -2347,7 +2347,7 @@ std::unique_ptr<TupleSchema> AnalyticOp::CreateOutputSchema() const {
     variables.push_back(arg->variable());
   }
 
-  return absl::make_unique<TupleSchema>(variables);
+  return std::make_unique<TupleSchema>(variables);
 }
 
 std::string AnalyticOp::IteratorDebugString() const {
@@ -2370,7 +2370,7 @@ AnalyticOp::AnalyticOp(std::vector<std::unique_ptr<KeyArg>> partition_keys,
   SetArgs<KeyArg>(kPartitionKey, std::move(partition_keys));
   SetArgs<KeyArg>(kOrderKey, std::move(order_keys));
   SetArgs<AnalyticArg>(kAnalytic, std::move(analytic_args));
-  SetArg(kInput, absl::make_unique<RelationalArg>(std::move(input)));
+  SetArg(kInput, std::make_unique<RelationalArg>(std::move(input)));
 }
 
 absl::Span<const KeyArg* const> AnalyticOp::partition_keys() const {

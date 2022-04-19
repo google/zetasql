@@ -7,7 +7,7 @@ ZetaSQL supports the following `TIME` functions.
 ### CURRENT_TIME
 
 ```sql
-CURRENT_TIME([timezone])
+CURRENT_TIME([time_zone])
 ```
 
 **Description**
@@ -15,8 +15,8 @@ CURRENT_TIME([timezone])
 Returns the current time as a `TIME` object. Parentheses are optional when
 called with no arguments.
 
-This function supports an optional `timezone` parameter.
-See [Timezone definitions][time-link-to-timezone-definitions] for information
+This function supports an optional `time_zone` parameter.
+See [Time zone definitions][time-link-to-timezone-definitions] for information
 on how to specify a time zone.
 
 **Return Data Type**
@@ -57,7 +57,7 @@ SELECT current_time() as now, t.current_time FROM t;
 
 ```sql
 1. TIME(hour, minute, second)
-2. TIME(timestamp, [timezone])
+2. TIME(timestamp, [time_zone])
 3. TIME(datetime)
 ```
 
@@ -67,10 +67,11 @@ SELECT current_time() as now, t.current_time FROM t;
    values representing the hour, minute, and second.
 2. Constructs a `TIME` object using a `TIMESTAMP` object. It supports an
    optional
-   parameter to [specify a timezone][time-link-to-timezone-definitions]. If no
-   timezone is specified, the default timezone, which is implementation defined, is used.
+   parameter to [specify a time zone][time-link-to-timezone-definitions]. If no
+   time zone is specified, the default time zone, which is implementation defined, is
+   used.
 3. Constructs a `TIME` object using a
-  `DATETIME` object.
+   `DATETIME` object.
 
 **Return Data Type**
 
@@ -409,113 +410,11 @@ SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time
 +-------------+
 ```
 
-### Supported format elements for TIME
-
-Unless otherwise noted, `TIME` functions that use format strings support the
-following elements:
-
-<table>
- <tr>
-    <td class="tab0">Format element</td>
-    <td class="tab0">Description</td>
-    <td class="tab0">Example</td>
- </tr>
- <tr>
-    <td>%H</td>
-    <td>The hour (24-hour clock) as a decimal number (00-23).</td>
-    <td>21</td>
- </tr>
- <tr>
-    <td>%I</td>
-    <td>The hour (12-hour clock) as a decimal number (01-12).</td>
-    <td>09</td>
- </tr>
- <tr>
-    <td>%k</td>
-    <td>The hour (24-hour clock) as a decimal number (0-23); single digits are
-    preceded
-by a space.</td>
-    <td>21</td>
- </tr>
- <tr>
-    <td>%l</td>
-    <td>The hour (12-hour clock) as a decimal number (1-12); single digits are
-    preceded
-by a space.</td>
-    <td>9</td>
- </tr>
- <tr>
-    <td>%M</td>
-    <td>The minute as a decimal number (00-59).</td>
-    <td>47</td>
- </tr>
- <tr>
-    <td>%n</td>
-    <td>A newline character.</td>
-    <td></td>
- </tr>
- <tr>
-    <td>%P</td>
-    <td>Either am or pm.</td>
-    <td>pm</td>
- </tr>
- <tr>
-    <td>%p</td>
-    <td>Either AM or PM.</td>
-    <td>PM</td>
- </tr>
- <tr>
-    <td>%R</td>
-    <td>The time in the format %H:%M.</td>
-    <td>21:47</td>
- </tr>
- <tr>
-    <td>%r</td>
-    <td>The 12-hour clock time using AM/PM notation.</td>
-    <td>09:47:00 PM</td>
- </tr>
- <tr>
-    <td>%S</td>
-    <td>The second as a decimal number (00-60).</td>
-    <td>00</td>
- </tr>
- <tr>
-    <td>%T</td>
-    <td>The time in the format %H:%M:%S.</td>
-    <td>21:47:00</td>
- </tr>
- <tr>
-    <td>%t</td>
-    <td>A tab character.</td>
-    <td></td>
- </tr>
- <tr>
-    <td>%X</td>
-    <td>The time representation in HH:MM:SS format.</td>
-    <td>21:47:00</td>
- </tr>
- <tr>
-    <td>%%</td>
-    <td>A single % character.</td>
-    <td>%</td>
- </tr>
- <tr>
-    <td>%E&lt;number&gt;S</td>
-    <td>Seconds with &lt;number&gt; digits of fractional precision.</td>
-    <td>00.000 for %E3S</td>
- </tr>
- <tr>
-    <td>%E*S</td>
-    <td>Seconds with full fractional precision (a literal '*').</td>
-    <td>00.123456</td>
- </tr>
-</table>
-
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [time-format]: #format_time
 
-[time-format-elements]: #supported_format_elements_for_time
+[time-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
 
 [time-functions-link-to-range-variables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#range_variables
 

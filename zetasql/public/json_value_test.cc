@@ -41,6 +41,7 @@
 
 namespace {
 
+using ::zetasql::IsValidJSON;
 using ::zetasql::JSONParsingOptions;
 using ::zetasql::JSONValue;
 using ::zetasql::JSONValueConstRef;
@@ -301,7 +302,7 @@ TEST(JSONValueTest, ObjectValue) {
   EXPECT_EQ(kKey, members[0].first);
   EXPECT_EQ(kIntegerValue, members[0].second.GetInt64());
 
-  absl::optional<JSONValueConstRef> optional_member_const_ref =
+  std::optional<JSONValueConstRef> optional_member_const_ref =
       ref.GetMemberIfExists(kKey);
   ASSERT_TRUE(optional_member_const_ref.has_value());
   EXPECT_TRUE(optional_member_const_ref->IsInt64());
@@ -348,7 +349,7 @@ TEST(JSONValueTest, EmptyObjectValue) {
   EXPECT_EQ(members[0].first, kKey);
   EXPECT_EQ(members[0].second.GetInt64(), kIntegerValue);
 
-  absl::optional<JSONValueConstRef> optional_member_const_ref =
+  std::optional<JSONValueConstRef> optional_member_const_ref =
       ref.GetMemberIfExists(kKey);
   ASSERT_TRUE(optional_member_const_ref.has_value());
   ASSERT_TRUE(optional_member_const_ref->IsInt64());
@@ -1039,7 +1040,7 @@ TEST(JSONValueTest, DeserializeFromProtoBytesMaxNestingLevel) {
   EXPECT_TRUE(
       decoded_value.GetConstRef().NormalizedEquals(value.GetConstRef()));
 
-  // Default value for 'max_nesting_level' is absl::nullopt which means no limit
+  // Default value for 'max_nesting_level' is std::nullopt which means no limit
   // is enforced.
   ZETASQL_ASSERT_OK_AND_ASSIGN(JSONValue decoded_value2,
                        JSONValue::DeserializeFromProtoBytes(encoded_bytes));
@@ -1274,7 +1275,7 @@ TEST(JSONValueTest, NormalizedEqualsArray) {
 TEST(JSONValueTest, ParseWithNestingLimit) {
   JSONParsingOptions options{.legacy_mode = false,
                              .strict_number_parsing = false,
-                             .max_nesting = absl::nullopt};
+                             .max_nesting = std::nullopt};
   auto result = JSONValue::ParseJSONString("[10, 20]", options);
   ASSERT_TRUE(result.ok());
   EXPECT_THAT(result->GetConstRef().ToString(), "[10,20]");
@@ -1333,6 +1334,67 @@ TEST(JSONValueTest, ParseWithNestingLimit) {
       result.status().message(),
       HasSubstr(
           "Max nesting of 3 has been exceeded while parsing JSON document"));
+}
+
+// TODO: Add more tests.
+TEST(JSONValueValidator, ValidJSON) {
+  std::vector<std::string> jsons = {
+      "10",
+      "-1.3123",
+      "null",
+      "true",
+      "false",
+      R"("foo")",
+      R"("10")",
+      R"([10, "bar", null])",
+      R"({"foo": "bar", "abc": null, "bar": 15})",
+      R"({"a": {"b": {"c": [10, null, [null, "a", 1e10]]}}})",
+      R"([[[[[[[[10], null], "foo"]]]]]])",
+      R"([10, {"foo": 20}, [null, "abc", {"bar": "baz"}]])",
+  };
+
+  for (const std::string& json : jsons) {
+    ZETASQL_EXPECT_OK(IsValidJSON(json));
+  }
+}
+
+// TODO: Add more tests.
+TEST(JSONValueValidator, InvalidJSON) {
+  // Nesting level
+  std::string json =
+      R"({"foo": [{"bar": 10}, 20, [30], {"bar": 30}]})";  // nesting level: 3
+  ZETASQL_EXPECT_OK(IsValidJSON(json));
+  ZETASQL_EXPECT_OK(IsValidJSON(json, {.max_nesting = 3}));
+
+  EXPECT_THAT(IsValidJSON(json, {.max_nesting = 2}),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Max nesting of 2 has been exceeded while "
+                                 "parsing JSON document")));
+
+  // Strict number parsing
+  std::string large_double = R"({"foo": 123456789012345678901234567890})";
+  ZETASQL_EXPECT_OK(IsValidJSON(large_double));
+  EXPECT_THAT(IsValidJSON(large_double, {.strict_number_parsing = true}),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       ::testing::HasSubstr("cannot round-trip")));
+
+  // Invalid values
+  std::vector<std::pair<std::string, std::string>> jsons_and_errors = {
+      {R"({"foo": [{"bar"= 10}, 20]})", "invalid literal"},
+      {R"({"foo": [{"bar": 10}, 20])", "unexpected end of input"},
+      {R"([[10, 20])", "unexpected end of input"},
+      {R"([10, 20]])", "expected end of input"},
+      {R"([10})", "unexpected '}'"},
+      {R"({"foo": 10])", "unexpected ']'"},
+      {R"({"foo": [10})", "unexpected '}'"},
+  };
+
+  for (const auto& [json, error] : jsons_and_errors) {
+    EXPECT_THAT(IsValidJSON(json),
+                StatusIs(absl::StatusCode::kInvalidArgument,
+                         AllOf(HasSubstr("syntax error while parsing"),
+                               HasSubstr(error))));
+  }
 }
 
 }  // namespace

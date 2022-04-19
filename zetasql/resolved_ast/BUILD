@@ -52,6 +52,7 @@ gen_resolved_ast_files(
     srcs = [
         "resolved_ast.cc.template",
         "resolved_ast.h.template",
+        "resolved_ast_builder.h.template",
         "resolved_ast_deep_copy_visitor.cc.template",
         "resolved_ast_deep_copy_visitor.h.template",
         "resolved_ast_visitor.h.template",
@@ -60,10 +61,14 @@ gen_resolved_ast_files(
     outs = [
         "resolved_ast.cc",
         "resolved_ast.h",
+        "resolved_ast_builder.h",
         "resolved_ast_deep_copy_visitor.cc",
         "resolved_ast_deep_copy_visitor.h",
         "resolved_ast_visitor.h",
         "resolved_node_kind.h",
+    ],
+    data = [
+        "resolved_ast_field.h.template.import",
     ],
 )
 
@@ -145,6 +150,20 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
         "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_library(
+    name = "resolved_ast_builder",
+    srcs = [],
+    hdrs = [
+        "resolved_ast_builder.h",
+    ],
+    deps = [
+        ":resolved_ast",
+        "//zetasql/base:logging",
+        "//zetasql/common:status_payload_utils",
+        "@com_google_absl//absl/status:statusor",
     ],
 )
 
@@ -275,6 +294,21 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_test(
+    name = "resolved_ast_builder_test",
+    size = "small",
+    srcs = ["resolved_ast_builder_test.cc"],
+    deps = [
+        ":resolved_ast",
+        ":resolved_ast_builder",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:simple_catalog",
+        "//zetasql/public:templated_sql_tvf",
+        "//zetasql/public/types",
     ],
 )
 
@@ -484,9 +518,12 @@ cc_library(
     deps = [
         ":resolved_ast",
         "//zetasql/base",
+        "//zetasql/base:logging",
         "//zetasql/base:status",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:builtin_function_cc_proto",
+        "//zetasql/public:function",
+        "//zetasql/resolved_ast:resolved_ast_builder",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status:statusor",
     ],
@@ -511,6 +548,7 @@ cc_test(
     deps = [
         ":make_node_vector",
         ":resolved_ast",
+        ":resolved_ast_builder",
         ":test_utils",
         ":validator",
         "//zetasql/base/testing:status_matchers",

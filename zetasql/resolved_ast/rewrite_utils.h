@@ -21,6 +21,7 @@
 #include <string>
 
 #include "zetasql/base/atomic_sequence_num.h"
+#include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "absl/memory/memory.h"
@@ -170,10 +171,23 @@ class FunctionCallBuilder {
   absl::StatusOr<std::unique_ptr<ResolvedFunctionCall>> IsNull(
       std::unique_ptr<const ResolvedExpr> arg);
 
+  // Construct a ResolvedFunctionCall for IFERROR(try_expr, handle_expr)
+  //
+  // Requires: try_expr and handle_expr must return equal types.
+  //
+  // The signature for the built-in function "IFERROR" must be available in
+  // <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> IfError(
+      std::unique_ptr<const ResolvedExpr> try_expr,
+      std::unique_ptr<const ResolvedExpr> handle_expr);
+
  private:
   const AnalyzerOptions& analyzer_options_;
   Catalog& catalog_;
 };
+
+bool IsBuiltInFunctionIdEq(const ResolvedFunctionCall* function_call,
+                           FunctionSignatureId function_signature_id);
 
 }  // namespace zetasql
 

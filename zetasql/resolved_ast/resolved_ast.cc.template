@@ -79,10 +79,11 @@ struct TestIsDefaultValue<Value> {
   }
 };
 template <>
-struct TestIsDefaultValue<FunctionSignature> {
-  static bool IsDefaultValue(const FunctionSignature& signature) {
-    return signature.NumOptionalArguments() == -1 &&
-           signature.NumRepeatedArguments() == -1;
+struct TestIsDefaultValue<absl::optional<FunctionSignature>> {
+  static bool IsDefaultValue(const absl::optional<FunctionSignature>& signature) {
+    return !signature.has_value() ||
+        (signature->NumOptionalArguments() == -1 &&
+           signature->NumRepeatedArguments() == -1);
   }
 };
 template <>
@@ -232,8 +233,8 @@ static std::string ToStringImpl(ResolvedAuxLoadDataStmt::InsertionMode mode) {
   ZETASQL_LOG(DFATAL) << "Invalid InsertionMode: " << mode;
   return absl::StrCat("INVALID_INSERTION_MODE(", mode, ")");
 }
-static std::string ToStringImpl(const FunctionSignature& signature) {
-  return signature.DebugString();
+static std::string ToStringImpl(const absl::optional<FunctionSignature>& signature) {
+  return signature->DebugString();
 }
 static std::string ToStringImpl(const std::shared_ptr<FunctionSignature>& signature) {
   return signature->DebugString();
@@ -243,8 +244,8 @@ static std::string ToStringImpl(
   if (function_call_info == nullptr) return "<null>";
   return function_call_info->DebugString();
 }
-static std::string ToStringVerbose(const FunctionSignature& signature) {
-  return signature.DebugString("" /* function_name */, true /* verbose */);
+static std::string ToStringVerbose(const absl::optional<FunctionSignature>& signature) {
+  return signature->DebugString("" /* function_name */, true /* verbose */);
 }
 static std::string ToStringVerbose(const std::shared_ptr<FunctionSignature>& signature) {
   return signature->DebugString("" /* function_name */, true /* verbose */);
@@ -547,10 +548,10 @@ absl::StatusOr<const Procedure*> RestoreFromImpl(
 }
 
 static absl::Status SaveToImpl(
-    const FunctionSignature& sig,
+    const absl::optional<FunctionSignature>& sig,
     FileDescriptorSetMap* file_descriptor_set_map,
     FunctionSignatureProto* proto) {
-  return sig.Serialize(file_descriptor_set_map, proto);
+  return sig.value().Serialize(file_descriptor_set_map, proto);
 }
 
 template<>

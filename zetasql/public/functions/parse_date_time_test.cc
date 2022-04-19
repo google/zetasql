@@ -1069,22 +1069,22 @@ struct ParseDatetimeTest {
 
   // Only one of <result_date>, <result_datetime>, or <error_substr> will be
   // set (by construction).
-  absl::optional<absl::CivilDay> result_date;
-  absl::optional<DatetimeValue> result_datetime;
-  absl::optional<std::string> error_substr;
+  std::optional<absl::CivilDay> result_date;
+  std::optional<DatetimeValue> result_datetime;
+  std::optional<std::string> error_substr;
 
   // Will optionally be set if <result_date> is set.
-  absl::optional<std::string> expected_dow;
+  std::optional<std::string> expected_dow;
 
   // Whether or not the test is excluded for DATE functions.
   bool excludes_date = false;
 };
 
-void CheckParseTimestampResultImpl(
-    const ParseDatetimeTest& test, const absl::Status& parse_status,
-    absl::optional<int32_t> parsed_date,
-    absl::optional<DatetimeValue> parsed_datetime,
-    const std::string& test_type) {
+void CheckParseTimestampResultImpl(const ParseDatetimeTest& test,
+                                   const absl::Status& parse_status,
+                                   std::optional<int32_t> parsed_date,
+                                   std::optional<DatetimeValue> parsed_datetime,
+                                   const std::string& test_type) {
   if (test.result_date.has_value()) {
     ZETASQL_EXPECT_OK(parse_status) << " test: " << test.DebugString();
 
@@ -1154,17 +1154,17 @@ void CheckParseTimestampResultImpl(
 
 void CheckParseTimestampResult(const ParseDatetimeTest& test,
                                const absl::Status& parse_status,
-                               absl::optional<int32_t> parsed_date,
+                               std::optional<int32_t> parsed_date,
                                const std::string& test_type) {
-  CheckParseTimestampResultImpl(test, parse_status, parsed_date, absl::nullopt,
+  CheckParseTimestampResultImpl(test, parse_status, parsed_date, std::nullopt,
                                 test_type);
 }
 
 void CheckParseTimestampResult(const ParseDatetimeTest& test,
                                const absl::Status& parse_status,
-                               absl::optional<DatetimeValue> parsed_datetime,
+                               std::optional<DatetimeValue> parsed_datetime,
                                const std::string& test_type) {
-  CheckParseTimestampResultImpl(test, parse_status, absl::nullopt,
+  CheckParseTimestampResultImpl(test, parse_status, std::nullopt,
                                 parsed_datetime, test_type);
 }
 
@@ -1177,7 +1177,7 @@ void RunParseDatetimeTest(const ParseDatetimeTest& test) {
     parse_status =
         ParseStringToDate(test.format, test.input_string,
                           /*parse_version2=*/true, &parsed_date);
-    absl::optional<int32_t> date = absl::nullopt;
+    std::optional<int32_t> date = std::nullopt;
     if (parse_status.ok()) {
       date = parsed_date;
     }
@@ -1191,7 +1191,7 @@ void RunParseDatetimeTest(const ParseDatetimeTest& test) {
                             /*scale=*/kMicroseconds, /*parse_version2=*/true,
                             &parsed_datetime);
 
-  absl::optional<DatetimeValue> datetime = absl::nullopt;
+  std::optional<DatetimeValue> datetime = std::nullopt;
   if (parse_status.ok()) {
     datetime = parsed_datetime;
   }
@@ -1204,7 +1204,7 @@ void RunParseDatetimeTest(const ParseDatetimeTest& test) {
                              absl::UTCTimeZone(), /*parse_version2=*/true,
                              &parsed_timestamp);
 
-  datetime = absl::nullopt;
+  datetime = std::nullopt;
   if (parse_status.ok()) {
     // Convert the parsed TIMESTAMP to DATETIME.  We first convert the
     // int64_t timestamp to absl::Time, and then absl::Time to DatetimeValue

@@ -1,4 +1,5 @@
 [default supported_generic_entity_types=RESERVATION,EXPLORE]
+[default supported_generic_sub_entity_types=REPLICA,CHILD_OF_REPLICA,GRANDCHILD_OF_REPLICA]
 
 CREATE RESERVATION myProject.myReservation
 --
@@ -331,3 +332,446 @@ ALTERNATION GROUP: SET DEFAULT COLLATE "foo"
 ERROR: ALTER PROJECT does not support SET DEFAULT COLLATE [at 1:15]
 ALTER PROJECT SET DEFAULT COLLATE "foo"
               ^
+==
+
+ALTER SCHEMA schema_name
+ADD REPLICA {{IF NOT EXISTS|}} replica_name
+{{OPTIONS (a=b)|}}
+--
+ALTERNATION GROUP: IF NOT EXISTS,OPTIONS (a=b)
+--
+AlterSchemaStmt
++-name_path=schema_name
++-alter_action_list=
+  +-AddSubEntityAction
+    +-entity_type="REPLICA"
+    +-name="replica_name"
+    +-options_list=
+    | +-a := Literal(type=STRING, value="b")
+    +-is_if_not_exists=TRUE
+--
+ALTERNATION GROUP: IF NOT EXISTS,
+--
+AlterSchemaStmt
++-name_path=schema_name
++-alter_action_list=
+  +-AddSubEntityAction(entity_type="REPLICA", name="replica_name", is_if_not_exists=TRUE)
+--
+ALTERNATION GROUP: OPTIONS (a=b)
+--
+AlterSchemaStmt
++-name_path=schema_name
++-alter_action_list=
+  +-AddSubEntityAction
+    +-entity_type="REPLICA"
+    +-name="replica_name"
+    +-options_list=
+      +-a := Literal(type=STRING, value="b")
+--
+ALTERNATION GROUP: <empty>
+--
+AlterSchemaStmt
++-name_path=schema_name
++-alter_action_list=
+  +-AddSubEntityAction(entity_type="REPLICA", name="replica_name")
+==
+
+# Multiple nested ADD actions.
+ALTER SCHEMA schema_name
+ADD REPLICA replica_name1 OPTIONS (a=b),
+ADD REPLICA replica_name2 OPTIONS (c=d)
+--
+AlterSchemaStmt
++-name_path=schema_name
++-alter_action_list=
+  +-AddSubEntityAction
+  | +-entity_type="REPLICA"
+  | +-name="replica_name1"
+  | +-options_list=
+  |   +-a := Literal(type=STRING, value="b")
+  +-AddSubEntityAction
+    +-entity_type="REPLICA"
+    +-name="replica_name2"
+    +-options_list=
+      +-c := Literal(type=STRING, value="d")
+==
+
+ALTER SCHEMA schema_name
+DROP REPLICA {{IF EXISTS|}} replica_name
+--
+ALTERNATION GROUP: IF EXISTS
+--
+AlterSchemaStmt
++-name_path=schema_name
++-alter_action_list=
+  +-DropSubEntityAction(entity_type="REPLICA", name="replica_name", is_if_exists=TRUE)
+--
+ALTERNATION GROUP: <empty>
+--
+AlterSchemaStmt
++-name_path=schema_name
++-alter_action_list=
+  +-DropSubEntityAction(entity_type="REPLICA", name="replica_name")
+==
+
+# Multiple nested DROP actions.
+ALTER SCHEMA schema_name
+DROP REPLICA replica_name1,
+DROP REPLICA replica_name2
+--
+AlterSchemaStmt
++-name_path=schema_name
++-alter_action_list=
+  +-DropSubEntityAction(entity_type="REPLICA", name="replica_name1")
+  +-DropSubEntityAction(entity_type="REPLICA", name="replica_name2")
+==
+
+ALTER SCHEMA schema_name
+ALTER REPLICA {{IF EXISTS|}} replica_name
+SET OPTIONS (a=b)
+--
+ALTERNATION GROUP: IF EXISTS
+--
+AlterSchemaStmt
++-name_path=schema_name
++-alter_action_list=
+  +-AlterSubEntityAction
+    +-entity_type="REPLICA"
+    +-name="replica_name"
+    +-alter_action=
+    | +-SetOptionsAction
+    |   +-option_list=
+    |     +-a := Literal(type=STRING, value="b")
+    +-is_if_exists=TRUE
+--
+ALTERNATION GROUP: <empty>
+--
+AlterSchemaStmt
++-name_path=schema_name
++-alter_action_list=
+  +-AlterSubEntityAction
+    +-entity_type="REPLICA"
+    +-name="replica_name"
+    +-alter_action=
+      +-SetOptionsAction
+        +-option_list=
+          +-a := Literal(type=STRING, value="b")
+==
+
+# Multiple nested ALTER actions.
+ALTER SCHEMA schema_name
+ALTER REPLICA replica_name1 SET OPTIONS (a=b),
+ALTER REPLICA replica_name2 SET OPTIONS (c=d)
+--
+AlterSchemaStmt
++-name_path=schema_name
++-alter_action_list=
+  +-AlterSubEntityAction
+  | +-entity_type="REPLICA"
+  | +-name="replica_name1"
+  | +-alter_action=
+  |   +-SetOptionsAction
+  |     +-option_list=
+  |       +-a := Literal(type=STRING, value="b")
+  +-AlterSubEntityAction
+    +-entity_type="REPLICA"
+    +-name="replica_name2"
+    +-alter_action=
+      +-SetOptionsAction
+        +-option_list=
+          +-c := Literal(type=STRING, value="d")
+==
+
+# Multiple doubly nested ADD actions. Since sub_entity alter statements
+# only support one action (either SET OPTIONS or ADD/ALTER/DROP of a child),
+# doubly nested actions need to be qualified from the root.
+ALTER SCHEMA schema_name
+ALTER REPLICA replica_name1 ADD CHILD_OF_REPLICA child_1 OPTIONS (a=b),
+ALTER REPLICA replica_name1 ADD CHILD_OF_REPLICA child_2 OPTIONS (c=d)
+--
+AlterSchemaStmt
++-name_path=schema_name
++-alter_action_list=
+  +-AlterSubEntityAction
+  | +-entity_type="REPLICA"
+  | +-name="replica_name1"
+  | +-alter_action=
+  |   +-AddSubEntityAction
+  |     +-entity_type="CHILD_OF_REPLICA"
+  |     +-name="child_1"
+  |     +-options_list=
+  |       +-a := Literal(type=STRING, value="b")
+  +-AlterSubEntityAction
+    +-entity_type="REPLICA"
+    +-name="replica_name1"
+    +-alter_action=
+      +-AddSubEntityAction
+        +-entity_type="CHILD_OF_REPLICA"
+        +-name="child_2"
+        +-options_list=
+          +-c := Literal(type=STRING, value="d")
+==
+
+ALTER SCHEMA schema_name
+ALTER REPLICA replica_name
+ALTER CHILD_OF_REPLICA replica_child_name
+SET OPTIONS (a=b)
+--
+AlterSchemaStmt
++-name_path=schema_name
++-alter_action_list=
+  +-AlterSubEntityAction
+    +-entity_type="REPLICA"
+    +-name="replica_name"
+    +-alter_action=
+      +-AlterSubEntityAction
+        +-entity_type="CHILD_OF_REPLICA"
+        +-name="replica_child_name"
+        +-alter_action=
+          +-SetOptionsAction
+            +-option_list=
+              +-a := Literal(type=STRING, value="b")
+==
+
+ALTER SCHEMA schema_name
+ALTER REPLICA replica_name ALTER CHILD_OF_REPLICA replica_child_name SET OPTIONS (a=b),
+ALTER REPLICA replica_name2 ALTER CHILD_OF_REPLICA replica_child_name2 SET OPTIONS (c=d)
+--
+AlterSchemaStmt
++-name_path=schema_name
++-alter_action_list=
+  +-AlterSubEntityAction
+  | +-entity_type="REPLICA"
+  | +-name="replica_name"
+  | +-alter_action=
+  |   +-AlterSubEntityAction
+  |     +-entity_type="CHILD_OF_REPLICA"
+  |     +-name="replica_child_name"
+  |     +-alter_action=
+  |       +-SetOptionsAction
+  |         +-option_list=
+  |           +-a := Literal(type=STRING, value="b")
+  +-AlterSubEntityAction
+    +-entity_type="REPLICA"
+    +-name="replica_name2"
+    +-alter_action=
+      +-AlterSubEntityAction
+        +-entity_type="CHILD_OF_REPLICA"
+        +-name="replica_child_name2"
+        +-alter_action=
+          +-SetOptionsAction
+            +-option_list=
+              +-c := Literal(type=STRING, value="d")
+==
+
+# ADD inside doubly nested ALTER sub-entity.
+ALTER SCHEMA schema_name
+ALTER REPLICA replica_name
+ALTER CHILD_OF_REPLICA child_name
+ADD GRANDCHILD_OF_REPLICA grandchild_name
+--
+AlterSchemaStmt
++-name_path=schema_name
++-alter_action_list=
+  +-AlterSubEntityAction
+    +-entity_type="REPLICA"
+    +-name="replica_name"
+    +-alter_action=
+      +-AlterSubEntityAction
+        +-entity_type="CHILD_OF_REPLICA"
+        +-name="child_name"
+        +-alter_action=
+          +-AddSubEntityAction(entity_type="GRANDCHILD_OF_REPLICA", name="grandchild_name")
+==
+
+# DROP inside doubly nested ALTER sub-entity.
+ALTER SCHEMA schema_name
+ALTER REPLICA replica_name
+ALTER CHILD_OF_REPLICA child_name
+DROP GRANDCHILD_OF_REPLICA grandchild_name
+--
+AlterSchemaStmt
++-name_path=schema_name
++-alter_action_list=
+  +-AlterSubEntityAction
+    +-entity_type="REPLICA"
+    +-name="replica_name"
+    +-alter_action=
+      +-AlterSubEntityAction
+        +-entity_type="CHILD_OF_REPLICA"
+        +-name="child_name"
+        +-alter_action=
+          +-DropSubEntityAction(entity_type="GRANDCHILD_OF_REPLICA", name="grandchild_name")
+==
+
+# Repeated ADD Grandchild actions.
+ALTER SCHEMA schema_name
+ALTER REPLICA replica_1 ALTER CHILD_OF_REPLICA replica_child_1 ADD GRANDCHILD_OF_REPLICA grandchild_name_1,
+ALTER REPLICA replica_2 ALTER CHILD_OF_REPLICA replica_child_2 ADD GRANDCHILD_OF_REPLICA grandchild_name_2 OPTIONS (a=b)
+--
+AlterSchemaStmt
++-name_path=schema_name
++-alter_action_list=
+  +-AlterSubEntityAction
+  | +-entity_type="REPLICA"
+  | +-name="replica_1"
+  | +-alter_action=
+  |   +-AlterSubEntityAction
+  |     +-entity_type="CHILD_OF_REPLICA"
+  |     +-name="replica_child_1"
+  |     +-alter_action=
+  |       +-AddSubEntityAction(entity_type="GRANDCHILD_OF_REPLICA", name="grandchild_name_1")
+  +-AlterSubEntityAction
+    +-entity_type="REPLICA"
+    +-name="replica_2"
+    +-alter_action=
+      +-AlterSubEntityAction
+        +-entity_type="CHILD_OF_REPLICA"
+        +-name="replica_child_2"
+        +-alter_action=
+          +-AddSubEntityAction
+            +-entity_type="GRANDCHILD_OF_REPLICA"
+            +-name="grandchild_name_2"
+            +-options_list=
+              +-a := Literal(type=STRING, value="b")
+==
+
+# Repeated DROP Grandchild actions.
+ALTER SCHEMA schema_name
+ALTER REPLICA replica_1 ALTER CHILD_OF_REPLICA replica_child_1 DROP GRANDCHILD_OF_REPLICA grandchild_name_1,
+ALTER REPLICA replica_2 ALTER CHILD_OF_REPLICA replica_child_2 DROP GRANDCHILD_OF_REPLICA grandchild_name_2
+--
+AlterSchemaStmt
++-name_path=schema_name
++-alter_action_list=
+  +-AlterSubEntityAction
+  | +-entity_type="REPLICA"
+  | +-name="replica_1"
+  | +-alter_action=
+  |   +-AlterSubEntityAction
+  |     +-entity_type="CHILD_OF_REPLICA"
+  |     +-name="replica_child_1"
+  |     +-alter_action=
+  |       +-DropSubEntityAction(entity_type="GRANDCHILD_OF_REPLICA", name="grandchild_name_1")
+  +-AlterSubEntityAction
+    +-entity_type="REPLICA"
+    +-name="replica_2"
+    +-alter_action=
+      +-AlterSubEntityAction
+        +-entity_type="CHILD_OF_REPLICA"
+        +-name="replica_child_2"
+        +-alter_action=
+          +-DropSubEntityAction(entity_type="GRANDCHILD_OF_REPLICA", name="grandchild_name_2")
+==
+
+# Multiple actions at multiple levels of nesting
+ALTER SCHEMA schema_name
+ALTER REPLICA replica_1 SET OPTIONS (a=b),
+ALTER REPLICA replica_2 ADD CHILD_OF_REPLICA replica_child_2,
+ALTER REPLICA replica_3 ALTER CHILD_OF_REPLICA replica_child_3 DROP GRANDCHILD_OF_REPLICA grandchild_name_3
+--
+AlterSchemaStmt
++-name_path=schema_name
++-alter_action_list=
+  +-AlterSubEntityAction
+  | +-entity_type="REPLICA"
+  | +-name="replica_1"
+  | +-alter_action=
+  |   +-SetOptionsAction
+  |     +-option_list=
+  |       +-a := Literal(type=STRING, value="b")
+  +-AlterSubEntityAction
+  | +-entity_type="REPLICA"
+  | +-name="replica_2"
+  | +-alter_action=
+  |   +-AddSubEntityAction(entity_type="CHILD_OF_REPLICA", name="replica_child_2")
+  +-AlterSubEntityAction
+    +-entity_type="REPLICA"
+    +-name="replica_3"
+    +-alter_action=
+      +-AlterSubEntityAction
+        +-entity_type="CHILD_OF_REPLICA"
+        +-name="replica_child_3"
+        +-alter_action=
+          +-DropSubEntityAction(entity_type="GRANDCHILD_OF_REPLICA", name="grandchild_name_3")
+==
+
+ALTER SCHEMA schema_name
+ADD REPLICA replica_name OPTIONS (a=b)
+--
+AlterSchemaStmt
++-name_path=schema_name
++-alter_action_list=
+  +-AddSubEntityAction
+    +-entity_type="REPLICA"
+    +-name="replica_name"
+    +-options_list=
+      +-a := Literal(type=STRING, value="b")
+==
+
+ALTER SCHEMA schema_name
+DROP REPLICA replica_name
+--
+AlterSchemaStmt
++-name_path=schema_name
++-alter_action_list=
+  +-DropSubEntityAction(entity_type="REPLICA", name="replica_name")
+==
+
+# When only SET OPTIONS alter actions are present, options are combined to a
+# single SetOptionsAction (from alter_table_set_options.test).
+ALTER TABLE KeyValue
+SET OPTIONS (a = 1),
+SET OPTIONS (b = 2)
+--
+AlterTableSetOptionsStmt
++-name_path=KeyValue
++-option_list=
+  +-a := Literal(type=INT64, value=1)
+  +-b := Literal(type=INT64, value=2)
+==
+
+# When actions other than SET OPTIONS alter actions are present, options are
+# not combined (from alter_table_set_options.test).
+ALTER TABLE KeyValue
+ADD COLUMN bar STRING,
+SET OPTIONS (a = 1),
+SET OPTIONS (b = 2)
+--
+AlterTableStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AddColumnAction
+  | +-is_if_not_exists=FALSE
+  | +-column_definition=
+  |   +-ColumnDefinition(name="bar", type=STRING, column=KeyValue.bar#1)
+  +-SetOptionsAction
+  | +-option_list=
+  |   +-a := Literal(type=INT64, value=1)
+  +-SetOptionsAction
+    +-option_list=
+      +-b := Literal(type=INT64, value=2)
+==
+
+# When a nested alter action is present, the options are not combined.
+ALTER TABLE a.T
+ALTER REPLICA r SET OPTIONS(c='a'),
+SET OPTIONS (a = 1),
+SET OPTIONS (b = 2)
+--
+AlterTableStmt
++-name_path=a.T
++-alter_action_list=
+  +-AlterSubEntityAction
+  | +-entity_type="REPLICA"
+  | +-name="r"
+  | +-alter_action=
+  |   +-SetOptionsAction
+  |     +-option_list=
+  |       +-c := Literal(type=STRING, value="a")
+  +-SetOptionsAction
+  | +-option_list=
+  |   +-a := Literal(type=INT64, value=1)
+  +-SetOptionsAction
+    +-option_list=
+      +-b := Literal(type=INT64, value=2)

@@ -1,0 +1,131 @@
+//
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+{# This template is not standalone. It is meant to be included using the
+import directive. Example:
+  {% from './resolved_ast_field.h.shared_template' import field_methods %}
+  ...
+  {{ field_methods(field, is_from_builder=True,
+                  inner_node_member_name='node_') }}
+  ...
+#}
+
+{# Generates field methods common to both node and builder templates.
+ Arguments:
+   field: the Field object representing the target field
+   is_from_builder: True if the caller is the buidler template, False if it is
+                    the node template
+   inner_node_member_name: used only when is_from_builder is True.
+#}
+{% macro field_methods(field, is_from_builder, inner_node_member_name=None) %}
+{% if is_from_builder and inner_node_member_name == None %}
+  {{RaiseException("inner_node_member_name cannot be None when is_from_builder is True")}}
+{% endif %}
+# if field.comment
+{{field.comment}}
+ # endif
+  {{field.getter_return_type}} {{field.name}}() const {
+    # if is_from_builder
+    ZETASQL_DCHECK({{inner_node_member_name}} != nullptr);
+    # endif
+    accessed_ |= {{field.bitmap}};
+    # if not field.is_default_constructible
+    {# This field is not a pointer (otherwise it would be default-, #}
+    {# constructible), so no need to worry about `.get()` or other accessors. #}
+    return {{field.member_accessor}}.value();
+    # else
+    return {{field.member_accessor}};
+    # endif
+  }
+ # if field.is_vector
+  int {{field.name}}_size() const {
+    # if is_from_builder
+    ZETASQL_DCHECK({{inner_node_member_name}} != nullptr);
+    # endif
+    if ({{field.member_name}}.empty()) accessed_ |= {{field.bitmap}};
+    return static_cast<int>({{field.member_name}}.size());
+  }
+  {{field.element_getter_return_type}} {{field.name}}(int i) const {
+    accessed_ |= {{field.bitmap}};
+    return {{field.member_name}}.at(i){{field.element_unwrapper}};
+  }
+ # if field.is_node_vector
+  void add_{{field.name}}({{field.element_storage_type}} v) {
+    {{field.member_name}}.emplace_back(std::move(v));
+  }
+  # if not is_from_builder
+  # endif
+  void set_{{field.name}}({{field.setter_arg_type}} v) {
+    {{field.member_name}} = std::move(v);
+  }
+
+ # else
+  void add_{{field.name}}({{field.element_arg_type}} v) {
+    {{field.member_name}}.push_back(v);
+  }
+  void set_{{field.name}}({{field.setter_arg_type}} v) {
+    {{field.member_name}} = v;
+  }
+  {{field.member_type}}* mutable_{{field.name}}() {
+    accessed_ |= {{field.bitmap}};
+    return &{{field.member_name}};
+  }
+
+ # endif
+  # if field.release_return_type
+  {{field.member_type}} release_{{field.name}}() {
+    {#
+       Note, we cannot simply:
+         return std::move(my_list_);
+       because it is not guaranteed to clear my_list_.
+    #}
+    {{field.member_type}} tmp;
+    {{field.member_name}}.swap(tmp);
+    return tmp;
+  }
+  # if not is_from_builder
+  # endif
+  # endif
+ # else
+  # if field.is_node_ptr
+  void set_{{field.name}}({{field.setter_arg_type}} v) {
+    {{field.member_name}} = std::move(v);
+   # if field.propagate_order
+    set_is_ordered({{field.member_name}}->is_ordered());
+   # endif
+  }
+
+  # if not is_from_builder
+  # endif
+  # endif
+
+  # if not field.is_node_ptr
+  void set_{{field.name}}({{field.setter_arg_type}} v) {
+    {{field.member_name}} = v;
+  }
+  # endif
+
+  # if field.release_return_type
+  {{blank_line}}
+  {{field.member_type}} release_{{field.name}}() {
+    return std::move({{field.member_name}});
+  }
+
+  # if not is_from_builder
+  # endif
+  # endif
+ # endif
+{% endmacro %}

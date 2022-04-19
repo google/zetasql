@@ -42,7 +42,7 @@ struct ConvertTypeToProtoOptions {
   std::map<TypeKind, FieldFormat::Format> field_format_map;
 
   // This is a union object storing either a Descriptor or EnumDescriptor.
-  // (We can't use absl::variant because it doesn't work as a map value.)
+  // (We can't use std::variant because it doesn't work as a map value.)
   struct MessageOrEnumDescriptor {
     MessageOrEnumDescriptor() {}
     explicit MessageOrEnumDescriptor(const google::protobuf::Descriptor* desc)

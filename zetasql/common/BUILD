@@ -23,6 +23,7 @@ cc_library(
     srcs = ["status_payload_utils.cc"],
     hdrs = ["status_payload_utils.h"],
     deps = [
+        "//zetasql/base:logging",
         "//zetasql/base:status",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
@@ -37,6 +38,7 @@ cc_test(
     deps = [
         ":status_payload_utils",
         "//zetasql/base:status",
+        "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/common/testing:proto_matchers",
         "//zetasql/testdata:test_schema_cc_proto",
@@ -122,6 +124,37 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
         "@icu//:headers",
+    ],
+)
+
+cc_library(
+    name = "options_utils",
+    hdrs = ["options_utils.h"],
+    deps = [
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "@com_google_absl//absl/container:btree",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:span",
+        "@com_google_protobuf//:cc_wkt_protos",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_test(
+    name = "options_utils_test",
+    size = "small",
+    srcs = ["options_utils_test.cc"],
+    deps = [
+        ":options_utils",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:options_cc_proto",
+        "@com_google_absl//absl/container:btree",
+        "@com_google_absl//absl/status:statusor",
     ],
 )
 
@@ -286,6 +319,7 @@ cc_library(
         "//zetasql/base:map_util",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
+        "//zetasql/proto:anon_output_with_report_cc_proto",
         "//zetasql/proto:options_cc_proto",
         "//zetasql/public:anon_function",
         "//zetasql/public:builtin_function_cc_proto",

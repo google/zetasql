@@ -30,6 +30,12 @@ ARRAY<STRUCT<id INT64, value INTERVAL>>[
 ]
 ==
 [required_features=INTERVAL_TYPE]
+[name=error_messages]
+WITH t AS (SELECT "P1Y2M<3D" a) SELECT CAST(a AS INTERVAL) FROM t;
+--
+ERROR: generic::out_of_range: Invalid INTERVAL value 'P1Y2M<3D': Unexpected '<'
+==
+[required_features=INTERVAL_TYPE]
 [name=literal]
 SELECT INTERVAL '1' YEAR, INTERVAL '-20 30' MONTH TO DAY, INTERVAL '-10000' MINUTE, INTERVAL '10:20:30.456789' HOUR TO SECOND
 --

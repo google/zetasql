@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -52,7 +53,7 @@ bool IsUnclosedTripleQuotedLiteralError(absl::Status status) {
 
 // Pluck next statement terminated by a semiclon from input string. nullopt is
 // returned if more input is necessary, e.g. because a statement is incomplete.
-absl::StatusOr<absl::optional<absl::string_view>> NextStatement(
+absl::StatusOr<std::optional<absl::string_view>> NextStatement(
     absl::string_view input) {
   ZETASQL_DCHECK(!input.empty());
 
@@ -66,7 +67,7 @@ absl::StatusOr<absl::optional<absl::string_view>> NextStatement(
   if (const absl::Status status = GetParseTokens(options, &resume_loc, &tokens);
       !status.ok()) {
     if (IsUnclosedTripleQuotedLiteralError(status)) {
-      return absl::nullopt;
+      return std::nullopt;
     }
 
     return status;
@@ -81,7 +82,7 @@ absl::StatusOr<absl::optional<absl::string_view>> NextStatement(
     }
   }
 
-  return absl::nullopt;
+  return std::nullopt;
 }
 }  // namespace
 
@@ -104,7 +105,7 @@ absl::Status ExecuteQueryCompletionRequest::Validate() const {
 }
 
 ExecuteQueryStatementPrompt::ExecuteQueryStatementPrompt(
-    std::function<absl::StatusOr<absl::optional<std::string>>(bool)>
+    std::function<absl::StatusOr<std::optional<std::string>>(bool)>
         read_next_func)
     : read_next_func_{read_next_func} {
   ZETASQL_CHECK(read_next_func_);
@@ -145,11 +146,10 @@ ExecuteQueryStatementPrompt::Autocomplete(
   return result;
 }
 
-absl::StatusOr<absl::optional<std::string>>
-ExecuteQueryStatementPrompt::Read() {
+absl::StatusOr<std::optional<std::string>> ExecuteQueryStatementPrompt::Read() {
   while (!(eof_ && buf_.empty() && queue_.empty())) {
     if (!queue_.empty()) {
-      const absl::StatusOr<absl::optional<std::string>> front{
+      const absl::StatusOr<std::optional<std::string>> front{
           std::move(queue_.front())};
       queue_.pop_front();
       return front;
@@ -164,14 +164,14 @@ ExecuteQueryStatementPrompt::Read() {
 
   ZETASQL_DCHECK(eof_);
 
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 void ExecuteQueryStatementPrompt::ReadInput(bool continuation) {
   ZETASQL_DCHECK(queue_.empty()) << "Queue must be drained before reading again";
   ZETASQL_DCHECK(!eof_) << "Can't read after EOF";
 
-  absl::StatusOr<absl::optional<std::string>> input{
+  absl::StatusOr<std::optional<std::string>> input{
       read_next_func_(continuation)};
 
   if (!input.ok()) {
@@ -204,7 +204,7 @@ void ExecuteQueryStatementPrompt::ReadInput(bool continuation) {
 
 void ExecuteQueryStatementPrompt::ProcessBuffer() {
   while (!buf_.empty()) {
-    absl::StatusOr<absl::optional<absl::string_view>> stmt =
+    absl::StatusOr<std::optional<absl::string_view>> stmt =
         NextStatement(buf_.Flatten());
 
     if (!stmt.ok()) {
@@ -262,14 +262,14 @@ ExecuteQuerySingleInput::ExecuteQuerySingleInput(absl::string_view query)
           &ExecuteQuerySingleInput::ReadNext, this)},
       query_{query} {}
 
-absl::optional<std::string> ExecuteQuerySingleInput::ReadNext(
+std::optional<std::string> ExecuteQuerySingleInput::ReadNext(
     bool continuation) {
   if (!done_) {
     done_ = true;
     return query_;
   }
 
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 }  // namespace zetasql

@@ -105,7 +105,7 @@ GetExtendedCastEvaluatorFromResolvedCast(const ResolvedCast* cast) {
               .value());
     }
 
-    return absl::make_unique<ExtendedCompositeCastEvaluator>(
+    return std::make_unique<ExtendedCompositeCastEvaluator>(
         std::move(evaluators));
   }
 
@@ -121,8 +121,8 @@ Algebrizer::Algebrizer(const LanguageOptions& language_options,
                        SystemVariablesAlgebrizerMap* system_variables_map)
     : language_options_(language_options),
       algebrizer_options_(algebrizer_options),
-      column_to_variable_(absl::make_unique<ColumnToVariableMapping>(
-          absl::make_unique<VariableGenerator>())),
+      column_to_variable_(std::make_unique<ColumnToVariableMapping>(
+          std::make_unique<VariableGenerator>())),
       variable_gen_(column_to_variable_->variable_generator()),
       parameters_(parameters),
       column_map_(column_map),
@@ -194,10 +194,10 @@ Algebrizer::AlgebrizeFunctionCallWithLambda(
   for (const auto& arg : function_call->generic_argument_list()) {
     if (arg->expr() != nullptr) {
       ZETASQL_ASSIGN_OR_RETURN(auto expr, AlgebrizeExpression(arg->expr()));
-      args.push_back(absl::make_unique<ExprArg>(std::move(expr)));
+      args.push_back(std::make_unique<ExprArg>(std::move(expr)));
     } else if (arg->inline_lambda() != nullptr) {
       ZETASQL_ASSIGN_OR_RETURN(auto lambda, AlgebrizeLambda(arg->inline_lambda()));
-      args.push_back(absl::make_unique<InlineLambdaArg>(std::move(lambda)));
+      args.push_back(std::make_unique<InlineLambdaArg>(std::move(lambda)));
     } else {
       return zetasql_base::InternalErrorBuilder()
              << "Unexpected argument: " << arg->DebugString()
@@ -342,7 +342,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeFunctionCall(
     }
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> function_call,
                      ScalarFunctionCallExpr::Create(
-                         absl::make_unique<UserDefinedScalarFunction>(
+                         std::make_unique<UserDefinedScalarFunction>(
                              evaluator, function_call->type(), name),
                          std::move(arguments), error_mode));
     return function_call;
@@ -372,6 +372,10 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeFunctionCall(
     std::swap(arguments[0], arguments[1]);
   } else if (name == "if") {
     return AlgebrizeIf(function_call->type(), std::move(arguments));
+  } else if (name == "iferror") {
+    return AlgebrizeIfError(std::move(arguments));
+  } else if (name == "iserror") {
+    return AlgebrizeIsError(std::move(arguments));
   } else if (name == "ifnull") {
     return AlgebrizeIfNull(function_call->type(), std::move(arguments));
   } else if (name == "nullif") {
@@ -488,7 +492,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeCaseWithValue(
   ZETASQL_RET_CHECK_EQ(0, i);
   if (x.is_valid()) {
     std::vector<std::unique_ptr<ExprArg>> expr_args;
-    expr_args.push_back(absl::make_unique<ExprArg>(x, std::move(args[0])));
+    expr_args.push_back(std::make_unique<ExprArg>(x, std::move(args[0])));
     ZETASQL_ASSIGN_OR_RETURN(result,
                      LetExpr::Create(std::move(expr_args), std::move(result)));
   }
@@ -523,6 +527,24 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeIf(
   return if_expr;
 }
 
+// Iferror(v0, v1) = IfErrorExpr(v0, v1)
+absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeIfError(
+    std::vector<std::unique_ptr<ValueExpr>> args) {
+  ZETASQL_RET_CHECK_EQ(2, args.size());
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> if_error_expr,
+                   IfErrorExpr::Create(std::move(args[0]), std::move(args[1])));
+  return if_error_expr;
+}
+
+// Iserror(v0) = IsErrorExpr(v0)
+absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeIsError(
+    std::vector<std::unique_ptr<ValueExpr>> args) {
+  ZETASQL_RET_CHECK_EQ(args.size(), 1);
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> is_error_expr,
+                   IsErrorExpr::Create(std::move(args[0])));
+  return is_error_expr;
+}
+
 // IfNull(v0, v1) = LetExpr(x:=v0, IfExpr(IsNull(x), v1, x))
 absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeIfNull(
     const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args) {
@@ -545,7 +567,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeIfNull(
                                   std::move(deref_x_again)));
 
   std::vector<std::unique_ptr<ExprArg>> let_assign;
-  let_assign.push_back(absl::make_unique<ExprArg>(x, std::move(args[0])));
+  let_assign.push_back(std::make_unique<ExprArg>(x, std::move(args[0])));
 
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> let_expr,
                    LetExpr::Create(std::move(let_assign), std::move(if_op)));
@@ -575,7 +597,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeNullIf(
                                   std::move(deref_x_again)));
 
   std::vector<std::unique_ptr<ExprArg>> let_assign;
-  let_assign.push_back(absl::make_unique<ExprArg>(x, std::move(args[0])));
+  let_assign.push_back(std::make_unique<ExprArg>(x, std::move(args[0])));
 
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> let_expr,
                    LetExpr::Create(std::move(let_assign), std::move(if_op)));
@@ -606,7 +628,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeCoalesce(
                                     std::move(deref_x_again)));
 
     std::vector<std::unique_ptr<ExprArg>> let_assign;
-    let_assign.push_back(absl::make_unique<ExprArg>(x, std::move(args[i--])));
+    let_assign.push_back(std::make_unique<ExprArg>(x, std::move(args[i--])));
 
     ZETASQL_ASSIGN_OR_RETURN(result,
                      LetExpr::Create(std::move(let_assign), std::move(if_op)));
@@ -638,7 +660,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeIn(
                                    BoolType(), std::move(or_args)));
 
   std::vector<std::unique_ptr<ExprArg>> let_assign;
-  let_assign.push_back(absl::make_unique<ExprArg>(x, std::move(args[0])));
+  let_assign.push_back(std::make_unique<ExprArg>(x, std::move(args[0])));
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> let_expr,
                    LetExpr::Create(std::move(let_assign), std::move(or_op)));
   return let_expr;
@@ -679,7 +701,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeBetween(
                                     BoolType(), std::move(and_args)));
 
   std::vector<std::unique_ptr<ExprArg>> let_assign;
-  let_assign.push_back(absl::make_unique<ExprArg>(x, std::move(args[0])));
+  let_assign.push_back(std::make_unique<ExprArg>(x, std::move(args[0])));
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> let_expr,
                    LetExpr::Create(std::move(let_assign), std::move(and_op)));
   return let_expr;
@@ -687,7 +709,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeBetween(
 
 absl::StatusOr<std::unique_ptr<AggregateArg>> Algebrizer::AlgebrizeAggregateFn(
     const VariableId& variable,
-    absl::optional<AnonymizationOptions> anonymization_options,
+    std::optional<AnonymizationOptions> anonymization_options,
     std::unique_ptr<ValueExpr> filter, const ResolvedExpr* expr) {
   ZETASQL_RET_CHECK(expr->node_kind() == RESOLVED_AGGREGATE_FUNCTION_CALL ||
             expr->node_kind() == RESOLVED_ANALYTIC_FUNCTION_CALL)
@@ -722,7 +744,7 @@ absl::StatusOr<std::unique_ptr<AggregateArg>> Algebrizer::AlgebrizeAggregateFn(
 absl::StatusOr<std::unique_ptr<AggregateArg>>
 Algebrizer::AlgebrizeAggregateFnWithAlgebrizedArguments(
     const VariableId& variable,
-    absl::optional<AnonymizationOptions> anonymization_options,
+    std::optional<AnonymizationOptions> anonymization_options,
     std::unique_ptr<ValueExpr> filter, const ResolvedExpr* expr,
     std::vector<std::unique_ptr<ValueExpr>> arguments,
     std::unique_ptr<RelationalOp> group_rows_subquery) {
@@ -851,11 +873,11 @@ Algebrizer::AlgebrizeAggregateFnWithAlgebrizedArguments(
     case FunctionKind::kCorr:
     case FunctionKind::kCovarPop:
     case FunctionKind::kCovarSamp:
-      function = absl::make_unique<BinaryStatFunction>(kind, type, input_type);
+      function = std::make_unique<BinaryStatFunction>(kind, type, input_type);
       break;
     default:
       ZETASQL_RET_CHECK(aggregate_function->function()->IsZetaSQLBuiltin());
-      function = absl::make_unique<BuiltinAggregateFunction>(
+      function = std::make_unique<BuiltinAggregateFunction>(
           kind, type, num_input_fields, input_type,
           IgnoresNullArguments(aggregate_function));
       break;
@@ -898,7 +920,7 @@ absl::StatusOr<std::unique_ptr<NewStructExpr>> Algebrizer::MakeStruct(
                      AlgebrizeExpression(field_expr));
     // Record the field value.
     arguments.push_back(
-        absl::make_unique<ExprArg>(std::move(algebrized_field_expr)));
+        std::make_unique<ExprArg>(std::move(algebrized_field_expr)));
   }
   // Build the row value.
   return NewStructExpr::Create(struct_type, std::move(arguments));
@@ -1008,18 +1030,18 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeGetProtoField(
   for (const auto& get_field : path) {
     if (seen_get_proto_field) {
       ZETASQL_RET_CHECK(
-          absl::holds_alternative<const ResolvedGetProtoField*>(get_field));
+          std::holds_alternative<const ResolvedGetProtoField*>(get_field));
       proto_field_path.push_back(
-          absl::get<const ResolvedGetProtoField*>(get_field));
-    } else if (absl::holds_alternative<const ResolvedGetProtoField*>(
+          std::get<const ResolvedGetProtoField*>(get_field));
+    } else if (std::holds_alternative<const ResolvedGetProtoField*>(
                    get_field)) {
       seen_get_proto_field = true;
       proto_field_path.push_back(
-          absl::get<const ResolvedGetProtoField*>(get_field));
+          std::get<const ResolvedGetProtoField*>(get_field));
     } else {
       ZETASQL_RET_CHECK(
-          absl::holds_alternative<const ResolvedGetStructField*>(get_field));
-      base_expression = absl::get<const ResolvedGetStructField*>(get_field);
+          std::holds_alternative<const ResolvedGetStructField*>(get_field));
+      base_expression = std::get<const ResolvedGetStructField*>(get_field);
     }
   }
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> base_value_expr,
@@ -1049,7 +1071,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeGetProtoField(
 
 absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeFlatten(
     const ResolvedFlatten* flatten) {
-  flattened_arg_input_.push(absl::make_unique<const Value*>());
+  flattened_arg_input_.push(std::make_unique<const Value*>());
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> expr,
                    AlgebrizeExpression(flatten->expr()));
   std::vector<std::unique_ptr<ValueExpr>> get_fields;
@@ -1101,9 +1123,9 @@ Algebrizer::AlgebrizeGetProtoFieldOfPath(
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> base_expr,
                    AlgebrizeExpression(column_or_param_expr));
   for (const auto& element : path) {
-    if (absl::holds_alternative<const ResolvedGetProtoField*>(element)) {
+    if (std::holds_alternative<const ResolvedGetProtoField*>(element)) {
       const ResolvedGetProtoField* get_proto_field =
-          absl::get<const ResolvedGetProtoField*>(element);
+          std::get<const ResolvedGetProtoField*>(element);
       ProtoFieldRegistry* registry =
           zetasql_base::FindPtrOrNull(proto_field_registry_map_, column_and_field_path);
       if (registry == nullptr) {
@@ -1130,10 +1152,9 @@ Algebrizer::AlgebrizeGetProtoFieldOfPath(
       ZETASQL_ASSIGN_OR_RETURN(base_expr,
                        GetProtoFieldExpr::Create(std::move(base_expr), reader));
     } else {
-      ZETASQL_RET_CHECK(
-          absl::holds_alternative<const ResolvedGetStructField*>(element));
+      ZETASQL_RET_CHECK(std::holds_alternative<const ResolvedGetStructField*>(element));
       const ResolvedGetStructField* get_struct_field =
-          absl::get<const ResolvedGetStructField*>(element);
+          std::get<const ResolvedGetStructField*>(element);
       column_and_field_path.field_path.push_back(ProtoOrStructField(
           ProtoOrStructField::STRUCT_FIELD, get_struct_field->field_idx()));
       ZETASQL_ASSIGN_OR_RETURN(base_expr,
@@ -1227,7 +1248,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeLetExpr(
     ZETASQL_ASSIGN_OR_RETURN(auto assigned_value,
                      AlgebrizeExpression(let_expr->assignment_list(i)->expr()));
     assignments.emplace_back(
-        absl::make_unique<ExprArg>(assigned_var, std::move(assigned_value)));
+        std::make_unique<ExprArg>(assigned_var, std::move(assigned_value)));
   }
   ZETASQL_ASSIGN_OR_RETURN(auto expr, AlgebrizeExpression(let_expr->expr()));
   return LetExpr::Create(std::move(assignments), std::move(expr));
@@ -1312,7 +1333,7 @@ Algebrizer::AlgebrizeInLikeAnyLikeAllRelation(
   ZETASQL_ASSIGN_OR_RETURN(
       auto agg_arg,
       AggregateArg::Create(matches_var,
-                           absl::make_unique<BuiltinAggregateFunction>(
+                           std::make_unique<BuiltinAggregateFunction>(
                                aggregate_fn, BoolType(), /*num_input_fields=*/1,
                                BoolType(), false /* ignores_null */),
                            std::move(agg_func_args)));
@@ -1332,7 +1353,7 @@ Algebrizer::AlgebrizeInLikeAnyLikeAllRelation(
                                            std::move(agg_rel)));
 
   std::vector<std::unique_ptr<ExprArg>> let_assign;
-  let_assign.push_back(absl::make_unique<ExprArg>(needle_var, std::move(lhs)));
+  let_assign.push_back(std::make_unique<ExprArg>(needle_var, std::move(lhs)));
   ZETASQL_ASSIGN_OR_RETURN(auto let_expr, LetExpr::Create(std::move(let_assign),
                                                   std::move(singleton)));
   return std::unique_ptr<ValueExpr>(std::move(let_expr));
@@ -1505,7 +1526,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeExpression(
         arguments.push_back(std::move(value_op));
       }
       ZETASQL_ASSIGN_OR_RETURN(val_op, ScalarFunctionCallExpr::Create(
-                                   absl::make_unique<MakeProtoFunction>(
+                                   std::make_unique<MakeProtoFunction>(
                                        expr->type()->AsProto(), fields),
                                    std::move(arguments)));
       break;
@@ -1522,7 +1543,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeExpression(
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> root_expr,
                        AlgebrizeExpression(filter_fields->expr()));
       arguments.push_back(std::move(root_expr));
-      auto function = absl::make_unique<FilterFieldsFunction>(
+      auto function = std::make_unique<FilterFieldsFunction>(
           expr->type(), filter_fields->reset_cleared_required_fields());
       for (const auto& filter_field_arg :
            filter_fields->filter_field_arg_list()) {
@@ -1556,7 +1577,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeExpression(
                                  replace_field_item->proto_field_path());
       }
       ZETASQL_ASSIGN_OR_RETURN(val_op, ScalarFunctionCallExpr::Create(
-                                   absl::make_unique<ReplaceFieldsFunction>(
+                                   std::make_unique<ReplaceFieldsFunction>(
                                        expr->type(), field_paths),
                                    std::move(arguments)));
       break;
@@ -1655,7 +1676,7 @@ static bool IsNonVolatile(const ResolvedExpr* expr) {
 
 absl::StatusOr<std::unique_ptr<Algebrizer::FilterConjunctInfo>>
 Algebrizer::FilterConjunctInfo::Create(const ResolvedExpr* conjunct) {
-  auto info = absl::make_unique<FilterConjunctInfo>();
+  auto info = std::make_unique<FilterConjunctInfo>();
   info->conjunct = conjunct;
   info->is_non_volatile = IsNonVolatile(info->conjunct);
   ZETASQL_ASSIGN_OR_RETURN(info->referenced_columns,
@@ -2082,7 +2103,7 @@ absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeWithScan(
   // Compute how many times each WITH entry is referenced. Entries referenced
   // exactly once can be inlined, while entries not referenced at all can be
   // skipped altogether.
-  absl::optional<absl::flat_hash_map<std::string, int>> reference_count_by_name;
+  std::optional<absl::flat_hash_map<std::string, int>> reference_count_by_name;
   if (algebrizer_options_.inline_with_entries) {
     ZETASQL_ASSIGN_OR_RETURN(reference_count_by_name,
                      FindWithEntryReferenceCountVisitor::Run(scan));
@@ -2166,7 +2187,7 @@ absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeWithRefScan(
           std::unique_ptr<DerefExpr> deref,
           DerefExpr::Create(from_varid, scan->column_list(i).type()));
       column_map.push_back(
-          absl::make_unique<ExprArg>(to_varid, std::move(deref)));
+          std::make_unique<ExprArg>(to_varid, std::move(deref)));
     }
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> compute_op,
                      ComputeOp::Create(std::move(column_map),
@@ -2743,9 +2764,9 @@ Algebrizer::TryAlgebrizeFilterConjunctAsHashJoinEqualityExprs(
       variable_gen_->GetNewVariableName(absl::StrCat("b", next_var_number));
 
   equality_exprs->left_expr =
-      absl::make_unique<ExprArg>(left_var, std::move(algebrized_first_arg));
+      std::make_unique<ExprArg>(left_var, std::move(algebrized_first_arg));
   equality_exprs->right_expr =
-      absl::make_unique<ExprArg>(right_var, std::move(algebrized_second_arg));
+      std::make_unique<ExprArg>(right_var, std::move(algebrized_second_arg));
 
   return true;
 }
@@ -2764,7 +2785,7 @@ absl::Status Algebrizer::RemapJoinColumns(
     ZETASQL_ASSIGN_OR_RETURN(auto deref_expr,
                      DerefExpr::Create(old_var, columns[i].type()));
     output->push_back(
-        absl::make_unique<ExprArg>(new_var, std::move(deref_expr)));
+        std::make_unique<ExprArg>(new_var, std::move(deref_expr)));
   }
   return absl::OkStatus();
 }
@@ -2957,8 +2978,7 @@ absl::StatusOr<std::unique_ptr<AggregateOp>> Algebrizer::AlgebrizeAggregateScan(
                      AlgebrizeExpression(key_expr->expr()));
     const VariableId key_variable_name =
         column_to_variable_->AssignNewVariableToColumn(key_expr->column());
-    keys.push_back(
-        absl::make_unique<KeyArg>(key_variable_name, std::move(key)));
+    keys.push_back(std::make_unique<KeyArg>(key_variable_name, std::move(key)));
     if (!aggregate_scan->collation_list().empty() &&
         !aggregate_scan->collation_list(i).Empty()) {
       std::unique_ptr<ValueExpr> group_by_collation;
@@ -2993,7 +3013,7 @@ absl::StatusOr<std::unique_ptr<AggregateOp>> Algebrizer::AlgebrizeAggregateScan(
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<AggregateArg> agg,
         AlgebrizeAggregateFn(agg_variable_name,
-                             absl::optional<AnonymizationOptions>(),
+                             std::optional<AnonymizationOptions>(),
                              /*filter=*/nullptr, agg_expr->expr()));
     aggregators.push_back(std::move(agg));
   }
@@ -3108,8 +3128,7 @@ Algebrizer::AlgebrizeAnonymizedAggregateScan(
                      AlgebrizeExpression(key_expr->expr()));
     const VariableId key_variable_name =
         column_to_variable_->AssignNewVariableToColumn(key_expr->column());
-    keys.push_back(
-        absl::make_unique<KeyArg>(key_variable_name, std::move(key)));
+    keys.push_back(std::make_unique<KeyArg>(key_variable_name, std::move(key)));
   }
 
   // Build the set of output columns.
@@ -3343,7 +3362,7 @@ Algebrizer::MaybeCreateSortForAnalyticOperator(
     ZETASQL_ASSIGN_OR_RETURN(auto deref_expr,
                      DerefExpr::Create(var, input_column.type()));
     non_sort_expressions.push_back(
-        absl::make_unique<ExprArg>(new_var, std::move(deref_expr)));
+        std::make_unique<ExprArg>(new_var, std::move(deref_expr)));
   }
 
   ZETASQL_ASSIGN_OR_RETURN(
@@ -3430,7 +3449,7 @@ absl::Status Algebrizer::AlgebrizeOrderByItems(
     }
     ZETASQL_ASSIGN_OR_RETURN(auto deref_key,
                      DerefExpr::Create(key_in, order_column.type()));
-    order_by_keys->push_back(absl::make_unique<KeyArg>(
+    order_by_keys->push_back(std::make_unique<KeyArg>(
         key_out, std::move(deref_key), sort_order, null_order));
     order_by_keys->back()->set_collation(std::move(sort_collation));
   }
@@ -3463,7 +3482,7 @@ absl::Status Algebrizer::AlgebrizePartitionExpressions(
         zetasql_base::FindOrDie(*column_to_id_map, partition_column.column_id());
     ZETASQL_ASSIGN_OR_RETURN(auto deref_key,
                      DerefExpr::Create(key, partition_column.type()));
-    partition_by_keys->push_back(absl::make_unique<KeyArg>(
+    partition_by_keys->push_back(std::make_unique<KeyArg>(
         key, std::move(deref_key), KeyArg::kAscending));
   }
 
@@ -3496,7 +3515,7 @@ Algebrizer::AlgebrizeAnalyticFunctionCall(
       analytic_function_call->function()->SupportsWindowFraming()) {
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<AggregateArg> aggregate_arg,
-        AlgebrizeAggregateFn(variable, absl::optional<AnonymizationOptions>(),
+        AlgebrizeAggregateFn(variable, std::optional<AnonymizationOptions>(),
                              /*filter=*/nullptr, analytic_function_call));
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AnalyticArg> analytic_arg,
                      AggregateAnalyticArg::Create(
@@ -3522,28 +3541,27 @@ Algebrizer::AlgebrizeAnalyticFunctionCall(
           analytic_function_call->signature().context_id());
   switch (function_id) {
     case FN_DENSE_RANK:
-      function = absl::make_unique<DenseRankFunction>();
+      function = std::make_unique<DenseRankFunction>();
       break;
     case FN_RANK:
-      function = absl::make_unique<RankFunction>();
+      function = std::make_unique<RankFunction>();
       break;
     case FN_ROW_NUMBER:
-      function = absl::make_unique<RowNumberFunction>();
+      function = std::make_unique<RowNumberFunction>();
       break;
     case FN_PERCENT_RANK:
-      function = absl::make_unique<PercentRankFunction>();
+      function = std::make_unique<PercentRankFunction>();
       break;
     case FN_CUME_DIST:
-      function = absl::make_unique<CumeDistFunction>();
+      function = std::make_unique<CumeDistFunction>();
       break;
     case FN_NTILE:
-      function = absl::make_unique<NtileFunction>();
+      function = std::make_unique<NtileFunction>();
       ZETASQL_RET_CHECK_EQ(1, arguments.size());
       const_arguments.push_back(std::move(arguments[0]));
       break;
     case FN_LEAD:
-      function =
-          absl::make_unique<LeadFunction>(analytic_function_call->type());
+      function = std::make_unique<LeadFunction>(analytic_function_call->type());
       ZETASQL_RET_CHECK(!arguments.empty());
       non_const_arguments.push_back(std::move(arguments[0]));
       // Fill in the default arguments if not provided.
@@ -3572,7 +3590,7 @@ Algebrizer::AlgebrizeAnalyticFunctionCall(
       }
       break;
     case FN_LAG:
-      function = absl::make_unique<LagFunction>(analytic_function_call->type());
+      function = std::make_unique<LagFunction>(analytic_function_call->type());
       ZETASQL_RET_CHECK(!arguments.empty());
       non_const_arguments.push_back(std::move(arguments[0]));
       // Fill in the default arguments if not provided.
@@ -3601,21 +3619,21 @@ Algebrizer::AlgebrizeAnalyticFunctionCall(
       }
       break;
     case FN_FIRST_VALUE:
-      function = absl::make_unique<FirstValueFunction>(
+      function = std::make_unique<FirstValueFunction>(
           analytic_function_call->type(),
           analytic_function_call->null_handling_modifier());
       ZETASQL_RET_CHECK_EQ(1, arguments.size());
       non_const_arguments.push_back(std::move(arguments[0]));
       break;
     case FN_LAST_VALUE:
-      function = absl::make_unique<LastValueFunction>(
+      function = std::make_unique<LastValueFunction>(
           analytic_function_call->type(),
           analytic_function_call->null_handling_modifier());
       ZETASQL_RET_CHECK_EQ(1, arguments.size());
       non_const_arguments.push_back(std::move(arguments[0]));
       break;
     case FN_NTH_VALUE:
-      function = absl::make_unique<NthValueFunction>(
+      function = std::make_unique<NthValueFunction>(
           analytic_function_call->type(),
           analytic_function_call->null_handling_modifier());
       ZETASQL_RET_CHECK_EQ(2, arguments.size());
@@ -3625,7 +3643,7 @@ Algebrizer::AlgebrizeAnalyticFunctionCall(
     case FN_PERCENTILE_CONT:
     case FN_PERCENTILE_CONT_NUMERIC:
     case FN_PERCENTILE_CONT_BIGNUMERIC:
-      function = absl::make_unique<PercentileContFunction>(
+      function = std::make_unique<PercentileContFunction>(
           analytic_function_call->type(),
           analytic_function_call->null_handling_modifier());
       ZETASQL_RET_CHECK_EQ(2, arguments.size());
@@ -3635,7 +3653,7 @@ Algebrizer::AlgebrizeAnalyticFunctionCall(
     case FN_PERCENTILE_DISC:
     case FN_PERCENTILE_DISC_NUMERIC:
     case FN_PERCENTILE_DISC_BIGNUMERIC:
-      function = absl::make_unique<PercentileDiscFunction>(
+      function = std::make_unique<PercentileDiscFunction>(
           analytic_function_call->type(),
           analytic_function_call->null_handling_modifier());
       ZETASQL_RET_CHECK_EQ(2, arguments.size());
@@ -3743,7 +3761,7 @@ absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeUnionScan(
           column_to_variable_->GetVariableNameFromColumn(column);
       ZETASQL_ASSIGN_OR_RETURN(auto deref,
                        DerefExpr::Create(variable, output_columns[j].type()));
-      column_mappings[i].second.push_back(absl::make_unique<ExprArg>(
+      column_mappings[i].second.push_back(std::make_unique<ExprArg>(
           column_to_variable_->GetVariableNameFromColumn(output_columns[j]),
           std::move(deref)));
     }
@@ -3763,7 +3781,15 @@ absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeUnionScan(
         column_to_variable_->AssignNewVariableToColumn(output_columns[j]);
     ZETASQL_ASSIGN_OR_RETURN(auto deref,
                      DerefExpr::Create(old_variable, output_columns[j].type()));
-    keys.push_back(absl::make_unique<KeyArg>(new_variable, std::move(deref)));
+    keys.push_back(std::make_unique<KeyArg>(new_variable, std::move(deref)));
+    if (output_columns[j].type_annotation_map() != nullptr) {
+      ZETASQL_ASSIGN_OR_RETURN(ResolvedCollation collation,
+                       ResolvedCollation::MakeResolvedCollation(
+                           *output_columns[j].type_annotation_map()));
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> collation_expr,
+                       AlgebrizeResolvedCollation(collation, type_factory_));
+      keys.back()->set_collation(std::move(collation_expr));
+    }
   }
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> aggr_op,
                    AggregateOp::Create(std::move(keys), {} /* aggregators */,
@@ -3833,7 +3859,7 @@ Algebrizer::AlgebrizeExceptIntersectScan(
           column_to_variable_->GetVariableNameFromColumn(column);
       ZETASQL_ASSIGN_OR_RETURN(auto deref,
                        DerefExpr::Create(variable, output_columns[j].type()));
-      union_inputs[rel_idx].second.push_back(absl::make_unique<ExprArg>(
+      union_inputs[rel_idx].second.push_back(std::make_unique<ExprArg>(
           column_to_variable_->GetVariableNameFromColumn(output_columns[j]),
           std::move(deref)));
     }
@@ -3843,7 +3869,7 @@ Algebrizer::AlgebrizeExceptIntersectScan(
       ZETASQL_ASSIGN_OR_RETURN(
           auto const_expr,
           ConstExpr::Create(Value::Int64(bit_idx == rel_idx ? 1 : 0)));
-      union_inputs[rel_idx].second.push_back(absl::make_unique<ExprArg>(
+      union_inputs[rel_idx].second.push_back(std::make_unique<ExprArg>(
           bit_variables[bit_idx], std::move(const_expr)));
     }
   }
@@ -3863,7 +3889,15 @@ Algebrizer::AlgebrizeExceptIntersectScan(
         column_to_variable_->AssignNewVariableToColumn(output_columns[j]);
     ZETASQL_ASSIGN_OR_RETURN(auto deref,
                      DerefExpr::Create(old_variable, output_columns[j].type()));
-    keys.push_back(absl::make_unique<KeyArg>(new_variable, std::move(deref)));
+    keys.push_back(std::make_unique<KeyArg>(new_variable, std::move(deref)));
+    if (output_columns[j].type_annotation_map() != nullptr) {
+      ZETASQL_ASSIGN_OR_RETURN(ResolvedCollation collation,
+                       ResolvedCollation::MakeResolvedCollation(
+                           *output_columns[j].type_annotation_map()));
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> collation_expr,
+                       AlgebrizeResolvedCollation(collation, type_factory_));
+      keys.back()->set_collation(std::move(collation_expr));
+    }
   }
   // Aggregators: SUM(bit_i) cnt_i
   std::vector<VariableId> cnt_vars;
@@ -3882,7 +3916,7 @@ Algebrizer::AlgebrizeExceptIntersectScan(
     ZETASQL_ASSIGN_OR_RETURN(
         auto agg_arg,
         AggregateArg::Create(cnt_var,
-                             absl::make_unique<BuiltinAggregateFunction>(
+                             std::make_unique<BuiltinAggregateFunction>(
                                  FunctionKind::kSum, types::Int64Type(),
                                  /*num_input_fields=*/1, types::Int64Type()),
                              std::move(agg_func_args)));
@@ -4028,7 +4062,7 @@ absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeProjectScan(
     const VariableId variable =
         column_to_variable_->AssignNewVariableToColumn(column);
     arguments.push_back(
-        absl::make_unique<ExprArg>(variable, std::move(argument)));
+        std::make_unique<ExprArg>(variable, std::move(argument)));
   }
 
   // If no columns were defined by this project then just drop it.
@@ -4076,7 +4110,7 @@ absl::StatusOr<std::unique_ptr<SortOp>> Algebrizer::AlgebrizeOrderByScan(
     const VariableId value_out =
         column_to_variable_->AssignNewVariableToColumn(column);
     ZETASQL_ASSIGN_OR_RETURN(auto deref, DerefExpr::Create(value_in, column.type()));
-    values.push_back(absl::make_unique<ExprArg>(value_out, std::move(deref)));
+    values.push_back(std::make_unique<ExprArg>(value_out, std::move(deref)));
   }
   for (const auto& arg : keys) {
     ZETASQL_RETURN_IF_ERROR(ValidateTypeSupportsOrderComparison(arg->type()));
@@ -4108,12 +4142,12 @@ absl::StatusOr<std::unique_ptr<AggregateOp>> Algebrizer::AlgebrizePivotScan(
   // call. This is used for constant expressions to allow for cases like the
   // delimiter of STRING_AGG(), for which we do not support reading from a
   // projected column.
-  std::vector<std::vector<absl::optional<VariableId>>> pivot_expr_arg_vars;
+  std::vector<std::vector<std::optional<VariableId>>> pivot_expr_arg_vars;
   std::vector<std::vector<const Type*>> pivot_expr_arg_types;
 
   std::vector<std::unique_ptr<ExprArg>> wrapped_input_exprs;
   wrapped_input_exprs.push_back(
-      absl::make_unique<ExprArg>(for_expr_var, std::move(algebrized_for_expr)));
+      std::make_unique<ExprArg>(for_expr_var, std::move(algebrized_for_expr)));
 
   for (int i = 0; i < pivot_scan->pivot_expr_list_size(); ++i) {
     ZETASQL_RET_CHECK(
@@ -4138,7 +4172,7 @@ absl::StatusOr<std::unique_ptr<AggregateOp>> Algebrizer::AlgebrizePivotScan(
         ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> algebrized_arg,
                          AlgebrizeExpression(arg.get()));
         wrapped_input_exprs.push_back(
-            absl::make_unique<ExprArg>(arg_var, std::move(algebrized_arg)));
+            std::make_unique<ExprArg>(arg_var, std::move(algebrized_arg)));
         pivot_expr_arg_vars.back().push_back(arg_var);
       }
       pivot_expr_arg_types.back().push_back(arg->type());
@@ -4154,7 +4188,7 @@ absl::StatusOr<std::unique_ptr<AggregateOp>> Algebrizer::AlgebrizePivotScan(
   for (const auto& group_by_elem : pivot_scan->group_by_list()) {
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> algebrized_groupby_elem,
                      AlgebrizeExpression(group_by_elem->expr()));
-    keys.push_back(absl::make_unique<KeyArg>(
+    keys.push_back(std::make_unique<KeyArg>(
         column_to_variable_->GetVariableNameFromColumn(group_by_elem->column()),
         std::move(algebrized_groupby_elem)));
   }
@@ -4191,7 +4225,7 @@ absl::StatusOr<std::unique_ptr<AggregateOp>> Algebrizer::AlgebrizePivotScan(
     std::vector<std::unique_ptr<ValueExpr>> algebrized_arguments;
     int pivot_expr_idx = pivot_column->pivot_expr_index();
     for (int i = 0; i < pivot_expr_arg_vars[pivot_expr_idx].size(); ++i) {
-      const absl::optional<VariableId>& arg_var =
+      const std::optional<VariableId>& arg_var =
           pivot_expr_arg_vars[pivot_expr_idx][i];
       if (arg_var.has_value()) {
         ZETASQL_ASSIGN_OR_RETURN(
@@ -4413,7 +4447,7 @@ absl::StatusOr<std::unique_ptr<ArrayNestExpr>> Algebrizer::NestRelationInStruct(
         DerefExpr::Create(
             column_to_variable_->GetVariableNameFromColumn(output_columns[i]),
             output_columns[i].type()));
-    arguments.push_back(absl::make_unique<ExprArg>(std::move(deref)));
+    arguments.push_back(std::make_unique<ExprArg>(std::move(deref)));
   }
   ZETASQL_ASSIGN_OR_RETURN(auto struct_op,
                    NewStructExpr::Create(table_struct, std::move(arguments)));
@@ -4480,7 +4514,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::WrapWithRootExpr(
 }
 
 std::unique_ptr<RootData> Algebrizer::GetRootData() {
-  auto root_data = absl::make_unique<RootData>();
+  auto root_data = std::make_unique<RootData>();
   root_data->registries = std::move(proto_field_registries_);
   root_data->field_readers = std::move(get_proto_field_readers_);
 
@@ -4538,8 +4572,8 @@ Algebrizer::AlgebrizeQueryStatementAsRelation(
 absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeDMLStatement(
     const ResolvedStatement* ast_root) {
   const ResolvedTableScan* resolved_table_scan;
-  auto resolved_scan_map = absl::make_unique<ResolvedScanMap>();
-  auto resolved_expr_map = absl::make_unique<ResolvedExprMap>();
+  auto resolved_scan_map = std::make_unique<ResolvedScanMap>();
+  auto resolved_expr_map = std::make_unique<ResolvedExprMap>();
   ZETASQL_RETURN_IF_ERROR(AlgebrizeDescendantsOfDMLStatement(
       ast_root, resolved_scan_map.get(), resolved_expr_map.get(),
       &resolved_table_scan));
@@ -4557,7 +4591,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeDMLStatement(
   }
   ResolvedColumnList returning_column_list;
   auto returning_column_values =
-      absl::make_unique<std::vector<std::unique_ptr<ValueExpr>>>();
+      std::make_unique<std::vector<std::unique_ptr<ValueExpr>>>();
 
   ZETASQL_RETURN_IF_ERROR(AlgebrizeDMLReturningClause(ast_root, &returning_column_list,
                                               returning_column_values.get()));
@@ -4902,10 +4936,10 @@ absl::Status Algebrizer::PopulateResolvedExprMap(
 }
 
 absl::StatusOr<ProtoFieldRegistry*> Algebrizer::AddProtoFieldRegistry(
-    const absl::optional<SharedProtoFieldPath>& id) {
+    const std::optional<SharedProtoFieldPath>& id) {
   const int registry_id = static_cast<int>(proto_field_registries_.size());
 
-  auto registry = absl::make_unique<ProtoFieldRegistry>(registry_id);
+  auto registry = std::make_unique<ProtoFieldRegistry>(registry_id);
 
   ProtoFieldRegistry* ptr = registry.get();
   proto_field_registries_.push_back(std::move(registry));
@@ -4916,12 +4950,12 @@ absl::StatusOr<ProtoFieldRegistry*> Algebrizer::AddProtoFieldRegistry(
 }
 
 absl::StatusOr<ProtoFieldReader*> Algebrizer::AddProtoFieldReader(
-    const absl::optional<SharedProtoFieldPath>& id,
+    const std::optional<SharedProtoFieldPath>& id,
     const ProtoFieldAccessInfo& access_info, ProtoFieldRegistry* registry) {
   const int reader_id = static_cast<int>(get_proto_field_readers_.size());
 
   auto reader =
-      absl::make_unique<ProtoFieldReader>(reader_id, access_info, registry);
+      std::make_unique<ProtoFieldReader>(reader_id, access_info, registry);
 
   ProtoFieldReader* ptr = reader.get();
   get_proto_field_readers_.push_back(std::move(reader));
@@ -5096,7 +5130,7 @@ absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::FilterDuplicates(
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> key_deref,
                      DerefExpr::Create(column_var, col.type()));
     key_args.push_back(
-        absl::make_unique<KeyArg>(column_var, std::move(key_deref)));
+        std::make_unique<KeyArg>(column_var, std::move(key_deref)));
   }
 
   return DistinctOp::Create(std::move(input), std::move(key_args), row_set_id);
@@ -5124,7 +5158,7 @@ Algebrizer::AlgebrizeRecursiveScan(
 
   // Now, proceed to algebrize the recursive term.
   recursive_var_id_stack_.push(
-      absl::make_unique<ExprArg>(recursive_var, recursive_table_type));
+      std::make_unique<ExprArg>(recursive_var, recursive_table_type));
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> recursive_term,
                    AlgebrizeScan(recursive_scan->recursive_term()->scan()));
   recursive_var_id_stack_.pop();
@@ -5158,8 +5192,8 @@ Algebrizer::AlgebrizeRecursiveScan(
                    NestRelationInStruct(recursive_scan->column_list(),
                                         std::move(non_recursive_term),
                                         /*is_with_table=*/false));
-  initial_assign.emplace_back(absl::make_unique<ExprArg>(
-      recursive_var, std::move(initial_assign_expr)));
+  initial_assign.emplace_back(
+      std::make_unique<ExprArg>(recursive_var, std::move(initial_assign_expr)));
 
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<DerefExpr> deref,
                    DerefExpr::Create(recursive_var, recursive_table_type));
@@ -5172,7 +5206,7 @@ Algebrizer::AlgebrizeRecursiveScan(
                                         std::move(recursive_term),
                                         /*is_with_table=*/false));
   loop_assign.emplace_back(
-      absl::make_unique<ExprArg>(recursive_var, std::move(loop_assign_expr)));
+      std::make_unique<ExprArg>(recursive_var, std::move(loop_assign_expr)));
 
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<LoopOp> loop_op,
                    LoopOp::Create(std::move(initial_assign), std::move(body),
@@ -5209,7 +5243,7 @@ absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::MapColumns(
         DerefExpr::Create(
             column_to_variable_->GetVariableNameFromColumn(input_column),
             output_column.type()));
-    map.push_back(absl::make_unique<ExprArg>(
+    map.push_back(std::make_unique<ExprArg>(
         column_to_variable_->GetVariableNameFromColumn(output_column),
         std::move(deref)));
   }
@@ -5261,8 +5295,8 @@ absl::StatusOr<UnionAllOp::Input> Algebrizer::AlgebrizeUnpivotArg(
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<ConstExpr> label_value_expr,
       ConstExpr::Create(unpivot_scan->label_list(arg_index)->value()));
-  map.push_back(absl::make_unique<ExprArg>(internal_label_column_var,
-                                           std::move(label_value_expr)));
+  map.push_back(std::make_unique<ExprArg>(internal_label_column_var,
+                                          std::move(label_value_expr)));
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ComputeOp> compute_op,
                    ComputeOp::Create(std::move(map), std::move(input_scan_op)));
 
@@ -5278,7 +5312,7 @@ absl::StatusOr<UnionAllOp::Input> Algebrizer::AlgebrizeUnpivotArg(
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> input_column,
                      AlgebrizeExpression(column->expr()));
     unionall_input.second.push_back(
-        absl::make_unique<ExprArg>(output_column_var, std::move(input_column)));
+        std::make_unique<ExprArg>(output_column_var, std::move(input_column)));
   }
 
   // Copy value columns
@@ -5290,7 +5324,7 @@ absl::StatusOr<UnionAllOp::Input> Algebrizer::AlgebrizeUnpivotArg(
                      AlgebrizeExpression(column_ref));
     VariableId destination_var = column_to_variable_->GetVariableNameFromColumn(
         unpivot_scan->value_column_list(j));
-    unionall_input.second.push_back(absl::make_unique<ExprArg>(
+    unionall_input.second.push_back(std::make_unique<ExprArg>(
         destination_var, std::move(deref_column_expr)));
   }
 
@@ -5298,7 +5332,7 @@ absl::StatusOr<UnionAllOp::Input> Algebrizer::AlgebrizeUnpivotArg(
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<DerefExpr> deref_label_column,
                    DerefExpr::Create(internal_label_column_var,
                                      unpivot_scan->label_column().type()));
-  unionall_input.second.push_back(absl::make_unique<ExprArg>(
+  unionall_input.second.push_back(std::make_unique<ExprArg>(
       label_column_var, std::move(deref_label_column)));
   return unionall_input;
 }
@@ -5374,7 +5408,7 @@ absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeUnpivotScan(
   VariableId input_array_var =
       variable_gen_->GetNewVariableName("$unpivot_input");
   std::vector<std::unique_ptr<ExprArg>> input_assign;
-  input_assign.push_back(absl::make_unique<ExprArg>(
+  input_assign.push_back(std::make_unique<ExprArg>(
       input_array_var, std::move(algebrized_input_as_value)));
 
   // Build up a UnionAllOp, with each input specifying the rows corresponding to
@@ -5427,7 +5461,7 @@ Algebrizer::AlgebrizeGroupRowsScan(
     const VariableId variable =
         column_to_variable_->AssignNewVariableToColumn(column);
     arguments.push_back(
-        absl::make_unique<ExprArg>(variable, std::move(argument)));
+        std::make_unique<ExprArg>(variable, std::move(argument)));
   }
 
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> group_rows_op,

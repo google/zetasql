@@ -48,7 +48,7 @@ void TupleSchema::AddVariable(VariableId variable) {
   vars_to_idxs_.insert(static_cast<int>(variables_.size() - 1));
 }
 
-absl::optional<int> TupleSchema::FindIndexForVariable(
+std::optional<int> TupleSchema::FindIndexForVariable(
     const VariableId& variable) const {
   auto iter = vars_to_idxs_.find(variable);
   if (iter == vars_to_idxs_.end()) {
@@ -125,8 +125,8 @@ Tuple ConcatTuples(const std::vector<Tuple>& tuples,
                  // Drop any extra slots in 'tuple_slots'.
                  tuple_slots.begin(), tuple_slots.begin() + tuple_vars.size());
   }
-  *new_schema = absl::make_unique<TupleSchema>(vars);
-  *new_data = absl::make_unique<TupleData>(slots);
+  *new_schema = std::make_unique<TupleSchema>(vars);
+  *new_data = std::make_unique<TupleData>(slots);
   return Tuple(new_schema->get(), new_data->get());
 }
 

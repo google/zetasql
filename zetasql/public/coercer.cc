@@ -21,6 +21,7 @@
 #include <set>
 #include <stack>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/public/cast.h"
@@ -232,7 +233,7 @@ class TypeGlobalOrderChecker {
       return absl::OkStatus();
     }
 
-    node = absl::make_unique<Node>();
+    node = std::make_unique<Node>();
 
     ZETASQL_ASSIGN_OR_RETURN(TypeListView supertypes,
                      GetCandidateSuperTypes(type, catalog));

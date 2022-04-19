@@ -16,7 +16,7 @@ CASE expr
   WHEN expr_to_match THEN result
   [ ... ]
   [ ELSE else_result ]
-END
+  END
 ```
 
 **Description**
@@ -39,18 +39,21 @@ done on coerced values. There may be multiple `result` types. `result` and
 **Example**
 
 ```sql
-WITH Numbers AS
- (SELECT 90 as A, 2 as B UNION ALL
+WITH Numbers AS (
+  SELECT 90 as A, 2 as B UNION ALL
   SELECT 50, 8 UNION ALL
   SELECT 60, 6 UNION ALL
-  SELECT 50, 10)
-SELECT A, B,
+  SELECT 50, 10
+)
+SELECT
+  A,
+  B,
   CASE A
     WHEN 90 THEN 'red'
     WHEN 50 THEN 'blue'
     ELSE 'green'
-  END
-  AS result
+    END
+    AS result
 FROM Numbers
 
 +------------------+
@@ -70,7 +73,7 @@ CASE
   WHEN condition THEN result
   [ ... ]
   [ ELSE else_result ]
-END
+  END
 ```
 
 **Description**
@@ -91,17 +94,20 @@ common [supertype][cond-exp-supertype].
 **Example**
 
 ```sql
-WITH Numbers AS
- (SELECT 90 as A, 2 as B UNION ALL
+WITH Numbers AS (
+  SELECT 90 as A, 2 as B UNION ALL
   SELECT 50, 6 UNION ALL
-  SELECT 20, 10)
-SELECT A, B,
+  SELECT 20, 10
+)
+SELECT
+  A,
+  B,
   CASE
     WHEN A > 60 THEN 'red'
     WHEN A > 30 THEN 'blue'
     ELSE 'green'
-  END
-  AS result
+    END
+    AS result
 FROM Numbers
 
 +------------------+
@@ -175,13 +181,15 @@ must be coercible to a common [supertype][cond-exp-supertype].
 **Example**
 
 ```sql
-WITH Numbers AS
- (SELECT 10 as A, 20 as B UNION ALL
+WITH Numbers AS (
+  SELECT 10 as A, 20 as B UNION ALL
   SELECT 50, 30 UNION ALL
-  SELECT 60, 60)
+  SELECT 60, 60
+)
 SELECT
-  A, B,
-  IF( A<B, 'true', 'false') as result
+  A,
+  B,
+  IF(A < B, 'true', 'false') AS result
 FROM Numbers
 
 +------------------+

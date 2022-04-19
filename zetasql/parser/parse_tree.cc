@@ -80,6 +80,7 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_ALTER_MATERIALIZED_VIEW_STATEMENT] = "AlterMaterializedViewStatement";
   map[AST_ALTER_PRIVILEGE_RESTRICTION_STATEMENT] =
       "AlterPrivilegeRestrictionStatement";
+  map[AST_ALTER_MODEL_STATEMENT] = "AlterModelStatement";
   map[AST_ALTER_ROW_ACCESS_POLICY_STATEMENT] = "AlterRowAccessPolicyStatement";
   map[AST_ALTER_ALL_ROW_ACCESS_POLICIES_STATEMENT] =
       "AlterAllRowAccessPoliciesStatement";
@@ -384,8 +385,13 @@ static absl::flat_hash_map<ASTNodeKind, std::string> CreateNodeNamesMap() {
   map[AST_WITH_CONNECTION_CLAUSE] = "WithConnectionClause";
   map[AST_WITH_GROUP_ROWS] = "WithGroupRows";
   map[AST_WITH_OFFSET] = "WithOffset";
+  map[AST_WITH_REPORT_MODIFIER] = "WithReportModifier";
   map[AST_WITH_WEIGHT] = "WithWeight";
   map[AST_WITH_PARTITION_COLUMNS_CLAUSE] = "WithPartitionColumnsClause";
+  map[AST_ALTER_SUB_ENTITY_ACTION] = "AlterSubEntityAction";
+  map[AST_ADD_SUB_ENTITY_ACTION] = "AddSubEntityAction";
+  map[AST_DROP_SUB_ENTITY_ACTION] = "DropSubEntityAction";
+  map[AST_WITH_EXPRESSION] = "WithExpression";
   for (int kind = kFirstASTNodeKind; kind <= kLastASTNodeKind;
        ++kind) {
     ZETASQL_DCHECK(map.contains(static_cast<ASTNodeKind>(kind))) << "kind=" << kind;
@@ -1569,6 +1575,32 @@ std::string ASTCheckConstraint::SingleNodeDebugString() const {
 
 std::string ASTSetCollateClause::GetSQLForAlterAction() const {
   return "SET DEFAULT COLLATE";
+}
+std::string ASTAlterSubEntityAction::GetSQLForAlterAction() const {
+  return absl::StrCat("ALTER ", type()->GetAsString());
+}
+
+std::string ASTAlterSubEntityAction::SingleNodeDebugString() const {
+  return absl::StrCat(ASTNode::SingleNodeDebugString(),
+                      is_if_exists_ ? "(is_if_exists)" : "");
+}
+
+std::string ASTAddSubEntityAction::GetSQLForAlterAction() const {
+  return absl::StrCat("ADD ", type()->GetAsString());
+}
+
+std::string ASTAddSubEntityAction::SingleNodeDebugString() const {
+  return absl::StrCat(ASTNode::SingleNodeDebugString(),
+                      is_if_not_exists_ ? "(is_if_not_exists)" : "");
+}
+
+std::string ASTDropSubEntityAction::GetSQLForAlterAction() const {
+  return absl::StrCat("DROP ", type()->GetAsString());
+}
+
+std::string ASTDropSubEntityAction::SingleNodeDebugString() const {
+  return absl::StrCat(ASTNode::SingleNodeDebugString(),
+                      is_if_exists_ ? "(is_if_exists)" : "");
 }
 
 std::string ASTSetOptionsAction::GetSQLForAlterAction() const {

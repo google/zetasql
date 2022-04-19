@@ -69,6 +69,39 @@ ARRAY<STRUCT<row_id INT64,
 ]
 ==
 
+# TestTable3 removes the rows of duplicate double_val of TestTable2
+[prepare_database]
+CREATE TABLE TestTable3 AS
+SELECT cast(1 as int64) as row_id,
+       cast(null as bool) as bool_val,
+       cast(null as int64) as int64_val,
+       cast(null as uint64) as uint64_val,
+       cast(null as double) as double_val UNION ALL
+  SELECT 2,  true,  2,    3,    1.5  UNION ALL
+  SELECT 4,  true,  null, 2,    3.5  UNION ALL
+  SELECT 5,  false, 1,    null, cast("NaN" as double)  UNION ALL
+  SELECT 7,  false, 1,    5,    -0.5 UNION ALL
+  SELECT 8,  true,  4,    2,    cast("-inf" as double) UNION ALL
+  SELECT 9,  false, 2,    3,    cast("inf" as double)  UNION ALL
+  SELECT 10, true,  3,    1,    2.5
+--
+ARRAY<STRUCT<row_id INT64,
+             bool_val BOOL,
+             int64_val INT64,
+             uint64_val UINT64,
+             double_val DOUBLE>>
+[
+  {1, NULL, NULL, NULL, NULL},
+  {2, true, 2, 3, 1.5},
+  {4, true, NULL, 2, 3.5},
+  {5, false, 1, NULL, nan},
+  {7, false, 1, 5, -0.5},
+  {8, true, 4, 2, -inf},
+  {9, false, 2, 3, inf},
+  {10, true, 3, 1, 2.5}
+]
+==
+
 [default required_features=ANALYTIC_FUNCTIONS]
 [name=analytic_sum_unbounded_1]
 [labels=analytic_sum_with_unbounded_window]
@@ -2430,19 +2463,17 @@ SELECT double_val, int64_val,
        SUM(int64_val) OVER (ORDER BY double_val ASC NULLS LAST
                             RANGE BETWEEN 2 PRECEDING AND 1 PRECEDING)
 
-FROM TestTable2
+FROM TestTable3
 --
 ARRAY<STRUCT<double_val DOUBLE, int64_val INT64, INT64>>[
   {nan, 1, 1},
   {-inf, 4, 4},
   {-0.5, 1, NULL},
-  {1.5, 1, 1},
   {1.5, 2, 1},
-  {2.5, 3, 3},
-  {3.5, NULL, 6},
+  {2.5, 3, 2},
+  {3.5, NULL, 5},
   {inf, 2, 2},
-  {NULL, NULL, 2},
-  {NULL, 2, 2}
+  {NULL, NULL, NULL}
 ]
 ==
 

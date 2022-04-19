@@ -15,7 +15,9 @@
 //
 
 #include "zetasql/compliance/test_driver.h"
+
 #include <memory>
+
 #include "zetasql/public/annotation.pb.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type_factory.h"

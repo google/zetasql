@@ -343,15 +343,18 @@ public class FunctionSignatureTest {
     arguments.add(
         new FunctionArgumentType(
             TypeFactory.createSimpleType(TypeKind.TYPE_STRING), ArgumentCardinality.OPTIONAL, 1));
-    assertThrows(
-        "Optional arguments with default values must be at the end of the argument list",
-        IllegalArgumentException.class,
-        () ->
-            new FunctionSignature(
-                new FunctionArgumentType(SignatureArgumentKind.ARG_TYPE_ANY_2),
-                arguments,
-                -1,
-                options));
+    assertThat(
+            assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                    new FunctionSignature(
+                        new FunctionArgumentType(SignatureArgumentKind.ARG_TYPE_ANY_2),
+                        arguments,
+                        -1,
+                        options)))
+        .hasMessageThat()
+        .isEqualTo(
+            "Optional arguments with default values must be at the end of the argument list");
   }
 
   private static void checkSerializeAndDeserialize(FunctionSignature signature) {

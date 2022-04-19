@@ -79,12 +79,12 @@ DeserializeProcedureDefinitionProto(
   ZETASQL_RETURN_IF_ERROR(FunctionSignature::Deserialize(proto.signature(), pools,
                                                  factory, &function_signature));
   if (proto.is_dynamic_sql()) {
-    return absl::make_unique<ProcedureDefinition>(*function_signature,
-                                                  proto.body());
+    return std::make_unique<ProcedureDefinition>(*function_signature,
+                                                 proto.body());
   } else {
     std::vector<std::string> argument_name_list(
         proto.argument_name_list().begin(), proto.argument_name_list().end());
-    return absl::make_unique<ProcedureDefinition>(
+    return std::make_unique<ProcedureDefinition>(
         proto.name(), *function_signature, std::move(argument_name_list),
         proto.body());
   }
@@ -106,15 +106,14 @@ absl::Status SerializeProcedureDefinitionProto(
 }
 
 absl::Status SerializeParametersProto(
-    const absl::optional<absl::variant<ParameterValueList, ParameterValueMap>>&
+    const std::optional<absl::variant<ParameterValueList, ParameterValueMap>>&
         parameters,
     ParametersProto* parameters_proto) {
   if (!parameters) {
     parameters_proto->set_mode(ParametersProto::NONE);
-  } else if (absl::holds_alternative<ParameterValueMap>(*parameters)) {
+  } else if (std::holds_alternative<ParameterValueMap>(*parameters)) {
     parameters_proto->set_mode(ParametersProto::NAMED);
-    for (const auto& [name, value] :
-         absl::get<ParameterValueMap>(*parameters)) {
+    for (const auto& [name, value] : std::get<ParameterValueMap>(*parameters)) {
       VariableProto* variable_proto =
           parameters_proto->mutable_variables()->Add();
       variable_proto->set_name(name);
@@ -124,7 +123,7 @@ absl::Status SerializeParametersProto(
     }
   } else {
     parameters_proto->set_mode(ParametersProto::POSITIONAL);
-    for (const Value& value : absl::get<ParameterValueList>(*parameters)) {
+    for (const Value& value : std::get<ParameterValueList>(*parameters)) {
       VariableProto* variable_proto =
           parameters_proto->mutable_variables()->Add();
       ZETASQL_RETURN_IF_ERROR(value.Serialize(variable_proto->mutable_value()));
@@ -137,7 +136,7 @@ absl::Status SerializeParametersProto(
 
 absl::Status DeserializeParametersProto(
     const ParametersProto& parameters_proto,
-    absl::optional<absl::variant<ParameterValueList, ParameterValueMap>>*
+    std::optional<absl::variant<ParameterValueList, ParameterValueMap>>*
         parameters,
     google::protobuf::DescriptorPool* descriptor_pool, IdStringPool* id_string_pool,
     TypeFactory* type_factory) {

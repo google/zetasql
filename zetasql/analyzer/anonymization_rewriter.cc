@@ -160,7 +160,7 @@ class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
   absl::Status VisitResolvedProjectScan(
       const ResolvedProjectScan* node) override;
 
-  ColumnFactory* allocator_;  // unowned
+  ColumnFactory* allocator_;   // unowned
   TypeFactory* type_factory_;  // unowned
   Resolver* resolver_;         // unowned
   RewriteForAnonymizationOutput::TableScanToAnonAggrScanMap&
@@ -254,8 +254,9 @@ ResolveInnerAggregateFunctionCallForAnonFunction(
     std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
     Resolver* resolver, ResolvedColumn* order_by_column,
     ColumnFactory* allocator) {
-  // We are rewriting ANON_VAR_POP/ANON_STDDEV_POP/ANON_PERCENTILE_CONT to
-  // per-user aggregation ARRAY_AGG(expr IGNORE NULLS ORDER BY rand() LIMIT 5).
+  // We are rewriting ANON_VAR_POP, ANON_STDDEV_POP, ANON_PERCENTILE_CONT, and
+  // ANON_QUANTILES, to per-user aggregation
+  // ARRAY_AGG(expr IGNORE NULLS ORDER BY rand() LIMIT 5).
   // The limit of 5 is proposed to be consistent with the current Penumbra
   // implementation, and at some point we may want to make this configurable.
   // For more information, see (broken link).
@@ -268,8 +269,11 @@ ResolveInnerAggregateFunctionCallForAnonFunction(
   }
 
   if (node->function()->GetGroup() == Function::kZetaSQLFunctionGroupName &&
-      node->signature().context_id() ==
-          FunctionSignatureId::FN_ANON_COUNT_STAR) {
+      (node->signature().context_id() ==
+           FunctionSignatureId::FN_ANON_COUNT_STAR ||
+       node->signature().context_id() == FN_ANON_COUNT_STAR_WITH_REPORT_JSON ||
+       node->signature().context_id() ==
+           FN_ANON_COUNT_STAR_WITH_REPORT_PROTO)) {
     // COUNT(*) doesn't take any arguments.
     arguments.clear();
   } else {
@@ -282,15 +286,18 @@ ResolveInnerAggregateFunctionCallForAnonFunction(
           node->function()->GetAs<AnonFunction>()->GetPartialAggregateName(),
           std::move(arguments), resolver));
 
-  // If the anon function is ANON_VAR_POP/ANON_STDDEV_POP/ANON_PERCENTILE_CONT,
-  // we allocate a new column "$orderbycol1" and set the limit as 5.
+  // If the anon function is ANON_VAR_POP, ANON_STDDEV_POP,
+  // ANON_PERCENTILE_CONT, or ANON_QUANTILES, we allocate a new column
+  // "$orderbycol1" and set the limit as 5.
   if (node->function()->GetGroup() == Function::kZetaSQLFunctionGroupName &&
       (node->signature().context_id() ==
            FunctionSignatureId::FN_ANON_VAR_POP_DOUBLE ||
        node->signature().context_id() ==
            FunctionSignatureId::FN_ANON_STDDEV_POP_DOUBLE ||
        node->signature().context_id() ==
-           FunctionSignatureId::FN_ANON_PERCENTILE_CONT_DOUBLE)) {
+           FunctionSignatureId::FN_ANON_PERCENTILE_CONT_DOUBLE ||
+       node->signature().context_id() ==
+           FunctionSignatureId::FN_ANON_QUANTILES_DOUBLE)) {
     if (!order_by_column->IsInitialized()) {
       *order_by_column =
           allocator->MakeCol("$orderby", "$orderbycol1", types::DoubleType());
@@ -403,6 +410,28 @@ ResolveOuterAggregateFunctionCallForAnonFunction(
         break;
       case FunctionSignatureId::FN_ANON_COUNT:
         target = "anon_sum";
+        break;
+      case FunctionSignatureId::FN_ANON_COUNT_STAR_WITH_REPORT_JSON:
+        target = "$anon_sum_with_report_json";
+        // Insert a dummy 'expr' column here, the original call will not include
+        // one because we are rewriting ANON_COUNT(*) WITH REPORT(FORMAT=JSON)
+        // to ANON_SUM(expr) WITH REPORT(FORMAT=JSON). The actual column
+        // reference will be set below.
+        arguments.insert(arguments.begin(), nullptr);
+        break;
+      case FunctionSignatureId::FN_ANON_COUNT_STAR_WITH_REPORT_PROTO:
+        target = "$anon_sum_with_report_proto";
+        // Insert a dummy 'expr' column here, the original call will not include
+        // one because we are rewriting ANON_COUNT(*) WITH REPORT(FORMAT=PROTO)
+        // to ANON_SUM(expr) WITH REPORT(FORMAT=PROTO). The actual column
+        // reference will be set below.
+        arguments.insert(arguments.begin(), nullptr);
+        break;
+      case FunctionSignatureId::FN_ANON_COUNT_WITH_REPORT_JSON:
+        target = "$anon_sum_with_report_json";
+        break;
+      case FunctionSignatureId::FN_ANON_COUNT_WITH_REPORT_PROTO:
+        target = "$anon_sum_with_report_proto";
         break;
     }
   }
@@ -587,6 +616,7 @@ struct UidColumnState {
       if (MatchesPathExpression(*col->expr())) {
         col = MakeResolvedComputedColumn(col->column(), MakeColRef(column));
         column = col->column();
+        value_table_uid = nullptr;
       }
     }
 
@@ -741,8 +771,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
 
  private:
   absl::Status ProjectValueTableScanRowValueIfNeeded(
-      ResolvedTableScan* copy,
-      const Column* value_table_value_column,
+      ResolvedTableScan* copy, const Column* value_table_value_column,
       ResolvedColumn* value_table_value_resolved_column) {
     for (int i = 0; i < copy->column_list_size(); ++i) {
       int j = copy->column_index_list(i);
@@ -757,9 +786,8 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
 
     // Make a new ResolvedColumn for the value table value column and
     // add it to the table scan's column list.
-    *value_table_value_resolved_column =
-        allocator_->MakeCol("$table_scan", "$value",
-                            value_table_value_column->GetType());
+    *value_table_value_resolved_column = allocator_->MakeCol(
+        "$table_scan", "$value", value_table_value_column->GetType());
     copy->add_column_list(*value_table_value_resolved_column);
     int table_col_idx = -1;
     for (int idx = 0; idx < copy->table()->NumColumns(); ++idx) {
@@ -1803,7 +1831,7 @@ absl::Status RewriterVisitor::VisitResolvedAnonymizedAggregateScan(
   std::vector<std::unique_ptr<const ResolvedOption>>
       resolved_anonymization_options;
   for (const std::unique_ptr<const ResolvedOption>& option :
-           node->anonymization_option_list()) {
+       node->anonymization_option_list()) {
     ResolvedASTDeepCopyVisitor deep_copy_visitor;
     ZETASQL_RETURN_IF_ERROR(option->Accept(&deep_copy_visitor));
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedOption> option_copy,
@@ -1951,11 +1979,9 @@ class AnonymizationRewriter : public Rewriter {
   std::string Name() const override { return "AnonymizationRewriter"; }
 };
 
-absl::StatusOr<RewriteForAnonymizationOutput>
-RewriteForAnonymization(const ResolvedNode& query, Catalog* catalog,
-                        TypeFactory* type_factory,
-                        const AnalyzerOptions& analyzer_options,
-                        ColumnFactory& column_factory) {
+absl::StatusOr<RewriteForAnonymizationOutput> RewriteForAnonymization(
+    const ResolvedNode& query, Catalog* catalog, TypeFactory* type_factory,
+    const AnalyzerOptions& analyzer_options, ColumnFactory& column_factory) {
   RewriteForAnonymizationOutput result;
   ZETASQL_ASSIGN_OR_RETURN(
       result.node,

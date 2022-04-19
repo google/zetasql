@@ -52,12 +52,12 @@ absl::Status FunctionOptions::Deserialize(
     std::unique_ptr<FunctionOptions>* result) {
   std::unique_ptr<FunctionOptions> options;
   if (proto.supports_over_clause()) {
-    options = absl::make_unique<FunctionOptions>(
+    options = std::make_unique<FunctionOptions>(
         proto.window_ordering_support(), proto.supports_window_framing());
   } else {
     ZETASQL_RET_CHECK(!proto.supports_window_framing());
     ZETASQL_RET_CHECK_EQ(proto.window_ordering_support(), ORDER_UNSUPPORTED);
-    options = absl::make_unique<FunctionOptions>();
+    options = std::make_unique<FunctionOptions>();
   }
 
   options->set_arguments_are_coercible(proto.arguments_are_coercible());
@@ -229,8 +229,8 @@ absl::StatusOr<std::unique_ptr<Function>> Function::Deserialize(
   std::unique_ptr<FunctionOptions> options;
   ZETASQL_RETURN_IF_ERROR(FunctionOptions::Deserialize(proto.options(), &options));
 
-  return absl::make_unique<Function>(name_path, proto.group(), proto.mode(),
-                                     function_signatures, *options);
+  return std::make_unique<Function>(name_path, proto.group(), proto.mode(),
+                                    function_signatures, *options);
 }
 
 absl::Status Function::Serialize(

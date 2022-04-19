@@ -166,6 +166,13 @@ LanguageOptions::LanguageOptions(const LanguageOptionsProto& proto)
           proto.supported_generic_entity_types(i));
     }
   }
+  if (proto.supported_generic_sub_entity_types_size() > 0) {
+    supported_generic_sub_entity_types_.clear();
+    for (int i = 0; i < proto.supported_generic_sub_entity_types_size(); ++i) {
+      supported_generic_sub_entity_types_.insert(
+          proto.supported_generic_sub_entity_types(i));
+    }
+  }
   for (absl::string_view keyword : proto.reserved_keywords()) {
     // Failure is possible if the proto is invalid, but a constructor cannot
     // return a status. Crash in debug builds, but silently ignore the malformed
@@ -189,6 +196,9 @@ void LanguageOptions::Serialize(LanguageOptionsProto* proto) const {
   }
   for (const std::string& entity_type : supported_generic_entity_types_) {
     proto->add_supported_generic_entity_types(entity_type);
+  }
+  for (const std::string& entity_type : supported_generic_sub_entity_types_) {
+    proto->add_supported_generic_sub_entity_types(entity_type);
   }
   for (absl::string_view keyword : reserved_keywords_) {
     proto->add_reserved_keywords(std::string(keyword));

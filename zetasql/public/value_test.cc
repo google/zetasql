@@ -1180,6 +1180,15 @@ TEST_F(ValueTest, AlmostEquals) {
   double tiny2 = 1e-150;
   EXPECT_THAT(Value::Double(tiny1), AlmostEqualsValue(Value::Double(tiny2)))
       << kDefaultFloatMargin.PrintError(tiny1, tiny2);
+
+  // Make sure we don't infinite loop comparing recursive protos.
+  TypeFactory factory;
+  const ProtoType* proto_type;
+  ZETASQL_ASSERT_OK(factory.MakeProtoType(zetasql_test__::RecursivePB::descriptor(),
+                                  &proto_type));
+  EXPECT_THAT(Array({Value::Proto(proto_type, {})}),
+              AlmostEqualsValue(Array({Value::Proto(proto_type, {})},
+                                      InternalValue::kIgnoresOrder)));
 }
 
 absl::Cord BuildDoubleValueProto(double value) {

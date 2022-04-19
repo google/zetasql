@@ -608,10 +608,16 @@ class SQLBuilder : public ResolvedASTVisitor {
       const std::vector<int>& rollup_column_id_list,
       QueryExpression* query_expression);
 
-  // Helper function to return corresponding SQL for ResolvedAlterAction
-  absl::StatusOr<std::string> GetAlterActionSQL(
+  // Helper function to return corresponding SQL for a list of
+  // ResolvedAlterActions.
+  absl::StatusOr<std::string> GetAlterActionListSQL(
       const std::vector<std::unique_ptr<const ResolvedAlterAction>>&
           alter_action_list);
+
+  // Helper function to return corresponding SQL for a single
+  // ResolvedAlterAction.
+  absl::StatusOr<std::string> GetAlterActionSQL(
+      const ResolvedAlterAction* alter_action);
 
   // Helper function to return corresponding SQL for ResolvedAlterObjectStmt
   absl::Status GetResolvedAlterObjectStmtSQL(

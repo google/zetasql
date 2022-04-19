@@ -41,11 +41,19 @@
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
+
+ABSL_FLAG(std::string, product_mode, "internal",
+          "The product_mode to use in language options. Note, language_features"
+          " is an orthongal way to configure language options."
+          "\nValid values are:"
+          "\n     'internal': supports protos, DOUBLE, signed ints, etc. "
+          "\n     'external': mode used in Cloud engines");
 
 ABSL_FLAG(std::string, mode, "execute",
           "The tool mode to use. Valid values are:"
@@ -140,6 +148,22 @@ absl::Status SetSqlModeFromFlags(ExecuteQueryConfig& config) {
     return zetasql_base::InvalidArgumentErrorBuilder()
            << "Invalid --sql_mode: '" << sql_mode << "'";
   }
+}
+
+static absl::Status SetProductModeFromFlags(ExecuteQueryConfig& config) {
+  std::string product_mode =
+      absl::AsciiStrToLower(absl::GetFlag(FLAGS_product_mode));
+  if (product_mode == "internal") {
+    config.mutable_analyzer_options().mutable_language()->set_product_mode(
+        PRODUCT_INTERNAL);
+    return absl::OkStatus();
+  } else if (product_mode == "external") {
+    config.mutable_analyzer_options().mutable_language()->set_product_mode(
+        PRODUCT_EXTERNAL);
+    return absl::OkStatus();
+  }
+  return zetasql_base::InvalidArgumentErrorBuilder()
+         << "Invalid --product_mode:'" << product_mode << "'";
 }
 
 absl::Status SetDescriptorPoolFromFlags(ExecuteQueryConfig& config) {
@@ -270,6 +294,10 @@ absl::StatusOr<std::unique_ptr<ExecuteQueryWriter>> MakeWriterFromFlags(
       pool, [proto_writer_func, &output](const google::protobuf::Message& msg) {
         return proto_writer_func(msg, output);
       });
+}
+
+absl::Status SetLanguageOptionsFromFlags(ExecuteQueryConfig& config) {
+  return SetProductModeFromFlags(config);
 }
 
 absl::Status SetEvaluatorOptionsFromFlags(ExecuteQueryConfig& config) {

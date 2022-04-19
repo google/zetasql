@@ -225,7 +225,7 @@ static absl::StatusOr<std::string> GenerateImprovedBisonSyntaxError(
   // start the tokenizer in kTokenizer mode because we don't need to get a bogus
   // token at the start to indicate the statement type. That token interferes
   // with errors at offset 0.
-  auto tokenizer = absl::make_unique<ZetaSqlFlexTokenizer>(
+  auto tokenizer = std::make_unique<ZetaSqlFlexTokenizer>(
       BisonParserMode::kTokenizer, error_location.filename(), input,
       start_offset, language_options);
   ParseLocationRange token_location;
@@ -338,7 +338,7 @@ absl::Status BisonParser::Parse(
   arena_ = arena;
   language_options_ = &language_options;
   allocated_ast_nodes_ =
-      absl::make_unique<std::vector<std::unique_ptr<ASTNode>>>();
+      std::make_unique<std::vector<std::unique_ptr<ASTNode>>>();
   auto clean_up_allocated_ast_nodes =
       absl::MakeCleanup([&] { allocated_ast_nodes_.reset(); });
   // We must have the filename outlive the <resume_location>, since the
@@ -348,7 +348,7 @@ absl::Status BisonParser::Parse(
   // there will outlive the ASTNodes that reference it.
   filename_ = id_string_pool->Make(filename);
   input_ = input;
-  tokenizer_ = absl::make_unique<ZetaSqlFlexTokenizer>(
+  tokenizer_ = std::make_unique<ZetaSqlFlexTokenizer>(
       mode, filename_.ToStringView(), input_, start_byte_offset,
       language_options);
   ASTNode* output_node = nullptr;
@@ -367,7 +367,7 @@ absl::Status BisonParser::Parse(
     // We don't use the result of InitFields() in the grammar itself, so we
     // don't need to do this during parsing.
     for (const auto& ast_node : *allocated_ast_nodes_) {
-      ast_node->InitFields();
+      ZETASQL_RETURN_IF_ERROR(ast_node->InitFields());
     }
 
     if (mode != BisonParserMode::kNextStatementKind) {

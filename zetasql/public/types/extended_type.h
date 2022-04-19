@@ -66,10 +66,10 @@ class ExtendedType : public Type {
 
   bool IsSupportedType(const LanguageOptions& language_options) const override;
 
-  // TODO Change "final" to "override" after adding a test so that
-  // extension types can use type parameters.
-  absl::StatusOr<std::string> TypeNameWithParameters(
-      const TypeParameters& type_params, ProductMode mode) const final;
+  // TODO: Add tests for SQLBuilder with parameterized extended
+  // type cast.
+  absl::StatusOr<std::string> TypeNameWithModifiers(
+      const TypeModifiers& type_modifiers, ProductMode mode) const override;
 };
 
 }  // namespace zetasql

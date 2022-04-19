@@ -79,15 +79,7 @@ public final class SimpleTable implements Table {
    * but will be called "value" in the resolved AST.
    */
   public SimpleTable(String name, Type rowType) {
-    this(
-        name,
-        Lists.<SimpleColumn>newArrayList(
-            new SimpleColumn(
-                name,
-                "value",
-                rowType,
-                /* isPseudoColumn = */ false,
-                /* isWritableColumn = */ true)));
+    this(name, Lists.<SimpleColumn>newArrayList(new SimpleColumn(name, "value", rowType)));
   }
 
   /**
@@ -315,7 +307,28 @@ public final class SimpleTable implements Table {
    * The added column will not be pseudo column.
    */
   public void addSimpleColumn(String name, Type type) {
-    addSimpleColumn(name, type, /* isPseudoColumn = */ false, /* isWritableColumn = */ true);
+    addSimpleColumn(
+        name,
+        type,
+        /* isPseudoColumn = */ false,
+        /* isWritableColumn = */ true,
+        /* canUpdateToDefault = */ false);
+  }
+
+  /**
+   * Add a column. Returns an error if constraints allowAnonymousColumnName or
+   * allowDuplicateColumnNames are violated.
+   */
+  public void addSimpleColumn(
+      String name,
+      Type type,
+      boolean isPseudoColumn,
+      boolean isWritableColumn,
+      boolean canUpdateToDefault) {
+    SimpleColumn column =
+        new SimpleColumn(
+            this.name, name, type, isPseudoColumn, isWritableColumn, canUpdateToDefault);
+    addSimpleColumn(column);
   }
 
   /**
@@ -324,7 +337,14 @@ public final class SimpleTable implements Table {
    */
   public void addSimpleColumn(
       String name, Type type, boolean isPseudoColumn, boolean isWritableColumn) {
-    SimpleColumn column = new SimpleColumn(this.name, name, type, isPseudoColumn, isWritableColumn);
+    SimpleColumn column =
+        new SimpleColumn(
+            this.name,
+            name,
+            type,
+            isPseudoColumn,
+            isWritableColumn,
+            /* canUpdateToDefault = */ false);
     addSimpleColumn(column);
   }
 

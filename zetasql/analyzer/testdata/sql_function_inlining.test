@@ -31,6 +31,35 @@ QueryStmt
       +-SingleRowScan
 ==
 
+SELECT SAFE.NullaryPi();
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := FunctionCall({SAFE_ERROR_MODE} Lazy_resolution_function:NullaryPi() -> DOUBLE)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:iferror(DOUBLE, DOUBLE) -> DOUBLE)
+    |     +-Literal(type=DOUBLE, value=3.141597)
+    |     +-Literal(type=DOUBLE, value=NULL)
+    +-input_scan=
+      +-SingleRowScan
+==
+
 SELECT NullaryWithSubquery();
 --
 QueryStmt
@@ -1035,6 +1064,480 @@ QueryStmt
           +-SingleRowScan
 ==
 
+# Using an aggregate function in the arguments.
+[default enabled_ast_rewrites=ALL|ALL,-LET_EXPR]
+SELECT UnaryIncrement{{|RefArg}}(SUM(a){{|+SUM(b)}})
+FROM (SELECT 1 AS a, 2 AS b)
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#4 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#4]
+    +-expr_list=
+    | +-$col1#4 :=
+    |   +-FunctionCall(Lazy_resolution_function:UnaryIncrement(INT64 a) -> INT64)
+    |     +-ColumnRef(type=INT64, column=$aggregate.$agg1#3)
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=$subquery1.[a#1, b#2]
+        |   +-expr_list=
+        |   | +-a#1 := Literal(type=INT64, value=1)
+        |   | +-b#2 := Literal(type=INT64, value=2)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-aggregate_list=
+          +-$agg1#3 :=
+            +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+              +-ColumnRef(type=INT64, column=$subquery1.a#1)
+
+[[ REWRITER ARTIFACTS FOR RULE GROUPS 'ALL' ]]
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#4 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#4]
+    +-expr_list=
+    | +-$col1#4 :=
+    |   +-SubqueryExpr
+    |     +-type=INT64
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT64, column=$aggregate.$agg1#3)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$let_expr.injected#6]
+    |         +-expr_list=
+    |         | +-injected#6 :=
+    |         |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |         |     +-ColumnRef(type=INT64, column=$inlined_UnaryIncrement.a#5)
+    |         |     +-Literal(type=INT64, value=1)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$inlined_UnaryIncrement.a#5]
+    |             +-expr_list=
+    |             | +-a#5 := ColumnRef(type=INT64, column=$aggregate.$agg1#3, is_correlated=TRUE)
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=$subquery1.[a#1, b#2]
+        |   +-expr_list=
+        |   | +-a#1 := Literal(type=INT64, value=1)
+        |   | +-b#2 := Literal(type=INT64, value=2)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-aggregate_list=
+          +-$agg1#3 :=
+            +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+              +-ColumnRef(type=INT64, column=$subquery1.a#1)
+
+[[ REWRITER ARTIFACTS FOR RULE GROUPS 'ALL,-LET_EXPR' ]]
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#4 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#4]
+    +-expr_list=
+    | +-$col1#4 :=
+    |   +-LetExpr
+    |     +-type=INT64
+    |     +-assignment_list=
+    |     | +-a#5 := ColumnRef(type=INT64, column=$aggregate.$agg1#3)
+    |     +-expr=
+    |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |         +-ColumnRef(type=INT64, column=$inlined_UnaryIncrement.a#5)
+    |         +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=$subquery1.[a#1, b#2]
+        |   +-expr_list=
+        |   | +-a#1 := Literal(type=INT64, value=1)
+        |   | +-b#2 := Literal(type=INT64, value=2)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-aggregate_list=
+          +-$agg1#3 :=
+            +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+              +-ColumnRef(type=INT64, column=$subquery1.a#1)
+--
+ALTERNATION GROUP: +SUM(b)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-FunctionCall(Lazy_resolution_function:UnaryIncrement(INT64 a) -> INT64)
+    |     +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |       +-ColumnRef(type=INT64, column=$aggregate.$agg1#3)
+    |       +-ColumnRef(type=INT64, column=$aggregate.$agg2#4)
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=$aggregate.[$agg1#3, $agg2#4]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=$subquery1.[a#1, b#2]
+        |   +-expr_list=
+        |   | +-a#1 := Literal(type=INT64, value=1)
+        |   | +-b#2 := Literal(type=INT64, value=2)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-aggregate_list=
+          +-$agg1#3 :=
+          | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+          |   +-ColumnRef(type=INT64, column=$subquery1.a#1)
+          +-$agg2#4 :=
+            +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+              +-ColumnRef(type=INT64, column=$subquery1.b#2)
+
+[[ REWRITER ARTIFACTS FOR RULE GROUPS 'ALL' ]]
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-SubqueryExpr
+    |     +-type=INT64
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT64, column=$aggregate.$agg1#3)
+    |     | +-ColumnRef(type=INT64, column=$aggregate.$agg2#4)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$let_expr.injected#7]
+    |         +-expr_list=
+    |         | +-injected#7 :=
+    |         |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |         |     +-ColumnRef(type=INT64, column=$inlined_UnaryIncrement.a#6)
+    |         |     +-Literal(type=INT64, value=1)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$inlined_UnaryIncrement.a#6]
+    |             +-expr_list=
+    |             | +-a#6 :=
+    |             |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |             |     +-ColumnRef(type=INT64, column=$aggregate.$agg1#3, is_correlated=TRUE)
+    |             |     +-ColumnRef(type=INT64, column=$aggregate.$agg2#4, is_correlated=TRUE)
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=$aggregate.[$agg1#3, $agg2#4]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=$subquery1.[a#1, b#2]
+        |   +-expr_list=
+        |   | +-a#1 := Literal(type=INT64, value=1)
+        |   | +-b#2 := Literal(type=INT64, value=2)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-aggregate_list=
+          +-$agg1#3 :=
+          | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+          |   +-ColumnRef(type=INT64, column=$subquery1.a#1)
+          +-$agg2#4 :=
+            +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+              +-ColumnRef(type=INT64, column=$subquery1.b#2)
+
+[[ REWRITER ARTIFACTS FOR RULE GROUPS 'ALL,-LET_EXPR' ]]
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-LetExpr
+    |     +-type=INT64
+    |     +-assignment_list=
+    |     | +-a#6 :=
+    |     |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |     |     +-ColumnRef(type=INT64, column=$aggregate.$agg1#3)
+    |     |     +-ColumnRef(type=INT64, column=$aggregate.$agg2#4)
+    |     +-expr=
+    |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |         +-ColumnRef(type=INT64, column=$inlined_UnaryIncrement.a#6)
+    |         +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=$aggregate.[$agg1#3, $agg2#4]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=$subquery1.[a#1, b#2]
+        |   +-expr_list=
+        |   | +-a#1 := Literal(type=INT64, value=1)
+        |   | +-b#2 := Literal(type=INT64, value=2)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-aggregate_list=
+          +-$agg1#3 :=
+          | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+          |   +-ColumnRef(type=INT64, column=$subquery1.a#1)
+          +-$agg2#4 :=
+            +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+              +-ColumnRef(type=INT64, column=$subquery1.b#2)
+--
+ALTERNATION GROUP: RefArg,
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#4 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#4]
+    +-expr_list=
+    | +-$col1#4 :=
+    |   +-FunctionCall(Lazy_resolution_function:UnaryIncrementRefArg(INT64) -> INT64)
+    |     +-ColumnRef(type=INT64, column=$aggregate.$agg1#3)
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=$subquery1.[a#1, b#2]
+        |   +-expr_list=
+        |   | +-a#1 := Literal(type=INT64, value=1)
+        |   | +-b#2 := Literal(type=INT64, value=2)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-aggregate_list=
+          +-$agg1#3 :=
+            +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+              +-ColumnRef(type=INT64, column=$subquery1.a#1)
+
+[[ REWRITER ARTIFACTS FOR RULE GROUPS 'ALL' ]]
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#4 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#4]
+    +-expr_list=
+    | +-$col1#4 :=
+    |   +-SubqueryExpr
+    |     +-type=INT64
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT64, column=$aggregate.$agg1#3)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$let_expr.injected#6]
+    |         +-expr_list=
+    |         | +-injected#6 :=
+    |         |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |         |     +-ColumnRef(type=INT64, column=$inlined_UnaryIncrementRefArg.a#5)
+    |         |     +-Literal(type=INT64, value=1)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$inlined_UnaryIncrementRefArg.a#5]
+    |             +-expr_list=
+    |             | +-a#5 := ColumnRef(type=INT64, column=$aggregate.$agg1#3, is_correlated=TRUE)
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=$subquery1.[a#1, b#2]
+        |   +-expr_list=
+        |   | +-a#1 := Literal(type=INT64, value=1)
+        |   | +-b#2 := Literal(type=INT64, value=2)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-aggregate_list=
+          +-$agg1#3 :=
+            +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+              +-ColumnRef(type=INT64, column=$subquery1.a#1)
+
+[[ REWRITER ARTIFACTS FOR RULE GROUPS 'ALL,-LET_EXPR' ]]
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#4 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#4]
+    +-expr_list=
+    | +-$col1#4 :=
+    |   +-LetExpr
+    |     +-type=INT64
+    |     +-assignment_list=
+    |     | +-a#5 := ColumnRef(type=INT64, column=$aggregate.$agg1#3)
+    |     +-expr=
+    |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |         +-ColumnRef(type=INT64, column=$inlined_UnaryIncrementRefArg.a#5)
+    |         +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=$subquery1.[a#1, b#2]
+        |   +-expr_list=
+        |   | +-a#1 := Literal(type=INT64, value=1)
+        |   | +-b#2 := Literal(type=INT64, value=2)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-aggregate_list=
+          +-$agg1#3 :=
+            +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+              +-ColumnRef(type=INT64, column=$subquery1.a#1)
+--
+ALTERNATION GROUP: RefArg,+SUM(b)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-FunctionCall(Lazy_resolution_function:UnaryIncrementRefArg(INT64) -> INT64)
+    |     +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |       +-ColumnRef(type=INT64, column=$aggregate.$agg1#3)
+    |       +-ColumnRef(type=INT64, column=$aggregate.$agg2#4)
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=$aggregate.[$agg1#3, $agg2#4]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=$subquery1.[a#1, b#2]
+        |   +-expr_list=
+        |   | +-a#1 := Literal(type=INT64, value=1)
+        |   | +-b#2 := Literal(type=INT64, value=2)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-aggregate_list=
+          +-$agg1#3 :=
+          | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+          |   +-ColumnRef(type=INT64, column=$subquery1.a#1)
+          +-$agg2#4 :=
+            +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+              +-ColumnRef(type=INT64, column=$subquery1.b#2)
+
+[[ REWRITER ARTIFACTS FOR RULE GROUPS 'ALL' ]]
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-SubqueryExpr
+    |     +-type=INT64
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT64, column=$aggregate.$agg1#3)
+    |     | +-ColumnRef(type=INT64, column=$aggregate.$agg2#4)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$let_expr.injected#7]
+    |         +-expr_list=
+    |         | +-injected#7 :=
+    |         |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |         |     +-ColumnRef(type=INT64, column=$inlined_UnaryIncrementRefArg.a#6)
+    |         |     +-Literal(type=INT64, value=1)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$inlined_UnaryIncrementRefArg.a#6]
+    |             +-expr_list=
+    |             | +-a#6 :=
+    |             |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |             |     +-ColumnRef(type=INT64, column=$aggregate.$agg1#3, is_correlated=TRUE)
+    |             |     +-ColumnRef(type=INT64, column=$aggregate.$agg2#4, is_correlated=TRUE)
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=$aggregate.[$agg1#3, $agg2#4]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=$subquery1.[a#1, b#2]
+        |   +-expr_list=
+        |   | +-a#1 := Literal(type=INT64, value=1)
+        |   | +-b#2 := Literal(type=INT64, value=2)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-aggregate_list=
+          +-$agg1#3 :=
+          | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+          |   +-ColumnRef(type=INT64, column=$subquery1.a#1)
+          +-$agg2#4 :=
+            +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+              +-ColumnRef(type=INT64, column=$subquery1.b#2)
+
+[[ REWRITER ARTIFACTS FOR RULE GROUPS 'ALL,-LET_EXPR' ]]
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-LetExpr
+    |     +-type=INT64
+    |     +-assignment_list=
+    |     | +-a#6 :=
+    |     |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |     |     +-ColumnRef(type=INT64, column=$aggregate.$agg1#3)
+    |     |     +-ColumnRef(type=INT64, column=$aggregate.$agg2#4)
+    |     +-expr=
+    |       +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |         +-ColumnRef(type=INT64, column=$inlined_UnaryIncrementRefArg.a#6)
+    |         +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=$aggregate.[$agg1#3, $agg2#4]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=$subquery1.[a#1, b#2]
+        |   +-expr_list=
+        |   | +-a#1 := Literal(type=INT64, value=1)
+        |   | +-b#2 := Literal(type=INT64, value=2)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-aggregate_list=
+          +-$agg1#3 :=
+          | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+          |   +-ColumnRef(type=INT64, column=$subquery1.a#1)
+          +-$agg2#4 :=
+            +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+              +-ColumnRef(type=INT64, column=$subquery1.b#2)
+==
+
 ################################################################################
 ## Error Cases
 ################################################################################
@@ -1059,24 +1562,6 @@ QueryStmt
 Rewrite ERROR: generic::unimplemented: Hinted calls to SQL defined function 'NullaryPi' are not supported.
 ==
 
-SELECT SAFE.NullaryPi();
---
-[PRE-REWRITE AST]
-QueryStmt
-+-output_column_list=
-| +-$query.$col1#1 AS `$col1` [DOUBLE]
-+-query=
-  +-ProjectScan
-    +-column_list=[$query.$col1#1]
-    +-expr_list=
-    | +-$col1#1 := FunctionCall({SAFE_ERROR_MODE} Lazy_resolution_function:NullaryPi() -> DOUBLE)
-    +-input_scan=
-      +-SingleRowScan
-
-Rewrite ERROR: generic::unimplemented: SAFE. calls to SQL defined functions such as 'NullaryPi' are not implemented.
-
-==
-
 SELECT ReferencesArgInsideCte(1);
 --
 [PRE-REWRITE AST]
@@ -1093,7 +1578,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 
-Rewrite ERROR: generic::unimplemented: SQL defined functions that reference arguments in an embedded WITH clause are not implemented.
+Rewrite ERROR: generic::unimplemented: SQL defined functions that contain argument references inside embedded WITH clauses are not implemented.
 
 ==
 

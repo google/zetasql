@@ -80,22 +80,21 @@ class ParameterValues {
 
   // Returns whether this represents a collection of named parameters.
   bool is_named() const {
-    return absl::holds_alternative<const ParameterValueMap*>(parameters_);
+    return std::holds_alternative<const ParameterValueMap*>(parameters_);
   }
 
   // Precondition: is_named().
   const ParameterValueMap& named_parameters() const {
-    return **absl::get_if<const ParameterValueMap*>(&parameters_);
+    return **std::get_if<const ParameterValueMap*>(&parameters_);
   }
 
   // Precondition: !is_named().
   const ParameterValueList& positional_parameters() const {
-    return **absl::get_if<const ParameterValueList*>(&parameters_);
+    return **std::get_if<const ParameterValueList*>(&parameters_);
   }
 
  private:
-  absl::variant<const ParameterValueMap*, const ParameterValueList*>
-      parameters_;
+  std::variant<const ParameterValueMap*, const ParameterValueList*> parameters_;
 };
 
 // Implements EvaluatorTableModifyIterator by wrapping a vector of updated rows.
@@ -272,7 +271,7 @@ class Evaluator {
       std::function<void(EvaluationContext*)> cb) ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock l(&mutex_);
     create_evaluation_context_cb_test_only_ =
-        absl::make_unique<std::function<void(EvaluationContext*)>>(cb);
+        std::make_unique<std::function<void(EvaluationContext*)>>(cb);
   }
 
  private:
@@ -296,7 +295,7 @@ class Evaluator {
   void MaybeInitTypeFactory() ABSL_LOCKS_EXCLUDED(mutex_) {
     absl::MutexLock l(&mutex_);
     if (evaluator_options_.type_factory == nullptr) {
-      owned_type_factory_ = absl::make_unique<TypeFactory>();
+      owned_type_factory_ = std::make_unique<TypeFactory>();
       evaluator_options_.type_factory = owned_type_factory_.get();
     }
   }
@@ -363,7 +362,7 @@ class Evaluator {
         evaluator_options_.max_intermediate_byte_size;
     evaluation_options.return_all_rows_for_dml = false;
 
-    auto context = absl::make_unique<EvaluationContext>(evaluation_options);
+    auto context = std::make_unique<EvaluationContext>(evaluation_options);
 
     context->SetClockAndClearCurrentTimestamp(evaluator_options_.clock);
     if (evaluator_options_.default_time_zone.has_value()) {
@@ -476,7 +475,7 @@ absl::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
   // analyzer_options_.set_prune_unused_columns(true);
 
   if (catalog == nullptr && (statement_ == nullptr && expr_ == nullptr)) {
-    owned_catalog_ = absl::make_unique<SimpleCatalog>(
+    owned_catalog_ = std::make_unique<SimpleCatalog>(
         "default_catalog", evaluator_options_.type_factory);
     // Add built-in functions to the catalog, using provided <options>.
     owned_catalog_->AddZetaSQLFunctions(options.language());
@@ -804,7 +803,7 @@ Evaluator::MakeUpdateIterator(const Value& value,
   ZETASQL_RET_CHECK_EQ(value.num_fields(), 2);
   ZETASQL_RET_CHECK(value.field(1).type()->IsArray());
   IncrementNumLiveIterators();
-  return absl::make_unique<VectorEvaluatorTableModifyIterator>(
+  return std::make_unique<VectorEvaluatorTableModifyIterator>(
       value.field(1).elements(), table, operation,
       std::bind(&Evaluator::DecrementNumLiveIterators, this));
 }
@@ -919,7 +918,7 @@ absl::Status Evaluator::ExecuteAfterPrepareWithOrderedParamsLocked(
     std::vector<int> tuple_indexes;
     tuple_indexes.reserve(output_column_variables_.size());
     for (const VariableId& var : output_column_variables_) {
-      absl::optional<int> i = tuple_iter->Schema().FindIndexForVariable(var);
+      std::optional<int> i = tuple_iter->Schema().FindIndexForVariable(var);
       ZETASQL_RET_CHECK(i.has_value()) << var;
       tuple_indexes.push_back(i.value());
     }
@@ -928,7 +927,7 @@ absl::Status Evaluator::ExecuteAfterPrepareWithOrderedParamsLocked(
     std::function<void()> deletion_cb = [this]() {
       DecrementNumLiveIterators();
     };
-    *query_output_iterator = absl::make_unique<TupleIteratorAdaptor>(
+    *query_output_iterator = std::make_unique<TupleIteratorAdaptor>(
         output_columns_, tuple_indexes, deletion_cb, std::move(context),
         std::move(tuple_iter));
   } else {

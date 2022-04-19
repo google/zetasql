@@ -31,19 +31,19 @@ std::unique_ptr<MatcherCollection<absl::Status>> LegalRuntimeErrorMatcher(
     std::string matcher_name) {
   std::vector<std::unique_ptr<MatcherBase<absl::Status>>> matchers;
 
-  matchers.emplace_back(absl::make_unique<StatusErrorCodeMatcher>(
+  matchers.emplace_back(std::make_unique<StatusErrorCodeMatcher>(
       absl::StatusCode::kInvalidArgument));
   matchers.emplace_back(
-      absl::make_unique<StatusErrorCodeMatcher>(absl::StatusCode::kOutOfRange));
+      std::make_unique<StatusErrorCodeMatcher>(absl::StatusCode::kOutOfRange));
   // TODO: Consider removing this and changing the reference
   // implementation to return ALREADY_EXISTS for primary key collisions. The
   // current convention is to always return INVALID_ARGUMENT for analysis
   // errors and OUT_OF_RANGE for runtime errors.
-  matchers.emplace_back(absl::make_unique<StatusErrorCodeMatcher>(
+  matchers.emplace_back(std::make_unique<StatusErrorCodeMatcher>(
       absl::StatusCode::kAlreadyExists));
 
-  return absl::make_unique<MatcherCollection<absl::Status>>(
-      matcher_name, std::move(matchers));
+  return std::make_unique<MatcherCollection<absl::Status>>(matcher_name,
+                                                           std::move(matchers));
 }
 
 }  // namespace zetasql

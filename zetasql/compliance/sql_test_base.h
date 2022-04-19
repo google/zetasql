@@ -101,6 +101,8 @@ class SQLTestBase;
 
 namespace zetasql {
 
+std::string ScriptResultToString(const ScriptResult& result);
+
 class SQLTestBase : public ::testing::TestWithParam<std::string> {
  public:
   using ComplianceTestCaseResult = absl::variant<Value, ScriptResult>;
@@ -742,7 +744,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // Resets the execute statement type factory to free types created during
   // statement execution.
   void ResetExecuteStatementTypeFactory() {
-    execute_statement_type_factory_ = absl::make_unique<TypeFactory>();
+    execute_statement_type_factory_ = std::make_unique<TypeFactory>();
   }
 
   ReferenceDriver::ExecuteStatementOptions GetExecuteStatementOptions() const {
@@ -771,6 +773,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
     return enabled;
   }
 
+  bool script_mode() const { return script_mode_; }
   void set_script_mode(bool script_mode) { script_mode_ = script_mode; }
 
   // TODO: Move the following to private once all subclasses migrate to

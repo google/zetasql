@@ -54,8 +54,6 @@ namespace zetasql {
 
 class AnalyzerOptions;
 
-using ::zetasql::functions::DateTimestampPartToSQL;
-
 void GetDatetimeExtractFunctions(TypeFactory* type_factory,
                                  const ZetaSQLBuiltinFunctionOptions& options,
                                  NameToFunctionMap* functions) {

@@ -17,7 +17,6 @@
 
 package com.google.zetasql;
 
-import com.google.common.collect.ImmutableList;
 
 /** SimpleModel is a concrete implementation of the Model interface. */
 // TODO: Finish the implementation of SimpleModel.
@@ -33,46 +32,6 @@ public final class SimpleModel implements Model {
   @Override
   public String getFullName() {
     return "";
-  }
-
-  @Override
-  public int getInputColumnCount() {
-    return 0;
-  }
-
-  @Override
-  public Column getInputColumn(int i) {
-    return null;
-  }
-
-  @Override
-  public ImmutableList<? extends Column> getInputColumnList() {
-    return null;
-  }
-
-  @Override
-  public Column findInputColumnByName(String name) {
-    return null;
-  }
-
-  @Override
-  public int getOutputColumnCount() {
-    return 0;
-  }
-
-  @Override
-  public Column getOutputColumn(int i) {
-    return null;
-  }
-
-  @Override
-  public ImmutableList<? extends Column> getOutputColumnList() {
-    return null;
-  }
-
-  @Override
-  public Column findOutputColumnByName(String name) {
-    return null;
   }
 
   @Override

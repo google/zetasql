@@ -74,7 +74,7 @@ absl::Status TemplatedSQLFunction::Deserialize(
   }
 
   ZETASQL_RET_CHECK(proto.has_parse_resume_location()) << proto.DebugString();
-  *result = absl::make_unique<TemplatedSQLFunction>(
+  *result = std::make_unique<TemplatedSQLFunction>(
       name_path, *function_signature, argument_names,
       ParseResumeLocation::FromProto(proto.parse_resume_location()));
   return absl::OkStatus();

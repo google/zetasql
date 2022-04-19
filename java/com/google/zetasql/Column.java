@@ -52,4 +52,13 @@ public interface Column {
 
   /** Returns true if the column is writable. */
   public boolean isWritableColumn();
+
+  /**
+   * Returns true if the column can be SET to DEFAULT in an UPDATE DML statement. Setting a
+   * non-writable column to DEFAULT denotes that the generated column value must be re-evaluated.
+   * This is currently only allowed for STORED VOLATILE generated columns, where
+   * isWritableColumn()==false and canUpdateToDefault() is engine specific. See:
+   * (broken link).
+   */
+  public boolean canUpdateToDefault();
 }

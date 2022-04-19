@@ -416,7 +416,7 @@ QueryStmt
 select 1
 from KeyValue join (select 123 value) using (value)
 --
-ERROR: Column value in USING has incompatible types on either side of the join: STRING and INT64 [at 2:46]
+ERROR: Column 'value' in USING has incompatible types that cannot be directly compared using equality on either side of the join: STRING and INT64 [at 2:46]
 from KeyValue join (select 123 value) using (value)
                                              ^
 ==
@@ -616,9 +616,17 @@ QueryStmt
 select *
 from TestTable tt1 join TestTable tt2 using (KitchenSink)
 --
-ERROR: Column KitchenSink in USING has incompatible types on either side of the join: zetasql_test__.KitchenSinkPB and zetasql_test__.KitchenSinkPB [at 2:46]
+ERROR: Column 'KitchenSink' in USING has types that do not support equality comparison: zetasql_test__.KitchenSinkPB [at 2:46]
 from TestTable tt1 join TestTable tt2 using (KitchenSink)
                                              ^
+==
+
+SELECT *
+FROM GeoStructTable1 t1 JOIN GeoStructTable2 t2 USING (geo)
+--
+ERROR: Column 'geo' in USING has types that do not support equality comparison: STRUCT<a GEOGRAPHY> [at 2:56]
+FROM GeoStructTable1 t1 JOIN GeoStructTable2 t2 USING (geo)
+                                                       ^
 ==
 
 # Path expressions in the USING clause are not allowed.
@@ -1020,7 +1028,7 @@ from KitchenSinkValueTable k1 JOIN
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Column repeated_bool_val in USING has incompatible types on either side of the join: ARRAY<BOOL> and ARRAY<BOOL> [at 3:51]
+ERROR: Column 'repeated_bool_val' in USING has types that do not support equality comparison: ARRAY<BOOL> [at 3:51]
      KitchenSinkValueTable k2 USING (int64_key_1, repeated_bool_val)
                                                   ^
 --
@@ -1784,7 +1792,7 @@ QueryStmt
 select int64_key_1, KitchenSinkValueTable int64_key_1
 from Int32ValueTable join_key join KitchenSinkValueTable join_key using (join_key)
 --
-ERROR: Column join_key in USING has incompatible types on either side of the join: INT32 and zetasql_test__.KitchenSinkPB [at 2:74]
+ERROR: Column 'join_key' in USING has incompatible types that cannot be directly compared using equality on either side of the join: INT32 and zetasql_test__.KitchenSinkPB [at 2:74]
 ...join_key join KitchenSinkValueTable join_key using (join_key)
                                                        ^
 ==
@@ -2578,7 +2586,7 @@ from ComplexTypes a join ComplexTypes b using(Int32Array);
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Column Int32Array in USING has incompatible types on either side of the join: ARRAY<INT32> and ARRAY<INT32> [at 2:47]
+ERROR: Column 'Int32Array' in USING has types that do not support equality comparison: ARRAY<INT32> [at 2:47]
 from ComplexTypes a join ComplexTypes b using(Int32Array);
                                               ^
 --

@@ -60,6 +60,8 @@ absl::Status InitializeExecuteQueryConfig(ExecuteQueryConfig& config) {
   ZETASQL_RETURN_IF_ERROR(SetSqlModeFromFlags(config));
   ZETASQL_RETURN_IF_ERROR(SetEvaluatorOptionsFromFlags(config));
   ZETASQL_RETURN_IF_ERROR(AddTablesFromFlags(config));
+  ZETASQL_RETURN_IF_ERROR(SetLanguageOptionsFromFlags(config));
+  // We can't yet set features from flags, so force it to all for now.
   config.mutable_analyzer_options()
       .mutable_language()
       ->EnableMaximumLanguageFeaturesForDevelopment();

@@ -26,6 +26,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_modifiers.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value_content.h"
 #include "absl/hash/hash.h"
@@ -150,19 +151,25 @@ std::string ArrayType::TypeName(ProductMode mode) const {
   return absl::StrCat("ARRAY<", element_type_->TypeName(mode), ">");
 }
 
-absl::StatusOr<std::string> ArrayType::TypeNameWithParameters(
-    const TypeParameters& type_params, ProductMode mode) const {
-  if (type_params.IsEmpty()) {
-    return TypeName(mode);
-  }
-  if (type_params.num_children() != 1) {
+absl::StatusOr<std::string> ArrayType::TypeNameWithModifiers(
+    const TypeModifiers& type_modifiers, ProductMode mode) const {
+  const TypeParameters& type_params = type_modifiers.type_parameters();
+  if (!type_params.IsEmpty() && type_params.num_children() != 1) {
     return MakeSqlError()
            << "Input type parameter does not correspond to ArrayType";
   }
+
+  const Collation& collation = type_modifiers.collation();
+  // TODO: Implement logic to print type name with collation.
+  ZETASQL_RET_CHECK(collation.Empty());
   ZETASQL_ASSIGN_OR_RETURN(
-      std::string element_parameters,
-      element_type_->TypeNameWithParameters(type_params.child(0), mode));
-  return absl::StrCat("ARRAY<", element_parameters, ">");
+      std::string element_type_name,
+      element_type_->TypeNameWithModifiers(
+          TypeModifiers::MakeTypeModifiers(
+              type_params.IsEmpty() ? TypeParameters() : type_params.child(0),
+              Collation()),
+          mode));
+  return absl::StrCat("ARRAY<", element_type_name, ">");
 }
 
 absl::StatusOr<TypeParameters> ArrayType::ValidateAndResolveTypeParameters(

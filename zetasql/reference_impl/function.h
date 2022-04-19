@@ -108,6 +108,7 @@ enum class FunctionKind {
   kAnonAvg,
   kAnonVarPop,
   kAnonStddevPop,
+  kAnonQuantiles,
   // Exists function
   kExists,
   // IsNull function
@@ -165,6 +166,9 @@ enum class FunctionKind {
   kCsc,
   kSec,
   kCot,
+  kCsch,
+  kSech,
+  kCoth,
   // Least and greatest functions
   kLeast,
   kGreatest,
@@ -192,6 +196,8 @@ enum class FunctionKind {
   kRangeBucket,
   kArrayIncludes,
   kArrayIncludesAny,
+  kArrayIncludesAll,
+  kArrayFirst,
 
   // Proto map functions. Like array functions, the map functions must use
   // MaybeSetNonDeterministicArrayOutput.
@@ -411,8 +417,7 @@ class BuiltinScalarFunction : public ScalarFunctionBody {
   BuiltinScalarFunction& operator=(const BuiltinScalarFunction&) = delete;
 
   BuiltinScalarFunction(FunctionKind kind, const Type* output_type)
-      : ScalarFunctionBody(output_type),
-        kind_(kind) {}
+      : ScalarFunctionBody(output_type), kind_(kind) {}
 
   ~BuiltinScalarFunction() override {}
 
@@ -585,8 +590,7 @@ class UserDefinedScalarFunction : public ScalarFunctionBody {
 class BuiltinAnalyticFunction : public AnalyticFunctionBody {
  public:
   BuiltinAnalyticFunction(FunctionKind kind, const Type* output_type)
-      : AnalyticFunctionBody(output_type),
-        kind_(kind) {}
+      : AnalyticFunctionBody(output_type), kind_(kind) {}
 
   BuiltinAnalyticFunction(const BuiltinAnalyticFunction&) = delete;
   BuiltinAnalyticFunction& operator=(const BuiltinAnalyticFunction&) = delete;
@@ -620,7 +624,7 @@ class BuiltinFunctionRegistry {
   using ScalarFunctionConstructor =
       std::function<BuiltinScalarFunction*(const Type*)>;
   static absl::flat_hash_map<FunctionKind, ScalarFunctionConstructor>&
-      GetFunctionMap();
+  GetFunctionMap();
 
   static absl::Mutex mu_;
 };
@@ -781,12 +785,25 @@ class ArrayIncludesFunction : public SimpleBuiltinScalarFunction {
                              EvaluationContext* context) const override;
 };
 
-// Implementation for ARRAY_INCLUDES_ANY(ARRAY<T1>, ARRAY<T1>) -> BOOL.
-class ArrayIncludesAnyFunction : public SimpleBuiltinScalarFunction {
+// Implementation for ARRAY_INCLUDES_(ANY|ALL)(ARRAY<T1>, ARRAY<T1>) -> BOOL.
+class ArrayIncludesArrayFunction : public SimpleBuiltinScalarFunction {
  public:
-  explicit ArrayIncludesAnyFunction()
-      : SimpleBuiltinScalarFunction(FunctionKind::kArrayIncludesAny,
+  explicit ArrayIncludesArrayFunction(bool require_all)
+      : SimpleBuiltinScalarFunction(require_all
+                                        ? FunctionKind::kArrayIncludesAll
+                                        : FunctionKind::kArrayIncludesAny,
                                     types::BoolType()) {}
+
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+// TODO: include ARRAY_LAST
+// Implementation for ARRAY_FIRST(ARRAY<T1>) -> T1.
+class ArrayFirstLastFunction : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
 
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
                              absl::Span<const Value> args,
@@ -939,8 +956,7 @@ class LeastFunction : public BuiltinScalarFunction {
 class GreatestFunction : public BuiltinScalarFunction {
  public:
   explicit GreatestFunction(const Type* output_type)
-      : BuiltinScalarFunction(FunctionKind::kGreatest,
-                              output_type) {}
+      : BuiltinScalarFunction(FunctionKind::kGreatest, output_type) {}
   bool Eval(absl::Span<const TupleData* const> params,
             absl::Span<const Value> args, EvaluationContext* context,
             Value* result, absl::Status* status) const override;
@@ -1060,7 +1076,6 @@ class SplitFunction : public SimpleBuiltinScalarFunction {
                              absl::Span<const Value> args,
                              EvaluationContext* context) const override;
 };
-
 
 class ConcatFunction : public SimpleBuiltinScalarFunction {
  public:
@@ -1419,12 +1434,9 @@ class ErrorFunction : public SimpleBuiltinScalarFunction {
 class DenseRankFunction : public BuiltinAnalyticFunction {
  public:
   DenseRankFunction()
-      : BuiltinAnalyticFunction(FunctionKind::kDenseRank, types::Int64Type()) {
-  }
+      : BuiltinAnalyticFunction(FunctionKind::kDenseRank, types::Int64Type()) {}
 
-  bool RequireTupleComparator() const override {
-    return true;
-  }
+  bool RequireTupleComparator() const override { return true; }
 
   absl::Status Eval(const TupleSchema& schema,
                     const absl::Span<const TupleData* const>& tuples,
@@ -1442,12 +1454,9 @@ class DenseRankFunction : public BuiltinAnalyticFunction {
 class RankFunction : public BuiltinAnalyticFunction {
  public:
   RankFunction()
-      : BuiltinAnalyticFunction(FunctionKind::kRank, types::Int64Type()) {
-  }
+      : BuiltinAnalyticFunction(FunctionKind::kRank, types::Int64Type()) {}
 
-  bool RequireTupleComparator() const override {
-    return true;
-  }
+  bool RequireTupleComparator() const override { return true; }
 
   absl::Status Eval(const TupleSchema& schema,
                     const absl::Span<const TupleData* const>& tuples,
@@ -1463,12 +1472,9 @@ class RankFunction : public BuiltinAnalyticFunction {
 class RowNumberFunction : public BuiltinAnalyticFunction {
  public:
   RowNumberFunction()
-      : BuiltinAnalyticFunction(FunctionKind::kRowNumber, types::Int64Type()) {
-  }
+      : BuiltinAnalyticFunction(FunctionKind::kRowNumber, types::Int64Type()) {}
 
-  bool RequireTupleComparator() const override {
-    return false;
-  }
+  bool RequireTupleComparator() const override { return false; }
 
   absl::Status Eval(const TupleSchema& schema,
                     const absl::Span<const TupleData* const>& tuples,
@@ -1487,12 +1493,9 @@ class PercentRankFunction : public BuiltinAnalyticFunction {
  public:
   PercentRankFunction()
       : BuiltinAnalyticFunction(FunctionKind::kPercentRank,
-                                types::DoubleType()) {
-  }
+                                types::DoubleType()) {}
 
-  bool RequireTupleComparator() const override {
-    return true;
-  }
+  bool RequireTupleComparator() const override { return true; }
 
   absl::Status Eval(const TupleSchema& schema,
                     const absl::Span<const TupleData* const>& tuples,
@@ -1510,12 +1513,9 @@ class PercentRankFunction : public BuiltinAnalyticFunction {
 class CumeDistFunction : public BuiltinAnalyticFunction {
  public:
   CumeDistFunction()
-      : BuiltinAnalyticFunction(FunctionKind::kCumeDist, types::DoubleType()) {
-  }
+      : BuiltinAnalyticFunction(FunctionKind::kCumeDist, types::DoubleType()) {}
 
-  bool RequireTupleComparator() const override {
-    return true;
-  }
+  bool RequireTupleComparator() const override { return true; }
 
   absl::Status Eval(const TupleSchema& schema,
                     const absl::Span<const TupleData* const>& tuples,
@@ -1536,8 +1536,7 @@ class CumeDistFunction : public BuiltinAnalyticFunction {
 class NtileFunction : public BuiltinAnalyticFunction {
  public:
   NtileFunction()
-      : BuiltinAnalyticFunction(FunctionKind::kNtile, types::Int64Type()) {
-  }
+      : BuiltinAnalyticFunction(FunctionKind::kNtile, types::Int64Type()) {}
 
   bool RequireTupleComparator() const override { return true; }
 
@@ -1572,7 +1571,7 @@ class FirstValueFunction : public BuiltinAnalyticFunction {
       ResolvedAnalyticFunctionCall::NullHandlingModifier null_handling_modifier)
       : BuiltinAnalyticFunction(FunctionKind::kFirstValue, output_type),
         ignore_nulls_(null_handling_modifier ==
-            ResolvedAnalyticFunctionCall::IGNORE_NULLS) {}
+                      ResolvedAnalyticFunctionCall::IGNORE_NULLS) {}
 
   bool RequireTupleComparator() const override { return true; }
 
@@ -1599,7 +1598,7 @@ class LastValueFunction : public BuiltinAnalyticFunction {
       ResolvedAnalyticFunctionCall::NullHandlingModifier null_handling_modifier)
       : BuiltinAnalyticFunction(FunctionKind::kLastValue, output_type),
         ignore_nulls_(null_handling_modifier ==
-            ResolvedAnalyticFunctionCall::IGNORE_NULLS) {}
+                      ResolvedAnalyticFunctionCall::IGNORE_NULLS) {}
 
   bool RequireTupleComparator() const override { return true; }
 
@@ -1626,7 +1625,7 @@ class NthValueFunction : public BuiltinAnalyticFunction {
       ResolvedAnalyticFunctionCall::NullHandlingModifier null_handling_modifier)
       : BuiltinAnalyticFunction(FunctionKind::kNthValue, output_type),
         ignore_nulls_(null_handling_modifier ==
-            ResolvedAnalyticFunctionCall::IGNORE_NULLS) {}
+                      ResolvedAnalyticFunctionCall::IGNORE_NULLS) {}
 
   bool RequireTupleComparator() const override { return true; }
 
@@ -1703,7 +1702,7 @@ class PercentileContFunction : public BuiltinAnalyticFunction {
       ResolvedAnalyticFunctionCall::NullHandlingModifier null_handling_modifier)
       : BuiltinAnalyticFunction(FunctionKind::kPercentileCont, output_type),
         ignore_nulls_(null_handling_modifier !=
-          ResolvedAnalyticFunctionCall::RESPECT_NULLS) {}
+                      ResolvedAnalyticFunctionCall::RESPECT_NULLS) {}
 
   bool RequireTupleComparator() const override { return false; }
 
@@ -1729,7 +1728,7 @@ class PercentileDiscFunction : public BuiltinAnalyticFunction {
       ResolvedAnalyticFunctionCall::NullHandlingModifier null_handling_modifier)
       : BuiltinAnalyticFunction(FunctionKind::kPercentileDisc, output_type),
         ignore_nulls_(null_handling_modifier !=
-          ResolvedAnalyticFunctionCall::RESPECT_NULLS) {}
+                      ResolvedAnalyticFunctionCall::RESPECT_NULLS) {}
 
   bool RequireTupleComparator() const override { return false; }
 

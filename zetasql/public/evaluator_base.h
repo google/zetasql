@@ -17,6 +17,8 @@
 #ifndef ZETASQL_PUBLIC_EVALUATOR_BASE_H_
 #define ZETASQL_PUBLIC_EVALUATOR_BASE_H_
 
+
+//
 // ZetaSQL in-memory expression or query evaluation using the reference
 // implementation.
 //
@@ -214,7 +216,7 @@ struct EvaluatorOptions {
 
   // The default time zone to use. If not set, the default time zone is
   // "America/Los_Angeles".
-  absl::optional<absl::TimeZone> default_time_zone;
+  std::optional<absl::TimeZone> default_time_zone;
 
   // If true, evaluation will scramble the order of relations whose order is not
   // defined by ZetaSQL. This requires some extra processing, so should only
@@ -359,7 +361,7 @@ class PreparedExpressionBase {
     // storing the Value for that column with its registered name (possibly
     // ""). For the implicit Prepare case, an entry in <columns> with an empty
     // name will be treated as an anonymous in-scope expression column.
-    absl::optional<ParameterValueMap> columns;
+    std::optional<ParameterValueMap> columns;
     // Allows for a more efficient evaluation by requiring for the <columns> and
     // <parameters> values to be passed in a particular order. It is intended
     // for users that want to repeatedly evaluate an expression with different
@@ -371,12 +373,12 @@ class PreparedExpressionBase {
     // are passed in <parameters> in the order returned by
     // GetReferencedParameters.
     // REQUIRES: To be called via ExecuteAfterPrepare().
-    absl::optional<ParameterValueList> ordered_columns;
+    std::optional<ParameterValueList> ordered_columns;
 
     // Parameters for the expression. Represented as a map or unordered list.
     // At most one of these can be specified.
-    absl::optional<ParameterValueMap> parameters;
-    absl::optional<ParameterValueList> ordered_parameters;
+    std::optional<ParameterValueMap> parameters;
+    std::optional<ParameterValueList> ordered_parameters;
 
     // Optional system variables for all variants of Execute.
     SystemVariableValuesMap system_variables;
@@ -520,10 +522,10 @@ class PreparedQueryBase {
   struct QueryOptions {
     // Parameters for the expression. Represented as a map or unordered list.
     // At most one of these can be specified.
-    absl::optional<ParameterValueMap> parameters;
+    std::optional<ParameterValueMap> parameters;
     // Allows for a more efficient evaluation by requiring for the <parameters>
     // to be passed in a particular order.
-    absl::optional<ParameterValueList> ordered_parameters;
+    std::optional<ParameterValueList> ordered_parameters;
 
     // Optional system variables for all variants of Execute.
     SystemVariableValuesMap system_variables;

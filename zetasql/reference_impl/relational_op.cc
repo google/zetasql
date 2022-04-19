@@ -103,15 +103,15 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> RelationalOp::Eval(
     return IteratorDebugString();
   };
   std::unique_ptr<TupleIterator> iter =
-      absl::make_unique<PassThroughTupleIterator>(iterator_factory, *schema,
-                                                  debug_string_factory);
+      std::make_unique<PassThroughTupleIterator>(iterator_factory, *schema,
+                                                 debug_string_factory);
   return iter;
 }
 
 absl::StatusOr<std::unique_ptr<TupleIterator>> RelationalOp::MaybeReorder(
     std::unique_ptr<TupleIterator> iter, EvaluationContext* context) const {
   if (context->options().scramble_undefined_orderings) {
-    iter = absl::make_unique<ReorderingTupleIterator>(std::move(iter));
+    iter = std::make_unique<ReorderingTupleIterator>(std::move(iter));
   }
   return iter;
 }
@@ -152,7 +152,7 @@ absl::StatusOr<std::unique_ptr<ColumnFilter>> InArrayColumnFilterArg::Eval(
     }
   }
 
-  return absl::make_unique<ColumnFilter>(values);
+  return std::make_unique<ColumnFilter>(values);
 }
 
 std::string InArrayColumnFilterArg::DebugInternal(const std::string& indent,
@@ -211,7 +211,7 @@ absl::StatusOr<std::unique_ptr<ColumnFilter>> InListColumnFilterArg::Eval(
     }
   }
 
-  return absl::make_unique<ColumnFilter>(values);
+  return std::make_unique<ColumnFilter>(values);
 }
 
 std::string InListColumnFilterArg::DebugInternal(const std::string& indent,
@@ -271,10 +271,10 @@ HalfUnboundedColumnFilterArg::Eval(absl::Span<const TupleData* const> params,
         lower_bound = arg.value();
         break;
     }
-    return absl::make_unique<ColumnFilter>(lower_bound, upper_bound);
+    return std::make_unique<ColumnFilter>(lower_bound, upper_bound);
   } else {
     // Return something that can't be matched.
-    return absl::make_unique<ColumnFilter>(std::vector<Value>());
+    return std::make_unique<ColumnFilter>(std::vector<Value>());
   }
 }
 
@@ -334,7 +334,7 @@ EvaluatorTableScanOp::IntersectColumnFilters(
   // represent an 'in_set' consisting of all values with absl::nullopt.
   Value lower_bound;
   Value upper_bound;
-  absl::optional<absl::flat_hash_set<Value>> in_set;
+  std::optional<absl::flat_hash_set<Value>> in_set;
 
   for (const std::unique_ptr<ColumnFilter>& filter : filters) {
     // Intersect 'filter' with the state we have for its kind.
@@ -415,9 +415,9 @@ EvaluatorTableScanOp::IntersectColumnFilters(
               [](const Value& v1, const Value& v2) {
                 return v1.SqlLessThan(v2) == values::True();
               });
-    return absl::make_unique<ColumnFilter>(in_list);
+    return std::make_unique<ColumnFilter>(in_list);
   } else {
-    return absl::make_unique<ColumnFilter>(lower_bound, upper_bound);
+    return std::make_unique<ColumnFilter>(lower_bound, upper_bound);
   }
 }
 
@@ -502,7 +502,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>>
 EvaluatorTableScanOp::CreateIterator(absl::Span<const TupleData* const> params,
                                      int num_extra_slots,
                                      EvaluationContext* context) const {
-  absl::optional<absl::Time> read_time;
+  std::optional<absl::Time> read_time;
   if (read_time_ != nullptr) {
     std::shared_ptr<TupleSlot::SharedProtoState> shared_state;
     Value time_value;
@@ -544,14 +544,14 @@ EvaluatorTableScanOp::CreateIterator(absl::Span<const TupleData* const> params,
       evaluator_table_iter->SetColumnFilterMap(std::move(filter_map)));
 
   std::unique_ptr<TupleIterator> tuple_iter =
-      absl::make_unique<EvaluatorTableTupleIterator>(
+      std::make_unique<EvaluatorTableTupleIterator>(
           table_->Name(), CreateOutputSchema(), num_extra_slots, context,
           std::move(evaluator_table_iter));
   return MaybeReorder(std::move(tuple_iter), context);
 }
 
 std::unique_ptr<TupleSchema> EvaluatorTableScanOp::CreateOutputSchema() const {
-  return absl::make_unique<TupleSchema>(variables_);
+  return std::make_unique<TupleSchema>(variables_);
 }
 
 std::string EvaluatorTableScanOp::IteratorDebugString() const {
@@ -633,8 +633,8 @@ absl::Status LetOp::SetSchemasForEvaluation(
     ZETASQL_RETURN_IF_ERROR(
         arg->mutable_value_expr()->SetSchemasForEvaluation(schema_ptrs));
 
-    auto new_schema = absl::make_unique<TupleSchema>(
-        std::vector<VariableId>{arg->variable()});
+    auto new_schema =
+        std::make_unique<TupleSchema>(std::vector<VariableId>{arg->variable()});
     schema_ptrs.push_back(new_schema.get());
     new_schemas.push_back(std::move(new_schema));
   }
@@ -726,7 +726,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> LetOp::CreateIterator(
   // parameters represents multiple rows (e.g., an array corresponding to a WITH
   // table).
   auto new_params =
-      absl::make_unique<TupleDataDeque>(context->memory_accountant());
+      std::make_unique<TupleDataDeque>(context->memory_accountant());
 
   std::vector<const TupleData*> all_params;
   all_params.reserve(params.size() + assign().size());
@@ -734,7 +734,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> LetOp::CreateIterator(
 
   absl::Status status;
   for (const ExprArg* a : assign()) {
-    auto new_data = absl::make_unique<TupleData>(/*num_slots=*/1);
+    auto new_data = std::make_unique<TupleData>(/*num_slots=*/1);
     if (!a->value_expr()->EvalSimple(all_params, context,
                                      new_data->mutable_slot(0), &status)) {
       return status;
@@ -746,7 +746,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> LetOp::CreateIterator(
     }
   }
 
-  auto cpp_values = absl::make_unique<CppValueHolder>(context);
+  auto cpp_values = std::make_unique<CppValueHolder>(context);
   for (const CppValueArg* a : cpp_assign()) {
     ZETASQL_RETURN_IF_ERROR(
         cpp_values->AddVariable(a->variable(), a->CreateValue(context)));
@@ -757,7 +757,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> LetOp::CreateIterator(
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TupleIterator> iter,
                    body()->CreateIterator(StripSharedPtrs(all_params_copies),
                                           num_extra_slots, context));
-  iter = absl::make_unique<LetOpTupleIterator>(
+  iter = std::make_unique<LetOpTupleIterator>(
       std::move(new_params), all_params_copies, std::move(iter),
       std::move(cpp_values));
   return iter;
@@ -784,7 +784,7 @@ LetOp::LetOp(std::vector<std::unique_ptr<ExprArg>> assign,
              std::unique_ptr<RelationalOp> body) {
   SetArgs<ExprArg>(kAssign, std::move(assign));
   SetArgs<CppValueArg>(kCppAssign, std::move(cpp_assign));
-  SetArg(kBody, absl::make_unique<RelationalArg>(std::move(body)));
+  SetArg(kBody, std::make_unique<RelationalArg>(std::move(body)));
 }
 
 absl::Span<const ExprArg* const> LetOp::assign() const {
@@ -1031,7 +1031,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> SortOp::CreateIterator(
     int64_t limit;
     int64_t offset;
   };
-  absl::optional<LimitOffset> limit_offset;
+  std::optional<LimitOffset> limit_offset;
   if (limit_value.is_valid()) {
     if (limit_value.is_null() || offset_value.is_null()) {
       return zetasql_base::OutOfRangeErrorBuilder()
@@ -1067,10 +1067,9 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> SortOp::CreateIterator(
   // If 'limit_offset' is set, 'top_n_outputs' contains the top
   // 'limit_offset.limit + limit_offset.offset' rows. Otherwise, 'outputs'
   // contains all the rows.
-  auto top_n_outputs = absl::make_unique<TupleDataOrderedQueue>(
+  auto top_n_outputs = std::make_unique<TupleDataOrderedQueue>(
       *comparator, context->memory_accountant());
-  auto outputs =
-      absl::make_unique<TupleDataDeque>(context->memory_accountant());
+  auto outputs = std::make_unique<TupleDataDeque>(context->memory_accountant());
   absl::Status status;
   while (true) {
     const TupleData* next_input = input_iter->Next();
@@ -1082,7 +1081,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> SortOp::CreateIterator(
     const std::vector<const TupleData*> params_and_input_tuple =
         ConcatSpans(params, {next_input});
 
-    auto next_output = absl::make_unique<TupleData>(
+    auto next_output = std::make_unique<TupleData>(
         keys().size() + values().size() + num_extra_slots);
     for (int i = 0; i < keys().size(); ++i) {
       TupleSlot* slot = next_output->mutable_slot(i);
@@ -1146,7 +1145,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> SortOp::CreateIterator(
   // try to access it again.
   top_n_outputs.reset();
 
-  std::unique_ptr<TupleIterator> iter = absl::make_unique<SortTupleIterator>(
+  std::unique_ptr<TupleIterator> iter = std::make_unique<SortTupleIterator>(
       std::move(input_iter), CreateOutputSchema(), std::move(comparator),
       std::move(outputs), context);
   const bool scramble_undefined_orderings =
@@ -1167,7 +1166,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> SortOp::CreateIterator(
     // with equal keys in SortOpTupleIterator and just wrap the entire iterator
     // in a ReorderingTupleIterator.
     ZETASQL_RETURN_IF_ERROR(iter->DisableReordering());
-    iter = absl::make_unique<ReorderingTupleIterator>(std::move(iter));
+    iter = std::make_unique<ReorderingTupleIterator>(std::move(iter));
   }
 
   return iter;
@@ -1182,7 +1181,7 @@ std::unique_ptr<TupleSchema> SortOp::CreateOutputSchema() const {
   for (const ExprArg* value : values()) {
     vars.push_back(value->variable());
   }
-  return absl::make_unique<TupleSchema>(vars);
+  return std::make_unique<TupleSchema>(vars);
 }
 
 std::string SortOp::IteratorDebugString() const {
@@ -1211,16 +1210,16 @@ SortOp::SortOp(std::vector<std::unique_ptr<KeyArg>> keys,
   SetArgs<KeyArg>(kKey, std::move(keys));
   SetArgs<ExprArg>(kValue, std::move(values));
   if (has_limit_) {
-    SetArg(kLimit, absl::make_unique<ExprArg>(std::move(limit)));
+    SetArg(kLimit, std::make_unique<ExprArg>(std::move(limit)));
   } else {
     SetArgs(kLimit, std::vector<std::unique_ptr<ExprArg>>{});
   }
   if (has_offset_) {
-    SetArg(kOffset, absl::make_unique<ExprArg>(std::move(offset)));
+    SetArg(kOffset, std::make_unique<ExprArg>(std::move(offset)));
   } else {
     SetArgs(kOffset, std::vector<std::unique_ptr<ExprArg>>{});
   }
-  SetArg(kInput, absl::make_unique<RelationalArg>(std::move(input)));
+  SetArg(kInput, std::make_unique<RelationalArg>(std::move(input)));
 }
 
 absl::Span<const KeyArg* const> SortOp::keys() const {
@@ -1290,7 +1289,7 @@ absl::Status ComputeOp::SetSchemasForEvaluation(
   std::vector<VariableId> vars = input_schema->variables();
   vars.reserve(map().size());
   for (ExprArg* arg : mutable_map()) {
-    auto new_schema = absl::make_unique<const TupleSchema>(vars);
+    auto new_schema = std::make_unique<const TupleSchema>(vars);
     ZETASQL_RETURN_IF_ERROR(arg->mutable_value_expr()->SetSchemasForEvaluation(
         ConcatSpans(params_schemas, {new_schema.get()})));
     vars.push_back(arg->variable());
@@ -1376,8 +1375,8 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> ComputeOp::CreateIterator(
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<TupleIterator> iter,
       input()->CreateIterator(params, num_extra_slots + map().size(), context));
-  iter = absl::make_unique<ComputeTupleIterator>(params, map(), std::move(iter),
-                                                 CreateOutputSchema(), context);
+  iter = std::make_unique<ComputeTupleIterator>(params, map(), std::move(iter),
+                                                CreateOutputSchema(), context);
   return MaybeReorder(std::move(iter), context);
 }
 
@@ -1388,7 +1387,7 @@ std::unique_ptr<TupleSchema> ComputeOp::CreateOutputSchema() const {
   for (const ExprArg* arg : map()) {
     variables.push_back(arg->variable());
   }
-  return absl::make_unique<TupleSchema>(variables);
+  return std::make_unique<TupleSchema>(variables);
 }
 
 std::string ComputeOp::IteratorDebugString() const {
@@ -1404,7 +1403,7 @@ std::string ComputeOp::DebugInternal(const std::string& indent,
 
 ComputeOp::ComputeOp(std::vector<std::unique_ptr<ExprArg>> map,
                      std::unique_ptr<RelationalOp> input) {
-  SetArg(kInput, absl::make_unique<RelationalArg>(std::move(input)));
+  SetArg(kInput, std::make_unique<RelationalArg>(std::move(input)));
   SetArgs<ExprArg>(kMap, std::move(map));
 }
 
@@ -1510,8 +1509,8 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> FilterOp::CreateIterator(
     EvaluationContext* context) const {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TupleIterator> iter,
                    input()->CreateIterator(params, num_extra_slots, context));
-  iter = absl::make_unique<FilterTupleIterator>(params, predicate(),
-                                                std::move(iter), context);
+  iter = std::make_unique<FilterTupleIterator>(params, predicate(),
+                                               std::move(iter), context);
   return MaybeReorder(std::move(iter), context);
 }
 
@@ -1532,8 +1531,8 @@ std::string FilterOp::DebugInternal(const std::string& indent,
 
 FilterOp::FilterOp(std::unique_ptr<ValueExpr> predicate,
                    std::unique_ptr<RelationalOp> input) {
-  SetArg(kPredicate, absl::make_unique<ExprArg>(std::move(predicate)));
-  SetArg(kInput, absl::make_unique<RelationalArg>(std::move(input)));
+  SetArg(kPredicate, std::make_unique<ExprArg>(std::move(predicate)));
+  SetArg(kInput, std::make_unique<RelationalArg>(std::move(input)));
 }
 
 const ValueExpr* FilterOp::predicate() const {
@@ -1633,7 +1632,7 @@ class LimitTupleIterator : public TupleIterator {
  private:
   // Update 'status_' and 'context_' to indicate that the iterator is done. If
   // 'iter_' is done, 'iter_status' contains its status.
-  void Finish(absl::optional<absl::Status> iter_status) {
+  void Finish(std::optional<absl::Status> iter_status) {
     if (iter_status.has_value()) {
       status_ = iter_status.value();
     }
@@ -1698,14 +1697,14 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> LimitOp::CreateIterator(
                    input()->CreateIterator(params, num_extra_slots, context));
   const bool underlying_iter_preserves_order = iter->PreservesOrder();
 
-  iter = absl::make_unique<LimitTupleIterator>(count.int64_value(),
-                                               offset_value.int64_value(),
-                                               context, std::move(iter));
+  iter = std::make_unique<LimitTupleIterator>(count.int64_value(),
+                                              offset_value.int64_value(),
+                                              context, std::move(iter));
   // Scramble the output if the scrambling is enabled and either the underlying
   // iterator scrambles or this operator does not preserve order.
   if (context->options().scramble_undefined_orderings &&
       !(underlying_iter_preserves_order && is_order_preserving())) {
-    iter = absl::make_unique<ReorderingTupleIterator>(std::move(iter));
+    iter = std::make_unique<ReorderingTupleIterator>(std::move(iter));
   }
   return iter;
 }
@@ -1730,9 +1729,9 @@ std::string LimitOp::DebugInternal(const std::string& indent,
 LimitOp::LimitOp(std::unique_ptr<ValueExpr> row_count,
                  std::unique_ptr<ValueExpr> offset,
                  std::unique_ptr<RelationalOp> input) {
-  SetArg(kInput, absl::make_unique<RelationalArg>(std::move(input)));
-  SetArg(kRowCount, absl::make_unique<ExprArg>(std::move(row_count)));
-  SetArg(kOffset, absl::make_unique<ExprArg>(std::move(offset)));
+  SetArg(kInput, std::make_unique<RelationalArg>(std::move(input)));
+  SetArg(kRowCount, std::make_unique<ExprArg>(std::move(row_count)));
+  SetArg(kOffset, std::make_unique<ExprArg>(std::move(offset)));
 }
 
 const ValueExpr* LimitOp::row_count() const {
@@ -1801,7 +1800,7 @@ absl::Status SampleScanOp::SetSchemasForEvaluation(
 namespace {
 class SampleScanTupleIteratorBase : public TupleIterator {
  public:
-  SampleScanTupleIteratorBase(absl::optional<int64_t> seed,
+  SampleScanTupleIteratorBase(std::optional<int64_t> seed,
                               EvaluationContext* context,
                               std::unique_ptr<TupleIterator> iter,
                               std::unique_ptr<TupleSchema> schema,
@@ -1859,7 +1858,7 @@ class SampleScanTupleIteratorBase : public TupleIterator {
   }
 
   // Build a bitgen instance, optionally with the given seed.
-  absl::BitGen MakeBitgen(absl::optional<int64_t> seed) {
+  absl::BitGen MakeBitgen(std::optional<int64_t> seed) {
     if (seed.has_value()) {
       return absl::BitGen(std::seed_seq{*seed});
     }
@@ -1868,7 +1867,7 @@ class SampleScanTupleIteratorBase : public TupleIterator {
 
   absl::BitGen bitgen_;
   // If set, bitgen_ was populated using this value.
-  const absl::optional<int64_t> seed_;
+  const std::optional<int64_t> seed_;
   EvaluationContext* context_;
   std::unique_ptr<TupleIterator> iter_;
   std::unique_ptr<TupleSchema> output_schema_;
@@ -1885,7 +1884,7 @@ class SampleScanTupleIteratorBase : public TupleIterator {
 
 class BernoulliSampleScanTupleIterator : public SampleScanTupleIteratorBase {
  public:
-  BernoulliSampleScanTupleIterator(double percent, absl::optional<int64_t> seed,
+  BernoulliSampleScanTupleIterator(double percent, std::optional<int64_t> seed,
                                    EvaluationContext* context,
                                    std::unique_ptr<TupleIterator> iter,
                                    std::unique_ptr<TupleSchema> schema,
@@ -1929,7 +1928,7 @@ class BernoulliSampleScanTupleIterator : public SampleScanTupleIteratorBase {
 class ReservoirSampleScanTupleIterator : public SampleScanTupleIteratorBase {
  public:
   ReservoirSampleScanTupleIterator(
-      int64_t reservoir_size, absl::optional<int64_t> seed,
+      int64_t reservoir_size, std::optional<int64_t> seed,
       EvaluationContext* context, absl::Span<const TupleData* const> params,
       std::unique_ptr<TupleIterator> iter, std::unique_ptr<TupleSchema> schema,
       absl::Span<const KeyArg* const> partition_key, const VariableId& weight)
@@ -2087,7 +2086,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> SampleScanOp::CreateIterator(
 
   // Get the seed from REPEATABLE if there was a REPEATABLE input. absl::nullopt
   // will cause the iterator to generate a seed.
-  absl::optional<int64_t> seed;
+  std::optional<int64_t> seed;
   if (has_repeatable()) {
     TupleSlot repeatable_slot;
     if (!repeatable()->EvalSimple(params, context, &repeatable_slot, &status)) {
@@ -2118,7 +2117,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> SampleScanOp::CreateIterator(
       return zetasql_base::OutOfRangeErrorBuilder()
              << "SampleScan requires non-negative size";
     }
-    iter = absl::make_unique<ReservoirSampleScanTupleIterator>(
+    iter = std::make_unique<ReservoirSampleScanTupleIterator>(
         size.int64_value(), seed, context, params, std::move(iter),
         CreateOutputSchema(), partition_key(), weight());
   }
@@ -2132,7 +2131,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> SampleScanOp::CreateIterator(
       return zetasql_base::OutOfRangeErrorBuilder()
              << "PERCENT value must be in the range [0, 100]";
     }
-    iter = absl::make_unique<BernoulliSampleScanTupleIterator>(
+    iter = std::make_unique<BernoulliSampleScanTupleIterator>(
         value / 100.0, seed, context, std::move(iter), CreateOutputSchema(),
         weight());
   }
@@ -2141,7 +2140,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> SampleScanOp::CreateIterator(
   // iterator scrambles or this operator does not preserve order.
   if (context->options().scramble_undefined_orderings &&
       !(underlying_iter_preserves_order && is_order_preserving())) {
-    iter = absl::make_unique<ReorderingTupleIterator>(std::move(iter));
+    iter = std::make_unique<ReorderingTupleIterator>(std::move(iter));
   }
   return iter;
 }
@@ -2152,7 +2151,7 @@ std::unique_ptr<TupleSchema> SampleScanOp::CreateOutputSchema() const {
   if (has_weight()) {
     vars.push_back(weight());
   }
-  return absl::make_unique<TupleSchema>(vars);
+  return std::make_unique<TupleSchema>(vars);
 }
 
 std::string SampleScanOp::IteratorDebugString() const {
@@ -2190,10 +2189,10 @@ SampleScanOp::SampleScanOp(
     std::vector<std::unique_ptr<ValueExpr>> partition_key,
     const VariableId& sample_weight)
     : method_(method) {
-  SetArg(kInput, absl::make_unique<RelationalArg>(std::move(input)));
-  SetArg(kSize, absl::make_unique<ExprArg>(std::move(size)));
+  SetArg(kInput, std::make_unique<RelationalArg>(std::move(input)));
+  SetArg(kSize, std::make_unique<ExprArg>(std::move(size)));
   if (repeatable) {
-    SetArg(kRepeatable, absl::make_unique<ExprArg>(std::move(repeatable)));
+    SetArg(kRepeatable, std::make_unique<ExprArg>(std::move(repeatable)));
   } else {
     SetArg(kRepeatable, nullptr);
   }
@@ -2201,12 +2200,12 @@ SampleScanOp::SampleScanOp(
   partition_key_args.reserve(partition_key.size());
   for (auto& key_part : partition_key) {
     partition_key_args.emplace_back(
-        absl::make_unique<KeyArg>(std::move(key_part)));
+        std::make_unique<KeyArg>(std::move(key_part)));
   }
   SetArgs<KeyArg>(kPartitionKey, std::move(partition_key_args));
   std::unique_ptr<ExprArg> weight_arg;
   if (sample_weight.is_valid()) {
-    weight_arg = absl::make_unique<ExprArg>(sample_weight, types::DoubleType());
+    weight_arg = std::make_unique<ExprArg>(sample_weight, types::DoubleType());
   }
   SetArg(kWeight, std::move(weight_arg));
 }
@@ -2333,13 +2332,13 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> EnumerateOp::CreateIterator(
            << "Enumerate requires non-null count";
   }
   std::unique_ptr<TupleIterator> iter =
-      absl::make_unique<EnumerateTupleIterator>(count.int64_value(),
-                                                num_extra_slots, context);
+      std::make_unique<EnumerateTupleIterator>(count.int64_value(),
+                                               num_extra_slots, context);
   return MaybeReorder(std::move(iter), context);
 }
 
 std::unique_ptr<TupleSchema> EnumerateOp::CreateOutputSchema() const {
-  return absl::make_unique<TupleSchema>(std::vector<VariableId>());
+  return std::make_unique<TupleSchema>(std::vector<VariableId>());
 }
 
 std::string EnumerateOp::IteratorDebugString() const {
@@ -2353,7 +2352,7 @@ std::string EnumerateOp::DebugInternal(const std::string& indent,
 }
 
 EnumerateOp::EnumerateOp(std::unique_ptr<ValueExpr> row_count) {
-  SetArg(kRowCount, absl::make_unique<ExprArg>(std::move(row_count)));
+  SetArg(kRowCount, std::make_unique<ExprArg>(std::move(row_count)));
 }
 
 const ValueExpr* EnumerateOp::row_count() const {
@@ -2608,7 +2607,7 @@ class UncorrelatedHashedRightInput : public RightInputForJoin {
     std::vector<RightTupleAndJoinedBit> right_tuples_and_bits =
         WrapWithJoinedBits(right_tuples->GetTuplePtrs());
 
-    auto right_tuple_map = absl::make_unique<RightTupleMap>();
+    auto right_tuple_map = std::make_unique<RightTupleMap>();
     for (auto& tuple_and_bit : right_tuples_and_bits) {
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TupleData> key,
                        CreateTupleMapKey(params, *tuple_and_bit.tuple,
@@ -2745,7 +2744,7 @@ class UncorrelatedHashedRightInput : public RightInputForJoin {
   static absl::StatusOr<std::unique_ptr<TupleData>> CreateTupleMapKey(
       absl::Span<const TupleData* const> params, const TupleData& row,
       absl::Span<const ExprArg* const> args, EvaluationContext* context) {
-    auto key = absl::make_unique<TupleData>(args.size());
+    auto key = std::make_unique<TupleData>(args.size());
     for (int i = 0; i < args.size(); ++i) {
       const ExprArg* arg = args[i];
       TupleSlot* slot = key->mutable_slot(i);
@@ -2778,7 +2777,7 @@ class UncorrelatedHashedRightInput : public RightInputForJoin {
   // tuple. NULL indicates there are no corresponding tuples. No value indicates
   // that left tuple in the last call to ResetForLeftInput() was NULL and
   // therefore GetNumMatchingTuples()/etc. should iterate over everything.
-  absl::optional<RightTupleList*> matching_right_tuple_list_ = nullptr;
+  std::optional<RightTupleList*> matching_right_tuple_list_ = nullptr;
 
   // We store a TupleIterator instead of the debug string to avoid computing the
   // debug string unnecessarily.
@@ -2805,7 +2804,7 @@ absl::Status ExtractFromRelationalOp(
       ZETASQL_RETURN_IF_ERROR(iter->Status());
       break;
     }
-    if (!tuples->PushBack(absl::make_unique<TupleData>(*tuple), &status)) {
+    if (!tuples->PushBack(std::make_unique<TupleData>(*tuple), &status)) {
       return status;
     }
   }
@@ -2953,15 +2952,15 @@ class JoinTupleIterator : public TupleIterator {
 
       std::unique_ptr<Tuple> left_tuple;
       if (next_left_tuple_.value() != nullptr) {
-        left_tuple = absl::make_unique<Tuple>(&left_iter_->Schema(),
-                                              next_left_tuple_.value());
+        left_tuple = std::make_unique<Tuple>(&left_iter_->Schema(),
+                                             next_left_tuple_.value());
       }
 
       std::unique_ptr<Tuple> right_tuple;
       if (next_right_tuple_idx_ >= 0) {
         const TupleData& data =
             right_input_->GetMatchingTuple(next_right_tuple_idx_);
-        right_tuple = absl::make_unique<Tuple>(&right_input_->Schema(), &data);
+        right_tuple = std::make_unique<Tuple>(&right_input_->Schema(), &data);
       }
 
       const absl::StatusOr<bool> status_or_joined =
@@ -3364,7 +3363,7 @@ class JoinTupleIterator : public TupleIterator {
   bool done_ = false;
   // The next left tuple to consider. Unset means uninitialized. NULL means
   // there are no more left tuples.
-  absl::optional<const TupleData*> next_left_tuple_;
+  std::optional<const TupleData*> next_left_tuple_;
   // The next right tuple to consider. May be -1 to indicate right-padding with
   // NULLs.
   int64_t next_right_tuple_idx_ = 0;
@@ -3398,13 +3397,13 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> JoinOp::CreateIterator(
     case kRightOuterJoin:
     case kFullOuterJoin: {
       auto tuples =
-          absl::make_unique<TupleDataDeque>(context->memory_accountant());
+          std::make_unique<TupleDataDeque>(context->memory_accountant());
       std::unique_ptr<TupleIterator> iter_for_right_debug_string;
       ZETASQL_RETURN_IF_ERROR(ExtractFromRelationalOp(right_input(), params, context,
                                               tuples.get(),
                                               &iter_for_right_debug_string));
       if (hash_join_equality_left_exprs().empty()) {
-        right_hand_side = absl::make_unique<UncorrelatedRightInput>(
+        right_hand_side = std::make_unique<UncorrelatedRightInput>(
             right_input()->CreateOutputSchema(), std::move(tuples),
             std::move(iter_for_right_debug_string));
       } else {
@@ -3420,8 +3419,8 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> JoinOp::CreateIterator(
     }
     case kCrossApply:
     case kOuterApply: {
-      right_hand_side = absl::make_unique<CorrelatedRightInput>(
-          right_input(), params, context);
+      right_hand_side = std::make_unique<CorrelatedRightInput>(right_input(),
+                                                               params, context);
       break;
     }
   }
@@ -3430,7 +3429,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> JoinOp::CreateIterator(
       std::unique_ptr<TupleIterator> left_iter,
       left_input()->CreateIterator(params, /*num_extra_slots=*/0, context));
 
-  std::unique_ptr<TupleIterator> iter = absl::make_unique<JoinTupleIterator>(
+  std::unique_ptr<TupleIterator> iter = std::make_unique<JoinTupleIterator>(
       join_kind_, params, remaining_join_expr(), std::move(left_iter),
       left_outputs(), std::move(right_hand_side), right_outputs(),
       CreateOutputSchema(), num_extra_slots, context);
@@ -3490,7 +3489,7 @@ std::unique_ptr<TupleSchema> JoinOp::CreateOutputSchema() const {
     output_variables.push_back(right_output->variable());
   }
 
-  return absl::make_unique<TupleSchema>(output_variables);
+  return std::make_unique<TupleSchema>(output_variables);
 }
 
 std::string JoinOp::GetIteratorDebugString(
@@ -3545,9 +3544,9 @@ JoinOp::JoinOp(
   SetArgs<ExprArg>(kHashJoinEqualityRightExprs,
                    std::move(hash_join_equality_right_exprs));
   SetArg(kRemainingCondition,
-         absl::make_unique<ExprArg>(std::move(remaining_condition)));
-  SetArg(kLeftInput, absl::make_unique<RelationalArg>(std::move(left)));
-  SetArg(kRightInput, absl::make_unique<RelationalArg>(std::move(right)));
+         std::make_unique<ExprArg>(std::move(remaining_condition)));
+  SetArg(kLeftInput, std::make_unique<RelationalArg>(std::move(left)));
+  SetArg(kRightInput, std::make_unique<RelationalArg>(std::move(right)));
 }
 
 absl::Span<const ExprArg* const> JoinOp::hash_join_equality_left_exprs() const {
@@ -3749,7 +3748,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> ArrayScanOp::CreateIterator(
   if (!array_expr()->EvalSimple(params, context, &array_slot, &status))
     return status;
   std::unique_ptr<TupleIterator> iter =
-      absl::make_unique<ArrayScanTupleIterator>(
+      std::make_unique<ArrayScanTupleIterator>(
           array_slot.value(), element(), position(), field_list(),
           CreateOutputSchema(), num_extra_slots, context);
   return MaybeReorder(std::move(iter), context);
@@ -3771,7 +3770,7 @@ std::unique_ptr<TupleSchema> ArrayScanOp::CreateOutputSchema() const {
   if (position().is_valid()) {
     vars.push_back(position());
   }
-  return absl::make_unique<TupleSchema>(vars);
+  return std::make_unique<TupleSchema>(vars);
 }
 
 std::string ArrayScanOp::IteratorDebugString() const {
@@ -3811,15 +3810,15 @@ ArrayScanOp::ArrayScanOp(const VariableId& element, const VariableId& position,
   const Type* element_type = array->output_type()->AsArray()->element_type();
   SetArg(kElement, !element.is_valid()
                        ? nullptr
-                       : absl::make_unique<ExprArg>(element, element_type));
+                       : std::make_unique<ExprArg>(element, element_type));
   SetArg(kPosition, !position.is_valid() ? nullptr
-                                         : absl::make_unique<ExprArg>(
+                                         : std::make_unique<ExprArg>(
                                                position, types::Int64Type()));
-  SetArg(kArray, absl::make_unique<ExprArg>(std::move(array)));
+  SetArg(kArray, std::make_unique<ExprArg>(std::move(array)));
   std::vector<std::unique_ptr<FieldArg>> field_args;
   field_args.reserve(fields.size());
   for (const auto& f : fields) {
-    field_args.push_back(absl::make_unique<FieldArg>(
+    field_args.push_back(std::make_unique<FieldArg>(
         f.first, f.second, element_type->AsStruct()->field(f.second).type));
   }
   SetArgs<FieldArg>(kField, std::move(field_args));
@@ -3862,7 +3861,7 @@ absl::StatusOr<std::unique_ptr<DistinctOp>> DistinctOp::Create(
 DistinctOp::DistinctOp(std::unique_ptr<RelationalOp> input,
                        std::vector<std::unique_ptr<KeyArg>> keys,
                        VariableId row_set_id) {
-  SetArg(kInput, absl::make_unique<RelationalArg>(std::move(input)));
+  SetArg(kInput, std::make_unique<RelationalArg>(std::move(input)));
   SetArgs(kKeys, std::move(keys));
   SetArg(kRowSetId, MakeCppValueArgForRowSet(row_set_id));
 }
@@ -3910,7 +3909,7 @@ class DistinctRowSetValueArg : public CppValueArg {
 
   std::unique_ptr<CppValueBase> CreateValue(
       EvaluationContext* context) const override {
-    return absl::make_unique<CppValue<DistinctRowSet>>(
+    return std::make_unique<CppValue<DistinctRowSet>>(
         context->memory_accountant());
   }
 };
@@ -3958,7 +3957,7 @@ class DistinctOpTupleIterator : public TupleIterator {
 
       // Generate a copy of the row data for the row set, ignoring any
       // "extra slots".
-      auto keys_data_copy = absl::make_unique<TupleData>(keys_.size());
+      auto keys_data_copy = std::make_unique<TupleData>(keys_.size());
       for (int i = 0; i < keys_.size(); ++i) {
         keys_data_copy->mutable_slot(i)->CopyFromSlot(keys_data_.slot(i));
       }
@@ -4007,7 +4006,7 @@ class DistinctOpTupleIterator : public TupleIterator {
 
 std::unique_ptr<CppValueArg> DistinctOp::MakeCppValueArgForRowSet(
     VariableId var) {
-  return absl::make_unique<DistinctRowSetValueArg>(var);
+  return std::make_unique<DistinctRowSetValueArg>(var);
 }
 
 absl::StatusOr<std::unique_ptr<TupleIterator>> DistinctOp::CreateIterator(
@@ -4026,7 +4025,7 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> DistinctOp::CreateIterator(
            << "DistinctOp unable to look up row set id " << row_set_id();
   }
 
-  return absl::make_unique<DistinctOpTupleIterator>(
+  return std::make_unique<DistinctOpTupleIterator>(
       std::move(input_iterator), row_set, CreateOutputSchema(), keys(), context,
       num_extra_slots);
 }
@@ -4038,7 +4037,7 @@ std::unique_ptr<TupleSchema> DistinctOp::CreateOutputSchema() const {
   for (const KeyArg* key : keys()) {
     variables.push_back(key->variable());
   }
-  return absl::make_unique<TupleSchema>(variables);
+  return std::make_unique<TupleSchema>(variables);
 }
 
 std::string DistinctOp::IteratorDebugString() const {
@@ -4211,10 +4210,9 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> UnionAllOp::CreateIterator(
     iters.push_back(std::move(iter));
   }
 
-  std::unique_ptr<TupleIterator> iter =
-      absl::make_unique<UnionAllTupleIterator>(
-          params, tuple_values, CreateOutputSchema(), num_extra_slots,
-          std::move(iters), context);
+  std::unique_ptr<TupleIterator> iter = std::make_unique<UnionAllTupleIterator>(
+      params, tuple_values, CreateOutputSchema(), num_extra_slots,
+      std::move(iters), context);
   return MaybeReorder(std::move(iter), context);
 }
 
@@ -4224,7 +4222,7 @@ std::unique_ptr<TupleSchema> UnionAllOp::CreateOutputSchema() const {
   for (int i = 0; i < num_variables(); ++i) {
     variables.push_back(variable(i));
   }
-  return absl::make_unique<TupleSchema>(variables);
+  return std::make_unique<TupleSchema>(variables);
 }
 
 std::string UnionAllOp::IteratorDebugString() const {
@@ -4267,7 +4265,7 @@ std::string UnionAllOp::DebugInternal(const std::string& indent,
 UnionAllOp::UnionAllOp(std::vector<Input> inputs) : num_rel_(inputs.size()) {
   for (int i = 0; i < inputs.size(); i++) {
     SetArg(rel_index(i),
-           absl::make_unique<RelationalArg>(std::move(inputs[i].first)));
+           std::make_unique<RelationalArg>(std::move(inputs[i].first)));
     SetArgs<ExprArg>(terms_index(i), std::move(inputs[i].second));
   }
 }
@@ -4392,7 +4390,7 @@ absl::Status LoopOp::SetSchemasForEvaluation(
   // During initial assignment expressions, allow each variable to be accessed
   // only after it has been assigned to.
   auto loop_variables_schema =
-      absl::make_unique<TupleSchema>(std::vector<VariableId>{});
+      std::make_unique<TupleSchema>(std::vector<VariableId>{});
   all_schemas.push_back(loop_variables_schema.get());
   for (int i = 0; i < num_variables(); ++i) {
     ZETASQL_RETURN_IF_ERROR(
@@ -4473,7 +4471,7 @@ class LoopTupleIterator : public TupleIterator {
   LoopTupleIterator(const LoopOp* op, absl::Span<const TupleData* const> params,
                     int num_extra_slots, EvaluationContext* context)
       : op_(op),
-        loop_variables_(absl::make_unique<TupleData>(op->num_variables())),
+        loop_variables_(std::make_unique<TupleData>(op->num_variables())),
         params_and_loop_variables_(
             ConcatSpans(absl::Span<const TupleData* const>(params),
                         {loop_variables_.get()})),
@@ -4632,7 +4630,7 @@ std::string RootOp::DebugInternal(const std::string& indent,
 RootOp::RootOp(std::unique_ptr<RelationalOp> input,
                std::unique_ptr<RootData> root_data)
     : root_data_(std::move(root_data)) {
-  SetArg(kInput, absl::make_unique<RelationalArg>(std::move(input)));
+  SetArg(kInput, std::make_unique<RelationalArg>(std::move(input)));
 }
 
 const RelationalOp* RootOp::input() const {

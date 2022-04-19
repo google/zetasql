@@ -91,15 +91,29 @@ absl::Status Resolver::ResolveAlterActions(
     std::unique_ptr<ResolvedStatement>* output,
     bool* has_only_set_options_action,
     std::vector<std::unique_ptr<const ResolvedAlterAction>>* alter_actions) {
-  // path() can be null iff ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL is set.
+  return ResolveAlterActions(
+      ast_statement, alter_statement_kind, ast_statement->path(),
+      ast_statement->action_list()->actions(), ast_statement->is_if_exists(),
+      output, has_only_set_options_action, alter_actions);
+}
+
+absl::Status Resolver::ResolveAlterActions(
+    const ASTNode* ast_statement, absl::string_view alter_statement_kind,
+    const ASTPathExpression* path,
+    absl::Span<const ASTAlterAction* const> actions, bool is_if_exists,
+    std::unique_ptr<ResolvedStatement>* output,
+    bool* has_only_set_options_action,
+    std::vector<std::unique_ptr<const ResolvedAlterAction>>* alter_actions) {
+  // path can be null if ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL is set or
+  // if alter actions are being resolved for an AlterSubEntityAction.
   ZETASQL_RET_CHECK(language().LanguageFeatureEnabled(
                 FEATURE_ALLOW_MISSING_PATH_EXPRESSION_IN_ALTER_DDL) ||
-            ast_statement->path() != nullptr);
+            path != nullptr ||
+            ast_statement->GetAsOrNull<ASTAlterSubEntityAction>());
   // The default empty value of IdString is handled in all downstream paths.
   IdString table_name_id_string;
-  if (ast_statement->path() != nullptr) {
-    table_name_id_string =
-        MakeIdString(ast_statement->path()->ToIdentifierPathString());
+  if (path != nullptr) {
+    table_name_id_string = MakeIdString(path->ToIdentifierPathString());
   }
 
   IdStringSetCase new_columns, column_to_drop;
@@ -121,17 +135,20 @@ absl::Status Resolver::ResolveAlterActions(
   // If the path expression is null the language feature is enabled (RET_CHECK
   // at the start of this function).
   absl::Status table_status;
-  if (ast_statement->path() != nullptr) {
+  if (path != nullptr) {
     // Some engines do not add all the referenced tables into the catalog. Thus,
     // if the lookup here fails it does not necessarily mean that the table does
     // not exist.
-    table_status = FindTable(ast_statement->path(), &altered_table);
-  } else {  // Path is missing. This may or may not be a problem, but we set the
-            // error message here regardless; the consumer of table_status can
-            // decide what to do with it.
+    table_status = FindTable(path, &altered_table);
+  } else {
+    // Path is missing. This may happen either if this is a top level alter
+    // statement that does not have path (which may or may not be a problem),
+    // or if this is a nested alter sub-entity statement (which will not have
+    // a path). Set the error message here regardless; the consumer of
+    // table_status can decide what to do with it.
 
-    // alter_entities could be intentionally missing the path so we need
-    // to generate a potentially-user-facing error.
+    // alter_entities and alter_sub_entities could be intentionally missing the
+    // path so we need to generate a potentially-user-facing error.
     if (auto alter_entity =
             ast_statement->GetAsOrNull<ASTAlterEntityStatement>()) {
       std::string entity_type =
@@ -140,10 +157,17 @@ absl::Status Resolver::ResolveAlterActions(
                      << "ALTER " << entity_type
                      << " statements must have a path expression between "
                      << entity_type << " and the first alter action.";
+    } else if (auto alter_sub_entity =
+                   ast_statement->GetAsOrNull<ASTAlterSubEntityAction>()) {
+      std::string sub_entity_type =
+          absl::AsciiStrToUpper(alter_sub_entity->type()->GetAsString());
+      table_status = MakeSqlErrorAt(ast_statement)
+                     << "ALTER " << sub_entity_type
+                     << " actions do not support nested TABLE alter actions";
     } else {
       // The only type of alter statement that should be able to exhibit a
-      // missing path is alter_entity. Anything else is a bug, so generate an
-      // internal error.
+      // missing path is alter_entity or alter_sub_entity. Anything else is a
+      // bug, so generate an internal error.
       table_status = absl::Status(
           absl::StatusCode::kInternal,
           absl::StrFormat("Path missing on non-alter_entity ALTER statement of "
@@ -156,8 +180,7 @@ absl::Status Resolver::ResolveAlterActions(
   bool already_added_primary_key = false;
   bool has_rename_column = false;
   bool has_non_rename_column_action = false;
-  const ASTAlterActionList* action_list = ast_statement->action_list();
-  for (const ASTAlterAction* const action : action_list->actions()) {
+  for (const ASTAlterAction* const action : actions) {
     if (action->node_kind() != AST_SET_OPTIONS_ACTION) {
       *has_only_set_options_action = false;
     }
@@ -189,7 +212,7 @@ absl::Status Resolver::ResolveAlterActions(
       } break;
       case AST_ADD_CONSTRAINT_ACTION:
       case AST_DROP_CONSTRAINT_ACTION: {
-        if (!ast_statement->is_if_exists()) {
+        if (!is_if_exists) {
           ZETASQL_RETURN_IF_ERROR(table_status);
         }
         if (action->node_kind() == AST_ADD_CONSTRAINT_ACTION) {
@@ -205,9 +228,8 @@ absl::Status Resolver::ResolveAlterActions(
 
           std::unique_ptr<const ResolvedAddConstraintAction>
               resolved_alter_action;
-          ZETASQL_RETURN_IF_ERROR(ResolveAddConstraintAction(altered_table,
-                                                     ast_statement, constraint,
-                                                     &resolved_alter_action));
+          ZETASQL_RETURN_IF_ERROR(ResolveAddConstraintAction(
+              altered_table, is_if_exists, constraint, &resolved_alter_action));
           alter_actions->push_back(std::move(resolved_alter_action));
         } else {
           const auto* constraint =
@@ -218,7 +240,7 @@ absl::Status Resolver::ResolveAlterActions(
         }
       } break;
       case AST_DROP_PRIMARY_KEY_ACTION: {
-        if (!ast_statement->is_if_exists()) {
+        if (!is_if_exists) {
           ZETASQL_RETURN_IF_ERROR(table_status);
         }
         alter_actions->push_back(MakeResolvedDropPrimaryKeyAction(
@@ -241,7 +263,7 @@ absl::Status Resolver::ResolveAlterActions(
                  << "ALTER " << alter_statement_kind << " does not support "
                  << action->GetSQLForAlterAction();
         }
-        if (!ast_statement->is_if_exists()) {
+        if (!is_if_exists) {
           ZETASQL_RETURN_IF_ERROR(table_status);
         }
         std::unique_ptr<const ResolvedAlterAction> resolved_action;
@@ -349,7 +371,7 @@ absl::Status Resolver::ResolveAlterActions(
                  << "ALTER " << alter_statement_kind << " does not support "
                  << action->GetSQLForAlterAction();
         }
-        if (!ast_statement->is_if_exists()) {
+        if (!is_if_exists) {
           ZETASQL_RETURN_IF_ERROR(table_status);
         }
         std::unique_ptr<const ResolvedAlterAction> resolved_action;
@@ -379,7 +401,7 @@ absl::Status Resolver::ResolveAlterActions(
                  << "ALTER " << alter_statement_kind << " does not support "
                  << action->GetSQLForAlterAction();
         }
-        if (!ast_statement->is_if_exists()) {
+        if (!is_if_exists) {
           ZETASQL_RETURN_IF_ERROR(table_status);
         }
         std::unique_ptr<const ResolvedAlterAction> resolved_action;
@@ -413,6 +435,67 @@ absl::Status Resolver::ResolveAlterActions(
         ZETASQL_RETURN_IF_ERROR(
             ResolveSetCollateClause(collate_clause, &resolved_alter_action));
         alter_actions->push_back(std::move(resolved_alter_action));
+      } break;
+      case AST_ALTER_SUB_ENTITY_ACTION: {
+        const auto* ast_alter_sub_entity_action =
+            action->GetAsOrDie<ASTAlterSubEntityAction>();
+
+        std::vector<const ASTAlterAction*> ast_alter_actions{
+            ast_alter_sub_entity_action->action()};
+        std::vector<std::unique_ptr<const ResolvedAlterAction>>
+            nested_alter_action;
+        // has_only_set_options_action is intended to affect only top level
+        // ALTER TABLE statements. Nested statements should not affect it.
+        bool ignored_child_has_only_set_options_action = true;
+
+        // An AlterSubEntityAction may have a chain of nested
+        // AlterSubEntityActions, followed by a terminating AlterAction.
+        // Recurse into ResolveAlterActions to extract the chain of actions.
+        ZETASQL_RETURN_IF_ERROR(ResolveAlterActions(
+            ast_alter_sub_entity_action,
+            ast_alter_sub_entity_action->type()->GetAsString(),
+            /*path=*/nullptr, ast_alter_actions,
+            ast_alter_sub_entity_action->is_if_exists(), output,
+            &ignored_child_has_only_set_options_action, &nested_alter_action));
+
+        if (nested_alter_action.size() != 1) {
+          return MakeSqlErrorAt(action) << "ALTER " << alter_statement_kind
+                                        << " should have exactly one action";
+        }
+
+        auto resolved_alter_sub_entity_action =
+            MakeResolvedAlterSubEntityAction(
+                ast_alter_sub_entity_action->type()->GetAsString(),
+                ast_alter_sub_entity_action->name()->GetAsString(),
+                std::move(nested_alter_action[0]),
+                ast_alter_sub_entity_action->is_if_exists());
+
+        alter_actions->push_back(std::move(resolved_alter_sub_entity_action));
+      } break;
+      case AST_ADD_SUB_ENTITY_ACTION: {
+        const auto* ast_add_sub_entity_action =
+            action->GetAsOrDie<ASTAddSubEntityAction>();
+
+        std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
+        ZETASQL_RETURN_IF_ERROR(ResolveOptionsList(
+            ast_add_sub_entity_action->options_list(), &resolved_options));
+
+        auto resolved_add_sub_entity_action = MakeResolvedAddSubEntityAction(
+            ast_add_sub_entity_action->type()->GetAsString(),
+            ast_add_sub_entity_action->name()->GetAsString(),
+            std::move(resolved_options),
+            ast_add_sub_entity_action->is_if_not_exists());
+        alter_actions->push_back(std::move(resolved_add_sub_entity_action));
+      } break;
+      case AST_DROP_SUB_ENTITY_ACTION: {
+        const auto* ast_drop_sub_entity_action =
+            action->GetAsOrDie<ASTDropSubEntityAction>();
+
+        auto resolved_drop_sub_entity_action = MakeResolvedDropSubEntityAction(
+            ast_drop_sub_entity_action->type()->GetAsString(),
+            ast_drop_sub_entity_action->name()->GetAsString(),
+            ast_drop_sub_entity_action->is_if_exists());
+        alter_actions->push_back(std::move(resolved_drop_sub_entity_action));
       } break;
       default:
         return MakeSqlErrorAt(action)
@@ -584,7 +667,7 @@ absl::Status Resolver::ResolveAddColumnAction(
                          table_name_id_string, all_column_names));
     // Set default_expr_access_error_name_scope_ activates all default value
     // validation logic, which relies on the existence of this variable.
-    zetasql_base::VarSetter<absl::optional<const NameScope*>> var_setter(
+    zetasql_base::VarSetter<std::optional<const NameScope*>> var_setter(
         &default_expr_access_error_name_scope_, access_error_name_scope.get());
     // We can't move ResolveColumnDefinitionNoCache() out of the block, because
     // default_expr_access_error_name_scope_ is only scoped in the block.
@@ -909,7 +992,7 @@ absl::Status Resolver::ResolveAlterEntityStatement(
 }
 
 absl::Status Resolver::ResolveAddForeignKey(
-    const Table* referencing_table, const ASTAlterStatementBase* alter_stmt,
+    const Table* referencing_table, bool is_if_exists,
     const ASTAddConstraintAction* alter_action,
     std::unique_ptr<const ResolvedAddConstraintAction>* resolved_alter_action) {
   if (!language().LanguageFeatureEnabled(FEATURE_FOREIGN_KEYS)) {
@@ -921,7 +1004,7 @@ absl::Status Resolver::ResolveAddForeignKey(
   // schemas match for ALTER TABLE IF EXISTS.
 
   // The caller should have already verified this for us.
-  ZETASQL_RET_CHECK(referencing_table != nullptr || alter_stmt->is_if_exists());
+  ZETASQL_RET_CHECK(referencing_table != nullptr || is_if_exists);
 
   const ASTForeignKey* foreign_key =
       alter_action->constraint()->GetAsOrDie<ASTForeignKey>();
@@ -974,7 +1057,7 @@ absl::Status Resolver::ResolveAddForeignKey(
 }
 
 absl::Status Resolver::ResolveAddPrimaryKey(
-    const Table* target_table, const ASTAlterStatementBase* alter_stmt,
+    const Table* target_table, bool is_if_exists,
     const ASTAddConstraintAction* alter_action,
     std::unique_ptr<const ResolvedAddConstraintAction>* resolved_alter_action) {
   if (target_table == nullptr) {
@@ -987,7 +1070,7 @@ absl::Status Resolver::ResolveAddPrimaryKey(
     } else {  // Maintain old behavior.
       // The parser should have already verified this for us. We either have a
       // table or the action uses IF EXISTS.
-      ZETASQL_RET_CHECK(target_table != nullptr || alter_stmt->is_if_exists());
+      ZETASQL_RET_CHECK(target_table != nullptr || is_if_exists);
     }
   }
   const ASTPrimaryKey* ast_primary_key =
@@ -1014,7 +1097,7 @@ absl::Status Resolver::ResolveAddPrimaryKey(
 }
 
 absl::Status Resolver::ResolveAddConstraintAction(
-    const Table* referencing_table, const ASTAlterStatementBase* alter_stmt,
+    const Table* referencing_table, bool is_if_exists,
     const ASTAddConstraintAction* alter_action,
     std::unique_ptr<const ResolvedAddConstraintAction>* resolved_alter_action) {
   auto constraint_kind = alter_action->constraint()->node_kind();
@@ -1022,10 +1105,10 @@ absl::Status Resolver::ResolveAddConstraintAction(
       !language().LanguageFeatureEnabled(FEATURE_CHECK_CONSTRAINT)) {
     return MakeSqlErrorAt(alter_action) << "CHECK CONSTRAINT is not supported";
   } else if (constraint_kind == AST_FOREIGN_KEY) {
-    return ResolveAddForeignKey(referencing_table, alter_stmt, alter_action,
+    return ResolveAddForeignKey(referencing_table, is_if_exists, alter_action,
                                 resolved_alter_action);
   } else if (constraint_kind == AST_PRIMARY_KEY) {
-    return ResolveAddPrimaryKey(referencing_table, alter_stmt, alter_action,
+    return ResolveAddPrimaryKey(referencing_table, is_if_exists, alter_action,
                                 resolved_alter_action);
   }
 
@@ -1091,7 +1174,7 @@ absl::Status Resolver::ResolveAlterColumnSetDefaultAction(
                        table_name_id_string, column_names));
   // Set default_expr_access_error_name_scope_ activates all default value
   // validation logic, which relies on the existence of this variable.
-  zetasql_base::VarSetter<absl::optional<const NameScope*>> var_setter(
+  zetasql_base::VarSetter<std::optional<const NameScope*>> var_setter(
       &default_expr_access_error_name_scope_, access_error_name_scope.get());
 
   ZETASQL_RETURN_IF_ERROR(ResolveColumnDefaultExpression(

@@ -95,6 +95,25 @@ TEST(SetSqlModeFromFlags, BadSqlMode) {
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
+TEST(SetLanguageOptionsFromFlags, ProductMode) {
+  auto CheckFlag = [](absl::string_view name, ProductMode expected_mode) {
+    absl::SetFlag(&FLAGS_product_mode, name);
+    ExecuteQueryConfig config;
+    ZETASQL_EXPECT_OK(SetLanguageOptionsFromFlags(config));
+    EXPECT_EQ(config.analyzer_options().language().product_mode(),
+              expected_mode);
+  };
+  CheckFlag("internal", PRODUCT_INTERNAL);
+  CheckFlag("external", PRODUCT_EXTERNAL);
+}
+
+TEST(SetLanguageOptionsFromFlags, BadProductMode) {
+  absl::SetFlag(&FLAGS_product_mode, "bad-mode");
+  ExecuteQueryConfig config;
+  EXPECT_THAT(SetLanguageOptionsFromFlags(config),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
 TEST(MakeWriterFromFlagsTest, Empty) {
   absl::FlagSaver fs;
 

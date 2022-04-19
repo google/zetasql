@@ -259,6 +259,7 @@ constexpr KeywordInfoPOD kAllKeywords[] = {
     {"repeatable", KW_REPEATABLE},
     {"replace", KW_REPLACE},
     {"replace_fields", KW_REPLACE_FIELDS},
+    {"report", KW_REPORT},
     {"respect", KW_RESPECT, kReserved},
     {"restrict", KW_RESTRICT},
     {"restriction", KW_RESTRICTION},
@@ -400,7 +401,7 @@ std::unique_ptr<const CaseInsensitiveAsciiAlphaTrie<const KeywordInfo>>
 CreateKeywordTrie() {
   const auto& all_keywords = GetAllKeywords();
   auto trie =
-      absl::make_unique<CaseInsensitiveAsciiAlphaTrie<const KeywordInfo>>();
+      std::make_unique<CaseInsensitiveAsciiAlphaTrie<const KeywordInfo>>();
   for (const auto& keyword_info : all_keywords) {
     trie->Insert(keyword_info.keyword(), &keyword_info);
   }
@@ -416,7 +417,7 @@ static std::unique_ptr<const absl::flat_hash_map<int, const KeywordInfo*>>
 CreateTokenToKeywordInfoMap() {
   const auto& all_keywords = GetAllKeywords();
   auto keyword_info_map =
-      absl::make_unique<absl::flat_hash_map<int, const KeywordInfo*>>();
+      std::make_unique<absl::flat_hash_map<int, const KeywordInfo*>>();
   for (const KeywordInfo& keyword_info : all_keywords) {
     if (keyword_info.CanBeReserved()) {
       zetasql_base::InsertOrDie(keyword_info_map.get(),
@@ -455,16 +456,16 @@ const std::vector<KeywordInfo>& GetAllKeywords() {
       switch (keyword.keyword_class) {
         case kReserved:
           keywords->push_back({keyword.keyword,
-                               absl::get<int>(keyword.bison_token),
+                               std::get<int>(keyword.bison_token),
                                absl::nullopt});
           break;
         case kNotReserved:
           keywords->push_back({keyword.keyword, absl::nullopt,
-                               absl::get<int>(keyword.bison_token)});
+                               std::get<int>(keyword.bison_token)});
           break;
         case kConditionallyReserved: {
           auto bison_token =
-              absl::get<ConditionallyReservedToken>(keyword.bison_token);
+              std::get<ConditionallyReservedToken>(keyword.bison_token);
           keywords->push_back({keyword.keyword,
                                bison_token.reserved_bison_token,
                                bison_token.nonreserved_bison_token});
@@ -479,7 +480,7 @@ const std::vector<KeywordInfo>& GetAllKeywords() {
 static std::unique_ptr<const CaseInsensitiveAsciiAlphaTrie<const KeywordInfo>>
 CreateKeywordInTokenizerTrie() {
   auto trie =
-      absl::make_unique<CaseInsensitiveAsciiAlphaTrie<const KeywordInfo>>();
+      std::make_unique<CaseInsensitiveAsciiAlphaTrie<const KeywordInfo>>();
   // These words are keywords in JavaCC, so we want to treat them as keywords in
   // the tokenizer API even though they are not always treated as keywords in
   // the Bison parser.
@@ -509,7 +510,7 @@ bool IsKeywordInTokenizer(absl::string_view identifier) {
 static std::unique_ptr<const CaseInsensitiveAsciiAlphaTrie<const KeywordInfo>>
 CreateNonReservedIdentifiersThatMustBeBackquotedTrie() {
   auto trie =
-      absl::make_unique<CaseInsensitiveAsciiAlphaTrie<const KeywordInfo>>();
+      std::make_unique<CaseInsensitiveAsciiAlphaTrie<const KeywordInfo>>();
   // These non-reserved keywords are used in the grammar in a location where
   // identifiers also occur, and their meaning is different when they are
   // used without backquoting.

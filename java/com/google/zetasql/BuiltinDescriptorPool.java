@@ -57,6 +57,7 @@ final class BuiltinDescriptorPool {
           .importFileDescriptor(BoolValue.getDescriptor().getFile())
           .importFileDescriptor(StringValue.getDescriptor().getFile())
           .importFileDescriptor(BytesValue.getDescriptor().getFile())
+          .importFileDescriptor(ZetaSQLAnonOutputWithReport.getDescriptor().getFile())
           .importFileDescriptor(EnumValueDescriptorProto.getDescriptor().getFile())
           .build();
 

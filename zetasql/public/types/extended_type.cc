@@ -21,6 +21,7 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/types/type_modifiers.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "absl/status/statusor.h"
 
@@ -31,9 +32,12 @@ bool ExtendedType::IsSupportedType(
   return language_options.LanguageFeatureEnabled(FEATURE_EXTENDED_TYPES);
 }
 
-absl::StatusOr<std::string> ExtendedType::TypeNameWithParameters(
-    const TypeParameters& type_params, ProductMode mode) const {
-  ZETASQL_DCHECK(type_params.IsEmpty());
+absl::StatusOr<std::string> ExtendedType::TypeNameWithModifiers(
+    const TypeModifiers& type_modifiers, ProductMode mode) const {
+  const TypeParameters& type_params = type_modifiers.type_parameters();
+  const Collation& collation = type_modifiers.collation();
+  ZETASQL_RET_CHECK(type_params.IsEmpty());
+  ZETASQL_RET_CHECK(collation.Empty());
   return TypeName(mode);
 }
 

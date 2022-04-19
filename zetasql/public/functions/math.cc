@@ -251,6 +251,26 @@ bool TruncDecimal(float in, int64_t digits, float* out, absl::Status* error) {
   return true;
 }
 
+template <>
+bool Pi(double* out, absl::Status* error) {
+  *out = M_PI;
+  return true;
+}
+
+template <>
+bool Radians(double in, double* out, absl::Status* error) {
+  static const double value_pi_over_180 = M_PI / 180.0;
+  *out = in * value_pi_over_180;
+  return internal::CheckFloatingPointError("RADIANS", in, *out, error);
+}
+
+template <>
+bool Degrees(double in, double* out, absl::Status* error) {
+  static const double value_180_over_pi = 180.0 / M_PI;
+  *out = in * value_180_over_pi;
+  return internal::CheckFloatingPointError("DEGREES", in, *out, error);
+}
+
 namespace {
 template <typename T>
 inline bool SetNumericResultOrError(const absl::StatusOr<T>& status_or_numeric,
@@ -331,6 +351,45 @@ bool Logarithm(NumericValue in1, NumericValue in2, NumericValue* out,
 }
 
 template <>
+bool Pi(NumericValue* out, absl::Status* error) {
+  *out = NumericValue::Pi();
+  return true;
+}
+
+template <>
+bool Radians(NumericValue in, NumericValue* out, absl::Status* error) {
+  // Represents the 128-bit numerator 95024763027997044254193810947721847404
+  // which is approximately 2^132 * (pi / 180)
+  constexpr FixedInt<64, 2> scaled_pi_over_180 = FixedInt<64, 2>(
+      std::array<uint64_t, 2>{0x762FB374A42E26DULL, 0x477D1A894A74E457ULL});
+  constexpr uint N = 132;
+  const auto status_or_numeric =
+      in.MultiplyAndDivideByPowerOfTwo(scaled_pi_over_180, N);
+  if (!status_or_numeric.ok()) {
+    return internal::SetFloatingPointOverflow(
+        absl::StrCat("RADIANS(", in.ToString(), ")"), error);
+  }
+  *out = status_or_numeric.value();
+  return true;
+}
+
+template <>
+bool Degrees(NumericValue in, NumericValue* out, absl::Status* error) {
+  // Represents the number (180 / pi) * 2^121
+  constexpr FixedInt<64, 2> scaled_180_over_pi = FixedInt<64, 2>(
+      std::array<uint64_t, 2>{0x854BA9BFA0692BECULL, 0x729770698F07DEE1ULL});
+  constexpr uint N = 121;
+  const auto status_or_numeric =
+      in.MultiplyAndDivideByPowerOfTwo(scaled_180_over_pi, N);
+  if (!status_or_numeric.ok()) {
+    return internal::SetFloatingPointOverflow(
+        absl::StrCat("DEGREES(", in.ToString(), ")"), error);
+  }
+  *out = status_or_numeric.value();
+  return true;
+}
+
+template <>
 bool Ceil(BigNumericValue in, BigNumericValue* out, absl::Status* error) {
   return SetNumericResultOrError(in.Ceiling(), out, error);
 }
@@ -396,6 +455,55 @@ template <>
 bool Logarithm(BigNumericValue in1, BigNumericValue in2, BigNumericValue* out,
                absl::Status* error) {
   return SetNumericResultOrError(in1.Log(in2), out, error);
+}
+
+template <>
+bool Pi(BigNumericValue* out, absl::Status* error) {
+  *out = BigNumericValue::Pi();
+  return true;
+}
+
+template <>
+bool Radians(BigNumericValue in, BigNumericValue* out, absl::Status* error) {
+  // A 256-bit integer representing (pi / 180) * 2^260
+  constexpr FixedInt<64, 4> scaled_pi_over_180 =
+      FixedInt<64, 4>(std::array<uint64_t, 4>({
+          0x728154DA64A64289ULL,
+          0x805BD77A80DAF35CULL,
+          0x0762FB374A42E26CULL,
+          0x477D1A894A74E457ULL,
+      }));
+  constexpr int N = 260;
+
+  const auto status_or_numeric =
+      in.MultiplyAndDivideByPowerOfTwo(scaled_pi_over_180, N);
+  if (!status_or_numeric.ok()) {
+    return internal::SetFloatingPointOverflow(
+        absl::StrCat("RADIANS(", in.ToString(), ")"), error);
+  }
+  *out = status_or_numeric.value();
+  return true;
+}
+
+template <>
+bool Degrees(BigNumericValue in, BigNumericValue* out, absl::Status* error) {
+  constexpr FixedInt<64, 4> scaled_180_over_pi =
+      FixedInt<64, 4>(std::array<uint64_t, 4>({
+          0x66D13A14D89C06C9ULL,
+          0x9A41512FBE5F816EULL,
+          0x854BA9BFA0692BEBULL,
+          0x729770698F07DEE1ULL,
+      }));
+  constexpr int N = 249;
+
+  const auto status_or_numeric =
+      in.MultiplyAndDivideByPowerOfTwo(scaled_180_over_pi, N);
+  if (!status_or_numeric.ok()) {
+    return internal::SetFloatingPointOverflow(
+        absl::StrCat("DEGREES(", in.ToString(), ")"), error);
+  }
+  *out = status_or_numeric.value();
+  return true;
 }
 
 }  // namespace functions

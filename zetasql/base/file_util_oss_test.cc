@@ -138,4 +138,19 @@ great!
 )");
 }
 
+TEST(FileUtilTest, SetContentsSucceed) {
+  const std::string filespec =
+      absl::StrCat(TestTmpDir(), "/SetContentsSucceed.file");
+
+  const std::string contents = R"(great multi
+  line file. Well
+  read!!
+
+  )";
+  ZETASQL_EXPECT_OK(SetContents(filespec, contents));
+  std::string actual_contents;
+  ZETASQL_EXPECT_OK(GetContents(filespec, &actual_contents));
+  EXPECT_EQ(contents, actual_contents);
+}
+
 }  // namespace zetasql::internal

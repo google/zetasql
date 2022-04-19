@@ -602,14 +602,14 @@ The following example uses `UNNEST` with `CROSS JOIN` to flatten an `ARRAY` of
 ```sql
 WITH races AS (
   SELECT "800M" AS race,
-    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as splits),
-     STRUCT("Makhloufi" as name, [24.5, 25.4, 26.6, 26.1] as splits),
-     STRUCT("Murphy" as name, [23.9, 26.0, 27.0, 26.0] as splits),
-     STRUCT("Bosse" as name, [23.6, 26.2, 26.5, 27.1] as splits),
-     STRUCT("Rotich" as name, [24.7, 25.6, 26.9, 26.4] as splits),
-     STRUCT("Lewandowski" as name, [25.0, 25.7, 26.3, 27.2] as splits),
-     STRUCT("Kipketer" as name, [23.2, 26.1, 27.3, 29.4] as splits),
-     STRUCT("Berian" as name, [23.7, 26.1, 27.0, 29.3] as splits)]
+    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as laps),
+     STRUCT("Makhloufi" as name, [24.5, 25.4, 26.6, 26.1] as laps),
+     STRUCT("Murphy" as name, [23.9, 26.0, 27.0, 26.0] as laps),
+     STRUCT("Bosse" as name, [23.6, 26.2, 26.5, 27.1] as laps),
+     STRUCT("Rotich" as name, [24.7, 25.6, 26.9, 26.4] as laps),
+     STRUCT("Lewandowski" as name, [25.0, 25.7, 26.3, 27.2] as laps),
+     STRUCT("Kipketer" as name, [23.2, 26.1, 27.3, 29.4] as laps),
+     STRUCT("Berian" as name, [23.7, 26.1, 27.0, 29.3] as laps)]
        AS participants)
 SELECT
   race,
@@ -634,23 +634,23 @@ CROSS JOIN UNNEST(r.participants) as participant;
 ```sql
 SELECT race,
        participant.name,
-       participant.splits
+       participant.laps
 FROM
   (SELECT "800M" AS race,
-    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] AS splits),
-     STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS splits),
-     STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS splits),
-     STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS splits),
-     STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS splits),
-     STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS splits),
-     STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS splits),
-     STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] as splits)]
+    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] AS laps),
+     STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS laps),
+     STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS laps),
+     STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS laps),
+     STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS laps),
+     STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS laps),
+     STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS laps),
+     STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] as laps)]
      AS participants
   ) AS r
 CROSS JOIN UNNEST(r.participants) AS participant;
 
 +------+-------------+-----------------------+
-| race | name        | splits                |
+| race | name        | laps                  |
 +------+-------------+-----------------------+
 | 800M | Rudisha     | [23.4,26.3,26.4,26.1] |
 +------+-------------+-----------------------+
@@ -681,14 +681,14 @@ represent a common way to get information from a repeated field.</p>
 ```sql
 WITH races AS (
   SELECT "800M" AS race,
-    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as splits),
-     STRUCT("Makhloufi" as name, [24.5, 25.4, 26.6, 26.1] as splits),
-     STRUCT("Murphy" as name, [23.9, 26.0, 27.0, 26.0] as splits),
-     STRUCT("Bosse" as name, [23.6, 26.2, 26.5, 27.1] as splits),
-     STRUCT("Rotich" as name, [24.7, 25.6, 26.9, 26.4] as splits),
-     STRUCT("Lewandowski" as name, [25.0, 25.7, 26.3, 27.2] as splits),
-     STRUCT("Kipketer" as name, [23.2, 26.1, 27.3, 29.4] as splits),
-     STRUCT("Berian" as name, [23.7, 26.1, 27.0, 29.3] as splits)]
+    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as laps),
+     STRUCT("Makhloufi" as name, [24.5, 25.4, 26.6, 26.1] as laps),
+     STRUCT("Murphy" as name, [23.9, 26.0, 27.0, 26.0] as laps),
+     STRUCT("Bosse" as name, [23.6, 26.2, 26.5, 27.1] as laps),
+     STRUCT("Rotich" as name, [24.7, 25.6, 26.9, 26.4] as laps),
+     STRUCT("Lewandowski" as name, [25.0, 25.7, 26.3, 27.2] as laps),
+     STRUCT("Kipketer" as name, [23.2, 26.1, 27.3, 29.4] as laps),
+     STRUCT("Berian" as name, [23.7, 26.1, 27.0, 29.3] as laps)]
        AS participants)
 SELECT
   race,
@@ -696,7 +696,7 @@ SELECT
    FROM UNNEST(participants)
    ORDER BY (
      SELECT SUM(duration)
-     FROM UNNEST(splits) AS duration) ASC
+     FROM UNNEST(laps) AS duration) ASC
    LIMIT 1) AS fastest_racer
 FROM races;
 
@@ -713,18 +713,18 @@ SELECT race,
         FROM UNNEST(participants)
         ORDER BY (
           SELECT SUM(duration)
-          FROM UNNEST(splits) AS duration) ASC
+          FROM UNNEST(laps) AS duration) ASC
           LIMIT 1) AS fastest_racer
 FROM
   (SELECT "800M" AS race,
-    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] AS splits),
-     STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS splits),
-     STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS splits),
-     STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS splits),
-     STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS splits),
-     STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS splits),
-     STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS splits),
-     STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] as splits)]
+    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] AS laps),
+     STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS laps),
+     STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS laps),
+     STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS laps),
+     STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS laps),
+     STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS laps),
+     STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS laps),
+     STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] as laps)]
      AS participants
   ) AS r;
 
@@ -836,20 +836,20 @@ following statement returns the runner who had the fastest lap in an 800M race.
 ```sql
 WITH races AS (
  SELECT "800M" AS race,
-   [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as splits),
-    STRUCT("Makhloufi" as name, [24.5, 25.4, 26.6, 26.1] as splits),
-    STRUCT("Murphy" as name, [23.9, 26.0, 27.0, 26.0] as splits),
-    STRUCT("Bosse" as name, [23.6, 26.2, 26.5, 27.1] as splits),
-    STRUCT("Rotich" as name, [24.7, 25.6, 26.9, 26.4] as splits),
-    STRUCT("Lewandowski" as name, [25.0, 25.7, 26.3, 27.2] as splits),
-    STRUCT("Kipketer" as name, [23.2, 26.1, 27.3, 29.4] as splits),
-    STRUCT("Berian" as name, [23.7, 26.1, 27.0, 29.3] as splits)]
+   [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as laps),
+    STRUCT("Makhloufi" as name, [24.5, 25.4, 26.6, 26.1] as laps),
+    STRUCT("Murphy" as name, [23.9, 26.0, 27.0, 26.0] as laps),
+    STRUCT("Bosse" as name, [23.6, 26.2, 26.5, 27.1] as laps),
+    STRUCT("Rotich" as name, [24.7, 25.6, 26.9, 26.4] as laps),
+    STRUCT("Lewandowski" as name, [25.0, 25.7, 26.3, 27.2] as laps),
+    STRUCT("Kipketer" as name, [23.2, 26.1, 27.3, 29.4] as laps),
+    STRUCT("Berian" as name, [23.7, 26.1, 27.0, 29.3] as laps)]
     AS participants)
 SELECT
 race,
 (SELECT name
  FROM UNNEST(participants),
-   UNNEST(splits) AS duration
+   UNNEST(laps) AS duration
  ORDER BY duration ASC LIMIT 1) AS runner_with_fastest_lap
 FROM races;
 
@@ -864,18 +864,18 @@ FROM races;
 SELECT race,
        (SELECT name
         FROM UNNEST(participants),
-          UNNEST(splits) AS duration
+          UNNEST(laps) AS duration
         ORDER BY duration ASC LIMIT 1) AS runner_with_fastest_lap
 FROM
   (SELECT "800M" AS race,
-    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] AS splits),
-     STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS splits),
-     STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS splits),
-     STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS splits),
-     STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS splits),
-     STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS splits),
-     STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS splits),
-     STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] as splits)]
+    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] AS laps),
+     STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS laps),
+     STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS laps),
+     STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS laps),
+     STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS laps),
+     STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS laps),
+     STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS laps),
+     STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] as laps)]
      AS participants
   ) AS r;
 
@@ -893,20 +893,20 @@ an explicit `CROSS JOIN`.
 ```sql
 WITH races AS (
  SELECT "800M" AS race,
-   [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as splits),
-    STRUCT("Makhloufi" as name, [24.5, 25.4, 26.6, 26.1] as splits),
-    STRUCT("Murphy" as name, [23.9, 26.0, 27.0, 26.0] as splits),
-    STRUCT("Bosse" as name, [23.6, 26.2, 26.5, 27.1] as splits),
-    STRUCT("Rotich" as name, [24.7, 25.6, 26.9, 26.4] as splits),
-    STRUCT("Lewandowski" as name, [25.0, 25.7, 26.3, 27.2] as splits),
-    STRUCT("Kipketer" as name, [23.2, 26.1, 27.3, 29.4] as splits),
-    STRUCT("Berian" as name, [23.7, 26.1, 27.0, 29.3] as splits)]
+   [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as laps),
+    STRUCT("Makhloufi" as name, [24.5, 25.4, 26.6, 26.1] as laps),
+    STRUCT("Murphy" as name, [23.9, 26.0, 27.0, 26.0] as laps),
+    STRUCT("Bosse" as name, [23.6, 26.2, 26.5, 27.1] as laps),
+    STRUCT("Rotich" as name, [24.7, 25.6, 26.9, 26.4] as laps),
+    STRUCT("Lewandowski" as name, [25.0, 25.7, 26.3, 27.2] as laps),
+    STRUCT("Kipketer" as name, [23.2, 26.1, 27.3, 29.4] as laps),
+    STRUCT("Berian" as name, [23.7, 26.1, 27.0, 29.3] as laps)]
     AS participants)
 SELECT
 race,
 (SELECT name
  FROM UNNEST(participants)
- CROSS JOIN UNNEST(splits) AS duration
+ CROSS JOIN UNNEST(laps) AS duration
  ORDER BY duration ASC LIMIT 1) AS runner_with_fastest_lap
 FROM races;
 
@@ -921,18 +921,18 @@ FROM races;
 SELECT race,
        (SELECT name
         FROM UNNEST(participants)
-        CROSS JOIN UNNEST(splits) AS duration
+        CROSS JOIN UNNEST(laps) AS duration
         ORDER BY duration ASC LIMIT 1) AS runner_with_fastest_lap
 FROM
   (SELECT "800M" AS race,
-    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] AS splits),
-     STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS splits),
-     STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS splits),
-     STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS splits),
-     STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS splits),
-     STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS splits),
-     STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS splits),
-     STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] as splits)]
+    [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] AS laps),
+     STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS laps),
+     STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS laps),
+     STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS laps),
+     STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS laps),
+     STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS laps),
+     STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS laps),
+     STRUCT("Berian" AS name, [23.7, 26.1, 27.0, 29.3] as laps)]
      AS participants
   ) AS r;
 
@@ -949,20 +949,20 @@ or NULL arrays. If you want to include these rows, use a `LEFT JOIN`.
 ```sql
 WITH races AS (
  SELECT "800M" AS race,
-   [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as splits),
-    STRUCT("Makhloufi" as name, [24.5, 25.4, 26.6, 26.1] as splits),
-    STRUCT("Murphy" as name, [23.9, 26.0, 27.0, 26.0] as splits),
-    STRUCT("Bosse" as name, [23.6, 26.2, 26.5, 27.1] as splits),
-    STRUCT("Rotich" as name, [24.7, 25.6, 26.9, 26.4] as splits),
-    STRUCT("Lewandowski" as name, [25.0, 25.7, 26.3, 27.2] as splits),
-    STRUCT("Kipketer" as name, [23.2, 26.1, 27.3, 29.4] as splits),
-    STRUCT("Berian" as name, [23.7, 26.1, 27.0, 29.3] as splits),
-    STRUCT("Nathan" as name, ARRAY<DOUBLE>[] as splits),
-    STRUCT("David" as name, NULL as splits)]
+   [STRUCT("Rudisha" as name, [23.4, 26.3, 26.4, 26.1] as laps),
+    STRUCT("Makhloufi" as name, [24.5, 25.4, 26.6, 26.1] as laps),
+    STRUCT("Murphy" as name, [23.9, 26.0, 27.0, 26.0] as laps),
+    STRUCT("Bosse" as name, [23.6, 26.2, 26.5, 27.1] as laps),
+    STRUCT("Rotich" as name, [24.7, 25.6, 26.9, 26.4] as laps),
+    STRUCT("Lewandowski" as name, [25.0, 25.7, 26.3, 27.2] as laps),
+    STRUCT("Kipketer" as name, [23.2, 26.1, 27.3, 29.4] as laps),
+    STRUCT("Berian" as name, [23.7, 26.1, 27.0, 29.3] as laps),
+    STRUCT("Nathan" as name, ARRAY<DOUBLE>[] as laps),
+    STRUCT("David" as name, NULL as laps)]
     AS participants)
 SELECT
   name, sum(duration) AS finish_time
-FROM races, races.participants LEFT JOIN participants.splits duration
+FROM races, races.participants LEFT JOIN participants.laps duration
 GROUP BY name;
 
 +-------------+--------------------+
@@ -986,17 +986,17 @@ SELECT
   name, sum(duration) as duration
 FROM
   (SELECT "800M" AS race,
-    [STRUCT("Rudisha" AS name, [23.4, 26.3, 26.4, 26.1] AS splits),
-     STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS splits),
-     STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS splits),
-     STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS splits),
-     STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS splits),
-     STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS splits),
-     STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS splits),
-     STRUCT("Nathan" as name, ARRAY<DOUBLE>[] as splits),
-     STRUCT("David" as name, NULL as splits)]
+    [STRUCT("Rudisha" AS name, [23.4, 26.3, 26.4, 26.1] AS laps),
+     STRUCT("Makhloufi" AS name, [24.5, 25.4, 26.6, 26.1] AS laps),
+     STRUCT("Murphy" AS name, [23.9, 26.0, 27.0, 26.0] AS laps),
+     STRUCT("Bosse" AS name, [23.6, 26.2, 26.5, 27.1] AS laps),
+     STRUCT("Rotich" AS name, [24.7, 25.6, 26.9, 26.4] AS laps),
+     STRUCT("Lewandowski" AS name, [25.0, 25.7, 26.3, 27.2] AS laps),
+     STRUCT("Kipketer" AS name, [23.2, 26.1, 27.3, 29.4] AS laps),
+     STRUCT("Nathan" as name, ARRAY<DOUBLE>[] as laps),
+     STRUCT("David" as name, NULL as laps)]
      AS participants) AS races,
-  races.participants LEFT JOIN participants.splits duration
+  races.participants LEFT JOIN participants.laps duration
 GROUP BY name;
 
 +-------------+--------------------+
@@ -1281,7 +1281,7 @@ the corresponding original row (`[5, 10]`) did not contain `2`.
 
 To check if an array contains a specific value, use the [`IN`][in-operators]
 operator with [`UNNEST`][unnest-query]. To check if an array contains a value
-matching a condition, use the [`EXISTS`][expression-subqueries] function with
+matching a condition, use the [`EXISTS`][exists-operator] operator with
 `UNNEST`.
 
 ### Scanning for specific values
@@ -1777,7 +1777,7 @@ SELECT ARRAY(
 
 [in-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md#in_operators
 
-[expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries.md
+[exists-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#exists_operator
 
 [casting]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#casting
 

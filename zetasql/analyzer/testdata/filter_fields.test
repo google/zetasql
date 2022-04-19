@@ -345,6 +345,48 @@ QueryStmt
       +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
 ==
 
+SELECT FILTER_FIELDS(RecursivePB, +(zetasql_test__.RecursivePB.repeated_recursive_pb_extension).int64_val) FROM RecursivePBTable
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [PROTO<zetasql_test__.RecursivePB>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-FilterField
+    |     +-type=PROTO<zetasql_test__.RecursivePB>
+    |     +-expr=
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
+    |     +-filter_field_arg_list=
+    |     | +-FilterFieldArg(include=TRUE, field_descriptor_path=[zetasql_test__.RecursivePB.repeated_recursive_pb_extension].int64_val)
+    |     +-reset_cleared_required_fields=FALSE
+    +-input_scan=
+      +-TableScan(column_list=[RecursivePBTable.RecursivePB#1], table=RecursivePBTable, column_index_list=[0])
+==
+
+SELECT FILTER_FIELDS(RecursivePB, +(zetasql_test__.RecursivePB.repeated_recursive_pb_extension).(zetasql_test__.RecursivePB.repeated_recursive_pb_extension)) FROM RecursivePBTable
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [PROTO<zetasql_test__.RecursivePB>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-FilterField
+    |     +-type=PROTO<zetasql_test__.RecursivePB>
+    |     +-expr=
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.RecursivePB>, column=RecursivePBTable.RecursivePB#1)
+    |     +-filter_field_arg_list=
+    |     | +-FilterFieldArg(include=TRUE, field_descriptor_path=[zetasql_test__.RecursivePB.repeated_recursive_pb_extension].[zetasql_test__.RecursivePB.repeated_recursive_pb_extension])
+    |     +-reset_cleared_required_fields=FALSE
+    +-input_scan=
+      +-TableScan(column_list=[RecursivePBTable.RecursivePB#1], table=RecursivePBTable, column_index_list=[0])
+==
+
 SELECT FILTER_FIELDS()
 FROM TestTable
 --

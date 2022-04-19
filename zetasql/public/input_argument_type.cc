@@ -77,10 +77,6 @@ bool InputArgumentType::operator==(const InputArgumentType& rhs) const {
          is_literal_empty_array() == rhs.is_literal_empty_array();
 }
 
-bool InputArgumentType::operator!=(const InputArgumentType& type) const {
-  return !(*this == type);
-}
-
 InputArgumentType::InputArgumentType(const Value& literal_value,
                                      bool is_default_argument_value)
     : category_(kTypedLiteral),
@@ -240,15 +236,15 @@ InputArgumentType InputArgumentType::LambdaInputArgumentType() {
 bool InputArgumentTypeSet::Insert(
     const InputArgumentType& argument, bool set_dominant) {
   if (set_dominant) {
-    dominant_argument_ = absl::make_unique<InputArgumentType>(argument);
+    dominant_argument_ = std::make_unique<InputArgumentType>(argument);
   } else if (dominant_argument_ != nullptr &&
              dominant_argument_->type() != nullptr &&
              dominant_argument_->type()->IsSimpleType() &&
              argument.type() != nullptr && !argument.type()->IsSimpleType() &&
              !argument.is_untyped_empty_array()) {
-    dominant_argument_ = absl::make_unique<InputArgumentType>(argument);
+    dominant_argument_ = std::make_unique<InputArgumentType>(argument);
   } else if (dominant_argument_ == nullptr && !argument.is_untyped()) {
-    dominant_argument_ = absl::make_unique<InputArgumentType>(argument);
+    dominant_argument_ = std::make_unique<InputArgumentType>(argument);
   }
 
   if (arguments_set_ != nullptr) {
@@ -270,7 +266,7 @@ bool InputArgumentTypeSet::Insert(
     // start storing the hash_set too.  We still keep the bucket_count low
     // because we still don't expect these hash_sets to usually get large.
     if (arguments_vector_.size() > kMaxSizeBeforeMakingHashSet) {
-      arguments_set_ = absl::make_unique<ArgumentsHashSet>(
+      arguments_set_ = std::make_unique<ArgumentsHashSet>(
           arguments_vector_.begin(), arguments_vector_.end(),
           10 /* bucket_count */);
     }

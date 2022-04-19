@@ -17,6 +17,7 @@
 #include "zetasql/reference_impl/variable_generator.h"
 
 #include <map>
+#include <string>
 
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"

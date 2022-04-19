@@ -51,14 +51,14 @@ class TestRelationalOp : public RelationalOp {
       data.AddSlots(num_extra_slots);
     }
 
-    std::unique_ptr<TupleIterator> iter = absl::make_unique<TestTupleIterator>(
+    std::unique_ptr<TupleIterator> iter = std::make_unique<TestTupleIterator>(
         variables_, iter_values, preserves_order_,
         /*end_status=*/absl::OkStatus());
     return iter;
   }
 
   std::unique_ptr<TupleSchema> CreateOutputSchema() const override {
-    return absl::make_unique<TupleSchema>(variables_);
+    return std::make_unique<TupleSchema>(variables_);
   }
 
   std::string IteratorDebugString() const override {

@@ -17,6 +17,8 @@
 #include "zetasql/reference_impl/functions/json.h"
 
 #include <cstdint>
+#include <string>
+#include <utility>
 
 #include "zetasql/common/errors.h"
 #include "zetasql/public/functions/json.h"
@@ -142,7 +144,7 @@ absl::StatusOr<Value> JsonExtractJson(
     const functions::JsonPathEvaluator& evaluator, const Value& json,
     const Type* output_type, bool scalar, JSONParsingOptions parsing_options) {
   if (scalar) {
-    absl::optional<std::string> output_string_or;
+    std::optional<std::string> output_string_or;
     if (json.is_validated_json()) {
       output_string_or = evaluator.ExtractScalar(json.json_value());
     } else {
@@ -155,7 +157,7 @@ absl::StatusOr<Value> JsonExtractJson(
       return Value::String(std::move(output_string_or).value());
     }
   } else {
-    absl::optional<JSONValueConstRef> output_json_or;
+    std::optional<JSONValueConstRef> output_json_or;
     JSONValue input_json;
     if (json.is_validated_json()) {
       output_json_or = evaluator.Extract(json.json_value());
@@ -179,7 +181,7 @@ absl::StatusOr<Value> JsonSubscriptFunction::Eval(
   if (HasNulls(args)) {
     return Value::Null(output_type());
   }
-  absl::optional<JSONValueConstRef> json_value_const_ref;
+  std::optional<JSONValueConstRef> json_value_const_ref;
   JSONValue input_json;
   if (args[0].is_validated_json()) {
     json_value_const_ref = args[0].json_value();
@@ -198,7 +200,7 @@ absl::StatusOr<Value> JsonSubscriptFunction::Eval(
     json_value_const_ref = input_json.GetConstRef();
   }
   ZETASQL_RET_CHECK(json_value_const_ref.has_value());
-  absl::optional<JSONValueConstRef> member_const_ref;
+  std::optional<JSONValueConstRef> member_const_ref;
   if (args[1].type_kind() == TYPE_STRING) {
     member_const_ref =
         json_value_const_ref->GetMemberIfExists(args[1].string_value());
@@ -259,7 +261,7 @@ absl::StatusOr<Value> JsonFunction::Eval(
 // JSON_EXTRACT_STRING_ARRAY.
 absl::StatusOr<Value> JsonExtractStringArrayString(
     const functions::JsonPathEvaluator& evaluator, absl::string_view json) {
-  std::vector<absl::optional<std::string>> output;
+  std::vector<std::optional<std::string>> output;
   bool is_null;
 
   ZETASQL_RETURN_IF_ERROR(evaluator.ExtractStringArray(json, &output, &is_null));
@@ -298,7 +300,7 @@ absl::StatusOr<Value> JsonExtractArrayString(
 absl::StatusOr<Value> JsonExtractStringArrayJson(
     const functions::JsonPathEvaluator& evaluator, const Value& json,
     JSONParsingOptions parsing_options) {
-  absl::optional<std::vector<absl::optional<std::string>>> output;
+  std::optional<std::vector<std::optional<std::string>>> output;
   if (json.is_validated_json()) {
     output = evaluator.ExtractStringArray(json.json_value());
   } else {
@@ -328,7 +330,7 @@ absl::StatusOr<Value> JsonExtractStringArrayJson(
 absl::StatusOr<Value> JsonExtractArrayJson(
     const functions::JsonPathEvaluator& evaluator, const Value& json,
     JSONParsingOptions parsing_options) {
-  absl::optional<std::vector<JSONValueConstRef>> output;
+  std::optional<std::vector<JSONValueConstRef>> output;
   JSONValue input_json;
   if (json.is_validated_json()) {
     output = evaluator.ExtractArray(json.json_value());

@@ -20,9 +20,9 @@
 #include "gtest/gtest.h"
 #include "absl/memory/memory.h"
 
-using testing::ElementsAreArray;
-using testing::IsEmpty;
-using testing::UnorderedElementsAreArray;
+using ::testing::ElementsAreArray;
+using ::testing::IsEmpty;
+using ::testing::UnorderedElementsAreArray;
 
 namespace zetasql {
 namespace {

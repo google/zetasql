@@ -76,32 +76,30 @@
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
-using absl::nullopt;
+using ::absl::nullopt;
 
-using google::protobuf::internal::WireFormatLite;
+using ::google::protobuf::internal::WireFormatLite;
 
-using testing::_;
-using testing::AnyOf;
-using testing::ElementsAre;
-using testing::Eq;
-using testing::HasSubstr;
-using testing::IsNull;
-using testing::Not;
-using testing::Pointee;
-using testing::Property;
-using testing::TestWithParam;
-using testing::UnorderedElementsAre;
-using testing::ValuesIn;
+using ::testing::_;
+using ::testing::AnyOf;
+using ::testing::ElementsAre;
+using ::testing::Eq;
+using ::testing::HasSubstr;
+using ::testing::IsNull;
+using ::testing::Not;
+using ::testing::Pointee;
+using ::testing::Property;
+using ::testing::TestWithParam;
+using ::testing::UnorderedElementsAre;
+using ::testing::ValuesIn;
+using ::zetasql_base::testing::IsOkAndHolds;
+using ::zetasql_base::testing::StatusIs;
 
 namespace zetasql {
-
-using zetasql_base::testing::IsOkAndHolds;
-using zetasql_base::testing::StatusIs;
+namespace {
 
 static const auto DEFAULT_ERROR_MODE =
     ResolvedFunctionCallBase::DEFAULT_ERROR_MODE;
-
-namespace {
 
 using SharedProtoState = TupleSlot::SharedProtoState;
 
@@ -235,7 +233,7 @@ TEST_P(NaryFunctionTemplateTest, NaryFunctionTest) {
     std::vector<std::unique_ptr<AlgebraArg>> arguments;
     for (int i = 0; i < t.params.num_params(); ++i) {
       ZETASQL_ASSERT_OK_AND_ASSIGN(auto arg, ConstExpr::Create(t.params.param(i)));
-      arguments.push_back(absl::make_unique<ExprArg>(std::move(arg)));
+      arguments.push_back(std::make_unique<ExprArg>(std::move(arg)));
 
       const Type* arg_type = arguments.back()->value_expr()->output_type();
       if (i == 0) {
@@ -391,8 +389,8 @@ TEST_F(EvalTest, NewStructExpr) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto foo_expr, ConstExpr::Create(String("foo")));
 
   std::vector<std::unique_ptr<ExprArg>> args;
-  args.push_back(absl::make_unique<ExprArg>(std::move(one_expr)));
-  args.push_back(absl::make_unique<ExprArg>(std::move(foo_expr)));
+  args.push_back(std::make_unique<ExprArg>(std::move(one_expr)));
+  args.push_back(std::make_unique<ExprArg>(std::move(foo_expr)));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto struct_op,
@@ -561,8 +559,8 @@ TEST_F(EvalTest, LetExpr) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_x_again, DerefExpr::Create(x, Int64Type()));
 
   std::vector<std::unique_ptr<ExprArg>> let_assign;
-  let_assign.push_back(absl::make_unique<ExprArg>(x, std::move(a_plus_one)));
-  let_assign.push_back(absl::make_unique<ExprArg>(y, std::move(deref_x_again)));
+  let_assign.push_back(std::make_unique<ExprArg>(x, std::move(a_plus_one)));
+  let_assign.push_back(std::make_unique<ExprArg>(y, std::move(deref_x_again)));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto let,
                        LetExpr::Create(std::move(let_assign), std::move(body)));
@@ -888,7 +886,7 @@ TEST_F(EvalTest, RootExpr) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_expr, DerefExpr::Create(p, proto_type_));
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto root_expr,
-      RootExpr::Create(std::move(deref_expr), absl::make_unique<RootData>()));
+      RootExpr::Create(std::move(deref_expr), std::make_unique<RootData>()));
   EXPECT_EQ(root_expr->DebugString(), "RootExpr($p)");
 
   const TupleSchema params_schema({p});
@@ -973,11 +971,11 @@ TEST_F(DMLValueExprEvalTest, DMLInsertValueExpr) {
                        CreateDMLOutputType(table_array_type, type_factory()));
 
   // Create a ColumnToVariableMapping.
-  auto column_to_variable_mapping = absl::make_unique<ColumnToVariableMapping>(
-      absl::make_unique<VariableGenerator>());
+  auto column_to_variable_mapping = std::make_unique<ColumnToVariableMapping>(
+      std::make_unique<VariableGenerator>());
 
   // Build a ResolvedScanMap and a ResolvedExprMap from the AST.
-  auto resolved_scan_map = absl::make_unique<ResolvedScanMap>();
+  auto resolved_scan_map = std::make_unique<ResolvedScanMap>();
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<ValueExpr> table_as_array_expr,
       TableAsArrayExpr::Create(stmt->table_scan()->table()->Name(),
@@ -995,7 +993,7 @@ TEST_F(DMLValueExprEvalTest, DMLInsertValueExpr) {
                           1)},
           std::move(table_as_array_expr)));
   (*resolved_scan_map)[stmt->table_scan()] = std::move(relation_op);
-  auto resolved_expr_map = absl::make_unique<ResolvedExprMap>();
+  auto resolved_expr_map = std::make_unique<ResolvedExprMap>();
   for (const auto& value : stmt->row_list(0)->value_list()) {
     ZETASQL_ASSERT_OK_AND_ASSIGN(
         std::unique_ptr<ValueExpr> const_expr,
@@ -1086,11 +1084,11 @@ TEST_F(DMLValueExprEvalTest,
                        CreateDMLOutputType(table_array_type, type_factory()));
 
   // Create a ColumnToVariableMapping.
-  auto column_to_variable_mapping = absl::make_unique<ColumnToVariableMapping>(
-      absl::make_unique<VariableGenerator>());
+  auto column_to_variable_mapping = std::make_unique<ColumnToVariableMapping>(
+      std::make_unique<VariableGenerator>());
 
   // Build a ResolvedScanMap and a ResolvedExprMap from the AST.
-  auto resolved_scan_map = absl::make_unique<ResolvedScanMap>();
+  auto resolved_scan_map = std::make_unique<ResolvedScanMap>();
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<ValueExpr> table_as_array_expr,
       TableAsArrayExpr::Create(stmt->table_scan()->table()->Name(),
@@ -1108,7 +1106,7 @@ TEST_F(DMLValueExprEvalTest,
                           1)},
           std::move(table_as_array_expr)));
   (*resolved_scan_map)[stmt->table_scan()] = std::move(relation_op);
-  auto resolved_expr_map = absl::make_unique<ResolvedExprMap>();
+  auto resolved_expr_map = std::make_unique<ResolvedExprMap>();
   for (const auto& value : stmt->row_list(0)->value_list()) {
     ZETASQL_ASSERT_OK_AND_ASSIGN(
         std::unique_ptr<ValueExpr> const_expr,
@@ -1134,7 +1132,7 @@ TEST_F(DMLValueExprEvalTest,
   // implementation compliance tests
   EvaluationOptions options{};
   options.return_all_rows_for_dml = false;
-  EvaluationContext context{options};;
+  EvaluationContext context{options};
   LanguageOptions language_options;
   language_options.EnableLanguageFeature(FEATURE_DISALLOW_NULL_PRIMARY_KEYS);
   context.SetLanguageOptions(language_options);
@@ -1194,11 +1192,11 @@ TEST_F(DMLValueExprEvalTest, DMLDeleteValueExpr) {
                        CreateDMLOutputType(table_array_type, type_factory()));
 
   // Create a ColumnToVariableMapping.
-  auto column_to_variable_mapping = absl::make_unique<ColumnToVariableMapping>(
-      absl::make_unique<VariableGenerator>());
+  auto column_to_variable_mapping = std::make_unique<ColumnToVariableMapping>(
+      std::make_unique<VariableGenerator>());
 
   // Build a ResolvedScanMap and a ResolvedExprMap from the AST.
-  auto resolved_scan_map = absl::make_unique<ResolvedScanMap>();
+  auto resolved_scan_map = std::make_unique<ResolvedScanMap>();
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<ValueExpr> table_as_array_expr,
       TableAsArrayExpr::Create(stmt->table_scan()->table()->Name(),
@@ -1216,7 +1214,7 @@ TEST_F(DMLValueExprEvalTest, DMLDeleteValueExpr) {
                           1)},
           std::move(table_as_array_expr)));
   (*resolved_scan_map)[stmt->table_scan()] = std::move(relation_op);
-  auto resolved_expr_map = absl::make_unique<ResolvedExprMap>();
+  auto resolved_expr_map = std::make_unique<ResolvedExprMap>();
   std::vector<std::unique_ptr<ValueExpr>> arguments{};
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<DerefExpr> arg_expr,
@@ -1337,11 +1335,11 @@ TEST_F(DMLValueExprEvalTest, DMLUpdateValueExpr) {
                        CreateDMLOutputType(table_array_type, type_factory()));
 
   // Create a ColumnToVariableMapping.
-  auto column_to_variable_mapping = absl::make_unique<ColumnToVariableMapping>(
-      absl::make_unique<VariableGenerator>());
+  auto column_to_variable_mapping = std::make_unique<ColumnToVariableMapping>(
+      std::make_unique<VariableGenerator>());
 
   // Build a ResolvedScanMap and a ResolvedExprMap from the AST.
-  auto resolved_scan_map = absl::make_unique<ResolvedScanMap>();
+  auto resolved_scan_map = std::make_unique<ResolvedScanMap>();
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<ValueExpr> table_as_array_expr,
       TableAsArrayExpr::Create(stmt->table_scan()->table()->Name(),
@@ -1359,7 +1357,7 @@ TEST_F(DMLValueExprEvalTest, DMLUpdateValueExpr) {
                           1)},
           std::move(table_as_array_expr)));
   (*resolved_scan_map)[stmt->table_scan()] = std::move(relation_op);
-  auto resolved_expr_map = absl::make_unique<ResolvedExprMap>();
+  auto resolved_expr_map = std::make_unique<ResolvedExprMap>();
   std::vector<std::unique_ptr<ValueExpr>> arguments{};
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<DerefExpr> arg_expr,
@@ -1506,11 +1504,11 @@ TEST_F(DMLValueExprEvalTest,
                        CreateDMLOutputType(table_array_type, type_factory()));
 
   // Create a ColumnToVariableMapping.
-  auto column_to_variable_mapping = absl::make_unique<ColumnToVariableMapping>(
-      absl::make_unique<VariableGenerator>());
+  auto column_to_variable_mapping = std::make_unique<ColumnToVariableMapping>(
+      std::make_unique<VariableGenerator>());
 
   // Build a ResolvedScanMap and a ResolvedExprMap from the AST.
-  auto resolved_scan_map = absl::make_unique<ResolvedScanMap>();
+  auto resolved_scan_map = std::make_unique<ResolvedScanMap>();
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<ValueExpr> table_as_array_expr,
       TableAsArrayExpr::Create(stmt->table_scan()->table()->Name(),
@@ -1528,7 +1526,7 @@ TEST_F(DMLValueExprEvalTest,
                           1)},
           std::move(table_as_array_expr)));
   (*resolved_scan_map)[stmt->table_scan()] = std::move(relation_op);
-  auto resolved_expr_map = absl::make_unique<ResolvedExprMap>();
+  auto resolved_expr_map = std::make_unique<ResolvedExprMap>();
   std::vector<std::unique_ptr<ValueExpr>> arguments{};
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<DerefExpr> arg_expr,
@@ -1603,7 +1601,7 @@ TEST_F(DMLValueExprEvalTest,
   // implementation compliance tests
   EvaluationOptions options{};
   options.return_all_rows_for_dml = false;
-  EvaluationContext context{options};;
+  EvaluationContext context{options};
   LanguageOptions language_options;
   language_options.EnableLanguageFeature(FEATURE_DISALLOW_PRIMARY_KEY_UPDATES);
   context.SetLanguageOptions(language_options);
@@ -1673,11 +1671,11 @@ TEST_F(DMLValueExprEvalTest,
                        CreateDMLOutputType(table_array_type, type_factory()));
 
   // Create a ColumnToVariableMapping.
-  auto column_to_variable_mapping = absl::make_unique<ColumnToVariableMapping>(
-      absl::make_unique<VariableGenerator>());
+  auto column_to_variable_mapping = std::make_unique<ColumnToVariableMapping>(
+      std::make_unique<VariableGenerator>());
 
   // Build a ResolvedScanMap and a ResolvedExprMap from the AST.
-  auto resolved_scan_map = absl::make_unique<ResolvedScanMap>();
+  auto resolved_scan_map = std::make_unique<ResolvedScanMap>();
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<ValueExpr> table_as_array_expr,
       TableAsArrayExpr::Create(stmt->table_scan()->table()->Name(),
@@ -1695,7 +1693,7 @@ TEST_F(DMLValueExprEvalTest,
                           1)},
           std::move(table_as_array_expr)));
   (*resolved_scan_map)[stmt->table_scan()] = std::move(relation_op);
-  auto resolved_expr_map = absl::make_unique<ResolvedExprMap>();
+  auto resolved_expr_map = std::make_unique<ResolvedExprMap>();
   std::vector<std::unique_ptr<ValueExpr>> arguments{};
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<DerefExpr> arg_expr,
@@ -1770,7 +1768,7 @@ TEST_F(DMLValueExprEvalTest,
   // implementation compliance tests
   EvaluationOptions options{};
   options.return_all_rows_for_dml = false;
-  EvaluationContext context{options};;
+  EvaluationContext context{options};
   LanguageOptions language_options;
   language_options.EnableLanguageFeature(FEATURE_DISALLOW_NULL_PRIMARY_KEYS);
   context.SetLanguageOptions(language_options);
@@ -1964,7 +1962,7 @@ class ProtoEvalTest : public ::testing::Test {
       EvaluationContext* context, std::unique_ptr<ProtoFieldRegistry>* registry,
       std::vector<std::unique_ptr<ProtoFieldReader>>* field_readers,
       std::vector<std::unique_ptr<GetProtoFieldExpr>>* exprs) {
-    *registry = absl::make_unique<ProtoFieldRegistry>(
+    *registry = std::make_unique<ProtoFieldRegistry>(
         /*id=*/0);
 
     for (const auto& entry : infos) {
@@ -1973,7 +1971,7 @@ class ProtoEvalTest : public ::testing::Test {
 
       const int id = field_readers->size();
       field_readers->push_back(
-          absl::make_unique<ProtoFieldReader>(id, *info, registry->get()));
+          std::make_unique<ProtoFieldReader>(id, *info, registry->get()));
       ProtoFieldReader* field_reader = field_readers->back().get();
 
       for (int i = 0; i < count; ++i) {
@@ -2022,8 +2020,8 @@ class ProtoEvalTest : public ::testing::Test {
     }
     ZETASQL_ASSIGN_OR_RETURN(auto fct_op,
                      ScalarFunctionCallExpr::Create(
-                         absl::make_unique<MakeProtoFunction>(
-                             MakeProtoType(out), field_and_formats),
+                         std::make_unique<MakeProtoFunction>(MakeProtoType(out),
+                                                             field_and_formats),
                          std::move(arguments)));
     ZETASQL_ASSIGN_OR_RETURN(Value result, EvalExpr(*fct_op, EmptyParams()));
     ZETASQL_CHECK(result.type()->IsProto());

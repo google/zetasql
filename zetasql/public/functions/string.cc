@@ -197,7 +197,7 @@ bool Utf8Trimmer::Initialize(absl::string_view to_trim, absl::Status* error) {
   if (!CheckAndCastStrLength(to_trim, &str_length32, error)) {
     return false;
   }
-  unicode_set_ = absl::make_unique<icu::UnicodeSet>();
+  unicode_set_ = std::make_unique<icu::UnicodeSet>();
   has_explicit_replacement_char_ = false;
   int32_t offset = 0;
   while (offset < str_length32) {
@@ -329,7 +329,7 @@ bool Utf8Capitalizer::Initialize(absl::string_view delimiters,
       u_getBinaryPropertySet(UCHAR_WHITE_SPACE, cannot_fail));
     unicode_set_->addAll(*whitespace_unicode_set);
   } else {
-    unicode_set_ = absl::make_unique<icu::UnicodeSet>();
+    unicode_set_ = std::make_unique<icu::UnicodeSet>();
   }
   int32_t offset = 0;
   while (offset < delimiter_length32) {
@@ -346,7 +346,7 @@ bool Utf8Capitalizer::Initialize(absl::string_view delimiters,
 }
 
 bool Utf8Capitalizer::InitializeDefault(absl::Status* error) {
-  unicode_set_ = absl::make_unique<icu::UnicodeSet>();
+  unicode_set_ = std::make_unique<icu::UnicodeSet>();
   return Initialize(kDefaultDelimiters, error);
 }
 
@@ -1994,6 +1994,7 @@ bool BytesTranslator::Initialize(absl::string_view source_bytes,
     }
     assigned_bytes[source_byte] = true;
   }
+  initialized_ = true;
   return true;
 }
 
@@ -2002,6 +2003,12 @@ bool BytesTranslator::Initialize(absl::string_view source_bytes,
 // Complexity: O(N), N being the size of <str>.
 bool BytesTranslator::Translate(absl::string_view str, std::string* out,
                                 absl::Status* error) const {
+  if (!initialized_) {
+    // done use UpdateError because we want an internal error.
+    *error = absl::Status(absl::StatusCode::kInternal,
+                          "BytesTranslator used before Ininitialize");
+    return false;
+  }
   out->clear();
   out->reserve(std::min(str.length(), kMaxOutputSize));
 

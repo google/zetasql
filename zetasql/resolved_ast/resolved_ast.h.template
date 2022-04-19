@@ -14,6 +14,7 @@
 // limitations under the License.
 //
 
+{% from './resolved_ast_field.h.template.import' import field_methods %}
 // resolved_ast.h GENERATED FROM resolved_ast.h.template
 #ifndef ZETASQL_RESOLVED_AST_RESOLVED_AST_H_
 #define ZETASQL_RESOLVED_AST_RESOLVED_AST_H_
@@ -40,15 +41,26 @@
 #include "zetasql/resolved_ast/resolved_node_kind.h"
 #include "zetasql/base/status.h"
 #include "absl/status/statusor.h"
-
+{% macro ZeroArgCtor(node) %}
+  {{node.name}}()
+      : {{node.parent}}()
+    # for field in node.fields
+      , {{field.member_name}}()
+    # endfor
+  {}
+{% endmacro %}
+{{blank_line}}
 namespace zetasql {
 
 class ResolvedASTVisitor;
 
 # for node in nodes
 class {{node.name}};
+# if not node.is_abstract
+class {{node.builder_name}};
+# endif
 # endfor
-
+{{blank_line}}
 # for node in nodes
 # if node.comment
 {{node.comment}}
@@ -69,29 +81,19 @@ class {{node.name}} {{node.class_final}} : public {{node.parent}} {
 {{node.extra_defs}}
 
 # endif
+# if node.extra_defs_node_only
+{{node.extra_defs_node_only}}
+{{blank_line}}
+# endif
 
-{# Zero-arg constructor/free function #}
-# if node.emit_default_constructor
- # if not node.is_abstract
-  friend std::unique_ptr<{{node.name}}> Make{{node.name}}();
- # endif
-
- # if not node.is_abstract
+# if node.emit_default_constructor and not node.is_abstract
  protected:
- # endif
-  {# Zero-arg constructor #}
-  {{node.name}}()
-      : {{node.parent}}()
-# for field in node.fields
-      , {{field.member_name}}()
-# endfor
-  {}
+{{ ZeroArgCtor(node) }}
+# endif
  public:
 
   {{node.name}}(const {{node.name}}&) = delete;
   {{node.name}}& operator=(const {{node.name}}&) = delete;
-
-# endif
 
 {# Make function for building, always return unique_ptr #}
 # if not node.is_abstract and ((node.inherited_fields + node.fields) | is_constructor_arg)
@@ -165,83 +167,14 @@ class {{node.name}} {{node.class_final}} : public {{node.parent}} {
   // Member fields
 
 # for field in node.fields
- # if field.comment
-{{field.comment}}
- # endif
-  {{field.getter_return_type}} {{field.name}}() const {
-    accessed_ |= {{field.bitmap}};
-    return {{field.member_accessor}};
-  }
- # if field.is_vector
-  int {{field.name}}_size() const {
-    if ({{field.member_name}}.empty()) accessed_ |= {{field.bitmap}};
-    return static_cast<int>({{field.member_name}}.size());
-  }
-  {{field.element_getter_return_type}} {{field.name}}(int i) const {
-    accessed_ |= {{field.bitmap}};
-    return {{field.member_name}}.at(i){{field.element_unwrapper}};
-  }
- # if field.is_node_vector
-  void add_{{field.name}}({{field.element_storage_type}} v) {
-    {{field.member_name}}.emplace_back(std::move(v));
-  }
-  void set_{{field.name}}({{field.setter_arg_type}} v) {
-    {{field.member_name}} = std::move(v);
-  }
-
- # else
-  void add_{{field.name}}({{field.element_arg_type}} v) {
-    {{field.member_name}}.push_back(v);
-  }
-  void set_{{field.name}}({{field.setter_arg_type}} v) {
-    {{field.member_name}} = v;
-  }
-  {{field.member_type}}* mutable_{{field.name}}() {
-    accessed_ |= {{field.bitmap}};
-    return &{{field.member_name}};
-  }
-
- # endif
-  # if field.release_return_type
-  {{field.member_type}} release_{{field.name}}() {
-    {#
-       Note, we cannot simply:
-         return std::move(my_list_);
-       because it is not guaranteed to clear my_list_.
-    #}
-    {{field.member_type}} tmp;
-    {{field.member_name}}.swap(tmp);
-    return tmp;
-  }
-  # endif
- # else
-  # if field.is_node_ptr
-  void set_{{field.name}}({{field.setter_arg_type}} v) {
-    {{field.member_name}} = std::move(v);
-   # if field.propagate_order
-    set_is_ordered({{field.member_name}}->is_ordered());
-   # endif
-  }
-
-  # endif
-
-  # if not field.is_node_ptr
-  void set_{{field.name}}({{field.setter_arg_type}} v) {
-    {{field.member_name}} = v;
-  }
-  # endif
-
-  # if field.release_return_type
-  {{field.member_type}} release_{{field.name}}() {
-    return std::move({{field.member_name}});
-  }
-
-  # endif
- # endif
+{{ field_methods(field, is_from_builder=False) }}
 {{ blank_line }}
 # endfor
 
  protected:
+# if node.is_abstract or not node.emit_default_constructor
+{{ ZeroArgCtor(node) }}
+# endif
 {# Constructor that initializes fields in the superclass and in this class #}
   explicit {{node.name}}(
  # for field in (node.inherited_fields + node.fields) | is_constructor_arg
@@ -287,12 +220,31 @@ class {{node.name}} {{node.class_final}} : public {{node.parent}} {
 # endif
 
  private:
+# if node.is_abstract
+  {# List all builders for concrete subclasses as friends, so that they can #}
+  {# access these members. #}
+  # for leaf in node.subclasses if not leaf.is_abstract
+  friend class {{leaf.builder_name}};
+  # endfor
+# else
+  # if node.emit_default_constructor
+  friend std::unique_ptr<{{node.name}}> Make{{node.name}}();
+  # endif
+
+  friend class {{node.builder_name}};
+  friend {{node.builder_name}} ToBuilder(std::unique_ptr<const {{node.name}}>);
+# endif
+
   // Define this locally so our free function factories (friends) can access it.
   constexpr static ConstructorOverload NEW_CONSTRUCTOR =
       ResolvedNode::ConstructorOverload::NEW_CONSTRUCTOR;
 
 # for field in node.fields
+  # if not field.is_default_constructible
+  absl::optional<{{field.member_type}}> {{field.member_name}};
+  # else
   {{field.member_type}} {{field.member_name}};
+  # endif
 # endfor
 # if node.fields
   mutable std::atomic<uint32_t> accessed_ = {0};

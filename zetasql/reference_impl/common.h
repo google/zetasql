@@ -36,21 +36,6 @@ absl::Status ValidateTypeSupportsEqualityComparison(const Type* type);
 // otherwise.
 absl::Status ValidateTypeSupportsOrderComparison(const Type* type);
 
-// Releases the ownership of 'ptrs' in the input vector and returns a regular
-// vector of pointers. This method takes a non-const reference by design as it
-// is intended to be used like std::move(), clearing the input vector.
-template <typename T>
-static std::vector<T*> ReleaseAll(
-    std::vector<std::unique_ptr<T>>& ptrs) {  // NOLINT(runtime/references)
-  std::vector<T*> result;
-  result.reserve(ptrs.size());
-  for (auto& p : ptrs) {
-    result.push_back(p.release());
-  }
-  ptrs.clear();
-  return result;
-}
-
 // Returns a collation name from input <resolved_collation>.
 absl::StatusOr<std::string>
 GetCollationNameFromResolvedCollation(

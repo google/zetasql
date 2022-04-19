@@ -118,8 +118,35 @@ jobject GetSocketChannel(JNIEnv* env) {
                        "(Ljava/nio/channels/spi/SelectorProvider;"
                        "Ljava/io/FileDescriptor;"
                        "Ljava/net/InetSocketAddress;)V");
+  jmethodID constructor17;
+  jobject spfinet;
   if (constructor == nullptr) {
-    return nullptr;
+    env->ExceptionClear();
+    constructor17 = env->GetMethodID(impl, "<init>",
+                                     "(Ljava/nio/channels/spi/SelectorProvider;"
+                                     "Ljava/net/"
+                                     "ProtocolFamily;"
+                                     "Ljava/io/FileDescriptor;"
+                                     "Ljava/net/SocketAddress;)V");
+    if (constructor17 == nullptr) {
+      return nullptr;
+    }
+
+    jclass spf = env->FindClass("java/net/StandardProtocolFamily");
+    if (spf == nullptr) {
+      return nullptr;
+    }
+
+    jfieldID fieldId =
+        env->GetStaticFieldID(spf, "INET", "Ljava/net/StandardProtocolFamily;");
+    if (fieldId == nullptr) {
+      return nullptr;
+    }
+
+    spfinet = env->GetStaticObjectField(spf, fieldId);
+    if (spfinet == nullptr) {
+      return nullptr;
+    }
   }
 
   int fd = GetSocketFd(env);
@@ -134,7 +161,12 @@ jobject GetSocketChannel(JNIEnv* env) {
   }
 
   // java SocketChannel takes ownership of fd on success.
-  jobject sc = env->NewObject(impl, constructor, nullptr, jfd, nullptr);
+  jobject sc;
+  if (constructor != nullptr) {
+    sc = env->NewObject(impl, constructor, nullptr, jfd, nullptr);
+  } else {
+    sc = env->NewObject(impl, constructor17, nullptr, spfinet, jfd, nullptr);
+  }
   if (sc == nullptr) {
     close(fd);
     return nullptr;

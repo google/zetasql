@@ -54,8 +54,21 @@ struct JSONParsingOptions {
   // JSON document has more than 'max_nesting' levels of nesting. If it is set
   // to a negative number, the max nesting will be set to 0 instead (i.e. only
   // allowing scalar JSONs). JSON Arrays and Objects increase nesting levels.
-  absl::optional<int> max_nesting;
+  std::optional<int> max_nesting;
 };
+
+// Returns whether 'json_str' is a valid JSON string.
+// This function is much faster than JSONValue::ParseJSONString for standard
+// parsing mode and will be latter improved for legacy parsing mode as well.
+//
+// TODO: Find a better place for this function. It is currently
+// placed in json_value.h because the implementation uses the
+// JSONValueParserBase (but this can be moved too).
+absl::Status IsValidJSON(absl::string_view json_str,
+                         const JSONParsingOptions& parsing_options = {
+                             .legacy_mode = false,
+                             .strict_number_parsing = false,
+                             .max_nesting = std::nullopt});
 
 // JSONValue stores a JSON document. Access to read and update the values and
 // their members and elements is provided through JSONValueRef and
@@ -92,7 +105,7 @@ class JSONValue final {
       absl::string_view str,
       JSONParsingOptions parsing_options = {.legacy_mode = false,
                                             .strict_number_parsing = false,
-                                            .max_nesting = absl::nullopt});
+                                            .max_nesting = std::nullopt});
 
   // Decodes a binary representation of a JSON value produced by
   // JSONValueConstRef::SerializeAndAppendToProtoBytes(). Returns an error if
@@ -101,7 +114,7 @@ class JSONValue final {
   // 'max_nesting_level'. If 'max_nesting_level' < 0, 0 will be used instead.
   static absl::StatusOr<JSONValue> DeserializeFromProtoBytes(
       absl::string_view str,
-      absl::optional<int> max_nesting_level = absl::nullopt);
+      std::optional<int> max_nesting_level = std::nullopt);
 
   // Returns a JSON value that is a deep copy of the given value.
   static JSONValue CopyFrom(JSONValueConstRef value);
@@ -171,8 +184,8 @@ class JSONValueConstRef {
   JSONValueConstRef GetMember(absl::string_view key) const;
   // If the JSON value being referenced is an object, returns the member
   // corresponding to the given 'key' if it exists. If such 'key' does not
-  // exist or if the JSON value is not an object, then returns absl::nullopt.
-  absl::optional<JSONValueConstRef> GetMemberIfExists(
+  // exist or if the JSON value is not an object, then returns std::nullopt.
+  std::optional<JSONValueConstRef> GetMemberIfExists(
       absl::string_view key) const;
   // If the JSON value being referenced is an object, returns all the key/value
   // pairs corresponding to members of the object.

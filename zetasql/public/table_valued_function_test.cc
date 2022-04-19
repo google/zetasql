@@ -265,23 +265,23 @@ TEST(TVFTest, TestSignatureTextUppercasesNameByDefault) {
   ::zetasql::TVFRelation::ColumnList tvf_schema_columns;
     tvf_schema_columns.emplace_back("value",
                                     factory.MakeSimpleType(TYPE_INT64));
-    auto tvf_schema = absl::make_unique<::zetasql::TVFRelation>(
-        tvf_schema_columns);
+    auto tvf_schema =
+        std::make_unique<::zetasql::TVFRelation>(tvf_schema_columns);
 
-  std::unique_ptr<TableValuedFunction> deserialized_tvf =
-      absl::make_unique<FixedOutputSchemaTVF>(
-          function_path,
-          ::zetasql::FunctionSignature(
-                  ::zetasql::ARG_TYPE_RELATION,
-                  {::zetasql::FunctionArgumentType(
-                      ::zetasql::ARG_TYPE_ARBITRARY,
-                      ::zetasql::FunctionArgumentType::REPEATED)},
-                  /*context_id=*/static_cast<int64_t>(0)),
-          *tvf_schema);
+    std::unique_ptr<TableValuedFunction> deserialized_tvf =
+        std::make_unique<FixedOutputSchemaTVF>(
+            function_path,
+            ::zetasql::FunctionSignature(
+                ::zetasql::ARG_TYPE_RELATION,
+                {::zetasql::FunctionArgumentType(
+                    ::zetasql::ARG_TYPE_ARBITRARY,
+                    ::zetasql::FunctionArgumentType::REPEATED)},
+                /*context_id=*/static_cast<int64_t>(0)),
+            *tvf_schema);
 
-  EXPECT_EQ(
-      deserialized_tvf->GetSupportedSignaturesUserFacingText(LanguageOptions()),
-      "TEST_TVF_NAME([ANY, ...])");
+    EXPECT_EQ(deserialized_tvf->GetSupportedSignaturesUserFacingText(
+                  LanguageOptions()),
+              "TEST_TVF_NAME([ANY, ...])");
 }
 
 TEST(TVFTest, TestSignatureTextLowercasesNameWhenSpecified) {
@@ -292,27 +292,26 @@ TEST(TVFTest, TestSignatureTextLowercasesNameWhenSpecified) {
   ::zetasql::TVFRelation::ColumnList tvf_schema_columns;
     tvf_schema_columns.emplace_back("value",
                                     factory.MakeSimpleType(TYPE_INT64));
-    auto tvf_schema = absl::make_unique<::zetasql::TVFRelation>(
-        tvf_schema_columns);
+    auto tvf_schema =
+        std::make_unique<::zetasql::TVFRelation>(tvf_schema_columns);
 
-  TableValuedFunctionOptions tvf_options;
-  tvf_options.uses_upper_case_sql_name = false;
+    TableValuedFunctionOptions tvf_options;
+    tvf_options.uses_upper_case_sql_name = false;
 
-  std::unique_ptr<TableValuedFunction> deserialized_tvf =
-      absl::make_unique<FixedOutputSchemaTVF>(
-          function_path,
-          ::zetasql::FunctionSignature(
-                  ::zetasql::ARG_TYPE_RELATION,
-                  {::zetasql::FunctionArgumentType(
-                      ::zetasql::ARG_TYPE_ARBITRARY,
-                      ::zetasql::FunctionArgumentType::REPEATED)},
-                  /*context_id=*/static_cast<int64_t>(0)),
-          *tvf_schema,
-          tvf_options);
+    std::unique_ptr<TableValuedFunction> deserialized_tvf =
+        std::make_unique<FixedOutputSchemaTVF>(
+            function_path,
+            ::zetasql::FunctionSignature(
+                ::zetasql::ARG_TYPE_RELATION,
+                {::zetasql::FunctionArgumentType(
+                    ::zetasql::ARG_TYPE_ARBITRARY,
+                    ::zetasql::FunctionArgumentType::REPEATED)},
+                /*context_id=*/static_cast<int64_t>(0)),
+            *tvf_schema, tvf_options);
 
-  EXPECT_EQ(
-      deserialized_tvf->GetSupportedSignaturesUserFacingText(LanguageOptions()),
-      "test_tvf_name([ANY, ...])");
+    EXPECT_EQ(deserialized_tvf->GetSupportedSignaturesUserFacingText(
+                  LanguageOptions()),
+              "test_tvf_name([ANY, ...])");
 }
 
 TEST(TVFTest, TestFixedOutputSchemaTVFSerializeAndDeserialize) {
@@ -323,13 +322,13 @@ TEST(TVFTest, TestFixedOutputSchemaTVFSerializeAndDeserialize) {
   ::zetasql::TVFRelation::ColumnList tvf_schema_columns;
   tvf_schema_columns.emplace_back("value", factory.MakeSimpleType(TYPE_INT64));
   auto tvf_schema =
-      absl::make_unique<::zetasql::TVFRelation>(tvf_schema_columns);
+      std::make_unique<::zetasql::TVFRelation>(tvf_schema_columns);
 
   TableValuedFunctionOptions tvf_options;
   tvf_options.uses_upper_case_sql_name = false;
 
   std::unique_ptr<TableValuedFunction> tvf =
-      absl::make_unique<FixedOutputSchemaTVF>(
+      std::make_unique<FixedOutputSchemaTVF>(
           function_path,
           ::zetasql::FunctionSignature(
               FunctionArgumentType::RelationWithSchema(
@@ -369,13 +368,13 @@ TEST(TVFTest, TestAnonymizationInfo) {
   ::zetasql::TVFRelation::ColumnList tvf_schema_columns;
   tvf_schema_columns.emplace_back("value", factory.MakeSimpleType(TYPE_INT64));
   auto tvf_schema =
-      absl::make_unique<::zetasql::TVFRelation>(tvf_schema_columns);
+      std::make_unique<::zetasql::TVFRelation>(tvf_schema_columns);
 
   TableValuedFunctionOptions tvf_options;
   tvf_options.uses_upper_case_sql_name = false;
 
   std::unique_ptr<TableValuedFunction> tvf_with_userid =
-      absl::make_unique<FixedOutputSchemaTVF>(
+      std::make_unique<FixedOutputSchemaTVF>(
           function_path,
           ::zetasql::FunctionSignature(
               FunctionArgumentType::RelationWithSchema(
@@ -429,7 +428,7 @@ TEST(TVFTest, TestTableValueFunctionConstructorWithAnonymizationInfo) {
   ::zetasql::TVFRelation::ColumnList tvf_schema_columns;
   tvf_schema_columns.emplace_back("value", factory.MakeSimpleType(TYPE_INT64));
   auto tvf_schema =
-      absl::make_unique<::zetasql::TVFRelation>(tvf_schema_columns);
+      std::make_unique<::zetasql::TVFRelation>(tvf_schema_columns);
 
   TableValuedFunctionOptions tvf_options;
   tvf_options.uses_upper_case_sql_name = false;
@@ -438,7 +437,7 @@ TEST(TVFTest, TestTableValueFunctionConstructorWithAnonymizationInfo) {
                        AnonymizationInfo::Create({"value"}));
 
   std::unique_ptr<TableValuedFunction> tvf_with_userid =
-      absl::make_unique<FixedOutputSchemaTVF>(
+      std::make_unique<FixedOutputSchemaTVF>(
           function_path,
           ::zetasql::FunctionSignature(
               FunctionArgumentType::RelationWithSchema(
@@ -456,6 +455,49 @@ TEST(TVFTest, TestTableValueFunctionConstructorWithAnonymizationInfo) {
   EXPECT_TRUE(tvf_anonymization_info.has_value());
   EXPECT_EQ(tvf_anonymization_info->UserIdColumnNamePath().size(), 1);
   EXPECT_EQ(tvf_anonymization_info->UserIdColumnNamePath().at(0), "value");
+}
+
+TEST(TVFTest, TestGetSQLDeclarationForValueTable) {
+  TVFRelation tvf_relation = TVFRelation::ValueTable(types::Int64Type());
+
+  std::string sql_declaration =
+      tvf_relation.GetSQLDeclaration(ProductMode::PRODUCT_EXTERNAL);
+  EXPECT_EQ(sql_declaration, "TABLE<INT64>");
+}
+
+TEST(TVFTest, TestGetSQLDeclarationForTableWithRegularColumnNames) {
+  TVFRelation::Column int64_col =
+      TVFSchemaColumn("int64_col", types::Int64Type());
+  TVFRelation::Column double_col =
+      TVFSchemaColumn("double_col", types::DoubleType());
+  TVFRelation::ColumnList columns = {int64_col, double_col};
+  TVFRelation tvf_relation(columns);
+
+  std::string sql_declaration =
+      tvf_relation.GetSQLDeclaration(ProductMode::PRODUCT_EXTERNAL);
+  EXPECT_EQ(sql_declaration, "TABLE<int64_col INT64, double_col FLOAT64>");
+}
+
+TEST(TVFTest, TestGetSQLDeclarationForTableWithReservedColumnNames) {
+  TVFRelation::Column int64_col = TVFSchemaColumn("window", types::Int64Type());
+  TVFRelation::Column double_col = TVFSchemaColumn("from", types::DoubleType());
+  TVFRelation::ColumnList columns = {int64_col, double_col};
+  TVFRelation tvf_relation(columns);
+
+  std::string sql_declaration =
+      tvf_relation.GetSQLDeclaration(ProductMode::PRODUCT_EXTERNAL);
+  EXPECT_EQ(sql_declaration, "TABLE<`window` INT64, `from` FLOAT64>");
+}
+
+TEST(TVFTest, TestGetSQLDeclarationForTableWithEmptyColumnName) {
+  TVFRelation::Column int64_col = TVFSchemaColumn("", types::Int64Type());
+  TVFRelation::Column double_col = TVFSchemaColumn("col2", types::DoubleType());
+  TVFRelation::ColumnList columns = {int64_col, double_col};
+  TVFRelation tvf_relation(columns);
+
+  std::string sql_declaration =
+      tvf_relation.GetSQLDeclaration(ProductMode::PRODUCT_EXTERNAL);
+  EXPECT_EQ(sql_declaration, "TABLE<INT64, col2 FLOAT64>");
 }
 
 }  // namespace zetasql

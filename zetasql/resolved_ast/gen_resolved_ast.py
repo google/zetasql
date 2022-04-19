@@ -14,13 +14,23 @@
 # limitations under the License.
 #
 
-"""Generates c++ classes for the ZetaSQL resolved AST representation.
+r"""Generates c++ classes for the ZetaSQL resolved AST representation.
 
 The classes and fields to generate are specified in main() in this python
 file. The base class for the tree is hand-written in resolved_node.h. Code
 generated files can be viewed at (broken link)
 Documentation is generated in resolved_ast.html.
 A viewable copy of the documentation is at (broken link).
+
+Example (Note the double quotes around each set of files):
+  gen_resolved_py \
+    --input_templates="\
+      zetasql/resolved_ast/resolved_ast.cc.template\
+      zetasql/resolved_ast/resolved_ast.h.template"
+    --output_files="\
+      blaze-genfiles/zetasql/resolved_ast/resolved_ast.cc \
+      blaze-genfiles/zetasql/resolved_ast/resolved_ast.h"
+
 """
 
 import operator
@@ -57,10 +67,20 @@ FLAGS = flags.FLAGS
 #  ## Subheader
 #  ...
 #
-# This flags allows the markdown generator to disable these single-line
+# This flag allows the markdown generator to disable these single-line
 # statements (it must use {% for x in list %} style jinja directives).
 flags.DEFINE_boolean('allow_hash_prefix', True,
                      'Allows jinja statements starting with "# "')
+
+flags.DEFINE_spaceseplist('input_templates', None,
+                          'Space-separated list of templates')
+
+flags.DEFINE_spaceseplist('output_files', None, 'Space-separated list of output'
+                          ' files corresponding to the input templates in the'
+                          ' same order.')
+
+flags.DEFINE_spaceseplist('data_files', [], 'Space-separated list of data files'
+                          ' that templates can reference and load')
 
 # Enums indicating whether a field can be ignored without breaking semantics.
 # If a field is not ignorable, and the user doesn't look at the field, then
@@ -69,6 +89,9 @@ flags.DEFINE_boolean('allow_hash_prefix', True,
 NOT_IGNORABLE = 0  # Field can never be ignored. This is the default.
 IGNORABLE = 1  # Field can always be ignored.
 IGNORABLE_DEFAULT = 2  # Field can be ignored if it has its default value.
+                       # Fields marked IGNORABLE_DEFAULT are optional to specify
+                       # in Builder APIs, and are not shown in DebugString
+                       # methods when they have the default value.
 
 NODE_NAME_PREFIX = 'Resolved'
 ROOT_NODE_NAME = 'ResolvedNode'
@@ -107,7 +130,12 @@ SCALAR_RESOLVED_COLUMN = ScalarType(
 SCALAR_CONSTANT = ScalarType('const Constant*', 'ConstantRefProto', 'Constant')
 SCALAR_FUNCTION = ScalarType('const Function*', 'FunctionRefProto', 'Function')
 SCALAR_FUNCTION_SIGNATURE = ScalarType(
-    'FunctionSignature', 'FunctionSignatureProto', passed_by_reference=True)
+    'FunctionSignature',
+    'FunctionSignatureProto',
+    passed_by_reference=True,
+    # FunctionSignature does not have a default constructor, but builders need a
+    # way to indicate when it is not yet set, without breaking the API.
+    is_default_constructible=False)
 SCALAR_FUNCTION_SIGNATURE_PTR = ScalarType(
     'std::shared_ptr<FunctionSignature>', 'FunctionSignatureProto',
     passed_by_reference=True,
@@ -175,11 +203,11 @@ def EnumScalarType(enum_name, node_name):
     The ScalarType.
   """
   return ScalarType(
-      ctype=enum_name,
+      ctype='%s::%s' % (node_name, enum_name),
+      java_type=enum_name,
       proto_type='%sEnums.%s' % (node_name, enum_name),
       has_proto_setter=True,
-      is_enum=True,
-      scoped_ctype='%s::%s' % (node_name, enum_name))
+      is_enum=True)
 
 
 SCALAR_SUBQUERY_TYPE = EnumScalarType('SubqueryType', 'ResolvedSubqueryExpr')
@@ -270,6 +298,8 @@ def Field(name,
   assert ignorable in (IGNORABLE, NOT_IGNORABLE, IGNORABLE_DEFAULT)
   member_name = name + '_'
 
+  is_default_constructible = True
+
   if vector:
     assert name.endswith('_list') or name.endswith('_path'), (
         'Vector fields should normally be named <x>_list or <x>_path: %s' %
@@ -309,6 +339,7 @@ def Field(name,
     release_return_type = None
     is_enum = ctype.is_enum
     is_move_only = False
+    is_default_constructible = ctype.is_default_constructible
     not_serialize_if_default = ctype.not_serialize_if_default
 
     if ctype.passed_by_reference:
@@ -393,7 +424,7 @@ def Field(name,
     java_to_string_method = to_string_method[0].lower() + to_string_method[1:]
 
   if is_enum:
-    scoped_setter_arg_type = ctype.scoped_ctype
+    scoped_setter_arg_type = ctype.ctype
   else:
     scoped_setter_arg_type = setter_arg_type
 
@@ -409,6 +440,12 @@ def Field(name,
       raise RuntimeError(
           'Field %s must be a constructor arg if it has is_optional_constructor_arg=True'
           % (name,))
+
+  is_ignorable_default = (ignorable == IGNORABLE_DEFAULT)
+  is_required_for_ctor = is_constructor_arg and not is_optional_constructor_arg
+
+  is_required_builder_arg = not is_default_constructible or (
+      is_required_for_ctor and not vector and not is_ignorable_default)
 
   return {
       'ctype': ctype,
@@ -442,9 +479,11 @@ def Field(name,
       'is_enum_vector': is_enum and vector,
       'is_move_only': is_move_only,
       'is_not_ignorable': ignorable == NOT_IGNORABLE,
-      'is_ignorable_default': ignorable == IGNORABLE_DEFAULT,
+      'is_ignorable_default': is_ignorable_default,
+      'is_default_constructible': is_default_constructible,
       'is_constructor_arg': is_constructor_arg,
       'is_optional_constructor_arg': is_optional_constructor_arg,
+      'is_required_builder_arg': is_required_builder_arg,
       'to_string_method': to_string_method,
       'java_to_string_method': java_to_string_method,
       'propagate_order': propagate_order,
@@ -474,6 +513,7 @@ class TreeGenerator(object):
               fields,
               is_abstract=False,
               extra_defs='',
+              extra_defs_node_only='',
               emit_default_constructor=True,
               use_custom_debug_string=False,
               comment=None):
@@ -487,7 +527,9 @@ class TreeGenerator(object):
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
-      extra_defs: extra c++ definitions to put in this class.
+      extra_defs: extra c++ definitions to put in this class and its builder.
+      extra_defs_node_only: extra C++ definitions for this class but not to be
+          shared with the builder.
       emit_default_constructor: If True, emit default constructor for this class
       use_custom_debug_string: If True, use hand-written
           CollectDebugStringFields and GetNameForDebugString c++ methods for
@@ -513,16 +555,17 @@ class TreeGenerator(object):
       """Convert a camel-case c++ ClassName into CLASS_NAME."""
       return make_enum_name_re.sub(r'\1_\2', name).upper()
 
-    # Add position-related field members.
-    for (pos, field) in enumerate(fields):
-      field.update({'bitmap': '(1<<%d)' % pos})
-
     # Compute list of fields inherited from the parent node.
     # Used for constructors that accept and pass on all inherited fields.
     inherited_fields = []
     if parent != ROOT_NODE_NAME:
       inherited_fields = (self.node_map[parent]['inherited_fields'] +
                           self.node_map[parent]['fields'])
+
+    # Add position-related field members.
+    for (pos, field) in enumerate(fields):
+      field.update({'bitmap': '(1<<%d)' % pos})
+      field.update({'builder_bitmap': pos + len(inherited_fields)})
 
     proto_type = '%sProto' % name
 
@@ -549,6 +592,7 @@ class TreeGenerator(object):
 
     node_dict = ({
         'name': name,
+        'builder_name': name + 'Builder' if not is_abstract else '',
         'proto_type': proto_type,
         'proto_field_type': proto_field_type,
         'enum_name': NameToEnumName(name),
@@ -570,6 +614,7 @@ class TreeGenerator(object):
         'extra_enum_defs': extra_enum_defs,
         'extra_defs': JoinSections(extra_enum_decls,
                                    CleanIndent(extra_defs, '  ')),
+        'extra_defs_node_only': extra_defs_node_only,
         'emit_default_constructor': emit_default_constructor,
         'has_node_vector_constructor_arg': has_node_vector_constructor_arg,
         'use_custom_debug_string': use_custom_debug_string,
@@ -697,11 +742,13 @@ class TreeGenerator(object):
       if not node['is_abstract']:
         TraverseToRoot(node)
 
-  def Generate(self, input_file_paths, output_file_paths):
+  def Generate(self, input_file_paths, output_file_paths, data_files):
     """Materialize the templates to generate the output files."""
 
     def ShouldAutoescape(template_name):
       return template_name and '.html' in template_name
+
+    data_dirs = list(map(os.path.dirname, data_files))
 
     line_statement_prefix = '# ' if FLAGS.allow_hash_prefix else None
     jinja_env = jinja2.Environment(
@@ -710,7 +757,7 @@ class TreeGenerator(object):
         trim_blocks=True,
         lstrip_blocks=True,
         line_statement_prefix=line_statement_prefix,
-        loader=jinja2.FileSystemLoader(''))
+        loader=jinja2.FileSystemLoader([''] + data_dirs))
 
     # This can be used to filter a list of fields to only those with
     # <is_constructor_arg = true>.  Used in templates like this:
@@ -718,14 +765,26 @@ class TreeGenerator(object):
     def IsConstructorArg(field_list):
       return [field for field in field_list if field['is_constructor_arg']]
 
+    def IsFieldRequiredConstructorArg(field):
+      return field[
+          'is_constructor_arg'] and not field['is_optional_constructor_arg']
+
     # This can be used to filter a list of fields to only those with
     # <is_constructor_arg = true> and <is_optional_constructor_arg = false>.
     # Used in templates like this:
     #   for node.fields | is_required_constructor_arg
     def IsRequiredConstructorArg(field_list):
       return [
-          field for field in field_list if field['is_constructor_arg'] and
-          not field['is_optional_constructor_arg']
+          field for field in field_list if IsFieldRequiredConstructorArg(field)
+      ]
+
+    # This can be used to filter a list of fields to only those that would be
+    # required for constructors, but shouold be set to default in the builders.
+    # Used in templates like this:
+    #   for node.fields | is_required_for_builder
+    def IsRequiredBuilderArg(field_list):
+      return [
+          field for field in field_list if field['is_required_builder_arg']
       ]
 
     # This can be used to filter a list of fields to only those with
@@ -747,6 +806,7 @@ class TreeGenerator(object):
     jinja_env.filters['is_constructor_arg'] = IsConstructorArg
     jinja_env.filters['is_required_constructor_arg'] = IsRequiredConstructorArg
     jinja_env.filters['is_optional_constructor_arg'] = IsOptionalConstructorArg
+    jinja_env.filters['is_required_builder_arg'] = IsRequiredBuilderArg
     jinja_env.filters[
         'is_node_vector_constructor_arg'] = IsNodeVectorConstructorArg
 
@@ -814,6 +874,17 @@ class TreeGenerator(object):
 
     jinja_env.globals['defining_node'] = DefiningNode
 
+    # For when we need to force a blank line and jinja wants to
+    # eat blank lines from the template. Defined in globals instead of context
+    # to be accessible from macros as well.
+    jinja_env.globals['blank_line'] = '\n'
+
+    def RaiseException(error_message):
+      raise RuntimeError(error_message)
+
+    jinja_env.globals['RaiseException'] = RaiseException
+    jinja_env.globals['len'] = len
+
     self._ComputeTreeData()
 
     context = {
@@ -822,9 +893,6 @@ class TreeGenerator(object):
         'root_child_nodes': self.root_child_nodes,
         'java_enum_classes': self._JavaEnumClasses(),
         'timestamp': time.ctime(),
-        # For when we need to force a blank line and jinja wants to
-        # eat blank lines from the template.
-        'blank_line': '\n'
     }
     assert len(input_file_paths) == len(output_file_paths)
 
@@ -843,35 +911,14 @@ class TreeGenerator(object):
 
 
 def main(argv):
-  usage = """
-   gen_resolved_py [base.template]... [base]...
-   inputs must be of the form: '<input_path>/<filebase>.template' and have a
-   corresponding output file of the form <output_path>/<filebase>
-   Example:
-     gen_resolved_py \\
-        zetasql/resolved_ast/resolved_ast.cc.template \\
-        zetasql/resolved_ast/resolved_ast.h.template \\
-        blaze-genfiles/zetasql/resolved_ast/resolved_ast.cc \\
-        blaze-genfiles/zetasql/resolved_ast/resolved_ast.h
-  """
-  if len(argv) < 3:
-    logging.fatal('Must specify at least one input/output pair\n%s', usage)
-
-  if (len(argv) - 1) % 2 == 1:
-    logging.fatal('Must provide an equal number of inputs and outputs\n%s',
-                  usage)
-
-  # argv of the script is the list of all srcs of the form
-  # '.../<basename.template' followed by a list of all outputs in the same
-  # order of the format '.../<basename>'
-  # Example:
-  #   gen_resolved_py \
-  #      resolved_ast.cc.template \
-  #      resolved_ast.h.template \
-  #      resolved_ast.cc \
-  #      resolved_ast.h
-  input_file_paths = argv[1:int(1 + len(argv) / 2)]
-  output_file_paths = argv[1 + len(input_file_paths):]
+  data_files = FLAGS.data_files
+  input_templates = FLAGS.input_templates
+  output_files = FLAGS.output_files
+  logging.info('Unused flags: %s', ', '.join(argv[1:]))
+  if len(input_templates) != len(output_files):
+    raise RuntimeError('Must provide an equal number of input and output files')
+  if not input_templates:
+    raise RuntimeError('Must specify at least one input-output pair')
 
   gen = TreeGenerator()
 
@@ -2608,8 +2655,8 @@ right.
       Scan the subquery defined in a WITH statement.
       See ResolvedWithScan for more detail.
       The column_list produced here will match 1:1 with the column_list produced
-      by the referenced subquery and will given a new unique name to each
-      column produced for this scan.
+      by the referenced subquery and will given a new unique id to each column
+      produced for this scan.
               """,
       fields=[Field('with_query_name', SCALAR_STRING, tag_id=2)])
 
@@ -4844,7 +4891,7 @@ right.
       rows. <returning> can only occur on top-level statements.
 
       The returning clause has a <output_column_list> to represent the data
-      sent back to clients. It can only acccess columns from the <table_scan>.
+      sent back to clients. It can only access columns from the <table_scan>.
               """,
       fields=[
           Field(
@@ -4931,7 +4978,7 @@ right.
       back. It can only occur on top-level statements.
 
       This returning clause has a <output_column_list> to represent the data
-      sent back to clients. It can only acccess columns from the <table_scan>.
+      sent back to clients. It can only access columns from the <table_scan>.
               """,
       fields=[
           Field(
@@ -5649,6 +5696,99 @@ right.
               """,
       fields=[
           Field('option_list', 'ResolvedOption', tag_id=2, vector=True),
+      ])
+
+  gen.AddNode(
+      name='ResolvedAlterSubEntityAction',
+      tag_id=202,
+      parent='ResolvedAlterAction',
+      comment="""
+      Alter sub-entity action for ALTER <object> statement.
+      (broken link)
+
+      ALTER <entity_type> [IF EXISTS] <name> <alter_action>
+
+      <entity_type> engine-specific sub-entity type to be altered.
+      <name> the identifier for the sub-entity resource being altered.
+      <alter_action> action for the sub-entity resource, such as
+          SET OPTIONS or a further nested ALTER sub-entity action.
+      <is_if_exists> if set, skip the alter action if the resource does
+          not exist.
+              """,
+      fields=[
+          Field(
+              'entity_type',
+              SCALAR_STRING,
+              tag_id=2,
+              ignorable=NOT_IGNORABLE),
+          Field('name', SCALAR_STRING, tag_id=3),
+          Field('alter_action', 'ResolvedAlterAction', tag_id=4),
+          Field(
+              'is_if_exists',
+              SCALAR_BOOL,
+              tag_id=5,
+              ignorable=IGNORABLE_DEFAULT),
+      ])
+
+  gen.AddNode(
+      name='ResolvedAddSubEntityAction',
+      tag_id=203,
+      parent='ResolvedAlterAction',
+      comment="""
+      Add sub-entity action for ALTER <object> statement.
+      (broken link)
+
+      ADD <entity_type> [IF NOT EXISTS] <name> [OPTIONS(...)]
+
+      <entity_type> engine-specific sub-entity type to be added.
+      <name> the identifier for the sub-entity resource being added.
+      <options_list> engine specific options_list for the sub-entity resource.
+      <is_if_not_exists> if set, skip the add action if the resource
+          already exists.
+              """,
+      fields=[
+          Field(
+              'entity_type',
+              SCALAR_STRING,
+              tag_id=2,
+              ignorable=NOT_IGNORABLE),
+          Field('name', SCALAR_STRING, tag_id=3),
+          Field(
+              'options_list', 'ResolvedOption', tag_id=4, vector=True),
+          Field(
+              'is_if_not_exists',
+              SCALAR_BOOL,
+              tag_id=5,
+              ignorable=IGNORABLE_DEFAULT),
+      ])
+
+  gen.AddNode(
+      name='ResolvedDropSubEntityAction',
+      tag_id=204,
+      parent='ResolvedAlterAction',
+      comment="""
+      Drop sub-entity action for ALTER <object> statement.
+      (broken link)
+
+      DROP <entity_type> [IF EXISTS] <name>
+
+      <entity_type> engine-specific sub-entity type to be dropped.
+      <name> the identifier for the sub-entity resource being dropped.
+      <is_if_exists> if set, skip the drop action if the resource does
+          not exist.
+              """,
+      fields=[
+          Field(
+              'entity_type',
+              SCALAR_STRING,
+              tag_id=2,
+              ignorable=NOT_IGNORABLE),
+          Field('name', SCALAR_STRING, tag_id=3),
+          Field(
+              'is_if_exists',
+              SCALAR_BOOL,
+              tag_id=4,
+              ignorable=IGNORABLE_DEFAULT),
       ])
 
   gen.AddNode(
@@ -7845,8 +7985,12 @@ ResolvedArgumentRef(y)
               ignorable=IGNORABLE_DEFAULT)
       ])
 
-  gen.Generate(input_file_paths, output_file_paths)
-
+  gen.Generate(
+      input_file_paths=input_templates,
+      output_file_paths=output_files,
+      data_files=data_files)
 
 if __name__ == '__main__':
+  flags.mark_flag_as_required('input_templates')
+  flags.mark_flag_as_required('output_files')
   app.run(main)

@@ -5961,7 +5961,7 @@ static QueryParamsWithResult::ResultMap GetResultMapWithMicroAndNanoResults(
   std::unique_ptr<QueryParamsWithResult::Result> micro_result;
   std::unique_ptr<QueryParamsWithResult::Result> nano_result;
   if (test.expected_result().empty()) {
-    micro_result = absl::make_unique<QueryParamsWithResult::Result>(
+    micro_result = std::make_unique<QueryParamsWithResult::Result>(
         NullTimestamp(), OUT_OF_RANGE);
   } else {
     absl::Time timestamp;
@@ -5969,12 +5969,12 @@ static QueryParamsWithResult::ResultMap GetResultMapWithMicroAndNanoResults(
     ZETASQL_CHECK_OK(functions::MakeTimeZone(test.default_time_zone(), &zone));
     ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
         test.expected_result(), zone, kNanoseconds, true, &timestamp));
-    micro_result = absl::make_unique<QueryParamsWithResult::Result>(
+    micro_result = std::make_unique<QueryParamsWithResult::Result>(
         Value::Timestamp(timestamp));
   }
 
   if (test.nano_expected_result().empty()) {
-    nano_result = absl::make_unique<QueryParamsWithResult::Result>(
+    nano_result = std::make_unique<QueryParamsWithResult::Result>(
         NullTimestamp(), OUT_OF_RANGE);
   } else {
     absl::Time timestamp;
@@ -5982,7 +5982,7 @@ static QueryParamsWithResult::ResultMap GetResultMapWithMicroAndNanoResults(
     ZETASQL_CHECK_OK(functions::MakeTimeZone(test.default_time_zone(), &zone));
     ZETASQL_CHECK_OK(functions::ConvertStringToTimestamp(
         test.nano_expected_result(), zone, kNanoseconds, true, &timestamp));
-    nano_result = absl::make_unique<QueryParamsWithResult::Result>(
+    nano_result = std::make_unique<QueryParamsWithResult::Result>(
         Value::Timestamp(timestamp));
   }
   return GetResultMapWithMicroAndNanoResults(*micro_result, *nano_result);
@@ -9233,6 +9233,12 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampBucket() {
                           "9999-12-31 23:59:59.999999999", /* Friday */
                           "2020-03-13 23:59:59.999999999" /* Friday */,
                           kNanoseconds),
+      // Nanoseconds precision is not supported with kMicroseconds scale.
+      TimestampBucketErrorTest("2020-03-15 14:57:39.123456",
+                               "0:0:0.000000200",  // INTERVAL 200 NANOSECOND
+                               "1950-01-01 00:00:00",
+                               "TIMESTAMP_BUCKET doesn't support bucket width "
+                               "INTERVAL with nanoseconds precision"),
       // MONTH part is not supported
       TimestampBucketErrorTest("2020-03-15 14:57:39", "0-1 0",
                                "1950-01-01 00:00:00",
@@ -9269,7 +9275,7 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampBucket() {
       TimestampBucketErrorTest("2020-03-15 14:57:39", "0-0 1 0:0:0.000000001",
                                "1950-01-01 00:00:00",
                                "TIMESTAMP_BUCKET doesn't support bucket width "
-                               "INTERVAL with mixed DAY and MICROSECOND parts",
+                               "INTERVAL with mixed DAY and NANOSECOND parts",
                                kNanoseconds),
       // Mixing MICROSECONDs and NANOSECONDs.
       TimestampBucketTest("2020-03-15 14:57:39.646565731", "0:0:0.000002500",

@@ -90,8 +90,8 @@ absl::Status TemplatedSQLTVF::Deserialize(
   ZETASQL_RETURN_IF_ERROR(
       TableValuedFunctionOptions::Deserialize(proto.options(), &options));
 
-  *result = absl::make_unique<TemplatedSQLTVF>(path, *signature, arg_name_list,
-                                               parse_resume_location, *options);
+  *result = std::make_unique<TemplatedSQLTVF>(path, *signature, arg_name_list,
+                                              parse_resume_location, *options);
 
   if (proto.has_anonymization_info()) {
     ZETASQL_RET_CHECK(!proto.anonymization_info().userid_column_name().empty());
@@ -176,7 +176,7 @@ absl::Status TemplatedSQLTVF::Resolve(
   // catalog passed into the class constructor, then the catalog may include
   // names that were not available when the function was initially declared.
   Resolver resolver(catalog, type_factory, analyzer_options);
-  absl::optional<TVFRelation> specified_output_schema;
+  std::optional<TVFRelation> specified_output_schema;
   if (signatures_[0].result_type().options().has_relation_input_schema()) {
     specified_output_schema =
         signatures_[0].result_type().options().relation_input_schema();
@@ -237,7 +237,7 @@ absl::Status TemplatedSQLTVF::Resolve(
       resolved_templated_query.release(), GetArgumentNames()));
   if (anonymization_info_ != nullptr) {
     auto anonymization_info =
-        absl::make_unique<AnonymizationInfo>(*anonymization_info_);
+        std::make_unique<AnonymizationInfo>(*anonymization_info_);
     tvf_signature->get()->SetAnonymizationInfo(std::move(anonymization_info));
   }
   return absl::OkStatus();

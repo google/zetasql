@@ -18,6 +18,7 @@
 #define ZETASQL_PUBLIC_SIMPLE_CATALOG_H_
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
@@ -305,15 +306,39 @@ class SimpleCatalog : public EnumerableCatalog {
       std::unique_ptr<const google::protobuf::DescriptorPool> pool)
       ABSL_LOCKS_EXCLUDED(mutex_);
 
-  // Clear the set of functions stored in this Catalog and any subcatalogs
-  // created for zetasql namespaces. Does not affect any other catalogs.
-  // This can be called between calls to AddZetaSQLFunctions with different
-  // options.
-  void ClearFunctions() ABSL_LOCKS_EXCLUDED(mutex_);
+  // Removes all functions that satisfy <predicate> from this catalog and from
+  // all sub-catalogs that are SimpleCatalog. Returns the number of functions
+  // removed.
+  //
+  // Owned functions that are removed are de-allocated after all calls to
+  // <predicate> are complete so that <predicate> can safely
+  // de-reference Function*s it captures from the invoking context.
+  int RemoveFunctions(std::function<bool(const Function*)> predicate)
+      ABSL_LOCKS_EXCLUDED(mutex_);
+
+  // Removes all table valued functions that satisfy <predicate> from this
+  // catalog and from all sub-catalogs that are SimpleCatalog. Returns the
+  // number of table valued functions removed.
+  //
+  // Owned table valued functions that are removed are de-allocated after all
+  // calls to <predicate> are complete so that <predicate> can safely
+  // de-reference TableValuedFunction*s it captures from the invoking context.
+  int RemoveTableValuedFunctions(
+      std::function<bool(const TableValuedFunction*)> predicate)
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Clear the set of table-valued functions stored in this Catalog and any
   // subcatalogs created for zetasql namespaces. Does not affect any other
   // catalogs.
+  //
+  // This function is unclear in its definition about whether it should be
+  // removing built-in functions, engine-defined functions, user-defined
+  // functions or some combination. It also doesn't respect its own
+  // documentation reguarding which subcatalogs it removes from. Given the
+  // uncertanty around what this function is supposed to do, and a failure to
+  // find callsites that make it clear, this is deprecated in favor of
+  // 'RemoveTableFunctions'.
+  ABSL_DEPRECATED("Use RemoveTableFunctions")
   void ClearTableValuedFunctions() ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Deserialize SimpleCatalog from proto. Types will be deserialized using
@@ -385,6 +410,8 @@ class SimpleCatalog : public EnumerableCatalog {
                                const TypeDeserializer& type_deserializer);
 
  private:
+  friend class SimpleCatalogTestFriend;
+
   absl::Status SerializeImpl(absl::flat_hash_set<const Catalog*>* seen_catalogs,
                              FileDescriptorSetMap* file_descriptor_set_map,
                              SimpleCatalogProto* proto, bool ignore_builtin,
@@ -412,6 +439,35 @@ class SimpleCatalog : public EnumerableCatalog {
       std::unique_ptr<const TableValuedFunction> table_function)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
   void AddConstantLocked(const std::string& name, const Constant* constant)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  // Implements RemoveFunction without de-allocating any owned functions.
+  // Owned functions are insteawd transerred to 'removed' and the invoking
+  // context is responsible for de-allocation.
+  int RemoveFunctions(std::function<bool(const Function*)> predicate,
+                      std::vector<std::unique_ptr<const Function>>& removed)
+      ABSL_LOCKS_EXCLUDED(mutex_) {
+    absl::MutexLock l(&mutex_);
+    return RemoveFunctionsLocked(predicate, removed);
+  }
+  int RemoveFunctionsLocked(
+      std::function<bool(const Function*)> predicate,
+      std::vector<std::unique_ptr<const Function>>& removed)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
+
+  // Implements RemoveTableValuedFunctions without de-allocating any owned
+  // functions. Owned functions are insteawd transerred to 'removed' and the
+  // invoking context is responsible for de-allocation.
+  int RemoveTableValuedFunctions(
+      std::function<bool(const TableValuedFunction*)> predicate,
+      std::vector<std::unique_ptr<const TableValuedFunction>>& removed)
+      ABSL_LOCKS_EXCLUDED(mutex_) {
+    absl::MutexLock l(&mutex_);
+    return RemoveTableValuedFunctionsLocked(predicate, removed);
+  }
+  int RemoveTableValuedFunctionsLocked(
+      std::function<bool(const TableValuedFunction*)> predicate,
+      std::vector<std::unique_ptr<const TableValuedFunction>>& removed)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
   // Unified implementation of SuggestFunction and SuggestTableValuedFunction.
@@ -592,7 +648,7 @@ class SimpleTable : public Table {
   void SetEvaluatorTableIteratorFactory(
       const EvaluatorTableIteratorFactory& factory) {
     evaluator_table_iterator_factory_ =
-        absl::make_unique<EvaluatorTableIteratorFactory>(factory);
+        std::make_unique<EvaluatorTableIteratorFactory>(factory);
   }
 
   // Convenience method that calls SetEvaluatorTableIteratorFactory to
@@ -784,13 +840,52 @@ class SimpleConnection : public Connection {
 // SimpleColumn is a concrete implementation of the Column interface.
 class SimpleColumn : public Column {
  public:
+  // Optional column attributes.
+  //
+  // Example use:
+  //   SimpleColumn non_writable_column(
+  //       "TABLE", "non_writable", {.is_writable_column = false});
+  //   SimpleColumn pseudo_column(
+  //       "TABLE", "pseudo", {
+  //           .is_pseudo_column = true, .is_writable_column = true});
+  struct Attributes {
+    // A pseudocolumn is selectable but is not included in default expansions
+    // like SELECT *. See (broken link).
+    bool is_pseudo_column = false;
+    // A writeable column can be set in an INSERT or UPDATE DML statement.
+    bool is_writable_column = true;
+    // Whether an unwritable column can be set to DEFAULT in an UPDATE DML
+    // statement.
+    bool can_update_unwritable_to_default = false;
+  };
+
   // Constructor.
+  // This will soon be replaced by:
+  //   SimpleColumn(const std::string& table_name, const std::string& name,
+  //                const Type* type);
+  // Use the Attributes overload below instead of optional args.
   SimpleColumn(const std::string& table_name, const std::string& name,
                const Type* type, bool is_pseudo_column = false,
-               bool is_writable_column = true);
+               bool is_writable_column = true)
+      : SimpleColumn(table_name, name, type,
+                     {.is_pseudo_column = is_pseudo_column,
+                      .is_writable_column = is_writable_column}) {}
+  SimpleColumn(const std::string& table_name, const std::string& name,
+               const Type* type, const Attributes& attributes);
+
+  // This will soon be replaced by:
+  //   SimpleColumn(const std::string& table_name, const std::string& name,
+  //                AnnotatedType annotated_type);
+  // Use the Attributes overload below instead of optional args.
   SimpleColumn(const std::string& table_name, const std::string& name,
                AnnotatedType annotated_type, bool is_pseudo_column = false,
-               bool is_writable_column = true);
+               bool is_writable_column = true)
+      : SimpleColumn(table_name, name, annotated_type,
+                     {.is_pseudo_column = is_pseudo_column,
+                      .is_writable_column = is_writable_column}) {}
+  SimpleColumn(const std::string& table_name, const std::string& name,
+               AnnotatedType annotated_type, const Attributes& attributes);
+
   SimpleColumn(const SimpleColumn&) = delete;
   SimpleColumn& operator=(const SimpleColumn&) = delete;
 
@@ -804,10 +899,14 @@ class SimpleColumn : public Column {
   }
   AnnotatedType annotated_type() const { return annotated_type_; }
 
-  bool IsPseudoColumn() const override { return is_pseudo_column_; }
-  bool IsWritableColumn() const override { return is_writable_column_; }
-
-  void set_is_pseudo_column(bool v) { is_pseudo_column_ = v; }
+  const Attributes& attributes() const { return attributes_; }
+  bool IsPseudoColumn() const override { return attributes_.is_pseudo_column; }
+  bool IsWritableColumn() const override {
+    return attributes_.is_writable_column;
+  }
+  bool CanUpdateUnwritableToDefault() const override {
+    return attributes_.can_update_unwritable_to_default;
+  }
 
   // Serialize this column into protobuf, the provided map is used to store
   // serialized FileDescriptorSets, which can be deserialized into separate
@@ -825,9 +924,8 @@ class SimpleColumn : public Column {
  private:
   const std::string name_;
   const std::string full_name_;
-  bool is_pseudo_column_ = false;
-  bool is_writable_column_ = true;
   AnnotatedType annotated_type_;
+  Attributes attributes_;
 };
 
 // A named constant with a concrete value in the catalog.

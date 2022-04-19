@@ -125,12 +125,12 @@ Nested messages and arrays:
 ```sql
 SELECT
   NEW zetasql.examples.music.Album {
-    album_name: "Bach: The Goldberg Variations"
+    album_name: "New Moon"
     singer {
-      nationality: "German"
-      residence: [{ city: "Eisenach" }, { city: "Leipzig" }]
+      nationality: "Canadian"
+      residence: [{ city: "Victoria" }, { city: "Toronto" }]
     }
-    song: ["Aria", "Clav"]
+    song: ["Sandstorm","Wait"]
   }
 ```
 
@@ -139,7 +139,7 @@ With an extension field (note a comma is required before the extension field):
 ```sql
 SELECT
   NEW zetasql.examples.music.Album {
-    album_name: "Bach: The Goldberg Variations",
+    album_name: "New Moon",
     (zetasql.examples.music.downloads): 30
   }
 ```
@@ -265,13 +265,13 @@ NEW ProtocolBuffer(expr1 AS (path.to.extension), ...)
        album AS album_name,
        count AS (zetasql.examples.music.downloads)
      )
-     FROM (SELECT 'Bach: The Goldberg Variations' AS album, 30 AS count);
+     FROM (SELECT 'New Moon' AS album, 30 AS count);
 
-    +------------------------------------------------------------------------+
-    | $col1                                                                  |
-    +------------------------------------------------------------------------+
-    | {album_name: 'Bach: The Goldberg Variations' [...music.downloads]: 30} |
-    +------------------------------------------------------------------------+
+    +---------------------------------------------------+
+    | $col1                                             |
+    +---------------------------------------------------+
+    | {album_name: 'New Moon' [...music.downloads]: 30} |
+    +---------------------------------------------------+
     ```
 +   If `path.to.extension` points to a nested protocol buffer extension, `expr1`
     provides an instance or a text format string of that protocol buffer.
@@ -281,20 +281,20 @@ NEW ProtocolBuffer(expr1 AS (path.to.extension), ...)
     ```sql
     SELECT
      NEW zetasql.examples.music.Album(
-       'Bach: The Goldberg Variations' AS album_name,
+       'New Moon' AS album_name,
        NEW zetasql.examples.music.AlbumExtension(
         DATE(1956,1,1) AS release_date
        )
      AS (zetasql.examples.music.AlbumExtension.album_extension));
 
-    +-------------------------------------------------------------+
-    | $col1                                                       |
-    +-------------------------------------------------------------+
-    | album_name: "Bach: The Goldberg Variations"                 |
-    | [...music.AlbumExtension.album_extension] {                 |
-    |   release_date: -5114                                       |
-    | }                                                           |
-    +-------------------------------------------------------------+
+    +---------------------------------------------+
+    | $col1                                       |
+    +---------------------------------------------+
+    | album_name: "New Moon"                      |
+    | [...music.AlbumExtension.album_extension] { |
+    |   release_date: -5114                       |
+    | }                                           |
+    +---------------------------------------------+
     ```
 
 ### SELECT AS ProtocolBuffer
@@ -357,7 +357,7 @@ SELECT AS VALUE NEW ProtoType(field1, field2, field3 AS (path.to.extension), ...
 You can cast `PROTO` to or from `BYTES` or `STRING`.
 
 ```sql
-SELECT CAST('first_name: "Jane", last_name: "Doe", customer_no: 1234'
+SELECT CAST('first_name: "Alana", last_name: "Yah", customer_no: 1234'
   AS example.CustomerInfo);
 ```
 

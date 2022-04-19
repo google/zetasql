@@ -247,11 +247,10 @@ class LabelTracker {
     if (it == label_data_map_.end()) {
       return LabelNotExitsError(node, label.ToStringView());
     }
-    if (absl::holds_alternative<LoopData*>(it->second)) {
-      absl::get<LoopData*>(it->second)->break_nodes.push_back(node_data->start);
+    if (std::holds_alternative<LoopData*>(it->second)) {
+      std::get<LoopData*>(it->second)->break_nodes.push_back(node_data->start);
     } else {
-      absl::get<BlockData*>(it->second)
-          ->break_nodes.push_back(node_data->start);
+      std::get<BlockData*>(it->second)->break_nodes.push_back(node_data->start);
     }
     return absl::OkStatus();
   }
@@ -263,12 +262,11 @@ class LabelTracker {
     auto it = label_data_map_.find(label);
     if (it == label_data_map_.end()) {
       return LabelNotExitsError(node, label.ToStringView());
-    } else if (!absl::holds_alternative<LoopData*>(it->second)) {
+    } else if (!std::holds_alternative<LoopData*>(it->second)) {
       return MakeSqlErrorAt(node)
              << node->GetKeywordText() << " with label must refer to a loop";
     }
-    absl::get<LoopData*>(it->second)
-        ->continue_nodes.push_back(node_data->start);
+    std::get<LoopData*>(it->second)->continue_nodes.push_back(node_data->start);
     return absl::OkStatus();
   }
 
@@ -850,7 +848,7 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
       const ASTBeginEndBlock* node) override {
     if (node->has_exception_handler()) {
       exception_handler_block_data_map_[node] =
-          absl::make_unique<BlockWithExceptionHandlerData>();
+          std::make_unique<BlockWithExceptionHandlerData>();
     }
     ZETASQL_ASSIGN_OR_RETURN(BlockData * block_data, block_tracker_.EnterBlock(node));
     return VisitResult::VisitChildren(node, [=]() -> absl::Status {
@@ -935,7 +933,7 @@ class ControlFlowGraphBuilder : public NonRecursiveParseTreeVisitor {
   // Creates an empty NodeData object for the given AST node and inserts it into
   // the NodeData map.
   absl::StatusOr<NodeData*> CreateNodeData(const ASTNode* node) {
-    auto pair = node_data_.emplace(node, absl::make_unique<NodeData>());
+    auto pair = node_data_.emplace(node, std::make_unique<NodeData>());
     if (!pair.second) {
       return zetasql_base::InternalErrorBuilder()
              << "Node data for " << DebugNodeIdentifier(node)

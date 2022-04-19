@@ -312,7 +312,6 @@ QueryStmt
 
 SELECT * FROM UnaryScalarArg(1);
 --
-[PRE-REWRITE AST]
 QueryStmt
 +-output_column_list=
 | +-UnaryScalarArg.arg0#1 AS arg0 [INT64]
@@ -330,7 +329,679 @@ QueryStmt
         |     +-Literal(type=INT64, value=1)
         +-column_index_list=[0]
 
-Rewrite ERROR: generic::unimplemented: Inlining TVFs with arguments is not yet supported.
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryScalarArg.arg0#1 AS arg0 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryScalarArg.arg0#1]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[UnaryScalarArg.arg0#1]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="$inlined_UnaryScalarArg_scalar_args"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=[$inlined_UnaryScalarArg.arg0#2]
+        |       +-expr_list=
+        |       | +-arg0#2 := Literal(type=INT64, value=1)
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=[UnaryScalarArg.arg0#1]
+            +-expr_list=
+            | +-arg0#1 :=
+            |   +-SubqueryExpr
+            |     +-type=INT64
+            |     +-subquery_type=SCALAR
+            |     +-subquery=
+            |       +-ProjectScan
+            |         +-column_list=[$inlined_UnaryScalarArg.arg0#3]
+            |         +-input_scan=
+            |           +-WithRefScan(column_list=[$inlined_UnaryScalarArg.arg0#3], with_query_name="$inlined_UnaryScalarArg_scalar_args")
+            +-input_scan=
+              +-SingleRowScan
+
+==
+
+SELECT * FROM UnaryScalarArg(1) CROSS JOIN UnaryScalarArg(2);
+--
+QueryStmt
++-output_column_list=
+| +-UnaryScalarArg.arg0#1 AS arg0 [INT64]
+| +-UnaryScalarArg.arg0#2 AS arg0 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryScalarArg.[arg0#1, arg0#2]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=UnaryScalarArg.[arg0#1, arg0#2]
+        +-left_scan=
+        | +-TVFScan
+        |   +-column_list=[UnaryScalarArg.arg0#1]
+        |   +-tvf=UnaryScalarArg((INT64 arg0) -> TABLE<arg0 INT64>)
+        |   +-signature=(literal INT64) -> TABLE<arg0 INT64>
+        |   +-argument_list=
+        |   | +-FunctionArgument
+        |   |   +-expr=
+        |   |     +-Literal(type=INT64, value=1)
+        |   +-column_index_list=[0]
+        +-right_scan=
+          +-TVFScan
+            +-column_list=[UnaryScalarArg.arg0#2]
+            +-tvf=UnaryScalarArg((INT64 arg0) -> TABLE<arg0 INT64>)
+            +-signature=(literal INT64) -> TABLE<arg0 INT64>
+            +-argument_list=
+            | +-FunctionArgument
+            |   +-expr=
+            |     +-Literal(type=INT64, value=2)
+            +-column_index_list=[0]
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryScalarArg.arg0#1 AS arg0 [INT64]
+| +-UnaryScalarArg.arg0#2 AS arg0 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryScalarArg.[arg0#1, arg0#2]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=UnaryScalarArg.[arg0#1, arg0#2]
+        +-left_scan=
+        | +-WithScan
+        |   +-column_list=[UnaryScalarArg.arg0#1]
+        |   +-with_entry_list=
+        |   | +-WithEntry
+        |   |   +-with_query_name="$inlined_UnaryScalarArg_scalar_args"
+        |   |   +-with_subquery=
+        |   |     +-ProjectScan
+        |   |       +-column_list=[$inlined_UnaryScalarArg.arg0#3]
+        |   |       +-expr_list=
+        |   |       | +-arg0#3 := Literal(type=INT64, value=1)
+        |   |       +-input_scan=
+        |   |         +-SingleRowScan
+        |   +-query=
+        |     +-ProjectScan
+        |       +-column_list=[UnaryScalarArg.arg0#1]
+        |       +-expr_list=
+        |       | +-arg0#1 :=
+        |       |   +-SubqueryExpr
+        |       |     +-type=INT64
+        |       |     +-subquery_type=SCALAR
+        |       |     +-subquery=
+        |       |       +-ProjectScan
+        |       |         +-column_list=[$inlined_UnaryScalarArg.arg0#4]
+        |       |         +-input_scan=
+        |       |           +-WithRefScan(column_list=[$inlined_UnaryScalarArg.arg0#4], with_query_name="$inlined_UnaryScalarArg_scalar_args")
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-right_scan=
+          +-WithScan
+            +-column_list=[UnaryScalarArg.arg0#2]
+            +-with_entry_list=
+            | +-WithEntry
+            |   +-with_query_name="$inlined_UnaryScalarArg_scalar_args"
+            |   +-with_subquery=
+            |     +-ProjectScan
+            |       +-column_list=[$inlined_UnaryScalarArg.arg0#5]
+            |       +-expr_list=
+            |       | +-arg0#5 := Literal(type=INT64, value=2)
+            |       +-input_scan=
+            |         +-SingleRowScan
+            +-query=
+              +-ProjectScan
+                +-column_list=[UnaryScalarArg.arg0#2]
+                +-expr_list=
+                | +-arg0#2 :=
+                |   +-SubqueryExpr
+                |     +-type=INT64
+                |     +-subquery_type=SCALAR
+                |     +-subquery=
+                |       +-ProjectScan
+                |         +-column_list=[$inlined_UnaryScalarArg.arg0#6]
+                |         +-input_scan=
+                |           +-WithRefScan(column_list=[$inlined_UnaryScalarArg.arg0#6], with_query_name="$inlined_UnaryScalarArg_scalar_args")
+                +-input_scan=
+                  +-SingleRowScan
+==
+
+SELECT * FROM UnaryScalarArgMultipleReferences(CAST(100 * rand() AS INT64));
+--
+QueryStmt
++-output_column_list=
+| +-UnaryScalarArgMultipleReferences.ret0#1 AS ret0 [INT64]
+| +-UnaryScalarArgMultipleReferences.ret1#2 AS ret1 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryScalarArgMultipleReferences.[ret0#1, ret1#2]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=UnaryScalarArgMultipleReferences.[ret0#1, ret1#2]
+        +-tvf=UnaryScalarArgMultipleReferences((INT64 arg0) -> TABLE<ret0 INT64, ret1 INT64>)
+        +-signature=(INT64) -> TABLE<ret0 INT64, ret1 INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Cast(DOUBLE -> INT64)
+        |       +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+        |         +-Literal(type=DOUBLE, value=100)
+        |         +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
+        +-column_index_list=[0, 1]
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryScalarArgMultipleReferences.ret0#1 AS ret0 [INT64]
+| +-UnaryScalarArgMultipleReferences.ret1#2 AS ret1 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=UnaryScalarArgMultipleReferences.[ret0#1, ret1#2]
+    +-input_scan=
+      +-WithScan
+        +-column_list=UnaryScalarArgMultipleReferences.[ret0#1, ret1#2]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="$inlined_UnaryScalarArgMultipleReferences_scalar_args"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=[$inlined_UnaryScalarArgMultipleReferences.arg0#3]
+        |       +-expr_list=
+        |       | +-arg0#3 :=
+        |       |   +-Cast(DOUBLE -> INT64)
+        |       |     +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+        |       |       +-Literal(type=DOUBLE, value=100)
+        |       |       +-FunctionCall(ZetaSQL:rand() -> DOUBLE)
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=UnaryScalarArgMultipleReferences.[ret0#1, ret1#2]
+            +-expr_list=
+            | +-ret0#1 :=
+            | | +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+            | |   +-SubqueryExpr
+            | |   | +-type=INT64
+            | |   | +-subquery_type=SCALAR
+            | |   | +-subquery=
+            | |   |   +-ProjectScan
+            | |   |     +-column_list=[$inlined_UnaryScalarArgMultipleReferences.arg0#4]
+            | |   |     +-input_scan=
+            | |   |       +-WithRefScan(column_list=[$inlined_UnaryScalarArgMultipleReferences.arg0#4], with_query_name="$inlined_UnaryScalarArgMultipleReferences_scalar_args")
+            | |   +-SubqueryExpr
+            | |     +-type=INT64
+            | |     +-subquery_type=SCALAR
+            | |     +-subquery=
+            | |       +-ProjectScan
+            | |         +-column_list=[$inlined_UnaryScalarArgMultipleReferences.arg0#5]
+            | |         +-input_scan=
+            | |           +-WithRefScan(column_list=[$inlined_UnaryScalarArgMultipleReferences.arg0#5], with_query_name="$inlined_UnaryScalarArgMultipleReferences_scalar_args")
+            | +-ret1#2 :=
+            |   +-SubqueryExpr
+            |     +-type=INT64
+            |     +-subquery_type=SCALAR
+            |     +-subquery=
+            |       +-ProjectScan
+            |         +-column_list=[$inlined_UnaryScalarArgMultipleReferences.arg0#6]
+            |         +-input_scan=
+            |           +-WithRefScan(column_list=[$inlined_UnaryScalarArgMultipleReferences.arg0#6], with_query_name="$inlined_UnaryScalarArgMultipleReferences_scalar_args")
+            +-input_scan=
+              +-SingleRowScan
+==
+
+SELECT * FROM BinaryScalarArg(1, 2);
+--
+QueryStmt
++-output_column_list=
+| +-BinaryScalarArg.arg0#1 AS arg0 [INT64]
+| +-BinaryScalarArg.arg1#2 AS arg1 [INT64]
+| +-BinaryScalarArg.ret2#3 AS ret2 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=BinaryScalarArg.[arg0#1, arg1#2, ret2#3]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=BinaryScalarArg.[arg0#1, arg1#2, ret2#3]
+        +-tvf=BinaryScalarArg((INT64 arg0, INT64 arg1) -> TABLE<arg0 INT64, arg1 INT64, ret2 INT64>)
+        +-signature=(literal INT64, literal INT64) -> TABLE<arg0 INT64, arg1 INT64, ret2 INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        | | +-expr=
+        | |   +-Literal(type=INT64, value=1)
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=INT64, value=2)
+        +-column_index_list=[0, 1, 2]
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-BinaryScalarArg.arg0#1 AS arg0 [INT64]
+| +-BinaryScalarArg.arg1#2 AS arg1 [INT64]
+| +-BinaryScalarArg.ret2#3 AS ret2 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=BinaryScalarArg.[arg0#1, arg1#2, ret2#3]
+    +-input_scan=
+      +-WithScan
+        +-column_list=BinaryScalarArg.[arg0#1, arg1#2, ret2#3]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="$inlined_BinaryScalarArg_scalar_args"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=$inlined_BinaryScalarArg.[arg0#4, arg1#5]
+        |       +-expr_list=
+        |       | +-arg0#4 := Literal(type=INT64, value=1)
+        |       | +-arg1#5 := Literal(type=INT64, value=2)
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=BinaryScalarArg.[arg0#1, arg1#2, ret2#3]
+            +-expr_list=
+            | +-arg0#1 :=
+            | | +-SubqueryExpr
+            | |   +-type=INT64
+            | |   +-subquery_type=SCALAR
+            | |   +-subquery=
+            | |     +-ProjectScan
+            | |       +-column_list=[$inlined_BinaryScalarArg.arg0#6]
+            | |       +-input_scan=
+            | |         +-WithRefScan(column_list=$inlined_BinaryScalarArg.[arg0#6, arg1#7], with_query_name="$inlined_BinaryScalarArg_scalar_args")
+            | +-arg1#2 :=
+            | | +-SubqueryExpr
+            | |   +-type=INT64
+            | |   +-subquery_type=SCALAR
+            | |   +-subquery=
+            | |     +-ProjectScan
+            | |       +-column_list=[$inlined_BinaryScalarArg.arg1#9]
+            | |       +-input_scan=
+            | |         +-WithRefScan(column_list=$inlined_BinaryScalarArg.[arg0#8, arg1#9], with_query_name="$inlined_BinaryScalarArg_scalar_args")
+            | +-ret2#3 :=
+            |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+            |     +-SubqueryExpr
+            |     | +-type=INT64
+            |     | +-subquery_type=SCALAR
+            |     | +-subquery=
+            |     |   +-ProjectScan
+            |     |     +-column_list=[$inlined_BinaryScalarArg.arg0#10]
+            |     |     +-input_scan=
+            |     |       +-WithRefScan(column_list=$inlined_BinaryScalarArg.[arg0#10, arg1#11], with_query_name="$inlined_BinaryScalarArg_scalar_args")
+            |     +-SubqueryExpr
+            |       +-type=INT64
+            |       +-subquery_type=SCALAR
+            |       +-subquery=
+            |         +-ProjectScan
+            |           +-column_list=[$inlined_BinaryScalarArg.arg1#13]
+            |           +-input_scan=
+            |             +-WithRefScan(column_list=$inlined_BinaryScalarArg.[arg0#12, arg1#13], with_query_name="$inlined_BinaryScalarArg_scalar_args")
+            +-input_scan=
+              +-SingleRowScan
+==
+
+SELECT * FROM BinaryScalarArg(1, 2) CROSS JOIN BinaryScalarArg(3, 4);
+--
+QueryStmt
++-output_column_list=
+| +-BinaryScalarArg.arg0#1 AS arg0 [INT64]
+| +-BinaryScalarArg.arg1#2 AS arg1 [INT64]
+| +-BinaryScalarArg.ret2#3 AS ret2 [INT64]
+| +-BinaryScalarArg.arg0#4 AS arg0 [INT64]
+| +-BinaryScalarArg.arg1#5 AS arg1 [INT64]
+| +-BinaryScalarArg.ret2#6 AS ret2 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=BinaryScalarArg.[arg0#1, arg1#2, ret2#3, arg0#4, arg1#5, ret2#6]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=BinaryScalarArg.[arg0#1, arg1#2, ret2#3, arg0#4, arg1#5, ret2#6]
+        +-left_scan=
+        | +-TVFScan
+        |   +-column_list=BinaryScalarArg.[arg0#1, arg1#2, ret2#3]
+        |   +-tvf=BinaryScalarArg((INT64 arg0, INT64 arg1) -> TABLE<arg0 INT64, arg1 INT64, ret2 INT64>)
+        |   +-signature=(literal INT64, literal INT64) -> TABLE<arg0 INT64, arg1 INT64, ret2 INT64>
+        |   +-argument_list=
+        |   | +-FunctionArgument
+        |   | | +-expr=
+        |   | |   +-Literal(type=INT64, value=1)
+        |   | +-FunctionArgument
+        |   |   +-expr=
+        |   |     +-Literal(type=INT64, value=2)
+        |   +-column_index_list=[0, 1, 2]
+        +-right_scan=
+          +-TVFScan
+            +-column_list=BinaryScalarArg.[arg0#4, arg1#5, ret2#6]
+            +-tvf=BinaryScalarArg((INT64 arg0, INT64 arg1) -> TABLE<arg0 INT64, arg1 INT64, ret2 INT64>)
+            +-signature=(literal INT64, literal INT64) -> TABLE<arg0 INT64, arg1 INT64, ret2 INT64>
+            +-argument_list=
+            | +-FunctionArgument
+            | | +-expr=
+            | |   +-Literal(type=INT64, value=3)
+            | +-FunctionArgument
+            |   +-expr=
+            |     +-Literal(type=INT64, value=4)
+            +-column_index_list=[0, 1, 2]
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-BinaryScalarArg.arg0#1 AS arg0 [INT64]
+| +-BinaryScalarArg.arg1#2 AS arg1 [INT64]
+| +-BinaryScalarArg.ret2#3 AS ret2 [INT64]
+| +-BinaryScalarArg.arg0#4 AS arg0 [INT64]
+| +-BinaryScalarArg.arg1#5 AS arg1 [INT64]
+| +-BinaryScalarArg.ret2#6 AS ret2 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=BinaryScalarArg.[arg0#1, arg1#2, ret2#3, arg0#4, arg1#5, ret2#6]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=BinaryScalarArg.[arg0#1, arg1#2, ret2#3, arg0#4, arg1#5, ret2#6]
+        +-left_scan=
+        | +-WithScan
+        |   +-column_list=BinaryScalarArg.[arg0#1, arg1#2, ret2#3]
+        |   +-with_entry_list=
+        |   | +-WithEntry
+        |   |   +-with_query_name="$inlined_BinaryScalarArg_scalar_args"
+        |   |   +-with_subquery=
+        |   |     +-ProjectScan
+        |   |       +-column_list=$inlined_BinaryScalarArg.[arg0#7, arg1#8]
+        |   |       +-expr_list=
+        |   |       | +-arg0#7 := Literal(type=INT64, value=1)
+        |   |       | +-arg1#8 := Literal(type=INT64, value=2)
+        |   |       +-input_scan=
+        |   |         +-SingleRowScan
+        |   +-query=
+        |     +-ProjectScan
+        |       +-column_list=BinaryScalarArg.[arg0#1, arg1#2, ret2#3]
+        |       +-expr_list=
+        |       | +-arg0#1 :=
+        |       | | +-SubqueryExpr
+        |       | |   +-type=INT64
+        |       | |   +-subquery_type=SCALAR
+        |       | |   +-subquery=
+        |       | |     +-ProjectScan
+        |       | |       +-column_list=[$inlined_BinaryScalarArg.arg0#9]
+        |       | |       +-input_scan=
+        |       | |         +-WithRefScan(column_list=$inlined_BinaryScalarArg.[arg0#9, arg1#10], with_query_name="$inlined_BinaryScalarArg_scalar_args")
+        |       | +-arg1#2 :=
+        |       | | +-SubqueryExpr
+        |       | |   +-type=INT64
+        |       | |   +-subquery_type=SCALAR
+        |       | |   +-subquery=
+        |       | |     +-ProjectScan
+        |       | |       +-column_list=[$inlined_BinaryScalarArg.arg1#12]
+        |       | |       +-input_scan=
+        |       | |         +-WithRefScan(column_list=$inlined_BinaryScalarArg.[arg0#11, arg1#12], with_query_name="$inlined_BinaryScalarArg_scalar_args")
+        |       | +-ret2#3 :=
+        |       |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+        |       |     +-SubqueryExpr
+        |       |     | +-type=INT64
+        |       |     | +-subquery_type=SCALAR
+        |       |     | +-subquery=
+        |       |     |   +-ProjectScan
+        |       |     |     +-column_list=[$inlined_BinaryScalarArg.arg0#13]
+        |       |     |     +-input_scan=
+        |       |     |       +-WithRefScan(column_list=$inlined_BinaryScalarArg.[arg0#13, arg1#14], with_query_name="$inlined_BinaryScalarArg_scalar_args")
+        |       |     +-SubqueryExpr
+        |       |       +-type=INT64
+        |       |       +-subquery_type=SCALAR
+        |       |       +-subquery=
+        |       |         +-ProjectScan
+        |       |           +-column_list=[$inlined_BinaryScalarArg.arg1#16]
+        |       |           +-input_scan=
+        |       |             +-WithRefScan(column_list=$inlined_BinaryScalarArg.[arg0#15, arg1#16], with_query_name="$inlined_BinaryScalarArg_scalar_args")
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-right_scan=
+          +-WithScan
+            +-column_list=BinaryScalarArg.[arg0#4, arg1#5, ret2#6]
+            +-with_entry_list=
+            | +-WithEntry
+            |   +-with_query_name="$inlined_BinaryScalarArg_scalar_args"
+            |   +-with_subquery=
+            |     +-ProjectScan
+            |       +-column_list=$inlined_BinaryScalarArg.[arg0#17, arg1#18]
+            |       +-expr_list=
+            |       | +-arg0#17 := Literal(type=INT64, value=3)
+            |       | +-arg1#18 := Literal(type=INT64, value=4)
+            |       +-input_scan=
+            |         +-SingleRowScan
+            +-query=
+              +-ProjectScan
+                +-column_list=BinaryScalarArg.[arg0#4, arg1#5, ret2#6]
+                +-expr_list=
+                | +-arg0#4 :=
+                | | +-SubqueryExpr
+                | |   +-type=INT64
+                | |   +-subquery_type=SCALAR
+                | |   +-subquery=
+                | |     +-ProjectScan
+                | |       +-column_list=[$inlined_BinaryScalarArg.arg0#19]
+                | |       +-input_scan=
+                | |         +-WithRefScan(column_list=$inlined_BinaryScalarArg.[arg0#19, arg1#20], with_query_name="$inlined_BinaryScalarArg_scalar_args")
+                | +-arg1#5 :=
+                | | +-SubqueryExpr
+                | |   +-type=INT64
+                | |   +-subquery_type=SCALAR
+                | |   +-subquery=
+                | |     +-ProjectScan
+                | |       +-column_list=[$inlined_BinaryScalarArg.arg1#22]
+                | |       +-input_scan=
+                | |         +-WithRefScan(column_list=$inlined_BinaryScalarArg.[arg0#21, arg1#22], with_query_name="$inlined_BinaryScalarArg_scalar_args")
+                | +-ret2#6 :=
+                |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+                |     +-SubqueryExpr
+                |     | +-type=INT64
+                |     | +-subquery_type=SCALAR
+                |     | +-subquery=
+                |     |   +-ProjectScan
+                |     |     +-column_list=[$inlined_BinaryScalarArg.arg0#23]
+                |     |     +-input_scan=
+                |     |       +-WithRefScan(column_list=$inlined_BinaryScalarArg.[arg0#23, arg1#24], with_query_name="$inlined_BinaryScalarArg_scalar_args")
+                |     +-SubqueryExpr
+                |       +-type=INT64
+                |       +-subquery_type=SCALAR
+                |       +-subquery=
+                |         +-ProjectScan
+                |           +-column_list=[$inlined_BinaryScalarArg.arg1#26]
+                |           +-input_scan=
+                |             +-WithRefScan(column_list=$inlined_BinaryScalarArg.[arg0#25, arg1#26], with_query_name="$inlined_BinaryScalarArg_scalar_args")
+                +-input_scan=
+                  +-SingleRowScan
+==
+
+SELECT * FROM UnaryScalarArgSubqueryReference(1);
+--
+QueryStmt
++-output_column_list=
+| +-UnaryScalarArgSubqueryReference.ret0#1 AS ret0 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryScalarArgSubqueryReference.ret0#1]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[UnaryScalarArgSubqueryReference.ret0#1]
+        +-tvf=UnaryScalarArgSubqueryReference((INT64 arg0) -> TABLE<ret0 INT64>)
+        +-signature=(literal INT64) -> TABLE<ret0 INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=INT64, value=1)
+        +-column_index_list=[0]
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-UnaryScalarArgSubqueryReference.ret0#1 AS ret0 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryScalarArgSubqueryReference.ret0#1]
+    +-input_scan=
+      +-WithScan
+        +-column_list=[UnaryScalarArgSubqueryReference.ret0#1]
+        +-with_entry_list=
+        | +-WithEntry
+        |   +-with_query_name="$inlined_UnaryScalarArgSubqueryReference_scalar_args"
+        |   +-with_subquery=
+        |     +-ProjectScan
+        |       +-column_list=[$inlined_UnaryScalarArgSubqueryReference.arg0#3]
+        |       +-expr_list=
+        |       | +-arg0#3 := Literal(type=INT64, value=1)
+        |       +-input_scan=
+        |         +-SingleRowScan
+        +-query=
+          +-ProjectScan
+            +-column_list=[UnaryScalarArgSubqueryReference.ret0#1]
+            +-expr_list=
+            | +-ret0#1 :=
+            |   +-SubqueryExpr
+            |     +-type=INT64
+            |     +-subquery_type=SCALAR
+            |     +-subquery=
+            |       +-ProjectScan
+            |         +-column_list=[$expr_subquery.arg0#2]
+            |         +-expr_list=
+            |         | +-arg0#2 :=
+            |         |   +-SubqueryExpr
+            |         |     +-type=INT64
+            |         |     +-subquery_type=SCALAR
+            |         |     +-subquery=
+            |         |       +-ProjectScan
+            |         |         +-column_list=[$inlined_UnaryScalarArgSubqueryReference.arg0#4]
+            |         |         +-input_scan=
+            |         |           +-WithRefScan(column_list=[$inlined_UnaryScalarArgSubqueryReference.arg0#4], with_query_name="$inlined_UnaryScalarArgSubqueryReference_scalar_args")
+            |         +-input_scan=
+            |           +-SingleRowScan
+            +-input_scan=
+              +-SingleRowScan
+==
+
+SELECT * FROM UnaryScalarArgSubqueryWithReference(1);
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-UnaryScalarArgSubqueryWithReference.ret0#1 AS ret0 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[UnaryScalarArgSubqueryWithReference.ret0#1]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[UnaryScalarArgSubqueryWithReference.ret0#1]
+        +-tvf=UnaryScalarArgSubqueryWithReference((INT64 arg0) -> TABLE<ret0 INT64>)
+        +-signature=(literal INT64) -> TABLE<ret0 INT64>
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=INT64, value=1)
+        +-column_index_list=[0]
+
+Rewrite ERROR: generic::unimplemented: SQL defined functions that contain argument references inside embedded WITH clauses are not implemented.
+==
+
+SELECT (SELECT * FROM UnaryScalarArg(a)) FROM (SELECT 1 AS a);
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-SubqueryExpr
+    |     +-type=INT64
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT64, column=$subquery1.a#1)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[UnaryScalarArg.arg0#2]
+    |         +-input_scan=
+    |           +-TVFScan
+    |             +-column_list=[UnaryScalarArg.arg0#2]
+    |             +-tvf=UnaryScalarArg((INT64 arg0) -> TABLE<arg0 INT64>)
+    |             +-signature=(INT64) -> TABLE<arg0 INT64>
+    |             +-argument_list=
+    |             | +-FunctionArgument
+    |             |   +-expr=
+    |             |     +-ColumnRef(type=INT64, column=$subquery1.a#1, is_correlated=TRUE)
+    |             +-column_index_list=[0]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$subquery1.a#1]
+        +-expr_list=
+        | +-a#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+
+Rewrite ERROR: generic::unimplemented: Inlining TVF calls with correlated arguments is not supported. Arg #1 ('arg0') references column 'a'.
+==
+
+SELECT * FROM (SELECT 1 AS a) CROSS JOIN UNNEST(ARRAY(SELECT AS STRUCT * FROM UnaryScalarArg(a)));
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$subquery1.a#1 AS a [INT64]
+| +-$query.arg0#5 AS arg0 [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$subquery1.a#1, $query.arg0#5]
+    +-expr_list=
+    | +-arg0#5 :=
+    |   +-GetStructField
+    |     +-type=INT64
+    |     +-expr=
+    |     | +-ColumnRef(type=STRUCT<arg0 INT64>, column=$array.$unnest1#4)
+    |     +-field_idx=0
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[$subquery1.a#1, $array.$unnest1#4]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[$subquery1.a#1]
+        |   +-expr_list=
+        |   | +-a#1 := Literal(type=INT64, value=1)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-array_expr=
+        | +-SubqueryExpr
+        |   +-type=ARRAY<STRUCT<arg0 INT64>>
+        |   +-subquery_type=ARRAY
+        |   +-parameter_list=
+        |   | +-ColumnRef(type=INT64, column=$subquery1.a#1)
+        |   +-subquery=
+        |     +-ProjectScan
+        |       +-column_list=[$make_struct.$struct#3]
+        |       +-expr_list=
+        |       | +-$struct#3 :=
+        |       |   +-MakeStruct
+        |       |     +-type=STRUCT<arg0 INT64>
+        |       |     +-field_list=
+        |       |       +-ColumnRef(type=INT64, column=UnaryScalarArg.arg0#2)
+        |       +-input_scan=
+        |         +-ProjectScan
+        |           +-column_list=[UnaryScalarArg.arg0#2]
+        |           +-input_scan=
+        |             +-TVFScan
+        |               +-column_list=[UnaryScalarArg.arg0#2]
+        |               +-tvf=UnaryScalarArg((INT64 arg0) -> TABLE<arg0 INT64>)
+        |               +-signature=(INT64) -> TABLE<arg0 INT64>
+        |               +-argument_list=
+        |               | +-FunctionArgument
+        |               |   +-expr=
+        |               |     +-ColumnRef(type=INT64, column=$subquery1.a#1, is_correlated=TRUE)
+        |               +-column_index_list=[0]
+        +-element_column=$array.$unnest1#4
+
+Rewrite ERROR: generic::unimplemented: Inlining TVF calls with correlated arguments is not supported. Arg #1 ('arg0') references column 'a'.
 ==
 
 SELECT * FROM UnaryTableArg((SELECT 1 AS a));
@@ -359,4 +1030,4 @@ QueryStmt
         |   +-argument_column_list=[$subquery1.a#1]
         +-column_index_list=[0]
 
-Rewrite ERROR: generic::unimplemented: Inlining TVFs with arguments is not yet supported.
+Rewrite ERROR: generic::unimplemented: Inlining TVFs with table arguments is not yet supported.

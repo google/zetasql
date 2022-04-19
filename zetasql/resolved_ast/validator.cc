@@ -611,7 +611,7 @@ absl::Status Validator::ValidateResolvedAggregateFunctionCall(
           aggregate_function_call->with_group_rows_subquery(),
           subquery_parameters));
     }
-    group_rows_columns = absl::make_unique<std::set<ResolvedColumn>>();
+    group_rows_columns = std::make_unique<std::set<ResolvedColumn>>();
     ZETASQL_RETURN_IF_ERROR(AddColumnList(
         aggregate_function_call->with_group_rows_subquery()->column_list(),
         group_rows_columns.get()));
@@ -2158,8 +2158,9 @@ absl::Status Validator::ValidateResolvedWithScan(
     const std::set<ResolvedColumn>& visible_parameters) {
   PushErrorContext push(this, scan);
 
+  VALIDATOR_RET_CHECK_NE(scan->query(), nullptr);
+
   // The main query can be correlated. The aliased subqueries cannot.
-  VALIDATOR_RET_CHECK(nullptr != scan->query());
   ZETASQL_RETURN_IF_ERROR(ValidateResolvedScan(scan->query(), visible_parameters));
 
   for (const auto& with_entry : scan->with_entry_list()) {
@@ -2180,6 +2181,57 @@ absl::Status Validator::ValidateResolvedWithScan(
       AddColumnList(scan->query()->column_list(), &visible_columns));
   ZETASQL_RETURN_IF_ERROR(CheckColumnList(scan, visible_columns));
 
+  return absl::OkStatus();
+}
+
+absl::Status Validator::ValidateResolvedWithRefScan(
+    const ResolvedWithRefScan* scan) {
+  scan->MarkFieldsAccessed();
+  // Make sure column ids are unique
+  for (const ResolvedColumn& column : scan->column_list()) {
+    ZETASQL_RETURN_IF_ERROR(CheckUniqueColumnId(column));
+  }
+  const std::string& query_name = scan->with_query_name();
+  // Find the subquery by walking up the context stack and peeking at any
+  // ResolvedWithScanNodes we find.
+  const ResolvedWithEntry* with_entry = nullptr;
+  VALIDATOR_RET_CHECK_GT(context_stack_.size(), 1);
+  for (int64_t current_context_idx = context_stack_.size() - 2;
+       current_context_idx >= 0; --current_context_idx) {
+    if (context_stack_[current_context_idx]->Is<ResolvedWithScan>()) {
+      const ResolvedWithScan* with_scan =
+          context_stack_[current_context_idx]->GetAs<ResolvedWithScan>();
+      for (int i = with_scan->with_entry_list_size() - 1; i >= 0; --i) {
+        if (with_scan->with_entry_list(i)->with_query_name() == query_name) {
+          with_entry = with_scan->with_entry_list(i);
+          break;
+        }
+      }
+    }
+  }
+  VALIDATOR_RET_CHECK_NE(with_entry, nullptr)
+      << "Validator failed to find ResolvedWithEntry for query name '"
+      << query_name << "'.";
+
+  VALIDATOR_RET_CHECK_EQ(with_entry->with_subquery()->column_list_size(),
+                         scan->column_list_size())
+      << "ResolvedWithRefScan must scan exactly the columns projected from the "
+      << "with query";
+  absl::flat_hash_set<int> seen_column_ids;
+  for (int i = 0; i < scan->column_list_size(); ++i) {
+    const ResolvedColumn& scan_column = scan->column_list(i);
+    const ResolvedColumn& subquery_column =
+        with_entry->with_subquery()->column_list(i);
+
+    // Ensure that the union all between the enty columns and the scan columns
+    // is distinct.
+    VALIDATOR_RET_CHECK(seen_column_ids.insert(scan_column.column_id()).second)
+        << "ResolvedWithRefScan must rename columns. Found duplicate column "
+        << scan_column.DebugString();
+    VALIDATOR_RET_CHECK(scan_column.type()->Equals(subquery_column.type()))
+        << "Type mismatch between ResolvedWithRefScan and with query for "
+        << "column " << scan_column.DebugString();
+  }
   return absl::OkStatus();
 }
 
@@ -3567,12 +3619,11 @@ absl::Status Validator::ValidateResolvedScan(
   absl::Status scan_subtype_status;
   switch (scan->node_kind()) {
     case RESOLVED_SINGLE_ROW_SCAN:
+      // Single row scan has no fields to validate.
+      break;
     case RESOLVED_WITH_REF_SCAN:
-      scan->MarkFieldsAccessed();
-      // Make sure column ids are unique
-      for (const ResolvedColumn& column : scan->column_list()) {
-        scan_subtype_status.Update(CheckUniqueColumnId(column));
-      }
+      scan_subtype_status =
+          ValidateResolvedWithRefScan(scan->GetAs<ResolvedWithRefScan>());
       break;
     case RESOLVED_TABLE_SCAN:
       scan_subtype_status = ValidateResolvedTableScan(
@@ -3651,8 +3702,8 @@ absl::Status Validator::ValidateResolvedScan(
           scan->GetAs<ResolvedUnpivotScan>(), visible_parameters);
       break;
     case RESOLVED_GROUP_ROWS_SCAN:
-      ZETASQL_RETURN_IF_ERROR(
-          ValidateGroupRowsScan(scan->GetAs<ResolvedGroupRowsScan>()));
+      scan_subtype_status =
+          ValidateGroupRowsScan(scan->GetAs<ResolvedGroupRowsScan>());
       break;
     default:
       return InternalErrorBuilder()
@@ -3708,7 +3759,7 @@ absl::Status Validator::ValidateResolvedRecursiveRefScan(
   VALIDATOR_RET_CHECK(!nested_recursive_scans_.empty())
       << "ResolvedRecursiveRefScan() detected outside a recursive UNION term";
   VALIDATOR_RET_CHECK(!nested_recursive_scans_.back().saw_recursive_ref)
-      << "Recursive scan contains multiple recursive refrences in its "
+      << "Recursive scan contains multiple recursive references in its "
          "recursive term:\n"
       << nested_recursive_scans_.back().scan->DebugString();
   nested_recursive_scans_.back().saw_recursive_ref = true;
@@ -4871,6 +4922,27 @@ absl::Status Validator::ValidateResolvedAlterAction(
       ZETASQL_RETURN_IF_ERROR(ValidateCollateExpr(
           action->GetAs<ResolvedSetCollateClause>()->collation_name()));
       break;
+    case RESOLVED_ALTER_SUB_ENTITY_ACTION: {
+      const auto* alter_sub_entity_action =
+          action->GetAs<ResolvedAlterSubEntityAction>();
+      VALIDATOR_RET_CHECK(!alter_sub_entity_action->entity_type().empty());
+      VALIDATOR_RET_CHECK(!alter_sub_entity_action->name().empty());
+      ZETASQL_RETURN_IF_ERROR(
+          ValidateResolvedAlterAction(alter_sub_entity_action->alter_action()));
+    } break;
+    case RESOLVED_ADD_SUB_ENTITY_ACTION: {
+      const auto* add_sub_entity_action =
+          action->GetAs<ResolvedAddSubEntityAction>();
+      VALIDATOR_RET_CHECK(!add_sub_entity_action->entity_type().empty());
+      VALIDATOR_RET_CHECK(!add_sub_entity_action->name().empty());
+      ZETASQL_RETURN_IF_ERROR(ValidateHintList(add_sub_entity_action->options_list()));
+    } break;
+    case RESOLVED_DROP_SUB_ENTITY_ACTION: {
+      const auto* drop_sub_entity_action =
+          action->GetAs<ResolvedDropSubEntityAction>();
+      VALIDATOR_RET_CHECK(!drop_sub_entity_action->entity_type().empty());
+      VALIDATOR_RET_CHECK(!drop_sub_entity_action->name().empty());
+    } break;
     default:
       return InternalErrorBuilder()
              << "Unhandled node kind: " << action->node_kind_string()

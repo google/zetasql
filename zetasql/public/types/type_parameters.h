@@ -100,19 +100,19 @@ class TypeParameters {
   // parameter is used as placeholder for type without parameters. E.g. in
   // STRUCT<INT64, STRING(10)>, the type parameter for INT64 is empty.
   bool IsEmpty() const {
-    return absl::holds_alternative<absl::monostate>(type_parameters_holder_) &&
+    return std::holds_alternative<std::monostate>(type_parameters_holder_) &&
            child_list().empty();
   }
   bool IsStringTypeParameters() const {
-    return absl::holds_alternative<StringTypeParametersProto>(
+    return std::holds_alternative<StringTypeParametersProto>(
         type_parameters_holder_);
   }
   bool IsNumericTypeParameters() const {
-    return absl::holds_alternative<NumericTypeParametersProto>(
+    return std::holds_alternative<NumericTypeParametersProto>(
         type_parameters_holder_);
   }
   bool IsExtendedTypeParameters() const {
-    return absl::holds_alternative<ExtendedTypeParameters>(
+    return std::holds_alternative<ExtendedTypeParameters>(
         type_parameters_holder_);
   }
   // Returns true if this contains parameters for child types of a complex type
@@ -121,15 +121,15 @@ class TypeParameters {
 
   const StringTypeParametersProto& string_type_parameters() const {
     ZETASQL_CHECK(IsStringTypeParameters()) << "Not STRING type parameters";
-    return absl::get<StringTypeParametersProto>(type_parameters_holder_);
+    return std::get<StringTypeParametersProto>(type_parameters_holder_);
   }
   const NumericTypeParametersProto& numeric_type_parameters() const {
     ZETASQL_CHECK(IsNumericTypeParameters()) << "Not NUMERIC type parameters";
-    return absl::get<NumericTypeParametersProto>(type_parameters_holder_);
+    return std::get<NumericTypeParametersProto>(type_parameters_holder_);
   }
   const ExtendedTypeParameters& extended_type_parameters() const {
     ZETASQL_CHECK(IsExtendedTypeParameters()) << "Not EXTENDED type parameters";
-    return absl::get<ExtendedTypeParameters>(type_parameters_holder_);
+    return std::get<ExtendedTypeParameters>(type_parameters_holder_);
   }
 
   // Returns type parameters for subfields for ARRAY/STRUCT types
@@ -169,10 +169,10 @@ class TypeParameters {
                  std::vector<TypeParameters> child_list);
   explicit TypeParameters(std::vector<TypeParameters> child_list);
 
-  // Default value is the 1st type (absl::monostate), meaning the type parameter
+  // Default value is the 1st type (std::monostate), meaning the type parameter
   // is empty.
-  absl::variant<absl::monostate, StringTypeParametersProto,
-                NumericTypeParametersProto, ExtendedTypeParameters>
+  std::variant<std::monostate, StringTypeParametersProto,
+               NumericTypeParametersProto, ExtendedTypeParameters>
       type_parameters_holder_;
   // Stores type parameters for subfields for ARRAY/STRUCT types
   std::vector<TypeParameters> child_list_;

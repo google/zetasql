@@ -1971,3 +1971,75 @@ FROM (SELECT 1 AS a, 2 AS b, 3 AS c, 4 AS d)
 ERROR: Inserted row has wrong column count; Has 5, expected 4 [at 2:1]
 SELECT DISTINCT a, b, c, d, d
 ^
+==
+
+INSERT UpdateToDefaultTable (writable) VALUES (DEFAULT);
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=[UpdateToDefaultTable.writable#1], table=UpdateToDefaultTable, column_index_list=[0])
++-insert_column_list=[UpdateToDefaultTable.writable#1]
++-row_list=
+  +-InsertRow
+    +-value_list=
+      +-DMLValue
+        +-value=
+          +-DMLDefault(type=INT64)
+==
+
+INSERT UpdateToDefaultTable (readonly) VALUES (1234);
+--
+ERROR: Cannot INSERT value on non-writable column: readonly [at 1:30]
+INSERT UpdateToDefaultTable (readonly) VALUES (1234);
+                             ^
+==
+
+INSERT UpdateToDefaultTable (readonly) VALUES (DEFAULT);
+--
+ERROR: Cannot INSERT value on non-writable column: readonly [at 1:30]
+INSERT UpdateToDefaultTable (readonly) VALUES (DEFAULT);
+                             ^
+==
+
+INSERT UpdateToDefaultTable (readonly_settable_to_default) VALUES (1234);
+--
+ERROR: Cannot INSERT value on non-writable column: readonly_settable_to_default [at 1:30]
+INSERT UpdateToDefaultTable (readonly_settable_to_default) VALUES (1234);
+                             ^
+==
+
+# DEFAULT may be represented as nullptr internally -- make sure it doesn't leak.
+INSERT UpdateToDefaultTable (readonly_settable_to_default) VALUES (NULL);
+--
+ERROR: Cannot INSERT value on non-writable column: readonly_settable_to_default [at 1:30]
+INSERT UpdateToDefaultTable (readonly_settable_to_default) VALUES (NULL);
+                             ^
+==
+
+INSERT UpdateToDefaultTable (readonly_settable_to_default) VALUES (DEFAULT);
+--
+ERROR: Cannot INSERT value on non-writable column: readonly_settable_to_default [at 1:30]
+INSERT UpdateToDefaultTable (readonly_settable_to_default) VALUES (DEFAULT);
+                             ^
+==
+
+INSERT INTO KeyValue@{hint_name=hint_value} (key, value) VALUES (1, "one");
+--
+InsertStmt
++-table_scan=
+| +-TableScan
+|   +-column_list=KeyValue.[Key#1, Value#2]
+|   +-hint_list=
+|   | +-hint_name := Literal(type=STRING, value="hint_value")
+|   +-table=KeyValue
+|   +-column_index_list=[0, 1]
++-insert_column_list=KeyValue.[Key#1, Value#2]
++-row_list=
+  +-InsertRow
+    +-value_list=
+      +-DMLValue
+      | +-value=
+      |   +-Literal(type=INT64, value=1)
+      +-DMLValue
+        +-value=
+          +-Literal(type=STRING, value="one")

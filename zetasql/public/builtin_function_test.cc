@@ -16,6 +16,7 @@
 
 #include "zetasql/public/builtin_function.h"
 
+#include <string>
 #include <utility>
 #include <vector>
 

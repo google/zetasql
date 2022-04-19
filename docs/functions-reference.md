@@ -1,11 +1,12 @@
 
 
-# Function reference
+# Function calls
 
-This page explains ZetaSQL expressions, including functions and
-operators.
+When you call a function, specific rules may apply. You can also add the
+`SAFE.` prefix, which prevents functions from generating some types of errors.
+To learn more, see the next sections.
 
-# Function call rules
+## Function call rules
 
 The following rules apply to all functions unless explicitly indicated otherwise
 in the function description:

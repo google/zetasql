@@ -264,6 +264,34 @@ public class AnalyzerTest {
   }
 
   @Test
+  public void analyzeStatement_unsupportedStatement_throwsSqlException() {
+    AnalyzerOptions analyzerOptions = new AnalyzerOptions();
+    String sql = "create table foo (col string)";
+    assertThrows(
+        SqlException.class,
+        () -> Analyzer.analyzeStatement(sql, analyzerOptions, new SimpleCatalog("")));
+  }
+
+  @Test
+  public void analyzeStatement_supportsAllStatements() {
+    String sql = "create table foo (col string)";
+    AnalyzerOptions analyzerOptions = new AnalyzerOptions();
+    analyzerOptions.getLanguageOptions().setSupportsAllStatementKinds();
+    assertThat(Analyzer.analyzeStatement(sql, analyzerOptions, new SimpleCatalog(""))).isNotNull();
+  }
+
+  @Test
+  public void analyzeStatement_supportsStatementKinds() {
+    String sql = "create table foo (col string)";
+    AnalyzerOptions analyzerOptions = new AnalyzerOptions();
+    analyzerOptions
+        .getLanguageOptions()
+        .setSupportedStatementKinds(ImmutableSet.of(ResolvedNodeKind.RESOLVED_CREATE_TABLE_STMT));
+
+    assertThat(Analyzer.analyzeStatement(sql, analyzerOptions, new SimpleCatalog(""))).isNotNull();
+  }
+
+  @Test
   public void testAnalyzeExpressionWithCatalog() {
     SimpleCatalog catalog = new SimpleCatalog("foo");
     catalog.addZetaSQLFunctions(new ZetaSQLBuiltinFunctionOptions());

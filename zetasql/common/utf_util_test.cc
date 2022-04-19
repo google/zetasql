@@ -17,6 +17,7 @@
 #include "zetasql/common/utf_util.h"
 
 #include <cstdint>
+#include <string>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/compliance/functions_testlib_common.h"

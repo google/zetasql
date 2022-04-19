@@ -33,8 +33,8 @@ namespace zetasql {
 void ZetaSQLTypesTest::SetUp() {
   language_options_.EnableLanguageFeature(
       FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES);
-  coercer_ = absl::make_unique<Coercer>(&type_factory_, absl::UTCTimeZone(),
-                                        &language_options_);
+  coercer_ = std::make_unique<Coercer>(&type_factory_, absl::UTCTimeZone(),
+                                       &language_options_);
 
   enum_value = Value::Enum(GetTestEnumType(), 1);
   enum_null = Value::Null(GetTestEnumType());
@@ -75,62 +75,61 @@ void ZetaSQLTypesTest::SetUp() {
   RESET_ARGS(timestamp, Timestamp);
   RESET_ARGS(geography, types::Geography);
 
-  enum_arg = absl::make_unique<InputArgumentType>(GetTestEnumType(),
-                                                  false /* is_parameter */);
-  enum_parameter_arg = absl::make_unique<InputArgumentType>(
+  enum_arg = std::make_unique<InputArgumentType>(GetTestEnumType(),
+                                                 false /* is_parameter */);
+  enum_parameter_arg = std::make_unique<InputArgumentType>(
       GetTestEnumType(), true /* is_parameter */);
-  enum_literal_arg = absl::make_unique<InputArgumentType>(enum_value);
-  enum_null_arg = absl::make_unique<InputArgumentType>(enum_null);
+  enum_literal_arg = std::make_unique<InputArgumentType>(enum_value);
+  enum_null_arg = std::make_unique<InputArgumentType>(enum_null);
 
-  proto_arg = absl::make_unique<InputArgumentType>(
+  proto_arg = std::make_unique<InputArgumentType>(
       GetKitchenSinkNestedProtoType(), false /* is_parameter */);
-  proto_parameter_arg = absl::make_unique<InputArgumentType>(
+  proto_parameter_arg = std::make_unique<InputArgumentType>(
       GetKitchenSinkNestedProtoType(), true /* is_parameter */);
-  proto_literal_arg = absl::make_unique<InputArgumentType>(proto_value);
-  proto_null_arg = absl::make_unique<InputArgumentType>(proto_null);
+  proto_literal_arg = std::make_unique<InputArgumentType>(proto_value);
+  proto_null_arg = std::make_unique<InputArgumentType>(proto_null);
 
-  array_int32_arg = absl::make_unique<InputArgumentType>(
+  array_int32_arg = std::make_unique<InputArgumentType>(
       GetInt32ArrayType(), false /* is_parameter */);
-  array_int32_parameter_arg = absl::make_unique<InputArgumentType>(
+  array_int32_parameter_arg = std::make_unique<InputArgumentType>(
       GetInt32ArrayType(), true /* is_parameter */);
   array_int32_literal_arg =
-      absl::make_unique<InputArgumentType>(array_int32_value);
-  array_int32_null_arg = absl::make_unique<InputArgumentType>(array_int32_null);
+      std::make_unique<InputArgumentType>(array_int32_value);
+  array_int32_null_arg = std::make_unique<InputArgumentType>(array_int32_null);
 
-  array_int64_arg =
-      absl::make_unique<InputArgumentType>(GetInt64ArrayType(),
-                                           /*is_parameter=*/false);
+  array_int64_arg = std::make_unique<InputArgumentType>(GetInt64ArrayType(),
+                                                        /*is_parameter=*/false);
   array_int64_parameter_arg =
-      absl::make_unique<InputArgumentType>(GetInt64ArrayType(),
-                                           /*is_parameter=*/true);
+      std::make_unique<InputArgumentType>(GetInt64ArrayType(),
+                                          /*is_parameter=*/true);
   array_int64_literal_arg =
-      absl::make_unique<InputArgumentType>(array_int64_value);
-  array_int64_null_arg = absl::make_unique<InputArgumentType>(array_int64_null);
+      std::make_unique<InputArgumentType>(array_int64_value);
+  array_int64_null_arg = std::make_unique<InputArgumentType>(array_int64_null);
 
   array_struct_arg =
-      absl::make_unique<InputArgumentType>(GetStructArrayType(),
-                                           /*is_parameter=*/false);
+      std::make_unique<InputArgumentType>(GetStructArrayType(),
+                                          /*is_parameter=*/false);
   array_struct_parameter_arg =
-      absl::make_unique<InputArgumentType>(GetStructArrayType(),
-                                           /*is_parameter=*/true);
+      std::make_unique<InputArgumentType>(GetStructArrayType(),
+                                          /*is_parameter=*/true);
   array_struct_literal_arg =
-      absl::make_unique<InputArgumentType>(array_struct_value);
+      std::make_unique<InputArgumentType>(array_struct_value);
   array_struct_null_arg =
-      absl::make_unique<InputArgumentType>(array_struct_null);
+      std::make_unique<InputArgumentType>(array_struct_null);
 
   std::vector<InputArgumentType> field_types;
   const StructType* struct_type = GetSimpleStructType();
   for (int i = 0; i < struct_type->num_fields(); ++i) {
     field_types.push_back(InputArgumentType(struct_type->field(i).type));
   }
-  struct_arg = absl::make_unique<InputArgumentType>(struct_type, field_types);
-  struct_parameter_arg = absl::make_unique<InputArgumentType>(
-      struct_type, true /* is_parameter */);
+  struct_arg = std::make_unique<InputArgumentType>(struct_type, field_types);
+  struct_parameter_arg =
+      std::make_unique<InputArgumentType>(struct_type, true /* is_parameter */);
 
-  struct_literal_arg = absl::make_unique<InputArgumentType>(struct_value);
-  struct_null_arg = absl::make_unique<InputArgumentType>(struct_null);
+  struct_literal_arg = std::make_unique<InputArgumentType>(struct_value);
+  struct_null_arg = std::make_unique<InputArgumentType>(struct_null);
 
-  untyped_null_arg_ = absl::make_unique<InputArgumentType>();
+  untyped_null_arg_ = std::make_unique<InputArgumentType>();
 
   zetasql_base::InsertOrDie(&null_of_type_, BOOL.type(), &BOOL_NULL);
   zetasql_base::InsertOrDie(&null_of_type_, INT32.type(), &INT32_NULL);

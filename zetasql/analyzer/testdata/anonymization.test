@@ -464,68 +464,14 @@ QueryStmt
 }
 ==
 
-# support engine defined anon_* functions
+# TODO: support engine defined anon_* functions
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with anonymization anon_test(int64 clamped between 0 and 1)
 from SimpleTypesWithAnonymizationUid;
 --
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#13 AS `$col1` [INT64]
-+-query=
-  +-ProjectScan
-    +-column_list=[$aggregate.$agg1#13]
-    +-input_scan=
-      +-AnonymizedAggregateScan
-        +-column_list=[$aggregate.$agg1#13]
-        +-input_scan=
-        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
-        +-aggregate_list=
-          +-$agg1#13 :=
-            +-AggregateFunctionCall(sample_functions:anon_test(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
-              +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
-              +-Literal(type=INT64, value=0)
-              +-Literal(type=INT64, value=1)
-
-[REWRITTEN AST]
-QueryStmt
-+-output_column_list=
-| +-$aggregate.$agg1#13 AS `$col1` [INT64]
-+-query=
-  +-ProjectScan
-    +-column_list=[$aggregate.$agg1#13]
-    +-input_scan=
-      +-AnonymizedAggregateScan
-        +-column_list=[$aggregate.$agg1#13]
-        +-input_scan=
-        | +-AggregateScan
-        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
-        |   +-input_scan=
-        |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-        |   +-group_by_list=
-        |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
-        |   +-aggregate_list=
-        |     +-$agg1_partial#16 :=
-        |       +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
-        |         +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
-        +-aggregate_list=
-        | +-$agg1#13 :=
-        | | +-AggregateFunctionCall(sample_functions:anon_test(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
-        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
-        | |   +-Literal(type=INT64, value=0)
-        | |   +-Literal(type=INT64, value=1)
-        | +-$k_threshold_col#20 :=
-        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
-        |     +-Literal(type=INT64, value=1)
-        |     +-Literal(type=INT64, value=0)
-        |     +-Literal(type=INT64, value=1)
-        +-k_threshold_expr=
-          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
-
-[TableScan Groups]
-{
-  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
-}
+ERROR: The CLAMPED BETWEEN clause is not allowed in the function call arguments for function ANON_TEST [at 1:27]
+select with anonymization anon_test(int64 clamped between 0 and 1)
+                          ^
 ==
 
 # Tests for anonymization options, which defines a small set of valid option
@@ -6662,6 +6608,115 @@ QueryStmt
 }
 ==
 
+# We can't run the unparser because the rewrite generates ORDER BY in an
+# aggregate function and the appropriate language feature is not enabled.
+[no_run_unparser]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization
+    ANON_QUANTILES(int64, 4 CLAMPED BETWEEN 2 AND 3),
+    ANON_QUANTILES(double, 6 CLAMPED BETWEEN 1 AND 4)
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [ARRAY<DOUBLE>]
+| +-$aggregate.$agg2#14 AS `$col2` [ARRAY<DOUBLE>]
++-query=
+  +-ProjectScan
+    +-column_list=$aggregate.[$agg1#13, $agg2#14]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=$aggregate.[$agg1#13, $agg2#14]
+        +-input_scan=
+        | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, double#9], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 8])
+        +-aggregate_list=
+          +-$agg1#13 :=
+          | +-AggregateFunctionCall(ZetaSQL:anon_quantiles(DOUBLE, INT64, DOUBLE, DOUBLE) -> ARRAY<DOUBLE>)
+          |   +-Cast(INT64 -> DOUBLE)
+          |   | +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+          |   +-Literal(type=INT64, value=4)
+          |   +-Literal(type=DOUBLE, value=2)
+          |   +-Literal(type=DOUBLE, value=3)
+          +-$agg2#14 :=
+            +-AggregateFunctionCall(ZetaSQL:anon_quantiles(DOUBLE, INT64, DOUBLE, DOUBLE) -> ARRAY<DOUBLE>)
+              +-ColumnRef(type=DOUBLE, column=SimpleTypesWithAnonymizationUid.double#9)
+              +-Literal(type=INT64, value=6)
+              +-Literal(type=DOUBLE, value=1)
+              +-Literal(type=DOUBLE, value=4)
+
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [ARRAY<DOUBLE>]
+| +-$aggregate.$agg2#14 AS `$col2` [ARRAY<DOUBLE>]
++-query=
+  +-ProjectScan
+    +-column_list=$aggregate.[$agg1#13, $agg2#14]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=$aggregate.[$agg1#13, $agg2#14]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#18, $aggregate.$agg2_partial#20, $group_by.$uid#21]
+        |   +-input_scan=
+        |   | +-ProjectScan
+        |   |   +-column_list=[SimpleTypesWithAnonymizationUid.int64#2, SimpleTypesWithAnonymizationUid.double#9, SimpleTypesWithAnonymizationUid.uid#15, $orderby.$orderbycol1#17]
+        |   |   +-expr_list=
+        |   |   | +-$orderbycol1#17 := FunctionCall(ZetaSQL:rand() -> DOUBLE)
+        |   |   +-input_scan=
+        |   |     +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, double#9, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 8, 10])
+        |   +-group_by_list=
+        |   | +-$uid#21 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#15)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#18 :=
+        |     | +-AggregateFunctionCall(ZetaSQL:array_agg(DOUBLE) -> ARRAY<DOUBLE>)
+        |     |   +-Cast(INT64 -> DOUBLE)
+        |     |     +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        |     |   +-null_handling_modifier=IGNORE_NULLS
+        |     |   +-order_by_item_list=
+        |     |   | +-OrderByItem
+        |     |   |   +-column_ref=
+        |     |   |     +-ColumnRef(type=DOUBLE, column=$orderby.$orderbycol1#17)
+        |     |   +-limit=
+        |     |     +-Literal(type=INT64, value=5)
+        |     +-$agg2_partial#20 :=
+        |       +-AggregateFunctionCall(ZetaSQL:array_agg(DOUBLE) -> ARRAY<DOUBLE>)
+        |         +-ColumnRef(type=DOUBLE, column=SimpleTypesWithAnonymizationUid.double#9)
+        |         +-null_handling_modifier=IGNORE_NULLS
+        |         +-order_by_item_list=
+        |         | +-OrderByItem
+        |         |   +-column_ref=
+        |         |     +-ColumnRef(type=DOUBLE, column=$orderby.$orderbycol1#17)
+        |         +-limit=
+        |           +-Literal(type=INT64, value=5)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_quantiles(ARRAY<DOUBLE>, INT64, DOUBLE, DOUBLE) -> ARRAY<DOUBLE>)
+        | |   +-ColumnRef(type=ARRAY<DOUBLE>, column=$aggregate.$agg1_partial#18)
+        | |   +-Literal(type=INT64, value=4)
+        | |   +-Literal(type=DOUBLE, value=2)
+        | |   +-Literal(type=DOUBLE, value=3)
+        | +-$agg2#14 :=
+        | | +-AggregateFunctionCall(ZetaSQL:anon_quantiles(ARRAY<DOUBLE>, INT64, DOUBLE, DOUBLE) -> ARRAY<DOUBLE>)
+        | |   +-ColumnRef(type=ARRAY<DOUBLE>, column=$aggregate.$agg2_partial#20)
+        | |   +-Literal(type=INT64, value=6)
+        | |   +-Literal(type=DOUBLE, value=1)
+        | |   +-Literal(type=DOUBLE, value=4)
+        | +-$k_threshold_col#25 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#25)
+
+[TableScan Groups]
+{
+  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, double#9, uid#15], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 8, 10])
+}
+==
+
 [language_features=ANONYMIZATION,NUMERIC_TYPE,GROUP_BY_ROLLUP]
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 SELECT WITH ANONYMIZATION int64, double, ANON_SUM(int32)
@@ -6671,3 +6726,822 @@ SELECT WITH ANONYMIZATION int64, double, ANON_SUM(int32)
 ERROR: GROUP BY ROLLUP is not supported in anonymization queries [at 3:14]
     GROUP BY ROLLUP(int64, double);
              ^
+==
+
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization anon_avg(* with report)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: generic::unimplemented: WITH REPORT is not supported yet for function ANON_AVG [at 1:38]
+select with anonymization anon_avg(* with report)
+                                     ^
+==
+
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization anon_count(* with report)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: The anon function report format must be specified in the function call in the WITH REPORT clause [at 1:27]
+select with anonymization anon_count(* with report)
+                          ^
+==
+
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization anon_sum(* clampED Between 10 and 100 with report(forMAT=PRoto))
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Argument * can only be used in COUNT(*) or ANON_COUNT(*) [at 1:36]
+select with anonymization anon_sum(* clampED Between 10 and 100 with report(f...
+                                   ^
+==
+
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization anon_sum(* clampED Between 10 and 100)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Argument * can only be used in COUNT(*) or ANON_COUNT(*) [at 1:36]
+select with anonymization anon_sum(* clampED Between 10 and 100)
+                                   ^
+==
+
+# TODO: create a custom error message for this case. The problem is
+# the clamped between clause, and for count(*) both of the bounds must be
+# integers, but in this case we have one that is a string. The first part of the
+# error message is a bit unintuitive, though the 'supported signature' part is
+# very helpful.
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization anon_count(* clampED Between 10 and "100" with report(forMAT=PRoto))
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: No matching signature for aggregate operator ANON_COUNT(*) for argument types: INT64, STRING. Supported signature: ANON_COUNT(* [CLAMPED BETWEEN INT64 AND INT64] WITH REPORT(FORMAT=PROTO)) [at 1:27]
+select with anonymization anon_count(* clampED Between 10 and "100" with repo...
+                          ^
+==
+
+[language_features=ANONYMIZATION,JSON_TYPE]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization anon_count(* clampED Between bool and 100 with report(forMAT=JSon))
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: No matching signature for aggregate operator ANON_COUNT(*) for argument types: BOOL, INT64. Supported signature: ANON_COUNT(* [CLAMPED BETWEEN INT64 AND INT64] WITH REPORT(FORMAT=JSON)) [at 1:27]
+select with anonymization anon_count(* clampED Between bool and 100 with repo...
+                          ^
+==
+
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select count(* with report)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: WITH REPORT is not allowed for function COUNT [at 1:8]
+select count(* with report)
+       ^
+==
+
+[language_features=ANONYMIZATION,JSON_TYPE]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization anon_sum(int64 with report)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: The anon function report format must be specified in the function call in the WITH REPORT clause [at 1:27]
+select with anonymization anon_sum(int64 with report)
+                          ^
+==
+
+[language_features=ANONYMIZATION,JSON_TYPE]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization anon_count(int64 with report(wrong_option=json))
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Unknown option: wrong_option [at 1:56]
+select with anonymization anon_count(int64 with report(wrong_option=json))
+                                                       ^
+==
+
+[language_features=ANONYMIZATION]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization anon_sum(int64 with report(FOrmAT=PROto))
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.AnonOutputWithReport>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
+        +-aggregate_list=
+          +-$agg1#13 :=
+            +-AggregateFunctionCall(ZetaSQL:$anon_sum_with_report_proto(INT64, optional(0) INT64, optional(0) INT64) -> PROTO<zetasql.AnonOutputWithReport>)
+              +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.AnonOutputWithReport>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
+        |   +-group_by_list=
+        |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#16 :=
+        |       +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |         +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:$anon_sum_with_report_proto(INT64, optional(0) INT64, optional(0) INT64) -> PROTO<zetasql.AnonOutputWithReport>)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        | +-$k_threshold_col#20 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
+
+[TableScan Groups]
+{
+  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
+}
+==
+
+[language_features=ANONYMIZATION,JSON_TYPE]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization anon_sum(int64 with report(format=jSon))
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
+        +-aggregate_list=
+          +-$agg1#13 :=
+            +-AggregateFunctionCall(ZetaSQL:$anon_sum_with_report_json(INT64, optional(0) INT64, optional(0) INT64) -> JSON)
+              +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
+        |   +-group_by_list=
+        |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#16 :=
+        |       +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |         +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:$anon_sum_with_report_json(INT64, optional(0) INT64, optional(0) INT64) -> JSON)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        | +-$k_threshold_col#20 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
+
+[TableScan Groups]
+{
+  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
+}
+==
+
+[language_features=ANONYMIZATION,JSON_TYPE]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization anon_sum(int64 clamped between 0 and 10 with report(foRMat=jSoN))
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
+        +-aggregate_list=
+          +-$agg1#13 :=
+            +-AggregateFunctionCall(ZetaSQL:$anon_sum_with_report_json(INT64, optional(1) INT64, optional(1) INT64) -> JSON)
+              +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+              +-Literal(type=INT64, value=0)
+              +-Literal(type=INT64, value=10)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
+        |   +-group_by_list=
+        |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#16 :=
+        |       +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |         +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:$anon_sum_with_report_json(INT64, optional(1) INT64, optional(1) INT64) -> JSON)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        | |   +-Literal(type=INT64, value=0)
+        | |   +-Literal(type=INT64, value=10)
+        | +-$k_threshold_col#20 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
+
+[TableScan Groups]
+{
+  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
+}
+==
+
+[language_features=ANONYMIZATION]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization anon_sum(double clamped between 0 and 10 with report(foRMat=ProTO))
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.AnonOutputWithReport>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.double#9], table=SimpleTypesWithAnonymizationUid, column_index_list=[8])
+        +-aggregate_list=
+          +-$agg1#13 :=
+            +-AggregateFunctionCall(ZetaSQL:$anon_sum_with_report_proto(DOUBLE, optional(1) DOUBLE, optional(1) DOUBLE) -> PROTO<zetasql.AnonOutputWithReport>)
+              +-ColumnRef(type=DOUBLE, column=SimpleTypesWithAnonymizationUid.double#9)
+              +-Literal(type=DOUBLE, value=0)
+              +-Literal(type=DOUBLE, value=10)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.AnonOutputWithReport>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[double#9, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[8, 10])
+        |   +-group_by_list=
+        |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#16 :=
+        |       +-AggregateFunctionCall(ZetaSQL:sum(DOUBLE) -> DOUBLE)
+        |         +-ColumnRef(type=DOUBLE, column=SimpleTypesWithAnonymizationUid.double#9)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:$anon_sum_with_report_proto(DOUBLE, optional(1) DOUBLE, optional(1) DOUBLE) -> PROTO<zetasql.AnonOutputWithReport>)
+        | |   +-ColumnRef(type=DOUBLE, column=$aggregate.$agg1_partial#16)
+        | |   +-Literal(type=DOUBLE, value=0)
+        | |   +-Literal(type=DOUBLE, value=10)
+        | +-$k_threshold_col#20 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
+
+[TableScan Groups]
+{
+  TableScan(column_list=SimpleTypesWithAnonymizationUid.[double#9, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[8, 10])
+}
+==
+
+[language_features=ANONYMIZATION]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization anon_count(int64 with report(FOrmAT=PROto))
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.AnonOutputWithReport>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
+        +-aggregate_list=
+          +-$agg1#13 :=
+            +-AggregateFunctionCall(ZetaSQL:$anon_count_with_report_proto(INT64, optional(0) INT64, optional(0) INT64) -> PROTO<zetasql.AnonOutputWithReport>)
+              +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.AnonOutputWithReport>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
+        |   +-group_by_list=
+        |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#16 :=
+        |       +-AggregateFunctionCall(ZetaSQL:count(INT64) -> INT64)
+        |         +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:$anon_sum_with_report_proto(INT64, optional(0) INT64, optional(0) INT64) -> PROTO<zetasql.AnonOutputWithReport>)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        | +-$k_threshold_col#20 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
+
+[TableScan Groups]
+{
+  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
+}
+==
+
+[language_features=ANONYMIZATION,JSON_TYPE]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization anon_count(int64 with report(format=jSon))
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
+        +-aggregate_list=
+          +-$agg1#13 :=
+            +-AggregateFunctionCall(ZetaSQL:$anon_count_with_report_json(INT64, optional(0) INT64, optional(0) INT64) -> JSON)
+              +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
+        |   +-group_by_list=
+        |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#16 :=
+        |       +-AggregateFunctionCall(ZetaSQL:count(INT64) -> INT64)
+        |         +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:$anon_sum_with_report_json(INT64, optional(0) INT64, optional(0) INT64) -> JSON)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        | +-$k_threshold_col#20 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
+
+[TableScan Groups]
+{
+  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
+}
+==
+
+[language_features=ANONYMIZATION,JSON_TYPE]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization anon_count(int64 clamped between 0 and 10 with report(foRMat=jSoN))
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
+        +-aggregate_list=
+          +-$agg1#13 :=
+            +-AggregateFunctionCall(ZetaSQL:$anon_count_with_report_json(INT64, optional(1) INT64, optional(1) INT64) -> JSON)
+              +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+              +-Literal(type=INT64, value=0)
+              +-Literal(type=INT64, value=10)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
+        |   +-group_by_list=
+        |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#16 :=
+        |       +-AggregateFunctionCall(ZetaSQL:count(INT64) -> INT64)
+        |         +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:$anon_sum_with_report_json(INT64, optional(1) INT64, optional(1) INT64) -> JSON)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        | |   +-Literal(type=INT64, value=0)
+        | |   +-Literal(type=INT64, value=10)
+        | +-$k_threshold_col#20 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
+
+[TableScan Groups]
+{
+  TableScan(column_list=SimpleTypesWithAnonymizationUid.[int64#2, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[1, 10])
+}
+==
+
+[language_features=ANONYMIZATION]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization anon_count(double clamped between 0 and 10 with report(foRMat=ProTO))
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.AnonOutputWithReport>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.double#9], table=SimpleTypesWithAnonymizationUid, column_index_list=[8])
+        +-aggregate_list=
+          +-$agg1#13 :=
+            +-AggregateFunctionCall(ZetaSQL:$anon_count_with_report_proto(DOUBLE, optional(1) INT64, optional(1) INT64) -> PROTO<zetasql.AnonOutputWithReport>)
+              +-ColumnRef(type=DOUBLE, column=SimpleTypesWithAnonymizationUid.double#9)
+              +-Literal(type=INT64, value=0)
+              +-Literal(type=INT64, value=10)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.AnonOutputWithReport>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=SimpleTypesWithAnonymizationUid.[double#9, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[8, 10])
+        |   +-group_by_list=
+        |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#16 :=
+        |       +-AggregateFunctionCall(ZetaSQL:count(DOUBLE) -> INT64)
+        |         +-ColumnRef(type=DOUBLE, column=SimpleTypesWithAnonymizationUid.double#9)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:$anon_sum_with_report_proto(INT64, optional(1) INT64, optional(1) INT64) -> PROTO<zetasql.AnonOutputWithReport>)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        | |   +-Literal(type=INT64, value=0)
+        | |   +-Literal(type=INT64, value=10)
+        | +-$k_threshold_col#20 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
+
+[TableScan Groups]
+{
+  TableScan(column_list=SimpleTypesWithAnonymizationUid.[double#9, uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[8, 10])
+}
+==
+
+[language_features=ANONYMIZATION]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization anon_count(* with report(FOrmAT=PROto))
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.AnonOutputWithReport>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        +-aggregate_list=
+          +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$anon_count_star_with_report_proto(optional(0) INT64, optional(0) INT64) -> PROTO<zetasql.AnonOutputWithReport>)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.AnonOutputWithReport>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        |   +-group_by_list=
+        |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#16 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:$anon_sum_with_report_proto(INT64, optional(0) INT64, optional(0) INT64) -> PROTO<zetasql.AnonOutputWithReport>)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        | +-$k_threshold_col#20 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
+
+[TableScan Groups]
+{
+  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+}
+==
+
+[language_features=ANONYMIZATION,JSON_TYPE]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization anon_count(* with report(format=jSon))
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        +-aggregate_list=
+          +-$agg1#13 := AggregateFunctionCall(ZetaSQL:$anon_count_star_with_report_json(optional(0) INT64, optional(0) INT64) -> JSON)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        |   +-group_by_list=
+        |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#16 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:$anon_sum_with_report_json(INT64, optional(0) INT64, optional(0) INT64) -> JSON)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        | +-$k_threshold_col#20 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
+
+[TableScan Groups]
+{
+  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+}
+==
+
+[language_features=ANONYMIZATION,JSON_TYPE]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization anon_count(* clamped between 0 and 10 with report(foRMat=jSoN))
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        +-aggregate_list=
+          +-$agg1#13 :=
+            +-AggregateFunctionCall(ZetaSQL:$anon_count_star_with_report_json(optional(1) INT64, optional(1) INT64) -> JSON)
+              +-Literal(type=INT64, value=0)
+              +-Literal(type=INT64, value=10)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        |   +-group_by_list=
+        |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#16 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:$anon_sum_with_report_json(INT64, optional(1) INT64, optional(1) INT64) -> JSON)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        | |   +-Literal(type=INT64, value=0)
+        | |   +-Literal(type=INT64, value=10)
+        | +-$k_threshold_col#20 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
+
+[TableScan Groups]
+{
+  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+}
+==
+
+[language_features=ANONYMIZATION]
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+select with anonymization anon_count(* clamped between 0 and 10 with report(foRMat=ProTO))
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.AnonOutputWithReport>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        +-aggregate_list=
+          +-$agg1#13 :=
+            +-AggregateFunctionCall(ZetaSQL:$anon_count_star_with_report_proto(optional(1) INT64, optional(1) INT64) -> PROTO<zetasql.AnonOutputWithReport>)
+              +-Literal(type=INT64, value=0)
+              +-Literal(type=INT64, value=10)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [PROTO<zetasql.AnonOutputWithReport>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#16, $group_by.$uid#17]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+        |   +-group_by_list=
+        |   | +-$uid#17 := ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.uid#14)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#16 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+        +-aggregate_list=
+        | +-$agg1#13 :=
+        | | +-AggregateFunctionCall(ZetaSQL:$anon_sum_with_report_proto(INT64, optional(1) INT64, optional(1) INT64) -> PROTO<zetasql.AnonOutputWithReport>)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#16)
+        | |   +-Literal(type=INT64, value=0)
+        | |   +-Literal(type=INT64, value=10)
+        | +-$k_threshold_col#20 :=
+        |   +-AggregateFunctionCall(ZetaSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#20)
+
+[TableScan Groups]
+{
+  TableScan(column_list=[SimpleTypesWithAnonymizationUid.uid#14], table=SimpleTypesWithAnonymizationUid, column_index_list=[10])
+}

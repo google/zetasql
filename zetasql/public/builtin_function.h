@@ -20,6 +20,7 @@
 #include <stddef.h>
 
 #include <map>
+#include <memory>
 #include <string>
 
 #include "zetasql/proto/options.pb.h"

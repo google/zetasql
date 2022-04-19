@@ -373,14 +373,12 @@ struct TVFSchemaColumn {
   // they are populated if and only if this TVF definition comes from a
   // CREATE TABLE FUNCTION statement and record_parse_locations is true in
   // AnalyzerOptions.
-  absl::optional<ParseLocationRange> name_parse_location_range;
-  absl::optional<ParseLocationRange> type_parse_location_range;
+  std::optional<ParseLocationRange> name_parse_location_range;
+  std::optional<ParseLocationRange> type_parse_location_range;
 };
 
 // To support ZETASQL_RET_CHECK_EQ.
 bool operator==(const TVFSchemaColumn& a, const TVFSchemaColumn& b);
-inline std::ostream& operator<<(std::ostream& out,
-                                const TVFSchemaColumn& column);
 
 // This represents a relation passed as an input argument to a TVF, or returned
 // from a TVF. It either contains a list of columns, where each column contains
@@ -474,7 +472,6 @@ class TVFModelArgument {
   explicit TVFModelArgument(const Model* model) : model_(model) {}
 
   const Model* model() const { return model_; }
-  std::string GetSQLDeclaration(ProductMode product_mode) const;
   std::string DebugString() const;
 
   // TODO: Implement serialize and deserialize.
@@ -493,7 +490,6 @@ class TVFConnectionArgument {
       : connection_(connection) {}
 
   const Connection* connection() const { return connection_; }
-  std::string GetSQLDeclaration(ProductMode product_mode) const;
   std::string DebugString() const;
 
  private:
@@ -627,7 +623,7 @@ class TVFInputArgumentType {
   // Defines whether this is a relation, scalar argument or a model.
   const TVFInputArgumentTypeKind kind_;
 
-  // TODO: Refactor and use absl::optional instead of having multiple
+  // TODO: Refactor and use std::optional instead of having multiple
   // member variables.
   // Only one of the following is defined, based on kind_.
   const TVFRelation relation_ = TVFRelation({});

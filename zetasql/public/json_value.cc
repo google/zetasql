@@ -64,7 +64,7 @@ class JSONValueBuilder {
   // 'max_nesting' has a value, then the parser will return an error when the
   // JSON document exceeds the max level of nesting. If 'max_nesting' is
   // negative, 0 will be set instead.
-  explicit JSONValueBuilder(JSON& value, absl::optional<int> max_nesting)
+  explicit JSONValueBuilder(JSON& value, std::optional<int> max_nesting)
       : value_(value), max_nesting_(max_nesting) {
     if (max_nesting_.has_value() && *max_nesting_ < 0) {
       max_nesting_ = 0;
@@ -210,7 +210,7 @@ class JSONValueBuilder {
   // The parsed JSON value.
   JSON& value_;
   // Max nesting allowed.
-  absl::optional<int> max_nesting_;
+  std::optional<int> max_nesting_;
   // Stack to model hierarchy of values.
   std::vector<JSON*> ref_stack_;
   // Helper to hold the reference for the next object element.
@@ -248,7 +248,7 @@ class JSONValueLegacyParser : public ::zetasql::JSONParser,
                               public JSONValueParserBase {
  public:
   JSONValueLegacyParser(absl::string_view str, JSON& value,
-                        absl::optional<int> max_nesting)
+                        std::optional<int> max_nesting)
       : zetasql::JSONParser(str), value_builder_(value, max_nesting) {}
 
  protected:
@@ -306,7 +306,7 @@ class JSONValueLegacyParser : public ::zetasql::JSONParser,
 class JSONValueStandardParser : public JSONValueParserBase {
  public:
   JSONValueStandardParser(JSON& value, bool strict_number_parsing,
-                          absl::optional<int> max_nesting)
+                          std::optional<int> max_nesting)
       : value_builder_(value, max_nesting),
         strict_number_parsing_(strict_number_parsing) {}
   JSONValueStandardParser() = delete;
@@ -379,7 +379,108 @@ class JSONValueStandardParser : public JSONValueParserBase {
   const bool strict_number_parsing_;
 };
 
+// The parser implementation that uses nlohmann library implementation based on
+// the JSON RFC. This parser only checks some general properties and is used for
+// validation.
+//
+// NOTE: Method names are specific requirement of nlohmann SAX parser interface.
+class JSONValueStandardValidator : public JSONValueParserBase {
+ public:
+  JSONValueStandardValidator(bool strict_number_parsing,
+                             std::optional<int> max_nesting)
+      : strict_number_parsing_(strict_number_parsing),
+        max_nesting_(max_nesting) {
+    if (max_nesting_.has_value() && *max_nesting_ < 0) {
+      max_nesting_ = 0;
+    }
+  }
+
+  JSONValueStandardValidator() = delete;
+
+  bool null() { return true; }
+  bool boolean(bool val) { return true; }
+  bool number_integer(std::int64_t val) { return true; }
+  bool number_unsigned(std::uint64_t val) { return true; }
+  bool number_float(double val, const std::string& input_str) {
+    if (strict_number_parsing_) {
+      auto status = internal::CheckNumberRoundtrip(input_str, val);
+      if (!status.ok()) {
+        return MaybeUpdateStatus(status);
+      }
+    }
+    return true;
+  }
+  bool string(std::string& val) { return true; }
+  bool binary(std::vector<std::uint8_t>& val) {
+    // TODO: Implement the binary value type.
+    return MaybeUpdateStatus(absl::UnimplementedError(
+        "Binary JSON subtypes have not been implemented"));
+  }
+  bool start_object(std::size_t /*unused*/) {
+    if (max_nesting_.has_value() && current_nesting_ >= *max_nesting_) {
+      return MaybeUpdateStatus(absl::InvalidArgumentError(
+          absl::StrCat("Max nesting of ", *max_nesting_,
+                       " has been exceeded while parsing JSON document")));
+    }
+    ++current_nesting_;
+    return true;
+  }
+
+  bool key(std::string& val) { return true; }
+  bool end_object() {
+    --current_nesting_;
+    return true;
+  }
+
+  bool start_array(std::size_t /*unused*/) {
+    if (max_nesting_.has_value() && current_nesting_ >= *max_nesting_) {
+      return MaybeUpdateStatus(absl::InvalidArgumentError(
+          absl::StrCat("Max nesting of ", *max_nesting_,
+                       " has been exceeded while parsing JSON document")));
+    }
+    ++current_nesting_;
+    return true;
+  }
+
+  bool end_array() {
+    --current_nesting_;
+    return true;
+  }
+
+  bool parse_error(std::size_t /*unused*/, const std::string& /*unused*/,
+                   const nlohmann::detail::exception& ex) {
+    absl::string_view error = ex.what();
+    // Strip the error code specific to the nlohmann JSON library.
+    std::vector<absl::string_view> v = absl::StrSplit(error, "] ");
+    if (v.size() > 1) {
+      error = v[1];
+    }
+    return MaybeUpdateStatus(absl::InvalidArgumentError(error));
+  }
+
+  bool is_errored() const { return !status().ok(); }
+
+ private:
+  const bool strict_number_parsing_;
+  std::optional<int> max_nesting_;
+  int current_nesting_ = 0;
+};
+
 }  // namespace
+
+absl::Status IsValidJSON(absl::string_view str,
+                         const JSONParsingOptions& parsing_options) {
+  if (parsing_options.legacy_mode) {
+    // TODO: This is inefficient as it builds a JSONValue. Build a
+    // more efficient version.
+    return JSONValue::ParseJSONString(str, parsing_options).status();
+  } else {
+    JSONValueStandardValidator validator(parsing_options.strict_number_parsing,
+                                         parsing_options.max_nesting);
+    JSON::sax_parse(str, &validator);
+    return validator.status();
+  }
+}
 
 // NOTE: DO NOT CHANGE THIS STRUCT. The JSONValueRef code assumes that
 // JSONValue::Impl* can be casted to nlohmann::JSON*.
@@ -415,7 +516,7 @@ StatusOr<JSONValue> JSONValue::ParseJSONString(
 }
 
 StatusOr<JSONValue> JSONValue::DeserializeFromProtoBytes(
-    absl::string_view str, absl::optional<int> max_nesting_level) {
+    absl::string_view str, std::optional<int> max_nesting_level) {
   JSONValue json;
   JSONValueStandardParser parser(json.impl_->value,
                                  /*strict_number_parsing=*/false,
@@ -519,11 +620,11 @@ JSONValueConstRef JSONValueConstRef::GetMember(absl::string_view key) const {
       &impl_->value[std::string(key)]));
 }
 
-absl::optional<JSONValueConstRef> JSONValueConstRef::GetMemberIfExists(
+std::optional<JSONValueConstRef> JSONValueConstRef::GetMemberIfExists(
     absl::string_view key) const {
   auto iter = impl_->value.find(key);
   if (iter == impl_->value.end()) {
-    return absl::nullopt;
+    return std::nullopt;
   }
   return JSONValueConstRef(
       reinterpret_cast<const JSONValue::Impl*>(&iter.value()));

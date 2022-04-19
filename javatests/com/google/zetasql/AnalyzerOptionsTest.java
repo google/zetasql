@@ -356,7 +356,7 @@ public class AnalyzerOptionsTest {
             "The number of fields of AnalyzerOptionsProto has changed, please also update the "
                 + "serialization code accordingly.")
         .that(AnalyzerOptionsProto.getDescriptor().getFields())
-        .hasSize(20);
+        .hasSize(21);
     assertWithMessage(
             "The number of fields in AnalyzerOptions class has changed, please also update the "
                 + "proto and serialization code accordingly.")

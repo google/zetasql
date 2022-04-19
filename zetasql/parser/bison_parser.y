@@ -129,9 +129,10 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
   PathParts&& release_path_parts() {
     return std::move(path_parts_);
   }
-  void InitFields() final {
+  absl::Status InitFields() final {
     {
       FieldLoader fl(this);  // Triggers check that there were no children.
+      return fl.Finalize();
     }
   }
 
@@ -820,6 +821,7 @@ using zetasql::ASTDropStatement;
 %token KW_WHERE "WHERE"
 %token KW_WINDOW "WINDOW"
 %token KW_WITH "WITH"
+%token KW_WITH_STARTING_WITH_EXPRESSION "WITH starting with expression"
 %token KW_UNNEST "UNNEST"
 
 // These keywords may not be used in the grammar currently but are reserved
@@ -961,6 +963,7 @@ using zetasql::ASTDropStatement;
 %token KW_REPEATABLE "REPEATABLE"
 %token KW_REPLACE "REPLACE"
 %token KW_REPLACE_FIELDS "REPLACE_FIELDS"
+%token KW_REPORT "REPORT"
 %token KW_RESTRICT "RESTRICT"
 %token KW_RESTRICTION "RESTRICTION"
 %token KW_RETURN "RETURN"
@@ -1088,6 +1091,7 @@ using zetasql::ASTDropStatement;
 %type <node> export_model_statement
 %type <expression> expression
 %type <node> generic_entity_type
+%type <node> generic_sub_entity_type
 %type <node> grant_to_clause
 %type <node> restrict_to_clause
 %type <node> opt_restrict_to_clause
@@ -1143,6 +1147,7 @@ using zetasql::ASTDropStatement;
 %type <node> opt_execute_using_clause
 %type <node> execute_using_argument
 %type <node> execute_using_argument_list
+%type <expression> expression_or_proto
 %type <node> opt_elseif_clauses
 %type <node> begin_end_block
 %type <node> unlabeled_begin_end_block
@@ -1232,6 +1237,7 @@ using zetasql::ASTDropStatement;
 %type <node> opt_clone_table
 %type <node> opt_copy_table
 %type <node> opt_cluster_by_clause_no_hint
+%type <node> opt_with_report_modifier
 %type <node> collate_clause
 %type <node> opt_collate_clause
 %type <node> opt_default_collate_clause
@@ -1289,6 +1295,7 @@ using zetasql::ASTDropStatement;
 %type <sql_security> sql_security_clause_kind
 %type <node> opt_table_and_column_info_list
 %type <node> opt_over_clause
+%type <node> opt_with_report_format
 %type <node> pivot_value
 %type <node> unpivot_in_item
 %type <node> pivot_value_list
@@ -1378,6 +1385,9 @@ using zetasql::ASTDropStatement;
 %type <node> select_column
 %type <node> select_list
 %type <node> select_list_prefix
+%type <node> with_expression_variable
+%type <node> with_expression_variable_prefix
+%type <expression> with_expression
 %type <node> show_statement
 %type <identifier> show_target
 %type <node> simple_column_schema_inner
@@ -1813,6 +1823,25 @@ alter_action:
       {
         $$ = MAKE_NODE(ASTSetCollateClause, @$, {$3});
       }
+    | "ALTER" generic_sub_entity_type opt_if_exists identifier alter_action
+      {
+        auto* node = MAKE_NODE(ASTAlterSubEntityAction, @$, {$2, $4, $5});
+        node->set_is_if_exists($3);
+        $$ = node;
+      }
+    | "ADD" generic_sub_entity_type opt_if_not_exists identifier
+      opt_options_list
+      {
+        auto* node = MAKE_NODE(ASTAddSubEntityAction, @$, {$2, $4, $5});
+        node->set_is_if_not_exists($3);
+        $$ = node;
+      }
+    | "DROP" generic_sub_entity_type opt_if_exists identifier
+      {
+        auto* node = MAKE_NODE(ASTDropSubEntityAction, @$, {$2, $4});
+        node->set_is_if_exists($3);
+        $$ = node;
+      }
     ;
 
 alter_action_list:
@@ -1959,8 +1988,8 @@ alter_statement:
       alter_action_list
       {
         zetasql::ASTAlterStatementBase* node = nullptr;
-        // Only ALTER DATABASE, SCHEMA, TABLE, VIEW, and MATERIALIZED VIEW are
-        // currently supported.
+        // Only ALTER DATABASE, SCHEMA, TABLE, VIEW, MATERIALIZED VIEW and MODEL
+        // are currently supported.
         if ($2 == zetasql::SchemaObjectKind::kDatabase) {
           node = MAKE_NODE(ASTAlterDatabaseStatement, @$);
         } else if ($2 == zetasql::SchemaObjectKind::kSchema) {
@@ -1969,6 +1998,8 @@ alter_statement:
           node = MAKE_NODE(ASTAlterViewStatement, @$);
         } else if ($2 == zetasql::SchemaObjectKind::kMaterializedView) {
           node = MAKE_NODE(ASTAlterMaterializedViewStatement, @$);
+        } else if ($2 == zetasql::SchemaObjectKind::kModel) {
+          node = MAKE_NODE(ASTAlterModelStatement, @$);
         } else {
           YYERROR_AND_ABORT_AT(@2, absl::StrCat("ALTER ", absl::AsciiStrToUpper(
             parser->GetInputText(@2)), " is not supported"));
@@ -2931,6 +2962,23 @@ generic_entity_type:
                  GenericEntityTypeSupported(entity_type)) {
           YYERROR_AND_ABORT_AT(@1, absl::StrCat(
                                entity_type, " is not a supported object type"));
+        }
+        // It is by design that we don't want to support backtick quoted
+        // entity type. Backtick is kept as part of entity type name, and will
+        // be rejected by engine later.
+        $$ = parser->MakeIdentifier(@1, parser->GetInputText(@1));
+      }
+    ;
+
+generic_sub_entity_type:
+    IDENTIFIER
+      {
+        std::string entity_type(parser->GetInputText(@1));
+        if (!parser->language_options().
+                 GenericSubEntityTypeSupported(entity_type)) {
+          YYERROR_AND_ABORT_AT(@1, absl::StrCat(
+                               entity_type,
+                               " is not a supported nested object type"));
         }
         // It is by design that we don't want to support backtick quoted
         // entity type. Backtick is kept as part of entity type name, and will
@@ -4980,7 +5028,7 @@ tvf:
     opt_sample_clause
       {
         $$ = WithExtraChildren(parser->WithEndLocation($1, @$), {
-            $3, $4.alias, $5, $4.pivot_clause, $4.unpivot_clause});
+            $3, $4.alias, $4.pivot_clause, $4.unpivot_clause, $5});
       }
     | tvf_prefix ")" opt_hint opt_pivot_or_unpivot_clause_and_alias
     opt_sample_clause
@@ -5492,6 +5540,19 @@ opt_clamped_between_modifier:
     | /* Nothing */ { $$ = nullptr; }
     ;
 
+opt_with_report_modifier:
+    "WITH" "REPORT" opt_with_report_format
+      {
+        $$ = MAKE_NODE(ASTWithReportModifier, @$, {$3});
+      }
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
+opt_with_report_format:
+    options_list { $$ = $1; }
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
 opt_null_handling_modifier:
     "IGNORE" "NULLS"
       {
@@ -5855,6 +5916,32 @@ unary_operator:
       } %prec UNARY_PRECEDENCE
     ;
 
+with_expression_variable:
+  identifier "AS" expression
+      {
+        auto* alias = MAKE_NODE(ASTAlias, @1, @2, {$1});
+        $$ = MAKE_NODE(ASTSelectColumn, @$, {$3, alias});
+      }
+
+with_expression_variable_prefix:
+    with_expression_variable
+      {
+        $$ = MAKE_NODE(ASTSelectList, @$, {$1});
+      }
+    |
+    with_expression_variable_prefix "," with_expression_variable
+      {
+        $$ = WithExtraChildren($1, {$3});
+      }
+    ;
+
+with_expression:
+  KW_WITH_STARTING_WITH_EXPRESSION "(" with_expression_variable_prefix "," expression ")"
+    {
+      $$ = MAKE_NODE(ASTWithExpression, @$, {$3, $5});
+    }
+  ;
+
 // TODO: Consider inlining the most common of these productions.
 // Inlining saves significant resources while parsing.
 expression:
@@ -5877,6 +5964,7 @@ expression:
     | case_expression
     | cast_expression
     | extract_expression
+    | with_expression
     | replace_fields_expression
     | function_call_expression_with_clauses
     | interval_expression
@@ -7415,6 +7503,7 @@ function_call_expression:
     | function_call_expression_with_args_prefix opt_null_handling_modifier
       opt_having_modifier
       opt_clamped_between_modifier
+      opt_with_report_modifier
       opt_order_by_clause
       opt_limit_offset_clause ")"
       {
@@ -7422,7 +7511,9 @@ function_call_expression:
         $$ = WithExtraChildren(parser->WithEndLocation($1, @$), {
             $3,
             $4,
-            $5, $6});
+            $5,
+            $6,
+            $7});
       }
     ;
 
@@ -7572,6 +7663,15 @@ opt_with_group_rows:
       {
         $$ = $4;
       }
+    |
+    KW_WITH_STARTING_WITH_EXPRESSION
+    {
+      YYERROR_AND_ABORT_AT(
+          @1,
+          "Saw WITH directly after a function call, which is not allowed. "
+          "Did you forget to put a comma before the WITH, or did you mean "
+          "\"WITH GROUP_ROWS\"?");
+    }
     | /* Nothing */ { $$ = nullptr; }
     ;
 
@@ -8136,6 +8236,7 @@ keyword_as_identifier:
     | "REPEATABLE"
     | "REPLACE"
     | "REPLACE_FIELDS"
+    | "REPORT"
     | "RESTRICT"
     | "RESTRICTION"
     | "RETURNS"
@@ -8209,10 +8310,20 @@ opt_hint:
     ;
 
 options_entry:
-    identifier_in_hints "=" expression
+    identifier_in_hints "=" expression_or_proto
       {
         $$ = MAKE_NODE(ASTOptionsEntry, @$, {$1, $3});
       }
+    ;
+
+expression_or_proto:
+    "PROTO"
+      {
+        zetasql::ASTIdentifier* proto_identifier =
+            parser->MakeIdentifier(@1, "PROTO");
+        $$ = MAKE_NODE(ASTPathExpression, @$, {proto_identifier});
+      }
+    | expression
     ;
 
 options_list_prefix:
@@ -8337,6 +8448,7 @@ insert_statement_prefix:
         $$ = insert;
       }
    | insert_statement_prefix "INTO" maybe_dashed_generalized_path_expression
+     opt_hint
       {
         zetasql::ASTInsertStatement* insert = $1;
         if (insert->parse_progress() >= ASTInsertStatement::kSeenTargetPath) {
@@ -8345,9 +8457,9 @@ insert_statement_prefix:
         }
         insert->set_parse_progress(
             ASTInsertStatement::kSeenTargetPath);
-        $$ = WithExtraChildren(insert, {$3});
+        $$ = WithExtraChildren(insert, {$3, $4});
       }
-    | insert_statement_prefix generalized_path_expression
+    | insert_statement_prefix generalized_path_expression opt_hint
       {
         zetasql::ASTInsertStatement* insert = $1;
         // Recognize REPLACE and UPDATE as keywords, but only if there was no
@@ -8381,7 +8493,7 @@ insert_statement_prefix:
           }
           insert->set_parse_progress(
               ASTInsertStatement::kSeenTargetPath);
-          $$ = WithExtraChildren(insert, {$2});
+          $$ = WithExtraChildren(insert, {$2, $3});
         }
       }
     | insert_statement_prefix column_list
@@ -8633,11 +8745,11 @@ insert_values_list:
     ;
 
 delete_statement:
-    "DELETE" opt_from_keyword maybe_dashed_generalized_path_expression
+    "DELETE" opt_from_keyword maybe_dashed_generalized_path_expression opt_hint
     opt_as_alias opt_with_offset_and_alias opt_where_expression
     opt_assert_rows_modified opt_returning_clause
       {
-        $$ = MAKE_NODE(ASTDeleteStatement, @$, {$3, $4, $5, $6, $7, $8});
+        $$ = MAKE_NODE(ASTDeleteStatement, @$, {$3, $4, $5, $6, $7, $8, $9});
       }
     ;
 
@@ -8650,11 +8762,11 @@ opt_with_offset_and_alias:
     ;
 
 update_statement:
-    "UPDATE" maybe_dashed_generalized_path_expression opt_as_alias
+   "UPDATE" maybe_dashed_generalized_path_expression opt_hint opt_as_alias
     opt_with_offset_and_alias "SET" update_item_list opt_from_clause
     opt_where_expression opt_assert_rows_modified opt_returning_clause
       {
-        $$ = MAKE_NODE(ASTUpdateStatement, @$, {$2, $3, $4, $6, $7, $8, $9, $10});
+        $$ = MAKE_NODE(ASTUpdateStatement, @$, {$2, $3, $4, $5, $7, $8, $9, $10, $11});
       }
     ;
 
@@ -9690,6 +9802,8 @@ next_statement_kind_without_hint:
       { $$ = zetasql::ASTAlterMaterializedViewStatement::kConcreteNodeKind; }
     | "ALTER" generic_entity_type
       { $$ = zetasql::ASTAlterEntityStatement::kConcreteNodeKind; }
+    | "ALTER" "MODEL"
+      { $$ = zetasql::ASTAlterModelStatement::kConcreteNodeKind; }
     | "CREATE" "DATABASE"
       { $$ = zetasql::ASTCreateDatabaseStatement::kConcreteNodeKind; }
     | "CREATE" next_statement_kind_create_modifiers opt_aggregate

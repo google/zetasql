@@ -2,6 +2,7 @@
 # have been manually verified as correct.
 [default no_show_parse_location_text]
 [default supported_generic_entity_types=RESERVATION,EXPLORE,SUPPORTED_ENTITY]
+[default supported_generic_sub_entity_types=REPLICA,CHILD_OF_REPLICA]
 
 CREATE {{RESERVATION|reSERVAtion|SUPPORTED_ENTITY}} myProject.myReservation
 --
@@ -411,3 +412,279 @@ AlterEntityStatement [0-37]
       Identifier(foo) [34-37]
 --
 ALTER PROJECT ADD DROP CONSTRAINT foo
+==
+
+# Disable the REPLICA sub_entity_type for ADD sub_entity_type.
+
+[supported_generic_sub_entity_types=]
+
+ALTER SCHEMA schema_name
+ADD REPLICA replica_name
+OPTIONS (a=b)
+--
+ERROR: REPLICA is not a supported nested object type [at 2:5]
+ADD REPLICA replica_name
+    ^
+==
+
+# Disable the REPLICA sub_entity_type for ALTER sub_entity_type.
+[supported_generic_sub_entity_types=]
+
+ALTER SCHEMA schema_name
+ALTER REPLICA replica_name
+SET OPTIONS (a=b)
+--
+ERROR: REPLICA is not a supported nested object type [at 2:7]
+ALTER REPLICA replica_name
+      ^
+==
+
+# Disable the REPLICA sub_entity_type for DROP sub_entity_type.
+[supported_generic_sub_entity_types=]
+
+ALTER SCHEMA schema_name
+DROP REPLICA replica_name
+--
+ERROR: REPLICA is not a supported nested object type [at 2:6]
+DROP REPLICA replica_name
+     ^
+==
+
+ALTER SCHEMA schema_name
+ADD REPLICA {{IF NOT EXISTS|}} replica_name
+OPTIONS (a=b)
+--
+ALTERNATION GROUP: IF NOT EXISTS
+--
+AlterSchemaStatement [0-77]
+  PathExpression [13-24]
+    Identifier(schema_name) [13-24]
+  AlterActionList [25-77]
+    AddSubEntityAction(is_if_not_exists) [25-77]
+      Identifier(REPLICA) [29-36]
+      Identifier(replica_name) [51-63]
+      OptionsList [72-77]
+        OptionsEntry [73-76]
+          Identifier(a) [73-74]
+          PathExpression [75-76]
+            Identifier(b) [75-76]
+--
+ALTER SCHEMA schema_name ADD REPLICA IF NOT EXISTS replica_name OPTIONS(a = b)
+--
+ALTERNATION GROUP: <empty>
+--
+AlterSchemaStatement [0-64]
+  PathExpression [13-24]
+    Identifier(schema_name) [13-24]
+  AlterActionList [25-64]
+    AddSubEntityAction [25-64]
+      Identifier(REPLICA) [29-36]
+      Identifier(replica_name) [38-50]
+      OptionsList [59-64]
+        OptionsEntry [60-63]
+          Identifier(a) [60-61]
+          PathExpression [62-63]
+            Identifier(b) [62-63]
+--
+ALTER SCHEMA schema_name ADD REPLICA replica_name OPTIONS(a = b)
+==
+
+# Multiple nested ADD actions.
+ALTER SCHEMA schema_name
+ADD REPLICA replica_name1 OPTIONS (a=b),
+ADD REPLICA replica_name2 OPTIONS (c=d)
+--
+AlterSchemaStatement [0-105]
+  PathExpression [13-24]
+    Identifier(schema_name) [13-24]
+  AlterActionList [25-105]
+    AddSubEntityAction [25-64]
+      Identifier(REPLICA) [29-36]
+      Identifier(replica_name1) [37-50]
+      OptionsList [59-64]
+        OptionsEntry [60-63]
+          Identifier(a) [60-61]
+          PathExpression [62-63]
+            Identifier(b) [62-63]
+    AddSubEntityAction [66-105]
+      Identifier(REPLICA) [70-77]
+      Identifier(replica_name2) [78-91]
+      OptionsList [100-105]
+        OptionsEntry [101-104]
+          Identifier(c) [101-102]
+          PathExpression [103-104]
+            Identifier(d) [103-104]
+--
+ALTER SCHEMA schema_name ADD REPLICA replica_name1 OPTIONS(a = b), ADD REPLICA replica_name2 OPTIONS(c =
+    d)
+==
+
+ALTER SCHEMA schema_name
+DROP REPLICA {{IF EXISTS|}} replica_name
+--
+ALTERNATION GROUP: IF EXISTS
+--
+AlterSchemaStatement [0-60]
+  PathExpression [13-24]
+    Identifier(schema_name) [13-24]
+  AlterActionList [25-60]
+    DropSubEntityAction(is_if_exists) [25-60]
+      Identifier(REPLICA) [30-37]
+      Identifier(replica_name) [48-60]
+--
+ALTER SCHEMA schema_name DROP REPLICA IF EXISTS replica_name
+--
+ALTERNATION GROUP: <empty>
+--
+AlterSchemaStatement [0-51]
+  PathExpression [13-24]
+    Identifier(schema_name) [13-24]
+  AlterActionList [25-51]
+    DropSubEntityAction [25-51]
+      Identifier(REPLICA) [30-37]
+      Identifier(replica_name) [39-51]
+--
+ALTER SCHEMA schema_name DROP REPLICA replica_name
+==
+
+# Multiple nested DROP actions.
+ALTER SCHEMA schema_name
+DROP REPLICA replica_name1,
+DROP REPLICA replica_name2
+--
+AlterSchemaStatement [0-79]
+  PathExpression [13-24]
+    Identifier(schema_name) [13-24]
+  AlterActionList [25-79]
+    DropSubEntityAction [25-51]
+      Identifier(REPLICA) [30-37]
+      Identifier(replica_name1) [38-51]
+    DropSubEntityAction [53-79]
+      Identifier(REPLICA) [58-65]
+      Identifier(replica_name2) [66-79]
+--
+ALTER SCHEMA schema_name DROP REPLICA replica_name1, DROP REPLICA replica_name2
+==
+
+ALTER SCHEMA schema_name
+ALTER REPLICA {{IF EXISTS|}} replica_name
+SET OPTIONS (a=b)
+--
+ALTERNATION GROUP: IF EXISTS
+--
+AlterSchemaStatement [0-79]
+  PathExpression [13-24]
+    Identifier(schema_name) [13-24]
+  AlterActionList [25-79]
+    AlterSubEntityAction(is_if_exists) [25-79]
+      Identifier(REPLICA) [31-38]
+      Identifier(replica_name) [49-61]
+      SetOptionsOperation [62-79]
+        OptionsList [74-79]
+          OptionsEntry [75-78]
+            Identifier(a) [75-76]
+            PathExpression [77-78]
+              Identifier(b) [77-78]
+--
+ALTER SCHEMA schema_name ALTER REPLICA IF EXISTS replica_name SET OPTIONS(a = b)
+--
+ALTERNATION GROUP: <empty>
+--
+AlterSchemaStatement [0-70]
+  PathExpression [13-24]
+    Identifier(schema_name) [13-24]
+  AlterActionList [25-70]
+    AlterSubEntityAction [25-70]
+      Identifier(REPLICA) [31-38]
+      Identifier(replica_name) [40-52]
+      SetOptionsOperation [53-70]
+        OptionsList [65-70]
+          OptionsEntry [66-69]
+            Identifier(a) [66-67]
+            PathExpression [68-69]
+              Identifier(b) [68-69]
+--
+ALTER SCHEMA schema_name ALTER REPLICA replica_name SET OPTIONS(a = b)
+==
+
+# Multiple nested ALTER actions.
+ALTER SCHEMA schema_name
+ALTER REPLICA replica_name1 SET OPTIONS (a=b),
+ALTER REPLICA replica_name2 SET OPTIONS (c=d)
+--
+AlterSchemaStatement [0-117]
+  PathExpression [13-24]
+    Identifier(schema_name) [13-24]
+  AlterActionList [25-117]
+    AlterSubEntityAction [25-70]
+      Identifier(REPLICA) [31-38]
+      Identifier(replica_name1) [39-52]
+      SetOptionsOperation [53-70]
+        OptionsList [65-70]
+          OptionsEntry [66-69]
+            Identifier(a) [66-67]
+            PathExpression [68-69]
+              Identifier(b) [68-69]
+    AlterSubEntityAction [72-117]
+      Identifier(REPLICA) [78-85]
+      Identifier(replica_name2) [86-99]
+      SetOptionsOperation [100-117]
+        OptionsList [112-117]
+          OptionsEntry [113-116]
+            Identifier(c) [113-114]
+            PathExpression [115-116]
+              Identifier(d) [115-116]
+--
+ALTER SCHEMA schema_name ALTER REPLICA replica_name1 SET OPTIONS(a = b), ALTER REPLICA replica_name2 SET OPTIONS(c =
+    d)
+==
+
+# Multiple doubly nested ADD actions. Since sub_entity alter statements
+# only support one action (either SET OPTIONS or ADD/ALTER/DROP of a child),
+# doubly nested actions need to be qualified from the root.
+
+ALTER SCHEMA schema_name
+ALTER REPLICA replica_name1 ADD CHILD_OF_REPLICA child_1 OPTIONS (a=b),
+ALTER REPLICA replica_name1 ADD CHILD_OF_REPLICA child_2 OPTIONS (c=d)
+--
+AlterSchemaStatement [0-167]
+  PathExpression [13-24]
+    Identifier(schema_name) [13-24]
+  AlterActionList [25-167]
+    AlterSubEntityAction [25-95]
+      Identifier(REPLICA) [31-38]
+      Identifier(replica_name1) [39-52]
+      AddSubEntityAction [53-95]
+        Identifier(CHILD_OF_REPLICA) [57-73]
+        Identifier(child_1) [74-81]
+        OptionsList [90-95]
+          OptionsEntry [91-94]
+            Identifier(a) [91-92]
+            PathExpression [93-94]
+              Identifier(b) [93-94]
+    AlterSubEntityAction [97-167]
+      Identifier(REPLICA) [103-110]
+      Identifier(replica_name1) [111-124]
+      AddSubEntityAction [125-167]
+        Identifier(CHILD_OF_REPLICA) [129-145]
+        Identifier(child_2) [146-153]
+        OptionsList [162-167]
+          OptionsEntry [163-166]
+            Identifier(c) [163-164]
+            PathExpression [165-166]
+              Identifier(d) [165-166]
+--
+ALTER SCHEMA schema_name ALTER REPLICA replica_name1 ADD CHILD_OF_REPLICA child_1 OPTIONS(a = b), ALTER REPLICA replica_name1 ADD CHILD_OF_REPLICA child_2 OPTIONS(c =
+    d)
+==
+
+# Attempting to both SET OPTIONS on a sub_entity and ADD a CHILD_OF_REPLICA
+# is invalid. Only the top level ALTER statement supports multiple actions.
+
+ALTER SCHEMA schema_name
+ALTER REPLICA replica_name1 SET OPTIONS(a=b)
+ADD CHILD_OF_REPLICA child_1 OPTIONS (c=d)
+--
+ERROR: Syntax error: Expected end of input but got keyword ADD [at 3:1]
+ADD CHILD_OF_REPLICA child_1 OPTIONS (c=d)
+^

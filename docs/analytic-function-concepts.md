@@ -2,7 +2,8 @@
 
 # Analytic function concepts
 
-An analytic function computes values over a group of rows and returns a
+An analytic function, also known as a window function, computes values
+over a group of rows and returns a
 single result for _each_ row. This is different from an aggregate function,
 which returns a single result for _a group_ of rows.
 
@@ -155,7 +156,8 @@ Defines the specifications for the window.
 
 Important: If you use a named window, special rules apply to
 `PARTITION BY`, `ORDER BY`, and `window_frame_clause`. See
-them [here][named-window-rules].
+[Rules for using a named window in the window specification]
+[named-window-rules].
 
 +  `PARTITION BY`: Breaks up the input rows into separate partitions, over
    which the analytic function is independently evaluated.

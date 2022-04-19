@@ -1024,7 +1024,7 @@ inline bool IntervalUnaryMinus(IntervalValue in, IntervalValue* out,
 absl::Status TimestampBucket(absl::Time input,
                              zetasql::IntervalValue bucket_width,
                              absl::Time origin, absl::TimeZone timezone,
-                             absl::Time* output);
+                             TimestampScale scale, absl::Time* output);
 
 // The namespace 'internal_functions' includes the internal implementation
 // details and is not part of the public api.

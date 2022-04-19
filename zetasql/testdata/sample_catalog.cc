@@ -74,19 +74,19 @@ SampleCatalog* SampleCatalog::instance_ = nullptr;
 SampleCatalog::SampleCatalog()
     : internal_type_factory_(new TypeFactory),
       types_(internal_type_factory_.get()) {
-  catalog_ = absl::make_unique<SimpleCatalog>("sample_catalog", types_);
+  catalog_ = std::make_unique<SimpleCatalog>("sample_catalog", types_);
   LoadCatalog(LanguageOptions());
 }
 
 SampleCatalog::SampleCatalog(const LanguageOptions& language_options,
                              TypeFactory* type_factory) {
   if (type_factory == nullptr) {
-    internal_type_factory_ = absl::make_unique<TypeFactory>();
+    internal_type_factory_ = std::make_unique<TypeFactory>();
     types_ = internal_type_factory_.get();
   } else {
     types_ = type_factory;
   }
-  catalog_ = absl::make_unique<SimpleCatalog>("sample_catalog", types_);
+  catalog_ = std::make_unique<SimpleCatalog>("sample_catalog", types_);
   LoadCatalog(language_options);
 }
 
@@ -225,10 +225,10 @@ void SampleCatalog::LoadCatalogImpl(const LanguageOptions& language_options) {
 
   // Create a Catalog called alt_descriptor_pool which has a duplicate copy
   // of all protos in the main catalog, but in a different DescriptorPool.
-  alt_descriptor_database_ = absl::make_unique<google::protobuf::DescriptorPoolDatabase>(
+  alt_descriptor_database_ = std::make_unique<google::protobuf::DescriptorPoolDatabase>(
       *google::protobuf::DescriptorPool::generated_pool());
   alt_descriptor_pool_ =
-      absl::make_unique<google::protobuf::DescriptorPool>(alt_descriptor_database_.get());
+      std::make_unique<google::protobuf::DescriptorPool>(alt_descriptor_database_.get());
 
   SimpleCatalog* alt_descriptor_pool_catalog =
       catalog_->MakeOwnedSimpleCatalog("alt_descriptor_pool");
@@ -261,11 +261,11 @@ void SampleCatalog::LoadCatalogImpl(const LanguageOptions& language_options) {
     }
   }
   ZETASQL_CHECK(found_message) << modified_descriptor_proto.DebugString();
-  ambiguous_has_descriptor_pool_ = absl::make_unique<google::protobuf::DescriptorPool>();
+  ambiguous_has_descriptor_pool_ = std::make_unique<google::protobuf::DescriptorPool>();
   ambiguous_has_descriptor_pool_->BuildFile(modified_descriptor_proto);
 
   auto ambiguous_has_descriptor_pool_catalog =
-      absl::make_unique<SimpleCatalog>("ambiguous_has_descriptor_pool");
+      std::make_unique<SimpleCatalog>("ambiguous_has_descriptor_pool");
   ambiguous_has_descriptor_pool_catalog->SetDescriptorPool(
       ambiguous_has_descriptor_pool_.get());
   catalog_->AddOwnedCatalog(ambiguous_has_descriptor_pool_catalog.release());
@@ -443,7 +443,7 @@ class SimpleTableWithReadTimeIgnored : public SimpleTable {
     std::unique_ptr<EvaluatorTableIterator> iterator;
     ZETASQL_ASSIGN_OR_RETURN(iterator,
                      SimpleTable::CreateEvaluatorTableIterator(column_idxs));
-    return absl::make_unique<IgnoreReadTimeIterator>(std::move(iterator));
+    return std::make_unique<IgnoreReadTimeIterator>(std::move(iterator));
   }
 };
 
@@ -471,6 +471,20 @@ void SampleCatalog::LoadTables() {
                                           {"int_c", types_->get_int64()},
                                           {"int_d", types_->get_int64()}});
   AddOwnedTable(multiple_columns_table);
+
+  SimpleTable* update_to_default_table = new SimpleTable(
+      "UpdateToDefaultTable", {{"writable", types_->get_int64()}});
+  ZETASQL_CHECK_OK(update_to_default_table->AddColumn(
+      new SimpleColumn(update_to_default_table->Name(), "readonly",
+                       types_->get_int64(), {.is_writable_column = false}),
+      /*is_owned=*/true));
+  ZETASQL_CHECK_OK(update_to_default_table->AddColumn(
+      new SimpleColumn(update_to_default_table->Name(),
+                       "readonly_settable_to_default", types_->get_int64(),
+                       {.is_writable_column = false,
+                        .can_update_unwritable_to_default = true}),
+      /*is_owned=*/true));
+  AddOwnedTable(update_to_default_table);
 
   SimpleTable* ab_table = new SimpleTable(
       "abTable",
@@ -515,6 +529,24 @@ void SampleCatalog::LoadTables() {
       " Value",
       {{" Key", types_->get_int64()}, {" Value", types_->get_string()}});
   AddOwnedTable(space_value_table);
+
+  // Create two tables with the following schema.
+  // GeoStructTable1: geo STRUCT<a GEOGRAPHY>
+  // GeoStructTable2: geo STRUCT<b GEOGRAPHY>
+  const StructType* struct_with_geo_type1;
+  ZETASQL_CHECK_OK(types_->MakeStructType({{"a", types_->get_geography()}},
+                                  &struct_with_geo_type1));
+  const StructType* struct_with_geo_type2;
+  ZETASQL_CHECK_OK(types_->MakeStructType({{"b", types_->get_geography()}},
+                                  &struct_with_geo_type2));
+
+  SimpleTable* geo_struct_table1 =
+      new SimpleTable("GeoStructTable1", {{"geo", struct_with_geo_type1}});
+  AddOwnedTable(geo_struct_table1);
+
+  SimpleTable* geo_struct_table2 =
+      new SimpleTable("GeoStructTable2", {{"geo", struct_with_geo_type2}});
+  AddOwnedTable(geo_struct_table2);
 
   auto collatedTable = new SimpleTable("CollatedTable");
   const AnnotationMap* annotation_map_string_ci;
@@ -813,26 +845,26 @@ void SampleCatalog::LoadTables() {
 
   {
     auto simple_table_with_uid =
-        absl::make_unique<SimpleTable>("SimpleTypesWithAnonymizationUid",
-                                       std::vector<SimpleTable::NameAndType>{
-                                           {"int32", types_->get_int32()},
-                                           {"int64", types_->get_int64()},
-                                           {"uint32", types_->get_uint32()},
-                                           {"uint64", types_->get_uint64()},
-                                           {"string", types_->get_string()},
-                                           {"bytes", types_->get_bytes()},
-                                           {"bool", types_->get_bool()},
-                                           {"float", types_->get_float()},
-                                           {"double", types_->get_double()},
-                                           {"date", types_->get_date()},
-                                           {"uid", types_->get_int64()},
-                                           {"numeric", types_->get_numeric()}});
+        std::make_unique<SimpleTable>("SimpleTypesWithAnonymizationUid",
+                                      std::vector<SimpleTable::NameAndType>{
+                                          {"int32", types_->get_int32()},
+                                          {"int64", types_->get_int64()},
+                                          {"uint32", types_->get_uint32()},
+                                          {"uint64", types_->get_uint64()},
+                                          {"string", types_->get_string()},
+                                          {"bytes", types_->get_bytes()},
+                                          {"bool", types_->get_bool()},
+                                          {"float", types_->get_float()},
+                                          {"double", types_->get_double()},
+                                          {"date", types_->get_date()},
+                                          {"uid", types_->get_int64()},
+                                          {"numeric", types_->get_numeric()}});
     ZETASQL_CHECK_OK(simple_table_with_uid->SetAnonymizationInfo("uid"));
     AddOwnedTable(simple_table_with_uid.release());
   }
 
   {
-    auto array_table_with_uid = absl::make_unique<SimpleTable>(
+    auto array_table_with_uid = std::make_unique<SimpleTable>(
         "ArrayWithAnonymizationUid", std::vector<SimpleTable::NameAndType>{
                                          {"int64_array", int64array_type_},
                                          {"double_array", double_array_type_},
@@ -842,7 +874,7 @@ void SampleCatalog::LoadTables() {
   }
 
   {
-    auto table_with_string_uid = absl::make_unique<SimpleTable>(
+    auto table_with_string_uid = std::make_unique<SimpleTable>(
         "T1StringAnonymizationUid",
         std::vector<SimpleTable::NameAndType>{{"uid", types_->get_string()}});
     ZETASQL_CHECK_OK(table_with_string_uid->SetAnonymizationInfo("uid"));
@@ -850,7 +882,7 @@ void SampleCatalog::LoadTables() {
   }
 
   {
-    auto table_with_string_uid = absl::make_unique<SimpleTable>(
+    auto table_with_string_uid = std::make_unique<SimpleTable>(
         "T2StringAnonymizationUid",
         std::vector<SimpleTable::NameAndType>{{"uid", types_->get_string()}});
     ZETASQL_CHECK_OK(table_with_string_uid->SetAnonymizationInfo("uid"));
@@ -858,7 +890,7 @@ void SampleCatalog::LoadTables() {
   }
 
   {
-    auto table_with_proto_uid = absl::make_unique<SimpleTable>(
+    auto table_with_proto_uid = std::make_unique<SimpleTable>(
         "ProtoAnonymizationUid",
         std::vector<SimpleTable::NameAndType>{{"uid", proto_KitchenSinkPB_}});
     ZETASQL_CHECK_OK(table_with_proto_uid->SetAnonymizationInfo("uid"));
@@ -866,21 +898,21 @@ void SampleCatalog::LoadTables() {
   }
 
   {
-    auto value_table_with_uid = absl::make_unique<SimpleTable>(
+    auto value_table_with_uid = std::make_unique<SimpleTable>(
         "KitchenSinkWithUidValueTable", proto_KitchenSinkPB_);
     ZETASQL_CHECK_OK(value_table_with_uid->SetAnonymizationInfo("string_val"));
     AddOwnedTable(value_table_with_uid.release());
   }
 
   {
-    auto value_table_with_uid = absl::make_unique<SimpleTable>(
+    auto value_table_with_uid = std::make_unique<SimpleTable>(
         "TestStructWithUidValueTable", struct_type_);
     ZETASQL_CHECK_OK(value_table_with_uid->SetAnonymizationInfo("a"));
     AddOwnedTable(value_table_with_uid.release());
   }
 
   {
-    auto value_table_with_doubly_nested_uid = absl::make_unique<SimpleTable>(
+    auto value_table_with_doubly_nested_uid = std::make_unique<SimpleTable>(
         "TestWithDoublyNestedStructUidValueTable", doubly_nested_struct_type_);
     ZETASQL_CHECK_OK(value_table_with_doubly_nested_uid->SetAnonymizationInfo(
         {"f", "d", "a"}));
@@ -888,7 +920,7 @@ void SampleCatalog::LoadTables() {
   }
 
   {
-    auto value_table_with_proto_uid = absl::make_unique<SimpleTable>(
+    auto value_table_with_proto_uid = std::make_unique<SimpleTable>(
         "TestWithProtoUidValueTable", proto_MessageWithKitchenSinkPB_);
     ZETASQL_CHECK_OK(value_table_with_proto_uid->SetAnonymizationInfo(
         {"kitchen_sink", "nested_value", "nested_int64"}));
@@ -897,8 +929,8 @@ void SampleCatalog::LoadTables() {
 
   {
     auto value_table_with_proto_uid_of_wrong_type =
-        absl::make_unique<SimpleTable>("TestWithWrongTypeProtoUidValueTable",
-                                       proto_MessageWithKitchenSinkPB_);
+        std::make_unique<SimpleTable>("TestWithWrongTypeProtoUidValueTable",
+                                      proto_MessageWithKitchenSinkPB_);
     ZETASQL_CHECK_OK(value_table_with_proto_uid_of_wrong_type->SetAnonymizationInfo(
         std::vector<std::string>({"kitchen_sink", "nested_value"})));
     AddOwnedTable(value_table_with_proto_uid_of_wrong_type.release());
@@ -986,9 +1018,9 @@ void SampleCatalog::LoadProtoTables() {
        new SimpleColumn("EnumTable", "TestEnum", enum_TestEnum_),
        new SimpleColumn("EnumTable", "AnotherTestEnum", enum_AnotherTestEnum_),
        new SimpleColumn("EnumTable", "Filename", types_->get_string(),
-                        true /* is_pseudo_column */),
+                        {.is_pseudo_column = true}),
        new SimpleColumn("EnumTable", "RowId", types_->get_bytes(),
-                        true /* is_pseudo_column */)},
+                        {.is_pseudo_column = true})},
       true /* take_ownership */));
 
   AddOwnedTable(new SimpleTable(
@@ -1009,9 +1041,9 @@ void SampleCatalog::LoadProtoTables() {
       "AllPseudoColumns",
       {
           new SimpleColumn("AllPseudoColumns", "Key", types_->get_int32(),
-                           true /* is_pseudo_column */),
+                           {.is_pseudo_column = true}),
           new SimpleColumn("AllPseudoColumns", "Value", types_->get_string(),
-                           true /* is_pseudo_column */),
+                           {.is_pseudo_column = true}),
       },
       true /* take_ownership */));
 
@@ -1021,11 +1053,11 @@ void SampleCatalog::LoadProtoTables() {
       "AllPseudoColumnsWithRepeated",
       {
           new SimpleColumn("AllPseudoColumns", "Key", types_->get_int32(),
-                           true /* is_pseudo_column */),
+                           {.is_pseudo_column = true}),
           new SimpleColumn("AllPseudoColumns", "Value", types_->get_string(),
-                           true /* is_pseudo_column */),
+                           {.is_pseudo_column = true}),
           new SimpleColumn("AllPseudoColumns", "RepeatedValue",
-                           string_array_type_, true /* is_pseudo_column */),
+                           string_array_type_, {.is_pseudo_column = true}),
       },
       true /* take_ownership */));
 
@@ -1039,7 +1071,7 @@ void SampleCatalog::LoadProtoTables() {
         true /* take_ownership */));
     ZETASQL_CHECK_OK(table->AddColumn(
         new SimpleColumn("AnonymousPseudoColumn", "", types_->get_string(),
-                         true /* is_pseudo_column */),
+                         {.is_pseudo_column = true}),
         true /* take_ownership */));
   }
 
@@ -1047,21 +1079,15 @@ void SampleCatalog::LoadProtoTables() {
       "AllNonKeysNonWritable",
       {
           new SimpleColumn("AllNonKeysNonWritable", "Key", types_->get_int32(),
-                           /* is_pseudo_column = */ false,
-                           /* is_writable_column = */ true),
+                           {.is_writable_column = true}),
           new SimpleColumn("AllNonKeysNonWritable", "Value",
-                           types_->get_string(),
-                           /* is_pseudo_column = */ false,
-                           /* is_writable_column = */ false),
+                           types_->get_string(), {.is_writable_column = false}),
           new SimpleColumn("AllNonKeysNonWritable", "RepeatedValue",
-                           int32array_type_, /* is_pseudo_column = */ false,
-                           /* is_writable_column = */ false),
+                           int32array_type_, {.is_writable_column = false}),
           new SimpleColumn("AllNonKeysNonWritable", "ProtoValue",
-                           proto_TestExtraPB_, /* is_pseudo_column = */ false,
-                           /* is_writable_column = */ false),
+                           proto_TestExtraPB_, {.is_writable_column = false}),
           new SimpleColumn("AllNonKeysNonWritable", "StructValue", struct_type_,
-                           /* is_pseudo_column = */ false,
-                           /* is_writable_column = */ false),
+                           {.is_writable_column = false}),
       },
       true /* take_ownership */));
 
@@ -1120,9 +1146,9 @@ void SampleCatalog::LoadProtoTables() {
           "TestExtraValueTable",
           {new SimpleColumn("TestExtraValueTable", "value", proto_TestExtraPB_),
            new SimpleColumn("TestExtraValueTable", "Filename",
-                            types_->get_string(), true /* is_pseudo_column */),
+                            types_->get_string(), {.is_pseudo_column = true}),
            new SimpleColumn("TestExtraValueTable", "RowId", types_->get_bytes(),
-                            true /* is_pseudo_column */)},
+                            {.is_pseudo_column = true})},
           true /* take_ownership */)));
   extra_value_table->set_is_value_table(true);
 
@@ -1136,7 +1162,7 @@ void SampleCatalog::LoadProtoTables() {
                                           proto_TestExtraPB_),
                          new SimpleColumn("TestExtraValueTable", "int32_val1",
                                           types_->get_string(),
-                                          true /* is_pseudo_column */),
+                                          {.is_pseudo_column = true}),
                      },
                      true /* take_ownership */)));
   ambiguous_field_value_table->set_is_value_table(true);
@@ -1222,6 +1248,17 @@ void SampleCatalog::LoadNestedCatalogs() {
   // Add nested_catalog with some tables with the same and different names.
   nested_catalog->AddTable(key_value_table_);
   nested_catalog->AddTable("NestedKeyValue", key_value_table_);
+
+  {
+    // Add a table that only appears in this nested catalog (and in turn, can
+    // only be found via the nested name).
+    SimpleTable* nested_key_value_table = new SimpleTable(
+        "KeyValueNested",
+        {{"Key", types_->get_int64()}, {"Value", types_->get_string()}});
+    ZETASQL_CHECK_OK(
+        nested_key_value_table->set_full_name("nested_catalog.KeyValueNested"));
+    nested_catalog->AddOwnedTable(nested_key_value_table);
+  }
 
   // Add nested_catalog with some connections with the same and different names.
   nested_catalog->AddConnection(owned_connections_.begin()->second.get());
@@ -1433,7 +1470,7 @@ static FreestandingDeprecationWarning CreateDeprecationWarning(
 
 void SampleCatalog::AddFunctionWithArgumentType(std::string type_name,
                                                 const Type* arg_type) {
-  auto function = absl::make_unique<Function>(
+  auto function = std::make_unique<Function>(
       absl::StrCat("fn_on_", type_name), "sample_functions", Function::SCALAR);
   function->AddSignature({types_->get_bool(), {arg_type}, /*context_id=*/-1});
   catalog_->AddOwnedFunction(std::move(function));
@@ -1811,6 +1848,10 @@ void SampleCatalog::LoadFunctions() {
            /*id=*/5, DeprecationWarning::DEPRECATED_FUNCTION_SIGNATURE)});
   function->AddSignature(two_deprecation_warnings_signature);
   catalog_->AddOwnedFunction(function);
+
+  catalog_->AddOwnedFunction(new Function(
+      "anon_non_anon", "sample_functions", Function::SCALAR,
+      {{types_->get_int64(), {}, /*context_id=*/-1}}, FunctionOptions()));
 
   function = new AnonFunction(
       "anon_test", "sample_functions",
@@ -3766,7 +3807,7 @@ void SampleCatalog::LoadTableValuedFunctionsWithStructArgs() {
                         "struct_arg2"));
 
   // A TVF with struct args.
-  auto tvf = absl::make_unique<FixedOutputSchemaTVF>(
+  auto tvf = std::make_unique<FixedOutputSchemaTVF>(
       std::vector<std::string>{"tvf_named_struct_args"},
       FunctionSignature{FunctionArgumentType::RelationWithSchema(
                             output_schema_two_types,
@@ -4409,6 +4450,22 @@ void SampleCatalog::LoadNonTemplatedSqlTableValuedFunctions(
   AddSqlDefinedTableFunctionFromCreate(
       R"(CREATE TABLE FUNCTION UnaryScalarArg(arg0 INT64)
          AS SELECT arg0;)",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"(CREATE TABLE FUNCTION UnaryScalarArgMultipleReferences(arg0 INT64)
+         AS SELECT arg0 + arg0 AS ret0, arg0 AS ret1;)",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"(CREATE TABLE FUNCTION BinaryScalarArg(arg0 INT64, arg1 INT64)
+         AS SELECT arg0, arg1, arg0 + arg1 AS ret2;)",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"(CREATE TABLE FUNCTION UnaryScalarArgSubqueryReference(arg0 INT64)
+         AS SELECT (SELECT arg0) AS ret0;)",
+      language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"(CREATE TABLE FUNCTION UnaryScalarArgSubqueryWithReference(arg0 INT64)
+         AS SELECT (WITH t AS (SELECT arg0) SELECT t.arg0 FROM t) AS ret0;)",
       language_options);
   AddSqlDefinedTableFunctionFromCreate(
       R"(CREATE TABLE FUNCTION UnaryTableArg(arg0 TABLE<a INT64>)
@@ -5152,8 +5209,8 @@ void SampleCatalog::LoadConstants() {
 }
 
 void SampleCatalog::LoadConnections() {
-  auto connection1 = absl::make_unique<SimpleConnection>("connection1");
-  auto connection2 = absl::make_unique<SimpleConnection>("connection2");
+  auto connection1 = std::make_unique<SimpleConnection>("connection1");
+  auto connection2 = std::make_unique<SimpleConnection>("connection2");
   owned_connections_[connection1->Name()] = std::move(connection1);
   owned_connections_[connection2->Name()] = std::move(connection2);
   for (auto it = owned_connections_.begin(); it != owned_connections_.end();
@@ -5172,7 +5229,7 @@ void SampleCatalog::LoadWellKnownLambdaArgFunctions() {
   const Type* bool_type = types_->get_bool();
 
   // Models ARRAY_FILTER
-  auto function = absl::make_unique<Function>(
+  auto function = std::make_unique<Function>(
       "fn_array_filter", "sample_functions", Function::SCALAR);
   function->AddSignature(
       {ARG_ARRAY_TYPE_ANY_1,
@@ -5191,8 +5248,8 @@ void SampleCatalog::LoadWellKnownLambdaArgFunctions() {
   catalog_->AddOwnedFunction(function.release());
 
   // Models ARRAY_TRANSFORM
-  function = absl::make_unique<Function>("fn_array_transform",
-                                         "sample_functions", Function::SCALAR);
+  function = std::make_unique<Function>("fn_array_transform",
+                                        "sample_functions", Function::SCALAR);
   function->AddSignature(
       {ARG_ARRAY_TYPE_ANY_2,
        {ARG_ARRAY_TYPE_ANY_1,
@@ -5209,8 +5266,8 @@ void SampleCatalog::LoadWellKnownLambdaArgFunctions() {
            function->GetSignature(1)->DebugString());
   catalog_->AddOwnedFunction(function.release());
 
-  function = absl::make_unique<Function>("fn_fp_array_sort", "sample_functions",
-                                         Function::SCALAR);
+  function = std::make_unique<Function>("fn_fp_array_sort", "sample_functions",
+                                        Function::SCALAR);
   function->AddSignature({ARG_TYPE_ANY_1,
                           {ARG_ARRAY_TYPE_ANY_1,
                            FunctionArgumentType::Lambda(
@@ -5223,8 +5280,8 @@ void SampleCatalog::LoadWellKnownLambdaArgFunctions() {
   // Models REDUCE function, which takes an input array, an initial state and a
   // function to run over each element with the current state to produce the
   // final state.
-  function = absl::make_unique<Function>("fn_fp_array_reduce",
-                                         "sample_functions", Function::SCALAR);
+  function = std::make_unique<Function>("fn_fp_array_reduce",
+                                        "sample_functions", Function::SCALAR);
   function->AddSignature(
       {ARG_TYPE_ANY_2,
        {ARG_ARRAY_TYPE_ANY_1, ARG_TYPE_ANY_2,
@@ -5242,7 +5299,7 @@ void SampleCatalog::LoadContrivedLambdaArgFunctions() {
 
   // Demonstrate having to get common super type for two different concrete type
   // for a single template type.
-  auto function = absl::make_unique<Function>(
+  auto function = std::make_unique<Function>(
       "fn_fp_T_T_LAMBDA", "sample_functions", Function::SCALAR);
   function->AddSignature(
       {ARG_TYPE_ANY_1,
@@ -5255,8 +5312,8 @@ void SampleCatalog::LoadContrivedLambdaArgFunctions() {
 
   // fn_fp_ArrayT_T is provided here to show current behavior to make it easier
   // for reader to understand fn_fp_ArrayT_T_LAMBDA.
-  function = absl::make_unique<Function>("fn_fp_ArrayT_T", "sample_functions",
-                                         Function::SCALAR);
+  function = std::make_unique<Function>("fn_fp_ArrayT_T", "sample_functions",
+                                        Function::SCALAR);
   function->AddSignature({ARG_TYPE_ANY_1,
                           {ARG_ARRAY_TYPE_ANY_1, ARG_TYPE_ANY_1},
                           /*context_id=*/-1});
@@ -5266,8 +5323,8 @@ void SampleCatalog::LoadContrivedLambdaArgFunctions() {
 
   // Demostrate case where we don't have common super type for T1, due to
   // ARRAY<T1>.
-  function = absl::make_unique<Function>("fn_fp_ArrayT_T_LAMBDA",
-                                         "sample_functions", Function::SCALAR);
+  function = std::make_unique<Function>("fn_fp_ArrayT_T_LAMBDA",
+                                        "sample_functions", Function::SCALAR);
   function->AddSignature(
       {ARG_TYPE_ANY_1,
        {ARG_ARRAY_TYPE_ANY_1, ARG_TYPE_ANY_1,
@@ -5279,8 +5336,8 @@ void SampleCatalog::LoadContrivedLambdaArgFunctions() {
 
   // Demonstrate that lambda argument type inference conflict with final
   // concrete type of templated type influenced by lambda body type.
-  function = absl::make_unique<Function>("fn_fp_T_LAMBDA_RET_T",
-                                         "sample_functions", Function::SCALAR);
+  function = std::make_unique<Function>("fn_fp_T_LAMBDA_RET_T",
+                                        "sample_functions", Function::SCALAR);
   function->AddSignature(
       {ARG_TYPE_ANY_1,
        {ARG_TYPE_ANY_1,
@@ -5295,8 +5352,8 @@ void SampleCatalog::LoadContrivedLambdaArgFunctions() {
       zetasql::FunctionArgumentTypeOptions().set_argument_name(
           "format_string"));
   // Signature with lambda and named argument before lambda.
-  function = absl::make_unique<Function>("fn_fp_named_then_lambda",
-                                         "sample_functions", Function::SCALAR);
+  function = std::make_unique<Function>("fn_fp_named_then_lambda",
+                                        "sample_functions", Function::SCALAR);
   function->AddSignature(
       {ARG_TYPE_ANY_1,
        {named_required_format_arg,
@@ -5307,8 +5364,8 @@ void SampleCatalog::LoadContrivedLambdaArgFunctions() {
   catalog_->AddOwnedFunction(function.release());
 
   // Signature with lambda and named argument after lambda.
-  function = absl::make_unique<Function>("fn_fp_lambda_then_named",
-                                         "sample_functions", Function::SCALAR);
+  function = std::make_unique<Function>("fn_fp_lambda_then_named",
+                                        "sample_functions", Function::SCALAR);
   function->AddSignature(
       {ARG_TYPE_ANY_1,
        {FunctionArgumentType::Lambda({int64_type}, ARG_TYPE_ANY_1),
@@ -5321,8 +5378,8 @@ void SampleCatalog::LoadContrivedLambdaArgFunctions() {
   // Signature with lambda and repeated arguments after lambda.
   const auto repeated_arg = zetasql::FunctionArgumentType(
       types_->get_int64(), FunctionArgumentType::REPEATED);
-  function = absl::make_unique<Function>("fn_fp_lambda_then_repeated",
-                                         "sample_functions", Function::SCALAR);
+  function = std::make_unique<Function>("fn_fp_lambda_then_repeated",
+                                        "sample_functions", Function::SCALAR);
   function->AddSignature(
       {ARG_TYPE_ANY_1,
        {FunctionArgumentType::Lambda({int64_type}, ARG_TYPE_ANY_1),
@@ -5333,8 +5390,8 @@ void SampleCatalog::LoadContrivedLambdaArgFunctions() {
   catalog_->AddOwnedFunction(function.release());
 
   // Signature with lambda and repeated arguments before lambda.
-  function = absl::make_unique<Function>("fn_fp_repeated_arg_then_lambda",
-                                         "sample_functions", Function::SCALAR);
+  function = std::make_unique<Function>("fn_fp_repeated_arg_then_lambda",
+                                        "sample_functions", Function::SCALAR);
   function->AddSignature({ARG_TYPE_ANY_1,
                           {repeated_arg, FunctionArgumentType::Lambda(
                                              {int64_type}, ARG_TYPE_ANY_1)},
@@ -5406,7 +5463,7 @@ void SampleCatalog::AddSqlDefinedFunctionFromCreate(
         /*parse_resume_location=*/{}, &function));
     catalog_->AddOwnedFunction(function.release());
   } else {
-    auto template_function = absl::make_unique<TemplatedSQLFunction>(
+    auto template_function = std::make_unique<TemplatedSQLFunction>(
         resolved_create->name_path(), resolved_create->signature(),
         resolved_create->argument_name_list(),
         ParseResumeLocation::FromStringView(resolved_create->code()));

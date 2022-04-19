@@ -17,6 +17,7 @@
 #include "zetasql/public/anonymization_utils.h"
 
 #include <cstdint>
+#include <string>
 
 #include "zetasql/public/value.h"
 #include "gmock/gmock.h"
@@ -42,8 +43,8 @@ constexpr double kCalcDeltaTestDefaultTolerance = 1e-03;
 
 struct ComputeDeltaTest {
   ComputeDeltaTest(double epsilon_in, int64_t k_threshold_in,
-                   absl::optional<int64_t> kappa_in,
-                   absl::optional<double> expected_delta_in,
+                   std::optional<int64_t> kappa_in,
+                   std::optional<double> expected_delta_in,
                    double tolerance_in = kCalcDeltaTestDefaultTolerance)
       : epsilon(epsilon_in),
         k_threshold(k_threshold_in),
@@ -53,16 +54,16 @@ struct ComputeDeltaTest {
 
   const double epsilon;
   const int64_t k_threshold;
-  const absl::optional<int64_t> kappa;
+  const std::optional<int64_t> kappa;
   // Missing implies an error is returned.
-  const absl::optional<double> expected_delta;
+  const std::optional<double> expected_delta;
   const double tolerance;
 };
 
 static ComputeDeltaTest DeltaPartitionTest(
     double epsilon, int64_t k_threshold, double expected_delta,
     double tolerance = kCalcDeltaTestDefaultTolerance) {
-  return ComputeDeltaTest(epsilon, k_threshold, absl::optional<int64_t>(),
+  return ComputeDeltaTest(epsilon, k_threshold, std::optional<int64_t>(),
                           expected_delta, tolerance);
 }
 
@@ -75,7 +76,7 @@ static ComputeDeltaTest DeltaDatasetTest(
 
 static ComputeDeltaTest DeltaErrorTest(
     double epsilon, int64_t k_threshold,
-    absl::optional<int64_t> kappa = absl::optional<int64_t>()) {
+    std::optional<int64_t> kappa = std::optional<int64_t>()) {
   return ComputeDeltaTest(epsilon, k_threshold, kappa,
                           std::optional<double>());
 }
@@ -113,8 +114,8 @@ static void RunDeltaTest(ComputeDeltaTest test_case) {
 
 struct ComputeKThresholdTest {
   ComputeKThresholdTest(double epsilon_in, double delta_in,
-                        absl::optional<int64_t> kappa_in,
-                        absl::optional<int64_t> expected_k_threshold_in)
+                        std::optional<int64_t> kappa_in,
+                        std::optional<int64_t> expected_k_threshold_in)
       : epsilon(epsilon_in),
         delta(delta_in),
         kappa(kappa_in),
@@ -122,14 +123,14 @@ struct ComputeKThresholdTest {
 
   const double epsilon;
   const double delta;
-  const absl::optional<int64_t> kappa;
+  const std::optional<int64_t> kappa;
   // Missing implies an error is returned.
-  const absl::optional<double> expected_k_threshold;
+  const std::optional<double> expected_k_threshold;
 };
 
 static ComputeKThresholdTest KThresholdPartitionTest(
     double epsilon, double delta, int64_t expected_k_threshold) {
-  return ComputeKThresholdTest(epsilon, delta, absl::optional<int64_t>(),
+  return ComputeKThresholdTest(epsilon, delta, std::optional<int64_t>(),
                                expected_k_threshold);
 }
 
@@ -140,7 +141,7 @@ static ComputeKThresholdTest KThresholdDatasetTest(
 
 static ComputeKThresholdTest KThresholdErrorTest(
     double epsilon, double delta,
-    absl::optional<int64_t> kappa = absl::optional<int64_t>()) {
+    std::optional<int64_t> kappa = std::optional<int64_t>()) {
   return ComputeKThresholdTest(epsilon, delta, kappa,
                                std::optional<double>());
 }

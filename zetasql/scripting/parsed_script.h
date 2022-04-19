@@ -68,7 +68,7 @@ class ParsedScript {
       std::set<absl::string_view, zetasql_base::CaseLess>;
 
   // Either a map of named parameters or the number of positional parameters.
-  using QueryParameters = absl::optional<absl::variant<StringSet, int64_t>>;
+  using QueryParameters = std::optional<absl::variant<StringSet, int64_t>>;
 
   // Performs preliminary analysis on the parse tree for a zetasql script
   // before execution.  Currently, this includes the following:

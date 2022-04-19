@@ -137,7 +137,7 @@ inline std::string ExtractingNotSupportedDatePart(
 }
 
 // Returns ErrorSources from <status>, if present.
-const absl::optional<::google::protobuf::RepeatedPtrField<ErrorSource>> GetErrorSources(
+const std::optional<::google::protobuf::RepeatedPtrField<ErrorSource>> GetErrorSources(
     const absl::Status& status);
 
 // Sets ErrorSources on <error_location_in> from <status>, including
@@ -180,7 +180,7 @@ ErrorLocationType SetErrorSourcesFromStatusWithoutOutermostError(
     return error_location_in;
   }
   ErrorLocationType error_location = error_location_in;
-  absl::optional<const ::google::protobuf::RepeatedPtrField<ErrorSource>> error_sources =
+  std::optional<const ::google::protobuf::RepeatedPtrField<ErrorSource>> error_sources =
       GetErrorSources(status);
   if (error_sources.has_value()) {
     *error_location.mutable_error_source() = *error_sources;

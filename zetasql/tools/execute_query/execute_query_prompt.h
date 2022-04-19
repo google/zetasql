@@ -19,6 +19,7 @@
 
 #include <deque>
 #include <functional>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -55,7 +56,7 @@ class ExecuteQueryPrompt {
 
   // Read next statement. Return empty optional when input is finished (e.g. at
   // EOF).
-  virtual absl::StatusOr<absl::optional<std::string>> Read() = 0;
+  virtual absl::StatusOr<std::optional<std::string>> Read() = 0;
 };
 
 // A prompt implementation returning whole SQL statements. They're read using
@@ -81,7 +82,7 @@ class ExecuteQueryStatementPrompt : public ExecuteQueryPrompt {
   // handling SQL syntax issues gracefully.
   explicit ExecuteQueryStatementPrompt(
       std::function<
-          absl::StatusOr<absl::optional<std::string>>(bool continuation)>
+          absl::StatusOr<std::optional<std::string>>(bool continuation)>
           read_next_func);
   ExecuteQueryStatementPrompt(const ExecuteQueryStatementPrompt&) = delete;
   ExecuteQueryStatementPrompt& operator=(const ExecuteQueryStatementPrompt&) =
@@ -103,7 +104,7 @@ class ExecuteQueryStatementPrompt : public ExecuteQueryPrompt {
   absl::StatusOr<ExecuteQueryCompletionResult> Autocomplete(
       const ExecuteQueryCompletionRequest& req);
 
-  absl::StatusOr<absl::optional<std::string>> Read() override;
+  absl::StatusOr<std::optional<std::string>> Read() override;
 
  private:
   void ReadInput(bool continuation);
@@ -113,7 +114,7 @@ class ExecuteQueryStatementPrompt : public ExecuteQueryPrompt {
   FRIEND_TEST(ExecuteQueryStatementPrompt, LargeInput);
 
   size_t max_length_ = kMaxLength;
-  const std::function<absl::StatusOr<absl::optional<std::string>>(bool)>
+  const std::function<absl::StatusOr<std::optional<std::string>>(bool)>
       read_next_func_;
   const std::function<absl::Status(absl::Status, absl::string_view)>
       parser_error_handler_;
@@ -123,7 +124,7 @@ class ExecuteQueryStatementPrompt : public ExecuteQueryPrompt {
   bool continuation_ = false;
   bool eof_ = false;
   absl::Cord buf_;
-  std::deque<absl::StatusOr<absl::optional<std::string>>> queue_;
+  std::deque<absl::StatusOr<std::optional<std::string>>> queue_;
 };
 
 class ExecuteQuerySingleInput : public ExecuteQueryStatementPrompt {
@@ -133,7 +134,7 @@ class ExecuteQuerySingleInput : public ExecuteQueryStatementPrompt {
   ExecuteQuerySingleInput& operator=(const ExecuteQuerySingleInput&) = delete;
 
  private:
-  absl::optional<std::string> ReadNext(bool continuation);
+  std::optional<std::string> ReadNext(bool continuation);
 
  private:
   const std::string query_;

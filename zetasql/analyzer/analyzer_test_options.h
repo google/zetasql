@@ -150,6 +150,7 @@ extern const char* const kErrorMessageMode;
 extern const char* const kDdlPseudoColumnMode;
 extern const char* const kPreserveColumnAliases;
 extern const char* const kSupportedGenericEntityTypes;
+extern const char* const kSupportedGenericSubEntityTypes;
 extern const char* const kEnabledASTRewrites;
 extern const char* const kCreateTableLikeNotScanned;
 extern const char* const kPrivilegeRestrictionTableNotScanned;

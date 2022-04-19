@@ -1188,16 +1188,28 @@ YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.F]][time zone]
    </li>
 </ul>
 
-### Time zones
+### Time zones 
+<a id="time_zones"></a>
 
 Time zones are used when parsing timestamps or formatting timestamps
 for display. The timestamp value itself does not store a specific time zone,
 nor does it change when you apply a time zone offset.
 
-Time zones are represented by strings in one of these two canonical formats:
+Time zones are represented by strings in one of these canonical formats:
 
 + Offset from Coordinated Universal Time (UTC), or the letter `Z` for UTC
 + Time zone name from the [tz database][tz-database]{: class=external target=_blank }
+
+The following timestamps are identical because the time zone offset
+for `America/Los_Angeles` is `-08` for the specified date and time.
+
+```sql
+SELECT UNIX_MILLIS(TIMESTAMP '2008-12-25 15:30:00 America/Los_Angeles') AS millis;
+```
+
+```sql
+SELECT UNIX_MILLIS(TIMESTAMP '2008-12-25 15:30:00-08:00') AS millis;
+```
 
 #### Offset from Coordinated Universal Time (UTC)
 

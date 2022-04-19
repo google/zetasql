@@ -26,6 +26,7 @@
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/simple_table.pb.h"
+#include "zetasql/public/strings.h"
 #include "zetasql/base/case.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
@@ -40,7 +41,7 @@ namespace zetasql {
 absl::Status TableValuedFunctionOptions::Deserialize(
       const TableValuedFunctionOptionsProto& proto,
       std::unique_ptr<TableValuedFunctionOptions>* result) {
-  auto options = absl::make_unique<TableValuedFunctionOptions>();
+  auto options = std::make_unique<TableValuedFunctionOptions>();
   options->set_uses_upper_case_sql_name(proto.uses_upper_case_sql_name());
 
   *result = std::move(options);
@@ -269,9 +270,11 @@ std::string TVFRelation::GetSQLDeclaration(ProductMode product_mode) const {
   strings.reserve(columns().size());
   for (const Column& column : columns()) {
     strings.push_back(column.type->TypeName(product_mode));
-    // Prevent concatenating value column name.
-    if (!is_value_table() || column.is_pseudo_column) {
-      strings.back() = absl::StrCat(column.name, " ", strings.back());
+    // Prevent concatenating value column name or empty column name
+    if ((!is_value_table() || column.is_pseudo_column) &&
+        !column.name.empty()) {
+      strings.back() =
+          absl::StrCat(ToIdentifierLiteral(column.name), " ", strings.back());
     }
   }
   return absl::StrCat("TABLE<", absl::StrJoin(strings, ", "), ">");
@@ -324,29 +327,13 @@ bool operator==(const TVFSchemaColumn& a, const TVFSchemaColumn& b) {
           (a.type != nullptr && b.type != nullptr && a.type->Equals(b.type)));
 }
 
-std::ostream& operator<<(std::ostream& out,
-                         const TVFSchemaColumn& column) {
-  out << column.DebugString(column.name.empty());
-  return out;
-}
-
 bool operator == (const TVFRelation& a, const TVFRelation& b) {
   return a.is_value_table() == b.is_value_table() &&
          std::equal(a.columns().begin(), a.columns().end(),
                     b.columns().begin(), b.columns().end());
 }
 
-std::string TVFModelArgument::GetSQLDeclaration(
-    ProductMode product_mode) const {
-  return "ANY MODEL";
-}
-
 std::string TVFModelArgument::DebugString() const { return "ANY MODEL"; }
-
-std::string TVFConnectionArgument::GetSQLDeclaration(
-    ProductMode product_mode) const {
-  return "ANY CONNECTION";
-}
 
 std::string TVFConnectionArgument::DebugString() const {
   return "ANY CONNECTION";
@@ -382,9 +369,8 @@ absl::Status FixedOutputSchemaTVF::Deserialize(
   ZETASQL_RETURN_IF_ERROR(
       TableValuedFunctionOptions::Deserialize(proto.options(), &options));
 
-  *result =
-      absl::make_unique<FixedOutputSchemaTVF>(
-          path, *signature, result_schema, *options);
+  *result = std::make_unique<FixedOutputSchemaTVF>(path, *signature,
+                                                   result_schema, *options);
 
   if (proto.has_anonymization_info()) {
     ZETASQL_RET_CHECK(!proto.anonymization_info().userid_column_name().empty());
@@ -411,7 +397,7 @@ absl::Status FixedOutputSchemaTVF::Resolve(
       new TVFSignature(actual_arguments, result_schema_, options));
   if (anonymization_info_ != nullptr) {
     auto anonymization_info =
-        absl::make_unique<AnonymizationInfo>(*anonymization_info_);
+        std::make_unique<AnonymizationInfo>(*anonymization_info_);
     tvf_signature->get()->SetAnonymizationInfo(std::move(anonymization_info));
   }
   return absl::OkStatus();
@@ -441,9 +427,8 @@ absl::Status ForwardInputSchemaToOutputSchemaTVF::Deserialize(
   ZETASQL_RETURN_IF_ERROR(
       TableValuedFunctionOptions::Deserialize(proto.options(), &options));
 
-  *result =
-      absl::make_unique<ForwardInputSchemaToOutputSchemaTVF>(
-          path, *signature, *options);
+  *result = std::make_unique<ForwardInputSchemaToOutputSchemaTVF>(
+      path, *signature, *options);
   return absl::OkStatus();
 }
 
@@ -580,7 +565,7 @@ absl::Status ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF::Deserialize(
       TableValuedFunctionOptions::Deserialize(proto.options(), &options));
 
   *result =
-      absl::make_unique<ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF>(
+      std::make_unique<ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF>(
           path, *signature, extra_columns, *options);
   return absl::OkStatus();
 }

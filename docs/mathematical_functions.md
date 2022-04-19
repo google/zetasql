@@ -770,6 +770,16 @@ an error. Division by -1 may overflow.
       <td>5</td>
     </tr>
     <tr>
+      <td>12</td>
+      <td>-7</td>
+      <td>-1</td>
+    </tr>
+    <tr>
+      <td>20</td>
+      <td>3</td>
+      <td>6</td>
+    </tr>
+    <tr>
       <td>0</td>
       <td>20</td>
       <td>0</td>
@@ -1801,6 +1811,8 @@ the two arguments to determine the quadrant. The return value is in the range
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
+
+[conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#conversion_rules
 
 <!-- mdlint on -->
 

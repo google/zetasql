@@ -77,7 +77,7 @@ class Value::TypedList : public zetasql_base::SimpleReferenceCounted {
  private:
   const Type* type_;  // not owned
   std::vector<Value> values_;
-  mutable absl::optional<uint64_t> physical_byte_size_;
+  mutable std::optional<uint64_t> physical_byte_size_;
 };
 
 // -------------------------------------------------------

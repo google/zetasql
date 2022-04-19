@@ -1454,6 +1454,40 @@ types are compared when they have fields that are `NULL` valued.
 </tbody>
 </table>
 
+### EXISTS operator 
+<a id="exists_operator"></a>
+
+```sql
+EXISTS ( subquery )
+```
+
+**Description**
+
+Returns `TRUE` if the subquery produces one or more rows. Returns `FALSE` if
+the subquery produces zero rows. Never returns `NULL`. To learn more about
+how you can use a subquery with `EXISTS`,
+see [`EXISTS` subqueries][exists-subqueries].
+
+**Examples**
+
+In this example, the `EXISTS` operator returns `FALSE` because there are no
+rows in `Words` where the direction is `south`:
+
+```sql
+WITH Words AS (
+  SELECT 'Intend' as value, 'east' as direction UNION ALL
+  SELECT 'Secure', 'north' UNION ALL
+  SELECT 'Clarity', 'west'
+ )
+SELECT EXISTS ( SELECT value FROM Words WHERE direction = 'south' ) as result;
+
++--------+
+| result |
++--------+
+| FALSE  |
++--------+
+```
+
 ### IN operator 
 <a id="in_operators"></a>
 
@@ -1856,6 +1890,8 @@ The concatenation operator combines multiple values into one.
 [operators-group-by]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#group_by_clause
 
 [operators-subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#about_subqueries
+
+[exists-subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#exists_subquery_concepts
 
 [operators-link-to-struct-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct_type
 

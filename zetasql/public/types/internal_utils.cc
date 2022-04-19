@@ -56,7 +56,7 @@ absl::Status PopulateDistinctFileDescriptorSets(
       (*file_descriptor_set_map)[file_descr->pool()];
   if (file_descriptor_entry == nullptr) {
     // This is a new entry in the map.
-    file_descriptor_entry = absl::make_unique<Type::FileDescriptorEntry>();
+    file_descriptor_entry = std::make_unique<Type::FileDescriptorEntry>();
     ZETASQL_CHECK(file_descriptor_set_map->size() <
           std::numeric_limits<decltype(
               file_descriptor_entry->descriptor_set_index)>::max());
@@ -64,7 +64,7 @@ absl::Status PopulateDistinctFileDescriptorSets(
         static_cast<decltype(file_descriptor_entry->descriptor_set_index)>(
             file_descriptor_set_map->size() - 1);
   }
-  absl::optional<int64_t> this_file_descriptor_set_max_size;
+  std::optional<int64_t> this_file_descriptor_set_max_size;
   if (options.file_descriptor_sets_max_size_bytes.has_value()) {
     const int64_t map_total_size =
         FileDescriptorSetMapTotalSize(*file_descriptor_set_map);

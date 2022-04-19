@@ -114,7 +114,7 @@ void SelectColumnStateList::AddSelectColumn(
     const ASTExpression* ast_expr, IdString alias, bool is_explicit,
     bool has_aggregation, bool has_analytic,
     std::unique_ptr<const ResolvedExpr> resolved_expr) {
-  AddSelectColumn(absl::make_unique<SelectColumnState>(
+  AddSelectColumn(std::make_unique<SelectColumnState>(
       ast_expr, alias, is_explicit, has_aggregation, has_analytic,
       std::move(resolved_expr)));
 }
@@ -260,8 +260,8 @@ std::string SelectColumnStateList::DebugString() const {
 }
 
 QueryResolutionInfo::QueryResolutionInfo(Resolver* resolver) {
-  select_column_state_list_ = absl::make_unique<SelectColumnStateList>();
-  analytic_resolver_ = absl::make_unique<AnalyticFunctionResolver>(resolver);
+  select_column_state_list_ = std::make_unique<SelectColumnStateList>();
+  analytic_resolver_ = std::make_unique<AnalyticFunctionResolver>(resolver);
 }
 
 // Keep destructor impl in .cc to resolve circular deps.
@@ -406,7 +406,7 @@ bool QueryResolutionInfo::HasAnalytic() const {
 }
 
 void QueryResolutionInfo::ResetAnalyticResolver(Resolver* resolver) {
-  analytic_resolver_ = absl::make_unique<AnalyticFunctionResolver>(
+  analytic_resolver_ = std::make_unique<AnalyticFunctionResolver>(
       resolver, analytic_resolver_->ReleaseNamedWindowInfoMap());
 }
 
@@ -468,7 +468,7 @@ const ResolvedExpr* UntypedLiteralMap::Find(const ResolvedColumn& column) {
 
     // Populate column_id_to_untyped_literal_map_.
     column_id_to_untyped_literal_map_ =
-        absl::make_unique<absl::flat_hash_map<int, const ResolvedExpr*>>();
+        std::make_unique<absl::flat_hash_map<int, const ResolvedExpr*>>();
     for (const auto& computed_column :
         scan_->GetAs<ResolvedProjectScan>()->expr_list()) {
       const ResolvedExpr* expr = computed_column->expr();

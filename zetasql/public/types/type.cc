@@ -302,13 +302,13 @@ absl::Status Type::SerializeToProtoAndDistinctFileDescriptors(
   // No limit on FileDescriptorSet size.
   return SerializeToProtoAndDistinctFileDescriptors(
       type_proto,
-      /*file_descriptor_sets_max_size_bytes=*/absl::optional<int64_t>(),
+      /*file_descriptor_sets_max_size_bytes=*/std::optional<int64_t>(),
       file_descriptor_set_map);
 }
 
 absl::Status Type::SerializeToProtoAndDistinctFileDescriptors(
     TypeProto* type_proto,
-    absl::optional<int64_t> file_descriptor_sets_max_size_bytes,
+    std::optional<int64_t> file_descriptor_sets_max_size_bytes,
     FileDescriptorSetMap* file_descriptor_set_map) const {
   ZETASQL_RET_CHECK(file_descriptor_set_map != nullptr);
   type_proto->Clear();
@@ -354,11 +354,11 @@ std::string Type::DebugString(bool details) const {
   while (!stack.empty()) {
     const auto stack_entry = stack.back();
     stack.pop_back();
-    if (absl::holds_alternative<std::string>(stack_entry)) {
-      absl::StrAppend(&debug_string, absl::get<std::string>(stack_entry));
+    if (std::holds_alternative<std::string>(stack_entry)) {
+      absl::StrAppend(&debug_string, std::get<std::string>(stack_entry));
       continue;
     }
-    absl::get<const Type*>(stack_entry)
+    std::get<const Type*>(stack_entry)
         ->DebugStringImpl(details, &stack, &debug_string);
   }
   return debug_string;
@@ -530,6 +530,12 @@ absl::Status Type::ValidateResolvedTypeParameters(
   ZETASQL_RET_CHECK(type_parameters.IsEmpty())
       << "Type " << ShortTypeName(mode) << "does not support type parameters";
   return absl::OkStatus();
+}
+
+absl::StatusOr<std::string> Type::TypeNameWithParameters(
+    const TypeParameters& type_params, ProductMode mode) const {
+  return TypeNameWithModifiers(
+      TypeModifiers::MakeTypeModifiers(type_params, Collation()), mode);
 }
 
 }  // namespace zetasql

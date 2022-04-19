@@ -87,7 +87,7 @@ class AnalyzerOptionsTest : public ::testing::Test {
  public:
   AnalyzerOptionsTest() {
     options_.mutable_language()->SetSupportsAllStatementKinds();
-    sample_catalog_ = absl::make_unique<SampleCatalog>(options_.language());
+    sample_catalog_ = std::make_unique<SampleCatalog>(options_.language());
   }
   AnalyzerOptionsTest(const AnalyzerOptionsTest&) = delete;
   AnalyzerOptionsTest& operator=(const AnalyzerOptionsTest&) = delete;
@@ -1030,12 +1030,12 @@ TEST_F(AnalyzerOptionsTest, ClassAndProtoSize) {
   EXPECT_EQ(240, sizeof(AnalyzerOptions) - sizeof(LanguageOptions) -
                      sizeof(AllowedHintsAndOptions) -
                      sizeof(Catalog::FindOptions) - sizeof(SystemVariablesMap) -
-                     2 * sizeof(QueryParametersMap) - 1 * sizeof(std::string) -
+                     2 * sizeof(QueryParametersMap) - 2 * sizeof(std::string) -
                      sizeof(std::vector<AnnotationSpec*>) -
                      sizeof(absl::btree_set<ResolvedASTRewrite>))
       << "The size of AnalyzerOptions class has changed, please also update "
       << "the proto and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(20, AnalyzerOptionsProto::descriptor()->field_count())
+  EXPECT_EQ(21, AnalyzerOptionsProto::descriptor()->field_count())
       << "The number of fields in AnalyzerOptionsProto has changed, please "
       << "also update the serialization code accordingly.";
 }
@@ -1574,7 +1574,7 @@ TEST(SQLBuilderTest, WithScanWithFilterScan) {
   const std::string col_name = "C";
 
   TypeFactory type_factory;
-  auto table = absl::make_unique<SimpleTable>(table_name);
+  auto table = std::make_unique<SimpleTable>(table_name);
 
   // With entry list.
   const ResolvedColumn scan_column(
@@ -1623,7 +1623,7 @@ TEST(SQLBuilderTest, TableScanPrefersColumnIndexList) {
   const int column_id = 9;
 
   TypeFactory type_factory;
-  auto table = absl::make_unique<SimpleTable>(table_name);
+  auto table = std::make_unique<SimpleTable>(table_name);
   ZETASQL_ASSERT_OK(table->AddColumn(
       new SimpleColumn(table_name, col_name, type_factory.get_int32()),
       /*is_owned=*/true));
@@ -1659,8 +1659,8 @@ TEST(SQLBuilderTest, WithScanWithJoinScan) {
   const std::string col_name = "C";
 
   TypeFactory type_factory;
-  auto table1 = absl::make_unique<SimpleTable>(table_name1);
-  auto table2 = absl::make_unique<SimpleTable>(table_name2);
+  auto table1 = std::make_unique<SimpleTable>(table_name1);
+  auto table2 = std::make_unique<SimpleTable>(table_name2);
 
   // With entry list.
   const ResolvedColumn scan_column(
@@ -1718,7 +1718,7 @@ TEST(SQLBuilderTest, WithScanWithArrayScan) {
   const std::string col_name = "C";
 
   TypeFactory type_factory;
-  auto table = absl::make_unique<SimpleTable>(table_name);
+  auto table = std::make_unique<SimpleTable>(table_name);
 
   // With entry list.
   const ResolvedColumn scan_column(

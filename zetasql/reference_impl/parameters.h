@@ -50,7 +50,7 @@ class Parameters {
 
   // Returns whether this represents a collection of named parameters.
   bool is_named() const {
-    return absl::holds_alternative<ParameterMap>(parameters_);
+    return std::holds_alternative<ParameterMap>(parameters_);
   }
 
   // Sets the parameter mode. Clears any existing parameters.

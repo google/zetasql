@@ -2,7 +2,7 @@
 # verified as correct.
 [default no_show_parse_location_text]
 
-ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo set OPTIONS
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} foo set OPTIONS
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -33,9 +33,15 @@ ALTERNATION GROUP: MATERIALIZED VIEW
 ERROR: Syntax error: Expected "(" but got end of statement [at 1:40]
 ALTER MATERIALIZED VIEW foo set OPTIONS
                                        ^
+--
+ALTERNATION GROUP: MODEL
+--
+ERROR: Syntax error: Expected "(" but got end of statement [at 1:28]
+ALTER MODEL foo set OPTIONS
+                           ^
 ==
 
-ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo set timestamp;
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} foo set timestamp;
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -67,39 +73,53 @@ ALTERNATION GROUP: MATERIALIZED VIEW
 ERROR: Syntax error: Expected keyword AS or keyword DEFAULT or keyword OPTIONS but got keyword TIMESTAMP [at 1:33]
 ALTER MATERIALIZED VIEW foo set timestamp;
                                 ^
+--
+ALTERNATION GROUP: MODEL
+--
+ERROR: Syntax error: Expected keyword AS or keyword DEFAULT or keyword OPTIONS but got keyword TIMESTAMP [at 1:21]
+ALTER MODEL foo set timestamp;
+                    ^
 ==
 
-ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo drop;
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} foo drop;
 --
 ALTERNATION GROUP: DATABASE
 --
-ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT or keyword PRIMARY but got ";" [at 1:24]
+ERROR: Syntax error: Expected identifier or keyword COLUMN or keyword CONSTRAINT or keyword PRIMARY but got ";" [at 1:24]
 ALTER DATABASE foo drop;
                        ^
 --
 ALTERNATION GROUP: SCHEMA
 --
-ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT or keyword PRIMARY but got ";" [at 1:22]
+ERROR: Syntax error: Expected identifier or keyword COLUMN or keyword CONSTRAINT or keyword PRIMARY but got ";" [at 1:22]
 ALTER SCHEMA foo drop;
                      ^
 --
 ALTERNATION GROUP: TABLE
 --
-ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT or keyword PRIMARY but got ";" [at 1:21]
+ERROR: Syntax error: Expected identifier or keyword COLUMN or keyword CONSTRAINT or keyword PRIMARY but got ";" [at 1:21]
 ALTER TABLE foo drop;
                     ^
 --
 ALTERNATION GROUP: VIEW
 --
-ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT or keyword PRIMARY but got ";" [at 1:20]
+ERROR: Syntax error: Expected identifier or keyword COLUMN or keyword CONSTRAINT or keyword PRIMARY but got ";" [at 1:20]
 ALTER VIEW foo drop;
                    ^
 --
 ALTERNATION GROUP: MATERIALIZED VIEW
 --
-ERROR: Syntax error: Expected keyword COLUMN or keyword CONSTRAINT or keyword PRIMARY but got ";" [at 1:33]
+ERROR: Syntax error: Expected identifier or keyword COLUMN or keyword CONSTRAINT or keyword PRIMARY but got ";" [at 1:33]
 ALTER MATERIALIZED VIEW foo drop;
                                 ^
+
+--
+ALTERNATION GROUP: MODEL
+--
+ERROR: Syntax error: Expected identifier or keyword COLUMN or keyword CONSTRAINT or keyword PRIMARY but got ";" [at 1:21]
+ALTER MODEL foo drop;
+                    ^
+
 ==
 
 ALTER {{AGGREGATE FUNCTION|CONSTANT|DATABASE|EXTERNAL TABLE|FUNCTION|INDEX|MATERIALIZED VIEW|MODEL|PROCEDURE|SCHEMA|TABLE FUNCTION}};
@@ -237,9 +257,15 @@ ALTER MATERIALIZED VIEW adsdw.foo SET OPTIONS()
 --
 ALTERNATION GROUP: MODEL
 --
-ERROR: ALTER MODEL is not supported [at 1:7]
-ALTER MODEL adsdw.foo
-      ^
+AlterModelStatement [0-36]
+  PathExpression [12-21]
+    Identifier(adsdw) [12-17]
+    Identifier(foo) [18-21]
+  AlterActionList [22-36]
+    SetOptionsOperation [22-36]
+      OptionsList [34-36]
+--
+ALTER MODEL adsdw.foo SET OPTIONS()
 --
 ALTERNATION GROUP: SCHEMA
 --
@@ -421,7 +447,7 @@ AlterMaterializedViewStatement(is_if_exists) [0-58]
 ALTER MATERIALIZED VIEW IF EXISTS adsdw.foo SET OPTIONS()
 ==
 
-ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} adsdw.foo SET OPTIONS (
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} adsdw.foo SET OPTIONS (
   quota_accounting_owner='adsdw-etl@google.com');
 --
 ALTERNATION GROUP: DATABASE
@@ -484,6 +510,7 @@ AlterViewStatement [0-83]
         OptionsEntry [37-82]
           Identifier(quota_accounting_owner) [37-59]
           StringLiteral('adsdw-etl@google.com') [60-82]
+
 --
 ALTER VIEW adsdw.foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com')
 --
@@ -501,9 +528,24 @@ AlterMaterializedViewStatement [0-96]
           StringLiteral('adsdw-etl@google.com') [73-95]
 --
 ALTER MATERIALIZED VIEW adsdw.foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com')
+--
+ALTERNATION GROUP: MODEL
+--
+AlterModelStatement [0-84]
+  PathExpression [12-21]
+    Identifier(adsdw) [12-17]
+    Identifier(foo) [18-21]
+  AlterActionList [22-84]
+    SetOptionsOperation [22-84]
+      OptionsList [34-84]
+        OptionsEntry [38-83]
+          Identifier(quota_accounting_owner) [38-60]
+          StringLiteral('adsdw-etl@google.com') [61-83]
+--
+ALTER MODEL adsdw.foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com')
 ==
 
-ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} adsdw.foo SET OPTIONS (ttl_seconds=3600);
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} adsdw.foo SET OPTIONS (ttl_seconds=3600);
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -579,9 +621,24 @@ AlterMaterializedViewStatement [0-64]
           IntLiteral(3600) [59-63]
 --
 ALTER MATERIALIZED VIEW adsdw.foo SET OPTIONS(ttl_seconds = 3600)
+--
+ALTERNATION GROUP: MODEL
+--
+AlterModelStatement [0-52]
+  PathExpression [12-21]
+    Identifier(adsdw) [12-17]
+    Identifier(foo) [18-21]
+  AlterActionList [22-52]
+    SetOptionsOperation [22-52]
+      OptionsList [34-52]
+        OptionsEntry [35-51]
+          Identifier(ttl_seconds) [35-46]
+          IntLiteral(3600) [47-51]
+--
+ALTER MODEL adsdw.foo SET OPTIONS(ttl_seconds = 3600)
 ==
 
-ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} adsdw.foo SET OPTIONS (ttl_seconds=NULL);
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} adsdw.foo SET OPTIONS (ttl_seconds=NULL);
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -657,9 +714,24 @@ AlterMaterializedViewStatement [0-64]
           NullLiteral(NULL) [59-63]
 --
 ALTER MATERIALIZED VIEW adsdw.foo SET OPTIONS(ttl_seconds = NULL)
+--
+ALTERNATION GROUP: MODEL
+--
+AlterModelStatement [0-52]
+  PathExpression [12-21]
+    Identifier(adsdw) [12-17]
+    Identifier(foo) [18-21]
+  AlterActionList [22-52]
+    SetOptionsOperation [22-52]
+      OptionsList [34-52]
+        OptionsEntry [35-51]
+          Identifier(ttl_seconds) [35-46]
+          NullLiteral(NULL) [47-51]
+--
+ALTER MODEL adsdw.foo SET OPTIONS(ttl_seconds = NULL)
 ==
 
-ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo SET OPTIONS (
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} foo SET OPTIONS (
   quota_accounting_owner = 'adsdw-etl@google.com', ttl_seconds=3600);
 --
 ALTERNATION GROUP: DATABASE
@@ -747,6 +819,23 @@ AlterMaterializedViewStatement [0-110]
 --
 ALTER MATERIALIZED VIEW foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com', ttl_seconds =
     3600)
+--
+ALTERNATION GROUP: MODEL
+--
+AlterModelStatement [0-98]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-98]
+    SetOptionsOperation [16-98]
+      OptionsList [28-98]
+        OptionsEntry [32-79]
+          Identifier(quota_accounting_owner) [32-54]
+          StringLiteral('adsdw-etl@google.com') [57-79]
+        OptionsEntry [81-97]
+          Identifier(ttl_seconds) [81-92]
+          IntLiteral(3600) [93-97]
+--
+ALTER MODEL foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@google.com', ttl_seconds = 3600)
 ==
 
 ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo SET OPTIONS (
@@ -844,7 +933,7 @@ ALTER MATERIALIZED VIEW foo SET OPTIONS(quota_accounting_owner = 'adsdw-etl@goog
     'adsdw-etl@google.com')
 ==
 
-ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} foo
 SET OPTIONS (a = 'a', b = 1),
 SET OPTIONS (c = 'c'),
 SET OPTIONS (a = 'a', b = 1)
@@ -1000,9 +1089,39 @@ AlterMaterializedViewStatement [0-109]
 --
 ALTER MATERIALIZED VIEW foo SET OPTIONS(a = 'a', b = 1), SET OPTIONS(c = 'c'), SET OPTIONS(a = 'a', b =
     1)
+--
+ALTERNATION GROUP: MODEL
+--
+AlterModelStatement [0-97]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-97]
+    SetOptionsOperation [16-44]
+      OptionsList [28-44]
+        OptionsEntry [29-36]
+          Identifier(a) [29-30]
+          StringLiteral('a') [33-36]
+        OptionsEntry [38-43]
+          Identifier(b) [38-39]
+          IntLiteral(1) [42-43]
+    SetOptionsOperation [46-67]
+      OptionsList [58-67]
+        OptionsEntry [59-66]
+          Identifier(c) [59-60]
+          StringLiteral('c') [63-66]
+    SetOptionsOperation [69-97]
+      OptionsList [81-97]
+        OptionsEntry [82-89]
+          Identifier(a) [82-83]
+          StringLiteral('a') [86-89]
+        OptionsEntry [91-96]
+          Identifier(b) [91-92]
+          IntLiteral(1) [95-96]
+--
+ALTER MODEL foo SET OPTIONS(a = 'a', b = 1), SET OPTIONS(c = 'c'), SET OPTIONS(a = 'a', b = 1)
 ==
 
-ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}}
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}}
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -1033,9 +1152,15 @@ ALTERNATION GROUP: MATERIALIZED VIEW
 ERROR: Syntax error: Unexpected end of statement [at 1:24]
 ALTER MATERIALIZED VIEW
                        ^
+--
+ALTERNATION GROUP: MODEL
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:12]
+ALTER MODEL
+           ^
 ==
 
-ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo;
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} foo;
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -1066,9 +1191,15 @@ ALTERNATION GROUP: MATERIALIZED VIEW
 ERROR: Syntax error: Unexpected ";" [at 1:28]
 ALTER MATERIALIZED VIEW foo;
                            ^
+--
+ALTERNATION GROUP: MODEL
+--
+ERROR: Syntax error: Unexpected ";" [at 1:16]
+ALTER MODEL foo;
+               ^
 ==
 
-ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo SET OPTIONS (a = 'a', b = 1),
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} foo SET OPTIONS (a = 'a', b = 1),
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -1099,9 +1230,15 @@ ALTERNATION GROUP: MATERIALIZED VIEW
 ERROR: Syntax error: Unexpected end of statement [at 1:58]
 ALTER MATERIALIZED VIEW foo SET OPTIONS (a = 'a', b = 1),
                                                          ^
+--
+ALTERNATION GROUP: MODEL
+--
+ERROR: Syntax error: Unexpected end of statement [at 1:46]
+ALTER MODEL foo SET OPTIONS (a = 'a', b = 1),
+                                             ^
 ==
 
-ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW}} foo SET OPTIONS (a = 'a', b = 1), SET
+ALTER {{DATABASE|SCHEMA|TABLE|VIEW|MATERIALIZED VIEW|MODEL}} foo SET OPTIONS (a = 'a', b = 1), SET
 --
 ALTERNATION GROUP: DATABASE
 --
@@ -1132,3 +1269,9 @@ ALTERNATION GROUP: MATERIALIZED VIEW
 ERROR: Syntax error: Expected keyword AS or keyword DEFAULT or keyword OPTIONS but got end of statement [at 1:62]
 ALTER MATERIALIZED VIEW foo SET OPTIONS (a = 'a', b = 1), SET
                                                              ^
+--
+ALTERNATION GROUP: MODEL
+--
+ERROR: Syntax error: Expected keyword AS or keyword DEFAULT or keyword OPTIONS but got end of statement [at 1:50]
+ALTER MODEL foo SET OPTIONS (a = 'a', b = 1), SET
+                                                 ^

@@ -104,8 +104,8 @@ bool CheckAndCastStrLength(absl::string_view str, int32_t* str_length32) {
   return true;
 }
 
-absl::optional<int32_t> ForwardN(absl::string_view str, int32_t str_length32,
-                                 int64_t num_code_points) {
+std::optional<int32_t> ForwardN(absl::string_view str, int32_t str_length32,
+                                int64_t num_code_points) {
   int32_t str_offset = 0;
   for (int64_t i = 0; i < num_code_points && str_offset < str_length32; ++i) {
     UChar32 character;

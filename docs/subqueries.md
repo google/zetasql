@@ -11,7 +11,7 @@ nested `SELECT`s. The full `SELECT` syntax is valid in subqueries.
 ## Expression subqueries 
 <a id="expression_subquery_concepts"></a>
 
-[Expression subqueries][expression-subqueries] are used in
+Expression subqueries are used in
 a query wherever expressions are valid. They return a single value, as opposed
 to a column or table. Expression subqueries can be
 [correlated][correlated_subquery_concepts].
@@ -404,8 +404,6 @@ SELECT * FROM (
 [subqueries-query-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md
 
 [in-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#in_operators
-
-[expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries.md
 
 [array-function]: https://github.com/google/zetasql/blob/master/docs/array_functions.md#array
 

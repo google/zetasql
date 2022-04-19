@@ -96,3 +96,18 @@ cc_proto_library(
     name = "internal_error_location_cc_proto",
     deps = [":internal_error_location_proto"],
 )
+
+proto_library(
+    name = "anon_output_with_report_proto",
+    srcs = ["anon_output_with_report.proto"],
+)
+
+cc_proto_library(
+    name = "anon_output_with_report_cc_proto",
+    deps = [":anon_output_with_report_proto"],
+)
+
+java_proto_library(
+    name = "anon_output_with_report_java_proto",
+    deps = [":anon_output_with_report_proto"],
+)

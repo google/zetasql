@@ -74,7 +74,7 @@ absl::StatusOr<std::unique_ptr<SimpleTable>> MakeTableFromCsvFile(
   }
   if (!csv_reader.Close()) return csv_reader.status();
 
-  auto table = absl::make_unique<SimpleTable>(table_name, columns);
+  auto table = std::make_unique<SimpleTable>(table_name, columns);
   table->SetContents(contents);
   return table;
 }

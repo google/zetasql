@@ -102,8 +102,8 @@ TEST(AnalyzerTestOptions, EnabledRewrites__GarbageEntryError) {
   options.SetString(kEnabledASTRewrites, "GARBAGE!");
   EXPECT_THAT(GetEnabledRewrites(options),
               StatusIs(absl::StatusCode::kInternal,
-                       HasSubstr("Rewite list should always start with one of "
-                                 "NONE, ALL, or DEFAULTS")));
+                       HasSubstr("Rewrite list should always start with one of "
+                                 "ALL, DEFAULTS, NONE")));
 }
 
 TEST(AnalyzerTestOptions, EnabledRewrites__IncludedRewritePrefixError) {
@@ -128,8 +128,7 @@ TEST(AnalyzerTestOptions, EnabledRewrites__RedundantOverrideError) {
         GetEnabledRewrites(options),
         StatusIs(
             absl::StatusCode::kInternal,
-            HasSubstr(
-                "Duplicate override for rewriter: REWRITE_TYPEOF_FUNCTION")));
+            HasSubstr("Duplicate entry for Rewrite: REWRITE_TYPEOF_FUNCTION")));
   }
 }
 
@@ -141,7 +140,7 @@ TEST(AnalyzerTestOptions, EnabledRewrites__AllPlusRewriteError) {
       GetEnabledRewrites(options),
       StatusIs(absl::StatusCode::kInternal,
                HasSubstr(
-                   "Attempting to add rewrite, but already started from ALL")));
+                   "Attempting to add Rewrite, but already started from ALL")));
 }
 
 TEST(AnalyzerTestOptions, EnabledRewrites__NoneMinusRewriteError) {
@@ -153,7 +152,7 @@ TEST(AnalyzerTestOptions, EnabledRewrites__NoneMinusRewriteError) {
       StatusIs(
           absl::StatusCode::kInternal,
           HasSubstr(
-              "Attempting to remove rewrite, but already started from NONE.")));
+              "Attempting to remove Rewrite, but already started from NONE.")));
 }
 
 TEST(AnalyzerTestOptions, EnabledRewrites__WhitespaceCapsInsensitvity) {

@@ -69,9 +69,9 @@ class ZetaSqlFlexTokenizer final : public ZetaSqlFlexTokenizerBase {
         mode_(mode),
         language_options_(language_options) {
     if (absl::GetFlag(FLAGS_zetasql_use_customized_flex_istream)) {
-      input_stream_ = absl::make_unique<StringStreamWithSentinel>(input);
+      input_stream_ = std::make_unique<StringStreamWithSentinel>(input);
     } else {
-      input_stream_ = absl::make_unique<std::istringstream>(
+      input_stream_ = std::make_unique<std::istringstream>(
           absl::StrCat(input, kEofSentinelInput));
     }
     // Seek the stringstream to the start_offset, and then instruct flex to read

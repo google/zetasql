@@ -296,10 +296,6 @@ class EvaluationContext {
     used_top_n_accumulator_ = value;
   }
 
-  bool populate_last_get_field_value_call_read_fields_from_proto_map() const {
-    return populate_last_get_field_value_call_read_fields_from_proto_map_;
-  }
-
   void set_populate_last_get_field_value_call_read_fields_from_proto_map(
       bool value) {
     populate_last_get_field_value_call_read_fields_from_proto_map_ = value;
@@ -389,9 +385,9 @@ class EvaluationContext {
 
   // Lazily initialized because not all queries need them, and initializing them
   // is expensive.
-  absl::optional<absl::TimeZone> default_timezone_;
-  absl::optional<int64_t> current_timestamp_;
-  absl::optional<absl::BitGen> rand_;
+  std::optional<absl::TimeZone> default_timezone_;
+  std::optional<int64_t> current_timestamp_;
+  std::optional<absl::BitGen> rand_;
   // Only valid if 'current_timestamp_' has a value.
   int32_t current_date_in_default_timezone_;
   DatetimeValue current_datetime_in_default_timezone_;

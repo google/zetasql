@@ -78,14 +78,14 @@ absl::StatusOr<std::unique_ptr<SimpleTable>> MakeTableFromBinaryProtoFile(
   std::vector<SimpleTable::NameAndType> columns = {
       {SimpleProtoEvaluatorTableIterator::kValueColumnName, column_proto_type}};
 
-  table = absl::make_unique<SimpleTable>(table_name, columns);
+  table = std::make_unique<SimpleTable>(table_name, columns);
   table->set_is_value_table(true);
   // Make a copy, because we cannot trust the lifetime of `path`.
   std::string string_path = std::string(path);
   table->SetEvaluatorTableIteratorFactory(
       [string_path, column_proto_type](absl::Span<const int> columns)
           -> absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> {
-        return absl::make_unique<BinaryProtoEvaluatorTableIterator>(
+        return std::make_unique<BinaryProtoEvaluatorTableIterator>(
             string_path, column_proto_type, columns);
       });
   return table;

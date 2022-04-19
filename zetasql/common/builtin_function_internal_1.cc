@@ -168,6 +168,80 @@ std::string SupportedSignaturesForAnonCountStarFunction(
   return "ANON_COUNT(* [CLAMPED BETWEEN INT64 AND INT64])";
 }
 
+std::string SupportedSignaturesForAnonCountStarWithReportFunction(
+    const std::string& report_format, const LanguageOptions& language_options,
+    const Function& function) {
+  return absl::StrCat(
+      "ANON_COUNT(* [CLAMPED BETWEEN INT64 AND INT64] WITH "
+      "REPORT(FORMAT=",
+      report_format, "))");
+}
+
+std::string AnonSumWithReportJsonFunctionSQL(
+    const std::vector<std::string>& inputs) {
+  ZETASQL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
+  return absl::StrCat(
+      "ANON_SUM(", inputs[0],
+      inputs.size() == 3
+          ? absl::StrCat(" CLAMPED BETWEEN ", inputs[1], " AND ", inputs[2])
+          : "",
+      " WITH REPORT(FORMAT=JSON))");
+}
+
+std::string AnonSumWithReportProtoFunctionSQL(
+    const std::vector<std::string>& inputs) {
+  ZETASQL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
+  return absl::StrCat(
+      "ANON_SUM(", inputs[0],
+      inputs.size() == 3
+          ? absl::StrCat(" CLAMPED BETWEEN ", inputs[1], " AND ", inputs[2])
+          : "",
+      " WITH REPORT(FORMAT=PROTO))");
+}
+
+std::string AnonCountWithReportJsonFunctionSQL(
+    const std::vector<std::string>& inputs) {
+  ZETASQL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
+  return absl::StrCat(
+      "ANON_COUNT(", inputs[0],
+      inputs.size() == 3
+          ? absl::StrCat(" CLAMPED BETWEEN ", inputs[1], " AND ", inputs[2])
+          : "",
+      " WITH REPORT(FORMAT=JSON))");
+}
+
+std::string AnonCountWithReportProtoFunctionSQL(
+    const std::vector<std::string>& inputs) {
+  ZETASQL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
+  return absl::StrCat(
+      "ANON_COUNT(", inputs[0],
+      inputs.size() == 3
+          ? absl::StrCat(" CLAMPED BETWEEN ", inputs[1], " AND ", inputs[2])
+          : "",
+      " WITH REPORT(FORMAT=PROTO))");
+}
+
+std::string AnonCountStarWithReportJsonFunctionSQL(
+    const std::vector<std::string>& inputs) {
+  ZETASQL_DCHECK(inputs.empty() || inputs.size() == 2);
+  return absl::StrCat(
+      "ANON_COUNT(*",
+      inputs.size() == 2
+          ? absl::StrCat(" CLAMPED BETWEEN ", inputs[0], " AND ", inputs[1])
+          : "",
+      " WITH REPORT(FORMAT=JSON))");
+}
+
+std::string AnonCountStarWithReportProtoFunctionSQL(
+    const std::vector<std::string>& inputs) {
+  ZETASQL_DCHECK(inputs.empty() || inputs.size() == 2);
+  return absl::StrCat(
+      "ANON_COUNT(*",
+      inputs.size() == 2
+          ? absl::StrCat(" CLAMPED BETWEEN ", inputs[0], " AND ", inputs[1])
+          : "",
+      " WITH REPORT(FORMAT=PROTO))");
+}
 
 std::string BetweenFunctionSQL(const std::vector<std::string>& inputs) {
   ZETASQL_DCHECK_EQ(inputs.size(), 3);

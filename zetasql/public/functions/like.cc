@@ -94,7 +94,7 @@ absl::Status CreateLikeRegexpWithOptions(absl::string_view pattern,
                                          std::unique_ptr<RE2>* regexp) {
   ZETASQL_ASSIGN_OR_RETURN(const std::string re_pattern,
                    GetRePatternFromLikePattern(pattern));
-  *regexp = absl::make_unique<RE2>(re_pattern, options);
+  *regexp = std::make_unique<RE2>(re_pattern, options);
   if (!(*regexp)->ok()) {
     absl::Status error(absl::StatusCode::kOutOfRange, (*regexp)->error());
     regexp->reset();

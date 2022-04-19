@@ -262,19 +262,6 @@ absl::Status CollationAnnotation::CheckAndPropagateForSetOperationScan(
       }
     }
   }
-
-  if (!all_empty_collations &&
-      (set_operation_scan.op_type() ==
-           ResolvedSetOperationScan::UNION_DISTINCT ||
-       set_operation_scan.op_type() ==
-           ResolvedSetOperationScan::INTERSECT_DISTINCT ||
-       set_operation_scan.op_type() ==
-           ResolvedSetOperationScan::EXCEPT_DISTINCT)) {
-    // TODO: Support collated input columns for set operations with
-    // DISTINCT.
-    return MakeSqlError()
-           << "Collation is not supported in set operations with DISTINCT";
-  }
   return absl::OkStatus();
 }
 

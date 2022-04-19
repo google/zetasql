@@ -63,26 +63,25 @@
 #include "zetasql/base/status_macros.h"
 #include "zetasql/base/clock.h"
 
-using absl::nullopt;
+using ::absl::nullopt;
 
-using testing::_;
-using testing::ContainsRegex;
-using testing::ElementsAre;
-using testing::Eq;
-using testing::HasSubstr;
-using testing::IsEmpty;
-using testing::IsNull;
-using testing::Pointee;
-using testing::PrintToString;
-using testing::SizeIs;
+using ::testing::_;
+using ::testing::ContainsRegex;
+using ::testing::ElementsAre;
+using ::testing::Eq;
+using ::testing::HasSubstr;
+using ::testing::IsEmpty;
+using ::testing::IsNull;
+using ::testing::Pointee;
+using ::testing::PrintToString;
+using ::testing::SizeIs;
+using ::zetasql_base::testing::IsOkAndHolds;
+using ::zetasql_base::testing::StatusIs;
 
 extern absl::Flag<int64_t>
     FLAGS_zetasql_simple_iterator_call_time_now_rows_period;
 
 namespace zetasql {
-
-using zetasql_base::testing::IsOkAndHolds;
-using zetasql_base::testing::StatusIs;
 
 using SharedProtoState = TupleSlot::SharedProtoState;
 
@@ -123,7 +122,7 @@ std::unique_ptr<ScalarFunctionBody> CreateFunction(FunctionKind kind,
 absl::StatusOr<std::unique_ptr<ExprArg>> AssignValueToVar(VariableId var,
                                                           const Value& value) {
   ZETASQL_ASSIGN_OR_RETURN(auto const_expr, ConstExpr::Create(value));
-  return absl::make_unique<ExprArg>(var, std::move(const_expr));
+  return std::make_unique<ExprArg>(var, std::move(const_expr));
 }
 
 // Convenience method to produce an ExprArg representing "result = v1 + v2".
@@ -140,7 +139,7 @@ absl::StatusOr<std::unique_ptr<ExprArg>> ComputeSum(VariableId v1,
   ZETASQL_ASSIGN_OR_RETURN(auto add_expr, ScalarFunctionCallExpr::Create(
                                       CreateFunction(FunctionKind::kAdd, type),
                                       std::move(add_args)));
-  return absl::make_unique<ExprArg>(result, std::move(add_expr));
+  return std::make_unique<ExprArg>(result, std::move(add_expr));
 }
 
 // Convience method to produce an ExprArg representing "result = v1 + v2".
@@ -155,7 +154,7 @@ absl::StatusOr<std::unique_ptr<ExprArg>> ComputeSum(VariableId v1, Value v2,
       auto add_expr,
       ScalarFunctionCallExpr::Create(
           CreateFunction(FunctionKind::kAdd, v2.type()), std::move(add_args)));
-  return absl::make_unique<ExprArg>(result, std::move(add_expr));
+  return std::make_unique<ExprArg>(result, std::move(add_expr));
 }
 
 // Returns a RelationalOp representing <input>, filtered to include rows only
@@ -444,7 +443,7 @@ MATCHER_P(IsListColumnFilterWith, in_list, "") {
 
 TEST(IntersectColumnFiltersTest, OneRangeFilter) {
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(10), Int64(20)));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(10), Int64(20)));
   EXPECT_THAT(
       EvaluatorTableScanOp::IntersectColumnFilters(filters),
       IsOkAndHolds(Pointee(IsRangeColumnFilterWith(Int64(10), Int64(20)))));
@@ -452,7 +451,7 @@ TEST(IntersectColumnFiltersTest, OneRangeFilter) {
 
 TEST(IntersectColumnFiltersTest, OneRangeFilterWithNoLowerBound) {
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(Value(), Int64(20)));
+  filters.push_back(std::make_unique<ColumnFilter>(Value(), Int64(20)));
   EXPECT_THAT(
       EvaluatorTableScanOp::IntersectColumnFilters(filters),
       IsOkAndHolds(Pointee(IsRangeColumnFilterWith(Value(), Int64(20)))));
@@ -460,7 +459,7 @@ TEST(IntersectColumnFiltersTest, OneRangeFilterWithNoLowerBound) {
 
 TEST(IntersectColumnFiltersTest, OneRangeFilterWithNoUpperBound) {
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(10), Value()));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(10), Value()));
   EXPECT_THAT(
       EvaluatorTableScanOp::IntersectColumnFilters(filters),
       IsOkAndHolds(Pointee(IsRangeColumnFilterWith(Int64(10), Value()))));
@@ -468,7 +467,7 @@ TEST(IntersectColumnFiltersTest, OneRangeFilterWithNoUpperBound) {
 
 TEST(IntersectColumnFiltersTest, OneRangeFilterWithNoBounds) {
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(Value(), Value()));
+  filters.push_back(std::make_unique<ColumnFilter>(Value(), Value()));
   EXPECT_THAT(EvaluatorTableScanOp::IntersectColumnFilters(filters),
               IsOkAndHolds(Pointee(IsRangeColumnFilterWith(Value(), Value()))));
 }
@@ -476,15 +475,15 @@ TEST(IntersectColumnFiltersTest, OneRangeFilterWithNoBounds) {
 TEST(IntersectColumnFiltersTest, OneInListFilter) {
   const std::vector<Value> values = {Int64(10), Int64(20), Int64(30)};
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(values));
+  filters.push_back(std::make_unique<ColumnFilter>(values));
   EXPECT_THAT(EvaluatorTableScanOp::IntersectColumnFilters(filters),
               IsOkAndHolds(Pointee(IsListColumnFilterWith(values))));
 }
 
 TEST(IntersectColumnFiltersTest, TwoRangeFiltersOverlap1) {
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(10), Int64(20)));
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(15), Int64(25)));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(10), Int64(20)));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(15), Int64(25)));
   EXPECT_THAT(
       EvaluatorTableScanOp::IntersectColumnFilters(filters),
       IsOkAndHolds(Pointee(IsRangeColumnFilterWith(Int64(15), Int64(20)))));
@@ -492,8 +491,8 @@ TEST(IntersectColumnFiltersTest, TwoRangeFiltersOverlap1) {
 
 TEST(IntersectColumnFiltersTest, TwoRangeFiltersOverlap2) {
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(15), Int64(25)));
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(10), Int64(20)));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(15), Int64(25)));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(10), Int64(20)));
   EXPECT_THAT(
       EvaluatorTableScanOp::IntersectColumnFilters(filters),
       IsOkAndHolds(Pointee(IsRangeColumnFilterWith(Int64(15), Int64(20)))));
@@ -501,8 +500,8 @@ TEST(IntersectColumnFiltersTest, TwoRangeFiltersOverlap2) {
 
 TEST(IntersectColumnFiltersTest, TwoRangeFiltersCoincide) {
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(10), Int64(20)));
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(10), Int64(20)));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(10), Int64(20)));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(10), Int64(20)));
   EXPECT_THAT(
       EvaluatorTableScanOp::IntersectColumnFilters(filters),
       IsOkAndHolds(Pointee(IsRangeColumnFilterWith(Int64(10), Int64(20)))));
@@ -510,8 +509,8 @@ TEST(IntersectColumnFiltersTest, TwoRangeFiltersCoincide) {
 
 TEST(IntersectColumnFiltersTest, TwoRangeFiltersFirstInSecond) {
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(10), Int64(20)));
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(0), Int64(30)));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(10), Int64(20)));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(0), Int64(30)));
   EXPECT_THAT(
       EvaluatorTableScanOp::IntersectColumnFilters(filters),
       IsOkAndHolds(Pointee(IsRangeColumnFilterWith(Int64(10), Int64(20)))));
@@ -519,8 +518,8 @@ TEST(IntersectColumnFiltersTest, TwoRangeFiltersFirstInSecond) {
 
 TEST(IntersectColumnFiltersTest, TwoRangeFiltersSecondInFirst) {
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(0), Int64(30)));
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(10), Int64(20)));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(0), Int64(30)));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(10), Int64(20)));
   EXPECT_THAT(
       EvaluatorTableScanOp::IntersectColumnFilters(filters),
       IsOkAndHolds(Pointee(IsRangeColumnFilterWith(Int64(10), Int64(20)))));
@@ -528,8 +527,8 @@ TEST(IntersectColumnFiltersTest, TwoRangeFiltersSecondInFirst) {
 
 TEST(IntersectColumnFiltersTest, TwoRangeFiltersCoincideLeftEdge) {
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(0), Int64(30)));
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(0), Int64(20)));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(0), Int64(30)));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(0), Int64(20)));
   EXPECT_THAT(
       EvaluatorTableScanOp::IntersectColumnFilters(filters),
       IsOkAndHolds(Pointee(IsRangeColumnFilterWith(Int64(0), Int64(20)))));
@@ -537,8 +536,8 @@ TEST(IntersectColumnFiltersTest, TwoRangeFiltersCoincideLeftEdge) {
 
 TEST(IntersectColumnFiltersTest, TwoRangeFiltersCoincideRightEdge) {
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(10), Int64(30)));
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(20), Int64(30)));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(10), Int64(30)));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(20), Int64(30)));
   EXPECT_THAT(
       EvaluatorTableScanOp::IntersectColumnFilters(filters),
       IsOkAndHolds(Pointee(IsRangeColumnFilterWith(Int64(20), Int64(30)))));
@@ -546,8 +545,8 @@ TEST(IntersectColumnFiltersTest, TwoRangeFiltersCoincideRightEdge) {
 
 TEST(IntersectColumnFiltersTest, TwoRangeFiltersDisjoint) {
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(10), Int64(20)));
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(30), Int64(40)));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(10), Int64(20)));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(30), Int64(40)));
   EXPECT_THAT(
       EvaluatorTableScanOp::IntersectColumnFilters(filters),
       IsOkAndHolds(Pointee(IsListColumnFilterWith(std::vector<Value>()))));
@@ -555,9 +554,9 @@ TEST(IntersectColumnFiltersTest, TwoRangeFiltersDisjoint) {
 
 TEST(IntersectColumnFiltersTest, TwoInLists) {
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(
+  filters.push_back(std::make_unique<ColumnFilter>(
       std::vector<Value>({Int64(10), Int64(20), Int64(30), Int64(40)})));
-  filters.push_back(absl::make_unique<ColumnFilter>(
+  filters.push_back(std::make_unique<ColumnFilter>(
       std::vector<Value>({Int64(20), Int64(40), Int64(60), Int64(80)})));
   EXPECT_THAT(EvaluatorTableScanOp::IntersectColumnFilters(filters),
               IsOkAndHolds(Pointee(IsListColumnFilterWith(
@@ -566,8 +565,8 @@ TEST(IntersectColumnFiltersTest, TwoInLists) {
 
 TEST(IntersectColumnFiltersTest, TwoInListsFirstEmpty) {
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(std::vector<Value>()));
-  filters.push_back(absl::make_unique<ColumnFilter>(
+  filters.push_back(std::make_unique<ColumnFilter>(std::vector<Value>()));
+  filters.push_back(std::make_unique<ColumnFilter>(
       std::vector<Value>({Int64(20), Int64(40), Int64(60), Int64(80)})));
   EXPECT_THAT(
       EvaluatorTableScanOp::IntersectColumnFilters(filters),
@@ -576,9 +575,9 @@ TEST(IntersectColumnFiltersTest, TwoInListsFirstEmpty) {
 
 TEST(IntersectColumnFiltersTest, TwoInListsSecondEmpty) {
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(
+  filters.push_back(std::make_unique<ColumnFilter>(
       std::vector<Value>({Int64(20), Int64(40), Int64(60), Int64(80)})));
-  filters.push_back(absl::make_unique<ColumnFilter>(std::vector<Value>()));
+  filters.push_back(std::make_unique<ColumnFilter>(std::vector<Value>()));
   EXPECT_THAT(
       EvaluatorTableScanOp::IntersectColumnFilters(filters),
       IsOkAndHolds(Pointee(IsListColumnFilterWith(std::vector<Value>()))));
@@ -586,9 +585,9 @@ TEST(IntersectColumnFiltersTest, TwoInListsSecondEmpty) {
 
 TEST(IntersectColumnFiltersTest, InListAndGeRange) {
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(
+  filters.push_back(std::make_unique<ColumnFilter>(
       std::vector<Value>({Int64(10), Int64(20), Int64(30), Int64(40)})));
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(20), Value()));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(20), Value()));
   EXPECT_THAT(EvaluatorTableScanOp::IntersectColumnFilters(filters),
               IsOkAndHolds(Pointee(IsListColumnFilterWith(
                   std::vector<Value>({Int64(20), Int64(30), Int64(40)})))));
@@ -596,9 +595,9 @@ TEST(IntersectColumnFiltersTest, InListAndGeRange) {
 
 TEST(IntersectColumnFiltersTest, InListAndLeRange) {
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(
+  filters.push_back(std::make_unique<ColumnFilter>(
       std::vector<Value>({Int64(10), Int64(20), Int64(30), Int64(40)})));
-  filters.push_back(absl::make_unique<ColumnFilter>(Value(), Int64(30)));
+  filters.push_back(std::make_unique<ColumnFilter>(Value(), Int64(30)));
   EXPECT_THAT(EvaluatorTableScanOp::IntersectColumnFilters(filters),
               IsOkAndHolds(Pointee(IsListColumnFilterWith(
                   std::vector<Value>({Int64(10), Int64(20), Int64(30)})))));
@@ -606,9 +605,9 @@ TEST(IntersectColumnFiltersTest, InListAndLeRange) {
 
 TEST(IntersectColumnFiltersTest, InListAndRange) {
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(
+  filters.push_back(std::make_unique<ColumnFilter>(
       std::vector<Value>({Int64(10), Int64(20), Int64(30), Int64(40)})));
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(20), Int64(30)));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(20), Int64(30)));
   EXPECT_THAT(EvaluatorTableScanOp::IntersectColumnFilters(filters),
               IsOkAndHolds(Pointee(IsListColumnFilterWith(
                   std::vector<Value>({Int64(20), Int64(30)})))));
@@ -616,9 +615,9 @@ TEST(IntersectColumnFiltersTest, InListAndRange) {
 
 TEST(IntersectColumnFiltersTest, InListAndDisjointRange) {
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(
+  filters.push_back(std::make_unique<ColumnFilter>(
       std::vector<Value>({Int64(10), Int64(20), Int64(30), Int64(40)})));
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(100), Int64(200)));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(100), Int64(200)));
   EXPECT_THAT(
       EvaluatorTableScanOp::IntersectColumnFilters(filters),
       IsOkAndHolds(Pointee(IsListColumnFilterWith(std::vector<Value>()))));
@@ -626,9 +625,9 @@ TEST(IntersectColumnFiltersTest, InListAndDisjointRange) {
 
 TEST(IntersectColumnFiltersTest, InListAndDisjointGeRange) {
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(
+  filters.push_back(std::make_unique<ColumnFilter>(
       std::vector<Value>({Int64(10), Int64(20), Int64(30), Int64(40)})));
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(100), Value()));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(100), Value()));
   EXPECT_THAT(
       EvaluatorTableScanOp::IntersectColumnFilters(filters),
       IsOkAndHolds(Pointee(IsListColumnFilterWith(std::vector<Value>()))));
@@ -636,9 +635,9 @@ TEST(IntersectColumnFiltersTest, InListAndDisjointGeRange) {
 
 TEST(IntersectColumnFiltersTest, InListAndDisjointLeRange) {
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(
+  filters.push_back(std::make_unique<ColumnFilter>(
       std::vector<Value>({Int64(10), Int64(20), Int64(30), Int64(40)})));
-  filters.push_back(absl::make_unique<ColumnFilter>(Value(), Int64(0)));
+  filters.push_back(std::make_unique<ColumnFilter>(Value(), Int64(0)));
   EXPECT_THAT(
       EvaluatorTableScanOp::IntersectColumnFilters(filters),
       IsOkAndHolds(Pointee(IsListColumnFilterWith(std::vector<Value>()))));
@@ -646,10 +645,10 @@ TEST(IntersectColumnFiltersTest, InListAndDisjointLeRange) {
 
 TEST(IntersectColumnFiltersTest, DisjointRangesAndInList) {
   std::vector<std::unique_ptr<ColumnFilter>> filters;
-  filters.push_back(absl::make_unique<ColumnFilter>(
+  filters.push_back(std::make_unique<ColumnFilter>(
       std::vector<Value>({Int64(10), Int64(20), Int64(30), Int64(40)})));
-  filters.push_back(absl::make_unique<ColumnFilter>(Int64(30), Value()));
-  filters.push_back(absl::make_unique<ColumnFilter>(Value(), Int64(20)));
+  filters.push_back(std::make_unique<ColumnFilter>(Int64(30), Value()));
+  filters.push_back(std::make_unique<ColumnFilter>(Value(), Int64(20)));
   EXPECT_THAT(
       EvaluatorTableScanOp::IntersectColumnFilters(filters),
       IsOkAndHolds(Pointee(IsListColumnFilterWith(std::vector<Value>()))));
@@ -885,7 +884,7 @@ class TestCppValueArg : public CppValueArg {
   std::unique_ptr<CppValueBase> CreateValue(
       EvaluationContext* context) const override {
     EXPECT_NE(context, nullptr);
-    return absl::make_unique<CppValue<std::string>>(value_);
+    return std::make_unique<CppValue<std::string>>(value_);
   }
 
  private:
@@ -924,7 +923,7 @@ class TestCppValuesOp : public RelationalOp {
     for (auto& pair : tuple_vars_slots_) {
       bool found = false;
       for (int i = 0; i < params_schemas.size(); ++i) {
-        absl::optional<int> idx =
+        std::optional<int> idx =
             params_schemas[i]->FindIndexForVariable(pair.first);
         if (idx.has_value()) {
           pair.second = std::make_pair(i, idx.value());
@@ -963,13 +962,13 @@ class TestCppValuesOp : public RelationalOp {
           ->SetValue(Value::String(
               *CppValue<std::string>::Get(context->GetCppValue(var))));
     }
-    return absl::make_unique<TestTupleIterator>(
+    return std::make_unique<TestTupleIterator>(
         output_vars_, std::move(tuple_data), /*preserves_order=*/true,
         /*end_status=*/absl::OkStatus());
   }
 
   std::unique_ptr<TupleSchema> CreateOutputSchema() const override {
-    return absl::make_unique<TupleSchema>(output_vars_);
+    return std::make_unique<TupleSchema>(output_vars_);
   }
 
   std::string IteratorDebugString() const override {
@@ -1005,18 +1004,18 @@ TEST_F(CreateIteratorTest, LetOpCppValues) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto const_1, ConstExpr::Create(Int64(1)));
 
   std::vector<std::unique_ptr<ExprArg>> assign;
-  assign.push_back(absl::make_unique<ExprArg>(a, std::move(const_1)));
-  assign.push_back(absl::make_unique<ExprArg>(b, std::move(deref_n)));
+  assign.push_back(std::make_unique<ExprArg>(a, std::move(const_1)));
+  assign.push_back(std::make_unique<ExprArg>(b, std::move(deref_n)));
 
   std::vector<std::unique_ptr<CppValueArg>> cpp_assign;
-  cpp_assign.push_back(absl::make_unique<TestCppValueArg>(x, "value_x"));
-  cpp_assign.push_back(absl::make_unique<TestCppValueArg>(y, "value_y"));
+  cpp_assign.push_back(std::make_unique<TestCppValueArg>(x, "value_x"));
+  cpp_assign.push_back(std::make_unique<TestCppValueArg>(y, "value_y"));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto let_op,
       LetOp::Create(
           std::move(assign), std::move(cpp_assign),
-          absl::make_unique<TestCppValuesOp>(
+          std::make_unique<TestCppValuesOp>(
               std::vector<VariableId>{a, b}, std::vector<VariableId>{x, y},
               std::vector<VariableId>{out_a, out_b, out_x, out_y})));
 
@@ -1066,11 +1065,11 @@ TEST_F(CreateIteratorTest, LetOp) {
                            std::move(store_a_plus_one_in_x_args)));
 
   auto store_a_plus_one_in_x =
-      absl::make_unique<ExprArg>(x, std::move(store_a_plus_one_in_x_expr));
+      std::make_unique<ExprArg>(x, std::move(store_a_plus_one_in_x_expr));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_x, DerefExpr::Create(x, Int64Type()));
 
-  auto store_x_in_y = absl::make_unique<ExprArg>(y, std::move(deref_x));
+  auto store_x_in_y = std::make_unique<ExprArg>(y, std::move(deref_x));
 
   std::vector<std::vector<const SharedProtoState*>> shared_states;
   const std::vector<TupleData> values = CreateTestTupleDatas(
@@ -1078,7 +1077,7 @@ TEST_F(CreateIteratorTest, LetOp) {
       &shared_states);
 
   VariableId column("column");
-  auto three_rows = absl::make_unique<TestRelationalOp>(
+  auto three_rows = std::make_unique<TestRelationalOp>(
       std::vector<VariableId>{column}, values,
       /*preserves_order=*/true);
 
@@ -1086,7 +1085,7 @@ TEST_F(CreateIteratorTest, LetOp) {
 
   std::vector<std::unique_ptr<ExprArg>> prepend_rows_with_y_into_z_args;
   prepend_rows_with_y_into_z_args.push_back(
-      absl::make_unique<ExprArg>(z, std::move(deref_y)));
+      std::make_unique<ExprArg>(z, std::move(deref_y)));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto prepend_rows_with_y_into_z,
@@ -1336,9 +1335,9 @@ TEST_F(CreateIteratorTest, LeftOuterJoin) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_y2, DerefExpr::Create(y2, proto_type_));
   std::vector<std::unique_ptr<ExprArg>> right_outputs;
   right_outputs.push_back(
-      absl::make_unique<ExprArg>(y1_prime, std::move(deref_y1_again)));
+      std::make_unique<ExprArg>(y1_prime, std::move(deref_y1_again)));
   right_outputs.push_back(
-      absl::make_unique<ExprArg>(y2_prime, std::move(deref_y2)));
+      std::make_unique<ExprArg>(y2_prime, std::move(deref_y2)));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto join_op,
@@ -1491,9 +1490,9 @@ TEST_F(CreateIteratorTest, RightOuterJoin) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_y2, DerefExpr::Create(y2, proto_type_));
   std::vector<std::unique_ptr<ExprArg>> left_outputs;
   left_outputs.push_back(
-      absl::make_unique<ExprArg>(y1_prime, std::move(deref_y1_again)));
+      std::make_unique<ExprArg>(y1_prime, std::move(deref_y1_again)));
   left_outputs.push_back(
-      absl::make_unique<ExprArg>(y2_prime, std::move(deref_y2)));
+      std::make_unique<ExprArg>(y2_prime, std::move(deref_y2)));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto join_op,
@@ -1654,15 +1653,15 @@ TEST_F(CreateIteratorTest, FullOuterJoin) {
 
   std::vector<std::unique_ptr<ExprArg>> left_outputs;
   left_outputs.push_back(
-      absl::make_unique<ExprArg>(x1_prime, std::move(deref_x1_again)));
+      std::make_unique<ExprArg>(x1_prime, std::move(deref_x1_again)));
   left_outputs.push_back(
-      absl::make_unique<ExprArg>(x2_prime, std::move(deref_x2)));
+      std::make_unique<ExprArg>(x2_prime, std::move(deref_x2)));
 
   std::vector<std::unique_ptr<ExprArg>> right_outputs;
   right_outputs.push_back(
-      absl::make_unique<ExprArg>(y1_prime, std::move(deref_y1_again)));
+      std::make_unique<ExprArg>(y1_prime, std::move(deref_y1_again)));
   right_outputs.push_back(
-      absl::make_unique<ExprArg>(y2_prime, std::move(deref_y2)));
+      std::make_unique<ExprArg>(y2_prime, std::move(deref_y2)));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto join_op,
@@ -1782,11 +1781,11 @@ TEST_F(CreateIteratorTest, FullOuterAllRightTuplesJoin) {
 
   std::vector<std::unique_ptr<ExprArg>> left_outputs;
   left_outputs.push_back(
-      absl::make_unique<ExprArg>(x_prime, std::move(deref_x_again)));
+      std::make_unique<ExprArg>(x_prime, std::move(deref_x_again)));
 
   std::vector<std::unique_ptr<ExprArg>> right_outputs;
   right_outputs.push_back(
-      absl::make_unique<ExprArg>(y_prime, std::move(deref_y_again)));
+      std::make_unique<ExprArg>(y_prime, std::move(deref_y_again)));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto join_op,
@@ -1854,7 +1853,7 @@ TEST_F(CreateIteratorTest, CrossApply) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_x, DerefExpr::Create(x, Int64Type()));
 
   std::vector<std::unique_ptr<ExprArg>> let_assign;
-  let_assign.push_back(absl::make_unique<ExprArg>(x2, std::move(deref_x)));
+  let_assign.push_back(std::make_unique<ExprArg>(x2, std::move(deref_x)));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_x2, DerefExpr::Create(x2, Int64Type()));
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_y, DerefExpr::Create(y, Int64Type()));
@@ -1869,7 +1868,7 @@ TEST_F(CreateIteratorTest, CrossApply) {
                            std::move(add_args)));
 
   std::vector<std::unique_ptr<ExprArg>> map;
-  map.push_back(absl::make_unique<ExprArg>(z, std::move(add_expr)));
+  map.push_back(std::make_unique<ExprArg>(z, std::move(add_expr)));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto let_body,
@@ -2031,7 +2030,7 @@ TEST_F(CreateIteratorTest, OuterApply) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_x, DerefExpr::Create(x, Int64Type()));
 
   std::vector<std::unique_ptr<ExprArg>> let_assign;
-  let_assign.push_back(absl::make_unique<ExprArg>(x2, std::move(deref_x)));
+  let_assign.push_back(std::make_unique<ExprArg>(x2, std::move(deref_x)));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_x2, DerefExpr::Create(x2, Int64Type()));
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_y, DerefExpr::Create(y, Int64Type()));
@@ -2046,7 +2045,7 @@ TEST_F(CreateIteratorTest, OuterApply) {
                            std::move(add_args)));
 
   std::vector<std::unique_ptr<ExprArg>> map;
-  map.push_back(absl::make_unique<ExprArg>(z, std::move(add_expr)));
+  map.push_back(std::make_unique<ExprArg>(z, std::move(add_expr)));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto let_body,
@@ -2105,7 +2104,7 @@ TEST_F(CreateIteratorTest, OuterApply) {
 
   std::vector<std::unique_ptr<ExprArg>> right_outputs;
   right_outputs.push_back(
-      absl::make_unique<ExprArg>(z2, std::move(deref_z_again)));
+      std::make_unique<ExprArg>(z2, std::move(deref_z_again)));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto join_op,
@@ -2255,9 +2254,9 @@ TEST_F(CreateIteratorTest, InnerHashJoin) {
   VariableId a("a"), b("b");
   JoinOp::HashJoinEqualityExprs equality_expr;
   equality_expr.left_expr =
-      absl::make_unique<ExprArg>(a, std::move(left_add_expr));
+      std::make_unique<ExprArg>(a, std::move(left_add_expr));
   equality_expr.right_expr =
-      absl::make_unique<ExprArg>(b, std::move(right_add_expr));
+      std::make_unique<ExprArg>(b, std::move(right_add_expr));
 
   std::vector<JoinOp::HashJoinEqualityExprs> equality_exprs;
   equality_exprs.push_back(std::move(equality_expr));
@@ -2403,9 +2402,9 @@ TEST_F(CreateIteratorTest, FullOuterHashJoin) {
   VariableId a("a"), b("b");
   JoinOp::HashJoinEqualityExprs equality_expr;
   equality_expr.left_expr =
-      absl::make_unique<ExprArg>(a, std::move(left_add_expr));
+      std::make_unique<ExprArg>(a, std::move(left_add_expr));
   equality_expr.right_expr =
-      absl::make_unique<ExprArg>(b, std::move(right_add_expr));
+      std::make_unique<ExprArg>(b, std::move(right_add_expr));
 
   std::vector<JoinOp::HashJoinEqualityExprs> equality_exprs;
   equality_exprs.push_back(std::move(equality_expr));
@@ -2419,9 +2418,9 @@ TEST_F(CreateIteratorTest, FullOuterHashJoin) {
 
   std::vector<std::unique_ptr<ExprArg>> left_outputs;
   left_outputs.push_back(
-      absl::make_unique<ExprArg>(x1_prime, std::move(deref_x1_output)));
+      std::make_unique<ExprArg>(x1_prime, std::move(deref_x1_output)));
   left_outputs.push_back(
-      absl::make_unique<ExprArg>(x2_prime, std::move(deref_x2_output)));
+      std::make_unique<ExprArg>(x2_prime, std::move(deref_x2_output)));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_y1_output,
                        DerefExpr::Create(y1, Int64Type()));
@@ -2430,9 +2429,9 @@ TEST_F(CreateIteratorTest, FullOuterHashJoin) {
 
   std::vector<std::unique_ptr<ExprArg>> right_outputs;
   right_outputs.push_back(
-      absl::make_unique<ExprArg>(y1_prime, std::move(deref_y1_output)));
+      std::make_unique<ExprArg>(y1_prime, std::move(deref_y1_output)));
   right_outputs.push_back(
-      absl::make_unique<ExprArg>(y2_prime, std::move(deref_y2_output)));
+      std::make_unique<ExprArg>(y2_prime, std::move(deref_y2_output)));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto join_op,
@@ -2559,16 +2558,16 @@ TEST_F(CreateIteratorTest, SortOpTotalOrder) {
 
   std::vector<std::unique_ptr<KeyArg>> keys;
   keys.push_back(
-      absl::make_unique<KeyArg>(k, std::move(deref_a), KeyArg::kDescending));
+      std::make_unique<KeyArg>(k, std::move(deref_a), KeyArg::kDescending));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_b, DerefExpr::Create(b, Int64Type()));
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_c, DerefExpr::Create(c, proto_type_));
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_param, DerefExpr::Create(param, Int64Type()));
 
   std::vector<std::unique_ptr<ExprArg>> values;
-  values.push_back(absl::make_unique<ExprArg>(v1, std::move(deref_b)));
-  values.push_back(absl::make_unique<ExprArg>(v2, std::move(deref_c)));
-  values.push_back(absl::make_unique<ExprArg>(v3, std::move(deref_param)));
+  values.push_back(std::make_unique<ExprArg>(v1, std::move(deref_b)));
+  values.push_back(std::make_unique<ExprArg>(v2, std::move(deref_c)));
+  values.push_back(std::make_unique<ExprArg>(v3, std::move(deref_param)));
 
   std::vector<std::vector<const SharedProtoState*>> shared_states;
   auto input = absl::WrapUnique(new TestRelationalOp(
@@ -2691,12 +2690,12 @@ TEST_F(CreateIteratorTest, SortOpIgnoresOrder) {
 
   std::vector<std::unique_ptr<KeyArg>> keys;
   keys.push_back(
-      absl::make_unique<KeyArg>(k, std::move(deref_a), KeyArg::kDescending));
+      std::make_unique<KeyArg>(k, std::move(deref_a), KeyArg::kDescending));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_b, DerefExpr::Create(b, Int64Type()));
 
   std::vector<std::unique_ptr<ExprArg>> values;
-  values.push_back(absl::make_unique<ExprArg>(v, std::move(deref_b)));
+  values.push_back(std::make_unique<ExprArg>(v, std::move(deref_b)));
 
   auto input = absl::WrapUnique(new TestRelationalOp(
       {a, b},
@@ -2750,12 +2749,12 @@ TEST_F(CreateIteratorTest, SortOpIgnoresOrderSameKey) {
 
   std::vector<std::unique_ptr<KeyArg>> keys;
   keys.push_back(
-      absl::make_unique<KeyArg>(k, std::move(deref_a), KeyArg::kDescending));
+      std::make_unique<KeyArg>(k, std::move(deref_a), KeyArg::kDescending));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_b, DerefExpr::Create(b, Int64Type()));
 
   std::vector<std::unique_ptr<ExprArg>> values;
-  values.push_back(absl::make_unique<ExprArg>(v, std::move(deref_b)));
+  values.push_back(std::make_unique<ExprArg>(v, std::move(deref_b)));
 
   auto input = absl::WrapUnique(
       new TestRelationalOp({a, b},
@@ -2813,12 +2812,12 @@ TEST_F(CreateIteratorTest, SortOpPartialOrder) {
 
   std::vector<std::unique_ptr<KeyArg>> keys;
   keys.push_back(
-      absl::make_unique<KeyArg>(k, std::move(deref_a), KeyArg::kDescending));
+      std::make_unique<KeyArg>(k, std::move(deref_a), KeyArg::kDescending));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_b, DerefExpr::Create(b, Int64Type()));
 
   std::vector<std::unique_ptr<ExprArg>> values;
-  values.push_back(absl::make_unique<ExprArg>(v, std::move(deref_b)));
+  values.push_back(std::make_unique<ExprArg>(v, std::move(deref_b)));
 
   auto input = absl::WrapUnique(
       new TestRelationalOp({a, b},
@@ -2896,12 +2895,12 @@ TEST_F(CreateIteratorTest, SortOpPartialOrderMultiNULLs) {
 
   std::vector<std::unique_ptr<KeyArg>> keys;
   keys.push_back(
-      absl::make_unique<KeyArg>(k, std::move(deref_a), KeyArg::kDescending));
+      std::make_unique<KeyArg>(k, std::move(deref_a), KeyArg::kDescending));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_b, DerefExpr::Create(b, Int64Type()));
 
   std::vector<std::unique_ptr<ExprArg>> values;
-  values.push_back(absl::make_unique<ExprArg>(v, std::move(deref_b)));
+  values.push_back(std::make_unique<ExprArg>(v, std::move(deref_b)));
 
   auto input = absl::WrapUnique(
       new TestRelationalOp({a, b},
@@ -2965,12 +2964,12 @@ TEST_F(CreateIteratorTest, SortOpPartialOrderStableSort) {
 
   std::vector<std::unique_ptr<KeyArg>> keys;
   keys.push_back(
-      absl::make_unique<KeyArg>(k, std::move(deref_a), KeyArg::kDescending));
+      std::make_unique<KeyArg>(k, std::move(deref_a), KeyArg::kDescending));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_b, DerefExpr::Create(b, Int64Type()));
 
   std::vector<std::unique_ptr<ExprArg>> values;
-  values.push_back(absl::make_unique<ExprArg>(v, std::move(deref_b)));
+  values.push_back(std::make_unique<ExprArg>(v, std::move(deref_b)));
 
   auto input = absl::WrapUnique(
       new TestRelationalOp({a, b},
@@ -3039,12 +3038,12 @@ TEST_F(CreateIteratorTest, SortOpPartialInputReordersTest) {
 
   std::vector<std::unique_ptr<KeyArg>> keys;
   keys.push_back(
-      absl::make_unique<KeyArg>(k, std::move(deref_a), KeyArg::kDescending));
+      std::make_unique<KeyArg>(k, std::move(deref_a), KeyArg::kDescending));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_b, DerefExpr::Create(b, Int64Type()));
 
   std::vector<std::unique_ptr<ExprArg>> values;
-  values.push_back(absl::make_unique<ExprArg>(v, std::move(deref_b)));
+  values.push_back(std::make_unique<ExprArg>(v, std::move(deref_b)));
 
   auto input = absl::WrapUnique(
       new TestRelationalOp({a, b}, tuples, /*preserves_order=*/true));
@@ -3066,11 +3065,11 @@ TEST_F(CreateIteratorTest, SortOpPartialInputReordersTest) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::vector<TupleData> data,
                        ReadFromTupleIterator(iter.get()));
 
-  const absl::optional<int> opt_k_slot = iter->Schema().FindIndexForVariable(k);
+  const std::optional<int> opt_k_slot = iter->Schema().FindIndexForVariable(k);
   ASSERT_TRUE(opt_k_slot.has_value());
   const int k_slot = opt_k_slot.value();
 
-  const absl::optional<int> opt_v_slot = iter->Schema().FindIndexForVariable(v);
+  const std::optional<int> opt_v_slot = iter->Schema().FindIndexForVariable(v);
   ASSERT_TRUE(opt_v_slot.has_value());
   const int v_slot = opt_v_slot.value();
 
@@ -3120,16 +3119,16 @@ TEST_F(CreateIteratorTest, SortOpTotalOrderWithLimitAndOffset) {
 
   std::vector<std::unique_ptr<KeyArg>> keys;
   keys.push_back(
-      absl::make_unique<KeyArg>(k, std::move(deref_a), KeyArg::kDescending));
+      std::make_unique<KeyArg>(k, std::move(deref_a), KeyArg::kDescending));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_b, DerefExpr::Create(b, Int64Type()));
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_c, DerefExpr::Create(c, proto_type_));
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_param, DerefExpr::Create(param, Int64Type()));
 
   std::vector<std::unique_ptr<ExprArg>> values;
-  values.push_back(absl::make_unique<ExprArg>(v1, std::move(deref_b)));
-  values.push_back(absl::make_unique<ExprArg>(v2, std::move(deref_c)));
-  values.push_back(absl::make_unique<ExprArg>(v3, std::move(deref_param)));
+  values.push_back(std::make_unique<ExprArg>(v1, std::move(deref_b)));
+  values.push_back(std::make_unique<ExprArg>(v2, std::move(deref_c)));
+  values.push_back(std::make_unique<ExprArg>(v3, std::move(deref_param)));
 
   std::vector<std::vector<const SharedProtoState*>> shared_states;
   auto input = absl::WrapUnique(new TestRelationalOp(
@@ -3476,16 +3475,16 @@ TEST_F(CreateIteratorTest, UnionAllOp) {
   UnionAllOp::Input union_input1;
   union_input1.first = std::move(input1);
   union_input1.second.push_back(
-      absl::make_unique<ExprArg>(a, std::move(deref_a1)));
+      std::make_unique<ExprArg>(a, std::move(deref_a1)));
   union_input1.second.push_back(
-      absl::make_unique<ExprArg>(b, std::move(deref_b1)));
+      std::make_unique<ExprArg>(b, std::move(deref_b1)));
 
   UnionAllOp::Input union_input2;
   union_input2.first = std::move(input2);
   union_input2.second.push_back(
-      absl::make_unique<ExprArg>(a, std::move(deref_a2)));
+      std::make_unique<ExprArg>(a, std::move(deref_a2)));
   union_input2.second.push_back(
-      absl::make_unique<ExprArg>(b, std::move(deref_b2)));
+      std::make_unique<ExprArg>(b, std::move(deref_b2)));
 
   std::vector<UnionAllOp::Input> union_inputs;
   union_inputs.push_back(std::move(union_input1));
@@ -3706,8 +3705,8 @@ TEST_F(CreateIteratorTest, DistinctOp) {
                                                      /*preserves_order=*/true));
 
   std::vector<std::unique_ptr<KeyArg>> keys;
-  keys.push_back(absl::make_unique<KeyArg>(a, std::move(deref_a)));
-  keys.push_back(absl::make_unique<KeyArg>(b, std::move(deref_b)));
+  keys.push_back(std::make_unique<KeyArg>(a, std::move(deref_a)));
+  keys.push_back(std::make_unique<KeyArg>(b, std::move(deref_b)));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto distinct_op,
@@ -3731,13 +3730,13 @@ DistinctOp(
   // from the output.
   EvaluationContext context((EvaluationOptions()));
   auto row_set =
-    absl::make_unique<CppValue<DistinctRowSet>>(context.memory_accountant());
+      std::make_unique<CppValue<DistinctRowSet>>(context.memory_accountant());
   absl::Status status;
   ASSERT_TRUE(row_set->value().InsertRowIfNotPresent(
-      absl::make_unique<TupleData>(CreateTestTupleData({Int64(3), Int64(30)})),
+      std::make_unique<TupleData>(CreateTestTupleData({Int64(3), Int64(30)})),
       &status));
   ASSERT_TRUE(row_set->value().InsertRowIfNotPresent(
-      absl::make_unique<TupleData>(CreateTestTupleData({Int64(3), Int64(50)})),
+      std::make_unique<TupleData>(CreateTestTupleData({Int64(3), Int64(50)})),
       &status));
   ASSERT_TRUE(context.SetCppValueIfNotPresent(row_set1, std::move(row_set)));
 
@@ -3794,9 +3793,9 @@ TEST_F(CreateIteratorTest, ComputeOp) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_param, DerefExpr::Create(param, Int64Type()));
 
   std::vector<std::unique_ptr<ExprArg>> args;
-  args.push_back(absl::make_unique<ExprArg>(plus, std::move(plus_expr)));
-  args.push_back(absl::make_unique<ExprArg>(minus, std::move(minus_expr)));
-  args.push_back(absl::make_unique<ExprArg>(param, std::move(deref_param)));
+  args.push_back(std::make_unique<ExprArg>(plus, std::move(plus_expr)));
+  args.push_back(std::make_unique<ExprArg>(minus, std::move(minus_expr)));
+  args.push_back(std::make_unique<ExprArg>(param, std::move(deref_param)));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto compute_op,
                        ComputeOp::Create(std::move(args), std::move(input)));
@@ -4111,7 +4110,7 @@ TEST_F(CreateIteratorTest, LimitOp_UnorderedInput) {
     params_data.mutable_slot(0)->SetValue(value1);
     params_data.mutable_slot(1)->SetValue(value2);
     context =
-        absl::make_unique<EvaluationContext>(GetScramblingEvaluationOptions());
+        std::make_unique<EvaluationContext>(GetScramblingEvaluationOptions());
   };
 
   // LIMIT 1 OFFSET 0
@@ -4259,7 +4258,7 @@ TEST_F(CreateIteratorTest, RootOp) {
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto root_op,
-      RootOp::Create(std::move(input), absl::make_unique<RootData>()));
+      RootOp::Create(std::move(input), std::make_unique<RootData>()));
   EXPECT_EQ(root_op->IteratorDebugString(), "TestTupleIterator");
   EXPECT_EQ(
       "RootOp(\n"
@@ -4297,9 +4296,9 @@ absl::StatusOr<std::unique_ptr<JoinOp>> BuildTimeoutTestJoin(int tuple_count) {
     input2_tuples.push_back(CreateTestTupleData({value}));
   }
 
-  auto input1 = absl::make_unique<TestRelationalOp>(
+  auto input1 = std::make_unique<TestRelationalOp>(
       std::vector<VariableId>{x}, input1_tuples, /*preserves_order=*/true);
-  auto input2 = absl::make_unique<TestRelationalOp>(
+  auto input2 = std::make_unique<TestRelationalOp>(
       std::vector<VariableId>{y}, input2_tuples, /*preserves_order=*/true);
 
   ZETASQL_ASSIGN_OR_RETURN(auto deref_x, DerefExpr::Create(x, Int64Type()));
@@ -4320,7 +4319,7 @@ absl::StatusOr<std::unique_ptr<JoinOp>> BuildTimeoutTestJoin(int tuple_count) {
 
   std::vector<std::unique_ptr<ExprArg>> right_outputs;
   right_outputs.push_back(
-      absl::make_unique<ExprArg>(yp, std::move(deref_y_again)));
+      std::make_unique<ExprArg>(yp, std::move(deref_y_again)));
 
   ZETASQL_ASSIGN_OR_RETURN(
       auto join_op,

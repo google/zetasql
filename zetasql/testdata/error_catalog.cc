@@ -16,6 +16,8 @@
 
 #include "zetasql/testdata/error_catalog.h"
 
+#include <string>
+
 #include "absl/status/status.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"

@@ -37,7 +37,7 @@ SQLFunction::SQLFunction(
     const FunctionOptions& function_options,
     const ResolvedExpr* function_expression,
     const std::vector<std::string>& argument_names,
-    absl::optional<ParseResumeLocation> parse_resume_location,
+    std::optional<ParseResumeLocation> parse_resume_location,
     const std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
         aggregate_expression_list)
     : SQLFunctionInterface(name, kSQLFunctionGroup, mode, function_signatures,
@@ -55,7 +55,7 @@ absl::Status SQLFunction::Create(
     const std::vector<std::string>& argument_names,
     const std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
         aggregate_expression_list,
-    absl::optional<ParseResumeLocation> parse_resume_location,
+    std::optional<ParseResumeLocation> parse_resume_location,
     std::unique_ptr<SQLFunction>* sql_function) {
   if (parse_resume_location.has_value()) {
     ZETASQL_RET_CHECK_EQ(function_signatures.size(), 1);

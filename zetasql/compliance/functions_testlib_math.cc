@@ -2818,7 +2818,11 @@ std::vector<FunctionTestCall> GetFunctionTestsTrigonometric() {
       {"atan2", {double_neg_inf, double_neg_inf}, -M_PI_2 - M_PI_4},
       {"atan2", {double_nan, 0.0}, double_nan},
       {"atan2", {0.0, double_nan}, double_nan},
+  };
+}
 
+std::vector<FunctionTestCall> GetFunctionTestsInverseTrigonometric() {
+  return {
       // CSC(x) = 1 / SIN(x)
       // Exceptional cases
       {"csc", {NullDouble()}, NullDouble()},
@@ -2862,31 +2866,7 @@ std::vector<FunctionTestCall> GetFunctionTestsTrigonometric() {
       {"cot", {-M_PI_2}, 0.0, kApproximate},
       {"cot", {M_PI_2 + M_PI_4}, -1.0, kApproximate},
       {"cot", {-M_PI_2 - M_PI_4}, 1.0, kApproximate},
-  };
-}
 
-std::vector<FunctionTestCall> GetFunctionTestsCoth() {
-  return {
-      // tanh is defined as (exp(x)-exp(-x)) / (exp(x)+exp(-x))
-      // coth(x) = 1 / tanh(x)
-      {"coth", {NullDouble()}, NullDouble()},
-      {"coth", {double_pos_inf}, 1.0},
-      {"coth", {double_neg_inf}, -1.0},
-      {"coth", {double_nan}, double_nan},
-      {"coth", {0.0}, NullDouble(), OUT_OF_RANGE},
-
-      {"coth", {1.0}, (M_E + 1 / M_E) / (M_E - 1 / M_E), kApproximate},
-      {"coth", {-1.0}, -(M_E + 1 / M_E) / (M_E - 1 / M_E), kApproximate},
-
-      // tanh(x) is asymptotically close to x near 0.
-      // so coth(x) is asymptotically close to 1/x near 0.
-      {"coth", {1.0e-10}, 1.0e10, kApproximate},
-      {"coth", {-1.0e-10}, -1.0e10, kApproximate},
-  };
-}
-
-std::vector<FunctionTestCall> GetFunctionTestsCsch() {
-  return {
       // sinh(x) = (exp(x)-exp(-x)) / 2
       // csch(x) = 1 / sinh(x)
       // Exceptional cases
@@ -2906,11 +2886,7 @@ std::vector<FunctionTestCall> GetFunctionTestsCsch() {
       {"csch", {711.0}, 0.0, kApproximate},
       {"csch", {-710.0}, 0.0, kApproximate},
       {"csch", {-711.0}, 0.0, kApproximate},
-  };
-}
 
-std::vector<FunctionTestCall> GetFunctionTestsSech() {
-  return {
       // cosh(x) = (exp(x)+exp(-x)) / 2
       // sech(x) = 1 / cosh(x)
       // Exceptional cases
@@ -2925,6 +2901,368 @@ std::vector<FunctionTestCall> GetFunctionTestsSech() {
       {"sech", {-1.0}, 2 / (M_E + 1 / M_E)},
       {"sech", {710.0}, 0.0, kApproximate},
       {"sech", {711.0}, 0.0, kApproximate},
+
+      // tanh is defined as (exp(x)-exp(-x)) / (exp(x)+exp(-x))
+      // coth(x) = 1 / tanh(x)
+      {"coth", {NullDouble()}, NullDouble()},
+      {"coth", {double_pos_inf}, 1.0},
+      {"coth", {double_neg_inf}, -1.0},
+      {"coth", {double_nan}, double_nan},
+      {"coth", {0.0}, NullDouble(), OUT_OF_RANGE},
+
+      {"coth", {1.0}, (M_E + 1 / M_E) / (M_E - 1 / M_E), kApproximate},
+      {"coth", {-1.0}, -(M_E + 1 / M_E) / (M_E - 1 / M_E), kApproximate},
+
+      // tanh(x) is asymptotically close to x near 0.
+      // so coth(x) is asymptotically close to 1/x near 0.
+      {"coth", {1.0e-10}, 1.0e10, kApproximate},
+      {"coth", {-1.0e-10}, -1.0e10, kApproximate},
   };
 }
+
+std::vector<FunctionTestCall> GetFunctionTestsDegreesRadiansPi() {
+  // The tests for RADIANS, and DEGREES (and later CBRT)
+  // NOTE: Some of the Numeric and BigNumeric tests' expected values are
+  // multiples of PI, but shifted by a small amount to account for the numerical
+  // error introduced along the way
+  std::vector<FunctionTestCall> all_tests = {
+      // RADIANS
+      // Exceptional cases
+      {"radians", {NullDouble()}, NullDouble()},
+      {"radians", {double_nan}, double_nan},
+      {"radians", {double_pos_inf}, double_pos_inf},
+      {"radians", {double_neg_inf}, double_neg_inf},
+      // Common cases
+      {"radians", {0.0}, 0.0},
+      {"radians", {45.0}, M_PI_4, kApproximate},
+      {"radians", {90.0}, M_PI_2, kApproximate},
+      {"radians", {135.0}, 3 * M_PI_4, kApproximate},
+      {"radians", {180.0}, M_PI, kApproximate},
+      {"radians", {225.0}, 5 * M_PI_4, kApproximate},
+      {"radians", {270.0}, 3 * M_PI_2, kApproximate},
+      {"radians", {315.0}, 7 * M_PI_4, kApproximate},
+      {"radians", {360.0}, 2 * M_PI, kApproximate},
+      {"radians", {-45.0}, -M_PI_4, kApproximate},
+      {"radians", {-90.0}, -M_PI_2, kApproximate},
+      {"radians", {-135.0}, -3 * M_PI_4, kApproximate},
+      {"radians", {-180.0}, -M_PI, kApproximate},
+      {"radians", {-225.0}, -5 * M_PI_4, kApproximate},
+      {"radians", {-270.0}, -3 * M_PI_2, kApproximate},
+      {"radians", {-315.0}, -7 * M_PI_4, kApproximate},
+      {"radians", {-360.0}, -2 * M_PI, kApproximate},
+
+      // DEGREES
+      // Exceptional cases
+      {"degrees", {NullDouble()}, NullDouble()},
+      {"degrees", {double_nan}, double_nan},
+      {"degrees", {double_pos_inf}, double_pos_inf},
+      {"degrees", {double_neg_inf}, double_neg_inf},
+      // Common cases
+      {"degrees", {0.0}, 0.0},
+      {"degrees", {M_PI_4}, 45.0, kApproximate},
+      {"degrees", {M_PI_2}, 90.0, kApproximate},
+      {"degrees", {3 * M_PI_4}, 135.0, kApproximate},
+      {"degrees", {M_PI}, 180.0, kApproximate},
+      {"degrees", {5 * M_PI_4}, 225.0, kApproximate},
+      {"degrees", {3 * M_PI_2}, 270.0, kApproximate},
+      {"degrees", {7 * M_PI_4}, 315.0, kApproximate},
+      {"degrees", {2 * M_PI}, 360.0, kApproximate},
+      {"degrees", {-M_PI_4}, -45.0, kApproximate},
+      {"degrees", {-M_PI_2}, -90.0, kApproximate},
+      {"degrees", {-3 * M_PI_4}, -135.0, kApproximate},
+      {"degrees", {-M_PI}, -180.0, kApproximate},
+      {"degrees", {-5 * M_PI_4}, -225.0, kApproximate},
+      {"degrees", {-3 * M_PI_2}, -270.0, kApproximate},
+      {"degrees", {-7 * M_PI_4}, -315.0, kApproximate},
+      {"degrees", {-2 * M_PI}, -360.0, kApproximate},
+  };
+
+  std::vector<FunctionTestCall> numeric_tests = {
+      // RADIANS
+      // Exceptional cases
+      {"radians", {NullNumeric()}, NullNumeric()},
+      {"radians",
+       {NumericValue::MinValue()},
+       NumericValue::FromString("-1745329251994329576923690768.488612713")
+           .value()},
+      {"radians",
+       {NumericValue::MaxValue()},
+       NumericValue::FromString("1745329251994329576923690768.488612713")
+           .value()},
+      {"radians",
+       {NumericValue::FromScaledValue(1)},
+       NumericValue::FromString("0.0").value()},
+      {"radians",
+       {NumericValue::FromString("18000000000000000000000000000").value()},
+       NumericValue::FromString("314159265358979323846264338.327950288")
+           .value()},
+
+      // Common cases
+      {"radians",
+       {NumericValue::FromString("0.0").value()},
+       NumericValue::FromString("0.0").value()},
+      {"radians",
+       {NumericValue::FromString("90.0").value()},
+       NumericValue::FromString("1.570796327").value()},
+      {"radians",
+       {NumericValue::FromString("180.0").value()},
+       NumericValue::FromString("3.141592654").value()},
+      {"radians",
+       {NumericValue::FromString("270.0").value()},
+       NumericValue::FromString("4.71238898").value()},
+      {"radians",
+       {NumericValue::FromString("360.0").value()},
+       NumericValue::FromString("6.283185307").value()},
+      {"radians",
+       {NumericValue::FromString("-90.0").value()},
+       NumericValue::FromString("-1.570796327").value()},
+      {"radians",
+       {NumericValue::FromString("-180.0").value()},
+       NumericValue::FromString("-3.141592654").value()},
+      {"radians",
+       {NumericValue::FromString("-270.0").value()},
+       NumericValue::FromString("-4.71238898").value()},
+      {"radians",
+       {NumericValue::FromString("-360.0").value()},
+       NumericValue::FromString("-6.283185307").value()},
+      {"radians",
+       {NumericValue::MaxValue()},
+       NumericValue::FromString("1745329251994329576923690768.488612713")
+           .value()},
+      {"radians",
+       {NumericValue::MinValue()},
+       NumericValue::FromString("-1745329251994329576923690768.488612713")
+           .value()},
+
+      // DEGREES
+      // Exceptional cases
+      {"degrees", {NullNumeric()}, NullNumeric()},
+      {"degrees",
+       {NumericValue::FromString("1745329251994329576923690768.488612713")
+            .value()},
+       NumericValue::FromString("99999999999999999999999999999.999999975")
+           .value()},
+      {"degrees",
+       {NumericValue::FromString("1745329251994329576923690768.488612714")
+            .value()},
+       NullNumeric(),
+       OUT_OF_RANGE},
+      {"degrees",
+       {NumericValue::FromString("-1745329251994329576923690768.488612713")
+            .value()},
+       NumericValue::FromString("-99999999999999999999999999999.999999975")
+           .value()},
+      {"degrees",
+       {NumericValue::FromString("-1745329251994329576923690768.488612714")
+            .value()},
+       NullNumeric(),
+       OUT_OF_RANGE},
+      {"degrees",
+       {NumericValue::FromScaledValue(1)},
+       NumericValue::FromString("0.000000057").value()},
+
+      {"degrees",
+       {NumericValue::FromString("314159265358979323846264338.327950288")
+            .value()},
+       NumericValue::FromString("17999999999999999999999999999.999999976")
+           .value()},
+
+      // Common cases
+      {"degrees",
+       {NumericValue::FromString("0.0").value()},
+       NumericValue::FromString("0.0").value()},
+      {"degrees",
+       {NumericValue::FromDouble(M_PI_2).value()},
+       NumericValue::FromString("90.000000012").value()},
+      {"degrees",
+       {NumericValue::FromDouble(M_PI).value()},
+       NumericValue::FromString("180.000000024").value()},
+      {"degrees",
+       {NumericValue::FromDouble(3 * M_PI_2).value()},
+       NumericValue::FromString("269.999999978").value()},
+      {"degrees",
+       {NumericValue::FromDouble(2 * M_PI).value()},
+       NumericValue::FromString("359.99999999").value()},
+
+      {"degrees",
+       {NumericValue::FromDouble(-M_PI_2).value()},
+       NumericValue::FromString("-90.000000012").value()},
+      {"degrees",
+       {NumericValue::FromDouble(-M_PI).value()},
+       NumericValue::FromString("-180.000000024").value()},
+      {"degrees",
+       {NumericValue::FromDouble(-3 * M_PI_2).value()},
+       NumericValue::FromString("-269.999999978").value()},
+      {"degrees",
+       {NumericValue::FromDouble(-2 * M_PI).value()},
+       NumericValue::FromString("-359.99999999").value()},
+  };
+
+  for (const auto& test_case : numeric_tests) {
+    all_tests.emplace_back(FunctionTestCall(
+        test_case.function_name,
+        test_case.params.WrapWithFeature(FEATURE_NUMERIC_TYPE)));
+  }
+
+  std::vector<FunctionTestCall> bignumeric_tests = {
+      // RADIANS
+      // Exceptional cases
+      {"radians", {NullBigNumeric()}, NullBigNumeric()},
+      {"radians",
+       {BigNumericValue::MinValue()},
+       BigNumericValue::FromString("-10104766024771286785562081743825829518."
+                                   "14981603689978972107700419772052484628")
+           .value()},
+      {"radians",
+       {BigNumericValue::MaxValue()},
+       BigNumericValue::FromString("10104766024771286785562081743825829518."
+                                   "14981603689978972107700419772052484628")
+           .value()},
+      {"radians",
+       {BigNumericValue::FromScaledValue(1)},
+       BigNumericValue::FromString("0.0").value()},
+      {"radians",
+       {BigNumericValue::FromString("180000000000000000000000000000000000000")
+            .value()},
+       BigNumericValue::FromString("3141592653589793238462643383279502884."
+                                   "19716939937510582097494459230781640629")
+           .value()},
+
+      // Common cases
+      {"radians",
+       {BigNumericValue::FromString("0.0").value()},
+       BigNumericValue::FromString("0.0").value()},
+      {"radians",
+       {BigNumericValue::FromString("90.0").value()},
+       BigNumericValue::FromString("1.5707963267948966192313216916397514421")
+           .value()},
+      {"radians",
+       {BigNumericValue::FromString("180.0").value()},
+       BigNumericValue::FromString("3.1415926535897932384626433832795028842")
+           .value()},
+      {"radians",
+       {BigNumericValue::FromString("270.0").value()},
+       BigNumericValue::FromString("4.7123889803846898576939650749192543263")
+           .value()},
+      {"radians",
+       {BigNumericValue::FromString("360.0").value()},
+       BigNumericValue::FromString("6.28318530717958647692528676655900576839")
+           .value()},
+      {"radians",
+       {BigNumericValue::FromString("-90.0").value()},
+       BigNumericValue::FromString("-1.5707963267948966192313216916397514421")
+           .value()},
+      {"radians",
+       {BigNumericValue::FromString("-180.0").value()},
+       BigNumericValue::FromString("-3.1415926535897932384626433832795028842")
+           .value()},
+      {"radians",
+       {BigNumericValue::FromString("-270.0").value()},
+       BigNumericValue::FromString("-4.7123889803846898576939650749192543263")
+           .value()},
+      {"radians",
+       {BigNumericValue::FromString("-360.0").value()},
+       BigNumericValue::FromString("-6.28318530717958647692528676655900576839")
+           .value()},
+
+      // DEGREES
+      // Exceptional cases
+      {"degrees", {NullBigNumeric()}, NullBigNumeric()},
+      {"degrees",
+       {BigNumericValue::FromString("10104766024771286785562081743825829518."
+                                    "14981603689978972107700419772052484628")
+            .value()},
+       BigNumericValue::FromString("578960446186580977117854925043439539266."
+                                   "34992332820282019728792003956564819952")
+           .value()},
+      {"degrees",
+       {BigNumericValue::FromString("10104766024771286785562081743825829518."
+                                    "14981603689978972107700419772052484629")
+            .value()},
+       NullBigNumeric(),
+       OUT_OF_RANGE},
+      {"degrees",
+       {BigNumericValue::FromString("-10104766024771286785562081743825829518."
+                                    "14981603689978972107700419772052484628")
+            .value()},
+       BigNumericValue::FromString("-578960446186580977117854925043439539266."
+                                   "34992332820282019728792003956564819952")
+           .value()},
+      {"degrees",
+       {BigNumericValue::FromString("-10104766024771286785562081743825829518."
+                                    "14981603689978972107700419772052484629")
+            .value()},
+       NullBigNumeric(),
+       OUT_OF_RANGE},
+      {"degrees",
+       {BigNumericValue::FromScaledValue(1)},
+       BigNumericValue::FromString("0.00000000000000000000000000000000000057")
+           .value()},
+      {"degrees",
+       {BigNumericValue::FromString("3141592653589793238462643383279502884."
+                                    "19716939937510582097494459230781640629")
+            .value()},
+       BigNumericValue::FromString("180000000000000000000000000000000000000."
+                                   "00000000000000000000000000000000000022")
+           .value()},
+
+      // Common cases
+      {"degrees",
+       {BigNumericValue::FromString("0.0").value()},
+       BigNumericValue::FromString("0.0").value()},
+      {"degrees",
+       {BigNumericValue::FromString("1.5707963267948966192313216916397514417")
+            .value()},
+       BigNumericValue::FromString("89.99999999999999999999999999999999997716")
+           .value()},
+      {"degrees",
+       {BigNumericValue::FromString("3.1415926535897932384626433832795028834")
+            .value()},
+       BigNumericValue::FromString("179.99999999999999999999999999999999995433")
+           .value()},
+      {"degrees",
+       {BigNumericValue::FromString("4.7123889803846898576939650749192543251")
+            .value()},
+       BigNumericValue::FromString("269.99999999999999999999999999999999993149")
+           .value()},
+      {"degrees",
+       {BigNumericValue::FromString("6.2831853071795864769252867665590057668")
+            .value()},
+       BigNumericValue::FromString("359.99999999999999999999999999999999990865")
+           .value()},
+
+      {"degrees",
+       {BigNumericValue::FromString("-1.5707963267948966192313216916397514417")
+            .value()},
+       BigNumericValue::FromString("-89.99999999999999999999999999999999997716")
+           .value()},
+      {"degrees",
+       {BigNumericValue::FromString("-3.1415926535897932384626433832795028834")
+            .value()},
+       BigNumericValue::FromString(
+           "-179.99999999999999999999999999999999995433")
+           .value()},
+      {"degrees",
+       {BigNumericValue::FromString("-4.7123889803846898576939650749192543251")
+            .value()},
+       BigNumericValue::FromString(
+           "-269.99999999999999999999999999999999993149")
+           .value()},
+      {"degrees",
+       {BigNumericValue::FromString("-6.2831853071795864769252867665590057668")
+            .value()},
+       BigNumericValue::FromString(
+           "-359.99999999999999999999999999999999990865")
+           .value()},
+  };
+
+  for (const auto& test_case : bignumeric_tests) {
+    all_tests.emplace_back(FunctionTestCall(
+        test_case.function_name,
+        test_case.params.WrapWithFeature(FEATURE_BIGNUMERIC_TYPE)));
+  }
+
+  return all_tests;
+}
+
 }  // namespace zetasql

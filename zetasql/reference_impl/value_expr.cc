@@ -42,6 +42,7 @@
 #include "zetasql/public/proto_value_conversion.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
+#include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/evaluation.h"
 #include "zetasql/reference_impl/operator.h"
@@ -285,7 +286,7 @@ NewArrayExpr::NewArrayExpr(const ArrayType* array_type,
   std::vector<std::unique_ptr<ExprArg>> args;
   args.reserve(elements.size());
   for (auto& e : elements) {
-    args.push_back(absl::make_unique<ExprArg>(std::move(e)));
+    args.push_back(std::make_unique<ExprArg>(std::move(e)));
   }
   SetArgs<ExprArg>(kElement, std::move(args));
 }
@@ -350,7 +351,7 @@ bool ArrayNestExpr::Eval(absl::Span<const TupleData* const> params,
   // that the array is not too large.
   std::unique_ptr<MemoryAccountant> local_accountant;
   if (!is_with_table_) {
-    local_accountant = absl::make_unique<MemoryAccountant>(
+    local_accountant = std::make_unique<MemoryAccountant>(
         context->options().max_value_byte_size);
   }
   ArrayBuilder builder(is_with_table_ ? context->memory_accountant()
@@ -395,8 +396,8 @@ ArrayNestExpr::ArrayNestExpr(const ArrayType* array_type,
                              std::unique_ptr<RelationalOp> input,
                              bool is_with_table)
     : ValueExpr(array_type), is_with_table_(is_with_table) {
-  SetArg(kInput, absl::make_unique<RelationalArg>(std::move(input)));
-  SetArg(kElement, absl::make_unique<ExprArg>(std::move(element)));
+  SetArg(kInput, std::make_unique<RelationalArg>(std::move(input)));
+  SetArg(kElement, std::make_unique<ExprArg>(std::move(element)));
 }
 
 const ValueExpr* ArrayNestExpr::element() const {
@@ -430,7 +431,7 @@ absl::Status DerefExpr::SetSchemasForEvaluation(
   int first_slot = -1;
   for (int i = 0; i < params_schemas.size(); ++i) {
     const TupleSchema* schema = params_schemas[i];
-    absl::optional<int> slot = schema->FindIndexForVariable(name_);
+    std::optional<int> slot = schema->FindIndexForVariable(name_);
     if (slot.has_value()) {
       ZETASQL_RET_CHECK_EQ(first_slot, -1) << "Duplicate name detected: " << name_;
       first_slot = slot.value();
@@ -531,7 +532,7 @@ std::string FieldValueExpr::DebugInternal(const std::string& indent,
 FieldValueExpr::FieldValueExpr(int field_index, std::unique_ptr<ValueExpr> expr)
     : ValueExpr(expr->output_type()->AsStruct()->field(field_index).type),
       field_index_(field_index) {
-  SetArg(kStruct, absl::make_unique<ExprArg>(std::move(expr)));
+  SetArg(kStruct, std::make_unique<ExprArg>(std::move(expr)));
 }
 
 std::string FieldValueExpr::field_name() const {
@@ -609,7 +610,7 @@ bool ProtoFieldReader::GetFieldValue(const TupleSlot& proto_slot,
       field_infos.push_back(&access_info->field_info);
     }
 
-    value_list_owner = absl::make_unique<ProtoFieldValueList>();
+    value_list_owner = std::make_unique<ProtoFieldValueList>();
     value_list = value_list_owner.get();
 
     const absl::Status read_status = ReadProtoFields(
@@ -681,7 +682,7 @@ GetProtoFieldExpr::GetProtoFieldExpr(std::unique_ptr<ValueExpr> proto_expr,
                                      const ProtoFieldReader* field_reader)
     : ValueExpr(field_reader->access_info().field_info.type),
       field_reader_(field_reader) {
-  SetArg(kProtoExpr, absl::make_unique<ExprArg>(std::move(proto_expr)));
+  SetArg(kProtoExpr, std::make_unique<ExprArg>(std::move(proto_expr)));
 }
 
 const ValueExpr* GetProtoFieldExpr::proto_expr() const {
@@ -806,11 +807,11 @@ FlattenExpr::FlattenExpr(const Type* output_type,
                          std::unique_ptr<const Value*> flattened_arg_input)
     : ValueExpr(output_type),
       flattened_arg_input_(std::move(flattened_arg_input)) {
-  SetArg(kExpr, absl::make_unique<ExprArg>(std::move(expr)));
+  SetArg(kExpr, std::make_unique<ExprArg>(std::move(expr)));
   std::vector<std::unique_ptr<ExprArg>> args;
   args.reserve(get_fields.size());
   for (auto& e : get_fields) {
-    args.push_back(absl::make_unique<ExprArg>(std::move(e)));
+    args.push_back(std::make_unique<ExprArg>(std::move(e)));
   }
   SetArgs<ExprArg>(kGetFields, std::move(args));
 }
@@ -880,8 +881,8 @@ std::string SingleValueExpr::DebugInternal(const std::string& indent,
 SingleValueExpr::SingleValueExpr(std::unique_ptr<ValueExpr> value,
                                  std::unique_ptr<RelationalOp> input)
     : ValueExpr(value->output_type()) {
-  SetArg(kInput, absl::make_unique<RelationalArg>(std::move(input)));
-  SetArg(kValue, absl::make_unique<ExprArg>(std::move(value)));
+  SetArg(kInput, std::make_unique<RelationalArg>(std::move(input)));
+  SetArg(kValue, std::make_unique<ExprArg>(std::move(value)));
 }
 
 const RelationalOp* SingleValueExpr::input() const {
@@ -946,7 +947,7 @@ std::string ExistsExpr::DebugInternal(const std::string& indent,
 
 ExistsExpr::ExistsExpr(std::unique_ptr<RelationalOp> input)
     : ValueExpr(types::BoolType()) {
-  SetArg(kInput, absl::make_unique<RelationalArg>(std::move(input)));
+  SetArg(kInput, std::make_unique<RelationalArg>(std::move(input)));
 }
 
 const RelationalOp* ExistsExpr::input() const {
@@ -1056,7 +1057,7 @@ ScalarFunctionCallExpr::ScalarFunctionCallExpr(
   std::vector<std::unique_ptr<AlgebraArg>> args;
   args.reserve(argument_exprs.size());
   for (auto& e : argument_exprs) {
-    args.push_back(absl::make_unique<ExprArg>(std::move(e)));
+    args.push_back(std::make_unique<ExprArg>(std::move(e)));
   }
   SetArgs<AlgebraArg>(kArgument, std::move(args));
 }
@@ -1112,7 +1113,7 @@ AggregateFunctionCallExpr::AggregateFunctionCallExpr(
   std::vector<std::unique_ptr<ExprArg>> args;
   args.reserve(exprs.size());
   for (auto& e : exprs) {
-    args.push_back(absl::make_unique<ExprArg>(std::move(e)));
+    args.push_back(std::make_unique<ExprArg>(std::move(e)));
   }
   SetArgs<ExprArg>(kArgument, std::move(args));
 }
@@ -1194,7 +1195,7 @@ AnalyticFunctionCallExpr::AnalyticFunctionCallExpr(
   non_const_expr_args.reserve(non_const_arguments.size());
   for (auto& non_const_argument : non_const_arguments) {
     non_const_expr_args.push_back(
-        absl::make_unique<ExprArg>(std::move(non_const_argument)));
+        std::make_unique<ExprArg>(std::move(non_const_argument)));
   }
   SetArgs<ExprArg>(kNonConstArgument, std::move(non_const_expr_args));
 
@@ -1202,7 +1203,7 @@ AnalyticFunctionCallExpr::AnalyticFunctionCallExpr(
   const_expr_args.reserve(const_arguments.size());
   for (auto& const_argument : const_arguments) {
     const_expr_args.push_back(
-        absl::make_unique<ExprArg>(std::move(const_argument)));
+        std::make_unique<ExprArg>(std::move(const_argument)));
   }
   SetArgs<ExprArg>(kConstArgument, std::move(const_expr_args));
 }
@@ -1261,9 +1262,9 @@ IfExpr::IfExpr(std::unique_ptr<ValueExpr> condition,
                std::unique_ptr<ValueExpr> true_value,
                std::unique_ptr<ValueExpr> false_value)
     : ValueExpr(true_value->output_type()) {
-  SetArg(kCondition, absl::make_unique<ExprArg>(std::move(condition)));
-  SetArg(kTrueValue, absl::make_unique<ExprArg>(std::move(true_value)));
-  SetArg(kFalseValue, absl::make_unique<ExprArg>(std::move(false_value)));
+  SetArg(kCondition, std::make_unique<ExprArg>(std::move(condition)));
+  SetArg(kTrueValue, std::make_unique<ExprArg>(std::move(true_value)));
+  SetArg(kFalseValue, std::make_unique<ExprArg>(std::move(false_value)));
 }
 
 const ValueExpr* IfExpr::join_expr() const {
@@ -1288,6 +1289,135 @@ const ValueExpr* IfExpr::false_value() const {
 
 ValueExpr* IfExpr::mutable_false_value() {
   return GetMutableArg(kFalseValue)->mutable_node()->AsMutableValueExpr();
+}
+
+// -------------------------------------------------------
+// IfErrorExpr
+// -------------------------------------------------------
+
+absl::StatusOr<std::unique_ptr<IfErrorExpr>> IfErrorExpr::Create(
+    std::unique_ptr<ValueExpr> try_value,
+    std::unique_ptr<ValueExpr> handle_value) {
+  ZETASQL_RET_CHECK(try_value->output_type()->Equals(handle_value->output_type()));
+  return absl::WrapUnique(
+      new IfErrorExpr(std::move(try_value), std::move(handle_value)));
+}
+
+absl::Status IfErrorExpr::SetSchemasForEvaluation(
+    absl::Span<const TupleSchema* const> params_schemas) {
+  ZETASQL_RETURN_IF_ERROR(mutable_try_value()->SetSchemasForEvaluation(params_schemas));
+  return mutable_handle_value()->SetSchemasForEvaluation(params_schemas);
+}
+
+bool IfErrorExpr::Eval(absl::Span<const TupleData* const> params,
+                       EvaluationContext* context, VirtualTupleSlot* result,
+                       absl::Status* status) const {
+  if (try_value()->Eval(params, context, result, status)) {
+    ZETASQL_DCHECK_OK(*status) << "try_expr.Eval() returned true but status is not OK.";
+    return status->ok();
+  }
+
+  if (!ShouldSuppressError(*status,
+                           ResolvedFunctionCallBase::SAFE_ERROR_MODE)) {
+    // The error is not convertible to NULL in SAFE mode, so we must propagate
+    // it instead of evaluating `handle_expr`
+    return false;
+  }
+
+  // We are handling this error. Do not forget to reset the status back to OK
+  // to reflect the result of the evaluation of handle_expr
+  *status = absl::OkStatus();
+  return handle_value()->Eval(params, context, result, status);
+}
+
+std::string IfErrorExpr::DebugInternal(const std::string& indent,
+                                       bool verbose) const {
+  return absl::StrCat(
+      "IfErrorExpr(",
+      ArgDebugString({"try_value", "handle_value"}, {k1, k1}, indent, verbose),
+      ")");
+}
+
+IfErrorExpr::IfErrorExpr(std::unique_ptr<ValueExpr> try_value,
+                         std::unique_ptr<ValueExpr> handle_value)
+    : ValueExpr(try_value->output_type()) {
+  SetArg(kTryValue, std::make_unique<ExprArg>(std::move(try_value)));
+  SetArg(kHandleValue, std::make_unique<ExprArg>(std::move(handle_value)));
+}
+
+const ValueExpr* IfErrorExpr::try_value() const {
+  return GetArg(kTryValue)->node()->AsValueExpr();
+}
+
+ValueExpr* IfErrorExpr::mutable_try_value() {
+  return GetMutableArg(kTryValue)->mutable_node()->AsMutableValueExpr();
+}
+
+const ValueExpr* IfErrorExpr::handle_value() const {
+  return GetArg(kHandleValue)->node()->AsValueExpr();
+}
+
+ValueExpr* IfErrorExpr::mutable_handle_value() {
+  return GetMutableArg(kHandleValue)->mutable_node()->AsMutableValueExpr();
+}
+
+// -------------------------------------------------------
+// IsErrorExpr
+// -------------------------------------------------------
+
+absl::StatusOr<std::unique_ptr<IsErrorExpr>> IsErrorExpr::Create(
+    std::unique_ptr<ValueExpr> try_value) {
+  return absl::WrapUnique(new IsErrorExpr(std::move(try_value)));
+}
+
+absl::Status IsErrorExpr::SetSchemasForEvaluation(
+    absl::Span<const TupleSchema* const> params_schemas) {
+  return mutable_try_value()->SetSchemasForEvaluation(params_schemas);
+}
+
+bool IsErrorExpr::Eval(absl::Span<const TupleData* const> params,
+                       EvaluationContext* context, VirtualTupleSlot* result,
+                       absl::Status* status) const {
+  if (try_value()->Eval(params, context, result, status)) {
+    ZETASQL_DCHECK_OK(*status) << "try_expr.Eval() returned true but status is not OK.";
+    result->SetValue(Value::Bool(false));
+    return status->ok();
+  }
+
+  ZETASQL_DCHECK(!status->ok()) << "try_expr.Eval() returned false but status is OK";
+  if (!ShouldSuppressError(*status,
+                           ResolvedFunctionCallBase::SAFE_ERROR_MODE)) {
+    // The error is not convertible to NULL in SAFE mode, so we must propagate
+    // it instead of evaluating `handle_expr`
+    return false;
+  }
+
+  // We are handling this error. Do not forget to reset the status back to OK
+  // to reflect that ISERROR() itself successfully finished and return true as
+  // the result.
+  *status = absl::OkStatus();
+  result->SetValue(Value::Bool(true));
+  return true;
+}
+
+std::string IsErrorExpr::DebugInternal(const std::string& indent,
+                                       bool verbose) const {
+  return absl::StrCat("IsErrorExpr(",
+                      ArgDebugString({"try_value"}, {k1}, indent, verbose),
+                      ")");
+}
+
+IsErrorExpr::IsErrorExpr(std::unique_ptr<ValueExpr> try_value)
+    : ValueExpr(types::BoolType()) {
+  SetArg(kTryValue, std::make_unique<ExprArg>(std::move(try_value)));
+}
+
+const ValueExpr* IsErrorExpr::try_value() const {
+  return GetArg(kTryValue)->node()->AsValueExpr();
+}
+
+ValueExpr* IsErrorExpr::mutable_try_value() {
+  return GetMutableArg(kTryValue)->mutable_node()->AsMutableValueExpr();
 }
 
 // -------------------------------------------------------
@@ -1316,8 +1446,8 @@ absl::Status LetExpr::SetSchemasForEvaluation(
     ZETASQL_RETURN_IF_ERROR(
         arg->mutable_value_expr()->SetSchemasForEvaluation(schema_ptrs));
 
-    auto new_schema = absl::make_unique<TupleSchema>(
-        std::vector<VariableId>{arg->variable()});
+    auto new_schema =
+        std::make_unique<TupleSchema>(std::vector<VariableId>{arg->variable()});
     schema_ptrs.push_back(new_schema.get());
     new_schemas.push_back(std::move(new_schema));
   }
@@ -1333,14 +1463,14 @@ bool LetExpr::Eval(absl::Span<const TupleData* const> params,
   // parameters represents multiple rows (e.g., an array corresponding to a WITH
   // table).
   auto new_datas =
-      absl::make_unique<TupleDataDeque>(context->memory_accountant());
+      std::make_unique<TupleDataDeque>(context->memory_accountant());
 
   std::vector<const TupleData*> data_ptrs;
   data_ptrs.reserve(params.size() + assign().size());
   data_ptrs.insert(data_ptrs.end(), params.begin(), params.end());
 
   for (const ExprArg* arg : assign()) {
-    auto new_data = absl::make_unique<TupleData>(/*num_slots=*/1);
+    auto new_data = std::make_unique<TupleData>(/*num_slots=*/1);
 
     if (!arg->value_expr()->EvalSimple(data_ptrs, context,
                                        new_data->mutable_slot(0), status)) {
@@ -1366,7 +1496,7 @@ LetExpr::LetExpr(std::vector<std::unique_ptr<ExprArg>> assign,
                  std::unique_ptr<ValueExpr> body)
     : ValueExpr(body->output_type()) {
   SetArgs<ExprArg>(kAssign, std::move(assign));
-  SetArg(kBody, absl::make_unique<ExprArg>(std::move(body)));
+  SetArg(kBody, std::make_unique<ExprArg>(std::move(body)));
 }
 
 absl::Span<const ExprArg* const> LetExpr::assign() const {
@@ -1391,10 +1521,10 @@ InlineLambdaExpr::InlineLambdaExpr(absl::Span<const VariableId> arguments,
   arg_exprs.reserve(arguments.size());
   for (const auto& var : arguments) {
     // Wrap lambda argument variable in an ExprArg.
-    arg_exprs.push_back(absl::make_unique<ExprArg>(var, /*type*/ nullptr));
+    arg_exprs.push_back(std::make_unique<ExprArg>(var, /*type*/ nullptr));
   }
   SetArgs(kArguments, std::move(arg_exprs));
-  SetArg(kBody, absl::make_unique<ExprArg>(std::move(body)));
+  SetArg(kBody, std::make_unique<ExprArg>(std::move(body)));
 }
 
 std::unique_ptr<InlineLambdaExpr> InlineLambdaExpr::Create(
@@ -1413,7 +1543,7 @@ absl::Status InlineLambdaExpr::SetSchemasForEvaluation(
   for (const auto args : GetArgs<ExprArg>(kArguments)) {
     variables.push_back(args->variable());
   }
-  auto array_schema = absl::make_unique<TupleSchema>(std::move(variables));
+  auto array_schema = std::make_unique<TupleSchema>(std::move(variables));
 
   return mutable_body()->SetSchemasForEvaluation(
       ConcatSpans(params_schemas, {array_schema.get()}));
@@ -1436,7 +1566,7 @@ bool InlineLambdaExpr::Eval(absl::Span<const TupleData* const> params,
   }
 
   // Create TupleData for lambda argument values.
-  auto array_element_data = absl::make_unique<TupleData>(arg_size);
+  auto array_element_data = std::make_unique<TupleData>(arg_size);
   for (int i = 0; i < arg_size; i++) {
     array_element_data->mutable_slot(i)->SetValue(arg_values[i]);
   }
@@ -1672,7 +1802,7 @@ absl::StatusOr<Value> DMLValueExpr::GetColumnValue(const ResolvedColumn& column,
   ZETASQL_ASSIGN_OR_RETURN(
       const VariableId variable_id,
       column_to_variable_mapping_->LookupVariableNameForColumn(column));
-  absl::optional<int> slot = t.schema->FindIndexForVariable(variable_id);
+  std::optional<int> slot = t.schema->FindIndexForVariable(variable_id);
   ZETASQL_RET_CHECK(slot.has_value()) << variable_id;
   return t.data->slot(slot.value()).value();
 }
@@ -1682,7 +1812,7 @@ absl::Status DMLValueExpr::PopulatePrimaryKeyRowMap(
     absl::string_view duplicate_primary_key_error_prefix,
     EvaluationContext* context, PrimaryKeyRowMap* row_map,
     bool* has_primary_key) const {
-  ZETASQL_ASSIGN_OR_RETURN(const absl::optional<std::vector<int>> primary_key_indexes,
+  ZETASQL_ASSIGN_OR_RETURN(const std::optional<std::vector<int>> primary_key_indexes,
                    GetPrimaryKeyColumnIndexes(context));
   *has_primary_key = primary_key_indexes.has_value();
   for (int64_t row_number = 0; row_number < original_rows.size();
@@ -1714,7 +1844,7 @@ absl::Status DMLValueExpr::PopulatePrimaryKeyRowMap(
 absl::StatusOr<Value> DMLValueExpr::GetPrimaryKeyOrRowNumber(
     const RowNumberAndValues& row_number_and_values, EvaluationContext* context,
     bool* has_primary_key) const {
-  ZETASQL_ASSIGN_OR_RETURN(const absl::optional<std::vector<int>> primary_key_indexes,
+  ZETASQL_ASSIGN_OR_RETURN(const std::optional<std::vector<int>> primary_key_indexes,
                    GetPrimaryKeyColumnIndexes(context));
   if (!primary_key_indexes.has_value()) {
     return Value::Int64(row_number_and_values.row_number);
@@ -1739,17 +1869,17 @@ absl::StatusOr<Value> DMLValueExpr::GetPrimaryKeyOrRowNumber(
   return Value::Struct(primary_key_type_, key_column_values);
 }
 
-absl::StatusOr<absl::optional<std::vector<int>>>
+absl::StatusOr<std::optional<std::vector<int>>>
 DMLValueExpr::GetPrimaryKeyColumnIndexes(EvaluationContext* context) const {
   if (is_value_table()) {
-    return absl::optional<std::vector<int>>();
+    return std::optional<std::vector<int>>();
   }
 
   // The algebrizer can opt out of using primary key from the catalog.
   if (primary_key_type_ == nullptr) {
     return context->options().emulate_primary_keys
                ? absl::make_optional(std::vector<int>{0})
-               : absl::optional<std::vector<int>>();
+               : std::optional<std::vector<int>>();
   }
   ZETASQL_RET_CHECK(!context->options().emulate_primary_keys)
       << "Cannot emulate primary key while using the primary key set in Table";
@@ -1850,7 +1980,7 @@ static absl::Status EvalRelationalOp(
     std::vector<std::unique_ptr<TupleData>>* datas) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TupleIterator> iter,
                    op.CreateIterator(params, /*num_extra_slots=*/0, context));
-  *schema = absl::make_unique<TupleSchema>(iter->Schema().variables());
+  *schema = std::make_unique<TupleSchema>(iter->Schema().variables());
   // We disable reordering when iterating over relations when processing DML
   // statements for backwards compatibility with the text-based reference
   // implementation compliance tests. As another advantage, this effectively
@@ -1863,7 +1993,7 @@ static absl::Status EvalRelationalOp(
       ZETASQL_RETURN_IF_ERROR(iter->Status());
       break;
     }
-    datas->push_back(absl::make_unique<TupleData>(*data));
+    datas->push_back(std::make_unique<TupleData>(*data));
   }
   return absl::OkStatus();
 }
@@ -2083,7 +2213,7 @@ absl::StatusOr<Value> DMLUpdateValueExpr::Eval(
                      LookupResolvedScan(stmt()->from_scan()));
 
     std::unique_ptr<TupleSchema> from_schema;
-    from_tuples = absl::make_unique<std::vector<std::unique_ptr<TupleData>>>();
+    from_tuples = std::make_unique<std::vector<std::unique_ptr<TupleData>>>();
     ZETASQL_RETURN_IF_ERROR(EvalRelationalOp(*relational_op, params, context,
                                      &from_schema, from_tuples.get()));
   }
@@ -2565,7 +2695,7 @@ absl::Status DMLUpdateValueExpr::AddToUpdateMap(
 
   // Iterate over each ResolvedUpdateArrayItem (if there are any) and recurse
   // for each one.
-  std::unordered_set<int64_t> used_array_offsets;
+  absl::flat_hash_set<int64_t> used_array_offsets;
   for (const std::unique_ptr<const ResolvedUpdateArrayItem>& update_array_item :
        update_item->array_update_list()) {
     ZETASQL_ASSIGN_OR_RETURN(const ValueExpr* offset_expr,
@@ -2612,7 +2742,7 @@ absl::Status DMLUpdateValueExpr::AddToUpdateMap(
     const bool first_update_node_is_leaf = prefix_components->empty();
     auto emplace_result = update_map->emplace(
         *update_column,
-        absl::make_unique<UpdateNode>(first_update_node_is_leaf));
+        std::make_unique<UpdateNode>(first_update_node_is_leaf));
     UpdateNode& first_update_node = *emplace_result.first->second;
     // If this fails, the analyzer allowed conflicting updates.
     ZETASQL_RET_CHECK_EQ(first_update_node_is_leaf, first_update_node.is_leaf());
@@ -2686,8 +2816,8 @@ absl::Status DMLUpdateValueExpr::AddToUpdateNode(
   // Get the UpdateNode child corresponding to 'next_component', adding it to
   // 'child_map' if necessary.
   const bool is_leaf = (start_component == end_component);
-  auto emplace_result = child_map->emplace(
-      next_component, absl::make_unique<UpdateNode>(is_leaf));
+  auto emplace_result =
+      child_map->emplace(next_component, std::make_unique<UpdateNode>(is_leaf));
   UpdateNode& next_update_node = *emplace_result.first->second;
   // If this fails, the analyzer allowed conflicting updates.
   ZETASQL_RET_CHECK_EQ(is_leaf, next_update_node.is_leaf());
@@ -2775,7 +2905,7 @@ absl::StatusOr<std::vector<Value>> DMLUpdateValueExpr::GetDMLOutputRow(
     const Tuple& tuple, const UpdateMap& update_map,
     EvaluationContext* context) const {
   absl::flat_hash_set<int> key_index_set;
-  ZETASQL_ASSIGN_OR_RETURN(const absl::optional<std::vector<int>> key_indexes,
+  ZETASQL_ASSIGN_OR_RETURN(const std::optional<std::vector<int>> key_indexes,
                    GetPrimaryKeyColumnIndexes(context));
   if (key_indexes.has_value()) {
     key_index_set.insert(key_indexes->begin(), key_indexes->end());
@@ -2880,7 +3010,7 @@ absl::Status DMLUpdateValueExpr::ProcessNestedUpdate(
       const VariableId element_column_variable_id,
       column_to_variable_mapping_->LookupVariableNameForColumn(element_column));
 
-  absl::optional<VariableId> array_offset_column_variable_id;
+  std::optional<VariableId> array_offset_column_variable_id;
   if (nested_update->array_offset_column() != nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(array_offset_column_variable_id,
                      column_to_variable_mapping_->LookupVariableNameForColumn(
@@ -2976,7 +3106,7 @@ absl::Status DMLUpdateValueExpr::ProcessNestedInsert(
     ZETASQL_RETURN_IF_ERROR(EvalRelationalOp(*relational_op, tuples_for_row, context,
                                      &tuple_schema, &tuples));
 
-    const absl::optional<int> opt_query_output_variable_slot =
+    const std::optional<int> opt_query_output_variable_slot =
         tuple_schema->FindIndexForVariable(query_output_variable_id);
     ZETASQL_RET_CHECK(opt_query_output_variable_slot.has_value());
     const int query_output_variable_slot =
@@ -3518,7 +3648,7 @@ std::string RootExpr::DebugInternal(const std::string& indent,
 RootExpr::RootExpr(std::unique_ptr<ValueExpr> value_expr,
                    std::unique_ptr<RootData> root_data)
     : ValueExpr(value_expr->output_type()), root_data_(std::move(root_data)) {
-  SetArg(kValueExpr, absl::make_unique<ExprArg>(std::move(value_expr)));
+  SetArg(kValueExpr, std::make_unique<ExprArg>(std::move(value_expr)));
 }
 
 const ValueExpr* RootExpr::value_expr() const {

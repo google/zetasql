@@ -43,7 +43,7 @@ The clauses are applied *in the following order*:
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
+[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
 
@@ -93,7 +93,7 @@ The clauses are applied *in the following order*:
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
+[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
 
@@ -143,7 +143,7 @@ The clauses are applied *in the following order*:
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
+[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
 
@@ -195,7 +195,7 @@ The clauses are applied *in the following order*:
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
+[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
 
@@ -245,7 +245,7 @@ The clauses are applied *in the following order*:
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
+[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
 
@@ -311,7 +311,7 @@ The clauses are applied *in the following order*:
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
+[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
 
@@ -361,7 +361,7 @@ The clauses are applied *in the following order*:
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
+[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
 
 [analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
 

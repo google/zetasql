@@ -223,6 +223,7 @@ TEST(LanguageOptions, Serialization) {
   proto.add_enabled_language_features(FEATURE_TABLESAMPLE);
   proto.add_supported_statement_kinds(RESOLVED_EXPLAIN_STMT);
   proto.add_supported_generic_entity_types("NEW_TYPE");
+  proto.add_supported_generic_sub_entity_types("NEW_SUB_TYPE");
   proto.add_reserved_keywords("QUALIFY");
 
   LanguageOptions options(proto);
@@ -240,6 +241,9 @@ TEST(LanguageOptions, Serialization) {
   ASSERT_TRUE(options.GenericEntityTypeSupported("NEW_TYPE"));
   ASSERT_TRUE(options.GenericEntityTypeSupported("new_type"));
   ASSERT_FALSE(options.GenericEntityTypeSupported("unsupported"));
+  ASSERT_TRUE(options.GenericSubEntityTypeSupported("NEW_SUB_TYPE"));
+  ASSERT_TRUE(options.GenericSubEntityTypeSupported("new_sub_type"));
+  ASSERT_FALSE(options.GenericSubEntityTypeSupported("unsupported_sub_type"));
   ASSERT_TRUE(options.IsReservedKeyword("QUALIFY"));
 }
 
@@ -337,10 +341,11 @@ TEST(LanguageOptions, ClassAndProtoSize) {
   EXPECT_EQ(16, sizeof(options) - sizeof(options.supported_statement_kinds_) -
                     sizeof(options.enabled_language_features_) -
                     sizeof(options.supported_generic_entity_types_) -
+                    sizeof(options.supported_generic_sub_entity_types_) -
                     sizeof(options.reserved_keywords_))
       << "The size of LanguageOptions class has changed, please also update "
       << "the proto and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(7, LanguageOptionsProto::descriptor()->field_count())
+  EXPECT_EQ(8, LanguageOptionsProto::descriptor()->field_count())
       << "The number of fields in LanguageOptionsProto has changed, please "
       << "also update the serialization code accordingly.";
 }

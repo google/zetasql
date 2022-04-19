@@ -108,7 +108,7 @@ FunctionSignatureOptions::CheckFunctionSignatureConstraints(
 absl::Status FunctionSignatureOptions::Deserialize(
     const FunctionSignatureOptionsProto& proto,
     std::unique_ptr<FunctionSignatureOptions>* result) {
-  *result = absl::make_unique<FunctionSignatureOptions>();
+  *result = std::make_unique<FunctionSignatureOptions>();
   (*result)->set_is_deprecated(proto.is_deprecated());
   (*result)->set_additional_deprecation_warnings(
       proto.additional_deprecation_warning());
@@ -262,12 +262,12 @@ FunctionArgumentType::Deserialize(const FunctionArgumentTypeProto& proto,
 
   if (type != nullptr) {
     // <type> can not be nullptr when proto.kind() == ARG_TYPE_FIXED
-    return absl::make_unique<FunctionArgumentType>(type, options,
-                                                   proto.num_occurrences());
+    return std::make_unique<FunctionArgumentType>(type, options,
+                                                  proto.num_occurrences());
   }
 
   if (proto.kind() == ARG_TYPE_LAMBDA) {
-    auto result = absl::make_unique<FunctionArgumentType>(ARG_TYPE_LAMBDA);
+    auto result = std::make_unique<FunctionArgumentType>(ARG_TYPE_LAMBDA);
     std::vector<FunctionArgumentType> lambda_argument_types;
     for (const FunctionArgumentTypeProto& arg_proto :
          proto.lambda().argument()) {
@@ -284,8 +284,8 @@ FunctionArgumentType::Deserialize(const FunctionArgumentTypeProto& proto,
     return result;
   }
 
-  return absl::make_unique<FunctionArgumentType>(proto.kind(), options,
-                                                 proto.num_occurrences());
+  return std::make_unique<FunctionArgumentType>(proto.kind(), options,
+                                                proto.num_occurrences());
 }
 
 absl::Status FunctionArgumentTypeOptions::Serialize(
@@ -344,7 +344,7 @@ absl::Status FunctionArgumentTypeOptions::Serialize(
   if (argument_name_is_mandatory()) {
     options_proto->set_argument_name_is_mandatory(true);
   }
-  absl::optional<ParseLocationRange> parse_location_range =
+  std::optional<ParseLocationRange> parse_location_range =
       argument_name_parse_location();
   if (parse_location_range.has_value()) {
     ZETASQL_ASSIGN_OR_RETURN(*options_proto->mutable_argument_name_parse_location(),
@@ -935,8 +935,8 @@ FunctionSignature::Deserialize(const FunctionSignatureProto& proto,
   ZETASQL_RETURN_IF_ERROR(FunctionSignatureOptions::Deserialize(
       proto.options(), &options));
 
-  return absl::make_unique<FunctionSignature>(*result_type, arguments,
-                                              proto.context_id(), *options);
+  return std::make_unique<FunctionSignature>(*result_type, arguments,
+                                             proto.context_id(), *options);
 }
 
 absl::Status FunctionSignature::Serialize(

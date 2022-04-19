@@ -171,7 +171,7 @@ TEST(ParseLocationTranslator, GetByteOffsetFromLineAndColumn) {
   const std::string test_input = GetConcatenatedCharacters();
   ParseLocationTranslator translator(test_input);
 
-  absl::optional<CharacterAndLineAndColumn> prev_char_data;
+  std::optional<CharacterAndLineAndColumn> prev_char_data;
   for (const CharacterAndLineAndColumn& char_data :
        characters_and_line_column_pairs) {
     if (char_data.line_and_column.line == -1) {

@@ -35,12 +35,12 @@ namespace {
 // These rewrites are turned off when using the reference impl as a baseline
 // for compliance tests, so that the result of executing the query through the
 // rewriter can be compared to it.
+// TODO: Add REWRITE_ARRAY_FIRST_LAST when fully implemented
 constexpr ResolvedASTRewrite kReferenceImplOptionalRewrites[] = {
     REWRITE_FLATTEN,        REWRITE_PROTO_MAP_FNS,
     REWRITE_PIVOT,          REWRITE_ARRAY_FILTER_TRANSFORM,
     REWRITE_ARRAY_INCLUDES, REWRITE_UNPIVOT,
-    REWRITE_LET_EXPR,
-};
+    REWRITE_LET_EXPR,       REWRITE_ARRAY_FIRST_LAST};
 
 RewriteSet DefaultRewrites() {
   return RewriteSet(AnalyzerOptions().enabled_rewrites());

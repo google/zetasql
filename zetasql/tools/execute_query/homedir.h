@@ -17,13 +17,14 @@
 #ifndef ZETASQL_TOOLS_EXECUTE_QUERY_HOMEDIR_H_
 #define ZETASQL_TOOLS_EXECUTE_QUERY_HOMEDIR_H_
 
+#include <optional>
 #include <string>
 
 #include "absl/types/optional.h"
 
 namespace zetasql {
 
-absl::optional<std::string> GetHomedir();
+std::optional<std::string> GetHomedir();
 
 }  // namespace zetasql
 

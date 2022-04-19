@@ -86,7 +86,6 @@ class TestTupleIterator : public TupleIterator {
   bool preserves_order_;
   std::vector<TupleData> values_;
   int index_ = 0;
-  bool cancelled_ = false;
   absl::Status status_;
 };
 
@@ -159,7 +158,7 @@ inline std::vector<TupleData> CreateTestTupleDatas(
 MATCHER_P(HasRawPointer, raw_pointer, "") { return arg.get() == raw_pointer; }
 
 // Teach googletest how to print TupleSlots.
-void PrintTo(const TupleSlot& slot, std::ostream* os) {
+inline void PrintTo(const TupleSlot& slot, std::ostream* os) {
   std::shared_ptr<TupleSlot::SharedProtoState> shared_state =
       *slot.mutable_shared_proto_state();
   *os << "<value: " << slot.value() << ", shared_state: " << shared_state.get()
@@ -177,7 +176,7 @@ MATCHER_P2(IsTupleSlotWith, expected_value, shared_state_matcher, "") {
   }
 
   auto matcher = static_cast<
-      testing::Matcher<std::shared_ptr<TupleSlot::SharedProtoState>>>(
+      ::testing::Matcher<std::shared_ptr<TupleSlot::SharedProtoState>>>(
       shared_state_matcher);
   if (!matcher.MatchAndExplain(*arg.mutable_shared_proto_state(),
                                result_listener)) {

@@ -62,7 +62,7 @@ ErrorSource MakeErrorSource(const absl::Status& status, const std::string& text,
 }
 
 // Returns ErrorSources from <status>, if present.
-const absl::optional<::google::protobuf::RepeatedPtrField<ErrorSource>> GetErrorSources(
+const std::optional<::google::protobuf::RepeatedPtrField<ErrorSource>> GetErrorSources(
     const absl::Status& status) {
   if (internal::HasPayloadWithType<ErrorLocation>(status)) {
     // Sanity check that an OK status does not have a payload.

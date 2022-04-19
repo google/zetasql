@@ -445,7 +445,7 @@ class TreeGenerator(object):
     Args:
       name: class name for this node
       tag_id: unique sequential id for this node, which should not change.
-          Next tag_id: 334
+          Next tag_id: 337
       parent: class name of the parent node
       is_abstract: true if this node is an abstract class
       fields: list of fields in this class; created with Field function
@@ -489,7 +489,7 @@ class TreeGenerator(object):
       if gen_init_fields is None:
         gen_init_fields = True
       elif not gen_init_fields:
-        assert ('void InitFields() final {' in extra_private_defs), (
+        assert ('absl::Status InitFields() final {' in extra_private_defs), (
             'class {} must provide InitFields() in extra_private_defs when '
             'gen_init_fields=False').format(name)
     node_kind = NameToNodeKind(name)
@@ -1782,11 +1782,23 @@ def main(argv):
               'ASTClampedBetweenModifier',
               tag_id=5,
               comment="""
-      If present, applies to the inputs of anonimized aggregate functions.
+      If present, applies to the inputs of anonymized aggregate functions.
               """,
               private_comment="""
       Set if the function was called with
       FUNC(args CLAMPED BETWEEN low AND high).
+              """),
+          Field(
+              'with_report_modifier',
+              'ASTWithReportModifier',
+              tag_id=13,
+              comment="""
+      If present, the report modifier applies to the result of anonymized
+      aggregate functions.
+              """,
+              private_comment="""
+      Set if the function was called with
+      FUNC(args WITH REPORT).
               """),
           Field(
               'order_by',
@@ -3662,6 +3674,17 @@ def main(argv):
               tag_id=3,
               field_loader=FieldLoaderMethod.REQUIRED),
       ])
+  gen.AddNode(
+      name='ASTWithReportModifier',
+      tag_id=334,
+      parent='ASTNode',
+      fields=[
+          Field(
+              'options_list',
+              'ASTOptionsList',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.OPTIONAL),
+      ])
 
   gen.AddNode(
       name='ASTFormatClause',
@@ -4902,6 +4925,7 @@ def main(argv):
               'ASTGeneralizedPathExpression',
               tag_id=2,
               field_loader=FieldLoaderMethod.REQUIRED),
+          Field('hint', 'ASTHint', tag_id=8),
           Field(
               'alias',
               'ASTAlias',
@@ -5160,6 +5184,7 @@ def main(argv):
               'ASTGeneralizedPathExpression',
               tag_id=2,
               field_loader=FieldLoaderMethod.REQUIRED),
+          Field('hint', 'ASTHint', tag_id=10),
           Field(
               'column_list',
               'ASTColumnList',
@@ -5292,6 +5317,7 @@ def main(argv):
               'ASTGeneralizedPathExpression',
               tag_id=2,
               field_loader=FieldLoaderMethod.REQUIRED),
+          Field('hint', 'ASTHint', tag_id=10),
           Field(
               'alias',
               'ASTAlias',
@@ -6269,6 +6295,87 @@ def main(argv):
       """)
 
   gen.AddNode(
+      name='ASTAlterSubEntityAction',
+      tag_id=330,
+      parent='ASTAlterAction',
+      comment="""
+      ALTER action for "ALTER <subentity>" clause
+      """,
+      fields=[
+          Field(
+              'type',
+              'ASTIdentifier',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'name',
+              'ASTIdentifier',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'action',
+              'ASTAlterAction',
+              tag_id=4,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field('is_if_exists', SCALAR_BOOL, tag_id=5),
+      ],
+      extra_public_defs="""
+  std::string GetSQLForAlterAction() const override;
+  std::string SingleNodeDebugString() const override;
+      """)
+
+  gen.AddNode(
+      name='ASTAddSubEntityAction',
+      tag_id=331,
+      parent='ASTAlterAction',
+      comment="""
+      ALTER action for "ADD <subentity>" clause
+      """,
+      fields=[
+          Field(
+              'type',
+              'ASTIdentifier',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'name',
+              'ASTIdentifier',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field('options_list', 'ASTOptionsList', tag_id=4),
+          Field('is_if_not_exists', SCALAR_BOOL, tag_id=5),
+      ],
+      extra_public_defs="""
+  std::string GetSQLForAlterAction() const override;
+  std::string SingleNodeDebugString() const override;
+      """)
+
+  gen.AddNode(
+      name='ASTDropSubEntityAction',
+      tag_id=332,
+      parent='ASTAlterAction',
+      comment="""
+      ALTER action for "DROP <subentity>" clause
+      """,
+      fields=[
+          Field(
+              'type',
+              'ASTIdentifier',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'name',
+              'ASTIdentifier',
+              tag_id=3,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field('is_if_exists', SCALAR_BOOL, tag_id=5),
+      ],
+      extra_public_defs="""
+  std::string GetSQLForAlterAction() const override;
+  std::string SingleNodeDebugString() const override;
+      """)
+
+  gen.AddNode(
       name='ASTAlterActionList',
       tag_id=252,
       parent='ASTNode',
@@ -6573,22 +6680,23 @@ def main(argv):
       ],
       gen_init_fields=False,
       extra_private_defs="""
-  void InitFields() final {
+  absl::Status InitFields() final {
     // We need a special case here because we have two children that both have
     // type ASTIdentifier and the first one is optional.
     if (num_children() == 2) {
       FieldLoader fl(this);
-      fl.AddRequired(&name_);
-      fl.AddRequired(&value_);
+      ZETASQL_RETURN_IF_ERROR(fl.AddRequired(&name_));
+      ZETASQL_RETURN_IF_ERROR(fl.AddRequired(&value_));
+      return fl.Finalize();
     } else {
       FieldLoader fl(this);
-      fl.AddRequired(&qualifier_);
-      fl.AddRequired(&name_);
-      fl.AddRequired(&value_);
+      ZETASQL_RETURN_IF_ERROR(fl.AddRequired(&qualifier_));
+      ZETASQL_RETURN_IF_ERROR(fl.AddRequired(&name_));
+      ZETASQL_RETURN_IF_ERROR(fl.AddRequired(&value_));
+      return fl.Finalize();
     }
   }
-      """
-      )
+      """)
 
   gen.AddNode(
       name='ASTUnpivotInItemLabel',
@@ -7689,6 +7797,11 @@ def main(argv):
       parent='ASTAlterStatementBase')
 
   gen.AddNode(
+      name='ASTAlterModelStatement',
+      tag_id=336,
+      parent='ASTAlterStatementBase')
+
+  gen.AddNode(
       name='ASTAlterPrivilegeRestrictionStatement',
       tag_id=325,
       parent='ASTAlterStatementBase',
@@ -8019,6 +8132,23 @@ def main(argv):
               'name',
               'ASTIdentifier',
               tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED),
+      ])
+
+  gen.AddNode(
+      name='ASTWithExpression',
+      tag_id=335,
+      parent='ASTExpression',
+      fields=[
+          Field(
+              'variables',
+              'ASTSelectList',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED),
+          Field(
+              'expression',
+              'ASTExpression',
+              tag_id=3,
               field_loader=FieldLoaderMethod.REQUIRED),
       ])
 

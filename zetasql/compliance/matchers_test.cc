@@ -60,8 +60,8 @@ TEST(ErrorMatcherTest, RegexMatcher) {
 
 TEST(ErrorMatcherTest, RegexGroupMatcher) {
   std::map<int, std::unique_ptr<MatcherBase<std::string>>> group_matchers;
-  group_matchers.emplace(0, absl::make_unique<RegexMatcher>("42"));
-  group_matchers.emplace(1, absl::make_unique<SubstringMatcher>("life"));
+  group_matchers.emplace(0, std::make_unique<RegexMatcher>("42"));
+  group_matchers.emplace(1, std::make_unique<SubstringMatcher>("life"));
   RegexMatcher matcher("(\\d+):(\\w+)", std::move(group_matchers));
   EXPECT_FALSE(matcher.HasMatches());
   EXPECT_EQ(0, matcher.MatchCount());
@@ -80,8 +80,8 @@ TEST(ErrorMatcherTest, RegexGroupMatcher) {
 
 TEST(ErrorMatcherTest, RegexGroupMatcherNotWrapper) {
   std::map<int, std::unique_ptr<MatcherBase<std::string>>> group_matchers;
-  group_matchers.emplace(0, absl::make_unique<NotMatcher<std::string>>(
-                                absl::make_unique<RegexMatcher>("^(43|44)$")));
+  group_matchers.emplace(0, std::make_unique<NotMatcher<std::string>>(
+                                std::make_unique<RegexMatcher>("^(43|44)$")));
   RegexMatcher matcher("(\\d+):(\\w+)", std::move(group_matchers));
   EXPECT_FALSE(matcher.HasMatches());
   EXPECT_EQ(0, matcher.MatchCount());
@@ -191,7 +191,7 @@ TEST(ErrorMatcherTest, CollectionMatcher) {
 
 TEST(ErrorMatcherTest, ProtoFieldIsDefaultMatcher) {
   ProtoFieldIsDefaultMatcher<zetasql_test__::KitchenSinkPB, std::string>
-      matcher("bool_val", absl::make_unique<SubstringMatcher>("match"));
+      matcher("bool_val", std::make_unique<SubstringMatcher>("match"));
   zetasql_test__::KitchenSinkPB kitchen_sink;
   matcher.Matches(std::make_pair(kitchen_sink, "match"));
   EXPECT_FALSE(matcher.HasMatches());

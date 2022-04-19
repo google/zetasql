@@ -55,8 +55,8 @@ ABSL_MUST_USE_RESULT bool CheckAndCastStrLength(absl::string_view str,
 // Returns the offset needed to forward `str` by `num_code_points` or an empty
 // optional if an invalid UTF-8 codepoint is detected.
 // Similar to U8_FWD_N, but will detect bad utf codepoints.
-absl::optional<int32_t> ForwardN(absl::string_view str, int32_t str_length32,
-                                 int64_t num_code_points);
+std::optional<int32_t> ForwardN(absl::string_view str, int32_t str_length32,
+                                int64_t num_code_points);
 
 // Returns the number of code points in the given UTF-8 string, or a failed
 // status if <str> is not a valid utf-8 string.

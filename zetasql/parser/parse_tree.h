@@ -45,12 +45,12 @@ class FakeASTNode final : public ASTNode {
     ZETASQL_LOG(FATAL) << "FakeASTNode does not support Accept";
   }
 
-  void InitFields() final {
-    {
-      FieldLoader fl(this);  // Triggers check that there were no children.
-    }
+  absl::Status InitFields() final {
+    FieldLoader fl(this);
+    ZETASQL_RETURN_IF_ERROR(fl.Finalize());
     set_start_location(ParseLocationPoint::FromByteOffset("fake_filename", 7));
     set_end_location(ParseLocationPoint::FromByteOffset("fake_filename", 10));
+    return absl::OkStatus();
   }
 };
 

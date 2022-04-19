@@ -74,9 +74,11 @@ class TypeofFunctionRewriteVisitor : public ResolvedASTDeepCopyVisitor {
 
 absl::Status TypeofFunctionRewriteVisitor::VisitResolvedFunctionCall(
     const ResolvedFunctionCall* node) {
-  if (node->function() != nullptr &&
-      node->signature().context_id() == FunctionSignatureId::FN_TYPEOF &&
-      node->function()->IsZetaSQLBuiltin()) {
+  if (IsBuiltInFunctionIdEq(node, FN_TYPEOF)) {
+    if (node->hint_list_size() > 0) {
+      return ::zetasql_base::UnimplementedErrorBuilder()
+             << "The TYPEOF() operator does not support hints.";
+    }
     return RewriteTypeof(node);
   }
   return CopyVisitResolvedFunctionCall(node);

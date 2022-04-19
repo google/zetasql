@@ -707,9 +707,9 @@ message Chart {
 WITH AlbumList AS (
   SELECT
     NEW Album(
-      'Beyonce' AS solo,
-      'Lemonade' AS album_name,
-      ['Sandcastles','Hold Up'] AS song) AS album_col,
+      'Alana Yah' AS solo,
+      'New Moon' AS album_name,
+      ['Sandstorm','Wait'] AS song) AS album_col,
     NEW Chart(
       'Billboard' AS chart_name,
       '2016-04-23' AS date,
@@ -717,9 +717,9 @@ WITH AlbumList AS (
     UNION ALL
   SELECT
     NEW Album(
-      'The Beetles' AS band,
-      'Rubber Soul' AS album_name,
-      ['The Word', 'Wait', 'Nowhere Man'] AS song) AS album_col,
+      'The Roadlands' AS band,
+      'Grit' AS album_name,
+      ['The Way', 'Awake', 'Lost Things'] AS song) AS album_col,
     NEW Chart(
       'Billboard' AS chart_name,
       1 as rank) AS chart_col
@@ -737,8 +737,8 @@ FROM AlbumList
 +------------------+
 | name_of_album    |
 +------------------+
-| Lemonade         |
-| Rubber Soul      |
+| New Moon         |
+| Grit             |
 +------------------+
 ```
 

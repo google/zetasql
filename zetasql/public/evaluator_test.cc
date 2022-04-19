@@ -94,7 +94,7 @@ class UDFEvalTest : public ::testing::Test {
   const int kFunctionId = 5000;
 
   void SetUp() override {
-    catalog_ = absl::make_unique<SimpleCatalog>("udf_catalog");
+    catalog_ = std::make_unique<SimpleCatalog>("udf_catalog");
     catalog_->AddZetaSQLFunctions();
     ZETASQL_ASSERT_OK(analyzer_options_.AddQueryParameter(
         "param", types::StringType()));
@@ -756,7 +756,7 @@ TEST(EvaluatorTest, PrepareExecuteAllowUndeclaredQueryParametersResolvedExpr) {
   analyzer_options.set_allow_undeclared_parameters(true);
   ZETASQL_ASSERT_OK(analyzer_options.AddExpressionColumn("col", types::Int64Type()));
 
-  auto catalog = absl::make_unique<SimpleCatalog>("foo");
+  auto catalog = std::make_unique<SimpleCatalog>("foo");
   catalog->AddZetaSQLFunctions();
   TypeFactory type_factory;
 
@@ -833,7 +833,7 @@ TEST(EvaluatorTest,
   analyzer_options.set_parameter_mode(PARAMETER_POSITIONAL);
   ZETASQL_ASSERT_OK(analyzer_options.AddExpressionColumn("col", types::Int64Type()));
 
-  auto catalog = absl::make_unique<SimpleCatalog>("foo");
+  auto catalog = std::make_unique<SimpleCatalog>("foo");
   catalog->AddZetaSQLFunctions();
   TypeFactory type_factory;
 
@@ -983,7 +983,7 @@ TEST(EvaluatorTest, PrepareExecuteSubexpressionsWithPositionalQueryParameters) {
   for (const Value& param : positional_parameters) {
     ZETASQL_ASSERT_OK(analyzer_options.AddPositionalQueryParameter(param.type()));
   }
-  auto catalog = absl::make_unique<SimpleCatalog>("foo");
+  auto catalog = std::make_unique<SimpleCatalog>("foo");
   catalog->AddZetaSQLFunctions();
   TypeFactory type_factory;
 
@@ -1023,7 +1023,7 @@ TEST(EvaluatorTest, PrepareExecuteSubexpressionsWithNamedQueryParameters) {
     ZETASQL_ASSERT_OK(analyzer_options.AddQueryParameter(
         entry.first, entry.second.type()));
   }
-  auto catalog = absl::make_unique<SimpleCatalog>("foo");
+  auto catalog = std::make_unique<SimpleCatalog>("foo");
   catalog->AddZetaSQLFunctions();
   TypeFactory type_factory;
 
@@ -1700,7 +1700,7 @@ PreparedExpressionFromAST ParseToASTAndPrepareOrDie(
     const std::string& sql, const AnalyzerOptions& analyzer_options,
     TypeFactory* type_factory) {
   PreparedExpressionFromAST prepared_from_ast;
-  prepared_from_ast.catalog = absl::make_unique<SimpleCatalog>("foo");
+  prepared_from_ast.catalog = std::make_unique<SimpleCatalog>("foo");
   prepared_from_ast.catalog->AddZetaSQLFunctions();
 
   ZETASQL_CHECK_OK(AnalyzeExpression(sql, analyzer_options,
@@ -1709,7 +1709,7 @@ PreparedExpressionFromAST ParseToASTAndPrepareOrDie(
 
   EvaluatorOptions evaluator_options;
   evaluator_options.type_factory = type_factory;
-  prepared_from_ast.expression = absl::make_unique<PreparedExpression>(
+  prepared_from_ast.expression = std::make_unique<PreparedExpression>(
       prepared_from_ast.analyzer_output->resolved_expr(), evaluator_options);
   ZETASQL_CHECK_OK(prepared_from_ast.expression->Prepare(analyzer_options));
   return prepared_from_ast;
@@ -2426,7 +2426,7 @@ class PreparedModifyTest : public ::testing::Test {
 
  protected:
   void AddNonValueTable() {
-    auto test_table = absl::make_unique<SimpleTable>(
+    auto test_table = std::make_unique<SimpleTable>(
         kTestTable,
         std::vector<SimpleTable::NameAndType>{
             {"int_val", types::Int64Type()}, {"str_val", types::StringType()}});
@@ -2438,7 +2438,7 @@ class PreparedModifyTest : public ::testing::Test {
   }
 
   void AddValueTableInt64RowType() {
-    auto test_value_table = absl::make_unique<SimpleTable>(
+    auto test_value_table = std::make_unique<SimpleTable>(
         kTestValueTable,
         std::vector<SimpleTable::NameAndType>{{"int_val", types::Int64Type()}});
     test_value_table->SetContents({{Int64(1)}, {Int64(2)}, {Int64(4)}});
@@ -2453,8 +2453,6 @@ class PreparedModifyTest : public ::testing::Test {
   // Table names
   static constexpr char kTestTable[] = "test_table";
   static constexpr char kTestValueTable[] = "test_value_table";
-
-  const StructType* test_value_table_struct_row_type_;
 };
 
 TEST_F(PreparedModifyTest, ExecutesInsert) {
@@ -2577,7 +2575,7 @@ TEST_F(PreparedModifyTest, ExecutesUpdate) {
 }
 
 TEST_F(PreparedModifyTest, IteratorStillLiveOnDestruction) {
-  auto query = absl::make_unique<PreparedModify>(
+  auto query = std::make_unique<PreparedModify>(
       "delete from test_table where true", EvaluatorOptions());
   ZETASQL_ASSERT_OK(query->Prepare(analyzer_options(), catalog()));
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableModifyIterator> iter,
@@ -3108,8 +3106,8 @@ TEST(PreparedQueryDeathTest, IteratorStillLiveOnDestruction) {
   SimpleCatalog catalog("TestCatalog");
   catalog.AddTable(test_table.Name(), &test_table);
 
-  auto query = absl::make_unique<PreparedQuery>("select a from TestTable",
-                                                EvaluatorOptions());
+  auto query = std::make_unique<PreparedQuery>("select a from TestTable",
+                                               EvaluatorOptions());
   ZETASQL_ASSERT_OK(query->Prepare(AnalyzerOptions(), &catalog));
   ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
                        query->Execute());
@@ -3434,7 +3432,7 @@ class PreparedQueryProtoTest : public PreparedQueryTest {
               {GetProtoValue(10), values::Struct(struct_with_just_proto_type_,
                                                  {GetProtoValue(100)})})}});
 
-    catalog_ = absl::make_unique<SimpleCatalog>("TestCatalog");
+    catalog_ = std::make_unique<SimpleCatalog>("TestCatalog");
     catalog_->AddTable(table_->Name(), table_.get());
     catalog_->AddTable(table2_->Name(), table2_.get());
     catalog_->AddZetaSQLFunctions();

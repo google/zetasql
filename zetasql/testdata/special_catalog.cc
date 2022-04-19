@@ -110,8 +110,8 @@ class TableWithAnonymousAndDuplicatedColumnNames : public Table {
 };
 
 std::unique_ptr<SimpleCatalog> GetSpecialCatalog() {
-  auto catalog = absl::make_unique<SimpleCatalog>("special_catalog",
-                                                  nullptr /* type_factory */);
+  auto catalog = std::make_unique<SimpleCatalog>("special_catalog",
+                                                 nullptr /* type_factory */);
 
   TypeFactory* types = catalog->type_factory();
   catalog->AddOwnedTable(new TableWithAnonymousAndDuplicatedColumnNames(
@@ -143,11 +143,10 @@ std::unique_ptr<SimpleCatalog> GetSpecialCatalog() {
                     proto_FakeStringInt32EntryType);
 
   // Add the sub-catalogs to make the re-analysis happy.
-  auto sub_catalog = absl::make_unique<SimpleCatalog>("custom",
+  auto sub_catalog = std::make_unique<SimpleCatalog>("custom",
+                                                     /*type_factory=*/nullptr);
+  auto sub_catalog2 = std::make_unique<SimpleCatalog>("catalog",
                                                       /*type_factory=*/nullptr);
-  auto sub_catalog2 =
-      absl::make_unique<SimpleCatalog>("catalog",
-                                       /*type_factory=*/nullptr);
   sub_catalog2->AddType("zetasql_test__.EnumAnnotations.NestedEnum",
                         enum_EnumAnnotations);
   sub_catalog2->AddType("zetasql_test__.FakeStringInt32EntryType",

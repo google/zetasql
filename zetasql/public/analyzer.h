@@ -29,6 +29,7 @@
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type_modifiers.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
 #include "absl/status/status.h"
@@ -180,12 +181,12 @@ absl::Status AnalyzeType(const std::string& type_name,
                          const AnalyzerOptions& options_in, Catalog* catalog,
                          TypeFactory* type_factory, const Type** output_type);
 
-// Same as above function, but also returns a TypeParameters object in
-// <output_type_params> on success.
+// Same as above function, but also returns a TypeModifiers object in
+// <output_type_modifiers> on success.
 absl::Status AnalyzeType(const std::string& type_name,
                          const AnalyzerOptions& options_in, Catalog* catalog,
                          TypeFactory* type_factory, const Type** output_type,
-                         TypeParameters* output_type_params);
+                         TypeModifiers* output_type_modifiers);
 
 // A set of table names found is returned in <*table_names>, where each
 // table name is an identifier path stored as a vector<string>.

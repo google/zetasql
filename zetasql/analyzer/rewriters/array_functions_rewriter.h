@@ -27,6 +27,9 @@ const Rewriter* GetArrayFilterTransformRewriter();
 // Gets a pointer to the array includes rewriter.
 const Rewriter* GetArrayIncludesRewriter();
 
+// Gets a pointer to the array first and array last rewriter.
+const Rewriter* GetArrayFirstLastRewriter();
+
 }  // namespace zetasql
 
 #endif  // ZETASQL_ANALYZER_REWRITERS_ARRAY_FUNCTIONS_REWRITER_H_

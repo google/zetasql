@@ -22,9 +22,10 @@
 
 using ::zetasql::BigNumericValue;
 using ::zetasql::NumericValue;
-using testing::HasSubstr;
-using zetasql_base::testing::IsOk;
-using zetasql_base::testing::StatusIs;
+
+using ::testing::HasSubstr;
+using ::zetasql_base::testing::IsOk;
+using ::zetasql_base::testing::StatusIs;
 
 namespace zetasql {
 namespace {

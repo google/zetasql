@@ -17,6 +17,7 @@
 #include "zetasql/tools/execute_query/execute_query_prompt.h"
 
 #include <limits>
+#include <optional>
 #include <string>
 
 #include "zetasql/common/testing/proto_matchers.h"
@@ -51,7 +52,7 @@ using testing::EqualsProto;
 
 namespace {
 
-using ReadResultType = absl::StatusOr<absl::optional<std::string>>;
+using ReadResultType = absl::StatusOr<std::optional<std::string>>;
 
 struct CompletionReq {
   size_t cursor_position;
@@ -121,10 +122,10 @@ TEST(ExecuteQueryStatementPrompt, EmptyInput) {
           {.ret = ""},
           {.ret = ""},
           {.ret = ""},
-          {.ret = absl::nullopt},
+          {.ret = std::nullopt},
       },
       {
-          IsOkAndHolds(absl::nullopt),
+          IsOkAndHolds(std::nullopt),
       });
 }
 
@@ -134,13 +135,13 @@ TEST(ExecuteQueryStatementPrompt, SingleLine) {
           {.ret = "SELECT 1;"},
           {.ret = "My query 2;"},
           {.ret = "SELECT 3;"},
-          {.ret = absl::nullopt},
+          {.ret = std::nullopt},
       },
       {
           IsOkAndHolds("SELECT 1;"),
           IsOkAndHolds("My query 2;"),
           IsOkAndHolds("SELECT 3;"),
-          IsOkAndHolds(absl::nullopt),
+          IsOkAndHolds(std::nullopt),
       });
 }
 
@@ -153,14 +154,14 @@ TEST(ExecuteQueryStatementPrompt, MultipleSelects) {
           {.ret = "foo,\n", .want_continuation = true},
           {.ret = "bar);", .want_continuation = true},
           {.ret = "SELECT 4;"},
-          {.ret = absl::nullopt},
+          {.ret = std::nullopt},
       },
       {
           IsOkAndHolds("SELECT 1;"),
           IsOkAndHolds("SELECT 2;"),
           IsOkAndHolds("SELECT (foo,\nbar);"),
           IsOkAndHolds("SELECT 4;"),
-          IsOkAndHolds(absl::nullopt),
+          IsOkAndHolds(std::nullopt),
       });
 }
 
@@ -193,7 +194,7 @@ TEST(ExecuteQueryStatementPrompt, FaultyMixedWithValid) {
           {.ret = "\"\"), 1", .want_continuation = true},
           {.ret = "x);\n", .want_continuation = true},
 
-          {.ret = absl::nullopt},
+          {.ret = std::nullopt},
       },
       {
           IsOkAndHolds("SELECT 1, (2 +\n  3);"),
@@ -216,7 +217,7 @@ TEST(ExecuteQueryStatementPrompt, FaultyMixedWithValid) {
                 StatusHasPayload<ParserErrorContext>(EqualsProto(R"pb(
                   text: "SELECT (\"\"), 1x);"
                 )pb"))),
-          IsOkAndHolds(absl::nullopt),
+          IsOkAndHolds(std::nullopt),
       });
 }
 
@@ -229,11 +230,11 @@ TEST(ExecuteQueryStatementPrompt, TripleQuoted) {
           {.ret = "", .want_continuation = true},
           {.ret = "\n", .want_continuation = true},
           {.ret = "world\"\"\", 101;", .want_continuation = true},
-          {.ret = absl::nullopt},
+          {.ret = std::nullopt},
       },
       {
           IsOkAndHolds("SELECT 99, \"\"\"hello\n\nline\n\nworld\"\"\", 101;"),
-          IsOkAndHolds(absl::nullopt),
+          IsOkAndHolds(std::nullopt),
       });
 }
 
@@ -244,11 +245,11 @@ TEST(ExecuteQueryStatementPrompt, TerminatedByEOF) {
           {.ret = "SELECT 1, (2 +"},
           // Statement not terminated with semicolon
           {.ret = "  3)", .want_continuation = true},
-          {.ret = absl::nullopt, .want_continuation = true},
+          {.ret = std::nullopt, .want_continuation = true},
       },
       {
           IsOkAndHolds("SELECT 1, (2 +  3)"),
-          IsOkAndHolds(absl::nullopt),
+          IsOkAndHolds(std::nullopt),
       });
 }
 
@@ -260,16 +261,16 @@ TEST(ExecuteQueryStatementPrompt, ReadAfterEOF) {
           {.ret = ""},
           {.ret = ""},
           {.ret = "SELECT 2;"},
-          {.ret = absl::nullopt},
+          {.ret = std::nullopt},
       },
       {
           IsOkAndHolds("SELECT 1;"),
           IsOkAndHolds("SELECT 2;"),
-          IsOkAndHolds(absl::nullopt),
-          IsOkAndHolds(absl::nullopt),
-          IsOkAndHolds(absl::nullopt),
-          IsOkAndHolds(absl::nullopt),
-          IsOkAndHolds(absl::nullopt),
+          IsOkAndHolds(std::nullopt),
+          IsOkAndHolds(std::nullopt),
+          IsOkAndHolds(std::nullopt),
+          IsOkAndHolds(std::nullopt),
+          IsOkAndHolds(std::nullopt),
       });
 }
 
@@ -278,13 +279,13 @@ TEST(ExecuteQueryStatementPrompt, MultipleOnSingleLine) {
       {
           {.ret = "SELECT 1; SELECT 2;\tSELECT\n"},
           {.ret = "  3;", .want_continuation = true},
-          {.ret = absl::nullopt},
+          {.ret = std::nullopt},
       },
       {
           IsOkAndHolds("SELECT 1;"),
           IsOkAndHolds("SELECT 2;"),
           IsOkAndHolds("SELECT\n  3;"),
-          IsOkAndHolds(absl::nullopt),
+          IsOkAndHolds(std::nullopt),
       });
 }
 
@@ -293,14 +294,14 @@ TEST(ExecuteQueryStatementPrompt, SemicolonOnly) {
       {
           {.ret = ";"},
           {.ret = ";;;"},
-          {.ret = absl::nullopt},
+          {.ret = std::nullopt},
       },
       {
           IsOkAndHolds(";"),
           IsOkAndHolds(";"),
           IsOkAndHolds(";"),
           IsOkAndHolds(";"),
-          IsOkAndHolds(absl::nullopt),
+          IsOkAndHolds(std::nullopt),
       });
 }
 
@@ -323,11 +324,11 @@ TEST(ExecuteQueryStatementPrompt, SplitKeyword) {
       {
           {.ret = "SEL"},
           {.ret = "ECT 100;", .want_continuation = true},
-          {.ret = absl::nullopt},
+          {.ret = std::nullopt},
       },
       {
           IsOkAndHolds("SELECT 100;"),
-          IsOkAndHolds(absl::nullopt),
+          IsOkAndHolds(std::nullopt),
       });
 }
 
@@ -337,7 +338,7 @@ TEST(ExecuteQueryStatementPrompt, SplitString) {
           {.ret = "\tSELECT \"val"},
           {.ret = "ue"},
           {.ret = "\" ;", .want_continuation = true},
-          {.ret = absl::nullopt},
+          {.ret = std::nullopt},
       },
       {
           AllOf(StatusIs(absl::StatusCode::kInvalidArgument,
@@ -350,7 +351,7 @@ TEST(ExecuteQueryStatementPrompt, SplitString) {
                 StatusHasPayload<ParserErrorContext>(EqualsProto(R"pb(
                   text: "ue\" ;"
                 )pb"))),
-          IsOkAndHolds(absl::nullopt),
+          IsOkAndHolds(std::nullopt),
       });
 }
 
@@ -358,12 +359,12 @@ TEST(ExecuteQueryStatementPrompt, StatementWithoutSemicolonAtEOF) {
   TestStmtPrompt(
       {
           {.ret = "SELECT 100; SELECT 200"},
-          {.ret = absl::nullopt, .want_continuation = true},
+          {.ret = std::nullopt, .want_continuation = true},
       },
       {
           IsOkAndHolds("SELECT 100;"),
           IsOkAndHolds("SELECT 200"),
-          IsOkAndHolds(absl::nullopt),
+          IsOkAndHolds(std::nullopt),
       });
 }
 
@@ -371,12 +372,12 @@ TEST(ExecuteQueryStatementPrompt, UnfinishedStatement) {
   TestStmtPrompt(
       {
           {.ret = "SELECT 1; SELECT ("},
-          {.ret = absl::nullopt, .want_continuation = true},
+          {.ret = std::nullopt, .want_continuation = true},
       },
       {
           IsOkAndHolds("SELECT 1;"),
           IsOkAndHolds("SELECT ("),
-          IsOkAndHolds(absl::nullopt),
+          IsOkAndHolds(std::nullopt),
       });
 }
 
@@ -385,11 +386,11 @@ TEST(ExecuteQueryStatementPrompt, ContinuedParenthesis) {
       {
           {.ret = "(\n"},
           {.ret = ");\n", .want_continuation = true},
-          {.ret = absl::nullopt},
+          {.ret = std::nullopt},
       },
       {
           IsOkAndHolds("(\n);"),
-          IsOkAndHolds(absl::nullopt),
+          IsOkAndHolds(std::nullopt),
       });
 }
 
@@ -398,12 +399,12 @@ TEST(ExecuteQueryStatementPrompt, UnfinishedParenthesis) {
       {
           {.ret = "SELECT 10; \n"},
           {.ret = "(\n"},
-          {.ret = absl::nullopt, .want_continuation = true},
+          {.ret = std::nullopt, .want_continuation = true},
       },
       {
           IsOkAndHolds("SELECT 10;"),
           IsOkAndHolds("("),
-          IsOkAndHolds(absl::nullopt),
+          IsOkAndHolds(std::nullopt),
       });
 }
 
@@ -411,12 +412,12 @@ TEST(ExecuteQueryStatementPrompt, SemicolonInParenthesis) {
   TestStmtPrompt(
       {
           {.ret = "SELECT 1, (;); \n"},
-          {.ret = absl::nullopt},
+          {.ret = std::nullopt},
       },
       {
           IsOkAndHolds("SELECT 1, (;"),
           IsOkAndHolds(");"),
-          IsOkAndHolds(absl::nullopt),
+          IsOkAndHolds(std::nullopt),
       });
 }
 
@@ -425,7 +426,7 @@ TEST(ExecuteQueryStatementPrompt, RecoverAfterUnclosedString) {
       {
           {.ret = "\";"},
           {.ret = "SELECT 123;"},
-          {.ret = absl::nullopt},
+          {.ret = std::nullopt},
       },
       {
           AllOf(StatusIs(absl::StatusCode::kInvalidArgument,
@@ -434,7 +435,7 @@ TEST(ExecuteQueryStatementPrompt, RecoverAfterUnclosedString) {
                   text: "\";"
                 )pb"))),
           IsOkAndHolds("SELECT 123;"),
-          IsOkAndHolds(absl::nullopt),
+          IsOkAndHolds(std::nullopt),
       });
 }
 
@@ -465,7 +466,7 @@ TEST(ExecuteQueryStatementPrompt, LargeInput) {
 TEST(ExecuteQuerySingleInputTest, ReadEmptyString) {
   ExecuteQuerySingleInput prompt{""};
 
-  EXPECT_THAT(prompt.Read(), IsOkAndHolds(absl::nullopt));
+  EXPECT_THAT(prompt.Read(), IsOkAndHolds(std::nullopt));
 }
 
 TEST(ExecuteQuerySingleInputTest, ReadMultiLine) {
@@ -473,7 +474,7 @@ TEST(ExecuteQuerySingleInputTest, ReadMultiLine) {
 
   EXPECT_THAT(prompt.Read(), IsOkAndHolds("test\nline;"));
   EXPECT_THAT(prompt.Read(), IsOkAndHolds("SELECT 100;"));
-  EXPECT_THAT(prompt.Read(), IsOkAndHolds(absl::nullopt));
+  EXPECT_THAT(prompt.Read(), IsOkAndHolds(std::nullopt));
 }
 
 TEST(ExecuteQuerySingleInputTest, UnexpectedEnd) {
@@ -481,7 +482,7 @@ TEST(ExecuteQuerySingleInputTest, UnexpectedEnd) {
 
   EXPECT_THAT(prompt.Read(), IsOkAndHolds("SELECT 99;"));
   EXPECT_THAT(prompt.Read(), IsOkAndHolds("SELECT"));
-  EXPECT_THAT(prompt.Read(), IsOkAndHolds(absl::nullopt));
+  EXPECT_THAT(prompt.Read(), IsOkAndHolds(std::nullopt));
 }
 
 }  // namespace zetasql

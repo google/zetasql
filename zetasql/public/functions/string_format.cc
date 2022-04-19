@@ -1674,7 +1674,7 @@ absl::Status StringFormatUtf8(absl::string_view format_string,
 
   std::unique_ptr<google::protobuf::DynamicMessageFactory> factory;
   if (maybe_need_proto_factory) {
-    factory = absl::make_unique<google::protobuf::DynamicMessageFactory>();
+    factory = std::make_unique<google::protobuf::DynamicMessageFactory>();
   }
   string_format_internal::StringFormatEvaluator evaluator(product_mode);
   ZETASQL_RETURN_IF_ERROR(evaluator.SetTypes(std::move(types), factory.get()));

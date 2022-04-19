@@ -811,12 +811,12 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   // Optional argument that is not last is invalid.
   arguments.clear();
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1));
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
       /*context_id=*/-1);
   ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1, OPTIONAL));
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
       /*context_id=*/-1);
   ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
@@ -833,17 +833,17 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   // Repeated arguments must be consecutive.
   arguments.clear();
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1));
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
       /*context_id=*/-1);
   ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1, REPEATED));
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
       /*context_id=*/-1);
   ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1));
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
       /*context_id=*/-1);
   ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
@@ -921,7 +921,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   // Repeated relation argument is invalid.
   arguments.clear();
   arguments.push_back(FunctionArgumentType(ARG_TYPE_RELATION, REPEATED));
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
       /*context_id=*/-1);
 
@@ -934,7 +934,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   arguments.clear();
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ANY_1, OPTIONAL));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_RELATION, OPTIONAL));
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
   ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
 
@@ -943,7 +943,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   arguments.push_back(FunctionArgumentType(factory.get_int64(), REPEATED));
   arguments.push_back(FunctionArgumentType(factory.get_int64(), REPEATED));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_RELATION, OPTIONAL));
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
   EXPECT_THAT(signature->IsValidForTableValuedFunction(),
@@ -954,12 +954,12 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   // Required scalar following an optional relation is invalid.
   arguments.clear();
   arguments.push_back(FunctionArgumentType(factory.get_int64()));
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
       /*context_id=*/-1);
   ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_RELATION, OPTIONAL));
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType(factory.get_int64()), arguments,
       /*context_id=*/-1);
   ZETASQL_EXPECT_OK(signature->IsValid(ProductMode::PRODUCT_EXTERNAL));
@@ -995,7 +995,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
       ARG_TYPE_ARBITRARY,
       FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
           OPTIONAL)));
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
   ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
@@ -1008,7 +1008,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
       ARG_TYPE_ARBITRARY,
       FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
           OPTIONAL)));
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
   ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
@@ -1020,7 +1020,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
       ARG_TYPE_ARBITRARY,
       FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
           OPTIONAL)));
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
   ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
@@ -1032,7 +1032,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
       ARG_TYPE_RELATION,
       FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
           OPTIONAL)));
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
   ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
@@ -1045,7 +1045,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
       ARG_TYPE_RELATION,
       FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
           OPTIONAL)));
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
   ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
@@ -1057,7 +1057,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
       ARG_TYPE_RELATION,
       FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
           OPTIONAL)));
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
   ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
@@ -1072,7 +1072,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
       ARG_TYPE_RELATION,
       FunctionArgumentTypeOptions().set_argument_name("barfoo").set_cardinality(
           OPTIONAL)));
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
   ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
@@ -1081,7 +1081,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   arguments.clear();
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ARBITRARY));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_MODEL));
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
   ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
@@ -1090,7 +1090,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   arguments.clear();
   arguments.push_back(FunctionArgumentType(ARG_TYPE_ARBITRARY));
   arguments.push_back(FunctionArgumentType(ARG_TYPE_MODEL, OPTIONAL));
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
   ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
@@ -1103,7 +1103,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
       ARG_TYPE_RELATION,
       FunctionArgumentTypeOptions().set_argument_name("foobar").set_cardinality(
           OPTIONAL)));
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
   ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
@@ -1115,7 +1115,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
       ARG_TYPE_RELATION,
       FunctionArgumentTypeOptions().set_argument_name("barfoo").set_cardinality(
           OPTIONAL)));
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
   ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
@@ -1128,7 +1128,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
                              .set_argument_name("foobar")
                              .set_argument_name_is_mandatory(true)
                              .set_cardinality(OPTIONAL)));
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType::AnyRelation(), arguments, /*context_id=*/-1);
 
   ZETASQL_EXPECT_OK(signature->IsValidForTableValuedFunction());
@@ -1138,7 +1138,7 @@ TEST(FunctionSignatureTests, FunctionSignatureValidityTests) {
   arguments.push_back(
       FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, factory.get_bool()));
   // Templated lambda related to arguments.
-  signature = absl::make_unique<FunctionSignature>(
+  signature = std::make_unique<FunctionSignature>(
       FunctionArgumentType(ARG_TYPE_ANY_1), arguments, /*context_id=*/-1);
 
   // Templated lambda not related.
@@ -1452,18 +1452,18 @@ TEST(FunctionSignatureTests, TestConcreteArgumentType) {
 
   std::unique_ptr<FunctionArgumentType> result_type;
   result_type =
-      absl::make_unique<FunctionArgumentType>(types::Int64Type(), REQUIRED, 0);
+      std::make_unique<FunctionArgumentType>(types::Int64Type(), REQUIRED, 0);
 
   // 0 arguments.
   arguments.clear();
-  signature = absl::make_unique<FunctionSignature>(*result_type, arguments,
-                                                   /*context_id=*/-1);
+  signature = std::make_unique<FunctionSignature>(*result_type, arguments,
+                                                  /*context_id=*/-1);
   EXPECT_EQ(0, signature->NumConcreteArguments());
 
   // 1 required.
   arguments.push_back(FunctionArgumentType(types::Int64Type(), REQUIRED, 1));
-  signature = absl::make_unique<FunctionSignature>(*result_type, arguments,
-                                                   /*context_id=*/-1);
+  signature = std::make_unique<FunctionSignature>(*result_type, arguments,
+                                                  /*context_id=*/-1);
   EXPECT_EQ(1, signature->NumConcreteArguments());
   CheckConcreteArgumentType(types::Int64Type(), signature, 0);
 
@@ -1471,8 +1471,8 @@ TEST(FunctionSignatureTests, TestConcreteArgumentType) {
   arguments.clear();
   arguments.push_back(FunctionArgumentType(types::Int64Type(), REQUIRED, 1));
   arguments.push_back(FunctionArgumentType(types::Int32Type(), REQUIRED, 1));
-  signature = absl::make_unique<FunctionSignature>(*result_type, arguments,
-                                                   /*context_id=*/-1);
+  signature = std::make_unique<FunctionSignature>(*result_type, arguments,
+                                                  /*context_id=*/-1);
   EXPECT_EQ(2, signature->NumConcreteArguments());
   CheckConcreteArgumentType(types::Int64Type(), signature, 0);
   CheckConcreteArgumentType(types::Int32Type(), signature, 1);
@@ -1482,8 +1482,8 @@ TEST(FunctionSignatureTests, TestConcreteArgumentType) {
   arguments.push_back(FunctionArgumentType(types::BoolType(), REQUIRED, 1));
   arguments.push_back(FunctionArgumentType(types::Int64Type(), REQUIRED, 1));
   arguments.push_back(FunctionArgumentType(types::Int64Type(), REQUIRED, 1));
-  signature = absl::make_unique<FunctionSignature>(*result_type, arguments,
-                                                   /*context_id=*/-1);
+  signature = std::make_unique<FunctionSignature>(*result_type, arguments,
+                                                  /*context_id=*/-1);
   EXPECT_EQ(3, signature->NumConcreteArguments());
   CheckConcreteArgumentType(types::BoolType(), signature, 0);
   CheckConcreteArgumentType(types::Int64Type(), signature, 1);
@@ -1495,8 +1495,8 @@ TEST(FunctionSignatureTests, TestConcreteArgumentType) {
   arguments.push_back(FunctionArgumentType(types::BoolType(), REPEATED, 2));
   arguments.push_back(FunctionArgumentType(types::Int64Type(), REPEATED, 2));
   arguments.push_back(FunctionArgumentType(types::Int64Type(), OPTIONAL, 0));
-  signature = absl::make_unique<FunctionSignature>(*result_type, arguments,
-                                                   /*context_id=*/-1);
+  signature = std::make_unique<FunctionSignature>(*result_type, arguments,
+                                                  /*context_id=*/-1);
   EXPECT_EQ(4, signature->NumConcreteArguments());
   CheckConcreteArgumentType(types::BoolType(), signature, 0);
   CheckConcreteArgumentType(types::Int64Type(), signature, 1);
@@ -1509,8 +1509,8 @@ TEST(FunctionSignatureTests, TestConcreteArgumentType) {
   arguments.push_back(FunctionArgumentType(types::BoolType(), REPEATED, 2));
   arguments.push_back(FunctionArgumentType(types::Int64Type(), REPEATED, 2));
   arguments.push_back(FunctionArgumentType(types::Int32Type(), OPTIONAL, 1));
-  signature = absl::make_unique<FunctionSignature>(*result_type, arguments,
-                                                   /*context_id=*/-1);
+  signature = std::make_unique<FunctionSignature>(*result_type, arguments,
+                                                  /*context_id=*/-1);
   EXPECT_EQ(5, signature->NumConcreteArguments());
   CheckConcreteArgumentType(types::BoolType(), signature, 0);
   CheckConcreteArgumentType(types::Int64Type(), signature, 1);
@@ -1528,8 +1528,8 @@ TEST(FunctionSignatureTests, TestConcreteArgumentType) {
   arguments.push_back(FunctionArgumentType(types::Uint32Type(), REQUIRED, 1));
   arguments.push_back(FunctionArgumentType(types::Int32Type(), OPTIONAL, 0));
   arguments.push_back(FunctionArgumentType(types::DateType(), OPTIONAL, 0));
-  signature = absl::make_unique<FunctionSignature>(*result_type, arguments,
-                                                   /*context_id=*/-1);
+  signature = std::make_unique<FunctionSignature>(*result_type, arguments,
+                                                  /*context_id=*/-1);
   EXPECT_EQ(9, signature->NumConcreteArguments());
   CheckConcreteArgumentType(types::BoolType(), signature, 0);
   CheckConcreteArgumentType(types::StringType(), signature, 1);
@@ -1551,8 +1551,8 @@ TEST(FunctionSignatureTests, TestConcreteArgumentType) {
   arguments.push_back(FunctionArgumentType(types::Uint32Type(), REQUIRED, 1));
   arguments.push_back(FunctionArgumentType(types::Int32Type(), OPTIONAL, 1));
   arguments.push_back(FunctionArgumentType(types::DateType(), OPTIONAL, 0));
-  signature = absl::make_unique<FunctionSignature>(*result_type, arguments,
-                                                   /*context_id=*/-1);
+  signature = std::make_unique<FunctionSignature>(*result_type, arguments,
+                                                  /*context_id=*/-1);
   EXPECT_EQ(10, signature->NumConcreteArguments());
   CheckConcreteArgumentType(types::BoolType(), signature, 0);
   CheckConcreteArgumentType(types::StringType(), signature, 1);
@@ -1571,8 +1571,8 @@ TEST(FunctionSignatureTests, TestConcreteArgumentType) {
   arguments.push_back(FunctionArgumentType(types::StringType(), REQUIRED, 1));
   arguments.push_back(FunctionArgumentType(types::Int32Type(), OPTIONAL, 1));
   arguments.push_back(FunctionArgumentType(types::DateType(), OPTIONAL, 0));
-  signature = absl::make_unique<FunctionSignature>(*result_type, arguments,
-                                                   /*context_id=*/-1);
+  signature = std::make_unique<FunctionSignature>(*result_type, arguments,
+                                                  /*context_id=*/-1);
   EXPECT_EQ(3, signature->NumConcreteArguments());
   CheckConcreteArgumentType(types::BoolType(), signature, 0);
   CheckConcreteArgumentType(types::StringType(), signature, 1);
@@ -1584,8 +1584,8 @@ TEST(FunctionSignatureTests, TestConcreteArgumentType) {
   arguments.push_back(FunctionArgumentType::Lambda(
       {FunctionArgumentType(types::Int64Type(), REQUIRED, 1)},
       FunctionArgumentType(types::Int64Type(), REQUIRED, 1)));
-  signature = absl::make_unique<FunctionSignature>(*result_type, arguments,
-                                                   /*context_id=*/-1);
+  signature = std::make_unique<FunctionSignature>(*result_type, arguments,
+                                                  /*context_id=*/-1);
   EXPECT_EQ(2, signature->NumConcreteArguments());
   CheckConcreteArgumentType(types::Int64ArrayType(), signature, 0);
   // The value type of lambda is the type of the body.

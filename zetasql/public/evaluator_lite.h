@@ -52,12 +52,6 @@ class PreparedExpressionLite : public PreparedExpressionBase {
   using PreparedExpressionBase::PreparedExpressionBase;
 };
 
-// See evaluator_base.h for the full interface and usage instructions.
-class PreparedQueryLite : public PreparedQueryBase {
- public:
-  using PreparedQueryBase::PreparedQueryBase;
-};
-
 }  // namespace zetasql
 
 #endif  // ZETASQL_PUBLIC_EVALUATOR_LITE_H_

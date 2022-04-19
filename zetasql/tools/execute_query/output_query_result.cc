@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <optional>
 #include <string>
 
 #include "zetasql/public/strings.h"
@@ -64,7 +65,7 @@ absl::StatusOr<const Table*> GetTableForDMLStatement(
 // - 'column_names' with the names of the columns of the rows in 'result_table'.
 absl::Status GetOutputColumnInfo(const ResolvedStatement* resolved_stmt,
                                  const Value& result,
-                                 absl::optional<int64_t>* num_rows_modified,
+                                 std::optional<int64_t>* num_rows_modified,
                                  bool* is_value_table, Value* result_table,
                                  std::vector<std::string>* column_names) {
   switch (resolved_stmt->node_kind()) {
@@ -340,7 +341,7 @@ std::string ToPrettyOutputStyle(const zetasql::Value& result,
 
 std::string OutputPrettyStyleQueryResult(
     const zetasql::Value& result, const ResolvedStatement* resolved_stmt) {
-  absl::optional<int64_t> num_rows_modified;
+  std::optional<int64_t> num_rows_modified;
   bool is_value_table;
   std::vector<std::string> column_names;
   Value result_table;

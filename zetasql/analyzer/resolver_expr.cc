@@ -215,8 +215,8 @@ inline std::unique_ptr<ResolvedCast> MakeResolvedCast(
   return result;
 }
 
-bool IsFilterFields(const Function* function) {
-  return zetasql_base::CaseEqual(function->SQLName(), "FILTER_FIELDS");
+bool IsFilterFields(absl::string_view function_sql_name) {
+  return zetasql_base::CaseEqual(function_sql_name, "FILTER_FIELDS");
 }
 
 }  // namespace
@@ -569,7 +569,7 @@ absl::StatusOr<const google::protobuf::Descriptor*> Resolver::FindMessageTypeFor
       return MakeSqlErrorAt(ast_path_expr)
              << "Path "
              << ast_path_expr->ToIdentifierPathString(
-                    type_name_path.size() /* max_prefix_size */)
+                    /*max_prefix_size=*/type_name_path.size())
              << " resolves to type "
              << found_type->ShortTypeName(product_mode())
              << " but a PROTO type was expected for reading an extension field";
@@ -886,7 +886,7 @@ absl::Status Resolver::ResolveExpr(
           ast_expr->GetAsOrDie<ASTAnalyticFunctionCall>(),
           expr_resolution_info.get(), resolved_expr_out);
 
-    case AST_INTERVAL_EXPR: {
+    case AST_INTERVAL_EXPR:
       // The functions that expect an INTERVAL expression handle them specially
       // while resolving the argument list, and only in the locations where they
       // are expected. All other cases end up here.
@@ -895,15 +895,17 @@ absl::Status Resolver::ResolveExpr(
       }
       return ResolveIntervalExpr(ast_expr->GetAsOrDie<ASTIntervalExpr>(),
                                  expr_resolution_info.get(), resolved_expr_out);
-    }
+
     case AST_REPLACE_FIELDS_EXPRESSION:
       return ResolveReplaceFieldsExpression(
           ast_expr->GetAsOrDie<ASTReplaceFieldsExpression>(),
           expr_resolution_info.get(), resolved_expr_out);
+
     case AST_SYSTEM_VARIABLE_EXPR:
       return ResolveSystemVariableExpression(
           ast_expr->GetAsOrDie<ASTSystemVariableExpr>(),
           expr_resolution_info.get(), resolved_expr_out);
+
     case AST_NAMED_ARGUMENT:
       // Resolve named arguments for function calls by simply resolving the
       // expression part of the argument. The function resolver will apply
@@ -911,6 +913,11 @@ absl::Status Resolver::ResolveExpr(
       // signature matching appropriately.
       return ResolveExpr(ast_expr->GetAsOrDie<ASTNamedArgument>()->expr(),
                          expr_resolution_info.get(), resolved_expr_out);
+
+    case AST_WITH_EXPRESSION:
+      return ResolveWithExpr(ast_expr->GetAsOrDie<ASTWithExpression>(),
+                             expr_resolution_info.get(), resolved_expr_out);
+
     default:
       return MakeSqlErrorAt(ast_expr)
              << "Unhandled select-list expression for node kind "
@@ -2160,26 +2167,27 @@ static absl::Status MakeCannotAccessFieldError(
          << " on a value with type " << invalid_type_name;
 }
 
-static absl::Status GetLastSeenFieldTypeForReplaceFields(
+static absl::Status GetLastSeenFieldType(
     const std::vector<std::pair<int, const StructType::StructField*>>*
         struct_path,
     const std::vector<const google::protobuf::FieldDescriptor*>& field_descriptors,
     TypeFactory* type_factory, const Type** last_field_type) {
-  if (field_descriptors.empty()) {
-    // No proto fields have been extracted, therefore return the type of the
-    // last struct field.
-    ZETASQL_RET_CHECK(struct_path);
-    *last_field_type = struct_path->back().second->type;
-    return absl::OkStatus();
+  if (!field_descriptors.empty()) {
+    return type_factory->GetProtoFieldType(field_descriptors.back(),
+                                           last_field_type);
   }
-  ZETASQL_RETURN_IF_ERROR(type_factory->GetProtoFieldType(field_descriptors.back(),
-                                                  last_field_type));
+  // No proto fields have been extracted, therefore return the type of the
+  // last struct field.
+  ZETASQL_RET_CHECK(struct_path);
+  ZETASQL_RET_CHECK(!struct_path->empty());
+  *last_field_type = struct_path->back().second->type;
   return absl::OkStatus();
 }
 
 absl::Status Resolver::FindFieldsFromPathExpression(
     absl::string_view function_name,
     const ASTGeneralizedPathExpression* generalized_path, const Type* root_type,
+    bool can_traverse_array_fields,
     std::vector<std::pair<int, const StructType::StructField*>>* struct_path,
     std::vector<const google::protobuf::FieldDescriptor*>* field_descriptors) {
   ZETASQL_RET_CHECK(generalized_path != nullptr);
@@ -2225,14 +2233,17 @@ absl::Status Resolver::FindFieldsFromPathExpression(
           dot_generalized_ast->expr()
               ->GetAsOrNull<ASTGeneralizedPathExpression>();
       ZETASQL_RETURN_IF_ERROR(FindFieldsFromPathExpression(
-          function_name, generalized_path_expr, root_type, struct_path,
-          field_descriptors));
+          function_name, generalized_path_expr, root_type,
+          can_traverse_array_fields, struct_path, field_descriptors));
 
       // The extension should be extracted from the last seen field in the path,
       // which must be of proto type.
       const Type* last_seen_type;
-      ZETASQL_RETURN_IF_ERROR(GetLastSeenFieldTypeForReplaceFields(
-          struct_path, *field_descriptors, type_factory_, &last_seen_type));
+      ZETASQL_RETURN_IF_ERROR(GetLastSeenFieldType(struct_path, *field_descriptors,
+                                           type_factory_, &last_seen_type));
+      if (can_traverse_array_fields && last_seen_type->IsArray()) {
+        last_seen_type = last_seen_type->AsArray()->element_type();
+      }
       if (!last_seen_type->IsProto()) {
         return MakeCannotAccessFieldError(
             dot_generalized_ast->path(),
@@ -2256,14 +2267,17 @@ absl::Status Resolver::FindFieldsFromPathExpression(
           dot_identifier_ast->expr()
               ->GetAsOrNull<ASTGeneralizedPathExpression>();
       ZETASQL_RETURN_IF_ERROR(FindFieldsFromPathExpression(
-          function_name, generalized_path_expr, root_type, struct_path,
-          field_descriptors));
+          function_name, generalized_path_expr, root_type,
+          can_traverse_array_fields, struct_path, field_descriptors));
 
       // The field should be extracted from the last seen field in the path,
       // which must be of proto type.
       const Type* last_seen_type;
-      ZETASQL_RETURN_IF_ERROR(GetLastSeenFieldTypeForReplaceFields(
-          struct_path, *field_descriptors, type_factory_, &last_seen_type));
+      ZETASQL_RETURN_IF_ERROR(GetLastSeenFieldType(struct_path, *field_descriptors,
+                                           type_factory_, &last_seen_type));
+      if (last_seen_type->IsArray() && IsFilterFields(function_name)) {
+        last_seen_type = last_seen_type->AsArray()->element_type();
+      }
       if (!last_seen_type->IsProto()) {
         return MakeCannotAccessFieldError(
             dot_identifier_ast->name(),
@@ -2440,7 +2454,7 @@ Catalog* Resolver::GetSystemVariablesCatalog() {
     return system_variables_catalog_.get();
   }
 
-  auto catalog = absl::make_unique<SimpleCatalog>("<system_variables>");
+  auto catalog = std::make_unique<SimpleCatalog>("<system_variables>");
   for (const auto& entry : analyzer_options_.system_variables()) {
     std::vector<std::string> name_path = entry.first;
     const zetasql::Type* type = entry.second;
@@ -2453,7 +2467,7 @@ Catalog* Resolver::GetSystemVariablesCatalog() {
       Catalog* nested_catalog = nullptr;
       ZETASQL_CHECK_OK(target_catalog->GetCatalog(path_elem, &nested_catalog));
       if (nested_catalog == nullptr) {
-        auto new_catalog = absl::make_unique<SimpleCatalog>(path_elem);
+        auto new_catalog = std::make_unique<SimpleCatalog>(path_elem);
         nested_catalog = new_catalog.get();
         target_catalog->AddOwnedCatalog(std::move(new_catalog));
       }
@@ -2462,7 +2476,7 @@ Catalog* Resolver::GetSystemVariablesCatalog() {
 
     target_catalog->AddOwnedConstant(
         name_path.back(),
-        absl::make_unique<SystemVariableConstant>(name_path, type));
+        std::make_unique<SystemVariableConstant>(name_path, type));
   }
   system_variables_catalog_ = std::move(catalog);
   return system_variables_catalog_.get();
@@ -2544,7 +2558,7 @@ absl::Status Resolver::ResolveFilterFieldsFunctionCall(
   std::vector<std::unique_ptr<const ResolvedFilterFieldArg>> filter_field_args;
 
   FilterFieldsPathValidator validator(field_type->AsProto()->descriptor());
-  absl::optional<bool> reset_cleared_required_fields;
+  std::optional<bool> reset_cleared_required_fields;
   constexpr absl::string_view kResetClearedRequiredFields =
       "RESET_CLEARED_REQUIRED_FIELDS";
   for (int i = 1; i < function_arguments.size(); ++i) {
@@ -2597,6 +2611,7 @@ absl::Status Resolver::ResolveFilterFieldsFunctionCall(
 
     ZETASQL_RETURN_IF_ERROR(FindFieldsFromPathExpression(
         "FILTER_FIELDS", generalized_path_expression, proto_to_modify->type(),
+        /*can_traverse_array_fields=*/true,
         /*struct_path=*/nullptr, &field_descriptor_path));
     if (absl::Status status =
             validator.ValidateFieldPath(include, field_descriptor_path);
@@ -2662,7 +2677,8 @@ absl::Status Resolver::ResolveReplaceFieldsExpression(
     std::vector<std::pair<int, const StructType::StructField*>> struct_path;
     ZETASQL_RETURN_IF_ERROR(FindFieldsFromPathExpression(
         "REPLACE_FIELDS", replace_arg->path_expression(),
-        expr_to_modify->type(), &struct_path, &field_descriptor_path));
+        expr_to_modify->type(), /*can_traverse_array_fields=*/false,
+        &struct_path, &field_descriptor_path));
     ZETASQL_RETURN_IF_ERROR(AddToFieldPathTrie(
         replace_arg->path_expression(), struct_path, field_descriptor_path,
         &oneof_path_to_full_path, &field_path_trie));
@@ -3123,7 +3139,7 @@ absl::Status Resolver::ResolveInSubquery(
   std::vector<std::unique_ptr<const ResolvedColumnRef>> parameters;
   FetchCorrelatedSubqueryParameters(correlated_columns_set, &parameters);
   std::unique_ptr<ResolvedSubqueryExpr> resolved_expr =
-      MakeResolvedSubqueryExpr(type_factory_->get_bool() /* output type */,
+      MakeResolvedSubqueryExpr(/*type=*/type_factory_->get_bool(),
                                ResolvedSubqueryExpr::IN, std::move(parameters),
                                std::move(resolved_in_expr),
                                std::move(resolved_in_subquery));
@@ -3226,7 +3242,7 @@ absl::Status Resolver::ResolveLikeExprSubquery(
       ResolveExpr(like_lhs, expr_resolution_info, &resolved_like_expr));
 
   CorrelatedColumnsSet correlated_columns_set;
-  auto subquery_scope = absl::make_unique<const NameScope>(
+  auto subquery_scope = std::make_unique<const NameScope>(
       expr_resolution_info->name_scope, &correlated_columns_set);
   std::unique_ptr<const ResolvedScan> resolved_like_subquery;
   std::shared_ptr<const NameList> resolved_name_list;
@@ -3272,7 +3288,7 @@ absl::Status Resolver::ResolveLikeExprSubquery(
   std::vector<std::unique_ptr<const ResolvedColumnRef>> parameters;
   FetchCorrelatedSubqueryParameters(correlated_columns_set, &parameters);
   std::unique_ptr<ResolvedSubqueryExpr> resolved_expr =
-      MakeResolvedSubqueryExpr(type_factory_->get_bool() /* output type */,
+      MakeResolvedSubqueryExpr(/*type=*/type_factory_->get_bool(),
                                subquery_type, std::move(parameters),
                                std::move(resolved_like_expr),
                                std::move(resolved_like_subquery));
@@ -3880,6 +3896,7 @@ enum SpecialFunctionFamily {
   FAMILY_NONE,
   FAMILY_COUNT,
   FAMILY_ANON,
+  FAMILY_ANON_BINARY,
   FAMILY_DATE_ADD,
   FAMILY_DATE_DIFF,
   FAMILY_DATE_TRUNC,
@@ -3934,6 +3951,16 @@ InitSpecialFunctionFamilyMap() {
   zetasql_base::InsertOrDie(out, IdString::MakeGlobal("generate_timestamp_array"),
                    FAMILY_GENERATE_CHRONO_ARRAY);
 
+  zetasql_base::InsertOrDie(out, IdString::MakeGlobal("anon_count"), FAMILY_ANON);
+  zetasql_base::InsertOrDie(out, IdString::MakeGlobal("anon_sum"), FAMILY_ANON);
+  zetasql_base::InsertOrDie(out, IdString::MakeGlobal("anon_avg"), FAMILY_ANON);
+  zetasql_base::InsertOrDie(out, IdString::MakeGlobal("anon_var_pop"), FAMILY_ANON);
+  zetasql_base::InsertOrDie(out, IdString::MakeGlobal("anon_stddev_pop"), FAMILY_ANON);
+  zetasql_base::InsertOrDie(out, IdString::MakeGlobal("anon_percentile_cont"),
+                   FAMILY_ANON_BINARY);
+  zetasql_base::InsertOrDie(out, IdString::MakeGlobal("anon_quantiles"),
+                   FAMILY_ANON_BINARY);
+
   // These don't support DISTINCT.
   zetasql_base::InsertOrDie(out, IdString::MakeGlobal("corr"), FAMILY_BINARY_STATS);
   zetasql_base::InsertOrDie(out, IdString::MakeGlobal("covar_pop"), FAMILY_BINARY_STATS);
@@ -3947,9 +3974,6 @@ static SpecialFunctionFamily GetSpecialFunctionFamily(
     const IdString& function_name) {
   static IdStringHashMapCase<SpecialFunctionFamily>* kSpecialFunctionFamilyMap =
       InitSpecialFunctionFamilyMap();
-  if (absl::StartsWithIgnoreCase(function_name.ToStringView(), "anon_")) {
-    return FAMILY_ANON;
-  }
   return zetasql_base::FindWithDefault(*kSpecialFunctionFamilyMap, function_name,
                               FAMILY_NONE);
 }
@@ -3965,12 +3989,12 @@ absl::Status Resolver::GetFunctionNameAndArguments(
   function_arguments->assign(function_call->arguments().begin(),
                              function_call->arguments().end());
 
-  bool is_anon_function = false;
-
   if (function->num_names() == 1 ||
       (function_name_path->size() == 2 &&
        zetasql_base::CaseEqual((*function_name_path)[0], "SAFE"))) {
-    switch (GetSpecialFunctionFamily(function->last_name()->GetAsIdString())) {
+    const auto& function_family =
+        GetSpecialFunctionFamily(function->last_name()->GetAsIdString());
+    switch (function_family) {
       // A normal function with no special handling.
       case FAMILY_NONE:
         break;
@@ -3999,34 +4023,35 @@ absl::Status Resolver::GetFunctionNameAndArguments(
       // function->Is<AnonFunction>(), instead of checking for an 'anon_' prefix
       // in the function name.
       case FAMILY_ANON:
+      case FAMILY_ANON_BINARY:
         if (language().LanguageFeatureEnabled(FEATURE_ANONYMIZATION)) {
-          is_anon_function = true;
           // The currently supported anonymous aggregate functions each require
-          // exactly one 'normal argument' (two for ANON_PERCENTILE_CONT), along
-          // with an optional CLAMPED clause.  We transform the CLAMPED clause
-          // into normal function call arguments here. Note that after this
-          // transformation we cannot tell if the function call arguments were
-          // originally derived from
-          // the CLAMPED clause or not, so we won't be able to tell the
-          // following apart:
+          // exactly one 'normal argument' (two for ANON_PERCENTILE_CONT or
+          // ANON_QUANTILES), along with an optional CLAMPED clause.  We
+          // transform the CLAMPED clause into normal function call arguments
+          // here. Note that after this transformation we cannot tell if the
+          // function call arguments were originally derived from the CLAMPED
+          // clause or not, so we won't be able to tell the following apart:
           //   ANON_SUM(x CLAMPED BETWEEN 1 AND 10)
           //   ANON_SUM(x, 1, 10)
           // Since the latter is invalid, we must detect that case here and
           // provide an error.
-          if (absl::AsciiStrToUpper(function->last_name()->GetAsString()) ==
-              "ANON_PERCENTILE_CONT") {
+          const std::string upper_case_function_name =
+              absl::AsciiStrToUpper(function->last_name()->GetAsString());
+          if (function_family == FAMILY_ANON_BINARY) {
             if (function_call->arguments().size() != 2) {
               size_t arg_size = function_call->arguments().size();
               return MakeSqlErrorAt(function_call)
-                     << "Anonymized aggregate function anon_percentile_cont"
+                     << "Anonymized aggregate function "
+                     << upper_case_function_name
                      << " expects exactly 2 arguments but found " << arg_size
                      << (arg_size == 1 ? " argument" : " arguments");
             }
           } else if (function_call->arguments().size() != 1) {
+            ZETASQL_RET_CHECK_EQ(function_family, FAMILY_ANON);
             return MakeSqlErrorAt(function_call)
                    << "Anonymized aggregate function "
-                   << absl::AsciiStrToUpper(
-                          function->last_name()->GetAsString())
+                   << upper_case_function_name
                    << " expects exactly 1 argument but found "
                    << function_call->arguments().size() << " arguments";
           }
@@ -4039,11 +4064,65 @@ absl::Status Resolver::GetFunctionNameAndArguments(
             function_arguments->emplace_back(
                 function_call->clamped_between_modifier()->high());
           }
-          // Special case to look for ANON_COUNT(*).
-          if (function->last_name()->GetAsIdString().CaseEquals(
-                  MakeIdString("anon_count")) &&
-              !function_call->arguments().empty() &&
-              function_call->arguments()[0]->node_kind() == AST_STAR) {
+          if (function_call->with_report_modifier() != nullptr) {
+            std::string function_name_lower = absl::AsciiStrToLower(
+                function->last_name()->GetAsIdString().ToStringView());
+            if (function_name_lower == "anon_sum" ||
+                (function_name_lower == "anon_count")) {
+              // The catalog functions with report in different formats have the
+              // names as follows,
+              //     ANON_SUM, JSON     -   "$anon_sum_with_report_json"
+              //     ANON_SUM, PROTO    -   "$anon_sum_with_report_proto"
+              //     ANON_COUNT, JSON   -   "$anon_count_with_report_json"
+              //     ANON_COUNT, PROTO  -   "$anon_count_with_report_proto"
+              //     ANON_COUNT(*), JSON   - "$anon_count_star_with_report_json"
+              //     ANON_COUNT(*), PROTO  -
+              //     "$anon_count_star_with_report_proto"
+              std::vector<std::unique_ptr<const ResolvedOption>>
+                  resolved_options;
+              std::string anon_function_report_format;
+              ZETASQL_RETURN_IF_ERROR(ResolveAnonWithReportOptionsList(
+                  function_call->with_report_modifier()->options_list(),
+                  default_anon_function_report_format(), &resolved_options,
+                  &anon_function_report_format));
+
+              if (anon_function_report_format.empty()) {
+                return MakeSqlErrorAt(function_call)
+                       << "The anon function report format must be specified "
+                          "in the function call in the WITH REPORT clause";
+              }
+
+              if (!function_call->arguments().empty() &&
+                  function_call->arguments()[0]->node_kind() == AST_STAR &&
+                  function_name_lower == "anon_count") {
+                function_name_lower = "anon_count_star";
+                function_arguments->erase(function_arguments->begin());
+              }
+
+              if (anon_function_report_format == "json") {
+                function_name_path->back() =
+                    absl::StrCat("$", function_name_lower, "_with_report_json");
+              } else if (anon_function_report_format == "proto") {
+                function_name_path->back() = absl::StrCat(
+                    "$", function_name_lower, "_with_report_proto");
+              } else {
+                // Verification of report format happens in
+                // ResolveAnonWithReportOptionsList, so invalid formats are
+                // unexpected here
+                ZETASQL_RET_CHECK_FAIL() << "Invalid anon function report format "
+                                 << anon_function_report_format;
+              }
+            } else {
+              return MakeUnimplementedErrorAtPoint(GetErrorLocationPoint(
+                         function_call->with_report_modifier(), true))
+                     << "WITH REPORT is not supported yet for function "
+                     << absl::AsciiStrToUpper(function->name(0)->GetAsString());
+            }
+          } else if (function->last_name()->GetAsIdString().CaseEquals(
+                         MakeIdString("anon_count")) &&
+                     !function_call->arguments().empty() &&
+                     function_call->arguments()[0]->node_kind() == AST_STAR) {
+            // Special case to look for ANON_COUNT(*).
             // The catalog function for ANON_COUNT(*) has the name
             // "$anon_count_star", and the signature is without the *
             // argument.
@@ -4097,13 +4176,6 @@ absl::Status Resolver::GetFunctionNameAndArguments(
 
         break;
     }
-  }
-  if (function_call->clamped_between_modifier() != nullptr &&
-      !is_anon_function) {
-    return MakeSqlErrorAt(function_call)
-           << "The CLAMPED BETWEEN clause is not allowed in the function call "
-           << "arguments for function "
-           << absl::AsciiStrToUpper(function->name(0)->GetAsString());
   }
 
   return absl::OkStatus();
@@ -4172,8 +4244,8 @@ absl::Status Resolver::ResolveLambda(
   // scope for lambda body. This enables the lambda body to access columns in
   // addition to lambda arguments.
   CorrelatedColumnsSet correlated_columns_set;
-  auto body_name_scope = absl::make_unique<NameScope>(
-      name_scope, args_name_list, &correlated_columns_set);
+  auto body_name_scope = std::make_unique<NameScope>(name_scope, args_name_list,
+                                                     &correlated_columns_set);
 
   // Resolve the body.
   std::unique_ptr<const ResolvedExpr> resolved_body;
@@ -4210,7 +4282,7 @@ absl::Status Resolver::ResolveAggregateFunctionCallFirstPass(
   std::vector<std::unique_ptr<const ResolvedColumnRef>> correlated_columns;
   if (ast_function->with_group_rows() == nullptr) {
     // Normal case, do initial function call resolution.
-    local_expr_resolution_info = absl::make_unique<ExprResolutionInfo>(
+    local_expr_resolution_info = std::make_unique<ExprResolutionInfo>(
         expr_resolution_info, expr_resolution_info->aggregate_name_scope,
         expr_resolution_info->clause_name,
         expr_resolution_info->allows_analytic);
@@ -4253,7 +4325,7 @@ absl::Status Resolver::ResolveAggregateFunctionCallFirstPass(
   // scope.  So it is not in general true that the previous scope always
   // represents a correlation scope.  In this context, the current name scope is
   // the from clause scope, so we can rely on that here.
-  auto subquery_scope = absl::make_unique<NameScope>(
+  auto subquery_scope = std::make_unique<NameScope>(
       expr_resolution_info->name_scope->previous_scope(),
       &correlated_columns_set);
   NameListPtr with_group_rows_subquery_name_list;
@@ -4302,14 +4374,14 @@ absl::Status Resolver::ResolveAggregateFunctionCallFirstPass(
       const_cast<ResolvedScan*>(resolved_with_group_rows_subquery.get()));
   // NameScope of the aggregate function arguments is the output of the WITH
   // GROUPS ROWS subquery along with correlation references.
-  auto with_group_rows_subquery_scope = absl::make_unique<NameScope>(
+  auto with_group_rows_subquery_scope = std::make_unique<NameScope>(
       expr_resolution_info->name_scope->previous_scope(),
       with_group_rows_subquery_name_list);
-  local_expr_resolution_info = absl::make_unique<ExprResolutionInfo>(
+  local_expr_resolution_info = std::make_unique<ExprResolutionInfo>(
       with_group_rows_subquery_scope.get(),
       with_group_rows_subquery_scope.get(), /*allows_aggregation=*/true,
-      /*allows_analytic=*/true, /*use_post_grouping_columns_in=*/false,
-      "Function call WITH GROUP_ROWS",
+      /*allows_analytic=*/true,
+      /*use_post_grouping_columns_in=*/false, "Function call WITH GROUP_ROWS",
       expr_resolution_info->query_resolution_info);
 
   return ResolveFunctionCallImpl(
@@ -4375,15 +4447,33 @@ absl::Status Resolver::ResolveFunctionCall(
              << absl::AsciiStrToUpper(function_name) << "(" << arg_name << ")]";
     }
   }
+
   const Function* function;
   ResolvedFunctionCallBase::ErrorMode error_mode;
   ZETASQL_RETURN_IF_ERROR(LookupFunctionFromCatalog(
       ast_function, function_name_path,
       FunctionNotFoundHandleMode::kReturnError, &function, &error_mode));
-  if (IsFilterFields(function)) {
+  if (IsFilterFields(function->SQLName())) {
     return ResolveFilterFieldsFunctionCall(ast_function, function_arguments,
                                            expr_resolution_info,
                                            resolved_expr_out);
+  }
+  const auto& function_family = GetSpecialFunctionFamily(
+      ast_function->function()->last_name()->GetAsIdString());
+  if (function_family != FAMILY_ANON && function_family != FAMILY_ANON_BINARY) {
+    if (ast_function->with_report_modifier() != nullptr) {
+      return MakeSqlErrorAt(ast_function)
+             << "WITH REPORT is not allowed for function "
+             << absl::AsciiStrToUpper(
+                    ast_function->function()->name(0)->GetAsString());
+    } else if (ast_function->clamped_between_modifier() != nullptr) {
+      return MakeSqlErrorAt(ast_function)
+             << "The CLAMPED BETWEEN clause is not allowed in the function "
+                "call "
+             << "arguments for function "
+             << absl::AsciiStrToUpper(
+                    ast_function->function()->name(0)->GetAsString());
+    }
   }
   if (function->IsAggregate()) {
     return ResolveAggregateFunctionCallFirstPass(
@@ -5404,7 +5494,7 @@ absl::Status Resolver::ResolveNewConstructor(
 
     std::unique_ptr<AliasOrASTPathExpression> alias_or_ast_path_expr;
     if (ast_arg->optional_identifier() != nullptr) {
-      alias_or_ast_path_expr = absl::make_unique<AliasOrASTPathExpression>(
+      alias_or_ast_path_expr = std::make_unique<AliasOrASTPathExpression>(
           ast_arg->optional_identifier()->GetAsIdString());
     } else if (ast_arg->optional_path_expression() != nullptr) {
       if (!language().LanguageFeatureEnabled(
@@ -5412,10 +5502,10 @@ absl::Status Resolver::ResolveNewConstructor(
         return MakeSqlErrorAt(ast_arg->optional_path_expression())
                << "NEW constructor does not support proto extensions";
       }
-      alias_or_ast_path_expr = absl::make_unique<AliasOrASTPathExpression>(
+      alias_or_ast_path_expr = std::make_unique<AliasOrASTPathExpression>(
           ast_arg->optional_path_expression());
     } else {
-      alias_or_ast_path_expr = absl::make_unique<AliasOrASTPathExpression>(
+      alias_or_ast_path_expr = std::make_unique<AliasOrASTPathExpression>(
           GetAliasForExpression(ast_arg->expression()));
     }
     if (alias_or_ast_path_expr->kind() == AliasOrASTPathExpression::ALIAS) {
@@ -5470,7 +5560,7 @@ Resolver::ResolveBracedConstructorField(
   const ASTNode* location = nullptr;
   std::unique_ptr<AliasOrASTPathExpression> alias_or_ast_path_expr;
   if (ast_braced_constructor_field->identifier() != nullptr) {
-    alias_or_ast_path_expr = absl::make_unique<AliasOrASTPathExpression>(
+    alias_or_ast_path_expr = std::make_unique<AliasOrASTPathExpression>(
         ast_braced_constructor_field->identifier()->GetAsIdString());
     location = ast_braced_constructor_field->identifier();
   } else if (ast_braced_constructor_field->parenthesized_path() != nullptr) {
@@ -5479,7 +5569,7 @@ Resolver::ResolveBracedConstructorField(
       return MakeSqlErrorAt(ast_braced_constructor_field->parenthesized_path())
              << "NEW constructor does not support proto extensions";
     }
-    alias_or_ast_path_expr = absl::make_unique<AliasOrASTPathExpression>(
+    alias_or_ast_path_expr = std::make_unique<AliasOrASTPathExpression>(
         ast_braced_constructor_field->parenthesized_path());
     location = ast_braced_constructor_field->parenthesized_path();
   } else {
@@ -5826,7 +5916,7 @@ absl::Status Resolver::ResolveStructConstructorWithParens(
   return ResolveStructConstructorImpl(
       ast_struct_constructor,
       /*ast_struct_type=*/nullptr, ast_struct_constructor->field_expressions(),
-      {} /* ast_field_aliases */, inferred_type, expr_resolution_info,
+      /*ast_field_aliases=*/{}, inferred_type, expr_resolution_info,
       resolved_expr_out);
 }
 
@@ -6242,7 +6332,7 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
       (*resolved_function_call)->set_argument_list(std::move(updated_args));
     }
     ZETASQL_RETURN_IF_ERROR(
-        ResolveOrderByItems(order_by_arguments, {} /* no output_column_list */,
+        ResolveOrderByItems(order_by_arguments, /*output_column_list=*/{},
                             order_by_info, &resolved_order_by_items));
   }
   const ASTLimitOffset* limit_offset = ast_function_call->limit_offset();
@@ -6268,9 +6358,9 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
     }
     ZETASQL_RET_CHECK(limit_offset->limit() != nullptr);
     ExprResolutionInfo expr_resolution_info(empty_name_scope_.get(), "LIMIT");
-    ZETASQL_RETURN_IF_ERROR(ResolveLimitOrOffsetExpr(
-        limit_offset->limit(), "LIMIT" /* clause_name */, &expr_resolution_info,
-        &limit_expr));
+    ZETASQL_RETURN_IF_ERROR(
+        ResolveLimitOrOffsetExpr(limit_offset->limit(), /*clause_name=*/"LIMIT",
+                                 &expr_resolution_info, &limit_expr));
   }
 
   std::unique_ptr<const ResolvedAggregateHavingModifier> resolved_having;
@@ -6646,12 +6736,6 @@ bool IsProtoDefaultIfNull(const std::vector<std::string>& function_name_path) {
   return false;
 }
 
-bool IsTypeOf(const Function* function) {
-  return function->NumSignatures() == 1 &&
-         function->signatures()[0].context_id() == FN_TYPEOF &&
-         function->IsZetaSQLBuiltin();
-}
-
 bool IsFlatten(const Function* function) {
   return function->NumSignatures() == 1 &&
          function->signatures()[0].context_id() == FN_FLATTEN &&
@@ -6726,11 +6810,6 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
   if (ast_function != nullptr) {
     ZETASQL_RETURN_IF_ERROR(ResolveHintsForNode(ast_function->hint(),
                                         resolved_function_call.get()));
-
-    if (IsTypeOf(function) && resolved_function_call->hint_list_size() > 0) {
-      return MakeSqlErrorAt(ast_function->hint())
-             << "The TYPEOF() operator does not allow hints.";
-    }
   }
 
   ZETASQL_RETURN_IF_ERROR(AddAdditionalDeprecationWarningsForCalledFunction(
@@ -6794,7 +6873,11 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
         case FN_ARRAY_INCLUDES:
         case FN_ARRAY_INCLUDES_LAMBDA:
         case FN_ARRAY_INCLUDES_ANY:
+        case FN_ARRAY_INCLUDES_ALL:
           analyzer_output_properties_.MarkRelevant(REWRITE_ARRAY_INCLUDES);
+          break;
+        case FN_ARRAY_FIRST:
+          analyzer_output_properties_.MarkRelevant(REWRITE_ARRAY_FIRST_LAST);
           break;
         case FN_CONTAINS_KEY:
         case FN_MODIFY_MAP:
@@ -6802,6 +6885,10 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
           break;
         case FN_TYPEOF:
           analyzer_output_properties_.MarkRelevant(REWRITE_TYPEOF_FUNCTION);
+          break;
+        case FN_NULLIFERROR:
+          analyzer_output_properties_.MarkRelevant(
+              REWRITE_NULLIFERROR_FUNCTION);
           break;
         default:
           break;
@@ -7301,6 +7388,72 @@ absl::Status Resolver::ResolveIntervalExpr(
 
   Value value(Value::Interval(interval_value_or_status.value()));
   *resolved_expr_out = MakeResolvedLiteral(interval_expr, value);
+  return absl::OkStatus();
+}
+
+ABSL_ATTRIBUTE_NOINLINE
+absl::Status Resolver::ResolveWithExpr(
+    const ASTWithExpression* with_expr,
+    ExprResolutionInfo* parent_expr_resolution_info,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr_out,
+    const Type* inferred_type) {
+  if (!analyzer_options_.language().LanguageFeatureEnabled(
+          FEATURE_EXPERIMENTAL_WITH_EXPRESSION)) {
+    return MakeSqlErrorAt(with_expr) << "WITH expressions are not enabled.";
+  }
+
+  // Resolve the computed columns. Each computed column (and the output expr)
+  // can reference names from previous computed columns within the WITH
+  // expression. This requires copying the name scope for each computed column
+  // in the WITH expr.
+  std::vector<std::unique_ptr<NameScope>> child_name_scopes;
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>>
+      child_computed_columns;
+  const auto num_child_cols = with_expr->variables()->columns().size();
+  child_name_scopes.reserve(num_child_cols);
+  child_computed_columns.reserve(num_child_cols);
+  const IdString with_expr_table_name = id_string_pool_->Make("$with_expr");
+  for (int i = 0; i < with_expr->variables()->columns().size(); ++i) {
+    const ASTSelectColumn& computed_column =
+        *with_expr->variables()->columns(i);
+    const NameScope* name_scope = child_name_scopes.empty()
+                                      ? parent_expr_resolution_info->name_scope
+                                      : child_name_scopes.back().get();
+    ExprResolutionInfo resolution_info(
+        parent_expr_resolution_info, name_scope,
+        "with_expression_computed_column",
+        parent_expr_resolution_info->allows_analytic);
+    std::unique_ptr<const ResolvedExpr> expr;
+    ZETASQL_RETURN_IF_ERROR(
+        ResolveExpr(computed_column.expression(), &resolution_info, &expr));
+
+    ResolvedColumn column(AllocateColumnId(), with_expr_table_name,
+                          computed_column.alias()->GetAsIdString(),
+                          expr->type());
+    auto new_names = std::make_shared<NameList>();
+    ZETASQL_RETURN_IF_ERROR(
+        new_names->AddColumn(column.name_id(), column, /*is_explicit=*/false));
+    child_name_scopes.push_back(
+        std::make_unique<NameScope>(name_scope, new_names));
+    child_computed_columns.push_back(
+        MakeResolvedComputedColumn(column, std::move(expr)));
+  }
+
+  std::unique_ptr<const ResolvedExpr> output_expr;
+  {
+    // Resolve the output_expr.
+    ExprResolutionInfo resolution_info(
+        parent_expr_resolution_info, child_name_scopes.back().get(),
+        "with_expression", parent_expr_resolution_info->allows_analytic);
+    ZETASQL_RETURN_IF_ERROR(ResolveExpr(with_expr->expression(), &resolution_info,
+                                &output_expr, inferred_type));
+  }
+
+  const Type* output_type = output_expr->type();
+  *resolved_expr_out = MakeResolvedLetExpr(
+      output_type, std::move(child_computed_columns), std::move(output_expr));
+  analyzer_output_properties_.MarkRelevant(
+      ResolvedASTRewrite::REWRITE_LET_EXPR);
   return absl::OkStatus();
 }
 

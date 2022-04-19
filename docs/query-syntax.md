@@ -19,9 +19,11 @@ ZetaSQL.
     [ <a href="#limit_and_offset_clause">LIMIT</a> <span class="var">count</span> [ OFFSET <span class="var">skip_rows</span> ] ]
 
 <span class="var">select</span>:
-    <a href="#select_list">SELECT</a> [ AS { <span class="var"><a href="https://github.com/google/zetasql/blob/master/docs/protocol-buffers#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ] [{ ALL | DISTINCT }]
-        { [ <span class="var">expression</span>. ]* [ <a href="#select_except">EXCEPT</a> ( <span class="var">column_name</span> [, ...] ) ]<br>            [ <a href="#select_replace">REPLACE</a> ( <span class="var">expression</span> [ AS ] <span class="var">column_name</span> [, ...] ) ]<br>        | <span class="var">expression</span> [ [ AS ] <span class="var">alias</span> ] } [, ...]
+    <a href="#select_list">SELECT</a>
         [ <a href="#anon_clause">WITH ANONYMIZATION</a> OPTIONS( privacy_parameters ) ]
+        [ { ALL | DISTINCT } ]
+        [ AS { <span class="var"><a href="https://github.com/google/zetasql/blob/master/docs/protocol-buffers#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ]
+        <a href="#select_list"><span class="var">select_list</span></a>
     [ <a href="#from_clause">FROM</a> <a href="#from_clause"><span class="var">from_clause</span></a>[, ...] ]
     [ <a href="#where_clause">WHERE</a> <span class="var">bool_expression</span> ]
     [ <a href="#group_by_clause">GROUP</a> BY { <span class="var">expression</span> [, ...] | ROLLUP ( <span class="var">expression</span> [, ...] ) } ]
@@ -135,11 +137,26 @@ WITH TeamMascot AS
 SELECT * FROM TeamMascot
 ```
 
-## SELECT list
+## SELECT statement 
+<a id="select_list"></a>
 
 <pre>
-SELECT [ AS { <span class="var">typename</span> | STRUCT | VALUE } ] [{ ALL | DISTINCT }]
-    { [ <span class="var">expression</span>. ]* [ EXCEPT ( <span class="var">column_name</span> [, ...] ) ]<br>        [ REPLACE ( <span class="var">expression</span> [ AS ] <span class="var">column_name</span> [, ...] ) ]<br>    | <span class="var">expression</span> [ [ AS ] <span class="var">alias</span> ] } [, ...]
+SELECT
+    [ <a href="#anon_clause">WITH ANONYMIZATION</a> OPTIONS( privacy_parameters ) ]
+    [ { ALL | DISTINCT } ]
+    [ AS { <span class="var"><a href="https://github.com/google/zetasql/blob/master/docs/protocol-buffers#select_as_typename">typename</a></span> | <a href="#select_as_struct">STRUCT</a> | <a href="#select_as_value">VALUE</a> } ]
+   <span class="var">select_list</span>
+
+<span class="var">select_list</span>:
+    { <span class="var">select_all</span> | <span class="var">select_expression</span> } [, ...]
+
+<span class="var">select_all</span>:
+    [ <span class="var">expression</span>. ]*
+    [ EXCEPT ( <span class="var">column_name</span> [, ...] ) ]
+    [ REPLACE ( <span class="var">expression</span> [ AS ] <span class="var">column_name</span> [, ...] ) ]
+
+<span class="var">select_expression</span>:
+    <span class="var">expression</span> [ [ AS ] <span class="var">alias</span> ]
 </pre>
 
 The `SELECT` list defines the columns that the query will return. Expressions in
@@ -563,6 +580,9 @@ for the duration of the query, unless you qualify the table name, for example:
     }
     [ <span class="var">as_alias</span> ]
     [ WITH OFFSET [ <span class="var">as_alias</span> ] ]
+
+<span class="var">as_alias</span>:
+    [AS] <span class="var">alias</span>
 </pre>
 
 The `UNNEST` operator takes an `ARRAY` and returns a
@@ -772,20 +792,30 @@ to flatten nested data into a table, see
 
 ### UNNEST and NULLs
 
-`UNNEST` treats NULLs as follows:
+`UNNEST` treats `NULL`s as follows:
 
-+  NULL and empty arrays produces zero rows.</li>
-+  An array containing NULLs produces rows containing NULL values.
++  `NULL` and empty arrays produce zero rows.
++  An array containing `NULL`s produces rows containing `NULL` values.
 
-The optional `WITH OFFSET` clause returns a separate
-column containing the "offset" value (i.e. counting starts at zero) for each row
-produced by the `UNNEST` operation. This column has an optional
-`alias`; the default alias is offset.
+### UNNEST and WITH OFFSET
+
+The optional `WITH OFFSET` clause returns a separate column containing the
+_offset_ value, in which counting starts at zero for each row produced by the
+`UNNEST` operation. This column has an optional alias; If the optional alias
+is not used, the default column name is `offset`.
 
 Example:
 
 ```sql
-SELECT * FROM UNNEST ( ) WITH OFFSET AS num;
+SELECT * FROM UNNEST ([10,20,30]) as numbers WITH OFFSET;
+
++---------+--------+
+| numbers | offset |
++---------+--------+
+| 10      | 0      |
+| 20      | 1      |
+| 30      | 2      |
++---------+--------+
 ```
 
 ## UNPIVOT operator 
@@ -4123,8 +4153,6 @@ Results:
 [expression-subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#expression_subquery_concepts
 
 [in-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#in_operators
-
-[expression-subqueries]: https://github.com/google/zetasql/blob/master/docs/expression_subqueries.md
 
 [array-subscript-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#array_subscript_operator
 

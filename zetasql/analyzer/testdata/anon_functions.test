@@ -614,7 +614,7 @@ select with anonymization ANON_PERCENTILE_CONT(double_array, 0.4)
 select with anonymization ANON_PERCENTILE_CONT(double)
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: Anonymized aggregate function anon_percentile_cont expects exactly 2 arguments but found 1 argument [at 1:27]
+ERROR: Anonymized aggregate function ANON_PERCENTILE_CONT expects exactly 2 arguments but found 1 argument [at 1:27]
 select with anonymization ANON_PERCENTILE_CONT(double)
                           ^
 ==
@@ -624,7 +624,7 @@ select with anonymization ANON_PERCENTILE_CONT(double)
 select with anonymization ANON_PERCENTILE_CONT(double, double, double)
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: Anonymized aggregate function anon_percentile_cont expects exactly 2 arguments but found 3 arguments [at 1:27]
+ERROR: Anonymized aggregate function ANON_PERCENTILE_CONT expects exactly 2 arguments but found 3 arguments [at 1:27]
 select with anonymization ANON_PERCENTILE_CONT(double, double, double)
                           ^
 ==
@@ -644,7 +644,7 @@ select with anonymization ANON_PERCENTILE_CONT(double, 1.5)
 select with anonymization ANON_PERCENTILE_CONT(double, 1.5, 1.5)
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: Anonymized aggregate function anon_percentile_cont expects exactly 2 arguments but found 3 arguments [at 1:27]
+ERROR: Anonymized aggregate function ANON_PERCENTILE_CONT expects exactly 2 arguments but found 3 arguments [at 1:27]
 select with anonymization ANON_PERCENTILE_CONT(double, 1.5, 1.5)
                           ^
 ==
@@ -654,7 +654,7 @@ select with anonymization ANON_PERCENTILE_CONT(double, 1.5, 1.5)
 select with anonymization ANON_PERCENTILE_CONT(double)
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: Anonymized aggregate function anon_percentile_cont expects exactly 2 arguments but found 1 argument [at 1:27]
+ERROR: Anonymized aggregate function ANON_PERCENTILE_CONT expects exactly 2 arguments but found 1 argument [at 1:27]
 select with anonymization ANON_PERCENTILE_CONT(double)
                           ^
 ==
@@ -664,7 +664,7 @@ select with anonymization
     ANON_PERCENTILE_CONT(int64, 0.4, 0.4 CLAMPED BETWEEN 2 AND 3)
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: Anonymized aggregate function anon_percentile_cont expects exactly 2 arguments but found 3 arguments [at 2:5]
+ERROR: Anonymized aggregate function ANON_PERCENTILE_CONT expects exactly 2 arguments but found 3 arguments [at 2:5]
     ANON_PERCENTILE_CONT(int64, 0.4, 0.4 CLAMPED BETWEEN 2 AND 3)
     ^
 ==
@@ -674,7 +674,7 @@ select with anonymization
     ANON_PERCENTILE_CONT(int64 CLAMPED BETWEEN 2 AND 3)
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: Anonymized aggregate function anon_percentile_cont expects exactly 2 arguments but found 1 argument [at 2:5]
+ERROR: Anonymized aggregate function ANON_PERCENTILE_CONT expects exactly 2 arguments but found 1 argument [at 2:5]
     ANON_PERCENTILE_CONT(int64 CLAMPED BETWEEN 2 AND 3)
     ^
 ==
@@ -707,3 +707,228 @@ from SimpleTypesWithAnonymizationUid;
 ERROR: Upper bound on CLAMPED BETWEEN must be a literal or query parameter [at 2:59]
     ANON_PERCENTILE_CONT(int64, 0.4 CLAMPED BETWEEN 2 AND double)
                                                           ^
+==
+
+# ANON_QUANTILES(ARRAY<DOUBLE>, INT64) is an internal signature and
+# cannot be used by users.
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization ANON_QUANTILES(double_array, 4)
+from ArrayWithAnonymizationUid;
+--
+ERROR: No matching signature for aggregate function ANON_QUANTILES for argument types: ARRAY<DOUBLE>, INT64. Supported signatures: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE) [at 1:27]
+select with anonymization ANON_QUANTILES(double_array, 4)
+                          ^
+==
+
+# ANON_QUANTILES(DOUBLE) is not supported because quantiles are not
+# provided.
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization ANON_QUANTILES(double)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Anonymized aggregate function ANON_QUANTILES expects exactly 2 arguments but found 1 argument [at 1:27]
+select with anonymization ANON_QUANTILES(double)
+                          ^
+==
+
+# More than two arguments are not supported for ANON_QUANTILES.
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization ANON_QUANTILES(double, int64, double)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Anonymized aggregate function ANON_QUANTILES expects exactly 2 arguments but found 3 arguments [at 1:27]
+select with anonymization ANON_QUANTILES(double, int64, double)
+                          ^
+==
+
+# quantiles must be an int64
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization ANON_QUANTILES(double, double)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: No matching signature for aggregate function ANON_QUANTILES for argument types: DOUBLE, DOUBLE. Supported signatures: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE) [at 1:27]
+select with anonymization ANON_QUANTILES(double, double)
+                          ^
+==
+
+# quantiles requires explicit bounds
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization ANON_QUANTILES(double, int64)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: No matching signature for aggregate function ANON_QUANTILES for argument types: DOUBLE, INT64. Supported signatures: ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE) [at 1:27]
+select with anonymization ANON_QUANTILES(double, int64)
+                          ^
+==
+
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization
+    ANON_QUANTILES(int64, 4, 0.4 CLAMPED BETWEEN 2 AND 3)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Anonymized aggregate function ANON_QUANTILES expects exactly 2 arguments but found 3 arguments [at 2:5]
+    ANON_QUANTILES(int64, 4, 0.4 CLAMPED BETWEEN 2 AND 3)
+    ^
+==
+
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization
+    ANON_QUANTILES(int64 CLAMPED BETWEEN 2 AND 3)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Anonymized aggregate function ANON_QUANTILES expects exactly 2 arguments but found 1 argument [at 2:5]
+    ANON_QUANTILES(int64 CLAMPED BETWEEN 2 AND 3)
+    ^
+==
+
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization
+    ANON_QUANTILES(int64, int64 CLAMPED BETWEEN 2 AND 3)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Quantiles must be a literal or query parameter [at 2:27]
+    ANON_QUANTILES(int64, int64 CLAMPED BETWEEN 2 AND 3)
+                          ^
+==
+
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization
+    ANON_QUANTILES(int64, 4 CLAMPED BETWEEN double AND 3)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Lower bound on CLAMPED BETWEEN must be a literal or query parameter [at 2:45]
+    ANON_QUANTILES(int64, 4 CLAMPED BETWEEN double AND 3)
+                                            ^
+==
+
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization
+    ANON_QUANTILES(int64, 4 CLAMPED BETWEEN 2 AND double)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Upper bound on CLAMPED BETWEEN must be a literal or query parameter [at 2:51]
+    ANON_QUANTILES(int64, 4 CLAMPED BETWEEN 2 AND double)
+                                                  ^
+==
+
+[language_features=ANONYMIZATION,NUMERIC_TYPE]
+select with anonymization
+    ANON_QUANTILES(int64, @test_param_int64 CLAMPED BETWEEN @test_param_double AND @test_param_double)
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#13 AS `$col1` [ARRAY<DOUBLE>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#13]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
+        +-aggregate_list=
+          +-$agg1#13 :=
+            +-AggregateFunctionCall(ZetaSQL:anon_quantiles(DOUBLE, INT64, DOUBLE, DOUBLE) -> ARRAY<DOUBLE>)
+              +-Cast(INT64 -> DOUBLE)
+              | +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+              +-Parameter(type=INT64, name="test_param_int64")
+              +-Parameter(type=DOUBLE, name="test_param_double")
+              +-Parameter(type=DOUBLE, name="test_param_double")
+==
+
+[language_features=ANONYMIZATION]
+select with anonymization
+    ANON_XXXX(int64, 1 CLAMPED BETWEEN 0 AND 10) as xxx
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Function not found: ANON_XXXX [at 2:5]
+    ANON_XXXX(int64, 1 CLAMPED BETWEEN 0 AND 10) as xxx
+    ^
+==
+
+[language_features=ANONYMIZATION]
+select with anonymization
+    ANON_XXXX(int64 CLAMPED BETWEEN 0 AND 10) as xxx
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Function not found: ANON_XXXX [at 2:5]
+    ANON_XXXX(int64 CLAMPED BETWEEN 0 AND 10) as xxx
+    ^
+==
+
+[language_features=ANONYMIZATION]
+select with anonymization
+    ANON_NON_ANON(int64 CLAMPED BETWEEN 0 AND 10) as xxx
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: The CLAMPED BETWEEN clause is not allowed in the function call arguments for function ANON_NON_ANON [at 2:5]
+    ANON_NON_ANON(int64 CLAMPED BETWEEN 0 AND 10) as xxx
+    ^
+==
+
+[language_features=ANONYMIZATION]
+select with anonymization
+    ANON_COUNT(*, 1 CLAMPED BETWEEN 0 AND 10) as xxx
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Anonymized aggregate function ANON_COUNT expects exactly 1 argument but found 2 arguments [at 2:5]
+    ANON_COUNT(*, 1 CLAMPED BETWEEN 0 AND 10) as xxx
+    ^
+==
+
+[language_features=ANONYMIZATION]
+select with anonymization
+    ANON_COUNT(* CLAMPED BETWEEN 0 AND 10) as xxx
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.xxx#13 AS xxx [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.xxx#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.xxx#13]
+        +-input_scan=
+        | +-TableScan(table=SimpleTypesWithAnonymizationUid)
+        +-aggregate_list=
+          +-xxx#13 :=
+            +-AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(1) INT64, optional(1) INT64) -> INT64)
+              +-Literal(type=INT64, value=0)
+              +-Literal(type=INT64, value=10)
+==
+
+[language_features=ANONYMIZATION]
+select with anonymization
+    ANON_SUM(int64, 1 CLAMPED BETWEEN 0 AND 10 WIth REPorT(forMAT=ProTO)) as xxx
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: Anonymized aggregate function ANON_SUM expects exactly 1 argument but found 2 arguments [at 2:5]
+    ANON_SUM(int64, 1 CLAMPED BETWEEN 0 AND 10 WIth REPorT(forMAT=ProTO)) as xxx
+    ^
+==
+
+[language_features=ANONYMIZATION,JSON_TYPE]
+select with anonymization
+    ANON_SUM(int64 CLAMPED BETWEEN 0 AND 10 WIth REPorT(forMAT=JsON)) as xxx
+from SimpleTypesWithAnonymizationUid;
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.xxx#13 AS xxx [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.xxx#13]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.xxx#13]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
+        +-aggregate_list=
+          +-xxx#13 :=
+            +-AggregateFunctionCall(ZetaSQL:$anon_sum_with_report_json(INT64, optional(1) INT64, optional(1) INT64) -> JSON)
+              +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
+              +-Literal(type=INT64, value=0)
+              +-Literal(type=INT64, value=10)

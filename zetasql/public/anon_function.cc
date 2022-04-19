@@ -16,6 +16,7 @@
 
 #include "zetasql/public/anon_function.h"
 
+#include <string>
 #include <vector>
 
 #include "zetasql/public/language_options.h"
@@ -30,13 +31,14 @@ static std::string AnonFunctionSQL(absl::string_view display_name,
                                    const std::vector<std::string>& inputs) {
   const std::string upper_case_display_name =
       absl::AsciiStrToUpper(display_name);
-  if (upper_case_display_name == "ANON_PERCENTILE_CONT") {
-    ZETASQL_DCHECK(inputs.size() == 2 || inputs.size() == 4);
-    return absl::StrCat(
-        upper_case_display_name, "(", inputs[0], ", ", inputs[1],
-        inputs.size() == 4 ? absl::StrCat(" CLAMPED BETWEEN ", inputs[2],
-                                          " AND ", inputs[3], ")")
-                           : ")");
+  if (upper_case_display_name == "ANON_PERCENTILE_CONT" ||
+      upper_case_display_name == "ANON_QUANTILES") {
+    // TODO: Support inputs.size() == 2 once the DP Library's
+    //   Quantiles supports automatic/implicit bounds.
+    ZETASQL_DCHECK_EQ(inputs.size(), 4);
+    return absl::StrCat(upper_case_display_name, "(", inputs[0], ", ",
+                        inputs[1], " CLAMPED BETWEEN ", inputs[2], " AND ",
+                        inputs[3], ")");
   } else {
     ZETASQL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
     return absl::StrCat(upper_case_display_name, "(", inputs[0],
@@ -50,24 +52,31 @@ static std::string AnonFunctionSQL(absl::string_view display_name,
 static std::string SupportedSignaturesForAnonFunction(
     const std::string& function_name, const LanguageOptions& language_options,
     const Function& function) {
+  std::string upper_case_function_name = absl::AsciiStrToUpper(function_name);
   std::string supported_signatures;
   for (const FunctionSignature& signature : function.signatures()) {
-    std::string percentile = "";
-    bool is_percentile_cont = false;
-    if (absl::AsciiStrToUpper(function_name) == "ANON_PERCENTILE_CONT") {
-      // The expected signature of ANON_PERCENTILE_CONT is that it has two
-      // input arguments along with two optional clamped bounds arguments (in
-      // that order).
+    std::string percentile_or_quantiles = "";
+    bool is_function_name_percentile_or_quantiles = false;
+    bool is_function_name_quantiles =
+        upper_case_function_name == "ANON_QUANTILES";
+    if (upper_case_function_name == "ANON_PERCENTILE_CONT" ||
+        is_function_name_quantiles) {
+      // TODO: Support inputs.size() == 2 once the DP Library's
+      //   Quantiles supports automatic/implicit bounds.
+      // The expected signatures of ANON_PERCENTILE_CONT and ANON_QUANTILES are
+      // that they have two input arguments along with two required clamped
+      // bounds arguments (in that order).
       ZETASQL_DCHECK_EQ(signature.arguments().size(), 4)
           << signature.DebugString(function_name, /*verbose=*/true);
-      is_percentile_cont = true;
-      percentile = absl::StrCat(", ", signature.argument(1).UserFacingName(
-                                          language_options.product_mode()));
+      is_function_name_percentile_or_quantiles = true;
+      percentile_or_quantiles =
+          absl::StrCat(", ", signature.argument(1).UserFacingName(
+                                 language_options.product_mode()));
     } else {
       // The expected invariant for the current list of the anonymized aggregate
-      // functions other than ANON_PERCENTILE_CONT is that they have one input
-      // argument along with two optional clamped bounds arguments (in that
-      // order).
+      // functions other than ANON_PERCENTILE_CONT or ANON_QUANTILES is that
+      // they have one input argument along with two optional clamped bounds
+      // arguments (in that order).
       ZETASQL_DCHECK_EQ(signature.arguments().size(), 3)
           << signature.DebugString(function_name, /*verbose=*/true);
     }
@@ -77,17 +86,23 @@ static std::string SupportedSignaturesForAnonFunction(
     const std::string base_argument_type =
         signature.argument(0).UserFacingName(language_options.product_mode());
     const std::string lower_bound_type =
-        signature.argument(is_percentile_cont ? 2 : 1)
+        signature.argument(is_function_name_percentile_or_quantiles ? 2 : 1)
             .UserFacingName(language_options.product_mode());
     const std::string upper_bound_type =
-        signature.argument(is_percentile_cont ? 3 : 2)
+        signature.argument(is_function_name_percentile_or_quantiles ? 3 : 2)
             .UserFacingName(language_options.product_mode());
     if (!supported_signatures.empty()) {
       absl::StrAppend(&supported_signatures, ", ");
     }
+    // TODO: Once the DP Library's Quantiles supports
+    //   automatic/implicit bounds and ZetaSQL is ready to support them,
+    //   remove the is_quantiles conditionals below when CLAMPED BETWEEN is
+    //   optional for ANON_QUANTILES.
     absl::StrAppend(&supported_signatures, absl::AsciiStrToUpper(function_name),
-                    "(", base_argument_type, percentile, " [CLAMPED BETWEEN ",
-                    lower_bound_type, " AND ", upper_bound_type, "])");
+                    "(", base_argument_type, percentile_or_quantiles, " ",
+                    (is_function_name_quantiles ? "" : "["), "CLAMPED BETWEEN ",
+                    lower_bound_type, " AND ", upper_bound_type,
+                    (is_function_name_quantiles ? "" : "]"), ")");
   }
   return supported_signatures;
 }
@@ -95,7 +110,11 @@ static std::string SupportedSignaturesForAnonFunction(
 static std::string AnonFunctionBadArgumentErrorPrefix(
     absl::string_view display_name, const FunctionSignature& signature,
     int idx) {
-  if (absl::AsciiStrToUpper(display_name) == "ANON_PERCENTILE_CONT") {
+  std::string upper_case_display_name = absl::AsciiStrToUpper(display_name);
+  bool is_display_name_percentile_cont =
+      upper_case_display_name == "ANON_PERCENTILE_CONT";
+  if (is_display_name_percentile_cont ||
+      upper_case_display_name == "ANON_QUANTILES") {
     switch (idx) {
       case 0:
         return absl::StrCat(signature.NumConcreteArguments() == 3
@@ -103,7 +122,7 @@ static std::string AnonFunctionBadArgumentErrorPrefix(
                                 : "Argument 1 to ",
                             absl::AsciiStrToUpper(display_name));
       case 1:
-        return "Percentile";
+        return is_display_name_percentile_cont ? "Percentile" : "Quantiles";
       case 2:
         return "Lower bound on CLAMPED BETWEEN";
       case 3:
@@ -133,7 +152,7 @@ static std::string AnonFunctionBadArgumentErrorPrefix(
 static const FunctionOptions AddDefaultFunctionOptions(
     const std::string& name, FunctionOptions options) {
   if (!options.supports_clamped_between_modifier) {
-    // Only apply the anon_* callbacks to functions that support CLAMPED BEWTEEN
+    // Only apply the anon_* callbacks to functions that support CLAMPED BETWEEN
     return options;
   }
   if (options.get_sql_callback == nullptr) {

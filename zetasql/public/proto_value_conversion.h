@@ -30,9 +30,9 @@
 #ifndef ZETASQL_PUBLIC_PROTO_VALUE_CONVERSION_H_
 #define ZETASQL_PUBLIC_PROTO_VALUE_CONVERSION_H_
 
-#include "zetasql/base/status.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/message.h"
+#include "zetasql/base/status.h"
 
 namespace zetasql {
 

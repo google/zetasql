@@ -127,7 +127,7 @@ AnalyticFunctionResolver::AnalyticFunctionResolver(
   if (named_window_info_map != nullptr) {
     named_window_info_map_.reset(named_window_info_map);
   } else {
-    named_window_info_map_ = absl::make_unique<NamedWindowInfoMap>();
+    named_window_info_map_ = std::make_unique<NamedWindowInfoMap>();
   }
 }
 
@@ -563,14 +563,14 @@ absl::Status AnalyticFunctionResolver::ResolveWindowExpression(
         select_column_state->has_aggregation;
     expr_resolution_info->has_analytic = select_column_state->has_analytic;
     *expr_type_out = select_column_state->GetType();
-    *resolved_item_out = absl::make_unique<WindowExprInfo>(
+    *resolved_item_out = std::make_unique<WindowExprInfo>(
         ast_expr, select_column_state->select_list_position,
         select_column_state->GetType());
   } else {
     ZETASQL_RET_CHECK(tmp_resolved_expr != nullptr);
     *expr_type_out = tmp_resolved_expr->type();
-    *resolved_item_out = absl::make_unique<WindowExprInfo>(
-        ast_expr, tmp_resolved_expr.release());
+    *resolved_item_out =
+        std::make_unique<WindowExprInfo>(ast_expr, tmp_resolved_expr.release());
   }
   return absl::OkStatus();
 }

@@ -138,6 +138,26 @@ inline absl::Status GetContents(absl::string_view filename,
   return absl::OkStatus();
 }
 
+inline absl::Status SetContents(absl::string_view filename,
+                                absl::string_view file_contents) {
+  // Because we are using a c api, check for in-string nulls.
+  std::string filename_str;
+  if (absl::Status status = NullFreeString(filename, &filename_str);
+      !status.ok()) {
+    return status;
+  }
+  std::ofstream stream(filename_str, std::ofstream::out);
+
+  if (!stream) {
+    // Could be a wider range of reasons.
+    return absl::Status(absl::StatusCode::kNotFound,
+                        absl::StrCat("Unable to open: ", filename));
+  }
+  stream.write(file_contents.data(), file_contents.size());
+  stream.close();
+  return absl::OkStatus();
+}
+
 // The path in blaze where we expect to find inputs like `.test` files.
 inline std::string TestSrcRootDir() {
   return zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_zetasql");

@@ -1748,6 +1748,14 @@ void ExpectParseError(absl::string_view input) {
               StatusIs(absl::StatusCode::kOutOfRange));
 }
 
+void ExpectParseErrorMessage(absl::string_view input,
+                             absl::string_view expected_message) {
+  EXPECT_THAT(IntervalValue::ParseFromString(input),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       testing::HasSubstr(expected_message)))
+      << input;
+}
+
 TEST(IntervalValueTest, ParseFromString) {
   ExpectParseFromString("1-2 3 4:5:6", "1-2 3 4:5:6");
   ExpectParseFromString("-1-2 3 4:5:6.700", "-1-2 3 4:5:6.7");
@@ -1789,6 +1797,10 @@ TEST(IntervalValueTest, ParseFromString) {
   // Unexpected number of spaces/colons/dashes
   ExpectParseError("1-2 1:2:3");
   ExpectParseError("1-2-3");
+
+  ExpectParseErrorMessage("1:2<3", "Invalid INTERVAL value '1:2<3'");
+  ExpectParseErrorMessage("1 2-3", "Invalid INTERVAL value '1 2-3'");
+  ExpectParseErrorMessage("1-2-3", "Invalid INTERVAL value '1-2-3'");
 }
 
 void ExpectToISO8601(absl::string_view expected, IntervalValue interval) {
@@ -1978,8 +1990,8 @@ TEST(IntervalValueTest, ParseFromISO8601) {
   ExpectFromISO8601Error("PT1D", "Unexpected 'D' in the time portion");
   ExpectFromISO8601Error("P123", "Unexpected end of input in the date portion");
   ExpectFromISO8601Error("P9223372036854775807D1D", "int64 overflow");
-  ExpectFromISO8601Error("PT0.1234567890S", "Invalid interval");
-  ExpectFromISO8601Error("PT1.S", "Invalid interval");
+  ExpectFromISO8601Error("PT0.1234567890S", "Invalid INTERVAL");
+  ExpectFromISO8601Error("PT1.S", "Invalid INTERVAL");
   ExpectFromISO8601Error("P1.Y", "Fractional values are only allowed");
   ExpectFromISO8601Error("PT1.M", "Fractional values are only allowed");
   ExpectFromISO8601Error("P9223372036854775807Y", "int64 overflow");
@@ -1989,6 +2001,8 @@ TEST(IntervalValueTest, ParseFromISO8601) {
   ExpectFromISO8601Error("P-9999999M", "is out of range");
   ExpectFromISO8601Error("P-987654321D", "is out of range");
   ExpectFromISO8601Error("PT-99999999999H", "is out of range");
+  ExpectFromISO8601Error("P1Y2M<3D",
+                         "Invalid INTERVAL value 'P1Y2M<3D': Unexpected '<'");
 }
 
 std::vector<IntervalValue>* kInterestingIntervals =

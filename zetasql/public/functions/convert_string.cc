@@ -17,6 +17,7 @@
 #include "zetasql/public/functions/convert_string.h"
 
 #include <cstdint>
+#include <string>
 
 #include "zetasql/common/string_util.h"
 #include "zetasql/public/functions/util.h"

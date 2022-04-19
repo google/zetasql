@@ -91,11 +91,11 @@ class JsonPathEvaluator {
                        bool* is_null) const;
 
   // Similar to the string version above, but for JSON types.
-  // Returns absl::nullopt to indicate that:
+  // Returns std::nullopt to indicate that:
   // * json_path does not match anything.
   // * json_path uses an array index but the value is not an array, or the path
   //   uses a name but the value is not an object.
-  absl::optional<JSONValueConstRef> Extract(JSONValueConstRef input) const;
+  std::optional<JSONValueConstRef> Extract(JSONValueConstRef input) const;
 
   // Similar to the above, but the 'json_path' provided in Create() must refer
   // to a scalar value in 'json'.
@@ -115,12 +115,12 @@ class JsonPathEvaluator {
                              bool* is_null) const;
 
   // Similar to the string version above, but for JSON types.
-  // Returns absl::nullopt to indicate that:
+  // Returns std::nullopt to indicate that:
   // * json_path does not match anything.
   // * json_path uses an array index but the value is not an array, or the path
   //   uses a name but the value is not an object.
   // * json_path does not correspond to a scalar value in json.
-  absl::optional<std::string> ExtractScalar(JSONValueConstRef input) const;
+  std::optional<std::string> ExtractScalar(JSONValueConstRef input) const;
 
   // Extracts an array from 'json' according to the JSONPath string 'json_path'
   // provided in Create(). The value in 'json' that 'json_path' refers to should
@@ -150,17 +150,17 @@ class JsonPathEvaluator {
                             bool* is_null) const;
 
   // Similar to the string version above, but for JSON types.
-  // Returns absl::nullopt to indicate that:
+  // Returns std::nullopt to indicate that:
   // * json_path does not match anything.
   // * json_path uses an array index but the value is not an array, or the path
   //   uses a name but the value is not an object.
   // * json_path does not correspond to an array value in json.
-  absl::optional<std::vector<JSONValueConstRef>> ExtractArray(
+  std::optional<std::vector<JSONValueConstRef>> ExtractArray(
       JSONValueConstRef input) const;
 
   // Similar to ExtractArray(), except requires 'json' to be an array of scalar
   // value, and the strings in the array will be returned without quotes or
-  // escaping. An absl::nullopt in 'value' represents a SQL NULL.
+  // escaping. An std::nullopt in 'value' represents a SQL NULL.
   //
   // Example:
   //   json: ["foo","bar","baz"]
@@ -177,16 +177,16 @@ class JsonPathEvaluator {
   // Null cases are the same as in ExtractArray, except for the addition of:
   // * json_path does not correspond to an array of scalar objects in json.
   absl::Status ExtractStringArray(
-      absl::string_view json, std::vector<absl::optional<std::string>>* value,
+      absl::string_view json, std::vector<std::optional<std::string>>* value,
       bool* is_null) const;
 
   // Similar to the string version above, but for JSON types.
-  // Returns absl::nullopt to indicate that:
+  // Returns std::nullopt to indicate that:
   // * json_path does not match anything.
   // * json_path uses an array index but the value is not an array, or the path
   //   uses a name but the value is not an object.
   // * json_path does not correspond to an array of scalars in json.
-  absl::optional<std::vector<absl::optional<std::string>>> ExtractStringArray(
+  std::optional<std::vector<std::optional<std::string>>> ExtractStringArray(
       JSONValueConstRef input) const;
 
   // Enables the escaping of special characters for JSON_EXTRACT.

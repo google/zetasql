@@ -317,6 +317,8 @@ class Unparser : public ParseTreeVisitor {
                               void* data) override;
   void visitASTClampedBetweenModifier(const ASTClampedBetweenModifier* node,
                                       void* data) override;
+  void visitASTWithReportModifier(const ASTWithReportModifier* node,
+                                  void* data) override;
   void visitASTOrderingExpression(const ASTOrderingExpression* node,
                                   void* data) override;
   void visitASTIdentifier(const ASTIdentifier* node, void* data) override;
@@ -565,6 +567,8 @@ class Unparser : public ParseTreeVisitor {
   void visitASTUnpivotClause(const ASTUnpivotClause* node, void* data) override;
   void visitASTAlterMaterializedViewStatement(
       const ASTAlterMaterializedViewStatement* node, void* data) override;
+  void visitASTAlterModelStatement(const ASTAlterModelStatement* node,
+                                   void* data) override;
   void visitASTAlterDatabaseStatement(const ASTAlterDatabaseStatement* node,
                                       void* data) override;
   void visitASTAlterSchemaStatement(const ASTAlterSchemaStatement* node,
@@ -682,6 +686,14 @@ class Unparser : public ParseTreeVisitor {
   void visitASTExecuteImmediateStatement(
       const ASTExecuteImmediateStatement* node, void* data) override;
   void visitASTRaiseStatement(const ASTRaiseStatement* node,
+                              void* data) override;
+  void visitASTAlterSubEntityAction(const ASTAlterSubEntityAction* node,
+                                    void* data) override;
+  void visitASTAddSubEntityAction(const ASTAddSubEntityAction* node,
+                                  void* data) override;
+  void visitASTDropSubEntityAction(const ASTDropSubEntityAction* node,
+                                   void* data) override;
+  void visitASTWithExpression(const ASTWithExpression* node,
                               void* data) override;
 
  protected:

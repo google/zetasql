@@ -17,6 +17,7 @@
 #include "zetasql/reference_impl/variable_generator.h"
 
 #include <map>
+#include <utility>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/type.h"
@@ -27,11 +28,10 @@
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
 
-using testing::ElementsAre;
-using testing::HasSubstr;
-
-using zetasql_base::testing::IsOkAndHolds;
-using zetasql_base::testing::StatusIs;
+using ::testing::ElementsAre;
+using ::testing::HasSubstr;
+using ::zetasql_base::testing::IsOkAndHolds;
+using ::zetasql_base::testing::StatusIs;
 
 namespace zetasql {
 namespace {
@@ -197,7 +197,7 @@ class ColumnToVariableMappingTest : public ::testing::Test {
 };
 
 TEST_F(ColumnToVariableMappingTest, Basic) {
-  auto gen_owner = absl::make_unique<VariableGenerator>();
+  auto gen_owner = std::make_unique<VariableGenerator>();
   VariableGenerator* gen = gen_owner.get();
   ColumnToVariableMapping mapping(std::move(gen_owner));
   EXPECT_EQ(gen, mapping.variable_generator());
@@ -235,7 +235,7 @@ TEST_F(ColumnToVariableMappingTest, Basic) {
 // as LookupVariableNameForColumn() except that it assigns a new variable if the
 // column is missing from the mapping.
 TEST_F(ColumnToVariableMappingTest, GetVariableNameFromColumn) {
-  ColumnToVariableMapping mapping(absl::make_unique<VariableGenerator>());
+  ColumnToVariableMapping mapping(std::make_unique<VariableGenerator>());
   ColumnToVariableMapping::Map expected_map;
   EXPECT_EQ(expected_map, mapping.map());
 
@@ -254,7 +254,7 @@ TEST_F(ColumnToVariableMappingTest, GetVariableNameFromColumn) {
 }
 
 TEST_F(ColumnToVariableMappingTest, SetMap) {
-  ColumnToVariableMapping mapping(absl::make_unique<VariableGenerator>());
+  ColumnToVariableMapping mapping(std::make_unique<VariableGenerator>());
   ColumnToVariableMapping::Map expected_map;
 
   EXPECT_EQ(expected_map, mapping.map());

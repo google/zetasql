@@ -142,6 +142,22 @@ class ParserOutput {
   const ASTType* type() const { return GetNodeAs<ASTType>(); }
   const ASTExpression* expression() const { return GetNodeAs<ASTExpression>(); }
 
+  const ASTNode* node() const {
+    if (std::holds_alternative<std::unique_ptr<ASTStatement>>(node_)) {
+      return statement();
+    }
+    if (std::holds_alternative<std::unique_ptr<ASTScript>>(node_)) {
+      return script();
+    }
+    if (std::holds_alternative<std::unique_ptr<ASTType>>(node_)) {
+      return type();
+    }
+    if (std::holds_alternative<std::unique_ptr<ASTExpression>>(node_)) {
+      return expression();
+    }
+    return nullptr;
+  }
+
   // Returns the IdStringPool that stores IdStrings allocated for the parse
   // tree.  This was propagated from ParserOptions.
   const std::shared_ptr<IdStringPool>& id_string_pool() const {
@@ -155,7 +171,7 @@ class ParserOutput {
  private:
   template<class T>
       T* GetNodeAs() const {
-    return absl::get<std::unique_ptr<T>>(node_).get();
+    return std::get<std::unique_ptr<T>>(node_).get();
   }
 
   // This IdStringPool and arena must be kept alive for the parse trees below to

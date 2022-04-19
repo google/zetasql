@@ -20,18 +20,37 @@ def gen_resolved_ast_files(
         name,
         srcs = [],
         outs = [],
+        data = [],
         flags = [],
         **extra_args):
+    """Creates a rule to generate the ResolvedAST files.
+
+    Args:
+      name: name of the rule
+      srcs: input top-level template files
+      outs: output files, corresponding in order to srcs
+      data: resource files, including shared logic imported from srcs
+      flags: any flags to pass to the rule
+      **extra_args: any extra args to pass to the rule
+    """
     cmd = "$(location //zetasql/resolved_ast:gen_resolved_ast) "
     for f in flags:
         cmd += f + " "
+    cmd += ' --input_templates="'
     for t in srcs:
         cmd += "$(location %s) " % t
+    cmd += '" --output_files="'
     for o in outs:
         cmd += "$(location %s) " % o
+    cmd += '"'
+    if len(data) > 0:
+        cmd += ' --data_files="'
+        for s in data:
+            cmd += "$(location %s) " % s
+        cmd += '"'
     native.genrule(
         name = name,
-        srcs = srcs,
+        srcs = srcs + data,
         outs = outs,
         cmd = cmd,
         tools = ["//zetasql/resolved_ast:gen_resolved_ast"],

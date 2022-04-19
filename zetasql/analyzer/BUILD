@@ -287,6 +287,7 @@ cc_library(
         "//zetasql/analyzer/rewriters:flatten_rewriter",
         "//zetasql/analyzer/rewriters:let_expr_rewriter",
         "//zetasql/analyzer/rewriters:map_function_rewriter",
+        "//zetasql/analyzer/rewriters:nulliferror_function_rewriter",
         "//zetasql/analyzer/rewriters:pivot_rewriter",
         "//zetasql/analyzer/rewriters:registration",
         "//zetasql/analyzer/rewriters:rewriter_interface",
@@ -606,6 +607,7 @@ cc_library(
     deps = [
         "//zetasql/base",
         "//zetasql/base:status",
+        "//zetasql/common:options_utils",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:type",
         "//zetasql/public/types",

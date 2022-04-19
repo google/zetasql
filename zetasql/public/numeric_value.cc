@@ -25,6 +25,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <limits>
 #include <string>
 #include <type_traits>
@@ -44,6 +45,7 @@
 #include "zetasql/base/endian.h"
 #include "zetasql/base/stl_util.h"
 #include "zetasql/base/mathutil.h"
+#include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -53,12 +55,11 @@ using FormatFlag = NumericValue::FormatSpec::Flag;
 
 constexpr uint8_t kGroupSize = 3;
 constexpr char kGroupChar = ',';
+enum RoundingMode { kTrunc, kRoundHalfAwayFromZero, kRoundHalfEven };
 
 // Returns -1, 0 or 1 if the given int128 number is negative, zero of positive
 // respectively.
-inline int int128_sign(__int128 x) {
-  return (0 < x) - (x < 0);
-}
+inline int int128_sign(__int128 x) { return (0 < x) - (x < 0); }
 
 inline unsigned __int128 int128_abs(__int128 x) {
   // Must cast to unsigned type before negation. Negation of signed integer
@@ -304,8 +305,11 @@ class UnsignedBinaryFraction {
   // Constructs an instance representing value * 2 ^ scale_bits.
   UnsignedBinaryFraction(uint64_t value, int scale_bits) : value_(value) {
     ZETASQL_DCHECK_GE(scale_bits, -kFractionalBits);
-    ZETASQL_DCHECK_LE(kFractionalBits + scale_bits + 64, kNumWords * 64);
-    value_ <<= (kFractionalBits + scale_bits);
+    int shift_bits = kFractionalBits + scale_bits;
+    ZETASQL_DCHECK_LE(shift_bits, kNumWords * 64);
+    ZETASQL_DCHECK(shift_bits + 64 <= kNumWords * 64 ||
+           (value >> (shift_bits + 64 - kNumWords * 64)) == 0);
+    value_ <<= shift_bits;
   }
   static UnsignedBinaryFraction FromScaledValue(
       const FixedUint<64, kNumWords>& src) {
@@ -340,6 +344,12 @@ class UnsignedBinaryFraction {
     return false;
   }
 
+  UnsignedBinaryFraction& operator*=(const UnsignedBinaryFraction& rhs) {
+    FixedUint<64, kNumWords* 2> product = ExtendAndMultiply(value_, rhs.value_);
+    ShiftRightAndRound(kFractionalBits, &product);
+    value_ = FixedUint<64, kNumWords>(product);
+    return *this;
+  }
   // Similar to operator *=, but returns true iff no overflow.
   bool Multiply(const UnsignedBinaryFraction& rhs) {
     return this->MulDivByScale(value_, rhs.value_, &value_);
@@ -357,11 +367,15 @@ class UnsignedBinaryFraction {
   bool Log(const UnsignedBinaryFraction& base,
            const UnsignedBinaryFraction& unit_of_last_precision,
            SignedType* output) const;
-  bool Sqrt(const UnsignedBinaryFraction& unit_of_last_precision,
+  bool Sqrt(UnsignedBinaryFraction* output) const;
+  bool Cbrt(const UnsignedBinaryFraction& unit_of_last_precision,
             UnsignedBinaryFraction* output) const;
+  bool ApproximateCbrt(UnsignedBinaryFraction* output) const;
 
  private:
   friend SignedType;
+  friend UnsignedBinaryFraction<kNumWords + 1, kFractionalBits>;
+  friend UnsignedBinaryFraction<kNumWords + 2, kFractionalBits>;
 
   // Sets *output to lhs * rhs / pow(2, kFractionalBits), and returns
   // true iff there is no overflow.
@@ -410,9 +424,10 @@ bool UnsignedBinaryFraction<kNumWords, kFractionalBits>::IntegerPower(
   }
 }
 
+// Algorithm:
+// https://en.wikipedia.org/wiki/Methods_of_computing_square_roots#A_two-variable_iterative_method
 template <int kNumWords, int kFractionalBits>
 bool UnsignedBinaryFraction<kNumWords, kFractionalBits>::Sqrt(
-    const UnsignedBinaryFraction& unit_of_last_precision,
     UnsignedBinaryFraction* output) const {
   if (value_.is_zero()) {
     *output = UnsignedBinaryFraction();
@@ -423,51 +438,170 @@ bool UnsignedBinaryFraction<kNumWords, kFractionalBits>::Sqrt(
     return true;
   }
 
-  // For the algorithm to converge faster, here we calculate a initial estimate.
-  // With a = r * 2^2t where 0.5 <= r < 2, the initial estimate of SQRT(a) is
-  // (0.485 + 0.485 * r) * 2^t
-  FixedUint<64, kNumWords> r = value_;
-  uint msb_index = r.FindMSBSetNonZero();
+  // The algorithm requires the input must be in (0, 3) and is optimal when the
+  // input is around 1. Decompose the input as s * 2^2t where 0.5 <= s < 2.
+  FixedUint<64, kNumWords> s(value_);
+  uint msb_index = s.FindMSBSetNonZero();
   int p = msb_index - kFractionalBits;
   p = p % 2 == 0 ? p : p + 1;
   int t = p / 2;
   if (p < 0) {
-    r <<= (-p);
+    s <<= (-p);
   } else if (p > 0) {
-    ShiftRightAndRound(p, &r);
-  }
-  // 0.485 is approximately equals to 31*2^(-6).
-  UnsignedBinaryFraction factor(31, -6);
-  FixedUint<64, kNumWords> estimated_sqrt;
-  if (!ABSL_PREDICT_TRUE(
-          this->MulDivByScale(factor.value_, r, &estimated_sqrt))) {
-    return false;
-  }
-  estimated_sqrt += factor.value_;
-  if (t < 0) {
-    ShiftRightAndRound(-t, &estimated_sqrt);
-  } else if (t > 0) {
-    estimated_sqrt <<= t;
+    ShiftRightAndRound(p, &s);
   }
 
-  // The approximate value of SQRT is calculated by Babylonian's method:
-  // y(n+1) = ( yn + x/yn ) / 2
-  output->value_ = r;
-  constexpr int n = kNumWords + (kFractionalBits + 63) / 64;
+  // Compute a = SQRT(s).
+  //   a(0) = s
+  //   c(0) = s - 1
+  //   a(n+1) = a(n) * (1 - c(n) / 2)
+  //   c(n+1) = c(n) ^ 2 * (c(n) - 3) / 4.
+  // To save some computations and make the values mostly non-negative,
+  // instead of computing c(n), we compute d(n) = -c(n) / 2:
+  //   d(0) = (1 - s) / 2
+  //   a(n+1) = a(n) * (1 + d(n))
+  //   d(n+1) = d(n) ^ 2 * (d(n) + 1.5).
+
+  // Since a(0) = s < 2, its integer part takes at most 1 bit. It can be proven
+  // that s * (1 + c(n)) = a(n) ^ 2, and for n >= 1, c(n) < 0, which means
+  // a(n) < sqrt(s) for n >= 1. Therefore, the integer part of a(n) takes at
+  // most 1 bit for all n. Giving another bit just for safety, we can reduce
+  // the total number of words from 3 to 2 for NumericValue and from 6 to 4 for
+  // BigNumericValue.
+  constexpr int kReducedWords = (kFractionalBits + 2 + 63) / 64;
+  // a(n) is always positive. d(n) is positive except for n = 0. Use
+  // unsigned type, and handle d(0) specially.
+  using T = UnsignedBinaryFraction<kReducedWords, kFractionalBits>;
+  T a = T::FromScaledValue(FixedUint<64, kReducedWords>(s));
+  const T kOne(1);
+  const T kHalf(1, -1);
+  FixedUint<64, kReducedWords> half_s(s);
+  ShiftRightAndRound(1, &half_s);
+  T tmp = kHalf;
+  // If d is negative, it will have the bits in 2's complement. When computing
+  // tmp = d + 1, it will get the correct result because d >= -0.5.
+  bool d_negative = tmp.value_.SubtractOverflow(half_s);  // tmp = d = (1 - s)/2
+  // d^2 cannot be done in 2's complement due to the use ExtendAndMultiply.
+  T abs_d;
+  if (d_negative) {
+    abs_d.value_ -= tmp.value_;
+  } else {
+    abs_d = tmp;
+  }
+  do {
+    // tmp = d + 1. If d < 0, it must be >= -0.5, and tmp will be > 0.
+    tmp.value_ += kOne.value_;
+    a *= tmp;                    // a *= (1 + d)
+    tmp.value_ += kHalf.value_;  // tmp = d + 1.5
+    // Compute Next value of d = tmp = (d + 1.5) * d ^ 2.
+    // Since d will be close to zero, (d + 1.5) * d ^ 2 is more
+    // precise than d ^ 2 * (d + 1.5).
+    tmp *= abs_d;
+    tmp *= abs_d;
+    abs_d = tmp;  // d is always non-negative now, so abs_d = d.
+  } while (!abs_d.value_.is_zero());
+
+  // Final output = SQRT(s) * 2^t.
+  output->value_ = FixedUint<64, kNumWords>(a.value_);
+  if (t < 0) {
+    ShiftRightAndRound(-t, &output->value_);
+  } else if (t > 0) {
+    output->value_ <<= t;
+  }
+  return true;
+}
+
+template <int kNumWords, int kFractionalBits>
+bool UnsignedBinaryFraction<kNumWords, kFractionalBits>::ApproximateCbrt(
+    UnsignedBinaryFraction* output) const {
+  // If value_ = r * 2^(3t) where r is in [0.25, 2) and t is an integer,
+  // then (0.371 r + 0.58) * 2^t is a good estimate of CBRT(value_).
+
+  FixedUint<64, kNumWords> r = value_;
+  uint msb_index = r.FindMSBSetNonZero();
+  int p = msb_index - kFractionalBits;
+  int t = p > 0 ? (p + 2) / 3 : p / 3;  // so r in [0.25, 2)
+  if (p < 0) {
+    r <<= (-3 * t);
+  } else if (p > 0) {
+    ShiftRightAndRound(3 * t, &r);
+  }
+
+  static UnsignedBinaryFraction linear_factor(95, -8);  // approximately 0.371
+  static UnsignedBinaryFraction constant_factor(148, -8);  // approximately 0.58
+  FixedUint<64, kNumWords>& estimated_cbrt = output->value_;
+  if (!ABSL_PREDICT_TRUE(
+          this->MulDivByScale(linear_factor.value_, r, &estimated_cbrt))) {
+    return false;
+  }
+  estimated_cbrt += constant_factor.value_;
+  if (t < 0) {
+    ShiftRightAndRound(-t, &estimated_cbrt);
+  } else if (t > 0) {
+    estimated_cbrt <<= t;
+  }
+  return true;
+}
+
+template <int kNumWords, int kFractionalBits>
+bool UnsignedBinaryFraction<kNumWords, kFractionalBits>::Cbrt(
+    const UnsignedBinaryFraction& unit_of_last_precision,
+    UnsignedBinaryFraction* output) const {
+  // 0. Handle simple cases
+  if (value_.is_zero()) {
+    *output = UnsignedBinaryFraction();
+    return true;
+  }
+  if (value_ == UnsignedBinaryFraction(1).value_) {
+    *output = UnsignedBinaryFraction(1);
+    return true;
+  }
+
+  // Newton's method: start with a good estimate y_1 and iterate
+  // y_{n+1} = 2/3 * y_n + 1/3 * (a / y_n^2)
+
+  // 1. Compute a good estimate
+  if (ABSL_PREDICT_FALSE(!this->ApproximateCbrt(output))) {
+    return false;
+  }
+
+  // 2. Compute the scaled value we will be taking the cube root of
+  //
+  // In order for (output.value_ * 2^-F)^3 = (value_ * 2^-F),
+  //   we need output.value_^3 == value_ * 2^(2F) =: scaled_value
+  constexpr int fraction_words = (2 * kFractionalBits + 63) / 64;
+  // We want to be able to store the original value, plus twice the number of
+  // fractional bits, since we are shifting up by 2 * kFractionalBits
+  //
+  // In particular, we can always store the scaled_value with n bits, and all
+  // intermediate values are strictly smaller than scaled_value
+  constexpr int n = kNumWords + fraction_words;
   FixedUint<64, n> scaled_value(value_);
-  scaled_value <<= kFractionalBits;
+  scaled_value <<= (2 * kFractionalBits);
+
   FixedUint<64, kNumWords>& y = output->value_;
   FixedInt<64, kNumWords> delta;
   do {
+    // Remember the old value of y
     delta = FixedInt<64, kNumWords>(y);
+
+    // The initial guess for y is within 3 (binary) orders of magnitude of the
+    // true cube root, which uses around n/3 bits. We expect that all
+    // intermediate values, like y^2 take around 2n/3 < n bits, so this
+    // shouldn't overflow
     FixedUint<64, n> ratio(scaled_value);
-    // When x is large and t is large, with initial value close to (0.485 +
-    // 0.485 * r) * 2^t, yn is expected to be larger than 2^(t-2) and less than
-    // x/2, so that x/yn is less than x/(2^(t-2)). Thus yn + x/yn is always less
-    // than x.
-    ratio.DivAndRoundAwayFromZero(FixedUint<64, n>(y));
+    FixedUint<64, n> y_squared(y);
+    y_squared *= FixedUint<64, n>(y);
+    ratio.DivAndRoundAwayFromZero(y_squared);
+    //  -> ratio == scaled_value / y^2
+
+    y <<= 1;
     y += FixedUint<64, kNumWords>(ratio);
-    ShiftRightAndRound(1, &y);
+    y.DivAndRoundAwayFromZero(std::integral_constant<uint32_t, 3>());
+    //   -> y == 1/3 ( 2y + ratio )
+
+    // Compare the new value of y to the old one to compute delta: we exit when
+    //   this is small enough
     delta -= FixedInt<64, kNumWords>(y);
   } while (delta.abs() >= unit_of_last_precision.value_);
   return true;
@@ -864,6 +998,31 @@ absl::StatusOr<T> PowerInternal(const T& base, const T& exp) {
 
 }  // namespace
 
+// Defined only for testing UnsignedBinaryFraction::ApproximateCbrt.
+// The input should always be positive, matching the production code path.
+absl::StatusOr<NumericValue> TestOnlyNumericApproximateCbrt(NumericValue in) {
+  UnsignedBinaryFraction<3, 94> value = SignedBinaryFraction<3, 94>(in).Abs();
+  UnsignedBinaryFraction<3, 94> cbrt;
+  NumericValue result;
+  ZETASQL_RET_CHECK(value.ApproximateCbrt(&cbrt) &&
+            cbrt.To(/*is_negative=*/false, &result))
+      << "ApproximateCbrt should never overflow";
+  return result;
+}
+
+// Defined only for testing UnsignedBinaryFraction::ApproximateCbrt.
+// The input should always be positive, matching the production code path.
+absl::StatusOr<BigNumericValue> TestOnlyBigNumericApproximateCbrt(
+    BigNumericValue in) {
+  UnsignedBinaryFraction<6, 254> value = SignedBinaryFraction<6, 254>(in).Abs();
+  UnsignedBinaryFraction<6, 254> cbrt;
+  BigNumericValue result;
+  ZETASQL_RET_CHECK(value.ApproximateCbrt(&cbrt) &&
+            cbrt.To(/*is_negative=*/false, &result))
+      << "ApproximateCbrt should never overflow";
+  return result;
+}
+
 absl::StatusOr<NumericValue> NumericValue::FromStringStrict(
     absl::string_view str) {
   return FromStringInternal</*is_strict=*/true>(str);
@@ -1029,6 +1188,39 @@ absl::StatusOr<NumericValue> NumericValue::Multiply(NumericValue rh) const {
                          << rh.ToString();
 }
 
+absl::StatusOr<NumericValue> NumericValue::MultiplyAndDivideByPowerOfTwo(
+    const FixedInt<64, 2>& multiplier, uint scale_bits) const {
+  const __int128 value = as_packed_int();
+  bool negative = value < 0;
+  bool mult_negative = multiplier.is_negative();
+  bool result_is_negative = negative != mult_negative;
+  FixedUint<64, 4> product = ExtendAndMultiply(
+      FixedUint<64, 2>(int128_abs(value)), FixedUint<64, 2>(multiplier.abs()));
+
+  if (scale_bits > 0) {
+    ShiftRightAndRound(scale_bits, &product);
+  }
+
+  std::array<uint64_t, 4> result_words = product.number();
+  if (ABSL_PREDICT_FALSE(result_words[2] != 0 || result_words[3] != 0)) {
+    return MakeEvalError() << "numeric overflow: " << ToString() << " * "
+                           << multiplier.ToString() << " / pow(2, "
+                           << scale_bits << ")";
+  }
+
+  __int128 result_128 =
+      static_cast<__int128>(result_words[1]) << 64 | result_words[0];
+  if (result_is_negative) result_128 *= -1;
+
+  absl::StatusOr<NumericValue> result = NumericValue::FromPackedInt(result_128);
+  if (ABSL_PREDICT_TRUE(result.ok())) {
+    return result;
+  }
+  return MakeEvalError() << "numeric overflow: " << ToString() << " * "
+                         << multiplier.ToString() << " / pow(2, " << scale_bits
+                         << ")";
+}
+
 NumericValue NumericValue::Abs() const {
   // The result is expected to be within the valid range.
   return NumericValue(static_cast<__int128>(int128_abs(as_packed_int())));
@@ -1143,14 +1335,8 @@ absl::StatusOr<NumericValue> NumericValue::Sqrt() const {
   UnsignedBinaryFraction<3, 94> value =
       SignedBinaryFraction<3, 94>(*this).Abs();
   UnsignedBinaryFraction<3, 94> sqrt;
-  // unit_of_last_precision is set to pow(2, -34) ~= 5.8e-11 here. In the
-  // implementation of Sqrt with Babylonian's method, computation will stop when
-  // the delta of the iteration is less than unit_of_last_precision.
-  // Thus, 5.8e-11 is set up here to provide enough precision for NumericValue
-  // and avoid unnecessary computation.
-  UnsignedBinaryFraction<3, 94> unit_of_last_precision(1, -34);
   NumericValue result;
-  if (ABSL_PREDICT_TRUE(value.Sqrt(unit_of_last_precision, &sqrt)) &&
+  if (ABSL_PREDICT_TRUE(value.Sqrt(&sqrt)) &&
       ABSL_PREDICT_TRUE(sqrt.To(false, &result))) {
     return result;
   }
@@ -1158,44 +1344,86 @@ absl::StatusOr<NumericValue> NumericValue::Sqrt() const {
          << "SQRT should never overflow: SQRT(" << ToString() << ")";
 }
 
+absl::StatusOr<NumericValue> NumericValue::Cbrt() const {
+  bool is_negative = as_packed_int() < 0;
+  UnsignedBinaryFraction<3, 94> value =
+      SignedBinaryFraction<3, 94>(*this).Abs();
+  UnsignedBinaryFraction<3, 94> cbrt;
+  UnsignedBinaryFraction<3, 94> unit_of_last_precision(1, -34);
+  NumericValue result;
+  if (ABSL_PREDICT_TRUE(value.Cbrt(unit_of_last_precision, &cbrt)) &&
+      ABSL_PREDICT_TRUE(cbrt.To(is_negative, &result))) {
+    return result;
+  }
+  return zetasql_base::InternalErrorBuilder()
+         << "CBRT should never overflow: CBRT(" << ToString() << ")";
+}
+
 namespace {
 
-template <uint32_t divisor, bool round_away_from_zero>
+template <uint32_t divisor, RoundingMode rounding_mode>
 inline unsigned __int128 RoundOrTruncConst32(unsigned __int128 dividend) {
-  if (round_away_from_zero) {
-    dividend += divisor / 2;
-  }
   uint32_t remainder;
-  // This is much faster than "dividend % divisor".
+  zetasql::FixedUint<64, 2> quotient;
   FixedUint<64, 2>(dividend).DivMod(std::integral_constant<uint32_t, divisor>(),
-                                    nullptr, &remainder);
+                                    &quotient, &remainder);
+  if constexpr (rounding_mode == RoundingMode::kRoundHalfEven) {
+    // If bankers rounding (round half even) is enabled, first step is to see
+    // if we are halfway to the next value. We do that by seeing if the
+    // remainder is exactly equal to the divisor / 2.
+    // Example: divisor is 1000. remainder is 500. that would mean we were
+    // exactly halfway between 0 and 1000.
+    if ((divisor % 2 == 0) && (divisor >> 1) == remainder) {
+      // Next we check whether the quotient is odd or even, since we will be
+      // rounding to the nearest even.
+      // If the quotient is odd then we will round up (to the nearest even).
+      // If the quotient is even then we will round down (to the nearest even)
+      // We find out if it's odd or even by bitwise & the least significant
+      // piece of the quotient with 1
+      if (quotient.number()[0] & 1) {
+        // If the last bit is 1, the quotient is odd and we should round up
+        return dividend + remainder;
+      } else {
+        // else if the last bit is 0, the quotient is even and we should round
+        // down
+        return dividend - remainder;
+      }
+    }
+  }
+
+  // If we're above half, and either rounding method is used, round up
+  if ((remainder >= (divisor >> 1)) &&
+      (rounding_mode != RoundingMode::kTrunc)) {
+    return dividend + (divisor - remainder);
+  }
+
   return dividend - remainder;
 }
 
 // Rounds or truncates this NUMERIC value to the given number of decimal
 // digits after the decimal point (or before the decimal point if 'digits' is
 // negative), and returns the packed integer. If 'round_away_from_zero' is
-// true, then rounds the result away from zero, and the result might be out of
-// the range of valid NumericValue. If 'round_away_from_zero' is false, then
+// used, then rounds the result away from zero, and the result might be out of
+// the range of valid NumericValue. If RoundingMode::kTrunc, then
 // the extra digits are discarded and the result is always in the valid range.
-template <bool round_away_from_zero>
+template <RoundingMode rounding_mode>
 unsigned __int128 RoundOrTrunc(unsigned __int128 value, int64_t digits) {
   switch (digits) {
     // Fast paths for some common values of the second argument.
     case 0:
-      return RoundOrTruncConst32<internal::k1e9, round_away_from_zero>(value);
+      return RoundOrTruncConst32<internal::k1e9, rounding_mode>(value);
     case 1:
-      return RoundOrTruncConst32<100000000, round_away_from_zero>(value);
+      return RoundOrTruncConst32<100000000, rounding_mode>(value);
     case 2:
-      return RoundOrTruncConst32<10000000, round_away_from_zero>(value);
+      return RoundOrTruncConst32<10000000, rounding_mode>(value);
     case 3:
-      return RoundOrTruncConst32<1000000, round_away_from_zero>(value);
+      return RoundOrTruncConst32<1000000, rounding_mode>(value);
     case 4:  // Format("%e", x) for ABS(x) in [100.0, 1000.0)
-      return RoundOrTruncConst32<100000, round_away_from_zero>(value);
+      return RoundOrTruncConst32<100000, rounding_mode>(value);
     case 5:  // Format("%e", x) for ABS(x) in [10.0, 100.0)
-      return RoundOrTruncConst32<10000, round_away_from_zero>(value);
+      return RoundOrTruncConst32<10000, rounding_mode>(value);
     case 6:  // Format("%f", *) and Format("%e", x) for ABS(x) in [1.0, 10.0)
-      return RoundOrTruncConst32<1000, round_away_from_zero>(value);
+      return RoundOrTruncConst32<1000, rounding_mode>(value);
     default: {
       if (digits >= NumericValue::kMaxFractionalDigits) {
         // Rounding beyond the max number of supported fractional digits has no
@@ -1212,9 +1440,27 @@ unsigned __int128 RoundOrTrunc(unsigned __int128 value, int64_t digits) {
           NumericValue::kMaxFractionalDigits + NumericValue::kMaxIntegerDigits;
       static constexpr std::array<__int128, kMaxDigits> kTruncFactors =
           PowersDesc<__int128, 10, 10, kMaxDigits>();
-      __int128 trunc_factor =
+      unsigned __int128 trunc_factor =
           kTruncFactors[digits + NumericValue::kMaxIntegerDigits];
-      if (round_away_from_zero) {
+      // First check if round to even is enabled and we're mid way to the next
+      // value. Even if rounding to even is enabled, if we aren't half way
+      // to the next value then continue to the round_away_from_zero default.
+      if constexpr (rounding_mode == RoundingMode::kRoundHalfEven) {
+        FixedUint<64, 2> quotient;
+        FixedUint<64, 2> remainder;
+        FixedUint<64, 2>(value).DivMod(FixedUint<64, 2>(trunc_factor),
+                                       &quotient, &remainder);
+        if (remainder == FixedUint<64, 2>(trunc_factor >> 1)) {
+          if (quotient.number()[0] & 1) {
+            // previous digit is odd, so round up
+            return value + static_cast<unsigned __int128>(remainder);
+          } else {
+            // previous digit is even, so round down
+            return value - static_cast<unsigned __int128>(remainder);
+          }
+        }
+      }
+      if constexpr (rounding_mode != RoundingMode::kTrunc) {
         // The max result is < 1.5e38 < pow(2, 127); no need to check overflow.
         value += (trunc_factor >> 1);
       }
@@ -1224,21 +1470,40 @@ unsigned __int128 RoundOrTrunc(unsigned __int128 value, int64_t digits) {
   }
 }
 
-inline void RoundInternal(FixedUint<64, 2>* input, int64_t digits) {
-  *input = FixedUint<64, 2>(
-      RoundOrTrunc<true>(static_cast<unsigned __int128>(*input), digits));
+inline void RoundInternal(
+    FixedUint<64, 2>* input, int64_t digits,
+    RoundingMode rounding_mode = RoundingMode::kRoundHalfAwayFromZero) {
+  if (rounding_mode == RoundingMode::kRoundHalfEven) {
+    *input = FixedUint<64, 2>(RoundOrTrunc<RoundingMode::kRoundHalfEven>(
+        static_cast<unsigned __int128>(*input), digits));
+  } else {
+    *input =
+        FixedUint<64, 2>(RoundOrTrunc<RoundingMode::kRoundHalfAwayFromZero>(
+            static_cast<unsigned __int128>(*input), digits));
+  }
 }
 }  // namespace
 
-absl::StatusOr<NumericValue> NumericValue::Round(int64_t digits) const {
+absl::StatusOr<NumericValue> NumericValue::Round(int64_t digits,
+                                                 bool round_half_even) const {
   __int128 value = as_packed_int();
   if (value >= 0) {
-    value = RoundOrTrunc</*round_away_from_zero*/ true>(value, digits);
+    if (round_half_even) {
+      value = RoundOrTrunc<RoundingMode::kRoundHalfEven>(value, digits);
+    } else {
+      value = RoundOrTrunc<RoundingMode::kRoundHalfAwayFromZero>(value, digits);
+    }
     if (ABSL_PREDICT_TRUE(value <= internal::kNumericMax)) {
       return NumericValue(value);
     }
   } else {
-    value = RoundOrTrunc</*round_away_from_zero*/ true>(-value, digits);
+    if (round_half_even) {
+      value = RoundOrTrunc<RoundingMode::kRoundHalfEven>(-value, digits);
+    } else {
+      value =
+          RoundOrTrunc<RoundingMode::kRoundHalfAwayFromZero>(-value, digits);
+    }
+
     if (ABSL_PREDICT_TRUE(value <= internal::kNumericMax)) {
       return NumericValue(-value);
     }
@@ -1252,10 +1517,10 @@ NumericValue NumericValue::Trunc(int64_t digits) const {
   if (value >= 0) {
     // TRUNC never overflows.
     return NumericValue(static_cast<__int128>(
-        RoundOrTrunc</*round_away_from_zero*/ false>(value, digits)));
+        RoundOrTrunc<RoundingMode::kTrunc>(value, digits)));
   }
   return NumericValue(static_cast<__int128>(
-      -RoundOrTrunc</*round_away_from_zero*/ false>(-value, digits)));
+      -RoundOrTrunc<RoundingMode::kTrunc>(-value, digits)));
 }
 
 absl::StatusOr<NumericValue> NumericValue::Ceiling() const {
@@ -1377,16 +1642,61 @@ void AppendExponent(int exponent, char e, std::string* output) {
   p[3] = exponent % 10 + '0';
 }
 
+// Helper function called by two paths that decides whether to round a
+// "round half even" value up, or to leave it as is.
+
+// @should_round_half_up is a computed boolean on whether to round up or down
+// @original_value is the original value that is instructed to be rounded
+// @input is the current value, after being divided by pow(5,n) in the caller.
+// @pow is the "digit" we are rounding the value to.
+
+// This function may modify the *value argument.
+ABSL_ATTRIBUTE_ALWAYS_INLINE
+inline void MaybeRoundFinalBigNumericToEven(
+    bool should_round_half_up, const FixedUint<64, 4>& original_value,
+    FixedUint<64, 4>* input, uint64_t pow) {
+  FixedUint<64, 4> difference = original_value;
+  difference -= *input;
+  difference <<= 1;
+  FixedUint<64, 4> power_of_ten =
+      FixedUint<64, 4>::PowerOf10(static_cast<uint>(pow));
+  bool exactly_half_way = difference == power_of_ten;
+  // If it's exactly halfway, and we were determined to need to round up
+  // then add the power of ten.
+  // Or, if the difference is actually MORE than half way, we should
+  // round up like normal.
+  // If not, continue to returning the
+  // truncated (rounded down) value.
+  if ((exactly_half_way && should_round_half_up) ||
+      (difference > power_of_ten)) {
+    *input += power_of_ten;
+  }
+}
+
 // Rounds to the Pow-th digit using 3 divisions of Factors,
 // whose product must equal 5^Pow, where Pow < 64.
 // If round_away_from_zero is false, the value is always rounded down.
 template <int Pow, int Factor1, int Factor2, int Factor3,
-          bool round_away_from_zero>
-inline void RoundInternalFixedFactors(FixedUint<64, 4>* value) {
+          RoundingMode rounding_mode>
+    inline void
+    RoundInternalFixedFactors(FixedUint<64, 4>* value) {
+  FixedUint<64, 4> original_input = *value;
   *value /= std::integral_constant<uint32_t, Factor1>();
   *value /= std::integral_constant<uint32_t, Factor2>();
   *value /= std::integral_constant<uint32_t, Factor3>();
-  if (round_away_from_zero && value->number()[0] & (1ULL << (Pow - 1))) {
+
+  // After dividing by the pow(5,n), determine whether the previous digit is
+  // even or odd.
+  bool should_round_half_up = false;
+  if constexpr (rounding_mode == RoundingMode::kRoundHalfEven) {
+    constexpr uint64_t is_odd_mask = (uint64_t{1} << Pow);
+    // if we & the is_odd_mask and it's a 1, then the newest least
+    // significant digit will be odd and we need to round up
+    should_round_half_up = value->number()[0] & is_odd_mask;
+  }
+
+  if (rounding_mode == RoundingMode::kRoundHalfAwayFromZero &&
+      value->number()[0] & (1ULL << (Pow - 1))) {
     // Since the max value of value is 0x80... this
     // addition cannot overflow.
     *value += (uint64_t{1} << Pow);
@@ -1403,6 +1713,13 @@ inline void RoundInternalFixedFactors(FixedUint<64, 4>* value) {
   // never overflow, though the highest bit in the result might be 1.
   *value *= static_cast<uint64_t>(Factor1) * Factor2;
   *value *= Factor3;
+
+  // If round to even is enabled, we need to see if the difference between
+  // our original value and the truncated value is exactly halfway.
+  if constexpr (rounding_mode == RoundingMode::kRoundHalfEven) {
+    MaybeRoundFinalBigNumericToEven(should_round_half_up, original_input, value,
+                                    Pow);
+  }
 }
 
 // Rounds or truncates this BIGNUMERIC value to the given number of decimal
@@ -1412,44 +1729,37 @@ inline void RoundInternalFixedFactors(FixedUint<64, 4>* value) {
 // and might be out of the range of valid BigNumericValues.
 // If 'round_away_from_zero' is false, then the extra digits are discarded
 // and the result is always in the valid range.
-template <bool round_away_from_zero>
+template <RoundingMode rounding_mode>
 bool RoundOrTrunc(FixedUint<64, 4>* abs_value, int64_t digits) {
   switch (digits) {
     // Fast paths for some common values of the second argument.
     case 0:
       RoundInternalFixedFactors<38, internal::k5to13, internal::k5to13,
-                                internal::k5to12, round_away_from_zero>(
-          abs_value);
+                                internal::k5to12, rounding_mode>(abs_value);
       break;
     case 1:
       RoundInternalFixedFactors<37, internal::k5to13, internal::k5to12,
-                                internal::k5to12, round_away_from_zero>(
-          abs_value);
+                                internal::k5to12, rounding_mode>(abs_value);
       break;
     case 2:
       RoundInternalFixedFactors<36, internal::k5to12, internal::k5to12,
-                                internal::k5to12, round_away_from_zero>(
-          abs_value);
+                                internal::k5to12, rounding_mode>(abs_value);
       break;
     case 3:
       RoundInternalFixedFactors<35, internal::k5to12, internal::k5to12,
-                                internal::k5to11, round_away_from_zero>(
-          abs_value);
+                                internal::k5to11, rounding_mode>(abs_value);
       break;
     case 4:
       RoundInternalFixedFactors<34, internal::k5to12, internal::k5to11,
-                                internal::k5to11, round_away_from_zero>(
-          abs_value);
+                                internal::k5to11, rounding_mode>(abs_value);
       break;
     case 5:
       RoundInternalFixedFactors<33, internal::k5to11, internal::k5to11,
-                                internal::k5to11, round_away_from_zero>(
-          abs_value);
+                                internal::k5to11, rounding_mode>(abs_value);
       break;
     case 6:
       RoundInternalFixedFactors<32, internal::k5to11, internal::k5to11,
-                                internal::k5to10, round_away_from_zero>(
-          abs_value);
+                                internal::k5to10, rounding_mode>(abs_value);
       break;
     default: {
       if (ABSL_PREDICT_FALSE(digits >= BigNumericValue::kMaxFractionalDigits)) {
@@ -1466,6 +1776,14 @@ bool RoundOrTrunc(FixedUint<64, 4>* abs_value, int64_t digits) {
         return true;
       }
 
+      // Overall logic is to perform value /= pow(10, n); value *= pow(10, n);
+      // This is broken up into performing value /= pow(5, n); then
+      // performing value /= pow(2, n); value *= pow(2, n); with some rounding
+      // away from zero logic thrown in the middle, then multiply by
+      // pow(5,n); again. This effectively truncates the values after the digit
+      // to be rounded to, and in the process, decides whether to increment to
+      // next value (round up) or not.
+
       static constexpr std::array<unsigned __int128, 39> kPowers =
           PowersAsc<unsigned __int128, 5, 5, 39>();
       // Power of 10 to divide the abs_value by, this should correspond to
@@ -1481,16 +1799,44 @@ bool RoundOrTrunc(FixedUint<64, 4>* abs_value, int64_t digits) {
         pow = 38 - digits;
       }
 
+      FixedUint<64, 4> original_input = *abs_value;
       *abs_value /= FixedUint<64, 4>(kPowers[pow - 1]);
-      if (round_away_from_zero &&
+      bool should_round_half_up = false;
+
+      if constexpr (rounding_mode == RoundingMode::kRoundHalfEven) {
+        const uint64_t is_odd_mask = (uint64_t{1} << pow);
+        // if we & the is_odd_mask and it's a 1, then the newest least
+        // significant digit will be odd and we need to round up
+        if (abs_value->number()[0] & is_odd_mask) {
+          should_round_half_up = true;
+        }
+      }
+
+      // Determine if the value is half way OR MORE to the next value given the
+      // pow we are rounding to, and then double check we should be rounding
+      // and not truncating. If rounding mode is round_half_even, don't do this.
+      if (rounding_mode == RoundingMode::kRoundHalfAwayFromZero &&
           abs_value->number()[0] & (1ULL << (pow - 1))) {
         *abs_value += (uint64_t{1} << pow);
       }
+
       const uint64_t mask = ~((uint64_t{1} << pow) - 1);
       std::array<uint64_t, 4> array = abs_value->number();
+
+      // Chop off the bits after the "digits" we are rounding to
+      // specified given the mask.
       array[0] &= mask;
       *abs_value = FixedUint<64, 4>(array);
+      // Multiply back by the power of 5 again.
       *abs_value *= FixedUint<64, 4>(kPowers[pow - 1]);
+
+      // If rounding mode is round_half_even, check if the difference between
+      // our original value and the truncated value is exactly halfway. If it
+      // is, we'll round up depending on if the previous digit is odd or even.
+      if constexpr (rounding_mode == RoundingMode::kRoundHalfEven) {
+        MaybeRoundFinalBigNumericToEven(should_round_half_up, original_input,
+                                        abs_value, pow);
+      }
 
       if (digits < 0) {
         *abs_value *= internal::k1e19;
@@ -1498,11 +1844,16 @@ bool RoundOrTrunc(FixedUint<64, 4>* abs_value, int64_t digits) {
       }
     }
   }
-  return !round_away_from_zero || !FixedInt<64, 4>(*abs_value).is_negative();
+  return (rounding_mode == RoundingMode::kTrunc) ||
+         !FixedInt<64, 4>(*abs_value).is_negative();
 }
 
-inline bool RoundInternal(FixedUint<64, 4>* input, int64_t digits) {
-  return RoundOrTrunc<true>(input, digits);
+inline bool RoundInternal(FixedUint<64, 4>* input, int64_t digits,
+                          bool round_half_even = false) {
+  if (round_half_even) {
+    return RoundOrTrunc<RoundingMode::kRoundHalfEven>(input, digits);
+  }
+  return RoundOrTrunc<RoundingMode::kRoundHalfAwayFromZero>(input, digits);
 }
 
 // Helper function to add grouping chars to the integer portion of the numeric
@@ -1884,17 +2235,17 @@ void NumericValue::VarianceAggregator::Subtract(NumericValue value) {
   sum_square_ -= FixedInt<64, 5>(ExtendAndMultiply(v, v));
 }
 
-absl::optional<double> NumericValue::VarianceAggregator::GetVariance(
+std::optional<double> NumericValue::VarianceAggregator::GetVariance(
     uint64_t count, bool is_sampling) const {
   uint64_t count_offset = is_sampling;
   if (count > count_offset) {
     return Covariance(sum_, sum_, sum_square_, NumericScalingFactorSquared(),
                       count, count_offset);
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
-absl::optional<double> NumericValue::VarianceAggregator::GetStdDev(
+std::optional<double> NumericValue::VarianceAggregator::GetStdDev(
     uint64_t count, bool is_sampling) const {
   uint64_t count_offset = is_sampling;
   if (count > count_offset) {
@@ -1902,7 +2253,7 @@ absl::optional<double> NumericValue::VarianceAggregator::GetStdDev(
                                 NumericScalingFactorSquared(), count,
                                 count_offset));
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 void NumericValue::VarianceAggregator::MergeWith(
@@ -1926,8 +2277,7 @@ NumericValue::VarianceAggregator::DeserializeFromProtoBytes(
   return MakeEvalError() << "Invalid NumericValue::VarianceAggregator encoding";
 }
 
-void NumericValue::CovarianceAggregator::Add(NumericValue x,
-                                             NumericValue y) {
+void NumericValue::CovarianceAggregator::Add(NumericValue x, NumericValue y) {
   sum_x_ += FixedInt<64, 3>(x.as_packed_int());
   sum_y_ += FixedInt<64, 3>(y.as_packed_int());
   FixedInt<64, 2> x_num(x.as_packed_int());
@@ -1944,14 +2294,14 @@ void NumericValue::CovarianceAggregator::Subtract(NumericValue x,
   sum_product_ -= FixedInt<64, 5>(ExtendAndMultiply(x_num, y_num));
 }
 
-absl::optional<double> NumericValue::CovarianceAggregator::GetCovariance(
+std::optional<double> NumericValue::CovarianceAggregator::GetCovariance(
     uint64_t count, bool is_sampling) const {
   uint64_t count_offset = is_sampling;
   if (count > count_offset) {
     return Covariance(sum_x_, sum_y_, sum_product_,
                       NumericScalingFactorSquared(), count, count_offset);
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 void NumericValue::CovarianceAggregator::MergeWith(
@@ -1977,8 +2327,7 @@ NumericValue::CovarianceAggregator::DeserializeFromProtoBytes(
          << "Invalid NumericValue::CovarianceAggregator encoding";
 }
 
-void NumericValue::CorrelationAggregator::Add(NumericValue x,
-                                             NumericValue y) {
+void NumericValue::CorrelationAggregator::Add(NumericValue x, NumericValue y) {
   cov_agg_.Add(x, y);
   FixedInt<64, 2> x_num(x.as_packed_int());
   FixedInt<64, 2> y_num(y.as_packed_int());
@@ -1987,7 +2336,7 @@ void NumericValue::CorrelationAggregator::Add(NumericValue x,
 }
 
 void NumericValue::CorrelationAggregator::Subtract(NumericValue x,
-                                                  NumericValue y) {
+                                                   NumericValue y) {
   cov_agg_.Subtract(x, y);
   FixedInt<64, 2> x_num(x.as_packed_int());
   FixedInt<64, 2> y_num(y.as_packed_int());
@@ -1995,7 +2344,7 @@ void NumericValue::CorrelationAggregator::Subtract(NumericValue x,
   sum_square_y_ -= FixedInt<64, 5>(ExtendAndMultiply(y_num, y_num));
 }
 
-absl::optional<double> NumericValue::CorrelationAggregator::GetCorrelation(
+std::optional<double> NumericValue::CorrelationAggregator::GetCorrelation(
     uint64_t count) const {
   if (count > 1) {
     FixedInt<64, 6> numerator = GetScaledCovarianceNumerator(
@@ -2009,7 +2358,7 @@ absl::optional<double> NumericValue::CorrelationAggregator::GetCorrelation(
     return static_cast<double>(numerator) /
            std::sqrt(static_cast<double>(denominator_square));
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 void NumericValue::CorrelationAggregator::MergeWith(
@@ -2063,6 +2412,38 @@ absl::StatusOr<BigNumericValue> BigNumericValue::Multiply(
   }
   return MakeEvalError() << "BIGNUMERIC overflow: " << ToString() << " * "
                          << rh.ToString();
+}
+
+absl::StatusOr<BigNumericValue> BigNumericValue::MultiplyAndDivideByPowerOfTwo(
+    const FixedInt<64, 4>& multiplier, uint scale_bits) const {
+  bool negative = value_.is_negative();
+  bool mult_negative = multiplier.is_negative();
+  bool result_is_negative = negative != mult_negative;
+  FixedUint<64, 8> product = ExtendAndMultiply(
+      FixedUint<64, 4>(value_.abs()), FixedUint<64, 4>(multiplier.abs()));
+  if (scale_bits > 0) {
+    ShiftRightAndRound(scale_bits, &product);
+  }
+
+  std::array<uint64_t, 8> result_words = product.number();
+  for (int i = 4; i < 8; ++i) {
+    if (ABSL_PREDICT_FALSE(result_words[i] != 0)) {
+      return MakeEvalError()
+             << "numeric overflow: " << ToString() << " * "
+             << multiplier.ToString() << " / pow(2, " << scale_bits << ")";
+    }
+  }
+
+  FixedUint<64, 4> magnitude(std::array<uint64_t, 4>{
+      result_words[0], result_words[1], result_words[2], result_words[3]});
+  FixedInt<64, 4> result;
+  if (ABSL_PREDICT_FALSE(
+          !result.SetSignAndAbs(result_is_negative, magnitude))) {
+    return MakeEvalError() << "numeric overflow: " << ToString() << " * "
+                           << multiplier.ToString() << " / pow(2, "
+                           << scale_bits << ")";
+  }
+  return BigNumericValue(result);
 }
 
 absl::StatusOr<BigNumericValue> BigNumericValue::Divide(
@@ -2205,9 +2586,10 @@ double BigNumericValue::RemoveScaleAndConvertToDouble(
   return is_negative ? -result : result;
 }
 
-absl::StatusOr<BigNumericValue> BigNumericValue::Round(int64_t digits) const {
+absl::StatusOr<BigNumericValue> BigNumericValue::Round(
+    int64_t digits, bool round_half_even) const {
   FixedUint<64, 4> abs_value = value_.abs();
-  if (ABSL_PREDICT_TRUE(RoundInternal(&abs_value, digits))) {
+  if (ABSL_PREDICT_TRUE(RoundInternal(&abs_value, digits, round_half_even))) {
     FixedInt<64, 4> result(abs_value);
     return BigNumericValue(!value_.is_negative() ? result : -result);
   }
@@ -2217,7 +2599,7 @@ absl::StatusOr<BigNumericValue> BigNumericValue::Round(int64_t digits) const {
 
 BigNumericValue BigNumericValue::Trunc(int64_t digits) const {
   FixedUint<64, 4> abs_value = value_.abs();
-  RoundOrTrunc</*round_away_from_zero*/ false>(&abs_value, digits);
+  RoundOrTrunc<RoundingMode::kTrunc>(&abs_value, digits);
   FixedInt<64, 4> result(abs_value);
   return BigNumericValue(!value_.is_negative() ? result : -result);
 }
@@ -2358,19 +2740,28 @@ absl::StatusOr<BigNumericValue> BigNumericValue::Sqrt() const {
   UnsignedBinaryFraction<6, 254> value =
       SignedBinaryFraction<6, 254>(*this).Abs();
   UnsignedBinaryFraction<6, 254> sqrt;
-  // unit_of_last_precision is set to pow(2, -144) ~= 4.5e-44 here. In the
-  // implementation of Sqrt with Babylonian's mothod, computation will stop when
-  // the delta of the iteration is less than unit_of_last_precision.
-  // Thus, 4.5e-44 is set up here to provide enough precision for
-  // BigNumericValue and avoid unnecessary computation.
-  UnsignedBinaryFraction<6, 254> unit_of_last_precision(1, -144);
   BigNumericValue result;
-  if (ABSL_PREDICT_TRUE(value.Sqrt(unit_of_last_precision, &sqrt)) &&
+  if (ABSL_PREDICT_TRUE(value.Sqrt(&sqrt)) &&
       ABSL_PREDICT_TRUE(sqrt.To(false, &result))) {
     return result;
   }
   return zetasql_base::InternalErrorBuilder()
          << "SQRT should never overflow: SQRT(" << ToString() << ")";
+}
+
+absl::StatusOr<BigNumericValue> BigNumericValue::Cbrt() const {
+  bool is_negative = value_.is_negative();
+  UnsignedBinaryFraction<6, 254> value =
+      SignedBinaryFraction<6, 254>(*this).Abs();
+  UnsignedBinaryFraction<6, 254> cbrt;
+  UnsignedBinaryFraction<6, 254> unit_of_last_precision(1, -144);
+  BigNumericValue result;
+  if (ABSL_PREDICT_TRUE(value.Cbrt(unit_of_last_precision, &cbrt)) &&
+      ABSL_PREDICT_TRUE(cbrt.To(is_negative, &result))) {
+    return result;
+  }
+  return zetasql_base::InternalErrorBuilder()
+         << "CBRT should never overflow: CBRT(" << ToString() << ")";
 }
 
 // Parses a textual representation of a BIGNUMERIC value. Returns an error if
@@ -2552,17 +2943,17 @@ void BigNumericValue::VarianceAggregator::Subtract(BigNumericValue value) {
   sum_square_ -= FixedInt<64, 9>(ExtendAndMultiply(v, v));
 }
 
-absl::optional<double> BigNumericValue::VarianceAggregator::GetVariance(
+std::optional<double> BigNumericValue::VarianceAggregator::GetVariance(
     uint64_t count, bool is_sampling) const {
   uint64_t count_offset = is_sampling;
   if (count > count_offset) {
     return Covariance(sum_, sum_, sum_square_, BigNumericScalingFactorSquared(),
                       count, count_offset);
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
-absl::optional<double> BigNumericValue::VarianceAggregator::GetStdDev(
+std::optional<double> BigNumericValue::VarianceAggregator::GetStdDev(
     uint64_t count, bool is_sampling) const {
   uint64_t count_offset = is_sampling;
   if (count > count_offset) {
@@ -2570,7 +2961,7 @@ absl::optional<double> BigNumericValue::VarianceAggregator::GetStdDev(
                                 BigNumericScalingFactorSquared(), count,
                                 count_offset));
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 void BigNumericValue::VarianceAggregator::MergeWith(
@@ -2609,14 +3000,14 @@ void BigNumericValue::CovarianceAggregator::Subtract(BigNumericValue x,
   sum_product_ -= FixedInt<64, 9>(ExtendAndMultiply(x.value_, y.value_));
 }
 
-absl::optional<double> BigNumericValue::CovarianceAggregator::GetCovariance(
+std::optional<double> BigNumericValue::CovarianceAggregator::GetCovariance(
     uint64_t count, bool is_sampling) const {
   uint64_t count_offset = is_sampling;
   if (count > count_offset) {
     return Covariance(sum_x_, sum_y_, sum_product_,
                       BigNumericScalingFactorSquared(), count, count_offset);
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 void BigNumericValue::CovarianceAggregator::MergeWith(
@@ -2656,7 +3047,7 @@ void BigNumericValue::CorrelationAggregator::Subtract(BigNumericValue x,
   sum_square_y_ -= FixedInt<64, 9>(ExtendAndMultiply(y.value_, y.value_));
 }
 
-absl::optional<double> BigNumericValue::CorrelationAggregator::GetCorrelation(
+std::optional<double> BigNumericValue::CorrelationAggregator::GetCorrelation(
     uint64_t count) const {
   if (count > 1) {
     FixedInt<64, 10> numerator = GetScaledCovarianceNumerator(
@@ -2684,7 +3075,7 @@ absl::optional<double> BigNumericValue::CorrelationAggregator::GetCorrelation(
            std::sqrt(
                static_cast<double>(FixedInt<64, 15>(denominator_square_abs)));
   }
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 void BigNumericValue::CorrelationAggregator::MergeWith(

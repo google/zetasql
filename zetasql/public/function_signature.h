@@ -233,7 +233,7 @@ class FunctionArgumentTypeOptions {
   }
 
   // Gets the ParseLocationRange of the argument name.
-  absl::optional<ParseLocationRange> argument_name_parse_location() const {
+  std::optional<ParseLocationRange> argument_name_parse_location() const {
     return argument_name_parse_location_;
   }
 
@@ -246,7 +246,7 @@ class FunctionArgumentTypeOptions {
   }
 
   // Gets the ParseLocationRange of the argument type.
-  absl::optional<ParseLocationRange> argument_type_parse_location() const {
+  std::optional<ParseLocationRange> argument_type_parse_location() const {
     return argument_type_parse_location_;
   }
 
@@ -275,13 +275,11 @@ class FunctionArgumentTypeOptions {
 
   // Gets the default value of this argument. Cannot use <default> here because
   // it is a C++ reserved word.
-  const absl::optional<Value>& get_default() const {
-    return default_;
-  }
+  const std::optional<Value>& get_default() const { return default_; }
 
   // Clears the default argument value set to this object.
   FunctionArgumentTypeOptions& clear_default() {
-    default_ = absl::nullopt;
+    default_ = std::nullopt;
     return *this;
   }
 
@@ -348,12 +346,12 @@ class FunctionArgumentTypeOptions {
   // Optional parse location range for argument name. It is populated by
   // resolver only when analyzing UDFs and TVFs. <record_parse_locations>
   // must also be set to true in the ZetaSQL analyzer options.
-  absl::optional<ParseLocationRange> argument_name_parse_location_;
+  std::optional<ParseLocationRange> argument_name_parse_location_;
 
   // Optional parse location range for argument type. It is populated by
   // resolver only when analyzing UDFs and TVFs. <record_parse_locations>
   // must also be set to true in the ZetaSQL analyzer options.
-  absl::optional<ParseLocationRange> argument_type_parse_location_;
+  std::optional<ParseLocationRange> argument_type_parse_location_;
 
   // Optional argument offset for descriptor argument types, which is only
   // populated for descriptor arguments whose columns should be resolved
@@ -362,7 +360,7 @@ class FunctionArgumentTypeOptions {
   std::optional<int> descriptor_resolution_table_offset_;
 
   // Optional value that holds the default value of the argument, if applicable.
-  absl::optional<Value> default_;
+  std::optional<Value> default_;
 
   // Defines how a function argument's collation should affect the function.
   // Can be used as a bit mask to check whether AFFECTS_OPERATION or
@@ -611,9 +609,9 @@ class FunctionArgumentType {
   bool HasDefault() const {
     return options_->get_default().has_value();
   }
-  // Returns default value provided in the argument option, or absl::nullopt if
+  // Returns default value provided in the argument option, or std::nullopt if
   // the argument does not have a default value.
-  const absl::optional<Value>& GetDefault() const {
+  const std::optional<Value>& GetDefault() const {
     return options_->get_default();
   }
 

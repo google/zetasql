@@ -328,7 +328,7 @@ SELECT INTERVAL -'2' HOUR
 [language_features=INTERVAL_TYPE]
 SELECT INTERVAL 'Long' DAY
 --
-ERROR: Invalid interval literal 'Long' [at 1:8]
+ERROR: Invalid INTERVAL value 'Long' [at 1:8]
 SELECT INTERVAL 'Long' DAY
        ^
 ==
@@ -336,7 +336,7 @@ SELECT INTERVAL 'Long' DAY
 [language_features=INTERVAL_TYPE]
 SELECT INTERVAL '1-2' DAY
 --
-ERROR: Invalid interval literal '1-2' [at 1:8]
+ERROR: Invalid INTERVAL value '1-2' [at 1:8]
 SELECT INTERVAL '1-2' DAY
        ^
 ==

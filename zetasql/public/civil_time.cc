@@ -17,6 +17,7 @@
 #include "zetasql/public/civil_time.h"
 
 #include <cstdint>
+#include <string>
 
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"

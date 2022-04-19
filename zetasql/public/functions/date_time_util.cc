@@ -4187,24 +4187,41 @@ void NarrowTimestampScaleIfPossible(absl::Time time, TimestampScale* scale) {
 absl::Status TimestampBucket(absl::Time input,
                              zetasql::IntervalValue bucket_width,
                              absl::Time origin, absl::TimeZone timezone,
-                             absl::Time* output) {
+                             TimestampScale scale, absl::Time* output) {
+  ZETASQL_RET_CHECK(scale == kMicroseconds || scale == kNanoseconds)
+      << "Only kMicroseconds and kNanoseconds are acceptable values for scale";
+  if (scale == kMicroseconds && bucket_width.get_nano_fractions() != 0) {
+    return MakeEvalError() << "TIMESTAMP_BUCKET doesn't support bucket width "
+                              "INTERVAL with nanoseconds precision";
+  }
   if (bucket_width.get_months() != 0) {
     return MakeEvalError() << "TIMESTAMP_BUCKET doesn't support bucket width "
                               "INTERVAL with non-zero MONTH part";
   }
-  if (bucket_width.get_days() > 0 && (bucket_width.get_micros() > 0 ||
-                                      bucket_width.get_nano_fractions() > 0)) {
-    return MakeEvalError() << "TIMESTAMP_BUCKET doesn't support bucket width "
-                              "INTERVAL with mixed DAY and MICROSECOND parts";
+  // Nano fractions can't be negative, so only checking days and micros here.
+  if (bucket_width.get_days() < 0 || bucket_width.get_micros() < 0) {
+    return MakeEvalError() << "TIMESTAMP_BUCKET doesn't support negative "
+                              "bucket width INTERVAL";
+  }
+  if (bucket_width.get_days() != 0) {
+    if (scale == kMicroseconds) {
+      if (bucket_width.get_micros() != 0) {
+        return MakeEvalError()
+               << "TIMESTAMP_BUCKET doesn't support bucket width "
+                  "INTERVAL with mixed DAY and MICROSECOND parts";
+      }
+    } else {
+      if (bucket_width.get_micros() != 0 ||
+          bucket_width.get_nano_fractions() != 0) {
+        return MakeEvalError()
+               << "TIMESTAMP_BUCKET doesn't support bucket width "
+                  "INTERVAL with mixed DAY and NANOSECOND parts";
+      }
+    }
   }
   if (bucket_width.get_days() == 0 && bucket_width.get_micros() == 0 &&
       bucket_width.get_nano_fractions() == 0) {
     return MakeEvalError() << "TIMESTAMP_BUCKET doesn't support zero "
-                              "bucket width INTERVAL";
-  }
-  // Nano fractions can't be negative, so only checking days and micros here.
-  if (bucket_width.get_days() < 0 || bucket_width.get_micros() < 0) {
-    return MakeEvalError() << "TIMESTAMP_BUCKET doesn't support negative "
                               "bucket width INTERVAL";
   }
 

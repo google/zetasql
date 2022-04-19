@@ -16,6 +16,8 @@
 
 #include "zetasql/reference_impl/type_parameter_constraints.h"
 
+#include <string>
+
 #include "zetasql/public/functions/string.h"
 #include "absl/strings/substitute.h"
 

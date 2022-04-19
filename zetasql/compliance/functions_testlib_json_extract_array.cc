@@ -37,8 +37,8 @@ constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 // values (can be either array of STRINGs or JSONs).
 const std::vector<FunctionTestCall> GetJsonArrayTestsCommon(
     bool sql_standard_mode, bool scalar_test_cases,
-    const std::function<Value(absl::optional<absl::string_view>)>& from_json,
-    const std::function<Value(absl::optional<std::vector<std::string>>)>&
+    const std::function<Value(std::optional<absl::string_view>)>& from_json,
+    const std::function<Value(std::optional<std::vector<std::string>>)>&
         from_array) {
   std::string function_name;
   if (sql_standard_mode) {
@@ -317,12 +317,12 @@ const std::vector<FunctionTestCall> GetStringJsonArrayTests(
   std::vector<FunctionTestCall> tests = GetJsonArrayTestsCommon(
       sql_standard_mode, scalar_test_cases,
       /*from_json=*/
-      [](absl::optional<absl::string_view> input) {
+      [](std::optional<absl::string_view> input) {
         if (input.has_value()) return String(input.value());
         return NullString();
       },
       /*from_array=*/
-      [](absl::optional<std::vector<std::string>> inputs) {
+      [](std::optional<std::vector<std::string>> inputs) {
         if (!inputs.has_value()) return Null(StringArrayType());
         return StringArray(*inputs);
       });
@@ -366,16 +366,16 @@ const std::vector<FunctionTestCall> GetStringJsonArrayTests(
 
 std::vector<FunctionTestCall> GetNativeJsonArrayTests(bool sql_standard_mode,
                                                       bool scalar_test_cases) {
-  auto from_json = [](absl::optional<absl::string_view> input) {
+  auto from_json = [](std::optional<absl::string_view> input) {
     if (!input.has_value()) return NullJson();
     return Json(JSONValue::ParseJSONString(input.value()).value());
   };
   auto from_array = scalar_test_cases ?
-      [](absl::optional<std::vector<std::string>> inputs) {
+      [](std::optional<std::vector<std::string>> inputs) {
         if (!inputs.has_value()) return Null(StringArrayType());
         return StringArray(*inputs);
       } :
-      [](absl::optional<std::vector<std::string>> inputs) {
+      [](std::optional<std::vector<std::string>> inputs) {
     if (!inputs.has_value()) return Null(JsonArrayType());
     std::vector<JSONValue> json_inputs;
     for (const std::string& input : *inputs) {

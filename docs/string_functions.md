@@ -1874,8 +1874,8 @@ NORMALIZE_AND_CASEFOLD(value[, normalization_mode])
 
 **Description**
 
-Takes a string value and returns it as a normalized string with
-normalization.
+Takes a string value and returns it as a normalized string. If you do not
+provide a normalization mode, `NFC` is used.
 
 [Normalization][string-link-to-normalization-wikipedia] is used to ensure that
 two strings are equivalent. Normalization is often used in situations in which
@@ -2144,9 +2144,8 @@ one capturing group. `source_value` and `regexp` must be the same type, either
 `STRING` or `BYTES`.
 
 If `position` is specified, the search starts at this position in
-`source_value`, otherwise it starts at the beginning of `source_value`. If
-`position` is negative, the function searches backwards from the end of
-`source_value`, with -1 indicating the last character. `position` cannot be 0.
+`source_value`, otherwise it starts at the beginning of `source_value`.
+`position` cannot be 0 or negative.
 
 If `occurrence` is specified, the search returns the position of a specific
 instance of `regexp` in `source_value`, otherwise it returns the index of
@@ -2913,21 +2912,20 @@ SUBSTR(value, position[, length])
 
 **Description**
 
-Returns a substring of the supplied `STRING` or `BYTES` value. The
-`position` argument is an integer specifying the starting position of the
-substring, with position = 1 indicating the first character or byte. The
-`length` argument is the maximum number of characters for `STRING` arguments,
-or bytes for `BYTES` arguments.
+Returns a substring of the supplied `STRING` or `BYTES` value.
 
-If `position` is negative, the function counts from the end of `value`,
-with -1 indicating the last character.
+The `position` argument is an integer specifying the starting position of the
+substring, with position = 1 indicating the first character or byte. If
+`position` is negative, the function counts from the end of `value`, with -1
+indicating the last character. If `position` is zero or less than
+`-LENGTH(value)`, the substring starts from position = 1.
 
-If `position` is a position off the left end of the
-`STRING` (`position` = 0 or `position` &lt; `-LENGTH(value)`), the function
-starts from position = 1. If `length` exceeds the length of `value`, the
-function returns fewer than `length` characters.
-
-If `length` is less than 0, the function returns an error.
+The `length` argument specifies the maximum number of characters to return if
+`value` is a `STRING`, or number of bytes to return if `value` is a `BYTES`. If
+`length` is less than 0, the function produces an error. The returned substring
+may be shorter than `length`, for example, when `length` exceeds the length of
+`value`, or when the starting position of the substring plus `length` is greater
+than the length of `value`.
 
 **Return type**
 
@@ -2995,6 +2993,69 @@ FROM items;
 | le      |
 | na      |
 | ge      |
++---------+
+```
+
+```sql
+WITH items AS
+  (SELECT 'apple' as item
+  UNION ALL
+  SELECT 'banana' as item
+  UNION ALL
+  SELECT 'orange' as item)
+
+SELECT
+  SUBSTR(item, 1, 123) as example
+FROM items;
+
++---------+
+| example |
++---------+
+| apple   |
+| banana  |
+| orange  |
++---------+
+```
+
+```sql
+WITH items AS
+  (SELECT 'apple' as item
+  UNION ALL
+  SELECT 'banana' as item
+  UNION ALL
+  SELECT 'orange' as item)
+
+SELECT
+  SUBSTR(item, 123) as example
+FROM items;
+
++---------+
+| example |
++---------+
+|         |
+|         |
+|         |
++---------+
+```
+
+```sql
+WITH items AS
+  (SELECT 'apple' as item
+  UNION ALL
+  SELECT 'banana' as item
+  UNION ALL
+  SELECT 'orange' as item)
+
+SELECT
+  SUBSTR(item, 123, 5) as example
+FROM items;
+
++---------+
+| example |
++---------+
+|         |
+|         |
+|         |
 +---------+
 ```
 
@@ -3240,24 +3301,31 @@ FROM example;
 ### TRIM
 
 ```sql
-TRIM(value1[, value2])
+TRIM(value_to_trim[, set_of_characters_to_remove])
 ```
 
 **Description**
 
-Removes all leading and trailing characters that match `value2`. If
-`value2` is not specified, all leading and trailing whitespace characters (as
-defined by the Unicode standard) are removed. If the first argument is of type
-`BYTES`, the second argument is required.
+Takes a `STRING` or `BYTES` value to trim.
 
-If `value2` contains more than one character or byte, the function removes all
-leading or trailing characters or bytes contained in `value2`.
+If the value to trim is a `STRING`, removes from this value all leading and
+trailing Unicode code points in `set_of_characters_to_remove`.
+The set of code points is optional. If it is not specified, all
+whitespace characters are removed from the beginning and end of the
+value to trim.
+
+If the value to trim is `BYTES`, removes from this value all leading and
+trailing bytes in `set_of_characters_to_remove`. The set of bytes is required.
 
 **Return type**
 
-`STRING` or `BYTES`
++ `STRING` if `value_to_trim` is a `STRING` value.
++ `BYTES` if `value_to_trim` is a `BYTES` value.
 
 **Examples**
+
+In the following example, all leading and trailing whitespace characters are
+removed from `item` because `set_of_characters_to_remove` is not specified.
 
 ```sql
 WITH items AS
@@ -3280,6 +3348,9 @@ FROM items;
 +----------+
 ```
 
+In the following example, all leading and trailing `*` characters are removed
+from `item`.
+
 ```sql
 WITH items AS
   (SELECT '***apple***' as item
@@ -3300,6 +3371,9 @@ FROM items;
 | orange  |
 +---------+
 ```
+
+In the following example, all leading and trailing `x`, `y`, and `z` characters
+are removed from `item`.
 
 ```sql
 WITH items AS
@@ -3323,6 +3397,47 @@ FROM items;
 | orange  |
 | pear    |
 +---------+
+```
+
+In the following example, examine how `TRIM` interprets characters as
+Unicode code-points. If your trailing character set contains a combining
+diacritic mark over a particular letter, `TRIM` might strip the
+same diacritic mark from a different letter.
+
+```sql
+SELECT
+  TRIM('abaW̊', 'Y̊') AS a,
+  TRIM('W̊aba', 'Y̊') AS b,
+  TRIM('abaŪ̊', 'Y̊') AS c,
+  TRIM('Ū̊aba', 'Y̊') AS d;
+
++---------------------------+
+| a    | b    | c    | d    |
++---------------------------+
+| abaW | W̊aba | abaŪ | Ūaba |
++---------------------------+
+```
+
+In the following example, all leading and trailing `b'n'`, `b'a'`, `b'\xab'`
+bytes are removed from `item`.
+
+```sql
+WITH items AS
+(
+  SELECT b'apple' as item UNION ALL
+  SELECT b'banana' as item UNION ALL
+  SELECT b'\xab\xcd\xef\xaa\xbb' as item
+)
+SELECT item, TRIM(item, b'na\xab') AS examples
+FROM items;
+
++----------------------+------------------+
+| item                 | example          |
++----------------------+------------------+
+| apple                | pple             |
+| banana               | b                |
+| \xab\xcd\xef\xaa\xbb | \xcd\xef\xaa\xbb |
++----------------------+------------------+
 ```
 
 ### UNICODE

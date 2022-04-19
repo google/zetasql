@@ -52,11 +52,12 @@
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/status_macros.h"
 
-namespace zetasql {
+using ::testing::HasSubstr;
+using ::testing::MatchesRegex;
+using ::testing::ValuesIn;
+using ::zetasql_base::testing::StatusIs;
 
-using testing::HasSubstr;
-using testing::ValuesIn;
-using zetasql_base::testing::StatusIs;
+namespace zetasql {
 
 static const auto DEFAULT_ERROR_MODE =
     ResolvedFunctionCallBase::DEFAULT_ERROR_MODE;
@@ -97,7 +98,7 @@ class AlgebrizerTestBase : public ::testing::Test {
   TestAlgebrizeExpressionInternal(
       const ResolvedExpr* resolved_expr,
       const ColumnToVariableMapping::Map* column_to_variable_map = nullptr) {
-    absl::optional<ColumnToVariableMapping::Map> original_map;
+    std::optional<ColumnToVariableMapping::Map> original_map;
     if (column_to_variable_map != nullptr) {
       original_map = algebrizer_->column_to_variable_->map();
       algebrizer_->column_to_variable_->set_map(*column_to_variable_map);
@@ -655,7 +656,7 @@ TEST_F(ExpressionAlgebrizerTest, PositionalParametersInStatements) {
                                          /*is_untyped=*/false);
 
       const std::string column_name = absl::StrCat("p", param->position());
-      auto column = absl::make_unique<ResolvedColumn>(
+      auto column = std::make_unique<ResolvedColumn>(
           pos, IdString::MakeGlobal("TableName"),
           IdString::MakeGlobal(column_name), type);
 
@@ -1144,7 +1145,7 @@ TEST_P(AlgebrizerTestFilters, Filters) {
       "+-condition: $0,\n"
       "+-input:",
       parameters.filter_condition);
-  EXPECT_THAT(algebrized_filter->DebugString(), testing::HasSubstr(expected));
+  EXPECT_THAT(algebrized_filter->DebugString(), HasSubstr(expected));
 }
 
 INSTANTIATE_TEST_SUITE_P(AlgebrizerTestFiltersTest, AlgebrizerTestFilters,
@@ -1231,8 +1232,7 @@ TEST_F(StatementAlgebrizerTest, CrossApply) {
       "..remaining_condition: ConstExpr\\(true\\),\n"
       "..left_input: ArrayScanOp\\(\n(.*\n)*.*\\),\n"
       "..right_input: ArrayScanOp\\(\n(.*\n)*.*\\)\\)";
-  EXPECT_THAT(algebrized_cross_apply->DebugString(),
-              testing::MatchesRegex(expected))
+  EXPECT_THAT(algebrized_cross_apply->DebugString(), MatchesRegex(expected))
       << algebrized_cross_apply->DebugString();
 }
 
@@ -1379,8 +1379,7 @@ TEST_P(AlgebrizerTestJoins, InnerJoin) {
       "..left_input: ArrayScanOp\\(\n(.*\n)*.*\\),\n"
       "..right_input: ArrayScanOp\\(\n(.*\n)*.*\\)\\)",
       parameters.filter_condition);
-  EXPECT_THAT(algebrized_join->DebugString(),
-              testing::MatchesRegex(expected))
+  EXPECT_THAT(algebrized_join->DebugString(), MatchesRegex(expected))
       << algebrized_join->DebugString()
       << "\nFilter: " << parameters.filter_condition;
 }
@@ -1482,8 +1481,7 @@ TEST_P(AlgebrizerTestJoins, CorrelatedInnerJoin) {
       ". ..condition: Equal\\(\\$$col_int64, \\$$col_int64.2\\),\n"
       ". ..input: ArrayScanOp\\(\n(.*\n)*.*\\)\\)\\)",
       parameters.filter_condition);
-  EXPECT_THAT(algebrized_join->DebugString(),
-              testing::MatchesRegex(expected))
+  EXPECT_THAT(algebrized_join->DebugString(), MatchesRegex(expected))
       << algebrized_join->DebugString();
 }
 

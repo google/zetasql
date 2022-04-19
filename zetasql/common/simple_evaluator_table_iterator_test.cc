@@ -46,7 +46,7 @@ class ColumnFilterTest : public ::testing::Test {
  protected:
   void SetUp() override {
     for (int i = 1; i <= 3; ++i) {
-      columns_.push_back(absl::make_unique<SimpleColumn>(
+      columns_.push_back(std::make_unique<SimpleColumn>(
           "TestTable", absl::StrCat("column", i), Int64Type()));
     }
 
@@ -73,11 +73,11 @@ class ColumnFilterTest : public ::testing::Test {
           std::make_shared<const std::vector<Value>>(values));
     }
 
-    iter_ = absl::WrapUnique(new SimpleEvaluatorTableIterator(
+    iter_ = std::make_unique<SimpleEvaluatorTableIterator>(
         columns, column_major_values_for_iter, /*num_rows=*/4,
         /*end_status=*/absl::OkStatus(), filter_column_idxs,
         /*cancel_cb=*/[]() {}, /*set_deadline_cb=*/[](absl::Time) {},
-        zetasql_base::Clock::RealClock()));
+        zetasql_base::Clock::RealClock());
   }
 
   absl::StatusOr<std::vector<std::vector<Value>>> Read(
@@ -116,7 +116,7 @@ TEST_F(ColumnFilterTest, NoFilters) {
 
 TEST_F(ColumnFilterTest, OneAllFilter) {
   absl::flat_hash_map<int, std::unique_ptr<ColumnFilter>> filter_map;
-  filter_map.emplace(1, absl::make_unique<ColumnFilter>(Value(), Value()));
+  filter_map.emplace(1, std::make_unique<ColumnFilter>(Value(), Value()));
 
   EXPECT_THAT(
       Read(std::move(filter_map)),
@@ -128,7 +128,7 @@ TEST_F(ColumnFilterTest, OneAllFilter) {
 
 TEST_F(ColumnFilterTest, OneLeFilter) {
   absl::flat_hash_map<int, std::unique_ptr<ColumnFilter>> filter_map;
-  filter_map.emplace(1, absl::make_unique<ColumnFilter>(Value(), Int64(20)));
+  filter_map.emplace(1, std::make_unique<ColumnFilter>(Value(), Int64(20)));
 
   EXPECT_THAT(
       Read(std::move(filter_map)),
@@ -138,7 +138,7 @@ TEST_F(ColumnFilterTest, OneLeFilter) {
 
 TEST_F(ColumnFilterTest, OneGeFilter) {
   absl::flat_hash_map<int, std::unique_ptr<ColumnFilter>> filter_map;
-  filter_map.emplace(1, absl::make_unique<ColumnFilter>(Int64(30), Value()));
+  filter_map.emplace(1, std::make_unique<ColumnFilter>(Int64(30), Value()));
 
   EXPECT_THAT(
       Read(std::move(filter_map)),
@@ -148,7 +148,7 @@ TEST_F(ColumnFilterTest, OneGeFilter) {
 
 TEST_F(ColumnFilterTest, OneLeAndGeFilter) {
   absl::flat_hash_map<int, std::unique_ptr<ColumnFilter>> filter_map;
-  filter_map.emplace(1, absl::make_unique<ColumnFilter>(Int64(20), Int64(30)));
+  filter_map.emplace(1, std::make_unique<ColumnFilter>(Int64(20), Int64(30)));
 
   EXPECT_THAT(
       Read(std::move(filter_map)),
@@ -158,14 +158,14 @@ TEST_F(ColumnFilterTest, OneLeAndGeFilter) {
 
 TEST_F(ColumnFilterTest, OneEmptyInFilter) {
   absl::flat_hash_map<int, std::unique_ptr<ColumnFilter>> filter_map;
-  filter_map.emplace(1, absl::make_unique<ColumnFilter>(std::vector<Value>{}));
+  filter_map.emplace(1, std::make_unique<ColumnFilter>(std::vector<Value>{}));
 
   EXPECT_THAT(Read(std::move(filter_map)), IsOkAndHolds(IsEmpty()));
 }
 
 TEST_F(ColumnFilterTest, OneInFilter) {
   absl::flat_hash_map<int, std::unique_ptr<ColumnFilter>> filter_map;
-  filter_map.emplace(1, absl::make_unique<ColumnFilter>(
+  filter_map.emplace(1, std::make_unique<ColumnFilter>(
                             std::vector<Value>{Int64(20), Int64(40)}));
 
   EXPECT_THAT(
@@ -176,10 +176,10 @@ TEST_F(ColumnFilterTest, OneInFilter) {
 
 TEST_F(ColumnFilterTest, OverlappingDeletionsInThreeColumns) {
   absl::flat_hash_map<int, std::unique_ptr<ColumnFilter>> filter_map;
-  filter_map.emplace(0, absl::make_unique<ColumnFilter>(Int64(3), Value()));
-  filter_map.emplace(1, absl::make_unique<ColumnFilter>(
+  filter_map.emplace(0, std::make_unique<ColumnFilter>(Int64(3), Value()));
+  filter_map.emplace(1, std::make_unique<ColumnFilter>(
                             std::vector<Value>{Int64(10), Int64(30)}));
-  filter_map.emplace(2, absl::make_unique<ColumnFilter>(Value(), Int64(300)));
+  filter_map.emplace(2, std::make_unique<ColumnFilter>(Value(), Int64(300)));
 
   EXPECT_THAT(
       Read(std::move(filter_map)),
@@ -188,8 +188,8 @@ TEST_F(ColumnFilterTest, OverlappingDeletionsInThreeColumns) {
 
 TEST_F(ColumnFilterTest, DeletionsInThreeColumnsOnlyRespectTwo) {
   absl::flat_hash_map<int, std::unique_ptr<ColumnFilter>> filter_map;
-  filter_map.emplace(0, absl::make_unique<ColumnFilter>(Int64(3), Value()));
-  filter_map.emplace(2, absl::make_unique<ColumnFilter>(Int64(0), Value()));
+  filter_map.emplace(0, std::make_unique<ColumnFilter>(Int64(3), Value()));
+  filter_map.emplace(2, std::make_unique<ColumnFilter>(Int64(0), Value()));
 
   // Both filters drop everything, but if we only filter on the first column, we
   // only drop some of the rows.

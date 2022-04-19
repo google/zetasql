@@ -17,7 +17,6 @@
 #include "zetasql/public/functions/date_time_util_internal.h"
 
 #include "zetasql/base/logging.h"
-
 #include "absl/time/civil_time.h"
 
 namespace zetasql {

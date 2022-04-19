@@ -46,6 +46,17 @@ namespace zetasql::internal {
 // absl::Status GetContents(absl::string_view filename,
 //                          std::string* file_contents);
 
+//
+// SetContents()
+//
+// Overwrite the contents of `filename` with `file_contents`.
+//
+// `filename` must not contain '\0'.
+//
+// absl::Status GetContents(absl::string_view filename,
+//                          std::string* file_contents);
+//
+
 // TestSrcRootDir()
 //
 // The path in blaze/bazel where we expect to find inputs like `.test` files.

@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 
-# Lint as: python3
 """A simple tool to generate associated code from parse_tree.h.
 
 Generates the following files from parse_tree.h:

@@ -19,10 +19,9 @@
 #include <type_traits>
 
 #include "zetasql/resolved_ast/resolved_ast.h"
-#include "absl/memory/memory.h"
-
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/memory/memory.h"
 
 namespace zetasql {
 namespace {
@@ -37,7 +36,7 @@ TEST(Construction, Example) {
   std::shared_ptr<ResolvedFunctionCallInfo> call_info;
   const ResolvedColumn col = {1, zetasql::IdString::MakeGlobal("table_name"),
                               zetasql::IdString::MakeGlobal("name"), type};
-  auto func = absl::make_unique<Function>("name", "group", Function::SCALAR);
+  auto func = std::make_unique<Function>("name", "group", Function::SCALAR);
   auto third_value = MakeResolvedLiteral(Value::Int64(3));
   auto call = MakeResolvedFunctionCall(
       type /* ownership is not transferred for Type objects. */,

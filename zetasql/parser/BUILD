@@ -506,7 +506,6 @@ cc_test(
         ":keywords",
         "//zetasql/base",
         "//zetasql/base:path",
-        "//zetasql/base:strings",
         "//zetasql/base/testing:zetasql_gtest_main",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/strings",

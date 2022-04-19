@@ -50,18 +50,16 @@
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
 
-using testing::_;
-using testing::ElementsAre;
-using testing::HasSubstr;
-using testing::Not;
-using testing::TestWithParam;
-using testing::ValuesIn;
+using ::testing::_;
+using ::testing::ElementsAre;
+using ::testing::HasSubstr;
+using ::testing::Not;
+using ::testing::TestWithParam;
+using ::testing::ValuesIn;
+using ::zetasql_base::testing::IsOkAndHolds;
+using ::zetasql_base::testing::StatusIs;
 
 namespace zetasql {
-
-using zetasql_base::testing::IsOkAndHolds;
-using zetasql_base::testing::StatusIs;
-
 namespace {
 
 // For readability.
@@ -129,7 +127,7 @@ std::ostream& operator<<(std::ostream& out,
   args.push_back(DerefExpr::Create(VariableId("x"), t.argument_type()).value());
 
   auto op = AggregateArg::Create(VariableId("agg"),
-                                 absl::make_unique<BuiltinAggregateFunction>(
+                                 std::make_unique<BuiltinAggregateFunction>(
                                      t.kind, t.result.type(),
                                      /*num_input_fields=*/1, t.argument_type()),
                                  std::move(args), AggregateArg::kAll)
@@ -530,7 +528,7 @@ TEST(OrderPreservationTest, GroupByAggregate) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_a, DerefExpr::Create(a, Int64Type()));
 
   std::vector<std::unique_ptr<KeyArg>> keys;
-  keys.push_back(absl::make_unique<KeyArg>(k, std::move(deref_a)));
+  keys.push_back(std::make_unique<KeyArg>(k, std::move(deref_a)));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_b_for_c1, DerefExpr::Create(b, Int64Type()));
 
@@ -540,14 +538,14 @@ TEST(OrderPreservationTest, GroupByAggregate) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto arg_c1,
       AggregateArg::Create(c1,
-                           absl::make_unique<BuiltinAggregateFunction>(
+                           std::make_unique<BuiltinAggregateFunction>(
                                FunctionKind::kCount, Int64Type(),
                                /*num_input_fields=*/1, Int64Type()),
                            std::move(args_for_c1)));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto arg_c2,
-      AggregateArg::Create(c2, absl::make_unique<BuiltinAggregateFunction>(
+      AggregateArg::Create(c2, std::make_unique<BuiltinAggregateFunction>(
                                    FunctionKind::kCount, Int64Type(),
                                    /*num_input_fields=*/0, EmptyStructType())));
 
@@ -560,7 +558,7 @@ TEST(OrderPreservationTest, GroupByAggregate) {
       auto arg_n,
       AggregateArg::Create(
           n,
-          absl::make_unique<BuiltinAggregateFunction>(
+          std::make_unique<BuiltinAggregateFunction>(
               FunctionKind::kArrayAgg, Int64ArrayType(),
               /*num_input_fields=*/1, Int64Type(), false /* ignores_null */),
           std::move(args_for_n), AggregateArg::kAll));
@@ -574,7 +572,7 @@ TEST(OrderPreservationTest, GroupByAggregate) {
       auto arg_d,
       AggregateArg::Create(
           d,
-          absl::make_unique<BuiltinAggregateFunction>(
+          std::make_unique<BuiltinAggregateFunction>(
               FunctionKind::kArrayAgg, Int64ArrayType(),
               /*num_input_fields=*/1, Int64Type(), false /* ignores_null */),
           std::move(args_for_d), AggregateArg::kDistinct));
@@ -624,9 +622,9 @@ TEST(OrderPreservationTest, GroupByAggregate) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_d, DerefExpr::Create(d, Int64ArrayType()));
 
   std::vector<std::unique_ptr<ExprArg>> args_for_struct;
-  args_for_struct.push_back(absl::make_unique<ExprArg>(std::move(deref_k)));
-  args_for_struct.push_back(absl::make_unique<ExprArg>(std::move(deref_n)));
-  args_for_struct.push_back(absl::make_unique<ExprArg>(std::move(deref_d)));
+  args_for_struct.push_back(std::make_unique<ExprArg>(std::move(deref_k)));
+  args_for_struct.push_back(std::make_unique<ExprArg>(std::move(deref_n)));
+  args_for_struct.push_back(std::make_unique<ExprArg>(std::move(deref_d)));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto struct_expr,
@@ -690,20 +688,20 @@ TEST(CreateIteratorTest, AggregateAll) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto arg_c1,
       AggregateArg::Create(c1,
-                           absl::make_unique<BuiltinAggregateFunction>(
+                           std::make_unique<BuiltinAggregateFunction>(
                                FunctionKind::kCount, Int64Type(),
                                /*num_input_fields=*/1, Int64Type()),
                            std::move(args_for_c1)));
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto arg_c2,
       AggregateArg::Create(c2,
-                           absl::make_unique<BuiltinAggregateFunction>(
+                           std::make_unique<BuiltinAggregateFunction>(
                                FunctionKind::kCount, Int64Type(),
                                /*num_input_fields=*/1, Int64Type()),
                            std::move(args_for_c2)));
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto arg_c3,
-      AggregateArg::Create(c3, absl::make_unique<BuiltinAggregateFunction>(
+      AggregateArg::Create(c3, std::make_unique<BuiltinAggregateFunction>(
                                    FunctionKind::kCount, Int64Type(),
                                    /*num_input_fields=*/0, EmptyStructType())));
 
@@ -814,37 +812,37 @@ TEST(CreateIteratorTest, AggregateOrderBy) {
 
   std::vector<std::unique_ptr<KeyArg>> order_by_keys_b0;
   order_by_keys_b0.push_back(
-      absl::make_unique<KeyArg>(b, std::move(deref_b0), KeyArg::kAscending));
+      std::make_unique<KeyArg>(b, std::move(deref_b0), KeyArg::kAscending));
 
   std::vector<std::unique_ptr<KeyArg>> order_by_keys_b1;
   order_by_keys_b1.push_back(
-      absl::make_unique<KeyArg>(b, std::move(deref_b1), KeyArg::kAscending));
+      std::make_unique<KeyArg>(b, std::move(deref_b1), KeyArg::kAscending));
 
   std::vector<std::unique_ptr<KeyArg>> order_by_keys_b2;
   order_by_keys_b2.push_back(
-      absl::make_unique<KeyArg>(b, std::move(deref_b2), KeyArg::kAscending));
+      std::make_unique<KeyArg>(b, std::move(deref_b2), KeyArg::kAscending));
 
   std::vector<std::unique_ptr<KeyArg>> order_by_keys_b3;
   order_by_keys_b3.push_back(
-      absl::make_unique<KeyArg>(b, std::move(deref_b3), KeyArg::kDescending));
+      std::make_unique<KeyArg>(b, std::move(deref_b3), KeyArg::kDescending));
 
   std::vector<std::unique_ptr<KeyArg>> order_by_keys_c0;
   order_by_keys_c0.push_back(
-      absl::make_unique<KeyArg>(c, std::move(deref_c0), KeyArg::kDescending));
+      std::make_unique<KeyArg>(c, std::move(deref_c0), KeyArg::kDescending));
 
   std::vector<std::unique_ptr<KeyArg>> order_by_keys_c1;
   order_by_keys_c1.push_back(
-      absl::make_unique<KeyArg>(c, std::move(deref_c1), KeyArg::kDescending));
+      std::make_unique<KeyArg>(c, std::move(deref_c1), KeyArg::kDescending));
 
   std::vector<std::unique_ptr<KeyArg>> order_by_keys_c2;
   order_by_keys_c2.push_back(
-      absl::make_unique<KeyArg>(c, std::move(deref_c2), KeyArg::kDescending));
+      std::make_unique<KeyArg>(c, std::move(deref_c2), KeyArg::kDescending));
 
   std::vector<std::unique_ptr<KeyArg>> order_by_keys_bc;
   order_by_keys_bc.push_back(
-      absl::make_unique<KeyArg>(b, std::move(deref_b_bc), KeyArg::kAscending));
+      std::make_unique<KeyArg>(b, std::move(deref_b_bc), KeyArg::kAscending));
   order_by_keys_bc.push_back(
-      absl::make_unique<KeyArg>(c, std::move(deref_c_bc), KeyArg::kDescending));
+      std::make_unique<KeyArg>(c, std::move(deref_c_bc), KeyArg::kDescending));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_b_for_d, DerefExpr::Create(b, Int64Type()));
 
@@ -855,7 +853,7 @@ TEST(CreateIteratorTest, AggregateOrderBy) {
       auto agg_d,
       AggregateArg::Create(
           d,
-          absl::make_unique<BuiltinAggregateFunction>(
+          std::make_unique<BuiltinAggregateFunction>(
               FunctionKind::kArrayAgg, Int64ArrayType(),
               /*num_input_fields=*/1, Int64Type(), false /* ignores_null */),
           std::move(args_for_d), AggregateArg::kAll, nullptr /* having_expr */,
@@ -870,7 +868,7 @@ TEST(CreateIteratorTest, AggregateOrderBy) {
       auto agg_e,
       AggregateArg::Create(
           e,
-          absl::make_unique<BuiltinAggregateFunction>(
+          std::make_unique<BuiltinAggregateFunction>(
               FunctionKind::kArrayAgg, StringArrayType(),
               /*num_input_fields=*/1, StringType(), false /* ignores_null */),
           std::move(args_for_e), AggregateArg::kAll, nullptr /* having_expr */,
@@ -884,7 +882,7 @@ TEST(CreateIteratorTest, AggregateOrderBy) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto agg_f,
       AggregateArg::Create(f,
-                           absl::make_unique<BuiltinAggregateFunction>(
+                           std::make_unique<BuiltinAggregateFunction>(
                                FunctionKind::kStringAgg, StringType(),
                                /*num_input_fields=*/1, StringType()),
                            std::move(args_for_f), AggregateArg::kAll,
@@ -901,7 +899,7 @@ TEST(CreateIteratorTest, AggregateOrderBy) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto agg_g,
       AggregateArg::Create(g,
-                           absl::make_unique<BuiltinAggregateFunction>(
+                           std::make_unique<BuiltinAggregateFunction>(
                                FunctionKind::kStringAgg, StringType(),
                                /*num_input_fields=*/1, StringType()),
                            std::move(args_for_g), AggregateArg::kAll,
@@ -916,7 +914,7 @@ TEST(CreateIteratorTest, AggregateOrderBy) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto agg_h,
       AggregateArg::Create(h,
-                           absl::make_unique<BuiltinAggregateFunction>(
+                           std::make_unique<BuiltinAggregateFunction>(
                                FunctionKind::kStringAgg, StringType(),
                                /*num_input_fields=*/1, StringType()),
                            std::move(args_for_h), AggregateArg::kAll,
@@ -931,7 +929,7 @@ TEST(CreateIteratorTest, AggregateOrderBy) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto agg_i,
       AggregateArg::Create(i,
-                           absl::make_unique<BuiltinAggregateFunction>(
+                           std::make_unique<BuiltinAggregateFunction>(
                                FunctionKind::kStringAgg, StringType(),
                                /*num_input_fields=*/1, StringType()),
                            std::move(args_for_i), AggregateArg::kAll,
@@ -947,7 +945,7 @@ TEST(CreateIteratorTest, AggregateOrderBy) {
       auto agg_j,
       AggregateArg::Create(
           j,
-          absl::make_unique<BuiltinAggregateFunction>(
+          std::make_unique<BuiltinAggregateFunction>(
               FunctionKind::kArrayAgg, Int64ArrayType(),
               /*num_input_fields=*/1, Int64Type(), false /* ignores_null */),
           std::move(args_for_j), AggregateArg::kDistinct,
@@ -963,7 +961,7 @@ TEST(CreateIteratorTest, AggregateOrderBy) {
       auto agg_l,
       AggregateArg::Create(
           l,
-          absl::make_unique<BuiltinAggregateFunction>(
+          std::make_unique<BuiltinAggregateFunction>(
               FunctionKind::kArrayAgg, StringArrayType(),
               /*num_input_fields=*/1, StringType(), false /* ignores_null */),
           std::move(args_for_l), AggregateArg::kAll, nullptr /* having_expr */,
@@ -972,7 +970,7 @@ TEST(CreateIteratorTest, AggregateOrderBy) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_a, DerefExpr::Create(a, Int64Type()));
 
   std::vector<std::unique_ptr<KeyArg>> keys;
-  keys.push_back(absl::make_unique<KeyArg>(k, std::move(deref_a)));
+  keys.push_back(std::make_unique<KeyArg>(k, std::move(deref_a)));
 
   std::vector<std::unique_ptr<AggregateArg>> aggregators;
   aggregators.push_back(std::move(agg_d));
@@ -1114,27 +1112,27 @@ TEST(CreateIteratorTest, AggregateLimit) {
 
   std::vector<std::unique_ptr<KeyArg>> order_by_keys_b0;
   order_by_keys_b0.push_back(
-      absl::make_unique<KeyArg>(b, std::move(deref_b0), KeyArg::kAscending));
+      std::make_unique<KeyArg>(b, std::move(deref_b0), KeyArg::kAscending));
 
   std::vector<std::unique_ptr<KeyArg>> order_by_keys_b1;
   order_by_keys_b1.push_back(
-      absl::make_unique<KeyArg>(b, std::move(deref_b1), KeyArg::kAscending));
+      std::make_unique<KeyArg>(b, std::move(deref_b1), KeyArg::kAscending));
 
   std::vector<std::unique_ptr<KeyArg>> order_by_keys_b2;
   order_by_keys_b2.push_back(
-      absl::make_unique<KeyArg>(b, std::move(deref_b2), KeyArg::kAscending));
+      std::make_unique<KeyArg>(b, std::move(deref_b2), KeyArg::kAscending));
 
   std::vector<std::unique_ptr<KeyArg>> order_by_keys_c0;
   order_by_keys_c0.push_back(
-      absl::make_unique<KeyArg>(c, std::move(deref_c0), KeyArg::kDescending));
+      std::make_unique<KeyArg>(c, std::move(deref_c0), KeyArg::kDescending));
 
   std::vector<std::unique_ptr<KeyArg>> order_by_keys_c1;
   order_by_keys_c1.push_back(
-      absl::make_unique<KeyArg>(c, std::move(deref_c1), KeyArg::kDescending));
+      std::make_unique<KeyArg>(c, std::move(deref_c1), KeyArg::kDescending));
 
   std::vector<std::unique_ptr<KeyArg>> order_by_keys_c2;
   order_by_keys_c2.push_back(
-      absl::make_unique<KeyArg>(c, std::move(deref_c2), KeyArg::kDescending));
+      std::make_unique<KeyArg>(c, std::move(deref_c2), KeyArg::kDescending));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_b_for_d, DerefExpr::Create(b, Int64Type()));
 
@@ -1148,7 +1146,7 @@ TEST(CreateIteratorTest, AggregateLimit) {
       auto agg_d,
       AggregateArg::Create(
           d,
-          absl::make_unique<BuiltinAggregateFunction>(
+          std::make_unique<BuiltinAggregateFunction>(
               FunctionKind::kArrayAgg, Int64ArrayType(),
               /*num_input_fields=*/1, Int64Type(), false /* ignores_null */),
           std::move(args_for_d), AggregateArg::kAll, nullptr /* having_expr */,
@@ -1167,7 +1165,7 @@ TEST(CreateIteratorTest, AggregateLimit) {
       auto agg_e,
       AggregateArg::Create(
           e,
-          absl::make_unique<BuiltinAggregateFunction>(
+          std::make_unique<BuiltinAggregateFunction>(
               FunctionKind::kArrayAgg, Int64ArrayType(),
               /*num_input_fields=*/1, Int64Type(), false /* ignores_null */),
           std::move(args_for_e), AggregateArg::kAll, nullptr /* having_expr */,
@@ -1186,7 +1184,7 @@ TEST(CreateIteratorTest, AggregateLimit) {
       auto agg_f,
       AggregateArg::Create(
           f,
-          absl::make_unique<BuiltinAggregateFunction>(
+          std::make_unique<BuiltinAggregateFunction>(
               FunctionKind::kArrayAgg, Int64ArrayType(),
               /*num_input_fields=*/1, Int64Type(), false /* ignores_null */),
           std::move(args_for_f), AggregateArg::kAll, nullptr /* having_expr */,
@@ -1205,7 +1203,7 @@ TEST(CreateIteratorTest, AggregateLimit) {
       auto agg_g,
       AggregateArg::Create(
           g,
-          absl::make_unique<BuiltinAggregateFunction>(
+          std::make_unique<BuiltinAggregateFunction>(
               FunctionKind::kArrayAgg, StringArrayType(),
               /*num_input_fields=*/1, StringType(), false /* ignores_null */),
           std::move(args_for_g), AggregateArg::kAll, nullptr /* having_expr */,
@@ -1224,7 +1222,7 @@ TEST(CreateIteratorTest, AggregateLimit) {
       auto agg_h,
       AggregateArg::Create(
           h,
-          absl::make_unique<BuiltinAggregateFunction>(
+          std::make_unique<BuiltinAggregateFunction>(
               FunctionKind::kArrayAgg, StringArrayType(),
               /*num_input_fields=*/1, StringType(), false /* ignores_null */),
           std::move(args_for_h), AggregateArg::kAll, nullptr /* having_expr */,
@@ -1243,7 +1241,7 @@ TEST(CreateIteratorTest, AggregateLimit) {
       auto agg_i,
       AggregateArg::Create(
           i,
-          absl::make_unique<BuiltinAggregateFunction>(
+          std::make_unique<BuiltinAggregateFunction>(
               FunctionKind::kArrayAgg, StringArrayType(),
               /*num_input_fields=*/1, StringType(), false /* ignores_null */),
           std::move(args_for_i), AggregateArg::kAll, nullptr /* having_expr */,
@@ -1253,7 +1251,7 @@ TEST(CreateIteratorTest, AggregateLimit) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_a, DerefExpr::Create(a, Int64Type()));
 
   std::vector<std::unique_ptr<KeyArg>> keys;
-  keys.push_back(absl::make_unique<KeyArg>(k, std::move(deref_a)));
+  keys.push_back(std::make_unique<KeyArg>(k, std::move(deref_a)));
 
   std::vector<std::unique_ptr<AggregateArg>> aggregators;
   aggregators.push_back(std::move(agg_d));
@@ -1394,7 +1392,7 @@ TEST(CreateIteratorTest, AggregateHaving) {
       auto agg_d,
       AggregateArg::Create(
           d,
-          absl::make_unique<BuiltinAggregateFunction>(
+          std::make_unique<BuiltinAggregateFunction>(
               FunctionKind::kArrayAgg, StringArrayType(),
               /*num_input_fields=*/1, StringType(), false /* ignores_null */),
           std::move(args_for_d), AggregateArg::kAll, std::move(having_for_d),
@@ -1411,7 +1409,7 @@ TEST(CreateIteratorTest, AggregateHaving) {
       auto agg_e,
       AggregateArg::Create(
           e,
-          absl::make_unique<BuiltinAggregateFunction>(
+          std::make_unique<BuiltinAggregateFunction>(
               FunctionKind::kArrayAgg, StringArrayType(),
               /*num_input_fields=*/1, StringType(), false /* ignores_null */),
           std::move(args_for_e), AggregateArg::kAll, std::move(having_for_e),
@@ -1420,7 +1418,7 @@ TEST(CreateIteratorTest, AggregateHaving) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_a, DerefExpr::Create(a, Int64Type()));
 
   std::vector<std::unique_ptr<KeyArg>> keys;
-  keys.push_back(absl::make_unique<KeyArg>(k, std::move(deref_a)));
+  keys.push_back(std::make_unique<KeyArg>(k, std::move(deref_a)));
 
   std::vector<std::unique_ptr<AggregateArg>> aggregators;
   aggregators.push_back(std::move(agg_d));

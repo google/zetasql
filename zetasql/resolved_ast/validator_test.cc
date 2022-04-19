@@ -16,11 +16,15 @@
 
 #include "zetasql/resolved_ast/validator.h"
 
+#include <string>
+#include <utility>
+
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/simple_catalog.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/make_node_vector.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/resolved_ast/test_utils.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -148,6 +152,79 @@ QueryStmt
   return query_stmt;
 }
 
+enum class WithQueryShape {
+  kValid,
+  kNotScanAllColumns,
+  kFailToRenameColumn,
+  kColumnTypeMismatch,
+};
+std::unique_ptr<const ResolvedStatement> MakeWithQuery(IdStringPool& pool,
+                                                       WithQueryShape shape) {
+  std::string with_query_name = "with_query_name";
+  ResolvedColumn column_x =
+      ResolvedColumn(1, pool.Make("tbl"), pool.Make("x"), types::Int64Type());
+  ResolvedColumn column_y =
+      ResolvedColumn(2, pool.Make("tbl"), pool.Make("y"), types::StringType());
+  ResolvedColumn column_x2 =
+      ResolvedColumn(3, pool.Make("tbl"), pool.Make("x2"), types::Int64Type());
+  ResolvedColumn column_y2 =
+      shape == WithQueryShape::kColumnTypeMismatch
+          ? ResolvedColumn(4, pool.Make("tbl"), pool.Make("y2"),
+                           types::DoubleType())
+          : ResolvedColumn(4, pool.Make("tbl"), pool.Make("y2"),
+                           types::StringType());
+
+  ResolvedWithRefScanBuilder with_scan =
+      ResolvedWithRefScanBuilder()
+          .add_column_list(column_x2)
+          .set_with_query_name(with_query_name);
+  switch (shape) {
+    case WithQueryShape::kValid:
+    case WithQueryShape::kColumnTypeMismatch:
+      with_scan.add_column_list(column_y2);
+      break;
+    case WithQueryShape::kFailToRenameColumn:
+      with_scan.add_column_list(column_y);
+      break;
+    case WithQueryShape::kNotScanAllColumns:
+      break;
+  }
+
+  return ResolvedQueryStmtBuilder()
+      .add_output_column_list(
+          ResolvedOutputColumnBuilder().set_column(column_x2).set_name(
+              column_x2.name()))
+      .set_query(
+          ResolvedWithScanBuilder()
+              .set_recursive(false)
+              .set_query(std::move(with_scan))
+              .add_column_list(column_x2)
+              .add_with_entry_list(
+                  ResolvedWithEntryBuilder()
+                      .set_with_query_name(with_query_name)
+                      .set_with_subquery(
+                          ResolvedProjectScanBuilder()
+                              .add_column_list(column_x)
+                              .add_expr_list(
+                                  ResolvedComputedColumnBuilder()
+                                      .set_column(column_x)
+                                      .set_expr(
+                                          ResolvedLiteralBuilder()
+                                              .set_value(Value::Int64(1))
+                                              .set_type(types::Int64Type())))
+                              .add_column_list(column_y)
+                              .add_expr_list(
+                                  ResolvedComputedColumnBuilder()
+                                      .set_column(column_y)
+                                      .set_expr(
+                                          ResolvedLiteralBuilder()
+                                              .set_value(Value::String("a"))
+                                              .set_type(types::StringType())))
+                              .set_input_scan(MakeResolvedSingleRowScan()))))
+      .Build()
+      .value();
+}
+
 TEST(ValidatorTest, ValidQueryStatement) {
   IdStringPool pool;
   std::unique_ptr<ResolvedQueryStmt> query_stmt = MakeSelect1Stmt(pool);
@@ -167,6 +244,44 @@ TEST(ValidatorTest, ValidExpression) {
   // Make sure the expression can be validated multiple times on the same
   // Validator object.
   ZETASQL_ASSERT_OK(validator.ValidateStandaloneResolvedExpr(expr.get()));
+}
+
+TEST(ValidatorTest, ValidWithScan) {
+  IdStringPool pool;
+  std::unique_ptr<const ResolvedStatement> valid_stmt =
+      MakeWithQuery(pool, WithQueryShape::kValid);
+  Validator validator;
+  ZETASQL_EXPECT_OK(validator.ValidateResolvedStatement(valid_stmt.get()));
+
+  // Make sure statement can be validated multiple times.
+  ZETASQL_EXPECT_OK(validator.ValidateResolvedStatement(valid_stmt.get()));
+}
+
+TEST(ValidatorTest, InvalidWithScans) {
+  IdStringPool pool;
+  Validator validator;
+
+  std::unique_ptr<const ResolvedStatement> missing_column =
+      MakeWithQuery(pool, WithQueryShape::kNotScanAllColumns);
+  EXPECT_THAT(validator.ValidateResolvedStatement(missing_column.get()),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("ResolvedWithRefScan must scan exactly the "
+                                 "columns projected from the with query")));
+
+  std::unique_ptr<const ResolvedStatement> not_renamed_column =
+      MakeWithQuery(pool, WithQueryShape::kFailToRenameColumn);
+  EXPECT_THAT(validator.ValidateResolvedStatement(not_renamed_column.get()),
+              StatusIs(absl::StatusCode::kInternal,
+                       HasSubstr("Duplicate column id 2 in column tbl.y#2")));
+
+  std::unique_ptr<const ResolvedStatement> type_missmatch =
+      MakeWithQuery(pool, WithQueryShape::kColumnTypeMismatch);
+  EXPECT_THAT(
+      validator.ValidateResolvedStatement(type_missmatch.get()),
+      StatusIs(
+          absl::StatusCode::kInternal,
+          HasSubstr(
+              "Type mismatch between ResolvedWithRefScan and with query")));
 }
 
 TEST(ValidatorTest, InvalidExpression) {

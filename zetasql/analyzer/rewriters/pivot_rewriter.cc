@@ -494,6 +494,7 @@ PivotRewriterVisitor::RewriteAnyValuePivotExpr(
   const Function* array_agg_fn;
   ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"array_agg"}, &array_agg_fn,
                                       analyzer_options_.find_options()));
+  ZETASQL_RET_CHECK(array_agg_fn->IsZetaSQLBuiltin());
   const ArrayType* array_type;
   std::vector<std::unique_ptr<const ResolvedExpr>> array_agg_args;
   if (arg->type()->IsArray()) {
@@ -553,6 +554,7 @@ PivotRewriterVisitor::RewriteCountStarPivotExpr(
   const Function* countif_fn;
   ZETASQL_RET_CHECK_OK(catalog_->FindFunction({"countif"}, &countif_fn,
                                       analyzer_options_.find_options()));
+  ZETASQL_RET_CHECK(countif_fn->IsZetaSQLBuiltin());
   FunctionArgumentType int64_arg = FunctionArgumentType(types::Int64Type(), 1);
   FunctionArgumentType bool_arg = FunctionArgumentType(types::BoolType(), 1);
   FunctionSignature countif_sig(int64_arg, {bool_arg}, FN_COUNTIF);

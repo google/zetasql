@@ -310,7 +310,7 @@ InitOverlappingStringSearchAtOffset(const ZetaSqlCollator& collator,
   icu::RuleBasedCollator* icu_collator =
       const_cast<icu::RuleBasedCollator*>(collator.GetIcuCollator());
   icu::ErrorCode status;
-  auto stsearch = absl::make_unique<icu::StringSearch>(
+  auto stsearch = std::make_unique<icu::StringSearch>(
       unicode_substr, unicode_str, icu_collator,
       /*breakiter=*/nullptr, status);
   if (ABSL_PREDICT_FALSE(status.isFailure())) {

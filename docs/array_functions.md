@@ -170,27 +170,27 @@ SELECT
 
 ### ARRAY_INCLUDES
 
-+   [Signature 1](#array_includes_signature1): `ARRAY_INCLUDES(array_expression,
-    target_element)`
-+   [Signature 2](#array_includes_signature2): `ARRAY_INCLUDES(array_expression,
++   [Signature 1](#array_includes_signature1): `ARRAY_INCLUDES(array_to_search,
+    search_value)`
++   [Signature 2](#array_includes_signature2): `ARRAY_INCLUDES(array_to_search,
     lambda_expression)`
 
 #### Signature 1 
 <a id="array_includes_signature1"></a>
 
 ```sql
-ARRAY_INCLUDES(array_expression, target_element)
+ARRAY_INCLUDES(array_to_search, search_value)
 ```
 
 **Description**
 
 Takes an array and returns `TRUE` if there is an element in the array that is
-equal to the target element.
+equal to the search_value.
 
-+   `array_expression`: The array to search.
-+   `target_element`: The target element to search for in the array.
++   `array_to_search`: The array to search.
++   `search_value`: The element to search for in the array.
 
-Returns `NULL` if `array_expression` or `target_element` is `NULL`.
+Returns `NULL` if `array_to_search` or `search_value` is `NULL`.
 
 **Return type**
 
@@ -217,7 +217,7 @@ SELECT
 <a id="array_includes_signature2"></a>
 
 ```sql
-ARRAY_INCLUDES(array_expression, lambda_expression)
+ARRAY_INCLUDES(array_to_search, lambda_expression)
 
 lambda_expression: element_alias->boolean_expression
 ```
@@ -227,13 +227,13 @@ lambda_expression: element_alias->boolean_expression
 Takes an array and returns `TRUE` if the lambda expression evaluates to `TRUE`
 for any element in the array.
 
-+   `array_expression`: The array to search.
-+   `lambda_expression`: Each element in `array_expression` is evaluated against
++   `array_to_search`: The array to search.
++   `lambda_expression`: Each element in `array_to_search` is evaluated against
     the [lambda expression][lambda-definition].
 +   `element_alias`: An alias that represents an array element.
 +   `boolean_expression`: The predicate used to evaluate the array elements.
 
-Returns `NULL` if `array_expression` is `NULL`.
+Returns `NULL` if `array_to_search` is `NULL`.
 
 **Return type**
 
@@ -260,19 +260,18 @@ SELECT
 ### ARRAY_INCLUDES_ANY
 
 ```sql
-ARRAY_INCLUDES_ANY(source_array_expression, target_array_expression)
+ARRAY_INCLUDES_ANY(array_to_search, search_values)
 ```
 
 **Description**
 
-Takes a source and target array. Returns `TRUE` if any elements in the target
-array are in the source array, otherwise returns `FALSE`.
+Takes an array to search and an array of search values. Returns `TRUE` if any
+search values are in the array to search, otherwise returns `FALSE`.
 
-+   `source_array_expression`: The array to search.
-+   `target_array_expression`: The target array that contains the elements to
-    search for in the source array.
++   `array_to_search`: The array to search.
++   `search_values`: The array that contains the elements to search for.
 
-Returns `NULL` if `source_array_expression` or `target_array_expression` is
+Returns `NULL` if `array_to_search` or `search_values` is
 `NULL`.
 
 **Return type**
@@ -289,6 +288,45 @@ an array.
 SELECT
   ARRAY_INCLUDES_ANY([1,2,3], [3,4,5]) AS a1,
   ARRAY_INCLUDES_ANY([1,2,3], [4,5,6]) AS a2;
+
++------+-------+
+| a1   | a2    |
++------+-------+
+| true | false |
++------+-------+
+```
+
+### ARRAY_INCLUDES_ALL
+
+```sql
+ARRAY_INCLUDES_ALL(array_to_search, search_values)
+```
+
+**Description**
+
+Takes an array to search and an array of search values. Returns `TRUE` if all
+search values are in the array to search, otherwise returns `FALSE`.
+
++   `array_to_search`: The array to search.
++   `search_values`: The array that contains the elements to search for.
+
+Returns `NULL` if `array_to_search` or `search_values` is
+`NULL`.
+
+**Return type**
+
+BOOL
+
+**Example**
+
+In the following example, the query first checks to see if `3`, `4`, and `5`
+exists in an array. Then the query checks to see if `4`, `5`, and `6` exists in
+an array.
+
+```sql
+SELECT
+  ARRAY_INCLUDES_ALL([1,2,3,4,5], [3,4,5]) AS a1,
+  ARRAY_INCLUDES_ALL([1,2,3,4,5], [4,5,6]) AS a2;
 
 +------+-------+
 | a1   | a2    |
@@ -323,12 +361,12 @@ SELECT ARRAY_TO_STRING(list, ', ', 'NULL'), ARRAY_LENGTH(list) AS size
 FROM items
 ORDER BY size DESC;
 
-+---------------------------------+------+
-| list                            | size |
-+---------------------------------+------+
-| [coffee, NULL, milk]            | 3    |
-| [cake, pie]                     | 2    |
-+---------------------------------+------+
++--------------------+------+
+| list               | size |
++--------------------+------+
+| coffee, NULL, milk | 3    |
+| cake, pie          | 2    |
++--------------------+------+
 ```
 
 ### ARRAY_TO_STRING
@@ -354,9 +392,9 @@ and its preceding delimiter.
 
 ```sql
 WITH items AS
-  (SELECT ["coffee", "tea", "milk" ] as list
+  (SELECT ['coffee', 'tea', 'milk' ] as list
   UNION ALL
-  SELECT ["cake", "pie", NULL] as list)
+  SELECT ['cake', 'pie', NULL] as list)
 
 SELECT ARRAY_TO_STRING(list, '--') AS text
 FROM items;
@@ -371,9 +409,9 @@ FROM items;
 
 ```sql
 WITH items AS
-  (SELECT ["coffee", "tea", "milk" ] as list
+  (SELECT ['coffee', 'tea', 'milk' ] as list
   UNION ALL
-  SELECT ["cake", "pie", NULL] as list)
+  SELECT ['cake', 'pie', NULL] as list)
 
 SELECT ARRAY_TO_STRING(list, '--', 'MISSING') AS text
 FROM items;
@@ -401,6 +439,7 @@ lambda_expression:
 **Description**
 
 Takes an array, transforms the elements, and returns the results in a new array.
+The output array always has the same length as the input array.
 
 +   `array_expression`: The array to transform.
 +   `lambda_expression`: Each element in `array_expression` is evaluated against

@@ -212,6 +212,7 @@ bool CompareScriptResults(const ScriptResult& expected,
   }
   return true;
 }
+}  // namespace
 
 std::string ScriptResultToString(const ScriptResult& result) {
   return absl::StrCat(
@@ -223,8 +224,6 @@ std::string ScriptResultToString(const ScriptResult& result) {
                     }));
 }
 
-}  // namespace
-
 // gMock matcher that matches a statement result (StatusOr<Value>) with a
 // StatusOr<value>. Not supposed to be called directly. Use KnownErrorFilter.
 MATCHER_P2(ReturnsStatusOrValue, expected, float_margin,
@@ -234,17 +233,17 @@ MATCHER_P2(ReturnsStatusOrValue, expected, float_margin,
   if (expected.ok() != arg.ok()) {
     passed = false;
   } else if (expected.ok()) {
-    if (absl::holds_alternative<Value>(expected.value()) &&
-        absl::holds_alternative<Value>(arg.value())) {
+    if (std::holds_alternative<Value>(expected.value()) &&
+        std::holds_alternative<Value>(arg.value())) {
       passed = InternalValue::Equals(
-          absl::get<Value>(expected.value()), absl::get<Value>(arg.value()),
+          std::get<Value>(expected.value()), std::get<Value>(arg.value()),
           {.interval_compare_mode = IntervalCompareMode::kAllPartsEqual,
            .float_margin = float_margin,
            .reason = &reason});
-    } else if (absl::holds_alternative<ScriptResult>(expected.value()) &&
-               absl::holds_alternative<ScriptResult>(arg.value())) {
-      passed = CompareScriptResults(absl::get<ScriptResult>(expected.value()),
-                                    absl::get<ScriptResult>(arg.value()),
+    } else if (std::holds_alternative<ScriptResult>(expected.value()) &&
+               std::holds_alternative<ScriptResult>(arg.value())) {
+      passed = CompareScriptResults(std::get<ScriptResult>(expected.value()),
+                                    std::get<ScriptResult>(arg.value()),
                                     float_margin, &reason);
     }
   } else if (!absl::GetFlag(FLAGS_ignore_wrong_error_codes)) {
@@ -259,9 +258,9 @@ MATCHER_P2(ReturnsStatusOrValue, expected, float_margin,
                                                &status));
 
     std::string error;
-    if (expected.ok() && absl::holds_alternative<Value>(expected.value()) &&
+    if (expected.ok() && std::holds_alternative<Value>(expected.value()) &&
         zetasql::testing::HasFloatingPointNumber(
-            absl::get<Value>(expected.value()).type())) {
+            std::get<Value>(expected.value()).type())) {
       error = absl::StrCat("\nFloat comparison: ", float_margin.DebugString());
     }
     *result_listener << absl::StrCat(
@@ -547,7 +546,7 @@ static std::unique_ptr<ReferenceDriver> CreateTestSetupDriver() {
   // Allow CREATE TABLE AS SELECT in [prepare_database] statements.
   options.AddSupportedStatementKind(RESOLVED_CREATE_TABLE_AS_SELECT_STMT);
 
-  auto driver = absl::make_unique<ReferenceDriver>(options);
+  auto driver = std::make_unique<ReferenceDriver>(options);
   // Create an empty database so that we can later load protos and enums.
   ZETASQL_CHECK_OK(driver->CreateDatabase(TestDatabase{}));
 
@@ -564,7 +563,7 @@ SQLTestBase::SQLTestBase()
               : new ReferenceDriver(
                     test_driver_->GetSupportedLanguageOptions())),
       reference_driver_(reference_driver_owner_.get()),
-      execute_statement_type_factory_(absl::make_unique<TypeFactory>()) {
+      execute_statement_type_factory_(std::make_unique<TypeFactory>()) {
   std::vector<std::string> known_error_files =
       absl::GetFlag(FLAGS_known_error_files);
   if (!known_error_files.empty()) {
@@ -577,7 +576,7 @@ SQLTestBase::SQLTestBase(TestDriver* test_driver,
     : test_setup_driver_(CreateTestSetupDriver()),
       test_driver_(test_driver),
       reference_driver_(reference_driver),
-      execute_statement_type_factory_(absl::make_unique<TypeFactory>()) {
+      execute_statement_type_factory_(std::make_unique<TypeFactory>()) {
   // Sanity check that the contract is respected.
   ZETASQL_CHECK_EQ(
       reference_driver_ == nullptr,
@@ -620,7 +619,7 @@ absl::StatusOr<Value> SQLTestBase::ExecuteStatement(
       << "SQLTestBase::ExecuteStatement() should not be called in script mode";
   ZETASQL_ASSIGN_OR_RETURN(ComplianceTestCaseResult result,
                    ExecuteTestCaseImpl(sql, parameters));
-  return absl::get<Value>(result);
+  return std::get<Value>(result);
 }
 
 absl::StatusOr<ComplianceTestCaseResult> SQLTestBase::ExecuteTestCase(
@@ -873,6 +872,12 @@ void SQLTestBase::Stats::LogBatches(const Iterable& iterable,
 }
 
 void SQLTestBase::Stats::LogReport() const {
+  std::vector<std::string> known_error_files =
+      absl::GetFlag(FLAGS_known_error_files);
+  ZETASQL_LOG(INFO) << "\n==== RELATED KNOWN ERROR FILES ====\n"
+            << absl::StrJoin(known_error_files, "\n")
+            << "\n==== END RELATED KNOWN ERROR FILES ====\n";
+
   const std::string compliance_report_title = "ZETASQL COMPLIANCE REPORT";
   // Always "====" to the beginning and "==== End " to the end so
   // extract_compliance_results.py can recognize it.
@@ -910,7 +915,7 @@ void SQLTestBase::InitFileState() {
   names_.clear();
   global_labels_.clear();
   test_db_.clear();
-  options_ = absl::make_unique<file_based_test_driver::TestCaseOptions>();
+  options_ = std::make_unique<file_based_test_driver::TestCaseOptions>();
   options_->RegisterString(kName, "");
   options_->RegisterString(kLabels, "");
   options_->RegisterString(kDescription, "");
@@ -1687,14 +1692,14 @@ std::string SQLTestBase::ToString(
   if (!status.ok()) {
     result_string =
         absl::StrCat("ERROR: ", internal::StatusToString(status.status()));
-  } else if (absl::holds_alternative<Value>(status.value())) {
-    const Value& value = absl::get<Value>(status.value());
+  } else if (std::holds_alternative<Value>(status.value())) {
+    const Value& value = std::get<Value>(status.value());
     ZETASQL_CHECK(!value.is_null());
     ZETASQL_CHECK(value.is_valid());
     result_string = value.Format();
   } else {
     result_string =
-        ScriptResultToString(absl::get<ScriptResult>(status.value()));
+        ScriptResultToString(std::get<ScriptResult>(status.value()));
   }
   absl::string_view trimmed_result;
   absl::Status ignored_status;
@@ -2011,7 +2016,7 @@ class SQLTestEnvironment : public ::testing::Environment {
  public:
   // Set up global resource SQLTestBase::stats_.
   void SetUp() override {
-    SQLTestBase::stats_ = absl::make_unique<SQLTestBase::Stats>();
+    SQLTestBase::stats_ = std::make_unique<SQLTestBase::Stats>();
   }
 
   // Call Stats::LogGoogletestProperties() to output statistics to continuous

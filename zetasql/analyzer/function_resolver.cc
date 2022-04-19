@@ -533,7 +533,7 @@ absl::Status FunctionResolver::
       const FunctionArgumentType& arg_type =
           signature.arguments()[p.signature_arg_index];
       ZETASQL_RET_CHECK(arg_type.optional());
-      const absl::optional<Value>& opt_default = arg_type.GetDefault();
+      const std::optional<Value>& opt_default = arg_type.GetDefault();
 
       if (opt_default.has_value()) {
         input_argument_types->emplace_back(opt_default.value(),

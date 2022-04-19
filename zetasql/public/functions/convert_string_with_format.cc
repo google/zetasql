@@ -16,6 +16,8 @@
 
 #include "zetasql/public/functions/convert_string_with_format.h"
 
+#include <algorithm>
+#include <string>
 #include <vector>
 
 #include "zetasql/public/functions/convert.h"
@@ -617,11 +619,11 @@ std::string FormatElementToString(FormatElement element) {
 // E.g. if str is "9.9", returns FormatElement::kDigit9, and length is 1.
 //
 // If there is no valid format element, returns nullopt.
-absl::optional<FormatElement> GetFormatElement(absl::string_view str,
-                                               int& length) {
+std::optional<FormatElement> GetFormatElement(absl::string_view str,
+                                              int& length) {
   if (str.empty()) {
     length = 0;
-    return absl::nullopt;
+    return std::nullopt;
   }
 
   length = 1;
@@ -655,7 +657,7 @@ absl::optional<FormatElement> GetFormatElement(absl::string_view str,
         length = 2;
         return FormatElement::kSignMi;
       } else {
-        return absl::nullopt;
+        return std::nullopt;
       }
     case 'P':
     case 'p':
@@ -663,35 +665,35 @@ absl::optional<FormatElement> GetFormatElement(absl::string_view str,
         length = 2;
         return FormatElement::kSignPr;
       } else {
-        return absl::nullopt;
+        return std::nullopt;
       }
     case 'R':
       if (absl::StartsWithIgnoreCase(str, "RN")) {
         length = 2;
         return FormatElement::kRomanNumeralUpper;
       } else {
-        return absl::nullopt;
+        return std::nullopt;
       }
     case 'r':
       if (absl::StartsWithIgnoreCase(str, "RN")) {
         length = 2;
         return FormatElement::kRomanNumeralLower;
       } else {
-        return absl::nullopt;
+        return std::nullopt;
       }
     case 'E':
       if (absl::StartsWithIgnoreCase(str, "EEEE")) {
         length = 4;
         return FormatElement::kExponentEeeeUpper;
       } else {
-        return absl::nullopt;
+        return std::nullopt;
       }
     case 'e':
       if (absl::StartsWithIgnoreCase(str, "EEEE")) {
         length = 4;
         return FormatElement::kExponentEeeeLower;
       } else {
-        return absl::nullopt;
+        return std::nullopt;
       }
     case 'B':
     case 'b':
@@ -705,7 +707,7 @@ absl::optional<FormatElement> GetFormatElement(absl::string_view str,
         length = 2;
         return FormatElement::kCompactMode;
       } else {
-        return absl::nullopt;
+        return std::nullopt;
       }
     case 'T':
       if (absl::StartsWithIgnoreCase(str, "TM9")) {
@@ -718,7 +720,7 @@ absl::optional<FormatElement> GetFormatElement(absl::string_view str,
         length = 2;
         return FormatElement::kTmUpper;
       } else {
-        return absl::nullopt;
+        return std::nullopt;
       }
     case 't':
       if (absl::StartsWithIgnoreCase(str, "TM9")) {
@@ -731,7 +733,7 @@ absl::optional<FormatElement> GetFormatElement(absl::string_view str,
         length = 2;
         return FormatElement::kTmLower;
       } else {
-        return absl::nullopt;
+        return std::nullopt;
       }
     case 'C':
       return FormatElement::kCurrencyCUpper;
@@ -741,7 +743,7 @@ absl::optional<FormatElement> GetFormatElement(absl::string_view str,
     case 'l':
       return FormatElement::kCurrencyL;
     default:
-      return absl::nullopt;
+      return std::nullopt;
   }
 }
 
@@ -757,7 +759,7 @@ absl::StatusOr<ParsedFormatElementInfo> FormatParser::Parse(
   int index = 0;
   while (index < format.size()) {
     int length;
-    absl::optional<FormatElement> element =
+    std::optional<FormatElement> element =
         GetFormatElement(format.substr(index), length);
     if (element.has_value()) {
       // Add element to parsed_format_element_info_.elements if the element is

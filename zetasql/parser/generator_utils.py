@@ -90,7 +90,8 @@ class ScalarType(object):
                scoped_ctype=None,
                java_default=None,
                cpp_default=None,
-               not_serialize_if_default=None):
+               not_serialize_if_default=None,
+               is_default_constructible=True):
     """Create a ScalarType.
 
     Args:
@@ -125,10 +126,14 @@ class ScalarType(object):
       not_serialize_if_default: Do not serialize this field when its value is in
           the default value, and set to default value during deserialization
           when its proto field is empty.
+      is_default_constructible: The field has no default constructor. We store
+          such fields as `absl::optional`. This way, builders have a way to
+          track whether a value has been set.
     """
     self.ctype = ctype
     self.is_enum = is_enum
     self.passed_by_reference = passed_by_reference
+    self.is_default_constructible = is_default_constructible
     if java_type is None:
       self.java_type = ctype
     else:

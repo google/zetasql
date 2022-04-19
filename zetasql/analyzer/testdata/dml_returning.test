@@ -570,6 +570,30 @@ InsertStmt
 ==
 
 [language_features=V_1_3_DML_RETURNING]
+INSERT INTO nested_catalog.KeyValueNested (key, value) VALUES (1, "one") THEN RETURN KeyValueNested.key
+--
+
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=KeyValueNested.[Key#1, Value#2], table=nested_catalog.KeyValueNested, column_index_list=[0, 1])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-KeyValueNested.Key#1 AS key [INT64]
++-insert_column_list=KeyValueNested.[Key#1, Value#2]
++-row_list=
+  +-InsertRow
+    +-value_list=
+      +-DMLValue
+      | +-value=
+      |   +-Literal(type=INT64, value=1)
+      +-DMLValue
+        +-value=
+          +-Literal(type=STRING, value="one")
+
+==
+
+[language_features=V_1_3_DML_RETURNING]
 INSERT {{| IGNORE| REPLACE| UPDATE}} INTO KeyValue (key, value)
 VALUES (1, "one"), (2, "two") THEN RETURN *
 --

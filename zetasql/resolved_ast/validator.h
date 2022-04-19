@@ -20,6 +20,7 @@
 #include <functional>
 #include <memory>
 #include <set>
+#include <string>
 #include <vector>
 
 #include "zetasql/public/language_options.h"
@@ -275,6 +276,8 @@ class Validator {
   absl::Status ValidateResolvedWithScan(
       const ResolvedWithScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateResolvedWithRefScan(const ResolvedWithRefScan* scan);
 
   absl::Status ValidateGroupRowsScan(const ResolvedGroupRowsScan* scan);
 

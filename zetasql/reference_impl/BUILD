@@ -239,6 +239,7 @@ cc_library(
         "@com_google_cc_differential_privacy//algorithms:bounded-mean",
         "@com_google_cc_differential_privacy//algorithms:bounded-standard-deviation",
         "@com_google_cc_differential_privacy//algorithms:bounded-variance",
+        "@com_google_cc_differential_privacy//algorithms:quantiles",
         "//zetasql/base:flat_set",
         "//zetasql/base:map_util",
         "//zetasql/base:source_location",
@@ -248,6 +249,17 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/base:ret_check",
         "//zetasql/base:clock",
+    ],
+)
+
+cc_test(
+    name = "function_evaluation_test",
+    srcs = ["function_test.cc"],
+    deps = [
+        ":evaluation",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public/types",
     ],
 )
 

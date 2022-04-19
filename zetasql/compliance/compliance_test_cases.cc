@@ -221,6 +221,32 @@ static std::vector<QueryParamsWithResult> WrapFeatureJSON(
   return wrapped_tests;
 }
 
+std::vector<FunctionTestCall> WrapFeatureInverseTrig(
+    const std::vector<FunctionTestCall>& tests) {
+  std::vector<FunctionTestCall> wrapped_tests;
+  wrapped_tests.reserve(tests.size());
+  const QueryParamsWithResult::FeatureSet feature_set = {
+      FEATURE_INVERSE_TRIG_FUNCTIONS};
+  for (auto call : tests) {
+    call.params = call.params.WrapWithFeatureSet(feature_set);
+    wrapped_tests.emplace_back(call);
+  }
+  return wrapped_tests;
+}
+
+std::vector<FunctionTestCall> WrapFeatureDegreesRadiansPi(
+    const std::vector<FunctionTestCall>& tests) {
+  std::vector<FunctionTestCall> wrapped_tests;
+  wrapped_tests.reserve(tests.size());
+  const QueryParamsWithResult::FeatureSet feature_set = {
+      FEATURE_DEGREES_RADIANS_PI};
+  for (auto call : tests) {
+    call.params = call.params.WrapWithFeatureSet(feature_set);
+    wrapped_tests.emplace_back(call);
+  }
+  return wrapped_tests;
+}
+
 // Owned by
 // CodebasedTestsEnvironment::{SetUp,TearDown}(). 'code_based_reference_driver'
 // is NULL if and only if either 'code_based_test_driver' is NULL, or
@@ -950,6 +976,18 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestLeastFunctions, 3) {
   RunFunctionTestsPrefix(Shard(GetFunctionTestsLeast(
                              DriverSupportsFeature(FEATURE_TIMESTAMP_NANOS))),
                          "Least");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestArrayFirstFunctions, 1) {
+  SetNamePrefix("ArrayFirst");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayFirst(/*is_safe=*/false)),
+                         "ARRAY_FIRST");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArrayFirstFunctions, 1) {
+  SetNamePrefix("SafeArrayFirst");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayFirst(/*is_safe=*/true)),
+                         "SAFE.ARRAY_FIRST");
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestLogicalFunctions_AND, 1) {
@@ -1720,6 +1758,13 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestMathFunctions_Rounding, 1) {
 SHARDED_TEST_F(ComplianceCodebasedTests, TestMathFunctions_Trigonometric, 1) {
   // No need to set PREFIX, RunFunctionCalls() will do it.
   RunFunctionCalls(Shard(GetFunctionTestsTrigonometric()));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestMathFunctions_InverseTrigonometric,
+               1) {
+  // No need to set PREFIX, RunFunctionCalls() will do it.
+  RunFunctionCalls(
+      WrapFeatureInverseTrig(Shard(GetFunctionTestsInverseTrigonometric())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestNetFunctions, 3) {
@@ -2839,7 +2884,7 @@ ComplianceCodebasedTests::GetProtoFieldTests() {
   // as regular protos and don't unwrap them to zetasql types.
   zetasql_test__::NullableInt nullable_int;
   nullable_int.set_value(111);
-  zetasql_test__::KeyValueStruct key_value_struct;;
+  zetasql_test__::KeyValueStruct key_value_struct;
   key_value_struct.set_key("aaa");
   COLLECT_TEST(TEST_MESSAGE_FIELD(nullable_int, nullable_int));
   COLLECT_TEST(TEST_MESSAGE_FIELD(key_value, key_value_struct));

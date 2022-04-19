@@ -271,3 +271,84 @@ FROM
     FROM
       ` Value` AS ` value_1`
   ) AS ` value_4`;
+==
+
+# TODO: Catalog qualifiers can be printed for tables when
+# SQLBuilder is overriden to do so, but we should have a more general solution.
+INSERT INTO nested_catalog.KeyValueNested(key, value) VALUES (1, "2")
+--
+[UNPARSED_SQL]
+INSERT INTO nested_catalog.KeyValueNested(Key, Value)
+VALUES
+  (1, "2");
+==
+
+# TODO: Catalog qualifiers can be printed for tables when
+# SQLBuilder is overriden to do so, but we should have a more general solution.
+UPDATE nested_catalog.KeyValueNested
+SET value = "3" WHERE key = 1
+--
+[UNPARSED_SQL]
+UPDATE nested_catalog.KeyValueNested AS keyvaluenested_1
+SET
+  keyvaluenested_1.Value = "3"
+WHERE
+  (keyvaluenested_1.Key) = 1;
+==
+
+# TODO: Catalog qualifiers can be printed for tables when
+# SQLBuilder is overriden to do so, but we should have a more general solution.
+DELETE FROM nested_catalog.KeyValueNested
+WHERE key = 1
+--
+[UNPARSED_SQL]
+DELETE nested_catalog.KeyValueNested AS keyvaluenested_1
+WHERE
+  (keyvaluenested_1.Key) = 1;
+==
+
+# TODO: Catalog qualifiers can be printed for tables when
+# SQLBuilder is overriden to do so, but we should have a more general solution.
+[language_features=V_1_3_DML_RETURNING]
+INSERT INTO nested_catalog.KeyValueNested (key, value) VALUES (1, "one")
+THEN RETURN key+1
+--
+[UNPARSED_SQL]
+INSERT INTO nested_catalog.KeyValueNested(Key, Value)
+VALUES
+  (1, "one")
+THEN RETURN
+  (KeyValueNested.Key) + 1 AS `$col1`;
+==
+
+# TODO: Catalog qualifiers can be printed for tables when
+# SQLBuilder is overriden to do so, but we should have a more general solution.
+[language_features=V_1_3_DML_RETURNING]
+UPDATE nested_catalog.KeyValueNested
+SET value = "3" WHERE key = 1
+THEN RETURN key+1
+--
+[UNPARSED_SQL]
+UPDATE nested_catalog.KeyValueNested AS keyvaluenested_1
+SET
+  keyvaluenested_1.Value = "3"
+WHERE
+  (keyvaluenested_1.Key) = 1
+THEN RETURN
+  (keyvaluenested_1.Key) + 1 AS `$col1`;
+==
+
+# TODO: Catalog qualifiers can be printed for tables when
+# SQLBuilder is overriden to do so, but we should have a more general solution.
+[language_features=V_1_3_DML_RETURNING]
+DELETE FROM nested_catalog.KeyValueNested
+WHERE key = 1
+THEN RETURN key+1
+--
+[UNPARSED_SQL]
+DELETE nested_catalog.KeyValueNested AS keyvaluenested_1
+WHERE
+  (keyvaluenested_1.Key) = 1
+THEN RETURN
+  (keyvaluenested_1.Key) + 1 AS `$col1`;
+==

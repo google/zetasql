@@ -17,6 +17,7 @@
 #include "zetasql/tools/execute_query/homedir.h"
 
 #include <cstdlib>
+#include <optional>
 #include <string>
 #include <type_traits>
 
@@ -38,7 +39,7 @@ class GetHomedirTest : public ::testing::Test {
     SetHome(original_);
   }
 
-  void SetHome(absl::optional<std::string> value) {
+  void SetHome(std::optional<std::string> value) {
     if (value.has_value()) {
       EXPECT_EQ(::setenv("HOME", value->c_str(), 1), 0);
     } else {
@@ -47,22 +48,22 @@ class GetHomedirTest : public ::testing::Test {
   }
 
  private:
-  absl::optional<std::string> original_;
+  std::optional<std::string> original_;
 };
 
 TEST_F(GetHomedirTest, EnvVarUnset) {
-  SetHome(absl::nullopt);
+  SetHome(std::nullopt);
 
-  const absl::optional<std::string> got = GetHomedir();
+  const std::optional<std::string> got = GetHomedir();
 
-  EXPECT_NE(got, absl::nullopt);
+  EXPECT_NE(got, std::nullopt);
   EXPECT_FALSE(got->empty());
 }
 
 TEST_F(GetHomedirTest, EnvVarCustom) {
   SetHome("/tmp/custom/home");
 
-  const absl::optional<std::string> got = GetHomedir();
+  const std::optional<std::string> got = GetHomedir();
 
   EXPECT_EQ(*got, "/tmp/custom/home");
 }

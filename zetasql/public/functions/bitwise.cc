@@ -21,6 +21,7 @@
 #include <sys/types.h>
 
 #include <cstdint>
+#include <string>
 
 #include "zetasql/base/bits.h"
 #include "zetasql/base/status.h"

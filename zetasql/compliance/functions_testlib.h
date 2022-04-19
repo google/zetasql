@@ -130,6 +130,8 @@ std::vector<QueryParamsWithResult> GetFunctionTestsGreatest(
 std::vector<QueryParamsWithResult> GetFunctionTestsLeast(
     bool include_nano_timestamp);
 
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayFirst(bool is_safe);
+
 std::vector<QueryParamsWithResult> GetFunctionTestsLike();
 
 std::vector<FunctionTestCall> GetFunctionTestsDateTime();
@@ -199,9 +201,9 @@ std::vector<QueryParamsWithResult> GetFunctionTestsToProto3TimeOfDay();
 std::vector<FunctionTestCall> GetFunctionTestsMath();
 std::vector<FunctionTestCall> GetFunctionTestsRounding();
 std::vector<FunctionTestCall> GetFunctionTestsTrigonometric();
-std::vector<FunctionTestCall> GetFunctionTestsCsch();
-std::vector<FunctionTestCall> GetFunctionTestsSech();
-std::vector<FunctionTestCall> GetFunctionTestsCoth();
+std::vector<FunctionTestCall> GetFunctionTestsInverseTrigonometric();
+std::vector<FunctionTestCall> GetFunctionTestsDegreesRadiansPi();
+
 std::vector<FunctionTestCall> GetFunctionTestsAscii();
 std::vector<FunctionTestCall> GetFunctionTestsUnicode();
 std::vector<FunctionTestCall> GetFunctionTestsChr();

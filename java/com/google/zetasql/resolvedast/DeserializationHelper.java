@@ -28,6 +28,7 @@ import com.google.zetasql.ConstantRefProto;
 import com.google.zetasql.DescriptorPool;
 import com.google.zetasql.DescriptorPool.ZetaSQLDescriptor;
 import com.google.zetasql.DescriptorPool.ZetaSQLFieldDescriptor;
+import com.google.zetasql.DescriptorPool.ZetaSQLOneofDescriptor;
 import com.google.zetasql.FieldDescriptorRefProto;
 import com.google.zetasql.Function;
 import com.google.zetasql.FunctionProtos.FunctionSignatureProto;
@@ -59,6 +60,7 @@ import com.google.zetasql.TypeFactory;
 import com.google.zetasql.TypeParameters;
 import com.google.zetasql.Value;
 import com.google.zetasql.ValueWithTypeProto;
+import javax.annotation.Nullable;
 
 /**
  * Deserializes objects in the ResolvedAST which require some context. These
@@ -156,6 +158,7 @@ public final class DeserializationHelper {
         proto.getName());
   }
 
+  @Nullable
   Table deserialize(TableRefProto proto) {
     if (proto.hasSerializationId()) {
       return checkNotNull(
@@ -177,6 +180,7 @@ public final class DeserializationHelper {
     return Value.deserialize(deserialize(proto.getType()), proto.getValue());
   }
 
+  @Nullable
   AnnotationMap deserialize(AnnotationMapProto proto) {
     // TODO: use TypeFactory to create AnnotatedType.
     return null;

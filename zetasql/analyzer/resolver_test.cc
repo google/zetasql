@@ -104,10 +104,10 @@ class ResolverTest : public ::testing::Test {
     analyzer_options_.mutable_language()->EnableLanguageFeature(
         FEATURE_PARAMETERIZED_TYPES);
     analyzer_options_.CreateDefaultArenasIfNotSet();
-    sample_catalog_ = absl::make_unique<SampleCatalog>(
+    sample_catalog_ = std::make_unique<SampleCatalog>(
         analyzer_options_.language(), &type_factory_);
-    resolver_ = absl::make_unique<Resolver>(sample_catalog_->catalog(),
-                                            &type_factory_, &analyzer_options_);
+    resolver_ = std::make_unique<Resolver>(sample_catalog_->catalog(),
+                                           &type_factory_, &analyzer_options_);
     // Initialize the resolver state, which is necessary because the tests do
     // not necessarily call the public methods that call Reset().
     resolver_->Reset("" /* sql */);
@@ -118,8 +118,8 @@ class ResolverTest : public ::testing::Test {
   // Resets 'resolver_' with a new Catalog.  Does not take ownership of
   // 'catalog'.
   void ResetResolver(Catalog* catalog) {
-    resolver_ = absl::make_unique<Resolver>(catalog, &type_factory_,
-                                            &analyzer_options_);
+    resolver_ =
+        std::make_unique<Resolver>(catalog, &type_factory_, &analyzer_options_);
     resolver_->Reset("" /* sql */);
   }
 

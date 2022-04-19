@@ -51,6 +51,7 @@ namespace {
 constexpr absl::StatusCode INVALID_ARGUMENT =
     absl::StatusCode::kInvalidArgument;
 constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
+constexpr absl::StatusCode OK = absl::StatusCode::kOk;
 }  // namespace
 
 std::vector<QueryParamsWithResult> GetFunctionTestsAnd() {
@@ -1356,6 +1357,240 @@ const Value* findArrayWithFirstNull(const Value* arr1, const Value* arr2) {
 
   ZETASQL_CHECK(false) << "Expected at least 1 null value in the input arrays";
   return nullptr;
+}
+
+struct ArrayFirstLastTestCase {
+  ArrayFirstLastTestCase(const ValueConstructor& input,
+                         const ValueConstructor& output_first,
+                         const ValueConstructor& output_last,
+                         absl::StatusCode status_code = OK,
+                         std::set<LanguageFeature> language_features = {})
+      : input(input.get()),
+        output_first(output_first.get()),
+        output_last(output_last.get()),
+        status_code(status_code),
+        language_features(std::move(language_features)) {}
+
+  Value input;
+  Value output_first;
+  Value output_last;
+  absl::StatusCode status_code;
+  std::set<LanguageFeature> language_features;
+};
+
+static const std::vector<ArrayFirstLastTestCase>
+GetNullArrayFirstLastTestCases() {
+  return {
+      {Value::Null(FloatArrayType()), NullFloat(), NullFloat()},
+      {Value::Null(DoubleArrayType()), NullDouble(), NullDouble()},
+      {Value::Null(Int32ArrayType()), NullInt32(), NullInt32()},
+      {Value::Null(Int64ArrayType()), NullInt64(), NullInt64()},
+      {Value::Null(Uint32ArrayType()), NullUint32(), NullUint32()},
+      {Value::Null(Uint64ArrayType()), NullUint64(), NullUint64()},
+      {Value::Null(BoolArrayType()), NullBool(), NullBool()},
+      {Value::Null(StringArrayType()), NullString(), NullString()},
+      {Value::Null(BytesArrayType()), NullBytes(), NullBytes()},
+      {Value::Null(TimestampArrayType()), NullTimestamp(), NullTimestamp()},
+      {Value::Null(DateArrayType()), NullDate(), NullDate()},
+      {Value::Null(NumericArrayType()),
+       NullNumeric(),
+       NullNumeric(),
+       OK,
+       {FEATURE_NUMERIC_TYPE}},
+      {Value::Null(BigNumericArrayType()),
+       NullBigNumeric(),
+       NullBigNumeric(),
+       OK,
+       {FEATURE_BIGNUMERIC_TYPE}},
+      {Value::Null(GeographyArrayType()),
+       NullGeography(),
+       NullGeography(),
+       OK,
+       {FEATURE_GEOGRAPHY}},
+      {Value::Null(JsonArrayType()),
+       NullJson(),
+       NullJson(),
+       OK,
+       {FEATURE_JSON_TYPE, FEATURE_JSON_ARRAY_FUNCTIONS}},
+      {Value::Null(IntervalArrayType()),
+       NullInterval(),
+       NullInterval(),
+       OK,
+       {FEATURE_INTERVAL_TYPE}},
+      {Value::Null(TimeArrayType()),
+       NullTime(),
+       NullTime(),
+       OK,
+       {FEATURE_V_1_2_CIVIL_TIME}},
+      {Value::Null(DatetimeArrayType()),
+       NullDatetime(),
+       NullDatetime(),
+       OK,
+       {FEATURE_V_1_2_CIVIL_TIME}},
+  };
+}
+
+static const std::vector<ArrayFirstLastTestCase> GetEmptyArrayTestCases() {
+  return {
+      {Value::EmptyArray(DoubleArrayType()), NullDouble(), NullDouble(),
+       OUT_OF_RANGE},
+      {Value::EmptyArray(FloatArrayType()), NullFloat(), NullFloat(),
+       OUT_OF_RANGE},
+      {Value::EmptyArray(StringArrayType()), NullString(), NullString(),
+       OUT_OF_RANGE},
+      {Value::EmptyArray(BoolArrayType()), NullBool(), NullBool(),
+       OUT_OF_RANGE},
+      {Value::EmptyArray(Int64ArrayType()), NullInt64(), NullInt64(),
+       OUT_OF_RANGE},
+      {Value::EmptyArray(Int32ArrayType()), NullInt32(), NullInt32(),
+       OUT_OF_RANGE},
+      {Value::EmptyArray(Uint64ArrayType()), NullUint64(), NullUint64(),
+       OUT_OF_RANGE},
+      {Value::EmptyArray(Uint32ArrayType()), NullUint32(), NullUint32(),
+       OUT_OF_RANGE},
+      {Value::EmptyArray(BytesArrayType()), NullBytes(), NullBytes(),
+       OUT_OF_RANGE},
+      {Value::EmptyArray(TimestampArrayType()), NullTimestamp(),
+       NullTimestamp(), OUT_OF_RANGE},
+      {Value::EmptyArray(DateArrayType()), NullDate(), NullDate(),
+       OUT_OF_RANGE},
+      {Value::EmptyArray(NumericArrayType()),
+       NullNumeric(),
+       NullNumeric(),
+       OUT_OF_RANGE,
+       {FEATURE_NUMERIC_TYPE}},
+      {Value::EmptyArray(BigNumericArrayType()),
+       NullBigNumeric(),
+       NullBigNumeric(),
+       OUT_OF_RANGE,
+       {FEATURE_BIGNUMERIC_TYPE}},
+      {Value::EmptyArray(GeographyArrayType()),
+       NullGeography(),
+       NullGeography(),
+       OUT_OF_RANGE,
+       {FEATURE_GEOGRAPHY}},
+      {Value::EmptyArray(JsonArrayType()),
+       NullJson(),
+       NullJson(),
+       OUT_OF_RANGE,
+       {FEATURE_JSON_TYPE, FEATURE_JSON_ARRAY_FUNCTIONS}},
+      {Value::EmptyArray(IntervalArrayType()),
+       NullInterval(),
+       NullInterval(),
+       OUT_OF_RANGE,
+       {FEATURE_INTERVAL_TYPE}},
+      {Value::EmptyArray(TimeArrayType()),
+       NullTime(),
+       NullTime(),
+       OUT_OF_RANGE,
+       {FEATURE_V_1_2_CIVIL_TIME}},
+      {Value::EmptyArray(DatetimeArrayType()),
+       NullDatetime(),
+       NullDatetime(),
+       OUT_OF_RANGE,
+       {FEATURE_V_1_2_CIVIL_TIME}},
+  };
+}
+
+static const std::vector<ArrayFirstLastTestCase> GetArrayFirstLastTestCases() {
+  // a: string, b: int32_t
+  const StructType* struct_type = SimpleStructType();
+  const ArrayType* struct_array_type;
+  ZETASQL_CHECK_OK(type_factory()->MakeArrayType(struct_type, &struct_array_type));
+  const Value null_struct = Value::Null(struct_type);
+  const Value struct_without_null =
+      Value::Struct(struct_type, {String("foo"), Int32(0)});
+  const Value struct_with_null =
+      Value::Struct(struct_type, {NullString(), NullInt32()});
+
+  // a: string, b: {a: string b: int32_t}
+  const StructType* nested_struct_type;
+  ZETASQL_CHECK_OK(type_factory()->MakeStructType(
+      {{"a", StringType()}, {"b", struct_type}}, &nested_struct_type));
+  const ArrayType* nested_struct_array_type;
+  ZETASQL_CHECK_OK(type_factory()->MakeArrayType(nested_struct_type,
+                                         &nested_struct_array_type));
+  const Value null_nested_struct = Value::Null(nested_struct_type);
+  const Value nested_struct_without_null =
+      Value::Struct(nested_struct_type, {String("x"), struct_without_null});
+  const Value nested_struct_with_null =
+      Value::Struct(nested_struct_type, {NullString(), struct_without_null});
+
+  std::vector<ArrayFirstLastTestCase> test_cases = {
+      // Null array
+      {Value::Null(struct_array_type), null_struct, null_struct},
+      {Value::Null(nested_struct_array_type), null_nested_struct,
+       null_nested_struct},
+
+      // Empty array
+      {Value::EmptyArray(struct_array_type), null_struct, null_struct,
+       OUT_OF_RANGE},
+      {Value::EmptyArray(nested_struct_array_type), null_nested_struct,
+       null_nested_struct, OUT_OF_RANGE},
+
+      // Double array
+      {values::Array(DoubleArrayType(), {NullDouble(), Value::Double(1)}),
+       NullDouble(), Value::Double(1)},
+
+      // Int array
+      {values::Int64Array({5, 3, 2}), Value::Int64(5), Value::Int64(2)},
+
+      // String array
+      {values::StringArray({"hello", "WORLD", "world"}), Value::String("hello"),
+       Value::String("world")},
+
+      // Struct array
+      {values::Array(struct_array_type,
+                     {struct_without_null, struct_with_null, null_struct}),
+       struct_without_null, null_struct},
+
+      // Nested struct array
+      {values::Array(nested_struct_array_type,
+                     {null_nested_struct, nested_struct_with_null,
+                      nested_struct_without_null}),
+       null_nested_struct, nested_struct_without_null},
+  };
+  std::vector<ArrayFirstLastTestCase> null_test_cases =
+      GetNullArrayFirstLastTestCases();
+  std::vector<ArrayFirstLastTestCase> empty_test_cases =
+      GetEmptyArrayTestCases();
+  absl::c_move(null_test_cases, std::back_inserter(test_cases));
+  absl::c_move(empty_test_cases, std::back_inserter(test_cases));
+  return test_cases;
+}
+
+static void AddWrappedSafeArrayFunctionResult(
+    const std::vector<ValueConstructor>& input, const Value& out,
+    absl::StatusCode status_code,
+    const std::set<LanguageFeature>& array_language_features, bool is_safe,
+    std::vector<QueryParamsWithResult>* result) {
+  // Build the feature set.
+  QueryParamsWithResult::FeatureSet feature_set;
+  for (const LanguageFeature& feature : array_language_features) {
+    feature_set.insert(feature);
+  }
+
+  if (is_safe) {
+    feature_set.insert(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
+    result->push_back(
+        QueryParamsWithResult(input, out).WrapWithFeatureSet(feature_set));
+  } else {
+    result->push_back(QueryParamsWithResult(input, out, status_code)
+                          .WrapWithFeatureSet(feature_set));
+  }
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayFirst(bool is_safe) {
+  std::vector<ArrayFirstLastTestCase> test_cases = GetArrayFirstLastTestCases();
+  std::vector<QueryParamsWithResult> result;
+  result.reserve(test_cases.size());
+
+  for (const ArrayFirstLastTestCase& test : test_cases) {
+    AddWrappedSafeArrayFunctionResult({test.input}, test.output_first,
+                                      test.status_code, test.language_features,
+                                      is_safe, &result);
+  }
+  return result;
 }
 
 std::vector<QueryParamsWithResult> GetFunctionTestsGreatest(

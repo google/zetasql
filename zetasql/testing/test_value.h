@@ -146,8 +146,8 @@ inline absl::StatusOr<Value> GetStatusOrValue(
   if (!arg.ok()) {
     return arg.status();
   }
-  ZETASQL_CHECK(absl::holds_alternative<Value>(arg.value()));
-  return absl::StatusOr<Value>(absl::get<Value>(arg.value()));
+  ZETASQL_CHECK(std::holds_alternative<Value>(arg.value()));
+  return absl::StatusOr<Value>(std::get<Value>(arg.value()));
 }
 }  // namespace internal
 

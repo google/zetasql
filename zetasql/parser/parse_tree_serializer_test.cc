@@ -46,7 +46,7 @@ class ParseTreeSerializerTest : public ::testing::Test {
     // parsed ASTStatement. Serialize() the ASTStatement and compare the
     // proto to the expected value.
     std::string sql = std::string(test_case_input);
-    auto language_options = absl::make_unique<LanguageOptions>();
+    auto language_options = std::make_unique<LanguageOptions>();
     ParserOptions parser_options =
         ParserOptions(/*id_string_pool=*/nullptr,
                       /*arena=*/nullptr, language_options.get());
