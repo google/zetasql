@@ -187,7 +187,7 @@ SELECT CHR(97) AS A, CHR(0xF9B5) AS B, CHR(0) AS C, CHR(NULL) AS D;
 ### CODE_POINTS_TO_BYTES
 
 ```sql
-CODE_POINTS_TO_BYTES(ascii_values)
+CODE_POINTS_TO_BYTES(ascii_code_points)
 ```
 
 **Description**
@@ -247,15 +247,13 @@ FROM UNNEST(TO_CODE_POINTS(b'Test String!')) code WITH OFFSET;
 ### CODE_POINTS_TO_STRING
 
 ```sql
-CODE_POINTS_TO_STRING(value)
+CODE_POINTS_TO_STRING(unicode_code_points)
 ```
 
 **Description**
 
 Takes an array of Unicode [code points][string-link-to-code-points-wikipedia]
-(`ARRAY` of `INT64`) and
-returns a `STRING`. If a code point is 0, does not return a character for it
-in the `STRING`.
+(`ARRAY` of `INT64`) and returns a `STRING`.
 
 To convert from a string to an array of code points, see
 [TO_CODE_POINTS][string-link-to-code-points].

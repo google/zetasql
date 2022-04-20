@@ -21,22 +21,20 @@ package zetasql;
 option java_package = "com.google.zetasql";
 option java_outer_classname = "ZetaSQLAnonOutputWithReport";
 
-// Contains information about algorithm accuracy.
+// Contains output from a ZetaSQL anonymization function.
 message AnonOutputWithReport {
-  AnonOutputValue value = 1;
-  optional AnonErrorReport error_report = 2;
+  oneof result {
+    AnonOutputValue value = 1;
+    AnonOutputValues values = 2;
+  }
+
+  optional BoundingReport bounding_report = 3;
 }
 
-message AnonErrorReport {
-  optional NoiseConfidenceInterval noise_confidence_interval = 1;
-  optional AnonBoundingReport bounding_report = 2;
-}
-
-// Accuracy information about results of automatic bounding algorithms.
 // When ApproxBounds is called by bounded algorithms, the BoundingReport can
 // be used to pass differentially private intermediate results to help users
 // understand the accuracy implications of the output.
-message AnonBoundingReport {
+message BoundingReport {
   // Lower and upper bounds are either the explicit bounds specified in the
   // query, or are the (noisy) implicit bounds that were derived by the
   // ApproxBounds algorithm.
@@ -51,15 +49,22 @@ message AnonBoundingReport {
 }
 
 message NoiseConfidenceInterval {
-  double upper_bound = 1;
-  double lower_bound = 2;
+  optional double lower_bound = 1;
+  optional double upper_bound = 2;
   // The percentile confidence level. For 95% CI, this value is 0.95.
-  double confidence_level = 3;
+  optional double confidence_level = 3;
+}
+
+message AnonOutputValues {
+  repeated AnonOutputValue values = 1;
 }
 
 message AnonOutputValue {
   oneof value {
     int64 int_value = 1;
     double float_value = 2;
+    string string_value = 3;
   }
+
+  optional NoiseConfidenceInterval noise_confidence_interval = 4;
 }

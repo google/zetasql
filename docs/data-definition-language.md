@@ -45,7 +45,7 @@ CREATE DATABASE library OPTIONS(
 <pre>
 CREATE
    [ OR REPLACE ]
-   [ TEMP | TEMPORARY ]
+   [ TEMP[ORARY] ]
    TABLE
    [ IF NOT EXISTS ]
    table_name [ ( <span class="var">table_element</span>, ... ) ]
@@ -453,7 +453,7 @@ CREATE TABLE books AS (
 ```
 CREATE
   [OR REPLACE]
-  [TEMP | TEMPORARY]
+  [TEMP[ORARY]]
   VIEW
   [IF NOT EXISTS]
   view_name
@@ -488,7 +488,7 @@ The `CREATE VIEW` statement creates a view based on a specific query.
 ```
 CREATE
   [OR REPLACE]
-  [TEMP | TEMPORARY]
+  [TEMP[ORARY]]
   EXTERNAL TABLE
   [IF NOT EXISTS]
   table_name
@@ -687,7 +687,60 @@ Documentation is pending for this feature.
 
 ## CREATE CONSTANT
 
-Documentation is pending for this feature.
+<pre>
+CREATE
+  [OR REPLACE]
+  [{ TEMP[ORARY] | PUBLIC | PRIVATE }]
+  CONSTANT
+  [IF NOT EXISTS]
+  <span class="var">constant_name</span> = <span class="var">constant_value</span>;
+</pre>
+
+**Description**
+
+The `CREATE CONSTANT` statement creates a constant and assigns a value to it.
+The value cannot be altered later with the `ALTER` statement, but you can use
+`CREATE OR REPLACE CONSTANT` if you need to replace the value.
+
++ `OR REPLACE`: Replace a constant if it already exists. This cannot appear
+  with `IF NOT EXISTS`.
++ `TEMP | TEMPORARY`: Creates a temporary constant. The lifetime of the
+  constant is system-specific.
++ `PUBLIC`: If the constant is declared in a module, `PUBLIC` specifies that it
+  is available outside of the module.
++ `PRIVATE`: If the constant is declared in a module, `PRIVATE` specifies that
+  it is only available inside of the module (default).
++ `IF NOT EXISTS`: Do not create a constant if it already exists. If the
+  constant already exists, don't produce an error and keep the existing value.
+  This cannot appear with `OR REPLACE`.
++ `constant_name`: The name of the constant. This can include a path.
++ `constant_value`: An expression that represents the value for the constant.
+
+The constant declaration does not specify a type. The constant type is the
+`constant_value` type. You cannot `ALTER`, `RENAME`, or `DROP` a constant.
+
+Constants cannot be used as arguments to aggregate
+user-defined functions (UDFs).
+
+**Example**
+
+Create a constant, `DEFAULT_HEIGHT`:
+
+```sql
+CREATE TEMPORARY CONSTANT DEFAULT_HEIGHT = 25;
+```
+
+Use it in a statement:
+
+```sql
+SELECT (DEFAULT_HEIGHT + 5) AS result;
+
++--------+
+| result |
++--------+
+| 30     |
++--------+
+```
 
 ## CREATE AGGREGATE FUNCTION
 

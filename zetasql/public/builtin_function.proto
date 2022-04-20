@@ -52,7 +52,7 @@ enum FunctionSignatureId {
   // 2000-2199 Geography functions            (NextId: 2086)
   // 2200-2299 Anonymization functions        (NextId: 2226)
   // 2300-2499 Numeric & more math functions  (NextId: 2322)
-  // 2500-2599 Array and proto map functions  (NextId: 2516)
+  // 2500-2599 Array and proto map functions  (NextId: 2517)
   // 2600-2699 More misc functions.           (NextId: 2605)
   // 2700-2799 Aggregate functions II         (NextId: 2701)
 
@@ -1093,6 +1093,7 @@ enum FunctionSignatureId {
   FN_ARRAY_INCLUDES_ANY = 2513;     // ARRAY_INCLUDES_ANY(array, array) -> bool
   FN_ARRAY_INCLUDES_ALL = 2514;     // ARRAY_INCLUDES_ALL(array, array) -> bool
   FN_ARRAY_FIRST = 2515;            // ARRAY_FIRST(array<T>) -> T
+  FN_ARRAY_LAST = 2516;             // ARRAY_LAST(array<T>) -> T
 
   // More misc functions
   FN_JSON_TO_INT64 = 2600;   // int64(json) -> int64

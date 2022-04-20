@@ -1175,8 +1175,15 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
       {{ARG_TYPE_ANY_1,
         {{ARG_ARRAY_TYPE_ANY_1, FunctionArgumentTypeOptions()
                                     .set_uses_array_element_for_collation()}},
-        FN_ARRAY_FIRST}},
-      FunctionOptions());
+        FN_ARRAY_FIRST}});
+
+  InsertFunction(
+      functions, options, "array_last", SCALAR,
+      /*signatures=*/
+      {{ARG_TYPE_ANY_1,
+        {{ARG_ARRAY_TYPE_ANY_1, FunctionArgumentTypeOptions()
+                                    .set_uses_array_element_for_collation()}},
+        FN_ARRAY_LAST}});
 
   FunctionOptions function_is_volatile;
   function_is_volatile.set_volatility(FunctionEnums::VOLATILE);

@@ -163,6 +163,9 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange,
       "ARRAY_FIRST cannot get the first element of an empty array"));
+  error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "ARRAY_LAST cannot get the last element of an empty array"));
 
   // REPLACE_FIELDS() specific
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(

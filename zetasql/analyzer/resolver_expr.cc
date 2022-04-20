@@ -6877,6 +6877,7 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
           analyzer_output_properties_.MarkRelevant(REWRITE_ARRAY_INCLUDES);
           break;
         case FN_ARRAY_FIRST:
+        case FN_ARRAY_LAST:
           analyzer_output_properties_.MarkRelevant(REWRITE_ARRAY_FIRST_LAST);
           break;
         case FN_CONTAINS_KEY:

@@ -82,6 +82,7 @@ jarjar_library(
     jars = [
         ":types",
         ":types_proto_resources",
+        "//zetasql/proto:anon_output_with_report_java_proto",
         "//zetasql/proto:function_java_proto",
         "//zetasql/public:deprecation_warning_java_proto",
         "//zetasql/public:error_location_java_proto",
@@ -109,6 +110,7 @@ pom_file(
     artifact_name = "Types",
     targets = [
         ":types",
+        "//zetasql/proto:anon_output_with_report_java_proto",
         "//zetasql/proto:function_java_proto",
         "//zetasql/public:deprecation_warning_java_proto",
         "//zetasql/public:error_location_java_proto",
@@ -402,6 +404,7 @@ jarjar_library(
         ":analyzer",
         ":channel_provider",
         ":client",
+        ":debug_printable_node",
         "//java/com/google/zetasql/resolvedast",
         "//java/com/google/zetasql/testing:sql_compliance_service_java_grpc",
         "//java/com/google/zetasql/testing:sql_compliance_service_java_proto",
@@ -446,6 +449,7 @@ jarjar_library(
         ":libanalyzer-src.jar",
         ":libchannel_provider-src.jar",
         ":libclient-src.jar",
+        ":libdebug_printable_node-src.jar",
         "//java/com/google/zetasql/resolvedast:libresolvedast-src.jar",
     ],
 )
@@ -458,6 +462,7 @@ pom_file(
         ":analyzer",
         ":channel_provider",
         ":client",
+        ":debug_printable_node",
         "//java/com/google/zetasql/resolvedast",
         "//java/com/google/zetasql/testing:sql_compliance_service_java_grpc",
         "//java/com/google/zetasql/testing:sql_compliance_service_java_proto",
@@ -490,12 +495,13 @@ pom_file(
 
 javadoc_library(
     name = "client_javadoc",
-    srcs = ANALYZER_SRCS + CHANNEL_PROVIDER_SRCS + CLIENT_SRCS,
+    srcs = ANALYZER_SRCS + CHANNEL_PROVIDER_SRCS + CLIENT_SRCS + ["DebugPrintableNode.java"],
     root_packages = ["com.google.zetasql"],
     deps = [
         ":analyzer",
         ":channel_provider",
         ":client",
+        ":debug_printable_node",
     ],
 )
 

@@ -340,18 +340,16 @@ class RewriteArrayFirstLastVisitor : public ResolvedASTDeepCopyVisitor {
 
  private:
   absl::Status Rewrite(const ResolvedFunctionCall* node,
-                       absl::string_view rewrite_template,
-                       absl::string_view function_name) {
+                       absl::string_view rewrite_template) {
     ZETASQL_RET_CHECK_EQ(node->argument_list_size(), 1)
-        << function_name
+        << node->function()->SQLName()
         << " should have 1 arguments. Got: " << node->DebugString();
     const ResolvedExpr* array_input = node->argument_list(0);
     ZETASQL_RET_CHECK_NE(array_input, nullptr);
     bool is_safe =
         node->error_mode() == ResolvedFunctionCallBase::SAFE_ERROR_MODE;
 
-    // Process child node first, so that input array argument of ARRAY_FIRST is
-    // rewritten.
+    // Process child node first, so that input array argument is rewritten.
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> processed_array_input,
                      ProcessNode(array_input));
 
@@ -372,7 +370,7 @@ class RewriteArrayFirstLastVisitor : public ResolvedASTDeepCopyVisitor {
 
   absl::Status VisitResolvedFunctionCall(
       const ResolvedFunctionCall* node) override {
-    // Template with null hanlding.
+    // Templates with null hanlding.
     constexpr absl::string_view kArrayFirstTemplate = R"(
     CASE
       WHEN array_input IS NULL THEN NULL
@@ -380,12 +378,18 @@ class RewriteArrayFirstLastVisitor : public ResolvedASTDeepCopyVisitor {
       ELSE array_input[OFFSET(0)]
     END
     )";
-
+    constexpr absl::string_view kArrayLastTemplate = R"(
+    CASE
+      WHEN array_input IS NULL THEN NULL
+      WHEN ARRAY_LENGTH(array_input) = 0 THEN ERROR('ARRAY_LAST cannot get the last element of an empty array')
+      ELSE array_input[ORDINAL(ARRAY_LENGTH(array_input))]
+    END
+    )";
     if (IsBuiltInFunctionIdEq(node, FN_ARRAY_FIRST)) {
-      return Rewrite(node, kArrayFirstTemplate,
-                     FunctionSignatureIdToName(FN_ARRAY_FIRST));
+      return Rewrite(node, kArrayFirstTemplate);
+    } else if (IsBuiltInFunctionIdEq(node, FN_ARRAY_LAST)) {
+      return Rewrite(node, kArrayLastTemplate);
     }
-    // TODO: Update branch to include ARRAY_LAST.
     return CopyVisitResolvedFunctionCall(node);
   }
 

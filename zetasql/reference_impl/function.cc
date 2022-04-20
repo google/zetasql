@@ -859,6 +859,7 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kArrayIncludesAll, "array_includes_all",
                      "ArrayIncludesAll");
     RegisterFunction(FunctionKind::kArrayFirst, "array_first", "ArrayFirst");
+    RegisterFunction(FunctionKind::kArrayLast, "array_last", "ArrayLast");
   }();
 }  // NOLINT(readability/fn_size)
 
@@ -1810,6 +1811,7 @@ BuiltinScalarFunction::CreateValidatedRaw(
     case FunctionKind::kArrayIncludesAll:
       return new ArrayIncludesArrayFunction(/*require_all=*/true);
     case FunctionKind::kArrayFirst:
+    case FunctionKind::kArrayLast:
       return new ArrayFirstLastFunction(kind, output_type);
     case FunctionKind::kCurrentDate:
     case FunctionKind::kCurrentDatetime:
@@ -3327,8 +3329,16 @@ absl::StatusOr<Value> ArrayFirstLastFunction::Eval(
     const Value& first = args[0].element(0);
     ZETASQL_RET_CHECK(first.is_valid());
     return first;
+  } else if (kind() == FunctionKind::kArrayLast) {
+    if (args[0].is_empty_array()) {
+      return MakeEvalError()
+             << "ARRAY_LAST cannot get the last element of an empty array";
+    }
+    const Value& last = args[0].element(args[0].num_elements() - 1);
+    ZETASQL_RET_CHECK(last.is_valid());
+    return last;
   }
-  // TODO: Add ARRAY_LAST implementation here.
+  // Any other function kind is invalid call
   ZETASQL_RET_CHECK_FAIL();
 }
 

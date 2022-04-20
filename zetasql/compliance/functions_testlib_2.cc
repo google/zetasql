@@ -1430,7 +1430,8 @@ GetNullArrayFirstLastTestCases() {
   };
 }
 
-static const std::vector<ArrayFirstLastTestCase> GetEmptyArrayTestCases() {
+static const std::vector<ArrayFirstLastTestCase>
+GetEmptyArrayFirstLastTestCases() {
   return {
       {Value::EmptyArray(DoubleArrayType()), NullDouble(), NullDouble(),
        OUT_OF_RANGE},
@@ -1553,7 +1554,7 @@ static const std::vector<ArrayFirstLastTestCase> GetArrayFirstLastTestCases() {
   std::vector<ArrayFirstLastTestCase> null_test_cases =
       GetNullArrayFirstLastTestCases();
   std::vector<ArrayFirstLastTestCase> empty_test_cases =
-      GetEmptyArrayTestCases();
+      GetEmptyArrayFirstLastTestCases();
   absl::c_move(null_test_cases, std::back_inserter(test_cases));
   absl::c_move(empty_test_cases, std::back_inserter(test_cases));
   return test_cases;
@@ -1580,17 +1581,28 @@ static void AddWrappedSafeArrayFunctionResult(
   }
 }
 
-std::vector<QueryParamsWithResult> GetFunctionTestsArrayFirst(bool is_safe) {
+static std::vector<QueryParamsWithResult>
+GetAndAddWrappedArrayFirstLastFunctionTestResult(bool is_safe, bool is_first) {
   std::vector<ArrayFirstLastTestCase> test_cases = GetArrayFirstLastTestCases();
   std::vector<QueryParamsWithResult> result;
   result.reserve(test_cases.size());
 
   for (const ArrayFirstLastTestCase& test : test_cases) {
-    AddWrappedSafeArrayFunctionResult({test.input}, test.output_first,
-                                      test.status_code, test.language_features,
-                                      is_safe, &result);
+    AddWrappedSafeArrayFunctionResult(
+        {test.input}, is_first ? test.output_first : test.output_last,
+        test.status_code, test.language_features, is_safe, &result);
   }
   return result;
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayFirst(bool is_safe) {
+  return GetAndAddWrappedArrayFirstLastFunctionTestResult(is_safe,
+                                                          /*is_first=*/true);
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayLast(bool is_safe) {
+  return GetAndAddWrappedArrayFirstLastFunctionTestResult(is_safe,
+                                                          /*is_first=*/false);
 }
 
 std::vector<QueryParamsWithResult> GetFunctionTestsGreatest(

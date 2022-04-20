@@ -1237,3 +1237,9 @@ SELECT 'HellO' = ARRAY_FIRST([collate("hello", "und:ci"), collate("zetasql", "un
 --
 ARRAY<STRUCT<BOOL>>[{true}]
 ==
+
+[name=array_last_collation_ci_string]
+SELECT 'ZetaSQL' = ARRAY_LAST([collate("hello", "und:ci"), collate("zetasql", "und:ci")])
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+==

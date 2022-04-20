@@ -198,6 +198,7 @@ enum class FunctionKind {
   kArrayIncludesAny,
   kArrayIncludesAll,
   kArrayFirst,
+  kArrayLast,
 
   // Proto map functions. Like array functions, the map functions must use
   // MaybeSetNonDeterministicArrayOutput.

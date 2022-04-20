@@ -130,7 +130,11 @@ std::vector<QueryParamsWithResult> GetFunctionTestsGreatest(
 std::vector<QueryParamsWithResult> GetFunctionTestsLeast(
     bool include_nano_timestamp);
 
+// Test function for ARRAY_FIRST and ARRAY_LAST
+// `is_safe` controls the SAFE version of function call.
+// true means `SAFE.ARRAY_FIRST` tests and false means `ARRAY_FIRST` tests.
 std::vector<QueryParamsWithResult> GetFunctionTestsArrayFirst(bool is_safe);
+std::vector<QueryParamsWithResult> GetFunctionTestsArrayLast(bool is_safe);
 
 std::vector<QueryParamsWithResult> GetFunctionTestsLike();
 

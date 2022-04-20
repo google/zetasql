@@ -4918,6 +4918,7 @@ QueryStmt
 ==
 
 # TODO: Add more ARRAY built-in functions
+[enabled_ast_rewrites=DEFAULTS]
 SELECT ARRAY_FIRST([collate("hello", "und:ci"), collate("zetasql", "und:ci")])
 --
 QueryStmt
@@ -4940,6 +4941,57 @@ QueryStmt
     |         +-type_annotation_map={Collation:"und:ci"}
     |         +-Literal(type=STRING, value="zetasql")
     |         +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1{Collation:"und:ci"} AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1{Collation:"und:ci"}]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=STRING
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#3]
+    |         +-expr_list=
+    |         | +-$col1#3 :=
+    |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(2) BOOL, repeated(2) STRING, STRING) -> STRING)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.array_input#2)
+    |         |     +-Literal(type=STRING, value=NULL)
+    |         |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |     | +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |         |     | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.array_input#2)
+    |         |     | +-Literal(type=INT64, value=0)
+    |         |     +-Cast(STRING -> STRING)
+    |         |     | +-FunctionCall(ZetaSQL:error(STRING) -> STRING)
+    |         |     |   +-Literal(type=STRING, value="ARRAY_FIRST cannot get the first element of an empty array")
+    |         |     +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
+    |         |       +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.array_input#2)
+    |         |       +-Literal(type=INT64, value=0)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$subquery1.array_input#2]
+    |             +-expr_list=
+    |             | +-array_input#2 :=
+    |             |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
+    |             |     +-type_annotation_map=[{Collation:"und:ci"}]
+    |             |     +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |             |     | +-type_annotation_map={Collation:"und:ci"}
+    |             |     | +-Literal(type=STRING, value="hello")
+    |             |     | +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |             |     +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |             |       +-type_annotation_map={Collation:"und:ci"}
+    |             |       +-Literal(type=STRING, value="zetasql")
+    |             |       +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    |             +-input_scan=
+    |               +-SingleRowScan
     +-input_scan=
       +-SingleRowScan
 ==

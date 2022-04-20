@@ -35,8 +35,8 @@ Modules support the following statements:
 
 +   `MODULE`
 +   `IMPORT MODULE` 
-+   `CREATE ( PUBLIC | PRIVATE ) [ ( TABLE | AGGREGATE ) ] FUNCTION`
-+   `CREATE ( PUBLIC | PRIVATE ) CONSTANT`
++   `CREATE { PUBLIC | PRIVATE } [ { TABLE | AGGREGATE } ] FUNCTION`
++   `CREATE { PUBLIC | PRIVATE } CONSTANT`
 
 Modules do not support statements that return results or have side effects.
 Modules only support defining an object once and do not support modifying an
@@ -107,6 +107,34 @@ CREATE PRIVATE FUNCTION Bar(b INT64)
 AS (
   b - 1
 );
+```
+
+#### Creating constants
+
+Modules support the creation of [constants][create-constant].
+
+The `TEMP` keyword is not allowed when creating a constant in a module.
+`TEMP` objects in a module are not meaningful, since the lifetime of the object
+is the lifetime of the module.
+
+**Example**
+
+Create a constant, `DEFAULT_HEIGHT`:
+
+```sql
+CREATE PUBLIC CONSTANT DEFAULT_HEIGHT = 25;
+```
+
+Use it in a statement:
+
+```sql
+SELECT (DEFAULT_HEIGHT + 5) AS result;
+
++--------+
+| result |
++--------+
+| 30     |
++--------+
 ```
 
 #### Creating UDFs and TVFs
@@ -332,6 +360,8 @@ AS (
 [user-defined-functions]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md
 
 [table-valued-functions]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md#tvfs
+
+[create-constant]: https://github.com/google/zetasql/blob/master/docs/data-definition-language.md#create_constant
 
 <!-- mdlint on -->
 

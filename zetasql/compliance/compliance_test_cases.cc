@@ -990,6 +990,18 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArrayFirstFunctions, 1) {
                          "SAFE.ARRAY_FIRST");
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestArrayLastFunctions, 1) {
+  SetNamePrefix("ArrayLast");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayLast(/*is_safe=*/false)),
+                         "ARRAY_LAST");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArrayLastFunctions, 1) {
+  SetNamePrefix("SafeArrayLast");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayLast(/*is_safe=*/true)),
+                         "SAFE.ARRAY_LAST");
+}
+
 SHARDED_TEST_F(ComplianceCodebasedTests, TestLogicalFunctions_AND, 1) {
   SetNamePrefix("And");
   RunFunctionTestsInfix(Shard(GetFunctionTestsAnd()), "AND");
