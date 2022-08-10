@@ -771,6 +771,16 @@ select st_geogfromtext('point(0 0)', planar => x) from unnest([true, false]) x
                                      ^
 ==
 
+# Invalid signature: omitted required argument
+[language_features=GEOGRAPHY,NAMED_ARGUMENTS,V_1_3_EXTENDED_GEOGRAPHY_PARSERS]
+select st_bufferwithtolerance(st_geogpoint(1,2),
+  tolerance_meters => 100, endcap => "flat", side => "left");
+--
+ERROR: Call to function ZetaSQL:st_bufferwithtolerance does not include required positional argument number 2 [at 1:8]
+select st_bufferwithtolerance(st_geogpoint(1,2),
+       ^
+==
+
 [language_features=GEOGRAPHY,NAMED_ARGUMENTS]
 select
   # Permutation of named arguments produce same resolved AST.

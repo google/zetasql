@@ -16,6 +16,8 @@
 
 #include "zetasql/scripting/error_helpers.h"
 
+#include <string>
+
 #include "zetasql/common/errors.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/base/testing/status_matchers.h"

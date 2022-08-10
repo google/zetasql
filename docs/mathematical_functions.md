@@ -706,6 +706,10 @@ the supertype must support ordering.
   </tbody>
 </table>
 
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+
 **Return Data Types**
 
 Data type of the input values.
@@ -739,6 +743,10 @@ the supertype must support ordering.
     </tr>
   </tbody>
 </table>
+
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
 
 **Return Data Types**
 
@@ -1437,6 +1445,357 @@ less than 1.
   </tbody>
 </table>
 
+### COT
+
+```
+COT(X)
+```
+
+**Description**
+
+Computes the cotangent for the angle of `X`, where `X` is specified in radians.
+`X` can be any data type
+that [coerces to `DOUBLE`][conversion-rules].
+Supports the `SAFE.` prefix.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>COT(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>0</code></td>
+      <td><code>Error</code></td>
+    </tr>
+    <tr>
+      <td><code>NULL</code></td>
+      <td><code>NULL</code></td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+`DOUBLE`
+
+**Example**
+
+```sql
+SELECT COT(1) AS a, SAFE.COT(0) AS b;
+
++---------------------+------+
+| a                   | b    |
++---------------------+------+
+| 0.64209261593433065 | NULL |
++---------------------+------+
+```
+
+### COTH
+
+```
+COTH(X)
+```
+
+**Description**
+
+Computes the hyperbolic cotangent for the angle of `X`, where `X` is specified
+in radians. `X` can be any data type
+that [coerces to `DOUBLE`][conversion-rules].
+Supports the `SAFE.` prefix.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>COTH(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>1</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>-1</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>0</code></td>
+      <td><code>Error</code></td>
+    </tr>
+    <tr>
+      <td><code>NULL</code></td>
+      <td><code>NULL</code></td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+`DOUBLE`
+
+**Example**
+
+```sql
+SELECT COTH(1) AS a, SAFE.COTH(0) AS b;
+
++----------------+------+
+| a              | b    |
++----------------+------+
+| 1.313035285499 | NULL |
++----------------+------+
+```
+
+### CSC
+
+```
+CSC(X)
+```
+
+**Description**
+
+Computes the cosecant of the input angle, which is in radians.
+`X` can be any data type
+that [coerces to `DOUBLE`][conversion-rules].
+Supports the `SAFE.` prefix.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>CSC(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>0</code></td>
+      <td><code>Error</code></td>
+    </tr>
+    <tr>
+      <td><code>NULL</code></td>
+      <td><code>NULL</code></td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+`DOUBLE`
+
+**Example**
+
+```sql
+SELECT CSC(100) AS a, CSC(-1) AS b, SAFE.CSC(0) AS c;
+
++----------------+-----------------+------+
+| a              | b               | c    |
++----------------+-----------------+------+
+| -1.97485753142 | -1.188395105778 | NULL |
++----------------+-----------------+------+
+```
+
+### CSCH
+
+```
+CSCH(X)
+```
+
+**Description**
+
+Computes the hyperbolic cosecant of the input angle, which is in radians.
+`X` can be any data type
+that [coerces to `DOUBLE`][conversion-rules].
+Supports the `SAFE.` prefix.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>CSCH(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>0</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>0</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>0</code></td>
+      <td><code>Error</code></td>
+    </tr>
+    <tr>
+      <td><code>NULL</code></td>
+      <td><code>NULL</code></td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+`DOUBLE`
+
+**Example**
+
+```sql
+SELECT CSCH(0.5) AS a, CSCH(-2) AS b, SAFE.CSCH(0) AS c;
+
++----------------+----------------+------+
+| a              | b              | c    |
++----------------+----------------+------+
+| 1.919034751334 | -0.27572056477 | NULL |
++----------------+----------------+------+
+```
+
+### SEC
+
+```
+SEC(X)
+```
+
+**Description**
+
+Computes the secant for the angle of `X`, where `X` is specified in radians.
+`X` can be any data type
+that [coerces to `DOUBLE`][conversion-rules].
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>SEC(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>NULL</code></td>
+      <td><code>NULL</code></td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+`DOUBLE`
+
+**Example**
+
+```sql
+SELECT SEC(100) AS a, SEC(-1) AS b;
+
++----------------+---------------+
+| a              | b             |
++----------------+---------------+
+| 1.159663822905 | 1.85081571768 |
++----------------+---------------+
+```
+
+### SECH
+
+```
+SECH(X)
+```
+
+**Description**
+
+Computes the hyperbolic secant for the angle of `X`, where `X` is specified
+in radians. `X` can be any data type
+that [coerces to `DOUBLE`][conversion-rules].
+Never produces an error.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>SECH(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>0</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>0</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>NULL</code></td>
+      <td><code>NULL</code></td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+`DOUBLE`
+
+**Example**
+
+```sql
+SELECT SECH(0.5) AS a, SECH(-2) AS b, SECH(100) AS c;
+
++----------------+----------------+---------------------+
+| a              | b              | c                   |
++----------------+----------------+---------------------+
+| 0.88681888397  | 0.265802228834 | 7.4401519520417E-44 |
++----------------+----------------+---------------------+
+```
+
 ### SIN
 
 ```
@@ -1807,6 +2166,65 @@ the two arguments to determine the quadrant. The return value is in the range
     </tr>
   </tbody>
 </table>
+
+### CBRT
+
+```
+CBRT(X)
+```
+
+**Description**
+
+Computes the cube root of `X`. `X` can be any data type
+that [coerces to `DOUBLE`][conversion-rules].
+Supports the `SAFE.` prefix.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>CBRT(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>inf</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>-inf</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>0</code></td>
+      <td><code>0</code></td>
+    </tr>
+    <tr>
+      <td><code>NULL</code></td>
+      <td><code>NULL</code></td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+`DOUBLE`
+
+**Example**
+
+```sql
+SELECT CBRT(27) AS cube_root;
+
++--------------------+
+| cube_root          |
++--------------------+
+| 3.0000000000000004 |
++--------------------+
+```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 

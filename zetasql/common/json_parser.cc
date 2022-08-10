@@ -16,7 +16,9 @@
 
 #include "zetasql/common/json_parser.h"
 
+#include <algorithm>
 #include <cstdint>
+#include <string>
 
 #include "zetasql/base/logging.h"
 #include "absl/strings/ascii.h"
@@ -314,19 +316,6 @@ bool JSONParser::ParseNumberTextHelper(absl::string_view* str) {
   return true;
 }
 
-bool JSONParser::ParseNumberHelper(double* d) {
-  ZETASQL_CHECK(d);
-  char* end;
-  errno = 0;
-  // Number formats of strtod and JSON are actually different,
-  // Some users might depend on the current behavior though.
-  *d = strtod(p_.data(), &end);
-  if (errno != 0 || end == p_.data())
-    return ReportFailure("Could not parse number");
-  p_.remove_prefix(end - p_.data());
-  return true;
-}
-
 bool JSONParser::ParseObject() {
   ZETASQL_CHECK_EQ('{', *p_.data());
   AdvanceOneByte();
@@ -452,13 +441,6 @@ bool JSONParser::ParseNull() {
   if (!ParsedNull()) return ReportFailure("ParsedNull returned false");
   ZETASQL_DCHECK_GE(p_.length(), kNull.length());
   p_.remove_prefix(kNull.length());
-  return true;
-}
-
-bool JSONParser::ParseKey(absl::string_view* key) {
-  // TODO: Optimize later if necessary.
-  if (!RE2::Consume(&p_, *key_re, key))
-    return ReportFailure("Invalid key or variable name");
   return true;
 }
 

@@ -386,7 +386,7 @@ PIVOT(ARRAY_AGG(y IGNORE NULLS LIMIT 3) FOR x IN (1, 2));
 ARRAY<STRUCT<BOOL>>[{true}]
 ==
 
-[required_features=V_1_3_PIVOT,V_1_1_HAVING_IN_AGGREGATE,V_1_1_NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+[required_features=V_1_3_PIVOT,V_1_1_HAVING_IN_AGGREGATE]
 [name=having_in_aggregate_fn_call]
 SELECT * FROM (SELECT x, y FROM t1)
 PIVOT(MAX(y HAVING MAX x) FOR x IN (1, 2));

@@ -16,6 +16,8 @@
 
 #include "zetasql/public/evaluator.h"
 
+#include <string>
+
 #include "zetasql/common/evaluator_registration_utils.h"
 
 namespace zetasql {

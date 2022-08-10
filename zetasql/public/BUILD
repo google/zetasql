@@ -32,7 +32,6 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/types:optional",
         "@com_google_cc_differential_privacy//algorithms:partition-selection",
     ],
 )
@@ -233,6 +232,34 @@ cc_library(
         "@com_google_absl//absl/types:span",
         "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_library(
+    name = "simple_catalog_util",
+    srcs = ["simple_catalog_util.cc"],
+    hdrs = ["simple_catalog_util.h"],
+    deps = [
+        ":analyzer",
+        ":analyzer_options",
+        ":analyzer_output",
+        ":simple_catalog",
+        ":sql_function",
+        ":templated_sql_function",
+        "//zetasql/resolved_ast",
+        "@com_google_absl//absl/status",
+    ],
+)
+
+cc_test(
+    name = "simple_catalog_util_test",
+    srcs = ["simple_catalog_util_test.cc"],
+    deps = [
+        ":analyzer_options",
+        ":simple_catalog",
+        ":simple_catalog_util",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
     ],
 )
 
@@ -634,7 +661,6 @@ cc_test(
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings:cord",
-        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -821,9 +847,7 @@ java_proto_library(
 proto_library(
     name = "type_parameters_proto",
     srcs = ["type_parameters.proto"],
-    deps = [
-        ":simple_value_proto",
-    ],
+    deps = [":simple_value_proto"],
 )
 
 cc_proto_library(
@@ -873,6 +897,21 @@ java_proto_library(
 proto_library(
     name = "error_location_proto",
     srcs = ["error_location.proto"],
+)
+
+proto_library(
+    name = "formatter_options_proto",
+    srcs = ["formatter_options.proto"],
+)
+
+cc_proto_library(
+    name = "formatter_options_cc_proto",
+    deps = [":formatter_options_proto"],
+)
+
+java_proto_library(
+    name = "formatter_options_java_proto",
+    deps = [":formatter_options_proto"],
 )
 
 cc_proto_library(
@@ -1079,6 +1118,41 @@ cc_library(
     ],
 )
 
+# This header library allows implementation details of some of
+# the private member function to be factored out for re-use in
+# contexts where the respective class is not required.
+cc_library(
+    name = "function_headers",
+    hdrs = [
+        "function.h",
+        "function_signature.h",
+        "input_argument_type.h",
+    ],
+    deps = [
+        ":deprecation_warning_cc_proto",
+        ":function_cc_proto",
+        ":language_options",
+        ":options_cc_proto",
+        ":type",
+        ":type_cc_proto",
+        ":value",
+        "//zetasql/base",
+        "//zetasql/base:map_util",
+        "//zetasql/base:status",
+        "//zetasql/proto:function_cc_proto",
+        "//zetasql/public/types",
+        "@com_google_absl//absl/algorithm:container",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:optional",
+        "@com_google_absl//absl/types:span",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
 cc_library(
     name = "function",
     srcs = [
@@ -1099,6 +1173,7 @@ cc_library(
         ":catalog",
         ":deprecation_warning_cc_proto",
         ":function_cc_proto",
+        ":function_headers",
         ":language_options",
         ":options_cc_proto",
         ":parse_location",
@@ -1114,6 +1189,7 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/base:strings",
         "//zetasql/common:errors",
+        "//zetasql/common:function_utils",
         "//zetasql/proto:function_cc_proto",
         "//zetasql/public/types",
         "//zetasql/resolved_ast:serialization_cc_proto",
@@ -1591,12 +1667,13 @@ cc_library(
         ":catalog",
         ":id_string",
         ":type",
-        "//zetasql/base",
         "//zetasql/base:strings",
         "//zetasql/parser",
         "//zetasql/public/types",
+        "//zetasql/resolved_ast",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:btree",
+        "@com_google_absl//absl/flags:flag",
     ],
 )
 
@@ -1660,6 +1737,8 @@ cc_library(
         "//zetasql/base:status",
         "//zetasql/base:strings",
         "//zetasql/common:errors",
+        "//zetasql/common:internal_analyzer_options",
+        "//zetasql/common:status_payload_utils",
         "//zetasql/parser",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
@@ -1721,6 +1800,7 @@ cc_library(
         "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/base:strings",
+        "//zetasql/common:internal_analyzer_options",
         "//zetasql/reference_impl:algebrizer",
         "//zetasql/reference_impl:common",
         "//zetasql/reference_impl:evaluation",
@@ -1844,7 +1924,6 @@ cc_library(
         "//zetasql/base:case",
         "//zetasql/base:endian",
         "//zetasql/base:map_util",
-        "//zetasql/base:strings",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/hash",
         "@com_google_absl//absl/strings",
@@ -1913,6 +1992,43 @@ cc_proto_library(
 java_proto_library(
     name = "simple_value_java_proto",
     deps = [":simple_value_proto"],
+)
+
+cc_library(
+    name = "lenient_formatter",
+    srcs = ["lenient_formatter.cc"],
+    hdrs = ["lenient_formatter.h"],
+    deps = [
+        ":formatter_options",
+        "//zetasql/base:status",
+        "//zetasql/tools/formatter/internal:layout",
+        "//zetasql/tools/formatter/internal:parsed_file",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "lenient_formatter_test",
+    size = "small",
+    srcs = ["lenient_formatter_test.cc"],
+    deps = [
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:formatter_options",
+        "//zetasql/public:lenient_formatter",
+    ],
+)
+
+cc_library(
+    name = "formatter_options",
+    srcs = ["formatter_options.cc"],
+    hdrs = ["formatter_options.h"],
+    deps = [
+        ":formatter_options_cc_proto",
+        "@com_google_absl//absl/strings",
+    ],
 )
 
 exports_files(["type_annotation.proto"])

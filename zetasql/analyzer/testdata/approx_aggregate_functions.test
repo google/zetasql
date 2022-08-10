@@ -1565,27 +1565,27 @@ select d3a_count.init(@test_param_int64, null) from SimpleTypes
                                          ^
 ==
 
-select d3a_count.init(@test_param_int64, @test_param_int64, 9) from SimpleTypes
+select d3a_count.init(@test_param_int64, @test_param_int64, 3) from SimpleTypes
 --
-ERROR: Argument 3 to D3A_COUNT.INIT must be between 10 and 24 [at 1:61]
-select d3a_count.init(@test_param_int64, @test_param_int64, 9) from SimpleTypes
+ERROR: Argument 3 to D3A_COUNT.INIT must be between 4 and 24 [at 1:61]
+select d3a_count.init(@test_param_int64, @test_param_int64, 3) from SimpleTypes
                                                             ^
 ==
 
 # Value range checking should happen even if we start from an int32
 # and have to widen to int64.
 select d3a_count.init(@test_param_int64, @test_param_int64, cast(12 as int32)),
-       d3a_count.init(@test_param_int64, @test_param_int64, cast(9 as int32))
+       d3a_count.init(@test_param_int64, @test_param_int64, cast(3 as int32))
 from SimpleTypes
 --
-ERROR: Argument 3 to D3A_COUNT.INIT must be between 10 and 24 [at 2:61]
-       d3a_count.init(@test_param_int64, @test_param_int64, cast(9 as int32))
+ERROR: Argument 3 to D3A_COUNT.INIT must be between 4 and 24 [at 2:61]
+       d3a_count.init(@test_param_int64, @test_param_int64, cast(3 as int32))
                                                             ^
 ==
 
 select d3a_count.init(@test_param_int64, @test_param_int64, 25) from SimpleTypes
 --
-ERROR: Argument 3 to D3A_COUNT.INIT must be between 10 and 24 [at 1:61]
+ERROR: Argument 3 to D3A_COUNT.INIT must be between 4 and 24 [at 1:61]
 select d3a_count.init(@test_param_int64, @test_param_int64, 25) from SimpleTypes
                                                             ^
 ==
@@ -1731,6 +1731,13 @@ select d3a_count.init(@test_param_proto, @test_param_int64) from SimpleTypes
 --
 ERROR: No matching signature for aggregate function D3A_COUNT.INIT for argument types: zetasql_test__.KitchenSinkPB, INT64. Supported signatures: D3A_COUNT.INIT(INT64, INT64, [INT64]); D3A_COUNT.INIT(UINT64, INT64, [INT64]); D3A_COUNT.INIT(STRING, INT64, [INT64]); D3A_COUNT.INIT(BYTES, INT64, [INT64]) [at 1:8]
 select d3a_count.init(@test_param_proto, @test_param_int64) from SimpleTypes
+       ^
+==
+
+select d3a_count.init(DISTINCT @test_param_int64, @test_param_int64, @test_param_int64) from SimpleTypes
+--
+ERROR: Aggregate function D3A_COUNT.INIT does not support DISTINCT in arguments [at 1:8]
+select d3a_count.init(DISTINCT @test_param_int64, @test_param_int64, @test_pa...
        ^
 ==
 
@@ -2349,7 +2356,7 @@ ERROR: Argument 2 to KLL_QUANTILES.EXTRACT_POINT_DOUBLE must be between 0 and 1 
 ==
 
 # Compare behavior when the feature is enabled vs. not enabled.  Tests
-[language_features={{|NAMED_ARGUMENTS|NAMED_ARGUMENTS,KLL_WEIGHTS}}]
+[language_features={{|NAMED_ARGUMENTS|NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS}}]
 select kll_quantiles.init_uint64(@test_param_uint64)
 from SimpleTypes;
 --
@@ -2373,7 +2380,7 @@ QueryStmt
             +-AggregateFunctionCall(ZetaSQL:kll_quantiles.init_uint64(UINT64, optional(0) INT64) -> BYTES)
               +-Parameter(type=UINT64, name="test_param_uint64")
 --
-ALTERNATION GROUP: NAMED_ARGUMENTS,KLL_WEIGHTS
+ALTERNATION GROUP: NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS
 --
 QueryStmt
 +-output_column_list=
@@ -2394,7 +2401,7 @@ QueryStmt
               +-Literal(type=INT64, value=1)
 ==
 
-[language_features={{|NAMED_ARGUMENTS|NAMED_ARGUMENTS,KLL_WEIGHTS}}]
+[language_features={{|NAMED_ARGUMENTS|NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS}}]
 select kll_quantiles.init_uint64(@test_param_uint64, 100)
 from SimpleTypes;
 --
@@ -2419,7 +2426,7 @@ QueryStmt
               +-Parameter(type=UINT64, name="test_param_uint64")
               +-Literal(type=INT64, value=100)
 --
-ALTERNATION GROUP: NAMED_ARGUMENTS,KLL_WEIGHTS
+ALTERNATION GROUP: NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS
 --
 QueryStmt
 +-output_column_list=
@@ -2442,7 +2449,7 @@ QueryStmt
 
 # The 'weight' argument has a mandatory name, so the query fails when
 # expressing it positionally.
-[language_features={{|NAMED_ARGUMENTS|NAMED_ARGUMENTS,KLL_WEIGHTS}}]
+[language_features={{|NAMED_ARGUMENTS|NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS}}]
 select kll_quantiles.init_uint64(@test_param_uint64, 100,
                                  IF(@test_param_uint64 > 5, 2, 1))
 from SimpleTypes;
@@ -2455,14 +2462,14 @@ ERROR: Number of arguments does not match for aggregate function KLL_QUANTILES.I
 select kll_quantiles.init_uint64(@test_param_uint64, 100,
        ^
 --
-ALTERNATION GROUP: NAMED_ARGUMENTS,KLL_WEIGHTS
+ALTERNATION GROUP: NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS
 --
 ERROR: Positional argument is invalid because this function restricts that this argument is referred to by name "weight" only [at 2:34]
                                  IF(@test_param_uint64 > 5, 2, 1))
                                  ^
 ==
 
-[language_features={{|NAMED_ARGUMENTS|NAMED_ARGUMENTS,KLL_WEIGHTS}}]
+[language_features={{|NAMED_ARGUMENTS|NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS}}]
 select kll_quantiles.init_uint64(@test_param_uint64, 100,
                                  weight => IF(@test_param_uint64 > 5, 2, 1))
 from SimpleTypes;
@@ -2475,7 +2482,7 @@ ERROR: Number of arguments does not match for aggregate function KLL_QUANTILES.I
 select kll_quantiles.init_uint64(@test_param_uint64, 100,
        ^
 --
-ALTERNATION GROUP: NAMED_ARGUMENTS,KLL_WEIGHTS
+ALTERNATION GROUP: NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS
 --
 QueryStmt
 +-output_column_list=
@@ -2502,7 +2509,7 @@ QueryStmt
 ==
 
 # The second optional 'precision' argument is omitted.
-[language_features={{|NAMED_ARGUMENTS|NAMED_ARGUMENTS,KLL_WEIGHTS}}]
+[language_features={{|NAMED_ARGUMENTS|NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS}}]
 select kll_quantiles.init_uint64(@test_param_uint64,
                                  weight => IF(@test_param_uint64 > 5, 2, 1))
 from SimpleTypes;
@@ -2519,7 +2526,7 @@ ERROR: Named argument weight not found in signature for call to function ZetaSQL
                                  weight => IF(@test_param_uint64 > 5, 2, 1))
                                  ^
 --
-ALTERNATION GROUP: NAMED_ARGUMENTS,KLL_WEIGHTS
+ALTERNATION GROUP: NAMED_ARGUMENTS,V_1_3_KLL_WEIGHTS
 --
 QueryStmt
 +-output_column_list=
@@ -2547,7 +2554,7 @@ QueryStmt
 
 # Same as the above, but without the NAMED_ARGUMENTS feature, to ensure we
 # get a reasonable error message.
-[language_features=KLL_WEIGHTS]
+[language_features=V_1_3_KLL_WEIGHTS]
 select kll_quantiles.init_uint64(@test_param_uint64,
                                  weight => IF(@test_param_uint64 > 5, 2, 1))
 from SimpleTypes;

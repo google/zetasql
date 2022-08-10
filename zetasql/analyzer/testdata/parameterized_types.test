@@ -7,8 +7,12 @@ create table t (
   col_bytes_max         bytes(MAX),
   col_numeric1          numeric(20)    not null,
   col_numeric2          numeric(30, 5)  options(x=123),
+  col_numeric3          numeric(30, 5)  options(ROUNDING_MODE="round_half_even"),
+  col_numeric4          numeric(31, 5)  options(ROUNDING_MODE="round_half_away_from_zero"),
   col_bignumeric1       bignumeric(36),
   col_bignumeric2       bignumeric(75, 38),
+  col_bignumeric3       bignumeric(70, 35) options(ROUNDING_MODE="round_half_even"),
+  col_bignumeric4       bignumeric(71, 35) options(ROUNDING_MODE="round_half_away_from_zero"),
   col_bignumeric_max    bignumeric(MAX),
   col_bignumeric_max2   bignumeric(MAX, 30),
 );
@@ -56,34 +60,70 @@ CreateTableStmt
   | |   +-type_parameters=(precision=30,scale=5)
   | +-column=t.col_numeric2#6
   +-ColumnDefinition
+  | +-name="col_numeric3"
+  | +-type=NUMERIC
+  | +-annotations=
+  | | +-ColumnAnnotations
+  | |   +-option_list=
+  | |   | +-ROUNDING_MODE := Literal(type=STRING, value="round_half_even")
+  | |   +-type_parameters=(precision=30,scale=5)
+  | +-column=t.col_numeric3#7
+  +-ColumnDefinition
+  | +-name="col_numeric4"
+  | +-type=NUMERIC
+  | +-annotations=
+  | | +-ColumnAnnotations
+  | |   +-option_list=
+  | |   | +-ROUNDING_MODE := Literal(type=STRING, value="round_half_away_from_zero")
+  | |   +-type_parameters=(precision=31,scale=5)
+  | +-column=t.col_numeric4#8
+  +-ColumnDefinition
   | +-name="col_bignumeric1"
   | +-type=BIGNUMERIC
   | +-annotations=
   | | +-ColumnAnnotations(type_parameters=(precision=36,scale=0))
-  | +-column=t.col_bignumeric1#7
+  | +-column=t.col_bignumeric1#9
   +-ColumnDefinition
   | +-name="col_bignumeric2"
   | +-type=BIGNUMERIC
   | +-annotations=
   | | +-ColumnAnnotations(type_parameters=(precision=75,scale=38))
-  | +-column=t.col_bignumeric2#8
+  | +-column=t.col_bignumeric2#10
+  +-ColumnDefinition
+  | +-name="col_bignumeric3"
+  | +-type=BIGNUMERIC
+  | +-annotations=
+  | | +-ColumnAnnotations
+  | |   +-option_list=
+  | |   | +-ROUNDING_MODE := Literal(type=STRING, value="round_half_even")
+  | |   +-type_parameters=(precision=70,scale=35)
+  | +-column=t.col_bignumeric3#11
+  +-ColumnDefinition
+  | +-name="col_bignumeric4"
+  | +-type=BIGNUMERIC
+  | +-annotations=
+  | | +-ColumnAnnotations
+  | |   +-option_list=
+  | |   | +-ROUNDING_MODE := Literal(type=STRING, value="round_half_away_from_zero")
+  | |   +-type_parameters=(precision=71,scale=35)
+  | +-column=t.col_bignumeric4#12
   +-ColumnDefinition
   | +-name="col_bignumeric_max"
   | +-type=BIGNUMERIC
   | +-annotations=
   | | +-ColumnAnnotations(type_parameters=(precision=MAX,scale=0))
-  | +-column=t.col_bignumeric_max#9
+  | +-column=t.col_bignumeric_max#13
   +-ColumnDefinition
     +-name="col_bignumeric_max2"
     +-type=BIGNUMERIC
     +-annotations=
     | +-ColumnAnnotations(type_parameters=(precision=MAX,scale=30))
-    +-column=t.col_bignumeric_max2#10
+    +-column=t.col_bignumeric_max2#14
 ==
 
 # Parameterized types - complex types with parameters and annotations such as not null.
 create table t (
-  c1  struct<a1 numeric(10, 5) not null, a2 struct<bytes(10)>>,
+  c1  struct<a1 numeric(10, 5) not null, a2 struct<bytes(10)>, a3 numeric(10, 5) options(ROUNDING_MODE="round_half_even")>,
   c2  array<struct<bytes(100)> options(x=456)>
 );
 --
@@ -92,14 +132,18 @@ CreateTableStmt
 +-column_definition_list=
   +-ColumnDefinition
   | +-name="c1"
-  | +-type=STRUCT<a1 NUMERIC, a2 STRUCT<BYTES>>
+  | +-type=STRUCT<a1 NUMERIC, a2 STRUCT<BYTES>, a3 NUMERIC>
   | +-annotations=
   | | +-ColumnAnnotations
   | |   +-child_list=
   | |     +-ColumnAnnotations(not_null=TRUE, type_parameters=(precision=10,scale=5))
   | |     +-ColumnAnnotations
-  | |       +-child_list=
-  | |         +-ColumnAnnotations(type_parameters=(max_length=10))
+  | |     | +-child_list=
+  | |     |   +-ColumnAnnotations(type_parameters=(max_length=10))
+  | |     +-ColumnAnnotations
+  | |       +-option_list=
+  | |       | +-ROUNDING_MODE := Literal(type=STRING, value="round_half_even")
+  | |       +-type_parameters=(precision=10,scale=5)
   | +-column=t.c1#1
   +-ColumnDefinition
     +-name="c2"
@@ -112,6 +156,68 @@ CreateTableStmt
     |       | +-x := Literal(type=INT64, value=456)
     |       +-child_list=
     |         +-ColumnAnnotations(type_parameters=(max_length=100))
+    +-column=t.c2#2
+==
+
+# Parameterized types - deeply nested struct or array with parameters and round_half_even (>= 3 layers)
+create table t (
+  c1  struct<f1 array<struct<a1 numeric(10,5), b1 string>>,
+             f2 struct<
+               s1 struct<a1 bytes(10),
+               a2 date,
+               a3 bignumeric(60,30) options(ROUNDING_MODE="round_half_even"),
+               a4 numeric(10,3) options(ROUNDING_MODE="round_half_away_from_zero"),
+               a5 array<numeric(10,3) options(ROUNDING_MODE="round_half_even")>
+             >>>,
+  c2  array<struct<a1 array<string(666)>>>
+);
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+  +-ColumnDefinition
+  | +-name="c1"
+  | +-type=STRUCT<f1 ARRAY<STRUCT<a1 NUMERIC, b1 STRING>>, f2 STRUCT<s1 STRUCT<a1 BYTES, a2 DATE, a3 BIGNUMERIC, a4 NUMERIC, a5 ARRAY<NUMERIC>>>>
+  | +-annotations=
+  | | +-ColumnAnnotations
+  | |   +-child_list=
+  | |     +-ColumnAnnotations
+  | |     | +-child_list=
+  | |     |   +-ColumnAnnotations
+  | |     |     +-child_list=
+  | |     |       +-ColumnAnnotations(type_parameters=(precision=10,scale=5))
+  | |     +-ColumnAnnotations
+  | |       +-child_list=
+  | |         +-ColumnAnnotations
+  | |           +-child_list=
+  | |             +-ColumnAnnotations(type_parameters=(max_length=10))
+  | |             +-ColumnAnnotations
+  | |             +-ColumnAnnotations
+  | |             | +-option_list=
+  | |             | | +-ROUNDING_MODE := Literal(type=STRING, value="round_half_even")
+  | |             | +-type_parameters=(precision=60,scale=30)
+  | |             +-ColumnAnnotations
+  | |             | +-option_list=
+  | |             | | +-ROUNDING_MODE := Literal(type=STRING, value="round_half_away_from_zero")
+  | |             | +-type_parameters=(precision=10,scale=3)
+  | |             +-ColumnAnnotations
+  | |               +-child_list=
+  | |                 +-ColumnAnnotations
+  | |                   +-option_list=
+  | |                   | +-ROUNDING_MODE := Literal(type=STRING, value="round_half_even")
+  | |                   +-type_parameters=(precision=10,scale=3)
+  | +-column=t.c1#1
+  +-ColumnDefinition
+    +-name="c2"
+    +-type=ARRAY<STRUCT<a1 ARRAY<STRING>>>
+    +-annotations=
+    | +-ColumnAnnotations
+    |   +-child_list=
+    |     +-ColumnAnnotations
+    |       +-child_list=
+    |         +-ColumnAnnotations
+    |           +-child_list=
+    |             +-ColumnAnnotations(type_parameters=(max_length=666))
     +-column=t.c2#2
 ==
 
@@ -371,8 +477,16 @@ QueryStmt
 ==
 
 # Test cast from int Array to string Array with type parameters.
-[language_features={{V_1_1_CAST_DIFFERENT_ARRAY_TYPES,PARAMETERIZED_TYPES}}]
+[language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES,PARAMETERIZED_TYPES}}]
 select cast([0,1,2] as ARRAY<STRING(12)>);
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Parameterized types are not supported [at 1:36]
+select cast([0,1,2] as ARRAY<STRING(12)>);
+                                   ^
+--
+ALTERNATION GROUP: V_1_1_CAST_DIFFERENT_ARRAY_TYPES,PARAMETERIZED_TYPES
 --
 QueryStmt
 +-output_column_list=
@@ -390,9 +504,17 @@ QueryStmt
 ==
 
 # Test cast with a nested struct with subfields having type parameters.
-[language_features={{V_1_1_CAST_DIFFERENT_ARRAY_TYPES,PARAMETERIZED_TYPES,NUMERIC_TYPE,BIGNUMERIC_TYPE}}]
+[language_features={{|V_1_1_CAST_DIFFERENT_ARRAY_TYPES,PARAMETERIZED_TYPES,NUMERIC_TYPE,BIGNUMERIC_TYPE}}]
 select cast(struct(false, 2, struct(123, [5], struct(true, 1000)), "hello", ["123", "123456", "1"]) as
             STRUCT<BOOL, NUMERIC(8), STRUCT<BIGNUMERIC(MAX, 2), ARRAY<STRING(2)>, STRUCT<BOOL, NUMERIC(6, 1)>>, BYTES(10), ARRAY<STRING(5)>>);
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: NUMERIC [at 2:26]
+            STRUCT<BOOL, NUMERIC(8), STRUCT<BIGNUMERIC(MAX, 2), ARRAY<STRING(...
+                         ^
+--
+ALTERNATION GROUP: V_1_1_CAST_DIFFERENT_ARRAY_TYPES,PARAMETERIZED_TYPES,NUMERIC_TYPE,BIGNUMERIC_TYPE
 --
 QueryStmt
 +-output_column_list=
@@ -585,4 +707,3 @@ QueryStmt
     |     +-type_parameters=[(precision=29,scale=1)]
     +-input_scan=
       +-SingleRowScan
-==

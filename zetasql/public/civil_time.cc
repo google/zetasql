@@ -386,7 +386,9 @@ int64_t DatetimeValue::Packed64DatetimeSeconds() const {
 }
 
 int64_t DatetimeValue::Packed64DatetimeMicros() const {
-  return (Packed64DatetimeSeconds() << kMicrosShift) | (nanosecond_ / 1000);
+  return static_cast<int64_t>(
+      (static_cast<uint64_t>(Packed64DatetimeSeconds()) << kMicrosShift) |
+      (nanosecond_ / 1000));
 }
 
 std::string DatetimeValue::DebugString() const {

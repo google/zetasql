@@ -95,6 +95,7 @@ const CastHashMap* InitializeZetaSQLCasts() {
   // Note that by convention, all type kinds are currently castable to
   // themselves as IMPLICIT.
 
+  // clang-format off
   ADD_TO_MAP(BOOL,       BOOL,       IMPLICIT);
   ADD_TO_MAP(BOOL,       INT32,      EXPLICIT);
   ADD_TO_MAP(BOOL,       INT64,      EXPLICIT);
@@ -208,6 +209,7 @@ const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(STRING,     BOOL,       EXPLICIT);
   ADD_TO_MAP(STRING,     NUMERIC,    EXPLICIT);
   ADD_TO_MAP(STRING,     BIGNUMERIC, EXPLICIT);
+  ADD_TO_MAP(STRING,     RANGE,      EXPLICIT);
 
   ADD_TO_MAP(BYTES,      BYTES,      IMPLICIT);
   ADD_TO_MAP(BYTES,      STRING,     EXPLICIT);
@@ -252,6 +254,8 @@ const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(PROTO,      STRING,     EXPLICIT);
   ADD_TO_MAP(PROTO,      BYTES,      EXPLICIT);
 
+  ADD_TO_MAP(RANGE,      STRING,     EXPLICIT);
+
   // The non-simple types show up in this table as IMPLICIT, but coercions of
   // any kind should only be allowed if the types are Equivalent.
   // This must be checked by the caller, like in TypeCoercesTo.
@@ -259,6 +263,8 @@ const CastHashMap* InitializeZetaSQLCasts() {
   ADD_TO_MAP(PROTO,      PROTO,      IMPLICIT);
   ADD_TO_MAP(ARRAY,      ARRAY,      IMPLICIT);
   ADD_TO_MAP(STRUCT,     STRUCT,     IMPLICIT);
+  ADD_TO_MAP(RANGE,      RANGE,      IMPLICIT);
+  // clang-format on
 
   return map;
 }

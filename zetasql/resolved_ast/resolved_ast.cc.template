@@ -1048,7 +1048,7 @@ absl::Status {{node.name}}::SaveTo(
     {{node.proto_type}}* proto) const {
   ZETASQL_RETURN_IF_ERROR(SUPER::SaveTo(
       file_descriptor_set_map, proto->mutable_parent()));
-  if (proto->parent().ByteSize() == 0) {
+  if (proto->parent().ByteSizeLong() == 0) {
     proto->clear_parent();
   }
 # for field in node.fields

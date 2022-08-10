@@ -16,6 +16,8 @@
 
 #include "zetasql/public/sql_formatter.h"
 
+#include <string>
+
 #include "zetasql/base/testing/status_matchers.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"

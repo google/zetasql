@@ -30,6 +30,7 @@ import java.io.Serializable;
  *
  * <p>Types can only created by a TypeFactory.
  */
+// TODO: Implement RANGE.
 @Immutable
 public abstract class Type implements Serializable {
   // The valid date range is [ 0001-01-01, 9999-12-31 ].
@@ -261,6 +262,7 @@ public abstract class Type implements Serializable {
    *
    * @return The serialized protobuf.
    */
+  // TODO: Implement RANGE.
   public final TypeProto serialize() {
     TypeProto.Builder typeProtoBuilder = TypeProto.newBuilder();
     FileDescriptorSetsBuilder fileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();

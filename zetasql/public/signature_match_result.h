@@ -46,35 +46,20 @@ class SignatureMatchResult {
   ~SignatureMatchResult() {}
 
   int non_matched_arguments() const { return non_matched_arguments_; }
-  void set_non_matched_arguments(int non_matched_arguments) {
-    non_matched_arguments_ = non_matched_arguments;
-  }
   void incr_non_matched_arguments() { non_matched_arguments_++; }
 
   int non_literals_coerced() const { return non_literals_coerced_; }
-  void set_non_literals_coerced(int non_literals_coerced) {
-    non_literals_coerced_ = non_literals_coerced;
-  }
   void incr_non_literals_coerced() { non_literals_coerced_++; }
 
   int non_literals_distance() const { return non_literals_distance_; }
-  void set_non_literals_distance(int non_literals_distance) {
-    non_literals_distance_ = non_literals_distance;
-  }
   void incr_non_literals_distance(int distance = 1) {
     non_literals_distance_ += distance;
   }
 
   int literals_coerced() const { return literals_coerced_; }
-  void set_literals_coerced(int literals_coerced) {
-    literals_coerced_ = literals_coerced;
-  }
   void incr_literals_coerced() { literals_coerced_++; }
 
   int literals_distance() const { return literals_distance_; }
-  void set_literals_distance(int literals_distance) {
-    literals_distance_ = literals_distance;
-  }
   void incr_literals_distance(int distance = 1) {
     literals_distance_ += distance;
   }

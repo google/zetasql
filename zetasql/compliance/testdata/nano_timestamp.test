@@ -93,9 +93,7 @@ WITH FEATURES: TIMESTAMP_NANOS
 ARRAY<STRUCT<TIMESTAMP>>[{2014-12-01 20:34:56.123456789+00}]
 --
 WITH FEATURES: <none>
-ERROR: generic::invalid_argument: Could not cast literal "2014-12-01 12:34:56.123456789" to type TIMESTAMP [at 1:13]
-select cast("2014-12-01 12:34:56.123456789" as timestamp)
-            ^
+ERROR: generic::out_of_range: Invalid timestamp: '2014-12-01 12:34:56.123456789'
 ==
 
 [name=literal_string_with_timezone_to_timestamp_1]
@@ -106,9 +104,7 @@ WITH FEATURES: TIMESTAMP_NANOS
 ARRAY<STRUCT<TIMESTAMP>>[{2014-12-01 05:04:56.123456789+00}]
 --
 WITH FEATURES: <none>
-ERROR: generic::invalid_argument: Could not cast literal "2014-12-01 12:34:56.123456789+07:30" to type TIMESTAMP [at 1:13]
-select cast("2014-12-01 12:34:56.123456789+07:30" as timestamp)
-            ^
+ERROR: generic::out_of_range: Invalid timestamp: '2014-12-01 12:34:56.123456789+07:30'
 ==
 [name=literal_string_more_than_9_digits]
 [test_features1=TIMESTAMP_NANOS]
@@ -116,6 +112,4 @@ select cast("2014-12-01 12:34:56.0123456789" as timestamp)
 --
 WITH FEATURES: <none>
 WITH FEATURES: TIMESTAMP_NANOS
-ERROR: generic::invalid_argument: Could not cast literal "2014-12-01 12:34:56.0123456789" to type TIMESTAMP [at 1:13]
-select cast("2014-12-01 12:34:56.0123456789" as timestamp)
-            ^
+ERROR: generic::out_of_range: Invalid timestamp: '2014-12-01 12:34:56.0123456789'

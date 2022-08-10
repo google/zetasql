@@ -51,6 +51,7 @@
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/substitute.h"
 #include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -231,7 +232,20 @@ PivotRewriterVisitor::AddExprColumnsToPivotInput(
     ZETASQL_RETURN_IF_ERROR(VerifyAggregateFunctionIsSupported(call));
     pivot_expr_arg_columns.emplace_back();
 
-    for (const auto& arg : call->argument_list()) {
+    for (int i = 0; i < call->argument_list().size(); i++) {
+      const auto& arg = call->argument_list()[i];
+      if (CollationAnnotation::ExistsIn(arg->type_annotation_map())) {
+        // TODO: support collation for arguments of aggregate
+        // functions inside PIVOT clause.
+        return MakeUnimplementedErrorAtPoint(
+                   call->GetParseLocationOrNULL()->start())
+               << absl::Substitute(
+                      "Collation $0 is not supported on argument $1 of "
+                      "aggregate function in a PIVOT clause",
+                      arg->type_annotation_map()->DebugString(
+                          CollationAnnotation::GetId()),
+                      (i + 1));
+      }
       ZETASQL_ASSIGN_OR_RETURN(bool arg_is_constant_expr,
                        IsConstantExpression(arg.get()));
       if (arg_is_constant_expr) {

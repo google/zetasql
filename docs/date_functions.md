@@ -390,28 +390,41 @@ DATE_TRUNC(date_expression, date_part)
 
 **Description**
 
-Truncates the date to the specified granularity.
+Truncates a `DATE` value to the granularity of `date_part`. The `DATE` value
+is always rounded to the beginning of `date_part`, which can be one of the
+following:
 
-`DATE_TRUNC` supports the following values for `date_part`:
++ `DAY`: The day in the Gregorian calendar year that contains the
+  `DATE` value.
++ `WEEK`: The first day of the week in the week that contains the
+  `DATE` value. Weeks begin on Sundays. `WEEK` is equivalent to
+  `WEEK(SUNDAY)`.
++ `WEEK(WEEKDAY)`: The first day of the week in the week that contains the
+  `DATE` value. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
+   following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
+   or `SATURDAY`.
++ `ISOWEEK`: The first day of the [ISO 8601 week][ISO-8601-week] in the
+  ISO week that contains the `DATE` value. The ISO week begins on
+  Monday. The first ISO week of each ISO year contains the first Thursday of the
+  corresponding Gregorian calendar year.
++ `MONTH`: The first day of the month in the month that contains the
+  `DATE` value.
++ `QUARTER`: The first day of the quarter in the quarter that contains the
+  `DATE` value.
++ `YEAR`: The first day of the year in the year that contains the
+  `DATE` value.
++ `ISOYEAR`: The first day of the [ISO 8601][ISO-8601] week-numbering year
+  in the ISO year that contains the `DATE` value. The ISO year is the
+  Monday of the first week whose Thursday belongs to the corresponding
+  Gregorian calendar year.
 
-+  `DAY`
-+  `WEEK`
-+  `WEEK(<WEEKDAY>)`: Truncates `date_expression` to the preceding week
-   boundary, where weeks begin on `WEEKDAY`. Valid values for `WEEKDAY` are
-   `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`, and
-   `SATURDAY`.
-+  `ISOWEEK`: Truncates `date_expression` to the preceding
-   [ISO 8601 week][ISO-8601-week] boundary. `ISOWEEK`s
-   begin on Monday. The first `ISOWEEK` of each ISO year contains the first
-   Thursday of the corresponding Gregorian calendar year. Any `date_expression`
-   earlier than this will truncate to the preceding Monday.
-+  `MONTH`
-+  `QUARTER`
-+  `YEAR`
-+  `ISOYEAR`: Truncates `date_expression` to the preceding [ISO 8601][ISO-8601]
-    week-numbering year boundary. The ISO year boundary is the Monday of the
-    first week whose Thursday belongs to the corresponding Gregorian calendar
-    year.
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
+
+<!-- mdlint on -->
 
 **Return Data Type**
 

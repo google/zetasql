@@ -3,6 +3,10 @@
 # Anonymization aggregate functions 
 <a id="aggregate_anonymization_functions"></a>
 
+The following anonymization aggregate functions are available in
+ZetaSQL. For an explanation of how aggregate functions work, see
+[Aggregate function calls][agg-function-calls].
+
 Anonymization aggregate functions can transform user data into anonymous
 information. This is done in such a way that it is not reasonably likely that
 anyone with access to the data can identify or re-identify an individual user
@@ -27,6 +31,15 @@ per-anonymization ID averages.
 
 `expression` can be any numeric input type, such as
 INT64.
+
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
 
 **Return type**
 
@@ -159,6 +172,15 @@ aggregation across anonymization IDs.
 You can [clamp the input values explicitly][anon-clamp], otherwise
 input values are clamped implicitly. Clamping is performed per anonymization ID.
 
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
+
 **Return type**
 
 `INT64`
@@ -222,6 +244,15 @@ range [0, 1]. You can [clamp the input values][anon-clamp] explicitly,
 otherwise input values are clamped implicitly. Clamping is performed per
 anonymization ID.
 
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
+
 Caveats:
 
 + `NUMERIC` arguments are not allowed. If you need them, cast them to
@@ -260,6 +291,60 @@ GROUP BY item;
 +----------+----------------------+
 ```
 
+### ANON_QUANTILES
+
+```sql
+ANON_QUANTILES(expression, number CLAMPED BETWEEN lower AND upper)
+```
+
+**Description**
+
+Returns an array of anonymized quantile boundaries for values in `expression`.
+`number` represents the number of quantiles to create and must be an
+`INT64`. The first element in the return value is the
+minimum quantile boundary and the last element is the maximum quantile boundary.
+`lower` and `upper` are the explicit bounds wherein the
+[input values are clamped][anon-clamp]. The returned results are aggregations
+across anonymization IDs.
+
+Caveats:
+
++ `NUMERIC` arguments are not allowed. If you need them, cast them to
+  `DOUBLE` first.
++ `BIGNUMERIC` arguments are not allowed. If you need them, cast them to
+  `DOUBLE` first.
++ `NULL`s are always ignored. If all inputs are ignored, this function returns
+  `NULL`.
+
+**Return type**
+
+`ARRAY`<`DOUBLE`>
+
+**Examples**
+
+The following anonymized query gets the five quantile boundaries of the four
+quartiles of the number of items requested. Smaller aggregations may not be
+included. This query references a view called
+[`view_on_professors`][anon-example-views].
+
+```sql
+-- With noise
+SELECT
+  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=1)
+  item, ANON_QUANTILES(quantity, 4 CLAMPED BETWEEN 0 AND 100) quantiles_requested
+FROM view_on_professors
+GROUP BY item;
+
+-- These results will change each time you run the query.
+-- Smaller aggregations may be removed.
++----------+----------------------------------------------------------------------+
+| item     | quantiles_requested                                                  |
++----------+----------------------------------------------------------------------+
+| pen      | [6.409375,20.647684733072918,41.40625,67.30848524305556,99.80078125] |
+| pencil   | [6.849259,44.010416666666664,62.64204,65.83806818181819,98.59375]    |
++----------+----------------------------------------------------------------------+
+```
+
 ### ANON_STDDEV_POP
 
 ```sql
@@ -273,6 +358,15 @@ the values in the expression. The final result is an aggregation across
 anonymization IDs between `0` and `+Inf`. You can
 [clamp the input values][anon-clamp] explicitly, otherwise input values are
 clamped implicitly. Clamping is performed per individual user values.
+
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
 
 Caveats:
 
@@ -327,6 +421,15 @@ anonymization ID.
 
 The expression can be any numeric input type, such as
 `INT64`.
+
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
 
 **Return type**
 
@@ -391,6 +494,15 @@ anonymization IDs between `0` and `+Inf`. You can
 [clamp the input values][anon-clamp] explicitly, otherwise input values are
 clamped implicitly. Clamping is performed per individual user values.
 
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
+
 Caveats:
 
 + `NUMERIC` arguments are not allowed. If you need them, cast them to
@@ -429,119 +541,9 @@ GROUP BY item;
 +----------+-----------------+
 ```
 
-### CLAMPED BETWEEN clause 
-<a id="anon_clamping"></a>
-
-```sql
-CLAMPED BETWEEN lower_bound AND upper_bound
-```
-
-Clamping of aggregations is done to avoid the re-identifiability
-of outliers. The `CLAMPED BETWEEN` clause [explicitly clamps][anon-exp-clamp]
-each aggregate contribution per anonymization ID within the specified range.
-This clause is optional. If you do not include it in an anonymization aggregate
-function, [clamping is implicit][anon-imp-clamp].
-
-**Examples**
-
-The following anonymized query clamps each aggregate contribution per
-anonymization ID and within a specified range (`0` and `100`). As long as all
-or most values fall within this range, your results will be accurate. This query
-references a view called [`view_on_professors`][anon-example-views].
-
-```sql
---Without noise (this un-noised version is for demonstration only)
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=1)
-  item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
-FROM view_on_professors
-GROUP BY item;
-
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| scissors | 8                |
-| pencil   | 40               |
-| pen      | 18.5             |
-+----------+------------------+
-```
-
-Notice what happens when most or all values fall outside of the clamped range.
-To get accurate results, ensure that the difference between the upper and lower
-bound is as small as possible while most inputs are between the upper and lower
-bound.
-
-```sql {.bad}
---Without noise (this un-noised version is for demonstration only)
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=1)
-  item, ANON_AVG(quantity CLAMPED BETWEEN 50 AND 100) average_quantity
-FROM view_on_professors
-GROUP BY item;
-
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| scissors | 54               |
-| pencil   | 58               |
-| pen      | 51               |
-+----------+------------------+
-```
-
-Note: You can learn more about when and when not to use
-noise [here][anon-noise].
-
-### Explicit clamping 
-<a id="anon_explicit_clamping"></a>
-
-In an anonymization aggregate function, the [`CLAMPED BETWEEN`][anon-clamp]
-clause explicitly clamps the total contribution from each anonymization ID to
-within a specified range.
-
-Explicit bounds are uniformly applied to all aggregations.  So even if some
-aggregations have a wide range of values, and others have a narrow range of
-values, the same bounds are applied to all of them.  On the other hand, when
-[implicit bounds][anon-imp-clamp] are inferred from the data, the bounds applied
-to each aggregation can be different.
-
-Explicit bounds should be chosen to reflect public information.
-For example, bounding ages between 0 and 100 reflects public information
-because in general, the age of most people falls within this range.
-
-Important: The results of the query reveal the explicit bounds. Do not use
-explicit bounds based on the user data; explicit bounds should be based on
-public information.
-
-### Implicit clamping 
-<a id="anon_implicit_clamping"></a>
-
-In an anonymization aggregate function, the [`CLAMPED BETWEEN`][anon-clamp]
-clause is optional. If you do not include this clause, clamping is implicit,
-which means bounds are derived from the data itself in a differentially
-private way. The process is somewhat random, so aggregations with identical
-ranges can have different bounds.
-
-Implicit bounds are determined per aggregation. So if some
-aggregations have a wide range of values, and others have a narrow range of
-values, implicit bounding can identify different bounds for different
-aggregations as appropriate. This may be an advantage or a disadvantage
-depending on your use case: different bounds for different aggregations
-can result in lower error, but this also means that different
-aggregations have different levels of uncertainty, which may not be
-directly comparable. [Explicit bounds][anon-exp-clamp], on the other hand,
-apply uniformly to all aggregations and should be derived from public
-information.
-
-When clamping is implicit, part of the total epsilon is spent picking bounds.
-This leaves less epsilon for aggregations, so these aggregations are noisier.
-
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[anon-clamp]: #anon_clamping
-
-[anon-exp-clamp]: #anon_explicit_clamping
-
-[anon-imp-clamp]: #anon_implicit_clamping
+[anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
 
 [anon-syntax]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md
 
@@ -550,6 +552,8 @@ This leaves less epsilon for aggregations, so these aggregations are noisier.
 [anon-from-clause]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#anon_from
 
 [anon-noise]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#eliminate_noise
+
+[agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
 

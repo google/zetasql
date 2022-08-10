@@ -16,9 +16,11 @@
 
 #include "zetasql/public/table_valued_function.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <string>
 #include <utility>
 
 #include "zetasql/proto/function.pb.h"

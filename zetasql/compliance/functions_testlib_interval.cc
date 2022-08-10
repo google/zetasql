@@ -15,9 +15,9 @@
 //
 
 #include <cstdint>
+#include <string>
 
 #include "zetasql/public/functions/date_time_util.h"
-#include "zetasql/public/functions/parse_date_time.h"
 #include "zetasql/public/interval_value_test_util.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/value.h"
@@ -668,7 +668,6 @@ std::vector<QueryParamsWithResult> GetFunctionTestsIntervalAddBase() {
       {{NullInterval(), NullInterval()}, NullInterval()},
       {{Years(1), NullInterval()}, NullInterval()},
       {{NullInterval(), Months(2)}, NullInterval()},
-      {{Years(1), Years(2)}, Years(3)},
       {{Years(1), Years(2)}, Years(3)},
       {{Months(1), Months(2)}, Months(3)},
       {{Days(1), Days(2)}, Days(3)},

@@ -1,9 +1,33 @@
+[language_features={{|V_1_4_BARE_ARRAY_ACCESS}}]
 select KitchenSink.repeated_double_val[123]
 from TestTable
+--
+ALTERNATION GROUP: <empty>
 --
 ERROR: Array element access with array[position] is not supported. Use array[OFFSET(zero_based_offset)] or array[ORDINAL(one_based_ordinal)] [at 1:40]
 select KitchenSink.repeated_double_val[123]
                                        ^
+--
+ALTERNATION GROUP: V_1_4_BARE_ARRAY_ACCESS
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#4 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#4]
+    +-expr_list=
+    | +-$col1#4 :=
+    |   +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<DOUBLE>, INT64) -> DOUBLE)
+    |     +-GetProtoField
+    |     | +-type=ARRAY<DOUBLE>
+    |     | +-expr=
+    |     | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     | +-field_descriptor=repeated_double_val
+    |     | +-default_value=[]
+    |     +-Literal(type=INT64, value=123)
+    +-input_scan=
+      +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
 ==
 
 # We should get the error for the bad name before getting the error for
@@ -708,15 +732,15 @@ from MapFieldTable
 --
 ALTERNATION GROUP: SAFE_
 --
-ERROR: Element access using [SAFE_KEY()] is not supported on values of type ARRAY<zetasql_test__.MessageWithMapField.StringInt32MapEntry> [at 1:45]
+ERROR: Element access using [SAFE_KEY()] is not supported on values of type ARRAY<zetasql_test__.MessageWithMapField.StringInt32MapEntry> [at 1:44]
 select MessageWithMapField.string_int32_map[SAFE_KEY("foo")]
-                                            ^
+                                           ^
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Element access using [KEY()] is not supported on values of type ARRAY<zetasql_test__.MessageWithMapField.StringInt32MapEntry> [at 1:45]
+ERROR: Element access using [KEY()] is not supported on values of type ARRAY<zetasql_test__.MessageWithMapField.StringInt32MapEntry> [at 1:44]
 select MessageWithMapField.string_int32_map[KEY("foo")]
-                                            ^
+                                           ^
 ==
 
 [enabled_ast_rewrites=DEFAULTS]

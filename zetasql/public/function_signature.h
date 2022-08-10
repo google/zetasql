@@ -18,8 +18,13 @@
 #define ZETASQL_PUBLIC_FUNCTION_SIGNATURE_H_
 
 #include <cstdint>
+#include <functional>
+#include <limits>
 #include <memory>
+#include <optional>
+#include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"

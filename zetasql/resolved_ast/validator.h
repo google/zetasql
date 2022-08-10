@@ -344,10 +344,10 @@ class Validator {
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedSubqueryExpr* resolved_subquery_expr);
 
-  absl::Status ValidateResolvedLetExpr(
+  absl::Status ValidateResolvedWithExpr(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
-      const ResolvedLetExpr* resolved_let_expr);
+      const ResolvedWithExpr* resolved_with_expr);
 
   // Verifies that all the internal references in <expr_list> are present
   // in the <visible_columns> scope.
@@ -410,8 +410,11 @@ class Validator {
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedFunctionCallBase* resolved_function_call);
 
+  absl::Status ValidateOptionsList(
+      const std::vector<std::unique_ptr<const ResolvedOption>>& list);
+
   absl::Status ValidateHintList(
-      const std::vector<std::unique_ptr<const ResolvedOption>>& hint_list);
+      const std::vector<std::unique_ptr<const ResolvedOption>>& list);
 
   absl::Status ValidateResolvedTableAndColumnInfo(
       const ResolvedTableAndColumnInfo* table_and_column_info);

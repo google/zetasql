@@ -2653,10 +2653,18 @@ QueryStmt
 ==
 
 # Test GROUP BY <array> for an array of structs containing a proto.
-[language_features={{V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY}}]
+[language_features={{|V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY}}]
 select a
 from (select [(cast('int32_val1: 1' as zetasql_test__.TestExtraPB))] as a)
 group by a
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Grouping by expressions of type ARRAY is not allowed [at 3:10]
+group by a
+         ^
+--
+ALTERNATION GROUP: V_1_2_GROUP_BY_STRUCT,V_1_2_GROUP_BY_ARRAY
 --
 ERROR: Grouping by expressions of type ARRAY containing PROTO is not allowed [at 3:10]
 group by a

@@ -300,10 +300,10 @@ class Resolver {
     return deprecation_warnings_;
   }
 
-  // Return undeclared parameters found the query, and their inferred types.
-  const QueryParametersMap& undeclared_parameters() const {
-    return undeclared_parameters_;
-  }
+  // Ensures that no undeclared (named) parameters have conflicting inferred
+  // types, and returns the assigned type for each. If any parameter has
+  // a conflict, returns an error status instead.
+  absl::StatusOr<QueryParametersMap> AssignTypesToUndeclaredParameters() const;
 
   // Returns undeclared positional parameters found the query and their inferred
   // types. The index in the vector corresponds with the position of the
@@ -562,7 +562,14 @@ class Resolver {
   const FunctionArgumentInfo* function_argument_info_ = nullptr;
 
   // Contains undeclared parameters whose type has been inferred from context.
-  QueryParametersMap undeclared_parameters_;
+  // It is a map associating each query parameter reference to the inferred
+  // type. Keys are lowercase to achieve case-insensitive matching, and each
+  // pair is a location where the parameter is referenced, as well as the
+  // inferred type at that location.
+  absl::flat_hash_map<std::string,
+                      std::vector<std::pair<ParseLocationPoint, const Type*>>>
+      undeclared_parameters_;
+
   // Contains undeclared positional parameters whose type has been inferred from
   // context.
   std::vector<const Type*> undeclared_positional_parameters_;
@@ -1310,11 +1317,6 @@ class Resolver {
       const ASTRevokeStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
-  absl::Status ResolveRowAccessPolicyTableAndAlterActions(
-      const ASTAlterRowAccessPolicyStatement* ast_statement,
-      std::unique_ptr<const ResolvedTableScan>* resolved_table_scan,
-      std::vector<std::unique_ptr<const ResolvedAlterAction>>* alter_actions);
-
   absl::Status ResolveAlterPrivilegeRestrictionStatement(
       const ASTAlterPrivilegeRestrictionStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
@@ -1424,6 +1426,10 @@ class Resolver {
       const ASTAlterMaterializedViewStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
 
+  absl::Status ResolveAlterModelStatement(
+      const ASTAlterModelStatement* ast_statement,
+      std::unique_ptr<ResolvedStatement>* output);
+
   absl::Status ResolveRenameStatement(
       const ASTRenameStatement* ast_statement,
       std::unique_ptr<ResolvedStatement>* output);
@@ -1445,10 +1451,11 @@ class Resolver {
 
   // Resolve an ASTQuery ignoring its ASTWithClause.  This is only called from
   // inside ResolveQuery after resolving the with clause if there was one.
+  //
+  // <inferred_type_for_query>: See comment on ResolveQuery.
   absl::Status ResolveQueryAfterWith(
-      const ASTQuery* query,
-      const NameScope* scope,
-      IdString query_alias,
+      const ASTQuery* query, const NameScope* scope, IdString query_alias,
+      const Type* inferred_type_for_query,
       std::unique_ptr<const ResolvedScan>* output,
       std::shared_ptr<const NameList>* output_name_list);
 
@@ -1462,13 +1469,23 @@ class Resolver {
   //
   // Side-effect: Updates named_subquery_map_ to reflect WITH aliases currently
   // in scope so WITH references can be resolved inside <query>.
-  absl::Status ResolveQuery(
-      const ASTQuery* query,
-      const NameScope* scope,
-      IdString query_alias,
-      bool is_outer_query,
-      std::unique_ptr<const ResolvedScan>* output,
-      std::shared_ptr<const NameList>* output_name_list);
+  //
+  // <inferred_type_for_query>: See comment on ResolveExpr. Additionally for
+  // queries:
+  //
+  // * This only affects queries where the select-list has a single column, and
+  //   it gets selected without struct or proto construction.
+  // * The <inferred_type_for_query> becomes the <inferred_type> for resolving
+  //   the single select-list column expression.
+  // * For ARRAY subqueries, where the expression had an expected array type,
+  //   the query here will have its element type as the expected type (this
+  //   happens in ResolveExprSubquery).
+  // * IN subqueries work similarly to single-column queries.
+  absl::Status ResolveQuery(const ASTQuery* query, const NameScope* scope,
+                            IdString query_alias, bool is_outer_query,
+                            std::unique_ptr<const ResolvedScan>* output,
+                            std::shared_ptr<const NameList>* output_name_list,
+                            const Type* inferred_type_for_query = nullptr);
 
   // Resolves a WITH entry.
   // <recursive> is true only when a WITH entry is actually recursive, as
@@ -1498,7 +1515,8 @@ class Resolver {
       const ASTQueryExpression* query_expr, const NameScope* scope,
       IdString query_alias, bool force_new_columns_for_projected_outputs,
       std::unique_ptr<const ResolvedScan>* output,
-      std::shared_ptr<const NameList>* output_name_list);
+      std::shared_ptr<const NameList>* output_name_list,
+      const Type* inferred_type_for_query = nullptr);
 
   // If the query contains a WITH clause, resolves all WITH entries and returns
   // them. Otherwise, just returns an empty vector.
@@ -1536,6 +1554,7 @@ class Resolver {
                              const NameScope* external_scope,
                              IdString query_alias,
                              bool force_new_columns_for_projected_outputs,
+                             const Type* inferred_type_for_query,
                              std::unique_ptr<const ResolvedScan>* output,
                              std::shared_ptr<const NameList>* output_name_list);
 
@@ -1640,7 +1659,8 @@ class Resolver {
       const ASTSelectList* select_list, const NameScope* from_scan_scope,
       bool has_from_clause,
       const std::shared_ptr<const NameList>& from_clause_name_list,
-      QueryResolutionInfo* query_resolution_info);
+      QueryResolutionInfo* query_resolution_info,
+      const Type* inferred_type_for_query = nullptr);
 
   // Performs first pass analysis on a SELECT list expression.
   // <ast_select_column_idx> indicates an index into the original ASTSelect
@@ -1650,7 +1670,8 @@ class Resolver {
       const NameScope* from_scan_scope,
       const std::shared_ptr<const NameList>& from_clause_name_list,
       int ast_select_column_idx, bool has_from_clause,
-      QueryResolutionInfo* query_resolution_info);
+      QueryResolutionInfo* query_resolution_info,
+      const Type* inferred_type = nullptr);
 
   // Finishes resolving the SelectColumnStateList after first pass
   // analysis.  For each <select_column_state_list> entry, a ResolvedColumn
@@ -1847,7 +1868,6 @@ class Resolver {
   // <current_scan> will be updated to point at the wrapper
   // ResolvedAnalyticScan.
   absl::Status AddAnalyticScan(
-    const NameScope* having_and_order_by_name_scope,
     QueryResolutionInfo* query_resolution_info,
     std::unique_ptr<const ResolvedScan>* current_scan);
 
@@ -2026,8 +2046,8 @@ class Resolver {
       std::shared_ptr<const NameList>* output_name_list);
 
   absl::Status ResolveSetOperation(
-      const ASTSetOperation* set_operation,
-      const NameScope* scope,
+      const ASTSetOperation* set_operation, const NameScope* scope,
+      const Type* inferred_type_for_query,
       std::unique_ptr<const ResolvedScan>* output,
       std::shared_ptr<const NameList>* output_name_list);
 
@@ -2154,6 +2174,7 @@ class Resolver {
     // ResolvedScan and NameList in the given output parameters.
     // <scope> represents the name scope used to resolve each of the set items.
     absl::Status Resolve(const NameScope* scope,
+                         const Type* inferred_type_for_query,
                          std::unique_ptr<const ResolvedScan>* output,
                          std::shared_ptr<const NameList>* output_name_list);
 
@@ -2183,7 +2204,8 @@ class Resolver {
     // <query index> = child index within set_operation_->inputs() of the query
     //   to resolve.
     absl::StatusOr<ResolvedInputResult> ResolveInputQuery(
-        const NameScope* scope, int query_index) const;
+        const NameScope* scope, int query_index,
+        const Type* inferred_type_for_query) const;
 
     // Builds a vector specifying the type of each column for each input scan.
     // After calling:
@@ -2215,10 +2237,9 @@ class Resolver {
     const IdString op_type_str_;
   };
 
-  absl::Status ResolveGroupByExprs(
-      const ASTGroupBy* group_by,
-      const NameScope* from_clause_scope,
-      QueryResolutionInfo* query_resolution_info);
+  absl::Status ResolveGroupByExprs(const ASTGroupBy* group_by,
+                                   const NameScope* from_clause_scope,
+                                   QueryResolutionInfo* query_resolution_info);
 
   // Allocates a new ResolvedColumn for the post-GROUP BY version of the
   // column and returns it in <group_by_column>.  Resets <resolved_expr>
@@ -2788,6 +2809,7 @@ class Resolver {
   // * Array constructors with proto elements ([...] but not ARRAY<T>[...])
   // * Struct constructors with proto field(s) (STRUCT(...) but not STRUCT<S,
   //   T>(...))
+  // * The select list of one-column expression subqueries.
   //
   // The caller should treat inferred_type as a hint becausee it won't affect
   // expressions that have their own type e.g. ARRAY<T>. The caller should still
@@ -3049,7 +3071,7 @@ class Resolver {
 
   absl::Status ResolveExprSubquery(
       const ASTExpressionSubquery* expr_subquery,
-      ExprResolutionInfo* expr_resolution_info,
+      ExprResolutionInfo* expr_resolution_info, const Type* inferred_type,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
   absl::Status ResolveFunctionCall(
@@ -3094,9 +3116,21 @@ class Resolver {
       functions::DateTimestampPart date_part,
       std::unique_ptr<const ResolvedExpr>* resolved_date_part);
 
-  bool IsValidExplicitCast(
-      const std::unique_ptr<const ResolvedExpr>& resolved_argument,
-      const Type* to_type);
+  // We do not attempt to coerce string/bytes literals to protos in the
+  // analyzer. Instead, put a ResolvedCast node in the resolved AST and let the
+  // engines do it. There are at least two reasons for this:
+  // 1) We might not have the appropriate proto descriptor here (particularly
+  //    for extensions).
+  // 2) Since semantics of proto casting are not fully specified, applying these
+  //    casts at analysis time may have inconsistent behavior with applying them
+  //    at run-time in the engine. (One example is with garbage values, where
+  //    engines may not be prepared for garbage proto Values in the resolved
+  //    AST.)
+  //
+  // Otherwise, we attempt folding. If an error-occurs, we ignore the results
+  // an defer evaluation to runtime.
+  absl::StatusOr<bool> ShouldTryCastConstantFold(
+      const ResolvedExpr* resolved_argument, const Type* resolved_cast_type);
 
   // Checks whether explicit cast of the <resolved_argument> to the type
   // <to_type> is possible. CheckExplicitCast can return a status that is
@@ -3623,10 +3657,6 @@ class Resolver {
   absl::Status ResolveExecuteImmediateArgument(
       const ASTExecuteUsingArgument* argument, ExprResolutionInfo* expr_info,
       std::unique_ptr<const ResolvedExecuteImmediateArgument>* output);
-  // Common implementation for resolving EXECUTE IMMEDIATE statements.
-  absl::Status ResolveExecuteImmediateStatement(
-      const ASTExecuteImmediateStatement* ast_statement,
-      std::unique_ptr<const ResolvedStatement>* output);
 
   // Resolves a generic CREATE <entity_type> statement.
   absl::Status ResolveCreateEntityStatement(
@@ -3881,6 +3911,10 @@ class Resolver {
   // literal types are BOOL, BYTES, FLOAT, INT, STRING, and MAX.
   absl::StatusOr<std::vector<TypeParameterValue>> ResolveParameterLiterals(
       const ASTTypeParameterList& type_parameters);
+
+  // Resolve type collation to the resolved Collation class. If there is no
+  // type collation for the input <type>, an empty Collation class is returned.
+  absl::StatusOr<Collation> ResolveTypeCollation(const ASTType& type);
 
   // Resolves operation collation for a function call from its argument list.
   // The collation will be stored in <function_call>.collation_list.
@@ -4303,7 +4337,6 @@ class FunctionArgumentInfo {
 
   absl::Status AddArgCommon(ArgumentDetails details);
 };
-
 }  // namespace zetasql
 
 #endif  // ZETASQL_ANALYZER_RESOLVER_H_

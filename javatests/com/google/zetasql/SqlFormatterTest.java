@@ -20,6 +20,9 @@ package com.google.zetasql;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableList;
+import com.google.zetasql.FormatterOptions.FormatterOptionsProto;
+import com.google.zetasql.FormatterOptions.FormatterRangeProto;
 
 
 import org.junit.Test;
@@ -62,5 +65,54 @@ public class SqlFormatterTest {
     } catch (SqlException e) {
       assertThat(e).hasMessageThat().contains("Syntax error");
     }
+  }
+
+  @Test
+  public void lenientFormatter_query() throws Exception {
+    // We don't want to assert on the exact format here. As long as it returns something it's fine.
+
+    String formatted = new SqlFormatter().lenientFormatSql("SELECT 1");
+
+    assertThat(formatted).isEqualTo("SELECT 1\n");
+  }
+
+  @Test
+  public void lenientFormatter_queryWithOptions() throws Exception {
+    String formattedWithDefaultOptions =
+        new SqlFormatter()
+            .lenientFormatSql("SELECT columns, that, fit, default_line_length FROM Table;");
+    assertThat(formattedWithDefaultOptions)
+        .isEqualTo("SELECT columns, that, fit, default_line_length FROM Table;\n");
+
+    FormatterOptionsProto options =
+        FormatterOptionsProto.newBuilder().setLineLengthLimit(30).build();
+    String formattedWithCustomOptions =
+        new SqlFormatter()
+            .lenientFormatSql(
+                "SELECT columns, that, fit, default_line_length FROM Table;", options);
+
+    assertThat(formattedWithCustomOptions)
+        .isEqualTo("SELECT\n  columns,\n  that,\n  fit,\n  default_line_length\nFROM Table;\n");
+  }
+
+  @Test
+  public void lenientFormatter_queryWithRanges() throws Exception {
+    String formatted =
+        new SqlFormatter()
+            .lenientFormatSql(
+                "select 1; select 2; select 3;",
+                ImmutableList.of(
+                    FormatterRangeProto.newBuilder().setStart(0).setEnd(1).build(),
+                    FormatterRangeProto.newBuilder().setStart(22).setEnd(26).build()),
+                FormatterOptionsProto.newBuilder().setExpandFormatRanges(true).build());
+
+    assertThat(formatted).isEqualTo("SELECT 1;\nselect 2; SELECT 3;\n");
+  }
+
+  @Test
+  public void lenientFormatter_interval() throws Exception {
+    String formatted = new SqlFormatter().lenientFormatSql("SELECT CAST('1:2:3' AS Interval)");
+
+    assertThat(formatted).isEqualTo("SELECT CAST('1:2:3' AS INTERVAL)\n");
   }
 }

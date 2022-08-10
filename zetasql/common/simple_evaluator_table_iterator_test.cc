@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/simple_catalog.h"

@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <numeric>
 #include <stack>
+#include <string>
 #include <tuple>
 #include <utility>
 
@@ -2217,10 +2218,11 @@ absl::StatusOr<std::vector<StackFrameTrace>> ScriptExecutorImpl::StackTrace()
             cur_stmt_range.start().GetByteOffset(),
             cur_stmt_range.end().GetByteOffset() -
                 cur_stmt_range.start().GetByteOffset());
-    stack_trace.emplace_back(StackFrameTrace{
-        start_line_and_column.first, start_line_and_column.second,
-        end_line_and_column.first, end_line_and_column.second,
-        std::move(procedure_name), statement});
+    stack_trace.emplace_back(
+        StackFrameTrace{start_line_and_column.first,
+                        start_line_and_column.second, end_line_and_column.first,
+                        end_line_and_column.second, std::move(procedure_name),
+                        statement, stack_frame.procedure_definition()});
   }
   return stack_trace;
 }

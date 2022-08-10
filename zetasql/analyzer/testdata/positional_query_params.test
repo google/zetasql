@@ -540,6 +540,7 @@ InsertStmt
 |   +-input_scan=
 |     +-SingleRowScan
 +-query_output_column_list=$insert.[key#3, value#4]
++-column_access_list=WRITE,WRITE
 ==
 
 [allow_undeclared_parameters]
@@ -812,3 +813,52 @@ SELECT CURRENT_DATE() BETWEEN TIMESTAMP(?) AND TIMESTAMP(?)
 ERROR: No matching signature for operator BETWEEN for argument types: DATE, TIMESTAMP, TIMESTAMP. Supported signature: (ANY) BETWEEN (ANY) AND (ANY) [at 1:23]
 SELECT CURRENT_DATE() BETWEEN TIMESTAMP(?) AND TIMESTAMP(?)
                       ^
+==
+
+# The following are regression tests against resolving query parameters that
+# comes from user input. It detects breakage after removing resolving query
+# parameter in AnalyzeSubstitute as part of fixing b/233941129.
+[parameter_mode=positional]
+[allow_undeclared_parameters]
+
+SELECT ARRAY_FIRST([1, 3, ?])
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:array_first(ARRAY<INT64>) -> INT64)
+    |     +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
+    |       +-Literal(type=INT64, value=1)
+    |       +-Literal(type=INT64, value=3)
+    |       +-Parameter(parse_location=26-27, type=INT64, position=1, is_untyped=TRUE)
+    +-input_scan=
+      +-SingleRowScan
+[UNDECLARED_PARAMETERS]
+INT64
+==
+
+[positional_parameter_types=int64]
+
+SELECT ARRAY_FIRST([1, 3, ?])
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:array_first(ARRAY<INT64>) -> INT64)
+    |     +-FunctionCall(ZetaSQL:$make_array(repeated(3) INT64) -> ARRAY<INT64>)
+    |       +-Literal(type=INT64, value=1)
+    |       +-Literal(type=INT64, value=3)
+    |       +-Parameter(type=INT64, position=1)
+    +-input_scan=
+      +-SingleRowScan
+==

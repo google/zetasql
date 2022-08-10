@@ -236,6 +236,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedAlterViewStmt* node) override;
   absl::Status VisitResolvedAlterMaterializedViewStmt(
       const ResolvedAlterMaterializedViewStmt* node) override;
+  absl::Status VisitResolvedAlterModelStmt(
+      const ResolvedAlterModelStmt* node) override;
   absl::Status VisitResolvedRenameStmt(
       const ResolvedRenameStmt* node) override;
   absl::Status VisitResolvedImportStmt(const ResolvedImportStmt* node) override;
@@ -276,7 +278,7 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedColumnHolder* node) override;
   absl::Status VisitResolvedSubqueryExpr(
       const ResolvedSubqueryExpr* node) override;
-  absl::Status VisitResolvedLetExpr(const ResolvedLetExpr* node) override;
+  absl::Status VisitResolvedWithExpr(const ResolvedWithExpr* node) override;
   absl::Status VisitResolvedTableAndColumnInfo(
       const ResolvedTableAndColumnInfo* node) override;
   absl::Status VisitResolvedOption(const ResolvedOption* node) override;
@@ -584,6 +586,10 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::StatusOr<std::string> GetSQL(const Value& value, ProductMode mode,
                                      bool is_constant_value = false);
 
+  absl::StatusOr<std::string> GetFunctionCallSQL(
+      const ResolvedFunctionCallBase* function_call,
+      std::vector<std::string> inputs);
+
   // Helper function to return corresponding SQL for a list of
   // ResolvedUpdateItems.
   absl::StatusOr<std::string> GetUpdateItemListSQL(
@@ -690,9 +696,6 @@ class SQLBuilder : public ResolvedASTVisitor {
 
   // Stores the target table alias for DML Returning statements.
   std::string returning_table_alias_;
-  // Expected position of the next unparsed positional query parameter. Used for
-  // validation only.
-  int expected_next_parameter_position_ = 1;
 
   // Used to generate a unique alias id.
   zetasql_base::SequenceNumber scan_id_sequence_;
@@ -704,6 +707,13 @@ class SQLBuilder : public ResolvedASTVisitor {
   // NOTE: This map is cleared every time we visit a ProjectScan, once it has
   // processed all the columns of its child scan.
   std::map<int /* column_id */, std::string> pending_columns_;
+
+  // Stores the sql text of pending columns that are used as parameters of sub
+  // expressions.
+  // NOTE: This map is initialized and cleared in each VisitResolvedSubqueryExpr
+  // call. Unlike pending_columns_ it is not cleared in every ProjectScan as
+  // correlated columns must be accessible to all scans inside the sub query.
+  std::map<int /* column_id */, std::string> correlated_pending_columns_;
 
   // Holds sql text for node representing an analytic function.
   class AnalyticFunctionInfo;

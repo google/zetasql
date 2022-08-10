@@ -17,6 +17,7 @@
 #ifndef ZETASQL_SCRIPTING_BREAK_CONTINUE_CONTEXT_H_
 #define ZETASQL_SCRIPTING_BREAK_CONTINUE_CONTEXT_H_
 
+#include <utility>
 #include <vector>
 
 #include "zetasql/parser/parse_tree.h"

@@ -17,6 +17,7 @@
 #include "zetasql/parser/join_processor.h"
 
 #include <deque>
+#include <string>
 
 #include "zetasql/common/errors.h"
 #include "zetasql/parser/ast_node_kind.h"

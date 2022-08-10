@@ -22,7 +22,6 @@
 #include <utility>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/message.h"
@@ -34,6 +33,7 @@
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {

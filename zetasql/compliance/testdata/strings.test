@@ -821,6 +821,45 @@ SELECT TRANSLATE("abc", "abd", "xy"), TRANSLATE("abcabc", "ab", "\tд")
 ARRAY<STRUCT<STRING, STRING>>[{"xyc", "\tдc\tдc"}]
 ==
 
+[name=format_with_template_as_untyped_null]
+select format(NULL, 1)
+--
+ARRAY<STRUCT<STRING>>[{NULL}]
+==
+
+[name=format_with_template_as_parenthesized_untyped_null]
+select format((((NULL))), 1),
+--
+ARRAY<STRUCT<STRING>>[{NULL}]
+==
+
+[name=nested_format_with_temlpate_as_parenthesized_null]
+select format(format(((NULL)), 1), 2)
+--
+ARRAY<STRUCT<STRING>>[{NULL}]
+==
+
+[name=format_with_temlpate_as_foldable_expression_evaluating_to_null]
+select format(CONCAT(CAST(NULL AS STRING), CAST(NULL AS STRING)), 1)
+--
+ARRAY<STRUCT<STRING>>[{NULL}]
+==
+
+# non-foldable
+[name=format_with_temlpate_as_typed_parameter]
+[parameters=CAST(NULL AS STRING) AS template]
+select format(@template, 1)
+--
+ARRAY<STRUCT<STRING>>[{NULL}]
+==
+
+# ERROR() function is untyped
+[name=format_with_temlpate_as_error_function]
+select format(ERROR("foo"), 1)
+--
+ERROR: generic::out_of_range: foo
+==
+
 [name=format_with_non_const_arg]
 select x, y, z, format(x, y, z)
 from (

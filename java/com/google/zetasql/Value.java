@@ -25,6 +25,7 @@ import static com.google.zetasql.CivilTimeEncoder.decodePacked96DatetimeNanosAsJ
 import static com.google.zetasql.CivilTimeEncoder.encodePacked64TimeNanos;
 import static com.google.zetasql.CivilTimeEncoder.encodePacked96DatetimeNanos;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -82,6 +83,7 @@ import java.util.Objects;
  *
  * <p>TODO: add public getters/setters for timestamps that have nanoseconds precision.
  */
+// TODO: Support RANGE type.
 @Immutable
 public class Value implements Serializable {
   private final Type type;
@@ -201,150 +203,150 @@ public class Value implements Serializable {
 
   /** Returns the Java int value if the type is int32. */
   public int getInt32Value() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_INT32);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_INT32);
+    checkValueNotNull();
     return proto.getInt32Value();
   }
 
   /** Returns the Java long value if the type is int64. */
   public long getInt64Value() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_INT64);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_INT64);
+    checkValueNotNull();
     return proto.getInt64Value();
   }
 
   /** Returns Java int which equals to the uint32 value at binary level, if the type is uint32. */
   public int getUint32Value() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_UINT32);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_UINT32);
+    checkValueNotNull();
     return proto.getUint32Value();
   }
 
   /** Returns Java long which equals to the uint64 value at binary level, if the type is uint64. */
   public long getUint64Value() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_UINT64);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_UINT64);
+    checkValueNotNull();
     return proto.getUint64Value();
   }
 
   /** Returns the boolean value if the type is bool. */
   public boolean getBoolValue() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_BOOL);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_BOOL);
+    checkValueNotNull();
     return proto.getBoolValue();
   }
 
   /** Returns the float value if the type is float. */
   public float getFloatValue() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_FLOAT);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_FLOAT);
+    checkValueNotNull();
     return proto.getFloatValue();
   }
 
   /** Returns the double value if the type is double. */
   public double getDoubleValue() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_DOUBLE);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_DOUBLE);
+    checkValueNotNull();
     return proto.getDoubleValue();
   }
 
   /** Returns the numeric value if the type is NUMERIC. */
   public BigDecimal getNumericValue() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_NUMERIC);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_NUMERIC);
+    checkValueNotNull();
     return numericValue;
   }
 
   /** Returns the numeric value if the type is BIGNUMERIC. */
   public BigDecimal getBigNumericValue() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_BIGNUMERIC);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_BIGNUMERIC);
+    checkValueNotNull();
     return numericValue;
   }
 
   /** Returns the interval value if the type is INTERVAL. */
   public IntervalValue getIntervalValue() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_INTERVAL);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_INTERVAL);
+    checkValueNotNull();
     return intervalValue;
   }
 
   /** Returns the String value if the type is string. */
   public String getStringValue() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_STRING);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_STRING);
+    checkValueNotNull();
     return proto.getStringValue();
   }
 
   /** Returns the String value's backing bytes if the type is a string. */
   public ByteString getStringValueBytes() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_STRING);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_STRING);
+    checkValueNotNull();
     return proto.getStringValueBytes();
   }
 
   /** Returns the ByteString value if the type is bytes. */
   public ByteString getBytesValue() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_BYTES);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_BYTES);
+    checkValueNotNull();
     return proto.getBytesValue();
   }
 
   /** Returns the int value representing the date if the type is date. */
   @SuppressWarnings("GoodTime") // should return a java.time.LocalDate (?)
   public int getDateValue() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_DATE);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_DATE);
+    checkValueNotNull();
     return proto.getDateValue();
   }
 
   /** Returns the int value representing the date if the type is date. */
   public LocalDate getLocalDateValue() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_DATE);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_DATE);
+    checkValueNotNull();
     return LocalDate.ofEpochDay(proto.getDateValue());
   }
 
   /** Returns the long value encoding the time if the type is time. */
   @SuppressWarnings("GoodTime") // should return a java.time.LocalTime (?)
   public long getTimeValue() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_TIME);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_TIME);
+    checkValueNotNull();
     return proto.getTimeValue();
   }
 
   /** Returns the long value encoding the time if the type is time. */
   public LocalTime getLocalTimeValue() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_TIME);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_TIME);
+    checkValueNotNull();
     return decodePacked64TimeNanosAsJavaTime(proto.getTimeValue());
   }
 
   /** Returns the Datetime value encoding the datetime if the type is datetime. */
   public Datetime getDatetimeValue() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_DATETIME);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_DATETIME);
+    checkValueNotNull();
     return proto.getDatetimeValue();
   }
 
   /** Returns the Datetime value encoding the datetime if the type is datetime. */
   public LocalDateTime getLocalDateTimeValue() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_DATETIME);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_DATETIME);
+    checkValueNotNull();
     return decodePacked96DatetimeNanosAsJavaTime(proto.getDatetimeValue());
   }
 
   /** Returns the number value if the type is enum. */
   public int getEnumValue() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_ENUM);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_ENUM);
+    checkValueNotNull();
     return proto.getEnumValue();
   }
 
   /** Returns the enum name string if the type is enum. */
   public String getEnumName() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_ENUM);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_ENUM);
+    checkValueNotNull();
     EnumType enumType = type.asEnum();
     int value = getEnumValue();
     String name = enumType.findName(value);
@@ -358,46 +360,46 @@ public class Value implements Serializable {
    */
   @SuppressWarnings("GoodTime") // should return a java.time.Instant
   public long getTimestampUnixMicros() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_TIMESTAMP);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_TIMESTAMP);
+    checkValueNotNull();
     return Timestamps.toMicros(proto.getTimestampValue());
   }
 
   /** Returns the encoded bytes value of the proto if the type is proto. */
   public ByteString getProtoValue() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_PROTO);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_PROTO);
+    checkValueNotNull();
     return proto.getProtoValue();
   }
 
   /** Returns the JSON value as a string JSON document. */
   public String getJsonValue() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_JSON);
-    Preconditions.checkState(!isNull);
+    checkValueHasKind(TypeKind.TYPE_JSON);
+    checkValueNotNull();
     return proto.getJsonValue();
   }
 
   /** Returns the number of fields, if the type is struct. */
   public int getFieldCount() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_STRUCT);
+    checkValueHasKind(TypeKind.TYPE_STRUCT);
     return fields.size();
   }
 
   /** Returns the field at given index {@code i}, if the type is struct. */
   public Value getField(int i) {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_STRUCT);
+    checkValueHasKind(TypeKind.TYPE_STRUCT);
     return fields.get(i);
   }
 
   /** Returns the list of field values, if the type is struct. */
   public ImmutableList<Value> getFieldList() {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_STRUCT);
+    checkValueHasKind(TypeKind.TYPE_STRUCT);
     return fields;
   }
 
   /** Returns the first field with given {@code name} (case sensitive), if the type is struct. */
   public Value findFieldByName(String name) {
-    Preconditions.checkState(getType().getKind() == TypeKind.TYPE_STRUCT);
+    checkValueHasKind(TypeKind.TYPE_STRUCT);
     StructType structType = type.asStruct();
     if (!Strings.isNullOrEmpty(name)) {
       for (int i = 0; i < structType.getFieldCount(); ++i) {
@@ -762,7 +764,7 @@ public class Value implements Serializable {
    * !isNull().
    */
   public long toInt64() {
-    Preconditions.checkState(!isNull);
+    checkValueNotNull();
     switch (type.getKind()) {
       case TYPE_INT64:
         return getInt64Value();
@@ -785,7 +787,7 @@ public class Value implements Serializable {
 
   /** Returns the numeric value of bool and uint types, coerced to uint64. REQUIRES: !isNull(). */
   public long toUint64() {
-    Preconditions.checkState(!isNull);
+    checkValueNotNull();
     switch (type.getKind()) {
       case TYPE_UINT64:
         return getUint64Value();
@@ -803,7 +805,7 @@ public class Value implements Serializable {
    * !isNull().
    */
   public double toDouble() {
-    Preconditions.checkState(!isNull);
+    checkValueNotNull();
     switch (type.getKind()) {
       case TYPE_INT64:
         return getInt64Value();
@@ -839,8 +841,8 @@ public class Value implements Serializable {
    * @throws InvalidProtocolBufferException if the value is not parseable.
    */
   public Message toMessage() throws InvalidProtocolBufferException {
-    Preconditions.checkState(type.isProto());
-    Preconditions.checkState(!isNull);
+    Preconditions.checkState(type.isProto(), "Value is not a proto");
+    checkValueNotNull();
     DynamicMessage m = DynamicMessage.getDefaultInstance(getType().asProto().getDescriptor());
     return m.getParserForType().parsePartialFrom(getProtoValue());
   }
@@ -1544,5 +1546,16 @@ public class Value implements Serializable {
 
     ValueProto proto = ValueProto.newBuilder().setJsonValue(document).build();
     return new Value(jsonType, proto);
+  }
+
+  private void checkValueNotNull() {
+    Preconditions.checkState(!isNull, "Can't retrieve null value");
+  }
+
+  private void checkValueHasKind(TypeKind kind) {
+    Preconditions.checkState(
+        getType().getKind() == kind,
+        "Value is not a %s",
+        Ascii.toLowerCase(kind.toString()).replace("TYPE_", ""));
   }
 }

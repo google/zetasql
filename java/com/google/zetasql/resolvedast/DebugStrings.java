@@ -26,7 +26,6 @@ import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.Descriptors.OneofDescriptor;
 import com.google.protobuf.ProtocolMessageEnum;
 import com.google.zetasql.Connection;
-import com.google.zetasql.Constant;
 import com.google.zetasql.DebugPrintableNode.DebugStringField;
 import com.google.zetasql.DescriptorPool.ZetaSQLFieldDescriptor;
 import com.google.zetasql.DescriptorPool.ZetaSQLOneofDescriptor;
@@ -99,14 +98,6 @@ class DebugStrings {
 
   static boolean isDefaultValue(ResolvedFunctionCallInfo call) {
     return call.isDefaultValue();
-  }
-
-  static boolean isDefaultValue(TableValuedFunction tvf) {
-    return tvf.isDefaultValue();
-  }
-
-  static boolean isDefaultValue(TVFSignature signature) {
-    return signature.isDefaultValue();
   }
 
   static boolean isDefaultValue(ResolvedColumn column) {
@@ -183,10 +174,6 @@ class DebugStrings {
 
   static String toStringImpl(ResolvedColumn column) {
     return column.debugString();
-  }
-
-  static String toStringImpl(Constant constant) {
-    return constant.toString();
   }
 
   static String toStringImpl(FunctionSignature signature) {

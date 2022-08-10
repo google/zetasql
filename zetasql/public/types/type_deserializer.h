@@ -113,11 +113,6 @@ class TypeDeserializer {
     return descriptor_pools_;
   }
 
-  // Optional deserializer of extended types.
-  const ExtendedTypeDeserializer* extended_type_deserializer() const {
-    return extended_type_deserializer_;
-  }
-
  private:
   TypeFactory* type_factory_;
   absl::Span<const google::protobuf::DescriptorPool* const> descriptor_pools_;

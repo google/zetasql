@@ -429,7 +429,7 @@ absl::Status BisonParser::Parse(
 }
 
 absl::string_view BisonParser::GetFirstTokenOfNode(
-    zetasql_bison_parser::location& bison_location) const {
+    const zetasql_bison_parser::location& bison_location) const {
   absl::string_view text = GetInputText(bison_location);
   for (int i = 0; i < text.size(); i++) {
     if (absl::ascii_isblank(text[i])) {

@@ -14,8 +14,6 @@ The topics in this section provide the reference information you need to work wi
 * [Data Model](https://github.com/google/zetasql/blob/master/docs/data-model.md)
 * [Data Definition Language Reference](https://github.com/google/zetasql/blob/master/docs/data-definition-language.md)
 
-The [one-page version]( https://github.com/google/zetasql/blob/master/docs/one-pager.md ) combines these topics into a single page.
-
 ## License
 
 [Apache License 2.0](../LICENSE)

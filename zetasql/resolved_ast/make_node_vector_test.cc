@@ -17,6 +17,7 @@
 #include "zetasql/resolved_ast/make_node_vector.h"
 
 #include <type_traits>
+#include <utility>
 
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "gmock/gmock.h"

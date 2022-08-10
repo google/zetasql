@@ -18,6 +18,8 @@
 #define ZETASQL_REFERENCE_IMPL_STATEMENT_EVALUATOR_H_
 
 #include <memory>
+#include <string>
+#include <utility>
 
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/evaluator.h"

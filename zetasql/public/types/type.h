@@ -21,8 +21,10 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -50,6 +52,7 @@ class EnumType;
 class ExtendedType;
 class LanguageOptions;
 class ProtoType;
+class RangeType;
 class StructType;
 class Type;
 class TypeFactory;
@@ -100,6 +103,7 @@ class Type {
   bool IsNumericType() const { return kind_ == TYPE_NUMERIC; }
   bool IsBigNumericType() const { return kind_ == TYPE_BIGNUMERIC; }
   bool IsJsonType() const { return kind_ == TYPE_JSON; }
+  bool IsRangeType() const { return kind_ == TYPE_RANGE; }
 
   // DEPRECATED, use UsingFeatureV12CivilTimeType() instead.
   //
@@ -136,6 +140,7 @@ class Type {
   bool IsStruct() const { return kind_ == TYPE_STRUCT; }
   bool IsProto() const { return kind_ == TYPE_PROTO; }
   bool IsStructOrProto() const { return IsStruct() || IsProto(); }
+  bool IsRange() const { return kind_ == TYPE_RANGE; }
 
   bool IsFloatingPoint() const { return IsFloat() || IsDouble(); }
   bool IsNumerical() const {
@@ -202,6 +207,7 @@ class Type {
   virtual const ProtoType* AsProto() const { return nullptr; }
   virtual const EnumType* AsEnum() const { return nullptr; }
   virtual const ExtendedType* AsExtendedType() const { return nullptr; }
+  virtual const RangeType* AsRange() const { return nullptr; }
 
   // Returns true if the type supports grouping with respect to the
   // 'language_options'. E.g. struct type supports grouping if the
@@ -756,6 +762,7 @@ class Type {
 
   friend class ArrayType;
   friend class StructType;
+  friend class RangeType;
 
   const internal::TypeStore* type_store_;  // Used for lifetime checking only.
   const TypeKind kind_;

@@ -17,6 +17,7 @@
 #include "zetasql/compliance/test_driver.h"
 
 #include <algorithm>
+#include <string>
 
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/value.h"

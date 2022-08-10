@@ -1,0 +1,175 @@
+
+alter table T add row deletion policy {{|if not exists}} (c > 1000);
+--
+ALTERNATION GROUP: <empty>
+--
+AlterTableStatement [0-49] [alter table...(c > 1000)]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  AlterActionList [14-49] [add row deletion...(c > 1000)]
+    AddTtlAction [14-49] [add row deletion...(c > 1000)]
+      BinaryExpression(>) [40-48] [c > 1000]
+        PathExpression [40-41] [c]
+          Identifier(c) [40-41] [c]
+        IntLiteral(1000) [44-48] [1000]
+--
+ALTER TABLE T ADD ROW DELETION POLICY(c > 1000)
+--
+ALTERNATION GROUP: if not exists
+--
+AlterTableStatement [0-62] [alter table...(c > 1000)]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  AlterActionList [14-62] [add row deletion...(c > 1000)]
+    AddTtlAction [14-62] [add row deletion...(c > 1000)]
+      BinaryExpression(>) [53-61] [c > 1000]
+        PathExpression [53-54] [c]
+          Identifier(c) [53-54] [c]
+        IntLiteral(1000) [57-61] [1000]
+--
+ALTER TABLE T ADD ROW DELETION POLICY IF NOT EXISTS (c > 1000)
+==
+
+alter table T replace row deletion policy {{|if exists}} (c > 1000);
+--
+ALTERNATION GROUP: <empty>
+--
+AlterTableStatement [0-53] [alter table...(c > 1000)]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  AlterActionList [14-53] [replace row...(c > 1000)]
+    ReplaceTtlAction [14-53] [replace row...(c > 1000)]
+      BinaryExpression(>) [44-52] [c > 1000]
+        PathExpression [44-45] [c]
+          Identifier(c) [44-45] [c]
+        IntLiteral(1000) [48-52] [1000]
+--
+ALTER TABLE T REPLACE ROW DELETION POLICY(c > 1000)
+--
+ALTERNATION GROUP: if exists
+--
+AlterTableStatement [0-62] [alter table...(c > 1000)]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  AlterActionList [14-62] [replace row...(c > 1000)]
+    ReplaceTtlAction [14-62] [replace row...(c > 1000)]
+      BinaryExpression(>) [53-61] [c > 1000]
+        PathExpression [53-54] [c]
+          Identifier(c) [53-54] [c]
+        IntLiteral(1000) [57-61] [1000]
+--
+ALTER TABLE T REPLACE ROW DELETION POLICY IF EXISTS (c > 1000)
+==
+
+alter table T {{add|replace}} row deletion policy;
+--
+ALTERNATION GROUP: add
+--
+ERROR: Syntax error: Expected "(" but got ";" [at 1:38]
+alter table T add row deletion policy;
+                                     ^
+--
+ALTERNATION GROUP: replace
+--
+ERROR: Syntax error: Expected "(" but got ";" [at 1:42]
+alter table T replace row deletion policy;
+                                         ^
+==
+
+alter table T {{add|replace}} deletion policy (c > 1000);
+--
+ALTERNATION GROUP: add
+--
+ERROR: Syntax error: Unexpected keyword DELETION [at 1:19]
+alter table T add deletion policy (c > 1000);
+                  ^
+--
+ALTERNATION GROUP: replace
+--
+ERROR: Syntax error: Expected keyword ROW but got keyword DELETION [at 1:23]
+alter table T replace deletion policy (c > 1000);
+                      ^
+==
+
+alter table T {{add|replace}} row policy (c > 1000);
+--
+ALTERNATION GROUP: add
+--
+ERROR: Syntax error: Expected keyword DELETION but got keyword POLICY [at 1:23]
+alter table T add row policy (c > 1000);
+                      ^
+--
+ALTERNATION GROUP: replace
+--
+ERROR: Syntax error: Expected keyword DELETION but got keyword POLICY [at 1:27]
+alter table T replace row policy (c > 1000);
+                          ^
+==
+
+[no_allow_ttl]
+alter table T {{add|replace}} row deletion policy (c > 1000);
+--
+ALTERNATION GROUP: add
+--
+ERROR: ADD ROW DELETION POLICY clause is not supported. [at 1:19]
+alter table T add row deletion policy (c > 1000);
+                  ^
+--
+ALTERNATION GROUP: replace
+--
+ERROR: REPLACE ROW DELETION POLICY clause is not supported. [at 1:23]
+alter table T replace row deletion policy (c > 1000);
+                      ^
+==
+
+alter table T drop row deletion policy {{|if exists}}
+--
+ALTERNATION GROUP: <empty>
+--
+AlterTableStatement [0-38] [alter table...deletion policy]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  AlterActionList [14-38] [drop row deletion policy]
+    DropTtlAction [14-38] [drop row deletion policy]
+--
+ALTER TABLE T DROP ROW DELETION POLICY
+--
+ALTERNATION GROUP: if exists
+--
+AlterTableStatement [0-48] [alter table...if exists]
+  PathExpression [12-13] [T]
+    Identifier(T) [12-13] [T]
+  AlterActionList [14-48] [drop row deletion...if exists]
+    DropTtlAction [14-48] [drop row deletion...if exists]
+--
+ALTER TABLE T DROP ROW DELETION POLICY IF EXISTS
+==
+
+alter table T drop row deletion policy (c > 1000)
+--
+ERROR: Syntax error: Expected end of input but got "(" [at 1:40]
+alter table T drop row deletion policy (c > 1000)
+                                       ^
+==
+
+alter table T drop deletion policy;
+--
+ERROR: Syntax error: Unexpected keyword DELETION [at 1:20]
+alter table T drop deletion policy;
+                   ^
+==
+
+alter table T drop row policy;
+--
+ERROR: Syntax error: Expected keyword DELETION but got keyword POLICY [at 1:24]
+alter table T drop row policy;
+                       ^
+==
+
+[no_allow_ttl]
+alter table T drop row deletion policy;
+--
+ERROR: DROP ROW DELETION POLICY clause is not supported. [at 1:20]
+alter table T drop row deletion policy;
+                   ^
+==

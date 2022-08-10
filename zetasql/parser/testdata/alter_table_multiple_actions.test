@@ -70,6 +70,42 @@ AlterTableStatement [0-77]
 ALTER TABLE foo SET OPTIONS(opt_a = true), ALTER CONSTRAINT bar NOT ENFORCED
 ==
 
+alter table foo set options (opt_a = true), add row deletion policy (x > 1000);
+--
+AlterTableStatement [0-78]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-78]
+    SetOptionsOperation [16-42]
+      OptionsList [28-42]
+        OptionsEntry [29-41]
+          Identifier(opt_a) [29-34]
+          BooleanLiteral(true) [37-41]
+    AddTtlAction [44-78]
+      BinaryExpression(>) [69-77]
+        PathExpression [69-70]
+          Identifier(x) [69-70]
+        IntLiteral(1000) [73-77]
+--
+ALTER TABLE foo SET OPTIONS(opt_a = true), ADD ROW DELETION POLICY(x > 1000)
+==
+
+alter table foo add row deletion policy (x > 1000), drop row deletion policy;
+--
+AlterTableStatement [0-76]
+  PathExpression [12-15]
+    Identifier(foo) [12-15]
+  AlterActionList [16-76]
+    AddTtlAction [16-50]
+      BinaryExpression(>) [41-49]
+        PathExpression [41-42]
+          Identifier(x) [41-42]
+        IntLiteral(1000) [45-49]
+    DropTtlAction [52-76]
+--
+ALTER TABLE foo ADD ROW DELETION POLICY(x > 1000), DROP ROW DELETION POLICY
+==
+
 alter table foo set options (opt_a = true), alter constraint bar set options(opt_b = 1);
 --
 AlterTableStatement [0-87]

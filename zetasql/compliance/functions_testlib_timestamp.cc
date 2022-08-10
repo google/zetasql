@@ -36,11 +36,9 @@
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/test_value.h"
-#include "zetasql/testing/using_test_value.cc"
-#include "zetasql/base/case.h"
+#include "zetasql/testing/using_test_value.cc"  // NOLINT
 #include "gtest/gtest.h"
 #include <cstdint>
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
@@ -48,7 +46,6 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
-#include "absl/strings/substitute.h"
 #include "absl/time/civil_time.h"
 #include "absl/time/time.h"
 #include "zetasql/base/map_util.h"
@@ -56,8 +53,6 @@
 
 namespace zetasql {
 namespace {
-constexpr absl::StatusCode INVALID_ARGUMENT =
-    absl::StatusCode::kInvalidArgument;
 constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 
 constexpr int64_t kNaiveNumSecondsPerDay = 24 * 60 * 60;
@@ -277,10 +272,6 @@ std::vector<FunctionTestCall> GetFunctionTestsDateAdd() {
       date_add_error("9999-12-31", -(max_day_span + 1), "DAY"),
       date_add_error("0001-01-01", -1, "DAY"),
       date_add_error("0001-01-01", max_day_span + 1, "DAY"),
-      // Other date parts are invalid
-      date_add_error("9999-12-31", 0, "DAYOFWEEK"),
-      date_add_error("9999-12-31", 0, "DAYOFYEAR"),
-      date_add_error("9999-12-31", 0, "HOUR"),
   };
 }
 
@@ -487,11 +478,6 @@ std::vector<FunctionTestCall> GetFunctionTestsLastDay() {
       last_day_date("9999-12-28", "WEEK_THURSDAY", "9999-12-29"),
       last_day_date("9999-12-28", "WEEK_FRIDAY", "9999-12-30"),
       last_day_date("9999-12-28", "WEEK_SATURDAY", "9999-12-31"),
-      last_day_date_error("9999-12-28", "DATE"),
-      last_day_date_error("9999-12-28", "HOUR"),
-      last_day_date_error("9999-12-28", "SECOND"),
-      last_day_datetime_error(DatetimeMicros(1970, 1, 1, 12, 34, 56, 789123),
-                             "HOUR")
       };
 }
 
@@ -562,8 +548,7 @@ std::vector<FunctionTestCall> GetFunctionTestsDateTrunc() {
       date_trunc("0001-01-07", "WEEK", "0001-01-07"),
       date_trunc("2001-12-31", "DAY", "2001-12-31"),
       date_trunc("1900-12-31", "DAY", "1900-12-31"),
-      date_trunc_error("2000-01-1", "DATE"),
-      date_trunc_error("2000-01-1", "HOUR")};
+  };
 }
 
 // A shorthand to construct and return a vector of FunctionTestCall with the
@@ -583,10 +568,6 @@ static std::vector<FunctionTestCall> PrepareCivilTimeTestCaseAsFunctionTestCall(
 static absl::Status FunctionEvalError() {
   return absl::Status(absl::StatusCode::kOutOfRange,
                       "Function Evaluation Error");
-}
-
-static absl::Status AnalysisError() {
-  return absl::Status(absl::StatusCode::kInvalidArgument, "Analysis Error");
 }
 
 std::vector<CivilTimeTestCase> GetFunctionTestsDatetimeAdd() {
@@ -1719,17 +1700,6 @@ static std::vector<CivilTimeTestCase> GetFunctionTestsTimeAdd() {
        FunctionEvalError() /* micros_output */,
        TimeNanos(12, 47, 40, 132878513)},
   });
-
-  // Invalid parts as input
-  static const std::vector<std::string> invalid_parts = {
-      "YEAR",    "ISOYEAR", "MONTH", "DAY",     "DAYOFWEEK", "DAYOFYEAR",
-      "QUARTER", "DATE",    "WEEK",  "ISOWEEK", "DATETIME",  "TIME"};
-  for (const auto& part : invalid_parts) {
-    civil_time_test_cases.push_back(
-        {{{time_micros, Int64(1), Enum(part_enum, part)}},
-         FunctionEvalError() /* expected_output */,
-         TimeType()});
-  }
   return civil_time_test_cases;
 }
 
@@ -2313,13 +2283,6 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampAdd() {
                     "2016-03-14 10:01:01.123400+00"),
       timestamp_add("2016-03-13 10:01:01.123400+00", -1, "DAY",
                     "2016-03-12 10:01:01.123400+00"),
-
-      // Other date parts are invalid
-      timestamp_add_error("9999-12-31", 0, "WEEK"),
-      timestamp_add_error("9999-12-31", 0, "ISOWEEK"),
-      timestamp_add_error("9999-12-31", 0, "MONTH"),
-      timestamp_add_error("9999-12-31", 0, "YEAR"),
-      timestamp_add_error("9999-12-31", 0, "ISOYEAR"),
   };
 }
 
@@ -2345,16 +2308,6 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampSub() {
       *(test_fn.params.mutable_param(1)) = Int64(-1 * interval);
     }
   }
-  // And add one more to exercise a corner case unique to subtraction.
-  const EnumType* part_enum;
-  const google::protobuf::EnumDescriptor* enum_descriptor =
-      functions::DateTimestampPart_descriptor();
-  ZETASQL_CHECK_OK(type_factory()->MakeEnumType(enum_descriptor, &part_enum));
-  sub_tests.push_back(FunctionTestCall(
-      "timestamp_sub",
-      {DateFromStr("2001-01-01"), Int64(std::numeric_limits<int64_t>::lowest()),
-       Enum(part_enum, "SECOND")},
-      NullDate(), OUT_OF_RANGE));
   return sub_tests;
 }
 
@@ -2660,62 +2613,6 @@ std::vector<FunctionTestCall> GetFunctionTestsTimestampDiffInternal() {
       {"timestamp_diff",
        {Timestamp(0), NullTimestamp(), microsecond},
        NullInt64()},
-
-      // NULL is not a valid date/timestamp part.
-      {"timestamp_diff",
-       {Timestamp(0), Timestamp(0), Null(part_enum)},
-       NullInt64(),
-       OUT_OF_RANGE},
-
-      // TIMESTAMP_DIFF does not accept NANOSECOND part for TIMESTAMP.
-      {"timestamp_diff",
-       {Timestamp(0), Timestamp(0), nanosecond},
-       NullInt64(),
-       OUT_OF_RANGE},
-
-      // TIMESTAMP_DIFF does not accept DATE type (use DATE_DIFF instead).
-      {"timestamp_diff",
-       {DateFromStr("2261-12-31"), DateFromStr("1678-01-01"), hour},
-       NullInt64(),
-       OUT_OF_RANGE},
-
-      // TIMESTAMP_DIFF only supports day or finer granularity.
-      {"timestamp_diff",
-       {Timestamp(0), Timestamp(0), Enum(part_enum, "WEEK")},
-       NullInt64(),
-       OUT_OF_RANGE},
-      {"timestamp_diff",
-       {Timestamp(0), Timestamp(0), Enum(part_enum, "ISOWEEK")},
-       NullInt64(),
-       OUT_OF_RANGE},
-      {"timestamp_diff",
-       {Timestamp(0), Timestamp(0), Enum(part_enum, "MONTH")},
-       NullInt64(),
-       OUT_OF_RANGE},
-      {"timestamp_diff",
-       {Timestamp(0), Timestamp(0), Enum(part_enum, "QUARTER")},
-       NullInt64(),
-       OUT_OF_RANGE},
-      {"timestamp_diff",
-       {Timestamp(0), Timestamp(0), Enum(part_enum, "YEAR")},
-       NullInt64(),
-       OUT_OF_RANGE},
-      {"timestamp_diff",
-       {Timestamp(0), Timestamp(0), Enum(part_enum, "ISOYEAR")},
-       NullInt64(),
-       OUT_OF_RANGE},
-      {"timestamp_diff",
-       {Timestamp(0), Timestamp(0), Enum(part_enum, "DATE")},
-       NullInt64(),
-       OUT_OF_RANGE},
-      {"timestamp_diff",
-       {Timestamp(0), Timestamp(0), Enum(part_enum, "DAYOFWEEK")},
-       NullInt64(),
-       OUT_OF_RANGE},
-      {"timestamp_diff",
-       {Timestamp(0), Timestamp(0), Enum(part_enum, "DAYOFYEAR")},
-       NullInt64(),
-       OUT_OF_RANGE},
   };
   return v;
 }
@@ -7543,7 +7440,7 @@ std::vector<FunctionTestCall> GetFunctionTestsExtractFrom() {
   std::vector<CivilTimeTestCase> civil_time_test_cases;
 
   // Test NULL handling for supported date parts at >= DAY granularity.
-  for (const std::string& date_part :
+  for (absl::string_view date_part :
        {"YEAR", "QUARTER", "MONTH", "DAY", "DAYOFYEAR", "DAYOFWEEK", "WEEK",
         "ISOYEAR", "ISOWEEK"}) {
     tests.push_back(
@@ -7554,7 +7451,7 @@ std::vector<FunctionTestCall> GetFunctionTestsExtractFrom() {
     civil_time_test_cases.push_back(CivilTimeTestCase(
         {{NullDatetime(), Enum(part_enum, date_part)}}, NullInt64()));
   }
-  for (const std::string& date_part :
+  for (absl::string_view date_part :
        {"WEEK_MONDAY", "WEEK_TUESDAY", "WEEK_WEDNESDAY", "WEEK_THURSDAY",
         "WEEK_FRIDAY", "WEEK_SATURDAY"}) {
     const Value part_enum_value = Enum(part_enum, date_part);
@@ -7570,7 +7467,7 @@ std::vector<FunctionTestCall> GetFunctionTestsExtractFrom() {
   }
 
   // Test NULL handling for supported date parts at < DAY granularity.
-  for (const std::string& date_part :
+  for (absl::string_view date_part :
        {"HOUR", "MINUTE", "SECOND", "MILLISECOND", "MICROSECOND"}) {
     tests.push_back({"extract",
                      {NullTimestamp(), Enum(part_enum, date_part)},
@@ -8337,9 +8234,6 @@ std::vector<FunctionTestCall> GetFunctionTestsDateConstruction() {
     {"date", {0, 0, NullInt64()}, NullDate()},
 
     // Error cases
-    {"date", {}, NullDate(), INVALID_ARGUMENT},
-    {"date", {1}, NullDate(), INVALID_ARGUMENT},
-    {"date", {1, 2}, NullDate(), INVALID_ARGUMENT},
     {"date", {2009, 2, 29}, NullDate(), OUT_OF_RANGE},
     {"date", {2009, 1, 32}, NullDate(), OUT_OF_RANGE},
     {"date", {2009, 1, 0}, NullDate(), OUT_OF_RANGE},
@@ -8369,9 +8263,6 @@ std::vector<FunctionTestCall> GetFunctionTestsTimeConstruction() {
       {{0, 0, NullInt64()}, NullTime()},
 
       // Error cases
-      {{}, AnalysisError(), TimeType()},
-      {{1}, AnalysisError(), TimeType()},
-      {{1, 2}, AnalysisError(), TimeType()},
       {{24, 0, 0}, FunctionEvalError(), TimeType()},
       {{-1, 0, 0}, FunctionEvalError(), TimeType()},
       {{12, 60, 0}, FunctionEvalError(), TimeType()},
@@ -8419,13 +8310,6 @@ std::vector<FunctionTestCall> GetFunctionTestsDatetimeConstruction() {
       {{0, 0, 0, 0, 0, NullInt64()}, NullDatetime()},
 
       // Error cases
-      {{}, AnalysisError(), DatetimeType()},
-      {{1}, AnalysisError(), DatetimeType()},
-      {{1, 2}, AnalysisError(), DatetimeType()},
-      {{1, 2, 3}, AnalysisError(), DatetimeType()},
-      {{1, 2, 3, 4}, AnalysisError(), DatetimeType()},
-      {{1, 2, 3, 4, 5}, AnalysisError(), DatetimeType()},
-
       {{10000, 1, 1, 0, 0, 0}, FunctionEvalError(), DatetimeType()},
       {{9999, 12, 31, 23, 59, 60}, FunctionEvalError(), DatetimeType()},
       {{0, 12, 31, 23, 59, 59}, FunctionEvalError(), DatetimeType()},

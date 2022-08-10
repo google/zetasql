@@ -363,6 +363,13 @@ comment               ({cs_comment}|{dash_comment}|{pound_comment})
     slower.
  */
  /* BEGIN_KEYWORDS -- Do not remove! */
+
+ /* Spanner-specific keywords */
+interleave { return BisonParserImpl::token::KW_INTERLEAVE; }
+null_filtered { return BisonParserImpl::token::KW_NULL_FILTERED; }
+parent { return BisonParserImpl::token::KW_PARENT; }
+ /* End of Spanner-specific keywords */
+
 abort { return BisonParserImpl::token::KW_ABORT; }
 access { return BisonParserImpl::token::KW_ACCESS; }
 action { return BisonParserImpl::token::KW_ACTION; }
@@ -435,6 +442,7 @@ default { return BisonParserImpl::token::KW_DEFAULT; }
 define { return BisonParserImpl::token::KW_DEFINE; }
 definer { return BisonParserImpl::token::KW_DEFINER; }
 delete { return BisonParserImpl::token::KW_DELETE; }
+deletion { return BisonParserImpl::token::KW_DELETION; }
 desc { return BisonParserImpl::token::KW_DESC; }
 descriptor { return BisonParserImpl::token::KW_DESCRIPTOR; }
 describe { return BisonParserImpl::token::KW_DESCRIBE; }

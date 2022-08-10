@@ -17,6 +17,8 @@
 #include "zetasql/public/table_valued_function.h"
 
 #include <memory>
+#include <string>
+#include <utility>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/proto/function.pb.h"

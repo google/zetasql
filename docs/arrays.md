@@ -1,6 +1,6 @@
 
 
-# Working with arrays
+# Work with arrays
 
 In ZetaSQL, an array is an ordered list consisting of zero or more
 values of the same data type. You can construct arrays of simple data types,

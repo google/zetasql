@@ -16,6 +16,7 @@
 
 #include "zetasql/public/annotation/collation.h"
 
+#include <string>
 #include <utility>
 #include <variant>
 

@@ -18,6 +18,7 @@
 
 #include <string>
 #include <type_traits>
+#include <utility>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/testdata/test_schema.pb.h"

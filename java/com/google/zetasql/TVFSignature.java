@@ -105,10 +105,6 @@ public final class TVFSignature implements Serializable {
     return Objects.hash(args, options, outputSchema);
   }
 
-  public boolean isDefaultValue() {
-    return true;
-  }
-
   /** Optional aspects of a signature. */
   public static class TVFSignatureOptions implements Serializable {
     private final ImmutableList<AdditionalDeprecationWarning> additionalDeprecationWarnings;

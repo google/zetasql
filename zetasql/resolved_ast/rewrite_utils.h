@@ -19,11 +19,12 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "zetasql/base/atomic_sequence_num.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
-#include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "absl/memory/memory.h"
 #include "absl/status/statusor.h"
 #include "zetasql/base/status_macros.h"
@@ -82,10 +83,17 @@ class ColumnFactory {
   ResolvedColumn MakeCol(const std::string& table_name,
                          const std::string& col_name, const Type* type);
 
+  // Creates a new column with an AnnotatedType, incrementing the counter for
+  // next use.
+  ResolvedColumn MakeCol(const std::string& table_name,
+                         const std::string& col_name, AnnotatedType type);
+
  private:
   int max_col_id_;
   IdStringPool* id_string_pool_;
   zetasql_base::SequenceNumber* sequence_;
+
+  void UpdateMaxColId();
 };
 
 // Returns a copy of 'expr' where all references to columns that are not
@@ -110,6 +118,19 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> CorrelateColumnRefsImpl(
 absl::Status CollectColumnRefs(
     const ResolvedNode& node,
     std::vector<std::unique_ptr<const ResolvedColumnRef>>* column_refs,
+    bool correlate = false);
+
+// Sorts and removes duplicates from the ResolvedColumnRefs in 'column_refs'.
+// This is used in conjunction with 'CollectColumnRefs' to construct an
+// appropriate parameter list for a subquery expression. Among other potential
+// uses.
+void SortUniqueColumnRefs(
+    std::vector<std::unique_ptr<const ResolvedColumnRef>>& column_refs);
+
+// Helper that composes 'CollectColumnRefs' and 'SortUniqueColumnRefs'
+absl::Status CollectSortUniqueColumnRefs(
+    const ResolvedNode& node,
+    std::vector<std::unique_ptr<const ResolvedColumnRef>>& column_refs,
     bool correlate = false);
 
 // A map to keep track of columns that are replaced during an application of
@@ -181,9 +202,110 @@ class FunctionCallBuilder {
       std::unique_ptr<const ResolvedExpr> try_expr,
       std::unique_ptr<const ResolvedExpr> handle_expr);
 
+  // Constructs a ResolvedFunctionCall for the $make_array function to create an
+  // array for a list of elements
+  //
+  // Requires: Each element in elements must have the same type as array_type
+  //
+  // The signature for the built-in function "$make_array" must be available in
+  // <catalog> or an error status is returned
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> MakeArray(
+      const ArrayType* array_type,
+      std::vector<std::unique_ptr<ResolvedExpr>>& elements);
+
+  // Constructs a ResolvedFunctionCall for <input> LIKE <pattern>
+  //
+  // Requires: <input> and <pattern> must have STRING or BYTES and their types
+  // must match
+  //
+  // The signature for the built-in function "$like" must be available in
+  // <catalog> or an error status is returned
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Like(
+      std::unique_ptr<ResolvedExpr> input,
+      std::unique_ptr<ResolvedExpr> pattern);
+
+  // Constructs the following expression:
+  //   CASE
+  //     WHEN <conditions[0]> THEN <results[0]>
+  //     WHEN <conditions[1]> THEN <results[1]>
+  //     ...
+  //   ELSE
+  //     <else_result>
+  //   END;
+  //
+  // Requires:
+  //  - <conditions> and <results> cannot be empty and must be the same length.
+  //  - Elements of <conditions> and <results> must not be nullptr.
+  //  - Elements of <conditions> must have type BOOL.
+  //  - Elements of <results> must have the same type.
+  //  - If <else_result> is nullptr, the constructed CASE expression will have
+  //      no ELSE clause. Otherwise, <else_result> must have the same type as
+  //      elements in <result>.
+  //  - The signature for the built-in function "$case_no_value" must be
+  //      available in <catalog>.
+  absl::StatusOr<std::unique_ptr<const ResolvedExpr>> CaseNoValue(
+      std::vector<std::unique_ptr<const ResolvedExpr>> conditions,
+      std::vector<std::unique_ptr<const ResolvedExpr>> results,
+      std::unique_ptr<const ResolvedExpr> else_result);
+
+  // Constructs a ResolvedFunctionCall for NOT <expression>
+  //
+  // Requires: The type of <expression> is a BOOL
+  //
+  // The signature for the built-in function "$not" must be available in
+  // <catalog> or an error status is returned
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> Not(
+      std::unique_ptr<const ResolvedExpr> expression);
+
  private:
   const AnalyzerOptions& analyzer_options_;
   Catalog& catalog_;
+};
+
+// Contains helper functions for building components of the ResolvedAST when
+// rewriting LIKE ANY and LIKE ALL expressions. It will be used in the case:
+// <input> LIKE {{ANY|ALL}} <subquery>
+class LikeAnyAllSubqueryScanBuilder {
+ public:
+  LikeAnyAllSubqueryScanBuilder(const AnalyzerOptions* analyzer_options,
+                                Catalog* catalog, ColumnFactory* column_factory)
+      : analyzer_options_(analyzer_options),
+        catalog_(catalog),
+        fn_builder_(*analyzer_options, *catalog),
+        column_factory_(column_factory) {}
+
+  // Builds the AggregateScan of the ResolvedAST for a
+  // <input> LIKE {{ANY|ALL}} <subquery>
+  // expression as detailed at (broken link)
+  // Maps to:
+  // AggregateScan
+  //   +-input_scan=SubqueryScan  // User input subquery
+  //     +-pattern_col#2=subquery_column
+  //   +-like_agg_col#3=AggregateFunctionCall(
+  //         LOGICAL_OR/AND(input_expr#1 LIKE pattern_col#2) -> BOOL)
+  //           // OR for ANY, AND for ALL
+  //   +-null_agg_col#4=AggregateFunctionCall(
+  //         LOGICAL_OR(pattern_col#2 IS NULL) -> BOOL)
+  // in the ResolvedAST
+  absl::StatusOr<std::unique_ptr<ResolvedAggregateScan>> BuildAggregateScan(
+      ResolvedColumn& input_column, ResolvedColumn& subquery_column,
+      std::unique_ptr<const ResolvedScan> input_scan,
+      ResolvedSubqueryExpr::SubqueryType subquery_type);
+
+ private:
+  // Constructs a ResolvedAggregateFunctionCall for a LOGICAL_OR/AND function
+  // for use in the LIKE ANY/ALL rewriter
+  //
+  // The signature for the built-in function "logical_or" or "logical_and" must
+  // be available in <catalog> or an error status is returned
+  absl::StatusOr<std::unique_ptr<const ResolvedAggregateFunctionCall>>
+  AggregateLogicalOperation(FunctionSignatureId context_id,
+                            std::unique_ptr<const ResolvedExpr> expression);
+
+  const AnalyzerOptions* analyzer_options_;
+  Catalog* catalog_;
+  FunctionCallBuilder fn_builder_;
+  ColumnFactory* column_factory_;
 };
 
 bool IsBuiltInFunctionIdEq(const ResolvedFunctionCall* function_call,

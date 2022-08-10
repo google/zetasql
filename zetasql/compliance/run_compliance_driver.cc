@@ -1,0 +1,93 @@
+//
+// Copyright 2019 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+
+#include <unistd.h>
+
+#include <iostream>
+#include <string>
+
+#include "zetasql/base/init_google.h"
+#include "zetasql/base/logging.h"
+#include "zetasql/compliance/test_driver.h"
+
+ABSL_FLAG(std::string, sql_file, "",
+          "Input file containing query; leave blank to read from stdin");
+
+namespace {
+constexpr char kUsage[] = R"(Runs a query against a compliance test driver.
+
+The query may be supplied in the following ways:
+  1) As a direct commandline argument:
+       run_compliance_test_driver 'SELECT 1'
+  2) As a text file:
+       run_compliance_test_driver /path/to/file
+  3) Via stdin:
+       echo 'SELECT 1' < $0
+)";
+
+std::string ReadSqlFromStdin() {
+  if (isatty(fileno(stdin))) {
+    std::cout << "Please type the sql you want to analyze." << std::endl;
+    std::cout << "Press ctrl-D to terminate the query and run it." << std::endl;
+  }
+  std::string sql;
+  for (std::string line; std::getline(std::cin, line);) {
+    absl::StrAppend(&sql, line, "\n");
+    break;
+  }
+  return sql;
+}
+
+std::string GetQuery(const std::vector<std::string>& args) {
+  if (args.empty()) {
+    if (!absl::GetFlag(FLAGS_sql_file).empty()) {
+      std::string sql;
+      ZETASQL_CHECK_OK(zetasql_base::GetContents(absl::GetFlag(FLAGS_sql_file), &sql,
+                                  ::zetasql_base::Defaults()));
+      return sql;
+    } else {
+      return ReadSqlFromStdin();
+    }
+  } else {
+    return absl::StrJoin(args, " ");
+  }
+}
+}  // namespace
+
+int main(int argc, char* argv[]) {
+  std::vector<std::string> args;
+  {
+    std::vector<char*> remaining_args = absl::ParseCommandLine(argc, argv);
+    args.assign(remaining_args.cbegin() + 1, remaining_args.cend());
+  }
+  std::string sql = GetQuery(args);
+  zetasql::TestDriver* test_driver = zetasql::GetComplianceTestDriver();
+  zetasql::TestDatabase test_db;
+  ZETASQL_CHECK_OK(test_driver->CreateDatabase(test_db));
+
+  // TODO: Add commandline flag to specify query parameters.
+  std::map<std::string, zetasql::Value> query_parameters;
+
+  zetasql::TypeFactory type_factory;
+  absl::StatusOr<zetasql::Value> value =
+      test_driver->ExecuteStatement(sql, query_parameters, &type_factory);
+  if (!value.ok()) {
+    std::cout << value.status().ToString() << std::endl;
+    return 1;
+  }
+  std::cout << value->DebugString() << std::endl;
+  return 0;
+}

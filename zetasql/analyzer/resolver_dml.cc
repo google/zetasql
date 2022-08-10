@@ -1032,6 +1032,11 @@ absl::Status Resolver::VerifyUpdateTargetIsWritable(
     case RESOLVED_MAKE_STRUCT:
       return MakeSqlErrorAt(ast_location)
              << "UPDATE ... SET does not support updating the entire row";
+    case RESOLVED_CONSTANT:
+      return MakeSqlErrorAt(ast_location)
+             << "Constant "
+             << target->GetAs<ResolvedConstant>()->constant()->Name()
+             << " cannot be used as a column to update";
     default:
       ZETASQL_RET_CHECK_FAIL()
           << "Unexpected node kind in VerifyUpdateTargetIsWritable: "
@@ -1971,6 +1976,16 @@ absl::Status Resolver::ResolveReturningClause(
                                                   /*has_from_clause=*/true,
                                                   from_clause_name_list,
                                                   query_resolution_info.get()));
+
+  if (query_resolution_info->HasGroupByOrAggregation()) {
+    return MakeSqlErrorAt(ast_node)
+           << "THEN RETURN clause cannot use aggregation";
+  }
+
+  if (query_resolution_info->HasAnalytic()) {
+    return MakeSqlErrorAt(ast_node)
+           << "THEN RETURN clause cannot use analytic functions";
+  }
 
   query_resolution_info->set_has_group_by(false);
   query_resolution_info->set_has_having(false);

@@ -126,9 +126,7 @@ ARRAY<STRUCT<STRING>>[{"a"}]
 [name=cast_bounds_int32_too_small]
 SELECT CAST(-2147483649 AS INT32)
 --
-ERROR: generic::invalid_argument: Could not cast literal -2147483649 to type INT32 [at 1:13]
-SELECT CAST(-2147483649 AS INT32)
-            ^
+ERROR: generic::out_of_range: int32 out of range: -2147483649
 ==
 [name=cast_bounds_int32_min]
 SELECT CAST(-2147483648 AS INT32)
@@ -143,16 +141,12 @@ ARRAY<STRUCT<INT32>>[{2147483647}]
 [name=cast_bounds_int32_too_big]
 SELECT CAST(2147483648 AS INT32)
 --
-ERROR: generic::invalid_argument: Could not cast literal 2147483648 to type INT32 [at 1:13]
-SELECT CAST(2147483648 AS INT32)
-            ^
+ERROR: generic::out_of_range: int32 out of range: 2147483648
 ==
 [name=cast_bounds_uint32_too_small]
 SELECT CAST(-1 AS UINT32)
 --
-ERROR: generic::invalid_argument: Could not cast literal -1 to type UINT32 [at 1:13]
-SELECT CAST(-1 AS UINT32)
-            ^
+ERROR: generic::out_of_range: uint32 out of range: -1
 ==
 [name=cast_bounds_uint32_min]
 SELECT CAST(0 AS UINT32)
@@ -167,9 +161,7 @@ ARRAY<STRUCT<UINT32>>[{4294967295}]
 [name=cast_bounds_uint32_too_big]
 SELECT CAST(4294967296 AS UINT32)
 --
-ERROR: generic::invalid_argument: Could not cast literal 4294967296 to type UINT32 [at 1:13]
-SELECT CAST(4294967296 AS UINT32)
-            ^
+ERROR: generic::out_of_range: uint32 out of range: 4294967296
 ==
 [name=cast_bounds_int64_too_small]
 SELECT CAST(-9223372036854775809 AS int64)
@@ -191,16 +183,12 @@ ARRAY<STRUCT<INT64>>[{9223372036854775807}]
 [name=cast_bounds_int64_too_big]
 SELECT CAST(9223372036854775808 AS INT64)
 --
-ERROR: generic::invalid_argument: Could not cast literal 9223372036854775808 to type INT64 [at 1:13]
-SELECT CAST(9223372036854775808 AS INT64)
-            ^
+ERROR: generic::out_of_range: int64 out of range: 9223372036854775808
 ==
 [name=cast_bounds_unit64_too_small]
 SELECT CAST(-1 AS uint64)
 --
-ERROR: generic::invalid_argument: Could not cast literal -1 to type UINT64 [at 1:13]
-SELECT CAST(-1 AS uint64)
-            ^
+ERROR: generic::out_of_range: uint64 out of range: -1
 ==
 [name=cast_bounds_uint64_max]
 SELECT CAST(18446744073709551615 AS UINT64)
@@ -223,9 +211,7 @@ SELECT CAST(18446744073709551616 AS UINT64)
 [name=cast_bounds_double_overflows_int64]
 SELECT CAST(9223372036854775754.5 AS INT64)
 --
-ERROR: generic::invalid_argument: Could not cast literal 9.2233720368547758e+18 to type INT64 [at 1:13]
-SELECT CAST(9223372036854775754.5 AS INT64)
-            ^
+ERROR: generic::out_of_range: int64 out of range: 9.22337e+18
 ==
 # We get an inaccurate CAST result because double precision cannot represent
 # the given number precisely. The string is represented as closely as possible,
@@ -236,9 +222,7 @@ SELECT CAST(9223372036854775754.5 AS INT64)
 [name=cast_bounds_double_overflows_uint64]
 SELECT CAST(18446744073709551562.5 AS UINT64)
 --
-ERROR: generic::invalid_argument: Could not cast literal 1.8446744073709552e+19 to type UINT64 [at 1:13]
-SELECT CAST(18446744073709551562.5 AS UINT64)
-            ^
+ERROR: generic::out_of_range: uint64 out of range: 1.84467e+19
 ==
 [name=boolean_1]
 SELECT CAST(1 > 0 AS BOOLEAN)
@@ -394,8 +378,8 @@ ARRAY<STRUCT<TIME, TIME, STRING, STRING, STRING, TIME>>[
 ]
 --
 WITH FEATURES: V_1_2_CIVIL_TIME
-ERROR: generic::invalid_argument: Could not cast literal "12:34:56.123456789" to type TIME [at 2:13]
-       CAST('12:34:56.123456789' AS TIME),
+ERROR: generic::invalid_argument: Invalid TIME literal [at 5:13]
+       CAST(TIME '12:34:56.123456789' AS STRING),
             ^
 --
 WITH FEATURES: <none>
@@ -456,8 +440,8 @@ ARRAY<STRUCT<DATETIME, DATETIME, STRING, STRING, STRING, DATETIME>>[
 ]
 --
 WITH FEATURES: V_1_2_CIVIL_TIME
-ERROR: generic::invalid_argument: Could not cast literal "2006-01-02 03:04:05.123456789" to type DATETIME [at 2:13]
-       CAST('2006-01-02 03:04:05.123456789' AS DATETIME),
+ERROR: generic::invalid_argument: Invalid DATETIME literal [at 5:13]
+       CAST(DATETIME '2006-01-02 03:04:05.123456789' AS STRING),
             ^
 --
 WITH FEATURES: <none>
@@ -470,9 +454,7 @@ SELECT CAST(null AS DATETIME),
 [name=cast_invalid_utf8_bytes_to_string_1]
 SELECT CAST(b'\xe2\x28\xa1' AS STRING)
 --
-ERROR: generic::invalid_argument: Could not cast literal b"\xe2(\xa1" to type STRING [at 1:13]
-SELECT CAST(b'\xe2\x28\xa1' AS STRING)
-            ^
+ERROR: generic::out_of_range: Invalid cast of bytes to UTF8 string
 ==
 
 [name=safe_convert_bytes_to_string_1]
@@ -484,9 +466,7 @@ ARRAY<STRUCT<STRING>>[{"�(�"}]
 [name=cast_invalid_utf8_bytes_to_string_2]
 SELECT CAST(b'𐌼₡\xc2𐌼₡\xa0\xa1𐌼₡\xf0\x28\x8c\x28𐌼₡' AS STRING)
 --
-ERROR: generic::invalid_argument: Could not cast literal b"\xf0\x90\x8c\xbc\xe2\x82\xa1\xc2\xf0\x90\x8c\xbc\xe2\x82\xa1\xa0\xa1\xf0\x90\x8c\xbc\xe2\x82\xa1\xf0(\x8c(\xf0\x90\x8c\xbc\xe2\x82\xa1" to type STRING [at 1:13]
-SELECT CAST(b'𐌼₡\xc2𐌼₡\xa0\xa1𐌼₡\xf0\x28\x8c\x28𐌼₡' AS ST...
-            ^
+ERROR: generic::out_of_range: Invalid cast of bytes to UTF8 string
 ==
 
 [name=safe_convert_bytes_to_string_2]
@@ -595,25 +575,19 @@ ARRAY<STRUCT<INT32,
 [name=cast_hex_string_integers_mid_space]
 SELECT CAST('- 0x121' AS INT32)
 --
-ERROR: generic::invalid_argument: Could not cast literal "- 0x121" to type INT32 [at 1:13]
-SELECT CAST('- 0x121' AS INT32)
-            ^
+ERROR: generic::out_of_range: Bad int32 value: - 0x121
 ==
 
 [name=cast_hex_string_integers_overflow_int32]
 SELECT CAST('0xFFFFFFFF' AS INT32)
 --
-ERROR: generic::invalid_argument: Could not cast literal "0xFFFFFFFF" to type INT32 [at 1:13]
-SELECT CAST('0xFFFFFFFF' AS INT32)
-            ^
+ERROR: generic::out_of_range: Bad int32 value: 0xFFFFFFFF
 ==
 
 [name=cast_hex_string_integers_overflow_int64]
 SELECT CAST('0xFFFFFFFFFFFFFFFF' AS INT64)
 --
-ERROR: generic::invalid_argument: Could not cast literal "0xFFFFFFFFFFFFFFFF" to type INT64 [at 1:13]
-SELECT CAST('0xFFFFFFFFFFFFFFFF' AS INT64)
-            ^
+ERROR: generic::out_of_range: Bad int64 value: 0xFFFFFFFFFFFFFFFF
 ==
 
 [name=cast_proto_to_bytes]
@@ -636,6 +610,12 @@ SELECT CAST(NEW zetasql_test__.NullableEnum(
 ARRAY<STRUCT<BYTES>>[{b"\x08\xff\xff\xff\xff\xff\xff\xff\xff\xff\x01"}]
 ==
 
+# the enum value is supposed to be all capitals.
+[name=enums_are_case_sensitive]
+SELECT CAST(CAST('TestEnum1' as `zetasql_test__.TestEnum`) as STRING)
+--
+ERROR: generic::out_of_range: Out of range cast of string 'TestEnum1' to enum type ENUM<zetasql_test__.TestEnum>
+==
 # This test is more of a recommendation than a requirement, since proto allows
 # ignoring the packed annotation. We should eventually add framework support
 # for recommended tests. b/75304074
@@ -988,7 +968,7 @@ ARRAY<STRUCT<DATE, DATETIME, TIME, TIMESTAMP>>[
 ==
 
 # Test default value when casting string to date with format.
-[required_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
+[required_features=V_1_3_FORMAT_IN_CAST]
 [name=cast_string_to_default_value_date]
 SELECT
   extract(year from d) = extract(year from CURRENT_DATE()),
@@ -1020,7 +1000,7 @@ ARRAY<STRUCT<TIME>>[{00:00:00}]
 ==
 
 # Test default value when casting string to timestamp with format.
-[required_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
+[required_features=V_1_3_FORMAT_IN_CAST]
 [name=cast_string_to_default_value_timestamp]
 SELECT
   extract(year from d) = extract(year from CURRENT_DATE()),
@@ -1035,7 +1015,7 @@ ARRAY<STRUCT<BOOL, BOOL, STRING>>[{true, true, "01 00:00:00.000000"}]
 # timestamp with format.
 # For time zone 'America/Los_Angeles', on 2021-11-01, the hour offset is -07,
 # while on 2021-11-21, the hour offset is -08.
-[required_features=V_1_3_FORMAT_IN_CAST,V_1_2_CIVIL_TIME]
+[required_features=V_1_3_FORMAT_IN_CAST]
 [name=cast_string_to_timestamp_dst]
 SELECT
   CAST('2021-11-01' as timestamp FORMAT 'YYYY-MM-DD' at time zone 'America/Los_Angeles'),
@@ -1235,7 +1215,7 @@ ARRAY<STRUCT<NUMERIC>>[{99999999999999999999999999999.999999999}]
 ==
 
 # Struct fields with large floating points are not implicitly coerced.
-[required_features=PARAMETERIZED_TYPES,NUMERIC_TYPE,BIGNUMERIC_TYPE]
+[required_features=NUMERIC_TYPE,BIGNUMERIC_TYPE]
 [name=cast_struct_with_large_floating_point]
 select cast((99999999999999999999999999.999999999, 99999999999999999999999999.999999999) as struct<numeric, bignumeric>);
 --
@@ -1262,7 +1242,7 @@ ARRAY<STRUCT<STRUCT<NUMERIC, BIGNUMERIC>>>[
 ==
 
 # Arrays containing large floating point elements are implicitly coerced.
-[required_features=PARAMETERIZED_TYPES,NUMERIC_TYPE]
+[required_features=NUMERIC_TYPE]
 [name=cast_array_with_large_floating_point]
 select cast([numeric '99999999999999999999999999.999999999'] as array<numeric>);
 --
@@ -1362,9 +1342,7 @@ ARRAY<STRUCT<OptionalGroupNested ARRAY<>>>[
 [name=cast_string_as_bool]
 select CAST("abc" as BOOL);
 --
-ERROR: generic::invalid_argument: Could not cast literal "abc" to type BOOL [at 1:13]
-select CAST("abc" as BOOL);
-            ^
+ERROR: generic::out_of_range: Bad bool value: abc
 ==
 
 [name=cast_string_as_bool_1]
@@ -1397,9 +1375,7 @@ ERROR: generic::out_of_range: Bad bool value: abc
 [name=cast_string_as_bool_5]
 select CAST('abc' as BOOL);
 --
-ERROR: generic::invalid_argument: Could not cast literal "abc" to type BOOL [at 1:13]
-select CAST('abc' as BOOL);
-            ^
+ERROR: generic::out_of_range: Bad bool value: abc
 ==
 
 [name=cast_string_as_bool_6]
@@ -1412,4 +1388,186 @@ ARRAY<STRUCT<BOOL>>[{true}]
 select CAST(str_val as BOOL) FROM TableAllTypes;
 --
 ERROR: generic::out_of_range: Bad bool value: A
+==
+
+[name=cast_invalid_int_to_enum]
+select cast(1000 AS `zetasql_test__.TestEnum`);
+--
+ERROR: generic::out_of_range: Out of range cast of integer 1000 to enum type ENUM<zetasql_test__.TestEnum>
+==
+
+[name=safe_cast_invalid_int_to_enum]
+select safe_cast(1000 AS `zetasql_test__.TestEnum`);
+--
+ARRAY<STRUCT<ENUM<zetasql_test__.TestEnum>>>[{NULL}]
+==
+
+[name=cast_string_to_enum_with_different_case]
+select cast('TestEnum0' AS `zetasql_test__.TestEnum`)
+--
+ERROR: generic::out_of_range: Out of range cast of string 'TestEnum0' to enum type ENUM<zetasql_test__.TestEnum>
+==
+
+[name=cast_invalid_string_literal_to_enum]
+select cast('TESTENUM1000' AS `zetasql_test__.TestEnum`)
+--
+ERROR: generic::out_of_range: Out of range cast of string 'TESTENUM1000' to enum type ENUM<zetasql_test__.TestEnum>
+==
+
+[name=safe_cast_invalid_string_literal_to_enum]
+select safe_cast('TESTENUM1000' AS `zetasql_test__.TestEnum`)
+--
+ARRAY<STRUCT<ENUM<zetasql_test__.TestEnum>>>[{NULL}]
+==
+
+[name=cast_invalid_string_to_int32]
+select cast("abc" as int32) + cast("def" as int32)
+--
+ERROR: generic::out_of_range: Bad int32 value: abc
+==
+
+[name=invalid_cast_nested_inside_a_function]
+select SQRT(cast(9999999999 as int32))
+--
+ERROR: generic::out_of_range: int32 out of range: 9999999999
+==
+
+[name=invalid_safe_cast_nested_inside_a_function]
+select SQRT(safe_cast(9999999999 as int32))
+--
+ARRAY<STRUCT<DOUBLE>>[{NULL}]
+==
+
+[name=cast_overflowing_literal_into_int64]
+# INT64_MAX + 1 => 9223372036854775808
+select cast(9223372036854775808 as int64), 9223372036854775808
+--
+ERROR: generic::out_of_range: int64 out of range: 9223372036854775808
+==
+
+[name=safe_cast_overflowing_literal_into_int64]
+# INT64_MAX + 1 => 9223372036854775808
+select safe_cast(9223372036854775808 as int64), 9223372036854775808
+--
+ARRAY<STRUCT<INT64, UINT64>>[{NULL, 9223372036854775808}]
+==
+[name=cast_invalid_literal_to_civil_time]
+[required_features=V_1_2_CIVIL_TIME]
+select cast('abc' as time)
+--
+ERROR: generic::out_of_range: Invalid time string "abc"
+==
+
+[name=cast_overflowing_literal_to_civil_time]
+[required_features=V_1_2_CIVIL_TIME]
+select cast('24:00:00' as time)
+--
+ERROR: generic::out_of_range: Invalid time string "24:00:00"
+==
+
+[name=cast_invalid_literal_to_datetime_with_civil_time_enabled]
+[required_features=V_1_2_CIVIL_TIME]
+select cast('abc' as datetime)
+--
+ERROR: generic::out_of_range: Invalid datetime string "abc"
+==
+
+[name=cast_timestamp_to_datetime_with_civil_time_enabled]
+[required_features=V_1_2_CIVIL_TIME]
+select cast('2015-13-05 01:02:03' as datetime)
+--
+ERROR: generic::out_of_range: Invalid datetime string "2015-13-05 01:02:03"
+==
+
+[name=cast_utc_timestamp_to_datetime_with_civil_time_enabled]
+[required_features=V_1_2_CIVIL_TIME]
+select cast('2006-01-02 01:02:03.123456 UTC' as datetime)
+--
+ERROR: generic::out_of_range: Invalid datetime string "2006-01-02 01:02:03.123456 UTC"
+==
+
+[name=cast_array_with_literals_larger_than_target_element_type]
+[required_features=V_1_1_CAST_DIFFERENT_ARRAY_TYPES]
+select cast(ARRAY<INT64>[-21474836480|21474836470] as ARRAY<INT32>)
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT32>[-10]}]
+==
+
+[name=cast_invalid_string_to_int64]
+select cast("abc" as INT64)
+--
+ERROR: generic::out_of_range: Bad int64 value: abc
+==
+
+[name=safe_cast_invalid_string_to_int64]
+select safe_cast("abc" as INT64)
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+==
+
+[name=cast_array_with_invalid_string_literals]
+[required_features=V_1_1_CAST_DIFFERENT_ARRAY_TYPES]
+select cast(["100", "abc"] as ARRAY<INT64>);
+--
+ERROR: generic::out_of_range: Bad int64 value: abc
+==
+
+[name=safe_cast_array_with_invalid_string_literals]
+[required_features=V_1_1_CAST_DIFFERENT_ARRAY_TYPES]
+select safe_cast(["100", "abc"] as ARRAY<INT64>);
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>(NULL)}]
+==
+
+[name=cast_string_hex_literal_into_int32]
+select cast('-0x100' AS INT32)
+--
+ARRAY<STRUCT<INT32>>[{-256}]
+==
+
+[name=cast_string_hex_literal_into_uint32]
+select cast('-0x100' AS UINT32)
+--
+ERROR: generic::out_of_range: Bad uint32 value: -0x100
+==
+
+[name=cast_string_hex_literal_into_int64]
+select cast('-0x100' AS INT64)
+--
+ARRAY<STRUCT<INT64>>[{-256}]
+==
+
+[name=cast_string_hex_literal_into_uint64]
+select cast('-0x100' AS UINT64)
+--
+ERROR: generic::out_of_range: Bad uint64 value: -0x100
+==
+
+[name=cast_invalid_string_literal_into_numeric]
+[required_features=NUMERIC_TYPE]
+select cast("abc" as NUMERIC)
+--
+ERROR: generic::out_of_range: Invalid NUMERIC value: abc
+==
+
+[name=cast_invalid_string_literal_into_big_numeric]
+[required_features=BIGNUMERIC_TYPE]
+select cast("abc" as BIGNUMERIC)
+--
+ERROR: generic::out_of_range: Invalid BIGNUMERIC value: abc
+==
+
+# Test case from b/79755993 (now fixed).
+[name=nested_casts_of_invalid_literals]
+select CAST(CAST(- 1769384439 AS INT32) AS UINT32)
+       & CAST(1834360097 AS UINT32);
+--
+ERROR: generic::out_of_range: uint32 out of range: -1769384439
+==
+# Test case from b/79755993 (now fixed).
+[name=safe_nested_casts_of_invalid_literals]
+select SAFE_CAST(CAST(- 1769384439 AS INT32) AS UINT32)
+       & CAST(1834360097 AS UINT32);
+--
+ARRAY<STRUCT<UINT32>>[{NULL}]
 ==

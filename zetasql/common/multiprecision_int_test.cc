@@ -32,6 +32,7 @@
 #include <cstdint>
 #include <functional>
 #include <limits>
+#include <random>
 #include <sstream>
 #include <string>
 #include <type_traits>

@@ -20,7 +20,12 @@
 #include <string>
 #include <utility>
 
+#include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/base/case.h"
+#include "absl/flags/flag.h"
+
+ABSL_FLAG(bool, zetasql_validate_resolved_ast, true,
+          "Run validator on resolved AST before returning it.");
 
 namespace zetasql {
 
@@ -215,7 +220,9 @@ absl::Status AllowedHintsAndOptions::Serialize(
   return absl::OkStatus();
 }
 
-AnalyzerOptions::AnalyzerOptions() : AnalyzerOptions(LanguageOptions()) {}
+AnalyzerOptions::AnalyzerOptions() : AnalyzerOptions(LanguageOptions()) {
+  validate_resolved_ast_ = absl::GetFlag(FLAGS_zetasql_validate_resolved_ast);
+}
 
 AnalyzerOptions::AnalyzerOptions(const LanguageOptions& language_options)
     : language_options_(language_options) {
@@ -301,6 +308,11 @@ absl::Status AnalyzerOptions::Deserialize(
   if (proto.has_default_anon_function_report_format()) {
     result->set_default_anon_function_report_format(
         proto.default_anon_function_report_format());
+  }
+
+  if (proto.has_default_anon_kappa_value()) {
+    ZETASQL_RETURN_IF_ERROR(
+        result->set_default_anon_kappa_value(proto.default_anon_kappa_value()));
   }
 
   std::vector<const Type*> expected_types;
@@ -393,6 +405,7 @@ absl::Status AnalyzerOptions::Serialize(FileDescriptorSetMap* map,
   proto->set_default_timezone(default_timezone_.name());
   proto->set_default_anon_function_report_format(
       default_anon_function_report_format_);
+  proto->set_default_anon_kappa_value(default_anon_kappa_value_);
   proto->set_statement_context(statement_context_);
   proto->set_error_message_mode(error_message_mode_);
   proto->set_create_new_column_for_each_projected_output(
@@ -553,6 +566,22 @@ absl::Status AnalyzerOptions::SetInScopeExpressionColumn(
   return absl::OkStatus();
 }
 
+void AnalyzerOptions::SetLookupExpressionColumnCallback(
+    const LookupExpressionColumnCallback& lookup_expression_column_callback) {
+  lookup_expression_column_callback_ = lookup_expression_column_callback;
+  lookup_expression_callback_ =
+      [callback = std::move(lookup_expression_column_callback)](
+          const std::string& column_name,
+          std::unique_ptr<const ResolvedExpr>& expr) -> absl::Status {
+    const Type* column_type = nullptr;
+    ZETASQL_RETURN_IF_ERROR(callback(column_name, &column_type));
+    if (column_type != nullptr) {
+      expr = MakeResolvedExpressionColumn(column_type, column_name);
+    }
+    return absl::OkStatus();
+  };
+}
+
 void AnalyzerOptions::SetDdlPseudoColumnsCallback(
     DdlPseudoColumnsCallback ddl_pseudo_columns_callback) {
   ddl_pseudo_columns_callback_ = std::move(ddl_pseudo_columns_callback);
@@ -587,6 +616,18 @@ void AnalyzerOptions::enable_rewrite(ResolvedASTRewrite rewrite, bool enable) {
   } else {
     enabled_rewrites_.erase(rewrite);
   }
+}
+
+absl::Status AnalyzerOptions::set_default_anon_kappa_value(int64_t value) {
+  // 0 is the default value means it has not been set. Otherwise, we check
+  // the valid range here.
+  if (value < 0 || value > std::numeric_limits<int32_t>::max()) {
+    return MakeSqlError()
+           << "The default anonymization option kappa must be between 0 and "
+           << std::numeric_limits<int32_t>::max() << " where 0 means unset";
+  }
+  default_anon_kappa_value_ = value;
+  return absl::OkStatus();
 }
 
 absl::btree_set<ResolvedASTRewrite> AnalyzerOptions::DefaultRewrites() {

@@ -19,6 +19,8 @@
 
 // Utilities to abstract zetasql_base::Status payload interactions.
 
+#include <string>
+
 #include "zetasql/base/logging.h"
 #include "google/protobuf/message.h"
 #include "absl/memory/memory.h"

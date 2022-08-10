@@ -17,6 +17,8 @@
 #ifndef ZETASQL_REFERENCE_IMPL_REWRITE_FLAGS_H_
 #define ZETASQL_REFERENCE_IMPL_REWRITE_FLAGS_H_
 
+#include <string>
+
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/options.pb.h"
 #include "absl/container/btree_set.h"

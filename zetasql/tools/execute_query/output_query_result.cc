@@ -21,6 +21,7 @@
 #include <optional>
 #include <string>
 
+#include "zetasql/public/functions/string.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/reference_impl/type_helpers.h"
 #include "absl/status/statusor.h"
@@ -29,6 +30,40 @@
 namespace zetasql {
 
 namespace {
+
+size_t EstimateGlyphWidth(absl::string_view input) {
+  // input will be a unicode string. What we really want here is the
+  // sum width of the glyphs used to represent the given string.
+  // Unfortunately, this is system/font dependent, and we don't have
+  // that information available. However, if we just use 'byte length'
+  // as a proxy, we will consistently _overcount_ the width of glyphs.
+  // Instead, normalize in a few different ways, and take the miminum size
+  // since this is likely to match how it is usually rendered.
+  std::string nfkc_str;
+  std::string nfc_str;
+  std::vector<absl::string_view> strs;
+  absl::Status error;
+  if (zetasql::functions::Normalize(input, functions::NormalizeMode::NFC,
+                                      /*is_casefold=*/false, &nfc_str,
+                                      &error)) {
+    strs.push_back(nfc_str);
+  }
+  error = {};
+  if (zetasql::functions::Normalize(input, functions::NormalizeMode::NFKC,
+                                      /*is_casefold=*/false, &nfkc_str,
+                                      &error)) {
+    strs.push_back(nfkc_str);
+  }
+  size_t estimate = input.length();
+  for (absl::string_view str : strs) {
+    error = {};
+    int64_t len = 0;
+    if (zetasql::functions::LengthUtf8(str, &len, &error)) {
+      estimate = std::min(estimate, static_cast<size_t>(len));
+    }
+  }
+  return estimate;
+}
 
 absl::StatusOr<const Table*> GetTableForDMLStatement(
     const ResolvedStatement* resolved_stmt) {
@@ -169,8 +204,9 @@ std::string GenerateRowStringFromSingleLineColumns(
     // left-justified, and padded to the related column_buffer_lengths value.
     absl::StrAppend(&row_string, " ");
     absl::StrAppend(&row_string, column_strings[col_idx]);
-    int pad_size = static_cast<int>(column_buffer_lengths[col_idx] -
-                                    column_strings[col_idx].length());
+    int pad_size =
+        static_cast<int>(column_buffer_lengths[col_idx] -
+                         EstimateGlyphWidth(column_strings[col_idx]));
     // The column_buffer_lengths are the max lengths of all the column
     // values for each column, so this column length should not be bigger
     // than the related max length.
@@ -290,8 +326,8 @@ std::string ToPrettyOutputStyle(const zetasql::Value& result,
 
   std::vector<size_t> max_column_lengths(num_result_columns, 0);
   for (int idx = 0; idx < num_result_columns; ++idx) {
-    max_column_lengths[idx] =
-        std::max(max_column_lengths[idx], column_names[idx].length());
+    max_column_lengths[idx] = std::max(max_column_lengths[idx],
+                                       EstimateGlyphWidth(column_names[idx]));
   }
 
   std::vector<std::vector<std::string>> row_values;
@@ -312,7 +348,7 @@ std::string ToPrettyOutputStyle(const zetasql::Value& result,
       for (absl::string_view line :
            absl::StrSplit(column_values[col_idx], '\n')) {
         max_line_length_of_column =
-            std::max(max_line_length_of_column, line.length());
+            std::max(max_line_length_of_column, EstimateGlyphWidth(line));
       }
       max_column_lengths[col_idx] =
           std::max(max_column_lengths[col_idx], max_line_length_of_column);
@@ -371,11 +407,11 @@ std::string OutputPrettyStyleExpressionResult(const zetasql::Value& result,
   if (!include_box) {
     return value_str;
   }
-  std::string separator = GetRowSeparator({value_str.length()});
+  std::string separator = GetRowSeparator({EstimateGlyphWidth(value_str)});
 
   std::string output = separator;
-  absl::StrAppend(
-      &output, GenerateRowStringFromColumns({value_str}, {value_str.length()}));
+  absl::StrAppend(&output, GenerateRowStringFromColumns(
+                               {value_str}, {EstimateGlyphWidth(value_str)}));
   absl::StrAppend(&output, separator);
   return output;
 }

@@ -16,6 +16,8 @@
 
 #include "zetasql/analyzer/rewriters/registration.h"
 
+#include <string>
+
 #include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"

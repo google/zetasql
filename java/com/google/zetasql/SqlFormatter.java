@@ -17,8 +17,12 @@
 
 package com.google.zetasql;
 
+import com.google.common.collect.ImmutableList;
+import com.google.zetasql.FormatterOptions.FormatterOptionsProto;
+import com.google.zetasql.FormatterOptions.FormatterRangeProto;
 import com.google.zetasql.LocalService.FormatSqlRequest;
 import io.grpc.StatusRuntimeException;
+import java.util.Collection;
 
 /** Formatter for ZetaSQL. */
 public class SqlFormatter {
@@ -39,7 +43,29 @@ public class SqlFormatter {
     }
   }
 
+  public String lenientFormatSql(String sql, FormatterOptionsProto options) {
+    return lenientFormatSql(sql, ImmutableList.of(), options);
+  }
+
+  public String lenientFormatSql(
+      String sql, Collection<FormatterRangeProto> byteRanges, FormatterOptionsProto options) {
+    try {
+      return Client.getStub().lenientFormatSql(request(sql, byteRanges, options)).getSql();
+    } catch (StatusRuntimeException e) {
+      throw new SqlException(e);
+    }
+  }
+
   protected static FormatSqlRequest request(String sql) {
     return FormatSqlRequest.newBuilder().setSql(sql).build();
+  }
+
+  protected static FormatSqlRequest request(
+      String sql, Collection<FormatterRangeProto> byteRanges, FormatterOptionsProto options) {
+    return FormatSqlRequest.newBuilder()
+        .setSql(sql)
+        .addAllByteRanges(byteRanges)
+        .setOptions(options)
+        .build();
   }
 }

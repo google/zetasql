@@ -328,6 +328,68 @@ ORDER BY 2 DESC;
 +--------+--------------+
 ```
 
+### COLLATE
+
+```sql
+COLLATE(value, collate_specification)
+```
+
+Takes a `STRING` and a [collation specification][link-collation-spec]. Returns
+a `STRING` with a collation specification. If `collate_specification` is empty,
+returns a value with collation removed from the `STRING`.
+
+The collation specification defines how the resulting `STRING` can be compared
+and sorted. To learn more, see
+[Working with collation][link-collation-concepts].
+
++ `collation_specification` must be a string literal, otherwise an error is
+  thrown.
++ Returns `NULL` if `value` is `NULL`.
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+In this example, the weight of `a` is less than the weight of `Z`. This
+is because the collate specification, `und:ci` assigns more weight to `Z`.
+
+```sql
+WITH Words AS (
+  SELECT
+    COLLATE('a', 'und:ci') AS char1,
+    COLLATE('Z', 'und:ci') AS char2
+)
+SELECT ( Words.char1 < Words.char2 ) AS a_less_than_Z
+FROM Words;
+
++----------------+
+| a_less_than_Z  |
++----------------+
+| TRUE           |
++----------------+
+```
+
+In this example, the weight of `a` is greater than the weight of `Z`. This
+is because the default collate specification assigns more weight to `a`.
+
+```sql
+WITH Words AS (
+  SELECT
+    'a' AS char1,
+    'Z' AS char2
+)
+SELECT ( Words.char1 < Words.char2 ) AS a_less_than_Z
+FROM Words;
+
++----------------+
+| a_less_than_Z  |
++----------------+
+| FALSE          |
++----------------+
+```
+
 ### CONCAT
 
 ```sql
@@ -410,6 +472,10 @@ ENDS_WITH(value1, value2)
 
 Takes two `STRING` or `BYTES` values. Returns `TRUE` if the second
 value is a suffix of the first.
+
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
 
 **Return type**
 
@@ -1412,6 +1478,10 @@ overlapping occurrences, in other words, the function searches for additional
 occurrences beginning with the second character in the previous occurrence.
 `occurrence` cannot be 0 or negative.
 
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+
 **Return type**
 
 `INT64`
@@ -2359,6 +2429,10 @@ REPLACE(original_value, from_value, to_value)
 Replaces all occurrences of `from_value` with `to_value` in `original_value`.
 If `from_value` is empty, no replacement is made.
 
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+
 **Return type**
 
 `STRING` or `BYTES`
@@ -2792,6 +2866,10 @@ Splitting an empty `STRING` returns an
 `ARRAY` with a single empty
 `STRING`.
 
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+
 **Return type**
 
 `ARRAY` of type `STRING` or
@@ -2830,6 +2908,10 @@ STARTS_WITH(value1, value2)
 Takes two `STRING` or `BYTES` values. Returns `TRUE` if the second value is a
 prefix of the first.
 
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+
 **Return type**
 
 `BOOL`
@@ -2867,6 +2949,10 @@ STRPOS(value1, value2)
 
 Takes two `STRING` or `BYTES` values. Returns the 1-based index of the first
 occurrence of `value2` inside `value1`. Returns `0` if `value2` is not found.
+
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
 
 **Return type**
 
@@ -2913,17 +2999,26 @@ SUBSTR(value, position[, length])
 Returns a substring of the supplied `STRING` or `BYTES` value.
 
 The `position` argument is an integer specifying the starting position of the
-substring, with position = 1 indicating the first character or byte. If
-`position` is negative, the function counts from the end of `value`, with -1
-indicating the last character. If `position` is zero or less than
-`-LENGTH(value)`, the substring starts from position = 1.
+substring.
 
-The `length` argument specifies the maximum number of characters to return if
-`value` is a `STRING`, or number of bytes to return if `value` is a `BYTES`. If
-`length` is less than 0, the function produces an error. The returned substring
-may be shorter than `length`, for example, when `length` exceeds the length of
-`value`, or when the starting position of the substring plus `length` is greater
-than the length of `value`.
++ If `position` is `1`, the substring starts from the first character or byte.
++ If `position` is `0` or less than `-LENGTH(value)`, `position` is set to `1`,
+  and the substring starts from the first character or byte.
++ If `position` is greater than the length of `value`, the function produces
+  an empty substring.
++ If `position` is negative, the function counts from the end of `value`,
+  with `-1` indicating the last character or byte.
+
+The `length` argument specifies the maximum number of characters or bytes to
+return.
+
++ If `length` is not specified, the function produces a substring that starts
+  at the specified position and ends at the last character or byte of `value`.
++ If `length` is `0`, the function produces an empty substring.
++ If `length` is negative, the function produces an error.
++ The returned substring may be shorter than `length`, for example, when
+  `length` exceeds the length of `value`, or when the starting position of the
+  substring plus `length` is greater than the length of `value`.
 
 **Return type**
 
@@ -3582,6 +3677,10 @@ FROM items;
 [rules-format-specifiers]: #rules_format_specifiers
 
 [string-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md
+
+[link-collation-concepts]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#working_with_collation
+
+[link-collation-spec]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_spec_details
 
 <!-- mdlint on -->
 

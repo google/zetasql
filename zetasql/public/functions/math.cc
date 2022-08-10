@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <type_traits>
 
+#include "zetasql/public/functions/rounding_mode.pb.h"
 #include "absl/base/macros.h"
 #include "absl/status/statusor.h"
 
@@ -252,12 +253,6 @@ bool TruncDecimal(float in, int64_t digits, float* out, absl::Status* error) {
 }
 
 template <>
-bool Pi(double* out, absl::Status* error) {
-  *out = M_PI;
-  return true;
-}
-
-template <>
 bool Radians(double in, double* out, absl::Status* error) {
   static const double value_pi_over_180 = M_PI / 180.0;
   *out = in * value_pi_over_180;
@@ -296,7 +291,18 @@ bool RoundDecimal(NumericValue in, int64_t digits, NumericValue* out,
 }
 
 template <>
-bool Trunc(NumericValue in, NumericValue *out, absl::Status* error) {
+bool RoundDecimalWithRoundingMode(NumericValue in, int64_t digits,
+                                  RoundingMode rounding_mode, NumericValue* out,
+                                  absl::Status* error) {
+  if (rounding_mode == RoundingMode::ROUND_HALF_EVEN) {
+    return SetNumericResultOrError(in.Round(digits, true), out, error);
+  } else {
+    return SetNumericResultOrError(in.Round(digits, false), out, error);
+  }
+}
+
+template <>
+bool Trunc(NumericValue in, NumericValue* out, absl::Status* error) {
   *out = in.Trunc(0);
   return true;
 }
@@ -324,6 +330,11 @@ bool Sqrt(NumericValue in, NumericValue *out, absl::Status* error) {
 }
 
 template <>
+bool Cbrt(NumericValue in, NumericValue* out, absl::Status* error) {
+  return SetNumericResultOrError(in.Cbrt(), out, error);
+}
+
+template <>
 bool Pow(NumericValue in1, NumericValue in2, NumericValue* out,
          absl::Status* error) {
   return SetNumericResultOrError(in1.Power(in2), out, error);
@@ -348,12 +359,6 @@ template <>
 bool Logarithm(NumericValue in1, NumericValue in2, NumericValue* out,
                absl::Status* error) {
   return SetNumericResultOrError(in1.Log(in2), out, error);
-}
-
-template <>
-bool Pi(NumericValue* out, absl::Status* error) {
-  *out = NumericValue::Pi();
-  return true;
 }
 
 template <>
@@ -409,6 +414,16 @@ bool RoundDecimal(BigNumericValue in, int64_t digits, BigNumericValue* out,
                   absl::Status* error) {
   return SetNumericResultOrError(in.Round(digits), out, error);
 }
+template <>
+bool RoundDecimalWithRoundingMode(BigNumericValue in, int64_t digits,
+                                  RoundingMode rounding_mode,
+                                  BigNumericValue* out, absl::Status* error) {
+  if (rounding_mode == RoundingMode::ROUND_HALF_EVEN) {
+    return SetNumericResultOrError(in.Round(digits, true), out, error);
+  } else {
+    return SetNumericResultOrError(in.Round(digits, false), out, error);
+  }
+}
 
 template <>
 bool Trunc(BigNumericValue in, BigNumericValue* out, absl::Status* error) {
@@ -426,6 +441,11 @@ bool TruncDecimal(BigNumericValue in, int64_t digits, BigNumericValue* out,
 template <>
 bool Sqrt(BigNumericValue in, BigNumericValue *out, absl::Status* error) {
   return SetNumericResultOrError(in.Sqrt(), out, error);
+}
+
+template <>
+bool Cbrt(BigNumericValue in, BigNumericValue* out, absl::Status* error) {
+  return SetNumericResultOrError(in.Cbrt(), out, error);
 }
 
 template <>
@@ -455,12 +475,6 @@ template <>
 bool Logarithm(BigNumericValue in1, BigNumericValue in2, BigNumericValue* out,
                absl::Status* error) {
   return SetNumericResultOrError(in1.Log(in2), out, error);
-}
-
-template <>
-bool Pi(BigNumericValue* out, absl::Status* error) {
-  *out = BigNumericValue::Pi();
-  return true;
 }
 
 template <>

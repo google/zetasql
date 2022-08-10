@@ -89,9 +89,9 @@ flags.DEFINE_spaceseplist('data_files', [], 'Space-separated list of data files'
 NOT_IGNORABLE = 0  # Field can never be ignored. This is the default.
 IGNORABLE = 1  # Field can always be ignored.
 IGNORABLE_DEFAULT = 2  # Field can be ignored if it has its default value.
-                       # Fields marked IGNORABLE_DEFAULT are optional to specify
-                       # in Builder APIs, and are not shown in DebugString
-                       # methods when they have the default value.
+# Fields marked IGNORABLE_DEFAULT are optional to specify
+# in Builder APIs, and are not shown in DebugString
+# methods when they have the default value.
 
 NODE_NAME_PREFIX = 'Resolved'
 ROOT_NODE_NAME = 'ResolvedNode'
@@ -523,7 +523,7 @@ class TreeGenerator(object):
       name: class name for this node
       tag_id: unique tag number for the node as a proto field or an enum value.
           tag_id for each node type is hard coded and should never change.
-          Next tag_id: 202
+          Next tag_id: 206
       parent: class name of the parent node
       fields: list of fields in this class; created with Field function
       is_abstract: true if this node is an abstract class
@@ -910,11 +910,10 @@ class TreeGenerator(object):
       out.close()
 
 
-def main(argv):
+def main(unused_argv):
   data_files = FLAGS.data_files
   input_templates = FLAGS.input_templates
   output_files = FLAGS.output_files
-  logging.info('Unused flags: %s', ', '.join(argv[1:]))
   if len(input_templates) != len(output_files):
     raise RuntimeError('Must provide an equal number of input and output files')
   if not input_templates:
@@ -1382,7 +1381,7 @@ def main(argv):
       emit_default_constructor=False,
       is_abstract=True,
       comment="""
-      Common base class for scalar and aggregate function calls.
+      Common base class for analytic and aggregate function calls.
               """,
       fields=[
           Field(
@@ -2084,12 +2083,12 @@ value.
       ])
 
   gen.AddNode(
-      name='ResolvedLetExpr',
+      name='ResolvedWithExpr',
       tag_id=197,
       parent='ResolvedExpr',
       emit_default_constructor=False,
       comment="""
-      ResolvedLetExpr introduces one or more columns in <assignment_list> that
+      ResolvedWithExpr introduces one or more columns in <assignment_list> that
       can then be referenced inside <expr>. Each assigned expression is
       evaluated once, and each reference to that column in <expr> sees the same
       value even if the assigned expression is volatile. Multiple assignment
@@ -2098,7 +2097,7 @@ value.
 
       <assignment_list> One or more columns that are computed before evaluating
                         <expr>, and which may be referenced by <expr>.
-      <expr> Computes the result of the ResolvedLetExpr. May reference columns
+      <expr> Computes the result of the ResolvedWithExpr. May reference columns
              from <assignment_list>.
               """,
       fields=[
@@ -4646,11 +4645,18 @@ right.
       and a database system should ignore any hints targeted to different
       systems.
 
+      <qualifier> is set only for hints, and will always be empty in options
+      lists.
+
       The SQL syntax allows using an identifier as a hint value.
       Such values are stored here as ResolvedLiterals with string type.
               """,
       fields=[
-          Field('qualifier', SCALAR_STRING, tag_id=2),
+          Field(
+              'qualifier',
+              SCALAR_STRING,
+              tag_id=2,
+              ignorable=IGNORABLE_DEFAULT),
           Field('name', SCALAR_STRING, tag_id=3, ignorable=IGNORABLE),
           Field('value', 'ResolvedExpr', tag_id=4, ignorable=IGNORABLE)
       ])
@@ -4892,6 +4898,11 @@ right.
 
       The returning clause has a <output_column_list> to represent the data
       sent back to clients. It can only access columns from the <table_scan>.
+
+      <column_access_list> indicates for each column in <table_scan.column_list>
+      whether it was read and/or written. The query engine may also require
+      read or write permissions across all columns, including unreferenced
+      columns, depending on the operation.
               """,
       fields=[
           Field(
@@ -4946,7 +4957,15 @@ right.
               'ResolvedInsertRow',
               tag_id=7,
               vector=True,
-              ignorable=IGNORABLE_DEFAULT)
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'column_access_list',
+              SCALAR_OBJECT_ACCESS,
+              tag_id=11,
+              ignorable=IGNORABLE,
+              vector=True,
+              is_constructor_arg=False,
+              java_to_string_method='toStringObjectAccess')
       ],
       extra_defs="""
   std::string GetInsertModeString() const;
@@ -4979,6 +4998,11 @@ right.
 
       This returning clause has a <output_column_list> to represent the data
       sent back to clients. It can only access columns from the <table_scan>.
+
+      <column_access_list> indicates for each column in <table_scan.column_list>
+      whether it was read and/or written. The query engine may also require
+      read or write permissions across all columns, including unreferenced
+      columns, depending on the operation.
               """,
       fields=[
           Field(
@@ -4996,6 +5020,14 @@ right.
               'ResolvedReturningClause',
               tag_id=6,
               ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'column_access_list',
+              SCALAR_OBJECT_ACCESS,
+              tag_id=7,
+              ignorable=IGNORABLE,
+              vector=True,
+              is_constructor_arg=False,
+              java_to_string_method='toStringObjectAccess'),
           Field(
               'array_offset_column',
               'ResolvedColumnHolder',
@@ -5629,6 +5661,16 @@ right.
       comment="""
       This statement:
         ALTER SCHEMA [IF NOT EXISTS] <name_path> <alter_action_list>;
+              """,
+      fields=[])
+
+  gen.AddNode(
+      name='ResolvedAlterModelStmt',
+      tag_id=205,
+      parent='ResolvedAlterObjectStmt',
+      comment="""
+      This statement:
+        ALTER MODEL [IF EXISTS] <name_path> <alter_action_list>
               """,
       fields=[])
 
@@ -7246,20 +7288,20 @@ ResolvedArgumentRef(y)
       comment="""
       This statement creates a user-defined procedure:
         CREATE [OR REPLACE] [TEMP] PROCEDURE [IF NOT EXISTS] <name_path>
-        (<arg_list>) [OPTIONS (<option_list>)]
-        BEGIN
-        <procedure_body>
-        END;
+        (<arg_list>) [WITH CONNECTION <connection>] [OPTIONS (<option_list>)]
+        [BEGIN <procedure_body> END | LANGUAGE <language> [AS <code>]];
 
         <name_path> is the identifier path of the procedure.
         <argument_name_list> The names of the function arguments.
         <signature> is the FunctionSignature of the created procedure, with all
                options.  This can be used to create a procedure to load into a
                Catalog for future queries.
+        <connection> is the identifier path of the connection object.
         <option_list> has engine-specific directives for modifying procedures.
-        <procedure_body> is a string literal that contains the procedure body.
-               It includes everything from the BEGIN keyword to the END keyword,
-               inclusive.
+        <procedure_body> is a string literal that contains the SQL procedure
+               body. It includes everything from the BEGIN keyword to the END
+               keyword, inclusive. This will always be set for SQL procedures
+               and unset for external language procedures.
 
                The resolver will perform some basic validation on the procedure
                body, for example, verifying that DECLARE statements are in the
@@ -7270,6 +7312,11 @@ ResolvedArgumentRef(y)
                makes it possible to define a procedure which references a table
                or routine that does not yet exist, so long as the entity is
                created before the procedure is called.
+        <language> is the programming language used by the procedure. This field
+               is set to the language name specified in the LANGUAGE clause.
+               Exactly one of <procedure_body> and <language> must be set.
+        <code> is a string literal that contains the external language procedure
+               definition. It is allowed only if <language> is set.
               """,
       fields=[
           Field(
@@ -7294,8 +7341,19 @@ ResolvedArgumentRef(y)
           Field(
               'procedure_body',
               SCALAR_STRING,
-              ignorable=NOT_IGNORABLE,
+              ignorable=IGNORABLE_DEFAULT,
               tag_id=5),
+          Field(
+              'connection',
+              'ResolvedConnection',
+              tag_id=6,
+              ignorable=IGNORABLE_DEFAULT),
+          Field(
+              'language',
+              SCALAR_STRING,
+              ignorable=IGNORABLE_DEFAULT,
+              tag_id=7),
+          Field('code', SCALAR_STRING, ignorable=IGNORABLE_DEFAULT, tag_id=8),
       ])
 
   gen.AddNode(

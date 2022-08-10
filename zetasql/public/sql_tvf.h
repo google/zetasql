@@ -47,9 +47,6 @@ namespace zetasql {
 // signatures (differing number and/or names of arguments).
 class SQLTableValuedFunction : public TableValuedFunction {
  public:
-  // The Function group name for SQLTableValuedFunctions
-  static const char kSQLTableValuedFunctionGroup[];
-
   // Creates a SQLTableValuedFunction from the resolved
   // <create_tvf_statement>.  Returns an error if the
   // SQLTableValuedFunction could not be successfully created (for
@@ -110,7 +107,6 @@ class SQLTableValuedFunction : public TableValuedFunction {
       const ResolvedCreateTableFunctionStmt& create_tvf_statement);
 
   // Instantiates an empty function signature.
-  static FunctionSignature GetEmptyFunctionSignature();
   TVFRelation tvf_schema_;
   const ResolvedCreateTableFunctionStmt* create_tvf_statement_ = nullptr;
 };

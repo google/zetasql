@@ -27,7 +27,6 @@
 #include "google/protobuf/message.h"
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/unknown_field_set.h"
-#include "zetasql/common/status_payload_utils.h"
 #include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/compliance/functions_testlib.h"
 #include "zetasql/compliance/functions_testlib_common.h"
@@ -39,8 +38,7 @@
 #include "zetasql/testdata/test_schema.pb.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/test_value.h"
-#include "zetasql/testing/using_test_value.cc"
-#include <cstdint>
+#include "zetasql/testing/using_test_value.cc"  // NOLINT
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/time/civil_time.h"
@@ -1095,7 +1093,9 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastInterval() {
       {{String("1")}, NullInterval(), OUT_OF_RANGE},
       {{String("+")}, NullInterval(), OUT_OF_RANGE},
       {{String(":")}, NullInterval(), OUT_OF_RANGE},
-      {{String(".")}, NullInterval(), OUT_OF_RANGE},
+      // TODO: Re-enable once special chars are differentiated in
+      //     Generated tests names.
+      // {{String(".")}, NullInterval(), OUT_OF_RANGE},
       {{String("0:0:1.234e-6")}, NullInterval(), OUT_OF_RANGE},
       // Ambiguous formats
       {{String("1 2")}, NullInterval(), OUT_OF_RANGE},
@@ -1137,13 +1137,6 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastInterval() {
        OUT_OF_RANGE},
       {{String("PT-99999999999H")}, NullInterval(), OUT_OF_RANGE},
       {{String("P-1S")}, NullInterval(), OUT_OF_RANGE},
-      {{String("")}, NullInterval(), OUT_OF_RANGE},
-      {{String("")}, NullInterval(), OUT_OF_RANGE},
-      {{String("")}, NullInterval(), OUT_OF_RANGE},
-      {{String("")}, NullInterval(), OUT_OF_RANGE},
-      {{String("")}, NullInterval(), OUT_OF_RANGE},
-      {{String("")}, NullInterval(), OUT_OF_RANGE},
-      {{String("")}, NullInterval(), OUT_OF_RANGE},
       {{String("")}, NullInterval(), OUT_OF_RANGE},
   });
 
@@ -2151,6 +2144,16 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastNumeric() {
   });
 }
 
+namespace {
+#if defined(__cpp_lib_char8_t)
+// Overload to use in C++20.
+static std::string u8tostring(const std::u8string& s) {
+  return std::string(s.begin(), s.end());
+}
+#endif
+static std::string u8tostring(const std::string& s) { return s; }
+}  // namespace
+
 std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
   const Value struct_value =
       Value::Struct(SimpleStructType(), {String("aaa"), Int32(777)});
@@ -2173,8 +2176,8 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
       "int64_key_1: 1 int64_key_2: 2 repeated_int32_val: 3 "
       "repeated_int32_val: 4");
   // String value with UTF characters.
-  const std::string kitchen_sink_string_3(
-      u8"int64_key_1: 2 int64_key_2: 3 string_val: \"\u2661\u2662\"");
+  const std::string kitchen_sink_string_3(u8tostring(
+      u8"int64_key_1: 2 int64_key_2: 3 string_val: \"\u2661\u2662\""));
   const std::string kitchen_sink_string_4(
       "int64_key_1: 2 int64_key_2: 3 string_val: \"\\u2661\\u2662\"");
 
@@ -2434,10 +2437,6 @@ std::vector<QueryParamsWithResult> GetFunctionTestsCastComplex() {
       {{Bytes("")}, Proto(NullableIntProtoType(), absl::Cord(""))},
       {{Proto(NullableIntProtoType(), absl::Cord(""))}, Bytes("")},
 
-      {{struct_value},
-       Value::Null(string_int32_map_entry.type()),
-       absl::StatusCode::kInvalidArgument},
-
       QueryParamsWithResult({struct_value}, string_int32_map_entry)
           .WrapWithFeatureSet(with_proto_maps),
       QueryParamsWithResult({string_string_struct_value},
@@ -2538,8 +2537,7 @@ GetFunctionTestsCastBetweenDifferentArrayTypes(bool arrays_with_nulls) {
                  feature_set.count(FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES));
         tests.push_back(QueryParamsWithResult(
             {from_array},
-            {{feature_set, {to_array, absl::StatusCode::kInvalidArgument}},
-             {{zetasql_base::STLSetUnion(feature_set,
+            {{{zetasql_base::STLSetUnion(feature_set,
                                 {FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES})},
               {to_array, status}}}));
       }
@@ -2552,11 +2550,8 @@ GetFunctionTestsCastBetweenDifferentArrayTypes(bool arrays_with_nulls) {
     const Value another_null_array = Value::Null(Int64ArrayType());
 
     tests.push_back(QueryParamsWithResult(
-        {null_array},
-        {{QueryParamsWithResult::kEmptyFeatureSet,
-          {another_null_array, absl::StatusCode::kInvalidArgument}},
-         {{FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES},
-          {another_null_array, absl::OkStatus()}}}));
+        {null_array}, {{{FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES},
+                        {another_null_array, absl::OkStatus()}}}));
   }
 
   return tests;

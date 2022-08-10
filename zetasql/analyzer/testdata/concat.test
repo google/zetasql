@@ -375,7 +375,7 @@ QueryStmt
         +-element_column=$array.x#1
 ==
 
-[language_features={{V_1_3_CONCAT_MIXED_TYPES,}}TEMPLATE_FUNCTIONS]
+[language_features={{V_1_3_CONCAT_MIXED_TYPES,|}}TEMPLATE_FUNCTIONS]
 CREATE FUNCTION MY_CONCAT(a ANY TYPE) AS (CONCAT(a, a));
 --
 CreateFunctionStmt(name_path=MY_CONCAT, return_type=STRUCT<>, argument_name_list=[a], signature=(ANY TYPE a) -> ANY TYPE, language="SQL", code="CONCAT(a, a)")

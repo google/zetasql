@@ -99,7 +99,7 @@ absl::Status FlattenRewriterVisitor::VisitResolvedArrayScan(
                    ProcessNode(node->join_expr()));
 
   bool need_offset_column = node->array_offset_column() != nullptr;
-  if (need_offset_column || join_expr != nullptr) {
+  if (need_offset_column || join_expr != nullptr || node->is_outer()) {
     // If we need an offset column, we rewrite each row to a subquery to
     // generate a single array and then do an array scan over that. This allows
     // us to have a single ordered offset.
@@ -124,7 +124,7 @@ absl::Status FlattenRewriterVisitor::VisitResolvedArrayScan(
                       /*in_subquery=*/true));
 
     std::vector<std::unique_ptr<const ResolvedColumnRef>> column_refs;
-    ZETASQL_RETURN_IF_ERROR(CollectColumnRefs(*flatten, &column_refs));
+    ZETASQL_RETURN_IF_ERROR(CollectSortUniqueColumnRefs(*flatten, column_refs));
     if (scan->column_list_size() > 1) {
       // Subquery must produce one value. Remove unneeded intermediary columns.
       // TODO: This can be removed if we avoid using subquery for joins.
@@ -195,6 +195,8 @@ absl::Status FlattenRewriterVisitor::VisitResolvedFlatten(
   for (const auto& get_field : node->get_field_list()) {
     ZETASQL_RETURN_IF_ERROR(CollectColumnRefs(*get_field, &column_refs));
   }
+  // Clean up any duplicated parameters.
+  SortUniqueColumnRefs(column_refs);
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<ResolvedScan> rewritten_flatten,
       FlattenToScan(
@@ -210,14 +212,14 @@ absl::Status FlattenRewriterVisitor::VisitResolvedFlatten(
                    fn_builder_.If(std::move(if_condition), std::move(if_then),
                                   std::move(if_else)));
 
-  // Use a ResolvedLetExpr to populate the input variable.
+  // Use a ResolvedWithExpr to populate the input variable.
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedExpr> flatten_expr,
                    ProcessNode(node->expr()));
   std::vector<std::unique_ptr<const ResolvedComputedColumn>> let_assignments;
   let_assignments.push_back(
       MakeResolvedComputedColumn(flatten_expr_column, std::move(flatten_expr)));
-  PushNodeToStack(MakeResolvedLetExpr(node->type(), std::move(let_assignments),
-                                      std::move(resolved_if)));
+  PushNodeToStack(MakeResolvedWithExpr(node->type(), std::move(let_assignments),
+                                       std::move(resolved_if)));
   return absl::OkStatus();
 }
 

@@ -1828,7 +1828,7 @@ QueryStmt
 SELECT
   JSON "t"
 --
-ERROR: Invalid JSON literal: parse error at line 1, column 2: syntax error while parsing value - invalid literal; last read: 't' [at 2:3]
+ERROR: Invalid JSON literal: syntax error while parsing value - invalid literal; last read: 't' [at 2:3]
   JSON "t"
   ^
 ==
@@ -1837,7 +1837,7 @@ ERROR: Invalid JSON literal: parse error at line 1, column 2: syntax error while
 SELECT
   JSON "+"
 --
-ERROR: Invalid JSON literal: parse error at line 1, column 1: syntax error while parsing value - invalid literal; last read: '+' [at 2:3]
+ERROR: Invalid JSON literal: syntax error while parsing value - invalid literal; last read: '+' [at 2:3]
   JSON "+"
   ^
 ==
@@ -1846,7 +1846,7 @@ ERROR: Invalid JSON literal: parse error at line 1, column 1: syntax error while
 SELECT
   JSON "{"
 --
-ERROR: Invalid JSON literal: parse error at line 1, column 2: syntax error while parsing object key - unexpected end of input; expected string literal [at 2:3]
+ERROR: Invalid JSON literal: syntax error while parsing object key - unexpected end of input; expected string literal [at 2:3]
   JSON "{"
   ^
 ==
@@ -1855,7 +1855,7 @@ ERROR: Invalid JSON literal: parse error at line 1, column 2: syntax error while
 SELECT
   JSON ''
 --
-ERROR: Invalid JSON literal: parse error at line 1, column 1: syntax error while parsing value - unexpected end of input; expected '[', '{', or a literal [at 2:3]
+ERROR: Invalid JSON literal: syntax error while parsing value - unexpected end of input; expected '[', '{', or a literal [at 2:3]
   JSON ''
   ^
 ==
@@ -1864,7 +1864,7 @@ ERROR: Invalid JSON literal: parse error at line 1, column 1: syntax error while
 SELECT
   JSON '\'string\''
 --
-ERROR: Invalid JSON literal: parse error at line 1, column 1: syntax error while parsing value - invalid literal; last read: ''' [at 2:3]
+ERROR: Invalid JSON literal: syntax error while parsing value - invalid literal; last read: ''' [at 2:3]
   JSON '\'string\''
   ^
 ==

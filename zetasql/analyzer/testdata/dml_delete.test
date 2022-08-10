@@ -10,6 +10,7 @@ DELETE TestTable WHERE KitchenSink.int32_val = 1
 DeleteStmt
 +-table_scan=
 | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
++-column_access_list=READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
     +-GetProtoField
@@ -40,6 +41,7 @@ DeleteStmt
 | +-AssertRowsModified
 |   +-rows=
 |     +-Literal(type=INT64, value=10)
++-column_access_list=READ
 +-where_expr=
   +-SubqueryExpr
     +-type=BOOL
@@ -61,6 +63,7 @@ WHERE `int64` IN (select key from KeyValue)
 DeleteStmt
 +-table_scan=
 | +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
++-column_access_list=READ
 +-where_expr=
   +-SubqueryExpr
     +-type=BOOL
@@ -88,6 +91,7 @@ WHERE EXISTS(select 1 from TestTable.KitchenSink.repeated_int32_val)
 DeleteStmt
 +-table_scan=
 | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
++-column_access_list=READ
 +-where_expr=
   +-SubqueryExpr
     +-type=BOOL
@@ -150,6 +154,7 @@ WHERE EXISTS(select 1 from UNNEST(KitchenSink.repeated_int32_val))
 DeleteStmt
 +-table_scan=
 | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
++-column_access_list=READ
 +-where_expr=
   +-SubqueryExpr
     +-type=BOOL
@@ -180,6 +185,7 @@ WHERE KitchenSink.int32_val IN (select r
 DeleteStmt
 +-table_scan=
 | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
++-column_access_list=READ
 +-where_expr=
   +-SubqueryExpr
     +-type=BOOL
@@ -215,6 +221,7 @@ WHERE KitchenSink.int32_val IN UNNEST(KitchenSink.repeated_int32_val)
 DeleteStmt
 +-table_scan=
 | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
++-column_access_list=READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$in_array(INT32, ARRAY<INT32>) -> BOOL)
     +-GetProtoField
@@ -242,6 +249,7 @@ DeleteStmt
 | +-AssertRowsModified
 |   +-rows=
 |     +-Literal(type=INT64, value=0)
++-column_access_list=READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$greater(DOUBLE, DOUBLE) -> BOOL)
     +-Cast(FLOAT -> DOUBLE)
@@ -372,6 +380,7 @@ DELETE TestTable {{AS|}} T WHERE T.key > 1
 DeleteStmt
 +-table_scan=
 | +-TableScan(column_list=[TestTable.key#1], table=TestTable, column_index_list=[0], alias="T")
++-column_access_list=READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$greater(INT32, INT32) -> BOOL)
     +-ColumnRef(type=INT32, column=TestTable.key#1)
@@ -401,6 +410,7 @@ WHERE T.float_val > int32_val
 DeleteStmt
 +-table_scan=
 | +-TableScan(column_list=[KitchenSinkValueTable.value#1], table=KitchenSinkValueTable, column_index_list=[0], alias="T")
++-column_access_list=READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$greater(DOUBLE, DOUBLE) -> BOOL)
     +-Cast(FLOAT -> DOUBLE)
@@ -433,6 +443,7 @@ WHERE S.int64 IN (select key from KeyValue)
 DeleteStmt
 +-table_scan=
 | +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1], alias="S")
++-column_access_list=READ
 +-where_expr=
   +-SubqueryExpr
     +-type=BOOL
@@ -463,6 +474,7 @@ WHERE rowid = b'123'
 DeleteStmt
 +-table_scan=
 | +-TableScan(column_list=[TestExtraValueTable.RowId#3], table=TestExtraValueTable, column_index_list=[2])
++-column_access_list=READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$equal(BYTES, BYTES) -> BOOL)
     +-ColumnRef(type=BYTES, column=TestExtraValueTable.RowId#3)
@@ -545,6 +557,7 @@ DeleteStmt
 |   | +-force_index := Literal(type=STRING, value="index_name")
 |   +-table=KeyValue
 |   +-column_index_list=[0]
++-column_access_list=READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
     +-ColumnRef(type=INT64, column=KeyValue.Key#1)

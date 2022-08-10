@@ -299,7 +299,7 @@ absl::StatusOr<std::string> SimpleType::TypeNameWithModifiers(
   const TypeParameters& type_params = type_modifiers.type_parameters();
   // Prepares string for type parameters to append to type name.
   if (!type_params.IsEmpty()) {
-    ZETASQL_RET_CHECK(!type_params.IsStructOrArrayParameters() &&
+    ZETASQL_RET_CHECK(type_params.child_list().empty() &&
               !type_params.IsExtendedTypeParameters())
         << "Input type parameter does not correspond to SimpleType";
 
@@ -330,8 +330,14 @@ absl::StatusOr<std::string> SimpleType::TypeNameWithModifiers(
 
   // Prepares string for collation to append to type name.
   const Collation& collation = type_modifiers.collation();
-  // TODO: Implement logic to print type name with collation.
-  ZETASQL_RET_CHECK(collation.Empty());
+  if (!collation.Empty()) {
+    if (!collation.HasCompatibleStructure(this)) {
+      return MakeSqlError() << "Input collation " << collation.DebugString()
+                            << " is not compatible with type " << DebugString();
+    }
+    absl::StrAppend(&result_type_name, " COLLATE \'", collation.DebugString(),
+                    "\'");
+  }
 
   return result_type_name;
 }

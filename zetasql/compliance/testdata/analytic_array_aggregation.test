@@ -965,7 +965,7 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 ==
 
-[required_features=ANALYTIC_FUNCTIONS,NUMERIC_TYPE]
+[required_features=ANALYTIC_FUNCTIONS]
 [name=array_agg_without_null_numeric_analytic]
 SELECT row_id, numeric_val, ARRAY_AGG(numeric_val) OVER test_window
 FROM (SELECT 1 row_id, 5 numeric_val UNION ALL

@@ -1,4 +1,4 @@
-[default enabled_ast_rewrites=DEFAULTS,-LET_EXPR,+INLINE_SQL_FUNCTIONS]
+[default enabled_ast_rewrites=DEFAULTS,-WITH_EXPR,+INLINE_SQL_FUNCTIONS]
 
 SELECT udf_templated_return_one();
 --
@@ -85,7 +85,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-LetExpr
+    |   +-WithExpr
     |     +-type=ARRAY<INT64>
     |     +-assignment_list=
     |     | +-input_arr#4 := Literal(type=ARRAY<INT64>, value=[1, 2, 3])
@@ -171,7 +171,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-LetExpr
+    |   +-WithExpr
     |     +-type=ARRAY<STRING>
     |     +-assignment_list=
     |     | +-input_arr#4 := Literal(type=ARRAY<STRING>, value=["a", "b", "c"])
@@ -257,7 +257,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-LetExpr
+    |   +-WithExpr
     |     +-type=ARRAY<INT64>
     |     +-assignment_list=
     |     | +-input_arr#4 := Literal(type=ARRAY<INT64>, value=[])
@@ -343,7 +343,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-LetExpr
+    |   +-WithExpr
     |     +-type=ARRAY<INT64>
     |     +-assignment_list=
     |     | +-input_arr#4 := Literal(type=ARRAY<INT64>, value=NULL, has_explicit_type=TRUE)
@@ -409,7 +409,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-LetExpr
+    |   +-WithExpr
     |     +-type=DOUBLE
     |     +-assignment_list=
     |     | +-arg#2 := FunctionCall(ZetaSQL:rand() -> DOUBLE)
@@ -489,7 +489,7 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-LetExpr
+    |   +-WithExpr
     |     +-type=INT64
     |     +-assignment_list=
     |     | +-input_arr#5 :=
@@ -541,7 +541,7 @@ QueryStmt
     |                 |   |       |           |   +-column_list=[$array.element#8, $array_offset.off#9, $expr_subquery.$col1#10]
     |                 |   |       |           |   +-expr_list=
     |                 |   |       |           |   | +-$col1#10 :=
-    |                 |   |       |           |   |   +-LetExpr
+    |                 |   |       |           |   |   +-WithExpr
     |                 |   |       |           |   |     +-type=INT64
     |                 |   |       |           |   |     +-assignment_list=
     |                 |   |       |           |   |     | +-arg#6 := ColumnRef(type=INT64, column=$array.element#8)

@@ -16,6 +16,8 @@
 
 #include "zetasql/common/errors.h"
 
+#include <string>
+
 #include "zetasql/base/logging.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/public/error_helpers.h"

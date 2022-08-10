@@ -26,6 +26,7 @@
 #include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/analyzer/rewriters/rewriter_relevance_checker.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/internal_analyzer_options.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/analyzer_output_properties.h"
@@ -37,6 +38,7 @@
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/validator.h"
 #include "absl/algorithm/container.h"
+#include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -80,6 +82,11 @@ AnalyzerOptions AnalyzerOptionsForRewrite(
   // mode.
   options_for_rewrite.mutable_language()->set_name_resolution_mode(
       NameResolutionMode::NAME_RESOLUTION_STRICT);
+
+  // Turn on WITH expression feature for all rewriters by default. This does not
+  // impact languague feature set when resolving user facing query.
+  options_for_rewrite.mutable_language()->EnableLanguageFeature(
+      FEATURE_V_1_4_WITH_EXPRESSION);
 
   // Rewriter fragment substitution uses named query parameters as an
   // implementation detail. We override settings that are required to enable
@@ -273,8 +280,9 @@ absl::Status InternalRewriteResolvedAst(const AnalyzerOptions& analyzer_options,
                                         absl::string_view sql, Catalog* catalog,
                                         TypeFactory* type_factory,
                                         AnalyzerOutput& analyzer_output) {
-  if (analyzer_output.resolved_statement() == nullptr &&
-      analyzer_output.resolved_expr() == nullptr) {
+  if (analyzer_options.enabled_rewrites().empty() ||
+      (analyzer_output.resolved_statement() == nullptr &&
+       analyzer_output.resolved_expr() == nullptr)) {
     return absl::OkStatus();
   }
   return ConvertInternalErrorLocationAndAdjustErrorString(

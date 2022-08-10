@@ -48,11 +48,16 @@ absl::Status ValidateTypeProto(const TypeProto& type_proto) {
       (type_proto.type_kind() == TYPE_ENUM) != type_proto.has_enum_type() ||
       (type_proto.type_kind() == TYPE_PROTO) != type_proto.has_proto_type() ||
       (type_proto.type_kind() == TYPE_STRUCT) != type_proto.has_struct_type() ||
+      (type_proto.type_kind() == TYPE_RANGE) != type_proto.has_range_type() ||
       type_proto.type_kind() == __TypeKind__switch_must_have_a_default__) {
     if (type_proto.type_kind() != TYPE_GEOGRAPHY) {
+      auto type_proto_debug_str = type_proto.DebugString();
+      if (type_proto_debug_str.empty()) {
+        type_proto_debug_str = "(empty proto)";
+      }
       return MakeSqlError()
              << "Invalid TypeProto provided for deserialization: "
-             << type_proto.DebugString();
+             << type_proto_debug_str;
     }
   }
 
@@ -169,6 +174,14 @@ absl::StatusOr<const Type*> TypeDeserializer::Deserialize(
       }
 
       return extended_type_deserializer_->Deserialize(type_proto, *this);
+    }
+
+    case TYPE_RANGE: {
+      ZETASQL_ASSIGN_OR_RETURN(const Type* element_type,
+                       Deserialize(type_proto.range_type().element_type()));
+      const RangeType* range_type;
+      ZETASQL_RETURN_IF_ERROR(type_factory_->MakeRangeType(element_type, &range_type));
+      return range_type;
     }
 
     default:

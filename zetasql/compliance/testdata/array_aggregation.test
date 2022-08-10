@@ -5,58 +5,76 @@
 [load_enum_names=zetasql_test__.TestEnum]
 
 [name=array_agg_BOOL_basic]
-SELECT ARRAY_AGG(elem)
-FROM UNNEST(ARRAY<BOOL>[true, false, true]) elem;
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT true AS elem UNION ALL
+  SELECT false UNION ALL
+  SELECT true)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BOOL>[false, true, true]}]
 ==
 [name=array_agg_INT32_basic]
-SELECT ARRAY_AGG(elem)
-FROM UNNEST(ARRAY<INT32>[1, 0, -1]) elem;
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT CAST(1 AS INT32) AS elem UNION ALL
+  SELECT CAST(0 AS INT32) UNION ALL
+  SELECT CAST(-1 AS INT32))
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT32>[0, 1, -1]}]
 ==
 [name=array_agg_UINT32_basic]
-SELECT ARRAY_AGG(elem)
-FROM UNNEST(ARRAY<UINT32>[2, 1, 0]) elem;
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT CAST(2 AS UINT32) AS elem UNION ALL
+  SELECT CAST(1 AS UINT32) UNION ALL
+  SELECT CAST(0 AS UINT32))
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<UINT32>[1, 2, 0]}]
 ==
 [name=array_agg_INT64_basic]
-SELECT ARRAY_AGG(elem)
-FROM UNNEST(ARRAY<INT64>[8589934592, 0, -8589934592]) elem;
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT CAST(8589934592 AS INT64) AS elem UNION ALL
+  SELECT CAST(0 AS INT64) UNION ALL
+  SELECT CAST(-8589934592 AS INT64) AS elem)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[0, 8589934592, -8589934592]}]
 ==
 [name=array_agg_UINT64_basic]
-SELECT ARRAY_AGG(elem)
-FROM UNNEST(ARRAY<UINT64>[8589934592, 1, 0]) elem;
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT CAST(8589934592 AS UINT64) AS elem UNION ALL
+  SELECT CAST(1 AS UINT64) UNION ALL
+  SELECT CAST(0 AS UINT64))
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<UINT64>[1, 8589934592, 0]}]
 ==
 [name=array_agg_FLOAT_basic]
-SELECT ARRAY_AGG(elem)
-FROM UNNEST(ARRAY<FLOAT>[1.1, 0.0, -1.1]) elem;
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT CAST(1.1 AS FLOAT) AS elem UNION ALL
+  SELECT CAST(0.0 AS FLOAT) UNION ALL
+  SELECT CAST(-1.1 AS FLOAT))
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<FLOAT>[0, 1.1, -1.1]}]
 ==
 [name=array_agg_DOUBLE_basic]
-SELECT ARRAY_AGG(elem)
-FROM UNNEST(ARRAY<DOUBLE>[1.1, 0.0, -1.1]) elem;
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT CAST(1.1 AS DOUBLE) AS elem UNION ALL
+  SELECT CAST(0.0 AS DOUBLE) UNION ALL
+  SELECT CAST(-1.1 AS DOUBLE))
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<DOUBLE>[0, 1.1, -1.1]}]
 ==
 [required_features=NUMERIC_TYPE]
 [name=array_agg_NUMERIC_basic]
-SELECT ARRAY_AGG(elem)
-FROM UNNEST(ARRAY<NUMERIC>[1.000000001, 0.0, -1.000000001]) elem;
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT NUMERIC '1.000000001' AS elem UNION ALL
+  SELECT NUMERIC '0' UNION ALL
+  SELECT NUMERIC '-1.000000001')
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<NUMERIC>[0, 1.000000001, -1.000000001]}]
 ==
 [required_features=BIGNUMERIC_TYPE]
 [name=array_agg_BIGNUMERIC_basic]
-SELECT ARRAY_AGG(elem)
-FROM UNNEST(ARRAY<BIGNUMERIC>[1.00000000000000000000000000000000000001, 0.0, -1.00000000000000000000000000000000000001]) elem;
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT BIGNUMERIC '1.00000000000000000000000000000000000001' AS elem UNION ALL
+  SELECT BIGNUMERIC '0.0' UNION ALL
+  SELECT BIGNUMERIC '-1.00000000000000000000000000000000000001')
 --
 ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<BIGNUMERIC>[
@@ -67,28 +85,34 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 ==
 [name=array_agg_STRING_basic]
-SELECT ARRAY_AGG(elem)
-FROM UNNEST(ARRAY<STRING>['σ', 'π', '⨝']) elem;
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT "σ" AS elem UNION ALL
+  SELECT "π" UNION ALL
+  SELECT "⨝")
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<STRING>["π", "σ", "⨝"]}]
 ==
 [name=array_agg_BYTES_basic]
-SELECT ARRAY_AGG(elem)
-FROM UNNEST(ARRAY<BYTES>[b"a", b"b", b"c"]) elem;
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT b"a" AS elem UNION ALL
+  SELECT b"b" UNION ALL
+  SELECT b"c")
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<BYTES>[b"b", b"a", b"c"]}]
 ==
 [name=array_agg_DATE_basic]
-SELECT ARRAY_AGG(elem)
-FROM UNNEST(ARRAY<DATE>["1984-08-02", "2000-01-01", "2014-09-11"]) elem;
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT DATE("1984-08-02") AS elem UNION ALL
+  SELECT DATE("2000-01-01") UNION ALL
+  SELECT DATE("2014-09-11"))
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<DATE>[2000-01-01, 1984-08-02, 2014-09-11]}]
 ==
 [name=array_agg_TIMESTAMP_basic]
-SELECT ARRAY_AGG(elem)
-FROM UNNEST(ARRAY<TIMESTAMP>["1984-08-02 01:01:01.001001 UTC",
-                             "2000-01-01 01:01:01.001001 UTC",
-                             "2014-09-11 01:01:01.001001 UTC"]) elem;
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT TIMESTAMP("1984-08-02 01:01:01.001001 UTC") AS elem UNION ALL
+  SELECT TIMESTAMP("2000-01-01 01:01:01.001001 UTC") UNION ALL
+  SELECT TIMESTAMP("2014-09-11 01:01:01.001001 UTC"))
 --
 ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<TIMESTAMP>[
@@ -99,29 +123,24 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 ==
 [name=array_agg_enum_basic]
-SELECT ARRAY_AGG(elem)
-FROM UNNEST(ARRAY<zetasql_test__.TestEnum>[
-    "TESTENUM0", "TESTENUM1", "TESTENUM2"]) elem;
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT CAST('TESTENUM0' AS `zetasql_test__.TestEnum`) AS elem UNION ALL
+  SELECT CAST('TESTENUM1' AS `zetasql_test__.TestEnum`) UNION ALL
+  SELECT CAST('TESTENUM2' AS `zetasql_test__.TestEnum`))
 --
 ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<ENUM<zetasql_test__.TestEnum>>[TESTENUM1, TESTENUM0, TESTENUM2]}
 ]
 ==
 [name=array_agg_proto_basic]
-SELECT ARRAY_AGG(elem)
-FROM UNNEST(ARRAY<`zetasql_test__.KitchenSinkPB`>[
-  '''
-    int64_key_1: 11
-    int64_key_2: 12
-  ''',
-  '''
-    int64_key_1: 21
-    int64_key_2: 22
-  ''',
-  '''
-    int64_key_1: 31
-    int64_key_2: 32
-  ''']) elem;
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT NEW zetasql_test__.KitchenSinkPB(11 AS int64_key_1,
+                                          12 AS int64_key_2) AS elem UNION ALL
+  SELECT NEW zetasql_test__.KitchenSinkPB(21 AS int64_key_1,
+                                          22 AS int64_key_2) UNION ALL
+  SELECT NEW zetasql_test__.KitchenSinkPB(31 AS int64_key_1,
+                                          32 AS int64_key_2))
+
 --
 ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[
@@ -141,8 +160,10 @@ ARRAY<STRUCT<ARRAY<>>>[
 ]
 ==
 [name=array_agg_STRUCT_basic]
-SELECT ARRAY_AGG(elem)
-FROM UNNEST(ARRAY<STRUCT<int64, int64>>[(11, 12), (21, 22), (31, 32)]) elem;
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT STRUCT(11, 12) AS elem UNION ALL
+  SELECT STRUCT(21, 22) UNION ALL
+  SELECT STRUCT(31, 32))
 --
 ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<STRUCT<INT64, INT64>>[{21, 22}, {11, 12}, {31, 32}]}
@@ -150,86 +171,126 @@ ARRAY<STRUCT<ARRAY<>>>[
 ==
 [required_features=JSON_TYPE]
 [name=array_agg_JSON_basic]
-SELECT ARRAY_AGG(elem)
-FROM UNNEST([JSON '10', JSON 'false', JSON 'null', JSON '{"a": 10}', JSON '[10, true, "test"]', JSON '"foo"']) elem;
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT JSON '10' AS elem UNION ALL
+  SELECT JSON 'false' UNION ALL
+  SELECT JSON 'null' UNION ALL
+  SELECT JSON '{"a": 10}' UNION ALL
+  SELECT JSON '[10, true, "test"]' UNION ALL
+  SELECT JSON '"foo"')
 --
 ARRAY<STRUCT<ARRAY<>>>[
   {ARRAY<JSON>[false, {"a":10}, "foo", 10, null, [10,true,"test"]]}
 ]
 ==
 [name=array_agg_with_nulls]
-SELECT ARRAY_AGG(a) FROM UNNEST([1, NULL, 3]) a
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT 1 AS elem UNION ALL
+  SELECT NULL UNION ALL
+  SELECT 3)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[NULL, 1, 3]}]
 ==
 [name=array_agg_with_null_prefix]
-SELECT ARRAY_AGG(a) FROM UNNEST([NULL, 3]) a
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT NULL AS elem UNION ALL
+  SELECT 3)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[3, NULL]}]
 ==
 [name=array_agg_with_null_suffix]
-SELECT ARRAY_AGG(a) FROM UNNEST([3, NULL]) a
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT 3 AS elem UNION ALL
+  SELECT NULL)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[NULL, 3]}]
 ==
 [name=array_agg_with_just_null]
-SELECT ARRAY_AGG(a) FROM UNNEST([NULL]) a
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT NULL AS elem
+)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[NULL]}]
 ==
 [name=array_agg_produces_null_for_no_rows]
-SELECT ARRAY_AGG(a) FROM UNNEST(ARRAY<INT64>[]) a
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT * FROM (SELECT 1 AS elem)
+  WHERE false
+)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>(NULL)}]
 ==
 [name=array_agg_with_filter]
-SELECT ARRAY_AGG(a)
-FROM UNNEST([1, 2, 3]) a
-WHERE MOD(a, 2) = 1
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT 1 AS elem UNION ALL
+  SELECT 2 UNION ALL
+  SELECT 3)
+WHERE MOD(elem, 2) = 1
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[3, 1]}]
 ==
 [name=array_agg_with_group_by]
-SELECT ARRAY_AGG(a)
-FROM UNNEST([1, 2, 3]) a
-GROUP BY MOD(a, 2)
+SELECT ARRAY_AGG(elem) FROM (
+  SELECT 1 AS elem UNION ALL
+  SELECT 2 UNION ALL
+  SELECT 3)
+GROUP BY MOD(elem, 2)
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[2]}, {ARRAY<INT64>[1, 3]}]
 ==
 [name=array_agg_with_group_having]
-SELECT ARRAY_AGG(a) b
-FROM UNNEST([1, 2, 3]) a
+SELECT ARRAY_AGG(a) b FROM (
+  SELECT 1 AS a UNION ALL
+  SELECT 2 UNION ALL
+  SELECT 3)
 GROUP BY MOD(a, 2)
 HAVING ARRAY_LENGTH(b) > 1
 --
 ARRAY<STRUCT<b ARRAY<>>>[{ARRAY<INT64>[1, 3]}]
 ==
 [name=array_agg_with_having]
-SELECT ARRAY_AGG(a) b
-FROM UNNEST([1, 2, 3]) a
+SELECT ARRAY_AGG(a) b FROM (
+  SELECT 1 AS a UNION ALL
+  SELECT 2 UNION ALL
+  SELECT 3)
 HAVING ARRAY_LENGTH(b) > 1
 --
 ARRAY<STRUCT<b ARRAY<>>>[{ARRAY<INT64>[2, 1, 3]}]
 ==
 [name=array_agg_constant_value]
-SELECT ARRAY_AGG(1) b FROM UNNEST([1, 2, 3]) a
+SELECT ARRAY_AGG(1) b FROM (
+  SELECT 1 UNION ALL
+  SELECT 2 UNION ALL
+  SELECT 3)
 --
 ARRAY<STRUCT<b ARRAY<>>>[{ARRAY<INT64>[1, 1, 1]}]
 ==
 [name=array_agg_constant_null]
-SELECT ARRAY_AGG(NULL) b FROM UNNEST([1, 2, 3]) a
+SELECT ARRAY_AGG(NULL) b FROM (
+  SELECT 1 UNION ALL
+  SELECT 2 UNION ALL
+  SELECT 3)
 --
 ARRAY<STRUCT<b ARRAY<>>>[{ARRAY<INT64>[NULL, NULL, NULL]}]
 ==
 [name=array_agg_of_subquery]
-SELECT ARRAY_AGG((SELECT AS STRUCT a as element)) b
-FROM UNNEST([1, 2, 3]) a
+SELECT ARRAY_AGG((SELECT AS STRUCT a AS element)) b
+FROM (
+  SELECT 1 AS a UNION ALL
+  SELECT 2 UNION ALL
+  SELECT 3)
 --
 ARRAY<STRUCT<b ARRAY<>>>[{ARRAY<STRUCT<element INT64>>[{2}, {1}, {3}]}]
 ==
 [name=array_agg_of_struct_expr_anonymous_fields]
 SELECT ARRAY_AGG((a, b)) c
-FROM UNNEST([1, 2, 3]) a, UNNEST(["a", "b", "c"]) b
+FROM
+  (SELECT 1 AS a UNION ALL
+   SELECT 2 UNION ALL
+   SELECT 3),
+  (SELECT "a" AS b UNION ALL
+   SELECT "b" UNION ALL
+   SELECT "c")
 --
 ARRAY<STRUCT<c ARRAY<>>>[
   {ARRAY<STRUCT<INT64, STRING>>[
@@ -246,34 +307,40 @@ ARRAY<STRUCT<c ARRAY<>>>[
 ]
 ==
 [name=array_agg_of_struct_expr_named_fields]
-SELECT ARRAY_AGG(STRUCT(a AS foo, b AS bar)) c
-FROM UNNEST([1, 2]) a, UNNEST(["a", "b"]) b
+SELECT ARRAY_AGG(STRUCT(a AS foo, b AS bar)) c FROM
+  (SELECT 1 AS a UNION ALL
+   SELECT 2),
+  (SELECT "a" AS b UNION ALL
+   SELECT "b")
 --
 ARRAY<STRUCT<c ARRAY<>>>[
   {ARRAY<STRUCT<foo INT64, bar STRING>>[{2, "a"}, {1, "a"}, {2, "b"}, {1, "b"}]}
 ]
 ==
 [name=array_agg_of_struct_variable]
-SELECT ARRAY_AGG(p) c FROM UNNEST([1, 2]) a, (SELECT 1, 2) p
+SELECT ARRAY_AGG(p) c FROM
+  (SELECT 1 AS a UNION ALL
+   SELECT 2) t,
+  (SELECT 1, 2) p
 --
 ARRAY<STRUCT<c ARRAY<>>>[{ARRAY<STRUCT<INT64, INT64>>[{1, 2}, {1, 2}]}]
 ==
 [name=array_agg_of_null_subquery]
 SELECT ARRAY_AGG((SELECT 1 FROM (SELECT 1) WHERE false)) b
-FROM UNNEST([1, 2, 3]) a
+FROM (SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3) a
 --
 ARRAY<STRUCT<b ARRAY<>>>[{ARRAY<INT64>[NULL, NULL, NULL]}]
 ==
 [name=array_agg_of_empty_input]
-SELECT ARRAY_AGG(a) b
-FROM UNNEST([1, 2, 3]) a
+SELECT ARRAY_AGG(a) b FROM
+  (SELECT 1 AS a UNION ALL SELECT 2 UNION ALL SELECT 3)
 WHERE false
 --
 ARRAY<STRUCT<b ARRAY<>>>[{ARRAY<INT64>(NULL)}]
 ==
 [name=array_agg_with_other_aggregates]
-SELECT ARRAY_AGG(a), COUNT(*), MAX(a)
-FROM UNNEST([1, 2, 3]) a
+SELECT ARRAY_AGG(a), COUNT(*), MAX(a) FROM
+  (SELECT 1 AS a UNION ALL SELECT 2 UNION ALL SELECT 3)
 GROUP BY MOD(a, 2)
 --
 ARRAY<STRUCT<ARRAY<>, INT64, INT64>>[
@@ -282,43 +349,55 @@ ARRAY<STRUCT<ARRAY<>, INT64, INT64>>[
 ]
 ==
 [name=array_agg_in_expression]
-SELECT ARRAY_LENGTH(ARRAY_AGG(a)) FROM UNNEST([1, 2, 3]) a
+SELECT ARRAY_LENGTH(ARRAY_AGG(a)) FROM
+(SELECT 1 AS a UNION ALL SELECT 2 UNION ALL SELECT 3)
 --
 ARRAY<STRUCT<INT64>>[{3}]
 ==
 [name=array_agg_with_direct_offset_access]
-SELECT ARRAY_AGG(a)[OFFSET(1)] BETWEEN 1 AND 3 FROM UNNEST([1, 2, 3]) a
+SELECT ARRAY_AGG(a)[OFFSET(1)] BETWEEN 1 AND 3 FROM
+  (SELECT 1 AS a UNION ALL SELECT 2 UNION ALL SELECT 3)
 --
 ARRAY<STRUCT<BOOL>>[{true}]
 ==
 [name=array_agg_distinct_same]
-SELECT ARRAY_AGG(DISTINCT a) b FROM UNNEST([1, 1, 1]) a
+SELECT ARRAY_AGG(DISTINCT a) b FROM
+  (SELECT 1 AS a UNION ALL SELECT 1 UNION ALL SELECT 1)
 --
 ARRAY<STRUCT<b ARRAY<>>>[{ARRAY<INT64>[1]}]
 ==
 [name=array_agg_distinct_different]
-SELECT ARRAY_AGG(DISTINCT a) b FROM UNNEST([1, 2, 1, 2, 1]) a
+SELECT ARRAY_AGG(DISTINCT a) b FROM (
+  SELECT 1 AS a UNION ALL SELECT 2 AS a UNION ALL SELECT 1 AS a UNION ALL
+  SELECT 2 AS a UNION ALL SELECT 1 AS a)
 --
 ARRAY<STRUCT<b ARRAY<>>>[{ARRAY<INT64>[2, 1]}]
 ==
 [name=array_agg_distinct_with_null]
-SELECT ARRAY_AGG(DISTINCT a) b FROM UNNEST([1, NULL, 1, NULL, 1]) a
+SELECT ARRAY_AGG(DISTINCT a) b FROM (
+ SELECT 1 AS a UNION ALL
+ SELECT NULL UNION ALL
+ SELECT 1 UNION ALL
+ SELECT NULL UNION ALL
+ SELECT 1)
 --
 ARRAY<STRUCT<b ARRAY<>>>[{ARRAY<INT64>[NULL, 1]}]
 ==
 [name=array_agg_distinct_all_null]
-SELECT ARRAY_AGG(DISTINCT a) b FROM UNNEST([NULL, NULL]) a
+SELECT ARRAY_AGG(DISTINCT a) b FROM (
+  SELECT NULL AS a UNION ALL SELECT NULL AS a)
 --
 ARRAY<STRUCT<b ARRAY<>>>[{ARRAY<INT64>[NULL]}]
 ==
 [name=array_agg_distinct_empty_input]
-SELECT ARRAY_AGG(DISTINCT a) b FROM UNNEST(ARRAY<BOOL>[]) a
+SELECT ARRAY_AGG(DISTINCT a) b FROM
+  (SELECT * FROM (SELECT true AS a) WHERE false)
 --
 ARRAY<STRUCT<b ARRAY<>>>[{ARRAY<BOOL>(NULL)}]
 ==
 [name=array_agg_array_concat]
 SELECT ARRAY_CONCAT(ARRAY_AGG(x), [1, 2, 3])
-FROM UNNEST(ARRAY[100, 200]) x;
+FROM (SELECT 100 AS x UNION ALL SELECT 200 AS x);
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[200, 100, 1, 2, 3]}]
 ==

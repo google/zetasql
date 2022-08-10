@@ -604,34 +604,55 @@ CREATE EXTERNAL TABLE t1
 ) OPTIONS(a = b)
 ==
 
-create external table projectid.datasetid.tablename(x int64, PRIMARY KEY(x))
-options (a=b)
+create external table projectid.datasetid.tablename(
+  x int64,
+  y string,
+  z string,
+  PRIMARY KEY(x, y ASC, z DESC)
+) options (a=b)
 --
-CreateExternalTableStatement [0-90]
+CreateExternalTableStatement [0-135]
   PathExpression [22-51]
     Identifier(projectid) [22-31]
     Identifier(datasetid) [32-41]
     Identifier(tablename) [42-51]
-  TableElementList [51-76]
-    ColumnDefinition [52-59]
-      Identifier(x) [52-53]
-      SimpleColumnSchema [54-59]
-        PathExpression [54-59]
-          Identifier(int64) [54-59]
-    PrimaryKey(ENFORCED) [61-75]
-      ColumnList [72-75]
-        Identifier(x) [73-74]
-  OptionsList [85-90]
-    OptionsEntry [86-89]
-      Identifier(a) [86-87]
-      PathExpression [88-89]
-        Identifier(b) [88-89]
+  TableElementList [51-121]
+    ColumnDefinition [55-62]
+      Identifier(x) [55-56]
+      SimpleColumnSchema [57-62]
+        PathExpression [57-62]
+          Identifier(int64) [57-62]
+    ColumnDefinition [66-74]
+      Identifier(y) [66-67]
+      SimpleColumnSchema [68-74]
+        PathExpression [68-74]
+          Identifier(string) [68-74]
+    ColumnDefinition [78-86]
+      Identifier(z) [78-79]
+      SimpleColumnSchema [80-86]
+        PathExpression [80-86]
+          Identifier(string) [80-86]
+    PrimaryKey(ENFORCED) [90-119]
+      PrimaryKeyElementList [101-119]
+        PrimaryKeyElement(ASC) [102-103]
+          Identifier(x) [102-103]
+        PrimaryKeyElement(ASC EXPLICITLY) [105-110]
+          Identifier(y) [105-106]
+        PrimaryKeyElement(DESC) [112-118]
+          Identifier(z) [112-113]
+  OptionsList [130-135]
+    OptionsEntry [131-134]
+      Identifier(a) [131-132]
+      PathExpression [133-134]
+        Identifier(b) [133-134]
 --
 
 CREATE EXTERNAL TABLE projectid.datasetid.tablename
 (
   x int64,
-  PRIMARY KEY(x)
+  y string,
+  z string,
+  PRIMARY KEY(x, y ASC, z DESC)
 ) OPTIONS(a = b)
 ==
 
@@ -665,7 +686,7 @@ create external table projectid.datasetid.tablename(x int64, y int64)
 create external table a.b.c.T()
 options ()
 --
-ERROR: Syntax error: Unexpected ")" [at 1:31]
+ERROR: A table must define at least one column. [at 1:31]
 create external table a.b.c.T()
                               ^
 ==
@@ -786,8 +807,9 @@ CreateExternalTableStatement [0-111]
           PathExpression [78-83]
             Identifier(int64) [78-83]
       PrimaryKey(ENFORCED) [85-99]
-        ColumnList [96-99]
-          Identifier(y) [97-98]
+        PrimaryKeyElementList [96-99]
+          PrimaryKeyElement(ASC) [97-98]
+            Identifier(y) [97-98]
   OptionsList [109-111]
 --
 
@@ -822,8 +844,9 @@ CreateExternalTableStatement [0-125]
         PathExpression [54-59]
           Identifier(int64) [54-59]
     PrimaryKey(ENFORCED) [61-75]
-      ColumnList [72-75]
-        Identifier(x) [73-74]
+      PrimaryKeyElementList [72-75]
+        PrimaryKeyElement(ASC) [73-74]
+          Identifier(x) [73-74]
   WithPartitionColumnsClause [77-114]
     TableElementList [100-114]
       CheckConstraint(ENFORCED) [101-113]
@@ -1000,13 +1023,15 @@ CREATE EXTERNAL TABLE projectid.datasetid.tablename
 create external table t(x int64)
 with partition columns (
   y int64,
-  PRIMARY KEY(y)
+  PRIMARY KEY(y {{|ASC|DESC}})
 )
 with connection a.b.c
 options (x=baz)
 --
 
-CreateExternalTableStatement [0-125]
+ALTERNATION GROUP: <empty>
+--
+CreateExternalTableStatement [0-126]
   PathExpression [22-23]
     Identifier(t) [22-23]
   TableElementList [23-32]
@@ -1015,27 +1040,28 @@ CreateExternalTableStatement [0-125]
       SimpleColumnSchema [26-31]
         PathExpression [26-31]
           Identifier(int64) [26-31]
-  WithPartitionColumnsClause [33-87]
-    TableElementList [56-87]
+  WithPartitionColumnsClause [33-88]
+    TableElementList [56-88]
       ColumnDefinition [60-67]
         Identifier(y) [60-61]
         SimpleColumnSchema [62-67]
           PathExpression [62-67]
             Identifier(int64) [62-67]
-      PrimaryKey(ENFORCED) [71-85]
-        ColumnList [82-85]
-          Identifier(y) [83-84]
-  WithConnectionClause [88-109]
-    ConnectionClause [93-109]
-      PathExpression [104-109]
-        Identifier(a) [104-105]
-        Identifier(b) [106-107]
-        Identifier(c) [108-109]
-  OptionsList [118-125]
-    OptionsEntry [119-124]
-      Identifier(x) [119-120]
-      PathExpression [121-124]
-        Identifier(baz) [121-124]
+      PrimaryKey(ENFORCED) [71-86]
+        PrimaryKeyElementList [82-86]
+          PrimaryKeyElement(ASC) [83-84]
+            Identifier(y) [83-84]
+  WithConnectionClause [89-110]
+    ConnectionClause [94-110]
+      PathExpression [105-110]
+        Identifier(a) [105-106]
+        Identifier(b) [107-108]
+        Identifier(c) [109-110]
+  OptionsList [119-126]
+    OptionsEntry [120-125]
+      Identifier(x) [120-121]
+      PathExpression [122-125]
+        Identifier(baz) [122-125]
 --
 CREATE EXTERNAL TABLE t
 (
@@ -1044,3 +1070,199 @@ CREATE EXTERNAL TABLE t
   y int64,
   PRIMARY KEY(y)
 ) WITH CONNECTION a.b.c OPTIONS(x = baz)
+--
+ALTERNATION GROUP: ASC
+--
+CreateExternalTableStatement [0-129]
+  PathExpression [22-23]
+    Identifier(t) [22-23]
+  TableElementList [23-32]
+    ColumnDefinition [24-31]
+      Identifier(x) [24-25]
+      SimpleColumnSchema [26-31]
+        PathExpression [26-31]
+          Identifier(int64) [26-31]
+  WithPartitionColumnsClause [33-91]
+    TableElementList [56-91]
+      ColumnDefinition [60-67]
+        Identifier(y) [60-61]
+        SimpleColumnSchema [62-67]
+          PathExpression [62-67]
+            Identifier(int64) [62-67]
+      PrimaryKey(ENFORCED) [71-89]
+        PrimaryKeyElementList [82-89]
+          PrimaryKeyElement(ASC EXPLICITLY) [83-88]
+            Identifier(y) [83-84]
+  WithConnectionClause [92-113]
+    ConnectionClause [97-113]
+      PathExpression [108-113]
+        Identifier(a) [108-109]
+        Identifier(b) [110-111]
+        Identifier(c) [112-113]
+  OptionsList [122-129]
+    OptionsEntry [123-128]
+      Identifier(x) [123-124]
+      PathExpression [125-128]
+        Identifier(baz) [125-128]
+--
+CREATE EXTERNAL TABLE t
+(
+  x int64
+) WITH PARTITION COLUMNS(
+  y int64,
+  PRIMARY KEY(y ASC)
+) WITH CONNECTION a.b.c OPTIONS(x = baz)
+--
+ALTERNATION GROUP: DESC
+--
+CreateExternalTableStatement [0-130]
+  PathExpression [22-23]
+    Identifier(t) [22-23]
+  TableElementList [23-32]
+    ColumnDefinition [24-31]
+      Identifier(x) [24-25]
+      SimpleColumnSchema [26-31]
+        PathExpression [26-31]
+          Identifier(int64) [26-31]
+  WithPartitionColumnsClause [33-92]
+    TableElementList [56-92]
+      ColumnDefinition [60-67]
+        Identifier(y) [60-61]
+        SimpleColumnSchema [62-67]
+          PathExpression [62-67]
+            Identifier(int64) [62-67]
+      PrimaryKey(ENFORCED) [71-90]
+        PrimaryKeyElementList [82-90]
+          PrimaryKeyElement(DESC) [83-89]
+            Identifier(y) [83-84]
+  WithConnectionClause [93-114]
+    ConnectionClause [98-114]
+      PathExpression [109-114]
+        Identifier(a) [109-110]
+        Identifier(b) [111-112]
+        Identifier(c) [113-114]
+  OptionsList [123-130]
+    OptionsEntry [124-129]
+      Identifier(x) [124-125]
+      PathExpression [126-129]
+        Identifier(baz) [126-129]
+--
+CREATE EXTERNAL TABLE t
+(
+  x int64
+) WITH PARTITION COLUMNS(
+  y int64,
+  PRIMARY KEY(y DESC)
+) WITH CONNECTION a.b.c OPTIONS(x = baz)
+==
+
+create external table t1 (a int32, PRIMARY KEY(a {{|ASC|DESC}})) options ()
+--
+ALTERNATION GROUP: <empty>
+--
+CreateExternalTableStatement [0-62]
+  PathExpression [22-24]
+    Identifier(t1) [22-24]
+  TableElementList [25-51]
+    ColumnDefinition [26-33]
+      Identifier(a) [26-27]
+      SimpleColumnSchema [28-33]
+        PathExpression [28-33]
+          Identifier(int32) [28-33]
+    PrimaryKey(ENFORCED) [35-50]
+      PrimaryKeyElementList [46-50]
+        PrimaryKeyElement(ASC) [47-48]
+          Identifier(a) [47-48]
+  OptionsList [60-62]
+--
+CREATE EXTERNAL TABLE t1
+(
+  a int32,
+  PRIMARY KEY(a)
+) OPTIONS()
+--
+ALTERNATION GROUP: ASC
+--
+CreateExternalTableStatement [0-65]
+  PathExpression [22-24]
+    Identifier(t1) [22-24]
+  TableElementList [25-54]
+    ColumnDefinition [26-33]
+      Identifier(a) [26-27]
+      SimpleColumnSchema [28-33]
+        PathExpression [28-33]
+          Identifier(int32) [28-33]
+    PrimaryKey(ENFORCED) [35-53]
+      PrimaryKeyElementList [46-53]
+        PrimaryKeyElement(ASC EXPLICITLY) [47-52]
+          Identifier(a) [47-48]
+  OptionsList [63-65]
+--
+CREATE EXTERNAL TABLE t1
+(
+  a int32,
+  PRIMARY KEY(a ASC)
+) OPTIONS()
+--
+ALTERNATION GROUP: DESC
+--
+CreateExternalTableStatement [0-66]
+  PathExpression [22-24]
+    Identifier(t1) [22-24]
+  TableElementList [25-55]
+    ColumnDefinition [26-33]
+      Identifier(a) [26-27]
+      SimpleColumnSchema [28-33]
+        PathExpression [28-33]
+          Identifier(int32) [28-33]
+    PrimaryKey(ENFORCED) [35-54]
+      PrimaryKeyElementList [46-54]
+        PrimaryKeyElement(DESC) [47-53]
+          Identifier(a) [47-48]
+  OptionsList [64-66]
+--
+CREATE EXTERNAL TABLE t1
+(
+  a int32,
+  PRIMARY KEY(a DESC)
+) OPTIONS()
+==
+
+[no_allow_ordered_primary_keys]
+create external table t1 (a int32, PRIMARY KEY(a {{|ASC|DESC}})) options ()
+--
+ALTERNATION GROUP: <empty>
+--
+CreateExternalTableStatement [0-62]
+  PathExpression [22-24]
+    Identifier(t1) [22-24]
+  TableElementList [25-51]
+    ColumnDefinition [26-33]
+      Identifier(a) [26-27]
+      SimpleColumnSchema [28-33]
+        PathExpression [28-33]
+          Identifier(int32) [28-33]
+    PrimaryKey(ENFORCED) [35-50]
+      PrimaryKeyElementList [46-50]
+        PrimaryKeyElement(ASC) [47-48]
+          Identifier(a) [47-48]
+  OptionsList [60-62]
+--
+CREATE EXTERNAL TABLE t1
+(
+  a int32,
+  PRIMARY KEY(a)
+) OPTIONS()
+--
+ALTERNATION GROUP: ASC
+--
+ERROR: Ordering for primary keys is not supported [at 1:50]
+create external table t1 (a int32, PRIMARY KEY(a ASC)) options ()
+                                                 ^
+--
+ALTERNATION GROUP: DESC
+--
+ERROR: Ordering for primary keys is not supported [at 1:50]
+create external table t1 (a int32, PRIMARY KEY(a DESC)) options ()
+                                                 ^
+==

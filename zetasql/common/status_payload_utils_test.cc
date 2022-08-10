@@ -16,6 +16,8 @@
 
 #include "zetasql/common/status_payload_utils.h"
 
+#include <string>
+
 #include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/testdata/test_schema.pb.h"

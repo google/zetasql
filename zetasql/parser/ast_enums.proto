@@ -332,11 +332,17 @@ message ASTCreateFunctionStmtBaseEnums {
     VOLATILE = 5;
   }
 }
-
 message ASTAuxLoadDataStatementEnums {
   enum InsertionMode {
     NOT_SET = 0;
     APPEND = 1;
     OVERWRITE = 2;
+  }
+}
+message ASTSpannerInterleaveClauseEnums {
+  enum Type {
+    NOT_SET = 0;
+    IN = 1;
+    IN_PARENT = 2;
   }
 }

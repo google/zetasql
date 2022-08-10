@@ -16,6 +16,7 @@
 
 #include "zetasql/scripting/script_segment.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <stack>

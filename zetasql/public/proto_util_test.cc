@@ -21,8 +21,6 @@
 #include <utility>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/io/coded_stream.h"
-#include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"
@@ -32,6 +30,8 @@
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
+#include "google/protobuf/io/coded_stream.h"
+#include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
@@ -240,6 +240,7 @@ TEST_P(ReadProtoFieldsTest, EnumOutOfRange) {
     out.WriteVarint32(WireFormatLite::MakeTag(36 /* tag for test_enum */,
                                               WireFormatLite::WIRETYPE_VARINT));
     out.WriteVarint32(1000);
+    out.Trim();
     } bytes = absl::Cord(bytes_str);
   }
 

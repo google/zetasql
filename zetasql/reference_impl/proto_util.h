@@ -17,10 +17,10 @@
 #ifndef ZETASQL_REFERENCE_IMPL_PROTO_UTIL_H_
 #define ZETASQL_REFERENCE_IMPL_PROTO_UTIL_H_
 
-#include "google/protobuf/io/coded_stream.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/value.h"
+#include "google/protobuf/io/coded_stream.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {

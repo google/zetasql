@@ -547,7 +547,7 @@ inserted rows that includes these parts:
 +   `expression`: Represents a column name of the table specified by
     `target_name` or an expression that uses any combination of such column
     names. Column names are valid if they belong to columns of the table
-    being modified. Excluded expressions include aggregate and analytic
+    being modified. Excluded expressions include aggregate and window
     functions.
 +   `alias`: A temporary name for an expression in the query.
 

@@ -112,10 +112,6 @@ class StructType : public Type {
   absl::StatusOr<std::string> TypeNameWithModifiers(
       const TypeModifiers& type_modifiers, ProductMode mode) const override;
 
-  // Check if the names in <fields> are valid.
-  static absl::Status FieldNamesAreValid(
-      const absl::Span<const StructField>& fields);
-
   int nesting_depth() const override { return nesting_depth_; }
 
   bool IsSupportedType(const LanguageOptions& language_options) const override;

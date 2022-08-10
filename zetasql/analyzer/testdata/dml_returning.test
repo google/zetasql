@@ -1,17 +1,28 @@
 # DELETE
-
 DELETE TestTable WHERE KitchenSink.int32_val = 1 THEN RETURN *
 --
 
 ERROR: THEN RETURN is not supported [at 1:50]
 DELETE TestTable WHERE KitchenSink.int32_val = 1 THEN RETURN *
                                                  ^
-
 ==
 
-# "WITH ACTION" by default will use "action" as the output column name.
-# The resolver will fail on this because alias "action" is duplicated in
-# top-level output column list.
+# UPDATE
+UPDATE KeyValue SET key=1, value="a" WHERE key > 10 THEN RETURN *
+--
+ERROR: THEN RETURN is not supported [at 1:53]
+UPDATE KeyValue SET key=1, value="a" WHERE key > 10 THEN RETURN *
+                                                    ^
+==
+
+# INSERT
+[language_features=]
+INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN WITH ACTION *
+--
+ERROR: THEN RETURN is not supported [at 1:53]
+INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN WITH ACTION *
+                                                    ^
+==
 
 DELETE FROM TestTable WHERE TRUE THEN RETURN WITH ACTION key as action, TestEnum
 --
@@ -19,9 +30,6 @@ ERROR: THEN RETURN is not supported [at 1:34]
 DELETE FROM TestTable WHERE TRUE THEN RETURN WITH ACTION key as action, TestEnum
                                  ^
 ==
-
-# The resolver will fail on this because alias "myaction" is duplicated in
-# top-level output column list.
 
 DELETE FROM TestTable WHERE TRUE THEN RETURN WITH ACTION AS myaction key as myaction, TestEnum
 --
@@ -30,7 +38,21 @@ DELETE FROM TestTable WHERE TRUE THEN RETURN WITH ACTION AS myaction key as m...
                                  ^
 ==
 
-[language_features=V_1_3_DML_RETURNING]
+UPDATE KeyValue SET key=1 WHERE TRUE THEN RETURN WITH ACTION AS myaction key as myaction
+--
+ERROR: THEN RETURN is not supported [at 1:38]
+UPDATE KeyValue SET key=1 WHERE TRUE THEN RETURN WITH ACTION AS myaction key ...
+                                     ^
+==
+
+INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN WITH ACTION AS myaction key as myaction;
+--
+ERROR: THEN RETURN is not supported [at 1:53]
+INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN WITH ACTION A...
+                                                    ^
+==
+
+[default language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE,DML_UPDATE_WITH_JOIN,V_1_3_PIVOT]
 DELETE TestTable WHERE KitchenSink.int32_val = 1 THEN RETURN *
 --
 DeleteStmt
@@ -42,6 +64,7 @@ DeleteStmt
 |     +-TestTable.key#1 AS key [INT32]
 |     +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
 |     +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
++-column_access_list=READ,READ,READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
     +-GetProtoField
@@ -51,10 +74,8 @@ DeleteStmt
     | +-field_descriptor=int32_val
     | +-default_value=77
     +-Literal(type=INT32, value=1)
-
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 DELETE TestTable WHERE KitchenSink.int32_val = 1 THEN RETURN WITH ACTION *
 --
 DeleteStmt
@@ -69,6 +90,7 @@ DeleteStmt
 |   | +-$with_action.ACTION#4 AS ACTION [STRING]
 |   +-action_column=
 |     +-ColumnHolder(column=$with_action.ACTION#4)
++-column_access_list=READ,READ,READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
     +-GetProtoField
@@ -78,10 +100,8 @@ DeleteStmt
     | +-field_descriptor=int32_val
     | +-default_value=77
     +-Literal(type=INT32, value=1)
-
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 DELETE TestTable WHERE KitchenSink.int32_val = 1 THEN RETURN WITH ACTION AS myaction *
 --
 DeleteStmt
@@ -96,6 +116,7 @@ DeleteStmt
 |   | +-$with_action.myaction#4 AS myaction [STRING]
 |   +-action_column=
 |     +-ColumnHolder(column=$with_action.myaction#4)
++-column_access_list=READ,READ,READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
     +-GetProtoField
@@ -105,10 +126,8 @@ DeleteStmt
     | +-field_descriptor=int32_val
     | +-default_value=77
     +-Literal(type=INT32, value=1)
-
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 DELETE TestTable WHERE KitchenSink.int32_val = 1 THEN RETURN key
 --
 DeleteStmt
@@ -118,6 +137,7 @@ DeleteStmt
 | +-ReturningClause
 |   +-output_column_list=
 |     +-TestTable.key#1 AS key [INT32]
++-column_access_list=READ,READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
     +-GetProtoField
@@ -127,10 +147,8 @@ DeleteStmt
     | +-field_descriptor=int32_val
     | +-default_value=77
     +-Literal(type=INT32, value=1)
-
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 DELETE TestTable WHERE KitchenSink.int32_val = 1 THEN RETURN WITH ACTION key+1 As newkey
 --
 DeleteStmt
@@ -149,6 +167,7 @@ DeleteStmt
 |         +-Cast(INT32 -> INT64)
 |         | +-ColumnRef(type=INT32, column=TestTable.key#1)
 |         +-Literal(type=INT64, value=1)
++-column_access_list=READ,READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
     +-GetProtoField
@@ -158,11 +177,8 @@ DeleteStmt
     | +-field_descriptor=int32_val
     | +-default_value=77
     +-Literal(type=INT32, value=1)
-
-
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 DELETE TestTable WHERE KitchenSink.int32_val = 1
 THEN RETURN WITH ACTION key+1 As newkey, TestEnum
 --
@@ -183,6 +199,7 @@ DeleteStmt
 |         +-Cast(INT32 -> INT64)
 |         | +-ColumnRef(type=INT32, column=TestTable.key#1)
 |         +-Literal(type=INT64, value=1)
++-column_access_list=READ,READ,READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
     +-GetProtoField
@@ -192,14 +209,11 @@ DeleteStmt
     | +-field_descriptor=int32_val
     | +-default_value=77
     +-Literal(type=INT32, value=1)
-
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 DELETE TestTable WHERE KitchenSink.int32_val = 1
 THEN RETURN WITH ACTION AS action key+1 As newkey, TestEnum, abs(key) as abs_key
 --
-
 DeleteStmt
 +-table_scan=
 | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2])
@@ -221,6 +235,7 @@ DeleteStmt
 |     +-abs_key#5 :=
 |       +-FunctionCall(ZetaSQL:abs(INT32) -> INT32)
 |         +-ColumnRef(type=INT32, column=TestTable.key#1)
++-column_access_list=READ,READ,READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
     +-GetProtoField
@@ -232,11 +247,9 @@ DeleteStmt
     +-Literal(type=INT32, value=1)
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 DELETE TestTable WHERE KitchenSink.int32_val = 1
 THEN RETURN WITH ACTION abs(key) abs_key, *
 --
-
 DeleteStmt
 +-table_scan=
 | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2])
@@ -254,6 +267,7 @@ DeleteStmt
 |     +-abs_key#4 :=
 |       +-FunctionCall(ZetaSQL:abs(INT32) -> INT32)
 |         +-ColumnRef(type=INT32, column=TestTable.key#1)
++-column_access_list=READ,READ,READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
     +-GetProtoField
@@ -263,31 +277,9 @@ DeleteStmt
     | +-field_descriptor=int32_val
     | +-default_value=77
     +-Literal(type=INT32, value=1)
-
 ==
 
 # UPDATE
-
-UPDATE KeyValue SET key=1, value="a" WHERE key > 10 THEN RETURN *
---
-
-ERROR: THEN RETURN is not supported [at 1:53]
-UPDATE KeyValue SET key=1, value="a" WHERE key > 10 THEN RETURN *
-                                                    ^
-==
-
-# The resolver will fail on this because alias "myaction" is duplicated in
-# top-level output column list.
-
-UPDATE KeyValue SET key=1 WHERE TRUE THEN RETURN WITH ACTION AS myaction key as myaction
---
-ERROR: THEN RETURN is not supported [at 1:38]
-UPDATE KeyValue SET key=1 WHERE TRUE THEN RETURN WITH ACTION AS myaction key ...
-                                     ^
-==
-
-# UPDATE
-[language_features=V_1_3_DML_RETURNING]
 UPDATE KeyValue SET key=1, value="a" WHERE key > 10 THEN RETURN *
 --
 UpdateStmt
@@ -318,10 +310,8 @@ UpdateStmt
       +-DMLValue
         +-value=
           +-Literal(type=STRING, value="a")
-
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 UPDATE KeyValue SET value="a" WHERE key > 10 THEN RETURN WITH ACTION *
 --
 UpdateStmt
@@ -350,7 +340,6 @@ UpdateStmt
           +-Literal(type=STRING, value="a")
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 UPDATE KeyValue SET value="a" WHERE key > 10 THEN RETURN WITH ACTION AS myaction *
 --
 UpdateStmt
@@ -379,7 +368,6 @@ UpdateStmt
           +-Literal(type=STRING, value="a")
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 UPDATE KeyValue SET value="a" WHERE key > 10 THEN RETURN key, value
 --
 UpdateStmt
@@ -406,11 +394,9 @@ UpdateStmt
 
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 UPDATE KeyValue SET value="a" WHERE key > 10
 THEN RETURN WITH ACTION abs(key) abs_key, *
 --
-
 UpdateStmt
 +-table_scan=
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
@@ -442,31 +428,8 @@ UpdateStmt
           +-Literal(type=STRING, value="a")
 ==
 
-# INSERT
-
-INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN WITH ACTION *
---
-ERROR: THEN RETURN is not supported [at 1:53]
-INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN WITH ACTION *
-                                                    ^
-
-==
-
-# The resolver will fail on this because alias "myaction" is duplicated in
-# top-level output column list.
-
-INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN WITH ACTION AS myaction key as myaction;
-
---
-ERROR: THEN RETURN is not supported [at 1:53]
-INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN WITH ACTION A...
-                                                    ^
-==
-
-[language_features=V_1_3_DML_RETURNING]
 INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN *
 --
-
 InsertStmt
 +-table_scan=
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
@@ -477,21 +440,19 @@ InsertStmt
 |     +-KeyValue.Value#2 AS Value [STRING]
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=1)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="one")
-
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=1)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="one")
++-column_access_list=READ_WRITE,READ_WRITE
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN WITH ACTION *
 --
-
 InsertStmt
 +-table_scan=
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
@@ -505,22 +466,20 @@ InsertStmt
 |     +-ColumnHolder(column=$with_action.ACTION#3)
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=1)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="one")
-
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=1)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="one")
++-column_access_list=READ_WRITE,READ_WRITE
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 INSERT INTO KeyValue (key, value) VALUES (1, "one")
 THEN RETURN WITH ACTION AS myaction *
 --
-
 InsertStmt
 +-table_scan=
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
@@ -534,21 +493,19 @@ InsertStmt
 |     +-ColumnHolder(column=$with_action.myaction#3)
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=1)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="one")
-
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=1)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="one")
++-column_access_list=READ_WRITE,READ_WRITE
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN key
 --
-
 InsertStmt
 +-table_scan=
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
@@ -558,21 +515,19 @@ InsertStmt
 |     +-KeyValue.Key#1 AS key [INT64]
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=1)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="one")
-
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=1)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="one")
++-column_access_list=READ_WRITE,WRITE
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 INSERT INTO nested_catalog.KeyValueNested (key, value) VALUES (1, "one") THEN RETURN KeyValueNested.key
 --
-
 InsertStmt
 +-table_scan=
 | +-TableScan(column_list=KeyValueNested.[Key#1, Value#2], table=nested_catalog.KeyValueNested, column_index_list=[0, 1])
@@ -582,18 +537,17 @@ InsertStmt
 |     +-KeyValueNested.Key#1 AS key [INT64]
 +-insert_column_list=KeyValueNested.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=1)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="one")
-
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=1)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="one")
++-column_access_list=READ_WRITE,WRITE
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 INSERT {{| IGNORE| REPLACE| UPDATE}} INTO KeyValue (key, value)
 VALUES (1, "one"), (2, "two") THEN RETURN *
 --
@@ -610,22 +564,23 @@ InsertStmt
 |     +-KeyValue.Value#2 AS Value [STRING]
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-  | +-value_list=
-  |   +-DMLValue
-  |   | +-value=
-  |   |   +-Literal(type=INT64, value=1)
-  |   +-DMLValue
-  |     +-value=
-  |       +-Literal(type=STRING, value="one")
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=2)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="two")
+| +-InsertRow
+| | +-value_list=
+| |   +-DMLValue
+| |   | +-value=
+| |   |   +-Literal(type=INT64, value=1)
+| |   +-DMLValue
+| |     +-value=
+| |       +-Literal(type=STRING, value="one")
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=2)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="two")
++-column_access_list=READ_WRITE,READ_WRITE
 --
 ALTERNATION GROUP:  IGNORE
 --
@@ -640,22 +595,23 @@ InsertStmt
 |     +-KeyValue.Value#2 AS Value [STRING]
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-  | +-value_list=
-  |   +-DMLValue
-  |   | +-value=
-  |   |   +-Literal(type=INT64, value=1)
-  |   +-DMLValue
-  |     +-value=
-  |       +-Literal(type=STRING, value="one")
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=2)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="two")
+| +-InsertRow
+| | +-value_list=
+| |   +-DMLValue
+| |   | +-value=
+| |   |   +-Literal(type=INT64, value=1)
+| |   +-DMLValue
+| |     +-value=
+| |       +-Literal(type=STRING, value="one")
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=2)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="two")
++-column_access_list=READ_WRITE,READ_WRITE
 --
 ALTERNATION GROUP:  REPLACE
 --
@@ -670,22 +626,23 @@ InsertStmt
 |     +-KeyValue.Value#2 AS Value [STRING]
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-  | +-value_list=
-  |   +-DMLValue
-  |   | +-value=
-  |   |   +-Literal(type=INT64, value=1)
-  |   +-DMLValue
-  |     +-value=
-  |       +-Literal(type=STRING, value="one")
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=2)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="two")
+| +-InsertRow
+| | +-value_list=
+| |   +-DMLValue
+| |   | +-value=
+| |   |   +-Literal(type=INT64, value=1)
+| |   +-DMLValue
+| |     +-value=
+| |       +-Literal(type=STRING, value="one")
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=2)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="two")
++-column_access_list=READ_WRITE,READ_WRITE
 --
 ALTERNATION GROUP:  UPDATE
 --
@@ -700,26 +657,25 @@ InsertStmt
 |     +-KeyValue.Value#2 AS Value [STRING]
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-  | +-value_list=
-  |   +-DMLValue
-  |   | +-value=
-  |   |   +-Literal(type=INT64, value=1)
-  |   +-DMLValue
-  |     +-value=
-  |       +-Literal(type=STRING, value="one")
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=2)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="two")
-
+| +-InsertRow
+| | +-value_list=
+| |   +-DMLValue
+| |   | +-value=
+| |   |   +-Literal(type=INT64, value=1)
+| |   +-DMLValue
+| |     +-value=
+| |       +-Literal(type=STRING, value="one")
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=2)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="two")
++-column_access_list=READ_WRITE,READ_WRITE
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 INSERT {{| IGNORE| REPLACE| UPDATE}} INTO KeyValue (key, value)
 VALUES (1, "one"), (2, "two") THEN RETURN WITH ACTION *
 --
@@ -739,22 +695,23 @@ InsertStmt
 |     +-ColumnHolder(column=$with_action.ACTION#3)
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-  | +-value_list=
-  |   +-DMLValue
-  |   | +-value=
-  |   |   +-Literal(type=INT64, value=1)
-  |   +-DMLValue
-  |     +-value=
-  |       +-Literal(type=STRING, value="one")
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=2)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="two")
+| +-InsertRow
+| | +-value_list=
+| |   +-DMLValue
+| |   | +-value=
+| |   |   +-Literal(type=INT64, value=1)
+| |   +-DMLValue
+| |     +-value=
+| |       +-Literal(type=STRING, value="one")
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=2)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="two")
++-column_access_list=READ_WRITE,READ_WRITE
 --
 ALTERNATION GROUP:  IGNORE
 --
@@ -772,22 +729,23 @@ InsertStmt
 |     +-ColumnHolder(column=$with_action.ACTION#3)
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-  | +-value_list=
-  |   +-DMLValue
-  |   | +-value=
-  |   |   +-Literal(type=INT64, value=1)
-  |   +-DMLValue
-  |     +-value=
-  |       +-Literal(type=STRING, value="one")
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=2)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="two")
+| +-InsertRow
+| | +-value_list=
+| |   +-DMLValue
+| |   | +-value=
+| |   |   +-Literal(type=INT64, value=1)
+| |   +-DMLValue
+| |     +-value=
+| |       +-Literal(type=STRING, value="one")
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=2)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="two")
++-column_access_list=READ_WRITE,READ_WRITE
 --
 ALTERNATION GROUP:  REPLACE
 --
@@ -805,22 +763,23 @@ InsertStmt
 |     +-ColumnHolder(column=$with_action.ACTION#3)
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-  | +-value_list=
-  |   +-DMLValue
-  |   | +-value=
-  |   |   +-Literal(type=INT64, value=1)
-  |   +-DMLValue
-  |     +-value=
-  |       +-Literal(type=STRING, value="one")
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=2)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="two")
+| +-InsertRow
+| | +-value_list=
+| |   +-DMLValue
+| |   | +-value=
+| |   |   +-Literal(type=INT64, value=1)
+| |   +-DMLValue
+| |     +-value=
+| |       +-Literal(type=STRING, value="one")
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=2)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="two")
++-column_access_list=READ_WRITE,READ_WRITE
 --
 ALTERNATION GROUP:  UPDATE
 --
@@ -838,29 +797,28 @@ InsertStmt
 |     +-ColumnHolder(column=$with_action.ACTION#3)
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-  | +-value_list=
-  |   +-DMLValue
-  |   | +-value=
-  |   |   +-Literal(type=INT64, value=1)
-  |   +-DMLValue
-  |     +-value=
-  |       +-Literal(type=STRING, value="one")
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=2)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="two")
+| +-InsertRow
+| | +-value_list=
+| |   +-DMLValue
+| |   | +-value=
+| |   |   +-Literal(type=INT64, value=1)
+| |   +-DMLValue
+| |     +-value=
+| |       +-Literal(type=STRING, value="one")
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=2)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="two")
++-column_access_list=READ_WRITE,READ_WRITE
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 INSERT INTO KeyValue (key, value) VALUES (1, "one")
 THEN RETURN WITH ACTION abs(key) as newkey
 --
-
 InsertStmt
 +-table_scan=
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
@@ -877,19 +835,19 @@ InsertStmt
 |         +-ColumnRef(type=INT64, column=KeyValue.Key#1)
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=1)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="one")
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=1)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="one")
++-column_access_list=READ_WRITE,WRITE
 ==
 
 # Nest DMLs
 
-[language_features=V_1_3_DML_RETURNING]
 UPDATE TestTable SET
   KitchenSink.int32_val = 1,
   (DELETE KitchenSink.repeated_int64_val
@@ -903,7 +861,6 @@ ERROR: THEN RETURN is not allowed in nested DELETE statements [at 5:27]
                           ^
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 UPDATE TestTable SET
   KitchenSink.int32_val = 1,
   (DELETE KitchenSink.repeated_int64_val
@@ -966,7 +923,6 @@ UpdateStmt
             +-Literal(type=INT64, value=1)
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 UPDATE TestTable SET
   (UPDATE KitchenSink.repeated_int64_val SET
      repeated_int64_val = NULL
@@ -982,7 +938,6 @@ ERROR: THEN RETURN is not allowed in nested UPDATE statements [at 7:34]
 
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 UPDATE TestTable SET
   (UPDATE KitchenSink.repeated_int64_val SET
      repeated_int64_val = NULL
@@ -1045,7 +1000,6 @@ UpdateStmt
 
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 UPDATE TestTable SET
   KitchenSink.int32_val = 1,
   (INSERT KitchenSink.repeated_int64_val
@@ -1059,7 +1013,6 @@ ERROR: THEN RETURN is not allowed in nested INSERT statements [at 5:27]
                           ^
 ==
 
-[language_features=V_1_3_DML_RETURNING]
 UPDATE TestTable SET
   KitchenSink.int32_val = 1,
   (INSERT KitchenSink.repeated_int64_val
@@ -1147,7 +1100,6 @@ UpdateStmt
 
 ==
 
-[language_features=DML_UPDATE_WITH_JOIN,V_1_3_DML_RETURNING]
 UPDATE SimpleTypes SET
   int64 = 1
 FROM KeyValue
@@ -1199,7 +1151,6 @@ UpdateStmt
 
 ==
 
-[language_features=DML_UPDATE_WITH_JOIN,V_1_3_DML_RETURNING]
 UPDATE SimpleTypes SET
   int64 = 1
 FROM KeyValue
@@ -1211,7 +1162,6 @@ THEN RETURN Key
             ^
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_3_PIVOT]
 DELETE KeyValue WHERE Value = 'Value_1'
   THEN RETURN (SELECT k2 FROM (SELECT Key k1, Key k2 FROM KeyValue)
                PIVOT (SUM(k1) FOR k1 IN (0,1)));
@@ -1253,6 +1203,7 @@ DeleteStmt
 |                 +-pivot_value_list=
 |                   +-Literal(type=INT64, value=0, preserve_in_literal_remover=TRUE)
 |                   +-Literal(type=INT64, value=1, preserve_in_literal_remover=TRUE)
++-column_access_list=READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
@@ -1278,11 +1229,9 @@ THEN RETURN * REPLACE ("xxx" as value)
             ^
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 INSERT INTO KeyValue (key, value) VALUES (1, "one")
 THEN RETURN * EXCEPT (KEY)
 --
-
 InsertStmt
 +-table_scan=
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
@@ -1292,22 +1241,20 @@ InsertStmt
 |     +-KeyValue.Value#2 AS Value [STRING]
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=1)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="one")
-
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=1)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="one")
++-column_access_list=WRITE,READ_WRITE
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 INSERT INTO KeyValue (key, value) VALUES (1, "one")
 THEN RETURN * REPLACE ("xxx" as value)
 --
-
 InsertStmt
 +-table_scan=
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
@@ -1320,22 +1267,20 @@ InsertStmt
 |     +-value#3 := Literal(type=STRING, value="xxx")
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=1)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="one")
-
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=1)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="one")
++-column_access_list=READ_WRITE,WRITE
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 INSERT INTO KeyValue (key, value) VALUES (1, "one")
 THEN RETURN * REPLACE ("xxx" as value), key + 1
 --
-
 InsertStmt
 +-table_scan=
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
@@ -1353,23 +1298,48 @@ InsertStmt
 |         +-Literal(type=INT64, value=1)
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=1)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="one")
-
-
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=1)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="one")
++-column_access_list=READ_WRITE,WRITE
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
+INSERT INTO FourIntegers (key1, value1, key2) VALUES (1, 2, 1) THEN RETURN value2, key2;
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=FourIntegers.[key1#1, value1#2, key2#3, value2#4], table=FourIntegers, column_index_list=[0, 1, 2, 3])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-FourIntegers.value2#4 AS value2 [INT64]
+|     +-FourIntegers.key2#3 AS key2 [INT64]
++-insert_column_list=FourIntegers.[key1#1, value1#2, key2#3]
++-row_list=
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=1)
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=2)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=INT64, value=1)
++-column_access_list=WRITE,WRITE,READ_WRITE,READ
+==
+
+
+
 INSERT INTO KeyValue (key, value) VALUES (1, "one")
 THEN RETURN * EXCEPT(Key), key
 --
-
 InsertStmt
 +-table_scan=
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
@@ -1380,23 +1350,20 @@ InsertStmt
 |     +-KeyValue.Key#1 AS key [INT64]
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=1)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="one")
-
-
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=1)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="one")
++-column_access_list=READ_WRITE,READ_WRITE
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 INSERT INTO KeyValue (key, value) VALUES (1, "one")
 THEN RETURN key, * EXCEPT(Key)
 --
-
 InsertStmt
 +-table_scan=
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
@@ -1407,23 +1374,20 @@ InsertStmt
 |     +-KeyValue.Value#2 AS Value [STRING]
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=1)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="one")
-
-
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=1)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="one")
++-column_access_list=READ_WRITE,READ_WRITE
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 INSERT INTO KeyValue (key, value) VALUES (1, "one")
 THEN RETURN WITH ACTION key, * EXCEPT(Key)
 --
-
 InsertStmt
 +-table_scan=
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
@@ -1437,23 +1401,20 @@ InsertStmt
 |     +-ColumnHolder(column=$with_action.ACTION#3)
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=1)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="one")
-
-
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=1)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="one")
++-column_access_list=READ_WRITE,READ_WRITE
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 INSERT INTO KeyValue (key, value) VALUES (1, "one")
 THEN RETURN * EXCEPT (KEY) REPLACE ("xxx" as value)
 --
-
 InsertStmt
 +-table_scan=
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
@@ -1465,18 +1426,17 @@ InsertStmt
 |     +-value#3 := Literal(type=STRING, value="xxx")
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=1)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="one")
-
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=1)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="one")
++-column_access_list=WRITE,WRITE
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 INSERT INTO KeyValue (key, value) VALUES (1, "one")
 THEN RETURN *, * EXCEPT (KEY), * REPLACE (2 AS KEY)
 --
@@ -1496,18 +1456,17 @@ InsertStmt
 |     +-KEY#3 := Literal(type=INT64, value=2)
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=1)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="one")
-
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=1)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="one")
++-column_access_list=READ_WRITE,READ_WRITE
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 INSERT INTO KeyValue (key, value) VALUES (1, "one")
 THEN RETURN * EXCEPT (KEY), * EXCEPT (KEY)
 --
@@ -1522,30 +1481,27 @@ InsertStmt
 |     +-KeyValue.Value#2 AS Value [STRING]
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=1)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="one")
-
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=1)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="one")
++-column_access_list=WRITE,READ_WRITE
 ==
 
 [language_features=V_1_3_DML_RETURNING]
 UPDATE KeyValue SET value="a" WHERE key > 10 THEN RETURN * EXCEPT (key)
 --
-
 ERROR: SELECT * EXCEPT is not supported [at 1:58]
 UPDATE KeyValue SET value="a" WHERE key > 10 THEN RETURN * EXCEPT (key)
                                                          ^
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 UPDATE KeyValue SET value="a" WHERE key > 10 THEN RETURN * EXCEPT (key)
 --
-
 UpdateStmt
 +-table_scan=
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
@@ -1568,11 +1524,9 @@ UpdateStmt
           +-Literal(type=STRING, value="a")
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 UPDATE KeyValue SET value="a" WHERE key > 10
 THEN RETURN * EXCEPT (key) REPLACE ("xxx" as value)
 --
-
 UpdateStmt
 +-table_scan=
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
@@ -1597,11 +1551,9 @@ UpdateStmt
           +-Literal(type=STRING, value="a")
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 UPDATE KeyValue SET value="a" WHERE key > 10
 THEN RETURN * EXCEPT (key), *
 --
-
 UpdateStmt
 +-table_scan=
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
@@ -1626,7 +1578,6 @@ UpdateStmt
           +-Literal(type=STRING, value="a")
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 UPDATE KeyValue T SET value="a" WHERE key > 10
 THEN RETURN T.*
 --
@@ -1654,7 +1605,6 @@ UpdateStmt
           +-Literal(type=STRING, value="a")
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 UPDATE KeyValue T SET value="a" WHERE key > 10
 THEN RETURN T.* EXCEPT(KEY)
 --
@@ -1680,7 +1630,6 @@ UpdateStmt
           +-Literal(type=STRING, value="a")
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 UPDATE KeyValue T SET value="a" WHERE key > 10
 THEN RETURN T.* EXCEPT (KEY), * REPLACE (2 AS KEY)
 --
@@ -1726,7 +1675,6 @@ DELETE KeyValue WHERE TRUE THEN RETURN * REPLACE (1 AS key)
                                        ^
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 DELETE KeyValue WHERE TRUE THEN RETURN * EXCEPT (key)
 --
 DeleteStmt
@@ -1736,11 +1684,11 @@ DeleteStmt
 | +-ReturningClause
 |   +-output_column_list=
 |     +-KeyValue.Value#2 AS Value [STRING]
++-column_access_list=READ
 +-where_expr=
   +-Literal(type=BOOL, value=true)
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 DELETE KeyValue WHERE TRUE THEN RETURN * REPLACE (1 AS KEY)
 --
 DeleteStmt
@@ -1753,11 +1701,11 @@ DeleteStmt
 |   | +-KeyValue.Value#2 AS Value [STRING]
 |   +-expr_list=
 |     +-KEY#3 := Literal(type=INT64, value=1)
++-column_access_list=READ
 +-where_expr=
   +-Literal(type=BOOL, value=true)
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 DELETE KeyValue WHERE TRUE THEN RETURN * EXCEPT (key) REPLACE (1 AS KEY)
 --
 ERROR: Column KEY cannot occur in both SELECT * EXCEPT and REPLACE [at 1:69]
@@ -1765,7 +1713,6 @@ DELETE KeyValue WHERE TRUE THEN RETURN * EXCEPT (key) REPLACE (1 AS KEY)
                                                                     ^
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 DELETE KeyValue WHERE TRUE THEN RETURN * REPLACE (1 AS KEY) EXCEPT (KEY)
 --
 ERROR: Syntax error: Expected end of input but got keyword EXCEPT [at 1:61]
@@ -1773,7 +1720,6 @@ DELETE KeyValue WHERE TRUE THEN RETURN * REPLACE (1 AS KEY) EXCEPT (KEY)
                                                             ^
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 DELETE KeyValue WHERE TRUE THEN RETURN WITH ACTION * EXCEPT(KEY), KEY
 --
 DeleteStmt
@@ -1787,11 +1733,11 @@ DeleteStmt
 |   | +-$with_action.ACTION#3 AS ACTION [STRING]
 |   +-action_column=
 |     +-ColumnHolder(column=$with_action.ACTION#3)
++-column_access_list=READ,READ
 +-where_expr=
   +-Literal(type=BOOL, value=true)
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 DELETE KeyValue WHERE TRUE THEN RETURN WITH ACTION * EXCEPT(KEY), * EXCEPT(KEY)
 --
 DeleteStmt
@@ -1805,11 +1751,11 @@ DeleteStmt
 |   | +-$with_action.ACTION#3 AS ACTION [STRING]
 |   +-action_column=
 |     +-ColumnHolder(column=$with_action.ACTION#3)
++-column_access_list=READ
 +-where_expr=
   +-Literal(type=BOOL, value=true)
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 DELETE KeyValue T WHERE TRUE THEN RETURN *, T.* EXCEPT(KEY)
 --
 DeleteStmt
@@ -1821,11 +1767,11 @@ DeleteStmt
 |     +-KeyValue.Key#1 AS Key [INT64]
 |     +-KeyValue.Value#2 AS Value [STRING]
 |     +-KeyValue.Value#2 AS Value [STRING]
++-column_access_list=READ,READ
 +-where_expr=
   +-Literal(type=BOOL, value=true)
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 DELETE KeyValue T WHERE TRUE THEN RETURN WITH ACTION AS action *, T.* EXCEPT(KEY)
 --
 DeleteStmt
@@ -1840,12 +1786,12 @@ DeleteStmt
 |   | +-$with_action.action#3 AS action [STRING]
 |   +-action_column=
 |     +-ColumnHolder(column=$with_action.action#3)
++-column_access_list=READ,READ
 +-where_expr=
   +-Literal(type=BOOL, value=true)
 ==
 
 # `value` is a proto column `TestBcPB`.
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 DELETE TestBcPBValueProtoTable WHERE TRUE
 THEN RETURN value.*
 --
@@ -1872,11 +1818,11 @@ DeleteStmt
 |         | +-ColumnRef(type=PROTO<zetasql_test__.TestBcPB>, column=TestBcPBValueProtoTable.value#1)
 |         +-field_descriptor=c
 |         +-default_value=""
++-column_access_list=READ
 +-where_expr=
   +-Literal(type=BOOL, value=true)
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 DELETE TestTable WHERE TRUE THEN RETURN KitchenSink.nested_value.*
 --
 ERROR: Dot-star is only allowed on range variables and columns in THEN RETURN. It cannot be applied on other expressions including field access. [at 1:41]
@@ -1884,7 +1830,6 @@ DELETE TestTable WHERE TRUE THEN RETURN KitchenSink.nested_value.*
                                         ^
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 SELECT KitchenSink.nested_value.* FROM TestTable WHERE TRUE
 --
 QueryStmt
@@ -1946,7 +1891,6 @@ QueryStmt
 
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 DELETE TestTable WHERE TRUE
 THEN RETURN *, EXISTS (SELECT KitchenSink.nested_value.* FROM TestTable)
 --
@@ -2010,11 +1954,11 @@ DeleteStmt
 |                 |     +-default_value=NULL
 |                 +-input_scan=
 |                   +-TableScan(column_list=[TestTable.KitchenSink#6], table=TestTable, column_index_list=[2])
++-column_access_list=READ,READ,READ
 +-where_expr=
   +-Literal(type=BOOL, value=true)
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 DELETE KeyValue T WHERE T.Value = 'Value_1'
   THEN RETURN T.key, EXISTS (SELECT P.* FROM KeyValue AS P)
 --
@@ -2036,13 +1980,13 @@ DeleteStmt
 |             +-column_list=KeyValue.[Key#3, Value#4]
 |             +-input_scan=
 |               +-TableScan(column_list=KeyValue.[Key#3, Value#4], table=KeyValue, column_index_list=[0, 1], alias="P")
++-column_access_list=READ,READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
     +-ColumnRef(type=STRING, column=KeyValue.Value#2)
     +-Literal(type=STRING, value="Value_1")
 ==
 
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 DELETE KeyValue T WHERE T.key = (SELECT count(*) FROM (SELECT P.* FROM KeyValue AS P) )
   THEN RETURN T.key
 --
@@ -2053,6 +1997,7 @@ DeleteStmt
 | +-ReturningClause
 |   +-output_column_list=
 |     +-KeyValue.Key#1 AS key [INT64]
++-column_access_list=READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
     +-ColumnRef(type=INT64, column=KeyValue.Key#1)
@@ -2075,7 +2020,6 @@ DeleteStmt
 ==
 
 # dot-star used on field access in DML subqueries.
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 DELETE TestTable WHERE KitchenSink.int32_val = (SELECT COUNT(*) FROM (SELECT P.KitchenSink.nested_value.* FROM TestTable AS P))
 THEN RETURN *
 --
@@ -2088,6 +2032,7 @@ DeleteStmt
 |     +-TestTable.key#1 AS key [INT32]
 |     +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
 |     +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
++-column_access_list=READ,READ,READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
     +-Cast(INT32 -> INT64)
@@ -2157,7 +2102,6 @@ DeleteStmt
 ==
 
 # dot-star used on field access in DML THEN RETURN subqueries.
-[language_features=V_1_3_DML_RETURNING,V_1_1_SELECT_STAR_EXCEPT_REPLACE]
 DELETE TestTable WHERE KitchenSink.int32_val = 3
 THEN RETURN key, (SELECT COUNT(*) FROM (SELECT P.KitchenSink.nested_value.* FROM TestTable AS P)) as mycount
 --
@@ -2227,6 +2171,7 @@ DeleteStmt
 |                 |         +-TableScan(column_list=[TestTable.KitchenSink#6], table=TestTable, column_index_list=[2], alias="P")
 |                 +-aggregate_list=
 |                   +-$agg1#12 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
++-column_access_list=READ,READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
     +-GetProtoField
@@ -2236,3 +2181,144 @@ DeleteStmt
     | +-field_descriptor=int32_val
     | +-default_value=77
     +-Literal(type=INT32, value=3)
+==
+
+INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN COUNT(*) GROUP BY key
+--
+ERROR: Syntax error: Expected end of input but got keyword GROUP [at 1:74]
+...key, value) VALUES (1, "one") THEN RETURN COUNT(*) GROUP BY key
+                                                      ^
+==
+
+INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN COUNT(*)
+--
+ERROR: THEN RETURN clause cannot use aggregation [at 1:53]
+INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN COUNT(*)
+                                                    ^
+==
+
+DELETE TestTable WHERE TRUE THEN RETURN COUNT(*)
+--
+ERROR: THEN RETURN clause cannot use aggregation [at 1:29]
+DELETE TestTable WHERE TRUE THEN RETURN COUNT(*)
+                            ^
+==
+
+DELETE TestTable WHERE KitchenSink.int32_val = 3
+THEN RETURN key, (SELECT COUNT(*) from KeyValue) as col2, SUM(key);
+--
+ERROR: THEN RETURN clause cannot use aggregation [at 2:1]
+THEN RETURN key, (SELECT COUNT(*) from KeyValue) as col2, SUM(key);
+^
+==
+
+# Window aggregates are not supported.
+[language_features=V_1_3_DML_RETURNING,ANALYTIC_FUNCTIONS]
+DELETE TestTable WHERE KitchenSink.int32_val = 3
+THEN RETURN key, COUNT(key) OVER() AS total;
+--
+ERROR: THEN RETURN clause cannot use analytic functions [at 2:1]
+THEN RETURN key, COUNT(key) OVER() AS total;
+^
+==
+
+DELETE TestTable WHERE KitchenSink.int32_val = 3
+THEN RETURN key, (SELECT COUNT(*) from TestTable) as col2;
+--
+DeleteStmt
++-table_scan=
+| +-TableScan(column_list=TestTable.[key#1, KitchenSink#3], table=TestTable, column_index_list=[0, 2])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-TestTable.key#1 AS key [INT32]
+|   | +-TestTable.col2#8 AS col2 [INT64]
+|   +-expr_list=
+|     +-col2#8 :=
+|       +-SubqueryExpr
+|         +-type=INT64
+|         +-subquery_type=SCALAR
+|         +-subquery=
+|           +-ProjectScan
+|             +-column_list=[$aggregate.$agg1#7]
+|             +-input_scan=
+|               +-AggregateScan
+|                 +-column_list=[$aggregate.$agg1#7]
+|                 +-input_scan=
+|                 | +-TableScan(table=TestTable)
+|                 +-aggregate_list=
+|                   +-$agg1#7 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
++-column_access_list=READ,READ
++-where_expr=
+  +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
+    +-GetProtoField
+    | +-type=INT32
+    | +-expr=
+    | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    | +-field_descriptor=int32_val
+    | +-default_value=77
+    +-Literal(type=INT32, value=3)
+==
+
+DELETE KeyValue WHERE key = 1;
+--
+DeleteStmt
++-table_scan=
+| +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
++-column_access_list=READ
++-where_expr=
+  +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    +-Literal(type=INT64, value=1)
+==
+
+DELETE KeyValue WHERE key = 1 THEN RETURN value;
+--
+DeleteStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-KeyValue.Value#2 AS value [STRING]
++-column_access_list=READ,READ
++-where_expr=
+  +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+    +-Literal(type=INT64, value=1)
+==
+
+INSERT INTO KeyValue (key) VALUES (1);
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
++-insert_column_list=[KeyValue.Key#1]
++-row_list=
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=INT64, value=1)
++-column_access_list=WRITE
+==
+
+INSERT INTO KeyValue (key) VALUES (1) THEN RETURN key, value;
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-KeyValue.Key#1 AS key [INT64]
+|     +-KeyValue.Value#2 AS value [STRING]
++-insert_column_list=[KeyValue.Key#1]
++-row_list=
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=INT64, value=1)
++-column_access_list=READ_WRITE,READ
+==

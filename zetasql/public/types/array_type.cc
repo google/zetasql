@@ -160,14 +160,17 @@ absl::StatusOr<std::string> ArrayType::TypeNameWithModifiers(
   }
 
   const Collation& collation = type_modifiers.collation();
-  // TODO: Implement logic to print type name with collation.
-  ZETASQL_RET_CHECK(collation.Empty());
+  if (!collation.HasCompatibleStructure(this)) {
+    return MakeSqlError() << "Input collation " << collation.DebugString()
+                          << " is not compatible with type " << DebugString();
+  }
+
   ZETASQL_ASSIGN_OR_RETURN(
       std::string element_type_name,
       element_type_->TypeNameWithModifiers(
           TypeModifiers::MakeTypeModifiers(
               type_params.IsEmpty() ? TypeParameters() : type_params.child(0),
-              Collation()),
+              collation.Empty() ? Collation() : collation.child(0)),
           mode));
   return absl::StrCat("ARRAY<", element_type_name, ">");
 }
@@ -186,7 +189,6 @@ absl::Status ArrayType::ValidateResolvedTypeParameters(
   if (type_parameters.IsEmpty()) {
     return absl::OkStatus();
   }
-  ZETASQL_RET_CHECK(type_parameters.IsStructOrArrayParameters());
   ZETASQL_RET_CHECK_EQ(type_parameters.num_children(), 1);
   return element_type_->ValidateResolvedTypeParameters(type_parameters.child(0),
                                                        mode);

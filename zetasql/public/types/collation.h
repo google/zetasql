@@ -18,6 +18,8 @@
 #define ZETASQL_PUBLIC_TYPES_COLLATION_H_
 
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "zetasql/public/collation.pb.h"
 #include "zetasql/public/types/annotation.h"
@@ -39,6 +41,12 @@ class Collation {
   // instance.
   static absl::StatusOr<Collation> MakeCollation(
       const AnnotationMap& annotation_map);
+
+  // Makes a Collation instance with input <child_list>. If all collations
+  // inside <child_list> are empty, an empty Collation will be returned for
+  // normalization purpose.
+  static Collation MakeCollationWithChildList(
+      std::vector<Collation> child_list);
 
   // Makes a Collation instance for scalar type.
   static Collation MakeScalar(absl::string_view collation_name);
@@ -105,6 +113,13 @@ class Collation {
       const std::vector<Collation>& resolved_collation_list);
 
  private:
+  Collation(absl::string_view collation_name, std::vector<Collation> child_list)
+      : child_list_(std::move(child_list)) {
+    if (!collation_name.empty()) {
+      collation_name_ = SimpleValue::String(std::string(collation_name));
+    }
+  }
+
   // Stores Collation for subfields for ARRAY/STRUCT types.
   // <child_list_> could be empty to indicate that the ARRAY/STRUCT doesn't have
   // collation in subfield(s).

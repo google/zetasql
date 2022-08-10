@@ -14,16 +14,11 @@
 // limitations under the License.
 //
 
-#ifndef ZETASQL_ANALYZER_REWRITERS_LET_EXPR_REWRITER_H_
-#define ZETASQL_ANALYZER_REWRITERS_LET_EXPR_REWRITER_H_
+syntax = "proto2";
 
-#include "zetasql/analyzer/rewriters/rewriter_interface.h"
+package zetasql;
 
-namespace zetasql {
-
-// Gets a pointer to the let expr rewriter.
-const Rewriter* GetLetExprRewriter();
-
-}  // namespace zetasql
-
-#endif  // ZETASQL_ANALYZER_REWRITERS_LET_EXPR_REWRITER_H_
+// Engine-specific extension to a ProcedureDefinition.
+message ProcedureExtension {
+  extensions 1000 to max;
+}

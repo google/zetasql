@@ -18,6 +18,8 @@
 
 #include <cstdint>
 #include <sstream>
+#include <string>
+#include <utility>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/parse_resume_location.h"

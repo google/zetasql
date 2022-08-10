@@ -20,6 +20,7 @@
 #include <stdio.h>
 
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <stack>
 #include <string>
@@ -558,9 +559,10 @@ class JSONPathStringArrayExtractor final : public JSONPathExtractor {
       stack_.top()++;
     }
     if (accept_array_elements_) {
-      if (result_json_.empty()) {
+      if (parsed_null_element_) {
         // This means the array element is the JSON null.
         result_array_.push_back(std::nullopt);
+        parsed_null_element_ = false;
       } else {
         result_array_.push_back(result_json_);
       }
@@ -580,12 +582,15 @@ class JSONPathStringArrayExtractor final : public JSONPathExtractor {
   bool ParsedNull() override {
     if (AcceptableLeaf()) {
       parsed_null_result_ = stop_on_first_match_;
+      parsed_null_element_ = true;
     }
     return !stop_on_first_match_;
   }
 
   // Whether the JSONPath points to an array with scalar elements.
   bool scalar_array_accepted_ = false;
+  // Whether the element that will be part of the result array is null.
+  bool parsed_null_element_ = false;
   std::vector<std::optional<std::string>> result_array_;
 };
 

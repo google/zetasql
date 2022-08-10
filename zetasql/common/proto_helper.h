@@ -18,7 +18,9 @@
 #define ZETASQL_COMMON_PROTO_HELPER_H_
 
 #include <cstdint>
+#include <optional>
 #include <set>
+#include <string>
 
 #include "google/protobuf/compiler/importer.h"
 #include "google/protobuf/descriptor.pb.h"

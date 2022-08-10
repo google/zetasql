@@ -16,6 +16,10 @@
 
 #include "zetasql/scripting/serialization_helpers.h"
 
+#include <string>
+#include <utility>
+
+#include "zetasql/scripting/procedure_extension.pb.h"
 #include "absl/status/statusor.h"
 
 namespace zetasql {
@@ -50,7 +54,7 @@ absl::Status DeserializeVariableProto(
     TypeFactory* type_factory) {
   for (const VariableProto& variable_proto : variables_proto) {
     IdString var_name = id_string_pool->Make(variable_proto.name());
-    ZETASQL_RET_CHECK(!zetasql_base::ContainsKey(*variables, var_name))
+    ZETASQL_RET_CHECK(!variables->contains(var_name))
         << "Duplicate variable " << var_name.ToStringView();
     const Type* type;
     ZETASQL_RETURN_IF_ERROR(type_factory->DeserializeFromSelfContainedProto(
@@ -84,9 +88,13 @@ DeserializeProcedureDefinitionProto(
   } else {
     std::vector<std::string> argument_name_list(
         proto.argument_name_list().begin(), proto.argument_name_list().end());
+    std::unique_ptr<ProcedureExtension> extension = nullptr;
+    if (proto.has_extension()) {
+      extension = std::make_unique<ProcedureExtension>(proto.extension());
+    }
     return std::make_unique<ProcedureDefinition>(
         proto.name(), *function_signature, std::move(argument_name_list),
-        proto.body());
+        proto.body(), nullptr, std::move(extension));
   }
 }
 
@@ -102,6 +110,9 @@ absl::Status SerializeProcedureDefinitionProto(
       procedure_definition.argument_name_list().end()};
   proto->set_body(procedure_definition.body());
   proto->set_is_dynamic_sql(procedure_definition.is_dynamic_sql());
+  if (procedure_definition.extension() != nullptr) {
+    *proto->mutable_extension() = *procedure_definition.extension();
+  }
   return absl::OkStatus();
 }
 

@@ -18,6 +18,8 @@
 #ifndef ZETASQL_REFERENCE_IMPL_TEST_RELATIONAL_OP_H_
 #define ZETASQL_REFERENCE_IMPL_TEST_RELATIONAL_OP_H_
 
+#include <string>
+
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/tuple_test_util.h"
 #include "absl/status/status.h"

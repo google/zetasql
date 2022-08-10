@@ -27,6 +27,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -55,12 +56,10 @@ namespace zetasql {
 
 class Value::TypedList : public zetasql_base::SimpleReferenceCounted {
  public:
-  explicit TypedList(const Type* type) : type_(type) { ZETASQL_CHECK(type != nullptr); }
-
+  TypedList() = default;
   TypedList(const TypedList&) = delete;
   TypedList& operator=(const TypedList&) = delete;
 
-  const Type* type() const { return type_; }
   std::vector<Value>& values() { return values_; }
   uint64_t physical_byte_size() const {
     if (physical_byte_size_.has_value()) {
@@ -75,7 +74,6 @@ class Value::TypedList : public zetasql_base::SimpleReferenceCounted {
   }
 
  private:
-  const Type* type_;  // not owned
   std::vector<Value> values_;
   mutable std::optional<uint64_t> physical_byte_size_;
 };
@@ -351,6 +349,12 @@ inline Value Value::EmptyGeography() {
   ZETASQL_CHECK(false);
   return NullGeography();
 }
+inline Value Value::UnboundedStartDate() { return NullDate(); }
+inline Value Value::UnboundedEndDate() { return NullDate(); }
+inline Value Value::UnboundedStartDatetime() { return NullDatetime(); }
+inline Value Value::UnboundedEndDatetime() { return NullDatetime(); }
+inline Value Value::UnboundedStartTimestamp() { return NullTimestamp(); }
+inline Value Value::UnboundedEndTimestamp() { return NullTimestamp(); }
 
 inline Value Value::Null(const Type* type) {
   return Value(type);
@@ -544,6 +548,24 @@ inline const Value& Value::element(int i) const {
 inline bool Value::Equals(const Value& that) const {
   return EqualsInternal(*this, that, /*allow_bags=*/false,
                         /*deep_order_spec=*/nullptr, /*options=*/{});
+}
+
+inline const Value& Value::start() const {
+  ZETASQL_CHECK_EQ(TYPE_RANGE, metadata_.type_kind())  // Crash ok
+      << "Not a range value";
+  ZETASQL_CHECK(!is_null()) << "Null value";  // Crash ok
+  ZETASQL_CHECK(type()->IsRange());           // Crash ok
+  ZETASQL_CHECK_EQ(list_ptr_->values().size(), 2);  // Crash ok
+  return list_ptr_->values().at(0);
+}
+
+inline const Value& Value::end() const {
+  ZETASQL_CHECK_EQ(TYPE_RANGE, metadata_.type_kind())  // Crash ok
+      << "Not a range value";
+  ZETASQL_CHECK(!is_null()) << "Null value";  // Crash ok
+  ZETASQL_CHECK(type()->IsRange());           // Crash ok
+  ZETASQL_CHECK_EQ(list_ptr_->values().size(), 2);  // Crash ok
+  return list_ptr_->values().at(1);
 }
 
 template <typename H>
@@ -855,6 +877,11 @@ inline Value False() {
   return Value::Bool(false);
 }
 inline Value EmptyGeography() { return Value::EmptyGeography(); }
+inline Value Range(Value start, Value end) {
+  absl::StatusOr<Value> value = Value::MakeRange(start, end);
+  ZETASQL_DCHECK_OK(value);
+  return std::move(value).value();
+}
 inline Value NullInt32() { return Value::NullInt32(); }
 inline Value NullInt64() { return Value::NullInt64(); }
 inline Value NullUint32() { return Value::NullUint32(); }

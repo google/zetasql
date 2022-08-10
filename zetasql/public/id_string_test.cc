@@ -16,6 +16,7 @@
 
 #include "zetasql/public/id_string.h"
 
+#include <algorithm>
 #include <set>
 #include <unordered_set>
 
@@ -395,7 +396,6 @@ TEST(IdStringPool, Lifetime) {
   EXPECT_DEATH(s5.size(), kPoolIsDeadMsg);
   EXPECT_DEATH(s5.length(), kPoolIsDeadMsg);
   EXPECT_DEATH(s5[0], kPoolIsDeadMsg);
-  EXPECT_DEATH(s5.data(), kPoolIsDeadMsg);
   EXPECT_DEATH(s5.substr(0, 1), kPoolIsDeadMsg);
   EXPECT_DEATH({ char buffer[2]; s5.copy(buffer, 1, 0); },
                      kPoolIsDeadMsg);

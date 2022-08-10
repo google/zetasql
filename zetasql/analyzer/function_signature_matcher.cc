@@ -96,7 +96,7 @@ class FunctionSignatureMatcher {
   const LanguageOptions& language_;  // Not owned.
   const Coercer& coercer_;           // Not owned.
   const bool allow_argument_coercion_;
-  TypeFactory* type_factory_;        // Not owned.
+  TypeFactory* type_factory_;  // Not owned.
 
   // Represents the argument types corresponding to a SignatureArgumentKind.
   // There are three possibilities:
@@ -396,9 +396,10 @@ absl::StatusOr<bool> FunctionSignatureMatcher::GetConcreteArgument(
     for (const FunctionArgumentType& arg_type :
          argument.lambda().argument_types()) {
       std::unique_ptr<FunctionArgumentType> concrete_arg_type;
-      ZETASQL_ASSIGN_OR_RETURN(const bool matches,
-                       GetConcreteArgument(arg_type, /*num_occurrences=*/1,
-                               templated_argument_map, &concrete_arg_type));
+      ZETASQL_ASSIGN_OR_RETURN(
+          const bool matches,
+          GetConcreteArgument(arg_type, /*num_occurrences=*/1,
+                              templated_argument_map, &concrete_arg_type));
       if (!matches) {
         return false;
       }
@@ -441,8 +442,8 @@ FunctionSignatureMatcher::GetConcreteArguments(
       const FunctionArgumentType& argument = signature.argument(i);
       if (argument.kind() == ARG_TYPE_ARBITRARY) {
         // For arbitrary type arguments the type is derived from the input.
-        resolved_argument_list.emplace_back(
-            input_arguments[i].type(), argument.cardinality(), 1);
+        resolved_argument_list.emplace_back(input_arguments[i].type(),
+                                            argument.cardinality(), 1);
       } else {
         std::unique_ptr<FunctionArgumentType> argument_type;
         // GetConcreteArgument may fail if templated argument's type is not
@@ -545,8 +546,8 @@ FunctionSignatureMatcher::GetConcreteArguments(
 }  // namespace
 
 bool SignatureArgumentCountMatches(const FunctionSignature& signature,
-                                   int input_arguments_size,
-                                   int* repetitions, int* optionals) {
+                                   int input_arguments_size, int* repetitions,
+                                   int* optionals) {
   const int num_required = signature.NumRequiredArguments();
 
   *repetitions = 0;
@@ -1020,8 +1021,9 @@ absl::Status FunctionSignatureMatcher::CheckRelationArgumentTypes(
     const std::string& provided_col_name =
         provided_schema.column(provided_col_idx).name;
     if (zetasql_base::ContainsKey(required_col_names, provided_col_name)) {
-      if (!zetasql_base::InsertOrUpdate(&provided_col_name_to_required_col_idx,
-                               provided_col_name, provided_col_idx)) {
+      if (!provided_col_name_to_required_col_idx
+               .insert_or_assign(provided_col_name, provided_col_idx)
+               .second) {
         // There was a duplicate column name in the input relation. This is
         // invalid.
         signature_match_result->set_mismatch_message(absl::StrCat(
@@ -1290,9 +1292,9 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
 
   // Sanity check to verify that templated array element types and their
   // corresponding templated types match.
-  std::vector<std::pair<SignatureArgumentKind, SignatureArgumentKind>> kinds
-      ({{ARG_TYPE_ANY_1, ARG_ARRAY_TYPE_ANY_1},
-        {ARG_TYPE_ANY_2, ARG_ARRAY_TYPE_ANY_2}});
+  std::vector<std::pair<SignatureArgumentKind, SignatureArgumentKind>> kinds(
+      {{ARG_TYPE_ANY_1, ARG_ARRAY_TYPE_ANY_1},
+       {ARG_TYPE_ANY_2, ARG_ARRAY_TYPE_ANY_2}});
   for (const auto& kind : kinds) {
     const Type** arg_type =
         zetasql_base::FindOrNull(resolved_templated_arguments, kind.first);
@@ -1301,16 +1303,18 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
           zetasql_base::FindOrNull(resolved_templated_arguments, kind.second);
       if (arg_related_type != nullptr) {
         if ((*arg_type)->IsArray()) {
-          ZETASQL_DCHECK((*arg_type)->AsArray()->element_type()->
-                   Equals(*arg_related_type))
+          ZETASQL_DCHECK(
+              (*arg_type)->AsArray()->element_type()->Equals(*arg_related_type))
               << "arg_type: " << (*arg_type)->DebugString()
               << "\nelement_type: "
               << (*arg_type)->AsArray()->element_type()->DebugString()
               << "\narg_related_type: " << (*arg_related_type)->DebugString();
         } else {
           ZETASQL_DCHECK((*arg_related_type)->IsArray());
-          ZETASQL_DCHECK((*arg_related_type)->AsArray()->element_type()->
-                   Equals(*arg_type));
+          ZETASQL_DCHECK((*arg_related_type)
+                     ->AsArray()
+                     ->element_type()
+                     ->Equals(*arg_type));
         }
       }
     }
@@ -1368,14 +1372,12 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
         // we can change this, without completely breaking existing
         // implementations and queries.
         signature_match_result->incr_literals_coerced();
-        signature_match_result->incr_literals_distance(
-            GetLiteralCoercionCost(Value::NullInt64(),
-                                   signature_argument_type));
+        signature_match_result->incr_literals_distance(GetLiteralCoercionCost(
+            Value::NullInt64(), signature_argument_type));
       } else if (input_arguments[idx].is_literal()) {
         signature_match_result->incr_literals_coerced();
-        signature_match_result->incr_literals_distance(
-            GetLiteralCoercionCost(*input_arguments[idx].literal_value(),
-                                   signature_argument_type));
+        signature_match_result->incr_literals_distance(GetLiteralCoercionCost(
+            *input_arguments[idx].literal_value(), signature_argument_type));
       } else {
         signature_match_result->incr_non_literals_coerced();
         signature_match_result->incr_non_literals_distance(
@@ -1398,25 +1400,6 @@ absl::StatusOr<bool> FunctionSignatureMatcher::SignatureMatches(
 
 }  // namespace
 
-ABSL_DEPRECATED("Inline me!")
-bool FunctionSignatureMatches(
-    const LanguageOptions& language_options, const Coercer& coercer,
-    const std::vector<const ASTNode*>& arg_ast_nodes,
-    const std::vector<InputArgumentType>& input_arguments,
-    const FunctionSignature& signature, bool allow_argument_coercion,
-    TypeFactory* type_factory,
-    const ResolveLambdaCallback* resolve_lambda_callback,
-    std::unique_ptr<FunctionSignature>* result_signature,
-    SignatureMatchResult* signature_match_result,
-    std::vector<FunctionArgumentOverride>* arg_overrides) {
-  absl::StatusOr<bool> status_or = FunctionSignatureMatchesWithStatus(
-      language_options, coercer, arg_ast_nodes, input_arguments, signature,
-      allow_argument_coercion, type_factory, resolve_lambda_callback,
-      result_signature, signature_match_result, arg_overrides);
-  ZETASQL_DCHECK_OK(status_or.status());
-  return status_or.value_or(false);
-}
-
 absl::StatusOr<bool> FunctionSignatureMatchesWithStatus(
     const LanguageOptions& language_options, const Coercer& coercer,
     const std::vector<const ASTNode*>& arg_ast_nodes,
@@ -1430,8 +1413,8 @@ absl::StatusOr<bool> FunctionSignatureMatchesWithStatus(
   FunctionSignatureMatcher signature_matcher(
       language_options, coercer, allow_argument_coercion, type_factory);
   return signature_matcher.SignatureMatches(
-          arg_ast_nodes, input_arguments, signature, resolve_lambda_callback,
-          result_signature, signature_match_result, arg_overrides);
+      arg_ast_nodes, input_arguments, signature, resolve_lambda_callback,
+      result_signature, signature_match_result, arg_overrides);
 }
 
 }  // namespace zetasql

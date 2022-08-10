@@ -30,6 +30,7 @@ import com.google.protobuf.UInt32Value;
 import com.google.protobuf.UInt64Value;
 import com.google.zetasql.functions.ZetaSQLDateTime.DateTimestampPart;
 import com.google.zetasql.functions.ZetaSQLNormalizeMode.NormalizeMode;
+import com.google.zetasql.functions.ZetaSQLRoundingMode.RoundingMode;
 import com.google.type.Date;
 import com.google.type.LatLng;
 import com.google.type.TimeOfDay;
@@ -44,6 +45,7 @@ final class BuiltinDescriptorPool {
       ImmutableDescriptorPool.builder()
           .importFileDescriptor(DateTimestampPart.getDescriptor().getFile())
           .importFileDescriptor(NormalizeMode.getDescriptor().getFile())
+          .importFileDescriptor(RoundingMode.getDescriptor().getFile())
           .importFileDescriptor(Timestamp.getDescriptor().getFile())
           .importFileDescriptor(Date.getDescriptor().getFile())
           .importFileDescriptor(TimeOfDay.getDescriptor().getFile())

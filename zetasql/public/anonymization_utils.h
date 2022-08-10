@@ -25,6 +25,14 @@
 namespace zetasql {
 namespace anonymization {
 
+// We are rewriting ANON_VAR_POP, ANON_STDDEV_POP, ANON_PERCENTILE_CONT, and
+// ANON_QUANTILES, to per-user aggregation
+// ARRAY_AGG(expr IGNORE NULLS ORDER BY rand() LIMIT 5).
+// The limit of 5 is proposed to be consistent with the current
+// implementation, and at some point we may want to make this configurable.
+// For more information, see (broken link).
+static constexpr int kPerUserArrayAggLimit = 5;
+
 // Computes anonymization option k-threshold from epsilon, delta, and kappa.
 // Epsilon and delta must be a valid Value, while kappa is optional
 // (as indicated by an invalid Value).

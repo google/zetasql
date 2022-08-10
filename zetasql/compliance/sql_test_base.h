@@ -63,10 +63,14 @@
 #ifndef ZETASQL_COMPLIANCE_SQL_TEST_BASE_H_
 #define ZETASQL_COMPLIANCE_SQL_TEST_BASE_H_
 
+#include <functional>
 #include <map>
 #include <memory>
+#include <ostream>
 #include <set>
 #include <string>
+#include <utility>
+#include <variant>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -83,83 +87,51 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/cleanup/cleanup.h"
+#include "absl/container/btree_map.h"
 #include "absl/container/btree_set.h"
 #include "absl/container/node_hash_set.h"
-#include "absl/memory/memory.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
-#include "absl/time/time.h"
 #include "file_based_test_driver/file_based_test_driver.h"  
 #include "file_based_test_driver/run_test_case_result.h"
 #include "file_based_test_driver/test_case_options.h"
 #include "re2/re2.h"
 #include "zetasql/base/status.h"
 
-namespace zetasql {
-class SQLTestBase;
-}  // namespace zetasql
+ABSL_DECLARE_FLAG(
+    bool,
+    zetasql_compliance_fail_reference_if_unneeded_required_feature_declared);
+ABSL_DECLARE_FLAG(bool, zetasql_compliance_write_labels_to_file);
 
 namespace zetasql {
+class Stats;  // Defined in implementation file.
+class FilebasedSQLTestFileOptions;
+class FilebasedSQLTestCaseOptions;
 
 std::string ScriptResultToString(const ScriptResult& result);
 
+// Encapsulates the details of an individual SQL test case.
+class SQLTestCase {
+ public:
+  using ParamsMap = std::map<std::string, Value>;
+
+  SQLTestCase(absl::string_view name, absl::string_view sql,
+              const ParamsMap& params)
+      : name_(name), sql_(sql), params_(params) {}
+
+  absl::string_view name() const { return name_; }
+  absl::string_view sql() const { return sql_; }
+  const ParamsMap& params() const { return params_; }
+
+ private:
+  std::string name_;
+  std::string sql_;
+  ParamsMap params_;
+};
+
 class SQLTestBase : public ::testing::TestWithParam<std::string> {
  public:
-  using ComplianceTestCaseResult = absl::variant<Value, ScriptResult>;
-
-  const std::string kDefaultTimeZone = "default_time_zone";
-  const std::string kDescription = "description";
-  const std::string kGlobalLabels = "global_labels";
-  const std::string kLabels = "labels";
-  const std::string kLoadEnumNames = "load_enum_names";
-  const std::string kLoadProtoFiles = "load_proto_files";
-  const std::string kLoadProtoNames = "load_proto_names";
-  const std::string kName = "name";
-  const std::string kParameters = "parameters";
-  const std::string kPrepareDatabase = "prepare_database";
-
-  // These are comma-separated lists of LanguageFeature enums, without the
-  // FEATURE_ prefix.  If these are set, when testing against the reference
-  // implementation, the test will run multiple times, with features in
-  // test_features1 on or off, and features in test_features2 on or off, and
-  // all outputs will be shown in the golden file.
-  // When testing against a non-reference implementation, each test runs only
-  // once, and the output is compared to the reference implementation's output
-  // when running with the engines options, provided by
-  // TestDriver::GetSupportedLanguageOptions.
-  const std::string kTestFeatures1 = "test_features1";
-  const std::string kTestFeatures2 = "test_features2";
-
-  // A comma-separated list of LanguageFeature enums,
-  // without the FEATURE_ prefix. If it is set, the test will be run
-  // against the implementations that support the features.
-  const std::string kRequiredFeatures = "required_features";
-
-  // Same as kRequiredFeatures, but skip tests that have these features
-  // enabled. These must all be features that are annotated with
-  // ideally_enabled=false in options.proto.
-  const std::string kForbiddenFeatures = "forbidden_features";
-
-  // The name of a PrimaryKeyMode enum value. See the comment for that enum in
-  // test_driver.h for details.
-  const std::string kPrimaryKeyMode = "primary_key_mode";
-
-  // Defines the default number of rows of random data per table.
-  const int kDefaultTableSize = 100;
-
-  // Constants for code-based statement names.
-  // A name must be RE2 safe. All unsafe characters will be replaced by '@'.
-  const char kSafeChar = '@';
-  const std::string kSafeString = std::string(1, kSafeChar);
-  // For a long string, a signature is generated, which is the left 8
-  // characters of the string, followed by the fingerprint of the string,
-  // followed by the right 8 characters of the string.
-  const int kLengthOfLeftSlice = 8;
-  const int kLengthOfRightSlice = 8;
-
-  // Override this method to return the name of the test suite.
-  // This makes SQLTestBase an abstract class.
-  virtual const std::string GetTestSuiteName() = 0;
+  using ComplianceTestCaseResult = std::variant<Value, ScriptResult>;
 
   // Returns a debug string.
   static std::string ToString(
@@ -169,67 +141,31 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // Returns the error matcher to match legal runtime errors.
   static MatcherCollection<absl::Status>* legal_runtime_errors();
 
- protected:
-  friend class StatementResultMatcher;
+  // Returns OK if the first column is the primary key column for all TestTables
+  // in a TestDatabase (which is needed to support engines that require every
+  // table to have a primary key). Specifically, the first column must meet the
+  // following criteria:
+  //   1. SupportsGrouping() is true for the type of the column
+  //   2. Does not have NULL Values
+  //   3. Does not have duplicated Values
+  static absl::Status ValidateFirstColumnPrimaryKey(
+      const TestDatabase& test_db, const LanguageOptions& language_options);
 
-  SQLTestBase();
+  // Override this method to return the name of the test suite.
+  // This makes SQLTestBase an abstract class.
+  virtual const std::string GetTestSuiteName() = 0;
 
-  // Does not take ownership of the pointers. 'reference_driver' must be NULL if
-  // and only if either 'test_driver' is NULL or
-  // 'test_driver->IsReferenceImplementation()' is true.
-  //
-  // If 'test_driver' is NULL, the destructor is the only method that can be
-  // called on the resulting object. This is a hack to facilitate creating the
-  // code-based compliance test data structures through googletest but then
-  // skipping the actual tests (which presumably are being run in another BUILD
-  // target).
-  SQLTestBase(TestDriver* test_driver, ReferenceDriver* reference_driver);
-  SQLTestBase(const SQLTestBase&) = delete;
-  SQLTestBase& operator=(const SQLTestBase&) = delete;
-  ~SQLTestBase() override;
-
-  void ClearParameters() { parameters_.clear(); }
-
-  // Return true if we are testing the reference implementation.
-  // In this mode, we should run all statements, in all relevant modes, and test
-  // all outputs (against expected outputs from code or from files).
-  //
-  // When this is false, we are testing an engine and comparing its output to
-  // the reference implementation's output.  We will run each statement using
-  // the engine's options (from TestDriver::GetSupportedLanguageOptions) and
-  // compare against the reference output with the same options.
-  //
-  // TODO: There are many blocks of code in the cc file that look like:
-  // if (IsTestingReferenceImpl()) {
-  //   ...  // Do something
-  // } else {
-  //   ... // Do something else
-  // }
-  // Consider creating another interface with two implementations of each
-  // method: one that implements the behavior for testing the reference
-  // implementation, and one that implements the behavior for testing a real
-  // engine.
-  bool IsTestingReferenceImpl() const {
-    return driver()->IsReferenceImplementation();
-  }
-
-  virtual absl::Status CreateDatabase(const TestDatabase& test_db);
-
-  // Executes a test case, either as a standalone statement, or as a script,
-  // depending on <script_mode_>.
-  absl::StatusOr<ComplianceTestCaseResult> ExecuteTestCase(
-      const std::string& sql, const std::map<std::string, Value>& parameters);
-
- public:
-  // Executes 'sql', as a standalone statement.
-  virtual absl::StatusOr<Value> ExecuteStatement(
-      const std::string& sql, const std::map<std::string, Value>& parameters);
+  // This function is used as an entry point for some codebased compliance
+  // tests.  It should be avoided because it misses the unique_name_test checks.
+  [[deprecated("Use RunSQL")]] absl::StatusOr<ComplianceTestCaseResult>
+  ExecuteStatement(const std::string& sql,
+                   const std::map<std::string, Value>& parameters);
 
   // Use file-based test driver to run tests of a given file. Will be called
   // by TEST_P(...).
   //
   // Make it protected so it can be called by TEST_P(...) from a subclass.
-  void RunSQLTests(const std::string& filename);
+  void RunSQLTests(absl::string_view filename);
 
   // Each test driver can call this method to specify known error entries
   // that are non file-based.
@@ -288,8 +224,8 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // tests must use these matchers to compare results.
   //
   // Sample syntax of the gMock matchers.
-  //   EXPECT_THAT(RunStatement(sql), Returns(x));
-  //   EXPECT_THAT(RunStatement(sql), ReturnsSuccess());
+  //   EXPECT_THAT(RunSQL(sql), Returns(x));
+  //   EXPECT_THAT(RunSQL(sql), ReturnsSuccess());
   ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&> Returns(
       const Value& result, const absl::Status& status = absl::OkStatus(),
       FloatMargin float_margin = kExactFloatMargin) {
@@ -315,11 +251,16 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   ReturnsCheckOnly(const absl::StatusOr<ComplianceTestCaseResult>& result,
                    FloatMargin float_margin = kExactFloatMargin);
 
-  // Runs statements with optional parameters. Parameters can have optional
-  // names.
-  absl::StatusOr<ComplianceTestCaseResult> RunStatement(
-      const std::string& sql, const std::vector<Value>& params = {},
-      const std::vector<std::string>& param_names = {});
+  // Run a "codebased" compliance or RQG test with optional parameters. 'sql'
+  // can be either a statement or a script depending on the 'script_mode_' state
+  // of SQLTestBase.
+  // If 'permit_compile_failure' is set to false, an error from the Resolver
+  // will cause the test to fail. This is used to enforce that compliance tests
+  // are not used to test resolver code, for which analyzer tests are more
+  // appropriate.
+  absl::StatusOr<ComplianceTestCaseResult> RunSQL(
+      absl::string_view sql, const SQLTestCase::ParamsMap& params = {},
+      bool permit_compile_failure = true);
 
   // Returns a Catalog that includes the tables specified in the active
   // TestDatabase. Owned by the reference driver internal to this class.
@@ -327,136 +268,11 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
 
   // Return the location string. Name is optional as it is defined only in
   // a *.test file for a statement.
-  std::string Location(const std::string& filename, int line_num,
-                       const std::string& name = "") const;
+  std::string Location(absl::string_view filename, int line_num,
+                       absl::string_view name = "") const;
 
   // Get the current product mode of the test driver.
-  ProductMode product_mode() {
-    return driver()->GetSupportedLanguageOptions().product_mode();
-  }
-
-  // Stats over all tests in a test case.
-  class Stats {
-   public:
-    Stats();
-    Stats(const Stats&) = delete;
-    Stats& operator=(const Stats&) = delete;
-
-    // Record executed statements.
-    void RecordExecutedStatement();
-
-    // As above, but no-op if `check_only` is true.
-    void RecordExecutedStatement(bool check_only) {
-      if (!check_only) {
-        return RecordExecutedStatement();
-      }
-    }
-
-    // A to-be-removed-from-known-errors statement was in `was_mode`.
-    void RecordToBeRemovedFromKnownErrorsStatement(
-        const std::string& full_name, const KnownErrorMode was_mode);
-
-    // As above, but a no-op if `check_only` is true.
-    void RecordToBeRemovedFromKnownErrorsStatement(
-        const std::string& full_name, const KnownErrorMode was_mode,
-        bool check_only) {
-      if (!check_only) {
-        return RecordToBeRemovedFromKnownErrorsStatement(full_name, was_mode);
-      }
-    }
-
-    // A to-be-upgraded statement was in `was_mode`, and will
-    // upgrade to `new_mode`.
-    void RecordToBeUpgradedStatement(const std::string& full_name,
-                                     const KnownErrorMode was_mode,
-                                     const KnownErrorMode new_mode);
-
-    // As above, but a no-op if `check_only` is true.
-    void RecordToBeUpgradedStatement(const std::string& full_name,
-                                     const KnownErrorMode was_mode,
-                                     const KnownErrorMode new_mode,
-                                     bool check_only) {
-      if (!check_only) {
-        return RecordToBeUpgradedStatement(full_name, was_mode, new_mode);
-      }
-    }
-
-    // The failed statement will be put into to-be-added-to-known-errors list
-    // with `new_mode`. The statement was in `was_mode`.
-    void RecordFailedStatement(const std::string& msg,
-                               const std::string& location,
-                               const std::string& full_name,
-                               const KnownErrorMode was_mode,
-                               const KnownErrorMode new_mode);
-
-    // As above, but a no-op if `check_only` is true.
-    void RecordFailedStatement(const std::string& msg,
-                               const std::string& location,
-                               const std::string& full_name,
-                               const KnownErrorMode was_mode,
-                               const KnownErrorMode new_mode, bool check_only) {
-      if (!check_only) {
-        RecordFailedStatement(msg, location, full_name, was_mode, new_mode);
-      }
-    }
-
-    // Composes a cancellation report, records it as a failure.
-    void RecordCancelledStatement(const std::string& location,
-                                  const std::string& full_name,
-                                  const KnownErrorMode was_mode,
-                                  const KnownErrorMode new_mode,
-                                  const std::string& reason,
-                                  const std::string& detail);
-
-    // Records a known error statement with its mode and the set of labels that
-    // caused it to fail.
-    void RecordKnownErrorStatement(const std::string& location,
-                                   const KnownErrorMode mode,
-                                   const absl::btree_set<std::string>& by_set);
-
-    // Record the runtime duration of a executed statement.
-    void RecordStatementExecutionTime(absl::Duration elapsed);
-
-    void LogGoogletestProperties() const;
-
-    // Print report to log file.
-    void LogReport() const;
-
-    // Used to tell RecordFailedCode/FileBasedStatement(...) whether we are
-    // running a file-based test.
-    void StartFileBasedStatements() { file_based_statements_ = true; }
-    void EndFileBasedStatements() { file_based_statements_ = false; }
-    // Used by ::testing::Matcher<const absl::StatusOr<Value>&> to call
-    // the right RecordFailed*Statement().
-    bool IsFileBasedStatement() { return file_based_statements_; }
-
-   private:
-    // Accepts an iterable (e.g., set or vector) of strings, and log it in
-    // batches.
-    template <class Iterable>
-    void LogBatches(const Iterable& iterable, const std::string& title,
-                    const std::string& delimiter) const;
-
-    // Composes the following string.
-    //   "label: <label>    # was: <was_mode> - new mode: <new_mode>"
-    std::string LabelString(const std::string& label,
-                            const KnownErrorMode was_mode,
-                            const KnownErrorMode new_mode) const;
-
-    int num_executed_ = 0;
-    std::vector<std::string> failures_;
-
-    std::set<std::string> to_be_added_to_known_errors_;
-    std::set<std::string> to_be_removed_from_known_errors_;
-    std::set<std::string> to_be_upgraded_;
-
-    int num_known_errors_ = 0;
-
-    bool file_based_statements_ = false;
-  };
-
-  // Shared resource of Stats over all tests in a test case.
-  static std::unique_ptr<Stats> stats_;
+  ProductMode product_mode() const;
 
   // Add labels for the remainder of the current scope.
   class ScopedLabel {
@@ -504,25 +320,12 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // access it.
   absl::btree_set<std::string> GetCodeBasedLabels();
 
-  // Helper function to implement ExecuteTestCase(), either when
-  // executing a script, or when ExecuteStatement() isn't overridden.
-  absl::StatusOr<ComplianceTestCaseResult> ExecuteTestCaseImpl(
-      const std::string& sql, const std::map<std::string, Value>& parameters);
-
   // Internal state that controls the file-level workflow.
   enum FileWorkflow { CREATE_DATABASE, FIRST_STATEMENT, REST_STATEMENTS };
   FileWorkflow file_workflow() { return file_workflow_; }
-  void set_file_workflow(FileWorkflow workflow) { file_workflow_ = workflow; }
   const TestDatabase& test_db() { return test_db_; }
 
-  const std::unique_ptr<file_based_test_driver::TestCaseOptions>& options() {
-    return options_;
-  }
-
-  // TODO: Move the following to private once all subclasses migrate to
-  // the method version.
-  FileWorkflow file_workflow_;
-  std::unique_ptr<file_based_test_driver::TestCaseOptions> options_;
+  const std::unique_ptr<file_based_test_driver::TestCaseOptions>& options();
 
   // Initializes file level internal state. Can be overridden by a subclass to
   // initialize an extended state space.
@@ -531,17 +334,15 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // Internal state that controls the statement-level workflow.
   enum StatementWorkflow { NORMAL, CANCELLED, KNOWN_ERROR, SKIPPED };
   StatementWorkflow statement_workflow() { return statement_workflow_; }
-  const std::string& sql() { return sql_; }  // The SQL string.
-  const std::string& full_name() {
-    return full_name_;
-  }  // <filename>:<statement_name>.
-  const std::string& location() {
-    return location_;
-  }  // 'FILE-*-LINE-*-NAME-*'.
-  const std::map<std::string, Value>&
-  parameters() {  // Parameters to SQL statement.
-    return parameters_;
-  }
+  const std::string& sql() const { return sql_; }
+
+  // <filename>:<statement_name>.
+  const std::string& full_name() const { return full_name_; }
+
+  // 'FILE-*-LINE-*-NAME-*'.
+  const std::string& location() { return location_; }
+
+  const std::map<std::string, Value>& parameters() const { return parameters_; }
   const file_based_test_driver::RunTestCaseResult* test_result() {
     return test_result_;
   }
@@ -601,12 +402,8 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
 
   // Create the prepared test database for a *.test file.
   virtual void StepCreateDatabase();
-  // Statement-level workflow step functions.
-  virtual void StepParsePrimaryKeyMode();
   // Skips a test if the test requires some features that are not supported.
   virtual void StepSkipUnsupportedTest();
-  // Parse parameters for a statement.
-  virtual void StepParseParameters();
   // Check known errors for a statement.
   virtual void StepCheckKnownErrors();
   // Skips an empty test by setting "statement_workflow_" to SKIPPED.
@@ -680,10 +477,10 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // subclass can access it.
   void SetResultTypeName(const std::string& result_type_name);
 
-  // Generates a name for a code-based statement and store the name in
-  // full_name_.
-  virtual void GenerateCodeBasedStatementName(
-      const std::string& sql, const std::map<std::string, Value>& parameters);
+  // Generates a name for a code-based statement.
+  virtual std::string GenerateCodeBasedStatementName(
+      absl::string_view sql,
+      const std::map<std::string, Value>& parameters) const;
 
   // Make it protected so a subclass can access it, down cast it to an
   // engine-specific test driver, and invoke engine-specific features.
@@ -699,31 +496,51 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
                                             const std::string& actual,
                                             const std::string& extra) const;
 
-  // Returns OK if the first column is the primary key column for all TestTables
-  // in a TestDatabase (which is needed to support engines that require every
-  // table to have a primary key). Specifically, the first column must meet the
-  // following criteria:
-  //   1. SupportsGrouping() is true for the type of the column
-  //   2. Does not have NULL Values
-  //   3. Does not have duplicated Values
-  static absl::Status ValidateFirstColumnPrimaryKey(
-      const TestDatabase& test_db, const LanguageOptions& language_options);
-
  protected:
-  // File-based Parameters
-  //
-  // Parameters can be specified within *.test files by the following test
-  // case options:
-  //
-  //   [parameters=<typed_value> as <param_name>, ...]
-  //   SELECT @<param_name> ...
-  //
-  // A typed value is specified by a SQL expression, such as int32_t(2). The
-  // parameters can be used by the statement in the same section.
+  SQLTestBase();
 
-  // Parse a parameters string, return a map of <param_name>:<typed_value>.
-  absl::Status ParseParameters(const std::string& param_str,
-                               std::map<std::string, Value>* parameters);
+  // Does not take ownership of the pointers. 'reference_driver' must be NULL if
+  // and only if either 'test_driver' is NULL or
+  // 'test_driver->IsReferenceImplementation()' is true.
+  //
+  // If 'test_driver' is NULL, the destructor is the only method that can be
+  // called on the resulting object. This is a hack to facilitate creating the
+  // code-based compliance test data structures through googletest but then
+  // skipping the actual tests (which presumably are being run in another BUILD
+  // target).
+  SQLTestBase(TestDriver* test_driver, ReferenceDriver* reference_driver);
+  SQLTestBase(const SQLTestBase&) = delete;
+  SQLTestBase& operator=(const SQLTestBase&) = delete;
+  ~SQLTestBase() override;
+
+  const absl::btree_set<std::string>& compliance_labels() {
+    return compliance_labels_;
+  }
+
+  void ClearParameters() { parameters_.clear(); }
+
+  // Return true if we are testing the reference implementation.
+  // In this mode, we should run all statements, in all relevant modes, and test
+  // all outputs (against expected outputs from code or from files).
+  //
+  // When this is false, we are testing an engine and comparing its output to
+  // the reference implementation's output.  We will run each statement using
+  // the engine's options (from TestDriver::GetSupportedLanguageOptions) and
+  // compare against the reference output with the same options.
+  //
+  // TODO: There are many blocks of code in the cc file that look like:
+  // if (IsTestingReferenceImpl()) {
+  //   ...  // Do something
+  // } else {
+  //   ... // Do something else
+  // }
+  // Consider creating another interface with two implementations of each
+  // method: one that implements the behavior for testing the reference
+  // implementation, and one that implements the behavior for testing a real
+  // engine.
+  bool IsTestingReferenceImpl() const;
+
+  virtual absl::Status CreateDatabase(const TestDatabase& test_db);
 
   // Parse a comma-separated list of LanguageFeatures.
   // The strings should be LanguageFeature enum names without the FEATURE_
@@ -732,9 +549,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
                                     std::set<LanguageFeature>* features);
 
   // Accessor for the type factory used for populating test tables.
-  TypeFactory* table_type_factory() {
-    return test_setup_driver_->type_factory();
-  }
+  TypeFactory* table_type_factory();
 
   // Accessor for the type factory used for statement execution.
   TypeFactory* execute_statement_type_factory() const {
@@ -743,50 +558,79 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
 
   // Resets the execute statement type factory to free types created during
   // statement execution.
-  void ResetExecuteStatementTypeFactory() {
-    execute_statement_type_factory_ = std::make_unique<TypeFactory>();
-  }
+  void ResetExecuteStatementTypeFactory();
 
-  ReferenceDriver::ExecuteStatementOptions GetExecuteStatementOptions() const {
-    ReferenceDriver::ExecuteStatementOptions options;
-    options.primary_key_mode = primary_key_mode_;
-    return options;
-  }
+  ReferenceDriver::ExecuteStatementOptions GetExecuteStatementOptions() const;
 
   // Accessor for language options of the driver.
-  LanguageOptions driver_language_options() {
-    return driver()->GetSupportedLanguageOptions();
-  }
+  LanguageOptions driver_language_options();
 
   // Returns true if 'driver()' supports 'feature'. ZETASQL_CHECK fails if 'driver()' is
   // the reference implementation and 'feature' is not enabled.
-  bool DriverSupportsFeature(zetasql::LanguageFeature feature) {
-    const bool enabled =
-        driver_language_options().LanguageFeatureEnabled(feature);
-    if (driver()->IsReferenceImplementation()) {
-      // If the tests depend on whether some feature is enabled in the reference
-      // implementation, and that feature is disabled, then something is
-      // probably wrong. This ZETASQL_CHECK helps prevent tests from being silently
-      // skipped.
-      ZETASQL_CHECK(enabled) << LanguageFeature_Name(feature);
-    }
-    return enabled;
-  }
+  bool DriverSupportsFeature(LanguageFeature feature);
+
+  bool IsFileBasedStatement() const;
 
   bool script_mode() const { return script_mode_; }
   void set_script_mode(bool script_mode) { script_mode_ = script_mode; }
 
-  // TODO: Move the following to private once all subclasses migrate to
-  // the method version.
+  // Accessors are public.
+  void set_statement_workflow(StatementWorkflow statement_workflow) {
+    statement_workflow_ = statement_workflow;
+  }
+
+  // Tests can register a test case an inspector callback that peeks at each
+  // test case before it runs. The inspector callback is static so that
+  // it applies to all TestCases even when the test makes multiple instances of
+  // SQLTestBase.
+  using TestCaseInspectorFn =
+      std::function<void(const SQLTestCase& sql_test_case)>;
+  static void RegisterTestCaseInspector(TestCaseInspectorFn* inspector) {
+    test_case_inspector_ = inspector;
+  }
+
+  // Apply a registered inspector to the test case.
+  void InspectTestCase() {
+    if (test_case_inspector_ != nullptr) {
+      (*test_case_inspector_)(SQLTestCase(full_name(), sql(), parameters()));
+    }
+  }
+
+  ReferenceDriver* test_setup_driver() { return test_setup_driver_.get(); }
+
+ private:
+  // Accesses ValidateFirstColumnPrimaryKey
+  friend class CodebasedTestsEnvironment;
+
+  // SQLTestEnvironment needs to access stats_ for recording global stats.
+  friend class SQLTestEnvironment;
+
+  // Accesses RegisterTestCaseInspector
+  friend class UniqueNameTestEnvironment;
+
+  // KnownErrorFilter needs to use stats_ to record failed statements. It also
+  // needs to read sql_, location_, full_name_, and known_error_mode() for
+  // statements.
+  friend class KnownErrorFilter;
+
+  static TestCaseInspectorFn* test_case_inspector_;
+
+  // Shared resource of Stats over all tests in a test case.
+  static std::unique_ptr<Stats> stats_;
+
+  // An error matcher to match legal runtime errors.
+  static std::unique_ptr<MatcherCollection<absl::Status>> legal_runtime_errors_;
+
+  std::unique_ptr<FilebasedSQLTestFileOptions> test_file_options_;
+  std::unique_ptr<FilebasedSQLTestCaseOptions> test_case_options_;
+
+  FileWorkflow file_workflow_;
+
   StatementWorkflow statement_workflow_;
   std::string sql_;        // The SQL string
   std::string full_name_;  // <filename>:<statement_name>
   std::string
       location_;  // FILE-<filename>-LINE-<line_num>-NAME-<statement_name>
-
- private:
-  // Accesses ValidateFirstColumnPrimaryKey
-  friend class CodebasedTestsEnvironment;
 
   // A special ReferenceDriver that is only used to set up the tests. For
   // example, it is used to construct the tables specified by [prepare_database]
@@ -821,8 +665,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // only.
   bool fail_unittest_on_cancelled_statement_ = true;
 
-  std::map<std::string, Value>
-      parameters_;  // The parameters to the SQL statement
+  std::map<std::string, Value> parameters_;
   file_based_test_driver::RunTestCaseResult* test_result_ = nullptr;
 
   // Labels
@@ -835,42 +678,21 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // Name and labels are used in known error entries. Name is referred by
   // <filename>:<name> in known error files.
 
-  // Used to ensure uniques name within a *.test file.
-  std::set<std::string> names_;
-
-  // Used to ensure global labels are not redefined.
-  std::string global_labels_;
-
-  // Extract name, labels, description, and global_labels from options_.
-  absl::Status ExtractLabels(std::string* name,
-                             std::vector<std::string>* labels,
-                             std::string* description,
-                             std::vector<std::string>* global_labels);
-
-  // Split a comma-delimited string into a vector of labels.
-  void SplitLabels(const std::string& labels_all,
-                   std::vector<std::string>* labels) const;
-
-  // Return a set of effective labels, include <filename>:<statement_name>,
-  // labels, and global_labels.
-  absl::btree_set<std::string> EffectiveLabels(
-      const std::string& filename, const std::string& name,
-      const std::vector<std::string>& labels,
-      const std::vector<std::string>& global_labels) const;
-
-  // Strip whilespace for all strings in a vector.
-  void StripWhitespaceVector(std::vector<std::string>* list) const;
-
-  // Log a set of strings as a single line with a prefix.
-  template <typename ContainerType>
-  void LogStrings(const ContainerType& strings,
-                  const std::string& prefix) const;
-
   // Current set of effective labels.
   absl::btree_set<std::string> effective_labels_;
 
-  // PrimaryKeyMode for the current statement.
-  PrimaryKeyMode primary_key_mode_ = PrimaryKeyMode::DEFAULT;
+  // Compliance report labels collected from pre-rewritten resolved AST.
+  // See (broken link):engine_compliance_reportcard
+  absl::btree_set<std::string> compliance_labels_;
+
+  // Boolean mark to indicate whether or not reference driver catalog is
+  // properly initialized in StepCreateDatabase function.
+  bool is_catalog_initialized_ = false;
+
+  // When true, we fail the test if a test statement fails in the resolver. This
+  // helps preserve the property that compliance tests test engine code, and
+  // analyzer tests test resolver code.
+  bool require_resolver_success_ = false;
 
   // Known Errors
   //
@@ -892,6 +714,33 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
 
   // Known Error mode for the current statement.
   KnownErrorMode known_error_mode_;
+
+  // Set of labels in known_error files that affect current statement.
+  absl::btree_set<std::string> by_set_;
+
+  // The container for proto files, proto names, enum names, and tables that
+  // are used to create a test database.
+  TestDatabase test_db_;
+
+  // Code-based label set. Use a vector since labels might be added multiple
+  // times.
+  std::vector<std::string> code_based_labels_;
+
+  // Variables and functions for code-based names.
+  std::string name_prefix_;
+  bool name_prefix_need_result_type_name_ = false;
+  std::string result_type_name_;
+
+  // Return a set of effective labels, include <filename>:<statement_name>,
+  // labels, and global_labels.
+  absl::btree_set<std::string> EffectiveLabels(
+      absl::string_view full_name, const std::vector<std::string>& labels,
+      const std::vector<std::string>& global_labels) const;
+
+  // Log a set of strings as a single line with a prefix.
+  template <typename ContainerType>
+  void LogStrings(const ContainerType& strings,
+                  const std::string& prefix) const;
 
   // Log label_to_reason_map_ map in a single line.
   void LogReason() const;
@@ -928,52 +777,25 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
     RecordKnownErrorStatement(known_error_mode_);
   }
 
-  // Set of labels in known_error files that affect current statement.
-  absl::btree_set<std::string> by_set_;
-
   // Validate a statement result to make sure the status is OK, the value is not
   // null, and is valid.
   absl::Status ValidateStatementResult(const absl::StatusOr<Value>& result,
                                        const std::string& statement) const;
 
-  // Processes test case options [load_proto_files], [load_proto_names], and
-  // [load_enum_names], which load protos and enums in a *.test file. Each
-  // takes a list of comma-delimited proto files, proto names, or enum names.
-  // A group of these test case options need to collocate with either a
-  // [prepare_database] or the first statement.
-  //
-  // The method also prepares protos and enums in the reference driver. This
-  // is needed since a [prepare_database] may need to create a proto or enum
-  // value, and the framework uses the reference driver to create values.
+  // Prepares protos and enums in the test drivers.
   absl::Status LoadProtosAndEnums();
 
-  // Splits a list of proto files, proto names, or enum names into a
-  // set<string>. The output 'items' contains no string that is already in
-  // 'existing'. This is necessary as ReferenceDriver adds proto and enum types
-  // incrementally and adding a type twice will cause a ZETASQL_CHECK() failure.
-  void SplitProtosOrEnums(const std::string& item_string,
-                          const std::set<std::string>& existing,
-                          std::set<std::string>* items) const;
-
-  // Processes test case option [default_time_zone]. Also sets default time
-  // zone in the reference driver. This is needed since time zone may affect
-  // results of statements that generate parameters or table contents.
-  absl::Status SetDefaultTimeZone();
+  // Sets default time zone in the reference driver. This is needed since time
+  // zone may affect results of statements that generate parameters or table
+  // contents.
+  absl::Status SetDefaultTimeZone(const std::string& default_time_zone);
 
   // Create the prepared database. This includes the protos and enums, as well
   // as all the tables.
   virtual absl::Status CreateDatabase();
 
-  // The container for proto files, proto names, enum names, and tables that
-  // are used to create a test database.
-  TestDatabase test_db_;
-
   // Log a map of <param_name>:<typed_value> as a single line.
   void LogParameters(const std::map<std::string, Value>& parameters) const;
-
-  // Code-based label set. Use a vector since labels might be added multiple
-  // times.
-  std::vector<std::string> code_based_labels_;
 
   // Add and remove labels to the code-based label set. Duplicated labels are
   // allowed. Labels will be added in the specified order, and be removed in
@@ -981,11 +803,6 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // labels are the same with those added.
   void AddCodeBasedLabels(std::vector<std::string> labels);
   void RemoveCodeBasedLabels(std::vector<std::string> labels);
-
-  // Variables and functions for code-based names.
-  std::string name_prefix_;
-  bool name_prefix_need_result_type_name_ = false;
-  std::string result_type_name_;
 
   // Turns a string into an RE2 safe string. Used to generate names for
   // code-based statements. Names must be RE2 safe as known error list
@@ -1008,17 +825,71 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // The prefix is in the format: code:<name_prefix>[<result_type_name>].
   std::string GetNamePrefix() const;
 
-  // KnownErrorFilter needs to use stats_ to record failed statements. It also
-  // needs to read sql_, location_, full_name_, and known_error_mode() for
-  // statements.
-  friend class KnownErrorFilter;
+  // Compute the set of sets of LanguageFeatures that are interesting to test.
+  // For each collection of features that are required or required to be unset,
+  // we'll try the statement with those features on or off.
+  absl::btree_set<std::set<LanguageFeature>> ExtractFeatureSets(
+      const std::set<LanguageFeature>& test_features1,
+      const std::set<LanguageFeature>& test_features2,
+      const std::set<LanguageFeature>& required_features);
 
-  // SQLTestEnvironment needs to access stats_ for recording global stats.
-  friend class SQLTestEnvironment;
+  struct TestResults {
+    // We run the test for each of the features_sets, generating the result and
+    // collecting the list of feature set which produce the same output.
 
-  // An error matcher to match legal runtime errors.
-  static std::unique_ptr<MatcherCollection<absl::Status>>
-      legal_runtime_errors_;
+    // TODO : Remove RequiredFeatures from this list.
+    // Each entry of this vector is a comma separated list of LanguageFeature
+    // names with the FEATURE_ prefix removed.
+    std::vector<std::string> enabled_features;
+    // We need the result status to honor the known error filters.
+    absl::StatusOr<ComplianceTestCaseResult> driver_output;
+  };
+
+  // Executes a test case, either as a standalone statement, or as a script,
+  // depending on <script_mode_>.
+  absl::StatusOr<ComplianceTestCaseResult> ExecuteTestCase();
+
+  // NOTE: This implementation is specific to testing the reference
+  // implementation.
+  // TODO: This should be pulled out to a separate subclass
+  // specific to the reference implementation.
+  absl::StatusOr<ComplianceTestCaseResult> RunTestWithFeaturesEnabled(
+      const std::set<LanguageFeature>& features_set);
+
+  // Runs the test for each of features_set
+  absl::btree_map<std::string, TestResults> RunTestAndCollectResults(
+      const absl::btree_set<std::set<LanguageFeature>>& features_sets);
+
+  // For each required feature, re-runs each iteration of the test with that
+  // feature removed.  Then compares the output with the feature removed to the
+  // same run with the feature included.  If the result is unchanged, fails the
+  // test since this means the required feature was not actually required.
+  // NOTE: This implementation is specific to testing the reference
+  // implementation.
+  // TODO: This should be pulled out to a separate subclass
+  // specific to the reference implementation.
+  void RunAndCompareTestWithoutEachRequiredFeatures(
+      const std::set<LanguageFeature>& required_features,
+      const absl::btree_set<std::set<LanguageFeature>>& features_sets,
+      const absl::btree_map<std::string, TestResults>& test_results);
+
+  bool IsFeatureRequired(
+      LanguageFeature feature_to_check,
+      const absl::btree_set<std::set<LanguageFeature>>& features_sets,
+      const absl::btree_map<std::string, TestResults>& test_results);
+
+  // enabled_features is passed by value to allow removing elements without
+  // modifying the input collection.
+  bool RemovingFeatureChangesResult(
+      LanguageFeature feature_to_check,
+      std::set<LanguageFeature> enabled_features,
+      const absl::btree_map<std::string, TestResults>& original_test_results);
+
+  // Parses the expected results and compares them against the tests results in
+  // result_to_feature_map
+  void ParseAndCompareExpectedResults(
+      const absl::btree_set<std::set<LanguageFeature>>& features_sets,
+      const absl::btree_map<std::string, TestResults>& test_results);
 };
 
 }  // namespace zetasql

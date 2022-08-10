@@ -22,10 +22,8 @@
 #include <string>
 
 #include "google/protobuf/descriptor.h"
-// We include the proto to guarantee GetEnumDescriptor exists for _some_ type
-// otherwise some compilers (gcc) will think the templated code is invalid
-// prematurely.
-#include "google/protobuf/descriptor.pb.h"  
+#include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/options.pb.h"
 #include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -39,6 +37,93 @@
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql::internal {
+
+template <typename EnumT>
+struct EnumOptionsEntry {
+  // Canonicalized description of the input string.
+  //   This has all whitespace removed, forced to upper case
+  std::string description;
+  absl::btree_set<EnumT> options;
+};
+
+//
+// ParseEnabledAstRewrites()
+//
+// Helper function for use in tests and flags to parse a string representing
+// the set of Rewriters to support.
+//
+// See ParseEnumOptionsSet for information on this format.
+//
+// The default list of allowed bases is
+//   NONE:    Empty set
+//   ALL:     Every valid enum
+//   DEFAULT: Every enum marked with [rewrite_options).default_enabled = true]
+//            this matches AnalyzerOptions::DefaultRewrites()
+absl::StatusOr<EnumOptionsEntry<ResolvedASTRewrite>> ParseEnabledAstRewrites(
+    absl::string_view options_str);
+
+// Wrapper class for use in flags.
+struct EnabledAstRewrites {
+  absl::btree_set<ResolvedASTRewrite> enabled_ast_rewrites;
+};
+
+// Helper function to parse a flag using ParseEnabledAstRewrites. To Use:
+// ABSL_FLAG(EnabledAstRewrites, <flag_name>, EnabledAstRewrites{},
+//           "<description>");
+bool AbslParseFlag(absl::string_view text, EnabledAstRewrites* p,
+                   std::string* error);
+
+std::string AbslUnparseFlag(EnabledAstRewrites p);
+
+//
+// ParseEnabledLanguageFeatures()
+//
+// Helper function for use in tests and flags to parse a string representing
+// the set of LanguageFeature to enable.
+//
+// See ParseEnumOptionsSet for information on this format.
+//
+// The default list of allowed bases is
+//   NONE:    Empty set
+//   ALL:     Every valid enum; Not recommended, includes many deprecated
+//            features.
+//   MAXIMUM: LanguageFeatures marked `ideally_enabled`; matches
+//            `LanguageOptions::EnableMaximumLanguageFeatures`.
+//   DEV:     MAXIMUM plus Features marked `in_development`; matches
+//            `LanguageOptions::EnableMaximumLanguageFeaturesForDevelopment`.
+//
+absl::StatusOr<EnumOptionsEntry<LanguageFeature>> ParseEnabledLanguageFeatures(
+    absl::string_view options_str);
+
+// Wrapper class for use in flags.
+struct EnabledLanguageFeatures {
+  absl::btree_set<LanguageFeature> enabled_language_features;
+  static inline constexpr absl::string_view kFlagDescription =
+      R"(The Language Features to enable in parser and analyzer, the format is:
+        <BASE>[,+<ADDED_OPTION>][,-<REMOVED_OPTION>]...
+      Where BASE is one of:
+        'NONE'    : the empty set
+        'ALL'     : Every valid enum; Not recommended, includes many
+                      deprecated features.
+        'MAXIMUM': LanguageFeatures marked `ideally_enabled`; matches
+                     `LanguageOptions::EnableMaximumLanguageFeatures`.
+        'DEV'    : MAXIMUM plus Features marked `in_development`; matches
+                     `LanguageOptions::EnableMaximumLanguageFeaturesForDevelopment`
+
+      values must be listed with 'FEATURE_' stripped
+        Example:
+          --enabled_ast_rewrites='DEFAULT,-FLATTEN,+ANONYMIZATION'
+      Will enable all the default options plus ANONYMIZATION, but excluding
+      flatten)";
+};
+
+// Helper function to parse a flag using ParseEnabledLanguageFeatures. To Use:
+// ABSL_FLAG(EnabledLanguageFeatures, <flag_name>, EnabledLanguageFeatures{},
+//           "<description>");
+bool AbslParseFlag(absl::string_view text, EnabledLanguageFeatures* p,
+                   std::string* error);
+
+std::string AbslUnparseFlag(EnabledLanguageFeatures p);
 
 //
 // ParseEnumOptionsSet()
@@ -96,14 +181,6 @@ namespace zetasql::internal {
 //        error messages.
 //   options_str: the user strings.
 //
-template <typename EnumT>
-struct EnumOptionsEntry {
-  // Canonicalized description of the input string.
-  //   This has all whitespace removed, forced to upper case
-  std::string description;
-  absl::btree_set<EnumT> options;
-};
-
 template <typename EnumT>
 absl::StatusOr<EnumOptionsEntry<EnumT>> ParseEnumOptionsSet(
     const absl::flat_hash_map<absl::string_view, absl::btree_set<EnumT>>&
@@ -187,6 +264,9 @@ absl::StatusOr<EnumOptionsEntry<EnumT>> ParseEnumOptionsSet(
   std::string description = absl::StrJoin(description_parts, ",");
   return EnumOptionsEntry<EnumT>{description, output_options};
 }
+
+// Returns all ResolvedAST Rewrites except the special "INVALID" value (0).
+AnalyzerOptions::ASTRewriteSet GetAllRewrites();
 
 }  // namespace zetasql::internal
 

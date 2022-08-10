@@ -2,16 +2,13 @@
 # SQLBuilder. Ideally the SQL builder should operate both on the output of the
 # analyzer and on the output of the rewriter as well. Sometimes we need to do
 # specific work in the SQLBuilder component to handle shapes that the analyzer
-# does not produce but the rewriter does, such as ResolvedLetExpr. This file
+# does not produce but the rewriter does, such as ResolvedWithExpr. This file
 # includes tests that excercise such code and document its outputs.
 [default show_unparsed]
 [default no_show_resolved_ast]
 
 [language_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
-[enabled_ast_rewrites=DEFAULTS,-LET_EXPR|DEFAULTS,+LET_EXPR]
-# The ResolvedLetExpr does not have user-facing SQL syntax. The rewrite rule
-# that removes ResolvedLetExpr replaces it with a scalar subquery. The
-# SQLBuilder does too. This test excercises both paths.
+[enabled_ast_rewrites=DEFAULTS,-WITH_EXPR|DEFAULTS,+WITH_EXPR]
 SELECT FLATTEN(ARRAY_CONCAT([STRUCT(1 AS a)], [STRUCT(2 AS a)]).a);
 --
 [UNPARSED_SQL]
@@ -19,7 +16,7 @@ SELECT
   FLATTEN((ARRAY_CONCAT(ARRAY< STRUCT< a INT64 > >[STRUCT< a INT64 > (1)], ARRAY< STRUCT< a INT64 > >[STRUCT<
       a INT64 > (2)])).a) AS a_1;
 
-[[ REWRITER ARTIFACTS FOR RULE GROUPS 'DEFAULTS,-LET_EXPR' ]]
+[[ REWRITER ARTIFACTS FOR RULE GROUPS 'DEFAULTS,-WITH_EXPR' ]]
 [UNPARSED_SQL]
 SELECT
   (
@@ -45,7 +42,7 @@ SELECT
       )
   ) AS a_1;
 
-[[ REWRITER ARTIFACTS FOR RULE GROUPS 'DEFAULTS,+LET_EXPR' ]]
+[[ REWRITER ARTIFACTS FOR RULE GROUPS 'DEFAULTS,+WITH_EXPR' ]]
 [UNPARSED_SQL]
 SELECT
   (

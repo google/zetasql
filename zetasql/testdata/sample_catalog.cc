@@ -28,7 +28,6 @@
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/anon_function.h"
-#include "zetasql/public/builtin_function.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/cycle_detector.h"
 #include "zetasql/public/deprecation_warning.pb.h"
@@ -40,13 +39,13 @@
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/public/procedure.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/simple_catalog_util.h"
 #include "zetasql/public/sql_function.h"
 #include "zetasql/public/sql_tvf.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/templated_sql_function.h"
 #include "zetasql/public/templated_sql_tvf.h"
-#include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/type_factory.h"
@@ -57,7 +56,6 @@
 #include "zetasql/testdata/sample_annotation.h"
 #include "zetasql/testdata/test_proto3.pb.h"
 #include "zetasql/base/testing/status_matchers.h"
-#include <cstdint>
 #include "absl/memory/memory.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
@@ -68,8 +66,6 @@
 #include "zetasql/base/status_builder.h"
 
 namespace zetasql {
-
-SampleCatalog* SampleCatalog::instance_ = nullptr;
 
 SampleCatalog::SampleCatalog()
     : internal_type_factory_(new TypeFactory),
@@ -105,13 +101,6 @@ absl::StatusOr<SimpleTable*> SampleCatalog::GetTable(const std::string& name) {
     return zetasql_base::NotFoundErrorBuilder()
            << "SampleCatalog: Table " << name << " not found";
   }
-}
-
-const SimpleCatalog* const SampleCatalog::Get() {
-  if (instance_ == nullptr) {
-    instance_ = new SampleCatalog();
-  }
-  return instance_->catalog();
 }
 
 const ProtoType* SampleCatalog::GetProtoType(
@@ -192,7 +181,7 @@ static absl::StatusOr<const Type*> ComputeResultTypeFromStringArgumentValue(
     // Try to find the type in catalog.
     const Type* type = nullptr;
     std::vector<std::string> path;
-    ZETASQL_RETURN_IF_ERROR(ParseIdentifierPath(type_name, &path));
+    ZETASQL_RETURN_IF_ERROR(ParseIdentifierPath(type_name, LanguageOptions(), &path));
     if (catalog->FindType(path, &type).ok()) {
       return type;
     }
@@ -5445,31 +5434,10 @@ void SampleCatalog::AddSqlDefinedFunctionFromCreate(
   analyzer_options.set_enabled_rewrites(/*rewrites=*/{});
   analyzer_options.enable_rewrite(REWRITE_INLINE_SQL_FUNCTIONS,
                                   inline_sql_functions);
-  std::unique_ptr<const AnalyzerOutput> analyzer_output;
-  ZETASQL_CHECK_OK(AnalyzeStatement(create_function, analyzer_options, catalog_.get(),
-                            catalog_->type_factory(), &analyzer_output))
-      << create_function;
-  const ResolvedStatement* resolved = analyzer_output->resolved_statement();
-  ZETASQL_CHECK(resolved->Is<ResolvedCreateFunctionStmt>());
-  const ResolvedCreateFunctionStmt* resolved_create =
-      resolved->GetAs<ResolvedCreateFunctionStmt>();
-  if (resolved_create->function_expression() != nullptr) {
-    std::unique_ptr<SQLFunction> function;
-    ZETASQL_CHECK_OK(SQLFunction::Create(
-        absl::StrJoin(resolved_create->name_path(), "."), FunctionEnums::SCALAR,
-        {resolved_create->signature()}, /*function_options=*/{},
-        resolved_create->function_expression(),
-        resolved_create->argument_name_list(), /*aggregate_expression_list=*/{},
-        /*parse_resume_location=*/{}, &function));
-    catalog_->AddOwnedFunction(function.release());
-  } else {
-    auto template_function = std::make_unique<TemplatedSQLFunction>(
-        resolved_create->name_path(), resolved_create->signature(),
-        resolved_create->argument_name_list(),
-        ParseResumeLocation::FromStringView(resolved_create->code()));
-    catalog_->AddOwnedFunction(template_function.release());
-  }
-  sql_function_artifacts_.emplace_back(std::move(analyzer_output));
+  sql_function_artifacts_.emplace_back();
+  ZETASQL_CHECK_OK(AddFunctionFromCreateFunction(
+      create_function, analyzer_options, sql_function_artifacts_.back(),
+      *catalog_, /*allow_persistent_function=*/true));
 }
 
 void SampleCatalog::LoadSqlFunctions(const LanguageOptions& language_options) {

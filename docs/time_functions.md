@@ -276,22 +276,21 @@ SELECT
 ### TIME_TRUNC
 
 ```sql
-TIME_TRUNC(time_expression, part)
+TIME_TRUNC(time_expression, time_part)
 ```
 
 **Description**
 
-Truncates a `TIME` object to the granularity of `part`.
+Truncates a `TIME` value to the granularity of `time_part`. The `TIME` value
+is always rounded to the beginning of `time_part`, which can be one of the
+following:
 
-`TIME_TRUNC` supports the following values for `part`:
-
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`
++ `NANOSECOND`: If used, nothing is truncated from the value.
++ `MICROSECOND`: The nearest lessor or equal microsecond.
++ `MILLISECOND`: The nearest lessor or equal millisecond.
++ `SECOND`: The nearest lessor or equal second.
++ `MINUTE`: The nearest lessor or equal minute.
++ `HOUR`: The nearest lessor or equal hour.
 
 **Return Data Type**
 

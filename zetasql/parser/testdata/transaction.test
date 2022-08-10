@@ -48,7 +48,7 @@ BEGIN TRANSACTION ISOLATION LEVEL read uncommited
 start transaction READ WRITE, ISOLATION LEVEL READ COMMITED
 --
 BeginStatement [0-59]
-  TransactionModeList [18-28]
+  TransactionModeList [18-59]
     TransactionReadWriteMode [18-28]
     TransactionIsolationLevel [30-59]
       Identifier(READ) [46-50]
@@ -117,7 +117,7 @@ SET TRANSACTION READ ONLY
 SET TRANSACTION READ WRITE, ISOLATION LEVEL foo
 --
 SetTransaction [0-47]
-  TransactionModeList [16-26]
+  TransactionModeList [16-47]
     TransactionReadWriteMode [16-26]
     TransactionIsolationLevel [28-47]
       Identifier(foo) [44-47]

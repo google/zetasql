@@ -21,16 +21,6 @@
 
 namespace zetasql {
 
-// TODO: Change this to 'SQL_table_function', rather than
-// 'Lazy_resolution_tvf'.  This is currently 'Lazy_resolution_tvf'
-// in order to minimize test diffs during a major refactoring.  Once the
-// refactoring is submitted, change this to 'SQL_table_function' and
-// update all the tests.
-//
-// static
-const char SQLTableValuedFunction::kSQLTableValuedFunctionGroup[] =
-    "Lazy_resolution_tvf";
-
 // static
 absl::Status SQLTableValuedFunction::Create(
     const ::zetasql::ResolvedCreateTableFunctionStmt* create_tvf_statement,
@@ -84,13 +74,6 @@ TVFRelation SQLTableValuedFunction::GetQueryOutputSchema(
   }
   return create_tvf_statement.signature().result_type().options()
       .relation_input_schema();
-}
-
-// static
-FunctionSignature SQLTableValuedFunction::GetEmptyFunctionSignature() {
-  // The result type is meaningless.
-  return FunctionSignature(/*result_type=*/FunctionArgumentType::AnyRelation(),
-                           /*arguments=*/{}, /*context_ptr=*/nullptr);
 }
 
 }  // namespace zetasql

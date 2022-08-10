@@ -19,6 +19,7 @@
 #include <fstream>
 #include <iostream>
 #include <set>
+#include <string>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/base/path.h"

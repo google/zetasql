@@ -1705,6 +1705,33 @@ SELECT
   r""""""
 ==
 
+# b/239628302: String literals with ")" reducted correctly
+select
+  'Sentence with ) in it',
+  "Also with ) and in double quotes",
+  """with ) and in triple double quotes""",
+  '''with ) and in triple single quotes'''
+--
+QueryStatement [0-158]
+  Query [0-158]
+    Select [0-158]
+      SelectList [9-158]
+        SelectColumn [9-32]
+          StringLiteral('Sentence with ) in it') [9-32]
+        SelectColumn [36-70]
+          StringLiteral("Also with ) and in double quotes") [36-70]
+        SelectColumn [74-114]
+          StringLiteral("""with ) and in triple double quotes""") [74-114]
+        SelectColumn [118-158]
+          StringLiteral('''with ) and in triple single quotes''') [118-158]
+--
+SELECT
+  'Sentence with ) in it',
+  "Also with ) and in double quotes",
+  """with ) and in triple double quotes""",
+  '''with ) and in triple single quotes'''
+==
+
 # Empty raw bytes.
 select rb'', br'', rb"", br"", rb'''''', br'''''', rb"""""", br""""""
 --

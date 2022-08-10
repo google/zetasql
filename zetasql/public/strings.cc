@@ -19,6 +19,7 @@
 #include <ctype.h>
 
 #include <iterator>
+#include <string>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/errors.h"
@@ -1092,13 +1093,6 @@ const absl::flat_hash_set<std::string>& GetReservedKeywords() {
   static const absl::flat_hash_set<std::string>& keywords =
       *new auto(MakeReservedKeywordsUpperSet(
           /*include_conditionally_reserved_keywords=*/false));
-  return keywords;
-}
-
-const absl::flat_hash_set<std::string>& GetPotentiallyReservedKeywords() {
-  static const absl::flat_hash_set<std::string>& keywords =
-      *new auto(MakeReservedKeywordsUpperSet(
-          /*include_conditionally_reserved_keywords=*/true));
   return keywords;
 }
 

@@ -18,6 +18,7 @@
 #define ZETASQL_PUBLIC_FUNCTIONS_LIKE_H_
 
 #include <memory>
+#include <string>
 
 #include "zetasql/public/type.pb.h"
 #include "absl/base/attributes.h"

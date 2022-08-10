@@ -19,6 +19,7 @@
 #include <ctype.h>
 
 #include <memory>
+#include <string>
 #include <utility>
 
 #include "zetasql/base/logging.h"

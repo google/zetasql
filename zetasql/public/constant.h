@@ -37,6 +37,7 @@
 #define ZETASQL_PUBLIC_CONSTANT_H_
 
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"

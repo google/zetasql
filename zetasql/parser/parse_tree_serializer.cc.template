@@ -215,10 +215,8 @@ absl::Status ParseTreeSerializer::DeserializeFields(
                                arena,
                                allocated_ast_nodes).value());
   }
-   # elif field.is_enum and field.member_type == 'SchemaObjectKind'
-  node->{{field.member_name}} = static_cast<{{field.member_type}}>(proto.{{field.name}}());
    # elif field.is_enum
-  node->{{field.member_name}} = static_cast<{{node.name}}::{{field.member_type}}>(proto.{{field.name}}());
+  node->{{field.member_name}} = static_cast<{{field.member_type}}>(proto.{{field.name}}());
    # elif field.member_type is eq('IdString')
   node->{{field.member_name}} = id_string_pool->Make(proto.{{field.name}}());
    # else

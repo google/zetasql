@@ -19,6 +19,8 @@
 // These annotations can be used to change the interpretation of proto
 // fields when interpreting those fields in ZetaSQL. (e.g. An int32 field can
 // be marked as storing a DATE to make it queryable as a date in ZetaSQL.)
+// When applying to an existing field, please check the existing scripts that
+// use the field to avoid potential breakage.
 //
 // These annotations can also be used to indicate that missing fields should
 // be treated as NULL values rather than returning the proto field default.

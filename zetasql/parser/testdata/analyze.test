@@ -37,7 +37,7 @@ AnalyzeStatement [0-48]
       Identifier(p2) [22-24]
       PathExpression [25-27]
         Identifier(a2) [25-27]
-  TableAndColumnInfoList [29-37]
+  TableAndColumnInfoList [29-48]
     TableAndColumnInfo [29-37]
       PathExpression [29-30]
         Identifier(T) [29-30]
@@ -75,7 +75,7 @@ AnalyzeStatement [0-41]
       Identifier(p2) [22-24]
       PathExpression [25-27]
         Identifier(a2) [25-27]
-  TableAndColumnInfoList [29-30]
+  TableAndColumnInfoList [29-41]
     TableAndColumnInfo [29-30]
       PathExpression [29-30]
         Identifier(T) [29-30]
@@ -108,7 +108,7 @@ ANALYZE T(a, b, c)
 analyze T(a,b,c), T2(a)
 --
 AnalyzeStatement [0-23]
-  TableAndColumnInfoList [8-16]
+  TableAndColumnInfoList [8-23]
     TableAndColumnInfo [8-16]
       PathExpression [8-9]
         Identifier(T) [8-9]
@@ -153,7 +153,7 @@ ANALYZE T
 analyze T, T2
 --
 AnalyzeStatement [0-13]
-  TableAndColumnInfoList [8-9]
+  TableAndColumnInfoList [8-13]
     TableAndColumnInfo [8-9]
       PathExpression [8-9]
         Identifier(T) [8-9]
@@ -191,7 +191,7 @@ analyze OPTIONS, T
 analyze T, OPTIONS
 --
 AnalyzeStatement [0-18]
-  TableAndColumnInfoList [8-9]
+  TableAndColumnInfoList [8-18]
     TableAndColumnInfo [8-9]
       PathExpression [8-9]
         Identifier(T) [8-9]
@@ -225,7 +225,7 @@ ANALYZE OPTIONS(a = b) Options(a, b, c)
 analyze T, OPTIONS(a, b, c)
 --
 AnalyzeStatement [0-27]
-  TableAndColumnInfoList [8-9]
+  TableAndColumnInfoList [8-27]
     TableAndColumnInfo [8-9]
       PathExpression [8-9]
         Identifier(T) [8-9]

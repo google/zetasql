@@ -30,15 +30,6 @@ namespace zetasql {
 std::unique_ptr<MatcherCollection<absl::Status>>
 ReferenceExpectedErrorMatcher(std::string matcher_name);
 
-// Produces a matcher for errors returned by the reference implementation
-// that indicate an invalid input condition encountered during the evaluation
-// of an expression and that can be ignored in scenarios such as random query
-// testing. The reference implementation returns all such errors with
-// with the OUT_OF_RANGE error code. The matcher returned by this function
-// is helpful in matching the errors based on their text.
-std::unique_ptr<MatcherCollection<absl::Status>>
-ReferenceInvalidInputErrorMatcher(std::string matcher_name);
-
 }  // namespace zetasql
 
 #endif  // ZETASQL_REFERENCE_IMPL_EXPECTED_ERRORS_H_

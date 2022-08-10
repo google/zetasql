@@ -646,6 +646,7 @@ DELETE TestTable WHERE KitchenSink.int32_val = @p;
 DeleteStmt
 +-table_scan=
 | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
++-column_access_list=READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$equal(INT32, INT32) -> BOOL)
     +-GetProtoField
@@ -667,22 +668,23 @@ InsertStmt
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-  | +-value_list=
-  |   +-DMLValue
-  |   | +-value=
-  |   |   +-Literal(type=INT64, value=1)
-  |   +-DMLValue
-  |     +-value=
-  |       +-Parameter(parse_location=45-49, type=STRING, name="one")
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Parameter(parse_location=53-57, type=INT64, name="two", is_untyped=TRUE)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="two")
+| +-InsertRow
+| | +-value_list=
+| |   +-DMLValue
+| |   | +-value=
+| |   |   +-Literal(type=INT64, value=1)
+| |   +-DMLValue
+| |     +-value=
+| |       +-Parameter(parse_location=45-49, type=STRING, name="one")
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Parameter(parse_location=53-57, type=INT64, name="two", is_untyped=TRUE)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="two")
++-column_access_list=WRITE,WRITE
 [UNDECLARED_PARAMETERS]
 one: STRING
 two: INT64

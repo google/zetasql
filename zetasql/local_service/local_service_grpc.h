@@ -106,6 +106,10 @@ class ZetaSqlLocalServiceGrpcImpl
                          const FormatSqlRequest* req,
                          FormatSqlResponse* resp) override;
 
+  grpc::Status LenientFormatSql(grpc::ServerContext* context,
+                                const FormatSqlRequest* req,
+                                FormatSqlResponse* resp) override;
+
   grpc::Status RegisterCatalog(grpc::ServerContext* context,
                                const RegisterCatalogRequest* req,
                                RegisterResponse* resp) override;

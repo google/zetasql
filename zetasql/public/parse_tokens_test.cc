@@ -17,6 +17,7 @@
 #include "zetasql/public/parse_tokens.h"
 
 #include <memory>
+#include <string>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/error_helpers.h"

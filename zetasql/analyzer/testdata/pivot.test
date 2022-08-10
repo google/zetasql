@@ -1335,7 +1335,7 @@ ERROR: PIVOT expression must specify an alias unless it is the only pivot expres
 # Integer PIVOT values of various numeric types.
 SELECT * FROM (SELECT CAST(3 AS {{INT32|INT64|FLOAT64|NUMERIC|BIGNUMERIC}}) x) t
 PIVOT(
-  SUM(x) {{sum_x}}
+  SUM(x) {{sum_x|}}
   FOR x IN (0, 1, -2, NULL)
 );
 --
@@ -1378,6 +1378,45 @@ QueryStmt
           +-PivotColumn(column=$pivot.sum_x_minus_2#5, pivot_expr_index=0, pivot_value_index=2)
           +-PivotColumn(column=$pivot.sum_x_NULL#6, pivot_expr_index=0, pivot_value_index=3)
 --
+ALTERNATION GROUP: INT32,
+--
+QueryStmt
++-output_column_list=
+| +-$pivot._0#3 AS _0 [INT64]
+| +-$pivot._1#4 AS _1 [INT64]
+| +-$pivot.minus_2#5 AS minus_2 [INT64]
+| +-$pivot.NULL#6 AS `NULL` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$pivot.[_0#3, _1#4, minus_2#5, NULL#6]
+    +-input_scan=
+      +-PivotScan
+        +-column_list=$pivot.[_0#3, _1#4, minus_2#5, NULL#6]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[t.x#1]
+        |   +-expr_list=
+        |   | +-x#1 := Literal(type=INT32, value=3, has_explicit_type=TRUE)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-pivot_expr_list=
+        | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |   +-parse_location=53-59
+        |   +-Cast(INT32 -> INT64)
+        |     +-ColumnRef(type=INT32, column=t.x#1)
+        +-for_expr=
+        | +-ColumnRef(parse_location=67-68, type=INT32, column=t.x#1)
+        +-pivot_value_list=
+        | +-Literal(type=INT32, value=0, preserve_in_literal_remover=TRUE)
+        | +-Literal(type=INT32, value=1, preserve_in_literal_remover=TRUE)
+        | +-Literal(type=INT32, value=-2, preserve_in_literal_remover=TRUE)
+        | +-Literal(type=INT32, value=NULL, preserve_in_literal_remover=TRUE)
+        +-pivot_column_list=
+          +-PivotColumn(column=$pivot._0#3, pivot_expr_index=0, pivot_value_index=0)
+          +-PivotColumn(column=$pivot._1#4, pivot_expr_index=0, pivot_value_index=1)
+          +-PivotColumn(column=$pivot.minus_2#5, pivot_expr_index=0, pivot_value_index=2)
+          +-PivotColumn(column=$pivot.NULL#6, pivot_expr_index=0, pivot_value_index=3)
+--
 ALTERNATION GROUP: INT64,sum_x
 --
 QueryStmt
@@ -1416,7 +1455,47 @@ QueryStmt
           +-PivotColumn(column=$pivot.sum_x_minus_2#5, pivot_expr_index=0, pivot_value_index=2)
           +-PivotColumn(column=$pivot.sum_x_NULL#6, pivot_expr_index=0, pivot_value_index=3)
 --
-ALTERNATION GROUP: FLOAT64,sum_x
+ALTERNATION GROUP: INT64,
+--
+QueryStmt
++-output_column_list=
+| +-$pivot._0#3 AS _0 [INT64]
+| +-$pivot._1#4 AS _1 [INT64]
+| +-$pivot.minus_2#5 AS minus_2 [INT64]
+| +-$pivot.NULL#6 AS `NULL` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$pivot.[_0#3, _1#4, minus_2#5, NULL#6]
+    +-input_scan=
+      +-PivotScan
+        +-column_list=$pivot.[_0#3, _1#4, minus_2#5, NULL#6]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[t.x#1]
+        |   +-expr_list=
+        |   | +-x#1 := Literal(type=INT64, value=3, has_explicit_type=TRUE)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-pivot_expr_list=
+        | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |   +-parse_location=53-59
+        |   +-ColumnRef(type=INT64, column=t.x#1)
+        +-for_expr=
+        | +-ColumnRef(parse_location=67-68, type=INT64, column=t.x#1)
+        +-pivot_value_list=
+        | +-Literal(type=INT64, value=0, preserve_in_literal_remover=TRUE)
+        | +-Literal(type=INT64, value=1, preserve_in_literal_remover=TRUE)
+        | +-Literal(type=INT64, value=-2, preserve_in_literal_remover=TRUE)
+        | +-Literal(type=INT64, value=NULL, preserve_in_literal_remover=TRUE)
+        +-pivot_column_list=
+          +-PivotColumn(column=$pivot._0#3, pivot_expr_index=0, pivot_value_index=0)
+          +-PivotColumn(column=$pivot._1#4, pivot_expr_index=0, pivot_value_index=1)
+          +-PivotColumn(column=$pivot.minus_2#5, pivot_expr_index=0, pivot_value_index=2)
+          +-PivotColumn(column=$pivot.NULL#6, pivot_expr_index=0, pivot_value_index=3)
+--
+ALTERNATION GROUPS:
+    FLOAT64,sum_x
+    FLOAT64,
 --
 ERROR: PIVOT values of type DOUBLE must specify an alias [at 4:13]
   FOR x IN (0, 1, -2, NULL)
@@ -1460,6 +1539,44 @@ QueryStmt
           +-PivotColumn(column=$pivot.sum_x_minus_2#5, pivot_expr_index=0, pivot_value_index=2)
           +-PivotColumn(column=$pivot.sum_x_NULL#6, pivot_expr_index=0, pivot_value_index=3)
 --
+ALTERNATION GROUP: NUMERIC,
+--
+QueryStmt
++-output_column_list=
+| +-$pivot._0#3 AS _0 [NUMERIC]
+| +-$pivot._1#4 AS _1 [NUMERIC]
+| +-$pivot.minus_2#5 AS minus_2 [NUMERIC]
+| +-$pivot.NULL#6 AS `NULL` [NUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=$pivot.[_0#3, _1#4, minus_2#5, NULL#6]
+    +-input_scan=
+      +-PivotScan
+        +-column_list=$pivot.[_0#3, _1#4, minus_2#5, NULL#6]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[t.x#1]
+        |   +-expr_list=
+        |   | +-x#1 := Literal(type=NUMERIC, value=3, has_explicit_type=TRUE)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-pivot_expr_list=
+        | +-AggregateFunctionCall(ZetaSQL:sum(NUMERIC) -> NUMERIC)
+        |   +-parse_location=55-61
+        |   +-ColumnRef(type=NUMERIC, column=t.x#1)
+        +-for_expr=
+        | +-ColumnRef(parse_location=69-70, type=NUMERIC, column=t.x#1)
+        +-pivot_value_list=
+        | +-Literal(type=NUMERIC, value=0, preserve_in_literal_remover=TRUE)
+        | +-Literal(type=NUMERIC, value=1, preserve_in_literal_remover=TRUE)
+        | +-Literal(type=NUMERIC, value=-2, preserve_in_literal_remover=TRUE)
+        | +-Literal(type=NUMERIC, value=NULL, preserve_in_literal_remover=TRUE)
+        +-pivot_column_list=
+          +-PivotColumn(column=$pivot._0#3, pivot_expr_index=0, pivot_value_index=0)
+          +-PivotColumn(column=$pivot._1#4, pivot_expr_index=0, pivot_value_index=1)
+          +-PivotColumn(column=$pivot.minus_2#5, pivot_expr_index=0, pivot_value_index=2)
+          +-PivotColumn(column=$pivot.NULL#6, pivot_expr_index=0, pivot_value_index=3)
+--
 ALTERNATION GROUP: BIGNUMERIC,sum_x
 --
 QueryStmt
@@ -1497,28 +1614,72 @@ QueryStmt
           +-PivotColumn(column=$pivot.sum_x_1#4, pivot_expr_index=0, pivot_value_index=1)
           +-PivotColumn(column=$pivot.sum_x_minus_2#5, pivot_expr_index=0, pivot_value_index=2)
           +-PivotColumn(column=$pivot.sum_x_NULL#6, pivot_expr_index=0, pivot_value_index=3)
+--
+ALTERNATION GROUP: BIGNUMERIC,
+--
+QueryStmt
++-output_column_list=
+| +-$pivot._0#3 AS _0 [BIGNUMERIC]
+| +-$pivot._1#4 AS _1 [BIGNUMERIC]
+| +-$pivot.minus_2#5 AS minus_2 [BIGNUMERIC]
+| +-$pivot.NULL#6 AS `NULL` [BIGNUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=$pivot.[_0#3, _1#4, minus_2#5, NULL#6]
+    +-input_scan=
+      +-PivotScan
+        +-column_list=$pivot.[_0#3, _1#4, minus_2#5, NULL#6]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=[t.x#1]
+        |   +-expr_list=
+        |   | +-x#1 := Literal(type=BIGNUMERIC, value=3, has_explicit_type=TRUE)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-pivot_expr_list=
+        | +-AggregateFunctionCall(ZetaSQL:sum(BIGNUMERIC) -> BIGNUMERIC)
+        |   +-parse_location=58-64
+        |   +-ColumnRef(type=BIGNUMERIC, column=t.x#1)
+        +-for_expr=
+        | +-ColumnRef(parse_location=72-73, type=BIGNUMERIC, column=t.x#1)
+        +-pivot_value_list=
+        | +-Literal(type=BIGNUMERIC, value=0, preserve_in_literal_remover=TRUE)
+        | +-Literal(type=BIGNUMERIC, value=1, preserve_in_literal_remover=TRUE)
+        | +-Literal(type=BIGNUMERIC, value=-2, preserve_in_literal_remover=TRUE)
+        | +-Literal(type=BIGNUMERIC, value=NULL, preserve_in_literal_remover=TRUE)
+        +-pivot_column_list=
+          +-PivotColumn(column=$pivot._0#3, pivot_expr_index=0, pivot_value_index=0)
+          +-PivotColumn(column=$pivot._1#4, pivot_expr_index=0, pivot_value_index=1)
+          +-PivotColumn(column=$pivot.minus_2#5, pivot_expr_index=0, pivot_value_index=2)
+          +-PivotColumn(column=$pivot.NULL#6, pivot_expr_index=0, pivot_value_index=3)
 ==
 
 # Floating-point PIVOT values of various numeric types.
 SELECT * FROM (SELECT CAST(3.4 AS {{FLOAT64|NUMERIC|BIGNUMERIC}}) x) t
 PIVOT(
-  SUM(x) {{sum_x}}
+  SUM(x) {{sum_x|}}
   FOR x IN (1.2, -5.6, 5.67e26, -8.9e-18, IEEE_DIVIDE(1,0), NULL)
 );
 --
-ALTERNATION GROUP: FLOAT64,sum_x
+ALTERNATION GROUPS:
+    FLOAT64,sum_x
+    FLOAT64,
 --
 ERROR: PIVOT values of type DOUBLE must specify an alias [at 4:13]
   FOR x IN (1.2, -5.6, 5.67e26, -8.9e-18, IEEE_DIVIDE(1,0), NULL)
             ^
 --
-ALTERNATION GROUP: NUMERIC,sum_x
+ALTERNATION GROUPS:
+    NUMERIC,sum_x
+    NUMERIC,
 --
 ERROR: PIVOT IN list item must be type NUMERIC to match the PIVOT FOR expression; found DOUBLE [at 4:43]
   FOR x IN (1.2, -5.6, 5.67e26, -8.9e-18, IEEE_DIVIDE(1,0), NULL)
                                           ^
 --
-ALTERNATION GROUP: BIGNUMERIC,sum_x
+ALTERNATION GROUPS:
+    BIGNUMERIC,sum_x
+    BIGNUMERIC,
 --
 ERROR: PIVOT IN list item must be type BIGNUMERIC to match the PIVOT FOR expression; found DOUBLE [at 4:43]
   FOR x IN (1.2, -5.6, 5.67e26, -8.9e-18, IEEE_DIVIDE(1,0), NULL)
@@ -1528,9 +1689,11 @@ ERROR: PIVOT IN list item must be type BIGNUMERIC to match the PIVOT FOR express
 # PIVOT values of type STRING
 SELECT * FROM (SELECT 1 x, 'test' y) t
 PIVOT(
-  SUM(x) {{sum_x}}
+  SUM(x) {{sum_x|}}
   FOR y IN ('test', '', NULL)
 );
+--
+ALTERNATION GROUP: sum_x
 --
 QueryStmt
 +-output_column_list=
@@ -1565,15 +1728,53 @@ QueryStmt
           +-PivotColumn(column=$pivot.sum_x_test#4, pivot_expr_index=0, pivot_value_index=0)
           +-PivotColumn(column=$pivot.sum_x__empty_string_value#5, pivot_expr_index=0, pivot_value_index=1)
           +-PivotColumn(column=$pivot.sum_x_NULL#6, pivot_expr_index=0, pivot_value_index=2)
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$pivot.test#4 AS test [INT64]
+| +-$pivot.empty_string_value#5 AS empty_string_value [INT64]
+| +-$pivot.NULL#6 AS `NULL` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$pivot.[test#4, empty_string_value#5, NULL#6]
+    +-input_scan=
+      +-PivotScan
+        +-column_list=$pivot.[test#4, empty_string_value#5, NULL#6]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=t.[x#1, y#2]
+        |   +-expr_list=
+        |   | +-x#1 := Literal(type=INT64, value=1)
+        |   | +-y#2 := Literal(type=STRING, value="test")
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-pivot_expr_list=
+        | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |   +-parse_location=48-54
+        |   +-ColumnRef(type=INT64, column=t.x#1)
+        +-for_expr=
+        | +-ColumnRef(parse_location=62-63, type=STRING, column=t.y#2)
+        +-pivot_value_list=
+        | +-Literal(type=STRING, value="test", preserve_in_literal_remover=TRUE)
+        | +-Literal(type=STRING, value="", preserve_in_literal_remover=TRUE)
+        | +-Literal(type=STRING, value=NULL, preserve_in_literal_remover=TRUE)
+        +-pivot_column_list=
+          +-PivotColumn(column=$pivot.test#4, pivot_expr_index=0, pivot_value_index=0)
+          +-PivotColumn(column=$pivot.empty_string_value#5, pivot_expr_index=0, pivot_value_index=1)
+          +-PivotColumn(column=$pivot.NULL#6, pivot_expr_index=0, pivot_value_index=2)
 ==
 
 # PIVOT values of type DATE (with implicit coercion from literal strings and
 # NULL).
 SELECT * FROM (SELECT 1 x, CAST('2015-06-23' AS DATE) y) t
 PIVOT(
-  SUM(x) {{sum_x}}
+  SUM(x) {{sum_x|}}
   FOR y IN ('2018-01-01', '2019-01-01', NULL)
 );
+--
+ALTERNATION GROUP: sum_x
 --
 QueryStmt
 +-output_column_list=
@@ -1608,6 +1809,42 @@ QueryStmt
           +-PivotColumn(column=$pivot.sum_x_2018_01_01#4, pivot_expr_index=0, pivot_value_index=0)
           +-PivotColumn(column=$pivot.sum_x_2019_01_01#5, pivot_expr_index=0, pivot_value_index=1)
           +-PivotColumn(column=$pivot.sum_x_NULL#6, pivot_expr_index=0, pivot_value_index=2)
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$pivot._2018_01_01#4 AS _2018_01_01 [INT64]
+| +-$pivot._2019_01_01#5 AS _2019_01_01 [INT64]
+| +-$pivot.NULL#6 AS `NULL` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$pivot.[_2018_01_01#4, _2019_01_01#5, NULL#6]
+    +-input_scan=
+      +-PivotScan
+        +-column_list=$pivot.[_2018_01_01#4, _2019_01_01#5, NULL#6]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-column_list=t.[x#1, y#2]
+        |   +-expr_list=
+        |   | +-x#1 := Literal(type=INT64, value=1)
+        |   | +-y#2 := Literal(type=DATE, value=2015-06-23, has_explicit_type=TRUE)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-pivot_expr_list=
+        | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |   +-parse_location=68-74
+        |   +-ColumnRef(type=INT64, column=t.x#1)
+        +-for_expr=
+        | +-ColumnRef(parse_location=82-83, type=DATE, column=t.y#2)
+        +-pivot_value_list=
+        | +-Literal(type=DATE, value=2018-01-01, preserve_in_literal_remover=TRUE)
+        | +-Literal(type=DATE, value=2019-01-01, preserve_in_literal_remover=TRUE)
+        | +-Literal(type=DATE, value=NULL, preserve_in_literal_remover=TRUE)
+        +-pivot_column_list=
+          +-PivotColumn(column=$pivot._2018_01_01#4, pivot_expr_index=0, pivot_value_index=0)
+          +-PivotColumn(column=$pivot._2019_01_01#5, pivot_expr_index=0, pivot_value_index=1)
+          +-PivotColumn(column=$pivot.NULL#6, pivot_expr_index=0, pivot_value_index=2)
 ==
 
 # PIVOT values of type TIME
@@ -1661,8 +1898,14 @@ ERROR: PIVOT values of type TIME must specify an alias [at 4:13]
 SELECT * FROM (SELECT 1 x, CAST('2017-03-31' AS {{TIMESTAMP|DATETIME}}) y) t
 PIVOT(
   SUM(x)
-  FOR y IN ('2017-03-31' {{AS mytime}}, NULL)
+  FOR y IN ('2017-03-31' {{|AS mytime}}, NULL)
 );
+--
+ALTERNATION GROUP: TIMESTAMP,
+--
+ERROR: PIVOT values of type TIMESTAMP must specify an alias [at 4:13]
+  FOR y IN ('2017-03-31' , NULL)
+            ^
 --
 ALTERNATION GROUP: TIMESTAMP,AS mytime
 --
@@ -1696,6 +1939,12 @@ QueryStmt
         +-pivot_column_list=
           +-PivotColumn(column=$pivot.mytime#4, pivot_expr_index=0, pivot_value_index=0)
           +-PivotColumn(column=$pivot.NULL#5, pivot_expr_index=0, pivot_value_index=1)
+--
+ALTERNATION GROUP: DATETIME,
+--
+ERROR: PIVOT values of type DATETIME must specify an alias [at 4:13]
+  FOR y IN ('2017-03-31' , NULL)
+            ^
 --
 ALTERNATION GROUP: DATETIME,AS mytime
 --
@@ -1734,7 +1983,7 @@ QueryStmt
 # PIVOT value with failed literal string->date coercion.
 SELECT * FROM (SELECT 1 x, CAST('2015-06-23' AS DATE) y) t
 PIVOT(
-  SUM(x) {{sum_x}}
+  SUM(x) {{sum_x|}}
   FOR y IN ('Not a valid date')
 );
 --
@@ -2019,11 +2268,78 @@ QueryStmt
 SELECT ANY_VALUE(PivotOutput._1), PivotOutput._2, PivotOutput.z
 FROM (SELECT 1 AS x, 2 AS y, 3 AS z) kv
 PIVOT(
-  SUM(x) FOR y IN (1 {{AS _1}}, 2 AS _2)
+  SUM(x) FOR y IN (1 {{|AS _1}}, 2 AS _2)
 ) AS PivotOutput
 WHERE PivotOutput._1 > PivotOutput._2 AND PivotOutput._1 > z
 GROUP BY PivotOutput._2, PivotOutput.z
 HAVING PivotOutput._2 > PivotOutput.z;
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#8 AS `$col1` [INT64]
+| +-$groupby._2#9 AS _2 [INT64]
+| +-$groupby.z#10 AS z [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#8, $groupby._2#9, $groupby.z#10]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[$groupby._2#9, $groupby.z#10, $aggregate.$agg1#8]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$groupby._2#9, $groupby.z#10, $aggregate.$agg1#8]
+        |   +-input_scan=
+        |   | +-FilterScan
+        |   |   +-column_list=[$groupby.z#5, $pivot._1#6, $pivot._2#7]
+        |   |   +-input_scan=
+        |   |   | +-PivotScan
+        |   |   |   +-column_list=[$groupby.z#5, $pivot._1#6, $pivot._2#7]
+        |   |   |   +-input_scan=
+        |   |   |   | +-ProjectScan
+        |   |   |   |   +-column_list=kv.[x#1, y#2, z#3]
+        |   |   |   |   +-expr_list=
+        |   |   |   |   | +-x#1 := Literal(type=INT64, value=1)
+        |   |   |   |   | +-y#2 := Literal(type=INT64, value=2)
+        |   |   |   |   | +-z#3 := Literal(type=INT64, value=3)
+        |   |   |   |   +-input_scan=
+        |   |   |   |     +-SingleRowScan
+        |   |   |   +-group_by_list=
+        |   |   |   | +-z#5 := ColumnRef(type=INT64, column=kv.z#3)
+        |   |   |   +-pivot_expr_list=
+        |   |   |   | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+        |   |   |   |   +-parse_location=113-119
+        |   |   |   |   +-ColumnRef(type=INT64, column=kv.x#1)
+        |   |   |   +-for_expr=
+        |   |   |   | +-ColumnRef(parse_location=124-125, type=INT64, column=kv.y#2)
+        |   |   |   +-pivot_value_list=
+        |   |   |   | +-Literal(type=INT64, value=1, preserve_in_literal_remover=TRUE)
+        |   |   |   | +-Literal(type=INT64, value=2)
+        |   |   |   +-pivot_column_list=
+        |   |   |     +-PivotColumn(column=$pivot._1#6, pivot_expr_index=0, pivot_value_index=0)
+        |   |   |     +-PivotColumn(column=$pivot._2#7, pivot_expr_index=0, pivot_value_index=1)
+        |   |   +-filter_expr=
+        |   |     +-FunctionCall(ZetaSQL:$and(BOOL, repeated(1) BOOL) -> BOOL)
+        |   |       +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+        |   |       | +-ColumnRef(type=INT64, column=$pivot._1#6)
+        |   |       | +-ColumnRef(type=INT64, column=$pivot._2#7)
+        |   |       +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+        |   |         +-ColumnRef(type=INT64, column=$pivot._1#6)
+        |   |         +-ColumnRef(type=INT64, column=$groupby.z#5)
+        |   +-group_by_list=
+        |   | +-_2#9 := ColumnRef(type=INT64, column=$pivot._2#7)
+        |   | +-z#10 := ColumnRef(type=INT64, column=$groupby.z#5)
+        |   +-aggregate_list=
+        |     +-$agg1#8 :=
+        |       +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+        |         +-ColumnRef(type=INT64, column=$pivot._1#6)
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+            +-ColumnRef(type=INT64, column=$groupby._2#9)
+            +-ColumnRef(type=INT64, column=$groupby.z#10)
+--
+ALTERNATION GROUP: AS _1
 --
 QueryStmt
 +-output_column_list=

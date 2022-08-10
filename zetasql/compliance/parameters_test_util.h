@@ -32,6 +32,17 @@ class TestDatabase;
 
 // Parses query parameters from a string in the format that appears in
 // ZetaSQL compliance test files.
+//
+// Parameters can be specified within *.test files by the following test
+// case options:
+//
+//   [parameters=<typed_value> as <param_name>, ...]
+//   SELECT @<param_name> ...
+//
+// A typed value is specified by a SQL expression, such as CAST(2 AS INT32). The
+// parameters can be used by the statement in the same section.
+//
+// Parse a parameters string, return a map of <param_name>:<typed_value>.
 absl::Status ParseTestFileParameters(absl::string_view param_string,
                                      ReferenceDriver* reference_driver,
                                      TypeFactory* type_factory,

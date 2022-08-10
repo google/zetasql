@@ -591,6 +591,16 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
       }
       break;
 
+    case AST_ALTER_MODEL_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_ALTER_MODEL_STMT)) {
+        // Note that for an ALTER MODEL statement, the model name is not
+        // inserted into table_names_. Engines that need to know about a model
+        // referenced by ALTER MODEL should handle that themselves.
+        return absl::OkStatus();
+      }
+      break;
+
     case AST_DROP_SNAPSHOT_TABLE_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_DROP_SNAPSHOT_TABLE_STMT)) {

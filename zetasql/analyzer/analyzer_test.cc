@@ -575,7 +575,7 @@ TEST_F(AnalyzerOptionsTest, EofErrorMessageTrailingNewlinesAndWhitespace) {
       ErrorMessageMode::ERROR_MESSAGE_MULTI_LINE_WITH_CARET);
 
   // Trailing newlines are ignored for unexpected end of statement errors.
-  for (const std::string& newline : {"\n", "\r\n", "\n\r", "\r"}) {
+  for (absl::string_view newline : {"\n", "\r\n", "\n\r", "\r"}) {
     EXPECT_EQ(
         "generic::invalid_argument: Syntax error: Unexpected end of "
         "statement [at 1:1]\n"
@@ -589,9 +589,9 @@ TEST_F(AnalyzerOptionsTest, EofErrorMessageTrailingNewlinesAndWhitespace) {
   // end of statement errors. We're not testing all possible whitespace, but
   // one multibyte whitespace character is included to verify that we're using
   // the generic whitespace rule for this, and not some ASCII-only hack.
-  for (const std::string& whitespace :
+  for (absl::string_view whitespace :
        {" ", "   ", "\342\200\200" /* EN QUAD */}) {
-    for (const std::string& newline : {"\n", "\r\n", "\n\r", "\r"}) {
+    for (absl::string_view newline : {"\n", "\r\n", "\n\r", "\r"}) {
       for (const std::string& more_whitespace :
            {"", " ", "   ", "\342\200\200" /* EN QUAD */}) {
         EXPECT_EQ(
@@ -1027,7 +1027,7 @@ TEST_F(AnalyzerOptionsTest, Deserialize) {
 }
 
 TEST_F(AnalyzerOptionsTest, ClassAndProtoSize) {
-  EXPECT_EQ(240, sizeof(AnalyzerOptions) - sizeof(LanguageOptions) -
+  EXPECT_EQ(280, sizeof(AnalyzerOptions) - sizeof(LanguageOptions) -
                      sizeof(AllowedHintsAndOptions) -
                      sizeof(Catalog::FindOptions) - sizeof(SystemVariablesMap) -
                      2 * sizeof(QueryParametersMap) - 2 * sizeof(std::string) -
@@ -1035,7 +1035,7 @@ TEST_F(AnalyzerOptionsTest, ClassAndProtoSize) {
                      sizeof(absl::btree_set<ResolvedASTRewrite>))
       << "The size of AnalyzerOptions class has changed, please also update "
       << "the proto and serialization code if you added/removed fields in it.";
-  EXPECT_EQ(21, AnalyzerOptionsProto::descriptor()->field_count())
+  EXPECT_EQ(22, AnalyzerOptionsProto::descriptor()->field_count())
       << "The number of fields in AnalyzerOptionsProto has changed, please "
       << "also update the serialization code accordingly.";
 }

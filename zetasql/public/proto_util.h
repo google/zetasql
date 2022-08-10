@@ -18,6 +18,7 @@
 #define ZETASQL_PUBLIC_PROTO_UTIL_H_
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "google/protobuf/descriptor.h"

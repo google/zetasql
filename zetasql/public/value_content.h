@@ -73,11 +73,6 @@ class ValueContent {
   }
 
   template <class T>
-  constexpr std::enable_if_t<IsTypeSupported<T>(), void> get(T* value) const {
-    *value = content<T>()->value;
-  }
-
-  template <class T>
   constexpr std::enable_if_t<IsTypeSupported<T>(), T> GetAs() const {
     return content<T>()->value;
   }

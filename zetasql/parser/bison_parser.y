@@ -447,6 +447,19 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 // error messages to user when QUALIFY clause is used without
 // WHERE/GROUP BY/HAVING.
 //
+// AMBIGUOUS CASE 14: ALTER COLUMN
+// --------------------------------
+// Spanner DDL compatibility extensions provide support for Spanner flavor of
+// ALTER COLUMN action, which expects full column definition instead of
+// sub-action. Column type identifier in this definition causes 2 shift/reduce
+// conflicts with
+//   ALTER COLUMN... DROP DEFAULT
+//   ALTER COLUMN... DROP NOT NULL actions
+// In both cases when encountering DROP, bison might either choose to shift
+// (e.g. interpret DROP as keyword and proceed with one of the 2 rules above),
+// or reduce DROP as type identifier in Spanner-specific rule. Bison chooses to
+// shift, which is a desired behavior.
+//
 // Total expected shift/reduce conflicts as described above:
 //   2: EXPRESSION SUBQUERY
 //   1: INSERT VALUES
@@ -462,7 +475,8 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
 //   1: WITH ANONYMIZATION
 //   1: ANALYZE
 //   6: QUALIFY
-%expect 25
+//   2: ALTER COLUMN
+%expect 27
 
 %union {
   bool boolean;
@@ -540,6 +554,11 @@ class SeparatedIdentifierTmpNode final : public zetasql::ASTNode {
     bool is_remote;
     zetasql::ASTWithConnectionClause* with_connection_clause;
   } language_or_remote_with_connection;
+  struct {
+    zetasql::ASTScript* body;
+    zetasql::ASTIdentifier* language;
+    zetasql::ASTNode* code;
+  } begin_end_block_or_language_as_code;
 }
 // YYEOF is a special token used to indicate the end of the input. It's alias
 // defaults to "end of file", but "end of input" is more appropriate for us.
@@ -887,6 +906,7 @@ using zetasql::ASTDropStatement;
 %token KW_DECLARE "DECLARE"
 %token KW_DEFINER "DEFINER"
 %token KW_DELETE "DELETE"
+%token KW_DELETION "DELETION"
 %token KW_DESCRIBE "DESCRIBE"
 %token KW_DESCRIPTOR "DESCRIPTOR"
 %token KW_DETERMINISTIC "DETERMINISTIC"
@@ -1013,6 +1033,12 @@ using zetasql::ASTDropStatement;
 %token KW_ZONE "ZONE"
 %token KW_EXCEPTION "EXCEPTION"
 %token KW_ERROR "ERROR"
+
+// Spanner-specific keywords
+%token KW_INTERLEAVE "INTERLEAVE"
+%token KW_NULL_FILTERED "NULL_FILTERED"
+%token KW_PARENT "PARENT"
+
 // END_NON_RESERVED_KEYWORDS -- Do not remove this!
 
 // This is not a keyword token. It represents all identifiers that are
@@ -1232,6 +1258,7 @@ using zetasql::ASTDropStatement;
 %type <node> opt_as_query
 %type <node> opt_as_query_or_string
 %type <node> opt_as_sql_function_body_or_string
+%type <node> opt_as_code
 %type <node> opt_assert_rows_modified
 %type <node> opt_clamped_between_modifier
 %type <node> opt_clone_table
@@ -1311,6 +1338,7 @@ using zetasql::ASTDropStatement;
 %type <node> opt_table_element_list
 %type <node> opt_transaction_mode_list
 %type <node> opt_transform_clause
+%type <node> opt_ttl_clause
 %type <clauses_following_from> opt_clauses_following_from
 %type <clauses_following_from> opt_clauses_following_where
 %type <clauses_following_from> opt_clauses_following_group_by
@@ -1342,9 +1370,11 @@ using zetasql::ASTDropStatement;
 %type <expression> maybe_slashed_or_dashed_path_expression
 %type <node> path_expression_or_string
 %type <expression> possibly_cast_int_literal_or_parameter
-%type <node> possibly_empty_column_list
 %type <node> possibly_empty_grantee_list
 %type <node> primary_key_or_table_constraint_spec
+%type <node> primary_key_element
+%type <node> primary_key_element_list
+%type <node> primary_key_element_list_prefix
 %type <node> primary_key_spec
 %type <node> privilege
 %type <node> privilege_list
@@ -1361,6 +1391,7 @@ using zetasql::ASTDropStatement;
 %type <query_set_operation> query_set_operation_prefix
 %type <query_set_operation> query_set_operation_prefix_maybe_expression
 %type <node> query_statement
+%type <expression> range_literal
 %type <node> raw_type
 %type <node> raw_column_schema_inner
 %type <language_or_remote_with_connection> remote_with_connection_clause
@@ -1560,6 +1591,20 @@ using zetasql::ASTDropStatement;
 %type <node> descriptor_argument
 %type <node> with_partition_columns_clause
 %type <pivot_or_unpivot_clause_and_alias> opt_pivot_or_unpivot_clause_and_alias
+%type <begin_end_block_or_language_as_code> unlabeled_begin_end_block_or_language_as_code
+
+// Spanner-specific non-terminals
+%type <boolean> opt_spanner_null_filtered
+%type <node> opt_spanner_index_interleave_clause
+%type <node> opt_spanner_interleave_in_parent_clause
+%type <node> opt_spanner_generated_or_default
+%type <node> opt_spanner_not_null_attribute
+%type <node> opt_spanner_table_options
+%type <node> spanner_alter_column_action
+%type <node> spanner_generated_or_default
+%type <node> spanner_set_on_delete_action
+%type <node> spanner_primary_key
+// End of Spanner-specific non-terminals
 
 %start start_mode
 %%
@@ -1823,6 +1868,39 @@ alter_action:
       {
         $$ = MAKE_NODE(ASTSetCollateClause, @$, {$3});
       }
+    | "ADD" "ROW" "DELETION" "POLICY" opt_if_not_exists "(" expression ")"
+      {
+        if (!parser->language_options().LanguageFeatureEnabled(
+              zetasql::FEATURE_V_1_4_TTL)) {
+          YYERROR_AND_ABORT_AT(@2,
+            "ADD ROW DELETION POLICY clause is not supported.");
+        }
+        auto* node = MAKE_NODE(ASTAddTtlAction, @$, {$7});
+        node->set_is_if_not_exists($5);
+        $$ = node;
+      }
+    | "REPLACE" "ROW" "DELETION" "POLICY" opt_if_exists "(" expression ")"
+      {
+        if (!parser->language_options().LanguageFeatureEnabled(
+              zetasql::FEATURE_V_1_4_TTL)) {
+          YYERROR_AND_ABORT_AT(@2,
+            "REPLACE ROW DELETION POLICY clause is not supported.");
+        }
+        auto* node = MAKE_NODE(ASTReplaceTtlAction, @$, {$7});
+        node->set_is_if_exists($5);
+        $$ = node;
+      }
+    | "DROP" "ROW" "DELETION" "POLICY" opt_if_exists
+      {
+        if (!parser->language_options().LanguageFeatureEnabled(
+              zetasql::FEATURE_V_1_4_TTL)) {
+          YYERROR_AND_ABORT_AT(@2,
+            "DROP ROW DELETION POLICY clause is not supported.");
+        }
+        auto* node = MAKE_NODE(ASTDropTtlAction, @$, {});
+        node->set_is_if_exists($5);
+        $$ = node;
+      }
     | "ALTER" generic_sub_entity_type opt_if_exists identifier alter_action
       {
         auto* node = MAKE_NODE(ASTAlterSubEntityAction, @$, {$2, $4, $5});
@@ -1842,6 +1920,8 @@ alter_action:
         node->set_is_if_exists($3);
         $$ = node;
       }
+    | spanner_alter_column_action
+    | spanner_set_on_delete_action
     ;
 
 alter_action_list:
@@ -2379,22 +2459,42 @@ function_parameters:
       }
     ;
 
-create_procedure_statement:
-    "CREATE" opt_or_replace opt_create_scope "PROCEDURE" opt_if_not_exists
-    path_expression procedure_parameters opt_options_list
+unlabeled_begin_end_block_or_language_as_code:
     unlabeled_begin_end_block
       {
         zetasql::ASTStatementList* stmt_list = MAKE_NODE(
-            ASTStatementList, @9, {$9});
-        zetasql::ASTScript* body = MAKE_NODE(ASTScript, @9, {stmt_list});
-        auto* create =
-            MAKE_NODE(ASTCreateProcedureStatement, @$, {$6, $7, $8, body});
-        create->set_is_or_replace($2);
-        create->set_scope($3);
-        create->set_is_if_not_exists($5);
-        $$ = create;
+            ASTStatementList, @1, {$1});
+        zetasql::ASTScript* body = MAKE_NODE(ASTScript, @1, {stmt_list});
+        $$.body = body;
+        $$.language = nullptr;
+        $$.code = nullptr;
+      }
+    | "LANGUAGE" identifier opt_as_code
+      {
+        if (parser->language_options().LanguageFeatureEnabled(
+                zetasql::FEATURE_NON_SQL_PROCEDURE)) {
+          $$.body = nullptr;
+          $$.language = $2;
+          $$.code = $3;
+        } else {
+          YYERROR_AND_ABORT_AT(@1, "LANGUAGE is not supported");
+        }
       }
     ;
+
+create_procedure_statement:
+    "CREATE" opt_or_replace opt_create_scope "PROCEDURE" opt_if_not_exists
+    path_expression procedure_parameters opt_with_connection_clause
+    opt_options_list unlabeled_begin_end_block_or_language_as_code
+    {
+      auto* create =
+          MAKE_NODE(ASTCreateProcedureStatement, @$,
+                    {$6, $7, $9, $10.body, $8, $10.language, $10.code});
+      create->set_is_or_replace($2);
+      create->set_scope($3);
+      create->set_is_if_not_exists($5);
+      $$ = create;
+    }
 
 procedure_parameters_prefix:
     "(" procedure_parameter
@@ -2607,6 +2707,17 @@ as_sql_function_body_or_string:
 
 opt_as_sql_function_body_or_string:
     as_sql_function_body_or_string
+    | /* Nothing */
+      {
+        $$ = nullptr;
+      }
+    ;
+
+opt_as_code:
+    "AS" string_literal
+      {
+        $$ = $2;
+      }
     | /* Nothing */
       {
         $$ = nullptr;
@@ -2830,15 +2941,19 @@ create_external_table_function_statement:
     ;
 
 create_index_statement:
-  "CREATE" opt_or_replace opt_unique opt_search "INDEX" opt_if_not_exists
-    path_expression "ON" path_expression opt_as_alias opt_index_unnest_expression_list index_order_by opt_index_storing_list opt_options_list
+  "CREATE" opt_or_replace opt_unique opt_spanner_null_filtered opt_search
+    "INDEX" opt_if_not_exists path_expression "ON" path_expression opt_as_alias
+    opt_index_unnest_expression_list index_order_by opt_index_storing_list
+    opt_options_list opt_spanner_index_interleave_clause
       {
         auto* create =
-          MAKE_NODE(ASTCreateIndexStatement, @$, {$7, $9, $10, $11, $12, $13, $14});
+          MAKE_NODE(ASTCreateIndexStatement, @$,
+              {$8, $10, $11, $12, $13, $14, $15, $16});
         create->set_is_or_replace($2);
         create->set_is_unique($3);
-        create->set_is_if_not_exists($6);
-        create->set_is_search($4);
+        create->set_is_if_not_exists($7);
+        create->set_is_search($5);
+        create->set_spanner_is_null_filtered($4);
         $$ = create;
       }
     ;
@@ -2905,15 +3020,28 @@ create_table_function_statement:
 create_table_statement:
     "CREATE" opt_or_replace opt_create_scope "TABLE" opt_if_not_exists
     maybe_dashed_path_expression opt_table_element_list
-    opt_like_path_expression opt_clone_table opt_copy_table
-    opt_default_collate_clause opt_partition_by_clause_no_hint
-    opt_cluster_by_clause_no_hint opt_options_list opt_as_query
+    opt_spanner_table_options opt_like_path_expression opt_clone_table
+    opt_copy_table opt_default_collate_clause opt_partition_by_clause_no_hint
+    opt_cluster_by_clause_no_hint opt_ttl_clause opt_options_list opt_as_query
       {
         zetasql::ASTCreateStatement* create =
-            MAKE_NODE(ASTCreateTableStatement, @$, {$6, $7, $8, $9, $10, $11, $12, $13, $14, $15});
-        create->set_is_or_replace($2);
-        create->set_scope($3);
-        create->set_is_if_not_exists($5);
+            MAKE_NODE(ASTCreateTableStatement, @$, {
+              $maybe_dashed_path_expression,
+              $opt_table_element_list,
+              $opt_like_path_expression,
+              $opt_spanner_table_options,
+              $opt_clone_table,
+              $opt_copy_table,
+              $opt_default_collate_clause,
+              $opt_partition_by_clause_no_hint,
+              $opt_cluster_by_clause_no_hint,
+              $opt_ttl_clause,
+              $opt_options_list,
+              $opt_as_query,
+            });
+        create->set_is_or_replace($opt_or_replace);
+        create->set_scope($opt_create_scope);
+        create->set_is_if_not_exists($opt_if_not_exists);
         $$ = create;
       }
     ;
@@ -3048,7 +3176,16 @@ table_element_list:
       {
         $$ = parser->WithEndLocation($1, @$);
       }
-      ;
+    | "(" ")"
+      {
+        if (!parser->language_options().LanguageFeatureEnabled(
+          zetasql::FEATURE_SPANNER_LEGACY_DDL)) {
+            YYERROR_AND_ABORT_AT(@2, "A table must define at least one "
+              "column.");
+        }
+        $$ = MAKE_NODE(ASTTableElementList, @$, {});
+      }
+    ;
 
 table_element_list_prefix:
     "(" table_element
@@ -3112,20 +3249,20 @@ table_column_definition:
     ;
 
 table_column_schema:
-    column_schema_inner opt_column_info opt_collate_clause
+    column_schema_inner opt_collate_clause opt_column_info
       {
-        if ($2.generated_column_info != nullptr) {
+        if ($3.generated_column_info != nullptr) {
           $$ = parser->WithEndLocation(
-              WithExtraChildren($1, {$2.generated_column_info,
-                                     /*default_expression=*/nullptr, $3}), @$);
-        } else if ($2.default_expression != nullptr) {
+              WithExtraChildren($1, {$2, $3.generated_column_info,
+                                     /*default_expression=*/nullptr}), @$);
+        } else if ($3.default_expression != nullptr) {
           $$ = parser->WithEndLocation(
-              WithExtraChildren($1, {/*generated_column_info=*/nullptr,
-                                     $2.default_expression, $3}), @$);
+              WithExtraChildren($1, {$2, /*generated_column_info=*/nullptr,
+                                     $3.default_expression}), @$);
         } else {
           $$ = parser->WithEndLocation(
-              WithExtraChildren($1, {/*generated_column_info=*/nullptr,
-                                     /*default_expression=*/nullptr, $3}), @$);
+              WithExtraChildren($1, {$2, /*generated_column_info=*/nullptr,
+                                     /*default_expression=*/nullptr}), @$);
         }
       }
     | generated_column_info
@@ -3467,8 +3604,47 @@ table_constraint_spec:
       }
     ;
 
+primary_key_element:
+    identifier opt_asc_or_desc opt_null_order
+      {
+        if (!parser->language_options().LanguageFeatureEnabled(
+              zetasql::FEATURE_V_1_4_ORDERED_PRIMARY_KEYS)) {
+          if ($opt_asc_or_desc != zetasql::ASTOrderingExpression::UNSPECIFIED
+              || $opt_null_order != nullptr) {
+            YYERROR_AND_ABORT_AT(@2,
+              "Ordering for primary keys is not supported");
+          }
+        }
+        auto* node = MAKE_NODE(ASTPrimaryKeyElement, @$, {
+          $identifier,
+          $opt_null_order,
+        });
+        node->set_ordering_spec($opt_asc_or_desc);
+        $$ = node;
+      }
+    ;
+
+primary_key_element_list_prefix:
+    "(" primary_key_element
+      {
+        $$ = MAKE_NODE(ASTPrimaryKeyElementList, @$, {$2});
+      }
+    | primary_key_element_list_prefix "," primary_key_element
+      {
+        $$ = WithExtraChildren($1, {$3});
+      }
+    ;
+
+primary_key_element_list:
+    primary_key_element_list_prefix ")"
+      {
+        $$ = parser->WithEndLocation($1, @$);
+      }
+    | "(" ")" { $$ = nullptr; }
+    ;
+
 primary_key_spec:
-  "PRIMARY" "KEY" possibly_empty_column_list opt_constraint_enforcement
+  "PRIMARY" "KEY" primary_key_element_list opt_constraint_enforcement
   opt_options_list
     {
       zetasql::ASTPrimaryKey* node = MAKE_NODE(ASTPrimaryKey, @$, {$3, $5});
@@ -3943,17 +4119,6 @@ column_list:
 opt_column_list:
     column_list
     | /* Nothing */ { $$ = nullptr; }
-    ;
-
-possibly_empty_column_list:
-    column_list_prefix ")"
-      {
-        $$ = parser->WithEndLocation($1, @$);
-      }
-    | "(" ")"
-      {
-        $$ = nullptr;
-      }
     ;
 
 grantee_list:
@@ -4497,13 +4662,13 @@ select_column:
       }
     | expression ".*"
       {
-        auto* dot_star = MAKE_NODE(ASTDotStar, @2, {$1});
+        auto* dot_star = MAKE_NODE(ASTDotStar, @1, @2, {$1});
         $$ = MAKE_NODE(ASTSelectColumn, @$, {dot_star});
       }
     | expression ".*" star_modifiers
       {
         auto* dot_star_with_modifiers =
-            MAKE_NODE(ASTDotStarWithModifiers, @2, @3, {$1, $3});
+            MAKE_NODE(ASTDotStarWithModifiers, @1, @3, {$1, $3});
         $$ = MAKE_NODE(ASTSelectColumn, @$, {dot_star_with_modifiers});
       }
     | "*"
@@ -5405,8 +5570,7 @@ grouping_item:
       }
     | rollup_list ")"
       {
-        $1 = parser->WithEndLocation($1, @$);
-        $$ = MAKE_NODE(ASTGroupingItem, @$, {$1});
+        $$ = MAKE_NODE(ASTGroupingItem, @$, {parser->WithEndLocation($1, @$)});
       }
     ;
 
@@ -5955,6 +6119,7 @@ expression:
     | json_literal
     | floating_point_literal
     | date_or_time_literal
+    | range_literal
     | parameter_expression
     | system_variable_expression
     | array_constructor
@@ -6002,11 +6167,12 @@ expression:
       }
     | expression "[" expression "]" %prec PRIMARY_PRECEDENCE
       {
-        $$ = MAKE_NODE(ASTArrayElement, @2, @4, {$1, $3});
+        auto* bracket_loc = parser->MakeLocation(@2);
+        $$ = MAKE_NODE(ASTArrayElement, @1, @4, {$1, bracket_loc, $3});
       }
     | expression "." "(" path_expression ")"  %prec PRIMARY_PRECEDENCE
       {
-        $$ = MAKE_NODE(ASTDotGeneralizedField, @2, @5, {$1, $4});
+        $$ = MAKE_NODE(ASTDotGeneralizedField, @1, @5, {$1, $4});
       }
     | expression "." identifier %prec PRIMARY_PRECEDENCE
       {
@@ -6022,7 +6188,7 @@ expression:
             !$1->parenthesized()) {
           $$ = WithExtraChildren(parser->WithEndLocation($1, @3), {$3});
         } else {
-          $$ = MAKE_NODE(ASTDotIdentifier, @2, @3, {$1, $3});
+          $$ = MAKE_NODE(ASTDotIdentifier, @1, @3, {$1, $3});
         }
       }
     | expression "OR" expression %prec "OR"
@@ -6065,7 +6231,9 @@ expression:
                                  "Syntax error: Expression to the left of LIKE "
                                  "must be parenthesized");
           }
-          auto* like_expression = MAKE_NODE(ASTLikeExpression, @2, @5, {$1, $3, $5});
+          auto* like_location = parser->MakeLocation(@2);
+          auto* like_expression = MAKE_NODE(ASTLikeExpression, @1, @5,
+                                            {$1, like_location, $3, $5});
           like_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           $$ = like_expression;
         }
@@ -6078,16 +6246,19 @@ expression:
                                 "Syntax error: Expression to the left of LIKE "
                                 "must be parenthesized");
           }
+          auto* like_location = parser->MakeLocation(@2);
           zetasql::ASTLikeExpression* like_expression = nullptr;
           if ($5->node_kind() == zetasql::AST_QUERY) {
-            like_expression = MAKE_NODE(ASTLikeExpression, @2, @5, {$1, $3, $4, $5});
+            like_expression = MAKE_NODE(ASTLikeExpression, @1, @5,
+                                        {$1, like_location, $3, $4, $5});
           } else {
             if($4) {
               YYERROR_AND_ABORT_AT(@4,
                                   "Syntax error: HINTs cannot be specified on "
                                   "LIKE clause with value list");
             }
-            like_expression = MAKE_NODE(ASTLikeExpression, @2, @5, {$1, $3, $5});
+            like_expression = MAKE_NODE(ASTLikeExpression, @1, @5,
+                                        {$1, like_location, $3, $5});
           }
           like_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           $$ = like_expression;
@@ -6142,7 +6313,9 @@ expression:
                                  "Syntax error: Expression to the left of IN "
                                  "must be parenthesized");
           }
-          auto* in_expression = MAKE_NODE(ASTInExpression, @2, @4, {$1, $4});
+          zetasql::ASTLocation* in_location = parser->MakeLocation(@2);
+          auto* in_expression =
+              MAKE_NODE(ASTInExpression, @1, @4, {$1, in_location, $4});
           in_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           $$ = in_expression;
         }
@@ -6156,19 +6329,18 @@ expression:
                                 "must be parenthesized");
           }
           zetasql::ASTInExpression* in_expression = nullptr;
-          if ($4->node_kind() == zetasql::AST_QUERY)
-          {
-            in_expression = MAKE_NODE(ASTInExpression, @2, @4, {$1, $3, $4});
-          }
-          else
-          {
-            if($3)
-            {
+          zetasql::ASTLocation* in_location = parser->MakeLocation(@2);
+          if ($4->node_kind() == zetasql::AST_QUERY) {
+            in_expression =
+                MAKE_NODE(ASTInExpression, @1, @4, {$1, in_location, $3, $4});
+          } else {
+            if($3) {
               YYERROR_AND_ABORT_AT(@3,
                                   "Syntax error: HINTs cannot be specified on "
                                   "IN clause with value list");
             }
-            in_expression = MAKE_NODE(ASTInExpression, @2, @4, {$1, $4});
+            in_expression =
+                MAKE_NODE(ASTInExpression, @1, @4, {$1, in_location, $4});
           }
           in_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           $$ = in_expression;
@@ -6199,8 +6371,9 @@ expression:
           if (IsUnparenthesizedNotExpression($5)) {
             YYERROR_UNEXPECTED_AND_ABORT_AT(@3);
           }
+          auto* between_loc = parser->MakeLocation(@2);
           auto* between_expression =
-              MAKE_NODE(ASTBetweenExpression, @2, @5, {$1, $3, $5});
+              MAKE_NODE(ASTBetweenExpression, @1, @5, {$1, between_loc, $3, $5});
           between_expression->set_is_not($2 == NotKeywordPresence::kPresent);
           $$ = between_expression;
         }
@@ -6349,8 +6522,9 @@ expression:
         if (IsUnparenthesizedNotExpression($3)) {
           YYERROR_UNEXPECTED_AND_ABORT_AT(@3);
         }
+        auto* operator_location = parser->MakeLocation(@2);
         auto* binary_expression =
-            MAKE_NODE(ASTBitwiseShiftExpression, @2, @3, {$1, $3});
+            MAKE_NODE(ASTBitwiseShiftExpression, @1, @3, {$1, operator_location, $3});
         binary_expression->set_is_left_shift($2 == ShiftOperator::kLeft);
         $$ = binary_expression;
       }
@@ -6819,6 +6993,13 @@ array_constructor:
     | array_constructor_prefix "]"
       {
         $$ = parser->WithEndLocation($1, @$);
+      }
+    ;
+
+range_literal:
+    "RANGE" "<" type ">" string_literal
+      {
+        $$ = MAKE_NODE(ASTRangeLiteral, @$, {$3, $5});
       }
     ;
 
@@ -7306,6 +7487,10 @@ function_name_from_keyword:
       {
         $$ = parser->MakeIdentifier(@1, parser->GetInputText(@1));
       }
+    | "RANGE"
+      {
+        $$ = parser->MakeIdentifier(@1, parser->GetInputText(@1));
+      }
     ;
 
 // These rules have "expression" as their first part rather than
@@ -7570,6 +7755,18 @@ opt_cluster_by_clause_no_hint:
     | /* Nothing */ { $$ = nullptr; }
     ;
 
+opt_ttl_clause:
+  "ROW" "DELETION" "POLICY" "(" expression ")"
+  {
+    if (!parser->language_options().LanguageFeatureEnabled(
+        zetasql::FEATURE_V_1_4_TTL)) {
+      YYERROR_AND_ABORT_AT(@1, "ROW DELETION POLICY clause is not supported.");
+    }
+    $$ = MAKE_NODE(ASTTtlClause, @$, {$5});
+  }
+  | /* Nothing */ { $$ = nullptr; }
+  ;
+
 // Returns PrecedingOrFollowingKeyword to indicate which keyword was present.
 preceding_or_following:
     "PRECEDING" { $$ = PrecedingOrFollowingKeyword::kPreceding; }
@@ -7816,7 +8013,7 @@ string_literal:
         const absl::Status parse_status = zetasql::ParseStringLiteral(
             input_text, &str, &error_string, &error_offset);
         if (!parse_status.ok()) {
-          zetasql_bison_parser::location location = yyla.location;
+          zetasql_bison_parser::location location = @1;
           location.begin.column += error_offset;
           if (!error_string.empty()) {
             YYERROR_AND_ABORT_AT(location,
@@ -7847,7 +8044,7 @@ bytes_literal:
         const absl::Status parse_status = zetasql::ParseBytesLiteral(
             input_text, &bytes, &error_string, &error_offset);
         if (!parse_status.ok()) {
-          zetasql_bison_parser::location location = yyla.location;
+          zetasql_bison_parser::location location = @1;
           location.begin.column += error_offset;
           if (!error_string.empty()) {
             YYERROR_AND_ABORT_AT(location,
@@ -7940,7 +8137,7 @@ identifier:
               zetasql::ParseGeneralizedIdentifier(
                   identifier_text, &str, &error_string, &error_offset);
           if (!parse_status.ok()) {
-            zetasql_bison_parser::location location = yyla.location;
+            zetasql_bison_parser::location location = @1;
             location.begin.column += error_offset;
             if (!error_string.empty()) {
               YYERROR_AND_ABORT_AT(location,
@@ -7977,7 +8174,7 @@ label:
             zetasql::ParseGeneralizedIdentifier(
                 label_text, &str, &error_string, &error_offset);
         if (!parse_status.ok()) {
-          zetasql_bison_parser::location location = yyla.location;
+          zetasql_bison_parser::location location = @1;
           location.begin.column += error_offset;
           if (!error_string.empty()) {
             YYERROR_AND_ABORT_AT(location,
@@ -8159,6 +8356,7 @@ keyword_as_identifier:
     | "DECLARE"
     | "DEFINER"
     | "DELETE"
+    | "DELETION"
     | "DESCRIBE"
     | "DETERMINISTIC"
     | "DO"
@@ -8188,8 +8386,8 @@ keyword_as_identifier:
     | "IMPORT"
     | "INCLUDE"
     | "INDEX"
-    | "INSERT"
     | "INOUT"
+    | "INSERT"
     | "INVOKER"
     | "ISOLATION"
     | "ITERATE"
@@ -8285,6 +8483,11 @@ keyword_as_identifier:
     | "WRITE"
     | "ZONE"
     | "DESCRIPTOR"
+
+    // Spanner-specific keywords
+    | "INTERLEAVE"
+    | "NULL_FILTERED"
+    | "PARENT"
     // END_KEYWORD_AS_IDENTIFIER -- Do not remove this!
     ;
 
@@ -8520,7 +8723,9 @@ insert_statement_prefix:
     | insert_statement_prefix "VALUES" insert_values_list
       {
         zetasql::ASTInsertStatement* insert = $1;
-        $3 = parser->WithStartLocation($3, @2);
+        zetasql::ASTInsertValuesRowList* row_list =
+          parser->WithStartLocation($3, @2);
+
         if (insert->parse_progress() < ASTInsertStatement::kSeenTargetPath) {
           // We haven't seen a target path yet. That means the "VALUES" should
           // be reinterpreted as a target path, and the insert_values_list as a
@@ -8531,7 +8736,7 @@ insert_statement_prefix:
           auto* values_path_expression =
               MAKE_NODE(ASTPathExpression, @2, {values_identifier});
           insert->AddChild(values_path_expression);
-          zetasql::ASTInsertValuesRowList* row_list = $3;
+
           if (row_list->num_children() == 0 ||
               row_list->child(0)->node_kind() !=
                   zetasql::AST_INSERT_VALUES_ROW) {
@@ -8584,7 +8789,7 @@ insert_statement_prefix:
                    ASTInsertStatement::kSeenTargetPath) {
           YYERROR_AND_ABORT_AT(@2, "Syntax error: Expecting INSERT target name");
         } else {
-          $$ = parser->WithEndLocation(WithExtraChildren(insert, {$3}), @$);
+          $$ = parser->WithEndLocation(WithExtraChildren(insert, {row_list}), @$);
           insert->set_parse_progress(
               ASTInsertStatement::kSeenValuesList);
         }
@@ -8802,19 +9007,20 @@ generalized_path_expression:
         // ASTDotGeneralizedField is an extension and thus parentheses are
         // automatically added when this node is unparsed.
         $3->set_parenthesized(false);
-        $$ = MAKE_NODE(ASTDotGeneralizedField, @2, @3, {$1, $3});
+        $$ = MAKE_NODE(ASTDotGeneralizedField, @1, @3, {$1, $3});
       }
     | generalized_path_expression "." identifier
       {
         if ($1->node_kind() == zetasql::AST_PATH_EXPRESSION) {
           $$ = WithExtraChildren(parser->WithEndLocation($1, @3), {$3});
         } else {
-          $$ = MAKE_NODE(ASTDotIdentifier, @2, @3, {$1, $3});
+          $$ = MAKE_NODE(ASTDotIdentifier, @1, @3, {$1, $3});
         }
       }
     | generalized_path_expression "[" expression "]"
       {
-        $$ = MAKE_NODE(ASTArrayElement, @2, @4, {$1, $3});
+        auto* bracket_loc = parser->MakeLocation(@2);
+        $$ = MAKE_NODE(ASTArrayElement, @1, @4, {$1, bracket_loc, $3});
       }
     ;
 
@@ -8855,11 +9061,11 @@ generalized_extension_path:
       }
     | generalized_extension_path "." "(" path_expression ")"
       {
-        $$ = MAKE_NODE(ASTDotGeneralizedField, @2, @5, {$1, $4});
+        $$ = MAKE_NODE(ASTDotGeneralizedField, @1, @5, {$1, $4});
       }
     | generalized_extension_path "." identifier
       {
-        $$ = MAKE_NODE(ASTDotIdentifier, @2, @3, {$1, $3});
+        $$ = MAKE_NODE(ASTDotIdentifier, @1, @3, {$1, $3});
       }
     ;
 
@@ -9820,7 +10026,8 @@ next_statement_kind_without_hint:
       {
         $$ = zetasql::ASTCreateProcedureStatement::kConcreteNodeKind;
       }
-    | "CREATE" opt_or_replace opt_unique opt_search "INDEX"
+    | "CREATE" opt_or_replace opt_unique opt_spanner_null_filtered opt_search
+      "INDEX"
       { $$ = zetasql::ASTCreateIndexStatement::kConcreteNodeKind; }
     | "CREATE" opt_or_replace "SCHEMA"
       { $$ = zetasql::ASTCreateSchemaStatement::kConcreteNodeKind; }
@@ -9911,6 +10118,145 @@ next_statement_kind_without_hint:
     | label ":" "REPEAT"
       { $$ = zetasql::ASTRepeatStatement::kConcreteNodeKind; }
     ;
+
+// Spanner-specific non-terminal definitions
+spanner_primary_key:
+    "PRIMARY" "KEY" primary_key_element_list
+      {
+        if (!parser->language_options().LanguageFeatureEnabled(
+          zetasql::FEATURE_SPANNER_LEGACY_DDL)) {
+              YYERROR_AND_ABORT_AT(@1, "PRIMARY KEY must be defined in the "
+                "table element list as column attribute or constraint.");
+        }
+        $$ = MAKE_NODE(ASTPrimaryKey, @$, {$3});
+      }
+    ;
+
+opt_spanner_index_interleave_clause:
+    "," "INTERLEAVE" "IN" maybe_dashed_path_expression
+      {
+        if (!parser->language_options().LanguageFeatureEnabled(
+          zetasql::FEATURE_SPANNER_LEGACY_DDL)) {
+            YYERROR_AND_ABORT_AT(@1, "Syntax error: Expected end of input but "
+              "got \",\"");
+        }
+        auto* clause = MAKE_NODE(ASTSpannerInterleaveClause, @$, {$4});
+        clause->set_type(zetasql::ASTSpannerInterleaveClause::IN);
+        $$ = clause;
+      }
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
+opt_spanner_interleave_in_parent_clause:
+    "," "INTERLEAVE" "IN" "PARENT" maybe_dashed_path_expression
+    opt_foreign_key_on_delete
+      {
+        if (!parser->language_options().LanguageFeatureEnabled(
+          zetasql::FEATURE_SPANNER_LEGACY_DDL)) {
+            YYERROR_AND_ABORT_AT(@1, "Syntax error: Expected end of input but "
+              "got \",\"");
+        }
+
+        auto* clause = MAKE_NODE(ASTSpannerInterleaveClause, @$, {$5});
+        clause->set_action($6);
+        clause->set_type(zetasql::ASTSpannerInterleaveClause::IN_PARENT);
+        $$ = clause;
+      }
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
+opt_spanner_table_options:
+    spanner_primary_key opt_spanner_interleave_in_parent_clause
+      {
+        if (!parser->language_options().LanguageFeatureEnabled(
+          zetasql::FEATURE_SPANNER_LEGACY_DDL)) {
+            YYERROR_AND_ABORT_AT(@1, "PRIMARY KEY must be defined in the "
+                "table element list as column attribute or constraint.");
+        }
+
+        $$ = MAKE_NODE(ASTSpannerTableOptions, @$, {$1, $2});
+      }
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
+opt_spanner_null_filtered:
+    "NULL_FILTERED"
+      {
+        if (!parser->language_options().LanguageFeatureEnabled(
+          zetasql::FEATURE_SPANNER_LEGACY_DDL)) {
+            YYERROR_AND_ABORT_AT(
+              @1, "null_filtered is not a supported object type");
+        }
+        $$ = true;
+      }
+    | /* Nothing */ { $$ = false; }
+    ;
+
+// Feature-checking in this rule would make parser reduce and error out
+// too early, so we rely on the check in spanner_alter_column_action.
+spanner_generated_or_default:
+    "AS" "(" expression ")" "STORED"
+      {
+        auto* node = MAKE_NODE(ASTGeneratedColumnInfo, @$, {$3});
+        node->set_stored_mode(zetasql::ASTGeneratedColumnInfo::STORED);
+        $$ = node;
+      }
+    | default_column_info
+    ;
+
+opt_spanner_generated_or_default:
+    spanner_generated_or_default
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
+opt_spanner_not_null_attribute:
+    not_null_column_attribute
+      {
+        // Feature-checking here would make parser reduce and error out
+        // too early, so we rely on the check in spanner_alter_column_action.
+        $$ = MAKE_NODE(ASTColumnAttributeList, @$, {$1});
+      }
+    | /* Nothing */ { $$ = nullptr; }
+    ;
+
+spanner_alter_column_action:
+    "ALTER" "COLUMN" opt_if_exists identifier column_schema_inner
+    opt_spanner_not_null_attribute opt_spanner_generated_or_default
+    opt_options_list
+      {
+        if (!parser->language_options().LanguageFeatureEnabled(
+          zetasql::FEATURE_SPANNER_LEGACY_DDL)) {
+            YYERROR_AND_ABORT_AT(@column_schema_inner,
+              "Expected keyword DROP or keyword SET but got identifier");
+        }
+        if ($opt_if_exists) {
+          YYERROR_AND_ABORT_AT(@opt_if_exists,
+            "Syntax error: IF EXISTS is not supported");
+        }
+        auto* schema = parser->WithEndLocation(
+            WithExtraChildren($column_schema_inner, {
+              $opt_spanner_generated_or_default,
+              $opt_spanner_not_null_attribute,
+              $opt_options_list
+            }), @$);
+        auto* column = MAKE_NODE(ASTColumnDefinition, @$,
+          {$identifier, schema});
+        $$ = MAKE_NODE(ASTSpannerAlterColumnAction, @$,
+          {parser->WithStartLocation(column, @identifier)});
+      }
+    ;
+
+spanner_set_on_delete_action:
+    "SET" "ON" "DELETE" foreign_key_action
+      {
+        if (!parser->language_options().LanguageFeatureEnabled(
+          zetasql::FEATURE_SPANNER_LEGACY_DDL)) {
+            YYERROR_AND_ABORT_AT(@2, "Syntax error: Unexpected keyword ON");
+        }
+        auto* node = MAKE_NODE(ASTSpannerSetOnDeleteAction, @$, {});
+        node->set_action($foreign_key_action);
+        $$ = node;
+      }
 
 %%
 

@@ -25,6 +25,7 @@
 #include <iosfwd>
 #include <memory>
 #include <new>
+#include <ostream>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -90,8 +91,6 @@ class IdString {
     CheckAlive();
     return value_->str.length();
   }
-
-  const char* data() const { CheckAlive(); return value_->str.data(); }
 
   std::string substr(size_t start, size_t count) const {
     CheckAlive();

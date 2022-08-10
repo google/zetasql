@@ -47,3 +47,10 @@ known_errors {
   label: "analytic_kll_quantiles.test:analytic_kll_quantiles_merge_point_uint64_basic"
   label: "analytic_kll_quantiles.test:analytic_kll_quantiles_merge_point_double_basic"
 }
+
+known_errors {
+  mode: ALLOW_ERROR
+  reason: "These functions are not implemented in the reference implementation yet"
+  label: "collation_test:string_agg_with_sort_key_with_collation_.*"
+  label: "collation_test:analytic_function_.*_with_collation_.*"
+}

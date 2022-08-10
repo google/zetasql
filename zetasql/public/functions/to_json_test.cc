@@ -17,6 +17,7 @@
 // Tests for TO_JSON functions.
 #include "zetasql/public/functions/to_json.h"
 
+#include <algorithm>
 #include <map>
 #include <utility>
 #include <vector>

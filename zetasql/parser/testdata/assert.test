@@ -106,8 +106,9 @@ ASSERT @@sysvar = 1 AS "sysvar test"
 ASSERT "123" IN ("123", "456");
 --
 AssertStatement [0-30]
-  InExpression(IN) [13-30]
+  InExpression(IN) [7-30]
     StringLiteral("123") [7-12]
+    Location [13-15]
     InList [17-29]
       StringLiteral("123") [17-22]
       StringLiteral("456") [24-29]
@@ -193,8 +194,9 @@ END
 ASSERT 123 BETWEEN 1 AND 456;
 --
 AssertStatement [0-28]
-  BetweenExpression(BETWEEN) [11-28]
+  BetweenExpression(BETWEEN) [7-28]
     IntLiteral(123) [7-10]
+    Location [11-18]
     IntLiteral(1) [19-20]
     IntLiteral(456) [25-28]
 --

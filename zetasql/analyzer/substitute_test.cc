@@ -417,15 +417,13 @@ TEST_F(ExpressionSubstitutorTest, SubstituteErrors) {
 
   {
     // Using lambda as normal query parameter.
+    // This test regresses to OK status after removing resolving query parameter
+    // in AnalyzeSubstitute as part of fixing b/233941129.
     constexpr absl::string_view input_sql = "@lambda AND FALSE";
     auto result =
         AnalyzeSubstitute(options_, catalog_, type_factory_, input_sql,
                           {{"col1", col1_ref_.get()}}, {{"lambda", lambda}});
-    ASSERT_THAT(
-        result.status(),
-        StatusIs(
-            absl::StatusCode::kInvalidArgument,
-            HasSubstr("Lambda can only be used as first argument of INVOKE")));
+    ZETASQL_ASSERT_OK(result.status());
   }
 
   {
@@ -452,18 +450,6 @@ TEST_F(ExpressionSubstitutorTest, SubstituteErrors) {
     ASSERT_THAT(result.status(),
                 StatusIs(absl::StatusCode::kInvalidArgument,
                          HasSubstr("Query parameter 'lambda2' not found")));
-  }
-
-  {
-    // Using projected variable as lambda
-    constexpr absl::string_view input_sql =
-        "(SELECT INVOKE(@col1,  element) FROM (SELECT 1 as element))";
-    auto result =
-        AnalyzeSubstitute(options_, catalog_, type_factory_, input_sql,
-                          {{"col1", col1_ref_.get()}}, {{"lambda", lambda}});
-    ASSERT_THAT(result.status(),
-                StatusIs(absl::StatusCode::kInvalidArgument,
-                         HasSubstr("No lambda named col1 is found")));
   }
 }
 }  // namespace

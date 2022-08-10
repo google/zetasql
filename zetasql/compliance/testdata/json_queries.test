@@ -54,7 +54,7 @@ SELECT JSON_QUERY(JSON '{"a": [1, {"b.c": [10, 20]}]}', "$.a[1].\"b.c\"")
 ARRAY<STRUCT<JSON>>[{[10,20]}]
 ==
 [name=json_query_no_validation]
-[required_features=JSON_TYPE,JSON_NO_VALIDATION]
+[required_features=JSON_TYPE]
 SELECT JSON_QUERY(JSON '{"a": [1, {"b.c": [10, 20]}]}', '$.a[1]."b.c"')
 --
 ARRAY<STRUCT<JSON>>[{[10,20]}]
@@ -86,7 +86,7 @@ SELECT JSON_QUERY_ARRAY(JSON '{"a.b": [1, {"c": "foo"}, null]}', "$.\"a.b\"")
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<JSON>[1, {"c":"foo"}, null]}]
 ==
-[required_features=JSON_TYPE,JSON_ARRAY_FUNCTIONS,JSON_NO_VALIDATION]
+[required_features=JSON_TYPE,JSON_ARRAY_FUNCTIONS]
 [name=json_query_array_no_validation]
 SELECT JSON_QUERY_ARRAY(JSON '{"a.b": [1, {"c": "foo"}, null]}', '$."a.b"')
 --
@@ -183,10 +183,10 @@ ARRAY<STRUCT<JSON>>[{"foo"}]
 [required_features=JSON_TYPE,JSON_NO_VALIDATION]
 SELECT (JSON '{"f1": {"f2":"foo"}')['f1']
 --
-ERROR: generic::invalid_argument: parse error at line 1, column 20: syntax error while parsing object - unexpected end of input; expected '}'
+ERROR: generic::invalid_argument: syntax error while parsing object - unexpected end of input; expected '}'
 ==
 [name=json_subscript_valid_json_test]
-[required_features=JSON_TYPE,JSON_NO_VALIDATION]
+[required_features=JSON_TYPE]
 SELECT (JSON '{"f1": {"f2":"foo"}}')['f1']['f2']
 --
 ARRAY<STRUCT<JSON>>[{"foo"}]
@@ -293,7 +293,7 @@ ARRAY<STRUCT<STRING>>[{"string"}]
 [required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS,JSON_NO_VALIDATION]
 SELECT json_type(JSON '{ "a": ["b", "c"] ')
 --
-ERROR: generic::invalid_argument: parse error at line 1, column 19: syntax error while parsing object - unexpected end of input; expected '}'
+ERROR: generic::invalid_argument: syntax error while parsing object - unexpected end of input; expected '}'
 ==
 [name=json_double]
 [required_features=JSON_TYPE,JSON_VALUE_EXTRACTION_FUNCTIONS]

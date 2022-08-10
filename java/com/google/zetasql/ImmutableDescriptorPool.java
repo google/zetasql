@@ -24,6 +24,7 @@ import static java.util.stream.Collectors.toMap;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.DescriptorValidationException;
@@ -78,6 +79,7 @@ public final class ImmutableDescriptorPool implements DescriptorPool {
     private final Map<String, FileDescriptor> fileDescriptors = new LinkedHashMap<>();
 
     /** Add {@param fileDescriptors} as well as, transitively all of its dependencies. */
+    @CanIgnoreReturnValue
     public Builder importFileDescriptor(FileDescriptor fileDescriptor) {
       FileDescriptor existing = fileDescriptors.get(fileDescriptor.getFullName());
       checkArgument(
@@ -93,6 +95,7 @@ public final class ImmutableDescriptorPool implements DescriptorPool {
     }
 
     /** Add {@code fileDescriptors} as well as, transitively all of their dependencies. */
+    @CanIgnoreReturnValue
     public Builder importFileDescriptors(Collection<FileDescriptor> fileDescriptors) {
       for (FileDescriptor descriptor : fileDescriptors) {
         importFileDescriptor(descriptor);

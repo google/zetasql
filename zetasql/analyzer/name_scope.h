@@ -54,11 +54,10 @@ typedef std::map<ResolvedColumn, bool> CorrelatedColumnsSet;
 // parent scopes; i.e. the outermost query's NameScope is last.
 typedef std::vector<CorrelatedColumnsSet*> CorrelatedColumnsSetList;
 
-
 // Identifies valid name path (i.e., 'a.b.c') that resolves to the
 // specified ResolvedColumn target.
 // This class by itself doesn't have much meaning, but it gets attached
-// to ValidFieldInfo and NameTarget objects to identify that a path
+// to NameTarget objects to identify that a path
 // starting at a source column or target is valid to access and resolves
 // to 'target_column_'.
 class ValidNamePath {
@@ -99,69 +98,6 @@ class ValidNamePath {
 };
 
 typedef std::vector<ValidNamePath> ValidNamePathList;
-
-// Identifies a 'target_column' that is valid to access given a 'name_path'
-// from a 'source_column'.  This is used to help resolve a name path
-// (for example, 'a.b.c') where the first name's column is not valid
-// to access ('a') but the full path 'a.b.c' is valid to access.
-//
-// For example, this happens when grouping by 'a.b.c' - 'a' is not valid to
-// access after GROUP BY, but 'a.b.c' is valid.  In this example
-// 'source_column' identifies the pre-GROUP BY column associated with 'a'
-// (that is not visible post-GROUP BY), the 'name_path' is 'b.c' and
-// 'target_column' is the post-GROUP BY column that 'a.b.c' resolves to.
-class ValidFieldInfo {
- public:
-  // An uninitialized value, with uninitialized source_column and target_column.
-  ValidFieldInfo() {}
-
-  ValidFieldInfo(const ResolvedColumn& source_column,
-                 const std::vector<IdString>& name_path,
-                 const ResolvedColumn& target_column)
-      : source_column_(source_column),
-        valid_name_path_(name_path, target_column) {}
-  ~ValidFieldInfo() {}
-
-  const ResolvedColumn& source_column() const {
-    return source_column_;
-  }
-  void set_source_column(const ResolvedColumn& source_column) {
-    source_column_ = source_column;
-  }
-
-  const std::vector<IdString>& name_path() const {
-    return valid_name_path_.name_path();
-  }
-
-  std::vector<IdString>* mutable_name_path() {
-    return valid_name_path_.mutable_name_path();
-  }
-
-  const ResolvedColumn& target_column() const {
-    return valid_name_path_.target_column();
-  }
-  void set_target_column(const ResolvedColumn& target_column) {
-    valid_name_path_.set_target_column(target_column);
-  }
-
-  const ValidNamePath& valid_name_path() const {
-    return valid_name_path_;
-  }
-
-  // Returns a string of the form:
-  //   source_column:name_path:target_column
-  // For example:
-  //   col#1::col#2
-  //   col#3:a:col#4
-  //   col#5:a.b.c.d:col#6
-  std::string DebugString() const;
-
- private:
-  ResolvedColumn source_column_;
-  ValidNamePath valid_name_path_;
-
-  // Copyable.
-};
 
 // A map of columns to namepaths and associated target columns
 // that are accessible from the original column.  Used in

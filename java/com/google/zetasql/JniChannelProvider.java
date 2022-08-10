@@ -135,7 +135,7 @@ public class JniChannelProvider implements ClientChannelProvider {
     if (eventLoop == null) {
       // The daemon flag tells the JVM to clean up on shutdown.
       DefaultThreadFactory threadFactory =
-          new DefaultThreadFactory(/* poolType= */ "zetasqlJniChannel", /* daemon= */ true);
+          new DefaultThreadFactory(/* poolName= */ "zetasqlJniChannel", /* daemon= */ true);
       eventLoop = new NioEventLoopGroup(/* nThreads= */ 0, /* threadFactory= */ threadFactory);
     }
     return eventLoop;

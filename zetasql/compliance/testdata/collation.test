@@ -756,6 +756,22 @@ select array_length(array_agg(distinct collate(col, 'und:ci'))) from TestTable
 ARRAY<STRUCT<INT64>>[{2}]
 ==
 
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_1_ORDER_BY_IN_AGGREGATE]
+[name=string_agg_with_sort_key_with_collation_ci]
+select string_agg(elem order by elem) from
+unnest([collate('a', 'und:ci'), 'B', 'd', 'C', 'e']) elem
+--
+ARRAY<STRUCT<STRING>>[{"a,B,C,d,e"}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,V_1_1_ORDER_BY_IN_AGGREGATE]
+[name=string_agg_with_sort_key_with_collation_binary]
+select string_agg(elem order by elem) from
+unnest([collate('a', 'binary'), 'B', 'd', 'C', 'e']) elem
+--
+ARRAY<STRUCT<STRING>>[{"B,C,a,d,e"}]
+==
+
 [name=array_agg_distinct_with_collation_binary]
 with TestTable as (
 select 'abc' col union all
@@ -1127,9 +1143,9 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL>>[{false, true, false, true}]
 select
   collate('a', 'und:ci') in unnest([collate('A', 'binary'), collate('b', 'binary')])
 --
-ERROR: generic::invalid_argument: Collation for IN UNNEST is different on argument 1 ("und:ci") and argument 2 ("binary") [at 2:3]
+ERROR: generic::invalid_argument: Collation for IN UNNEST is different on argument 1 ("und:ci") and argument 2 ("binary") [at 2:26]
   collate('a', 'und:ci') in unnest([collate('A', 'binary'), collate('b', 'bin...
-  ^
+                         ^
 ==
 
 [name=union_distinct_with_collation_ci_binary]
@@ -1242,4 +1258,60 @@ ARRAY<STRUCT<BOOL>>[{true}]
 SELECT 'ZetaSQL' = ARRAY_LAST([collate("hello", "und:ci"), collate("zetasql", "und:ci")])
 --
 ARRAY<STRUCT<BOOL>>[{true}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
+[name=analytic_function_count_distinct_with_collation_ci]
+with TestTable as (
+select 'a' col union all
+select 'A' union all
+select 'b'
+)
+select count(distinct collate(col, 'und:ci')) over ()
+from TestTable
+order by col
+--
+ARRAY<STRUCT<INT64>>[{2}, {2}, {2}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
+[name=analytic_function_count_distinct_with_collation_binary]
+with TestTable as (
+select 'a' col union all
+select 'A' union all
+select 'b'
+)
+select count(distinct collate(col, 'binary')) over () from TestTable
+--
+ARRAY<STRUCT<INT64>>[{3}, {3}, {3}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
+[name=analytic_function_min_max_with_collation_ci]
+with TestTable as (
+select 'A' col union all
+select 'b' union all
+select 'C'
+)
+select
+  min(collate(col, 'und:ci')) over (),
+  max(collate(col, 'und:ci')) over ()
+from TestTable
+--
+ARRAY<STRUCT<STRING, STRING>>[{"A", "C"}, {"A", "C"}, {"A", "C"}]
+==
+
+[required_features=V_1_3_ANNOTATION_FRAMEWORK,V_1_3_COLLATION_SUPPORT,ANALYTIC_FUNCTIONS]
+[name=analytic_function_min_max_with_collation_binary]
+with TestTable as (
+select 'A' col union all
+select 'b' union all
+select 'C'
+)
+select
+  min(collate(col, 'binary')) over (),
+  max(collate(col, 'binary')) over ()
+from TestTable
+--
+ARRAY<STRUCT<STRING, STRING>>[{"A", "b"}, {"A", "b"}, {"A", "b"}]
 ==

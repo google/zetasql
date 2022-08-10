@@ -17,6 +17,7 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 
 #include <memory>
+#include <string>
 
 #include "zetasql/resolved_ast/serialization.pb.h"
 #include "absl/status/statusor.h"

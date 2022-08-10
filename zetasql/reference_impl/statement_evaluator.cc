@@ -16,8 +16,11 @@
 
 #include "zetasql/reference_impl/statement_evaluator.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <string>
+#include <utility>
 
 #include "zetasql/analyzer/expr_resolver_helper.h"
 #include "zetasql/common/status_payload_utils.h"
@@ -476,32 +479,54 @@ absl::Status StatementEvaluatorImpl::StatementEvaluation::EvaluateImpl(
   } else if (IsDml(resolved_statement())) {
     PreparedModify prepared_modify(resolved_statement(), evaluator_options);
     ZETASQL_RETURN_IF_ERROR(prepared_modify.Prepare(analyzer_options, nullptr));
-    std::unique_ptr<EvaluatorTableModifyIterator> result_iterator;
+
+    std::unique_ptr<EvaluatorTableModifyIterator> table_modify_iter = nullptr;
+    std::unique_ptr<EvaluatorTableIterator> returning_table_iter = nullptr;
     if (std::holds_alternative<ParameterValueMap>(parameters)) {
       const auto& named_params = std::get<ParameterValueMap>(parameters);
-      ZETASQL_ASSIGN_OR_RETURN(result_iterator,
-                       prepared_modify.Execute(named_params, system_variables));
+      ZETASQL_ASSIGN_OR_RETURN(table_modify_iter,
+                       prepared_modify.Execute(named_params, system_variables,
+                                               &returning_table_iter));
     } else {
       const auto& positional_params = std::get<ParameterValueList>(parameters);
-      ZETASQL_ASSIGN_OR_RETURN(result_iterator,
-                       prepared_modify.ExecuteWithPositionalParams(
-                           positional_params, system_variables));
+      ZETASQL_ASSIGN_OR_RETURN(
+          table_modify_iter,
+          prepared_modify.ExecuteWithPositionalParams(
+              positional_params, system_variables, &returning_table_iter));
     }
     ZETASQL_ASSIGN_OR_RETURN(int num_rows_modified,
-                     DoDmlSideEffects(result_iterator.get()));
+                     DoDmlSideEffects(table_modify_iter.get()));
 
     // The "result" of a DML operation is a STRUCT with two fields -
     // the number of rows modified, followed by an ArrayValue
     // representing the entire content of the new table.
-    ZETASQL_ASSIGN_OR_RETURN(Value new_table, GetTableContents(result_iterator->table(),
-                                                       type_factory()));
+    ZETASQL_ASSIGN_OR_RETURN(
+        Value new_table,
+        GetTableContents(table_modify_iter->table(), type_factory()));
     const StructType* struct_type;
-    ZETASQL_RETURN_IF_ERROR(type_factory()->MakeStructType(
-        {{kDMLOutputNumRowsModifiedColumnName, type_factory()->get_int64()},
-         {kDMLOutputAllRowsColumnName, new_table.type()}},
-        &struct_type));
-    result_ = Value::Struct(
-        struct_type, {Value::Int64(num_rows_modified), std::move(new_table)});
+    if (returning_table_iter == nullptr) {
+      ZETASQL_RETURN_IF_ERROR(type_factory()->MakeStructType(
+          {{kDMLOutputNumRowsModifiedColumnName, type_factory()->get_int64()},
+           {kDMLOutputAllRowsColumnName, new_table.type()}},
+          &struct_type));
+      result_ = Value::Struct(
+          struct_type, {Value::Int64(num_rows_modified), std::move(new_table)});
+    } else {
+      ZETASQL_ASSIGN_OR_RETURN(
+          Value returning_table_value,
+          IteratorToValue(type_factory(), returning_table_iter.get(),
+                          /*is_value_table=*/false));
+
+      ZETASQL_RETURN_IF_ERROR(type_factory()->MakeStructType(
+          {{kDMLOutputNumRowsModifiedColumnName, type_factory()->get_int64()},
+           {kDMLOutputAllRowsColumnName, new_table.type()},
+           {kDMLOutputReturningColumnName, returning_table_value.type()}},
+          &struct_type));
+      result_ = Value::Struct(
+          struct_type, {Value::Int64(num_rows_modified), std::move(new_table),
+                        std::move(returning_table_value)});
+    }
+
     return absl::OkStatus();
   }
 

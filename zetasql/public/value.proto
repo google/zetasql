@@ -50,6 +50,17 @@ message ValueProto {
     optional int32 nanos = 2;
   }
 
+  // A range of values, bounded by the values 'start' (inclusive) and 'end'
+  // (exclusive). A range has an element type, and values must be of this
+  // element type. A range is contiguous, ie it contains all values of the given
+  // element type starting at 'start' and ending before 'end'.
+  message Range {
+    // Represents the start of the range.
+    optional ValueProto start = 1;
+    // Represents the end of the range.
+    optional ValueProto end = 2;
+  }
+
   // Each non-null value will have exactly one of these fields specified.
   // Null values will have no fields set.
   oneof value {
@@ -88,6 +99,8 @@ message ValueProto {
     // Encoded interval value. For the encoding format see documentation for
     // IntervalValue::SerializeAsBytes().
     bytes interval_value = 24;
+    // Encoded range value. See (broken link).
+    Range range_value = 26;
     // User code that switches on this oneoff enum must have a default case so
     // builds won't break when new fields are added.
     bool __ValueProto__switch_must_have_a_default = 255;

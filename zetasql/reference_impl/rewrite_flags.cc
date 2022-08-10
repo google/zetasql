@@ -16,10 +16,11 @@
 
 #include "zetasql/reference_impl/rewrite_flags.h"
 
+#include <string>
 #include <vector>
 
 #include "google/protobuf/descriptor.h"
-#include "zetasql/public/analyzer_options.h"
+#include "zetasql/common/options_utils.h"
 #include "zetasql/public/options.pb.h"
 #include "absl/flags/flag.h"
 #include "absl/strings/ascii.h"
@@ -35,12 +36,12 @@ namespace {
 // These rewrites are turned off when using the reference impl as a baseline
 // for compliance tests, so that the result of executing the query through the
 // rewriter can be compared to it.
-// TODO: Add REWRITE_ARRAY_FIRST_LAST when fully implemented
 constexpr ResolvedASTRewrite kReferenceImplOptionalRewrites[] = {
     REWRITE_FLATTEN,        REWRITE_PROTO_MAP_FNS,
     REWRITE_PIVOT,          REWRITE_ARRAY_FILTER_TRANSFORM,
     REWRITE_ARRAY_INCLUDES, REWRITE_UNPIVOT,
-    REWRITE_LET_EXPR,       REWRITE_ARRAY_FIRST_LAST};
+    REWRITE_WITH_EXPR,      REWRITE_UNARY_FUNCTIONS,
+    REWRITE_LIKE_ANY_ALL,   REWRITE_TERNARY_FUNCTIONS};
 
 RewriteSet DefaultRewrites() {
   return RewriteSet(AnalyzerOptions().enabled_rewrites());
@@ -51,21 +52,14 @@ RewriteSet MinimalRewrites() {
   for (ResolvedASTRewrite rewrite : zetasql::kReferenceImplOptionalRewrites) {
     minimal_rewrites.erase(rewrite);
   }
+  // The reference implementation uses this rewriter, which is non-default for
+  // engines, as its implementation of SQL UDFs. It is part of the minimal set
+  // required for the reference implementation to be fully functional even
+  // though its off by default for other engines.
+  minimal_rewrites.insert(REWRITE_INLINE_SQL_FUNCTIONS);
   return minimal_rewrites;
 }
 
-RewriteSet AllRewrites() {
-  RewriteSet all_rewrites;
-  const google::protobuf::EnumDescriptor* descriptor =
-      google::protobuf::GetEnumDescriptor<ResolvedASTRewrite>();
-  for (int i = 0; i < descriptor->value_count(); ++i) {
-    const google::protobuf::EnumValueDescriptor* value_descriptor = descriptor->value(i);
-    const ResolvedASTRewrite rewrite =
-        static_cast<ResolvedASTRewrite>(value_descriptor->number());
-    all_rewrites.insert(rewrite);
-  }
-  return all_rewrites;
-}
 }  // namespace
 
 // Returns a textual flag value corresponding to a rewrite set.
@@ -76,7 +70,7 @@ std::string AbslUnparseFlag(RewriteSet set) {
     return "default";
   } else if (set == MinimalRewrites()) {
     return "minimal";
-  } else if (set == AllRewrites()) {
+  } else if (set == internal::GetAllRewrites()) {
     return "all";
   }
   return absl::StrJoin(set, ",",
@@ -103,7 +97,7 @@ bool AbslParseFlag(absl::string_view text, RewriteSet* set,
     return true;
   }
   if (text == "all") {
-    *set = AllRewrites();
+    *set = RewriteSet(internal::GetAllRewrites());
     return true;
   }
 

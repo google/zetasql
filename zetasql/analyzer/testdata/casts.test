@@ -329,7 +329,7 @@ QueryStmt
 ==
 
 # Test format with type parameters
-[language_features=V_1_3_FORMAT_IN_CAST,PARAMETERIZED_TYPES,NUMERIC_TYPE]
+[language_features=V_1_3_FORMAT_IN_CAST,V_1_3_COLLATION_SUPPORT,PARAMETERIZED_TYPES,NUMERIC_TYPE]
 select cast(`string` as BYTES(10) format 'hex') from SimpleTypes;
 --
 QueryStmt
@@ -2039,9 +2039,18 @@ select {{cast|safe_cast}}(1000 AS `zetasql_test__.TestEnum`);
 
 ALTERNATION GROUP: cast
 --
-ERROR: Could not cast literal 1000 to type ENUM<zetasql_test__.TestEnum> [at 1:13]
-select cast(1000 AS `zetasql_test__.TestEnum`);
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ENUM<zetasql_test__.TestEnum>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(INT64 -> ENUM<zetasql_test__.TestEnum>)
+    |     +-Literal(type=INT64, value=1000)
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: safe_cast
 --
@@ -2118,14 +2127,40 @@ QueryStmt
       +-SingleRowScan
 ==
 
+# Same as above, but with different case string literal.
+select cast('TestEnum0' AS `zetasql_test__.TestEnum`)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ENUM<zetasql_test__.TestEnum>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRING -> ENUM<zetasql_test__.TestEnum>)
+    |     +-Literal(type=STRING, value="TestEnum0")
+    +-input_scan=
+      +-SingleRowScan
+==
+
 select {{cast|safe_cast}}('TESTENUM1000' AS `zetasql_test__.TestEnum`)
 --
 
 ALTERNATION GROUP: cast
 --
-ERROR: Could not cast literal "TESTENUM1000" to type ENUM<zetasql_test__.TestEnum> [at 1:13]
-select cast('TESTENUM1000' AS `zetasql_test__.TestEnum`)
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ENUM<zetasql_test__.TestEnum>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRING -> ENUM<zetasql_test__.TestEnum>)
+    |     +-Literal(type=STRING, value="TESTENUM1000")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: safe_cast
 --
@@ -2856,9 +2891,23 @@ QueryStmt
 select cast("abc" as int32) + cast("def" as int32)
 --
 
-ERROR: Could not cast literal "abc" to type INT32 [at 1:13]
-select cast("abc" as int32) + cast("def" as int32)
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |     +-Cast(INT32 -> INT64)
+    |     | +-Cast(STRING -> INT32)
+    |     |   +-Literal(type=STRING, value="abc")
+    |     +-Cast(INT32 -> INT64)
+    |       +-Cast(STRING -> INT32)
+    |         +-Literal(type=STRING, value="def")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 # Cast nested inside function.
@@ -2883,9 +2932,20 @@ QueryStmt
 --
 ALTERNATION GROUP: cast,9999999999
 --
-ERROR: Could not cast literal 9999999999 to type INT32 [at 1:18]
-select SQRT(cast(9999999999 as int32))
-                 ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:sqrt(DOUBLE) -> DOUBLE)
+    |     +-Cast(INT32 -> DOUBLE)
+    |       +-Cast(INT64 -> INT32)
+    |         +-Literal(type=INT64, value=9999999999)
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: cast,999999999999999999999
 --
@@ -2974,9 +3034,20 @@ select {{cast|safe_cast}}(9223372036854775808 as int64), 9223372036854775808
 --
 ALTERNATION GROUP: cast
 --
-ERROR: Could not cast literal 9223372036854775808 to type INT64 [at 1:13]
-select cast(9223372036854775808 as int64), 9223372036854775808
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
+| +-$query.$col2#2 AS `$col2` [UINT64]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-Cast(UINT64 -> INT64)
+    | |   +-Literal(type=UINT64, value=9223372036854775808)
+    | +-$col2#2 := Literal(type=UINT64, value=9223372036854775808)
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: safe_cast
 --
@@ -3215,9 +3286,18 @@ select cast('abc' as time)
 --
 ALTERNATION GROUP: V_1_2_CIVIL_TIME
 --
-ERROR: Could not cast literal "abc" to type TIME [at 1:13]
-select cast('abc' as time)
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [TIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRING -> TIME)
+    |     +-Literal(type=STRING, value="abc")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: <empty>
 --
@@ -3231,9 +3311,18 @@ select cast('24:00:00' as time)
 --
 ALTERNATION GROUP: V_1_2_CIVIL_TIME
 --
-ERROR: Could not cast literal "24:00:00" to type TIME [at 1:13]
-select cast('24:00:00' as time)
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [TIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRING -> TIME)
+    |     +-Literal(type=STRING, value="24:00:00")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: <empty>
 --
@@ -3309,9 +3398,18 @@ select cast('abc' as datetime)
 --
 ALTERNATION GROUP: V_1_2_CIVIL_TIME
 --
-ERROR: Could not cast literal "abc" to type DATETIME [at 1:13]
-select cast('abc' as datetime)
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRING -> DATETIME)
+    |     +-Literal(type=STRING, value="abc")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: <empty>
 --
@@ -3325,9 +3423,18 @@ select cast('2015-13-05 01:02:03' as datetime)
 --
 ALTERNATION GROUP: V_1_2_CIVIL_TIME
 --
-ERROR: Could not cast literal "2015-13-05 01:02:03" to type DATETIME [at 1:13]
-select cast('2015-13-05 01:02:03' as datetime)
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRING -> DATETIME)
+    |     +-Literal(type=STRING, value="2015-13-05 01:02:03")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: <empty>
 --
@@ -3341,9 +3448,18 @@ select cast('2006-01-02 01:02:03.123456 UTC' as datetime)
 --
 ALTERNATION GROUP: V_1_2_CIVIL_TIME
 --
-ERROR: Could not cast literal "2006-01-02 01:02:03.123456 UTC" to type DATETIME [at 1:13]
-select cast('2006-01-02 01:02:03.123456 UTC' as datetime)
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRING -> DATETIME)
+    |     +-Literal(type=STRING, value="2006-01-02 01:02:03.123456 UTC")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: <empty>
 --
@@ -3795,15 +3911,33 @@ select cast(ARRAY<INT64>[{{-21474836480|21474836470}}] as ARRAY<INT32>)
 --
 ALTERNATION GROUP: V_1_1_CAST_DIFFERENT_ARRAY_TYPES,-21474836480
 --
-ERROR: Could not cast [-21474836480] to type ARRAY<INT32> [at 1:13]
-select cast(ARRAY<INT64>[-21474836480] as ARRAY<INT32>)
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<INT32>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(ARRAY<INT64> -> ARRAY<INT32>)
+    |     +-Literal(type=ARRAY<INT64>, value=[-21474836480], has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: V_1_1_CAST_DIFFERENT_ARRAY_TYPES,21474836470
 --
-ERROR: Could not cast [21474836470] to type ARRAY<INT32> [at 1:13]
-select cast(ARRAY<INT64>[21474836470] as ARRAY<INT32>)
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<INT32>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(ARRAY<INT64> -> ARRAY<INT32>)
+    |     +-Literal(type=ARRAY<INT64>, value=[21474836470], has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: -21474836480
 --
@@ -3854,9 +3988,18 @@ select {{cast|safe_cast}}("abc" as INT64)
 --
 ALTERNATION GROUP: cast
 --
-ERROR: Could not cast literal "abc" to type INT64 [at 1:13]
-select cast("abc" as INT64)
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRING -> INT64)
+    |     +-Literal(type=STRING, value="abc")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: safe_cast
 --
@@ -3877,9 +4020,18 @@ select {{cast|safe_cast}}(["100", "abc"] as ARRAY<INT64>);
 --
 ALTERNATION GROUP: V_1_1_CAST_DIFFERENT_ARRAY_TYPES,cast
 --
-ERROR: Could not cast literal ["100", "abc"] to type ARRAY<INT64> [at 1:13]
-select cast(["100", "abc"] as ARRAY<INT64>);
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(ARRAY<STRING> -> ARRAY<INT64>)
+    |     +-Literal(type=ARRAY<STRING>, value=["100", "abc"])
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: V_1_1_CAST_DIFFERENT_ARRAY_TYPES,safe_cast
 --
@@ -3979,9 +4131,18 @@ QueryStmt
 --
 ALTERNATION GROUP: UINT32
 --
-ERROR: Could not cast literal "-0x100" to type UINT32 [at 1:13]
-select cast('-0x100' AS UINT32)
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [UINT32]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRING -> UINT32)
+    |     +-Literal(type=STRING, value="-0x100")
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: INT64
 --
@@ -3998,16 +4159,34 @@ QueryStmt
 --
 ALTERNATION GROUP: UINT64
 --
-ERROR: Could not cast literal "-0x100" to type UINT64 [at 1:13]
-select cast('-0x100' AS UINT64)
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [UINT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRING -> UINT64)
+    |     +-Literal(type=STRING, value="-0x100")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 select cast('- 0x10' AS INT32)
 --
-ERROR: Could not cast literal "- 0x10" to type INT32 [at 1:13]
-select cast('- 0x10' AS INT32)
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT32]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRING -> INT32)
+    |     +-Literal(type=STRING, value="- 0x10")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 select {{cast('010' AS INT32)|cast('-010' AS INT32)}}
@@ -4110,9 +4289,18 @@ QueryStmt
 [language_features=NUMERIC_TYPE]
 select cast("abc" as NUMERIC)
 --
-ERROR: Could not cast literal "abc" to type NUMERIC [at 1:13]
-select cast("abc" as NUMERIC)
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [NUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRING -> NUMERIC)
+    |     +-Literal(type=STRING, value="abc")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 [language_features=NUMERIC_TYPE]
@@ -4418,9 +4606,18 @@ select cast(cast(1 as int32) as BIGNUMERIC),
 [language_features=BIGNUMERIC_TYPE]
 select cast("abc" as BIGNUMERIC)
 --
-ERROR: Could not cast literal "abc" to type BIGNUMERIC [at 1:13]
-select cast("abc" as BIGNUMERIC)
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BIGNUMERIC]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRING -> BIGNUMERIC)
+    |     +-Literal(type=STRING, value="abc")
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 [language_features=BIGNUMERIC_TYPE]
@@ -4659,128 +4856,256 @@ select cast(JSON '10' as STRING);
 ==
 
 # Casting from enum to bool is invalid.
-select {{safe_}}cast(cast(null as zetasql_test__.TestEnum) as bool);
+select {{safe_|}}cast(cast(null as zetasql_test__.TestEnum) as bool);
+--
+ALTERNATION GROUP: safe_
 --
 ERROR: Invalid cast from zetasql_test__.TestEnum to BOOL [at 1:18]
 select safe_cast(cast(null as zetasql_test__.TestEnum) as bool);
                  ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid cast from zetasql_test__.TestEnum to BOOL [at 1:13]
+select cast(cast(null as zetasql_test__.TestEnum) as bool);
+            ^
 ==
 
 # Casting from an enum to a different enum is invalid.
-select {{safe_}}cast(cast(null as zetasql_test__.TestEnum) as
+select {{safe_|}}cast(cast(null as zetasql_test__.TestEnum) as
                      zetasql_test__.AnotherTestEnum);
+--
+ALTERNATION GROUP: safe_
 --
 ERROR: Invalid cast from zetasql_test__.TestEnum to zetasql_test__.AnotherTestEnum [at 1:18]
 select safe_cast(cast(null as zetasql_test__.TestEnum) as
                  ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid cast from zetasql_test__.TestEnum to zetasql_test__.AnotherTestEnum [at 1:13]
+select cast(cast(null as zetasql_test__.TestEnum) as
+            ^
 ==
 
 # Casting from enum to array is invalid.
-select {{safe_}}cast(cast(null as zetasql_test__.TestEnum) as array<int64>);
+select {{safe_|}}cast(cast(null as zetasql_test__.TestEnum) as array<int64>);
+--
+ALTERNATION GROUP: safe_
 --
 ERROR: Invalid cast from zetasql_test__.TestEnum to ARRAY<INT64> [at 1:18]
 select safe_cast(cast(null as zetasql_test__.TestEnum) as array<int64>);
                  ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid cast from zetasql_test__.TestEnum to ARRAY<INT64> [at 1:13]
+select cast(cast(null as zetasql_test__.TestEnum) as array<int64>);
+            ^
 ==
 
 # Casting from array to enum is invalid.
-select {{safe_}}cast([1] as zetasql_test__.TestEnum);
+select {{safe_|}}cast([1] as zetasql_test__.TestEnum);
+--
+ALTERNATION GROUP: safe_
 --
 ERROR: Invalid cast from ARRAY<INT64> to zetasql_test__.TestEnum [at 1:18]
 select safe_cast([1] as zetasql_test__.TestEnum);
                  ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid cast from ARRAY<INT64> to zetasql_test__.TestEnum [at 1:13]
+select cast([1] as zetasql_test__.TestEnum);
+            ^
 ==
 
 # Casting from array to struct is invalid.
-select {{safe_}}cast([1] as struct<a int64>);
+select {{safe_|}}cast([1] as struct<a int64>);
+--
+ALTERNATION GROUP: safe_
 --
 ERROR: Invalid cast from ARRAY<INT64> to STRUCT<a INT64> [at 1:18]
 select safe_cast([1] as struct<a int64>);
                  ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid cast from ARRAY<INT64> to STRUCT<a INT64> [at 1:13]
+select cast([1] as struct<a int64>);
+            ^
 ==
 
 # Casting from STRUCT to non-STRUCT is invalid.
-select {{safe_}}cast(struct<a int64>(1) as int64);
+select {{safe_|}}cast(struct<a int64>(1) as int64);
+--
+ALTERNATION GROUP: safe_
 --
 ERROR: Invalid cast from STRUCT<a INT64> to INT64 [at 1:18]
 select safe_cast(struct<a int64>(1) as int64);
                  ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid cast from STRUCT<a INT64> to INT64 [at 1:13]
+select cast(struct<a int64>(1) as int64);
+            ^
 ==
 
-select {{safe_}}cast(cast(NULL as struct<a int64>) as int64);
+select {{safe_|}}cast(cast(NULL as struct<a int64>) as int64);
+--
+ALTERNATION GROUP: safe_
 --
 ERROR: Invalid cast from STRUCT<a INT64> to INT64 [at 1:18]
 select safe_cast(cast(NULL as struct<a int64>) as int64);
                  ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid cast from STRUCT<a INT64> to INT64 [at 1:13]
+select cast(cast(NULL as struct<a int64>) as int64);
+            ^
 ==
 
 # Casting from STRUCT to incompatible non-STRUCT is invalid.
-select {{safe_}}cast(struct<a int64>(1) as struct<a int64, b int64>);
+select {{safe_|}}cast(struct<a int64>(1) as struct<a int64, b int64>);
+--
+ALTERNATION GROUP: safe_
 --
 ERROR: Invalid cast from STRUCT<a INT64> to STRUCT<a INT64, b INT64> [at 1:18]
 select safe_cast(struct<a int64>(1) as struct<a int64, b int64>);
                  ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid cast from STRUCT<a INT64> to STRUCT<a INT64, b INT64> [at 1:13]
+select cast(struct<a int64>(1) as struct<a int64, b int64>);
+            ^
 ==
 
-select {{safe_}}cast(cast(NULL as struct<a int64>) as struct<a int64, b int64>);
+select {{safe_|}}cast(cast(NULL as struct<a int64>) as struct<a int64, b int64>);
+--
+ALTERNATION GROUP: safe_
 --
 ERROR: Invalid cast from STRUCT<a INT64> to STRUCT<a INT64, b INT64> [at 1:18]
 select safe_cast(cast(NULL as struct<a int64>) as struct<a int64, b int64>);
                  ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid cast from STRUCT<a INT64> to STRUCT<a INT64, b INT64> [at 1:13]
+select cast(cast(NULL as struct<a int64>) as struct<a int64, b int64>);
+            ^
 ==
 
-select {{safe_}}cast(cast(NULL as struct<a int64>) as struct<a bytes>);
+select {{safe_|}}cast(cast(NULL as struct<a int64>) as struct<a bytes>);
+--
+ALTERNATION GROUP: safe_
 --
 ERROR: Invalid cast from STRUCT<a INT64> to STRUCT<a BYTES> [at 1:18]
 select safe_cast(cast(NULL as struct<a int64>) as struct<a bytes>);
                  ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid cast from STRUCT<a INT64> to STRUCT<a BYTES> [at 1:13]
+select cast(cast(NULL as struct<a int64>) as struct<a bytes>);
+            ^
 ==
 
 # Casting from STRUCT to ENUM is invalid.
-select {{safe_}}cast(struct<a int64>(1) as zetasql_test__.TestEnum);
+select {{safe_|}}cast(struct<a int64>(1) as zetasql_test__.TestEnum);
+--
+ALTERNATION GROUP: safe_
 --
 ERROR: Invalid cast from STRUCT<a INT64> to zetasql_test__.TestEnum [at 1:18]
 select safe_cast(struct<a int64>(1) as zetasql_test__.TestEnum);
                  ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid cast from STRUCT<a INT64> to zetasql_test__.TestEnum [at 1:13]
+select cast(struct<a int64>(1) as zetasql_test__.TestEnum);
+            ^
 ==
 
-select {{safe_}}cast(cast(null as struct<a int64>) as zetasql_test__.TestEnum);
+select {{safe_|}}cast(cast(null as struct<a int64>) as zetasql_test__.TestEnum);
+--
+ALTERNATION GROUP: safe_
 --
 ERROR: Invalid cast from STRUCT<a INT64> to zetasql_test__.TestEnum [at 1:18]
 select safe_cast(cast(null as struct<a int64>) as zetasql_test__.TestEnum);
                  ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid cast from STRUCT<a INT64> to zetasql_test__.TestEnum [at 1:13]
+select cast(cast(null as struct<a int64>) as zetasql_test__.TestEnum);
+            ^
 ==
 
 # Casting from STRUCT to ARRAY is invalid.
-select {{safe_}}cast(struct<a int64>(1) as array<int64>);
+select {{safe_|}}cast(struct<a int64>(1) as array<int64>);
+--
+ALTERNATION GROUP: safe_
 --
 ERROR: Invalid cast from STRUCT<a INT64> to ARRAY<INT64> [at 1:18]
 select safe_cast(struct<a int64>(1) as array<int64>);
                  ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid cast from STRUCT<a INT64> to ARRAY<INT64> [at 1:13]
+select cast(struct<a int64>(1) as array<int64>);
+            ^
 ==
 
-select {{safe_}}cast(cast(null as struct<a int64>) as array<int64>);
+select {{safe_|}}cast(cast(null as struct<a int64>) as array<int64>);
+--
+ALTERNATION GROUP: safe_
 --
 ERROR: Invalid cast from STRUCT<a INT64> to ARRAY<INT64> [at 1:18]
 select safe_cast(cast(null as struct<a int64>) as array<int64>);
                  ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid cast from STRUCT<a INT64> to ARRAY<INT64> [at 1:13]
+select cast(cast(null as struct<a int64>) as array<int64>);
+            ^
 ==
 
-select {{safe_}}cast(struct<a string, b bool>("a", NULL) AS
+select {{safe_|}}cast(struct<a string, b bool>("a", NULL) AS
                      struct<a string, b zetasql_test__.TestEnum>);
+--
+ALTERNATION GROUP: safe_
 --
 ERROR: Invalid cast from STRUCT<a STRING, b BOOL> to STRUCT<a STRING, b zetasql_test__.TestEnum> [at 1:18]
 select safe_cast(struct<a string, b bool>("a", NULL) AS
                  ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid cast from STRUCT<a STRING, b BOOL> to STRUCT<a STRING, b zetasql_test__.TestEnum> [at 1:13]
+select cast(struct<a string, b bool>("a", NULL) AS
+            ^
 ==
 
 # Casting from proto to different proto is invalid.
-select {{safe_}}cast(cast(NULL as zetasql_test__.KitchenSinkPB) as
+select {{safe_|}}cast(cast(NULL as zetasql_test__.KitchenSinkPB) as
                      zetasql_test__.NullableInt);
+--
+ALTERNATION GROUP: safe_
 --
 ERROR: Invalid cast from zetasql_test__.KitchenSinkPB to zetasql_test__.NullableInt [at 1:18]
 select safe_cast(cast(NULL as zetasql_test__.KitchenSinkPB) as
                  ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Invalid cast from zetasql_test__.KitchenSinkPB to zetasql_test__.NullableInt [at 1:13]
+select cast(cast(NULL as zetasql_test__.KitchenSinkPB) as
+            ^
 ==
 
 # Preserve the casts even when the source and target types are the same.
@@ -4991,4 +5316,36 @@ QueryStmt
     | +-$col10#10 := Literal(type=JSON, value={"id":10,"type":"fruit"}, has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
+==
 
+# Nested safe and unsafe casts with protobufs
+SELECT {{SAFE_CAST|CAST}}({{SAFE_CAST|CAST}}(NULL AS `zetasql_test__.KitchenSinkPB`) AS `zetasql_test__.KitchenSinkPB`)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [PROTO<zetasql_test__.KitchenSinkPB>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=PROTO<zetasql_test__.KitchenSinkPB>, value=NULL, has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# NOOP Cast makes the type explicit
+select "a", CAST("b" AS STRING);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRING]
+| +-$query.$col2#2 AS `$col2` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=STRING, value="a")
+    | +-$col2#2 := Literal(type=STRING, value="b", has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
+==

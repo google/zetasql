@@ -2,6 +2,10 @@
 
 # Approximate aggregate functions
 
+The following approximate aggregate functions are available in
+ZetaSQL. To learn about the syntax for aggregate function calls, see
+[Aggregate function calls][agg-function-calls].
+
 Approximate aggregate functions are scalable in terms of memory usage and time,
 but produce approximate results instead of exact results. These functions
 typically require less memory than [exact aggregation functions][aggregate-functions-reference]
@@ -16,7 +20,7 @@ _do not allow_ users to specify the precision for the estimation with
 sketches. If you would like specify precision with sketches, see:
 
 +  [HyperLogLog++ functions][hll-functions] to estimate cardinality.
-+  [KLL16 functions][kll-functions] to estimate quantile values.
++  [KLL functions][kll-functions] to estimate quantile values.
 
 ### APPROX_COUNT_DISTINCT
 
@@ -41,16 +45,6 @@ Any data type **except**:
 `STRUCT`
 `PROTO`
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
-
 **Returned Data Types**
 
 INT64
@@ -72,10 +66,10 @@ FROM UNNEST([0, 1, 1, 2, 3, 5]) as x;
 
 ```sql
 APPROX_QUANTILES(
-  [DISTINCT]
+  [ DISTINCT ]
   expression, number
-  [{IGNORE|RESPECT} NULLS]
-  [HAVING {MAX | MIN} expression2]
+  [ { IGNORE | RESPECT } NULLS ]
+  [ HAVING { MAX | MIN } expression2 ]
 )
 ```
 
@@ -86,6 +80,15 @@ Returns the approximate boundaries for a group of `expression` values, where
 an array of `number` + 1 elements, where the first element is the approximate
 minimum and the last element is the approximate maximum.
 
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
+
 **Supported Argument Types**
 
 `expression` can be any supported data type **except**:
@@ -94,31 +97,6 @@ minimum and the last element is the approximate maximum.
 `PROTO`
 
 `number` must be INT64.
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `IGNORE NULLS` or `RESPECT NULLS`: If `IGNORE NULLS` is
-    specified, the `NULL` values are excluded from the result. If
-    `RESPECT NULLS` is specified, the `NULL` values are included in the
-    result. If neither is specified, the `NULL`
-    values are excluded from the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -190,7 +168,7 @@ FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 ```sql
 APPROX_TOP_COUNT(
   expression, number
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
 ```
 
@@ -199,27 +177,20 @@ APPROX_TOP_COUNT(
 Returns the approximate top elements of `expression`. The `number` parameter
 specifies the number of elements returned.
 
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
+
 **Supported Argument Types**
 
 `expression` can be of any data type that the `GROUP BY` clause supports.
 
 `number` must be INT64.
-
-**Optional Clause**
-
-`HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -264,7 +235,7 @@ FROM UNNEST([NULL, "pear", "pear", "pear", "apple", NULL]) as x;
 ```sql
 APPROX_TOP_SUM(
   expression, weight, number
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
 ```
 
@@ -276,41 +247,28 @@ returned.
 
 If the `weight` input is negative or `NaN`, this function returns an error.
 
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
+
 **Supported Argument Types**
 
 `expression` can be of any data type that the `GROUP BY` clause supports.
 
 `weight` must be one of the following:
 
-<ul>
-<li>INT64</li>
-
-<li>UINT64</li>
-
-<li>NUMERIC</li>
-
-<li>BIGNUMERIC</li>
-
-<li>DOUBLE</li>
-</ul>
++ `INT64`
++ `UINT64`
++ `NUMERIC`
++ `BIGNUMERIC`
++ `DOUBLE`
 
 `number` must be INT64.
-
-**Optional Clause**
-
-`HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -383,9 +341,11 @@ UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
 
 [hll-functions]: https://github.com/google/zetasql/blob/master/docs/hll_functions.md#hyperloglog_functions
 
-[kll-functions]: https://github.com/google/zetasql/blob/master/docs/kll_functions.md#kll16_quantile_functions
+[kll-functions]: https://github.com/google/zetasql/blob/master/docs/kll_functions.md#kll_quantile_functions
 
 [aggregate-functions-reference]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md
+
+[agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
 

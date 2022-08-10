@@ -363,6 +363,7 @@ class Unparser : public ParseTreeVisitor {
   void visitASTNullLiteral(const ASTNullLiteral* node, void* data) override;
   void visitASTDateOrTimeLiteral(const ASTDateOrTimeLiteral* node,
                                  void* data) override;
+  void visitASTRangeLiteral(const ASTRangeLiteral* node, void* data) override;
   void visitASTStar(const ASTStar* node, void* data) override;
   void visitASTStarExceptList(const ASTStarExceptList* node,
                               void* data) override;
@@ -528,6 +529,11 @@ class Unparser : public ParseTreeVisitor {
                                    void* data) override;
   void visitASTMergeStatement(const ASTMergeStatement* node,
                               void* data) override;
+
+  void visitASTPrimaryKeyElement(const ASTPrimaryKeyElement* node,
+                                 void* data) override;
+  void visitASTPrimaryKeyElementList(const ASTPrimaryKeyElementList* node,
+                                     void* data) override;
   void visitASTPrimaryKey(const ASTPrimaryKey* node, void* data) override;
   void visitASTPrivilege(const ASTPrivilege* node, void* data) override;
   void visitASTPrivileges(const ASTPrivileges* node, void* data) override;
@@ -695,6 +701,24 @@ class Unparser : public ParseTreeVisitor {
                                    void* data) override;
   void visitASTWithExpression(const ASTWithExpression* node,
                               void* data) override;
+  void visitASTTtlClause(const ASTTtlClause* node, void* data) override;
+  void visitASTAddTtlAction(const ASTAddTtlAction* node, void* data) override;
+  void visitASTReplaceTtlAction(const ASTReplaceTtlAction* node,
+                                void* data) override;
+  void visitASTDropTtlAction(const ASTDropTtlAction* node, void* data) override;
+  // By default, just do nothing.
+  void visitASTLocation(const ASTLocation* node, void* data) override {}
+
+  // Spanner-related nodes
+  void visitASTSpannerAlterColumnAction(const ASTSpannerAlterColumnAction* node,
+                                        void* data) override;
+  void visitASTSpannerInterleaveClause(const ASTSpannerInterleaveClause* node,
+                                       void* data) override;
+  void visitASTSpannerSetOnDeleteAction(const ASTSpannerSetOnDeleteAction* node,
+                                        void* data) override;
+  void visitASTSpannerTableOptions(const ASTSpannerTableOptions* node,
+                                   void* data) override;
+  // End of Spanner-related nodes
 
  protected:
   // Set break_line to true if you want to print each child on a separate line.

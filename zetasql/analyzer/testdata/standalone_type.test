@@ -58,31 +58,55 @@ timestamp
 TIMESTAMP
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 timestamp(3)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Parameterized types are not supported [at 1:10]
+timestamp(3)
+         ^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES
 --
 ERROR: TIMESTAMP does not support type parameters [at 1:10]
 timestamp(3)
          ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 struct<string>(3)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Parameterized types are not supported [at 1:15]
+struct<string>(3)
+              ^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES
 --
 ERROR: STRUCT<STRING> type cannot have type parameters by itself, it can only have type parameters on its struct fields [at 1:15]
 struct<string>(3)
               ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 array<string>(3)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Parameterized types are not supported [at 1:14]
+array<string>(3)
+             ^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES
 --
 ERROR: ARRAY<STRING> type cannot have type parameters by itself, it can only have type parameters on its element type [at 1:14]
 array<string>(3)
              ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 invalid(2)
 --
 ERROR: Type not found: invalid [at 1:1]
@@ -90,7 +114,7 @@ invalid(2)
 ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 invalid1.invalid2(3)
 --
 ERROR: Type not found: invalid1.invalid2 [at 1:1]
@@ -98,7 +122,7 @@ invalid1.invalid2(3)
 ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 STRING.invalid(3)
 --
 ERROR: Type not found: STRING.invalid [at 1:1]
@@ -106,7 +130,7 @@ STRING.invalid(3)
 ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 invalid1(2).invalid3(4)
 --
 ERROR: Syntax error: Expected end of input but got "." [at 1:12]
@@ -114,33 +138,57 @@ invalid1(2).invalid3(4)
            ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 string
 --
 STRING
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 string(5)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Parameterized types are not supported [at 1:7]
+string(5)
+      ^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES
 --
 STRING(5)
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 string(MAX)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Parameterized types are not supported [at 1:7]
+string(MAX)
+      ^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES
 --
 STRING(MAX)
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 string(0)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Parameterized types are not supported [at 1:7]
+string(0)
+      ^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES
 --
 ERROR: STRING length must be greater than 0 [at 1:7]
 string(0)
       ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 string(-9)
 --
 ERROR: Syntax error: Unexpected "-" [at 1:8]
@@ -148,23 +196,39 @@ string(-9)
        ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 string("MAX")
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Parameterized types are not supported [at 1:7]
+string("MAX")
+      ^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES
 --
 ERROR: STRING length parameter must be an integer or MAX keyword [at 1:7]
 string("MAX")
       ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 string("hello")
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Parameterized types are not supported [at 1:7]
+string("hello")
+      ^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES
 --
 ERROR: STRING length parameter must be an integer or MAX keyword [at 1:7]
 string("hello")
       ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 string(DATE "mm/dd/yyy")
 --
 ERROR: Syntax error: Unexpected keyword DATE [at 1:8]
@@ -172,87 +236,175 @@ string(DATE "mm/dd/yyy")
        ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 string(1, 2)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Parameterized types are not supported [at 1:7]
+string(1, 2)
+      ^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES
 --
 ERROR: STRING type can only have one parameter. Found 2 parameters [at 1:7]
 string(1, 2)
       ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 bytes(MAX)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Parameterized types are not supported [at 1:6]
+bytes(MAX)
+     ^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES
 --
 BYTES(MAX)
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 bytes(500)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Parameterized types are not supported [at 1:6]
+bytes(500)
+     ^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES
 --
 BYTES(500)
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 BYTES(b"there")
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Parameterized types are not supported [at 1:6]
+BYTES(b"there")
+     ^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES
 --
 ERROR: BYTES length parameter must be an integer or MAX keyword [at 1:6]
 BYTES(b"there")
      ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 float64(1)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Parameterized types are not supported [at 1:8]
+float64(1)
+       ^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES
 --
 ERROR: DOUBLE does not support type parameters [at 1:8]
 float64(1)
        ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 float64(1.2)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Parameterized types are not supported [at 1:8]
+float64(1.2)
+       ^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES
 --
 ERROR: DOUBLE does not support type parameters [at 1:8]
 float64(1.2)
        ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 string(1.2)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Parameterized types are not supported [at 1:7]
+string(1.2)
+      ^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES
 --
 ERROR: STRING length parameter must be an integer or MAX keyword [at 1:7]
 string(1.2)
       ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 string(true)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Parameterized types are not supported [at 1:7]
+string(true)
+      ^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES
 --
 ERROR: STRING length parameter must be an integer or MAX keyword [at 1:7]
 string(true)
       ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
 numeric(4)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: numeric [at 1:1]
+numeric(4)
+^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES,NUMERIC_TYPE
 --
 NUMERIC(4, 0)
 ==
 
-[language_features={{PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
 numeric(6, 2)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: numeric [at 1:1]
+numeric(6, 2)
+^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES,NUMERIC_TYPE
 --
 NUMERIC(6, 2)
 ==
 
-[language_features={{PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
 numeric(1, 2, 3)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: numeric [at 1:1]
+numeric(1, 2, 3)
+^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES,NUMERIC_TYPE
 --
 ERROR: NUMERIC type can only have 1 or 2 parameters. Found 3 parameters [at 1:8]
 numeric(1, 2, 3)
        ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
 numeric()
 --
 ERROR: Syntax error: Unexpected ")" [at 1:9]
@@ -260,63 +412,119 @@ numeric()
         ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
 numeric(MAX, 2)
 --
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: numeric [at 1:1]
+numeric(MAX, 2)
+^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES,NUMERIC_TYPE
+--
 ERROR: NUMERIC precision must be an integer [at 1:8]
 numeric(MAX, 2)
        ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
 numeric(MAX)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: numeric [at 1:1]
+numeric(MAX)
+^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES,NUMERIC_TYPE
 --
 ERROR: NUMERIC precision must be an integer [at 1:8]
 numeric(MAX)
        ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
 numeric("hello")
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: numeric [at 1:1]
+numeric("hello")
+^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES,NUMERIC_TYPE
 --
 ERROR: NUMERIC precision must be an integer [at 1:8]
 numeric("hello")
        ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
 numeric(30)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: numeric [at 1:1]
+numeric(30)
+^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES,NUMERIC_TYPE
 --
 ERROR: In NUMERIC(P), P must be between 1 and 29 [at 1:8]
 numeric(30)
        ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
 numeric(1, 9)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: numeric [at 1:1]
+numeric(1, 9)
+^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES,NUMERIC_TYPE
 --
 ERROR: In NUMERIC(P, 9), P must be between 9 and 38 [at 1:8]
 numeric(1, 9)
        ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
 numeric(12, 10)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: numeric [at 1:1]
+numeric(12, 10)
+^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES,NUMERIC_TYPE
 --
 ERROR: In NUMERIC(P, S), S must be between 0 and 9 [at 1:8]
 numeric(12, 10)
        ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
 numeric(10.2)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: numeric [at 1:1]
+numeric(10.2)
+^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES,NUMERIC_TYPE
 --
 ERROR: NUMERIC precision must be an integer [at 1:8]
 numeric(10.2)
        ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
 NUMERIC(NUMERIC 10)
 --
 ERROR: Syntax error: Unexpected keyword NUMERIC [at 1:9]
@@ -324,96 +532,207 @@ NUMERIC(NUMERIC 10)
         ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
 bignumeric(6)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: bignumeric [at 1:1]
+bignumeric(6)
+^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES,BIGNUMERIC_TYPE
 --
 BIGNUMERIC(6, 0)
 ==
 
-[language_features={{PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
 bignumeric(6, 2)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: bignumeric [at 1:1]
+bignumeric(6, 2)
+^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES,BIGNUMERIC_TYPE
 --
 BIGNUMERIC(6, 2)
 ==
 
-[language_features={{PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
 bignumeric(MAX)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: bignumeric [at 1:1]
+bignumeric(MAX)
+^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES,BIGNUMERIC_TYPE
 --
 BIGNUMERIC(MAX, 0)
 ==
 
-[language_features={{PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
 bignumeric(MAX, 1)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: bignumeric [at 1:1]
+bignumeric(MAX, 1)
+^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES,BIGNUMERIC_TYPE
 --
 BIGNUMERIC(MAX, 1)
 ==
 
-[language_features={{PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
 bignumeric(1, 2, 3)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: bignumeric [at 1:1]
+bignumeric(1, 2, 3)
+^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES,BIGNUMERIC_TYPE
 --
 ERROR: BIGNUMERIC type can only have 1 or 2 parameters. Found 3 parameters [at 1:11]
 bignumeric(1, 2, 3)
           ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
 bignumeric(39)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: bignumeric [at 1:1]
+bignumeric(39)
+^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES,BIGNUMERIC_TYPE
 --
 ERROR: In BIGNUMERIC(P), P must be between 1 and 38 [at 1:11]
 bignumeric(39)
           ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
 bignumeric(1, 9)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: bignumeric [at 1:1]
+bignumeric(1, 9)
+^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES,BIGNUMERIC_TYPE
 --
 ERROR: In BIGNUMERIC(P, 9), P must be between 9 and 47 [at 1:11]
 bignumeric(1, 9)
           ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
 bignumeric(40, 39)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: bignumeric [at 1:1]
+bignumeric(40, 39)
+^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES,BIGNUMERIC_TYPE
 --
 ERROR: In BIGNUMERIC(P, S), S must be between 0 and 38 [at 1:11]
 bignumeric(40, 39)
           ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
 bignumeric(MAX, 39)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: bignumeric [at 1:1]
+bignumeric(MAX, 39)
+^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES,BIGNUMERIC_TYPE
 --
 ERROR: In BIGNUMERIC(P, S), S must be between 0 and 38 [at 1:11]
 bignumeric(MAX, 39)
           ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,BIGNUMERIC_TYPE}}]
 bignumeric("hello")
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: bignumeric [at 1:1]
+bignumeric("hello")
+^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES,BIGNUMERIC_TYPE
 --
 ERROR: BIGNUMERIC precision must be an integer or MAX keyword [at 1:11]
 bignumeric("hello")
           ^
 ==
 
-[language_features={{PARAMETERIZED_TYPES}}]
+[language_features={{|PARAMETERIZED_TYPES}}]
 array<string(10)>
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Parameterized types are not supported [at 1:13]
+array<string(10)>
+            ^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES
 --
 ARRAY<STRING(10)>
 ==
 
-[language_features={{PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,NUMERIC_TYPE}}]
 array<struct<array<numeric(4, 1)>, array<string(10)>, int32>>
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: numeric [at 1:20]
+array<struct<array<numeric(4, 1)>, array<string(10)>, int32>>
+                   ^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES,NUMERIC_TYPE
 --
 ARRAY<STRUCT<ARRAY<NUMERIC(4, 1)>, ARRAY<STRING(10)>, INT32>>
 ==
 
-[language_features={{PARAMETERIZED_TYPES,NUMERIC_TYPE,BIGNUMERIC_TYPE}}]
+[language_features={{|PARAMETERIZED_TYPES,NUMERIC_TYPE,BIGNUMERIC_TYPE}}]
 struct<struct<array<numeric(4, 1)>, array<string(10)>, int32, bignumeric(MAX, 2), int64>>
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Type not found: numeric [at 1:21]
+struct<struct<array<numeric(4, 1)>, array<string(10)>, int32, bignumeric(MAX,...
+                    ^
+--
+ALTERNATION GROUP: PARAMETERIZED_TYPES,NUMERIC_TYPE,BIGNUMERIC_TYPE
 --
 STRUCT<STRUCT<ARRAY<NUMERIC(4, 1)>, ARRAY<STRING(10)>, INT32, BIGNUMERIC(MAX, 2), INT64>>
 ==
 
+[language_features=V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_TYPE]
+string collate 'und:ci'
+--
+STRING COLLATE 'und:ci'
+==
+
+[language_features=V_1_3_COLLATION_SUPPORT]
 string collate 'und:ci'
 --
 ERROR: Type with collation name is not supported [at 1:8]
@@ -421,32 +740,64 @@ string collate 'und:ci'
        ^
 ==
 
+[language_features=V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_TYPE]
+double collate 'und:ci'
+--
+ERROR: DOUBLE does not support collation name
+==
+
+[language_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_TYPE]
+string(100) collate 'ABC'
+--
+STRING(100) COLLATE 'ABC'
+==
+
+[language_features=V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_TYPE]
 struct<string collate 'und:ci'>
 --
-ERROR: Type with collation name is not supported [at 1:15]
-struct<string collate 'und:ci'>
-              ^
+STRUCT<STRING COLLATE 'und:ci'>
 ==
 
+[language_features=V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_TYPE]
 struct<string> collate 'und:ci'
 --
-ERROR: Type with collation name is not supported [at 1:16]
-struct<string> collate 'und:ci'
-               ^
+ERROR: Struct type cannot have collation by itself, it can only have collation on its struct fields
 ==
 
-array<string collate 'und:ci'>
+[language_features=V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_TYPE]
+struct<double collate 'und:ci'>
 --
-ERROR: Type with collation name is not supported [at 1:14]
-array<string collate 'und:ci'>
-             ^
+ERROR: DOUBLE does not support collation name
 ==
 
+[language_features=V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_TYPE]
+array<string collate 'und:ci'>
+--
+ARRAY<STRING COLLATE 'und:ci'>
+==
+
+[language_features=V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_TYPE]
 array<string> collate 'und:ci'
 --
-ERROR: Type with collation name is not supported [at 1:15]
-array<string> collate 'und:ci'
-              ^
+ERROR: Array type cannot have collation by itself, it can only have collation on its element type
+==
+
+[language_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_TYPE]
+array<string(100) collate 'ABC'>
+--
+ARRAY<STRING(100) COLLATE 'ABC'>
+==
+
+[language_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_TYPE]
+array<struct<a string(100), b string collate 'ABC', c double, d string>>
+--
+ARRAY<STRUCT<a STRING(100), b STRING COLLATE 'ABC', c DOUBLE, d STRING>>
+==
+
+[language_features=PARAMETERIZED_TYPES,V_1_3_COLLATION_SUPPORT,V_1_4_COLLATION_IN_TYPE]
+struct<a array<string(100) collate 'ABC'>, b string, c struct<string(50) collate 'CDE'>>
+--
+STRUCT<a ARRAY<STRING(100) COLLATE 'ABC'>, b STRING, c STRUCT<STRING(50) COLLATE 'CDE'>>
 ==
 
 [language_features={{V_1_2_CIVIL_TIME|}}]

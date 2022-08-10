@@ -8,22 +8,23 @@ InsertStmt
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-  | +-value_list=
-  |   +-DMLValue
-  |   | +-value=
-  |   |   +-Literal(type=INT64, value=1)
-  |   +-DMLValue
-  |     +-value=
-  |       +-Literal(type=STRING, value="one")
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=2)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="two")
+| +-InsertRow
+| | +-value_list=
+| |   +-DMLValue
+| |   | +-value=
+| |   |   +-Literal(type=INT64, value=1)
+| |   +-DMLValue
+| |     +-value=
+| |       +-Literal(type=STRING, value="one")
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=2)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="two")
++-column_access_list=WRITE,WRITE
 --
 ALTERNATION GROUP:  IGNORE
 --
@@ -33,22 +34,23 @@ InsertStmt
 +-insert_mode=OR IGNORE
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-  | +-value_list=
-  |   +-DMLValue
-  |   | +-value=
-  |   |   +-Literal(type=INT64, value=1)
-  |   +-DMLValue
-  |     +-value=
-  |       +-Literal(type=STRING, value="one")
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=2)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="two")
+| +-InsertRow
+| | +-value_list=
+| |   +-DMLValue
+| |   | +-value=
+| |   |   +-Literal(type=INT64, value=1)
+| |   +-DMLValue
+| |     +-value=
+| |       +-Literal(type=STRING, value="one")
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=2)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="two")
++-column_access_list=WRITE,WRITE
 --
 ALTERNATION GROUP:  REPLACE
 --
@@ -58,22 +60,23 @@ InsertStmt
 +-insert_mode=OR REPLACE
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-  | +-value_list=
-  |   +-DMLValue
-  |   | +-value=
-  |   |   +-Literal(type=INT64, value=1)
-  |   +-DMLValue
-  |     +-value=
-  |       +-Literal(type=STRING, value="one")
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=2)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="two")
+| +-InsertRow
+| | +-value_list=
+| |   +-DMLValue
+| |   | +-value=
+| |   |   +-Literal(type=INT64, value=1)
+| |   +-DMLValue
+| |     +-value=
+| |       +-Literal(type=STRING, value="one")
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=2)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="two")
++-column_access_list=WRITE,WRITE
 --
 ALTERNATION GROUP:  UPDATE
 --
@@ -83,22 +86,23 @@ InsertStmt
 +-insert_mode=OR UPDATE
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-  | +-value_list=
-  |   +-DMLValue
-  |   | +-value=
-  |   |   +-Literal(type=INT64, value=1)
-  |   +-DMLValue
-  |     +-value=
-  |       +-Literal(type=STRING, value="one")
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=2)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="two")
+| +-InsertRow
+| | +-value_list=
+| |   +-DMLValue
+| |   | +-value=
+| |   |   +-Literal(type=INT64, value=1)
+| |   +-DMLValue
+| |     +-value=
+| |       +-Literal(type=STRING, value="one")
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=2)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="two")
++-column_access_list=WRITE,WRITE
 ==
 
 INSERT KeyValue (kEy, vAlUe)
@@ -119,6 +123,7 @@ InsertStmt
 |   +-input_scan=
 |     +-TableScan(column_list=KeyValue.[Key#3, Value#4], table=KeyValue, column_index_list=[0, 1])
 +-query_output_column_list=KeyValue.[Key#3, Value#4]
++-column_access_list=WRITE,WRITE
 ==
 
 INSERT KeyValue (key, value)
@@ -151,6 +156,7 @@ InsertStmt
 |       +-input_scan=
 |         +-WithRefScan(column_list=subQ.[Key#5, Value#6], with_query_name="subQ")
 +-query_output_column_list=subQ.[Key#5, Value#6]
++-column_access_list=WRITE,WRITE
 ==
 
 INSERT KeyValue (key, value)
@@ -161,14 +167,15 @@ InsertStmt
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=1)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="one")
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=1)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="one")
++-column_access_list=WRITE,WRITE
 ==
 
 INSERT KeyValue (value, key)
@@ -179,14 +186,15 @@ InsertStmt
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
 +-insert_column_list=KeyValue.[Value#2, Key#1]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=STRING, value="one")
-      +-DMLValue
-        +-value=
-          +-Literal(type=INT64, value=1)
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=STRING, value="one")
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=INT64, value=1)
++-column_access_list=WRITE,WRITE
 ==
 
 # This is a widening coercion where an INT32 parameter is coerced to an INT64.
@@ -198,12 +206,13 @@ InsertStmt
 | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
 +-insert_column_list=[KeyValue.Key#1]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-        +-value=
-          +-Cast(INT32 -> INT64)
-            +-Parameter(type=INT32, name="test_param_int32")
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-Cast(INT32 -> INT64)
+|           +-Parameter(type=INT32, name="test_param_int32")
++-column_access_list=WRITE
 ==
 
 INSERT KeyValue (key)
@@ -226,6 +235,7 @@ InsertStmt
 |       +-input_scan=
 |         +-TableScan(column_list=[TestTable.key#3], table=TestTable, column_index_list=[0])
 +-query_output_column_list=[$insert_cast.key#6]
++-column_access_list=WRITE
 ==
 
 INSERT KeyValue (key)
@@ -236,12 +246,13 @@ InsertStmt
 | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
 +-insert_column_list=[KeyValue.Key#1]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-        +-value=
-          +-Cast(UINT32 -> INT64)
-            +-Parameter(type=UINT32, name="test_param_uint32")
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-Cast(UINT32 -> INT64)
+|           +-Parameter(type=UINT32, name="test_param_uint32")
++-column_access_list=WRITE
 ==
 
 INSERT KeyValue (key)
@@ -276,11 +287,12 @@ InsertStmt
 | +-TableScan(column_list=[KeyValue.Value#2], table=KeyValue, column_index_list=[1])
 +-insert_column_list=[KeyValue.Value#2]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-        +-value=
-          +-Parameter(type=STRING, name="test_param_string")
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-Parameter(type=STRING, name="test_param_string")
++-column_access_list=WRITE
 ==
 
 INSERT KeyValue (value)
@@ -380,16 +392,17 @@ InsertStmt
 | +-TableScan(column_list=[TestTable.TestEnum#2], table=TestTable, column_index_list=[1])
 +-insert_column_list=[TestTable.TestEnum#2]
 +-row_list=
-  +-InsertRow
-  | +-value_list=
-  |   +-DMLValue
-  |     +-value=
-  |       +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1)
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-        +-value=
-          +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM0)
+| +-InsertRow
+| | +-value_list=
+| |   +-DMLValue
+| |     +-value=
+| |       +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM1)
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM0)
++-column_access_list=WRITE
 ==
 
 INSERT TestTable (TestEnum)
@@ -423,6 +436,7 @@ InsertStmt
 |   +-input_scan=
 |     +-TableScan(column_list=KeyValue.[Key#3, Value#4], table=KeyValue, column_index_list=[0, 1])
 +-query_output_column_list=KeyValue.[Key#3, Value#4]
++-column_access_list=WRITE,WRITE
 ==
 
 # Omit column list using VALUES
@@ -434,14 +448,15 @@ InsertStmt
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=0)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="abc")
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=0)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="abc")
++-column_access_list=WRITE,WRITE
 ==
 
 # Omit column list using SELECT subquery but mismatched number of column
@@ -497,6 +512,7 @@ InsertStmt
 |   +-input_scan=
 |     +-TableScan(column_list=EnumTable.[key#6, TestEnum#7, AnotherTestEnum#8], table=EnumTable, column_index_list=[0, 1, 2])
 +-query_output_column_list=EnumTable.[key#6, TestEnum#7, AnotherTestEnum#8]
++-column_access_list=WRITE,WRITE,WRITE
 ==
 
 # Pseudo-columns are excluded when omitting column list
@@ -509,17 +525,18 @@ InsertStmt
 | +-TableScan(column_list=EnumTable.[key#1, TestEnum#2, AnotherTestEnum#3], table=EnumTable, column_index_list=[0, 1, 2])
 +-insert_column_list=EnumTable.[key#1, TestEnum#2, AnotherTestEnum#3]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT32, value=100)
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM0)
-      +-DMLValue
-        +-value=
-          +-Literal(type=ENUM<zetasql_test__.AnotherTestEnum>, value=ANOTHERTESTENUM2)
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT32, value=100)
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=ENUM<zetasql_test__.TestEnum>, value=TESTENUM0)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=ENUM<zetasql_test__.AnotherTestEnum>, value=ANOTHERTESTENUM2)
++-column_access_list=WRITE,WRITE,WRITE
 ==
 
 # All columns are pseudo-columns
@@ -547,6 +564,7 @@ InsertStmt
 |   +-input_scan=
 |     +-TableScan(column_list=[AllNonKeysNonWritable.Key#6], table=AllNonKeysNonWritable, column_index_list=[0])
 +-query_output_column_list=[AllNonKeysNonWritable.Key#6]
++-column_access_list=WRITE
 ==
 
 INSERT KitchenSinkValueTable {{|(value)}}
@@ -562,6 +580,7 @@ InsertStmt
 |   +-input_scan=
 |     +-TableScan(column_list=[TestTable.KitchenSink#4], table=TestTable, column_index_list=[2])
 +-query_output_column_list=[TestTable.KitchenSink#4]
++-column_access_list=WRITE
 ==
 
 INSERT KitchenSinkValueTable
@@ -590,6 +609,7 @@ InsertStmt
 |       +-input_scan=
 |         +-SingleRowScan
 +-query_output_column_list=[$make_proto.$proto#4]
++-column_access_list=WRITE
 ==
 
 INSERT KitchenSinkValueTable
@@ -668,6 +688,7 @@ InsertStmt
 |   +-limit=
 |     +-Literal(type=INT64, value=5)
 +-query_output_column_list=$union_all.[Key#7, Value#8]
++-column_access_list=WRITE,WRITE
 ==
 
 INSERT TestTable (key, KitchenSink)
@@ -681,42 +702,43 @@ InsertStmt
 | +-TableScan(column_list=TestTable.[key#1, KitchenSink#3], table=TestTable, column_index_list=[0, 2])
 +-insert_column_list=TestTable.[key#1, KitchenSink#3]
 +-row_list=
-  +-InsertRow
-  | +-value_list=
-  |   +-DMLValue
-  |   | +-value=
-  |   |   +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
-  |   +-DMLValue
-  |     +-value=
-  |       +-SubqueryExpr
-  |         +-type=PROTO<zetasql_test__.KitchenSinkPB>
-  |         +-subquery_type=SCALAR
-  |         +-subquery=
-  |           +-ProjectScan
-  |             +-column_list=[$make_proto.$proto#6]
-  |             +-expr_list=
-  |             | +-$proto#6 :=
-  |             |   +-MakeProto
-  |             |     +-type=PROTO<zetasql_test__.KitchenSinkPB>
-  |             |     +-field_list=
-  |             |       +-int64_key_1 := ColumnRef(type=INT64, column=$expr_subquery.int64_key_1#4)
-  |             |       +-int64_key_2 := ColumnRef(type=INT64, column=$expr_subquery.int64_key_2#5)
-  |             +-input_scan=
-  |               +-ProjectScan
-  |                 +-column_list=$expr_subquery.[int64_key_1#4, int64_key_2#5]
-  |                 +-expr_list=
-  |                 | +-int64_key_1#4 := Literal(type=INT64, value=1)
-  |                 | +-int64_key_2#5 := Literal(type=INT64, value=2)
-  |                 +-input_scan=
-  |                   +-SingleRowScan
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT32, value=1)
-      +-DMLValue
-        +-value=
-          +-Literal(type=PROTO<zetasql_test__.KitchenSinkPB>, value={int64_key_1: 1 int64_key_2: 2})
+| +-InsertRow
+| | +-value_list=
+| |   +-DMLValue
+| |   | +-value=
+| |   |   +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
+| |   +-DMLValue
+| |     +-value=
+| |       +-SubqueryExpr
+| |         +-type=PROTO<zetasql_test__.KitchenSinkPB>
+| |         +-subquery_type=SCALAR
+| |         +-subquery=
+| |           +-ProjectScan
+| |             +-column_list=[$make_proto.$proto#6]
+| |             +-expr_list=
+| |             | +-$proto#6 :=
+| |             |   +-MakeProto
+| |             |     +-type=PROTO<zetasql_test__.KitchenSinkPB>
+| |             |     +-field_list=
+| |             |       +-int64_key_1 := ColumnRef(type=INT64, column=$expr_subquery.int64_key_1#4)
+| |             |       +-int64_key_2 := ColumnRef(type=INT64, column=$expr_subquery.int64_key_2#5)
+| |             +-input_scan=
+| |               +-ProjectScan
+| |                 +-column_list=$expr_subquery.[int64_key_1#4, int64_key_2#5]
+| |                 +-expr_list=
+| |                 | +-int64_key_1#4 := Literal(type=INT64, value=1)
+| |                 | +-int64_key_2#5 := Literal(type=INT64, value=2)
+| |                 +-input_scan=
+| |                   +-SingleRowScan
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT32, value=1)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=PROTO<zetasql_test__.KitchenSinkPB>, value={int64_key_1: 1 int64_key_2: 2})
++-column_access_list=WRITE,WRITE
 ==
 
 INSERT TestTable (KitchenSink)
@@ -753,6 +775,7 @@ InsertStmt
 |               +-input_scan=
 |                 +-TableScan(column_list=[KeyValue.Key#5], table=KeyValue, column_index_list=[0])
 +-query_output_column_list=KeyValue.[Key#3, Value#4]
++-column_access_list=WRITE,WRITE
 ==
 
 INSERT ComplexTypes (Int32Array, key)
@@ -766,62 +789,63 @@ InsertStmt
 | +-TableScan(column_list=ComplexTypes.[key#1, Int32Array#4], table=ComplexTypes, column_index_list=[0, 3])
 +-insert_column_list=ComplexTypes.[Int32Array#4, key#1]
 +-row_list=
-  +-InsertRow
-  | +-value_list=
-  |   +-DMLValue
-  |   | +-value=
-  |   |   +-Literal(type=ARRAY<INT32>, value=[1, 2], has_explicit_type=TRUE)
-  |   +-DMLValue
-  |     +-value=
-  |       +-Literal(type=INT32, value=1)
-  +-InsertRow
-  | +-value_list=
-  |   +-DMLValue
-  |   | +-value=
-  |   |   +-SubqueryExpr
-  |   |     +-type=ARRAY<INT32>
-  |   |     +-subquery_type=ARRAY
-  |   |     +-subquery=
-  |   |       +-ProjectScan
-  |   |         +-column_list=[TestTable.key#7]
-  |   |         +-input_scan=
-  |   |           +-TableScan(column_list=[TestTable.key#7], table=TestTable, column_index_list=[0])
-  |   +-DMLValue
-  |     +-value=
-  |       +-SubqueryExpr
-  |         +-type=INT32
-  |         +-subquery_type=SCALAR
-  |         +-subquery=
-  |           +-ProjectScan
-  |             +-column_list=[TestTable.key#10]
-  |             +-input_scan=
-  |               +-TableScan(column_list=[TestTable.key#10], table=TestTable, column_index_list=[0])
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-SubqueryExpr
-      |     +-type=ARRAY<INT32>
-      |     +-subquery_type=SCALAR
-      |     +-subquery=
-      |       +-ProjectScan
-      |         +-column_list=[ComplexTypes.Int32Array#16]
-      |         +-input_scan=
-      |           +-TableScan(column_list=[ComplexTypes.Int32Array#16], table=ComplexTypes, column_index_list=[3])
-      +-DMLValue
-        +-value=
-          +-SubqueryExpr
-            +-type=INT32
-            +-subquery_type=SCALAR
-            +-subquery=
-              +-ProjectScan
-                +-column_list=[$array.$unnest1#19]
-                +-input_scan=
-                  +-ArrayScan
-                    +-column_list=[$array.$unnest1#19]
-                    +-array_expr=
-                    | +-Parameter(type=ARRAY<INT32>, name="test_param_array")
-                    +-element_column=$array.$unnest1#19
+| +-InsertRow
+| | +-value_list=
+| |   +-DMLValue
+| |   | +-value=
+| |   |   +-Literal(type=ARRAY<INT32>, value=[1, 2], has_explicit_type=TRUE)
+| |   +-DMLValue
+| |     +-value=
+| |       +-Literal(type=INT32, value=1)
+| +-InsertRow
+| | +-value_list=
+| |   +-DMLValue
+| |   | +-value=
+| |   |   +-SubqueryExpr
+| |   |     +-type=ARRAY<INT32>
+| |   |     +-subquery_type=ARRAY
+| |   |     +-subquery=
+| |   |       +-ProjectScan
+| |   |         +-column_list=[TestTable.key#7]
+| |   |         +-input_scan=
+| |   |           +-TableScan(column_list=[TestTable.key#7], table=TestTable, column_index_list=[0])
+| |   +-DMLValue
+| |     +-value=
+| |       +-SubqueryExpr
+| |         +-type=INT32
+| |         +-subquery_type=SCALAR
+| |         +-subquery=
+| |           +-ProjectScan
+| |             +-column_list=[TestTable.key#10]
+| |             +-input_scan=
+| |               +-TableScan(column_list=[TestTable.key#10], table=TestTable, column_index_list=[0])
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-SubqueryExpr
+|     |     +-type=ARRAY<INT32>
+|     |     +-subquery_type=SCALAR
+|     |     +-subquery=
+|     |       +-ProjectScan
+|     |         +-column_list=[ComplexTypes.Int32Array#16]
+|     |         +-input_scan=
+|     |           +-TableScan(column_list=[ComplexTypes.Int32Array#16], table=ComplexTypes, column_index_list=[3])
+|     +-DMLValue
+|       +-value=
+|         +-SubqueryExpr
+|           +-type=INT32
+|           +-subquery_type=SCALAR
+|           +-subquery=
+|             +-ProjectScan
+|               +-column_list=[$array.$unnest1#19]
+|               +-input_scan=
+|                 +-ArrayScan
+|                   +-column_list=[$array.$unnest1#19]
+|                   +-array_expr=
+|                   | +-Parameter(type=ARRAY<INT32>, name="test_param_array")
+|                   +-element_column=$array.$unnest1#19
++-column_access_list=WRITE,WRITE
 ==
 
 # Inserting values into a pseudo column.
@@ -833,11 +857,12 @@ InsertStmt
 | +-TableScan(column_list=[EnumTable.Filename#4], table=EnumTable, column_index_list=[3])
 +-insert_column_list=[EnumTable.Filename#4]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="name")
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="name")
++-column_access_list=WRITE
 ==
 
 INSERT KeyValue (key, value)
@@ -848,14 +873,15 @@ InsertStmt
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=NULL)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value=NULL)
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=NULL)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value=NULL)
++-column_access_list=WRITE,WRITE
 ==
 
 INSERT ComplexTypes (key, TestEnum, KitchenSink, Int32Array, TestStruct, TestProto)
@@ -888,6 +914,7 @@ InsertStmt
 |       +-input_scan=
 |         +-SingleRowScan
 +-query_output_column_list=$insert_cast.[$col1#13, $col2#14, $col3#15, $col4#16, $col5#17, $col6#18]
++-column_access_list=WRITE,WRITE,WRITE,WRITE,WRITE,WRITE
 ==
 
 INSERT KitchenSinkValueTable
@@ -910,6 +937,7 @@ InsertStmt
 |       +-input_scan=
 |         +-SingleRowScan
 +-query_output_column_list=[$insert_cast.$col1#3]
++-column_access_list=WRITE
 ==
 
 INSERT ComplexTypes (Int32Array)
@@ -932,6 +960,7 @@ InsertStmt
 |       +-input_scan=
 |         +-SingleRowScan
 +-query_output_column_list=[$insert_cast.$col1#8]
++-column_access_list=WRITE
 ==
 
 # Typed null literal is not coerced.
@@ -980,30 +1009,31 @@ InsertStmt
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
 +-insert_column_list=KeyValue.[Value#2, Key#1]
 +-row_list=
-  +-InsertRow
-  | +-value_list=
-  |   +-DMLValue
-  |   | +-value=
-  |   |   +-DMLDefault(type=STRING)
-  |   +-DMLValue
-  |     +-value=
-  |       +-DMLDefault(type=INT64)
-  +-InsertRow
-  | +-value_list=
-  |   +-DMLValue
-  |   | +-value=
-  |   |   +-DMLDefault(type=STRING)
-  |   +-DMLValue
-  |     +-value=
-  |       +-Literal(type=INT64, value=5)
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=STRING, value="a")
-      +-DMLValue
-        +-value=
-          +-DMLDefault(type=INT64)
+| +-InsertRow
+| | +-value_list=
+| |   +-DMLValue
+| |   | +-value=
+| |   |   +-DMLDefault(type=STRING)
+| |   +-DMLValue
+| |     +-value=
+| |       +-DMLDefault(type=INT64)
+| +-InsertRow
+| | +-value_list=
+| |   +-DMLValue
+| |   | +-value=
+| |   |   +-DMLDefault(type=STRING)
+| |   +-DMLValue
+| |     +-value=
+| |       +-Literal(type=INT64, value=5)
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=STRING, value="a")
+|     +-DMLValue
+|       +-value=
+|         +-DMLDefault(type=INT64)
++-column_access_list=WRITE,WRITE
 ==
 
 # DEFAULT is not supported in queries.
@@ -1023,11 +1053,12 @@ InsertStmt
 | +-TableScan(column_list=[KitchenSinkValueTable.value#1], table=KitchenSinkValueTable, column_index_list=[0])
 +-insert_column_list=[KitchenSinkValueTable.value#1]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-        +-value=
-          +-DMLDefault(type=PROTO<zetasql_test__.KitchenSinkPB>)
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-DMLDefault(type=PROTO<zetasql_test__.KitchenSinkPB>)
++-column_access_list=WRITE
 ==
 
 INSERT KeyValue (value, key)
@@ -1038,14 +1069,15 @@ InsertStmt
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
 +-insert_column_list=KeyValue.[Value#2, Key#1]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=STRING, value=NULL)
-      +-DMLValue
-        +-value=
-          +-DMLDefault(type=INT64)
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=STRING, value=NULL)
+|     +-DMLValue
+|       +-value=
+|         +-DMLDefault(type=INT64)
++-column_access_list=WRITE,WRITE
 ==
 
 INSERT ComplexTypes (TestStruct)
@@ -1065,52 +1097,53 @@ InsertStmt
 | +-TableScan(column_list=[ComplexTypes.TestStruct#5], table=ComplexTypes, column_index_list=[4])
 +-insert_column_list=[ComplexTypes.TestStruct#5]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-        +-value=
-          +-SubqueryExpr
-            +-type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>
-            +-subquery_type=SCALAR
-            +-subquery=
-              +-ProjectScan
-                +-column_list=[$make_struct.$struct#12]
-                +-expr_list=
-                | +-$struct#12 :=
-                |   +-MakeStruct
-                |     +-type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>
-                |     +-field_list=
-                |       +-ColumnRef(type=INT32, column=$expr_subquery.c#10)
-                |       +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$expr_subquery.d#11)
-                +-input_scan=
-                  +-ProjectScan
-                    +-column_list=$expr_subquery.[c#10, d#11]
-                    +-expr_list=
-                    | +-c#10 := Literal(type=INT32, value=1, has_explicit_type=TRUE)
-                    | +-d#11 :=
-                    |   +-SubqueryExpr
-                    |     +-type=STRUCT<a INT32, b STRING>
-                    |     +-subquery_type=SCALAR
-                    |     +-subquery=
-                    |       +-ProjectScan
-                    |         +-column_list=[$make_struct.$struct#9]
-                    |         +-expr_list=
-                    |         | +-$struct#9 :=
-                    |         |   +-MakeStruct
-                    |         |     +-type=STRUCT<a INT32, b STRING>
-                    |         |     +-field_list=
-                    |         |       +-ColumnRef(type=INT32, column=$expr_subquery.a#7)
-                    |         |       +-ColumnRef(type=STRING, column=$expr_subquery.b#8)
-                    |         +-input_scan=
-                    |           +-ProjectScan
-                    |             +-column_list=$expr_subquery.[a#7, b#8]
-                    |             +-expr_list=
-                    |             | +-a#7 := Literal(type=INT32, value=1, has_explicit_type=TRUE)
-                    |             | +-b#8 := Literal(type=STRING, value="a")
-                    |             +-input_scan=
-                    |               +-SingleRowScan
-                    +-input_scan=
-                      +-SingleRowScan
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-SubqueryExpr
+|           +-type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>
+|           +-subquery_type=SCALAR
+|           +-subquery=
+|             +-ProjectScan
+|               +-column_list=[$make_struct.$struct#12]
+|               +-expr_list=
+|               | +-$struct#12 :=
+|               |   +-MakeStruct
+|               |     +-type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>
+|               |     +-field_list=
+|               |       +-ColumnRef(type=INT32, column=$expr_subquery.c#10)
+|               |       +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$expr_subquery.d#11)
+|               +-input_scan=
+|                 +-ProjectScan
+|                   +-column_list=$expr_subquery.[c#10, d#11]
+|                   +-expr_list=
+|                   | +-c#10 := Literal(type=INT32, value=1, has_explicit_type=TRUE)
+|                   | +-d#11 :=
+|                   |   +-SubqueryExpr
+|                   |     +-type=STRUCT<a INT32, b STRING>
+|                   |     +-subquery_type=SCALAR
+|                   |     +-subquery=
+|                   |       +-ProjectScan
+|                   |         +-column_list=[$make_struct.$struct#9]
+|                   |         +-expr_list=
+|                   |         | +-$struct#9 :=
+|                   |         |   +-MakeStruct
+|                   |         |     +-type=STRUCT<a INT32, b STRING>
+|                   |         |     +-field_list=
+|                   |         |       +-ColumnRef(type=INT32, column=$expr_subquery.a#7)
+|                   |         |       +-ColumnRef(type=STRING, column=$expr_subquery.b#8)
+|                   |         +-input_scan=
+|                   |           +-ProjectScan
+|                   |             +-column_list=$expr_subquery.[a#7, b#8]
+|                   |             +-expr_list=
+|                   |             | +-a#7 := Literal(type=INT32, value=1, has_explicit_type=TRUE)
+|                   |             | +-b#8 := Literal(type=STRING, value="a")
+|                   |             +-input_scan=
+|                   |               +-SingleRowScan
+|                   +-input_scan=
+|                     +-SingleRowScan
++-column_access_list=WRITE
 ==
 
 # Same test as previous, but with different field names.
@@ -1123,53 +1156,54 @@ InsertStmt
 | +-TableScan(column_list=[ComplexTypes.TestStruct#5], table=ComplexTypes, column_index_list=[4])
 +-insert_column_list=[ComplexTypes.TestStruct#5]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-        +-value=
-          +-Cast(STRUCT<x INT32, y STRUCT<z1 INT32, z2 STRING>> -> STRUCT<c INT32, d STRUCT<a INT32, b STRING>>)
-            +-SubqueryExpr
-              +-type=STRUCT<x INT32, y STRUCT<z1 INT32, z2 STRING>>
-              +-subquery_type=SCALAR
-              +-subquery=
-                +-ProjectScan
-                  +-column_list=[$make_struct.$struct#12]
-                  +-expr_list=
-                  | +-$struct#12 :=
-                  |   +-MakeStruct
-                  |     +-type=STRUCT<x INT32, y STRUCT<z1 INT32, z2 STRING>>
-                  |     +-field_list=
-                  |       +-ColumnRef(type=INT32, column=$expr_subquery.x#10)
-                  |       +-ColumnRef(type=STRUCT<z1 INT32, z2 STRING>, column=$expr_subquery.y#11)
-                  +-input_scan=
-                    +-ProjectScan
-                      +-column_list=$expr_subquery.[x#10, y#11]
-                      +-expr_list=
-                      | +-x#10 := Literal(type=INT32, value=1, has_explicit_type=TRUE)
-                      | +-y#11 :=
-                      |   +-SubqueryExpr
-                      |     +-type=STRUCT<z1 INT32, z2 STRING>
-                      |     +-subquery_type=SCALAR
-                      |     +-subquery=
-                      |       +-ProjectScan
-                      |         +-column_list=[$make_struct.$struct#9]
-                      |         +-expr_list=
-                      |         | +-$struct#9 :=
-                      |         |   +-MakeStruct
-                      |         |     +-type=STRUCT<z1 INT32, z2 STRING>
-                      |         |     +-field_list=
-                      |         |       +-ColumnRef(type=INT32, column=$expr_subquery.z1#7)
-                      |         |       +-ColumnRef(type=STRING, column=$expr_subquery.z2#8)
-                      |         +-input_scan=
-                      |           +-ProjectScan
-                      |             +-column_list=$expr_subquery.[z1#7, z2#8]
-                      |             +-expr_list=
-                      |             | +-z1#7 := Literal(type=INT32, value=1, has_explicit_type=TRUE)
-                      |             | +-z2#8 := Literal(type=STRING, value="a")
-                      |             +-input_scan=
-                      |               +-SingleRowScan
-                      +-input_scan=
-                        +-SingleRowScan
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-Cast(STRUCT<x INT32, y STRUCT<z1 INT32, z2 STRING>> -> STRUCT<c INT32, d STRUCT<a INT32, b STRING>>)
+|           +-SubqueryExpr
+|             +-type=STRUCT<x INT32, y STRUCT<z1 INT32, z2 STRING>>
+|             +-subquery_type=SCALAR
+|             +-subquery=
+|               +-ProjectScan
+|                 +-column_list=[$make_struct.$struct#12]
+|                 +-expr_list=
+|                 | +-$struct#12 :=
+|                 |   +-MakeStruct
+|                 |     +-type=STRUCT<x INT32, y STRUCT<z1 INT32, z2 STRING>>
+|                 |     +-field_list=
+|                 |       +-ColumnRef(type=INT32, column=$expr_subquery.x#10)
+|                 |       +-ColumnRef(type=STRUCT<z1 INT32, z2 STRING>, column=$expr_subquery.y#11)
+|                 +-input_scan=
+|                   +-ProjectScan
+|                     +-column_list=$expr_subquery.[x#10, y#11]
+|                     +-expr_list=
+|                     | +-x#10 := Literal(type=INT32, value=1, has_explicit_type=TRUE)
+|                     | +-y#11 :=
+|                     |   +-SubqueryExpr
+|                     |     +-type=STRUCT<z1 INT32, z2 STRING>
+|                     |     +-subquery_type=SCALAR
+|                     |     +-subquery=
+|                     |       +-ProjectScan
+|                     |         +-column_list=[$make_struct.$struct#9]
+|                     |         +-expr_list=
+|                     |         | +-$struct#9 :=
+|                     |         |   +-MakeStruct
+|                     |         |     +-type=STRUCT<z1 INT32, z2 STRING>
+|                     |         |     +-field_list=
+|                     |         |       +-ColumnRef(type=INT32, column=$expr_subquery.z1#7)
+|                     |         |       +-ColumnRef(type=STRING, column=$expr_subquery.z2#8)
+|                     |         +-input_scan=
+|                     |           +-ProjectScan
+|                     |             +-column_list=$expr_subquery.[z1#7, z2#8]
+|                     |             +-expr_list=
+|                     |             | +-z1#7 := Literal(type=INT32, value=1, has_explicit_type=TRUE)
+|                     |             | +-z2#8 := Literal(type=STRING, value="a")
+|                     |             +-input_scan=
+|                     |               +-SingleRowScan
+|                     +-input_scan=
+|                       +-SingleRowScan
++-column_access_list=WRITE
 ==
 
 # Similar test as previous (with different field names) but with
@@ -1182,11 +1216,12 @@ InsertStmt
 | +-TableScan(column_list=[ComplexTypes.TestStruct#5], table=ComplexTypes, column_index_list=[4])
 +-insert_column_list=[ComplexTypes.TestStruct#5]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, value={c:1, d:{a:1, b:"a"}})
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, value={c:1, d:{a:1, b:"a"}})
++-column_access_list=WRITE
 ==
 
 # Similar test as previous (with different field names) but with
@@ -1199,15 +1234,16 @@ InsertStmt
 | +-TableScan(column_list=[ComplexTypes.TestStruct#5], table=ComplexTypes, column_index_list=[4])
 +-insert_column_list=[ComplexTypes.TestStruct#5]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-        +-value=
-          +-MakeStruct
-            +-type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>
-            +-field_list=
-              +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
-              +-Literal(type=STRUCT<a INT32, b STRING>, value={a:1, b:"a"})
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-MakeStruct
+|           +-type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>
+|           +-field_list=
+|             +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
+|             +-Literal(type=STRUCT<a INT32, b STRING>, value={a:1, b:"a"})
++-column_access_list=WRITE
 ==
 
 INSERT ComplexTypes (TestStruct)
@@ -1257,6 +1293,7 @@ InsertStmt
 |       +-input_scan=
 |         +-SingleRowScan
 +-query_output_column_list=[$make_struct.$struct#12]
++-column_access_list=WRITE
 ==
 
 # Same test as previous, but with different field names.
@@ -1315,6 +1352,7 @@ InsertStmt
 |           +-input_scan=
 |             +-SingleRowScan
 +-query_output_column_list=[$insert_cast.$struct#13]
++-column_access_list=WRITE
 ==
 
 INSERT MoreComplexTypes (ArrayOfStruct)
@@ -1325,33 +1363,34 @@ InsertStmt
 | +-TableScan(column_list=[MoreComplexTypes.ArrayOfStruct#2], table=MoreComplexTypes, column_index_list=[1])
 +-insert_column_list=[MoreComplexTypes.ArrayOfStruct#2]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-        +-value=
-          +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRUCT<a INT32, b STRING>) -> ARRAY<STRUCT<a INT32, b STRING>>)
-            +-SubqueryExpr
-            | +-type=STRUCT<a INT32, b STRING>
-            | +-subquery_type=SCALAR
-            | +-subquery=
-            |   +-ProjectScan
-            |     +-column_list=[$make_struct.$struct#6]
-            |     +-expr_list=
-            |     | +-$struct#6 :=
-            |     |   +-MakeStruct
-            |     |     +-type=STRUCT<a INT32, b STRING>
-            |     |     +-field_list=
-            |     |       +-ColumnRef(type=INT32, column=$expr_subquery.a#4)
-            |     |       +-ColumnRef(type=STRING, column=$expr_subquery.b#5)
-            |     +-input_scan=
-            |       +-ProjectScan
-            |         +-column_list=$expr_subquery.[a#4, b#5]
-            |         +-expr_list=
-            |         | +-a#4 := Literal(type=INT32, value=1, has_explicit_type=TRUE)
-            |         | +-b#5 := Literal(type=STRING, value="b")
-            |         +-input_scan=
-            |           +-SingleRowScan
-            +-Literal(type=STRUCT<a INT32, b STRING>, value=NULL)
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRUCT<a INT32, b STRING>) -> ARRAY<STRUCT<a INT32, b STRING>>)
+|           +-SubqueryExpr
+|           | +-type=STRUCT<a INT32, b STRING>
+|           | +-subquery_type=SCALAR
+|           | +-subquery=
+|           |   +-ProjectScan
+|           |     +-column_list=[$make_struct.$struct#6]
+|           |     +-expr_list=
+|           |     | +-$struct#6 :=
+|           |     |   +-MakeStruct
+|           |     |     +-type=STRUCT<a INT32, b STRING>
+|           |     |     +-field_list=
+|           |     |       +-ColumnRef(type=INT32, column=$expr_subquery.a#4)
+|           |     |       +-ColumnRef(type=STRING, column=$expr_subquery.b#5)
+|           |     +-input_scan=
+|           |       +-ProjectScan
+|           |         +-column_list=$expr_subquery.[a#4, b#5]
+|           |         +-expr_list=
+|           |         | +-a#4 := Literal(type=INT32, value=1, has_explicit_type=TRUE)
+|           |         | +-b#5 := Literal(type=STRING, value="b")
+|           |         +-input_scan=
+|           |           +-SingleRowScan
+|           +-Literal(type=STRUCT<a INT32, b STRING>, value=NULL)
++-column_access_list=WRITE
 ==
 
 # Same test as previous, but with different struct field names.
@@ -1363,34 +1402,35 @@ InsertStmt
 | +-TableScan(column_list=[MoreComplexTypes.ArrayOfStruct#2], table=MoreComplexTypes, column_index_list=[1])
 +-insert_column_list=[MoreComplexTypes.ArrayOfStruct#2]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-        +-value=
-          +-Cast(ARRAY<STRUCT<x INT32, y STRING>> -> ARRAY<STRUCT<a INT32, b STRING>>)
-            +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRUCT<x INT32, y STRING>) -> ARRAY<STRUCT<x INT32, y STRING>>)
-              +-SubqueryExpr
-              | +-type=STRUCT<x INT32, y STRING>
-              | +-subquery_type=SCALAR
-              | +-subquery=
-              |   +-ProjectScan
-              |     +-column_list=[$make_struct.$struct#6]
-              |     +-expr_list=
-              |     | +-$struct#6 :=
-              |     |   +-MakeStruct
-              |     |     +-type=STRUCT<x INT32, y STRING>
-              |     |     +-field_list=
-              |     |       +-ColumnRef(type=INT32, column=$expr_subquery.x#4)
-              |     |       +-ColumnRef(type=STRING, column=$expr_subquery.y#5)
-              |     +-input_scan=
-              |       +-ProjectScan
-              |         +-column_list=$expr_subquery.[x#4, y#5]
-              |         +-expr_list=
-              |         | +-x#4 := Literal(type=INT32, value=1, has_explicit_type=TRUE)
-              |         | +-y#5 := Literal(type=STRING, value="b")
-              |         +-input_scan=
-              |           +-SingleRowScan
-              +-Literal(type=STRUCT<x INT32, y STRING>, value=NULL)
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-Cast(ARRAY<STRUCT<x INT32, y STRING>> -> ARRAY<STRUCT<a INT32, b STRING>>)
+|           +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRUCT<x INT32, y STRING>) -> ARRAY<STRUCT<x INT32, y STRING>>)
+|             +-SubqueryExpr
+|             | +-type=STRUCT<x INT32, y STRING>
+|             | +-subquery_type=SCALAR
+|             | +-subquery=
+|             |   +-ProjectScan
+|             |     +-column_list=[$make_struct.$struct#6]
+|             |     +-expr_list=
+|             |     | +-$struct#6 :=
+|             |     |   +-MakeStruct
+|             |     |     +-type=STRUCT<x INT32, y STRING>
+|             |     |     +-field_list=
+|             |     |       +-ColumnRef(type=INT32, column=$expr_subquery.x#4)
+|             |     |       +-ColumnRef(type=STRING, column=$expr_subquery.y#5)
+|             |     +-input_scan=
+|             |       +-ProjectScan
+|             |         +-column_list=$expr_subquery.[x#4, y#5]
+|             |         +-expr_list=
+|             |         | +-x#4 := Literal(type=INT32, value=1, has_explicit_type=TRUE)
+|             |         | +-y#5 := Literal(type=STRING, value="b")
+|             |         +-input_scan=
+|             |           +-SingleRowScan
+|             +-Literal(type=STRUCT<x INT32, y STRING>, value=NULL)
++-column_access_list=WRITE
 ==
 
 INSERT MoreComplexTypes (StructOfArrayOfStruct)
@@ -1403,42 +1443,43 @@ InsertStmt
 | +-TableScan(column_list=[MoreComplexTypes.StructOfArrayOfStruct#3], table=MoreComplexTypes, column_index_list=[2])
 +-insert_column_list=[MoreComplexTypes.StructOfArrayOfStruct#3]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-        +-value=
-          +-MakeStruct
-            +-type=STRUCT<x INT64, y STRUCT<a INT32, b STRING>, z ARRAY<STRUCT<a INT32, b STRING>>>
-            +-field_list=
-              +-Literal(type=INT64, value=1)
-              +-MakeStruct
-              | +-type=STRUCT<a INT32, b STRING>
-              | +-field_list=
-              |   +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
-              |   +-Literal(type=STRING, value="b")
-              +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRUCT<a INT32, b STRING>) -> ARRAY<STRUCT<a INT32, b STRING>>)
-                +-SubqueryExpr
-                | +-type=STRUCT<a INT32, b STRING>
-                | +-subquery_type=SCALAR
-                | +-subquery=
-                |   +-ProjectScan
-                |     +-column_list=[$make_struct.$struct#6]
-                |     +-expr_list=
-                |     | +-$struct#6 :=
-                |     |   +-MakeStruct
-                |     |     +-type=STRUCT<a INT32, b STRING>
-                |     |     +-field_list=
-                |     |       +-ColumnRef(type=INT32, column=$expr_subquery.a#4)
-                |     |       +-ColumnRef(type=STRING, column=$expr_subquery.b#5)
-                |     +-input_scan=
-                |       +-ProjectScan
-                |         +-column_list=$expr_subquery.[a#4, b#5]
-                |         +-expr_list=
-                |         | +-a#4 := Literal(type=INT32, value=1, has_explicit_type=TRUE)
-                |         | +-b#5 := Literal(type=STRING, value="a")
-                |         +-input_scan=
-                |           +-SingleRowScan
-                +-Literal(type=STRUCT<a INT32, b STRING>, value=NULL)
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-MakeStruct
+|           +-type=STRUCT<x INT64, y STRUCT<a INT32, b STRING>, z ARRAY<STRUCT<a INT32, b STRING>>>
+|           +-field_list=
+|             +-Literal(type=INT64, value=1)
+|             +-MakeStruct
+|             | +-type=STRUCT<a INT32, b STRING>
+|             | +-field_list=
+|             |   +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
+|             |   +-Literal(type=STRING, value="b")
+|             +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRUCT<a INT32, b STRING>) -> ARRAY<STRUCT<a INT32, b STRING>>)
+|               +-SubqueryExpr
+|               | +-type=STRUCT<a INT32, b STRING>
+|               | +-subquery_type=SCALAR
+|               | +-subquery=
+|               |   +-ProjectScan
+|               |     +-column_list=[$make_struct.$struct#6]
+|               |     +-expr_list=
+|               |     | +-$struct#6 :=
+|               |     |   +-MakeStruct
+|               |     |     +-type=STRUCT<a INT32, b STRING>
+|               |     |     +-field_list=
+|               |     |       +-ColumnRef(type=INT32, column=$expr_subquery.a#4)
+|               |     |       +-ColumnRef(type=STRING, column=$expr_subquery.b#5)
+|               |     +-input_scan=
+|               |       +-ProjectScan
+|               |         +-column_list=$expr_subquery.[a#4, b#5]
+|               |         +-expr_list=
+|               |         | +-a#4 := Literal(type=INT32, value=1, has_explicit_type=TRUE)
+|               |         | +-b#5 := Literal(type=STRING, value="a")
+|               |         +-input_scan=
+|               |           +-SingleRowScan
+|               +-Literal(type=STRUCT<a INT32, b STRING>, value=NULL)
++-column_access_list=WRITE
 ==
 
 # Same test as previous, but with different struct field names.
@@ -1452,43 +1493,44 @@ InsertStmt
 | +-TableScan(column_list=[MoreComplexTypes.StructOfArrayOfStruct#3], table=MoreComplexTypes, column_index_list=[2])
 +-insert_column_list=[MoreComplexTypes.StructOfArrayOfStruct#3]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-        +-value=
-          +-MakeStruct
-            +-type=STRUCT<x INT64, y STRUCT<a INT32, b STRING>, z ARRAY<STRUCT<a INT32, b STRING>>>
-            +-field_list=
-              +-Literal(type=INT64, value=1)
-              +-MakeStruct
-              | +-type=STRUCT<a INT32, b STRING>
-              | +-field_list=
-              |   +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
-              |   +-Literal(type=STRING, value="b")
-              +-Cast(ARRAY<STRUCT<j1 INT32, k1 STRING>> -> ARRAY<STRUCT<a INT32, b STRING>>)
-                +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRUCT<j1 INT32, k1 STRING>) -> ARRAY<STRUCT<j1 INT32, k1 STRING>>)
-                  +-SubqueryExpr
-                  | +-type=STRUCT<j1 INT32, k1 STRING>
-                  | +-subquery_type=SCALAR
-                  | +-subquery=
-                  |   +-ProjectScan
-                  |     +-column_list=[$make_struct.$struct#6]
-                  |     +-expr_list=
-                  |     | +-$struct#6 :=
-                  |     |   +-MakeStruct
-                  |     |     +-type=STRUCT<j1 INT32, k1 STRING>
-                  |     |     +-field_list=
-                  |     |       +-ColumnRef(type=INT32, column=$expr_subquery.j1#4)
-                  |     |       +-ColumnRef(type=STRING, column=$expr_subquery.k1#5)
-                  |     +-input_scan=
-                  |       +-ProjectScan
-                  |         +-column_list=$expr_subquery.[j1#4, k1#5]
-                  |         +-expr_list=
-                  |         | +-j1#4 := Literal(type=INT32, value=1, has_explicit_type=TRUE)
-                  |         | +-k1#5 := Literal(type=STRING, value="a")
-                  |         +-input_scan=
-                  |           +-SingleRowScan
-                  +-Literal(type=STRUCT<j1 INT32, k1 STRING>, value=NULL)
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-MakeStruct
+|           +-type=STRUCT<x INT64, y STRUCT<a INT32, b STRING>, z ARRAY<STRUCT<a INT32, b STRING>>>
+|           +-field_list=
+|             +-Literal(type=INT64, value=1)
+|             +-MakeStruct
+|             | +-type=STRUCT<a INT32, b STRING>
+|             | +-field_list=
+|             |   +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
+|             |   +-Literal(type=STRING, value="b")
+|             +-Cast(ARRAY<STRUCT<j1 INT32, k1 STRING>> -> ARRAY<STRUCT<a INT32, b STRING>>)
+|               +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRUCT<j1 INT32, k1 STRING>) -> ARRAY<STRUCT<j1 INT32, k1 STRING>>)
+|                 +-SubqueryExpr
+|                 | +-type=STRUCT<j1 INT32, k1 STRING>
+|                 | +-subquery_type=SCALAR
+|                 | +-subquery=
+|                 |   +-ProjectScan
+|                 |     +-column_list=[$make_struct.$struct#6]
+|                 |     +-expr_list=
+|                 |     | +-$struct#6 :=
+|                 |     |   +-MakeStruct
+|                 |     |     +-type=STRUCT<j1 INT32, k1 STRING>
+|                 |     |     +-field_list=
+|                 |     |       +-ColumnRef(type=INT32, column=$expr_subquery.j1#4)
+|                 |     |       +-ColumnRef(type=STRING, column=$expr_subquery.k1#5)
+|                 |     +-input_scan=
+|                 |       +-ProjectScan
+|                 |         +-column_list=$expr_subquery.[j1#4, k1#5]
+|                 |         +-expr_list=
+|                 |         | +-j1#4 := Literal(type=INT32, value=1, has_explicit_type=TRUE)
+|                 |         | +-k1#5 := Literal(type=STRING, value="a")
+|                 |         +-input_scan=
+|                 |           +-SingleRowScan
+|                 +-Literal(type=STRUCT<j1 INT32, k1 STRING>, value=NULL)
++-column_access_list=WRITE
 ==
 
 INSERT SimpleTypes (int32)
@@ -1511,6 +1553,7 @@ InsertStmt
 |       +-input_scan=
 |         +-SingleRowScan
 +-query_output_column_list=[$insert_cast.$col1#20]
++-column_access_list=WRITE
 ==
 
 INSERT SimpleTypes (int32)
@@ -1521,11 +1564,12 @@ InsertStmt
 | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
 +-insert_column_list=[SimpleTypes.int32#1]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-        +-value=
-          +-Literal(type=INT32, value=1)
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=INT32, value=1)
++-column_access_list=WRITE
 ==
 
 INSERT SimpleTypes (int32)
@@ -1554,6 +1598,7 @@ InsertStmt
 |       +-input_scan=
 |         +-TableScan(column_list=[SimpleTypes.int32#19], table=SimpleTypes, column_index_list=[0])
 +-query_output_column_list=[$insert_cast.$col1#38]
++-column_access_list=WRITE
 ==
 
 INSERT SimpleTypes (int32)
@@ -1576,6 +1621,7 @@ InsertStmt
 |       +-input_scan=
 |         +-TableScan(column_list=[SimpleTypes.int64#20], table=SimpleTypes, column_index_list=[1])
 +-query_output_column_list=[$insert_cast.int64#37]
++-column_access_list=WRITE
 ==
 
 INSERT SimpleTypes (int32)
@@ -1594,16 +1640,17 @@ InsertStmt
 | +-TableScan(column_list=[SimpleTypes.int32#1], table=SimpleTypes, column_index_list=[0])
 +-insert_column_list=[SimpleTypes.int32#1]
 +-row_list=
-  +-InsertRow
-  | +-value_list=
-  |   +-DMLValue
-  |     +-value=
-  |       +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-        +-value=
-          +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
+| +-InsertRow
+| | +-value_list=
+| |   +-DMLValue
+| |     +-value=
+| |       +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=INT32, value=1, has_explicit_type=TRUE)
++-column_access_list=WRITE
 ==
 
 INSERT SimpleTypes (uint32)
@@ -1614,16 +1661,17 @@ InsertStmt
 | +-TableScan(column_list=[SimpleTypes.uint32#3], table=SimpleTypes, column_index_list=[2])
 +-insert_column_list=[SimpleTypes.uint32#3]
 +-row_list=
-  +-InsertRow
-  | +-value_list=
-  |   +-DMLValue
-  |     +-value=
-  |       +-Literal(type=UINT32, value=1, has_explicit_type=TRUE)
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-        +-value=
-          +-Literal(type=UINT32, value=1, has_explicit_type=TRUE)
+| +-InsertRow
+| | +-value_list=
+| |   +-DMLValue
+| |     +-value=
+| |       +-Literal(type=UINT32, value=1, has_explicit_type=TRUE)
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=UINT32, value=1, has_explicit_type=TRUE)
++-column_access_list=WRITE
 ==
 
 # Inserting protos from different DescriptorPools. A cast gets added.
@@ -1639,41 +1687,42 @@ InsertStmt
 | +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
 +-insert_column_list=[TestTable.KitchenSink#3]
 +-row_list=
-  +-InsertRow
-  | +-value_list=
-  |   +-DMLValue
-  |     +-value=
-  |       +-SubqueryExpr
-  |         +-type=PROTO<zetasql_test__.KitchenSinkPB>
-  |         +-subquery_type=SCALAR
-  |         +-subquery=
-  |           +-ProjectScan
-  |             +-column_list=[$expr_subquery.$col1#4]
-  |             +-expr_list=
-  |             | +-$col1#4 :=
-  |             |   +-FunctionCall(ZetaSQL:coalesce(repeated(1) PROTO<zetasql_test__.KitchenSinkPB>) -> PROTO<zetasql_test__.KitchenSinkPB>)
-  |             |     +-Cast(STRING -> PROTO<zetasql_test__.KitchenSinkPB>)
-  |             |       +-Literal(type=STRING, value="int64_key_1: 1 int64_key_2")
-  |             +-input_scan=
-  |               +-SingleRowScan
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-        +-value=
-          +-Cast(PROTO<zetasql_test__.KitchenSinkPB> -> PROTO<zetasql_test__.KitchenSinkPB>)
-            +-SubqueryExpr
-              +-type=PROTO<zetasql_test__.KitchenSinkPB>
-              +-subquery_type=SCALAR
-              +-subquery=
-                +-ProjectScan
-                  +-column_list=[$expr_subquery.$col1#5]
-                  +-expr_list=
-                  | +-$col1#5 :=
-                  |   +-FunctionCall(ZetaSQL:coalesce(repeated(1) PROTO<zetasql_test__.KitchenSinkPB>) -> PROTO<zetasql_test__.KitchenSinkPB>)
-                  |     +-Cast(STRING -> PROTO<zetasql_test__.KitchenSinkPB>)
-                  |       +-Literal(type=STRING, value="int64_key_1: 1 int64_key_2")
-                  +-input_scan=
-                    +-SingleRowScan
+| +-InsertRow
+| | +-value_list=
+| |   +-DMLValue
+| |     +-value=
+| |       +-SubqueryExpr
+| |         +-type=PROTO<zetasql_test__.KitchenSinkPB>
+| |         +-subquery_type=SCALAR
+| |         +-subquery=
+| |           +-ProjectScan
+| |             +-column_list=[$expr_subquery.$col1#4]
+| |             +-expr_list=
+| |             | +-$col1#4 :=
+| |             |   +-FunctionCall(ZetaSQL:coalesce(repeated(1) PROTO<zetasql_test__.KitchenSinkPB>) -> PROTO<zetasql_test__.KitchenSinkPB>)
+| |             |     +-Cast(STRING -> PROTO<zetasql_test__.KitchenSinkPB>)
+| |             |       +-Literal(type=STRING, value="int64_key_1: 1 int64_key_2")
+| |             +-input_scan=
+| |               +-SingleRowScan
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-Cast(PROTO<zetasql_test__.KitchenSinkPB> -> PROTO<zetasql_test__.KitchenSinkPB>)
+|           +-SubqueryExpr
+|             +-type=PROTO<zetasql_test__.KitchenSinkPB>
+|             +-subquery_type=SCALAR
+|             +-subquery=
+|               +-ProjectScan
+|                 +-column_list=[$expr_subquery.$col1#5]
+|                 +-expr_list=
+|                 | +-$col1#5 :=
+|                 |   +-FunctionCall(ZetaSQL:coalesce(repeated(1) PROTO<zetasql_test__.KitchenSinkPB>) -> PROTO<zetasql_test__.KitchenSinkPB>)
+|                 |     +-Cast(STRING -> PROTO<zetasql_test__.KitchenSinkPB>)
+|                 |       +-Literal(type=STRING, value="int64_key_1: 1 int64_key_2")
+|                 +-input_scan=
+|                   +-SingleRowScan
++-column_access_list=WRITE
 ==
 
 INSERT KitchenSinkValueTable
@@ -1711,6 +1760,7 @@ InsertStmt
 |       +-input_scan=
 |         +-SingleRowScan
 +-query_output_column_list=[$make_proto.$proto#7]
++-column_access_list=WRITE
 ==
 
 INSERT KitchenSinkValueTable
@@ -1748,6 +1798,7 @@ InsertStmt
 |           +-input_scan=
 |             +-TableScan(column_list=[KitchenSinkValueTable.value#2], table=KitchenSinkValueTable, column_index_list=[0])
 +-query_output_column_list=[$make_proto.$proto#4]
++-column_access_list=WRITE
 ==
 
 # This tests a case where we have a duplicate key in the query's column_list,
@@ -1765,6 +1816,7 @@ InsertStmt
 |   +-input_scan=
 |     +-TableScan(column_list=[TwoIntegers.key#3], table=TwoIntegers, column_index_list=[0])
 +-query_output_column_list=TwoIntegers.[key#3, key#3]
++-column_access_list=WRITE,WRITE
 ==
 
 # Non-nested INSERT does not allow a generalized path.
@@ -1829,11 +1881,12 @@ InsertStmt
 | +-TableScan(column_list=[AllNonKeysNonWritable.Key#1], table=AllNonKeysNonWritable, column_index_list=[0])
 +-insert_column_list=[AllNonKeysNonWritable.Key#1]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-        +-value=
-          +-Literal(type=INT32, value=1)
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=INT32, value=1)
++-column_access_list=WRITE
 ==
 
 # ProtoValue was defined as non-writable in the sample_catalog.
@@ -1865,6 +1918,7 @@ InsertStmt
 |   +-group_by_list=
 |     +-x#4 := ColumnRef(type=INT64, column=$subquery1.x#3)
 +-query_output_column_list=$distinct.[x#4, x#4]
++-column_access_list=WRITE,WRITE
 ==
 
 # INSERT using 'SELECT DISTINCT' query (b/117789638)
@@ -1891,6 +1945,7 @@ InsertStmt
 |     +-x#7 := ColumnRef(type=INT64, column=$subquery1.x#5)
 |     +-y#8 := ColumnRef(type=INT64, column=$subquery1.y#6)
 +-query_output_column_list=$distinct.[x#7, y#8, y#8, x#7]
++-column_access_list=WRITE,WRITE,WRITE,WRITE
 ==
 
 # INSERT using 'SELECT DISTINCT' query (b/117789638)
@@ -1937,6 +1992,7 @@ InsertStmt
 |     +-x#7 := ColumnRef(type=INT64, column=$subquery1.x#5)
 |     +-y#8 := ColumnRef(type=INT64, column=$subquery1.y#6)
 +-query_output_column_list=$distinct.[x#7, y#8]
++-column_access_list=WRITE,WRITE
 ==
 
 # INSERT using 'SELECT DISTINCT' query (b/117789638)
@@ -1962,6 +2018,7 @@ InsertStmt
 |   +-group_by_list=
 |     +-x#7 := ColumnRef(type=INT64, column=$subquery1.x#5)
 +-query_output_column_list=$distinct.[x#7, x#7, x#7, x#7]
++-column_access_list=WRITE,WRITE,WRITE,WRITE
 ==
 
 INSERT FourIntegers (key1, value1, key2, value2)
@@ -1980,11 +2037,12 @@ InsertStmt
 | +-TableScan(column_list=[UpdateToDefaultTable.writable#1], table=UpdateToDefaultTable, column_index_list=[0])
 +-insert_column_list=[UpdateToDefaultTable.writable#1]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-        +-value=
-          +-DMLDefault(type=INT64)
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-DMLDefault(type=INT64)
++-column_access_list=WRITE
 ==
 
 INSERT UpdateToDefaultTable (readonly) VALUES (1234);
@@ -2035,11 +2093,27 @@ InsertStmt
 |   +-column_index_list=[0, 1]
 +-insert_column_list=KeyValue.[Key#1, Value#2]
 +-row_list=
-  +-InsertRow
-    +-value_list=
-      +-DMLValue
-      | +-value=
-      |   +-Literal(type=INT64, value=1)
-      +-DMLValue
-        +-value=
-          +-Literal(type=STRING, value="one")
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=1)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value="one")
++-column_access_list=WRITE,WRITE
+==
+
+INSERT INTO KeyValue (key) VALUES (1);
+--
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
++-insert_column_list=[KeyValue.Key#1]
++-row_list=
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=INT64, value=1)
++-column_access_list=WRITE

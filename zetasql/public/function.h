@@ -21,12 +21,13 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/function.pb.h"
-#include "zetasql/public/function_signature.h"  
-#include "zetasql/public/input_argument_type.h"  
+#include "zetasql/public/function_signature.h"
+#include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"

@@ -207,6 +207,6 @@ class {{node.name}} {{node.class_final}}: public {{node.parent}} {
 # endfor
 
 }  // namespace zetasql
-// NOLINTEND
+// NOLINTEND(whitespace/line_length)
 #endif  // ZETASQL_PARSER_PARSE_TREE_GENERATED_H_
 {{blank_line}}

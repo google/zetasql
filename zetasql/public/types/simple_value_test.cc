@@ -16,6 +16,8 @@
 
 #include "zetasql/public/types/simple_value.h"
 
+#include <utility>
+
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 

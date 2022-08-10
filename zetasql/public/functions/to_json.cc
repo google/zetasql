@@ -29,6 +29,7 @@
 #include "zetasql/base/logging.h"
 #include "google/protobuf/dynamic_message.h"
 #include "google/protobuf/message.h"
+#include "zetasql/common/canonicalize_signed_zero_to_string.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/public/functions/json_format.h"
 #include "zetasql/public/interval_value.h"

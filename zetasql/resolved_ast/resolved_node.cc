@@ -16,7 +16,10 @@
 
 #include "zetasql/resolved_ast/resolved_node.h"
 
+#include <algorithm>
+#include <functional>
 #include <queue>
+#include <string>
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.h"
@@ -33,7 +36,6 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_collation.h"
 #include "zetasql/resolved_ast/resolved_column.h"
-#include "absl/memory/memory.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"

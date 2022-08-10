@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <memory>
 #include <set>
+#include <string>
 #include <utility>
 
 #include "google/protobuf/util/message_differencer.h"
@@ -401,12 +402,6 @@ FunctionArgumentType FunctionArgumentType::Lambda(
   arg_type.num_occurrences_ = 1;
   arg_type.type_ = nullptr;
   return arg_type;
-}
-
-bool Function::is_operator() const {
-  // Special case override for count(*) which is a function.
-  return absl::StartsWith(Name(), "$") && Name() != "$count_star" &&
-         !absl::StartsWith(Name(), "$extract");
 }
 
 // static

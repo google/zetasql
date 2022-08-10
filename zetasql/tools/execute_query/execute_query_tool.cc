@@ -25,6 +25,7 @@
 
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/descriptor_database.h"
+#include "zetasql/common/options_utils.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/catalog.h"
@@ -62,6 +63,27 @@ ABSL_FLAG(std::string, mode, "execute",
           "\n     'explain' print the query plan"
           "\n     'execute' actually run the query and print the result. (not"
           "                 all functionality is supported).");
+
+ABSL_FLAG(zetasql::internal::EnabledAstRewrites, enabled_ast_rewrites,
+          zetasql::internal::EnabledAstRewrites{
+              .enabled_ast_rewrites = zetasql::internal::GetAllRewrites()},
+          "The AST Rewrites to enable in the analyzer, format is:"
+          "\n   <BASE>[,+<ADDED_OPTION>][,-<REMOVED_OPTION>]..."
+          "\n Where BASE is one of:"
+          "\n   'NONE'    : the empty set"
+          "\n   'ALL'     :   all possible rewrites, including those in"
+          " development"
+          "\n   'DEFAULTS': all ResolvedASTRewrite's with 'default_enabled' set"
+          "\n"
+          "\n enum values must be listed with 'REWRITE_' stripped"
+          "\n Example:"
+          "\n    --enabled_ast_rewrites='DEFAULT,-FLATTEN,+ANONYMIZATION'"
+          "\n Will enable all the default options plus ANONYMIZATION, but"
+          " excluding flatten");
+
+ABSL_FLAG(std::optional<zetasql::internal::EnabledLanguageFeatures>,
+          enabled_language_features, std::nullopt,
+          zetasql::internal::EnabledLanguageFeatures::kFlagDescription);
 
 ABSL_FLAG(std::string, table_spec, "",
           "The table spec to use for building the ZetaSQL Catalog. This is a "
@@ -118,10 +140,10 @@ using SqlMode = ExecuteQueryConfig::SqlMode;
 
 absl::Status SetToolModeFromFlags(ExecuteQueryConfig& config) {
   const std::string mode = absl::GetFlag(FLAGS_mode);
-  if (mode == "parse") {
+  if (mode == "parse" || mode == "parser") {
     config.set_tool_mode(ToolMode::kParse);
     return absl::OkStatus();
-  } else if (mode == "resolve") {
+  } else if (mode == "resolve" || mode == "analyze" || mode == "analyzer") {
     config.set_tool_mode(ToolMode::kResolve);
     return absl::OkStatus();
   } else if (mode == "explain") {
@@ -148,6 +170,25 @@ absl::Status SetSqlModeFromFlags(ExecuteQueryConfig& config) {
     return zetasql_base::InvalidArgumentErrorBuilder()
            << "Invalid --sql_mode: '" << sql_mode << "'";
   }
+}
+
+static absl::Status SetRewritersFromFlags(ExecuteQueryConfig& config) {
+  config.mutable_analyzer_options().set_enabled_rewrites(
+      absl::GetFlag(FLAGS_enabled_ast_rewrites).enabled_ast_rewrites);
+  return absl::OkStatus();
+}
+
+static absl::Status SetLanguageFeaturesFromFlags(ExecuteQueryConfig& config) {
+  std::optional<internal::EnabledLanguageFeatures> features =
+      absl::GetFlag(FLAGS_enabled_language_features);
+  if (features.has_value()) {
+    config.mutable_analyzer_options()
+        .mutable_language()
+        ->SetEnabledLanguageFeatures(
+            {features->enabled_language_features.begin(),
+             features->enabled_language_features.end()});
+  }
+  return absl::OkStatus();
 }
 
 static absl::Status SetProductModeFromFlags(ExecuteQueryConfig& config) {
@@ -297,7 +338,12 @@ absl::StatusOr<std::unique_ptr<ExecuteQueryWriter>> MakeWriterFromFlags(
 }
 
 absl::Status SetLanguageOptionsFromFlags(ExecuteQueryConfig& config) {
-  return SetProductModeFromFlags(config);
+  ZETASQL_RETURN_IF_ERROR(SetProductModeFromFlags(config));
+  return SetLanguageFeaturesFromFlags(config);
+}
+
+absl::Status SetAnalyzerOptionsFromFlags(ExecuteQueryConfig& config) {
+  return SetRewritersFromFlags(config);
 }
 
 absl::Status SetEvaluatorOptionsFromFlags(ExecuteQueryConfig& config) {

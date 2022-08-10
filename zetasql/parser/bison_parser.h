@@ -18,17 +18,16 @@
 #define ZETASQL_PARSER_BISON_PARSER_H_
 
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "zetasql/base/arena.h"
 #include "zetasql/base/arena_allocator.h"
 #include "zetasql/base/logging.h"
-#include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/bison_parser_mode.h"
 #include "zetasql/parser/flex_tokenizer.h"
 #include "zetasql/parser/location.hh"
 #include "zetasql/parser/parse_tree.h"
-#include "zetasql/parser/position.hh"
 #include "zetasql/parser/statement_properties.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
@@ -168,6 +167,12 @@ class BisonParser {
     return identifier;
   }
 
+  // Creates an ASTIdentifier with text 'name' and location 'location'.
+  ASTLocation* MakeLocation(const zetasql_bison_parser::location& location) {
+    auto* loc = CreateASTNode<ASTLocation>(location);
+    return loc;
+  }
+
   // Sets the node location of 'node' to the ZetaSQL equivalent of
   // 'bison_location'.
   void SetNodeLocation(const zetasql_bison_parser::location& bison_location,
@@ -261,7 +266,7 @@ class BisonParser {
   }
 
   absl::string_view GetFirstTokenOfNode(
-      zetasql_bison_parser::location& bison_location) const;
+      const zetasql_bison_parser::location& bison_location) const;
 
  private:
   // Identifiers and literal values are allocated from this arena. Not owned.

@@ -20,6 +20,8 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -558,7 +560,7 @@ void SimpleCatalog::AddOwnedCatalogLocked(const std::string& name,
 bool SimpleCatalog::AddOwnedCatalogIfNotPresent(
     const std::string& name, std::unique_ptr<Catalog> catalog) {
   absl::MutexLock l(&mutex_);
-  if (zetasql_base::ContainsKey(catalogs_, absl::AsciiStrToLower(name))) {
+  if (catalogs_.contains(absl::AsciiStrToLower(name))) {
     return false;
   }
   AddOwnedCatalogLocked(name, std::move(catalog));
@@ -579,14 +581,14 @@ bool SimpleCatalog::AddOwnedFunctionIfNotPresent(
     const std::string& name, std::unique_ptr<Function>* function) {
   absl::MutexLock l(&mutex_);
   // If the function name exists, return false.
-  if (zetasql_base::ContainsKey(functions_, absl::AsciiStrToLower(name))) {
+  if (functions_.contains(absl::AsciiStrToLower(name))) {
     return false;
   }
   const std::string alias_name = (*function)->alias_name();
   // If the function has an alias and the alias exists, return false.
   if (!alias_name.empty() &&
       zetasql_base::CaseCompare(alias_name, name) != 0) {
-    if (zetasql_base::ContainsKey(functions_, absl::AsciiStrToLower(alias_name))) {
+    if (functions_.contains(absl::AsciiStrToLower(alias_name))) {
       return false;
     }
   }
@@ -616,7 +618,7 @@ bool SimpleCatalog::AddOwnedTableValuedFunctionIfNotPresent(
     std::unique_ptr<TableValuedFunction>* table_function) {
   absl::MutexLock l(&mutex_);
   // If the table function name exists, return false.
-  if (zetasql_base::ContainsKey(table_valued_functions_, absl::AsciiStrToLower(name))) {
+  if (table_valued_functions_.contains(absl::AsciiStrToLower(name))) {
     return false;
   }
   AddOwnedTableValuedFunctionLocked(name, std::move(*table_function));
@@ -1095,7 +1097,7 @@ absl::Status SimpleCatalog::SerializeImpl(
   for (const auto& entry : catalogs) {
     const std::string& catalog_name = entry.first;
     const Catalog* const catalog = entry.second;
-    if (zetasql_base::ContainsKey(*seen_catalogs, catalog)) {
+    if (seen_catalogs->contains(catalog)) {
       if (ignore_recursive) {
         continue;
       } else {
@@ -1105,7 +1107,7 @@ absl::Status SimpleCatalog::SerializeImpl(
     }
 
     if (ignore_builtin) {
-      if (zetasql_base::ContainsKey(owned_zetasql_subcatalogs_, catalog_name)) {
+      if (owned_zetasql_subcatalogs_.contains(catalog_name)) {
         continue;
       }
     }
@@ -1354,7 +1356,7 @@ absl::Status SimpleTable::InsertColumnToColumnMap(const Column* column) {
            << "Empty column names not allowed";
   }
 
-  if (zetasql_base::ContainsKey(columns_map_, column_name)) {
+  if (columns_map_.contains(column_name)) {
     if (!allow_duplicate_column_names_) {
       return ::zetasql_base::InvalidArgumentErrorBuilder()
              << "Duplicate column in " << FullName() << ": " << column->Name();
@@ -1362,7 +1364,7 @@ absl::Status SimpleTable::InsertColumnToColumnMap(const Column* column) {
     columns_map_.erase(column_name);
     ZETASQL_RET_CHECK(zetasql_base::InsertIfNotPresent(&duplicate_column_names_, column_name))
         << column_name;
-  } else if (!zetasql_base::ContainsKey(duplicate_column_names_, column_name)) {
+  } else if (!duplicate_column_names_.contains(column_name)) {
     ZETASQL_RET_CHECK(zetasql_base::InsertIfNotPresent(&columns_map_, column_name, column))
         << column_name;
   }

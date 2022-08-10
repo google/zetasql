@@ -1409,7 +1409,7 @@ from ArrayTypes t, unnest(array_concat(t.ProtoArray.str_value, ["foo"])) value
                                                     ^
 ==
 
-[enabled_ast_rewrites=DEFAULTS,-LET_EXPR|DEFAULTS]
+[enabled_ast_rewrites=DEFAULTS,-WITH_EXPR|DEFAULTS]
 select value
 from ArrayTypes t, unnest(array_concat(flatten(t.ProtoArray.str_value), ["foo"])) value
 --
@@ -1440,7 +1440,7 @@ QueryStmt
         |   +-Literal(type=ARRAY<STRING>, value=["foo"])
         +-element_column=$array.value#18
 
-[[ REWRITER ARTIFACTS FOR RULE GROUPS 'DEFAULTS,-LET_EXPR' ]]
+[[ REWRITER ARTIFACTS FOR RULE GROUPS 'DEFAULTS,-WITH_EXPR' ]]
 [REWRITTEN AST]
 QueryStmt
 +-output_column_list=
@@ -1455,7 +1455,7 @@ QueryStmt
         | +-TableScan(column_list=[ArrayTypes.ProtoArray#15], table=ArrayTypes, column_index_list=[14], alias="t")
         +-array_expr=
         | +-FunctionCall(ZetaSQL:array_concat(ARRAY<STRING>, repeated(1) ARRAY<STRING>) -> ARRAY<STRING>)
-        |   +-LetExpr
+        |   +-WithExpr
         |   | +-type=ARRAY<STRING>
         |   | +-assignment_list=
         |   | | +-injected#19 := ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
@@ -1526,7 +1526,7 @@ QueryStmt
         |   | | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   | +-subquery=
         |   |   +-ProjectScan
-        |   |     +-column_list=[$let_expr.injected#24]
+        |   |     +-column_list=[$with_expr.injected#24]
         |   |     +-expr_list=
         |   |     | +-injected#24 :=
         |   |     |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
@@ -1632,7 +1632,7 @@ QueryStmt
     |     +-subquery_type=SCALAR
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$let_expr.injected#8]
+    |         +-column_list=[$with_expr.injected#8]
     |         +-expr_list=
     |         | +-injected#8 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
@@ -1765,7 +1765,7 @@ QueryStmt
     |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$let_expr.injected#24]
+    |         +-column_list=[$with_expr.injected#24]
     |         +-expr_list=
     |         | +-injected#24 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
@@ -1861,7 +1861,7 @@ QueryStmt
     |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$let_expr.injected#24]
+    |         +-column_list=[$with_expr.injected#24]
     |         +-expr_list=
     |         | +-injected#24 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
@@ -1975,7 +1975,7 @@ QueryStmt
     |     +-subquery_type=SCALAR
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$let_expr.injected#18]
+    |         +-column_list=[$with_expr.injected#18]
     |         +-expr_list=
     |         | +-injected#18 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
@@ -2024,7 +2024,7 @@ QueryStmt
     |             |     | +-subquery_type=SCALAR
     |             |     | +-subquery=
     |             |     |   +-ProjectScan
-    |             |     |     +-column_list=[$let_expr.injected#16]
+    |             |     |     +-column_list=[$with_expr.injected#16]
     |             |     |     +-expr_list=
     |             |     |     | +-injected#16 :=
     |             |     |     |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRUCT<b INT64>>, ARRAY<STRUCT<b INT64>>) -> ARRAY<STRUCT<b INT64>>)
@@ -2079,7 +2079,7 @@ QueryStmt
     |             |       +-subquery_type=SCALAR
     |             |       +-subquery=
     |             |         +-ProjectScan
-    |             |           +-column_list=[$let_expr.injected#17]
+    |             |           +-column_list=[$with_expr.injected#17]
     |             |           +-expr_list=
     |             |           | +-injected#17 :=
     |             |           |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRUCT<b INT64>>, ARRAY<STRUCT<b INT64>>) -> ARRAY<STRUCT<b INT64>>)
@@ -2244,7 +2244,7 @@ QueryStmt
                   |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
                   |     +-subquery=
                   |       +-ProjectScan
-                  |         +-column_list=[$let_expr.injected#9]
+                  |         +-column_list=[$with_expr.injected#9]
                   |         +-expr_list=
                   |         | +-injected#9 :=
                   |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
@@ -2790,7 +2790,7 @@ QueryStmt
     |     +-subquery_type=SCALAR
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$let_expr.injected#6]
+    |         +-column_list=[$with_expr.injected#6]
     |         +-expr_list=
     |         | +-injected#6 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
@@ -2886,7 +2886,7 @@ QueryStmt
     |     | +-subquery_type=SCALAR
     |     | +-subquery=
     |     |   +-ProjectScan
-    |     |     +-column_list=[$let_expr.injected#7]
+    |     |     +-column_list=[$with_expr.injected#7]
     |     |     +-expr_list=
     |     |     | +-injected#7 :=
     |     |     |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
@@ -2987,7 +2987,7 @@ QueryStmt
     |     | +-subquery_type=SCALAR
     |     | +-subquery=
     |     |   +-ProjectScan
-    |     |     +-column_list=[$let_expr.injected#6]
+    |     |     +-column_list=[$with_expr.injected#6]
     |     |     +-expr_list=
     |     |     | +-injected#6 :=
     |     |     |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
@@ -3132,7 +3132,7 @@ QueryStmt
     |     +-subquery_type=SCALAR
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$let_expr.injected#12]
+    |         +-column_list=[$with_expr.injected#12]
     |         +-expr_list=
     |         | +-injected#12 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
@@ -3189,7 +3189,7 @@ QueryStmt
     |             |     |   | +-subquery_type=SCALAR
     |             |     |   | +-subquery=
     |             |     |   |   +-ProjectScan
-    |             |     |   |     +-column_list=[$let_expr.injected#11]
+    |             |     |   |     +-column_list=[$with_expr.injected#11]
     |             |     |   |     +-expr_list=
     |             |     |   |     | +-injected#11 :=
     |             |     |   |     |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRUCT<b ARRAY<STRUCT<c ARRAY<INT64>>>>>, ARRAY<STRUCT<b ARRAY<STRUCT<c ARRAY<INT64>>>>>) -> ARRAY<STRUCT<b ARRAY<STRUCT<c ARRAY<INT64>>>>>)
@@ -3302,7 +3302,7 @@ QueryStmt
     |     +-subquery_type=SCALAR
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$let_expr.injected#13]
+    |         +-column_list=[$with_expr.injected#13]
     |         +-expr_list=
     |         | +-injected#13 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
@@ -3359,7 +3359,7 @@ QueryStmt
     |             |     |   | +-subquery_type=SCALAR
     |             |     |   | +-subquery=
     |             |     |   |   +-ProjectScan
-    |             |     |   |     +-column_list=[$let_expr.injected#12]
+    |             |     |   |     +-column_list=[$with_expr.injected#12]
     |             |     |   |     +-expr_list=
     |             |     |   |     | +-injected#12 :=
     |             |     |   |     |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRUCT<b ARRAY<STRUCT<c ARRAY<INT64>>>>>, ARRAY<STRUCT<b ARRAY<STRUCT<c ARRAY<INT64>>>>>) -> ARRAY<STRUCT<b ARRAY<STRUCT<c ARRAY<INT64>>>>>)
@@ -3479,7 +3479,7 @@ QueryStmt
     |     | +-subquery_type=SCALAR
     |     | +-subquery=
     |     |   +-ProjectScan
-    |     |     +-column_list=[$let_expr.injected#13]
+    |     |     +-column_list=[$with_expr.injected#13]
     |     |     +-expr_list=
     |     |     | +-injected#13 :=
     |     |     |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
@@ -3538,7 +3538,7 @@ QueryStmt
     |     |         |     +-subquery_type=SCALAR
     |     |         |     +-subquery=
     |     |         |       +-ProjectScan
-    |     |         |         +-column_list=[$let_expr.injected#12]
+    |     |         |         +-column_list=[$with_expr.injected#12]
     |     |         |         +-expr_list=
     |     |         |         | +-injected#12 :=
     |     |         |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRUCT<b ARRAY<STRUCT<c ARRAY<INT64>>>>>, ARRAY<STRUCT<b ARRAY<STRUCT<c ARRAY<INT64>>>>>) -> ARRAY<STRUCT<b ARRAY<STRUCT<c ARRAY<INT64>>>>>)
@@ -3646,7 +3646,7 @@ QueryStmt
     |     +-subquery_type=SCALAR
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$let_expr.injected#12]
+    |         +-column_list=[$with_expr.injected#12]
     |         +-expr_list=
     |         | +-injected#12 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
@@ -3696,7 +3696,7 @@ QueryStmt
     |             |     +-subquery_type=SCALAR
     |             |     +-subquery=
     |             |       +-ProjectScan
-    |             |         +-column_list=[$let_expr.injected#11]
+    |             |         +-column_list=[$with_expr.injected#11]
     |             |         +-expr_list=
     |             |         | +-injected#11 :=
     |             |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRUCT<b ARRAY<INT64>>>, ARRAY<STRUCT<b ARRAY<INT64>>>) -> ARRAY<STRUCT<b ARRAY<INT64>>>)
@@ -3774,7 +3774,7 @@ SubqueryExpr
 +-subquery_type=SCALAR
 +-subquery=
   +-ProjectScan
-    +-column_list=[$let_expr.injected#6]
+    +-column_list=[$with_expr.injected#6]
     +-expr_list=
     | +-injected#6 :=
     |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
@@ -3865,7 +3865,7 @@ QueryStmt
     |     | +-ColumnRef(type=ARRAY<JSON>, column=ArrayTypes.JsonArray#17)
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$let_expr.injected#23]
+    |         +-column_list=[$with_expr.injected#23]
     |         +-expr_list=
     |         | +-injected#23 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<JSON>, ARRAY<JSON>) -> ARRAY<JSON>)
@@ -3966,7 +3966,7 @@ QueryStmt
     |     +-subquery_type=SCALAR
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$let_expr.injected#6]
+    |         +-column_list=[$with_expr.injected#6]
     |         +-expr_list=
     |         | +-injected#6 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<JSON>, ARRAY<JSON>) -> ARRAY<JSON>)
@@ -4103,7 +4103,7 @@ QueryStmt
     |     +-subquery_type=SCALAR
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$let_expr.injected#11]
+    |         +-column_list=[$with_expr.injected#11]
     |         +-expr_list=
     |         | +-injected#11 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
@@ -4269,7 +4269,7 @@ QueryStmt
     |     | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$let_expr.injected#15]
+    |         +-column_list=[$with_expr.injected#15]
     |         +-expr_list=
     |         | +-injected#15 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
@@ -4411,7 +4411,7 @@ QueryStmt
     |     | +-ColumnRef(type=INT64, column=KeyValue.Key#1)
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$let_expr.injected#11]
+    |         +-column_list=[$with_expr.injected#11]
     |         +-expr_list=
     |         | +-injected#11 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
@@ -4607,7 +4607,7 @@ QueryStmt
     |     | +-ColumnRef(type=INT32, column=TestTable.key#1)
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$let_expr.injected#16]
+    |         +-column_list=[$with_expr.injected#16]
     |         +-expr_list=
     |         | +-injected#16 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
@@ -4785,7 +4785,7 @@ QueryStmt
     |     | +-ColumnRef(type=INT32, column=SimpleTypes.int32#1)
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$let_expr.injected#42]
+    |         +-column_list=[$with_expr.injected#42]
     |         +-expr_list=
     |         | +-injected#42 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
@@ -4921,7 +4921,7 @@ QueryStmt
         |   |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   |     +-subquery=
         |   |       +-ProjectScan
-        |   |         +-column_list=[$let_expr.injected#27]
+        |   |         +-column_list=[$with_expr.injected#27]
         |   |         +-expr_list=
         |   |         | +-injected#27 :=
         |   |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
@@ -5061,7 +5061,7 @@ QueryStmt
         |         | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |         +-subquery=
         |           +-ProjectScan
-        |             +-column_list=[$let_expr.injected#23]
+        |             +-column_list=[$with_expr.injected#23]
         |             +-expr_list=
         |             | +-injected#23 :=
         |             |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT32>, ARRAY<INT32>) -> ARRAY<INT32>)
@@ -5166,7 +5166,7 @@ QueryStmt
     |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$let_expr.injected#27]
+    |         +-column_list=[$with_expr.injected#27]
     |         +-expr_list=
     |         | +-injected#27 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
@@ -5351,7 +5351,6 @@ QueryStmt
         |   +-subquery_type=ARRAY
         |   +-parameter_list=
         |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   +-subquery=
         |     +-OrderByScan
         |       +-column_list=[$flatten.injected#22]
@@ -5431,10 +5430,9 @@ QueryStmt
     |     +-subquery_type=SCALAR
     |     +-parameter_list=
     |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
-    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$let_expr.injected#23]
+    |         +-column_list=[$with_expr.injected#23]
     |         +-expr_list=
     |         | +-injected#23 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
@@ -5445,8 +5443,8 @@ QueryStmt
     |         |       +-type=ARRAY<STRING>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
     |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15, is_correlated=TRUE)
+    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
     |         |       +-subquery=
     |         |         +-OrderByScan
     |         |           +-column_list=[$flatten.injected#22]
@@ -5530,11 +5528,11 @@ QueryStmt
     |     +-type=ARRAY<STRING>
     |     +-subquery_type=SCALAR
     |     +-parameter_list=
-    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |     | +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
+    |     | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$let_expr.injected#23]
+    |         +-column_list=[$with_expr.injected#23]
     |         +-expr_list=
     |         | +-injected#23 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
@@ -5545,8 +5543,8 @@ QueryStmt
     |         |       +-type=ARRAY<STRING>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
     |         |       | +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1, is_correlated=TRUE)
+    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#19)
     |         |       +-subquery=
     |         |         +-OrderByScan
     |         |           +-column_list=[$flatten.injected#22]
@@ -5708,8 +5706,8 @@ QueryStmt
         |   +-type=ARRAY<STRING>
         |   +-subquery_type=ARRAY
         |   +-parameter_list=
-        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   | +-ColumnRef(type=ARRAY<INT32>, column=ArrayTypes.Int32Array#1)
+        |   | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=ArrayTypes.ProtoArray#15)
         |   +-subquery=
         |     +-OrderByScan
         |       +-column_list=[$flatten.injected#22]
@@ -5802,7 +5800,7 @@ QueryStmt
     |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#20)
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$let_expr.injected#26]
+    |         +-column_list=[$with_expr.injected#26]
     |         +-expr_list=
     |         | +-injected#26 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
@@ -5813,8 +5811,8 @@ QueryStmt
     |         |       +-type=ARRAY<STRING>
     |         |       +-subquery_type=ARRAY
     |         |       +-parameter_list=
-    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22)
     |         |       | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#20, is_correlated=TRUE)
+    |         |       | +-ColumnRef(type=ARRAY<PROTO<zetasql_test__.TestExtraPB>>, column=$flatten_input.injected#22)
     |         |       +-subquery=
     |         |         +-OrderByScan
     |         |           +-column_list=[$flatten.injected#25]
@@ -5946,7 +5944,7 @@ QueryStmt
     |     +-subquery_type=SCALAR
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$let_expr.injected#12]
+    |         +-column_list=[$with_expr.injected#12]
     |         +-expr_list=
     |         | +-injected#12 :=
     |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<STRING>, ARRAY<STRING>) -> ARRAY<STRING>)
@@ -5979,7 +5977,7 @@ QueryStmt
     |         |           |   |       | +-subquery_type=SCALAR
     |         |           |   |       | +-subquery=
     |         |           |   |       |   +-ProjectScan
-    |         |           |   |       |     +-column_list=[$let_expr.injected#13]
+    |         |           |   |       |     +-column_list=[$with_expr.injected#13]
     |         |           |   |       |     +-expr_list=
     |         |           |   |       |     | +-injected#13 :=
     |         |           |   |       |     |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
@@ -6061,3 +6059,113 @@ QueryStmt
     |               +-SingleRowScan
     +-input_scan=
       +-SingleRowScan
+==
+
+# Repros b/237592896
+SELECT FLATTEN(ARRAY<STRUCT<f ARRAY<INT64>>>[].f[OFFSET(c+c)])
+FROM ( SELECT 1 AS c ) AS s;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-Flatten
+    |     +-type=ARRAY<INT64>
+    |     +-expr=
+    |     | +-Literal(type=ARRAY<STRUCT<f ARRAY<INT64>>>, value=[], has_explicit_type=TRUE)
+    |     +-get_field_list=
+    |       +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<INT64>, INT64) -> INT64)
+    |         +-GetStructField
+    |         | +-type=ARRAY<INT64>
+    |         | +-expr=
+    |         | | +-FlattenedArg(type=STRUCT<f ARRAY<INT64>>)
+    |         | +-field_idx=0
+    |         +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |           +-ColumnRef(type=INT64, column=s.c#1)
+    |           +-ColumnRef(type=INT64, column=s.c#1)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[s.c#1]
+        +-expr_list=
+        | +-c#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-SubqueryExpr
+    |     +-type=ARRAY<INT64>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT64, column=s.c#1)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$with_expr.injected#7]
+    |         +-expr_list=
+    |         | +-injected#7 :=
+    |         |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRUCT<f ARRAY<INT64>>>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<STRUCT<f ARRAY<INT64>>>, column=$flatten_input.injected#3)
+    |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
+    |         |     +-SubqueryExpr
+    |         |       +-type=ARRAY<INT64>
+    |         |       +-subquery_type=ARRAY
+    |         |       +-parameter_list=
+    |         |       | +-ColumnRef(type=INT64, column=s.c#1, is_correlated=TRUE)
+    |         |       | +-ColumnRef(type=ARRAY<STRUCT<f ARRAY<INT64>>>, column=$flatten_input.injected#3)
+    |         |       +-subquery=
+    |         |         +-OrderByScan
+    |         |           +-column_list=[$flatten.injected#6]
+    |         |           +-is_ordered=TRUE
+    |         |           +-input_scan=
+    |         |           | +-ProjectScan
+    |         |           |   +-column_list=[$flatten.injected#4, $offset.injected#5, $flatten.injected#6]
+    |         |           |   +-expr_list=
+    |         |           |   | +-injected#6 :=
+    |         |           |   |   +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<INT64>, INT64) -> INT64)
+    |         |           |   |     +-GetStructField
+    |         |           |   |     | +-type=ARRAY<INT64>
+    |         |           |   |     | +-expr=
+    |         |           |   |     | | +-ColumnRef(type=STRUCT<f ARRAY<INT64>>, column=$flatten.injected#4)
+    |         |           |   |     | +-field_idx=0
+    |         |           |   |     +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |         |           |   |       +-ColumnRef(type=INT64, column=s.c#1, is_correlated=TRUE)
+    |         |           |   |       +-ColumnRef(type=INT64, column=s.c#1, is_correlated=TRUE)
+    |         |           |   +-input_scan=
+    |         |           |     +-ArrayScan
+    |         |           |       +-column_list=[$flatten.injected#4, $offset.injected#5]
+    |         |           |       +-array_expr=
+    |         |           |       | +-ColumnRef(type=ARRAY<STRUCT<f ARRAY<INT64>>>, column=$flatten_input.injected#3, is_correlated=TRUE)
+    |         |           |       +-element_column=$flatten.injected#4
+    |         |           |       +-array_offset_column=
+    |         |           |         +-ColumnHolder(column=$offset.injected#5)
+    |         |           +-order_by_item_list=
+    |         |             +-OrderByItem
+    |         |               +-column_ref=
+    |         |                 +-ColumnRef(type=INT64, column=$offset.injected#5)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$flatten_input.injected#3]
+    |             +-expr_list=
+    |             | +-injected#3 := Literal(type=ARRAY<STRUCT<f ARRAY<INT64>>>, value=[], has_explicit_type=TRUE)
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[s.c#1]
+        +-expr_list=
+        | +-c#1 := Literal(type=INT64, value=1)
+        +-input_scan=
+          +-SingleRowScan
+

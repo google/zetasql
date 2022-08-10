@@ -165,6 +165,10 @@ std::string SupportedSignaturesForAnonCountStarWithReportFunction(
     const std::string& report_format, const LanguageOptions& language_options,
     const Function& function);
 
+std::string SupportedSignaturesForAnonQuantilesWithReportFunction(
+    const std::string& report_format, const LanguageOptions& language_options,
+    const Function& function);
+
 std::string AnonSumWithReportJsonFunctionSQL(
     const std::vector<std::string>& inputs);
 
@@ -181,6 +185,12 @@ std::string AnonCountStarWithReportJsonFunctionSQL(
     const std::vector<std::string>& inputs);
 
 std::string AnonCountStarWithReportProtoFunctionSQL(
+    const std::vector<std::string>& inputs);
+
+std::string AnonQuantilesWithReportJsonFunctionSQL(
+    const std::vector<std::string>& inputs);
+
+std::string AnonQuantilesWithReportProtoFunctionSQL(
     const std::vector<std::string>& inputs);
 
 std::string BetweenFunctionSQL(const std::vector<std::string>& inputs);
@@ -272,12 +282,6 @@ absl::Status CheckDateDatetimeTimestampAddSubArguments(
 
 absl::Status CheckDateDatetimeTimeTimestampDiffArguments(
     const std::string& function_name,
-    const std::vector<InputArgumentType>& arguments,
-    const LanguageOptions& language_options);
-
-absl::Status CheckDatetimeAddSubDiffArguments(
-    const std::string& function_name,
-    const FunctionSignature& /*signature*/,
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options);
 
@@ -560,12 +564,6 @@ void InsertSimpleFunction(
     const ZetaSQLBuiltinFunctionOptions& options, absl::string_view name,
     Function::Mode mode,
     std::initializer_list<FunctionSignatureProxy> signatures);
-
-void InsertNamespaceFunction(
-    NameToFunctionMap* functions,
-    const ZetaSQLBuiltinFunctionOptions& options, absl::string_view space,
-    absl::string_view name, Function::Mode mode,
-    const std::vector<FunctionSignatureOnHeap>& signatures);
 
 // Note: This function is intentionally overloaded to prevent a default
 // FunctionOptions object to be allocated on the callers stack.

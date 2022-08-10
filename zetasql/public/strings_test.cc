@@ -19,6 +19,7 @@
 #include <cstring>
 #include <memory>
 #include <set>
+#include <string>
 #include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"

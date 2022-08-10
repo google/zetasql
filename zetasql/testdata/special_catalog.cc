@@ -95,7 +95,7 @@ class TableWithAnonymousAndDuplicatedColumnNames : public Table {
   // with duplicated name, it returns nullptr. Also, there is no name that can
   // be used to find anonymous columns.
   const Column* FindColumnByName(const std::string& name) const override {
-    return zetasql_base::FindWithDefault(column_by_unique_name_, name, nullptr);
+    return zetasql_base::FindWithDefault(column_by_unique_name_, name);
   }
 
   bool IsValueTable() const override { return false; }

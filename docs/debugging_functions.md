@@ -58,7 +58,7 @@ condition fails.
 ```sql
 SELECT *
 FROM (SELECT -1 AS x)
-WHERE IF(x > 0, true, ERROR(FORMAT('Error: x must be positive but is %t', x)));'
+WHERE IF(x > 0, true, ERROR(FORMAT('Error: x must be positive but is %t', x)));
 
 Error: x must be positive but is -1
 ```

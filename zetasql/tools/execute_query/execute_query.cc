@@ -55,16 +55,20 @@ ABSL_FLAG(
 namespace zetasql {
 namespace {
 absl::Status InitializeExecuteQueryConfig(ExecuteQueryConfig& config) {
-  ZETASQL_RETURN_IF_ERROR(SetDescriptorPoolFromFlags(config));
-  ZETASQL_RETURN_IF_ERROR(SetToolModeFromFlags(config));
-  ZETASQL_RETURN_IF_ERROR(SetSqlModeFromFlags(config));
-  ZETASQL_RETURN_IF_ERROR(SetEvaluatorOptionsFromFlags(config));
-  ZETASQL_RETURN_IF_ERROR(AddTablesFromFlags(config));
-  ZETASQL_RETURN_IF_ERROR(SetLanguageOptionsFromFlags(config));
-  // We can't yet set features from flags, so force it to all for now.
+  // Prefer a default of maximum (this will be overwritten if an explicit
+  // flag value is passed).
   config.mutable_analyzer_options()
       .mutable_language()
       ->EnableMaximumLanguageFeaturesForDevelopment();
+
+  ZETASQL_RETURN_IF_ERROR(SetDescriptorPoolFromFlags(config));
+  ZETASQL_RETURN_IF_ERROR(SetToolModeFromFlags(config));
+  ZETASQL_RETURN_IF_ERROR(SetSqlModeFromFlags(config));
+  ZETASQL_RETURN_IF_ERROR(SetLanguageOptionsFromFlags(config));
+  ZETASQL_RETURN_IF_ERROR(SetAnalyzerOptionsFromFlags(config));
+  ZETASQL_RETURN_IF_ERROR(SetEvaluatorOptionsFromFlags(config));
+  ZETASQL_RETURN_IF_ERROR(AddTablesFromFlags(config));
+
   config.mutable_catalog().AddZetaSQLFunctions(
       config.analyzer_options().language());
   return absl::OkStatus();

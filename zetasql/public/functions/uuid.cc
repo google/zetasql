@@ -17,6 +17,7 @@
 #include "zetasql/public/functions/uuid.h"
 
 #include <cstdint>
+#include <string>
 
 #include "absl/random/bit_gen_ref.h"
 

@@ -792,3 +792,47 @@ ARRAY<STRUCT<ARRAY<>>>[
      -0.00001
    ]}
 ]
+==
+[name=array_first_subquery_unordered]
+WITH t AS (SELECT value FROM UNNEST([1, 2, 3, 4]) AS value)
+SELECT ARRAY_FIRST(ARRAY(SELECT value FROM t)) IN (1, 2, 3, 4);
+--
+ARRAY<STRUCT<BOOL>>[{true}]
+
+==
+[name=array_first_subquery_ordered]
+WITH t AS (SELECT value FROM UNNEST([1, 2, 3, 4]) AS value)
+SELECT ARRAY_FIRST(ARRAY(SELECT value FROM t ORDER BY value));
+--
+ARRAY<STRUCT<INT64>>[{1}]
+
+==
+[name=array_first_empty_subquery_arg]
+WITH t AS (SELECT value FROM UNNEST([1, 2, 3, 4]) AS value)
+SELECT ARRAY_FIRST(ARRAY(SELECT value FROM t WHERE FALSE));
+--
+ERROR: generic::out_of_range: ARRAY_FIRST cannot get the first element of an empty array
+
+==
+[name=array_last_empty_subquery_arg]
+WITH t AS (SELECT value FROM UNNEST([1, 2, 3, 4]) AS value)
+SELECT ARRAY_LAST(ARRAY(SELECT value FROM t WHERE FALSE));
+--
+ERROR: generic::out_of_range: ARRAY_LAST cannot get the last element of an empty array
+
+==
+[name=safe_array_first_empty_subquery_arg]
+[required_features=V_1_2_SAFE_FUNCTION_CALL]
+WITH t AS (SELECT value FROM UNNEST([1, 2, 3, 4]) AS value)
+SELECT SAFE.ARRAY_FIRST(ARRAY(SELECT value FROM t WHERE FALSE));
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+
+==
+[name=safe_array_last_empty_subquery_arg]
+[required_features=V_1_2_SAFE_FUNCTION_CALL]
+WITH t AS (SELECT value FROM UNNEST([1, 2, 3, 4]) AS value)
+SELECT SAFE.ARRAY_LAST(ARRAY(SELECT value FROM t WHERE FALSE));
+--
+ARRAY<STRUCT<INT64>>[{NULL}]
+

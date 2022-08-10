@@ -2152,9 +2152,20 @@ select {{|SAFE_}}CAST(CAST(- 1769384439 AS INT32) AS UINT32)
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Could not cast -1769384439 to type UINT32 [at 1:13]
-select CAST(CAST(- 1769384439 AS INT32) AS UINT32)
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [UINT32]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$bitwise_and(UINT32, UINT32) -> UINT32)
+    |     +-Cast(INT32 -> UINT32)
+    |     | +-Literal(type=INT32, value=-1769384439, has_explicit_type=TRUE)
+    |     +-Literal(type=UINT32, value=1834360097, has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
 --
 ALTERNATION GROUP: SAFE_
 --

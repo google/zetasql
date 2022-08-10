@@ -46,16 +46,19 @@ If the subquery returns more than one row, the query fails with a runtime error.
 
 **Examples**
 
-In this example, a correlated scalar subquery returns the mascots for
-a list of players, using the [`Players`][example-tables]
-and [`Guilds`][example-tables] tables:
+In this example, a correlated scalar subquery returns the mascots for a list of
+players, using the [`Players`][example-tables] and [`Mascots`][example-tables]
+tables:
 
 ```sql
-SELECT account, (SELECT mascot FROM Guilds WHERE Players.guild = id) AS player_mascot
-FROM Players;
+SELECT
+  username,
+  (SELECT mascot FROM Mascots WHERE Players.team = Mascots.team) AS player_mascot
+FROM
+  Players;
 
 +---------------------------+
-| account   | player_mascot |
+| username  | player_mascot |
 +---------------------------+
 | gorbie    | cardinal      |
 | junelyn   | finch         |
@@ -63,15 +66,20 @@ FROM Players;
 +---------------------------+
 ```
 
-In this example, an aggregate scalar subquery calculates `avg_level`,
-the average level of a user account in the [`Players`][example-tables] table.
+ In this example, an aggregate scalar
+subquery calculates `avg_level`, the average level of a user in the
+[`Players`][example-tables] table.
 
 ```sql {highlight="lines:1:24-1:55"}
-SELECT account, level, (SELECT AVG(level) FROM Players) AS avg_level
-FROM Players;
+SELECT
+  username,
+  level,
+  (SELECT AVG(level) FROM Players) AS avg_level
+FROM
+  Players;
 
 +---------------------------------------+
-| account   | level      | avg_level    |
+| username  | level      | avg_level    |
 +---------------------------------------+
 | gorbie    | 29         | 24.66        |
 | junelyn   | 2          | 24.66        |
@@ -111,12 +119,12 @@ See [Array functions][array-function] for full semantics.
 
 **Examples**
 
-In this example, an ARRAY subquery returns an array of
-accounts assigned to the red guild in the [`NPCs`][example-tables] table:
+In this example, an ARRAY subquery returns an array of usernames assigned to the
+red team in the [`NPCs`][example-tables] table:
 
 ```sql {highlight="range:ARRAY,)"}
-SELECT ARRAY(SELECT account FROM NPCs WHERE guild = 'red') as red
-FROM NPCs LIMIT 1;
+SELECT
+  ARRAY(SELECT username FROM NPCs WHERE team = 'red') AS red;
 
 +-----------------+
 | red             |
@@ -151,11 +159,12 @@ value [ NOT ] IN UNNEST( ARRAY( subquery ) )
 
 **Examples**
 
-In this example, the `IN` operator that checks to see if an account called
+In this example, the `IN` operator that checks to see if a username called
 `corba` exists within the [`Players`][example-tables] table:
 
 ```sql {highlight="lines:1:8-1:47"}
-SELECT "corba" IN (SELECT account FROM Players) as result;
+SELECT
+  'corba' IN (SELECT username FROM Players) AS result;
 
 +--------+
 | result |
@@ -184,7 +193,8 @@ In this example, the `EXISTS` operator that checks to see if any rows are
 produced, using the [`Players`][example-tables] table:
 
 ```sql {highlight="range:EXISTS,)"}
-SELECT EXISTS(SELECT account FROM Players WHERE guild = 'yellow') AS result;
+SELECT
+  EXISTS(SELECT username FROM Players WHERE team = 'yellow') AS result;
 
 +--------+
 | result |
@@ -207,15 +217,15 @@ table. You can only use these in the `FROM` clause.
 
 **Examples**
 
-In this example, a subquery returns a table of accounts from the
+In this example, a subquery returns a table of usernames from the
 [`Players`][example-tables] table:
 
 ```sql {highlight="range:(,)"}
-SELECT results.account
+SELECT results.username
 FROM (SELECT * FROM Players) AS results;
 
 +-----------+
-| account   |
+| username  |
 +-----------+
 | gorbie    |
 | junelyn   |
@@ -223,16 +233,19 @@ FROM (SELECT * FROM Players) AS results;
 +-----------+
 ```
 
-In this example, a list of [`NPCs`][example-tables] assigned to the red guild
-are returned.
+ In this example, a list of [`NPCs`][example-tables]
+assigned to the red team are returned.
 
 ```sql
-SELECT account FROM (
-  WITH red_guild AS (SELECT * FROM NPCs WHERE guild='red')
-  SELECT * FROM red_guild);
+SELECT
+  username
+FROM (
+  WITH red_team AS (SELECT * FROM NPCs WHERE team = 'red')
+  SELECT * FROM red_team
+);
 
 +-----------+
-| account   |
+| username  |
 +-----------+
 | niles     |
 | jujul     |
@@ -249,13 +262,14 @@ more about this [here][evaluation-rules-subqueries].
 **Examples**
 
 In this example, a list of mascots that don't have any players assigned to them
-are returned. The [`Guilds`][example-tables] and
-[`Players`][example-tables] tables are referenced.
+are returned. The [`Mascots`][example-tables] and [`Players`][example-tables]
+tables are referenced.
 
 ```sql
 SELECT mascot
-FROM Guilds
-WHERE NOT EXISTS(SELECT account FROM Players WHERE Guilds.id = Players.guild)
+FROM Mascots
+WHERE
+  NOT EXISTS(SELECT username FROM Players WHERE Mascots.team = Players.team);
 
 +----------+
 | mascot   |
@@ -264,16 +278,18 @@ WHERE NOT EXISTS(SELECT account FROM Players WHERE Guilds.id = Players.guild)
 +----------+
 ```
 
-In this example, a correlated scalar subquery returns the mascots for
-a list of players, using the [`Players`][example-tables]
-and [`Guilds`][example-tables] tables:
+In this example, a correlated scalar subquery returns the mascots for a list of
+players, using the [`Players`][example-tables] and [`Mascots`][example-tables]
+tables:
 
 ```sql
-SELECT account, (SELECT mascot FROM Guilds WHERE Players.guild = id) AS player_mascot
+SELECT
+  username,
+  (SELECT mascot FROM Mascots WHERE Players.team = Mascots.team) AS player_mascot
 FROM Players;
 
 +---------------------------+
-| account   | player_mascot |
+| username  | player_mascot |
 +---------------------------+
 | gorbie    | cardinal      |
 | junelyn   | finch         |
@@ -290,21 +306,23 @@ is not always the same.
 
 **Examples**
 
-In this example, a random number of accounts is returned from the
+In this example, a random number of usernames are returned from the
 [`Players`][example-tables] table.
 
 ```sql
-SELECT results.account
-FROM (SELECT * FROM Players WHERE RAND() < 0.5) AS results;
+SELECT
+  results.username
+FROM
+  (SELECT * FROM Players WHERE RAND() < 0.5) AS results;
 
 -- The results are not always the same when you execute
 -- the preceding query, but will look similar to this:
-+---------+
-| account |
-+---------+
-| gorbie  |
-| junelyn |
-+---------+
++----------+
+| username |
++----------+
+| gorbie   |
+| junelyn  |
++----------+
 ```
 
 ## Evaluation rules for subqueries 
@@ -332,7 +350,7 @@ Some examples reference a table called `Players`:
 
 ```sql
 +-----------------------------+
-| account   | level   | guild |
+| username  | level   | team  |
 +-----------------------------+
 | gorbie    | 29      | red   |
 | junelyn   | 2       | blue  |
@@ -344,7 +362,7 @@ Some examples reference a table called `NPCs`:
 
 ```sql
 +-------------------+
-| account   | guild |
+| username  | team  |
 +-------------------+
 | niles     | red   |
 | jujul     | red   |
@@ -352,11 +370,11 @@ Some examples reference a table called `NPCs`:
 +-------------------+
 ```
 
-Some examples reference a table called `Guilds`:
+Some examples reference a table called `Mascots`:
 
 ```sql
 +-------------------+
-| mascot   | id     |
+| mascot   | team   |
 +-------------------+
 | cardinal | red    |
 | parrot   | green  |
@@ -372,21 +390,21 @@ in subqueries that support the `WITH` clause.:
 ```sql
 WITH
   Players AS (
-    SELECT 'gorbie' AS account, 29 AS level, 'red' AS guild UNION ALL
+    SELECT 'gorbie' AS username, 29 AS level, 'red' AS team UNION ALL
     SELECT 'junelyn', 2 , 'blue' UNION ALL
     SELECT 'corba', 43, 'green'),
   NPCs AS (
-    SELECT 'niles' AS account, 'red' AS guild UNION ALL
+    SELECT 'niles' AS username, 'red' AS team UNION ALL
     SELECT 'jujul', 'red' UNION ALL
     SELECT 'effren', 'blue'),
-  Guilds AS (
-    SELECT 'cardinal' AS mascot , 'red' AS id UNION ALL
+  Mascots AS (
+    SELECT 'cardinal' AS mascot , 'red' AS team UNION ALL
     SELECT 'parrot', 'green' UNION ALL
     SELECT 'finch', 'blue' UNION ALL
     SELECT 'sparrow', 'yellow')
 SELECT * FROM (
-  SELECT account, guild FROM Players UNION ALL
-  SELECT account, guild FROM NPCs)
+  SELECT username, team FROM Players UNION ALL
+  SELECT username, team FROM NPCs);
 ```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->

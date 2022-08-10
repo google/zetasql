@@ -359,7 +359,7 @@ AS (
 
 [user-defined-functions]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md
 
-[table-valued-functions]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md#tvfs
+[table-valued-functions]: https://github.com/google/zetasql/blob/master/docs/table-functions.md#tvfs
 
 [create-constant]: https://github.com/google/zetasql/blob/master/docs/data-definition-language.md#create_constant
 

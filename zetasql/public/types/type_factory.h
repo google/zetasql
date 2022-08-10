@@ -22,6 +22,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "google/protobuf/descriptor.h"
@@ -32,6 +33,7 @@
 #include "zetasql/public/types/enum_type.h"
 #include "zetasql/public/types/extended_type.h"
 #include "zetasql/public/types/proto_type.h"
+#include "zetasql/public/types/range_type.h"
 #include "zetasql/public/types/simple_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
@@ -242,6 +244,14 @@ class TypeFactory {
       const google::protobuf::Descriptor* descriptor, const Type** result,
       absl::Span<const std::string> catalog_name_path = {});
 
+  // Make a range type.
+  // <element_type> must be one of Date, DateTime, or Timestamp.
+  // If <element_type> is not created by this TypeFactory, the TypeFactory that
+  // created the <type> must outlive this TypeFactory.
+  absl::Status MakeRangeType(const Type* element_type,
+                             const RangeType** result);
+  absl::Status MakeRangeType(const Type* element_type, const Type** result);
+
   // Stores the unique copy of an ExtendedType in the TypeFactory. If such
   // extended type already exists in the cache, frees `extended_type` and
   // returns a pointer to existing type. Otherwise, returns a pointer to added
@@ -438,6 +448,13 @@ class TypeFactory {
       const google::protobuf::FieldDescriptor* field_descr, TypeKind kind,
       const Type** type);
 
+  // Returns an ArrayType or RangeType.
+  template <class TYPE>
+  const auto* MakeTypeWithChildElementType(
+      const Type* element_type,
+      absl::flat_hash_map<const Type*, const TYPE*>& cache)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(store_->mutex_);
+
   // Implementation of MakeUnwrappedTypeFromProto above that detects invalid use
   // of type annotations with recursive protos by storing all visited message
   // types in 'ancestor_messages'.
@@ -464,6 +481,8 @@ class TypeFactory {
       cached_proto_types_ ABSL_GUARDED_BY(store_->mutex_);
   absl::flat_hash_map<const google::protobuf::EnumDescriptor*, const EnumType*>
       cached_enum_types_ ABSL_GUARDED_BY(store_->mutex_);
+  absl::flat_hash_map<const Type*, const RangeType*> cached_range_types_
+      ABSL_GUARDED_BY(store_->mutex_);
 
   // The key is a descriptor and a catalog name path.
   absl::flat_hash_map<
@@ -534,6 +553,11 @@ const ArrayType* NumericArrayType();
 const ArrayType* BigNumericArrayType();
 const ArrayType* JsonArrayType();
 
+// RangeTypes
+const RangeType* DateRangeType();
+const RangeType* DatetimeRangeType();
+const RangeType* TimestampRangeType();
+
 // Accessor for the ZetaSQL enum Type (functions::DateTimestampPart)
 // that represents date parts in function signatures.  Intended
 // to be used primarily within the ZetaSQL library, rather than as a
@@ -546,6 +570,12 @@ const EnumType* DatePartEnumType();
 // library, rather than as a part of the public ZetaSQL API.
 const EnumType* NormalizeModeEnumType();
 
+// Accessor for the ZetaSQL enum Type (functions::RoundingMode)
+// that that represents the rounding mode to be used as the third optional
+// argument of the ROUND function, which determines how the input value
+// will be rounded.
+const EnumType* RoundingModeEnumType();
+
 // Return a type of 'type_kind' if 'type_kind' is a simple type, otherwise
 // returns nullptr. This is similar to TypeFactory::MakeSimpleType, but doesn't
 // require TypeFactory.
@@ -554,6 +584,10 @@ const Type* TypeFromSimpleTypeKind(TypeKind type_kind);
 // Returns an array type with element type of 'type_kind' if 'type_kind' is a
 // simple type, otherwise returns nullptr.
 const ArrayType* ArrayTypeFromSimpleTypeKind(TypeKind type_kind);
+
+// Returns a range type with element type of 'type_kind' if 'type_kind' is a
+// valid range type, otherwise returns nullptr.
+const RangeType* RangeTypeFromSimpleTypeKind(TypeKind type_kind);
 }  // namespace types
 
 }  // namespace zetasql

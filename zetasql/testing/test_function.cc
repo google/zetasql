@@ -17,6 +17,7 @@
 #include "zetasql/testing/test_function.h"
 
 #include <iosfwd>
+#include <string>
 #include <utility>
 
 #include "zetasql/base/logging.h"

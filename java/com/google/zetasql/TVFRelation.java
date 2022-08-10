@@ -57,14 +57,6 @@ public class TVFRelation implements Serializable {
         /* isValueTable= */ true);
   }
 
-  public ImmutableList<Column> getColumns() {
-    return columns;
-  }
-
-  public boolean isValueTable() {
-    return isValueTable;
-  }
-
   public TVFRelationProto serialize(FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
     TVFRelationProto.Builder protoBuilder = TVFRelationProto.newBuilder();
     for (Column col : columns) {

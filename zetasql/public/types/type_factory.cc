@@ -34,6 +34,7 @@
 #include "zetasql/public/annotation.pb.h"
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/functions/normalize_mode.pb.h"
+#include "zetasql/public/functions/rounding_mode.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/proto/wire_format_annotation.pb.h"
 #include "zetasql/public/strings.h"
@@ -43,6 +44,7 @@
 #include "zetasql/public/types/enum_type.h"
 #include "zetasql/public/types/internal_utils.h"
 #include "zetasql/public/types/proto_type.h"
+#include "zetasql/public/types/range_type.h"
 #include "zetasql/public/types/simple_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
@@ -55,6 +57,7 @@
 #include "absl/container/inlined_vector.h"
 #include "absl/container/node_hash_map.h"
 #include "absl/flags/flag.h"
+#include "zetasql/base/check.h"
 #include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -225,6 +228,7 @@ int64_t TypeFactory::GetEstimatedOwnedMemoryBytesSize() const {
          internal::GetExternallyAllocatedMemoryEstimate(cached_array_types_) +
          internal::GetExternallyAllocatedMemoryEstimate(cached_proto_types_) +
          internal::GetExternallyAllocatedMemoryEstimate(cached_enum_types_) +
+         internal::GetExternallyAllocatedMemoryEstimate(cached_range_types_) +
          internal::GetExternallyAllocatedMemoryEstimate(
              cached_proto_types_with_catalog_name_) +
          internal::GetExternallyAllocatedMemoryEstimate(
@@ -254,6 +258,17 @@ const TYPE* TypeFactory::TakeOwnershipLocked(const TYPE* type,
   store_->owned_types_.push_back(type);
   estimated_memory_used_by_types_ += type_owned_bytes_size;
   return type;
+}
+
+template <class TYPE>
+const auto* TypeFactory::MakeTypeWithChildElementType(
+    const Type* element_type,
+    absl::flat_hash_map<const Type*, const TYPE*>& cache) {
+  auto& cached_result = cache[element_type];
+  if (cached_result == nullptr) {
+    cached_result = TakeOwnershipLocked(new TYPE(this, element_type));
+  }
+  return cached_result;
 }
 
 const Type* TypeFactory::get_int32() { return types::Int32Type(); }
@@ -321,11 +336,7 @@ absl::Status TypeFactory::MakeArrayType(const Type* element_type,
            << "Array type would exceed nesting depth limit of " << depth_limit;
   }
   absl::MutexLock lock(&store_->mutex_);
-  auto& cached_result = cached_array_types_[element_type];
-  if (cached_result == nullptr) {
-    cached_result = TakeOwnershipLocked(new ArrayType(this, element_type));
-  }
-  *result = cached_result;
+  *result = MakeTypeWithChildElementType(element_type, cached_array_types_);
   return absl::OkStatus();
 }
 
@@ -462,6 +473,36 @@ absl::Status TypeFactory::MakeEnumType(
     absl::Span<const std::string> catalog_name_path) {
   *result = MakeDescribedType(enum_descriptor, catalog_name_path);
   return absl::OkStatus();
+}
+
+absl::Status TypeFactory::MakeRangeType(const Type* element_type,
+                                        const RangeType** result) {
+  if (!RangeType::IsValidElementType(element_type)) {
+    // TODO: Add a product mode to TypeFactoryOptions and use that
+    // here.
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
+           << "Unsupported type: RANGE<"
+           << element_type->ShortTypeName(PRODUCT_EXTERNAL)
+           << "> is not supported";
+  }
+
+  *result = nullptr;
+  AddDependency(element_type);
+
+  const int depth_limit = nesting_depth_limit();
+  if (element_type->nesting_depth() + 1 > depth_limit) {
+    return ::zetasql_base::InvalidArgumentErrorBuilder()
+           << "Range type would exceed nesting depth limit of " << depth_limit;
+  }
+  absl::MutexLock lock(&store_->mutex_);
+  *result = MakeTypeWithChildElementType(element_type, cached_range_types_);
+  return absl::OkStatus();
+}
+
+absl::Status TypeFactory::MakeRangeType(const Type* element_type,
+                                        const Type** result) {
+  return MakeRangeType(element_type,
+                       reinterpret_cast<const RangeType**>(result));
 }
 
 absl::StatusOr<const ExtendedType*> TypeFactory::InternalizeExtendedType(
@@ -868,6 +909,16 @@ static const EnumType* s_normalize_mode_enum_type() {
   return s_normalize_mode_enum_type;
 }
 
+static const EnumType* s_rounding_mode_enum_type() {
+  static const EnumType* s_rounding_mode_enum_type = [] {
+    const EnumType* enum_type;
+    ZETASQL_CHECK_OK(s_type_factory()->MakeEnumType(  // Crash OK
+        functions::RoundingMode_descriptor(), &enum_type));
+    return enum_type;
+  }();
+  return s_rounding_mode_enum_type;
+}
+
 static const StructType* s_empty_struct_type() {
   static const StructType* s_empty_struct_type = [] {
     const StructType* type;
@@ -1016,6 +1067,7 @@ const Type* JsonType() { return s_json_type(); }
 const StructType* EmptyStructType() { return s_empty_struct_type(); }
 const EnumType* DatePartEnumType() { return s_date_part_enum_type(); }
 const EnumType* NormalizeModeEnumType() { return s_normalize_mode_enum_type(); }
+const EnumType* RoundingModeEnumType() { return s_rounding_mode_enum_type(); }
 
 const ArrayType* Int32ArrayType() { return s_int32_array_type(); }
 const ArrayType* Int64ArrayType() { return s_int64_array_type(); }
@@ -1129,6 +1181,53 @@ const ArrayType* ArrayTypeFromSimpleTypeKind(TypeKind type_kind) {
       return JsonArrayType();
     default:
       ZETASQL_VLOG(1) << "Could not build static ArrayType from type: "
+              << Type::TypeKindToString(type_kind, PRODUCT_INTERNAL);
+      return nullptr;
+  }
+}
+
+static const RangeType* MakeRangeType(const Type* element_type) {
+  const RangeType* range_type;
+  absl::Status status =
+      s_type_factory()->MakeRangeType(element_type, &range_type);
+  ZETASQL_DCHECK_OK(status);
+  return range_type;
+}
+
+static const RangeType* s_date_range_type() {
+  static const RangeType* s_date_range_type =
+      MakeRangeType(s_type_factory()->get_date());
+  return s_date_range_type;
+}
+
+static const RangeType* s_datetime_range_type() {
+  static const RangeType* s_datetime_range_type =
+      MakeRangeType(s_type_factory()->get_datetime());
+  return s_datetime_range_type;
+}
+
+static const RangeType* s_timestamp_range_type() {
+  static const RangeType* s_timestamp_range_type =
+      MakeRangeType(s_type_factory()->get_timestamp());
+  return s_timestamp_range_type;
+}
+
+const RangeType* DateRangeType() { return s_date_range_type(); }
+
+const RangeType* DatetimeRangeType() { return s_datetime_range_type(); }
+
+const RangeType* TimestampRangeType() { return s_timestamp_range_type(); }
+
+const RangeType* RangeTypeFromSimpleTypeKind(TypeKind type_kind) {
+  switch (type_kind) {
+    case TYPE_TIMESTAMP:
+      return TimestampRangeType();
+    case TYPE_DATE:
+      return DateRangeType();
+    case TYPE_DATETIME:
+      return DatetimeRangeType();
+    default:
+      ZETASQL_VLOG(1) << "Could not build static RangeType from type: "
               << Type::TypeKindToString(type_kind, PRODUCT_INTERNAL);
       return nullptr;
   }

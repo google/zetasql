@@ -138,3 +138,15 @@ ARRAY<STRUCT<DATE, DATE, DATE, DATE, DATE, DATE, DATE, DATE>>[
    2020-01-02,
    2020-01-02}
 ]
+==
+
+[name=cast_invalid_string_to_date]
+select cast("xxx" as DATE);
+--
+ERROR: generic::out_of_range: Invalid date: 'xxx'
+==
+
+[name=nested_cast_invalid_string_to_date]
+select cast(cast("xxx" as string) as DATE);
+--
+ERROR: generic::out_of_range: Invalid date: 'xxx'

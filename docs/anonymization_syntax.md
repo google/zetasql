@@ -307,7 +307,7 @@ provide greater privacy protection.
 
 ```sql
 SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=1)
+  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=2)
   item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
 FROM view_on_professors
 GROUP BY item;
@@ -327,17 +327,17 @@ GROUP BY item;
 
 An anonymization ID can exist within multiple groups. For example, in the
 `professors` table, the anonymization ID `123` exists in the `pencil` and `pen`
-group. If you only want `123` to be used in the first group found, you can use a
-query that looks like this:
+group. You can set `kappa` to different values to limit how many groups each
+anonymization ID will be included in.
 
 ```sql
 SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=2)
+  WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=1)
   item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
 FROM view_on_professors
 GROUP BY item;
 
--- Anonymization ID 123 was not included in the pencil group.
+-- Anonymization ID 123 was only included in the pen group in this example.
 -- Noise was removed from this query for demonstration purposes only.
 +----------+------------------+
 | item     | average_quantity |

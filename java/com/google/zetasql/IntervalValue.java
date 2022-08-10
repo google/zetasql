@@ -171,6 +171,11 @@ public abstract class IntervalValue implements Comparable<IntervalValue> {
     return months() * MICROS_IN_MONTH + days() * MICROS_IN_DAY + micros();
   }
 
+  /** Compares given IntervalValue to 0. */
+  public boolean isZero() {
+    return months() == 0 && days() == 0 && micros() == 0 && nanoFractions() == 0;
+  }
+
   @Override
   public int compareTo(IntervalValue other) {
     int microsComp = Long.compare(asMicros(), other.asMicros());

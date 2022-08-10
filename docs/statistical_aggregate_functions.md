@@ -2,15 +2,28 @@
 
 # Statistical aggregate functions
 
-ZetaSQL supports the following statistical aggregate functions.
+The following statistical aggregate functions are available in
+ZetaSQL. To learn about the syntax for aggregate function calls, see
+[Aggregate function calls][agg-function-calls].
 
 ### CORR
+
 ```sql
 CORR(
   X1, X2
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -31,23 +44,21 @@ This function ignores any input pairs that contain one or more NULL values. If
 there are fewer than two input pairs without NULL values, this function returns
 NULL.
 
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+<!-- mdlint on -->
 
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 <!-- mdlint on -->
 
@@ -56,12 +67,23 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### COVAR_POP
+
 ```sql
 COVAR_POP(
   X1, X2
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -81,23 +103,21 @@ This function ignores any input pairs that contain one or more NULL values. If
 there is no input pair without NULL values, this function returns NULL. If there
 is exactly one input pair without NULL values, this function returns 0.
 
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+<!-- mdlint on -->
 
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 <!-- mdlint on -->
 
@@ -106,12 +126,23 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### COVAR_SAMP
+
 ```sql
 COVAR_SAMP(
   X1, X2
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -131,23 +162,21 @@ This function ignores any input pairs that contain one or more NULL values. If
 there are fewer than two input pairs without NULL values, this function returns
 NULL.
 
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+<!-- mdlint on -->
 
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 <!-- mdlint on -->
 
@@ -156,13 +185,24 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### STDDEV_POP
+
 ```sql
 STDDEV_POP(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -181,25 +221,21 @@ returns NULL.
 
 If this function receives a single non-NULL input, it returns `0`.
 
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+<!-- mdlint on -->
 
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 <!-- mdlint on -->
 
@@ -208,13 +244,24 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### STDDEV_SAMP
+
 ```sql
 STDDEV_SAMP(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -231,25 +278,21 @@ before aggregation, resulting in a potentially unstable result.
 This function ignores any NULL inputs. If there are fewer than two non-NULL
 inputs, this function returns NULL.
 
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+<!-- mdlint on -->
 
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 <!-- mdlint on -->
 
@@ -258,13 +301,24 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### STDDEV
+
 ```sql
 STDDEV(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -272,13 +326,24 @@ STDDEV(
 An alias of [STDDEV_SAMP][stat-agg-link-to-stddev-samp].
 
 ### VAR_POP
+
 ```sql
 VAR_POP(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -297,25 +362,12 @@ returns NULL.
 
 If this function receives a single non-NULL input, it returns `0`.
 
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 <!-- mdlint on -->
 
@@ -324,13 +376,24 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### VAR_SAMP
+
 ```sql
 VAR_SAMP(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -347,25 +410,21 @@ before aggregation, resulting in a potentially unstable result.
 This function ignores any NULL inputs. If there are fewer than two non-NULL
 inputs, this function returns NULL.
 
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+<!-- mdlint on -->
 
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 <!-- mdlint on -->
 
@@ -374,13 +433,24 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### VARIANCE
+
 ```sql
 VARIANCE(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -396,6 +466,8 @@ An alias of [VAR_SAMP][stat-agg-link-to-var-samp].
 [stat-agg-link-to-stddev-samp]: #stddev_samp
 
 [stat-agg-link-to-var-samp]: #var_samp
+
+[agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
 

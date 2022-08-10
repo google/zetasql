@@ -116,6 +116,7 @@ class AnalyzerTestCase;
 //         in Java-based analyzer tests. "list" is the default.
 extern const char* const kAllowInternalError;
 extern const char* const kAllowUndeclaredParameters;
+extern const char* const kDefaultAnonKappaValue;
 extern const char* const kDefaultTimezone;
 extern const char* const kExpectErrorLocation;
 extern const char* const kInScopeExpressionColumnName;

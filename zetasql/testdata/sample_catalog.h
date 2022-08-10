@@ -59,11 +59,6 @@ class SampleCatalog {
   SimpleTable* GetTableOrDie(const std::string& name);
   absl::StatusOr<SimpleTable*> GetTable(const std::string& name);
 
-  // Get the SimpleCatalog from a static singleton default SampleCatalog
-  // (with default LanguageOptions()).  The caller must not modify this
-  // default catalog since it can be reused.
-  static const SimpleCatalog* const Get();
-
  private:
   std::unique_ptr<google::protobuf::DescriptorPoolDatabase> alt_descriptor_database_;
   std::unique_ptr<google::protobuf::DescriptorPool> alt_descriptor_pool_;
@@ -192,8 +187,6 @@ class SampleCatalog {
   const StructType* struct_of_array_of_struct_with_kitchen_sink_type_;
 
   const SimpleTable* key_value_table_;
-
-  static SampleCatalog* instance_;
 
   // A constant to load. Owned by this catalog to get coverage for
   // SimpleCatalog::AddConstant().

@@ -16,6 +16,8 @@
 
 #include "zetasql/public/numeric_value_test_utils.h"
 
+#include <string>
+
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/numeric_value.h"
 #include "gtest/gtest.h"

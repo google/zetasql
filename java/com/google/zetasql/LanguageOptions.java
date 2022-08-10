@@ -18,6 +18,7 @@
 package com.google.zetasql;
 
 import com.google.common.base.Preconditions;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.zetasql.ZetaSQLOptions.LanguageFeature;
 import com.google.zetasql.ZetaSQLOptions.LanguageVersion;
 import com.google.zetasql.ZetaSQLOptions.NameResolutionMode;
@@ -69,6 +70,7 @@ public class LanguageOptions implements Serializable {
     builder.mergeFrom(proto);
   }
 
+  @CanIgnoreReturnValue
   public LanguageOptions enableMaximumLanguageFeatures() {
     Set<LanguageFeature> features = new HashSet<>();
     features.addAll(getMaxFeatures().getEnabledLanguageFeaturesList());
@@ -172,6 +174,16 @@ public class LanguageOptions implements Serializable {
 
   public boolean getErrorOnDeprecatedSyntax() {
     return builder.getErrorOnDeprecatedSyntax();
+  }
+
+  public void enableReservableKeyword(String keyword) {
+    if (!reservableKeywordEnabled(keyword)) {
+      builder.addReservedKeywords(keyword);
+    }
+  }
+
+  public boolean reservableKeywordEnabled(String keyword) {
+    return builder.getReservedKeywordsList().contains(keyword);
   }
 
   private void writeObject(java.io.ObjectOutputStream out) throws IOException {

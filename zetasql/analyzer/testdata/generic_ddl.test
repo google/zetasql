@@ -130,7 +130,7 @@ CREATE OR REPLACE RESERVATION myProject.myReservation
 OPTIONS(a=b, c=d)
 AS JSON '{key: "value"}'
 --
-ERROR: Invalid JSON literal: parse error at line 1, column 2: syntax error while parsing object key - invalid literal; last read: '{k'; expected string literal [at 3:4]
+ERROR: Invalid JSON literal: syntax error while parsing object key - invalid literal; last read: '{k'; expected string literal [at 3:4]
 AS JSON '{key: "value"}'
    ^
 ==

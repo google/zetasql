@@ -3,23 +3,28 @@
 # Numbering functions
 
 The following sections describe the numbering functions that ZetaSQL
-supports. Numbering functions are a subset of analytic functions. For an
-explanation of how analytic functions work, see
-[Analytic Function Concepts][analytic-function-concepts]. For a
-description of how numbering functions work and an example comparing `RANK`,
-`DENSE_RANK`, and `ROW_NUMBER`, see the
-[Numbering Function Concepts][numbering-function-concepts].
+supports. Numbering functions are a subset of window functions. To create a
+window function call and learn about the syntax for window functions,
+see [Window function_calls][window-function-calls].
 
-`OVER` clause requirements:
-
-+ `PARTITION BY`: Optional.
-+ `ORDER BY`: Required, except for `ROW_NUMBER()`.
-+ `window_frame_clause`: Disallowed.
+Numbering functions assign integer values to each row based on their position
+within the specified window. The `OVER` clause syntax varies across
+numbering functions.
 
 ### RANK
 
 ```sql
 RANK()
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+
 ```
 
 **Description**
@@ -29,11 +34,47 @@ All peer rows receive the same rank value. The next row or set of peer rows
 receives a rank value which increments by the number of peers with the previous
 rank value, instead of `DENSE_RANK`, which always increments by 1.
 
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
 **Return Type**
 
 `INT64`
 
-**Example**
+**Examples**
+
+```sql
+WITH Numbers AS
+ (SELECT 1 as x
+  UNION ALL SELECT 2
+  UNION ALL SELECT 2
+  UNION ALL SELECT 5
+  UNION ALL SELECT 8
+  UNION ALL SELECT 10
+  UNION ALL SELECT 10
+)
+SELECT x,
+  RANK() OVER (ORDER BY x ASC) AS rank
+FROM Numbers
+
++-------------------------+
+| x          | rank       |
++-------------------------+
+| 1          | 1          |
+| 2          | 2          |
+| 2          | 2          |
+| 5          | 4          |
+| 8          | 5          |
+| 10         | 6          |
+| 10         | 6          |
++-------------------------+
+```
 
 ```sql
 WITH finishers AS
@@ -71,6 +112,16 @@ FROM finishers;
 
 ```sql
 DENSE_RANK()
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+
 ```
 
 **Description**
@@ -79,11 +130,47 @@ Returns the ordinal (1-based) rank of each row within the window partition.
 All peer rows receive the same rank value, and the subsequent rank value is
 incremented by one.
 
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
 **Return Type**
 
 `INT64`
 
-**Example**
+**Examples**
+
+```sql
+WITH Numbers AS
+ (SELECT 1 as x
+  UNION ALL SELECT 2
+  UNION ALL SELECT 2
+  UNION ALL SELECT 5
+  UNION ALL SELECT 8
+  UNION ALL SELECT 10
+  UNION ALL SELECT 10
+)
+SELECT x,
+  DENSE_RANK() OVER (ORDER BY x ASC) AS dense_rank
+FROM Numbers
+
++-------------------------+
+| x          | dense_rank |
++-------------------------+
+| 1          | 1          |
+| 2          | 2          |
+| 2          | 2          |
+| 5          | 3          |
+| 8          | 4          |
+| 10         | 5          |
+| 10         | 5          |
++-------------------------+
+```
 
 ```sql
 WITH finishers AS
@@ -121,6 +208,16 @@ FROM finishers;
 
 ```sql
 PERCENT_RANK()
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+
 ```
 
 **Description**
@@ -128,6 +225,15 @@ PERCENT_RANK()
 Return the percentile rank of a row defined as (RK-1)/(NR-1), where RK is
 the `RANK` of the row and NR is the number of rows in the partition.
 Returns 0 if NR=1.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
 
 **Return Type**
 
@@ -171,6 +277,16 @@ FROM finishers;
 
 ```sql
 CUME_DIST()
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+
 ```
 
 **Description**
@@ -178,6 +294,15 @@ CUME_DIST()
 Return the relative rank of a row defined as NP/NR. NP is defined to be the
 number of rows that either precede or are peers with the current row. NR is the
 number of rows in the partition.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
 
 **Return Type**
 
@@ -221,6 +346,16 @@ FROM finishers;
 
 ```sql
 NTILE(constant_integer_expression)
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+
 ```
 
 **Description**
@@ -232,6 +367,15 @@ The remainder values (the remainder of number of rows divided by buckets) are
 distributed one for each bucket, starting with bucket 1. If
 `constant_integer_expression` evaluates to NULL, 0 or negative, an
 error is provided.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
 
 **Return Type**
 
@@ -275,6 +419,16 @@ FROM finishers;
 
 ```sql
 ROW_NUMBER()
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+
 ```
 
 **Description**
@@ -284,11 +438,47 @@ row ordinal (1-based) of each row for each ordered partition. If the
 `ORDER BY` clause is unspecified then the result is
 non-deterministic.
 
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
 **Return Type**
 
 `INT64`
 
-**Example**
+**Examples**
+
+```sql
+WITH Numbers AS
+ (SELECT 1 as x
+  UNION ALL SELECT 2
+  UNION ALL SELECT 2
+  UNION ALL SELECT 5
+  UNION ALL SELECT 8
+  UNION ALL SELECT 10
+  UNION ALL SELECT 10
+)
+SELECT x,
+  ROW_NUMBER() OVER (ORDER BY x) AS row_num
+FROM Numbers
+
++-------------------------+
+| x          | row_num    |
++-------------------------+
+| 1          | 1          |
+| 2          | 2          |
+| 2          | 3          |
+| 5          | 4          |
+| 8          | 5          |
+| 10         | 6          |
+| 10         | 7          |
++-------------------------+
+```
 
 ```sql
 WITH finishers AS
@@ -324,9 +514,7 @@ FROM finishers;
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[numbering-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#numbering_function_concepts
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 <!-- mdlint on -->
 

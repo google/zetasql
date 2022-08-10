@@ -63,6 +63,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/substitute.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
@@ -127,8 +128,7 @@ Algebrizer::Algebrizer(const LanguageOptions& language_options,
       parameters_(parameters),
       column_map_(column_map),
       system_variables_map_(system_variables_map),
-      type_factory_(type_factory),
-      next_column_(0) {}
+      type_factory_(type_factory) {}
 
 absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeCast(
     const ResolvedCast* cast) {
@@ -444,7 +444,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeCaseNoValue(
 // CASE v WHEN w1 THEN t1 ELSE e END =
 //     If(v=w1, t1, e)
 // CASE v WHEN w1 THEN t1 WHEN w2 THEN t2 ELSE e END =
-//     LetExpr(x:=v, IfExpr(x=w1, t1, IfExpr(x=w2, t2, e)))
+//     WithExpr(x:=v, IfExpr(x=w1, t1, IfExpr(x=w2, t2, e)))
 // etc.
 absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeCaseWithValue(
     const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args,
@@ -455,7 +455,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeCaseWithValue(
   ZETASQL_ASSIGN_OR_RETURN(auto null_expr, ConstExpr::Create(Value::Null(output_type)));
   std::unique_ptr<ValueExpr> result(has_else ? std::move(args[i--])
                                              : std::move(null_expr));
-  // Empty x means we don't need LetExpr, i.e., we have a single WHEN/THEN.
+  // Empty x means we don't need WithExpr, i.e., we have a single WHEN/THEN.
   const VariableId x =
       args.size() > 4 ? variable_gen_->GetNewVariableName("x") : VariableId();
   while (i > 0) {
@@ -494,7 +494,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeCaseWithValue(
     std::vector<std::unique_ptr<ExprArg>> expr_args;
     expr_args.push_back(std::make_unique<ExprArg>(x, std::move(args[0])));
     ZETASQL_ASSIGN_OR_RETURN(result,
-                     LetExpr::Create(std::move(expr_args), std::move(result)));
+                     WithExpr::Create(std::move(expr_args), std::move(result)));
   }
   return result;
 }
@@ -545,7 +545,7 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeIsError(
   return is_error_expr;
 }
 
-// IfNull(v0, v1) = LetExpr(x:=v0, IfExpr(IsNull(x), v1, x))
+// IfNull(v0, v1) = WithExpr(x:=v0, IfExpr(IsNull(x), v1, x))
 absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeIfNull(
     const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args) {
   ZETASQL_RET_CHECK_EQ(2, args.size());
@@ -569,12 +569,12 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeIfNull(
   std::vector<std::unique_ptr<ExprArg>> let_assign;
   let_assign.push_back(std::make_unique<ExprArg>(x, std::move(args[0])));
 
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> let_expr,
-                   LetExpr::Create(std::move(let_assign), std::move(if_op)));
-  return let_expr;
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> with_expr,
+                   WithExpr::Create(std::move(let_assign), std::move(if_op)));
+  return with_expr;
 }
 
-// NullIf(v0, v1) = LetExpr(x:=v0, IfExpr(x=v1, NULL, x))
+// NullIf(v0, v1) = WithExpr(x:=v0, IfExpr(x=v1, NULL, x))
 absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeNullIf(
     const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args) {
   ZETASQL_RET_CHECK_EQ(2, args.size());
@@ -599,12 +599,12 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeNullIf(
   std::vector<std::unique_ptr<ExprArg>> let_assign;
   let_assign.push_back(std::make_unique<ExprArg>(x, std::move(args[0])));
 
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> let_expr,
-                   LetExpr::Create(std::move(let_assign), std::move(if_op)));
-  return let_expr;
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> with_expr,
+                   WithExpr::Create(std::move(let_assign), std::move(if_op)));
+  return with_expr;
 }
 
-// Coalesce(v1, v2) = LetExpr(x:=v1, IfExpr(IsNull(x), v2, x))
+// Coalesce(v1, v2) = WithExpr(x:=v1, IfExpr(IsNull(x), v2, x))
 // Coalesce(v1, v2, ...) = Coalesce(v1, Coalesce(v2, ...))
 absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeCoalesce(
     const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args) {
@@ -631,13 +631,13 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeCoalesce(
     let_assign.push_back(std::make_unique<ExprArg>(x, std::move(args[i--])));
 
     ZETASQL_ASSIGN_OR_RETURN(result,
-                     LetExpr::Create(std::move(let_assign), std::move(if_op)));
+                     WithExpr::Create(std::move(let_assign), std::move(if_op)));
   }
   ZETASQL_RET_CHECK_EQ(-1, i);
   return result;
 }
 
-// In(v, v1, v2, ...) = LetExpr(x:=v, Or(x=v1, x=v2, ...))
+// In(v, v1, v2, ...) = WithExpr(x:=v, Or(x=v1, x=v2, ...))
 absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeIn(
     const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args) {
   ZETASQL_RET_CHECK_GE(args.size(), 2);
@@ -661,12 +661,12 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeIn(
 
   std::vector<std::unique_ptr<ExprArg>> let_assign;
   let_assign.push_back(std::make_unique<ExprArg>(x, std::move(args[0])));
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> let_expr,
-                   LetExpr::Create(std::move(let_assign), std::move(or_op)));
-  return let_expr;
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> with_expr,
+                   WithExpr::Create(std::move(let_assign), std::move(or_op)));
+  return with_expr;
 }
 
-// Between(v, min, max) = LetExpr(x:=v, And(min<=x, x<=max))
+// Between(v, min, max) = WithExpr(x:=v, And(min<=x, x<=max))
 absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeBetween(
     const Type* output_type, std::vector<std::unique_ptr<ValueExpr>> args) {
   ZETASQL_RET_CHECK_EQ(args.size(), 3);
@@ -702,9 +702,9 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeBetween(
 
   std::vector<std::unique_ptr<ExprArg>> let_assign;
   let_assign.push_back(std::make_unique<ExprArg>(x, std::move(args[0])));
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> let_expr,
-                   LetExpr::Create(std::move(let_assign), std::move(and_op)));
-  return let_expr;
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> with_expr,
+                   WithExpr::Create(std::move(let_assign), std::move(and_op)));
+  return with_expr;
 }
 
 absl::StatusOr<std::unique_ptr<AggregateArg>> Algebrizer::AlgebrizeAggregateFn(
@@ -852,7 +852,18 @@ Algebrizer::AlgebrizeAggregateFnWithAlgebrizedArguments(
       }
     }
 
+    // TODO: Support sort keys with collation for aggregate functions.
     if (!resolved_aggregate_func->order_by_item_list().empty()) {
+      for (const auto& order_by_item :
+           resolved_aggregate_func->order_by_item_list()) {
+        if (!order_by_item->collation().Empty()) {
+          return ::zetasql_base::InvalidArgumentErrorBuilder() << absl::Substitute(
+                     "Order by item '$0' with collation '$1' in function '$2' "
+                     "is not supported",
+                     order_by_item->column_ref()->DebugString(),
+                     order_by_item->collation().DebugString(), name);
+        }
+      }
       absl::flat_hash_map<int, VariableId> column_to_id_map;
       // It is safe to remove correlated column references, because they
       // are constant and do not affect the order of the input to
@@ -1239,19 +1250,21 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeSubqueryExpr(
   }
 }
 
-absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeLetExpr(
-    const ResolvedLetExpr* let_expr) {
+absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeWithExpr(
+    const ResolvedWithExpr* with_expr) {
   std::vector<std::unique_ptr<ExprArg>> assignments;
-  for (int i = 0; i < let_expr->assignment_list_size(); ++i) {
-    const VariableId assigned_var = variable_gen_->GetNewVariableName(
-        let_expr->assignment_list(i)->column().name());
-    ZETASQL_ASSIGN_OR_RETURN(auto assigned_value,
-                     AlgebrizeExpression(let_expr->assignment_list(i)->expr()));
+  for (int i = 0; i < with_expr->assignment_list_size(); ++i) {
+    const VariableId assigned_var =
+        column_to_variable_->AssignNewVariableToColumn(
+            with_expr->assignment_list(i)->column());
+    ZETASQL_ASSIGN_OR_RETURN(
+        auto assigned_value,
+        AlgebrizeExpression(with_expr->assignment_list(i)->expr()));
     assignments.emplace_back(
         std::make_unique<ExprArg>(assigned_var, std::move(assigned_value)));
   }
-  ZETASQL_ASSIGN_OR_RETURN(auto expr, AlgebrizeExpression(let_expr->expr()));
-  return LetExpr::Create(std::move(assignments), std::move(expr));
+  ZETASQL_ASSIGN_OR_RETURN(auto expr, AlgebrizeExpression(with_expr->expr()));
+  return WithExpr::Create(std::move(assignments), std::move(expr));
 }
 
 absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeInArray(
@@ -1354,9 +1367,9 @@ Algebrizer::AlgebrizeInLikeAnyLikeAllRelation(
 
   std::vector<std::unique_ptr<ExprArg>> let_assign;
   let_assign.push_back(std::make_unique<ExprArg>(needle_var, std::move(lhs)));
-  ZETASQL_ASSIGN_OR_RETURN(auto let_expr, LetExpr::Create(std::move(let_assign),
-                                                  std::move(singleton)));
-  return std::unique_ptr<ValueExpr>(std::move(let_expr));
+  ZETASQL_ASSIGN_OR_RETURN(auto with_expr, WithExpr::Create(std::move(let_assign),
+                                                    std::move(singleton)));
+  return std::unique_ptr<ValueExpr>(std::move(with_expr));
 }
 
 absl::StatusOr<std::unique_ptr<ValueExpr>>
@@ -1364,14 +1377,14 @@ Algebrizer::AlgebrizeStandaloneExpression(const ResolvedExpr* expr) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> value_expr,
                    AlgebrizeExpression(expr));
 
-  // If we have any WITH clauses, create a LetExpr that binds the names of
+  // If we have any WITH clauses, create a WithExpr that binds the names of
   // subqueries to array expressions.  WITH subqueries cannot be correlated so
   // we can attach them all in one batch at the top of the query, and that will
   // ensure we run each of them exactly once.
   if (!with_subquery_let_assignments_.empty()) {
     ZETASQL_ASSIGN_OR_RETURN(value_expr,
-                     LetExpr::Create(std::move(with_subquery_let_assignments_),
-                                     std::move(value_expr)));
+                     WithExpr::Create(std::move(with_subquery_let_assignments_),
+                                      std::move(value_expr)));
   }
   // Sanity check - WITH map should be cleared as WITH clauses go out of scope.
   ZETASQL_RET_CHECK(with_map_.empty());
@@ -1453,9 +1466,9 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeExpression(
           val_op, AlgebrizeSubqueryExpr(expr->GetAs<ResolvedSubqueryExpr>()));
       break;
     }
-    case RESOLVED_LET_EXPR: {
+    case RESOLVED_WITH_EXPR: {
       ZETASQL_ASSIGN_OR_RETURN(val_op,
-                       AlgebrizeLetExpr(expr->GetAs<ResolvedLetExpr>()));
+                       AlgebrizeWithExpr(expr->GetAs<ResolvedWithExpr>()));
       break;
     }
     case RESOLVED_SYSTEM_VARIABLE: {
@@ -3280,6 +3293,14 @@ Algebrizer::AlgebrizeAnalyticFunctionGroup(
     const ResolvedAnalyticFunctionCall* analytic_function_call =
         static_cast<const ResolvedAnalyticFunctionCall*>(
             analytic_column->expr());
+    // TODO: Support analytic functions with collations.
+    if (!analytic_function_call->collation_list().empty()) {
+      ZETASQL_RET_CHECK_EQ(analytic_function_call->collation_list().size(), 1);
+      return ::zetasql_base::InvalidArgumentErrorBuilder() << absl::Substitute(
+                 "Analytic function '$0' with collation '$1' is not supported",
+                 analytic_function_call->function()->Name(),
+                 analytic_function_call->collation_list()[0].DebugString());
+    }
 
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AnalyticArg> analytic_arg,
                      AlgebrizeAnalyticFunctionCall(
@@ -4493,14 +4514,14 @@ Algebrizer::AlgebrizeRootScanAsValueExpr(
                      NestRelationInStruct(output_columns, std::move(relation),
                                           /*is_with_table=*/false));
   }
-  // If we have any WITH clauses, create a LetExpr that binds the names of
+  // If we have any WITH clauses, create a WithExpr that binds the names of
   // subqueries to array expressions.  WITH subqueries cannot be correlated
   // so we can attach them all in one batch at the top of the query, and that
   // will ensure we run each of them exactly once.
   if (!with_subquery_let_assignments_.empty()) {
     ZETASQL_ASSIGN_OR_RETURN(value,
-                     LetExpr::Create(std::move(with_subquery_let_assignments_),
-                                     std::move(value)));
+                     WithExpr::Create(std::move(with_subquery_let_assignments_),
+                                      std::move(value)));
   }
   // Sanity check - WITH map should be cleared as WITH clauses go out of scope.
   ZETASQL_RET_CHECK(with_map_.empty());
@@ -5001,6 +5022,15 @@ absl::Status Algebrizer::AlgebrizeStatement(
                                    type_factory, parameters, column_map,
                                    system_variables_map);
   switch (ast_root->node_kind()) {
+    case RESOLVED_CREATE_TABLE_STMT: {
+      // TODO: Implement for correct result, not placeholder.
+      // Current codepaths that pass here just expect success, and not a
+      // correctly algebrized result. For now, this placeholder empty result
+      // will suffice; more accurate implementation can be added by need basis.
+      ZETASQL_ASSIGN_OR_RETURN(*output,
+                       NewArrayExpr::Create(types::Int64ArrayType(), {}));
+      break;
+    }
     case RESOLVED_CREATE_TABLE_AS_SELECT_STMT: {
       const ResolvedCreateTableAsSelectStmt* stmt =
           ast_root->GetAs<ResolvedCreateTableAsSelectStmt>();

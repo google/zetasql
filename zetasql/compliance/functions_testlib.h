@@ -136,6 +136,9 @@ std::vector<QueryParamsWithResult> GetFunctionTestsLeast(
 std::vector<QueryParamsWithResult> GetFunctionTestsArrayFirst(bool is_safe);
 std::vector<QueryParamsWithResult> GetFunctionTestsArrayLast(bool is_safe);
 
+// Test function for ARRAY_SLICE
+std::vector<QueryParamsWithResult> GetFunctionTestsArraySlice(bool is_safe);
+
 std::vector<QueryParamsWithResult> GetFunctionTestsLike();
 
 std::vector<FunctionTestCall> GetFunctionTestsDateTime();
@@ -207,6 +210,7 @@ std::vector<FunctionTestCall> GetFunctionTestsRounding();
 std::vector<FunctionTestCall> GetFunctionTestsTrigonometric();
 std::vector<FunctionTestCall> GetFunctionTestsInverseTrigonometric();
 std::vector<FunctionTestCall> GetFunctionTestsDegreesRadiansPi();
+std::vector<FunctionTestCall> GetFunctionTestsCbrt();
 
 std::vector<FunctionTestCall> GetFunctionTestsAscii();
 std::vector<FunctionTestCall> GetFunctionTestsUnicode();

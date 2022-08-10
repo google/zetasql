@@ -24,6 +24,7 @@ import static com.google.zetasql.Parameter.serialize;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.zetasql.LocalService.EvaluateQueryRequest;
 import com.google.zetasql.LocalService.EvaluateQueryResponse;
@@ -202,6 +203,7 @@ public final class PreparedQuery implements AutoCloseable {
      *
      * <p>Mandatory.
      */
+    @CanIgnoreReturnValue
     public Builder setSql(String sql) {
       this.sql = sql;
       return this;
@@ -212,6 +214,7 @@ public final class PreparedQuery implements AutoCloseable {
      *
      * <p>Mandatory.
      */
+    @CanIgnoreReturnValue
     public Builder setAnalyzerOptions(AnalyzerOptions options) {
       this.options = options;
       return this;
@@ -222,6 +225,7 @@ public final class PreparedQuery implements AutoCloseable {
      *
      * <p>Optional.
      */
+    @CanIgnoreReturnValue
     public Builder setCatalog(SimpleCatalog catalog) {
       this.catalog = catalog;
       return this;
@@ -234,6 +238,7 @@ public final class PreparedQuery implements AutoCloseable {
      *
      * <p>It can be used only together with a catalog and that catalog needs to be unregistered.
      */
+    @CanIgnoreReturnValue
     public Builder setTablesContents(Map<String, TableContent> tablesContents) {
       this.tablesContents = tablesContents;
       return this;

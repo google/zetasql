@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <iterator>
+#include <string>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/proto/internal_error_location.pb.h"

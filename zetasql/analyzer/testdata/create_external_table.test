@@ -369,7 +369,7 @@ create external table t
 with partition columns()
 options (x = 5)
 --
-ERROR: Syntax error: Unexpected ")" [at 2:24]
+ERROR: A table must define at least one column. [at 2:24]
 with partition columns()
                        ^
 ==

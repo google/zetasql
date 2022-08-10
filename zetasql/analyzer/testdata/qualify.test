@@ -1524,3 +1524,9 @@ ERROR: QUALIFY clause expression references column y which is neither grouped no
 ...row_num FROM t where true group by t.x QUALIFY 1 < y;
                                                       ^
 ==
+
+select * QUALIFY(3)
+--
+ERROR: Query without FROM clause cannot have an QUALIFY clause [at 1:10]
+select * QUALIFY(3)
+         ^

@@ -104,9 +104,9 @@ def zetasql_deps_step_2(
             http_archive(
                 name = "com_google_absl",
                 # Commit from 2022-01-19
-                url = "https://github.com/abseil/abseil-cpp/archive/fbbb5865a562c9a9167d71c1cf56b82025a8f065.tar.gz",
-                sha256 = "18aadf5b16743399d37e3d2880c181f57ef0d0cef8ed6086f53fd254c8cff6c2",
-                strip_prefix = "abseil-cpp-fbbb5865a562c9a9167d71c1cf56b82025a8f065",
+                url = "https://github.com/abseil/abseil-cpp/archive/9aa7d0bd2079f287162d4fd0722a1b9032e39a6a.tar.gz",
+                sha256 = "1a924c31174f5e5812537b7e4c94d380355c06cb9a18c258de99a3e90b32b98c",
+                strip_prefix = "abseil-cpp-9aa7d0bd2079f287162d4fd0722a1b9032e39a6a",
             )
 
         # required by many python libraries
@@ -196,20 +196,20 @@ py_library(
         if not native.existing_rule("com_google_differential_privacy"):
             http_archive(
                 name = "com_google_differential_privacy",
-                # Release from 2021-11-28
-                url = "https://github.com/google/differential-privacy/archive/refs/tags/v1.1.1.tar.gz",
-                sha256 = "e7aba3d2209cfa57381d8d8953bb78a7eb5e64a0c7f5ff5ef70b3a31a1efdb75",
-                strip_prefix = "differential-privacy-1.1.1",
+                # Release from 2022-06-02
+                url = "https://github.com/google/differential-privacy/archive/5e7cf28bf55ebac52fc65419364388c33ebc01a4.tar.gz",
+                sha256 = "fcdbbafe7aa86415b7b8db654a86595ad894b7d264611f7262b804a193a82adc",
+                strip_prefix = "differential-privacy-5e7cf28bf55ebac52fc65419364388c33ebc01a4",
             )
 
         # Differential Privacy - cc
         if not native.existing_rule("com_google_cc_differential_privacy"):
             http_archive(
                 name = "com_google_cc_differential_privacy",
-                # Release from 2021-11-28
-                url = "https://github.com/google/differential-privacy/archive/refs/tags/v1.1.1.tar.gz",
-                sha256 = "e7aba3d2209cfa57381d8d8953bb78a7eb5e64a0c7f5ff5ef70b3a31a1efdb75",
-                strip_prefix = "differential-privacy-1.1.1/cc",
+                # Release from 2022-06-02
+                url = "https://github.com/google/differential-privacy/archive/5e7cf28bf55ebac52fc65419364388c33ebc01a4.tar.gz",
+                sha256 = "fcdbbafe7aa86415b7b8db654a86595ad894b7d264611f7262b804a193a82adc",
+                strip_prefix = "differential-privacy-5e7cf28bf55ebac52fc65419364388c33ebc01a4/cc",
             )
 
         # Boringssl
@@ -337,10 +337,9 @@ py_library(
         if not native.existing_rule("jinja"):
             http_archive(
                 name = "jinja",
-                # Jinja release 2.10
-                url = "https://github.com/pallets/jinja/archive/2.10.tar.gz",
-                strip_prefix = "jinja-2.10",
-                sha256 = "0d31d3466c313a9ca014a2d904fed18cdac873a5ba1f7b70b8fd8b206cd860d6",
+                url = "https://github.com/pallets/jinja/archive/3.0.1.tar.gz",
+                strip_prefix = "jinja-3.0.1/src",
+                sha256 = "1e37a6f86c29fa8ace108ea72b41d2d5c5bd67d79be14bfeca3ba6eb37d789de",
                 build_file_content = """py_library(
     name = "jinja2",
     visibility = ["//visibility:public"],
@@ -368,10 +367,10 @@ py_library(
             http_archive(
                 name = "markupsafe",
                 urls = [
-                    "https://github.com/pallets/markupsafe/archive/1.0.tar.gz",
+                    "https://github.com/pallets/markupsafe/archive/2.1.1.tar.gz",
                 ],
-                sha256 = "dc3938045d9407a73cf9fdd709e2b1defd0588d50ffc85eb0786c095ec846f15",
-                strip_prefix = "markupsafe-1.0/markupsafe",
+                sha256 = "0f83b6d1bf6fa65546221d42715034e7e654845583a84906c5936590f9a7ad8f",
+                strip_prefix = "markupsafe-2.1.1/src/markupsafe",
                 build_file_content = """py_library(
     name = "markupsafe",
     visibility = ["//visibility:public"],

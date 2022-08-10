@@ -16,7 +16,9 @@
 
 #include "zetasql/common/utf_util.h"
 
+#include <algorithm>
 #include <cstdint>
+#include <string>
 
 #include "zetasql/base/logging.h"
 #include "absl/strings/ascii.h"

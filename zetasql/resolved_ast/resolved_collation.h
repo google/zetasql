@@ -17,6 +17,9 @@
 #ifndef ZETASQL_RESOLVED_AST_RESOLVED_COLLATION_H_
 #define ZETASQL_RESOLVED_AST_RESOLVED_COLLATION_H_
 
+#include <string>
+#include <vector>
+
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/resolved_ast/serialization.pb.h"
 

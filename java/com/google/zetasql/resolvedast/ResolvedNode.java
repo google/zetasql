@@ -19,7 +19,6 @@ package com.google.zetasql.resolvedast;
 
 import com.google.common.base.Preconditions;
 import com.google.protobuf.Message;
-import com.google.zetasql.AnyResolvedNodeProto;
 import com.google.zetasql.DebugPrintableNode;
 import com.google.zetasql.FileDescriptorSetsBuilder;
 import com.google.zetasql.ZetaSQLResolvedNodeKind.ResolvedNodeKind;
@@ -47,15 +46,6 @@ public abstract class ResolvedNode implements Serializable, DebugPrintableNode {
   ResolvedNode() {}
 
   /**
-   * Deserializes {@code proto} into a sub class of {@link ResolvedNode}. The
-   * {@link DeserializationHelper} is used to deserialize types which are passed by reference. This
-   * should only be used by the ZetaSQL implementation.
-   */
-  public static ResolvedNode deserialize(AnyResolvedNodeProto proto, DeserializationHelper helper) {
-    return ResolvedNodes.deserialize(proto, helper);
-  }
-
-  /**
    * Base case for recursive call in derived AST nodes.
    */
   public Message serialize(
@@ -65,6 +55,7 @@ public abstract class ResolvedNode implements Serializable, DebugPrintableNode {
 
   public abstract ResolvedNodeKind nodeKind();
 
+  @Override
   public abstract String nodeKindString();
 
   /** Accepts a visitor, which can process the node and optionally redispatch to children. */

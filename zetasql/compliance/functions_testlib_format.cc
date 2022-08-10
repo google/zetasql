@@ -253,6 +253,10 @@ std::vector<FunctionTestCall> GetFunctionTestsFormat() {
       {"format", {"%Lf", 1.5}, NullString(), OUT_OF_RANGE},
       {"format", {"%"}, NullString(), OUT_OF_RANGE},
       {"format", {"%d%", 1}, NullString(), OUT_OF_RANGE},
+      // Two, three, and four byte specifiers.
+      {"format", {"%ωd", 1}, NullString(), OUT_OF_RANGE},
+      {"format", {"%’d", 1}, NullString(), OUT_OF_RANGE},
+      {"format", {"%🐱d", 1}, NullString(), OUT_OF_RANGE},
 
       // Bad argument count.
       {"format", {"%d"}, NullString(), OUT_OF_RANGE},

@@ -54,7 +54,6 @@
 #include "zetasql/testdata/test_schema.pb.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
@@ -232,16 +231,6 @@ class ResolverTest : public ::testing::Test {
     ASSERT_THAT(resolved_function_call, NotNull());
     EXPECT_EQ(expected_case_function_name,
               resolved_function_call->function()->FullName());
-  }
-
-  NameScope CreateNameScope(std::string name, const Type* type) {
-    NameList name_list;
-    const ResolvedColumn table_column(
-        resolver_->AllocateColumnId(),
-        zetasql::IdString::MakeGlobal("TestTable"),
-        zetasql::IdString::MakeGlobal(name), type);
-    ZETASQL_CHECK_OK(name_list.AddColumn(table_column.name_id(), table_column, true));
-    return NameScope(name_list);
   }
 
   void ParseAndResolveFunction(const std::string& query,
@@ -670,6 +659,14 @@ TEST_F(ResolverTest, TestResolveCastExpression) {
       "CAST(CAST('TESTENUM1' as `zetasql_test__.TestEnum`) as STRING)",
       types::StringType());
 
+  // Enum value names are case-sensitive, 'TESTENUM1' is good, 'TestEnum1' is
+  // not. However, this is delayed to runtime, since we do not let
+  // constant folding fail compilation. See `cast_function.test` in compliance
+  // tests.
+  TestCastExpression(
+      "CAST(CAST('TestEnum1' as `zetasql_test__.TestEnum`) as STRING)",
+      types::StringType());
+
   TestCastExpression("CAST(CAST(1 as `zetasql_test__.TestEnum`) as INT32)",
                      types::Int32Type());
   TestCastExpression("CAST(CAST(1 as `zetasql_test__.TestEnum`) as INT64)",
@@ -704,13 +701,6 @@ TEST_F(ResolverTest, TestResolveCastExpression) {
   ResolveFunctionFails(
       "cast(cast('2013-11-26 12:23:34' as timestamp) as INT64)",
       "Invalid cast from TIMESTAMP to INT64");
-
-  // Enum value names are case-sensitive.
-  // 'TESTENUM1' is good, 'TestEnum1' is not.
-  ResolveFunctionFails(
-      "CAST(CAST('TestEnum1' as `zetasql_test__.TestEnum`) as STRING)",
-      "Could not cast literal \"TestEnum1\" to type "
-        "ENUM<zetasql_test__.TestEnum>");
 
   ResolveFunctionFails("CAST(1 as blah)", "Type not found: blah");
   ResolveFunctionFails("CAST(1.0 as bool)",
@@ -1190,6 +1180,23 @@ TEST_F(ResolverTest, TestHasFlatten) {
                         /*aggregation_allowed=*/true));
   EXPECT_TRUE(
       resolver_->analyzer_output_properties().IsRelevant(REWRITE_FLATTEN));
+}
+
+TEST_F(ResolverTest, ReturnsErrorWhenSpannerDdlModeEnabled) {
+  analyzer_options_.mutable_language()->EnableLanguageFeature(
+      FEATURE_SPANNER_LEGACY_DDL);
+  ResetResolver(sample_catalog_->catalog());
+
+  std::unique_ptr<ParserOutput> parser_output;
+  std::unique_ptr<const ResolvedStatement> resolved_ast;
+
+  const std::string stmt = "CREATE INDEX idx ON t(id)";
+  ZETASQL_ASSERT_OK(ParseStatement(stmt, ParserOptions(), &parser_output));
+  EXPECT_THAT(resolver_->ResolveStatement(stmt, parser_output->statement(),
+                                          &resolved_ast),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Spanner DDL statements are not supported "
+                                 "when resolving statements.")));
 }
 
 TEST_F(ResolverTest, TestIntervalLiteral) {

@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/analyzer.h"

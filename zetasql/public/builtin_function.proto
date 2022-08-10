@@ -26,6 +26,7 @@ option java_outer_classname = "ZetaSQLFunction";
 // A unique ID for ZetaSQL function signatures.  Resolved ZetaSQL functions
 // will provide one of these enums, and ZetaSQL implementations should map
 // them to something they can evaluate.
+// Next id: 1947
 enum FunctionSignatureId {
   // User code that switches on this enum must have a default case so
   // builds won't break if new enums get added.
@@ -49,10 +50,10 @@ enum FunctionSignatureId {
   // 1700-1799 Net functions                  (NextId: 1716)
   // 1800-1899 More time functions            (NextId: 1862)
   // 1900-1999 Hashing/encryption functions   (NextId: 1938)
-  // 2000-2199 Geography functions            (NextId: 2086)
-  // 2200-2299 Anonymization functions        (NextId: 2226)
-  // 2300-2499 Numeric & more math functions  (NextId: 2322)
-  // 2500-2599 Array and proto map functions  (NextId: 2517)
+  // 2000-2199 Geography functions            (NextId: 2087)
+  // 2200-2299 Anonymization functions        (NextId: 2230)
+  // 2300-2499 Numeric & more math functions  (NextId: 2325)
+  // 2500-2599 Array and proto map functions  (NextId: 2518)
   // 2600-2699 More misc functions.           (NextId: 2605)
   // 2700-2799 Aggregate functions II         (NextId: 2701)
 
@@ -99,7 +100,7 @@ enum FunctionSignatureId {
   FN_STRING_LIKE = 97;                     // $like
   FN_STRING_LIKE_ANY = 293;                // $like_any
   FN_STRING_LIKE_ALL = 294;                // $like_all
-  FN_BYTE_ARRAY_LIKE_ANY = 295;            // like_any_array
+  FN_BYTE_ARRAY_LIKE_ANY = 295;            // $like_any_array
   FN_BYTE_ARRAY_LIKE_ALL = 296;            // $like_all_array
   FN_BYTE_LIKE = 98;                       // $like
   FN_BYTE_LIKE_ANY = 297;                  // $like_any
@@ -451,13 +452,17 @@ enum FunctionSignatureId {
   FN_ROUND_WITH_DIGITS_FLOAT = 1308;    // round(float, int64) -> float
   FN_ROUND_WITH_DIGITS_NUMERIC = 1364;  // round(numeric, int64) -> numeric
   FN_ROUND_WITH_DIGITS_BIGNUMERIC =
-      1398;                            // round(bignumeric, int64) -> bignumeric
-  FN_TRUNC_DOUBLE = 1309;              // trunc(double) -> double
-  FN_TRUNC_FLOAT = 1310;               // trunc(float) -> float
-  FN_TRUNC_NUMERIC = 1365;             // trunc(numeric) -> numeric
-  FN_TRUNC_BIGNUMERIC = 1399;          // trunc(bignumeric) -> bignumeric
-  FN_TRUNC_WITH_DIGITS_DOUBLE = 1311;  // trunc(double, int64) -> double
-  FN_TRUNC_WITH_DIGITS_FLOAT = 1312;   // trunc(float, int64) -> float
+      1398;  // round(bignumeric, int64) -> bignumeric
+  FN_ROUND_WITH_ROUNDING_MODE_NUMERIC =
+      1945;  // round(numeric, int64, RoundingMode) -> numeric
+  FN_ROUND_WITH_ROUNDING_MODE_BIGNUMERIC =
+      1946;  // round(bignumeric, int64, RoundingMode) -> bignumeric
+  FN_TRUNC_DOUBLE = 1309;               // trunc(double) -> double
+  FN_TRUNC_FLOAT = 1310;                // trunc(float) -> float
+  FN_TRUNC_NUMERIC = 1365;              // trunc(numeric) -> numeric
+  FN_TRUNC_BIGNUMERIC = 1399;           // trunc(bignumeric) -> bignumeric
+  FN_TRUNC_WITH_DIGITS_DOUBLE = 1311;   // trunc(double, int64) -> double
+  FN_TRUNC_WITH_DIGITS_FLOAT = 1312;    // trunc(float, int64) -> float
   FN_TRUNC_WITH_DIGITS_NUMERIC = 1366;  // trunc(numeric, int64) -> numeric
   FN_TRUNC_WITH_DIGITS_BIGNUMERIC =
       2300;                    // trunc(bignumeric, int64) -> bignumeric
@@ -514,6 +519,9 @@ enum FunctionSignatureId {
   FN_SQRT_DOUBLE = 1323;      // sqrt
   FN_SQRT_NUMERIC = 2308;     // sqrt(numeric) -> numeric
   FN_SQRT_BIGNUMERIC = 2309;  // sqrt(bignumeric) -> bignumeric
+  FN_CBRT_DOUBLE = 2322;      // cbrt
+  FN_CBRT_NUMERIC = 2323;     // cbrt(numeric) -> numeric
+  FN_CBRT_BIGNUMERIC = 2324;  // cbrt(bignumeric) -> bignumeric
   FN_POW_DOUBLE = 1324;       // pow
   FN_POW_NUMERIC = 1370;      // pow(numeric, numeric) -> numeric
   FN_POW_BIGNUMERIC = 2303;   // pow(bignumeric, bignumeric) -> bignumeric
@@ -888,6 +896,12 @@ enum FunctionSignatureId {
   FN_KEYS_KEYSET_CHAIN_STRING_BYTES_BYTES = 1928;
   // keys.keyset_chain(string, bytes)
   FN_KEYS_KEYSET_CHAIN_STRING_BYTES = 1929;
+  // keys.new_wrapped_keyset(string, string)
+  FN_KEYS_NEW_WRAPPED_KEYSET = 1942;
+  // keys.rotate_wrapped_keyset(string, bytes, string)
+  FN_KEYS_ROTATE_WRAPPED_KEYSET = 1943;
+  // keys.rewrap_keyset(string, string, bytes)
+  FN_KEYS_REWRAP_KEYSET = 1944;
 
   FN_KMS_ENCRYPT_STRING = 1920;  // kms.encrypt(string, string)
   FN_KMS_ENCRYPT_BYTES = 1921;   // kms.encrypt(string, bytes)
@@ -985,6 +999,7 @@ enum FunctionSignatureId {
   FN_ST_POINT_N = 2075;
   FN_ST_START_POINT = 2076;
   FN_ST_END_POINT = 2077;
+  FN_ST_IS_CLOSED = 2086;
 
   // Measures
   FN_ST_LENGTH = 2040;
@@ -1061,6 +1076,12 @@ enum FunctionSignatureId {
   FN_ANON_COUNT_WITH_REPORT_PROTO = 2223;
   FN_ANON_COUNT_STAR_WITH_REPORT_JSON = 2224;
   FN_ANON_COUNT_STAR_WITH_REPORT_PROTO = 2225;
+  FN_ANON_QUANTILES_DOUBLE_WITH_REPORT_JSON = 2226;
+  FN_ANON_QUANTILES_DOUBLE_WITH_REPORT_PROTO = 2227;
+  // This is an internal function signature, and is not in the language.
+  FN_ANON_QUANTILES_DOUBLE_ARRAY_WITH_REPORT_JSON = 2228;
+  // This is an internal function signature, and is not in the language.
+  FN_ANON_QUANTILES_DOUBLE_ARRAY_WITH_REPORT_PROTO = 2229;
 
   // Array and proto map functions.
   FN_FLATTEN = 2500;  // flatten(array path) -> array
@@ -1094,6 +1115,8 @@ enum FunctionSignatureId {
   FN_ARRAY_INCLUDES_ALL = 2514;     // ARRAY_INCLUDES_ALL(array, array) -> bool
   FN_ARRAY_FIRST = 2515;            // ARRAY_FIRST(array<T>) -> T
   FN_ARRAY_LAST = 2516;             // ARRAY_LAST(array<T>) -> T
+  FN_ARRAY_SLICE = 2517;            // ARRAY_SLICE(array<T>, INT64, INT64)
+                                    // -> array<T>
 
   // More misc functions
   FN_JSON_TO_INT64 = 2600;   // int64(json) -> int64

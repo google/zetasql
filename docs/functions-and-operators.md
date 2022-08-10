@@ -1338,6 +1338,8 @@ The following rules apply when comparing these data types:
   Returns TRUE if X is less than Y.
   
 
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation">collation</a>.
+
 </td>
 </tr>
 <tr>
@@ -1346,6 +1348,8 @@ The following rules apply when comparing these data types:
 <td>
   Returns TRUE if X is less than or equal to Y.
   
+
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation">collation</a>.
 
 </td>
 </tr>
@@ -1356,6 +1360,8 @@ The following rules apply when comparing these data types:
   Returns TRUE if X is greater than Y.
   
 
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation">collation</a>.
+
 </td>
 </tr>
 <tr>
@@ -1364,6 +1370,8 @@ The following rules apply when comparing these data types:
 <td>
   Returns TRUE if X is greater than or equal to Y.
   
+
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation">collation</a>.
 
 </td>
 </tr>
@@ -1374,6 +1382,8 @@ The following rules apply when comparing these data types:
   Returns TRUE if X is equal to Y.
   
 
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation">collation</a>.
+
 </td>
 </tr>
 <tr>
@@ -1382,6 +1392,8 @@ The following rules apply when comparing these data types:
 <td>
   Returns TRUE if X is not equal to Y.
   
+
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation">collation</a>.
 
 </td>
 </tr>
@@ -1394,6 +1406,8 @@ The following rules apply when comparing these data types:
     BETWEEN Y AND Z" is equivalent to "Y &lt;= X AND X &lt;= Z" but X is
     evaluated only once in the former.
     
+
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation">collation</a>.
 
   </p>
 </td>
@@ -1424,6 +1438,8 @@ required. For example, <code>r"\%"</code>.</li>
   a literal, although using a literal on the right is most common. X is
   evaluated only once.
   
+
+This operator generally supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation">collation</a>.
 
 </td>
 </tr>
@@ -1734,42 +1750,94 @@ WHERE (info.shape, info.color) IN (('round', 'blue'));
 ### IS operators
 
 IS operators return TRUE or FALSE for the condition they are testing. They never
-return `NULL`, even for `NULL` inputs, unlike the IS\_INF and IS\_NAN functions
-defined in [Mathematical Functions][operators-link-to-math-functions]. If NOT is present,
-the output BOOL value is inverted.
+return `NULL`, even for `NULL` inputs, unlike the `IS_INF` and `IS_NAN`
+functions defined in [Mathematical Functions][operators-link-to-math-functions].
+If `NOT` is present, the output BOOL value is
+inverted.
 
 <table>
-<thead>
-<tr>
-<th>Function Syntax</th>
-<th>Input Data Type</th>
-<th>Result Data Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-  <td><pre>X IS [NOT] NULL</pre></td>
-<td>Any value type</td>
-<td>BOOL</td>
-<td>Returns TRUE if the operand X evaluates to <code>NULL</code>, and returns FALSE
-otherwise.</td>
-</tr>
-<tr>
-  <td><pre>X IS [NOT] TRUE</pre></td>
-<td>BOOL</td>
-<td>BOOL</td>
-<td>Returns TRUE if the BOOL operand evaluates to TRUE. Returns FALSE
-otherwise.</td>
-</tr>
-<tr>
-  <td><pre>X IS [NOT] FALSE</pre></td>
-<td>BOOL</td>
-<td>BOOL</td>
-<td>Returns TRUE if the BOOL operand evaluates to FALSE. Returns FALSE
-otherwise.</td>
-</tr>
-</tbody>
+  <thead>
+    <tr>
+      <th>Function Syntax</th>
+      <th>Input Data Type</th>
+      <th>Result Data Type</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><pre>X IS TRUE</pre></td>
+      <td>BOOL</td>
+      <td>BOOL</td>
+      <td>
+        Evaluates to TRUE if X evaluates to TRUE.
+        Otherwise, evaluates to FALSE.
+      </td>
+    </tr>
+    <tr>
+      <td><pre>X IS NOT TRUE</pre></td>
+      <td>BOOL</td>
+      <td>BOOL</td>
+      <td>
+        Evaluates to FALSE if X evaluates to TRUE.
+        Otherwise, evaluates to TRUE.
+      </td>
+    </tr>
+    <tr>
+      <td><pre>X IS FALSE</pre></td>
+      <td>BOOL</td>
+      <td>BOOL</td>
+      <td>
+        Evaluates to TRUE if X evaluates to FALSE.
+        Otherwise, evaluates to FALSE.
+      </td>
+    </tr>
+    <tr>
+      <td><pre>X IS NOT FALSE</pre></td>
+      <td>BOOL</td>
+      <td>BOOL</td>
+      <td>
+        Evaluates to FALSE if X evaluates to FALSE.
+        Otherwise, evaluates to TRUE.
+      </td>
+    </tr>
+    <tr>
+      <td><pre>X IS NULL</pre></td>
+      <td>Any value type</td>
+      <td>BOOL</td>
+      <td>
+        Evaluates to TRUE if X evaluates to <code>NULL</code>.
+        Otherwise evaluates to FALSE.
+      </td>
+    </tr>
+    <tr>
+      <td><pre>X IS NOT NULL</pre></td>
+      <td>Any value type</td>
+      <td>BOOL</td>
+      <td>
+        Evaluates to FALSE if X evaluates to <code>NULL</code>.
+        Otherwise evaluates to TRUE.
+      </td>
+    </tr>
+    <tr>
+      <td><pre>X IS UNKNOWN</pre></td>
+      <td>BOOL</td>
+      <td>BOOL</td>
+      <td>
+        Evaluates to TRUE if X evaluates to <code>NULL</code>.
+        Otherwise evaluates to FALSE.
+      </td>
+    </tr>
+    <tr>
+      <td><pre>X IS NOT UNKNOWN</pre></td>
+      <td>BOOL</td>
+      <td>BOOL</td>
+      <td>
+        Evaluates to FALSE if X evaluates to <code>NULL</code>.
+        Otherwise, evaluates to TRUE.
+      </td>
+    </tr>
+  </tbody>
 </table>
 
 ### IS DISTINCT FROM operator 
@@ -1848,6 +1916,336 @@ SELECT 1 IS NOT DISTINCT FROM 2
 SELECT 1 IS NOT DISTINCT FROM NULL
 ```
 
+### IFERROR operator 
+<a id="iferror_operator"></a>
+
+```sql
+IFERROR(try_expression, catch_expression)
+```
+
+**Description**
+
+Evaluates `try_expression`.
+
+When `try_expression` is evaluated:
+
++ If the evaluation of `try_expression` does not produce an error, then
+  `IFERROR` returns the result of `try_expression` without evaluating
+  `catch_expression`.
++ If the evaluation of `try_expression` produces a system error, then `IFERROR`
+  produces that system error.
++ If the evaluation of `try_expression` produces an evaluation error, then
+  `IFERROR` suppresses that evaluation error and evaluates `catch_expression`.
+
+If `catch_expression` is evaluated:
+
++ If the evaluation of `catch_expression` does not produce an error, then
+  `IFERROR` returns the result of `catch_expression`.
++ If the evaluation of `catch_expression` produces any error, then `IFERROR`
+  produces that error.
+
+**Arguments**
+
++ `try_expression`: An expression that returns a scalar value.
++ `catch_expression`: An expression that returns a scalar value.
+
+The results of `try_expression` and `catch_expression` must share a
+[supertype][supertype].
+
+**Return Data Type**
+
+The [supertype][supertype] for `try_expression` and
+`catch_expression`.
+
+**Example**
+
+In the following examples, the query successfully evaluates `try_expression`.
+
+```sql
+SELECT IFERROR('a', 'b') AS result
+
++--------+
+| result |
++--------+
+| a      |
++--------+
+```
+
+```sql
+SELECT IFERROR((SELECT [1,2,3][OFFSET(0)]), -1) AS result
+
++--------+
+| result |
++--------+
+| 1      |
++--------+
+```
+
+In the following examples, `IFERROR` catches an evaluation error in the
+`try_expression` and successfully evaluates `catch_expression`.
+
+```sql
+SELECT IFERROR(ERROR('a'), 'b') AS result
+
++--------+
+| result |
++--------+
+| b      |
++--------+
+```
+
+```sql
+SELECT IFERROR((SELECT [1,2,3][OFFSET(9)]), -1) AS result
+
++--------+
+| result |
++--------+
+| -1     |
++--------+
+```
+
+In the following query, the error is handled by the innermost `IFERROR`
+operation, `IFERROR(ERROR('a'), 'b')`.
+
+```sql
+SELECT IFERROR(IFERROR(ERROR('a'), 'b'), 'c') AS result
+
++--------+
+| result |
++--------+
+| b      |
++--------+
+```
+
+In the following query, the error is handled by the outermost `IFERROR`
+operation, `IFERROR(..., 'c')`.
+
+```sql
+SELECT IFERROR(IFERROR(ERROR('a'), ERROR('b')), 'c') AS result
+
++--------+
+| result |
++--------+
+| c      |
++--------+
+```
+
+In the following example, an evaluation error is produced because the subquery
+passed in as the `try_expression` evaluates to a table, not a scalar value.
+
+```sql
+SELECT IFERROR((SELECT e FROM UNNEST([1, 2]) AS e), 3) AS result
+
++--------+
+| result |
++--------+
+| 3      |
++--------+
+```
+
+In the following example, `IFERROR` catches an evaluation error in `ERROR('a')`
+and then evaluates `ERROR('b')`. Because there is also an evaluation error in
+`ERROR('b')`, `IFERROR` produces an evaluation error for `ERROR('b')`.
+
+```sql
+SELECT IFERROR(ERROR('a'), ERROR('b')) AS result
+
+--ERROR: OUT_OF_RANGE 'b'
+```
+
+### ISERROR operator 
+<a id="iserror_operator"></a>
+
+```sql
+ISERROR(try_expression)
+```
+
+**Description**
+
+Evaluates `try_expression`.
+
++ If the evaluation of `try_expression` does not produce an error, then
+  `ISERROR` returns `FALSE`.
++ If the evaluation of `try_expression` produces a system error, then `ISERROR`
+  produces that system error.
++ If the evaluation of `try_expression` produces an evaluation error, then
+  `ISERROR` returns `TRUE`.
+
+**Arguments**
+
++ `try_expression`: An expression that returns a scalar value.
+
+**Return Data Type**
+
+`BOOL`
+
+**Example**
+
+In the following examples, `ISERROR` successfully evaluates `try_expression`.
+
+```sql
+SELECT ISERROR('a') AS is_error
+
++----------+
+| is_error |
++----------+
+| false    |
++----------+
+```
+
+```sql
+SELECT ISERROR(2/1) AS is_error
+
++----------+
+| is_error |
++----------+
+| false    |
++----------+
+```
+
+```sql
+SELECT ISERROR((SELECT [1,2,3][OFFSET(0)])) AS is_error
+
++----------+
+| is_error |
++----------+
+| false    |
++----------+
+```
+
+In the following examples, `ISERROR` catches an evaluation error in
+`try_expression`.
+
+```sql
+SELECT ISERROR(ERROR('a')) AS is_error
+
++----------+
+| is_error |
++----------+
+| true     |
++----------+
+```
+
+```sql
+SELECT ISERROR(2/0) AS is_error
+
++----------+
+| is_error |
++----------+
+| true     |
++----------+
+```
+
+```sql
+SELECT ISERROR((SELECT [1,2,3][OFFSET(9)])) AS is_error
+
++----------+
+| is_error |
++----------+
+| true     |
++----------+
+```
+
+In the following example, an evaluation error is produced because the subquery
+passed in as `try_expression` evaluates to a table, not a scalar value.
+
+```sql
+SELECT ISERROR((SELECT e FROM UNNEST([1, 2]) AS e)) AS is_error
+
++----------+
+| is_error |
++----------+
+| true     |
++----------+
+```
+
+### NULLIFERROR operator 
+<a id="nulliferror_operator"></a>
+
+```sql
+NULLIFERROR(try_expression)
+```
+**Description**
+
+Evaluates `try_expression`.
+
++ If the evaluation of `try_expression` does not produce an error, then
+  `NULLIFERROR` returns the result of `try_expression`.
++ If the evaluation of `try_expression` produces a system error, then
+ `NULLIFERROR` produces that system error.
+
++ If the evaluation of `try_expression` produces an evaluation error, then
+  `NULLIFERROR` returns `NULL`.
+
+**Arguments**
+
++ `try_expression`: An expression that returns a scalar value.
+
+**Return Data Type**
+
+The data type for `try_expression` or `NULL`
+
+**Example**
+
+In the following examples, `NULLIFERROR` successfully evaluates
+`try_expression`.
+
+```sql
+SELECT NULLIFERROR('a') AS result
+
++--------+
+| result |
++--------+
+| a      |
++--------+
+```
+
+```sql
+SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(0)])) AS result
+
++--------+
+| result |
++--------+
+| 1      |
++--------+
+```
+
+In the following examples, `NULLIFERROR` catches an evaluation error in
+`try_expression`.
+
+```sql
+SELECT NULLIFERROR(ERROR('a')) AS result
+
++--------+
+| result |
++--------+
+| NULL   |
++--------+
+```
+
+```sql
+SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(9)])) AS result
+
++--------+
+| result |
++--------+
+| NULL   |
++--------+
+```
+
+In the following example, an evaluation error is produced because the subquery
+passed in as `try_expression` evaluates to a table, not a scalar value.
+
+```sql
+SELECT NULLIFERROR((SELECT e FROM UNNEST([1, 2]) AS e)) AS result
+
++--------+
+| result |
++--------+
+| NULL   |
++--------+
+```
+
 ### Concatenation operator
 
 The concatenation operator combines multiple values into one.
@@ -1879,6 +2277,104 @@ The concatenation operator combines multiple values into one.
 </tbody>
 </table>
 
+### WITH operator
+
+```sql
+WITH(variable_assignment[, ...], result_expression)
+
+variable_assignment:
+  variable_name AS expression
+```
+
+**Description**
+
+Create one or more variables. Each variable can be used in subsequent
+expressions within the `WITH` operator. Returns the value of
+`result_expression`.
+
++   `variable_assignment`: Introduces a variable. The variable name must be
+    unique within a given `WITH` expression. Each expression can reference the
+    variables that come before it. For example, if you create variable `a`,
+    then follow it with variable `b`, you can reference `a` inside of `b`'s
+    expression.
+    +   `variable_name`: The name of the variable.
+    +   `expression`: The value to assign to the variable.
++   `result_expression`: An expression that is the `WITH` operator's result.
+    This expression can use all the variables defined before it.
+
+**Return Type**
+
++   The type of the `result_expression`.
+
+**Requirements and Caveats**
+
++   A given variable may only be assigned once in a given `WITH` clause.
++   Variables created during `WITH` may not be used in analytic or
+    aggregate function arguments. For example, `WITH(a AS ..., SUM(a))` produces
+    an error.
++   Volatile expressions (for example,  `RAND()`) behave as if they are
+    evaluated only once.
+
+**Examples**
+
+The following example first concatenates variable `a` with `b`, then variable
+`b` with `c`:
+
+```sql
+SELECT WITH(a AS '123',               -- a is '123'
+            b AS CONCAT(a, '456'),    -- b is '123456
+            c AS '789',               -- c is '789'
+            CONCAT(b, c)) AS result;  -- b + c is '123456789'
+
++-------------+
+| result      |
++-------------+
+| '123456789' |
++-------------+
+```
+
+In the following example, the volatile expression `RAND()` behaves as if it is
+evaluated only once. This means the value of the result expression will always
+be zero:
+
+```sql
+SELECT WITH(a AS RAND(), a - a);
+
++---------+
+| result  |
++---------+
+| 0.0     |
++---------+
+```
+
+Aggregate or analytic function results can be stored in variables. In this
+example, an average is computed:
+
+```sql
+SELECT WITH(s AS SUM(input), c AS COUNT(input), s/c)
+FROM UNNEST([1.0, 2.0, 3.0]) AS input;
+
++---------+
+| result  |
++---------+
+| 2.0     |
++---------+
+```
+
+Variables cannot be used in aggregate or analytic function call arguments:
+
+```sql
+SELECT WITH(diff AS a - b, AVG(diff))
+FROM UNNEST([
+              STRUCT(1 AS a, 2 AS b),
+              STRUCT(3 AS a, 4 AS b),
+              STRUCT(5 AS a, 6 AS b),
+            ]);
+
+-- ERROR: WITH variables like 'diff' cannot be used in aggregate or analytic
+-- function arguments.
+```
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [three-valued-logic]: https://en.wikipedia.org/wiki/Three-valued_logic
@@ -1896,6 +2392,12 @@ The concatenation operator combines multiple values into one.
 [operators-link-to-from-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#from_clause
 
 [operators-link-to-unnest]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unnest_operator
+
+[coercion]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#coercion
+
+[supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
+
+[safe-prefix]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#safe_prefix
 
 [operators-distinct]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_distinct
 
@@ -1948,6 +2450,10 @@ if present; if not present, returns NULL.
 coercible to a common [supertype][cond-exp-supertype]; equality comparisons are
 done on coerced values. There may be multiple `result` types. `result` and
 `else_result` expressions must be coercible to a common supertype.
+
+This expression supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
 
 **Return Data Type**
 
@@ -2003,6 +2509,10 @@ returns `else_result` if present; if not present, returns NULL.
 `condition` must be a boolean expression. There may be multiple `result` types.
 `result` and `else_result` expressions must be implicitly coercible to a
 common [supertype][cond-exp-supertype].
+
+This expression supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
 
 **Return Data Type**
 
@@ -2173,6 +2683,10 @@ returns `expr`.
 `expr` and `expr_to_match` must be implicitly coercible to a
 common [supertype][cond-exp-supertype], and must be comparable.
 
+This expression supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+
 **Return Data Type**
 
 [Supertype][cond-exp-supertype] of `expr` and `expr_to_match`.
@@ -2210,42 +2724,28 @@ SELECT NULLIF(10, 0) as result
 
 ## Aggregate functions
 
-An *aggregate function* is a function that summarizes the rows of a group into a
-single value. `COUNT`, `MIN` and `MAX` are examples of aggregate functions.
-
-```sql
-SELECT COUNT(*) as total_count, COUNT(fruit) as non_null_count,
-       MIN(fruit) as min, MAX(fruit) as max
-FROM (SELECT NULL as fruit UNION ALL
-      SELECT "apple" as fruit UNION ALL
-      SELECT "pear" as fruit UNION ALL
-      SELECT "orange" as fruit)
-
-+-------------+----------------+-------+------+
-| total_count | non_null_count | min   | max  |
-+-------------+----------------+-------+------+
-| 4           | 3              | apple | pear |
-+-------------+----------------+-------+------+
-```
-
-When used in conjunction with a `GROUP BY` clause, the groups summarized
-typically have at least one row. When the associated `SELECT` has no `GROUP BY`
-clause or when certain aggregate function modifiers filter rows from the group
-to be summarized it is possible that the aggregate function needs to summarize
-an empty group. In this case, the `COUNT` and `COUNTIF` functions return `0`,
-while all other aggregate functions return `NULL`.
-
-The following sections describe the aggregate functions that ZetaSQL
-supports.
+The following general aggregate functions are available in ZetaSQL.
+To learn about the syntax for aggregate function calls, see
+[Aggregate function calls][agg-function-calls].
 
 ### ANY_VALUE
 
 ```sql
 ANY_VALUE(
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -2257,29 +2757,27 @@ rows. Returns `NULL` when `expression` is `NULL` for all rows in the group.
 `ANY_VALUE` behaves as if `RESPECT NULLS` is specified;
 rows for which `expression` is `NULL` are considered and may be selected.
 
-**Supported Argument Types**
-
-Any
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+**Supported Argument Types**
+
+Any
 
 **Returned Data Types**
 
@@ -2314,68 +2812,54 @@ FROM UNNEST(["apple", "banana", "pear"]) as fruit;
 ```
 
 ### ARRAY_AGG
+
 ```sql
 ARRAY_AGG(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [{IGNORE|RESPECT} NULLS]
-  [HAVING {MAX | MIN} expression2]
-  [ORDER BY key [{ASC|DESC}] [, ... ]]
-  [LIMIT n]
+  [ { IGNORE | RESPECT } NULLS ]
+  [ HAVING { MAX | MIN } expression2 ]
+  [ ORDER BY key [ { ASC | DESC } ] [, ... ] ]
+  [ LIMIT n ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
 
 Returns an ARRAY of `expression` values.
 
-**Supported Argument Types**
-
-All data types except ARRAY.
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `IGNORE NULLS` or `RESPECT NULLS`: If `IGNORE NULLS` is
-    specified, the `NULL` values are excluded from the result. If
-    `RESPECT NULLS` is specified, the `NULL` values are included in the
-    result. If
-    neither is specified, the `NULL` values are included in the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
-1.  `ORDER BY`: Specifies the order of the values.
-    *   For each sort key, the default sort direction is `ASC`.
-    *   NULLs: In the context of the `ORDER BY` clause, NULLs are the minimum
-        possible value; that is, NULLs appear first in `ASC` sorts and last in
-        `DESC` sorts.
-    *   Floating point data types: see
-        [Floating Point Semantics][floating-point-semantics]
-        on ordering and grouping.
-    *   If `DISTINCT` is also specified, then
-        the sort key must be the same as `expression`.
-    *   If `ORDER BY` is not specified, the order of the elements in the output
-        array is non-deterministic, which means you might receive a different
-        result each time you use this function.
-1.  `LIMIT`: Specifies the maximum number of `expression` inputs in the
-    result.
-    The limit `n` must be a constant INT64.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+**Supported Argument Types**
+
+All data types except ARRAY.
 
 **Returned Data Types**
 
@@ -2446,7 +2930,7 @@ WITH vals AS
     SELECT -2 x UNION ALL
     SELECT 3 x UNION ALL
     SELECT -2 x UNION ALL
-    SELECT 1 x UNION ALL
+    SELECT 1 x
   )
 SELECT ARRAY_AGG(DISTINCT x ORDER BY x) as array_agg
 FROM vals;
@@ -2502,9 +2986,9 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 ```sql
 ARRAY_CONCAT_AGG(
   expression
-  [HAVING {MAX | MIN} expression2]
-  [ORDER BY key [{ASC|DESC}] [, ... ]]
-  [LIMIT n]
+  [ HAVING { MAX | MIN } expression2 ]
+  [ ORDER BY key [ { ASC | DESC } ] [, ... ] ]
+  [ LIMIT n ]
 )
 ```
 
@@ -2515,44 +2999,18 @@ ARRAY, returning a single
 ARRAY as a result. This function ignores NULL input
 arrays, but respects the NULL elements in non-NULL input arrays.
 
-**Supported Argument Types**
-
-ARRAY
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
-1.  `ORDER BY`: Specifies the order of the values.
-    *   For each sort key, the default sort direction is `ASC`.
-    *   NULLs: In the context of the `ORDER BY` clause, NULLs are the minimum
-        possible value; that is, NULLs appear first in `ASC` sorts and last in
-        `DESC` sorts.
-    *   Floating point data types: see
-        [Floating Point Semantics][floating-point-semantics]
-        on ordering and grouping.
-    *   If `ORDER BY` is not specified, the order of the elements in the output
-        array is non-deterministic, which means you might receive a different
-        result each time you use this function.
-1.  `LIMIT`: Specifies the maximum number of `expression` inputs in the
-    result.
-    The limit applies to the number of input arrays, not
-    the number of elements in the arrays. An empty array counts as 1. A NULL
-    array is not counted.
-    The limit `n` must be a constant INT64.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
+
+**Supported Argument Types**
+
+ARRAY
 
 **Returned Data Types**
 
@@ -2621,13 +3079,24 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x) LIMIT 2) AS array_concat_agg 
 ```
 
 ### AVG
+
 ```sql
 AVG(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -2635,33 +3104,29 @@ AVG(
 Returns the average of non-`NULL` input values, or `NaN` if the input contains a
 `NaN`.
 
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
 **Supported Argument Types**
 
 Any numeric input type, such as  INT64. Note that, for
 floating point input types, the return result is non-deterministic, which
 means you might receive a different result each time you use this function.
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -2721,11 +3186,12 @@ FROM UNNEST([0, 2, NULL, 4, 4, 5]) AS x;
 ```
 
 ### BIT_AND
+
 ```sql
 BIT_AND(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
 ```
 
@@ -2733,32 +3199,21 @@ BIT_AND(
 
 Performs a bitwise AND operation on `expression` and returns the result.
 
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
+
 **Supported Argument Types**
 
 + UINT32
 + UINT64
 + INT32
 + INT64
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -2777,11 +3232,12 @@ SELECT BIT_AND(x) as bit_and FROM UNNEST([0xF001, 0x00A1]) as x;
 ```
 
 ### BIT_OR
+
 ```sql
 BIT_OR(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
 ```
 
@@ -2789,32 +3245,21 @@ BIT_OR(
 
 Performs a bitwise OR operation on `expression` and returns the result.
 
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
+
 **Supported Argument Types**
 
 + UINT32
 + UINT64
 + INT32
 + INT64
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -2833,11 +3278,12 @@ SELECT BIT_OR(x) as bit_or FROM UNNEST([0xF001, 0x00A1]) as x;
 ```
 
 ### BIT_XOR
+
 ```sql
 BIT_XOR(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
 ```
 
@@ -2845,32 +3291,21 @@ BIT_XOR(
 
 Performs a bitwise XOR operation on `expression` and returns the result.
 
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
+
 **Supported Argument Types**
 
 + UINT32
 + UINT64
 + INT32
 + INT64
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -2913,18 +3348,29 @@ SELECT BIT_XOR(DISTINCT x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
 1.
 
 ```sql
-COUNT(*)  [OVER (...)]
+COUNT(*)
+[OVER over_clause]
 ```
 
 2.
 
 ```sql
 COUNT(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -2933,33 +3379,33 @@ COUNT(
 2. Returns the number of rows with `expression` evaluated to any value other
    than `NULL`.
 
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+This function with DISTINCT supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+
 **Supported Argument Types**
 
 `expression` can be any data type. If
 `DISTINCT` is present, `expression` can only be a data type that is
 [groupable][agg-data-type-properties].
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
 
 **Return Data Types**
 
@@ -3073,13 +3519,24 @@ FROM Events;
 ```
 
 ### COUNTIF
+
 ```sql
 COUNTIF(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -3102,31 +3559,27 @@ COUNT(DISTINCT IF(condition, expression, NULL))
 Note that this uses `COUNT`, not `COUNTIF`; the `IF` part has been moved inside.
 To learn more, see the examples for [`COUNT`](#count).
 
-**Supported Argument Types**
-
-BOOL
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+**Supported Argument Types**
+
+BOOL
 
 **Return Data Types**
 
@@ -3167,12 +3620,23 @@ FROM UNNEST([5, -2, 3, 6, -10, NULL, -7, 4, 0]) AS x;
 ```
 
 ### LOGICAL_AND
+
 ```sql
 LOGICAL_AND(
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -3180,29 +3644,27 @@ LOGICAL_AND(
 Returns the logical AND of all non-`NULL` expressions. Returns `NULL` if there
 are zero input rows or `expression` evaluates to `NULL` for all rows.
 
-**Supported Argument Types**
-
-BOOL
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+**Supported Argument Types**
+
+BOOL
 
 **Return Data Types**
 
@@ -3221,12 +3683,23 @@ SELECT LOGICAL_AND(x) AS logical_and FROM UNNEST([true, false, true]) AS x;
 ```
 
 ### LOGICAL_OR
+
 ```sql
 LOGICAL_OR(
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -3234,29 +3707,27 @@ LOGICAL_OR(
 Returns the logical OR of all non-`NULL` expressions. Returns `NULL` if there
 are zero input rows or `expression` evaluates to `NULL` for all rows.
 
-**Supported Argument Types**
-
-BOOL
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+**Supported Argument Types**
+
+BOOL
 
 **Return Data Types**
 
@@ -3275,12 +3746,23 @@ SELECT LOGICAL_OR(x) AS logical_or FROM UNNEST([true, false, true]) AS x;
 ```
 
 ### MAX
+
 ```sql
 MAX(
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -3289,29 +3771,31 @@ Returns the maximum value of non-`NULL` expressions. Returns `NULL` if there
 are zero input rows or `expression` evaluates to `NULL` for all rows.
 Returns `NaN` if the input contains a `NaN`.
 
-**Supported Argument Types**
-
-Any [orderable data type][agg-data-type-properties].
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+
+**Supported Argument Types**
+
+Any [orderable data type][agg-data-type-properties].
 
 **Return Data Types**
 
@@ -3347,12 +3831,23 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 ```
 
 ### MIN
+
 ```sql
 MIN(
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -3361,29 +3856,31 @@ Returns the minimum value of non-`NULL` expressions. Returns `NULL` if there
 are zero input rows or `expression` evaluates to `NULL` for all rows.
 Returns `NaN` if the input contains a `NaN`.
 
-**Supported Argument Types**
-
-Any [orderable data type][agg-data-type-properties].
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+
+**Supported Argument Types**
+
+Any [orderable data type][agg-data-type-properties].
 
 **Return Data Types**
 
@@ -3419,77 +3916,62 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 ```
 
 ### STRING_AGG
+
 ```sql
 STRING_AGG(
-  [DISTINCT]
+  [ DISTINCT ]
   expression [, delimiter]
-  [HAVING {MAX | MIN} expression2]
-  [ORDER BY key [{ASC|DESC}] [, ... ]]
-  [LIMIT n]
+  [ HAVING { MAX | MIN } expression2 ]
+  [ ORDER BY key [ { ASC | DESC } ] [, ... ] ]
+  [ LIMIT n ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
 
-Returns a value (either STRING or
-BYTES) obtained by concatenating non-null values.
-Returns `NULL` if there are zero input rows or `expression` evaluates to
-`NULL` for all rows.
+Returns a value (either `STRING` or `BYTES`) obtained by concatenating
+non-`NULL` values. Returns `NULL` if there are zero input rows or `expression`
+evaluates to `NULL` for all rows.
 
 If a `delimiter` is specified, concatenated values are separated by that
 delimiter; otherwise, a comma is used as a delimiter.
 
-**Supported Argument Types**
-
-STRING
-BYTES
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
-1.  `ORDER BY`: Specifies the order of the values.
-    *   For each sort key, the default sort direction is `ASC`.
-    *   NULLs: In the context of the `ORDER BY` clause, NULLs are the minimum
-        possible value; that is, NULLs appear first in `ASC` sorts and last in
-        `DESC` sorts.
-    *   Floating point data types: see
-        [Floating Point Semantics][floating-point-semantics]
-        on ordering and grouping.
-    *   If `DISTINCT` is also specified, then
-        the sort key must be the same as `expression`.
-    *   If `ORDER BY` is not specified, the order of the elements in the output
-        array is non-deterministic, which means you might receive a different
-        result each time you use this function.
-1.  `LIMIT`: Specifies the maximum number of `expression` inputs in the
-    result.
-    The limit applies to the number of input strings,
-    not the number of characters or bytes in the inputs. An empty string counts
-    as 1. A NULL string is not counted.
-    The limit `n` must be a constant INT64.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
 
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+**Supported Argument Types**
+
+Either `STRING` or `BYTES`.
+
 **Return Data Types**
 
-STRING
-BYTES
+Either `STRING` or `BYTES`.
 
 **Examples**
 
@@ -3577,13 +4059,24 @@ FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
 ```
 
 ### SUM
+
 ```sql
 SUM(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -3593,31 +4086,27 @@ Returns the sum of non-null values.
 If the expression is a floating point value, the sum is non-deterministic, which
 means you might receive a different result each time you use this function.
 
-**Supported Argument Types**
-
-Any supported numeric data types and INTERVAL.
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+**Supported Argument Types**
+
+Any supported numeric data types and INTERVAL.
 
 **Return Data Types**
 
@@ -3725,97 +4214,38 @@ FROM UNNEST([]) AS x;
 +------+
 ```
 
-### Common clauses
-
-#### HAVING MAX and HAVING MIN clause 
-<a id="max_min_clause"></a>
-
-Most aggregate functions support two optional clauses called `HAVING MAX` and
-`HAVING MIN`, which restricts the set of rows that a function aggregates to
-rows that have a maximal or minimal value in a particular column. The syntax
-generally looks like this:
-
-```sql
-aggregate_function(expression1 [HAVING {MAX | MIN} expression2])
-```
-
-+ `HAVING MAX`: Restricts the set of rows that the
-  function aggregates to those having a value for `expression2` equal to the
-  maximum value for `expression2` within the group. The  maximum value is
-  equal to the result of `MAX(expression2)`.
-+ `HAVING MIN` Restricts the set of rows that the
-  function aggregates to those having a value for `expression2` equal to the
-  minimum value for `expression2` within the group. The minimum value is
-  equal to the result of `MIN(expression2)`.
-
-These clauses ignore `NULL` values when computing the maximum or minimum
-value unless `expression2` evaluates to `NULL` for all rows.
-
- These clauses only support
-[orderable data types][agg-data-type-properties].
-
-**Example**
-
-In this example, the average rainfall is returned for the most recent year,
-2001.
-
-```sql
-WITH Precipitation AS
- (SELECT 2001 as year, 'spring' as season, 9 as inches UNION ALL
-  SELECT 2001, 'winter', 1 UNION ALL
-  SELECT 2000, 'fall', 3 UNION ALL
-  SELECT 2000, 'summer', 5 UNION ALL
-  SELECT 2000, 'spring', 7 UNION ALL
-  SELECT 2000, 'winter', 2)
-SELECT AVG(inches HAVING MAX year) as average FROM Precipitation
-
-+---------+
-| average |
-+---------+
-| 5       |
-+---------+
-```
-
-First, the query gets the rows with the maximum value in the `year` column.
-There are two:
-
-```sql
-+------+--------+--------+
-| year | season | inches |
-+------+--------+--------+
-| 2001 | spring | 9      |
-| 2001 | winter | 1      |
-+------+--------+--------+
-```
-
-Finally, the query averages the values in the `inches` column (9 and 1) with
-this result:
-
-```sql
-+---------+
-| average |
-+---------+
-| 5       |
-+---------+
-```
-
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
+
+[agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
 
 ## Statistical aggregate functions
 
-ZetaSQL supports the following statistical aggregate functions.
+The following statistical aggregate functions are available in
+ZetaSQL. To learn about the syntax for aggregate function calls, see
+[Aggregate function calls][agg-function-calls].
 
 ### CORR
+
 ```sql
 CORR(
   X1, X2
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -3836,23 +4266,21 @@ This function ignores any input pairs that contain one or more NULL values. If
 there are fewer than two input pairs without NULL values, this function returns
 NULL.
 
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+<!-- mdlint on -->
 
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 <!-- mdlint on -->
 
@@ -3861,12 +4289,23 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### COVAR_POP
+
 ```sql
 COVAR_POP(
   X1, X2
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -3886,23 +4325,21 @@ This function ignores any input pairs that contain one or more NULL values. If
 there is no input pair without NULL values, this function returns NULL. If there
 is exactly one input pair without NULL values, this function returns 0.
 
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+<!-- mdlint on -->
 
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 <!-- mdlint on -->
 
@@ -3911,12 +4348,23 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### COVAR_SAMP
+
 ```sql
 COVAR_SAMP(
   X1, X2
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -3936,23 +4384,21 @@ This function ignores any input pairs that contain one or more NULL values. If
 there are fewer than two input pairs without NULL values, this function returns
 NULL.
 
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+<!-- mdlint on -->
 
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 <!-- mdlint on -->
 
@@ -3961,13 +4407,24 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### STDDEV_POP
+
 ```sql
 STDDEV_POP(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -3986,25 +4443,21 @@ returns NULL.
 
 If this function receives a single non-NULL input, it returns `0`.
 
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+<!-- mdlint on -->
 
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 <!-- mdlint on -->
 
@@ -4013,13 +4466,24 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### STDDEV_SAMP
+
 ```sql
 STDDEV_SAMP(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -4036,25 +4500,21 @@ before aggregation, resulting in a potentially unstable result.
 This function ignores any NULL inputs. If there are fewer than two non-NULL
 inputs, this function returns NULL.
 
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+<!-- mdlint on -->
 
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 <!-- mdlint on -->
 
@@ -4063,13 +4523,24 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### STDDEV
+
 ```sql
 STDDEV(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -4077,13 +4548,24 @@ STDDEV(
 An alias of [STDDEV_SAMP][stat-agg-link-to-stddev-samp].
 
 ### VAR_POP
+
 ```sql
 VAR_POP(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -4102,25 +4584,12 @@ returns NULL.
 
 If this function receives a single non-NULL input, it returns `0`.
 
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 <!-- mdlint on -->
 
@@ -4129,13 +4598,24 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### VAR_SAMP
+
 ```sql
 VAR_SAMP(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -4152,25 +4632,21 @@ before aggregation, resulting in a potentially unstable result.
 This function ignores any NULL inputs. If there are fewer than two non-NULL
 inputs, this function returns NULL.
 
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: #max_min_clause
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+<!-- mdlint on -->
 
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 <!-- mdlint on -->
 
@@ -4179,13 +4655,24 @@ The clauses are applied *in the following order*:
 `DOUBLE`
 
 ### VARIANCE
+
 ```sql
 VARIANCE(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -4202,10 +4689,16 @@ An alias of [VAR_SAMP][stat-agg-link-to-var-samp].
 
 [stat-agg-link-to-var-samp]: #var_samp
 
+[agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
 <!-- mdlint on -->
 
 ## Anonymization aggregate functions 
 <a id="aggregate_anonymization_functions"></a>
+
+The following anonymization aggregate functions are available in
+ZetaSQL. For an explanation of how aggregate functions work, see
+[Aggregate function calls][agg-function-calls].
 
 Anonymization aggregate functions can transform user data into anonymous
 information. This is done in such a way that it is not reasonably likely that
@@ -4231,6 +4724,15 @@ per-anonymization ID averages.
 
 `expression` can be any numeric input type, such as
 INT64.
+
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
 
 **Return type**
 
@@ -4363,6 +4865,15 @@ aggregation across anonymization IDs.
 You can [clamp the input values explicitly][anon-clamp], otherwise
 input values are clamped implicitly. Clamping is performed per anonymization ID.
 
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
+
 **Return type**
 
 `INT64`
@@ -4426,6 +4937,15 @@ range [0, 1]. You can [clamp the input values][anon-clamp] explicitly,
 otherwise input values are clamped implicitly. Clamping is performed per
 anonymization ID.
 
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
+
 Caveats:
 
 + `NUMERIC` arguments are not allowed. If you need them, cast them to
@@ -4464,6 +4984,60 @@ GROUP BY item;
 +----------+----------------------+
 ```
 
+### ANON_QUANTILES
+
+```sql
+ANON_QUANTILES(expression, number CLAMPED BETWEEN lower AND upper)
+```
+
+**Description**
+
+Returns an array of anonymized quantile boundaries for values in `expression`.
+`number` represents the number of quantiles to create and must be an
+`INT64`. The first element in the return value is the
+minimum quantile boundary and the last element is the maximum quantile boundary.
+`lower` and `upper` are the explicit bounds wherein the
+[input values are clamped][anon-clamp]. The returned results are aggregations
+across anonymization IDs.
+
+Caveats:
+
++ `NUMERIC` arguments are not allowed. If you need them, cast them to
+  `DOUBLE` first.
++ `BIGNUMERIC` arguments are not allowed. If you need them, cast them to
+  `DOUBLE` first.
++ `NULL`s are always ignored. If all inputs are ignored, this function returns
+  `NULL`.
+
+**Return type**
+
+`ARRAY`<`DOUBLE`>
+
+**Examples**
+
+The following anonymized query gets the five quantile boundaries of the four
+quartiles of the number of items requested. Smaller aggregations may not be
+included. This query references a view called
+[`view_on_professors`][anon-example-views].
+
+```sql
+-- With noise
+SELECT
+  WITH ANONYMIZATION OPTIONS(epsilon=10, delta=.01, kappa=1)
+  item, ANON_QUANTILES(quantity, 4 CLAMPED BETWEEN 0 AND 100) quantiles_requested
+FROM view_on_professors
+GROUP BY item;
+
+-- These results will change each time you run the query.
+-- Smaller aggregations may be removed.
++----------+----------------------------------------------------------------------+
+| item     | quantiles_requested                                                  |
++----------+----------------------------------------------------------------------+
+| pen      | [6.409375,20.647684733072918,41.40625,67.30848524305556,99.80078125] |
+| pencil   | [6.849259,44.010416666666664,62.64204,65.83806818181819,98.59375]    |
++----------+----------------------------------------------------------------------+
+```
+
 ### ANON_STDDEV_POP
 
 ```sql
@@ -4477,6 +5051,15 @@ the values in the expression. The final result is an aggregation across
 anonymization IDs between `0` and `+Inf`. You can
 [clamp the input values][anon-clamp] explicitly, otherwise input values are
 clamped implicitly. Clamping is performed per individual user values.
+
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
 
 Caveats:
 
@@ -4531,6 +5114,15 @@ anonymization ID.
 
 The expression can be any numeric input type, such as
 `INT64`.
+
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
 
 **Return type**
 
@@ -4595,6 +5187,15 @@ anonymization IDs between `0` and `+Inf`. You can
 [clamp the input values][anon-clamp] explicitly, otherwise input values are
 clamped implicitly. Clamping is performed per individual user values.
 
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
+
 Caveats:
 
 + `NUMERIC` arguments are not allowed. If you need them, cast them to
@@ -4633,119 +5234,9 @@ GROUP BY item;
 +----------+-----------------+
 ```
 
-### CLAMPED BETWEEN clause 
-<a id="anon_clamping"></a>
-
-```sql
-CLAMPED BETWEEN lower_bound AND upper_bound
-```
-
-Clamping of aggregations is done to avoid the re-identifiability
-of outliers. The `CLAMPED BETWEEN` clause [explicitly clamps][anon-exp-clamp]
-each aggregate contribution per anonymization ID within the specified range.
-This clause is optional. If you do not include it in an anonymization aggregate
-function, [clamping is implicit][anon-imp-clamp].
-
-**Examples**
-
-The following anonymized query clamps each aggregate contribution per
-anonymization ID and within a specified range (`0` and `100`). As long as all
-or most values fall within this range, your results will be accurate. This query
-references a view called [`view_on_professors`][anon-example-views].
-
-```sql
---Without noise (this un-noised version is for demonstration only)
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=1)
-  item, ANON_AVG(quantity CLAMPED BETWEEN 0 AND 100) average_quantity
-FROM view_on_professors
-GROUP BY item;
-
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| scissors | 8                |
-| pencil   | 40               |
-| pen      | 18.5             |
-+----------+------------------+
-```
-
-Notice what happens when most or all values fall outside of the clamped range.
-To get accurate results, ensure that the difference between the upper and lower
-bound is as small as possible while most inputs are between the upper and lower
-bound.
-
-```sql {.bad}
---Without noise (this un-noised version is for demonstration only)
-SELECT
-  WITH ANONYMIZATION OPTIONS(epsilon=1e20, delta=.01, kappa=1)
-  item, ANON_AVG(quantity CLAMPED BETWEEN 50 AND 100) average_quantity
-FROM view_on_professors
-GROUP BY item;
-
-+----------+------------------+
-| item     | average_quantity |
-+----------+------------------+
-| scissors | 54               |
-| pencil   | 58               |
-| pen      | 51               |
-+----------+------------------+
-```
-
-Note: You can learn more about when and when not to use
-noise [here][anon-noise].
-
-### Explicit clamping 
-<a id="anon_explicit_clamping"></a>
-
-In an anonymization aggregate function, the [`CLAMPED BETWEEN`][anon-clamp]
-clause explicitly clamps the total contribution from each anonymization ID to
-within a specified range.
-
-Explicit bounds are uniformly applied to all aggregations.  So even if some
-aggregations have a wide range of values, and others have a narrow range of
-values, the same bounds are applied to all of them.  On the other hand, when
-[implicit bounds][anon-imp-clamp] are inferred from the data, the bounds applied
-to each aggregation can be different.
-
-Explicit bounds should be chosen to reflect public information.
-For example, bounding ages between 0 and 100 reflects public information
-because in general, the age of most people falls within this range.
-
-Important: The results of the query reveal the explicit bounds. Do not use
-explicit bounds based on the user data; explicit bounds should be based on
-public information.
-
-### Implicit clamping 
-<a id="anon_implicit_clamping"></a>
-
-In an anonymization aggregate function, the [`CLAMPED BETWEEN`][anon-clamp]
-clause is optional. If you do not include this clause, clamping is implicit,
-which means bounds are derived from the data itself in a differentially
-private way. The process is somewhat random, so aggregations with identical
-ranges can have different bounds.
-
-Implicit bounds are determined per aggregation. So if some
-aggregations have a wide range of values, and others have a narrow range of
-values, implicit bounding can identify different bounds for different
-aggregations as appropriate. This may be an advantage or a disadvantage
-depending on your use case: different bounds for different aggregations
-can result in lower error, but this also means that different
-aggregations have different levels of uncertainty, which may not be
-directly comparable. [Explicit bounds][anon-exp-clamp], on the other hand,
-apply uniformly to all aggregations and should be derived from public
-information.
-
-When clamping is implicit, part of the total epsilon is spent picking bounds.
-This leaves less epsilon for aggregations, so these aggregations are noisier.
-
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[anon-clamp]: #anon_clamping
-
-[anon-exp-clamp]: #anon_explicit_clamping
-
-[anon-imp-clamp]: #anon_implicit_clamping
+[anon-clamp]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md#anon_clamping
 
 [anon-syntax]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md
 
@@ -4755,9 +5246,15 @@ This leaves less epsilon for aggregations, so these aggregations are noisier.
 
 [anon-noise]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md#eliminate_noise
 
+[agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
 <!-- mdlint on -->
 
 ## Approximate aggregate functions
+
+The following approximate aggregate functions are available in
+ZetaSQL. To learn about the syntax for aggregate function calls, see
+[Aggregate function calls][agg-function-calls].
 
 Approximate aggregate functions are scalable in terms of memory usage and time,
 but produce approximate results instead of exact results. These functions
@@ -4773,7 +5270,7 @@ _do not allow_ users to specify the precision for the estimation with
 sketches. If you would like specify precision with sketches, see:
 
 +  [HyperLogLog++ functions][hll-functions] to estimate cardinality.
-+  [KLL16 functions][kll-functions] to estimate quantile values.
++  [KLL functions][kll-functions] to estimate quantile values.
 
 ### APPROX_COUNT_DISTINCT
 
@@ -4798,16 +5295,6 @@ Any data type **except**:
 `STRUCT`
 `PROTO`
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
-
 **Returned Data Types**
 
 INT64
@@ -4829,10 +5316,10 @@ FROM UNNEST([0, 1, 1, 2, 3, 5]) as x;
 
 ```sql
 APPROX_QUANTILES(
-  [DISTINCT]
+  [ DISTINCT ]
   expression, number
-  [{IGNORE|RESPECT} NULLS]
-  [HAVING {MAX | MIN} expression2]
+  [ { IGNORE | RESPECT } NULLS ]
+  [ HAVING { MAX | MIN } expression2 ]
 )
 ```
 
@@ -4843,6 +5330,15 @@ Returns the approximate boundaries for a group of `expression` values, where
 an array of `number` + 1 elements, where the first element is the approximate
 minimum and the last element is the approximate maximum.
 
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
+
 **Supported Argument Types**
 
 `expression` can be any supported data type **except**:
@@ -4851,31 +5347,6 @@ minimum and the last element is the approximate maximum.
 `PROTO`
 
 `number` must be INT64.
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `IGNORE NULLS` or `RESPECT NULLS`: If `IGNORE NULLS` is
-    specified, the `NULL` values are excluded from the result. If
-    `RESPECT NULLS` is specified, the `NULL` values are included in the
-    result. If neither is specified, the `NULL`
-    values are excluded from the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -4947,7 +5418,7 @@ FROM UNNEST([NULL, NULL, 1, 1, 1, 4, 5, 6, 7, 8, 9, 10]) AS x;
 ```sql
 APPROX_TOP_COUNT(
   expression, number
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
 ```
 
@@ -4956,27 +5427,20 @@ APPROX_TOP_COUNT(
 Returns the approximate top elements of `expression`. The `number` parameter
 specifies the number of elements returned.
 
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
+
 **Supported Argument Types**
 
 `expression` can be of any data type that the `GROUP BY` clause supports.
 
 `number` must be INT64.
-
-**Optional Clause**
-
-`HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -5021,7 +5485,7 @@ FROM UNNEST([NULL, "pear", "pear", "pear", "apple", NULL]) as x;
 ```sql
 APPROX_TOP_SUM(
   expression, weight, number
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
 ```
 
@@ -5033,41 +5497,28 @@ returned.
 
 If the `weight` input is negative or `NaN`, this function returns an error.
 
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
+
 **Supported Argument Types**
 
 `expression` can be of any data type that the `GROUP BY` clause supports.
 
 `weight` must be one of the following:
 
-<ul>
-<li>INT64</li>
-
-<li>UINT64</li>
-
-<li>NUMERIC</li>
-
-<li>BIGNUMERIC</li>
-
-<li>DOUBLE</li>
-</ul>
++ `INT64`
++ `UINT64`
++ `NUMERIC`
++ `BIGNUMERIC`
++ `DOUBLE`
 
 `number` must be INT64.
-
-**Optional Clause**
-
-`HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -5140,30 +5591,32 @@ UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
 
 [hll-functions]: #hyperloglog_functions
 
-[kll-functions]: #kll16_quantile_functions
+[kll-functions]: #kll_quantile_functions
 
 [aggregate-functions-reference]: #aggregate_functions
+
+[agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
 
 ## HyperLogLog++ functions
 
-The [HyperLogLog++ algorithm (HLL++)][hll-algorithm] estimates
-[cardinality][cardinality] from [sketches][hll-sketches]. If you do not want
-to work with sketches and do not need customized precision, consider
-using [approximate aggregate functions with system-defined precision][approx-functions-reference].
+The [HyperLogLog++ algorithm (HLL++)][hll-sketches] estimates
+[cardinality][cardinality] from [sketches][hll-sketches].
 
 HLL++ functions are approximate aggregate functions.
 Approximate aggregation typically requires less
-memory than [exact aggregation functions][aggregate-functions-reference],
-like `COUNT(DISTINCT)`, but also introduces statistical uncertainty.
+memory than exact aggregation functions,
+like [`COUNT(DISTINCT)`][count-distinct], but also introduces statistical error.
 This makes HLL++ functions appropriate for large data streams for
 which linear memory usage is impractical, as well as for data that is
 already approximate.
 
-Note: While `APPROX_COUNT_DISTINCT` is also returning approximate count results,
-the functions from this section allow for partial aggregations and
-re-aggregations.
+If you do not need materialized sketches, you can alternatively use an
+[approximate aggregate function with system-defined precision][approx-functions-reference],
+such as [`APPROX_COUNT_DISTINCT`][approx-count-distinct]. However,
+`APPROX_COUNT_DISTINCT` does not allow partial aggregations, re-aggregations,
+and custom precision.
 
 ZetaSQL supports the following HLL++ functions:
 
@@ -5183,32 +5636,14 @@ you can extract the final count of distinct values from the sketch using
 
 This function supports an optional parameter, `precision`. This parameter
 defines the accuracy of the estimate at the cost of additional memory required
-to process the sketches or store them on disk. The following table shows the
-allowed precision values, the maximum sketch size per group, and confidence
-interval (CI) of typical precisions:
-
-|   Precision  | Max. Sketch Size (KiB) | 65% CI | 95% CI | 99% CI |
-|--------------|------------------------|--------|--------|--------|
-| 10           | 1                      | ±3.25% | ±6.50% | ±9.75% |
-| 11           | 2                      | ±2.30% | ±4.60% | ±6.89% |
-| 12           | 4                      | ±1.63% | ±3.25% | ±4.88% |
-| 13           | 8                      | ±1.15% | ±2.30% | ±3.45% |
-| 14           | 16                     | ±0.81% | ±1.63% | ±2.44% |
-| 15 (default) | 32                     | ±0.57% | ±1.15% | ±1.72% |
-| 16           | 64                     | ±0.41% | ±0.81% | ±1.22% |
-| 17           | 128                    | ±0.29% | ±0.57% | ±0.86% |
-| 18           | 256                    | ±0.20% | ±0.41% | ±0.61% |
-| 19           | 512                    | ±0.14% | ±0.29% | ±0.43% |
-| 20           | 1024                   | ±0.10% | ±0.20% | ±0.30% |
-| 21           | 2048                   | ±0.07% | ±0.14% | ±0.22% |
-| 22           | 4096                   | ±0.05% | ±0.10% | ±0.15% |
-| 23           | 8192                   | ±0.04% | ±0.07% | ±0.11% |
-| 24           | 16384                  | ±0.03% | ±0.05% | ±0.08% |
+to process the sketches or store them on disk. The range for this value is
+`10` to `24`. The default value is `15`. For more information about precision,
+see [Precision for sketches][precision].
 
 If the input is `NULL`, this function returns `NULL`.
 
-For more information, see
-[HyperLogLog in Practice: Algorithmic Engineering of a State of The Art Cardinality Estimation Algorithm][hll-link-to-research-whitepaper].
+For more information, see [HyperLogLog in Practice: Algorithmic Engineering of
+a State of The Art Cardinality Estimation Algorithm][hll-link-to-research-whitepaper].
 
 **Supported input types**
 
@@ -5381,67 +5816,35 @@ FROM (
 +------------+---------+-----------------+
 ```
 
-### About the HLL++ algorithm 
-<a id="about_hll_alg"></a>
-
-The [HLL++ algorithm][hll-link-to-research-whitepaper]
-improves on the [HLL][hll-link-to-hyperloglog-wikipedia]
-algorithm by more accurately estimating very small and large cardinalities.
-The HLL++ algorithm includes a 64-bit hash function, sparse
-representation to reduce memory requirements for small cardinality estimates,
-and empirical bias correction for small cardinality estimates.
-
-### About sketches 
-<a id="sketches_hll"></a>
-
-A sketch is a summary of a large data stream. You can extract statistics
-from a sketch to estimate particular statistics of the original data, or
-merge sketches to summarize multiple data streams. A sketch has these features:
-
-+ It compresses raw data into a fixed-memory representation.
-+ It's asymptotically smaller than the input.
-+ It's the serialized form of an in-memory, sublinear data structure.
-+ It typically requires less memory than the input used to create it.
-
-Sketches allow integration with other systems. For example, it is possible to
-build sketches in external applications, like [Cloud Dataflow][dataflow], or
-[Apache Spark][spark] and consume them in ZetaSQL or
-vice versa. Sketches also allow building intermediate aggregations for
-non-additive functions like `COUNT(DISTINCT)`.
-
-[spark]: https://spark.apache.org
-[dataflow]: https://cloud.google.com/dataflow
-
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [cardinality]: https://en.wikipedia.org/wiki/Cardinality
 
-[hll-link-to-hyperloglog-wikipedia]: https://en.wikipedia.org/wiki/HyperLogLog
-
 [hll-link-to-research-whitepaper]: https://research.google.com/pubs/pub40671.html
 
-[hll-link-to-approx-count-distinct]: #approx_count_distinct
+[hll-sketches]: https://github.com/google/zetasql/blob/master/docs/sketches.md#sketches_hll
 
-[hll-sketches]: #sketches_hll
-
-[hll-algorithm]: #about_hll_alg
+[precision]: https://github.com/google/zetasql/blob/master/docs/sketches.md#precision_hll
 
 [approx-functions-reference]: #approximate_aggregate_functions
 
-[aggregate-functions-reference]: #aggregate_functions
+[count-distinct]: #count
+
+[approx-count-distinct]: #approx-count-distinct
 
 <!-- mdlint on -->
 
-## KLL16 quantile functions
+## KLL quantile functions
 
-The [KLL16 algorithm][kll-algorithm] estimates
-[quantiles][kll-quantiles] from [sketches][kll-sketches]. If you do not want
+The [KLL16 algorithm][kll-sketches] estimates
+quantiles from [sketches][kll-sketches]. If you do not want
 to work with sketches and do not need customized precision, consider
-using [approximate aggregate functions with system-defined precision][approx-functions-reference].
+using [approximate aggregate functions][approx-functions-reference]
+with system-defined precision.
 
-KLL16 functions are approximate aggregate functions.
+KLL functions are approximate aggregate functions.
 Approximate aggregation requires significantly less memory than an exact
-quantiles computation, but also introduces statistical uncertainty.
+quantiles computation, but also introduces statistical error.
 This makes approximate aggregation appropriate for large data streams for
 which linear memory usage is impractical, as well as for data that is
 already approximate.
@@ -5450,7 +5853,7 @@ Note: While `APPROX_QUANTILES` is also returning approximate quantile results,
 the functions from this section allow for partial aggregations and
 re-aggregations.
 
-ZetaSQL supports the following KLL16 functions:
+ZetaSQL supports the following KLL functions:
 
 ### KLL_QUANTILES.INIT_INT64
 
@@ -5461,7 +5864,7 @@ KLL_QUANTILES.INIT_INT64(input[, precision[, weight => input_weight]])
 **Description**
 
 Takes one or more `input` values and aggregates them into a
-[KLL16][link-to-kll-paper] sketch. This function represents the output sketch
+[KLL][kll-sketches] sketch. This function represents the output sketch
 using the `BYTES` data type. This is an
 aggregate function.
 
@@ -5489,25 +5892,15 @@ are included in the generation of the KLL sketch.
 + `precision`: `INT64`
 + `input_weight`: `INT64`
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+**Return Type**
 
-[max_min_clause]: #max_min_clause
+KLL sketch as `BYTES`
 
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+**Examples**
 
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
-
-**Return Types**
-
-`BYTES`
-
-**Example**
-
-The following query takes a column of type `INT64` and
-outputs a sketch as `BYTES` that allows you to retrieve values whose ranks
-are within ±1/1000 * 5 = ±1/200 ≈ 0 ranks of their exact quantile.
+The following query takes a column of type `INT64` and outputs a sketch as
+`BYTES` that allows you to retrieve values whose ranks are within
+±1/1000 * 5 = ±1/200 ≈ 0 ranks of their exact quantile.
 
 ```sql
 SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
@@ -5578,8 +5971,8 @@ KLL_QUANTILES.INIT_UINT64(input[, precision[, weight => input_weight]])
 
 **Description**
 
-Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64), but accepts
-`input` of type `UINT64`.
+Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64),
+but accepts `input` of type `UINT64`.
 
 **Supported Argument Types**
 
@@ -5587,19 +5980,9 @@ Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64), but accepts
 + `precision`: `INT64`
 + `input_weight`: `INT64`
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+**Return Type**
 
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
-
-**Return Types**
-
-`BYTES`
+KLL sketch as `BYTES`
 
 ### KLL_QUANTILES.INIT_DOUBLE
 
@@ -5609,8 +5992,8 @@ KLL_QUANTILES.INIT_DOUBLE(input[, precision[, weight => input_weight]])
 
 **Description**
 
-Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64), but accepts
-`input` of type `DOUBLE`.
+Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64),
+but accepts `input` of type `DOUBLE`.
 
 `KLL_QUANTILES.INIT_DOUBLE` orders values according to the ZetaSQL
 [floating point sort order][sort-order]. For example, `NaN` orders before
@@ -5622,19 +6005,9 @@ Like [`KLL_QUANTILES.INIT_INT64`](#kll-quantilesinit-int64), but accepts
 + `precision`: `INT64`
 + `input_weight`: `INT64`
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+**Return Type**
 
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
-
-**Return Types**
-
-`BYTES`
+KLL sketch as `BYTES`
 
 ### KLL_QUANTILES.MERGE_PARTIAL
 
@@ -5644,7 +6017,7 @@ KLL_QUANTILES.MERGE_PARTIAL(sketch)
 
 **Description**
 
-Takes KLL16 sketches of the same underlying type and merges them to return a new
+Takes KLL sketches of the same underlying type and merges them to return a new
 sketch of the same underlying type. This is an aggregate function.
 
 If the merged sketches were initialized with different precisions, the precision
@@ -5656,7 +6029,7 @@ Returns an error if two or more sketches don't have compatible underlying types,
 such as one sketch of `INT64` values and another of
 `DOUBLE` values.
 
-Returns an error if one or more inputs are not a valid KLL16 quantiles sketch.
+Returns an error if one or more inputs are not a valid KLL quantiles sketch.
 
 Ignores `NULL` sketches. If the input contains zero rows or only `NULL`
 sketches, the function returns `NULL`.
@@ -5667,7 +6040,19 @@ sketch without any optional clauses, and then merge these two sketches.
 However, if you initialize sketches with the `DISTINCT` clause and merge them,
 the resulting sketch may still contain duplicates.
 
+**Supported Argument Types**
+
++ `sketch`: `BYTES` KLL sketch
+
+**Return Type**
+
+KLL sketch as `BYTES`
+
 **Example**
+
+The following query initializes two KLL sketches from five rows of data each.
+Then it merges these two sketches into a new sketch, also as `BYTES`. Both
+input sketches have the same underlying data type and precision.
 
 ```sql
 SELECT KLL_QUANTILES.MERGE_PARTIAL(kll_sketch) AS merged_sketch
@@ -5693,19 +6078,6 @@ FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
 +-----------------------------------------------------------------------------+
 ```
 
-The query above initializes two KLL16 sketches from five rows of data each. Then
-it merges these two sketches into a new sketch, also as
-`BYTES`. Both input sketches have the same underlying
-data type and precision.
-
-**Supported Argument Types**
-
-`BYTES`
-
-**Return Types**
-
-`BYTES`
-
 ### KLL_QUANTILES.MERGE_INT64
 
 ```sql
@@ -5714,14 +6086,13 @@ KLL_QUANTILES.MERGE_INT64(sketch, number)
 
 **Description**
 
-Takes KLL16 sketches as `BYTES` and merges them into
-a new sketch, then
-returns the quantiles that divide the input into `number` equal-sized
-groups, along with the minimum and maximum values of the input. The output is
-an `ARRAY` containing the exact minimum value from
-the input data that you used
-to initialize the sketches, each approximate quantile, and the exact maximum
-value from the initial input data. This is an aggregate function.
+Takes KLL sketches as `BYTES` and merges them into
+a new sketch, then returns the quantiles that divide the input into
+`number` equal-sized groups, along with the minimum and maximum values of the
+input. The output is an `ARRAY` containing the exact minimum value from
+the input data that you used to initialize the sketches, each
+approximate quantile, and the exact maximum value from the initial input data.
+This is an aggregate function.
 
 If the merged sketches were initialized with different precisions, the precision
 is downgraded to the lowest precision involved in the merge — except if the
@@ -5731,9 +6102,22 @@ mergee's precision is maintained.
 Returns an error if the underlying type of one or more input sketches is not
 compatible with type `INT64`.
 
-Returns an error if the input is not a valid KLL16 quantiles sketch.
+Returns an error if the input is not a valid KLL quantiles sketch.
+
+**Supported Argument Types**
+
++ `sketch`: `BYTES` KLL sketch initialized on `INT64` data type
++ `number`: `INT64`
+
+**Return Type**
+
+`ARRAY<INT64>`
 
 **Example**
+
+The following query initializes two KLL sketches from five rows of data each.
+Then it merges these two sketches and returns an `ARRAY` containing the minimum,
+median, and maximum values in the input sketches.
 
 ```sql
 SELECT KLL_QUANTILES.MERGE_INT64(kll_sketch, 2) AS merged_sketch
@@ -5758,30 +6142,6 @@ FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
 +---------------+
 ```
 
-The query above initializes two KLL16 sketches from five rows of data each. Then
-it merges these two sketches and returns an `ARRAY`
-containing the minimum,
-median, and maximum values in the input sketches.
-
-**Supported Argument Types**
-
-Takes KLL16 sketches as `BYTES`, initialized on data
-of type `INT64`.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
-
-**Return Types**
-
-`ARRAY` of type `INT64`.
-
 ### KLL_QUANTILES.MERGE_UINT64
 
 ```sql
@@ -5790,27 +6150,17 @@ KLL_QUANTILES.MERGE_UINT64(sketch, number)
 
 **Description**
 
-Like [`KLL_QUANTILES.MERGE_INT64`](#kll-quantilesmerge-int64), but accepts
-`input` of type `UINT64`.
+Like [`KLL_QUANTILES.MERGE_INT64`](#kll-quantilesmerge-int64),
+but accepts KLL sketches initialized on data of type `UINT64`.
 
 **Supported Argument Types**
 
-Takes KLL16 sketches as `BYTES`, initialized on data
-of type `UINT64`.
++ `sketch`: `BYTES` KLL sketch initialized on `UINT64` data type
++ `number`: `INT64`
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+**Return Type**
 
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
-
-**Return Types**
-
-`ARRAY` of type `UINT64`.
+`ARRAY<UINT64>`
 
 ### KLL_QUANTILES.MERGE_DOUBLE
 
@@ -5820,8 +6170,9 @@ KLL_QUANTILES.MERGE_DOUBLE(sketch, number)
 
 **Description**
 
-Like [`KLL_QUANTILES.MERGE_INT64`](#kll-quantilesmerge-int64), but accepts
-`input` of type `DOUBLE`.
+Like [`KLL_QUANTILES.MERGE_INT64`](#kll-quantilesmerge-int64),
+but accepts KLL sketches initialized on data of type
+`DOUBLE`.
 
 `KLL_QUANTILES.MERGE_DOUBLE` orders values according to the ZetaSQL
 [floating point sort order][sort-order]. For example, `NaN` orders before
@@ -5829,22 +6180,13 @@ Like [`KLL_QUANTILES.MERGE_INT64`](#kll-quantilesmerge-int64), but accepts
 
 **Supported Argument Types**
 
-Takes KLL16 sketches as `BYTES`, initialized on data
-of type `DOUBLE`.
++ `sketch`: `BYTES` KLL sketch initialized on
+  `DOUBLE` data type
++ `number`: `INT64`
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+**Return Type**
 
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
-
-**Return Types**
-
-`ARRAY` of type `DOUBLE`.
+`ARRAY<DOUBLE>`
 
 ### KLL_QUANTILES.MERGE_POINT_INT64
 
@@ -5854,8 +6196,7 @@ KLL_QUANTILES.MERGE_POINT_INT64(sketch, phi)
 
 **Description**
 
-Takes KLL16 sketches as `BYTES` and merges them, then
-extracts a single
+Takes KLL sketches as `BYTES` and merges them, then extracts a single
 quantile from the merged sketch. The `phi` argument specifies the quantile
 to return as a fraction of the total number of rows in the input, normalized
 between 0 and 1. This means that the function will return a value *v* such that
@@ -5870,9 +6211,22 @@ mergee's precision is maintained.
 Returns an error if the underlying type of one or more input sketches is not
 compatible with type `INT64`.
 
-Returns an error if the input is not a valid KLL16 quantiles sketch.
+Returns an error if the input is not a valid KLL quantiles sketch.
+
+**Supported Argument Types**
+
++ `sketch`: `BYTES` KLL sketch initialized on `INT64` data type
++ `phi`: `DOUBLE` between 0 and 1
+
+**Return Type**
+
+`INT64`
 
 **Example**
+
+The following query initializes two KLL sketches from five rows of data each.
+Then it merges these two sketches and returns the value of the ninth decile or
+90th percentile of the merged sketch.
 
 ```sql
 SELECT KLL_QUANTILES.MERGE_POINT_INT64(kll_sketch, .9) AS merged_sketch
@@ -5897,30 +6251,6 @@ FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
 +---------------+
 ```
 
-The query above initializes two KLL16 sketches from five rows of data each. Then
-it merges these two sketches and returns the value of the ninth decile or 90th
-percentile of the merged sketch.
-
-**Supported Argument Types**
-
-+ Takes KLL16 sketches as `BYTES`, initialized on
-  data of type `INT64`.
-+ `phi` is a `DOUBLE` between 0 and 1.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
-
-**Return Types**
-
-`INT64`
-
 ### KLL_QUANTILES.MERGE_POINT_UINT64
 
 ```sql
@@ -5929,26 +6259,15 @@ KLL_QUANTILES.MERGE_POINT_UINT64(sketch, phi)
 
 **Description**
 
-Like [`KLL_QUANTILES.MERGE_POINT_INT64`](#kll-quantilesmerge-point-int64), but
-accepts `input` of type `UINT64`.
+Like [`KLL_QUANTILES.MERGE_POINT_INT64`](#kll-quantilesmerge-point-int64),
+but accepts KLL sketches initialized on data of type `UINT64`.
 
 **Supported Argument Types**
 
-+ Takes KLL16 sketches as `BYTES`, initialized on
-  data of type `UINT64`.
-+ `phi` is a `DOUBLE` between 0 and 1.
++ `sketch`: `BYTES` KLL sketch initialized on `UINT64` data type
++ `phi`: `DOUBLE` between 0 and 1
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
-
-**Return Types**
+**Return Type**
 
 `UINT64`
 
@@ -5960,30 +6279,21 @@ KLL_QUANTILES.MERGE_POINT_DOUBLE(sketch, phi)
 
 **Description**
 
-Like [`KLL_QUANTILES.MERGE_POINT_INT64`](#kll-quantilesmerge-point-int64), but
-accepts `input` of type `DOUBLE`.
+Like [`KLL_QUANTILES.MERGE_POINT_INT64`](#kll-quantilesmerge-point-int64),
+but accepts KLL sketches initialized on data of type
+`DOUBLE`.
 
-`KLL_QUANTILES.MERGE_POINT_DOUBLE` orders values according to the ZetaSQL
-[floating point sort order][sort-order]. For example, `NaN` orders before
-<code>&#8209;inf</code>.
+`KLL_QUANTILES.MERGE_POINT_DOUBLE` orders values according to the
+ZetaSQL [floating point sort order][sort-order]. For example, `NaN`
+orders before <code>&#8209;inf</code>.
 
 **Supported Argument Types**
 
-+ Takes KLL16 sketches as `BYTES`, initialized on
-  data of type `DOUBLE`.
-+ `phi` is a `DOUBLE` between 0 and 1.
++ `sketch`: `BYTES` KLL sketch initialized on
+  `DOUBLE` data type
++ `phi`: `DOUBLE` between 0 and 1
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[max_min_clause]: #max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
-
-**Return Types**
+**Return Type**
 
 `DOUBLE`
 
@@ -5995,10 +6305,8 @@ KLL_QUANTILES.EXTRACT_INT64(sketch, number)
 
 **Description**
 
-Takes a single KLL16 sketch as `BYTES` and returns a
-selected `number`
-of quantiles. The output is an `ARRAY` containing the
-exact minimum value from
+Takes a single KLL sketch as `BYTES` and returns a selected `number` of
+quantiles. The output is an `ARRAY` containing the exact minimum value from
 the input data that you used to initialize the sketch, each approximate
 quantile, and the exact maximum value from the initial input data. This is a
 scalar function, similar to `KLL_QUANTILES.MERGE_INT64`, but scalar rather than
@@ -6007,9 +6315,22 @@ aggregate.
 Returns an error if the underlying type of the input sketch is not compatible
 with type `INT64`.
 
-Returns an error if the input is not a valid KLL16 quantiles sketch.
+Returns an error if the input is not a valid KLL quantiles sketch.
+
+**Supported Argument Types**
+
++ `sketch`: `BYTES` KLL sketch initialized on `INT64` data type
++ `number`: `INT64`
+
+**Return Type**
+
+`ARRAY<INT64>`
 
 **Example**
+
+The following query initializes a KLL sketch from five rows of data. Then
+it returns an `ARRAY` containing the minimum, median, and maximum values in the
+input sketch.
 
 ```sql
 SELECT KLL_QUANTILES.EXTRACT_INT64(kll_sketch, 2) AS median
@@ -6027,19 +6348,6 @@ FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
 +---------+
 ```
 
-The query above initializes a KLL16 sketch from five rows of data. Then
-it returns an `ARRAY` containing the minimum, median,
-and maximum values in the input sketch.
-
-**Supported Argument Types**
-
-Takes a KLL16 sketch as `BYTES` initialized on data
-of type `INT64`.
-
-**Return Types**
-
-`ARRAY` of type `INT64`.
-
 ### KLL_QUANTILES.EXTRACT_UINT64
 
 ```sql
@@ -6048,17 +6356,17 @@ KLL_QUANTILES.EXTRACT_UINT64(sketch, number)
 
 **Description**
 
-Like [`KLL_QUANTILES.EXTRACT_INT64`](#kll-quantilesextract-int64), but accepts
-sketches initialized on data of type of type `UINT64`.
+Like [`KLL_QUANTILES.EXTRACT_INT64`](#kll-quantilesextract-int64),
+but accepts KLL sketches initialized on data of type `UINT64`.
 
 **Supported Argument Types**
 
-Takes a KLL16 sketch as `BYTES` initialized on data
-of type `UINT64`.
++ `sketch`: `BYTES` KLL sketch initialized on `UINT64` data type
++ `number`: `INT64`
 
-**Return Types**
+**Return Type**
 
-`ARRAY` of type `UINT64`.
+`ARRAY<UINT64>`
 
 ### KLL_QUANTILES.EXTRACT_DOUBLE
 
@@ -6068,17 +6376,19 @@ KLL_QUANTILES.EXTRACT_DOUBLE(sketch, number)
 
 **Description**
 
-Like [`KLL_QUANTILES.EXTRACT_INT64`](#kll-quantilesextract-int64), but accepts
-sketches initialized on data of type of type `DOUBLE`.
+Like [`KLL_QUANTILES.EXTRACT_INT64`](#kll-quantilesextract-int64),
+but accepts KLL sketches initialized on data of type
+`DOUBLE`.
 
 **Supported Argument Types**
 
-Takes a KLL16 sketch as `BYTES` initialized on data
-of type `DOUBLE`.
++ `sketch`: `BYTES` KLL sketch initialized on
+  `DOUBLE` data type
++ `number`: `INT64`
 
-**Return Types**
+**Return Type**
 
-`ARRAY` of type `DOUBLE`.
+`ARRAY<DOUBLE>`
 
 ### KLL_QUANTILES.EXTRACT_POINT_INT64
 
@@ -6088,8 +6398,7 @@ KLL_QUANTILES.EXTRACT_POINT_INT64(sketch, phi)
 
 **Description**
 
-Takes a single KLL16 sketch as `BYTES` and returns a
-single quantile.
+Takes a single KLL sketch as `BYTES` and returns a single quantile.
 The `phi` argument specifies the quantile to return as a fraction of the total
 number of rows in the input, normalized between 0 and 1. This means that the
 function will return a value *v* such that approximately Φ * *n* inputs are less
@@ -6099,9 +6408,21 @@ This is a scalar function.
 Returns an error if the underlying type of the input sketch is not compatible
 with type `INT64`.
 
-Returns an error if the input is not a valid KLL16 quantiles sketch.
+Returns an error if the input is not a valid KLL quantiles sketch.
+
+**Supported Argument Types**
+
++ `sketch`: `BYTES` KLL sketch initialized on `INT64` data type
++ `phi`: `DOUBLE` between 0 and 1
+
+**Return Type**
+
+`INT64`
 
 **Example**
+
+The following query initializes a KLL sketch from five rows of data. Then
+it returns the value of the eighth decile or 80th percentile of the sketch.
 
 ```sql
 SELECT KLL_QUANTILES.EXTRACT_POINT_INT64(kll_sketch, .8) AS quintile
@@ -6119,19 +6440,6 @@ FROM (SELECT KLL_QUANTILES.INIT_INT64(x, 1000) AS kll_sketch
 +----------+
 ```
 
-The query above initializes a KLL16 sketch from five rows of data. Then
-it returns the value of the eighth decile or 80th percentile of the sketch.
-
-**Supported Argument Types**
-
-+ Takes a KLL16 sketch as `BYTES`, initialized on
-  data of type `INT64`.
-+ `phi` is a `DOUBLE` between 0 and 1.
-
-**Return Types**
-
-`INT64`
-
 ### KLL_QUANTILES.EXTRACT_POINT_UINT64
 
 ```sql
@@ -6141,16 +6449,14 @@ KLL_QUANTILES.EXTRACT_POINT_UINT64(sketch, phi)
 **Description**
 
 Like [`KLL_QUANTILES.EXTRACT_POINT_INT64`](#kll-quantilesextract-point-int64),
-but accepts sketches initialized on data of type of type
-`UINT64`.
+but accepts KLL sketches initialized on data of type `UINT64`.
 
 **Supported Argument Types**
 
-+ Takes a KLL16 sketch as `BYTES`, initialized on
-  data of type `UINT64`.
-+ `phi` is a `DOUBLE` between 0 and 1.
++ `sketch`: `BYTES` KLL sketch initialized on `UINT64` data type
++ `phi`: `DOUBLE` between 0 and 1
 
-**Return Types**
+**Return Type**
 
 `UINT64`
 
@@ -6163,123 +6469,54 @@ KLL_QUANTILES.EXTRACT_POINT_DOUBLE(sketch, phi)
 **Description**
 
 Like [`KLL_QUANTILES.EXTRACT_POINT_INT64`](#kll-quantilesextract-point-int64),
-but accepts sketches initialized on data of type of type
+but accepts KLL sketches initialized on data of type
 `DOUBLE`.
 
 **Supported Argument Types**
 
-+ Takes a KLL16 sketch as `BYTES`, initialized on
-  data of type `DOUBLE`.
-+ `phi` is a `DOUBLE` between 0 and 1.
++ `sketch`: `BYTES` KLL sketch initialized on
+  `DOUBLE` data type
++ `phi`: `DOUBLE` between 0 and 1
 
-**Return Types**
+**Return Type**
 
 `DOUBLE`
 
-### About quantiles 
-<a id="about_kll_quantiles"></a>
-
-[Quantiles][quantiles] can be defined in two ways. First, for a positive integer *q*,
-*q-quantiles* are a set of values that partition an input set into *q* subsets
-of nearly equal size; that is, there are *q*-1 of the *q*-quantiles. Some of
-these have specific names: the single 2-quantile is the median; the 4-quantiles
-are quartiles, the 100-quantiles are percentiles, etc.
-
-To extract a set of *q*-quantiles, use the following functions, where *q* is the
-`number` argument:
-
-+ `KLL_QUANTILES.MERGE_INT64`
-+ `KLL_QUANTILES.MERGE_UINT64`
-+ `KLL_QUANTILES.MERGE_DOUBLE`
-+ `KLL_QUANTILES.EXTRACT_INT64`
-+ `KLL_QUANTILES.EXTRACT_UINT64`
-+ `KLL_QUANTILES.EXTRACT_DOUBLE`
-
-Alternatively, quantiles can be defined as individual *Φ-quantiles*, where Φ is
-a real number with 0 <= Φ <= 1. The Φ-quantile *x* is an element of the input
-such that a Φ fraction of the input is less than or equal to *x*, and a (1-Φ)
-fraction is greater than or equal to *x*. In this notation, the median is the
-0.5-quantile, and the 95th percentile is the 0.95-quantile.
-
-To extract individual Φ-quantiles, use the following functions, where Φ is the
-`phi` argument:
-
-+ `KLL_QUANTILES.MERGE_POINT_INT64`
-+ `KLL_QUANTILES.MERGE_POINT_UINT64`
-+ `KLL_QUANTILES.MERGE_POINT_DOUBLE`
-+ `KLL_QUANTILES.EXTRACT_POINT_INT64`
-+ `KLL_QUANTILES.EXTRACT_POINT_UINT64`
-+ `KLL_QUANTILES.EXTRACT_POINT_DOUBLE`
-
-### About the KLL algorithm 
-<a id="about_kll_alg"></a>
-
-The [KLL16 algorithm][link-to-kll-paper] improves on the [MP80 algorithm][mp80]
-by using variable-size buffers to reduce memory use for large data sets.
-
-### About sketches 
-<a id="sketches_kll"></a>
-
-A sketch is a summary of a large data stream. You can extract statistics
-from a sketch to estimate particular statistics of the original data, or
-merge sketches to summarize multiple data streams. A sketch has these features:
-
-+ It compresses raw data into a fixed-memory representation.
-+ It's asymptotically smaller than the input.
-+ It's the serialized form of an in-memory, sublinear data structure.
-+ It typically requires less memory than the input used to create it.
-
-Sketches allow integration with other systems. For example, it is possible to
-build sketches in external applications, like [Cloud Dataflow][dataflow], or
-[Apache Spark][spark] and consume them in ZetaSQL or
-vice versa. Sketches also allow building intermediate aggregations for
-non-additive functions like `COUNT(DISTINCT)`.
-
-[spark]: https://spark.apache.org
-[dataflow]: https://cloud.google.com/dataflow
-
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[quantiles]: https://en.wikipedia.org/wiki/Quantile
-
-[link-to-kll-paper]: https://arxiv.org/pdf/1603.05346v2.pdf
-
-[mp80]: https://polylogblog.files.wordpress.com/2009/08/80munro-median.pdf
-
-[kll-sketches]: #sketches_kll
-
-[kll-algorithm]: #anon_clamping
-
-[kll-quantiles]: #anon_clamping
+[kll-sketches]: https://github.com/google/zetasql/blob/master/docs/sketches.md#sketches_kll
 
 [sort-order]: https://github.com/google/zetasql/blob/master/docs/data-types.md#comparison_operator_examples
 
 [approx-functions-reference]: #approximate_aggregate_functions
-
-[aggregate-functions-reference]: #aggregate_functions
 
 <!-- mdlint on -->
 
 ## Numbering functions
 
 The following sections describe the numbering functions that ZetaSQL
-supports. Numbering functions are a subset of analytic functions. For an
-explanation of how analytic functions work, see
-[Analytic Function Concepts][analytic-function-concepts]. For a
-description of how numbering functions work and an example comparing `RANK`,
-`DENSE_RANK`, and `ROW_NUMBER`, see the
-[Numbering Function Concepts][numbering-function-concepts].
+supports. Numbering functions are a subset of window functions. To create a
+window function call and learn about the syntax for window functions,
+see [Window function_calls][window-function-calls].
 
-`OVER` clause requirements:
-
-+ `PARTITION BY`: Optional.
-+ `ORDER BY`: Required, except for `ROW_NUMBER()`.
-+ `window_frame_clause`: Disallowed.
+Numbering functions assign integer values to each row based on their position
+within the specified window. The `OVER` clause syntax varies across
+numbering functions.
 
 ### RANK
 
 ```sql
 RANK()
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+
 ```
 
 **Description**
@@ -6289,11 +6526,47 @@ All peer rows receive the same rank value. The next row or set of peer rows
 receives a rank value which increments by the number of peers with the previous
 rank value, instead of `DENSE_RANK`, which always increments by 1.
 
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
 **Return Type**
 
 `INT64`
 
-**Example**
+**Examples**
+
+```sql
+WITH Numbers AS
+ (SELECT 1 as x
+  UNION ALL SELECT 2
+  UNION ALL SELECT 2
+  UNION ALL SELECT 5
+  UNION ALL SELECT 8
+  UNION ALL SELECT 10
+  UNION ALL SELECT 10
+)
+SELECT x,
+  RANK() OVER (ORDER BY x ASC) AS rank
+FROM Numbers
+
++-------------------------+
+| x          | rank       |
++-------------------------+
+| 1          | 1          |
+| 2          | 2          |
+| 2          | 2          |
+| 5          | 4          |
+| 8          | 5          |
+| 10         | 6          |
+| 10         | 6          |
++-------------------------+
+```
 
 ```sql
 WITH finishers AS
@@ -6331,6 +6604,16 @@ FROM finishers;
 
 ```sql
 DENSE_RANK()
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+
 ```
 
 **Description**
@@ -6339,11 +6622,47 @@ Returns the ordinal (1-based) rank of each row within the window partition.
 All peer rows receive the same rank value, and the subsequent rank value is
 incremented by one.
 
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
 **Return Type**
 
 `INT64`
 
-**Example**
+**Examples**
+
+```sql
+WITH Numbers AS
+ (SELECT 1 as x
+  UNION ALL SELECT 2
+  UNION ALL SELECT 2
+  UNION ALL SELECT 5
+  UNION ALL SELECT 8
+  UNION ALL SELECT 10
+  UNION ALL SELECT 10
+)
+SELECT x,
+  DENSE_RANK() OVER (ORDER BY x ASC) AS dense_rank
+FROM Numbers
+
++-------------------------+
+| x          | dense_rank |
++-------------------------+
+| 1          | 1          |
+| 2          | 2          |
+| 2          | 2          |
+| 5          | 3          |
+| 8          | 4          |
+| 10         | 5          |
+| 10         | 5          |
++-------------------------+
+```
 
 ```sql
 WITH finishers AS
@@ -6381,6 +6700,16 @@ FROM finishers;
 
 ```sql
 PERCENT_RANK()
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+
 ```
 
 **Description**
@@ -6388,6 +6717,15 @@ PERCENT_RANK()
 Return the percentile rank of a row defined as (RK-1)/(NR-1), where RK is
 the `RANK` of the row and NR is the number of rows in the partition.
 Returns 0 if NR=1.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
 
 **Return Type**
 
@@ -6431,6 +6769,16 @@ FROM finishers;
 
 ```sql
 CUME_DIST()
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+
 ```
 
 **Description**
@@ -6438,6 +6786,15 @@ CUME_DIST()
 Return the relative rank of a row defined as NP/NR. NP is defined to be the
 number of rows that either precede or are peers with the current row. NR is the
 number of rows in the partition.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
 
 **Return Type**
 
@@ -6481,6 +6838,16 @@ FROM finishers;
 
 ```sql
 NTILE(constant_integer_expression)
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+
 ```
 
 **Description**
@@ -6492,6 +6859,15 @@ The remainder values (the remainder of number of rows divided by buckets) are
 distributed one for each bucket, starting with bucket 1. If
 `constant_integer_expression` evaluates to NULL, 0 or negative, an
 error is provided.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
 
 **Return Type**
 
@@ -6535,6 +6911,16 @@ FROM finishers;
 
 ```sql
 ROW_NUMBER()
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+
 ```
 
 **Description**
@@ -6544,11 +6930,47 @@ row ordinal (1-based) of each row for each ordered partition. If the
 `ORDER BY` clause is unspecified then the result is
 non-deterministic.
 
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
 **Return Type**
 
 `INT64`
 
-**Example**
+**Examples**
+
+```sql
+WITH Numbers AS
+ (SELECT 1 as x
+  UNION ALL SELECT 2
+  UNION ALL SELECT 2
+  UNION ALL SELECT 5
+  UNION ALL SELECT 8
+  UNION ALL SELECT 10
+  UNION ALL SELECT 10
+)
+SELECT x,
+  ROW_NUMBER() OVER (ORDER BY x) AS row_num
+FROM Numbers
+
++-------------------------+
+| x          | row_num    |
++-------------------------+
+| 1          | 1          |
+| 2          | 2          |
+| 2          | 3          |
+| 5          | 4          |
+| 8          | 5          |
+| 10         | 6          |
+| 10         | 7          |
++-------------------------+
+```
 
 ```sql
 WITH finishers AS
@@ -6584,9 +7006,7 @@ FROM finishers;
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[numbering-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#numbering_function_concepts
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 <!-- mdlint on -->
 
@@ -7632,7 +8052,8 @@ For more information, see the following topics:
   <tr>
     <td>Floating Point</td>
     <td>STRING</td>
-    <td>Returns an approximate string representation.<br />
+    <td>Returns an approximate string representation. A returned
+    <code>NaN</code> or <code>0</code> will not be signed.<br />
     </td>
   </tr>
   <tr>
@@ -9435,13 +9856,13 @@ The data type to which the string was cast. This can be:
 **Examples**
 
 ```sql
-SELECT CAST('18-12-03' AS DATE FORMAT 'YY-MM-DD') AS string_to_date_time
+SELECT CAST('18-12-03' AS DATE FORMAT 'YY-MM-DD') AS string_to_date
 
-+---------------------+
-| string_to_date_time |
-+---------------------+
-| 2018-02-03          |
-+---------------------+
++----------------+
+| string_to_date |
++----------------+
+| 2018-02-03     |
++----------------+
 ```
 
 #### Format string as month part 
@@ -9532,13 +9953,13 @@ The data type to which the string was cast. This can be:
 **Examples**
 
 ```sql
-SELECT CAST('DEC 03, 2018' AS DATE FORMAT 'MON DD, YYYY') AS string_to_date_time
+SELECT CAST('DEC 03, 2018' AS DATE FORMAT 'MON DD, YYYY') AS string_to_date
 
-+---------------------+
-| string_to_date_time |
-+---------------------+
-| 2018-12-03          |
-+---------------------+
++----------------+
+| string_to_date |
++----------------+
+| 2018-12-03     |
++----------------+
 ```
 
 #### Format string as day part 
@@ -9605,13 +10026,13 @@ The data type to which the string was cast. This can be:
 **Examples**
 
 ```sql
-SELECT CAST('DECEMBER 03, 2018' AS DATE FORMAT 'MONTH DD, YYYY') AS string_to_date_time
+SELECT CAST('DECEMBER 03, 2018' AS DATE FORMAT 'MONTH DD, YYYY') AS string_to_date
 
-+---------------------+
-| string_to_date_time |
-+---------------------+
-| 2018-12-03          |
-+---------------------+
++----------------+
+| string_to_date |
++----------------+
+| 2018-12-03     |
++----------------+
 ```
 
 #### Format string as hour part 
@@ -10366,7 +10787,8 @@ symbol element, then the sign appears before the currency symbol.
       <td>S</td>
       <td>Explicit sign. Outputs <code>+</code> for positive numbers and
       <code>-</code> for negative numbers. The position in the output is
-      anchored to the number.</td>
+      anchored to the number. <code>NaN</code> and <code>0</code>
+      will not be signed.</td>
       <td>
         Input: <code>-12</code> <br/>
         Format: <code>'S9999'</code> <br />
@@ -11516,6 +11938,10 @@ the supertype must support ordering.
   </tbody>
 </table>
 
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+
 **Return Data Types**
 
 Data type of the input values.
@@ -11549,6 +11975,10 @@ the supertype must support ordering.
     </tr>
   </tbody>
 </table>
+
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
 
 **Return Data Types**
 
@@ -12247,6 +12677,357 @@ less than 1.
   </tbody>
 </table>
 
+### COT
+
+```
+COT(X)
+```
+
+**Description**
+
+Computes the cotangent for the angle of `X`, where `X` is specified in radians.
+`X` can be any data type
+that [coerces to `DOUBLE`][conversion-rules].
+Supports the `SAFE.` prefix.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>COT(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>0</code></td>
+      <td><code>Error</code></td>
+    </tr>
+    <tr>
+      <td><code>NULL</code></td>
+      <td><code>NULL</code></td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+`DOUBLE`
+
+**Example**
+
+```sql
+SELECT COT(1) AS a, SAFE.COT(0) AS b;
+
++---------------------+------+
+| a                   | b    |
++---------------------+------+
+| 0.64209261593433065 | NULL |
++---------------------+------+
+```
+
+### COTH
+
+```
+COTH(X)
+```
+
+**Description**
+
+Computes the hyperbolic cotangent for the angle of `X`, where `X` is specified
+in radians. `X` can be any data type
+that [coerces to `DOUBLE`][conversion-rules].
+Supports the `SAFE.` prefix.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>COTH(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>1</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>-1</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>0</code></td>
+      <td><code>Error</code></td>
+    </tr>
+    <tr>
+      <td><code>NULL</code></td>
+      <td><code>NULL</code></td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+`DOUBLE`
+
+**Example**
+
+```sql
+SELECT COTH(1) AS a, SAFE.COTH(0) AS b;
+
++----------------+------+
+| a              | b    |
++----------------+------+
+| 1.313035285499 | NULL |
++----------------+------+
+```
+
+### CSC
+
+```
+CSC(X)
+```
+
+**Description**
+
+Computes the cosecant of the input angle, which is in radians.
+`X` can be any data type
+that [coerces to `DOUBLE`][conversion-rules].
+Supports the `SAFE.` prefix.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>CSC(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>0</code></td>
+      <td><code>Error</code></td>
+    </tr>
+    <tr>
+      <td><code>NULL</code></td>
+      <td><code>NULL</code></td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+`DOUBLE`
+
+**Example**
+
+```sql
+SELECT CSC(100) AS a, CSC(-1) AS b, SAFE.CSC(0) AS c;
+
++----------------+-----------------+------+
+| a              | b               | c    |
++----------------+-----------------+------+
+| -1.97485753142 | -1.188395105778 | NULL |
++----------------+-----------------+------+
+```
+
+### CSCH
+
+```
+CSCH(X)
+```
+
+**Description**
+
+Computes the hyperbolic cosecant of the input angle, which is in radians.
+`X` can be any data type
+that [coerces to `DOUBLE`][conversion-rules].
+Supports the `SAFE.` prefix.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>CSCH(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>0</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>0</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>0</code></td>
+      <td><code>Error</code></td>
+    </tr>
+    <tr>
+      <td><code>NULL</code></td>
+      <td><code>NULL</code></td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+`DOUBLE`
+
+**Example**
+
+```sql
+SELECT CSCH(0.5) AS a, CSCH(-2) AS b, SAFE.CSCH(0) AS c;
+
++----------------+----------------+------+
+| a              | b              | c    |
++----------------+----------------+------+
+| 1.919034751334 | -0.27572056477 | NULL |
++----------------+----------------+------+
+```
+
+### SEC
+
+```
+SEC(X)
+```
+
+**Description**
+
+Computes the secant for the angle of `X`, where `X` is specified in radians.
+`X` can be any data type
+that [coerces to `DOUBLE`][conversion-rules].
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>SEC(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>NULL</code></td>
+      <td><code>NULL</code></td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+`DOUBLE`
+
+**Example**
+
+```sql
+SELECT SEC(100) AS a, SEC(-1) AS b;
+
++----------------+---------------+
+| a              | b             |
++----------------+---------------+
+| 1.159663822905 | 1.85081571768 |
++----------------+---------------+
+```
+
+### SECH
+
+```
+SECH(X)
+```
+
+**Description**
+
+Computes the hyperbolic secant for the angle of `X`, where `X` is specified
+in radians. `X` can be any data type
+that [coerces to `DOUBLE`][conversion-rules].
+Never produces an error.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>SECH(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>0</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>0</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>NULL</code></td>
+      <td><code>NULL</code></td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+`DOUBLE`
+
+**Example**
+
+```sql
+SELECT SECH(0.5) AS a, SECH(-2) AS b, SECH(100) AS c;
+
++----------------+----------------+---------------------+
+| a              | b              | c                   |
++----------------+----------------+---------------------+
+| 0.88681888397  | 0.265802228834 | 7.4401519520417E-44 |
++----------------+----------------+---------------------+
+```
+
 ### SIN
 
 ```
@@ -12618,6 +13399,65 @@ the two arguments to determine the quadrant. The return value is in the range
   </tbody>
 </table>
 
+### CBRT
+
+```
+CBRT(X)
+```
+
+**Description**
+
+Computes the cube root of `X`. `X` can be any data type
+that [coerces to `DOUBLE`][conversion-rules].
+Supports the `SAFE.` prefix.
+
+<table>
+  <thead>
+    <tr>
+      <th>X</th>
+      <th>CBRT(X)</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr>
+      <td><code>+inf</code></td>
+      <td><code>inf</code></td>
+    </tr>
+    <tr>
+      <td><code>-inf</code></td>
+      <td><code>-inf</code></td>
+    </tr>
+    <tr>
+      <td><code>NaN</code></td>
+      <td><code>NaN</code></td>
+    </tr>
+    <tr>
+      <td><code>0</code></td>
+      <td><code>0</code></td>
+    </tr>
+    <tr>
+      <td><code>NULL</code></td>
+      <td><code>NULL</code></td>
+    </tr>
+  </tbody>
+</table>
+
+**Return Data Type**
+
+`DOUBLE`
+
+**Example**
+
+```sql
+SELECT CBRT(27) AS cube_root;
+
++--------------------+
+| cube_root          |
++--------------------+
+| 3.0000000000000004 |
++--------------------+
+```
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
@@ -12629,16 +13469,32 @@ the two arguments to determine the quadrant. The return value is in the range
 ## Navigation functions
 
 The following sections describe the navigation functions that ZetaSQL
-supports. Navigation functions are a subset of analytic functions. For an
-explanation of how analytic functions work, see [Analytic
-Function Concepts][analytic-function-concepts]. For an explanation of how
-navigation functions work, see
-[Navigation Function Concepts][navigation-function-concepts].
+supports. Navigation functions are a subset window functions. To create a
+window function call and learn about the syntax for window functions,
+see [Window function_calls][window-function-calls].
+
+Navigation functions generally compute some
+`value_expression` over a different row in the window frame from the
+current row. The `OVER` clause syntax varies across navigation functions.
+
+For all navigation functions, the result data type is the same type as
+`value_expression`.
 
 ### FIRST_VALUE
 
-```
+```sql
 FIRST_VALUE (value_expression [{RESPECT | IGNORE} NULLS])
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -12649,6 +13505,15 @@ window frame.
 This function includes `NULL` values in the calculation unless `IGNORE NULLS` is
 present. If `IGNORE NULLS` is present, the function excludes `NULL` values from
 the calculation.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
 
 **Supported Argument Types**
 
@@ -12708,8 +13573,19 @@ FROM (
 
 ### LAST_VALUE
 
-```
+```sql
 LAST_VALUE (value_expression [{RESPECT | IGNORE} NULLS])
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -12720,6 +13596,15 @@ window frame.
 This function includes `NULL` values in the calculation unless `IGNORE NULLS` is
 present. If `IGNORE NULLS` is present, the function excludes `NULL` values from
 the calculation.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
 
 **Supported Argument Types**
 
@@ -12780,8 +13665,19 @@ FROM (
 
 ### NTH_VALUE
 
-```
+```sql
 NTH_VALUE (value_expression, constant_integer_expression [{RESPECT | IGNORE} NULLS])
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -12793,6 +13689,15 @@ there is no such row.
 This function includes `NULL` values in the calculation unless `IGNORE NULLS` is
 present. If `IGNORE NULLS` is present, the function excludes `NULL` values from
 the calculation.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
 
 **Supported Argument Types**
 
@@ -12857,8 +13762,18 @@ FROM (
 
 ### LEAD
 
-```
+```sql
 LEAD (value_expression[, offset [, default_expression]])
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+
 ```
 
 **Description**
@@ -12872,6 +13787,15 @@ The optional `default_expression` is used if there isn't a row in the window
 frame at the specified offset. This expression must be a constant expression and
 its type must be implicitly coercible to the type of `value_expression`. If left
 unspecified, `default_expression` defaults to NULL.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
 
 **Supported Argument Types**
 
@@ -13005,8 +13929,18 @@ FROM finishers;
 
 ### LAG
 
-```
+```sql
 LAG (value_expression[, offset [, default_expression]])
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+
 ```
 
 **Description**
@@ -13020,6 +13954,15 @@ The optional `default_expression` is used if there isn't a row in the window
 frame at the specified offset. This expression must be a constant expression and
 its type must be implicitly coercible to the type of `value_expression`. If left
 unspecified, `default_expression` defaults to NULL.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
 
 **Supported Argument Types**
 
@@ -13153,8 +14096,17 @@ FROM finishers;
 
 ### PERCENTILE_CONT
 
-```
+```sql
 PERCENTILE_CONT (value_expression, percentile [{RESPECT | IGNORE} NULLS])
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+
 ```
 
 **Description**
@@ -13168,6 +14120,15 @@ NULLS` is present:
 + Interpolation between two `NULL` values returns `NULL`.
 + Interpolation between a `NULL` value and a non-`NULL` value returns the
   non-`NULL` value.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
 
 **Supported Argument Types**
 
@@ -13201,7 +14162,7 @@ table.
 The following example computes the value for some percentiles from a column of
 values while ignoring nulls.
 
-```
+```sql
 SELECT
   PERCENTILE_CONT(x, 0) OVER() AS min,
   PERCENTILE_CONT(x, 0.01) OVER() AS percentile1,
@@ -13220,7 +14181,7 @@ FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1;
 The following example computes the value for some percentiles from a column of
 values while respecting nulls.
 
-```
+```sql
 SELECT
   PERCENTILE_CONT(x, 0 RESPECT NULLS) OVER() AS min,
   PERCENTILE_CONT(x, 0.01 RESPECT NULLS) OVER() AS percentile1,
@@ -13238,8 +14199,17 @@ FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1;
 
 ### PERCENTILE_DISC
 
-```
+```sql
 PERCENTILE_DISC (value_expression, percentile [{RESPECT | IGNORE} NULLS])
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+
 ```
 
 **Description**
@@ -13249,6 +14219,15 @@ returned value is the first sorted value of `value_expression` with cumulative
 distribution greater than or equal to the given `percentile` value.
 
 This function ignores `NULL` values unless `RESPECT NULLS` is present.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
 
 **Supported Argument Types**
 
@@ -13268,7 +14247,7 @@ Same type as `value_expression`.
 The following example computes the value for some percentiles from a column of
 values while ignoring nulls.
 
-```
+```sql
 SELECT
   x,
   PERCENTILE_DISC(x, 0) OVER() AS min,
@@ -13289,7 +14268,7 @@ FROM UNNEST(['c', NULL, 'b', 'a']) AS x;
 The following example computes the value for some percentiles from a column of
 values while respecting nulls.
 
-```
+```sql
 SELECT
   x,
   PERCENTILE_DISC(x, 0 RESPECT NULLS) OVER() AS min,
@@ -13310,66 +14289,7 @@ FROM UNNEST(['c', NULL, 'b', 'a']) AS x;
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[navigation-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#navigation_function_concepts
-
-<!-- mdlint on -->
-
-## Aggregate analytic functions
-
-The following sections describe the aggregate analytic functions that
-ZetaSQL supports. For an explanation of how analytic functions work,
-see [Analytic Function Concepts][analytic-function-concepts]. For an explanation
-of how aggregate analytic functions work, see
-[Aggregate Analytic Function Concepts][aggregate-analytic-concepts].
-
-ZetaSQL supports the following
-[aggregate functions][analytic-functions-link-to-aggregate-functions]
-as analytic functions:
-
-* [ANY_VALUE](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#any_value)
-* [ARRAY_AGG](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#array_agg)
-* [AVG](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#avg)
-* [CORR](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#corr)
-* [COUNT](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#count)
-* [COUNTIF](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#countif)
-* [COVAR_POP](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#covar_pop)
-* [COVAR_SAMP](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#covar_samp)
-* [LOGICAL_AND](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#logical_and)
-* [LOGICAL_OR](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#logical_or)
-* [MAX](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#max)
-* [MIN](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#min)
-* [STDDEV_POP](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#stddev_pop)
-* [STDDEV_SAMP](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#stddev_samp)
-* [STRING_AGG](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#string_agg)
-* [SUM](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#sum)
-* [VAR_POP](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#var_pop)
-* [VAR_SAMP](https://github.com/google/zetasql/blob/master/docs/functions-and-operators.md#var_samp)
-
-`OVER` clause requirements:
-
-+ `PARTITION BY`: Optional.
-+ `ORDER BY`: Optional. Disallowed if `DISTINCT` is present.
-+ `window_frame_clause`: Optional. Disallowed if `DISTINCT` is present.
-
-Example:
-
-```
-COUNT(*) OVER (ROWS UNBOUNDED PRECEDING)
-```
-
-```
-SUM(DISTINCT x) OVER ()
-```
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[aggregate-analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#aggregate_analytic_function_concepts
-
-[analytic-functions-link-to-aggregate-functions]: #aggregate_functions
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 <!-- mdlint on -->
 
@@ -13884,6 +14804,68 @@ ORDER BY 2 DESC;
 +--------+--------------+
 ```
 
+### COLLATE
+
+```sql
+COLLATE(value, collate_specification)
+```
+
+Takes a `STRING` and a [collation specification][link-collation-spec]. Returns
+a `STRING` with a collation specification. If `collate_specification` is empty,
+returns a value with collation removed from the `STRING`.
+
+The collation specification defines how the resulting `STRING` can be compared
+and sorted. To learn more, see
+[Working with collation][link-collation-concepts].
+
++ `collation_specification` must be a string literal, otherwise an error is
+  thrown.
++ Returns `NULL` if `value` is `NULL`.
+
+**Return type**
+
+`STRING`
+
+**Examples**
+
+In this example, the weight of `a` is less than the weight of `Z`. This
+is because the collate specification, `und:ci` assigns more weight to `Z`.
+
+```sql
+WITH Words AS (
+  SELECT
+    COLLATE('a', 'und:ci') AS char1,
+    COLLATE('Z', 'und:ci') AS char2
+)
+SELECT ( Words.char1 < Words.char2 ) AS a_less_than_Z
+FROM Words;
+
++----------------+
+| a_less_than_Z  |
++----------------+
+| TRUE           |
++----------------+
+```
+
+In this example, the weight of `a` is greater than the weight of `Z`. This
+is because the default collate specification assigns more weight to `a`.
+
+```sql
+WITH Words AS (
+  SELECT
+    'a' AS char1,
+    'Z' AS char2
+)
+SELECT ( Words.char1 < Words.char2 ) AS a_less_than_Z
+FROM Words;
+
++----------------+
+| a_less_than_Z  |
++----------------+
+| FALSE          |
++----------------+
+```
+
 ### CONCAT
 
 ```sql
@@ -13966,6 +14948,10 @@ ENDS_WITH(value1, value2)
 
 Takes two `STRING` or `BYTES` values. Returns `TRUE` if the second
 value is a suffix of the first.
+
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
 
 **Return type**
 
@@ -14968,6 +15954,10 @@ overlapping occurrences, in other words, the function searches for additional
 occurrences beginning with the second character in the previous occurrence.
 `occurrence` cannot be 0 or negative.
 
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+
 **Return type**
 
 `INT64`
@@ -15915,6 +16905,10 @@ REPLACE(original_value, from_value, to_value)
 Replaces all occurrences of `from_value` with `to_value` in `original_value`.
 If `from_value` is empty, no replacement is made.
 
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+
 **Return type**
 
 `STRING` or `BYTES`
@@ -16348,6 +17342,10 @@ Splitting an empty `STRING` returns an
 `ARRAY` with a single empty
 `STRING`.
 
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+
 **Return type**
 
 `ARRAY` of type `STRING` or
@@ -16386,6 +17384,10 @@ STARTS_WITH(value1, value2)
 Takes two `STRING` or `BYTES` values. Returns `TRUE` if the second value is a
 prefix of the first.
 
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+
 **Return type**
 
 `BOOL`
@@ -16423,6 +17425,10 @@ STRPOS(value1, value2)
 
 Takes two `STRING` or `BYTES` values. Returns the 1-based index of the first
 occurrence of `value2` inside `value1`. Returns `0` if `value2` is not found.
+
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
 
 **Return type**
 
@@ -16469,17 +17475,26 @@ SUBSTR(value, position[, length])
 Returns a substring of the supplied `STRING` or `BYTES` value.
 
 The `position` argument is an integer specifying the starting position of the
-substring, with position = 1 indicating the first character or byte. If
-`position` is negative, the function counts from the end of `value`, with -1
-indicating the last character. If `position` is zero or less than
-`-LENGTH(value)`, the substring starts from position = 1.
+substring.
 
-The `length` argument specifies the maximum number of characters to return if
-`value` is a `STRING`, or number of bytes to return if `value` is a `BYTES`. If
-`length` is less than 0, the function produces an error. The returned substring
-may be shorter than `length`, for example, when `length` exceeds the length of
-`value`, or when the starting position of the substring plus `length` is greater
-than the length of `value`.
++ If `position` is `1`, the substring starts from the first character or byte.
++ If `position` is `0` or less than `-LENGTH(value)`, `position` is set to `1`,
+  and the substring starts from the first character or byte.
++ If `position` is greater than the length of `value`, the function produces
+  an empty substring.
++ If `position` is negative, the function counts from the end of `value`,
+  with `-1` indicating the last character or byte.
+
+The `length` argument specifies the maximum number of characters or bytes to
+return.
+
++ If `length` is not specified, the function produces a substring that starts
+  at the specified position and ends at the last character or byte of `value`.
++ If `length` is `0`, the function produces an empty substring.
++ If `length` is negative, the function produces an error.
++ The returned substring may be shorter than `length`, for example, when
+  `length` exceeds the length of `value`, or when the starting position of the
+  substring plus `length` is greater than the length of `value`.
 
 **Return type**
 
@@ -17139,6 +18154,10 @@ FROM items;
 
 [string-link-to-operators]: #operators
 
+[link-collation-concepts]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#working_with_collation
+
+[link-collation-spec]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_spec_details
+
 <!-- mdlint on -->
 
 ## JSON functions
@@ -17380,7 +18399,7 @@ using single quotes and brackets.
     '{"class" : {"students" : [{"name" : "Jane"}]}}'
     ```
 
-    Extracts a SQL `NULL` when a JSON-formatted string "null" is encountered.
+    Extracts a SQL `NULL` when a JSON-formatted string `null` is encountered.
     For example:
 
     ```sql
@@ -17398,25 +18417,7 @@ using single quotes and brackets.
     SELECT JSON_EXTRACT(JSON 'null', "$") -- Returns a JSON 'null'
     ```
 +   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
-    you want to obtain from the input. If this optional parameter is not
-    provided, then the JSONPath `$` symbol is applied, which means that all of
-    the data is analyzed.
-
-    ```sql
-    SELECT JSON_EXTRACT('{"a":null}', "$.a"); -- Returns a SQL NULL
-    SELECT JSON_EXTRACT('{"a":null}', "$.b"); -- Returns a SQL NULL
-    ```
-
-    
-    ```sql
-    SELECT JSON_EXTRACT(JSON '{"a":null}', "$.a"); -- Returns a JSON 'null'
-    SELECT JSON_EXTRACT(JSON '{"a":null}', "$.b"); -- Returns a SQL NULL
-    ```
-    
-
-If you want to include non-scalar values such as arrays in the extraction, then
-use `JSON_EXTRACT`. If you only want to extract scalar values such strings,
-numbers, and booleans, then use `JSON_EXTRACT_SCALAR`.
+    you want to obtain from the input.
 
 **Return type**
 
@@ -17512,6 +18513,16 @@ FROM UNNEST([
 +------------------------------------+
 ```
 
+```sql
+SELECT JSON_EXTRACT('{"a":null}', "$.a"); -- Returns a SQL NULL
+SELECT JSON_EXTRACT('{"a":null}', "$.b"); -- Returns a SQL NULL
+```
+
+```sql
+SELECT JSON_EXTRACT(JSON '{"a":null}', "$.a"); -- Returns a JSON 'null'
+SELECT JSON_EXTRACT(JSON '{"a":null}', "$.b"); -- Returns a SQL NULL
+```
+
 ### JSON_QUERY
 
 ```sql
@@ -17535,7 +18546,7 @@ using double quotes.
     '{"class" : {"students" : [{"name" : "Jane"}]}}'
     ```
 
-    Extracts a SQL `NULL` when a JSON-formatted string "null" is encountered.
+    Extracts a SQL `NULL` when a JSON-formatted string `null` is encountered.
     For example:
 
     ```sql
@@ -17553,25 +18564,7 @@ using double quotes.
     SELECT JSON_QUERY(JSON 'null', "$") -- Returns a JSON 'null'
     ```
 +   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
-    you want to obtain from the input. If this optional parameter is not
-    provided, then the JSONPath `$` symbol is applied, which means that all of
-    the data is analyzed.
-
-    ```sql
-    SELECT JSON_QUERY('{"a":null}', "$.a"); -- Returns a SQL NULL
-    SELECT JSON_QUERY('{"a":null}', "$.b"); -- Returns a SQL NULL
-    ```
-
-    
-    ```sql
-    SELECT JSON_QUERY(JSON '{"a":null}', "$.a"); -- Returns a JSON 'null'
-    SELECT JSON_QUERY(JSON '{"a":null}', "$.b"); -- Returns a SQL NULL
-    ```
-    
-
-If you want to include non-scalar values such as arrays in the extraction, then
-use `JSON_QUERY`. If you only want to extract scalar values such strings,
-numbers, and booleans, then use `JSON_VALUE`.
+    you want to obtain from the input.
 
 **Return type**
 
@@ -17667,6 +18660,16 @@ FROM UNNEST([
 +------------------------------------+
 ```
 
+```sql
+SELECT JSON_QUERY('{"a":null}', "$.a"); -- Returns a SQL NULL
+SELECT JSON_QUERY('{"a":null}', "$.b"); -- Returns a SQL NULL
+```
+
+```sql
+SELECT JSON_QUERY(JSON '{"a":null}', "$.a"); -- Returns a JSON 'null'
+SELECT JSON_QUERY(JSON '{"a":null}', "$.b"); -- Returns a SQL NULL
+```
+
 ### JSON_EXTRACT_SCALAR
 
 Note: This function is deprecated. Consider using [JSON_VALUE][json-value].
@@ -17704,13 +18707,7 @@ using single quotes and brackets.
 
     If `json_path` returns a JSON `null` or a non-scalar value (in other words,
     if `json_path` refers to an object or an array), then a SQL `NULL` is
-    returned. If this optional parameter is not provided, then the JSONPath `$`
-    symbol is applied, which means that the entire JSON-formatted string is
-    analyzed.
-
-If you only want to extract scalar values such strings, numbers, and booleans,
-then use `JSON_EXTRACT_SCALAR`. If you want to include non-scalar values such as
-arrays in the extraction, then use `JSON_EXTRACT`.
+    returned.
 
 **Return type**
 
@@ -17805,13 +18802,7 @@ using double quotes.
 
     If `json_path` returns a JSON `null` or a non-scalar value (in other words,
     if `json_path` refers to an object or an array), then a SQL `NULL` is
-    returned. If this optional parameter is not provided, then the JSONPath `$`
-    symbol is applied, which means that the entire JSON-formatted string is
-    analyzed.
-
-If you only want to extract scalar values such strings, numbers, and booleans,
-then use `JSON_VALUE`. If you want to include non-scalar values such as arrays
-in the extraction, then use `JSON_QUERY`.
+    returned.
 
 **Return type**
 
@@ -18069,9 +19060,9 @@ JSON_VALUE_ARRAY(json_expr[, json_path])
 **Description**
 
 Extracts an array of scalar values and returns an array of string-formatted
-scalar values. A scalar value can represent a string, number, or boolean. If a
-JSON key uses invalid [JSONPath][JSONPath-format] characters, you can escape
-those characters using double quotes.
+scalar values. A scalar value can represent a string, number, or boolean.
+If a JSON key uses invalid [JSONPath][JSONPath-format] characters, you can
+escape those characters using double quotes.
 
 +   `json_string_expr`: A JSON-formatted string. For example:
 
@@ -18087,6 +19078,13 @@ those characters using double quotes.
     you want to obtain from the input. If this optional parameter is not
     provided, then the JSONPath `$` symbol is applied, which means that all of
     the data is analyzed.
+
+Caveats:
+
++ A JSON `null` in the input array produces a SQL `NULL` as the output for that
+  JSON `null`.
++ If a JSONPath matches an array that contains scalar objects and a JSON `null`,
+  then the output is an array of the scalar objects and a SQL `NULL`.
 
 **Return type**
 
@@ -18250,8 +19248,8 @@ SELECT JSON_VALUE_ARRAY('{"a":"foo","b":[]}','$.b') AS result;
 | []     |
 +--------+
 
--- If a JSONPath matches an array that contains scalar objects and a JSON null,
--- then the output is an array of the scalar objects and a SQL NULL.
+-- In the following query, the JSON null input is returned as a
+-- SQL NULL in the output.
 SELECT JSON_VALUE_ARRAY('["world", null, 1]') AS result;
 
 +------------------+
@@ -18265,7 +19263,7 @@ SELECT JSON_VALUE_ARRAY('["world", null, 1]') AS result;
 ### PARSE_JSON
 
 ```sql
-PARSE_JSON(json_string_expr[, wide_number_mode=>{ 'exact' | 'round' } ])
+PARSE_JSON(json_string_expr[, wide_number_mode=>{ 'exact' | 'round' }])
 ```
 
 **Description**
@@ -18340,7 +19338,7 @@ SELECT PARSE_JSON('{"id":922337203685477580701}', wide_number_mode=>'round') AS 
 ### TO_JSON
 
 ```sql
-TO_JSON(sql_value[, stringify_wide_numbers=>{ TRUE | FALSE } ])
+TO_JSON(sql_value[, stringify_wide_numbers=>{ TRUE | FALSE }])
 ```
 
 **Description**
@@ -18714,7 +19712,7 @@ SELECT SAFE.INT64(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
 <a id="double_for_json"></a>
 
 ```sql
-DOUBLE(json_expr[, wide_number_mode=>{ 'exact' | 'round'])
+DOUBLE(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
 ```
 
 **Description**
@@ -19315,41 +20313,95 @@ or `TO_JSON` function.
   </tbody>
 </table>
 
-### JSONPath 
+### JSONPath format 
 <a id="JSONPath_format"></a>
 
-Most JSON functions pass in a `json_string_expr` and `json_path`
-parameter. The `json_string_expr` parameter passes in a JSON-formatted
-string, and the `json_path` parameter identifies the value or
-values you want to obtain from the JSON-formatted string.
+With the JSONPath format, you can identify the values you want to
+obtain from a JSON-formatted string. The JSONPath format supports these
+operators:
 
-The `json_string_expr` parameter must be a JSON string that is
-formatted like this:
+<table>
+  <thead>
+    <tr>
+      <th>Operator</th>
+      <th width='300px'>Description</th>
+      <th>Examples</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>$</code></td>
+      <td>
+        Root object or element. The JSONPath format must start with this
+        operator, which refers to the outermost level of the
+        JSON-formatted string.
+      </td>
+      <td>
+        <p>
+          JSON-formatted string:<br />
+          <code>'{"class" : {"students" : [{"name" : "Jane"}]}}'</code>
+        </p>
+        <p>
+          JSON path:<br />
+          <code>"$"</code>
+        </p>
+        <p>
+          JSON result:<br />
+          <code>{"class":{"students":[{"name":"Jane"}]}}</code><br />
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>.</code></td>
+      <td>
+        Child operator. You can identify child values using dot-notation.
+      </td>
+      <td>
+        <p>
+          JSON-formatted string:<br />
+          <code>'{"class" : {"students" : [{"name" : "Jane"}]}}'</code>
+        </p>
+        <p>
+          JSON path:<br />
+          <code>"$.class.students"</code>
+        </p>
+        <p>
+          JSON result:<br />
+          <code>[{"name":"Jane"}]</code>
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>[]</code></td>
+      <td>
+        Subscript operator. If the JSON object is an array, you can use
+        brackets to specify the array index.
+      </td>
+      <td>
+        <p>
+          JSON-formatted string:<br />
+          <code>'{"class" : {"students" : [{"name" : "Jane"}]}}'</code>
+        </p>
+        <p>
+          JSON path:<br />
+          <code>"$.class.students[0]"</code>
+        </p>
+        <p>
+          JSON result:<br />
+          <code>{"name":"Jane"}</code>
+        </p>
+      </td>
+    </tr>
+  </tbody>
+</table>
 
-```json
-'{"class" : {"students" : [{"name" : "Jane"}]}}'
-```
+If a key in a JSON functions contains a JSON format operator, refer to each
+JSON function for how to escape them.
 
-You construct the `json_path` parameter using the
-[JSONPath][json-path] format. As part of this format, this parameter must start
-with a `$` symbol, which refers to the outermost level of the JSON-formatted
-string. You can identify child values using dots. If the JSON object is an
-array, you can use brackets to specify the array index. If the keys contain
-`$`, dots, or brackets, refer to each JSON function for how to escape
-them.
-
-JSONPath | Description            | Example               | Result using the above `json_string_expr`
--------- | ---------------------- | --------------------- | -----------------------------------------
-$        | Root object or element | "$"                   | `{"class":{"students":[{"name":"Jane"}]}}`
-.        | Child operator         | "$.class.students"    | `[{"name":"Jane"}]`
-[]       | Subscript operator     | "$.class.students[0]" | `{"name":"Jane"}`
-
-A JSON functions returns `NULL` if the `json_path` parameter does
-not match a value in `json_string_expr`. If the selected value for a scalar
-function is not scalar, such as an object or an array, the function
-returns `NULL`.
-
-If the JSONPath is invalid, the function raises an error.
+A JSON function returns `NULL` if the JSONPath format does not match a value in
+a JSON-formatted string. If the selected value for a scalar function is not
+scalar, such as an object or an array, the function returns `NULL`. If the
+JSONPath format is invalid, an error is produced.
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -19364,8 +20416,6 @@ If the JSONPath is invalid, the function raises an error.
 [json-encodings]: #json_encodings
 
 [JSONPath-format]: #JSONPath_format
-
-[json-path]: https://github.com/json-path/JSONPath#operators
 
 <!-- mdlint on -->
 
@@ -19537,6 +20587,38 @@ SELECT
 +-------+-------+
 ```
 
+### ARRAY_FIRST
+
+```sql
+ARRAY_FIRST(array_expression)
+```
+
+**Description**
+
+Takes an array and returns the first element in the array.
+
+Produces an error if the array is empty.
+
+Returns `NULL` if `array_expression` is `NULL`.
+
+Note: To get the last element in an array, see [`ARRAY_LAST`][array-last].
+
+**Return type**
+
+Matches the data type of elements in `array_expression`.
+
+**Example**
+
+```sql
+SELECT ARRAY_FIRST(['a','b','c','d']) as first_element
+
++---------------+
+| first_element |
++---------------+
+| a             |
++---------------+
+```
+
 ### ARRAY_INCLUDES
 
 +   [Signature 1](#array_includes_signature1): `ARRAY_INCLUDES(array_to_search,
@@ -19702,6 +20784,38 @@ SELECT
 +------+-------+
 | true | false |
 +------+-------+
+```
+
+### ARRAY_LAST
+
+```sql
+ARRAY_LAST(array_expression)
+```
+
+**Description**
+
+Takes an array and returns the last element in the array.
+
+Produces an error if the array is empty.
+
+Returns `NULL` if `array_expression` is `NULL`.
+
+Note: To get the first element in an array, see [`ARRAY_FIRST`][array-first].
+
+**Return type**
+
+Matches the data type of elements in `array_expression`.
+
+**Example**
+
+```sql
+SELECT ARRAY_LAST(['a','b','c','d']) as last_element
+
++---------------+
+| last_element  |
++---------------+
+| d             |
++---------------+
 ```
 
 ### ARRAY_LENGTH
@@ -19942,9 +21056,11 @@ parameters determine the inclusive start and end of the array.
 
 The `GENERATE_ARRAY` function accepts the following data types as inputs:
 
-<ul>
-<li>INT64</li><li>UINT64</li><li>NUMERIC</li><li>BIGNUMERIC</li><li>DOUBLE</li>
-</ul>
++ `INT64`
++ `UINT64`
++ `NUMERIC`
++ `BIGNUMERIC`
++ `DOUBLE`
 
 The `step_expression` parameter determines the increment used to
 generate array values. The default value for this parameter is `1`.
@@ -20434,6 +21550,10 @@ FROM example;
 
 [array-el-field-operator]: #array_el_field_operator
 
+[array-first]: #array_first
+
+[array-last]: #array_last
+
 [array-link-to-operators]: #operators
 
 [lambda-definition]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md#lambdas
@@ -20830,28 +21950,41 @@ DATE_TRUNC(date_expression, date_part)
 
 **Description**
 
-Truncates the date to the specified granularity.
+Truncates a `DATE` value to the granularity of `date_part`. The `DATE` value
+is always rounded to the beginning of `date_part`, which can be one of the
+following:
 
-`DATE_TRUNC` supports the following values for `date_part`:
++ `DAY`: The day in the Gregorian calendar year that contains the
+  `DATE` value.
++ `WEEK`: The first day of the week in the week that contains the
+  `DATE` value. Weeks begin on Sundays. `WEEK` is equivalent to
+  `WEEK(SUNDAY)`.
++ `WEEK(WEEKDAY)`: The first day of the week in the week that contains the
+  `DATE` value. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
+   following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
+   or `SATURDAY`.
++ `ISOWEEK`: The first day of the [ISO 8601 week][ISO-8601-week] in the
+  ISO week that contains the `DATE` value. The ISO week begins on
+  Monday. The first ISO week of each ISO year contains the first Thursday of the
+  corresponding Gregorian calendar year.
++ `MONTH`: The first day of the month in the month that contains the
+  `DATE` value.
++ `QUARTER`: The first day of the quarter in the quarter that contains the
+  `DATE` value.
++ `YEAR`: The first day of the year in the year that contains the
+  `DATE` value.
++ `ISOYEAR`: The first day of the [ISO 8601][ISO-8601] week-numbering year
+  in the ISO year that contains the `DATE` value. The ISO year is the
+  Monday of the first week whose Thursday belongs to the corresponding
+  Gregorian calendar year.
 
-+  `DAY`
-+  `WEEK`
-+  `WEEK(<WEEKDAY>)`: Truncates `date_expression` to the preceding week
-   boundary, where weeks begin on `WEEKDAY`. Valid values for `WEEKDAY` are
-   `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`, and
-   `SATURDAY`.
-+  `ISOWEEK`: Truncates `date_expression` to the preceding
-   [ISO 8601 week][ISO-8601-week] boundary. `ISOWEEK`s
-   begin on Monday. The first `ISOWEEK` of each ISO year contains the first
-   Thursday of the corresponding Gregorian calendar year. Any `date_expression`
-   earlier than this will truncate to the preceding Monday.
-+  `MONTH`
-+  `QUARTER`
-+  `YEAR`
-+  `ISOYEAR`: Truncates `date_expression` to the preceding [ISO 8601][ISO-8601]
-    week-numbering year boundary. The ISO year boundary is the Monday of the
-    first week whose Thursday belongs to the corresponding Gregorian calendar
-    year.
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
+
+<!-- mdlint on -->
 
 **Return Data Type**
 
@@ -21624,40 +22757,52 @@ SELECT
 ### DATETIME_TRUNC
 
 ```sql
-DATETIME_TRUNC(datetime_expression, part)
+DATETIME_TRUNC(datetime_expression, date_time_part)
 ```
 
 **Description**
 
-Truncates a `DATETIME` object to the granularity of `part`.
+Truncates a `DATETIME` value to the granularity of `date_time_part`.
+The `DATETIME` value is always rounded to the beginning of `date_time_part`,
+which can be one of the following:
 
-`DATETIME_TRUNC` supports the following values for `part`:
++ `NANOSECOND`: If used, nothing is truncated from the value.
++ `MICROSECOND`: The nearest lessor or equal microsecond.
++ `MILLISECOND`: The nearest lessor or equal millisecond.
++ `SECOND`: The nearest lessor or equal second.
++ `MINUTE`: The nearest lessor or equal minute.
++ `HOUR`: The nearest lessor or equal hour.
++ `DAY`: The day in the Gregorian calendar year that contains the
+  `DATETIME` value.
++ `WEEK`: The first day of the week in the week that contains the
+  `DATETIME` value. Weeks begin on Sundays. `WEEK` is equivalent to
+  `WEEK(SUNDAY)`.
++ `WEEK(WEEKDAY)`: The first day of the week in the week that contains the
+  `DATETIME` value. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
+   following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
+   or `SATURDAY`.
++ `ISOWEEK`: The first day of the [ISO 8601 week][ISO-8601-week] in the
+  ISO week that contains the `DATETIME` value. The ISO week begins on
+  Monday. The first ISO week of each ISO year contains the first Thursday of the
+  corresponding Gregorian calendar year.
++ `MONTH`: The first day of the month in the month that contains the
+  `DATETIME` value.
++ `QUARTER`: The first day of the quarter in the quarter that contains the
+  `DATETIME` value.
++ `YEAR`: The first day of the year in the year that contains the
+  `DATETIME` value.
++ `ISOYEAR`: The first day of the [ISO 8601][ISO-8601] week-numbering year
+  in the ISO year that contains the `DATETIME` value. The ISO year is the
+  Monday of the first week whose Thursday belongs to the corresponding
+  Gregorian calendar year.
 
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`
-+ `DAY`
-+ `WEEK`
-+ `WEEK(<WEEKDAY>)`: Truncates `datetime_expression` to the preceding week
-  boundary, where weeks begin on `WEEKDAY`. Valid values for `WEEKDAY` are
-  `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`, and
-  `SATURDAY`.
-+ `ISOWEEK`: Truncates `datetime_expression` to the preceding
-   [ISO 8601 week][ISO-8601-week] boundary. `ISOWEEK`s
-   begin on Monday. The first `ISOWEEK` of each ISO year contains the first
-   Thursday of the corresponding Gregorian calendar year. Any `date_expression`
-   earlier than this will truncate to the preceding Monday.
-+ `MONTH`
-+ `QUARTER`
-+ `YEAR`
-+ `ISOYEAR`: Truncates `datetime_expression` to the preceding [ISO 8601][ISO-8601]
-    week-numbering year boundary. The ISO year boundary is the Monday of the
-    first week whose Thursday belongs to the corresponding Gregorian calendar
-    year.
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
+
+<!-- mdlint on -->
 
 **Return Data Type**
 
@@ -22249,22 +23394,21 @@ SELECT
 ### TIME_TRUNC
 
 ```sql
-TIME_TRUNC(time_expression, part)
+TIME_TRUNC(time_expression, time_part)
 ```
 
 **Description**
 
-Truncates a `TIME` object to the granularity of `part`.
+Truncates a `TIME` value to the granularity of `time_part`. The `TIME` value
+is always rounded to the beginning of `time_part`, which can be one of the
+following:
 
-`TIME_TRUNC` supports the following values for `part`:
-
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`
++ `NANOSECOND`: If used, nothing is truncated from the value.
++ `MICROSECOND`: The nearest lessor or equal microsecond.
++ `MILLISECOND`: The nearest lessor or equal millisecond.
++ `SECOND`: The nearest lessor or equal second.
++ `MINUTE`: The nearest lessor or equal minute.
++ `HOUR`: The nearest lessor or equal hour.
 
 **Return Data Type**
 
@@ -22437,7 +23581,7 @@ Not applicable
 **Examples**
 
 ```sql
-SELECT CURRENT_TIMESTAMP() as now;
+SELECT CURRENT_TIMESTAMP() AS now;
 
 +---------------------------------------------+
 | now                                         |
@@ -22508,9 +23652,8 @@ Allowed `part` values are:
   week-numbering year, which is the Gregorian calendar year containing the
   Thursday of the week to which `date_expression` belongs.
 + `DATE`
-<li><code>DATETIME</code></li>
-<li><code>TIME</code></li>
-</ul>
++ <code>DATETIME</code>
++ <code>TIME</code>
 
 Returned values truncate lower order time periods. For example, when extracting
 seconds, `EXTRACT` truncates the millisecond and microsecond values.
@@ -22871,43 +24014,55 @@ SELECT TIMESTAMP_DIFF("2001-02-01 01:00:00", "2001-02-01 00:00:01", HOUR)
 ### TIMESTAMP_TRUNC
 
 ```sql
-TIMESTAMP_TRUNC(timestamp_expression, date_part[, time_zone])
+TIMESTAMP_TRUNC(timestamp_expression, date_time_part[, time_zone])
 ```
 
 **Description**
 
-Truncates a timestamp to the granularity of `date_part`.
+Truncates a `TIMESTAMP` value to the granularity of `date_time_part`.
+The `TIMESTAMP` value is always rounded to the beginning of `date_time_part`,
+which can be one of the following:
 
-`TIMESTAMP_TRUNC` supports the following values for `date_part`:
++ `NANOSECOND`: If used, nothing is truncated from the value.
++ `MICROSECOND`: The nearest lessor or equal microsecond.
++ `MILLISECOND`: The nearest lessor or equal millisecond.
++ `SECOND`: The nearest lessor or equal second.
++ `MINUTE`: The nearest lessor or equal minute.
++ `HOUR`: The nearest lessor or equal hour.
++ `DAY`: The day in the Gregorian calendar year that contains the
+  `TIMESTAMP` value.
++ `WEEK`: The first day of the week in the week that contains the
+  `TIMESTAMP` value. Weeks begin on Sundays. `WEEK` is equivalent to
+  `WEEK(SUNDAY)`.
++ `WEEK(WEEKDAY)`: The first day of the week in the week that contains the
+  `TIMESTAMP` value. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
+   following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
+   or `SATURDAY`.
++ `ISOWEEK`: The first day of the [ISO 8601 week][ISO-8601-week] in the
+  ISO week that contains the `TIMESTAMP` value. The ISO week begins on
+  Monday. The first ISO week of each ISO year contains the first Thursday of the
+  corresponding Gregorian calendar year.
++ `MONTH`: The first day of the month in the month that contains the
+  `TIMESTAMP` value.
++ `QUARTER`: The first day of the quarter in the quarter that contains the
+  `TIMESTAMP` value.
++ `YEAR`: The first day of the year in the year that contains the
+  `TIMESTAMP` value.
++ `ISOYEAR`: The first day of the [ISO 8601][ISO-8601] week-numbering year
+  in the ISO year that contains the `TIMESTAMP` value. The ISO year is the
+  Monday of the first week whose Thursday belongs to the corresponding
+  Gregorian calendar year.
 
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`
-+ `DAY`
-+ `WEEK`
-+ `WEEK(<WEEKDAY>):` Truncates `timestamp_expression` to the preceding
-  week boundary, where weeks begin on `WEEKDAY`. Valid values for `WEEKDAY` are
-  `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`, and
-  `SATURDAY`.
-+ `ISOWEEK`: Truncates `timestamp_expression` to the preceding
-   [ISO 8601 week][ISO-8601-week] boundary. `ISOWEEK`s
-   begin on Monday. The first `ISOWEEK` of each ISO year contains the first
-   Thursday of the corresponding Gregorian calendar year. Any `date_expression`
-   earlier than this will truncate to the preceding Monday.
-+ `MONTH`
-+ `QUARTER`
-+ `YEAR`
-+ `ISOYEAR`: Truncates `timestamp_expression` to the preceding [ISO 8601][ISO-8601]
-    week-numbering year boundary. The ISO year boundary is the Monday of the
-    first week whose Thursday belongs to the corresponding Gregorian calendar
-    year.
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
+
+<!-- mdlint on -->
 
 `TIMESTAMP_TRUNC` function supports an optional `time_zone` parameter. This
-parameter applies to the following `date_parts`:
+parameter applies to the following `date_time_part`:
 
 + `MINUTE`
 + `HOUR`
@@ -25164,7 +26319,7 @@ condition fails.
 ```sql
 SELECT *
 FROM (SELECT -1 AS x)
-WHERE IF(x > 0, true, ERROR(FORMAT('Error: x must be positive but is %t', x)));'
+WHERE IF(x > 0, true, ERROR(FORMAT('Error: x must be positive but is %t', x)));
 
 Error: x must be positive but is -1
 ```

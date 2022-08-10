@@ -14,8 +14,10 @@
 // limitations under the License.
 
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <memory>
+#include <string>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/base/testing/status_matchers.h"
@@ -28,6 +30,7 @@
 #include "zetasql/testing/test_value.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/base/casts.h"
 #include "absl/cleanup/cleanup.h"
 #include "absl/flags/flag.h"
 #include "absl/functional/bind_front.h"
@@ -167,6 +170,11 @@ TEST_P(FormatFunctionTests, Test) {
       "ERROR: Invalid format specifier character \"(\" in "
       "FORMAT string: \"%(\"",
       TestFormat("%(", {Int64(0)}));
+
+  EXPECT_EQ(
+      "ERROR: Invalid format specifier character \"’\" in FORMAT string: "
+      "\"%’d\"",
+      TestFormat("%’d", {Int64(0)}));
 
   // These formats are valid in some sprintf implementations.
   EXPECT_EQ(
@@ -479,14 +487,33 @@ TEST_P(FormatFunctionTests, Test) {
   EXPECT_EQ("5", TestFormat("%T", {values::Uint32(5)}));
   EXPECT_EQ("0.1", TestFormat("%T", {values::Float(0.1)}));
   EXPECT_EQ("0.1", TestFormat("%T", {values::Double(0.1)}));
+
+  // Tests to check that positive and negative NaNs are formatted as "nan".
+  const float kNegativeFloatNan = absl::bit_cast<float>(0xffc00000u);
+  const double kNegativeDoubleNan =
+      absl::bit_cast<double>(0xfff8000000000000ul);
   EXPECT_EQ(
       "CAST(\"nan\" AS FLOAT)",
       TestFormat("%T",
                  {values::Float(std::numeric_limits<float>::quiet_NaN())}));
   EXPECT_EQ(
+      "nan",
+      TestFormat("%t",
+                 {values::Float(std::numeric_limits<float>::quiet_NaN())}));
+  EXPECT_EQ("CAST(\"nan\" AS FLOAT)",
+            TestFormat("%T", {values::Float(kNegativeFloatNan)}));
+  EXPECT_EQ("nan", TestFormat("%t", {values::Float(kNegativeFloatNan)}));
+  EXPECT_EQ(
       "CAST(\"nan\" AS FLOAT64)",
       TestFormat("%T",
                  {values::Double(std::numeric_limits<double>::quiet_NaN())}));
+  EXPECT_EQ(
+      "nan",
+      TestFormat("%t",
+                 {values::Double(std::numeric_limits<double>::quiet_NaN())}));
+  EXPECT_EQ("CAST(\"nan\" AS FLOAT64)",
+            TestFormat("%T", {values::Double(kNegativeDoubleNan)}));
+  EXPECT_EQ("nan", TestFormat("%t", {values::Double(kNegativeDoubleNan)}));
 
   EXPECT_EQ("true", TestFormat("%T", {values::Bool(true)}));
   EXPECT_EQ("\"abc\"", TestFormat("%T", {values::String("abc")}));

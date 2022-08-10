@@ -18,6 +18,7 @@
 #define ZETASQL_COMMON_INTERNAL_VALUE_H_
 
 #include <string>
+#include <utility>
 
 #include "zetasql/common/float_margin.h"
 #include "zetasql/public/type.h"

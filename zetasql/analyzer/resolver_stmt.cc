@@ -20,6 +20,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -52,6 +53,7 @@
 #include "zetasql/public/deprecation_warning.pb.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
@@ -78,7 +80,6 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/node_hash_map.h"
 #include "absl/memory/memory.h"
-#include "absl/meta/type_traits.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
@@ -132,9 +133,16 @@ STATIC_IDSTRING(kQueryId, "$query");
 STATIC_IDSTRING(kViewId, "$view");
 STATIC_IDSTRING(kCreateAsCastId, "$create_as_cast");
 
+// NOLINTBEGIN(readability/fn_size)
 absl::Status Resolver::ResolveStatement(
     absl::string_view sql, const ASTStatement* statement,
     std::unique_ptr<const ResolvedStatement>* output) {
+  if (analyzer_options_.language().LanguageFeatureEnabled(
+          zetasql::FEATURE_SPANNER_LEGACY_DDL)) {
+    return MakeSqlError() << "Spanner DDL statements are not supported when "
+                             "resolving statements.";
+  }
+
   Reset(sql);
 
   std::unique_ptr<ResolvedStatement> stmt;
@@ -547,6 +555,7 @@ absl::Status Resolver::ResolveStatement(
             statement->GetAsOrDie<ASTRevokeStatement>(), &stmt));
       }
       break;
+
     case AST_ALTER_DATABASE_STATEMENT:
       if (language().SupportsStatementKind(RESOLVED_ALTER_DATABASE_STMT)) {
         ZETASQL_RETURN_IF_ERROR(ResolveAlterDatabaseStatement(
@@ -601,6 +610,12 @@ absl::Status Resolver::ResolveStatement(
               RESOLVED_ALTER_MATERIALIZED_VIEW_STMT)) {
         ZETASQL_RETURN_IF_ERROR(ResolveAlterMaterializedViewStatement(
             statement->GetAsOrDie<ASTAlterMaterializedViewStatement>(), &stmt));
+      }
+      break;
+    case AST_ALTER_MODEL_STATEMENT:
+      if (language().SupportsStatementKind(RESOLVED_ALTER_MODEL_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveAlterModelStatement(
+            statement->GetAsOrDie<ASTAlterModelStatement>(), &stmt));
       }
       break;
     case AST_RENAME_STATEMENT:
@@ -701,6 +716,7 @@ absl::Status Resolver::ResolveStatement(
   *output = std::move(stmt);
   return absl::OkStatus();
 }
+// NOLINTEND(readability/fn_size)
 
 absl::Status Resolver::ResolveQueryStatement(
     const ASTQueryStatement* query_stmt,
@@ -1349,15 +1365,20 @@ absl::Status Resolver::ResolvePrimaryKey(
   }
   std::vector<int> column_index_list;
   std::vector<std::string> column_name_list;
-  if (ast_primary_key->column_list() != nullptr) {
+  if (ast_primary_key->element_list() != nullptr) {
     std::set<IdString, IdStringCaseLess> used_primary_key_columns;
-    for (const auto& identifier :
-         ast_primary_key->column_list()->identifiers()) {
-      const IdString primary_key_column = identifier->GetAsIdString();
+    for (const auto& element : ast_primary_key->element_list()->elements()) {
+      if (element->ordering_spec() != ASTOrderingExpression::UNSPECIFIED ||
+          element->null_order() != nullptr) {
+        return MakeSqlErrorAt(element)
+               << "Ordered primary key elements are not supported";
+      }
+      const IdString primary_key_column = element->column()->GetAsIdString();
       if (zetasql_base::ContainsKey(used_primary_key_columns, primary_key_column)) {
-        return MakeSqlErrorAt(identifier) << "Duplicate column "
-            << primary_key_column << " specified in PRIMARY KEY of CREATE "
-            << "TABLE";
+        return MakeSqlErrorAt(element)
+               << "Duplicate column " << primary_key_column
+               << " specified in PRIMARY KEY of CREATE "
+               << "TABLE";
       }
       used_primary_key_columns.insert(primary_key_column);
       column_name_list.push_back(primary_key_column.ToString());
@@ -1365,7 +1386,7 @@ absl::Status Resolver::ResolvePrimaryKey(
         const int* column_index =
             zetasql_base::FindOrNull(column_indexes, primary_key_column);
         if (column_index == nullptr) {
-          return MakeSqlErrorAt(identifier)
+          return MakeSqlErrorAt(element)
                  << "Unsupported primary key column " << primary_key_column
                  << " either does not exist or is a pseudocolumn";
         }
@@ -1752,6 +1773,7 @@ absl::Status Resolver::ResolveCreateTablePartitionByList(
 
   ExprResolutionInfo resolution_info(
       &name_scope, /*aggregate_name_scope_in=*/&name_scope,
+      /*analytic_name_scope_in=*/&name_scope,
       /*allows_aggregation_in=*/false, /*allows_analytic_in=*/false,
       /*use_post_grouping_columns_in=*/false, clause_name, query_info);
 
@@ -3445,12 +3467,12 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
         // inside the function body.
         QueryResolutionInfo query_info(this);
         ExprResolutionInfo expr_info(
-            empty_name_scope_.get() /* name_scope */,
-            empty_name_scope_.get() /* aggregate_name_scope */,
+            /*name_scope_in=*/empty_name_scope_.get(),
+            /*aggregate_name_scope_in=*/empty_name_scope_.get(),
+            /*analytic_name_scope_in=*/empty_name_scope_.get(),
             /*allows_aggregation_in=*/true,
             /*allows_analytic_in=*/false,
-            /*use_post_grouping_columns_in=*/false,
-            "SQL function body",
+            /*use_post_grouping_columns_in=*/false, "SQL function body",
             &query_info);
 
         ZETASQL_RETURN_IF_ERROR(ResolveExpr(sql_function_body->expression(), &expr_info,
@@ -3507,9 +3529,14 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
 
   std::unique_ptr<FunctionSignature> signature;
   if (has_return_type) {
+    FunctionArgumentTypeOptions options;
+    if (ast_statement->return_type()) {
+      options.set_argument_type_parse_location(
+          ast_statement->return_type()->GetParseLocationRange());
+    }
     signature = std::make_unique<FunctionSignature>(
-        return_type, arg_info->SignatureArguments(), /*context_id=*/0,
-        signature_options);
+        FunctionArgumentType(return_type, options),
+        arg_info->SignatureArguments(), /*context_id=*/0, signature_options);
   } else {
     const FunctionArgumentType any_type(ARG_TYPE_ARBITRARY,
                                         /*num_occurrences=*/1);
@@ -4141,41 +4168,87 @@ absl::Status Resolver::ResolveCreateProcedureStatement(
       FunctionArgumentType(ARG_TYPE_VOID), arg_info->SignatureArguments(),
       /*context_id=*/0);
 
+  std::unique_ptr<const ResolvedConnection> resolved_connection;
+  if (ast_statement->with_connection_clause() != nullptr) {
+    if (!language().LanguageFeatureEnabled(FEATURE_NON_SQL_PROCEDURE)) {
+      return MakeSqlErrorAt(ast_statement)
+             << "WITH CONNECTION clause is not supported";
+    }
+    ZETASQL_RETURN_IF_ERROR(ResolveConnection(ast_statement->with_connection_clause()
+                                          ->connection_clause()
+                                          ->connection_path(),
+                                      &resolved_connection));
+  }
+
   std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
   ZETASQL_RETURN_IF_ERROR(ResolveOptionsList(ast_statement->options_list(),
                                      &resolved_options));
 
-  ZETASQL_RETURN_IF_ERROR(FailIfContainsParameterExpr(
-      ast_statement->body(), "procedure",
-      ast_statement->name()->ToIdentifierPathString()));
+  std::string procedure_body;
+  if (ast_statement->body() != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(FailIfContainsParameterExpr(
+        ast_statement->body(), "procedure",
+        ast_statement->name()->ToIdentifierPathString()));
 
-  // Copy procedure body from BEGIN <statement_list> END block
-  const ParseLocationRange& range =
-      ast_statement->body()->GetParseLocationRange();
-  ZETASQL_RET_CHECK_GE(sql_.length(), range.end().GetByteOffset()) << sql_;
-  absl::string_view procedure_body =
-      sql_.substr(range.start().GetByteOffset(),
-                  range.end().GetByteOffset() - range.start().GetByteOffset());
+    // Copy procedure body from BEGIN <statement_list> END block
+    const ParseLocationRange& range =
+        ast_statement->body()->GetParseLocationRange();
+    ZETASQL_RET_CHECK_GE(sql_.length(), range.end().GetByteOffset()) << sql_;
+    procedure_body = sql_.substr(
+        range.start().GetByteOffset(),
+        range.end().GetByteOffset() - range.start().GetByteOffset());
 
-  // Validates procedure body. See ParsedScript::Create() for the list of checks
-  // being done.
-  ParsedScript::ArgumentTypeMap arguments_map;
-  for (const ASTFunctionParameter* function_param :
-       ast_statement->parameters()->parameter_entries()) {
-    // Always use nullptr as type of variable, for type is not used during
-    // validation and getting correct type here is lengthy.
-    arguments_map[function_param->name()->GetAsIdString()] = nullptr;
+    // Validates procedure body. See ParsedScript::Create() for the list of
+    // checks being done.
+    ParsedScript::ArgumentTypeMap arguments_map;
+    for (const ASTFunctionParameter* function_param :
+         ast_statement->parameters()->parameter_entries()) {
+      // Always use nullptr as type of variable, for type is not used during
+      // validation and getting correct type here is lengthy.
+      arguments_map[function_param->name()->GetAsIdString()] = nullptr;
+    }
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<const ParsedScript> parsed_script,
+        ParsedScript::CreateForRoutine(sql_, ast_statement->body(),
+                                       analyzer_options_.error_message_mode(),
+                                       std::move(arguments_map)));
+    ZETASQL_RETURN_IF_ERROR(parsed_script->CheckQueryParameters(std::nullopt));
   }
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<const ParsedScript> parsed_script,
-      ParsedScript::CreateForRoutine(sql_, ast_statement->body(),
-                                     analyzer_options_.error_message_mode(),
-                                     std::move(arguments_map)));
-  ZETASQL_RETURN_IF_ERROR(parsed_script->CheckQueryParameters(absl::nullopt));
+
+  std::string language_string;
+  std::string code_string;
+  if (ast_statement->language() != nullptr) {
+    if (!language().LanguageFeatureEnabled(FEATURE_NON_SQL_PROCEDURE)) {
+      return MakeSqlErrorAt(ast_statement)
+             << "LANGUAGE clause is not supported";
+    }
+    if (ast_statement->body() != nullptr) {
+      return MakeSqlErrorAt(ast_statement)
+             << "LANGUAGE clause cannot be used with BEGIN END statement";
+    }
+    language_string = ast_statement->language()->GetAsString();
+    if (zetasql_base::CaseEqual(language_string, "SQL")) {
+      return MakeSqlErrorAt(ast_statement->language())
+             << "To write SQL procedure, write the function body "
+             << "using 'BEGIN ... END'";
+    }
+    if (ast_statement->code() != nullptr) {
+      code_string = ast_statement->code()->string_value();
+    }
+  } else {
+    if (ast_statement->code() != nullptr) {
+      if (!language().LanguageFeatureEnabled(FEATURE_NON_SQL_PROCEDURE)) {
+        return MakeSqlErrorAt(ast_statement) << "As clause is not supported";
+      }
+      return MakeSqlErrorAt(ast_statement)
+             << "AS clause cannot be used without the LANGUAGE clause";
+    }
+  }
 
   *output = MakeResolvedCreateProcedureStmt(
       procedure_name, create_scope, create_mode, arg_info->ArgumentNames(),
-      *signature, std::move(resolved_options), std::string(procedure_body));
+      *signature, std::move(resolved_options), procedure_body,
+      std::move(resolved_connection), language_string, code_string);
   MaybeRecordParseLocation(ast_statement->name(), output->get());
   return absl::OkStatus();
 }
@@ -5588,6 +5661,24 @@ absl::Status Resolver::ResolveAlterMaterializedViewStatement(
   return absl::OkStatus();
 }
 
+absl::Status Resolver::ResolveAlterModelStatement(
+    const ASTAlterModelStatement* ast_statement,
+    std::unique_ptr<ResolvedStatement>* output) {
+  bool has_only_set_options_action = true;
+  std::vector<std::unique_ptr<const ResolvedAlterAction>> alter_actions;
+  ZETASQL_RETURN_IF_ERROR(ResolveAlterActions(ast_statement, "MODEL", output,
+                                      &has_only_set_options_action,
+                                      &alter_actions));
+  // path() should never be null here because the ALTER MODEL grammar rule
+  // requires a nonempty path.
+  ZETASQL_RET_CHECK(ast_statement->path() != nullptr);
+  *output = MakeResolvedAlterModelStmt(
+      ast_statement->path()->ToIdentifierVector(), std::move(alter_actions),
+      ast_statement->is_if_exists());
+
+  return absl::OkStatus();
+}
+
 absl::Status Resolver::ResolveRenameStatement(
     const ASTRenameStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
@@ -5853,6 +5944,7 @@ absl::Status Resolver::ResolveExecuteImmediateStatement(
   ExprResolutionInfo expr_info(
       /*name_scope_in=*/empty_name_scope_.get(),
       /*aggregate_name_scope_in=*/empty_name_scope_.get(),
+      /*analytic_name_scope_in=*/empty_name_scope_.get(),
       /*allows_aggregation_in=*/false,
       /*allows_analytic_in=*/false,
       /*use_post_grouping_columns_in=*/false, "SQL EXECUTE IMMEDIATE",

@@ -385,9 +385,9 @@ bool ArrayNestExpr::Eval(absl::Span<const TupleData* const> params,
 
   // For WITH tables, we allow the memory reservation to be freed here, when
   // the TrackedValue returned by builder.Build() goes out of scope. The memory
-  // will be re-reserved inside LetExpr/LetOp. This is a hack to work around
+  // will be re-reserved inside WithExpr/LetOp. This is a hack to work around
   // not having a mechanism to plumb memory reservations through the various
-  // layers between here and the enclosing LetExpr/LetOp code.
+  // layers between here and the enclosing WithExpr/LetOp code.
   return true;
 }
 
@@ -1421,16 +1421,16 @@ ValueExpr* IsErrorExpr::mutable_try_value() {
 }
 
 // -------------------------------------------------------
-// LetExpr
+// WithExpr
 // -------------------------------------------------------
 
-absl::StatusOr<std::unique_ptr<LetExpr>> LetExpr::Create(
+absl::StatusOr<std::unique_ptr<WithExpr>> WithExpr::Create(
     std::vector<std::unique_ptr<ExprArg>> assign,
     std::unique_ptr<ValueExpr> body) {
-  return absl::WrapUnique(new LetExpr(std::move(assign), std::move(body)));
+  return absl::WrapUnique(new WithExpr(std::move(assign), std::move(body)));
 }
 
-absl::Status LetExpr::SetSchemasForEvaluation(
+absl::Status WithExpr::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
   // Initialize 'schema_ptrs' with 'params_schemas', then extend 'schema_ptrs'
   // with new schemas owned by 'new_schemas'.
@@ -1455,9 +1455,9 @@ absl::Status LetExpr::SetSchemasForEvaluation(
   return mutable_body()->SetSchemasForEvaluation(schema_ptrs);
 }
 
-bool LetExpr::Eval(absl::Span<const TupleData* const> params,
-                   EvaluationContext* context, VirtualTupleSlot* result,
-                   absl::Status* status) const {
+bool WithExpr::Eval(absl::Span<const TupleData* const> params,
+                    EvaluationContext* context, VirtualTupleSlot* result,
+                    absl::Status* status) const {
   // Initialize 'data_ptrs' with 'params', then extend 'data_ptrs' with new
   // TupleDatas owned by 'new_datas'.  We use a TupleDeque in case one of the
   // parameters represents multiple rows (e.g., an array corresponding to a WITH
@@ -1485,33 +1485,33 @@ bool LetExpr::Eval(absl::Span<const TupleData* const> params,
   return body()->Eval(data_ptrs, context, result, status);
 }
 
-std::string LetExpr::DebugInternal(const std::string& indent,
-                                   bool verbose) const {
+std::string WithExpr::DebugInternal(const std::string& indent,
+                                    bool verbose) const {
   return absl::StrCat(
-      "LetExpr(", ArgDebugString({"assign", "body"}, {kN, k1}, indent, verbose),
-      ")");
+      "WithExpr(",
+      ArgDebugString({"assign", "body"}, {kN, k1}, indent, verbose), ")");
 }
 
-LetExpr::LetExpr(std::vector<std::unique_ptr<ExprArg>> assign,
-                 std::unique_ptr<ValueExpr> body)
+WithExpr::WithExpr(std::vector<std::unique_ptr<ExprArg>> assign,
+                   std::unique_ptr<ValueExpr> body)
     : ValueExpr(body->output_type()) {
   SetArgs<ExprArg>(kAssign, std::move(assign));
   SetArg(kBody, std::make_unique<ExprArg>(std::move(body)));
 }
 
-absl::Span<const ExprArg* const> LetExpr::assign() const {
+absl::Span<const ExprArg* const> WithExpr::assign() const {
   return GetArgs<ExprArg>(kAssign);
 }
 
-absl::Span<ExprArg* const> LetExpr::mutable_assign() {
+absl::Span<ExprArg* const> WithExpr::mutable_assign() {
   return GetMutableArgs<ExprArg>(kAssign);
 }
 
-const ValueExpr* LetExpr::body() const {
+const ValueExpr* WithExpr::body() const {
   return GetArg(kBody)->node()->AsValueExpr();
 }
 
-ValueExpr* LetExpr::mutable_body() {
+ValueExpr* WithExpr::mutable_body() {
   return GetMutableArg(kBody)->mutable_node()->AsMutableValueExpr();
 }
 

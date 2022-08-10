@@ -4335,9 +4335,6 @@ absl::Status ExpandPercentZQJ(absl::string_view format_string,
       }
     } else if (expansion_options.expand_iso_dayofyear &&
                format_string[pct + 1] == 'J') {
-      // Handle %J, computing ISO day of year.
-      const absl::TimeZone::CivilInfo info = timezone.At(base_time);
-      const absl::CivilDay civil_day = absl::CivilDay(info.cs);
       return MakeEvalError() << "Format element %J not supported yet";
     } else {
       // None of %J, %Q, %Z. Copy as is.

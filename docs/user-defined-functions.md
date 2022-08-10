@@ -8,39 +8,48 @@ using another SQL expression or another programming
 language, such as JavaScript or Lua. These functions accept columns of input
 and perform actions, returning the result of those actions as a value.
 
-## Scalar SQL UDFs 
+## SQL UDFs 
 <a id="sql_udfs"></a>
 
-A scalar SQL UDF is a user-defined function that returns a single value.
+A SQL user-defined function (UDF) is a user-defined function that operates on
+one row at a time and returns the result of that calculation as a single value.
 
-### Scalar SQL UDF structure 
-<a id="sql_udf_structure"></a>
+All of the arguments are expressions that are computed in the context of a
+single row.
 
-Create a scalar SQL UDF using the following syntax:
+### Create a SQL UDF
+
+You can create a SQL UDF using the following syntax:
 
 ```sql
-CREATE
-  [ { TEMPORARY | TEMP } ] FUNCTION
+CREATE [ { TEMPORARY | TEMP } ] FUNCTION
   function_name ( [ function_parameter [, ...] ] )
   [ RETURNS data_type ]
-  AS ( sql_expression )
+  AS ( function_body )
 
 function_parameter:
   parameter_name { data_type | ANY TYPE }
+  [ DEFAULT default_value ]
 ```
 
 This syntax consists of the following components:
 
-+   `CREATE ... FUNCTION`: Creates a new function. A function can have zero
-    or more function parameters.
-+   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
-     exists for the lifetime of the session.
-+   `function_parameter`: A parameter for the function.
++ `CREATE ... FUNCTION`: Creates a new function. A function
+  can have zero or more function parameters.
 
-    + `parameter_name`: The name of the parameter.
+    + `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is,
+      it exists for the lifetime of the session. A temporary function can have
+      the same name as a built-in function. If this happens, the
+      temporary function hides the built-in function for the duration of the
+      temporary function's lifetime.
++ `function_name`: The name of the function.
++ `function_parameter`: A parameter for the function.
+
+    + `parameter_name`: The name of the function parameter.
 
     + `data_type`: A ZetaSQL [data type][data-types].
 
+    
     + `ANY TYPE`: The function will accept an argument of any type for this
       function parameter. If more than one parameter includes `ANY TYPE`,
       a relationship is not enforced between these parameters when the function
@@ -49,15 +58,28 @@ This syntax consists of the following components:
       result in an error.
 
       `ANY TYPE` is a [_templated function parameter_][templated-parameters].
-+   `RETURNS data_type`: Optional clause that specifies the data type
-    that the function returns. ZetaSQL infers the result type
-    of the function from the SQL function body when the `RETURN` clause is
-    omitted.
-+   `AS (sql_expression)`: Specifies the SQL code that defines the
-    function.
+    
 
-### Scalar SQL UDF examples 
-<a id="sql_udf_structure"></a>
+    
+    + `DEFAULT default_value`: If an argument is not provided for a function
+      parameter, `default_value` is used. `default_value` must be a literal
+      or `NULL` value. All function parameters following this one
+      must also have default values.
+    
+
+    
++ `RETURNS data_type`: Optional clause that specifies the data type
+  that the function returns. ZetaSQL infers the result type
+  of the function from the SQL function body when the `RETURN` clause is
+  omitted.
++ `function_body`: The SQL expression that defines the function body.
+
+### Call a SQL UDF
+
+You can call a SQL UDF in the same way that you call a built-in function.
+For details, see [Function calls][function-calls].
+
+### SQL UDF examples
 
 The following example shows a UDF that employs a SQL function.
 
@@ -88,7 +110,7 @@ FROM numbers;
 +-----+--------+
 ```
 
-The following example shows a scalar SQL UDF that uses the
+The following example shows a SQL UDF that uses the
 templated function parameter, `ANY TYPE`. The resulting function accepts
 arguments of various types.
 
@@ -99,17 +121,17 @@ AS (
 );
 
 SELECT
-  AddFourAndDivideAny(3, 4) AS integer_output,
-  AddFourAndDivideAny(1.59, 3.14) AS floating_point_output;
+  AddFourAndDivideAny(3, 4) AS integer_input,
+  AddFourAndDivideAny(1.59, 3.14) AS floating_point_input;
 
 +----------------+-----------------------+
-| integer_output | floating_point_output |
+| integer_input  | floating_point_input  |
 +----------------+-----------------------+
 | 1.75           | 1.7802547770700636    |
 +----------------+-----------------------+
 ```
 
-The following example shows a scalar SQL UDF that uses the
+The following example shows a SQL UDF that uses the
 templated function parameter, `ANY TYPE`, to return the last element of an
 array of any type.
 
@@ -136,115 +158,26 @@ FROM
 +------------+-----------+
 ```
 
-## Aggregate SQL UDFs
-
-An aggregate UDF is a user-defined function that performs a calculation on
-multiple values and returns the result of that calculation as a single value.
-
-### Aggregate SQL UDF structure
-
-Create an aggregate SQL UDF using the following syntax:
-
-```sql
-CREATE
-  [ { TEMPORARY | TEMP } ] [ AGGREGATE ] FUNCTION
-  function_name ( [ function_parameter [, ...] ] )
-  [ RETURNS data_type ]
-  AS ( sql_expression )
-
-function_parameter:
-  parameter_name data_type [ NOT AGGREGATE ]
-```
-
-This syntax consists of the following components:
-
-+   `CREATE ... FUNCTION`: Creates a new function. A function can have zero
-    or more function parameters.
-+   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
-    exists for the lifetime of the session.
-+   `function_parameter`: A parameter for the function.
-
-    + `parameter_name`: The name of the function parameter.
-
-    + `data_type`: A ZetaSQL [data type][data-types].
-
-    + `NOT AGGREGATE`: Specifies that a function parameter is not an
-      aggregate. A non-aggregate function parameter can appear anywhere in the
-      function definition. You can learn more about
-      [function parameters for aggregate UDFS][aggregate-udf-parameters]
-      in the next section.
-+   `RETURNS data_type`: Optional clause that specifies the data type
-    that the function returns. ZetaSQL infers the result type
-    of the function from the SQL function body when the `RETURN` clause is
-    omitted.
-+   `AS (sql_expression)`: Specifies the SQL code that defines the
-    function.
-
-### Aggregate UDF function parameters 
-<a id="aggregate_udf_parameters"></a>
-
-An aggregate UDF can include aggregate or non-aggregate function parameters.
-Like other [aggregate functions][aggregate-fns-link], aggregate UDFs normally
-aggregate function parameters across all rows in a [group][group-by-link].
-However, you can specify a function parameter as non-aggregate with the
-`NOT AGGREGATE` keyword. A non-aggregate function parameter is a
-scalar function parameter with a constant value for all rows in a group;
-for example, literals or grouping expressions are valid non-aggregate
-function parameters. Inside the UDF definition, aggregate function parameters
-can only appear as function parameters to aggregate function calls.
-Non-aggregate function parameters can appear anywhere in the UDF definition.
-
-### Aggregate SQL UDF examples
-
-The following example shows an aggregate UDF that uses a non-aggregate
-function parameter. Inside the function definition, the aggregate `SUM` method
-takes the aggregate function parameter `dividend`, while the non-aggregate
-division operator ( `/` ) takes the non-aggregate function parameter `divisor`.
-
-```sql
-CREATE TEMP AGGREGATE FUNCTION ScaledSum(
-  dividend DOUBLE,
-  divisor DOUBLE NOT AGGREGATE)
-RETURNS DOUBLE
-AS (
-  SUM(dividend) / divisor
-);
-
-SELECT ScaledSum(col1, 2) AS scaled_sum
-FROM (
-  SELECT 1 AS col1 UNION ALL
-  SELECT 3 AS col1 UNION ALL
-  SELECT 5 AS col1
-);
-
-+------------+
-| scaled_sum |
-+------------+
-| 4.5        |
-+------------+
-```
-
 ## JavaScript UDFs 
 <a id="javascript_udfs"></a>
 
-A JavaScript UDF is a SQL user-defined function that executes
+A JavaScript UDF is a JavaScript user-defined function that executes
 JavaScript code and returns the result as a single value.
 
-### JavaScript UDF structure 
-<a id="javascript_structure"></a>
+### Create a JavaScript UDF
 
-Create a JavaScript UDF using the following syntax.
+You can create a JavaScript UDF using the following syntax:
 
 ```sql
-CREATE
-  [ { TEMPORARY | TEMP } ] FUNCTION
+CREATE [ { TEMPORARY | TEMP } ] FUNCTION
   function_name ( [ function_parameter [, ...] ] )
   RETURNS data_type
   [ determinism_specifier ]
-  LANGUAGE js AS string_literal
+  LANGUAGE js AS function_body
 
 function_parameter:
-  parameter_name data_type
+  parameter_name { data_type | ANY TYPE }
+  [ DEFAULT default_value ]
 
 determinism_specifier:
   { IMMUTABLE | DETERMINISTIC | NOT DETERMINISTIC | VOLATILE | STABLE }
@@ -252,40 +185,70 @@ determinism_specifier:
 
 This syntax consists of the following components:
 
-+   `CREATE ... FUNCTION`: Creates a new function. A function can contain zero
-    or more function parameters.
-+   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
-    exists for the lifetime of the session.
-+   `function_parameter`: A parameter for the function. A parameter includes a
-    name and a data type. The value of `data_type` is a ZetaSQL
-    [data type][data-types].
-+   `determinism_specifier`: Identifies the determinism property of the
-    function, which impacts query semantics and planning. Your choices are:
++ `CREATE ... FUNCTION`: Creates a new function. A function
+  can have zero or more function parameters.
 
-    +   `IMMUTABLE` or `DETERMINISTIC`: The function always returns the same
-        result when passed the same arguments. For example, if the function
-        `add_one(i)` always returns `i + 1`, the function is deterministic.
+    + `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is,
+      it exists for the lifetime of the session. A temporary function can have
+      the same name as a built-in function. If this happens, the
+      temporary function hides the built-in function for the duration of the
+      temporary function's lifetime.
++ `function_name`: The name of the function.
++ `function_parameter`: A parameter for the function.
 
-    +   `NOT DETERMINISTIC`: The function does not always return the same result
-        when passed the same arguments. The `VOLATILE` and `STABLE` keywords are
-        subcategories of `NOT DETERMINISTIC`.
+    + `parameter_name`: The name of the function parameter.
 
-    +   `VOLATILE`: The function does not always return the same result when
-        passed the same arguments, even within the same run of a query
-        statement. For example if `add_random(i)` returns `i + rand()`, the
-        function is volatile, because every call to the function can return a
-        different result.
+    + `data_type`: A ZetaSQL [data type][data-types].
+      See [SQL type encodings in JavaScript][javascript-data-types] to learn
+      how ZetaSQL represents JavaScript types.
 
-    +   `STABLE`: Within one execution of a query statement, the function will
-        consistently return the same result for the same argument values.
-        However, the result could change for different executions of the
-        same query. For example if you invoke the function `CURRENT_TIMESTAMP`
-        within a single query, it will return the same result, but it will
-        return different results in different query executions.
-+   `RETURNS data_type`: Specifies the data type that the function returns.
-+   `LANGUAGE ... AS`: Specify the language and code to use. `js`
-    represents the name of the language. `string_literal` represents the code
-    that defines the function body.
+    
+    + `ANY TYPE`: The function will accept an argument of any type for this
+      function parameter. If more than one parameter includes `ANY TYPE`,
+      a relationship is not enforced between these parameters when the function
+      is defined. However, if the type of argument passed into the function at
+      call time is incompatible with the function definition, this will
+      result in an error.
+
+      `ANY TYPE` is a [_templated function parameter_][templated-parameters].
+    
+
+    
+    + `DEFAULT default_value`: If an argument is not provided for a function
+      parameter, `default_value` is used. `default_value` must be a literal
+      or `NULL` value. All function parameters following this one
+      must also have default values.
+    
+
+    
++ `determinism_specifier`: Identifies the determinism property of the
+  function, which impacts query semantics and planning. Your choices are:
+
+    + `IMMUTABLE` or `DETERMINISTIC`: The function always returns the same
+      result when passed the same arguments. For example, if the function
+      `add_one(i)` always returns `i + 1`, the function is deterministic.
+
+    + `NOT DETERMINISTIC`: The function does not always return the same result
+      when passed the same arguments. The `VOLATILE` and `STABLE` keywords are
+      subcategories of `NOT DETERMINISTIC`.
+
+    + `VOLATILE`: The function does not always return the same result when
+      passed the same arguments, even within the same run of a query
+      statement. For example if `add_random(i)` returns `i + rand()`, the
+      function is volatile, because every call to the function can return a
+      different result.
+
+    + `STABLE`: Within one execution of a statement, the function will
+      consistently return the same result for the same argument values.
+      However, the result could change for different executions of the
+      same statement. For example if you invoke the function
+      `CURRENT_TIMESTAMP` multiple times within a single statement, it will
+      return the same result, but it may return different results in
+      subsequent statement executions.
++ `RETURNS data_type`: Specifies the ZetaSQL data type that the
+  function returns.
++ `function_body`: The JavaScript code that defines the function body.
+  This must be a string literal.
 
 <a id="quoting_rules"></a>
 You must enclose JavaScript in quotes. There are a few options:
@@ -299,13 +262,13 @@ You must enclose JavaScript in quotes. There are a few options:
   escaping rules. If you are not sure which quoting style to use, this one
   will provide the most consistent results.
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+### Call a JavaScript UDF
 
-[data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
+You can call a JavaScript UDF in the same way that you call a built-in
+function. For details, see [Function calls][function-calls].
 
-<!-- mdlint on -->
-
-### SQL type encodings in JavaScript
+### SQL type encodings in JavaScript 
+<a id="javascript_udf_data_types"></a>
 
 ZetaSQL represents types in the following manner:
 
@@ -478,8 +441,7 @@ ZetaSQL represents types in the following manner:
 
 </table>
 
-### JavaScript UDF examples 
-<a id="javascript_examples"></a>
+### JavaScript UDF examples
 
 The following example creates a persistent JavaScript UDF.
 
@@ -600,6 +562,25 @@ FROM numbers;
 | 2   | 10  | 5            |
 | 3   | 15  | 11.25        |
 +-----+-----+--------------+
+```
+
+The following example shows how you can use a JavaScript UDF with
+default values.
+
+```sql
+CREATE TEMP FUNCTION AddValues(x INT64, y INT64 DEFAULT 50, z INT64 DEFAULT 100)
+RETURNS INT64
+LANGUAGE js AS """
+  return x*y*z;
+""";
+
+SELECT AddValues(1, 2) AS result;
+
++--------+
+| result |
++--------+
+| 200    |
++--------+
 ```
 
 The following provides an example of a simple, single statement JavaScript UDF:
@@ -727,24 +708,23 @@ FROM Input AS t;
 ## LUA UDFs 
 <a id="lua_udfs"></a>
 
-A LUA UDF is a SQL user-defined function that executes
-LUA code and returns the result as a single value.
+A LUA UDF is a SQL user-defined function that executes LUA code and returns the
+result as a single value.
 
-### LUA UDF structure 
-<a id="lua_structure"></a>
+### Create a LUA UDF
 
-Create a LUA UDF using the following syntax.
+You can create a LUA UDF using the following syntax:
 
 ```sql
-CREATE
-  [ { TEMPORARY | TEMP } ] FUNCTION
+CREATE [ { TEMPORARY | TEMP } ] FUNCTION
   function_name ( [ function_parameter [, ...] ] )
   RETURNS data_type
   [ determinism_specifier ]
-  LANGUAGE lua AS string_literal
+  LANGUAGE lua AS function_body
 
 function_parameter:
-  parameter_name data_type
+  parameter_name { data_type | ANY TYPE }
+  [ DEFAULT default_value ]
 
 determinism_specifier:
   { IMMUTABLE | DETERMINISTIC | NOT DETERMINISTIC | VOLATILE | STABLE }
@@ -752,40 +732,68 @@ determinism_specifier:
 
 This syntax consists of the following components:
 
-+   `CREATE ... FUNCTION`: Creates a new function. A function can contain zero
-    or more function parameters.
-+   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
-    exists for the lifetime of the session.
-+   `function_parameter`: A parameter for the function. A parameter includes a
-    name and a data type. The value of `data_type` is a ZetaSQL
-    [data type][data-types].
-+   `determinism_specifier`: Identifies the determinism property of the
-    function, which impacts query semantics and planning. Your choices are:
++ `CREATE ... FUNCTION`: Creates a new function. A function
+  can have zero or more function parameters.
 
-    +   `IMMUTABLE` or `DETERMINISTIC`: The function always returns the same
-        result when passed the same arguments. For example, if the function
-        `add_one(i)` always returns `i + 1`, the function is deterministic.
+    + `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is,
+      it exists for the lifetime of the session. A temporary function can have
+      the same name as a built-in function. If this happens, the
+      temporary function hides the built-in function for the duration of the
+      temporary function's lifetime.
++ `function_name`: The name of the function.
++ `function_parameter`: A parameter for the function.
 
-    +   `NOT DETERMINISTIC`: The function does not always return the same result
-        when passed the same arguments. The `VOLATILE` and `STABLE` keywords are
-        subcategories of `NOT DETERMINISTIC`.
+    + `parameter_name`: The name of the function parameter.
 
-    +   `VOLATILE`: The function does not always return the same result when
-        passed the same arguments, even within the same run of a query
-        statement. For example if `add_random(i)` returns `i + rand()`, the
-        function is volatile, because every call to the function can return a
-        different result.
+    + `data_type`: A ZetaSQL [data type][data-types].
 
-    +   `STABLE`: Within one execution of a query statement, the function will
-        consistently return the same result for the same argument values.
-        However, the result could change for different executions of the
-        same query. For example if you invoke the function `CURRENT_TIMESTAMP`
-        within a single query, it will return the same result, but it will
-        return different results in different query executions.
-+   `RETURNS data_type`: Specifies the data type that the function returns.
-+   `LANGUAGE ... AS`: Specify the language and code to use. `lua`
-    represents the name of the language. `string_literal` represents the code
-    that defines the function body.
+    
+    + `ANY TYPE`: The function will accept an argument of any type for this
+      function parameter. If more than one parameter includes `ANY TYPE`,
+      a relationship is not enforced between these parameters when the function
+      is defined. However, if the type of argument passed into the function at
+      call time is incompatible with the function definition, this will
+      result in an error.
+
+      `ANY TYPE` is a [_templated function parameter_][templated-parameters].
+    
+
+    
+    + `DEFAULT default_value`: If an argument is not provided for a function
+      parameter, `default_value` is used. `default_value` must be a literal
+      or `NULL` value. All function parameters following this one
+      must also have default values.
+    
+
+    
++ `determinism_specifier`: Identifies the determinism property of the
+  function, which impacts query semantics and planning. Your choices are:
+
+    + `IMMUTABLE` or `DETERMINISTIC`: The function always returns the same
+      result when passed the same arguments. For example, if the function
+      `add_one(i)` always returns `i + 1`, the function is deterministic.
+
+    + `NOT DETERMINISTIC`: The function does not always return the same result
+      when passed the same arguments. The `VOLATILE` and `STABLE` keywords are
+      subcategories of `NOT DETERMINISTIC`.
+
+    + `VOLATILE`: The function does not always return the same result when
+      passed the same arguments, even within the same run of a query
+      statement. For example if `add_random(i)` returns `i + rand()`, the
+      function is volatile, because every call to the function can return a
+      different result.
+
+    + `STABLE`: Within one execution of a statement, the function will
+      consistently return the same result for the same argument values.
+      However, the result could change for different executions of the
+      same statement. For example if you invoke the function
+      `CURRENT_TIMESTAMP` multiple times within a single statement, it will
+      return the same result, but it may return different results in
+      subsequent statement executions.
++ `RETURNS data_type`: Specifies the ZetaSQL data type that the
+  function returns.
++ `function_body`: The LUA code that defines the function body.
+  This must be a string literal.
 
 <a id="quoting_rules"></a>
 You must enclose LUA in quotes. There are a few options:
@@ -799,14 +807,12 @@ You must enclose LUA in quotes. There are a few options:
   escaping rules. If you are not sure which quoting style to use, this one
   will provide the most consistent results.
 
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+### Call a LUA UDF
 
-[data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
+You can call a JavaScript UDF in the same way that you call a built-in
+function. For details, see [Function calls][function-calls].
 
-<!-- mdlint on -->
-
-### LUA UDF examples 
-<a id="lua_examples"></a>
+### LUA UDF examples
 
 The following example creates a persistent LUA UDF.
 
@@ -929,6 +935,25 @@ FROM numbers;
 +-----+-----+--------------+
 ```
 
+The following example shows how you can use a LUA UDF with
+default values.
+
+```sql
+CREATE TEMP FUNCTION AddValues(x INT64, y INT64 DEFAULT 50, z INT64 DEFAULT 100)
+RETURNS INT64
+LANGUAGE lua AS """
+  return x*y*z;
+""";
+
+SELECT AddValues(1, 2) AS result;
+
++--------+
+| result |
++--------+
+| 200    |
++--------+
+```
+
 The following provides an example of a simple, single statement LUA UDF:
 
 ```sql
@@ -994,210 +1019,6 @@ SELECT Alphabet() AS result;
 +---------+
 ```
 
-## TVFs {#tvfs}
-
-A TVF is a table-valued function that returns an entire output table instead of
-a single scalar value, and appears in the `FROM` clause like a table subquery.
-
-### TVF structure
-
-You create a TVF using the following structure.
-
-```sql
-CREATE
-  { TEMPORARY | TEMP } TABLE FUNCTION
-  function_name ( [ function_parameter  [, ...] ] )
-  [ RETURNS TABLE < column_declaration [, ...] > ]
-  [ { AS query | LANGUAGE language_name AS string_literal } ]
-
-function_parameter:
-  parameter_name { data_type | ANY TYPE | ANY TABLE }
-
-column_declaration:
-  column_name data_type
-```
-
-+   `CREATE ... TABLE FUNCTION`: Creates a new
-    [table-valued function][table-valued function] function.
-    A function can have zero or more function parameters.
-+   `TEMPORARY` or `TEMP`: Indicates that the function is temporary; that is it
-     exists for the lifetime of the session.
-+   `function_parameter`: A parameter for the function.
-
-    + `parameter_name`: The name of the parameter.
-
-    + `data_type`: A ZetaSQL [data type][data-types].
-
-    + `ANY TYPE`: The function will accept an argument of any type for this
-      function parameter. If more than one parameter includes `ANY TYPE`,
-      a relationship is not enforced between these parameters when the function
-      is defined. However, if the type of argument passed into the function at
-      call time is incompatible with the function definition, this will
-      result in an error.
-
-      `ANY TYPE` is a [_templated function parameter_][templated-parameters].
-
-    
-    + `ANY TABLE`. The function will accept an argument of any relation type for
-      this argument. However, passing the function arguments of types that are
-      incompatible with the function definition will result in an error at
-      call time.
-
-      `ANY TABLE` is a [_templated function parameter_][templated-parameters].
-    
-+   `RETURNS TABLE`: Specifies the schema of the table that a table-valued
-    function returns as a comma-separated list of `column_name` and `TYPE`
-    pairs. If `RETURNS TABLE` is absent, ZetaSQL infers the
-    output schema from the `AS query` statement in the function body.
-+   `AS query`: If you want to create a SQL TVF, specifies the SQL query to run.
-+   `LANGUAGE ... AS`: If you want to create an external TVF, specifies the
-    language and code to use.
-    `language_name` represents the name of the language, such
-    as `js` for JavaScript. `string_literal` represents the code that defines
-    the function body.
-
-### Specifying TVF arguments {#tvf_arguments}
-
-When a TVF with function parameters is called, arguments must be passed in for
-all function parameters that do not have defaults. An argument can be of any
-supported ZetaSQL type or table, but must be coercible to the related
-function parameter's type.
-
-Specify a table argument the same way you specify the fields of a
-[STRUCT][data-types-struct].
-
-```sql
-parameter_name TABLE<column_name data_type [, ...]>
-```
-
-The table argument can specify a [value table][datamodel-value-tables],
-in which each row
-is a single column of a specific type. To specify a value table as an argument,
-include only the `data_type`, leaving out the `column_name`:
-
-```sql
-parameter_name TABLE<data_type>
-```
-
-In many cases, the `data_type` of the single column in the value table is a
-protocol buffer; for example:
-
-```sql
-CREATE TEMP TABLE FUNCTION AggregatedMovieLogs(
-  TicketPurchases TABLE<analysis_conduit.codelab.MovieTicketPurchase>)
-```
-
-The function body can refer directly to fields within the proto.
-
-You have the option to specify the input table using the templated type `ANY
-TABLE` in place of `TABLE<column_name data_type [, ...]>`. This option enables
-you to create a polymorphic TVF that accepts any table as input.
-
-**Example**
-
-The following example implements a pair of TVFs that define parameterized views
-of a range of rows from the Customer table. The first returns all rows for a
-range of `CustomerIds`; the second calls the first function and applies an
-additional filter based on `CustomerType`.
-
-```sql
-CREATE TEMP TABLE FUNCTION CustomerRange(MinID INT64, MaxID INT64)
-AS (
-  SELECT *
-  FROM Customer
-  WHERE CustomerId >= MinId AND CustomerId <= MaxId
-);
-
-CREATE TEMP TABLE FUNCTION CustomerRangeWithCustomerType(
-  MinId INT64,
-  MaxId INT64,
-  customer_type ads.boulder.schema.CustomerType)
-AS (
-  SELECT *
-  FROM CustomerRange(MinId, MaxId)
-  WHERE type = customer_type
-);
-```
-
-The following function returns all rows from the input table if the first
-argument is greater than the second argument; otherwise it returns no rows.
-
-```sql
-CREATE TEMP TABLE FUNCTION MyFunction(
-     first ANY TYPE,
-     second ANY TYPE,
-     third ANY TABLE)
-   AS
-     SELECT *
-     FROM third
-     WHERE first > second;
-```
-
-The following function accepts two integers and a table with any set of columns
-and returns rows from the table where the predicate evaluates to true. The input
-table `selected_customers` must contain a column named `creation_time`, and
-`creation_time` must be a numeric type, or the function will return an error.
-
-```sql
-CREATE TEMP TABLE FUNCTION CustomerCreationTimeRange(
-    min_creation_time INT64,
-    max_creation_time INT64,
-    selected_customers ANY TABLE)
-  AS
-    SELECT *
-    FROM selected_customers
-    WHERE creation_time >= min_creation_time
-    AND creation_time <= max_creation_time;
-```
-
-### Calling TVFs
-
-To call a TVF, use the function call in place of the table name in a `FROM`
-clause.
-
-There are two ways to pass a table as an argument to a TVF. You can use a
-subquery for the table argument, or you can use the name of a table, preceded by
-the keyword `TABLE`.
-
-**Examples**
-
-The following query calls the `CustomerRangeWithCustomerType` function to
-return a table with rows for customers with a CustomerId between 100
-and 200.
-
-```sql
-SELECT CustomerId, Info
-FROM CustomerRangeWithCustomerType(100, 200, 'CUSTOMER_TYPE_ADVERTISER');
-```
-
-The following query calls the `CustomerCreationTimeRange` function defined
-previously, passing the result of a subquery as the table argument.
-
-```sql
-SELECT *
-FROM
-  CustomerCreationTimeRange(
-    1577836800,  -- 2020-01-01 00:00:00 UTC
-    1609459199,  -- 2020-12-31 23:59:59 UTC
-    (
-      SELECT customer_id, customer_name, creation_time
-      FROM MyCustomerTable
-      WHERE customer_name LIKE '%Hernández'
-    ))
-```
-
-The following query calls `CustomerCreationTimeRange`, passing the table
-`MyCustomerTable` as an argument.
-
-```sql
-SELECT *
-FROM
-  CustomerCreationTimeRange(
-    1577836800,  -- 2020-01-01 00:00:00 UTC
-    1609459199,  -- 2020-12-31 23:59:59 UTC
-    TABLE MyCustomerTable)
-```
-
 ## Templated function parameters
 
 A templated function parameter can match more than one argument type at
@@ -1208,29 +1029,13 @@ valid for that argument type.
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[table-valued function]: #tvfs
-
-[tvf-syntax]: #tvf_structure
-
 [templated-parameters]: #templated_function_parameters
-
-[ext-udf-syntax]: #external_udf_structure
-
-[sql-udf-syntax]: #sql_udf_structure
 
 [javascript-data-types]: #javascript_udf_data_types
 
 [data-types]: https://github.com/google/zetasql/blob/master/docs/data-types.md
 
-[data-types-struct]: https://github.com/google/zetasql/blob/master/docs/data-types.md#struct_type
-
-[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value_tables
-
-[aggregate-udf-parameters]: #aggregate_udf_parameters
-
-[group-by-link]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#group_by_clause
-
-[aggregate-fns-link]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md
+[function-calls]: https://github.com/google/zetasql/blob/master/docs/functions-reference.md
 
 <!-- mdlint on -->
 

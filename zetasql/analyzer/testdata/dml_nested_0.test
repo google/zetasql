@@ -404,13 +404,21 @@ UpdateStmt
 
 # Nested DELETE that reuses the target/offset aliases of an enclosing nested
 # UPDATE, this time with the offsets having different names.
-[language_features={{V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET,V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
+[language_features={{|V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET,V_1_2_CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable SET
   (UPDATE KitchenSink.nested_repeated_value target1 WITH OFFSET offset1 SET
      (DELETE target1.nested_repeated_int64 target2 WITH OFFSET offset2
       WHERE offset2 = target1.nested_int64 + target2 + offset1 + offset2)
    WHERE offset1 = target1.nested_int64 + offset1)
 WHERE KitchenSink.bool_val
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: UPDATE ... SET does not support WITH OFFSET [at 2:53]
+  (UPDATE KitchenSink.nested_repeated_value target1 WITH OFFSET offset1 SET
+                                                    ^
+--
+ALTERNATION GROUP: V_1_2_NESTED_UPDATE_DELETE_WITH_OFFSET,V_1_2_CORRELATED_REFS_IN_NESTED_DML
 --
 UpdateStmt
 +-table_scan=

@@ -481,10 +481,15 @@ absl::Status FunctionResolver::GetFunctionArgumentIndexMappingPerSignature(
     // argument name.
     if (index == nullptr) {
       if (arg_type.required()) {
-        return MakeSqlErrorAt(ast_location)
-               << "Call to function " << function_name
-               << " does not include the required named argument '"
-               << signature_arg_name << "'";
+        return !signature_arg_name.empty()
+                   ? MakeSqlErrorAt(ast_location)
+                         << "Call to function " << function_name
+                         << " does not include the required named argument '"
+                         << signature_arg_name << "'"
+                   : MakeSqlErrorAt(ast_location)
+                         << "Call to function " << function_name << " does not "
+                         << "include required positional argument number "
+                         << (i + 1);
       }
 
       if (arg_type.optional() &&
@@ -1019,10 +1024,29 @@ absl::Status FunctionResolver::AddCastOrConvertLiteral(
         if (cast_status.code() == absl::StatusCode::kResourceExhausted) {
           return cast_status;
         }
+
+        // This cast failed. However, we need all the information we gathered
+        // so far (e.g. deciding an untyped NULL's type by attempting to coerce
+        // it), so successful parts are left folded. At the same time, when the
+        // failure is deferred to runtime, we need to be able to fully resolve
+        // the cast. Make sure we maintain proper internal state (e.g. STRUCT
+        // field_types must match its field_exprs).
+        const StructType* new_type;
+        std::vector<StructField> struct_fields;
+        const zetasql::StructType* old_type = struct_expr->type()->AsStruct();
+        struct_fields.reserve(field_exprs.size());
+        for (int j = 0; j < field_exprs.size(); j++) {
+          struct_fields.push_back(
+              {old_type->field(j).name, field_exprs[j]->type()});
+        }
+
+        ZETASQL_RET_CHECK_OK(type_factory_->MakeStructType(struct_fields, &new_type));
+        struct_expr->set_type(new_type);
+        struct_expr->set_field_list(std::move(field_exprs));
         return MakeSqlErrorAt(field_arg_locations[i]) << cast_status.message();
       }
     }
-    auto make_struct =
+    std::unique_ptr<ResolvedMakeStruct> make_struct =
         MakeResolvedMakeStruct(target_type, std::move(field_exprs));
     ZETASQL_RETURN_IF_ERROR(resolver_->CheckAndPropagateAnnotations(
         /*error_node=*/nullptr, make_struct.get()));
@@ -1244,10 +1268,8 @@ absl::Status FunctionResolver::ConvertLiteralToType(
     }
   }
 
-  bool has_explicit_type = argument_literal->has_explicit_type();
-  if (set_has_explicit_type) {
-    has_explicit_type = true;
-  }
+  const bool has_explicit_type =
+      argument_literal->has_explicit_type() || set_has_explicit_type;
   auto replacement_literal = MakeResolvedLiteral(
       target_type, coerced_literal_value.value(), has_explicit_type);
   // The float literal cache entry (if there is one) is no longer valid after
@@ -1408,8 +1430,11 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
 
   ZETASQL_RET_CHECK(result_signature->HasConcreteArguments());
   if (!function->Is<TemplatedSQLFunction>()) {
-    ZETASQL_RET_CHECK(result_signature->IsConcrete())
-        << result_signature->DebugString();
+    if (!result_signature->IsConcrete()) {
+      return ::zetasql_base::InternalErrorBuilder()
+             << "Non-concrete result signature for non-templated function: "
+             << function->SQLName() << " " << signature->DebugString();
+    }
   }
 
   ZETASQL_RETURN_IF_ERROR(ReorderArgumentExpressionsPerIndexMapping(
@@ -1874,7 +1899,7 @@ absl::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
   NameScope empty_name_scope;
   QueryResolutionInfo query_resolution_info(&resolver);
   ExprResolutionInfo expr_resolution_info(
-      &empty_name_scope, &empty_name_scope,
+      &empty_name_scope, &empty_name_scope, &empty_name_scope,
       /*allows_aggregation_in=*/function.IsAggregate(),
       /*allows_analytic_in=*/false,
       /*use_post_grouping_columns_in=*/false,

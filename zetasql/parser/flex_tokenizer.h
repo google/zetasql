@@ -23,7 +23,6 @@
 #include <sstream>
 #include <string>
 
-#include "zetasql/parser/position.hh"
 #include "zetasql/public/language_options.h"
 #include <cstdint>
 #include "absl/flags/flag.h"

@@ -62,6 +62,7 @@
 #include "absl/strings/substitute.h"
 #include "absl/time/time.h"
 #include "zetasql/base/simple_reference_counted.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
 using zetasql::types::BigNumericArrayType;
@@ -227,7 +228,7 @@ absl::StatusOr<Value> Value::MakeArrayInternal(bool already_validated,
     }
   }
   Value result(array_type, /*is_null=*/false, order_kind);
-  result.list_ptr_ = new TypedList(array_type);
+  result.list_ptr_ = new TypedList();
   std::vector<Value>& value_list = result.list_ptr_->values();
   value_list = std::move(values);
   return result;
@@ -248,9 +249,27 @@ absl::StatusOr<Value> Value::MakeStructInternal(bool already_validated,
     }
   }
   Value result(struct_type, /*is_null=*/false, kPreservesOrder);
-  result.list_ptr_ = new TypedList(struct_type);
+  result.list_ptr_ = new TypedList();
   std::vector<Value>& value_list = result.list_ptr_->values();
   value_list = std::move(values);
+  return result;
+}
+
+absl::StatusOr<Value> Value::MakeRange(const Value& start, const Value& end) {
+  ZETASQL_RET_CHECK(start.type()->Equals(end.type()))
+      << "Range start element and range end element must have the same "
+         "type";
+  const RangeType* range_type =
+      types::RangeTypeFromSimpleTypeKind(start.type_kind());
+  // If both ends are not unbounded, then enforce that start < end.
+  if (!start.is_null() && !end.is_null()) {
+    ZETASQL_RET_CHECK(start.LessThan(end))
+        << "Range start element must be smaller than range end element";
+  }
+  Value result(range_type, /*is_null=*/false, kPreservesOrder);
+  result.list_ptr_ = new TypedList();
+  result.list_ptr_->values().push_back(start);
+  result.list_ptr_->values().push_back(end);
   return result;
 }
 
@@ -334,7 +353,8 @@ uint64_t Value::ToUint64() const {
     case TYPE_UINT32: return uint32_value_;
     case TYPE_BOOL: return bool_value_;
     default:
-      ZETASQL_LOG(FATAL) << "Cannot coerce to uint64";
+      ZETASQL_LOG(FATAL) << "Cannot coerce " << TypeKind_Name(type_kind())
+                 << " to uint64";
       return 0;
   }
 }
@@ -366,7 +386,8 @@ double Value::ToDouble() const {
     case TYPE_TIME:
     case TYPE_DATETIME:
     default:
-      ZETASQL_LOG(FATAL) << "Cannot coerce to double";
+      ZETASQL_LOG(FATAL) << "Cannot coerce " << TypeKind_Name(type_kind())
+                 << " to double";
   }
 }
 
@@ -376,10 +397,13 @@ uint64_t Value::physical_byte_size() const {
     return physical_size;
   }
 
-  physical_size +=
-      DoesTypeUseValueList()
-          ? list_ptr_->physical_byte_size()
-          : type()->GetValueContentExternallyAllocatedByteSize(GetContent());
+  if (DoesTypeUseValueList()) {
+    physical_size += list_ptr_->physical_byte_size();
+  } else {
+    physical_size +=
+        type()->GetValueContentExternallyAllocatedByteSize(GetContent());
+  }
+
   return physical_size;
 }
 
@@ -392,7 +416,8 @@ absl::Cord Value::ToCord() const {
     case TYPE_PROTO:
       return proto_ptr_->value();
     default:
-      ZETASQL_LOG(FATAL) << "Cannot coerce to Cord";
+      ZETASQL_LOG(FATAL) << "Cannot coerce " << TypeKind_Name(type_kind())
+                 << " to Cord";
       return absl::Cord();
   }
 }
@@ -1109,10 +1134,21 @@ static std::string CapitalizedNameForType(const Type* type) {
       return "BigNumeric";
     case TYPE_JSON:
       return "Json";
+    case TYPE_RANGE:
+      // TODO: Consider moving to the types library and audit use of
+      // DebugString.
+      // TODO: Add tests for this logic after implementing range in
+      // zetasql::Value.
+      return absl::StrCat(
+          "Range<",
+          static_cast<const RangeType*>(type)->element_type()->DebugString(),
+          ">");
     case TYPE_ENUM:
       return absl::StrCat("Enum<",
                           type->AsEnum()->enum_descriptor()->full_name(), ">");
     case TYPE_ARRAY:
+      // TODO: Consider moving to the types library and audit use of
+      // DebugString.
       return absl::StrCat(
           "Array<",
           static_cast<const ArrayType*>(type)->element_type()->DebugString(),
@@ -1258,8 +1294,8 @@ std::string Value::DebugString(bool verbose) const {
 }
 
 // Format will wrap arrays and structs.
-std::string Value::Format() const {
-  return FormatInternal(0, true /* force type */);
+std::string Value::Format(bool print_top_level_type) const {
+  return FormatInternal(0, print_top_level_type);
 }
 
 namespace {

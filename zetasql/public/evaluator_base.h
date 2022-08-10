@@ -166,8 +166,10 @@
 //   ... Iterate over `result` (which lists deleted rows) ...
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -674,9 +676,16 @@ class EvaluatorTableModifyIterator {
   virtual absl::Status Status() const = 0;
 };
 
-// Executes an DML statement and returns an EvaluatorTableModifyIterator.
+// Executes a DML statement and returns an EvaluatorTableModifyIterator.
 // Currently, INSERT, DELETE, and UPDATE are supported.
-//
+// To support DML statements with THEN RETURN, an optional `returning_iterator`
+// can be passed to the Execute* methods. This argument will get the THEN RETURN
+// clause result or NULL when THEN RETURN clause is not present.
+// If `returning_iterator` is not provided, these Execute* methods will continue
+// to work, but the THEN RETURN clause results are ignored.
+// Note that results are fully buffered before Execute returns, so the iterators
+// can be consumed in arbitrary order.
+
 // FEATURE_DISALLOW_PRIMARY_KEY_UPDATES is implicitly enabled because primary
 // key updates are currently not supported.
 //
@@ -728,15 +737,25 @@ class PreparedModifyBase {
   //
   // This method is thread safe. Multiple executions can proceed in parallel,
   // each using a different iterator.
+  //
+  // To support DML statements with THEN RETURN, an optional
+  // `returning_iterator` can be passed to the Execute* methods. This argument
+  // will get the THEN RETURN clause result or NULL when THEN RETURN clause is
+  // not present. If `returning_iterator` is not provided, these Execute*
+  // methods will continue to work, but the THEN RETURN clause results are
+  // ignored. Note that results are fully buffered before Execute returns, so
+  // the iterators can be consumed in arbitrary order.
   absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>> Execute(
       const ParameterValueMap& parameters = {},
-      const SystemVariableValuesMap& system_variables = {});
+      const SystemVariableValuesMap& system_variables = {},
+      std::unique_ptr<EvaluatorTableIterator>* returning_iterator = nullptr);
 
-  // Same as above, but uses positional instead of named parameters.
+  // Same as 'Execute', but uses positional instead of named parameters.
   absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
   ExecuteWithPositionalParams(
       const ParameterValueList& positional_parameters,
-      const SystemVariableValuesMap& system_variables = {});
+      const SystemVariableValuesMap& system_variables = {},
+      std::unique_ptr<EvaluatorTableIterator>* returning_iterator = nullptr);
 
   // More efficient form of Execute that requires parameter values to be passed
   // in a particular order. If positional parameters are used, they are passed
@@ -747,15 +766,18 @@ class PreparedModifyBase {
   absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
   ExecuteAfterPrepareWithOrderedParams(
       const ParameterValueList& parameters,
-      const SystemVariableValuesMap& system_variables = {}) const;
+      const SystemVariableValuesMap& system_variables = {},
+      std::unique_ptr<EvaluatorTableIterator>* returning_iterator =
+          nullptr) const;
 
   // This is the same as Execute, but is a const method, and requires that
   // Prepare has already been called. See the description of Execute for details
   // about the arguments and return value.
   absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
-  ExecuteAfterPrepare(
-      const ParameterValueMap& parameters,
-      const SystemVariableValuesMap& system_variables = {}) const;
+  ExecuteAfterPrepare(const ParameterValueMap& parameters,
+                      const SystemVariableValuesMap& system_variables = {},
+                      std::unique_ptr<EvaluatorTableIterator>*
+                          returning_iterator = nullptr) const;
 
   // Returns a human-readable representation of how this statement would
   // actually be executed. Do not try to interpret this string with code, as the

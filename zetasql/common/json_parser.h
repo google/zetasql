@@ -124,9 +124,6 @@ class JSONParser {
   // Expects p_ to point to a json number.
   bool ParseNumber();
 
-  // If d is not null then it will contain the number on return.
-  bool ParseNumberHelper(double* d);
-
   // If str is not null then it will contain the string of the number on return.
   bool ParseNumberTextHelper(absl::string_view* str);
 
@@ -152,9 +149,6 @@ class JSONParser {
   // Advance a byte, an optimization used for advancing past
   // single-byte (ascii) tokens.
   void AdvanceOneByte();
-
-  // Expects p_ to point to the beginning of a key.
-  bool ParseKey(absl::string_view* key);
 
   // Return the type of the next token.  Advance p_ to that token.
   TokenType GetNextTokenType();          // Value context

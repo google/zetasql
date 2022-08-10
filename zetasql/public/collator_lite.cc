@@ -15,6 +15,7 @@
 //
 
 #include <cstdint>
+#include <functional>
 
 #include "zetasql/public/collator.h"
 #include "absl/base/thread_annotations.h"

@@ -81,9 +81,18 @@ QueryStmt
 # Literal struct with non-coercible fields fails.
 select cast((5, '2014-01-01') AS STRUCT<STRING, INT32>)
 --
-ERROR: Could not cast literal {5, "2014-01-01"} to type STRUCT<STRING, INT32> [at 1:13]
-select cast((5, '2014-01-01') AS STRUCT<STRING, INT32>)
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRUCT<STRING, INT32>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRUCT<INT64, STRING> -> STRUCT<STRING, INT32>)
+    |     +-Literal(type=STRUCT<INT64, STRING>, value={5, "2014-01-01"})
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 # Struct with NULL fields work. The NULL types must get determined based on the
@@ -254,23 +263,54 @@ select cast('abc' as TestStruct)
 # Literals value which can't be coerced to target type.
 select cast((-1, -1) AS STRUCT<INT32, UINT32>)
 --
-ERROR: Could not cast literal {-1, -1} to type STRUCT<INT32, UINT32> [at 1:13]
-select cast((-1, -1) AS STRUCT<INT32, UINT32>)
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRUCT<INT32, UINT32>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRUCT<INT64, INT64> -> STRUCT<INT32, UINT32>)
+    |     +-Literal(type=STRUCT<INT64, INT64>, value={-1, -1})
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 select cast((-1, cast(-1 AS INT32)) AS STRUCT<INT32, UINT32>)
 --
-ERROR: Could not cast -1 to type UINT32 [at 1:18]
-select cast((-1, cast(-1 AS INT32)) AS STRUCT<INT32, UINT32>)
-                 ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRUCT<INT32, UINT32>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRUCT<INT32, INT32> -> STRUCT<INT32, UINT32>)
+    |     +-MakeStruct
+    |       +-type=STRUCT<INT32, INT32>
+    |       +-field_list=
+    |         +-Literal(type=INT32, value=-1, has_explicit_type=TRUE)
+    |         +-Literal(type=INT32, value=-1, has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 select cast(cast((-1, -1) AS STRUCT<INT64, INT64>) AS STRUCT<INT32, UINT32>)
 --
-ERROR: Could not cast {-1, -1} to type STRUCT<INT32, UINT32> [at 1:13]
-select cast(cast((-1, -1) AS STRUCT<INT64, INT64>) AS STRUCT<INT32, UINT32>)
-            ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [STRUCT<INT32, UINT32>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRUCT<INT64, INT64> -> STRUCT<INT32, UINT32>)
+    |     +-Literal(type=STRUCT<INT64, INT64>, value={-1, -1}, has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 select cast((timestamp '1678-01-01', "b") AS STRUCT<STRING, BYTES>),

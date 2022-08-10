@@ -19,6 +19,7 @@
 #include <ctype.h>
 
 #include <algorithm>
+#include <string>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/status_payload_utils.h"

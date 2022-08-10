@@ -18,7 +18,9 @@
 #define ZETASQL_COMMON_STRING_UTIL_H_
 
 #include <cmath>
+#include <string>
 
+#include "zetasql/common/canonicalize_signed_zero_to_string.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/string_numbers.h"
 
@@ -56,12 +58,6 @@ inline std::string RoundTripDoubleToString(double d) {
     return zetasql_base::RoundTripDoubleToString(d);
   }
   return "nan";
-}
-
-// Alias for `RoundTripDoubleToString` to allow calling from templated methods
-// where the type is not known to be double or float.
-inline std::string RoundTripFloatToString(double d) {
-  return RoundTripDoubleToString(d);
 }
 
 // Replace the first instance of `oldsub` with `newsub` inside `s`.  If

@@ -16,6 +16,7 @@
 
 #include "zetasql/public/functions/hash.h"
 
+#include <string>
 #include <utility>
 #include <vector>
 

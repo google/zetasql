@@ -39,10 +39,12 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <set>
 #include <string>
 #include <type_traits>
+#include <utility>
 
 #include "zetasql/base/atomic_sequence_num.h"
 #include "zetasql/base/logging.h"
@@ -55,6 +57,7 @@
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/functions/normalize_mode.pb.h"
+#include "zetasql/public/functions/rounding_mode.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/procedure.h"
 #include "zetasql/public/strings.h"
@@ -305,6 +308,10 @@ absl::StatusOr<std::string> SQLBuilder::GetSQL(const Value& value,
     if (enum_full_name == functions::NormalizeMode_descriptor()->full_name()) {
       return ToIdentifierLiteral(value.DebugString());
     }
+    // TODO: Make sure this works for non-literals
+    if (enum_full_name == functions::RoundingMode_descriptor()->full_name()) {
+      return ToStringLiteral(value.DebugString());
+    }
 
     // For typed hints, we can't print a CAST for enums because the parser
     // won't accept it back in.
@@ -351,7 +358,7 @@ absl::StatusOr<std::string> SQLBuilder::GetSQL(const Value& value,
       std::string field_name;
       if (!field_type.name.empty()) {
         has_explicit_field_name = true;
-        field_name = absl::StrCat(field_type.name, " ");
+        field_name = absl::StrCat(ToIdentifierLiteral(field_type.name), " ");
       }
       field_types.push_back(
           absl::StrCat(field_name, field_type.type->TypeName(mode)));
@@ -438,7 +445,7 @@ absl::Status SQLBuilder::VisitResolvedConstant(const ResolvedConstant* node) {
 
 // Call Function::GetSQL(), and also add the "SAFE." prefix if
 // <function_call> is in SAFE_ERROR_MODE.
-static std::string GetFunctionCallSQL(
+absl::StatusOr<std::string> SQLBuilder::GetFunctionCallSQL(
     const ResolvedFunctionCallBase* function_call,
     std::vector<std::string> inputs) {
   // Mark access. There is no SQL clause for the <collation_list> field.
@@ -458,6 +465,10 @@ static std::string GetFunctionCallSQL(
     } else {
       sql = absl::StrCat("SAFE.", sql);
     }
+  }
+  if (!function_call->hint_list().empty()) {
+    absl::StrAppend(&sql, " ");
+    ZETASQL_RETURN_IF_ERROR(AppendHintsIfPresent(function_call->hint_list(), &sql));
   }
   return sql;
 }
@@ -492,9 +503,10 @@ absl::Status SQLBuilder::VisitResolvedFunctionCall(
     }
   }
 
+  ZETASQL_ASSIGN_OR_RETURN(auto sql, GetFunctionCallSQL(node, std::move(inputs)));
   // Getting the SQL for a function given string arguments is not itself
   // sensitive to the ProductMode.
-  PushQueryFragment(node, GetFunctionCallSQL(node, std::move(inputs)));
+  PushQueryFragment(node, sql);
   return absl::OkStatus();
 }
 
@@ -634,7 +646,8 @@ absl::Status SQLBuilder::VisitResolvedAggregateFunctionCall(
                      ProcessNode(node->limit()));
     absl::StrAppend(&inputs.back(), " LIMIT ", result->GetSQL());
   }
-  std::string text = GetFunctionCallSQL(node, std::move(inputs));
+  ZETASQL_ASSIGN_OR_RETURN(std::string text,
+                   GetFunctionCallSQL(node, std::move(inputs)));
 
   absl::StrAppend(&text, with_group_rows);
 
@@ -699,8 +712,10 @@ absl::Status SQLBuilder::VisitResolvedAnalyticFunctionCall(
     absl::StrAppend(&inputs.back(), result);
   }
 
+  ZETASQL_ASSIGN_OR_RETURN(std::string sql,
+                   GetFunctionCallSQL(node, std::move(inputs)));
   std::unique_ptr<AnalyticFunctionInfo> analytic_function_info(
-      new AnalyticFunctionInfo(GetFunctionCallSQL(node, std::move(inputs))));
+      new AnalyticFunctionInfo(sql));
   if (node->window_frame() != nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
                      ProcessNode(node->window_frame()));
@@ -1102,6 +1117,10 @@ absl::Status SQLBuilder::VisitResolvedColumnRef(const ResolvedColumnRef* node) {
   if (zetasql_base::ContainsKey(pending_columns_, column.column_id())) {
     PushQueryFragment(node,
                       zetasql_base::FindOrDie(pending_columns_, column.column_id()));
+  } else if (zetasql_base::ContainsKey(correlated_pending_columns_,
+                              column.column_id())) {
+    PushQueryFragment(
+        node, zetasql_base::FindOrDie(correlated_pending_columns_, column.column_id()));
   } else {
     PushQueryFragment(node, GetColumnPath(node->column()));
   }
@@ -1139,20 +1158,6 @@ absl::Status SQLBuilder::VisitResolvedCast(const ResolvedCast* node) {
 
 absl::Status SQLBuilder::VisitResolvedSubqueryExpr(
     const ResolvedSubqueryExpr* node) {
-  // While resolving a subquery we should start with a fresh scope, i.e. it
-  // should not see any columns (except which are correlated) outside the query.
-  // To ensure that, we clear the pending_columns_ after maintaining a copy of
-  // it locally. We then copy it back once we have processed the subquery.
-  // NOTE: For correlated aggregate columns we are expected to print the column
-  // path and not the sql to compute the column. So clearing the
-  // pending_aggregate_columns here would not have any side effects.
-  std::map<int, std::string> previous_pending_aggregate_columns;
-  previous_pending_aggregate_columns.swap(pending_columns_);
-
-  auto cleanup =
-      absl::MakeCleanup([this, &previous_pending_aggregate_columns]() {
-        previous_pending_aggregate_columns.swap(pending_columns_);
-      });
   std::string text;
   switch (node->subquery_type()) {
     case ResolvedSubqueryExpr::SCALAR:
@@ -1195,6 +1200,47 @@ absl::Status SQLBuilder::VisitResolvedSubqueryExpr(
     }
   }
 
+  // While resolving a subquery we should start with a fresh scope, i.e. it
+  // should not see any columns (except which are correlated) outside the query.
+  // To ensure that, we clear the pending_columns_ after maintaining a copy of
+  // it locally. We then copy it back once we have processed the subquery.
+  // To give subquery access to correlated columns, scan parameter list and
+  // copy current pending_columns_ and correlated_pending_columns_ from outer
+  // subquery whose column ids match the parameter column.
+  //
+  // NOTE: Correlated columns cannot be simply retained in pending_columns_
+  // because pending_columns_ get cleared in every ProjectScan and subquery can
+  // have multiple of those. Correlated columns must be accessible to the whole
+  // subquery instead.
+  //
+  // NOTE: Swapping pending_columns_ must happen after resolution of in_expr
+  // which may reference current pending columns as uncorrelated.
+  std::map<int, std::string> previous_pending_columns;
+  previous_pending_columns.swap(pending_columns_);
+  std::map<int, std::string> previous_correlated_columns;
+  previous_correlated_columns.swap(correlated_pending_columns_);
+  auto cleanup = absl::MakeCleanup(
+      [this, &previous_pending_columns, &previous_correlated_columns]() {
+        previous_pending_columns.swap(pending_columns_);
+        previous_correlated_columns.swap(correlated_pending_columns_);
+      });
+
+  for (const auto& parameter : node->parameter_list()) {
+    auto pending_column =
+        previous_pending_columns.find(parameter->column().column_id());
+    if (pending_column != previous_pending_columns.end()) {
+      correlated_pending_columns_.insert(*pending_column);
+      continue;
+    }
+
+    auto correlated_column =
+        previous_correlated_columns.find(parameter->column().column_id());
+    if (correlated_column != previous_correlated_columns.end()) {
+      correlated_pending_columns_.insert(*correlated_column);
+      continue;
+    }
+  }
+
   // Mark field accessed. <in_collation> doesn't have its own SQL clause.
   node->in_collation();
 
@@ -1207,19 +1253,40 @@ absl::Status SQLBuilder::VisitResolvedSubqueryExpr(
   absl::StrAppend(&text, "(", subquery_result->GetSQLQuery(), ")",
                   node->in_expr() == nullptr ? "" : ")");
 
-  // Dummy access on the parameter list so as to pass the final
-  // CheckFieldsAccessed() on a statement level before building the sql.
-  if (!node->parameter_list().empty()) {
-    for (const auto& parameter : node->parameter_list()) {
-      parameter->column();
-    }
-  }
-
   PushQueryFragment(node, text);
   return absl::OkStatus();
 }
 
-absl::Status SQLBuilder::VisitResolvedLetExpr(const ResolvedLetExpr* node) {
+absl::Status SQLBuilder::VisitResolvedWithExpr(const ResolvedWithExpr* node) {
+  if (options_.language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_4_WITH_EXPRESSION)) {
+    // Let expressions when WITH expression is enabled need to be unparsed
+    // differently. WITH expressions have a select list that can re-reference
+    // elements earlier in the select list. That means we cannot rely on the
+    // standard computed column alias behavior. The standard behavior is to
+    // introduce new aliases when columns appear multiple times in the select
+    // list, which will lead to incorrect unparsings. For example, the following
+    // unparsing would occur with standard alias handling rules:
+    //
+    // WITH(a AS 2, b AS a + 2, a + b) =>
+    // WITH(a_1 AS 2, a_2 AS a_3 + 2, a_1 + a_2)
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> expr,
+                     ProcessNode(node->expr()));
+    std::vector<std::string> assignments;
+    for (int i = 0; i < node->assignment_list_size(); ++i) {
+      const ResolvedColumn& col = node->assignment_list(i)->column();
+      std::string alias = GetColumnAlias(col);
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> assignment,
+                       ProcessNode(node->assignment_list(i)));
+      assignments.push_back(absl::StrCat(alias, " AS ", assignment->GetSQL()));
+    }
+    std::string sql;
+    sql = absl::Substitute("WITH($0, $1)", absl::StrJoin(assignments, ", "),
+                           expr->GetSQL());
+    PushQueryFragment(node, sql);
+    return absl::OkStatus();
+  }
+
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> expr,
                    ProcessNode(node->expr()));
   std::vector<std::string> assignments;
@@ -1670,6 +1737,11 @@ absl::Status SQLBuilder::GetSelectList(
       } else if (zetasql_base::ContainsKey(pending_columns_, col.column_id())) {
         select_list->push_back(std::make_pair(
             zetasql_base::FindOrDie(pending_columns_, col.column_id()), alias));
+      } else if (zetasql_base::ContainsKey(correlated_pending_columns_,
+                                  col.column_id())) {
+        select_list->push_back(std::make_pair(
+            zetasql_base::FindOrDie(correlated_pending_columns_, col.column_id()),
+            alias));
       } else {
         select_list->push_back(std::make_pair(GetColumnPath(col), alias));
       }
@@ -2148,7 +2220,9 @@ absl::Status SQLBuilder::VisitResolvedTVFScan(const ResolvedTVFScan* node) {
         column_name =
             signature_result_schema.column(node->column_index_list(i)).name;
       }
-      zetasql_base::InsertOrDie(&pending_columns_, column.column_id(), column_name);
+      // Prefix column name with tvf alias to support strict resolution mode.
+      zetasql_base::InsertOrDie(&pending_columns_, column.column_id(),
+                       absl::StrCat(tvf_scan_alias, ".", column_name));
     }
   }
 
@@ -4187,14 +4261,24 @@ absl::Status SQLBuilder::VisitResolvedCreateProcedureStmt(
   absl::StrAppend(&sql, node->signature().GetSQLDeclaration(
                             node->argument_name_list(),
                             options_.language_options.product_mode()));
+  if (node->connection() != nullptr) {
+    const std::string connection_alias =
+        ToIdentifierLiteral(node->connection()->connection()->Name());
+    absl::StrAppend(&sql, "WITH CONNECTION ", connection_alias, " ");
+  }
   if (node->option_list_size() > 0) {
     ZETASQL_ASSIGN_OR_RETURN(const std::string options_string,
                      GetHintListString(node->option_list()));
     absl::StrAppend(&sql, " OPTIONS(", options_string, ") ");
   }
-
-  absl::StrAppend(&sql, node->procedure_body());
-
+  if (!node->language().empty()) {
+    absl::StrAppend(&sql, " LANGUAGE ", ToIdentifierLiteral(node->language()));
+    if (!node->code().empty()) {
+      absl::StrAppend(&sql, " AS ", ToStringLiteral(node->code()));
+    }
+  } else {
+    absl::StrAppend(&sql, node->procedure_body());
+  }
   PushQueryFragment(node, sql);
   return absl::OkStatus();
 }
@@ -4595,6 +4679,7 @@ absl::Status SQLBuilder::VisitResolvedReturningClause(
                       ToIdentifierLiteral(col->name()));
     } else {
       absl::StrAppend(&sql, " ", returning_table_alias_, ".",
+                      col->column().name(), " AS ",
                       ToIdentifierLiteral(col->name()));
     }
 
@@ -5211,6 +5296,11 @@ absl::Status SQLBuilder::VisitResolvedAlterViewStmt(
 absl::Status SQLBuilder::VisitResolvedAlterMaterializedViewStmt(
     const ResolvedAlterMaterializedViewStmt* node) {
   return GetResolvedAlterObjectStmtSQL(node, "MATERIALIZED VIEW");
+}
+
+absl::Status SQLBuilder::VisitResolvedAlterModelStmt(
+    const ResolvedAlterModelStmt* node) {
+  return GetResolvedAlterObjectStmtSQL(node, "MODEL");
 }
 
 absl::StatusOr<std::string> SQLBuilder::GetAlterActionListSQL(

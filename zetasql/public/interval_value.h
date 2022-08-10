@@ -18,6 +18,8 @@
 #define ZETASQL_PUBLIC_INTERVAL_VALUE_H_
 
 #include <cstdint>
+#include <ostream>
+#include <string>
 
 #include "zetasql/common/errors.h"
 #include "zetasql/common/multiprecision_int.h"
@@ -101,7 +103,6 @@ class IntervalValue final {
   static const int64_t kMaxMicros = kMicrosInDay * kMaxDays;
   static const __int128 kMaxNanos = kNanosInMicro128 * kMaxMicros;
 
-  static const int64_t kMinYears = -kMaxYears;
   static const int64_t kMinMonths = -kMaxMonths;
   static const int64_t kMinDays = -kMaxDays;
   static const int64_t kMinMicros = -kMaxMicros;

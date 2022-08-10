@@ -234,8 +234,6 @@ cc_library(
         "flex_tokenizer.h",
         "join_processor.h",
         "location.hh",
-        "position.hh",
-        "stack.hh",
         "statement_properties.h",
     ],
     # The Bison skeleton uses implicit fallthrough, so this won't compile
@@ -418,12 +416,11 @@ cc_library(
     srcs = ["run_parser_test.cc"],
     deps = [
         ":parser",
+        "//zetasql/base:check",
         "//zetasql/base:edit_distance",
         "//zetasql/base:logging",
-        "//zetasql/base:path",
         "//zetasql/base:source_location",
         "//zetasql/base:status",
-        "//zetasql/base:strings",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/public:error_helpers",
@@ -529,8 +526,6 @@ genyacc(
     src = "bison_parser.y",
     extra_outs = [
         "location.hh",
-        "position.hh",
-        "stack.hh",
     ],
     header_out = "bison_parser.bison.h",
     source_out = "bison_parser.bison.cc",

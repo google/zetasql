@@ -20,6 +20,7 @@
 
 #include <memory>
 #include <set>
+#include <string>
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/descriptor.pb.h"
@@ -222,6 +223,10 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
       proto_field->mutable_options()->SetExtension(
           zetasql::format, FieldFormat::JSON);
       break;
+    }
+    case TYPE_RANGE: {
+      // TODO: Implement this for RANGE.
+      return absl::UnimplementedError("RANGE type is not fully implemented");
     }
     case TYPE_ENUM: {
       const EnumType* enum_type = field_type->AsEnum();

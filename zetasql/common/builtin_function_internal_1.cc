@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <memory>
 #include <set>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -177,6 +178,15 @@ std::string SupportedSignaturesForAnonCountStarWithReportFunction(
       report_format, "))");
 }
 
+std::string SupportedSignaturesForAnonQuantilesWithReportFunction(
+    const std::string& report_format, const LanguageOptions& language_options,
+    const Function& function) {
+  return absl::StrCat(
+      "ANON_QUANTILES(DOUBLE, INT64 CLAMPED BETWEEN DOUBLE AND DOUBLE WITH "
+      "REPORT(FORMAT=",
+      report_format, "))");
+}
+
 std::string AnonSumWithReportJsonFunctionSQL(
     const std::vector<std::string>& inputs) {
   ZETASQL_DCHECK(inputs.size() == 1 || inputs.size() == 3);
@@ -241,6 +251,26 @@ std::string AnonCountStarWithReportProtoFunctionSQL(
           ? absl::StrCat(" CLAMPED BETWEEN ", inputs[0], " AND ", inputs[1])
           : "",
       " WITH REPORT(FORMAT=PROTO))");
+}
+
+std::string AnonQuantilesWithReportJsonFunctionSQL(
+    const std::vector<std::string>& inputs) {
+  // TODO: Once CLAMPED BETWEEN arguments are no longer required,
+  // this function should also support only 2 args.
+  ZETASQL_DCHECK_EQ(inputs.size(), 4);
+  return absl::StrCat("ANON_QUANTILES(", inputs[0], ", ", inputs[1],
+                      " CLAMPED BETWEEN ", inputs[2], " AND ", inputs[3],
+                      " WITH REPORT(FORMAT=JSON))");
+}
+
+std::string AnonQuantilesWithReportProtoFunctionSQL(
+    const std::vector<std::string>& inputs) {
+  // TODO: Once CLAMPED BETWEEN arguments are no longer required,
+  // this function should also support only 2 args.
+  ZETASQL_DCHECK_EQ(inputs.size(), 4);
+  return absl::StrCat("ANON_QUANTILES(", inputs[0], ", ", inputs[1],
+                      " CLAMPED BETWEEN ", inputs[2], " AND ", inputs[3],
+                      " WITH REPORT(FORMAT=PROTO))");
 }
 
 std::string BetweenFunctionSQL(const std::vector<std::string>& inputs) {
@@ -509,10 +539,18 @@ absl::Status CheckDateDatetimeTimeTimestampDiffArguments(
       default:
         break;
     }
+    std::string extended_signature_error;
+    if (language_options.LanguageFeatureEnabled(
+            FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)) {
+      extended_signature_error = absl::StrCat(
+          " when the argument is ",
+          arguments[0].UserFacingName(language_options.product_mode()),
+          " type");
+    }
     return MakeSqlError() << function_name << " does not support the "
                           << DateTimestampPartToSQL(
                                  arguments[2].literal_value()->enum_value())
-                          << " date part";
+                          << " date part" << extended_signature_error;
   }
   // Let validation of other arguments happen normally.
   return absl::OkStatus();
@@ -752,7 +790,7 @@ absl::Status CheckDateDatetimeTimestampAddSubArguments(
     case functions::QUARTER:
     case functions::MONTH:
     case functions::WEEK:
-      // Only TIMESTAMP_ADD doesn't support these dateparts
+      // Only TIMESTAMP type doesn't support these dateparts
       if (!arguments[0].type()->IsTimestamp()) {
         return absl::OkStatus();
       }
@@ -765,7 +803,7 @@ absl::Status CheckDateDatetimeTimestampAddSubArguments(
     case functions::SECOND:
     case functions::MILLISECOND:
     case functions::MICROSECOND:
-      // Only DATE_ADD doesn't support these dateparts
+      // Only DATE type doesn't support these dateparts
       if (!arguments[0].type()->IsDate()) {
         return absl::OkStatus();
       }
@@ -779,10 +817,17 @@ absl::Status CheckDateDatetimeTimestampAddSubArguments(
     default:
       break;
   }
+  std::string extended_signature_error;
+  if (language_options.LanguageFeatureEnabled(
+          FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES)) {
+    extended_signature_error = absl::StrCat(
+        " when the argument is ",
+        arguments[0].UserFacingName(language_options.product_mode()), " type");
+  }
   return MakeSqlError() << function_name << " does not support the "
                         << DateTimestampPartToSQL(
                                arguments[2].literal_value()->enum_value())
-                        << " date part";
+                        << " date part" << extended_signature_error;
 }
 
 absl::Status CheckTimeAddSubArguments(
@@ -915,7 +960,7 @@ absl::Status CheckFormatPostResolutionArguments(
     const std::vector<InputArgumentType>& arguments,
     const LanguageOptions& language_options) {
   ZETASQL_RET_CHECK_GE(arguments.size(), 1);
-  ZETASQL_RET_CHECK(arguments[0].type()->IsString());
+  ZETASQL_RET_CHECK(arguments[0].type()->IsString() || arguments[0].is_untyped_null());
 
   if (arguments[0].is_literal() && !arguments[0].is_literal_null()) {
     const std::string& pattern = arguments[0].literal_value()->string_value();
@@ -946,7 +991,6 @@ absl::Status CheckIsSupportedKeyType(
     return absl::OkStatus();
   }
 
-  ZETASQL_RET_CHECK_LE(key_type_argument_index, 1);
   const absl::string_view argument_index_name =
       key_type_argument_index == 0 ? "First" : "Second";
 
@@ -2009,19 +2053,6 @@ void InsertSimpleFunction(
 
   InsertFunctionImpl<std::initializer_list<FunctionSignatureProxy>>(
       functions, options, std::move(names), mode, signatures, function_options);
-}
-
-void InsertNamespaceFunction(
-    NameToFunctionMap* functions,
-    const ZetaSQLBuiltinFunctionOptions& options, absl::string_view space,
-    absl::string_view name, Function::Mode mode,
-    const std::vector<FunctionSignatureOnHeap>& signatures) {
-  std::vector<std::string> names;
-  names.reserve(2);
-  names.emplace_back(space);
-  names.emplace_back(name);
-  InsertFunctionImpl(functions, options, std::move(names), mode, signatures,
-                     /* function_options*/ {});
 }
 
 void InsertNamespaceFunction(

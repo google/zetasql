@@ -16,6 +16,8 @@
 
 #include "zetasql/public/procedure.h"
 
+#include <string>
+
 #include "zetasql/proto/function.pb.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"

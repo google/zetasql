@@ -17,6 +17,7 @@
 #include "zetasql/public/types/collation.h"
 
 #include <string>
+#include <utility>
 
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/array_type.h"
@@ -74,6 +75,25 @@ absl::StatusOr<Collation> Collation::MakeCollation(
     }
   }
   return collation;
+}
+
+// Static
+Collation Collation::MakeCollationWithChildList(
+    std::vector<Collation> child_list) {
+  if (child_list.empty()) {
+    return Collation();
+  }
+  bool all_empty = true;
+  for (const Collation& collation : child_list) {
+    if (!collation.Empty()) {
+      all_empty = false;
+      break;
+    }
+  }
+  if (all_empty) {
+    return Collation();
+  }
+  return Collation(/*collation_name=*/{}, std::move(child_list));
 }
 
 bool Collation::Equals(const Collation& that) const {

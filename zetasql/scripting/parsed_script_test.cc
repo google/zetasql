@@ -17,6 +17,8 @@
 #include "zetasql/scripting/parsed_script.h"
 
 #include <cstdint>
+#include <string>
+#include <utility>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/parser/parse_tree.h"
@@ -485,6 +487,60 @@ std::vector<absl::variant<TestCase, TestInput>> GetScripts() {
       TestInput(ZETASQL_LOC, "SELECT @A;", {"a"}),
       TestInput(ZETASQL_LOC, "SELECT @B;", {"b"}),
   }));
+
+  // Test cases with CREATE PROCEDURE.
+
+  // Variable inside the procedure doesn't conflict with the variable defined
+  // before the procedure.
+  result.push_back(TestInput(ZETASQL_LOC,
+                             R"(
+    DECLARE x INT64;
+    CREATE OR REPLACE PROCEDURE abc() BEGIN
+        DECLARE x INT64;
+    END;
+  )"));
+
+  // Same as above but with nested procedure.
+  result.push_back(TestInput(ZETASQL_LOC,
+                             R"(
+    DECLARE x INT64;
+    CREATE OR REPLACE PROCEDURE p1() BEGIN
+        DECLARE x INT64;
+        CREATE OR REPLACE PROCEDURE p2() BEGIN
+            DECLARE x INT64;
+            CREATE OR REPLACE PROCEDURE p3() BEGIN
+                DECLARE x INT64;
+            END;
+        END;
+    END;
+  )"));
+
+  // Variables after procedure definition are still checked for redeclaration.
+  result.push_back(TestInputWithError(ZETASQL_LOC,
+                                      "Variable 'x' redeclaration [at 7:17]; x "
+                                      "previously declared here [at 2:15]",
+                                      R"(
+      DECLARE x INT64;
+      CREATE OR REPLACE PROCEDURE abc() BEGIN
+          DECLARE x INT64;
+      END;
+      BEGIN
+        DECLARE x INT64;
+      END;
+      )"));
+
+  // Variables inside the procedure are still checked for redeclaration.
+  result.push_back(TestInputWithError(ZETASQL_LOC,
+                                      "Variable 'x' redeclaration [at 5:21]; x "
+                                      "previously declared here [at 3:19]",
+                                      R"(
+      CREATE OR REPLACE PROCEDURE abc() BEGIN
+          DECLARE x INT64;
+          BEGIN
+            DECLARE x INT64;
+          END;
+      END;
+      )"));
   return result;
 }
 

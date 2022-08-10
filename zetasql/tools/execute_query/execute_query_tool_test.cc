@@ -23,6 +23,7 @@
 #include "google/protobuf/map_field.h"
 #include "google/protobuf/text_format.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -31,11 +32,14 @@
 #include "zetasql/tools/execute_query/execute_query_writer.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "absl/container/btree_set.h"
+#include "absl/flags/commandlineflag.h"
 #include "absl/flags/flag.h"
 #include "absl/flags/reflection.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/strip.h"
+#include "absl/types/span.h"
 
 namespace zetasql {
 namespace {
@@ -55,6 +59,13 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
                           std::ostream& out_stream) {
   ExecuteQueryStreamWriter writer{out_stream};
   return ExecuteQuery(sql, config, writer);
+}
+
+TEST(ExecuteQueryDefaults, AllRewritesEnabledByDefault) {
+  ExecuteQueryConfig config;
+  ZETASQL_ASSERT_OK(SetAnalyzerOptionsFromFlags(config));
+  EXPECT_EQ(config.analyzer_options().enabled_rewrites(),
+            internal::GetAllRewrites());
 }
 
 TEST(SetToolModeFromFlags, ToolMode) {
@@ -95,6 +106,13 @@ TEST(SetSqlModeFromFlags, BadSqlMode) {
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
+TEST(SetLanguageOptionsFromFlags, BadProductMode) {
+  absl::SetFlag(&FLAGS_product_mode, "bad-mode");
+  ExecuteQueryConfig config;
+  EXPECT_THAT(SetLanguageOptionsFromFlags(config),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
 TEST(SetLanguageOptionsFromFlags, ProductMode) {
   auto CheckFlag = [](absl::string_view name, ProductMode expected_mode) {
     absl::SetFlag(&FLAGS_product_mode, name);
@@ -107,11 +125,73 @@ TEST(SetLanguageOptionsFromFlags, ProductMode) {
   CheckFlag("external", PRODUCT_EXTERNAL);
 }
 
-TEST(SetLanguageOptionsFromFlags, BadProductMode) {
-  absl::SetFlag(&FLAGS_product_mode, "bad-mode");
-  ExecuteQueryConfig config;
-  EXPECT_THAT(SetLanguageOptionsFromFlags(config),
-              StatusIs(absl::StatusCode::kInvalidArgument));
+TEST(SetAnalyzerOptionsFromFlags, EnabledAstRewrites) {
+  auto CheckFlag = [](absl::string_view str,
+                      absl::Span<const ResolvedASTRewrite> expected_enabled,
+                      absl::Span<const ResolvedASTRewrite> expected_disabled) {
+    absl::CommandLineFlag* flag =
+        absl::FindCommandLineFlag("enabled_ast_rewrites");
+    std::string error;
+    EXPECT_TRUE(flag->ParseFrom(str, &error));
+    ExecuteQueryConfig config;
+    ZETASQL_EXPECT_OK(SetAnalyzerOptionsFromFlags(config));
+    for (const ResolvedASTRewrite rewrite : expected_enabled) {
+      EXPECT_TRUE(config.analyzer_options().rewrite_enabled(rewrite))
+          << ResolvedASTRewrite_Name(rewrite)
+          << " should be enabled when flag is '" << str << "'";
+    }
+    for (const ResolvedASTRewrite rewrite : expected_disabled) {
+      EXPECT_FALSE(config.analyzer_options().rewrite_enabled(rewrite))
+          << ResolvedASTRewrite_Name(rewrite)
+          << " should be disabled when flag is '" << str << "'";
+    }
+  };
+  // We don't need to exhaustively test this, just ensure we are invoking the
+  // the 'parser' for this format.
+  absl::btree_set<ResolvedASTRewrite> default_rewrites =
+      AnalyzerOptions::DefaultRewrites();
+
+  CheckFlag("DEFAULTS",
+            std::vector<ResolvedASTRewrite>{default_rewrites.begin(),
+                                            default_rewrites.end()},
+            {REWRITE_ANONYMIZATION});
+  CheckFlag("DEFAULTS,-PIVOT", {REWRITE_FLATTEN},
+            {REWRITE_PIVOT, REWRITE_ANONYMIZATION});
+  CheckFlag("DEFAULTS,+ANONYMIZATION",
+            {REWRITE_FLATTEN, REWRITE_PIVOT, REWRITE_ANONYMIZATION},
+            {REWRITE_INVALID_DO_NOT_USE});
+}
+
+TEST(SetLanguageOptionsFromFlags, EnabledLanguageFeatures) {
+  auto CheckFlag = [](absl::string_view str,
+                      absl::Span<const LanguageFeature> expected_enabled,
+                      absl::Span<const LanguageFeature> expected_disabled) {
+    absl::CommandLineFlag* flag =
+        absl::FindCommandLineFlag("enabled_language_features");
+    std::string error;
+    EXPECT_TRUE(flag->ParseFrom(str, &error));
+    ExecuteQueryConfig config;
+    ZETASQL_EXPECT_OK(SetLanguageOptionsFromFlags(config));
+    for (const LanguageFeature value : expected_enabled) {
+      EXPECT_TRUE(
+          config.analyzer_options().language().LanguageFeatureEnabled(value))
+          << LanguageFeature_Name(value) << " should be enabled when flag is '"
+          << str << "'";
+    }
+    for (const LanguageFeature value : expected_disabled) {
+      EXPECT_FALSE(
+          config.analyzer_options().language().LanguageFeatureEnabled(value))
+          << LanguageFeature_Name(value) << " should be disabled when flag is '"
+          << str << "'";
+    }
+  };
+  // We don't need to exhaustively test this, just ensure we are invoking the
+  // the 'parser' for this format.
+  CheckFlag("DEV", {FEATURE_TEST_IDEALLY_ENABLED_BUT_IN_DEVELOPMENT},
+            {FEATURE_TEST_IDEALLY_DISABLED});
+  CheckFlag("DEV,-TEST_IDEALLY_ENABLED_BUT_IN_DEVELOPMENT", {},
+            {FEATURE_TEST_IDEALLY_ENABLED_BUT_IN_DEVELOPMENT,
+             FEATURE_TEST_IDEALLY_DISABLED});
 }
 
 TEST(MakeWriterFromFlagsTest, Empty) {

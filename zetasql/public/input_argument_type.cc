@@ -17,6 +17,7 @@
 #include "zetasql/public/input_argument_type.h"
 
 #include <algorithm>
+#include <string>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/public/table_valued_function.h"

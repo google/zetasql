@@ -363,11 +363,16 @@ class JSONValueStandardParser : public JSONValueParserBase {
 
   bool parse_error(std::size_t /*unused*/, const std::string& /*unused*/,
                    const nlohmann::detail::exception& ex) {
-    std::string error(ex.what());
-    // Strip the error code specific to the nlohmann JSON library.
-    std::vector<std::string> v = absl::StrSplit(error, "] ");
-    if (v.size() > 1) {
-      error = v[1];
+    absl::string_view error = ex.what();
+    // Strip the error code specific to the nlohmann JSON library and the
+    // position in the input. Example of error message:
+    // [json.exception.parse_error.101] parse error at line 1, column 2: syntax
+    // error while parsing value - <rest of the message>
+    // This would remove everything before "syntax error".
+    std::pair<absl::string_view, absl::string_view> splits =
+        absl::StrSplit(error, absl::MaxSplits(": ", 1));
+    if (!splits.second.empty()) {
+      error = splits.second;
     }
     return MaybeUpdateStatus(absl::InvalidArgumentError(error));
   }

@@ -19,6 +19,12 @@
 
 #include <stddef.h>
 
+#include <functional>
+#include <optional>
+#include <set>
+#include <string>
+#include <vector>
+
 #include "zetasql/base/arena_allocator.h"
 #include "zetasql/parser/ast_enums.pb.h"
 #include "zetasql/parser/ast_node_kind.h"
@@ -50,8 +56,6 @@ class BisonParser;
 
 }  // namespace parser
 
-std::ostream& operator<<(std::ostream& out, SchemaObjectKind kind);
-
 // Converts a SchemaObjectKind to the SQL name of that kind.
 absl::string_view SchemaObjectKindToName(SchemaObjectKind schema_object_kind);
 
@@ -63,9 +67,6 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
   ASTNode& operator=(const ASTNode&) = delete;
 
   virtual ~ASTNode();
-
-  // Returns this node's kind. DEPRECATED.
-  ASTNodeKind getId() const { return node_kind_; }
 
   ASTNodeKind node_kind() const { return node_kind_; }
 
@@ -204,32 +205,6 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
   // locations as fragments from the original text, supplied in <sql>, rather
   // than raw integer values.
   std::string DebugString(absl::string_view sql, int max_depth = 512) const;
-
-  // Moves the start location forward by 'bytes' byte positions.
-  void MoveStartLocation(int bytes) {
-    parse_location_range_.set_start(ParseLocationPoint::FromByteOffset(
-        parse_location_range_.start().filename(),
-        parse_location_range_.start().GetByteOffset() + bytes));
-  }
-
-  // Moves the start location back by 'bytes' byte positions.
-  void MoveStartLocationBack(int bytes) {
-    parse_location_range_.set_start(ParseLocationPoint::FromByteOffset(
-        parse_location_range_.start().filename(),
-        parse_location_range_.start().GetByteOffset() - bytes));
-  }
-
-    // Sets the start location to the end location.
-  void SetStartLocationToEndLocation() {
-    parse_location_range_.set_start(parse_location_range_.end());
-  }
-
-  // Moves the end location back by 'bytes' byte positions.
-  void MoveEndLocationBack(int bytes) {
-    parse_location_range_.set_end(ParseLocationPoint::FromByteOffset(
-        parse_location_range_.end().filename(),
-        parse_location_range_.end().GetByteOffset() - bytes));
-  }
 
   void set_start_location(const ParseLocationPoint& point) {
     parse_location_range_.set_start(point);
@@ -468,6 +443,9 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
   static absl::Status TraverseNonRecursiveHelper(
       const VisitResult& result, NonRecursiveParseTreeVisitor* visitor,
       std::vector<std::function<absl::Status()>>* stack);
+
+  // Expands the end of parse_location_range_ to include expand_range.
+  void ExpandLocationRangeEnd(const ParseLocationRange& expand_range);
 
   ASTNodeKind node_kind_;
 

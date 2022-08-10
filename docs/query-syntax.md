@@ -35,11 +35,11 @@ ZetaSQL.
 
 **Notation rules**
 
-+ Square brackets "[ ]" indicate optional clauses.
-+ Parentheses "( )" indicate literal parentheses.
-+ The vertical bar "|" indicates a logical OR.
-+ Curly braces "{ }" enclose a set of options.
-+ A comma followed by an ellipsis within square brackets "[, ... ]" indicates that
++ Square brackets `[ ]` indicate optional clauses.
++ Parentheses `( )` indicate literal parentheses.
++ The vertical bar `|` indicates a logical `OR`.
++ Curly braces `{ }` enclose a set of options.
++ A comma followed by an ellipsis within square brackets `[, ... ]` indicates that
   the preceding item can repeat in a comma-separated list.
 
 ### Sample tables 
@@ -251,9 +251,7 @@ FROM locations l;
 +---------+------------+
 ```
 
-### Modifiers for * operator
-
-#### SELECT * EXCEPT
+### SELECT * EXCEPT
 
 A `SELECT * EXCEPT` statement specifies the names of one or more columns to
 exclude from the result. All matching column names are omitted from the output.
@@ -275,7 +273,7 @@ FROM orders;
 
 Note: `SELECT * EXCEPT` does not exclude columns that do not have names.
 
-#### SELECT * REPLACE
+### SELECT * REPLACE
 
 A `SELECT * REPLACE` statement specifies one or more
 `expression AS identifier` clauses. Each identifier must match a column name
@@ -316,50 +314,27 @@ FROM orders;
 
 Note: `SELECT * REPLACE` does not replace columns that do not have names.
 
-### Duplicate row handling
-
-You can modify the results returned from a `SELECT` query, as follows.
-
-#### SELECT DISTINCT
+### SELECT DISTINCT
 
 A `SELECT DISTINCT` statement discards duplicate rows and returns only the
 remaining rows. `SELECT DISTINCT` cannot return columns of the following types:
 
 +  `PROTO`
 
-#### SELECT ALL
+### SELECT ALL
 A `SELECT ALL` statement returns all rows, including duplicate rows.
 `SELECT ALL` is the default behavior of `SELECT`.
 
-### Value tables
-
-In ZetaSQL, a value table is a table where the row type is a single
-value.  In a regular table, each row is made up of columns, each of which has a
-name and a type.  In a value table, the row type is just a single value, and
-there are no column names.
-
-Most commonly, value tables are used for protocol buffer value tables, where the
-table contains a stream of protocol buffer values. In this case, the top-level
-protocol buffer fields can be used in the same way that column names are used
-when querying a regular table.
-
-In contexts where a query with exactly one column is expected, a value table
-query can be used instead.  For example, scalar subqueries and array subqueries
-(see [Subqueries][subquery-concepts]) normally require a single-column query,
-but in ZetaSQL, they also allow using a value table query.
-
-A query will produce a value table if it uses `SELECT AS`, using one of the
-syntaxes below:
-
-#### SELECT AS STRUCT
+### SELECT AS STRUCT
 
 ```sql
 SELECT AS STRUCT expr [[AS] struct_field_name1] [,...]
 ```
 
-This produces a value table with a STRUCT row type,
-where the STRUCT field names and types match the
-column names and types produced in the `SELECT` list.
+This produces a [value table][query-value-tables] with a
+STRUCT row type, where the
+STRUCT field names and types match the column names
+and types produced in the `SELECT` list.
 
 Example:
 
@@ -411,13 +386,14 @@ using a struct constructor:
 SELECT AS VALUE STRUCT(1 AS x, 2 AS y, 3 AS x)
 ```
 
-#### SELECT AS VALUE
+### SELECT AS VALUE
 
-`SELECT AS VALUE` produces a value table from any `SELECT` list that
-produces exactly one column. Instead of producing an output table with one
-column, possibly with a name, the output will be a value table where the row
-type is just the value type that was produced in the one `SELECT` column.  Any
-alias the column had will be discarded in the value table.
+`SELECT AS VALUE` produces a [value table][query-value-tables] from any
+`SELECT` list that produces exactly one column. Instead of producing an
+output table with one column, possibly with a name, the output will be a
+value table where the row type is just the value type that was produced in the
+one `SELECT` column.  Any alias the column had will be discarded in the
+value table.
 
 Example:
 
@@ -447,11 +423,6 @@ that was in the input table. If the query above did not use `SELECT AS VALUE`,
 then the output table schema would differ from the input table schema because
 the output table would be a regular table with a column named `v` containing the
 input value.
-
-### Aliases
-
-See [Using Aliases][using-aliases] for information on syntax and visibility for
-`SELECT` list aliases.
 
 ## FROM clause
 
@@ -2080,7 +2051,9 @@ order:
 + `ORDER BY`
 + `LIMIT`
 
-The `WHERE` clause can only reference columns available via the `FROM` clause;
+Evaluation order does not always match syntax order.
+
+The `WHERE` clause only references columns available via the `FROM` clause;
 it cannot reference `SELECT` list aliases.
 
 **Examples**
@@ -2312,7 +2285,9 @@ order:
 + `ORDER BY`
 + `LIMIT`
 
-The `HAVING` clause can reference columns available via the `FROM` clause, as
+Evaluation order does not always match syntax order.
+
+The `HAVING` clause references columns available via the `FROM` clause, as
 well as `SELECT` list aliases. Expressions referenced in the `HAVING` clause
 must either appear in the `GROUP BY` clause or they must be the result of an
 aggregate function:
@@ -2601,8 +2576,8 @@ ORDER BY Place COLLATE "und:ci"
 QUALIFY bool_expression
 ```
 
-The `QUALIFY` clause filters the results of analytic functions.
-An analytic function is required to be present in the `QUALIFY` clause or the
+The `QUALIFY` clause filters the results of window functions.
+A window function is required to be present in the `QUALIFY` clause or the
 `SELECT` list.
 
 Only rows whose `bool_expression` evaluates to `TRUE` are included. Rows
@@ -2621,6 +2596,8 @@ order:
 + `DISTINCT`
 + `ORDER BY`
 + `LIMIT`
+
+Evaluation order does not always match syntax order.
 
 **Examples**
 
@@ -2644,7 +2621,7 @@ QUALIFY rank <= 3
 +---------+------+
 ```
 
-You don't have to include an analytic function in the `SELECT` list to use
+You don't have to include a window function in the `SELECT` list to use
 `QUALIFY`. The following query returns the most popular vegetables in the
 [`Produce`][produce-table] table.
 
@@ -2674,8 +2651,8 @@ named_window_expression:
 </pre>
 
 A `WINDOW` clause defines a list of named windows.
-A named window represents a group of rows in a table upon which to use an
-[analytic function][analytic-concepts]. A named window can be defined with
+A named window represents a group of rows in a table upon which to use a
+[window function][window-function-calls]. A named window can be defined with
 a [window specification][query-window-specification] or reference another
 named window. If another named window is referenced, the definition of the
 referenced window must precede the referencing window.
@@ -2684,7 +2661,7 @@ referenced window must precede the referencing window.
 
 These examples reference a table called [`Produce`][produce-table].
 They all return the same [result][named-window-example]. Note the different
-ways you can combine named windows and use them in an analytic function's
+ways you can combine named windows and use them in a window function's
 `OVER` clause.
 
 ```sql
@@ -3244,7 +3221,7 @@ SELECT * FROM T1;
 ```
 
 The following recursive CTE is disallowed because you cannot use the
-analytic function `OVER` clause with a self-reference.
+window function `OVER` clause with a self-reference.
 
 ```sql {.bad}
 WITH RECURSIVE
@@ -3343,7 +3320,7 @@ The following rules apply to a subquery inside an recursive term:
 + A subquery with a recursive table reference cannot contain an `ORDER BY` or
   `LIMIT` clause.
 + A subquery with a recursive table reference cannot invoke aggregate functions.
-+ A subquery with a recursive table reference cannot invoke analytic functions.
++ A subquery with a recursive table reference cannot invoke window functions.
 + A subquery with a recursive table reference cannot contain the
   `DISTINCT` keyword or
   `GROUP BY` clause. To filter
@@ -3867,6 +3844,76 @@ SELECT Coordinate FROM Grid AS Coordinate;
 +--------------+
 ```
 
+## Working with value tables 
+<a id="value_tables"></a>
+
+In ZetaSQL, a value table is a table where the row type is a single
+value.  In a regular table, each row is made up of columns, each of which has a
+name and a type.  In a value table, the row type is just a single value, and
+there are no column names.
+
+A query will produce a value table if it uses `SELECT AS STRUCT` or
+`SELECT AS VALUE`.
+
+Most commonly, value tables are used for protocol buffer value tables, where the
+table contains a stream of protocol buffer values. In this case, the top-level
+protocol buffer fields can be used in the same way that column names are used
+when querying a regular table.
+
+In contexts where a query with exactly one column is expected, a value table
+query can be used instead.  For example, scalar subqueries and array subqueries
+(see [Subqueries][subquery-concepts]) normally require a single-column query,
+but in ZetaSQL, they also allow using a value table query.
+
+## Table function calls
+
+To call a TVF, use the function call in place of the table name in a `FROM`
+clause.
+
+There are two ways to pass a table as an argument to a TVF. You can use a
+subquery for the table argument, or you can use the name of a table, preceded by
+the keyword `TABLE`.
+
+**Examples**
+
+The following query calls the `CustomerRangeWithCustomerType` function to
+return a table with rows for customers with a CustomerId between 100
+and 200. The call doesn't include the `customer_type` argument, so the function
+uses the default `CUSTOMER_TYPE_ADVERTISER`.
+
+```sql
+SELECT CustomerId, Info
+FROM CustomerRangeWithCustomerType(100, 200);
+```
+
+The following query calls the `CustomerCreationTimeRange` function defined
+previously, passing the result of a subquery as the table argument.
+
+```sql
+SELECT *
+FROM
+  CustomerCreationTimeRange(
+    1577836800,  -- 2020-01-01 00:00:00 UTC
+    1609459199,  -- 2020-12-31 23:59:59 UTC
+    (
+      SELECT customer_id, customer_name, creation_time
+      FROM MyCustomerTable
+      WHERE customer_name LIKE '%Hernández'
+    ))
+```
+
+The following query calls `CustomerCreationTimeRange`, passing the table
+`MyCustomerTable` as an argument.
+
+```sql
+SELECT *
+FROM
+  CustomerCreationTimeRange(
+    1577836800,  -- 2020-01-01 00:00:00 UTC
+    1609459199,  -- 2020-12-31 23:59:59 UTC
+    TABLE MyCustomerTable)
+```
+
 ## Appendix A: examples with sample data 
 <a id="appendix_a_examples_with_sample_data"></a>
 
@@ -4124,15 +4171,15 @@ Results:
 
 [recursive-cte]: #recursive_cte
 
-[analytic-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
-[query-window-specification]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#def_window_spec
+[query-window-specification]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md#def_window_spec
 
-[named-window-example]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#def_use_named_window
+[named-window-example]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md#def_use_named_window
 
-[produce-table]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#produce_table
+[produce-table]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md#produce_table
 
-[tvf-concepts]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md#tvfs
+[tvf-concepts]: https://github.com/google/zetasql/blob/master/docs/table-functions.md#tvfs
 
 [anon-concepts]: https://github.com/google/zetasql/blob/master/docs/anonymization_syntax.md
 
@@ -4151,6 +4198,8 @@ Results:
 [table-subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#table_subquery_concepts
 
 [expression-subquery-concepts]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#expression_subquery_concepts
+
+[create-view-statement]: https://github.com/google/zetasql/blob/master/docs/data-definition-language.md#create_view_statement
 
 [in-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#in_operators
 

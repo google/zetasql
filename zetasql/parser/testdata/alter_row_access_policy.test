@@ -321,7 +321,7 @@ ALTER ROW ACCESS POLICY p1 ON t1 FILTER USING (c = "foo")
 # Test multiple actions 2.
 alter row access policy p1 on t1
 {{revoke from ("bar@google.com"),|revoke from all,|}} {{rename to p2,|}}
-{{filter using (c = "foo"),}} grant to ("foo@google.com");
+{{filter using (c = "foo"),|}} grant to ("foo@google.com");
 --
 ALTERNATION GROUP: revoke from ("bar@google.com"),,rename to p2,,filter using (c = "foo"),
 --
@@ -348,6 +348,25 @@ AlterRowAccessPolicyStatement [0-132]
 ALTER ROW ACCESS POLICY p1 ON t1 REVOKE FROM ("bar@google.com"), RENAME TO p2, FILTER USING (c = "foo"),
   GRANT TO ("foo@google.com")
 --
+ALTERNATION GROUP: revoke from ("bar@google.com"),,rename to p2,,
+--
+AlterRowAccessPolicyStatement [0-107]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-107]
+    RevokeFromClause [33-63]
+      GranteeList [46-62]
+        StringLiteral("bar@google.com") [46-62]
+    RenameToClause [65-77]
+      PathExpression [75-77]
+        Identifier(p2) [75-77]
+    GrantToClause [80-107]
+      GranteeList [90-106]
+        StringLiteral("foo@google.com") [90-106]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 REVOKE FROM ("bar@google.com"), RENAME TO p2, GRANT TO ("foo@google.com")
+--
 ALTERNATION GROUP: revoke from ("bar@google.com"),,,filter using (c = "foo"),
 --
 AlterRowAccessPolicyStatement [0-119]
@@ -368,6 +387,22 @@ AlterRowAccessPolicyStatement [0-119]
         StringLiteral("foo@google.com") [102-118]
 --
 ALTER ROW ACCESS POLICY p1 ON t1 REVOKE FROM ("bar@google.com"), FILTER USING (c = "foo"), GRANT TO ("foo@google.com")
+--
+ALTERNATION GROUP: revoke from ("bar@google.com"),,,
+--
+AlterRowAccessPolicyStatement [0-94]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-94]
+    RevokeFromClause [33-63]
+      GranteeList [46-62]
+        StringLiteral("bar@google.com") [46-62]
+    GrantToClause [67-94]
+      GranteeList [77-93]
+        StringLiteral("foo@google.com") [77-93]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 REVOKE FROM ("bar@google.com"), GRANT TO ("foo@google.com")
 --
 ALTERNATION GROUP: revoke from all,,rename to p2,,filter using (c = "foo"),
 --
@@ -391,6 +426,23 @@ AlterRowAccessPolicyStatement [0-117]
 --
 ALTER ROW ACCESS POLICY p1 ON t1 REVOKE FROM ALL, RENAME TO p2, FILTER USING (c = "foo"), GRANT TO ("foo@google.com")
 --
+ALTERNATION GROUP: revoke from all,,rename to p2,,
+--
+AlterRowAccessPolicyStatement [0-92]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-92]
+    RevokeFromClause(is_revoke_from_all) [33-48]
+    RenameToClause [50-62]
+      PathExpression [60-62]
+        Identifier(p2) [60-62]
+    GrantToClause [65-92]
+      GranteeList [75-91]
+        StringLiteral("foo@google.com") [75-91]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 REVOKE FROM ALL, RENAME TO p2, GRANT TO ("foo@google.com")
+--
 ALTERNATION GROUP: revoke from all,,,filter using (c = "foo"),
 --
 AlterRowAccessPolicyStatement [0-104]
@@ -409,6 +461,20 @@ AlterRowAccessPolicyStatement [0-104]
         StringLiteral("foo@google.com") [87-103]
 --
 ALTER ROW ACCESS POLICY p1 ON t1 REVOKE FROM ALL, FILTER USING (c = "foo"), GRANT TO ("foo@google.com")
+--
+ALTERNATION GROUP: revoke from all,,,
+--
+AlterRowAccessPolicyStatement [0-79]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [33-79]
+    RevokeFromClause(is_revoke_from_all) [33-48]
+    GrantToClause [52-79]
+      GranteeList [62-78]
+        StringLiteral("foo@google.com") [62-78]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 REVOKE FROM ALL, GRANT TO ("foo@google.com")
 --
 ALTERNATION GROUP: rename to p2,,filter using (c = "foo"),
 --
@@ -431,6 +497,22 @@ AlterRowAccessPolicyStatement [0-101]
 --
 ALTER ROW ACCESS POLICY p1 ON t1 RENAME TO p2, FILTER USING (c = "foo"), GRANT TO ("foo@google.com")
 --
+ALTERNATION GROUP: rename to p2,,
+--
+AlterRowAccessPolicyStatement [0-76]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [34-76]
+    RenameToClause [34-46]
+      PathExpression [44-46]
+        Identifier(p2) [44-46]
+    GrantToClause [49-76]
+      GranteeList [59-75]
+        StringLiteral("foo@google.com") [59-75]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 RENAME TO p2, GRANT TO ("foo@google.com")
+--
 ALTERNATION GROUP: filter using (c = "foo"),
 --
 AlterRowAccessPolicyStatement [0-88]
@@ -448,6 +530,19 @@ AlterRowAccessPolicyStatement [0-88]
         StringLiteral("foo@google.com") [71-87]
 --
 ALTER ROW ACCESS POLICY p1 ON t1 FILTER USING (c = "foo"), GRANT TO ("foo@google.com")
+--
+ALTERNATION GROUP: <empty>
+--
+AlterRowAccessPolicyStatement [0-63]
+  Identifier(p1) [24-26]
+  PathExpression [30-32]
+    Identifier(t1) [30-32]
+  AlterActionList [36-63]
+    GrantToClause [36-63]
+      GranteeList [46-62]
+        StringLiteral("foo@google.com") [46-62]
+--
+ALTER ROW ACCESS POLICY p1 ON t1 GRANT TO ("foo@google.com")
 ==
 
 # ROW ACCESS POLICY keywords must be present.

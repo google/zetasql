@@ -20,8 +20,6 @@
 #include <string>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/io/coded_stream.h"
-#include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/wire_format_lite.h"
 #include "zetasql/common/errors.h"
@@ -36,6 +34,9 @@
 #include <cstdint>
 #include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
+#include "google/protobuf/io/coded_stream.h"
+#include "google/protobuf/io/zero_copy_stream_impl.h"
+#include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
@@ -423,8 +424,8 @@ absl::Status ProtoUtil::WriteField(const WriteFieldOptions& options,
             ZETASQL_RETURN_IF_ERROR(
                 WriteValue(field_descr, format, v, &coded_cord_stream));
           }
+          coded_cord_stream.Trim();
         }
-
         dst->WriteVarint32(WireFormatLite::MakeTag(
             field_descr->number(), WireFormatLite::WIRETYPE_LENGTH_DELIMITED));
         dst->WriteVarint32(packed_contents.size());

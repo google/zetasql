@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <memory>
 #include <set>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -1504,12 +1505,18 @@ void GetApproxFunctions(TypeFactory* type_factory,
                    FunctionSignatureOptions().set_uses_operation_collation()}},
                  aggregate_analytic_function_options);
 
+  // Temporarily disallow collated arguments for approx_quantiles,
+  // approx_top_count and approx_top_sum functions.
+  // TODO: Support approx_quantiles, approx_top_count and
+  // approx_top_sum functions with collated arguments.
   InsertFunction(
       functions, options, "approx_quantiles", AGGREGATE,
       {{ARG_ARRAY_TYPE_ANY_1,
         {{ARG_TYPE_ANY_1, comparable}, {int64_type, non_null_positive_non_agg}},
         FN_APPROX_QUANTILES,
-        FunctionSignatureOptions().set_uses_operation_collation()}},
+        FunctionSignatureOptions()
+            .set_uses_operation_collation()
+            .set_rejects_collation()}},
       DefaultAggregateFunctionOptions().set_supports_null_handling_modifier(
           true));
 
@@ -1519,7 +1526,9 @@ void GetApproxFunctions(TypeFactory* type_factory,
         {{ARG_TYPE_ANY_1, supports_grouping},
          {int64_type, non_null_positive_non_agg}},
         FN_APPROX_TOP_COUNT,
-        FunctionSignatureOptions().set_uses_operation_collation()}},
+        FunctionSignatureOptions()
+            .set_uses_operation_collation()
+            .set_rejects_collation()}},
       DefaultAggregateFunctionOptions().set_compute_result_type_callback(
           absl::bind_front(&ComputeResultTypeForTopStruct, "count")));
 
@@ -1529,29 +1538,40 @@ void GetApproxFunctions(TypeFactory* type_factory,
         {{ARG_TYPE_ANY_1, supports_grouping},
          int64_type,
          {int64_type, non_null_positive_non_agg}},
-        FN_APPROX_TOP_SUM_INT64},
+        FN_APPROX_TOP_SUM_INT64,
+        FunctionSignatureOptions()
+            .set_uses_operation_collation()
+            .set_rejects_collation()},
        {ARG_TYPE_ANY_1,  // Return type will be overridden.
         {{ARG_TYPE_ANY_1, supports_grouping},
          uint64_type,
          {int64_type, non_null_positive_non_agg}},
-        FN_APPROX_TOP_SUM_UINT64},
+        FN_APPROX_TOP_SUM_UINT64,
+        FunctionSignatureOptions()
+            .set_uses_operation_collation()
+            .set_rejects_collation()},
        {ARG_TYPE_ANY_1,  // Return type will be overridden.
         {{ARG_TYPE_ANY_1, supports_grouping},
          double_type,
          {int64_type, non_null_positive_non_agg}},
-        FN_APPROX_TOP_SUM_DOUBLE},
+        FN_APPROX_TOP_SUM_DOUBLE,
+        FunctionSignatureOptions()
+            .set_uses_operation_collation()
+            .set_rejects_collation()},
        {ARG_TYPE_ANY_1,  // Return type will be overridden.
         {{ARG_TYPE_ANY_1, supports_grouping},
          numeric_type,
          {int64_type, non_null_positive_non_agg}},
         FN_APPROX_TOP_SUM_NUMERIC,
-        has_numeric_type_argument},
+        has_numeric_type_argument.set_uses_operation_collation()
+            .set_rejects_collation()},
        {ARG_TYPE_ANY_1,  // Return type will be overridden.
         {{ARG_TYPE_ANY_1, supports_grouping},
          bignumeric_type,
          {int64_type, non_null_positive_non_agg}},
         FN_APPROX_TOP_SUM_BIGNUMERIC,
-        has_bignumeric_type_argument}},
+        has_bignumeric_type_argument.set_uses_operation_collation()
+            .set_rejects_collation()}},
       DefaultAggregateFunctionOptions().set_compute_result_type_callback(
           absl::bind_front(&ComputeResultTypeForTopStruct, "sum")));
 }

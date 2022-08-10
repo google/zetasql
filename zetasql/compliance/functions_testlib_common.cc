@@ -29,9 +29,10 @@
 #include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/public/civil_time.h"
 #include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/functions/datetime.pb.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/testdata/test_schema.pb.h"
-#include "zetasql/testing/using_test_value.cc"
+#include "zetasql/testing/using_test_value.cc"  // NOLINT
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
@@ -316,6 +317,24 @@ CivilTimeTestCase::CivilTimeTestCase(
   }
 }
 
+// Helper to check if the date part enum argument is 'NANOSECONDS'. In that
+// case the test case requires the NANOSECONDS feature to be turned on for it
+// to compile.
+static bool HasNanosecondsArgument(const CivilTimeTestCase& test_case) {
+  const EnumType* part_enum;
+  const google::protobuf::EnumDescriptor* enum_descriptor =
+      functions::DateTimestampPart_descriptor();
+  ZETASQL_CHECK_OK(type_factory()->MakeEnumType(enum_descriptor, &part_enum));
+
+  for (const ValueConstructor& input_argument : test_case.input) {
+    if (input_argument.get().type()->Equivalent(part_enum) &&
+        input_argument.get().enum_value() == functions::NANOSECOND) {
+      return true;
+    }
+  }
+  return false;
+}
+
 QueryParamsWithResult WrapResultForCivilTimeAndNanos(
     const CivilTimeTestCase& test_case) {
   using Result = QueryParamsWithResult::Result;
@@ -335,6 +354,11 @@ QueryParamsWithResult WrapResultForCivilTimeAndNanos(
   FeatureSet nanos_features = micros_features;
   nanos_features.insert(FEATURE_TIMESTAMP_NANOS);
 
+  if (HasNanosecondsArgument(test_case)) {
+    // This case won't compile without FEATURE_TIMESTAMP_NANOS.
+    return QueryParamsWithResult(test_case.input,
+                                 {{nanos_features, nanos_result}});
+  }
   return QueryParamsWithResult(
       test_case.input,
       {{micros_features, micros_result}, {nanos_features, nanos_result}});

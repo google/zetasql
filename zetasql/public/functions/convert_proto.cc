@@ -17,12 +17,13 @@
 #include "zetasql/public/functions/convert_proto.h"
 
 #include <string>
+#include <utility>
 
-#include "google/protobuf/io/tokenizer.h"
-#include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/text_format.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
+#include "google/protobuf/io/tokenizer.h"
+#include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/status_builder.h"
 

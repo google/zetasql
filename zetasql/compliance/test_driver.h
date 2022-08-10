@@ -30,8 +30,6 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/base/path.h"
 #include "google/protobuf/compiler/importer.h"
-#include "google/protobuf/io/zero_copy_stream.h"
-#include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "zetasql/compliance/test_driver.pb.h"
 #include "zetasql/public/functions/date_time_util.h"  
 #include "zetasql/public/language_options.h"
@@ -39,6 +37,8 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/value.h"
+#include "google/protobuf/io/zero_copy_stream.h"
+#include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
@@ -314,6 +314,14 @@ class TestDriver {
   // Supplies a TestDatabase. Must be called prior to ExecuteStatement().
   virtual absl::Status CreateDatabase(const TestDatabase& test_db) = 0;
 
+  // Supplies several "temporary" Sql UDF definitions that the driver should add
+  // to the catalog. This will be called after CreateDatabase but before
+  // ExecuteStatement.
+  virtual absl::Status AddSqlUdfs(
+      absl::Span<const std::string> create_function_stmts) {
+    return absl::UnimplementedError("Test driver does not support SQL UDFs.");
+  }
+
   // Executes a statement using the given 'parameters' and returns the result.
   // Implementations should use 'type_factory' to instantiate all types that are
   // used in the returned result. The return value is only valid as long as
@@ -369,9 +377,6 @@ class TestDriver {
     return ::zetasql_base::UnimplementedErrorBuilder()
            << "This test driver doesn't support statement evaluation timeouts.";
   }
-
-  // Called whenever the name of the SQL test being executed changes.
-  virtual void SetTestName(const std::string& test_name) {}
 
   static absl::TimeZone GetDefaultDefaultTimeZone() {
     absl::TimeZone time_zone;

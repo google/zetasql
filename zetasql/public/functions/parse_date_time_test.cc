@@ -18,9 +18,11 @@
 
 #include <time.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <set>
+#include <string>
 #include <vector>
 
 #include "zetasql/base/logging.h"

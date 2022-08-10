@@ -52,6 +52,141 @@ CreateIndexStatement [0-36]
 CREATE INDEX i1 ON t1(a DESC, b ASC)
 ==
 
+create index i1 on t1(a {{|ASC|DESC}} {{|NULLS FIRST|NULLS LAST}});
+--
+ALTERNATION GROUP: <empty>
+--
+CreateIndexStatement [0-26]
+  PathExpression [13-15]
+    Identifier(i1) [13-15]
+  PathExpression [19-21]
+    Identifier(t1) [19-21]
+  IndexItemList [21-26]
+    OrderingExpression(ASC) [22-23]
+      PathExpression [22-23]
+        Identifier(a) [22-23]
+--
+CREATE INDEX i1 ON t1(a)
+--
+ALTERNATION GROUP: NULLS FIRST
+--
+CreateIndexStatement [0-37]
+  PathExpression [13-15]
+    Identifier(i1) [13-15]
+  PathExpression [19-21]
+    Identifier(t1) [19-21]
+  IndexItemList [21-37]
+    OrderingExpression(ASC) [22-36]
+      PathExpression [22-23]
+        Identifier(a) [22-23]
+      NullOrder(NULLS FIRST) [25-36]
+--
+CREATE INDEX i1 ON t1(a NULLS FIRST)
+--
+ALTERNATION GROUP: NULLS LAST
+--
+CreateIndexStatement [0-36]
+  PathExpression [13-15]
+    Identifier(i1) [13-15]
+  PathExpression [19-21]
+    Identifier(t1) [19-21]
+  IndexItemList [21-36]
+    OrderingExpression(ASC) [22-35]
+      PathExpression [22-23]
+        Identifier(a) [22-23]
+      NullOrder(NULLS LAST) [25-35]
+--
+CREATE INDEX i1 ON t1(a NULLS LAST)
+--
+ALTERNATION GROUP: ASC,
+--
+CreateIndexStatement [0-29]
+  PathExpression [13-15]
+    Identifier(i1) [13-15]
+  PathExpression [19-21]
+    Identifier(t1) [19-21]
+  IndexItemList [21-29]
+    OrderingExpression(ASC EXPLICITLY) [22-27]
+      PathExpression [22-23]
+        Identifier(a) [22-23]
+--
+CREATE INDEX i1 ON t1(a ASC)
+--
+ALTERNATION GROUP: ASC,NULLS FIRST
+--
+CreateIndexStatement [0-40]
+  PathExpression [13-15]
+    Identifier(i1) [13-15]
+  PathExpression [19-21]
+    Identifier(t1) [19-21]
+  IndexItemList [21-40]
+    OrderingExpression(ASC EXPLICITLY) [22-39]
+      PathExpression [22-23]
+        Identifier(a) [22-23]
+      NullOrder(NULLS FIRST) [28-39]
+--
+CREATE INDEX i1 ON t1(a ASC NULLS FIRST)
+--
+ALTERNATION GROUP: ASC,NULLS LAST
+--
+CreateIndexStatement [0-39]
+  PathExpression [13-15]
+    Identifier(i1) [13-15]
+  PathExpression [19-21]
+    Identifier(t1) [19-21]
+  IndexItemList [21-39]
+    OrderingExpression(ASC EXPLICITLY) [22-38]
+      PathExpression [22-23]
+        Identifier(a) [22-23]
+      NullOrder(NULLS LAST) [28-38]
+--
+CREATE INDEX i1 ON t1(a ASC NULLS LAST)
+--
+ALTERNATION GROUP: DESC,
+--
+CreateIndexStatement [0-30]
+  PathExpression [13-15]
+    Identifier(i1) [13-15]
+  PathExpression [19-21]
+    Identifier(t1) [19-21]
+  IndexItemList [21-30]
+    OrderingExpression(DESC) [22-28]
+      PathExpression [22-23]
+        Identifier(a) [22-23]
+--
+CREATE INDEX i1 ON t1(a DESC)
+--
+ALTERNATION GROUP: DESC,NULLS FIRST
+--
+CreateIndexStatement [0-41]
+  PathExpression [13-15]
+    Identifier(i1) [13-15]
+  PathExpression [19-21]
+    Identifier(t1) [19-21]
+  IndexItemList [21-41]
+    OrderingExpression(DESC) [22-40]
+      PathExpression [22-23]
+        Identifier(a) [22-23]
+      NullOrder(NULLS FIRST) [29-40]
+--
+CREATE INDEX i1 ON t1(a DESC NULLS FIRST)
+--
+ALTERNATION GROUP: DESC,NULLS LAST
+--
+CreateIndexStatement [0-40]
+  PathExpression [13-15]
+    Identifier(i1) [13-15]
+  PathExpression [19-21]
+    Identifier(t1) [19-21]
+  IndexItemList [21-40]
+    OrderingExpression(DESC) [22-39]
+      PathExpression [22-23]
+        Identifier(a) [22-23]
+      NullOrder(NULLS LAST) [29-39]
+--
+CREATE INDEX i1 ON t1(a DESC NULLS LAST)
+==
+
 create unique index i1 on t1(a, b);
 --
 CreateIndexStatement(UNIQUE) [0-34]
@@ -691,7 +826,7 @@ CreateIndexStatement [0-142]
     Identifier(t1) [27-29]
   Alias [30-33]
     Identifier(foo) [30-33]
-  IndexUnnestExpressionList [34-74]
+  IndexUnnestExpressionList [34-115]
     UnnestExpressionWithOptAliasAndOffset [34-74]
       UnnestExpression [34-43]
         PathExpression [41-42]

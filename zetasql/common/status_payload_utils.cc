@@ -16,6 +16,8 @@
 
 #include "zetasql/common/status_payload_utils.h"
 
+#include <string>
+
 #include "google/protobuf/descriptor_database.h"
 #include "google/protobuf/message.h"
 #include "absl/memory/memory.h"

@@ -16,6 +16,8 @@
 
 #include "zetasql/public/cycle_detector.h"
 
+#include <string>
+
 #include "zetasql/base/logging.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -107,6 +109,7 @@ std::string CycleDetector::DebugString() const {
 
 std::vector<std::string> CycleDetector::ObjectNames() const {
   std::vector<std::string> names;
+  names.reserve(object_deque_.size());
   for (const ObjectInfo* info : object_deque_) {
     names.push_back(info->name());
   }

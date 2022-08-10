@@ -19,6 +19,8 @@
 #ifndef ZETASQL_REFERENCE_IMPL_TUPLE_TEST_UTIL_H_
 #define ZETASQL_REFERENCE_IMPL_TUPLE_TEST_UTIL_H_
 
+#include <algorithm>
+#include <string>
 #include <vector>
 
 #include "zetasql/reference_impl/tuple.h"

@@ -16,6 +16,9 @@
 
 #include "zetasql/resolved_ast/resolved_collation.h"
 
+#include <string>
+#include <utility>
+
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/struct_type.h"

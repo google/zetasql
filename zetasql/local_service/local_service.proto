@@ -24,6 +24,7 @@ import "zetasql/parser/parse_tree.proto";
 import "zetasql/proto/function.proto";
 import "zetasql/proto/options.proto";
 import "zetasql/proto/simple_catalog.proto";
+import "zetasql/public/formatter_options.proto";
 import "zetasql/public/options.proto";
 import "zetasql/public/parse_resume_location.proto";
 import "zetasql/public/simple_table.proto";
@@ -686,6 +687,12 @@ message ExtractTableNamesFromNextStatementResponse {
 
 message FormatSqlRequest {
   optional string sql = 1;
+  // TODO: Options are supported only by LenientFormatSql.
+  optional FormatterOptionsProto options = 2;
+
+  // Specific ranges to format, in bytes. If empty, the entire input is
+  // formatted.
+  repeated FormatterRangeProto byte_ranges = 3;
 }
 
 message FormatSqlResponse {

@@ -45,12 +45,6 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
       "Unsupported built-in function: kms.*"));
-  // TODO: remove this after finishing the reference
-  // implementation.
-  // The d3a_count functions are under development.
-  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
-      absl::StatusCode::kInvalidArgument,
-      "Unsupported built-in function: d3a_count.*"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
       "Unsupported built-in function: aead\\.envelope.*"));
@@ -93,13 +87,6 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
       new StatusRegexMatcher(absl::StatusCode::kUnimplemented,
                              "as (?:a )?PIVOT expression is not supported"));
 
-  // TODO: Pivot does a rewrite which can create multiple columns
-  // with the same id?
-  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
-      absl::StatusCode::kInternal,
-      "Resolved AST validation failed: ZETASQL_RET_CHECK failure .* Duplicate column "
-      "id.*"));
-
   // TODO: RQG does not include
   // zetasql.functions.DateTimestampPart in the set of protos that the query
   // needs to know about.
@@ -116,38 +103,16 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
       "MILLISECOND|MICROSECOND|NANOSECOND|DATE|WEEK|DATETIME|TIME"
       "ISOWEEK|ISOYEAR).*"));
 
-  // TODO: RQG should not generate DISTINCT with
-  // PERCENTILE_CONT/DISC.
+  // D3A_* calls can be generated in a way that returns an invalid argument
+  // from the evaluator/executor.
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
-      "Aggregate function PERCENTILE_(CONT|DISC) does not support "
-      "DISTINCT in arguments"));
-  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
-      absl::StatusCode::kInvalidArgument,
-      "DISTINCT is not allowed for analytic function percentile_(cont|disc)"));
+      ".*Unexpected aggregator type:.*Expected D3A.*"));
 
   // RQG can generate various casts / proto accesses that will create floating
   // point errors.
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange, "Floating point error in function.*"));
-
-  return std::make_unique<MatcherCollection<absl::Status>>(
-      matcher_name, std::move(error_matchers));
-}
-
-std::unique_ptr<MatcherCollection<absl::Status>>
-ReferenceInvalidInputErrorMatcher(std::string matcher_name) {
-  std::vector<std::unique_ptr<MatcherBase<absl::Status>>> error_matchers;
-
-  // Errors from relational_op.cc
-  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
-      absl::StatusCode::kOutOfRange,
-      "Limit requires non-null count and offset"));
-  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
-      absl::StatusCode::kOutOfRange,
-      "Limit requires non-negative count and offset"));
-  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
-      absl::StatusCode::kOutOfRange, "Enumerate requires non-null count"));
 
   return std::make_unique<MatcherCollection<absl::Status>>(
       matcher_name, std::move(error_matchers));

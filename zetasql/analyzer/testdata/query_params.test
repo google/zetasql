@@ -989,3 +989,16 @@ QueryStmt
     | +-$col2#2 := Parameter(type=PROTO<zetasql_test__.KitchenSinkPB>, name="test_param_proto")
     +-input_scan=
       +-SingleRowScan
+==
+
+# This is a regression test against resolving query parameter @lambda that
+# comes from user input. It detects breakage after removing resolving query
+# parameter in AnalyzeSubstitute as part of fixing b/233941129.
+[enabled_ast_rewrites=DEFAULTS]
+[language_features=V_1_3_INLINE_LAMBDA_ARGUMENT]
+SELECT ARRAY_FILTER(@lambda, e->e=2)
+--
+ERROR: Query parameter 'lambda' not found [at 1:21]
+SELECT ARRAY_FILTER(@lambda, e->e=2)
+                    ^
+==

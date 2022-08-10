@@ -256,8 +256,7 @@ class SqlFunctionInlineVistor : public ResolvedASTDeepCopyVisitor {
 
   // This function replaces a ResolvedFunctionCall that invokes a SQL function
   // with an expression that computes the function result directly. The
-  // transformation looks a bit like this (the syntax for ResolvedLetExpr is
-  // imagined, there is no user syntax for LetExpr):
+  // transformation looks a bit like this:
   //
   // MySqlFunction(arg0=>Expr0, arg1=>Expr1)
   // ~~>
@@ -319,8 +318,8 @@ class SqlFunctionInlineVistor : public ResolvedASTDeepCopyVisitor {
     ZETASQL_ASSIGN_OR_RETURN(body_expr, ResolvedArgumentRefReplacer::ReplaceArgs(
                                     std::move(body_expr), args));
 
-    PushNodeToStack(MakeResolvedLetExpr(call->type(), std::move(arg_exprs),
-                                        std::move(body_expr)));
+    PushNodeToStack(MakeResolvedWithExpr(call->type(), std::move(arg_exprs),
+                                         std::move(body_expr)));
     return absl::OkStatus();
   }
 

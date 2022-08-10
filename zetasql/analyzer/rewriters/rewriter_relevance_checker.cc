@@ -39,8 +39,8 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
     return DefaultVisit(node);
   }
 
-  absl::Status VisitResolvedLetExpr(const ResolvedLetExpr* node) override {
-    applicable_rewrites_->insert(REWRITE_LET_EXPR);
+  absl::Status VisitResolvedWithExpr(const ResolvedWithExpr* node) override {
+    applicable_rewrites_->insert(REWRITE_WITH_EXPR);
     return DefaultVisit(node);
   }
 
@@ -94,7 +94,10 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
         break;
       case FN_ARRAY_FIRST:
       case FN_ARRAY_LAST:
-        applicable_rewrites_->insert(REWRITE_ARRAY_FIRST_LAST);
+        applicable_rewrites_->insert(REWRITE_UNARY_FUNCTIONS);
+        break;
+      case FN_ARRAY_SLICE:
+        applicable_rewrites_->insert(REWRITE_TERNARY_FUNCTIONS);
         break;
       case FN_TYPEOF:
         applicable_rewrites_->insert(REWRITE_TYPEOF_FUNCTION);
@@ -117,6 +120,16 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
         break;
       case FN_NULLIFERROR:
         applicable_rewrites_->insert(REWRITE_NULLIFERROR_FUNCTION);
+        break;
+      case FN_STRING_ARRAY_LIKE_ANY:
+      case FN_BYTE_ARRAY_LIKE_ANY:
+      case FN_STRING_LIKE_ANY:
+      case FN_BYTE_LIKE_ANY:
+      case FN_STRING_ARRAY_LIKE_ALL:
+      case FN_BYTE_ARRAY_LIKE_ALL:
+      case FN_STRING_LIKE_ALL:
+      case FN_BYTE_LIKE_ALL:
+        applicable_rewrites_->insert(REWRITE_LIKE_ANY_ALL);
         break;
       default:
         break;

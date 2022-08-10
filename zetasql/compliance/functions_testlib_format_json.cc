@@ -17,6 +17,7 @@
 // The file functions_testlib.cc has been split into multiple files prefixed
 // with "functions_testlib_" because an optimized compile with ASAN of the
 // original single file timed out at 900 seconds.
+#include <string>
 #include <vector>
 
 #include "zetasql/testing/test_function.h"

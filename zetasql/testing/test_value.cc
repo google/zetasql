@@ -16,9 +16,14 @@
 
 #include "zetasql/testing/test_value.h"
 
+#include <string>
+#include <utility>
+
 #include "zetasql/base/logging.h"
 #include "zetasql/common/float_margin.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/types/type_factory.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -77,6 +82,12 @@ Value StructArray(absl::Span<const std::string> names,
   return Array(values, order_kind, type_factory);
 }
 
+Value Range(ValueConstructor start, ValueConstructor end) {
+  absl::StatusOr<Value> range_value = Value::MakeRange(start.get(), end.get());
+  ZETASQL_CHECK_OK(range_value);  // Crash ok
+  return *range_value;
+}
+
 const ArrayType* MakeArrayType(const Type* element_type,
                                TypeFactory* type_factory) {
   const ArrayType* array_type;
@@ -110,6 +121,15 @@ const EnumType* MakeEnumType(const google::protobuf::EnumDescriptor* descriptor,
   type_factory = type_factory ? type_factory : static_type_factory();
   ZETASQL_CHECK_OK(type_factory->MakeEnumType(descriptor, &enum_type));
   return enum_type;
+}
+
+const RangeType* MakeRangeType(const Type* element_type,
+                               TypeFactory* type_factory) {
+  const RangeType* range_type;
+  type_factory = type_factory ? type_factory : static_type_factory();
+  absl::Status status = type_factory->MakeRangeType(element_type, &range_type);
+  ZETASQL_CHECK_OK(status);  // Crash ok
+  return range_type;
 }
 
 bool AlmostEqualsValue(const Value& x, const Value& y, std::string* reason) {

@@ -61,6 +61,22 @@ cc_library(
 )
 
 cc_library(
+    name = "check",
+    hdrs = ["check.h"],
+    deps = [
+        ":logging",
+    ],
+)
+
+cc_library(
+    name = "die_if_null",
+    hdrs = ["die_if_null.h"],
+    deps = [
+        ":check",
+    ],
+)
+
+cc_library(
     name = "arena",
     srcs = ["arena.cc"],
     hdrs = [

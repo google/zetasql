@@ -2,42 +2,28 @@
 
 # Aggregate functions
 
-An *aggregate function* is a function that summarizes the rows of a group into a
-single value. `COUNT`, `MIN` and `MAX` are examples of aggregate functions.
-
-```sql
-SELECT COUNT(*) as total_count, COUNT(fruit) as non_null_count,
-       MIN(fruit) as min, MAX(fruit) as max
-FROM (SELECT NULL as fruit UNION ALL
-      SELECT "apple" as fruit UNION ALL
-      SELECT "pear" as fruit UNION ALL
-      SELECT "orange" as fruit)
-
-+-------------+----------------+-------+------+
-| total_count | non_null_count | min   | max  |
-+-------------+----------------+-------+------+
-| 4           | 3              | apple | pear |
-+-------------+----------------+-------+------+
-```
-
-When used in conjunction with a `GROUP BY` clause, the groups summarized
-typically have at least one row. When the associated `SELECT` has no `GROUP BY`
-clause or when certain aggregate function modifiers filter rows from the group
-to be summarized it is possible that the aggregate function needs to summarize
-an empty group. In this case, the `COUNT` and `COUNTIF` functions return `0`,
-while all other aggregate functions return `NULL`.
-
-The following sections describe the aggregate functions that ZetaSQL
-supports.
+The following general aggregate functions are available in ZetaSQL.
+To learn about the syntax for aggregate function calls, see
+[Aggregate function calls][agg-function-calls].
 
 ### ANY_VALUE
 
 ```sql
 ANY_VALUE(
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -49,29 +35,27 @@ rows. Returns `NULL` when `expression` is `NULL` for all rows in the group.
 `ANY_VALUE` behaves as if `RESPECT NULLS` is specified;
 rows for which `expression` is `NULL` are considered and may be selected.
 
-**Supported Argument Types**
-
-Any
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+**Supported Argument Types**
+
+Any
 
 **Returned Data Types**
 
@@ -106,68 +90,54 @@ FROM UNNEST(["apple", "banana", "pear"]) as fruit;
 ```
 
 ### ARRAY_AGG
+
 ```sql
 ARRAY_AGG(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [{IGNORE|RESPECT} NULLS]
-  [HAVING {MAX | MIN} expression2]
-  [ORDER BY key [{ASC|DESC}] [, ... ]]
-  [LIMIT n]
+  [ { IGNORE | RESPECT } NULLS ]
+  [ HAVING { MAX | MIN } expression2 ]
+  [ ORDER BY key [ { ASC | DESC } ] [, ... ] ]
+  [ LIMIT n ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
 
 Returns an ARRAY of `expression` values.
 
-**Supported Argument Types**
-
-All data types except ARRAY.
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `IGNORE NULLS` or `RESPECT NULLS`: If `IGNORE NULLS` is
-    specified, the `NULL` values are excluded from the result. If
-    `RESPECT NULLS` is specified, the `NULL` values are included in the
-    result. If
-    neither is specified, the `NULL` values are included in the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
-1.  `ORDER BY`: Specifies the order of the values.
-    *   For each sort key, the default sort direction is `ASC`.
-    *   NULLs: In the context of the `ORDER BY` clause, NULLs are the minimum
-        possible value; that is, NULLs appear first in `ASC` sorts and last in
-        `DESC` sorts.
-    *   Floating point data types: see
-        [Floating Point Semantics][floating-point-semantics]
-        on ordering and grouping.
-    *   If `DISTINCT` is also specified, then
-        the sort key must be the same as `expression`.
-    *   If `ORDER BY` is not specified, the order of the elements in the output
-        array is non-deterministic, which means you might receive a different
-        result each time you use this function.
-1.  `LIMIT`: Specifies the maximum number of `expression` inputs in the
-    result.
-    The limit `n` must be a constant INT64.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+**Supported Argument Types**
+
+All data types except ARRAY.
 
 **Returned Data Types**
 
@@ -238,7 +208,7 @@ WITH vals AS
     SELECT -2 x UNION ALL
     SELECT 3 x UNION ALL
     SELECT -2 x UNION ALL
-    SELECT 1 x UNION ALL
+    SELECT 1 x
   )
 SELECT ARRAY_AGG(DISTINCT x ORDER BY x) as array_agg
 FROM vals;
@@ -294,9 +264,9 @@ FROM UNNEST([2, 1, -2, 3, -2, 1, 2]) AS x;
 ```sql
 ARRAY_CONCAT_AGG(
   expression
-  [HAVING {MAX | MIN} expression2]
-  [ORDER BY key [{ASC|DESC}] [, ... ]]
-  [LIMIT n]
+  [ HAVING { MAX | MIN } expression2 ]
+  [ ORDER BY key [ { ASC | DESC } ] [, ... ] ]
+  [ LIMIT n ]
 )
 ```
 
@@ -307,44 +277,18 @@ ARRAY, returning a single
 ARRAY as a result. This function ignores NULL input
 arrays, but respects the NULL elements in non-NULL input arrays.
 
-**Supported Argument Types**
-
-ARRAY
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
-1.  `ORDER BY`: Specifies the order of the values.
-    *   For each sort key, the default sort direction is `ASC`.
-    *   NULLs: In the context of the `ORDER BY` clause, NULLs are the minimum
-        possible value; that is, NULLs appear first in `ASC` sorts and last in
-        `DESC` sorts.
-    *   Floating point data types: see
-        [Floating Point Semantics][floating-point-semantics]
-        on ordering and grouping.
-    *   If `ORDER BY` is not specified, the order of the elements in the output
-        array is non-deterministic, which means you might receive a different
-        result each time you use this function.
-1.  `LIMIT`: Specifies the maximum number of `expression` inputs in the
-    result.
-    The limit applies to the number of input arrays, not
-    the number of elements in the arrays. An empty array counts as 1. A NULL
-    array is not counted.
-    The limit `n` must be a constant INT64.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
+
+**Supported Argument Types**
+
+ARRAY
 
 **Returned Data Types**
 
@@ -413,13 +357,24 @@ SELECT ARRAY_CONCAT_AGG(x ORDER BY ARRAY_LENGTH(x) LIMIT 2) AS array_concat_agg 
 ```
 
 ### AVG
+
 ```sql
 AVG(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -427,33 +382,29 @@ AVG(
 Returns the average of non-`NULL` input values, or `NaN` if the input contains a
 `NaN`.
 
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
 **Supported Argument Types**
 
 Any numeric input type, such as  INT64. Note that, for
 floating point input types, the return result is non-deterministic, which
 means you might receive a different result each time you use this function.
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -513,11 +464,12 @@ FROM UNNEST([0, 2, NULL, 4, 4, 5]) AS x;
 ```
 
 ### BIT_AND
+
 ```sql
 BIT_AND(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
 ```
 
@@ -525,32 +477,21 @@ BIT_AND(
 
 Performs a bitwise AND operation on `expression` and returns the result.
 
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
+
 **Supported Argument Types**
 
 + UINT32
 + UINT64
 + INT32
 + INT64
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -569,11 +510,12 @@ SELECT BIT_AND(x) as bit_and FROM UNNEST([0xF001, 0x00A1]) as x;
 ```
 
 ### BIT_OR
+
 ```sql
 BIT_OR(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
 ```
 
@@ -581,32 +523,21 @@ BIT_OR(
 
 Performs a bitwise OR operation on `expression` and returns the result.
 
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
+
 **Supported Argument Types**
 
 + UINT32
 + UINT64
 + INT32
 + INT64
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -625,11 +556,12 @@ SELECT BIT_OR(x) as bit_or FROM UNNEST([0xF001, 0x00A1]) as x;
 ```
 
 ### BIT_XOR
+
 ```sql
 BIT_XOR(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
 ```
 
@@ -637,32 +569,21 @@ BIT_XOR(
 
 Performs a bitwise XOR operation on `expression` and returns the result.
 
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
+
 **Supported Argument Types**
 
 + UINT32
 + UINT64
 + INT32
 + INT64
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
 
 **Returned Data Types**
 
@@ -705,18 +626,29 @@ SELECT BIT_XOR(DISTINCT x) AS bit_xor FROM UNNEST([1234, 5678, 1234]) AS x;
 1.
 
 ```sql
-COUNT(*)  [OVER (...)]
+COUNT(*)
+[OVER over_clause]
 ```
 
 2.
 
 ```sql
 COUNT(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -725,33 +657,33 @@ COUNT(
 2. Returns the number of rows with `expression` evaluated to any value other
    than `NULL`.
 
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
+
+<!-- mdlint on -->
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+This function with DISTINCT supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+
 **Supported Argument Types**
 
 `expression` can be any data type. If
 `DISTINCT` is present, `expression` can only be a data type that is
 [groupable][agg-data-type-properties].
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
-
-<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
-
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
-
-<!-- mdlint on -->
 
 **Return Data Types**
 
@@ -865,13 +797,24 @@ FROM Events;
 ```
 
 ### COUNTIF
+
 ```sql
 COUNTIF(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -894,31 +837,27 @@ COUNT(DISTINCT IF(condition, expression, NULL))
 Note that this uses `COUNT`, not `COUNTIF`; the `IF` part has been moved inside.
 To learn more, see the examples for [`COUNT`](#count).
 
-**Supported Argument Types**
-
-BOOL
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+**Supported Argument Types**
+
+BOOL
 
 **Return Data Types**
 
@@ -959,12 +898,23 @@ FROM UNNEST([5, -2, 3, 6, -10, NULL, -7, 4, 0]) AS x;
 ```
 
 ### LOGICAL_AND
+
 ```sql
 LOGICAL_AND(
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -972,29 +922,27 @@ LOGICAL_AND(
 Returns the logical AND of all non-`NULL` expressions. Returns `NULL` if there
 are zero input rows or `expression` evaluates to `NULL` for all rows.
 
-**Supported Argument Types**
-
-BOOL
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+**Supported Argument Types**
+
+BOOL
 
 **Return Data Types**
 
@@ -1013,12 +961,23 @@ SELECT LOGICAL_AND(x) AS logical_and FROM UNNEST([true, false, true]) AS x;
 ```
 
 ### LOGICAL_OR
+
 ```sql
 LOGICAL_OR(
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -1026,29 +985,27 @@ LOGICAL_OR(
 Returns the logical OR of all non-`NULL` expressions. Returns `NULL` if there
 are zero input rows or `expression` evaluates to `NULL` for all rows.
 
-**Supported Argument Types**
-
-BOOL
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+**Supported Argument Types**
+
+BOOL
 
 **Return Data Types**
 
@@ -1067,12 +1024,23 @@ SELECT LOGICAL_OR(x) AS logical_or FROM UNNEST([true, false, true]) AS x;
 ```
 
 ### MAX
+
 ```sql
 MAX(
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -1081,29 +1049,31 @@ Returns the maximum value of non-`NULL` expressions. Returns `NULL` if there
 are zero input rows or `expression` evaluates to `NULL` for all rows.
 Returns `NaN` if the input contains a `NaN`.
 
-**Supported Argument Types**
-
-Any [orderable data type][agg-data-type-properties].
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+
+**Supported Argument Types**
+
+Any [orderable data type][agg-data-type-properties].
 
 **Return Data Types**
 
@@ -1139,12 +1109,23 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 ```
 
 ### MIN
+
 ```sql
 MIN(
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -1153,29 +1134,31 @@ Returns the minimum value of non-`NULL` expressions. Returns `NULL` if there
 are zero input rows or `expression` evaluates to `NULL` for all rows.
 Returns `NaN` if the input contains a `NaN`.
 
-**Supported Argument Types**
-
-Any [orderable data type][agg-data-type-properties].
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+This function supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+
+**Supported Argument Types**
+
+Any [orderable data type][agg-data-type-properties].
 
 **Return Data Types**
 
@@ -1211,77 +1194,62 @@ FROM UNNEST([8, NULL, 37, 4, NULL, 55]) AS x;
 ```
 
 ### STRING_AGG
+
 ```sql
 STRING_AGG(
-  [DISTINCT]
+  [ DISTINCT ]
   expression [, delimiter]
-  [HAVING {MAX | MIN} expression2]
-  [ORDER BY key [{ASC|DESC}] [, ... ]]
-  [LIMIT n]
+  [ HAVING { MAX | MIN } expression2 ]
+  [ ORDER BY key [ { ASC | DESC } ] [, ... ] ]
+  [ LIMIT n ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
 
-Returns a value (either STRING or
-BYTES) obtained by concatenating non-null values.
-Returns `NULL` if there are zero input rows or `expression` evaluates to
-`NULL` for all rows.
+Returns a value (either `STRING` or `BYTES`) obtained by concatenating
+non-`NULL` values. Returns `NULL` if there are zero input rows or `expression`
+evaluates to `NULL` for all rows.
 
 If a `delimiter` is specified, concatenated values are separated by that
 delimiter; otherwise, a comma is used as a delimiter.
 
-**Supported Argument Types**
-
-STRING
-BYTES
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
-1.  `ORDER BY`: Specifies the order of the values.
-    *   For each sort key, the default sort direction is `ASC`.
-    *   NULLs: In the context of the `ORDER BY` clause, NULLs are the minimum
-        possible value; that is, NULLs appear first in `ASC` sorts and last in
-        `DESC` sorts.
-    *   Floating point data types: see
-        [Floating Point Semantics][floating-point-semantics]
-        on ordering and grouping.
-    *   If `DISTINCT` is also specified, then
-        the sort key must be the same as `expression`.
-    *   If `ORDER BY` is not specified, the order of the elements in the output
-        array is non-deterministic, which means you might receive a different
-        result each time you use this function.
-1.  `LIMIT`: Specifies the maximum number of `expression` inputs in the
-    result.
-    The limit applies to the number of input strings,
-    not the number of characters or bytes in the inputs. An empty string counts
-    as 1. A NULL string is not counted.
-    The limit `n` must be a constant INT64.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
 
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+**Supported Argument Types**
+
+Either `STRING` or `BYTES`.
+
 **Return Data Types**
 
-STRING
-BYTES
+Either `STRING` or `BYTES`.
 
 **Examples**
 
@@ -1369,13 +1337,24 @@ FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit;
 ```
 
 ### SUM
+
 ```sql
 SUM(
-  [DISTINCT]
+  [ DISTINCT ]
   expression
-  [HAVING {MAX | MIN} expression2]
+  [ HAVING { MAX | MIN } expression2 ]
 )
-[OVER (...)]
+[ OVER over_clause ]
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  [ ORDER BY expression [ { ASC | DESC }  ] [, ...] ]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -1385,31 +1364,27 @@ Returns the sum of non-null values.
 If the expression is a floating point value, the sum is non-deterministic, which
 means you might receive a different result each time you use this function.
 
-**Supported Argument Types**
-
-Any supported numeric data types and INTERVAL.
-
-**Optional Clauses**
-
-The clauses are applied *in the following order*:
-
-1.  `OVER`: Specifies a window. See
-    [Analytic Functions][analytic-functions].
-1.  `DISTINCT`: Each distinct value of
-    `expression` is aggregated only once into the result.
-1.  `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
-    function aggregates by a maximum or minimum value. See
-    [HAVING MAX and HAVING MIN clause][max_min_clause] for details.
+To learn more about the optional arguments in this function and how to use them,
+see [Aggregate function calls][aggregate-function-calls].
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[max_min_clause]: https://github.com/google/zetasql/blob/master/docs/aggregate_functions.md#max_min_clause
-
-[analytic-functions]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[floating-point-semantics]: https://github.com/google/zetasql/blob/master/docs/data-types.md#floating_point_semantics
+[aggregate-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
+
+**Supported Argument Types**
+
+Any supported numeric data types and INTERVAL.
 
 **Return Data Types**
 
@@ -1517,83 +1492,11 @@ FROM UNNEST([]) AS x;
 +------+
 ```
 
-### Common clauses
-
-#### HAVING MAX and HAVING MIN clause 
-<a id="max_min_clause"></a>
-
-Most aggregate functions support two optional clauses called `HAVING MAX` and
-`HAVING MIN`, which restricts the set of rows that a function aggregates to
-rows that have a maximal or minimal value in a particular column. The syntax
-generally looks like this:
-
-```sql
-aggregate_function(expression1 [HAVING {MAX | MIN} expression2])
-```
-
-+ `HAVING MAX`: Restricts the set of rows that the
-  function aggregates to those having a value for `expression2` equal to the
-  maximum value for `expression2` within the group. The  maximum value is
-  equal to the result of `MAX(expression2)`.
-+ `HAVING MIN` Restricts the set of rows that the
-  function aggregates to those having a value for `expression2` equal to the
-  minimum value for `expression2` within the group. The minimum value is
-  equal to the result of `MIN(expression2)`.
-
-These clauses ignore `NULL` values when computing the maximum or minimum
-value unless `expression2` evaluates to `NULL` for all rows.
-
- These clauses only support
-[orderable data types][agg-data-type-properties].
-
-**Example**
-
-In this example, the average rainfall is returned for the most recent year,
-2001.
-
-```sql
-WITH Precipitation AS
- (SELECT 2001 as year, 'spring' as season, 9 as inches UNION ALL
-  SELECT 2001, 'winter', 1 UNION ALL
-  SELECT 2000, 'fall', 3 UNION ALL
-  SELECT 2000, 'summer', 5 UNION ALL
-  SELECT 2000, 'spring', 7 UNION ALL
-  SELECT 2000, 'winter', 2)
-SELECT AVG(inches HAVING MAX year) as average FROM Precipitation
-
-+---------+
-| average |
-+---------+
-| 5       |
-+---------+
-```
-
-First, the query gets the rows with the maximum value in the `year` column.
-There are two:
-
-```sql
-+------+--------+--------+
-| year | season | inches |
-+------+--------+--------+
-| 2001 | spring | 9      |
-| 2001 | winter | 1      |
-+------+--------+--------+
-```
-
-Finally, the query averages the values in the `inches` column (9 and 1) with
-this result:
-
-```sql
-+---------+
-| average |
-+---------+
-| 5       |
-+---------+
-```
-
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 [agg-data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
+
+[agg-function-calls]: https://github.com/google/zetasql/blob/master/docs/aggregate-function-calls.md
 
 <!-- mdlint on -->
 

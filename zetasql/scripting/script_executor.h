@@ -18,10 +18,12 @@
 #define ZETASQL_SCRIPTING_SCRIPT_EXECUTOR_H_
 
 #include <cstdint>
+#include <functional>
+#include <memory>
+#include <string>
 #include <utility>
 
 #include "zetasql/parser/parse_tree.h"
-#include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/evaluator.h"
@@ -31,11 +33,11 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/scripting/control_flow_graph.h"
+#include "zetasql/scripting/procedure_extension.pb.h"
 #include "zetasql/scripting/script_executor_state.pb.h"
 #include "zetasql/scripting/script_segment.h"
 #include "zetasql/scripting/stack_frame.h"
 #include "zetasql/scripting/type_aliases.h"
-#include "zetasql/scripting/variable.pb.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "zetasql/base/status.h"
@@ -44,6 +46,84 @@ namespace zetasql {
 
 class ScriptExecutorOptions;
 class StatementEvaluator;
+
+// Interface for native procedure.
+using NativeProcedureFn =
+    std::function<absl::Status(VariableMap* argument_list)>;
+
+class ProcedureDefinition {
+ public:
+  // If <native_function> is not empty. This procedure is native and <body> is
+  // ignored.
+  // TODO: hide constructor and expose ForNativeProcedure() and
+  // ForSQLProcedure() to create a ProcedureDefinition.
+  ProcedureDefinition(absl::string_view name,
+                      const FunctionSignature& signature,
+                      std::vector<std::string> argument_name_list,
+                      absl::string_view body,
+                      NativeProcedureFn native_function = nullptr,
+                      std::unique_ptr<ProcedureExtension> extension = nullptr)
+      : name_(name),
+        signature_(signature),
+        argument_name_list_(std::move(argument_name_list)),
+        body_(body),
+        native_function_(std::move(native_function)),
+        extension_(std::move(extension)),
+        is_dynamic_sql_(false) {}
+
+  // Construct a Procedure for the purposes of executing Dynamic SQL
+  ProcedureDefinition(const FunctionSignature& signature,
+                      absl::string_view body)
+      : name_("Dynamic SQL"),
+        signature_(signature),
+        body_(body),
+        is_dynamic_sql_(true) {}
+
+  ProcedureDefinition(const ProcedureDefinition& other)
+      : name_(other.name()),
+        signature_(other.signature()),
+        argument_name_list_(other.argument_name_list()),
+        body_(other.body()),
+        native_function_(other.native_function()),
+        is_dynamic_sql_(other.is_dynamic_sql()) {
+    extension_ = other.extension() != nullptr
+                     ? std::make_unique<ProcedureExtension>(*other.extension())
+                     : nullptr;
+  }
+
+  ProcedureDefinition(ProcedureDefinition&&) = default;
+  ProcedureDefinition& operator=(const ProcedureDefinition&) = default;
+
+  const std::string& name() const { return name_; }
+  const FunctionSignature& signature() const { return signature_; }
+  const std::vector<std::string>& argument_name_list() const {
+    return argument_name_list_;
+  }
+  const std::string& body() const { return body_; }
+  const NativeProcedureFn& native_function() const { return native_function_; }
+  // Additional information that the query engine needs about procedures in
+  // the current stack (if any).
+  const ProcedureExtension* extension() const {
+    return extension_ ? extension_.get() : nullptr;
+  }
+  const bool is_dynamic_sql() const { return is_dynamic_sql_; }
+
+ private:
+  // Procedure name.
+  std::string name_;
+  // Procedure signature.
+  FunctionSignature signature_;
+  // Procedure argument name list.
+  std::vector<std::string> argument_name_list_;
+  // Procedure body. It is the SQL text within:
+  //   CREATE PROCEDURE ... BEGIN <body> END.
+  std::string body_;
+  // If not empty, the procedure is native and the function is called when
+  // invoking the procedure.
+  NativeProcedureFn native_function_;
+  std::unique_ptr<ProcedureExtension> extension_;
+  const bool is_dynamic_sql_;
+};
 
 // A ScriptExecutor executes a ZetaSQL script.  Script execution is performed
 // via the ExecuteNext() method, which advances the script by exactly one
@@ -65,19 +145,23 @@ class ScriptExecutor {
  public:
   struct StackFrameTrace {
     // Current statement start line in script or procedure.
-    int start_line;
+    int start_line = 0;
     // Current statement start column in script or procedure.
-    int start_column;
+    int start_column = 0;
     // Current statement end line in script or procedure.
-    int end_line;
+    int end_line = 0;
     // Current statement end column in script or procedure.
-    int end_column;
+    int end_column = 0;
     // Empty for main script.
     std::string procedure_name;
     // Current statement full text. ScriptExecutor owns the string. Valid until
     // the next call to ExecuteNext(), Reset(), SetState(), or
     // SetStateWithStack().
     absl::string_view current_statement;
+    // Procedure definition of the current statement. Null for the main script.
+    // This pointer will be alive as long as the current statement is in the
+    // script stack.
+    const ProcedureDefinition* procedure_definition = nullptr;
   };
 
   ScriptExecutor() = default;
@@ -238,65 +322,6 @@ class ScriptExecutor {
   // Get the predefined variables that were created before script run and exist
   // outside of the script scope.
   virtual VariableSet GetPredefinedVariableNames() const = 0;
-};
-
-// Interface for native procedure.
-using NativeProcedureFn =
-    std::function<absl::Status(VariableMap* argument_list)>;
-
-class ProcedureDefinition {
- public:
-  // If <native_function> is not empty. This procedure is native and <body> is
-  // ignored.
-  // TODO: hide constructor and expose ForNativeProcedure() and
-  // ForSQLProcedure() to create a ProcedureDefinition.
-  ProcedureDefinition(absl::string_view name,
-                      const FunctionSignature& signature,
-                      std::vector<std::string> argument_name_list,
-                      absl::string_view body,
-                      NativeProcedureFn native_function = nullptr)
-      : name_(name),
-        signature_(signature),
-        argument_name_list_(std::move(argument_name_list)),
-        body_(body),
-        native_function_(std::move(native_function)),
-        is_dynamic_sql_(false) {}
-
-  // Construct a Procedure for the purposes of executing Dynamic SQL
-  ProcedureDefinition(const FunctionSignature& signature,
-                      absl::string_view body)
-      : name_("Dynamic SQL"),
-        signature_(signature),
-        body_(body),
-        is_dynamic_sql_(true) {}
-
-  ProcedureDefinition(const ProcedureDefinition&) = default;
-  ProcedureDefinition(ProcedureDefinition&&) = default;
-  ProcedureDefinition& operator=(const ProcedureDefinition&) = default;
-
-  const std::string& name() const { return name_; }
-  const FunctionSignature& signature() const { return signature_; }
-  const std::vector<std::string>& argument_name_list() const {
-    return argument_name_list_;
-  }
-  const std::string& body() const { return body_; }
-  const NativeProcedureFn& native_function() const { return native_function_; }
-  const bool is_dynamic_sql() const { return is_dynamic_sql_; }
-
- private:
-  // Procedure name.
-  std::string name_;
-  // Procedure signature.
-  FunctionSignature signature_;
-  // Procedure argument name list.
-  std::vector<std::string> argument_name_list_;
-  // Procedure body. It is the SQL text within:
-  //   CREATE PROCEDURE ... BEGIN <body> END.
-  std::string body_;
-  // If not empty, the procedure is native and the function is called when
-  // invoking the procedure.
-  NativeProcedureFn native_function_;
-  const bool is_dynamic_sql_;
 };
 
 // Interface implemented by the engine to evaluate individual statements or

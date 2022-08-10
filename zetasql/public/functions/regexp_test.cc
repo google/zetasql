@@ -17,6 +17,7 @@
 #include "zetasql/public/functions/regexp.h"
 
 #include <cstdint>
+#include <string>
 #include <utility>
 
 #include "zetasql/base/testing/status_matchers.h"

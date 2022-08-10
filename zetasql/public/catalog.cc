@@ -19,10 +19,10 @@
 #include <string>
 #include <utility>
 
-#include "google/protobuf/io/tokenizer.h"
 #include "zetasql/public/strings.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_join.h"
+#include "google/protobuf/io/tokenizer.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"

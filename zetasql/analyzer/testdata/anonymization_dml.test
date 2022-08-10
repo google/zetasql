@@ -19,6 +19,7 @@ InsertStmt
 |       +-aggregate_list=
 |         +-anon_count#25 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
 +-query_output_column_list=[$aggregate.anon_count#25]
++-column_access_list=WRITE
 
 [REWRITTEN AST]
 InsertStmt
@@ -52,6 +53,7 @@ InsertStmt
 |       +-k_threshold_expr=
 |         +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#32)
 +-query_output_column_list=[$aggregate.anon_count#25]
++-column_access_list=WRITE
 
 [TableScan Groups]
 {
@@ -78,6 +80,7 @@ InsertStmt
 |       +-aggregate_list=
 |         +-anon_count#25 := AggregateFunctionCall(ZetaSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
 +-query_output_column_list=[$aggregate.anon_count#25]
++-column_access_list=WRITE
 
 [REWRITTEN AST]
 InsertStmt
@@ -111,6 +114,7 @@ InsertStmt
 |       +-k_threshold_expr=
 |         +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#32)
 +-query_output_column_list=[$aggregate.anon_count#25]
++-column_access_list=WRITE
 
 [TableScan Groups]
 {
@@ -255,6 +259,7 @@ DELETE FROM SimpleTypesWithAnonymizationUid
 DeleteStmt
 +-table_scan=
 | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
++-column_access_list=READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
     +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
@@ -276,6 +281,7 @@ DeleteStmt
 DeleteStmt
 +-table_scan=
 | +-TableScan(column_list=[SimpleTypesWithAnonymizationUid.int64#2], table=SimpleTypesWithAnonymizationUid, column_index_list=[1])
++-column_access_list=READ
 +-where_expr=
   +-FunctionCall(ZetaSQL:$less(INT64, INT64) -> BOOL)
     +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)

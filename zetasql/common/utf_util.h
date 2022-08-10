@@ -18,6 +18,7 @@
 #define ZETASQL_COMMON_UTF_UTIL_H_
 
 #include <cstdint>
+#include <string>
 
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"

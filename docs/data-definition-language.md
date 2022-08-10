@@ -84,7 +84,7 @@ corresponding position of the table element list.
    statement will have no effect. Cannot appear with `OR REPLACE`.
 +  `PARTITION BY`: Creates partitions of a table. The expression cannot
    contain floating point types, non-groupable types, constants,
-   aggregate functions, or analytic functions.
+   aggregate functions, or window functions.
 +  `CLUSTER BY`: Co-locates rows if the rows are not distinct for the values
    produced by the provided list of expressions.
    If the table was partitioned, co-location occurs within each partition.
@@ -748,7 +748,7 @@ A user-defined aggregate function (UDA), enables you to create an
 aggregate function using another SQL expression or another programming language.
 These functions accept arguments and perform actions, returning the
 result of those actions as a value. To create a UDA,
-see [UDAs][udfs].
+see [UDAs][udas].
 
 ## CREATE FUNCTION
 
@@ -936,9 +936,11 @@ CREATE TABLE books (title STRING, name STRING, PRIMARY KEY (title, name));
 
 [defining-foreign-reference]: #defining_foreign_references
 
-[tvfs]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md#tvfs
+[tvfs]: https://github.com/google/zetasql/blob/master/docs/table-functions.md#tvfs
 
 [udfs]: https://github.com/google/zetasql/blob/master/docs/user-defined-functions.md
+
+[udas]: https://github.com/google/zetasql/blob/master/docs/user-defined-aggregates.md#udas
 
 <!-- mdlint on -->
 

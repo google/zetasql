@@ -30,6 +30,7 @@
 #include "google/protobuf/wrappers.pb.h"
 #include "zetasql/compliance/functions_testlib_common.h"
 #include "zetasql/public/functions/date_time_util.h"
+#include "zetasql/public/json_value.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
@@ -38,9 +39,8 @@
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/test_value.h"
-#include "zetasql/testing/using_test_value.cc"
+#include "zetasql/testing/using_test_value.cc"  // NOLINT
 #include "gtest/gtest.h"
-#include <cstdint>
 #include "absl/container/btree_map.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
@@ -48,8 +48,6 @@
 
 namespace zetasql {
 namespace {
-constexpr absl::StatusCode INVALID_ARGUMENT =
-    absl::StatusCode::kInvalidArgument;
 constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 constexpr absl::StatusCode OK = absl::StatusCode::kOk;
 }  // namespace
@@ -1474,7 +1472,7 @@ GetEmptyArrayFirstLastTestCases() {
        NullJson(),
        NullJson(),
        OUT_OF_RANGE,
-       {FEATURE_JSON_TYPE, FEATURE_JSON_ARRAY_FUNCTIONS}},
+       {FEATURE_JSON_TYPE}},
       {Value::EmptyArray(IntervalArrayType()),
        NullInterval(),
        NullInterval(),
@@ -1581,6 +1579,365 @@ static void AddWrappedSafeArrayFunctionResult(
   }
 }
 
+struct TypeFeaturePair {
+  TypeFeaturePair(const Type* type, const Value& example1,
+                  const Value& example2, const Value& example3)
+      : type(type),
+        example_input_1(example1),
+        example_input_2(example2),
+        example_input_3(example3),
+        required_features({}) {}
+  TypeFeaturePair(const Type* type, const Value& example1,
+                  const Value& example2, const Value& example3,
+                  LanguageFeature feature)
+      : type(type),
+        example_input_1(example1),
+        example_input_2(example2),
+        example_input_3(example3),
+        required_features({feature}) {}
+
+  const Type* type;
+  Value example_input_1;
+  Value example_input_2;
+  Value example_input_3;
+  std::set<LanguageFeature> required_features;
+};
+
+static const std::vector<TypeFeaturePair> GetArrayTypesWithFeatures() {
+  const std::string kitchen_sink_string_1("int64_key_1: 1 int64_key_2: 2");
+  const std::string kitchen_sink_string_2(
+      "int64_key_1: 1 int64_key_2: 2 repeated_int32_val: 3 "
+      "repeated_int32_val: 4");
+  const std::string kitchen_sink_string_3(
+      "int64_key_1: 1 int64_key_2: 2 bool_val: true float_val: -1.5");
+  const std::string nullable_int_string_1("value: 1");
+  const std::string nullable_int_string_2("value: 2000000");
+
+  return {
+      {FloatType(), Float(1.2), Float(-3.3), Float(float_nan)},
+      {DoubleType(), Double(double_pos_inf), Double(1.2), Double(double_nan)},
+      {Int32Type(), Int32(1), Int32(-3), Int32(0x7FFFFFFF)},
+      {Int64Type(), Int64(0x7FFFFFFFFFFFFFFF), Int64(1), Int64(-3)},
+      {Uint32Type(), Uint32(1), Uint32(0x7FFFFFFF), Uint32(0xFFFFFFFFU)},
+      {Uint64Type(), Uint64(0x7FFFFFFFFFFFFFFFUL), Uint64(0xFFFFFFFFFFFFFFFFU),
+       Uint64(-3)},
+      {BoolType(), Bool(true), Bool(false), Bool(false)},
+      {StringType(), String(""), String("foo"), String("\\\\\\\\\\")},
+      {BytesType(), Bytes("0x00"), Bytes("foo"), Bytes("0xFF")},
+      {TimestampType(), Timestamp(types::kTimestampMax), Timestamp(-1),
+       Timestamp(1500000000)},
+      {DateType(), DateFromStr("1960-01-07"), Date(-1), Date(0)},
+      {NumericType(), NumericFromDouble(1.2), Numeric(-3),
+       Numeric(NumericValue::MaxValue()), FEATURE_NUMERIC_TYPE},
+      {BigNumericType(),
+       BigNumeric(BigNumericValue::FromStringStrict("123.456").value()),
+       BigNumeric(BigNumericValue::MaxValue()),
+       BigNumeric(BigNumericValue::MinValue()), FEATURE_BIGNUMERIC_TYPE},
+      {JsonType(), Json(JSONValue(std::string("json1"))),
+       Json(JSONValue(int64_t{3})), Json(JSONValue(true)), FEATURE_JSON_TYPE},
+      {IntervalType(), Interval(IntervalValue::FromDays(int64_t{3}).value()),
+       Interval(IntervalValue::MinValue()), Interval(IntervalValue::MaxValue()),
+       FEATURE_INTERVAL_TYPE},
+      {TimeType(), TimeFromStr("12:34:56.000123"), TimeMicros(1, 2, 3, 4),
+       TimeMicros(1, 2, 3, 123450), FEATURE_V_1_2_CIVIL_TIME},
+      {DatetimeType(), DatetimeMicros(2006, 1, 2, 3, 4, 5, 654321),
+       DatetimeMicros(2020, 2, 10, 12, 34, 56, 789123),
+       DatetimeFromStr("2017-06-25 12:34:56.123456"), FEATURE_V_1_2_CIVIL_TIME},
+      // STRUCT a: string, b: int32_t
+      {SimpleStructType(),
+       Value::Struct(SimpleStructType(), {String(""), Int32(0)}),
+       Value::Struct(SimpleStructType(), {String("foo"), Int32(1)}),
+       Value::Struct(SimpleStructType(), {String("bar"), Int32(-3)})},
+      // STRUCT a: string
+      {AnotherStructType(), Value::Struct(AnotherStructType(), {String("foo")}),
+       Value::Struct(AnotherStructType(), {String("bar")}),
+       Value::Struct(AnotherStructType(), {String("")})},
+      // Proto
+      {KitchenSinkProtoType(), KitchenSink(kitchen_sink_string_1),
+       KitchenSink(kitchen_sink_string_2), KitchenSink(kitchen_sink_string_3)},
+      {NullableIntProtoType(), Proto(NullableIntProtoType(), absl::Cord("")),
+       NullableInt(nullable_int_string_1), NullableInt(nullable_int_string_2)},
+      // Enum
+      {TestEnumType(), Value::Enum(TestEnumType(), 0x000000002),
+       Value::Enum(TestEnumType(), 0), Value::Enum(TestEnumType(), 1)},
+  };
+}
+
+static const std::vector<QueryParamsWithResult> GetArraySliceTestCases(
+    bool is_safe) {
+  std::vector<QueryParamsWithResult> test_cases;
+  std::vector<TypeFeaturePair> pairs = GetArrayTypesWithFeatures();
+  ZETASQL_DCHECK_GT(pairs.size(), 0);
+  for (const TypeFeaturePair& v : pairs) {
+    QueryParamsWithResult::FeatureSet feature_set;
+    if (is_safe) {
+      feature_set.insert(FEATURE_V_1_2_SAFE_FUNCTION_CALL);
+    }
+
+    if (!v.required_features.empty()) {
+      for (const LanguageFeature& feature : v.required_features) {
+        feature_set.insert(feature);
+      }
+    }
+
+    // Setup array values with all of the possible expected slices.
+    // They will be used in both input and output of the test cases.
+    const ArrayType* array_type = MakeArrayType(v.type, type_factory());
+    Value input123 = values::Array(
+        array_type, {v.example_input_1, v.example_input_2, v.example_input_3});
+    Value input_with_null = values::Array(
+        array_type, {v.example_input_1, Null(v.type), v.example_input_3});
+    Value slice12 =
+        values::Array(array_type, {v.example_input_1, v.example_input_2});
+    Value slice23 =
+        values::Array(array_type, {v.example_input_2, v.example_input_3});
+    Value slice1 = values::Array(array_type, {v.example_input_1});
+    Value slice2 = values::Array(array_type, {v.example_input_2});
+    Value slice3 = values::Array(array_type, {v.example_input_3});
+    Value slice_null = values::Array(array_type, {Null(v.type)});
+
+    // 1. Empty array argument
+    test_cases.push_back(
+        QueryParamsWithResult(
+            {Value::EmptyArray(array_type), Value::Int64(0), Value::Int64(1)},
+            Value::EmptyArray(array_type))
+            .WrapWithFeatureSet(feature_set));
+
+    // 2. NULL arguments
+    // 2.1 NULL array argument
+    test_cases.push_back(
+        QueryParamsWithResult(
+            {Value::Null(array_type), Value::Int64(0), Value::Int64(1)},
+            Value::Null(array_type))
+            .WrapWithFeatureSet(feature_set));
+
+    // 2.2 NULL start argument with non-NULL array input
+    test_cases.push_back(
+        QueryParamsWithResult({input123, NullInt64(), Value::Int64(1)},
+                              Value::Null(array_type))
+            .WrapWithFeatureSet(feature_set));
+
+    // 2.3 NULL end argument with non-NULL array input
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(0), NullInt64()},
+                              Value::Null(array_type))
+            .WrapWithFeatureSet(feature_set));
+
+    // 2.4 NULL start and end argument with NULL array input
+    test_cases.push_back(QueryParamsWithResult({Value::Null(array_type),
+                                                NullInt64(), NullInt64()},
+                                               Value::Null(array_type))
+                             .WrapWithFeatureSet(feature_set));
+
+    // 3. Slice range within the bounds of array input without NULL elements
+    // 3.1 Positive start and end arguments, slice range from the middle
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(1), Value::Int64(1)},
+                              slice2)
+            .WrapWithFeatureSet(feature_set));
+
+    // 3.2 Negative start and end arguments, slice range from the middle
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(-2), Value::Int64(-2)},
+                              slice2)
+            .WrapWithFeatureSet(feature_set));
+
+    // 3.3 Positive start and end arguments, slice range involving boundaries
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(2), Value::Int64(2)},
+                              slice3)
+            .WrapWithFeatureSet(feature_set));
+
+    // 3.4 Negative start and end arguments, slice range involving boundaries
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(-1), Value::Int64(-1)},
+                              slice3)
+            .WrapWithFeatureSet(feature_set));
+
+    // 3.5 Positive start and end arguments, slice range involving boundaries
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(0), Value::Int64(1)},
+                              slice12)
+            .WrapWithFeatureSet(feature_set));
+
+    // 3.6 Negative start and end arguments, slice range involving boundaries
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(-2), Value::Int64(-1)},
+                              slice23)
+            .WrapWithFeatureSet(feature_set));
+
+    // 3.7 Positive start and end arguments, slice range is entire array
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(0), Value::Int64(2)},
+                              input123)
+            .WrapWithFeatureSet(feature_set));
+
+    // 3.8 Negative start and end arguments, slice range is entire array
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(-3), Value::Int64(-1)},
+                              input123)
+            .WrapWithFeatureSet(feature_set));
+
+    // 3.9 Negative start and positive end arguments, slicing the middle range
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(-2), Value::Int64(1)},
+                              slice2)
+            .WrapWithFeatureSet(feature_set));
+
+    // 3.10 Negative start and positive end arguments, slicing the boundaries
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(-3), Value::Int64(0)},
+                              slice1)
+            .WrapWithFeatureSet(feature_set));
+
+    // 3.11 Negative start and positive end arguments, slicing the entire array
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(-3), Value::Int64(2)},
+                              input123)
+            .WrapWithFeatureSet(feature_set));
+
+    // 4. Slice range within the bounds of array input with NULL elements
+    // 4.1 Positive start and end arguments, slice range from the middle
+    test_cases.push_back(
+        QueryParamsWithResult(
+            {input_with_null, Value::Int64(1), Value::Int64(1)}, slice_null)
+            .WrapWithFeatureSet(feature_set));
+
+    // 4.2 Negative start and end arguments, slice range from the middle
+    test_cases.push_back(
+        QueryParamsWithResult(
+            {input_with_null, Value::Int64(-2), Value::Int64(-2)}, slice_null)
+            .WrapWithFeatureSet(feature_set));
+
+    // 4.3 Positive start and end arguments, slice range involving boundaries
+    test_cases.push_back(
+        QueryParamsWithResult(
+            {input_with_null, Value::Int64(2), Value::Int64(2)}, slice3)
+            .WrapWithFeatureSet(feature_set));
+
+    // 4.4 Negative start and end arguments, slice range involving boundaries
+    test_cases.push_back(
+        QueryParamsWithResult(
+            {input_with_null, Value::Int64(-1), Value::Int64(-1)}, slice3)
+            .WrapWithFeatureSet(feature_set));
+
+    // 4.5 Positive start and end arguments, slice range involving boundaries
+    test_cases.push_back(
+        QueryParamsWithResult(
+            {input_with_null, Value::Int64(0), Value::Int64(1)},
+            values::Array(array_type, {v.example_input_1, Null(v.type)}))
+            .WrapWithFeatureSet(feature_set));
+
+    // 4.6 Negative start and end arguments, slice range involving boundaries
+    test_cases.push_back(
+        QueryParamsWithResult(
+            {input_with_null, Value::Int64(-2), Value::Int64(-1)},
+            values::Array(array_type, {Null(v.type), v.example_input_3}))
+            .WrapWithFeatureSet(feature_set));
+
+    // 4.7 Positive start and end arguments, slicing the entire array
+    test_cases.push_back(
+        QueryParamsWithResult(
+            {input_with_null, Value::Int64(0), Value::Int64(2)},
+            input_with_null)
+            .WrapWithFeatureSet(feature_set));
+
+    // 4.8 Negative start and end arguments, slicing the entire array
+    test_cases.push_back(
+        QueryParamsWithResult(
+            {input_with_null, Value::Int64(-3), Value::Int64(-1)},
+            input_with_null)
+            .WrapWithFeatureSet(feature_set));
+
+    // 5. Inverted range (start > end)
+    // 5.1 Positive start and end arguments, slicing invalid range
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(2), Value::Int64(1)},
+                              values::EmptyArray(array_type))
+            .WrapWithFeatureSet(feature_set));
+
+    // 5.2 Negative start and end arguments, slicing invalid range
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(-1), Value::Int64(-2)},
+                              values::EmptyArray(array_type))
+            .WrapWithFeatureSet(feature_set));
+
+    // 5.3 Positive start and negative end arguments, slicing invalid range
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(5), Value::Int64(-5)},
+                              values::EmptyArray(array_type))
+            .WrapWithFeatureSet(feature_set));
+
+    // 5.4 Positive start and negative end arguments, slicing the middle range
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(1), Value::Int64(-2)},
+                              slice2)
+            .WrapWithFeatureSet(feature_set));
+
+    // 5.5 Positive start and negative end arguments, slicing the boundaries
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(0), Value::Int64(-3)},
+                              slice1)
+            .WrapWithFeatureSet(feature_set));
+
+    // 5.6 Positive start and negative end arguments, slicing the entire array
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(0), Value::Int64(-1)},
+                              input123)
+            .WrapWithFeatureSet(feature_set));
+
+    // 6. Out-of-bound at one end
+    // 6.1 Positive start and end arguments, slicing the upper boundaries
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(1), Value::Int64(5)},
+                              slice23)
+            .WrapWithFeatureSet(feature_set));
+
+    // 6.2 Negative start and end arguments, slicing the lower boundaries
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(-4), Value::Int64(-2)},
+                              slice12)
+            .WrapWithFeatureSet(feature_set));
+
+    // 7. Out-of-bound at both ends
+    // 7.1 Positive start and end arguments, slicing invalid range in a short
+    // array (len = 1)
+    test_cases.push_back(
+        QueryParamsWithResult({values::Array(array_type, {v.example_input_1}),
+                               Value::Int64(2), Value::Int64(2)},
+                              values::EmptyArray(array_type))
+            .WrapWithFeatureSet(feature_set));
+
+    // 7.2 Negative start and end arguments, slicing invalid range in a short
+    // array (len = 1)
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(-5), Value::Int64(-4)},
+                              values::EmptyArray(array_type))
+            .WrapWithFeatureSet(feature_set));
+
+    // 7.3 Positive start and end arguments, slicing invalid range in a longer
+    // array (len = 3)
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(3), Value::Int64(4)},
+                              values::EmptyArray(array_type))
+            .WrapWithFeatureSet(feature_set));
+
+    // 7.4 Negative start and end arguments, slicing invalid range in a longer
+    // array (len = 3)
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(-5), Value::Int64(-4)},
+                              values::EmptyArray(array_type))
+            .WrapWithFeatureSet(feature_set));
+
+    // 7.5 Negative start and positive end arguments, slicing entire array
+    test_cases.push_back(
+        QueryParamsWithResult({input123, Value::Int64(-5), Value::Int64(5)},
+                              input123)
+            .WrapWithFeatureSet(feature_set));
+  }
+  return test_cases;
+}
+
 static std::vector<QueryParamsWithResult>
 GetAndAddWrappedArrayFirstLastFunctionTestResult(bool is_safe, bool is_first) {
   std::vector<ArrayFirstLastTestCase> test_cases = GetArrayFirstLastTestCases();
@@ -1603,6 +1960,10 @@ std::vector<QueryParamsWithResult> GetFunctionTestsArrayFirst(bool is_safe) {
 std::vector<QueryParamsWithResult> GetFunctionTestsArrayLast(bool is_safe) {
   return GetAndAddWrappedArrayFirstLastFunctionTestResult(is_safe,
                                                           /*is_first=*/false);
+}
+
+std::vector<QueryParamsWithResult> GetFunctionTestsArraySlice(bool is_safe) {
+  return GetArraySliceTestCases(is_safe);
 }
 
 std::vector<QueryParamsWithResult> GetFunctionTestsGreatest(
@@ -2260,12 +2621,9 @@ static QueryParamsWithResult BuildArrayEqualityQueryParamsWithResult(
     const std::vector<ValueConstructor>& arguments,
     const ValueConstructor& result,
     const Value& null_value) {
-  return QueryParamsWithResult(
-      arguments,
-      {{QueryParamsWithResult::kEmptyFeatureSet,
-        QueryParamsWithResult::Result(null_value, OUT_OF_RANGE)},
-       {{FEATURE_V_1_1_ARRAY_EQUALITY},
-           QueryParamsWithResult::Result(result)}});
+  return QueryParamsWithResult(arguments,
+                               {{{FEATURE_V_1_1_ARRAY_EQUALITY},
+                                 QueryParamsWithResult::Result(result)}});
 }
 
 std::vector<QueryParamsWithResult> GetFunctionTestsNullIf() {
@@ -2275,7 +2633,6 @@ std::vector<QueryParamsWithResult> GetFunctionTestsNullIf() {
     Value null_value = Null(type);
     if (type->IsProto()) {
       // SQL equality is not defined for protos.
-      result.push_back({{v[0], v[0]}, null_value, OUT_OF_RANGE});
       continue;
     }
     if (type->IsArray()) {
@@ -3108,12 +3465,6 @@ std::vector<FunctionTestCall> GetFunctionTestsFromProto() {
       {"from_proto", {NullInt64()}, NullInt64()},
       {"from_proto", {Value::Null(Proto3DateType())}, NullDate()},
       {"from_proto", {Value::Null(Proto3TimestampType())}, NullTimestamp()},
-
-      // Invalid argument
-      {"from_proto",
-       {KitchenSink("int64_key_1: 1 int64_key_2: 2")},
-       NullInt64(),
-       INVALID_ARGUMENT},
   };
 }
 
@@ -3187,12 +3538,6 @@ std::vector<FunctionTestCall> GetFunctionTestsToProto() {
       {"to_proto",
        {NullInt64()},
        Null(Proto3Wrapper<google::protobuf::Int64Value>(0).type())});
-
-  // Invalid input
-  test_cases.push_back({"to_proto",
-                              {zetasql::values::Int64Array({13})},
-                              NullInt64(),
-                              INVALID_ARGUMENT});
 
   return test_cases;
 }
@@ -3372,17 +3717,9 @@ std::vector<FunctionTestCall> GetFunctionTestsBytesStringConversion() {
   // Null or unsupported format
   tests.push_back(
       {"bytes_to_string", {Bytes("\x17\x6A"), NullString()}, NullString()});
-  tests.push_back({"bytes_to_string",
-                   {Bytes("\x17\x6A"), "base37"},
-                   NullString(),
-                   OUT_OF_RANGE});
   tests.push_back({"string_to_bytes",
                    {String("0001011101101010"), NullString()},
                    NullBytes()});
-  tests.push_back({"string_to_bytes",
-                   {String("0001011101101010"), "base37"},
-                   NullBytes(),
-                   OUT_OF_RANGE});
 
   // Not encodable input bytes for specific encodings
   tests.push_back({"bytes_to_string",

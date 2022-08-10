@@ -16,6 +16,9 @@
 
 #include "zetasql/public/templated_sql_function.h"
 
+#include <string>
+#include <utility>
+
 #include "zetasql/base/logging.h"
 #include "zetasql/proto/function.pb.h"
 #include "zetasql/proto/internal_error_location.pb.h"

@@ -19,21 +19,17 @@
 #include <vector>
 
 #include "zetasql/compliance/functions_testlib_common.h"
-#include "zetasql/public/functions/normalize_mode.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"  // NOLINT
-#include <cstdint>
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
 namespace {
-constexpr absl::StatusCode INVALID_ARGUMENT =
-    absl::StatusCode::kInvalidArgument;
 constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 }  // namespace
 
@@ -428,8 +424,6 @@ std::vector<FunctionTestCall> GetFunctionTestsString() {
       {"character_length", {"абвгд"}, 5ll},
       {"char_length", {"\0\0"}, 2ll},
 
-      {"char_length", {Bytes("abcde")}, NullInt64(), INVALID_ARGUMENT},
-
       // trim(bytes, bytes) -> bytes
       {"trim", {NullBytes(), Bytes("")}, NullBytes()},
       {"trim", {NullBytes(), Bytes("a")}, NullBytes()},
@@ -711,6 +705,13 @@ std::vector<FunctionTestCall> GetFunctionTestsString() {
       {"lower",
        {all_bytes_str.substr(0, 128)},
        all_bytes_lowercase.substr(0, 128)},
+
+      // Σ has two lower-case forms: σ and ς. ς is used when it is at the end
+      // of a word.
+      {"lower", {"aBcΣ"}, "abcς"},
+      {"lower", {"ΣaBc"}, "σabc"},
+      {"lower", {"aΣBc"}, "aσbc"},
+      {"lower", {"Σ"}, "σ"},
 
       // upper(bytes) -> bytes
       {"upper", {NullBytes()}, NullBytes()},

@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_ANALYZER_OPTIONS_H_
 #define ZETASQL_PUBLIC_ANALYZER_OPTIONS_H_
 
+#include <cstdint>
 #include <functional>
 #include <map>
 #include <memory>
@@ -31,6 +32,7 @@
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/annotation.h"
+#include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/base/case.h"
 #include "absl/base/attributes.h"
 #include "absl/container/btree_set.h"
@@ -161,6 +163,10 @@ class AnalyzerOptions {
 
   using LookupExpressionColumnCallback =
       std::function<absl::Status(const std::string&, const Type**)>;
+
+  typedef std::function<absl::Status(const std::string&,
+                                     std::unique_ptr<const ResolvedExpr>&)>
+      LookupExpressionCallback;
 
   // Callback to retrieve pseudo-columns for the target of a DDL statement.
   // <options> is the contents of the OPTIONS clause attached to the statement,
@@ -323,11 +329,11 @@ class AnalyzerOptions {
   absl::Status AddExpressionColumn(const std::string& name, const Type* type);
   absl::Status SetInScopeExpressionColumn(const std::string& name,
                                           const Type* type);
-  void SetLookupExpressionColumnCallback(
-      const LookupExpressionColumnCallback& lookup_expression_column_callback) {
-    lookup_expression_column_callback_ = lookup_expression_column_callback;
-  }
 
+  void SetLookupExpressionColumnCallback(
+      const LookupExpressionColumnCallback& lookup_expression_column_callback);
+
+  ABSL_DEPRECATED("This function is going away. Please don't add new uses.")
   LookupExpressionColumnCallback lookup_expression_column_callback() const {
     return lookup_expression_column_callback_;
   }
@@ -335,7 +341,7 @@ class AnalyzerOptions {
   // Get the named expression columns added.
   // This will include the in-scope expression column if one was set.
   // This doesn't include the columns resolved using the
-  // 'lookup_expression_column_callback_' function.
+  // 'lookup_expression_callback_' function.
   const QueryParametersMap& expression_columns() const {
     return expression_columns_;
   }
@@ -432,6 +438,9 @@ class AnalyzerOptions {
   absl::string_view default_anon_function_report_format() const {
     return default_anon_function_report_format_;
   }
+
+  absl::Status set_default_anon_kappa_value(int64_t value);
+  int64_t default_anon_kappa_value() const { return default_anon_kappa_value_; }
 
   void set_statement_context(StatementContext context) {
     statement_context_ = context;
@@ -552,6 +561,9 @@ class AnalyzerOptions {
   }
 
  private:
+  // Defined in zetasql/common/internal_analyzer_options.h.
+  friend class InternalAnalyzerOptions;
+
   // ======================================================================
   // NOTE: Please update options.proto and AnalyzerOptions.java accordingly
   // when adding new fields here.
@@ -574,8 +586,11 @@ class AnalyzerOptions {
   // Maps system variables to their types.
   SystemVariablesMap system_variables_;
 
-  // Callback function to resolve columns in standalone expressions.
+  // TODO: Clean up the legacy callback once all getters are removed.
   LookupExpressionColumnCallback lookup_expression_column_callback_ = nullptr;
+
+  // Callback function to resolve columns in standalone expressions.
+  LookupExpressionCallback lookup_expression_callback_ = nullptr;
 
   // Defined positional parameters. Only used in positional parameter mode.
   // Index 0 corresponds with the query parameter at position 1 and so on.
@@ -620,6 +635,11 @@ class AnalyzerOptions {
   // allow a default report format to be used if the option is not provided.
   std::string default_anon_function_report_format_;
 
+  // Anonymized functions take an optional kappa value, and allow a default
+  // kappa value to be used if the option is not provided. If it is unset, we
+  // initialize it as 0, which is not a valid kappa.
+  int64_t default_anon_kappa_value_ = 0;
+
   // This identifies the ZetaSQL resolution context - whether we are in
   // a normal statement context or whether we are resolving statements
   // in a module.  See (broken link) for details.
@@ -660,6 +680,10 @@ class AnalyzerOptions {
   bool allow_undeclared_parameters_ = false;
 
   ParameterMode parameter_mode_ = PARAMETER_NAMED;
+
+  // This controls whether or not current resolved AST needs validation.
+  // It is initialized with <zetasql_validate_resolved_ast> global flag value.
+  bool validate_resolved_ast_ = false;
 
   // If true, columns that were never referenced in the query will be pruned
   // from column_lists of all ResolvedScans.  This allows using the column_list

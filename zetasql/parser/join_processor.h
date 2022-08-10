@@ -17,6 +17,8 @@
 #ifndef ZETASQL_PARSER_JOIN_PROCESSOR_H_
 #define ZETASQL_PARSER_JOIN_PROCESSOR_H_
 
+#include <string>
+
 #include "zetasql/parser/bison_parser.h"
 
 namespace zetasql {

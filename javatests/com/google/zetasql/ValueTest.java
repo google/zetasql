@@ -1049,6 +1049,56 @@ public class ValueTest {
   }
 
   @Test
+  public void testIntervalValueIsZero() {
+    assertThat(
+            IntervalValue.builder()
+                .setMonths(0)
+                .setDays(0)
+                .setMicros(0)
+                .setNanoFractions((short) 0)
+                .build()
+                .isZero())
+        .isTrue();
+
+    assertThat(
+            IntervalValue.builder()
+                .setMonths(1)
+                .setDays(0)
+                .setMicros(0)
+                .setNanoFractions((short) 0)
+                .build()
+                .isZero())
+        .isFalse();
+    assertThat(
+            IntervalValue.builder()
+                .setMonths(0)
+                .setDays(1)
+                .setMicros(0)
+                .setNanoFractions((short) 0)
+                .build()
+                .isZero())
+        .isFalse();
+    assertThat(
+            IntervalValue.builder()
+                .setMonths(0)
+                .setDays(0)
+                .setMicros(1)
+                .setNanoFractions((short) 0)
+                .build()
+                .isZero())
+        .isFalse();
+    assertThat(
+            IntervalValue.builder()
+                .setMonths(0)
+                .setDays(0)
+                .setMicros(0)
+                .setNanoFractions((short) 1)
+                .build()
+                .isZero())
+        .isFalse();
+  }
+
+  @Test
   public void testIntervalSerialize() {
     // TODO: Update the test to validate serialization round trip through cpp once we
     // support proper ValueToString for Intervals.
@@ -2509,7 +2559,7 @@ public class ValueTest {
             "The number of fields of ValueProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(ValueProto.getDescriptor().getFields())
-        .hasSize(23);
+    .hasSize(24);
     assertWithMessage(
             "The number of fields of ValueProto::Array has changed, "
                 + "please also update the serialization code accordingly.")

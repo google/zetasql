@@ -239,7 +239,7 @@ using single quotes and brackets.
     '{"class" : {"students" : [{"name" : "Jane"}]}}'
     ```
 
-    Extracts a SQL `NULL` when a JSON-formatted string "null" is encountered.
+    Extracts a SQL `NULL` when a JSON-formatted string `null` is encountered.
     For example:
 
     ```sql
@@ -257,25 +257,7 @@ using single quotes and brackets.
     SELECT JSON_EXTRACT(JSON 'null', "$") -- Returns a JSON 'null'
     ```
 +   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
-    you want to obtain from the input. If this optional parameter is not
-    provided, then the JSONPath `$` symbol is applied, which means that all of
-    the data is analyzed.
-
-    ```sql
-    SELECT JSON_EXTRACT('{"a":null}', "$.a"); -- Returns a SQL NULL
-    SELECT JSON_EXTRACT('{"a":null}', "$.b"); -- Returns a SQL NULL
-    ```
-
-    
-    ```sql
-    SELECT JSON_EXTRACT(JSON '{"a":null}', "$.a"); -- Returns a JSON 'null'
-    SELECT JSON_EXTRACT(JSON '{"a":null}', "$.b"); -- Returns a SQL NULL
-    ```
-    
-
-If you want to include non-scalar values such as arrays in the extraction, then
-use `JSON_EXTRACT`. If you only want to extract scalar values such strings,
-numbers, and booleans, then use `JSON_EXTRACT_SCALAR`.
+    you want to obtain from the input.
 
 **Return type**
 
@@ -371,6 +353,16 @@ FROM UNNEST([
 +------------------------------------+
 ```
 
+```sql
+SELECT JSON_EXTRACT('{"a":null}', "$.a"); -- Returns a SQL NULL
+SELECT JSON_EXTRACT('{"a":null}', "$.b"); -- Returns a SQL NULL
+```
+
+```sql
+SELECT JSON_EXTRACT(JSON '{"a":null}', "$.a"); -- Returns a JSON 'null'
+SELECT JSON_EXTRACT(JSON '{"a":null}', "$.b"); -- Returns a SQL NULL
+```
+
 ### JSON_QUERY
 
 ```sql
@@ -394,7 +386,7 @@ using double quotes.
     '{"class" : {"students" : [{"name" : "Jane"}]}}'
     ```
 
-    Extracts a SQL `NULL` when a JSON-formatted string "null" is encountered.
+    Extracts a SQL `NULL` when a JSON-formatted string `null` is encountered.
     For example:
 
     ```sql
@@ -412,25 +404,7 @@ using double quotes.
     SELECT JSON_QUERY(JSON 'null', "$") -- Returns a JSON 'null'
     ```
 +   `json_path`: The [JSONPath][JSONPath-format]. This identifies the data that
-    you want to obtain from the input. If this optional parameter is not
-    provided, then the JSONPath `$` symbol is applied, which means that all of
-    the data is analyzed.
-
-    ```sql
-    SELECT JSON_QUERY('{"a":null}', "$.a"); -- Returns a SQL NULL
-    SELECT JSON_QUERY('{"a":null}', "$.b"); -- Returns a SQL NULL
-    ```
-
-    
-    ```sql
-    SELECT JSON_QUERY(JSON '{"a":null}', "$.a"); -- Returns a JSON 'null'
-    SELECT JSON_QUERY(JSON '{"a":null}', "$.b"); -- Returns a SQL NULL
-    ```
-    
-
-If you want to include non-scalar values such as arrays in the extraction, then
-use `JSON_QUERY`. If you only want to extract scalar values such strings,
-numbers, and booleans, then use `JSON_VALUE`.
+    you want to obtain from the input.
 
 **Return type**
 
@@ -526,6 +500,16 @@ FROM UNNEST([
 +------------------------------------+
 ```
 
+```sql
+SELECT JSON_QUERY('{"a":null}', "$.a"); -- Returns a SQL NULL
+SELECT JSON_QUERY('{"a":null}', "$.b"); -- Returns a SQL NULL
+```
+
+```sql
+SELECT JSON_QUERY(JSON '{"a":null}', "$.a"); -- Returns a JSON 'null'
+SELECT JSON_QUERY(JSON '{"a":null}', "$.b"); -- Returns a SQL NULL
+```
+
 ### JSON_EXTRACT_SCALAR
 
 Note: This function is deprecated. Consider using [JSON_VALUE][json-value].
@@ -563,13 +547,7 @@ using single quotes and brackets.
 
     If `json_path` returns a JSON `null` or a non-scalar value (in other words,
     if `json_path` refers to an object or an array), then a SQL `NULL` is
-    returned. If this optional parameter is not provided, then the JSONPath `$`
-    symbol is applied, which means that the entire JSON-formatted string is
-    analyzed.
-
-If you only want to extract scalar values such strings, numbers, and booleans,
-then use `JSON_EXTRACT_SCALAR`. If you want to include non-scalar values such as
-arrays in the extraction, then use `JSON_EXTRACT`.
+    returned.
 
 **Return type**
 
@@ -664,13 +642,7 @@ using double quotes.
 
     If `json_path` returns a JSON `null` or a non-scalar value (in other words,
     if `json_path` refers to an object or an array), then a SQL `NULL` is
-    returned. If this optional parameter is not provided, then the JSONPath `$`
-    symbol is applied, which means that the entire JSON-formatted string is
-    analyzed.
-
-If you only want to extract scalar values such strings, numbers, and booleans,
-then use `JSON_VALUE`. If you want to include non-scalar values such as arrays
-in the extraction, then use `JSON_QUERY`.
+    returned.
 
 **Return type**
 
@@ -928,9 +900,9 @@ JSON_VALUE_ARRAY(json_expr[, json_path])
 **Description**
 
 Extracts an array of scalar values and returns an array of string-formatted
-scalar values. A scalar value can represent a string, number, or boolean. If a
-JSON key uses invalid [JSONPath][JSONPath-format] characters, you can escape
-those characters using double quotes.
+scalar values. A scalar value can represent a string, number, or boolean.
+If a JSON key uses invalid [JSONPath][JSONPath-format] characters, you can
+escape those characters using double quotes.
 
 +   `json_string_expr`: A JSON-formatted string. For example:
 
@@ -946,6 +918,13 @@ those characters using double quotes.
     you want to obtain from the input. If this optional parameter is not
     provided, then the JSONPath `$` symbol is applied, which means that all of
     the data is analyzed.
+
+Caveats:
+
++ A JSON `null` in the input array produces a SQL `NULL` as the output for that
+  JSON `null`.
++ If a JSONPath matches an array that contains scalar objects and a JSON `null`,
+  then the output is an array of the scalar objects and a SQL `NULL`.
 
 **Return type**
 
@@ -1109,8 +1088,8 @@ SELECT JSON_VALUE_ARRAY('{"a":"foo","b":[]}','$.b') AS result;
 | []     |
 +--------+
 
--- If a JSONPath matches an array that contains scalar objects and a JSON null,
--- then the output is an array of the scalar objects and a SQL NULL.
+-- In the following query, the JSON null input is returned as a
+-- SQL NULL in the output.
 SELECT JSON_VALUE_ARRAY('["world", null, 1]') AS result;
 
 +------------------+
@@ -1124,7 +1103,7 @@ SELECT JSON_VALUE_ARRAY('["world", null, 1]') AS result;
 ### PARSE_JSON
 
 ```sql
-PARSE_JSON(json_string_expr[, wide_number_mode=>{ 'exact' | 'round' } ])
+PARSE_JSON(json_string_expr[, wide_number_mode=>{ 'exact' | 'round' }])
 ```
 
 **Description**
@@ -1199,7 +1178,7 @@ SELECT PARSE_JSON('{"id":922337203685477580701}', wide_number_mode=>'round') AS 
 ### TO_JSON
 
 ```sql
-TO_JSON(sql_value[, stringify_wide_numbers=>{ TRUE | FALSE } ])
+TO_JSON(sql_value[, stringify_wide_numbers=>{ TRUE | FALSE }])
 ```
 
 **Description**
@@ -1573,7 +1552,7 @@ SELECT SAFE.INT64(JSON '"strawberry"') AS result;  -- Returns a SQL NULL
 <a id="double_for_json"></a>
 
 ```sql
-DOUBLE(json_expr[, wide_number_mode=>{ 'exact' | 'round'])
+DOUBLE(json_expr[, wide_number_mode=>{ 'exact' | 'round' }])
 ```
 
 **Description**
@@ -2174,41 +2153,95 @@ or `TO_JSON` function.
   </tbody>
 </table>
 
-### JSONPath 
+### JSONPath format 
 <a id="JSONPath_format"></a>
 
-Most JSON functions pass in a `json_string_expr` and `json_path`
-parameter. The `json_string_expr` parameter passes in a JSON-formatted
-string, and the `json_path` parameter identifies the value or
-values you want to obtain from the JSON-formatted string.
+With the JSONPath format, you can identify the values you want to
+obtain from a JSON-formatted string. The JSONPath format supports these
+operators:
 
-The `json_string_expr` parameter must be a JSON string that is
-formatted like this:
+<table>
+  <thead>
+    <tr>
+      <th>Operator</th>
+      <th width='300px'>Description</th>
+      <th>Examples</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>$</code></td>
+      <td>
+        Root object or element. The JSONPath format must start with this
+        operator, which refers to the outermost level of the
+        JSON-formatted string.
+      </td>
+      <td>
+        <p>
+          JSON-formatted string:<br />
+          <code>'{"class" : {"students" : [{"name" : "Jane"}]}}'</code>
+        </p>
+        <p>
+          JSON path:<br />
+          <code>"$"</code>
+        </p>
+        <p>
+          JSON result:<br />
+          <code>{"class":{"students":[{"name":"Jane"}]}}</code><br />
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>.</code></td>
+      <td>
+        Child operator. You can identify child values using dot-notation.
+      </td>
+      <td>
+        <p>
+          JSON-formatted string:<br />
+          <code>'{"class" : {"students" : [{"name" : "Jane"}]}}'</code>
+        </p>
+        <p>
+          JSON path:<br />
+          <code>"$.class.students"</code>
+        </p>
+        <p>
+          JSON result:<br />
+          <code>[{"name":"Jane"}]</code>
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>[]</code></td>
+      <td>
+        Subscript operator. If the JSON object is an array, you can use
+        brackets to specify the array index.
+      </td>
+      <td>
+        <p>
+          JSON-formatted string:<br />
+          <code>'{"class" : {"students" : [{"name" : "Jane"}]}}'</code>
+        </p>
+        <p>
+          JSON path:<br />
+          <code>"$.class.students[0]"</code>
+        </p>
+        <p>
+          JSON result:<br />
+          <code>{"name":"Jane"}</code>
+        </p>
+      </td>
+    </tr>
+  </tbody>
+</table>
 
-```json
-'{"class" : {"students" : [{"name" : "Jane"}]}}'
-```
+If a key in a JSON functions contains a JSON format operator, refer to each
+JSON function for how to escape them.
 
-You construct the `json_path` parameter using the
-[JSONPath][json-path] format. As part of this format, this parameter must start
-with a `$` symbol, which refers to the outermost level of the JSON-formatted
-string. You can identify child values using dots. If the JSON object is an
-array, you can use brackets to specify the array index. If the keys contain
-`$`, dots, or brackets, refer to each JSON function for how to escape
-them.
-
-JSONPath | Description            | Example               | Result using the above `json_string_expr`
--------- | ---------------------- | --------------------- | -----------------------------------------
-$        | Root object or element | "$"                   | `{"class":{"students":[{"name":"Jane"}]}}`
-.        | Child operator         | "$.class.students"    | `[{"name":"Jane"}]`
-[]       | Subscript operator     | "$.class.students[0]" | `{"name":"Jane"}`
-
-A JSON functions returns `NULL` if the `json_path` parameter does
-not match a value in `json_string_expr`. If the selected value for a scalar
-function is not scalar, such as an object or an array, the function
-returns `NULL`.
-
-If the JSONPath is invalid, the function raises an error.
+A JSON function returns `NULL` if the JSONPath format does not match a value in
+a JSON-formatted string. If the selected value for a scalar function is not
+scalar, such as an object or an array, the function returns `NULL`. If the
+JSONPath format is invalid, an error is produced.
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -2223,8 +2256,6 @@ If the JSONPath is invalid, the function raises an error.
 [json-encodings]: #json_encodings
 
 [JSONPath-format]: #JSONPath_format
-
-[json-path]: https://github.com/json-path/JSONPath#operators
 
 <!-- mdlint on -->
 

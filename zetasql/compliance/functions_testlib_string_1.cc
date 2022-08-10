@@ -25,15 +25,12 @@
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/test_value.h"
 #include "zetasql/testing/using_test_value.cc"  // NOLINT
-#include <cstdint>
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
 namespace {
-constexpr absl::StatusCode INVALID_ARGUMENT =
-    absl::StatusCode::kInvalidArgument;
 constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 }  // namespace
 
@@ -221,8 +218,17 @@ std::vector<FunctionTestCall> GetFunctionTestsSoundex() {
       {"soundex", {"Aгдaгдlдl"}, "A400"}};
 
   // Test every character to make sure all non-alpha character is invalid.
-  for (int c = 0; c < 256; ++c) {
-    std::string single_char = std::string(1, static_cast<char>(c));
+  absl::flat_hash_set<char> re_special_chars({'[', ']', '(', ')', '{', '}', '.',
+                                              '*', '+', '^', '$', '\\', '?',
+                                              '|', '"'});
+  for (int i = 0; i < 256; ++i) {
+    char c = static_cast<char>(i);
+    if (re_special_chars.contains(c)) {
+      // TODO: Re-enable once special chars are differentiated in
+      //     Generated tests names.
+      continue;
+    }
+    std::string single_char = std::string(1, c);
     results.push_back(
         {"soundex",
          {single_char},

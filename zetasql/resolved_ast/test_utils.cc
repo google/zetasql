@@ -16,6 +16,8 @@
 
 #include "zetasql/resolved_ast/test_utils.h"
 
+#include <utility>
+
 #include "zetasql/base/logging.h"
 #include "zetasql/resolved_ast/make_node_vector.h"
 

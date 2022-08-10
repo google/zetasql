@@ -269,3 +269,12 @@ END;
 ERROR: Parameterized types are not supported in function arguments [at 1:51]
 CREATE PROCEDURE procedure_name(OUT param_a string(10))
                                                   ^
+==
+
+# Non SQL procedure is not enabled.
+CREATE PROCEDURE procedure_name()
+LANGUAGE python;
+--
+ERROR: LANGUAGE is not supported [at 2:1]
+LANGUAGE python;
+^

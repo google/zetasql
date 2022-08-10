@@ -27,3 +27,16 @@ build:clang --cxxopt=-Wno-range-loop-analysis
 build:clang --cxxopt=-Wno-inconsistent-missing-override
 build:clang --cxxopt=-Wno-char-subscripts
 build:clang --cxxopt=-Wno-enum-compare-switch
+build:clang --cxxopt=-Wno-deprecated-declarations
+
+# By default, we don't suppress any warnings, to get g++-specific warning
+# suppression you can invoke with --config=g++
+build:g++ --cxxopt=-Wno-sign-compare
+build:g++ --cxxopt=-Wno-switch
+build:g++ --cxxopt=-Wno-unused-function
+build:g++ --cxxopt=-Wno-unused-but-set-parameter
+build:g++ --cxxopt=-Wno-char-subscripts
+build:g++ --cxxopt=-Wno-nonnull-compare
+build:g++ --cxxopt=-Wno-return-type
+build:g++ --cxxopt=-Wno-class-memaccess
+build:g++ --cxxopt=-Wno-deprecated-declarations

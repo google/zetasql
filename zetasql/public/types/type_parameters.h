@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -89,11 +90,11 @@ class TypeParameters {
 
   // Returns whether <type> matches this type parameter instance.
   // For example, StringTypeParameters only matches STRING and BYTES type. For
-  // STRUCT/ARRAY types, this function recursively checks if the subfields match
-  // the corresponding type parameters. Note: a TypeParameters object with one
-  // child can be applicable to both ARRAY and STRUCT types if the STRUCT type
-  // has a single field. An empty TypeParameters object matches any <type> and
-  // always returns true.
+  // STRUCT/ARRAY/RANGE types, this function recursively checks if the subfields
+  // match the corresponding type parameters. Note: a TypeParameters object with
+  // one child can be applicable to ARRAY or RANGE types, or single-field STRUCT
+  // type. An empty TypeParameters object matches any <type> and always returns
+  // true.
   bool MatchType(const Type* type) const;
 
   // Returns true if type parameter is empty and has no children. Empty type
@@ -115,10 +116,6 @@ class TypeParameters {
     return std::holds_alternative<ExtendedTypeParameters>(
         type_parameters_holder_);
   }
-  // Returns true if this contains parameters for child types of a complex type
-  // (STRUCT or ARRAY).
-  bool IsStructOrArrayParameters() const { return !child_list().empty(); }
-
   const StringTypeParametersProto& string_type_parameters() const {
     ZETASQL_CHECK(IsStringTypeParameters()) << "Not STRING type parameters";
     return std::get<StringTypeParametersProto>(type_parameters_holder_);
@@ -132,8 +129,8 @@ class TypeParameters {
     return std::get<ExtendedTypeParameters>(type_parameters_holder_);
   }
 
-  // Returns type parameters for subfields for ARRAY/STRUCT types
-  // For ARRAY:
+  // Returns type parameters for subfields for ARRAY/STRUCT/RANGE types
+  // For ARRAY and RANGE:
   //   If the element or its subfield has type parameters, then
   //   child_list.size() is 1, and child_list(0) is the element type parameters.
   //   Otherwise child_list is empty.
@@ -151,8 +148,8 @@ class TypeParameters {
   uint64_t num_children() const { return child_list_.size(); }
 
   // Sets the child_list of a TypeParameters object to <child_list>, creating an
-  // Array or Struct TypeParameters object. This function should only be used
-  // with an empty TypeParameters object.
+  // Array, Struct, or Range TypeParameters object. This function should only be
+  // used with an empty TypeParameters object.
   void set_child_list(std::vector<TypeParameters> child_list);
 
   absl::Status Serialize(TypeParametersProto* proto) const;
@@ -174,7 +171,7 @@ class TypeParameters {
   std::variant<std::monostate, StringTypeParametersProto,
                NumericTypeParametersProto, ExtendedTypeParameters>
       type_parameters_holder_;
-  // Stores type parameters for subfields for ARRAY/STRUCT types
+  // Stores type parameters for subfields for ARRAY, STRUCT, or RANGE types
   std::vector<TypeParameters> child_list_;
 };
 

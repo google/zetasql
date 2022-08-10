@@ -73,7 +73,7 @@ constexpr int GetNullLiteralCoercionCost() {
 SuperTypesMap* CreateBuiltinSuperTypesMap() {
   auto* map = new SuperTypesMap;
 
-  for (const auto [cast_pair, cast_function_property] :
+  for (const auto& [cast_pair, cast_function_property] :
        internal::GetZetaSQLCasts()) {
     const auto [src_type_kind, dst_type_kind] = cast_pair;
 

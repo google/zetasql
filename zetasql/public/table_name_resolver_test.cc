@@ -14,6 +14,8 @@
 // limitations under the License.
 //
 
+#include <string>
+
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer.h"

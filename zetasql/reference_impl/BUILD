@@ -172,9 +172,11 @@ cc_library(
         "@com_google_googleapis//google/type:latlng_cc_proto",
         "@com_google_googleapis//google/type:timeofday_cc_proto",
         # buildcleaner: keep
+        "//zetasql/public:anonymization_utils",
         "//zetasql/common:errors",
         "//zetasql/common:initialize_required_fields",
         "//zetasql/common:internal_value",
+        "//zetasql/proto:anon_output_with_report_cc_proto",
         "//zetasql/public/types",
         "//zetasql/public:catalog",
         "//zetasql/public:civil_time",
@@ -234,6 +236,8 @@ cc_library(
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
         "@com_google_absl//absl/types:variant",
+        "@com_google_differential_privacy//proto:confidence_interval_cc_proto",
+        "@com_google_differential_privacy//proto:data_cc_proto",
         "@com_google_cc_differential_privacy//algorithms:algorithm",
         "@com_google_cc_differential_privacy//algorithms:bounded-sum",
         "@com_google_cc_differential_privacy//algorithms:bounded-mean",
@@ -398,27 +402,28 @@ cc_library(
         ":statement_evaluator",
         ":type_helpers",
         "//zetasql/base",
-        "//zetasql/base:path",
         "//zetasql/base:ret_check",
-        "//zetasql/base:source_location",
         "//zetasql/base:status",
         "//zetasql/common:evaluator_registration_utils",
         "//zetasql/common:status_payload_utils",
         "//zetasql/common/testing:testing_proto_util",
+        "//zetasql/compliance:test_database_catalog",
         "//zetasql/compliance:test_driver",
         "//zetasql/compliance:test_util",
         "//zetasql/public:analyzer",
+        "//zetasql/public:analyzer_output",
         "//zetasql/public:language_options",
         "//zetasql/public:multi_catalog",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:parse_location",
         "//zetasql/public:simple_catalog",
+        "//zetasql/public:simple_catalog_util",
+        "//zetasql/public:sql_function",
         "//zetasql/public:type",
         "//zetasql/public:value",
         "//zetasql/public/annotation:collation",
         "//zetasql/public/functions:date_time_util",
         "//zetasql/public/types",
-        "//zetasql/reference_impl/functions:register_all",
         "//zetasql/resolved_ast",
         "//zetasql/resolved_ast:resolved_ast_enums_cc_proto",
         "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
@@ -429,7 +434,6 @@ cc_library(
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/flags:flag",
-        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
@@ -456,6 +460,47 @@ cc_library(
 zetasql_compliance_test(
     name = "reference_compliance_test",
     size = "large",
+    known_error_files = [
+        ":reference_impl_known_errors.textproto",
+        "//zetasql/compliance/known_errors:reference_impl_known_errors.textproto",
+        "//zetasql/compliance/known_errors:zetasql_known_errors.textproto",
+    ],
+    shard_count = 30,
+    deps = [
+        ":reference_driver",
+        # buildcleaner: keep
+        ":use_reference_driver_for_compliance_test",
+    ],
+)
+
+zetasql_compliance_test(
+    name = "reference_compliance_test_minimal_rewrites",
+    size = "large",
+    args = ["--rewrites=minimal"],
+    known_error_files = [
+        ":reference_impl_known_errors.textproto",
+        "//zetasql/compliance/known_errors:reference_impl_known_errors.textproto",
+        "//zetasql/compliance/known_errors:zetasql_known_errors.textproto",
+    ],
+    shard_count = 30,
+    deps = [
+        ":reference_driver",
+        # buildcleaner: keep
+        ":use_reference_driver_for_compliance_test",
+    ],
+)
+
+zetasql_compliance_test(
+    name = "reference_compliance_test_all_rewrites",
+    size = "large",
+    args = [
+        "--rewrites=all",
+        # Four files contain tests that do not work pass all rewrites enabled.
+        # Do not add to this list. Write compliance tests that work with all
+        # rewriters enabled.
+        # TODO: Remove these files
+        "--query_name_pattern='^(?!(pivot_test|unpivot_test|anonymization_test|anonymization_errors_test)).*$$'",
+    ],
     known_error_files = [
         ":reference_impl_known_errors.textproto",
         "//zetasql/compliance/known_errors:reference_impl_known_errors.textproto",
@@ -722,6 +767,7 @@ cc_library(
     srcs = ["rewrite_flags.cc"],
     hdrs = ["rewrite_flags.h"],
     deps = [
+        "//zetasql/common:options_utils",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:options_cc_proto",
         "@com_google_absl//absl/container:btree",

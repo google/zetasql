@@ -304,7 +304,7 @@ class EvaluationContext {
   bool last_get_field_value_call_read_fields_from_proto(
       const ProtoFieldReader* reader) const {
     return zetasql_base::FindWithDefault(
-        last_get_field_value_call_read_fields_from_proto_map_, reader, false);
+        last_get_field_value_call_read_fields_from_proto_map_, reader);
   }
 
   void set_last_get_field_value_call_read_fields_from_proto(

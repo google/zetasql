@@ -75,6 +75,8 @@ message StringTypeParametersProto {
 
 // Type parameters for NUMERIC and BIGNUMERIC type.
 message NumericTypeParametersProto {
+  // Engine specific extensions.
+  extensions 1000 to 2000;
   oneof precision_param {
     // Precision is the number of total digits (base 10).
     // For NUMERIC, max(1, scale) <= precision <= (29 + scale).
@@ -99,14 +101,6 @@ message NumericTypeParametersProto {
   // For NUMERIC, 0 <= scale <= 9
   // For BIGNUMERIC, 0 <= scale <= 38
   optional int64 scale = 3;
-
-  // Whether half-even rounding mode is enabled.
-  // If true, scale and precision are limited as follows:
-  // For NUMERIC, 0 <= scale <= 8
-  // For BIGNUMERIC, 0 <= scale <= 37
-  // For NUMERIC, max(1, scale) <= precision <= (28 + scale).
-  // For BIGNUMERIC, max(1, scale) <= precision <= (37 + scale) or MAX.
-  optional bool round_half_even = 4;
 }
 
 // Type parameters for engine-defined types.

@@ -50,11 +50,28 @@ absl::StatusOr<bool> IsConstantExpression(const ResolvedExpr* expr) {
       // These can't contain ColumnRefs and are constant for this query.
       return true;
 
+      // These are always treated as non-constant expressions.
     case RESOLVED_COLUMN_REF:
     case RESOLVED_AGGREGATE_FUNCTION_CALL:
     case RESOLVED_ANALYTIC_FUNCTION_CALL:
+
+      // Subqueries are considered non-constant because they may involve
+      // iteration over tables. We could make subqueries constant if they have
+      // no table scans, but it's not implemented.
     case RESOLVED_SUBQUERY_EXPR:
-      // These are always treated as non-constant expressions.
+
+      // ResolvedWithExpr/WITH() is treated as non-const.
+      //
+      // Some parts of ZetaSQL, notably certain rewriters (e.g. PIVOT) have
+      // come to view constness as implying that new column ids are not
+      // introduced in an expression. They assume that subtrees that are const
+      // can be cloned without causing column id collisions, which is not the
+      // case for a let expression. Without fixing this, we cannot be smarter
+      // about interpreting the constness of let expressions.
+      //
+      // For subqueries and let expressions, there may be other reasons why
+      // these are treated as non-const, but we don't know what they are if so.
+    case RESOLVED_WITH_EXPR:
       return false;
 
     case RESOLVED_FUNCTION_CALL: {
@@ -179,24 +196,6 @@ absl::StatusOr<bool> IsConstantExpression(const ResolvedExpr* expr) {
       return true;
     }
 
-    case RESOLVED_LET_EXPR: {
-      const auto* let_expr = expr->GetAs<ResolvedLetExpr>();
-      ZETASQL_ASSIGN_OR_RETURN(bool expr_is_constant_expr,
-                       IsConstantExpression(let_expr->expr()));
-      if (!expr_is_constant_expr) {
-        return false;
-      }
-      for (int i = 0; i < let_expr->assignment_list_size(); ++i) {
-        ZETASQL_ASSIGN_OR_RETURN(
-            bool assignment_is_constant_expr,
-            IsConstantExpression(let_expr->assignment_list(i)->expr()));
-        if (!assignment_is_constant_expr) {
-          return false;
-        }
-      }
-      return true;
-    }
-
     default:
       // Update the static_assert above if adding or removing cases in
       // this switch.
@@ -209,12 +208,13 @@ absl::StatusOr<bool> IsConstantExpression(const ResolvedExpr* expr) {
 
 ExprResolutionInfo::ExprResolutionInfo(
     const NameScope* name_scope_in, const NameScope* aggregate_name_scope_in,
-    bool allows_aggregation_in, bool allows_analytic_in,
-    bool use_post_grouping_columns_in, const char* clause_name_in,
-    QueryResolutionInfo* query_resolution_info_in,
+    const NameScope* analytic_name_scope_in, bool allows_aggregation_in,
+    bool allows_analytic_in, bool use_post_grouping_columns_in,
+    const char* clause_name_in, QueryResolutionInfo* query_resolution_info_in,
     const ASTExpression* top_level_ast_expr_in, IdString column_alias_in)
     : name_scope(name_scope_in),
       aggregate_name_scope(aggregate_name_scope_in),
+      analytic_name_scope(analytic_name_scope_in),
       allows_aggregation(allows_aggregation_in),
       allows_analytic(allows_analytic_in),
       clause_name(clause_name_in),
@@ -228,22 +228,22 @@ ExprResolutionInfo::ExprResolutionInfo(
     QueryResolutionInfo* query_resolution_info_in,
     const ASTExpression* top_level_ast_expr_in, IdString column_alias_in)
     : ExprResolutionInfo(
-          name_scope_in, name_scope_in, true /* allows_aggregation */,
-          true /* allows_analytic */, false /* use_post_grouping_columns */,
-          "" /* clause_name */, query_resolution_info_in, top_level_ast_expr_in,
-          column_alias_in) {}
+          name_scope_in, name_scope_in, name_scope_in,
+          true /* allows_aggregation */, true /* allows_analytic */,
+          false /* use_post_grouping_columns */, "" /* clause_name */,
+          query_resolution_info_in, top_level_ast_expr_in, column_alias_in) {}
 
-ExprResolutionInfo::ExprResolutionInfo(
-    const NameScope* name_scope_in,
-    const char* clause_name_in)
-    : ExprResolutionInfo(
-          name_scope_in, name_scope_in,
-          false /* allows_aggregation */, false /* allows_analytic */,
-          false /* use_post_grouping_columns */,
-          clause_name_in, nullptr /* query_resolution_info */) {}
+ExprResolutionInfo::ExprResolutionInfo(const NameScope* name_scope_in,
+                                       const char* clause_name_in)
+    : ExprResolutionInfo(name_scope_in, name_scope_in, name_scope_in,
+                         false /* allows_aggregation */,
+                         false /* allows_analytic */,
+                         false /* use_post_grouping_columns */, clause_name_in,
+                         nullptr /* query_resolution_info */) {}
 
 ExprResolutionInfo::ExprResolutionInfo(ExprResolutionInfo* parent)
     : ExprResolutionInfo(parent->name_scope, parent->aggregate_name_scope,
+                         parent->analytic_name_scope,
                          parent->allows_aggregation, parent->allows_analytic,
                          parent->use_post_grouping_columns, parent->clause_name,
                          parent->query_resolution_info,
@@ -257,6 +257,7 @@ ExprResolutionInfo::ExprResolutionInfo(ExprResolutionInfo* parent,
                                        const char* clause_name_in,
                                        bool allows_analytic_in)
     : ExprResolutionInfo(name_scope_in, parent->aggregate_name_scope,
+                         parent->analytic_name_scope,
                          parent->allows_aggregation, allows_analytic_in,
                          parent->use_post_grouping_columns, clause_name_in,
                          parent->query_resolution_info,

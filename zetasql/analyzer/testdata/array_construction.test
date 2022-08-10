@@ -242,9 +242,9 @@ select ARRAY<uint64>[cast(1 as int64)]
 
 select ARRAY<uint64>[cast(9223372036854775808 /* INT64_MAX + 1 */ as int64)]
 --
-ERROR: Could not cast literal 9223372036854775808 to type INT64 [at 1:27]
+ERROR: Array element type INT64 does not coerce to UINT64 [at 1:22]
 select ARRAY<uint64>[cast(9223372036854775808 /* INT64_MAX + 1 */ as int64)]
-                          ^
+                     ^
 ==
 
 select [1, sqrt(1.5), 1 + 1.5]

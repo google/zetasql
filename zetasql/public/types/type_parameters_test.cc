@@ -16,7 +16,10 @@
 
 #include "zetasql/public/types/type_parameters.h"
 
+#include <string>
+
 #include "google/protobuf/descriptor.h"
+#include "zetasql/public/functions/rounding_mode.pb.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/type_parameters.pb.h"
 #include "zetasql/public/types/type_factory.h"
@@ -109,7 +112,7 @@ TEST(TypeParameters, TypeParametersWithChildList) {
   TypeParameters struct_type_param =
       TypeParameters::MakeTypeParametersWithChildList(child_list);
   EXPECT_EQ(struct_type_param.num_children(), 3);
-  EXPECT_TRUE(struct_type_param.IsStructOrArrayParameters());
+  EXPECT_FALSE(struct_type_param.child_list().empty());
   EXPECT_FALSE(struct_type_param.IsEmpty());
   EXPECT_TRUE(struct_type_param.child(0).IsEmpty());
   EXPECT_EQ(struct_type_param.child(1).string_type_parameters().max_length(),
@@ -144,7 +147,7 @@ TEST(TypeParameters, TypeParametersWithSetChildList) {
   EXPECT_TRUE(params.IsEmpty());
   params.set_child_list(child_list);
   EXPECT_FALSE(params.IsEmpty());
-  EXPECT_TRUE(params.IsStructOrArrayParameters());
+  EXPECT_FALSE(params.child_list().empty());
   EXPECT_EQ(params.num_children(), 3);
   EXPECT_EQ(params.child(1).string_type_parameters().max_length(), 10);
   EXPECT_EQ(params.child(2).numeric_type_parameters().precision(), 10);
@@ -166,7 +169,7 @@ TEST(TypeParameters, ExtendedTypeParametersWithChildList) {
   TypeParameters extended_type_with_children =
       TypeParameters::MakeExtendedTypeParameters(
           ExtendedTypeParameters(parameters), child_list);
-  EXPECT_TRUE(extended_type_with_children.IsStructOrArrayParameters());
+  EXPECT_FALSE(extended_type_with_children.child_list().empty());
   EXPECT_EQ(extended_type_with_children.num_children(), 1);
   EXPECT_FALSE(extended_type_with_children.IsEmpty());
   EXPECT_EQ(extended_type_with_children.child(0)
@@ -426,15 +429,18 @@ TEST(TypeParameters, MatchNonParameterizedType) {
   TypeFactory type_factory;
   const Type* struct_type;
   const Type* array_type;
+  const Type* range_type;
   ZETASQL_ASSERT_OK(type_factory.MakeStructType({{"int64", type_factory.get_int64()}},
                                         &struct_type));
   ZETASQL_ASSERT_OK(
       type_factory.MakeArrayType(type_factory.get_string(), &array_type));
+  ZETASQL_ASSERT_OK(type_factory.MakeRangeType(type_factory.get_date(), &range_type));
   TypeParameters empty_type_param = TypeParameters();
   EXPECT_TRUE(empty_type_param.MatchType(type_factory.get_bool()));
   EXPECT_TRUE(empty_type_param.MatchType(type_factory.get_bignumeric()));
   EXPECT_TRUE(empty_type_param.MatchType(struct_type));
   EXPECT_TRUE(empty_type_param.MatchType(array_type));
+  EXPECT_TRUE(empty_type_param.MatchType(range_type));
 }
 
 // TypeParameters with child_list matches ARRAY type.

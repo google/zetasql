@@ -23,9 +23,11 @@
 
 #include "zetasql/base/logging.h"
 #include "google/protobuf/util/message_differencer.h"
+#include "zetasql/public/functions/rounding_mode.pb.h"
 #include "zetasql/public/simple_value.pb.h"
 #include "zetasql/public/type_parameters.pb.h"
 #include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/range_type.h"
 #include "zetasql/public/types/simple_value.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
@@ -59,7 +61,7 @@ std::string NumericTypeParametersDebugString(
   return absl::Substitute("(precision=$0,scale=$1)", precision, scale);
 }
 
-std::string ArrayOrStructTypeParametersDebugString(
+std::string ChildTypeParametersDebugString(
     const std::vector<TypeParameters>& child_list) {
   return absl::StrCat(
       "[",
@@ -86,9 +88,9 @@ std::string TypeParameters::DebugString() const {
     absl::StrAppend(&debug_string, extended_type_parameters().DebugString());
   }
   if (!child_list().empty()) {
-    // STRUCT or ARRAY type whose subfields has parameters.
+    // STRUCT, ARRAY, RANGE type whose subfields has parameters.
     absl::StrAppend(&debug_string,
-                    ArrayOrStructTypeParametersDebugString(child_list()));
+                    ChildTypeParametersDebugString(child_list()));
   }
   if (!debug_string.empty()) {
     return debug_string;
@@ -208,8 +210,8 @@ absl::StatusOr<TypeParameters> TypeParameters::Deserialize(
     return TypeParameters::MakeNumericTypeParameters(
         proto.numeric_type_parameters());
   }
-  // STRUCT or ARRAY or ExtendedType can have empty child_list if sub-fields
-  // don't have any type parameters.
+  // STRUCT, ARRAY, RANGE, or ExtendedType can have empty child_list if
+  // sub-fields don't have any type parameters.
   std::vector<TypeParameters> child_list;
   child_list.reserve(proto.child_list_size());
   for (const TypeParametersProto& child_proto : proto.child_list()) {
@@ -271,7 +273,7 @@ bool TypeParameters::MatchType(const Type* type) const {
     // extended parameters (and child_list) together match the type.
     return type->IsExtendedType();
   }
-  if (IsStructOrArrayParameters()) {
+  if (!child_list().empty()) {
     if (type->IsStruct()) {
       const StructType* struct_type = type->AsStruct();
       if (struct_type->num_fields() != num_children()) {
@@ -289,6 +291,12 @@ bool TypeParameters::MatchType(const Type* type) const {
         return false;
       }
       return child(0).MatchType(type->AsArray()->element_type());
+    }
+    if (type->IsRange()) {
+      if (num_children() != 1) {
+        return false;
+      }
+      return child(0).MatchType(type->AsRange()->element_type());
     }
   }
   return false;

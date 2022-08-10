@@ -1,0 +1,459 @@
+[default enabled_ast_rewrites=DEFAULTS]
+[default language_features=V_1_2_SAFE_FUNCTION_CALL]
+
+SELECT ARRAY_FIRST(NULL)
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:array_first(ARRAY<INT64>) -> INT64)
+    |     +-Literal(type=ARRAY<INT64>, value=NULL)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=INT64
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#3]
+    |         +-expr_list=
+    |         | +-$col1#3 :=
+    |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(2) BOOL, repeated(2) INT64, INT64) -> INT64)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.input#2)
+    |         |     +-Literal(type=INT64, value=NULL)
+    |         |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |     | +-FunctionCall(ZetaSQL:array_length(ARRAY<INT64>) -> INT64)
+    |         |     | | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.input#2)
+    |         |     | +-Literal(type=INT64, value=0)
+    |         |     +-FunctionCall(ZetaSQL:error(STRING) -> INT64)
+    |         |     | +-Literal(type=STRING, value="ARRAY_FIRST cannot get the first element of an empty array")
+    |         |     +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<INT64>, INT64) -> INT64)
+    |         |       +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.input#2)
+    |         |       +-Literal(type=INT64, value=0)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$subquery1.input#2]
+    |             +-expr_list=
+    |             | +-input#2 := Literal(type=ARRAY<INT64>, value=NULL)
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT ARRAY_FIRST([])
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:array_first(ARRAY<INT64>) -> INT64)
+    |     +-Literal(type=ARRAY<INT64>, value=[])
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=INT64
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#3]
+    |         +-expr_list=
+    |         | +-$col1#3 :=
+    |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(2) BOOL, repeated(2) INT64, INT64) -> INT64)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.input#2)
+    |         |     +-Literal(type=INT64, value=NULL)
+    |         |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |     | +-FunctionCall(ZetaSQL:array_length(ARRAY<INT64>) -> INT64)
+    |         |     | | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.input#2)
+    |         |     | +-Literal(type=INT64, value=0)
+    |         |     +-FunctionCall(ZetaSQL:error(STRING) -> INT64)
+    |         |     | +-Literal(type=STRING, value="ARRAY_FIRST cannot get the first element of an empty array")
+    |         |     +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<INT64>, INT64) -> INT64)
+    |         |       +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.input#2)
+    |         |       +-Literal(type=INT64, value=0)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$subquery1.input#2]
+    |             +-expr_list=
+    |             | +-input#2 := Literal(type=ARRAY<INT64>, value=[])
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT SAFE.ARRAY_FIRST([])
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_first(ARRAY<INT64>) -> INT64)
+    |     +-Literal(type=ARRAY<INT64>, value=[])
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=INT64
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#3]
+    |         +-expr_list=
+    |         | +-$col1#3 :=
+    |         |   +-FunctionCall(ZetaSQL:iferror(INT64, INT64) -> INT64)
+    |         |     +-FunctionCall(ZetaSQL:$case_no_value(repeated(2) BOOL, repeated(2) INT64, INT64) -> INT64)
+    |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
+    |         |     | | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.input#2)
+    |         |     | +-Literal(type=INT64, value=NULL)
+    |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |     | | +-FunctionCall(ZetaSQL:array_length(ARRAY<INT64>) -> INT64)
+    |         |     | | | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.input#2)
+    |         |     | | +-Literal(type=INT64, value=0)
+    |         |     | +-FunctionCall(ZetaSQL:error(STRING) -> INT64)
+    |         |     | | +-Literal(type=STRING, value="ARRAY_FIRST cannot get the first element of an empty array")
+    |         |     | +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<INT64>, INT64) -> INT64)
+    |         |     |   +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.input#2)
+    |         |     |   +-Literal(type=INT64, value=0)
+    |         |     +-Literal(type=INT64, value=NULL, has_explicit_type=TRUE)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$subquery1.input#2]
+    |             +-expr_list=
+    |             | +-input#2 := Literal(type=ARRAY<INT64>, value=[])
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT ARRAY_FIRST([1, 3], [2, 4])
+--
+ERROR: Number of arguments does not match for function ARRAY_FIRST. Supported signature: ARRAY_FIRST(ARRAY) [at 1:8]
+SELECT ARRAY_FIRST([1, 3], [2, 4])
+       ^
+==
+
+SELECT ARRAY_FIRST(STRUCT(1 AS a))
+--
+ERROR: No matching signature for function ARRAY_FIRST for argument types: STRUCT<a INT64>. Supported signature: ARRAY_FIRST(ARRAY) [at 1:8]
+SELECT ARRAY_FIRST(STRUCT(1 AS a))
+       ^
+==
+
+SELECT {{|SAFE.}}ARRAY_LAST([])
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:array_last(ARRAY<INT64>) -> INT64)
+    |     +-Literal(type=ARRAY<INT64>, value=[])
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=INT64
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#3]
+    |         +-expr_list=
+    |         | +-$col1#3 :=
+    |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(2) BOOL, repeated(2) INT64, INT64) -> INT64)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.input#2)
+    |         |     +-Literal(type=INT64, value=NULL)
+    |         |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |     | +-FunctionCall(ZetaSQL:array_length(ARRAY<INT64>) -> INT64)
+    |         |     | | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.input#2)
+    |         |     | +-Literal(type=INT64, value=0)
+    |         |     +-FunctionCall(ZetaSQL:error(STRING) -> INT64)
+    |         |     | +-Literal(type=STRING, value="ARRAY_LAST cannot get the last element of an empty array")
+    |         |     +-FunctionCall(ZetaSQL:$array_at_ordinal(ARRAY<INT64>, INT64) -> INT64)
+    |         |       +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.input#2)
+    |         |       +-FunctionCall(ZetaSQL:array_length(ARRAY<INT64>) -> INT64)
+    |         |         +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.input#2)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$subquery1.input#2]
+    |             +-expr_list=
+    |             | +-input#2 := Literal(type=ARRAY<INT64>, value=[])
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: SAFE.
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall({SAFE_ERROR_MODE} ZetaSQL:array_last(ARRAY<INT64>) -> INT64)
+    |     +-Literal(type=ARRAY<INT64>, value=[])
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-SubqueryExpr
+    |     +-type=INT64
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#3]
+    |         +-expr_list=
+    |         | +-$col1#3 :=
+    |         |   +-FunctionCall(ZetaSQL:iferror(INT64, INT64) -> INT64)
+    |         |     +-FunctionCall(ZetaSQL:$case_no_value(repeated(2) BOOL, repeated(2) INT64, INT64) -> INT64)
+    |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<INT64>) -> BOOL)
+    |         |     | | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.input#2)
+    |         |     | +-Literal(type=INT64, value=NULL)
+    |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |     | | +-FunctionCall(ZetaSQL:array_length(ARRAY<INT64>) -> INT64)
+    |         |     | | | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.input#2)
+    |         |     | | +-Literal(type=INT64, value=0)
+    |         |     | +-FunctionCall(ZetaSQL:error(STRING) -> INT64)
+    |         |     | | +-Literal(type=STRING, value="ARRAY_LAST cannot get the last element of an empty array")
+    |         |     | +-FunctionCall(ZetaSQL:$array_at_ordinal(ARRAY<INT64>, INT64) -> INT64)
+    |         |     |   +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.input#2)
+    |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<INT64>) -> INT64)
+    |         |     |     +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.input#2)
+    |         |     +-Literal(type=INT64, value=NULL, has_explicit_type=TRUE)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$subquery1.input#2]
+    |             +-expr_list=
+    |             | +-input#2 := Literal(type=ARRAY<INT64>, value=[])
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+==
+
+SELECT ARRAY_FIRST(ARRAY(SELECT Value FROM KeyValue {{|ORDER BY Value}}));
+--
+
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-FunctionCall(ZetaSQL:array_first(ARRAY<STRING>) -> STRING)
+    |     +-SubqueryExpr
+    |       +-type=ARRAY<STRING>
+    |       +-subquery_type=ARRAY
+    |       +-subquery=
+    |         +-ProjectScan
+    |           +-column_list=[KeyValue.Value#2]
+    |           +-input_scan=
+    |             +-TableScan(column_list=[KeyValue.Value#2], table=KeyValue, column_index_list=[1])
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-SubqueryExpr
+    |     +-type=STRING
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#5]
+    |         +-expr_list=
+    |         | +-$col1#5 :=
+    |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(2) BOOL, repeated(2) STRING, STRING) -> STRING)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.input#4)
+    |         |     +-Literal(type=STRING, value=NULL)
+    |         |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |     | +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |         |     | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.input#4)
+    |         |     | +-Literal(type=INT64, value=0)
+    |         |     +-Cast(STRING -> STRING)
+    |         |     | +-FunctionCall(ZetaSQL:error(STRING) -> STRING)
+    |         |     |   +-Literal(type=STRING, value="ARRAY_FIRST cannot get the first element of an empty array")
+    |         |     +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
+    |         |       +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.input#4)
+    |         |       +-Literal(type=INT64, value=0)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$subquery1.input#4]
+    |             +-expr_list=
+    |             | +-input#4 :=
+    |             |   +-SubqueryExpr
+    |             |     +-type=ARRAY<STRING>
+    |             |     +-subquery_type=ARRAY
+    |             |     +-subquery=
+    |             |       +-ProjectScan
+    |             |         +-column_list=[KeyValue.Value#2]
+    |             |         +-input_scan=
+    |             |           +-TableScan(column_list=[KeyValue.Value#2], table=KeyValue, column_index_list=[1])
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: ORDER BY Value
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-FunctionCall(ZetaSQL:array_first(ARRAY<STRING>) -> STRING)
+    |     +-SubqueryExpr
+    |       +-type=ARRAY<STRING>
+    |       +-subquery_type=ARRAY
+    |       +-subquery=
+    |         +-OrderByScan
+    |           +-column_list=[KeyValue.Value#2]
+    |           +-is_ordered=TRUE
+    |           +-input_scan=
+    |           | +-TableScan(column_list=[KeyValue.Value#2], table=KeyValue, column_index_list=[1])
+    |           +-order_by_item_list=
+    |             +-OrderByItem
+    |               +-column_ref=
+    |                 +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-SubqueryExpr
+    |     +-type=STRING
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#5]
+    |         +-expr_list=
+    |         | +-$col1#5 :=
+    |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(2) BOOL, repeated(2) STRING, STRING) -> STRING)
+    |         |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.input#4)
+    |         |     +-Literal(type=STRING, value=NULL)
+    |         |     +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |     | +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |         |     | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.input#4)
+    |         |     | +-Literal(type=INT64, value=0)
+    |         |     +-Cast(STRING -> STRING)
+    |         |     | +-FunctionCall(ZetaSQL:error(STRING) -> STRING)
+    |         |     |   +-Literal(type=STRING, value="ARRAY_FIRST cannot get the first element of an empty array")
+    |         |     +-FunctionCall(ZetaSQL:$array_at_offset(ARRAY<STRING>, INT64) -> STRING)
+    |         |       +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.input#4)
+    |         |       +-Literal(type=INT64, value=0)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$subquery1.input#4]
+    |             +-expr_list=
+    |             | +-input#4 :=
+    |             |   +-SubqueryExpr
+    |             |     +-type=ARRAY<STRING>
+    |             |     +-subquery_type=ARRAY
+    |             |     +-subquery=
+    |             |       +-OrderByScan
+    |             |         +-column_list=[KeyValue.Value#2]
+    |             |         +-is_ordered=TRUE
+    |             |         +-input_scan=
+    |             |         | +-TableScan(column_list=[KeyValue.Value#2], table=KeyValue, column_index_list=[1])
+    |             |         +-order_by_item_list=
+    |             |           +-OrderByItem
+    |             |             +-column_ref=
+    |             |               +-ColumnRef(type=STRING, column=KeyValue.Value#2)
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+==

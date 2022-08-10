@@ -58,6 +58,7 @@ java_library(
         "//zetasql/public:value_java_proto",
         "//zetasql/public/functions:datetime_java_proto",
         "//zetasql/public/functions:normalize_mode_java_proto",
+        "//zetasql/public/functions:rounding_mode_java_proto",
         "//zetasql/public/proto:type_annotation_java_proto",
         "@com_google_auto_value",
         "@com_google_protobuf//:protobuf_java",
@@ -334,6 +335,7 @@ java_library(
         "//zetasql/public:builtin_function_java_proto",
         "//zetasql/public:deprecation_warning_java_proto",
         "//zetasql/public:error_location_java_proto",
+        "//zetasql/public:formatter_options_java_proto",
         "//zetasql/public:function_java_proto",
         "//zetasql/public:options_java_proto",
         "//zetasql/public:parse_location_range_java_proto",
@@ -341,20 +343,21 @@ java_library(
         "//zetasql/public:simple_constant_java_proto",
         "//zetasql/public:simple_table_java_proto",
         "//zetasql/public:type_proto_java_proto",
-        "//zetasql/public/functions:datetime_java_proto",
-        "//zetasql/public/functions:normalize_mode_java_proto",
+        "//zetasql/public/functions:datetime_java_proto",  # buildcleaner: keep
+        "//zetasql/public/functions:normalize_mode_java_proto",  # buildcleaner: keep
+        "//zetasql/public/functions:rounding_mode_java_proto",  # buildcleaner: keep
         "//zetasql/resolved_ast:resolved_node_kind_java_proto",  # buildcleaner: keep
         "//zetasql/resolved_ast:serialization_java_proto",
         "@com_google_auto_value",
-        "@com_google_protobuf//:protobuf_java",
-        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@com_google_protobuf//:protobuf_java",  # buildcleaner: keep
+        "@maven//:com_google_api_grpc_proto_google_common_protos",  # buildcleaner: keep
         "@maven//:com_google_code_findbugs_jsr305",
         "@maven//:com_google_errorprone_error_prone_annotations",
         "@maven//:com_google_guava_guava",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_stub",
-        "@maven//:javax_annotation_javax_annotation_api",
+        "@maven//:javax_annotation_javax_annotation_api",  # buildcleaner: keep
     ],
 )
 
@@ -420,6 +423,7 @@ jarjar_library(
         "//zetasql/public:simple_table_java_proto",
         "//zetasql/public/functions:datetime_java_proto",
         "//zetasql/public/functions:normalize_mode_java_proto",
+        "//zetasql/public/functions:rounding_mode_java_proto",
         "//zetasql/resolved_ast:resolved_ast_enums_java_proto",
         "//zetasql/resolved_ast:resolved_ast_java_proto",
         "//zetasql/resolved_ast:resolved_node_kind_java_proto",
@@ -478,6 +482,7 @@ pom_file(
         "//zetasql/public:simple_table_java_proto",
         "//zetasql/public/functions:datetime_java_proto",
         "//zetasql/public/functions:normalize_mode_java_proto",
+        "//zetasql/public/functions:rounding_mode_java_proto",
         "//zetasql/resolved_ast:resolved_ast_enums_java_proto",
         "//zetasql/resolved_ast:resolved_ast_java_proto",
         "//zetasql/resolved_ast:resolved_node_kind_java_proto",

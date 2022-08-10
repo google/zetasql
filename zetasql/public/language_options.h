@@ -89,9 +89,7 @@ class LanguageOptions {
   }
 
   // Equivalent to SetSupportedStatementKinds({}).
-  void SetSupportsAllStatementKinds() {
-    supported_statement_kinds_.clear();
-  }
+  void SetSupportsAllStatementKinds() { supported_statement_kinds_.clear(); }
 
   // Adds <kind> to the set of supported statement kinds.
   void AddSupportedStatementKind(ResolvedNodeKind kind) {
@@ -125,6 +123,12 @@ class LanguageOptions {
     enabled_language_features_ = features;
   }
 
+  template <class T>
+  void SetEnabledLanguageFeatures(const T& features) {
+    SetEnabledLanguageFeatures(
+        LanguageFeatureSet(features.begin(), features.end()));
+  }
+
   const LanguageFeatureSet& GetEnabledLanguageFeatures() const {
     return enabled_language_features_;
   }
@@ -133,9 +137,7 @@ class LanguageOptions {
   std::string GetEnabledLanguageFeaturesAsString() const;
   static std::string ToString(const LanguageFeatureSet& features);
 
-  void DisableAllLanguageFeatures() {
-    enabled_language_features_.clear();
-  }
+  void DisableAllLanguageFeatures() { enabled_language_features_.clear(); }
 
   // Enable all optional features and reservable keywords that are enabled in
   // the idealized ZetaSQL and are released to users.
@@ -161,12 +163,8 @@ class LanguageOptions {
     return name_resolution_mode_;
   }
 
-  void set_product_mode(ProductMode mode) {
-    product_mode_ = mode;
-  }
-  ProductMode product_mode() const {
-    return product_mode_;
-  }
+  void set_product_mode(ProductMode mode) { product_mode_ = mode; }
+  ProductMode product_mode() const { return product_mode_; }
 
   bool SupportsProtoTypes() const {
     // Protos are unsupported in EXTERNAL mode.
@@ -235,7 +233,6 @@ class LanguageOptions {
                       value.supported_generic_sub_entity_types_.size(),
                       value.reserved_keywords_.size());
   }
-  bool operator!=(const LanguageOptions& rhs) const { return !(*this == rhs); }
 
   // Returns a set of keywords which can be reserved or unreserved through
   // LanguageOptions.

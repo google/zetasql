@@ -17,6 +17,8 @@
 #include "zetasql/public/parse_helpers.h"
 
 #include <memory>
+#include <string>
+#include <utility>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/parser/ast_node_kind.h"
@@ -163,6 +165,8 @@ ResolvedNodeKind GetStatementKind(ASTNodeKind node_kind) {
       return RESOLVED_ALTER_MATERIALIZED_VIEW_STMT;
     case AST_ALTER_PRIVILEGE_RESTRICTION_STATEMENT:
       return RESOLVED_ALTER_PRIVILEGE_RESTRICTION_STMT;
+    case AST_ALTER_MODEL_STATEMENT:
+      return RESOLVED_ALTER_MODEL_STMT;
     case AST_ALTER_ROW_ACCESS_POLICY_STATEMENT:
       return RESOLVED_ALTER_ROW_ACCESS_POLICY_STMT;
     case AST_RENAME_STATEMENT:
@@ -256,6 +260,7 @@ absl::Status GetNextStatementProperties(
     case AST_ALTER_SCHEMA_STATEMENT:
     case AST_ALTER_TABLE_STATEMENT:
     case AST_ALTER_VIEW_STATEMENT:
+    case AST_ALTER_MODEL_STATEMENT:
     case AST_CREATE_CONSTANT_STATEMENT:
     case AST_CREATE_DATABASE_STATEMENT:
     case AST_CREATE_ENTITY_STATEMENT:

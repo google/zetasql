@@ -587,6 +587,11 @@ class EnumerableCatalog : public Catalog {
         "Engine defined conversions are not supported in this "
         "EnumerableCatalog");
   }
+  virtual absl::Status GetModels(
+      absl::flat_hash_set<const Model*>* output) const {
+    return absl::NotFoundError(
+        "Models are not supported in this EnumerableCatalog");
+  }
 };
 
 

@@ -53,7 +53,9 @@ enum LanguageVersion {
 
   VERSION_1_2 = 12000;  // Version 1.2, frozen January 2018.
 
-  VERSION_1_3 = 13000;  // Version 1.3.  New features are being added here.
+  VERSION_1_3 = 13000;  // Version 1.3, frozen May 2022.
+
+  VERSION_1_4 = 14000;  // Version 1.4. Freeze May 2023 (12 mo)
 
   // User code that switches on this enum must have a default case so
   // builds won't break if new enums get added.
@@ -106,7 +108,7 @@ message LanguageFeatureOptions {
 // All optional features are off by default.  Some features have a negative
 // meaning, so turning them on will remove a feature or enable an error.
 enum LanguageFeature {
-  reserved 36 to 39, 45, 48;
+  reserved 36 to 39, 45, 48, 74, 13046, 999003;
   // CROSS-VERSION FEATURES
   //
   // These are features that can be opted into independently from versioning.
@@ -336,18 +338,14 @@ enum LanguageFeature {
   FEATURE_JSON_TYPE = 43 [(language_feature_options).in_development = true];
 
   // If true, JSON values are not parsed and validated.
-  FEATURE_JSON_NO_VALIDATION = 44 [
-    (language_feature_options).ideally_enabled = false,
-    (language_feature_options).in_development = true
-  ];
+  FEATURE_JSON_NO_VALIDATION = 44
+      [(language_feature_options).ideally_enabled = false];
 
   // If true, JSON string documents will be parsed using the proto JSON parse
   // rules that are more relaxed than the JSON RFC (for example allowing single
   // quotes in the documents).
-  FEATURE_JSON_LEGACY_PARSE = 46 [
-    (language_feature_options).ideally_enabled = false,
-    (language_feature_options).in_development = true
-  ];
+  FEATURE_JSON_LEGACY_PARSE = 46
+      [(language_feature_options).ideally_enabled = false];
 
   // Enables support for WITH PARTITION COLUMNS in CREATE EXTERNAL TABLE.
   // Example:
@@ -374,10 +372,8 @@ enum LanguageFeature {
   // 14285714285714285 is not valid).
   // NOTE: FEATURE_JSON_LEGACY_PARSE does not work with
   // FEATURE_JSON_STRICT_NUMBER_PARSING
-  FEATURE_JSON_STRICT_NUMBER_PARSING = 52 [
-    (language_feature_options).ideally_enabled = false,
-    (language_feature_options).in_development = true
-  ];
+  FEATURE_JSON_STRICT_NUMBER_PARSING = 52
+      [(language_feature_options).ideally_enabled = false];
   // When enabled, (table) function argument names will hide column names in
   // expression resolution and relational table function argument names will
   // hide table names from the catalog. This changes name resolution and is
@@ -391,25 +387,21 @@ enum LanguageFeature {
   // - NUMERIC(P) / NUMERIC(P, S)
   // - BIGNUMERIC(P) / BIGNUMERIC(P, S)
   // See (broken link) for details.
-  FEATURE_PARAMETERIZED_TYPES = 56
-      [(language_feature_options).in_development = true];
+  FEATURE_PARAMETERIZED_TYPES = 56;
 
   // Enables support for CREATE TABLE LIKE
   // Example:
   // CREATE TABLE t1 LIKE t2
-  FEATURE_CREATE_TABLE_LIKE = 57
-      [(language_feature_options).in_development = true];
+  FEATURE_CREATE_TABLE_LIKE = 57;
 
   // Enable support for JSON_EXTRACT_STRING_ARRAY, JSON_VALUE_ARRAY and
   // JSON_QUERY_ARRAY. (broken link)
-  FEATURE_JSON_ARRAY_FUNCTIONS = 58
-      [(language_feature_options).in_development = true];
+  FEATURE_JSON_ARRAY_FUNCTIONS = 58;
 
   // Enables explicit column list for CREATE VIEW.
   // Example:
   // CREATE VIEW v(a, b) AS SELECT ...
-  FEATURE_CREATE_VIEW_WITH_COLUMN_LIST = 59
-      [(language_feature_options).in_development = true];
+  FEATURE_CREATE_VIEW_WITH_COLUMN_LIST = 59;
 
   // Enables support for CREATE TABLE CLONE
   // Example:
@@ -428,8 +420,7 @@ enum LanguageFeature {
 
   // Enables support for CREATE SNAPSHOT TABLE
   // (broken link)
-  FEATURE_CREATE_SNAPSHOT_TABLE = 63
-      [(language_feature_options).in_development = true];
+  FEATURE_CREATE_SNAPSHOT_TABLE = 63;
 
   // Enables support for defining argument defaults in function calls using
   // syntax like:
@@ -444,14 +435,12 @@ enum LanguageFeature {
   // Example:
   // CREATE EXTERNAL TABLE t WITH CONNECTION `project.region.connection_1`
   // More details: (broken link)
-  FEATURE_CREATE_EXTERNAL_TABLE_WITH_CONNECTION = 65
-      [(language_feature_options).in_development = true];
+  FEATURE_CREATE_EXTERNAL_TABLE_WITH_CONNECTION = 65;
 
   // Enables support for CREATE TABLE COPY
   // Example:
   // CREATE TABLE t1 COPY t2
-  FEATURE_CREATE_TABLE_COPY = 66
-      [(language_feature_options).in_development = true];
+  FEATURE_CREATE_TABLE_COPY = 66;
 
   // Enables support for ALTER TABLE RENAME COLUMN.
   // See (broken link) for details.
@@ -477,19 +466,44 @@ enum LanguageFeature {
 
   // Enables TIMESTAMP_BUCKET, DATE_BUCKET and DATETIME_BUCKET functions.
   // See (broken link) for details.
+  // TODO: Remove "in_development" annotation.
   FEATURE_TIME_BUCKET_FUNCTIONS = 71
       [(language_feature_options).in_development = true];
 
   // Enables the new trigonometric math functions CSC, SEC, COT, CSCH, SECH,
   // and COTH
+  // DEPRECATED
   FEATURE_INVERSE_TRIG_FUNCTIONS = 72
       [(language_feature_options).in_development = true];
 
   // RANGE data type. (broken link)
+  // TODO: Remove "in_development" annotation.
   FEATURE_RANGE_TYPE = 73 [(language_feature_options).in_development = true];
 
-  FEATURE_DEGREES_RADIANS_PI = 74
+  // Enable support for non SQL procedure.
+  FEATURE_NON_SQL_PROCEDURE = 75
       [(language_feature_options).in_development = true];
+
+  // TODO: Remove "in_development" annotation.
+  FEATURE_ROUND_WITH_ROUNDING_MODE = 76
+      [(language_feature_options).in_development = true];
+
+  // Enables the CBRT function
+  FEATURE_CBRT_FUNCTIONS = 77
+      [(language_feature_options).in_development = true];
+
+  // Enable support for Spanner-specific DDL syntax.
+  // This is an extended syntax mode allowing compatibility with legacy
+  // Spanner DDL syntax and is meant to allow Cloud Spanner Emulator to use
+  // ZetaSQL for all processing needs.
+  // It is implemented only in the parser and analysis is disallowed in this
+  // mode, with resolver failing immediately.
+  // Spanner-specific syntax is not supported outside of this mode and will
+  // cause parsing errors.
+  FEATURE_SPANNER_LEGACY_DDL = 78 [(language_feature_options) = {
+    ideally_enabled: false,
+    in_development: true
+  }];
 
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
@@ -599,10 +613,6 @@ enum LanguageFeature {
 
   // Version 1.3 features
 
-  // -> Add more versioned features here.
-  // -> Always update AnalyzerOptions::GetLanguageFeaturesForVersion
-  //    in language_options.cc.
-
   // Enables support for the PROTO_DEFAULT_IF_NULL() function, see
   // (broken link)
   FEATURE_V_1_3_PROTO_DEFAULT_IF_NULL = 13001;
@@ -625,7 +635,7 @@ enum LanguageFeature {
   // This feature is deprecated and should not be used, since proto3 now
   // supports scalar field presence testing. Eventually we will remove this
   // feature and the underlying code.
-  FEATURE_DEPRECATED_DISALLOW_PROTO3_HAS_SCALAR_FIELD = 13003
+  FEATURE_V_1_3_DEPRECATED_DISALLOW_PROTO3_HAS_SCALAR_FIELD = 13003
       [(language_feature_options).ideally_enabled = false];
 
   // Enable array ordering (and non-equality comparisons).  This enables
@@ -662,8 +672,7 @@ enum LanguageFeature {
   // using the similar syntax: REPLACE_FIELDS(s, <value> AS
   // <struct_field_path>).
   // (broken link)
-  FEATURE_V_1_3_REPLACE_FIELDS = 13007
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_3_REPLACE_FIELDS = 13007;
 
   // Enable NULLS FIRST/NULLS LAST in ORDER BY expressions.
   FEATURE_V_1_3_NULLS_FIRST_LAST_IN_ORDER_BY = 13008;
@@ -683,12 +692,10 @@ enum LanguageFeature {
   FEATURE_V_1_3_CONCAT_MIXED_TYPES = 13010;
 
   // Enable WITH RECURSIVE ((broken link))
-  FEATURE_V_1_3_WITH_RECURSIVE = 13011
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_3_WITH_RECURSIVE = 13011;
 
   // Support maps in protocol buffers. ((broken link))
-  FEATURE_V_1_3_PROTO_MAPS = 13012
-      [(language_feature_options).in_development = false];
+  FEATURE_V_1_3_PROTO_MAPS = 13012;
 
   // Enables support for the ENUM_VALUE_DESCRIPTOR_PROTO() function, see
   // (broken link)
@@ -711,8 +718,7 @@ enum LanguageFeature {
   // Enables support for optional parameters position and occurrence in
   // REGEXP_EXTRACT. In addition, allows alias REGEXP_SUBSTR.
   // ((broken link))
-  FEATURE_V_1_3_ALLOW_REGEXP_EXTRACT_OPTIONALS = 13017
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_3_ALLOW_REGEXP_EXTRACT_OPTIONALS = 13017;
 
   // Additional signatures for DATE, TIMESTAMP, TIME, DATETIME and STRING
   // constructor functions.
@@ -749,6 +755,7 @@ enum LanguageFeature {
   FEATURE_V_1_3_ANNOTATION_FRAMEWORK = 13026;
 
   // Enables collation annotation support.
+  // TODO: Remove "in_development" flag.
   FEATURE_V_1_3_COLLATION_SUPPORT = 13027
       [(language_feature_options).in_development = true];
 
@@ -763,58 +770,51 @@ enum LanguageFeature {
   // Under development:
   //   STRING => DATE/DATETIME/TIME/TIMESTAMP
   //   NUMBER => STRING
-  FEATURE_V_1_3_FORMAT_IN_CAST = 13029
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_3_FORMAT_IN_CAST = 13029;
 
   // UNPIVOT clause ((broken link)).
   FEATURE_V_1_3_UNPIVOT = 13030;
 
   // If true, dml returning is supported ((broken link))
-  FEATURE_V_1_3_DML_RETURNING = 13031
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_3_DML_RETURNING = 13031;
 
   // Enables support for the FILTER_FIELDS() function.
   //    FILTER_FIELDS(p, <-|+><field_path>, ...)
   // returns the proto obtained by keeping p.field_path whose
   // sign is '+' and remove p.field_path whose sign is '-'.
   // (broken link)
-  FEATURE_V_1_3_FILTER_FIELDS = 13032
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_3_FILTER_FIELDS = 13032;
 
   // QUALIFY clause ((broken link)).
-  FEATURE_V_1_3_QUALIFY = 13033
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_3_QUALIFY = 13033;
 
   // Enable support for REPEAT...UNTIL...END REPEAT statement.
   // (broken link)
-  FEATURE_V_1_3_REPEAT = 13034
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_3_REPEAT = 13034;
 
   // Enables column DEFAULT clause in CREATE and ALTER TABLE statements.
   // See (broken link)
-  FEATURE_V_1_3_COLUMN_DEFAULT_VALUE = 13035
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_3_COLUMN_DEFAULT_VALUE = 13035;
 
-  // Enable support for FOR...IN...DO...END FOR statement.
+  // Enable support for FOR...IN...DO...END FOR statement.  // NOTYPO
   // (broken link)
-  FEATURE_V_1_3_FOR_IN = 13036
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_3_FOR_IN = 13036;
 
   // Enables support for initializing KLLs with weights as an additional
   // parameter. Support for this feature in addition to the weighting
   // functionality also requires support for named arguments as the weight
   // argument must be named. (broken link).
-  FEATURE_KLL_WEIGHTS = 13037;
+  FEATURE_V_1_3_KLL_WEIGHTS = 13037;
 
   // LIKE ANY/SOME/ALL support.
   // (broken link)
+  // TODO: Remove "in_development"
   FEATURE_V_1_3_LIKE_ANY_SOME_ALL = 13038
       [(language_feature_options).in_development = true];
 
   // Enable support for CASE...WHEN...THEN...END CASE statement.
   // (broken link)
-  FEATURE_V_1_3_CASE_STMT = 13039
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_3_CASE_STMT = 13039;
 
   // Support for table names that start with slash and contain slashes, dashes,
   // and colons before the first dot: /span/test/my-grp:db.Table.
@@ -826,13 +826,11 @@ enum LanguageFeature {
 
   // Enable support for SCRIPT LABELS (e.g. L1: BEGIN...END)
   // (broken link)
-  FEATURE_V_1_3_SCRIPT_LABEL = 13042
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_3_SCRIPT_LABEL = 13042;
 
   // Enable support for remote function (e.g. CREATE FUNCTION ... REMOTE ...)
   // (broken link)
-  FEATURE_V_1_3_REMOTE_FUNCTION = 13043
-      [(language_feature_options).in_development = true];
+  FEATURE_V_1_3_REMOTE_FUNCTION = 13043;
 
   // If Array ordering is enabled, this flag enables arrays for GREATEST/LEAST.
   FEATURE_V_1_3_ARRAY_GREATEST_LEAST = 13044;
@@ -840,6 +838,32 @@ enum LanguageFeature {
   // Enables braced constructors for protocol buffers.
   // See (broken link)
   FEATURE_V_1_3_BRACED_PROTO_CONSTRUCTORS = 13045;
+
+  // Version 1.4 features
+
+  // -> Add more versioned features here.
+  // -> Update AnalyzerOptions::GetLanguageFeaturesForVersion in
+  //    language_options.cc when the new feature is passed "in_development"
+  //    stage.
+
+  // Allow WITH-expressions. See (broken link).
+  FEATURE_V_1_4_WITH_EXPRESSION = 14000;
+
+  // Enables collation in standalone type.
+  // TODO: Remove "in_development" flag.
+  FEATURE_V_1_4_COLLATION_IN_TYPE = 14001
+      [(language_feature_options).in_development = true];
+
+  // Allow ordered elements in primary key definition.
+  // See (broken link).
+  FEATURE_V_1_4_ORDERED_PRIMARY_KEYS = 14002
+      [(language_feature_options).in_development = true];
+
+  // Allow TTL clauses (ROW DELETION POLICY). See (broken link).
+  FEATURE_V_1_4_TTL = 14003 [(language_feature_options).in_development = true];
+
+  // Allow bare array access like a[0]. See (broken link)
+  FEATURE_V_1_4_BARE_ARRAY_ACCESS = 14004;
 
   // EXPERIMENTAL FEATURES
   // These are features supported in the code that are not currently part of
@@ -858,9 +882,6 @@ enum LanguageFeature {
   // StatementKinds: RESOLVED_IMPORT_STMT and RESOLVED_MODULE_STMT.
   // See (broken link)
   FEATURE_EXPERIMENTAL_MODULES = 999002
-      [(language_feature_options).in_development = true];
-
-  FEATURE_EXPERIMENTAL_WITH_EXPRESSION = 999003
       [(language_feature_options).in_development = true];
 
   // These are not real features. They are just for unit testing the handling of
@@ -926,8 +947,8 @@ enum ResolvedASTRewrite {
   // Rewrite typeof function. See (broken link)
   REWRITE_TYPEOF_FUNCTION = 8 [(rewrite_options).default_enabled = true];
 
-  // Rewrite LetExpr into subquery.
-  REWRITE_LET_EXPR = 9 [(rewrite_options).default_enabled = true];
+  // Rewrite WithExpr into subquery.
+  REWRITE_WITH_EXPR = 9 [(rewrite_options).default_enabled = true];
 
   // Inline SQL Functions.
   // Experimental, functionality may change before generally available.
@@ -963,9 +984,18 @@ enum ResolvedASTRewrite {
   // See (broken link)
   REWRITE_NULLIFERROR_FUNCTION = 12 [(rewrite_options).default_enabled = true];
 
-  // Rewrite scalar array functions ARRAY_FIRST and ARRAY_LAST into subqueries.
+  // Rewrite unary functions into subqueries.
+  // The functions that use unary rewriter have single input.
+  REWRITE_UNARY_FUNCTIONS = 13 [(rewrite_options).default_enabled = true];
+
+  // Rewrite LIKE ANY/SOME/ALL functions with pattern lists represented as
+  // (pattern1, ...), UNNEST(<array-expression>), or a subquery
   // See (broken link)
-  REWRITE_ARRAY_FIRST_LAST = 13 [(rewrite_options).default_enabled = true];
+  REWRITE_LIKE_ANY_ALL = 14 [(rewrite_options).default_enabled = true];
+
+  // Rewrite ternary functions into subqueries.
+  // The functions that use ternary rewriter have three inputs.
+  REWRITE_TERNARY_FUNCTIONS = 15 [(rewrite_options).default_enabled = true];
 }
 
 // This can be used to select strict name resolution mode.

@@ -183,6 +183,51 @@ TEST(CollationTest, Creation) {
                          Collation::Deserialize(proto));
     ASSERT_TRUE(collation.Equals(deserialized_collation));
   }
+  {
+    // Test creating collation with empty child list.
+    Collation collation = Collation::MakeCollationWithChildList({});
+    EXPECT_TRUE(collation.Empty());
+
+    // Test creating collation with child list of all empty collations.
+    collation =
+        Collation::MakeCollationWithChildList({Collation(), Collation()});
+    EXPECT_TRUE(collation.Empty());
+  }
+  {
+    // Test creating collations with child lists.
+    Collation empty_collation = Collation();
+    Collation single_string_collation = Collation::MakeScalar("und:ci");
+    Collation array_collation =
+        Collation::MakeCollationWithChildList({single_string_collation});
+    EXPECT_FALSE(array_collation.HasCollation());
+    EXPECT_EQ(array_collation.num_children(), 1);
+    EXPECT_EQ(array_collation.child(0).CollationName(), "und:ci");
+    EXPECT_EQ(array_collation.child(0).num_children(), 0);
+    EXPECT_EQ(array_collation.DebugString(), "[und:ci]");
+
+    Collation struct_collation = Collation::MakeCollationWithChildList(
+        {single_string_collation, empty_collation, array_collation,
+         empty_collation});
+    EXPECT_FALSE(struct_collation.HasCollation());
+    EXPECT_EQ(struct_collation.num_children(), 4);
+    EXPECT_EQ(struct_collation.child(0).CollationName(), "und:ci");
+    EXPECT_EQ(struct_collation.child(0).num_children(), 0);
+    EXPECT_TRUE(struct_collation.child(1).Empty());
+    EXPECT_FALSE(struct_collation.child(2).HasCollation());
+    EXPECT_EQ(struct_collation.child(2).num_children(), 1);
+    EXPECT_EQ(struct_collation.child(2).child(0).CollationName(), "und:ci");
+    EXPECT_EQ(struct_collation.child(2).child(0).num_children(), 0);
+    EXPECT_TRUE(struct_collation.child(3).Empty());
+
+    EXPECT_EQ(struct_collation.DebugString(), "[und:ci,_,[und:ci],_]");
+
+    // Test serialization / deserialization.
+    CollationProto proto;
+    ZETASQL_ASSERT_OK(struct_collation.Serialize(&proto));
+    ZETASQL_ASSERT_OK_AND_ASSIGN(Collation deserialized_collation,
+                         Collation::Deserialize(proto));
+    ASSERT_TRUE(struct_collation.Equals(deserialized_collation));
+  }
 }
 
 TEST(CollationTest, EqualAndCompatibilityTest) {

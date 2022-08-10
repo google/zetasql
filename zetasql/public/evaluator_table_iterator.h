@@ -19,6 +19,10 @@
 #ifndef ZETASQL_PUBLIC_EVALUATOR_TABLE_ITERATOR_H_
 #define ZETASQL_PUBLIC_EVALUATOR_TABLE_ITERATOR_H_
 
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "zetasql/public/value.h"
 #include "zetasql/base/status.h"
 

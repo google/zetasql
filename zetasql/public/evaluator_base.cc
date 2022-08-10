@@ -18,11 +18,13 @@
 
 #include <functional>
 #include <memory>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/common/internal_analyzer_options.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/language_options.h"
@@ -156,6 +158,64 @@ class VectorEvaluatorTableModifyIterator : public EvaluatorTableModifyIterator {
   const std::function<void()> deletion_cb_;
 };
 
+// A STRUCT to represent DML Results with/without THEN RETURN clause.
+struct EvaluatorModifyResult {
+  EvaluatorModifyResult(
+      std::unique_ptr<EvaluatorTableModifyIterator> table_modify_iter,
+      std::unique_ptr<EvaluatorTableIterator> returning_table_iter)
+      : table_modify_iter(std::move(table_modify_iter)),
+        returning_table_iter(std::move(returning_table_iter)) {}
+  // Represents modifications to multiple rows in a single table.
+  std::unique_ptr<EvaluatorTableModifyIterator> table_modify_iter;
+  // Represent a table for THEN RETURN clause results. It will be null if
+  // THEN RETURN clause is not used in the original DML statement.
+  std::unique_ptr<EvaluatorTableIterator> returning_table_iter;
+};
+
+// Implements EvaluatorTableIterator by wrapping a vector of rows in the result
+// table.
+// Requires the same operation for all rows.
+// `result` is an array of struct for rows in the result table.
+// `deletion_cb` will be called on deletion of an ReferenceResultIterator.
+// This is currently used by Evaluator to detect outliving iterators.
+class ReferenceResultIterator : public EvaluatorTableIterator {
+ public:
+  ReferenceResultIterator(const Value& result,
+                          const std::function<void()>& deletion_cb)
+      : rows_(result.elements()), row_idx_(-1), deletion_cb_(deletion_cb) {
+    auto returning_row_struct = result.type()->AsArray()->element_type();
+    fields_ = returning_row_struct->AsStruct()->fields();
+  }
+
+  ~ReferenceResultIterator() override { deletion_cb_(); }
+
+  int NumColumns() const override { return static_cast<int>(fields_.size()); }
+
+  std::string GetColumnName(int i) const override { return fields_[i].name; }
+
+  const Type* GetColumnType(int i) const override { return fields_[i].type; }
+
+  const Value& GetValue(int i) const override {
+    return rows_[row_idx_].field(i);
+  }
+
+  bool NextRow() override { return ++row_idx_ < rows_.size(); }
+
+  absl::Status Status() const override { return absl::OkStatus(); }
+  absl::Status Cancel() override { return absl::OkStatus(); }
+
+ private:
+  // The content of the iterator. Each item represents a row update operation.
+  const std::vector<Value> rows_;
+  // The struct field of column name and type in this result table.
+  std::vector<StructField> fields_;
+  // The positional index of the current row in the row vector.
+  int row_idx_;
+  // A callback function called by the destructor, currently used by Evalutor to
+  // detect outliving iterators.
+  const std::function<void()> deletion_cb_;
+};
+
 }  // namespace
 
 namespace internal {
@@ -244,8 +304,8 @@ class Evaluator {
 
   // Makes an EvaluatorTableModifyIterator from the result of evaluating a
   // DMLValueExpr and its input ResolvedStatement.
-  absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
-  MakeUpdateIterator(const Value& value, const ResolvedStatement* statement);
+  absl::StatusOr<EvaluatorModifyResult> MakeUpdateIterator(
+      const Value& value, const ResolvedStatement* statement);
 
   // REQUIRES: !is_expr_ and Prepare() has been called successfully.
   const ResolvedStatement* resolved_statement() const
@@ -770,23 +830,27 @@ absl::Status Evaluator::ExecuteAfterPrepareLocked(
       new_options, expression_output_value, query_output_iterator);
 }
 
-absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
-Evaluator::MakeUpdateIterator(const Value& value,
-                              const ResolvedStatement* statement) {
+absl::StatusOr<EvaluatorModifyResult> Evaluator::MakeUpdateIterator(
+    const Value& value, const ResolvedStatement* statement) {
   const Table* table;
   EvaluatorTableModifyIterator::Operation operation;
+
+  const zetasql::ResolvedReturningClause* returning_clause = nullptr;
   switch (statement->node_kind()) {
     case RESOLVED_INSERT_STMT:
       table = statement->GetAs<ResolvedInsertStmt>()->table_scan()->table();
       operation = EvaluatorTableModifyIterator::Operation::kInsert;
+      returning_clause = statement->GetAs<ResolvedInsertStmt>()->returning();
       break;
     case RESOLVED_UPDATE_STMT:
       table = statement->GetAs<ResolvedUpdateStmt>()->table_scan()->table();
       operation = EvaluatorTableModifyIterator::Operation::kUpdate;
+      returning_clause = statement->GetAs<ResolvedUpdateStmt>()->returning();
       break;
     case RESOLVED_DELETE_STMT:
       table = statement->GetAs<ResolvedDeleteStmt>()->table_scan()->table();
       operation = EvaluatorTableModifyIterator::Operation::kDelete;
+      returning_clause = statement->GetAs<ResolvedDeleteStmt>()->returning();
       break;
     default:
       return ::zetasql_base::InvalidArgumentErrorBuilder()
@@ -800,12 +864,28 @@ Evaluator::MakeUpdateIterator(const Value& value,
   }
 
   ZETASQL_RET_CHECK(value.type()->IsStruct());
-  ZETASQL_RET_CHECK_EQ(value.num_fields(), 2);
+  ZETASQL_RET_CHECK_EQ(value.num_fields(), returning_clause == nullptr ? 2 : 3)
+      << value.DebugString();
   ZETASQL_RET_CHECK(value.field(1).type()->IsArray());
   IncrementNumLiveIterators();
-  return std::make_unique<VectorEvaluatorTableModifyIterator>(
-      value.field(1).elements(), table, operation,
-      std::bind(&Evaluator::DecrementNumLiveIterators, this));
+  std::unique_ptr<EvaluatorTableModifyIterator> modified_table_iter =
+      std::make_unique<VectorEvaluatorTableModifyIterator>(
+          value.field(1).elements(), table, operation,
+          std::bind(&Evaluator::DecrementNumLiveIterators, this));
+
+  std::unique_ptr<EvaluatorTableIterator> returning_result_iter;
+  if (returning_clause != nullptr) {
+    IncrementNumLiveIterators();
+    std::function<void()> deletion_cb = [this]() {
+      DecrementNumLiveIterators();
+    };
+
+    returning_result_iter =
+        std::make_unique<ReferenceResultIterator>(value.field(2), deletion_cb);
+  }
+
+  return EvaluatorModifyResult(std::move(modified_table_iter),
+                               std::move(returning_result_iter));
 }
 
 namespace {
@@ -978,10 +1058,16 @@ absl::Status Evaluator::ValidateColumns(
     const std::string& variable_name = entry.first;
     const Type* expected_type = zetasql_base::FindPtrOrNull(
         analyzer_options_.expression_columns(), variable_name);
+
     if (expected_type == nullptr &&
-        analyzer_options_.lookup_expression_column_callback() != nullptr) {
-      ZETASQL_RETURN_IF_ERROR(analyzer_options_.lookup_expression_column_callback()(
-          variable_name, &expected_type));
+        InternalAnalyzerOptions::GetLookupExpressionCallback(
+            analyzer_options_) != nullptr) {
+      std::unique_ptr<const ResolvedExpr> expected_expr;
+      ZETASQL_RETURN_IF_ERROR(InternalAnalyzerOptions::GetLookupExpressionCallback(
+          analyzer_options_)(variable_name, expected_expr));
+      if (expected_expr != nullptr) {
+        expected_type = expected_expr->type();
+      }
     }
     ZETASQL_RET_CHECK(expected_type != nullptr)
         << "Expected type not found for variable " << variable_name;
@@ -1457,8 +1543,10 @@ absl::Status PreparedModifyBase::Prepare(const AnalyzerOptions& options,
 }
 
 absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
-PreparedModifyBase::Execute(const ParameterValueMap& parameters,
-                            const SystemVariableValuesMap& system_variables) {
+PreparedModifyBase::Execute(
+    const ParameterValueMap& parameters,
+    const SystemVariableValuesMap& system_variables,
+    std::unique_ptr<EvaluatorTableIterator>* returning_iterator) {
   ExpressionOptions options;
   options.columns = ParameterValueMap();
   options.parameters = parameters;
@@ -1466,13 +1554,19 @@ PreparedModifyBase::Execute(const ParameterValueMap& parameters,
   Value value;
   ZETASQL_RETURN_IF_ERROR(
       evaluator_->Execute(options, &value, /*query_output_iterator=*/nullptr));
-  return evaluator_->MakeUpdateIterator(value, resolved_statement());
+  ZETASQL_ASSIGN_OR_RETURN(EvaluatorModifyResult result,
+                   evaluator_->MakeUpdateIterator(value, resolved_statement()));
+  if (returning_iterator) {
+    *returning_iterator = std::move(result.returning_table_iter);
+  }
+  return std::move(result.table_modify_iter);
 }
 
 absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
 PreparedModifyBase::ExecuteWithPositionalParams(
     const ParameterValueList& positional_parameters,
-    const SystemVariableValuesMap& system_variables) {
+    const SystemVariableValuesMap& system_variables,
+    std::unique_ptr<EvaluatorTableIterator>* returning_iterator) {
   ExpressionOptions options;
   options.columns = ParameterValueMap();
   options.ordered_parameters = positional_parameters;
@@ -1480,13 +1574,19 @@ PreparedModifyBase::ExecuteWithPositionalParams(
   Value value;
   ZETASQL_RETURN_IF_ERROR(
       evaluator_->Execute(options, &value, /*query_output_iterator=*/nullptr));
-  return evaluator_->MakeUpdateIterator(value, resolved_statement());
+  ZETASQL_ASSIGN_OR_RETURN(EvaluatorModifyResult result,
+                   evaluator_->MakeUpdateIterator(value, resolved_statement()));
+  if (returning_iterator) {
+    *returning_iterator = std::move(result.returning_table_iter);
+  }
+  return std::move(result.table_modify_iter);
 }
 
 absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
 PreparedModifyBase::ExecuteAfterPrepare(
     const ParameterValueMap& parameters,
-    const SystemVariableValuesMap& system_variables) const {
+    const SystemVariableValuesMap& system_variables,
+    std::unique_ptr<EvaluatorTableIterator>* returning_iterator) const {
   ExpressionOptions options;
   options.columns = ParameterValueMap();
   options.parameters = parameters;
@@ -1494,13 +1594,19 @@ PreparedModifyBase::ExecuteAfterPrepare(
   Value value;
   ZETASQL_RETURN_IF_ERROR(evaluator_->ExecuteAfterPrepare(
       options, &value, /*query_output_iterator=*/nullptr));
-  return evaluator_->MakeUpdateIterator(value, resolved_statement());
+  ZETASQL_ASSIGN_OR_RETURN(EvaluatorModifyResult result,
+                   evaluator_->MakeUpdateIterator(value, resolved_statement()));
+  if (returning_iterator) {
+    *returning_iterator = std::move(result.returning_table_iter);
+  }
+  return std::move(result.table_modify_iter);
 }
 
 absl::StatusOr<std::unique_ptr<EvaluatorTableModifyIterator>>
 PreparedModifyBase::ExecuteAfterPrepareWithOrderedParams(
     const ParameterValueList& parameters,
-    const SystemVariableValuesMap& system_variables) const {
+    const SystemVariableValuesMap& system_variables,
+    std::unique_ptr<EvaluatorTableIterator>* returning_iterator) const {
   ExpressionOptions options;
   options.ordered_columns = ParameterValueList();
   options.ordered_parameters = parameters;
@@ -1508,7 +1614,12 @@ PreparedModifyBase::ExecuteAfterPrepareWithOrderedParams(
   Value value;
   ZETASQL_RETURN_IF_ERROR(evaluator_->ExecuteAfterPrepareWithOrderedParams(
       options, &value, /*query_output_iterator=*/nullptr));
-  return evaluator_->MakeUpdateIterator(value, resolved_statement());
+  ZETASQL_ASSIGN_OR_RETURN(EvaluatorModifyResult result,
+                   evaluator_->MakeUpdateIterator(value, resolved_statement()));
+  if (returning_iterator) {
+    *returning_iterator = std::move(result.returning_table_iter);
+  }
+  return std::move(result.table_modify_iter);
 }
 
 absl::StatusOr<std::string> PreparedModifyBase::ExplainAfterPrepare() const {

@@ -953,6 +953,468 @@ select datetime_sub(
        ^
 ==
 
+[language_features={{V_1_2_CIVIL_TIME|}}]
+select datetime_{{add|sub}}(
+  CURRENT_DATETIME,
+  interval 1 {{dayofyear|dayofweek|isoyear|isoweek|date|time|year|quarter|month|week|day|hour|minute|second|millisecond|microsecond}});
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,dayofyear
+--
+ERROR: DATETIME_ADD does not support the DAYOFYEAR date part [at 1:8]
+select datetime_add(
+       ^
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,dayofweek
+--
+ERROR: DATETIME_ADD does not support the DAYOFWEEK date part [at 1:8]
+select datetime_add(
+       ^
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,isoyear
+--
+ERROR: DATETIME_ADD does not support the ISOYEAR date part [at 1:8]
+select datetime_add(
+       ^
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,isoweek
+--
+ERROR: DATETIME_ADD does not support the ISOWEEK date part [at 1:8]
+select datetime_add(
+       ^
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,date
+--
+ERROR: DATETIME_ADD does not support the DATE date part [at 1:8]
+select datetime_add(
+       ^
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,time
+--
+ERROR: DATETIME_ADD does not support the TIME date part [at 1:8]
+select datetime_add(
+       ^
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,year
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:datetime_add(DATETIME, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> DATETIME)
+    |     +-FunctionCall(ZetaSQL:current_datetime(optional(0) STRING) -> DATETIME)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=YEAR)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,quarter
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:datetime_add(DATETIME, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> DATETIME)
+    |     +-FunctionCall(ZetaSQL:current_datetime(optional(0) STRING) -> DATETIME)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=QUARTER)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,month
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:datetime_add(DATETIME, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> DATETIME)
+    |     +-FunctionCall(ZetaSQL:current_datetime(optional(0) STRING) -> DATETIME)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=MONTH)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,week
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:datetime_add(DATETIME, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> DATETIME)
+    |     +-FunctionCall(ZetaSQL:current_datetime(optional(0) STRING) -> DATETIME)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=WEEK)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,day
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:datetime_add(DATETIME, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> DATETIME)
+    |     +-FunctionCall(ZetaSQL:current_datetime(optional(0) STRING) -> DATETIME)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=DAY)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,hour
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:datetime_add(DATETIME, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> DATETIME)
+    |     +-FunctionCall(ZetaSQL:current_datetime(optional(0) STRING) -> DATETIME)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=HOUR)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,minute
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:datetime_add(DATETIME, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> DATETIME)
+    |     +-FunctionCall(ZetaSQL:current_datetime(optional(0) STRING) -> DATETIME)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=MINUTE)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,second
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:datetime_add(DATETIME, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> DATETIME)
+    |     +-FunctionCall(ZetaSQL:current_datetime(optional(0) STRING) -> DATETIME)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=SECOND)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,millisecond
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:datetime_add(DATETIME, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> DATETIME)
+    |     +-FunctionCall(ZetaSQL:current_datetime(optional(0) STRING) -> DATETIME)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=MILLISECOND)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,microsecond
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:datetime_add(DATETIME, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> DATETIME)
+    |     +-FunctionCall(ZetaSQL:current_datetime(optional(0) STRING) -> DATETIME)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=MICROSECOND)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,dayofyear
+--
+ERROR: DATETIME_SUB does not support the DAYOFYEAR date part [at 1:8]
+select datetime_sub(
+       ^
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,dayofweek
+--
+ERROR: DATETIME_SUB does not support the DAYOFWEEK date part [at 1:8]
+select datetime_sub(
+       ^
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,isoyear
+--
+ERROR: DATETIME_SUB does not support the ISOYEAR date part [at 1:8]
+select datetime_sub(
+       ^
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,isoweek
+--
+ERROR: DATETIME_SUB does not support the ISOWEEK date part [at 1:8]
+select datetime_sub(
+       ^
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,date
+--
+ERROR: DATETIME_SUB does not support the DATE date part [at 1:8]
+select datetime_sub(
+       ^
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,time
+--
+ERROR: DATETIME_SUB does not support the TIME date part [at 1:8]
+select datetime_sub(
+       ^
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,year
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:datetime_sub(DATETIME, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> DATETIME)
+    |     +-FunctionCall(ZetaSQL:current_datetime(optional(0) STRING) -> DATETIME)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=YEAR)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,quarter
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:datetime_sub(DATETIME, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> DATETIME)
+    |     +-FunctionCall(ZetaSQL:current_datetime(optional(0) STRING) -> DATETIME)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=QUARTER)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,month
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:datetime_sub(DATETIME, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> DATETIME)
+    |     +-FunctionCall(ZetaSQL:current_datetime(optional(0) STRING) -> DATETIME)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=MONTH)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,week
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:datetime_sub(DATETIME, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> DATETIME)
+    |     +-FunctionCall(ZetaSQL:current_datetime(optional(0) STRING) -> DATETIME)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=WEEK)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,day
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:datetime_sub(DATETIME, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> DATETIME)
+    |     +-FunctionCall(ZetaSQL:current_datetime(optional(0) STRING) -> DATETIME)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=DAY)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,hour
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:datetime_sub(DATETIME, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> DATETIME)
+    |     +-FunctionCall(ZetaSQL:current_datetime(optional(0) STRING) -> DATETIME)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=HOUR)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,minute
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:datetime_sub(DATETIME, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> DATETIME)
+    |     +-FunctionCall(ZetaSQL:current_datetime(optional(0) STRING) -> DATETIME)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=MINUTE)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,second
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:datetime_sub(DATETIME, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> DATETIME)
+    |     +-FunctionCall(ZetaSQL:current_datetime(optional(0) STRING) -> DATETIME)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=SECOND)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,millisecond
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:datetime_sub(DATETIME, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> DATETIME)
+    |     +-FunctionCall(ZetaSQL:current_datetime(optional(0) STRING) -> DATETIME)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=MILLISECOND)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,microsecond
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:datetime_sub(DATETIME, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> DATETIME)
+    |     +-FunctionCall(ZetaSQL:current_datetime(optional(0) STRING) -> DATETIME)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=MICROSECOND)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUPS:
+    add,dayofyear
+    add,dayofweek
+    add,isoyear
+    add,isoweek
+    add,date
+    add,time
+    add,year
+    add,quarter
+    add,month
+    add,week
+    add,day
+    add,hour
+    add,minute
+    add,second
+    add,millisecond
+    add,microsecond
+--
+ERROR: Function not found: datetime_add; Did you mean date_add? [at 1:8]
+select datetime_add(
+       ^
+--
+ALTERNATION GROUPS:
+    sub,dayofyear
+    sub,dayofweek
+    sub,isoyear
+    sub,isoweek
+    sub,date
+    sub,time
+    sub,year
+    sub,quarter
+    sub,month
+    sub,week
+    sub,day
+    sub,hour
+    sub,minute
+    sub,second
+    sub,millisecond
+    sub,microsecond
+--
+ERROR: Function not found: datetime_sub; Did you mean date_sub? [at 1:8]
+select datetime_sub(
+       ^
+==
+
 [language_features={{V_1_2_CIVIL_TIME,TIMESTAMP_NANOS|V_1_2_CIVIL_TIME|TIMESTAMP_NANOS|}}]
 select datetime_{{add|sub}}(current_datetime, interval 1 nanosecond);
 --
@@ -1022,7 +1484,43 @@ select datetime_sub(current_datetime, interval 1 nanosecond);
 [language_features={{V_1_2_CIVIL_TIME|}}]
 select time_{{add|sub}}(
   time '03:04:05.123456',
-  interval 1 {{year|quarter|month|week|day|hour|minute|second|millisecond|microsecond}});
+  interval 1 {{dayofyear|dayofweek|isoyear|isoweek|date|time|year|quarter|month|week|day|hour|minute|second|millisecond|microsecond}});
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,dayofyear
+--
+ERROR: TIME_ADD does not support the DAYOFYEAR date part [at 1:8]
+select time_add(
+       ^
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,dayofweek
+--
+ERROR: TIME_ADD does not support the DAYOFWEEK date part [at 1:8]
+select time_add(
+       ^
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,isoyear
+--
+ERROR: TIME_ADD does not support the ISOYEAR date part [at 1:8]
+select time_add(
+       ^
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,isoweek
+--
+ERROR: TIME_ADD does not support the ISOWEEK date part [at 1:8]
+select time_add(
+       ^
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,date
+--
+ERROR: TIME_ADD does not support the DATE date part [at 1:8]
+select time_add(
+       ^
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,time
+--
+ERROR: TIME_ADD does not support the TIME date part [at 1:8]
+select time_add(
+       ^
 --
 ALTERNATION GROUP: V_1_2_CIVIL_TIME,add,year
 --
@@ -1138,6 +1636,42 @@ QueryStmt
     |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=MICROSECOND)
     +-input_scan=
       +-SingleRowScan
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,dayofyear
+--
+ERROR: TIME_SUB does not support the DAYOFYEAR date part [at 1:8]
+select time_sub(
+       ^
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,dayofweek
+--
+ERROR: TIME_SUB does not support the DAYOFWEEK date part [at 1:8]
+select time_sub(
+       ^
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,isoyear
+--
+ERROR: TIME_SUB does not support the ISOYEAR date part [at 1:8]
+select time_sub(
+       ^
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,isoweek
+--
+ERROR: TIME_SUB does not support the ISOWEEK date part [at 1:8]
+select time_sub(
+       ^
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,date
+--
+ERROR: TIME_SUB does not support the DATE date part [at 1:8]
+select time_sub(
+       ^
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,time
+--
+ERROR: TIME_SUB does not support the TIME date part [at 1:8]
+select time_sub(
+       ^
 --
 ALTERNATION GROUP: V_1_2_CIVIL_TIME,sub,year
 --
@@ -1255,6 +1789,12 @@ QueryStmt
       +-SingleRowScan
 --
 ALTERNATION GROUPS:
+    add,dayofyear
+    add,dayofweek
+    add,isoyear
+    add,isoweek
+    add,date
+    add,time
     add,year
     add,quarter
     add,month
@@ -1271,6 +1811,12 @@ select time_add(
        ^
 --
 ALTERNATION GROUPS:
+    sub,dayofyear
+    sub,dayofweek
+    sub,isoyear
+    sub,isoweek
+    sub,date
+    sub,time
     sub,year
     sub,quarter
     sub,month
@@ -1855,12 +2401,20 @@ ERROR: Function not found: datetime_diff; Did you mean date_diff? [at 2:3]
   ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME}}]
+[language_features={{V_1_2_CIVIL_TIME|}}]
 select datetime_diff(current_datetime, current_datetime, week(monday));
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME
 --
 ERROR: Date part arguments are not supported [at 1:63]
 select datetime_diff(current_datetime, current_datetime, week(monday));
                                                               ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function not found: datetime_diff; Did you mean date_diff? [at 1:8]
+select datetime_diff(current_datetime, current_datetime, week(monday));
+       ^
 ==
 
 [language_features=V_1_2_CIVIL_TIME,V_1_2_WEEK_WITH_WEEKDAY]
@@ -2271,13 +2825,21 @@ ERROR: Function not found: datetime_trunc; Did you mean date_trunc? [at 2:3]
   ^
 ==
 
-[language_features={{V_1_2_CIVIL_TIME}}]
+[language_features={{V_1_2_CIVIL_TIME|}}]
 select
   datetime_trunc(current_datetime, week(monday));
+--
+ALTERNATION GROUP: V_1_2_CIVIL_TIME
 --
 ERROR: Date part arguments are not supported [at 2:41]
   datetime_trunc(current_datetime, week(monday));
                                         ^
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Function not found: datetime_trunc; Did you mean date_trunc? [at 2:3]
+  datetime_trunc(current_datetime, week(monday));
+  ^
 ==
 
 [language_features=V_1_2_CIVIL_TIME,V_1_2_WEEK_WITH_WEEKDAY]
@@ -3407,3 +3969,111 @@ QueryStmt
     |       +-Parameter(type=STRING, name="test_param_string")
     +-input_scan=
       +-SingleRowScan
+
+==
+
+# Regression test for b/186420709.
+# Shows reasonable error message when *_add|sub() used with TIMESTAMP argument.
+[language_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+select
+  {{date|datetime|timestamp}}_{{add|sub}}(TIMESTAMP'2021-01-15 00:33:09', interval 1 week)
+--
+ALTERNATION GROUP: date,add
+--
+ERROR: DATE_ADD does not support the WEEK date part when the argument is TIMESTAMP type [at 2:3]
+  date_add(TIMESTAMP'2021-01-15 00:33:09', interval 1 week)
+  ^
+--
+ALTERNATION GROUP: date,sub
+--
+ERROR: DATE_SUB does not support the WEEK date part when the argument is TIMESTAMP type [at 2:3]
+  date_sub(TIMESTAMP'2021-01-15 00:33:09', interval 1 week)
+  ^
+--
+ALTERNATION GROUP: datetime,add
+--
+ERROR: DATETIME_ADD does not support the WEEK date part when the argument is TIMESTAMP type [at 2:3]
+  datetime_add(TIMESTAMP'2021-01-15 00:33:09', interval 1 week)
+  ^
+--
+ALTERNATION GROUP: datetime,sub
+--
+ERROR: DATETIME_SUB does not support the WEEK date part when the argument is TIMESTAMP type [at 2:3]
+  datetime_sub(TIMESTAMP'2021-01-15 00:33:09', interval 1 week)
+  ^
+--
+ALTERNATION GROUP: timestamp,add
+--
+ERROR: TIMESTAMP_ADD does not support the WEEK date part when the argument is TIMESTAMP type [at 2:3]
+  timestamp_add(TIMESTAMP'2021-01-15 00:33:09', interval 1 week)
+  ^
+--
+ALTERNATION GROUP: timestamp,sub
+--
+ERROR: TIMESTAMP_SUB does not support the WEEK date part when the argument is TIMESTAMP type [at 2:3]
+  timestamp_sub(TIMESTAMP'2021-01-15 00:33:09', interval 1 week)
+  ^
+==
+
+# Regression test for b/186420709.
+# Shows there is no error message when:
+# * date_add() used with TIMESTAMP argument and 'hour' interval
+# * timestamp_add() used with DATETIME argument and 'week' interval
+[language_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+select
+  date_add(TIMESTAMP '2021-01-15 00:33:09', interval 1 hour),
+  timestamp_add(DATETIME '2021-01-15 00:33:09', interval 1 week),
+
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [TIMESTAMP]
+| +-$query.$col2#2 AS `$col2` [DATETIME]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-FunctionCall(ZetaSQL:date_add(TIMESTAMP, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> TIMESTAMP)
+    | |   +-Literal(type=TIMESTAMP, value=2021-01-15 08:33:09+00, has_explicit_type=TRUE)
+    | |   +-Literal(type=INT64, value=1)
+    | |   +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=HOUR)
+    | +-$col2#2 :=
+    |   +-FunctionCall(ZetaSQL:timestamp_add(DATETIME, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> DATETIME)
+    |     +-Literal(type=DATETIME, value=2021-01-15 00:33:09, has_explicit_type=TRUE)
+    |     +-Literal(type=INT64, value=1)
+    |     +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=WEEK)
+    +-input_scan=
+      +-SingleRowScan
+
+==
+
+# Regression test for b/186420709.
+# Shows reasonable error message when *_diff() used with TIMESTAMP argument.
+[language_features=V_1_2_CIVIL_TIME,V_1_3_EXTENDED_DATE_TIME_SIGNATURES]
+select
+  {{date|datetime|time|timestamp}}_diff(TIMESTAMP'2021-01-15 00:33:09', TIMESTAMP'2021-01-15 00:33:09', week)
+--
+ALTERNATION GROUP: date
+--
+ERROR: DATE_DIFF does not support the WEEK date part when the argument is TIMESTAMP type [at 2:3]
+  date_diff(TIMESTAMP'2021-01-15 00:33:09', TIMESTAMP'2021-01-15 00:33:09', w...
+  ^
+--
+ALTERNATION GROUP: datetime
+--
+ERROR: DATETIME_DIFF does not support the WEEK date part when the argument is TIMESTAMP type [at 2:3]
+  datetime_diff(TIMESTAMP'2021-01-15 00:33:09', TIMESTAMP'2021-01-15 00:33:09...
+  ^
+--
+ALTERNATION GROUP: time
+--
+ERROR: TIME_DIFF does not support the WEEK date part when the argument is TIMESTAMP type [at 2:3]
+  time_diff(TIMESTAMP'2021-01-15 00:33:09', TIMESTAMP'2021-01-15 00:33:09', w...
+  ^
+--
+ALTERNATION GROUP: timestamp
+--
+ERROR: TIMESTAMP_DIFF does not support the WEEK date part when the argument is TIMESTAMP type [at 2:3]
+  timestamp_diff(TIMESTAMP'2021-01-15 00:33:09', TIMESTAMP'2021-01-15 00:33:0...
+  ^

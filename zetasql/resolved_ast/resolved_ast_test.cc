@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <memory>
 #include <set>
+#include <string>
 #include <utility>
 
 #include "zetasql/base/logging.h"
@@ -474,7 +475,7 @@ TEST_F(ResolvedASTTest, CheckOptionalFieldsAccessed) {
   ZETASQL_EXPECT_OK(scan->CheckFieldsAccessed());
 
   auto hint_uptr =
-      MakeResolvedOption("" /* qualifier */, "key", MakeIntLiteral(7));
+      MakeResolvedOption(/*qualifier=*/"foo", "key", MakeIntLiteral(7));
   const ResolvedOption* hint = hint_uptr.get();
   // Add a hint_list entry, which is an ignorable field.
   scan->add_hint_list(std::move(hint_uptr));

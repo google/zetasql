@@ -94,6 +94,7 @@ cc_library(
         "//zetasql/public:numeric_value",
         "//zetasql/public:type",
         "//zetasql/public:value",
+        "//zetasql/public/types",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",

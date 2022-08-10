@@ -379,69 +379,69 @@ ARRAY<STRUCT<DOUBLE>>[{-1.1}]
 
 ==
 [name=csc_safe_zero_resolve_to_null]
-[required_features=INVERSE_TRIG_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=V_1_2_SAFE_FUNCTION_CALL]
 SELECT safe.csc(0);
 --
 ARRAY<STRUCT<DOUBLE>>[{NULL}]
 ==
 [name=csc_safe_double]
-[required_features=INVERSE_TRIG_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=V_1_2_SAFE_FUNCTION_CALL]
 SELECT safe.csc(1);
 --
 ARRAY<STRUCT<DOUBLE>>[{1.1883951057781212}]
 
 ==
 [name=sec_safe_double]
-[required_features=INVERSE_TRIG_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=V_1_2_SAFE_FUNCTION_CALL]
 SELECT safe.sec(0);
 --
 ARRAY<STRUCT<DOUBLE>>[{1}]
 
 ==
 [name=cot_safe_zero_resolve_to_null]
-[required_features=INVERSE_TRIG_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=V_1_2_SAFE_FUNCTION_CALL]
 SELECT safe.cot(0);
 --
 ARRAY<STRUCT<DOUBLE>>[{NULL}]
 
 ==
 [name=cot_safe_double]
-[required_features=INVERSE_TRIG_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=V_1_2_SAFE_FUNCTION_CALL]
 SELECT safe.cot(1);
 --
 ARRAY<STRUCT<DOUBLE>>[{0.64209261593433065}]
 
 ==
 [name=csch_safe_zero_resolve_to_null]
-[required_features=INVERSE_TRIG_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=V_1_2_SAFE_FUNCTION_CALL]
 SELECT safe.csch(0);
 --
 ARRAY<STRUCT<DOUBLE>>[{NULL}]
 
 ==
 [name=csch_safe_double]
-[required_features=INVERSE_TRIG_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=V_1_2_SAFE_FUNCTION_CALL]
 SELECT safe.csch(1);
 --
 ARRAY<STRUCT<DOUBLE>>[{0.85091812823932156}]
 
 ==
 [name=sech_safe_double]
-[required_features=INVERSE_TRIG_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=V_1_2_SAFE_FUNCTION_CALL]
 SELECT safe.sech(0);
 --
 ARRAY<STRUCT<DOUBLE>>[{1}]
 
 ==
 [name=coth_safe_zero_resolve_to_null]
-[required_features=INVERSE_TRIG_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=V_1_2_SAFE_FUNCTION_CALL]
 SELECT safe.coth(0);
 --
 ARRAY<STRUCT<DOUBLE>>[{NULL}]
 
 ==
 [name=coth_safe_double]
-[required_features=INVERSE_TRIG_FUNCTIONS,V_1_2_SAFE_FUNCTION_CALL]
+[required_features=V_1_2_SAFE_FUNCTION_CALL]
 SELECT safe.coth(1);
 --
 ARRAY<STRUCT<DOUBLE>>[{1.3130352854993315}]

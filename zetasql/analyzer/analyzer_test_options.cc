@@ -50,6 +50,7 @@ const char* const kCreateNewColumnForEachProjectedOutput =
     "create_new_column_for_each_projected_output";
 const char* const kParseMultiple = "parse_multiple";
 const char* const kDefaultTimezone = "default_timezone";
+const char* const kDefaultAnonKappaValue = "default_anon_kappa_value";
 const char* const kRunUnparser = "run_unparser";
 const char* const kUnparserPositionalParameterMode =
     "unparser_positional_parameter_mode";
@@ -104,6 +105,7 @@ void RegisterAnalyzerTestOptions(
   test_case_options->RegisterBool(kEnableSampleAnnotation, false);
   test_case_options->RegisterBool(kParseMultiple, false);
   test_case_options->RegisterString(kDefaultTimezone, "");
+  test_case_options->RegisterInt64(kDefaultAnonKappaValue, 0);
   test_case_options->RegisterBool(kRunUnparser, true);
   test_case_options->RegisterString(kUnparserPositionalParameterMode,
                                     "question_mark");
@@ -249,11 +251,7 @@ absl::StatusOr<AnalyzerTestRewriteGroups> GetEnabledRewrites(
   for (absl::string_view raw_group_view : absl::StrSplit(raw_rewrites, '|')) {
     ZETASQL_ASSIGN_OR_RETURN(
         internal::EnumOptionsEntry<ResolvedASTRewrite> option_entry,
-        internal::ParseEnumOptionsSet<ResolvedASTRewrite>(
-            {{"NONE", {}},
-             {"ALL", GetAllRewrites()},
-             {"DEFAULTS", AnalyzerOptions::DefaultRewrites()}},
-            "REWRITE_", "Rewrite", raw_group_view));
+        internal::ParseEnabledAstRewrites(raw_group_view));
     if (!option_entry.options.empty()) {
       ZETASQL_RET_CHECK(seen_rewrite_group_keys.insert(option_entry.description).second)
           << "Multiple rewrite groups canonicalize to: "

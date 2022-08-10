@@ -158,6 +158,7 @@ cc_library(
         ":control_flow_graph",
         ":error_helpers",
         ":parsed_script",
+        ":procedure_extension_cc_proto",
         ":script_exception_cc_proto",
         ":script_executor_state_cc_proto",
         ":script_segment",
@@ -224,6 +225,7 @@ proto_library(
     name = "script_executor_state_proto",
     srcs = ["script_executor_state.proto"],
     deps = [
+        ":procedure_extension_proto",
         ":script_exception_proto",
         ":variable_proto",
         "//zetasql/proto:function_proto",
@@ -234,6 +236,16 @@ proto_library(
 cc_proto_library(
     name = "script_executor_state_cc_proto",
     deps = [":script_executor_state_proto"],
+)
+
+proto_library(
+    name = "procedure_extension_proto",
+    srcs = ["procedure_extension.proto"],
+)
+
+cc_proto_library(
+    name = "procedure_extension_cc_proto",
+    deps = [":procedure_extension_proto"],
 )
 
 proto_library(

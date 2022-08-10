@@ -727,7 +727,7 @@ WHERE value >= INTERVAL 29 DAY AND value <= Interval 31 DAY
 --
 ARRAY<STRUCT<INTERVAL>>[{0-1 0 0:0:0}, {0-1 0 0:0:0}, {0-1 0 0:0:0}]
 ==
-[required_features=INTERVAL_TYPE,V_1_1_ORDER_BY_IN_AGGREGATE]
+[required_features=INTERVAL_TYPE]
 [name=array_agg_distinct]
 SELECT JUSTIFY_INTERVAL(i) as justified_i FROM UNNEST(
   (SELECT ARRAY_AGG(DISTINCT value) AS a FROM Intervals)) AS i ORDER BY i;

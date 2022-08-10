@@ -17,7 +17,9 @@
 #include "zetasql/public/templated_sql_tvf.h"
 
 #include <algorithm>
+#include <string>
 #include <unordered_map>
+#include <utility>
 
 #include "zetasql/analyzer/name_scope.h"
 #include "zetasql/analyzer/resolver.h"

@@ -118,6 +118,40 @@ known_errors {
 }
 known_errors {
   mode: ALLOW_ERROR
+  reason: "ERROR: generic::invalid_argument: Unsupported built-in function: $anon_[FUNCTION]_with_report_proto/json"
+  label: "anonymization_test:anonymization_anon_sum_double_explicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "anonymization_test:anonymization_anon_sum_double_explicit_bounds_multi_user_with_report_proto"
+  label: "anonymization_test:anonymization_basic_anon_sum_int64_implicit_bounds_multi_user_with_report_proto"
+  label: "anonymization_test:anonymization_basic_anon_sum_int64_implicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "anonymization_test:anonymization_anon_count_double_explicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "anonymization_test:anonymization_anon_count_double_explicit_bounds_multi_user_with_report_proto"
+  label: "anonymization_test:anonymization_basic_anon_count_int64_implicit_bounds_multi_user_with_report_proto"
+  label: "anonymization_test:anonymization_basic_anon_count_int64_implicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "anonymization_test:anonymization_anon_count_star_explicit_bounds_multi_user_with_report_proto"
+  label: "anonymization_test:anonymization_anon_sum_double_explicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "anonymization_test:anonymization_anon_sum_double_explicit_bounds_multi_user_with_report_json"
+  label: "anonymization_test:anonymization_basic_anon_sum_int64_implicit_bounds_multi_user_with_report_json"
+  label: "anonymization_test:anonymization_basic_anon_sum_int64_implicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "anonymization_test:anonymization_anon_count_double_explicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "anonymization_test:anonymization_anon_count_double_explicit_bounds_multi_user_with_report_json"
+  label: "anonymization_test:anonymization_basic_anon_count_int64_implicit_bounds_multi_user_with_report_json"
+  label: "anonymization_test:anonymization_basic_anon_count_int64_implicit_bounds_multi_user_with_report_json_zero_rows"
+  label: "anonymization_test:anonymization_anon_count_star_explicit_bounds_multi_user_with_report_json"
+  label: "anonymization_test:anonymization_anon_quantiles_double_explicit_bounds_multi_user_with_report_proto"
+  label: "anonymization_test:anonymization_anon_quantiles_int64_explicit_bounds_multi_user_with_report_proto"
+  label: "anonymization_test:anonymization_anon_quantiles_double_implicit_bounds_multi_user_with_report_proto"
+  label: "anonymization_test:anonymization_anon_quantiles_int64_implicit_bounds_multi_user_with_report_proto"
+  label: "anonymization_test:anonymization_anon_quantiles_double_explicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "anonymization_test:anonymization_anon_quantiles_int64_explicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "anonymization_test:anonymization_anon_quantiles_double_implicit_bounds_multi_user_with_report_proto_zero_rows"
+  label: "anonymization_test:anonymization_anon_quantiles_int64_implicit_bounds_multi_user_with_report_proto_zero_rows"
+}
+known_errors {
+  mode: ALLOW_UNIMPLEMENTED
+  label: "d3a_count_test:.*"
+}
+known_errors {
+  mode: ALLOW_ERROR
   reason: "Unknown reasons"
   label: "concat_function_test:concat_proto"
   label: "timestamp_test:string_parameter_interval_invalid"

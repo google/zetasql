@@ -3,16 +3,32 @@
 # Navigation functions
 
 The following sections describe the navigation functions that ZetaSQL
-supports. Navigation functions are a subset of analytic functions. For an
-explanation of how analytic functions work, see [Analytic
-Function Concepts][analytic-function-concepts]. For an explanation of how
-navigation functions work, see
-[Navigation Function Concepts][navigation-function-concepts].
+supports. Navigation functions are a subset window functions. To create a
+window function call and learn about the syntax for window functions,
+see [Window function_calls][window-function-calls].
+
+Navigation functions generally compute some
+`value_expression` over a different row in the window frame from the
+current row. The `OVER` clause syntax varies across navigation functions.
+
+For all navigation functions, the result data type is the same type as
+`value_expression`.
 
 ### FIRST_VALUE
 
-```
+```sql
 FIRST_VALUE (value_expression [{RESPECT | IGNORE} NULLS])
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -23,6 +39,15 @@ window frame.
 This function includes `NULL` values in the calculation unless `IGNORE NULLS` is
 present. If `IGNORE NULLS` is present, the function excludes `NULL` values from
 the calculation.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
 
 **Supported Argument Types**
 
@@ -82,8 +107,19 @@ FROM (
 
 ### LAST_VALUE
 
-```
+```sql
 LAST_VALUE (value_expression [{RESPECT | IGNORE} NULLS])
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -94,6 +130,15 @@ window frame.
 This function includes `NULL` values in the calculation unless `IGNORE NULLS` is
 present. If `IGNORE NULLS` is present, the function excludes `NULL` values from
 the calculation.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
 
 **Supported Argument Types**
 
@@ -154,8 +199,19 @@ FROM (
 
 ### NTH_VALUE
 
-```
+```sql
 NTH_VALUE (value_expression, constant_integer_expression [{RESPECT | IGNORE} NULLS])
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+  [ window_frame_clause ]
+
 ```
 
 **Description**
@@ -167,6 +223,15 @@ there is no such row.
 This function includes `NULL` values in the calculation unless `IGNORE NULLS` is
 present. If `IGNORE NULLS` is present, the function excludes `NULL` values from
 the calculation.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
 
 **Supported Argument Types**
 
@@ -231,8 +296,18 @@ FROM (
 
 ### LEAD
 
-```
+```sql
 LEAD (value_expression[, offset [, default_expression]])
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+
 ```
 
 **Description**
@@ -246,6 +321,15 @@ The optional `default_expression` is used if there isn't a row in the window
 frame at the specified offset. This expression must be a constant expression and
 its type must be implicitly coercible to the type of `value_expression`. If left
 unspecified, `default_expression` defaults to NULL.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
 
 **Supported Argument Types**
 
@@ -379,8 +463,18 @@ FROM finishers;
 
 ### LAG
 
-```
+```sql
 LAG (value_expression[, offset [, default_expression]])
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+  ORDER BY expression [ { ASC | DESC }  ] [, ...]
+
 ```
 
 **Description**
@@ -394,6 +488,15 @@ The optional `default_expression` is used if there isn't a row in the window
 frame at the specified offset. This expression must be a constant expression and
 its type must be implicitly coercible to the type of `value_expression`. If left
 unspecified, `default_expression` defaults to NULL.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
 
 **Supported Argument Types**
 
@@ -527,8 +630,17 @@ FROM finishers;
 
 ### PERCENTILE_CONT
 
-```
+```sql
 PERCENTILE_CONT (value_expression, percentile [{RESPECT | IGNORE} NULLS])
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+
 ```
 
 **Description**
@@ -542,6 +654,15 @@ NULLS` is present:
 + Interpolation between two `NULL` values returns `NULL`.
 + Interpolation between a `NULL` value and a non-`NULL` value returns the
   non-`NULL` value.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
 
 **Supported Argument Types**
 
@@ -575,7 +696,7 @@ table.
 The following example computes the value for some percentiles from a column of
 values while ignoring nulls.
 
-```
+```sql
 SELECT
   PERCENTILE_CONT(x, 0) OVER() AS min,
   PERCENTILE_CONT(x, 0.01) OVER() AS percentile1,
@@ -594,7 +715,7 @@ FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1;
 The following example computes the value for some percentiles from a column of
 values while respecting nulls.
 
-```
+```sql
 SELECT
   PERCENTILE_CONT(x, 0 RESPECT NULLS) OVER() AS min,
   PERCENTILE_CONT(x, 0.01 RESPECT NULLS) OVER() AS percentile1,
@@ -612,8 +733,17 @@ FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1;
 
 ### PERCENTILE_DISC
 
-```
+```sql
 PERCENTILE_DISC (value_expression, percentile [{RESPECT | IGNORE} NULLS])
+OVER over_clause
+
+over_clause:
+  { named_window | ( [ window_specification ] ) }
+
+window_specification:
+  [ named_window ]
+  [ PARTITION BY partition_expression [, ...] ]
+
 ```
 
 **Description**
@@ -623,6 +753,15 @@ returned value is the first sorted value of `value_expression` with cumulative
 distribution greater than or equal to the given `percentile` value.
 
 This function ignores `NULL` values unless `RESPECT NULLS` is present.
+
+To learn more about the `OVER` clause and how to use it, see
+[Window function calls][window-function-calls].
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+<!-- mdlint on -->
 
 **Supported Argument Types**
 
@@ -642,7 +781,7 @@ Same type as `value_expression`.
 The following example computes the value for some percentiles from a column of
 values while ignoring nulls.
 
-```
+```sql
 SELECT
   x,
   PERCENTILE_DISC(x, 0) OVER() AS min,
@@ -663,7 +802,7 @@ FROM UNNEST(['c', NULL, 'b', 'a']) AS x;
 The following example computes the value for some percentiles from a column of
 values while respecting nulls.
 
-```
+```sql
 SELECT
   x,
   PERCENTILE_DISC(x, 0 RESPECT NULLS) OVER() AS min,
@@ -684,9 +823,7 @@ FROM UNNEST(['c', NULL, 'b', 'a']) AS x;
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-[analytic-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md
-
-[navigation-function-concepts]: https://github.com/google/zetasql/blob/master/docs/analytic-function-concepts.md#navigation_function_concepts
+[window-function-calls]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
 
 <!-- mdlint on -->
 

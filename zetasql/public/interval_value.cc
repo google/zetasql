@@ -18,6 +18,8 @@
 
 #include <cctype>
 #include <cmath>
+#include <string>
+#include <type_traits>
 
 #include "zetasql/public/functions/arithmetics.h"
 #include "zetasql/public/functions/datetime.pb.h"
@@ -73,6 +75,24 @@ std::string Int128ToString(absl::int128 value) {
   }
   return ToString(static_cast<int64_t>(value));
 }
+
+template <typename T>
+void UnalignedLoadAndAugmentPtr(T* value, const char** data) {
+  // Note that the whole if-else block can be simplified to the following:
+  // *value = zetasql_base::LittleEndian::Load<T>(*data);
+  // Unfortunately, the opensource version, Zetasql, does not have the generic
+  // Load<T> function. That's why Load32 and Load64 functions are used.
+  if constexpr (std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t>) {
+    *value = static_cast<T>(zetasql_base::LittleEndian::Load32(*data));
+  } else {
+    static_assert(std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t>,
+                  "UnalignedLoadAndAugmentPtr supports 32 bit and 64 bit "
+                  "signed or unsigned integer types only.");
+    *value = static_cast<T>(zetasql_base::LittleEndian::Load64(*data));
+  }
+  *data += sizeof(T);
+}
+
 }  // namespace
 
 absl::StatusOr<IntervalValue> IntervalValue::FromYMDHMS(
@@ -284,17 +304,11 @@ absl::StatusOr<IntervalValue> IntervalValue::DeserializeFromBytes(
         "Invalid serialized INTERVAL size, expected ", sizeof(IntervalValue),
         " bytes, but got ", bytes.size(), " bytes."));
   }
-  const char* ptr = reinterpret_cast<const char*>(bytes.data());
-  int64_t micros = zetasql_base::LittleEndian::ToHost64(*absl::bit_cast<int64_t*>(ptr));
-  ptr += sizeof(micros);
-  int32_t days = zetasql_base::LittleEndian::ToHost32(*absl::bit_cast<int32_t*>(ptr));
-  ptr += sizeof(days);
-  uint32_t months_nanos =
-      zetasql_base::LittleEndian::ToHost32(*absl::bit_cast<uint32_t*>(ptr));
+  const char* data = bytes.data();
   IntervalValue interval;
-  interval.micros_ = micros;
-  interval.days_ = days;
-  interval.months_nanos_ = months_nanos;
+  UnalignedLoadAndAugmentPtr(&interval.micros_, &data);
+  UnalignedLoadAndAugmentPtr(&interval.days_, &data);
+  UnalignedLoadAndAugmentPtr(&interval.months_nanos_, &data);
   ZETASQL_RETURN_IF_ERROR(ValidateMonths(interval.get_months()));
   ZETASQL_RETURN_IF_ERROR(ValidateDays(interval.get_days()));
   ZETASQL_RETURN_IF_ERROR(ValidateNanos(interval.get_nanos()));
@@ -826,6 +840,9 @@ class ISO8601Parser {
     for (;;) {
       int64_t sign = false;
       c = PeekChar();
+      if (c == kEof) {
+        break;
+      }
       if (!std::isdigit(c)) {
         GetChar();
         if (c == '-') {
@@ -839,8 +856,6 @@ class ISO8601Parser {
           }
           in_time_part = true;
           continue;
-        } else if (c == kEof) {
-          break;
         } else {
           return MakeIntervalParsingError(input)
                  << ": Unexpected " << PrintChar(c);
@@ -967,7 +982,10 @@ class ISO8601Parser {
   }
 
   char GetChar() {
-    char c = PeekChar();
+    if (input_.empty()) {
+      return kEof;
+    }
+    char c = input_[0];
     input_.remove_prefix(1);
     return c;
   }

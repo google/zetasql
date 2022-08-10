@@ -40,7 +40,7 @@ Not applicable
 **Examples**
 
 ```sql
-SELECT CURRENT_TIMESTAMP() as now;
+SELECT CURRENT_TIMESTAMP() AS now;
 
 +---------------------------------------------+
 | now                                         |
@@ -111,9 +111,8 @@ Allowed `part` values are:
   week-numbering year, which is the Gregorian calendar year containing the
   Thursday of the week to which `date_expression` belongs.
 + `DATE`
-<li><code>DATETIME</code></li>
-<li><code>TIME</code></li>
-</ul>
++ <code>DATETIME</code>
++ <code>TIME</code>
 
 Returned values truncate lower order time periods. For example, when extracting
 seconds, `EXTRACT` truncates the millisecond and microsecond values.
@@ -474,43 +473,55 @@ SELECT TIMESTAMP_DIFF("2001-02-01 01:00:00", "2001-02-01 00:00:01", HOUR)
 ### TIMESTAMP_TRUNC
 
 ```sql
-TIMESTAMP_TRUNC(timestamp_expression, date_part[, time_zone])
+TIMESTAMP_TRUNC(timestamp_expression, date_time_part[, time_zone])
 ```
 
 **Description**
 
-Truncates a timestamp to the granularity of `date_part`.
+Truncates a `TIMESTAMP` value to the granularity of `date_time_part`.
+The `TIMESTAMP` value is always rounded to the beginning of `date_time_part`,
+which can be one of the following:
 
-`TIMESTAMP_TRUNC` supports the following values for `date_part`:
++ `NANOSECOND`: If used, nothing is truncated from the value.
++ `MICROSECOND`: The nearest lessor or equal microsecond.
++ `MILLISECOND`: The nearest lessor or equal millisecond.
++ `SECOND`: The nearest lessor or equal second.
++ `MINUTE`: The nearest lessor or equal minute.
++ `HOUR`: The nearest lessor or equal hour.
++ `DAY`: The day in the Gregorian calendar year that contains the
+  `TIMESTAMP` value.
++ `WEEK`: The first day of the week in the week that contains the
+  `TIMESTAMP` value. Weeks begin on Sundays. `WEEK` is equivalent to
+  `WEEK(SUNDAY)`.
++ `WEEK(WEEKDAY)`: The first day of the week in the week that contains the
+  `TIMESTAMP` value. Weeks begin on `WEEKDAY`. `WEEKDAY` must be one of the
+   following: `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`,
+   or `SATURDAY`.
++ `ISOWEEK`: The first day of the [ISO 8601 week][ISO-8601-week] in the
+  ISO week that contains the `TIMESTAMP` value. The ISO week begins on
+  Monday. The first ISO week of each ISO year contains the first Thursday of the
+  corresponding Gregorian calendar year.
++ `MONTH`: The first day of the month in the month that contains the
+  `TIMESTAMP` value.
++ `QUARTER`: The first day of the quarter in the quarter that contains the
+  `TIMESTAMP` value.
++ `YEAR`: The first day of the year in the year that contains the
+  `TIMESTAMP` value.
++ `ISOYEAR`: The first day of the [ISO 8601][ISO-8601] week-numbering year
+  in the ISO year that contains the `TIMESTAMP` value. The ISO year is the
+  Monday of the first week whose Thursday belongs to the corresponding
+  Gregorian calendar year.
 
-+ `NANOSECOND`
-  (if the SQL engine supports it)
-+ `MICROSECOND`
-+ `MILLISECOND`
-+ `SECOND`
-+ `MINUTE`
-+ `HOUR`
-+ `DAY`
-+ `WEEK`
-+ `WEEK(<WEEKDAY>):` Truncates `timestamp_expression` to the preceding
-  week boundary, where weeks begin on `WEEKDAY`. Valid values for `WEEKDAY` are
-  `SUNDAY`, `MONDAY`, `TUESDAY`, `WEDNESDAY`, `THURSDAY`, `FRIDAY`, and
-  `SATURDAY`.
-+ `ISOWEEK`: Truncates `timestamp_expression` to the preceding
-   [ISO 8601 week][ISO-8601-week] boundary. `ISOWEEK`s
-   begin on Monday. The first `ISOWEEK` of each ISO year contains the first
-   Thursday of the corresponding Gregorian calendar year. Any `date_expression`
-   earlier than this will truncate to the preceding Monday.
-+ `MONTH`
-+ `QUARTER`
-+ `YEAR`
-+ `ISOYEAR`: Truncates `timestamp_expression` to the preceding [ISO 8601][ISO-8601]
-    week-numbering year boundary. The ISO year boundary is the Monday of the
-    first week whose Thursday belongs to the corresponding Gregorian calendar
-    year.
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
+
+[ISO-8601-week]: https://en.wikipedia.org/wiki/ISO_week_date
+
+<!-- mdlint on -->
 
 `TIMESTAMP_TRUNC` function supports an optional `time_zone` parameter. This
-parameter applies to the following `date_parts`:
+parameter applies to the following `date_time_part`:
 
 + `MINUTE`
 + `HOUR`

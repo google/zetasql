@@ -168,6 +168,38 @@ SELECT
 +-------+-------+
 ```
 
+### ARRAY_FIRST
+
+```sql
+ARRAY_FIRST(array_expression)
+```
+
+**Description**
+
+Takes an array and returns the first element in the array.
+
+Produces an error if the array is empty.
+
+Returns `NULL` if `array_expression` is `NULL`.
+
+Note: To get the last element in an array, see [`ARRAY_LAST`][array-last].
+
+**Return type**
+
+Matches the data type of elements in `array_expression`.
+
+**Example**
+
+```sql
+SELECT ARRAY_FIRST(['a','b','c','d']) as first_element
+
++---------------+
+| first_element |
++---------------+
+| a             |
++---------------+
+```
+
 ### ARRAY_INCLUDES
 
 +   [Signature 1](#array_includes_signature1): `ARRAY_INCLUDES(array_to_search,
@@ -333,6 +365,38 @@ SELECT
 +------+-------+
 | true | false |
 +------+-------+
+```
+
+### ARRAY_LAST
+
+```sql
+ARRAY_LAST(array_expression)
+```
+
+**Description**
+
+Takes an array and returns the last element in the array.
+
+Produces an error if the array is empty.
+
+Returns `NULL` if `array_expression` is `NULL`.
+
+Note: To get the first element in an array, see [`ARRAY_FIRST`][array-first].
+
+**Return type**
+
+Matches the data type of elements in `array_expression`.
+
+**Example**
+
+```sql
+SELECT ARRAY_LAST(['a','b','c','d']) as last_element
+
++---------------+
+| last_element  |
++---------------+
+| d             |
++---------------+
 ```
 
 ### ARRAY_LENGTH
@@ -573,9 +637,11 @@ parameters determine the inclusive start and end of the array.
 
 The `GENERATE_ARRAY` function accepts the following data types as inputs:
 
-<ul>
-<li>INT64</li><li>UINT64</li><li>NUMERIC</li><li>BIGNUMERIC</li><li>DOUBLE</li>
-</ul>
++ `INT64`
++ `UINT64`
++ `NUMERIC`
++ `BIGNUMERIC`
++ `DOUBLE`
 
 The `step_expression` parameter determines the increment used to
 generate array values. The default value for this parameter is `1`.
@@ -1064,6 +1130,10 @@ FROM example;
 [flatten-tree-to-array]: https://github.com/google/zetasql/blob/master/docs/arrays.md#flattening_nested_data_into_arrays
 
 [array-el-field-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#array_el_field_operator
+
+[array-first]: #array_first
+
+[array-last]: #array_last
 
 [array-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md
 

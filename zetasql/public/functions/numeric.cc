@@ -16,6 +16,8 @@
 
 #include "zetasql/public/functions/numeric.h"
 
+#include <string>
+
 #include "zetasql/base/logging.h"
 #include "zetasql/public/functions/util.h"
 #include "absl/strings/substitute.h"

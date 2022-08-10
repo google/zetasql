@@ -127,7 +127,6 @@ cc_library(
         ":util",
         "//zetasql/base:case",
         "//zetasql/base:status",
-        "//zetasql/base:strings",
         "//zetasql/common:string_util",
         "//zetasql/public:numeric_value",
         "@com_google_absl//absl/base:core_headers",
@@ -249,6 +248,7 @@ cc_library(
         "//zetasql/base",
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
+        "//zetasql/common:canonicalize_signed_zero_to_string",
         "//zetasql/common:utf_util",
         "//zetasql/public:numeric_value",
         "//zetasql/public:strings",
@@ -286,6 +286,7 @@ cc_test(
         "//zetasql/testdata:test_schema_cc_proto",
         "//zetasql/testing:test_function",
         "//zetasql/testing:test_value",
+        "@com_google_absl//absl/base",
         "@com_google_absl//absl/cleanup",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/functional:bind_front",
@@ -563,6 +564,7 @@ cc_library(
     hdrs = ["math.h"],
     deps = [
         ":arithmetics",
+        ":rounding_mode_cc_proto",
         ":util",
         "//zetasql/base:status",
         "//zetasql/public:numeric_value",
@@ -578,6 +580,7 @@ cc_test(
     srcs = ["math_test.cc"],
     deps = [
         ":math",
+        ":rounding_mode_cc_proto",
         "//zetasql/base",
         "//zetasql/base:status",
         "//zetasql/base/testing:status_matchers",
@@ -828,6 +831,21 @@ java_proto_library(
     deps = [":normalize_mode_proto"],
 )
 
+proto_library(
+    name = "rounding_mode_proto",
+    srcs = ["rounding_mode.proto"],
+)
+
+cc_proto_library(
+    name = "rounding_mode_cc_proto",
+    deps = ["rounding_mode_proto"],
+)
+
+java_proto_library(
+    name = "rounding_mode_java_proto",
+    deps = [":rounding_mode_proto"],
+)
+
 cc_library(
     name = "json_internal",
     srcs = ["json_internal.cc"],
@@ -1044,6 +1062,7 @@ cc_library(
         ":json_format",
         "//zetasql/base:logging",
         "//zetasql/base:status",
+        "//zetasql/common:canonicalize_signed_zero_to_string",
         "//zetasql/common:errors",
         "//zetasql/public:interval_value",
         "//zetasql/public:json_value",

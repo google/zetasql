@@ -17,12 +17,14 @@
 #include "zetasql/compliance/runtime_expected_errors.h"
 
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
 #include "zetasql/compliance/matchers.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "absl/strings/substitute.h"
 
 namespace zetasql {
 
@@ -163,7 +165,7 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange,
       "ARRAY_FIRST cannot get the first element of an empty array"));
-  error_matchers.emplace_back(absl::make_unique<StatusSubstringMatcher>(
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange,
       "ARRAY_LAST cannot get the last element of an empty array"));
 
@@ -210,7 +212,20 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   //
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange,
-      "Bad (uint32_t|int32|uint64_t|int64|float|double) value"));
+      "Bad (UINT32|INT32|UINT64|INT64|FLOAT|DOUBLE) value"));
+  // TODO: Remove these lowercase options once engines have all moved
+  // to the formal uppercase name
+  // b/235365564: copybara currently adds the "_t" suffix to int32_t, int64_t, ...
+  // etc. Unfortunately these messages use type->DebugString() instead of the
+  // (capitalized) type name, and changing these messages is currently
+  // infeasible due to the bug above. It is challenging as well to have copybara
+  // parse C++. As a workaround, we're obfuscating the literal string to hide
+  // matches from copybara (We have a special copybara rule for just passing
+  // them enclosed directly in quotes)
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      absl::Substitute("Bad (u$032|$032|u$064|$064|float|double) value",
+                       "int")));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange, "Invalid NUMERIC value"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
@@ -370,6 +385,10 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "TIMESTAMP|DATE|DATETIME|TIME|STRING|BOOL|NUMERIC|BIGNUMERIC|JSON|"
       "INTERVAL)"));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange, "Bad BOOL value:"));
+  // TODO: Remove these lowercase options once engines have all moved
+  // to the formal uppercase name
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "Bad bool value:"));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kInvalidArgument,
@@ -428,6 +447,16 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange, "Invalid sketch in HLL_COUNT\\.(.+)"));
 
+  // D3A sketch format errors
+  //
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "Invalid sketch in D3A_COUNT\\.(.+)"));
+
+  // D3A weight overflow errors
+  //
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument, "Grid gounters overflowed.*"));
+
   // GEOGRAPHY related errors
   //
   // GEOGRAPHY constructors errors (not converted from S2Error).
@@ -450,6 +479,23 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "(ST_BUFFER|ST_BUFFERWITHTOLERANCE) does not yet implement "
       "use_spheroid=true"));
 
+  // PROTO_NULL_IF_UNSET() analysis errors from Protobuf fields without defaults
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "The field accessed by PROTO_DEFAULT_IF_NULL must have a usable default "
+      "value; Field (.+) is annotated to ignore proto defaults"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "The PROTO_DEFAULT_IF_NULL input expression cannot access a field with "
+      "type message; Field (.+) is of message type"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "The field accessed by PROTO_DEFAULT_IF_NULL input expression cannot "
+      "access a required field; Field (.+) is required"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "The PROTO_DEFAULT_IF_NULL function does not accept expressions that "
+      "result in a 'has_' virtual field access"));
   // REPLACE_FIELDS() specific
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
@@ -467,11 +513,57 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
       "The second argument of COLLATE\\(\\) must be a string literal"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Collation for non-String type is not supported"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Collation is not supported for function: (.+)"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Collation for (.+) is different on argument (.+) and argument (.+)"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Collation is not allowed on input array to FLATTEN (.+)"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Collation for IN operator is different on input expr (.+) and subquery "
+      "column (.+)"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Collation is not allowed on argument (.+) (.+)"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Collation is not supported for aggregate function (.+) without "
+      "DISTINCT"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Collation mismatch is found for output column (.+) of set operation: "
+      "(.+) vs (.+)"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Collation is not supported in recursive queries"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kUnimplemented,
+      "Collation is not supported in a PIVOT clause yet"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kUnimplemented,
+      "Collation (.+) is not supported on argument (.+) of aggregate function "
+      "in a PIVOT clause"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Order by item ((.|\\n)+) with collation (.+) in function (.+) is not "
+      "supported"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "Analytic function (.+) with collation (.+) is not supported"));
 
   // TODO PARSE_JSON sometimes is generated with invalid string
   // inputs.
-  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
-      absl::StatusCode::kInvalidArgument, "parse error at line"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "syntax error while parsing (value|array|object|object key|object "
+      "separator)"));
 
   // JSON related errors
   // TO_JSON will return OUT_OF_RANGE error if the input type is
@@ -488,6 +580,9 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kOutOfRange,
       "JSON number: (-?\\d+) cannot be converted to DOUBLE without loss of "
       "precision"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "The provided JSON number: .+ cannot be converted to an integer"));
 
   return std::make_unique<MatcherCollection<absl::Status>>(
       matcher_name, std::move(error_matchers));
@@ -552,7 +647,9 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeDMLExpectedErrorMatcher(
   // TODO PARSE_JSON sometimes is generated with invalid string
   // inputs.
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
-      absl::StatusCode::kInvalidArgument, "parse error at line"));
+      absl::StatusCode::kInvalidArgument,
+      "syntax error while parsing (value|array|object|object key|object "
+      "separator) - "));
 
   error_matchers.emplace_back(RuntimeExpectedErrorMatcher("RuntimeErrors"));
   return std::make_unique<MatcherCollection<absl::Status>>(

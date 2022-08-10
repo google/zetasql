@@ -1,30 +1,25 @@
 
 
-# Analytic function concepts
+# Window function calls
 
-An analytic function, also known as a window function, computes values
-over a group of rows and returns a
-single result for _each_ row. This is different from an aggregate function,
-which returns a single result for _a group_ of rows.
+A window function, also known as an analytic function, computes values
+over a group of rows and returns a single result for _each_ row. This is
+different from an aggregate function, which returns a single result for
+_a group_ of rows.
 
-An analytic function includes an `OVER` clause, which defines a window of rows
-around the row being evaluated.  For each row, the analytic function result
+A window function includes an `OVER` clause, which defines a window of rows
+around the row being evaluated.  For each row, the window function result
 is computed using the selected window of rows as input, possibly
 doing aggregation.
 
-With analytic functions you can compute moving averages, rank items, calculate
+With window functions you can compute moving averages, rank items, calculate
 cumulative sums, and perform other analyses.
 
-The following functions can be used as analytic functions:
-[navigation functions][navigation-functions-reference],
-[numbering functions][numbering-functions-reference], and
-[aggregate analytic functions][aggregate-analytic-functions-reference]
-
-## Analytic function syntax 
+## Window function syntax 
 <a id="syntax"></a>
 
 <pre>
-analytic_function_name ( [ argument_list ] ) OVER over_clause
+function_name ( [ argument_list ] ) OVER over_clause
 
 <a href="#def_over_clause">over_clause</a>:
   { named_window | ( [ window_specification ] ) }
@@ -44,26 +39,26 @@ analytic_function_name ( [ argument_list ] ) OVER over_clause
 
 **Notation rules**
 
-+ Square brackets "[ ]" indicate optional clauses.
-+ Parentheses "( )" indicate literal parentheses.
-+ The vertical bar "|" indicates a logical OR.
-+ Curly braces "{ }" enclose a set of options.
-+ A comma followed by an ellipsis within square brackets "[, ... ]" indicates that
++ Square brackets `[ ]` indicate optional clauses.
++ Parentheses `( )` indicate literal parentheses.
++ The vertical bar `|` indicates a logical `OR`.
++ Curly braces `{ }` enclose a set of options.
++ A comma followed by an ellipsis within square brackets `[, ... ]` indicates that
   the preceding item can repeat in a comma-separated list.
 
 **Description**
 
-An analytic function computes results over a group of rows. You can use the
-following syntax to build an analytic function:
+A window function computes results over a group of rows. You can use the
+following syntax to build a window function:
 
-+  `analytic_function_name`: The function that performs an analytic operation.
++  `function_name`: The function that performs a window operation.
    For example, the numbering function `RANK()` could be used here.
-+  `argument_list`: Arguments that are specific to the analytic function.
++  `argument_list`: Arguments that are specific to the function.
    Some functions have them, some do not.
-+  `OVER`: Keyword required in the analytic function syntax preceding
++  `OVER`: Keyword required in the window function syntax preceding
    the [`OVER` clause][over-clause-def].
 +  [`over_clause`][over-clause-def]: References a window that defines a group
-   of rows in a table upon which to use an analytic function.
+   of rows in a table upon which to use a window function.
 +  [`window_specification`][window-specs-def]: Defines the specifications for
    the window.
 +  [`window_frame_clause`][window-frame-clause-def]: Defines the window frame
@@ -73,23 +68,23 @@ following syntax to build an analytic function:
 
 **Notes**
 
-An analytic function can appear as a scalar expression operand in
+A window function can appear as a scalar expression operand in
 two places in the query:
 
-   +  The `SELECT` list. If the analytic function appears in the `SELECT` list,
+   +  The `SELECT` list. If the window function appears in the `SELECT` list,
       its argument list and `OVER` clause can't refer to aliases introduced
       in the same SELECT list.
-   +  The `ORDER BY` clause. If the analytic function appears in the `ORDER BY`
+   +  The `ORDER BY` clause. If the window function appears in the `ORDER BY`
       clause of the query, its argument list can refer to `SELECT`
       list aliases.
 
-An analytic function can't refer to another analytic function in its
+A window function can't refer to another window function in its
 argument list or its `OVER` clause, even indirectly through an alias.
 
-An analytic function is evaluated after aggregation. For example, the
-`GROUP BY` clause and non-analytic aggregate functions are evaluated first.
-Because aggregate functions are evaluated before analytic functions,
-aggregate functions can be used as input operands to analytic functions.
+A window function is evaluated after aggregation. For example, the
+`GROUP BY` clause and non-window aggregate functions are evaluated first.
+Because aggregate functions are evaluated before window functions,
+aggregate functions can be used as input operands to window functions.
 
 **Returns**
 
@@ -99,7 +94,7 @@ A single result for each row in the input.
 <a id="def_over_clause"></a>
 
 ```zetasql
-analytic_function_name ( [ argument_list ] ) OVER over_clause
+function_name ( [ argument_list ] ) OVER over_clause
 
 over_clause:
   { named_window | ( [ window_specification ] ) }
@@ -108,9 +103,9 @@ over_clause:
 **Description**
 
 The `OVER` clause references a window that defines a group of rows in a table
-upon which to use an analytic function. You can provide a
+upon which to use a window function. You can provide a
 [`named_window`][named-windows] that is
-[defined in your query][analytic-functions-link-to-window], or you can
+[defined in your query][window-functions-link-to-window], or you can
 define the [specifications for a new window][window-specs-def].
 
 **Notes**
@@ -122,19 +117,19 @@ input rows are included in the window for every row.
 
 These queries use window specifications:
 
-+  [Compute a grand total][analytic-functions-compute-grand-total]
-+  [Compute a subtotal][analytic-functions-compute-subtotal]
-+  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
-+  [Compute a moving average][analytic-functions-compute-moving-avg]
-+  [Compute the number of items within a range][analytic-functions-compute-item-range]
-+  [Get the most popular item in each category][analytic-functions-get-popular-item]
-+  [Get the last value in a range][analytic-functions-get-last-value-range]
-+  [Compute rank][analytic-functions-compute-rank]
++  [Compute a grand total][window-functions-compute-grand-total]
++  [Compute a subtotal][window-functions-compute-subtotal]
++  [Compute a cumulative sum][window-functions-compute-cumulative-sum]
++  [Compute a moving average][window-functions-compute-moving-avg]
++  [Compute the number of items within a range][window-functions-compute-item-range]
++  [Get the most popular item in each category][window-functions-get-popular-item]
++  [Get the last value in a range][window-functions-get-last-value-range]
++  [Compute rank][window-functions-compute-rank]
 
 These queries use a named window:
 
-+  [Get the last value in a range][analytic-functions-get-last-value-range]
-+  [Use a named window in a window frame clause][analytic-functions-use-named-window]
++  [Get the last value in a range][window-functions-get-last-value-range]
++  [Use a named window in a window frame clause][window-functions-use-named-window]
 
 ### Defining the window specification 
 <a id="def_window_spec"></a>
@@ -152,7 +147,7 @@ window_specification:
 Defines the specifications for the window.
 
 +  [`named_window`][named-windows]: The name of an existing window that was
-   defined with a [`WINDOW` clause][analytic-functions-link-to-window].
+   defined with a [`WINDOW` clause][window-functions-link-to-window].
 
 Important: If you use a named window, special rules apply to
 `PARTITION BY`, `ORDER BY`, and `window_frame_clause`. See
@@ -160,10 +155,10 @@ Important: If you use a named window, special rules apply to
 [named-window-rules].
 
 +  `PARTITION BY`: Breaks up the input rows into separate partitions, over
-   which the analytic function is independently evaluated.
+   which the window function is independently evaluated.
    +  Multiple partition expressions are allowed in the `PARTITION BY` clause.
    +  An expression can't contain floating point types, non-groupable types,
-      constants, or analytic functions.
+      constants, or window functions.
    +  If this optional clause is not used, all rows in the input table
       comprise a single partition.
 +  `ORDER BY`: Defines how rows are ordered within a partition.
@@ -204,7 +199,7 @@ SELECT book, LAST_VALUE(item)
 FROM Library
 ```
 
-[Hints][analytic-functions-link-to-hints] are supported on the `PARTITION BY`
+[Hints][window-functions-link-to-hints] are supported on the `PARTITION BY`
 clause and the `ORDER BY` clause.
 
 <a id="named_window_rules"></a>
@@ -241,30 +236,30 @@ If you use a named window in your window specifications, these rules apply:
 
 **Examples using the window specification**
 
-These queries define partitions in an analytic function:
+These queries define partitions in a window function:
 
-+  [Compute a subtotal][analytic-functions-compute-subtotal]
-+  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
-+  [Get the most popular item in each category][analytic-functions-get-popular-item]
-+  [Get the last value in a range][analytic-functions-get-last-value-range]
-+  [Compute rank][analytic-functions-compute-rank]
-+  [Use a named window in a window frame clause][analytic-functions-use-named-window]
++  [Compute a subtotal][window-functions-compute-subtotal]
++  [Compute a cumulative sum][window-functions-compute-cumulative-sum]
++  [Get the most popular item in each category][window-functions-get-popular-item]
++  [Get the last value in a range][window-functions-get-last-value-range]
++  [Compute rank][window-functions-compute-rank]
++  [Use a named window in a window frame clause][window-functions-use-named-window]
 
 These queries include a named window in a window specification:
 
-+  [Get the last value in a range][analytic-functions-get-last-value-range]
-+  [Use a named window in a window frame clause][analytic-functions-use-named-window]
++  [Get the last value in a range][window-functions-get-last-value-range]
++  [Use a named window in a window frame clause][window-functions-use-named-window]
 
 These queries define how rows are ordered in a partition:
 
-+  [Compute a subtotal][analytic-functions-compute-subtotal]
-+  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
-+  [Compute a moving average][analytic-functions-compute-moving-avg]
-+  [Compute the number of items within a range][analytic-functions-compute-item-range]
-+  [Get the most popular item in each category][analytic-functions-get-popular-item]
-+  [Get the last value in a range][analytic-functions-get-last-value-range]
-+  [Compute rank][analytic-functions-compute-rank]
-+  [Use a named window in a window frame clause][analytic-functions-use-named-window]
++  [Compute a subtotal][window-functions-compute-subtotal]
++  [Compute a cumulative sum][window-functions-compute-cumulative-sum]
++  [Compute a moving average][window-functions-compute-moving-avg]
++  [Compute the number of items within a range][window-functions-compute-item-range]
++  [Get the most popular item in each category][window-functions-get-popular-item]
++  [Get the last value in a range][window-functions-get-last-value-range]
++  [Compute rank][window-functions-compute-rank]
++  [Use a named window in a window frame clause][window-functions-use-named-window]
 
 ### Defining the window frame clause 
 <a id="def_window_frame"></a>
@@ -313,7 +308,7 @@ current_row:
 ```
 
 The window frame clause defines the window frame around the current row within
-a partition, over which the analytic function is evaluated.
+a partition, over which the window function is evaluated.
 Only aggregate analytic functions can use a window frame clause.
 
 +  `rows_range`: A clause that defines a window frame with physical rows
@@ -368,52 +363,52 @@ If a boundary extends beyond the beginning or end of a partition,
 the window frame will only include rows from within that partition.
 
 You can't use a window frame clause with
-[navigation functions][analytic-functions-link-to-navigation-functions] and
-[numbering functions][analytic-functions-link-to-numbering-functions],
+[navigation functions][navigation-functions-reference] and
+[numbering functions][numbering-functions-reference],
 such as  `RANK()`.
 
 **Examples using the window frame clause**
 
 These queries compute values with `ROWS`:
 
-+  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
-+  [Compute a moving average][analytic-functions-compute-moving-avg]
-+  [Get the most popular item in each category][analytic-functions-get-popular-item]
-+  [Get the last value in a range][analytic-functions-get-last-value-range]
-+  [Use a named window in a window frame clause][analytic-functions-use-named-window]
++  [Compute a cumulative sum][window-functions-compute-cumulative-sum]
++  [Compute a moving average][window-functions-compute-moving-avg]
++  [Get the most popular item in each category][window-functions-get-popular-item]
++  [Get the last value in a range][window-functions-get-last-value-range]
++  [Use a named window in a window frame clause][window-functions-use-named-window]
 
 These queries compute values with `RANGE`:
 
-+  [Compute the number of items within a range][analytic-functions-compute-item-range]
++  [Compute the number of items within a range][window-functions-compute-item-range]
 
 These queries compute values with a partially or fully unbound window:
 
-+  [Compute a grand total][analytic-functions-compute-grand-total]
-+  [Compute a subtotal][analytic-functions-compute-subtotal]
-+  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
-+  [Get the most popular item in each category][analytic-functions-get-popular-item]
-+  [Compute rank][analytic-functions-compute-rank]
++  [Compute a grand total][window-functions-compute-grand-total]
++  [Compute a subtotal][window-functions-compute-subtotal]
++  [Compute a cumulative sum][window-functions-compute-cumulative-sum]
++  [Get the most popular item in each category][window-functions-get-popular-item]
++  [Compute rank][window-functions-compute-rank]
 
 These queries compute values with numeric boundaries:
 
-+  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
-+  [Compute a moving average][analytic-functions-compute-moving-avg]
-+  [Compute the number of items within a range][analytic-functions-compute-item-range]
-+  [Get the last value in a range][analytic-functions-get-last-value-range]
-+  [Use a named window in a window frame clause][analytic-functions-use-named-window]
++  [Compute a cumulative sum][window-functions-compute-cumulative-sum]
++  [Compute a moving average][window-functions-compute-moving-avg]
++  [Compute the number of items within a range][window-functions-compute-item-range]
++  [Get the last value in a range][window-functions-get-last-value-range]
++  [Use a named window in a window frame clause][window-functions-use-named-window]
 
 These queries compute values with the current row as a boundary:
 
-+  [Compute a grand total][analytic-functions-compute-grand-total]
-+  [Compute a subtotal][analytic-functions-compute-subtotal]
-+  [Compute a cumulative sum][analytic-functions-compute-cumulative-sum]
++  [Compute a grand total][window-functions-compute-grand-total]
++  [Compute a subtotal][window-functions-compute-subtotal]
++  [Compute a cumulative sum][window-functions-compute-cumulative-sum]
 
 ### Referencing a named window 
 <a id="ref_named_window"></a>
 
 ```zetasql
 SELECT query_expr,
-  analytic_function_name ( [ argument_list ] ) OVER over_clause
+  function_name ( [ argument_list ] ) OVER over_clause
 FROM from_item
 WINDOW named_window_expression [, ...]
 
@@ -431,101 +426,25 @@ named_window_expression:
 ```
 
 A named window represents a group of rows in a table upon which to use an
-analytic function. A named window is defined in the
-[`WINDOW` clause][analytic-functions-link-to-window], and referenced in
-an analytic function's [`OVER` clause][over-clause-def].
+window function. A named window is defined in the
+[`WINDOW` clause][window-functions-link-to-window], and referenced in
+a window function's [`OVER` clause][over-clause-def].
 In an `OVER` clause, a named window can appear either by itself or embedded
 within a [window specification][window-specs-def].
 
 **Examples**
 
-+  [Get the last value in a range][analytic-functions-get-last-value-range]
-+  [Use a named window in a window frame clause][analytic-functions-use-named-window]
-
-## Navigation function concepts
-
-[Navigation functions][navigation-functions-reference] generally compute some
-`value_expression` over a different row in the window frame from the
-current row. The `OVER` clause syntax varies across navigation functions.
-
-Requirements for the `OVER` clause:
-
-+   `PARTITION BY`: Optional.
-+   `ORDER BY`:
-    1.  Disallowed for `PERCENTILE_CONT` and `PERCENTILE_DISC`.
-    1.   Required for `FIRST_VALUE`, `LAST_VALUE`, `NTH_VALUE`, `LEAD`
-    and `LAG`.
-+   `window_frame_clause`:
-    1.  Disallowed for  `PERCENTILE_CONT`, `PERCENTILE_DISC`, `LEAD` and `LAG`.
-    1.  Optional for `FIRST_VALUE`, `LAST_VALUE`, and `NTH_VALUE`.
-
-For all navigation functions, the result data type is the same type as
-`value_expression`.
-
-## Numbering function concepts
-
-[Numbering functions][numbering-functions-reference] assign integer values to
-each row based on their position within the specified window.
-
-Example of `RANK()`, `DENSE_RANK()`, and `ROW_NUMBER()`:
-
-```zetasql
-WITH Numbers AS
- (SELECT 1 as x
-  UNION ALL SELECT 2
-  UNION ALL SELECT 2
-  UNION ALL SELECT 5
-  UNION ALL SELECT 8
-  UNION ALL SELECT 10
-  UNION ALL SELECT 10
-)
-SELECT x,
-  RANK() OVER (ORDER BY x ASC) AS rank,
-  DENSE_RANK() OVER (ORDER BY x ASC) AS dense_rank,
-  ROW_NUMBER() OVER (ORDER BY x) AS row_num
-FROM Numbers
-
-+---------------------------------------------------+
-| x          | rank       | dense_rank | row_num    |
-+---------------------------------------------------+
-| 1          | 1          | 1          | 1          |
-| 2          | 2          | 2          | 2          |
-| 2          | 2          | 2          | 3          |
-| 5          | 4          | 3          | 4          |
-| 8          | 5          | 4          | 5          |
-| 10         | 6          | 5          | 6          |
-| 10         | 6          | 5          | 7          |
-+---------------------------------------------------+
-```
-
-+  `RANK()`: For x=5, `rank` is 4, since `RANK()` increments by the number
-   of peers in the previous window ordering group.
-+  `DENSE_RANK()`: For x=5, `dense_rank` is 3, since `DENSE_RANK()` always
-   increments by 1, never skipping a value.
-+  `ROW_NUMBER()`: For x=5, `row_num` is 4.
-
-## Aggregate analytic function concepts
-
-An aggregate function is a function that performs a calculation on a
-set of values. Most aggregate functions can be used in an
-analytic function. These aggregate functions are called
-[aggregate analytic functions][aggregate-analytic-functions-reference].
-
-With aggregate analytic functions, the `OVER` clause is appended to the
-aggregate function call; the function call syntax remains otherwise unchanged.
-Like their aggregate function counterparts, these analytic functions perform
-aggregations, but specifically over the relevant window frame for each row.
-The result data types of these analytic functions are the same as their
-aggregate function counterparts.
++  [Get the last value in a range][window-functions-get-last-value-range]
++  [Use a named window in a window frame clause][window-functions-use-named-window]
 
 ## Filtering results with the QUALIFY clause 
-<a id="filter_analytic_results"></a>
+<a id="filter_window_results"></a>
 
-The `QUALIFY` clause can be used to filter the results of an analytic function.
+The `QUALIFY` clause can be used to filter the results of a window function.
 For more information and examples, see the
-[`QUALIFY` clause][analytic-functions-link-to-qualify].
+[`QUALIFY` clause][window-functions-link-to-qualify].
 
-## Analytic function examples
+## Window function examples
 
 In these examples, the ==highlighted item== is the current row. The **bolded
 items** are the rows that are included in the analysis.
@@ -1029,39 +948,33 @@ WINDOW item_window AS (
 
 [employees-table]: #employees_table
 
-[analytic-functions-link-to-numbering-functions]: #numbering_function_concepts
+[window-functions-compute-grand-total]: #compute_a_grand_total
 
-[analytic-functions-link-to-navigation-functions]: #navigation_function_concepts
+[window-functions-compute-subtotal]: #compute_a_subtotal
 
-[analytic-functions-compute-grand-total]: #compute_a_grand_total
+[window-functions-compute-cumulative-sum]: #compute_a_cumulative_sum
 
-[analytic-functions-compute-subtotal]: #compute_a_subtotal
+[window-functions-compute-moving-avg]: #compute_a_moving_average
 
-[analytic-functions-compute-cumulative-sum]: #compute_a_cumulative_sum
+[window-functions-compute-item-range]: #compute_the_number_of_items_within_a_range
 
-[analytic-functions-compute-moving-avg]: #compute_a_moving_average
+[window-functions-get-popular-item]: #get_the_most_popular_item_in_each_category
 
-[analytic-functions-compute-item-range]: #compute_the_number_of_items_within_a_range
+[window-functions-get-last-value-range]: #get_the_last_value_in_a_range
 
-[analytic-functions-get-popular-item]: #get_the_most_popular_item_in_each_category
+[window-functions-compute-rank]: #compute_rank
 
-[analytic-functions-get-last-value-range]: #get_the_last_value_in_a_range
+[window-functions-use-named-window]: #def_use_named_window
 
-[analytic-functions-compute-rank]: #compute_rank
+[window-functions-link-to-window]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#window_clause
 
-[analytic-functions-use-named-window]: #def_use_named_window
+[window-functions-link-to-qualify]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#qualify_clause
 
-[analytic-functions-link-to-window]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#window_clause
-
-[analytic-functions-link-to-qualify]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#qualify_clause
-
-[analytic-functions-link-to-hints]: https://github.com/google/zetasql/blob/master/docs/lexical.md#hints
+[window-functions-link-to-hints]: https://github.com/google/zetasql/blob/master/docs/lexical.md#hints
 
 [navigation-functions-reference]: https://github.com/google/zetasql/blob/master/docs/navigation_functions.md
 
 [numbering-functions-reference]: https://github.com/google/zetasql/blob/master/docs/numbering_functions.md
-
-[aggregate-analytic-functions-reference]: https://github.com/google/zetasql/blob/master/docs/aggregate_analytic_functions.md
 
 <!-- mdlint on -->
 

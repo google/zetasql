@@ -36,6 +36,7 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/array_type.h"
+#include "zetasql/public/types/range_type.h"
 #include "zetasql/public/types/simple_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type_factory.h"
@@ -44,6 +45,7 @@
 #include "zetasql/public/value_content.h"
 #include "absl/base/macros.h"
 #include "absl/base/optimization.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/hash/hash.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -81,75 +83,70 @@ struct TypeKindInfo {
 };
 }  // namespace
 
-// Order of type names here should match values of TypeKind enum proto.
-// None of the built-in type names/aliases should start with "[a-zA-Z]_",
-// which is reserved for user-defined objects.
-static const TypeKindInfo kTypeKindInfo[]{
-    // clang-format off
-    // name              cost, specificity,  simple },
-    // 0-4
-    {"UNKNOWN",             0,           0,   false },
-    {"INT32",              12,          12,    true },
-    {"INT64",              14,          14,    true },
-    {"UINT32",             11,          11,    true },
-    {"UINT64",             13,          13,    true },
-
-    // 5-9
-    {"BOOL",               10,          10,    true },
-    {"FLOAT",              18,          17,    true },
-    {"DOUBLE",             17,          18,    true },
-    {"STRING",             19,          19,    true },
-    {"BYTES",              20,          20,    true },
-
-    // 10-14
-    {"DATE",                9,           7,    true },
-    {"TIMESTAMP_SECONDS",   7,           3,    true },
-    {"TIMESTAMP_MILLIS",    6,           4,    true },
-    {"TIMESTAMP_MICROS",    5,           5,    true },
-    {"TIMESTAMP_NANOS",     4,           6,    true },
-
-    // 15-19
-    {"ENUM",                1,           1,   false },
-    {"ARRAY",              23,          23,   false },
-    {"STRUCT",             22,          22,   false },
-    {"PROTO",              21,          21,   false },
-    {"TIMESTAMP",           8,           2,    true },
-
-    // 20-21
-    {"TIME",                2,           8,    true },
-    {"DATETIME",            3,           9,    true },
-
-    // 22
-    {"GEOGRAPHY",          24,          24,    true },
-
-    // 23
-    {"NUMERIC",            15,          15,    true },
-
-    // 24
-    {"BIGNUMERIC",         16,          16,    true },
-
-    // 25
-    {"EXTENDED",           25,          25,   false },
-
-    // 26
-    {"JSON",               26,          26,    true },
-
-    // 27
-    {"INTERVAL",           27,          27,    true },
-
-    // clang-format on
-    // When a new entry is added here, update
-    // TypeTest::VerifyCostAndSpecificity.
-};
-
-static_assert(ABSL_ARRAYSIZE(kTypeKindInfo) == TypeKind_ARRAYSIZE,
-              "kTypeKindInfo wrong size");
-
-// The following condition must hold true or the mapping to kTypeKindInfo
-// will not work and the TypeKindToString() function will fail.
-// -1 is the __TypeKind__switch_must_have_a_default__ value.
-static_assert(TypeKind_MIN == -1 && TypeKind_MAX == TypeKind_ARRAYSIZE -1,
-              "TypeKind must go from -1 to ARRAYSIZE -1");
+static const auto& GetTypeKindInfoMap() {
+  // None of the built-in type names/aliases should start with "[a-zA-Z]_",
+  // which is reserved for user-defined objects.
+  static const auto& kTypeKindInfo =
+      *new absl::flat_hash_map<TypeKind, TypeKindInfo>({
+          // clang-format off
+          // {TYPE_KIND,
+          // { name,            cost, specificity,  simple }},
+          {TYPE_UNKNOWN,
+           {"UNKNOWN",             0,           0,   false }},
+          {TYPE_INT32,
+           {"INT32",              12,          12,    true }},
+          {TYPE_INT64,
+           {"INT64",              14,          14,    true }},
+          {TYPE_UINT32,
+           {"UINT32",             11,          11,    true }},
+          {TYPE_UINT64,
+           {"UINT64",             13,          13,    true }},
+          {TYPE_BOOL,
+           {"BOOL",               10,          10,    true }},
+          {TYPE_FLOAT,
+           {"FLOAT",              18,          17,    true }},
+          {TYPE_DOUBLE,
+           {"DOUBLE",             17,          18,    true }},
+          {TYPE_STRING,
+           {"STRING",             19,          19,    true }},
+          {TYPE_BYTES,
+           {"BYTES",              20,          20,    true }},
+          {TYPE_DATE,
+           {"DATE",                9,           7,    true }},
+          {TYPE_ENUM,
+           {"ENUM",                1,           1,   false }},
+          {TYPE_ARRAY,
+           {"ARRAY",              23,          23,   false }},
+          {TYPE_STRUCT,
+           {"STRUCT",             22,          22,   false }},
+          {TYPE_PROTO,
+           {"PROTO",              21,          21,   false }},
+          {TYPE_TIMESTAMP,
+           {"TIMESTAMP",           8,           2,    true }},
+          {TYPE_TIME,
+           {"TIME",                2,           8,    true }},
+          {TYPE_DATETIME,
+           {"DATETIME",            3,           9,    true }},
+          {TYPE_GEOGRAPHY,
+           {"GEOGRAPHY",          24,          24,    true }},
+          {TYPE_NUMERIC,
+           {"NUMERIC",            15,          15,    true }},
+          {TYPE_BIGNUMERIC,
+           {"BIGNUMERIC",         16,          16,    true }},
+          {TYPE_EXTENDED,
+           {"EXTENDED",           25,          25,   false }},
+          {TYPE_JSON,
+           {"JSON",               26,          26,    true }},
+          {TYPE_INTERVAL,
+           {"INTERVAL",           27,          27,    true }},
+          {TYPE_RANGE,
+           {"RANGE",              29,          29,   false }},
+          // clang-format on
+          // When a new entry is added here, update
+          // TypeTest::VerifyCostAndSpecificity.
+      });
+  return kTypeKindInfo;
+}
 
 Type::Type(const TypeFactory* factory, TypeKind kind)
     : type_store_(internal::TypeStoreHelper::GetTypeStore(factory)),
@@ -160,8 +157,8 @@ Type::~Type() {
 
 // static
 bool Type::IsSimpleType(TypeKind kind) {
-  if (ABSL_PREDICT_TRUE(kind > TypeKind_MIN && kind <= TypeKind_MAX)) {
-    return kTypeKindInfo[kind].simple;
+  if (ABSL_PREDICT_TRUE(GetTypeKindInfoMap().contains(kind))) {
+    return GetTypeKindInfoMap().at(kind).simple;
   }
   return false;
 }
@@ -191,11 +188,11 @@ std::string Type::TypeKindToString(TypeKind kind, ProductMode mode) {
   // we want error messages to indicate what the unsupported type actually
   // is as an aid in debugging.  When used in production in external mode,
   // those internal names should never actually be reachable.
-  if (ABSL_PREDICT_TRUE(kind > TypeKind_MIN && kind <= TypeKind_MAX)) {
+  if (ABSL_PREDICT_TRUE(GetTypeKindInfoMap().contains(kind))) {
     if (mode == PRODUCT_EXTERNAL && kind == TYPE_DOUBLE) {
       return "FLOAT64";
     }
-    return kTypeKindInfo[kind].name;
+    return GetTypeKindInfoMap().at(kind).name;
   }
   return absl::StrCat("INVALID_TYPE_KIND(", kind, ")");
 }
@@ -220,16 +217,16 @@ std::string Type::TypeListToString(TypeListView types, ProductMode mode) {
 }
 
 int Type::KindSpecificity(TypeKind kind) {
-  if (ABSL_PREDICT_TRUE(kind > TypeKind_MIN && kind <= TypeKind_MAX)) {
-    return kTypeKindInfo[kind].specificity;
+  if (ABSL_PREDICT_TRUE(GetTypeKindInfoMap().contains(kind))) {
+    return GetTypeKindInfoMap().at(kind).specificity;
   }
 
   ZETASQL_LOG(FATAL) << "Out of range: " << kind;
 }
 
 static int KindCost(TypeKind kind) {
-  if (ABSL_PREDICT_TRUE(kind > TypeKind_MIN && kind <= TypeKind_MAX)) {
-    return kTypeKindInfo[kind].cost;
+  if (ABSL_PREDICT_TRUE(GetTypeKindInfoMap().contains(kind))) {
+    return GetTypeKindInfoMap().at(kind).cost;
   }
 
   ZETASQL_LOG(FATAL) << "Out of range: " << kind;

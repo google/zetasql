@@ -39,11 +39,18 @@
 # Any other standard arguments to cc_test can be used here and will be
 # forward to the underlying cc_test rules for the test suite.
 #
+# Generates an additional build target to run the driver against a standalone query
+# specified on the command-line. This is useful for repro'ing test failures.
+#
+# See run_compliance_driver.cc for details on the commandline syntax accepted by this binary.
+#
 def zetasql_compliance_test(
         name,
         deps = [],
         include_gtest_main = True,
+        driver_exec_properties = None,
         **extra_args):
+    orig_deps = deps
     if include_gtest_main:
         deps = deps + ["//zetasql/base/testing:zetasql_gtest_main"]
 
@@ -55,23 +62,8 @@ def zetasql_compliance_test(
         **extra_args
     )
 
-# Similar to zetasql_compliance_test, but tests the engine with scripting instead
-# of standalone statement execution.
-def zetasql_scripting_compliance_test(
-        name,
-        deps = [],
-        include_gtest_main = True,
-        **extra_args):
-    if include_gtest_main:
-        deps = deps + ["//zetasql/base/testing:zetasql_gtest_main"]
-
-    sql_e2e_test(
-        name = name,
-        deps = deps + [
-            "//zetasql/scripting/compliance:scripting_compliance_test_cases",
-        ],
-        **extra_args
-    )
+    driver_deps = {d: True for d in orig_deps}
+    driver_deps["//zetasql/compliance:test_driver"] = True
 
 def sql_e2e_test(
         name,

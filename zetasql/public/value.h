@@ -100,15 +100,15 @@ class Value {
  public:
   // Constructs an invalid value. Needed for using values with STL. All methods
   // other than is_valid() will crash if called on invalid values.
-  #ifndef SWIG
+#ifndef SWIG
   // SWIG has trouble with constexpr.
   constexpr
-  #endif
+#endif
   Value();
   Value(const Value& that);
   const Value& operator=(const Value& that);
 #ifndef SWIG
-  Value(Value&& that) noexcept;  // NOLINT(build/c++11)
+  Value(Value&& that) noexcept;             // NOLINT(build/c++11)
   Value& operator=(Value&& that) noexcept;  // NOLINT(build/c++11)
 #endif
   ~Value();
@@ -139,18 +139,18 @@ class Value {
 
   // Accessors for accessing the data within atomic typed Values.
   // REQUIRES: !is_null().
-  int32_t int32_value() const;         // REQUIRES: int32_t type
-  int64_t int64_value() const;         // REQUIRES: int64_t type
-  uint32_t uint32_value() const;       // REQUIRES: uint32_t type
-  uint64_t uint64_value() const;       // REQUIRES: uint64_t type
-  bool bool_value() const;             // REQUIRES: bool type
-  float float_value() const;           // REQUIRES: float type
-  double double_value() const;         // REQUIRES: double type
+  int32_t int32_value() const;              // REQUIRES: int32_t type
+  int64_t int64_value() const;              // REQUIRES: int64_t type
+  uint32_t uint32_value() const;            // REQUIRES: uint32_t type
+  uint64_t uint64_value() const;            // REQUIRES: uint64_t type
+  bool bool_value() const;                  // REQUIRES: bool type
+  float float_value() const;                // REQUIRES: float type
+  double double_value() const;              // REQUIRES: double type
   const std::string& string_value() const;  // REQUIRES: string type
   const std::string& bytes_value() const;   // REQUIRES: bytes type
   int32_t date_value() const;               // REQUIRES: date type
   int32_t enum_value() const;               // REQUIRES: enum type
-  const std::string& enum_name() const;  // REQUIRES: enum type
+  const std::string& enum_name() const;     // REQUIRES: enum type
 
   // Returns timestamp value as absl::Time at nanoseconds precision.
   absl::Time ToTime() const;  // REQUIRES: timestamp type
@@ -211,7 +211,8 @@ class Value {
   // REQUIRES: T is one of int32_t, int64_t, uint32_t, uint64_t, bool, float, double,
   // NumericValue, BigNumericValue, IntervalValue
   // T must match exactly the type_kind() of this value.
-  template <typename T> inline T Get() const;
+  template <typename T>
+  inline T Get() const;
 
   // Accessors that coerce the data to the requested C++ type.
   // REQUIRES: !is_null().
@@ -219,7 +220,7 @@ class Value {
   int64_t ToInt64() const;    // For bool, int_, uint32_t, date, enum
   uint64_t ToUint64() const;  // For bool, uint32_t, uint64_t
   // Use of this method for timestamp_ values is DEPRECATED.
-  double ToDouble() const;  // For bool, int_, date, timestamp_, enum types.
+  double ToDouble() const;    // For bool, int_, date, timestamp_, enum types.
   absl::Cord ToCord() const;  // For string, bytes, and protos
 
   // Convert this value to a dynamically allocated proto Message.
@@ -259,6 +260,10 @@ class Value {
   int num_elements() const;
   const Value& element(int i) const;
   const std::vector<Value>& elements() const;
+
+  // Range-specific methods. REQUIRES: !is_null(), type_kind() == TYPE_RANGE
+  const Value& start() const;
+  const Value& end() const;
 
   // Returns true if 'this' equals 'that' or both are null. This is *not* SQL
   // equality which returns null when either value is null. Returns false if
@@ -315,15 +320,41 @@ class Value {
   template <typename H>
   friend H AbslHashValue(H h, const Value& v);
 
+  // The following few methods return a string representation of the value.
+  // Here is a basic summary of their behaviors.
+  //
+  //       value           true                 [1, 2, 3]
+  // ------------------ ---------- -----------------------------------
+  // ShortDebugString() true       [1, 2, 3]
+  // DebugString(false)
+  // ------------------ ---------- -----------------------------------
+  // FullDebugString()  Bool(true) Array[Int64(1), Int64(2), Int64(3)]
+  // DebugString(true)
+  // ------------------ ---------- -----------------------------------
+  // Format(true)       Bool(true) ARRAY<INT64>[1,
+  //                                            2,
+  //                                            3] *
+  // ------------------ ---------- -----------------------------------
+  // Format(false)      true       ARRAY<INT64>[1,
+  //                                            2,
+  //                                            3] *
+  // ------------------ ---------- -----------------------------------
+  // GetSQLLiteral()    true       [1, 2, 3]
+  // ------------------ ---------- -----------------------------------
+  //
+  // * The array needs to be complex enough to trigger the wrapping.
+
   // Returns printable string for this Value.
   // Verbose DebugStrings include the type name.
   std::string ShortDebugString() const { return DebugString(false); }
   std::string FullDebugString() const { return DebugString(true); }
   std::string DebugString(bool verbose = false) const;
 
-  // Returns a pretty-printed (e.g. wrapped) string for the value.
+  // Returns a pretty-printed (e.g. multi-line wrapped) string for the value.
   // Suitable for printing in golden-tests and documentation.
-  std::string Format() const;
+  // 'print_top_level_type' causes the top-level value to print its type. Array
+  // values always print their types.
+  std::string Format(bool print_top_level_type = true) const;
 
   // Returns a SQL expression that produces this value.
   // This is not necessarily a literal since we don't have literal syntax
@@ -370,12 +401,14 @@ class Value {
   static Value String(absl::string_view v);
   static Value String(const absl::Cord& v);
   // str may contain '\0' in the middle, without getting truncated.
-  template <size_t N> static Value String(const char (&str)[N]);
+  template <size_t N>
+  static Value String(const char (&str)[N]);
   static Value Bytes(std::string v);
   static Value Bytes(absl::string_view v);
   static Value Bytes(const absl::Cord& v);
   // str may contain '\0' in the middle, without getting truncated.
-  template <size_t N> static Value Bytes(const char (&str)[N]);
+  template <size_t N>
+  static Value Bytes(const char (&str)[N]);
   // Create a date value. 'v' is the number of days since unix epoch 1970-1-1
   static Value Date(int32_t v);
   // Creates a timestamp value from absl::Time at nanoseconds precision.
@@ -544,7 +577,7 @@ class Value {
   // the 'values' vector must agree with the number of fields in 'type', and the
   // types of those values must match the corresponding struct fields, otherwise
   // this will crash with a ZETASQL_CHECK failure.
-  ABSL_DEPRECATED("Inline me!")
+  ABSL_DEPRECATED("Please use MakeStruct() instead.")
   static Value Struct(const StructType* type, absl::Span<const Value> values) {
     absl::StatusOr<Value> value = MakeStruct(type, values);
     ZETASQL_CHECK_OK(value);
@@ -555,7 +588,7 @@ class Value {
   // the 'values' vector must agree with the number of fields in 'type', and the
   // types of those values must match the corresponding struct fields. However,
   // this is only ZETASQL_CHECK'd in debug mode.
-  ABSL_DEPRECATED("Inline me!")
+  ABSL_DEPRECATED("Please use MakeStructFromValidatedInputs() instead.")
   static Value UnsafeStruct(const StructType* type,
                             std::vector<Value>&& values) {
     absl::StatusOr<Value> value =
@@ -595,7 +628,7 @@ class Value {
   // The type of each value must be the same as array_type->element_type().
   // otherwise this will crash with a ZETASQL_CHECK failure.
   // 'array_type' must outlive the returned object.
-  ABSL_DEPRECATED("Inline me!")
+  ABSL_DEPRECATED("Please use MakeArray() instead.")
   static Value Array(const ArrayType* array_type,
                      absl::Span<const Value> values) {
     absl::StatusOr<Value> value = MakeArray(array_type, values);
@@ -607,7 +640,7 @@ class Value {
   // The type of each value must be the same as array_type->element_type(),
   // however, this is only ZETASQL_CHECK'd in debug mode.
   // 'array_type' must outlive the returned object.
-  ABSL_DEPRECATED("Inline me!")
+  ABSL_DEPRECATED("Please use MakeArrayFromValidatedInputs() instead.")
   static Value UnsafeArray(const ArrayType* array_type,
                            std::vector<Value>&& values) {
     absl::StatusOr<Value> value =
@@ -616,6 +649,20 @@ class Value {
     return std::move(value).value();
   }
 #endif
+
+  static Value UnboundedStartDate();
+  static Value UnboundedEndDate();
+  static Value UnboundedStartDatetime();
+  static Value UnboundedEndDatetime();
+  static Value UnboundedStartTimestamp();
+  static Value UnboundedEndTimestamp();
+
+  // Creates a Range given 'start' and 'end' values. 'start and 'end' must have
+  // the same type, and this type has to be a valid range element type. The
+  // range element type is inferred from the values. If 'start' or 'end' are
+  // null values, then the range is unbounded on that end respectively.
+  static absl::StatusOr<Value> MakeRange(const Value& start, const Value& end);
+
   // Creates a null of the given 'type'.
   static Value Null(const Type* type);
   // Creates an invalid value.
@@ -649,7 +696,7 @@ class Value {
   friend class InternalValue;  // Defined in zetasql/common/internal_value.h.
   friend struct InternalComparer;  // Defined in value.cc.
   friend struct InternalHasher;    // Defined in value.cc
-  class TypedList;  // Defined in value_inl.h
+  class TypedList;                 // Defined in value_inl.h
 
   // Specifies whether an array value preserves or ignores order (public array
   // values always preserve order). The enum values are designed to be used with
@@ -674,7 +721,7 @@ class Value {
   // SWIG has trouble with constexpr.
   constexpr
 #endif
-  explicit Value(TypeKind kind)
+      explicit Value(TypeKind kind)
       : metadata_(kind, /*is_null=*/true, kPreservesOrder,
                   /*value_extended_content=*/0) {
   }
@@ -801,7 +848,8 @@ class Value {
   // implementation which it feeds to Array/Struct.
   bool DoesTypeUseValueList() const {
     return metadata_.type_kind() == TYPE_ARRAY ||
-           metadata_.type_kind() == TYPE_STRUCT;
+           metadata_.type_kind() == TYPE_STRUCT ||
+           metadata_.type_kind() == TYPE_RANGE;
   }
 
   // Gets Value's content. Requires: has_content() == true.
@@ -887,7 +935,7 @@ class Value {
     // SWIG has trouble with constexpr.
     constexpr
 #endif
-    explicit Metadata(TypeKind kind)
+        explicit Metadata(TypeKind kind)
         : Metadata(kind, /*is_null=*/false, kPreservesOrder,
                    /*value_extended_content=*/0) {
     }
@@ -938,15 +986,14 @@ class Value {
     int32_t enum_value_;          // Used for TYPE_ENUM.
     internal::StringRef*
         string_ptr_;       // Reffed. Used for TYPE_STRING and TYPE_BYTES.
-    TypedList* list_ptr_;  // Reffed. Used for arrays and structs.
+    TypedList* list_ptr_;  // Reffed. Used for arrays, structs, and RANGE.
     internal::ProtoRep* proto_ptr_;          // Reffed. Used for protos.
     internal::GeographyRef* geography_ptr_;  // Owned. Used for geographies.
     internal::NumericRef*
         numeric_ptr_;  // Owned. Used for values of TYPE_NUMERIC.
     internal::BigNumericRef*
-        bignumeric_ptr_;  // Owned. Used for values of TYPE_BIGNUMERIC.
-    internal::JSONRef*
-        json_ptr_;  // Owned. Used for values of TYPE_JSON.
+        bignumeric_ptr_;           // Owned. Used for values of TYPE_BIGNUMERIC.
+    internal::JSONRef* json_ptr_;  // Owned. Used for values of TYPE_JSON.
     internal::IntervalRef*
         interval_ptr_;  // Owned. Used for values of TYPE_INTERVAL.
   };
@@ -976,11 +1023,13 @@ Value Double(double v);
 Value String(absl::string_view v);
 Value String(const absl::Cord& v);
 // str may contain '\0' in the middle, without getting truncated.
-template <size_t N> Value String(const char (&str)[N]);
+template <size_t N>
+Value String(const char (&str)[N]);
 Value Bytes(absl::string_view v);
 Value Bytes(const absl::Cord& v);
 // str may contain '\0' in the middle, without getting truncated.
-template <size_t N> Value Bytes(const char (&str)[N]);
+template <size_t N>
+Value Bytes(const char (&str)[N]);
 Value Date(int32_t v);
 Value Timestamp(absl::Time t);
 Value TimestampFromUnixMicros(int64_t v);

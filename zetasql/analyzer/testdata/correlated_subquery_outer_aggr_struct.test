@@ -635,7 +635,7 @@ QueryStmt
 # 4.1
 SELECT {{ct.|}}TestStruct.d
 FROM ComplexTypes ct
-GROUP BY {{ct.}}TestStruct.d
+GROUP BY {{ct.|}}TestStruct.d
 HAVING (SELECT {{ct.|}}TestStruct.d.a) > 1;
 --
 QueryStmt
@@ -689,7 +689,7 @@ QueryStmt
 # 4.2 Error - the correlated reference in subquery is a sibling of the GROUP BY.
 SELECT {{ct.|}}TestStruct.d.a
 FROM ComplexTypes ct
-GROUP BY {{ct.}}TestStruct.d
+GROUP BY {{ct.|}}TestStruct.d
 HAVING (SELECT TestStruct.c) > 1
 --
 ERROR: An expression references TestStruct.c which is neither grouped nor aggregated [at 4:16]

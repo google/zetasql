@@ -21,8 +21,11 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <string>
+#include <utility>
 
 #include "zetasql/base/logging.h"
+#include "zetasql/common/canonicalize_signed_zero_to_string.h"
 #include "zetasql/common/utf_util.h"
 #include "zetasql/public/functions/convert_proto.h"
 #include "zetasql/public/functions/format_max_output_width.h"
@@ -1028,8 +1031,7 @@ bool StringFormatEvaluator::ProcessPattern() {
           break;
         default:
           status_.Update(zetasql_base::OutOfRangeErrorBuilder()
-                         << "Invalid format specifier character \""
-                         << absl::string_view(&spec_char, 1)
+                         << "Invalid format specifier character \"" << specifier
                          << "\" in FORMAT string: \"" << pattern_ << "\"");
       }
       if (!status_.ok()) {
@@ -1108,17 +1110,6 @@ bool StringFormatEvaluator::TypeCheckIntOrUintArg(int64_t arg_index) {
   const Type* t = arg_types_[arg_index];
   if (!t->IsInteger()) {
     status_.Update(TypeError(arg_index, "integer", arg_types_[arg_index]));
-    return false;
-  }
-  return true;
-}
-
-bool StringFormatEvaluator::TypeCheckDoubleArg(int64_t arg_index) {
-  ZETASQL_DCHECK(arg_index < arg_types_.size());
-  const Type* t = arg_types_[arg_index];
-  if (!t->IsFloatingPoint()) {
-    status_.Update(TypeError(
-        arg_index, zetasql::types::DoubleType()->TypeName(product_mode_), t));
     return false;
   }
   return true;
@@ -1367,22 +1358,6 @@ absl::FormatConvertResult<absl::FormatConversionCharSet::kIntegral> ConvertInt(
     sink->Append(padding_size, ' ');
   }
   return {true};
-}
-
-template <bool GROUPING>
-bool FormatConvert(const FormatGsqlInt64<GROUPING>& value,
-                   const absl::FormatConversionSpec& conv, absl::Cord* sink) {
-  bool negative = value.value < 0;
-  uint64_t magnitude = 0;
-  if (ABSL_PREDICT_FALSE(value.value ==
-                         std::numeric_limits<int64_t>::lowest())) {
-    magnitude = 0x8000000000000000ull;
-  } else if (negative) {
-    magnitude = -value.value;
-  } else {
-    magnitude = value.value;
-  }
-  return ConvertInt<GROUPING>(magnitude, negative, conv, sink);
 }
 
 // Extends absl::StrFormat to print a FormatGsqlInt64 object.

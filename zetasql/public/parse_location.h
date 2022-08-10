@@ -21,6 +21,7 @@
 
 #include <ostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/public/parse_location_range.pb.h"

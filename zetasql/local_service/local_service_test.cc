@@ -33,6 +33,7 @@
 #include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/proto/function.pb.h"
 #include "zetasql/proto/simple_catalog.pb.h"
+#include "zetasql/public/formatter_options.pb.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/parse_resume_location.pb.h"
 #include "zetasql/public/simple_catalog.h"
@@ -153,6 +154,11 @@ class ZetaSqlLocalServiceImplTest : public ::testing::Test {
   absl::Status FormatSql(const FormatSqlRequest& request,
                          FormatSqlResponse* response) {
     return service_.FormatSql(request, response);
+  }
+
+  absl::Status LenientFormatSql(const FormatSqlRequest& request,
+                                FormatSqlResponse* response) {
+    return service_.LenientFormatSql(request, response);
   }
 
   absl::Status RegisterCatalog(const RegisterCatalogRequest& request,
@@ -2089,6 +2095,67 @@ TEST_F(ZetaSqlLocalServiceImplTest, FormatSql) {
       "  something\n"
       "LIMIT 10;",
       response.sql());
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, LenientFormatSql) {
+  // We don't want to test the formatting logic here, only that the service
+  // integration with the formatter works. This is why the query is super
+  // simple.
+  FormatSqlRequest request;
+  request.set_sql("SELECT 1");
+
+  FormatSqlResponse response;
+  ZETASQL_EXPECT_OK(LenientFormatSql(request, &response));
+
+  EXPECT_EQ("SELECT 1\n", response.sql());
+
+  // Test that the format ranges are respected.
+  request.set_sql("select 1;select 1;select 1;");
+  FormatterRangeProto range_one;
+  range_one.set_start(0);
+  range_one.set_end(9);
+  FormatterRangeProto range_two;
+  range_two.set_start(18);
+  range_two.set_end(27);
+  *request.add_byte_ranges() = range_one;
+  *request.add_byte_ranges() = range_two;
+  ZETASQL_EXPECT_OK(LenientFormatSql(request, &response));
+
+  EXPECT_EQ("SELECT 1;\nselect 1;SELECT 1;\n", response.sql());
+}
+
+TEST_F(ZetaSqlLocalServiceImplTest, LenientFormatSqlWithCustomOptions) {
+  FormatSqlRequest request;
+  request.set_sql(R"(# Test query
+    SELECT "a long" + " expression" + " that" + " fits" + " in"
+    + " default line_length" FROM Table
+    WHERE condition_that_makes_the_entire_query > default_line_length;
+  )");
+  FormatterOptionsProto* options = request.mutable_options();
+  options->set_new_line_type("\n|");
+  options->set_line_length_limit(40);
+  options->set_indentation_spaces(4);
+
+  FormatSqlResponse response;
+  ZETASQL_EXPECT_OK(LenientFormatSql(request, &response));
+
+  EXPECT_EQ(R"(# Test query
+|SELECT
+|    "a long" + " expression" + " that"
+|    + " fits" + " in"
+|    + " default line_length"
+|FROM Table
+|WHERE
+|    condition_that_makes_the_entire_query
+|    > default_line_length;
+|)",
+            response.sql());
+
+  options->set_allow_invalid_tokens(true);
+  request.set_sql("1invalid-token");
+  ZETASQL_EXPECT_OK(LenientFormatSql(request, &response));
+  options->set_allow_invalid_tokens(false);
+  EXPECT_THAT(LenientFormatSql(request, &response), Not(IsOk()));
 }
 
 TEST_F(ZetaSqlLocalServiceImplTest, GetBuiltinFunctions) {

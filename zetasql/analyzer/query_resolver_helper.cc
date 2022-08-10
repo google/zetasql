@@ -485,7 +485,7 @@ const ResolvedExpr* UntypedLiteralMap::Find(const ResolvedColumn& column) {
   }
 
   return zetasql_base::FindWithDefault(*column_id_to_untyped_literal_map_,
-                              column.column_id(), nullptr);
+                              column.column_id());
 }
 
 }  // namespace zetasql

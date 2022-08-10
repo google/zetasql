@@ -258,6 +258,12 @@ grpc::Status ZetaSqlLocalServiceGrpcImpl::FormatSql(
   return ToGrpcStatus(service_.FormatSql(*req, resp));
 }
 
+grpc::Status ZetaSqlLocalServiceGrpcImpl::LenientFormatSql(
+    grpc::ServerContext* context, const FormatSqlRequest* req,
+    FormatSqlResponse* resp) {
+  return ToGrpcStatus(service_.LenientFormatSql(*req, resp));
+}
+
 grpc::Status ZetaSqlLocalServiceGrpcImpl::RegisterCatalog(
     grpc::ServerContext* context, const RegisterCatalogRequest* req,
     RegisterResponse* resp) {

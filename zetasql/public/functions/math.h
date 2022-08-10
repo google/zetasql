@@ -23,6 +23,7 @@
 #include <type_traits>
 
 #include "zetasql/public/functions/arithmetics.h"
+#include "zetasql/public/functions/rounding_mode.pb.h"
 #include "zetasql/public/functions/util.h"
 #include "zetasql/public/numeric_value.h"
 #include <cstdint>
@@ -39,6 +40,10 @@ template <typename T> inline bool Sign(T in, T *out, absl::Status* error);
 template <typename T> inline bool Round(T in, T *out, absl::Status* error);
 template <typename T>
 bool RoundDecimal(T in, int64_t digits, T* out, absl::Status* error);
+template <typename T>
+bool RoundDecimalWithRoundingMode(T in, int64_t digits,
+                                  RoundingMode rounding_mode, T* out,
+                                  absl::Status* error);
 template <typename T> inline bool Trunc(T in, T *out, absl::Status* error);
 template <typename T>
 bool TruncDecimal(T in, int64_t digits, T* out, absl::Status* error);
@@ -49,6 +54,8 @@ template <typename T> inline bool IsNan(T in, bool* out, absl::Status* error);
 template <typename T> inline bool IeeeDivide(T in1, T in2, T *out,
                                              absl::Status* error);
 template <typename T> inline bool Sqrt(T in, T* out, absl::Status* error);
+template <typename T>
+inline bool Cbrt(T in, T* out, absl::Status* error);
 template <typename T> inline bool Pow(T in1, T in2, T* out,
                                       absl::Status* error);
 template <typename T> inline bool Exp(T in, T* out, absl::Status* error);
@@ -86,9 +93,6 @@ template <typename T>
 inline bool Sech(T in, T* out, absl::Status* error);
 template <typename T>
 inline bool Coth(T in, T* out, absl::Status* error);
-
-template <typename T>
-inline bool Pi(T* out, absl::Status* error);
 
 template <typename T>
 inline bool Radians(T in, T* out, absl::Status* error);
@@ -292,11 +296,21 @@ inline bool IeeeDivide(T in1, T in2, T* out, absl::Status* error) {
 
 template <typename T>
 bool Sqrt(T in, T* out, absl::Status* error) {
+  static_assert(std::is_floating_point<T>::value,
+                "T must be floating point type");
   if (ABSL_PREDICT_FALSE(in < 0)) {
     return internal::UpdateError(
         error, absl::StrCat("Argument to SQRT cannot be negative: ", in));
   }
   *out = std::sqrt(in);
+  return true;
+}
+
+template <typename T>
+bool Cbrt(T in, T* out, absl::Status* error) {
+  static_assert(std::is_floating_point<T>::value,
+                "T must be floating point type");
+  *out = std::cbrt(in);
   return true;
 }
 
@@ -473,8 +487,6 @@ template <>
 bool TruncDecimal(float in, int64_t digits, float* out, absl::Status* error);
 
 template <>
-bool Pi(double* out, absl::Status* error);
-template <>
 bool Radians(double in, double* out, absl::Status* error);
 template <>
 bool Degrees(double in, double* out, absl::Status* error);
@@ -485,7 +497,11 @@ template <>
 bool RoundDecimal(NumericValue in, int64_t digits, NumericValue* out,
                   absl::Status* error);
 template <>
-bool Trunc(NumericValue in, NumericValue *out, absl::Status* error);
+bool RoundDecimalWithRoundingMode(NumericValue in, int64_t digits,
+                                  RoundingMode rounding_mode, NumericValue* out,
+                                  absl::Status* error);
+template <>
+bool Trunc(NumericValue in, NumericValue* out, absl::Status* error);
 template <>
 bool TruncDecimal(NumericValue in, int64_t digits, NumericValue* out,
                   absl::Status* error);
@@ -495,6 +511,8 @@ template <> bool Floor(NumericValue in, NumericValue *out, absl::Status* error);
 
 template <>
 bool Sqrt(NumericValue in, NumericValue* out, absl::Status* error);
+template <>
+bool Cbrt(NumericValue in, NumericValue* out, absl::Status* error);
 template <> bool Pow(
     NumericValue in1, NumericValue in2, NumericValue* out,
     absl::Status* error);
@@ -508,8 +526,6 @@ template <>
 bool Logarithm(NumericValue in1, NumericValue in2, NumericValue* out,
                absl::Status* error);
 
-template <>
-bool Pi(NumericValue* out, absl::Status* error);
 template <>
 bool Radians(NumericValue in, NumericValue* out, absl::Status* error);
 template <>
@@ -526,6 +542,10 @@ template <>
 bool RoundDecimal(BigNumericValue in, int64_t digits, BigNumericValue* out,
                   absl::Status* error);
 template <>
+bool RoundDecimalWithRoundingMode(BigNumericValue in, int64_t digits,
+                                  RoundingMode rounding_mode,
+                                  BigNumericValue* out, absl::Status* error);
+template <>
 bool Trunc(BigNumericValue in, BigNumericValue* out, absl::Status* error);
 template <>
 bool TruncDecimal(BigNumericValue in, int64_t digits, BigNumericValue* out,
@@ -533,6 +553,8 @@ bool TruncDecimal(BigNumericValue in, int64_t digits, BigNumericValue* out,
 
 template <>
 bool Sqrt(BigNumericValue in, BigNumericValue* out, absl::Status* error);
+template <>
+bool Cbrt(BigNumericValue in, BigNumericValue* out, absl::Status* error);
 template <>
 bool Pow(BigNumericValue in1, BigNumericValue in2, BigNumericValue* out,
          absl::Status* error);
@@ -548,8 +570,6 @@ template <>
 bool Logarithm(BigNumericValue in1, BigNumericValue in2, BigNumericValue* out,
                absl::Status* error);
 
-template <>
-bool Pi(BigNumericValue* out, absl::Status* error);
 template <>
 bool Radians(BigNumericValue in, BigNumericValue* out, absl::Status* error);
 template <>

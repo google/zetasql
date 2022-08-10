@@ -16,6 +16,8 @@
 
 #include "zetasql/public/table_from_proto.h"
 
+#include <string>
+
 #include "google/protobuf/descriptor.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/public/proto/wire_format_annotation.pb.h"

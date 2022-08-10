@@ -247,4 +247,14 @@ public class LanguageOptionsTest {
     assertThat(options.getErrorOnDeprecatedSyntax()).isTrue();
     assertThat(options.serialize().getErrorOnDeprecatedSyntax()).isTrue();
   }
+
+  @Test
+  public void testReservedKeywords() {
+    LanguageOptions options = new LanguageOptions();
+    assertThat(options.reservableKeywordEnabled("QUALIFY")).isFalse();
+    assertThat(options.serialize().getReservedKeywordsList()).isEmpty();
+    options.enableReservableKeyword("QUALIFY");
+    assertThat(options.reservableKeywordEnabled("QUALIFY")).isTrue();
+    assertThat(options.serialize().getReservedKeywordsList()).contains("QUALIFY");
+  }
 }

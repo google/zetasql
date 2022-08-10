@@ -26,6 +26,7 @@
 #include "zetasql/common/float_margin.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/compliance/functions_testlib.h"
+#include "zetasql/public/functions/rounding_mode.pb.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
@@ -179,6 +180,28 @@ void TestBinaryFunction(const QueryParamsWithResult& param,
   return CompareResult(param, status, out);
 }
 
+template <typename InType1, typename InType2, typename InType3,
+          typename OutType>
+void TestTernaryRoundFunction(const QueryParamsWithResult& param,
+                              bool (*function)(InType1, InType2, InType3,
+                                               OutType*, absl::Status* error)) {
+  ZETASQL_CHECK_EQ(3, param.num_params());
+  const Value& input1 = param.param(0);
+  const Value& input2 = param.param(1);
+  const Value& input3 = param.param(2);
+  if (input1.is_null() || input2.is_null() || input3.is_null()) {
+    return;
+  }
+
+  OutType out = GetDummyValue<OutType>();
+  absl::Status status;  // actual status
+  const RoundingMode rounding_mode =
+      static_cast<RoundingMode>(input3.enum_value());
+  function(input1.Get<InType1>(), input2.Get<InType2>(), rounding_mode, &out,
+           &status);
+  return CompareResult(param, status, out);
+}
+
 typedef testing::TestWithParam<FunctionTestCall> MathTemplateTest;
 TEST_P(MathTemplateTest, Testlib) {
   const FunctionTestCall& param = GetParam();
@@ -260,6 +283,17 @@ TEST_P(MathTemplateTest, Testlib) {
         return TestUnaryFunction(param.params, &Sqrt<NumericValue>);
       case TYPE_BIGNUMERIC:
         return TestUnaryFunction(param.params, &Sqrt<BigNumericValue>);
+      default:
+        FAIL() << "unrecognized type for " << function;
+    }
+  } else if (function == "cbrt") {
+    switch (param.params.param(0).type_kind()) {
+      case TYPE_DOUBLE:
+        return TestUnaryFunction(param.params, &Cbrt<double>);
+      case TYPE_NUMERIC:
+        return TestUnaryFunction(param.params, &Cbrt<NumericValue>);
+      case TYPE_BIGNUMERIC:
+        return TestUnaryFunction(param.params, &Cbrt<BigNumericValue>);
       default:
         FAIL() << "unrecognized type for " << function;
     }
@@ -400,27 +434,39 @@ TEST_P(MathTemplateTest, Testlib) {
       case TYPE_FLOAT:
         if (param.params.num_params() == 1) {
           return TestUnaryFunction(param.params, &Round<float>);
-        } else {
+        } else if (param.params.num_params() == 2) {
           return TestBinaryFunction(param.params, &RoundDecimal<float>);
+        } else {
+          FAIL() << "Round FLOAT cannot be called with 3 arguments "
+                 << function;
         }
       case TYPE_DOUBLE:
         if (param.params.num_params() == 1) {
           return TestUnaryFunction(param.params, &Round<double>);
-        } else {
+        } else if (param.params.num_params() == 2) {
           return TestBinaryFunction(param.params, &RoundDecimal<double>);
+        } else {
+          FAIL() << "Round DOUBLE cannot be called with 3 arguments "
+                 << function;
         }
       case TYPE_NUMERIC:
         if (param.params.num_params() == 1) {
           return TestUnaryFunction(param.params, &Round<NumericValue>);
-        } else {
+        } else if (param.params.num_params() == 2) {
           return TestBinaryFunction(param.params, &RoundDecimal<NumericValue>);
+        } else {
+          return TestTernaryRoundFunction(
+              param.params, &RoundDecimalWithRoundingMode<NumericValue>);
         }
       case TYPE_BIGNUMERIC:
         if (param.params.num_params() == 1) {
           return TestUnaryFunction(param.params, &Round<BigNumericValue>);
-        } else {
+        } else if (param.params.num_params() == 2) {
           return TestBinaryFunction(param.params,
                                     &RoundDecimal<BigNumericValue>);
+        } else {
+          return TestTernaryRoundFunction(
+              param.params, &RoundDecimalWithRoundingMode<BigNumericValue>);
         }
       default:
         FAIL() << "unrecognized type for " << function;
@@ -493,6 +539,8 @@ INSTANTIATE_TEST_SUITE_P(Trigonometry, MathTemplateTest,
 INSTANTIATE_TEST_SUITE_P(
     InverseTrig, MathTemplateTest,
     testing::ValuesIn(GetFunctionTestsInverseTrigonometric()));
+INSTANTIATE_TEST_SUITE_P(Cbrt, MathTemplateTest,
+                         testing::ValuesIn(GetFunctionTestsCbrt()));
 INSTANTIATE_TEST_SUITE_P(DegreesRadiansPi, MathTemplateTest,
                          testing::ValuesIn(GetFunctionTestsDegreesRadiansPi()));
 INSTANTIATE_TEST_SUITE_P(Rounding, MathTemplateTest,

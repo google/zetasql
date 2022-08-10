@@ -65,70 +65,79 @@ public class AnalyzerOptions implements Serializable {
   }
 
   public AnalyzerOptionsProto serialize(FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
-    builder.clearInScopeExpressionColumn();
+    // Ensure serialization thread safety, by merging all options in a local builder.
+    // Note: This only ensures that multiple concurrent calls to serialize are safe. If there is
+    // another thread calling any of AnalyzerOptions.set* methods, it's still unsafe.
+    AnalyzerOptionsProto.Builder mergedOptions = builder.clone();
+    mergedOptions.clearInScopeExpressionColumn();
     if (inScopeExpressionColumn != null) {
       TypeProto.Builder typeBuilder = TypeProto.newBuilder();
       inScopeExpressionColumn.getValue().serialize(typeBuilder, fileDescriptorSetsBuilder);
       String name = inScopeExpressionColumn.getKey();
-      builder.getInScopeExpressionColumnBuilder().setName(name).setType(typeBuilder.build());
+      mergedOptions.getInScopeExpressionColumnBuilder().setName(name).setType(typeBuilder.build());
     }
 
-    builder.clearSystemVariables();
+    mergedOptions.clearSystemVariables();
     for (Entry<List<String>, Type> systemVariable : systemVariables.entrySet()) {
       TypeProto.Builder typeProtoBuilder = TypeProto.newBuilder();
       systemVariable.getValue().serialize(typeProtoBuilder, fileDescriptorSetsBuilder);
-      builder
+      mergedOptions
           .addSystemVariablesBuilder()
           .addAllNamePath(systemVariable.getKey())
           .setType(typeProtoBuilder.build());
     }
 
-    builder.clearQueryParameters();
+    mergedOptions.clearQueryParameters();
     for (Entry<String, Type> param : queryParameters.entrySet()) {
       TypeProto.Builder typeProtoBuilder = TypeProto.newBuilder();
       param.getValue().serialize(typeProtoBuilder, fileDescriptorSetsBuilder);
-      builder.addQueryParametersBuilder().setName(param.getKey()).setType(typeProtoBuilder.build());
+      mergedOptions
+          .addQueryParametersBuilder()
+          .setName(param.getKey())
+          .setType(typeProtoBuilder.build());
     }
 
-    builder.clearPositionalQueryParameters();
+    mergedOptions.clearPositionalQueryParameters();
     for (Type type : positionalQueryParameters) {
       TypeProto.Builder typeProtoBuilder = TypeProto.newBuilder();
       type.serialize(typeProtoBuilder, fileDescriptorSetsBuilder);
-      builder.addPositionalQueryParameters(typeProtoBuilder.build());
+      mergedOptions.addPositionalQueryParameters(typeProtoBuilder.build());
     }
 
-    builder.clearExpressionColumns();
+    mergedOptions.clearExpressionColumns();
     for (Entry<String, Type> column : expressionColumns.entrySet()) {
       if (column.getKey().equals(getInScopeExpressionColumnName())) {
         continue;
       }
       TypeProto.Builder typeProtoBuilder = TypeProto.newBuilder();
       column.getValue().serialize(typeProtoBuilder, fileDescriptorSetsBuilder);
-      builder.addExpressionColumnsBuilder().setName(column.getKey()).setType(
-          typeProtoBuilder.build());
+      mergedOptions
+          .addExpressionColumnsBuilder()
+          .setName(column.getKey())
+          .setType(typeProtoBuilder.build());
     }
 
-    builder.clearDdlPseudoColumns();
+    mergedOptions.clearDdlPseudoColumns();
     for (Entry<String, Type> column : ddlPseudoColumns.entrySet()) {
       TypeProto.Builder typeProtoBuilder = TypeProto.newBuilder();
       column.getValue().serialize(typeProtoBuilder, fileDescriptorSetsBuilder);
-      builder
+      mergedOptions
           .addDdlPseudoColumnsBuilder()
           .setName(column.getKey())
           .setType(typeProtoBuilder.build());
     }
 
-    builder.clearTargetColumnTypes();
+    mergedOptions.clearTargetColumnTypes();
     for (Type type : targetColumnTypes) {
       TypeProto.Builder typeProtoBuilder = TypeProto.newBuilder();
       type.serialize(typeProtoBuilder, fileDescriptorSetsBuilder);
-      builder.addTargetColumnTypes(typeProtoBuilder.build());
+      mergedOptions.addTargetColumnTypes(typeProtoBuilder.build());
     }
 
-    builder.setLanguageOptions(languageOptions.serialize());
-    builder.clearAllowedHintsAndOptions();
-    builder.setAllowedHintsAndOptions(allowedHintsAndOptions.serialize(fileDescriptorSetsBuilder));
-    return builder.build();
+    mergedOptions.setLanguageOptions(languageOptions.serialize());
+    mergedOptions.setAllowedHintsAndOptions(
+        allowedHintsAndOptions.serialize(fileDescriptorSetsBuilder));
+    return mergedOptions.build();
   }
 
   public void setLanguageOptions(LanguageOptions languageOptions) {
@@ -145,6 +154,7 @@ public class AnalyzerOptions implements Serializable {
   public void enableRewrite(ResolvedASTRewrite rewrite) {
     enableRewrite(rewrite, true);
   }
+
   public void enableRewrite(ResolvedASTRewrite rewrite, boolean enable) {
     boolean alreadyEnabled = rewriteEnabled(rewrite);
     if (enable && !alreadyEnabled) {
@@ -168,7 +178,6 @@ public class AnalyzerOptions implements Serializable {
     }
     return false;
   }
-
 
   public LanguageOptions getLanguageOptions() {
     return languageOptions;
@@ -264,7 +273,7 @@ public class AnalyzerOptions implements Serializable {
 
   /**
    * @deprecated Use {@link #setParseLocationRecordType} below for more control on what location to
-   *             record.
+   *     record.
    */
   @Deprecated
   public void setRecordParseLocations(boolean value) {
@@ -276,7 +285,7 @@ public class AnalyzerOptions implements Serializable {
 
   /**
    * @deprecated Use {@link #getParseLocationRecordType} below for more control on what location to
-   *             record.
+   *     record.
    */
   @Deprecated
   public boolean getRecordParseLocations() {

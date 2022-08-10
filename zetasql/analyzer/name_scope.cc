@@ -83,11 +83,6 @@ static std::string ValidNamePathListDebugString(
   return debug_string;
 }
 
-std::string ValidFieldInfo::DebugString() const {
-  return absl::StrCat(source_column_.DebugString(), ":",
-                      valid_name_path_.DebugString());
-}
-
 ValidFieldInfoMap::~ValidFieldInfoMap() {}
 
 void ValidFieldInfoMap::InsertNamePath(

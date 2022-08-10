@@ -19,28 +19,28 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <string>
 #include <utility>
 
 #include "zetasql/base/logging.h"
-#include "zetasql/base/path.h"
 #include "google/protobuf/descriptor.h"
 #include "zetasql/common/evaluator_registration_utils.h"
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/common/testing/testing_proto_util.h"
 #include "zetasql/compliance/test_util.h"
 #include "zetasql/public/analyzer.h"
+#include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/annotation/collation.h"
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/multi_catalog.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/simple_catalog.h"
-#include "zetasql/public/type.h"
+#include "zetasql/public/simple_catalog_util.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/value.h"
 #include "zetasql/reference_impl/algebrizer.h"
 #include "zetasql/reference_impl/evaluation.h"
-#include "zetasql/reference_impl/functions/register_all.h"
 #include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/parameters.h"
 #include "zetasql/reference_impl/rewrite_flags.h"
@@ -57,14 +57,12 @@
 #include <cstdint>
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/time/time.h"
-#include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -86,51 +84,9 @@ ABSL_FLAG(bool, reference_driver_enable_anonymization, false,
 
 namespace zetasql {
 
-class ReferenceDriver::BuiltinFunctionCache {
- public:
-  ~BuiltinFunctionCache() { DumpStats(); }
-  void SetLanguageOptions(const LanguageOptions& options,
-                          SimpleCatalog* catalog) {
-    ++total_calls_;
-    const BuiltinFunctionMap* builtin_function_map = nullptr;
-    if (auto it = function_cache_.find(options); it != function_cache_.end()) {
-      cache_hit_++;
-      builtin_function_map = &it->second;
-    } else {
-      std::map<std::string, std::unique_ptr<Function>> function_map;
-      // We have to call type_factory() while not holding mutex_.
-      TypeFactory* type_factory = catalog->type_factory();
-      GetZetaSQLFunctions(type_factory, options, &function_map);
-      builtin_function_map =
-          &(function_cache_.emplace(options, std::move(function_map))
-                .first->second);
-    }
-    std::vector<const Function*> functions;
-    functions.reserve(builtin_function_map->size());
-    for (const auto& entry : *builtin_function_map) {
-      functions.push_back(entry.second.get());
-    }
-    catalog->RemoveFunctions(
-        [](const Function* fn) { return fn->IsZetaSQLBuiltin(); });
-    catalog->AddZetaSQLFunctions(functions);
-  }
-  void DumpStats() {
-    ZETASQL_LOG(INFO) << "BuiltinFunctionCache: hit: " << cache_hit_ << " / "
-              << total_calls_ << "(" << (cache_hit_ * 100. / total_calls_)
-              << "%)"
-              << " size: " << function_cache_.size();
-  }
-
- private:
-  using BuiltinFunctionMap = std::map<std::string, std::unique_ptr<Function>>;
-  int total_calls_ = 0;
-  int cache_hit_ = 0;
-  absl::flat_hash_map<LanguageOptions, BuiltinFunctionMap> function_cache_;
-};
-
 ReferenceDriver::ReferenceDriver()
     : type_factory_(new TypeFactory),
-      function_cache_(std::make_unique<BuiltinFunctionCache>()),
+      catalog_(type_factory_.get()),
       default_time_zone_(GetDefaultDefaultTimeZone()),
       statement_evaluation_timeout_(absl::Seconds(
           absl::GetFlag(FLAGS_reference_driver_query_eval_timeout_sec))) {
@@ -154,7 +110,7 @@ ReferenceDriver::ReferenceDriver()
 ReferenceDriver::ReferenceDriver(const LanguageOptions& options)
     : type_factory_(new TypeFactory),
       language_options_(options),
-      function_cache_(std::make_unique<BuiltinFunctionCache>()),
+      catalog_(type_factory_.get()),
       default_time_zone_(GetDefaultDefaultTimeZone()),
       statement_evaluation_timeout_(absl::Seconds(
           absl::GetFlag(FLAGS_reference_driver_query_eval_timeout_sec))) {
@@ -180,113 +136,46 @@ absl::Status ReferenceDriver::LoadProtoEnumTypes(
     const std::set<std::string>& filenames,
     const std::set<std::string>& proto_names,
     const std::set<std::string>& enum_names) {
-  errors_.clear();
-  for (const std::string& filename : filenames) {
-    importer_->Import(filename);
-  }
-  if (!errors_.empty()) {
-    return ::zetasql_base::InternalErrorBuilder() << absl::StrJoin(errors_, "\n");
-  }
-
-  std::set<std::string> proto_closure;
-  std::set<std::string> enum_closure;
-  ZETASQL_RETURN_IF_ERROR(ComputeTransitiveClosure(importer_->pool(), proto_names,
-                                           enum_names, &proto_closure,
-                                           &enum_closure));
-
-  for (const std::string& proto : proto_closure) {
-    const google::protobuf::Descriptor* descriptor =
-        importer_->pool()->FindMessageTypeByName(proto);
-    if (!descriptor) {
-      return ::zetasql_base::NotFoundErrorBuilder() << "Proto Message Type: " << proto;
-    }
-    const ProtoType* proto_type;
-    ZETASQL_RETURN_IF_ERROR(
-        catalog_->type_factory()->MakeProtoType(descriptor, &proto_type));
-    catalog_->AddType(descriptor->full_name(), proto_type);
-  }
-  for (const std::string& enum_name : enum_closure) {
-    const google::protobuf::EnumDescriptor* enum_descriptor =
-        importer_->pool()->FindEnumTypeByName(enum_name);
-    if (!enum_descriptor) {
-      return ::zetasql_base::NotFoundErrorBuilder() << "Enum Type: " << enum_name;
-    }
-    const EnumType* enum_type;
-    ZETASQL_RETURN_IF_ERROR(
-        catalog_->type_factory()->MakeEnumType(enum_descriptor, &enum_type));
-    catalog_->AddType(enum_descriptor->full_name(), enum_type);
-  }
-  return absl::OkStatus();
+  return catalog_.LoadProtoEnumTypes(filenames, proto_names, enum_names);
 }
 
 void ReferenceDriver::AddTable(const std::string& table_name,
                                const TestTable& table) {
+  catalog_.AddTable(table_name, table);
+  AddTableInternal(table_name, table);
+}
+
+void ReferenceDriver::AddTableInternal(const std::string& table_name,
+                                       const TestTable& table) {
   const Value& array_value = table.table_as_value;
   ZETASQL_CHECK(array_value.type()->IsArray()) << table_name << " "
                                        << array_value.DebugString(true);
-  auto element_type = array_value.type()->AsArray()->element_type();
-  SimpleTable* simple_table = nullptr;
-
-  if (!table.options.is_value_table()) {
-    // Non-value tables are represented as arrays of structs.
-    const StructType* row_type = element_type->AsStruct();
-    std::vector<SimpleTable::NameAndAnnotatedType> columns;
-    const std::vector<const AnnotationMap*>& column_annotations =
-        table.options.column_annotations();
-    ZETASQL_CHECK(column_annotations.empty() ||
-          column_annotations.size() == row_type->num_fields());
-    columns.reserve(row_type->num_fields());
-    for (int i = 0; i < row_type->num_fields(); i++) {
-      columns.push_back(
-          {row_type->field(i).name,
-           {row_type->field(i).type,
-            column_annotations.empty() ? nullptr : column_annotations[i]}});
-    }
-    simple_table = new SimpleTable(table_name, columns);
-  } else {
-    // We got a value table. Create a table with a single column named "value".
-    simple_table = new SimpleTable(table_name, {{"value", element_type}});
-    simple_table->set_is_value_table(true);
-  }
-  if (!table.options.userid_column().empty()) {
-    ZETASQL_CHECK_OK(simple_table->SetAnonymizationInfo(table.options.userid_column()));
-  }
-  catalog_->AddOwnedTable(simple_table);
+  const Table* catalog_table;
+  ZETASQL_CHECK_OK(catalog_.catalog()->FindTable({table_name}, &catalog_table));
 
   TableInfo table_info;
   table_info.table_name = table_name;
   table_info.required_features = table.options.required_features();
   table_info.is_value_table = table.options.is_value_table();
   table_info.array = array_value;
-  table_info.table = simple_table;
+  table_info.table =
+      const_cast<SimpleTable*>(dynamic_cast<const SimpleTable*>(catalog_table));
+  ZETASQL_CHECK(table_info.table != nullptr);
 
   tables_.push_back(table_info);
 }
 
 absl::Status ReferenceDriver::CreateDatabase(const TestDatabase& test_db) {
-  catalog_ =
-      std::make_unique<SimpleCatalog>("root_catalog", type_factory_.get());
+  ZETASQL_RETURN_IF_ERROR(catalog_.SetTestDatabase(test_db));
+  catalog_.SetLanguageOptions(language_options_);
+
+  // Replace tables to the catalog.
   tables_.clear();
-  // Prepare proto importer.
-  if (test_db.runs_as_test) {
-    proto_source_tree_ = CreateProtoSourceTree();
-  } else {
-    proto_source_tree_ = std::make_unique<ProtoSourceTree>("");
-  }
-  proto_error_collector_ = std::make_unique<ProtoErrorCollector>(&errors_);
-  importer_ = std::make_unique<google::protobuf::compiler::Importer>(
-      proto_source_tree_.get(), proto_error_collector_.get());
-  // Load protos and enums.
-  ZETASQL_RETURN_IF_ERROR(LoadProtoEnumTypes(test_db.proto_files, test_db.proto_names,
-                                     test_db.enum_names));
-  // Add tables to the catalog.
   for (const auto& t : test_db.tables) {
     const std::string& table_name = t.first;
     const TestTable& test_table = t.second;
-    AddTable(table_name, test_table);
+    AddTableInternal(table_name, test_table);
   }
-  // Add functions to the catalog.
-  function_cache_->SetLanguageOptions(language_options_, catalog_.get());
   return absl::OkStatus();
 }
 
@@ -308,9 +197,26 @@ absl::Status ReferenceDriver::SetStatementEvaluationTimeout(
 
 void ReferenceDriver::SetLanguageOptions(const LanguageOptions& options) {
   language_options_ = options;
-  if (catalog_ != nullptr) {
-    function_cache_->SetLanguageOptions(language_options_, catalog_.get());
+  catalog_.SetLanguageOptions(options);
+}
+
+absl::Status ReferenceDriver::AddSqlUdfs(
+    absl::Span<const std::string> create_function_stmts) {
+  // Ensure the language options used allow CREATE FUNCTION
+  LanguageOptions language = language_options_;
+  language.AddSupportedStatementKind(RESOLVED_CREATE_FUNCTION_STMT);
+  AnalyzerOptions analyzer_options(language);
+  analyzer_options.set_default_time_zone(default_time_zone_);
+  // Don't pre-rewrite function bodies.
+  // TODO: In RQG mode, apply a random subset of rewriters.
+  analyzer_options.set_enabled_rewrites({});
+  for (const std::string& create_function : create_function_stmts) {
+    sql_udf_artifacts_.emplace_back();
+    ZETASQL_RETURN_IF_ERROR(AddFunctionFromCreateFunction(
+        create_function, analyzer_options, sql_udf_artifacts_.back(),
+        *catalog_.catalog()));
   }
+  return absl::OkStatus();
 }
 
 absl::StatusOr<AnalyzerOptions> ReferenceDriver::GetAnalyzerOptions(
@@ -497,12 +403,12 @@ ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
   ZETASQL_CHECK(is_deterministic_output != nullptr);
   ZETASQL_CHECK(uses_unsupported_type != nullptr);
   *uses_unsupported_type = false;
-  ZETASQL_CHECK(catalog_ != nullptr) << "Call CreateDatabase() first";
+  ZETASQL_CHECK(catalog_.catalog() != nullptr) << "Call CreateDatabase() first";
 
   std::unique_ptr<SimpleCatalog> internal_catalog;
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<Catalog> catalog,
-      AugmentCatalogForScriptVariables(catalog_.get(), type_factory,
+      AugmentCatalogForScriptVariables(catalog_.catalog(), type_factory,
                                        script_variables, &internal_catalog));
 
   const AnalyzerOutput* analyzed = analyzer_out;
@@ -687,12 +593,12 @@ ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
       }
       break;
     }
+    case RESOLVED_CREATE_TABLE_STMT:
     case RESOLVED_CREATE_TABLE_AS_SELECT_STMT: {
       // Insert the table into the database
       ZETASQL_CHECK(database != nullptr);
-      const ResolvedCreateTableAsSelectStmt* create_table =
-          analyzed->resolved_statement()
-              ->GetAs<ResolvedCreateTableAsSelectStmt>();
+      const ResolvedCreateTableStmtBase* create_table =
+          analyzed->resolved_statement()->GetAs<ResolvedCreateTableStmtBase>();
       TestTable new_table;
       new_table.table_as_value = output;
       new_table.options.set_is_value_table(create_table->is_value_table());
@@ -883,12 +789,13 @@ absl::Status ReferenceDriverStatementEvaluator::ExecuteStatement(
 
   ZETASQL_RETURN_IF_ERROR(executor.UpdateAnalyzerOptions(analyzer_options));
 
+  TestDatabase data_base;
   result.result = driver_->ExecuteStatementForReferenceDriverInternal(
       std::string(segment.GetSegmentText()), analyzer_options, *parameters_,
       executor.GetCurrentVariables(), executor.GetKnownSystemVariables(),
       options_, type_factory_, &is_deterministic_output_unused,
       &stmt_uses_unsupported_type,
-      /*database=*/nullptr, /*created_table_name=*/nullptr,
+      /*database=*/&data_base, /*created_table_name=*/nullptr,
       /*analyzer_out=*/nullptr);
   if (!result.result.status().ok()) {
     result.result = MaybeUpdateErrorFromPayload(

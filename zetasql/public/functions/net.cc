@@ -21,7 +21,9 @@
 #include <string.h>
 #include <sys/socket.h>
 
+#include <algorithm>
 #include <cstdint>
+#include <string>
 
 #include "zetasql/public/functions/util.h"
 #include "absl/base/optimization.h"

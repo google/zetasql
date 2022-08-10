@@ -19,8 +19,10 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/public/interval_value.h"
@@ -56,22 +58,19 @@ namespace internal {  // For ZetaSQL internal use only
 // associated with a ProtoRep (specifically, already deserialized fields).
 class ProtoRep : public zetasql_base::SimpleReferenceCounted {
  public:
-  ProtoRep(const ProtoType* type, absl::Cord value)
-      : type_(type), value_(std::move(value)) {
+  ProtoRep(const ProtoType* type, absl::Cord value) : value_(std::move(value)) {
     ZETASQL_CHECK(type != nullptr);
   }
 
   ProtoRep(const ProtoRep&) = delete;
   ProtoRep& operator=(const ProtoRep&) = delete;
 
-  const ProtoType* type() const { return type_; }
   const absl::Cord& value() const { return value_; }
   uint64_t physical_byte_size() const {
     return sizeof(ProtoRep) + value_.size();
   }
 
  private:
-  const ProtoType* type_;
   const absl::Cord value_;
 };
 

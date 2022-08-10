@@ -24,11 +24,13 @@
 #include <vector>
 
 #include "google/protobuf/compiler/importer.h"
+#include "zetasql/compliance/test_database_catalog.h"
 #include "zetasql/compliance/test_driver.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/sql_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "zetasql/scripting/script_executor.h"
@@ -107,6 +109,11 @@ class ReferenceDriver : public TestDriver {
   // This can be called between ExecuteQuery calls to change options.
   void SetLanguageOptions(const LanguageOptions& options);
 
+  // Adds some SQL UDFs to the catalog owned by this test driver. The argument
+  // is a collection of "CREATE TEMP FUNCTION" statements.
+  absl::Status AddSqlUdfs(
+      absl::Span<const std::string> create_function_stmts) override;
+
   // Implements TestDriver::ExecuteStatement()
   absl::StatusOr<Value> ExecuteStatement(
       const std::string& sql, const std::map<std::string, Value>& parameters,
@@ -162,7 +169,7 @@ class ReferenceDriver : public TestDriver {
   absl::Status SetStatementEvaluationTimeout(absl::Duration timeout) override;
 
   // Returns a pointer to the owned catalog.
-  SimpleCatalog* catalog() const { return catalog_.get(); }
+  SimpleCatalog* catalog() const { return catalog_.catalog(); }
 
   // Returns a pointer to the owned reference type factory.
   TypeFactory* type_factory() { return type_factory_.get(); }
@@ -178,6 +185,10 @@ class ReferenceDriver : public TestDriver {
       const std::string& sql, const std::map<std::string, Value>& parameters,
       TypeFactory* type_factory, uint64_t times) override;
 
+  absl::StatusOr<AnalyzerOptions> GetAnalyzerOptions(
+      const std::map<std::string, Value>& parameters,
+      bool* uses_unsupported_type) const;
+
  private:
   struct TableInfo {
     std::string table_name;
@@ -186,10 +197,6 @@ class ReferenceDriver : public TestDriver {
     Value array;
     SimpleTable* table;  // Owned by catalog_ in the ReferenceDriver
   };
-
-  absl::StatusOr<AnalyzerOptions> GetAnalyzerOptions(
-      const std::map<std::string, Value>& parameters,
-      bool* uses_unsupported_type) const;
 
   absl::Status ExecuteScriptForReferenceDriverInternal(
       const std::string& sql, const std::map<std::string, Value>& parameters,
@@ -206,10 +213,12 @@ class ReferenceDriver : public TestDriver {
       TestDatabase* database, std::string* created_table_name,
       const AnalyzerOutput* analyzer_out);
 
-  absl::StatusOr<std::unique_ptr<const AnalyzerOutput>> AnalyzeStatement(
-      const std::string& sql, TypeFactory* type_factory,
-      const std::map<std::string, Value>& parameters, Catalog* catalog,
-      const AnalyzerOptions& analyzer_options);
+  virtual absl::StatusOr<std::unique_ptr<const AnalyzerOutput>>
+  AnalyzeStatement(const std::string& sql, TypeFactory* type_factory,
+                   const std::map<std::string, Value>& parameters,
+                   Catalog* catalog, const AnalyzerOptions& analyzer_options);
+
+  void AddTableInternal(const std::string& table_name, const TestTable& table);
 
   friend class ReferenceDriverStatementEvaluator;
   std::unique_ptr<TypeFactory> type_factory_;
@@ -222,16 +231,10 @@ class ReferenceDriver : public TestDriver {
   absl::flat_hash_map<std::vector<std::string>,
                       std::unique_ptr<ProcedureDefinition>>
       procedures_;
-  class BuiltinFunctionCache;
+  TestDatabaseCatalog catalog_;
 
-  std::unique_ptr<BuiltinFunctionCache> function_cache_;
-  std::unique_ptr<SimpleCatalog> catalog_;
-
-  std::vector<std::string> errors_;
-  std::unique_ptr<google::protobuf::compiler::SourceTree> proto_source_tree_;
-  std::unique_ptr<google::protobuf::compiler::MultiFileErrorCollector>
-      proto_error_collector_;
-  std::unique_ptr<google::protobuf::compiler::Importer> importer_;
+  // Maintains lifetime of objects referenced by SQL UDFs added to catalog_.
+  std::vector<std::unique_ptr<const AnalyzerOutput>> sql_udf_artifacts_;
 
   // Defaults to America/Los_Angeles.
   absl::TimeZone default_time_zone_;

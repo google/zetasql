@@ -54,6 +54,7 @@
 #include "absl/base/attributes.h"
 #include "absl/base/casts.h"
 #include <cstdint>
+#include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -77,6 +78,10 @@ ABSL_FLAG(bool, zetasql_run_codebased_tests, true,
           "Run the code based compliance tests.");
 ABSL_FLAG(bool, zetasql_run_filebased_tests, true,
           "Run the file based compliance tests.");
+
+ABSL_FLAG(bool, zetasql_detect_falsly_required_features, false,
+          "Fail the test if a test case 'requires' a feature that doesn't "
+          "affect the test outcome.");
 
 using zetasql::test_values::kIgnoresOrder;
 
@@ -172,15 +177,37 @@ static std::string MakeLiteral(const Value& value) {
   }
 }
 
-std::vector<FunctionTestCall> WrapFeatureAdditionalStringFunctions(
-    const std::vector<FunctionTestCall>& tests) {
+static std::vector<FunctionTestCall> WrapFunctionTestWithFeature(
+    const std::vector<FunctionTestCall>& tests, LanguageFeature feature) {
   std::vector<FunctionTestCall> wrapped_tests;
+  wrapped_tests.reserve(tests.size());
   for (auto call : tests) {
-    call.params =
-        call.params.WrapWithFeature(FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS);
+    call.params = call.params.WrapWithFeature(feature);
     wrapped_tests.emplace_back(call);
   }
   return wrapped_tests;
+}
+
+static std::vector<FunctionTestCall> WrapFunctionTestWithFeatures(
+    const std::vector<FunctionTestCall>& tests,
+    std::vector<LanguageFeature>& features) {
+  std::vector<FunctionTestCall> wrapped_tests;
+  wrapped_tests.reserve(tests.size());
+  QueryParamsWithResult::FeatureSet feature_set;
+  for (const LanguageFeature& feature : features) {
+    feature_set.insert(feature);
+  }
+  for (FunctionTestCall call : tests) {
+    call.params = call.params.WrapWithFeatureSet(feature_set);
+    wrapped_tests.emplace_back(call);
+  }
+  return wrapped_tests;
+}
+
+std::vector<FunctionTestCall> WrapFeatureAdditionalStringFunctions(
+    const std::vector<FunctionTestCall>& tests) {
+  return WrapFunctionTestWithFeature(tests,
+                                     FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS);
 }
 
 std::vector<FunctionTestCall> WrapFeatureLastDay(
@@ -221,30 +248,19 @@ static std::vector<QueryParamsWithResult> WrapFeatureJSON(
   return wrapped_tests;
 }
 
-std::vector<FunctionTestCall> WrapFeatureInverseTrig(
+std::vector<FunctionTestCall> WrapFeatureCbrt(
     const std::vector<FunctionTestCall>& tests) {
-  std::vector<FunctionTestCall> wrapped_tests;
-  wrapped_tests.reserve(tests.size());
-  const QueryParamsWithResult::FeatureSet feature_set = {
-      FEATURE_INVERSE_TRIG_FUNCTIONS};
-  for (auto call : tests) {
-    call.params = call.params.WrapWithFeatureSet(feature_set);
-    wrapped_tests.emplace_back(call);
-  }
-  return wrapped_tests;
+  std::vector<LanguageFeature> features = {
+      FEATURE_CBRT_FUNCTIONS, FEATURE_NUMERIC_TYPE, FEATURE_BIGNUMERIC_TYPE};
+  return WrapFunctionTestWithFeatures(tests, features);
 }
 
-std::vector<FunctionTestCall> WrapFeatureDegreesRadiansPi(
+std::vector<FunctionTestCall> WrapFeatureRoundWithRoundingMode(
     const std::vector<FunctionTestCall>& tests) {
-  std::vector<FunctionTestCall> wrapped_tests;
-  wrapped_tests.reserve(tests.size());
-  const QueryParamsWithResult::FeatureSet feature_set = {
-      FEATURE_DEGREES_RADIANS_PI};
-  for (auto call : tests) {
-    call.params = call.params.WrapWithFeatureSet(feature_set);
-    wrapped_tests.emplace_back(call);
-  }
-  return wrapped_tests;
+  std::vector<LanguageFeature> features = {FEATURE_ROUND_WITH_ROUNDING_MODE,
+                                           FEATURE_NUMERIC_TYPE,
+                                           FEATURE_BIGNUMERIC_TYPE};
+  return WrapFunctionTestWithFeatures(tests, features);
 }
 
 // Owned by
@@ -505,19 +521,6 @@ std::vector<FunctionTestCall> ComplianceCodebasedTests::AddSafeFunctionCalls(
     if (!has_errors) continue;
 
     QueryParamsWithResult::ResultMap safe_results_map;
-    // QueryParamsWithResult requires us to have one result without the SAFE
-    // mode feature added. This will give an error because SAFE won't be
-    // enabled. We use a feature set from the first element so that the error
-    // is due to the lack of the safe feature and not the lack of some other.
-    auto map_begin = call.params.results().begin();
-    ZETASQL_CHECK(
-        !zetasql_base::ContainsKey(map_begin->first, FEATURE_V_1_2_SAFE_FUNCTION_CALL));
-    safe_results_map.insert(
-        std::make_pair(map_begin->first,
-                       QueryParamsWithResult::Result(
-                           Value::NullInt64(),  // Type doesn't matter here.
-                           absl::StatusCode::kInvalidArgument)));
-
     // For each existing call, add another, with SAFE_FUNCTION_CALL enabled,
     // and error results replaced with NULLs.
     for (const auto& map_iter : call.params.results()) {
@@ -636,57 +639,14 @@ void ComplianceCodebasedTests::RunStatementTestsCustom(
   }
 }
 
-absl::StatusOr<Value> ComplianceCodebasedTests::ExecuteStatementWithFeatures(
-    const std::string& sql, const std::map<std::string, Value>& params,
-    const QueryParamsWithResult::FeatureSet& features) {
-  if (!DriverCanRunTests()) {
-    return absl::Status(absl::StatusCode::kAborted, "driver cannot run tests");
-  }
-
-  if (IsTestingReferenceImpl()) {
-    const LanguageOptions original_language_options =
-        driver()->GetSupportedLanguageOptions();
-
-    LanguageOptions language_options;
-    language_options.SetEnabledLanguageFeatures(
-        LanguageOptions::LanguageFeatureSet(features.begin(), features.end()));
-
-    auto* reference_driver = static_cast<ReferenceDriver*>(driver());
-    reference_driver->SetLanguageOptions(language_options);
-
-    auto result = ExecuteStatement(sql, params);
-    reference_driver->SetLanguageOptions(original_language_options);
-    return result;
-  }
-
-  for (const LanguageFeature& feature : features) {
-    if (!DriverSupportsFeature(feature)) {
-      return absl::Status(absl::StatusCode::kAborted,
-                          "driver does not support feature");
-    }
-  }
-
-  TypeFactory type_factory;
-  bool is_deterministic_output;
-  bool uses_unsupported_type = false;
-  absl::StatusOr<Value> reference_result =
-      reference_driver()->ExecuteStatementForReferenceDriver(
-          sql, params, GetExecuteStatementOptions(), &type_factory,
-          &is_deterministic_output, &uses_unsupported_type);
-  if (uses_unsupported_type) {
-    return absl::Status(absl::StatusCode::kAborted,
-                        "driver does not support type");
-  }
-  return reference_result;
-}
-
+// TODO: Push most of this function down into SQLTestBase
 void ComplianceCodebasedTests::RunStatementOnFeatures(
     const std::string& sql, const QueryParamsWithResult& statement_tests) {
   if (!DriverCanRunTests()) {
     return;
   }
-  std::map<std::string, Value> param_map;
 
+  std::map<std::string, Value> param_map;
   for (int i = 0; i < statement_tests.num_params(); i++) {
     std::string param_name = absl::StrCat("p", i);
     param_map[param_name] = statement_tests.param(i);
@@ -695,29 +655,104 @@ void ComplianceCodebasedTests::RunStatementOnFeatures(
   if (IsTestingReferenceImpl()) {
     // For each pair of <Features, Result>, set 'Features' to reference driver,
     // execute the statement and check if the result matches with 'Result'.
-    for (const auto& pair : statement_tests.results()) {
-      const QueryParamsWithResult::FeatureSet& test_features = pair.first;
-      const Value& result = pair.second.result;
-      const absl::Status& status = pair.second.status;
-      const FloatMargin& float_margin = pair.second.float_margin;
-
-      const LanguageOptions original_language_options =
-          driver()->GetSupportedLanguageOptions();
+    for (const auto& [features, result] : statement_tests.results()) {
+      auto* reference_driver = static_cast<ReferenceDriver*>(driver());
+      absl::Cleanup reset_language_options =
+          [original = driver()->GetSupportedLanguageOptions(),
+           reference_driver]() {
+            reference_driver->SetLanguageOptions(original);
+          };
 
       LanguageOptions language_options;
-      language_options.SetEnabledLanguageFeatures(
-          LanguageOptions::LanguageFeatureSet(test_features.begin(),
-                                              test_features.end()));
-
-      auto* reference_driver = static_cast<ReferenceDriver*>(driver());
+      language_options.SetEnabledLanguageFeatures(features);
       reference_driver->SetLanguageOptions(language_options);
 
-      EXPECT_THAT(ExecuteStatement(sql, param_map),
-                  Returns(result, status, float_margin))
+      auto run_result =
+          RunSQL(sql, param_map, /*permit_compile_failure=*/false);
+      EXPECT_THAT(run_result,
+                  Returns(result.result, result.status, result.float_margin))
           << "FullName: " << full_name() << "; "
           << "Labels: " << absl::StrJoin(GetCodeBasedLabels(), ", ");
 
-      reference_driver->SetLanguageOptions(original_language_options);
+      if (!absl::GetFlag(FLAGS_zetasql_detect_falsly_required_features)) {
+        continue;
+      }
+
+      // For each feature, assert that removing it makes the test fail. This
+      // is a "falsely required" feature.
+      absl::flat_hash_set<LanguageFeature> falsely_required_features;
+      for (const auto& feature : features) {
+        switch (feature) {
+          // The features on this allow list are already falsely required on
+          // some compliance tests. They are listed here for the sake of
+          // breaking the cleanup into reasonably sized CLs. In the mean time,
+          // this list should not be extended.
+          // TODO: Cleanup false requirements; burn down this list.
+          case FEATURE_BIGNUMERIC_TYPE:
+          case FEATURE_DISALLOW_GROUP_BY_FLOAT:
+          case FEATURE_GEOGRAPHY:
+          case FEATURE_INTERVAL_TYPE:
+          case FEATURE_JSON_ARRAY_FUNCTIONS:
+          case FEATURE_JSON_NO_VALIDATION:
+          case FEATURE_JSON_TYPE:
+          case FEATURE_JSON_VALUE_EXTRACTION_FUNCTIONS:
+          case FEATURE_NAMED_ARGUMENTS:
+          case FEATURE_NUMERIC_TYPE:
+          case FEATURE_ROUND_WITH_ROUNDING_MODE:
+          case FEATURE_TIME_BUCKET_FUNCTIONS:
+          case FEATURE_TIMESTAMP_NANOS:
+          case FEATURE_V_1_1_CAST_DIFFERENT_ARRAY_TYPES:
+          case FEATURE_V_1_2_CIVIL_TIME:
+          case FEATURE_V_1_2_WEEK_WITH_WEEKDAY:
+          case FEATURE_V_1_3_ADDITIONAL_STRING_FUNCTIONS:
+          case FEATURE_V_1_3_ALLOW_REGEXP_EXTRACT_OPTIONALS:
+          case FEATURE_V_1_3_DATE_ARITHMETICS:
+          case FEATURE_V_1_3_EXTENDED_DATE_TIME_SIGNATURES:
+          case FEATURE_V_1_3_FORMAT_IN_CAST:
+          case FEATURE_V_1_3_PROTO_MAPS:
+            // Do not extend this list. Only add features to tests that require
+            // the feature to attain the specified result. Changes that extend
+            // this list are broken and will be rolled back.
+            continue;
+          default:
+            break;
+        }
+        LanguageOptions::LanguageFeatureSet features_minus_one(features.begin(),
+                                                               features.end());
+        features_minus_one.erase(feature);
+        language_options.SetEnabledLanguageFeatures(features_minus_one);
+        reference_driver->SetLanguageOptions(language_options);
+        auto modified_run_result = RunSQL(sql, param_map);
+        if (!modified_run_result.ok() &&
+            modified_run_result.status() == run_result.status()) {
+          // The test case is expecting an error with error message. We see the
+          // same expected error and message with and without 'feature', we can
+          // conclude that 'feature' is not actually required.
+          falsely_required_features.insert(feature);
+          continue;
+        }
+
+        absl::StatusOr<ComplianceTestCaseResult> result_to_check =
+            result.status.ok()
+                ? absl::StatusOr<ComplianceTestCaseResult>(
+                      ComplianceTestCaseResult(result.result))
+                : absl::StatusOr<ComplianceTestCaseResult>(result.status);
+        if (::testing::Value(
+                modified_run_result,
+                ReturnsCheckOnly(result_to_check, result.float_margin))) {
+          // The test case is expecting a result. We see the same result with
+          // and without 'feature'. We can conclude that 'feature' is not
+          // actually required.
+          falsely_required_features.insert(feature);
+        }
+      }
+      EXPECT_TRUE(falsely_required_features.empty())
+          << "Has Falsely Required Features: " << full_name() << ": " << sql
+          << ": "
+          << absl::StrJoin(falsely_required_features, ",",
+                           [](std::string* o, LanguageFeature f) {
+                             absl::StrAppend(o, LanguageFeature_Name(f));
+                           });
     }
   } else {
     // Get the loosest float margin over the language features the engine
@@ -754,7 +789,7 @@ void ComplianceCodebasedTests::RunStatementOnFeatures(
       }
       SCOPED_TRACE(sql);
       // TODO: Should we do something with 'is_deterministic_output'?
-      EXPECT_THAT(ExecuteStatement(sql, param_map),
+      EXPECT_THAT(RunSQL(sql, param_map),
                   Returns(reference_result, float_margin))
           << "FullName: " << full_name() << "; "
           << "Labels: " << absl::StrJoin(GetCodeBasedLabels(), ", ");
@@ -813,9 +848,7 @@ TEST_F(ComplianceCodebasedTests, TestOnFeatures) {
   RunStatementOnFeatures(
       "SELECT DISTINCT double_val as ColA FROM TableAllNull",
       {empty_param_list, /* parameter list */
-       {{empty_feature_set, Result{Singleton(NullDouble())}},
-        {nonempty_feature_set, Result{Singleton(NullDouble()),
-                                      absl::StatusCode::kInvalidArgument}}}});
+       {{empty_feature_set, Result{Singleton(NullDouble())}}}});
 
   // RunStatementTests().
   // Either way the query returns the same result.
@@ -858,7 +891,7 @@ TEST_F(ComplianceCodebasedTests, TestQueryParameters) {
   }
   // Tests query parameter support.
   SetNamePrefix("Param");
-  EXPECT_THAT(RunStatement("SELECT @ColA AS ColA", {Int64(5)}, {"ColA"}),
+  EXPECT_THAT(RunSQL("SELECT @ColA AS ColA", {{"ColA", Int64(5)}}),
               Returns(Singleton(Int64(5))));
 }
 
@@ -1000,6 +1033,18 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArrayLastFunctions, 1) {
   SetNamePrefix("SafeArrayLast");
   RunFunctionTestsPrefix(Shard(GetFunctionTestsArrayLast(/*is_safe=*/true)),
                          "SAFE.ARRAY_LAST");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestArraySliceFunctions, 2) {
+  SetNamePrefix("ArraySlice");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArraySlice(/*is_safe=*/false)),
+                         "ARRAY_SLICE");
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestSafeArraySliceFunctions, 2) {
+  SetNamePrefix("SafeArraySlice");
+  RunFunctionTestsPrefix(Shard(GetFunctionTestsArraySlice(/*is_safe=*/true)),
+                         "SAFE.ARRAY_SLICE");
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestLogicalFunctions_AND, 1) {
@@ -1525,7 +1570,7 @@ TEST_F(ComplianceCodebasedTests, TestSimpleTable) {
       kIgnoresOrder);
 
   SetNamePrefix("Table");
-  EXPECT_THAT(RunStatement("SELECT int64_val, str_val FROM MyTable"),
+  EXPECT_THAT(RunSQL("SELECT int64_val, str_val FROM MyTable"),
               Returns(mytable));
 
   // Scanned rows can be returned in any order.
@@ -1534,7 +1579,7 @@ TEST_F(ComplianceCodebasedTests, TestSimpleTable) {
       {2ll, "bar"},
       {1ll, "foo"}},
       kIgnoresOrder);
-  EXPECT_THAT(RunStatement("SELECT int64_val, str_val FROM MyTable"),
+  EXPECT_THAT(RunSQL("SELECT int64_val, str_val FROM MyTable"),
               Returns(permuted_mytable));
 }
 
@@ -1550,32 +1595,32 @@ TEST_F(ComplianceCodebasedTests, TestAggregation) {
       {"bool_any", "double_any", "int64_any", "str_val"}, {
       {NullBool(), NullDouble(), NullInt64(), NullString()}, });
   SetNamePrefix("TableAllNull");
-  EXPECT_THAT(RunStatement("SELECT ANY_VALUE(bool_val) bool_any, "
-                           "       ANY_VALUE(double_val) double_any, "
-                           "       ANY_VALUE(int64_val) int64_any, "
-                           "       ANY_VALUE(str_val) str_val "
-                           "FROM TableAllNull"),
+  EXPECT_THAT(RunSQL("SELECT ANY_VALUE(bool_val) bool_any, "
+                     "       ANY_VALUE(double_val) double_any, "
+                     "       ANY_VALUE(int64_val) int64_any, "
+                     "       ANY_VALUE(str_val) str_val "
+                     "FROM TableAllNull"),
               Returns(any_result_nulls));
   // There are too many possible results to comprehensively check the result.
   SetNamePrefix("TableLarge");
-  absl::StatusOr<Value> result(ExecuteStatement(
-      "SELECT ANY_VALUE(bool_val) bool_any, "
-      "       ANY_VALUE(double_val) double_any, "
-      "       ANY_VALUE(int64_val) int64_any, ANY_VALUE(str_val) str_val "
-      "FROM TableLarge",
-      {}));
-  EXPECT_THAT(result, ReturnsSuccess());
+  EXPECT_THAT(
+      RunSQL(
+          "SELECT ANY_VALUE(bool_val) bool_any, "
+          "       ANY_VALUE(double_val) double_any, "
+          "       ANY_VALUE(int64_val) int64_any, ANY_VALUE(str_val) str_val "
+          "FROM TableLarge"),
+      ReturnsSuccess());
   // ANY_VALUE queries with tractable non-deterministic results.
   SetNamePrefix("TableLargeBool");
   EXPECT_THAT(
-      ExecuteStatement("SELECT ANY_VALUE(bool_val) FROM TableLarge", {}),
+      RunSQL("SELECT ANY_VALUE(bool_val) FROM TableLarge"),
       Returns(::testing::AnyOf(
           EqualsValue(StructArray({kAnonymousColumnName}, {{NullBool()}})),
           EqualsValue(StructArray({kAnonymousColumnName}, {{Bool(true)}})),
           EqualsValue(StructArray({kAnonymousColumnName}, {{Bool(false)}})))));
   SetNamePrefix("TableLargeDouble");
   EXPECT_THAT(
-      ExecuteStatement("SELECT ANY_VALUE(double_val) FROM TableLarge", {}),
+      RunSQL("SELECT ANY_VALUE(double_val) FROM TableLarge"),
       Returns(::testing::AnyOf(
           EqualsValue(StructArray({kAnonymousColumnName}, {{NullDouble()}})),
           EqualsValue(StructArray({kAnonymousColumnName}, {{Double(0.2)}})),
@@ -1591,7 +1636,7 @@ TEST_F(ComplianceCodebasedTests, TestAggregation) {
           EqualsValue(StructArray({kAnonymousColumnName}, {{Double(0.2)}})))));
   SetNamePrefix("TableLargeInt64");
   EXPECT_THAT(
-      ExecuteStatement("SELECT ANY_VALUE(int64_val) FROM TableLarge", {}),
+      RunSQL("SELECT ANY_VALUE(int64_val) FROM TableLarge"),
       Returns(::testing::AnyOf(
           ReturnsNoValue("Known Error"),
           EqualsValue(StructArray({kAnonymousColumnName}, {{NullInt64()}})),
@@ -1605,7 +1650,7 @@ TEST_F(ComplianceCodebasedTests, TestAggregation) {
           EqualsValue(StructArray({kAnonymousColumnName}, {{Int64(10)}})))));
   SetNamePrefix("TableLargeString");
   EXPECT_THAT(
-      ExecuteStatement("SELECT ANY_VALUE(str_val) FROM TableLarge", {}),
+      RunSQL("SELECT ANY_VALUE(str_val) FROM TableLarge"),
       Returns(::testing::AnyOf(
           ReturnsNoValue("Known Error"),
           EqualsValue(StructArray({kAnonymousColumnName}, {{NullString()}})),
@@ -1764,7 +1809,8 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestMathFunctions_Math, 1) {
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestMathFunctions_Rounding, 1) {
   // No need to set PREFIX, RunFunctionCalls() will do it.
-  RunFunctionCalls(Shard(GetFunctionTestsRounding()));
+  RunFunctionCalls(
+      WrapFeatureRoundWithRoundingMode(Shard(GetFunctionTestsRounding())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestMathFunctions_Trigonometric, 1) {
@@ -1774,9 +1820,12 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestMathFunctions_Trigonometric, 1) {
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestMathFunctions_InverseTrigonometric,
                1) {
+  RunFunctionCalls(Shard(GetFunctionTestsInverseTrigonometric()));
+}
+
+SHARDED_TEST_F(ComplianceCodebasedTests, TestMathFunctions_Cbrt, 1) {
   // No need to set PREFIX, RunFunctionCalls() will do it.
-  RunFunctionCalls(
-      WrapFeatureInverseTrig(Shard(GetFunctionTestsInverseTrigonometric())));
+  RunFunctionCalls(WrapFeatureCbrt(Shard(GetFunctionTestsCbrt())));
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, TestNetFunctions, 3) {
@@ -1861,8 +1910,11 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestDateAddSubFunctions, 1) {
 SHARDED_TEST_F(ComplianceCodebasedTests, TestDateMathOperators, 1) {
   const auto& add_tests =
       GetFunctionTestsDateArithmetics(GetFunctionTestsDateAdd());
+  SetNamePrefix("TestDateMathOperators_Add");
   RunStatementTests(Shard(add_tests), "@p0 + @p1");
+  SetNamePrefix("TestDateMathOperators_Add_Reverse");
   RunStatementTests(Shard(add_tests), "@p1 + @p0");
+  SetNamePrefix("TestDateMathOperators_Sub");
   RunStatementTests(
       Shard(GetFunctionTestsDateArithmetics(GetFunctionTestsDateSub())),
       "@p0 - @p1");
@@ -2252,48 +2304,55 @@ SHARDED_TEST_F(ComplianceCodebasedTests, IntervalUnaryMinus, 1) {
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, IntervalDateTimestampSubtractions, 1) {
-  SetNamePrefix("IntervalDatetimeSubtractions");
+  SetNamePrefix("IntervalDateTimestampSubtractions");
   RunStatementTests(Shard(GetDateTimestampIntervalSubtractions()),
                     "CAST(@p0 - @p1 AS STRING)");
+  SetNamePrefix("IntervalDatetimeTimeSubtractions");
   RunStatementTests(Shard(GetDatetimeTimeIntervalSubtractions()),
                     "CAST(@p0 - @p1 AS STRING)");
-  // Symmetric test cases
+  SetNamePrefix("IntervalDateTimestampSubtractions_Reverse");
   RunStatementTests(Shard(GetDateTimestampIntervalSubtractions()),
                     "CAST(-(@p1 - @p0) AS STRING)");
+  SetNamePrefix("IntervalDatetimeTimeSubtractions_Reverse");
   RunStatementTests(Shard(GetDatetimeTimeIntervalSubtractions()),
                     "CAST(-(@p1 - @p0) AS STRING)");
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, DateTimestampAddSubInterval, 1) {
-  SetNamePrefix("DateTimestampAddSubInterval");
-  // Timestamp
+  SetNamePrefix("TimestampAddInterval");
   RunStatementTests(Shard(GetTimestampAddSubInterval()), "@p0 + @p1");
-  // Test subtraction through negation
+  SetNamePrefix("TimestampSubInterval");
   RunStatementTests(Shard(GetTimestampAddSubInterval()), "@p0 - (-@p1)");
-  // // Datetime and Date
+  SetNamePrefix("DatetimeAddInterval");
   RunStatementTests(Shard(GetDatetimeAddSubInterval()), "@p0 + @p1");
-  // // Test subtraction through negation
+  SetNamePrefix("DatetimeSubInterval");
   RunStatementTests(Shard(GetDatetimeAddSubInterval()), "@p0 - (-@p1)");
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, IntervalAddInterval, 1) {
   SetNamePrefix("IntervalAddInterval");
   RunStatementTests(Shard(GetFunctionTestsIntervalAdd()), "@p0 + @p1");
+  SetNamePrefix("IntervalAddInterval_Reverse");
   RunStatementTests(Shard(GetFunctionTestsIntervalAdd()), "@p1 + @p0");
+  SetNamePrefix("IntervalAddInterval_Negated");
   RunStatementTests(Shard(GetFunctionTestsIntervalAdd()), "@p0 - (-@p1)");
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, IntervalSubInterval, 1) {
   SetNamePrefix("IntervalSubInterval");
   RunStatementTests(Shard(GetFunctionTestsIntervalSub()), "@p0 - @p1");
+  SetNamePrefix("IntervalSubInterval_AddNegative");
   RunStatementTests(Shard(GetFunctionTestsIntervalSub()), "@p0 + (-@p1)");
+  SetNamePrefix("IntervalSubInterval_Reversed");
   RunStatementTests(Shard(GetFunctionTestsIntervalSub()), "-(@p1 - @p0)");
 }
 
 SHARDED_TEST_F(ComplianceCodebasedTests, IntervalMultiplyInt64, 1) {
   SetNamePrefix("IntervalMultiplyInt64");
   RunStatementTests(Shard(GetFunctionTestsIntervalMultiply()), "@p0 * @p1");
+  SetNamePrefix("IntervalMultiplyInt64_Reversed");
   RunStatementTests(Shard(GetFunctionTestsIntervalMultiply()), "@p1 * @p0");
+  SetNamePrefix("IntervalMultiplyInt64_Negated");
   RunStatementTests(Shard(GetFunctionTestsIntervalMultiply()),
                     "(-@p0) * (-@p1)");
 }
@@ -2301,6 +2360,7 @@ SHARDED_TEST_F(ComplianceCodebasedTests, IntervalMultiplyInt64, 1) {
 SHARDED_TEST_F(ComplianceCodebasedTests, IntervalDivideInt64, 1) {
   SetNamePrefix("IntervalDivideInt64");
   RunStatementTests(Shard(GetFunctionTestsIntervalDivide()), "@p0 / @p1");
+  SetNamePrefix("IntervalDivideInt64_Negated");
   RunStatementTests(Shard(GetFunctionTestsIntervalDivide()), "(-@p0) / (-@p1)");
 }
 
@@ -2342,9 +2402,6 @@ WrapProtoFieldTestCasesForCivilTime(
       if (each.param(0).type()->UsingFeatureV12CivilTimeType() ||
           each.result().type()->UsingFeatureV12CivilTimeType()) {
         QueryParamsWithResult::ResultMap wrapped_results = {
-            {QueryParamsWithResult::kEmptyFeatureSet,
-             QueryParamsWithResult::Result(Value::Null(each.result().type()),
-                                           absl::StatusCode::kInvalidArgument)},
             {{FEATURE_V_1_2_CIVIL_TIME},
              QueryParamsWithResult::Result(each.result(), each.status())},
         };
@@ -2922,7 +2979,7 @@ bool ComplianceCodebasedTests::DriverCanRunTests() {
 
 // Test reading proto fields, reading has_<field>, and building protos with
 // particular fields set, for various field types in KitchenSinkPB.
-// Even with 500 query shards of this tests take a long time reletive to others.
+// Even with 500 query shards of this tests take a long time relative to others.
 // The number of shards for this case is picked so that each shard has ~100
 // functions.
 SHARDED_TEST_F(ComplianceCodebasedTests, TestProtoFields, 9) {
@@ -3106,35 +3163,47 @@ TEST_F(ComplianceCodebasedTests, TablesampleRepeatableTests) {
   }
 
   auto test_query_is_repeatable = [&](const std::string& query) {
-    auto reference_result = ExecuteStatementWithFeatures(
-        query, {}, {LanguageFeature::FEATURE_TABLESAMPLE});
-    auto repeated_result = ExecuteStatementWithFeatures(
-        query, {}, {LanguageFeature::FEATURE_TABLESAMPLE});
+    constexpr int kNumIterations = 10;
+    std::vector<absl::StatusOr<ComplianceTestCaseResult>> results;
+    results.reserve(kNumIterations);
+    for (int i = 0; i < kNumIterations; ++i) {
+      results.push_back(RunSQL(query));
+    }
+
+    for (int i = 1; i < kNumIterations; ++i) {
+      EXPECT_EQ(results[0].status(), results[i].status());
+    }
 
     // An engine may fail to execute the query, in which case the test is
     // ignored.
-    EXPECT_EQ(reference_result.status(), repeated_result.status());
-    if (reference_result.ok()) {
-      Value a = reference_result.value();
-      Value b = repeated_result.value();
-      EXPECT_EQ(a, b);
+    if (!results[0].ok()) {
+      return;
+    }
+
+    Value first = std::get<Value>(*results[0]);
+    for (int i = 1; i < kNumIterations; ++i) {
+      Value rerun = std::get<Value>(*results[i]);
+      EXPECT_THAT(rerun, Returns(first)) << full_name();
     }
   };
 
-  SetNamePrefix("Tablesample");
-
+  SetNamePrefix("TablesampleRepeatable_25Percent");
   test_query_is_repeatable(R"(
     SELECT primary_key
     FROM TableLarge
     TABLESAMPLE BERNOULLI(25 PERCENT) REPEATABLE(0)
     ORDER BY primary_key
   )");
+
+  SetNamePrefix("TablesampleRepeatable_0Percent");
   test_query_is_repeatable(R"(
     SELECT primary_key
     FROM TableLarge
     TABLESAMPLE BERNOULLI(0 PERCENT) REPEATABLE(10)
     ORDER BY primary_key
   )");
+
+  SetNamePrefix("TablesampleRepeatable_80Percent");
   test_query_is_repeatable(R"(
     SELECT primary_key
     FROM TableLarge
@@ -3143,24 +3212,31 @@ TEST_F(ComplianceCodebasedTests, TablesampleRepeatableTests) {
     LIMIT 1
   )");
 
+  SetNamePrefix("TablesampleRepeatable_2000Rows");
   test_query_is_repeatable(R"(
     SELECT primary_key
     FROM TableLarge
     TABLESAMPLE RESERVOIR(2000 ROWS) REPEATABLE(3250)
     ORDER BY primary_key
   )");
+
+  SetNamePrefix("TablesampleRepeatable_5Rows");
   test_query_is_repeatable(R"(
     SELECT primary_key
     FROM TableLarge
     TABLESAMPLE RESERVOIR(5 ROWS) REPEATABLE(-532)
     ORDER BY primary_key
   )");
+
+  SetNamePrefix("TablesampleRepeatable_1Rows");
   test_query_is_repeatable(R"(
     SELECT primary_key
     FROM TableLarge
     TABLESAMPLE RESERVOIR(1 ROWS) REPEATABLE(32)
     ORDER BY primary_key
   )");
+
+  SetNamePrefix("TablesampleRepeatable_0Rows");
   test_query_is_repeatable(R"(
     SELECT primary_key
     FROM TableLarge

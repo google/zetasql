@@ -549,5 +549,149 @@ TEST(ValidateTest, CreateFunctionStmtWithRemoteLanguageButNotRemote) {
                HasSubstr("is_remote is true iff language is \"REMOTE\"")));
 }
 
+TEST(ValidateTest, CreateProcedureStmtNonSQLFeatureNotEnabled) {
+  std::unique_ptr<ResolvedCreateProcedureStmt> create_procedure_stmt =
+      MakeResolvedCreateProcedureStmt(
+          /*name_path=*/{"foo"},
+          /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+          /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+          /*argument_name_list=*/{},
+          /*signature=*/{{types::Int32Type()}, {}, nullptr},
+          /*option_list=*/{},
+          /*procedure_body=*/"",
+          /*connection=*/nullptr,
+          /*language=*/"PYTHON",
+          /*code=*/"");
+
+  Validator validator;
+  ASSERT_THAT(
+      validator.ValidateResolvedStatement(create_procedure_stmt.get()),
+      StatusIs(absl::StatusCode::kInternal, HasSubstr("stmt->language()")));
+}
+
+TEST(ValidateTest, CreateProcedureStmtNonSQLConnectionFeatureNotEnabled) {
+  SimpleConnection connection("connection_id");
+  std::unique_ptr<ResolvedCreateProcedureStmt> create_procedure_stmt =
+      MakeResolvedCreateProcedureStmt(
+          /*name_path=*/{"foo"},
+          /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+          /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+          /*argument_name_list=*/{},
+          /*signature=*/{{types::Int32Type()}, {}, nullptr},
+          /*option_list=*/{},
+          /*procedure_body=*/"",
+          /*connection=*/MakeResolvedConnection(&connection),
+          /*language=*/"PYTHON",
+          /*code=*/"");
+
+  Validator validator;
+  ASSERT_THAT(
+      validator.ValidateResolvedStatement(create_procedure_stmt.get()),
+      StatusIs(absl::StatusCode::kInternal, HasSubstr("stmt->connection()")));
+}
+
+TEST(ValidateTest, CreateProcedureStmtNonSQLFeatureEnabledMissingLanguage) {
+  std::unique_ptr<ResolvedCreateProcedureStmt> create_procedure_stmt =
+      MakeResolvedCreateProcedureStmt(
+          /*name_path=*/{"foo"},
+          /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+          /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+          /*argument_name_list=*/{},
+          /*signature=*/{{types::Int32Type()}, {}, nullptr},
+          /*option_list=*/{},
+          /*procedure_body=*/"sql",
+          /*connection=*/nullptr,
+          /*language=*/"",
+          /*code=*/"code");
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_NON_SQL_PROCEDURE);
+  Validator validator(language_options);
+  ASSERT_THAT(validator.ValidateResolvedStatement(create_procedure_stmt.get()),
+              StatusIs(absl::StatusCode::kInternal, HasSubstr("stmt->code()")));
+}
+
+TEST(ValidateTest, CreateProcedureStmtNonSQLFeatureEnabledHasBodyAndLanguage) {
+  std::unique_ptr<ResolvedCreateProcedureStmt> create_procedure_stmt =
+      MakeResolvedCreateProcedureStmt(
+          /*name_path=*/{"foo"},
+          /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+          /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+          /*argument_name_list=*/{},
+          /*signature=*/{{types::Int32Type()}, {}, nullptr},
+          /*option_list=*/{},
+          /*procedure_body=*/"body",
+          /*connection=*/nullptr,
+          /*language=*/"python",
+          /*code=*/"");
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_NON_SQL_PROCEDURE);
+  Validator validator(language_options);
+  ASSERT_THAT(validator.ValidateResolvedStatement(create_procedure_stmt.get()),
+              StatusIs(absl::StatusCode::kInternal));
+}
+
+TEST(ValidateTest, CreateProcedureStmtNonSQLFeatureEnabledHasLanguage) {
+  std::unique_ptr<ResolvedCreateProcedureStmt> create_procedure_stmt =
+      MakeResolvedCreateProcedureStmt(
+          /*name_path=*/{"foo"},
+          /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+          /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+          /*argument_name_list=*/{},
+          /*signature=*/{{types::Int32Type()}, {}, nullptr},
+          /*option_list=*/{},
+          /*procedure_body=*/"",
+          /*connection=*/nullptr,
+          /*language=*/"PYTHON",
+          /*code=*/"");
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_NON_SQL_PROCEDURE);
+  Validator validator(language_options);
+  ZETASQL_ASSERT_OK(validator.ValidateResolvedStatement(create_procedure_stmt.get()));
+}
+
+TEST(ValidateTest, CreateProcedureStmtNonSQLFeatureEnabledHasLanguageAndCode) {
+  std::unique_ptr<ResolvedCreateProcedureStmt> create_procedure_stmt =
+      MakeResolvedCreateProcedureStmt(
+          /*name_path=*/{"foo"},
+          /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+          /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+          /*argument_name_list=*/{},
+          /*signature=*/{{types::Int32Type()}, {}, nullptr},
+          /*option_list=*/{},
+          /*procedure_body=*/"",
+          /*connection=*/nullptr,
+          /*language=*/"PYTHON",
+          /*code=*/"code");
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_NON_SQL_PROCEDURE);
+  Validator validator(language_options);
+  ZETASQL_ASSERT_OK(validator.ValidateResolvedStatement(create_procedure_stmt.get()));
+}
+
+TEST(ValidateTest, CreateProcedureStmtNonSQLFeatureEnabled) {
+  SimpleConnection connection("connection_id");
+  std::unique_ptr<ResolvedCreateProcedureStmt> create_procedure_stmt =
+      MakeResolvedCreateProcedureStmt(
+          /*name_path=*/{"foo"},
+          /*create_scope=*/ResolvedCreateStatement::CREATE_DEFAULT_SCOPE,
+          /*create_mode=*/ResolvedCreateStatement::CREATE_DEFAULT,
+          /*argument_name_list=*/{},
+          /*signature=*/{{types::Int32Type()}, {}, nullptr},
+          /*option_list=*/{},
+          /*procedure_body=*/"",
+          /*connection=*/MakeResolvedConnection(&connection),
+          /*language=*/"PYTHON",
+          /*code=*/"code");
+
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_NON_SQL_PROCEDURE);
+  Validator validator(language_options);
+  ZETASQL_ASSERT_OK(validator.ValidateResolvedStatement(create_procedure_stmt.get()));
+}
+
 }  // namespace testing
 }  // namespace zetasql

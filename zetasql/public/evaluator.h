@@ -31,6 +31,8 @@
 // builtin functions. Refer to reference_impl/functions/register_all.h for the
 // complete list.
 
+#include <string>
+
 #include "zetasql/public/evaluator_base.h"  
 
 namespace zetasql {

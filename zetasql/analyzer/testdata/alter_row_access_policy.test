@@ -267,7 +267,7 @@ AlterRowAccessPolicyStmt
 # Grant to, with multiple actions.
 alter row access policy p1 on Keyvalue
 {{revoke from ("bar@google.com"),|revoke from all,|}} {{rename to p2,|}}
-{{filter using (key = 321),}} grant to ("foo@google.com");
+{{filter using (key = 321),|}} grant to ("foo@google.com");
 --
 ALTERNATION GROUP: revoke from ("bar@google.com"),,rename to p2,,filter using (key = 321),
 --
@@ -291,6 +291,22 @@ AlterRowAccessPolicyStmt
 +-table_scan=
   +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
 --
+ALTERNATION GROUP: revoke from ("bar@google.com"),,rename to p2,,
+--
+AlterRowAccessPolicyStmt
++-name_path=Keyvalue
++-alter_action_list=
+| +-RevokeFromAction
+| | +-revokee_expr_list=
+| |   +-Literal(type=STRING, value="bar@google.com")
+| +-RenameToAction(new_path=p2)
+| +-GrantToAction
+|   +-grantee_expr_list=
+|     +-Literal(type=STRING, value="foo@google.com")
++-name="p1"
++-table_scan=
+  +-TableScan(table=KeyValue)
+--
 ALTERNATION GROUP: revoke from ("bar@google.com"),,,filter using (key = 321),
 --
 AlterRowAccessPolicyStmt
@@ -312,6 +328,21 @@ AlterRowAccessPolicyStmt
 +-table_scan=
   +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
 --
+ALTERNATION GROUP: revoke from ("bar@google.com"),,,
+--
+AlterRowAccessPolicyStmt
++-name_path=Keyvalue
++-alter_action_list=
+| +-RevokeFromAction
+| | +-revokee_expr_list=
+| |   +-Literal(type=STRING, value="bar@google.com")
+| +-GrantToAction
+|   +-grantee_expr_list=
+|     +-Literal(type=STRING, value="foo@google.com")
++-name="p1"
++-table_scan=
+  +-TableScan(table=KeyValue)
+--
 ALTERNATION GROUP: revoke from all,,rename to p2,,filter using (key = 321),
 --
 AlterRowAccessPolicyStmt
@@ -332,6 +363,20 @@ AlterRowAccessPolicyStmt
 +-table_scan=
   +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
 --
+ALTERNATION GROUP: revoke from all,,rename to p2,,
+--
+AlterRowAccessPolicyStmt
++-name_path=Keyvalue
++-alter_action_list=
+| +-RevokeFromAction(is_revoke_from_all=TRUE)
+| +-RenameToAction(new_path=p2)
+| +-GrantToAction
+|   +-grantee_expr_list=
+|     +-Literal(type=STRING, value="foo@google.com")
++-name="p1"
++-table_scan=
+  +-TableScan(table=KeyValue)
+--
 ALTERNATION GROUP: revoke from all,,,filter using (key = 321),
 --
 AlterRowAccessPolicyStmt
@@ -350,6 +395,19 @@ AlterRowAccessPolicyStmt
 +-name="p1"
 +-table_scan=
   +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+--
+ALTERNATION GROUP: revoke from all,,,
+--
+AlterRowAccessPolicyStmt
++-name_path=Keyvalue
++-alter_action_list=
+| +-RevokeFromAction(is_revoke_from_all=TRUE)
+| +-GrantToAction
+|   +-grantee_expr_list=
+|     +-Literal(type=STRING, value="foo@google.com")
++-name="p1"
++-table_scan=
+  +-TableScan(table=KeyValue)
 --
 ALTERNATION GROUP: rename to p2,,filter using (key = 321),
 --
@@ -370,6 +428,19 @@ AlterRowAccessPolicyStmt
 +-table_scan=
   +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
 --
+ALTERNATION GROUP: rename to p2,,
+--
+AlterRowAccessPolicyStmt
++-name_path=Keyvalue
++-alter_action_list=
+| +-RenameToAction(new_path=p2)
+| +-GrantToAction
+|   +-grantee_expr_list=
+|     +-Literal(type=STRING, value="foo@google.com")
++-name="p1"
++-table_scan=
+  +-TableScan(table=KeyValue)
+--
 ALTERNATION GROUP: filter using (key = 321),
 --
 AlterRowAccessPolicyStmt
@@ -387,6 +458,18 @@ AlterRowAccessPolicyStmt
 +-name="p1"
 +-table_scan=
   +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+--
+ALTERNATION GROUP: <empty>
+--
+AlterRowAccessPolicyStmt
++-name_path=Keyvalue
++-alter_action_list=
+| +-GrantToAction
+|   +-grantee_expr_list=
+|     +-Literal(type=STRING, value="foo@google.com")
++-name="p1"
++-table_scan=
+  +-TableScan(table=KeyValue)
 ==
 
 # Grant to: multiple grantees.

@@ -37,21 +37,15 @@
 #include "zetasql/public/value.h"
 #include "zetasql/testing/test_function.h"
 #include "zetasql/testing/test_value.h"
-#include "zetasql/testing/using_test_value.cc"
-#include <cstdint>
+#include "zetasql/testing/using_test_value.cc"  // NOLINT
 #include "absl/status/statusor.h"
-#include "absl/strings/str_cat.h"
-#include "absl/strings/str_join.h"
+#include "absl/strings/escaping.h"
 #include "absl/strings/string_view.h"
-#include "absl/strings/substitute.h"
-#include "zetasql/base/map_util.h"
 #include "re2/re2.h"
 #include "zetasql/base/status.h"
 
 namespace zetasql {
 namespace {
-constexpr absl::StatusCode INVALID_ARGUMENT =
-    absl::StatusCode::kInvalidArgument;
 constexpr absl::StatusCode OUT_OF_RANGE = absl::StatusCode::kOutOfRange;
 }  // namespace
 
@@ -400,26 +394,6 @@ std::vector<FunctionTestCall> GetFunctionTestsGenerateDateArray() {
       {"generate_date_array",
        {Date(date_max), Date(date_min), int64min, Enum(part_enum, "DAY")},
        DateArray({date_max})},
-      {"generate_date_array",
-       {Date(1), Date(2), Int64(1), Enum(part_enum, "NANOSECOND")},
-       Null(DateArrayType()),
-       OUT_OF_RANGE},  // Invalid date part.
-      {"generate_date_array",
-       {Date(1), Date(2), Int64(1), Enum(part_enum, "MICROSECOND")},
-       Null(DateArrayType()),
-       OUT_OF_RANGE},  // Invalid date part.
-      {"generate_date_array",
-       {Date(1), Date(2), Int64(1), Enum(part_enum, "SECOND")},
-       Null(DateArrayType()),
-       OUT_OF_RANGE},  // Invalid date part.
-      {"generate_date_array",
-       {Date(1), Date(2), Int64(1), Null(part_enum)},
-       Null(DateArrayType()),
-       INVALID_ARGUMENT},  // Invalid null date part.
-      {"generate_date_array",
-       {Date(1), Date(2), Int64(1)},
-       Null(DateArrayType()),
-       INVALID_ARGUMENT},  // No date part.
   };
 
   return all_tests;

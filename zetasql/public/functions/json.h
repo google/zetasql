@@ -19,8 +19,10 @@
 #ifndef ZETASQL_PUBLIC_FUNCTIONS_JSON_H_
 #define ZETASQL_PUBLIC_FUNCTIONS_JSON_H_
 
+#include <functional>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/public/functions/json_format.h"

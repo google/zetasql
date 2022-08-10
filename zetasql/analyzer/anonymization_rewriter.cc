@@ -42,6 +42,7 @@
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/analyzer_output_properties.h"
 #include "zetasql/public/anon_function.h"
+#include "zetasql/public/anonymization_utils.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/function.h"
@@ -193,7 +194,8 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> ResolveFunctionCall(
   NameScope empty_name_scope;
   QueryResolutionInfo query_resolution_info(resolver);
   ExprResolutionInfo expr_resolution_info(
-      &empty_name_scope, &empty_name_scope, /*allows_aggregation_in=*/true,
+      &empty_name_scope, &empty_name_scope, &empty_name_scope,
+      /*allows_aggregation_in=*/true,
       /*allows_analytic_in=*/false, /*use_post_grouping_columns_in=*/false,
       /*clause_name_in=*/"", &query_resolution_info);
 
@@ -254,13 +256,6 @@ ResolveInnerAggregateFunctionCallForAnonFunction(
     std::vector<std::unique_ptr<const ResolvedExpr>> arguments,
     Resolver* resolver, ResolvedColumn* order_by_column,
     ColumnFactory* allocator) {
-  // We are rewriting ANON_VAR_POP, ANON_STDDEV_POP, ANON_PERCENTILE_CONT, and
-  // ANON_QUANTILES, to per-user aggregation
-  // ARRAY_AGG(expr IGNORE NULLS ORDER BY rand() LIMIT 5).
-  // The limit of 5 is proposed to be consistent with the current Penumbra
-  // implementation, and at some point we may want to make this configurable.
-  // For more information, see (broken link).
-  static constexpr int kPerUserArrayAggLimit = 5;
   if (!node->function()->Is<AnonFunction>()) {
     return MakeSqlErrorAtNode(*node)
            << "Unsupported function in SELECT WITH ANONYMIZATION select "
@@ -315,8 +310,8 @@ ResolveInnerAggregateFunctionCallForAnonFunction(
         std::move(resolved_order_by_item));
     resolved_aggregate_function_call->set_null_handling_modifier(
         ResolvedNonScalarFunctionCallBaseEnums::IGNORE_NULLS);
-    resolved_aggregate_function_call->set_limit(
-        MakeResolvedLiteral(Value::Int64(kPerUserArrayAggLimit)));
+    resolved_aggregate_function_call->set_limit(MakeResolvedLiteral(
+        Value::Int64(anonymization::kPerUserArrayAggLimit)));
   }
   return result;
 }
@@ -1548,6 +1543,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   PROJECT_UID(ResolvedFilterScan);
   PROJECT_UID(ResolvedOrderByScan);
   PROJECT_UID(ResolvedLimitOffsetScan);
+  PROJECT_UID(ResolvedSampleScan);
 #undef PROJECT_UID
 
   /////////////////////////////////////////////////////////////////////////////
@@ -1562,7 +1558,6 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   }
   UNSUPPORTED(ResolvedSetOperationScan);
   UNSUPPORTED(ResolvedAnalyticScan);
-  UNSUPPORTED(ResolvedSampleScan);
   UNSUPPORTED(ResolvedRelationArgumentScan);
   UNSUPPORTED(ResolvedRecursiveScan);
   UNSUPPORTED(ResolvedRecursiveRefScan);
@@ -1782,15 +1777,28 @@ absl::Status RewriterVisitor::VisitResolvedAnonymizedAggregateScan(
       std::unique_ptr<ResolvedScan> input_scan,
       RewriteInnerAggregateScan(node, &injected_col_map, &uid_column));
 
-  // Inject a SampleScan if kappa is present, in order to provide epsilon-delta
-  // differential privacy in the presence of a GROUP BY clause.
+  // Inject a SampleScan if kappa is present or the default_anon_kappa_value is
+  // set. Setting kappa provides epsilon-delta dataset level differential
+  // privacy in the presence of a GROUP BY clause.
+  const int64_t default_kappa_int =
+      resolver_->analyzer_options().default_anon_kappa_value();
+  bool is_default_kappa = false;
+  Value final_kappa;
   if (kappa_value != nullptr) {
+    final_kappa = *kappa_value;
+  } else if (default_kappa_int > 0 &&
+             default_kappa_int <= std::numeric_limits<int32_t>::max()) {
+    final_kappa = Value::Int64(default_kappa_int);
+    is_default_kappa = true;
+  }
+
+  if (final_kappa.is_valid() && !final_kappa.is_null()) {
     std::vector<std::unique_ptr<const ResolvedExpr>> partition_by_list;
     partition_by_list.push_back(MakeColRef(uid_column));
     const std::vector<ResolvedColumn>& column_list = input_scan->column_list();
     input_scan = MakeResolvedSampleScan(
         column_list, std::move(input_scan),
-        /*method=*/"RESERVOIR", MakeResolvedLiteral(*kappa_value),
+        /*method=*/"RESERVOIR", MakeResolvedLiteral(final_kappa),
         ResolvedSampleScan::ROWS, /*repeatable_argument=*/nullptr,
         /*weight_column=*/nullptr, std::move(partition_by_list));
   }
@@ -1837,6 +1845,12 @@ absl::Status RewriterVisitor::VisitResolvedAnonymizedAggregateScan(
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedOption> option_copy,
                      deep_copy_visitor.ConsumeRootNode<ResolvedOption>());
     resolved_anonymization_options.push_back(std::move(option_copy));
+  }
+  if (is_default_kappa) {
+    ZETASQL_RET_CHECK(final_kappa.is_valid() && !final_kappa.is_null());
+    std::unique_ptr<ResolvedOption> option_kappa = MakeResolvedOption(
+        /*qualifier=*/"", /*name=*/"kappa", MakeResolvedLiteral(final_kappa));
+    resolved_anonymization_options.push_back(std::move(option_kappa));
   }
   auto result = MakeResolvedAnonymizedAggregateScan(
       node->column_list(), std::move(input_scan),

@@ -24,8 +24,6 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/io/coded_stream.h"
-#include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/message.h"
 #include "google/protobuf/wire_format_lite.h"
@@ -72,6 +70,8 @@
 #include "absl/strings/str_cat.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
+#include "google/protobuf/io/coded_stream.h"
+#include "google/protobuf/io/zero_copy_stream_impl_lite.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_macros.h"
@@ -153,10 +153,8 @@ struct NaryFunctionTemplate {
                        const std::vector<ValueConstructor>& arguments,
                        const ValueConstructor& result)
       : kind(kind), params(arguments, result) {}
-  NaryFunctionTemplate(
-      FunctionKind kind, const QueryParamsWithResult& params)
-      : kind(kind), params(params) {
-  }
+  NaryFunctionTemplate(FunctionKind kind, const QueryParamsWithResult& params)
+      : kind(kind), params(params) {}
 };
 
 std::ostream& operator<<(std::ostream& out, const NaryFunctionTemplate& t) {
@@ -481,9 +479,8 @@ TEST_F(EvalTest, FieldValueExpr) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       auto null_struct_expr,
       ConstExpr::Create(Value::Null(MakeStructType({{"foo", Int64Type()}}))));
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      auto field_op_null,
-      FieldValueExpr::Create(0, std::move(null_struct_expr)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto field_op_null,
+                       FieldValueExpr::Create(0, std::move(null_struct_expr)));
   EXPECT_THAT(EvalExpr(*field_op_null, EmptyParams()),
               IsOkAndHolds(NullInt64()));
 }
@@ -529,7 +526,7 @@ TEST_F(EvalTest, IfExpr) {
   EXPECT_THAT(EvalExpr(*if_op_null, EmptyParams()), IsOkAndHolds(Int64(1)));
 }
 
-TEST_F(EvalTest, LetExpr) {
+TEST_F(EvalTest, WithExpr) {
   VariableId a("a"), x("x"), y("y");
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto deref_x, DerefExpr::Create(x, Int64Type()));
@@ -562,10 +559,10 @@ TEST_F(EvalTest, LetExpr) {
   let_assign.push_back(std::make_unique<ExprArg>(x, std::move(a_plus_one)));
   let_assign.push_back(std::make_unique<ExprArg>(y, std::move(deref_x_again)));
 
-  ZETASQL_ASSERT_OK_AND_ASSIGN(auto let,
-                       LetExpr::Create(std::move(let_assign), std::move(body)));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto let, WithExpr::Create(std::move(let_assign), std::move(body)));
   EXPECT_EQ(
-      "LetExpr(\n"
+      "WithExpr(\n"
       "+-assign: {\n"
       "| +-$x := Add($a, ConstExpr(1)),\n"
       "| +-$y := $x},\n"
@@ -1220,10 +1217,10 @@ TEST_F(DMLValueExprEvalTest, DMLDeleteValueExpr) {
       std::unique_ptr<DerefExpr> arg_expr,
       DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
                             stmt->where_expr()
-                                 ->GetAs<ResolvedFunctionCall>()
-                                 ->argument_list(0)
-                                 ->GetAs<ResolvedColumnRef>()
-                                 ->column()),
+                                ->GetAs<ResolvedFunctionCall>()
+                                ->argument_list(0)
+                                ->GetAs<ResolvedColumnRef>()
+                                ->column()),
                         stmt->where_expr()
                             ->GetAs<ResolvedFunctionCall>()
                             ->argument_list(0)
@@ -1363,10 +1360,10 @@ TEST_F(DMLValueExprEvalTest, DMLUpdateValueExpr) {
       std::unique_ptr<DerefExpr> arg_expr,
       DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
                             stmt->where_expr()
-                                 ->GetAs<ResolvedFunctionCall>()
-                                 ->argument_list(0)
-                                 ->GetAs<ResolvedColumnRef>()
-                                 ->column()),
+                                ->GetAs<ResolvedFunctionCall>()
+                                ->argument_list(0)
+                                ->GetAs<ResolvedColumnRef>()
+                                ->column()),
                         stmt->where_expr()
                             ->GetAs<ResolvedFunctionCall>()
                             ->argument_list(0)
@@ -1392,9 +1389,9 @@ TEST_F(DMLValueExprEvalTest, DMLUpdateValueExpr) {
       std::unique_ptr<DerefExpr> target_expr,
       DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
                             stmt->update_item_list(0)
-                                 ->target()
-                                 ->GetAs<ResolvedColumnRef>()
-                                 ->column()),
+                                ->target()
+                                ->GetAs<ResolvedColumnRef>()
+                                ->column()),
                         stmt->update_item_list(0)
                             ->target()
                             ->GetAs<ResolvedColumnRef>()
@@ -1532,10 +1529,10 @@ TEST_F(DMLValueExprEvalTest,
       std::unique_ptr<DerefExpr> arg_expr,
       DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
                             stmt->where_expr()
-                                 ->GetAs<ResolvedFunctionCall>()
-                                 ->argument_list(0)
-                                 ->GetAs<ResolvedColumnRef>()
-                                 ->column()),
+                                ->GetAs<ResolvedFunctionCall>()
+                                ->argument_list(0)
+                                ->GetAs<ResolvedColumnRef>()
+                                ->column()),
                         stmt->where_expr()
                             ->GetAs<ResolvedFunctionCall>()
                             ->argument_list(0)
@@ -1561,9 +1558,9 @@ TEST_F(DMLValueExprEvalTest,
       std::unique_ptr<DerefExpr> target_expr,
       DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
                             stmt->update_item_list(0)
-                                 ->target()
-                                 ->GetAs<ResolvedColumnRef>()
-                                 ->column()),
+                                ->target()
+                                ->GetAs<ResolvedColumnRef>()
+                                ->column()),
                         stmt->update_item_list(0)
                             ->target()
                             ->GetAs<ResolvedColumnRef>()
@@ -1699,10 +1696,10 @@ TEST_F(DMLValueExprEvalTest,
       std::unique_ptr<DerefExpr> arg_expr,
       DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
                             stmt->where_expr()
-                                 ->GetAs<ResolvedFunctionCall>()
-                                 ->argument_list(0)
-                                 ->GetAs<ResolvedColumnRef>()
-                                 ->column()),
+                                ->GetAs<ResolvedFunctionCall>()
+                                ->argument_list(0)
+                                ->GetAs<ResolvedColumnRef>()
+                                ->column()),
                         stmt->where_expr()
                             ->GetAs<ResolvedFunctionCall>()
                             ->argument_list(0)
@@ -1728,9 +1725,9 @@ TEST_F(DMLValueExprEvalTest,
       std::unique_ptr<DerefExpr> target_expr,
       DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
                             stmt->update_item_list(0)
-                                 ->target()
-                                 ->GetAs<ResolvedColumnRef>()
-                                 ->column()),
+                                ->target()
+                                ->GetAs<ResolvedColumnRef>()
+                                ->column()),
                         stmt->update_item_list(0)
                             ->target()
                             ->GetAs<ResolvedColumnRef>()
@@ -2071,9 +2068,9 @@ TEST_F(ProtoEvalTest, CreatePrimitiveProtoFields) {
               HasSubstr("out_of_range"));
   EXPECT_THAT(FormatProto("int32_val", Array({Int32(0)}), &p),
               HasSubstr("out_of_range"));
-  EXPECT_THAT(FormatProto("int32_val",
-                          Value::EmptyArray(types::Int32ArrayType()), &p),
-              HasSubstr("out_of_range"));
+  EXPECT_THAT(
+      FormatProto("int32_val", Value::EmptyArray(types::Int32ArrayType()), &p),
+      HasSubstr("out_of_range"));
   // uint32_t
   EXPECT_EQ("uint32_val: 5", FormatProto("uint32_val", Uint32(5), &p));
   EXPECT_EQ("", FormatProto("uint32_val", NullUint32(), &p));
@@ -2164,20 +2161,23 @@ TEST_F(ProtoEvalTest, CreatePrimitiveProtoFields) {
 
   // Several fields.
   EXPECT_EQ("int32_val: 1 uint32_val: 2 int64_val: 3 uint64_val: 4",
-            FormatProto({
-                {"int32_val", Int32(1)},
-                {"uint32_val", Uint32(2)},
-                {"int64_val", Int64(3)},
-                {"uint64_val", Uint64(4)},
-            }, &p));
+            FormatProto(
+                {
+                    {"int32_val", Int32(1)},
+                    {"uint32_val", Uint32(2)},
+                    {"int64_val", Int64(3)},
+                    {"uint64_val", Uint64(4)},
+                },
+                &p));
 }
 
 TEST_F(ProtoEvalTest, CreateRepeatedProtoFields) {
   zetasql_test__::KitchenSinkPB p;
 
   // repeated_int32_val
-  EXPECT_EQ("repeated_int32_val: -5 repeated_int32_val: -7", FormatProto(
-      "repeated_int32_val", Array({Int32(-5), Int32(-7)}), &p));
+  EXPECT_EQ(
+      "repeated_int32_val: -5 repeated_int32_val: -7",
+      FormatProto("repeated_int32_val", Array({Int32(-5), Int32(-7)}), &p));
   EXPECT_EQ("", FormatProto("repeated_int32_val",
                             Value::EmptyArray(types::Int32ArrayType()), &p));
   EXPECT_EQ("", FormatProto("repeated_int32_val",
@@ -2188,8 +2188,9 @@ TEST_F(ProtoEvalTest, CreateRepeatedProtoFields) {
               HasSubstr("out_of_range"));
 
   // repeated_uint32_val
-  EXPECT_EQ("repeated_uint32_val: 5 repeated_uint32_val: 7", FormatProto(
-      "repeated_uint32_val", Array({Uint32(5), Uint32(7)}), &p));
+  EXPECT_EQ(
+      "repeated_uint32_val: 5 repeated_uint32_val: 7",
+      FormatProto("repeated_uint32_val", Array({Uint32(5), Uint32(7)}), &p));
   EXPECT_EQ("", FormatProto("repeated_uint32_val",
                             Value::EmptyArray(types::Uint32ArrayType()), &p));
   EXPECT_EQ("", FormatProto("repeated_uint32_val",
@@ -2198,8 +2199,9 @@ TEST_F(ProtoEvalTest, CreateRepeatedProtoFields) {
               HasSubstr("out_of_range"));
 
   // repeated_int64_val
-  EXPECT_EQ("repeated_int64_val: -5 repeated_int64_val: -7", FormatProto(
-      "repeated_int64_val", Array({Int64(-5), Int64(-7)}), &p));
+  EXPECT_EQ(
+      "repeated_int64_val: -5 repeated_int64_val: -7",
+      FormatProto("repeated_int64_val", Array({Int64(-5), Int64(-7)}), &p));
   EXPECT_EQ("", FormatProto("repeated_int64_val",
                             Value::EmptyArray(types::Int64ArrayType()), &p));
   EXPECT_EQ("", FormatProto("repeated_int64_val",
@@ -2208,8 +2210,9 @@ TEST_F(ProtoEvalTest, CreateRepeatedProtoFields) {
               HasSubstr("out_of_range"));
 
   // repeated_uint64_val
-  EXPECT_EQ("repeated_uint64_val: 5 repeated_uint64_val: 7", FormatProto(
-      "repeated_uint64_val", Array({Uint64(5), Uint64(7)}), &p));
+  EXPECT_EQ(
+      "repeated_uint64_val: 5 repeated_uint64_val: 7",
+      FormatProto("repeated_uint64_val", Array({Uint64(5), Uint64(7)}), &p));
   EXPECT_EQ("", FormatProto("repeated_uint64_val",
                             Value::EmptyArray(types::Uint64ArrayType()), &p));
   EXPECT_EQ("", FormatProto("repeated_uint64_val",
@@ -2218,8 +2221,8 @@ TEST_F(ProtoEvalTest, CreateRepeatedProtoFields) {
               HasSubstr("out_of_range"));
 
   // repeated_bool_val
-  EXPECT_EQ("repeated_bool_val: true repeated_bool_val: false", FormatProto(
-      "repeated_bool_val", Array({True(), False()}), &p));
+  EXPECT_EQ("repeated_bool_val: true repeated_bool_val: false",
+            FormatProto("repeated_bool_val", Array({True(), False()}), &p));
   EXPECT_EQ("", FormatProto("repeated_bool_val",
                             Value::EmptyArray(types::BoolArrayType()), &p));
   EXPECT_EQ("", FormatProto("repeated_bool_val",
@@ -2228,8 +2231,9 @@ TEST_F(ProtoEvalTest, CreateRepeatedProtoFields) {
               HasSubstr("out_of_range"));
 
   // repeated_float_val
-  EXPECT_EQ("repeated_float_val: 0.3 repeated_float_val: 0.5", FormatProto(
-      "repeated_float_val", Array({Float(0.3), Float(0.5)}), &p));
+  EXPECT_EQ(
+      "repeated_float_val: 0.3 repeated_float_val: 0.5",
+      FormatProto("repeated_float_val", Array({Float(0.3), Float(0.5)}), &p));
   EXPECT_EQ("", FormatProto("repeated_float_val",
                             Value::EmptyArray(types::FloatArrayType()), &p));
   EXPECT_EQ("", FormatProto("repeated_float_val",
@@ -2238,8 +2242,9 @@ TEST_F(ProtoEvalTest, CreateRepeatedProtoFields) {
               HasSubstr("out_of_range"));
 
   // repeated_double_val
-  EXPECT_EQ("repeated_double_val: 0.3 repeated_double_val: 0.5", FormatProto(
-      "repeated_double_val", Array({Double(0.3), Double(0.5)}), &p));
+  EXPECT_EQ("repeated_double_val: 0.3 repeated_double_val: 0.5",
+            FormatProto("repeated_double_val",
+                        Array({Double(0.3), Double(0.5)}), &p));
   EXPECT_EQ("", FormatProto("repeated_double_val",
                             Value::EmptyArray(types::DoubleArrayType()), &p));
   EXPECT_EQ("", FormatProto("repeated_double_val",
@@ -2248,8 +2253,9 @@ TEST_F(ProtoEvalTest, CreateRepeatedProtoFields) {
               HasSubstr("out_of_range"));
 
   // repeated_string_val
-  EXPECT_EQ("repeated_string_val: \"@\" repeated_string_val: \"\"", FormatProto(
-      "repeated_string_val", Array({String("@"), String("")}), &p));
+  EXPECT_EQ(
+      "repeated_string_val: \"@\" repeated_string_val: \"\"",
+      FormatProto("repeated_string_val", Array({String("@"), String("")}), &p));
   EXPECT_EQ("", FormatProto("repeated_string_val",
                             Value::EmptyArray(types::StringArrayType()), &p));
   EXPECT_EQ("", FormatProto("repeated_string_val",
@@ -2258,8 +2264,9 @@ TEST_F(ProtoEvalTest, CreateRepeatedProtoFields) {
               HasSubstr("out_of_range"));
 
   // repeated_bytes_val
-  EXPECT_EQ("repeated_bytes_val: \"@\" repeated_bytes_val: \"\"", FormatProto(
-      "repeated_bytes_val", Array({Bytes("@"), Bytes("")}), &p));
+  EXPECT_EQ(
+      "repeated_bytes_val: \"@\" repeated_bytes_val: \"\"",
+      FormatProto("repeated_bytes_val", Array({Bytes("@"), Bytes("")}), &p));
   EXPECT_EQ("", FormatProto("repeated_bytes_val",
                             Value::EmptyArray(types::BytesArrayType()), &p));
   EXPECT_EQ("", FormatProto("repeated_bytes_val",
@@ -2268,8 +2275,9 @@ TEST_F(ProtoEvalTest, CreateRepeatedProtoFields) {
               HasSubstr("out_of_range"));
 
   // repeated_fixed32_val
-  EXPECT_EQ("repeated_fixed32_val: 5 repeated_fixed32_val: 7", FormatProto(
-      "repeated_fixed32_val", Array({Uint32(5), Uint32(7)}), &p));
+  EXPECT_EQ(
+      "repeated_fixed32_val: 5 repeated_fixed32_val: 7",
+      FormatProto("repeated_fixed32_val", Array({Uint32(5), Uint32(7)}), &p));
   EXPECT_EQ("", FormatProto("repeated_fixed32_val",
                             Value::EmptyArray(types::Uint32ArrayType()), &p));
   EXPECT_EQ("", FormatProto("repeated_fixed32_val",
@@ -2278,8 +2286,9 @@ TEST_F(ProtoEvalTest, CreateRepeatedProtoFields) {
               HasSubstr("out_of_range"));
 
   // repeated_fixed64_val
-  EXPECT_EQ("repeated_fixed64_val: 5 repeated_fixed64_val: 7", FormatProto(
-      "repeated_fixed64_val", Array({Uint64(5), Uint64(7)}), &p));
+  EXPECT_EQ(
+      "repeated_fixed64_val: 5 repeated_fixed64_val: 7",
+      FormatProto("repeated_fixed64_val", Array({Uint64(5), Uint64(7)}), &p));
   EXPECT_EQ("", FormatProto("repeated_fixed64_val",
                             Value::EmptyArray(types::Uint64ArrayType()), &p));
   EXPECT_EQ("", FormatProto("repeated_fixed64_val",
@@ -2288,8 +2297,9 @@ TEST_F(ProtoEvalTest, CreateRepeatedProtoFields) {
               HasSubstr("out_of_range"));
 
   // repeated_sfixed32_val
-  EXPECT_EQ("repeated_sfixed32_val: -5 repeated_sfixed32_val: -7", FormatProto(
-      "repeated_sfixed32_val", Array({Int32(-5), Int32(-7)}), &p));
+  EXPECT_EQ(
+      "repeated_sfixed32_val: -5 repeated_sfixed32_val: -7",
+      FormatProto("repeated_sfixed32_val", Array({Int32(-5), Int32(-7)}), &p));
   EXPECT_EQ("", FormatProto("repeated_sfixed32_val",
                             Value::EmptyArray(types::Int32ArrayType()), &p));
   EXPECT_EQ("", FormatProto("repeated_sfixed32_val",
@@ -2298,8 +2308,9 @@ TEST_F(ProtoEvalTest, CreateRepeatedProtoFields) {
               HasSubstr("out_of_range"));
 
   // repeated_sfixed64_val
-  EXPECT_EQ("repeated_sfixed64_val: -5 repeated_sfixed64_val: -7", FormatProto(
-      "repeated_sfixed64_val", Array({Int64(-5), Int64(-7)}), &p));
+  EXPECT_EQ(
+      "repeated_sfixed64_val: -5 repeated_sfixed64_val: -7",
+      FormatProto("repeated_sfixed64_val", Array({Int64(-5), Int64(-7)}), &p));
   EXPECT_EQ("", FormatProto("repeated_sfixed64_val",
                             Value::EmptyArray(types::Int64ArrayType()), &p));
   EXPECT_EQ("", FormatProto("repeated_sfixed64_val",
@@ -2308,8 +2319,9 @@ TEST_F(ProtoEvalTest, CreateRepeatedProtoFields) {
               HasSubstr("out_of_range"));
 
   // repeated_sint32_val
-  EXPECT_EQ("repeated_sint32_val: -5 repeated_sint32_val: -7", FormatProto(
-      "repeated_sint32_val", Array({Int32(-5), Int32(-7)}), &p));
+  EXPECT_EQ(
+      "repeated_sint32_val: -5 repeated_sint32_val: -7",
+      FormatProto("repeated_sint32_val", Array({Int32(-5), Int32(-7)}), &p));
   EXPECT_EQ("", FormatProto("repeated_sint32_val",
                             Value::EmptyArray(types::Int32ArrayType()), &p));
   EXPECT_EQ("", FormatProto("repeated_sint32_val",
@@ -2318,8 +2330,9 @@ TEST_F(ProtoEvalTest, CreateRepeatedProtoFields) {
               HasSubstr("out_of_range"));
 
   // repeated_sint64_val
-  EXPECT_EQ("repeated_sint64_val: -5 repeated_sint64_val: -7", FormatProto(
-      "repeated_sint64_val", Array({Int64(-5), Int64(-7)}), &p));
+  EXPECT_EQ(
+      "repeated_sint64_val: -5 repeated_sint64_val: -7",
+      FormatProto("repeated_sint64_val", Array({Int64(-5), Int64(-7)}), &p));
   EXPECT_EQ("", FormatProto("repeated_sint64_val",
                             Value::EmptyArray(types::Int64ArrayType()), &p));
   EXPECT_EQ("", FormatProto("repeated_sint64_val",
@@ -2341,29 +2354,32 @@ TEST_F(ProtoEvalTest, CreateNestedProtoFields) {
               HasSubstr("out_of_range"));
 
   // nested_repeated_value
-  EXPECT_EQ("nested_repeated_value { nested_int64: 5 } "
-            "nested_repeated_value { nested_int64: 7 }", FormatProto(
-      "nested_repeated_value", Array({nested_value1, nested_value2}), &p));
+  EXPECT_EQ(
+      "nested_repeated_value { nested_int64: 5 } "
+      "nested_repeated_value { nested_int64: 7 }",
+      FormatProto("nested_repeated_value",
+                  Array({nested_value1, nested_value2}), &p));
   EXPECT_THAT(FormatProto("nested_repeated_value", Array({Uint32(0)}), &p),
               HasSubstr("out_of_range"));
 
   // repeated_holder
   zetasql_test__::RepeatedHolderPB holder_pb;
   zetasql_test__::TestExtraPB extra_pb;
-  Value holder_value = MakeProtoValue({{
-      "repeated_field", Array({MakeProtoValue({{
-           "int32_val1", Int32(5)}},
-           extra_pb)})}},
+  Value holder_value = MakeProtoValue(
+      {{"repeated_field",
+        Array({MakeProtoValue({{"int32_val1", Int32(5)}}, extra_pb)})}},
       holder_pb);
-  EXPECT_EQ("repeated_holder { repeated_field { int32_val1: 5 } } "
-            "repeated_holder { repeated_field { int32_val1: 5 } }", FormatProto(
-      "repeated_holder", Array({holder_value, holder_value}), &p));
+  EXPECT_EQ(
+      "repeated_holder { repeated_field { int32_val1: 5 } } "
+      "repeated_holder { repeated_field { int32_val1: 5 } }",
+      FormatProto("repeated_holder", Array({holder_value, holder_value}), &p));
+  EXPECT_EQ(
+      "", FormatProto(
+              "repeated_holder",
+              Value::EmptyArray(Array({holder_value}).type()->AsArray()), &p));
   EXPECT_EQ("", FormatProto(
-      "repeated_holder",
-      Value::EmptyArray(Array({holder_value}).type()->AsArray()), &p));
-  EXPECT_EQ("", FormatProto(
-      "repeated_holder",
-      Value::Null(Array({holder_value}).type()->AsArray()), &p));
+                    "repeated_holder",
+                    Value::Null(Array({holder_value}).type()->AsArray()), &p));
   EXPECT_THAT(FormatProto("repeated_holder", Array({Uint32(0)}), &p),
               HasSubstr("out_of_range"));
 
@@ -2379,15 +2395,18 @@ TEST_F(ProtoEvalTest, CreateNestedProtoFields) {
   zetasql_test__::KitchenSinkPB_NestedRepeatedGroup nested_group_pb;
   Value nested_group1 = MakeProtoValue({{"id", Int64(5)}}, nested_group_pb);
   Value nested_group2 = MakeProtoValue({{"id", Int64(7)}}, nested_group_pb);
-  EXPECT_EQ("nested_repeated_group { id: 5 } "
-            "nested_repeated_group { id: 7 }", FormatProto(
-      "nested_repeated_group", Array({nested_group1, nested_group2}), &p));
+  EXPECT_EQ(
+      "nested_repeated_group { id: 5 } "
+      "nested_repeated_group { id: 7 }",
+      FormatProto("nested_repeated_group",
+                  Array({nested_group1, nested_group2}), &p));
+  EXPECT_EQ(
+      "", FormatProto(
+              "nested_repeated_group",
+              Value::EmptyArray(Array({nested_group1}).type()->AsArray()), &p));
   EXPECT_EQ("", FormatProto(
-      "nested_repeated_group",
-      Value::EmptyArray(Array({nested_group1}).type()->AsArray()), &p));
-  EXPECT_EQ("", FormatProto(
-      "nested_repeated_group",
-      Value::Null(Array({nested_group1}).type()->AsArray()), &p));
+                    "nested_repeated_group",
+                    Value::Null(Array({nested_group1}).type()->AsArray()), &p));
   EXPECT_THAT(FormatProto("nested_repeated_group", Array({Uint32(0)}), &p),
               HasSubstr("out_of_range"));
 }
@@ -2395,8 +2414,8 @@ TEST_F(ProtoEvalTest, CreateNestedProtoFields) {
 TEST_F(ProtoEvalTest, CreateEnumProtoFields) {
   zetasql_test__::KitchenSinkPB p;
   const EnumType* enum_type;
-  ZETASQL_CHECK_OK(type_factory_->MakeEnumType(
-      zetasql_test__::TestEnum_descriptor(), &enum_type));
+  ZETASQL_CHECK_OK(type_factory_->MakeEnumType(zetasql_test__::TestEnum_descriptor(),
+                                       &enum_type));
 
   // test_enum
   EXPECT_EQ("test_enum: TESTENUM1",
@@ -2406,15 +2425,17 @@ TEST_F(ProtoEvalTest, CreateEnumProtoFields) {
               HasSubstr("out_of_range"));
 
   // repeated_test_enum
-  EXPECT_EQ("repeated_test_enum: TESTENUM0 repeated_test_enum: TESTENUM1",
-            FormatProto("repeated_test_enum", Array({
-                Value::Enum(enum_type, 0), Value::Enum(enum_type, 1)}), &p));
+  EXPECT_EQ(
+      "repeated_test_enum: TESTENUM0 repeated_test_enum: TESTENUM1",
+      FormatProto("repeated_test_enum",
+                  Array({Value::Enum(enum_type, 0), Value::Enum(enum_type, 1)}),
+                  &p));
   const ArrayType* enum_array_type;
   ZETASQL_CHECK_OK(type_factory_->MakeArrayType(enum_type, &enum_array_type));
   EXPECT_EQ("", FormatProto("repeated_test_enum",
                             Value::EmptyArray(enum_array_type), &p));
-  EXPECT_EQ("", FormatProto("repeated_test_enum",
-                            Value::Null(enum_array_type), &p));
+  EXPECT_EQ(
+      "", FormatProto("repeated_test_enum", Value::Null(enum_array_type), &p));
   EXPECT_THAT(FormatProto("repeated_test_enum", Array({Int32(0)}), &p),
               HasSubstr("out_of_range"));
 }
@@ -2438,9 +2459,9 @@ TEST_F(ProtoEvalTest, CreateDateTimeProtoFields) {
   // TODO: add tests for date_decimal once implemented.
 
   // timestamp_seconds
-  EXPECT_EQ("timestamp_seconds: 5",
-            FormatProto("timestamp_seconds", TimestampFromUnixMicros(5000000),
-                        &p));
+  EXPECT_EQ(
+      "timestamp_seconds: 5",
+      FormatProto("timestamp_seconds", TimestampFromUnixMicros(5000000), &p));
   EXPECT_EQ("", FormatProto("timestamp_seconds", NullTimestamp(), &p));
   EXPECT_THAT(FormatProto("timestamp_seconds", String(""), &p),
               HasSubstr("out_of_range"));
@@ -2462,8 +2483,7 @@ TEST_F(ProtoEvalTest, CreateDateTimeProtoFields) {
   EXPECT_EQ("timestamp_millis_format: 5",
             FormatProto("timestamp_millis_format",
                         TimestampFromUnixMicros(5000), &p));
-  EXPECT_EQ("", FormatProto("timestamp_millis_format",
-                            NullTimestamp(), &p));
+  EXPECT_EQ("", FormatProto("timestamp_millis_format", NullTimestamp(), &p));
   EXPECT_THAT(FormatProto("timestamp_millis_format", String(""), &p),
               HasSubstr("out_of_range"));
 
@@ -2474,23 +2494,22 @@ TEST_F(ProtoEvalTest, CreateDateTimeProtoFields) {
   EXPECT_THAT(FormatProto("timestamp_micros", Uint32(1), &p),
               HasSubstr("out_of_range"));
 
-  EXPECT_EQ("timestamp_micros_format: 5",
-            FormatProto("timestamp_micros_format",
-                        TimestampFromUnixMicros(5), &p));
-  EXPECT_EQ("", FormatProto("timestamp_micros_format",
-                            NullTimestamp(), &p));
+  EXPECT_EQ(
+      "timestamp_micros_format: 5",
+      FormatProto("timestamp_micros_format", TimestampFromUnixMicros(5), &p));
+  EXPECT_EQ("", FormatProto("timestamp_micros_format", NullTimestamp(), &p));
   EXPECT_THAT(FormatProto("timestamp_micros_format", Uint32(1), &p),
               HasSubstr("out_of_range"));
 
   // repeated_date
-  EXPECT_EQ("repeated_date: 5 repeated_date: 7", FormatProto(
-      "repeated_date", Array({Date(5), Date(7)}), &p));
+  EXPECT_EQ("repeated_date: 5 repeated_date: 7",
+            FormatProto("repeated_date", Array({Date(5), Date(7)}), &p));
   EXPECT_THAT(FormatProto("repeated_date", Array({String("")}), &p),
               HasSubstr("out_of_range"));
 
   // repeated_date64
-  EXPECT_EQ("repeated_date64: 5 repeated_date64: 7", FormatProto(
-      "repeated_date64", Array({Date(5), Date(7)}), &p));
+  EXPECT_EQ("repeated_date64: 5 repeated_date64: 7",
+            FormatProto("repeated_date64", Array({Date(5), Date(7)}), &p));
   EXPECT_THAT(FormatProto("repeated_date64", Array({String("")}), &p),
               HasSubstr("out_of_range"));
 
@@ -2498,25 +2517,29 @@ TEST_F(ProtoEvalTest, CreateDateTimeProtoFields) {
   EXPECT_EQ("repeated_timestamp_seconds: 5 repeated_timestamp_seconds: 7",
             FormatProto("repeated_timestamp_seconds",
                         Array({TimestampFromUnixMicros(5000000),
-                               TimestampFromUnixMicros(7000000)}), &p));
-  EXPECT_THAT(FormatProto("repeated_timestamp_seconds",
-                          Array({String("")}), &p), HasSubstr("out_of_range"));
+                               TimestampFromUnixMicros(7000000)}),
+                        &p));
+  EXPECT_THAT(
+      FormatProto("repeated_timestamp_seconds", Array({String("")}), &p),
+      HasSubstr("out_of_range"));
 
   // repeated_timestamp_millis
   EXPECT_EQ("repeated_timestamp_millis: 5 repeated_timestamp_millis: 7",
             FormatProto("repeated_timestamp_millis",
                         Array({TimestampFromUnixMicros(5000),
-                               TimestampFromUnixMicros(7000)}), &p));
-  EXPECT_THAT(FormatProto("repeated_timestamp_millis",
-                          Array({String("")}), &p), HasSubstr("out_of_range"));
+                               TimestampFromUnixMicros(7000)}),
+                        &p));
+  EXPECT_THAT(FormatProto("repeated_timestamp_millis", Array({String("")}), &p),
+              HasSubstr("out_of_range"));
 
   // repeated_timestamp_micros
-  EXPECT_EQ("repeated_timestamp_micros: 5 repeated_timestamp_micros: 7",
-            FormatProto("repeated_timestamp_micros",
-                        Array({TimestampFromUnixMicros(5),
-                               TimestampFromUnixMicros(7)}), &p));
-  EXPECT_THAT(FormatProto("repeated_timestamp_micros",
-                          Array({String("")}), &p), HasSubstr("out_of_range"));
+  EXPECT_EQ(
+      "repeated_timestamp_micros: 5 repeated_timestamp_micros: 7",
+      FormatProto(
+          "repeated_timestamp_micros",
+          Array({TimestampFromUnixMicros(5), TimestampFromUnixMicros(7)}), &p));
+  EXPECT_THAT(FormatProto("repeated_timestamp_micros", Array({String("")}), &p),
+              HasSubstr("out_of_range"));
 }
 
 TEST_F(ProtoEvalTest, GetProtoFieldExprPrimitiveProtoFields) {
@@ -2785,8 +2808,8 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprPackedProtoFields) {
             GetProtoFieldOrDie(&p, "repeated_sint64_packed"));
 
   const EnumType* enum_type;
-  ZETASQL_CHECK_OK(type_factory_->MakeEnumType(
-      zetasql_test__::TestEnum_descriptor(), &enum_type));
+  ZETASQL_CHECK_OK(type_factory_->MakeEnumType(zetasql_test__::TestEnum_descriptor(),
+                                       &enum_type));
   const ArrayType* enum_array_type;
   ZETASQL_CHECK_OK(type_factory_->MakeArrayType(enum_type, &enum_array_type));
   EXPECT_EQ(Value::EmptyArray(enum_array_type),
@@ -2835,8 +2858,8 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprProtosEnums) {
             GetProtoFieldOrDie(&p, "nested_repeated_value"));
 
   const EnumType* enum_type;
-  ZETASQL_CHECK_OK(type_factory_->MakeEnumType(
-      zetasql_test__::TestEnum_descriptor(), &enum_type));
+  ZETASQL_CHECK_OK(type_factory_->MakeEnumType(zetasql_test__::TestEnum_descriptor(),
+                                       &enum_type));
   EXPECT_EQ(Value::Enum(enum_type, "TESTENUM0"),
             GetProtoFieldOrDie(&p, "test_enum"));  // Default value.
   EXPECT_EQ(Value::Bool(false), HasProtoFieldOrDie(&p, "test_enum"));
@@ -2876,8 +2899,8 @@ TEST_F(ProtoEvalTest, GetProtoFieldExprProtosEnums) {
   zetasql_test__::KitchenSinkPB::NestedRepeatedGroup repeated_group_tmp;
   const ProtoType* repeated_group_type = MakeProtoType(&repeated_group_tmp);
   const ArrayType* repeated_group_array_type;
-  ZETASQL_CHECK_OK(type_factory_->MakeArrayType(
-      repeated_group_type, &repeated_group_array_type));
+  ZETASQL_CHECK_OK(type_factory_->MakeArrayType(repeated_group_type,
+                                        &repeated_group_array_type));
   EXPECT_EQ(Value::Array(repeated_group_array_type, {}),
             GetProtoFieldOrDie(&p, "nested_repeated_group"));
   p.add_nested_repeated_group()->set_id(600);

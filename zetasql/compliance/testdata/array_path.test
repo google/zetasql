@@ -508,12 +508,14 @@ SELECT FLATTEN([
 ARRAY<STRUCT<my_array ARRAY<>>>[{ARRAY<INT64>[2, 4]}]
 ==
 
+[default required_features=]
 [name=array_path_in_unnest]
 SELECT 3 IN UNNEST([STRUCT([1, 2] AS a), STRUCT([3, 4, 5] AS a)].a)
 --
 ARRAY<STRUCT<BOOL>>[{true}]
 ==
 
+[default required_features=V_1_3_UNNEST_AND_FLATTEN_ARRAYS]
 [name=flatten_in_flatten]
 SELECT
   FLATTEN((SELECT [STRUCT(['A','B'] AS f11)])
@@ -521,3 +523,37 @@ SELECT
       [OFFSET(3)])]) AS col
 --
 ARRAY<STRUCT<col ARRAY<>>>[{ARRAY<STRING>["B"]}]
+==
+
+[name=flatten_inner_join]
+SELECT
+  a, b
+FROM
+  (SELECT 1 AS a, ARRAY<STRUCT<int64_val INT64>>[] AS b)
+INNER JOIN
+  UNNEST(FLATTEN(b.int64_val)) b;
+--
+ARRAY<STRUCT<a INT64, b INT64>>[]
+==
+
+[name=flatten_left_join]
+SELECT
+  a, b
+FROM
+  (SELECT 1 AS a, ARRAY<STRUCT<int64_val INT64>>[] AS b)
+LEFT JOIN
+  UNNEST(FLATTEN(b.int64_val)) b;
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, NULL}]
+==
+
+[name=flatten_left_join_with_offset]
+SELECT
+  a, b
+FROM
+  (SELECT 1 AS a, ARRAY<STRUCT<int64_val INT64>>[] AS b)
+LEFT JOIN
+  UNNEST(FLATTEN(b.int64_val)) b WITH OFFSET o
+ORDER BY o;
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, NULL}]

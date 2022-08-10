@@ -139,11 +139,13 @@ struct ExprResolutionInfo {
   // Construct an ExprResolutionInfo with given resolution context and
   // constraints.  Takes a <name_scope_in> that is used to resolve the
   // expression against, and an <aggregate_name_scope_in> that is used
-  // to resolve any expression that is an aggregate function argument.
-  // Does not take ownership of <select_column_state_list_in>,
+  // to resolve any expression that is an aggregate function argument, and
+  // likewise <analytic_name_scope_in> with analytic function arguments. Does
+  // not take ownership of <select_column_state_list_in>,
   // <query_resolution_info_in>, or <top_level_ast_expr_in>.
   ExprResolutionInfo(const NameScope* name_scope_in,
                      const NameScope* aggregate_name_scope_in,
+                     const NameScope* analytic_name_scope_in,
                      bool allows_aggregation_in, bool allows_analytic_in,
                      bool use_post_grouping_columns_in,
                      const char* clause_name_in,
@@ -203,6 +205,10 @@ struct ExprResolutionInfo {
   // NameScope to use while resolving any aggregate function arguments that
   // are in this expression.
   const NameScope* const aggregate_name_scope = nullptr;
+
+  // NameScope to use while resolving any analytic function arguments that
+  // are in this expression.
+  const NameScope* const analytic_name_scope = nullptr;
 
   // Indicates whether this expression allows aggregations.
   const bool allows_aggregation;

@@ -149,6 +149,15 @@ Notes:
 + All types that support comparisons can be used in a `JOIN` condition.
  See [JOIN Types][join-types] for an explanation of join conditions.
 
+### Collatable data types
+
+Collatable data types support collation, which determines how to sort and
+compare strings. These data types support collation:
+
++ `STRING`
++ `STRING` fields in a `STRUCT`
++ `STRING` elements in an `ARRAY`
+
 The maximum size of a  column value is 10MiB, which applies to
 scalar and array types.
 
@@ -348,8 +357,8 @@ use a [timestamp][timestamp-type].
 </tbody>
 </table>
 
-A DATETIME object represents a date and time, as they might be displayed
-on a calendar or clock, independent of time zone.
+A DATETIME value represents a date and time, as they might be displayed
+on a watch, independent of time zone.
 It includes the year, month, day, hour, minute, second,
 and subsecond.
 The range of subsecond precision is determined by the SQL engine.
@@ -362,19 +371,15 @@ use a [timestamp][timestamp-type].
 YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.F]]
 ```
 
-<ul>
-    <li><code>YYYY</code>: Four-digit year</li>
-    <li><code>[M]M</code>: One or two digit month</li>
-    <li><code>[D]D</code>: One or two digit day</li>
-    <li><code>( |T)</code>: A space or a `T` separator</li>
-    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
-    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
-    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
-    <li>
-      <code>[.F]</code>: Up to nine fractional
-      digits (nanosecond precision)
-    </li>
-</ul>
++ <code>YYYY</code>: Four-digit year
++ <code>[M]M</code>: One or two digit month
++ <code>[D]D</code>: One or two digit day
++ <code>( |T)</code>: A space or a `T` separator
++ <code>[H]H</code>: One or two digit hour (valid values from 00 to 23)
++ <code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)
++ <code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)
++ <code>[.F]</code>: Up to nine fractional
+  digits (nanosecond precision)
 
 ## Enum type
 
@@ -430,15 +435,12 @@ You cannot create new ENUM types using ZetaSQL.
 
 An INTERVAL object represents duration or amount of time.
 Interval is composed of three independent parts:
-<ul>
-  <li>`[sign]Y-M`: Years and Months</li>
-  <li>`[sign]D`: Days</li>
-  <li>
-    `[sign]H:M:S.F`: Hours, Minutes, Seconds and
-    Subseconds. The
-    range of subsecond precision is determined by the SQL engine.
-  </li>
-</ul>
+
++ `[sign]Y-M`: Years and Months
++ `[sign]D`: Days
++ `[sign]H:M:S.F`: Hours, Minutes, Seconds and
+  Subseconds. The
+  range of subsecond precision is determined by the SQL engine.
 
 ##### Canonical format
 
@@ -446,18 +448,14 @@ Interval is composed of three independent parts:
 [sign]Y-M [sign]D [sign]H:M:S[.F]
 ```
 
-<ul>
-    <li><code>Y</code>: Year</li>
-    <li><code>M</code>: Month</li>
-    <li><code>D</code>: Day</li>
-    <li><code>H</code>: Hour</li>
-    <li><code>M</code>: Minute</li>
-    <li><code>S</code>: Second</li>
-    <li>
-      <code>[.F]</code>: Up to nine fractional
-      digits (nanosecond precision)
-    </li>
-</ul>
++ <code>Y</code>: Year
++ <code>M</code>: Month
++ <code>D</code>: Day
++ <code>H</code>: Hour
++ <code>M</code>: Minute
++ <code>S</code>: Second
++ <code>[.F]</code>: Up to nine fractional
+  digits (nanosecond precision)
 
 ## JSON type
 
@@ -1099,8 +1097,8 @@ individual fields directly.
 </tbody>
 </table>
 
-A TIME object represents a time, as might be displayed on a watch,
-independent of a specific date and timezone.
+A TIME value represents a time of day, as might be displayed on a clock,
+independent of a specific date and time zone.
 The range of
 subsecond precision is determined by the
 SQL engine. To represent
@@ -1112,15 +1110,11 @@ an absolute point in time, use a [timestamp][timestamp-type].
 [H]H:[M]M:[S]S[.DDDDDD|.F]
 ```
 
-<ul>
-    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
-    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
-    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
-    <li>
-      <code>[.F]</code>: Up to nine fractional
-      digits (nanosecond precision)
-    </li>
-</ul>
++ <code>[H]H</code>: One or two digit hour (valid values from 00 to 23)
++ <code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)
++ <code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)
++ <code>[.F]</code>: Up to nine fractional
+  digits (nanosecond precision)
 
 ## Timestamp type
 
@@ -1145,55 +1139,66 @@ an absolute point in time, use a [timestamp][timestamp-type].
 </tbody>
 </table>
 
-A TIMESTAMP object represents an absolute point in time,
-independent of any time zone or convention such as Daylight Savings Time
+A TIMESTAMP value represents an absolute point in time,
+independent of any time zone or convention such as Daylight Savings Time,
 with
 microsecond or nanosecond
 precision.
 The range of subsecond precision is determined by the SQL engine.
 
-+  To represent a date as it might appear on a calendar,
-   use a [DATE][date-type] object.
-+  To represent a time, as it might appear on a clock,
-   use a [TIME][time-type] object.
-+  To represent a date and time, as they might appear on a calendar and clock,
-   use a [DATETIME][datetime-type] object.
+A TIMESTAMP is typically represented internally as the number of elapsed
+nanoseconds or
+microseconds
+since a fixed initial point in time.
 
-<div>
+Note that a TIMESTAMP itself does not have a time zone; it represents the same
+instant in time globally. However, the _display_ of a timestamp for human
+readability usually includes a date, a time, and a time zone, in an
+implementation-dependent format. For example, the displayed values "2020-01-01
+00:00:00 UTC", "2019-12-31 19:00:00 America/New_York", and "2020-01-01 05:30:00
+Asia/Kolkata" all represent the same instant in time and therefore represent the
+same TIMESTAMP value.
 
-</div>
++  To represent a date as it might appear on a calendar (a civil date),
+   use a [DATE][date-type] value.
++  To represent a time as it might appear on a clock (a civil time),
+   use a [TIME][time-type] value.
++  To represent a date and time as they might appear on a watch,
+   use a [DATETIME][datetime-type] value.
 
-##### Canonical format
+##### Canonical format for TIMESTAMP literals
+
+The canonical format for a TIMESTAMP literal has the following parts:
 
 ```
-YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.F]][time zone]
+civil_date_time [time_zone]
+
+civil_date_time:
+    YYYY-[M]M-[D]D[( |T)[H]H:[M]M:[S]S[.F]]
 ```
 
-<ul>
-    <li><code>YYYY</code>: Four-digit year</li>
-    <li><code>[M]M</code>: One or two digit month</li>
-    <li><code>[D]D</code>: One or two digit day</li>
-    <li><code>( |T)</code>: A space or a `T` separator</li>
-    <li><code>[H]H</code>: One or two digit hour (valid values from 00 to 23)</li>
-    <li><code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)</li>
-    <li><code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)</li>
-    <li>
-      <code>[.F]</code>: Up to nine fractional
-      digits (nanosecond precision)
-    </li>
-    <li><code>[time zone]</code>: String representing the time zone.
-                                  When a time zone is not explicitly specified, the
-                                  default time zone, which is implementation defined, is used.
-                                  See the <a href="#time_zones">time zones</a> section for details.
-   </li>
-</ul>
++ <code>YYYY</code>: Four-digit year
++ <code>[M]M</code>: One or two digit month
++ <code>[D]D</code>: One or two digit day
++ <code>( |T)</code>: A space or a `T` separator
++ <code>[H]H</code>: One or two digit hour (valid values from 00 to 23)
++ <code>[M]M</code>: One or two digit minutes (valid values from 00 to 59)
++ <code>[S]S</code>: One or two digit seconds (valid values from 00 to 59)
++ <code>[.F]</code>: Up to nine fractional
+  digits (nanosecond precision)
++ <code>[time_zone]</code>: String representing the time zone. When a time zone
+  is not explicitly specified, the default time zone, which is implementation defined, is
+  used. See the <a href="#time_zones">time zones</a> section for details.
 
 ### Time zones 
 <a id="time_zones"></a>
 
-Time zones are used when parsing timestamps or formatting timestamps
-for display. The timestamp value itself does not store a specific time zone,
-nor does it change when you apply a time zone offset.
+A time zone is used when converting from a civil date or time (as might appear
+on a calendar or clock) to a timestamp (an absolute time), or vice versa. This
+includes the operation of parsing a string containing a civil date and time like
+"2020-01-01 00:00:00" and converting it to a timestamp. The resulting timestamp
+value itself does not store a specific time zone, because it represents one
+instant in time globally.
 
 Time zones are represented by strings in one of these canonical formats:
 

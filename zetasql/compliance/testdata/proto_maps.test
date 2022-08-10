@@ -26,6 +26,7 @@ ARRAY<STRUCT<
   }}]
 ==
 
+[default required_features=]
 [name=map_entry]
 SELECT NEW zetasql_test__.MessageWithMapField(
   [NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry("foo" AS key, 123 AS value)] AS string_int32_map
@@ -41,6 +42,7 @@ ARRAY<STRUCT<pb PROTO<zetasql_test__.MessageWithMapField>>>[
 ]
 ==
 
+[default required_features=V_1_3_PROTO_MAPS]
 [name=map_entry_key_null]
 SELECT NEW zetasql_test__.MessageWithMapField(
   [NEW zetasql_test__.MessageWithMapField.StringInt32MapEntry(CAST(NULL AS STRING) AS key, 123 AS value)] AS string_int32_map

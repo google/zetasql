@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 
 #include "zetasql/base/logging.h"
 #include "gtest/gtest.h"

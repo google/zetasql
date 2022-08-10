@@ -202,7 +202,7 @@ ALTER TABLE ComplexTypes ALTER COLUMN Int32Array SET DATA TYPE INT32;
 # Qualified column name not supported
 ALTER TABLE KeyValue ALTER COLUMN KeyValue.Key SET DATA TYPE NUMERIC;
 --
-ERROR: Syntax error: Expected keyword DROP or keyword SET but got "." [at 1:43]
+ERROR: Syntax error: Unexpected "." [at 1:43]
 ALTER TABLE KeyValue ALTER COLUMN KeyValue.Key SET DATA TYPE NUMERIC;
                                           ^
 ==

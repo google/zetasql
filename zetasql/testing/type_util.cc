@@ -16,6 +16,8 @@
 
 #include "zetasql/testing/type_util.h"
 
+#include <string>
+
 #include "zetasql/base/logging.h"
 #include "google/protobuf/timestamp.pb.h"
 #include "google/protobuf/wrappers.pb.h"

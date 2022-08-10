@@ -32,6 +32,10 @@ coercible to a common [supertype][cond-exp-supertype]; equality comparisons are
 done on coerced values. There may be multiple `result` types. `result` and
 `else_result` expressions must be coercible to a common supertype.
 
+This expression supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
+
 **Return Data Type**
 
 [Supertype][cond-exp-supertype] of `result`[, ...] and `else_result`.
@@ -86,6 +90,10 @@ returns `else_result` if present; if not present, returns NULL.
 `condition` must be a boolean expression. There may be multiple `result` types.
 `result` and `else_result` expressions must be implicitly coercible to a
 common [supertype][cond-exp-supertype].
+
+This expression supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
 
 **Return Data Type**
 
@@ -255,6 +263,10 @@ returns `expr`.
 
 `expr` and `expr_to_match` must be implicitly coercible to a
 common [supertype][cond-exp-supertype], and must be comparable.
+
+This expression supports specifying [collation][collation].
+
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#about_collation
 
 **Return Data Type**
 

@@ -54,6 +54,7 @@
 // between DeprecationWarningForFunctionBody protos and the corresponding
 // absl::Status objects (that are used, for example, inside the analyzer).
 
+#include <optional>
 #include <string>
 #include <vector>
 

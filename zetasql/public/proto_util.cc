@@ -17,6 +17,7 @@
 #include "zetasql/public/proto_util.h"
 
 #include <cstdint>
+#include <functional>
 #include <iterator>
 #include <memory>
 #include <string>
@@ -24,8 +25,6 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/io/coded_stream.h"
-#include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/wire_format_lite.h"
 #include "zetasql/public/civil_time.h"
@@ -49,6 +48,8 @@
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
 #include "absl/types/variant.h"
+#include "google/protobuf/io/coded_stream.h"
+#include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
@@ -897,7 +898,7 @@ absl::Status ReadProtoFields(
       absl::GetFlag(FLAGS_zetasql_read_proto_field_optimized_path);
 
   if (use_optimization) {
-    ZETASQL_ASSIGN_OR_RETURN(absl::StatusOr<Value> value,
+    ZETASQL_ASSIGN_OR_RETURN(Value value,
                      ReadSingularProtoField(*field_infos[0], bytes));
     field_value_list->push_back(std::move(value));
     return absl::OkStatus();

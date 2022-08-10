@@ -40,8 +40,15 @@ LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
     // Include versions in decreasing order here, falling through to include
     // all features from previous versions.
     case VERSION_CURRENT:
+    case VERSION_1_4:
+      // Add new features here that are "ideally_enabled" and not
+      // "in_development". Add features here when removing "in_development".
+      features.insert(FEATURE_V_1_4_BARE_ARRAY_ACCESS);
+      features.insert(FEATURE_V_1_4_WITH_EXPRESSION);
+      ABSL_FALLTHROUGH_INTENDED;
     case VERSION_1_3:
-      // Add new features here.
+      // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are
+      // supposed to be stable and frozen, except possibly for bug fixes.
       features.insert(FEATURE_V_1_3_PROTO_DEFAULT_IF_NULL);
       features.insert(FEATURE_V_1_3_EXTRACT_FROM_PROTO);
       features.insert(FEATURE_V_1_3_ARRAY_GREATEST_LEAST);
@@ -68,7 +75,6 @@ LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
       features.insert(FEATURE_V_1_3_INLINE_LAMBDA_ARGUMENT);
       features.insert(FEATURE_V_1_3_PIVOT);
       features.insert(FEATURE_V_1_3_ANNOTATION_FRAMEWORK);
-      features.insert(FEATURE_V_1_3_COLLATION_SUPPORT);
       features.insert(FEATURE_V_1_3_IS_DISTINCT);
       features.insert(FEATURE_V_1_3_FORMAT_IN_CAST);
       features.insert(FEATURE_V_1_3_UNPIVOT);
@@ -77,8 +83,8 @@ LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
       features.insert(FEATURE_V_1_3_QUALIFY);
       features.insert(FEATURE_V_1_3_REPEAT);
       features.insert(FEATURE_V_1_3_COLUMN_DEFAULT_VALUE);
+      features.insert(FEATURE_V_1_3_KLL_WEIGHTS);
       features.insert(FEATURE_V_1_3_FOR_IN);
-      features.insert(FEATURE_V_1_3_LIKE_ANY_SOME_ALL);
       features.insert(FEATURE_V_1_3_CASE_STMT);
       features.insert(FEATURE_V_1_3_ALLOW_SLASH_PATHS);
       features.insert(FEATURE_V_1_3_TYPEOF_FUNCTION);
@@ -86,8 +92,6 @@ LanguageOptions::GetLanguageFeaturesForVersion(LanguageVersion version) {
       features.insert(FEATURE_V_1_3_REMOTE_FUNCTION);
       features.insert(FEATURE_V_1_3_BRACED_PROTO_CONSTRUCTORS);
       ABSL_FALLTHROUGH_INTENDED;
-    // NO CHANGES SHOULD HAPPEN INSIDE THE VERSIONS BELOW, which are
-    // supposed to be stable and frozen, except possibly for bug fixes.
     case VERSION_1_2:
       features.insert(FEATURE_V_1_2_ARRAY_ELEMENTS_WITH_SET);
       features.insert(FEATURE_V_1_2_CIVIL_TIME);

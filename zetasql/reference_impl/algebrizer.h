@@ -186,6 +186,8 @@ class Algebrizer {
   FRIEND_TEST(AlgebrizerTestGroupingAggregation, GroupByMax);
   FRIEND_TEST(AlgebrizerTestGroupingAggregation, GroupByMin);
   FRIEND_TEST(AlgebrizerTestGroupingAggregation, GroupBySum);
+  FRIEND_TEST(NonDeterministicEvaluationContextTest,
+              ArrayFilterTransformFunctionTest);
 
   Algebrizer(const LanguageOptions& options,
              const AlgebrizerOptions& algebrizer_options,
@@ -246,8 +248,8 @@ class Algebrizer {
       std::unique_ptr<ValueExpr> filter, const ResolvedExpr* expr);
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeSubqueryExpr(
       const ResolvedSubqueryExpr* subquery_expr);
-  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeLetExpr(
-      const ResolvedLetExpr* let_expr);
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeWithExpr(
+      const ResolvedWithExpr* with_expr);
   absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeInArray(
       std::unique_ptr<ValueExpr> in_value,
       std::unique_ptr<ValueExpr> array_value,
@@ -919,7 +921,7 @@ class Algebrizer {
   // times (e.g. evaluated up front and stored in an array).
   absl::flat_hash_map<std::string, ExprArg*> with_map_;  // Not owned.
 
-  // Vector of LetOp/LetExpr assignments we need to apply for WITH clauses in
+  // Vector of LetOp/WithExpr assignments we need to apply for WITH clauses in
   // the query.
   std::vector<std::unique_ptr<ExprArg>> with_subquery_let_assignments_;
 
@@ -977,9 +979,6 @@ class Algebrizer {
       get_proto_field_reader_map_;
 
   TypeFactory* type_factory_;  // Not owned.
-
-  // For generating unique column names.
-  int next_column_;
 
   // The top of the stack represents the variable id to use for the recursive
   // variable in the current RecursiveScan node being algebrized.

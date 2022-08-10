@@ -128,6 +128,9 @@ class ZetaSqlLocalServiceImpl {
   absl::Status FormatSql(const FormatSqlRequest& request,
                          FormatSqlResponse* response);
 
+  absl::Status LenientFormatSql(const FormatSqlRequest& request,
+                                FormatSqlResponse* response);
+
   absl::Status RegisterCatalog(const RegisterCatalogRequest& request,
                                RegisterResponse* response);
 

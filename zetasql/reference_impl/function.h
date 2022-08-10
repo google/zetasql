@@ -105,10 +105,13 @@ enum class FunctionKind {
   kVarSamp,
   // Anonymization functions (broken link)
   kAnonSum,
+  kAnonSumWithReportProto,
+  kAnonSumWithReportJson,
   kAnonAvg,
   kAnonVarPop,
   kAnonStddevPop,
   kAnonQuantiles,
+  kAnonQuantilesWithReportProto,
   // Exists function
   kExists,
   // IsNull function
@@ -120,6 +123,8 @@ enum class FunctionKind {
   kLike,
   kLikeAny,
   kLikeAll,
+  kLikeAnyArray,
+  kLikeAllArray,
   // BitCast functions
   kBitCastToInt32,
   kBitCastToInt64,
@@ -145,6 +150,7 @@ enum class FunctionKind {
   kIsInf,
   kIeeeDivide,
   kSqrt,
+  kCbrt,
   kPow,
   kExp,
   kNaturalLogarithm,
@@ -199,6 +205,7 @@ enum class FunctionKind {
   kArrayIncludesAll,
   kArrayFirst,
   kArrayLast,
+  kArraySlice,
 
   // Proto map functions. Like array functions, the map functions must use
   // MaybeSetNonDeterministicArrayOutput.
@@ -492,6 +499,12 @@ class BuiltinScalarFunction : public ScalarFunctionBody {
   // Creates a like all function.
   static absl::StatusOr<std::unique_ptr<BuiltinScalarFunction>>
   CreateLikeAllFunction(
+      FunctionKind kind, const Type* output_type,
+      const std::vector<std::unique_ptr<AlgebraArg>>& arguments);
+
+  // Creates a like any/all array function.
+  static absl::StatusOr<std::unique_ptr<BuiltinScalarFunction>>
+  CreateLikeAnyAllArrayFunction(
       FunctionKind kind, const Type* output_type,
       const std::vector<std::unique_ptr<AlgebraArg>>& arguments);
 
@@ -800,9 +813,18 @@ class ArrayIncludesArrayFunction : public SimpleBuiltinScalarFunction {
                              EvaluationContext* context) const override;
 };
 
-// TODO: include ARRAY_LAST
-// Implementation for ARRAY_FIRST(ARRAY<T1>) -> T1.
+// Implementation for ARRAY_(FIRST|LAST)(ARRAY<T1>) -> T1.
 class ArrayFirstLastFunction : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+// Implementation for ARRAY_SLICE(ARRAY<T1>, INT64, INT64) -> ARRAY<T1>.
+class ArraySliceFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
 
@@ -897,6 +919,46 @@ class LikeAllFunction : public SimpleBuiltinScalarFunction {
 
   LikeAllFunction(const LikeAllFunction&) = delete;
   LikeAllFunction& operator=(const LikeAllFunction&) = delete;
+
+ private:
+  std::vector<std::unique_ptr<RE2>> regexp_;
+};
+
+// Invoked by expression such as:
+//   <expr> LIKE ANY UNNEST(<array-expression>)
+class LikeAnyArrayFunction : public SimpleBuiltinScalarFunction {
+ public:
+  LikeAnyArrayFunction(FunctionKind kind, const Type* output_type,
+                       std::vector<std::unique_ptr<RE2>> regexp)
+      : SimpleBuiltinScalarFunction(kind, output_type),
+        regexp_(std::move(regexp)) {}
+
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+
+  LikeAnyArrayFunction(const LikeAnyArrayFunction&) = delete;
+  LikeAnyArrayFunction& operator=(const LikeAnyArrayFunction&) = delete;
+
+ private:
+  std::vector<std::unique_ptr<RE2>> regexp_;
+};
+
+// Invoked by expression such as:
+//   <expr> LIKE ALL UNNEST(<array-expression>)
+class LikeAllArrayFunction : public SimpleBuiltinScalarFunction {
+ public:
+  LikeAllArrayFunction(FunctionKind kind, const Type* output_type,
+                       std::vector<std::unique_ptr<RE2>> regexp)
+      : SimpleBuiltinScalarFunction(kind, output_type),
+        regexp_(std::move(regexp)) {}
+
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+
+  LikeAllArrayFunction(const LikeAllArrayFunction&) = delete;
+  LikeAllArrayFunction& operator=(const LikeAllArrayFunction&) = delete;
 
  private:
   std::vector<std::unique_ptr<RE2>> regexp_;
@@ -1158,7 +1220,7 @@ class FilterFieldsFunction : public SimpleBuiltinScalarFunction {
 // resolved arguments. The field paths to be modified in the root object must be
 // passed in the constructor. The resolved arguments list to evaluate should
 // consist of the root object and the new field values (in the order
-// corresponding to the initalized field paths).
+// corresponding to the initialized field paths).
 class ReplaceFieldsFunction : public SimpleBuiltinScalarFunction {
  public:
   //  A pair of paths that together represent a single field path of a Struct or

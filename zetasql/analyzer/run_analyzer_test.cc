@@ -399,6 +399,13 @@ class AnalyzerTestRunner {
                          GetRequiredLanguageFeatures(test_case_options_));
     options.mutable_language()->SetEnabledLanguageFeatures(features);
 
+    // Enable all reservable keywords so that tests which make use of clauses
+    // that require such keywords (e.g. QUALIFY) are able to parse.
+    //
+    // Keyword-as-identifier scenarios are already well-covered in parser tests,
+    // and don't need repeat coverage in analyzer tests.
+    options.mutable_language()->EnableAllReservableKeywords();
+
     if (test_case_options_.GetString(kSupportedStatementKinds).empty()) {
       // In general, analyzer tests support all statement kinds.
       options.mutable_language()->SetSupportsAllStatementKinds();
@@ -605,6 +612,9 @@ class AnalyzerTestRunner {
           << absl::StrCat("kDefaultTimezone: '", kDefaultTimezone, "'");
       options.set_default_time_zone(timezone);
     }
+
+    ZETASQL_ASSERT_OK(options.set_default_anon_kappa_value(
+        test_case_options_.GetInt64(kDefaultAnonKappaValue)));
 
     const std::string& parse_location_record_type_value =
             test_case_options_.GetString(kParseLocationRecordType);
@@ -1936,6 +1946,7 @@ class AnalyzerTestRunner {
       case RESOLVED_ALTER_DATABASE_STMT:
       case RESOLVED_ALTER_MATERIALIZED_VIEW_STMT:
       case RESOLVED_ALTER_PRIVILEGE_RESTRICTION_STMT:
+      case RESOLVED_ALTER_MODEL_STMT:
       case RESOLVED_ALTER_ROW_ACCESS_POLICY_STMT:
       case RESOLVED_ALTER_SCHEMA_STMT:
       case RESOLVED_ALTER_TABLE_SET_OPTIONS_STMT:

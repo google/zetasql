@@ -368,6 +368,13 @@ message KitchenSinkPB {
   extensions 1000 to 1008;
 }
 
+message KitchenSinkEnumPB {
+  required TestEnum required_test_enum = 1;
+  optional TestEnum test_enum = 2;
+  repeated TestEnum repeated_test_enum = 3;
+  repeated TestEnum repeated_enum_packed = 4 [packed = true];
+}
+
 message ProtoWithIntervalField {
   // This field cannot currently go in KitchenSinkPB because the lack of
   // full resolver support for INTERVAL proto fields would break random query

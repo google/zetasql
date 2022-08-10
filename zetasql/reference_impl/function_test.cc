@@ -17,15 +17,18 @@
 #include "zetasql/reference_impl/function.h"
 
 #include <limits>
+#include <memory>
+#include <utility>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/reference_impl/evaluation.h"
+#include "zetasql/reference_impl/operator.h"
 #include "zetasql/reference_impl/tuple.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 namespace zetasql {
-namespace {
 
 TEST(SafeInvokeUnary, DoesNotLeakStatus) {
   ArithmeticFunction unary_minus_fn(FunctionKind::kSafeNegate,
@@ -60,5 +63,41 @@ TEST(SafeInvokeBinary, DoesNotLeakStatus) {
   ZETASQL_EXPECT_OK(status);
 }
 
-}  // namespace
+TEST(NonDeterministicEvaluationContextTest, ArrayFilterTransformFunctionTest) {
+  TypeFactory factory;
+  const ArrayType* array_type;
+  const Type* element_type = factory.get_int64();
+  ZETASQL_EXPECT_OK(factory.MakeArrayType(element_type, &array_type));
+
+  std::unique_ptr<ConstExpr> lambda_body =
+      ConstExpr::Create(Value::Int64(3)).value();
+  std::vector<VariableId> lambda_arg_vars = {VariableId("e")};
+  std::unique_ptr<InlineLambdaExpr> lambda_algebra =
+      InlineLambdaExpr::Create(lambda_arg_vars, std::move(lambda_body));
+
+  ArrayTransformFunction trans_fn(FunctionKind::kArrayTransform, array_type,
+                                  lambda_algebra.get());
+
+  EvaluationContext context{/*options=*/{}};
+  EXPECT_TRUE(context.IsDeterministicOutput());
+  ZETASQL_EXPECT_OK(
+      trans_fn
+          .Eval(/*params=*/{},
+                /*args=*/
+                {Value::Array(array_type, {Value::Int64(1), Value::Int64(2)})},
+                &context)
+          .status());
+  EXPECT_TRUE(context.IsDeterministicOutput());
+
+  ZETASQL_EXPECT_OK(trans_fn
+                .Eval(/*params=*/{},
+                      /*args=*/
+                      {InternalValue::Array(array_type,
+                                            {Value::Int64(1), Value::Int64(2)},
+                                            InternalValue::kIgnoresOrder)},
+                      &context)
+                .status());
+  EXPECT_FALSE(context.IsDeterministicOutput());
+}
+
 }  // namespace zetasql

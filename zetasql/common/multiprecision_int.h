@@ -147,6 +147,7 @@
 #include <limits>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/multiprecision_int_impl.h"

@@ -17,7 +17,9 @@
 #include "zetasql/analyzer/analyzer_impl.h"
 
 #include <iostream>
+#include <map>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -28,25 +30,25 @@
 #include "zetasql/analyzer/rewrite_resolved_ast.h"
 #include "zetasql/analyzer/rewriters/rewriter_interface.h"
 #include "zetasql/common/errors.h"
+#include "zetasql/common/internal_analyzer_options.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/validator.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/status_macros.h"
-
-ABSL_FLAG(bool, zetasql_validate_resolved_ast, true,
-          "Run validator on resolved AST before returning it.");
 
 // This provides a way to extract and look at the zetasql resolved AST
 // from within some other test or tool.  It prints to cout rather than logging
@@ -121,7 +123,7 @@ absl::Status InternalAnalyzeExpressionFromParserAST(
                                             &resolved_expr));
   }
 
-  if (absl::GetFlag(FLAGS_zetasql_validate_resolved_ast)) {
+  if (InternalAnalyzerOptions::GetValidateResolvedAST(options)) {
     Validator validator(options.language());
     ZETASQL_RETURN_IF_ERROR(
         validator.ValidateStandaloneResolvedExpr(resolved_expr.get()));
@@ -142,13 +144,16 @@ absl::Status InternalAnalyzeExpressionFromParserAST(
   // Make sure we're starting from a clean state for CheckFieldsAccessed.
   resolved_expr->ClearFieldsAccessed();
 
+  ZETASQL_ASSIGN_OR_RETURN(const QueryParametersMap& type_assignments,
+                   resolver.AssignTypesToUndeclaredParameters());
+
   auto original_output = std::make_unique<AnalyzerOutput>(
       options.id_string_pool(), options.arena(), std::move(resolved_expr),
       resolver.analyzer_output_properties(), std::move(parser_output),
       ConvertInternalErrorLocationsAndAdjustErrorStrings(
           options.error_message_mode(), sql, resolver.deprecation_warnings()),
-      resolver.undeclared_parameters(),
-      resolver.undeclared_positional_parameters(), resolver.max_column_id());
+      type_assignments, resolver.undeclared_positional_parameters(),
+      resolver.max_column_id());
   ZETASQL_RETURN_IF_ERROR(InternalRewriteResolvedAst(options, sql, catalog,
                                              type_factory, *original_output));
   *output = std::move(original_output);

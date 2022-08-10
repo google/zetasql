@@ -3146,22 +3146,22 @@ class IsErrorExpr final : public ValueExpr {
 
 // Let operator creates local variables in value expressions and can be used to
 // eliminate common subexpressions. It is equivalent to applying a lambda
-// expression. LetExpr specifies the variables to be bound and the body to be
+// expression. WithExpr specifies the variables to be bound and the body to be
 // evaluated. For example, expressing Coalesce via IfExpr below requires two
 // occurrences of subexpression a+1:
 //     Coalesce(a+1, b) = IfExpr(IsNull(a+1), b, a+1)
-// In contrast, only one a+1 is used with LetExpr:
-//     Coalesce(a+1, b) = LetExpr(x:=a+1, IfExpr(IsNull(x), b, x))
+// In contrast, only one a+1 is used with WithExpr:
+//     Coalesce(a+1, b) = WithExpr(x:=a+1, IfExpr(IsNull(x), b, x))
 // Assignments can reference variables from previous assignments, e.g.,
-// LetExpr(x:=expr,y:=x+1, ...).
-// LetExpr can also be used to represent the WITH statement if we are
+// WithExpr(x:=expr,y:=x+1, ...).
+// WithExpr can also be used to represent the WITH statement if we are
 // representing the results as a Value (instead of a TupleIterator).
-class LetExpr final : public ValueExpr {
+class WithExpr final : public ValueExpr {
  public:
-  LetExpr(const LetExpr&) = delete;
-  LetExpr& operator=(const LetExpr&) = delete;
+  WithExpr(const WithExpr&) = delete;
+  WithExpr& operator=(const WithExpr&) = delete;
 
-  static absl::StatusOr<std::unique_ptr<LetExpr>> Create(
+  static absl::StatusOr<std::unique_ptr<WithExpr>> Create(
       std::vector<std::unique_ptr<ExprArg>> assign,
       std::unique_ptr<ValueExpr> body);
 
@@ -3178,8 +3178,8 @@ class LetExpr final : public ValueExpr {
  private:
   enum ArgKind { kAssign, kBody };
 
-  LetExpr(std::vector<std::unique_ptr<ExprArg>> assign,
-          std::unique_ptr<ValueExpr> body);
+  WithExpr(std::vector<std::unique_ptr<ExprArg>> assign,
+           std::unique_ptr<ValueExpr> body);
 
   absl::Span<const ExprArg* const> assign() const;
   absl::Span<ExprArg* const> mutable_assign();

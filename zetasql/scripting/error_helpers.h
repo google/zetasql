@@ -17,6 +17,8 @@
 #ifndef ZETASQL_SCRIPTING_ERROR_HELPERS_H_
 #define ZETASQL_SCRIPTING_ERROR_HELPERS_H_
 
+#include <functional>
+
 #include "zetasql/common/errors.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parse_tree_errors.h"

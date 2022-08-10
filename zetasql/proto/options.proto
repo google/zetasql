@@ -67,7 +67,7 @@ message AllowedHintsAndOptionsProto {
 }
 
 // Serialized form of AnalyzerOptions.
-// next id: 26
+// next id: 27
 message AnalyzerOptionsProto {
   message QueryParameterProto {
     optional string name = 1;
@@ -107,4 +107,5 @@ message AnalyzerOptionsProto {
   optional ParseLocationRecordType parse_location_record_type = 23;
   optional bool preserve_unnecessary_cast = 24;
   optional string default_anon_function_report_format = 25;
+  optional int64 default_anon_kappa_value = 26;
 }

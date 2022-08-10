@@ -24,6 +24,7 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/analyzer/analyzer_impl.h"
+#include "zetasql/common/internal_analyzer_options.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/catalog.h"
@@ -38,9 +39,9 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/rewrite_utils.h"
+#include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
@@ -152,23 +153,18 @@ class VariableReplacementInserter : public ResolvedASTDeepCopyVisitor {
   // 'referenced_columns' is inserted into the parameter list for the
   // outermost subquery.
   //
-  // We use named parameters as placeholders where we incorporate
-  // 'projected_vars' and 'lambdas' by name. This deep copy visitor does that
-  // replacement work. We use projection for 'projected_vars', rather than
-  // in-place substitution, to prevent the input expressions from being
-  // expressed more than once in our output AST. We use in-place substitution
-  // for 'lambdas' as they need to be evaluated at the location specified by
+  // We use named parameters as placeholders where we incorporate 'lambdas' by
+  // name. This deep copy visitor does that replacement work. We use
+  // AnalyzerOptions::lookup_expression_callback_ for in-place ResolvedExpr
+  // substitution based on column name lookup. We use in-place substitution for
+  // 'lambdas' as they need to be evaluated at the location specified by
   // 'expression'.
   VariableReplacementInserter(
       const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
           referenced_columns,
-      const absl::flat_hash_map<std::string, const ResolvedExpr*>&
-          projected_vars,
       const Function* invoke_function,
       const absl::flat_hash_map<std::string, const ResolvedInlineLambda*>&
           lambdas);
-
-  absl::Status VisitResolvedParameter(const ResolvedParameter* node) override;
 
   absl::Status VisitResolvedSubqueryExpr(
       const ResolvedSubqueryExpr* node) override;
@@ -190,7 +186,6 @@ class VariableReplacementInserter : public ResolvedASTDeepCopyVisitor {
 
   const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
       referenced_columns_;
-  const absl::flat_hash_map<std::string, const ResolvedExpr*>& projected_vars_;
   const Function* invoke_function_;
   const absl::flat_hash_map<std::string, const ResolvedInlineLambda*>& lambdas_;
 
@@ -204,8 +199,8 @@ class VariableReplacementInserter : public ResolvedASTDeepCopyVisitor {
 // don't each have to take them as params.
 class ExpressionSubstitutor {
  public:
-  ExpressionSubstitutor(AnalyzerOptions options,
-                        Catalog& catalog, TypeFactory& type_factory);
+  ExpressionSubstitutor(AnalyzerOptions options, Catalog& catalog,
+                        TypeFactory& type_factory);
 
   absl::StatusOr<std::unique_ptr<ResolvedExpr>> Substitute(
       absl::string_view expression,
@@ -300,33 +295,33 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> ExpressionSubstitutor::Substitute(
   for (const auto& var : variables) {
     ZETASQL_RETURN_IF_ERROR(CollectColumnRefs(*var.second, &referenced_columns));
 
-    // We represent each variable as a named parameter in the inner query.
-    // After analyzing the query, we will go back through and replace
-    // named parameters with the corresponding resolved expressions.
-    select_list.push_back(absl::StrCat("@", var.first, " AS ", var.first));
-    ZETASQL_RETURN_IF_ERROR(options_.AddQueryParameter(var.first, var.second->type()));
+    // We represent each variable as a column in the inner query.
+    // When resolving path expression, we will first look up the variables map
+    // to get corresponding resolved expr processed by rewriter, then perform a
+    // deep copy on the expression while marking all free columns as correlated.
+    select_list.push_back(var.first);
   }
 
-  // Compare two referenced columns.
-  auto cmp = [](const std::unique_ptr<const ResolvedColumnRef>& l,
-                const std::unique_ptr<const ResolvedColumnRef>& r) {
-    if (l->column().column_id() != r->column().column_id()) {
-      return l->column().column_id() < r->column().column_id();
-    }
-    return l->is_correlated() < r->is_correlated();
-  };
+  // During resolution, each of the column placeholders that we set up in
+  // 'select_list' will be replaced by the associated argument expression.
+  InternalAnalyzerOptions::SetLookupExpressionCallback(
+      options_,
+      [&](const std::string& column_name,
+          std::unique_ptr<const ResolvedExpr>& expr) -> absl::Status {
+        const ResolvedExpr* const* replaced_expr =
+            zetasql_base::FindOrNull(variables, column_name);
+        if (replaced_expr != nullptr) {
+          // CorrelateColumnRefs calls a deep copy visitor internally and marks
+          // all columns that are non-local to `replaced_expr` as correlated.
+          ZETASQL_ASSIGN_OR_RETURN(expr, CorrelateColumnRefs(**replaced_expr));
+        }
+        return absl::OkStatus();
+      });
 
-  auto eq = [](const std::unique_ptr<const ResolvedColumnRef>& l,
-               const std::unique_ptr<const ResolvedColumnRef>& r) {
-    return l->column().column_id() == r->column().column_id() &&
-           l->is_correlated() == r->is_correlated();
-  };
-
-  // Erase any duplicates from the referenced columns list.
-  std::sort(referenced_columns.begin(), referenced_columns.end(), cmp);
-  referenced_columns.erase(
-      std::unique(referenced_columns.begin(), referenced_columns.end(), eq),
-      referenced_columns.end());
+  // We want sorted/unique column refs because these are going to end up
+  // populating a expression subquery parameter list which must not have
+  // duplicates.
+  SortUniqueColumnRefs(referenced_columns);
 
   // In 'expression', lambdas are referenced as named parameters instead of
   // columns.
@@ -349,13 +344,35 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> ExpressionSubstitutor::Substitute(
     sql = absl::StrCat("( SELECT ", expression, " FROM ( SELECT ",
                        absl::StrJoin(select_list, ", "), " ) )");
   }
+
+  // Without setting prune_unused_columns, the columns generated by lambda's
+  // rewritten INVOKE() function, e.g. `$array.element#x` and
+  // `$array_offset.off#y` in <column_list> section does not belong to
+  // Resolver::referenced_column_access_ and will be removed from table scan by
+  // Resolver::PruneColumnLists at the end of expression analysis.
+  absl::Cleanup pruning_cleaner = [&, prune_unused_columns =
+                                          options_.prune_unused_columns()] {
+    options_.set_prune_unused_columns(prune_unused_columns);
+  };
+  options_.set_prune_unused_columns(false);
+
+  // When Substitute calls InternalAnalyzeExpression, the resolver returns a
+  // subtree with references to externally defined columns. Such a subtree will
+  // fail to validate.
+  // AnalyzerOptions::validate_resolved_ast_ needs to be disabled regardless of
+  // what the original value of this global flag is.
+  bool validate_ast = InternalAnalyzerOptions::GetValidateResolvedAST(options_);
+  absl::Cleanup validator_cleaner = [&] {
+    InternalAnalyzerOptions::SetValidateResolvedAST(options_, validate_ast);
+  };
+  InternalAnalyzerOptions::SetValidateResolvedAST(options_, false);
   std::unique_ptr<const AnalyzerOutput> output;
   ZETASQL_RETURN_IF_ERROR(InternalAnalyzeExpression(sql, options_, catalog_,
                                             &type_factory_, nullptr, &output))
       << "while parsing substitution sql: " << sql;
   ZETASQL_VLOG(1) << "Initial ast: " << output->resolved_expr()->DebugString();
 
-  VariableReplacementInserter replacer(referenced_columns, variables,
+  VariableReplacementInserter replacer(referenced_columns,
                                        invoke_function_.get(), lambdas);
   ZETASQL_RETURN_IF_ERROR(output->resolved_expr()->Accept(&replacer));
   return replacer.ConsumeRootNode<ResolvedExpr>();
@@ -364,12 +381,10 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> ExpressionSubstitutor::Substitute(
 VariableReplacementInserter::VariableReplacementInserter(
     const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
         referenced_columns,
-    const absl::flat_hash_map<std::string, const ResolvedExpr*>& projected_vars,
     const Function* invoke_function,
     const absl::flat_hash_map<std::string, const ResolvedInlineLambda*>&
         lambdas)
     : referenced_columns_(referenced_columns),
-      projected_vars_(projected_vars),
       invoke_function_(invoke_function),
       lambdas_(lambdas) {}
 
@@ -422,28 +437,6 @@ absl::Status VariableReplacementInserter::VisitResolvedFunctionCall(
                    ReplaceColumnRefs(lambda->body(), lambda_columns_map));
 
   PushNodeToStack(std::move(body));
-  return absl::OkStatus();
-}
-
-absl::Status VariableReplacementInserter::VisitResolvedParameter(
-    const ResolvedParameter* node) {
-  ZETASQL_RET_CHECK_EQ(node->position(), 0)
-      << "Only named parameters should be present in the input, got: "
-      << node->DebugString();
-
-  std::unique_ptr<ResolvedExpr> replacement;
-  auto it = projected_vars_.find(node->name());
-  if (it == projected_vars_.end()) {
-    if (lambdas_.contains(node->name())) {
-      return ::zetasql_base::InvalidArgumentErrorBuilder()
-             << "Lambda can only be used as first argument of INVOKE: "
-             << node->name();
-    }
-    return ::zetasql_base::InvalidArgumentErrorBuilder()
-           << "Parameter not found: " << node->name();
-  }
-  ZETASQL_ASSIGN_OR_RETURN(replacement, CorrelateColumnRefs(*it->second));
-  PushNodeToStack(std::move(replacement));
   return absl::OkStatus();
 }
 
@@ -512,6 +505,10 @@ absl::StatusOr<std::unique_ptr<ResolvedExpr>> AnalyzeSubstitute(
   ZETASQL_RET_CHECK(options.arena()) << arenas_msg;
   ZETASQL_RET_CHECK(options.column_id_sequence_number()) << arenas_msg;
 
+  // Don't rewrite 'expression' when we analyze it.
+  // We don't need to reset the rewriters here as 'option' is copied from
+  // main Analyzer pass already. Substitutor is the end of the current pass.
+  options.set_enabled_rewrites({});
   return ExpressionSubstitutor(std::move(options), catalog, type_factory)
       .Substitute(expression, variables, lambdas);
 }

@@ -58,7 +58,9 @@ static std::string SupportedSignaturesForAnonFunction(
     std::string percentile_or_quantiles = "";
     bool is_function_name_percentile_or_quantiles = false;
     bool is_function_name_quantiles =
-        upper_case_function_name == "ANON_QUANTILES";
+        upper_case_function_name == "ANON_QUANTILES" ||
+        upper_case_function_name == "$ANON_QUANTILES_WITH_REPORT_JSON" ||
+        upper_case_function_name == "$ANON_QUANTILES_WITH_REPORT_PROTO";
     if (upper_case_function_name == "ANON_PERCENTILE_CONT" ||
         is_function_name_quantiles) {
       // TODO: Support inputs.size() == 2 once the DP Library's
@@ -78,6 +80,7 @@ static std::string SupportedSignaturesForAnonFunction(
       // they have one input argument along with two optional clamped bounds
       // arguments (in that order).
       ZETASQL_DCHECK_EQ(signature.arguments().size(), 3)
+          << "upper_case_function_name = " << upper_case_function_name << "\n"
           << signature.DebugString(function_name, /*verbose=*/true);
     }
     if (signature.IsInternal()) {

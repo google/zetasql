@@ -306,7 +306,6 @@ class StringFormatEvaluator {
   bool TypeCheckSIntArg(int64_t arg_index);
   bool TypeCheckUintArg(int64_t arg_index);
   bool TypeCheckIntOrUintArg(int64_t arg_index);
-  bool TypeCheckDoubleArg(int64_t arg_index);
   bool TypeCheckDoubleOrNumericArg(int64_t arg_index);
   bool TypeCheckStringArg(int64_t arg_index);
   bool TypeCheckProtoOrJsonArg(int64_t arg_index);

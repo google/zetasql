@@ -22,6 +22,7 @@
 #include <stddef.h>
 
 #include <cstdint>
+#include <functional>
 #include <iterator>
 #include <map>
 #include <memory>

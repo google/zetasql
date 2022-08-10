@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <ostream>
 #include <string>
 
 #include "zetasql/base/logging.h"

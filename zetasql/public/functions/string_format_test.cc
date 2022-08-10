@@ -18,6 +18,7 @@
 
 #include <limits>
 #include <memory>
+#include <string>
 
 #include "zetasql/base/logging.h"
 #include "zetasql/base/testing/status_matchers.h"

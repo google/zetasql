@@ -55,9 +55,10 @@ using ResolveLambdaCallback = std::function<absl::Status(
     std::unique_ptr<const ResolvedInlineLambda>* resolved_expr_out)>;
 
 // Determines if the function signature matches the argument list, returning
-// a non-templated signature if true.  If <allow_argument_coercion> is TRUE
-// then function arguments can be coerced to the required signature
-// type(s), otherwise they must be an exact match.
+// a non-templated signature if true. Exposes internal errors with the returned
+// Status. If <allow_argument_coercion> is TRUE then function arguments can be
+// coerced to the required signature type(s), otherwise they must be an exact
+// match.
 //
 // <arg_ast_nodes> are the list of parser ASTNodes for each input_arguments.
 // It's used to assist lambda arguments resolving.
@@ -65,18 +66,6 @@ using ResolveLambdaCallback = std::function<absl::Status(
 // can be set to nullptr if no lambda argument is expected.
 // The resolved lambda arguments, if any, are put into <arg_overrides> if the
 // signature matches. It's undefined otherwise.
-bool FunctionSignatureMatches(
-    const LanguageOptions& language_options, const Coercer& coercer,
-    const std::vector<const ASTNode*>& arg_ast_nodes,
-    const std::vector<InputArgumentType>& input_arguments,
-    const FunctionSignature& signature, bool allow_argument_coercion,
-    TypeFactory* type_factory,
-    const ResolveLambdaCallback* resolve_lambda_callback,
-    std::unique_ptr<FunctionSignature>* result_signature,
-    SignatureMatchResult* signature_match_result,
-    std::vector<FunctionArgumentOverride>* arg_overrides);
-
-// Similar as above, but also exposes internal errors with a status.
 absl::StatusOr<bool> FunctionSignatureMatchesWithStatus(
     const LanguageOptions& language_options, const Coercer& coercer,
     const std::vector<const ASTNode*>& arg_ast_nodes,

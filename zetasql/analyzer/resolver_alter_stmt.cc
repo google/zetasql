@@ -201,6 +201,14 @@ absl::Status Resolver::ResolveAlterActions(
       }
       has_non_rename_column_action = true;
     }
+    // TODO: check all of the invalid statement and action kind pairs.
+    if (ast_statement->node_kind() == AST_ALTER_MODEL_STATEMENT &&
+        action->node_kind() != AST_SET_OPTIONS_ACTION) {
+      // Alter model don't support action other than SET OPTIONS.
+      return MakeSqlErrorAt(action)
+             << "ALTER " << alter_statement_kind << " does not support "
+             << action->GetSQLForAlterAction();
+    }
     switch (action->node_kind()) {
       case AST_SET_OPTIONS_ACTION: {
         std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
@@ -210,34 +218,33 @@ absl::Status Resolver::ResolveAlterActions(
         alter_actions->push_back(
             MakeResolvedSetOptionsAction(std::move(resolved_options)));
       } break;
-      case AST_ADD_CONSTRAINT_ACTION:
+      case AST_ADD_CONSTRAINT_ACTION: {
+        if (!is_if_exists) {
+          ZETASQL_RETURN_IF_ERROR(table_status);
+        }
+        const auto* constraint = action->GetAsOrDie<ASTAddConstraintAction>();
+        auto constraint_kind = constraint->constraint()->node_kind();
+        if (constraint_kind == AST_PRIMARY_KEY) {
+          if (already_added_primary_key) {
+            return MakeSqlErrorAt(action)
+                   << "ALTER TABLE only supports one ADD PRIMARY KEY action";
+          }
+          already_added_primary_key = true;
+        }
+        std::unique_ptr<const ResolvedAddConstraintAction>
+            resolved_alter_action;
+        ZETASQL_RETURN_IF_ERROR(ResolveAddConstraintAction(
+            altered_table, is_if_exists, constraint, &resolved_alter_action));
+        alter_actions->push_back(std::move(resolved_alter_action));
+      } break;
       case AST_DROP_CONSTRAINT_ACTION: {
         if (!is_if_exists) {
           ZETASQL_RETURN_IF_ERROR(table_status);
         }
-        if (action->node_kind() == AST_ADD_CONSTRAINT_ACTION) {
-          const auto* constraint = action->GetAsOrDie<ASTAddConstraintAction>();
-          auto constraint_kind = constraint->constraint()->node_kind();
-          if (constraint_kind == AST_PRIMARY_KEY) {
-            if (already_added_primary_key) {
-              return MakeSqlErrorAt(action)
-                     << "ALTER TABLE only supports one ADD PRIMARY KEY action";
-            }
-            already_added_primary_key = true;
-          }
-
-          std::unique_ptr<const ResolvedAddConstraintAction>
-              resolved_alter_action;
-          ZETASQL_RETURN_IF_ERROR(ResolveAddConstraintAction(
-              altered_table, is_if_exists, constraint, &resolved_alter_action));
-          alter_actions->push_back(std::move(resolved_alter_action));
-        } else {
-          const auto* constraint =
-              action->GetAsOrDie<ASTDropConstraintAction>();
-          alter_actions->push_back(MakeResolvedDropConstraintAction(
-              constraint->is_if_exists(),
-              constraint->constraint_name()->GetAsString()));
-        }
+        const auto* constraint = action->GetAsOrDie<ASTDropConstraintAction>();
+        alter_actions->push_back(MakeResolvedDropConstraintAction(
+            constraint->is_if_exists(),
+            constraint->constraint_name()->GetAsString()));
       } break;
       case AST_DROP_PRIMARY_KEY_ACTION: {
         if (!is_if_exists) {
